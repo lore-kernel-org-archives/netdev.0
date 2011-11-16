@@ -1,28 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/8][pull request] Intel Wired LAN Driver Updates
-Date: Wed, 16 Nov 2011 18:12:56 -0500 (EST)
-Message-ID: <20111116.181256.1949478047386386920.davem@davemloft.net>
-References: <1321447892-14381-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [patch -next v2] 6LoWPAN: double free in lowpan_fragment_xmit()
+Date: Wed, 16 Nov 2011 18:14:08 -0500 (EST)
+Message-ID: <20111116.181408.1718342285438189705.davem@davemloft.net>
+References: <20111116083254.GB4349@mwanda>
+	<20111116083643.GA25612@mwanda>
+	<CAJmB2rBTHCTcetstpZkNkxX4CAxYF3Sd=Vrg3dmTMDzFQK0vqg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: dan.carpenter@oracle.com, dbaryshkov@gmail.com, slapin@ossfans.org,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: alex.bluesman.smirnov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34156 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:34169 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754000Ab1KPXM7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 18:12:59 -0500
-In-Reply-To: <1321447892-14381-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1753182Ab1KPXO0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 18:14:26 -0500
+In-Reply-To: <CAJmB2rBTHCTcetstpZkNkxX4CAxYF3Sd=Vrg3dmTMDzFQK0vqg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 16 Nov 2011 04:51:24 -0800
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Date: Wed, 16 Nov 2011 11:42:07 +0300
 
-> The following are changes since commit 229a66e3bec97563aa92e25dfe0bc60b0d468619:
->   IPv6: Removing unnecessary NULL checks.
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-organize master
+> 2011/11/16 Dan Carpenter <dan.carpenter@oracle.com>:
+>> dev_queue_xmit() consumes its own skb, so the call to dev_kfree_skb()
+>> in lowpan_fragment_xmit() is a double free.
+>>
+>> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+ ...
+> 
+> Acked-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 
-This tree doesn't exist.
+Applied, thanks.
