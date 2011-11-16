@@ -1,51 +1,53 @@
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: Re: [patch -next v2] 6LoWPAN: double free in lowpan_fragment_xmit()
-Date: Wed, 16 Nov 2011 11:42:07 +0300
-Message-ID: <CAJmB2rBTHCTcetstpZkNkxX4CAxYF3Sd=Vrg3dmTMDzFQK0vqg@mail.gmail.com>
-References: <20111116083254.GB4349@mwanda>
-	<20111116083643.GA25612@mwanda>
+From: Hemant-vilas RAMDASI <hemant.ramdasi@stericsson.com>
+Subject: RE: [PATCH] Phonet: set the pipe handle using setsockopt
+Date: Wed, 16 Nov 2011 09:46:07 +0100
+Message-ID: <81C3A93C17462B4BBD7E272753C105791FB0A0F045@EXDCVYMBSTM005.EQ1STM.local>
+References: <1321257210-17200-1-git-send-email-hemant.ramdasi@stericsson.com>
+ <2168215.tYVKKNoJjY@hector>
+ <81C3A93C17462B4BBD7E272753C105791FB090B0B8@EXDCVYMBSTM005.EQ1STM.local>
+ <3443203.gVgdO3ogFg@hector>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	Sergey Lapin <slapin@ossfans.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: =?iso-8859-1?Q?R=E9mi_Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:45643 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755132Ab1KPImI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 03:42:08 -0500
-In-Reply-To: <20111116083643.GA25612@mwanda>
+Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:36624 "EHLO
+	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755132Ab1KPIqP convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Nov 2011 03:46:15 -0500
+In-Reply-To: <3443203.gVgdO3ogFg@hector>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/11/16 Dan Carpenter <dan.carpenter@oracle.com>:
-> dev_queue_xmit() consumes its own skb, so the call to dev_kfree_skb()
-> in lowpan_fragment_xmit() is a double free.
->
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> v2: fixed commit message.
->
-> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-> index 602f318..e4ecc1e 100644
-> --- a/net/ieee802154/6lowpan.c
-> +++ b/net/ieee802154/6lowpan.c
-> @@ -980,9 +980,6 @@ lowpan_fragment_xmit(struct sk_buff *skb, u8 *hea=
-d,
->
-> =A0 =A0 =A0 =A0ret =3D dev_queue_xmit(frag);
->
-> - =A0 =A0 =A0 if (ret < 0)
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_kfree_skb(frag);
-> -
-> =A0 =A0 =A0 =A0return ret;
-> =A0}
->
->
->
+Remi,
 
-Acked-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+> > > > +#define SIOPNPIPE_ENABLE	_IO(SIOCPNGAUTOCONF,   1)
+> > >
+> > > Does this even work? I am not an expert on this, but I would think
+> that
+> > > device-private controls are routed to the network device, not the
+> > > socket. In
+> > > any case, it does not seem right.
+> >
+> > Yes, it works. The ioctl is routed to per-socket functions.
+> 
+> Even if it works, sockets are probably not supposed to use the device-
+> private
+> ioctl() range, are they?
+> 
+> And why is this inside __KERNEL__ ?
+Ok..We move it.
+
+> > > Do you still need this read-only option?
+> >
+> > Yes.
+> 
+> Why and how?
+This is needed for user to poll pipe-state.
+
+Regards,
+Hemant
