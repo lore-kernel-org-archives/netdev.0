@@ -1,107 +1,242 @@
 From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next 1/5] be2net: Fix TX queue create for Lancer
-Date: Wed, 16 Nov 2011 17:32:23 +0530
-Message-ID: <9a9c49fc-5629-4c6d-976e-ff075b6291b8@exht2.ad.emulex.com>
+Subject: [PATCH net-next 2/5] be2net: add register dump feature for Lancer
+Date: Wed, 16 Nov 2011 17:32:43 +0530
+Message-ID: <86daf6d5-a448-4b3e-95f3-cbb0089a8dde@exht2.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:45646 "EHLO
+Received: from exht2.emulex.com ([138.239.113.184]:45649 "EHLO
 	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756452Ab1KPMDV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 07:03:21 -0500
+	with ESMTP id S1756422Ab1KPMDq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 07:03:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lancer uses V1 version of TXQ create. This command needs interface
-id for TX queue creation. Rearrange code such that tx queue create
-is after interface create. As TXQ create is now called after MCC
-ring create use MCC instead of MBOX.
+Implement register dump using ethtool for Lancer.
 
 Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c |   15 ++++++++++-----
- drivers/net/ethernet/emulex/benet/be_main.c |   12 ++++++++----
- 2 files changed, 18 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c    |   47 +++++++++++++++
+ drivers/net/ethernet/emulex/benet/be_cmds.h    |   34 +++++++++++
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |   74 ++++++++++++++++++++++-
+ 3 files changed, 151 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index ad3eef0..d35a214 100644
+index d35a214..1522065 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.c
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -916,10 +916,14 @@ int be_cmd_txq_create(struct be_adapter *adapter,
- 	void *ctxt;
- 	int status;
+@@ -1828,6 +1828,53 @@ err_unlock:
+ 	return status;
+ }
  
--	if (mutex_lock_interruptible(&adapter->mbox_lock))
--		return -1;
++int lancer_cmd_read_object(struct be_adapter *adapter, struct be_dma_mem *cmd,
++		u32 data_size, u32 data_offset, const char *obj_name,
++		u32 *data_read, u32 *eof, u8 *addn_status)
++{
++	struct be_mcc_wrb *wrb;
++	struct lancer_cmd_req_read_object *req;
++	struct lancer_cmd_resp_read_object *resp;
++	int status;
++
 +	spin_lock_bh(&adapter->mcc_lock);
 +
 +	wrb = wrb_from_mccq(adapter);
 +	if (!wrb) {
 +		status = -EBUSY;
-+		goto err;
-+	}
- 
--	wrb = wrb_from_mbox(adapter);
- 	req = embedded_payload(wrb);
- 	ctxt = &req->context;
- 
-@@ -945,14 +949,15 @@ int be_cmd_txq_create(struct be_adapter *adapter,
- 
- 	be_cmd_page_addrs_prepare(req->pages, ARRAY_SIZE(req->pages), q_mem);
- 
--	status = be_mbox_notify_wait(adapter);
-+	status = be_mcc_notify_wait(adapter);
- 	if (!status) {
- 		struct be_cmd_resp_eth_tx_create *resp = embedded_payload(wrb);
- 		txq->id = le16_to_cpu(resp->cid);
- 		txq->created = true;
- 	}
- 
--	mutex_unlock(&adapter->mbox_lock);
-+err:
-+	spin_unlock_bh(&adapter->mcc_lock);
- 
- 	return status;
- }
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index ce20d64..c982b51 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1689,9 +1689,6 @@ static int be_tx_queues_create(struct be_adapter *adapter)
- 		if (be_queue_alloc(adapter, q, TX_Q_LEN,
- 			sizeof(struct be_eth_wrb)))
- 			goto err;
--
--		if (be_cmd_txq_create(adapter, q, cq))
--			goto err;
- 	}
- 	return 0;
- 
-@@ -2572,8 +2569,9 @@ static int be_setup(struct be_adapter *adapter)
- 	struct net_device *netdev = adapter->netdev;
- 	u32 cap_flags, en_flags;
- 	u32 tx_fc, rx_fc;
--	int status;
-+	int status, i;
- 	u8 mac[ETH_ALEN];
-+	struct be_tx_obj *txo;
- 
- 	be_setup_init(adapter);
- 
-@@ -2613,6 +2611,12 @@ static int be_setup(struct be_adapter *adapter)
- 	if (status != 0)
- 		goto err;
- 
-+	 for_all_tx_queues(adapter, txo, i) {
-+		status = be_cmd_txq_create(adapter, &txo->q, &txo->cq);
-+		if (status)
-+			goto err;
++		goto err_unlock;
 +	}
 +
- 	/* For BEx, the VF's permanent mac queried from card is incorrect.
- 	 * Query the mac configued by the PF using if_handle
- 	 */
++	req = embedded_payload(wrb);
++
++	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
++			OPCODE_COMMON_READ_OBJECT,
++			sizeof(struct lancer_cmd_req_read_object), wrb,
++			NULL);
++
++	req->desired_read_len = cpu_to_le32(data_size);
++	req->read_offset = cpu_to_le32(data_offset);
++	strcpy(req->object_name, obj_name);
++	req->descriptor_count = cpu_to_le32(1);
++	req->buf_len = cpu_to_le32(data_size);
++	req->addr_low = cpu_to_le32((cmd->dma & 0xFFFFFFFF));
++	req->addr_high = cpu_to_le32(upper_32_bits(cmd->dma));
++
++	status = be_mcc_notify_wait(adapter);
++
++	resp = embedded_payload(wrb);
++	if (!status) {
++		*data_read = le32_to_cpu(resp->actual_read_len);
++		*eof = le32_to_cpu(resp->eof);
++	} else {
++		*addn_status = resp->additional_status;
++	}
++
++err_unlock:
++	spin_unlock_bh(&adapter->mcc_lock);
++	return status;
++}
++
+ int be_cmd_write_flashrom(struct be_adapter *adapter, struct be_dma_mem *cmd,
+ 			u32 flash_type, u32 flash_opcode, u32 buf_size)
+ {
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 0818039..2d3fe6a 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -189,6 +189,7 @@ struct be_mcc_mailbox {
+ #define OPCODE_COMMON_GET_PHY_DETAILS			102
+ #define OPCODE_COMMON_SET_DRIVER_FUNCTION_CAP		103
+ #define OPCODE_COMMON_GET_CNTL_ADDITIONAL_ATTRIBUTES	121
++#define OPCODE_COMMON_READ_OBJECT			171
+ #define OPCODE_COMMON_WRITE_OBJECT			172
+ 
+ #define OPCODE_ETH_RSS_CONFIG				1
+@@ -1161,6 +1162,36 @@ struct lancer_cmd_resp_write_object {
+ 	u32 actual_write_len;
+ };
+ 
++/************************ Lancer Read FW info **************/
++#define LANCER_READ_FILE_CHUNK			(32*1024)
++#define LANCER_READ_FILE_EOF_MASK		0x80000000
++
++#define LANCER_FW_DUMP_FILE			"/dbg/dump.bin"
++
++struct lancer_cmd_req_read_object {
++	struct be_cmd_req_hdr hdr;
++	u32 desired_read_len;
++	u32 read_offset;
++	u8 object_name[104];
++	u32 descriptor_count;
++	u32 buf_len;
++	u32 addr_low;
++	u32 addr_high;
++};
++
++struct lancer_cmd_resp_read_object {
++	u8 opcode;
++	u8 subsystem;
++	u8 rsvd1[2];
++	u8 status;
++	u8 additional_status;
++	u8 rsvd2[2];
++	u32 resp_len;
++	u32 actual_resp_len;
++	u32 actual_read_len;
++	u32 eof;
++};
++
+ /************************ WOL *******************************/
+ struct be_cmd_req_acpi_wol_magic_config{
+ 	struct be_cmd_req_hdr hdr;
+@@ -1480,6 +1511,9 @@ extern int lancer_cmd_write_object(struct be_adapter *adapter,
+ 				u32 data_size, u32 data_offset,
+ 				const char *obj_name,
+ 				u32 *data_written, u8 *addn_status);
++int lancer_cmd_read_object(struct be_adapter *adapter, struct be_dma_mem *cmd,
++		u32 data_size, u32 data_offset, const char *obj_name,
++		u32 *data_read, u32 *eof, u8 *addn_status);
+ int be_cmd_get_flash_crc(struct be_adapter *adapter, u8 *flashed_crc,
+ 				int offset);
+ extern int be_cmd_enable_magic_wol(struct be_adapter *adapter, u8 *mac,
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index 1ad7a28..1e7252e 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -143,15 +143,77 @@ static void be_get_drvinfo(struct net_device *netdev,
+ 	drvinfo->eedump_len = 0;
+ }
+ 
++static u32
++lancer_cmd_get_file_len(struct be_adapter *adapter, u8 *file_name)
++{
++	u32 data_read = 0, eof;
++	u8 addn_status;
++	struct be_dma_mem data_len_cmd;
++	int status;
++
++	memset(&data_len_cmd, 0, sizeof(data_len_cmd));
++	/* data_offset and data_size should be 0 to get reg len */
++	status = lancer_cmd_read_object(adapter, &data_len_cmd, 0, 0,
++				file_name, &data_read, &eof, &addn_status);
++
++	return data_read;
++}
++
++static int
++lancer_cmd_read_file(struct be_adapter *adapter, u8 *file_name,
++		u32 buf_len, void *buf)
++{
++	struct be_dma_mem read_cmd;
++	u32 read_len = 0, total_read_len = 0, chunk_size;
++	u32 eof = 0;
++	u8 addn_status;
++	int status = 0;
++
++	read_cmd.size = LANCER_READ_FILE_CHUNK;
++	read_cmd.va = pci_alloc_consistent(adapter->pdev, read_cmd.size,
++			&read_cmd.dma);
++
++	if (!read_cmd.va) {
++		dev_err(&adapter->pdev->dev,
++				"Memory allocation failure while reading dump\n");
++		return -ENOMEM;
++	}
++
++	while ((total_read_len < buf_len) && !eof) {
++		chunk_size = min_t(u32, (buf_len - total_read_len),
++				LANCER_READ_FILE_CHUNK);
++		chunk_size = ALIGN(chunk_size, 4);
++		status = lancer_cmd_read_object(adapter, &read_cmd, chunk_size,
++				total_read_len, file_name, &read_len,
++				&eof, &addn_status);
++		if (!status) {
++			memcpy(buf + total_read_len, read_cmd.va, read_len);
++			total_read_len += read_len;
++			eof &= LANCER_READ_FILE_EOF_MASK;
++		} else {
++			status = -EIO;
++			break;
++		}
++	}
++	pci_free_consistent(adapter->pdev, read_cmd.size, read_cmd.va,
++			read_cmd.dma);
++
++	return status;
++}
++
+ static int
+ be_get_reg_len(struct net_device *netdev)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+ 	u32 log_size = 0;
+ 
+-	if (be_physfn(adapter))
+-		be_cmd_get_reg_len(adapter, &log_size);
+-
++	if (be_physfn(adapter)) {
++		if (lancer_chip(adapter))
++			log_size = lancer_cmd_get_file_len(adapter,
++					LANCER_FW_DUMP_FILE);
++		else
++			be_cmd_get_reg_len(adapter, &log_size);
++	}
+ 	return log_size;
+ }
+ 
+@@ -162,7 +224,11 @@ be_get_regs(struct net_device *netdev, struct ethtool_regs *regs, void *buf)
+ 
+ 	if (be_physfn(adapter)) {
+ 		memset(buf, 0, regs->len);
+-		be_cmd_get_regs(adapter, regs->len, buf);
++		if (lancer_chip(adapter))
++			lancer_cmd_read_file(adapter, LANCER_FW_DUMP_FILE,
++					regs->len, buf);
++		else
++			be_cmd_get_regs(adapter, regs->len, buf);
+ 	}
+ }
+ 
 -- 
 1.6.0.2
