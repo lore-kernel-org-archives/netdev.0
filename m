@@ -1,81 +1,95 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH] route: add more relaxed option for secure_redirects
-Date: Wed, 16 Nov 2011 18:46:12 -0200
-Message-ID: <20111116184612.25615c02@asterix.rh>
-References: <20111107170517.6acb1f87@asterix.rh>
-	<1320710630-28335-1-git-send-email-fbl@redhat.com>
-	<20111111.203321.93615255271311412.davem@davemloft.net>
+From: David Decotigny <david.decotigny@google.com>
+Subject: Re: [PATCH net-next v5 07/10] forcedeth: implement ndo_get_stats64() API
+Date: Wed, 16 Nov 2011 12:46:13 -0800
+Message-ID: <CAG88wWYSriipeb41nKnoPTLLhLm9=GDf1EqS6gWxXchkqSPbwA@mail.gmail.com>
+References: <cover.1321420513.git.david.decotigny@google.com>
+ <dcc1ec263220b7bb1f7271933c30a8f89c19d991.1321420513.git.david.decotigny@google.com>
+ <20111116085533.0982001e@s6510.linuxnetplumber.net> <1321463694.2709.1.camel@bwh-desktop>
+ <CAG88wWa7UsPSfX_NdNDkQeuWN0LYYDVckShgDj9GvMq2mtrpbQ@mail.gmail.com>
+ <1321471967.2709.14.camel@bwh-desktop> <1321475553.3274.3.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22420 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753595Ab1KPUqP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Nov 2011 15:46:15 -0500
-In-Reply-To: <20111111.203321.93615255271311412.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
+	Szymon Janc <szymon@janc.net.pl>,
+	Richard Jones <rick.jones2@hp.com>,
+	Ayaz Abdulla <AAbdulla@nvidia.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1321475553.3274.3.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 11 Nov 2011 20:33:21 -0500 (EST)
-David Miller <davem@davemloft.net> wrote:
+Thanks to you all!
 
-> From: Flavio Leitner <fbl@redhat.com>
-> Date: Mon,  7 Nov 2011 22:03:50 -0200
-> 
-> > When the host uses a gateway IP address that is actually an alias
-> > address, the ICMP redirect message source address can be the
-> > gateway's main IP address, so the message is ignored by the host
-> > regardless of the secure_redirects setup.
-> > 
-> > The new value (2) allows that ICMP message to be processed.
-> > The possible values are:
-> > 
-> >  0 - Accept ICMP redirect messages only if its source address is the
-> >      previous gateway address.
-> >  1 - The same as above. However, if shared_media is FALSE, it has to
-> >      be for gateways listed in default gateway list as well.
-> >  2 - Accept ICMP redirects messages ignoring the conditions above.
-> >  default value is 1.
-> > 
-> > Signed-off-by: Flavio Leitner <fbl@redhat.com>
-> 
-> The more I look at this the less I like it.
-> 
-> Look, if IPVS or whatever is translating addresses and this is what
-> causes the problem then this entity can very well translate the damn
-> addresses right back in the redirect so it looks legitimate to the
-> sender.
-> 
-I thought about that, see below.
+I have an implementation that's similar to sky2's. I will run the
+usual set of tests and send the updated patch series here.
 
-> You can't translate people's addresses, and them let them see that
-> intenal remapping in ICMP errors.  The redirect is dropped by the
-> sender because it not only looks like crap, it is crap.
-> 
-> This is fundamentally not the correct way to handle this.
-> 
+Regards,
 
-I agree. The problem is that the communication is between the host
-and another external host, so it's not with the gateway. Therefore,
-the original packet has the saddr of the origin host and the daddr
-is an external host.  When the gateway receives that packet, there
-is no way to tell which IP address should be used to reply with.
+--
+David Decotigny
 
-Today Linux picks the primary address of an existing interface.
-There is the sysctl icmp_errors_use_inbound_ifaddr to use the
-primary address of the interface that _received_ the packet that
-caused the icmp error. Yet, it doesn't help if the host used
-the alias address (i.e. secondary address) as the gw address.
 
-It may possible to promote the secondary address to be the primary
-one in the gateway, but this can't be done if you use more than
-just one address in the same subnet as gw for some reason.
 
-Thus, the only option at the sender side would be using iptables
-to change the ICMP redirect source address to be the float address,
-but that is not working as well. (It isn't passing through -t nat)
-
-fbl
+On Wed, Nov 16, 2011 at 12:32 PM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> Le mercredi 16 novembre 2011 =E0 19:32 +0000, Ben Hutchings a =E9crit=
+ :
+>> On Wed, 2011-11-16 at 11:25 -0800, David Decotigny wrote:
+>> > Thanks for your feedback on these concerns.
+>> >
+>> > On Wed, Nov 16, 2011 at 9:14 AM, Ben Hutchings
+>> > <bhutchings@solarflare.com> wrote:
+>> > > On Wed, 2011-11-16 at 08:55 -0800, Stephen Hemminger wrote:
+>> > >> Or realize that the Tx side is single threaded by dev->xmit_loc=
+k already
+>> > >> and the Rx side is single threaded by NAPI.
+>> > >
+>> > > Right.
+>> >
+>> > Yes, that's what I meant by "Each software stat field is updated b=
+y
+>> > one single writer." in a previous email. However, I think that TX =
+and
+>> > RX paths are not always synchronized. So I'm afraid that if I'm us=
+ing
+>> > a single seqcount, I might run into trouble in the absence of a lo=
+ck
+>> > around each update.... and I'd really prefer to avoid such a lock.=
+ Are
+>> > you suggesting I should use 2 independent seqcounts? One for RX pa=
+th,
+>> > the other for TX path, all this without a lock around writers?
+>>
+>> Yes, there should be 1 for each path.
+>
+> David, drivers/net/ethernet/marvell/sky2.c contains code like that
+> (different syncpfor rx/tx)
+>
+> TX path:
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0u64_stats_update_begin=
+(&sky2->tx_stats.syncp);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0++sky2->tx_stats.packe=
+ts;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0sky2->tx_stats.bytes +=
+=3D skb->len;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0u64_stats_update_end(&=
+sky2->tx_stats.syncp);
+>
+>
+> RX path:
+>
+> =A0 =A0 =A0 =A0u64_stats_update_begin(&sky2->rx_stats.syncp);
+> =A0 =A0 =A0 =A0sky2->rx_stats.packets +=3D packets;
+> =A0 =A0 =A0 =A0sky2->rx_stats.bytes +=3D bytes;
+> =A0 =A0 =A0 =A0u64_stats_update_end(&sky2->rx_stats.syncp);
+>
+>
+>
