@@ -1,21 +1,24 @@
 From: John Crispin <blogic@openwrt.org>
-Subject: [PATCH 3/3] NET: MIPS: lantiq: return value of request_irq was not handled gracefully
-Date: Wed, 16 Nov 2011 15:41:48 +0100
-Message-ID: <1321454508-4754-3-git-send-email-blogic@openwrt.org>
+Subject: [PATCH 2/3] NET: MIPS: lantiq: non existing phy was not handled gracefully
+Date: Wed, 16 Nov 2011 15:41:47 +0100
+Message-ID: <1321454508-4754-2-git-send-email-blogic@openwrt.org>
 References: <1321454508-4754-1-git-send-email-blogic@openwrt.org>
 Cc: John Crispin <blogic@openwrt.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:38284 "EHLO nbd.name"
+Received: from nbd.name ([46.4.11.11]:38277 "EHLO nbd.name"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757225Ab1KPNmW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Nov 2011 08:42:22 -0500
+	id S1757115Ab1KPNmV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Nov 2011 08:42:21 -0500
 In-Reply-To: <1321454508-4754-1-git-send-email-blogic@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The return values of request_irq() were not checked leading to the following
-error message.
+The code blindly assumed that that a PHY device was present causing a BadVA.
+In addition the driver should not fail to load incase no PHY was found.
+Instead we print the following line and continue with no attached PHY.
+
+   etop: mdio probe failed
 
 Signed-off-by: John Crispin <blogic@openwrt.org>
 Cc: netdev@vger.kernel.org
@@ -24,53 +27,50 @@ Cc: netdev@vger.kernel.org
  1 files changed, 8 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/lantiq_etop.c b/drivers/net/ethernet/lantiq_etop.c
-index 9fd6779..dddb9fe 100644
+index d3d4931..9fd6779 100644
 --- a/drivers/net/ethernet/lantiq_etop.c
 +++ b/drivers/net/ethernet/lantiq_etop.c
-@@ -312,6 +312,7 @@ ltq_etop_hw_init(struct net_device *dev)
- {
- 	struct ltq_etop_priv *priv = netdev_priv(dev);
- 	unsigned int mii_mode = priv->pldata->mii_mode;
-+	int err = 0;
+@@ -612,7 +612,8 @@ ltq_etop_open(struct net_device *dev)
+ 		ltq_dma_open(&ch->dma);
+ 		napi_enable(&ch->napi);
+ 	}
+-	phy_start(priv->phydev);
++	if (priv->phydev)
++		phy_start(priv->phydev);
+ 	netif_tx_start_all_queues(dev);
+ 	return 0;
+ }
+@@ -624,7 +625,8 @@ ltq_etop_stop(struct net_device *dev)
  	int i;
  
- 	ltq_pmu_enable(PMU_PPE);
-@@ -356,7 +357,7 @@ ltq_etop_hw_init(struct net_device *dev)
- 
- 	ltq_dma_init_port(DMA_PORT_ETOP);
- 
--	for (i = 0; i < MAX_DMA_CHAN; i++) {
-+	for (i = 0; i < MAX_DMA_CHAN && !err; i++) {
- 		int irq = LTQ_DMA_ETOP + i;
+ 	netif_tx_stop_all_queues(dev);
+-	phy_stop(priv->phydev);
++	if (priv->phydev)
++		phy_stop(priv->phydev);
+ 	for (i = 0; i < MAX_DMA_CHAN; i++) {
  		struct ltq_etop_chan *ch = &priv->ch[i];
  
-@@ -364,21 +365,22 @@ ltq_etop_hw_init(struct net_device *dev)
+@@ -770,9 +772,10 @@ ltq_etop_init(struct net_device *dev)
+ 	if (err)
+ 		goto err_netdev;
+ 	ltq_etop_set_multicast_list(dev);
+-	err = ltq_etop_mdio_init(dev);
+-	if (err)
+-		goto err_netdev;
++	if (!ltq_etop_mdio_init(dev))
++		dev->ethtool_ops = &ltq_etop_ethtool_ops;
++	else
++		pr_warn("etop: mdio probe failed\n");;
+ 	return 0;
  
- 		if (IS_TX(i)) {
- 			ltq_dma_alloc_tx(&ch->dma);
--			request_irq(irq, ltq_etop_dma_irq, IRQF_DISABLED,
-+			err = request_irq(irq, ltq_etop_dma_irq, IRQF_DISABLED,
- 				"etop_tx", priv);
- 		} else if (IS_RX(i)) {
- 			ltq_dma_alloc_rx(&ch->dma);
- 			for (ch->dma.desc = 0; ch->dma.desc < LTQ_DESC_NUM;
- 					ch->dma.desc++)
- 				if (ltq_etop_alloc_skb(ch))
--					return -ENOMEM;
-+					err = -ENOMEM;
- 			ch->dma.desc = 0;
--			request_irq(irq, ltq_etop_dma_irq, IRQF_DISABLED,
-+			err = request_irq(irq, ltq_etop_dma_irq, IRQF_DISABLED,
- 				"etop_rx", priv);
- 		}
--		ch->dma.irq = irq;
-+		if (!err)
-+			ch->dma.irq = irq;
- 	}
--	return 0;
-+	return err;
- }
- 
- static void
+ err_netdev:
+@@ -868,7 +871,6 @@ ltq_etop_probe(struct platform_device *pdev)
+ 	dev = alloc_etherdev_mq(sizeof(struct ltq_etop_priv), 4);
+ 	strcpy(dev->name, "eth%d");
+ 	dev->netdev_ops = &ltq_eth_netdev_ops;
+-	dev->ethtool_ops = &ltq_etop_ethtool_ops;
+ 	priv = netdev_priv(dev);
+ 	priv->res = res;
+ 	priv->pldata = dev_get_platdata(&pdev->dev);
 -- 
 1.7.7.1
