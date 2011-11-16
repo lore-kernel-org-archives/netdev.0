@@ -1,264 +1,120 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/8] e1000e: convert to real ndo_set_rx_mode
-Date: Wed, 16 Nov 2011 04:51:25 -0800
-Message-ID: <1321447892-14381-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 8/8] intel: Convert <FOO>_LENGTH_OF_ADDRESS to ETH_ALEN
+Date: Wed, 16 Nov 2011 04:51:32 -0800
+Message-ID: <1321447892-14381-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1321447892-14381-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:24667 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:24682 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755516Ab1KPMvg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Nov 2011 07:51:36 -0500
+	id S1756550Ab1KPMvl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Nov 2011 07:51:41 -0500
 In-Reply-To: <1321447892-14381-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Joe Perches <joe@perches.com>
 
-Commit afc4b13d (net: remove use of ndo_set_multicast_list in
-drivers) changed e1000e to use the ndo_set_rx_mode entry point,
-but didn't implement the unicast address programming
-functionality. Implement it to achieve the ability to add unicast
-addresses.
+Use the normal #defines not module specific ones.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Joe Perches <joe@perches.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c |  158 ++++++++++++++++++++--------
- 1 files changed, 114 insertions(+), 44 deletions(-)
+ drivers/net/ethernet/intel/e1000/e1000_hw.h    |    1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |    8 +++-----
+ drivers/net/ethernet/intel/ixgbevf/defines.h   |    1 -
+ drivers/net/ethernet/intel/ixgbevf/vf.c        |    4 ++--
+ 5 files changed, 6 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index a855db1..80e69d3 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -3113,79 +3113,147 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
- }
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_hw.h b/drivers/net/ethernet/intel/e1000/e1000_hw.h
+index 5c9a840..cf7e3c0 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_hw.h
++++ b/drivers/net/ethernet/intel/e1000/e1000_hw.h
+@@ -448,7 +448,6 @@ void e1000_io_write(struct e1000_hw *hw, unsigned long port, u32 value);
+ #define E1000_DEV_ID_INTEL_CE4100_GBE    0x2E6E
  
- /**
-- *  e1000_update_mc_addr_list - Update Multicast addresses
-- *  @hw: pointer to the HW structure
-- *  @mc_addr_list: array of multicast addresses to program
-- *  @mc_addr_count: number of multicast addresses to program
-+ * e1000e_write_mc_addr_list - write multicast addresses to MTA
-+ * @netdev: network interface device structure
-  *
-- *  Updates the Multicast Table Array.
-- *  The caller must have a packed mc_addr_list of multicast addresses.
-+ * Writes multicast address list to the MTA hash table.
-+ * Returns: -ENOMEM on failure
-+ *                0 on no addresses written
-+ *                X on writing X addresses to MTA
-+ */
-+static int e1000e_write_mc_addr_list(struct net_device *netdev)
-+{
-+	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	struct e1000_hw *hw = &adapter->hw;
-+	struct netdev_hw_addr *ha;
-+	u8 *mta_list;
-+	int i;
-+
-+	if (netdev_mc_empty(netdev)) {
-+		/* nothing to program, so clear mc list */
-+		hw->mac.ops.update_mc_addr_list(hw, NULL, 0);
-+		return 0;
-+	}
-+
-+	mta_list = kzalloc(netdev_mc_count(netdev) * ETH_ALEN, GFP_ATOMIC);
-+	if (!mta_list)
-+		return -ENOMEM;
-+
-+	/* update_mc_addr_list expects a packed array of only addresses. */
-+	i = 0;
-+	netdev_for_each_mc_addr(ha, netdev)
-+		memcpy(mta_list + (i++ * ETH_ALEN), ha->addr, ETH_ALEN);
-+
-+	hw->mac.ops.update_mc_addr_list(hw, mta_list, i);
-+	kfree(mta_list);
-+
-+	return netdev_mc_count(netdev);
-+}
-+
-+/**
-+ * e1000e_write_uc_addr_list - write unicast addresses to RAR table
-+ * @netdev: network interface device structure
-+ *
-+ * Writes unicast address list to the RAR table.
-+ * Returns: -ENOMEM on failure/insufficient address space
-+ *                0 on no addresses written
-+ *                X on writing X addresses to the RAR table
-  **/
--static void e1000_update_mc_addr_list(struct e1000_hw *hw, u8 *mc_addr_list,
--				      u32 mc_addr_count)
-+static int e1000e_write_uc_addr_list(struct net_device *netdev)
- {
--	hw->mac.ops.update_mc_addr_list(hw, mc_addr_list, mc_addr_count);
-+	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	struct e1000_hw *hw = &adapter->hw;
-+	unsigned int rar_entries = hw->mac.rar_entry_count;
-+	int count = 0;
-+
-+	/* save a rar entry for our hardware address */
-+	rar_entries--;
-+
-+	/* save a rar entry for the LAA workaround */
-+	if (adapter->flags & FLAG_RESET_OVERWRITES_LAA)
-+		rar_entries--;
-+
-+	/* return ENOMEM indicating insufficient memory for addresses */
-+	if (netdev_uc_count(netdev) > rar_entries)
-+		return -ENOMEM;
-+
-+	if (!netdev_uc_empty(netdev) && rar_entries) {
-+		struct netdev_hw_addr *ha;
-+
-+		/*
-+		 * write the addresses in reverse order to avoid write
-+		 * combining
-+		 */
-+		netdev_for_each_uc_addr(ha, netdev) {
-+			if (!rar_entries)
-+				break;
-+			e1000e_rar_set(hw, ha->addr, rar_entries--);
-+			count++;
-+		}
-+	}
-+
-+	/* zero out the remaining RAR entries not used above */
-+	for (; rar_entries > 0; rar_entries--) {
-+		ew32(RAH(rar_entries), 0);
-+		ew32(RAL(rar_entries), 0);
-+	}
-+	e1e_flush();
-+
-+	return count;
- }
+ #define NODE_ADDRESS_SIZE 6
+-#define ETH_LENGTH_OF_ADDRESS 6
  
- /**
-- * e1000_set_multi - Multicast and Promiscuous mode set
-+ * e1000e_set_rx_mode - secondary unicast, Multicast and Promiscuous mode set
-  * @netdev: network interface device structure
-  *
-- * The set_multi entry point is called whenever the multicast address
-- * list or the network interface flags are updated.  This routine is
-- * responsible for configuring the hardware for proper multicast,
-+ * The ndo_set_rx_mode entry point is called whenever the unicast or multicast
-+ * address list or the network interface flags are updated.  This routine is
-+ * responsible for configuring the hardware for proper unicast, multicast,
-  * promiscuous mode, and all-multi behavior.
-  **/
--static void e1000_set_multi(struct net_device *netdev)
-+static void e1000e_set_rx_mode(struct net_device *netdev)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
--	struct netdev_hw_addr *ha;
--	u8  *mta_list;
- 	u32 rctl;
+ /* MAC decode size is 128K - This is the size of BAR0 */
+ #define MAC_DECODE_SIZE (128 * 1024)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 00fcd39..cf6812d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -572,7 +572,7 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
  
- 	/* Check for Promiscuous and All Multicast modes */
--
- 	rctl = er32(RCTL);
- 
-+	/* clear the affected bits */
-+	rctl &= ~(E1000_RCTL_UPE | E1000_RCTL_MPE);
-+
- 	if (netdev->flags & IFF_PROMISC) {
- 		rctl |= (E1000_RCTL_UPE | E1000_RCTL_MPE);
--		rctl &= ~E1000_RCTL_VFE;
- 		/* Do not hardware filter VLANs in promisc mode */
- 		e1000e_vlan_filter_disable(adapter);
- 	} else {
-+		int count;
- 		if (netdev->flags & IFF_ALLMULTI) {
- 			rctl |= E1000_RCTL_MPE;
--			rctl &= ~E1000_RCTL_UPE;
- 		} else {
--			rctl &= ~(E1000_RCTL_UPE | E1000_RCTL_MPE);
-+			/*
-+			 * Write addresses to the MTA, if the attempt fails
-+			 * then we should just turn on promiscuous mode so
-+			 * that we can at least receive multicast traffic
-+			 */
-+			count = e1000e_write_mc_addr_list(netdev);
-+			if (count < 0)
-+				rctl |= E1000_RCTL_MPE;
- 		}
- 		e1000e_vlan_filter_enable(adapter);
--	}
--
--	ew32(RCTL, rctl);
--
--	if (!netdev_mc_empty(netdev)) {
--		int i = 0;
--
--		mta_list = kmalloc(netdev_mc_count(netdev) * 6, GFP_ATOMIC);
--		if (!mta_list)
--			return;
--
--		/* prepare a packed array of only addresses. */
--		netdev_for_each_mc_addr(ha, netdev)
--			memcpy(mta_list + (i++ * ETH_ALEN), ha->addr, ETH_ALEN);
--
--		e1000_update_mc_addr_list(hw, mta_list, i);
--		kfree(mta_list);
--	} else {
+ 		/* reply to reset with ack and vf mac address */
+ 		msgbuf[0] = IXGBE_VF_RESET | IXGBE_VT_MSGTYPE_ACK;
+-		memcpy(new_mac, vf_mac, IXGBE_ETH_LENGTH_OF_ADDRESS);
++		memcpy(new_mac, vf_mac, ETH_ALEN);
  		/*
--		 * if we're called from probe, we might not have
--		 * anything to do here, so clear out the list
-+		 * Write addresses to available RAR registers, if there is not
-+		 * sufficient space to store all the addresses then enable
-+		 * unicast promiscuous mode
- 		 */
--		e1000_update_mc_addr_list(hw, NULL, 0);
-+		count = e1000e_write_uc_addr_list(netdev);
-+		if (count < 0)
-+			rctl |= E1000_RCTL_UPE;
- 	}
+ 		 * Piggyback the multicast filter type so VF can compute the
+ 		 * correct vectors
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 6c5cca8..242643a 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -1710,8 +1710,6 @@ enum {
+ #define IXGBE_NVM_POLL_WRITE       1  /* Flag for polling for write complete */
+ #define IXGBE_NVM_POLL_READ        0  /* Flag for polling for read complete */
  
-+	ew32(RCTL, rctl);
-+
- 	if (netdev->features & NETIF_F_HW_VLAN_RX)
- 		e1000e_vlan_strip_enable(adapter);
- 	else
-@@ -3198,7 +3266,7 @@ static void e1000_set_multi(struct net_device *netdev)
+-#define IXGBE_ETH_LENGTH_OF_ADDRESS   6
+-
+ #define IXGBE_EEPROM_PAGE_SIZE_MAX       128
+ #define IXGBE_EEPROM_RD_BUFFER_MAX_COUNT 512 /* EEPROM words # read in burst */
+ #define IXGBE_EEPROM_WR_BUFFER_MAX_COUNT 256 /* EEPROM words # wr in burst */
+@@ -2802,9 +2800,9 @@ struct ixgbe_eeprom_info {
+ struct ixgbe_mac_info {
+ 	struct ixgbe_mac_operations     ops;
+ 	enum ixgbe_mac_type             type;
+-	u8                              addr[IXGBE_ETH_LENGTH_OF_ADDRESS];
+-	u8                              perm_addr[IXGBE_ETH_LENGTH_OF_ADDRESS];
+-	u8                              san_addr[IXGBE_ETH_LENGTH_OF_ADDRESS];
++	u8                              addr[ETH_ALEN];
++	u8                              perm_addr[ETH_ALEN];
++	u8                              san_addr[ETH_ALEN];
+ 	/* prefix for World Wide Node Name (WWNN) */
+ 	u16                             wwnn_prefix;
+ 	/* prefix for World Wide Port Name (WWPN) */
+diff --git a/drivers/net/ethernet/intel/ixgbevf/defines.h b/drivers/net/ethernet/intel/ixgbevf/defines.h
+index 78abb6f..2eb89cb 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/defines.h
++++ b/drivers/net/ethernet/intel/ixgbevf/defines.h
+@@ -35,7 +35,6 @@
+ #define IXGBE_VF_IRQ_CLEAR_MASK         7
+ #define IXGBE_VF_MAX_TX_QUEUES          1
+ #define IXGBE_VF_MAX_RX_QUEUES          1
+-#define IXGBE_ETH_LENGTH_OF_ADDRESS     6
+ 
+ /* Link speed */
+ typedef u32 ixgbe_link_speed;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
+index aa3682e..21533e3 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/vf.c
++++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
+@@ -108,7 +108,7 @@ static s32 ixgbevf_reset_hw_vf(struct ixgbe_hw *hw)
+ 	if (msgbuf[0] != (IXGBE_VF_RESET | IXGBE_VT_MSGTYPE_ACK))
+ 		return IXGBE_ERR_INVALID_MAC_ADDR;
+ 
+-	memcpy(hw->mac.perm_addr, addr, IXGBE_ETH_LENGTH_OF_ADDRESS);
++	memcpy(hw->mac.perm_addr, addr, ETH_ALEN);
+ 	hw->mac.mc_filter_type = msgbuf[IXGBE_VF_MC_TYPE_WORD];
+ 
+ 	return 0;
+@@ -211,7 +211,7 @@ static s32 ixgbevf_mta_vector(struct ixgbe_hw *hw, u8 *mc_addr)
   **/
- static void e1000_configure(struct e1000_adapter *adapter)
+ static s32 ixgbevf_get_mac_addr_vf(struct ixgbe_hw *hw, u8 *mac_addr)
  {
--	e1000_set_multi(adapter->netdev);
-+	e1000e_set_rx_mode(adapter->netdev);
+-	memcpy(mac_addr, hw->mac.perm_addr, IXGBE_ETH_LENGTH_OF_ADDRESS);
++	memcpy(mac_addr, hw->mac.perm_addr, ETH_ALEN);
  
- 	e1000_restore_vlan(adapter);
- 	e1000_init_manageability_pt(adapter);
-@@ -5331,7 +5399,7 @@ static int __e1000_shutdown(struct pci_dev *pdev, bool *enable_wake,
- 
- 	if (wufc) {
- 		e1000_setup_rctl(adapter);
--		e1000_set_multi(netdev);
-+		e1000e_set_rx_mode(netdev);
- 
- 		/* turn on all-multi mode if wake on multicast is enabled */
- 		if (wufc & E1000_WUFC_MC) {
-@@ -5884,7 +5952,7 @@ static const struct net_device_ops e1000e_netdev_ops = {
- 	.ndo_stop		= e1000_close,
- 	.ndo_start_xmit		= e1000_xmit_frame,
- 	.ndo_get_stats64	= e1000e_get_stats64,
--	.ndo_set_rx_mode	= e1000_set_multi,
-+	.ndo_set_rx_mode	= e1000e_set_rx_mode,
- 	.ndo_set_mac_address	= e1000_set_mac,
- 	.ndo_change_mtu		= e1000_change_mtu,
- 	.ndo_do_ioctl		= e1000_ioctl,
-@@ -6076,6 +6144,8 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 				  NETIF_F_TSO6 |
- 				  NETIF_F_HW_CSUM);
- 
-+	netdev->priv_flags |= IFF_UNICAST_FLT;
-+
- 	if (pci_using_dac) {
- 		netdev->features |= NETIF_F_HIGHDMA;
- 		netdev->vlan_features |= NETIF_F_HIGHDMA;
+ 	return 0;
+ }
 -- 
 1.7.6.4
