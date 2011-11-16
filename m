@@ -1,45 +1,42 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] pch_gbe: Move #include of module.h
-Date: Tue, 15 Nov 2011 15:56:14 -0800
-Message-ID: <1321401374.21286.22.camel@Joe-Laptop>
-References: <201111152255.pAFMtTo5005370@wpaz5.hot.corp.google.com>
-	 <20111115.183808.2066749950387258221.davem@davemloft.net>
-	 <20111115155210.69249eb9.akpm@linux-foundation.org>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH 5/5] net-next:asix: v2 update VERSION only
+Date: Tue, 15 Nov 2011 19:29:28 -0500
+Message-ID: <21257.1321403368@turing-police.cc.vt.edu>
+References: <1321318357-17723-1-git-send-email-grundler@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: multipart/signed; boundary="==_Exmh_1321403368_2702P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, tomoya-linux@dsn.okisemi.com,
-	toshiharu-linux@dsn.okisemi.com
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:33289 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755318Ab1KOX4P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Nov 2011 18:56:15 -0500
-In-Reply-To: <20111115155210.69249eb9.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Allan Chou <allan@asix.com.tw>,
+	Freddy Xin <freddy@asix.com.tw>
+To: Grant Grundler <grundler@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: Your message of "Mon, 14 Nov 2011 16:52:37 PST."
+             <1321318357-17723-1-git-send-email-grundler@chromium.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The first #include must be pch_gbe.h as it
-does a #define of pr_fmt.
+--==_Exmh_1321403368_2702P
+Content-Type: text/plain; charset=us-ascii
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c  |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+On Mon, 14 Nov 2011 16:52:37 PST, Grant Grundler said:
 
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c
-index 9c075ea..9cb5f91 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c
-@@ -18,8 +18,8 @@
-  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307, USA.
-  */
- 
--#include <linux/module.h>	/* for __MODULE_STRING */
- #include "pch_gbe.h"
-+#include <linux/module.h>	/* for __MODULE_STRING */
- 
- #define OPTION_UNSET   -1
- #define OPTION_DISABLED 0
+> -#define DRIVER_VERSION "26-Sep-2011"
+> +#define DRIVER_VERSION "08-Nov-2011"
+
+Aren't these sort of things more than a tad silly for an in-kernel driver?
+
+--==_Exmh_1321403368_2702P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFOwwPocC3lWbTT17ARAi3iAKDlGaD5rOtykcHnfsQwTdtuq6OZgwCfUqyj
+BgMK6MI5dqLwYmI6B7smRmk=
+=PBdF
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1321403368_2702P--
