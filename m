@@ -1,78 +1,39 @@
 From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next 3/5] be2net: Add EEPROM dump feature for Lancer
-Date: Wed, 16 Nov 2011 17:33:07 +0530
-Message-ID: <278a8fab-b8cf-4405-8b8a-7805e3f55343@exht2.ad.emulex.com>
+Subject: [PATCH net-next 5/5] be2net: Use V1 query link status command for lancer
+Date: Wed, 16 Nov 2011 17:33:45 +0530
+Message-ID: <120dcfc1-ba4f-4bca-b92e-761b030a3170@exht2.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:45655 "EHLO
+Received: from exht2.emulex.com ([138.239.113.184]:45661 "EHLO
 	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756422Ab1KPMEL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 07:04:11 -0500
+	with ESMTP id S1756629Ab1KPMEh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 07:04:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implemented eeprom dump using ethtool feature for Lancer.
+Use V1 version of query link status command for Lancer.
 
 Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.h    |    2 ++
- drivers/net/ethernet/emulex/benet/be_ethtool.c |   21 ++++++++++++++++++++-
- 2 files changed, 22 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 2d3fe6a..ac11246 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1167,6 +1167,8 @@ struct lancer_cmd_resp_write_object {
- #define LANCER_READ_FILE_EOF_MASK		0x80000000
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 1522065..64f0c1a 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -1246,6 +1246,9 @@ int be_cmd_link_status_query(struct be_adapter *adapter, u8 *mac_speed,
+ 	}
+ 	req = embedded_payload(wrb);
  
- #define LANCER_FW_DUMP_FILE			"/dbg/dump.bin"
-+#define LANCER_VPD_PF_FILE			"/vpd/ntr_pf.vpd"
-+#define LANCER_VPD_VF_FILE			"/vpd/ntr_vf.vpd"
- 
- struct lancer_cmd_req_read_object {
- 	struct be_cmd_req_hdr hdr;
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index 1e7252e..575c783 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -727,7 +727,17 @@ be_do_flash(struct net_device *netdev, struct ethtool_flash *efl)
- static int
- be_get_eeprom_len(struct net_device *netdev)
- {
--	return BE_READ_SEEPROM_LEN;
-+	struct be_adapter *adapter = netdev_priv(netdev);
-+	if (lancer_chip(adapter)) {
-+		if (be_physfn(adapter))
-+			return lancer_cmd_get_file_len(adapter,
-+					LANCER_VPD_PF_FILE);
-+		else
-+			return lancer_cmd_get_file_len(adapter,
-+					LANCER_VPD_VF_FILE);
-+	} else {
-+		return BE_READ_SEEPROM_LEN;
-+	}
- }
- 
- static int
-@@ -742,6 +752,15 @@ be_read_eeprom(struct net_device *netdev, struct ethtool_eeprom *eeprom,
- 	if (!eeprom->len)
- 		return -EINVAL;
- 
-+	if (lancer_chip(adapter)) {
-+		if (be_physfn(adapter))
-+			return lancer_cmd_read_file(adapter, LANCER_VPD_PF_FILE,
-+					eeprom->len, data);
-+		else
-+			return lancer_cmd_read_file(adapter, LANCER_VPD_VF_FILE,
-+					eeprom->len, data);
-+	}
++	if (lancer_chip(adapter))
++		req->hdr.version = 1;
 +
- 	eeprom->magic = BE_VENDOR_ID | (adapter->pdev->device<<16);
+ 	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
+ 		OPCODE_COMMON_NTWK_LINK_STATUS_QUERY, sizeof(*req), wrb, NULL);
  
- 	memset(&eeprom_cmd, 0, sizeof(struct be_dma_mem));
 -- 
 1.6.0.2
