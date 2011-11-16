@@ -1,218 +1,80 @@
-From: Sven Joachim <svenjoac@gmx.de>
-Subject: sky2 driver breaks reboot/shutdown
-Date: Wed, 16 Nov 2011 22:14:13 +0100
-Message-ID: <878vnfpy6y.fsf@turtle.gmx.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch net-next 1/3] team: Do not hold rcu_read_lock when
+ running netlink cmds
+Date: Wed, 16 Nov 2011 22:17:24 +0100
+Message-ID: <1321478244.3274.5.camel@edumazet-laptop>
+References: <1321477749-1877-1-git-send-email-jpirko@redhat.com>
+	 <1321477749-1877-2-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	bhutchings@solarflare.com, shemminger@vyatta.com,
+	andy@greyhouse.net, fbl@redhat.com, jzupka@redhat.com,
+	ivecera@redhat.com
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:47364 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752874Ab1KPVR3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 16:17:29 -0500
+Received: by wyh11 with SMTP id 11so1079211wyh.19
+        for <netdev@vger.kernel.org>; Wed, 16 Nov 2011 13:17:28 -0800 (PST)
+In-Reply-To: <1321477749-1877-2-git-send-email-jpirko@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[ Resending since my first attempt apparently did not make it to the
-  mailing lists.  Apologies to anyone who receives duplicates. ]
+Le mercredi 16 novembre 2011 =C3=A0 22:09 +0100, Jiri Pirko a =C3=A9cri=
+t :
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> ---
+>  drivers/net/team/team.c |   12 ++++--------
+>  1 files changed, 4 insertions(+), 8 deletions(-)
+>=20
+> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+> index 60672bb..e0cf11c 100644
+> --- a/drivers/net/team/team.c
+> +++ b/drivers/net/team/team.c
+> @@ -1043,8 +1043,7 @@ err_msg_put:
+> =20
+>  /*
+>   * Netlink cmd functions should be locked by following two functions=
+=2E
+> - * To ensure team_uninit would not be called in between, hold rcu_re=
+ad_lock
+> - * all the time.
+> + * Since dev gets held here, that ensures dev won't disappear in bet=
+ween.
+>   */
+>  static struct team *team_nl_team_get(struct genl_info *info)
+>  {
+> @@ -1057,12 +1056,9 @@ static struct team *team_nl_team_get(struct ge=
+nl_info *info)
+>  		return NULL;
+> =20
+>  	ifindex =3D nla_get_u32(info->attrs[TEAM_ATTR_TEAM_IFINDEX]);
+> -	rcu_read_lock();
+> -	dev =3D dev_get_by_index_rcu(net, ifindex);
+> -	if (!dev || dev->netdev_ops !=3D &team_netdev_ops) {
+> -		rcu_read_unlock();
+> +	dev =3D dev_get_by_index(net, ifindex);
+> +	if (!dev || dev->netdev_ops !=3D &team_netdev_ops)
 
-Hi,
+Hmmm, you return NULL but dev refcnt was increased...
 
-after upgrading from Linux 3.1 to 3.2-rc2 I noticed that the kernel
-would no longer reboot or shutdown properly, hanging instead.  Removing
-the sky2 driver works around this.  According to "lspci -v", I have the
-following network card:
-
-,----
-| 03:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8056 PCI-E Gigabit Ethernet Controller (rev 13)
-| 	Subsystem: ABIT Computer Corp. Device 108f
-| 	Flags: bus master, fast devsel, latency 0, IRQ 17
-| 	Memory at fdefc000 (64-bit, non-prefetchable) [size=16K]
-| 	I/O ports at ce00 [size=256]
-| 	[virtual] Expansion ROM at fdd00000 [disabled] [size=128K]
-| 	Capabilities: <access denied>
-| 	Kernel driver in use: sky2
-`----
-
-Bisecting shows 0bdb0bd01 as the first bad commit:
-
-
-commit 0bdb0bd0139f3b6afa252de1487e3ce82a494db9
-Author: stephen hemminger <shemminger@vyatta.com>
-Date:   Fri Sep 23 11:13:40 2011 +0000
-
-    sky2: manage irq better on single port card
-    
-    Most sky2 hardware only has a single port, although some variations of the
-    chip support two interfaces.  For the single port case, use the standard
-    Ethernet driver convention of allocating IRQ when device is brought up
-    rather than at probe time.
-    
-    Also, change the error handling of dual port cards so that if second
-    port can not be brought up, then just fail. No point in continuing, since
-    the failure is most certainly because of out of memory.
-    
-    The dual port sky2 device has a single irq and a single status ring,
-    therefore it has a single NAPI object shared by both ports.
-    
-    Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-index ef2dc02..338b10c 100644
---- a/drivers/net/ethernet/marvell/sky2.c
-+++ b/drivers/net/ethernet/marvell/sky2.c
-@@ -148,6 +148,7 @@ static const unsigned rxqaddr[] = { Q_R1, Q_R2 };
- static const u32 portirq_msk[] = { Y2_IS_PORT_1, Y2_IS_PORT_2 };
- 
- static void sky2_set_multicast(struct net_device *dev);
-+static irqreturn_t sky2_intr(int irq, void *dev_id);
- 
- /* Access to PHY via serial interconnect */
- static int gm_phy_write(struct sky2_hw *hw, unsigned port, u16 reg, u16 val)
-@@ -1715,6 +1716,27 @@ static void sky2_hw_up(struct sky2_port *sky2)
- 	sky2_rx_start(sky2);
- }
- 
-+/* Setup device IRQ and enable napi to process */
-+static int sky2_setup_irq(struct sky2_hw *hw, const char *name)
-+{
-+	struct pci_dev *pdev = hw->pdev;
-+	int err;
-+
-+	err = request_irq(pdev->irq, sky2_intr,
-+			  (hw->flags & SKY2_HW_USE_MSI) ? 0 : IRQF_SHARED,
-+			  name, hw);
-+	if (err)
-+		dev_err(&pdev->dev, "cannot assign irq %d\n", pdev->irq);
-+	else {
-+		napi_enable(&hw->napi);
-+		sky2_write32(hw, B0_IMSK, Y2_IS_BASE);
-+		sky2_read32(hw, B0_IMSK);
-+	}
-+
-+	return err;
-+}
-+
-+
- /* Bring up network interface. */
- static int sky2_up(struct net_device *dev)
- {
-@@ -1730,6 +1752,10 @@ static int sky2_up(struct net_device *dev)
- 	if (err)
- 		goto err_out;
- 
-+	/* With single port, IRQ is setup when device is brought up */
-+	if (hw->ports == 1 && (err = sky2_setup_irq(hw, dev->name)))
-+		goto err_out;
-+
- 	sky2_hw_up(sky2);
- 
- 	/* Enable interrupts from phy/mac for port */
-@@ -2091,8 +2117,13 @@ static int sky2_down(struct net_device *dev)
- 		     sky2_read32(hw, B0_IMSK) & ~portirq_msk[sky2->port]);
- 	sky2_read32(hw, B0_IMSK);
- 
--	synchronize_irq(hw->pdev->irq);
--	napi_synchronize(&hw->napi);
-+	if (hw->ports == 1) {
-+		napi_disable(&hw->napi);
-+		free_irq(hw->pdev->irq, hw);
-+	} else {
-+		synchronize_irq(hw->pdev->irq);
-+		napi_synchronize(&hw->napi);
-+	}
- 
- 	sky2_hw_down(sky2);
- 
-@@ -4798,7 +4829,7 @@ static const char *sky2_name(u8 chipid, char *buf, int sz)
- static int __devinit sky2_probe(struct pci_dev *pdev,
- 				const struct pci_device_id *ent)
- {
--	struct net_device *dev;
-+	struct net_device *dev, *dev1;
- 	struct sky2_hw *hw;
- 	int err, using_dac = 0, wol_default;
- 	u32 reg;
-@@ -4924,33 +4955,26 @@ static int __devinit sky2_probe(struct pci_dev *pdev,
- 
- 	netif_napi_add(dev, &hw->napi, sky2_poll, NAPI_WEIGHT);
- 
--	err = request_irq(pdev->irq, sky2_intr,
--			  (hw->flags & SKY2_HW_USE_MSI) ? 0 : IRQF_SHARED,
--			  hw->irq_name, hw);
--	if (err) {
--		dev_err(&pdev->dev, "cannot assign irq %d\n", pdev->irq);
--		goto err_out_unregister;
--	}
--	sky2_write32(hw, B0_IMSK, Y2_IS_BASE);
--	napi_enable(&hw->napi);
--
- 	sky2_show_addr(dev);
- 
- 	if (hw->ports > 1) {
--		struct net_device *dev1;
--
--		err = -ENOMEM;
- 		dev1 = sky2_init_netdev(hw, 1, using_dac, wol_default);
--		if (dev1 && (err = register_netdev(dev1)) == 0)
--			sky2_show_addr(dev1);
--		else {
--			dev_warn(&pdev->dev,
--				 "register of second port failed (%d)\n", err);
--			hw->dev[1] = NULL;
--			hw->ports = 1;
--			if (dev1)
--				free_netdev(dev1);
-+		if (!dev1) {
-+			err = -ENOMEM;
-+			goto err_out_unregister;
- 		}
-+
-+		err = register_netdev(dev1);
-+		if (err) {
-+			dev_err(&pdev->dev, "cannot register second net device\n");
-+			goto err_out_free_dev1;
-+		}
-+
-+		err = sky2_setup_irq(hw, hw->irq_name);
-+		if (err)
-+			goto err_out_unregister_dev1;
-+
-+		sky2_show_addr(dev1);
- 	}
- 
- 	setup_timer(&hw->watchdog_timer, sky2_watchdog, (unsigned long) hw);
-@@ -4961,6 +4985,10 @@ static int __devinit sky2_probe(struct pci_dev *pdev,
- 
- 	return 0;
- 
-+err_out_unregister_dev1:
-+	unregister_netdev(dev1);
-+err_out_free_dev1:
-+	free_netdev(dev1);
- err_out_unregister:
- 	if (hw->flags & SKY2_HW_USE_MSI)
- 		pci_disable_msi(pdev);
-@@ -5000,13 +5028,18 @@ static void __devexit sky2_remove(struct pci_dev *pdev)
- 		unregister_netdev(hw->dev[i]);
- 
- 	sky2_write32(hw, B0_IMSK, 0);
-+	sky2_read32(hw, B0_IMSK);
- 
- 	sky2_power_aux(hw);
- 
- 	sky2_write8(hw, B0_CTST, CS_RST_SET);
- 	sky2_read8(hw, B0_CTST);
- 
--	free_irq(pdev->irq, hw);
-+	if (hw->ports > 1) {
-+		napi_disable(&hw->napi);
-+		free_irq(pdev->irq, hw);
-+	}
-+
- 	if (hw->flags & SKY2_HW_USE_MSI)
- 		pci_disable_msi(pdev);
- 	pci_free_consistent(pdev, hw->st_size * sizeof(struct sky2_status_le),
-
-
-Kind Regards,
-Sven
+>  		return NULL;
+> -	}
+> =20
+>  	team =3D netdev_priv(dev);
+>  	spin_lock(&team->lock);
+> @@ -1072,7 +1068,7 @@ static struct team *team_nl_team_get(struct gen=
+l_info *info)
+>  static void team_nl_team_put(struct team *team)
+>  {
+>  	spin_unlock(&team->lock);
+> -	rcu_read_unlock();
+> +	dev_put(team->dev);
+>  }
+> =20
+>  static int team_nl_send_generic(struct genl_info *info, struct team =
+*team,
