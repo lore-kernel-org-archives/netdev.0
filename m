@@ -1,45 +1,67 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] iproute:  Support cross-compiling.
-Date: Wed, 16 Nov 2011 05:44:30 +0100
-Message-ID: <1321418670.32381.1.camel@edumazet-laptop>
-References: <1321405482-18445-1-git-send-email-greearb@candelatech.com>
-	 <20111115171722.02fa1c77@nehalam.linuxnetplumber.net>
+Subject: [PATCH iproute2] ss: report ecnseen
+Date: Wed, 16 Nov 2011 05:51:27 +0100
+Message-ID: <1321419087.32381.3.camel@edumazet-laptop>
+References: <20110916103031.7f22b35f@nehalam.linuxnetplumber.net>
+	 <20111011165908.0d6ed7de@nehalam.linuxnetplumber.net>
+	 <1318389501.3686.8.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: greearb@candelatech.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:59413 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752312Ab1KPEof (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 23:44:35 -0500
-Received: by wwe5 with SMTP id 5so84788wwe.1
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2011 20:44:34 -0800 (PST)
-In-Reply-To: <20111115171722.02fa1c77@nehalam.linuxnetplumber.net>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:58189 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752449Ab1KPEvc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 23:51:32 -0500
+Received: by wyh11 with SMTP id 11so44232wyh.19
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2011 20:51:31 -0800 (PST)
+In-Reply-To: <1318389501.3686.8.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 15 novembre 2011 =C3=A0 17:17 -0800, Stephen Hemminger a =C3=A9=
-crit :
-> On Tue, 15 Nov 2011 17:04:42 -0800
-> greearb@candelatech.com wrote:
->=20
-> > From: Ben Greear <greearb@candelatech.com>
-> >=20
-> > This lets users use their own compiler instead of
-> > hard-coding to use gcc.
-> >=20
-> > Also adds tests to disable some things that were not supported
-> > in my ARM cross-compile toolchain.
-> >=20
-> > Signed-off-by: Ben Greear <greearb@candelatech.com>
->=20
-> Can't you do this by setting up the compile environment better?
-> I would rather have the tools work with all features and handle
-> errors from kernel rather than neutering it.
+Support ECNSEEN reporting in ss command.
 
-I have roughly same errors when compiling on RHEL4
+ESTAB      0      0           10.170.73.123:4900
+10.170.73.125:51001    uid:501 ino:385994 sk:f31e5f00
+         mem:(r0,w0,f0,t0) ts sack ecn ecnseen bic wscale:8,8 rto:210
+rtt:18.75/15 ato:40 cwnd:10 send 69.9Mbps rcv_space:32768
 
-glibc-2.3.4-2.36 doesnt contain unshare() call, but my dev kernel
-certainly have it ;)
+"ecn" means TCP session negociated ECN capability (TCP layer) at setup
+time
+
+"ecnseen" at least one frame with ECT(0) or ECT(1) or ECN (IP layer) was
+received from peer.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/netinet/tcp.h |    1 +
+ misc/ss.c             |    2 ++
+ 2 files changed, 3 insertions(+)
+
+diff --git a/include/netinet/tcp.h b/include/netinet/tcp.h
+index 282b29c..95a4fe6 100644
+--- a/include/netinet/tcp.h
++++ b/include/netinet/tcp.h
+@@ -172,6 +172,7 @@ enum
+ # define TCPI_OPT_SACK		2
+ # define TCPI_OPT_WSCALE	4
+ # define TCPI_OPT_ECN		8
++# define TCPI_OPT_ECNSEEN	16
+ 
+ /* Values for tcpi_state.  */
+ enum tcp_ca_state
+diff --git a/misc/ss.c b/misc/ss.c
+index b00841b..778bf0a 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1357,6 +1357,8 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r)
+ 				printf(" sack");
+ 			if (info->tcpi_options & TCPI_OPT_ECN)
+ 				printf(" ecn");
++			if (info->tcpi_options & TCPI_OPT_ECNSEEN)
++				printf(" ecnseen");
+ 		}
+ 
+ 		if (tb[INET_DIAG_CONG])
