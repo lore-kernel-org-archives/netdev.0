@@ -1,77 +1,83 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [patch net-next V8] net: introduce ethernet teaming device
-Date: Thu, 17 Nov 2011 00:01:27 +0100
-Message-ID: <CAHXqBFKZqMSXFygxtfrhgtcfEZMWvhda46d1=J5oZDJ=BsQbTg@mail.gmail.com>
-References: <1321085808-6871-1-git-send-email-jpirko@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5 0/9] Cleanup and extension of netdev features
+Date: Wed, 16 Nov 2011 18:06:26 -0500 (EST)
+Message-ID: <20111116.180626.1091422475547546491.davem@davemloft.net>
+References: <cover.1321404954.git.mirq-linux@rere.qmqm.pl>
+	<20111116.174936.1998571821116555319.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, bhutchings@solarflare.com,
-	shemminger@vyatta.com, fubar@us.ibm.com, andy@greyhouse.net,
-	tgraf@infradead.org, ebiederm@xmission.com, kaber@trash.net,
-	greearb@candelatech.com, jesse@nicira.com, fbl@redhat.com,
-	benjamin.poirier@gmail.com, jzupka@redhat.com, ivecera@redhat.com
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: mirq-linux@rere.qmqm.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:64307 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752669Ab1KPXBt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 18:01:49 -0500
-Received: by ggnb2 with SMTP id b2so304484ggn.19
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2011 15:01:49 -0800 (PST)
-In-Reply-To: <1321085808-6871-1-git-send-email-jpirko@redhat.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:41649 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752669Ab1KPXGc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 18:06:32 -0500
+In-Reply-To: <20111116.174936.1998571821116555319.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/11/12 Jiri Pirko <jpirko@redhat.com>:
-> This patch introduces new network device called team. It supposes to =
-be
-> very fast, simple, userspace-driven alternative to existing bonding
-> driver.
-[...]
-> +#define TEAM_VLAN_FEATURES (NETIF_F_ALL_CSUM | NETIF_F_SG | \
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 NETIF_F_FRAGLIS=
-T | NETIF_F_ALL_TSO | \
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 NETIF_F_HIGHDMA=
- | NETIF_F_LRO)
-> +
-> +static void __team_compute_features(struct team *team)
-> +{
-> + =A0 =A0 =A0 struct team_port *port;
-> + =A0 =A0 =A0 u32 vlan_features =3D TEAM_VLAN_FEATURES;
-> + =A0 =A0 =A0 unsigned short max_hard_header_len =3D ETH_HLEN;
-> +
-> + =A0 =A0 =A0 list_for_each_entry(port, &team->port_list, list) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 vlan_features =3D netdev_increment_feat=
-ures(vlan_features,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 port->dev->vlan_features,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 TEAM_VLAN_FEATURES);
-> +
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (port->dev->hard_header_len > max_ha=
-rd_header_len)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 max_hard_header_len =3D=
- port->dev->hard_header_len;
-> + =A0 =A0 =A0 }
-> +
-> + =A0 =A0 =A0 team->dev->vlan_features =3D vlan_features;
-> + =A0 =A0 =A0 team->dev->hard_header_len =3D max_hard_header_len;
-> +
-> + =A0 =A0 =A0 netdev_change_features(team->dev);
-> +}
-> +
-> +static void team_compute_features(struct team *team)
-> +{
-> + =A0 =A0 =A0 spin_lock(&team->lock);
-> + =A0 =A0 =A0 __team_compute_features(team);
-> + =A0 =A0 =A0 spin_unlock(&team->lock);
-> +}
-[...]
+From: David Miller <davem@davemloft.net>
+Date: Wed, 16 Nov 2011 17:49:36 -0500 (EST)
 
-I just noticed that you missed ndo_fix_features in the driver. If you
-look at bonding driver it should be easy to see how it should work.
+> All applied, thanks a lot for doing this work.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+Just FYI, I applied the following to fix the missed cases in
+the infiniband layer.
+
+--------------------
+[PATCH] infiniband: Update net drivers for netdev_features_t changes.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/infiniband/hw/nes/nes_nic.c       |    6 +++---
+ drivers/infiniband/ulp/ipoib/ipoib_main.c |    2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/infiniband/hw/nes/nes_nic.c b/drivers/infiniband/hw/nes/nes_nic.c
+index c00d2f3..4b3fa71 100644
+--- a/drivers/infiniband/hw/nes/nes_nic.c
++++ b/drivers/infiniband/hw/nes/nes_nic.c
+@@ -1589,7 +1589,7 @@ static const struct ethtool_ops nes_ethtool_ops = {
+ 	.set_pauseparam = nes_netdev_set_pauseparam,
+ };
+ 
+-static void nes_vlan_mode(struct net_device *netdev, struct nes_device *nesdev, u32 features)
++static void nes_vlan_mode(struct net_device *netdev, struct nes_device *nesdev, netdev_features_t features)
+ {
+ 	struct nes_adapter *nesadapter = nesdev->nesadapter;
+ 	u32 u32temp;
+@@ -1610,7 +1610,7 @@ static void nes_vlan_mode(struct net_device *netdev, struct nes_device *nesdev,
+ 	spin_unlock_irqrestore(&nesadapter->phy_lock, flags);
+ }
+ 
+-static u32 nes_fix_features(struct net_device *netdev, u32 features)
++static netdev_features_t nes_fix_features(struct net_device *netdev, netdev_features_t features)
+ {
+ 	/*
+ 	 * Since there is no support for separate rx/tx vlan accel
+@@ -1624,7 +1624,7 @@ static u32 nes_fix_features(struct net_device *netdev, u32 features)
+ 	return features;
+ }
+ 
+-static int nes_set_features(struct net_device *netdev, u32 features)
++static int nes_set_features(struct net_device *netdev, netdev_features_t features)
+ {
+ 	struct nes_vnic *nesvnic = netdev_priv(netdev);
+ 	struct nes_device *nesdev = nesvnic->nesdev;
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+index 7567b60..efd7a96 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+@@ -171,7 +171,7 @@ static int ipoib_stop(struct net_device *dev)
+ 	return 0;
+ }
+ 
+-static u32 ipoib_fix_features(struct net_device *dev, u32 features)
++static netdev_features_t ipoib_fix_features(struct net_device *dev, netdev_features_t features)
+ {
+ 	struct ipoib_dev_priv *priv = netdev_priv(dev);
+ 
+-- 
+1.7.6.4
