@@ -1,66 +1,50 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH 3/5] tcp: use SACKs and DSACKs that arrive on ACKs below snd_una
-Date: Wed, 16 Nov 2011 13:58:03 -0500
-Message-ID: <1321469885-10885-3-git-send-email-ncardwell@google.com>
-References: <1321469885-10885-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
-	Nandita Dukkipati <nanditad@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Tom Herbert <therbert@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: David Miller <davem@davemloft.net>
+From: David Decotigny <david.decotigny@google.com>
+Subject: Re: [PATCH net-next v5 07/10] forcedeth: implement ndo_get_stats64() API
+Date: Wed, 16 Nov 2011 11:25:23 -0800
+Message-ID: <CAG88wWa7UsPSfX_NdNDkQeuWN0LYYDVckShgDj9GvMq2mtrpbQ@mail.gmail.com>
+References: <cover.1321420513.git.david.decotigny@google.com>
+ <dcc1ec263220b7bb1f7271933c30a8f89c19d991.1321420513.git.david.decotigny@google.com>
+ <20111116085533.0982001e@s6510.linuxnetplumber.net> <1321463694.2709.1.camel@bwh-desktop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
+	Szymon Janc <szymon@janc.net.pl>,
+	Richard Jones <rick.jones2@hp.com>,
+	Ayaz Abdulla <AAbdulla@nvidia.com>
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f74.google.com ([209.85.213.74]:39000 "EHLO
-	mail-yw0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751831Ab1KPTVm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 14:21:42 -0500
-Received: by ywb5 with SMTP id 5so8838ywb.1
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2011 11:21:41 -0800 (PST)
-In-Reply-To: <1321469885-10885-1-git-send-email-ncardwell@google.com>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:63026 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751765Ab1KPTZp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 14:25:45 -0500
+Received: by iage36 with SMTP id e36so1033032iag.19
+        for <netdev@vger.kernel.org>; Wed, 16 Nov 2011 11:25:44 -0800 (PST)
+In-Reply-To: <1321463694.2709.1.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bug: When the ACK field is below snd_una (which can happen when
-ACKs are reordered), senders ignored DSACKs (preventing undo) and did
-not call tcp_fastretrans_alert, so they did not increment
-prr_delivered to reflect newly-SACKed sequence ranges, and did not
-call tcp_xmit_retransmit_queue, thus passing up chances to send out
-more retransmitted and new packets based on any newly-SACKed packets.
+Thanks for your feedback on these concerns.
 
-The change: When the ACK field is below snd_una (the "old_ack" goto
-label), call tcp_fastretrans_alert to allow undo based on any
-newly-arrived DSACKs and try to send out more packets based on
-newly-SACKed packets.
+On Wed, Nov 16, 2011 at 9:14 AM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+> On Wed, 2011-11-16 at 08:55 -0800, Stephen Hemminger wrote:
+>> Or realize that the Tx side is single threaded by dev->xmit_lock already
+>> and the Rx side is single threaded by NAPI.
+>
+> Right.
 
-Other patches in this series will provide other changes that are
-necessary to fully fix this problem.
+Yes, that's what I meant by "Each software stat field is updated by
+one single writer." in a previous email. However, I think that TX and
+RX paths are not always synchronized. So I'm afraid that if I'm using
+a single seqcount, I might run into trouble in the absence of a lock
+around each update.... and I'd really prefer to avoid such a lock. Are
+you suggesting I should use 2 independent seqcounts? One for RX path,
+the other for TX path, all this without a lock around writers?
 
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
----
- net/ipv4/tcp_input.c |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index b49e418..751d390 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3805,10 +3805,14 @@ invalid_ack:
- 	return -1;
- 
- old_ack:
-+	/* If data was SACKed, tag it and see if we should send more data.
-+	 * If data was DSACKed, see if we can undo a cwnd reduction.
-+	 */
- 	if (TCP_SKB_CB(skb)->sacked) {
--		tcp_sacktag_write_queue(sk, skb, prior_snd_una);
--		if (icsk->icsk_ca_state == TCP_CA_Open)
--			tcp_try_keep_open(sk);
-+		flag |= tcp_sacktag_write_queue(sk, skb, prior_snd_una);
-+		newly_acked_sacked = tp->sacked_out - prior_sacked;
-+		tcp_fastretrans_alert(sk, pkts_acked, newly_acked_sacked,
-+				      is_dupack, flag);
- 	}
- 
- 	SOCK_DEBUG(sk, "Ack %u before %u:%u\n", ack, tp->snd_una, tp->snd_nxt);
--- 
-1.7.3.1
+Side-note: what are the bad implications of using atomic_t (in the fast paths)?
