@@ -1,32 +1,107 @@
 From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next 0/5] be2net updates
-Date: Wed, 16 Nov 2011 17:31:58 +0530
-Message-ID: <3ff176bc-1a62-44d9-a09f-36aa4ee371d9@exht2.ad.emulex.com>
+Subject: [PATCH net-next 1/5] be2net: Fix TX queue create for Lancer
+Date: Wed, 16 Nov 2011 17:32:23 +0530
+Message-ID: <9a9c49fc-5629-4c6d-976e-ff075b6291b8@exht2.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:45641 "EHLO
+Received: from exht2.emulex.com ([138.239.113.184]:45646 "EHLO
 	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756452Ab1KPMDC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 07:03:02 -0500
+	with ESMTP id S1756452Ab1KPMDV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 07:03:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please apply.
-Thanks,
-Padmanabh
+Lancer uses V1 version of TXQ create. This command needs interface
+id for TX queue creation. Rearrange code such that tx queue create
+is after interface create. As TXQ create is now called after MCC
+ring create use MCC instead of MBOX.
 
-Padmanabh Ratnakar (5):
-  be2net: Fix TX queue create for Lancer
-  be2net: add register dump feature for Lancer
-  be2net: Add EEPROM dump feature for Lancer
-  be2net: Fix VLAN promiscous mode for Lancer
-  be2net: Use V1 query link status command for lancer
+Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   15 ++++++++++-----
+ drivers/net/ethernet/emulex/benet/be_main.c |   12 ++++++++----
+ 2 files changed, 18 insertions(+), 9 deletions(-)
 
- drivers/net/ethernet/emulex/benet/be_cmds.c    |   65 +++++++++++++++-
- drivers/net/ethernet/emulex/benet/be_cmds.h    |   36 +++++++++
- drivers/net/ethernet/emulex/benet/be_ethtool.c |   95 ++++++++++++++++++++++-
- drivers/net/ethernet/emulex/benet/be_main.c    |   15 +++-
- 4 files changed, 196 insertions(+), 15 deletions(-)
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index ad3eef0..d35a214 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -916,10 +916,14 @@ int be_cmd_txq_create(struct be_adapter *adapter,
+ 	void *ctxt;
+ 	int status;
+ 
+-	if (mutex_lock_interruptible(&adapter->mbox_lock))
+-		return -1;
++	spin_lock_bh(&adapter->mcc_lock);
++
++	wrb = wrb_from_mccq(adapter);
++	if (!wrb) {
++		status = -EBUSY;
++		goto err;
++	}
+ 
+-	wrb = wrb_from_mbox(adapter);
+ 	req = embedded_payload(wrb);
+ 	ctxt = &req->context;
+ 
+@@ -945,14 +949,15 @@ int be_cmd_txq_create(struct be_adapter *adapter,
+ 
+ 	be_cmd_page_addrs_prepare(req->pages, ARRAY_SIZE(req->pages), q_mem);
+ 
+-	status = be_mbox_notify_wait(adapter);
++	status = be_mcc_notify_wait(adapter);
+ 	if (!status) {
+ 		struct be_cmd_resp_eth_tx_create *resp = embedded_payload(wrb);
+ 		txq->id = le16_to_cpu(resp->cid);
+ 		txq->created = true;
+ 	}
+ 
+-	mutex_unlock(&adapter->mbox_lock);
++err:
++	spin_unlock_bh(&adapter->mcc_lock);
+ 
+ 	return status;
+ }
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index ce20d64..c982b51 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1689,9 +1689,6 @@ static int be_tx_queues_create(struct be_adapter *adapter)
+ 		if (be_queue_alloc(adapter, q, TX_Q_LEN,
+ 			sizeof(struct be_eth_wrb)))
+ 			goto err;
+-
+-		if (be_cmd_txq_create(adapter, q, cq))
+-			goto err;
+ 	}
+ 	return 0;
+ 
+@@ -2572,8 +2569,9 @@ static int be_setup(struct be_adapter *adapter)
+ 	struct net_device *netdev = adapter->netdev;
+ 	u32 cap_flags, en_flags;
+ 	u32 tx_fc, rx_fc;
+-	int status;
++	int status, i;
+ 	u8 mac[ETH_ALEN];
++	struct be_tx_obj *txo;
+ 
+ 	be_setup_init(adapter);
+ 
+@@ -2613,6 +2611,12 @@ static int be_setup(struct be_adapter *adapter)
+ 	if (status != 0)
+ 		goto err;
+ 
++	 for_all_tx_queues(adapter, txo, i) {
++		status = be_cmd_txq_create(adapter, &txo->q, &txo->cq);
++		if (status)
++			goto err;
++	}
++
+ 	/* For BEx, the VF's permanent mac queried from card is incorrect.
+ 	 * Query the mac configued by the PF using if_handle
+ 	 */
+-- 
+1.6.0.2
