@@ -1,78 +1,89 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 5/5] ucc_geth: Convert ENET_NUM_OCTETS_PER_ADDRESS uses to ETH_ALEN
-Date: Wed, 16 Nov 2011 11:38:06 -0800
-Message-ID: <331ac47a2801525084ebc2b522640659dd4bbfcf.1321472143.git.joe@perches.com>
-References: <cover.1321472142.git.joe@perches.com>
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org
-To: Li Yang <leoli@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:38460 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752199Ab1KPTj0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Nov 2011 14:39:26 -0500
-In-Reply-To: <cover.1321472142.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Kirby <sim@hostway.ca>
+Subject: Re: [3.1] Divide by zero in __tcp_select_window()
+Date: Wed, 16 Nov 2011 11:54:19 -0800
+Message-ID: <20111116195419.GE24411@hostway.ca>
+References: <20111108205411.GA23642@hostway.ca> <1320787405.26025.10.camel@edumazet-laptop> <20111114.153608.2064552703690099046.davem@davemloft.net> <1321304216.2719.23.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, tglx@linutronix.de,
+	netdev@vger.kernel.org, a.p.zijlstra@chello.nl,
+	linux-kernel@vger.kernel.org, davej@redhat.com,
+	schwidefsky@de.ibm.com, mingo@elte.hu
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1321304216.2719.23.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Reduce the number of #defines, use the normal #define from if_ether.h
+On Mon, Nov 14, 2011 at 09:56:56PM +0100, Eric Dumazet wrote:
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/ethernet/freescale/ucc_geth.c |    2 +-
- drivers/net/ethernet/freescale/ucc_geth.h |    6 +++---
- 2 files changed, 4 insertions(+), 4 deletions(-)
+> Le lundi 14 novembre 2011 ?? 15:36 -0500, David Miller a ??crit :
+> > From: Eric Dumazet <eric.dumazet@gmail.com>
+> > Date: Tue, 08 Nov 2011 22:23:25 +0100
+> > 
+> > > OK, it seems we let a timer running while we free the socket (same error
+> > > path than your previous bug report, because of the NULL route)
+> > > 
+> > > We arm this keepalive timer in tcp_create_openreq_child()
+> > > 
+> > > net/ipv4/tcp_minisocks.c:513
+> > > 	if (sock_flag(newsk, SOCK_KEEPOPEN))
+> > > 		inet_csk_reset_keepalive_timer(newsk,
+> > > 			keepalive_time_when(newtp));
+> > > 
+> > > I would try to add a call to tcp_clear_xmit_timers() as well
+> > > 
+> > > Please try following patch :
+> > 
+> > We've been waiting quite some time to get some testing validation on
+> > this patch, but I think it's correct.
+> > 
+> > Eric can you formally submit this?  Thanks!
+> 
+> Sure, here it is.
+> 
+> Please Simon feel free to add your "Tested-by" signature 
+> 
+> Thanks
 
-diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
-index b5dc027..ba2dc08 100644
---- a/drivers/net/ethernet/freescale/ucc_geth.c
-+++ b/drivers/net/ethernet/freescale/ucc_geth.c
-@@ -443,7 +443,7 @@ static void hw_add_addr_in_hash(struct ucc_geth_private *ugeth,
- 
- static inline int compare_addr(u8 **addr1, u8 **addr2)
- {
--	return memcmp(addr1, addr2, ENET_NUM_OCTETS_PER_ADDRESS);
-+	return memcmp(addr1, addr2, ETH_ALEN);
- }
- 
- #ifdef DEBUG
-diff --git a/drivers/net/ethernet/freescale/ucc_geth.h b/drivers/net/ethernet/freescale/ucc_geth.h
-index d12fcad..2e395a2 100644
---- a/drivers/net/ethernet/freescale/ucc_geth.h
-+++ b/drivers/net/ethernet/freescale/ucc_geth.h
-@@ -20,6 +20,7 @@
- 
- #include <linux/kernel.h>
- #include <linux/list.h>
-+#include <linux/if_ether.h>
- 
- #include <asm/immap_qe.h>
- #include <asm/qe.h>
-@@ -881,7 +882,6 @@ struct ucc_geth_hardware_statistics {
- #define TX_RING_MOD_MASK(size)                  (size-1)
- #define RX_RING_MOD_MASK(size)                  (size-1)
- 
--#define ENET_NUM_OCTETS_PER_ADDRESS             6
- #define ENET_GROUP_ADDR                         0x01	/* Group address mask
- 							   for ethernet
- 							   addresses */
-@@ -1051,7 +1051,7 @@ enum ucc_geth_num_of_station_addresses {
- 
- /* UCC GETH 82xx Ethernet Address Container */
- struct enet_addr_container {
--	u8 address[ENET_NUM_OCTETS_PER_ADDRESS];	/* ethernet address */
-+	u8 address[ETH_ALEN];	/* ethernet address */
- 	enum ucc_geth_enet_address_recognition_location location;	/* location in
- 								   82xx address
- 								   recognition
-@@ -1194,7 +1194,7 @@ struct ucc_geth_private {
- 	u16 cpucount[NUM_TX_QUEUES];
- 	u16 __iomem *p_cpucount[NUM_TX_QUEUES];
- 	int indAddrRegUsed[NUM_OF_PADDRS];
--	u8 paddr[NUM_OF_PADDRS][ENET_NUM_OCTETS_PER_ADDRESS];	/* ethernet address */
-+	u8 paddr[NUM_OF_PADDRS][ETH_ALEN];	/* ethernet address */
- 	u8 numGroupAddrInHash;
- 	u8 numIndAddrInHash;
- 	u8 numIndAddrInReg;
--- 
-1.7.6.405.gc1be0
+Looks good, thanks! Working on ~25 boxes without issue for >36 hours.
+
+Simon-
+
+Tested-by: Simon Kirby <sim@hostway.ca>
+
+> [PATCH] tcp: clear xmit timers in tcp_v4_syn_recv_sock()
+> 
+> Simon Kirby reported divides by zero errors in __tcp_select_window()
+> 
+> This happens when inet_csk_route_child_sock() returns a NULL pointer :
+> 
+> We free new socket while we eventually armed keepalive timer in
+> tcp_create_openreq_child()
+> 
+> Fix this by a call to tcp_clear_xmit_timers()
+> 
+> [ This is a followup to commit 918eb39962dff (net: add missing
+> bh_unlock_sock() calls) ]
+> 
+> Reported-by: Simon Kirby <sim@hostway.ca>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>  net/ipv4/tcp_ipv4.c |    1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> index a744315..a9db4b1 100644
+> --- a/net/ipv4/tcp_ipv4.c
+> +++ b/net/ipv4/tcp_ipv4.c
+> @@ -1510,6 +1510,7 @@ exit:
+>  	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENDROPS);
+>  	return NULL;
+>  put_and_exit:
+> +	tcp_clear_xmit_timers(newsk);
+>  	bh_unlock_sock(newsk);
+>  	sock_put(newsk);
+>  	goto exit;
+> 
+> 
