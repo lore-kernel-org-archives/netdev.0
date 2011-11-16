@@ -1,36 +1,32 @@
-From: Grant Grundler <grundler@chromium.org>
-Subject: Re: [PATCH 5/5] net-next:asix: v2 update VERSION only
-Date: Tue, 15 Nov 2011 17:37:47 -0800
-Message-ID: <CANEJEGtnUS5B1ggdoPn8gcCbFm==dfgHCgXVgcgpuooFUAowJA@mail.gmail.com>
-References: <1321318357-17723-1-git-send-email-grundler@chromium.org>
-	<21257.1321403368@turing-police.cc.vt.edu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v5 1/9] net: remove legacy ethtool ops
+Date: Wed, 16 Nov 2011 02:04:54 +0000
+Message-ID: <1321409095.2744.35.camel@bwh-desktop>
+References: <cover.1321404954.git.mirq-linux@rere.qmqm.pl>
+	 <108f72ac6e9eafc2cef64dd582da8a7b22bd4262.1321404954.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Allan Chou <allan@asix.com.tw>,
-	Freddy Xin <freddy@asix.com.tw>
-To: Valdis.Kletnieks@vt.edu
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <21257.1321403368@turing-police.cc.vt.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:56939 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932895Ab1KPCE7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 21:04:59 -0500
+In-Reply-To: <108f72ac6e9eafc2cef64dd582da8a7b22bd4262.1321404954.git.mirq-linux@rere.qmqm.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 15, 2011 at 4:29 PM,  <Valdis.Kletnieks@vt.edu> wrote:
-> On Mon, 14 Nov 2011 16:52:37 PST, Grant Grundler said:
->
->> -#define DRIVER_VERSION "26-Sep-2011"
->> +#define DRIVER_VERSION "08-Nov-2011"
->
-> Aren't these sort of things more than a tad silly for an in-kernel driver?
+On Wed, 2011-11-16 at 02:29 +0100, Micha=C5=82 Miros=C5=82aw wrote:
+> As all drivers are converted, we may now remove discrete offload sett=
+ing
+> callback handling.
+>=20
+> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+Acked-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Definitely not. Supporting linux device drivers essentially requires
-some mechanism like this. We could use anything (SHA1, Mayan Calendar,
-etc). This driver happens to use a ISO-like date code.
-
-Upstream drivers are routinely back ported to distro releases. Version
-is the primary means for a vendor (like ASIX) to determine what was
-back ported. Distro maintainers and 1st tier support organizations
-also need to track versions and "ethtool -i" is the canonical way to
-look this up on a running system.
-
-grant
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
