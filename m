@@ -1,67 +1,110 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH iproute2] ss: report ecnseen
-Date: Wed, 16 Nov 2011 05:51:27 +0100
-Message-ID: <1321419087.32381.3.camel@edumazet-laptop>
-References: <20110916103031.7f22b35f@nehalam.linuxnetplumber.net>
-	 <20111011165908.0d6ed7de@nehalam.linuxnetplumber.net>
-	 <1318389501.3686.8.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: David Decotigny <david.decotigny@google.com>
+Subject: [PATCH net-next v4 00/10] net-sysfs+forcedeth: stats & debug enhancements
+Date: Tue, 15 Nov 2011 21:13:52 -0800
+Message-ID: <cover.1321420223.git.david.decotigny@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
+	Szymon Janc <szymon@janc.net.pl>,
+	Richard Jones <rick.jones2@hp.com>,
+	Ayaz Abdulla <AAbdulla@nvidia.com>,
+	David Decotigny <david.decotigny@google.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:58189 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752449Ab1KPEvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 23:51:32 -0500
-Received: by wyh11 with SMTP id 11so44232wyh.19
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2011 20:51:31 -0800 (PST)
-In-Reply-To: <1318389501.3686.8.camel@edumazet-laptop>
+Received: from mail-ey0-f202.google.com ([209.85.215.202]:44420 "EHLO
+	mail-ey0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751517Ab1KPFOK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 00:14:10 -0500
+Received: by eyg5 with SMTP id 5so914eyg.1
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2011 21:14:09 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Support ECNSEEN reporting in ss command.
+These changes provide a new tx_timeout sysfs attribute and implement
+the ndo_get_stats64 API. They also add a few more stats and debugging
+features for forcedeth. They ensure that stats updates are correct in
+SMP systems, 32 or 64-bits.
 
-ESTAB      0      0           10.170.73.123:4900
-10.170.73.125:51001    uid:501 ino:385994 sk:f31e5f00
-         mem:(r0,w0,f0,t0) ts sack ecn ecnseen bic wscale:8,8 rto:210
-rtt:18.75/15 ato:40 cwnd:10 send 69.9Mbps rcv_space:32768
+Note: patch 1 is the cherry-pick of 898bdf2cb43e ("forcedeth: fix
+stats on hardware without extended stats support")
 
-"ecn" means TCP session negociated ECN capability (TCP layer) at setup
-time
+Changes since v4:
+  - tx_timeout counter now a generic sysfs attribute. Credits to
+    Stephen Hemminger for initial implementation
+  - revert get_stats64 to using atomic variables: see
+    http://patchwork.ozlabs.org/patch/125861/ for motivations
+  - dropped patch "expose module parameters in /sys/module" for now: I
+    will work on this later, following Stephen's recommendations
+    (http://patchwork.ozlabs.org/patch/125862/).
 
-"ecnseen" at least one frame with ECT(0) or ECT(1) or ECN (IP layer) was
-received from peer.
+Changes since v3:
+  - updated get_stats64 + rx_dropped patches to use u64_stats_sync.h
+  - dropped indentation "whitespace/indentation fixes" (included in
+    get_stats64 api patch)
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/netinet/tcp.h |    1 +
- misc/ss.c             |    2 ++
- 2 files changed, 3 insertions(+)
+Changes since v2:
+  - patch 1/9 is the cherry-pick of 898bdf2cb43e ("forcedeth: fix
+    stats on hardware without extended stats support")
+  - removed patch 5/10 "stats for rx_packets based on hardware
+    registers" because packets&bytes stats are updated in software
+    only (898bdf2cb43e)
 
-diff --git a/include/netinet/tcp.h b/include/netinet/tcp.h
-index 282b29c..95a4fe6 100644
---- a/include/netinet/tcp.h
-+++ b/include/netinet/tcp.h
-@@ -172,6 +172,7 @@ enum
- # define TCPI_OPT_SACK		2
- # define TCPI_OPT_WSCALE	4
- # define TCPI_OPT_ECN		8
-+# define TCPI_OPT_ECNSEEN	16
- 
- /* Values for tcpi_state.  */
- enum tcp_ca_state
-diff --git a/misc/ss.c b/misc/ss.c
-index b00841b..778bf0a 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -1357,6 +1357,8 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r)
- 				printf(" sack");
- 			if (info->tcpi_options & TCPI_OPT_ECN)
- 				printf(" ecn");
-+			if (info->tcpi_options & TCPI_OPT_ECNSEEN)
-+				printf(" ecnseen");
- 		}
- 
- 		if (tb[INET_DIAG_CONG])
+Changes since v1:
+  - patch 1/10 is the same as
+    http://patchwork.ozlabs.org/patch/125017/ (targetting net)
+  - other patches updated to take patch 1/10 into account
+  - various commit message updates
+
+
+Tested:
+  ~150Mbps incoming TCP, ethtool -S in a loop, x86_64 16-way:
+     tx_bytes: 5441989419
+     rx_packets: 5439224
+     tx_timeout: 0
+     tx_packets: 5456705
+     rx_bytes: 5566763850
+
+Tested:
+  pktgen + loopback report same RX/TX packets and bytes stats
+
+Tested:
+  tests above with Kconfig DEBUG_PAGEALLOC DEBUG_MUTEXES
+  DEBUG_SPINLOCK LOCKUP_DETECTOR DEBUG_RT_MUTEXES DEBUG_LOCK_ALLOC
+  PROVE_LOCKING DEBUG_ATOMIC_SLEEP DEBUG_STACK_USAGE DEBUG_KOBJECT
+  DEBUG_VM DEBUG_LIST DEBUG_SG DEBUG_NOTIFIERS TEST_KSTRTOX
+  STRICT_DEVMEM DEBUG_STACKOVERFLOW
+
+
+############################################
+# Patch Set Summary:
+
+David Decotigny (7):
+  net-sysfs: fixed minor sparse warning
+  kbuild: document RPS/XPS network Kconfig options
+  net: provide counter for tx_timeout errors in sysfs
+  forcedeth: implement ndo_get_stats64() API
+  forcedeth: account for dropped RX frames
+  forcedeth: stats updated with a deferrable timer
+  forcedeth: whitespace/indentation fixes
+
+Mike Ditto (1):
+  forcedeth: Add messages to indicate using MSI or MSI-X
+
+Sameer Nanda (1):
+  forcedeth: allow to silence "TX timeout" debug messages
+
+david decotigny (1):
+  forcedeth: fix stats on hardware without extended stats support
+
+ drivers/net/ethernet/nvidia/forcedeth.c |  320 ++++++++++++++++++++++---------
+ include/linux/netdevice.h               |   12 +-
+ net/Kconfig                             |   16 ++-
+ net/core/net-sysfs.c                    |   49 ++++--
+ net/sched/sch_generic.c                 |    1 +
+ 5 files changed, 293 insertions(+), 105 deletions(-)
+
+-- 
+1.7.3.1
