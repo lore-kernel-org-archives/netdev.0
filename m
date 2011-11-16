@@ -1,163 +1,218 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next 2/3] team: convert overall spinlock to mutex
-Date: Wed, 16 Nov 2011 22:09:08 +0100
-Message-ID: <1321477749-1877-3-git-send-email-jpirko@redhat.com>
-References: <1321477749-1877-1-git-send-email-jpirko@redhat.com>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com,
-	bhutchings@solarflare.com, shemminger@vyatta.com,
-	andy@greyhouse.net, fbl@redhat.com, jzupka@redhat.com,
-	ivecera@redhat.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55067 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753699Ab1KPVJT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Nov 2011 16:09:19 -0500
-In-Reply-To: <1321477749-1877-1-git-send-email-jpirko@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sven Joachim <svenjoac@gmx.de>
+Subject: sky2 driver breaks reboot/shutdown
+Date: Wed, 16 Nov 2011 22:14:13 +0100
+Message-ID: <878vnfpy6y.fsf@turtle.gmx.de>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-No need to have spinlock for this purpose. So convert this to mutex and
-avoid current schedule while atomic problems in netlink code.
+[ Resending since my first attempt apparently did not make it to the
+  mailing lists.  Apologies to anyone who receives duplicates. ]
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- drivers/net/team/team.c |   32 ++++++++++++++++----------------
- include/linux/if_team.h |    2 +-
- 2 files changed, 17 insertions(+), 17 deletions(-)
+Hi,
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index e0cf11c..04f9302 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -443,9 +443,9 @@ static void __team_compute_features(struct team *team)
+after upgrading from Linux 3.1 to 3.2-rc2 I noticed that the kernel
+would no longer reboot or shutdown properly, hanging instead.  Removing
+the sky2 driver works around this.  According to "lspci -v", I have the
+following network card:
+
+,----
+| 03:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8056 PCI-E Gigabit Ethernet Controller (rev 13)
+| 	Subsystem: ABIT Computer Corp. Device 108f
+| 	Flags: bus master, fast devsel, latency 0, IRQ 17
+| 	Memory at fdefc000 (64-bit, non-prefetchable) [size=16K]
+| 	I/O ports at ce00 [size=256]
+| 	[virtual] Expansion ROM at fdd00000 [disabled] [size=128K]
+| 	Capabilities: <access denied>
+| 	Kernel driver in use: sky2
+`----
+
+Bisecting shows 0bdb0bd01 as the first bad commit:
+
+
+commit 0bdb0bd0139f3b6afa252de1487e3ce82a494db9
+Author: stephen hemminger <shemminger@vyatta.com>
+Date:   Fri Sep 23 11:13:40 2011 +0000
+
+    sky2: manage irq better on single port card
+    
+    Most sky2 hardware only has a single port, although some variations of the
+    chip support two interfaces.  For the single port case, use the standard
+    Ethernet driver convention of allocating IRQ when device is brought up
+    rather than at probe time.
+    
+    Also, change the error handling of dual port cards so that if second
+    port can not be brought up, then just fail. No point in continuing, since
+    the failure is most certainly because of out of memory.
+    
+    The dual port sky2 device has a single irq and a single status ring,
+    therefore it has a single NAPI object shared by both ports.
+    
+    Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index ef2dc02..338b10c 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -148,6 +148,7 @@ static const unsigned rxqaddr[] = { Q_R1, Q_R2 };
+ static const u32 portirq_msk[] = { Y2_IS_PORT_1, Y2_IS_PORT_2 };
  
- static void team_compute_features(struct team *team)
+ static void sky2_set_multicast(struct net_device *dev);
++static irqreturn_t sky2_intr(int irq, void *dev_id);
+ 
+ /* Access to PHY via serial interconnect */
+ static int gm_phy_write(struct sky2_hw *hw, unsigned port, u16 reg, u16 val)
+@@ -1715,6 +1716,27 @@ static void sky2_hw_up(struct sky2_port *sky2)
+ 	sky2_rx_start(sky2);
+ }
+ 
++/* Setup device IRQ and enable napi to process */
++static int sky2_setup_irq(struct sky2_hw *hw, const char *name)
++{
++	struct pci_dev *pdev = hw->pdev;
++	int err;
++
++	err = request_irq(pdev->irq, sky2_intr,
++			  (hw->flags & SKY2_HW_USE_MSI) ? 0 : IRQF_SHARED,
++			  name, hw);
++	if (err)
++		dev_err(&pdev->dev, "cannot assign irq %d\n", pdev->irq);
++	else {
++		napi_enable(&hw->napi);
++		sky2_write32(hw, B0_IMSK, Y2_IS_BASE);
++		sky2_read32(hw, B0_IMSK);
++	}
++
++	return err;
++}
++
++
+ /* Bring up network interface. */
+ static int sky2_up(struct net_device *dev)
  {
--	spin_lock(&team->lock);
-+	mutex_lock(&team->lock);
- 	__team_compute_features(team);
--	spin_unlock(&team->lock);
-+	mutex_unlock(&team->lock);
- }
+@@ -1730,6 +1752,10 @@ static int sky2_up(struct net_device *dev)
+ 	if (err)
+ 		goto err_out;
  
- static int team_port_enter(struct team *team, struct team_port *port)
-@@ -647,7 +647,7 @@ static int team_init(struct net_device *dev)
- 	int i;
++	/* With single port, IRQ is setup when device is brought up */
++	if (hw->ports == 1 && (err = sky2_setup_irq(hw, dev->name)))
++		goto err_out;
++
+ 	sky2_hw_up(sky2);
  
- 	team->dev = dev;
--	spin_lock_init(&team->lock);
-+	mutex_init(&team->lock);
+ 	/* Enable interrupts from phy/mac for port */
+@@ -2091,8 +2117,13 @@ static int sky2_down(struct net_device *dev)
+ 		     sky2_read32(hw, B0_IMSK) & ~portirq_msk[sky2->port]);
+ 	sky2_read32(hw, B0_IMSK);
  
- 	team->pcpu_stats = alloc_percpu(struct team_pcpu_stats);
- 	if (!team->pcpu_stats)
-@@ -672,13 +672,13 @@ static void team_uninit(struct net_device *dev)
- 	struct team_port *port;
- 	struct team_port *tmp;
+-	synchronize_irq(hw->pdev->irq);
+-	napi_synchronize(&hw->napi);
++	if (hw->ports == 1) {
++		napi_disable(&hw->napi);
++		free_irq(hw->pdev->irq, hw);
++	} else {
++		synchronize_irq(hw->pdev->irq);
++		napi_synchronize(&hw->napi);
++	}
  
--	spin_lock(&team->lock);
-+	mutex_lock(&team->lock);
- 	list_for_each_entry_safe(port, tmp, &team->port_list, list)
- 		team_port_del(team, port->dev);
+ 	sky2_hw_down(sky2);
  
- 	__team_change_mode(team, NULL); /* cleanup */
- 	__team_options_unregister(team, team_options, ARRAY_SIZE(team_options));
--	spin_unlock(&team->lock);
-+	mutex_unlock(&team->lock);
- }
+@@ -4798,7 +4829,7 @@ static const char *sky2_name(u8 chipid, char *buf, int sz)
+ static int __devinit sky2_probe(struct pci_dev *pdev,
+ 				const struct pci_device_id *ent)
+ {
+-	struct net_device *dev;
++	struct net_device *dev, *dev1;
+ 	struct sky2_hw *hw;
+ 	int err, using_dac = 0, wol_default;
+ 	u32 reg;
+@@ -4924,33 +4955,26 @@ static int __devinit sky2_probe(struct pci_dev *pdev,
  
- static void team_destructor(struct net_device *dev)
-@@ -784,7 +784,7 @@ static int team_change_mtu(struct net_device *dev, int new_mtu)
- 	 * Alhough this is reader, it's guarded by team lock. It's not possible
- 	 * to traverse list in reverse under rcu_read_lock
- 	 */
--	spin_lock(&team->lock);
-+	mutex_lock(&team->lock);
- 	list_for_each_entry(port, &team->port_list, list) {
- 		err = dev_set_mtu(port->dev, new_mtu);
- 		if (err) {
-@@ -793,7 +793,7 @@ static int team_change_mtu(struct net_device *dev, int new_mtu)
- 			goto unwind;
+ 	netif_napi_add(dev, &hw->napi, sky2_poll, NAPI_WEIGHT);
+ 
+-	err = request_irq(pdev->irq, sky2_intr,
+-			  (hw->flags & SKY2_HW_USE_MSI) ? 0 : IRQF_SHARED,
+-			  hw->irq_name, hw);
+-	if (err) {
+-		dev_err(&pdev->dev, "cannot assign irq %d\n", pdev->irq);
+-		goto err_out_unregister;
+-	}
+-	sky2_write32(hw, B0_IMSK, Y2_IS_BASE);
+-	napi_enable(&hw->napi);
+-
+ 	sky2_show_addr(dev);
+ 
+ 	if (hw->ports > 1) {
+-		struct net_device *dev1;
+-
+-		err = -ENOMEM;
+ 		dev1 = sky2_init_netdev(hw, 1, using_dac, wol_default);
+-		if (dev1 && (err = register_netdev(dev1)) == 0)
+-			sky2_show_addr(dev1);
+-		else {
+-			dev_warn(&pdev->dev,
+-				 "register of second port failed (%d)\n", err);
+-			hw->dev[1] = NULL;
+-			hw->ports = 1;
+-			if (dev1)
+-				free_netdev(dev1);
++		if (!dev1) {
++			err = -ENOMEM;
++			goto err_out_unregister;
  		}
++
++		err = register_netdev(dev1);
++		if (err) {
++			dev_err(&pdev->dev, "cannot register second net device\n");
++			goto err_out_free_dev1;
++		}
++
++		err = sky2_setup_irq(hw, hw->irq_name);
++		if (err)
++			goto err_out_unregister_dev1;
++
++		sky2_show_addr(dev1);
  	}
--	spin_unlock(&team->lock);
-+	mutex_unlock(&team->lock);
  
- 	dev->mtu = new_mtu;
+ 	setup_timer(&hw->watchdog_timer, sky2_watchdog, (unsigned long) hw);
+@@ -4961,6 +4985,10 @@ static int __devinit sky2_probe(struct pci_dev *pdev,
  
-@@ -802,7 +802,7 @@ static int team_change_mtu(struct net_device *dev, int new_mtu)
- unwind:
- 	list_for_each_entry_continue_reverse(port, &team->port_list, list)
- 		dev_set_mtu(port->dev, dev->mtu);
--	spin_unlock(&team->lock);
-+	mutex_unlock(&team->lock);
+ 	return 0;
  
- 	return err;
- }
-@@ -880,9 +880,9 @@ static int team_add_slave(struct net_device *dev, struct net_device *port_dev)
- 	struct team *team = netdev_priv(dev);
- 	int err;
++err_out_unregister_dev1:
++	unregister_netdev(dev1);
++err_out_free_dev1:
++	free_netdev(dev1);
+ err_out_unregister:
+ 	if (hw->flags & SKY2_HW_USE_MSI)
+ 		pci_disable_msi(pdev);
+@@ -5000,13 +5028,18 @@ static void __devexit sky2_remove(struct pci_dev *pdev)
+ 		unregister_netdev(hw->dev[i]);
  
--	spin_lock(&team->lock);
-+	mutex_lock(&team->lock);
- 	err = team_port_add(team, port_dev);
--	spin_unlock(&team->lock);
-+	mutex_unlock(&team->lock);
- 	return err;
- }
+ 	sky2_write32(hw, B0_IMSK, 0);
++	sky2_read32(hw, B0_IMSK);
  
-@@ -891,9 +891,9 @@ static int team_del_slave(struct net_device *dev, struct net_device *port_dev)
- 	struct team *team = netdev_priv(dev);
- 	int err;
+ 	sky2_power_aux(hw);
  
--	spin_lock(&team->lock);
-+	mutex_lock(&team->lock);
- 	err = team_port_del(team, port_dev);
--	spin_unlock(&team->lock);
-+	mutex_unlock(&team->lock);
- 	return err;
- }
+ 	sky2_write8(hw, B0_CTST, CS_RST_SET);
+ 	sky2_read8(hw, B0_CTST);
  
-@@ -1061,13 +1061,13 @@ static struct team *team_nl_team_get(struct genl_info *info)
- 		return NULL;
- 
- 	team = netdev_priv(dev);
--	spin_lock(&team->lock);
-+	mutex_lock(&team->lock);
- 	return team;
- }
- 
- static void team_nl_team_put(struct team *team)
- {
--	spin_unlock(&team->lock);
-+	mutex_unlock(&team->lock);
- 	dev_put(team->dev);
- }
- 
-@@ -1483,9 +1483,9 @@ static void team_port_change_check(struct team_port *port, bool linkup)
- {
- 	struct team *team = port->team;
- 
--	spin_lock(&team->lock);
-+	mutex_lock(&team->lock);
- 	__team_port_change_check(port, linkup);
--	spin_unlock(&team->lock);
-+	mutex_unlock(&team->lock);
- }
- 
- /************************************
-diff --git a/include/linux/if_team.h b/include/linux/if_team.h
-index 14f6388..a6eac12 100644
---- a/include/linux/if_team.h
-+++ b/include/linux/if_team.h
-@@ -92,7 +92,7 @@ struct team {
- 	struct net_device *dev; /* associated netdevice */
- 	struct team_pcpu_stats __percpu *pcpu_stats;
- 
--	spinlock_t lock; /* used for overall locking, e.g. port lists write */
-+	struct mutex lock; /* used for overall locking, e.g. port lists write */
- 
- 	/*
- 	 * port lists with port count
--- 
-1.7.6
+-	free_irq(pdev->irq, hw);
++	if (hw->ports > 1) {
++		napi_disable(&hw->napi);
++		free_irq(pdev->irq, hw);
++	}
++
+ 	if (hw->flags & SKY2_HW_USE_MSI)
+ 		pci_disable_msi(pdev);
+ 	pci_free_consistent(pdev, hw->st_size * sizeof(struct sky2_status_le),
+
+
+Kind Regards,
+Sven
