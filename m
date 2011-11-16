@@ -1,40 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/8][pull request] Intel Wired LAN Driver Updates
-Date: Wed, 16 Nov 2011 18:32:56 -0500 (EST)
-Message-ID: <20111116.183256.402841483143633895.davem@davemloft.net>
-References: <1321447892-14381-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20111116.181256.1949478047386386920.davem@davemloft.net>
-	<1321485682.2304.17.camel@jtkirshe-mobl>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH v5 5/9] net: Define enum for net device features.
+Date: Thu, 17 Nov 2011 00:34:08 +0100
+Message-ID: <20111116233408.GB8476@rere.qmqm.pl>
+References: <cover.1321404954.git.mirq-linux@rere.qmqm.pl>
+ <d47c3468cf74bd42f28989d078d9a70ca8cfd7e0.1321404954.git.mirq-linux@rere.qmqm.pl>
+ <1321483177.2709.28.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56919 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754016Ab1KPXc7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 18:32:59 -0500
-In-Reply-To: <1321485682.2304.17.camel@jtkirshe-mobl>
+Received: from rere.qmqm.pl ([89.167.52.164]:43981 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753962Ab1KPXeK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Nov 2011 18:34:10 -0500
+Content-Disposition: inline
+In-Reply-To: <1321483177.2709.28.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 16 Nov 2011 15:21:22 -0800
+On Wed, Nov 16, 2011 at 10:39:37PM +0000, Ben Hutchings wrote:
+> On Wed, 2011-11-16 at 02:29 +0100, Micha=B3 Miros=B3aw wrote:
+> > Define feature values by bit position instead of direct 2**i values
+> > and force the values to be of type netdev_features_t.
+> >=20
+> > Cleaned and extended from patch by Mahesh Bandewar <maheshb@google.=
+com>:
+> > + added netdev_features_t casts
+> > + included bits under NETIF_F_GSO_MASK
+> > + moved feature #defines out of struct net_device definition
+> >=20
+> > Signed-off-by: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
+> > ---
+> >  include/linux/netdev_features.h |  129 +++++++++++++++++++++++++++=
+-----------
+> >  1 files changed, 91 insertions(+), 38 deletions(-)
+> >=20
+> > diff --git a/include/linux/netdev_features.h b/include/linux/netdev=
+_features.h
+> > index af52381..04ac8f8 100644
+> > --- a/include/linux/netdev_features.h
+> > +++ b/include/linux/netdev_features.h
+> [...]
+> > +	/**/NETIF_F_GSO_SHIFT,		/* keep the order of SKB_GSO_* bits */
+> > +	NETIF_F_TSO_BIT			/* ... TCPv4 segmentation */
+> > +		=3D NETIF_F_GSO_SHIFT,
+> > +	NETIF_F_UFO_BIT,		/* ... UDPv4 fragmentation */
+> > +	NETIF_F_GSO_ROBUST_BIT,		/* ... ->SKB_GSO_DODGY */
+> > +	NETIF_F_TSO_ECN_BIT,		/* ... TCP ECN support */
+> > +	NETIF_F_TSO6_BIT,		/* ... TCPv6 segmentation */
+> > +	NETIF_F_FSO_BIT,		/* ... FCoE segmentation */
+> > +	NETIF_F_GSO_RESERVED1,		/* ... free (fill GSO_MASK to 8 bits) */
+> > +	/**/NETIF_F_GSO_LAST,		/* [can't be last bit, see GSO_MASK] */
+> > +	NETIF_F_GSO_RESERVED2		/* ... free (fill GSO_MASK to 8 bits) */
+> > +		=3D NETIF_F_GSO_LAST,
+> > =20
+> > -/* Segmentation offload features */
+> > -#define NETIF_F_GSO_SHIFT	16
+> > -#define NETIF_F_GSO_MASK	0x00ff0000
+> > -#define NETIF_F_TSO		(SKB_GSO_TCPV4 << NETIF_F_GSO_SHIFT)
+> > -#define NETIF_F_UFO		(SKB_GSO_UDP << NETIF_F_GSO_SHIFT)
+> > -#define NETIF_F_GSO_ROBUST	(SKB_GSO_DODGY << NETIF_F_GSO_SHIFT)
+> > -#define NETIF_F_TSO_ECN		(SKB_GSO_TCP_ECN << NETIF_F_GSO_SHIFT)
+> > -#define NETIF_F_TSO6		(SKB_GSO_TCPV6 << NETIF_F_GSO_SHIFT)
+> > -#define NETIF_F_FSO		(SKB_GSO_FCOE << NETIF_F_GSO_SHIFT)
+> [...]
+>=20
+> You should either add BUILD_BUG_ON()s somewhere to ensure that the
+> netdev feature and skb GSO flags remain in sync, or redefine the skb =
+GSO
+> flags using the netdev feature flags (which I thought was the reason =
+for
+> moving features to their own header).
 
-> On Wed, 2011-11-16 at 15:12 -0800, David Miller wrote:
->> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> Date: Wed, 16 Nov 2011 04:51:24 -0800
->> 
->> > The following are changes since commit 229a66e3bec97563aa92e25dfe0bc60b0d468619:
->> >   IPv6: Removing unnecessary NULL checks.
->> > and are available in the git repository at:
->> >   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-organize master
->> 
->> This tree doesn't exist.
-> 
-> That was supposed to be
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+Main motiviation for the moving out of features to separate headers was
+to avoid circular inclusion of linux/netdevice.h from linux/skbuff.h.
+We get readability for free.
 
-That works better, pulled, thanks!
+BUILD_BUG_ON() is a good idea. It should go to skbuff.h and as separate
+patch as it's something new and independent.
+
+Best Regards,
+Micha=B3 Miros=B3aw
