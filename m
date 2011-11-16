@@ -1,163 +1,109 @@
-From: Dilip Daya <dilip.daya@hp.com>
-Subject: Re: ip_local_deliver_finish: proto 108 (IPComp) isn't netns-ready
-Date: Wed, 16 Nov 2011 10:01:55 -0500
-Message-ID: <1321455715.2530.27.camel@pro6455b.example.com>
-References: <1320858706.2531.45.camel@pro6455b.example.com>
-	 <m1d3d0oraf.fsf@fess.ebiederm.org>
-Reply-To: dilip.daya@hp.com
+From: "Hans Schillstrom" <hans@schillstrom.com>
+Subject: Re[2]:  [v2 PATCH 1/2] NETFILTER module xt_hmark new target
+	for HASH based fw
+Date: Wed, 16 Nov 2011 16:56:28 +0100 (CET)
+Message-ID: <lpt7rqm.25b7ea16278f503bce365f813ce861db@obelix.schillstrom.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-TUR0reZ3hQhz4MwWHrXp"
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"adobrian@gmail.com" <adobrian@gmail.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <m1d3d0oraf.fsf@fess.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: "Hans Schillstrom" <hans.schillstrom@ericsson.com>,
+	kaber@trash.net, jengelh@medozas.de,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: "Pablo Neira Ayuso" <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-TUR0reZ3hQhz4MwWHrXp
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
 
-Hi Eric,
+>---- Original Message ----
+>From: Pablo Neira Ayuso <pablo@netfilter.org>
+>To: "Hans Schillstrom" <hans@schillstrom.com>
+>Cc: "Hans Schillstrom" <hans.schillstrom@ericsson.com>, kaber@trash.net, jengelh@medozas.de, netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+>Sent: Wed, Nov 16, 2011, 11:50 AM
+>Subject: Re: [v2 PATCH 1/2] NETFILTER module xt_hmark new target for HASH based fw
+>
+>On Wed, Nov 16, 2011 at 10:28:42AM +0100, Hans Schillstrom wrote:
+>> I have some problems with the generator...,
+>> so I did some simple iperf tcp test with KVM:s i.e. standart tcp setup
+>
+>I have some simple http traffic generator in case that you want to use
+>it:
+>
+>http://1984.lsi.us.es/git/?p=http-client-benchmark/.git;a=summary
+>
+>You have to use it with willy tarreau's httpterm in the server side.
+>Iperf is fine, I just wanted to share with you what I use it for
+>generating traffic.
+>
+>It allows more interesting evaluation like making experiments with
+>very short flows and long ones. I think iperf doesn't allow that?
+>Well, I didn't look at it since long time ago but I remember that it
+>didn't fit with my needs. Evaluating only throught was not enough for
+>me. Sessions per seconds are also an interesting value to take into
+>account in my case.
 
-> If you have a clue what is going on with ip compression my
-> recommendation would be to add .netns_ok = 1.  Verify that the
-> everything works and send the patch.  You probably want to
-> verify and test ipv6 as well.  It really looks like the code
-> is fine and it just needs to be enabled.
-
-Thank you for the above feedback.
-
-FYI..my results
-
-Environment:
-- v3.0.9-stable kernel with  ".netns_ok	= 1" applied to ipcomp.c
-  (see attached patch)
-- Same setup as described earlier for two netns stacks on single system.
-- ltp-network test results:
-
-- /usr/lib/ltp/testcases/bin/tcp[4|6]-multi-diffip13
-  IPv4: no issues
-  IPv6: no issues
-
-- /usr/lib/ltp/testcases/bin/udp4-multi-diffip06
-  IPv4 -> no issues
-  IPv6 -> script issue (work-in-progress)
-
-- /usr/lib/ltp/testcases/bin/udp[4|6]-multi-diffnic06
-  IPv4: no issues
-  IPv6:	no issues
-
-- /usr/lib/ltp/testcases/bin/udp[4|6]-multi-diffport06
-  IPv4 -> multiple messages:
-    UDP: short packet: From 10.0.9.2:1025 1008/267 to 10.0.9.1:55575
-    UDP: short packet: From 10.0.0.1:54544 253/38 to 10.0.0.2:1050
-    UDP: short packet: From 10.0.0.1:21601 27128/1008 to 10.0.0.2:27137
-
-  IPv6 -> multiple messages:
-    UDPv6: short packet: From [fd00:1:1:1::2]:1028 242/122 to
-[fd00:1:1:1::1]:38438
-    UDPv6: short packet: From [fd00:1:1:1::2]:37972 21588/29 to
-[fd00:1:1:1::1]:21588
-    UDPv6: short packet: From [fd00:1:1:1::2]:1026 1008/898 to
-[fd00:1:1:1::1]:55703
-
-- /usr/lib/ltp/testcases/bin/icmp4-multi-diffip06
-  IPv4 -> no issues
-  IPv6 -> multiple messages:
-    ICMPv6 checksum failed [fd00:0001:0000:0003:0000:0000:0000:0001 >
-fd00:0001:0000:0003:0000:0000:0000:0002]
-				
-
-...continuing with debug.
+Thanks  this was a nice tool.
 
 
---DilipD.
+>
+>> iptables just one rule 
+>> -A PREROUTING -d 10.0.0.10/32 -j HMARK --hmark-mod 0x2 --hmark-offs 0x64
+>> 
+>> Some typical values shows ~8% degradation with conntrack loaded
+>> 
+>> 
+>> a) Without conntrack loaded
+>> 
+>>  [  3]  0.0-10.0 sec  83.5 MBytes  70.0 Mbits/sec
+>> 
+>> 
+>> b) With conntrack loaded (no iptable rules in use --ctstate or -m conntrack)
+>> 
+>> [  3]  0.0-10.0 sec  78.0 MBytes  65.4 Mbits/sec
+>> 
+>> c) With iptables rule in use
+>> iptables -t mangle -A PREROUTING -d 10.0.0.10 -m conntrack --ctstate NEW -j HMARK --mod 2 --offs 100
+>> iptables -t mangle -A PREROUTING -d 10.0.0.10 -m conntrack --ctstate ESTABLISHED,RELATED  -j HMARK --mod 2 --offs 100
+>> iptables -t mangle -A PREROUTING -d 10.0.0.10 -m conntrack --ctstate INVALID -j DROP
+>
+>You have to use connmark so we can skip the hashing in the
+>established case, otherwise conntrack is a clear loser :-). The point
+>of this experiment is to see if hashing every single packet is more
+>performance than hashing only the first one and using the ctmark for
+>established connections (so we only hash once!).
 
-On Wed, 2011-11-09 at 22:38 +0000, Eric W. Biederman wrote:
-> Dilip Daya <dilip.daya@hp.com> writes:
-> 
-> > Hi All,
-> >
-> > LTP-network tests produced:
-> >
-> > 	"ip_local_deliver_finish: proto 108 (IPComp) isn't netns-ready"
-> >
-> > Question:
-> > Is the above a bug or feature (IPComp, mode: transport) not netns
-> > enabled?
-> 
-> I would call it a missing feature.
-> 
-> > Environment:
-> >
-> > * v3.1-stable kernel.
-> >
-> > * Configured two network-namespaces via "ip netns add ...".
-> >   on a single system: netns0 (assigned as server) and
-> >   netns1 (assigned as client).
-> >   - assigned multiple physical NICs to netns0 and netns1.
-> >
-> > * Entered netns1 (ip netns exec netns1 bash) to execute
-> >   ltp-network suite of tests between netns1 and netns0.
-> >
-> > * The following LTP tests produced messages:
-> >
-> >   "kernel: ip_local_deliver_finish: proto 108 isn't netns-ready"
-> >
-> >    - /usr/lib/ltp/testcases/bin/icmp4-multi-diffip06
-> >    - /usr/lib/ltp/testcases/bin/tcp4-multi-diffip13
-> >    - /usr/lib/ltp/testcases/bin/udp4-multi-diffip06
-> >    - /usr/lib/ltp/testcases/bin/udp4-multi-diffnic06
-> >    - /usr/lib/ltp/testcases/bin/udp4-multi-diffport06
-> >
-> > * I also noticed missing ".netns_ok = 1" in:
-> >   - http://lxr.linux.no/linux+v3.1/net/ipv4/ipcomp.c#L150
-> 
-> The .netns_ok flag indicates that someone has audited the code and made
-> certain it all works with network namespaces.
-> 
-> Skimming the code I don't see anything that jumps out as me as
-> wrong.  And it looks like Alexy did the work in Jan of 2010.
-> 
->    commit a92df2545402c1a08e7a158f4477a52dea0eeeed
->    Author: Alexey Dobriyan <adobriyan@gmail.com>
->    Date:   Mon Jan 25 10:38:34 2010 +0000
->    
->        netns xfrm: ipcomp support
->        
->        Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
->        Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> However it is clear that no one has actually tested ipcomp with
-> network namespaces.
-> 
-> If you have a clue what is going on with ip compression my
-> recommendation would be to add .netns_ok = 1.  Verify that the
-> everything works and send the patch.  You probably want to
-> verify and test ipv6 as well.  It really looks like the code
-> is fine and it just needs to be enabled.
-> 
-> Eric
+I played around with that scenario initially but couldn't see any advantage in performance. 
+But now I've made some testing with both iperf & httpclient
 
---=-TUR0reZ3hQhz4MwWHrXp
-Content-Disposition: attachment; filename="ipcomp_netns.patch"
-Content-Type: text/x-patch; name="ipcomp_netns.patch"; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Hashing is 6 - 10% faster in any combination. 
+There was no significant difference by using save and restore mark < 0.6 Mbit/s
 
---- a/ipv4/ipcomp.c	2011-11-11 13:12:24.000000000 -0500
-+++ b/net/ipv4/ipcomp.c	2011-11-08 09:12:37.000000000 -0500
-@@ -151,6 +151,7 @@ static const struct net_protocol ipcomp4
- 	.handler	=	xfrm4_rcv,
- 	.err_handler	=	ipcomp4_err,
- 	.no_policy	=	1,
-+	.netns_ok		= 1,
- };
+>
+>Eric Leblond wrote a nice documentation on connmark in his blog:
+>
+>http://home.regit.org/netfilter-en/netfilter-connmark/
+>
+>BTW, that related in the NEW rule. related is similar to New but for
+>the first packet of a related connection.
+>
+>> [  3]  0.0-10.0 sec  77.4 MBytes  64.9 Mbits/sec
+>> 
+>> 
+>> A clean KVM with 3.2.0-rc1 kernel with virt-io 
+>> Module                  Size  Used by    Not tainted
+>> nf_conntrack_ipv4      16731  1 
+>> nf_defrag_ipv4         12436  1 nf_conntrack_ipv4
+>> xt_conntrack           12390  1 
+>> xt_hmark               12390  1 
+>> iptable_mangle         12390  1 
+>> ip_tables              20755  1 iptable_mangle
+>> ipip                   16515  0 
+>> tunnel4                12484  1 ipip
+>
+>Thanks for taking the time to evaluate this. If you can repeat the
+>experiments with my comments, we can get interesting conclusions like
+>demystifying the fact that at conntrack is not that bad in terms of
+>throughput if you take advantage appropriately of what it provides ;-)
 
- static int __init ipcomp4_init(void)
-
---=-TUR0reZ3hQhz4MwWHrXp--
