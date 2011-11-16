@@ -1,28 +1,40 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v5 8/9] net: extend netdev_features_t to 64 bits
-Date: Wed, 16 Nov 2011 22:43:56 +0000
-Message-ID: <1321483436.2709.32.camel@bwh-desktop>
-References: <cover.1321404954.git.mirq-linux@rere.qmqm.pl>
-	 <f591e9cb9c390461d5e36f110e38f57f9f0f7945.1321404954.git.mirq-linux@rere.qmqm.pl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFT] bridge: checksum not updated after pull
+Date: Wed, 16 Nov 2011 17:47:30 -0500 (EST)
+Message-ID: <20111116.174730.1997198538787965669.davem@davemloft.net>
+References: <4EC23EE7.2010606@intel.com>
+	<20111115100914.0c9540be@nehalam.linuxnetplumber.net>
+	<CAM1AHpQsYz=y8m_RSzfPkGXGFZ8rQQE0Q+pmfbRb6K0v-jQ91w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:34462 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752861Ab1KPWoA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 17:44:00 -0500
-In-Reply-To: <f591e9cb9c390461d5e36f110e38f57f9f0f7945.1321404954.git.mirq-linux@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: zheng.z.yan@intel.com, netdev@vger.kernel.org, shemminger@vyatta.com,
+	bridge@lists.linux-foundation.org, wcang@sfc.wide.ad.jp
+To: martin.volf.42@gmail.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAM1AHpQsYz=y8m_RSzfPkGXGFZ8rQQE0Q+pmfbRb6K0v-jQ91w@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-11-16 at 02:29 +0100, Micha=C5=82 Miros=C5=82aw wrote:
-> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-Acked-by: Ben Hutchings <bhutchings@solarflare.com>
+From: Martin Volf <martin.volf.42@gmail.com>
+Date: Tue, 15 Nov 2011 20:51:44 +0100
 
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> On 15 November 2011 19:09, Stephen Hemminger <shemminger@vyatta.com> wrote:
+>> I think this is what is necessary, please test.
+> ...
+> 
+> Hello,
+> 
+> with the patch on top of 3.1.1 I no longer get the "hw csum failure"
+> message. I don't know how to test IPv6 multicast, but IPv6 ND and
+> SLAAC is correctly passing through the bridge.
+
+Applied, thanks Stephen.
