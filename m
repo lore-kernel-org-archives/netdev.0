@@ -1,7 +1,7 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next 3/3] team: replicate options on register
-Date: Wed, 16 Nov 2011 22:09:09 +0100
-Message-ID: <1321477749-1877-4-git-send-email-jpirko@redhat.com>
+Subject: [patch net-next 2/3] team: convert overall spinlock to mutex
+Date: Wed, 16 Nov 2011 22:09:08 +0100
+Message-ID: <1321477749-1877-3-git-send-email-jpirko@redhat.com>
 References: <1321477749-1877-1-git-send-email-jpirko@redhat.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	bhutchings@solarflare.com, shemminger@vyatta.com,
@@ -9,195 +9,155 @@ Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8513 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:55067 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753713Ab1KPVJV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Nov 2011 16:09:21 -0500
+	id S1753699Ab1KPVJT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Nov 2011 16:09:19 -0500
 In-Reply-To: <1321477749-1877-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since multiple team instances are putting defined options into their
-option list, during register each option must be cloned before added
-into list. This resolves uncool memory corruptions when using multiple
-teams.
+No need to have spinlock for this purpose. So convert this to mutex and
+avoid current schedule while atomic problems in netlink code.
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/team/team.c                   |   76 +++++++++++++++++++++++++----
- drivers/net/team/team_mode_activebackup.c |    5 +-
- include/linux/if_team.h                   |    8 ++--
- 3 files changed, 72 insertions(+), 17 deletions(-)
+ drivers/net/team/team.c |   32 ++++++++++++++++----------------
+ include/linux/if_team.h |    2 +-
+ 2 files changed, 17 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 04f9302..b47f43e 100644
+index e0cf11c..04f9302 100644
 --- a/drivers/net/team/team.c
 +++ b/drivers/net/team/team.c
-@@ -80,30 +80,78 @@ EXPORT_SYMBOL(team_port_set_team_mac);
-  * Options handling
-  *******************/
+@@ -443,9 +443,9 @@ static void __team_compute_features(struct team *team)
  
--void team_options_register(struct team *team, struct team_option *option,
--			   size_t option_count)
-+struct team_option *__team_find_option(struct team *team, const char *opt_name)
-+{
-+	struct team_option *option;
-+
-+	list_for_each_entry(option, &team->option_list, list) {
-+		if (strcmp(option->name, opt_name) == 0)
-+			return option;
-+	}
-+	return NULL;
-+}
-+
-+int team_options_register(struct team *team,
-+			  const struct team_option *option,
-+			  size_t option_count)
+ static void team_compute_features(struct team *team)
  {
- 	int i;
-+	struct team_option *dst_opts[option_count];
-+	int err;
-+
-+	memset(dst_opts, 0, sizeof(dst_opts));
-+	for (i = 0; i < option_count; i++, option++) {
-+		struct team_option *dst_opt;
-+
-+		if (__team_find_option(team, option->name)) {
-+			err = -EEXIST;
-+			goto rollback;
-+		}
-+		dst_opt = kmalloc(sizeof(*option), GFP_KERNEL);
-+		if (!dst_opt) {
-+			err = -ENOMEM;
-+			goto rollback;
-+		}
-+		memcpy(dst_opt, option, sizeof(*option));
-+		dst_opts[i] = dst_opt;
-+	}
-+
-+	for (i = 0; i < option_count; i++)
-+		list_add_tail(&dst_opts[i]->list, &team->option_list);
- 
--	for (i = 0; i < option_count; i++, option++)
--		list_add_tail(&option->list, &team->option_list);
-+	return 0;
-+
-+rollback:
-+	for (i = 0; i < option_count; i++)
-+		kfree(dst_opts[i]);
-+
-+	return err;
- }
-+
- EXPORT_SYMBOL(team_options_register);
- 
- static void __team_options_change_check(struct team *team,
- 					struct team_option *changed_option);
- 
- static void __team_options_unregister(struct team *team,
--				      struct team_option *option,
-+				      const struct team_option *option,
- 				      size_t option_count)
- {
- 	int i;
- 
--	for (i = 0; i < option_count; i++, option++)
--		list_del(&option->list);
-+	for (i = 0; i < option_count; i++, option++) {
-+		struct team_option *del_opt;
-+
-+		del_opt = __team_find_option(team, option->name);
-+		if (del_opt) {
-+			list_del(&del_opt->list);
-+			kfree(del_opt);
-+		}
-+	}
+-	spin_lock(&team->lock);
++	mutex_lock(&team->lock);
+ 	__team_compute_features(team);
+-	spin_unlock(&team->lock);
++	mutex_unlock(&team->lock);
  }
  
--void team_options_unregister(struct team *team, struct team_option *option,
-+void team_options_unregister(struct team *team,
-+			     const struct team_option *option,
- 			     size_t option_count)
- {
- 	__team_options_unregister(team, option, option_count);
-@@ -632,7 +680,7 @@ static int team_mode_option_set(struct team *team, void *arg)
- 	return team_change_mode(team, *str);
- }
- 
--static struct team_option team_options[] = {
-+static const struct team_option team_options[] = {
- 	{
- 		.name = "mode",
- 		.type = TEAM_OPTION_TYPE_STRING,
-@@ -645,6 +693,7 @@ static int team_init(struct net_device *dev)
- {
- 	struct team *team = netdev_priv(dev);
+ static int team_port_enter(struct team *team, struct team_port *port)
+@@ -647,7 +647,7 @@ static int team_init(struct net_device *dev)
  	int i;
-+	int err;
  
  	team->dev = dev;
- 	mutex_init(&team->lock);
-@@ -660,10 +709,17 @@ static int team_init(struct net_device *dev)
- 	team_adjust_ops(team);
+-	spin_lock_init(&team->lock);
++	mutex_init(&team->lock);
  
- 	INIT_LIST_HEAD(&team->option_list);
--	team_options_register(team, team_options, ARRAY_SIZE(team_options));
-+	err = team_options_register(team, team_options, ARRAY_SIZE(team_options));
-+	if (err)
-+		goto err_options_register;
- 	netif_carrier_off(dev);
+ 	team->pcpu_stats = alloc_percpu(struct team_pcpu_stats);
+ 	if (!team->pcpu_stats)
+@@ -672,13 +672,13 @@ static void team_uninit(struct net_device *dev)
+ 	struct team_port *port;
+ 	struct team_port *tmp;
  
- 	return 0;
-+
-+err_options_register:
-+	free_percpu(team->pcpu_stats);
-+
-+	return err;
+-	spin_lock(&team->lock);
++	mutex_lock(&team->lock);
+ 	list_for_each_entry_safe(port, tmp, &team->port_list, list)
+ 		team_port_del(team, port->dev);
+ 
+ 	__team_change_mode(team, NULL); /* cleanup */
+ 	__team_options_unregister(team, team_options, ARRAY_SIZE(team_options));
+-	spin_unlock(&team->lock);
++	mutex_unlock(&team->lock);
  }
  
- static void team_uninit(struct net_device *dev)
-diff --git a/drivers/net/team/team_mode_activebackup.c b/drivers/net/team/team_mode_activebackup.c
-index 6fe920c..b344275 100644
---- a/drivers/net/team/team_mode_activebackup.c
-+++ b/drivers/net/team/team_mode_activebackup.c
-@@ -83,7 +83,7 @@ static int ab_active_port_set(struct team *team, void *arg)
- 	return -ENOENT;
+ static void team_destructor(struct net_device *dev)
+@@ -784,7 +784,7 @@ static int team_change_mtu(struct net_device *dev, int new_mtu)
+ 	 * Alhough this is reader, it's guarded by team lock. It's not possible
+ 	 * to traverse list in reverse under rcu_read_lock
+ 	 */
+-	spin_lock(&team->lock);
++	mutex_lock(&team->lock);
+ 	list_for_each_entry(port, &team->port_list, list) {
+ 		err = dev_set_mtu(port->dev, new_mtu);
+ 		if (err) {
+@@ -793,7 +793,7 @@ static int team_change_mtu(struct net_device *dev, int new_mtu)
+ 			goto unwind;
+ 		}
+ 	}
+-	spin_unlock(&team->lock);
++	mutex_unlock(&team->lock);
+ 
+ 	dev->mtu = new_mtu;
+ 
+@@ -802,7 +802,7 @@ static int team_change_mtu(struct net_device *dev, int new_mtu)
+ unwind:
+ 	list_for_each_entry_continue_reverse(port, &team->port_list, list)
+ 		dev_set_mtu(port->dev, dev->mtu);
+-	spin_unlock(&team->lock);
++	mutex_unlock(&team->lock);
+ 
+ 	return err;
+ }
+@@ -880,9 +880,9 @@ static int team_add_slave(struct net_device *dev, struct net_device *port_dev)
+ 	struct team *team = netdev_priv(dev);
+ 	int err;
+ 
+-	spin_lock(&team->lock);
++	mutex_lock(&team->lock);
+ 	err = team_port_add(team, port_dev);
+-	spin_unlock(&team->lock);
++	mutex_unlock(&team->lock);
+ 	return err;
  }
  
--static struct team_option ab_options[] = {
-+static const struct team_option ab_options[] = {
- 	{
- 		.name = "activeport",
- 		.type = TEAM_OPTION_TYPE_U32,
-@@ -94,8 +94,7 @@ static struct team_option ab_options[] = {
+@@ -891,9 +891,9 @@ static int team_del_slave(struct net_device *dev, struct net_device *port_dev)
+ 	struct team *team = netdev_priv(dev);
+ 	int err;
  
- int ab_init(struct team *team)
+-	spin_lock(&team->lock);
++	mutex_lock(&team->lock);
+ 	err = team_port_del(team, port_dev);
+-	spin_unlock(&team->lock);
++	mutex_unlock(&team->lock);
+ 	return err;
+ }
+ 
+@@ -1061,13 +1061,13 @@ static struct team *team_nl_team_get(struct genl_info *info)
+ 		return NULL;
+ 
+ 	team = netdev_priv(dev);
+-	spin_lock(&team->lock);
++	mutex_lock(&team->lock);
+ 	return team;
+ }
+ 
+ static void team_nl_team_put(struct team *team)
  {
--	team_options_register(team, ab_options, ARRAY_SIZE(ab_options));
--	return 0;
-+	return team_options_register(team, ab_options, ARRAY_SIZE(ab_options));
+-	spin_unlock(&team->lock);
++	mutex_unlock(&team->lock);
+ 	dev_put(team->dev);
  }
  
- void ab_exit(struct team *team)
+@@ -1483,9 +1483,9 @@ static void team_port_change_check(struct team_port *port, bool linkup)
+ {
+ 	struct team *team = port->team;
+ 
+-	spin_lock(&team->lock);
++	mutex_lock(&team->lock);
+ 	__team_port_change_check(port, linkup);
+-	spin_unlock(&team->lock);
++	mutex_unlock(&team->lock);
+ }
+ 
+ /************************************
 diff --git a/include/linux/if_team.h b/include/linux/if_team.h
-index a6eac12..828181f 100644
+index 14f6388..a6eac12 100644
 --- a/include/linux/if_team.h
 +++ b/include/linux/if_team.h
-@@ -140,11 +140,11 @@ static inline struct team_port *team_get_port_by_index_rcu(struct team *team,
- }
+@@ -92,7 +92,7 @@ struct team {
+ 	struct net_device *dev; /* associated netdevice */
+ 	struct team_pcpu_stats __percpu *pcpu_stats;
  
- extern int team_port_set_team_mac(struct team_port *port);
--extern void team_options_register(struct team *team,
--				  struct team_option *option,
--				  size_t option_count);
-+extern int team_options_register(struct team *team,
-+				 const struct team_option *option,
-+				 size_t option_count);
- extern void team_options_unregister(struct team *team,
--				    struct team_option *option,
-+				    const struct team_option *option,
- 				    size_t option_count);
- extern int team_mode_register(struct team_mode *mode);
- extern int team_mode_unregister(struct team_mode *mode);
+-	spinlock_t lock; /* used for overall locking, e.g. port lists write */
++	struct mutex lock; /* used for overall locking, e.g. port lists write */
+ 
+ 	/*
+ 	 * port lists with port count
 -- 
 1.7.6
