@@ -1,208 +1,209 @@
-From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net-next v5 04/10] net: provide counter for tx_timeout errors in sysfs
-Date: Tue, 15 Nov 2011 21:15:52 -0800
-Message-ID: <5517a18a0aaacf7ee91ee189825842a19905ffa4.1321420513.git.david.decotigny@google.com>
-References: <cover.1321420513.git.david.decotigny@google.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
-	Szymon Janc <szymon@janc.net.pl>,
-	Richard Jones <rick.jones2@hp.com>,
-	Ayaz Abdulla <AAbdulla@nvidia.com>,
-	David Decotigny <david.decotigny@google.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1321420513.git.david.decotigny@google.com>
-In-Reply-To: <cover.1321420513.git.david.decotigny@google.com>
-References: <cover.1321420513.git.david.decotigny@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hemant Vilas RAMDASI <hemant.ramdasi@stericsson.com>
+Subject: [PATCH v5] Phonet: set the pipe handle using setsockopt
+Date: Wed, 16 Nov 2011 11:14:18 +0530
+Message-ID: <1321422258-13018-1-git-send-email-hemant.ramdasi@stericsson.com>
+Cc: netdev@vger.kernel.org, remi.denis-courmont@nokia.com,
+	Dinesh Kumar Sharma <dinesh.sharma@stericsson.com>,
+	Hemant Ramdasi <hemant.ramdasi@stericsson.com>
+To: netdev-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:42279 "EHLO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752916Ab1KPFoc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 00:44:32 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This adds the /sys/class/net/DEV/queues/Q/tx_timeout attribute
-containing the total number of timeout events on the given queue. It
-is always available, independently of CONFIG_RPS/XPS.
+From: Dinesh Kumar Sharma <dinesh.sharma@stericsson.com>
 
-Credits to Stephen Hemminger for a preliminary version of this patch.
+This provides flexibility to set the pipe handle
+using setsockopt. The pipe can be enabled (if disabled) later
+using ioctl.
 
-Tested:
-  without CONFIG_SYSFS (compilation only)
-  with sysfs and without CONFIG_RPS & CONFIG_XPS
-  with sysfs and without CONFIG_RPS
-  with sysfs and without CONFIG_XPS
-  with defaults
-
-
-
-Signed-off-by: David Decotigny <david.decotigny@google.com>
+Signed-off-by: Hemant Ramdasi <hemant.ramdasi@stericsson.com>
+Signed-off-by: Dinesh Kumar Sharma <dinesh.sharma@stericsson.com>
 ---
- include/linux/netdevice.h |   12 ++++++++++--
- net/core/net-sysfs.c      |   37 +++++++++++++++++++++++++++++++------
- net/sched/sch_generic.c   |    1 +
- 3 files changed, 42 insertions(+), 8 deletions(-)
+ include/linux/phonet.h |    3 +
+ net/phonet/pep.c       |  103 ++++++++++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 99 insertions(+), 7 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index cbeb586..9e6cf09 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -530,7 +530,7 @@ struct netdev_queue {
- 	struct Qdisc		*qdisc;
- 	unsigned long		state;
- 	struct Qdisc		*qdisc_sleeping;
--#if defined(CONFIG_RPS) || defined(CONFIG_XPS)
-+#ifdef CONFIG_SYSFS
- 	struct kobject		kobj;
- #endif
- #if defined(CONFIG_XPS) && defined(CONFIG_NUMA)
-@@ -545,6 +545,12 @@ struct netdev_queue {
- 	 * please use this field instead of dev->trans_start
- 	 */
- 	unsigned long		trans_start;
-+
-+	/*
-+	 * Number of TX timeouts for this queue
-+	 * (/sys/class/net/DEV/Q/trans_timeout)
-+	 */
-+	unsigned long		trans_timeout;
- } ____cacheline_aligned_in_smp;
+diff --git a/include/linux/phonet.h b/include/linux/phonet.h
+index 6fb1384..4c00551 100644
+--- a/include/linux/phonet.h
++++ b/include/linux/phonet.h
+@@ -37,6 +37,8 @@
+ #define PNPIPE_ENCAP		1
+ #define PNPIPE_IFINDEX		2
+ #define PNPIPE_HANDLE		3
++#define PNPIPE_ENABLE		4
++#define PNPIPE_INITSTATE	5
  
- static inline int netdev_queue_numa_node_read(const struct netdev_queue *q)
-@@ -1184,9 +1190,11 @@ struct net_device {
+ #define PNADDR_ANY		0
+ #define PNADDR_BROADCAST	0xFC
+@@ -180,6 +182,7 @@ static inline __u8 pn_sockaddr_get_resource(const struct sockaddr_pn *spn)
+ /* Phonet device ioctl requests */
+ #ifdef __KERNEL__
+ #define SIOCPNGAUTOCONF		(SIOCDEVPRIVATE + 0)
++#define SIOPNPIPE_ENABLE	_IO(SIOCPNGAUTOCONF,   1)
  
- 	unsigned char		broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
- 
--#if defined(CONFIG_RPS) || defined(CONFIG_XPS)
-+#ifdef CONFIG_SYSFS
- 	struct kset		*queues_kset;
-+#endif
- 
-+#ifdef CONFIG_RPS
- 	struct netdev_rx_queue	*_rx;
- 
- 	/* Number of RX queues allocated at register_netdev() time */
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index a64382f..602b141 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -780,7 +780,7 @@ net_rx_queue_update_kobjects(struct net_device *net, int old_num, int new_num)
- #endif
+ struct if_phonet_autoconf {
+ 	uint8_t device;
+diff --git a/net/phonet/pep.c b/net/phonet/pep.c
+index f17fd84..6019b7e 100644
+--- a/net/phonet/pep.c
++++ b/net/phonet/pep.c
+@@ -533,6 +533,29 @@ static int pep_connresp_rcv(struct sock *sk, struct sk_buff *skb)
+ 	return pipe_handler_send_created_ind(sk);
  }
  
--#ifdef CONFIG_XPS
-+#ifdef CONFIG_SYSFS
- /*
-  * netdev_queue sysfs structures and functions.
-  */
-@@ -826,6 +826,23 @@ static const struct sysfs_ops netdev_queue_sysfs_ops = {
- 	.store = netdev_queue_attr_store,
- };
- 
-+static ssize_t show_trans_timeout(struct netdev_queue *queue,
-+				  struct netdev_queue_attribute *attribute,
-+				  char *buf)
++static int pep_enableresp_rcv(struct sock *sk, struct sk_buff *skb)
 +{
-+	unsigned long trans_timeout;
++	struct pnpipehdr *hdr = pnp_hdr(skb);
 +
-+	spin_lock_irq(&queue->_xmit_lock);
-+	trans_timeout = queue->trans_timeout;
-+	spin_unlock_irq(&queue->_xmit_lock);
++	if (hdr->error_code != PN_PIPE_NO_ERROR)
++		return -ECONNREFUSED;
 +
-+	return sprintf(buf, "%lu", trans_timeout);
++	return pep_indicate(sk, PNS_PIPE_ENABLED_IND, 0 /* sub-blocks */,
++		NULL, 0, GFP_ATOMIC);
++
 +}
 +
-+static struct netdev_queue_attribute queue_trans_timeout =
-+	__ATTR(tx_timeout, S_IRUGO, show_trans_timeout, NULL);
++static void pipe_start_flow_control(struct sock *sk)
++{
++	struct pep_sock *pn = pep_sk(sk);
 +
-+#ifdef CONFIG_XPS
- static inline unsigned int get_netdev_queue_index(struct netdev_queue *queue)
- {
- 	struct net_device *dev = queue->dev;
-@@ -1020,12 +1037,17 @@ error:
++	if (!pn_flow_safe(pn->tx_fc)) {
++		atomic_set(&pn->tx_credits, 1);
++		sk->sk_write_space(sk);
++	}
++	pipe_grant_credits(sk, GFP_ATOMIC);
++}
++
+ /* Queue an skb to an actively connected sock.
+  * Socket lock must be held. */
+ static int pipe_handler_do_rcv(struct sock *sk, struct sk_buff *skb)
+@@ -578,13 +601,25 @@ static int pipe_handler_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 			sk->sk_state = TCP_CLOSE_WAIT;
+ 			break;
+ 		}
++		if (pn->init_enable == PN_PIPE_DISABLE)
++			sk->sk_state = TCP_SYN_RECV;
++		else {
++			sk->sk_state = TCP_ESTABLISHED;
++			pipe_start_flow_control(sk);
++		}
++		break;
  
- static struct netdev_queue_attribute xps_cpus_attribute =
-     __ATTR(xps_cpus, S_IRUGO | S_IWUSR, show_xps_map, store_xps_map);
-+#endif /* CONFIG_XPS */
+-		sk->sk_state = TCP_ESTABLISHED;
+-		if (!pn_flow_safe(pn->tx_fc)) {
+-			atomic_set(&pn->tx_credits, 1);
+-			sk->sk_write_space(sk);
++	case PNS_PEP_ENABLE_RESP:
++		if (sk->sk_state != TCP_SYN_SENT)
++			break;
++
++		if (pep_enableresp_rcv(sk, skb)) {
++			sk->sk_state = TCP_CLOSE_WAIT;
++			break;
+ 		}
+-		pipe_grant_credits(sk, GFP_ATOMIC);
++
++		sk->sk_state = TCP_ESTABLISHED;
++		pipe_start_flow_control(sk);
+ 		break;
  
- static struct attribute *netdev_queue_default_attrs[] = {
-+	&queue_trans_timeout.attr,
-+#ifdef CONFIG_XPS
- 	&xps_cpus_attribute.attr,
-+#endif
- 	NULL
- };
+ 	case PNS_PEP_DISCONNECT_RESP:
+@@ -863,14 +898,32 @@ static int pep_sock_connect(struct sock *sk, struct sockaddr *addr, int len)
+ 	int err;
+ 	u8 data[4] = { 0 /* sub-blocks */, PAD, PAD, PAD };
  
-+#ifdef CONFIG_XPS
- static void netdev_queue_release(struct kobject *kobj)
- {
- 	struct netdev_queue *queue = to_netdev_queue(kobj);
-@@ -1076,10 +1098,13 @@ static void netdev_queue_release(struct kobject *kobj)
- 	memset(kobj, 0, sizeof(*kobj));
- 	dev_put(queue->dev);
- }
-+#endif /* CONFIG_XPS */
- 
- static struct kobj_type netdev_queue_ktype = {
- 	.sysfs_ops = &netdev_queue_sysfs_ops,
-+#ifdef CONFIG_XPS
- 	.release = netdev_queue_release,
-+#endif
- 	.default_attrs = netdev_queue_default_attrs,
- };
- 
-@@ -1102,12 +1127,12 @@ static int netdev_queue_add_kobject(struct net_device *net, int index)
- 
- 	return error;
- }
--#endif /* CONFIG_XPS */
-+#endif /* CONFIG_SYSFS */
- 
- int
- netdev_queue_update_kobjects(struct net_device *net, int old_num, int new_num)
- {
--#ifdef CONFIG_XPS
-+#ifdef CONFIG_SYSFS
- 	int i;
- 	int error = 0;
- 
-@@ -1125,14 +1150,14 @@ netdev_queue_update_kobjects(struct net_device *net, int old_num, int new_num)
- 	return error;
- #else
+-	pn->pipe_handle = 1; /* anything but INVALID_HANDLE */
++	if (pn->pipe_handle == PN_PIPE_INVALID_HANDLE)
++		pn->pipe_handle = 1; /* anything but INVALID_HANDLE */
++
+ 	err = pipe_handler_request(sk, PNS_PEP_CONNECT_REQ,
+-					PN_PIPE_ENABLE, data, 4);
++				pn->init_enable, data, 4);
+ 	if (err) {
+ 		pn->pipe_handle = PN_PIPE_INVALID_HANDLE;
+ 		return err;
+ 	}
++
++	sk->sk_state = TCP_SYN_SENT;
++
++	return 0;
++}
++
++static int pep_sock_enable(struct sock *sk, struct sockaddr *addr, int len)
++{
++	int err;
++
++	err = pipe_handler_request(sk, PNS_PEP_ENABLE_REQ, PAD,
++				NULL, 0);
++	if (err)
++		return err;
++
+ 	sk->sk_state = TCP_SYN_SENT;
++
  	return 0;
--#endif
-+#endif /* CONFIG_SYSFS */
  }
  
- static int register_queue_kobjects(struct net_device *net)
- {
- 	int error = 0, txq = 0, rxq = 0, real_rx = 0, real_tx = 0;
+@@ -894,6 +947,19 @@ static int pep_ioctl(struct sock *sk, int cmd, unsigned long arg)
+ 			answ = 0;
+ 		release_sock(sk);
+ 		return put_user(answ, (int __user *)arg);
++		break;
++
++	case SIOPNPIPE_ENABLE:
++		lock_sock(sk);
++		if (sk->sk_state == TCP_SYN_SENT)
++			answ =  -EBUSY;
++		else if (sk->sk_state == TCP_ESTABLISHED)
++			answ = -EISCONN;
++		else
++			answ = pep_sock_enable(sk, NULL, 0);
++		release_sock(sk);
++		return answ;
++		break;
+ 	}
  
--#if defined(CONFIG_RPS) || defined(CONFIG_XPS)
-+#ifdef CONFIG_SYSFS
- 	net->queues_kset = kset_create_and_add("queues",
- 	    NULL, &net->dev.kobj);
- 	if (!net->queues_kset)
-@@ -1173,7 +1198,7 @@ static void remove_queue_kobjects(struct net_device *net)
+ 	return -ENOIOCTLCMD;
+@@ -959,6 +1025,18 @@ static int pep_setsockopt(struct sock *sk, int level, int optname,
+ 		}
+ 		goto out_norel;
  
- 	net_rx_queue_update_kobjects(net, real_rx, 0);
- 	netdev_queue_update_kobjects(net, real_tx, 0);
--#if defined(CONFIG_RPS) || defined(CONFIG_XPS)
-+#ifdef CONFIG_SYSFS
- 	kset_unregister(net->queues_kset);
- #endif
- }
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 69fca27..79ac145 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -246,6 +246,7 @@ static void dev_watchdog(unsigned long arg)
- 				    time_after(jiffies, (trans_start +
- 							 dev->watchdog_timeo))) {
- 					some_queue_timedout = 1;
-+					txq->trans_timeout++;
- 					break;
- 				}
- 			}
++	case PNPIPE_HANDLE:
++		if ((sk->sk_state == TCP_CLOSE) &&
++			(val >= 0) && (val < PN_PIPE_INVALID_HANDLE))
++			pn->pipe_handle = val;
++		else
++			err = -EINVAL;
++		break;
++
++	case PNPIPE_INITSTATE:
++		pn->init_enable = !!val;
++		break;
++
+ 	default:
+ 		err = -ENOPROTOOPT;
+ 	}
+@@ -994,6 +1072,17 @@ static int pep_getsockopt(struct sock *sk, int level, int optname,
+ 			return -EINVAL;
+ 		break;
+ 
++	case PNPIPE_ENABLE:
++		if (sk->sk_state == TCP_ESTABLISHED)
++			val = 1;
++		else
++			val = 0;
++		break;
++
++	case PNPIPE_INITSTATE:
++		val = pn->init_enable;
++		break;
++
+ 	default:
+ 		return -ENOPROTOOPT;
+ 	}
 -- 
-1.7.3.1
+1.7.4.3
