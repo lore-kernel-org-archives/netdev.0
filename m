@@ -1,7 +1,7 @@
 From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net-next v4 00/10] net-sysfs+forcedeth: stats & debug enhancements
-Date: Tue, 15 Nov 2011 21:13:52 -0800
-Message-ID: <cover.1321420223.git.david.decotigny@google.com>
+Subject: [PATCH net-next v5 00/10] net-sysfs+forcedeth: stats & debug enhancements
+Date: Tue, 15 Nov 2011 21:15:48 -0800
+Message-ID: <cover.1321420513.git.david.decotigny@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Ian Campbell <ian.campbell@citrix.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
@@ -13,15 +13,9 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Ayaz Abdulla <AAbdulla@nvidia.com>,
 	David Decotigny <david.decotigny@google.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f202.google.com ([209.85.215.202]:44420 "EHLO
-	mail-ey0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751517Ab1KPFOK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 00:14:10 -0500
-Received: by eyg5 with SMTP id 5so914eyg.1
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2011 21:14:09 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 These changes provide a new tx_timeout sysfs attribute and implement
 the ndo_get_stats64 API. They also add a few more stats and debugging
