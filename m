@@ -1,51 +1,77 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [PATCH] Add ethtool to mii advertisment conversion helpers
-Date: Wed, 16 Nov 2011 14:56:32 -0800
-Message-ID: <20111116225632.GA3556@mcarlson.broadcom.com>
-References: <1321394453-21076-1-git-send-email-mcarlson@broadcom.com>
- <20111116.173618.213297028503733251.davem@davemloft.net>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [patch net-next V8] net: introduce ethernet teaming device
+Date: Thu, 17 Nov 2011 00:01:27 +0100
+Message-ID: <CAHXqBFKZqMSXFygxtfrhgtcfEZMWvhda46d1=J5oZDJ=BsQbTg@mail.gmail.com>
+References: <1321085808-6871-1-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Michael Chan" <mchan@broadcom.com>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	shemminger@vyatta.com, fubar@us.ibm.com, andy@greyhouse.net,
+	tgraf@infradead.org, ebiederm@xmission.com, kaber@trash.net,
+	greearb@candelatech.com, jesse@nicira.com, fbl@redhat.com,
+	benjamin.poirier@gmail.com, jzupka@redhat.com, ivecera@redhat.com
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3661 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753154Ab1KPWzh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Nov 2011 17:55:37 -0500
-In-Reply-To: <20111116.173618.213297028503733251.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:64307 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752669Ab1KPXBt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 18:01:49 -0500
+Received: by ggnb2 with SMTP id b2so304484ggn.19
+        for <netdev@vger.kernel.org>; Wed, 16 Nov 2011 15:01:49 -0800 (PST)
+In-Reply-To: <1321085808-6871-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 16, 2011 at 02:36:18PM -0800, David Miller wrote:
-> From: "Matt Carlson" <mcarlson@broadcom.com>
-> Date: Tue, 15 Nov 2011 14:00:53 -0800
-> 
-> > Translating between ethtool advertisement settings and MII
-> > advertisements are common operations for ethernet drivers.  This patch
-> > adds a set of helper functions that implements the conversion.  The
-> > patch then modifies a couple of the drivers to use the new functions.
-> > 
-> > Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-> > Signed-off-by: Michael Chan <mchan@broadcom.com>
-> 
-> Doesn't build:
-> 
-> In file included from drivers/net/ethernet/3com/3c59x.c:82:0:
-> include/linux/mii.h: In function ?ethtool_adv_to_mii_100bt?:
-> include/linux/mii.h:254:15: error: ?ADVERTISED_10baseT_Half? undeclared (first use in this function)
-> include/linux/mii.h:254:15: note: each undeclared identifier is reported only once for each function it appears in
-> include/linux/mii.h:256:15: error: ?ADVERTISED_10baseT_Full? undeclared (first use in this function)
-> include/linux/mii.h:258:15: error: ?ADVERTISED_100baseT_Half? undeclared (first use in this function)
-> include/linux/mii.h:260:15: error: ?ADVERTISED_100baseT_Full? undeclared (first use in this function)
-> include/linux/mii.h:262:15: error: ?ADVERTISED_Pause? undeclared (first use in this function)
-> include/linux/mii.h:264:15: error: ?ADVERTISED_Asym_Pause? undeclared (first use in this function)
+2011/11/12 Jiri Pirko <jpirko@redhat.com>:
+> This patch introduces new network device called team. It supposes to =
+be
+> very fast, simple, userspace-driven alternative to existing bonding
+> driver.
+[...]
+> +#define TEAM_VLAN_FEATURES (NETIF_F_ALL_CSUM | NETIF_F_SG | \
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 NETIF_F_FRAGLIS=
+T | NETIF_F_ALL_TSO | \
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 NETIF_F_HIGHDMA=
+ | NETIF_F_LRO)
+> +
+> +static void __team_compute_features(struct team *team)
+> +{
+> + =A0 =A0 =A0 struct team_port *port;
+> + =A0 =A0 =A0 u32 vlan_features =3D TEAM_VLAN_FEATURES;
+> + =A0 =A0 =A0 unsigned short max_hard_header_len =3D ETH_HLEN;
+> +
+> + =A0 =A0 =A0 list_for_each_entry(port, &team->port_list, list) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 vlan_features =3D netdev_increment_feat=
+ures(vlan_features,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 port->dev->vlan_features,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 TEAM_VLAN_FEATURES);
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (port->dev->hard_header_len > max_ha=
+rd_header_len)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 max_hard_header_len =3D=
+ port->dev->hard_header_len;
+> + =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 team->dev->vlan_features =3D vlan_features;
+> + =A0 =A0 =A0 team->dev->hard_header_len =3D max_hard_header_len;
+> +
+> + =A0 =A0 =A0 netdev_change_features(team->dev);
+> +}
+> +
+> +static void team_compute_features(struct team *team)
+> +{
+> + =A0 =A0 =A0 spin_lock(&team->lock);
+> + =A0 =A0 =A0 __team_compute_features(team);
+> + =A0 =A0 =A0 spin_unlock(&team->lock);
+> +}
+[...]
 
-I forgot to add '#include <linux\ethtool.h>' to mii.h.  I guess for the
-drivers I enabled, ethtool.h was already included.  New patch on its
-way.
+I just noticed that you missed ndo_fix_features in the driver. If you
+look at bonding driver it should be easy to see how it should work.
+
+Best Regards,
+Micha=B3 Miros=B3aw
