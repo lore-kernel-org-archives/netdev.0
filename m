@@ -1,7 +1,7 @@
 From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net-next v6 5/9] forcedeth: Add messages to indicate using MSI or MSI-X
-Date: Wed, 16 Nov 2011 14:15:11 -0800
-Message-ID: <f9863a91fd0aecd6d881341daa2f24bf0e8e4765.1321481064.git.david.decotigny@google.com>
+Subject: [PATCH net-next v6 4/9] net: new counter for tx_timeout errors in sysfs
+Date: Wed, 16 Nov 2011 14:15:10 -0800
+Message-ID: <69fc9885c6febb83152fe3dce1c20ea7237538d1.1321481064.git.david.decotigny@google.com>
 References: <cover.1321481064.git.david.decotigny@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Ian Campbell <ian.campbell@citrix.com>,
@@ -12,7 +12,6 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Szymon Janc <szymon@janc.net.pl>,
 	Richard Jones <rick.jones2@hp.com>,
 	Ayaz Abdulla <AAbdulla@nvidia.com>,
-	Mike Ditto <mditto@google.com>,
 	David Decotigny <david.decotigny@google.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -22,37 +21,189 @@ References: <cover.1321481064.git.david.decotigny@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mike Ditto <mditto@google.com>
+This adds the /sys/class/net/DEV/queues/Q/tx_timeout attribute
+containing the total number of timeout events on the given queue. It
+is always available with CONFIG_SYSFS, independently of
+CONFIG_RPS/XPS.
 
-This adds a few kernel messages to indicate whether PCIe interrupts
-are signaled with MSI or MSI-X.
+Credits to Stephen Hemminger for a preliminary version of this patch.
+
+Tested:
+  without CONFIG_SYSFS (compilation only)
+  with sysfs and without CONFIG_RPS & CONFIG_XPS
+  with sysfs and without CONFIG_RPS
+  with sysfs and without CONFIG_XPS
+  with defaults
 
 
 
 Signed-off-by: David Decotigny <david.decotigny@google.com>
 ---
- drivers/net/ethernet/nvidia/forcedeth.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ include/linux/netdevice.h |   12 ++++++++++--
+ net/core/net-sysfs.c      |   37 +++++++++++++++++++++++++++++++------
+ net/sched/sch_generic.c   |    1 +
+ 3 files changed, 42 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 374625b..fe17e42 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -3810,6 +3810,7 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
- 				writel(0, base + NvRegMSIXMap0);
- 				writel(0, base + NvRegMSIXMap1);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index cbeb586..9e6cf09 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -530,7 +530,7 @@ struct netdev_queue {
+ 	struct Qdisc		*qdisc;
+ 	unsigned long		state;
+ 	struct Qdisc		*qdisc_sleeping;
+-#if defined(CONFIG_RPS) || defined(CONFIG_XPS)
++#ifdef CONFIG_SYSFS
+ 	struct kobject		kobj;
+ #endif
+ #if defined(CONFIG_XPS) && defined(CONFIG_NUMA)
+@@ -545,6 +545,12 @@ struct netdev_queue {
+ 	 * please use this field instead of dev->trans_start
+ 	 */
+ 	unsigned long		trans_start;
++
++	/*
++	 * Number of TX timeouts for this queue
++	 * (/sys/class/net/DEV/Q/trans_timeout)
++	 */
++	unsigned long		trans_timeout;
+ } ____cacheline_aligned_in_smp;
+ 
+ static inline int netdev_queue_numa_node_read(const struct netdev_queue *q)
+@@ -1184,9 +1190,11 @@ struct net_device {
+ 
+ 	unsigned char		broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
+ 
+-#if defined(CONFIG_RPS) || defined(CONFIG_XPS)
++#ifdef CONFIG_SYSFS
+ 	struct kset		*queues_kset;
++#endif
+ 
++#ifdef CONFIG_RPS
+ 	struct netdev_rx_queue	*_rx;
+ 
+ 	/* Number of RX queues allocated at register_netdev() time */
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index a64382f..602b141 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -780,7 +780,7 @@ net_rx_queue_update_kobjects(struct net_device *net, int old_num, int new_num)
+ #endif
+ }
+ 
+-#ifdef CONFIG_XPS
++#ifdef CONFIG_SYSFS
+ /*
+  * netdev_queue sysfs structures and functions.
+  */
+@@ -826,6 +826,23 @@ static const struct sysfs_ops netdev_queue_sysfs_ops = {
+ 	.store = netdev_queue_attr_store,
+ };
+ 
++static ssize_t show_trans_timeout(struct netdev_queue *queue,
++				  struct netdev_queue_attribute *attribute,
++				  char *buf)
++{
++	unsigned long trans_timeout;
++
++	spin_lock_irq(&queue->_xmit_lock);
++	trans_timeout = queue->trans_timeout;
++	spin_unlock_irq(&queue->_xmit_lock);
++
++	return sprintf(buf, "%lu", trans_timeout);
++}
++
++static struct netdev_queue_attribute queue_trans_timeout =
++	__ATTR(tx_timeout, S_IRUGO, show_trans_timeout, NULL);
++
++#ifdef CONFIG_XPS
+ static inline unsigned int get_netdev_queue_index(struct netdev_queue *queue)
+ {
+ 	struct net_device *dev = queue->dev;
+@@ -1020,12 +1037,17 @@ error:
+ 
+ static struct netdev_queue_attribute xps_cpus_attribute =
+     __ATTR(xps_cpus, S_IRUGO | S_IWUSR, show_xps_map, store_xps_map);
++#endif /* CONFIG_XPS */
+ 
+ static struct attribute *netdev_queue_default_attrs[] = {
++	&queue_trans_timeout.attr,
++#ifdef CONFIG_XPS
+ 	&xps_cpus_attribute.attr,
++#endif
+ 	NULL
+ };
+ 
++#ifdef CONFIG_XPS
+ static void netdev_queue_release(struct kobject *kobj)
+ {
+ 	struct netdev_queue *queue = to_netdev_queue(kobj);
+@@ -1076,10 +1098,13 @@ static void netdev_queue_release(struct kobject *kobj)
+ 	memset(kobj, 0, sizeof(*kobj));
+ 	dev_put(queue->dev);
+ }
++#endif /* CONFIG_XPS */
+ 
+ static struct kobj_type netdev_queue_ktype = {
+ 	.sysfs_ops = &netdev_queue_sysfs_ops,
++#ifdef CONFIG_XPS
+ 	.release = netdev_queue_release,
++#endif
+ 	.default_attrs = netdev_queue_default_attrs,
+ };
+ 
+@@ -1102,12 +1127,12 @@ static int netdev_queue_add_kobject(struct net_device *net, int index)
+ 
+ 	return error;
+ }
+-#endif /* CONFIG_XPS */
++#endif /* CONFIG_SYSFS */
+ 
+ int
+ netdev_queue_update_kobjects(struct net_device *net, int old_num, int new_num)
+ {
+-#ifdef CONFIG_XPS
++#ifdef CONFIG_SYSFS
+ 	int i;
+ 	int error = 0;
+ 
+@@ -1125,14 +1150,14 @@ netdev_queue_update_kobjects(struct net_device *net, int old_num, int new_num)
+ 	return error;
+ #else
+ 	return 0;
+-#endif
++#endif /* CONFIG_SYSFS */
+ }
+ 
+ static int register_queue_kobjects(struct net_device *net)
+ {
+ 	int error = 0, txq = 0, rxq = 0, real_rx = 0, real_tx = 0;
+ 
+-#if defined(CONFIG_RPS) || defined(CONFIG_XPS)
++#ifdef CONFIG_SYSFS
+ 	net->queues_kset = kset_create_and_add("queues",
+ 	    NULL, &net->dev.kobj);
+ 	if (!net->queues_kset)
+@@ -1173,7 +1198,7 @@ static void remove_queue_kobjects(struct net_device *net)
+ 
+ 	net_rx_queue_update_kobjects(net, real_rx, 0);
+ 	netdev_queue_update_kobjects(net, real_tx, 0);
+-#if defined(CONFIG_RPS) || defined(CONFIG_XPS)
++#ifdef CONFIG_SYSFS
+ 	kset_unregister(net->queues_kset);
+ #endif
+ }
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 69fca27..79ac145 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -246,6 +246,7 @@ static void dev_watchdog(unsigned long arg)
+ 				    time_after(jiffies, (trans_start +
+ 							 dev->watchdog_timeo))) {
+ 					some_queue_timedout = 1;
++					txq->trans_timeout++;
+ 					break;
+ 				}
  			}
-+			netdev_info(dev, "MSI-X enabled\n");
- 		}
- 	}
- 	if (ret != 0 && np->msi_flags & NV_MSI_CAPABLE) {
-@@ -3831,6 +3832,7 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
- 			writel(0, base + NvRegMSIMap1);
- 			/* enable msi vector 0 */
- 			writel(NVREG_MSI_VECTOR_0_ENABLED, base + NvRegMSIIrqMask);
-+			netdev_info(dev, "MSI enabled\n");
- 		}
- 	}
- 	if (ret != 0) {
 -- 
 1.7.3.1
