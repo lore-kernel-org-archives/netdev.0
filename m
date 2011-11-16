@@ -1,73 +1,43 @@
-From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net-next v6 2/9] net-sysfs: fixed minor sparse warning
-Date: Wed, 16 Nov 2011 14:15:08 -0800
-Message-ID: <6b08273a37db12be9e09ba197f4506b0f1ed26ba.1321481064.git.david.decotigny@google.com>
-References: <cover.1321481064.git.david.decotigny@google.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
-	Szymon Janc <szymon@janc.net.pl>,
-	Richard Jones <rick.jones2@hp.com>,
-	Ayaz Abdulla <AAbdulla@nvidia.com>,
-	David Decotigny <david.decotigny@google.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1321481064.git.david.decotigny@google.com>
-In-Reply-To: <cover.1321481064.git.david.decotigny@google.com>
-References: <cover.1321481064.git.david.decotigny@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH net-next v2] enable virtio_net to return bus_info
+	in ethtool -i consistent with emulated NICs
+Date: Wed, 16 Nov 2011 17:27:02 -0500 (EST)
+Message-ID: <20111116.172702.1492694683492850340.davem@davemloft.net>
+References: <20111115001708.72ED0290054F@tardy>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	mst@redhat.com
+To: raj@tardy.cup.hp.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20111115001708.72ED0290054F@tardy>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-This commit fixes following warning:
-net/core/net-sysfs.c:921:6: warning: symbol 'numa_node' shadows an earlier one
-include/linux/topology.h:222:1: originally declared here
+From: raj@tardy.cup.hp.com (Rick Jones)
+Date: Mon, 14 Nov 2011 16:17:08 -0800 (PST)
 
+> From: Rick Jones <rick.jones2@hp.com>
+> 
+> Add a new .bus_name to virtio_config_ops then modify virtio_net to 
+> call through to it in an ethtool .get_drvinfo routine to report
+> bus_info in ethtool -i output which is consistent with other
+> emulated NICs and the output of lspci.  
+> 
+> Signed-off-by: Rick Jones <rick.jones2@hp.com>
+> 
+> ---
+> 
+> The changes to drivers/lguest/lguest_device.c, drivers/s390/kvm/kvm_virtio.c,
+> and drivers/virtio/virtio_mmio.c code inspected only, not compiled.
 
-
-Signed-off-by: David Decotigny <david.decotigny@google.com>
----
- net/core/net-sysfs.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index c71c434..a64382f 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -901,7 +901,7 @@ static ssize_t store_xps_map(struct netdev_queue *queue,
- 	struct xps_map *map, *new_map;
- 	struct xps_dev_maps *dev_maps, *new_dev_maps;
- 	int nonempty = 0;
--	int numa_node = -2;
-+	int numa_node_id = -2;
- 
- 	if (!capable(CAP_NET_ADMIN))
- 		return -EPERM;
-@@ -944,10 +944,10 @@ static ssize_t store_xps_map(struct netdev_queue *queue,
- 		need_set = cpumask_test_cpu(cpu, mask) && cpu_online(cpu);
- #ifdef CONFIG_NUMA
- 		if (need_set) {
--			if (numa_node == -2)
--				numa_node = cpu_to_node(cpu);
--			else if (numa_node != cpu_to_node(cpu))
--				numa_node = -1;
-+			if (numa_node_id == -2)
-+				numa_node_id = cpu_to_node(cpu);
-+			else if (numa_node_id != cpu_to_node(cpu))
-+				numa_node_id = -1;
- 		}
- #endif
- 		if (need_set && pos >= map_len) {
-@@ -997,7 +997,7 @@ static ssize_t store_xps_map(struct netdev_queue *queue,
- 	if (dev_maps)
- 		kfree_rcu(dev_maps, rcu);
- 
--	netdev_queue_numa_node_write(queue, (numa_node >= 0) ? numa_node :
-+	netdev_queue_numa_node_write(queue, (numa_node_id >= 0) ? numa_node_id :
- 					    NUMA_NO_NODE);
- 
- 	mutex_unlock(&xps_map_mutex);
--- 
-1.7.3.1
+Applied, thanks Rick.
