@@ -1,31 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2] Add ethtool to mii advertisment conversion helpers
-Date: Wed, 16 Nov 2011 18:40:32 -0500 (EST)
-Message-ID: <20111116.184032.1176336205445892405.davem@davemloft.net>
-References: <1321486057-30968-1-git-send-email-mcarlson@broadcom.com>
+From: Simon Chen <simonchennj@gmail.com>
+Subject: under-performing bonded interfaces
+Date: Wed, 16 Nov 2011 18:44:43 -0500
+Message-ID: <CANj2EbeMRzicixHwrKpCQ3mMqQ1qbyjbRCxpW+CmVRREAhyeRQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mchan@broadcom.com
-To: mcarlson@broadcom.com
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41850 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751674Ab1KPXke (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 18:40:34 -0500
-In-Reply-To: <1321486057-30968-1-git-send-email-mcarlson@broadcom.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:56371 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751674Ab1KPXop (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 18:44:45 -0500
+Received: by fagn18 with SMTP id n18so2216198fag.19
+        for <netdev@vger.kernel.org>; Wed, 16 Nov 2011 15:44:44 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Wed, 16 Nov 2011 15:27:37 -0800
+Hello,
 
-> Translating between ethtool advertisement settings and MII
-> advertisements are common operations for ethernet drivers.  This patch
-> adds a set of helper functions that implements the conversion.  The
-> patch then modifies a couple of the drivers to use the new functions.
-> 
-> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+I am bonding two 10G interfaces (ixgbe driver) under Debian 6.0.2. The
+bonded interface for some reason can only achieve 12Gbps aggregated
+throughput. If a single NIC is used, I can get close to 10Gbps.
 
-Looks better, applied, thanks :)
+I've tried different bonding modes (balance-xor, 802.3ad, balance-alb,
+balance-tlb), and different xmit hashing policy (layer2, layer2+3,
+layer3+4). I've increased all types of kernel parameters for TCP. MTU
+on the physical and bonded interface is set to 8000 and 9000. The MTU
+on the switch is 9200+.
+
+Instead of nperf (a single server), I also tried my own TCP sender and
+receivers.
+
+All those done, still only 12Gbps... How can I really achieve close to 20Gbps?
+
+(I also tried cutting loose the switch in between, and also getting
+12G, so not an issue with the switch.)
+
+Thanks.
+-Simon
