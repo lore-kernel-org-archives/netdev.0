@@ -1,76 +1,44 @@
-From: Hans Schillstrom <hans@schillstrom.com>
-Subject: Re: [v2 PATCH 1/2] NETFILTER module xt_hmark new target for HASH based fw
-Date: Wed, 16 Nov 2011 10:28:42 +0100
-Message-ID: <201111161028.43078.hans@schillstrom.com>
-References: <b328f1j.5274a2398142147da04eb5e915d63283@obelix.schillstrom.com> <20111109143922.GC24174@1984>
+From: Matti Vaittinen <matti.vaittinen@nsn.com>
+Subject: IPv6: Removing unnecessary NULL checks patch causes crash.
+Date: Wed, 16 Nov 2011 11:51:59 +0200
+Message-ID: <1321437119.1858.105.camel@hakki>
+Reply-To: matti.vaittinen@nsn.com
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>, kaber@trash.net,
-	jengelh@medozas.de, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-gw11.han.skanova.net ([81.236.55.20]:34066 "EHLO
-	smtp-gw11.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754902Ab1KPJ2s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 04:28:48 -0500
-In-Reply-To: <20111109143922.GC24174@1984>
+Received: from demumfd001.nsn-inter.net ([93.183.12.32]:10435 "EHLO
+	demumfd001.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755464Ab1KPJkn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 04:40:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Pablo
-On Wednesday, November 09, 2011 15:39:22 Pablo Neira Ayuso wrote:
-> On Tue, Nov 08, 2011 at 04:12:27PM +0100, Hans Schillstrom wrote:
-> > >BTW, do you have some number of this running with and without
-> > >conntrack? It would be interesting to have.
-> > 
-> > I didn't save them,  but I can make a new benchmark later on.
-> 
-> Thanks, I'm interested in them. It can be just xt_HMARK with and
-> without conntrack enabled. Also make sure that you use stateful
-> rule-set if conntrack is enabled (thus, resulting in hashing only
-> once, not every packet). Otherwise, conntrack will not provide
-> any improvement.
-> 
+I left my box to run some test scripts last night with net-next tree where patch
+IPv6: Removing unnecessary NULL checks was applied. Crash had occurred when script 
+executed "ip route change xxx/128 dev eth0" with non existing target twice 
+in a row. (non existing target == there was no previous route to be changed) 
 
-I have some problems with the generator..., 
-so I did some simple iperf tcp test with KVM:s i.e. standart tcp setup
+This was not occuring with kernel where only 
+IPv6 routing, NLM_F_* flag support: REPLACE and EXCL flags support, warn about missing CREATE flag
+and
+IPv6 routing, NLM_F_* flag support: warn if new route is created without NLM_F_CREATE
+were applied. 
 
-iptables just one rule 
--A PREROUTING -d 10.0.0.10/32 -j HMARK --hmark-mod 0x2 --hmark-offs 0x64
+Anyways, I cannot think how info struct could be NULL, so I am a bit
+puzzled. Looks like I am missing some piece here. Anyways, somewhere in
+these patches is lurking a bug. I try to find the reason. 
 
-Some typical values shows ~8% degradation with conntrack loaded
+Sorry for the trouble.
 
+--Matti
 
-a) Without conntrack loaded
-
- [  3]  0.0-10.0 sec  83.5 MBytes  70.0 Mbits/sec
-
-
-b) With conntrack loaded (no iptable rules in use --ctstate or -m conntrack)
-
-[  3]  0.0-10.0 sec  78.0 MBytes  65.4 Mbits/sec
-
-c) With iptables rule in use
-iptables -t mangle -A PREROUTING -d 10.0.0.10 -m conntrack --ctstate NEW -j HMARK --mod 2 --offs 100
-iptables -t mangle -A PREROUTING -d 10.0.0.10 -m conntrack --ctstate ESTABLISHED,RELATED  -j HMARK --mod 2 --offs 100
-iptables -t mangle -A PREROUTING -d 10.0.0.10 -m conntrack --ctstate INVALID -j DROP
-
-[  3]  0.0-10.0 sec  77.4 MBytes  64.9 Mbits/sec
-
-
-A clean KVM with 3.2.0-rc1 kernel with virt-io 
-Module                  Size  Used by    Not tainted
-nf_conntrack_ipv4      16731  1 
-nf_defrag_ipv4         12436  1 nf_conntrack_ipv4
-xt_conntrack           12390  1 
-xt_hmark               12390  1 
-iptable_mangle         12390  1 
-ip_tables              20755  1 iptable_mangle
-ipip                   16515  0 
-tunnel4                12484  1 ipip
-
-
-/Hans
+-- 
+Matti Vaittinen
++358 504863070
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Told a UDP joke the other night...
+...but I'm not sure everyone got it...
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
