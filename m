@@ -1,7 +1,7 @@
 From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net-next v5 09/10] forcedeth: stats updated with a deferrable timer
-Date: Tue, 15 Nov 2011 21:15:57 -0800
-Message-ID: <524d8d6cf90d701b63690b70d3487d794c783617.1321420513.git.david.decotigny@google.com>
+Subject: [PATCH net-next v5 03/10] kbuild: document RPS/XPS network Kconfig options
+Date: Tue, 15 Nov 2011 21:15:51 -0800
+Message-ID: <e4bb76dfd9ddd0bd02d8897b15e7b4ee50af5b17.1321420513.git.david.decotigny@google.com>
 References: <cover.1321420513.git.david.decotigny@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Ian Campbell <ian.campbell@citrix.com>,
@@ -14,39 +14,66 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Ayaz Abdulla <AAbdulla@nvidia.com>,
 	David Decotigny <david.decotigny@google.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f74.google.com ([74.125.82.74]:59922 "EHLO
+	mail-ww0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752805Ab1KPFQc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 00:16:32 -0500
+Received: by wwe5 with SMTP id 5so1074wwe.1
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2011 21:16:31 -0800 (PST)
 In-Reply-To: <cover.1321420513.git.david.decotigny@google.com>
 In-Reply-To: <cover.1321420513.git.david.decotigny@google.com>
 References: <cover.1321420513.git.david.decotigny@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mark stats timer as deferrable: punctuality in waking the stats timer
-callback doesn't matter much, as it is responsible only to avoid
-integer wraparound.
-
-We need at least 1 other timer to fire within 17s (fully loaded 1Gbps)
-to avoid wrap-arounds. Desired period is still 10s.
+This adds a description of RPS/XPS options and allow them to be
+changed at make menuconfig time.
 
 
 
 Signed-off-by: David Decotigny <david.decotigny@google.com>
 ---
- drivers/net/ethernet/nvidia/forcedeth.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/Kconfig |   16 +++++++++++++---
+ 1 files changed, 13 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index d9b5a4d..5d436b5 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -5534,7 +5534,7 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
- 	init_timer(&np->nic_poll);
- 	np->nic_poll.data = (unsigned long) dev;
- 	np->nic_poll.function = nv_do_nic_poll;	/* timer handler */
--	init_timer(&np->stats_poll);
-+	init_timer_deferrable(&np->stats_poll);
- 	np->stats_poll.data = (unsigned long) dev;
- 	np->stats_poll.function = nv_do_stats_poll;	/* timer handler */
+diff --git a/net/Kconfig b/net/Kconfig
+index a073148..1422c34 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -217,20 +217,30 @@ source "net/dns_resolver/Kconfig"
+ source "net/batman-adv/Kconfig"
  
+ config RPS
+-	boolean
++	boolean "Enable Receive Packet Steering"
+ 	depends on SMP && SYSFS && USE_GENERIC_SMP_HELPERS
+ 	default y
++	  RPS distributes the load of received packet processing
++	  across multiple CPUs. If unsure, say Y.
+ 
+ config RFS_ACCEL
+-	boolean
++	boolean "Enable Hardware Acceleration of RFS"
+ 	depends on RPS && GENERIC_HARDIRQS
+ 	select CPU_RMAP
+ 	default y
++	  This is the hardware version of RPS. On multi-queue network
++	  devices, this configures the hardware to distribute the
++	  received packets across multiple CPUs. If unsure, say Y.
+ 
+ config XPS
+-	boolean
++	boolean "Enable Transmit Packet Steering"
+ 	depends on SMP && SYSFS && USE_GENERIC_SMP_HELPERS
+ 	default y
++	  For multiqueue devices, XPS selects a transmit queue during
++	  packet transmission based on configuration. This is done by
++	  mapping the CPU transmitting the packet to a queue. XPS can
++	  reduce transmit network latency on SMP systems. If unsure,
++	  say Y.
+ 
+ config HAVE_BPF_JIT
+ 	bool
 -- 
 1.7.3.1
