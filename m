@@ -1,41 +1,56 @@
-From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next 4/5] be2net: Fix VLAN promiscous mode for Lancer
-Date: Wed, 16 Nov 2011 17:33:32 +0530
-Message-ID: <ff5d6b1f-d275-4529-9889-0d93a9092fdb@exht2.ad.emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-To: <netdev@vger.kernel.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/8][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 16 Nov 2011 04:51:24 -0800
+Message-ID: <1321447892-14381-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:45661 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756422Ab1KPMEg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 07:04:36 -0500
+Received: from mga14.intel.com ([143.182.124.37]:24667 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755260Ab1KPMvf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Nov 2011 07:51:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To enable VLAN promiscous mode, the HW interface should be created
-with VLAN promiscous capability in Lancer. Add this capability during
-creation of the HW interface.
+The following series contains updates to e1000, e1000e, igb, igbvf,
+ixgbe and ixgbevf.  There is one fix for LED blink logic for ixgbe,
+the remaining patches are conversions of printk's to pr_<level>.
 
-Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+The following are changes since commit 229a66e3bec97563aa92e25dfe0bc60b0d468619:
+  IPv6: Removing unnecessary NULL checks.
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-organize master
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index c982b51..93869d4 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2600,7 +2600,8 @@ static int be_setup(struct be_adapter *adapter)
- 	en_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST |
- 			BE_IF_FLAGS_MULTICAST | BE_IF_FLAGS_PASS_L3L4_ERRORS;
- 	cap_flags = en_flags | BE_IF_FLAGS_MCAST_PROMISCUOUS |
--			BE_IF_FLAGS_PROMISCUOUS;
-+			BE_IF_FLAGS_VLAN_PROMISCUOUS | BE_IF_FLAGS_PROMISCUOUS;
-+
- 	if (adapter->function_caps & BE_FUNCTION_CAPS_RSS) {
- 		cap_flags |= BE_IF_FLAGS_RSS;
- 		en_flags |= BE_IF_FLAGS_RSS;
+Emil Tantilov (1):
+  ixgbe: fix LED blink logic to check for link
+
+Jeff Kirsher (4):
+  e1000e: Convert printks to pr_<level>
+  igbvf: Convert printks to pr_<level>
+  ixgbevf: Convert printks to pr_<level>
+  igb: Convert printks to pr_<level>
+
+Jesse Brandeburg (1):
+  e1000e: convert to real ndo_set_rx_mode
+
+Joe Perches (2):
+  igb: Convert bare printk to pr_notice
+  intel: Convert <FOO>_LENGTH_OF_ADDRESS to ETH_ALEN
+
+ drivers/net/ethernet/intel/e1000/e1000_hw.h       |    1 -
+ drivers/net/ethernet/intel/e1000e/netdev.c        |  388 ++++++++++++---------
+ drivers/net/ethernet/intel/igb/e1000_82575.c      |    5 +-
+ drivers/net/ethernet/intel/igb/igb_main.c         |  165 +++++-----
+ drivers/net/ethernet/intel/igbvf/netdev.c         |   14 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |    8 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c     |   18 +-
+ drivers/net/ethernet/intel/ixgbevf/defines.h      |    1 -
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c      |    6 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   27 +-
+ drivers/net/ethernet/intel/ixgbevf/vf.c           |    4 +-
+ 12 files changed, 340 insertions(+), 299 deletions(-)
+
 -- 
-1.6.0.2
+1.7.6.4
