@@ -1,114 +1,69 @@
-From: jason wang <jasowang@redhat.com>
-Subject: Re: [RFC] kvm tools: Implement multiple VQ for virtio-net
-Date: Wed, 16 Nov 2011 14:10:45 +0800
-Message-ID: <4EC353E5.4070009@redhat.com>
-References: <1321049521-26376-1-git-send-email-levinsasha928@gmail.com>	
-	<20111113102428.GD15322@redhat.com>
-	<1321196430.2425.2.camel@sasha> <4EC07729.3050303@gmail.com>
-	<1321265740.2425.7.camel@sasha>
-	<OFDA747DDD.8D1C8FD8-ON65257949.001837DA-65257949.0019D25F@in.ibm.com>
+From: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
+	<remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH] Phonet: set the pipe handle using setsockopt
+Date: Wed, 16 Nov 2011 08:30:50 +0200
+Message-ID: <3443203.gVgdO3ogFg@hector>
+References: <1321257210-17200-1-git-send-email-hemant.ramdasi@stericsson.com> <2168215.tYVKKNoJjY@hector> <81C3A93C17462B4BBD7E272753C105791FB090B0B8@EXDCVYMBSTM005.EQ1STM.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: penberg@kernel.org, kvm@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>, Asias He <asias.hejun@gmail.com>,
-	virtualization@lists.linux-foundation.org, gorcunov@gmail.com,
-	Sasha Levin <levinsasha928@gmail.com>, netdev@vger.kernel.org,
-	mingo@elte.hu
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <OFDA747DDD.8D1C8FD8-ON65257949.001837DA-65257949.0019D25F@in.ibm.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.nokia.com ([147.243.1.47]:57559 "EHLO mgw-sa01.nokia.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752486Ab1KPGal convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 01:30:41 -0500
+Received: from hector.localnet (esdhcp034220.research.nokia.com [172.21.34.220])
+	by mgw-sa01.nokia.com (Switch-3.4.4/Switch-3.4.4) with ESMTP id pAG6UaVJ007907
+	for <netdev@vger.kernel.org>; Wed, 16 Nov 2011 08:30:36 +0200
+In-Reply-To: <81C3A93C17462B4BBD7E272753C105791FB090B0B8@EXDCVYMBSTM005.EQ1STM.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/15/2011 12:44 PM, Krishna Kumar2 wrote:
-> Sasha Levin <levinsasha928@gmail.com> wrote on 11/14/2011 03:45:40 PM:
->
->>> Why both the bandwidth and latency performance are dropping so
->>> dramatically with multiple VQ?
->> It looks like theres no hash sync between host and guest, which makes
->> the RX VQ change for every packet. This is my guess.
-> Yes, I confirmed this happens for macvtap. I am
-> using ixgbe - it calls skb_record_rx_queue when
-> a skb is allocated, but sets rxhash when a packet
-> arrives. Macvtap is relying on record_rx_queue
-> first ahead of rxhash (as part of my patch making
-> macvtap multiqueue), hence different skbs result
-> in macvtap selecting different vq's.
->
-> Reordering macvtap to use rxhash first results in
-> all packets going to the same VQ. The code snippet
-> is:
->
-> {
-> 	...
-> 	if (!numvtaps)
->                 goto out;
->
-> 	rxq = skb_get_rxhash(skb);
-> 	if (rxq) {
-> 		tap = rcu_dereference(vlan->taps[rxq % numvtaps]);
-> 		if (tap)
-> 			goto out;
-> 	}
->
-> 	if (likely(skb_rx_queue_recorded(skb))) {
-> 		rxq = skb_get_rx_queue(skb);
->
-> 		while (unlikely(rxq >= numvtaps))
-> 			rxq -= numvtaps;
-> 			tap = rcu_dereference(vlan->taps[rxq]);
-> 			if (tap)
-> 				goto out;
-> 	}
-> }
->
-> I will submit a patch for macvtap separately. I am working
-> towards the other issue pointed out - different vhost
-> threads handling rx/tx of a single flow.
-Hello Krishna:
+Le Lundi 14 Novembre 2011 11:36:12 ext Hemant-vilas RAMDASI a =E9crit :
+ > > sockaddr_pn *spn) /* Phonet device ioctl requests */
+> > >=20
+> > >  #ifdef __KERNEL__
+> > >  #define SIOCPNGAUTOCONF		(SIOCDEVPRIVATE + 0)
+> > >=20
+> > > +#define SIOPNPIPE_ENABLE	_IO(SIOCPNGAUTOCONF,   1)
+> >=20
+> > Does this even work? I am not an expert on this, but I would think =
+that
+> > device-private controls are routed to the network device, not the
+> > socket. In
+> > any case, it does not seem right.
+>=20
+> Yes, it works. The ioctl is routed to per-socket functions.
 
-Have any thought in mind to solve the issue of flow handling?
+Even if it works, sockets are probably not supposed to use the device-p=
+rivate=20
+ioctl() range, are they?
 
-Maybe some performance numbers first is better, it would let us know
-where we are. During the test of my patchset, I find big regression of
-small packet transmission, and more retransmissions were noticed. This
-maybe also the issue of flow affinity. One interesting things is to see
-whether this happens in your patches :)
+And why is this inside __KERNEL__ ?
 
-I've played with a basic flow director implementation based on my series
-which want to make sure the packets of a flow was handled by the same
-vhost thread/guest vcpu. This is done by:
+> > > @@ -994,6 +1068,17 @@ static int pep_getsockopt(struct sock *sk, =
+int
+> >=20
+> > level,
+> >=20
+> > > int optname, return -EINVAL;
+> > >=20
+> > >  		break;
+> > >=20
+> > > +	case PNPIPE_ENABLE:
+> > > +		if (sk->sk_state =3D=3D TCP_ESTABLISHED)
+> > > +			val =3D 1;
+> > > +		else
+> > > +			val =3D 0;
+> > > +		break;
+> >=20
+> > Do you still need this read-only option?
+>=20
+> Yes.
 
-- bind virtqueue to guest cpu
-- record the hash to queue mapping when guest sending packets and use
-this mapping to choose the virtqueue when forwarding packets to guest
+Why and how?
 
-Test shows some help during for receiving packets from external host and
-packet sending to local host. But it would hurt the performance of
-sending packets to remote host. This is not the perfect solution as it
-can not handle guest moving processes among vcpus, I plan to try
-accelerate RFS and sharing the mapping between host and guest.
-
-Anyway this is just for receiving, the small packet sending need more
-thoughts.
-
-Thanks
-
->
-> thanks,
->
-> - KK
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+R=E9mi Denis-Courmont
+http://www.remlab.net/
