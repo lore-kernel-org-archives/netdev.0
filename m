@@ -1,11 +1,11 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch -next] 6LoWPAN: double free in lowpan_fragment_xmit()
-Date: Wed, 16 Nov 2011 11:32:54 +0300
-Message-ID: <20111116083254.GB4349@mwanda>
-References: <20111116082138.GA10264@elgon.mountain>
+Subject: [patch -next v2] 6LoWPAN: double free in lowpan_fragment_xmit()
+Date: Wed, 16 Nov 2011 11:36:43 +0300
+Message-ID: <20111116083643.GA25612@mwanda>
+References: <20111116083254.GB4349@mwanda>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="EuxKj2iCbKjpUGkD"
+	protocol="application/pgp-signature"; boundary="17pEHd4RhPHOinZp"
 Cc: Sergey Lapin <slapin@ossfans.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
@@ -13,53 +13,64 @@ Cc: Sergey Lapin <slapin@ossfans.org>,
 To: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
 	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:16844 "EHLO
+Received: from rcsinet15.oracle.com ([148.87.113.117]:34090 "EHLO
 	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755066Ab1KPIcE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 03:32:04 -0500
+	with ESMTP id S1754769Ab1KPIfw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 03:35:52 -0500
 Content-Disposition: inline
-In-Reply-To: <20111116082138.GA10264@elgon.mountain>
+In-Reply-To: <20111116083254.GB4349@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---EuxKj2iCbKjpUGkD
+--17pEHd4RhPHOinZp
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On Wed, Nov 16, 2011 at 11:21:38AM +0300, Dan Carpenter wrote:
-> dev_queue_xmit() consumes its own skb, so the call to dev_kfree_skb()
-> ieee802154/6lowpan.clowpan_fragment_xmits a double free.
-  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+dev_queue_xmit() consumes its own skb, so the call to dev_kfree_skb()
+in lowpan_fragment_xmit() is a double free.
 
-Dur...  I messed up my commit message right before sending.  Will
-resend.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+v2: fixed commit message.
 
-regards,
-dan carpenter
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index 602f318..e4ecc1e 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -980,9 +980,6 @@ lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
+=20
+ 	ret =3D dev_queue_xmit(frag);
+=20
+-	if (ret < 0)
+-		dev_kfree_skb(frag);
+-
+ 	return ret;
+ }
+=20
 
 
-
---EuxKj2iCbKjpUGkD
+--17pEHd4RhPHOinZp
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQIcBAEBAgAGBQJOw3U2AAoJEOnZkXI/YHqRwEcP/36IBMZs8ZWVBFFVqKzFGBB2
-wwOdOBIpVrHyI7r/5fRb7HweAwVPItQKd8Ob6JyW0S1XHqe22LkfGDz7sZyAmVzL
-aMfHpX6n3uZgosSfOgMNMyI2pR3qzZD1KJKPwJgBvYmEmu4SUfJ0CiD/HE/2PVFn
-qKJNsxR9adFZOil9kFxfYzCaLkBrgFYSXzeWKLY3ooQpXbqtluT56uFgDKMLo7F7
-nSFfr2Y/svqhcOjtBKzRTx1CHUZj9MWPY3jYd6k5LaNHeqs7h4ex+CiqQEH2o43D
-PbAxPDo/ZxusTJsIPnAeFfu7ckeJsFeGcKZjwLnzUA1vYGOjAOLv3jPvvXJOkRwF
-NtSffwo5+lZrUO5mZIkzejndq+JZX0BGGrz28cdJM+hUiy5SNgns88ioZeL2oiGM
-g9jDtIo8ZJNumtxEWx3eIixT0Wxn1mWrg6Wr+IJbwITvuXpQi2/AWYxGZrPu9fJN
-Bca0yfP1C3isJ53Mt9P4ro4ngZzxRfIDC99NlNQJAc63Vhy7YYc5lPb3NZa4D3G5
-6hLCshwcN6LN/u6/WtyPf+zthxvddaMNrYrUcMdRSka0dI0+y3zw+1V3qN9nXA3P
-Uq0HQ6DtSyX5jPPpfUSXzBFYmGJEJwQ7eUpI5/CthyjDbX1EZzZ91YK3gsWgXPEq
-I5TCWp6pBrCIovqu5Vsy
-=WdKc
+iQIcBAEBAgAGBQJOw3YbAAoJEOnZkXI/YHqR9h8P/1SXx1YrEaJPWnwsscee1q+q
+l0lArnYFrxXH8FCelU9+5cqxBYVdatnCSHF/YYtLsSdZu8vEPwJAKLbYbthmZlSl
+duZeR8HFcBPxf2gkuRMJEE4Ywk6VmCugraS/WmWFJzuZ/pwWUvh8s0L3LWZFNEgo
+YXLRDhRP1k2IDG4iNRhuKvXwPtarYCyNY7mOlwfJ+TPWPUjC/dlggnp1BgHjCvgY
+xqSeia/TVGHv5iRHovt4m3Og9/vXCt9e17Pvdv1m7KwwBxUd1HdEfhljAem0lfCV
+wuwV1XZl0tyV2/awfjayI/G96/ojGLzddo5VTO610iTDiQQWu6BLgQ+t/8ICat89
+qDWFk0az5ZTkE7bhE900o5o6RSUsJT/shgFu9UiJDaeFf9qST/J90j6EZZEobm6X
+KvZkFskdvT1HZYaiHVufIAY7aIc9lSaVI8Y9ZtXb4BUjMXSTgUeq97C5a4fQKeJw
+7KrmCaYqj+DyHqmADhSs/b7CH5VOPLKiV52YqpMl4qrgbEFXthtifGtfuJ6FL6LM
+lzxFQOqATHTXQQnxuV/MeQdqkxt/Vl/KeD/uApz8OZ8Rb+/TiZjCZKqQhVieRqLK
+zEybWg+u3/c2XboaQxmTlXjofqNORgTiAYKTdyLCUZTnRI6hQ4B9YlvMVbZKke6n
+jG4QbzFU++qCldh7SlGe
+=bbxK
 -----END PGP SIGNATURE-----
 
---EuxKj2iCbKjpUGkD--
+--17pEHd4RhPHOinZp--
