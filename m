@@ -1,302 +1,159 @@
-From: greearb@candelatech.com
-Subject: [RFC] iproute:  Support cross-compiling.
-Date: Tue, 15 Nov 2011 17:04:42 -0800
-Message-ID: <1321405482-18445-1-git-send-email-greearb@candelatech.com>
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+From: raj@tardy.cup.hp.com (Rick Jones)
+Subject: [PATCH net-next] sweep-up some straglers in strlcpy conversion of .get_drvinfo routines
+Date: Tue, 15 Nov 2011 16:59:53 -0800 (PST)
+Message-ID: <20111116005953.E05A42900404@tardy>
+To: <netdev@vger.kernel.org>, "Nicolas Pitre" <nico@fluxnic.net>,
+	"Giuseppe Cavallaro" <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:36330 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756933Ab1KPBEx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 20:04:53 -0500
+Received: from g6t0187.atlanta.hp.com ([15.193.32.64]:46860 "EHLO
+	g6t0187.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756943Ab1KPBKl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 20:10:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
+From: Rick Jones <rick.jones2@hp.com>
 
-This lets users use their own compiler instead of
-hard-coding to use gcc.
+Convert some remaining straglers' .get_drvinfo routines to use strlcpy
+rather than strcpy/strncpy.
 
-Also adds tests to disable some things that were not supported
-in my ARM cross-compile toolchain.
+Signed-off-by: Rick Jones <rick.jones2@hp.com>
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
 ---
-:100644 100644 c6e4943... 3b00076... M	Makefile
-:100755 100755 f5c3d40... 680fdcb... M	configure
-:100644 100644 8d03993... 5c91e18... M	ip/Makefile
-:100644 100644 e41a598... 773f7cb... M	ip/ipnetns.c
-:100644 100644 8c25381... d04358d... M	misc/Makefile
- Makefile      |    2 +-
- configure     |   88 +++++++++++++++++++++++++++++++++++++++++++++++++++++---
- ip/Makefile   |    8 +++++
- ip/ipnetns.c  |   17 +++++++++++
- misc/Makefile |    5 +++
- 5 files changed, 114 insertions(+), 6 deletions(-)
 
-diff --git a/Makefile b/Makefile
-index c6e4943..3b00076 100644
---- a/Makefile
-+++ b/Makefile
-@@ -27,7 +27,7 @@ ADDLIB+=dnet_ntop.o dnet_pton.o
- #options for ipx
- ADDLIB+=ipx_ntop.o ipx_pton.o
- 
--CC = gcc
-+CC ?= gcc
- HOSTCC = gcc
- CCOPTS = -D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall
- CFLAGS = $(CCOPTS) -I../include $(DEFINES)
-diff --git a/configure b/configure
-index f5c3d40..680fdcb 100755
---- a/configure
-+++ b/configure
-@@ -3,6 +3,11 @@
- #
- INCLUDE=${1:-"$PWD/include"}
- 
-+if [ "_$CC" == "_" ]
-+then
-+    CC=gcc
-+fi
-+
- check_atm()
+Compile tested only.  This leaves drivers/net/wireless (there was a patch
+sent to linux-wireless) and drivers/net/usb, along with anything that 
+does not get compiled for an amd_64 flavor kernel.
+
+ drivers/net/ethernet/amd/nmclan_cs.c               |    7 ++++---
+ drivers/net/ethernet/fujitsu/fmvj18x_cs.c          |    7 ++++---
+ drivers/net/ethernet/intel/e1000e/ethtool.c        |    2 +-
+ drivers/net/ethernet/smsc/smc91c92_cs.c            |    4 ++--
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    5 +++--
+ drivers/net/tun.c                                  |   10 +++++-----
+ drivers/net/veth.c                                 |    6 +++---
+
+diff --git a/drivers/net/ethernet/amd/nmclan_cs.c b/drivers/net/ethernet/amd/nmclan_cs.c
+index 3accd5d..3d7be5a 100644
+--- a/drivers/net/ethernet/amd/nmclan_cs.c
++++ b/drivers/net/ethernet/amd/nmclan_cs.c
+@@ -822,9 +822,10 @@ static int mace_close(struct net_device *dev)
+ static void netdev_get_drvinfo(struct net_device *dev,
+ 			       struct ethtool_drvinfo *info)
  {
- cat >/tmp/atmtest.c <<EOF
-@@ -13,7 +18,7 @@ int main(int argc, char **argv) {
- 	return 0;
- }
- EOF
--gcc -I$INCLUDE -o /tmp/atmtest /tmp/atmtest.c -latm >/dev/null 2>&1 
-+${CC} -I$INCLUDE -o /tmp/atmtest /tmp/atmtest.c -latm >/dev/null 2>&1
- if [ $? -eq 0 ]
- then
-     echo "TC_CONFIG_ATM:=y" >>Config
-@@ -47,7 +52,7 @@ int main(int argc, char **argv)
- 
- EOF
- 
--if gcc -I$INCLUDE $IPTC -o /tmp/ipttest /tmp/ipttest.c $IPTL -ldl -lxtables >/dev/null 2>&1
-+if ${CC} -I$INCLUDE $IPTC -o /tmp/ipttest /tmp/ipttest.c $IPTL -ldl -lxtables >/dev/null 2>&1
- then
- 	echo "TC_CONFIG_XT:=y" >>Config
- 	echo "using xtables"
-@@ -84,7 +89,7 @@ int main(int argc, char **argv) {
+-	strcpy(info->driver, DRV_NAME);
+-	strcpy(info->version, DRV_VERSION);
+-	sprintf(info->bus_info, "PCMCIA 0x%lx", dev->base_addr);
++	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
++	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
++	snprintf(info->bus_info, sizeof(info->bus_info),
++		"PCMCIA 0x%lx", dev->base_addr);
  }
  
- EOF
--gcc -I$INCLUDE $IPTC -o /tmp/ipttest /tmp/ipttest.c $IPTL -ldl >/dev/null 2>&1
-+${CC} -I$INCLUDE $IPTC -o /tmp/ipttest /tmp/ipttest.c $IPTL -ldl >/dev/null 2>&1
- 
- if [ $? -eq 0 ]
- then
-@@ -124,7 +129,7 @@ int main(int argc, char **argv) {
- }
- 
- EOF
--gcc -I$INCLUDE $IPTC -o /tmp/ipttest /tmp/ipttest.c $IPTL -ldl >/dev/null 2>&1
-+${CC} -I$INCLUDE $IPTC -o /tmp/ipttest /tmp/ipttest.c $IPTL -ldl >/dev/null 2>&1
- 
- if [ $? -eq 0 ]
- then
-@@ -168,7 +173,7 @@ int main(int argc, char **argv)
- 	return 0;
- }
- EOF
--gcc -I$INCLUDE -o /tmp/setnstest /tmp/setnstest.c >/dev/null 2>&1
-+${CC} -I$INCLUDE -o /tmp/setnstest /tmp/setnstest.c >/dev/null 2>&1
- if [ $? -eq 0 ]
- then
- 	echo "IP_CONFIG_SETNS:=y" >>Config
-@@ -179,6 +184,70 @@ fi
- rm -f /tmp/setnstest.c /tmp/setnstest
- }
- 
-+check_inotify()
-+{
-+cat >/tmp/inotify_test.c <<EOF
-+#include <sys/inotify.h>
-+int main(int argc, char **argv)
-+{
-+	return 0;
-+}
-+EOF
-+${CC} -I$INCLUDE -o /tmp/inotify_test /tmp/inotify_test.c >/dev/null 2>&1
-+if [ $? -eq 0 ]
-+then
-+	echo "yes"
-+else
-+	echo "IP_CONFIG_DISABLE_INOTIFY:=y" >>Config
-+	echo "no"
-+fi
-+rm -f /tmp/inotify_test.c /tmp/inotify_test
-+}
-+
-+
-+check_unshare()
-+{
-+cat >/tmp/unshare_test.c <<EOF
-+#define _GNU_SOURCE             /* See feature_test_macros(7) */
-+#include <sched.h>
-+int main(int argc, char **argv)
-+{
-+	return unshare(0); /* 0 == no op */
-+}
-+EOF
-+${CC} -I$INCLUDE -o /tmp/unshare_test /tmp/unshare_test.c >/dev/null 2>&1
-+if [ $? -eq 0 ]
-+then
-+	echo "yes"
-+else
-+	echo "IP_CONFIG_DISABLE_UNSHARE:=y" >>Config
-+	echo "no"
-+fi
-+rm -f /tmp/unshare_test.c /tmp/unshare_test
-+}
-+
-+
-+check_db185()
-+{
-+cat >/tmp/db185_test.c <<EOF
-+#include <db_185.h>
-+int main(int argc, char **argv)
-+{
-+	return 0;
-+}
-+EOF
-+${CC} -I$INCLUDE -o /tmp/db185_test /tmp/db185_test.c >/dev/null 2>&1
-+if [ $? -eq 0 ]
-+then
-+	echo "yes"
-+else
-+	echo "IP_CONFIG_DISABLE_DB185:=y" >>Config
-+	echo "no"
-+fi
-+rm -f /tmp/db185_test.c /tmp/db185_test
-+}
-+
-+
- echo "# Generated config based on" $INCLUDE >Config
- 
- echo "TC schedulers"
-@@ -197,3 +266,12 @@ check_ipt_lib_dir
- 
- echo -n "libc has setns: "
- check_setns
-+
-+echo -n "libc has inotify support: "
-+check_inotify
-+
-+echo -n "libc has unshare support: "
-+check_unshare
-+
-+echo -n "libc has db_185 support: "
-+check_db185
-diff --git a/ip/Makefile b/ip/Makefile
-index 8d03993..5c91e18 100644
---- a/ip/Makefile
-+++ b/ip/Makefile
-@@ -13,6 +13,14 @@ ifeq ($(IP_CONFIG_SETNS),y)
- 	CFLAGS += -DHAVE_SETNS
- endif
- 
-+ifeq ($(IP_CONFIG_DISABLE_INOTIFY),y)
-+	CFLAGS += -DDISABLE_INOTIFY
-+endif
-+
-+ifeq ($(IP_CONFIG_DISABLE_UNSHARE),y)
-+	CFLAGS += -DCONFIG_IP_NO_UNSHARE
-+endif
-+
- ALLOBJ=$(IPOBJ) $(RTMONOBJ)
- SCRIPTS=ifcfg rtpr routel routef
- TARGETS=ip rtmon
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index e41a598..773f7cb 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -2,7 +2,9 @@
- #include <sys/types.h>
- #include <sys/stat.h>
- #include <sys/wait.h>
-+#ifndef DISABLE_INOTIFY
- #include <sys/inotify.h>
-+#endif
- #include <sys/mount.h>
- #include <sys/param.h>
- #include <sys/syscall.h>
-@@ -118,6 +120,10 @@ static void bind_etc(const char *name)
- 
- static int netns_exec(int argc, char **argv)
+ static const struct ethtool_ops netdev_ethtool_ops = {
+diff --git a/drivers/net/ethernet/fujitsu/fmvj18x_cs.c b/drivers/net/ethernet/fujitsu/fmvj18x_cs.c
+index 1541675..ee84b47 100644
+--- a/drivers/net/ethernet/fujitsu/fmvj18x_cs.c
++++ b/drivers/net/ethernet/fujitsu/fmvj18x_cs.c
+@@ -1058,9 +1058,10 @@ static void fjn_rx(struct net_device *dev)
+ static void netdev_get_drvinfo(struct net_device *dev,
+ 			       struct ethtool_drvinfo *info)
  {
-+#ifdef CONFIG_IP_NO_UNSHARE
-+	fprintf(stderr, "No unshare on this platform, cannod do netns_exec\n");
-+	return -1;
-+#else
- 	/* Setup the proper environment for apps that are not netns
- 	 * aware, and execute a program in that environment.
- 	 */
-@@ -169,6 +175,7 @@ static int netns_exec(int argc, char **argv)
- 		fprintf(stderr, "exec of %s failed: %s\n",
- 			cmd, strerror(errno));
- 	exit(-1);
-+#endif
+-	strcpy(info->driver, DRV_NAME);
+-	strcpy(info->version, DRV_VERSION);
+-	sprintf(info->bus_info, "PCMCIA 0x%lx", dev->base_addr);
++	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
++	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
++	snprintf(info->bus_info, sizeof(info->bus_info),
++		"PCMCIA 0x%lx", dev->base_addr);
  }
  
- static int netns_delete(int argc, char **argv)
-@@ -194,6 +201,10 @@ static int netns_delete(int argc, char **argv)
+ static const struct ethtool_ops netdev_ethtool_ops = {
+diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
+index 6d8f0ed..fb2c28e 100644
+--- a/drivers/net/ethernet/intel/e1000e/ethtool.c
++++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
+@@ -582,7 +582,7 @@ static void e1000_get_drvinfo(struct net_device *netdev,
  
- static int netns_add(int argc, char **argv)
+ 	strlcpy(drvinfo->driver,  e1000e_driver_name,
+ 		sizeof(drvinfo->driver));
+-	strncpy(drvinfo->version, e1000e_driver_version,
++	strlcpy(drvinfo->version, e1000e_driver_version,
+ 		sizeof(drvinfo->version));
+ 
+ 	/*
+diff --git a/drivers/net/ethernet/smsc/smc91c92_cs.c b/drivers/net/ethernet/smsc/smc91c92_cs.c
+index cbfa981..ada927a 100644
+--- a/drivers/net/ethernet/smsc/smc91c92_cs.c
++++ b/drivers/net/ethernet/smsc/smc91c92_cs.c
+@@ -1909,8 +1909,8 @@ static int check_if_running(struct net_device *dev)
+ 
+ static void smc_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
  {
-+#ifdef CONFIG_IP_NO_UNSHARE
-+	fprintf(stderr, "No unshare on this platform, cannod do netns_add\n");
-+	return -1;
-+#else
- 	/* This function creates a new network namespace and
- 	 * a new mount namespace and bind them into a well known
- 	 * location in the filesystem based on the name provided.
-@@ -242,11 +253,16 @@ out_delete:
- 	netns_delete(argc, argv);
- 	exit(-1);
- 	return -1;
-+#endif
+-	strcpy(info->driver, DRV_NAME);
+-	strcpy(info->version, DRV_VERSION);
++	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
++	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
  }
  
+ static int smc_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+index e8eff09..c18ca59 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+@@ -185,9 +185,10 @@ static void stmmac_ethtool_getdrvinfo(struct net_device *dev,
+ 	struct stmmac_priv *priv = netdev_priv(dev);
  
- static int netns_monitor(int argc, char **argv)
+ 	if (priv->plat->has_gmac)
+-		strcpy(info->driver, GMAC_ETHTOOL_NAME);
++		strlcpy(info->driver, GMAC_ETHTOOL_NAME, sizeof(info->driver));
+ 	else
+-		strcpy(info->driver, MAC100_ETHTOOL_NAME);
++		strlcpy(info->driver, MAC100_ETHTOOL_NAME,
++			sizeof(info->driver));
+ 
+ 	strcpy(info->version, DRV_MODULE_VERSION);
+ 	info->fw_version[0] = '\0';
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 7bea9c6..8592523 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1589,16 +1589,16 @@ static void tun_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info
  {
-+#ifdef DISABLE_INOTIFY
-+	fprintf(stderr, "inotify not supported (compiled out)\n");
-+	return -1;
-+#else
- 	char buf[4096];
- 	struct inotify_event *event;
- 	int fd;
-@@ -278,6 +294,7 @@ static int netns_monitor(int argc, char **argv)
- 		}
+ 	struct tun_struct *tun = netdev_priv(dev);
+ 
+-	strcpy(info->driver, DRV_NAME);
+-	strcpy(info->version, DRV_VERSION);
+-	strcpy(info->fw_version, "N/A");
++	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
++	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
++	strlcpy(info->fw_version, "N/A", sizeof(info->fw_version));
+ 
+ 	switch (tun->flags & TUN_TYPE_MASK) {
+ 	case TUN_TUN_DEV:
+-		strcpy(info->bus_info, "tun");
++		strlcpy(info->bus_info, "tun", sizeof(info->bus_info));
+ 		break;
+ 	case TUN_TAP_DEV:
+-		strcpy(info->bus_info, "tap");
++		strlcpy(info->bus_info, "tap", sizeof(info->bus_info));
+ 		break;
  	}
- 	return 0;
-+#endif
+ }
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 726c790..d32a75f 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -66,9 +66,9 @@ static int veth_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 
+ static void veth_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+ {
+-	strcpy(info->driver, DRV_NAME);
+-	strcpy(info->version, DRV_VERSION);
+-	strcpy(info->fw_version, "N/A");
++	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
++	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
++	strlcpy(info->fw_version, "N/A", sizeof(info->fw_version));
  }
  
- int do_netns(int argc, char **argv)
-diff --git a/misc/Makefile b/misc/Makefile
-index 8c25381..d04358d 100644
---- a/misc/Makefile
-+++ b/misc/Makefile
-@@ -18,8 +18,13 @@ ifstat: ifstat.c
- rtacct: rtacct.c
- 	$(CC) $(CFLAGS) $(LDFLAGS) -o rtacct rtacct.c $(LIBNETLINK) -lm
- 
-+ifeq ($(IP_CONFIG_DISABLE_DB185),y)
-+arpd:
-+	@echo "Cannot build arpd on this system, no db_185.h file."
-+else
- arpd: arpd.c
- 	$(CC) $(CFLAGS) -I$(DBM_INCLUDE) $(LDFLAGS) -o arpd arpd.c $(LIBNETLINK) -ldb -lpthread
-+endif
- 
- ssfilter.c: ssfilter.y
- 	bison ssfilter.y -o ssfilter.c
--- 
-1.7.3.4
+ static void veth_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
