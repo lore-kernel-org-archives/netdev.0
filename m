@@ -1,46 +1,50 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [RFC] kvm tools: Implement multiple VQ for virtio-net
-Date: Wed, 16 Nov 2011 10:34:42 +1030
-Message-ID: <877h31ortx.fsf@rustcorp.com.au>
-References: <1321049521-26376-1-git-send-email-levinsasha928@gmail.com>
-	<20111113102428.GD15322@redhat.com>
-	<1321196430.2425.2.camel@sasha> <4EC07729.3050303@gmail.com>
-	<CAOJsxLE4yRO+5XncrDEzVh5-RGXG+=HGTAmQ=bX=KMsDqf=feA@mail.gmail.com>
-	<20111114130507.GA18288@redhat.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [RFC] iproute:  Support cross-compiling.
+Date: Tue, 15 Nov 2011 18:41:53 -0800
+Message-ID: <4EC322F1.8080309@candelatech.com>
+References: <1321405482-18445-1-git-send-email-greearb@candelatech.com> <20111115171722.02fa1c77@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar <krkumar2@in.ibm.com>, kvm@vger.kernel.org,
-	Asias He <asias.hejun@gmail.com>,
-	virtualization@lists.linux-foundation.org, gorcunov@gmail.com,
-	Sasha Levin <levinsasha928@gmail.com>, netdev@vger.kernel.org,
-	mingo@elte.hu, Stephen Hemminger <shemminger@vyatta.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>, Pekka Enberg <penberg@kernel.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20111114130507.GA18288@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:52248 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754604Ab1KPClz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 21:41:55 -0500
+In-Reply-To: <20111115171722.02fa1c77@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 14 Nov 2011 15:05:07 +0200, "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> On Mon, Nov 14, 2011 at 02:25:17PM +0200, Pekka Enberg wrote:
-> > On Mon, Nov 14, 2011 at 4:04 AM, Asias He <asias.hejun@gmail.com> wrote:
-> > > Why both the bandwidth and latency performance are dropping so dramatically
-> > > with multiple VQ?
-> > 
-> > What's the expected benefit from multiple VQs
-> 
-> Heh, the original patchset didn't mention this :) It really should.
-> They are supposed to speed up networking for high smp guests.
+On 11/15/2011 05:17 PM, Stephen Hemminger wrote:
+> On Tue, 15 Nov 2011 17:04:42 -0800
+> greearb@candelatech.com wrote:
+>
+>> From: Ben Greear<greearb@candelatech.com>
+>>
+>> This lets users use their own compiler instead of
+>> hard-coding to use gcc.
+>>
+>> Also adds tests to disable some things that were not supported
+>> in my ARM cross-compile toolchain.
+>>
+>> Signed-off-by: Ben Greear<greearb@candelatech.com>
+>
+> Can't you do this by setting up the compile environment better?
+> I would rather have the tools work with all features and handle
+> errors from kernel rather than neutering it.
 
-If we have one queue per guest CPU, does this allow us to run lockless?
+At the least, the parts that let you use your own CC could
+be split out and applied?
+
+I've no interest in trying to fix whatever is wrong with my
+tool chain..just not worth the effort since I don't need
+network namespaces and I don't need the arp daemon.
 
 Thanks,
-Rusty.
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
