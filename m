@@ -1,80 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next 1/3] team: Do not hold rcu_read_lock when
- running netlink cmds
-Date: Wed, 16 Nov 2011 22:17:24 +0100
-Message-ID: <1321478244.3274.5.camel@edumazet-laptop>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next 1/3 v2] team: Do not hold rcu_read_lock when running
+ netlink cmds
+Date: Wed, 16 Nov 2011 22:55:54 +0100
+Message-ID: <20111116215554.GB9631@minipsycho>
 References: <1321477749-1877-1-git-send-email-jpirko@redhat.com>
-	 <1321477749-1877-2-git-send-email-jpirko@redhat.com>
+ <1321477749-1877-2-git-send-email-jpirko@redhat.com>
+ <1321478244.3274.5.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	bhutchings@solarflare.com, shemminger@vyatta.com,
 	andy@greyhouse.net, fbl@redhat.com, jzupka@redhat.com,
 	ivecera@redhat.com
-To: Jiri Pirko <jpirko@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:47364 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752874Ab1KPVR3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 16:17:29 -0500
-Received: by wyh11 with SMTP id 11so1079211wyh.19
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2011 13:17:28 -0800 (PST)
-In-Reply-To: <1321477749-1877-2-git-send-email-jpirko@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:5111 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753860Ab1KPV4A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Nov 2011 16:56:00 -0500
+Content-Disposition: inline
+In-Reply-To: <1321478244.3274.5.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 16 novembre 2011 =C3=A0 22:09 +0100, Jiri Pirko a =C3=A9cri=
-t :
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> ---
->  drivers/net/team/team.c |   12 ++++--------
->  1 files changed, 4 insertions(+), 8 deletions(-)
->=20
-> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-> index 60672bb..e0cf11c 100644
-> --- a/drivers/net/team/team.c
-> +++ b/drivers/net/team/team.c
-> @@ -1043,8 +1043,7 @@ err_msg_put:
-> =20
->  /*
->   * Netlink cmd functions should be locked by following two functions=
-=2E
-> - * To ensure team_uninit would not be called in between, hold rcu_re=
-ad_lock
-> - * all the time.
-> + * Since dev gets held here, that ensures dev won't disappear in bet=
-ween.
->   */
->  static struct team *team_nl_team_get(struct genl_info *info)
->  {
-> @@ -1057,12 +1056,9 @@ static struct team *team_nl_team_get(struct ge=
-nl_info *info)
->  		return NULL;
-> =20
->  	ifindex =3D nla_get_u32(info->attrs[TEAM_ATTR_TEAM_IFINDEX]);
-> -	rcu_read_lock();
-> -	dev =3D dev_get_by_index_rcu(net, ifindex);
-> -	if (!dev || dev->netdev_ops !=3D &team_netdev_ops) {
-> -		rcu_read_unlock();
-> +	dev =3D dev_get_by_index(net, ifindex);
-> +	if (!dev || dev->netdev_ops !=3D &team_netdev_ops)
 
-Hmmm, you return NULL but dev refcnt was increased...
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/net/team/team.c |   11 +++++------
+ 1 files changed, 5 insertions(+), 6 deletions(-)
 
->  		return NULL;
-> -	}
-> =20
->  	team =3D netdev_priv(dev);
->  	spin_lock(&team->lock);
-> @@ -1072,7 +1068,7 @@ static struct team *team_nl_team_get(struct gen=
-l_info *info)
->  static void team_nl_team_put(struct team *team)
->  {
->  	spin_unlock(&team->lock);
-> -	rcu_read_unlock();
-> +	dev_put(team->dev);
->  }
-> =20
->  static int team_nl_send_generic(struct genl_info *info, struct team =
-*team,
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 60672bb..e5390c7 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1043,8 +1043,7 @@ err_msg_put:
+ 
+ /*
+  * Netlink cmd functions should be locked by following two functions.
+- * To ensure team_uninit would not be called in between, hold rcu_read_lock
+- * all the time.
++ * Since dev gets held here, that ensures dev won't disappear in between.
+  */
+ static struct team *team_nl_team_get(struct genl_info *info)
+ {
+@@ -1057,10 +1056,10 @@ static struct team *team_nl_team_get(struct genl_info *info)
+ 		return NULL;
+ 
+ 	ifindex = nla_get_u32(info->attrs[TEAM_ATTR_TEAM_IFINDEX]);
+-	rcu_read_lock();
+-	dev = dev_get_by_index_rcu(net, ifindex);
++	dev = dev_get_by_index(net, ifindex);
+ 	if (!dev || dev->netdev_ops != &team_netdev_ops) {
+-		rcu_read_unlock();
++		if (dev)
++			dev_put(dev);
+ 		return NULL;
+ 	}
+ 
+@@ -1072,7 +1071,7 @@ static struct team *team_nl_team_get(struct genl_info *info)
+ static void team_nl_team_put(struct team *team)
+ {
+ 	spin_unlock(&team->lock);
+-	rcu_read_unlock();
++	dev_put(team->dev);
+ }
+ 
+ static int team_nl_send_generic(struct genl_info *info, struct team *team,
+-- 
+1.7.6
