@@ -1,52 +1,71 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH v5 7/9] ethtool: prepare for larger netdev_features_t
- type
-Date: Thu, 17 Nov 2011 00:18:51 +0100
-Message-ID: <20111116231851.GA8476@rere.qmqm.pl>
-References: <cover.1321404954.git.mirq-linux@rere.qmqm.pl>
- <77229786587ed90001dfee923c1d7794b758e3e1.1321404954.git.mirq-linux@rere.qmqm.pl>
- <1321483409.2709.31.camel@bwh-desktop>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 0/8][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 16 Nov 2011 15:21:22 -0800
+Message-ID: <1321485682.2304.17.camel@jtkirshe-mobl>
+References: <1321447892-14381-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20111116.181256.1949478047386386920.davem@davemloft.net>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-GTQ8Did2zCEzT7LrNkC2"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:52220 "EHLO rere.qmqm.pl"
+Received: from mga02.intel.com ([134.134.136.20]:61930 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754225Ab1KPXSy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Nov 2011 18:18:54 -0500
-Content-Disposition: inline
-In-Reply-To: <1321483409.2709.31.camel@bwh-desktop>
+	id S1753955Ab1KPXVX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Nov 2011 18:21:23 -0500
+In-Reply-To: <20111116.181256.1949478047386386920.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 16, 2011 at 10:43:29PM +0000, Ben Hutchings wrote:
-> On Wed, 2011-11-16 at 02:29 +0100, Micha=B3 Miros=B3aw wrote:
-> > v2:	changed loop in ethtool_set_features() per Ben's suggestion
-> >=20
-> > Signed-off-by: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
-> Run checkpatch and fix the spacing complaints.  After that, consider
-> this:
 
-There are two lines longer than 80 chars, but it won't improve readabil=
-ity
-if I split them. No spacing complaints on my run of checkpatch:
+--=-GTQ8Did2zCEzT7LrNkC2
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-WARNING: line over 80 characters
-#51: FILE: net/core/ethtool.c:91:
-+       BUILD_BUG_ON(ETHTOOL_DEV_FEATURE_WORDS*sizeof(u32) > sizeof(net=
-dev_features_t));
+On Wed, 2011-11-16 at 15:12 -0800, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Wed, 16 Nov 2011 04:51:24 -0800
+>=20
+> > The following are changes since commit 229a66e3bec97563aa92e25dfe0bc60b=
+0d468619:
+> >   IPv6: Removing unnecessary NULL checks.
+> > and are available in the git repository at:
+> >   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-organize =
+master
+>=20
+> This tree doesn't exist.
 
-WARNING: line over 80 characters
-#57: FILE: net/core/ethtool.c:97:
-+               features[i].never_changed =3D (u32)(NETIF_F_NEVER_CHANG=
-E >> (32*i));
+That was supposed to be
 
-total: 0 errors, 2 warnings, 75 lines checked
+git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-/tmp/0007-ethtool-prepare-for-larger-netdev_features_t-type.patch has s=
-tyle problems, please review.
+sorry Dave.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+--=-GTQ8Did2zCEzT7LrNkC2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAABCgAGBQJOxEVyAAoJEOVv75VaS+3OdfgP/1KcN7ec1oFfahBq3Fk9hk7Y
+jOWLE2uBBgyX7n52KVuxMzEIOZcLajJhYrxtSwWLOeHsgztBf7H67V3O2j5F9zE2
+0NRE3+SkKb+sELgabwUztc4RD58Czi5KyNGYp8IVuTzWqZ/6qVRoPI3LV52PopQk
+3ccgcA1qWNIhncOhLvct3K1syhnvCklvz5qadaVzs1weYKeFbU6gZuyD/HVbHxP2
+QttqxW8Ig0q/xSeS8yvYSLvwHnu4N8UEOP4z6h5G5rLT3zC1Q1RwAh/S461AVDab
+F2joYi4CV/+CQOHLGtMt4cCGUQgWpxM50PD/5EYe1gZUAtvDnUG0Iy/Se2RtrPYZ
+tNGTTWO6k18ORbUvL8XcKFssS/JUexZfQmVDE5P9liWlzkyRzwPQq+ssHhFJ/VgY
+M+jbsM9RJVZpKBPe8K1WNkFigfowvjQbpahuGxkHJRpbLd+5q8knJkZ7TD8XhZFL
+XwcFORqU5NKrkxYRIdgiRaSjPgv/avhMlzErfM8KmLTutQRv9rRhyV1wn1FoCpTD
+BccW1gei2tzMptW9nYNHuUlaRRg5oMZ9w850LsarSC5EPNE9arHpYYxAicekphsR
+AJAaqoPw5xOH/dYx81vX0bX/kCqr9xAN6k3vKpchCQfAZytc7naVeMzguB36Dhoi
+xdnPYD5Xt24lTJLeIhU4
+=yQo6
+-----END PGP SIGNATURE-----
+
+--=-GTQ8Did2zCEzT7LrNkC2--
