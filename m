@@ -1,26 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net/cadence: enable by default NET_ATMEL
-Date: Wed, 16 Nov 2011 17:48:40 -0500 (EST)
-Message-ID: <20111116.174840.2228462582778357471.davem@davemloft.net>
-References: <1321385790-15056-1-git-send-email-plagnioj@jcrosoft.com>
+Subject: Re: [patch 1/1] drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h:
+ remove unused macro pr_fmt()
+Date: Wed, 16 Nov 2011 17:48:57 -0500 (EST)
+Message-ID: <20111116.174857.2263466530525059119.davem@davemloft.net>
+References: <201111152255.pAFMtTo5005370@wpaz5.hot.corp.google.com>
+	<20111115.183808.2066749950387258221.davem@davemloft.net>
+	<20111115155210.69249eb9.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	nicolas.ferre@atmel.com
-To: plagnioj@jcrosoft.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1321385790-15056-1-git-send-email-plagnioj@jcrosoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	tomoya-linux@dsn.okisemi.com, toshiharu-linux@dsn.okisemi.com
+To: akpm@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57733 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754207Ab1KPWtD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 17:49:03 -0500
+In-Reply-To: <20111115155210.69249eb9.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Date: Tue, 15 Nov 2011 20:36:30 +0100
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Tue, 15 Nov 2011 15:52:10 -0800
 
-> so the defconfig of the atmel continue to have the support of the network
-> as before
+> On Tue, 15 Nov 2011 18:38:08 -0500 (EST)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-> Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
+>> From: akpm@linux-foundation.org
+>> Date: Tue, 15 Nov 2011 14:55:29 -0800
+>> 
+>> > From: Andrew Morton <akpm@linux-foundation.org>
+>> > Subject: drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h: remove unused macro pr_fmt()
+>> 
+>> It's not unused, it just isn't properly coming before the linux/printk.h
+>> include.
+> 
+> Oh well, I'll drop it.  Please treat the patch as a bug report instead.
 
-Applied.
+Joe Perches took care of it, I just applied a proper fix from him.
+
+Thanks.
