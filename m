@@ -1,7 +1,8 @@
 From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net-next v5 00/10] net-sysfs+forcedeth: stats & debug enhancements
-Date: Tue, 15 Nov 2011 21:15:48 -0800
-Message-ID: <cover.1321420513.git.david.decotigny@google.com>
+Subject: [PATCH net-next v5 05/10] forcedeth: Add messages to indicate using MSI or MSI-X
+Date: Tue, 15 Nov 2011 21:15:53 -0800
+Message-ID: <9a8c7d2454facab2475f53339ee680e4b22a71d5.1321420513.git.david.decotigny@google.com>
+References: <cover.1321420513.git.david.decotigny@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Ian Campbell <ian.campbell@citrix.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
@@ -11,94 +12,53 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Szymon Janc <szymon@janc.net.pl>,
 	Richard Jones <rick.jones2@hp.com>,
 	Ayaz Abdulla <AAbdulla@nvidia.com>,
+	Mike Ditto <mditto@google.com>,
 	David Decotigny <david.decotigny@google.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f74.google.com ([209.85.213.74]:36821 "EHLO
+	mail-yw0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752726Ab1KPFQ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 00:16:29 -0500
+Received: by ywb5 with SMTP id 5so907362ywb.1
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2011 21:16:29 -0800 (PST)
+In-Reply-To: <cover.1321420513.git.david.decotigny@google.com>
+In-Reply-To: <cover.1321420513.git.david.decotigny@google.com>
+References: <cover.1321420513.git.david.decotigny@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-These changes provide a new tx_timeout sysfs attribute and implement
-the ndo_get_stats64 API. They also add a few more stats and debugging
-features for forcedeth. They ensure that stats updates are correct in
-SMP systems, 32 or 64-bits.
+From: Mike Ditto <mditto@google.com>
 
-Note: patch 1 is the cherry-pick of 898bdf2cb43e ("forcedeth: fix
-stats on hardware without extended stats support")
-
-Changes since v4:
-  - tx_timeout counter now a generic sysfs attribute. Credits to
-    Stephen Hemminger for initial implementation
-  - revert get_stats64 to using atomic variables: see
-    http://patchwork.ozlabs.org/patch/125861/ for motivations
-  - dropped patch "expose module parameters in /sys/module" for now: I
-    will work on this later, following Stephen's recommendations
-    (http://patchwork.ozlabs.org/patch/125862/).
-
-Changes since v3:
-  - updated get_stats64 + rx_dropped patches to use u64_stats_sync.h
-  - dropped indentation "whitespace/indentation fixes" (included in
-    get_stats64 api patch)
-
-Changes since v2:
-  - patch 1/9 is the cherry-pick of 898bdf2cb43e ("forcedeth: fix
-    stats on hardware without extended stats support")
-  - removed patch 5/10 "stats for rx_packets based on hardware
-    registers" because packets&bytes stats are updated in software
-    only (898bdf2cb43e)
-
-Changes since v1:
-  - patch 1/10 is the same as
-    http://patchwork.ozlabs.org/patch/125017/ (targetting net)
-  - other patches updated to take patch 1/10 into account
-  - various commit message updates
+This adds a few kernel messages to indicate whether PCIe interrupts
+are signaled with MSI or MSI-X.
 
 
-Tested:
-  ~150Mbps incoming TCP, ethtool -S in a loop, x86_64 16-way:
-     tx_bytes: 5441989419
-     rx_packets: 5439224
-     tx_timeout: 0
-     tx_packets: 5456705
-     rx_bytes: 5566763850
 
-Tested:
-  pktgen + loopback report same RX/TX packets and bytes stats
+Signed-off-by: David Decotigny <david.decotigny@google.com>
+---
+ drivers/net/ethernet/nvidia/forcedeth.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Tested:
-  tests above with Kconfig DEBUG_PAGEALLOC DEBUG_MUTEXES
-  DEBUG_SPINLOCK LOCKUP_DETECTOR DEBUG_RT_MUTEXES DEBUG_LOCK_ALLOC
-  PROVE_LOCKING DEBUG_ATOMIC_SLEEP DEBUG_STACK_USAGE DEBUG_KOBJECT
-  DEBUG_VM DEBUG_LIST DEBUG_SG DEBUG_NOTIFIERS TEST_KSTRTOX
-  STRICT_DEVMEM DEBUG_STACKOVERFLOW
-
-
-############################################
-# Patch Set Summary:
-
-David Decotigny (7):
-  net-sysfs: fixed minor sparse warning
-  kbuild: document RPS/XPS network Kconfig options
-  net: provide counter for tx_timeout errors in sysfs
-  forcedeth: implement ndo_get_stats64() API
-  forcedeth: account for dropped RX frames
-  forcedeth: stats updated with a deferrable timer
-  forcedeth: whitespace/indentation fixes
-
-Mike Ditto (1):
-  forcedeth: Add messages to indicate using MSI or MSI-X
-
-Sameer Nanda (1):
-  forcedeth: allow to silence "TX timeout" debug messages
-
-david decotigny (1):
-  forcedeth: fix stats on hardware without extended stats support
-
- drivers/net/ethernet/nvidia/forcedeth.c |  320 ++++++++++++++++++++++---------
- include/linux/netdevice.h               |   12 +-
- net/Kconfig                             |   16 ++-
- net/core/net-sysfs.c                    |   49 ++++--
- net/sched/sch_generic.c                 |    1 +
- 5 files changed, 293 insertions(+), 105 deletions(-)
-
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index 374625b..fe17e42 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -3810,6 +3810,7 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 				writel(0, base + NvRegMSIXMap0);
+ 				writel(0, base + NvRegMSIXMap1);
+ 			}
++			netdev_info(dev, "MSI-X enabled\n");
+ 		}
+ 	}
+ 	if (ret != 0 && np->msi_flags & NV_MSI_CAPABLE) {
+@@ -3831,6 +3832,7 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 			writel(0, base + NvRegMSIMap1);
+ 			/* enable msi vector 0 */
+ 			writel(NVREG_MSI_VECTOR_0_ENABLED, base + NvRegMSIIrqMask);
++			netdev_info(dev, "MSI enabled\n");
+ 		}
+ 	}
+ 	if (ret != 0) {
 -- 
 1.7.3.1
