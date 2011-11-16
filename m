@@ -1,7 +1,8 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH v5 3/9] net: split netdev features to separate header
+Subject: [PATCH v5 6/9] net: ethtool: use C99 array initialization for
+ feature-names table
 Date: Wed, 16 Nov 2011 02:29:55 +0100 (CET)
-Message-ID: <e2c98cf47788fb0e2b2272b78486aeca30dde5db.1321404954.git.mirq-linux@rere.qmqm.pl>
+Message-ID: <fab0871cb71339c4d0eba86a33761e477b574e7e.1321404954.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1321404954.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -10,235 +11,115 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Ben Hutchings <bhutchings@solarflare.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:46025 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:46032 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757684Ab1KPB36 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Nov 2011 20:29:58 -0500
+	id S932834Ab1KPB37 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Nov 2011 20:29:59 -0500
 In-Reply-To: <cover.1321404954.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move features definitions to separate header so that linux/skbuff.h won=
-'t
-need to include linux/netdevice.h after netdev_features_t is introduced=
-=2E
-
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- include/linux/netdev_features.h |   90 +++++++++++++++++++++++++++++++=
-++++++++
- include/linux/netdevice.h       |   80 +------------------------------=
----
- 2 files changed, 92 insertions(+), 78 deletions(-)
+ net/core/ethtool.c |   74 +++++++++++++++++++++++++-------------------=
+-------
+ 1 files changed, 36 insertions(+), 38 deletions(-)
 
-diff --git a/include/linux/netdev_features.h b/include/linux/netdev_fea=
-tures.h
-new file mode 100644
-index 0000000..32640ed
---- /dev/null
-+++ b/include/linux/netdev_features.h
-@@ -0,0 +1,90 @@
-+/*
-+ * Network device features.
-+ *
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+#ifndef _LINUX_NETDEV_FEATURES_H
-+#define _LINUX_NETDEV_FEATURES_H
-+
-+/* Net device feature bits; if you change something,
-+ * also update netdev_features_strings[] in ethtool.c */
-+
-+#define NETIF_F_SG		1	/* Scatter/gather IO. */
-+#define NETIF_F_IP_CSUM		2	/* Can checksum TCP/UDP over IPv4. */
-+#define NETIF_F_NO_CSUM		4	/* Does not require checksum. F.e. loopack.=
- */
-+#define NETIF_F_HW_CSUM		8	/* Can checksum all the packets. */
-+#define NETIF_F_IPV6_CSUM	16	/* Can checksum TCP/UDP over IPV6 */
-+#define NETIF_F_HIGHDMA		32	/* Can DMA to high memory. */
-+#define NETIF_F_FRAGLIST	64	/* Scatter/gather IO. */
-+#define NETIF_F_HW_VLAN_TX	128	/* Transmit VLAN hw acceleration */
-+#define NETIF_F_HW_VLAN_RX	256	/* Receive VLAN hw acceleration */
-+#define NETIF_F_HW_VLAN_FILTER	512	/* Receive filtering on VLAN */
-+#define NETIF_F_VLAN_CHALLENGED	1024	/* Device cannot handle VLAN pack=
-ets */
-+#define NETIF_F_GSO		2048	/* Enable software GSO. */
-+#define NETIF_F_LLTX		4096	/* LockLess TX - deprecated. Please */
-+					/* do not use LLTX in new drivers */
-+#define NETIF_F_NETNS_LOCAL	8192	/* Does not change network namespaces=
- */
-+#define NETIF_F_GRO		16384	/* Generic receive offload */
-+#define NETIF_F_LRO		32768	/* large receive offload */
-+
-+/* the GSO_MASK reserves bits 16 through 23 */
-+#define NETIF_F_FCOE_CRC	(1 << 24) /* FCoE CRC32 */
-+#define NETIF_F_SCTP_CSUM	(1 << 25) /* SCTP checksum offload */
-+#define NETIF_F_FCOE_MTU	(1 << 26) /* Supports max FCoE MTU, 2158 byte=
-s*/
-+#define NETIF_F_NTUPLE		(1 << 27) /* N-tuple filters supported */
-+#define NETIF_F_RXHASH		(1 << 28) /* Receive hashing offload */
-+#define NETIF_F_RXCSUM		(1 << 29) /* Receive checksumming offload */
-+#define NETIF_F_NOCACHE_COPY	(1 << 30) /* Use no-cache copyfromuser */
-+#define NETIF_F_LOOPBACK	(1 << 31) /* Enable loopback */
-+
-+/* Segmentation offload features */
-+#define NETIF_F_GSO_SHIFT	16
-+#define NETIF_F_GSO_MASK	0x00ff0000
-+#define NETIF_F_TSO		(SKB_GSO_TCPV4 << NETIF_F_GSO_SHIFT)
-+#define NETIF_F_UFO		(SKB_GSO_UDP << NETIF_F_GSO_SHIFT)
-+#define NETIF_F_GSO_ROBUST	(SKB_GSO_DODGY << NETIF_F_GSO_SHIFT)
-+#define NETIF_F_TSO_ECN		(SKB_GSO_TCP_ECN << NETIF_F_GSO_SHIFT)
-+#define NETIF_F_TSO6		(SKB_GSO_TCPV6 << NETIF_F_GSO_SHIFT)
-+#define NETIF_F_FSO		(SKB_GSO_FCOE << NETIF_F_GSO_SHIFT)
-+
-+/* Features valid for ethtool to change */
-+/* =3D all defined minus driver/device-class-related */
-+#define NETIF_F_NEVER_CHANGE	(NETIF_F_VLAN_CHALLENGED | \
-+				 NETIF_F_LLTX | NETIF_F_NETNS_LOCAL)
-+#define NETIF_F_ETHTOOL_BITS	(0xff3fffff & ~NETIF_F_NEVER_CHANGE)
-+
-+/* List of features with software fallbacks. */
-+#define NETIF_F_GSO_SOFTWARE	(NETIF_F_TSO | NETIF_F_TSO_ECN | \
-+				 NETIF_F_TSO6 | NETIF_F_UFO)
-+
-+#define NETIF_F_GEN_CSUM	(NETIF_F_HW_CSUM | NETIF_F_NO_CSUM)
-+#define NETIF_F_V4_CSUM		(NETIF_F_GEN_CSUM | NETIF_F_IP_CSUM)
-+#define NETIF_F_V6_CSUM		(NETIF_F_GEN_CSUM | NETIF_F_IPV6_CSUM)
-+#define NETIF_F_ALL_CSUM	(NETIF_F_V4_CSUM | NETIF_F_V6_CSUM)
-+
-+#define NETIF_F_ALL_TSO 	(NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_TSO_ECN=
-)
-+
-+#define NETIF_F_ALL_FCOE	(NETIF_F_FCOE_CRC | NETIF_F_FCOE_MTU | \
-+				 NETIF_F_FSO)
-+
-+/*
-+ * If one device supports one of these features, then enable them
-+ * for all in netdev_increment_features.
-+ */
-+#define NETIF_F_ONE_FOR_ALL	(NETIF_F_GSO_SOFTWARE | NETIF_F_GSO_ROBUST=
- | \
-+				 NETIF_F_SG | NETIF_F_HIGHDMA |		\
-+				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED)
-+/*
-+ * If one device doesn't support one of these features, then disable i=
-t
-+ * for all in netdev_increment_features.
-+ */
-+#define NETIF_F_ALL_FOR_ALL	(NETIF_F_NOCACHE_COPY | NETIF_F_FSO)
-+
-+/* changeable features with no special hardware requirements */
-+#define NETIF_F_SOFT_FEATURES	(NETIF_F_GSO | NETIF_F_GRO)
-+
-+#endif	/* _LINUX_NETDEV_FEATURES_H */
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index e34717a..9cf6e90 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -51,6 +51,8 @@
- #include <net/dcbnl.h>
- #endif
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index f135f1c..817ad4b 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -40,6 +40,42 @@ EXPORT_SYMBOL(ethtool_op_get_link);
 =20
-+#include <linux/netdev_features.h>
-+
- struct vlan_group;
- struct netpoll_info;
- struct phy_device;
-@@ -1005,84 +1007,6 @@ struct net_device {
- 	/* mask of features inheritable by VLAN devices */
- 	u32			vlan_features;
+ #define ETHTOOL_DEV_FEATURE_WORDS	1
 =20
--	/* Net device feature bits; if you change something,
--	 * also update netdev_features_strings[] in ethtool.c */
++static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GS=
+TRING_LEN] =3D {
++	[NETIF_F_SG_BIT] =3D               "tx-scatter-gather",
++	[NETIF_F_IP_CSUM_BIT] =3D          "tx-checksum-ipv4",
++	[NETIF_F_NO_CSUM_BIT] =3D          "tx-checksum-unneeded",
++	[NETIF_F_HW_CSUM_BIT] =3D          "tx-checksum-ip-generic",
++	[NETIF_F_IPV6_CSUM_BIT] =3D        "tx-checksum-ipv6",
++	[NETIF_F_HIGHDMA_BIT] =3D          "highdma",
++	[NETIF_F_FRAGLIST_BIT] =3D         "tx-scatter-gather-fraglist",
++	[NETIF_F_HW_VLAN_TX_BIT] =3D       "tx-vlan-hw-insert",
++
++	[NETIF_F_HW_VLAN_RX_BIT] =3D       "rx-vlan-hw-parse",
++	[NETIF_F_HW_VLAN_FILTER_BIT] =3D   "rx-vlan-filter",
++	[NETIF_F_VLAN_CHALLENGED_BIT] =3D  "vlan-challenged",
++	[NETIF_F_GSO_BIT] =3D              "tx-generic-segmentation",
++	[NETIF_F_LLTX_BIT] =3D             "tx-lockless",
++	[NETIF_F_NETNS_LOCAL_BIT] =3D      "netns-local",
++	[NETIF_F_GRO_BIT] =3D              "rx-gro",
++	[NETIF_F_LRO_BIT] =3D              "rx-lro",
++
++	[NETIF_F_TSO_BIT] =3D              "tx-tcp-segmentation",
++	[NETIF_F_UFO_BIT] =3D              "tx-udp-fragmentation",
++	[NETIF_F_GSO_ROBUST_BIT] =3D       "tx-gso-robust",
++	[NETIF_F_TSO_ECN_BIT] =3D          "tx-tcp-ecn-segmentation",
++	[NETIF_F_TSO6_BIT] =3D             "tx-tcp6-segmentation",
++	[NETIF_F_FSO_BIT] =3D              "tx-fcoe-segmentation",
++
++	[NETIF_F_FCOE_CRC_BIT] =3D         "tx-checksum-fcoe-crc",
++	[NETIF_F_SCTP_CSUM_BIT] =3D        "tx-checksum-sctp",
++	[NETIF_F_FCOE_MTU_BIT] =3D         "fcoe-mtu",
++	[NETIF_F_NTUPLE_BIT] =3D           "rx-ntuple-filter",
++	[NETIF_F_RXHASH_BIT] =3D           "rx-hashing",
++	[NETIF_F_RXCSUM_BIT] =3D           "rx-checksum",
++	[NETIF_F_NOCACHE_COPY_BIT] =3D     "tx-nocache-copy",
++	[NETIF_F_LOOPBACK_BIT] =3D         "loopback",
++};
++
+ static int ethtool_get_features(struct net_device *dev, void __user *u=
+seraddr)
+ {
+ 	struct ethtool_gfeatures cmd =3D {
+@@ -107,44 +143,6 @@ static int ethtool_set_features(struct net_device =
+*dev, void __user *useraddr)
+ 	return ret;
+ }
+=20
+-static const char netdev_features_strings[ETHTOOL_DEV_FEATURE_WORDS * =
+32][ETH_GSTRING_LEN] =3D {
+-	/* NETIF_F_SG */              "tx-scatter-gather",
+-	/* NETIF_F_IP_CSUM */         "tx-checksum-ipv4",
+-	/* NETIF_F_NO_CSUM */         "tx-checksum-unneeded",
+-	/* NETIF_F_HW_CSUM */         "tx-checksum-ip-generic",
+-	/* NETIF_F_IPV6_CSUM */       "tx-checksum-ipv6",
+-	/* NETIF_F_HIGHDMA */         "highdma",
+-	/* NETIF_F_FRAGLIST */        "tx-scatter-gather-fraglist",
+-	/* NETIF_F_HW_VLAN_TX */      "tx-vlan-hw-insert",
 -
--#define NETIF_F_SG		1	/* Scatter/gather IO. */
--#define NETIF_F_IP_CSUM		2	/* Can checksum TCP/UDP over IPv4. */
--#define NETIF_F_NO_CSUM		4	/* Does not require checksum. F.e. loopack.=
- */
--#define NETIF_F_HW_CSUM		8	/* Can checksum all the packets. */
--#define NETIF_F_IPV6_CSUM	16	/* Can checksum TCP/UDP over IPV6 */
--#define NETIF_F_HIGHDMA		32	/* Can DMA to high memory. */
--#define NETIF_F_FRAGLIST	64	/* Scatter/gather IO. */
--#define NETIF_F_HW_VLAN_TX	128	/* Transmit VLAN hw acceleration */
--#define NETIF_F_HW_VLAN_RX	256	/* Receive VLAN hw acceleration */
--#define NETIF_F_HW_VLAN_FILTER	512	/* Receive filtering on VLAN */
--#define NETIF_F_VLAN_CHALLENGED	1024	/* Device cannot handle VLAN pack=
-ets */
--#define NETIF_F_GSO		2048	/* Enable software GSO. */
--#define NETIF_F_LLTX		4096	/* LockLess TX - deprecated. Please */
--					/* do not use LLTX in new drivers */
--#define NETIF_F_NETNS_LOCAL	8192	/* Does not change network namespaces=
- */
--#define NETIF_F_GRO		16384	/* Generic receive offload */
--#define NETIF_F_LRO		32768	/* large receive offload */
+-	/* NETIF_F_HW_VLAN_RX */      "rx-vlan-hw-parse",
+-	/* NETIF_F_HW_VLAN_FILTER */  "rx-vlan-filter",
+-	/* NETIF_F_VLAN_CHALLENGED */ "vlan-challenged",
+-	/* NETIF_F_GSO */             "tx-generic-segmentation",
+-	/* NETIF_F_LLTX */            "tx-lockless",
+-	/* NETIF_F_NETNS_LOCAL */     "netns-local",
+-	/* NETIF_F_GRO */             "rx-gro",
+-	/* NETIF_F_LRO */             "rx-lro",
 -
--/* the GSO_MASK reserves bits 16 through 23 */
--#define NETIF_F_FCOE_CRC	(1 << 24) /* FCoE CRC32 */
--#define NETIF_F_SCTP_CSUM	(1 << 25) /* SCTP checksum offload */
--#define NETIF_F_FCOE_MTU	(1 << 26) /* Supports max FCoE MTU, 2158 byte=
-s*/
--#define NETIF_F_NTUPLE		(1 << 27) /* N-tuple filters supported */
--#define NETIF_F_RXHASH		(1 << 28) /* Receive hashing offload */
--#define NETIF_F_RXCSUM		(1 << 29) /* Receive checksumming offload */
--#define NETIF_F_NOCACHE_COPY	(1 << 30) /* Use no-cache copyfromuser */
--#define NETIF_F_LOOPBACK	(1 << 31) /* Enable loopback */
+-	/* NETIF_F_TSO */             "tx-tcp-segmentation",
+-	/* NETIF_F_UFO */             "tx-udp-fragmentation",
+-	/* NETIF_F_GSO_ROBUST */      "tx-gso-robust",
+-	/* NETIF_F_TSO_ECN */         "tx-tcp-ecn-segmentation",
+-	/* NETIF_F_TSO6 */            "tx-tcp6-segmentation",
+-	/* NETIF_F_FSO */             "tx-fcoe-segmentation",
+-	"",
+-	"",
 -
--	/* Segmentation offload features */
--#define NETIF_F_GSO_SHIFT	16
--#define NETIF_F_GSO_MASK	0x00ff0000
--#define NETIF_F_TSO		(SKB_GSO_TCPV4 << NETIF_F_GSO_SHIFT)
--#define NETIF_F_UFO		(SKB_GSO_UDP << NETIF_F_GSO_SHIFT)
--#define NETIF_F_GSO_ROBUST	(SKB_GSO_DODGY << NETIF_F_GSO_SHIFT)
--#define NETIF_F_TSO_ECN		(SKB_GSO_TCP_ECN << NETIF_F_GSO_SHIFT)
--#define NETIF_F_TSO6		(SKB_GSO_TCPV6 << NETIF_F_GSO_SHIFT)
--#define NETIF_F_FSO		(SKB_GSO_FCOE << NETIF_F_GSO_SHIFT)
+-	/* NETIF_F_FCOE_CRC */        "tx-checksum-fcoe-crc",
+-	/* NETIF_F_SCTP_CSUM */       "tx-checksum-sctp",
+-	/* NETIF_F_FCOE_MTU */        "fcoe-mtu",
+-	/* NETIF_F_NTUPLE */          "rx-ntuple-filter",
+-	/* NETIF_F_RXHASH */          "rx-hashing",
+-	/* NETIF_F_RXCSUM */          "rx-checksum",
+-	/* NETIF_F_NOCACHE_COPY */    "tx-nocache-copy",
+-	/* NETIF_F_LOOPBACK */        "loopback",
+-};
 -
--	/* Features valid for ethtool to change */
--	/* =3D all defined minus driver/device-class-related */
--#define NETIF_F_NEVER_CHANGE	(NETIF_F_VLAN_CHALLENGED | \
--				  NETIF_F_LLTX | NETIF_F_NETNS_LOCAL)
--#define NETIF_F_ETHTOOL_BITS	(0xff3fffff & ~NETIF_F_NEVER_CHANGE)
--
--	/* List of features with software fallbacks. */
--#define NETIF_F_GSO_SOFTWARE	(NETIF_F_TSO | NETIF_F_TSO_ECN | \
--				 NETIF_F_TSO6 | NETIF_F_UFO)
--
--
--#define NETIF_F_GEN_CSUM	(NETIF_F_NO_CSUM | NETIF_F_HW_CSUM)
--#define NETIF_F_V4_CSUM		(NETIF_F_GEN_CSUM | NETIF_F_IP_CSUM)
--#define NETIF_F_V6_CSUM		(NETIF_F_GEN_CSUM | NETIF_F_IPV6_CSUM)
--#define NETIF_F_ALL_CSUM	(NETIF_F_V4_CSUM | NETIF_F_V6_CSUM)
--
--#define NETIF_F_ALL_TSO 	(NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_TSO_ECN=
-)
--
--#define NETIF_F_ALL_FCOE	(NETIF_F_FCOE_CRC | NETIF_F_FCOE_MTU | \
--				 NETIF_F_FSO)
--
--	/*
--	 * If one device supports one of these features, then enable them
--	 * for all in netdev_increment_features.
--	 */
--#define NETIF_F_ONE_FOR_ALL	(NETIF_F_GSO_SOFTWARE | NETIF_F_GSO_ROBUST=
- | \
--				 NETIF_F_SG | NETIF_F_HIGHDMA |		\
--				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED)
--	/*
--	 * If one device doesn't support one of these features, then disable =
-it
--	 * for all in netdev_increment_features.
--	 */
--#define NETIF_F_ALL_FOR_ALL	(NETIF_F_NOCACHE_COPY | NETIF_F_FSO)
--
--	/* changeable features with no special hardware requirements */
--#define NETIF_F_SOFT_FEATURES	(NETIF_F_GSO | NETIF_F_GRO)
--
- 	/* Interface index. Unique device identifier	*/
- 	int			ifindex;
- 	int			iflink;
+ static int __ethtool_get_sset_count(struct net_device *dev, int sset)
+ {
+ 	const struct ethtool_ops *ops =3D dev->ethtool_ops;
 --=20
 1.7.7.1
