@@ -1,63 +1,51 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH 0/2] net: Add network priority cgroup (v2)
-Date: Thu, 17 Nov 2011 16:47:50 -0500
-Message-ID: <1321566472-28969-1-git-send-email-nhorman@tuxdriver.com>
-References: <1321476666-8225-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Robert Love <robert.w.love@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] route: add more relaxed option for secure_redirects
+Date: Thu, 17 Nov 2011 16:53:09 -0500 (EST)
+Message-ID: <20111117.165309.1283667903570988053.davem@davemloft.net>
+References: <20111116.170213.1763930566851730338.davem@davemloft.net>
+	<20111116211738.067354c0@asterix.rh>
+	<20111116234042.6ad8d723@asterix.rh>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: fbl@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42487 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752893Ab1KQVuP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 16:50:15 -0500
-In-Reply-To: <1321476666-8225-1-git-send-email-nhorman@tuxdriver.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:50917 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752299Ab1KQVxL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 16:53:11 -0500
+In-Reply-To: <20111116234042.6ad8d723@asterix.rh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Data Center Bridging environments are currently somewhat limited in their
-ability to provide a general mechanism for controlling traffic priority.
-Specifically they are unable to administratively control the priority at which
-various types of network traffic are sent.
- 
-Currently, the only ways to set the priority of a network buffer are:
+From: Flavio Leitner <fbl@redhat.com>
+Date: Wed, 16 Nov 2011 23:40:42 -0200
 
-1) Through the use of the SO_PRIORITY socket option
-2) By using low level hooks, like a tc action
+> To make sure we are in the same page, this simple setup reproduces
+> the issue.
+> 
+> IP: 10.0.0.1
+> gw: 10.0.0.100
+> +--------+          +-----+ primary: 10.0.0.2
+> | client |----+-----| GW1 |   alias: 10.0.0.100
+> +--------+    |     +-----+      gw: 10.0.0.254
+>            +--+--+
+>            | GW2 |---> internet
+>            +-----+
+>          10.0.0.254
+> 
+> 1. Client sends TCP SYN to an internet host using
+>    GW1 alias address as default gw address
+> 
+> 2. Then GW1 sends the ICMP redirect back to client
+>    using the primary address as source address.
+> 
+> 3. GW1 forwards the original packet to GW2
+> 
+> 4. client ignores the ICMP redirect because
+>    client.gw != gw1.primary.
 
-(1) is difficult from an administrative perspective because it requires that the
-application to be coded to not just assume the default priority is sufficient,
-and must expose an administrative interface to allow priority adjustment.  Such
-a solution is not scalable in a DCB environment
-
-(2) is also difficult, as it requires constant administrative oversight of
-applications so as to build appropriate rules to match traffic belonging to
-various classes, so that priority can be appropriately set. It is further
-limiting when DCB enabled hardware is in use, due to the fact that tc rules are
-only run after a root qdisc has been selected (DCB enabled hardware may reserve
-hw queues for various traffic classes and needs the priority to be set prior to
-selecting the root qdisc)
-
-
-I've discussed various solutions with John Fastabend, and we saw a cgroup as
-being a good general solution to this problem.  The network priority cgroup
-allows for a per-interface priority map to be built per cgroup.  Any traffic
-originating from an application in a cgroup, that does not explicitly set its
-priority with SO_PRIORITY will have its priority assigned to the value
-designated for that group on that interface.  This allows a user space daemon,
-when conducting LLDP negotiation with a DCB enabled peer to create a cgroup
-based on the APP_TLV value received and administratively assign applications to
-that priority using the existing cgroup utility infrastructure.
-
-Tested by John and myself, with good results
-
-(v2)
-Based on reviews from John F., Amerigo Wang and Neerav Parikh, I've cleaned up
-the rcu locking, fixed a memory leak in an error path, and corrected some typos.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-CC: Robert Love <robert.w.love@intel.com>
-CC: "David S. Miller" <davem@davemloft.net>
+GW1 must respond using a source address matching 'alias', ie.
+10.0.0.100 and I would accept a mechinsm to make sure that happens,
+if not by default then via a sysctl or similar control.
