@@ -1,36 +1,68 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH] Add ethtool to mii advertisment conversion helpers
-Date: Wed, 16 Nov 2011 17:21:32 -0800
-Message-ID: <1321492892.9114.22.camel@nseg_linux_HP1.broadcom.com>
-References: <1321394453-21076-1-git-send-email-mcarlson@broadcom.com>
- <1321490078.2709.86.camel@bwh-desktop>
- <20111117011604.GA8683@mcarlson.broadcom.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 2/5] tcp: use DSACKs that arrive when packets_out is 0
+Date: Thu, 17 Nov 2011 03:34:17 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.1111170323560.1205@melkinpaasi.cs.helsinki.fi>
+References: <1321469885-10885-1-git-send-email-ncardwell@google.com> <1321469885-10885-2-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Ben Hutchings" <bhutchings@solarflare.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Matt Carlson" <mcarlson@broadcom.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-1163713974-1321493657=:1205"
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Nandita Dukkipati <nanditad@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Tom Herbert <therbert@google.com>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3530 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754905Ab1KQBc3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Nov 2011 20:32:29 -0500
-In-Reply-To: <20111117011604.GA8683@mcarlson.broadcom.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:37054 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755243Ab1KQBeT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 20:34:19 -0500
+In-Reply-To: <1321469885-10885-2-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-On Wed, 2011-11-16 at 17:16 -0800, Matt Carlson wrote:
-> > Finally, do these need to be inline?
-> 
-> I don't have a strong preference here either.  Phy code tends to be
-> slower, so there isn't really a strong performance argument.  The
-> implementations don't seem to be so large to argue against it though.
-> Would you prefer they not be inlined?
-> 
+--8323329-1163713974-1321493657=:1205
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
 
-Since we are defining these in .h file, they need to be inline, right?
-Otherwise multiple source files including the same .h file will have
-conflict.
+On Wed, 16 Nov 2011, Neal Cardwell wrote:
+
+> The bug: Senders ignored DSACKs after recovery when there were no
+> outstanding packets (a common scenario for HTTP servers).
+> 
+> The change: when there are no outstanding packets (the "no_queue" goto
+> label), call tcp_fastretrans_alert() in order to use DSACKs to undo
+> congestion window reductions.
+> 
+> Other patches in this series will provide other changes that are
+> necessary to fully fix this problem.
+> 
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> ---
+>  net/ipv4/tcp_input.c |    4 ++++
+>  1 files changed, 4 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index f772aaa..b49e418 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -3788,6 +3788,10 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+>  	return 1;
+>  
+>  no_queue:
+> +	/* If data was DSACKed, see if we can undo a cwnd reduction. */
+> +	if (flag & FLAG_DSACKING_ACK)
+> +		tcp_fastretrans_alert(sk, pkts_acked, newly_acked_sacked,
+> +				      is_dupack, flag);
+
+Acked-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+
+...however, there could be other undo related gotchas now added by this 
+patch due to complexity of tcp_fastretrans_alert. It would probably be 
+safer to just add the dsack undo related code here?
+
+-- 
+ i.
+--8323329-1163713974-1321493657=:1205--
