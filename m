@@ -1,79 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] r8169: Add 64bit statistics
-Date: Thu, 17 Nov 2011 14:02:01 +0100
-Message-ID: <1321534921.2751.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20111117064826.GA4429@Desktop-Junchang>
-	 <0a41dc06-15ab-4cf6-9bbd-3a1556993854@tahiti.vyatta.com>
-	 <CABoNC82RO2uvn9TfToAygEspUZnNrefXgO6SGpZoSAayCp3QiA@mail.gmail.com>
-	 <1321517516.3274.40.camel@edumazet-laptop>
-	 <CABoNC83U2k=-6-BkJEyWBXfSnEbb-+K8CD1ffqhjA613Tk04tQ@mail.gmail.com>
+From: =?UTF-8?q?R=C3=A9mi=20Denis-Courmont?= <remi@remlab.net>
+Subject: [PATCH] f_phonet: fix page offset of first received fragment
+Date: Thu, 17 Nov 2011 14:58:55 +0200
+Message-ID: <1321534735-9949-1-git-send-email-remi@remlab.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	netdev@vger.kernel.org, romieu@fr.zoreil.com,
-	nic swsd <nic_swsd@realtek.com>
-To: Junchang Wang <junchangwang@gmail.com>
+Cc: =?UTF-8?q?R=C3=A9mi=20Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:53887 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755675Ab1KQNCG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 08:02:06 -0500
-Received: by bke11 with SMTP id 11so1945441bke.19
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 05:02:04 -0800 (PST)
-In-Reply-To: <CABoNC83U2k=-6-BkJEyWBXfSnEbb-+K8CD1ffqhjA613Tk04tQ@mail.gmail.com>
+Received: from yop.chewa.net ([91.121.105.214]:53560 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757275Ab1KQNGJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Nov 2011 08:06:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 17 novembre 2011 =C3=A0 18:59 +0800, Junchang Wang a =C3=A9cri=
-t :
-> > Yes, look at sky2.c for a template
-> >
-> > drivers/net/ethernet/marvell/sky2.c contains code like that
-> > (different syncp for rx/tx)
-> >
-> > TX path:
-> >                        u64_stats_update_begin(&sky2->tx_stats.syncp=
-);
-> >                        ++sky2->tx_stats.packets;
-> >                        sky2->tx_stats.bytes +=3D skb->len;
-> >                        u64_stats_update_end(&sky2->tx_stats.syncp);
-> >
-> >
-> > RX path:
-> >
-> >        u64_stats_update_begin(&sky2->rx_stats.syncp);
-> >        sky2->rx_stats.packets +=3D packets;
-> >        sky2->rx_stats.bytes +=3D bytes;
-> >        u64_stats_update_end(&sky2->rx_stats.syncp);
-> >
->=20
-> Thanks, Eric.
->=20
-> I'm still confused about why we need two sync entries. Please correct
-> me if I'm wrong.
->=20
-> Take r8169 for example, All statistic entries are updated in
-> rtl8169_rx_interrupt() or rtl8169_tx_interrupt(). Those two functions
-> are called in rtl8169_poll().
-> As far as I know, rtl8169_poll() is protected by NAPI_STATE_SCHED bit
-> to run on a single core at one moment. So there is not compulsory to
-> use two sync entries.
->=20
-> One benefit from two sync is that readers can avoid many retries.
->=20
+=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-Oh well...
+We pull one byte (the MAC header) from the first fragment before the
+fragment is actually appended. So the socket buffer length is 1, not 0.
 
-Dont try to optimize all this stuff, I spent some time on it already,
-just use the infrastructure and forget about races and bugs.
+Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+---
+ drivers/usb/gadget/f_phonet.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-The short answer is :
-
-CPU1                    CPU2                 =20
-TX path                 RX path              =20
-
-
-since CPU1 & CPU2 will do the update_begin(), and the memory increment
-is not atomic, we might lose one increment, and block a stat reader
-forever.
+diff --git a/drivers/usb/gadget/f_phonet.c b/drivers/usb/gadget/f_phone=
+t.c
+index 3490770..16a509a 100644
+--- a/drivers/usb/gadget/f_phonet.c
++++ b/drivers/usb/gadget/f_phonet.c
+@@ -346,7 +346,7 @@ static void pn_rx_complete(struct usb_ep *ep, struc=
+t usb_request *req)
+ 		}
+=20
+ 		skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
+-				skb->len =3D=3D 0, req->actual);
++				skb->len <=3D 1, req->actual);
+ 		page =3D NULL;
+=20
+ 		if (req->actual < req->length) { /* Last fragment */
+--=20
+1.7.5.4
