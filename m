@@ -1,77 +1,79 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next 2/2] team: avoid using variable-length array
-Date: Thu, 17 Nov 2011 15:31:18 +0100
-Message-ID: <1321540278.2751.40.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1321539365-1125-1-git-send-email-jpirko@redhat.com>
-	 <1321539365-1125-2-git-send-email-jpirko@redhat.com>
+Subject: Re: Unable to flush ICMP redirect routes in kernel 3.0+
+Date: Thu, 17 Nov 2011 15:40:20 +0100
+Message-ID: <1321540820.2751.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <4EC2CA52.6020104@icdsoft.com>
+	 <1321391355.2602.0.camel@edumazet-laptop> <4EC439F2.3080809@icdsoft.com>
+	 <20111116223330.08de9e52@asterix.rh> <4EC4C160.6010804@icdsoft.com>
+	 <20111117111145.252924f5@asterix.rh>
+	 <1321535747.2751.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	bhutchings@solarflare.com, shemminger@vyatta.com,
-	andy@greyhouse.net, fbl@redhat.com, jzupka@redhat.com,
-	ivecera@redhat.com, mirqus@gmail.com
-To: Jiri Pirko <jpirko@redhat.com>
+Cc: Ivan Zahariev <famzah@icdsoft.com>, netdev@vger.kernel.org,
+	Vasiliy Kulikov <segoon@openwall.com>
+To: Flavio Leitner <fbl@redhat.com>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:50513 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757671Ab1KQObX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 09:31:23 -0500
-Received: by bke11 with SMTP id 11so2050508bke.19
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 06:31:22 -0800 (PST)
-In-Reply-To: <1321539365-1125-2-git-send-email-jpirko@redhat.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:60854 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753900Ab1KQOkY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 09:40:24 -0500
+Received: by wyh11 with SMTP id 11so2049047wyh.19
+        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 06:40:23 -0800 (PST)
+In-Reply-To: <1321535747.2751.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 17 novembre 2011 =C3=A0 15:16 +0100, Jiri Pirko a =C3=A9crit :
-> Apparently using variable-length array is not correct
-> (https://lkml.org/lkml/2011/10/23/25). So remove it.
->=20
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> ---
->  drivers/net/team/team.c |    9 +++++++--
->  1 files changed, 7 insertions(+), 2 deletions(-)
->=20
-> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-> index 5b169c1..c48ef19 100644
-> --- a/drivers/net/team/team.c
-> +++ b/drivers/net/team/team.c
-> @@ -96,10 +96,13 @@ int team_options_register(struct team *team,
->  			  size_t option_count)
->  {
->  	int i;
-> -	struct team_option *dst_opts[option_count];
-> +	struct team_option **dst_opts;
->  	int err;
-> =20
-> -	memset(dst_opts, 0, sizeof(dst_opts));
-> +	dst_opts =3D kzalloc(sizeof(struct team_option *) * option_count,
-> +			   GFP_KERNEL);
-> +	if (!dst_opts)
-> +		return -ENOMEM;
->  	for (i =3D 0; i < option_count; i++, option++) {
->  		struct team_option *dst_opt;
-> =20
-> @@ -119,12 +122,14 @@ int team_options_register(struct team *team,
->  	for (i =3D 0; i < option_count; i++)
->  		list_add_tail(&dst_opts[i]->list, &team->option_list);
-> =20
-> +	kfree(dst_opts);
->  	return 0;
-> =20
->  rollback:
->  	for (i =3D 0; i < option_count; i++)
->  		kfree(dst_opts[i]);
-> =20
-> +	kfree(dst_opts);
->  	return err;
->  }
-> =20
+Le jeudi 17 novembre 2011 =C3=A0 14:15 +0100, Eric Dumazet a =C3=A9crit=
+ :
 
-Please use kmemdup() as well, or someone else will do it ;)
+> I'll take a look :)
+>=20
 
-dst_opt =3D kmalloc(sizeof(*option), GFP_KERNEL);
+
+While looking at it, I found that ICMP_MIB_INERRORS was incremented in
+my (successful) ping tests.
+
+netstat -s=20
 =2E..
-memcpy(dst_opt, option, sizeof(*option));
+Icmp:
+=2E..
+    13 input ICMP message failed.
+=2E..
 
--> dst_opt =3D kmemdup(...);
+[PATCH] ping: dont increment ICMP_MIB_INERRORS
+
+ping module incorrectly increments ICMP_MIB_INERRORS if feeded with a
+frame not belonging to its own sockets.
+
+RFC 2011 states that ICMP_MIB_INERRORS should count "the number of ICMP
+messages which the entiry received but determined as having
+ICMP-specific errors (bad ICMP checksums, bad length, etc.)."
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Vasiliy Kulikov <segoon@openwall.com>
+---
+ net/ipv4/ping.c |    2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index a06f73f..43d4c3b 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -339,7 +339,6 @@ void ping_err(struct sk_buff *skb, u32 info)
+ 	sk =3D ping_v4_lookup(net, iph->daddr, iph->saddr,
+ 			    ntohs(icmph->un.echo.id), skb->dev->ifindex);
+ 	if (sk =3D=3D NULL) {
+-		ICMP_INC_STATS_BH(net, ICMP_MIB_INERRORS);
+ 		pr_debug("no socket, dropping\n");
+ 		return;	/* No socket for error */
+ 	}
+@@ -679,7 +678,6 @@ static int ping_queue_rcv_skb(struct sock *sk, stru=
+ct sk_buff *skb)
+ 	pr_debug("ping_queue_rcv_skb(sk=3D%p,sk->num=3D%d,skb=3D%p)\n",
+ 		inet_sk(sk), inet_sk(sk)->inet_num, skb);
+ 	if (sock_queue_rcv_skb(sk, skb) < 0) {
+-		ICMP_INC_STATS_BH(sock_net(sk), ICMP_MIB_INERRORS);
+ 		kfree_skb(skb);
+ 		pr_debug("ping_queue_rcv_skb -> failed\n");
+ 		return -1;
