@@ -1,66 +1,59 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next 1/2] team: add fix_features
-Date: Thu, 17 Nov 2011 15:16:04 +0100
-Message-ID: <1321539365-1125-1-git-send-email-jpirko@redhat.com>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com,
-	bhutchings@solarflare.com, shemminger@vyatta.com,
-	andy@greyhouse.net, fbl@redhat.com, jzupka@redhat.com,
-	ivecera@redhat.com, mirqus@gmail.com
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH net-next] r8169: Add 64bit statistics
+Date: Thu, 17 Nov 2011 15:27:58 +0100
+Message-ID: <1321540078.2751.38.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <AE90C24D6B3A694183C094C60CF0A2F6D8AECB@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Junchang Wang <junchangwang@gmail.com>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	netdev@vger.kernel.org, romieu@fr.zoreil.com,
+	nic swsd <nic_swsd@realtek.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49253 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757357Ab1KQOQN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Nov 2011 09:16:13 -0500
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:32769 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757480Ab1KQO2C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 09:28:02 -0500
+Received: by bke11 with SMTP id 11so2046634bke.19
+        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 06:28:01 -0800 (PST)
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6D8AECB@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-do fix features in similar way as bonding code does
+Le jeudi 17 novembre 2011 =C3=A0 14:01 +0000, David Laight a =C3=A9crit=
+ :
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- drivers/net/team/team.c |   22 ++++++++++++++++++++++
- 1 files changed, 22 insertions(+), 0 deletions(-)
+> Ah yes ...
+>=20
+> Both u64_stats_update_begin & _end increment a numeric field
+> with an appropriate memory barrier. So the 'update' path
+> has two extra read-modify-write sequences (possibly the
+> 2nd read can be optimised out), and two smp_wmb() that may
+> introduce bus delays.
+>=20
+> Would be fine if it were guaranteed to work!
+> Consider the following sequence of events:
+>        u64_stats_update_begin()
+>        calculate 'count+1'
+>                                 read_seqcount_begin()
+>                                 read count_hi
+>        write count_lo
+>                                 read count_lo
+>        write count_hi
+>                                 read_seqcount_retry()
+>        ... update other counters ...
+>        u64_stats_update_end()
+> The reader gets an invalid value since it reads the same
+> 'sequence' both times.
+>=20
+> Could be fixed by using '|=3D 1' in update_begin and
+> looping on odd values in read_seqcount_begin().
+>=20
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index f309274..5b169c1 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -953,6 +953,27 @@ static int team_del_slave(struct net_device *dev, struct net_device *port_dev)
- 	return err;
- }
- 
-+static netdev_features_t team_fix_features(struct net_device *dev,
-+					   netdev_features_t features)
-+{
-+	struct team_port *port;
-+	struct team *team = netdev_priv(dev);
-+	netdev_features_t mask;
-+
-+	mask = features;
-+	features &= ~NETIF_F_ONE_FOR_ALL;
-+	features |= NETIF_F_ALL_FOR_ALL;
-+
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(port, &team->port_list, list) {
-+		features = netdev_increment_features(features,
-+						     port->dev->features,
-+						     mask);
-+	}
-+	rcu_read_unlock();
-+	return features;
-+}
-+
- static const struct net_device_ops team_netdev_ops = {
- 	.ndo_init		= team_init,
- 	.ndo_uninit		= team_uninit,
-@@ -968,6 +989,7 @@ static const struct net_device_ops team_netdev_ops = {
- 	.ndo_vlan_rx_kill_vid	= team_vlan_rx_kill_vid,
- 	.ndo_add_slave		= team_add_slave,
- 	.ndo_del_slave		= team_del_slave,
-+	.ndo_fix_features	= team_fix_features,
- };
- 
- 
--- 
-1.7.6
+I am a bit tired of this discussion.
+
+You obviously dont understand how the thing is working.
+
+Spend some time on it before claiming there are bugs.
