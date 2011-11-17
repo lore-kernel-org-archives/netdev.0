@@ -1,41 +1,47 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: add module param for control of ASPM disable
-Date: Thu, 17 Nov 2011 10:37:24 +0100
-Message-ID: <20111117093724.GB9112@electric-eye.fr.zoreil.com>
-References: <1321052755-15368-1-git-send-email-tbroch@chromium.org> <20111112045935.GA24292@srcf.ucam.org> <20111112104624.GA24870@electric-eye.fr.zoreil.com> <CA+iF6Rog3ptpmQZzhcRODmZUKN18_uw5t9xfpQjbJ86qKUA0eQ@mail.gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next 3/3] team: replicate options on register
+Date: Thu, 17 Nov 2011 10:57:30 +0100
+Message-ID: <20111117095729.GA2093@minipsycho>
+References: <1321477749-1877-1-git-send-email-jpirko@redhat.com>
+ <1321477749-1877-4-git-send-email-jpirko@redhat.com>
+ <1321518736.3274.45.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matthew Garrett <mjg59@srcf.ucam.org>,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>
-To: Todd Broch <tbroch@chromium.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	bhutchings@solarflare.com, shemminger@vyatta.com,
+	andy@greyhouse.net, fbl@redhat.com, jzupka@redhat.com,
+	ivecera@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:47544 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755461Ab1KQJmr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 04:42:47 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:2553 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756240Ab1KQJ5g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Nov 2011 04:57:36 -0500
 Content-Disposition: inline
-In-Reply-To: <CA+iF6Rog3ptpmQZzhcRODmZUKN18_uw5t9xfpQjbJ86qKUA0eQ@mail.gmail.com>
+In-Reply-To: <1321518736.3274.45.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Todd Broch <tbroch@chromium.org> :
-[...]
->  I've tested on a Mobile Sandybridge platform only as I presently don't have
-> access to any other systems w/ the r8169 h/w.
+Thu, Nov 17, 2011 at 09:32:16AM CET, eric.dumazet@gmail.com wrote:
+>Le mercredi 16 novembre 2011 =E0 22:09 +0100, Jiri Pirko a =E9crit :
+>
+>> +
+>> +int team_options_register(struct team *team,
+>> +			  const struct team_option *option,
+>> +			  size_t option_count)
+>>  {
+>>  	int i;
+>> +	struct team_option *dst_opts[option_count];
+>> +	int err;
+>
+>This kind of construct will trigger static analyzer alerts...
 
-Sorry for the lack of specificity : the XID line from the r8169 driver would
-be welcome. It should look like:
 
+I thought this is ok to do in kernel. Should I replace that with
+kmalloc/kfree?
 
-[    6.315053] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-[    6.315287] r8169 0000:03:00.0: PCI INT A -> GSI 16 (level, low) -> IRQ 16
-[    6.315568] r8169 0000:03:00.0: setting latency timer to 64
-[    6.315663] r8169 0000:03:00.0: irq 49 for MSI/MSI-X
-[    6.315834] r8169 0000:03:00.0: eth0: RTL8168evl/8111evl at 0xffffc90000676000, 00:e0:4c:68:00:1f, XID 0c900800 IRQ 49
-                                         ^^^^^^^^^^^^^^^^^^                                           ^^^^^^^^^^^^
-
-Thanks.
-
--- 
-Ueimor
+>
+>
+>
+>
