@@ -1,39 +1,67 @@
-From: Tom Herbert <therbert@google.com>
-Subject: root_lock vs. device's TX lock
-Date: Thu, 17 Nov 2011 08:10:01 -0800
-Message-ID: <CA+mtBx8sHDprEct3zgGXXKEESK6i0FYnFS-_z35FOyVQjS9R4Q@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Unable to flush ICMP redirect routes in kernel 3.0+
+Date: Thu, 17 Nov 2011 17:31:50 +0100
+Message-ID: <1321547510.2751.66.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <4EC2CA52.6020104@icdsoft.com>
+	 <1321391355.2602.0.camel@edumazet-laptop> <4EC439F2.3080809@icdsoft.com>
+	 <20111116223330.08de9e52@asterix.rh> <4EC4C160.6010804@icdsoft.com>
+	 <20111117111145.252924f5@asterix.rh>
+	 <1321535747.2751.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1321540820.2751.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111117133724.59684d28@asterix.rh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Ivan Zahariev <famzah@icdsoft.com>, netdev@vger.kernel.org,
+	Vasiliy Kulikov <segoon@openwall.com>
+To: Flavio Leitner <fbl@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:59287 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932457Ab1KQQKC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 11:10:02 -0500
-Received: by iage36 with SMTP id e36so2290578iag.19
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 08:10:01 -0800 (PST)
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:34026 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753809Ab1KQQbz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 11:31:55 -0500
+Received: by bke11 with SMTP id 11so2225427bke.19
+        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 08:31:53 -0800 (PST)
+In-Reply-To: <20111117133724.59684d28@asterix.rh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From sch_direct_xmit:
+Le jeudi 17 novembre 2011 =C3=A0 13:37 -0200, Flavio Leitner a =C3=A9cr=
+it :
+> On Thu, 17 Nov 2011 15:40:20 +0100
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>=20
+> > [PATCH] ping: dont increment ICMP_MIB_INERRORS
+> >=20
+> > ping module incorrectly increments ICMP_MIB_INERRORS if feeded with=
+ a
+> > frame not belonging to its own sockets.
+> >=20
+> > RFC 2011 states that ICMP_MIB_INERRORS should count "the number of
+> > ICMP messages which the entiry received but determined as having
+> > ICMP-specific errors (bad ICMP checksums, bad length, etc.)."
+> >=20
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> > CC: Vasiliy Kulikov <segoon@openwall.com>
+>=20
+> Yeah, they aren't ICMP specific errors and the callers already
+> checked for checksum, lengths, and etc.. increasing that counter
+> when necessary.
+>=20
+> Acked-by: Flavio Leitner <fbl@redhat.com>
 
-        /* And release qdisc */
-        spin_unlock(root_lock);
+Thanks
 
-        HARD_TX_LOCK(dev, txq, smp_processor_id());
-        if (!netif_tx_queue_frozen_or_stopped(txq))
-                ret = dev_hard_start_xmit(skb, dev, txq);
+By the way, redirects dont work at all in net-next
 
-        HARD_TX_UNLOCK(dev, txq);
+Probably coming from your commit 7cc9150ebe8ec0
+(route: fix ICMP redirect validation)
 
-        spin_lock(root_lock);
+Since calling __ip_route_output_key() will create the route with s =3D =
+0,
+l =3D 0  (forcing saddr and dev->ifindex) selectors...
 
-This is a lot of lock manipulation to basically switch from one lock
-to another and possibly thrashing just to send a packet.  I am
-thinking that if the there is a 1-1 correspondence between qdisc and
-device queue then we could actually use the device's lock as the root
-lock for the qdisc.  So in that case, we would need to touch any locks
-from sch_direct_xmit (just hold root lock which is already device lock
-for the duration).
-
-Is there any reason why this couldn't work?
+We have to add a 'create' parameter to __ip_route_output_key() so that
+ip_rt_redirect() doesnt create a route, only find the existing one in
+cache ?
