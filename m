@@ -1,113 +1,70 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] Don't allow sharing of tx skbs on xen-netfront
-Date: Thu, 17 Nov 2011 20:17:01 +0000
-Message-ID: <1321561021.8866.12.camel@dagon.hellion.org.uk>
-References: <1321298544-16434-1-git-send-email-nhorman@tuxdriver.com>
-	 <1321543238.3664.278.camel@zakaz.uk.xensource.com>
-	 <20111117192535.GB26847@hmsreliant.think-freely.org>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH 0/4] skb paged fragment destructors
+Date: Thu, 17 Nov 2011 21:22:12 +0100
+Message-ID: <CAHXqBFL5m2J=XRBY1jEO3wWPyy-y1AKwuVTd_dVrtFNbtJ76JQ@mail.gmail.com>
+References: <1320850895.955.172.camel@zakaz.uk.xensource.com>
+ <1320860984.3916.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1321541121.3664.270.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jeremy Fitzhardinge <Jeremy.Fitzhardinge@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:47396 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755266Ab1KQURE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 15:17:04 -0500
-In-Reply-To: <20111117192535.GB26847@hmsreliant.think-freely.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:59306 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754203Ab1KQUWh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 15:22:37 -0500
+Received: by iage36 with SMTP id e36so2637433iag.19
+        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 12:22:37 -0800 (PST)
+In-Reply-To: <1321541121.3664.270.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-11-17 at 19:25 +0000, Neil Horman wrote:
-> On Thu, Nov 17, 2011 at 03:20:38PM +0000, Ian Campbell wrote:
-> > On Mon, 2011-11-14 at 14:22 -0500, Neil Horman wrote:
-> > > It was pointed out to me recently that the xen-netfront driver can't safely
-> > > support shared skbs on transmit, since, while it doesn't maintain skb state
-> > > directly, it does pass a pointer to the skb to the hypervisor via a list, and
-> > > the hypervisor may expect the contents of the skb to remain stable.  Clearing
-> > > the IFF_TX_SKB_SHARING flag after the call to alloc_etherdev to make it safe.
-> > 
-> > What are the actual constraints here? The skb is used as a handle to the
-> > skb->data and shinfo (frags) and to complete at the end. It's actually
-> > those which are passed to the hypervisor (effectively the same as
-> > passing those addresses to the h/w for DMA).
-> > 
-> > Which parts of the skb are expected/allowed to not remain stable?
-> > 
-> > (Appologies if the above seems naive, I seem to have missed the
-> > introduction of shared tx skbs and IFF_TX_SKB_SHARING)
-> > 
-> Its ok, this is the most accurate description from the previous threads on the
-> subject:
-> http://lists.openwall.net/netdev/2011/08/22/63
-> 
-> The basic problem boils down the notion that some drivers, when they receive an
-> skb in their xmit paths, presume to have sole ownership of the skb, and as a
-> result may do things like add the skb to a list, or otherwise store stateful
-> data in the skb.  If the skb is shared, thats unsafe to do, as the stack still
-> holds a reference to the skb, and make make changes without serializing them
-> against the driver.  So we have to flag those drivers which preform these kinds
-> of actions.  xen-netfront doesn't strictly speaking modify any state directly ni
-> an skb, but it does place a pointer to the skb in a data structure here:
-> 
-> np->tx_skbs[id].skb = skb;
-> 
-> Which then gets handed off to the hypervisior.  Since the hypervisor now has
-> access to that skb pointer, and we can't be sure (from the guest perspective),
-> what it does with that information, it would be better to be safe by disallowing
-> shared skbs in this path.
+2011/11/17 Ian Campbell <Ian.Campbell@citrix.com>:
+> On Wed, 2011-11-09 at 17:49 +0000, Eric Dumazet wrote:
+>> struct skb_frag_page_desc {
+>> =C2=A0 =C2=A0 =C2=A0 struct page *p;
+>> =C2=A0 =C2=A0 =C2=A0 atomic_t ref;
+>> =C2=A0 =C2=A0 =C2=A0 int (*destroy)(void *data);
+>> /* =C2=A0 =C2=A0void *data; */ /* no need, see container_of() */
+>
+> It turns out that container_of is not so useful here as the users
+> typically has a list of pages not a single page and hence has a list =
+of
+> destructors too. What you actually need is the container of the point=
+er
+> to that list, IYSWIM, which you can't get at given only a pointer to =
+an
+> element of the list. So you end up doing
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct subsys_page_desc {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0struct subsys_=
+container *container;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0struct sbk_fra=
+g_page_desc;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>
+> *container here is basically the same as the void * so you might as w=
+ell
+> include it in the base datastructure.
 
-The skb pointer itself doesn't get given to the backend/hypervisor. The
-page which skb->data refers to is granted to the backend domain, as are
-the pages in the frags.
+If you reverse the order fields in subsys_page_desc then
+container_of() compiles to no-op, and you don't have to impose this
+extra field for all users, even if they don't need it.
 
-I think we only need to be sure that the frontend doesn't rely on
-anything in the skb itself, right? Does skb->data or shinfo count from
-that perspective?
+If you see it useful, then there could be base skb_frag_page_desc and
+then, skb_frag_page_desc_with_data (or othre) extending it. Core code
+only ever needs the base structure.
 
-Ian.
+BTW, destroy() prototype should be:
 
-> 
-> Neil
-> 
-> > Ian.
-> > 
-> > > 
-> > > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> > > CC: "David S. Miller" <davem@davemloft.net>
-> > > CC: Jeremy Fitzhardinge <jeremy.fitzhardinge@citrix.com>
-> > > CC: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> > > CC: xen-devel@lists.xensource.com
-> > > ---
-> > >  drivers/net/xen-netfront.c |    6 ++++++
-> > >  1 files changed, 6 insertions(+), 0 deletions(-)
-> > > 
-> > > diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> > > index 226faab..fb1077b 100644
-> > > --- a/drivers/net/xen-netfront.c
-> > > +++ b/drivers/net/xen-netfront.c
-> > > @@ -1252,6 +1252,12 @@ static struct net_device * __devinit xennet_create_dev(struct xenbus_device *dev
-> > >  		return ERR_PTR(-ENOMEM);
-> > >  	}
-> > >  
-> > > +	/*
-> > > +	 * Since frames remain on a queue after a return from xennet_start_xmit,
-> > > +	 * we can't support tx shared skbs
-> > > +	 */
-> > > +	netdev->priv_flags &= ~IFF_TX_SKB_SHARING;
-> > > +
-> > >  	np                   = netdev_priv(netdev);
-> > >  	np->xbdev            = dev;
-> > >  
-> > 
-> > 
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > 
+void destroy(struct skb_frag_page_desc *desc);
+
+Because: 1. you know the parameter's type, 2. whatever would be
+returned is not going to be useful.
+
+Best Regards,
+Micha=C5=82 Miros=C5=82aw
