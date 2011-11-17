@@ -1,80 +1,58 @@
-From: Ivan Zahariev <famzah@icdsoft.com>
-Subject: Re: Unable to flush ICMP redirect routes in kernel 3.0+
-Date: Thu, 17 Nov 2011 10:10:08 +0200
-Message-ID: <4EC4C160.6010804@icdsoft.com>
-References: <4EC2CA52.6020104@icdsoft.com> <1321391355.2602.0.camel@edumazet-laptop> <4EC439F2.3080809@icdsoft.com> <20111116223330.08de9e52@asterix.rh>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] r8169: Add 64bit statistics
+Date: Thu, 17 Nov 2011 09:11:56 +0100
+Message-ID: <1321517516.3274.40.camel@edumazet-laptop>
+References: <20111117064826.GA4429@Desktop-Junchang>
+	 <0a41dc06-15ab-4cf6-9bbd-3a1556993854@tahiti.vyatta.com>
+	 <CABoNC82RO2uvn9TfToAygEspUZnNrefXgO6SGpZoSAayCp3QiA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	netdev@vger.kernel.org, romieu@fr.zoreil.com,
+	nic swsd <nic_swsd@realtek.com>
+To: Junchang Wang <junchangwang@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from icdsoft.com ([64.14.68.165]:47011 "EHLO us.icdsoft.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755872Ab1KQIKR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Nov 2011 03:10:17 -0500
-In-Reply-To: <20111116223330.08de9e52@asterix.rh>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:43693 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751947Ab1KQIMB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 03:12:01 -0500
+Received: by wyh11 with SMTP id 11so1615338wyh.19
+        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 00:12:00 -0800 (PST)
+In-Reply-To: <CABoNC82RO2uvn9TfToAygEspUZnNrefXgO6SGpZoSAayCp3QiA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17.11.2011 =D0=B3. 02:33 =D1=87., Flavio Leitner wrote:
-> On Thu, 17 Nov 2011 00:32:18 +0200
-> Ivan Zahariev<famzah@icdsoft.com>  wrote:
->
->> On 11/15/2011 11:09 PM, Eric Dumazet wrote:
->>> Le mardi 15 novembre 2011 =C3=A0 22:23 +0200, Ivan Zahariev a =C3=A9=
-crit :
->>>> Hello,
->>>>
->>>> We have changed nothing in our network infrastructure but only
->>>> upgraded from Linux kernel 2.6.36.2 to 3.0.3. Here is the problem
->>>> we are experiencing:
->>>>
->>>> ICMP redirected routes are cached forever, and they can be cleared
->>>> only by a reboot.
->>>>
->> ### (bug #1) even though we flushed the route cache, the<redirected>
->> route resurrects from somewhere; even without making any TCP request=
-s
->> ### this time what "ip" returns is consistent with the real
->> (incorrect) routing behavior of machine5
->> root@machine5:~# ip route flush cache
->> root@machine5:~# ip route list cache match 8.8.4.4
->> root@machine5:~# ip route get 8.8.4.4
->> 8.8.4.4 via 192.168.0.120 dev eth0  src 192.168.0.244
->>       cache<redirected>   ipid 0x303a
->>
->> ### only a reboot clears the cached<redirected>  routes
-> IIRC, the cache flush doesn't affect the inetpeer where the
-> redirected gateway is now stored, so even after flushing the
-> route cache, the inetpeer will restore the old info later.
->
-> fbl
-OK, I guess my questions now are:
-* How to flush the inetpeer (redirected cache info) without having to=20
-reboot the machine?
-* Why "ip route" returns an incorrect route; example:
+Le jeudi 17 novembre 2011 =C3=A0 15:46 +0800, Junchang Wang a =C3=A9cri=
+t :
+> > You dont need per-cpu since Tx is locked by dev->xmit_lock and
+> > rx is implicitly single threaded by NAPI.
+>=20
+> Thanks.
+>=20
+> >You do need to have
+> > two u64_stat_sync entries (one for Tx and one for Rx).
+>=20
+> You mean Rx and Tx will perform on different cores at one moment.
+> So I need a sync for Tx to protect tx_xxx, and another for Rx to
+> protect rx_xxx. Is that right?
+>=20
 
-### (bug #2) what "ip route" returns is inconsistent, because we are=20
-using the <redirected> route 192.168.0.120 in reality
-### note that the count of the route lines increased with one
-root@machine5:~# ip route list cache match 8.8.4.4
-8.8.4.4 from 192.168.0.244 tos lowdelay via 192.168.0.8 dev eth0
-     cache  ipid 0x303a
-8.8.4.4 tos lowdelay via 192.168.0.8 dev eth0  src 192.168.0.244
-     cache  ipid 0x303a
-8.8.4.4 via 192.168.0.8 dev eth0  src 192.168.0.244
-     cache
-8.8.4.4 from 192.168.0.244 tos lowdelay via 192.168.0.8 dev eth0
-     cache  ipid 0x303a
+Yes, look at sky2.c for a template
 
-### After "ip route flush cache", the output of "ip route" gets=20
-consistent with the real routing behavior of machine5
-root@machine5:~# ip route flush cache
-root@machine5:~# ip route list cache match 8.8.4.4
-root@machine5:~# ip route get 8.8.4.4
-8.8.4.4 via 192.168.0.120 dev eth0  src 192.168.0.244
-     cache <redirected>  ipid 0x303a
+drivers/net/ethernet/marvell/sky2.c contains code like that
+(different syncp for rx/tx)
 
-Thanks.
---Ivan
+TX path:
+                        u64_stats_update_begin(&sky2->tx_stats.syncp);
+                        ++sky2->tx_stats.packets;
+                        sky2->tx_stats.bytes +=3D skb->len;
+                        u64_stats_update_end(&sky2->tx_stats.syncp);
+
+
+RX path:
+
+        u64_stats_update_begin(&sky2->rx_stats.syncp);
+        sky2->rx_stats.packets +=3D packets;
+        sky2->rx_stats.bytes +=3D bytes;
+        u64_stats_update_end(&sky2->rx_stats.syncp);
