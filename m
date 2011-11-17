@@ -1,91 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Vasiliy Kulikov <segoon@openwall.com>
 Subject: Re: Unable to flush ICMP redirect routes in kernel 3.0+
-Date: Thu, 17 Nov 2011 17:45:19 +0100
-Message-ID: <1321548319.2751.70.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Date: Thu, 17 Nov 2011 20:52:09 +0400
+Message-ID: <20111117165209.GA11813@albatros>
 References: <4EC2CA52.6020104@icdsoft.com>
-	 <1321391355.2602.0.camel@edumazet-laptop> <4EC439F2.3080809@icdsoft.com>
-	 <20111116223330.08de9e52@asterix.rh> <4EC4C160.6010804@icdsoft.com>
-	 <20111117111145.252924f5@asterix.rh>
-	 <1321535747.2751.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1321540820.2751.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111117133724.59684d28@asterix.rh>
-	 <1321547510.2751.66.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111117144038.61b0525b@asterix.rh>
+ <1321391355.2602.0.camel@edumazet-laptop>
+ <4EC439F2.3080809@icdsoft.com>
+ <20111116223330.08de9e52@asterix.rh>
+ <4EC4C160.6010804@icdsoft.com>
+ <20111117111145.252924f5@asterix.rh>
+ <1321535747.2751.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <1321540820.2751.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Ivan Zahariev <famzah@icdsoft.com>, netdev@vger.kernel.org,
-	Vasiliy Kulikov <segoon@openwall.com>
-To: Flavio Leitner <fbl@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Flavio Leitner <fbl@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Ivan Zahariev <famzah@icdsoft.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:57394 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751156Ab1KQQpX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 11:45:23 -0500
-Received: by wyh11 with SMTP id 11so2232432wyh.19
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 08:45:22 -0800 (PST)
-In-Reply-To: <20111117144038.61b0525b@asterix.rh>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:64299 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751156Ab1KQQyd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 11:54:33 -0500
+Received: by bke11 with SMTP id 11so2257697bke.19
+        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 08:54:32 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1321540820.2751.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 17 novembre 2011 =C3=A0 14:40 -0200, Flavio Leitner a =C3=A9cr=
-it :
-> On Thu, 17 Nov 2011 17:31:50 +0100
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->=20
-> > Le jeudi 17 novembre 2011 =C3=A0 13:37 -0200, Flavio Leitner a =C3=A9=
-crit :
-> > > On Thu, 17 Nov 2011 15:40:20 +0100
-> > > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > >=20
-> > > > [PATCH] ping: dont increment ICMP_MIB_INERRORS
-> > > >=20
-> > > > ping module incorrectly increments ICMP_MIB_INERRORS if feeded
-> > > > with a frame not belonging to its own sockets.
-> > > >=20
-> > > > RFC 2011 states that ICMP_MIB_INERRORS should count "the number=
- of
-> > > > ICMP messages which the entiry received but determined as havin=
-g
-> > > > ICMP-specific errors (bad ICMP checksums, bad length, etc.)."
-> > > >=20
-> > > > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> > > > CC: Vasiliy Kulikov <segoon@openwall.com>
-> > >=20
-> > > Yeah, they aren't ICMP specific errors and the callers already
-> > > checked for checksum, lengths, and etc.. increasing that counter
-> > > when necessary.
-> > >=20
-> > > Acked-by: Flavio Leitner <fbl@redhat.com>
-> >=20
-> > Thanks
-> >=20
-> > By the way, redirects dont work at all in net-next
->=20
-> Could you be more specific? It seems to be working here.
->=20
-> > Probably coming from your commit 7cc9150ebe8ec0
-> > (route: fix ICMP redirect validation)
-> >=20
-> > Since calling __ip_route_output_key() will create the route with s =
-=3D
-> > 0, l =3D 0  (forcing saddr and dev->ifindex) selectors...
-> >=20
-> > We have to add a 'create' parameter to __ip_route_output_key() so t=
-hat
-> > ip_rt_redirect() doesnt create a route, only find the existing one =
-in
-> > cache ?
->=20
-> It should receive redirect after sending a packet, so the route
-> should be ready at this point.=20
+On Thu, Nov 17, 2011 at 15:40 +0100, Eric Dumazet wrote:
+> [PATCH] ping: dont increment ICMP_MIB_INERRORS
+> 
+> ping module incorrectly increments ICMP_MIB_INERRORS if feeded with a
+> frame not belonging to its own sockets.
+> 
+> RFC 2011 states that ICMP_MIB_INERRORS should count "the number of ICMP
+> messages which the entiry received but determined as having
+> ICMP-specific errors (bad ICMP checksums, bad length, etc.)."
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-I receive the redirect, but the rt->peer is updated on a different rout=
-e
-than the one used by my ping command.
+Acked-by: Vasiliy Kulikov <segoon@openwall.com>
 
-Its updated on the specific route (source address forced, output device
-forced), not on the wildcarded route my ping is using.
+Thanks,
 
-So next packets are still sent on old gateway...
+> ---
+>  net/ipv4/ping.c |    2 --
+>  1 file changed, 2 deletions(-)
+> 
+> diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+> index a06f73f..43d4c3b 100644
+> --- a/net/ipv4/ping.c
+> +++ b/net/ipv4/ping.c
+> @@ -339,7 +339,6 @@ void ping_err(struct sk_buff *skb, u32 info)
+>  	sk = ping_v4_lookup(net, iph->daddr, iph->saddr,
+>  			    ntohs(icmph->un.echo.id), skb->dev->ifindex);
+>  	if (sk == NULL) {
+> -		ICMP_INC_STATS_BH(net, ICMP_MIB_INERRORS);
+>  		pr_debug("no socket, dropping\n");
+>  		return;	/* No socket for error */
+>  	}
+> @@ -679,7 +678,6 @@ static int ping_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+>  	pr_debug("ping_queue_rcv_skb(sk=%p,sk->num=%d,skb=%p)\n",
+>  		inet_sk(sk), inet_sk(sk)->inet_num, skb);
+>  	if (sock_queue_rcv_skb(sk, skb) < 0) {
+> -		ICMP_INC_STATS_BH(sock_net(sk), ICMP_MIB_INERRORS);
+>  		kfree_skb(skb);
+>  		pr_debug("ping_queue_rcv_skb -> failed\n");
+>  		return -1;
+> 
+
+-- 
+Vasiliy Kulikov
+http://www.openwall.com - bringing security into open computing environments
