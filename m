@@ -1,122 +1,73 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] Add ethtool to mii advertisment conversion helpers
-Date: Thu, 17 Nov 2011 00:34:37 +0000
-Message-ID: <1321490078.2709.86.camel@bwh-desktop>
-References: <1321394453-21076-1-git-send-email-mcarlson@broadcom.com>
+Subject: Re: [PATCH 2/2] net: verify GSO flag bits against netdev features
+Date: Thu, 17 Nov 2011 00:35:18 +0000
+Message-ID: <1321490118.2709.87.camel@bwh-desktop>
+References: <2ec988cd27c6eb5162ea2e41416edcaae207bb5e.1321488025.git.mirq-linux@rere.qmqm.pl>
+	 <d4513ed885d62d13873f9b7310fc20cbfa55f634.1321488025.git.mirq-linux@rere.qmqm.pl>
+	 <1321488596.2709.68.camel@bwh-desktop> <20111117001312.GB9596@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>
-To: Matt Carlson <mcarlson@broadcom.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:43148 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:43202 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754073Ab1KQAen (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 19:34:43 -0500
-In-Reply-To: <1321394453-21076-1-git-send-email-mcarlson@broadcom.com>
+	with ESMTP id S1754073Ab1KQAfV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 19:35:21 -0500
+In-Reply-To: <20111117001312.GB9596@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-11-15 at 14:00 -0800, Matt Carlson wrote:
-> Translating between ethtool advertisement settings and MII
-> advertisements are common operations for ethernet drivers.  This patch
-> adds a set of helper functions that implements the conversion.  The
-> patch then modifies a couple of the drivers to use the new functions.
+On Thu, 2011-11-17 at 01:13 +0100, Micha=C5=82 Miros=C5=82aw wrote:
+> On Thu, Nov 17, 2011 at 12:09:56AM +0000, Ben Hutchings wrote:
+> > On Thu, 2011-11-17 at 01:05 +0100, Micha=C5=82 Miros=C5=82aw wrote:
+> > > Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl=
+>
+> > > ---
+> > >  include/linux/netdevice.h |    9 +++++++++
+> > >  1 files changed, 9 insertions(+), 0 deletions(-)
+> > >=20
+> > > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.=
+h
+> > > index b35ffd7..31da3bb 100644
+> > > --- a/include/linux/netdevice.h
+> > > +++ b/include/linux/netdevice.h
+> > > @@ -2492,6 +2492,15 @@ netdev_features_t netif_skb_features(struc=
+t sk_buff *skb);
+> > >  static inline int net_gso_ok(netdev_features_t features, int gso=
+_type)
+> > >  {
+> > >  	netdev_features_t feature =3D gso_type << NETIF_F_GSO_SHIFT;
+> > > +
+> > > +	/* check flags correspondence */
+> > > +	BUILD_BUG_ON(SKB_GSO_TCPV4   !=3D (NETIF_F_TSO >> NETIF_F_GSO_S=
+HIFT));
+> > > +	BUILD_BUG_ON(SKB_GSO_UDP     !=3D (NETIF_F_UFO >> NETIF_F_GSO_S=
+HIFT));
+> > > +	BUILD_BUG_ON(SKB_GSO_DODGY   !=3D (NETIF_F_GSO_ROBUST >> NETIF_=
+=46_GSO_SHIFT));
+> > > +	BUILD_BUG_ON(SKB_GSO_TCP_ECN !=3D (NETIF_F_TSO_ECN >> NETIF_F_G=
+SO_SHIFT));
+> > > +	BUILD_BUG_ON(SKB_GSO_TCPV6   !=3D (NETIF_F_TSO6 >> NETIF_F_GSO_=
+SHIFT));
+> > > +	BUILD_BUG_ON(SKB_GSO_FCOE    !=3D (NETIF_F_FSO >> NETIF_F_GSO_S=
+HIFT));
+> > > +
+> > >  	return (features & feature) =3D=3D feature;
+> > >  }
+> > This is fine but should still be done at the same time as changing =
+the
+> > definitions.
+>=20
+> Agreed. But as Dave was quicker, we need to fix this in separate patc=
+h.
 
-I like this, but:
-
-[....]
-> --- a/drivers/net/ethernet/broadcom/tg3.c
-> +++ b/drivers/net/ethernet/broadcom/tg3.c
-[...]
-> @@ -4903,23 +4880,19 @@ static int tg3_setup_fiber_mii_phy(struct tg3 *tp, int force_reset)
->  	    (tp->phy_flags & TG3_PHYFLG_PARALLEL_DETECT)) {
->  		/* do nothing, just check for link up at the end */
->  	} else if (tp->link_config.autoneg == AUTONEG_ENABLE) {
-> -		u32 adv, new_adv;
-> +		u32 adv, newadv;
->  
->  		err |= tg3_readphy(tp, MII_ADVERTISE, &adv);
-> -		new_adv = adv & ~(ADVERTISE_1000XFULL | ADVERTISE_1000XHALF |
-> -				  ADVERTISE_1000XPAUSE |
-> -				  ADVERTISE_1000XPSE_ASYM |
-> -				  ADVERTISE_SLCT);
-> -
-> -		new_adv |= tg3_advert_flowctrl_1000X(tp->link_config.flowctrl);
-> +		newadv = adv & ~(ADVERTISE_1000XFULL | ADVERTISE_1000XHALF |
-> +				 ADVERTISE_1000XPAUSE |
-> +				 ADVERTISE_1000XPSE_ASYM |
-> +				 ADVERTISE_SLCT);
-
-Not sure why you're renaming the variable here.
-
-> -		if (tp->link_config.advertising & ADVERTISED_1000baseT_Half)
-> -			new_adv |= ADVERTISE_1000XHALF;
-> -		if (tp->link_config.advertising & ADVERTISED_1000baseT_Full)
-> -			new_adv |= ADVERTISE_1000XFULL;
-> +		newadv |= tg3_advert_flowctrl_1000X(tp->link_config.flowctrl);
-> +		newadv |= ethtool_adv_to_mii_1000X(tp->link_config.advertising);
-
-Doesn't this generate flow control advertising flags twice?  Can the
-link_config.flowctrl and link_config.advertising fields get out of
-synch?
-
-[...]
-> --- a/include/linux/mii.h
-> +++ b/include/linux/mii.h
-> @@ -240,6 +240,171 @@ static inline unsigned int mii_duplex (unsigned int duplex_lock,
->  }
->  
->  /**
-> + * ethtool_adv_to_mii_100bt
-> + * @ethadv: the ethtool advertisement settings
-> + *
-> + * A small helper function that translates ethtool advertisement
-> + * settings to phy autonegotiation advertisements for the
-> + * MII_ADVERTISE register.
-> + */
-> +static inline u32 ethtool_adv_to_mii_100bt(u32 ethadv)
-[...]
-> +static inline u32 mii_adv_to_ethtool_100bt(u32 adv)
-[...]
-> +static inline u32 ethtool_adv_to_mii_1000T(u32 ethadv)
-[...]
-> +static inline u32 mii_adv_to_ethtool_1000T(u32 adv)
-[...]
-> +#define mii_lpa_to_ethtool_100bt(lpa)	mii_adv_to_ethtool_100bt(lpa)
-
-Shouldn't this additionally translate LPA_LPACK into ADVERTISED_Autoneg?
-
-[...]
-> +static inline u32 mii_lpa_to_ethtool_1000T(u32 lpa)
-[...]
-> +static inline u32 ethtool_adv_to_mii_1000X(u32 ethadv)
-[...]
-> +static inline u32 mii_adv_to_ethtool_1000X(u32 adv)
-[...]
-
-I'm not convinced about the naming convention for these.  Would it not
-make more sense to name them consistently by register name and signal
-type:
-
-ethtool_adv_to_mii_adv_t
-mii_adv_to_ethtool_adv_t
-ethtool_adv_to_mii_ctrl1000_t
-mii_ctrl1000_to_ethtool_adv_t
-mii_lpa_to_ethtool_lpa_t
-mii_stat1000_to_ethtool_lpa_t
-ethtool_adv_to_mii_adv_x
-mii_adv_to_ethtool_adv_x
-
-Shouldn't there be mii_lpa_to_ethtool_1000X (or
-mii_lpa_to_ethtool_lpa_x)?
-
-Finally, do these need to be inline?
+Sorry, I somehow failed to spot that.
 
 Ben.
 
--- 
+--=20
 Ben Hutchings, Staff Engineer, Solarflare
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
