@@ -1,12 +1,12 @@
 From: Thomas Meyer <thomas@m3y3r.de>
-Subject: [PATCH] net: Use kmemdup rather than duplicating its implementation
-Date: Thu, 17 Nov 2011 23:43:40 +0100
-Message-ID: <1321569820.1624.307.camel@localhost.localdomain>
+Subject: [PATCH] ethtool: Use kmemdup rather than duplicating its
+ implementation
+Date: Fri, 18 Nov 2011 00:05:35 +0100
+Message-ID: <1321571135.1624.313.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: samuel@sortiz.org, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -17,22 +17,18 @@ in scripts/coccinelle/api/memdup.cocci.
 Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
 ---
 
-diff -u -p a/net/irda/irttp.c b/net/irda/irttp.c
---- a/net/irda/irttp.c 2011-11-07 19:39:06.071138486 +0100
-+++ b/net/irda/irttp.c 2011-11-08 10:59:07.152748948 +0100
-@@ -1461,14 +1461,13 @@ struct tsap_cb *irttp_dup(struct tsap_cb
- 	}
+diff -u -p a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+--- a/drivers/net/ethernet/freescale/gianfar_ethtool.c 2011-11-07 19:37:57.036756543 +0100
++++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c 2011-11-08 10:42:14.842512269 +0100
+@@ -1410,10 +1410,9 @@ static int gfar_optimize_filer_masks(str
  
- 	/* Allocate a new instance */
--	new = kmalloc(sizeof(struct tsap_cb), GFP_ATOMIC);
-+	new = kmemdup(orig, sizeof(struct tsap_cb), GFP_ATOMIC);
- 	if (!new) {
- 		IRDA_DEBUG(0, "%s(), unable to kmalloc\n", __func__);
- 		spin_unlock_irqrestore(&irttp->tsaps->hb_spinlock, flags);
- 		return NULL;
- 	}
- 	/* Dup */
--	memcpy(new, orig, sizeof(struct tsap_cb));
- 	spin_lock_init(&new->lock);
+ 	/* We need a copy of the filer table because
+ 	 * we want to change its order */
+-	temp_table = kmalloc(sizeof(*temp_table), GFP_KERNEL);
++	temp_table = kmemdup(tab, sizeof(*temp_table), GFP_KERNEL);
+ 	if (temp_table == NULL)
+ 		return -ENOMEM;
+-	memcpy(temp_table, tab, sizeof(*temp_table));
  
- 	/* We don't need the old instance any more */
+ 	mask_table = kcalloc(MAX_FILER_CACHE_IDX / 2 + 1,
+ 			sizeof(struct gfar_mask_entry), GFP_KERNEL);
