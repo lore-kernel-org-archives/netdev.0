@@ -1,69 +1,41 @@
-From: Junchang Wang <junchangwang@gmail.com>
-Subject: Re: [PATCH net-next] r8169: Add 64bit statistics
-Date: Thu, 17 Nov 2011 18:59:57 +0800
-Message-ID: <CABoNC83U2k=-6-BkJEyWBXfSnEbb-+K8CD1ffqhjA613Tk04tQ@mail.gmail.com>
-References: <20111117064826.GA4429@Desktop-Junchang>
-	<0a41dc06-15ab-4cf6-9bbd-3a1556993854@tahiti.vyatta.com>
-	<CABoNC82RO2uvn9TfToAygEspUZnNrefXgO6SGpZoSAayCp3QiA@mail.gmail.com>
-	<1321517516.3274.40.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: use jump_label to shortcut RPS if not setup
+Date: Thu, 17 Nov 2011 12:08:20 +0100
+Message-ID: <1321528100.2751.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1321526027.2751.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	netdev@vger.kernel.org, romieu@fr.zoreil.com,
-	nic swsd <nic_swsd@realtek.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:35046 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756543Ab1KQK76 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 05:59:58 -0500
-Received: by vcbfk1 with SMTP id fk1so1501921vcb.19
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 02:59:57 -0800 (PST)
-In-Reply-To: <1321517516.3274.40.camel@edumazet-laptop>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:40811 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756669Ab1KQLIZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 06:08:25 -0500
+Received: by bke11 with SMTP id 11so1821868bke.19
+        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 03:08:23 -0800 (PST)
+In-Reply-To: <1321526027.2751.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Yes, look at sky2.c for a template
->
-> drivers/net/ethernet/marvell/sky2.c contains code like that
-> (different syncp for rx/tx)
->
-> TX path:
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0u64_stats_update_begin(&sky2->tx_stats.syncp);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0++sky2->tx_stats.packets;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0sky2->tx_stats.bytes +=3D skb->len;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0u64_stats_update_end(&sky2->tx_stats.syncp);
->
->
-> RX path:
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0u64_stats_update_begin(&sky2->rx_stats.syn=
-cp);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0sky2->rx_stats.packets +=3D packets;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0sky2->rx_stats.bytes +=3D bytes;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0u64_stats_update_end(&sky2->rx_stats.syncp=
-);
->
+Le jeudi 17 novembre 2011 =C3=A0 11:33 +0100, Eric Dumazet a =C3=A9crit=
+ :
+> Most machines dont use RPS/RFS, and pay a fair amount of instructions=
+ in
+> netif_receive_skb() / get_rps_cpu() just to discover RPS/RFS is not
+> setup.
+>=20
+> Add a jump_label named rps_needed.
+>=20
+> If no device rps_map or global rps_sock_flow_table is setup,
+> netif_receive_skb() does a single instruction instead of many ones,
+> including conditional jumps.
+>=20
+> jmp +0    (if CONFIG_JUMP_LABEL=3Dy)
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Tom Herbert <therbert@google.com>
+> ---
 
-Thanks, Eric.
-
-I'm still confused about why we need two sync entries. Please correct
-me if I'm wrong.
-
-Take r8169 for example, All statistic entries are updated in
-rtl8169_rx_interrupt() or rtl8169_tx_interrupt(). Those two functions
-are called in rtl8169_poll().
-As far as I know, rtl8169_poll() is protected by NAPI_STATE_SCHED bit
-to run on a single core at one moment. So there is not compulsory to
-use two sync entries.
-
-One benefit from two sync is that readers can avoid many retries.
-
-Thanks.
---=20
---Junchang
+I'll send a V2 to take care of netif_rx() as well.
