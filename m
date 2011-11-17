@@ -1,66 +1,54 @@
-From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH] net: ethtool: fix coding style
-Date: Thu, 17 Nov 2011 01:32:03 +0100 (CET)
-Message-ID: <8c950d750a6b1d491cb321f024e2bca9f238ab9c.1321489851.git.mirq-linux@rere.qmqm.pl>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: Unable to flush ICMP redirect routes in kernel 3.0+
+Date: Wed, 16 Nov 2011 22:33:30 -0200
+Message-ID: <20111116223330.08de9e52@asterix.rh>
+References: <4EC2CA52.6020104@icdsoft.com>
+	<1321391355.2602.0.camel@edumazet-laptop>
+	<4EC439F2.3080809@icdsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Ivan Zahariev <famzah@icdsoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:39020 "EHLO rere.qmqm.pl"
+Received: from mx1.redhat.com ([209.132.183.28]:2734 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754592Ab1KQAcG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Nov 2011 19:32:06 -0500
+	id S1754073Ab1KQAdf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 19:33:35 -0500
+In-Reply-To: <4EC439F2.3080809@icdsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add missing spaces around multiplication operator.
+On Thu, 17 Nov 2011 00:32:18 +0200
+Ivan Zahariev <famzah@icdsoft.com> wrote:
 
-Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
----
- net/core/ethtool.c |   15 ++++++++-------
- 1 files changed, 8 insertions(+), 7 deletions(-)
+> On 11/15/2011 11:09 PM, Eric Dumazet wrote:
+> > Le mardi 15 novembre 2011 =C3=A0 22:23 +0200, Ivan Zahariev a =C3=A9=
+crit :
+> >> Hello,
+> >>
+> >> We have changed nothing in our network infrastructure but only
+> >> upgraded from Linux kernel 2.6.36.2 to 3.0.3. Here is the problem
+> >> we are experiencing:
+> >>
+> >> ICMP redirected routes are cached forever, and they can be cleared
+> >> only by a reboot.
+> >>=20
+> ### (bug #1) even though we flushed the route cache, the <redirected>=
+=20
+> route resurrects from somewhere; even without making any TCP requests
+> ### this time what "ip" returns is consistent with the real
+> (incorrect) routing behavior of machine5
+> root@machine5:~# ip route flush cache
+> root@machine5:~# ip route list cache match 8.8.4.4
+> root@machine5:~# ip route get 8.8.4.4
+> 8.8.4.4 via 192.168.0.120 dev eth0  src 192.168.0.244
+>      cache <redirected>  ipid 0x303a
+>=20
+> ### only a reboot clears the cached <redirected> routes
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index d2eff9e..31b0b7f 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -87,13 +87,14 @@ static int ethtool_get_features(struct net_device *=
-dev, void __user *useraddr)
- 	int i;
-=20
- 	/* in case feature bits run out again */
--	BUILD_BUG_ON(ETHTOOL_DEV_FEATURE_WORDS*sizeof(u32) > sizeof(netdev_fe=
-atures_t));
-+	BUILD_BUG_ON(ETHTOOL_DEV_FEATURE_WORDS * sizeof(u32) > sizeof(netdev_=
-features_t));
-=20
- 	for (i =3D 0; i < ETHTOOL_DEV_FEATURE_WORDS; ++i) {
--		features[i].available =3D (u32)(dev->hw_features >> (32*i));
--		features[i].requested =3D (u32)(dev->wanted_features >> (32*i));
--		features[i].active =3D (u32)(dev->features >> (32*i));
--		features[i].never_changed =3D (u32)(NETIF_F_NEVER_CHANGE >> (32*i));
-+		features[i].available =3D (u32)(dev->hw_features >> (32 * i));
-+		features[i].requested =3D (u32)(dev->wanted_features >> (32 * i));
-+		features[i].active =3D (u32)(dev->features >> (32 * i));
-+		features[i].never_changed =3D
-+			(u32)(NETIF_F_NEVER_CHANGE >> (32 * i));
- 	}
-=20
- 	sizeaddr =3D useraddr + offsetof(struct ethtool_gfeatures, size);
-@@ -130,8 +131,8 @@ static int ethtool_set_features(struct net_device *=
-dev, void __user *useraddr)
- 		return -EFAULT;
-=20
- 	for (i =3D 0; i < ETHTOOL_DEV_FEATURE_WORDS; ++i) {
--		valid |=3D (netdev_features_t)features[i].valid << (32*i);
--		wanted |=3D (netdev_features_t)features[i].requested << (32*i);
-+		valid |=3D (netdev_features_t)features[i].valid << (32 * i);
-+		wanted |=3D (netdev_features_t)features[i].requested << (32 * i);
- 	}
-=20
- 	if (valid & ~NETIF_F_ETHTOOL_BITS)
---=20
-1.7.7.1
+IIRC, the cache flush doesn't affect the inetpeer where the
+redirected gateway is now stored, so even after flushing the
+route cache, the inetpeer will restore the old info later.
+
+fbl
