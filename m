@@ -1,67 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Unable to flush ICMP redirect routes in kernel 3.0+
-Date: Thu, 17 Nov 2011 17:31:50 +0100
-Message-ID: <1321547510.2751.66.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <4EC2CA52.6020104@icdsoft.com>
-	 <1321391355.2602.0.camel@edumazet-laptop> <4EC439F2.3080809@icdsoft.com>
-	 <20111116223330.08de9e52@asterix.rh> <4EC4C160.6010804@icdsoft.com>
-	 <20111117111145.252924f5@asterix.rh>
-	 <1321535747.2751.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1321540820.2751.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111117133724.59684d28@asterix.rh>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Ivan Zahariev <famzah@icdsoft.com>, netdev@vger.kernel.org,
-	Vasiliy Kulikov <segoon@openwall.com>
-To: Flavio Leitner <fbl@redhat.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next] team: replace kmalloc+memcpy by kmemdup
+Date: Thu, 17 Nov 2011 17:32:37 +0100
+Message-ID: <1321547557-1175-1-git-send-email-jpirko@redhat.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	bhutchings@solarflare.com, shemminger@vyatta.com,
+	andy@greyhouse.net, fbl@redhat.com, jzupka@redhat.com,
+	ivecera@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:34026 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753809Ab1KQQbz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 11:31:55 -0500
-Received: by bke11 with SMTP id 11so2225427bke.19
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 08:31:53 -0800 (PST)
-In-Reply-To: <20111117133724.59684d28@asterix.rh>
+Received: from mx1.redhat.com ([209.132.183.28]:13787 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932294Ab1KQQcr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Nov 2011 11:32:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 17 novembre 2011 =C3=A0 13:37 -0200, Flavio Leitner a =C3=A9cr=
-it :
-> On Thu, 17 Nov 2011 15:40:20 +0100
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->=20
-> > [PATCH] ping: dont increment ICMP_MIB_INERRORS
-> >=20
-> > ping module incorrectly increments ICMP_MIB_INERRORS if feeded with=
- a
-> > frame not belonging to its own sockets.
-> >=20
-> > RFC 2011 states that ICMP_MIB_INERRORS should count "the number of
-> > ICMP messages which the entiry received but determined as having
-> > ICMP-specific errors (bad ICMP checksums, bad length, etc.)."
-> >=20
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> > CC: Vasiliy Kulikov <segoon@openwall.com>
->=20
-> Yeah, they aren't ICMP specific errors and the callers already
-> checked for checksum, lengths, and etc.. increasing that counter
-> when necessary.
->=20
-> Acked-by: Flavio Leitner <fbl@redhat.com>
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/net/team/team.c |    8 ++------
+ 1 files changed, 2 insertions(+), 6 deletions(-)
 
-Thanks
-
-By the way, redirects dont work at all in net-next
-
-Probably coming from your commit 7cc9150ebe8ec0
-(route: fix ICMP redirect validation)
-
-Since calling __ip_route_output_key() will create the route with s =3D =
-0,
-l =3D 0  (forcing saddr and dev->ifindex) selectors...
-
-We have to add a 'create' parameter to __ip_route_output_key() so that
-ip_rt_redirect() doesnt create a route, only find the existing one in
-cache ?
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index c48ef19..064155d 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -104,19 +104,15 @@ int team_options_register(struct team *team,
+ 	if (!dst_opts)
+ 		return -ENOMEM;
+ 	for (i = 0; i < option_count; i++, option++) {
+-		struct team_option *dst_opt;
+-
+ 		if (__team_find_option(team, option->name)) {
+ 			err = -EEXIST;
+ 			goto rollback;
+ 		}
+-		dst_opt = kmalloc(sizeof(*option), GFP_KERNEL);
+-		if (!dst_opt) {
++		dst_opts[i] = kmemdup(option, sizeof(*option), GFP_KERNEL);
++		if (!dst_opts[i]) {
+ 			err = -ENOMEM;
+ 			goto rollback;
+ 		}
+-		memcpy(dst_opt, option, sizeof(*option));
+-		dst_opts[i] = dst_opt;
+ 	}
+ 
+ 	for (i = 0; i < option_count; i++)
+-- 
+1.7.6
