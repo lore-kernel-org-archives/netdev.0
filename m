@@ -1,73 +1,43 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/2] net: verify GSO flag bits against netdev features
-Date: Thu, 17 Nov 2011 00:35:18 +0000
-Message-ID: <1321490118.2709.87.camel@bwh-desktop>
-References: <2ec988cd27c6eb5162ea2e41416edcaae207bb5e.1321488025.git.mirq-linux@rere.qmqm.pl>
-	 <d4513ed885d62d13873f9b7310fc20cbfa55f634.1321488025.git.mirq-linux@rere.qmqm.pl>
-	 <1321488596.2709.68.camel@bwh-desktop> <20111117001312.GB9596@rere.qmqm.pl>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: 3.1.0 rtl8169_open oops.
+Date: Thu, 17 Nov 2011 01:34:36 +0100
+Message-ID: <20111117003436.GA3097@electric-eye.fr.zoreil.com>
+References: <20111115223701.GA31118@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-team@fedoraproject.org,
+	hayeswang@realtek.com
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:43202 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754073Ab1KQAfV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 19:35:21 -0500
-In-Reply-To: <20111117001312.GB9596@rere.qmqm.pl>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:55241 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754073Ab1KQAj7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 19:39:59 -0500
+Content-Disposition: inline
+In-Reply-To: <20111115223701.GA31118@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-11-17 at 01:13 +0100, Micha=C5=82 Miros=C5=82aw wrote:
-> On Thu, Nov 17, 2011 at 12:09:56AM +0000, Ben Hutchings wrote:
-> > On Thu, 2011-11-17 at 01:05 +0100, Micha=C5=82 Miros=C5=82aw wrote:
-> > > Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl=
->
-> > > ---
-> > >  include/linux/netdevice.h |    9 +++++++++
-> > >  1 files changed, 9 insertions(+), 0 deletions(-)
-> > >=20
-> > > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.=
-h
-> > > index b35ffd7..31da3bb 100644
-> > > --- a/include/linux/netdevice.h
-> > > +++ b/include/linux/netdevice.h
-> > > @@ -2492,6 +2492,15 @@ netdev_features_t netif_skb_features(struc=
-t sk_buff *skb);
-> > >  static inline int net_gso_ok(netdev_features_t features, int gso=
-_type)
-> > >  {
-> > >  	netdev_features_t feature =3D gso_type << NETIF_F_GSO_SHIFT;
-> > > +
-> > > +	/* check flags correspondence */
-> > > +	BUILD_BUG_ON(SKB_GSO_TCPV4   !=3D (NETIF_F_TSO >> NETIF_F_GSO_S=
-HIFT));
-> > > +	BUILD_BUG_ON(SKB_GSO_UDP     !=3D (NETIF_F_UFO >> NETIF_F_GSO_S=
-HIFT));
-> > > +	BUILD_BUG_ON(SKB_GSO_DODGY   !=3D (NETIF_F_GSO_ROBUST >> NETIF_=
-=46_GSO_SHIFT));
-> > > +	BUILD_BUG_ON(SKB_GSO_TCP_ECN !=3D (NETIF_F_TSO_ECN >> NETIF_F_G=
-SO_SHIFT));
-> > > +	BUILD_BUG_ON(SKB_GSO_TCPV6   !=3D (NETIF_F_TSO6 >> NETIF_F_GSO_=
-SHIFT));
-> > > +	BUILD_BUG_ON(SKB_GSO_FCOE    !=3D (NETIF_F_FSO >> NETIF_F_GSO_S=
-HIFT));
-> > > +
-> > >  	return (features & feature) =3D=3D feature;
-> > >  }
-> > This is fine but should still be done at the same time as changing =
-the
-> > definitions.
->=20
-> Agreed. But as Dave was quicker, we need to fix this in separate patc=
-h.
+Dave Jones <davej@redhat.com> :
+[...]
+> (gdb) list *(rtl8169_open)+0x34e
+> 0x4c0f is in rtl8169_open (drivers/net/r8169.c:1881).
+> 1876		bool rc = false;
+> 1877	
+> 1878		if (fw->size < FW_OPCODE_SIZE)
+> 1879			goto out;
+> 1880	
+> 1881		if (!fw_info->magic) {
+> 1882			size_t i, size, start;
+> 1883			u8 checksum = 0;
+> 1884	
+> 1885			if (fw->size < sizeof(*fw_info))
 
-Sorry, I somehow failed to spot that.
+Give me 24h. I hope it is not as trivial as it seems :o(
 
-Ben.
+Btw the firmware included in F16 is not up-to-date (see
+http://marc.info/?l=linux-kernel&m=131295492507686&w=2). The driver should
+not mind though.
 
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+-- 
+Ueimor
