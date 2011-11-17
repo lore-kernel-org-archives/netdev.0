@@ -1,129 +1,165 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: Unable to flush ICMP redirect routes in kernel 3.0+
-Date: Thu, 17 Nov 2011 11:11:45 -0200
-Message-ID: <20111117111145.252924f5@asterix.rh>
-References: <4EC2CA52.6020104@icdsoft.com>
-	<1321391355.2602.0.camel@edumazet-laptop>
-	<4EC439F2.3080809@icdsoft.com>
-	<20111116223330.08de9e52@asterix.rh>
-	<4EC4C160.6010804@icdsoft.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2 net-next] net: use jump_label to shortcut RPS if not setup
+Date: Thu, 17 Nov 2011 14:13:26 +0100
+Message-ID: <1321535606.2751.35.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Ivan Zahariev <famzah@icdsoft.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20955 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756345Ab1KQNLu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 08:11:50 -0500
-In-Reply-To: <4EC4C160.6010804@icdsoft.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:50535 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757485Ab1KQNNf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 08:13:35 -0500
+Received: by wwe5 with SMTP id 5so2881388wwe.1
+        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 05:13:34 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 17 Nov 2011 10:10:08 +0200
-Ivan Zahariev <famzah@icdsoft.com> wrote:
+Most machines dont use RPS/RFS, and pay a fair amount of instructions in
+netif_receive_skb() / netif_rx() / get_rps_cpu() just to discover
+RPS/RFS is not setup.
 
-> On 17.11.2011 =D0=B3. 02:33 =D1=87., Flavio Leitner wrote:
-> > On Thu, 17 Nov 2011 00:32:18 +0200
-> > Ivan Zahariev<famzah@icdsoft.com>  wrote:
-> >
-> >> On 11/15/2011 11:09 PM, Eric Dumazet wrote:
-> >>> Le mardi 15 novembre 2011 =C3=A0 22:23 +0200, Ivan Zahariev a =C3=
-=A9crit :
-> >>>> Hello,
-> >>>>
-> >>>> We have changed nothing in our network infrastructure but only
-> >>>> upgraded from Linux kernel 2.6.36.2 to 3.0.3. Here is the proble=
-m
-> >>>> we are experiencing:
-> >>>>
-> >>>> ICMP redirected routes are cached forever, and they can be
-> >>>> cleared only by a reboot.
-> >>>>
-> >> ### (bug #1) even though we flushed the route cache,
-> >> the<redirected> route resurrects from somewhere; even without
-> >> making any TCP requests ### this time what "ip" returns is
-> >> consistent with the real (incorrect) routing behavior of machine5
-> >> root@machine5:~# ip route flush cache
-> >> root@machine5:~# ip route list cache match 8.8.4.4
-> >> root@machine5:~# ip route get 8.8.4.4
-> >> 8.8.4.4 via 192.168.0.120 dev eth0  src 192.168.0.244
-> >>       cache<redirected>   ipid 0x303a
-> >>
-> >> ### only a reboot clears the cached<redirected>  routes
-> > IIRC, the cache flush doesn't affect the inetpeer where the
-> > redirected gateway is now stored, so even after flushing the
-> > route cache, the inetpeer will restore the old info later.
-> >
-> > fbl
-> OK, I guess my questions now are:
-> * How to flush the inetpeer (redirected cache info) without having to=
-=20
-> reboot the machine?
+Add a jump_label named rps_needed.
 
-It will expire after 10min if you don't use that specific host.
+If no device rps_map or global rps_sock_flow_table is setup,
+netif_receive_skb() / netif_rx() do a single instruction instead of many
+ones, including conditional jumps.
 
-> * Why "ip route" returns an incorrect route; example:
+jmp +0    (if CONFIG_JUMP_LABEL=y)
 
-I am sorry for not being clear before. It is a bug, indeed.
-=20
-> ### (bug #2) what "ip route" returns is inconsistent, because we are=20
-> using the <redirected> route 192.168.0.120 in reality
-> ### note that the count of the route lines increased with one
-> root@machine5:~# ip route list cache match 8.8.4.4
-> 8.8.4.4 from 192.168.0.244 tos lowdelay via 192.168.0.8 dev eth0
->      cache  ipid 0x303a
-> 8.8.4.4 tos lowdelay via 192.168.0.8 dev eth0  src 192.168.0.244
->      cache  ipid 0x303a
-> 8.8.4.4 via 192.168.0.8 dev eth0  src 192.168.0.244
->      cache
-> 8.8.4.4 from 192.168.0.244 tos lowdelay via 192.168.0.8 dev eth0
->      cache  ipid 0x303a
->=20
-> ### After "ip route flush cache", the output of "ip route" gets=20
-> consistent with the real routing behavior of machine5
-> root@machine5:~# ip route flush cache
-> root@machine5:~# ip route list cache match 8.8.4.4
-> root@machine5:~# ip route get 8.8.4.4
-> 8.8.4.4 via 192.168.0.120 dev eth0  src 192.168.0.244
->      cache <redirected>  ipid 0x303a
->=20
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Tom Herbert <therbert@google.com>
+---
+V2: add netif_rx() optim as well
 
-Now the redirected gateway is stored in inetpeer which represents
-an specific peer.  In your case, you have one for 8.8.4.4.
+ include/linux/netdevice.h  |    5 +++++
+ net/core/dev.c             |   21 +++++++++------------
+ net/core/net-sysfs.c       |    7 +++++--
+ net/core/sysctl_net_core.c |    9 +++++++--
+ 4 files changed, 26 insertions(+), 16 deletions(-)
 
-When you flush the routing cache everything is flushed, except for
-the inetpeer as far as I can tell.  Later, when you try to access
-the host 8.8.4.4 again, the lookup will create a fresh route but
-also find the previous 8.8.4.4 inetpeer, so it will re-use the
-previous redirected gateway.
-
-Therefore, the routing is fine, but it is missing a way to
-invalidade or expire all related inetpeer entries when the flush
-happens.
-
-The inetpeer will expire eventually, so waiting before trying again
-would help to work around:
-
-1) flush
-2) wait to expire (10min)
-3) try again
-
-If you know how to compile a kernel, try to change these thresholds
-below to expire faster, then you have to wait less for it to expire
-instead of rebooting.
-
-net/ipv4/inetpeer.c:
-int inet_peer_minttl __read_mostly =3D 120 * HZ;  /* TTL under high loa=
-d:
-120 sec */ int inet_peer_maxttl __read_mostly =3D 10 * 60 * HZ;      /*
-usual time to live: 10 min */                          =20
-
-That above is just a workaround, indeed.
-
-I am going to be on vacations in the next couple weeks, so I won't be
-able to help fixing this any time soon. However, I am pretty sure
-someone else will help though :)
-
-fbl
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 4d5698a..0bbe030 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -214,6 +214,11 @@ enum {
+ #include <linux/cache.h>
+ #include <linux/skbuff.h>
+ 
++#ifdef CONFIG_RPS
++#include <linux/jump_label.h>
++extern struct jump_label_key rps_needed;
++#endif
++
+ struct neighbour;
+ struct neigh_parms;
+ struct sk_buff;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 26c49d5..f789599 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2711,6 +2711,8 @@ EXPORT_SYMBOL(__skb_get_rxhash);
+ struct rps_sock_flow_table __rcu *rps_sock_flow_table __read_mostly;
+ EXPORT_SYMBOL(rps_sock_flow_table);
+ 
++struct jump_label_key rps_needed __read_mostly;
++
+ static struct rps_dev_flow *
+ set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+ 	    struct rps_dev_flow *rflow, u16 next_cpu)
+@@ -2994,7 +2996,7 @@ int netif_rx(struct sk_buff *skb)
+ 
+ 	trace_netif_rx(skb);
+ #ifdef CONFIG_RPS
+-	{
++	if (static_branch(&rps_needed))	{
+ 		struct rps_dev_flow voidflow, *rflow = &voidflow;
+ 		int cpu;
+ 
+@@ -3009,14 +3011,13 @@ int netif_rx(struct sk_buff *skb)
+ 
+ 		rcu_read_unlock();
+ 		preempt_enable();
+-	}
+-#else
++	} else
++#endif
+ 	{
+ 		unsigned int qtail;
+ 		ret = enqueue_to_backlog(skb, get_cpu(), &qtail);
+ 		put_cpu();
+ 	}
+-#endif
+ 	return ret;
+ }
+ EXPORT_SYMBOL(netif_rx);
+@@ -3359,7 +3360,7 @@ int netif_receive_skb(struct sk_buff *skb)
+ 		return NET_RX_SUCCESS;
+ 
+ #ifdef CONFIG_RPS
+-	{
++	if (static_branch(&rps_needed)) {
+ 		struct rps_dev_flow voidflow, *rflow = &voidflow;
+ 		int cpu, ret;
+ 
+@@ -3370,16 +3371,12 @@ int netif_receive_skb(struct sk_buff *skb)
+ 		if (cpu >= 0) {
+ 			ret = enqueue_to_backlog(skb, cpu, &rflow->last_qtail);
+ 			rcu_read_unlock();
+-		} else {
+-			rcu_read_unlock();
+-			ret = __netif_receive_skb(skb);
++			return ret;
+ 		}
+-
+-		return ret;
++		rcu_read_unlock();
+ 	}
+-#else
+-	return __netif_receive_skb(skb);
+ #endif
++	return __netif_receive_skb(skb);
+ }
+ EXPORT_SYMBOL(netif_receive_skb);
+ 
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 602b141..db6c2f8 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -606,9 +606,12 @@ static ssize_t store_rps_map(struct netdev_rx_queue *queue,
+ 	rcu_assign_pointer(queue->rps_map, map);
+ 	spin_unlock(&rps_map_lock);
+ 
+-	if (old_map)
++	if (map)
++		jump_label_inc(&rps_needed);
++	if (old_map) {
+ 		kfree_rcu(old_map, rcu);
+-
++		jump_label_dec(&rps_needed);
++	}
+ 	free_cpumask_var(mask);
+ 	return len;
+ }
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index 77a65f0..d05559d 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -68,8 +68,13 @@ static int rps_sock_flow_sysctl(ctl_table *table, int write,
+ 
+ 		if (sock_table != orig_sock_table) {
+ 			rcu_assign_pointer(rps_sock_flow_table, sock_table);
+-			synchronize_rcu();
+-			vfree(orig_sock_table);
++			if (sock_table)
++				jump_label_inc(&rps_needed);
++			if (orig_sock_table) {
++				jump_label_dec(&rps_needed);
++				synchronize_rcu();
++				vfree(orig_sock_table);
++			}
+ 		}
+ 	}
+ 
