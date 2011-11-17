@@ -1,8 +1,8 @@
 From: Thomas Meyer <thomas@m3y3r.de>
-Subject: [PATCH] ethtool: Use kmemdup rather than duplicating its
- implementation
-Date: Fri, 18 Nov 2011 00:05:35 +0100
-Message-ID: <1321571135.1624.313.camel@localhost.localdomain>
+Subject: [PATCH] ks8*/ksz8*: Casting (void *) value returned by kmalloc is
+ useless
+Date: Thu, 17 Nov 2011 23:43:40 +0100
+Message-ID: <1321569820.1624.248.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,23 +12,21 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 The semantic patch that makes this change is available
-in scripts/coccinelle/api/memdup.cocci.
+in scripts/coccinelle/api/alloc/drop_kmalloc_cast.cocci.
 
 Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
 ---
 
-diff -u -p a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
---- a/drivers/net/ethernet/freescale/gianfar_ethtool.c 2011-11-07 19:37:57.036756543 +0100
-+++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c 2011-11-08 10:42:14.842512269 +0100
-@@ -1410,10 +1410,9 @@ static int gfar_optimize_filer_masks(str
+diff -u -p a/drivers/net/ethernet/micrel/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
+--- a/drivers/net/ethernet/micrel/ks8851_mll.c 2011-11-07 19:37:59.170122280 +0100
++++ b/drivers/net/ethernet/micrel/ks8851_mll.c 2011-11-08 09:00:03.544702580 +0100
+@@ -1500,8 +1500,7 @@ static int ks_hw_init(struct ks_net *ks)
+ 	ks->all_mcast = 0;
+ 	ks->mcast_lst_size = 0;
  
- 	/* We need a copy of the filer table because
- 	 * we want to change its order */
--	temp_table = kmalloc(sizeof(*temp_table), GFP_KERNEL);
-+	temp_table = kmemdup(tab, sizeof(*temp_table), GFP_KERNEL);
- 	if (temp_table == NULL)
- 		return -ENOMEM;
--	memcpy(temp_table, tab, sizeof(*temp_table));
- 
- 	mask_table = kcalloc(MAX_FILER_CACHE_IDX / 2 + 1,
- 			sizeof(struct gfar_mask_entry), GFP_KERNEL);
+-	ks->frame_head_info = (struct type_frame_head *) \
+-		kmalloc(MHEADER_SIZE, GFP_KERNEL);
++	ks->frame_head_info = kmalloc(MHEADER_SIZE, GFP_KERNEL);
+ 	if (!ks->frame_head_info) {
+ 		pr_err("Error: Fail to allocate frame memory\n");
+ 		return false;
