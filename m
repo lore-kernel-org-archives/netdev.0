@@ -1,154 +1,170 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [PATCH] Add ethtool to mii advertisment conversion helpers
-Date: Wed, 16 Nov 2011 17:16:04 -0800
-Message-ID: <20111117011604.GA8683@mcarlson.broadcom.com>
-References: <1321394453-21076-1-git-send-email-mcarlson@broadcom.com>
- <1321490078.2709.86.camel@bwh-desktop>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH] bonding: Don't allow mode change via sysfs with slaves
+ present
+Date: Wed, 16 Nov 2011 23:16:30 -0200
+Message-ID: <20111116231630.214a0cd0@asterix.rh>
+References: <1321375482-8637-1-git-send-email-vfalico@redhat.com>
+	<20111115170018.GB25132@gospo.rdu.redhat.com>
+	<4EC2BC6D.9000304@gmail.com>
+	<20111115193535.GC25132@gospo.rdu.redhat.com>
+	<4EC2C550.6050805@gmail.com>
+	<20111115204659.GE25132@gospo.rdu.redhat.com>
+	<4EC3A64D.40405@gmail.com>
+	<20111116220200.GF25132@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Michael Chan" <mchan@broadcom.com>
-To: "Ben Hutchings" <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nicolas de =?UTF-8?B?UGVzbG/DvGFu?= <nicolas.2p.debian@gmail.com>,
+	Veaceslav Falico <vfalico@redhat.com>, netdev@vger.kernel.org,
+	Jay Vosburgh <fubar@us.ibm.com>, debian-kernel@lists.debian.org
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3239 "EHLO MMS3.broadcom.com"
+Received: from mx1.redhat.com ([209.132.183.28]:30438 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754905Ab1KQBPX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Nov 2011 20:15:23 -0500
-In-Reply-To: <1321490078.2709.86.camel@bwh-desktop>
-Content-Disposition: inline
+	id S1754945Ab1KQBRr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 20:17:47 -0500
+In-Reply-To: <20111116220200.GF25132@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 16, 2011 at 04:34:37PM -0800, Ben Hutchings wrote:
-> On Tue, 2011-11-15 at 14:00 -0800, Matt Carlson wrote:
-> > Translating between ethtool advertisement settings and MII
-> > advertisements are common operations for ethernet drivers.  This patch
-> > adds a set of helper functions that implements the conversion.  The
-> > patch then modifies a couple of the drivers to use the new functions.
-> 
-> I like this, but:
-> 
-> [....]
-> > --- a/drivers/net/ethernet/broadcom/tg3.c
-> > +++ b/drivers/net/ethernet/broadcom/tg3.c
-> [...]
-> > @@ -4903,23 +4880,19 @@ static int tg3_setup_fiber_mii_phy(struct tg3 *tp, int force_reset)
-> >  	    (tp->phy_flags & TG3_PHYFLG_PARALLEL_DETECT)) {
-> >  		/* do nothing, just check for link up at the end */
-> >  	} else if (tp->link_config.autoneg == AUTONEG_ENABLE) {
-> > -		u32 adv, new_adv;
-> > +		u32 adv, newadv;
-> >  
-> >  		err |= tg3_readphy(tp, MII_ADVERTISE, &adv);
-> > -		new_adv = adv & ~(ADVERTISE_1000XFULL | ADVERTISE_1000XHALF |
-> > -				  ADVERTISE_1000XPAUSE |
-> > -				  ADVERTISE_1000XPSE_ASYM |
-> > -				  ADVERTISE_SLCT);
-> > -
-> > -		new_adv |= tg3_advert_flowctrl_1000X(tp->link_config.flowctrl);
-> > +		newadv = adv & ~(ADVERTISE_1000XFULL | ADVERTISE_1000XHALF |
-> > +				 ADVERTISE_1000XPAUSE |
-> > +				 ADVERTISE_1000XPSE_ASYM |
-> > +				 ADVERTISE_SLCT);
-> 
-> Not sure why you're renaming the variable here.
+On Wed, 16 Nov 2011 17:02:00 -0500
+Andy Gospodarek <andy@greyhouse.net> wrote:
 
-80 column character violations.  By eliminating the underscore, I can
-*just* make it fit.
+> On Wed, Nov 16, 2011 at 01:02:21PM +0100, Nicolas de Peslo=C3=BCan wr=
+ote:
+> > Le 15/11/2011 21:47, Andy Gospodarek a =C3=A9crit :
+> >> Nicolas,
+> >>
+> >> I took a look at the ifenslave package for debian more closely and
+> >> it actually looks like devices are enslaved last, after mode is
+> >> set.  Can you please take a look at this package and confirm what
+> >> I'm seeing in the 'pre-up' script.
+> >>
+> >> It appears to me that setup_master sets the mode and
+> >> enslave_slaves is called after and enslaves the devices:
+> >>
+> >> # Option slaves deprecated, replaced by bond-slaves, but still
+> >> supported # for backward compatibility.
+> >> IF_BOND_SLAVES=3D${IF_BOND_SLAVES:-$IF_SLAVES}
+> >>
+> >> if [ "$IF_BOND_MASTER" ] ; then
+> >>          BOND_MASTER=3D"$IF_BOND_MASTER"
+> >>          BOND_SLAVES=3D"$IFACE"
+> >> else
+> >>          if [ "$IF_BOND_SLAVES" ] ; then
+> >>                  BOND_MASTER=3D"$IFACE"
+> >>                  BOND_SLAVES=3D"$IF_BOND_SLAVES"
+> >>          fi
+> >> fi
+> >>
+> >> # Exit if nothing to do...
+> >> [ -z "$BOND_MASTER$BOND_SLAVES" ]&&  exit
+> >>
+> >> add_master
+> >> early_setup_master
+> >> setup_master
+> >> enslave_slaves
+> >> exit 0
+> >
+> > Andy,
+> >
+> > I'm really surprise by this extract. In the most up to date version
+> > of the ifenslave-2.6 package (1.1.0-19), the order is:
+> >
+> > add_master
+> > early_setup_master
+> > enslave_slaves
+> > setup_master
+> >
+> > early_setup_master was created to be able to do things that
+> > absolutely need to be done before enslavement. (See the comment
+> > just before this function). The idea was to do every possible setup
+> > in setup_master, after enslavement, except those that need to be
+> > done in early_setup_master. So having enslave_slaves after
+> > setup_master instead of before is definitely a mistake. Some of the
+> > operations in setup_master must be done after enslavement, in
+> > particular selecting the primary slave.
+> >
+> > In version 1.1.0-18 (change log below), I checked all the possible
+> > order constraints of the sysfs interface and totally reworked most
+> > of the setup code, putting everything in the right order to achieve
+> > consistent results.
+> >
+> > 	ifenslave-2.6 (1.1.0-18) experimental; urgency=3Dlow
+> >
+> > 	  * Apply patch from Nicolas de Peslo=C3=BCan:
+> >
+> > 	    - Major change: Check and fix the order in which the
+> > configuration is written into /sys files, to ensure reliable
+> > results, according to the tests done in the kernel (in
+> > drivers/net/bonding/bond_sysfs.c).
+> > 	    - Ensure that master is properly brought down when
+> > changing a parameter that require it to be down.
+> > 	    - Ensure the master is brought up at the end of the
+> > setup, in the case where ifup won't bring it up because it is
+> > currently configuring a slave.
+> > 	    - Add support for some previously unsupported /sys
+> > files: ad_select, num_grat_arp, num_unsol_na, primary_reselect and
+> > queue_id.
+> > 	    - Enhance the documentation (README.Debian), to
+> > describe all the currently supported bond-* options.
+> > 	    - Many other changes in the documentation.
+> > 	    - Reverse the order of the arguments to most sysfs_*
+> > internal functions, for better readability.
+> >
+> > It was a hard work, because there really exist many such
+> > constraints. I fail to find enough time to insert the result of
+> > this work into Documentation/networking/bonding.txt, but still plan
+> > to do so, even if the result is documented in the script you looked
+> > at.
+> >
+> > Of course, it is possible to change the scripts in ifenslave-2.6
+> > package to arrange for one more constraint. For as far as I
+> > understand, this would cause the Debian kernel that introduce the
+> > change we discuss about and all the future Debian kernels to be
+> > flagged with 'Breaks: ifenslave-2.6 (<< 1.1.0-20)'. I'm not really
+> > comfortable with this and the Debian kernel team need to be
+> > involved. I copied them.
+> >
+> > All that being said, I really advocate for less constraints on the
+> > sysfs setup. This is not strictly related to sysfs setup. If we
+> > eventually add a NETLINK interface for all the things we can setup
+> > using sysfs, we will face the exact same problem.
+>=20
+>=20
+> I was looking at ifenslave 1.1.0-20.  If you look at Debian bug
+> #641250 you will see a very similar report to what prompted Veaceslav
+> to come up with this patch and post it here.
+>=20
+> ifenslave-2.6 (1.1.0-20) unstable; urgency=3Dlow
+>=20
+>   * Use dashes consistently for bonding options in README.Debian.
+>     Closes: #639244
+>   * Enslave slaves only after fully setting up the master. Closes:
+> #641250
+>=20
+[...]
 
-> > -		if (tp->link_config.advertising & ADVERTISED_1000baseT_Half)
-> > -			new_adv |= ADVERTISE_1000XHALF;
-> > -		if (tp->link_config.advertising & ADVERTISED_1000baseT_Full)
-> > -			new_adv |= ADVERTISE_1000XFULL;
-> > +		newadv |= tg3_advert_flowctrl_1000X(tp->link_config.flowctrl);
-> > +		newadv |= ethtool_adv_to_mii_1000X(tp->link_config.advertising);
-> 
-> Doesn't this generate flow control advertising flags twice?  Can the
-> link_config.flowctrl and link_config.advertising fields get out of
-> synch?
+> > I perfectly understand, as Veaceslav noted in another email that
+> > there are a lot of mode-specific initialization stuff that's
+> > present only in bond_enslave(), but I think this is what needs to
+> > be fixed... Those initialization stuff should be moved out of
+> > bond_enslave() and called at appropriate sime, from bond_enslave()
+> > and from other locations, in particular when changing mode.
+>=20
+> I think Veaceslav is working on this, but there is significant
+> re-organization that is needed to make it work properly and make sure
+> it is tested.  I could be wrong about how long it will take him, but
+> to test it properly it will take some time.
 
-The tg3 driver doesn't store flow control settings through the advertising
-field.  I thought about changing the driver in that direction and
-eliminating the tp->link_config.flowctrl field.  That would be a
-separate patch though.
+Indeed.
 
-> [...]
-> > --- a/include/linux/mii.h
-> > +++ b/include/linux/mii.h
-> > @@ -240,6 +240,171 @@ static inline unsigned int mii_duplex (unsigned int duplex_lock,
-> >  }
-> >  
-> >  /**
-> > + * ethtool_adv_to_mii_100bt
-> > + * @ethadv: the ethtool advertisement settings
-> > + *
-> > + * A small helper function that translates ethtool advertisement
-> > + * settings to phy autonegotiation advertisements for the
-> > + * MII_ADVERTISE register.
-> > + */
-> > +static inline u32 ethtool_adv_to_mii_100bt(u32 ethadv)
-> [...]
-> > +static inline u32 mii_adv_to_ethtool_100bt(u32 adv)
-> [...]
-> > +static inline u32 ethtool_adv_to_mii_1000T(u32 ethadv)
-> [...]
-> > +static inline u32 mii_adv_to_ethtool_1000T(u32 adv)
-> [...]
-> > +#define mii_lpa_to_ethtool_100bt(lpa)	mii_adv_to_ethtool_100bt(lpa)
-> 
-> Shouldn't this additionally translate LPA_LPACK into ADVERTISED_Autoneg?
+> Since this problem seems like a pretty major problem and now Debian,
+> Fedora, RHEL, and Ubuntu all seem to have proper initialization
+> scripts to handle it, I stand behind my original ACK.
 
-You mean, like this?
+I agree. I think allowing to change the mode after enslavement can
+cause unpredictable issues and the follow-up patch will need some
+careful work and testing, so you have my ACK here as well.
 
-static inline u32 mii_lpa_to_ethtool_100bt(u32 lpa)
-{
-	u32 result = 0;
-
-	if (lpa & LPA_LPACK)
-		result |= ADVERTISED_Autoneg;
-
-	return result | mii_adv_to_ethtool_100bt(lpa);
-}
-
-Yes, that looks like a better implementation.
-
-> [...]
-> > +static inline u32 mii_lpa_to_ethtool_1000T(u32 lpa)
-> [...]
-> > +static inline u32 ethtool_adv_to_mii_1000X(u32 ethadv)
-> [...]
-> > +static inline u32 mii_adv_to_ethtool_1000X(u32 adv)
-> [...]
-> 
-> I'm not convinced about the naming convention for these.  Would it not
-> make more sense to name them consistently by register name and signal
-> type:
-> 
-> ethtool_adv_to_mii_adv_t
-> mii_adv_to_ethtool_adv_t
-> ethtool_adv_to_mii_ctrl1000_t
-> mii_ctrl1000_to_ethtool_adv_t
-> mii_lpa_to_ethtool_lpa_t
-> mii_stat1000_to_ethtool_lpa_t
-> ethtool_adv_to_mii_adv_x
-> mii_adv_to_ethtool_adv_x
-
-I don't have a strong preference either way.  I'll post the change along
-with the above modification.
-
-> Shouldn't there be mii_lpa_to_ethtool_1000X (or
-> mii_lpa_to_ethtool_lpa_x)?
-
-Yes.  You're right.  Should it just be a preprocessor definition that
-points to mii_adv_to_ethtool_1000X()?
-
-> Finally, do these need to be inline?
-
-I don't have a strong preference here either.  Phy code tends to be
-slower, so there isn't really a strong performance argument.  The
-implementations don't seem to be so large to argue against it though.
-Would you prefer they not be inlined?
+fbl
