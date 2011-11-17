@@ -1,72 +1,57 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: Re: [PATCH] Add ethtool to mii advertisment conversion helpers
-Date: Wed, 16 Nov 2011 18:06:13 -0800
-Message-ID: <20111117020613.GA18232@mcarlson.broadcom.com>
-References: <1321394453-21076-1-git-send-email-mcarlson@broadcom.com>
- <1321490078.2709.86.camel@bwh-desktop>
- <20111117011604.GA8683@mcarlson.broadcom.com>
- <1321493382.2709.94.camel@bwh-desktop>
+Date: Thu, 17 Nov 2011 02:29:27 +0000
+Message-ID: <1321496967.2885.65.camel@deadeye>
+References: <1321490078.2709.86.camel@bwh-desktop>
+	 <20111117011604.GA8683@mcarlson.broadcom.com>
+	 <1321492892.9114.22.camel@nseg_linux_HP1.broadcom.com>
+	 <20111116.203850.1548671990526136907.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Michael Chan" <mchan@broadcom.com>
-To: "Ben Hutchings" <bhutchings@solarflare.com>
+Cc: <mchan@broadcom.com>, <mcarlson@broadcom.com>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2064 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754928Ab1KQCFX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Nov 2011 21:05:23 -0500
-In-Reply-To: <1321493382.2709.94.camel@bwh-desktop>
-Content-Disposition: inline
+Received: from exchange.solarflare.com ([216.237.3.220]:51836 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755093Ab1KQC3j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 21:29:39 -0500
+In-Reply-To: <20111116.203850.1548671990526136907.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 16, 2011 at 05:29:42PM -0800, Ben Hutchings wrote:
-> On Wed, 2011-11-16 at 17:16 -0800, Matt Carlson wrote:
-> > On Wed, Nov 16, 2011 at 04:34:37PM -0800, Ben Hutchings wrote:
-> [...]
-> > > > +#define mii_lpa_to_ethtool_100bt(lpa)	mii_adv_to_ethtool_100bt(lpa)
-> > > 
-> > > Shouldn't this additionally translate LPA_LPACK into ADVERTISED_Autoneg?
-> > 
-> > You mean, like this?
-> > 
-> > static inline u32 mii_lpa_to_ethtool_100bt(u32 lpa)
-> > {
-> > 	u32 result = 0;
-> > 
-> > 	if (lpa & LPA_LPACK)
-> > 		result |= ADVERTISED_Autoneg;
-> > 
-> > 	return result | mii_adv_to_ethtool_100bt(lpa);
-> > }
-> > 
-> > Yes, that looks like a better implementation.
+On Wed, 2011-11-16 at 20:38 -0500, David Miller wrote:
+> From: "Michael Chan" <mchan@broadcom.com>
+> Date: Wed, 16 Nov 2011 17:21:32 -0800
 > 
-> Think so.
-> 
-> And I think the mii_adv_to_ethtool_* functions should add
-> ADVERTISED_Autoneg unconditionally.  But I'm not entirely sure that's
-> right.
-
-The primary purpose of these functions is to translate the information
-between two representations.  It seems wise to be careful not to add
-from it or take anything away from it.  It is certainly possible to
-have a valid AN advertisement register configuration, but not have
-autoneg enabled.  Keeping the ADVERTISED_Autoneg out could prevent
-misuse.  Do you agree?
-
-> > > Shouldn't there be mii_lpa_to_ethtool_1000X (or
-> > > mii_lpa_to_ethtool_lpa_x)?
 > > 
-> > Yes.  You're right.  Should it just be a preprocessor definition that
-> > points to mii_adv_to_ethtool_1000X()?
+> > On Wed, 2011-11-16 at 17:16 -0800, Matt Carlson wrote:
+> >> > Finally, do these need to be inline?
+> >> 
+> >> I don't have a strong preference here either.  Phy code tends to be
+> >> slower, so there isn't really a strong performance argument.  The
+> >> implementations don't seem to be so large to argue against it though.
+> >> Would you prefer they not be inlined?
+> >> 
+> > 
+> > Since we are defining these in .h file, they need to be inline, right?
+> > Otherwise multiple source files including the same .h file will have
+> > conflict.
 > 
-> I think that would need to handle LPA_LPACK as well.
+> Yes, if you keep them in the header you have to keep them inline.
+> 
+> Ben, by suggesting to not inline them, is implicitly saying to put
+> them out in a seperate *.c file somewhere, perhaps net/core/ethtool.c
+> or similar.  With appropriate EXPORT_SYMBOL() added.
 
-I was wondering if that was present in 1000Base-X mode.  I didn't see it
-in my passing glance at a spec.
+I was thinking of putting them in drivers/net/mii.c, like the other
+functions declared extern in include/linux/mii.h.  That would require
+'select MII' in Kconfig for the drivers using them.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
