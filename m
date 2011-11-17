@@ -1,84 +1,68 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next 2/2] team: avoid using variable-length array
-Date: Thu, 17 Nov 2011 16:10:32 +0100
-Message-ID: <20111117151031.GA3209@minipsycho>
-References: <1321539365-1125-1-git-send-email-jpirko@redhat.com>
- <1321539365-1125-2-git-send-email-jpirko@redhat.com>
- <1321540278.2751.40.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH] Don't allow sharing of tx skbs on xen-netfront
+Date: Thu, 17 Nov 2011 15:20:38 +0000
+Message-ID: <1321543238.3664.278.camel@zakaz.uk.xensource.com>
+References: <1321298544-16434-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	bhutchings@solarflare.com, shemminger@vyatta.com,
-	andy@greyhouse.net, fbl@redhat.com, jzupka@redhat.com,
-	ivecera@redhat.com, mirqus@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	"Jeremy Fitzhardinge" <jeremy.fitzhardinge@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	<xen-devel@lists.xensource.com>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30126 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757774Ab1KQPKh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Nov 2011 10:10:37 -0500
-Content-Disposition: inline
-In-Reply-To: <1321540278.2751.40.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from smtp.eu.citrix.com ([62.200.22.115]:39528 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757004Ab1KQPVH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 10:21:07 -0500
+In-Reply-To: <1321298544-16434-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Nov 17, 2011 at 03:31:18PM CET, eric.dumazet@gmail.com wrote:
->Le jeudi 17 novembre 2011 =E0 15:16 +0100, Jiri Pirko a =E9crit :
->> Apparently using variable-length array is not correct
->> (https://lkml.org/lkml/2011/10/23/25). So remove it.
->>=20
->> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->> ---
->>  drivers/net/team/team.c |    9 +++++++--
->>  1 files changed, 7 insertions(+), 2 deletions(-)
->>=20
->> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
->> index 5b169c1..c48ef19 100644
->> --- a/drivers/net/team/team.c
->> +++ b/drivers/net/team/team.c
->> @@ -96,10 +96,13 @@ int team_options_register(struct team *team,
->>  			  size_t option_count)
->>  {
->>  	int i;
->> -	struct team_option *dst_opts[option_count];
->> +	struct team_option **dst_opts;
->>  	int err;
->> =20
->> -	memset(dst_opts, 0, sizeof(dst_opts));
->> +	dst_opts =3D kzalloc(sizeof(struct team_option *) * option_count,
->> +			   GFP_KERNEL);
->> +	if (!dst_opts)
->> +		return -ENOMEM;
->>  	for (i =3D 0; i < option_count; i++, option++) {
->>  		struct team_option *dst_opt;
->> =20
->> @@ -119,12 +122,14 @@ int team_options_register(struct team *team,
->>  	for (i =3D 0; i < option_count; i++)
->>  		list_add_tail(&dst_opts[i]->list, &team->option_list);
->> =20
->> +	kfree(dst_opts);
->>  	return 0;
->> =20
->>  rollback:
->>  	for (i =3D 0; i < option_count; i++)
->>  		kfree(dst_opts[i]);
->> =20
->> +	kfree(dst_opts);
->>  	return err;
->>  }
->> =20
->
->Please use kmemdup() as well, or someone else will do it ;)
->
->dst_opt =3D kmalloc(sizeof(*option), GFP_KERNEL);
->...
->memcpy(dst_opt, option, sizeof(*option));
->
->-> dst_opt =3D kmemdup(...);
->
-Sure, I'll do this in separate patch.
+On Mon, 2011-11-14 at 14:22 -0500, Neil Horman wrote:
+> It was pointed out to me recently that the xen-netfront driver can't safely
+> support shared skbs on transmit, since, while it doesn't maintain skb state
+> directly, it does pass a pointer to the skb to the hypervisor via a list, and
+> the hypervisor may expect the contents of the skb to remain stable.  Clearing
+> the IFF_TX_SKB_SHARING flag after the call to alloc_etherdev to make it safe.
 
-Thanks!
+What are the actual constraints here? The skb is used as a handle to the
+skb->data and shinfo (frags) and to complete at the end. It's actually
+those which are passed to the hypervisor (effectively the same as
+passing those addresses to the h/w for DMA).
 
-Jirka
+Which parts of the skb are expected/allowed to not remain stable?
+
+(Appologies if the above seems naive, I seem to have missed the
+introduction of shared tx skbs and IFF_TX_SKB_SHARING)
+
+Ian.
+
+> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> CC: "David S. Miller" <davem@davemloft.net>
+> CC: Jeremy Fitzhardinge <jeremy.fitzhardinge@citrix.com>
+> CC: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> CC: xen-devel@lists.xensource.com
+> ---
+>  drivers/net/xen-netfront.c |    6 ++++++
+>  1 files changed, 6 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index 226faab..fb1077b 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -1252,6 +1252,12 @@ static struct net_device * __devinit xennet_create_dev(struct xenbus_device *dev
+>  		return ERR_PTR(-ENOMEM);
+>  	}
+>  
+> +	/*
+> +	 * Since frames remain on a queue after a return from xennet_start_xmit,
+> +	 * we can't support tx shared skbs
+> +	 */
+> +	netdev->priv_flags &= ~IFF_TX_SKB_SHARING;
+> +
+>  	np                   = netdev_priv(netdev);
+>  	np->xbdev            = dev;
+>  
