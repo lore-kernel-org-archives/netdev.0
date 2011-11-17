@@ -1,47 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Devel] Re: [PATCH v5 00/10] per-cgroup tcp memory pressure
-Date: Thu, 17 Nov 2011 16:35:01 -0500 (EST)
-Message-ID: <20111117.163501.1963137869848419475.davem@davemloft.net>
-References: <1320679595-21074-1-git-send-email-glommer@parallels.com>
-	<4EBAC04F.1010901@parallels.com>
-	<1321381632.3021.57.camel@dabdike.int.hansenpartnership.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: use jump_label to shortcut RPS if not
+ setup
+Date: Thu, 17 Nov 2011 22:34:49 +0100
+Message-ID: <1321565689.2444.5.camel@edumazet-laptop>
+References: <1321535606.2751.35.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, glommer@parallels.com,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        paul@paulmenage.org, lizf@cn.fujitsu.com, linux-mm@kvack.org,
-        devel@openvz.org, kirill@shutemov.name, gthelen@google.com,
-        kamezawa.hiroyu@jp.fujitsu.com
-To: jbottomley@parallels.com
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1321381632.3021.57.camel@dabdike.int.hansenpartnership.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:64415 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752947Ab1KQVey (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 16:34:54 -0500
+Received: by eye27 with SMTP id 27so2518183eye.19
+        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 13:34:53 -0800 (PST)
+In-Reply-To: <1321535606.2751.35.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: James Bottomley <jbottomley@parallels.com>
-Date: Tue, 15 Nov 2011 18:27:12 +0000
+Le jeudi 17 novembre 2011 =C3=A0 14:13 +0100, Eric Dumazet a =C3=A9crit=
+ :
+> Most machines dont use RPS/RFS, and pay a fair amount of instructions=
+ in
+> netif_receive_skb() / netif_rx() / get_rps_cpu() just to discover
+> RPS/RFS is not setup.
+>=20
+> Add a jump_label named rps_needed.
+>=20
+> If no device rps_map or global rps_sock_flow_table is setup,
+> netif_receive_skb() / netif_rx() do a single instruction instead of m=
+any
+> ones, including conditional jumps.
+>=20
+> jmp +0    (if CONFIG_JUMP_LABEL=3Dy)
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Tom Herbert <therbert@google.com>
 
-> Ping on this, please.  We're blocked on this patch set until we can get
-> an ack that the approach is acceptable to network people.
-
-__sk_mem_schedule is now more expensive, because instead of short-circuiting
-the majority of the function's logic when "allocated <= prot->sysctl_mem[0]"
-and immediately returning 1, the whole rest of the function is run.
-
-The static branch protecting all of the cgroup code seems to be
-enabled if any memory based cgroup'ing is enabled.  What if people use
-the memory cgroup facility but not for sockets?  I am to understand
-that, of the very few people who are going to use this stuff in any
-capacity, this would be a common usage.
-
-TCP specific stuff in mm/memcontrol.c, at best that's not nice at all.
-
-Otherwise looks mostly good.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I wonder if we could use this jump_label infrastructure to shortcut
+expensive netfilter nf_hook_slow() / nf_iterate on empty
+tables/chains...
