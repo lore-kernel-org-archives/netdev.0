@@ -1,91 +1,56 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/6] sky2: fix hang on shutdown (and other irq issues)
-Date: Thu, 17 Nov 2011 11:18:03 -0800
-Message-ID: <20111117111803.11d152b4@nehalam.linuxnetplumber.net>
-References: <20111116234254.319625694@vyatta.com>
-	<20111116234344.526517614@vyatta.com>
-	<87r517w2z0.fsf@turtle.gmx.de>
-	<20111117090104.002e110a@s6510.linuxnetplumber.net>
-	<87pqgqoard.fsf@turtle.gmx.de>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH] net, bridge: print log message after state changed
+Date: Thu, 17 Nov 2011 20:23:53 +0100
+Message-ID: <20111117192353.GD2051622@jupiter.n2.diac24.net>
+References: <1320941934-3534-1-git-send-email-holger.brunck@keymile.com>
+ <20111114.003702.1097206603722725705.davem@davemloft.net>
+ <1321254211.4072.29.camel@pc005091.de.keymile.net>
+ <20111114.020749.1176229013272872343.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Sven Joachim <svenjoac@gmx.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Wolfgang.Fritz@keymile.com, holger.brunck@keymile.com,
+	netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	bridge@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:55306 "EHLO mail.vyatta.com"
+Received: from spaceboyz.net ([87.106.131.203]:46555 "EHLO spaceboyz.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754671Ab1KQTSH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Nov 2011 14:18:07 -0500
-In-Reply-To: <87pqgqoard.fsf@turtle.gmx.de>
+	id S1754788Ab1KQTXu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Nov 2011 14:23:50 -0500
+Content-Disposition: inline
+In-Reply-To: <20111114.020749.1176229013272872343.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Does this fix it?
+On Mon, Nov 14, 2011 at 02:07:49AM -0500, David Miller wrote:
+> >> The message is therefore appropriately timed as far as I'm concerned.
+> >> 
+> > 
+> > It's not.
+> > 
+> > Please test: create a bridge with STP disabled, add an interface to the
+> > bridge and set that interface down. You get the message "... entering
+> > forwarding state". That's wrong because it's "about to enter" disabled
+> > state some lines later.
+> > 
+> > All other (4) calls to br_log_state are located after the state change,
+> > see for example br_stp_enable_port() just some lines above the patch.
+> 
+> I would never expect an "entering" message to print out after the event
+> happens, and in fact I'd _always_ want to see it beforehand so that if
+> the state change caused a crash or similar it'd be that much easier
+> to pinpoint the proper location.
 
---- a/drivers/net/ethernet/marvell/sky2.c	2011-11-17 11:10:35.938076778 -0800
-+++ b/drivers/net/ethernet/marvell/sky2.c	2011-11-17 11:15:49.527882932 -0800
-@@ -1723,6 +1723,8 @@ static int sky2_setup_irq(struct sky2_hw
- 	if (err)
- 		dev_err(&pdev->dev, "cannot assign irq %d\n", pdev->irq);
- 	else {
-+		hw->flags |= SKY2_HW_IRQ_SETUP;
-+
- 		napi_enable(&hw->napi);
- 		sky2_write32(hw, B0_IMSK, Y2_IS_BASE);
- 		sky2_read32(hw, B0_IMSK);
-@@ -2120,6 +2122,7 @@ static int sky2_close(struct net_device
- 
- 		napi_disable(&hw->napi);
- 		free_irq(hw->pdev->irq, hw);
-+		hw->flags &= ~SKY2_HW_IRQ_SETUP;
- 	} else {
- 		u32 imask;
- 
-@@ -3423,12 +3426,13 @@ static void sky2_all_down(struct sky2_hw
- {
- 	int i;
- 
--	sky2_read32(hw, B0_IMSK);
--	sky2_write32(hw, B0_IMSK, 0);
-+	if (hw->flags & SKY2_HW_IRQ_SETUP) {
-+		sky2_read32(hw, B0_IMSK);
-+		sky2_write32(hw, B0_IMSK, 0);
- 
--	if (hw->ports > 1 || netif_running(hw->dev[0]))
- 		synchronize_irq(hw->pdev->irq);
--	napi_disable(&hw->napi);
-+		napi_disable(&hw->napi);
-+	}
- 
- 	for (i = 0; i < hw->ports; i++) {
- 		struct net_device *dev = hw->dev[i];
-@@ -3445,7 +3449,7 @@ static void sky2_all_down(struct sky2_hw
- 
- static void sky2_all_up(struct sky2_hw *hw)
- {
--	u32 imask = 0;
-+	u32 imask = Y2_IS_BASE;
- 	int i;
- 
- 	for (i = 0; i < hw->ports; i++) {
-@@ -3461,8 +3465,7 @@ static void sky2_all_up(struct sky2_hw *
- 		netif_wake_queue(dev);
- 	}
- 
--	if (imask || hw->ports > 1) {
--		imask |= Y2_IS_BASE;
-+	if (hw->flags & SKY2_HW_IRQ_SETUP) {
- 		sky2_write32(hw, B0_IMSK, imask);
- 		sky2_read32(hw, B0_IMSK);
- 		sky2_read32(hw, B0_Y2_SP_LISR);
---- a/drivers/net/ethernet/marvell/sky2.h	2011-11-16 15:15:40.964280527 -0800
-+++ b/drivers/net/ethernet/marvell/sky2.h	2011-11-17 11:13:00.154858718 -0800
-@@ -2287,6 +2287,7 @@ struct sky2_hw {
- #define SKY2_HW_RSS_BROKEN	0x00000100
- #define SKY2_HW_VLAN_BROKEN     0x00000200
- #define SKY2_HW_RSS_CHKSUM	0x00000400	/* RSS requires chksum */
-+#define SKY2_HW_IRQ_SETUP	0x00000800
- 
- 	u8	     	     chip_id;
- 	u8		     chip_rev;
+There seems to be a misunderstanding here. The patch effectively does:
+-       br_log_state(p);
+        p->state = BR_STATE_DISABLED;
++       br_log_state(p);
+
+and the issue it is trying to fix is not the timing but rather the code
+printing the wrong (old, now-left) state.
+
+I do agree that the log message should be printed before anything
+happens, so, Holger, can you brew a patch that does that?
+
+
+-David
