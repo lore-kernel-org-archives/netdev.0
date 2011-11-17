@@ -1,77 +1,123 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] Don't allow sharing of tx skbs on xen-netfront
-Date: Thu, 17 Nov 2011 15:45:53 -0500
-Message-ID: <20111117204553.GD26847@hmsreliant.think-freely.org>
-References: <1321298544-16434-1-git-send-email-nhorman@tuxdriver.com>
- <1321543238.3664.278.camel@zakaz.uk.xensource.com>
- <20111117192535.GB26847@hmsreliant.think-freely.org>
- <1321561021.8866.12.camel@dagon.hellion.org.uk>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH 4/5] tcp: allow undo from reordered DSACKs
+Date: Thu, 17 Nov 2011 15:49:55 -0500
+Message-ID: <CADVnQykNffEvpr5bnLiLyNGZiuhxx=5wxqFaZjC+Dk4mxe1Okw@mail.gmail.com>
+References: <1321469885-10885-1-git-send-email-ncardwell@google.com>
+	<1321469885-10885-4-git-send-email-ncardwell@google.com>
+	<alpine.DEB.2.00.1111170715060.23028@melkinpaasi.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jeremy Fitzhardinge <Jeremy.Fitzhardinge@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Nandita Dukkipati <nanditad@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Tom Herbert <therbert@google.com>
+To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39256 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752250Ab1KQUqO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 15:46:14 -0500
-Content-Disposition: inline
-In-Reply-To: <1321561021.8866.12.camel@dagon.hellion.org.uk>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:61695 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752774Ab1KQUt4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 15:49:56 -0500
+Received: by ggnb2 with SMTP id b2so1617608ggn.19
+        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 12:49:56 -0800 (PST)
+In-Reply-To: <alpine.DEB.2.00.1111170715060.23028@melkinpaasi.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 17, 2011 at 08:17:01PM +0000, Ian Campbell wrote:
-> On Thu, 2011-11-17 at 19:25 +0000, Neil Horman wrote:
-> > On Thu, Nov 17, 2011 at 03:20:38PM +0000, Ian Campbell wrote:
-> > > On Mon, 2011-11-14 at 14:22 -0500, Neil Horman wrote:
-> > > > It was pointed out to me recently that the xen-netfront driver can't safely
-> > > > support shared skbs on transmit, since, while it doesn't maintain skb state
-> > > > directly, it does pass a pointer to the skb to the hypervisor via a list, and
-> > > > the hypervisor may expect the contents of the skb to remain stable.  Clearing
-> > > > the IFF_TX_SKB_SHARING flag after the call to alloc_etherdev to make it safe.
-> > > 
-> > > What are the actual constraints here? The skb is used as a handle to the
-> > > skb->data and shinfo (frags) and to complete at the end. It's actually
-> > > those which are passed to the hypervisor (effectively the same as
-> > > passing those addresses to the h/w for DMA).
-> > > 
-> > > Which parts of the skb are expected/allowed to not remain stable?
-> > > 
-> > > (Appologies if the above seems naive, I seem to have missed the
-> > > introduction of shared tx skbs and IFF_TX_SKB_SHARING)
-> > > 
-> > Its ok, this is the most accurate description from the previous threads on the
-> > subject:
-> > http://lists.openwall.net/netdev/2011/08/22/63
-> > 
-> > The basic problem boils down the notion that some drivers, when they receive an
-> > skb in their xmit paths, presume to have sole ownership of the skb, and as a
-> > result may do things like add the skb to a list, or otherwise store stateful
-> > data in the skb.  If the skb is shared, thats unsafe to do, as the stack still
-> > holds a reference to the skb, and make make changes without serializing them
-> > against the driver.  So we have to flag those drivers which preform these kinds
-> > of actions.  xen-netfront doesn't strictly speaking modify any state directly ni
-> > an skb, but it does place a pointer to the skb in a data structure here:
-> > 
-> > np->tx_skbs[id].skb = skb;
-> > 
-> > Which then gets handed off to the hypervisior.  Since the hypervisor now has
-> > access to that skb pointer, and we can't be sure (from the guest perspective),
-> > what it does with that information, it would be better to be safe by disallowing
-> > shared skbs in this path.
-> 
-> The skb pointer itself doesn't get given to the backend/hypervisor. The
-> page which skb->data refers to is granted to the backend domain, as are
-> the pages in the frags.
-> 
-> I think we only need to be sure that the frontend doesn't rely on
-> anything in the skb itself, right? Does skb->data or shinfo count from
-> that perspective?
-shinfo is definately a problem, as other devices may make modifications to it.
-skb->data is probably safer, but is also potentially suspect (for instance if
-another device appends an additional header to the data for instance)
-Neil
+On Thu, Nov 17, 2011 at 12:18 AM, Ilpo J=E4rvinen
+<ilpo.jarvinen@helsinki.fi> wrote:
+> On Wed, 16 Nov 2011, Neal Cardwell wrote:
+>
+>> Previously, SACK-enabled connections hung around in TCP_CA_Disorder
+>> state while snd_una=3D=3Dhigh_seq, just waiting to accumulate DSACKs=
+ and
+>> hopefully undo a cwnd reduction. This could and did lead to the
+>> following unfortunate scenario: if some incoming ACKs advance snd_un=
+a
+>> beyond high_seq then we were setting undo_marker to 0 and moving to
+>> TCP_CA_Open, so if (due to reordering in the ACK return path) we
+>> shortly thereafter received a DSACK then we were no longer able to
+>> undo the cwnd reduction.
+>>
+>> The change: Simplify the congestion avoidance state machine by
+>> removing the behavior where SACK-enabled connections hung around in
+>> the TCP_CA_Disorder state just waiting for DSACKs. Instead, when
+>> snd_una advances to high_seq or beyond we typically move to
+>> TCP_CA_Open immediately and allow an undo in either TCP_CA_Open or
+>> TCP_CA_Disorder if we later receive enough DSACKs.
+>>
+>> Other patches in this series will provide other changes that are
+>> necessary to fully fix this problem.
+>>
+>> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+>> ---
+>> =A0net/ipv4/tcp_input.c | =A0 15 ++-------------
+>> =A01 files changed, 2 insertions(+), 13 deletions(-)
+>>
+>> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+>> index 751d390..a4efdd7 100644
+>> --- a/net/ipv4/tcp_input.c
+>> +++ b/net/ipv4/tcp_input.c
+>> @@ -2858,7 +2858,7 @@ static void tcp_try_keep_open(struct sock *sk)
+>> =A0 =A0 =A0 struct tcp_sock *tp =3D tcp_sk(sk);
+>> =A0 =A0 =A0 int state =3D TCP_CA_Open;
+>>
+>> - =A0 =A0 if (tcp_left_out(tp) || tcp_any_retrans_done(sk) || tp->un=
+do_marker)
+>> + =A0 =A0 if (tcp_left_out(tp) || tcp_any_retrans_done(sk))
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 state =3D TCP_CA_Disorder;
+>>
+>> =A0 =A0 =A0 if (inet_csk(sk)->icsk_ca_state !=3D state) {
+>> @@ -3066,17 +3066,6 @@ static void tcp_fastretrans_alert(struct sock=
+ *sk, int pkts_acked,
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+>>
+>> - =A0 =A0 =A0 =A0 =A0 =A0 case TCP_CA_Disorder:
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 tcp_try_undo_dsack(sk);
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!tp->undo_marker ||
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* For SACK case d=
+o not Open to allow to undo
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* catching for =
+all duplicate ACKs. */
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 tcp_is_reno(tp) ||=
+ tp->snd_una !=3D tp->high_seq) {
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 tp->undo_m=
+arker =3D 0;
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 tcp_set_ca=
+_state(sk, TCP_CA_Open);
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+>> -
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 case TCP_CA_Recovery:
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (tcp_is_reno(tp))
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 tcp_rese=
+t_reno_sack(tp);
+>> @@ -3117,7 +3106,7 @@ static void tcp_fastretrans_alert(struct sock =
+*sk, int pkts_acked,
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 tcp_add_=
+reno_sack(sk);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>>
+>> - =A0 =A0 =A0 =A0 =A0 =A0 if (icsk->icsk_ca_state =3D=3D TCP_CA_Diso=
+rder)
+>> + =A0 =A0 =A0 =A0 =A0 =A0 if (icsk->icsk_ca_state <=3D TCP_CA_Disord=
+er)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 tcp_try_undo_dsack(sk);
+>>
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!tcp_time_to_recover(sk)) {
+>
+> How about extending Disorder state until second cumulative ACK that i=
+s
+> acking >=3D high_seq?
+
+That would seem to add complexity but only provide a partial solution.
+
+This proposed patch has the virtue of providing a general solution
+while simplifying the code a little.
+
+What are your concerns with this patch?
+
+Thanks, Ilpo, for taking a look at this patch sequence,
+neal
