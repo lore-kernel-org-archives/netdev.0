@@ -1,43 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next 3/3] team: replicate options on register
-Date: Thu, 17 Nov 2011 11:03:48 +0100
-Message-ID: <1321524228.2751.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1321477749-1877-1-git-send-email-jpirko@redhat.com>
-	 <1321477749-1877-4-git-send-email-jpirko@redhat.com>
-	 <1321518736.3274.45.camel@edumazet-laptop>
-	 <20111117095729.GA2093@minipsycho>
-	 <1321524023.2751.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH 1/6] net: add the nwhwconfig support
+Date: Thu, 17 Nov 2011 11:17:33 +0100
+Message-ID: <4EC4DF3D.5040009@st.com>
+References: <1321516900-616-1-git-send-email-peppe.cavallaro@st.com> <20111117.030625.229541498275597867.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	bhutchings@solarflare.com, shemminger@vyatta.com,
-	andy@greyhouse.net, fbl@redhat.com, jzupka@redhat.com,
-	ivecera@redhat.com
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mamoroso@micron.com, shiraz.hashim@st.com,
+	armando.visconti@st.com, stuart.menefy@st.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:63210 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756237Ab1KQKDv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 05:03:51 -0500
-Received: by ggnb2 with SMTP id b2so818071ggn.19
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 02:03:51 -0800 (PST)
-In-Reply-To: <1321524023.2751.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:60843 "EHLO
+	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755511Ab1KQKR6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 05:17:58 -0500
+In-Reply-To: <20111117.030625.229541498275597867.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 17 novembre 2011 =C3=A0 11:00 +0100, Eric Dumazet a =C3=A9crit=
- :
+Hello David,
 
-> If you know the absolute limit of option_count, you could use
->=20
-> struct team_option *dst_opts[OPTION_COUNT_MAX];
->=20
-> If not, then a kmalloc()/kfree() is probably needed ;)
->=20
->=20
+On 11/17/2011 9:06 AM, David Miller wrote:
+> From: Giuseppe CAVALLARO<peppe.cavallaro@st.com>
+> Date: Thu, 17 Nov 2011 09:01:40 +0100
+>
+>> Network drivers support hardware level configuration via utilities such as
+>> ifconfig, ethtool and mii-tool. However sometimes these settings need to be
+>> adjusted before a file system is available (typically if the root file system
+>> uses NFS).
+>
+> No way, use an initial ramdisk.
 
-Sorry, forgot to include the link explaining Linus opinion on
-variable-length arrays
+Yes I agree with you that ramdisk is a solution :-) but this driver is 
+actually helping many users of stmmac on several platforms.
+Hmm, I also think it can be useful.
 
-https://lkml.org/lkml/2011/10/23/25
+For example, in my environment, I need to continuously boot a Kernel on 
+ST boxes and mount a rootFS via NFS to have the access to the full 
+(arm/sh - glibc/uclibc) distributions (to use several packages for 
+networking tests, X system etc).
+This driver helps me to go faster in the normal development.
+I am aware that starting with a ramdisk I could do that but with extra 
+steps and configuration.
+I mean, I want to pass all my network configuration in command line, 
+such as ip= option, and this driver should not be in conflict with this 
+logic.
+
+With this small driver it's possible to force link speed and duplex 
+modes when the kernel boots and this help me on validating HW and 
+performing tests as well.
+
+In any case, the driver is on the mailing list and other people can test 
+it and provide feedback and enhancements.
+
+Best Regards
+Peppe
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
