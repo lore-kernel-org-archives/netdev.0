@@ -1,45 +1,28 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 1/5] tcp: make is_dupack a parameter to
- tcp_fastretrans_alert()
-Date: Thu, 17 Nov 2011 03:23:53 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.1111170323020.1205@melkinpaasi.cs.helsinki.fi>
-References: <1321469885-10885-1-git-send-email-ncardwell@google.com>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: RE: [PATCH net-next 3/5] bna: Convert MAC_ADDRLEN uses to ETH_ALEN
+Date: Wed, 16 Nov 2011 16:56:56 -0800
+Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86AC9CEA6EAD@HQ1-EXCH01.corp.brocade.com>
+References: <cover.1321472142.git.joe@perches.com>
+ <8a6f9ad67a3d580565cafb7a44cec0165831c35d.1321472143.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-1681780376-1321493033=:1205"
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Tom Herbert <therbert@google.com>
-To: Neal Cardwell <ncardwell@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:36839 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754751Ab1KQBXz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 20:23:55 -0500
-In-Reply-To: <1321469885-10885-1-git-send-email-ncardwell@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
---8323329-1681780376-1321493033=:1205
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8a6f9ad67a3d580565cafb7a44cec0165831c35d.1321472143.git.joe@perches.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 16 Nov 2011, Neal Cardwell wrote:
+>From: Joe Perches [mailto:joe@perches.com]
+>Sent: Wednesday, November 16, 2011 11:38 AM
+>
+>Reduce the number of #defines, use the normal #define from if_ether.h
 
-> Allow callers to decide whether an ACK is a duplicate ACK. This is a
-> prerequisite to allowing fastretrans_alert to be called from new
-> contexts, such as the no_queue and old_ack code paths, from which we
-> have extra info that tells us whether an ACK is a dupack.
-> 
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Patch looks fine.
+Thanks,
+Rasesh
 
-Acked-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-
--- 
- i.
---8323329-1681780376-1321493033=:1205--
+Acked-by: Rasesh Mody <rmody@brocade.com>
