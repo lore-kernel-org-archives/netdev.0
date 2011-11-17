@@ -1,96 +1,64 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] r8169: Add 64bit statistics
-Date: Thu, 17 Nov 2011 14:01:19 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AECB@saturn3.aculab.com>
-References: <1321534700.2751.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Junchang Wang" <junchangwang@gmail.com>,
-	"Stephen Hemminger" <stephen.hemminger@vyatta.com>,
-	<netdev@vger.kernel.org>, <romieu@fr.zoreil.com>,
-	"nic swsd" <nic_swsd@realtek.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next 2/2] team: avoid using variable-length array
+Date: Thu, 17 Nov 2011 15:16:05 +0100
+Message-ID: <1321539365-1125-2-git-send-email-jpirko@redhat.com>
+References: <1321539365-1125-1-git-send-email-jpirko@redhat.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	bhutchings@solarflare.com, shemminger@vyatta.com,
+	andy@greyhouse.net, fbl@redhat.com, jzupka@redhat.com,
+	ivecera@redhat.com, mirqus@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:51051 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1756345Ab1KQODI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 09:03:08 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 13204-03 for <netdev@vger.kernel.org>;
- Thu, 17 Nov 2011 14:03:05 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1321534700.2751.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mx1.redhat.com ([209.132.183.28]:59639 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932081Ab1KQOQP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Nov 2011 09:16:15 -0500
+In-Reply-To: <1321539365-1125-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]=20
-> Le jeudi 17 novembre 2011 =E0 11:13 +0000, David Laight a =E9crit :
-> > The 64bit stats update sequence used to get valid
-> > counts on 32bit systems (that can't do locked 64bit
-> > memory access) seems to be:
-> >=20
-> > >     u64_stats_update_begin(&sky2->tx_stats.syncp);
-> > >     ++sky2->tx_stats.packets;
-> > >     sky2->tx_stats.bytes +=3D skb->len;
-> > >     u64_stats_update_end(&sky2->tx_stats.syncp);
-> >=20
-> > I'm not sure what the begin/end markers do, but
-> > they need to hold off the readers during updates
-> > and the writers during reads - this is probably
-> > expensive on the update path.
-> >=20
-> > A thought that might work is for the writer to
-> > write the middle bits of the 64 bit walue to
-> > another location, eg:
-> >        count =3D sky2->tx_stats.bytes + skb->len;
-> >        sky2->tx_stats.bytes =3D count;
-> >        sky2->tx_stats.bytes_check =3D count >> 16;
-> > The reader then loops until the two value are
-> > consistent.
-> >=20
-> > I think this doesn't even require a memory barrier
-> > in the ISR since the order of the reads an writes
-> > doesn't matter at all.
-> >=20
-> > 	David
-> >=20
-> >=20
->=20
-> Oh well...
->=20
-> Before claiming all this, you really should read=20
-> include/linux/u64_stats_sync.h
->=20
-> This should answer all your questions.
+Apparently using variable-length array is not correct
+(https://lkml.org/lkml/2011/10/23/25). So remove it.
 
-Ah yes ...
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/net/team/team.c |    9 +++++++--
+ 1 files changed, 7 insertions(+), 2 deletions(-)
 
-Both u64_stats_update_begin & _end increment a numeric field
-with an appropriate memory barrier. So the 'update' path
-has two extra read-modify-write sequences (possibly the
-2nd read can be optimised out), and two smp_wmb() that may
-introduce bus delays.
-
-Would be fine if it were guaranteed to work!
-Consider the following sequence of events:
-       u64_stats_update_begin()
-       calculate 'count+1'
-                                read_seqcount_begin()
-                                read count_hi
-       write count_lo
-                                read count_lo
-       write count_hi
-                                read_seqcount_retry()
-       ... update other counters ...
-       u64_stats_update_end()
-The reader gets an invalid value since it reads the same
-'sequence' both times.
-
-Could be fixed by using '|=3D 1' in update_begin and
-looping on odd values in read_seqcount_begin().
-
-	David
-
-                     =20
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 5b169c1..c48ef19 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -96,10 +96,13 @@ int team_options_register(struct team *team,
+ 			  size_t option_count)
+ {
+ 	int i;
+-	struct team_option *dst_opts[option_count];
++	struct team_option **dst_opts;
+ 	int err;
+ 
+-	memset(dst_opts, 0, sizeof(dst_opts));
++	dst_opts = kzalloc(sizeof(struct team_option *) * option_count,
++			   GFP_KERNEL);
++	if (!dst_opts)
++		return -ENOMEM;
+ 	for (i = 0; i < option_count; i++, option++) {
+ 		struct team_option *dst_opt;
+ 
+@@ -119,12 +122,14 @@ int team_options_register(struct team *team,
+ 	for (i = 0; i < option_count; i++)
+ 		list_add_tail(&dst_opts[i]->list, &team->option_list);
+ 
++	kfree(dst_opts);
+ 	return 0;
+ 
+ rollback:
+ 	for (i = 0; i < option_count; i++)
+ 		kfree(dst_opts[i]);
+ 
++	kfree(dst_opts);
+ 	return err;
+ }
+ 
+-- 
+1.7.6
