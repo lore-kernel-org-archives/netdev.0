@@ -1,48 +1,41 @@
-From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Subject: Re: NFS TCP race condition with SOCK_ASYNC_NOSPACE
-Date: Tue, 22 Nov 2011 13:38:33 +0200
-Message-ID: <1321961913.3323.67.camel@lade.trondhjem.org>
-References: <4EC6A681.30902@citrix.com>
-	  <1321642368.2653.35.camel@lade.trondhjem.org> <4EC6AC47.60404@citrix.com>
-	 <1321643673.2653.41.camel@lade.trondhjem.org> <4EC6B82B.3000701@citrix.com>
-	 <4ECA94F9.4090503@citrix.com>
+From: Thomas Meyer <thomas@m3y3r.de>
+Subject: [PATCH] CDC NCM: Use kzalloc rather than kmalloc followed by
+ memset with 0
+Date: Thu, 17 Nov 2011 23:43:40 +0100
+Message-ID: <1321569820.1624.264.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4ECA94F9.4090503-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Transfer-Encoding: 7bit
+To: oliver@neukum.name, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-11-21 at 18:14 +0000, Andrew Cooper wrote: 
-> Following some debugging, I believe that the attached patch fixes the
-> problem.
-> 
-> Simply returning EAGAIN is not sufficient, as the task does not get
-> requeued, and times out 13 seconds later (as per our mount options). 
-> Setting the SOCK_ASYNC_NOSPACE bit causes the requeue to happen.
-> 
-> I realize that this is a gross hack and I should probably not be using
-> SOCK_ASYNC_NOSPACE in that way.  Is there a better way to achieve the
-> same solution?
-> 
+This considers some simple cases that are common and easy to validate
+Note in particular that there are no ...s in the rule, so all of the
+matched code has to be contiguous
 
-What you are doing will cause the request to be put to sleep with no
-guarantee that it will ever be woken up. Why would we want to do that if
-there is no report of a tcp window/buffer space congestion?
+The semantic patch that makes this change is available
+in scripts/coccinelle/api/alloc/kzalloc-simple.cocci.
 
--- 
-Trond Myklebust
-Linux NFS client maintainer
+Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
+---
 
-NetApp
-Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
-www.netapp.com
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff -u -p a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+--- a/drivers/net/usb/cdc_ncm.c 2011-11-07 19:38:00.160137318 +0100
++++ b/drivers/net/usb/cdc_ncm.c 2011-11-08 09:35:34.632578608 +0100
+@@ -465,12 +465,10 @@ static int cdc_ncm_bind(struct usbnet *d
+ 	int temp;
+ 	u8 iface_no;
+ 
+-	ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
++	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+ 	if (ctx == NULL)
+ 		return -ENODEV;
+ 
+-	memset(ctx, 0, sizeof(*ctx));
+-
+ 	init_timer(&ctx->tx_timer);
+ 	spin_lock_init(&ctx->mtx);
+ 	ctx->netdev = dev->net;
