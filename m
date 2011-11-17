@@ -1,32 +1,43 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [patch net-next 1/2] team: add fix_features
-Date: Thu, 17 Nov 2011 21:28:58 +0100
-Message-ID: <CAHXqBFL062+dK=d1Phi0q-ZbSxu==ADee1P4viR9SBf=J+Vk=w@mail.gmail.com>
-References: <1321539365-1125-1-git-send-email-jpirko@redhat.com>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: [PATCH] Fix wrong parameter given to sizeof call
+Date: Thu, 17 Nov 2011 21:33:52 +0100
+Message-ID: <4EC56FB0.3040900@intra2net.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, bhutchings@solarflare.com,
-	shemminger@vyatta.com, andy@greyhouse.net, fbl@redhat.com,
-	jzupka@redhat.com, ivecera@redhat.com
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:39324 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755470Ab1KQU3W convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 15:29:22 -0500
-Received: by iage36 with SMTP id e36so2645251iag.19
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 12:29:22 -0800 (PST)
-In-Reply-To: <1321539365-1125-1-git-send-email-jpirko@redhat.com>
+Received: from re04.intra2net.com ([82.165.46.26]:40938 "EHLO
+	re04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752250Ab1KQUdy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 15:33:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/11/17 Jiri Pirko <jpirko@redhat.com>:
-> do fix features in similar way as bonding code does
-[...]
+"remote_list" is of type
 
-Looks the same like in bonding. ;)
+struct dma_chunk remote_list[VETH_MAX_FRAMES_PER_MSG];
 
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+Probably a copy'n'paste error.
+
+Signed-off-by: Thomas Jarosch <thomas.jarosch@intra2net.com>
+---
+ drivers/net/ethernet/ibm/iseries_veth.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/ibm/iseries_veth.c b/drivers/net/ethernet/ibm/iseries_veth.c
+index 4326681..acc31af 100644
+--- a/drivers/net/ethernet/ibm/iseries_veth.c
++++ b/drivers/net/ethernet/ibm/iseries_veth.c
+@@ -1421,7 +1421,7 @@ static void veth_receive(struct veth_lpar_connection *cnx,
+ 
+ 		/* FIXME: do we need this? */
+ 		memset(local_list, 0, sizeof(local_list));
+-		memset(remote_list, 0, sizeof(VETH_MAX_FRAMES_PER_MSG));
++		memset(remote_list, 0, sizeof(remote_list));
+ 
+ 		/* a 0 address marks the end of the valid entries */
+ 		if (senddata->addr[startchunk] == 0)
+-- 
+1.7.6.4
