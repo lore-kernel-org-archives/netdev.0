@@ -1,34 +1,70 @@
-From: Ajith Adapa <adapa.ajith@gmail.com>
-Subject: Regarding Routing cache
-Date: Thu, 17 Nov 2011 10:30:59 +0530
-Message-ID: <CADAe=+Lmp=e3NRH5NOYewJp=XZ0CncPzC-4V=Ct-TEuGjfq3nw@mail.gmail.com>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: Re: [PATCH 2/2 v4] net/smsc911x: Add regulator support
+Date: Thu, 17 Nov 2011 00:07:21 -0500
+Message-ID: <201111170007.25084.vapier@gentoo.org>
+References: <1320064719-14449-1-git-send-email-robert.marklund@stericsson.com> <201110311421.18653.vapier@gentoo.org> <2B1D156D95AE9B4EAD379CB9E465FE7324AECE3650@EXDCVYMBSTM005.EQ1STM.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:42603 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750714Ab1KQFBb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 00:01:31 -0500
-Received: by fagn18 with SMTP id n18so2446013fag.19
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2011 21:01:30 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed;
+  boundary="nextPart3064225.1jW3foyFWa";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	Mathieu Poirier <mathieu.poirier@linaro.org>,
+	Paul Mundt <lethal@linux-sh.org>,
+	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Tony Lindgren <tony@atomide.com>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+	"uclinux-dist-devel@blackfin.uclinux.org"
+	<uclinux-dist-devel@blackfin.uclinux.org>,
+	Linus Walleij <linus.walleij@linaro.org>
+To: Robert MARKLUND <robert.marklund@stericsson.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <2B1D156D95AE9B4EAD379CB9E465FE7324AECE3650@EXDCVYMBSTM005.EQ1STM.local>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+--nextPart3064225.1jW3foyFWa
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
 
-I have a small doubt regarding routing cache in linux kernel.
+On Wednesday 16 November 2011 07:59:41 Robert MARKLUND wrote:
+> From: Mike Frysinger [mailto:vapier@gentoo.org]
+> > On Monday 31 October 2011 08:38:39 Robert Marklund wrote:
+> > > ChangeLog v3->v4:
+> > > - Remove dual prints and old comment on Mike's request.
+> > > - Split the request_free fucntion on Mike and Sascha request.
+> >=20
+> > would be nice if the enable/disable were split as well ...
+>=20
+> I interpret this as "nice if", if it's a "must be" then ill change it.
 
-It seems ip_route_connect is the way we have to access routing cache
-entries. In case of all locally generated packets I see that struct
-dst_entry is filled up with a lookup in routing cache.
+i would prefer it were split
+=2Dmike
 
-What about in case of forwarding packets ? I dont see any usage of
-routing cache mechanism to fill up the struct dst_entry. So it seems
-we directly check the fib_rules or fib table to fill the structure.
-If it is true then it would be very slow right ?
+--nextPart3064225.1jW3foyFWa
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
-Sorry if I am wrong about above findings. Do correct me if I am wrong about it ?
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.17 (GNU/Linux)
 
-Regards,
-Ajith
+iQIcBAABAgAGBQJOxJaMAAoJEEFjO5/oN/WBw7wP/R6BpgExQZxYQkgI1W7f8gkX
+Eop/e4ZhE4PQsKdCsVaB2Dse5FqCGGdHUAkNUxtCIjQF6ilRpidgXOAVJ1Cpec6t
+qjthktolSuCTLtbdHpIBQh7wYCIQYARNtCvHFpKDcqLQM+AwSB5AS+AH58nl9Ms5
+i7w4tcSEhHzj6tMPIG8fFAcKgjIt6G9xVgKCRgjhPFSautxYxWjOWKlCleXcxcAr
+u7AkAbZpJMsmuY2H6mgrcE76IMw8LVO9RVcs1rqAm+4C+dFXZnX26XdCFQ5yNgUu
+C73+75y4HSoeQSVAe80OUV5huG3kwjHE++2LxAq3c4b7cHzGya1yDYCpO7wavqdC
+pw8Nxm2MACEwh58hxi9YMc2MYOiZ7F//8Fh4JUanWC9rksAEIvsPNMAPuAqg9mxX
+lKWdS6C9h6tmCzCheyUcsVBLeh3BYL+CmJ5No0RhWPHnGPJeKVD1Pp2bMG1OWiiV
+C+xI7yk7d1SKCi9XOeWJ3fzsUUynqtA62GVMHRhWb9cpwokuswhnLQONH12emgAr
+24iwHHROGLq3PRIfcz/jZDv2P/vaPucBvaDSaTnTq293eCPy/zF64MAItSNA7lf2
+qCHpn7zR2ORUY+71KkpK1gr3XqgKZPwoD95lgxIThTSpDYvk334XIJTc/F9OBx+N
+1PFwQVVu9DnR7OXdgwnw
+=dBok
+-----END PGP SIGNATURE-----
+
+--nextPart3064225.1jW3foyFWa--
