@@ -1,43 +1,77 @@
-From: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Subject: [PATCH] Fix wrong parameter given to sizeof call
-Date: Thu, 17 Nov 2011 21:33:52 +0100
-Message-ID: <4EC56FB0.3040900@intra2net.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] Don't allow sharing of tx skbs on xen-netfront
+Date: Thu, 17 Nov 2011 15:45:53 -0500
+Message-ID: <20111117204553.GD26847@hmsreliant.think-freely.org>
+References: <1321298544-16434-1-git-send-email-nhorman@tuxdriver.com>
+ <1321543238.3664.278.camel@zakaz.uk.xensource.com>
+ <20111117192535.GB26847@hmsreliant.think-freely.org>
+ <1321561021.8866.12.camel@dagon.hellion.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jeremy Fitzhardinge <Jeremy.Fitzhardinge@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from re04.intra2net.com ([82.165.46.26]:40938 "EHLO
-	re04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752250Ab1KQUdy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 15:33:54 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:39256 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752250Ab1KQUqO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 15:46:14 -0500
+Content-Disposition: inline
+In-Reply-To: <1321561021.8866.12.camel@dagon.hellion.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"remote_list" is of type
-
-struct dma_chunk remote_list[VETH_MAX_FRAMES_PER_MSG];
-
-Probably a copy'n'paste error.
-
-Signed-off-by: Thomas Jarosch <thomas.jarosch@intra2net.com>
----
- drivers/net/ethernet/ibm/iseries_veth.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/ibm/iseries_veth.c b/drivers/net/ethernet/ibm/iseries_veth.c
-index 4326681..acc31af 100644
---- a/drivers/net/ethernet/ibm/iseries_veth.c
-+++ b/drivers/net/ethernet/ibm/iseries_veth.c
-@@ -1421,7 +1421,7 @@ static void veth_receive(struct veth_lpar_connection *cnx,
- 
- 		/* FIXME: do we need this? */
- 		memset(local_list, 0, sizeof(local_list));
--		memset(remote_list, 0, sizeof(VETH_MAX_FRAMES_PER_MSG));
-+		memset(remote_list, 0, sizeof(remote_list));
- 
- 		/* a 0 address marks the end of the valid entries */
- 		if (senddata->addr[startchunk] == 0)
--- 
-1.7.6.4
+On Thu, Nov 17, 2011 at 08:17:01PM +0000, Ian Campbell wrote:
+> On Thu, 2011-11-17 at 19:25 +0000, Neil Horman wrote:
+> > On Thu, Nov 17, 2011 at 03:20:38PM +0000, Ian Campbell wrote:
+> > > On Mon, 2011-11-14 at 14:22 -0500, Neil Horman wrote:
+> > > > It was pointed out to me recently that the xen-netfront driver can't safely
+> > > > support shared skbs on transmit, since, while it doesn't maintain skb state
+> > > > directly, it does pass a pointer to the skb to the hypervisor via a list, and
+> > > > the hypervisor may expect the contents of the skb to remain stable.  Clearing
+> > > > the IFF_TX_SKB_SHARING flag after the call to alloc_etherdev to make it safe.
+> > > 
+> > > What are the actual constraints here? The skb is used as a handle to the
+> > > skb->data and shinfo (frags) and to complete at the end. It's actually
+> > > those which are passed to the hypervisor (effectively the same as
+> > > passing those addresses to the h/w for DMA).
+> > > 
+> > > Which parts of the skb are expected/allowed to not remain stable?
+> > > 
+> > > (Appologies if the above seems naive, I seem to have missed the
+> > > introduction of shared tx skbs and IFF_TX_SKB_SHARING)
+> > > 
+> > Its ok, this is the most accurate description from the previous threads on the
+> > subject:
+> > http://lists.openwall.net/netdev/2011/08/22/63
+> > 
+> > The basic problem boils down the notion that some drivers, when they receive an
+> > skb in their xmit paths, presume to have sole ownership of the skb, and as a
+> > result may do things like add the skb to a list, or otherwise store stateful
+> > data in the skb.  If the skb is shared, thats unsafe to do, as the stack still
+> > holds a reference to the skb, and make make changes without serializing them
+> > against the driver.  So we have to flag those drivers which preform these kinds
+> > of actions.  xen-netfront doesn't strictly speaking modify any state directly ni
+> > an skb, but it does place a pointer to the skb in a data structure here:
+> > 
+> > np->tx_skbs[id].skb = skb;
+> > 
+> > Which then gets handed off to the hypervisior.  Since the hypervisor now has
+> > access to that skb pointer, and we can't be sure (from the guest perspective),
+> > what it does with that information, it would be better to be safe by disallowing
+> > shared skbs in this path.
+> 
+> The skb pointer itself doesn't get given to the backend/hypervisor. The
+> page which skb->data refers to is granted to the backend domain, as are
+> the pages in the frags.
+> 
+> I think we only need to be sure that the frontend doesn't rely on
+> anything in the skb itself, right? Does skb->data or shinfo count from
+> that perspective?
+shinfo is definately a problem, as other devices may make modifications to it.
+skb->data is probably safer, but is also potentially suspect (for instance if
+another device appends an additional header to the data for instance)
+Neil
