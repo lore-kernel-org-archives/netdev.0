@@ -1,48 +1,39 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: Unable to flush ICMP redirect routes in kernel 3.0+
-Date: Thu, 17 Nov 2011 13:37:24 -0200
-Message-ID: <20111117133724.59684d28@asterix.rh>
-References: <4EC2CA52.6020104@icdsoft.com>
-	<1321391355.2602.0.camel@edumazet-laptop>
-	<4EC439F2.3080809@icdsoft.com>
-	<20111116223330.08de9e52@asterix.rh>
-	<4EC4C160.6010804@icdsoft.com>
-	<20111117111145.252924f5@asterix.rh>
-	<1321535747.2751.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1321540820.2751.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Tom Herbert <therbert@google.com>
+Subject: root_lock vs. device's TX lock
+Date: Thu, 17 Nov 2011 08:10:01 -0800
+Message-ID: <CA+mtBx8sHDprEct3zgGXXKEESK6i0FYnFS-_z35FOyVQjS9R4Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Ivan Zahariev <famzah@icdsoft.com>, netdev@vger.kernel.org,
-	Vasiliy Kulikov <segoon@openwall.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40593 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932267Ab1KQPho (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Nov 2011 10:37:44 -0500
-In-Reply-To: <1321540820.2751.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:59287 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932457Ab1KQQKC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 11:10:02 -0500
+Received: by iage36 with SMTP id e36so2290578iag.19
+        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 08:10:01 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 17 Nov 2011 15:40:20 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>From sch_direct_xmit:
 
-> [PATCH] ping: dont increment ICMP_MIB_INERRORS
-> 
-> ping module incorrectly increments ICMP_MIB_INERRORS if feeded with a
-> frame not belonging to its own sockets.
-> 
-> RFC 2011 states that ICMP_MIB_INERRORS should count "the number of
-> ICMP messages which the entiry received but determined as having
-> ICMP-specific errors (bad ICMP checksums, bad length, etc.)."
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Vasiliy Kulikov <segoon@openwall.com>
+        /* And release qdisc */
+        spin_unlock(root_lock);
 
-Yeah, they aren't ICMP specific errors and the callers already
-checked for checksum, lengths, and etc.. increasing that counter
-when necessary.
+        HARD_TX_LOCK(dev, txq, smp_processor_id());
+        if (!netif_tx_queue_frozen_or_stopped(txq))
+                ret = dev_hard_start_xmit(skb, dev, txq);
 
-Acked-by: Flavio Leitner <fbl@redhat.com>
+        HARD_TX_UNLOCK(dev, txq);
+
+        spin_lock(root_lock);
+
+This is a lot of lock manipulation to basically switch from one lock
+to another and possibly thrashing just to send a packet.  I am
+thinking that if the there is a 1-1 correspondence between qdisc and
+device queue then we could actually use the device's lock as the root
+lock for the qdisc.  So in that case, we would need to touch any locks
+from sch_direct_xmit (just hold root lock which is already device lock
+for the duration).
+
+Is there any reason why this couldn't work?
