@@ -1,48 +1,59 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] net,
-	bridge: print log message after state changed
-Date: Thu, 17 Nov 2011 14:40:23 -0800
-Message-ID: <20111117144023.06c8502e@nehalam.linuxnetplumber.net>
-References: <1320941934-3534-1-git-send-email-holger.brunck@keymile.com>
-	<20111114.003702.1097206603722725705.davem@davemloft.net>
-	<1321254211.4072.29.camel@pc005091.de.keymile.net>
-	<20111114.020749.1176229013272872343.davem@davemloft.net>
-	<20111117192353.GD2051622@jupiter.n2.diac24.net>
+Subject: Re: [PATCH 4/6] sky2: reduce default Tx ring size
+Date: Thu, 17 Nov 2011 14:41:42 -0800
+Message-ID: <20111117144142.3447f15c@nehalam.linuxnetplumber.net>
+References: <20111116234254.319625694@vyatta.com>
+	<20111116234344.813201788@vyatta.com>
+	<874ny2bgqa.fsf@turtle.gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Wolfgang.Fritz@keymile.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, holger.brunck@keymile.com,
-	shemminger@linux-foundation.org, David Miller <davem@davemloft.net>
-To: David Lamparter <equinox@diac24.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20111117192353.GD2051622@jupiter.n2.diac24.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Sven Joachim <svenjoac@gmx.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:36946 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751322Ab1KQWlp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Nov 2011 17:41:45 -0500
+In-Reply-To: <874ny2bgqa.fsf@turtle.gmx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 17 Nov 2011 20:23:53 +0100
-David Lamparter <equinox@diac24.net> wrote:
+On Thu, 17 Nov 2011 22:07:25 +0100
+Sven Joachim <svenjoac@gmx.de> wrote:
 
-> There seems to be a misunderstanding here. The patch effectively does:
-> -       br_log_state(p);
->         p->state = BR_STATE_DISABLED;
-> +       br_log_state(p);
+> On 2011-11-17 00:42 +0100, Stephen Hemminger wrote:
 > 
-> and the issue it is trying to fix is not the timing but rather the code
-> printing the wrong (old, now-left) state.
+> > The default Tx ring size for the sky2 driver is quite large and could
+> > cause excess buffer bloat for many users. The minimum ring size 
+> > possible and still allow handling  the worst case packet on 64bit platforms
+> > is 38 which gets rounded up to a power of 2. But most packets only require
+> > a couple of ring elements.
+> >
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> >
+> > --- a/drivers/net/ethernet/marvell/sky2.c	2011-11-16 15:19:39.518659262 -0800
+> > +++ b/drivers/net/ethernet/marvell/sky2.c	2011-11-16 15:19:40.990692544 -0800
+> > @@ -68,7 +68,7 @@
+> >  #define MAX_SKB_TX_LE	(2 + (sizeof(dma_addr_t)/sizeof(u32))*(MAX_SKB_FRAGS+1))
+> >  #define TX_MIN_PENDING		(MAX_SKB_TX_LE+1)
+> >  #define TX_MAX_PENDING		1024
+> > -#define TX_DEF_PENDING		127
+> > +#define TX_DEF_PENDING		63
+> >  
+> >  #define TX_WATCHDOG		(5 * HZ)
+> >  #define NAPI_WEIGHT		64
 > 
-> I do agree that the log message should be printed before anything
-> happens, so, Holger, can you brew a patch that does that?
+> It's hard to believe, but this innocuous-looking patch caused my system
+> to crash and burn as soon as I actually used the network.
+> Unfortunately, I have neither a digital camera nor a serial console at
+> hand, but from my recollections and having read sky2.c I conclude that
+> 
+> 	BUG_ON(done >= sky2->tx_ring_size);
+> 
+> in sky2_tx_complete() seems to have been triggered.  Does this make any
+> sense?
+> 
 
-Other than being horribly strict, why bother? I hope you aren't building
-some application that depends on the ordering of the log message.
-The state change doesn't get undone, why does the order of the message
-matter at all?
+If that is triggering then something is really odd because that means
+the ring index went past the end of the ring and wasn't wrapped correctly.
