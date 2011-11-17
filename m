@@ -1,30 +1,66 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] iproute2: Display closed UDP sockets on 'ss -ul'
-Date: Wed, 16 Nov 2011 16:25:56 -0800
-Message-ID: <20111116162556.71c71143@s6510.linuxnetplumber.net>
-References: <1321370366-18832-1-git-send-email-contyk@redhat.com>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH] net: ethtool: fix coding style
+Date: Thu, 17 Nov 2011 01:32:03 +0100 (CET)
+Message-ID: <8c950d750a6b1d491cb321f024e2bca9f238ab9c.1321489851.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Petr =?UTF-8?B?xaBhYmF0YQ==?= <contyk@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50895 "EHLO mail.vyatta.com"
+Received: from rere.qmqm.pl ([89.167.52.164]:39020 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753962Ab1KQAZ7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 19:25:59 -0500
-In-Reply-To: <1321370366-18832-1-git-send-email-contyk@redhat.com>
+	id S1754592Ab1KQAcG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Nov 2011 19:32:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 15 Nov 2011 16:19:26 +0100
-Petr =C5=A0abata <contyk@redhat.com> wrote:
+Add missing spaces around multiplication operator.
 
-> This patch emulates 'netstat -ul' behavior, showing 'closed'
-> (state 07) UDP sockets when ss is called with '-ul' options.
-> Although dirty, this seems like the least invasive way to fix
-> it and shouldn't really break anything.
->=20
-> Signed-off-by: Petr =C5=A0abata <contyk@redhat.com>
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+---
+ net/core/ethtool.c |   15 ++++++++-------
+ 1 files changed, 8 insertions(+), 7 deletions(-)
 
-Applied
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index d2eff9e..31b0b7f 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -87,13 +87,14 @@ static int ethtool_get_features(struct net_device *=
+dev, void __user *useraddr)
+ 	int i;
+=20
+ 	/* in case feature bits run out again */
+-	BUILD_BUG_ON(ETHTOOL_DEV_FEATURE_WORDS*sizeof(u32) > sizeof(netdev_fe=
+atures_t));
++	BUILD_BUG_ON(ETHTOOL_DEV_FEATURE_WORDS * sizeof(u32) > sizeof(netdev_=
+features_t));
+=20
+ 	for (i =3D 0; i < ETHTOOL_DEV_FEATURE_WORDS; ++i) {
+-		features[i].available =3D (u32)(dev->hw_features >> (32*i));
+-		features[i].requested =3D (u32)(dev->wanted_features >> (32*i));
+-		features[i].active =3D (u32)(dev->features >> (32*i));
+-		features[i].never_changed =3D (u32)(NETIF_F_NEVER_CHANGE >> (32*i));
++		features[i].available =3D (u32)(dev->hw_features >> (32 * i));
++		features[i].requested =3D (u32)(dev->wanted_features >> (32 * i));
++		features[i].active =3D (u32)(dev->features >> (32 * i));
++		features[i].never_changed =3D
++			(u32)(NETIF_F_NEVER_CHANGE >> (32 * i));
+ 	}
+=20
+ 	sizeaddr =3D useraddr + offsetof(struct ethtool_gfeatures, size);
+@@ -130,8 +131,8 @@ static int ethtool_set_features(struct net_device *=
+dev, void __user *useraddr)
+ 		return -EFAULT;
+=20
+ 	for (i =3D 0; i < ETHTOOL_DEV_FEATURE_WORDS; ++i) {
+-		valid |=3D (netdev_features_t)features[i].valid << (32*i);
+-		wanted |=3D (netdev_features_t)features[i].requested << (32*i);
++		valid |=3D (netdev_features_t)features[i].valid << (32 * i);
++		wanted |=3D (netdev_features_t)features[i].requested << (32 * i);
+ 	}
+=20
+ 	if (valid & ~NETIF_F_ETHTOOL_BITS)
+--=20
+1.7.7.1
