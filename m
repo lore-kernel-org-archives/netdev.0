@@ -1,56 +1,99 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: [PATCH] net, bridge: print log message after state changed
-Date: Thu, 17 Nov 2011 20:23:53 +0100
-Message-ID: <20111117192353.GD2051622@jupiter.n2.diac24.net>
-References: <1320941934-3534-1-git-send-email-holger.brunck@keymile.com>
- <20111114.003702.1097206603722725705.davem@davemloft.net>
- <1321254211.4072.29.camel@pc005091.de.keymile.net>
- <20111114.020749.1176229013272872343.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] Don't allow sharing of tx skbs on xen-netfront
+Date: Thu, 17 Nov 2011 14:25:35 -0500
+Message-ID: <20111117192535.GB26847@hmsreliant.think-freely.org>
+References: <1321298544-16434-1-git-send-email-nhorman@tuxdriver.com>
+ <1321543238.3664.278.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Wolfgang.Fritz@keymile.com, holger.brunck@keymile.com,
-	netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	bridge@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jeremy Fitzhardinge <jeremy.fitzhardinge@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	xen-devel@lists.xensource.com
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:46555 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754788Ab1KQTXu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Nov 2011 14:23:50 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:52219 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754264Ab1KQT2G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 14:28:06 -0500
 Content-Disposition: inline
-In-Reply-To: <20111114.020749.1176229013272872343.davem@davemloft.net>
+In-Reply-To: <1321543238.3664.278.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 14, 2011 at 02:07:49AM -0500, David Miller wrote:
-> >> The message is therefore appropriately timed as far as I'm concerned.
-> >> 
-> > 
-> > It's not.
-> > 
-> > Please test: create a bridge with STP disabled, add an interface to the
-> > bridge and set that interface down. You get the message "... entering
-> > forwarding state". That's wrong because it's "about to enter" disabled
-> > state some lines later.
-> > 
-> > All other (4) calls to br_log_state are located after the state change,
-> > see for example br_stp_enable_port() just some lines above the patch.
+On Thu, Nov 17, 2011 at 03:20:38PM +0000, Ian Campbell wrote:
+> On Mon, 2011-11-14 at 14:22 -0500, Neil Horman wrote:
+> > It was pointed out to me recently that the xen-netfront driver can't safely
+> > support shared skbs on transmit, since, while it doesn't maintain skb state
+> > directly, it does pass a pointer to the skb to the hypervisor via a list, and
+> > the hypervisor may expect the contents of the skb to remain stable.  Clearing
+> > the IFF_TX_SKB_SHARING flag after the call to alloc_etherdev to make it safe.
 > 
-> I would never expect an "entering" message to print out after the event
-> happens, and in fact I'd _always_ want to see it beforehand so that if
-> the state change caused a crash or similar it'd be that much easier
-> to pinpoint the proper location.
+> What are the actual constraints here? The skb is used as a handle to the
+> skb->data and shinfo (frags) and to complete at the end. It's actually
+> those which are passed to the hypervisor (effectively the same as
+> passing those addresses to the h/w for DMA).
+> 
+> Which parts of the skb are expected/allowed to not remain stable?
+> 
+> (Appologies if the above seems naive, I seem to have missed the
+> introduction of shared tx skbs and IFF_TX_SKB_SHARING)
+> 
+Its ok, this is the most accurate description from the previous threads on the
+subject:
+http://lists.openwall.net/netdev/2011/08/22/63
 
-There seems to be a misunderstanding here. The patch effectively does:
--       br_log_state(p);
-        p->state = BR_STATE_DISABLED;
-+       br_log_state(p);
+The basic problem boils down the notion that some drivers, when they receive an
+skb in their xmit paths, presume to have sole ownership of the skb, and as a
+result may do things like add the skb to a list, or otherwise store stateful
+data in the skb.  If the skb is shared, thats unsafe to do, as the stack still
+holds a reference to the skb, and make make changes without serializing them
+against the driver.  So we have to flag those drivers which preform these kinds
+of actions.  xen-netfront doesn't strictly speaking modify any state directly ni
+an skb, but it does place a pointer to the skb in a data structure here:
 
-and the issue it is trying to fix is not the timing but rather the code
-printing the wrong (old, now-left) state.
+np->tx_skbs[id].skb = skb;
 
-I do agree that the log message should be printed before anything
-happens, so, Holger, can you brew a patch that does that?
+Which then gets handed off to the hypervisior.  Since the hypervisor now has
+access to that skb pointer, and we can't be sure (from the guest perspective),
+what it does with that information, it would be better to be safe by disallowing
+shared skbs in this path.
 
+Neil
 
--David
+> Ian.
+> 
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> > CC: "David S. Miller" <davem@davemloft.net>
+> > CC: Jeremy Fitzhardinge <jeremy.fitzhardinge@citrix.com>
+> > CC: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> > CC: xen-devel@lists.xensource.com
+> > ---
+> >  drivers/net/xen-netfront.c |    6 ++++++
+> >  1 files changed, 6 insertions(+), 0 deletions(-)
+> > 
+> > diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> > index 226faab..fb1077b 100644
+> > --- a/drivers/net/xen-netfront.c
+> > +++ b/drivers/net/xen-netfront.c
+> > @@ -1252,6 +1252,12 @@ static struct net_device * __devinit xennet_create_dev(struct xenbus_device *dev
+> >  		return ERR_PTR(-ENOMEM);
+> >  	}
+> >  
+> > +	/*
+> > +	 * Since frames remain on a queue after a return from xennet_start_xmit,
+> > +	 * we can't support tx shared skbs
+> > +	 */
+> > +	netdev->priv_flags &= ~IFF_TX_SKB_SHARING;
+> > +
+> >  	np                   = netdev_priv(netdev);
+> >  	np->xbdev            = dev;
+> >  
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
