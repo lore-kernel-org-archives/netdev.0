@@ -1,151 +1,83 @@
-From: David Decotigny <david.decotigny@google.com>
-Subject: Re: [PATCH FIX net v1] net-e1000e: Fix default interrupt throttle
- rate not set in NIC HW
-Date: Wed, 16 Nov 2011 17:42:57 -0800
-Message-ID: <CAG88wWYbHoz759rGpPLAdiZUAU+gLwSSCBUjqDbucftXcGr77A__693.041404201899$1321494223$gmane$org@mail.gmail.com>
-References: <cover.1321492611.git.david.decotigny@google.com> <7182ad277085740c360a17865326058779b101de.1321492611.git.david.decotigny@google.com>
+From: Simon Chen <simonchennj@gmail.com>
+Subject: Re: under-performing bonded interfaces
+Date: Wed, 16 Nov 2011 20:45:15 -0500
+Message-ID: <CANj2EbeHoBNwowmeNLZPGd-KEb21hAmW2O41d0B5uTWAqffZeQ@mail.gmail.com>
+References: <CANj2EbeMRzicixHwrKpCQ3mMqQ1qbyjbRCxpW+CmVRREAhyeRQ@mail.gmail.com>
+	<4EC44ECB.4050201@candelatech.com>
+	<CANj2EbfrtbysEbj+gMa+fOhWo0EWjBXVyGkw8WyiPAV9nPduuQ@mail.gmail.com>
+	<1321491449.2709.90.camel@bwh-desktop>
+	<CANj2Ebdd89=Fk6i4e4Txsb3ANuzz-x4t+tT6CAnWDNZe0zvx9g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: base64
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	David Decotigny <david.decotigny@google.com>,
-	Ying Cai <ycai@google.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Ski
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:53370 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751800Ab1KQBnU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 20:43:20 -0500
-Received: by iage36 with SMTP id e36so1453827iag.19
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2011 17:43:20 -0800 (PST)
-In-Reply-To: <7182ad277085740c360a17865326058779b101de.1321492611.git.david.decotigny@google.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:42180 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751800Ab1KQBpR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 20:45:17 -0500
+Received: by fagn18 with SMTP id n18so2320508fag.19
+        for <netdev@vger.kernel.org>; Wed, 16 Nov 2011 17:45:16 -0800 (PST)
+In-Reply-To: <CANj2Ebdd89=Fk6i4e4Txsb3ANuzz-x4t+tT6CAnWDNZe0zvx9g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-U29ycnksIEkgcmVhbGl6ZWQgdGhhdCB0aGUgc2FtZSBmaXggY291bGQgYmUgYXBwbGllZCB0byBl
-MTAwMC4gU2VuZGluZwphbiB1cGRhdGVkIHYyIHBhdGNoIHNob3J0bHkuLi4KCi0tCkRhdmlkIERl
-Y290aWdueQoKCgpPbiBXZWQsIE5vdiAxNiwgMjAxMSBhdCA1OjE4IFBNLCBEYXZpZCBEZWNvdGln
-bnkKPGRhdmlkLmRlY290aWdueUBnb29nbGUuY29tPiB3cm90ZToKPiBGcm9tOiBZaW5nIENhaSA8
-eWNhaUBnb29nbGUuY29tPgo+Cj4gVGhpcyBjaGFuZ2UgZW5zdXJlcyB0aGF0IHRoZSBpdHIvaXRy
-X3NldHRpbmcgYWRqdXN0bWVudCBsb2dpYyBpcyB1c2VkLAo+IGV2ZW4gZm9yIHRoZSBkZWZhdWx0
-L2NvbXBpbGVkLWluIHZhbHVlLgo+Cj4gQ29udGV4dDoKPiCgV2hlbiB3ZSBjaGFuZ2VkIHRoZSBk
-ZWZhdWx0IEludGVycnVwdFRocm90dGxlUmF0ZSB2YWx1ZSBmcm9tIGRlZmF1bHQKPiCgKDMgPSBk
-eW5hbWljIG1vZGUpIHRvIDgwMDAgZm9yIGV4YW1wbGUsIG9ubHkgYWRhcHRlci0+aXRyX3NldHRp
-bmcKPiCgKHdoaWNoIGNvbnRyb2xzIGludGVycnVwdCBjb2FsZXNjaW5nIG1vZGUpIHdhcyBzZXQg
-dG8gODAwMCwgYnV0Cj4goGFkYXB0ZXItPml0ciAod2hpY2ggY29udHJvbHMgdGhlIHZhbHVlIHNl
-dCBpbiBOSUMgcmVnaXN0ZXIpIHdhcyBub3QKPiCgdXBkYXRlZCBhY2NvcmRpbmdseS4gU28gZnJv
-bSBldGh0b29sLCBpdCBzZWVtZWQgdGhlIGludGVycnVwdAo+IKB0aHJvdHRsaW5nIGlzIGVuYWJs
-ZWQgYXQgODAwMCBpbnRyL3MsIGJ1dCB0aGUgTklDIGFjdHVhbGx5IHdhcwo+IKBydW5uaW5nIGlu
-IGR5bmFtaWMgbW9kZSB3aGljaCBoYXMgbG93ZXIgQ1BVIGVmZmljaWVuY3kgZXNwZWNpYWxseQo+
-IKB3aGVuIHRocm91Z2hwdXQgaXMgbm90IGhpZ2guCj4KPgo+Cj4gU2lnbmVkLW9mZi1ieTogRGF2
-aWQgRGVjb3RpZ255IDxkYXZpZC5kZWNvdGlnbnlAZ29vZ2xlLmNvbT4KPiAtLS0KPiCgZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBlL3BhcmFtLmMgfCCgIDk4ICsrKysrKysrKysrKysr
-Ky0tLS0tLS0tLS0tLS0KPiCgMSBmaWxlcyBjaGFuZ2VkLCA1MiBpbnNlcnRpb25zKCspLCA0NiBk
-ZWxldGlvbnMoLSkKPgo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9l
-MTAwMGUvcGFyYW0uYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9wYXJhbS5j
-Cj4gaW5kZXggMjBlOTNiMC4uNDE5MzdlNSAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9pbnRlbC9lMTAwMGUvcGFyYW0uYwo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2lu
-dGVsL2UxMDAwZS9wYXJhbS5jCj4gQEAgLTEwNiw3ICsxMDYsNyBAQCBFMTAwMF9QQVJBTShSeEFi
-c0ludERlbGF5LCAiUmVjZWl2ZSBBYnNvbHV0ZSBJbnRlcnJ1cHQgRGVsYXkiKTsKPiCgLyoKPiCg
-KiBJbnRlcnJ1cHQgVGhyb3R0bGUgUmF0ZSAoaW50ZXJydXB0cy9zZWMpCj4goCoKPiAtICogVmFs
-aWQgUmFuZ2U6IDEwMC0xMDAwMDAgKDA9b2ZmLCAxPWR5bmFtaWMsIDM9ZHluYW1pYyBjb25zZXJ2
-YXRpdmUpCj4gKyAqIFZhbGlkIFJhbmdlOiAxMDAtMTAwMDAwIG9yIG9uZSBvZjogMD1vZmYsIDE9
-ZHluYW1pYywgMz1keW5hbWljIGNvbnNlcnZhdGl2ZQo+IKAqLwo+IKBFMTAwMF9QQVJBTShJbnRl
-cnJ1cHRUaHJvdHRsZVJhdGUsICJJbnRlcnJ1cHQgVGhyb3R0bGluZyBSYXRlIik7Cj4goCNkZWZp
-bmUgREVGQVVMVF9JVFIgMwo+IEBAIC0zMzUsNTMgKzMzNSw1OSBAQCB2b2lkIF9fZGV2aW5pdCBl
-MTAwMGVfY2hlY2tfb3B0aW9ucyhzdHJ1Y3QgZTEwMDBfYWRhcHRlciAqYWRhcHRlcikKPgo+IKAg
-oCCgIKAgoCCgIKAgoGlmIChudW1fSW50ZXJydXB0VGhyb3R0bGVSYXRlID4gYmQpIHsKPiCgIKAg
-oCCgIKAgoCCgIKAgoCCgIKAgoGFkYXB0ZXItPml0ciA9IEludGVycnVwdFRocm90dGxlUmF0ZVti
-ZF07Cj4gLSCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgc3dpdGNoIChhZGFwdGVyLT5pdHIpIHsKPiAt
-IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBjYXNlIDA6Cj4gLSCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgoCBlX2luZm8oIiVzIHR1cm5lZCBvZmZcbiIsIG9wdC5uYW1lKTsKPiAtIKAgoCCgIKAg
-oCCgIKAgoCCgIKAgoCCgIKAgoCCgIGJyZWFrOwo+IC0goCCgIKAgoCCgIKAgoCCgIKAgoCCgIGNh
-c2UgMToKPiAtIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIGVfaW5mbygiJXMgc2V0IHRv
-IGR5bmFtaWMgbW9kZVxuIiwgb3B0Lm5hbWUpOwo+IC0goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgYWRhcHRlci0+aXRyX3NldHRpbmcgPSBhZGFwdGVyLT5pdHI7Cj4gLSCgIKAgoCCgIKAg
-oCCgIKAgoCCgIKAgoCCgIKAgoCBhZGFwdGVyLT5pdHIgPSAyMDAwMDsKPiAtIKAgoCCgIKAgoCCg
-IKAgoCCgIKAgoCCgIKAgoCCgIGJyZWFrOwo+IC0goCCgIKAgoCCgIKAgoCCgIKAgoCCgIGNhc2Ug
-MzoKPiAtIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIGVfaW5mbygiJXMgc2V0IHRvIGR5
-bmFtaWMgY29uc2VydmF0aXZlIG1vZGVcbiIsCj4gLSCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
-IKAgoCCgIKAgoCCgIG9wdC5uYW1lKTsKPiAtIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
-IGFkYXB0ZXItPml0cl9zZXR0aW5nID0gYWRhcHRlci0+aXRyOwo+IC0goCCgIKAgoCCgIKAgoCCg
-IKAgoCCgIKAgoCCgIKAgYWRhcHRlci0+aXRyID0gMjAwMDA7Cj4gLSCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgoCCgIKAgoCBicmVhazsKPiAtIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBjYXNlIDQ6Cj4g
-LSCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBlX2luZm8oIiVzIHNldCB0byBzaW1wbGlm
-aWVkICgyMDAwLTgwMDAgaW50cykgIgo+IC0goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgoCJtb2RlXG4iLCBvcHQubmFtZSk7Cj4gLSCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
-IKAgoCBhZGFwdGVyLT5pdHJfc2V0dGluZyA9IDQ7Cj4gLSCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgoCBicmVhazsKPiAtIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBkZWZhdWx0Ogo+IC0goCCg
-IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgLyoKPiAtIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
-IKAgoCCgIKAqIFNhdmUgdGhlIHNldHRpbmcsIGJlY2F1c2UgdGhlIGR5bmFtaWMgYml0cwo+IC0g
-oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCogY2hhbmdlIGl0ci4KPiAtIKAgoCCgIKAg
-oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAqLwo+IC0goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
-IKAgaWYgKGUxMDAwX3ZhbGlkYXRlX29wdGlvbigmYWRhcHRlci0+aXRyLCAmb3B0LAo+IC0goCCg
-IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBhZGFw
-dGVyKSAmJgo+IC0goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIChhZGFwdGVyLT5p
-dHIgPT0gMykpIHsKPiAtIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgLyoK
-PiAtIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCogSW4gY2FzZSBvZiBp
-bnZhbGlkIHVzZXIgdmFsdWUsCj4gLSCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAqIGRlZmF1bHQgdG8gY29uc2VydmF0aXZlIG1vZGUuCj4gLSCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAqLwo+IC0goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
-IKAgoCCgIKAgoCBhZGFwdGVyLT5pdHJfc2V0dGluZyA9IGFkYXB0ZXItPml0cjsKPiAtIKAgoCCg
-IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgYWRhcHRlci0+aXRyID0gMjAwMDA7Cj4g
-LSCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCB9IGVsc2Ugewo+IC0goCCgIKAgoCCgIKAg
-oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCAvKgo+IC0goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgoCCgIKAgoCCgKiBDbGVhciB0aGUgbG93ZXIgdHdvIGJpdHMgYmVjYXVzZQo+IC0goCCg
-IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgKiB0aGV5IGFyZSB1c2VkIGFzIGNv
-bnRyb2wuCj4gLSCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAqLwo+IC0g
-oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBhZGFwdGVyLT5pdHJfc2V0dGlu
-ZyA9Cj4gLSCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgYWRh
-cHRlci0+aXRyICYgfjM7Cj4gLSCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCB9Cj4gLSCg
-IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBicmVhazsKPiAtIKAgoCCgIKAgoCCgIKAgoCCg
-IKAgoCB9Cj4gKwo+ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIC8qIE1ha2Ugc3VyZSBhIG1lc3Nh
-Z2UgaXMgcHJpbnRlZCBmb3IKPiArIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgKiBub24tc3BlY2lh
-bCB2YWx1ZXMuIEFuZCBpbiBjYXNlIG9mIGFuCj4gKyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCog
-aW52YWxpZCBvcHRpb24sIGRpc3BsYXkgd2FybmluZywgdXNlCj4gKyCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgoCogZGVmYXVsdCBhbmQgZ28gdGhyb3VnaCBpdHIvaXRyX3NldHRpbmcKPiArIKAgoCCg
-IKAgoCCgIKAgoCCgIKAgoCCgKiBhZGp1c3RtZW50IGxvZ2ljIGJlbG93ICovCj4gKyCgIKAgoCCg
-IKAgoCCgIKAgoCCgIKAgaWYgKChhZGFwdGVyLT5pdHIgPCAwIHx8IGFkYXB0ZXItPml0ciA+IDQp
-Cj4gKyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgICYmIGUxMDAwX3ZhbGlkYXRlX29wdGlvbigm
-YWRhcHRlci0+aXRyLCAmb3B0LAo+ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
-IKAgoCCgIKAgoCCgIKAgoCCgYWRhcHRlcikpCj4gKyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
-IKAgoCBhZGFwdGVyLT5pdHIgPSBvcHQuZGVmOwo+IKAgoCCgIKAgoCCgIKAgoH0gZWxzZSB7Cj4g
-LSCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgYWRhcHRlci0+aXRyX3NldHRpbmcgPSBvcHQuZGVmOwo+
-ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIC8qIGlmIG5vIG9wdGlvbiBzcGVjaWZpZWQsIHVzZSBk
-ZWZhdWx0IHZhbHVlCj4gKyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgYW5kIGdvIHRocm91Z2gg
-dGhlIGxvZ2ljIGJlbG93IHRvIGFkanVzdAo+ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoGl0
-ci9pdHJfc2V0dGluZyAqLwo+ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIGFkYXB0ZXItPml0ciA9
-IG9wdC5kZWY7Cj4gKwo+ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIC8qIE1ha2Ugc3VyZSBhIG1l
-c3NhZ2UgaXMgcHJpbnRlZCBmb3IKPiArIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgKiBub24tc3Bl
-Y2lhbCBkZWZhdWx0IHZhbHVlcyAqLwo+ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIGlmIChhZGFw
-dGVyLT5pdHIgPCAwIHx8IGFkYXB0ZXItPml0ciA+IDQpCj4gKyCgIKAgoCCgIKAgoCCgIKAgoCCg
-IKAgoCCgIKAgoCBlX2luZm8oIiVzIHNldCB0byBkZWZhdWx0ICVkXG4iLAo+ICsgoCCgIKAgoCCg
-IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoG9wdC5uYW1lLCBhZGFwdGVyLT5pdHIpOwo+ICsg
-oCCgIKAgoCCgIKAgoCB9Cj4gKwo+ICsKPiArCj4gKyCgIKAgoCCgIKAgoCCgIGFkYXB0ZXItPml0
-cl9zZXR0aW5nID0gYWRhcHRlci0+aXRyOwo+ICsgoCCgIKAgoCCgIKAgoCBzd2l0Y2ggKGFkYXB0
-ZXItPml0cikgewo+ICsgoCCgIKAgoCCgIKAgoCBjYXNlIDA6Cj4gKyCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgZV9pbmZvKCIlcyB0dXJuZWQgb2ZmXG4iLCBvcHQubmFtZSk7Cj4gKyCgIKAgoCCgIKAg
-oCCgIKAgoCCgIKAgYnJlYWs7Cj4gKyCgIKAgoCCgIKAgoCCgIGNhc2UgMToKPiArIKAgoCCgIKAg
-oCCgIKAgoCCgIKAgoCBlX2luZm8oIiVzIHNldCB0byBkeW5hbWljIG1vZGVcbiIsIG9wdC5uYW1l
-KTsKPiArIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBhZGFwdGVyLT5pdHIgPSAyMDAwMDsKPiArIKAg
-oCCgIKAgoCCgIKAgoCCgIKAgoCBicmVhazsKPiArIKAgoCCgIKAgoCCgIKAgY2FzZSAzOgo+ICsg
-oCCgIKAgoCCgIKAgoCCgIKAgoCCgIGVfaW5mbygiJXMgc2V0IHRvIGR5bmFtaWMgY29uc2VydmF0
-aXZlIG1vZGVcbiIsCj4gKyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoG9wdC5uYW1lKTsK
-PiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoGFkYXB0ZXItPml0ciA9IDIwMDAwOwo+ICsgoCCgIKAg
-oCCgIKAgoCCgIKAgoCCgIGJyZWFrOwo+ICsgoCCgIKAgoCCgIKAgoCBjYXNlIDQ6Cj4gKyCgIKAg
-oCCgIKAgoCCgIKAgoCCgIKAgZV9pbmZvKCIlcyBzZXQgdG8gc2ltcGxpZmllZCAoMjAwMC04MDAw
-IGludHMpICIKPiArIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIm1vZGVcbiIsIG9wdC5u
-YW1lKTsKPiArIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBicmVhazsKPiArIKAgoCCgIKAgoCCgIKAg
-ZGVmYXVsdDoKPiArIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCAvKgo+ICsgoCCgIKAgoCCgIKAgoCCg
-IKAgoCCgIKAqIFNhdmUgdGhlIHNldHRpbmcsIGJlY2F1c2UgdGhlIGR5bmFtaWMgYml0cwo+ICsg
-oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAqIGNoYW5nZSBpdHIuCj4gKyCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgoCoKPiArIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgKiBDbGVhciB0aGUgbG93ZXIgdHdv
-IGJpdHMgYmVjYXVzZQo+ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAqIHRoZXkgYXJlIHVzZWQg
-YXMgY29udHJvbC4KPiArIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgKi8KPiArIKAgoCCgIKAgoCCg
-IKAgoCCgIKAgoCBhZGFwdGVyLT5pdHJfc2V0dGluZyAmPSB+MzsKPiArIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgoCBicmVhazsKPiCgIKAgoCCgIKAgoCCgIKB9Cj4goCCgIKAgoH0KPiCgIKAgoCCgeyAv
-KiBJbnRlcnJ1cHQgTW9kZSAqLwo+IC0tCj4gMS43LjMuMQo+Cj4K
+Emm, actually two different PCIe slots. But one slot is only
+5.0Gbps... Seem pretty clear from the message below, wasn't reading
+thoroughly :-(
+
+[   11.572857] ixgbe 0000:03:00.0: Multiqueue Enabled: Rx Queue count
+=3D 24, Tx Queue count =3D 24
+[   11.572861] ixgbe 0000:03:00.0: (PCI Express:5.0Gb/s:Width x4)
+e8:9a:8f:23:42:1a
+[   11.572943] ixgbe 0000:03:00.0: MAC: 2, PHY: 8, SFP+: 3, PBA No: FFF=
+=46FF-0FF
+[   11.572944] ixgbe 0000:03:00.0: PCI-Express bandwidth available for
+this card is not sufficient for optimal performance.
+[   11.572946] ixgbe 0000:03:00.0: For optimal performance a x8
+PCI-Express slot is required.
+[   11.573815] ixgbe 0000:03:00.0: Intel(R) 10 Gigabit Network Connecti=
+on
+[   11.573833] ixgbe 0000:03:00.1: PCI INT B -> GSI 34 (level, low) -> =
+IRQ 34
+[   11.573839] ixgbe 0000:03:00.1: setting latency timer to 64
+
+
+
+On Wed, Nov 16, 2011 at 8:38 PM, Simon Chen <simonchennj@gmail.com> wro=
+te:
+> Thanks, Ben. That's good discovery...
+>
+> Are you saying that both 10G NICs are on the same PCIe x4 slot, so
+> that they're subject to the 12G throughput bottleneck?
+>
+> I'm gonna verify this with the hardware vendor...
+>
+> Thanks.
+> -Simon
+>
+> On Wed, Nov 16, 2011 at 7:57 PM, Ben Hutchings
+> <bhutchings@solarflare.com> wrote:
+>> On Wed, 2011-11-16 at 19:05 -0500, Simon Chen wrote:
+>>> If used independently, I can get around 9.8Gbps.
+>> [...]
+>>> [ =A0 11.572861] ixgbe 0000:03:00.0: (PCI Express:5.0Gb/s:Width x4)=
+ e8:9a:8f:23:42:1a
+>> [...]
+>>
+>> You need a PCIe 2.0 x8 slot to run 2 10 Gb ports at full speed. =A0A=
+n x4
+>> slot is only good for about 12-13 Gb aggregate throughput (dependent=
+ on
+>> packet sizes and other details).
+>>
+>> Ben.
+>>
+>> --
+>> Ben Hutchings, Staff Engineer, Solarflare
+>> Not speaking for my employer; that's the marketing department's job.
+>> They asked us to note that Solarflare product names are trademarked.
+>>
+>>
+>
