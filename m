@@ -1,57 +1,44 @@
-From: Simon Chen <simonchennj@gmail.com>
-Subject: Re: under-performing bonded interfaces
-Date: Wed, 16 Nov 2011 20:38:08 -0500
-Message-ID: <CANj2Ebdd89=Fk6i4e4Txsb3ANuzz-x4t+tT6CAnWDNZe0zvx9g@mail.gmail.com>
-References: <CANj2EbeMRzicixHwrKpCQ3mMqQ1qbyjbRCxpW+CmVRREAhyeRQ@mail.gmail.com>
-	<4EC44ECB.4050201@candelatech.com>
-	<CANj2EbfrtbysEbj+gMa+fOhWo0EWjBXVyGkw8WyiPAV9nPduuQ@mail.gmail.com>
-	<1321491449.2709.90.camel@bwh-desktop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Add ethtool to mii advertisment conversion helpers
+Date: Wed, 16 Nov 2011 20:38:50 -0500 (EST)
+Message-ID: <20111116.203850.1548671990526136907.davem@davemloft.net>
+References: <1321490078.2709.86.camel@bwh-desktop>
+	<20111117011604.GA8683@mcarlson.broadcom.com>
+	<1321492892.9114.22.camel@nseg_linux_HP1.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mcarlson@broadcom.com, bhutchings@solarflare.com,
+	netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:42428 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755313Ab1KQBiJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 20:38:09 -0500
-Received: by fagn18 with SMTP id n18so2313962fag.19
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2011 17:38:08 -0800 (PST)
-In-Reply-To: <1321491449.2709.90.camel@bwh-desktop>
+Received: from shards.monkeyblade.net ([198.137.202.13]:37061 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751800Ab1KQBix (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 20:38:53 -0500
+In-Reply-To: <1321492892.9114.22.camel@nseg_linux_HP1.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks, Ben. That's good discovery...
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 16 Nov 2011 17:21:32 -0800
 
-Are you saying that both 10G NICs are on the same PCIe x4 slot, so
-that they're subject to the 12G throughput bottleneck?
+> 
+> On Wed, 2011-11-16 at 17:16 -0800, Matt Carlson wrote:
+>> > Finally, do these need to be inline?
+>> 
+>> I don't have a strong preference here either.  Phy code tends to be
+>> slower, so there isn't really a strong performance argument.  The
+>> implementations don't seem to be so large to argue against it though.
+>> Would you prefer they not be inlined?
+>> 
+> 
+> Since we are defining these in .h file, they need to be inline, right?
+> Otherwise multiple source files including the same .h file will have
+> conflict.
 
-I'm gonna verify this with the hardware vendor...
+Yes, if you keep them in the header you have to keep them inline.
 
-Thanks.
--Simon
-
-On Wed, Nov 16, 2011 at 7:57 PM, Ben Hutchings
-<bhutchings@solarflare.com> wrote:
-> On Wed, 2011-11-16 at 19:05 -0500, Simon Chen wrote:
->> If used independently, I can get around 9.8Gbps.
-> [...]
->> [ =A0 11.572861] ixgbe 0000:03:00.0: (PCI Express:5.0Gb/s:Width x4) =
-e8:9a:8f:23:42:1a
-> [...]
->
-> You need a PCIe 2.0 x8 slot to run 2 10 Gb ports at full speed. =A0An=
- x4
-> slot is only good for about 12-13 Gb aggregate throughput (dependent =
-on
-> packet sizes and other details).
->
-> Ben.
->
-> --
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
->
->
+Ben, by suggesting to not inline them, is implicitly saying to put
+them out in a seperate *.c file somewhere, perhaps net/core/ethtool.c
+or similar.  With appropriate EXPORT_SYMBOL() added.
