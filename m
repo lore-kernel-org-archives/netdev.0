@@ -1,66 +1,242 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] r8169: Add 64bit statistics
-Date: Thu, 17 Nov 2011 08:21:24 +0100
-Message-ID: <1321514484.3274.32.camel@edumazet-laptop>
-References: <20111117064826.GA4429@Desktop-Junchang>
+From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+Subject: Re: [PATCH 1/1]  PHY configuration for compatible issue
+Date: Thu, 17 Nov 2011 15:15:28 +0800
+Message-ID: <20111117070537.M4900@cooldavid.org>
+References: <1321538742-3701-1-git-send-email-AriesLee@jmicron.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: romieu@fr.zoreil.com, nic_swsd@realtek.com, netdev@vger.kernel.org
-To: Junchang Wang <junchangwang@gmail.com>
+Content-Type: text/plain;
+	charset=utf-8
+Cc: AriesLee <AriesLeeILan@gmail.com>
+To: AriesLee <AriesLee@jmicron.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:43990 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752032Ab1KQHV2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 02:21:28 -0500
-Received: by wwe3 with SMTP id 3so2738011wwe.1
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2011 23:21:27 -0800 (PST)
-In-Reply-To: <20111117064826.GA4429@Desktop-Junchang>
+Received: from cooldavid.org ([114.33.45.68]:55517 "EHLO cooldavid.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751263Ab1KQH0B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Nov 2011 02:26:01 -0500
+In-Reply-To: <1321538742-3701-1-git-send-email-AriesLee@jmicron.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 17 novembre 2011 =C3=A0 14:48 +0800, Junchang Wang a =C3=A9cri=
-t :
-> Switch to use ndo_get_stats64 to get 64bit statistics.
-> Per cpu data is used to avoid lock operations.
->=20
->=20
-> Signed-off-by: Junchang Wang <junchangwang@gmail.com>
+On Thu, 17 Nov 2011 22:05:42 +0800, AriesLee wrote
+> From: Aries Lee <AriesLee@jmicron.com>
+> 
+> To perform PHY calibration and set a different EA value by chip ID,
+> Whenever the NIC chip power on, ie booting or resuming, we need to
+> force HW to calibrate PHY parameter again, and also set a proper EA
+> value which gathered from experiment.
+> 
+> That process resolve the compatible issues(NIC is unable to link
+> up in some special case) in giga speed.
+Thank you Aries.
+
+Here is some suggestions after a quick review:
+
+It would be better if you implement the read/write function
+for extended-phy-register, instead of using JM_PHY_SPEC_ADDR_REG
+and JM_PHY_SPEC_DATA_REG directly all the time.
+
+There are jme_phy_on() and jme_phy_off() function in place.
+Should you simply using it?
+
+> 
+> Signed-off-by: Aries Lee <AriesLee@jmicron.com>
 > ---
->  drivers/net/ethernet/realtek/r8169.c |  113 ++++++++++++++++++++++++=
-++++------
->  1 files changed, 93 insertions(+), 20 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ether=
-net/realtek/r8169.c
-> index cdf66d6..0165646 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -670,11 +670,31 @@ struct rtl8169_counters {
->  	__le16	tx_underun;
->  };
-> =20
-> +struct rtl8169_pcpu_stats {
-> +	u64			rx_packets;
-> +	u64			rx_bytes;
-> +	u64			tx_packets;
-> +	u64			tx_bytes;
-> +	struct u64_stats_sync	syncp;
-> +	/*
-> +	 * The following variables are updated
-> +	 * without syncp protection.
-> +	 */
-> +	unsigned long		rx_dropped;
-> +	unsigned long		tx_dropped;
-> +	unsigned long		rx_length_errors;
-> +	unsigned long		rx_errors;
-> +	unsigned long		rx_crc_errors;
-> +	unsigned long		rx_fifo_errors;
-> +	unsigned long		rx_missed_errors;
-> +};
+>  drivers/net/ethernet/jme.c |  127 
+> ++++++++++++++++++++++++++++++++++++++++++- drivers/net/ethernet/jme.h 
+> |   19 +++++++ 2 files changed, 143 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/jme.c b/drivers/net/ethernet/jme.c
+> index df3ab83..bd9633d 100644
+> --- a/drivers/net/ethernet/jme.c
+> +++ b/drivers/net/ethernet/jme.c
+> @@ -1743,6 +1743,126 @@ jme_phy_off(struct jme_adapter *jme)
+>  	if (new_phy_power_ctrl(jme->chip_main_rev))
+>  		jme_new_phy_off(jme);
+>  }
+> +static int
+> +jme_phy_calibration(struct jme_adapter *jme)
+> +{
+> +	u32 ctrl1000, bmcr, phy_addr, phy_data;
 > +
+> +	/*  Turn PHY off */
+> +	bmcr = jme_mdio_read(jme->dev, jme->mii_if.phy_id, MII_BMCR);
+> +	bmcr |= BMCR_PDOWN;
+> +	jme_mdio_write(jme->dev, jme->mii_if.phy_id, MII_BMCR, bmcr);
+> +	/*  Turn PHY on */
+> +	bmcr = jme_mdio_read(jme->dev, jme->mii_if.phy_id, MII_BMCR);
+> +	bmcr &= ~BMCR_PDOWN;
+> +	jme_mdio_write(jme->dev, jme->mii_if.phy_id, MII_BMCR, bmcr);
+> +	/*  Enabel PHY test mode 1 */
+> +	ctrl1000 = jme_mdio_read(jme->dev, jme->mii_if.phy_id, MII_CTRL1000);
+> +	ctrl1000 &= ~PHY_GAD_TEST_MODE_MSK;
+> +	ctrl1000 |= PHY_GAD_TEST_MODE_1;
+> +	jme_mdio_write(jme->dev, jme->mii_if.phy_id, MII_CTRL1000, ctrl1000);
+> +
+> +
+> +	phy_addr = JM_PHY_SPEC_REG_READ | JM_PHY_EXT_COMM_2_REG;
+> +	jme_mdio_write(jme->dev, jme->mii_if.phy_id, JM_PHY_SPEC_ADDR_REG,
+> +			phy_addr);
+> +	phy_data = jme_mdio_read(jme->dev, jme->mii_if.phy_id,
+> +			JM_PHY_SPEC_DATA_REG);
+> +
+> +	phy_data &= ~JM_PHY_EXT_COMM_2_CALI_MODE_0;
+> +	phy_data |= JM_PHY_EXT_COMM_2_CALI_LATCH |
+> +			JM_PHY_EXT_COMM_2_CALI_ENABLE;
+> +
+> +	phy_addr = JM_PHY_SPEC_REG_WRITE | JM_PHY_EXT_COMM_2_REG;
+> +	jme_mdio_write(jme->dev, jme->mii_if.phy_id, JM_PHY_SPEC_DATA_REG,
+> +			phy_data);
+> +	jme_mdio_write(jme->dev, jme->mii_if.phy_id, JM_PHY_SPEC_ADDR_REG,
+> +			phy_addr);
+> +
+> +	msleep(20);
+> +
+> +	phy_addr = JM_PHY_SPEC_REG_READ | JM_PHY_EXT_COMM_2_REG;
+> +	jme_mdio_write(jme->dev, jme->mii_if.phy_id, JM_PHY_SPEC_ADDR_REG,
+> +			phy_addr);
+> +	phy_data = jme_mdio_read(jme->dev, jme->mii_if.phy_id,
+> +			JM_PHY_SPEC_DATA_REG);
+> +
+> +	phy_data &= ~(JM_PHY_EXT_COMM_2_CALI_ENABLE |
+> +			JM_PHY_EXT_COMM_2_CALI_MODE_0 |
+> +			JM_PHY_EXT_COMM_2_CALI_LATCH);
+> +
+> +	phy_addr = JM_PHY_SPEC_REG_WRITE | JM_PHY_EXT_COMM_2_REG;
+> +	jme_mdio_write(jme->dev, jme->mii_if.phy_id, JM_PHY_SPEC_DATA_REG,
+> +			phy_data);
+> +	jme_mdio_write(jme->dev, jme->mii_if.phy_id, JM_PHY_SPEC_ADDR_REG,
+> +			phy_addr);
+> +
+> +	/*  Disable PHY test mode */
+> +	ctrl1000 = jme_mdio_read(jme->dev, jme->mii_if.phy_id, MII_CTRL1000);
+> +	ctrl1000 &= ~PHY_GAD_TEST_MODE_MSK;
+> +	jme_mdio_write(jme->dev, jme->mii_if.phy_id, MII_CTRL1000, ctrl1000);
+> +	return 0;
+> +}
+> +
+> +static int
+> +jme_phy_setEA(struct jme_adapter *jme)
+> +{
+> +	u32 phy_addr, phy_comm0 = 0, phy_comm1 = 0;
+> +	u8 nic_ctrl;
+> +
+> +	pci_read_config_byte(jme->pdev, PCI_PRIV_SHARE_NICCTRL, &nic_ctrl);
+> +	if ((nic_ctrl & 0x3) == JME_FLAG_PHYEA_ENABLE)
+> +		return 0;
+> +
+> +	switch (jme->pdev->device) {
+> +	case PCI_DEVICE_ID_JMICRON_JMC250:
+> +		if (((jme->chip_main_rev == 5) &&
+> +			((jme->chip_sub_rev == 0) || (jme->chip_sub_rev == 1) ||
+> +			(jme->chip_sub_rev == 3))) ||
+> +			(jme->chip_main_rev >= 6)) {
+> +			phy_comm0 = 0x008A;
+> +			phy_comm1 = 0x4109;
+> +		}
+> +		if ((jme->chip_main_rev == 3) &&
+> +			((jme->chip_sub_rev == 1) || (jme->chip_sub_rev == 2)))
+> +			phy_comm0 = 0xE088;
+> +		break;
+> +	case PCI_DEVICE_ID_JMICRON_JMC260:
+> +		if (((jme->chip_main_rev == 5) &&
+> +			((jme->chip_sub_rev == 0) || (jme->chip_sub_rev == 1) ||
+> +			(jme->chip_sub_rev == 3))) ||
+> +			(jme->chip_main_rev >= 6)) {
+> +			phy_comm0 = 0x008A;
+> +			phy_comm1 = 0x4109;
+> +		}
+> +		if ((jme->chip_main_rev == 3) &&
+> +			((jme->chip_sub_rev == 1) || (jme->chip_sub_rev == 2)))
+> +			phy_comm0 = 0xE088;
+> +		if ((jme->chip_main_rev == 2) && (jme->chip_sub_rev == 0))
+> +			phy_comm0 = 0x608A;
+> +		if ((jme->chip_main_rev == 2) && (jme->chip_sub_rev == 2))
+> +			phy_comm0 = 0x408A;
+> +		break;
+> +	default:
+> +		return -ENODEV;
+> +	}
+> +	if (phy_comm0) {
+> +		phy_addr = JM_PHY_SPEC_REG_WRITE | JM_PHY_EXT_COMM_0_REG;
+> +		jme_mdio_write(jme->dev, jme->mii_if.phy_id,
+> +				JM_PHY_SPEC_DATA_REG, phy_comm0);
+> +		jme_mdio_write(jme->dev, jme->mii_if.phy_id,
+> +				JM_PHY_SPEC_ADDR_REG, phy_addr);
+> +	}
+> +	if (phy_comm1) {
+> +		phy_addr = JM_PHY_SPEC_REG_WRITE | JM_PHY_EXT_COMM_1_REG;
+> +		jme_mdio_write(jme->dev, jme->mii_if.phy_id,
+> +				JM_PHY_SPEC_DATA_REG, phy_comm1);
+> +		jme_mdio_write(jme->dev, jme->mii_if.phy_id,
+> +				JM_PHY_SPEC_ADDR_REG, phy_addr);
+> +	}
+> +
+> +	return 0;
+> +}
+> 
+>  static int
+>  jme_open(struct net_device *netdev)
+> @@ -1769,7 +1889,8 @@ jme_open(struct net_device *netdev)
+>  		jme_set_settings(netdev, &jme->old_ecmd);
+>  	else
+>  		jme_reset_phy_processor(jme);
+> -
+> +	jme_phy_calibration(jme);
+> +	jme_phy_setEA(jme);
+>  	jme_reset_link(jme);
+> 
+>  	return 0;
+> @@ -3184,7 +3305,8 @@ jme_resume(struct device *dev)
+>  		jme_set_settings(netdev, &jme->old_ecmd);
+>  	else
+>  		jme_reset_phy_processor(jme);
+> -
+> +	jme_phy_calibration(jme);
+> +	jme_phy_setEA(jme);
+>  	jme_start_irq(jme);
+>  	netif_device_attach(netdev);
+> 
+> @@ -3239,4 +3361,3 @@ MODULE_DESCRIPTION("JMicron JMC2x0 PCI Express 
+> Ethernet driver"); MODULE_LICENSE("GPL"); MODULE_VERSION(DRV_VERSION); 
+> MODULE_DEVICE_TABLE(pci, jme_pci_tbl);
+> -
+> diff --git a/drivers/net/ethernet/jme.h b/drivers/net/ethernet/jme.h
+> index 02ea27c..47e47a9 100644
+> --- a/drivers/net/ethernet/jme.h
+> +++ b/drivers/net/ethernet/jme.h
+> @@ -760,6 +760,25 @@ enum jme_rxmcs_bits {
+>  				  RXMCS_CHECKSUM,
+>  };
+> 
+> +/*	Extern PHY common register 2	*/
+> +
+> +#define PHY_GAD_TEST_MODE_1			0x00002000
+> +#define PHY_GAD_TEST_MODE_MSK			0x0000E000
+> +#define JM_PHY_SPEC_REG_READ			0x00004000
+> +#define JM_PHY_SPEC_REG_WRITE			0x00008000
+> +#define PHY_CALIBRATION_DELAY			20
+> +#define JM_PHY_SPEC_ADDR_REG			0x1E
+> +#define JM_PHY_SPEC_DATA_REG			0x1F
+> +
+> +#define JM_PHY_EXT_COMM_0_REG			0x30
+> +#define JM_PHY_EXT_COMM_1_REG			0x31
+> +#define JM_PHY_EXT_COMM_2_REG			0x32
+> +#define JM_PHY_EXT_COMM_2_CALI_ENABLE		0x01
+> +#define JM_PHY_EXT_COMM_2_CALI_MODE_0		0x02
+> +#define JM_PHY_EXT_COMM_2_CALI_LATCH		0x10
+> +#define PCI_PRIV_SHARE_NICCTRL			0xF5
+> +#define JME_FLAG_PHYEA_ENABLE			0x2
+> +
+>  /*
+>   * Wakeup Frame setup interface registers
+>   */
+> -- 
+> 1.7.4.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Thats overkill. Dont copy what have been done for virtual devices
-(loopback, tunnels, ...)
 
-RX and TX path are serialized (only one cpu can fly at one moment)
+Guo-Fu Tseng
