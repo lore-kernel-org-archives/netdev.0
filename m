@@ -1,39 +1,68 @@
-From: Junchang Wang <junchangwang@gmail.com>
-Subject: Re: [PATCH net-next] r8169: Add 64bit statistics
-Date: Thu, 17 Nov 2011 15:46:53 +0800
-Message-ID: <CABoNC82RO2uvn9TfToAygEspUZnNrefXgO6SGpZoSAayCp3QiA@mail.gmail.com>
-References: <20111117064826.GA4429@Desktop-Junchang>
-	<0a41dc06-15ab-4cf6-9bbd-3a1556993854@tahiti.vyatta.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com,
-	nic swsd <nic_swsd@realtek.com>,
-	eric dumazet <eric.dumazet@gmail.com>
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [PATCH 1/5] stmmac: use mdelay on timeout of sw reset
+Date: Thu, 17 Nov 2011 08:57:58 +0100
+Message-ID: <1321516682-32208-1-git-send-email-peppe.cavallaro@st.com>
+Cc: francesco.virlinzi@st.com, srinivas.kandagatla@st.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:41271 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752732Ab1KQHqy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 02:46:54 -0500
-Received: by vcbfk1 with SMTP id fk1so1354904vcb.19
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2011 23:46:54 -0800 (PST)
-In-Reply-To: <0a41dc06-15ab-4cf6-9bbd-3a1556993854@tahiti.vyatta.com>
+Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:43931 "EHLO
+	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753445Ab1KQH6L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 02:58:11 -0500
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 183622DA
+	for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 07:58:08 +0000 (GMT)
+Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id AB79618F5
+	for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 07:58:08 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> You dont need per-cpu since Tx is locked by dev->xmit_lock and
-> rx is implicitly single threaded by NAPI.
+From: Francesco Virlinzi <francesco.virlinzi@st.com>
 
-Thanks.
+This patch uses an mdelay to manage the timeout on
+sw reset to be independant of cpu_clk.
 
->You do need to have
-> two u64_stat_sync entries (one for Tx and one for Rx).
+Signed-off-by: Francesco Virlinzi <francesco.virlinzi@st.com>
+Reviewed-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ .../net/ethernet/stmicro/stmmac/dwmac1000_dma.c    |    3 ++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c |    3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-You mean Rx and Tx will perform on different cores at one moment.
-So I need a sync for Tx to protect tx_xxx, and another for Rx to
-protect rx_xxx. Is that right?
-
-Thanks.
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+index da66ac5..4d5402a 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+@@ -39,10 +39,11 @@ static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, u32 dma_tx,
+ 	/* DMA SW reset */
+ 	value |= DMA_BUS_MODE_SFT_RESET;
+ 	writel(value, ioaddr + DMA_BUS_MODE);
+-	limit = 15000;
++	limit = 10;
+ 	while (limit--) {
+ 		if (!(readl(ioaddr + DMA_BUS_MODE) & DMA_BUS_MODE_SFT_RESET))
+ 			break;
++		mdelay(10);
+ 	}
+ 	if (limit < 0)
+ 		return -EBUSY;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
+index 627f656..bc17fd0 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
+@@ -41,10 +41,11 @@ static int dwmac100_dma_init(void __iomem *ioaddr, int pbl, u32 dma_tx,
+ 	/* DMA SW reset */
+ 	value |= DMA_BUS_MODE_SFT_RESET;
+ 	writel(value, ioaddr + DMA_BUS_MODE);
+-	limit = 15000;
++	limit = 10;
+ 	while (limit--) {
+ 		if (!(readl(ioaddr + DMA_BUS_MODE) & DMA_BUS_MODE_SFT_RESET))
+ 			break;
++		mdelay(10);
+ 	}
+ 	if (limit < 0)
+ 		return -EBUSY;
 -- 
---Junchang
+1.7.4.4
