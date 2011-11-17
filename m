@@ -1,50 +1,34 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: [PATCH 5/5] net-next:asix: v2 update VERSION only
-Date: Wed, 16 Nov 2011 22:18:57 -0500
-Message-ID: <5923.1321499937@turing-police.cc.vt.edu>
-References: <1321318357-17723-1-git-send-email-grundler@chromium.org> <21257.1321403368@turing-police.cc.vt.edu>
-            <CANEJEGtnUS5B1ggdoPn8gcCbFm==dfgHCgXVgcgpuooFUAowJA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v6 3/9] kbuild: document RPS/XPS network
+ Kconfig options
+Date: Thu, 17 Nov 2011 04:19:12 +0100
+Message-ID: <1321499952.3274.11.camel@edumazet-laptop>
+References: <1321485122.2709.55.camel@bwh-desktop>
+	 <CAG88wWZ853cHkykNbQ+Lqrk_D1p-SCmB0Y29YE6GpSSUORwCxg@mail.gmail.com>
+	 <1321498443.2885.80.camel@deadeye>
+	 <20111116.215901.100218898762260021.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1321499937_2949P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Allan Chou <allan@asix.com.tw>,
-	Freddy Xin <freddy@asix.com.tw>
-To: Grant Grundler <grundler@chromium.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bhutchings@solarflare.com, david.decotigny@google.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ian.campbell@citrix.com, jeffrey.t.kirsher@intel.com,
+	jpirko@redhat.com, joe@perches.com, szymon@janc.net.pl,
+	rick.jones2@hp.com, AAbdulla@nvidia.com, therbert@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: Your message of "Tue, 15 Nov 2011 17:37:47 PST."
-             <CANEJEGtnUS5B1ggdoPn8gcCbFm==dfgHCgXVgcgpuooFUAowJA@mail.gmail.com>
+In-Reply-To: <20111116.215901.100218898762260021.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1321499937_2949P
-Content-Type: text/plain; charset=us-ascii
+Le mercredi 16 novembre 2011 =C3=A0 21:59 -0500, David Miller a =C3=A9c=
+rit :
 
-On Tue, 15 Nov 2011 17:37:47 PST, Grant Grundler said:
+> They shouldn't be, they are internal dependency descriptions and shou=
+ld
+> be invisible to the user.
 
-> Upstream drivers are routinely back ported to distro releases. Version
-> is the primary means for a vendor (like ASIX) to determine what was
-> back ported. Distro maintainers and 1st tier support organizations
-> also need to track versions and "ethtool -i" is the canonical way to
-> look this up on a running system.
+Unless someone has evidence of a performance cost :)
 
-Oh, OK.  I figured the distro would know what they backported based on the
-kernel version they generated - I forgot that sometimes users will bypass the
-distro and go to the upstream vendor, and you may not know what their distro
-had done...
-
-
---==_Exmh_1321499937_2949P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFOxH0hcC3lWbTT17ARAou4AKCq7QNRGeE3On+xkRFF8cTaxLPqbQCdEUlZ
-9JNfZMRCVtSkj2nwN9HVJUQ=
-=cMmn
------END PGP SIGNATURE-----
-
---==_Exmh_1321499937_2949P--
+The rps_lock() adds an atomic operation in netif_rx(), even if RPS is
+not really used/configured...
