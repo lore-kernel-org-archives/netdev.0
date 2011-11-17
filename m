@@ -1,57 +1,97 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] Add ethtool to mii advertisment conversion helpers
-Date: Thu, 17 Nov 2011 02:29:27 +0000
-Message-ID: <1321496967.2885.65.camel@deadeye>
-References: <1321490078.2709.86.camel@bwh-desktop>
-	 <20111117011604.GA8683@mcarlson.broadcom.com>
-	 <1321492892.9114.22.camel@nseg_linux_HP1.broadcom.com>
-	 <20111116.203850.1548671990526136907.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <mchan@broadcom.com>, <mcarlson@broadcom.com>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:51836 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755093Ab1KQC3j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 21:29:39 -0500
-In-Reply-To: <20111116.203850.1548671990526136907.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Decotigny <david.decotigny@google.com>
+Subject: [PATCH net-next v6 3/9] kbuild: document RPS/XPS network Kconfig options
+Date: Wed, 16 Nov 2011 18:39:05 -0800
+Message-ID: <e0bb736123d687a921f15e4bb0254eeeabe22dcb.1321496595.git.david.decotigny@google.com>
+References: <cover.1321496595.git.david.decotigny@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
+	Szymon Janc <szymon@janc.net.pl>,
+	Richard Jones <rick.jones2@hp.com>,
+	Ayaz Abdulla <AAbdulla@nvidia.com>,
+	David Decotigny <david.decotigny@google.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1321496595.git.david.decotigny@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-11-16 at 20:38 -0500, David Miller wrote:
-> From: "Michael Chan" <mchan@broadcom.com>
-> Date: Wed, 16 Nov 2011 17:21:32 -0800
-> 
-> > 
-> > On Wed, 2011-11-16 at 17:16 -0800, Matt Carlson wrote:
-> >> > Finally, do these need to be inline?
-> >> 
-> >> I don't have a strong preference here either.  Phy code tends to be
-> >> slower, so there isn't really a strong performance argument.  The
-> >> implementations don't seem to be so large to argue against it though.
-> >> Would you prefer they not be inlined?
-> >> 
-> > 
-> > Since we are defining these in .h file, they need to be inline, right?
-> > Otherwise multiple source files including the same .h file will have
-> > conflict.
-> 
-> Yes, if you keep them in the header you have to keep them inline.
-> 
-> Ben, by suggesting to not inline them, is implicitly saying to put
-> them out in a seperate *.c file somewhere, perhaps net/core/ethtool.c
-> or similar.  With appropriate EXPORT_SYMBOL() added.
+This adds a description of RPS/XPS options and allow them to be
+changed at make menuconfig time.
 
-I was thinking of putting them in drivers/net/mii.c, like the other
-functions declared extern in include/linux/mii.h.  That would require
-'select MII' in Kconfig for the drivers using them.
+It also fixes following checkpatch syntax warnings:
+ERROR: trailing whitespace
++^I  $
 
-Ben.
+ERROR: trailing whitespace
++^I$
 
+
+
+Signed-off-by: David Decotigny <david.decotigny@google.com>
+---
+ net/Kconfig |   21 ++++++++++++++++-----
+ 1 files changed, 16 insertions(+), 5 deletions(-)
+
+diff --git a/net/Kconfig b/net/Kconfig
+index a073148..991379e 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -10,7 +10,7 @@ menuconfig NET
+ 	  The reason is that some programs need kernel networking support even
+ 	  when running on a stand-alone machine that isn't connected to any
+ 	  other computer.
+-	  
++
+ 	  If you are upgrading from an older kernel, you
+ 	  should consider updating your networking tools too because changes
+ 	  in the kernel and the tools often go hand in hand. The tools are
+@@ -217,20 +217,32 @@ source "net/dns_resolver/Kconfig"
+ source "net/batman-adv/Kconfig"
+ 
+ config RPS
+-	boolean
++	boolean "Enable Receive Packet Steering"
+ 	depends on SMP && SYSFS && USE_GENERIC_SMP_HELPERS
+ 	default y
++	help
++	  RPS distributes the load of received packet processing
++	  across multiple CPUs. If unsure, say Y.
+ 
+ config RFS_ACCEL
+-	boolean
++	boolean "Enable Hardware Acceleration of RFS"
+ 	depends on RPS && GENERIC_HARDIRQS
+ 	select CPU_RMAP
+ 	default y
++	help
++	  Allow drivers for multiqueue hardware with flow filter
++	  tables to accelerate RFS. If unsure, say Y.
+ 
+ config XPS
+-	boolean
++	boolean "Enable Transmit Packet Steering"
+ 	depends on SMP && SYSFS && USE_GENERIC_SMP_HELPERS
+ 	default y
++	help
++	  For multiqueue devices, XPS selects a transmit queue during
++	  packet transmission based on configuration. This is done by
++	  mapping the CPU transmitting the packet to a queue. XPS can
++	  reduce transmit network latency on SMP systems. If unsure,
++	  say Y.
+ 
+ config HAVE_BPF_JIT
+ 	bool
+@@ -274,7 +286,6 @@ config NET_TCPPROBE
+ 
+ 	Documentation on how to use TCP connection probing can be found
+ 	at:
+-	
+ 	  http://www.linuxfoundation.org/collaborate/workgroups/networking/tcpprobe
+ 
+ 	To compile this code as a module, choose M here: the
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.3.1
