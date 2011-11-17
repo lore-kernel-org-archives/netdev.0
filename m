@@ -1,70 +1,63 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: Re: [PATCH 2/2 v4] net/smsc911x: Add regulator support
-Date: Thu, 17 Nov 2011 00:07:21 -0500
-Message-ID: <201111170007.25084.vapier@gentoo.org>
-References: <1320064719-14449-1-git-send-email-robert.marklund@stericsson.com> <201110311421.18653.vapier@gentoo.org> <2B1D156D95AE9B4EAD379CB9E465FE7324AECE3650@EXDCVYMBSTM005.EQ1STM.local>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 5/5] tcp: skip cwnd moderation in TCP_CA_Open in
+ tcp_try_to_open
+Date: Thu, 17 Nov 2011 07:14:15 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.1111170706330.23028@melkinpaasi.cs.helsinki.fi>
+References: <1321469885-10885-1-git-send-email-ncardwell@google.com> <1321469885-10885-5-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart3064225.1jW3foyFWa";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Steve Glendinning <steve.glendinning@smsc.com>,
-	Mathieu Poirier <mathieu.poirier@linaro.org>,
-	Paul Mundt <lethal@linux-sh.org>,
-	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Tony Lindgren <tony@atomide.com>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	"uclinux-dist-devel@blackfin.uclinux.org"
-	<uclinux-dist-devel@blackfin.uclinux.org>,
-	Linus Walleij <linus.walleij@linaro.org>
-To: Robert MARKLUND <robert.marklund@stericsson.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <2B1D156D95AE9B4EAD379CB9E465FE7324AECE3650@EXDCVYMBSTM005.EQ1STM.local>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Nandita Dukkipati <nanditad@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Tom Herbert <therbert@google.com>
+To: Neal Cardwell <ncardwell@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:43938 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751160Ab1KQFOR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 00:14:17 -0500
+In-Reply-To: <1321469885-10885-5-git-send-email-ncardwell@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart3064225.1jW3foyFWa
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+On Wed, 16 Nov 2011, Neal Cardwell wrote:
 
-On Wednesday 16 November 2011 07:59:41 Robert MARKLUND wrote:
-> From: Mike Frysinger [mailto:vapier@gentoo.org]
-> > On Monday 31 October 2011 08:38:39 Robert Marklund wrote:
-> > > ChangeLog v3->v4:
-> > > - Remove dual prints and old comment on Mike's request.
-> > > - Split the request_free fucntion on Mike and Sascha request.
-> >=20
-> > would be nice if the enable/disable were split as well ...
->=20
-> I interpret this as "nice if", if it's a "must be" then ill change it.
+> The problem: Senders were overriding cwnd values picked during an undo
+> by calling tcp_moderate_cwnd() in tcp_try_to_open().
 
-i would prefer it were split
-=2Dmike
+I think it's intentional. Because of receiver lying bandwidth cheats all 
+unlimited undos are bit dangerous.
 
---nextPart3064225.1jW3foyFWa
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
+> The fix: Don't moderate cwnd in tcp_try_to_open() if we're in
+> TCP_CA_Open, since doing so is generally unnecessary and specifically
+> would override a DSACK-based undo of a cwnd reduction made in fast
+> recovery.
+> 
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> ---
+>  net/ipv4/tcp_input.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index a4efdd7..78dd38c 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -2881,7 +2881,8 @@ static void tcp_try_to_open(struct sock *sk, int flag)
+>  
+>  	if (inet_csk(sk)->icsk_ca_state != TCP_CA_CWR) {
+>  		tcp_try_keep_open(sk);
+> -		tcp_moderate_cwnd(tp);
+> +		if (inet_csk(sk)->icsk_ca_state != TCP_CA_Open)
+> +			tcp_moderate_cwnd(tp);
+>  	} else {
+>  		tcp_cwnd_down(sk, flag);
+>  	}
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (GNU/Linux)
+Wouldn't it be enough if tcp max burst is increased to match IW (iirc we 
+had 3 still there as a magic number)?
 
-iQIcBAABAgAGBQJOxJaMAAoJEEFjO5/oN/WBw7wP/R6BpgExQZxYQkgI1W7f8gkX
-Eop/e4ZhE4PQsKdCsVaB2Dse5FqCGGdHUAkNUxtCIjQF6ilRpidgXOAVJ1Cpec6t
-qjthktolSuCTLtbdHpIBQh7wYCIQYARNtCvHFpKDcqLQM+AwSB5AS+AH58nl9Ms5
-i7w4tcSEhHzj6tMPIG8fFAcKgjIt6G9xVgKCRgjhPFSautxYxWjOWKlCleXcxcAr
-u7AkAbZpJMsmuY2H6mgrcE76IMw8LVO9RVcs1rqAm+4C+dFXZnX26XdCFQ5yNgUu
-C73+75y4HSoeQSVAe80OUV5huG3kwjHE++2LxAq3c4b7cHzGya1yDYCpO7wavqdC
-pw8Nxm2MACEwh58hxi9YMc2MYOiZ7F//8Fh4JUanWC9rksAEIvsPNMAPuAqg9mxX
-lKWdS6C9h6tmCzCheyUcsVBLeh3BYL+CmJ5No0RhWPHnGPJeKVD1Pp2bMG1OWiiV
-C+xI7yk7d1SKCi9XOeWJ3fzsUUynqtA62GVMHRhWb9cpwokuswhnLQONH12emgAr
-24iwHHROGLq3PRIfcz/jZDv2P/vaPucBvaDSaTnTq293eCPy/zF64MAItSNA7lf2
-qCHpn7zR2ORUY+71KkpK1gr3XqgKZPwoD95lgxIThTSpDYvk334XIJTc/F9OBx+N
-1PFwQVVu9DnR7OXdgwnw
-=dBok
------END PGP SIGNATURE-----
 
---nextPart3064225.1jW3foyFWa--
+-- 
+ i.
