@@ -1,56 +1,218 @@
-From: Ajith Adapa <adapa.ajith@gmail.com>
-Subject: Re: Regarding Routing cache
-Date: Thu, 17 Nov 2011 11:34:08 +0530
-Message-ID: <CADAe=+K8bf_VOe=KszDZRqZnxQH2VFS3C05mpG=RarN+R5BSbA@mail.gmail.com>
-References: <CADAe=+Lmp=e3NRH5NOYewJp=XZ0CncPzC-4V=Ct-TEuGjfq3nw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+From: AriesLee <AriesLee@jmicron.com>
+Subject: [PATCH 1/1]  PHY configuration for compatible issue
+Date: Thu, 17 Nov 2011 22:05:42 +0800
+Message-ID: <1321538742-3701-1-git-send-email-AriesLee@jmicron.com>
+Cc: AriesLee <AriesLeeILan@gmail.com>, Aries Lee <AriesLee@jmicron.com>
+To: Guo-Fu Tseng <cooldavid@cooldavid.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:50033 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751132Ab1KQGEl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 01:04:41 -0500
-Received: by fagn18 with SMTP id n18so2469174fag.19
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2011 22:04:40 -0800 (PST)
-In-Reply-To: <CADAe=+Lmp=e3NRH5NOYewJp=XZ0CncPzC-4V=Ct-TEuGjfq3nw@mail.gmail.com>
+Received: from spamfilter.jmicron.com ([220.130.51.235]:20831 "EHLO
+	jmsspam.jmicron.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751259Ab1KQGSz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 01:18:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Aries Lee <AriesLee@jmicron.com>
 
-Actually I have doubt with IPv6 related packets.
+To perform PHY calibration and set a different EA value by chip ID,
+Whenever the NIC chip power on, ie booting or resuming, we need to
+force HW to calibrate PHY parameter again, and also set a proper EA
+value which gathered from experiment.
 
-In case of IPv6 packet in ip6_route_output function is called for
-destination related information.
-where ip6_route_output calls "fib6_rule_lookup" function. Why lookup
-is done in fib table instead of routing cache in case of IPv6 packet ?
+That process resolve the compatible issues(NIC is unable to link
+up in some special case) in giga speed.
 
-In case of IPv4 packet ... ip_route_output checks in routing cache and
-if there is a cache miss then it checks the fib table.
+Signed-off-by: Aries Lee <AriesLee@jmicron.com>
+---
+ drivers/net/ethernet/jme.c |  127 ++++++++++++++++++++++++++++++++++++++++++-
+ drivers/net/ethernet/jme.h |   19 +++++++
+ 2 files changed, 143 insertions(+), 3 deletions(-)
 
-Regards,
-Ajith
-
-
-
-
-On Thu, Nov 17, 2011 at 10:30 AM, Ajith Adapa <adapa.ajith@gmail.com> wrote:
-> Hi,
->
-> I have a small doubt regarding routing cache in linux kernel.
->
-> It seems ip_route_connect is the way we have to access routing cache
-> entries. In case of all locally generated packets I see that struct
-> dst_entry is filled up with a lookup in routing cache.
->
-> What about in case of forwarding packets ? I dont see any usage of
-> routing cache mechanism to fill up the struct dst_entry. So it seems
-> we directly check the fib_rules or fib table to fill the structure.
-> If it is true then it would be very slow right ?
->
-> Sorry if I am wrong about above findings. Do correct me if I am wrong about it ?
->
-> Regards,
-> Ajith
->
+diff --git a/drivers/net/ethernet/jme.c b/drivers/net/ethernet/jme.c
+index df3ab83..bd9633d 100644
+--- a/drivers/net/ethernet/jme.c
++++ b/drivers/net/ethernet/jme.c
+@@ -1743,6 +1743,126 @@ jme_phy_off(struct jme_adapter *jme)
+ 	if (new_phy_power_ctrl(jme->chip_main_rev))
+ 		jme_new_phy_off(jme);
+ }
++static int
++jme_phy_calibration(struct jme_adapter *jme)
++{
++	u32 ctrl1000, bmcr, phy_addr, phy_data;
++
++	/*  Turn PHY off */
++	bmcr = jme_mdio_read(jme->dev, jme->mii_if.phy_id, MII_BMCR);
++	bmcr |= BMCR_PDOWN;
++	jme_mdio_write(jme->dev, jme->mii_if.phy_id, MII_BMCR, bmcr);
++	/*  Turn PHY on */
++	bmcr = jme_mdio_read(jme->dev, jme->mii_if.phy_id, MII_BMCR);
++	bmcr &= ~BMCR_PDOWN;
++	jme_mdio_write(jme->dev, jme->mii_if.phy_id, MII_BMCR, bmcr);
++	/*  Enabel PHY test mode 1 */
++	ctrl1000 = jme_mdio_read(jme->dev, jme->mii_if.phy_id, MII_CTRL1000);
++	ctrl1000 &= ~PHY_GAD_TEST_MODE_MSK;
++	ctrl1000 |= PHY_GAD_TEST_MODE_1;
++	jme_mdio_write(jme->dev, jme->mii_if.phy_id, MII_CTRL1000, ctrl1000);
++
++
++	phy_addr = JM_PHY_SPEC_REG_READ | JM_PHY_EXT_COMM_2_REG;
++	jme_mdio_write(jme->dev, jme->mii_if.phy_id, JM_PHY_SPEC_ADDR_REG,
++			phy_addr);
++	phy_data = jme_mdio_read(jme->dev, jme->mii_if.phy_id,
++			JM_PHY_SPEC_DATA_REG);
++
++	phy_data &= ~JM_PHY_EXT_COMM_2_CALI_MODE_0;
++	phy_data |= JM_PHY_EXT_COMM_2_CALI_LATCH |
++			JM_PHY_EXT_COMM_2_CALI_ENABLE;
++
++	phy_addr = JM_PHY_SPEC_REG_WRITE | JM_PHY_EXT_COMM_2_REG;
++	jme_mdio_write(jme->dev, jme->mii_if.phy_id, JM_PHY_SPEC_DATA_REG,
++			phy_data);
++	jme_mdio_write(jme->dev, jme->mii_if.phy_id, JM_PHY_SPEC_ADDR_REG,
++			phy_addr);
++
++	msleep(20);
++
++	phy_addr = JM_PHY_SPEC_REG_READ | JM_PHY_EXT_COMM_2_REG;
++	jme_mdio_write(jme->dev, jme->mii_if.phy_id, JM_PHY_SPEC_ADDR_REG,
++			phy_addr);
++	phy_data = jme_mdio_read(jme->dev, jme->mii_if.phy_id,
++			JM_PHY_SPEC_DATA_REG);
++
++	phy_data &= ~(JM_PHY_EXT_COMM_2_CALI_ENABLE |
++			JM_PHY_EXT_COMM_2_CALI_MODE_0 |
++			JM_PHY_EXT_COMM_2_CALI_LATCH);
++
++	phy_addr = JM_PHY_SPEC_REG_WRITE | JM_PHY_EXT_COMM_2_REG;
++	jme_mdio_write(jme->dev, jme->mii_if.phy_id, JM_PHY_SPEC_DATA_REG,
++			phy_data);
++	jme_mdio_write(jme->dev, jme->mii_if.phy_id, JM_PHY_SPEC_ADDR_REG,
++			phy_addr);
++
++	/*  Disable PHY test mode */
++	ctrl1000 = jme_mdio_read(jme->dev, jme->mii_if.phy_id, MII_CTRL1000);
++	ctrl1000 &= ~PHY_GAD_TEST_MODE_MSK;
++	jme_mdio_write(jme->dev, jme->mii_if.phy_id, MII_CTRL1000, ctrl1000);
++	return 0;
++}
++
++static int
++jme_phy_setEA(struct jme_adapter *jme)
++{
++	u32 phy_addr, phy_comm0 = 0, phy_comm1 = 0;
++	u8 nic_ctrl;
++
++	pci_read_config_byte(jme->pdev, PCI_PRIV_SHARE_NICCTRL, &nic_ctrl);
++	if ((nic_ctrl & 0x3) == JME_FLAG_PHYEA_ENABLE)
++		return 0;
++
++	switch (jme->pdev->device) {
++	case PCI_DEVICE_ID_JMICRON_JMC250:
++		if (((jme->chip_main_rev == 5) &&
++			((jme->chip_sub_rev == 0) || (jme->chip_sub_rev == 1) ||
++			(jme->chip_sub_rev == 3))) ||
++			(jme->chip_main_rev >= 6)) {
++			phy_comm0 = 0x008A;
++			phy_comm1 = 0x4109;
++		}
++		if ((jme->chip_main_rev == 3) &&
++			((jme->chip_sub_rev == 1) || (jme->chip_sub_rev == 2)))
++			phy_comm0 = 0xE088;
++		break;
++	case PCI_DEVICE_ID_JMICRON_JMC260:
++		if (((jme->chip_main_rev == 5) &&
++			((jme->chip_sub_rev == 0) || (jme->chip_sub_rev == 1) ||
++			(jme->chip_sub_rev == 3))) ||
++			(jme->chip_main_rev >= 6)) {
++			phy_comm0 = 0x008A;
++			phy_comm1 = 0x4109;
++		}
++		if ((jme->chip_main_rev == 3) &&
++			((jme->chip_sub_rev == 1) || (jme->chip_sub_rev == 2)))
++			phy_comm0 = 0xE088;
++		if ((jme->chip_main_rev == 2) && (jme->chip_sub_rev == 0))
++			phy_comm0 = 0x608A;
++		if ((jme->chip_main_rev == 2) && (jme->chip_sub_rev == 2))
++			phy_comm0 = 0x408A;
++		break;
++	default:
++		return -ENODEV;
++	}
++	if (phy_comm0) {
++		phy_addr = JM_PHY_SPEC_REG_WRITE | JM_PHY_EXT_COMM_0_REG;
++		jme_mdio_write(jme->dev, jme->mii_if.phy_id,
++				JM_PHY_SPEC_DATA_REG, phy_comm0);
++		jme_mdio_write(jme->dev, jme->mii_if.phy_id,
++				JM_PHY_SPEC_ADDR_REG, phy_addr);
++	}
++	if (phy_comm1) {
++		phy_addr = JM_PHY_SPEC_REG_WRITE | JM_PHY_EXT_COMM_1_REG;
++		jme_mdio_write(jme->dev, jme->mii_if.phy_id,
++				JM_PHY_SPEC_DATA_REG, phy_comm1);
++		jme_mdio_write(jme->dev, jme->mii_if.phy_id,
++				JM_PHY_SPEC_ADDR_REG, phy_addr);
++	}
++
++	return 0;
++}
+ 
+ static int
+ jme_open(struct net_device *netdev)
+@@ -1769,7 +1889,8 @@ jme_open(struct net_device *netdev)
+ 		jme_set_settings(netdev, &jme->old_ecmd);
+ 	else
+ 		jme_reset_phy_processor(jme);
+-
++	jme_phy_calibration(jme);
++	jme_phy_setEA(jme);
+ 	jme_reset_link(jme);
+ 
+ 	return 0;
+@@ -3184,7 +3305,8 @@ jme_resume(struct device *dev)
+ 		jme_set_settings(netdev, &jme->old_ecmd);
+ 	else
+ 		jme_reset_phy_processor(jme);
+-
++	jme_phy_calibration(jme);
++	jme_phy_setEA(jme);
+ 	jme_start_irq(jme);
+ 	netif_device_attach(netdev);
+ 
+@@ -3239,4 +3361,3 @@ MODULE_DESCRIPTION("JMicron JMC2x0 PCI Express Ethernet driver");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(DRV_VERSION);
+ MODULE_DEVICE_TABLE(pci, jme_pci_tbl);
+-
+diff --git a/drivers/net/ethernet/jme.h b/drivers/net/ethernet/jme.h
+index 02ea27c..47e47a9 100644
+--- a/drivers/net/ethernet/jme.h
++++ b/drivers/net/ethernet/jme.h
+@@ -760,6 +760,25 @@ enum jme_rxmcs_bits {
+ 				  RXMCS_CHECKSUM,
+ };
+ 
++/*	Extern PHY common register 2	*/
++
++#define PHY_GAD_TEST_MODE_1			0x00002000
++#define PHY_GAD_TEST_MODE_MSK			0x0000E000
++#define JM_PHY_SPEC_REG_READ			0x00004000
++#define JM_PHY_SPEC_REG_WRITE			0x00008000
++#define PHY_CALIBRATION_DELAY			20
++#define JM_PHY_SPEC_ADDR_REG			0x1E
++#define JM_PHY_SPEC_DATA_REG			0x1F
++
++#define JM_PHY_EXT_COMM_0_REG			0x30
++#define JM_PHY_EXT_COMM_1_REG			0x31
++#define JM_PHY_EXT_COMM_2_REG			0x32
++#define JM_PHY_EXT_COMM_2_CALI_ENABLE		0x01
++#define JM_PHY_EXT_COMM_2_CALI_MODE_0		0x02
++#define JM_PHY_EXT_COMM_2_CALI_LATCH		0x10
++#define PCI_PRIV_SHARE_NICCTRL			0xF5
++#define JME_FLAG_PHYEA_ENABLE			0x2
++
+ /*
+  * Wakeup Frame setup interface registers
+  */
+-- 
+1.7.4.4
