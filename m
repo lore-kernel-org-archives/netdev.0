@@ -1,43 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next] r8169: Add 64bit statistics
-Date: Fri, 18 Nov 2011 10:18:43 +0100
-Message-ID: <20111118091843.GA30303@electric-eye.fr.zoreil.com>
-References: <20111117064826.GA4429@Desktop-Junchang> <20111117093635.GA9112@electric-eye.fr.zoreil.com> <CABoNC816GL4vqbHSR8BYrOFFuL_ZSqxS1xqmG02uwpKkwKNJDQ@mail.gmail.com>
+From: Thomas Meyer <thomas@m3y3r.de>
+Subject: [PATCH] net: Use kmemdup rather than duplicating its implementation
+Date: Thu, 17 Nov 2011 23:43:40 +0100
+Message-ID: <1321569820.1624.307.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nic_swsd@realtek.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: Junchang Wang <junchangwang@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:38234 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754292Ab1KRJYK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 04:24:10 -0500
-Content-Disposition: inline
-In-Reply-To: <CABoNC816GL4vqbHSR8BYrOFFuL_ZSqxS1xqmG02uwpKkwKNJDQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: samuel@sortiz.org, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Junchang Wang <junchangwang@gmail.com> :
-[...]
-> I'm not sure which hardware stats registers are accurate.
+The semantic patch that makes this change is available
+in scripts/coccinelle/api/memdup.cocci.
 
-See rtl8169_gstrings.
+Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
+---
 
-> Besides, it seem r8169.c are also designed for other chipsets (8129?).
-
-Afaik the basic statistics are consistent through the 816x and
-810{2, 3} family.
-
-> I would like other people who are quite familiar with those chipsets
-> to do this job.
-> 
-> Is that OK ? Thanks.
-
-Fair enough.
-
-Eric's "ethtool -S = hardware, ip -s = software" remark makes sense
-anyway. So there is no reason to be retentive.
-
--- 
-Ueimor
+diff -u -p a/net/irda/irttp.c b/net/irda/irttp.c
+--- a/net/irda/irttp.c 2011-11-07 19:39:06.071138486 +0100
++++ b/net/irda/irttp.c 2011-11-08 10:59:07.152748948 +0100
+@@ -1461,14 +1461,13 @@ struct tsap_cb *irttp_dup(struct tsap_cb
+ 	}
+ 
+ 	/* Allocate a new instance */
+-	new = kmalloc(sizeof(struct tsap_cb), GFP_ATOMIC);
++	new = kmemdup(orig, sizeof(struct tsap_cb), GFP_ATOMIC);
+ 	if (!new) {
+ 		IRDA_DEBUG(0, "%s(), unable to kmalloc\n", __func__);
+ 		spin_unlock_irqrestore(&irttp->tsaps->hb_spinlock, flags);
+ 		return NULL;
+ 	}
+ 	/* Dup */
+-	memcpy(new, orig, sizeof(struct tsap_cb));
+ 	spin_lock_init(&new->lock);
+ 
+ 	/* We don't need the old instance any more */
