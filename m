@@ -1,34 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v6 3/9] kbuild: document RPS/XPS network
- Kconfig options
-Date: Wed, 16 Nov 2011 22:12:41 -0500 (EST)
-Message-ID: <20111116.221241.584246208264764477.davem@davemloft.net>
-References: <e0bb736123d687a921f15e4bb0254eeeabe22dcb.1321496595.git.david.decotigny@google.com>
-	<20111116.215808.299077226767455988.davem@davemloft.net>
-	<CAG88wWYgUkStZk988iWzbWf_=1Ze-Rtvs82sMrZoeuFPQphaUA@mail.gmail.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH 5/5] net-next:asix: v2 update VERSION only
+Date: Wed, 16 Nov 2011 22:18:57 -0500
+Message-ID: <5923.1321499937@turing-police.cc.vt.edu>
+References: <1321318357-17723-1-git-send-email-grundler@chromium.org> <21257.1321403368@turing-police.cc.vt.edu>
+            <CANEJEGtnUS5B1ggdoPn8gcCbFm==dfgHCgXVgcgpuooFUAowJA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed; boundary="==_Exmh_1321499937_2949P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ian.campbell@citrix.com, eric.dumazet@gmail.com,
-	jeffrey.t.kirsher@intel.com, bhutchings@solarflare.com,
-	jpirko@redhat.com, joe@perches.com, szymon@janc.net.pl,
-	rick.jones2@hp.com, AAbdulla@nvidia.com
-To: david.decotigny@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51503 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755281Ab1KQDNJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 22:13:09 -0500
-In-Reply-To: <CAG88wWYgUkStZk988iWzbWf_=1Ze-Rtvs82sMrZoeuFPQphaUA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Allan Chou <allan@asix.com.tw>,
+	Freddy Xin <freddy@asix.com.tw>
+To: Grant Grundler <grundler@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: Your message of "Tue, 15 Nov 2011 17:37:47 PST."
+             <CANEJEGtnUS5B1ggdoPn8gcCbFm==dfgHCgXVgcgpuooFUAowJA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Decotigny <david.decotigny@google.com>
-Date: Wed, 16 Nov 2011 19:04:58 -0800
+--==_Exmh_1321499937_2949P
+Content-Type: text/plain; charset=us-ascii
 
-> David, should I re-send an updated v7 version of this series with this
-> patch removed? Or is it Ok if I simply mark this patch as rejected in
-> patchwork and stick to patch series v6?
+On Tue, 15 Nov 2011 17:37:47 PST, Grant Grundler said:
 
-I'll try to apply v6 as-is sans patch #3.
+> Upstream drivers are routinely back ported to distro releases. Version
+> is the primary means for a vendor (like ASIX) to determine what was
+> back ported. Distro maintainers and 1st tier support organizations
+> also need to track versions and "ethtool -i" is the canonical way to
+> look this up on a running system.
+
+Oh, OK.  I figured the distro would know what they backported based on the
+kernel version they generated - I forgot that sometimes users will bypass the
+distro and go to the upstream vendor, and you may not know what their distro
+had done...
+
+
+--==_Exmh_1321499937_2949P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFOxH0hcC3lWbTT17ARAou4AKCq7QNRGeE3On+xkRFF8cTaxLPqbQCdEUlZ
+9JNfZMRCVtSkj2nwN9HVJUQ=
+=cMmn
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1321499937_2949P--
