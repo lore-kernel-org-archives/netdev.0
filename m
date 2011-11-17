@@ -1,28 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] route: add more relaxed option for secure_redirects
-Date: Wed, 16 Nov 2011 20:41:31 -0500 (EST)
-Message-ID: <20111116.204131.509036164500768433.davem@davemloft.net>
-References: <20111116.170213.1763930566851730338.davem@davemloft.net>
-	<20111116211738.067354c0@asterix.rh>
-	<20111116234042.6ad8d723@asterix.rh>
+Subject: Re: [PATCH 2/2] net: verify GSO flag bits against netdev features
+Date: Wed, 16 Nov 2011 20:41:06 -0500 (EST)
+Message-ID: <20111116.204106.187788031313960067.davem@davemloft.net>
+References: <2ec988cd27c6eb5162ea2e41416edcaae207bb5e.1321488025.git.mirq-linux@rere.qmqm.pl>
+	<d4513ed885d62d13873f9b7310fc20cbfa55f634.1321488025.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fbl@redhat.com
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
+To: mirq-linux@rere.qmqm.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37095 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:40195 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754985Ab1KQBld (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 20:41:33 -0500
-In-Reply-To: <20111116234042.6ad8d723@asterix.rh>
+	with ESMTP id S1754803Ab1KQBmL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2011 20:42:11 -0500
+In-Reply-To: <d4513ed885d62d13873f9b7310fc20cbfa55f634.1321488025.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Flavio Leitner <fbl@redhat.com>
-Date: Wed, 16 Nov 2011 23:40:42 -0200
+=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+Date: Thu, 17 Nov 2011 01:05:33 +0100 (CET)
 
-> To make sure we are in the same page, this simple setup reproduces
-> the issue.
+> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
 
-Thanks for the description, I'll think this over.
+Applied.
