@@ -1,48 +1,51 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] ethtool: Use kmemdup rather than duplicating its
+Subject: Re: [PATCH] net: Use kmemdup rather than duplicating its
  implementation
-Date: Fri, 18 Nov 2011 15:47:22 +0000
-Message-ID: <1321631242.2885.118.camel@deadeye>
-References: <1321571135.1624.313.camel@localhost.localdomain>
+Date: Fri, 18 Nov 2011 15:48:18 +0000
+Message-ID: <1321631298.2885.119.camel@deadeye>
+References: <1321569820.1624.307.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Cc: <samuel@sortiz.org>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 To: Thomas Meyer <thomas@m3y3r.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1321571135.1624.313.camel@localhost.localdomain>
+In-Reply-To: <1321569820.1624.307.camel@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-11-18 at 00:05 +0100, Thomas Meyer wrote:
+On Thu, 2011-11-17 at 23:43 +0100, Thomas Meyer wrote:
 > The semantic patch that makes this change is available
 > in scripts/coccinelle/api/memdup.cocci.
 > 
 > Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
 > ---
 
-The one-line description should refer to 'gianfar', not 'ethtool'.
-(I expect David will fix this up.)
+Similarly this is for the specific driver 'irttp' and not generally
+'net'.
 
 Ben.
 
-> diff -u -p a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-> --- a/drivers/net/ethernet/freescale/gianfar_ethtool.c 2011-11-07 19:37:57.036756543 +0100
-> +++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c 2011-11-08 10:42:14.842512269 +0100
-> @@ -1410,10 +1410,9 @@ static int gfar_optimize_filer_masks(str
+> diff -u -p a/net/irda/irttp.c b/net/irda/irttp.c
+> --- a/net/irda/irttp.c 2011-11-07 19:39:06.071138486 +0100
+> +++ b/net/irda/irttp.c 2011-11-08 10:59:07.152748948 +0100
+> @@ -1461,14 +1461,13 @@ struct tsap_cb *irttp_dup(struct tsap_cb
+>  	}
 >  
->  	/* We need a copy of the filer table because
->  	 * we want to change its order */
-> -	temp_table = kmalloc(sizeof(*temp_table), GFP_KERNEL);
-> +	temp_table = kmemdup(tab, sizeof(*temp_table), GFP_KERNEL);
->  	if (temp_table == NULL)
->  		return -ENOMEM;
-> -	memcpy(temp_table, tab, sizeof(*temp_table));
+>  	/* Allocate a new instance */
+> -	new = kmalloc(sizeof(struct tsap_cb), GFP_ATOMIC);
+> +	new = kmemdup(orig, sizeof(struct tsap_cb), GFP_ATOMIC);
+>  	if (!new) {
+>  		IRDA_DEBUG(0, "%s(), unable to kmalloc\n", __func__);
+>  		spin_unlock_irqrestore(&irttp->tsaps->hb_spinlock, flags);
+>  		return NULL;
+>  	}
+>  	/* Dup */
+> -	memcpy(new, orig, sizeof(struct tsap_cb));
+>  	spin_lock_init(&new->lock);
 >  
->  	mask_table = kcalloc(MAX_FILER_CACHE_IDX / 2 + 1,
->  			sizeof(struct gfar_mask_entry), GFP_KERNEL);
-> 
-
+>  	/* We don't need the old instance any more */
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
