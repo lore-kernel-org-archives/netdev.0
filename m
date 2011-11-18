@@ -1,36 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: routing bug?
-Date: Fri, 18 Nov 2011 14:54:25 +0100
-Message-ID: <1321624465.3277.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <4EC648C9.8080405@uhulinux.hu>
-			 <alpine.DEB.2.02.1111181346480.17023@aurora>
-		 <1321621796.3277.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-		 <4EC65C4B.6050505@uhulinux.hu>
-	 <1321623207.3277.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4EC65FF1.9010601@uhulinux.hu>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: [PATCH] xen-netback: use correct index for invalidation
+	in netbk_tx_check_mop()
+Date: Fri, 18 Nov 2011 14:13:19 +0000
+Message-ID: <1321625599-3739-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sven-Haegar Koch <haegar@sdinet.de>,
-	Linux-Kernel-Mailinglist <linux-kernel@vger.kernel.org>,
-	=?ISO-8859-1?Q?Tam=E1si_J=E1nos?= <janusz@uhulinux.hu>,
-	netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Pozs=E1r_Bal=E1zs?= <pozsy@uhulinux.hu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4EC65FF1.9010601@uhulinux.hu>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: xen-devel@lists.xensource.com, Ian Campbell <ian.campbell@citrix.com>,
+	Jan Beulich <jbeulich@suse.com>
+To: netdev@vger.kernel.org
+Return-path: <xen-devel-bounces@lists.xensource.com>
+List-Unsubscribe: <http://lists.xensource.com/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
-Le vendredi 18 novembre 2011 =C3=A0 14:38 +0100, Pozs=C3=A1r Bal=C3=A1z=
-s a =C3=A9crit :
+From: Jan Beulich <JBeulich@suse.com>
 
-> Unfortunately it does not solve the problem for me, I have have these=
-=20
-> "cache <redirected>" entries even after that echo command.
->=20
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+---
+ drivers/net/xen-netback/netback.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Its a problem with a cached value.
-
-You must reboot to flush it.
-
-It was already discussed yesterday on netdev.
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 0cb594c..1ae270e 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1021,7 +1021,7 @@ static int xen_netbk_tx_check_gop(struct xen_netbk *netbk,
+ 		pending_idx = *((u16 *)skb->data);
+ 		xen_netbk_idx_release(netbk, pending_idx);
+ 		for (j = start; j < i; j++) {
+-			pending_idx = frag_get_pending_idx(&shinfo->frags[i]);
++			pending_idx = frag_get_pending_idx(&shinfo->frags[j]);
+ 			xen_netbk_idx_release(netbk, pending_idx);
+ 		}
+ 
+-- 
+1.7.2.5
