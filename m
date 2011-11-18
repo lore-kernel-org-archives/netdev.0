@@ -1,78 +1,55 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next-2.6 PATCH 0/6 v4] macvlan: MAC Address filtering
- support for passthru mode
-Date: Fri, 18 Nov 2011 00:44:37 +0000
-Message-ID: <1321577078.2749.58.camel@bwh-desktop>
-References: <20111109075449.13549.58135.stgit@rhel6.1>
-	 <1321575301.2749.51.camel@bwh-desktop>  <4EC5A785.3060108@intel.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [net-next] iproute2: Add new command to IP link to
+ enable/disable VF spoof check
+Date: Thu, 17 Nov 2011 16:45:28 -0800
+Message-ID: <20111117164528.293ec0ea@nehalam.linuxnetplumber.net>
+References: <1316938998-29855-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<4EC59B34.4080501@intel.com>
+	<20111117164044.21b916dd@nehalam.linuxnetplumber.net>
+	<4EC5AA1B.4040009@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Roopa Prabhu <roprabhu@cisco.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
 	"davem@davemloft.net" <davem@davemloft.net>,
-	"chrisw@redhat.com" <chrisw@redhat.com>,
-	"sri@us.ibm.com" <sri@us.ibm.com>,
-	"dragos.tatulea@gmail.com" <dragos.tatulea@gmail.com>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"arnd@arndb.de" <arnd@arndb.de>, "mst@redhat.com" <mst@redhat.com>,
-	"mchan@broadcom.com" <mchan@broadcom.com>,
-	"dwang2@cisco.com" <dwang2@cisco.com>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"benve@cisco.com" <benve@cisco.com>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>
 To: Greg Rose <gregory.v.rose@intel.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4EC5A785.3060108@intel.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:55376 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755335Ab1KRApb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Nov 2011 19:45:31 -0500
+In-Reply-To: <4EC5AA1B.4040009@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-11-17 at 16:32 -0800, Greg Rose wrote:
-> On 11/17/2011 4:15 PM, Ben Hutchings wrote:
-> > Sorry to come to this rather late.
+On Thu, 17 Nov 2011 16:43:07 -0800
+Greg Rose <gregory.v.rose@intel.com> wrote:
+
+> On 11/17/2011 4:40 PM, Stephen Hemminger wrote:
+> > On Thu, 17 Nov 2011 15:39:32 -0800
+> > Greg Rose<gregory.v.rose@intel.com>  wrote:
 > >
-> > On Tue, 2011-11-08 at 23:55 -0800, Roopa Prabhu wrote:
-> > [...]
-> >> v2 ->  v3
-> >> - Moved set and get filter ops from rtnl_link_ops to netdev_ops
-> >> - Support for SRIOV VFs.
-> >>          [Note: The get filters msg (in the way current get rtnetlink handles
-> >>          it) might get too big for SRIOV vfs. This patch follows existing sriov
-> >>          vf get code and tries to accomodate filters for all VF's in a PF.
-> >>          And for the SRIOV case I have only tested the fact that the VF
-> >>          arguments are getting delivered to rtnetlink correctly. The code
-> >>          follows existing sriov vf handling code so rest of it should work fine]
-> > [...]
+> >>
+> >>
+> >> On 9/25/2011 1:23 AM, Jeff Kirsher wrote:
+> >>> From: Greg Rose<gregory.v.rose@intel.com>
+> >>>
+> >>> Add IP link command parsing for VF spoof checking enable/disable
+> >>>
+> >>> Signed-off-by: Greg Rose<gregory.v.rose@intel.com>
+> >>> Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
 > >
-> > This is already broken for large numbers of VFs, and increasing the
-> > amount of information per VF is going to make the situation worse.  I am
-> > no netlink expert but I think that the current approach of bundling all
-> > information about an interface in a single message may not be
-> > sustainable.
+> > I am limiting patches at this point to those that will build against 3.0.
+> > The 3.1 version of iproute2 has not been released because kernel.org tool
+> > to do the release is still in beta (kup), and they are working on it.
 > >
-> > Also, I'm unclear on why this interface is to be used to set filtering
-> > for the (PF) net device as well as for related VFs.  Doesn't that
-> > duplicate the functionality of ndo_set_rx_mode and
-> > ndo_vlan_rx_{add,kill}_vid?
+> > After 3.1 version of iproute2 is released, any fixes that require stuff
+> > from 3.2 will go in.
 > 
-> Functionally yes but contextually no.  This allows the PF driver to know 
-> that it is setting these filters in the context of the existence of VFs, 
-> allowing it to take appropriate action.  The other two functions may be 
-> called without the presence of SR-IOV enablement and the existence of VFs.
+> Great, sounds good.
 > 
-> Anyway, that's why I asked Roopa to add that capability.
+> Would you prefer that I Jeff (Kirsher) and I repost the patch at that time?
 
-I don't follow.  The PF driver already knows whether it has enabled VFs.
-
-How do filters set this way interact with filters set through the
-existing operations?  Should they override promiscuous mode?  None of
-this has been specified.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+not required, if they show up in patchwork
