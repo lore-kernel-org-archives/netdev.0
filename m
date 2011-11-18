@@ -1,37 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 6/6] ip_gre: Set needed_headroom dynamically again
-Date: Fri, 18 Nov 2011 20:20:06 +0800
-Message-ID: <E1RRNQM-0000ls-CP@gondolin.me.apana.org.au>
-References: <20111118121832.GA2868@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	evonlanthen@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, timo.teras@iki.fi
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Madhvapathi Sriram <sriram.madhvapathi@gmail.com>
+Subject: query : unregister/register netdev
+Date: Fri, 18 Nov 2011 17:53:37 +0530
+Message-ID: <CAAvRe=jhfXEnLFkwbPmWEroDE-qHUpZ54TSSdw=WpmfPGZpsPQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:59896 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752611Ab1KRMXh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 07:23:37 -0500
+Received: by ywt32 with SMTP id 32so2367939ywt.19
+        for <netdev@vger.kernel.org>; Fri, 18 Nov 2011 04:23:37 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ip_gre: Set needed_headroom dynamically again
+Hi,
 
-Now that all needed_headroom users have been fixed up so that
-we can safely increase needed_headroom, this patch restore the
-dynamic update of needed_headroom.
+In register_netdevice(), BUG_ON(dev->reg_state != NETREG_UNINITIALIZED) is
+used to check if the device that is being registered is indeed a new one.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
+However, I see that this state is never moved to. It only happens when a
+netdevice is allocated (by default to 0 using kzalloc).
 
- net/ipv4/ip_gre.c |    2 ++
- 1 file changed, 2 insertions(+)
+So, the cycle register-->unregister-->register would fail since in the
+unregister_netdevice the state is only moved to NETREG_UNREGISTERED (at max
+to NETREG_RELEASED using free_netdev)
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index d55110e..d7bb94c 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -835,6 +835,8 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
- 	if (skb_headroom(skb) < max_headroom || skb_shared(skb)||
- 	    (skb_cloned(skb) && !skb_clone_writable(skb, 0))) {
- 		struct sk_buff *new_skb = skb_realloc_headroom(skb, max_headroom);
-+		if (max_headroom > dev->needed_headroom)
-+			dev->needed_headroom = max_headroom;
- 		if (!new_skb) {
- 			ip_rt_put(rt);
- 			dev->stats.tx_dropped++;
+So, I presume that to reinitialize a netdevice one has to free the
+netdevice, re allocate netdevice and only then re register.
+
+Wondering why unregister and reregister is not allowed, rather than having
+go through the free/alloc cycle - I am not an expert though.
+
+Thanks
+-Sriram
