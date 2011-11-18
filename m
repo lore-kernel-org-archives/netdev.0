@@ -1,104 +1,33 @@
-From: Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Subject: Re: NFS TCP race condition with SOCK_ASYNC_NOSPACE
-Date: Fri, 18 Nov 2011 19:55:23 +0000
-Message-ID: <4EC6B82B.3000701@citrix.com>
-References: <4EC6A681.30902@citrix.com>  <1321642368.2653.35.camel@lade.trondhjem.org> <4EC6AC47.60404@citrix.com> <1321643673.2653.41.camel@lade.trondhjem.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: add calxeda xgmac ethernet driver
+Date: Fri, 18 Nov 2011 14:54:12 -0500 (EST)
+Message-ID: <20111118.145412.1098612279209409802.davem@davemloft.net>
+References: <1321411611-28839-1-git-send-email-robherring2@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1321643673.2653.41.camel-SyLVLa/KEI9HwK5hSS5vWB2eb7JE58TQ@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	joe@perches.com, saeed.bishara@gmail.com, rob.herring@calxeda.com
+To: robherring2@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:49949 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754097Ab1KRT40 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 14:56:26 -0500
+In-Reply-To: <1321411611-28839-1-git-send-email-robherring2@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 18/11/2011 19:14, Trond Myklebust wrote:
-> On Fri, 2011-11-18 at 19:04 +0000, Andrew Cooper wrote: 
->> On 18/11/11 18:52, Trond Myklebust wrote:
->>> On Fri, 2011-11-18 at 18:40 +0000, Andrew Cooper wrote: 
->>>> Hello,
->>>>
->>>> As described originally in
->>>> http://www.spinics.net/lists/linux-nfs/msg25314.html, we were
->>>> encountering a bug whereby the NFS session was unexpectedly timing out.
->>>>
->>>> I believe I have found the source of the race condition causing the timeout.
->>>>
->>>> Brief overview of setup:
->>>>   10GiB network, NFS mounted using TCP.  Problem reproduces with
->>>> multiple different NICs, with synchronous or asynchronous mounts, and
->>>> with soft and hard mounts.  Reproduces on 2.6.32 and I am currently
->>>> trying to reproduce with mainline. (I don't have physical access to the
->>>> servers so installing stuff is not fantastically easy)
->>>>
->>>>
->>>>
->>>> In net/sunrpc/xprtsock.c:xs_tcp_send_request(), we try to write data to
->>>> the sock buffer using xs_sendpages()
->>>>
->>>> When the sock buffer is nearly fully, we get an EAGAIN from
->>>> xs_sendpages() which causes a break out of the loop.  Lower down the
->>>> function, we switch on status which cases us to call xs_nospace() with
->>>> the task.
->>>>
->>>> In xs_nospace(), we test the SOCK_ASYNC_NOSPACE bit from the socket, and
->>>> in the rare case where that bit is clear, we return 0 instead of
->>>> EAGAIN.  This promptly overwrites status in xs_tcp_send_request().
->>>>
->>>> The result is that xs_tcp_release_xprt() finds a request which has no
->>>> error, but has not sent all of the bytes in its send buffer.  It cleans
->>>> up by setting XPRT_CLOSE_WAIT which causes xprt_clear_locked() to queue
->>>> xprt->task_cleanup, which closes the TCP connection.
->>>>
->>>>
->>>> Under normal operation, the TCP connection goes down and back up without
->>>> interruption to the NFS layer.  However, when the NFS server hangs in a
->>>> half closed state, the client forces a RST of the TCP connection,
->>>> leading to the timeout.
->>>>
->>>> I have tried a few naive fixes such as changing the default return value
->>>> in xs_nospace() from 0 to -EAGAIN (meaning that 0 will never be
->>>> returned) but this causes a kernel memory leak.  Can someone who a
->>>> better understanding of these interactions than me have a look?  It
->>>> seems that the if (test_bit()) test in xs_nospace() should have an else
->>>> clause.
->>> I fully agree with your analysis. The correct thing to do here is to
->>> always return either EAGAIN or ENOTCONN. Thank you very much for working
->>> this one out!
->>>
->>> Trond
->> Returning EAGAIN seems to cause a kernel memory leak, as the oomkiller
->> starts going after processes holding large amounts of LowMem.  Returning
-> The EAGAIN should trigger a retry of the send.
->
->> ENOTCONN causes the NFS session to complain about a timeout in the logs,
->> and in the case of a softmout, give an EIO to the calling process.
-> Correct. ENOTCONN means that the connection was lost.
->
->> >From the looks of the TCP stream, and from the the looks of some
->> targeted debugging, nothing is actually wrong, so the client should not
->> be trying to FIN the TCP connection.  Is it possible that there is a
->> more sinister reason for SOCK_ASYNC_NOSPACE being clear?
-> Normally, it means that we're out of the out-of-write-buffer condition
-> that caused the socket to fail (i.e. the socket has made progress
-> sending more data, so that we can now resume sending more). Returning
-> EAGAIN in that condition is correct.
+From: Rob Herring <robherring2@gmail.com>
+Date: Tue, 15 Nov 2011 20:46:51 -0600
 
-Following my latest set of tests, I would have to say that we are in the
-abnormal case.  Removing the test_bit check and always requeuing causes
-the next call to xs_sendpages() to return with an ENOTCONN.  I guess I
-have some more debugging to do.
+> From: Rob Herring <rob.herring@calxeda.com>
+> 
+> Add support for the XGMAC 10Gb ethernet device in the Calxeda Highbank
+> SOC.
+> 
+> Signed-off-by: Rob Herring <rob.herring@calxeda.com>
 
->
->> I can attempt to find which of the many calls to clear that bit is
->> actually causing the problem, but I have a feeing that is going to a
->> little more tricky to narrow down.
->>
-
-~Andrew
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Doesn't build, because you reference SK_8K which is a define not
+available on all platforms.  Only architectures which make use of
+asm-generic/sizes.h will be able to see that definition.
