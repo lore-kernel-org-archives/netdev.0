@@ -1,91 +1,73 @@
-From: Greg Rose <gregory.v.rose@intel.com>
-Subject: Re: [net-next-2.6 PATCH 0/6 v4] macvlan: MAC Address filtering support
- for passthru mode
-Date: Fri, 18 Nov 2011 08:58:35 -0800
-Message-ID: <4EC68EBB.3080303@intel.com>
-References: <20111109075449.13549.58135.stgit@rhel6.1>  <1321575301.2749.51.camel@bwh-desktop>  <4EC5A785.3060108@intel.com> <1321577078.2749.58.camel@bwh-desktop>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: Unable to flush ICMP redirect routes in kernel 3.0+
+Date: Fri, 18 Nov 2011 15:05:12 -0200
+Message-ID: <20111118150512.5f66f7d2@asterix.rh>
+References: <4EC2CA52.6020104@icdsoft.com>
+	<1321391355.2602.0.camel@edumazet-laptop>
+	<4EC439F2.3080809@icdsoft.com>
+	<20111116223330.08de9e52@asterix.rh>
+	<4EC4C160.6010804@icdsoft.com>
+	<20111117111145.252924f5@asterix.rh>
+	<1321535747.2751.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<1321540820.2751.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20111117133724.59684d28@asterix.rh>
+	<1321547510.2751.66.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20111117144038.61b0525b@asterix.rh>
+	<1321548319.2751.70.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20111117150145.25e01a75@asterix.rh>
+	<1321550302.2751.81.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<1321551536.2751.87.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<1321632128.3277.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20111118143016.01e24b37@asterix.rh>
+	<1321634046.3277.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Roopa Prabhu <roprabhu@cisco.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"chrisw@redhat.com" <chrisw@redhat.com>,
-	"sri@us.ibm.com" <sri@us.ibm.com>,
-	"dragos.tatulea@gmail.com" <dragos.tatulea@gmail.com>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"arnd@arndb.de" <arnd@arndb.de>, "mst@redhat.com" <mst@redhat.com>,
-	"mchan@broadcom.com" <mchan@broadcom.com>,
-	"dwang2@cisco.com" <dwang2@cisco.com>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"benve@cisco.com" <benve@cisco.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Ivan Zahariev <famzah@icdsoft.com>, netdev@vger.kernel.org,
+	Vasiliy Kulikov <segoon@openwall.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:56605 "EHLO mga14.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:5452 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753597Ab1KRQ6l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Nov 2011 11:58:41 -0500
-In-Reply-To: <1321577078.2749.58.camel@bwh-desktop>
+	id S1753666Ab1KRRFc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 12:05:32 -0500
+In-Reply-To: <1321634046.3277.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 18 Nov 2011 17:34:06 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-On 11/17/2011 4:44 PM, Ben Hutchings wrote:
-> On Thu, 2011-11-17 at 16:32 -0800, Greg Rose wrote:
->> On 11/17/2011 4:15 PM, Ben Hutchings wrote:
->>> Sorry to come to this rather late.
->>>
->>> On Tue, 2011-11-08 at 23:55 -0800, Roopa Prabhu wrote:
->>> [...]
->>>> v2 ->   v3
->>>> - Moved set and get filter ops from rtnl_link_ops to netdev_ops
->>>> - Support for SRIOV VFs.
->>>>           [Note: The get filters msg (in the way current get rtnetlink handles
->>>>           it) might get too big for SRIOV vfs. This patch follows existing sriov
->>>>           vf get code and tries to accomodate filters for all VF's in a PF.
->>>>           And for the SRIOV case I have only tested the fact that the VF
->>>>           arguments are getting delivered to rtnetlink correctly. The code
->>>>           follows existing sriov vf handling code so rest of it should work fine]
->>> [...]
->>>
->>> This is already broken for large numbers of VFs, and increasing the
->>> amount of information per VF is going to make the situation worse.  I am
->>> no netlink expert but I think that the current approach of bundling all
->>> information about an interface in a single message may not be
->>> sustainable.
->>>
->>> Also, I'm unclear on why this interface is to be used to set filtering
->>> for the (PF) net device as well as for related VFs.  Doesn't that
->>> duplicate the functionality of ndo_set_rx_mode and
->>> ndo_vlan_rx_{add,kill}_vid?
->>
->> Functionally yes but contextually no.  This allows the PF driver to know
->> that it is setting these filters in the context of the existence of VFs,
->> allowing it to take appropriate action.  The other two functions may be
->> called without the presence of SR-IOV enablement and the existence of VFs.
->>
->> Anyway, that's why I asked Roopa to add that capability.
->
-> I don't follow.  The PF driver already knows whether it has enabled VFs.
->
-> How do filters set this way interact with filters set through the
-> existing operations?  Should they override promiscuous mode?  None of
-> this has been specified.
+> Le vendredi 18 novembre 2011 =C3=A0 14:30 -0200, Flavio Leitner a =C3=
+=A9crit :
+>=20
+> > I know we are reverting to get it fixed, but this adds the routing
+> > cache back, so what is the plan? Revert to get it working and then
+> > think on new approach to remove the route cache again later?
+> >=20
+> > I had one previous patch using the routing cache posted to the list=
+,
+> > but it won't fix the route flush problem.
+> >=20
+>=20
+> I dont "add the routing cache back".
 
-Promiscuous mode is exactly the issue this feature is intended for.  I'm 
-not familiar with the solarflare device but Intel HW promiscuous mode is 
-only promiscuous on the physical port, not on the VEB.  So a packet sent 
-from a VF will not be captured by the PF across the VEB unless the MAC 
-and VLAN filters have been programmed into the HW.  So you may not need 
-the feature for your devices but it is required for Intel devices.  And 
-it's a fairly simple request, just allow -1 to indicate that the target 
-of the filter requests is for the PF itself.  Using the already existing 
-set_rx_mode function wont' work because the PF driver will look at it 
-and figure it's in promiscuous mode anyway, so it won't set the filters 
-into the HW.  At least that is how it is in the case of our HW and 
-driver.  Again, the behavior of your HW and driver is unknown to me and 
-thus you may not require this feature.
+Sorry, I meant that we are trying to avoid doing this:
++			hash =3D rt_hash(daddr, skeys[s], ikeys[i],rt_genid(net));
++
++			rthp =3D &rt_hash_table[hash].chain;
++
++			while ((rt =3D rcu_dereference(*rthp)) !=3D NULL) {
++				rthp =3D &rt->dst.rt_next;
 
-- Greg
+anyway, see below.
+
+> Note I only fix existing route entries in the cache ;)
+Exactly.
+=20
+> A "revert" is probably safe, since we should push a fix for
+> 3.0/3.1/3.2 kernels...
+
+I agree that reverting is probably safe.
+fbl
