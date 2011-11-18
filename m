@@ -1,110 +1,104 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: Bug#645308: tg3 broken for NetXtreme 5714S in squeeze 6.0.3
- installer
-Date: Fri, 18 Nov 2011 11:54:35 -0800
-Message-ID: <20111118195435.GA31807@mcarlson.broadcom.com>
-References: <1318901100.3340.36.camel@deadeye>
- <20111018142056.GF29261@torres.zugschlus.de>
- <1319084914.23980.96.camel@deadeye>
- <20111021090046.GA13930@torres.zugschlus.de>
- <20111021090811.GA5993@torres.zugschlus.de>
- <1319199579.2918.42.camel@deadeye>
- <20111024212409.GA29764@mcarlson.broadcom.com>
- <1319500074.31243.47.camel@deadeye>
- <20111026002032.GA31575@mcarlson.broadcom.com>
- <1319614904.11727.17.camel@deadeye>
+From: Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Subject: Re: NFS TCP race condition with SOCK_ASYNC_NOSPACE
+Date: Fri, 18 Nov 2011 19:55:23 +0000
+Message-ID: <4EC6B82B.3000701@citrix.com>
+References: <4EC6A681.30902@citrix.com>  <1321642368.2653.35.camel@lade.trondhjem.org> <4EC6AC47.60404@citrix.com> <1321643673.2653.41.camel@lade.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"645308@bugs.debian.org" <645308@bugs.debian.org>,
-	"Marc Haber" <mh+debian-bugs@zugschlus.de>,
-	netdev <netdev@vger.kernel.org>
-To: "Ben Hutchings" <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1492 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755993Ab1KRTxp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Nov 2011 14:53:45 -0500
-In-Reply-To: <1319614904.11727.17.camel@deadeye>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1321643673.2653.41.camel-SyLVLa/KEI9HwK5hSS5vWB2eb7JE58TQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 26, 2011 at 12:41:44AM -0700, Ben Hutchings wrote:
-> On Tue, 2011-10-25 at 17:20 -0700, Matt Carlson wrote:
-> > On Mon, Oct 24, 2011 at 04:47:54PM -0700, Ben Hutchings wrote:
-> > > On Mon, 2011-10-24 at 14:24 -0700, Matt Carlson wrote:
-> > > > On Fri, Oct 21, 2011 at 05:19:39AM -0700, Ben Hutchings wrote:
-> > > > > On Fri, 2011-10-21 at 11:08 +0200, Marc Haber wrote:
-> > > > > > On Fri, Oct 21, 2011 at 11:00:46AM +0200, Marc Haber wrote:
-> > > > > > > On Thu, Oct 20, 2011 at 05:28:34AM +0100, Ben Hutchings wrote:
-> > > > > > > > I don't see any changes that would obviously change the way this device
-> > > > > > > > is reconfigured during a down/up cycle.  There were some changes to
-> > > > > > > > power management that should just let the PCI core do some work that the
-> > > > > > > > driver used to, but it's possible that the result isn't quite the same.
-> > > > > > > > I built a module with those reverted; source and binary attached.  Could
-> > > > > > > > you test that?  I checked that d-i does include an insmod command.
-> > > > > > > 
-> > > > > > > The squeeze 6.0.3 installer with the shipped tg3.ko replaced with
-> > > > > > > yours boots and networks just fine without any workaround and without
-> > > > > > > manual interaction.
-> > > > > > 
-> > > > > > I was a bit fast on that. The interface now fails right in the middle
-> > > > > > of installation and needs the modprobe -r, modprobe stunt to network
-> > > > > > again.
-> > > > > 
-> > > > > Matt, Michael,
-> > > > > 
-> > > > > The tg3 driver has regressed for the 5714S since Linux 2.6.32.  Marc
-> > > > > Haber found this in the backported version included in our stable
-> > > > > update, but also confirmed it in Linux 3.0.
-> > > > > 
-> > > > > Bringing the interface down and then up again (which the installer does
-> > > > > for some reason) can leave it unable to pass traffic (possibly after
-> > > > > working for a few packets) until the module is reloaded.
-> > > > > 
-> > > > > I asked Marc to check whether reverting the power management changes
-> > > > > (071697e2bcd8dff2af4d6fdd6525c2324f89553b,
-> > > > > d237d9ecf06a00f0ebca657958cf2a1e92940796) made a difference, but it
-> > > > > doesn't seem to.
-> > > > > 
-> > > > > There is more information in the bug log at
-> > > > > <http://bugs.debian.org/645308>.
-> > > > 
-> > > > Where can I get the sources for this driver?  Commit
-> > > > 9e975cc291d80d5e4562d6bed15ec171e896d69b, entitled
-> > > > "tg3: Fix io failures after chip reset" has been a common source of
-> > > > problems.
-> > > 
-> > > Our current package has Linux 3.0.6 which includes the backport of that
-> > > change.  However, it is *not* included in my backport to 2.6.32 so it
-> > > doesn't explain the original report.
-> > > 
-> > > The backported version can be found in:
-> > > 
-> > > git://anonscm.debian.org/kernel/linux-2.6.git squeeze
-> > 
-> > The kernel version of that repository is 3.0.0-rc1.  Am I looking in the
-> > right place?
-> 
-> Look at the squeeze branch, not master.
-> 
-> Ben.
-> 
-> > But you're right.  The version of the driver in that repository does not
-> > have the change.
+On 18/11/2011 19:14, Trond Myklebust wrote:
+> On Fri, 2011-11-18 at 19:04 +0000, Andrew Cooper wrote: 
+>> On 18/11/11 18:52, Trond Myklebust wrote:
+>>> On Fri, 2011-11-18 at 18:40 +0000, Andrew Cooper wrote: 
+>>>> Hello,
+>>>>
+>>>> As described originally in
+>>>> http://www.spinics.net/lists/linux-nfs/msg25314.html, we were
+>>>> encountering a bug whereby the NFS session was unexpectedly timing out.
+>>>>
+>>>> I believe I have found the source of the race condition causing the timeout.
+>>>>
+>>>> Brief overview of setup:
+>>>>   10GiB network, NFS mounted using TCP.  Problem reproduces with
+>>>> multiple different NICs, with synchronous or asynchronous mounts, and
+>>>> with soft and hard mounts.  Reproduces on 2.6.32 and I am currently
+>>>> trying to reproduce with mainline. (I don't have physical access to the
+>>>> servers so installing stuff is not fantastically easy)
+>>>>
+>>>>
+>>>>
+>>>> In net/sunrpc/xprtsock.c:xs_tcp_send_request(), we try to write data to
+>>>> the sock buffer using xs_sendpages()
+>>>>
+>>>> When the sock buffer is nearly fully, we get an EAGAIN from
+>>>> xs_sendpages() which causes a break out of the loop.  Lower down the
+>>>> function, we switch on status which cases us to call xs_nospace() with
+>>>> the task.
+>>>>
+>>>> In xs_nospace(), we test the SOCK_ASYNC_NOSPACE bit from the socket, and
+>>>> in the rare case where that bit is clear, we return 0 instead of
+>>>> EAGAIN.  This promptly overwrites status in xs_tcp_send_request().
+>>>>
+>>>> The result is that xs_tcp_release_xprt() finds a request which has no
+>>>> error, but has not sent all of the bytes in its send buffer.  It cleans
+>>>> up by setting XPRT_CLOSE_WAIT which causes xprt_clear_locked() to queue
+>>>> xprt->task_cleanup, which closes the TCP connection.
+>>>>
+>>>>
+>>>> Under normal operation, the TCP connection goes down and back up without
+>>>> interruption to the NFS layer.  However, when the NFS server hangs in a
+>>>> half closed state, the client forces a RST of the TCP connection,
+>>>> leading to the timeout.
+>>>>
+>>>> I have tried a few naive fixes such as changing the default return value
+>>>> in xs_nospace() from 0 to -EAGAIN (meaning that 0 will never be
+>>>> returned) but this causes a kernel memory leak.  Can someone who a
+>>>> better understanding of these interactions than me have a look?  It
+>>>> seems that the if (test_bit()) test in xs_nospace() should have an else
+>>>> clause.
+>>> I fully agree with your analysis. The correct thing to do here is to
+>>> always return either EAGAIN or ENOTCONN. Thank you very much for working
+>>> this one out!
+>>>
+>>> Trond
+>> Returning EAGAIN seems to cause a kernel memory leak, as the oomkiller
+>> starts going after processes holding large amounts of LowMem.  Returning
+> The EAGAIN should trigger a retry of the send.
+>
+>> ENOTCONN causes the NFS session to complain about a timeout in the logs,
+>> and in the case of a softmout, give an EIO to the calling process.
+> Correct. ENOTCONN means that the connection was lost.
+>
+>> >From the looks of the TCP stream, and from the the looks of some
+>> targeted debugging, nothing is actually wrong, so the client should not
+>> be trying to FIN the TCP connection.  Is it possible that there is a
+>> more sinister reason for SOCK_ASYNC_NOSPACE being clear?
+> Normally, it means that we're out of the out-of-write-buffer condition
+> that caused the socket to fail (i.e. the socket has made progress
+> sending more data, so that we can now resume sending more). Returning
+> EAGAIN in that condition is correct.
 
-O.K.  With Ben's help, I was able to see the diff between the two
-driver versions.
+Following my latest set of tests, I would have to say that we are in the
+abnormal case.  Removing the test_bit check and always requeuing causes
+the next call to xs_sendpages() to return with an ENOTCONN.  I guess I
+have some more debugging to do.
 
-I think I misspoke earlier.  The commit I mentioned above fixes a problem
-introduced in an earlier patch.  (commit ID
-d2394e6bb1aa636f3bd142cb6f7845a4332514b5, entitled
-"tg3: Always turn on APE features in mac_mode reg")  So the fact that
-2.6.32-35 works and 2.6.32-36 doesn't means you applied the problematic
-patch that had the bug, but you didn't apply the above fix to correct it.
+>
+>> I can attempt to find which of the many calls to clear that bit is
+>> actually causing the problem, but I have a feeing that is going to a
+>> little more tricky to narrow down.
+>>
 
-Sorry for the confusion.
+~Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
