@@ -1,39 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [0/6] Replace LL_ALLOCATED_SPACE to allow needed_headroom
- adjustment
-Date: Fri, 18 Nov 2011 15:01:57 -0500 (EST)
-Message-ID: <20111118.150157.1046683437153798989.davem@davemloft.net>
-References: <20111025115425.GA1530@gondor.apana.org.au>
-	<20111025.231204.257472162924919077.davem@davemloft.net>
-	<20111118121832.GA2868@gondor.apana.org.au>
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: b43: BCM 4331: MacBook 8,1: No connection after suspend
+Date: Fri, 18 Nov 2011 21:02:49 +0100
+Message-ID: <4EC6B9E9.50204@broadcom.com>
+References: <20111118173242.GA2101@schottelius.org>
+ <20111118173921.GB2101@schottelius.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, evonlanthen@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	timo.teras@iki.fi
-To: herbert@gondor.hengli.com.au
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "Nico Schottelius" <nico-nospam@schottelius.org>,
+	"Nico -telmich- Schottelius" <nico-linux-20111118@schottelius.org>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	=?UT
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111118121832.GA2868@gondor.apana.org.au>
+In-Reply-To: <20111118173921.GB2101@schottelius.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.hengli.com.au>
-Date: Fri, 18 Nov 2011 20:18:32 +0800
+On 11/18/2011 06:39 PM, Nico Schottelius wrote:
+> Nico -telmich- Schottelius [Fri, Nov 18, 2011 at 06:32:42PM +0100]:
+>> Hello,
+>>
+>> new notebook, new problems (*):
+>=20
+> + full dmesg attached.
+>=20
 
-> On Tue, Oct 25, 2011 at 11:12:04PM -0400, David Miller wrote:
->> From: Herbert Xu <herbert@gondor.hengli.com.au>
->> Date: Tue, 25 Oct 2011 13:54:25 +0200
->> 
->> > So I'm going to get rid of LL_ALLOCATED_SPACE completely and
->> > replace it with explicit references to the tailroom as it doesn't
->> > need the alignment anyway (The headroom needs alignment since
->> > we use it to ensure the head is aligned).
->> 
->> Ok.
-> 
-> Here are the patches that do this.  I also picked up one spot
-> that should have used LL_ALLOCATED_SPACE but did not (see 2nd
-> last patch).
+It seems you are running b43 + bcma. Adding Rafa=C5=82 and friends.
 
-This all looks good to me, applied to net-next, thanks!
+Gr. AvS
