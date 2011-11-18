@@ -1,92 +1,66 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next] sky2: fix hang in napi_disable
-Date: Thu, 17 Nov 2011 16:37:35 -0800
-Message-ID: <20111117163735.0a16660b@nehalam.linuxnetplumber.net>
+Subject: [PATCH net-next] sky2: enforce minimum ring size
+Date: Thu, 17 Nov 2011 16:37:23 -0800
+Message-ID: <20111117163723.67964841@nehalam.linuxnetplumber.net>
 References: <20111116234254.319625694@vyatta.com>
- <20111116234344.526517614@vyatta.com>
- <87r517w2z0.fsf@turtle.gmx.de>
+	<20111116234344.813201788@vyatta.com>
+	<874ny2bgqa.fsf@turtle.gmx.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: Sven Joachim <svenjoac@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37764 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:37780 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752088Ab1KRAhi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Nov 2011 19:37:38 -0500
-In-Reply-To: <87r517w2z0.fsf@turtle.gmx.de>
+	id S1755413Ab1KRAhn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Nov 2011 19:37:43 -0500
+In-Reply-To: <874ny2bgqa.fsf@turtle.gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If IRQ was never initialized, then calling napi_disable() would hang.
-Add more bookkeeping to track whether IRQ was ever initialized.
+The hardware has a restriction that the minimum ring size possible
+is 128. The number of elements used is controlled by tx_pending and
+the overall number of elements in the ring tx_ring_size, therefore it
+is okay to limit the number of elements in use to a small value (63)
+but still provide a bigger ring.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/ethernet/marvell/sky2.c	2011-11-17 11:10:35.938076778 -0800
-+++ b/drivers/net/ethernet/marvell/sky2.c	2011-11-17 11:15:49.527882932 -0800
-@@ -1723,6 +1723,8 @@ static int sky2_setup_irq(struct sky2_hw
- 	if (err)
- 		dev_err(&pdev->dev, "cannot assign irq %d\n", pdev->irq);
- 	else {
-+		hw->flags |= SKY2_HW_IRQ_SETUP;
+--- a/drivers/net/ethernet/marvell/sky2.c	2011-11-17 16:25:40.079898621 -0800
++++ b/drivers/net/ethernet/marvell/sky2.c	2011-11-17 16:33:19.088438709 -0800
+@@ -4092,6 +4092,16 @@ static int sky2_set_coalesce(struct net_
+ 	return 0;
+ }
+ 
++/*
++ * Hardware is limited to min of 128 and max of 2048 for ring size
++ * and  rounded up to next power of two
++ * to avoid division in modulus calclation
++ */
++static unsigned long roundup_ring_size(unsigned long pending)
++{
++	return max(128ul, roundup_pow_of_two(pending+1));
++}
 +
- 		napi_enable(&hw->napi);
- 		sky2_write32(hw, B0_IMSK, Y2_IS_BASE);
- 		sky2_read32(hw, B0_IMSK);
-@@ -2120,6 +2122,7 @@ static int sky2_close(struct net_device
- 
- 		napi_disable(&hw->napi);
- 		free_irq(hw->pdev->irq, hw);
-+		hw->flags &= ~SKY2_HW_IRQ_SETUP;
- 	} else {
- 		u32 imask;
- 
-@@ -3423,12 +3426,13 @@ static void sky2_all_down(struct sky2_hw
+ static void sky2_get_ringparam(struct net_device *dev,
+ 			       struct ethtool_ringparam *ering)
  {
- 	int i;
+@@ -4119,7 +4129,7 @@ static int sky2_set_ringparam(struct net
  
--	sky2_read32(hw, B0_IMSK);
--	sky2_write32(hw, B0_IMSK, 0);
-+	if (hw->flags & SKY2_HW_IRQ_SETUP) {
-+		sky2_read32(hw, B0_IMSK);
-+		sky2_write32(hw, B0_IMSK, 0);
+ 	sky2->rx_pending = ering->rx_pending;
+ 	sky2->tx_pending = ering->tx_pending;
+-	sky2->tx_ring_size = roundup_pow_of_two(sky2->tx_pending+1);
++	sky2->tx_ring_size = roundup_ring_size(sky2->tx_pending);
  
--	if (hw->ports > 1 || netif_running(hw->dev[0]))
- 		synchronize_irq(hw->pdev->irq);
--	napi_disable(&hw->napi);
-+		napi_disable(&hw->napi);
-+	}
+ 	return sky2_reattach(dev);
+ }
+@@ -4714,7 +4724,7 @@ static __devinit struct net_device *sky2
+ 	spin_lock_init(&sky2->phy_lock);
  
- 	for (i = 0; i < hw->ports; i++) {
- 		struct net_device *dev = hw->dev[i];
-@@ -3445,7 +3449,7 @@ static void sky2_all_down(struct sky2_hw
+ 	sky2->tx_pending = TX_DEF_PENDING;
+-	sky2->tx_ring_size = roundup_pow_of_two(TX_DEF_PENDING+1);
++	sky2->tx_ring_size = roundup_ring_size(TX_DEF_PENDING);
+ 	sky2->rx_pending = RX_DEF_PENDING;
  
- static void sky2_all_up(struct sky2_hw *hw)
- {
--	u32 imask = 0;
-+	u32 imask = Y2_IS_BASE;
- 	int i;
- 
- 	for (i = 0; i < hw->ports; i++) {
-@@ -3461,8 +3465,7 @@ static void sky2_all_up(struct sky2_hw *
- 		netif_wake_queue(dev);
- 	}
- 
--	if (imask || hw->ports > 1) {
--		imask |= Y2_IS_BASE;
-+	if (hw->flags & SKY2_HW_IRQ_SETUP) {
- 		sky2_write32(hw, B0_IMSK, imask);
- 		sky2_read32(hw, B0_IMSK);
- 		sky2_read32(hw, B0_Y2_SP_LISR);
---- a/drivers/net/ethernet/marvell/sky2.h	2011-11-16 15:15:40.964280527 -0800
-+++ b/drivers/net/ethernet/marvell/sky2.h	2011-11-17 11:13:00.154858718 -0800
-@@ -2287,6 +2287,7 @@ struct sky2_hw {
- #define SKY2_HW_RSS_BROKEN	0x00000100
- #define SKY2_HW_VLAN_BROKEN     0x00000200
- #define SKY2_HW_RSS_CHKSUM	0x00000400	/* RSS requires chksum */
-+#define SKY2_HW_IRQ_SETUP	0x00000800
- 
- 	u8	     	     chip_id;
- 	u8		     chip_rev;
+ 	hw->dev[port] = dev;
