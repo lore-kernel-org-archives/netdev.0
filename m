@@ -1,248 +1,215 @@
-From: Jamie Iles <jamie@jamieiles.com>
-Subject: Re: [PATCH 1/1] net/macb: add DT support
-Date: Fri, 18 Nov 2011 15:58:24 +0000
-Message-ID: <20111118155824.GA9981@totoro>
-References: <1321626565-11261-1-git-send-email-plagnioj@jcrosoft.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Unable to flush ICMP redirect routes in kernel 3.0+
+Date: Fri, 18 Nov 2011 17:02:08 +0100
+Message-ID: <1321632128.3277.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <4EC2CA52.6020104@icdsoft.com>
+	 <1321391355.2602.0.camel@edumazet-laptop> <4EC439F2.3080809@icdsoft.com>
+	 <20111116223330.08de9e52@asterix.rh> <4EC4C160.6010804@icdsoft.com>
+	 <20111117111145.252924f5@asterix.rh>
+	 <1321535747.2751.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1321540820.2751.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111117133724.59684d28@asterix.rh>
+	 <1321547510.2751.66.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111117144038.61b0525b@asterix.rh>
+	 <1321548319.2751.70.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111117150145.25e01a75@asterix.rh>
+	 <1321550302.2751.81.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1321551536.2751.87.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devicetree-discuss@ozlabs.org, netdev@vger.kernel.org,
-	Jamie Iles <jamie@jamieiles.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>
-To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ivan Zahariev <famzah@icdsoft.com>, netdev@vger.kernel.org,
+	Vasiliy Kulikov <segoon@openwall.com>
+To: Flavio Leitner <fbl@redhat.com>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:48111 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753376Ab1KRP6a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 10:58:30 -0500
-Received: by fagn18 with SMTP id n18so4454460fag.19
-        for <netdev@vger.kernel.org>; Fri, 18 Nov 2011 07:58:29 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1321626565-11261-1-git-send-email-plagnioj@jcrosoft.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:35683 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752181Ab1KRQCN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 11:02:13 -0500
+Received: by bke11 with SMTP id 11so3593117bke.19
+        for <netdev@vger.kernel.org>; Fri, 18 Nov 2011 08:02:12 -0800 (PST)
+In-Reply-To: <1321551536.2751.87.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jean-Christophe,
 
-On Fri, Nov 18, 2011 at 03:29:25PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> allow the DT to pass the mac address and the phy mode
-> 
-> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-> Cc: Jamie Iles <jamie@jamieiles.com>
-> Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-This looks OK to me in principle.  I can't easily test this at the 
-moment, but as I don't have a DT platform that has the clk framework up 
-and running.  A couple of nits/questions inline, but thanks for doing 
-this!
+David, unless I missed something, we should revert commit f39925dbde77
+ipv4: Cache learned redirect information in inetpeer.)
 
-Jamie
+With following patch, redirects now work for me.
 
-> ---
->  Documentation/devicetree/bindings/net/macb.txt |   22 ++++++++
->  drivers/net/ethernet/cadence/macb.c            |   65 +++++++++++++++++++++---
->  drivers/net/ethernet/cadence/macb.h            |    2 +
->  3 files changed, 81 insertions(+), 8 deletions(-)
->  create mode 100644 Documentation/devicetree/bindings/net/macb.txt
-> 
-> diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
-> new file mode 100644
-> index 0000000..2b727ec
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/macb.txt
-> @@ -0,0 +1,22 @@
-> +* Cadence EMACB
-> +
-> +Implemeted on Atmel AT91 & AVR32 SoC
+Thanks !
 
-I think something along the lines of "Binding for the Cadence MACB 
-Ethernet controller" rather than listing specific parts might be 
-clearer.
 
-> +
-> +Required properties:
-> +- compatible : Should be "atmel,macb" for Atmel
-> +- reg : Address and length of the register set for the device
-> +- interrupts : Should contain macb interrupt
-> +- phy-mode : String, operation mode of the PHY interface.
-> +  Supported values are: "mii", "rmii",
-> +
-> +Optional properties:
-> +- local-mac-address : 6 bytes, mac address
-> +
-> +Examples:
-> +
-> +	macb0: macb@fffc4000 {
 
-Rob pointed out to me a little while ago that the preferred naming from 
-the ePAPR document would be:
+[PATCH net-next] ipv4: fix redirect handling
 
-	macb0: ethernet@fffc4000
+commit f39925dbde77 (ipv4: Cache learned redirect information in
+inetpeer.) introduced a regression in ICMP redirect handling.
 
-so it might be worth being consistent here.
+It assumed ipv4_dst_check() would be called because all possible routes
+were attached to the inetpeer we modify in ip_rt_redirect(), but thats
+not true.
 
-> +		compatible = "atmel,macb";
+commit 7cc9150ebe (route: fix ICMP redirect validation) tried to fix
+this but solution was not complete. (It fixed only one route)
 
-This should be "cdns,macb" as it isn't Atmel specific.  I believe cdns 
-is the correct stock ticker symbol for Cadence.
+So we must lookup existing routes (including different TOS values) and
+call check_peer_redir() on them.
 
-> +		reg = <oxfffc4000 0x4000>;
-> +		interrupts = <21>;
-> +		phy-mode = "mii";
-> +	};
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index a437b46..2c345bc 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -20,6 +20,9 @@
->  #include <linux/etherdevice.h>
->  #include <linux/dma-mapping.h>
->  #include <linux/platform_device.h>
-> +#include <linux/of.h>
-> +#include <linux/of_device.h>
-> +#include <linux/of_net.h>
->  #include <linux/phy.h>
->  
->  #include <mach/board.h>
-> @@ -81,6 +84,20 @@ static void __init macb_get_hwaddr(struct macb *bp)
->  	addr[4] = top & 0xff;
->  	addr[5] = (top >> 8) & 0xff;
->  
-> +#ifdef CONFIG_OF
-> +	/*
-> +	 * 2) from device tree data
-> +	 */
-> +	if (!is_valid_ether_addr(addr)) {
-> +		struct device_node *np = bp->pdev->dev.of_node;
-> +		if (np) {
-> +			const char *mac = of_get_mac_address(np);
-> +			if (mac)
-> +				memcpy(addr, mac, sizeof(addr));
-> +		}
-> +	}
-> +#endif
+Reported-by: Ivan Zahariev <famzah@icdsoft.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Flavio Leitner <fbl@redhat.com>
+---
+ net/ipv4/route.c |  110 ++++++++++++++++++++++++---------------------
+ 1 file changed, 59 insertions(+), 51 deletions(-)
 
-I'm a bit conflicted here.  I think we should always use the MAC address 
-from the device tree if it is present even if the current MAC address is 
-valid.
-
-> +
->  	if (is_valid_ether_addr(addr)) {
->  		memcpy(bp->dev->dev_addr, addr, sizeof(addr));
->  	} else {
-> @@ -191,7 +208,6 @@ static int macb_mii_probe(struct net_device *dev)
->  {
->  	struct macb *bp = netdev_priv(dev);
->  	struct phy_device *phydev;
-> -	struct eth_platform_data *pdata;
->  	int ret;
->  
->  	phydev = phy_find_first(bp->mii_bus);
-> @@ -200,14 +216,11 @@ static int macb_mii_probe(struct net_device *dev)
->  		return -1;
->  	}
->  
-> -	pdata = bp->pdev->dev.platform_data;
->  	/* TODO : add pin_irq */
->  
->  	/* attach the mac to the phy */
->  	ret = phy_connect_direct(dev, phydev, &macb_handle_link_change, 0,
-> -				 pdata && pdata->is_rmii ?
-> -				 PHY_INTERFACE_MODE_RMII :
-> -				 PHY_INTERFACE_MODE_MII);
-> +				 bp->phy_interface);
->  	if (ret) {
->  		printk(KERN_ERR "%s: Could not attach to PHY\n", dev->name);
->  		return ret;
-> @@ -1117,6 +1130,30 @@ static const struct net_device_ops macb_netdev_ops = {
->  #endif
->  };
->  
-> +#if defined(CONFIG_OF)
-> +static const struct of_device_id macb_dt_ids[] = {
-> +	{ .compatible = "atmel,macb" },
-
-cdns,macb again.
-
-> +	{ /* sentinel */ }
-> +};
-> +
-> +MODULE_DEVICE_TABLE(of, macb_dt_ids);
-> +
-> +static int __devinit macb_get_phy_mode_dt(struct platform_device *pdev)
-> +{
-> +	struct device_node *np = pdev->dev.of_node;
-> +
-> +	if (np)
-> +		return of_get_phy_mode(np);
-> +
-> +	return -ENODEV;
-> +}
-> +#else
-> +static int __devinit macb_get_phy_mode_dt(struct platform_device *pdev)
-> +{
-> +	return -ENODEV;
-> +}
-> +#endif
-> +
->  static int __init macb_probe(struct platform_device *pdev)
->  {
->  	struct eth_platform_data *pdata;
-> @@ -1210,20 +1247,31 @@ static int __init macb_probe(struct platform_device *pdev)
->  	macb_writel(bp, NCFGR, config);
->  
->  	macb_get_hwaddr(bp);
-> -	pdata = pdev->dev.platform_data;
->  
-> -	if (pdata && pdata->is_rmii)
-> +	err = macb_get_phy_mode_dt(pdev);
-> +	if (err < 0) {
-> +		pdata = pdev->dev.platform_data;
-> +		if (pdata && pdata->is_rmii)
-> +			bp->phy_interface = PHY_INTERFACE_MODE_RMII;
-> +		else
-> +			bp->phy_interface = PHY_INTERFACE_MODE_MII;
-> +	} else {
-> +		bp->phy_interface = err;
-> +	}
-> +
-> +	if (bp->phy_interface == PHY_INTERFACE_MODE_RMII) {
->  #if defined(CONFIG_ARCH_AT91)
->  		macb_writel(bp, USRIO, (MACB_BIT(RMII) | MACB_BIT(CLKEN)) );
->  #else
->  		macb_writel(bp, USRIO, 0);
->  #endif
-> -	else
-> +	} else {
->  #if defined(CONFIG_ARCH_AT91)
->  		macb_writel(bp, USRIO, MACB_BIT(CLKEN));
->  #else
->  		macb_writel(bp, USRIO, MACB_BIT(MII));
->  #endif
-> +	}
->  
->  	bp->tx_pending = DEF_TX_RING_PENDING;
->  
-> @@ -1344,6 +1392,7 @@ static struct platform_driver macb_driver = {
->  	.driver		= {
->  		.name		= "macb",
->  		.owner	= THIS_MODULE,
-> +		.of_match_table	= of_match_ptr(macb_dt_ids),
->  	},
->  };
->  
-> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-> index d3212f6..8342744 100644
-> --- a/drivers/net/ethernet/cadence/macb.h
-> +++ b/drivers/net/ethernet/cadence/macb.h
-> @@ -389,6 +389,8 @@ struct macb {
->  	unsigned int 		link;
->  	unsigned int 		speed;
->  	unsigned int 		duplex;
-> +
-> +	phy_interface_t		phy_interface;
->  };
->  
->  #endif /* _MACB_H */
-> -- 
-> 1.7.7
-> 
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 511f4a7..0c74da8 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1304,16 +1304,42 @@ static void rt_del(unsigned hash, struct rtable *rt)
+ 	spin_unlock_bh(rt_hash_lock_addr(hash));
+ }
+ 
++static int check_peer_redir(struct dst_entry *dst, struct inet_peer *peer)
++{
++	struct rtable *rt = (struct rtable *) dst;
++	__be32 orig_gw = rt->rt_gateway;
++	struct neighbour *n, *old_n;
++
++	dst_confirm(&rt->dst);
++
++	rt->rt_gateway = peer->redirect_learned.a4;
++
++	n = ipv4_neigh_lookup(&rt->dst, &rt->rt_gateway);
++	if (IS_ERR(n))
++		return PTR_ERR(n);
++	old_n = xchg(&rt->dst._neighbour, n);
++	if (old_n)
++		neigh_release(old_n);
++	if (!n || !(n->nud_state & NUD_VALID)) {
++		if (n)
++			neigh_event_send(n, NULL);
++		rt->rt_gateway = orig_gw;
++		return -EAGAIN;
++	} else {
++		rt->rt_flags |= RTCF_REDIRECTED;
++		call_netevent_notifiers(NETEVENT_NEIGH_UPDATE, n);
++	}
++	return 0;
++}
++
+ /* called in rcu_read_lock() section */
+ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
+ 		    __be32 saddr, struct net_device *dev)
+ {
+ 	int s, i;
+ 	struct in_device *in_dev = __in_dev_get_rcu(dev);
+-	struct rtable *rt;
+ 	__be32 skeys[2] = { saddr, 0 };
+ 	int    ikeys[2] = { dev->ifindex, 0 };
+-	struct flowi4 fl4;
+ 	struct inet_peer *peer;
+ 	struct net *net;
+ 
+@@ -1336,33 +1362,42 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
+ 			goto reject_redirect;
+ 	}
+ 
+-	memset(&fl4, 0, sizeof(fl4));
+-	fl4.daddr = daddr;
+ 	for (s = 0; s < 2; s++) {
+ 		for (i = 0; i < 2; i++) {
+-			fl4.flowi4_oif = ikeys[i];
+-			fl4.saddr = skeys[s];
+-			rt = __ip_route_output_key(net, &fl4);
+-			if (IS_ERR(rt))
+-				continue;
+-
+-			if (rt->dst.error || rt->dst.dev != dev ||
+-			    rt->rt_gateway != old_gw) {
+-				ip_rt_put(rt);
+-				continue;
+-			}
++			unsigned int hash;
++			struct rtable __rcu **rthp;
++			struct rtable *rt;
++
++			hash = rt_hash(daddr, skeys[s], ikeys[i], rt_genid(net));
++
++			rthp = &rt_hash_table[hash].chain;
++
++			while ((rt = rcu_dereference(*rthp)) != NULL) {
++				rthp = &rt->dst.rt_next;
++
++				if (rt->rt_key_dst != daddr ||
++				    rt->rt_key_src != skeys[s] ||
++				    rt->rt_oif != ikeys[i] ||
++				    rt_is_input_route(rt) ||
++				    rt_is_expired(rt) ||
++				    !net_eq(dev_net(rt->dst.dev), net) ||
++				    rt->dst.error ||
++				    rt->dst.dev != dev ||
++				    rt->rt_gateway != old_gw)
++					continue;
+ 
+-			if (!rt->peer)
+-				rt_bind_peer(rt, rt->rt_dst, 1);
++				if (!rt->peer)
++					rt_bind_peer(rt, rt->rt_dst, 1);
+ 
+-			peer = rt->peer;
+-			if (peer) {
+-				peer->redirect_learned.a4 = new_gw;
+-				atomic_inc(&__rt_peer_genid);
++				peer = rt->peer;
++				if (peer) {
++					if (peer->redirect_learned.a4 != new_gw) {
++						peer->redirect_learned.a4 = new_gw;
++						atomic_inc(&__rt_peer_genid);
++					}
++					check_peer_redir(&rt->dst, peer);
++				}
+ 			}
+-
+-			ip_rt_put(rt);
+-			return;
+ 		}
+ 	}
+ 	return;
+@@ -1649,33 +1684,6 @@ static void ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu)
+ 	}
+ }
+ 
+-static int check_peer_redir(struct dst_entry *dst, struct inet_peer *peer)
+-{
+-	struct rtable *rt = (struct rtable *) dst;
+-	__be32 orig_gw = rt->rt_gateway;
+-	struct neighbour *n, *old_n;
+-
+-	dst_confirm(&rt->dst);
+-
+-	rt->rt_gateway = peer->redirect_learned.a4;
+-
+-	n = ipv4_neigh_lookup(&rt->dst, &rt->rt_gateway);
+-	if (IS_ERR(n))
+-		return PTR_ERR(n);
+-	old_n = xchg(&rt->dst._neighbour, n);
+-	if (old_n)
+-		neigh_release(old_n);
+-	if (!n || !(n->nud_state & NUD_VALID)) {
+-		if (n)
+-			neigh_event_send(n, NULL);
+-		rt->rt_gateway = orig_gw;
+-		return -EAGAIN;
+-	} else {
+-		rt->rt_flags |= RTCF_REDIRECTED;
+-		call_netevent_notifiers(NETEVENT_NEIGH_UPDATE, n);
+-	}
+-	return 0;
+-}
+ 
+ static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
+ {
