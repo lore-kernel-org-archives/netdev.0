@@ -1,109 +1,48 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] Don't allow sharing of tx skbs on xen-netfront
-Date: Fri, 18 Nov 2011 11:53:09 +0000
-Message-ID: <1321617190.3664.338.camel@zakaz.uk.xensource.com>
-References: <1321298544-16434-1-git-send-email-nhorman@tuxdriver.com>
-	 <1321543238.3664.278.camel@zakaz.uk.xensource.com>
-	 <20111117192535.GB26847@hmsreliant.think-freely.org>
-	 <1321561021.8866.12.camel@dagon.hellion.org.uk>
-	 <20111117204553.GD26847@hmsreliant.think-freely.org>
-	 <1321612213.3664.293.camel@zakaz.uk.xensource.com>
-	 <20111118114839.GA7907@hmsreliant.think-freely.org>
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
+Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+Date: Fri, 18 Nov 2011 13:02:01 +0100
+Message-ID: <20111118120201.GA1642@x4.trippels.de>
+References: <20111118072519.GA1615@x4.trippels.de>
+ <20111118075521.GB1615@x4.trippels.de>
+ <1321605837.30341.551.camel@debian>
+ <20111118085436.GC1615@x4.trippels.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jeremy Fitzhardinge <Jeremy.Fitzhardinge@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:51724 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753861Ab1KRLxL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 06:53:11 -0500
-In-Reply-To: <20111118114839.GA7907@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "Alex,Shi" <alex.shi@intel.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20111118085436.GC1615@x4.trippels.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-11-18 at 11:48 +0000, Neil Horman wrote:
-> On Fri, Nov 18, 2011 at 10:30:13AM +0000, Ian Campbell wrote:
-> > On Thu, 2011-11-17 at 20:45 +0000, Neil Horman wrote:
-> > > On Thu, Nov 17, 2011 at 08:17:01PM +0000, Ian Campbell wrote:
-> > > > On Thu, 2011-11-17 at 19:25 +0000, Neil Horman wrote:
-> > > > > On Thu, Nov 17, 2011 at 03:20:38PM +0000, Ian Campbell wrote:
-> > > > > > On Mon, 2011-11-14 at 14:22 -0500, Neil Horman wrote:
-> > > > > > > It was pointed out to me recently that the xen-netfront driver can't safely
-> > > > > > > support shared skbs on transmit, since, while it doesn't maintain skb state
-> > > > > > > directly, it does pass a pointer to the skb to the hypervisor via a list, and
-> > > > > > > the hypervisor may expect the contents of the skb to remain stable.  Clearing
-> > > > > > > the IFF_TX_SKB_SHARING flag after the call to alloc_etherdev to make it safe.
-> > > > > > 
-> > > > > > What are the actual constraints here? The skb is used as a handle to the
-> > > > > > skb->data and shinfo (frags) and to complete at the end. It's actually
-> > > > > > those which are passed to the hypervisor (effectively the same as
-> > > > > > passing those addresses to the h/w for DMA).
-> > > > > > 
-> > > > > > Which parts of the skb are expected/allowed to not remain stable?
-> > > > > > 
-> > > > > > (Appologies if the above seems naive, I seem to have missed the
-> > > > > > introduction of shared tx skbs and IFF_TX_SKB_SHARING)
-> > > > > > 
-> > > > > Its ok, this is the most accurate description from the previous threads on the
-> > > > > subject:
-> > > > > 2
-> > > > > 
-> > > > > The basic problem boils down the notion that some drivers, when they receive an
-> > > > > skb in their xmit paths, presume to have sole ownership of the skb, and as a
-> > > > > result may do things like add the skb to a list, or otherwise store stateful
-> > > > > data in the skb.  If the skb is shared, thats unsafe to do, as the stack still
-> > > > > holds a reference to the skb, and make make changes without serializing them
-> > > > > against the driver.  So we have to flag those drivers which preform these kinds
-> > > > > of actions.  xen-netfront doesn't strictly speaking modify any state directly ni
-> > > > > an skb, but it does place a pointer to the skb in a data structure here:
-> > > > > 
-> > > > > np->tx_skbs[id].skb = skb;
-> > > > > 
-> > > > > Which then gets handed off to the hypervisior.  Since the hypervisor now has
-> > > > > access to that skb pointer, and we can't be sure (from the guest perspective),
-> > > > > what it does with that information, it would be better to be safe by disallowing
-> > > > > shared skbs in this path.
+On 2011.11.18 at 09:54 +0100, Markus Trippelsdorf wrote:
+> On 2011.11.18 at 16:43 +0800, Alex,Shi wrote:
 > > > > 
-> > > > The skb pointer itself doesn't get given to the backend/hypervisor. The
-> > > > page which skb->data refers to is granted to the backend domain, as are
-> > > > the pages in the frags.
-> > > > 
-> > > > I think we only need to be sure that the frontend doesn't rely on
-> > > > anything in the skb itself, right? Does skb->data or shinfo count from
-> > > > that perspective?
-> > > shinfo is definately a problem, as other devices may make modifications to it.
-> > > skb->data is probably safer, but is also potentially suspect (for instance if
-> > > another device appends an additional header to the data for instance)
+> > > > The dirty flag comes from a bunch of unrelated xfs patches from Christoph, that
+> > > > I'm testing right now.
 > > 
-> > A device is allowed to rely on these things being stable while in its
-> > start_xmit, right? (otherwise I don't see how any device can ever
-> > cope...).
-> > 
-> While the start_xmit routine is executing, yes.  Its only after the driver
-> returns, that it can have no expectation of an skb's data to remain stable.
-> 
-> > netfront only uses shinfo and ->data during start_xmit in order to
-> > create the necessary grant reference (which can be thought of as a DMA
-> > address passed to the virtual hardware). The only use of the stashed skb
-> > pointer outside of this are to dev_kfree_skb on tx completion (from
-> > either tx_buf_gc (normal completion) or release_tx_buf ("hardware"
-> > reset).
-> > 
-> Ok, if you're certain you can guarantee that the hypervisior makes no inspection
-> of the skb after the return from the driver, then you're safe
+> > Where is the xfs patchset? I am wondering if it is due to slub code. 
 
-I believe this is the case, all that is exposed to the backend is the
-pfn, offset and length of the skb->data and frags at the time start_xmit
-was called.
+I begin to wonder if this might be the result of a compiler bug. 
+The kernel in question was compiled with gcc version 4.7.0 20111117. And
+there was commit to the gcc repository today that looks suspicious:
+http://gcc.gnu.org/viewcvs?view=revision&revision=181466
 
-> Neil
-> 
-> > Ian.
-> > 
-> > 
+Will have to dig deeper, but if this turns out to be the cause of the
+issue, I apologize for the noise.
+
+-- 
+Markus
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
