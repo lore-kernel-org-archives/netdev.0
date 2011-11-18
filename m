@@ -1,91 +1,223 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] Don't allow sharing of tx skbs on xen-netfront
-Date: Fri, 18 Nov 2011 10:30:13 +0000
-Message-ID: <1321612213.3664.293.camel@zakaz.uk.xensource.com>
-References: <1321298544-16434-1-git-send-email-nhorman@tuxdriver.com>
-	 <1321543238.3664.278.camel@zakaz.uk.xensource.com>
-	 <20111117192535.GB26847@hmsreliant.think-freely.org>
-	 <1321561021.8866.12.camel@dagon.hellion.org.uk>
-	 <20111117204553.GD26847@hmsreliant.think-freely.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jeremy Fitzhardinge <Jeremy.Fitzhardinge@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
-To: Neil Horman <nhorman@tuxdriver.com>
+From: Hemant Vilas RAMDASI <hemant.ramdasi@stericsson.com>
+Subject: [PATCH v8] Phonet: set the pipe handle using setsockopt
+Date: Fri, 18 Nov 2011 16:52:05 +0530
+Message-ID: <1321615325-2025-1-git-send-email-hemant.ramdasi@stericsson.com>
+Cc: netdev@vger.kernel.org, remi.denis-courmont@nokia.com,
+	Dinesh Kumar Sharma <dinesh.sharma@stericsson.com>,
+	Hemant Ramdasi <hemant.ramdasi@stericsson.com>
+To: netdev-owner@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:14915 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752536Ab1KRKaP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 05:30:15 -0500
-In-Reply-To: <20111117204553.GD26847@hmsreliant.think-freely.org>
+Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:58802 "EHLO
+	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752206Ab1KRLW2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 06:22:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-11-17 at 20:45 +0000, Neil Horman wrote:
-> On Thu, Nov 17, 2011 at 08:17:01PM +0000, Ian Campbell wrote:
-> > On Thu, 2011-11-17 at 19:25 +0000, Neil Horman wrote:
-> > > On Thu, Nov 17, 2011 at 03:20:38PM +0000, Ian Campbell wrote:
-> > > > On Mon, 2011-11-14 at 14:22 -0500, Neil Horman wrote:
-> > > > > It was pointed out to me recently that the xen-netfront driver can't safely
-> > > > > support shared skbs on transmit, since, while it doesn't maintain skb state
-> > > > > directly, it does pass a pointer to the skb to the hypervisor via a list, and
-> > > > > the hypervisor may expect the contents of the skb to remain stable.  Clearing
-> > > > > the IFF_TX_SKB_SHARING flag after the call to alloc_etherdev to make it safe.
-> > > > 
-> > > > What are the actual constraints here? The skb is used as a handle to the
-> > > > skb->data and shinfo (frags) and to complete at the end. It's actually
-> > > > those which are passed to the hypervisor (effectively the same as
-> > > > passing those addresses to the h/w for DMA).
-> > > > 
-> > > > Which parts of the skb are expected/allowed to not remain stable?
-> > > > 
-> > > > (Appologies if the above seems naive, I seem to have missed the
-> > > > introduction of shared tx skbs and IFF_TX_SKB_SHARING)
-> > > > 
-> > > Its ok, this is the most accurate description from the previous threads on the
-> > > subject:
-> > > 2
-> > > 
-> > > The basic problem boils down the notion that some drivers, when they receive an
-> > > skb in their xmit paths, presume to have sole ownership of the skb, and as a
-> > > result may do things like add the skb to a list, or otherwise store stateful
-> > > data in the skb.  If the skb is shared, thats unsafe to do, as the stack still
-> > > holds a reference to the skb, and make make changes without serializing them
-> > > against the driver.  So we have to flag those drivers which preform these kinds
-> > > of actions.  xen-netfront doesn't strictly speaking modify any state directly ni
-> > > an skb, but it does place a pointer to the skb in a data structure here:
-> > > 
-> > > np->tx_skbs[id].skb = skb;
-> > > 
-> > > Which then gets handed off to the hypervisior.  Since the hypervisor now has
-> > > access to that skb pointer, and we can't be sure (from the guest perspective),
-> > > what it does with that information, it would be better to be safe by disallowing
-> > > shared skbs in this path.
-> > 
-> > The skb pointer itself doesn't get given to the backend/hypervisor. The
-> > page which skb->data refers to is granted to the backend domain, as are
-> > the pages in the frags.
-> > 
-> > I think we only need to be sure that the frontend doesn't rely on
-> > anything in the skb itself, right? Does skb->data or shinfo count from
-> > that perspective?
-> shinfo is definately a problem, as other devices may make modifications to it.
-> skb->data is probably safer, but is also potentially suspect (for instance if
-> another device appends an additional header to the data for instance)
+From: Dinesh Kumar Sharma <dinesh.sharma@stericsson.com>
 
-A device is allowed to rely on these things being stable while in its
-start_xmit, right? (otherwise I don't see how any device can ever
-cope...).
+This provides flexibility to set the pipe handle
+using setsockopt. The pipe can be enabled (if disabled) later
+using ioctl.
 
-netfront only uses shinfo and ->data during start_xmit in order to
-create the necessary grant reference (which can be thought of as a DMA
-address passed to the virtual hardware). The only use of the stashed skb
-pointer outside of this are to dev_kfree_skb on tx completion (from
-either tx_buf_gc (normal completion) or release_tx_buf ("hardware"
-reset).
+Signed-off-by: Hemant Ramdasi <hemant.ramdasi@stericsson.com>
+Signed-off-by: Dinesh Kumar Sharma <dinesh.sharma@stericsson.com>
+---
+ include/linux/phonet.h |    2 +
+ net/phonet/pep.c       |  106 +++++++++++++++++++++++++++++++++++++++++++-----
+ 2 files changed, 97 insertions(+), 11 deletions(-)
 
-Ian.
+diff --git a/include/linux/phonet.h b/include/linux/phonet.h
+index 6fb1384..1847ef9 100644
+--- a/include/linux/phonet.h
++++ b/include/linux/phonet.h
+@@ -37,6 +37,7 @@
+ #define PNPIPE_ENCAP		1
+ #define PNPIPE_IFINDEX		2
+ #define PNPIPE_HANDLE		3
++#define PNPIPE_INITSTATE	4
+ 
+ #define PNADDR_ANY		0
+ #define PNADDR_BROADCAST	0xFC
+@@ -48,6 +49,7 @@
+ 
+ /* ioctls */
+ #define SIOCPNGETOBJECT		(SIOCPROTOPRIVATE + 0)
++#define SIOCPNENABLEPIPE	(SIOCPROTOPRIVATE + 13)
+ #define SIOCPNADDRESOURCE	(SIOCPROTOPRIVATE + 14)
+ #define SIOCPNDELRESOURCE	(SIOCPROTOPRIVATE + 15)
+ 
+diff --git a/net/phonet/pep.c b/net/phonet/pep.c
+index f17fd84..1ad2892 100644
+--- a/net/phonet/pep.c
++++ b/net/phonet/pep.c
+@@ -533,6 +533,29 @@ static int pep_connresp_rcv(struct sock *sk, struct sk_buff *skb)
+ 	return pipe_handler_send_created_ind(sk);
+ }
+ 
++static int pep_enableresp_rcv(struct sock *sk, struct sk_buff *skb)
++{
++	struct pnpipehdr *hdr = pnp_hdr(skb);
++
++	if (hdr->error_code != PN_PIPE_NO_ERROR)
++		return -ECONNREFUSED;
++
++	return pep_indicate(sk, PNS_PIPE_ENABLED_IND, 0 /* sub-blocks */,
++		NULL, 0, GFP_ATOMIC);
++
++}
++
++static void pipe_start_flow_control(struct sock *sk)
++{
++	struct pep_sock *pn = pep_sk(sk);
++
++	if (!pn_flow_safe(pn->tx_fc)) {
++		atomic_set(&pn->tx_credits, 1);
++		sk->sk_write_space(sk);
++	}
++	pipe_grant_credits(sk, GFP_ATOMIC);
++}
++
+ /* Queue an skb to an actively connected sock.
+  * Socket lock must be held. */
+ static int pipe_handler_do_rcv(struct sock *sk, struct sk_buff *skb)
+@@ -578,13 +601,25 @@ static int pipe_handler_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 			sk->sk_state = TCP_CLOSE_WAIT;
+ 			break;
+ 		}
++		if (pn->init_enable == PN_PIPE_DISABLE)
++			sk->sk_state = TCP_SYN_RECV;
++		else {
++			sk->sk_state = TCP_ESTABLISHED;
++			pipe_start_flow_control(sk);
++		}
++		break;
+ 
+-		sk->sk_state = TCP_ESTABLISHED;
+-		if (!pn_flow_safe(pn->tx_fc)) {
+-			atomic_set(&pn->tx_credits, 1);
+-			sk->sk_write_space(sk);
++	case PNS_PEP_ENABLE_RESP:
++		if (sk->sk_state != TCP_SYN_SENT)
++			break;
++
++		if (pep_enableresp_rcv(sk, skb)) {
++			sk->sk_state = TCP_CLOSE_WAIT;
++			break;
+ 		}
+-		pipe_grant_credits(sk, GFP_ATOMIC);
++
++		sk->sk_state = TCP_ESTABLISHED;
++		pipe_start_flow_control(sk);
+ 		break;
+ 
+ 	case PNS_PEP_DISCONNECT_RESP:
+@@ -863,14 +898,32 @@ static int pep_sock_connect(struct sock *sk, struct sockaddr *addr, int len)
+ 	int err;
+ 	u8 data[4] = { 0 /* sub-blocks */, PAD, PAD, PAD };
+ 
+-	pn->pipe_handle = 1; /* anything but INVALID_HANDLE */
++	if (pn->pipe_handle == PN_PIPE_INVALID_HANDLE)
++		pn->pipe_handle = 1; /* anything but INVALID_HANDLE */
++
+ 	err = pipe_handler_request(sk, PNS_PEP_CONNECT_REQ,
+-					PN_PIPE_ENABLE, data, 4);
++				pn->init_enable, data, 4);
+ 	if (err) {
+ 		pn->pipe_handle = PN_PIPE_INVALID_HANDLE;
+ 		return err;
+ 	}
++
+ 	sk->sk_state = TCP_SYN_SENT;
++
++	return 0;
++}
++
++static int pep_sock_enable(struct sock *sk, struct sockaddr *addr, int len)
++{
++	int err;
++
++	err = pipe_handler_request(sk, PNS_PEP_ENABLE_REQ, PAD,
++				NULL, 0);
++	if (err)
++		return err;
++
++	sk->sk_state = TCP_SYN_SENT;
++
+ 	return 0;
+ }
+ 
+@@ -878,11 +931,14 @@ static int pep_ioctl(struct sock *sk, int cmd, unsigned long arg)
+ {
+ 	struct pep_sock *pn = pep_sk(sk);
+ 	int answ;
++	int ret = -ENOIOCTLCMD;
+ 
+ 	switch (cmd) {
+ 	case SIOCINQ:
+-		if (sk->sk_state == TCP_LISTEN)
+-			return -EINVAL;
++		if (sk->sk_state == TCP_LISTEN) {
++			ret = -EINVAL;
++			break;
++		}
+ 
+ 		lock_sock(sk);
+ 		if (sock_flag(sk, SOCK_URGINLINE) &&
+@@ -893,10 +949,22 @@ static int pep_ioctl(struct sock *sk, int cmd, unsigned long arg)
+ 		else
+ 			answ = 0;
+ 		release_sock(sk);
+-		return put_user(answ, (int __user *)arg);
++		ret = put_user(answ, (int __user *)arg);
++		break;
++
++	case SIOCPNENABLEPIPE:
++		lock_sock(sk);
++		if (sk->sk_state == TCP_SYN_SENT)
++			ret =  -EBUSY;
++		else if (sk->sk_state == TCP_ESTABLISHED)
++			ret = -EISCONN;
++		else
++			ret = pep_sock_enable(sk, NULL, 0);
++		release_sock(sk);
++		break;
+ 	}
+ 
+-	return -ENOIOCTLCMD;
++	return ret;
+ }
+ 
+ static int pep_init(struct sock *sk)
+@@ -959,6 +1027,18 @@ static int pep_setsockopt(struct sock *sk, int level, int optname,
+ 		}
+ 		goto out_norel;
+ 
++	case PNPIPE_HANDLE:
++		if ((sk->sk_state == TCP_CLOSE) &&
++			(val >= 0) && (val < PN_PIPE_INVALID_HANDLE))
++			pn->pipe_handle = val;
++		else
++			err = -EINVAL;
++		break;
++
++	case PNPIPE_INITSTATE:
++		pn->init_enable = !!val;
++		break;
++
+ 	default:
+ 		err = -ENOPROTOOPT;
+ 	}
+@@ -994,6 +1074,10 @@ static int pep_getsockopt(struct sock *sk, int level, int optname,
+ 			return -EINVAL;
+ 		break;
+ 
++	case PNPIPE_INITSTATE:
++		val = pn->init_enable;
++		break;
++
+ 	default:
+ 		return -ENOPROTOOPT;
+ 	}
+-- 
+1.7.4.3
