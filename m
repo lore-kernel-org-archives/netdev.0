@@ -1,133 +1,91 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [RFC] The Linux kernel IPv6 stack don't follow the RFC 4942 recommendation
-Date: Fri, 18 Nov 2011 11:15:23 +0100
-Message-ID: <87sjll7n44.fsf@nemi.mork.no>
-References: <1320417988.69298.YahooMailNeo@web126013.mail.ne1.yahoo.com>
-	<1320423860.16609.4.camel@edumazet-laptop>
-	<1320482392.98040.YahooMailNeo@web126003.mail.ne1.yahoo.com>
-	<1320484852.16908.0.camel@edumazet-laptop>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH] Don't allow sharing of tx skbs on xen-netfront
+Date: Fri, 18 Nov 2011 10:30:13 +0000
+Message-ID: <1321612213.3664.293.camel@zakaz.uk.xensource.com>
+References: <1321298544-16434-1-git-send-email-nhorman@tuxdriver.com>
+	 <1321543238.3664.278.camel@zakaz.uk.xensource.com>
+	 <20111117192535.GB26847@hmsreliant.think-freely.org>
+	 <1321561021.8866.12.camel@dagon.hellion.org.uk>
+	 <20111117204553.GD26847@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?utf-8?Q?Fran=C3=A7ois-Xavier?= Le Bail <fx.lebail@yahoo.com>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jeremy Fitzhardinge <Jeremy.Fitzhardinge@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:34718 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752435Ab1KRKWW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 05:22:22 -0500
-In-Reply-To: <1320484852.16908.0.camel@edumazet-laptop> (Eric Dumazet's
-	message of "Sat, 05 Nov 2011 10:20:52 +0100")
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:14915 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752536Ab1KRKaP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 05:30:15 -0500
+In-Reply-To: <20111117204553.GD26847@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
-> Le samedi 05 novembre 2011 =C3=A0 01:39 -0700, Fran=C3=A7ois-Xavier L=
-e Bail a
-> =C3=A9crit :
->
->> Agreed, but remain the case of ICMPv6 echo request/reply, which I th=
-ink is in kernel.
->
-> Yes, please describe your setup and how to reproduce the problem.
+On Thu, 2011-11-17 at 20:45 +0000, Neil Horman wrote:
+> On Thu, Nov 17, 2011 at 08:17:01PM +0000, Ian Campbell wrote:
+> > On Thu, 2011-11-17 at 19:25 +0000, Neil Horman wrote:
+> > > On Thu, Nov 17, 2011 at 03:20:38PM +0000, Ian Campbell wrote:
+> > > > On Mon, 2011-11-14 at 14:22 -0500, Neil Horman wrote:
+> > > > > It was pointed out to me recently that the xen-netfront driver can't safely
+> > > > > support shared skbs on transmit, since, while it doesn't maintain skb state
+> > > > > directly, it does pass a pointer to the skb to the hypervisor via a list, and
+> > > > > the hypervisor may expect the contents of the skb to remain stable.  Clearing
+> > > > > the IFF_TX_SKB_SHARING flag after the call to alloc_etherdev to make it safe.
+> > > > 
+> > > > What are the actual constraints here? The skb is used as a handle to the
+> > > > skb->data and shinfo (frags) and to complete at the end. It's actually
+> > > > those which are passed to the hypervisor (effectively the same as
+> > > > passing those addresses to the h/w for DMA).
+> > > > 
+> > > > Which parts of the skb are expected/allowed to not remain stable?
+> > > > 
+> > > > (Appologies if the above seems naive, I seem to have missed the
+> > > > introduction of shared tx skbs and IFF_TX_SKB_SHARING)
+> > > > 
+> > > Its ok, this is the most accurate description from the previous threads on the
+> > > subject:
+> > > 2
+> > > 
+> > > The basic problem boils down the notion that some drivers, when they receive an
+> > > skb in their xmit paths, presume to have sole ownership of the skb, and as a
+> > > result may do things like add the skb to a list, or otherwise store stateful
+> > > data in the skb.  If the skb is shared, thats unsafe to do, as the stack still
+> > > holds a reference to the skb, and make make changes without serializing them
+> > > against the driver.  So we have to flag those drivers which preform these kinds
+> > > of actions.  xen-netfront doesn't strictly speaking modify any state directly ni
+> > > an skb, but it does place a pointer to the skb in a data structure here:
+> > > 
+> > > np->tx_skbs[id].skb = skb;
+> > > 
+> > > Which then gets handed off to the hypervisior.  Since the hypervisor now has
+> > > access to that skb pointer, and we can't be sure (from the guest perspective),
+> > > what it does with that information, it would be better to be safe by disallowing
+> > > shared skbs in this path.
+> > 
+> > The skb pointer itself doesn't get given to the backend/hypervisor. The
+> > page which skb->data refers to is granted to the backend domain, as are
+> > the pages in the frags.
+> > 
+> > I think we only need to be sure that the frontend doesn't rely on
+> > anything in the skb itself, right? Does skb->data or shinfo count from
+> > that perspective?
+> shinfo is definately a problem, as other devices may make modifications to it.
+> skb->data is probably safer, but is also potentially suspect (for instance if
+> another device appends an additional header to the data for instance)
 
-I agree with Fran=C3=A7ois-Xavier that the current behaviour is confusi=
-ng. An
-anycast address should really not be treated different from any other
-global unicast address by the kernel.
+A device is allowed to rely on these things being stable while in its
+start_xmit, right? (otherwise I don't see how any device can ever
+cope...).
 
+netfront only uses shinfo and ->data during start_xmit in order to
+create the necessary grant reference (which can be thought of as a DMA
+address passed to the virtual hardware). The only use of the stashed skb
+pointer outside of this are to dev_kfree_skb on tx completion (from
+either tx_buf_gc (normal completion) or release_tx_buf ("hardware"
+reset).
 
-1) The router anycast address does not show up in the list of local
-   addresses:
-
-router:~$ ip -6 addr show dev br0.666
-15: br0.666@br0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500=20
-    inet6 2001:db8:9:29a::1/64 scope global=20
-       valid_lft forever preferred_lft forever
-    inet6 fe80::215:17ff:fe1e:5e35/64 scope link=20
-       valid_lft forever preferred_lft forever
-
-
-
-2) pinging the anycast address will produce a reply from another
-address:=20
-
-frtest1:~# ping6 -n -c1 2001:db8:9:29a:: =20
-PING 2001:db8:9:29a::(2001:db8:9:29a::) 56 data bytes
-64 bytes from 2001:db8:9:29a::1: icmp_seq=3D1 ttl=3D64 time=3D0.275 ms
-
---- 2001:db8:9:29a:: ping statistics ---
-1 packets transmitted, 1 received, 0% packet loss, time 0ms
-rtt min/avg/max/mdev =3D 0.275/0.275/0.275/0.000 ms
-frtest1:~# ping6 -n -c1 2001:db8:9:29a::1 =20
-PING 2001:db8:9:29a::1(2001:db8:9:29a::1) 56 data bytes
-64 bytes from 2001:db8:9:29a::1: icmp_seq=3D1 ttl=3D64 time=3D0.229 ms
-
---- 2001:db8:9:29a::1 ping statistics ---
-1 packets transmitted, 1 received, 0% packet loss, time 0ms
-rtt min/avg/max/mdev =3D 0.229/0.229/0.229/0.000 ms
-
-
-
-3) the previous issue will become even more obviously buggy if we add a
-second address to the router, in the same subnet while pinging the
-anycast address.  Here I'm doing=20
-
-  router:/tmp# ip addr add 2001:db8:9:29a::5/64 dev br0.666
-
-on the router while I'm pinging the anycast address from a another host=
-:
-
-
-frtest1:~# ping6 -n  2001:db8:9:29a:: =20
-PING 2001:db8:9:29a::(2001:db8:9:29a::) 56 data bytes
-64 bytes from 2001:db8:9:29a::1: icmp_seq=3D1 ttl=3D64 time=3D330 ms
-64 bytes from 2001:db8:9:29a::1: icmp_seq=3D2 ttl=3D64 time=3D0.268 ms
-64 bytes from 2001:db8:9:29a::1: icmp_seq=3D3 ttl=3D64 time=3D0.234 ms
-64 bytes from 2001:db8:9:29a::5: icmp_seq=3D4 ttl=3D64 time=3D0.232 ms
-64 bytes from 2001:db8:9:29a::5: icmp_seq=3D5 ttl=3D64 time=3D0.298 ms
-64 bytes from 2001:db8:9:29a::5: icmp_seq=3D6 ttl=3D64 time=3D0.279 ms
-
-
-Now, THAT doesn't look good, does it?
-
-
-4) just to add to issue 2.  After adding the second address on the
-router, we have 3 global unicast addresses in the same subnet. You woul=
-d
-then expect the kernel to either use the destionation address of the
-incoming requests as source, or always select the same address as
-source.
-
-It does neither.  This is inconsistent, unless you treat the router
-anycast address as something special.  Which you should not:
-
-
-frtest1:~# ping-n -c1 2001:db8:9:29a:: =20
-PING 2001:db8:9:29a::(2001:db8:9:29a::) 56 data bytes
-64 bytes from 2001:db8:9:29a::5: icmp_seq=3D1 ttl=3D64 time=3D337 ms
-
---- 2001:db8:9:29a:: ping statistics ---
-1 packets transmitted, 1 received, 0% packet loss, time 0ms
-rtt min/avg/max/mdev =3D 337.251/337.251/337.251/0.000 ms
-frtest1:~# ping6 -n -c1 2001:db8:9:29a::1 =20
-PING 2001:db8:9:29a::1(2001:db8:9:29a::1) 56 data bytes
-64 bytes from 2001:db8:9:29a::1: icmp_seq=3D1 ttl=3D64 time=3D0.163 ms
-
---- 2001:db8:9:29a::1 ping statistics ---
-1 packets transmitted, 1 received, 0% packet loss, time 0ms
-rtt min/avg/max/mdev =3D 0.163/0.163/0.163/0.000 ms
-frtest1:~# ping6 -n -c1 2001:db8:9:29a::5=20
-PING 2001:db8:9:29a::5(2001:db8:9:29a::5) 56 data bytes
-64 bytes from 2001:db8:9:29a::5: icmp_seq=3D1 ttl=3D64 time=3D3.87 ms
-
---- 2001:db8:9:29a::5 ping statistics ---
-1 packets transmitted, 1 received, 0% packet loss, time 0ms
-rtt min/avg/max/mdev =3D 3.873/3.873/3.873/0.000 ms
-
-
-
-
-
-Bj=C3=B8rn
+Ian.
