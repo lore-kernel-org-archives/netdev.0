@@ -1,37 +1,30 @@
-From: Junchang Wang <junchangwang@gmail.com>
-Subject: Re: [PATCH net-next] r8169: Add 64bit statistics
-Date: Fri, 18 Nov 2011 10:24:56 +0800
-Message-ID: <CABoNC816GL4vqbHSR8BYrOFFuL_ZSqxS1xqmG02uwpKkwKNJDQ@mail.gmail.com>
-References: <20111117064826.GA4429@Desktop-Junchang>
-	<20111117093635.GA9112@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] sky2: fix hang in napi_disable
+Date: Thu, 17 Nov 2011 21:44:13 -0500 (EST)
+Message-ID: <20111117.214413.2080865348826584405.davem@davemloft.net>
+References: <20111116234344.526517614@vyatta.com>
+	<87r517w2z0.fsf@turtle.gmx.de>
+	<20111117163735.0a16660b@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: nic_swsd@realtek.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: svenjoac@gmx.de, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:51891 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755605Ab1KRCY5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 21:24:57 -0500
-Received: by vcbfk1 with SMTP id fk1so2568654vcb.19
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 18:24:57 -0800 (PST)
-In-Reply-To: <20111117093635.GA9112@electric-eye.fr.zoreil.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57719 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752751Ab1KRCoT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 21:44:19 -0500
+In-Reply-To: <20111117163735.0a16660b@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> The 816x chipsets have hardware stats registers. The driver already
-> use them. Please use them more.
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Thu, 17 Nov 2011 16:37:35 -0800
 
-Hi Francois,
+> If IRQ was never initialized, then calling napi_disable() would hang.
+> Add more bookkeeping to track whether IRQ was ever initialized.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-I'm not sure which hardware stats registers are accurate. Besides, it
-seem r8169.c are also designed for other chipsets (8129?).
-
-I would like other people who are quite familiar with those chipsets
-to do this job.
-
-Is that OK? Thanks.
-
--- 
---Junchang
+Applied to 'net'.
