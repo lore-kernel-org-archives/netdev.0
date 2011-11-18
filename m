@@ -1,69 +1,47 @@
-From: Greg Rose <gregory.v.rose@intel.com>
-Subject: Re: [net-next-2.6 PATCH 0/6 v4] macvlan: MAC Address filtering support
- for passthru mode
-Date: Thu, 17 Nov 2011 16:32:05 -0800
-Message-ID: <4EC5A785.3060108@intel.com>
-References: <20111109075449.13549.58135.stgit@rhel6.1> <1321575301.2749.51.camel@bwh-desktop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bonding: Don't allow mode change via sysfs with slaves
+ present
+Date: Thu, 17 Nov 2011 19:32:29 -0500 (EST)
+Message-ID: <20111117.193229.204248404169838998.davem@davemloft.net>
+References: <1321375482-8637-1-git-send-email-vfalico@redhat.com>
+	<20111117.160405.368943784304624880.davem@davemloft.net>
+	<4EC58C89.7020906@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Roopa Prabhu <roprabhu@cisco.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"chrisw@redhat.com" <chrisw@redhat.com>,
-	"sri@us.ibm.com" <sri@us.ibm.com>,
-	"dragos.tatulea@gmail.com" <dragos.tatulea@gmail.com>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"arnd@arndb.de" <arnd@arndb.de>, "mst@redhat.com" <mst@redhat.com>,
-	"mchan@broadcom.com" <mchan@broadcom.com>,
-	"dwang2@cisco.com" <dwang2@cisco.com>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"benve@cisco.com" <benve@cisco.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1321575301.2749.51.camel@bwh-desktop>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: vfalico@redhat.com, netdev@vger.kernel.org, andy@greyhouse.net,
+	fubar@us.ibm.com
+To: nicolas.2p.debian@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:42043 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754320Ab1KRAcm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 19:32:42 -0500
+In-Reply-To: <4EC58C89.7020906@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+=46rom: Nicolas de Peslo=FCan <nicolas.2p.debian@gmail.com>
+Date: Thu, 17 Nov 2011 23:36:57 +0100
 
-On 11/17/2011 4:15 PM, Ben Hutchings wrote:
-> Sorry to come to this rather late.
->
-> On Tue, 2011-11-08 at 23:55 -0800, Roopa Prabhu wrote:
-> [...]
->> v2 ->  v3
->> - Moved set and get filter ops from rtnl_link_ops to netdev_ops
->> - Support for SRIOV VFs.
->>          [Note: The get filters msg (in the way current get rtnetlink handles
->>          it) might get too big for SRIOV vfs. This patch follows existing sriov
->>          vf get code and tries to accomodate filters for all VF's in a PF.
->>          And for the SRIOV case I have only tested the fact that the VF
->>          arguments are getting delivered to rtnetlink correctly. The code
->>          follows existing sriov vf handling code so rest of it should work fine]
-> [...]
->
-> This is already broken for large numbers of VFs, and increasing the
-> amount of information per VF is going to make the situation worse.  I am
-> no netlink expert but I think that the current approach of bundling all
-> information about an interface in a single message may not be
-> sustainable.
->
-> Also, I'm unclear on why this interface is to be used to set filtering
-> for the (PF) net device as well as for related VFs.  Doesn't that
-> duplicate the functionality of ndo_set_rx_mode and
-> ndo_vlan_rx_{add,kill}_vid?
+> Le 17/11/2011 22:04, David Miller a =E9crit :
+>> From: Veaceslav Falico<vfalico@redhat.com>
+>> Date: Tue, 15 Nov 2011 17:44:42 +0100
+>>
+>>> When changing mode via bonding's sysfs, the slaves are not initiali=
+zed
+>>> correctly. Forbid to change modes with slaves present to ensure tha=
+t
+>>> every
+>>> slave is initialized correctly via bond_enslave().
+>>>
+>>> Signed-off-by: Veaceslav Falico<vfalico@redhat.com>
+>>
+>> Lots of discussion... what is the final verdict on this patch bondin=
+g
+>> folks?
+>=20
+> Now looks good to me, and as all others participants agreed at the
+> beginning, I think it's good for everyone.
 
-Functionally yes but contextually no.  This allows the PF driver to know 
-that it is setting these filters in the context of the existence of VFs, 
-allowing it to take appropriate action.  The other two functions may be 
-called without the presence of SR-IOV enablement and the existence of VFs.
-
-Anyway, that's why I asked Roopa to add that capability.
-
-- Greg
-
->
-> Ben.
->
+Great, applied, thanks everyone.
