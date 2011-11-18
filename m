@@ -1,38 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [0/6] Replace LL_ALLOCATED_SPACE to allow needed_headroom
-	adjustment
-Date: Fri, 18 Nov 2011 20:18:32 +0800
-Message-ID: <20111118121832.GA2868@gondor.apana.org.au>
-References: <20111020.053050.383972361986316046.davem@davemloft.net> <20111020093541.GA3024@gondor.apana.org.au> <20111025115425.GA1530@gondor.apana.org.au> <20111025.231204.257472162924919077.davem@davemloft.net>
+From: Madhvapathi Sriram <sriram.madhvapathi@gmail.com>
+Subject: (unknown)
+Date: Fri, 18 Nov 2011 17:48:49 +0530
+Message-ID: <CAAvRe=hu22AzJteJewj1TpdTVNa9xz5znctQM+YJuX9WxhBr8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, evonlanthen@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	timo.teras@iki.fi
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20111025.231204.257472162924919077.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:34167 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755695Ab1KRMSv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 07:18:51 -0500
+Received: by ghbz2 with SMTP id z2so465434ghb.19
+        for <netdev@vger.kernel.org>; Fri, 18 Nov 2011 04:18:50 -0800 (PST)
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 25, 2011 at 11:12:04PM -0400, David Miller wrote:
-> From: Herbert Xu <herbert@gondor.hengli.com.au>
-> Date: Tue, 25 Oct 2011 13:54:25 +0200
-> 
-> > So I'm going to get rid of LL_ALLOCATED_SPACE completely and
-> > replace it with explicit references to the tailroom as it doesn't
-> > need the alignment anyway (The headroom needs alignment since
-> > we use it to ensure the head is aligned).
-> 
-> Ok.
+Hi,
 
-Here are the patches that do this.  I also picked up one spot
-that should have used LL_ALLOCATED_SPACE but did not (see 2nd
-last patch).
+In register_netdevice(), BUG_ON(dev->reg_state != NETREG_UNINITIALIZED) is
+used to check if the device that is being registered is indeed a new one.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+However, I see that this state is never moved to. It only happens when a
+netdevice is allocated (by default to 0 using kzalloc).
+
+So, the cycle register-->unregister-->register would fail since in the
+unregister_netdevice the state is only moved to NETREG_UNREGISTERED (at max
+to NETREG_RELEASED using free_netdev)
+
+So, I presume that to reinitialize a netdevice one has to free the
+netdevice, re allocate netdevice and only then re register.
+
+Wondering why unregister and reregister is not allowed, rather than having
+go through the free/alloc cycle - I am not an expert though.
+
+Thanks
+-Sriram
