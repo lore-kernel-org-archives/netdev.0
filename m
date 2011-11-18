@@ -1,42 +1,50 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH] xen-netback: use correct index for invalidation in xen_netbk_tx_check_gop()
-Date: Fri, 18 Nov 2011 15:42:05 +0000
-Message-ID: <1321630925-13652-1-git-send-email-ian.campbell@citrix.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] ethtool: Use kmemdup rather than duplicating its
+ implementation
+Date: Fri, 18 Nov 2011 15:47:22 +0000
+Message-ID: <1321631242.2885.118.camel@deadeye>
+References: <1321571135.1624.313.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: xen-devel@lists.xensource.com, Jan Beulich <JBeulich@suse.com>,
-	Jan Beulich <jbeulich@suse.com>,
-	Ian Campbell <ian.campbell@citrix.com>, stable@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:29835 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756126Ab1KRPmO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 10:42:14 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Thomas Meyer <thomas@m3y3r.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1321571135.1624.313.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jan Beulich <JBeulich@suse.com>
+On Fri, 2011-11-18 at 00:05 +0100, Thomas Meyer wrote:
+> The semantic patch that makes this change is available
+> in scripts/coccinelle/api/memdup.cocci.
+> 
+> Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
+> ---
 
-Signed-off-by: Jan Beulich <jbeulich@suse.com>
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: stable@vger.kernel.org
----
- drivers/net/xen-netback/netback.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+The one-line description should refer to 'gianfar', not 'ethtool'.
+(I expect David will fix this up.)
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 0cb594c..1ae270e 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -1021,7 +1021,7 @@ static int xen_netbk_tx_check_gop(struct xen_netbk *netbk,
- 		pending_idx = *((u16 *)skb->data);
- 		xen_netbk_idx_release(netbk, pending_idx);
- 		for (j = start; j < i; j++) {
--			pending_idx = frag_get_pending_idx(&shinfo->frags[i]);
-+			pending_idx = frag_get_pending_idx(&shinfo->frags[j]);
- 			xen_netbk_idx_release(netbk, pending_idx);
- 		}
- 
+Ben.
+
+> diff -u -p a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+> --- a/drivers/net/ethernet/freescale/gianfar_ethtool.c 2011-11-07 19:37:57.036756543 +0100
+> +++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c 2011-11-08 10:42:14.842512269 +0100
+> @@ -1410,10 +1410,9 @@ static int gfar_optimize_filer_masks(str
+>  
+>  	/* We need a copy of the filer table because
+>  	 * we want to change its order */
+> -	temp_table = kmalloc(sizeof(*temp_table), GFP_KERNEL);
+> +	temp_table = kmemdup(tab, sizeof(*temp_table), GFP_KERNEL);
+>  	if (temp_table == NULL)
+>  		return -ENOMEM;
+> -	memcpy(temp_table, tab, sizeof(*temp_table));
+>  
+>  	mask_table = kcalloc(MAX_FILER_CACHE_IDX / 2 + 1,
+>  			sizeof(struct gfar_mask_entry), GFP_KERNEL);
+> 
+
+
 -- 
-1.7.2.5
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
