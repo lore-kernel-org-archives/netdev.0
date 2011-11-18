@@ -1,49 +1,75 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: b43: BCM 4331: MacBook 8,1: No connection after suspend
-Date: Sat, 19 Nov 2011 00:08:51 +0100
-Message-ID: <CACna6ryw9gC5CnY-ex45JFmQtXRxs8NX9ADkqVZrOj5CCtjiVw@mail.gmail.com>
-References: <20111118173242.GA2101@schottelius.org>
-	<20111118173921.GB2101@schottelius.org>
-	<4EC6B9E9.50204@broadcom.com>
-	<4EC6BB5E.4010101@broadcom.com>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next 1/4] genetlink: Add genl_notify()
+Date: Fri, 18 Nov 2011 15:12:15 -0800
+Message-ID: <1321657938-21761-2-git-send-email-jesse@nicira.com>
+References: <1321657938-21761-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nico Schottelius <nico-nospam@schottelius.org>,
-	Nico -telmich- Schottelius
-	<nico-linux-20111118@schottelius.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"b43-dev@lists.infradead.org" <b43-dev@lists.infradead.org>
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4EC6BB5E.4010101@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1321657938-21761-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-2011/11/18 Arend van Spriel <arend@broadcom.com>:
-> On 11/18/2011 09:02 PM, Arend van Spriel wrote:
->> On 11/18/2011 06:39 PM, Nico Schottelius wrote:
->>> Nico -telmich- Schottelius [Fri, Nov 18, 2011 at 06:32:42PM +0100]:
->>>> Hello,
->>>>
->>>> new notebook, new problems (*):
->>>
->>> + full dmesg attached.
->>>
->>
->> It seems you are running b43 + bcma. Adding Rafa=C5=82 and friends.
->>
->> Gr. AvS
->
-> Hi Rafa=C5=82,
->
-> In brcmsmac we reprogram the PCI BAR windows upon resume. Not sure if
-> that is done or needed in bcma, but may be worth checking.
+From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-Good point.
+Open vSwitch uses Generic Netlink interface for communication
+between userspace and kernel module. genl_notify() is used
+for sending notification back to userspace.
 
-Please reload b43 *and bcma*. Both drivers. Share your results.
+genl_notify() is analogous to rtnl_notify() but uses genl_sock
+instead of rtnl.
 
---=20
-Rafa=C5=82
+Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+---
+ include/net/genetlink.h |    2 ++
+ net/netlink/genetlink.c |   13 +++++++++++++
+ 2 files changed, 15 insertions(+), 0 deletions(-)
+
+diff --git a/include/net/genetlink.h b/include/net/genetlink.h
+index 82d8d09..7db3299 100644
+--- a/include/net/genetlink.h
++++ b/include/net/genetlink.h
+@@ -128,6 +128,8 @@ extern int genl_register_mc_group(struct genl_family *family,
+ 				  struct genl_multicast_group *grp);
+ extern void genl_unregister_mc_group(struct genl_family *family,
+ 				     struct genl_multicast_group *grp);
++extern void genl_notify(struct sk_buff *skb, struct net *net, u32 pid,
++			u32 group, struct nlmsghdr *nlh, gfp_t flags);
+ 
+ /**
+  * genlmsg_put - Add generic netlink header to netlink message
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 482fa57..8a36599 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -946,3 +946,16 @@ int genlmsg_multicast_allns(struct sk_buff *skb, u32 pid, unsigned int group,
+ 	return genlmsg_mcast(skb, pid, group, flags);
+ }
+ EXPORT_SYMBOL(genlmsg_multicast_allns);
++
++void genl_notify(struct sk_buff *skb, struct net *net, u32 pid, u32 group,
++		 struct nlmsghdr *nlh, gfp_t flags)
++{
++	struct sock *sk = net->genl_sock;
++	int report = 0;
++
++	if (nlh)
++		report = nlmsg_report(nlh);
++
++	nlmsg_notify(sk, skb, pid, group, report, flags);
++}
++EXPORT_SYMBOL(genl_notify);
+-- 
+1.7.5.4
