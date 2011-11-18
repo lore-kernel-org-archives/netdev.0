@@ -1,13 +1,16 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [GIT PULL net-next] Open vSwitch
-Date: Fri, 18 Nov 2011 15:12:14 -0800
-Message-ID: <1321657938-21761-1-git-send-email-jesse@nicira.com>
+Subject: [PATCH net-next 2/4] genetlink: Add
+	lockdep_genl_is_held().
+Date: Fri, 18 Nov 2011 15:12:16 -0800
+Message-ID: <1321657938-21761-3-git-send-email-jesse@nicira.com>
+References: <1321657938-21761-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1321657938-21761-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
 	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -19,66 +22,52 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This series of patches proposes the Open vSwitch kernel components for
-upstream.  Open vSwitch has existed as a separate project for several
-years and we now believe it to be mature enough for inclusion.  The
-actual functionality is described more fully in the commit that adds
-the kernel code.
+From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-The following changes since commit f8a15af093b19b86d56933c8757cee298d0f32a8:
+Open vSwitch uses genl_mutex locking to protect datapath
+data-structures like flow-table, flow-actions. Following patch adds
+lockdep_genl_is_held() which is used for rcu annotation to prove
+locking.
 
-  team: replace kmalloc+memcpy by kmemdup (2011-11-18 14:55:03 -0500)
+Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+---
+ include/linux/genetlink.h |    3 +++
+ net/netlink/genetlink.c   |    8 ++++++++
+ 2 files changed, 11 insertions(+), 0 deletions(-)
 
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jesse/openvswitch.git for-upstream
-
-Jesse Gross (1):
-      net: Add Open vSwitch kernel components.
-
-Pravin B Shelar (3):
-      genetlink: Add genl_notify()
-      genetlink: Add lockdep_genl_is_held().
-      vlan: Move vlan_set_encap_proto() to vlan header file
-
- Documentation/networking/00-INDEX        |    2 +
- Documentation/networking/openvswitch.txt |  195 +++
- MAINTAINERS                              |    8 +
- include/linux/genetlink.h                |    3 +
- include/linux/if_vlan.h                  |   34 +
- include/linux/openvswitch.h              |  452 +++++++
- include/net/genetlink.h                  |    2 +
- net/8021q/vlan_core.c                    |   33 -
- net/Kconfig                              |    1 +
- net/Makefile                             |    1 +
- net/netlink/genetlink.c                  |   21 +
- net/openvswitch/Kconfig                  |   28 +
- net/openvswitch/Makefile                 |   14 +
- net/openvswitch/actions.c                |  415 +++++++
- net/openvswitch/datapath.c               | 1888 ++++++++++++++++++++++++++++++
- net/openvswitch/datapath.h               |  125 ++
- net/openvswitch/dp_notify.c              |   70 ++
- net/openvswitch/flow.c                   | 1373 ++++++++++++++++++++++
- net/openvswitch/flow.h                   |  195 +++
- net/openvswitch/vport-internal_dev.c     |  241 ++++
- net/openvswitch/vport-internal_dev.h     |   28 +
- net/openvswitch/vport-netdev.c           |  200 ++++
- net/openvswitch/vport-netdev.h           |   42 +
- net/openvswitch/vport.c                  |  396 +++++++
- net/openvswitch/vport.h                  |  205 ++++
- 25 files changed, 5939 insertions(+), 33 deletions(-)
- create mode 100644 Documentation/networking/openvswitch.txt
- create mode 100644 include/linux/openvswitch.h
- create mode 100644 net/openvswitch/Kconfig
- create mode 100644 net/openvswitch/Makefile
- create mode 100644 net/openvswitch/actions.c
- create mode 100644 net/openvswitch/datapath.c
- create mode 100644 net/openvswitch/datapath.h
- create mode 100644 net/openvswitch/dp_notify.c
- create mode 100644 net/openvswitch/flow.c
- create mode 100644 net/openvswitch/flow.h
- create mode 100644 net/openvswitch/vport-internal_dev.c
- create mode 100644 net/openvswitch/vport-internal_dev.h
- create mode 100644 net/openvswitch/vport-netdev.c
- create mode 100644 net/openvswitch/vport-netdev.h
- create mode 100644 net/openvswitch/vport.c
- create mode 100644 net/openvswitch/vport.h
+diff --git a/include/linux/genetlink.h b/include/linux/genetlink.h
+index 61549b2..59311ad 100644
+--- a/include/linux/genetlink.h
++++ b/include/linux/genetlink.h
+@@ -85,6 +85,9 @@ enum {
+ /* All generic netlink requests are serialized by a global lock.  */
+ extern void genl_lock(void);
+ extern void genl_unlock(void);
++#ifdef CONFIG_PROVE_LOCKING
++extern int lockdep_genl_is_held(void);
++#endif
+ 
+ #endif /* __KERNEL__ */
+ 
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 8a36599..28453ae 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -33,6 +33,14 @@ void genl_unlock(void)
+ }
+ EXPORT_SYMBOL(genl_unlock);
+ 
++#ifdef CONFIG_PROVE_LOCKING
++int lockdep_genl_is_held(void)
++{
++	return lockdep_is_held(&genl_mutex);
++}
++EXPORT_SYMBOL(lockdep_genl_is_held);
++#endif
++
+ #define GENL_FAM_TAB_SIZE	16
+ #define GENL_FAM_TAB_MASK	(GENL_FAM_TAB_SIZE - 1)
+ 
+-- 
+1.7.5.4
