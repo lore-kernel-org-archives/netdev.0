@@ -1,36 +1,52 @@
-From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next 4/4] net: Add Open vSwitch kernel
-	components.
-Date: Fri, 18 Nov 2011 15:23:34 -0800
-Message-ID: <20111118152334.2c2a9761@nehalam.linuxnetplumber.net>
-References: <1321657938-21761-1-git-send-email-jesse@nicira.com>
-	<1321657938-21761-5-git-send-email-jesse@nicira.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: ipv4 udplite broken in >=linux-3.0 ?
+Date: Fri, 18 Nov 2011 16:27:29 -0700
+Message-ID: <20111118232729.GA3902@gerrit.erg.abdn.ac.uk>
+References: <CABPbr_msepemFt4ezGVRk3QS0MU3F47MKimfV4Y+6jqvUrLFeA@mail.gmail.com>
+ <20111118120430.GG3317@hell>
+ <CABPbr_=fgB-AKK3H8ryccqA7SUO=ejZiWP7tEKYLh=qNG5r7CQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1321657938-21761-5-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jinxin Zheng <jinxinzheng@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:58590 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757408Ab1KRX1l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Nov 2011 18:27:41 -0500
+Content-Disposition: inline
+In-Reply-To: <CABPbr_=fgB-AKK3H8ryccqA7SUO=ejZiWP7tEKYLh=qNG5r7CQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 18 Nov 2011 15:12:18 -0800
-Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org> wrote:
+Jinxin, -
+| On Fri, Nov 18, 2011 at 8:04 PM, Hagen Paul Pfeifer <hagen@jauu.net> wrote:
+| > * Jinxin Zheng | 2011-11-18 12:09:25 [+0800]:
+| >
+| >>I don't know how to debug udplite. Can any one of you give me a tip on
+| >>how to get more debug info, then I can do further test and provide
+| >>with it?
+| >
+| > net-next works for me:
+That is very likely the point. Between 2.6.39 and 3.0 UDP-Lite checksum coverage was
+broken and got only recently fixed. The correct kernel version should have the 
+commit shown below. Alternatively, you can check include/net/udplite.h, which
+should mention "Slow-path" and "Fast-Path" computation. UDP-Litev6 still uses the
+slow path, that is why it is not affected.
+    
 
-> +		write_seqcount_begin(&stats->seqlock);
-> +		stats->tx_packets++;
-> +		stats->tx_bytes += sent;
-> +		write_seqcount_end(&stats->seqlock);
+commit f36c23bb9f822904dacf83a329518d0a5fde7968
+Author: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date:   Mon Oct 17 19:07:30 2011 -0400
 
-There is a u64_stats_sync set of macros for this. It has the
-advantage of becoming a NOP on 64 bit platforms.
+    udplite: fast-path computation of checksum coverage
+    
+    Commit 903ab86d195cca295379699299c5fc10beba31c7 of 1 March this year ("udp: Add
+    lockless transmit path") introduced a new fast TX path that broke the checksum
+    coverage computation of UDP-lite, which so far depended on up->len (only set
+    if the socket is locked and 0 in the fast path).
+    
+    Fixed by providing both fast- and slow-path computation of checksum coverage.
+    The latter can be removed when UDP(-lite)v6 also uses a lockless transmit path.
+  
