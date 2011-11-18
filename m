@@ -1,70 +1,32 @@
-From: Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Subject: NFS TCP race condition with SOCK_ASYNC_NOSPACE
-Date: Fri, 18 Nov 2011 18:40:01 +0000
-Message-ID: <4EC6A681.30902@citrix.com>
+From: Olaf Hering <olaf@aepfle.de>
+Subject: Re: [PATCH] xen-netfront: report link speed to ethtool
+Date: Fri, 18 Nov 2011 19:43:36 +0100
+Message-ID: <20111118184336.GA16027@aepfle.de>
+References: <20111118164805.GA14345@aepfle.de>
+ <1321638394.2883.32.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-To: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, xen-devel@lists.xensource.com,
+	Jeremy Fitzhardinge <jeremy.fitzhardinge@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:65093 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753163Ab1KRSnq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 13:43:46 -0500
+Content-Disposition: inline
+In-Reply-To: <1321638394.2883.32.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Fri, Nov 18, Ben Hutchings wrote:
 
-As described originally in
-http://www.spinics.net/lists/linux-nfs/msg25314.html, we were
-encountering a bug whereby the NFS session was unexpectedly timing out.
+> On Fri, 2011-11-18 at 17:48 +0100, Olaf Hering wrote:
+> > The reported data refers to VMWare vmxnet.
+> NAK, we should not just make things up.
 
-I believe I have found the source of the race condition causing the timeout.
+So how about removing veth_get_settings, vmxnet3_get_settings,
+tun_get_settings and other functions that escaped my grep?
 
-Brief overview of setup:
-  10GiB network, NFS mounted using TCP.  Problem reproduces with
-multiple different NICs, with synchronous or asynchronous mounts, and
-with soft and hard mounts.  Reproduces on 2.6.32 and I am currently
-trying to reproduce with mainline. (I don't have physical access to the
-servers so installing stuff is not fantastically easy)
-
-
-
-In net/sunrpc/xprtsock.c:xs_tcp_send_request(), we try to write data to
-the sock buffer using xs_sendpages()
-
-When the sock buffer is nearly fully, we get an EAGAIN from
-xs_sendpages() which causes a break out of the loop.  Lower down the
-function, we switch on status which cases us to call xs_nospace() with
-the task.
-
-In xs_nospace(), we test the SOCK_ASYNC_NOSPACE bit from the socket, and
-in the rare case where that bit is clear, we return 0 instead of
-EAGAIN.  This promptly overwrites status in xs_tcp_send_request().
-
-The result is that xs_tcp_release_xprt() finds a request which has no
-error, but has not sent all of the bytes in its send buffer.  It cleans
-up by setting XPRT_CLOSE_WAIT which causes xprt_clear_locked() to queue
-xprt->task_cleanup, which closes the TCP connection.
-
-
-Under normal operation, the TCP connection goes down and back up without
-interruption to the NFS layer.  However, when the NFS server hangs in a
-half closed state, the client forces a RST of the TCP connection,
-leading to the timeout.
-
-I have tried a few naive fixes such as changing the default return value
-in xs_nospace() from 0 to -EAGAIN (meaning that 0 will never be
-returned) but this causes a kernel memory leak.  Can someone who a
-better understanding of these interactions than me have a look?  It
-seems that the if (test_bit()) test in xs_nospace() should have an else
-clause.
-
-Thanks in advance,
-
--- 
-Andrew Cooper - Dom0 Kernel Engineer, Citrix XenServer
-T: +44 (0)1223 225 900, http://www.citrix.com
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Olaf
