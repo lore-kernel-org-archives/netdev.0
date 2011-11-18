@@ -1,198 +1,115 @@
-From: Kumar Sanghvi <kumaras@chelsio.com>
-Subject: lock-warning seen on giving rds-info command
-Date: Fri, 18 Nov 2011 13:37:34 +0530
-Message-ID: <1321603654-17179-1-git-send-email-kumaras@chelsio.com>
-Cc: davem@davemloft.net, venkat.x.venkatsubra@oracle.com,
-	Kumar Sanghvi <kumaras@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:17103 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752158Ab1KRHwf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 02:52:35 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
+Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+Date: Fri, 18 Nov 2011 08:55:21 +0100
+Message-ID: <20111118075521.GB1615@x4.trippels.de>
+References: <20111118072519.GA1615@x4.trippels.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, Christoph Lameter <cl@linux-foundation.org>,
+	Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
+	Alex Shi <alex.shi@intel.com>, netdev@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20111118072519.GA1615@x4.trippels.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Hi netdev team,
+On 2011.11.18 at 08:25 +0100, Markus Trippelsdorf wrote:
+> This happend during boot this morning:
+> 
+> Nov 18 07:57:12 x4 kernel: XFS (sdb2): Ending clean mount
+> Nov 18 07:57:12 x4 kernel: VFS: Mounted root (xfs filesystem) readonly on device 8:18.
+> Nov 18 07:57:12 x4 kernel: devtmpfs: mounted
+> Nov 18 07:57:12 x4 kernel: Freeing unused kernel memory: 436k freed
+> Nov 18 07:57:12 x4 kernel: Write protecting the kernel read-only data: 8192k
+> Nov 18 07:57:12 x4 kernel: Freeing unused kernel memory: 1220k freed
+> Nov 18 07:57:12 x4 kernel: Freeing unused kernel memory: 132k freed
+> Nov 18 07:57:12 x4 kernel: XFS (sda): Mounting Filesystem
+> Nov 18 07:57:12 x4 kernel: XFS (sda): Ending clean mount
+> Nov 18 07:57:12 x4 kernel: ATL1E 0000:02:00.0: irq 40 for MSI/MSI-X
+> Nov 18 07:57:12 x4 kernel: ATL1E 0000:02:00.0: eth0: NIC Link is Up <100 Mbps Full Duplex>
+> Nov 18 07:57:12 x4 kernel: ATL1E 0000:02:00.0: eth0: NIC Link is Up <100 Mbps Full Duplex>
+> Nov 18 07:57:13 x4 kernel: Adding 2097148k swap on /var/tmp/swap/swapfile.  Priority:-1 extents:2 across:2634672k
+> Nov 18 07:57:16 x4 kernel: ------------[ cut here ]------------
+> Nov 18 07:57:16 x4 kernel: WARNING: at mm/slub.c:3357 ksize+0xa5/0xb0()
+> Nov 18 07:57:16 x4 kernel: Hardware name: System Product Name
+> Nov 18 07:57:16 x4 kernel: Pid: 1539, comm: wmii Not tainted 3.2.0-rc2-00057-ga9098b3-dirty #60
+> Nov 18 07:57:16 x4 kernel: Call Trace:                                                                                                               Nov 18 07:57:16 x4 kernel: [<ffffffff8106cb75>] warn_slowpath_common+0x75/0xb0
+> Nov 18 07:57:16 x4 kernel: [<ffffffff8106cc75>] warn_slowpath_null+0x15/0x20
+> Nov 18 07:57:16 x4 kernel: [<ffffffff81103985>] ksize+0xa5/0xb0
+> Nov 18 07:57:16 x4 kernel: [<ffffffff8141e3ee>] __alloc_skb+0x7e/0x210
+> Nov 18 07:57:16 x4 kernel: [<ffffffff8141b75e>] sock_alloc_send_pskb+0x1be/0x300
+> Nov 18 07:57:16 x4 kernel: [<ffffffff8141a5d2>] ? sock_wfree+0x52/0x60                                                                               Nov 18 07:57:16 x4 kernel: [<ffffffff8141b8b0>] sock_alloc_send_skb+0x10/0x20                                                                        Nov 18 07:57:16 x4 kernel: [<ffffffff814a3c61>] unix_stream_sendmsg+0x261/0x420
+> Nov 18 07:57:16 x4 kernel: [<ffffffff814176ff>] sock_aio_write+0xdf/0x100                                                                            Nov 18 07:57:16 x4 kernel: [<ffffffff81417620>] ? sock_aio_read+0x110/0x110
+> Nov 18 07:57:16 x4 kernel: [<ffffffff8110b6ca>] do_sync_readv_writev+0xca/0x110
+> Nov 18 07:57:16 x4 kernel: [<ffffffff8110b7fb>] ? rw_copy_check_uvector+0x6b/0x130
+> Nov 18 07:57:16 x4 kernel: [<ffffffff8110a8a6>] ? do_sync_read+0xd6/0x110                                                                            Nov 18 07:57:16 x4 kernel: [<ffffffff8110b996>] do_readv_writev+0xd6/0x1e0
+> Nov 18 07:57:16 x4 kernel: [<ffffffff8110bb20>] vfs_writev+0x30/0x60                                                                                 Nov 18 07:57:16 x4 kernel: [<ffffffff8110bc25>] sys_writev+0x45/0x90
+> Nov 18 07:57:16 x4 kernel: [<ffffffff8111d8d1>] ? sys_poll+0x71/0x110
+> Nov 18 07:57:16 x4 kernel: [<ffffffff814ca5fb>] system_call_fastpath+0x16/0x1b
+> Nov 18 07:57:16 x4 kernel: ---[ end trace 320a3cfbcb373e9a ]---
+> Nov 18 07:57:16 x4 kernel: ------------[ cut here ]------------
+> Nov 18 07:57:16 x4 kernel: kernel BUG at mm/slub.c:3413!
+> Nov 18 07:57:16 x4 kernel: invalid opcode: 0000 [#1] PREEMPT SMP
+> Nov 18 07:57:16 x4 kernel: CPU 1
+> Nov 18 07:57:16 x4 kernel: Pid: 1500, comm: X Tainted: G        W    3.2.0-rc2-00057-ga9098b3-dirty #60 System manufacturer System Product Name/M4A78T-E
+> Nov 18 07:57:16 x4 kernel: RIP: 0010:[<ffffffff81103ac1>]  [<ffffffff81103ac1>] kfree+0x131/0x140
+> Nov 18 07:57:16 x4 kernel: RSP: 0018:ffff88020fbc1b88  EFLAGS: 00010246
+> Nov 18 07:57:16 x4 kernel: RAX: 4000000000000000 RBX: ffff880200000000 RCX: 0000000000000304
+> Nov 18 07:57:16 x4 kernel: RDX: ffffffff7fffffff RSI: 0000000000000282 RDI: ffff880200000000
+> Nov 18 07:57:16 x4 kernel: RBP: ffff88020fbc1ba8 R08: 0000000000000304 R09: ffffea0008000000
+> Nov 18 07:57:16 x4 kernel: R10: 00000000005d6ba0 R11: 0000000000003246 R12: ffff880213570700
+> Nov 18 07:57:16 x4 kernel: R13: ffffffff8141e8c0 R14: ffff880213570700 R15: ffff880216bba3a0
+> Nov 18 07:57:16 x4 kernel: FS:  00007fdc1da79880(0000) GS:ffff88021fc80000(0000) knlGS:0000000000000000
+> Nov 18 07:57:16 x4 kernel: CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> Nov 18 07:57:16 x4 kernel: CR2: 0000000001b39a98 CR3: 000000020fbfc000 CR4: 00000000000006e0
+> Nov 18 07:57:16 x4 kernel: DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> Nov 18 07:57:16 x4 kernel: DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+> Nov 18 07:57:16 x4 kernel: Process X (pid: 1500, threadinfo ffff88020fbc0000, task ffff880216bba3a0)
+> Nov 18 07:57:16 x4 kernel: Stack:
+> Nov 18 07:57:16 x4 kernel: 0000000000000000 ffff880213570700 ffff880213570700 0000000000000000
+> Nov 18 07:57:16 x4 kernel: ffff88020fbc1bc8 ffffffff8141e8c0 ffff880213570700 ffff880213570700
+> Nov 18 07:57:16 x4 kernel: ffff88020fbc1be8 ffffffff8141e8e9 ffff880200000000 ffff880213570700
+> Nov 18 07:57:16 x4 kernel: Call Trace:
+> Nov 18 07:57:16 x4 kernel: [<ffffffff8141e8c0>] skb_release_data+0xf0/0x100
+> Nov 18 07:57:16 x4 kernel: [<ffffffff8141e8e9>] skb_release_all+0x19/0x20
+> Nov 18 07:57:16 x4 kernel: [<ffffffff8141e901>] __kfree_skb+0x11/0xa0
+> Nov 18 07:57:16 x4 kernel: [<ffffffff8141e9b6>] consume_skb+0x26/0xa0
+> Nov 18 07:57:16 x4 kernel: [<ffffffff814a5614>] unix_stream_recvmsg+0x2c4/0x790
+> Nov 18 07:57:16 x4 kernel: [<ffffffff8111c1c0>] ? __pollwait+0xf0/0xf0
+> Nov 18 07:57:16 x4 kernel: [<ffffffff814175f4>] sock_aio_read+0xe4/0x110
+> Nov 18 07:57:16 x4 kernel: [<ffffffff8110a8a6>] do_sync_read+0xd6/0x110
+> Nov 18 07:57:16 x4 kernel: [<ffffffff8108fa64>] ? enqueue_hrtimer+0x24/0xc0
+> Nov 18 07:57:16 x4 kernel: [<ffffffff81090303>] ? hrtimer_start+0x13/0x20
+> Nov 18 07:57:16 x4 kernel: [<ffffffff810714ac>] ? do_setitimer+0x1bc/0x240
+> Nov 18 07:57:16 x4 kernel: [<ffffffff8110b095>] vfs_read+0x135/0x160
+> Nov 18 07:57:16 x4 kernel: [<ffffffff8110b375>] sys_read+0x45/0x90
+> Nov 18 07:57:16 x4 kernel: [<ffffffff814ca5fb>] system_call_fastpath+0x16/0x1b
+> Nov 18 07:57:16 x4 kernel: Code: e9 3d ff ff ff 48 89 da 4c 89 ce e8 51 fe 3b 00 e9 77 ff ff ff 49 f7 01 00 c0 00 00 74 0d 4c 89 cf e8 64 24 fd ff e9 61 ff ff ff <0f> 0b 66 66 66 66 2e 0f 1f 84 00 00 00 00 00 55 48 89 e5 53 48
+> Nov 18 07:57:16 x4 kernel: RIP  [<ffffffff81103ac1>] kfree+0x131/0x140
+> Nov 18 07:57:16 x4 kernel: RSP <ffff88020fbc1b88>
+> Nov 18 07:57:16 x4 kernel: ---[ end trace 320a3cfbcb373e9b ]---
+> Nov 18 08:01:30 x4 kernel: SysRq : Emergency Sync
+> Nov 18 08:01:30 x4 kernel: Emergency Sync complete
+> 
+> The dirty flag comes from a bunch of unrelated xfs patches from Christoph, that
+> I'm testing right now.
+> 
+> Please also see my previous post: http://thread.gmane.org/gmane.linux.kernel/1215023
+> It looks like something is scribbling over memory.
+> 
+> This machine uses ECC, so bit-flips should be impossible.
 
-I am trying to investigate one issue with RDS.
-On giving command rds-info, we get below trace in dmesg:
+CC'ing netdev@vger.kernel.org and Eric Dumazet.
 
-------------[ cut here ]------------
-WARNING: at /root/chelsio/git_repos/linux-2.6/kernel/softirq.c:159 local_bh_enable_ip+0x7a/0xa0()
-Hardware name: X7DB8
-Modules linked in: rds_rdma rds rdma_cm iw_cm ib_addr autofs4 sunrpc
-p4_clockmod freq_table speedstep_lib ib_ipoib ib_cm ib_sa ipv6 ib_uverbs
-ib_umad ib_mad iw_nes libcrc32c ib_core dm_mirror dm_region_hash dm_log
-uinput ppdev sg parport_pc parport pcspkr serio_raw i2c_i801 iTCO_wdt
-iTCO_vendor_support ioatdma dca i5k_amb i5000_edac edac_core e1000e shpchp
-ext4 mbcache jbd2 sr_mod cdrom sd_mod crc_t10dif pata_acpi ata_generic ata_piix
-floppy radeon ttm drm_kms_helper drm hwmon i2c_algo_bit i2c_core dm_mod
-[last unloaded: mdio]
-Pid: 1937, comm: rds-info Not tainted 3.1.0 #1
-Call Trace:
- [<ffffffff8106446f>] warn_slowpath_common+0x7f/0xc0
- [<ffffffff810644ca>] warn_slowpath_null+0x1a/0x20
- [<ffffffff8106af6a>] local_bh_enable_ip+0x7a/0xa0
- [<ffffffff814d3126>] _raw_read_unlock_bh+0x16/0x20
- [<ffffffff813f83b4>] sock_i_ino+0x44/0x60
- [<ffffffffa046ab02>] rds_sock_info+0xd2/0x140 [rds]
- [<ffffffffa046c7a7>] rds_info_getsockopt+0x197/0x200 [rds]
- [<ffffffffa046a1b4>] rds_getsockopt+0x84/0xe0 [rds]
- [<ffffffff813f3453>] sys_getsockopt+0x73/0xe0
- [<ffffffff814dafd7>] tracesys+0xd9/0xde
----[ end trace 4e7838d2e1e53231 ]---
-
-I tested this on 3.1 kernel. However, this problem seems to be present on most
-recent kernels. I tried to investigate, and the RDS problem seems to stem(I might be wrong)
-after this upstream commit:
-
-----
-commit f064af1e500a2bf4607706f0f458163bdb2a6ea5
-Author: Eric Dumazet <eric.dumazet@gmail.com>
-Date:   Wed Sep 22 12:43:39 2010 +0000
-
-    net: fix a lockdep splat
-----
-
-In the above commit, sock_i_ino is modified to use read_lock/unlock_bh instead
-of plain read_lock/unlock.
-
-Now, everywhere in Linux network stack, it seems that callers of sock_i_ino
-are not disabling interrupts and are also not holding any lock while calling
-sock_i_ino function. However, RDS seems to be only one who is calling sock_i_ino
-with spin_lock_irqsave i.e. with interrupts disabled.
-As a result, when sock_i_ino finally calls read_unlock_bh -  which in turn will lead to
-local_bh_enable_ip - which in turn throws the WARN-ON-ONCE since interrupts are
-disabled at this stage.
-
-Below patch is a quick fix which seems to make this lock-warning disappear.
-With this patch, the WARN-ON-ONCE is no longer seen on giving rds-info command.
-
-However, I am not much aware of RDS stack, and I don't know the motive of using
-spin-lock-irqsave in rds code for the sock-lock. I am also not aware if the below
-patch could introduce regressions in RDS code. So, it would be helpful if someone
-who knows RDS can review the patch and comment on what should be the proper fix.
-
-Thanks,
-Kumar.
-
-----------------------
-[PATCH] net/rds: Use spin_lock for rds_sock_lock
-
-On giving rds-info command, we get below lock-warning in dmesg:
-....
-Call Trace:
- [<ffffffff8106446f>] warn_slowpath_common+0x7f/0xc0
- [<ffffffff810644ca>] warn_slowpath_null+0x1a/0x20
- [<ffffffff8106af6a>] local_bh_enable_ip+0x7a/0xa0
- [<ffffffff814d3126>] _raw_read_unlock_bh+0x16/0x20
- [<ffffffff813f83b4>] sock_i_ino+0x44/0x60
- [<ffffffffa046ab02>] rds_sock_info+0xd2/0x140 [rds]
- [<ffffffffa046c7a7>] rds_info_getsockopt+0x197/0x200 [rds]
- [<ffffffffa046a1b4>] rds_getsockopt+0x84/0xe0 [rds]
- [<ffffffff813f3453>] sys_getsockopt+0x73/0xe0
- [<ffffffff814dafd7>] tracesys+0xd9/0xde
-....
-
-Fix this by using spin_lock for rds_sock_lock, instead of using
-spin_lock_irqsave.
-
-Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
----
- net/rds/af_rds.c |   20 ++++++++------------
- 1 files changed, 8 insertions(+), 12 deletions(-)
-
-diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
-index bb6ad81..5080ae2 100644
---- a/net/rds/af_rds.c
-+++ b/net/rds/af_rds.c
-@@ -68,7 +68,6 @@ static int rds_release(struct socket *sock)
- {
- 	struct sock *sk = sock->sk;
- 	struct rds_sock *rs;
--	unsigned long flags;
- 
- 	if (!sk)
- 		goto out;
-@@ -94,10 +93,10 @@ static int rds_release(struct socket *sock)
- 	rds_rdma_drop_keys(rs);
- 	rds_notify_queue_get(rs, NULL);
- 
--	spin_lock_irqsave(&rds_sock_lock, flags);
-+	spin_lock(&rds_sock_lock);
- 	list_del_init(&rs->rs_item);
- 	rds_sock_count--;
--	spin_unlock_irqrestore(&rds_sock_lock, flags);
-+	spin_unlock(&rds_sock_lock);
- 
- 	rds_trans_put(rs->rs_transport);
- 
-@@ -409,7 +408,6 @@ static const struct proto_ops rds_proto_ops = {
- 
- static int __rds_create(struct socket *sock, struct sock *sk, int protocol)
- {
--	unsigned long flags;
- 	struct rds_sock *rs;
- 
- 	sock_init_data(sock, sk);
-@@ -426,10 +424,10 @@ static int __rds_create(struct socket *sock, struct sock *sk, int protocol)
- 	spin_lock_init(&rs->rs_rdma_lock);
- 	rs->rs_rdma_keys = RB_ROOT;
- 
--	spin_lock_irqsave(&rds_sock_lock, flags);
-+	spin_lock(&rds_sock_lock);
- 	list_add_tail(&rs->rs_item, &rds_sock_list);
- 	rds_sock_count++;
--	spin_unlock_irqrestore(&rds_sock_lock, flags);
-+	spin_unlock(&rds_sock_lock);
- 
- 	return 0;
- }
-@@ -471,12 +469,11 @@ static void rds_sock_inc_info(struct socket *sock, unsigned int len,
- {
- 	struct rds_sock *rs;
- 	struct rds_incoming *inc;
--	unsigned long flags;
- 	unsigned int total = 0;
- 
- 	len /= sizeof(struct rds_info_message);
- 
--	spin_lock_irqsave(&rds_sock_lock, flags);
-+	spin_lock(&rds_sock_lock);
- 
- 	list_for_each_entry(rs, &rds_sock_list, rs_item) {
- 		read_lock(&rs->rs_recv_lock);
-@@ -492,7 +489,7 @@ static void rds_sock_inc_info(struct socket *sock, unsigned int len,
- 		read_unlock(&rs->rs_recv_lock);
- 	}
- 
--	spin_unlock_irqrestore(&rds_sock_lock, flags);
-+	spin_unlock(&rds_sock_lock);
- 
- 	lens->nr = total;
- 	lens->each = sizeof(struct rds_info_message);
-@@ -504,11 +501,10 @@ static void rds_sock_info(struct socket *sock, unsigned int len,
- {
- 	struct rds_info_socket sinfo;
- 	struct rds_sock *rs;
--	unsigned long flags;
- 
- 	len /= sizeof(struct rds_info_socket);
- 
--	spin_lock_irqsave(&rds_sock_lock, flags);
-+	spin_lock(&rds_sock_lock);
- 
- 	if (len < rds_sock_count)
- 		goto out;
-@@ -529,7 +525,7 @@ out:
- 	lens->nr = rds_sock_count;
- 	lens->each = sizeof(struct rds_info_socket);
- 
--	spin_unlock_irqrestore(&rds_sock_lock, flags);
-+	spin_unlock(&rds_sock_lock);
- }
- 
- static void rds_exit(void)
 -- 
-1.7.6.2
+Markus
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
