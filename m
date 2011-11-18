@@ -1,47 +1,92 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: root_lock vs. device's TX lock
-Date: Thu, 17 Nov 2011 16:35:34 -0800
-Message-ID: <CA+mtBx8KfVQYcZFCJrQF__LJh7e0cRSPqSk1nn537Z_ATMjD9Q@mail.gmail.com>
-References: <CA+mtBx8sHDprEct3zgGXXKEESK6i0FYnFS-_z35FOyVQjS9R4Q@mail.gmail.com>
-	<1321547698.2751.68.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1321550786.2751.83.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<CAA93jw6VfGKAk_gBZOjyCCcR0tCSc8PMjOoPv6Qi8m+P1idp4Q@mail.gmail.com>
-	<CAKWjMd7xvepSb2sMf4X4U4cjRYizq=tP2TTHhYaozuyBeSW4AQ@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH net-next] sky2: fix hang in napi_disable
+Date: Thu, 17 Nov 2011 16:37:35 -0800
+Message-ID: <20111117163735.0a16660b@nehalam.linuxnetplumber.net>
+References: <20111116234254.319625694@vyatta.com>
+ <20111116234344.526517614@vyatta.com>
+ <87r517w2z0.fsf@turtle.gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Dave Taht <dave.taht@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Andy Fleming <afleming@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Sven Joachim <svenjoac@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:54154 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752088Ab1KRAff (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 19:35:35 -0500
-Received: by ggnb2 with SMTP id b2so1844234ggn.19
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 16:35:35 -0800 (PST)
-In-Reply-To: <CAKWjMd7xvepSb2sMf4X4U4cjRYizq=tP2TTHhYaozuyBeSW4AQ@mail.gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:37764 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752088Ab1KRAhi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Nov 2011 19:37:38 -0500
+In-Reply-To: <87r517w2z0.fsf@turtle.gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Actually, I'm interested in circumventing *both* locks. Our SoC has
-> some quite-versatile queueing infrastructure, such that (for many
-> queueing setups) we can do all of the queueing in hardware, using
-> per-cpu access portals. By hacking around the qdisc lock, and using a
-> tx queue per core, we were able to achieve a significant speedup.
->
-This was actually one of the motivations for my question.  If we have
-a one TX queue per core, and and use a trivial mq aware qdisc for
-instance, the locking becomes mostly overhead.  I don't mind taking a
-lock once per TX, but right now were taking three! (root lock twice,
-and device lock once).
+If IRQ was never initialized, then calling napi_disable() would hang.
+Add more bookkeeping to track whether IRQ was ever initialized.
 
-Even without one queue per TX, I think the overhead savings may still
-be present.  Eric, I realize that a point of dropping the root lock in
-sch_direct_xmit is to possibly allow queuing to to qdisc and device
-xmit in parallel, but if you're using a trivial qdisc then the time in
-qdisc may be << time in device xmit, so the overhead of locking could
-mitigate the gains in parallelism.  At the very least, this benefit is
-hugely variable depending on the qdisc used.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Tom
+--- a/drivers/net/ethernet/marvell/sky2.c	2011-11-17 11:10:35.938076778 -0800
++++ b/drivers/net/ethernet/marvell/sky2.c	2011-11-17 11:15:49.527882932 -0800
+@@ -1723,6 +1723,8 @@ static int sky2_setup_irq(struct sky2_hw
+ 	if (err)
+ 		dev_err(&pdev->dev, "cannot assign irq %d\n", pdev->irq);
+ 	else {
++		hw->flags |= SKY2_HW_IRQ_SETUP;
++
+ 		napi_enable(&hw->napi);
+ 		sky2_write32(hw, B0_IMSK, Y2_IS_BASE);
+ 		sky2_read32(hw, B0_IMSK);
+@@ -2120,6 +2122,7 @@ static int sky2_close(struct net_device
+ 
+ 		napi_disable(&hw->napi);
+ 		free_irq(hw->pdev->irq, hw);
++		hw->flags &= ~SKY2_HW_IRQ_SETUP;
+ 	} else {
+ 		u32 imask;
+ 
+@@ -3423,12 +3426,13 @@ static void sky2_all_down(struct sky2_hw
+ {
+ 	int i;
+ 
+-	sky2_read32(hw, B0_IMSK);
+-	sky2_write32(hw, B0_IMSK, 0);
++	if (hw->flags & SKY2_HW_IRQ_SETUP) {
++		sky2_read32(hw, B0_IMSK);
++		sky2_write32(hw, B0_IMSK, 0);
+ 
+-	if (hw->ports > 1 || netif_running(hw->dev[0]))
+ 		synchronize_irq(hw->pdev->irq);
+-	napi_disable(&hw->napi);
++		napi_disable(&hw->napi);
++	}
+ 
+ 	for (i = 0; i < hw->ports; i++) {
+ 		struct net_device *dev = hw->dev[i];
+@@ -3445,7 +3449,7 @@ static void sky2_all_down(struct sky2_hw
+ 
+ static void sky2_all_up(struct sky2_hw *hw)
+ {
+-	u32 imask = 0;
++	u32 imask = Y2_IS_BASE;
+ 	int i;
+ 
+ 	for (i = 0; i < hw->ports; i++) {
+@@ -3461,8 +3465,7 @@ static void sky2_all_up(struct sky2_hw *
+ 		netif_wake_queue(dev);
+ 	}
+ 
+-	if (imask || hw->ports > 1) {
+-		imask |= Y2_IS_BASE;
++	if (hw->flags & SKY2_HW_IRQ_SETUP) {
+ 		sky2_write32(hw, B0_IMSK, imask);
+ 		sky2_read32(hw, B0_IMSK);
+ 		sky2_read32(hw, B0_Y2_SP_LISR);
+--- a/drivers/net/ethernet/marvell/sky2.h	2011-11-16 15:15:40.964280527 -0800
++++ b/drivers/net/ethernet/marvell/sky2.h	2011-11-17 11:13:00.154858718 -0800
+@@ -2287,6 +2287,7 @@ struct sky2_hw {
+ #define SKY2_HW_RSS_BROKEN	0x00000100
+ #define SKY2_HW_VLAN_BROKEN     0x00000200
+ #define SKY2_HW_RSS_CHKSUM	0x00000400	/* RSS requires chksum */
++#define SKY2_HW_IRQ_SETUP	0x00000800
+ 
+ 	u8	     	     chip_id;
+ 	u8		     chip_rev;
