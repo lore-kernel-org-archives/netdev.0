@@ -1,48 +1,35 @@
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Fri, 18 Nov 2011 13:02:01 +0100
-Message-ID: <20111118120201.GA1642@x4.trippels.de>
-References: <20111118072519.GA1615@x4.trippels.de>
- <20111118075521.GB1615@x4.trippels.de>
- <1321605837.30341.551.camel@debian>
- <20111118085436.GC1615@x4.trippels.de>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: ipv4 udplite broken in >=linux-3.0 ?
+Date: Fri, 18 Nov 2011 13:04:30 +0100
+Message-ID: <20111118120430.GG3317@hell>
+References: <CABPbr_msepemFt4ezGVRk3QS0MU3F47MKimfV4Y+6jqvUrLFeA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "Alex,Shi" <alex.shi@intel.com>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: gerrit@erg.abdn.ac.uk, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jinxin Zheng <jinxinzheng@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20111118085436.GC1615@x4.trippels.de>
-Sender: owner-linux-mm@kvack.org
+In-Reply-To: <CABPbr_msepemFt4ezGVRk3QS0MU3F47MKimfV4Y+6jqvUrLFeA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2011.11.18 at 09:54 +0100, Markus Trippelsdorf wrote:
-> On 2011.11.18 at 16:43 +0800, Alex,Shi wrote:
-> > > > 
-> > > > The dirty flag comes from a bunch of unrelated xfs patches from Christoph, that
-> > > > I'm testing right now.
-> > 
-> > Where is the xfs patchset? I am wondering if it is due to slub code. 
+* Jinxin Zheng | 2011-11-18 12:09:25 [+0800]:
 
-I begin to wonder if this might be the result of a compiler bug. 
-The kernel in question was compiled with gcc version 4.7.0 20111117. And
-there was commit to the gcc repository today that looks suspicious:
-http://gcc.gnu.org/viewcvs?view=revision&revision=181466
+>I don't know how to debug udplite. Can any one of you give me a tip on
+>how to get more debug info, then I can do further test and provide
+>with it?
 
-Will have to dig deeper, but if this turns out to be the cause of the
-issue, I apologize for the noise.
+net-next works for me:
 
--- 
-Markus
+$ sudo aptitude install netsend
+$ sudo tcpdump -n -ttt -vv -i lo > pcap.trace &
+$ netsend udplite receive &
+$ netsend udplite transmit /etc/fstab 127.0.0.1
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+$ cat pcap.trace
+00:00:00.000000 IP (tos 0x0, ttl 64, id 30602, offset 0, flags [DF], proto unknown (136), length 40) 127.0.0.1 > 127.0.0.1:  udplite 20
+00:00:00.000074 IP (tos 0x0, ttl 64, id 30603, offset 0, flags [DF], proto unknown (136), length 1125) 127.0.0.1 > 127.0.0.1:  udplite 1105
+
+
+Kernel version? What is the output of strace?
