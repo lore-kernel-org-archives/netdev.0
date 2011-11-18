@@ -1,100 +1,31 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] iwl-debug: Shrink object by using dev_err and deduplicating
- formats
-Date: Thu, 17 Nov 2011 17:46:15 -0800
-Message-ID: <1321580775.22117.8.camel@Joe-Laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] sky2: fix hang in napi_disable
+Date: Thu, 17 Nov 2011 20:52:34 -0500 (EST)
+Message-ID: <20111117.205234.394141688162787655.davem@davemloft.net>
+References: <20111116234344.526517614@vyatta.com>
+	<87r517w2z0.fsf@turtle.gmx.de>
+	<20111117163735.0a16660b@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Wey-Yi Guy <wey-yi.w.guy@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>
+Cc: svenjoac@gmx.de, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:59985 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751415Ab1KRBqQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Nov 2011 20:46:16 -0500
+Received: from shards.monkeyblade.net ([198.137.202.13]:39952 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754819Ab1KRBwk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2011 20:52:40 -0500
+In-Reply-To: <20111117163735.0a16660b@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using dev_err instead of dev_printk(KERN_ERR uses fewer
-arguments and is a bit smaller.
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Thu, 17 Nov 2011 16:37:35 -0800
 
-Deduplicating formats used by IWL_DEBUG_QUIET_RFKILL also
-makes the object a bit smaller.
- 
-Neatened the macros, used ##__VA_ARGS__.
+> If IRQ was never initialized, then calling napi_disable() would hang.
+> Add more bookkeeping to track whether IRQ was ever initialized.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-$ size drivers/net/wireless/iwlwifi/built-in.o*
-   text	   data	    bss	    dec	    hex	filename
- 462652	   8646	  92576	 563874	  89aa2	drivers/net/wireless/iwlwifi/built-in.o.new
- 467557	   8646	  92592	 568795	  8addb	drivers/net/wireless/iwlwifi/built-in.o.old
-
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/wireless/iwlwifi/iwl-debug.h |   37 +++++++++++++++++-------------
- 1 files changed, 21 insertions(+), 16 deletions(-)
-
-diff --git a/drivers/net/wireless/iwlwifi/iwl-debug.h b/drivers/net/wireless/iwlwifi/iwl-debug.h
-index 40ef97b..44a7bdd 100644
---- a/drivers/net/wireless/iwlwifi/iwl-debug.h
-+++ b/drivers/net/wireless/iwlwifi/iwl-debug.h
-@@ -47,20 +47,21 @@ do {									\
- } while (0)
- 
- #ifdef CONFIG_IWLWIFI_DEBUG
--#define IWL_DEBUG(m, level, fmt, args...)				\
-+#define IWL_DEBUG(m, level, fmt, ...)					\
- do {									\
- 	if (iwl_get_debug_level((m)->shrd) & (level))			\
--		dev_printk(KERN_ERR, bus(m)->dev,			\
--			 "%c %s " fmt, in_interrupt() ? 'I' : 'U',	\
--			__func__ , ## args);				\
-+		dev_err(bus(m)->dev, "%c %s " fmt,			\
-+			in_interrupt() ? 'I' : 'U', __func__,		\
-+			##__VA_ARGS__);					\
- } while (0)
- 
--#define IWL_DEBUG_LIMIT(m, level, fmt, args...)				\
-+#define IWL_DEBUG_LIMIT(m, level, fmt, ...)				\
- do {									\
--	if (iwl_get_debug_level((m)->shrd) & (level) && net_ratelimit())\
--		dev_printk(KERN_ERR, bus(m)->dev,			\
--			"%c %s " fmt, in_interrupt() ? 'I' : 'U',	\
--			 __func__ , ## args);				\
-+	if (iwl_get_debug_level((m)->shrd) & (level) &&			\
-+	    net_ratelimit())						\
-+		dev_err(bus(m)->dev, "%c %s " fmt,			\
-+			in_interrupt() ? 'I' : 'U', __func__,		\
-+			##__VA_ARGS__);					\
- } while (0)
- 
- #define iwl_print_hex_dump(m, level, p, len)				\
-@@ -70,14 +71,18 @@ do {                                            			\
- 			       DUMP_PREFIX_OFFSET, 16, 1, p, len, 1);	\
- } while (0)
- 
--#define IWL_DEBUG_QUIET_RFKILL(p, fmt, args...)			\
-+#define IWL_DEBUG_QUIET_RFKILL(p, fmt, ...)				\
- do {									\
--	if (!iwl_is_rfkill(p->shrd))				\
--		dev_printk(KERN_ERR, bus(p)->dev, "%c %s " fmt,	\
--		(in_interrupt() ? 'I' : 'U'), __func__ , ##args);	\
--	else if	(iwl_get_debug_level(p->shrd) & IWL_DL_RADIO)	\
--		dev_printk(KERN_ERR, bus(p)->dev, "(RFKILL) %c %s " fmt, \
--		(in_interrupt() ? 'I' : 'U'), __func__ , ##args);	\
-+	if (!iwl_is_rfkill(p->shrd))					\
-+		dev_err(bus(p)->dev, "%s%c %s " fmt,			\
-+			"",						\
-+			in_interrupt() ? 'I' : 'U', __func__,		\
-+			##__VA_ARGS__);					\
-+	else if	(iwl_get_debug_level(p->shrd) & IWL_DL_RADIO)		\
-+		dev_err(bus(p)->dev, "%s%c %s " fmt,			\
-+			"(RFKILL) ",					\
-+			in_interrupt() ? 'I' : 'U', __func__,		\
-+			##__VA_ARGS__);					\
- } while (0)
- 
- #else
+Stephen, your other 6 patches went into 'net' so you have to target
+these fixes there too.
