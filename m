@@ -1,52 +1,50 @@
-From: Nico -telmich- Schottelius <nico-linux-20111118@schottelius.org>
-Subject: b43: BCM 4331: MacBook 8,1: No connection after suspend
-Date: Fri, 18 Nov 2011 18:32:42 +0100
-Message-ID: <20111118173242.GA2101@schottelius.org>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH] net: Use kmemdup rather than duplicating its
+ implementation
+Date: Fri, 18 Nov 2011 09:32:57 -0800
+Message-ID: <20111118093257.000059eb@unknown>
+References: <1321569820.1624.307.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Arend van Spriel <arend@broadcom.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "samuel@sortiz.org" <samuel@sortiz.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Thomas Meyer <thomas@m3y3r.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <1321569820.1624.307.camel@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Thu, 17 Nov 2011 14:43:40 -0800
+Thomas Meyer <thomas@m3y3r.de> wrote:
 
-new notebook, new problems (*):
+> The semantic patch that makes this change is available
+> in scripts/coccinelle/api/memdup.cocci.
+> 
+> Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
+> ---
+> 
+> diff -u -p a/net/irda/irttp.c b/net/irda/irttp.c
+> --- a/net/irda/irttp.c 2011-11-07 19:39:06.071138486 +0100
+> +++ b/net/irda/irttp.c 2011-11-08 10:59:07.152748948 +0100
+> @@ -1461,14 +1461,13 @@ struct tsap_cb *irttp_dup(struct tsap_cb
+>  	}
+>  
+>  	/* Allocate a new instance */
+> -	new = kmalloc(sizeof(struct tsap_cb), GFP_ATOMIC);
+> +	new = kmemdup(orig, sizeof(struct tsap_cb), GFP_ATOMIC);
+>  	if (!new) {
+>  		IRDA_DEBUG(0, "%s(), unable to kmalloc\n", __func__);
+>  		spin_unlock_irqrestore(&irttp->tsaps->hb_spinlock, flags);
+>  		return NULL;
+>  	}
+>  	/* Dup */
 
-Running 3.2.0-rc1 on the MacBook Pro 8,1 with the BCM4331
-(14e4:4331) the WLAN indeed works:
+this ^^^ comment should be removed also.
 
-[   86.231702] b43-phy0: Broadcom 4331 WLAN found (core revision 29)
-[   86.269190] ieee80211 phy0: Selected rate control algorithm
-'minstrel_ht'
-[   86.270486] Broadcom 43xx driver loaded [ Features: PMNLS ]
-[   87.677265] b43-phy0: Loading firmware version 666.2 (2011-02-23
-01:15:07)
-
-But: After a suspend it seems not to receive any packets anymore:
-
-[ 2334.494845] wlan0: authenticate with 64:87:d7:37:89:89 (try 1)
-[ 2334.694035] wlan0: authenticate with 64:87:d7:37:89:89 (try 2)
-[ 2334.893909] wlan0: authenticate with 64:87:d7:37:89:89 (try 3)
-[ 2335.093824] wlan0: authentication with 64:87:d7:37:89:89 timed out
-
-wpa_supplicant thus retries to connect to the network again and again
-without success.
-
-This is reproducable on the MBP 8,1 and is *NOT* fixed if I unload
-b43 and modprobe it again. It is also "not fixed" when doing
-multiple suspends/resumes.
-
-Any pointers to this?
-
-Cheers,
-
-Nico
-
-
-(*) feels like in good old times...
-
--- 
-PGP key: 7ED9 F7D3 6B10 81D7 0EC5  5C09 D7DC C8E4 3187 7DF0
+> -	memcpy(new, orig, sizeof(struct tsap_cb));
+>  	spin_lock_init(&new->lock);
+>  
+>  	/* We don't need the old instance any more */
