@@ -1,226 +1,64 @@
-From: "Dinesh Kumar SHARMA (STE)" <dinesh.sharma@stericsson.com>
-Subject: RE: [PATCH v7] Phonet: set the pipe handle using setsockopt
-Date: Fri, 18 Nov 2011 06:27:44 +0100
-Message-ID: <AA50405D3B026C488CB3DB0AADE695401F56663F03@EXDCVYMBSTM005.EQ1STM.local>
-References: <1321522140-10133-1-git-send-email-hemant.ramdasi@stericsson.com>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: [RFC] [ver3 PATCH 3/6] virtio_net: virtio_net driver changes
+Date: Fri, 18 Nov 2011 08:24:41 +0200
+Message-ID: <1321597481.8010.19.camel@lappy>
+References: <20111111130223.9878.59517.sendpatchset@krkumar2.in.ibm.com>
+	 <20111111130420.9878.19729.sendpatchset@krkumar2.in.ibm.com>
+	 <1321578488.2749.66.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"remi.denis-courmont@nokia.com" <remi.denis-courmont@nokia.com>,
-	Hemant-vilas RAMDASI <hemant.ramdasi@stericsson.com>
-To: Hemant-vilas RAMDASI <hemant.ramdasi@stericsson.com>,
-	"netdev-owner@vger.kernel.org" <netdev-owner@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:58678 "EHLO
-	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752024Ab1KRF2G convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Nov 2011 00:28:06 -0500
-In-Reply-To: <1321522140-10133-1-git-send-email-hemant.ramdasi@stericsson.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar <krkumar2@in.ibm.com>, rusty@rustcorp.com.au,
+	mst@redhat.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	davem@davemloft.net, virtualization@lists.linux-foundation.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1321578488.2749.66.camel@bwh-desktop>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Fri, 2011-11-18 at 01:08 +0000, Ben Hutchings wrote:
+> On Fri, 2011-11-11 at 18:34 +0530, Krishna Kumar wrote:
+> > Changes for multiqueue virtio_net driver.
+> [...]
+> > @@ -677,25 +730,35 @@ static struct rtnl_link_stats64 *virtnet
+> >  {
+> >  	struct virtnet_info *vi = netdev_priv(dev);
+> >  	int cpu;
+> > -	unsigned int start;
+> >  
+> >  	for_each_possible_cpu(cpu) {
+> > -		struct virtnet_stats __percpu *stats
+> > -			= per_cpu_ptr(vi->stats, cpu);
+> > -		u64 tpackets, tbytes, rpackets, rbytes;
+> > -
+> > -		do {
+> > -			start = u64_stats_fetch_begin(&stats->syncp);
+> > -			tpackets = stats->tx_packets;
+> > -			tbytes   = stats->tx_bytes;
+> > -			rpackets = stats->rx_packets;
+> > -			rbytes   = stats->rx_bytes;
+> > -		} while (u64_stats_fetch_retry(&stats->syncp, start));
+> > -
+> > -		tot->rx_packets += rpackets;
+> > -		tot->tx_packets += tpackets;
+> > -		tot->rx_bytes   += rbytes;
+> > -		tot->tx_bytes   += tbytes;
+> > +		int qpair;
+> > +
+> > +		for (qpair = 0; qpair < vi->num_queue_pairs; qpair++) {
+> > +			struct virtnet_send_stats __percpu *tx_stat;
+> > +			struct virtnet_recv_stats __percpu *rx_stat;
+> 
+> While you're at it, you can drop the per-CPU stats and make them only
+> per-queue.  There is unlikely to be any benefit in maintaining them
+> per-CPU while receive and transmit processing is serialised per-queue.
 
-Can this be applied now?
+It allows you to update stats without a lock.
 
-Thanks.
+Whats the benefit of having them per queue?
 
-Regards,
--Dinesh
-
------Original Message-----
-From: Hemant Vilas RAMDASI [mailto:hemant.ramdasi@stericsson.com] 
-Sent: Thursday, November 17, 2011 2:59 PM
-To: netdev-owner@vger.kernel.org
-Cc: netdev@vger.kernel.org; remi.denis-courmont@nokia.com; Dinesh Kumar SHARMA (STE); Hemant-vilas RAMDASI
-Subject: [PATCH v7] Phonet: set the pipe handle using setsockopt
-
-From: Dinesh Kumar Sharma <dinesh.sharma@stericsson.com>
-
-This provides flexibility to set the pipe handle
-using setsockopt. The pipe can be enabled (if disabled) later
-using ioctl.
-
-Signed-off-by: Hemant Ramdasi <hemant.ramdasi@stericsson.com>
-Signed-off-by: Dinesh Kumar Sharma <dinesh.sharma@stericsson.com>
----
- include/linux/phonet.h |    2 +
- net/phonet/pep.c       |   96 ++++++++++++++++++++++++++++++++++++++++++++---
- 2 files changed, 91 insertions(+), 7 deletions(-)
-
-diff --git a/include/linux/phonet.h b/include/linux/phonet.h
-index 6fb1384..1847ef9 100644
---- a/include/linux/phonet.h
-+++ b/include/linux/phonet.h
-@@ -37,6 +37,7 @@
- #define PNPIPE_ENCAP		1
- #define PNPIPE_IFINDEX		2
- #define PNPIPE_HANDLE		3
-+#define PNPIPE_INITSTATE	4
- 
- #define PNADDR_ANY		0
- #define PNADDR_BROADCAST	0xFC
-@@ -48,6 +49,7 @@
- 
- /* ioctls */
- #define SIOCPNGETOBJECT		(SIOCPROTOPRIVATE + 0)
-+#define SIOCPNENABLEPIPE	(SIOCPROTOPRIVATE + 13)
- #define SIOCPNADDRESOURCE	(SIOCPROTOPRIVATE + 14)
- #define SIOCPNDELRESOURCE	(SIOCPROTOPRIVATE + 15)
- 
-diff --git a/net/phonet/pep.c b/net/phonet/pep.c
-index f17fd84..7acd262 100644
---- a/net/phonet/pep.c
-+++ b/net/phonet/pep.c
-@@ -533,6 +533,29 @@ static int pep_connresp_rcv(struct sock *sk, struct sk_buff *skb)
- 	return pipe_handler_send_created_ind(sk);
- }
- 
-+static int pep_enableresp_rcv(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct pnpipehdr *hdr = pnp_hdr(skb);
-+
-+	if (hdr->error_code != PN_PIPE_NO_ERROR)
-+		return -ECONNREFUSED;
-+
-+	return pep_indicate(sk, PNS_PIPE_ENABLED_IND, 0 /* sub-blocks */,
-+		NULL, 0, GFP_ATOMIC);
-+
-+}
-+
-+static void pipe_start_flow_control(struct sock *sk)
-+{
-+	struct pep_sock *pn = pep_sk(sk);
-+
-+	if (!pn_flow_safe(pn->tx_fc)) {
-+		atomic_set(&pn->tx_credits, 1);
-+		sk->sk_write_space(sk);
-+	}
-+	pipe_grant_credits(sk, GFP_ATOMIC);
-+}
-+
- /* Queue an skb to an actively connected sock.
-  * Socket lock must be held. */
- static int pipe_handler_do_rcv(struct sock *sk, struct sk_buff *skb)
-@@ -578,13 +601,25 @@ static int pipe_handler_do_rcv(struct sock *sk, struct sk_buff *skb)
- 			sk->sk_state = TCP_CLOSE_WAIT;
- 			break;
- 		}
-+		if (pn->init_enable == PN_PIPE_DISABLE)
-+			sk->sk_state = TCP_SYN_RECV;
-+		else {
-+			sk->sk_state = TCP_ESTABLISHED;
-+			pipe_start_flow_control(sk);
-+		}
-+		break;
- 
--		sk->sk_state = TCP_ESTABLISHED;
--		if (!pn_flow_safe(pn->tx_fc)) {
--			atomic_set(&pn->tx_credits, 1);
--			sk->sk_write_space(sk);
-+	case PNS_PEP_ENABLE_RESP:
-+		if (sk->sk_state != TCP_SYN_SENT)
-+			break;
-+
-+		if (pep_enableresp_rcv(sk, skb)) {
-+			sk->sk_state = TCP_CLOSE_WAIT;
-+			break;
- 		}
--		pipe_grant_credits(sk, GFP_ATOMIC);
-+
-+		sk->sk_state = TCP_ESTABLISHED;
-+		pipe_start_flow_control(sk);
- 		break;
- 
- 	case PNS_PEP_DISCONNECT_RESP:
-@@ -863,14 +898,32 @@ static int pep_sock_connect(struct sock *sk, struct sockaddr *addr, int len)
- 	int err;
- 	u8 data[4] = { 0 /* sub-blocks */, PAD, PAD, PAD };
- 
--	pn->pipe_handle = 1; /* anything but INVALID_HANDLE */
-+	if (pn->pipe_handle == PN_PIPE_INVALID_HANDLE)
-+		pn->pipe_handle = 1; /* anything but INVALID_HANDLE */
-+
- 	err = pipe_handler_request(sk, PNS_PEP_CONNECT_REQ,
--					PN_PIPE_ENABLE, data, 4);
-+				pn->init_enable, data, 4);
- 	if (err) {
- 		pn->pipe_handle = PN_PIPE_INVALID_HANDLE;
- 		return err;
- 	}
-+
- 	sk->sk_state = TCP_SYN_SENT;
-+
-+	return 0;
-+}
-+
-+static int pep_sock_enable(struct sock *sk, struct sockaddr *addr, int len)
-+{
-+	int err;
-+
-+	err = pipe_handler_request(sk, PNS_PEP_ENABLE_REQ, PAD,
-+				NULL, 0);
-+	if (err)
-+		return err;
-+
-+	sk->sk_state = TCP_SYN_SENT;
-+
- 	return 0;
- }
- 
-@@ -894,6 +947,19 @@ static int pep_ioctl(struct sock *sk, int cmd, unsigned long arg)
- 			answ = 0;
- 		release_sock(sk);
- 		return put_user(answ, (int __user *)arg);
-+		break;
-+
-+	case SIOCPNENABLEPIPE:
-+		lock_sock(sk);
-+		if (sk->sk_state == TCP_SYN_SENT)
-+			answ =  -EBUSY;
-+		else if (sk->sk_state == TCP_ESTABLISHED)
-+			answ = -EISCONN;
-+		else
-+			answ = pep_sock_enable(sk, NULL, 0);
-+		release_sock(sk);
-+		return answ;
-+		break;
- 	}
- 
- 	return -ENOIOCTLCMD;
-@@ -959,6 +1025,18 @@ static int pep_setsockopt(struct sock *sk, int level, int optname,
- 		}
- 		goto out_norel;
- 
-+	case PNPIPE_HANDLE:
-+		if ((sk->sk_state == TCP_CLOSE) &&
-+			(val >= 0) && (val < PN_PIPE_INVALID_HANDLE))
-+			pn->pipe_handle = val;
-+		else
-+			err = -EINVAL;
-+		break;
-+
-+	case PNPIPE_INITSTATE:
-+		pn->init_enable = !!val;
-+		break;
-+
- 	default:
- 		err = -ENOPROTOOPT;
- 	}
-@@ -994,6 +1072,10 @@ static int pep_getsockopt(struct sock *sk, int level, int optname,
- 			return -EINVAL;
- 		break;
- 
-+	case PNPIPE_INITSTATE:
-+		val = pn->init_enable;
-+		break;
-+
- 	default:
- 		return -ENOPROTOOPT;
- 	}
 -- 
-1.7.4.3
+
+Sasha.
+
