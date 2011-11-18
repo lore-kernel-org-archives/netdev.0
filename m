@@ -1,119 +1,43 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next-2.6 PATCH 0/6 v4] macvlan: MAC Address filtering
- support for passthru mode
-Date: Fri, 18 Nov 2011 17:40:38 +0000
-Message-ID: <1321638038.2883.28.camel@bwh-desktop>
-References: <20111109075449.13549.58135.stgit@rhel6.1>
-	 <1321575301.2749.51.camel@bwh-desktop>  <4EC5A785.3060108@intel.com>
-	 <1321577078.2749.58.camel@bwh-desktop>  <4EC68EBB.3080303@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: lock-warning seen on giving rds-info command
+Date: Fri, 18 Nov 2011 12:44:59 -0500 (EST)
+Message-ID: <20111118.124459.1019488665580264734.davem@davemloft.net>
+References: <1321603654-17179-1-git-send-email-kumaras@chelsio.com>
+	<1321604802.2444.40.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Roopa Prabhu <roprabhu@cisco.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"chrisw@redhat.com" <chrisw@redhat.com>,
-	"sri@us.ibm.com" <sri@us.ibm.com>,
-	"dragos.tatulea@gmail.com" <dragos.tatulea@gmail.com>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"arnd@arndb.de" <arnd@arndb.de>, "mst@redhat.com" <mst@redhat.com>,
-	"mchan@broadcom.com" <mchan@broadcom.com>,
-	"dwang2@cisco.com" <dwang2@cisco.com>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"benve@cisco.com" <benve@cisco.com>
-To: Greg Rose <gregory.v.rose@intel.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4EC68EBB.3080303@intel.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kumaras@chelsio.com, netdev@vger.kernel.org,
+	venkat.x.venkatsubra@oracle.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:53380 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752791Ab1KRRpK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 12:45:10 -0500
+In-Reply-To: <1321604802.2444.40.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-11-18 at 08:58 -0800, Greg Rose wrote:
-> On 11/17/2011 4:44 PM, Ben Hutchings wrote:
-> > On Thu, 2011-11-17 at 16:32 -0800, Greg Rose wrote:
-> >> On 11/17/2011 4:15 PM, Ben Hutchings wrote:
-> >>> Sorry to come to this rather late.
-> >>>
-> >>> On Tue, 2011-11-08 at 23:55 -0800, Roopa Prabhu wrote:
-> >>> [...]
-> >>>> v2 ->   v3
-> >>>> - Moved set and get filter ops from rtnl_link_ops to netdev_ops
-> >>>> - Support for SRIOV VFs.
-> >>>>           [Note: The get filters msg (in the way current get rtnetlink handles
-> >>>>           it) might get too big for SRIOV vfs. This patch follows existing sriov
-> >>>>           vf get code and tries to accomodate filters for all VF's in a PF.
-> >>>>           And for the SRIOV case I have only tested the fact that the VF
-> >>>>           arguments are getting delivered to rtnetlink correctly. The code
-> >>>>           follows existing sriov vf handling code so rest of it should work fine]
-> >>> [...]
-> >>>
-> >>> This is already broken for large numbers of VFs, and increasing the
-> >>> amount of information per VF is going to make the situation worse.  I am
-> >>> no netlink expert but I think that the current approach of bundling all
-> >>> information about an interface in a single message may not be
-> >>> sustainable.
-> >>>
-> >>> Also, I'm unclear on why this interface is to be used to set filtering
-> >>> for the (PF) net device as well as for related VFs.  Doesn't that
-> >>> duplicate the functionality of ndo_set_rx_mode and
-> >>> ndo_vlan_rx_{add,kill}_vid?
-> >>
-> >> Functionally yes but contextually no.  This allows the PF driver to know
-> >> that it is setting these filters in the context of the existence of VFs,
-> >> allowing it to take appropriate action.  The other two functions may be
-> >> called without the presence of SR-IOV enablement and the existence of VFs.
-> >>
-> >> Anyway, that's why I asked Roopa to add that capability.
-> >
-> > I don't follow.  The PF driver already knows whether it has enabled VFs.
-> >
-> > How do filters set this way interact with filters set through the
-> > existing operations?  Should they override promiscuous mode?  None of
-> > this has been specified.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 18 Nov 2011 09:26:42 +0100
+
+> You mean that following sequence triggers a warning ?
 > 
-> Promiscuous mode is exactly the issue this feature is intended for.  I'm 
-> not familiar with the solarflare device but Intel HW promiscuous mode is 
-> only promiscuous on the physical port, not on the VEB.  So a packet sent 
-> from a VF will not be captured by the PF across the VEB unless the MAC 
-> and VLAN filters have been programmed into the HW.
+> spin_lock_irqsave(&rds_sock_lock, flags);
+> ...
+> read_lock_bh(&sk->sk_callback_lock);
+> read_unlock_bh(&sk->sk_callback_lock);   // HERE
+> ...
 
-Yes, I get it.  The hardware bridge needs to know more about the address
-configuration on the host than the driver is getting at the moment.
+This sequence has always been disallowed.
 
-> So you may not need 
-> the feature for your devices but it is required for Intel devices.
+BH's are triggered by software, so when you do local_bh_enable() it checks
+to make sure you haven't tried to do this with hard IRQs disabled and
+triggers the warning if so.
 
-Well we don't have the hardware bridge but that means each VF driver
-needs to know whether to fall back to the software bridge.  The net
-driver needs much the same additional information.
-
-> And 
-> it's a fairly simple request, just allow -1 to indicate that the target 
-> of the filter requests is for the PF itself.  Using the already existing 
-> set_rx_mode function wont' work because the PF driver will look at it 
-> and figure it's in promiscuous mode anyway, so it won't set the filters 
-> into the HW.  At least that is how it is in the case of our HW and 
-> driver.  Again, the behavior of your HW and driver is unknown to me and 
-> thus you may not require this feature.
-
-What concerns me is that this seems to be a workaround rather than a fix
-for over-use of promiscuous mode, and it changes the semantics of
-filtering modes in ways that haven't been well-specified.
-
-What if there's a software bridge between two net devices corresponding
-to separate physical ports, so that they really need to be promiscuous?
-What if the administrator runs tcpdump and really wants the (PF) net
-device to be promiscuous?
-
-These cases shouldn't break because of VF acceleration.  Or at least we
-should make a conscious and documented decision that 'promiscuous'
-doesn't mean that if you enable it on your network adapter.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+static void __local_bh_enable(unsigned int cnt)
+{
+	WARN_ON_ONCE(in_irq());
+	WARN_ON_ONCE(!irqs_disabled());
+ ...
