@@ -1,77 +1,137 @@
-From: Jinxin Zheng <jinxinzheng@gmail.com>
-Subject: Re: ipv4 udplite broken in >=linux-3.0 ?
-Date: Fri, 18 Nov 2011 20:35:28 +0800
-Message-ID: <CABPbr_=fgB-AKK3H8ryccqA7SUO=ejZiWP7tEKYLh=qNG5r7CQ@mail.gmail.com>
-References: <CABPbr_msepemFt4ezGVRk3QS0MU3F47MKimfV4Y+6jqvUrLFeA@mail.gmail.com>
-	<20111118120430.GG3317@hell>
+From: Sven-Haegar Koch <haegar@sdinet.de>
+Subject: Re: routing bug?
+Date: Fri, 18 Nov 2011 13:48:03 +0100 (CET)
+Message-ID: <alpine.DEB.2.02.1111181346480.17023@aurora>
+References: <4EC648C9.8080405@uhulinux.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: gerrit@erg.abdn.ac.uk, linux-kernel@vger.kernel.org,
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-84160418-1321620483=:17023"
+Cc: Linux-Kernel-Mailinglist <linux-kernel@vger.kernel.org>,
+	=?ISO-8859-15?Q?Tam=E1si_J=E1nos?= <janusz@uhulinux.hu>,
 	netdev@vger.kernel.org
-To: Hagen Paul Pfeifer <hagen@jauu.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:53806 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754599Ab1KRMfa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 07:35:30 -0500
-In-Reply-To: <20111118120430.GG3317@hell>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: =?ISO-8859-15?Q?Pozs=E1r_Bal=E1zs?= <pozsy@uhulinux.hu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4EC648C9.8080405@uhulinux.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 18, 2011 at 8:04 PM, Hagen Paul Pfeifer <hagen@jauu.net> wr=
-ote:
-> * Jinxin Zheng | 2011-11-18 12:09:25 [+0800]:
->
->>I don't know how to debug udplite. Can any one of you give me a tip o=
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+--8323328-84160418-1321620483=:17023
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+
+Added netdev list to CC:, there you should have a higher chance of a
+usefull answer.
+
+On Fri, 18 Nov 2011, Pozs=E1r Bal=E1zs wrote:
+
+> Hi all,
+>=20
+> I have been struggling with this not easily reproducible issue since a wh=
+ile.
+> I am using linux kernel v3.1.0, and sometimes routing to a few IP address=
+es
+> does not work. What seems to happen is that instead of sending the packet=
+ to
+> the gateway, the kernel treats the destination address as local, and trie=
+s to
+> gets its MAC address via ARP.
+>=20
+> For example, now my current IP address is 172.16.1.104/24, the gateway is
+> 172.16.1.254:
+>=20
+> |# ifconfig eth0 eth0      Link encap:Ethernet  HWaddr 00:1B:63:97:FC:DC
+>           inet addr:172.16.1.104  Bcast:172.16.1.255  Mask:255.255.255.0
+>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>           RX packets:230772 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:171013 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:1000
+>           RX bytes:191879370 (182.9 Mb)  TX bytes:47173253 (44.9 Mb)
+>           Interrupt:17
+>=20
+> # route -n
+> Kernel IP routing table
+> Destination     Gateway         Genmask         Flags Metric Ref    Use I=
+face
+> 0.0.0.0         172.16.1.254    0.0.0.0         UG    0      0        0 e=
+th0
+> 172.16.1.0      0.0.0.0         255.255.255.0   U     1      0        0 e=
+th0
+> |
+>=20
+> I can ping a few addresses, but not 172.16.0.59:
+>=20
+> |# ping -c1 172.16.1.254
+> PING 172.16.1.254 (172.16.1.254) 56(84) bytes of data.
+> 64 bytes from 172.16.1.254: icmp_seq=3D1 ttl=3D64 time=3D0.383 ms
+>=20
+> --- 172.16.1.254 ping statistics ---
+> 1 packets transmitted, 1 received, 0% packet loss, time 0ms
+> rtt min/avg/max/mdev =3D 0.383/0.383/0.383/0.000 ms
+> root@pozsybook:~# ping -c1 172.16.0.1
+> PING 172.16.0.1 (172.16.0.1) 56(84) bytes of data.
+> 64 bytes from 172.16.0.1: icmp_seq=3D1 ttl=3D63 time=3D5.54 ms
+>=20
+> --- 172.16.0.1 ping statistics ---
+> 1 packets transmitted, 1 received, 0% packet loss, time 0ms
+> rtt min/avg/max/mdev =3D 5.545/5.545/5.545/0.000 ms
+> root@pozsybook:~# ping -c1 172.16.0.2
+> PING 172.16.0.2 (172.16.0.2) 56(84) bytes of data.
+> 64 bytes from 172.16.0.2: icmp_seq=3D1 ttl=3D62 time=3D7.92 ms
+>=20
+> --- 172.16.0.2 ping statistics ---
+> 1 packets transmitted, 1 received, 0% packet loss, time 0ms
+> rtt min/avg/max/mdev =3D 7.925/7.925/7.925/0.000 ms
+> root@pozsybook:~# ping -c1 172.16.0.59
+> PING 172.16.0.59 (172.16.0.59) 56(84) bytes of data.
+> From 172.16.1.104 icmp_seq=3D1 Destination Host Unreachable
+>=20
+> --- 172.16.0.59 ping statistics ---
+> 1 packets transmitted, 0 received, +1 errors, 100% packet loss, time 0ms
+> |
+>=20
+> When trying to ping 172.16.0.59, I can see in tcpdump that an ARP req was
+> sent:
+>=20
+> |# tcpdump -n -i eth0|grep ARP
+> tcpdump: verbose output suppressed, use -v or -vv for full protocol decod=
+e
+> listening on eth0, link-type EN10MB (Ethernet), capture size 96 bytes
+> 15:25:16.671217 ARP, Request who-has 172.16.0.59 tell 172.16.1.104, lengt=
+h 28
+> |
+>=20
+> and /proc/net/arp has an incomplete entry for 172.16.0.59:
+>=20
+> |# grep 172.16.0.59 /proc/net/arp
+>=20
+> 172.16.0.59      0x1         0x0         00:00:00:00:00:00     *        e=
+th0
+> |
+>=20
+> Please note, that 172.16.0.59 /is/ accessible from this LAN from other
+> computers.
+>=20
+>=20
+> Does anyone have any idea of what's going on? Thanks,
+>=20
+>=20
+> Balazs Pozsar
+>=20
+> ps: I think it is related to this one: https://lkml.org/lkml/2011/11/16/2=
+92
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" i=
 n
->>how to get more debug info, then I can do further test and provide
->>with it?
->
-> net-next works for me:
->
-> $ sudo aptitude install netsend
-> $ sudo tcpdump -n -ttt -vv -i lo > pcap.trace &
-> $ netsend udplite receive &
-> $ netsend udplite transmit /etc/fstab 127.0.0.1
->
-> $ cat pcap.trace
-> 00:00:00.000000 IP (tos 0x0, ttl 64, id 30602, offset 0, flags [DF], =
-proto unknown (136), length 40) 127.0.0.1 > 127.0.0.1: =A0udplite 20
-> 00:00:00.000074 IP (tos 0x0, ttl 64, id 30603, offset 0, flags [DF], =
-proto unknown (136), length 1125) 127.0.0.1 > 127.0.0.1: =A0udplite 110=
-5
->
->
-> Kernel version? What is the output of strace?
->
-
-The kernel version is 3.0. I compiled it myself on a Gentoo i386.
-
-I do not use Ubuntu or Debian. Cannot get netsend in Gentoo ...
-
-But I did the test using the hello_world application downloaded from
-Gerrit's wiki:
-http://www.erg.abdn.ac.uk/~gerrit/udp-lite/
-
-It contains a simple 'server' and a 'client' program.
-The client sends a "Hello World" to the server, and when the server
-receives the message it exits.
-
-$ tcpdump -n -ttt -vv -i lo > pcap.trace &
-$ ./server &
-$ ./client
-
-$ cat pcap.trace
-00:00:00.000000 IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto
-unknown (136), length 41)
-   127.0.0.1 > 127.0.0.1:  ip-proto-136 21
-
-the pcap trace seems ok. The sendto() in the client returns ok. But
-the server just cannot return from recv() and echo the message...
-
-I can't see anything suspicious from strace for the server or client ei=
-ther...
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>=20
+>=20
 
 --=20
-Zheng Jinxin
+Three may keep a secret, if two of them are dead.
+- Ben F.
+--8323328-84160418-1321620483=:17023--
