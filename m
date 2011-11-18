@@ -1,87 +1,226 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: root_lock vs. device's TX lock
-Date: Fri, 18 Nov 2011 06:02:20 +0100
-Message-ID: <1321592540.2444.31.camel@edumazet-laptop>
-References: <CA+mtBx8sHDprEct3zgGXXKEESK6i0FYnFS-_z35FOyVQjS9R4Q@mail.gmail.com>
-	 <1321547698.2751.68.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1321550786.2751.83.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <CAA93jw6VfGKAk_gBZOjyCCcR0tCSc8PMjOoPv6Qi8m+P1idp4Q@mail.gmail.com>
-	 <CAKWjMd7xvepSb2sMf4X4U4cjRYizq=tP2TTHhYaozuyBeSW4AQ@mail.gmail.com>
-	 <CA+mtBx8KfVQYcZFCJrQF__LJh7e0cRSPqSk1nn537Z_ATMjD9Q@mail.gmail.com>
+From: "Dinesh Kumar SHARMA (STE)" <dinesh.sharma@stericsson.com>
+Subject: RE: [PATCH v7] Phonet: set the pipe handle using setsockopt
+Date: Fri, 18 Nov 2011 06:27:44 +0100
+Message-ID: <AA50405D3B026C488CB3DB0AADE695401F56663F03@EXDCVYMBSTM005.EQ1STM.local>
+References: <1321522140-10133-1-git-send-email-hemant.ramdasi@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Fleming <afleming@gmail.com>, Dave Taht <dave.taht@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"remi.denis-courmont@nokia.com" <remi.denis-courmont@nokia.com>,
+	Hemant-vilas RAMDASI <hemant.ramdasi@stericsson.com>
+To: Hemant-vilas RAMDASI <hemant.ramdasi@stericsson.com>,
+	"netdev-owner@vger.kernel.org" <netdev-owner@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:61360 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750853Ab1KRFC1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 00:02:27 -0500
-Received: by wwe5 with SMTP id 5so4460636wwe.1
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2011 21:02:26 -0800 (PST)
-In-Reply-To: <CA+mtBx8KfVQYcZFCJrQF__LJh7e0cRSPqSk1nn537Z_ATMjD9Q@mail.gmail.com>
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:58678 "EHLO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752024Ab1KRF2G convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Nov 2011 00:28:06 -0500
+In-Reply-To: <1321522140-10133-1-git-send-email-hemant.ramdasi@stericsson.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 17 novembre 2011 =C3=A0 16:35 -0800, Tom Herbert a =C3=A9crit =
-:
-> > Actually, I'm interested in circumventing *both* locks. Our SoC has
-> > some quite-versatile queueing infrastructure, such that (for many
-> > queueing setups) we can do all of the queueing in hardware, using
-> > per-cpu access portals. By hacking around the qdisc lock, and using=
- a
-> > tx queue per core, we were able to achieve a significant speedup.
+Hi,
 
-If packet reordering is not a concern (or taken into account in the
-hardware)... A task sending tcp flow can migrate from cpu1 to cpu2...
+Can this be applied now?
 
-> This was actually one of the motivations for my question.  If we have
-> a one TX queue per core, and and use a trivial mq aware qdisc for
-> instance, the locking becomes mostly overhead.  I don't mind taking a
-> lock once per TX, but right now were taking three! (root lock twice,
-> and device lock once).
->=20
+Thanks.
 
+Regards,
+-Dinesh
 
-> Even without one queue per TX, I think the overhead savings may still
-> be present.  Eric, I realize that a point of dropping the root lock i=
-n
-> sch_direct_xmit is to possibly allow queuing to to qdisc and device
-> xmit in parallel, but if you're using a trivial qdisc then the time i=
-n
-> qdisc may be << time in device xmit, so the overhead of locking could
-> mitigate the gains in parallelism.  At the very least, this benefit i=
-s
-> hugely variable depending on the qdisc used.
+-----Original Message-----
+From: Hemant Vilas RAMDASI [mailto:hemant.ramdasi@stericsson.com] 
+Sent: Thursday, November 17, 2011 2:59 PM
+To: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org; remi.denis-courmont@nokia.com; Dinesh Kumar SHARMA (STE); Hemant-vilas RAMDASI
+Subject: [PATCH v7] Phonet: set the pipe handle using setsockopt
 
-Andy speaks more of a way to bypass qdisc (direct to device), while I
-thought Tom wanted to optimize htb/cbq/..complex qdisc handling...
+From: Dinesh Kumar Sharma <dinesh.sharma@stericsson.com>
 
-Note we have LLTX thing to avoid taking dev->lock for some devices.
+This provides flexibility to set the pipe handle
+using setsockopt. The pipe can be enabled (if disabled) later
+using ioctl.
 
-We could have a qdisc->fast_enqueue() method for some (qdiscs/device)
-combinations, able to short cut __dev_xmit_skb() and do their own stuff
-(using rcu locking or other synch method, percpu bytes/counter stats...=
-)
+Signed-off-by: Hemant Ramdasi <hemant.ramdasi@stericsson.com>
+Signed-off-by: Dinesh Kumar Sharma <dinesh.sharma@stericsson.com>
+---
+ include/linux/phonet.h |    2 +
+ net/phonet/pep.c       |   96 ++++++++++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 91 insertions(+), 7 deletions(-)
 
-But if device is really that smart, why even use a qdisc in the first
-place ?
-
-If qdisc not needed : We take only one lock (dev lock) to transmit a
-packet. If device is LLTX, no lock taken at all.
-
-If qdisc is needed : We need to take qdisc lock to enqueue packet.
-   Then, _if_ we own the __QDISC___STATE_RUNNING flag, we enter the loo=
-p
-to dequeue and xmit packets (__qdisc_run() / sch_direct_xmit() doing th=
-e
-insane lock flips)
-
-Its a tough choice : Do we want to avoid false sharing in the device
-itself or qdisc...
-
-Current handling was designed so that one cpu was feeding the device an=
-d
-other cpus feeding the qdisc.
+diff --git a/include/linux/phonet.h b/include/linux/phonet.h
+index 6fb1384..1847ef9 100644
+--- a/include/linux/phonet.h
++++ b/include/linux/phonet.h
+@@ -37,6 +37,7 @@
+ #define PNPIPE_ENCAP		1
+ #define PNPIPE_IFINDEX		2
+ #define PNPIPE_HANDLE		3
++#define PNPIPE_INITSTATE	4
+ 
+ #define PNADDR_ANY		0
+ #define PNADDR_BROADCAST	0xFC
+@@ -48,6 +49,7 @@
+ 
+ /* ioctls */
+ #define SIOCPNGETOBJECT		(SIOCPROTOPRIVATE + 0)
++#define SIOCPNENABLEPIPE	(SIOCPROTOPRIVATE + 13)
+ #define SIOCPNADDRESOURCE	(SIOCPROTOPRIVATE + 14)
+ #define SIOCPNDELRESOURCE	(SIOCPROTOPRIVATE + 15)
+ 
+diff --git a/net/phonet/pep.c b/net/phonet/pep.c
+index f17fd84..7acd262 100644
+--- a/net/phonet/pep.c
++++ b/net/phonet/pep.c
+@@ -533,6 +533,29 @@ static int pep_connresp_rcv(struct sock *sk, struct sk_buff *skb)
+ 	return pipe_handler_send_created_ind(sk);
+ }
+ 
++static int pep_enableresp_rcv(struct sock *sk, struct sk_buff *skb)
++{
++	struct pnpipehdr *hdr = pnp_hdr(skb);
++
++	if (hdr->error_code != PN_PIPE_NO_ERROR)
++		return -ECONNREFUSED;
++
++	return pep_indicate(sk, PNS_PIPE_ENABLED_IND, 0 /* sub-blocks */,
++		NULL, 0, GFP_ATOMIC);
++
++}
++
++static void pipe_start_flow_control(struct sock *sk)
++{
++	struct pep_sock *pn = pep_sk(sk);
++
++	if (!pn_flow_safe(pn->tx_fc)) {
++		atomic_set(&pn->tx_credits, 1);
++		sk->sk_write_space(sk);
++	}
++	pipe_grant_credits(sk, GFP_ATOMIC);
++}
++
+ /* Queue an skb to an actively connected sock.
+  * Socket lock must be held. */
+ static int pipe_handler_do_rcv(struct sock *sk, struct sk_buff *skb)
+@@ -578,13 +601,25 @@ static int pipe_handler_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 			sk->sk_state = TCP_CLOSE_WAIT;
+ 			break;
+ 		}
++		if (pn->init_enable == PN_PIPE_DISABLE)
++			sk->sk_state = TCP_SYN_RECV;
++		else {
++			sk->sk_state = TCP_ESTABLISHED;
++			pipe_start_flow_control(sk);
++		}
++		break;
+ 
+-		sk->sk_state = TCP_ESTABLISHED;
+-		if (!pn_flow_safe(pn->tx_fc)) {
+-			atomic_set(&pn->tx_credits, 1);
+-			sk->sk_write_space(sk);
++	case PNS_PEP_ENABLE_RESP:
++		if (sk->sk_state != TCP_SYN_SENT)
++			break;
++
++		if (pep_enableresp_rcv(sk, skb)) {
++			sk->sk_state = TCP_CLOSE_WAIT;
++			break;
+ 		}
+-		pipe_grant_credits(sk, GFP_ATOMIC);
++
++		sk->sk_state = TCP_ESTABLISHED;
++		pipe_start_flow_control(sk);
+ 		break;
+ 
+ 	case PNS_PEP_DISCONNECT_RESP:
+@@ -863,14 +898,32 @@ static int pep_sock_connect(struct sock *sk, struct sockaddr *addr, int len)
+ 	int err;
+ 	u8 data[4] = { 0 /* sub-blocks */, PAD, PAD, PAD };
+ 
+-	pn->pipe_handle = 1; /* anything but INVALID_HANDLE */
++	if (pn->pipe_handle == PN_PIPE_INVALID_HANDLE)
++		pn->pipe_handle = 1; /* anything but INVALID_HANDLE */
++
+ 	err = pipe_handler_request(sk, PNS_PEP_CONNECT_REQ,
+-					PN_PIPE_ENABLE, data, 4);
++				pn->init_enable, data, 4);
+ 	if (err) {
+ 		pn->pipe_handle = PN_PIPE_INVALID_HANDLE;
+ 		return err;
+ 	}
++
+ 	sk->sk_state = TCP_SYN_SENT;
++
++	return 0;
++}
++
++static int pep_sock_enable(struct sock *sk, struct sockaddr *addr, int len)
++{
++	int err;
++
++	err = pipe_handler_request(sk, PNS_PEP_ENABLE_REQ, PAD,
++				NULL, 0);
++	if (err)
++		return err;
++
++	sk->sk_state = TCP_SYN_SENT;
++
+ 	return 0;
+ }
+ 
+@@ -894,6 +947,19 @@ static int pep_ioctl(struct sock *sk, int cmd, unsigned long arg)
+ 			answ = 0;
+ 		release_sock(sk);
+ 		return put_user(answ, (int __user *)arg);
++		break;
++
++	case SIOCPNENABLEPIPE:
++		lock_sock(sk);
++		if (sk->sk_state == TCP_SYN_SENT)
++			answ =  -EBUSY;
++		else if (sk->sk_state == TCP_ESTABLISHED)
++			answ = -EISCONN;
++		else
++			answ = pep_sock_enable(sk, NULL, 0);
++		release_sock(sk);
++		return answ;
++		break;
+ 	}
+ 
+ 	return -ENOIOCTLCMD;
+@@ -959,6 +1025,18 @@ static int pep_setsockopt(struct sock *sk, int level, int optname,
+ 		}
+ 		goto out_norel;
+ 
++	case PNPIPE_HANDLE:
++		if ((sk->sk_state == TCP_CLOSE) &&
++			(val >= 0) && (val < PN_PIPE_INVALID_HANDLE))
++			pn->pipe_handle = val;
++		else
++			err = -EINVAL;
++		break;
++
++	case PNPIPE_INITSTATE:
++		pn->init_enable = !!val;
++		break;
++
+ 	default:
+ 		err = -ENOPROTOOPT;
+ 	}
+@@ -994,6 +1072,10 @@ static int pep_getsockopt(struct sock *sk, int level, int optname,
+ 			return -EINVAL;
+ 		break;
+ 
++	case PNPIPE_INITSTATE:
++		val = pn->init_enable;
++		break;
++
+ 	default:
+ 		return -ENOPROTOOPT;
+ 	}
+-- 
+1.7.4.3
