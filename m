@@ -1,97 +1,70 @@
-From: =?UTF-8?B?VGltbyBUZXLDpHM=?= <timo.teras@iki.fi>
-Subject: Re: Occasional oops with IPSec and IPv6.
-Date: Fri, 18 Nov 2011 20:27:26 +0200
-Message-ID: <4EC6A38E.6060404@iki.fi>
-References: <20111117190925.GA23214@elliptictech.com>  <20111118162709.GA8342@elliptictech.com> <1321634378.3277.35.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Subject: NFS TCP race condition with SOCK_ASYNC_NOSPACE
+Date: Fri, 18 Nov 2011 18:40:01 +0000
+Message-ID: <4EC6A681.30902@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nick Bowler <nbowler@elliptictech.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:47384 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752414Ab1KRS1d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 13:27:33 -0500
-Received: by bke11 with SMTP id 11so3760172bke.19
-        for <netdev@vger.kernel.org>; Fri, 18 Nov 2011 10:27:32 -0800 (PST)
-In-Reply-To: <1321634378.3277.35.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+To: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 11/18/2011 06:39 PM, Eric Dumazet wrote:
-> Le vendredi 18 novembre 2011 =C3=A0 11:27 -0500, Nick Bowler a =C3=A9=
-crit :
->> On 2011-11-17 14:09 -0500, Nick Bowler wrote:
->>> One of the tests we do with IPsec involves sending and receiving UD=
-P
->>> datagrams of all sizes from 1 to N bytes, where N is much larger th=
-an
->>> the MTU.  In this particular instance, the MTU is 1500 bytes and N =
-is
->>> 10000 bytes.  This test works fine with IPv4, but I'm getting an
->>> occasional oops on Linus' master with IPv6 (output at end of email)=
-=2E  We
->>> also run the same test where N is less than the MTU, and it does no=
-t
->>> trigger this issue.  The resulting fallout seems to eventually lock=
- up
->>> the box (although it continues to work for a little while afterward=
-s).
->>>
->>> The issue appears timing related, and it doesn't always occur.  Thi=
-s
->>> probably also explains why I've not seen this issue before now, as =
-we
->>> recently upgraded all our lab systems to machines from this century
->>> (with newfangled dual core processors).  This also makes it somewha=
-t
->>> hard to reproduce, but I can trigger it pretty reliably by running =
-'yes'
->>> in an ssh session (which doesn't use IPsec) while running the test:
->>> it'll usually trigger in 2 or 3 runs.  The choice of cipher suite
->>> appears to be irrelevant.
->>>
->>> I built a relatively old kernel (2.6.34) and could not reproduce th=
-e
->>> issue there, so I ran a git bisect.  It pointed to the following, w=
-hich
->>> (unsurprisingly) no longer reverts cleanly.
->>>
->>> Let me know if you need any more info.  I'll see if I can reproduce=
- the
->>> issue with a smaller test case...
->>
->> OK, here's a somewhat straigthforward way to reproduce it that I've
->> found.  It uses a short test program called "udp_burst" which simply
->> transmits a bunch of UDP datagrams at all sizes between 1 and 10000,
->> included at the end of this mail.
->>[snip]
->=20
-> Please note commit 80c802f307 added a known bug, fixed in commit
-> 0b150932197b (xfrm: avoid possible oopse in xfrm_alloc_dst)
->=20
-> Given commit 80c802f307 complexity, we can assume other bugs are to b=
-e
-> fixed as well.
->=20
-> Unfortunately, Timo seems unresponsive.
+Hello,
 
-This looks quite different. And I've been trying to figure out what
-causes this. However, the OOPS happens at ip6_fragment(), indicating
-that there was not enough allocated headroom (skb underrun). My initial
-thought is ipv6 bug that just got uncovered by my commit; especially
-since ipv4 side is happy. But I haven't yet been able to figure this on=
-e
-out.
+As described originally in
+http://www.spinics.net/lists/linux-nfs/msg25314.html, we were
+encountering a bug whereby the NFS session was unexpectedly timing out.
 
-Could you also try Herbert's latest patch set:
-  [0/6] Replace LL_ALLOCATED_SPACE to allow needed_headroom adjustment
+I believe I have found the source of the race condition causing the timeout.
 
-This changes how the headroom is calculated, and *might* fix this issue
-too if it's caused by the same SMP race condition which got uncovered b=
-y
-my other commit earlier.
+Brief overview of setup:
+  10GiB network, NFS mounted using TCP.  Problem reproduces with
+multiple different NICs, with synchronous or asynchronous mounts, and
+with soft and hard mounts.  Reproduces on 2.6.32 and I am currently
+trying to reproduce with mainline. (I don't have physical access to the
+servers so installing stuff is not fantastically easy)
 
-- Timo
+
+
+In net/sunrpc/xprtsock.c:xs_tcp_send_request(), we try to write data to
+the sock buffer using xs_sendpages()
+
+When the sock buffer is nearly fully, we get an EAGAIN from
+xs_sendpages() which causes a break out of the loop.  Lower down the
+function, we switch on status which cases us to call xs_nospace() with
+the task.
+
+In xs_nospace(), we test the SOCK_ASYNC_NOSPACE bit from the socket, and
+in the rare case where that bit is clear, we return 0 instead of
+EAGAIN.  This promptly overwrites status in xs_tcp_send_request().
+
+The result is that xs_tcp_release_xprt() finds a request which has no
+error, but has not sent all of the bytes in its send buffer.  It cleans
+up by setting XPRT_CLOSE_WAIT which causes xprt_clear_locked() to queue
+xprt->task_cleanup, which closes the TCP connection.
+
+
+Under normal operation, the TCP connection goes down and back up without
+interruption to the NFS layer.  However, when the NFS server hangs in a
+half closed state, the client forces a RST of the TCP connection,
+leading to the timeout.
+
+I have tried a few naive fixes such as changing the default return value
+in xs_nospace() from 0 to -EAGAIN (meaning that 0 will never be
+returned) but this causes a kernel memory leak.  Can someone who a
+better understanding of these interactions than me have a look?  It
+seems that the if (test_bit()) test in xs_nospace() should have an else
+clause.
+
+Thanks in advance,
+
+-- 
+Andrew Cooper - Dom0 Kernel Engineer, Citrix XenServer
+T: +44 (0)1223 225 900, http://www.citrix.com
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
