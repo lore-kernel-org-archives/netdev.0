@@ -1,70 +1,102 @@
-From: Jinxin Zheng <jinxinzheng@gmail.com>
-Subject: Re: ipv4 udplite broken in >=linux-3.0 ?
-Date: Sat, 19 Nov 2011 15:08:35 +0800
-Message-ID: <CABPbr_kB3mRZWoVcRVN3rmqtNmQqXq-G6P9fwE=3GDN9B_OGVw@mail.gmail.com>
-References: <CABPbr_msepemFt4ezGVRk3QS0MU3F47MKimfV4Y+6jqvUrLFeA@mail.gmail.com>
-	<20111118120430.GG3317@hell>
-	<CABPbr_=fgB-AKK3H8ryccqA7SUO=ejZiWP7tEKYLh=qNG5r7CQ@mail.gmail.com>
-	<20111118232729.GA3902@gerrit.erg.abdn.ac.uk>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: Occasional oops with IPSec and IPv6.
+Date: Sat, 19 Nov 2011 09:36:57 +0200
+Message-ID: <4EC75C99.4000304@iki.fi>
+References: <20111117190925.GA23214@elliptictech.com> <20111118162709.GA8342@elliptictech.com> <1321634378.3277.35.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <4EC6A38E.6060404@iki.fi> <20111118192639.GA10531@elliptictech.com> <4EC6BAD7.3010200@iki.fi> <20111118212129.GA22495@elliptictech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111118232729.GA3902@gerrit.erg.abdn.ac.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Nick Bowler <nbowler@elliptictech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:50623 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751828Ab1KSHhF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2011 02:37:05 -0500
+Received: by bke11 with SMTP id 11so4315324bke.19
+        for <netdev@vger.kernel.org>; Fri, 18 Nov 2011 23:37:04 -0800 (PST)
+In-Reply-To: <20111118212129.GA22495@elliptictech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 19, 2011 at 7:27 AM, Gerrit Renker <gerrit@erg.abdn.ac.uk> =
-wrote:
-> Jinxin, -
-> | On Fri, Nov 18, 2011 at 8:04 PM, Hagen Paul Pfeifer <hagen@jauu.net=
-> wrote:
-> | > * Jinxin Zheng | 2011-11-18 12:09:25 [+0800]:
-> | >
-> | >>I don't know how to debug udplite. Can any one of you give me a t=
-ip on
-> | >>how to get more debug info, then I can do further test and provid=
-e
-> | >>with it?
-> | >
-> | > net-next works for me:
-> That is very likely the point. Between 2.6.39 and 3.0 UDP-Lite checks=
-um coverage was
-> broken and got only recently fixed. The correct kernel version should=
- have the
-> commit shown below. Alternatively, you can check include/net/udplite.=
-h, which
-> should mention "Slow-path" and "Fast-Path" computation. UDP-Litev6 st=
-ill uses the
-> slow path, that is why it is not affected.
->
->
-> commit f36c23bb9f822904dacf83a329518d0a5fde7968
-> Author: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-> Date: =A0 Mon Oct 17 19:07:30 2011 -0400
->
-> =A0 =A0udplite: fast-path computation of checksum coverage
->
-> =A0 =A0Commit 903ab86d195cca295379699299c5fc10beba31c7 of 1 March thi=
-s year ("udp: Add
-> =A0 =A0lockless transmit path") introduced a new fast TX path that br=
-oke the checksum
-> =A0 =A0coverage computation of UDP-lite, which so far depended on up-=
->len (only set
-> =A0 =A0if the socket is locked and 0 in the fast path).
->
-> =A0 =A0Fixed by providing both fast- and slow-path computation of che=
-cksum coverage.
-> =A0 =A0The latter can be removed when UDP(-lite)v6 also uses a lockle=
-ss transmit path.
->
->
+On 11/18/2011 11:21 PM, Nick Bowler wrote:
+> On 2011-11-18 22:06 +0200, Timo Ter=E4s wrote:
+>> It's still headroom underrun.
+>>
+>> I'm not too familiar with the relevant IPv6 code, but it seems to be
+>> mostly modelled after the IPv4 side. Looking at the back trace offse=
+t
+>> inside ipv6_fragment, I'd say it was taking the "fast path" for
+>> constructing the fragments. So first guess is that the headroom chec=
+k
+>> for allowing fast path to happen is not right.
+>>
+>> Since the code seems to be treating separately hlen and struct frag_=
+hdr,
+>> I'm wondering if the following patch would be in place?
+>>
+>> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+>> index 1c9bf8b..c35d9fc 100644
+>> --- a/net/ipv6/ip6_output.c
+>> +++ b/net/ipv6/ip6_output.c
+>> @@ -675,7 +675,7 @@ int ip6_fragment(struct sk_buff *skb, int
+>> (*output)(struct sk_buff *))
+>>  			/* Correct geometry. */
+>>  			if (frag->len > mtu ||
+>>  			    ((frag->len & 7) && frag->next) ||
+>> -			    skb_headroom(frag) < hlen)
+>> +			    skb_headroom(frag) < hlen + sizeof(struct frag_hdr))
+>>  				goto slow_path_clean;
+>>
+>>  			/* Partially cloned skb? */
+>>
+>>
+>> Alternatively, we could just run the "slow path" unconditionally wit=
+h
+>> the test load to see if it fixes the issue. At least that'd be prett=
+y
+>> good test if it's a problem in the ipv6 fragmentation code or someth=
+ing
+>> else.
+>=20
+> Good call.  I replaced the "correct geometry" check with an
+> unconditional "goto slow_path_clean;", and I can no longer reproduce =
+the
+> crash.  So at the very least, I have a workaround now.  (I still have
+> Herbert Xu's six patches applied on top of Linus' master).
 
-Thanks, Gerrit. Upgrading to the upstream linux-3.2-rc2 fixed the probl=
-em :)
+Ok, so it's most likely ipv6 code issue then. My change just happened t=
+o
+trigger it.
 
---=20
-Zheng Jinxin
+> I then tried the smaller change above, but this does not correct the
+> issue.
+
+That's not it then (likely).
+
+I did notice that the headroom of the main skb is never checked. So my
+other suggestion is to try something like:
+
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 1c9bf8b..735c4dc 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -668,7 +668,8 @@ int ip6_fragment(struct sk_buff *skb, int
+(*output)(struct sk_buff *))
+
+ 		if (first_len - hlen > mtu ||
+ 		    ((first_len - hlen) & 7) ||
+-		    skb_cloned(skb))
++		    skb_cloned(skb) ||
++		    skb_headroom(skb) < sizeof(struct frag_hdr))
+ 			goto slow_path;
+
+ 		skb_walk_frags(skb, frag) {
+
+Other than that, I hope some of the ipv6 people could take a look at it=
+=2E
+But the problem is that somewhere some headroom check isn't taking
+place, or is checking for too little of headroom.
+
+- Timo
