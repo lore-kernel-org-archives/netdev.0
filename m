@@ -1,17 +1,17 @@
 From: Felipe Dias <felipediassss@gmail.com>
-Subject: skb->timestamp == 0.000000 ?
-Date: Sat, 19 Nov 2011 18:13:47 -0300
-Message-ID: <CAJX4=r3wTn9v6-5oEpGdeKkFjKsRLZwc76tE9M4FiVJX4Lpisg@mail.gmail.com>
+Subject: skb->tstamp == 0.00000 ?
+Date: Sat, 19 Nov 2011 18:18:51 -0300
+Message-ID: <CAJX4=r1nz4Wq00tmJKUsJNLb41Bh4=-V1ixLcS05mXm0tpek9g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:38654 "EHLO
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:60100 "EHLO
 	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752402Ab1KSVNt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2011 16:13:49 -0500
-Received: by bke11 with SMTP id 11so4868267bke.19
-        for <netdev@vger.kernel.org>; Sat, 19 Nov 2011 13:13:47 -0800 (PST)
+	with ESMTP id S1752992Ab1KSVSw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2011 16:18:52 -0500
+Received: by bke11 with SMTP id 11so4871405bke.19
+        for <netdev@vger.kernel.org>; Sat, 19 Nov 2011 13:18:51 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
