@@ -1,40 +1,124 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [BUG] e1000: possible deadlock scenario caught by lockdep
-Date: Fri, 18 Nov 2011 20:47:16 -0500
-Message-ID: <1321667236.3533.59.camel@frodo>
-References: <1321579620.3533.29.camel@frodo>
-	 <20111118085737.0000387f@unknown>  <20111118151704.0000007b@unknown>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] netfilter: use jump_label for nf_hooks
+Date: Sat, 19 Nov 2011 04:32:46 +0100
+Message-ID: <1321673566.3157.14.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"Dave, Tushar N" <tushar.n.dave@intel.com>,
-	"Brown, Aaron F" <aaron.f.brown@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-omtalb.mail.rr.com ([71.74.56.125]:58104 "EHLO
-	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751749Ab1KSBrU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2011 20:47:20 -0500
-In-Reply-To: <20111118151704.0000007b@unknown>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-11-18 at 15:17 -0800, Jesse Brandeburg wrote:
+On configs where CONFIG_JUMP_LABEL=y, we can replace in fast path a
+load/compare/conditional jump by a single jump with no dcache reference.
 
-> this is a proposed patch to fix the issue:
-> if it works for you please let me know and I will submit it officially
-> through our process
+Jump target is modified as soon as nf_hooks[pf][hook] switches from
+empty state to non empty states. jump_label state is kept outside of
+nf_hooks array so has no cost on cpu caches.
 
-Well, the one time I tested it, it didn't crash and it didn't give a
-lockdep splat either. I'll add it and reboot it a few more times and
-I'll holler if something bad happens.
+This patch removes the test on CONFIG_NETFILTER_DEBUG : No need to call
+nf_hook_slow() at all if nf_hooks[pf][hook] is empty, this didnt give
+useful information, but slowed down things a lot.
 
-Tested-by: Steven Rostedt <rostedt@goodmis.org>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Patrick McHardy <kaber@trash.net>
+CC: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+This is obviously a netfilter patch, but since David committed two other
+jump_label patches lately, maybe its better he takes this patch as well
+directly ? Thanks !
 
--- Steve
+ include/linux/netfilter.h |   26 +++++++++++++++++++++-----
+ net/netfilter/core.c      |   13 ++++++++++++-
+ 2 files changed, 33 insertions(+), 6 deletions(-)
+
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 857f502..b809265 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -162,6 +162,24 @@ extern struct ctl_path nf_net_ipv4_netfilter_sysctl_path[];
+ 
+ extern struct list_head nf_hooks[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
+ 
++#if defined(CONFIG_JUMP_LABEL)
++#include <linux/jump_label.h>
++extern struct jump_label_key nf_hooks_needed[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
++static inline bool nf_hooks_active(u_int8_t pf, unsigned int hook)
++{
++	if (__builtin_constant_p(pf) &&
++	    __builtin_constant_p(hook))
++		return static_branch(&nf_hooks_needed[pf][hook]);
++
++	return !list_empty(&nf_hooks[pf][hook]);
++}
++#else
++static inline bool nf_hooks_active(u_int8_t pf, unsigned int hook)
++{
++	return !list_empty(&nf_hooks[pf][hook]);
++}
++#endif
++
+ int nf_hook_slow(u_int8_t pf, unsigned int hook, struct sk_buff *skb,
+ 		 struct net_device *indev, struct net_device *outdev,
+ 		 int (*okfn)(struct sk_buff *), int thresh);
+@@ -179,11 +197,9 @@ static inline int nf_hook_thresh(u_int8_t pf, unsigned int hook,
+ 				 struct net_device *outdev,
+ 				 int (*okfn)(struct sk_buff *), int thresh)
+ {
+-#ifndef CONFIG_NETFILTER_DEBUG
+-	if (list_empty(&nf_hooks[pf][hook]))
+-		return 1;
+-#endif
+-	return nf_hook_slow(pf, hook, skb, indev, outdev, okfn, thresh);
++	if (nf_hooks_active(pf, hook))
++		return nf_hook_slow(pf, hook, skb, indev, outdev, okfn, thresh);
++	return 1;
+ }
+ 
+ static inline int nf_hook(u_int8_t pf, unsigned int hook, struct sk_buff *skb,
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index afca6c7..4aa0f4b 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -54,6 +54,12 @@ EXPORT_SYMBOL_GPL(nf_unregister_afinfo);
+ 
+ struct list_head nf_hooks[NFPROTO_NUMPROTO][NF_MAX_HOOKS] __read_mostly;
+ EXPORT_SYMBOL(nf_hooks);
++
++#if defined(CONFIG_JUMP_LABEL)
++struct jump_label_key nf_hooks_needed[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
++EXPORT_SYMBOL(nf_hooks_needed);
++#endif
++
+ static DEFINE_MUTEX(nf_hook_mutex);
+ 
+ int nf_register_hook(struct nf_hook_ops *reg)
+@@ -70,6 +76,9 @@ int nf_register_hook(struct nf_hook_ops *reg)
+ 	}
+ 	list_add_rcu(&reg->list, elem->list.prev);
+ 	mutex_unlock(&nf_hook_mutex);
++#if defined(CONFIG_JUMP_LABEL)
++	jump_label_inc(&nf_hooks_needed[reg->pf][reg->hooknum]);
++#endif
+ 	return 0;
+ }
+ EXPORT_SYMBOL(nf_register_hook);
+@@ -79,7 +88,9 @@ void nf_unregister_hook(struct nf_hook_ops *reg)
+ 	mutex_lock(&nf_hook_mutex);
+ 	list_del_rcu(&reg->list);
+ 	mutex_unlock(&nf_hook_mutex);
+-
++#if defined(CONFIG_JUMP_LABEL)
++	jump_label_dec(&nf_hooks_needed[reg->pf][reg->hooknum]);
++#endif
+ 	synchronize_net();
+ }
+ EXPORT_SYMBOL(nf_unregister_hook);
+
+
