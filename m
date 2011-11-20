@@ -1,102 +1,91 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: [rfc 00/18] slub: irqless/lockless slow allocation paths
-Date: Sun, 20 Nov 2011 15:32:08 -0800 (PST)
-Message-ID: <alpine.DEB.2.00.1111201531190.30815@chino.kir.corp.google.com>
-References: <20111111200711.156817886@linux.com> <1321465198.4182.35.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1321465534.4182.37.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Milan Kocian <milon@wq.cz>
+Subject: sky2 tx watchdog timeout with 1Gb speed
+Date: Mon, 21 Nov 2011 00:21:18 +0100
+Message-ID: <20111120232118.GA29748@ntm.wq.cz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Christoph Lameter <cl@linux.com>, David Miller <davem@davemloft.net>,
-    Pekka Enberg <penberg@cs.helsinki.fi>, Andi Kleen <andi@firstfloor.org>,
-    tj@kernel.org, Metathronius Galabant <m.galabant@googlemail.com>,
-    Matt Mackall <mpm@selenic.com>, Adrian Drzewiecki <z@drze.net>,
-    Shaohua Li <shaohua.li@intel.com>, Alex Shi <alex.shi@intel.com>,
-    linux-mm@kvack.org, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1321465534.4182.37.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srw1.wq.cz ([80.92.240.72]:39118 "EHLO srw1.wq.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754337Ab1KTXlK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Nov 2011 18:41:10 -0500
+Received: from [172.24.19.5] (helo=ntm.wq.cz)
+	by srw1.wq.cz with esmtpsa (TLS1.2:RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.77)
+	(envelope-from <milon@wq.cz>)
+	id 1RSGhO-0005Fk-8I
+	for netdev@vger.kernel.org; Mon, 21 Nov 2011 00:21:24 +0100
+Received: from milon by ntm.wq.cz with local (Exim 4.77)
+	(envelope-from <milon@wq.cz>)
+	id 1RSGhK-0000Ls-Rd
+	for netdev@vger.kernel.org; Mon, 21 Nov 2011 00:21:18 +0100
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 16 Nov 2011, Eric Dumazet wrote:
+hi all,
 
-> > Adding SLUB_STATS gives :
-> > 
-> > $ cd /sys/kernel/slab/skbuff_head_cache ; grep . *
-> > aliases:6
-> > align:8
-> > grep: alloc_calls: Function not implemented
-> > alloc_fastpath:89181782 C0=89173048 C1=1599 C2=1357 C3=2140 C4=802 C5=675 C6=638 C7=1523
-> > alloc_from_partial:412658 C0=412658
-> > alloc_node_mismatch:0
-> > alloc_refill:593417 C0=593189 C1=19 C2=15 C3=24 C4=51 C5=18 C6=17 C7=84
-> > alloc_slab:2831313 C0=2831285 C1=2 C2=2 C3=2 C4=2 C5=12 C6=4 C7=4
-> > alloc_slowpath:4430371 C0=4430112 C1=20 C2=17 C3=25 C4=57 C5=31 C6=21 C7=88
-> > cache_dma:0
-> > cmpxchg_double_cpu_fail:0
-> > cmpxchg_double_fail:1 C0=1
-> > cpu_partial:30
-> > cpu_partial_alloc:592991 C0=592981 C2=1 C4=5 C5=2 C6=1 C7=1
-> > cpu_partial_free:4429836 C0=592981 C1=25 C2=19 C3=23 C4=3836767 C5=6 C6=8 C7=7
-> > cpuslab_flush:0
-> > cpu_slabs:107
-> > deactivate_bypass:3836954 C0=3836923 C1=1 C2=2 C3=1 C4=6 C5=13 C6=4 C7=4
-> > deactivate_empty:2831168 C4=2831168
-> > deactivate_full:0
-> > deactivate_remote_frees:0
-> > deactivate_to_head:0
-> > deactivate_to_tail:0
-> > destroy_by_rcu:0
-> > free_add_partial:0
-> > grep: free_calls: Function not implemented
-> > free_fastpath:21192924 C0=21186268 C1=1420 C2=1204 C3=1966 C4=572 C5=349 C6=380 C7=765
-> > free_frozen:67988498 C0=516 C1=121 C2=85 C3=841 C4=67986468 C5=215 C6=76 C7=176
-> > free_remove_partial:18 C4=18
-> > free_slab:2831186 C4=2831186
-> > free_slowpath:71825749 C0=609 C1=146 C2=104 C3=864 C4=71823538 C5=221 C6=84 C7=183
-> > hwcache_align:0
-> > min_partial:5
-> > objects:2494
-> > object_size:192
-> > objects_partial:121
-> > objs_per_slab:21
-> > order:0
-> > order_fallback:0
-> > partial:14
-> > poison:0
-> > reclaim_account:0
-> > red_zone:0
-> > reserved:0
-> > sanity_checks:0
-> > slabs:127
-> > slabs_cpu_partial:99(99) C1=25(25) C2=18(18) C3=23(23) C4=16(16) C5=4(4) C6=7(7) C7=6(6)
-> > slab_size:192
-> > store_user:0
-> > total_objects:2667
-> > trace:0
-> > 
-> 
-> And the SLUB stats for the 2048 bytes slab is even worse : About every
-> alloc/free is slow path
-> 
-> $ cd /sys/kernel/slab/:t-0002048 ; grep . *
-> aliases:0
-> align:8
-> grep: alloc_calls: Function not implemented
-> alloc_fastpath:8199220 C0=8196915 C1=306 C2=63 C3=297 C4=319 C5=550
-> C6=722 C7=48
-> alloc_from_partial:13931406 C0=13931401 C3=1 C5=4
-> alloc_node_mismatch:0
-> alloc_refill:70871657 C0=70871629 C1=2 C3=3 C4=9 C5=11 C6=3
-> alloc_slab:1335 C0=1216 C1=17 C2=2 C3=15 C4=17 C5=22 C6=44 C7=2
-> alloc_slowpath:155455299 C0=155455144 C1=18 C2=1 C3=21 C4=27 C5=40 C6=47
-> C7=1
+I switched my home pc from 100Mb/s to 1000Mb/s and I see 
+this warning below.
 
-I certainly sympathize with your situation; these stats are even worse 
-with netperf TCP_RR where slub regresses very heavily against slab.
+The original kernel was 2.6.39.4 then I tested 3.1.1 with the same
+result. (self compiled 32bit vanilla). The workaround is to force 10/100 speed
+on my new switch (hp).
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+lspci:
+
+03:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8056 PCI-E Gigabit Ethernet Controller (rev 13)
+        Subsystem: Giga-byte Technology Device e000
+        Flags: bus master, fast devsel, latency 0, IRQ 45
+        Memory at f5000000 (64-bit, non-prefetchable) [size=16K]
+        I/O ports at 9000 [size=256]
+        [virtual] Expansion ROM at 80300000 [disabled] [size=128K]
+        Capabilities: [48] Power Management version 3
+        Capabilities: [50] Vital Product Data
+        Capabilities: [5c] MSI: Enable+ Count=1/1 Maskable- 64bit+
+        Capabilities: [e0] Express Legacy Endpoint, MSI 00
+        Capabilities: [100] Advanced Error Reporting
+        Kernel driver in use: sky2
+
+
+Nov 20 21:32:54 milu kernel: sky2 0000:03:00.0: eth0: Link is up at 1000 Mbps, full duplex, flow control both
+Nov 20 21:35:29 milu kernel: ------------[ cut here ]------------
+Nov 20 21:35:29 milu kernel: WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x1fa/0x206()
+Nov 20 21:35:29 milu kernel: Hardware name: 965GM-S2
+Nov 20 21:35:29 milu kernel: NETDEV WATCHDOG: eth0 (sky2): transmit queue 0 timed out
+Nov 20 21:35:29 milu kernel: Modules linked in: parport_pc parport fuse nfsd ipv6 nfs lockd auth_rpcgss nfs_acl sunrpc usbhid snd_hda_codec_realtek snd_hda_intel snd_hda_codec snd_hwdep snd_intel8x0 sg snd_ac97_codec sr_mod ac97_bus cdrom sky2 snd_pcm_oss snd_mixer_oss snd_pcm snd_seq_dummy snd_seq_oss intel_agp snd_seq_midi snd_rawmidi snd_seq_midi_event snd_seq snd_timer snd_seq_device snd bitrev i2c_i801 crc32 intel_gtt uhci_hcd i2c_core ehci_hcd soundcore usbcore agpgart evdev snd_page_alloc
+Nov 20 21:35:29 milu kernel: Pid: 0, comm: swapper Not tainted 3.1.1 #2
+Nov 20 21:35:29 milu kernel: Call Trace:
+Nov 20 21:35:29 milu kernel: [<c102cd5d>] ? warn_slowpath_common+0x6c/0x94
+Nov 20 21:35:29 milu kernel: [<c1254deb>] ? dev_watchdog+0x1fa/0x206
+Nov 20 21:35:29 milu kernel: [<c1254deb>] ? dev_watchdog+0x1fa/0x206
+Nov 20 21:35:29 milu kernel: [<c102ce0e>] ? warn_slowpath_fmt+0x33/0x37
+Nov 20 21:35:29 milu kernel: [<c1254deb>] ? dev_watchdog+0x1fa/0x206
+Nov 20 21:35:29 milu kernel: [<c1254bf1>] ? qdisc_reset+0x2d/0x2d
+Nov 20 21:35:29 milu kernel: [<c1036434>] ? run_timer_softirq+0xc6/0x1c4
+Nov 20 21:35:29 milu kernel: [<c1027e9b>] ? run_rebalance_domains+0x148/0x169
+Nov 20 21:35:29 milu kernel: [<c103163b>] ? __do_softirq+0x6e/0xea
+Nov 20 21:35:29 milu kernel: [<c10315cd>] ? remote_softirq_receive+0x11/0x11
+Nov 20 21:35:29 milu kernel: <IRQ>  [<c1031906>] ? irq_exit+0x5b/0x67
+Nov 20 21:35:29 milu kernel: [<c101631f>] ? smp_apic_timer_interrupt+0x51/0x81
+Nov 20 21:35:29 milu kernel: [<c12ccd96>] ? apic_timer_interrupt+0x2a/0x30
+Nov 20 21:35:29 milu kernel: [<c13f007b>] ? asus_hides_smbus_hostbridge+0xcb/0x249
+Nov 20 21:35:29 milu kernel: [<c1008732>] ? mwait_idle+0x41/0x51
+Nov 20 21:35:29 milu kernel: [<c10015d8>] ? cpu_idle+0x74/0x84
+Nov 20 21:35:29 milu kernel: [<c13d6638>] ? start_kernel+0x28a/0x28f
+Nov 20 21:35:29 milu kernel: [<c13d615e>] ? loglevel+0x2b/0x2b
+Nov 20 21:35:29 milu kernel: ---[ end trace ef84175f674c7842 ]---
+Nov 20 21:35:29 milu kernel: sky2 0000:03:00.0: eth0: tx timeout
+Nov 20 21:35:29 milu kernel: sky2 0000:03:00.0: eth0: transmit ring 52 .. 30 report=52 done=52
+Nov 20 21:35:32 milu kernel: sky2 0000:03:00.0: eth0: Link is up at 1000 Mbps, full duplex, flow control both
+Nov 20 21:37:13 milu kernel: sky2 0000:03:00.0: eth0: tx timeout
+Nov 20 21:37:13 milu kernel: sky2 0000:03:00.0: eth0: transmit ring 37 .. 15 report=37 done=37
+Nov 20 21:37:16 milu kernel: sky2 0000:03:00.0: eth0: Link is up at 1000 Mbps, full duplex, flow control both
+
+Any suggestion ? As I said its home machine so I can test what you want :-).
+
+best regards,
+
+-- 
+Milan Kocian
