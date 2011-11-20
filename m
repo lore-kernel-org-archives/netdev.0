@@ -1,136 +1,75 @@
-From: Jamie Iles <jamie@jamieiles.com>
-Subject: Re: [PATCH 1/1] net/macb: add DT support
-Date: Sun, 20 Nov 2011 17:11:23 +0000
-Message-ID: <20111120171123.GA7845@gallagher>
-References: <1321626565-11261-1-git-send-email-plagnioj@jcrosoft.com>
- <20111118155824.GA9981@totoro>
- <20111120164740.GC21480@game.jcrosoft.org>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: skb->tstamp == 0.00000 ?
+Date: Sun, 20 Nov 2011 18:15:14 +0100
+Message-ID: <4EC935A2.6020200@hartkopp.net>
+References: <CAJX4=r1nz4Wq00tmJKUsJNLb41Bh4=-V1ixLcS05mXm0tpek9g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamie Iles <jamie@jamieiles.com>, devicetree-discuss@ozlabs.org,
-	netdev@vger.kernel.org, Nicolas Ferre <nicolas.ferre@atmel.com>
-To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Felipe Dias <felipediassss@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:58154 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752298Ab1KTRLZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2011 12:11:25 -0500
-Received: by wwe5 with SMTP id 5so8906324wwe.1
-        for <netdev@vger.kernel.org>; Sun, 20 Nov 2011 09:11:24 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20111120164740.GC21480@game.jcrosoft.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:35973 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752298Ab1KTRPf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2011 12:15:35 -0500
+In-Reply-To: <CAJX4=r1nz4Wq00tmJKUsJNLb41Bh4=-V1ixLcS05mXm0tpek9g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 20, 2011 at 05:47:40PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> On 15:58 Fri 18 Nov     , Jamie Iles wrote:
-> > Hi Jean-Christophe,
-> > 
-> > On Fri, Nov 18, 2011 at 03:29:25PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> > > allow the DT to pass the mac address and the phy mode
-> > > 
-> > > Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-> > > Cc: Jamie Iles <jamie@jamieiles.com>
-> > > Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
-> > 
-> > This looks OK to me in principle.  I can't easily test this at the 
-> > moment, but as I don't have a DT platform that has the clk framework up 
-> > and running.  A couple of nits/questions inline, but thanks for doing 
-> > this!
-> > 
-> > Jamie
-> > 
-> > > ---
-> > >  Documentation/devicetree/bindings/net/macb.txt |   22 ++++++++
-> > >  drivers/net/ethernet/cadence/macb.c            |   65 +++++++++++++++++++++---
-> > >  drivers/net/ethernet/cadence/macb.h            |    2 +
-> > >  3 files changed, 81 insertions(+), 8 deletions(-)
-> > >  create mode 100644 Documentation/devicetree/bindings/net/macb.txt
-> > > 
-> > > diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
-> > > new file mode 100644
-> > > index 0000000..2b727ec
-> > > --- /dev/null
-> > > +++ b/Documentation/devicetree/bindings/net/macb.txt
-> > > @@ -0,0 +1,22 @@
-> > > +* Cadence EMACB
-> > > +
-> > > +Implemeted on Atmel AT91 & AVR32 SoC
-> > 
-> > I think something along the lines of "Binding for the Cadence MACB 
-> > Ethernet controller" rather than listing specific parts might be 
-> > clearer.
-> I prefer as we will have implementation detail in the binding
+On 19.11.2011 22:18, Felipe Dias wrote:
 
-I can't see any Atmel specific implementation detail here though so lets 
-keep it generic for now.  There isn't a benefit to keeping a list of 
-SoC's that the device is implemented in here as it'll only become out of 
-date.  We need to make it easy for other vendors to reuse the binding + 
-driver.
+> Hi..
+> 
+> Please let me know if this isnt right list to this kind of question.
+> 
+> I'm registering a new protocol handler with dev_add_pack. I would like
+> to know only the difference between timestamp on skb->tstamp and the
+> time of reception by my module.
 
-> > > +		compatible = "atmel,macb";
-> > 
-> > This should be "cdns,macb" as it isn't Atmel specific.  I believe cdns 
-> > is the correct stock ticker symbol for Cadence.
-> here I put "atmel,macb" on purpose to specify the difference of the IP between
-> the soc, in fact it should have been atmel-at91,macb
 
-Well if we really can't detect the difference from the revision register 
-then we should have "cdns,macb" *and* "atmel,at91-macb" at least then 
-where platforms could claim compatibility as:
+Hello Felipe,
 
-	compatible = "atmel,at91-macb", "cdns,macb";
+tstamp is a ktime_t type, which is a timestamp in nanosecs
 
-If we consider that another vendor integrates the Cadence IP, then it 
-makes much more sense to claim compatibility with a Cadence string 
-rather than an Atmel one...
+http://lxr.linux.no/#linux+v3.1.1/include/linux/ktime.h#L28
 
-> > 
-> > > +		reg = <oxfffc4000 0x4000>;
-> > > +		interrupts = <21>;
-> > > +		phy-mode = "mii";
-> > > +	};
-> > > diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> > > index a437b46..2c345bc 100644
-> > > --- a/drivers/net/ethernet/cadence/macb.c
-> > > +++ b/drivers/net/ethernet/cadence/macb.c
-> > > @@ -20,6 +20,9 @@
-> > >  #include <linux/etherdevice.h>
-> > >  #include <linux/dma-mapping.h>
-> > >  #include <linux/platform_device.h>
-> > > +#include <linux/of.h>
-> > > +#include <linux/of_device.h>
-> > > +#include <linux/of_net.h>
-> > >  #include <linux/phy.h>
-> > >  
-> > >  #include <mach/board.h>
-> > > @@ -81,6 +84,20 @@ static void __init macb_get_hwaddr(struct macb *bp)
-> > >  	addr[4] = top & 0xff;
-> > >  	addr[5] = (top >> 8) & 0xff;
-> > >  
-> > > +#ifdef CONFIG_OF
-> > > +	/*
-> > > +	 * 2) from device tree data
-> > > +	 */
-> > > +	if (!is_valid_ether_addr(addr)) {
-> > > +		struct device_node *np = bp->pdev->dev.of_node;
-> > > +		if (np) {
-> > > +			const char *mac = of_get_mac_address(np);
-> > > +			if (mac)
-> > > +				memcpy(addr, mac, sizeof(addr));
-> > > +		}
-> > > +	}
-> > > +#endif
-> > 
-> > I'm a bit conflicted here.  I think we should always use the MAC address 
-> > from the device tree if it is present even if the current MAC address is 
-> > valid.
-> if the mac is already programmed in the register we just keep it
-> I prefer this way if the bootloader set it we keep it
+The value in the skbuff
 
-But I don't think that makes sense - if there is a MAC address in the 
-DT, which is an optional property then the DT author must want to set 
-the MAC address from the DT.  We should really prefer an explicit 
-assignment over an implicit one.
+http://lxr.linux.no/#linux+v3.1.1/include/linux/skbuff.h#L347
 
-Jamie
+is usually set at PDU reception time -> see netif_rx().
+
+http://lxr.linux.no/#linux+v3.1.1/net/core/dev.c#L2879
+
+where net_timestamp_check(skb) is executed which usually sets the timestamp
+when timestamping is activated.
+
+So when your netdevice creates a proper skbuff (e.g. using skb_alloc) the
+timestamp is set to zero and therefore set to the receive time in
+net_timestamp_check().
+
+
+> 
+> So I do:
+> ----
+> struct timeval time_skb, time_module;
+> do_gettimeofday(&time_module):
+> skb_get_timestamp(skb, &time_skb);
+> ---
+> 
+> And time_skb.tv_sec and time_skb.tv_usec are equal to 0;
+> 
+> I'm doing some wrong ?
+
+
+Hm, i don't see, why you convert ktime_t to timeval.
+
+You better work on skb->tstamp with the ktime functions directly, e.g. with
+skb_get_ktime().
+
+I hope this gives you a bit more insight in skb->tstamp - even if i don't know
+your problem in detail %-)
+
+Regards,
+Oliver
