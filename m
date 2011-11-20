@@ -1,47 +1,87 @@
-From: Barrister Peters Smith <barr.peters_smith1@yahoo.com>
-Subject: Just Read This
-Date: Sat, 19 Nov 2011 23:31:34 -1200
-Message-ID: <09ea914a803c13e12c6cbf6c840df0c7@med.unideb.hu>
-Reply-To: <barr.peters_smith2@yahoo.com>
+From: Pierre Ossman <pierre-list@ossman.eu>
+Subject: Re: [RFC][PATCH] Export all RA options that we don't handle to
+ userspace
+Date: Sun, 20 Nov 2011 15:00:46 +0100
+Message-ID: <20111120150046.03c91963@mjolnir.ossman.eu>
+References: <20101212144300.68e0fb16@mjolnir.ossman.eu>
+	<20101212144706.1d2be015@mjolnir.ossman.eu>
+	<20110120091505.165737a1@mjolnir.ossman.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Content-Type: multipart/signed; micalg=PGP-SHA256; protocol="application/pgp-signature"; boundary="=_freyr.ossman.eu-2580-1321797651-0001-2"
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yosh
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw.it.med.unideb.hu ([193.6.150.12]:55480 "EHLO
-	mailgw.it.med.unideb.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753438Ab1KTLmg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2011 06:42:36 -0500
-Received: from mailgw.it.med.unideb.hu (localhost [127.0.0.1])
-	by VBMS.dummy (Postfix) with SMTP id 713135EC280
-	for <netdev@vger.kernel.org>; Sun, 20 Nov 2011 12:31:41 +0100 (CET)
+Received: from c-62-220-186-130.cust.bredband2.com ([62.220.186.130]:35001
+	"EHLO smtp.ossman.eu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752166Ab1KTOG0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2011 09:06:26 -0500
+In-Reply-To: <20110120091505.165737a1@mjolnir.ossman.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is a MIME-formatted message.  If you see this text it means that your
+E-mail software does not support MIME-formatted messages.
+
+--=_freyr.ossman.eu-2580-1321797651-0001-2
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
+
+Reping!
+
+On Thu, 20 Jan 2011 09:15:05 +0100
+Pierre Ossman <pierre-list@ossman.eu> wrote:
+
+> Ping!
+>=20
+> The userspace support is rather useless without these kernel bits...
+>=20
+> On Sun, 12 Dec 2010 14:47:06 +0100
+> Pierre Ossman <pierre-list@ossman.eu> wrote:
+>=20
+> > Second patch that exports everything. If noone objects to this model,
+> > then merge the two patches and just use the commit message from the
+> > second one.
+> >=20
+> > Pros:
+> > - Kernel doesn't need to be updated for every new RA option that might
+> >   show up.
+> >=20
+> > Cons:
+> > - Possible security issue if it requires less privilege to read these
+> >   netlink messages than to open a raw ICMPv6 socket.
+> > - List of types the kernel is interested in is now in two places in the
+> >   code, creating a risk for getting out of sync. I tried to come up
+> >   with a structure that would prevent this, but couldn't think of
+> >   anything that wouldn't require large changes. Ideas welcome...
+> >=20
+> > Rgds
+>=20
+>=20
 
 
--- 
-God bless you my friend,
+--=20
+     -- Pierre Ossman
 
-I am Barrister Peters Smith, a layer and a Chattered Accountant by 
-profession.
-I am working as External Accounts Auditor for the bank, Ziraat Bankasi 
-Bank here in Turkey.
+  WARNING: This correspondence is being monitored by FRA, a
+  Swedish intelligence agency. Make sure your server uses
+  encryption for SMTP traffic and consider using PGP for
+  end-to-end encryption.
 
-A very large and abandoned sum amounting to 11,300,000.00 Million GBP, 
-about 19 million United States Dollars in this account for twelve years 
-I discovered recently. Now I just got your email address and contacted 
-you to apply as the next-of-kin to claim the entire 11.3 Million GBP
-since the original owner is dead with his whole family. All the funds 
-will come to your by bank transfer after I process all the documents for 
-you. I wrote you since the late customer is from your country.
+--=_freyr.ossman.eu-2580-1321797651-0001-2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename=signature.asc
 
-If you are interested then you should contact me on 
-barr.peters_smith2@yahoo.com  or call; +44-70-4573-9682.  Thank you I 
-will be waiting for you. This is no joking matter, if you do not want 
-it, then do not reply,and then the bank will send it to the Bank's 
-Treasury.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.18 (GNU/Linux)
 
-I will be waiting for you with more information and to proceed. Barr. 
-Peters Smith
+iF4EAREIAAYFAk7JCBIACgkQopDLsoqlmEJ/YAEAryVUyMi3DL6E9yHPv0EnEGwc
+Wxov+5BkUDoZQe0NCB4A/0MrOEp1yXes5RAY0cOgMDftCaO8zFDvASz2MSckldbe
+=6Hv5
+-----END PGP SIGNATURE-----
+
+--=_freyr.ossman.eu-2580-1321797651-0001-2--
