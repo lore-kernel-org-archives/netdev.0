@@ -1,60 +1,133 @@
-From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-Subject: [PATCH net-next] tg3: Fix advertisement handling
-Date: Mon, 21 Nov 2011 08:07:20 +0900
-Message-ID: <20111121080720.0e68f096.shimoda.hiroaki@gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH for 2.6.32 (untested)] netns: Add quota for number of NET_NS instances.
+Date: Sun, 20 Nov 2011 15:13:58 -0800
+Message-ID: <m1bos6wfnt.fsf@fess.ebiederm.org>
+References: <201111201622.FDJ51567.VLFHQFMFOOSOtJ@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, mcarlson@broadcom.com, mchan@broadcom.com
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:65132 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754164Ab1KTXHY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2011 18:07:24 -0500
-Received: by iage36 with SMTP id e36so6490447iag.19
-        for <netdev@vger.kernel.org>; Sun, 20 Nov 2011 15:07:23 -0800 (PST)
+Received: from out01.mta.xmission.com ([166.70.13.231]:36548 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754211Ab1KTXMx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2011 18:12:53 -0500
+In-Reply-To: <201111201622.FDJ51567.VLFHQFMFOOSOtJ@I-love.SAKURA.ne.jp>
+	(Tetsuo Handa's message of "Sun, 20 Nov 2011 16:22:40 +0900")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 28011cf19b (net: Add ethtool to mii advertisment conversion
-helpers) added a helper function ethtool_adv_to_mii_100bt() and
-tg3_copper_is_advertising_all(), tg3_phy_autoneg_cfg() were
-modified to use this.
-Before that commit, ethtool to mii advertisement conversion was
-done wrt speed, but now pause operation is also taken account.
-So, in tg3_copper_is_advertising_all(), below condition becomes
-true and this makes link up fails.
+Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp> writes:
 
-	if ((adv_reg & ADVERTISE_ALL) != all_mask)
-		return 0;
+> In order to solve below problems, can we add sysctl variable for
+> restricting number of NET_NS instances?
 
-To fix this add ADVERTISE_ALL bit and operation to cap speed.
+I don't have any particular problems with patch but I don't think it
+will result in a working system that is easy to keep working.  Tuning
+static limits can be fickle.
 
-Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
----
- drivers/net/ethernet/broadcom/tg3.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Simply throttling the number of processes as anything reasonable will do
+should keep the problem in check.  The practical issue is that we have
+a huge build of network namespaces that don't get cleaned up.
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 024ca1d..c00e648 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -3594,7 +3594,7 @@ static int tg3_phy_autoneg_cfg(struct tg3 *tp, u32 advertise, u32 flowctrl)
- 	u32 val, new_adv;
- 
- 	new_adv = ADVERTISE_CSMA;
--	new_adv |= ethtool_adv_to_mii_100bt(advertise);
-+	new_adv |= ethtool_adv_to_mii_100bt(advertise) & ADVERTISE_ALL;
- 	new_adv |= tg3_advert_flowctrl_1000T(flowctrl);
- 
- 	err = tg3_writephy(tp, MII_ADVERTISE, new_adv);
-@@ -3783,7 +3783,7 @@ static int tg3_copper_is_advertising_all(struct tg3 *tp, u32 mask)
- 	if (tg3_readphy(tp, MII_ADVERTISE, &adv_reg))
- 		return 0;
- 
--	if ((adv_reg & ADVERTISE_ALL) != all_mask)
-+	if ((adv_reg & ADVERTISE_ALL) != (all_mask & ADVERTISE_ALL))
- 		return 0;
- 
- 	if (!(tp->phy_flags & TG3_PHYFLG_10_100_ONLY)) {
+My inclination in this case the practical fix is that during network
+namespace allocation someone take a look at the cleanup_list.  See
+that there is ongoing cleanup activity, and wait until at least one
+network namespace has cleaned up.  Perhaps by creating a work struct
+and waiting for it to cycle through the netns workqueue.
+
+That should throttle network namespace creation to the same speed as
+network namespace deletion and prevent the problem of too many
+dead network namespaces building up and taking resources.
+
+Eric
+
+
+> --------------------------------------------------
+> [PATCH for 2.6.32 (untested)] netns: Add quota for number of NET_NS instances.
+>
+> CONFIG_NET_NS support in 2.6.32 has a problem that leads to OOM killer when
+> clone(CLONE_NEWNET) is called instantly.
+> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/720095
+> But disabling CONFIG_NET_NS broke lxc containers.
+> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/790863
+>
+> This patch introduces /proc/sys/net/core/netns_max interface that limits
+> max number of network namespace instances.
+>
+> Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+> ---
+>  include/net/sock.h         |    4 ++++
+>  net/core/net_namespace.c   |    9 +++++++++
+>  net/core/sysctl_net_core.c |   10 ++++++++++
+>  3 files changed, 23 insertions(+)
+>
+> --- linux-2.6.32.48.orig/include/net/sock.h
+> +++ linux-2.6.32.48/include/net/sock.h
+> @@ -1598,4 +1598,8 @@ extern int sysctl_optmem_max;
+>  extern __u32 sysctl_wmem_default;
+>  extern __u32 sysctl_rmem_default;
+>  
+> +#ifdef CONFIG_NET_NS
+> +extern int max_netns_count;
+> +#endif
+> +
+>  #endif	/* _SOCK_H */
+> --- linux-2.6.32.48.orig/net/core/net_namespace.c
+> +++ linux-2.6.32.48/net/core/net_namespace.c
+> @@ -81,12 +81,18 @@ static struct net_generic *net_alloc_gen
+>  #ifdef CONFIG_NET_NS
+>  static struct kmem_cache *net_cachep;
+>  static struct workqueue_struct *netns_wq;
+> +static atomic_t used_netns_count = ATOMIC_INIT(0);
+> +unsigned int max_netns_count;
+>  
+>  static struct net *net_alloc(void)
+>  {
+>  	struct net *net = NULL;
+>  	struct net_generic *ng;
+>  
+> +	atomic_inc(&used_netns_count);
+> +	if (atomic_read(&used_netns_count) > max_netns_count)
+> +		goto out;
+> +
+>  	ng = net_alloc_generic();
+>  	if (!ng)
+>  		goto out;
+> @@ -96,7 +102,9 @@ static struct net *net_alloc(void)
+>  		goto out_free;
+>  
+>  	rcu_assign_pointer(net->gen, ng);
+> +	return net;
+>  out:
+> +	atomic_dec(&used_netns_count);
+>  	return net;
+>  
+>  out_free:
+> @@ -115,6 +123,7 @@ static void net_free(struct net *net)
+>  #endif
+>  	kfree(net->gen);
+>  	kmem_cache_free(net_cachep, net);
+> +	atomic_dec(&used_netns_count);
+>  }
+>  
+>  static struct net *net_create(void)
+> --- linux-2.6.32.48.orig/net/core/sysctl_net_core.c
+> +++ linux-2.6.32.48/net/core/sysctl_net_core.c
+> @@ -89,6 +89,16 @@ static struct ctl_table net_core_table[]
+>  		.mode		= 0644,
+>  		.proc_handler	= proc_dointvec
+>  	},
+> +#ifdef CONFIG_NET_NS
+> +	{
+> +		.ctl_name       = CTL_UNNUMBERED,
+> +		.procname       = "netns_max",
+> +		.data           = &max_netns_count,
+> +		.maxlen         = sizeof(int),
+> +		.mode           = 0644,
+> +		.proc_handler   = proc_dointvec,
+> +	},
+> +#endif
+>  #endif /* CONFIG_NET */
+>  	{
+>  		.ctl_name	= NET_CORE_BUDGET,
