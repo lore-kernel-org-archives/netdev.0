@@ -1,106 +1,79 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: [PATCH for 2.6.32 (untested)] netns: Add quota for number of NET_NS instances.
-Date: Sun, 20 Nov 2011 16:22:40 +0900
-Message-ID: <201111201622.FDJ51567.VLFHQFMFOOSOtJ@I-love.SAKURA.ne.jp>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 5/5] tcp: skip cwnd moderation in TCP_CA_Open in
+ tcp_try_to_open
+Date: Sun, 20 Nov 2011 10:38:33 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.1111201024080.22397@melkinpaasi.cs.helsinki.fi>
+References: <1321469885-10885-1-git-send-email-ncardwell@google.com> <1321469885-10885-5-git-send-email-ncardwell@google.com> <alpine.DEB.2.00.1111170706330.23028@melkinpaasi.cs.helsinki.fi>
+ <CADVnQymPTWsD0Hx060qYUMrFPxgQPdJWwPA9oDce6qMVL4tVpA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: ebiederm@xmission.com
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-1585358912-1321778313=:22397"
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Nandita Dukkipati <nanditad@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Tom Herbert <therbert@google.com>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www262.sakura.ne.jp ([202.181.97.72]:60829 "EHLO
-	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751187Ab1KTHWn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2011 02:22:43 -0500
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:38642 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751818Ab1KTIig (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2011 03:38:36 -0500
+In-Reply-To: <CADVnQymPTWsD0Hx060qYUMrFPxgQPdJWwPA9oDce6qMVL4tVpA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In order to solve below problems, can we add sysctl variable for
-restricting number of NET_NS instances?
---------------------------------------------------
-[PATCH for 2.6.32 (untested)] netns: Add quota for number of NET_NS instances.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-CONFIG_NET_NS support in 2.6.32 has a problem that leads to OOM killer when
-clone(CLONE_NEWNET) is called instantly.
-https://bugs.launchpad.net/ubuntu/+source/linux/+bug/720095
-But disabling CONFIG_NET_NS broke lxc containers.
-https://bugs.launchpad.net/ubuntu/+source/linux/+bug/790863
+--8323329-1585358912-1321778313=:22397
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
-This patch introduces /proc/sys/net/core/netns_max interface that limits
-max number of network namespace instances.
+On Sat, 19 Nov 2011, Neal Cardwell wrote:
 
-Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
----
- include/net/sock.h         |    4 ++++
- net/core/net_namespace.c   |    9 +++++++++
- net/core/sysctl_net_core.c |   10 ++++++++++
- 3 files changed, 23 insertions(+)
+> On Thu, Nov 17, 2011 at 12:14 AM, Ilpo Järvinen
+> <ilpo.jarvinen@helsinki.fi> wrote:
+> 
+> > I think it's intentional. Because of receiver lying bandwidth cheats all
+> > unlimited undos are bit dangerous.
+> 
+> If your concern is receivers lying, then there are other easy ways
+> that a misbehaving receiver can get a sender to send too fast
+> (e.g. cumulatively ACKing the highest sequence number seen,
+> irrespective of holes). IMHO it would be a shame to penalize the vast
+> majority of well-behaved users to plug one potential attack vector
+> when there are other easy holes that an attacker would use.
 
---- linux-2.6.32.48.orig/include/net/sock.h
-+++ linux-2.6.32.48/include/net/sock.h
-@@ -1598,4 +1598,8 @@ extern int sysctl_optmem_max;
- extern __u32 sysctl_wmem_default;
- extern __u32 sysctl_rmem_default;
- 
-+#ifdef CONFIG_NET_NS
-+extern int max_netns_count;
-+#endif
-+
- #endif	/* _SOCK_H */
---- linux-2.6.32.48.orig/net/core/net_namespace.c
-+++ linux-2.6.32.48/net/core/net_namespace.c
-@@ -81,12 +81,18 @@ static struct net_generic *net_alloc_gen
- #ifdef CONFIG_NET_NS
- static struct kmem_cache *net_cachep;
- static struct workqueue_struct *netns_wq;
-+static atomic_t used_netns_count = ATOMIC_INIT(0);
-+unsigned int max_netns_count;
- 
- static struct net *net_alloc(void)
- {
- 	struct net *net = NULL;
- 	struct net_generic *ng;
- 
-+	atomic_inc(&used_netns_count);
-+	if (atomic_read(&used_netns_count) > max_netns_count)
-+		goto out;
-+
- 	ng = net_alloc_generic();
- 	if (!ng)
- 		goto out;
-@@ -96,7 +102,9 @@ static struct net *net_alloc(void)
- 		goto out_free;
- 
- 	rcu_assign_pointer(net->gen, ng);
-+	return net;
- out:
-+	atomic_dec(&used_netns_count);
- 	return net;
- 
- out_free:
-@@ -115,6 +123,7 @@ static void net_free(struct net *net)
- #endif
- 	kfree(net->gen);
- 	kmem_cache_free(net_cachep, net);
-+	atomic_dec(&used_netns_count);
- }
- 
- static struct net *net_create(void)
---- linux-2.6.32.48.orig/net/core/sysctl_net_core.c
-+++ linux-2.6.32.48/net/core/sysctl_net_core.c
-@@ -89,6 +89,16 @@ static struct ctl_table net_core_table[]
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+#ifdef CONFIG_NET_NS
-+	{
-+		.ctl_name       = CTL_UNNUMBERED,
-+		.procname       = "netns_max",
-+		.data           = &max_netns_count,
-+		.maxlen         = sizeof(int),
-+		.mode           = 0644,
-+		.proc_handler   = proc_dointvec,
-+	},
-+#endif
- #endif /* CONFIG_NET */
- 	{
- 		.ctl_name	= NET_CORE_BUDGET,
+I disagree... there is huge difference as the receiver then has to gamble 
+with the reliability of the flow. DSACK attack is nasty in that that it
+allows maintaining reliability while cheating bw.
+
+> > Wouldn't it be enough if tcp max burst is increased to match IW (iirc we
+> > had 3 still there as a magic number)?
+> 
+> Yes, tcp_max_burst() returns tp->reordering now. Changing it to return
+> max(tp->reordering, TCP_INIT_CWND) sounds good to me. I think that's
+> an excellent idea in any case, regardless of the outcome of this undo
+> discussion.
+
+Feel free to provide a patch then as I'm likely to forget :).
+
+> However, I don't think this is sufficient for request-response
+> protocols (e.g. RPC) running over long-lived connections over a path
+> with a large bandwidth-delay product. In such cases, the cwnd will
+> grow quite large (hundreds of packets). The DSACKs will often arrive
+> after the entire response is sent, so that cwnd moderation will
+> typically pull the cwnd down to 3 (or, with your proposal, 10)
+> packets. IMHO that seems like an unnecessarily steep price to pay.
+
+Sounds rather hypotetical scenario that you'd happen to get those DSACKs 
+in such scenario... DSACK would only be sent when receiver and sender were 
+out of sync due to heavy ACK loss that exceeds SACK redundancy or heavy 
+reordering... the later prevents large window in the first place (or 
+reordering has already adapted). Honestly I don't believe this is likely 
+scenario. ...And FRTO handles single unnecesary rexmit in case of spurious 
+RTO even before DSACK could be seen.
+
+-- 
+ i.
+--8323329-1585358912-1321778313=:22397--
