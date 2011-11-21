@@ -1,7 +1,8 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v2 2/5] genetlink: Add lockdep_genl_is_held().
-Date: Mon, 21 Nov 2011 13:30:26 -0800
-Message-ID: <1321911029-20707-3-git-send-email-jesse@nicira.com>
+Subject: [PATCH v2 4/5] vlan: Move vlan_set_encap_proto() to vlan
+	header file
+Date: Mon, 21 Nov 2011 13:30:28 -0800
+Message-ID: <1321911029-20707-5-git-send-email-jesse@nicira.com>
 References: <1321911029-20707-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,52 +24,105 @@ List-Id: netdev.vger.kernel.org
 
 From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-Open vSwitch uses genl_mutex locking to protect datapath
-data-structures like flow-table, flow-actions. Following patch adds
-lockdep_genl_is_held() which is used for rcu annotation to prove
-locking.
+Open vSwitch needs this function for vlan handling.
 
 Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
 v2: Unchanged.
 ---
- include/linux/genetlink.h |    3 +++
- net/netlink/genetlink.c   |    8 ++++++++
- 2 files changed, 11 insertions(+), 0 deletions(-)
+ include/linux/if_vlan.h |   34 ++++++++++++++++++++++++++++++++++
+ net/8021q/vlan_core.c   |   33 ---------------------------------
+ 2 files changed, 34 insertions(+), 33 deletions(-)
 
-diff --git a/include/linux/genetlink.h b/include/linux/genetlink.h
-index 61549b2..59311ad 100644
---- a/include/linux/genetlink.h
-+++ b/include/linux/genetlink.h
-@@ -85,6 +85,9 @@ enum {
- /* All generic netlink requests are serialized by a global lock.  */
- extern void genl_lock(void);
- extern void genl_unlock(void);
-+#ifdef CONFIG_PROVE_LOCKING
-+extern int lockdep_genl_is_held(void);
-+#endif
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 12d5543..070ac50 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -310,6 +310,40 @@ static inline __be16 vlan_get_protocol(const struct sk_buff *skb)
  
+ 	return protocol;
+ }
++
++static inline void vlan_set_encap_proto(struct sk_buff *skb,
++					struct vlan_hdr *vhdr)
++{
++	__be16 proto;
++	unsigned char *rawp;
++
++	/*
++	 * Was a VLAN packet, grab the encapsulated protocol, which the layer
++	 * three protocols care about.
++	 */
++
++	proto = vhdr->h_vlan_encapsulated_proto;
++	if (ntohs(proto) >= 1536) {
++		skb->protocol = proto;
++		return;
++	}
++
++	rawp = skb->data;
++	if (*(unsigned short *) rawp == 0xFFFF)
++		/*
++		 * This is a magic hack to spot IPX packets. Older Novell
++		 * breaks the protocol design and runs IPX over 802.3 without
++		 * an 802.2 LLC layer. We look for FFFF which isn't a used
++		 * 802.2 SSAP/DSAP. This won't work for fault tolerant netware
++		 * but does for the rest.
++		 */
++		skb->protocol = htons(ETH_P_802_3);
++	else
++		/*
++		 * Real 802.2 LLC
++		 */
++		skb->protocol = htons(ETH_P_802_2);
++}
  #endif /* __KERNEL__ */
  
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index 8a36599..28453ae 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -33,6 +33,14 @@ void genl_unlock(void)
+ /* VLAN IOCTLs are found in sockios.h */
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index f5ffc02..9c95e8e 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -110,39 +110,6 @@ static struct sk_buff *vlan_reorder_header(struct sk_buff *skb)
+ 	return skb;
  }
- EXPORT_SYMBOL(genl_unlock);
  
-+#ifdef CONFIG_PROVE_LOCKING
-+int lockdep_genl_is_held(void)
-+{
-+	return lockdep_is_held(&genl_mutex);
-+}
-+EXPORT_SYMBOL(lockdep_genl_is_held);
-+#endif
-+
- #define GENL_FAM_TAB_SIZE	16
- #define GENL_FAM_TAB_MASK	(GENL_FAM_TAB_SIZE - 1)
- 
+-static void vlan_set_encap_proto(struct sk_buff *skb, struct vlan_hdr *vhdr)
+-{
+-	__be16 proto;
+-	unsigned char *rawp;
+-
+-	/*
+-	 * Was a VLAN packet, grab the encapsulated protocol, which the layer
+-	 * three protocols care about.
+-	 */
+-
+-	proto = vhdr->h_vlan_encapsulated_proto;
+-	if (ntohs(proto) >= 1536) {
+-		skb->protocol = proto;
+-		return;
+-	}
+-
+-	rawp = skb->data;
+-	if (*(unsigned short *) rawp == 0xFFFF)
+-		/*
+-		 * This is a magic hack to spot IPX packets. Older Novell
+-		 * breaks the protocol design and runs IPX over 802.3 without
+-		 * an 802.2 LLC layer. We look for FFFF which isn't a used
+-		 * 802.2 SSAP/DSAP. This won't work for fault tolerant netware
+-		 * but does for the rest.
+-		 */
+-		skb->protocol = htons(ETH_P_802_3);
+-	else
+-		/*
+-		 * Real 802.2 LLC
+-		 */
+-		skb->protocol = htons(ETH_P_802_2);
+-}
+-
+ struct sk_buff *vlan_untag(struct sk_buff *skb)
+ {
+ 	struct vlan_hdr *vhdr;
 -- 
 1.7.5.4
