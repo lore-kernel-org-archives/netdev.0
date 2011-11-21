@@ -1,109 +1,65 @@
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Mon, 21 Nov 2011 17:34:59 +0100
-Message-ID: <20111121163459.GA1679@x4.trippels.de>
-References: <20111118120201.GA1642@x4.trippels.de>
- <1321836285.30341.554.camel@debian>
- <20111121080554.GB1625@x4.trippels.de>
- <20111121082445.GD1625@x4.trippels.de>
- <1321866988.2552.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20111121131531.GA1679@x4.trippels.de>
- <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20111121153621.GA1678@x4.trippels.de>
- <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20111121161036.GA1679@x4.trippels.de>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: iproute2 back at kernel.org
+Date: Mon, 21 Nov 2011 08:47:39 -0800
+Message-ID: <20111121084739.25a38e52@nehalam.linuxnetplumber.net>
+References: <20110916103031.7f22b35f@nehalam.linuxnetplumber.net>
+	<20111011165908.0d6ed7de@nehalam.linuxnetplumber.net>
+	<20111121091534.GA23163@rincewind.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: multipart/signed; micalg=PGP-SHA256;
+ boundary="Sig_/PZWnVbd_pav7NFEfk4UR5Da"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org
+To: Petr =?UTF-8?B?xaBhYmF0YQ==?= <contyk@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:56056 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751820Ab1KUQrm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Nov 2011 11:47:42 -0500
+In-Reply-To: <20111121091534.GA23163@rincewind.brq.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+--Sig_/PZWnVbd_pav7NFEfk4UR5Da
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
-Cc: "Alex,Shi" <alex.shi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, tj@kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20111121161036.GA1679@x4.trippels.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
 
-On 2011.11.21 at 17:10 +0100, Markus Trippelsdorf wrote:
-> On 2011.11.21 at 16:48 +0100, Eric Dumazet wrote:
-> > Le lundi 21 novembre 2011 =E0 16:36 +0100, Markus Trippelsdorf a =E9c=
-rit :
-> > > On 2011.11.21 at 15:16 +0100, Eric Dumazet wrote:
-> > > > Le lundi 21 novembre 2011 =E0 14:15 +0100, Markus Trippelsdorf a =
-=E9crit :
-> > > >=20
-> > > > > I've enabled CONFIG_SLUB_DEBUG_ON and this is what happend:
-> > > > >=20
-> > > >=20
-> > > > Thanks
-> > > >=20
-> > > > Please continue to provide more samples.
-> > > >=20
-> > > > There is something wrong somewhere, but where exactly, its hard t=
-o say.
-> > >=20
-> > > New sample. This one points to lib/idr.c:
-> > >=20
-> > > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D
-> > > BUG idr_layer_cache: Poison overwritten
-> > > -------------------------------------------------------------------=
-----------
+On Mon, 21 Nov 2011 10:15:34 +0100
+Petr =C5=A0abata <contyk@redhat.com> wrote:
+
+> On Tue, Oct 11, 2011 at 04:59:08PM -0700, Stephen Hemminger wrote:
+> > Now that kernel.org is back online, the iproute2 repository is back
+> > at it's old location.
+> >    git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2
 > >=20
-> > Thanks, could you now add "CONFIG_DEBUG_PAGEALLOC=3Dy" in your config=
- as
-> > well ?
+> > I have frozen and tagged the v3.0 release, but don't have a good place
+> > to put the tar ball yet (stay tuned). Also the signing key for the rele=
+ase
+> > will be changing.
 >=20
-> Sure. This one happend with CONFIG_DEBUG_PAGEALLOC=3Dy:
->=20
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D
-> BUG task_struct: Poison overwritten
-> -----------------------------------------------------------------------=
-------
+> Are there any news on this?
 
-And sometimes this one that I've reported earlier already:
+Should be today, there are some issues with setup
 
-(see: http://thread.gmane.org/gmane.linux.kernel/1215023 )
+--Sig_/PZWnVbd_pav7NFEfk4UR5Da
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
 
- ------------[ cut here ]------------
- WARNING: at fs/sysfs/sysfs.h:195 sysfs_get_inode+0x136/0x140()
- Hardware name: System Product Name
- Pid: 1876, comm: slabinfo Not tainted 3.2.0-rc2-00274-g6fe4c6d #72
- Call Trace:
- [<ffffffff8106cac5>] warn_slowpath_common+0x75/0xb0
- [<ffffffff8106cbc5>] warn_slowpath_null+0x15/0x20
- [<ffffffff81163236>] sysfs_get_inode+0x136/0x140
- [<ffffffff81164cef>] sysfs_lookup+0x6f/0x110
- [<ffffffff811173f9>] d_alloc_and_lookup+0x39/0x80
- [<ffffffff81118774>] do_lookup+0x294/0x3a0
- [<ffffffff8111798a>] ? inode_permission+0x7a/0xb0
- [<ffffffff8111a3f7>] do_last.isra.46+0x137/0x7f0
- [<ffffffff8111ab76>] path_openat+0xc6/0x370
- [<ffffffff81117606>] ? getname_flags+0x36/0x230
- [<ffffffff810ec852>] ? handle_mm_fault+0x192/0x290
- [<ffffffff8111ae5c>] do_filp_open+0x3c/0x90
- [<ffffffff81127c8c>] ? alloc_fd+0xdc/0x120
- [<ffffffff8110ce77>] do_sys_open+0xe7/0x1c0
- [<ffffffff8110cf6b>] sys_open+0x1b/0x20
- [<ffffffff814ccb7b>] system_call_fastpath+0x16/0x1b
- ---[ end trace b1377eb8b131d37d ]---
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
---=20
-Markus
+iQIcBAEBCAAGBQJOyoCrAAoJEICnf2CVzeR+ovYP/1vyN0HMactaeQYeDjv8NpFQ
+fgRbVvblsbtYg1zGIzjSY7ovUdslGxWI2umOnI6Htl4COVcthA3I7asJZeIw5KYX
+1fR0C04mZStvgtT7FYokR+M46tacMi6MTjIBELVh0KD32ZL1xnLE5Nflg+YTm867
+HkjNEL90x4myJLn2dQE37mCcBcyfLqJ5KqGcAUyqh4GK4bjtuc5hk+pLGojeBFvD
+mXBVugcAD1AvI9PKExphf0/X74l7v2TW3VdMF4cCasYZ+yUWTOYC4RyCVKk29Kpj
+ynXo24Tw6IncmbS1Qk5WiJOPkReUcxuk0O9ecZENzdjITmNpONqERJa40i3HPD9h
+nFNQpTUxprq1H0hswg2si0Q4TeQoUzG1LmDXB9lawN6dAdo9xHZMisB2coIhIUqJ
+0AOKrt2OodvsGILg9hqenw6FbZu0tAjLDSr/3FxWDldyHyBuDTkOc6FFq/ei5CtO
+2pyWhfouelvAv5NMpuh+yfDouEVS5AodOHSp0+Z8Igmp7kTk+gett9rvodTKRgfP
+teQf5U27FYFRvHxXMF8BSVwQB+oJgu+gYwMLG0deFXC3qGz2HTWWeXr2iosBtdl+
+YS20jybA5GyyXfilXFI+ayCpXpJyE0QOTEMfHdcHTbLAt5k/mShpIiPNcx4qk5lL
+OX8699ZuwpSodyVtbn36
+=0dgL
+-----END PGP SIGNATURE-----
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
-.ca/
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+--Sig_/PZWnVbd_pav7NFEfk4UR5Da--
