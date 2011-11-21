@@ -1,137 +1,140 @@
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Mon, 21 Nov 2011 18:35:56 +0100
-Message-ID: <20111121173556.GA1673@x4.trippels.de>
-References: <20111121080554.GB1625@x4.trippels.de>
- <20111121082445.GD1625@x4.trippels.de>
- <1321866988.2552.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20111121131531.GA1679@x4.trippels.de>
- <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20111121153621.GA1678@x4.trippels.de>
- <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20111121161036.GA1679@x4.trippels.de>
- <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: [net-next-2.6 PATCH 0/6 v4] macvlan: MAC Address filtering support
+ for passthru mode
+Date: Mon, 21 Nov 2011 09:41:36 -0800
+Message-ID: <4ECA8D50.9080603@intel.com>
+References: <20111109075449.13549.58135.stgit@rhel6.1>  <1321575301.2749.51.camel@bwh-desktop>  <4EC5A785.3060108@intel.com>  <1321577078.2749.58.camel@bwh-desktop>  <4EC68EBB.3080303@intel.com> <1321638038.2883.28.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: "Alex,Shi" <alex.shi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, tj@kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Roopa Prabhu <roprabhu@cisco.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"chrisw@redhat.com" <chrisw@redhat.com>,
+	"sri@us.ibm.com" <sri@us.ibm.com>,
+	"dragos.tatulea@gmail.com" <dragos.tatulea@gmail.com>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"arnd@arndb.de" <arnd@arndb.de>, "mst@redhat.com" <mst@redhat.com>,
+	"mchan@broadcom.com" <mchan@broadcom.com>,
+	"dwang2@cisco.com" <dwang2@cisco.com>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"benve@cisco.com" <benve@cisco.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:1298 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751517Ab1KURlk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Nov 2011 12:41:40 -0500
+In-Reply-To: <1321638038.2883.28.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2011.11.21 at 18:15 +0100, Eric Dumazet wrote:
-> Le lundi 21 novembre 2011 =E0 17:52 +0100, Eric Dumazet a =E9crit :
-> > Le lundi 21 novembre 2011 =E0 17:10 +0100, Markus Trippelsdorf a =E9c=
-rit :
-> >=20
-> > > Sure. This one happend with CONFIG_DEBUG_PAGEALLOC=3Dy:
-> > >=20
-> > > [drm] Initialized radeon 2.11.0 20080528 for 0000:01:05.0 on minor =
-0
-> > > loop: module loaded
-> > > ahci 0000:00:11.0: version 3.0
-> > > ahci 0000:00:11.0: PCI INT A -> GSI 22 (level, low) -> IRQ 22
-> > > ahci 0000:00:11.0: AHCI 0001.0100 32 slots 6 ports 3 Gbps 0x3f impl=
- SATA mode
-> > > ahci 0000:00:11.0: flags: 64bit ncq sntf ilck pm led clo pmp pio sl=
-um part ccc=20
-> > > scsi0 : ahci
-> > > scsi1 : ahci
-> > > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D
-> > > BUG task_struct: Poison overwritten
-> > > -------------------------------------------------------------------=
-----------
-> >=20
-> > Unfortunately thats the same problem, not catched by DEBUG_PAGEALLOC
-> > because freed page is immediately reused.
-> >=20
-> > We should keep pages in free list longer, to have a bigger window.
-> >=20
-> > Hmm...
-> >=20
-> > Please try following patch :
-> >=20
-> > diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-> > index 9dd443d..b8932a6 100644
-> > --- a/mm/page_alloc.c
-> > +++ b/mm/page_alloc.c
-> > @@ -1196,7 +1196,7 @@ void free_hot_cold_page(struct page *page, int =
-cold)
-> >  	}
-> > =20
-> >  	pcp =3D &this_cpu_ptr(zone->pageset)->pcp;
-> > -	if (cold)
-> > +	if (IS_ENABLED(CONFIG_DEBUG_PAGEALLOC) || cold)
-> >  		list_add_tail(&page->lru, &pcp->lists[migratetype]);
-> >  	else
-> >  		list_add(&page->lru, &pcp->lists[migratetype]);
-> >=20
->=20
->=20
-> Also add "slub_max_order=3D0" to your boot command, since it will make =
-the
-> pool larger...
+On 11/18/2011 9:40 AM, Ben Hutchings wrote:
+> On Fri, 2011-11-18 at 08:58 -0800, Greg Rose wrote:
+>> On 11/17/2011 4:44 PM, Ben Hutchings wrote:
+>>> On Thu, 2011-11-17 at 16:32 -0800, Greg Rose wrote:
+>>>> On 11/17/2011 4:15 PM, Ben Hutchings wrote:
+>>>>> Sorry to come to this rather late.
+>>>>>
+>>>>> On Tue, 2011-11-08 at 23:55 -0800, Roopa Prabhu wrote:
+>>>>> [...]
+>>>>>> v2 ->    v3
+>>>>>> - Moved set and get filter ops from rtnl_link_ops to netdev_ops
+>>>>>> - Support for SRIOV VFs.
+>>>>>>            [Note: The get filters msg (in the way current get rtnetlink handles
+>>>>>>            it) might get too big for SRIOV vfs. This patch follows existing sriov
+>>>>>>            vf get code and tries to accomodate filters for all VF's in a PF.
+>>>>>>            And for the SRIOV case I have only tested the fact that the VF
+>>>>>>            arguments are getting delivered to rtnetlink correctly. The code
+>>>>>>            follows existing sriov vf handling code so rest of it should work fine]
+>>>>> [...]
+>>>>>
+>>>>> This is already broken for large numbers of VFs, and increasing the
+>>>>> amount of information per VF is going to make the situation worse.  I am
+>>>>> no netlink expert but I think that the current approach of bundling all
+>>>>> information about an interface in a single message may not be
+>>>>> sustainable.
+>>>>>
+>>>>> Also, I'm unclear on why this interface is to be used to set filtering
+>>>>> for the (PF) net device as well as for related VFs.  Doesn't that
+>>>>> duplicate the functionality of ndo_set_rx_mode and
+>>>>> ndo_vlan_rx_{add,kill}_vid?
+>>>>
+>>>> Functionally yes but contextually no.  This allows the PF driver to know
+>>>> that it is setting these filters in the context of the existence of VFs,
+>>>> allowing it to take appropriate action.  The other two functions may be
+>>>> called without the presence of SR-IOV enablement and the existence of VFs.
+>>>>
+>>>> Anyway, that's why I asked Roopa to add that capability.
+>>>
+>>> I don't follow.  The PF driver already knows whether it has enabled VFs.
+>>>
+>>> How do filters set this way interact with filters set through the
+>>> existing operations?  Should they override promiscuous mode?  None of
+>>> this has been specified.
+>>
+>> Promiscuous mode is exactly the issue this feature is intended for.  I'm
+>> not familiar with the solarflare device but Intel HW promiscuous mode is
+>> only promiscuous on the physical port, not on the VEB.  So a packet sent
+>> from a VF will not be captured by the PF across the VEB unless the MAC
+>> and VLAN filters have been programmed into the HW.
+>
+> Yes, I get it.  The hardware bridge needs to know more about the address
+> configuration on the host than the driver is getting at the moment.
+>
+>> So you may not need
+>> the feature for your devices but it is required for Intel devices.
+>
+> Well we don't have the hardware bridge but that means each VF driver
+> needs to know whether to fall back to the software bridge.  The net
+> driver needs much the same additional information.
+>
+>> And
+>> it's a fairly simple request, just allow -1 to indicate that the target
+>> of the filter requests is for the PF itself.  Using the already existing
+>> set_rx_mode function wont' work because the PF driver will look at it
+>> and figure it's in promiscuous mode anyway, so it won't set the filters
+>> into the HW.  At least that is how it is in the case of our HW and
+>> driver.  Again, the behavior of your HW and driver is unknown to me and
+>> thus you may not require this feature.
+>
+> What concerns me is that this seems to be a workaround rather than a fix
+> for over-use of promiscuous mode, and it changes the semantics of
+> filtering modes in ways that haven't been well-specified.
 
-New one:
+I feel the opposite is true.  It allows a known set of receive filters 
+so that you don't have to use promiscuous mode, which cuts down on 
+overhead from processing packets the upper layer stack isn't really 
+interested in.
 
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D
-BUG task_xstate: Not a valid slab page
--------------------------------------------------------------------------=
-----
+>
+> What if there's a software bridge between two net devices corresponding
+> to separate physical ports, so that they really need to be promiscuous?
+> What if the administrator runs tcpdump and really wants the (PF) net
+> device to be promiscuous?
 
-INFO: Slab 0xffffea0000044300 objects=3D32767 used=3D65535 fp=3D0x       =
-   (null) flags=3D0x0401
-Pid: 9, comm: ksoftirqd/1 Not tainted 3.2.0-rc2-00274-g6fe4c6d-dirty #75
-Call Trace:
- [<ffffffff81101c1d>] slab_err+0x7d/0x90
- [<ffffffff8103e29f>] ? dump_trace+0x16f/0x2e0
- [<ffffffff81044764>] ? free_thread_xstate+0x24/0x40
- [<ffffffff81044764>] ? free_thread_xstate+0x24/0x40
- [<ffffffff81102566>] check_slab+0x96/0xc0
- [<ffffffff814c5c29>] free_debug_processing+0x34/0x19c
- [<ffffffff81101d9a>] ? set_track+0x5a/0x190
- [<ffffffff8110cf2b>] ? sys_open+0x1b/0x20
- [<ffffffff814c5e55>] __slab_free+0x33/0x2d0
- [<ffffffff8110cf2b>] ? sys_open+0x1b/0x20
- [<ffffffff81105134>] kmem_cache_free+0x104/0x120
- [<ffffffff81044764>] free_thread_xstate+0x24/0x40
- [<ffffffff81044794>] free_thread_info+0x14/0x30
- [<ffffffff8106a4ff>] free_task+0x2f/0x50
- [<ffffffff8106a5d0>] __put_task_struct+0xb0/0x110
- [<ffffffff8106eb4b>] delayed_put_task_struct+0x3b/0xa0
- [<ffffffff810aa01a>] __rcu_process_callbacks+0x12a/0x350
- [<ffffffff810aa2a2>] rcu_process_callbacks+0x62/0x140
- [<ffffffff81072e18>] __do_softirq+0xa8/0x200
- [<ffffffff81073077>] run_ksoftirqd+0x107/0x210
- [<ffffffff81072f70>] ? __do_softirq+0x200/0x200
- [<ffffffff8108bb87>] kthread+0x87/0x90
- [<ffffffff814cdcf4>] kernel_thread_helper+0x4/0x10
- [<ffffffff8108bb00>] ? kthread_flush_work_fn+0x10/0x10
- [<ffffffff814cdcf0>] ? gs_change+0xb/0xb
-FIX task_xstate: Object at 0xffffffff8110cf2b not freed
+I don't believe there is anything in this patch set that removes 
+promiscuous mode operation as it is commonly used.  Perhaps I've missed 
+something.
 
---=20
-Markus
+>
+> These cases shouldn't break because of VF acceleration.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
-.ca/
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+I don't see how they would in the case of Intel HW.  And these new ops 
+to set rx filters are something that Intel HW needs because it 
+implements a VEB that is *not* a learning bridge and we don't want it to 
+be a learning bridge because of security concerns.  It is better for our 
+requirements to be allowed to set the MAC/VLAN filters that we want a VF 
+to be able to see.
+
+> Or at least we
+> should make a conscious and documented decision that 'promiscuous'
+> doesn't mean that if you enable it on your network adapter.
+
+Again, I don't know of any plans to change anything relating to putting 
+a device in promiscuous mode or changing the semantics of what 
+promiscuous mode means.
+
+- Greg
