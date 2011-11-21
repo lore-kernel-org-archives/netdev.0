@@ -1,86 +1,34 @@
-From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net-next v1 1/4] net-e1000e: fix ethtool set_features taking new features into account too late
-Date: Mon, 21 Nov 2011 15:19:57 -0800
-Message-ID: <22b29c09790d922f6e84ec623b8a691a7c3cd0a3.1321917278.git.david.decotigny@google.com>
-References: <cover.1321917278.git.david.decotigny@google.com>
-Cc: David Decotigny <david.decotigny@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1321917278.git.david.decotigny@google.com>
-In-Reply-To: <cover.1321917278.git.david.decotigny@google.com>
-References: <cover.1321917278.git.david.decotigny@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2 5/5] net: Add Open vSwitch kernel
+	components.
+Date: Mon, 21 Nov 2011 15:23:14 -0800
+Message-ID: <CAEP_g=-wpavbQ-tp6Cd0pBCzZ+kpG_nWBwPmSV-z_dymEoSLTA@mail.gmail.com>
+References: <1321911029-20707-1-git-send-email-jesse@nicira.com>
+	<1321911029-20707-6-git-send-email-jesse@nicira.com>
+	<20111121141235.71a5f8fd@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20111121141235.71a5f8fd-We1ePj4FEcvRI77zikRAJc56i+j3xesD0e7PPNI6Mm0@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Before this patch, the set_features() ethtool callback would not take
-the new specified features into account when configuring the NIC. It
-would only consider the current features, ie. the ones after previous
-set_features(). A second ethtool set_features() with the same
-specified features cannot work around that issue because it would boil
-down to a nop (code checks wether specified features changed or not).
+On Mon, Nov 21, 2011 at 2:12 PM, Stephen Hemminger
+<shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org> wrote:
+> There are lots of new global symbols created by this module.
+> Since C has no namespaces, a kernel module needs to in general
+> stick to one prefix and naming convention.
 
-This patch solves this by propagating the requested features.
-
-Tested:
-  printk in code + custom ethtool (based on
-  http://patchwork.ozlabs.org/patch/95836/)
-
-
-
-Signed-off-by: David Decotigny <david.decotigny@google.com>
----
- drivers/net/ethernet/intel/e1000e/netdev.c |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index a5bd7a3..b63f316 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -5901,24 +5901,28 @@ static void e1000_eeprom_checks(struct e1000_adapter *adapter)
- }
- 
- static int e1000_set_features(struct net_device *netdev,
--	netdev_features_t features)
-+			      netdev_features_t features)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	netdev_features_t changed = features ^ netdev->features;
-+	int retval = 1;  /* telling netdev that we are updating
-+			  * netdev->features by ourselves */
-+
-+	netdev->features = features;
- 
- 	if (changed & (NETIF_F_TSO | NETIF_F_TSO6))
- 		adapter->flags |= FLAG_TSO_FORCE;
- 
- 	if (!(changed & (NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX |
- 			 NETIF_F_RXCSUM)))
--		return 0;
-+		return retval;
- 
- 	if (netif_running(netdev))
- 		e1000e_reinit_locked(adapter);
- 	else
- 		e1000e_reset(adapter);
- 
--	return 0;
-+	return retval;
- }
- 
- static const struct net_device_ops e1000e_netdev_ops = {
--- 
-1.7.3.1
+That's a good point.  Thanks, I'll fix it.
