@@ -1,9 +1,9 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 02/17] netfilter: nat: remove module reference counting
- from NAT protocols
-Date: Mon, 21 Nov 2011 15:59:14 +0100
-Message-ID: <4ECA6742.9080906@trash.net>
-References: <1321854369-3432-1-git-send-email-kaber@trash.net>	 <1321854369-3432-3-git-send-email-kaber@trash.net> <1321860997.17419.7.camel@edumazet-laptop>
+Subject: Re: [PATCH 10/17] netfilter: ipv6: expand skb head in ip6_route_me_harder
+ after oif change
+Date: Mon, 21 Nov 2011 16:00:17 +0100
+Message-ID: <4ECA6781.6000101@trash.net>
+References: <1321854369-3432-1-git-send-email-kaber@trash.net>	 <1321854369-3432-11-git-send-email-kaber@trash.net> <1321871357.2552.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
 	format=flowed
@@ -12,52 +12,60 @@ Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	ulrich.weber@sophos.com
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1321860997.17419.7.camel@edumazet-laptop>
+In-Reply-To: <1321871357.2552.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/21/2011 08:36 AM, Eric Dumazet wrote:
-> Le lundi 21 novembre 2011 =C3=A0 06:45 +0100, kaber@trash.net a =C3=A9=
+On 11/21/2011 11:29 AM, Eric Dumazet wrote:
+> Le lundi 21 novembre 2011 =C3=A0 06:46 +0100, kaber@trash.net a =C3=A9=
 crit :
 >> From: Patrick McHardy<kaber@trash.net>
 >>
->> The only remaining user of NAT protocol module reference counting is=
- NAT
->> ctnetlink support. Since this is a fairly short sequence of code, co=
-nvert
->> over to use RCU and remove module reference counting.
+>> Expand the skb headroom if the oif changed due to rerouting similar =
+to
+>> how IPv4 packets are handled.
 >>
 >> Signed-off-by: Patrick McHardy<kaber@trash.net>
->> @@ -612,16 +592,18 @@ static int nfnetlink_parse_nat_proto(struct nl=
-attr *attr,
->>   	if (err<  0)
->>   		return err;
+>> ---
+>>   net/ipv6/netfilter.c |    7 +++++++
+>>   1 files changed, 7 insertions(+), 0 deletions(-)
 >>
->> -	npt =3D nf_nat_proto_find_get(nf_ct_protonum(ct));
->> +	rcu_read_lock();
->> +	npt =3D __nf_nat_proto_find(nf_ct_protonum(ct));
->>   	if (npt->nlattr_to_range)
->>   		err =3D npt->nlattr_to_range(tb, range);
->> -	nf_nat_proto_put(npt);
->> +	rcu_read_unlock();
->>   	return err;
->>   }
-> Seems good, but you should explain in changelog why its safe.
+>> diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
+>> index 30fcee4..d39e954 100644
+>> --- a/net/ipv6/netfilter.c
+>> +++ b/net/ipv6/netfilter.c
+>> @@ -14,6 +14,7 @@ int ip6_route_me_harder(struct sk_buff *skb)
+>>   {
+>>   	struct net *net =3D dev_net(skb_dst(skb)->dev);
+>>   	const struct ipv6hdr *iph =3D ipv6_hdr(skb);
+>> +	unsigned int hh_len;
+>>   	struct dst_entry *dst;
+>>   	struct flowi6 fl6 =3D {
+>>   		.flowi6_oif =3D skb->sk ? skb->sk->sk_bound_dev_if : 0,
+>> @@ -46,6 +47,12 @@ int ip6_route_me_harder(struct sk_buff *skb)
+>>   	}
+>>   #endif
+>>
+>> +	/* Change in oif may mean change in hh_len. */
+>> +	hh_len =3D skb_dst(skb)->dev->hard_header_len;
+>> +	if (skb_headroom(skb)<  hh_len&&
+>> +	    pskb_expand_head(skb, hh_len - skb_headroom(skb), 0, GFP_ATOMI=
+C))
+>> +		return -1;
+>> +
+> Hmm, We had a problem recently on Tile arches because of unaligned
+> accesses.
 >
-> (Using rcu also means special action must be taken in the write side,
-> here the module removal)
+> Had you seen the bug report and proposed patch ?
+>
+> Fix is to instead do :
+>
+> 	pskb_expand_head(skb,
+> 			 HH_DATA_ALIGN(hh_len - skb_headroom(skb)),
+> 			 0,
+> 			 GFP_ATOMIC);
 
-I'll update the changelog for the next submission.
-
->>
->>   static const struct nla_policy nat_nla_policy[CTA_NAT_MAX+1] =3D {
->>   	[CTA_NAT_MINIP]		=3D { .type =3D NLA_U32 },
->>   	[CTA_NAT_MAXIP]		=3D { .type =3D NLA_U32 },
->> +	[CTA_NAT_PROTO]		=3D { .type =3D NLA_NESTED },
->>   };
-> I just dont understand this part :-
-
-Yeah, it doesn't belong into this patch.
+I'll have a look and will update the patch accordingly.
 
 --
 To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
