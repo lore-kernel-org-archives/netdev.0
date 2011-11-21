@@ -1,39 +1,29 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Mon, 21 Nov 2011 15:43:10 -0600 (CST)
-Message-ID: <alpine.DEB.2.00.1111211539420.10548@router.home>
-References: <20111121131531.GA1679@x4.trippels.de> <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20111121153621.GA1678@x4.trippels.de> <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20111121161036.GA1679@x4.trippels.de>
- <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20111121173556.GA1673@x4.trippels.de> <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20111121185215.GA1673@x4.trippels.de>
- <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop> <CAOJsxLGLZ23momLxidvhC+2LCtmnwmPMS2ASdke8V8gGFGa=AA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] dccp: fix error propagation in dccp_v4_connect
+Date: Mon, 21 Nov 2011 16:45:34 -0500 (EST)
+Message-ID: <20111121.164534.159651712655267711.davem@davemloft.net>
+References: <1321852700-2966-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Markus Trippelsdorf <markus@trippelsdorf.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Alex,Shi" <alex.shi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	Matt Mackall <mpm@selenic.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Tejun Heo <tj@kernel.org>,
-	Christian Kujau <lists@nerdbynature.de>
-To: Pekka Enberg <penberg@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOJsxLGLZ23momLxidvhC+2LCtmnwmPMS2ASdke8V8gGFGa=AA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:41448 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757015Ab1KUVpg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 16:45:36 -0500
+In-Reply-To: <1321852700-2966-1-git-send-email-roy.qing.li@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 21 Nov 2011, Pekka Enberg wrote:
+From: roy.qing.li@gmail.com
+Date: Mon, 21 Nov 2011 13:18:20 +0800
 
-> Does CONFIG_SLAB make all the issues go away or are you still able to
-> reproduce corruption with it? I'm asking because we have the per-cpu
-> partial list patches in 3.2-rc1 and I'd like to rule them out as a
-> suspect.
+> From: RongQing.Li <roy.qing.li@gmail.com>
+> 
+> The errcode is not updated when ip_route_newports() fails.
+> 
+> Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
 
-SLAB does not have the same capabilities to detect corruption.
-
-You can disable most the cpu partial functionality by setting
-
-	/sys/kernel/slab/*/cpu_partial
-
-to 0
+Applied, thank you.
