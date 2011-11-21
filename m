@@ -1,7 +1,7 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v2 1/5] genetlink: Add genl_notify()
-Date: Mon, 21 Nov 2011 13:30:25 -0800
-Message-ID: <1321911029-20707-2-git-send-email-jesse@nicira.com>
+Subject: [PATCH v2 2/5] genetlink: Add lockdep_genl_is_held().
+Date: Mon, 21 Nov 2011 13:30:26 -0800
+Message-ID: <1321911029-20707-3-git-send-email-jesse@nicira.com>
 References: <1321911029-20707-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,55 +23,52 @@ List-Id: netdev.vger.kernel.org
 
 From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-Open vSwitch uses Generic Netlink interface for communication
-between userspace and kernel module. genl_notify() is used
-for sending notification back to userspace.
-
-genl_notify() is analogous to rtnl_notify() but uses genl_sock
-instead of rtnl.
+Open vSwitch uses genl_mutex locking to protect datapath
+data-structures like flow-table, flow-actions. Following patch adds
+lockdep_genl_is_held() which is used for rcu annotation to prove
+locking.
 
 Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
 v2: Unchanged.
 ---
- include/net/genetlink.h |    2 ++
- net/netlink/genetlink.c |   13 +++++++++++++
- 2 files changed, 15 insertions(+), 0 deletions(-)
+ include/linux/genetlink.h |    3 +++
+ net/netlink/genetlink.c   |    8 ++++++++
+ 2 files changed, 11 insertions(+), 0 deletions(-)
 
-diff --git a/include/net/genetlink.h b/include/net/genetlink.h
-index 82d8d09..7db3299 100644
---- a/include/net/genetlink.h
-+++ b/include/net/genetlink.h
-@@ -128,6 +128,8 @@ extern int genl_register_mc_group(struct genl_family *family,
- 				  struct genl_multicast_group *grp);
- extern void genl_unregister_mc_group(struct genl_family *family,
- 				     struct genl_multicast_group *grp);
-+extern void genl_notify(struct sk_buff *skb, struct net *net, u32 pid,
-+			u32 group, struct nlmsghdr *nlh, gfp_t flags);
+diff --git a/include/linux/genetlink.h b/include/linux/genetlink.h
+index 61549b2..59311ad 100644
+--- a/include/linux/genetlink.h
++++ b/include/linux/genetlink.h
+@@ -85,6 +85,9 @@ enum {
+ /* All generic netlink requests are serialized by a global lock.  */
+ extern void genl_lock(void);
+ extern void genl_unlock(void);
++#ifdef CONFIG_PROVE_LOCKING
++extern int lockdep_genl_is_held(void);
++#endif
  
- /**
-  * genlmsg_put - Add generic netlink header to netlink message
+ #endif /* __KERNEL__ */
+ 
 diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index 482fa57..8a36599 100644
+index 8a36599..28453ae 100644
 --- a/net/netlink/genetlink.c
 +++ b/net/netlink/genetlink.c
-@@ -946,3 +946,16 @@ int genlmsg_multicast_allns(struct sk_buff *skb, u32 pid, unsigned int group,
- 	return genlmsg_mcast(skb, pid, group, flags);
+@@ -33,6 +33,14 @@ void genl_unlock(void)
  }
- EXPORT_SYMBOL(genlmsg_multicast_allns);
-+
-+void genl_notify(struct sk_buff *skb, struct net *net, u32 pid, u32 group,
-+		 struct nlmsghdr *nlh, gfp_t flags)
+ EXPORT_SYMBOL(genl_unlock);
+ 
++#ifdef CONFIG_PROVE_LOCKING
++int lockdep_genl_is_held(void)
 +{
-+	struct sock *sk = net->genl_sock;
-+	int report = 0;
-+
-+	if (nlh)
-+		report = nlmsg_report(nlh);
-+
-+	nlmsg_notify(sk, skb, pid, group, report, flags);
++	return lockdep_is_held(&genl_mutex);
 +}
-+EXPORT_SYMBOL(genl_notify);
++EXPORT_SYMBOL(lockdep_genl_is_held);
++#endif
++
+ #define GENL_FAM_TAB_SIZE	16
+ #define GENL_FAM_TAB_MASK	(GENL_FAM_TAB_SIZE - 1)
+ 
 -- 
 1.7.5.4
