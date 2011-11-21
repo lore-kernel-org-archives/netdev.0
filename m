@@ -1,122 +1,115 @@
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH net-next 3/3] be2net: workaround to fix a BE bug
-Date: Sun, 20 Nov 2011 23:22:08 -0600
-Message-ID: <20111121052208.GA17689@akhaparde-VBox>
-Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
+From: Albert Chin <linux-netdev@mlists.thewrittenword.com>
+Subject: Problems with dropped packets on bonded interface for 3.x kernels
+Date: Sun, 20 Nov 2011 23:16:04 -0600
+Message-ID: <20111121051603.GB3702@china>
+Reply-To: netdev@vger.kernel.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:18502 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751640Ab1KUFW2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 00:22:28 -0500
+Received: from mail1.thewrittenword.com ([69.67.212.77]:52631 "EHLO
+	mail1.thewrittenword.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751428Ab1KUFZV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 00:25:21 -0500
+Received: from mail1.il.thewrittenword.com (emma-internal-gw.il.thewrittenword.com [192.168.13.25])
+	by mail1.thewrittenword.com (Postfix) with ESMTP id DA6095C17
+	for <netdev@vger.kernel.org>; Mon, 21 Nov 2011 05:51:07 +0000 (UTC)
+Received: from china.thewrittenword.com (danger-gw.il.thewrittenword.com [10.191.57.254])
+	by mail1.il.thewrittenword.com (Postfix) with ESMTP id 477716F5
+	for <netdev@vger.kernel.org>; Mon, 21 Nov 2011 05:16:05 +0000 (UTC)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For vlan tagged pkts, BE
-1) calculates checksum even when CSO is not requested
-2) calculates checksum wrongly for padded pkt less than 60 bytes long.
-As a workaround disable TX vlan offloading in such cases.
+I'm running Ubuntu 11.10 on an Intel SR2625URLXR system with an Intel
+S5520UR motherboard and an internal Intel E1G44HT (I340-T4) Quad Port
+Server Adapter. I am seeing dropped packets on a bonded interface,
+comprised of two GigE ports on the Intel E1G44HT Quad Port Server
+Adapter. The following kernels exhibit this problem:
+  3.0.0-12-server, 3.0.0-13-server, 3.1.0-2-server, 3.2.0-rc2
+Installing Fedora 16 with a 3.1.1-1.fc16.x86_64 also showed dropped
+packets.
 
-Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h      |   16 +++++++++++++
- drivers/net/ethernet/emulex/benet/be_main.c |   32 +++++++++++++++++++-------
- 2 files changed, 39 insertions(+), 9 deletions(-)
+I also tried RHEL6 with a 2.6.32-131.17.1.el6.x86_64 kernel and didn't
+see any dropped packets. Testing an older 2.6.32-28.55-generic Ubuntu
+kernel also didn't show any dropped packets.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 34f162d..c4fcea69 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -518,6 +518,22 @@ static inline void be_vf_eth_addr_generate(struct be_adapter *adapter, u8 *mac)
- 	memcpy(mac, adapter->netdev->dev_addr, 3);
- }
- 
-+static inline u16 be_get_tx_vlan_tag(struct be_adapter *adapter,
-+					struct sk_buff *skb)
-+{
-+	u8 vlan_prio;
-+	u16 vlan_tag;
-+
-+	vlan_tag = vlan_tx_tag_get(skb);
-+	vlan_prio = (vlan_tag & VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT;
-+	/* If vlan priority provided by OS is NOT in available bmap */
-+	if (!(adapter->vlan_prio_bmap & (1 << vlan_prio)))
-+		vlan_tag = (vlan_tag & ~VLAN_PRIO_MASK) |
-+				adapter->recommended_prio;
-+
-+	return vlan_tag;
-+}
-+
- static inline bool be_multi_rxq(const struct be_adapter *adapter)
- {
- 	return adapter->num_rx_qs > 1;
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 95d41ba..db27269 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -554,8 +554,7 @@ static inline void wrb_fill(struct be_eth_wrb *wrb, u64 addr, int len)
- static void wrb_fill_hdr(struct be_adapter *adapter, struct be_eth_hdr_wrb *hdr,
- 		struct sk_buff *skb, u32 wrb_cnt, u32 len)
- {
--	u8 vlan_prio = 0;
--	u16 vlan_tag = 0;
-+	u16 vlan_tag;
- 
- 	memset(hdr, 0, sizeof(*hdr));
- 
-@@ -584,14 +583,9 @@ static void wrb_fill_hdr(struct be_adapter *adapter, struct be_eth_hdr_wrb *hdr,
- 			AMAP_SET_BITS(struct amap_eth_hdr_wrb, udpcs, hdr, 1);
- 	}
- 
--	if (vlan_tx_tag_present(skb)) {
-+	if (adapter->vlans_added && vlan_tx_tag_present(skb)) {
- 		AMAP_SET_BITS(struct amap_eth_hdr_wrb, vlan, hdr, 1);
--		vlan_tag = vlan_tx_tag_get(skb);
--		vlan_prio = (vlan_tag & VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT;
--		/* If vlan priority provided by OS is NOT in available bmap */
--		if (!(adapter->vlan_prio_bmap & (1 << vlan_prio)))
--			vlan_tag = (vlan_tag & ~VLAN_PRIO_MASK) |
--					adapter->recommended_prio;
-+		vlan_tag = be_get_tx_vlan_tag(adapter, skb);
- 		AMAP_SET_BITS(struct amap_eth_hdr_wrb, vlan_tag, hdr, vlan_tag);
- 	}
- 
-@@ -694,6 +688,25 @@ static netdev_tx_t be_xmit(struct sk_buff *skb,
- 	u32 start = txq->head;
- 	bool dummy_wrb, stopped = false;
- 
-+	/* For vlan tagged pkts, BE
-+	 * 1) calculates checksum even when CSO is not requested
-+	 * 2) calculates checksum wrongly for padded pkt less than
-+	 * 60 bytes long.
-+	 * As a workaround disable TX vlan offloading in such cases.
-+	 */
-+	if (unlikely(vlan_tx_tag_present(skb) &&
-+		(skb->ip_summed != CHECKSUM_PARTIAL || skb->len <= 60))) {
-+		skb = skb_share_check(skb, GFP_ATOMIC);
-+		if (unlikely(!skb))
-+			goto tx_drop;
-+
-+		skb = __vlan_put_tag(skb, be_get_tx_vlan_tag(adapter, skb));
-+		if (unlikely(!skb))
-+			goto tx_drop;
-+
-+		skb->vlan_tci = 0;
-+	}
-+
- 	wrb_cnt = wrb_cnt_for_skb(adapter, skb, &dummy_wrb);
- 
- 	copied = make_tx_wrbs(adapter, txq, skb, wrb_cnt, dummy_wrb);
-@@ -719,6 +732,7 @@ static netdev_tx_t be_xmit(struct sk_buff *skb,
- 				skb_shinfo(skb)->gso_segs, stopped);
- 	} else {
- 		txq->head = start;
-+tx_drop:
- 		dev_kfree_skb_any(skb);
- 	}
- 	return NETDEV_TX_OK;
+So, with 2.6, I don't see dropped packets, but everything including
+3.0 and after show dropped packets.
+
+# ifconfig bond0
+bond0     Link encap:Ethernet  HWaddr 00:1b:21:d3:f6:0a  
+          inet6 addr: fe80::21b:21ff:fed3:f60a/64 Scope:Link
+          UP BROADCAST RUNNING MASTER MULTICAST  MTU:1500  Metric:1
+          RX packets:225 errors:0 dropped:186 overruns:0 frame:0
+          TX packets:231 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:25450 (25.4 KB)  TX bytes:28368 (28.3 KB)
+
+With lacp_rate=fast, I see higher packet loss than with
+lacp_rate=slow. I've tried bonding t
+
+This server has the following network controllers for the two internal
+NICs:
+  # lspci -vv
+  01:00.0 Ethernet controller: Intel Corporation 82575EB Gigabit Network Connection (rev 02)
+  01:00.1 Ethernet controller: Intel Corporation 82575EB Gigabit Network Connection (rev 02)
+
+And it has the following network controllers for the four NICs on the
+I340-T4 PCI-E card:
+  # lspci -vv
+  0a:00.0 Ethernet controller: Intel Corporation 82580 Gigabit Network Connection (rev 01)
+  0a:00.1 Ethernet controller: Intel Corporation 82580 Gigabit Network Connection (rev 01)
+  0a:00.2 Ethernet controller: Intel Corporation 82580 Gigabit Network Connection (rev 01)
+  0a:00.3 Ethernet controller: Intel Corporation 82580 Gigabit Network Connection (rev 01)
+
+I tried bonding the two 82575EB NICs rather than two NICs on the 82580
+but see the same dropped packet issue.
+
+I have replaced the cables, tested each port individually on the
+switch without bonding, and don't see any reason to expect hardware as
+the issue. The switch is a Summit Extreme 400-48t.
+
+I am using a 802.3ad configuration:
+# cat /proc/net/bonding/bond0
+Ethernet Channel Bonding Driver: v3.7.1 (April 27, 2011)
+
+Bonding Mode: IEEE 802.3ad Dynamic link aggregation
+Transmit Hash Policy: layer2 (0)
+MII Status: up
+MII Polling Interval (ms): 100
+Up Delay (ms): 200
+Down Delay (ms): 0
+
+802.3ad info
+LACP rate: fast
+Aggregator selection policy (ad_select): stable
+Active Aggregator Info:
+        Aggregator ID: 1
+        Number of ports: 1
+        Actor Key: 17
+        Partner Key: 24
+        Partner Mac Address: 00:04:96:18:54:d5
+
+Slave Interface: eth4
+MII Status: up
+Speed: 1000 Mbps
+Duplex: full
+Link Failure Count: 0
+Permanent HW addr: 00:1b:21:d3:f6:0a
+Aggregator ID: 1
+Slave queue ID: 0
+
+Slave Interface: eth5
+MII Status: up
+Speed: 1000 Mbps
+Duplex: full
+Link Failure Count: 0
+Permanent HW addr: 00:1b:21:d3:f6:0b
+Aggregator ID: 2
+Slave queue ID: 0
+
+Anyone have any ideas?
+
 -- 
-1.7.5.4
+albert chin (china@thewrittenword.com)
