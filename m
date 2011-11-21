@@ -1,94 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Mon, 21 Nov 2011 18:15:06 +0100
-Message-ID: <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20111118085436.GC1615@x4.trippels.de>
-	 <20111118120201.GA1642@x4.trippels.de> <1321836285.30341.554.camel@debian>
-	 <20111121080554.GB1625@x4.trippels.de>
-	 <20111121082445.GD1625@x4.trippels.de>
-	 <1321866988.2552.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121131531.GA1679@x4.trippels.de>
-	 <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121153621.GA1678@x4.trippels.de>
-	 <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121161036.GA1679@x4.trippels.de>
-	 <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: MPLS for Linux kernel
+Date: Mon, 21 Nov 2011 09:17:11 -0800
+Message-ID: <20111121091711.1be69369@nehalam.linuxnetplumber.net>
+References: <CAFdo_mWE8wMB6QJt_DPi9Ou9OiayzV48URDq7KhKf+q8OfP+Gw@mail.gmail.com>
+	<4ECA67C6.2080802@dti2.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: "Alex,Shi" <alex.shi@intel.com>, "linux-kernel@vger.kernel.org"
- <linux-kernel@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>,
- Christoph Lameter <cl@linux-foundation.org>, Pekka Enberg
- <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>, tj@kernel.org
-To: Markus Trippelsdorf <markus@trippelsdorf.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: igorm@etf.rs,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: jorge@dti2.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:58329 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756078Ab1KURRS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 12:17:18 -0500
+In-Reply-To: <4ECA67C6.2080802@dti2.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le lundi 21 novembre 2011 =C3=A0 17:52 +0100, Eric Dumazet a =C3=A9crit :
-> Le lundi 21 novembre 2011 =C3=A0 17:10 +0100, Markus Trippelsdorf a =C3=
-=A9crit :
->=20
-> > Sure. This one happend with CONFIG_DEBUG_PAGEALLOC=3Dy:
+On Mon, 21 Nov 2011 16:01:26 +0100
+"Jorge Boncompte [DTI2]" <jorge@dti2.net> wrote:
+
+> El 20/11/2011 22:59, Igor Maravi=C4=87 escribi=C3=B3:
+> > Hi all,
+> > I've been working on implementation of MPLS for Linux kernel, for a
+> > some time now.
+> > I continued the work of James Leu
+> > (https://sourceforge.net/projects/mpls-linux/) and used some fixes =
+of
+> > Jorge Boncompte
+> > (http://mpls-linux.git.sourceforge.net/git/gitweb.cgi?p=3Dmpls-linu=
+x/net-next;a=3Dshortlog;h=3Drefs/heads/net-next-mpls).
 > >=20
-> > [drm] Initialized radeon 2.11.0 20080528 for 0000:01:05.0 on minor 0
-> > loop: module loaded
-> > ahci 0000:00:11.0: version 3.0
-> > ahci 0000:00:11.0: PCI INT A -> GSI 22 (level, low) -> IRQ 22
-> > ahci 0000:00:11.0: AHCI 0001.0100 32 slots 6 ports 3 Gbps 0x3f impl S=
-ATA mode
-> > ahci 0000:00:11.0: flags: 64bit ncq sntf ilck pm led clo pmp pio slum=
- part ccc=20
-> > scsi0 : ahci
-> > scsi1 : ahci
-> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D
-> > BUG task_struct: Poison overwritten
-> > ---------------------------------------------------------------------=
---------
+> > I fixed a lot of bugs, so now it can be compiled and run with all
+> > Kernel Hacking options enabled.
+> > My code could be found on this sites:
+> >=20
+> > https://github.com/i-maravic/MPLS-Linux
+> > https://github.com/i-maravic/iproute2
+> >=20
+> > Any feedback is appreciated :)
 >=20
-> Unfortunately thats the same problem, not catched by DEBUG_PAGEALLOC
-> because freed page is immediately reused.
+> 	Provide, clean, separated, and commented changes to the upstream pro=
+ject as we
+> have asked you several times to do.
 >=20
-> We should keep pages in free list longer, to have a bigger window.
->=20
-> Hmm...
->=20
-> Please try following patch :
->=20
-> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-> index 9dd443d..b8932a6 100644
-> --- a/mm/page_alloc.c
-> +++ b/mm/page_alloc.c
-> @@ -1196,7 +1196,7 @@ void free_hot_cold_page(struct page *page, int co=
-ld)
->  	}
-> =20
->  	pcp =3D &this_cpu_ptr(zone->pageset)->pcp;
-> -	if (cold)
-> +	if (IS_ENABLED(CONFIG_DEBUG_PAGEALLOC) || cold)
->  		list_add_tail(&page->lru, &pcp->lists[migratetype]);
->  	else
->  		list_add(&page->lru, &pcp->lists[migratetype]);
->=20
+> 	mpls-linux it is not ready to go upstream in my opinion.
 
+Out of tree is out of mind. Very few developers will bother with
+a kernel component not in the mainline tree.
 
-Also add "slub_max_order=3D0" to your boot command, since it will make th=
-e
-pool larger...
-
-
-
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
-.ca/
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+Staging?
