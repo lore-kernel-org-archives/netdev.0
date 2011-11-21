@@ -1,47 +1,49 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH for 2.6.32 (untested)] netns: Add quota for number of NET_NS instances.
-Date: Mon, 21 Nov 2011 10:57:37 +0900
-Message-ID: <201111210157.pAL1vbRo089486@www262.sakura.ne.jp>
-References: <201111201622.FDJ51567.VLFHQFMFOOSOtJ@I-love.SAKURA.ne.jp> <m1bos6wfnt.fsf@fess.ebiederm.org>
+From: "Aries Lee" <arieslee@jmicron.com>
+Subject: RE: [PATCH 1/1]  PHY configuration for compatible issue
+Date: Mon, 21 Nov 2011 10:13:27 +0800
+Message-ID: <201111210213.pAL2DRxt013405@jmr105.jmicron.com>
+References: <20111119041736.M37290@cooldavid.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ebiederm@xmission.com
+Cc: "'AriesLee'" <AriesLeeILan@gmail.com>
+To: "'Guo-Fu Tseng'" <cooldavid@cooldavid.org>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www262.sakura.ne.jp ([202.181.97.72]:59524 "EHLO
-	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754773Ab1KUB5k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2011 20:57:40 -0500
-In-Reply-To: <m1bos6wfnt.fsf@fess.ebiederm.org>
+Received: from spamfilter.jmicron.com ([220.130.51.235]:12073 "EHLO
+	jmsspam.jmicron.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753943Ab1KUCQ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2011 21:16:57 -0500
+In-Reply-To: <20111119041736.M37290@cooldavid.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric W. Biederman wrote:
-> Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp> writes:
+
+Yes ~~ that's indeed a good suggestion
+
+-----Original Message-----
+From: Guo-Fu Tseng [mailto:cooldavid@cooldavid.org] 
+Sent: Saturday, November 19, 2011 12:20 PM
+To: Aries Lee; netdev@vger.kernel.org
+Cc: 'AriesLee'
+Subject: RE: [PATCH 1/1] PHY configuration for compatible issue
+
+On Fri, 18 Nov 2011 15:13:37 +0800, Aries Lee wrote
+> Hi Guo-Fu and All
 > 
-> > In order to solve below problems, can we add sysctl variable for
-> > restricting number of NET_NS instances?
-> 
-> I don't have any particular problems with patch but I don't think it
-> will result in a working system that is easy to keep working.  Tuning
-> static limits can be fickle.
+> 	Because jme_phy_on() and jme_phy_off() just turn on/off the PHY, the
+> value of extern register is still the power on default value, not the most
+> robust value which we collect in the LAB.
+Sure, I got it. That's the point of this patch isn't it? :p
++     /*  Turn PHY off */ 
++     bmcr = jme_mdio_read(jme->dev, jme->mii_if.phy_id, MII_BMCR); 
++     bmcr |= BMCR_PDOWN; 
++     jme_mdio_write(jme->dev, jme->mii_if.phy_id, MII_BMCR, bmcr); 
++     /*  Turn PHY on */ 
++     bmcr = jme_mdio_read(jme->dev, jme->mii_if.phy_id, MII_BMCR); 
++     bmcr &= ~BMCR_PDOWN; 
++     jme_mdio_write(jme->dev, jme->mii_if.phy_id, MII_BMCR, bmcr); 
+But what I mean is this part of the code.
 
-What I worry is that, although clone() is an operation that is allowed to
-sleep, waiting for too long might be annoying for users, especially when the
-user cannot easily send Ctrl-C or SIGKILL. (I think ftp client is an example.)
-
-> My inclination in this case the practical fix is that during network
-> namespace allocation someone take a look at the cleanup_list.  See
-> that there is ongoing cleanup activity, and wait until at least one
-> network namespace has cleaned up.  Perhaps by creating a work struct
-> and waiting for it to cycle through the netns workqueue.
-
-Are you suggesting that we should wait only when "the number of NET_NS
-instances exceeded quota" and "there is a dead NET_NS instance"?
-In other words, let clone() fail immediately if "the number of NET_NS
-instances exceeded quota" but "cleanup_list is empty"?
-
-If you are suggesting that we should always wait until "the number of NET_NS
-instances becomes smaller than quota", clone() might sleep too long when the
-user cannot easily send signals.
+Guo-Fu Tseng
