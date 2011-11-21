@@ -1,56 +1,27 @@
-From: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
-Subject: Re: [PATCH net-next 4/4] net: Add Open vSwitch kernel
-	components.
-Date: Mon, 21 Nov 2011 07:29:34 -0500
-Message-ID: <1321878574.2291.15.camel@mojatatu>
-References: <1321657938-21761-1-git-send-email-jesse@nicira.com>
-	<1321657938-21761-5-git-send-email-jesse@nicira.com>
-	<1321878007.2291.12.camel@mojatatu>
-Reply-To: jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [RFC PATCH 00/17] netfilter: IPv6 NAT
+Date: Mon, 21 Nov 2011 14:05:06 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1111211402350.25806@frira.zrqbmnf.qr>
+References: <1321854369-3432-1-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1321878007.2291.12.camel@mojatatu>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	ulrich.weber@sophos.com
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1321854369-3432-1-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Monday 2011-11-21 06:45, kaber@trash.net wrote:
 
-Reading your website - it seems you indicate the code to be portable
-across other platforms. That is a noble reason - but i dont think
-it is good enough a reason in my opinion to have your own
-replicated infrastructure on top of Linux. 
+> net/ipv4/netfilter/ipt_REDIRECT.c                  |   23 +-
+> .../{nf_nat_standalone.c => iptable_nat.c}         |  265 ++++-----
+> net/ipv4/netfilter/nf_nat_irc.c                    |    4 +-
+> net/netfilter/nf_conntrack_sip.c                   |  119 +++--
 
-cheers,
-jamal
+Pablo once hinted that the patches (and not just the diffstat) should 
+also be produced using move semantics rather than the delete-add cycle, 
+for the reader's benefit. To do this, so I have found, one can use
 
-On Mon, 2011-11-21 at 07:20 -0500, jamal wrote:
-
-> 
-> So the last time we had a discussion on this on the list, we seemed
-> to agree that you could use the tc classifier-action infrastructure.
-> For simplicity, we agreed you will need to do a speacilized classifier.
-> You may need to add a few more actions. What happened since?
-> 
-> You are replicating a lot of code and semantic that exist (not just on
-> classifier actions). You could improve the exisiting infrastructure
-> instead. We are eventually going to have two competing interfaces as 
-> a result. You may only need 1 or 2 different classification schemes
-> today and try to justify you need it for simplicity - but in a few
-> months you'll need one more then another action and another and 
-> you'll keep adding to your infrastructure.
-> 
-> cheers,
-> jamal
-> 
+ git send-email ... --format-patch -M
