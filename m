@@ -1,7 +1,7 @@
 From: Stephen Boyd <sboyd@codeaurora.org>
-Subject: [PATCH 2/5] eeprom_93cx6: Add write support
-Date: Mon, 21 Nov 2011 10:57:57 -0800
-Message-ID: <1321901880-12883-3-git-send-email-sboyd@codeaurora.org>
+Subject: [PATCH 1/5] eeprom_93cx6: Add data direction control.
+Date: Mon, 21 Nov 2011 10:57:56 -0800
+Message-ID: <1321901880-12883-2-git-send-email-sboyd@codeaurora.org>
 References: <1321901880-12883-1-git-send-email-sboyd@codeaurora.org>
 Cc: Ben Dooks <ben@simtec.co.uk>, linux-kernel@vger.kernel.org,
 	Sebastien Jan <s-jan@ti.com>,
@@ -9,9 +9,9 @@ Cc: Ben Dooks <ben@simtec.co.uk>, linux-kernel@vger.kernel.org,
 	Jean Delvare <khali@linux-fr.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:18945 "EHLO
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:18939 "EHLO
 	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752824Ab1KUS6E (ORCPT
+	with ESMTP id S1752673Ab1KUS6E (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 13:58:04 -0500
 In-Reply-To: <1321901880-12883-1-git-send-email-sboyd@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
@@ -19,132 +19,71 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Ben Dooks <ben@simtec.co.uk>
 
-Add support for writing data to EEPROM.
+Some devices need to know if the data is to be output or read, so add a
+data direction into the eeprom structure to tell the driver whether the
+data line should be driven.
+
+The user in this case is the Micrel KS8851 which has a direction
+control for the EEPROM data line and thus needs to know whether
+to drive it (writing) or to tristate it for receiving.
 
 Signed-off-by: Ben Dooks <ben@simtec.co.uk>
 Cc: Wolfram Sang <w.sang@pengutronix.de>
 Cc: Jean Delvare <khali@linux-fr.org>
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>
 Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
 ---
- drivers/misc/eeprom/eeprom_93cx6.c |   85 ++++++++++++++++++++++++++++++++++++
- include/linux/eeprom_93cx6.h       |    6 +++
- 2 files changed, 91 insertions(+), 0 deletions(-)
+ drivers/misc/eeprom/eeprom_93cx6.c |    3 +++
+ include/linux/eeprom_93cx6.h       |    2 ++
+ 2 files changed, 5 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/misc/eeprom/eeprom_93cx6.c b/drivers/misc/eeprom/eeprom_93cx6.c
-index a6037af..0ff4b02 100644
+index 7b33de9..a6037af 100644
 --- a/drivers/misc/eeprom/eeprom_93cx6.c
 +++ b/drivers/misc/eeprom/eeprom_93cx6.c
-@@ -234,3 +234,88 @@ void eeprom_93cx6_multiread(struct eeprom_93cx6 *eeprom, const u8 word,
- }
- EXPORT_SYMBOL_GPL(eeprom_93cx6_multiread);
+@@ -63,6 +63,7 @@ static void eeprom_93cx6_startup(struct eeprom_93cx6 *eeprom)
+ 	eeprom->reg_data_out = 0;
+ 	eeprom->reg_data_clock = 0;
+ 	eeprom->reg_chip_select = 1;
++	eeprom->drive_data = 1;
+ 	eeprom->register_write(eeprom);
  
-+/**
-+ * eeprom_93cx6_wren - set the write enable state
-+ * @eeprom: Pointer to eeprom structure
-+ * @enable: true to enable writes, otherwise disable writes
-+ *
-+ * Set the EEPROM write enable state to either allow or deny
-+ * writes depending on the @enable value.
-+ */
-+void eeprom_93cx6_wren(struct eeprom_93cx6 *eeprom, bool enable)
-+{
-+	u16 command;
-+
-+	/* start the command */
-+	eeprom_93cx6_startup(eeprom);
-+
-+	/* create command to enable/disable */
-+
-+	command = enable ? PCI_EEPROM_EWEN_OPCODE : PCI_EEPROM_EWDS_OPCODE;
-+	command <<= (eeprom->width - 2);
-+
-+	eeprom_93cx6_write_bits(eeprom, command,
-+				PCI_EEPROM_WIDTH_OPCODE + eeprom->width);
-+
-+	eeprom_93cx6_cleanup(eeprom);
-+}
-+EXPORT_SYMBOL_GPL(eeprom_93cx6_wren);
-+
-+/**
-+ * eeprom_93cx6_write - write data to the EEPROM
-+ * @eeprom: Pointer to eeprom structure
-+ * @addr: Address to write data to.
-+ * @data: The data to write to address @addr.
-+ *
-+ * Write the @data to the specified @addr in the EEPROM and
-+ * waiting for the device to finish writing.
-+ *
-+ * Note, since we do not expect large number of write operations
-+ * we delay in between parts of the operation to avoid using excessive
-+ * amounts of CPU time busy waiting.
-+ */
-+void eeprom_93cx6_write(struct eeprom_93cx6 *eeprom, u8 addr, u16 data)
-+{
-+	int timeout = 100;
-+	u16 command;
-+
-+	/* start the command */
-+	eeprom_93cx6_startup(eeprom);
-+
-+	command = PCI_EEPROM_WRITE_OPCODE << eeprom->width;
-+	command |= addr;
-+
-+	/* send write command */
-+	eeprom_93cx6_write_bits(eeprom, command,
-+				PCI_EEPROM_WIDTH_OPCODE + eeprom->width);
-+
-+	/* send data */
-+	eeprom_93cx6_write_bits(eeprom, data, 16);
-+
-+	/* get ready to check for busy */
+ 	/*
+@@ -101,6 +102,7 @@ static void eeprom_93cx6_write_bits(struct eeprom_93cx6 *eeprom,
+ 	 */
+ 	eeprom->reg_data_in = 0;
+ 	eeprom->reg_data_out = 0;
++	eeprom->drive_data = 1;
+ 
+ 	/*
+ 	 * Start writing all bits.
+@@ -140,6 +142,7 @@ static void eeprom_93cx6_read_bits(struct eeprom_93cx6 *eeprom,
+ 	 */
+ 	eeprom->reg_data_in = 0;
+ 	eeprom->reg_data_out = 0;
 +	eeprom->drive_data = 0;
-+	eeprom->reg_chip_select = 1;
-+	eeprom->register_write(eeprom);
-+
-+	/* wait at-least 250ns to get DO to be the busy signal */
-+	usleep_range(1000, 2000);
-+
-+	/* wait for DO to go high to signify finish */
-+
-+	while (true) {
-+		eeprom->register_read(eeprom);
-+
-+		if (eeprom->reg_data_out)
-+			break;
-+
-+		usleep_range(1000, 2000);
-+
-+		if (--timeout <= 0) {
-+			printk(KERN_ERR "%s: timeout\n", __func__);
-+			break;
-+		}
-+	}
-+
-+	eeprom_93cx6_cleanup(eeprom);
-+}
-+EXPORT_SYMBOL_GPL(eeprom_93cx6_write);
+ 
+ 	/*
+ 	 * Start reading all bits.
 diff --git a/include/linux/eeprom_93cx6.h b/include/linux/eeprom_93cx6.h
-index e04546e..e50f98b 100644
+index c4627cb..e04546e 100644
 --- a/include/linux/eeprom_93cx6.h
 +++ b/include/linux/eeprom_93cx6.h
-@@ -33,6 +33,7 @@
- #define PCI_EEPROM_WIDTH_93C86	8
- #define PCI_EEPROM_WIDTH_OPCODE	3
- #define PCI_EEPROM_WRITE_OPCODE	0x05
-+#define PCI_EEPROM_ERASE_OPCODE 0x07
- #define PCI_EEPROM_READ_OPCODE	0x06
- #define PCI_EEPROM_EWDS_OPCODE	0x10
- #define PCI_EEPROM_EWEN_OPCODE	0x13
-@@ -74,3 +75,8 @@ extern void eeprom_93cx6_read(struct eeprom_93cx6 *eeprom,
- 	const u8 word, u16 *data);
- extern void eeprom_93cx6_multiread(struct eeprom_93cx6 *eeprom,
- 	const u8 word, __le16 *data, const u16 words);
-+
-+extern void eeprom_93cx6_wren(struct eeprom_93cx6 *eeprom, bool enable);
-+
-+extern void eeprom_93cx6_write(struct eeprom_93cx6 *eeprom,
-+			       u8 addr, u16 data);
+@@ -46,6 +46,7 @@
+  * @register_write(struct eeprom_93cx6 *eeprom): handler to
+  * write to the eeprom register by using all reg_* fields.
+  * @width: eeprom width, should be one of the PCI_EEPROM_WIDTH_* defines
++ * @drive_data: Set if we're driving the data line.
+  * @reg_data_in: register field to indicate data input
+  * @reg_data_out: register field to indicate data output
+  * @reg_data_clock: register field to set the data clock
+@@ -62,6 +63,7 @@ struct eeprom_93cx6 {
+ 
+ 	int width;
+ 
++	char drive_data;
+ 	char reg_data_in;
+ 	char reg_data_out;
+ 	char reg_data_clock;
 -- 
 Sent by an employee of the Qualcomm Innovation Center, Inc.
 The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum.
