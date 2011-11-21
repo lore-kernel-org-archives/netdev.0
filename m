@@ -1,68 +1,74 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [BUG] 3.2-rc2: BUG kmalloc-8: Redzone overwritten
-Date: Mon, 21 Nov 2011 12:22:47 +0200
-Message-ID: <1321870967.8173.1.camel@lappy>
-References: <1321866845.3831.7.camel@lappy>
-	 <1321870529.2552.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1321870915.2552.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 10/17] netfilter: ipv6: expand skb head in
+ ip6_route_me_harder after oif change
+Date: Mon, 21 Nov 2011 11:29:17 +0100
+Message-ID: <1321871357.2552.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1321854369-3432-1-git-send-email-kaber@trash.net>
+	 <1321854369-3432-11-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: David Miller <davem@davemloft.net>, Matt Mackall <mpm@selenic.com>,
- Christoph Lameter <cl@linux-foundation.org>, Pekka Enberg
- <penberg@kernel.org>, linux-mm <linux-mm@kvack.org>,  linux-kernel
- <linux-kernel@vger.kernel.org>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1321870915.2552.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	ulrich.weber@sophos.com
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1321854369-3432-11-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-11-21 at 11:21 +0100, Eric Dumazet wrote:
-> Le lundi 21 novembre 2011 =E0 11:15 +0100, Eric Dumazet a =E9crit :
+Le lundi 21 novembre 2011 =C3=A0 06:46 +0100, kaber@trash.net a =C3=A9c=
+rit :
+> From: Patrick McHardy <kaber@trash.net>
 >=20
-> >=20
-> > Hmm, trinity tries to crash decnet ;)
-> >=20
-> > Maybe we should remove this decnet stuff for good instead of tracking
-> > all bugs just for the record. Is there anybody still using decnet ?
-> >=20
-> > For example dn_start_slow_timer() starts a timer without holding a
-> > reference on struct sock, this is highly suspect.
-> >=20
-> > [PATCH] decnet: proper socket refcounting
-> >=20
-> > Better use sk_reset_timer() / sk_stop_timer() helpers to make sure we
-> > dont access already freed/reused memory later.
-> >=20
-> > Reported-by: Sasha Levin <levinsasha928@gmail.com>
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Expand the skb headroom if the oif changed due to rerouting similar t=
+o
+> how IPv4 packets are handled.
 >=20
-> Hmm, I forgot to remove the sock_hold(sk) call from dn_slow_timer(),
-> here is V2 :
->=20
-> [PATCH] decnet: proper socket refcounting
->=20
-> Better use sk_reset_timer() / sk_stop_timer() helpers to make sure we
-> dont access already freed/reused memory later.
->=20
-> Reported-by: Sasha Levin <levinsasha928@gmail.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 > ---
+>  net/ipv6/netfilter.c |    7 +++++++
+>  1 files changed, 7 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
+> index 30fcee4..d39e954 100644
+> --- a/net/ipv6/netfilter.c
+> +++ b/net/ipv6/netfilter.c
+> @@ -14,6 +14,7 @@ int ip6_route_me_harder(struct sk_buff *skb)
+>  {
+>  	struct net *net =3D dev_net(skb_dst(skb)->dev);
+>  	const struct ipv6hdr *iph =3D ipv6_hdr(skb);
+> +	unsigned int hh_len;
+>  	struct dst_entry *dst;
+>  	struct flowi6 fl6 =3D {
+>  		.flowi6_oif =3D skb->sk ? skb->sk->sk_bound_dev_if : 0,
+> @@ -46,6 +47,12 @@ int ip6_route_me_harder(struct sk_buff *skb)
+>  	}
+>  #endif
+> =20
+> +	/* Change in oif may mean change in hh_len. */
+> +	hh_len =3D skb_dst(skb)->dev->hard_header_len;
+> +	if (skb_headroom(skb) < hh_len &&
+> +	    pskb_expand_head(skb, hh_len - skb_headroom(skb), 0, GFP_ATOMIC=
+))
+> +		return -1;
+> +
 
-[snip]
+Hmm, We had a problem recently on Tile arches because of unaligned
+accesses.
 
-Applied locally and running same tests as before, will update with
-results.
+Had you seen the bug report and proposed patch ?
 
---=20
+=46ix is to instead do :
 
-Sasha.
+	pskb_expand_head(skb,
+			 HH_DATA_ALIGN(hh_len - skb_headroom(skb)),=20
+			 0,
+			 GFP_ATOMIC);
+
+
 
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
-.ca/
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
