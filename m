@@ -1,40 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tg3: switch to build_skb() infrastructure
-Date: Mon, 21 Nov 2011 16:11:16 -0500 (EST)
-Message-ID: <20111121.161116.13047257344687921.davem@davemloft.net>
-References: <1321634821.3277.37.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Benjamin Poirier <benjamin.poirier@gmail.com>
+Subject: Re: skb->timestamp == 0.000000 ?
+Date: Mon, 21 Nov 2011 16:11:40 -0500
+Message-ID: <20111121211140.GB24753@d2.suse.de>
+References: <CAJX4=r3wTn9v6-5oEpGdeKkFjKsRLZwc76tE9M4FiVJX4Lpisg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com, mchan@broadcom.com,
-	mcarlson@broadcom.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Felipe Dias <felipediassss@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40919 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753501Ab1KUVLU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 16:11:20 -0500
-In-Reply-To: <1321634821.3277.37.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:41503 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751103Ab1KUVLq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 16:11:46 -0500
+Received: by mail-fx0-f46.google.com with SMTP id n18so6454508fag.19
+        for <netdev@vger.kernel.org>; Mon, 21 Nov 2011 13:11:45 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CAJX4=r3wTn9v6-5oEpGdeKkFjKsRLZwc76tE9M4FiVJX4Lpisg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 18 Nov 2011 17:47:01 +0100
-
-> This is very similar to bnx2x conversion, but simpler since no special
-> alignement is required, so goal was not to reduce skb truesize.
+On 11/11/19 18:13, Felipe Dias wrote:
+> Hi..
 > 
-> Using build_skb() reduces cache line misses in the driver, since we
-> use cache hot skb instead of cold ones. Number of in-flight sk_buff
-> structures is lower, they are more likely recycled in SLUB caches
-> while still hot.
+> Please let me know if this isnt right list to this kind of question.
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Matt Carlson <mcarlson@broadcom.com>
-> CC: Michael Chan <mchan@broadcom.com>
-> CC: Eilon Greenstein <eilong@broadcom.com>
+> I'm registering a new protocol handler with dev_add_pack. I would like
+> to know only the difference between timestamp on skb->tstamp and the
+> time of reception by my module.
+> 
+> So I do:
+> ----
+> struct timeval time_skb, time_module;
+> do_gettimeofday(&time_module):
+> skb_get_timestamp(skb, &time_skb);
+> ---
+> 
+> And time_skb.tv_sec and time_skb.tv_usec are equal to 0;
+> 
+> I'm doing some wrong ?
 
-I've applied this because I know Eric gave it a good testing :-)
+Timestamps have to be enabled
+have a look at:
+net_enable_timestamp()
 
-I really like how the build_skb() interface allows us to overlap
-the prefetch of skb->data with the allocation of the SKB metadata.
+-Ben
