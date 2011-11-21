@@ -1,47 +1,78 @@
-From: Stefan Priebe <s.priebe@profihost.ag>
-Subject: Re: Kernel v3.0.8 igb driver dies when pulling network cable
-Date: Mon, 21 Nov 2011 19:07:42 +0100
-Message-ID: <4ECA936E.8060301@profihost.ag>
-References: <4ECA4362.2050307@profihost.ag> <4ECA884C.5010706@intel.com>
+From: Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Subject: Re: NFS TCP race condition with SOCK_ASYNC_NOSPACE
+Date: Mon, 21 Nov 2011 18:14:17 +0000
+Message-ID: <4ECA94F9.4090503@citrix.com>
+References: <4EC6A681.30902@citrix.com>  <1321642368.2653.35.camel@lade.trondhjem.org> <4EC6AC47.60404@citrix.com> <1321643673.2653.41.camel@lade.trondhjem.org> <4EC6B82B.3000701@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stable Tree <stable@kernel.org>, stable@vger.kernel.org,
-	Greg KH <gregkh@suse.de>, LKML <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"Jesse Brandeburg <jesse.brandeburg@intel.com> Bruce Allan"
-	<bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	John Ronciak <john.ronciak@intel.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4ECA884C.5010706@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+	boundary="------------070301090808030903040905"
+To: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4EC6B82B.3000701-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> You are going to need to clarify some things since as far as I know we
-> never released a v3.0.8 driver, and the kernel in the bug below is a
-> version 2.6.40.8 which sounds more like a modified and possibly
-> backported Linux kernel since as far as I know Linus never released a
-> 2.6.40 kernel version.
-Sorry that my description was so inaccurate. I'm talking about a vanilla 
-v3.0.8 linux kernel. Just renamed to 2.6.40.8.
+--------------070301090808030903040905
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 
-> In order to be able to assist you we will need some additional
-> information.  What Linux distro are your running?  Do you have the
-> latest updates from them?  Also have you tried running the latest
-> out-of-tree driver we provide at e1000.sf.net in order to verify if the
-> same issue occurs with that driver?
-Linux Distri is Debian Lenny but we're running a self compiled vanilla 
-3.0.X kernel. I haven't tried to use the up2date e1000.sf.net driver as 
-3.0 is a long time supported kernel by greg - so all needed fixes should 
-be backported or at least send to stable@ so that greg can have a look 
-at them.
+Following some debugging, I believe that the attached patch fixes the
+problem.
 
-Thanks!
+Simply returning EAGAIN is not sufficient, as the task does not get
+requeued, and times out 13 seconds later (as per our mount options). 
+Setting the SOCK_ASYNC_NOSPACE bit causes the requeue to happen.
 
-Stefan
+I realize that this is a gross hack and I should probably not be using
+SOCK_ASYNC_NOSPACE in that way.  Is there a better way to achieve the
+same solution?
+
+-- 
+Andrew Cooper - Dom0 Kernel Engineer, Citrix XenServer
+T: +44 (0)1223 225 900, http://www.citrix.com
+
+
+--------------070301090808030903040905
+Content-Type: text/x-patch; name="NFS-fix-async-nospace-race.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="NFS-fix-async-nospace-race.patch"
+
+diff -r 69bd2176baf9 net/sunrpc/xprtsock.c
+--- a/net/sunrpc/xprtsock.c	Mon Nov 07 13:00:06 2011 +0000
++++ b/net/sunrpc/xprtsock.c	Mon Nov 21 18:00:14 2011 +0000
+@@ -503,17 +503,16 @@ static int xs_nospace(struct rpc_task *t
+ 
+ 	/* Don't race with disconnect */
+ 	if (xprt_connected(xprt)) {
+-		if (test_bit(SOCK_ASYNC_NOSPACE, &transport->sock->flags)) {
+-			ret = -EAGAIN;
+-			/*
+-			 * Notify TCP that we're limited by the application
+-			 * window size
+-			 */
+-			set_bit(SOCK_NOSPACE, &transport->sock->flags);
+-			transport->inet->sk_write_pending++;
+-			/* ...and wait for more buffer space */
+-			xprt_wait_for_buffer_space(task, xs_nospace_callback);
+-		}
++		set_bit(SOCK_ASYNC_NOSPACE, &transport->sock->flags);
++		ret = -EAGAIN;
++		/*
++		 * Notify TCP that we're limited by the application
++		 * window size
++		 */
++		set_bit(SOCK_NOSPACE, &transport->sock->flags);
++		transport->inet->sk_write_pending++;
++		/* ...and wait for more buffer space */
++		xprt_wait_for_buffer_space(task, xs_nospace_callback);
+ 	} else {
+ 		clear_bit(SOCK_ASYNC_NOSPACE, &transport->sock->flags);
+ 		ret = -ENOTCONN;
+
+--------------070301090808030903040905--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
