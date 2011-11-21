@@ -1,33 +1,50 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC PATCH 00/17] netfilter: IPv6 NAT
-Date: Mon, 21 Nov 2011 18:01:12 +0100
-Message-ID: <4ECA83D8.6050309@trash.net>
-References: <1321854369-3432-1-git-send-email-kaber@trash.net> <alpine.LNX.2.01.1111211402350.25806@frira.zrqbmnf.qr>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 1/3] be2net: fix to display Pause
+ autonegotiation setting
+Date: Mon, 21 Nov 2011 17:10:45 +0000
+Message-ID: <1321895445.2692.3.camel@bwh-desktop>
+References: <20111121051240.GA17132@akhaparde-VBox>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	ulrich.weber@sophos.com
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1111211402350.25806@frira.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
+To: Ajit Khaparde <ajit.khaparde@emulex.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:43317 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750993Ab1KURKu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 12:10:50 -0500
+In-Reply-To: <20111121051240.GA17132@akhaparde-VBox>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/21/2011 02:05 PM, Jan Engelhardt wrote:
-> On Monday 2011-11-21 06:45, kaber@trash.net wrote:
->
->> net/ipv4/netfilter/ipt_REDIRECT.c                  |   23 +-
->> .../{nf_nat_standalone.c =>  iptable_nat.c}         |  265 ++++-----
->> net/ipv4/netfilter/nf_nat_irc.c                    |    4 +-
->> net/netfilter/nf_conntrack_sip.c                   |  119 +++--
-> Pablo once hinted that the patches (and not just the diffstat) should
-> also be produced using move semantics rather than the delete-add cycle,
-> for the reader's benefit. To do this, so I have found, one can use
->
->   git send-email ... --format-patch -M
+On Sun, 2011-11-20 at 23:12 -0600, Ajit Khaparde wrote:
+> Pause autonegotiation is supported by default.
+> 
+> Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+> ---
+>  drivers/net/ethernet/emulex/benet/be_ethtool.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+> index 575c783..ff53489 100644
+> --- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
+> +++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+> @@ -538,7 +538,7 @@ be_get_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *ecmd)
+>  	struct be_adapter *adapter = netdev_priv(netdev);
+>  
+>  	be_cmd_get_flow_control(adapter, &ecmd->tx_pause, &ecmd->rx_pause);
+> -	ecmd->autoneg = 0;
+> +	ecmd->autoneg = 1;
+>  }
+>  
+>  static int
 
-Yeah, I didn't use -M this time so people can test the patches
-by applying them directly. I'll add it during the next submission
-after setting up a public git tree.
+This is surely not true for XFP and SFP+ interfaces.
 
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
