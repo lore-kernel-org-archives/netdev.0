@@ -1,40 +1,94 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] tc: comment spelling fixes
-Date: Mon, 21 Nov 2011 17:12:08 +0000
-Message-ID: <1321895528.2692.4.camel@bwh-desktop>
-References: <20111121085346.2203c4f4@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+Date: Mon, 21 Nov 2011 18:15:06 +0100
+Message-ID: <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20111118085436.GC1615@x4.trippels.de>
+	 <20111118120201.GA1642@x4.trippels.de> <1321836285.30341.554.camel@debian>
+	 <20111121080554.GB1625@x4.trippels.de>
+	 <20111121082445.GD1625@x4.trippels.de>
+	 <1321866988.2552.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121131531.GA1679@x4.trippels.de>
+	 <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121153621.GA1678@x4.trippels.de>
+	 <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121161036.GA1679@x4.trippels.de>
+	 <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:43446 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751623Ab1KURMM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 12:12:12 -0500
-In-Reply-To: <20111121085346.2203c4f4@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
+Cc: "Alex,Shi" <alex.shi@intel.com>, "linux-kernel@vger.kernel.org"
+ <linux-kernel@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>,
+ Christoph Lameter <cl@linux-foundation.org>, Pekka Enberg
+ <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>, tj@kernel.org
+To: Markus Trippelsdorf <markus@trippelsdorf.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-11-21 at 08:53 -0800, Stephen Hemminger wrote:
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> --- a/include/linux/pkt_sched.h	2011-11-09 13:54:59.780009551 -0800
-> +++ b/include/linux/pkt_sched.h	2011-11-21 08:51:20.062228855 -0800
-> @@ -30,7 +30,7 @@
->   */
->  
->  struct tc_stats {
-> -	__u64	bytes;			/* NUmber of enqueues bytes */
-> +	__u64	bytes;			/* Number of enqueues bytes */
-[...]
+Le lundi 21 novembre 2011 =C3=A0 17:52 +0100, Eric Dumazet a =C3=A9crit :
+> Le lundi 21 novembre 2011 =C3=A0 17:10 +0100, Markus Trippelsdorf a =C3=
+=A9crit :
+>=20
+> > Sure. This one happend with CONFIG_DEBUG_PAGEALLOC=3Dy:
+> >=20
+> > [drm] Initialized radeon 2.11.0 20080528 for 0000:01:05.0 on minor 0
+> > loop: module loaded
+> > ahci 0000:00:11.0: version 3.0
+> > ahci 0000:00:11.0: PCI INT A -> GSI 22 (level, low) -> IRQ 22
+> > ahci 0000:00:11.0: AHCI 0001.0100 32 slots 6 ports 3 Gbps 0x3f impl S=
+ATA mode
+> > ahci 0000:00:11.0: flags: 64bit ncq sntf ilck pm led clo pmp pio slum=
+ part ccc=20
+> > scsi0 : ahci
+> > scsi1 : ahci
+> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+> > BUG task_struct: Poison overwritten
+> > ---------------------------------------------------------------------=
+--------
+>=20
+> Unfortunately thats the same problem, not catched by DEBUG_PAGEALLOC
+> because freed page is immediately reused.
+>=20
+> We should keep pages in free list longer, to have a bigger window.
+>=20
+> Hmm...
+>=20
+> Please try following patch :
+>=20
+> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+> index 9dd443d..b8932a6 100644
+> --- a/mm/page_alloc.c
+> +++ b/mm/page_alloc.c
+> @@ -1196,7 +1196,7 @@ void free_hot_cold_page(struct page *page, int co=
+ld)
+>  	}
+> =20
+>  	pcp =3D &this_cpu_ptr(zone->pageset)->pcp;
+> -	if (cold)
+> +	if (IS_ENABLED(CONFIG_DEBUG_PAGEALLOC) || cold)
+>  		list_add_tail(&page->lru, &pcp->lists[migratetype]);
+>  	else
+>  		list_add(&page->lru, &pcp->lists[migratetype]);
+>=20
 
-Further fix needed: 'enqueued'.
 
-Ben.
+Also add "slub_max_order=3D0" to your boot command, since it will make th=
+e
+pool larger...
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
+.ca/
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
