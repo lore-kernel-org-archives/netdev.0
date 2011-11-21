@@ -1,112 +1,64 @@
-From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-Subject: Re: [PATCH net-next] tg3: Fix advertisement handling
-Date: Tue, 22 Nov 2011 07:40:30 +0900
-Message-ID: <20111122074030.ac247a36.shimoda.hiroaki@gmail.com>
-References: <20111121080720.0e68f096.shimoda.hiroaki@gmail.com>
-	<20111121192908.GA1198@mcarlson.broadcom.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: Kernel v3.0.8 igb driver dies when pulling network cable
+Date: Mon, 21 Nov 2011 14:42:28 -0800
+Message-ID: <4ECAD3D4.4070306@intel.com>
+References: <4ECA4362.2050307@profihost.ag> <4ECA884C.5010706@intel.com> <4ECA936E.8060301@profihost.ag>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, mchan@broadcom.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: mcarlson@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:48923 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750904Ab1KUWkf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 17:40:35 -0500
-Received: by vbbfc21 with SMTP id fc21so3099086vbb.19
-        for <netdev@vger.kernel.org>; Mon, 21 Nov 2011 14:40:34 -0800 (PST)
-In-Reply-To: <20111121192908.GA1198@mcarlson.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stable Tree <stable@kernel.org>, stable@vger.kernel.org,
+	Greg KH <gregkh@suse.de>, LKML <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"Jesse Brandeburg <jesse.brandeburg@intel.com> Bruce Allan"
+	<bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	John Ronciak <john.ronciak@intel.com>
+To: Stefan Priebe <s.priebe@profihost.ag>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4ECA936E.8060301@profihost.ag>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 21 Nov 2011 11:29:08 -0800
-"Matt Carlson" <mcarlson@broadcom.com> wrote:
+On 11/21/2011 10:07 AM, Stefan Priebe wrote:
+>> You are going to need to clarify some things since as far as I know we
+>> never released a v3.0.8 driver, and the kernel in the bug below is a
+>> version 2.6.40.8 which sounds more like a modified and possibly
+>> backported Linux kernel since as far as I know Linus never released a
+>> 2.6.40 kernel version.
+> Sorry that my description was so inaccurate. I'm talking about a
+> vanilla v3.0.8 linux kernel. Just renamed to 2.6.40.8.
+>
+>> In order to be able to assist you we will need some additional
+>> information.  What Linux distro are your running?  Do you have the
+>> latest updates from them?  Also have you tried running the latest
+>> out-of-tree driver we provide at e1000.sf.net in order to verify if the
+>> same issue occurs with that driver?
+> Linux Distri is Debian Lenny but we're running a self compiled vanilla
+> 3.0.X kernel. I haven't tried to use the up2date e1000.sf.net driver
+> as 3.0 is a long time supported kernel by greg - so all needed fixes
+> should be backported or at least send to stable@ so that greg can have
+> a look at them.
+>
+> Thanks!
+>
+> Stefan
+Stefan,
 
-> On Sun, Nov 20, 2011 at 03:07:20PM -0800, Hiroaki SHIMODA wrote:
-> > Commit 28011cf19b (net: Add ethtool to mii advertisment conversion
-> > helpers) added a helper function ethtool_adv_to_mii_100bt() and
-> > tg3_copper_is_advertising_all(), tg3_phy_autoneg_cfg() were
-> > modified to use this.
-> > Before that commit, ethtool to mii advertisement conversion was
-> > done wrt speed, but now pause operation is also taken account.
-> > So, in tg3_copper_is_advertising_all(), below condition becomes
-> > true and this makes link up fails.
-> > 
-> > 	if ((adv_reg & ADVERTISE_ALL) != all_mask)
-> > 		return 0;
-> > 
-> > To fix this add ADVERTISE_ALL bit and operation to cap speed.
-> > 
-> > Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-> 
-> The root cause of this problem can actually be fixed by the following
-> patch:
-> 
-> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-> index 024ca1d..53e501c 100644
-> --- a/drivers/net/ethernet/broadcom/tg3.c
-> +++ b/drivers/net/ethernet/broadcom/tg3.c
-> @@ -13192,8 +13192,7 @@ static u32 __devinit tg3_read_otp_phycfg(struct tg3 *tp)
->  
->  static void __devinit tg3_phy_init_link_config(struct tg3 *tp)
->  {
-> -	u32 adv = ADVERTISED_Autoneg |
-> -		  ADVERTISED_Pause;
-> +	u32 adv = ADVERTISED_Autoneg;
->  
->  	if (!(tp->phy_flags & TG3_PHYFLG_10_100_ONLY))
->  		adv |= ADVERTISED_1000baseT_Half |
-> 
-> Could you add it as part of this patch?
+It would be useful if you could try the latest driver from e1000.sf.net
+just to verify  if this is a bug in the upstream kernel or if it is also
+present in our e1000.sf.net.driver.  This way we can figure out if this
+is an issue where a patch wasn't pushed into the stable kernel or if it
+is an issue that still exists in our latest release.
 
-Ok.
+Also could you provide us with the part number you are currently using. 
+If you could provide us with the device ID for the part via lspci we can
+start narrowing down the root cause for the issue as currently we don't
+have any information about what hardware you are experiencing this issue on.
 
-> 
-> Technically the above patch should fix the problem, but this patch makes
-> the code clearer, should the same type of error pop up in the future.
-> 
-> More comments below.
-> 
-> > ---
-> >  drivers/net/ethernet/broadcom/tg3.c |    4 ++--
-> >  1 files changed, 2 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-> > index 024ca1d..c00e648 100644
-> > --- a/drivers/net/ethernet/broadcom/tg3.c
-> > +++ b/drivers/net/ethernet/broadcom/tg3.c
-> > @@ -3594,7 +3594,7 @@ static int tg3_phy_autoneg_cfg(struct tg3 *tp, u32 advertise, u32 flowctrl)
-> >  	u32 val, new_adv;
-> >  
-> >  	new_adv = ADVERTISE_CSMA;
-> > -	new_adv |= ethtool_adv_to_mii_100bt(advertise);
-> > +	new_adv |= ethtool_adv_to_mii_100bt(advertise) & ADVERTISE_ALL;
-> >  	new_adv |= tg3_advert_flowctrl_1000T(flowctrl);
-> >  
-> >  	err = tg3_writephy(tp, MII_ADVERTISE, new_adv);
-> > @@ -3783,7 +3783,7 @@ static int tg3_copper_is_advertising_all(struct tg3 *tp, u32 mask)
-> >  	if (tg3_readphy(tp, MII_ADVERTISE, &adv_reg))
-> >  		return 0;
-> >  
-> > -	if ((adv_reg & ADVERTISE_ALL) != all_mask)
-> > +	if ((adv_reg & ADVERTISE_ALL) != (all_mask & ADVERTISE_ALL))
-> 
-> Rather than ANDing the all_mask here, can you make it look like the 1st
-> hunk of your patch by ANDing the value returned by
-> ethtool_adv_to_mii_100bt()?  I plan on further changes in this area and
-> the uniformity will help.
+Thanks,
 
-Ok.
-
-I'll send V2 with Eric's Reported-by tag.
-
-Thanks.
-
-> 
-> >  		return 0;
-> >  
-> >  	if (!(tp->phy_flags & TG3_PHYFLG_10_100_ONLY)) {
-> > 
-> 
+Alex
