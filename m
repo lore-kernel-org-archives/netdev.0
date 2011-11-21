@@ -1,46 +1,36 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 1/3] be2net: fix to display Pause
- autonegotiation setting
-Date: Mon, 21 Nov 2011 17:10:45 +0000
-Message-ID: <1321895445.2692.3.camel@bwh-desktop>
-References: <20111121051240.GA17132@akhaparde-VBox>
+Subject: Re: [PATCH] tc: comment spelling fixes
+Date: Mon, 21 Nov 2011 17:12:08 +0000
+Message-ID: <1321895528.2692.4.camel@bwh-desktop>
+References: <20111121085346.2203c4f4@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
-To: Ajit Khaparde <ajit.khaparde@emulex.com>
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:43317 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:43446 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750993Ab1KURKu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 12:10:50 -0500
-In-Reply-To: <20111121051240.GA17132@akhaparde-VBox>
+	with ESMTP id S1751623Ab1KURMM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 12:12:12 -0500
+In-Reply-To: <20111121085346.2203c4f4@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2011-11-20 at 23:12 -0600, Ajit Khaparde wrote:
-> Pause autonegotiation is supported by default.
+On Mon, 2011-11-21 at 08:53 -0800, Stephen Hemminger wrote:
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 > 
-> Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
-> ---
->  drivers/net/ethernet/emulex/benet/be_ethtool.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-> index 575c783..ff53489 100644
-> --- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-> +++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-> @@ -538,7 +538,7 @@ be_get_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *ecmd)
->  	struct be_adapter *adapter = netdev_priv(netdev);
+> --- a/include/linux/pkt_sched.h	2011-11-09 13:54:59.780009551 -0800
+> +++ b/include/linux/pkt_sched.h	2011-11-21 08:51:20.062228855 -0800
+> @@ -30,7 +30,7 @@
+>   */
 >  
->  	be_cmd_get_flow_control(adapter, &ecmd->tx_pause, &ecmd->rx_pause);
-> -	ecmd->autoneg = 0;
-> +	ecmd->autoneg = 1;
->  }
->  
->  static int
+>  struct tc_stats {
+> -	__u64	bytes;			/* NUmber of enqueues bytes */
+> +	__u64	bytes;			/* Number of enqueues bytes */
+[...]
 
-This is surely not true for XFP and SFP+ interfaces.
+Further fix needed: 'enqueued'.
 
 Ben.
 
