@@ -1,65 +1,82 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: iproute2 back at kernel.org
-Date: Mon, 21 Nov 2011 08:47:39 -0800
-Message-ID: <20111121084739.25a38e52@nehalam.linuxnetplumber.net>
-References: <20110916103031.7f22b35f@nehalam.linuxnetplumber.net>
-	<20111011165908.0d6ed7de@nehalam.linuxnetplumber.net>
-	<20111121091534.GA23163@rincewind.brq.redhat.com>
+From: Arvid Brodin <arvid.brodin@enea.com>
+Subject: Re: bridge: HSR support
+Date: Mon, 21 Nov 2011 17:52:16 +0100
+Message-ID: <4ECA81C0.2050208@enea.com>
+References: <4E948A04.8060400@enea.com> <20111011112821.28cd3e51@nehalam.linuxnetplumber.net> <4E94D67A.9060207@enea.com> <4EA5738B.8080008@enea.com> <4EAACB7A.4090207@enea.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA256;
- boundary="Sig_/PZWnVbd_pav7NFEfk4UR5Da"; protocol="application/pgp-signature"
-Cc: netdev@vger.kernel.org
-To: Petr =?UTF-8?B?xaBhYmF0YQ==?= <contyk@redhat.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56056 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751820Ab1KUQrm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Nov 2011 11:47:42 -0500
-In-Reply-To: <20111121091534.GA23163@rincewind.brq.redhat.com>
+Received: from sestofw01.enea.se ([192.36.1.252]:1986 "HELO mx-3.enea.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1751820Ab1KUQwY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Nov 2011 11:52:24 -0500
+In-Reply-To: <4EAACB7A.4090207@enea.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Sig_/PZWnVbd_pav7NFEfk4UR5Da
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Arvid Brodin wrote:
+> Arvid Brodin wrote:
+>> Stephen Hemminger wrote:
+>>> On Tue, 11 Oct 2011 20:25:08 +0200
+>>> Arvid Brodin <arvid.brodin@enea.com> wrote:
+>>>
+>>>> Hi,
+>>>>
+>>>> I want to add support for HSR ("High-availability Seamless Redundancy",
+>>>> IEC-62439-3) to the bridge code. With HSR, all connected units have two network
+>>>> ports and are connected in a ring. All new Ethernet packets are sent on both
+>>>> ports (or passed through if the current unit is not the originating unit). The
+>>>> same packet is never passed twice. Non-HSR units are not allowed in the ring.
+>>>>
+>>>> This gives instant, reconfiguration-free failover.
+>>>>
+> *snip*
+>> I need to do two things:
+>>
+>> 1) Bind two network interfaces into one (say, eth0 & eth1 => hsr0). Frames sent on
+>>    hsr0 should get an HSR tag (including the correct EtherType) and go out on both
+>>    eth0 and eth1.
+>>
+>> 2) Ingress frames on eth0 & eth1, with EtherType 0x88fb, should be captured and 
+>>    handled specially (either received on hsr0 or forwarded to the other bound 
+>>    physical interface).
+>>
+>> Any ideas on the best way to implement this -- what's the nicest place to "hook
+>> into" for this?
+>>
 
-On Mon, 21 Nov 2011 10:15:34 +0100
-Petr =C5=A0abata <contyk@redhat.com> wrote:
+I need some help with the code for creating virtual hsr devices.
 
-> On Tue, Oct 11, 2011 at 04:59:08PM -0700, Stephen Hemminger wrote:
-> > Now that kernel.org is back online, the iproute2 repository is back
-> > at it's old location.
-> >    git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2
-> >=20
-> > I have frozen and tagged the v3.0 release, but don't have a good place
-> > to put the tar ball yet (stay tuned). Also the signing key for the rele=
-ase
-> > will be changing.
->=20
-> Are there any news on this?
+To reiterate, a hsr device acts as a kind of master for two physical ethernet
+devices. Any frame sent on the hsrX device should be forwarded to and sent from
+both physical devices. Frames coming in on one of the physical devices should
+be bridged to the other physical device, or received on the hsr device if the
+host is the intended destination.
 
-Should be today, there are some issues with setup
+Questions:
 
---Sig_/PZWnVbd_pav7NFEfk4UR5Da
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
+1) net_device features. Should I just logically AND the features fields of the
+   physical interfaces to get a correct value for the hsr device?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQIcBAEBCAAGBQJOyoCrAAoJEICnf2CVzeR+ovYP/1vyN0HMactaeQYeDjv8NpFQ
-fgRbVvblsbtYg1zGIzjSY7ovUdslGxWI2umOnI6Htl4COVcthA3I7asJZeIw5KYX
-1fR0C04mZStvgtT7FYokR+M46tacMi6MTjIBELVh0KD32ZL1xnLE5Nflg+YTm867
-HkjNEL90x4myJLn2dQE37mCcBcyfLqJ5KqGcAUyqh4GK4bjtuc5hk+pLGojeBFvD
-mXBVugcAD1AvI9PKExphf0/X74l7v2TW3VdMF4cCasYZ+yUWTOYC4RyCVKk29Kpj
-ynXo24Tw6IncmbS1Qk5WiJOPkReUcxuk0O9ecZENzdjITmNpONqERJa40i3HPD9h
-nFNQpTUxprq1H0hswg2si0Q4TeQoUzG1LmDXB9lawN6dAdo9xHZMisB2coIhIUqJ
-0AOKrt2OodvsGILg9hqenw6FbZu0tAjLDSr/3FxWDldyHyBuDTkOc6FFq/ei5CtO
-2pyWhfouelvAv5NMpuh+yfDouEVS5AodOHSp0+Z8Igmp7kTk+gett9rvodTKRgfP
-teQf5U27FYFRvHxXMF8BSVwQB+oJgu+gYwMLG0deFXC3qGz2HTWWeXr2iosBtdl+
-YS20jybA5GyyXfilXFI+ayCpXpJyE0QOTEMfHdcHTbLAt5k/mShpIiPNcx4qk5lL
-OX8699ZuwpSodyVtbn36
-=0dgL
------END PGP SIGNATURE-----
+2) net_device priv_flags / flags:
 
---Sig_/PZWnVbd_pav7NFEfk4UR5Da--
+   I'm guessing I need to clear IFF_XMIT_DST_RELEASE on all involved interfaces
+   to be able to send outgoing frames on multiple interfaces?
+
+   Can I set IFF_DONT_BRIDGE on the physical interfaces to prevent them being
+   used in a bridge?
+
+   Can I call netdev_set_master() on the physical devices to stop them from
+   being used in e.g. a bond?
+
+
+3) Stats: is there a reason not to use the net_device->stats field for
+   statistics on the hsr device? (I see many drivers keep their own
+   net_device_stats data and implement ndo_get_stats64() instead.)
+
+-- 
+Arvid Brodin
+Enea Services Stockholm AB
