@@ -1,58 +1,59 @@
-From: Alexey Moiseytsev <himeraster@gmail.com>
-Subject: [PATCH 1/1] AF_UNIX: Fix poll locking problem when reading from a stream socket
-Date: Tue, 22 Nov 2011 03:35:25 +0400
-Message-ID: <1321918525-5078-1-git-send-email-himeraster@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexey Moiseytsev <himeraster@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2 5/5] net: Add Open vSwitch kernel
+	components.
+Date: Tue, 22 Nov 2011 00:49:16 +0100
+Message-ID: <CAHXqBFLufG9vEHBuDtYMQtMKwWhbWNiuHMeVmcZWtHOLQbD0bw@mail.gmail.com>
+References: <1321911029-20707-1-git-send-email-jesse@nicira.com>
+	<1321911029-20707-6-git-send-email-jesse@nicira.com>
+	<20111121135955.571254b1@nehalam.linuxnetplumber.net>
+	<CAEP_g=8uoq7tJjUTAC_Sp3kOYwZJuKjD3J7Ratu67Kq56ZiyYA@mail.gmail.com>
+	<20111121152518.79e82eb8@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20111121152518.79e82eb8-We1ePj4FEcvRI77zikRAJc56i+j3xesD0e7PPNI6Mm0@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-poll() call may be locked by concurrent reading from the same stream
-socket.
-
-Signed-off-by: Alexey Moiseytsev <himeraster@gmail.com>
----
- net/unix/af_unix.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
-
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 466fbcc..b595a3d 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1957,6 +1957,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 			if ((UNIXCB(skb).pid  != siocb->scm->pid) ||
- 			    (UNIXCB(skb).cred != siocb->scm->cred)) {
- 				skb_queue_head(&sk->sk_receive_queue, skb);
-+				sk->sk_data_ready(sk, skb->len);
- 				break;
- 			}
- 		} else {
-@@ -1974,6 +1975,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		chunk = min_t(unsigned int, skb->len, size);
- 		if (memcpy_toiovec(msg->msg_iov, skb->data, chunk)) {
- 			skb_queue_head(&sk->sk_receive_queue, skb);
-+			sk->sk_data_ready(sk, skb->len);
- 			if (copied == 0)
- 				copied = -EFAULT;
- 			break;
-@@ -1991,6 +1993,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 			/* put the skb back if we didn't use it up.. */
- 			if (skb->len) {
- 				skb_queue_head(&sk->sk_receive_queue, skb);
-+				sk->sk_data_ready(sk, skb->len);
- 				break;
- 			}
- 
-@@ -2006,6 +2009,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 
- 			/* put message back and return */
- 			skb_queue_head(&sk->sk_receive_queue, skb);
-+			sk->sk_data_ready(sk, skb->len);
- 			break;
- 		}
- 	} while (size);
--- 
-1.7.2.5
+MjAxMS8xMS8yMiBTdGVwaGVuIEhlbW1pbmdlciA8c2hlbW1pbmdlckB2eWF0dGEuY29tPjoKPiBP
+biBNb24sIDIxIE5vdiAyMDExIDE1OjE4OjQzIC0wODAwCj4gSmVzc2UgR3Jvc3MgPGplc3NlQG5p
+Y2lyYS5jb20+IHdyb3RlOgo+Cj4+IE9uIE1vbiwgTm92IDIxLCAyMDExIGF0IDE6NTkgUE0sIFN0
+ZXBoZW4gSGVtbWluZ2VyCj4+IDxzaGVtbWluZ2VyQHZ5YXR0YS5jb20+IHdyb3RlOgo+PiA+IE9u
+IE1vbiwgMjEgTm92IDIwMTEgMTM6MzA6MjkgLTA4MDAKPj4gPiBKZXNzZSBHcm9zcyA8amVzc2VA
+bmljaXJhLmNvbT4gd3JvdGU6Cj4+ID4KPj4gPj4gKy8qKgo+PiA+PiArICogwqAgdnBvcnRfcmVj
+b3JkX2Vycm9yIC0gaW5kaWNhdGUgZGV2aWNlIGVycm9yIHRvIGdlbmVyaWMgc3RhdHMgbGF5ZXIK
+Pj4gPj4gKyAqCj4+ID4+ICsgKiBAdnBvcnQ6IHZwb3J0IHRoYXQgZW5jb3VudGVyZWQgdGhlIGVy
+cm9yCj4+ID4+ICsgKiBAZXJyX3R5cGU6IG9uZSBvZiBlbnVtIHZwb3J0X2Vycl90eXBlIHR5cGVz
+IHRvIGluZGljYXRlIHRoZSBlcnJvciB0eXBlCj4+ID4+ICsgKgo+PiA+PiArICogSWYgdXNpbmcg
+dGhlIHZwb3J0IGdlbmVyaWMgc3RhdHMgbGF5ZXIgaW5kaWNhdGUgdGhhdCBhbiBlcnJvciBvZiB0
+aGUgZ2l2ZW4KPj4gPj4gKyAqIHR5cGUgaGFzIG9jY3VyZWQuCj4+ID4+ICsgKi8KPj4gPj4gK3Zv
+aWQgdnBvcnRfcmVjb3JkX2Vycm9yKHN0cnVjdCB2cG9ydCAqdnBvcnQsIGVudW0gdnBvcnRfZXJy
+X3R5cGUgZXJyX3R5cGUpCj4+ID4+ICt7Cj4+ID4+ICsgwqAgwqAgc3Bpbl9sb2NrKCZ2cG9ydC0+
+c3RhdHNfbG9jayk7Cj4+ID4KPj4gPiBTb3JyeSBmb3Igb3ZlciBhbmFseXppbmcgdGhpcy4uLiBi
+dXQgSSBkb24ndCB0aGluayB0aGUgc3RhdHNfbG9jawo+PiA+IGlzIG5lY2Vzc2FyeSBlaXRoZXIu
+IFRoZSBvbmx5IHRoaW5nIGl0IGlzIHByb3RlY3RpbmcgaXMgYWdhaW5zdCA2NCBiaXQKPj4gPiB3
+cmFwLiBJZiB5b3UgdXNlZCBhbm90aGVyIHU2NF9zdGF0X3N5bmMgZm9yIHRoYXQgb25lLCBpdCBj
+b3VsZCBiZSBlbGltaW5hdGVkLgo+PiA+Cj4+ID4gTWF5YmU/Cj4+Cj4+IFRoZSByZWFzb24gZm9y
+IHN0YXRzX2xvY2sgaXMgdGhhdCB0aGUgZXJyb3Igc3RhdHMgYXJlIG5vdCBleHBlY3RlZCB0bwo+
+PiBiZSBjb250ZW5kZWQgc28gaW4gb3JkZXIgdG8gc2F2ZSBzb21lIG1lbW9yeSB0aGV5J3JlIG5v
+dCBwZXItY3B1IGFuZAo+PiB3ZSBqdXN0IHVzZSBhIHNwaW4gbG9jayB0byBwcm90ZWN0IHRoZW0u
+Cj4KPiBBc3NpZ25tZW50IG9yIGluY3JlbWVudCBvZiBuYXRpdmUgdHlwZSBzaXplICg2NCBiaXQg
+b24gNjQgYml0IGNwdSkKPiBpcyBhbHdheXMgYXRvbWljLgoKSXQgbWlnaHQgYmUsIGJ1dCBpdCBu
+b3QgYWx3YXlzIGlzLiBGb3IgZXhhbXBsZSwgb24gbG9hZC1zdG9yZQphcmNoaXRlY3R1cmVzIG5v
+cm1hbCBpbmNyZW1lbnQgKGxvYWQsaW5jLHN0b3JlKSBpcyBub3QgYXRvbWljIHVubGVzcwptYWRl
+IHdpdGggc3BlY2lhbCBpbnN0cnVjdGlvbiBzZXF1ZW5jZSAobGlrZSBMRFIvU1RSRVggb24gQVJN
+KS4KCkJlc3QgUmVnYXJkcywKTWljaGHFgiBNaXJvc8WCYXcKX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0
+Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
