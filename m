@@ -1,79 +1,45 @@
-From: Pekka Enberg <penberg@kernel.org>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Mon, 21 Nov 2011 23:30:59 +0200
-Message-ID: <CAOJsxLGLZ23momLxidvhC+2LCtmnwmPMS2ASdke8V8gGFGa=AA@mail.gmail.com>
-References: <20111121131531.GA1679@x4.trippels.de>
-	<1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20111121153621.GA1678@x4.trippels.de>
-	<1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20111121161036.GA1679@x4.trippels.de>
-	<1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20111121173556.GA1673@x4.trippels.de>
-	<1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20111121185215.GA1673@x4.trippels.de>
-	<20111121195113.GA1678@x4.trippels.de>
-	<1321907275.13860.12.camel@pasglop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] netfilter: use jump_label for nf_hooks
+Date: Mon, 21 Nov 2011 16:39:03 -0500 (EST)
+Message-ID: <20111121.163903.1188643166689254222.davem@davemloft.net>
+References: <1321673566.3157.14.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: Markus Trippelsdorf <markus@trippelsdorf.de>, Eric Dumazet <eric.dumazet@gmail.com>,
-	"Alex,Shi" <alex.shi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>,
-	Christoph Lameter <cl@linux-foundation.org>, Matt Mackall <mpm@selenic.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>,
-	Christian Kujau <lists@nerdbynature.de>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1321907275.13860.12.camel@pasglop>
-Sender: owner-linux-mm@kvack.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	kaber@trash.net, pablo@netfilter.org
+To: eric.dumazet@gmail.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1321673566.3157.14.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-11-21 at 20:51 +0100, Markus Trippelsdorf wrote:
->> On 2011.11.21 at 19:52 +0100, Markus Trippelsdorf wrote:
->> > On 2011.11.21 at 19:39 +0100, Eric Dumazet wrote:
->> > > Le lundi 21 novembre 2011 =E0 18:35 +0100, Markus Trippelsdorf a =E9=
-crit :
->> > >
->> > > > New one:
->> > >
->> > > ...
->> > >
->> > > I was just wondering if you were using CONFIG_CGROUPS=3Dy, and if ye=
-s, if
->> > > you could try to disable it.
->> >
->> > # CONFIG_CGROUPS is not set
->> >
->> > (I never enable CGROUPS on my machines)
->>
->> Just for the record, I've attached full dmesg and my .config.
->> (Will continue testing tomorrow)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 19 Nov 2011 04:32:46 +0100
 
-On Mon, Nov 21, 2011 at 10:27 PM, Benjamin Herrenschmidt
-<benh@kernel.crashing.org> wrote:
-> Note that I hit a similar looking crash (sorry, I couldn't capture a
-> backtrace back then) on a PowerMac G5 (ppc64) while doing a large rsync
-> transfer yesterday with -rc2-something (cfcfc9ec) and
-> Christian Kujau (CC) seems to be able to reproduce something similar on
-> some other ppc platform (Christian, what is your setup ?)
->
-> We haven't hit the poison checks, more like bad pointer derefs, almost
-> always in SLUB coming from skb alloc or free.
->
-> In my case, it's not easy to reproduce, so a bisection would be
-> error-prone.
+> On configs where CONFIG_JUMP_LABEL=y, we can replace in fast path a
+> load/compare/conditional jump by a single jump with no dcache reference.
+> 
+> Jump target is modified as soon as nf_hooks[pf][hook] switches from
+> empty state to non empty states. jump_label state is kept outside of
+> nf_hooks array so has no cost on cpu caches.
+> 
+> This patch removes the test on CONFIG_NETFILTER_DEBUG : No need to call
+> nf_hook_slow() at all if nf_hooks[pf][hook] is empty, this didnt give
+> useful information, but slowed down things a lot.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Patrick McHardy <kaber@trash.net>
+> CC: Pablo Neira Ayuso <pablo@netfilter.org>
+> ---
+> This is obviously a netfilter patch, but since David committed two other
+> jump_label patches lately, maybe its better he takes this patch as well
+> directly ? Thanks !
 
-Does CONFIG_SLAB make all the issues go away or are you still able to
-reproduce corruption with it? I'm asking because we have the per-cpu
-partial list patches in 3.2-rc1 and I'd like to rule them out as a
-suspect.
+I've applied this.
 
-                        Pekka
+Originally I was at first concerned because you changed the logic that
+forced nf_hook_slow() to be invoked when NETFILTER_DEBUG is enabled but
+these days that has no real purpose so that part of the change is fine.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Someone might want to double-check this ;-)
