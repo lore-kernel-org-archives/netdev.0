@@ -1,74 +1,70 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 10/17] netfilter: ipv6: expand skb head in ip6_route_me_harder
- after oif change
-Date: Mon, 21 Nov 2011 16:00:17 +0100
-Message-ID: <4ECA6781.6000101@trash.net>
-References: <1321854369-3432-1-git-send-email-kaber@trash.net>	 <1321854369-3432-11-git-send-email-kaber@trash.net> <1321871357.2552.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
+Subject: Re: MPLS for Linux kernel
+Date: Mon, 21 Nov 2011 16:01:26 +0100
+Message-ID: <4ECA67C6.2080802@dti2.net>
+References: <CAFdo_mWE8wMB6QJt_DPi9Ou9OiayzV48URDq7KhKf+q8OfP+Gw@mail.gmail.com>
+Reply-To: jorge@dti2.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	ulrich.weber@sophos.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1321871357.2552.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Network Development list <netdev@vger.kernel.org>
+To: igorm@etf.rs
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alcalazamora.dti2.net ([81.24.162.8]:62409 "EHLO
+	alcalazamora.dti2.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751792Ab1KUPHn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 10:07:43 -0500
+Received: from [172.16.16.6] ([81.24.161.20])
+	(authenticated user jorge@dti2.net)
+	by alcalazamora.dti2.net (alcalazamora.dti2.net [81.24.162.8])
+	(MDaemon PRO v12.5.0)
+	with ESMTP id md50019757876.msg
+	for <netdev@vger.kernel.org>; Mon, 21 Nov 2011 16:01:29 +0100
+In-Reply-To: <CAFdo_mWE8wMB6QJt_DPi9Ou9OiayzV48URDq7KhKf+q8OfP+Gw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/21/2011 11:29 AM, Eric Dumazet wrote:
-> Le lundi 21 novembre 2011 =C3=A0 06:46 +0100, kaber@trash.net a =C3=A9=
-crit :
->> From: Patrick McHardy<kaber@trash.net>
->>
->> Expand the skb headroom if the oif changed due to rerouting similar =
-to
->> how IPv4 packets are handled.
->>
->> Signed-off-by: Patrick McHardy<kaber@trash.net>
->> ---
->>   net/ipv6/netfilter.c |    7 +++++++
->>   1 files changed, 7 insertions(+), 0 deletions(-)
->>
->> diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
->> index 30fcee4..d39e954 100644
->> --- a/net/ipv6/netfilter.c
->> +++ b/net/ipv6/netfilter.c
->> @@ -14,6 +14,7 @@ int ip6_route_me_harder(struct sk_buff *skb)
->>   {
->>   	struct net *net =3D dev_net(skb_dst(skb)->dev);
->>   	const struct ipv6hdr *iph =3D ipv6_hdr(skb);
->> +	unsigned int hh_len;
->>   	struct dst_entry *dst;
->>   	struct flowi6 fl6 =3D {
->>   		.flowi6_oif =3D skb->sk ? skb->sk->sk_bound_dev_if : 0,
->> @@ -46,6 +47,12 @@ int ip6_route_me_harder(struct sk_buff *skb)
->>   	}
->>   #endif
->>
->> +	/* Change in oif may mean change in hh_len. */
->> +	hh_len =3D skb_dst(skb)->dev->hard_header_len;
->> +	if (skb_headroom(skb)<  hh_len&&
->> +	    pskb_expand_head(skb, hh_len - skb_headroom(skb), 0, GFP_ATOMI=
-C))
->> +		return -1;
->> +
-> Hmm, We had a problem recently on Tile arches because of unaligned
-> accesses.
->
-> Had you seen the bug report and proposed patch ?
->
-> Fix is to instead do :
->
-> 	pskb_expand_head(skb,
-> 			 HH_DATA_ALIGN(hh_len - skb_headroom(skb)),
-> 			 0,
-> 			 GFP_ATOMIC);
+El 20/11/2011 22:59, Igor Maravi=C4=87 escribi=C3=B3:
+> Hi all,
+> I've been working on implementation of MPLS for Linux kernel, for a
+> some time now.
+> I continued the work of James Leu
+> (https://sourceforge.net/projects/mpls-linux/) and used some fixes of
+> Jorge Boncompte
+> (http://mpls-linux.git.sourceforge.net/git/gitweb.cgi?p=3Dmpls-linux/=
+net-next;a=3Dshortlog;h=3Drefs/heads/net-next-mpls).
+>=20
+> I fixed a lot of bugs, so now it can be compiled and run with all
+> Kernel Hacking options enabled.
+> My code could be found on this sites:
+>=20
+> https://github.com/i-maravic/MPLS-Linux
+> https://github.com/i-maravic/iproute2
+>=20
+> Any feedback is appreciated :)
 
-I'll have a look and will update the patch accordingly.
+	Provide, clean, separated, and commented changes to the upstream proje=
+ct as we
+have asked you several times to do.
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	mpls-linux it is not ready to go upstream in my opinion.
+
+	Regards,
+		Jorge
+--=20
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+Jorge Boncompte - Ingenieria y Gestion de RED
+DTI2 - Desarrollo de la Tecnologia de las Comunicaciones
+--------------------------------------------------------------
+C/ Abogado Enriquez Barrios, 5   14004 CORDOBA (SPAIN)
+Tlf: +34 957 761395 / FAX: +34 957 450380
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+- There is only so much duct tape you can put on something
+  before it just becomes a giant ball of duct tape.
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
