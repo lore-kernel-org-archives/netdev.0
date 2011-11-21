@@ -1,80 +1,58 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 6/8] net/mlx4_en: allow setting number of rx rings for, RSS/TCP
-Date: Mon, 21 Nov 2011 10:43:48 +0200
-Message-ID: <4ECA0F44.1080004@mellanox.co.il>
+From: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
+Subject: Re: [PATCH net-next 4/4] net: Add Open vSwitch kernel
+	components.
+Date: Mon, 21 Nov 2011 07:20:07 -0500
+Message-ID: <1321878007.2291.12.camel@mojatatu>
+References: <1321657938-21761-1-git-send-email-jesse@nicira.com>
+	<1321657938-21761-5-git-send-email-jesse@nicira.com>
+Reply-To: jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
-	<ogerlitz@mellanox.com>, <oren@mellanox.co.il>,
-	<amirv@mellanox.co.il>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aob106.obsmtp.com ([207.126.144.120]:33460 "HELO
-	eu1sys200aob106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752572Ab1KULwZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 06:52:25 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1321657938-21761-5-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Amir Vadai <amirv@mellanox.co.il>
+On Fri, 2011-11-18 at 15:12 -0800, Jesse Gross wrote:
+> Open vSwitch is a multilayer Ethernet switch targeted at virtualized
+> environments.  In addition to supporting a variety of features
+> expected in a traditional hardware switch, it enables fine-grained
+> programmatic extension and flow-based control of the network.
+> This control is useful in a wide variety of applications but is
+> particularly important in multi-server virtualization deployments,
+> which are often characterized by highly dynamic endpoints and the need
+> to maintain logical abstractions for multiple tenants.
+> 
+> The Open vSwitch datapath provides an in-kernel fast path for packet
+> forwarding.  It is complemented by a userspace daemon, ovs-vswitchd,
+> which is able to accept configuration from a variety of sources and
+> translate it into packet processing rules.
+> 
 
-Make RSS TCP divert packets only to part of the rx rings, other could be
-accessed by using flow steering or RFS acceleration
+So the last time we had a discussion on this on the list, we seemed
+to agree that you could use the tc classifier-action infrastructure.
+For simplicity, we agreed you will need to do a speacilized classifier.
+You may need to add a few more actions. What happened since?
 
-Signed-off-by: Amir Vadai <amirv@mellanox.co.il>
----
- drivers/net/ethernet/mellanox/mlx4/en_main.c |    7 ++++---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c   |    9 ++++++++-
- 2 files changed, 12 insertions(+), 4 deletions(-)
+You are replicating a lot of code and semantic that exist (not just on
+classifier actions). You could improve the exisiting infrastructure
+instead. We are eventually going to have two competing interfaces as 
+a result. You may only need 1 or 2 different classification schemes
+today and try to justify you need it for simplicity - but in a few
+months you'll need one more then another action and another and 
+you'll keep adding to your infrastructure.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-index a06096f..f70bafb 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-@@ -63,9 +63,10 @@ static const char mlx4_en_version[] =
-  */
- 
- 
--/* Enable RSS TCP traffic */
--MLX4_EN_PARM_INT(tcp_rss, 1,
--		 "Enable RSS for incomming TCP traffic or disabled (0)");
-+/* RSS TCP usage */
-+MLX4_EN_PARM_INT(tcp_rss, -1,
-+		 "0 to disable RSS TCP, if n > 0, use n rx rings by RSS TCP. -1 "
-+		 "for all rx rings");
- /* Enable RSS UDP traffic */
- MLX4_EN_PARM_INT(udp_rss, 1,
- 		 "Enable RSS for incomming UDP traffic or disabled (0)");
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 3c24e16..044123a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -834,6 +834,7 @@ int mlx4_en_config_rss_steer(struct mlx4_en_priv *priv)
- 	struct mlx4_en_rss_map *rss_map = &priv->rss_map;
- 	struct mlx4_qp_context context;
- 	struct mlx4_rss_context *rss_context;
-+	int tcp_rss_table_size;
- 	void *ptr;
- 	u8 rss_mask = (MLX4_RSS_IPV4 | MLX4_RSS_TCP_IPV4 | MLX4_RSS_IPV6 |
- 			MLX4_RSS_TCP_IPV6);
-@@ -874,10 +875,16 @@ int mlx4_en_config_rss_steer(struct mlx4_en_priv *priv)
- 	mlx4_en_fill_qp_context(priv, 0, 0, 0, 1, priv->base_qpn,
- 				priv->rx_ring[0].cqn, &context);
- 
-+	if (priv->mdev->profile.tcp_rss == -1 ||
-+	    priv->mdev->profile.tcp_rss > priv->rx_ring_num)
-+		tcp_rss_table_size = priv->rx_ring_num;
-+	else
-+		tcp_rss_table_size = max(1, priv->mdev->profile.tcp_rss);
-+
- 	ptr = ((void *) &context) + offsetof(struct mlx4_qp_context, pri_path)
- 					+ MLX4_RSS_OFFSET_IN_QPC_PRI_PATH;
- 	rss_context = ptr;
--	rss_context->base_qpn = cpu_to_be32(ilog2(priv->rx_ring_num) << 24 |
-+	rss_context->base_qpn = cpu_to_be32(ilog2(tcp_rss_table_size) << 24 |
- 					    (rss_map->base_qpn));
- 	if (priv->mdev->profile.udp_rss) {
- 		rss_mask |=  MLX4_RSS_UDP_IPV4 | MLX4_RSS_UDP_IPV6;
--- 
-1.7.7
+cheers,
+jamal
