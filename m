@@ -1,57 +1,66 @@
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Mon, 21 Nov 2011 08:29:31 +0100
-Message-ID: <20111121072931.GA1625@x4.trippels.de>
-References: <20111118072519.GA1615@x4.trippels.de>
- <20111118075521.GB1615@x4.trippels.de>
- <1321605837.30341.551.camel@debian>
- <20111118085436.GC1615@x4.trippels.de>
- <20111118120201.GA1642@x4.trippels.de>
- <1321836285.30341.554.camel@debian>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 02/17] netfilter: nat: remove module reference counting
+ from NAT protocols
+Date: Mon, 21 Nov 2011 08:36:37 +0100
+Message-ID: <1321860997.17419.7.camel@edumazet-laptop>
+References: <1321854369-3432-1-git-send-email-kaber@trash.net>
+	 <1321854369-3432-3-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "Alex,Shi" <alex.shi@intel.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1321836285.30341.554.camel@debian>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	ulrich.weber@sophos.com
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1321854369-3432-3-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2011.11.21 at 08:44 +0800, Alex,Shi wrote:
-> On Fri, 2011-11-18 at 20:02 +0800, Markus Trippelsdorf wrote:
-> > On 2011.11.18 at 09:54 +0100, Markus Trippelsdorf wrote:
-> > > On 2011.11.18 at 16:43 +0800, Alex,Shi wrote:
-> > > > > > 
-> > > > > > The dirty flag comes from a bunch of unrelated xfs patches from Christoph, that
-> > > > > > I'm testing right now.
-> > > > 
-> > > > Where is the xfs patchset? I am wondering if it is due to slub code. 
-> > 
-> > I begin to wonder if this might be the result of a compiler bug. 
-> > The kernel in question was compiled with gcc version 4.7.0 20111117. And
-> > there was commit to the gcc repository today that looks suspicious:
-> > http://gcc.gnu.org/viewcvs?view=revision&revision=181466
-> > 
-> 
-> Tell us if it is still there and you can reproduce it.
+Le lundi 21 novembre 2011 =C3=A0 06:45 +0100, kaber@trash.net a =C3=A9c=
+rit :
+> From: Patrick McHardy <kaber@trash.net>
+>=20
+> The only remaining user of NAT protocol module reference counting is =
+NAT
+> ctnetlink support. Since this is a fairly short sequence of code, con=
+vert
+> over to use RCU and remove module reference counting.
+>=20
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-The issue wasn't easily reproducible in the first place. I will build my
-kernels with a more stable gcc version for the next days and see if I
-can still reproduce the problem. (It didn't show up in the last few days
-of testing).
+> @@ -612,16 +592,18 @@ static int nfnetlink_parse_nat_proto(struct nla=
+ttr *attr,
+>  	if (err < 0)
+>  		return err;
+> =20
+> -	npt =3D nf_nat_proto_find_get(nf_ct_protonum(ct));
+> +	rcu_read_lock();
+> +	npt =3D __nf_nat_proto_find(nf_ct_protonum(ct));
+>  	if (npt->nlattr_to_range)
+>  		err =3D npt->nlattr_to_range(tb, range);
+> -	nf_nat_proto_put(npt);
+> +	rcu_read_unlock();
+>  	return err;
+>  }
 
--- 
-Markus
+Seems good, but you should explain in changelog why its safe.
+
+(Using rcu also means special action must be taken in the write side,
+here the module removal)
+
+> =20
+>  static const struct nla_policy nat_nla_policy[CTA_NAT_MAX+1] =3D {
+>  	[CTA_NAT_MINIP]		=3D { .type =3D NLA_U32 },
+>  	[CTA_NAT_MAXIP]		=3D { .type =3D NLA_U32 },
+> +	[CTA_NAT_PROTO]		=3D { .type =3D NLA_NESTED },
+>  };
+
+I just dont understand this part :-(
+
+
 
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
