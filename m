@@ -1,46 +1,47 @@
-From: Benjamin Poirier <benjamin.poirier@gmail.com>
-Subject: Re: skb->timestamp == 0.000000 ?
-Date: Mon, 21 Nov 2011 16:11:40 -0500
-Message-ID: <20111121211140.GB24753@d2.suse.de>
-References: <CAJX4=r3wTn9v6-5oEpGdeKkFjKsRLZwc76tE9M4FiVJX4Lpisg@mail.gmail.com>
+From: "Eugene B. Berdnikov" <bd4@protva.ru>
+Subject: Path MTU discovery and tuntap
+Date: Tue, 22 Nov 2011 00:33:59 +0400
+Message-ID: <20111121203359.GE2640@sie.protva.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Felipe Dias <felipediassss@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:41503 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751103Ab1KUVLq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 16:11:46 -0500
-Received: by mail-fx0-f46.google.com with SMTP id n18so6454508fag.19
-        for <netdev@vger.kernel.org>; Mon, 21 Nov 2011 13:11:45 -0800 (PST)
+Received: from tornado.rdtex.ru ([80.252.139.3]:55552 "EHLO tornado.rdtex.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751966Ab1KUVWO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Nov 2011 16:22:14 -0500
+Received: from localhost ([127.0.0.1]:58836)
+	by tornado.rdtex.ru with esmtp (Exim 4.69)
+	(envelope-from <bd4@protva.ru>)
+	id 1RSaZ0-0005wF-KF size 1565
+	for netdev@vger.kernel.org; Tue, 22 Nov 2011 00:34:02 +0400
+Received: from tornado.rdtex.ru ([127.0.0.1])
+	by localhost (tornado.rdtex.ru [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id Z6+wkzBYuhfO for <netdev@vger.kernel.org>;
+	Tue, 22 Nov 2011 00:34:00 +0400 (MSK)
+Received: from [192.168.27.13] (port=45752 helo=sie.protva.ru)
+	by tornado.rdtex.ru with esmtp (Exim 4.69)
+	(envelope-from <bd4@protva.ru>)
+	id 1RSaYy-0005w4-64 size 1063
+	for netdev@vger.kernel.org; Tue, 22 Nov 2011 00:34:00 +0400
+Received: from berd by sie.protva.ru with local (Exim 4.77)
+	(envelope-from <bd4@protva.ru>)
+	id 1RSaYx-0001EK-3a
+	for netdev@vger.kernel.org; Tue, 22 Nov 2011 00:33:59 +0400
 Content-Disposition: inline
-In-Reply-To: <CAJX4=r3wTn9v6-5oEpGdeKkFjKsRLZwc76tE9M4FiVJX4Lpisg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/11/19 18:13, Felipe Dias wrote:
-> Hi..
-> 
-> Please let me know if this isnt right list to this kind of question.
-> 
-> I'm registering a new protocol handler with dev_add_pack. I would like
-> to know only the difference between timestamp on skb->tstamp and the
-> time of reception by my module.
-> 
-> So I do:
-> ----
-> struct timeval time_skb, time_module;
-> do_gettimeofday(&time_module):
-> skb_get_timestamp(skb, &time_skb);
-> ---
-> 
-> And time_skb.tv_sec and time_skb.tv_usec are equal to 0;
-> 
-> I'm doing some wrong ?
+  Hi folks.
 
-Timestamps have to be enabled
-have a look at:
-net_enable_timestamp()
+ I have two routers running a tun-based tunneling applications.
+ Both forward packets from eth (mtu=1500) to tun (mtu=1300),
+ emitting icmp[frag-need] if DF=1 and packet size > 1300. That's nice.
+ But one router simply drops oversized packet after icmp emittion,
+ and other one delivers oversized packet to application's tun.
+ The difference is that 1st router runs 2.6.30 (it drops packet) and
+ the 2nd runs 3.0.0 (delivers to app). Kernels are from Debian/testing.
 
--Ben
+ The question is: was it an intentional change or some bug?
+-- 
+ Eugene Berdnikov
