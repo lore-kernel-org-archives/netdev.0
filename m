@@ -1,40 +1,38 @@
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH net-next 2/3] be2net: update some counters to display via
- ethtool
-Date: Sun, 20 Nov 2011 23:12:51 -0600
-Message-ID: <20111121051251.GA17173@akhaparde-VBox>
-Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+From: roy.qing.li@gmail.com
+Subject: [PATCH] dccp: fix error propagation in dccp_v4_connect
+Date: Mon, 21 Nov 2011 13:18:20 +0800
+Message-ID: <1321852700-2966-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:18372 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750850Ab1KUFMw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 00:12:52 -0500
-Content-Disposition: inline
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:37774 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750850Ab1KUFSZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 00:18:25 -0500
+Received: by iage36 with SMTP id e36so6810161iag.19
+        for <netdev@vger.kernel.org>; Sun, 20 Nov 2011 21:18:25 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-update pmem_fifo_overflow_drop, rx_priority_pause_frames counters.
+From: RongQing.Li <roy.qing.li@gmail.com>
 
-Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+The errcode is not updated when ip_route_newports() fails.
+
+Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ net/dccp/ipv4.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 93869d4..95d41ba 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -315,6 +315,8 @@ static void populate_be3_stats(struct be_adapter *adapter)
- 	struct be_drv_stats *drvs = &adapter->drv_stats;
- 
- 	be_dws_le_to_cpu(hw_stats, sizeof(*hw_stats));
-+	drvs->pmem_fifo_overflow_drop = port_stats->pmem_fifo_overflow_drop;
-+	drvs->rx_priority_pause_frames = port_stats->rx_priority_pause_frames;
- 	drvs->rx_pause_frames = port_stats->rx_pause_frames;
- 	drvs->rx_crc_errors = port_stats->rx_crc_errors;
- 	drvs->rx_control_frames = port_stats->rx_control_frames;
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index 90a919a..3f4e541 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -111,6 +111,7 @@ int dccp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 	rt = ip_route_newports(fl4, rt, orig_sport, orig_dport,
+ 			       inet->inet_sport, inet->inet_dport, sk);
+ 	if (IS_ERR(rt)) {
++		err = PTR_ERR(rt);
+ 		rt = NULL;
+ 		goto failure;
+ 	}
 -- 
-1.7.5.4
+1.7.1
