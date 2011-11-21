@@ -1,74 +1,141 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 10/17] netfilter: ipv6: expand skb head in
- ip6_route_me_harder after oif change
-Date: Mon, 21 Nov 2011 11:29:17 +0100
-Message-ID: <1321871357.2552.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1321854369-3432-1-git-send-email-kaber@trash.net>
-	 <1321854369-3432-11-git-send-email-kaber@trash.net>
+From: Steven Whitehouse <swhiteho@redhat.com>
+Subject: Re: [BUG] 3.2-rc2: BUG kmalloc-8: Redzone overwritten
+Date: Mon, 21 Nov 2011 10:58:30 +0000
+Message-ID: <1321873110.2710.13.camel@menhir>
+References: <1321866845.3831.7.camel@lappy>
+	 <1321870529.2552.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1321870915.2552.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	ulrich.weber@sophos.com
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1321854369-3432-11-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Sasha Levin <levinsasha928@gmail.com>, David Miller
+ <davem@davemloft.net>,
+        Matt Mackall <mpm@selenic.com>,
+        Christoph Lameter
+ <cl@linux-foundation.org>,
+        Pekka Enberg <penberg@kernel.org>, linux-mm
+ <linux-mm@kvack.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        netdev
+ <netdev@vger.kernel.org>,
+        Chrissie Caulfield <ccaulfie@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1321870915.2552.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Le lundi 21 novembre 2011 =C3=A0 06:46 +0100, kaber@trash.net a =C3=A9c=
-rit :
-> From: Patrick McHardy <kaber@trash.net>
+Hi,
+
+On Mon, 2011-11-21 at 11:21 +0100, Eric Dumazet wrote:
+> Le lundi 21 novembre 2011 =C3=A0 11:15 +0100, Eric Dumazet a =C3=A9crit=
+ :
 >=20
-> Expand the skb headroom if the oif changed due to rerouting similar t=
-o
-> how IPv4 packets are handled.
->=20
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
-> ---
->  net/ipv6/netfilter.c |    7 +++++++
->  1 files changed, 7 insertions(+), 0 deletions(-)
->=20
-> diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
-> index 30fcee4..d39e954 100644
-> --- a/net/ipv6/netfilter.c
-> +++ b/net/ipv6/netfilter.c
-> @@ -14,6 +14,7 @@ int ip6_route_me_harder(struct sk_buff *skb)
->  {
->  	struct net *net =3D dev_net(skb_dst(skb)->dev);
->  	const struct ipv6hdr *iph =3D ipv6_hdr(skb);
-> +	unsigned int hh_len;
->  	struct dst_entry *dst;
->  	struct flowi6 fl6 =3D {
->  		.flowi6_oif =3D skb->sk ? skb->sk->sk_bound_dev_if : 0,
-> @@ -46,6 +47,12 @@ int ip6_route_me_harder(struct sk_buff *skb)
->  	}
->  #endif
+> >=20
+> > Hmm, trinity tries to crash decnet ;)
+> >=20
+> > Maybe we should remove this decnet stuff for good instead of tracking
+> > all bugs just for the record. Is there anybody still using decnet ?
+> >
+The best place to ask that question is on the decnet mailing list:
+linux-decnet-user@lists.sourceforge.net. I've BCC'd this message since
+that list requires you to be subscribed in order to post there.
+
+I have to say that I've been wondering lately whether it has got to the
+point where it is no longer useful. Has anybody actually tested it
+lately against "real" DEC implementations?
+
+Steve.
+
 > =20
-> +	/* Change in oif may mean change in hh_len. */
-> +	hh_len =3D skb_dst(skb)->dev->hard_header_len;
-> +	if (skb_headroom(skb) < hh_len &&
-> +	    pskb_expand_head(skb, hh_len - skb_headroom(skb), 0, GFP_ATOMIC=
-))
-> +		return -1;
-> +
-
-Hmm, We had a problem recently on Tile arches because of unaligned
-accesses.
-
-Had you seen the bug report and proposed patch ?
-
-=46ix is to instead do :
-
-	pskb_expand_head(skb,
-			 HH_DATA_ALIGN(hh_len - skb_headroom(skb)),=20
-			 0,
-			 GFP_ATOMIC);
-
+> > For example dn_start_slow_timer() starts a timer without holding a
+> > reference on struct sock, this is highly suspect.
+> >=20
+> > [PATCH] decnet: proper socket refcounting
+> >=20
+> > Better use sk_reset_timer() / sk_stop_timer() helpers to make sure we
+> > dont access already freed/reused memory later.
+> >=20
+> > Reported-by: Sasha Levin <levinsasha928@gmail.com>
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> Hmm, I forgot to remove the sock_hold(sk) call from dn_slow_timer(),
+> here is V2 :
+>=20
+> [PATCH] decnet: proper socket refcounting
+>=20
+> Better use sk_reset_timer() / sk_stop_timer() helpers to make sure we
+> dont access already freed/reused memory later.
+>=20
+> Reported-by: Sasha Levin <levinsasha928@gmail.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+> V2: remove sock_hold(sk) call from dn_slow_timer()
+>=20
+>  net/decnet/dn_timer.c |   17 +++++------------
+>  1 file changed, 5 insertions(+), 12 deletions(-)
+>=20
+> diff --git a/net/decnet/dn_timer.c b/net/decnet/dn_timer.c
+> index 67f691b..d9c150c 100644
+> --- a/net/decnet/dn_timer.c
+> +++ b/net/decnet/dn_timer.c
+> @@ -36,16 +36,13 @@ static void dn_slow_timer(unsigned long arg);
+> =20
+>  void dn_start_slow_timer(struct sock *sk)
+>  {
+> -	sk->sk_timer.expires	=3D jiffies + SLOW_INTERVAL;
+> -	sk->sk_timer.function	=3D dn_slow_timer;
+> -	sk->sk_timer.data	=3D (unsigned long)sk;
+> -
+> -	add_timer(&sk->sk_timer);
+> +	setup_timer(&sk->sk_timer, dn_slow_timer, (unsigned long)sk);
+> +	sk_reset_timer(sk, &sk->sk_timer, jiffies + SLOW_INTERVAL);
+>  }
+> =20
+>  void dn_stop_slow_timer(struct sock *sk)
+>  {
+> -	del_timer(&sk->sk_timer);
+> +	sk_stop_timer(sk, &sk->sk_timer);
+>  }
+> =20
+>  static void dn_slow_timer(unsigned long arg)
+> @@ -53,12 +50,10 @@ static void dn_slow_timer(unsigned long arg)
+>  	struct sock *sk =3D (struct sock *)arg;
+>  	struct dn_scp *scp =3D DN_SK(sk);
+> =20
+> -	sock_hold(sk);
+>  	bh_lock_sock(sk);
+> =20
+>  	if (sock_owned_by_user(sk)) {
+> -		sk->sk_timer.expires =3D jiffies + HZ / 10;
+> -		add_timer(&sk->sk_timer);
+> +		sk_reset_timer(sk, &sk->sk_timer, jiffies + HZ / 10);
+>  		goto out;
+>  	}
+> =20
+> @@ -100,9 +95,7 @@ static void dn_slow_timer(unsigned long arg)
+>  			scp->keepalive_fxn(sk);
+>  	}
+> =20
+> -	sk->sk_timer.expires =3D jiffies + SLOW_INTERVAL;
+> -
+> -	add_timer(&sk->sk_timer);
+> +	sk_reset_timer(sk, &sk->sk_timer, jiffies + SLOW_INTERVAL);
+>  out:
+>  	bh_unlock_sock(sk);
+>  	sock_put(sk);
+>=20
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 
 --
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
+.ca/
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
