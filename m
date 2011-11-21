@@ -1,13 +1,15 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [GIT PULL v2] Open vSwitch
-Date: Mon, 21 Nov 2011 13:30:24 -0800
-Message-ID: <1321911029-20707-1-git-send-email-jesse@nicira.com>
+Subject: [PATCH v2 1/5] genetlink: Add genl_notify()
+Date: Mon, 21 Nov 2011 13:30:25 -0800
+Message-ID: <1321911029-20707-2-git-send-email-jesse@nicira.com>
+References: <1321911029-20707-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1321911029-20707-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
 	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -19,67 +21,57 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This series of patches proposes the Open vSwitch kernel components for
-upstream.  Open vSwitch has existed as a separate project for several
-years and we now believe it to be mature enough for inclusion.  The
-actual functionality is described more fully in the commit that adds
-the kernel code.
+From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-The following changes since commit b8ffdbd05f8692cdadccd04464271e48b1e8d439:
+Open vSwitch uses Generic Netlink interface for communication
+between userspace and kernel module. genl_notify() is used
+for sending notification back to userspace.
 
-  gianfar: Use kmemdup rather than duplicating its implementation (2011-11-21 15:02:36 -0500)
+genl_notify() is analogous to rtnl_notify() but uses genl_sock
+instead of rtnl.
 
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jesse/openvswitch.git for-upstream
+Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+---
+v2: Unchanged.
+---
+ include/net/genetlink.h |    2 ++
+ net/netlink/genetlink.c |   13 +++++++++++++
+ 2 files changed, 15 insertions(+), 0 deletions(-)
 
-Jesse Gross (2):
-      genetlink: Add rcu_dereference_genl and genl_dereference.
-      net: Add Open vSwitch kernel components.
-
-Pravin B Shelar (3):
-      genetlink: Add genl_notify()
-      genetlink: Add lockdep_genl_is_held().
-      vlan: Move vlan_set_encap_proto() to vlan header file
-
- Documentation/networking/00-INDEX        |    2 +
- Documentation/networking/openvswitch.txt |  195 +++
- MAINTAINERS                              |    8 +
- include/linux/genetlink.h                |   24 +
- include/linux/if_vlan.h                  |   34 +
- include/linux/openvswitch.h              |  452 +++++++
- include/net/genetlink.h                  |    2 +
- net/8021q/vlan_core.c                    |   33 -
- net/Kconfig                              |    1 +
- net/Makefile                             |    1 +
- net/netlink/genetlink.c                  |   21 +
- net/openvswitch/Kconfig                  |   28 +
- net/openvswitch/Makefile                 |   14 +
- net/openvswitch/actions.c                |  415 +++++++
- net/openvswitch/datapath.c               | 1878 ++++++++++++++++++++++++++++++
- net/openvswitch/datapath.h               |  125 ++
- net/openvswitch/dp_notify.c              |   67 ++
- net/openvswitch/flow.c                   | 1373 ++++++++++++++++++++++
- net/openvswitch/flow.h                   |  195 +++
- net/openvswitch/vport-internal_dev.c     |  241 ++++
- net/openvswitch/vport-internal_dev.h     |   28 +
- net/openvswitch/vport-netdev.c           |  200 ++++
- net/openvswitch/vport-netdev.h           |   42 +
- net/openvswitch/vport.c                  |  396 +++++++
- net/openvswitch/vport.h                  |  205 ++++
- 25 files changed, 5947 insertions(+), 33 deletions(-)
- create mode 100644 Documentation/networking/openvswitch.txt
- create mode 100644 include/linux/openvswitch.h
- create mode 100644 net/openvswitch/Kconfig
- create mode 100644 net/openvswitch/Makefile
- create mode 100644 net/openvswitch/actions.c
- create mode 100644 net/openvswitch/datapath.c
- create mode 100644 net/openvswitch/datapath.h
- create mode 100644 net/openvswitch/dp_notify.c
- create mode 100644 net/openvswitch/flow.c
- create mode 100644 net/openvswitch/flow.h
- create mode 100644 net/openvswitch/vport-internal_dev.c
- create mode 100644 net/openvswitch/vport-internal_dev.h
- create mode 100644 net/openvswitch/vport-netdev.c
- create mode 100644 net/openvswitch/vport-netdev.h
- create mode 100644 net/openvswitch/vport.c
- create mode 100644 net/openvswitch/vport.h
+diff --git a/include/net/genetlink.h b/include/net/genetlink.h
+index 82d8d09..7db3299 100644
+--- a/include/net/genetlink.h
++++ b/include/net/genetlink.h
+@@ -128,6 +128,8 @@ extern int genl_register_mc_group(struct genl_family *family,
+ 				  struct genl_multicast_group *grp);
+ extern void genl_unregister_mc_group(struct genl_family *family,
+ 				     struct genl_multicast_group *grp);
++extern void genl_notify(struct sk_buff *skb, struct net *net, u32 pid,
++			u32 group, struct nlmsghdr *nlh, gfp_t flags);
+ 
+ /**
+  * genlmsg_put - Add generic netlink header to netlink message
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 482fa57..8a36599 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -946,3 +946,16 @@ int genlmsg_multicast_allns(struct sk_buff *skb, u32 pid, unsigned int group,
+ 	return genlmsg_mcast(skb, pid, group, flags);
+ }
+ EXPORT_SYMBOL(genlmsg_multicast_allns);
++
++void genl_notify(struct sk_buff *skb, struct net *net, u32 pid, u32 group,
++		 struct nlmsghdr *nlh, gfp_t flags)
++{
++	struct sock *sk = net->genl_sock;
++	int report = 0;
++
++	if (nlh)
++		report = nlmsg_report(nlh);
++
++	nlmsg_notify(sk, skb, pid, group, report, flags);
++}
++EXPORT_SYMBOL(genl_notify);
+-- 
+1.7.5.4
