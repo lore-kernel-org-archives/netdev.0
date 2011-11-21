@@ -1,82 +1,83 @@
-From: Arvid Brodin <arvid.brodin@enea.com>
-Subject: Re: bridge: HSR support
-Date: Mon, 21 Nov 2011 17:52:16 +0100
-Message-ID: <4ECA81C0.2050208@enea.com>
-References: <4E948A04.8060400@enea.com> <20111011112821.28cd3e51@nehalam.linuxnetplumber.net> <4E94D67A.9060207@enea.com> <4EA5738B.8080008@enea.com> <4EAACB7A.4090207@enea.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+Date: Mon, 21 Nov 2011 17:52:33 +0100
+Message-ID: <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20111118085436.GC1615@x4.trippels.de>
+	 <20111118120201.GA1642@x4.trippels.de> <1321836285.30341.554.camel@debian>
+	 <20111121080554.GB1625@x4.trippels.de>
+	 <20111121082445.GD1625@x4.trippels.de>
+	 <1321866988.2552.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121131531.GA1679@x4.trippels.de>
+	 <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121153621.GA1678@x4.trippels.de>
+	 <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121161036.GA1679@x4.trippels.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sestofw01.enea.se ([192.36.1.252]:1986 "HELO mx-3.enea.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751820Ab1KUQwY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Nov 2011 11:52:24 -0500
-In-Reply-To: <4EAACB7A.4090207@enea.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: "Alex,Shi" <alex.shi@intel.com>, "linux-kernel@vger.kernel.org"
+ <linux-kernel@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>,
+ Christoph Lameter <cl@linux-foundation.org>, Pekka Enberg
+ <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>, tj@kernel.org
+To: Markus Trippelsdorf <markus@trippelsdorf.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20111121161036.GA1679@x4.trippels.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Arvid Brodin wrote:
-> Arvid Brodin wrote:
->> Stephen Hemminger wrote:
->>> On Tue, 11 Oct 2011 20:25:08 +0200
->>> Arvid Brodin <arvid.brodin@enea.com> wrote:
->>>
->>>> Hi,
->>>>
->>>> I want to add support for HSR ("High-availability Seamless Redundancy",
->>>> IEC-62439-3) to the bridge code. With HSR, all connected units have two network
->>>> ports and are connected in a ring. All new Ethernet packets are sent on both
->>>> ports (or passed through if the current unit is not the originating unit). The
->>>> same packet is never passed twice. Non-HSR units are not allowed in the ring.
->>>>
->>>> This gives instant, reconfiguration-free failover.
->>>>
-> *snip*
->> I need to do two things:
->>
->> 1) Bind two network interfaces into one (say, eth0 & eth1 => hsr0). Frames sent on
->>    hsr0 should get an HSR tag (including the correct EtherType) and go out on both
->>    eth0 and eth1.
->>
->> 2) Ingress frames on eth0 & eth1, with EtherType 0x88fb, should be captured and 
->>    handled specially (either received on hsr0 or forwarded to the other bound 
->>    physical interface).
->>
->> Any ideas on the best way to implement this -- what's the nicest place to "hook
->> into" for this?
->>
+Le lundi 21 novembre 2011 =C3=A0 17:10 +0100, Markus Trippelsdorf a =C3=A9=
+crit :
 
-I need some help with the code for creating virtual hsr devices.
+> Sure. This one happend with CONFIG_DEBUG_PAGEALLOC=3Dy:
+>=20
+> [drm] Initialized radeon 2.11.0 20080528 for 0000:01:05.0 on minor 0
+> loop: module loaded
+> ahci 0000:00:11.0: version 3.0
+> ahci 0000:00:11.0: PCI INT A -> GSI 22 (level, low) -> IRQ 22
+> ahci 0000:00:11.0: AHCI 0001.0100 32 slots 6 ports 3 Gbps 0x3f impl SAT=
+A mode
+> ahci 0000:00:11.0: flags: 64bit ncq sntf ilck pm led clo pmp pio slum p=
+art ccc=20
+> scsi0 : ahci
+> scsi1 : ahci
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D
+> BUG task_struct: Poison overwritten
+> -----------------------------------------------------------------------=
+------
 
-To reiterate, a hsr device acts as a kind of master for two physical ethernet
-devices. Any frame sent on the hsrX device should be forwarded to and sent from
-both physical devices. Frames coming in on one of the physical devices should
-be bridged to the other physical device, or received on the hsr device if the
-host is the intended destination.
+Unfortunately thats the same problem, not catched by DEBUG_PAGEALLOC
+because freed page is immediately reused.
 
-Questions:
+We should keep pages in free list longer, to have a bigger window.
 
-1) net_device features. Should I just logically AND the features fields of the
-   physical interfaces to get a correct value for the hsr device?
+Hmm...
 
+Please try following patch :
 
-2) net_device priv_flags / flags:
-
-   I'm guessing I need to clear IFF_XMIT_DST_RELEASE on all involved interfaces
-   to be able to send outgoing frames on multiple interfaces?
-
-   Can I set IFF_DONT_BRIDGE on the physical interfaces to prevent them being
-   used in a bridge?
-
-   Can I call netdev_set_master() on the physical devices to stop them from
-   being used in e.g. a bond?
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 9dd443d..b8932a6 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -1196,7 +1196,7 @@ void free_hot_cold_page(struct page *page, int cold=
+)
+ 	}
+=20
+ 	pcp =3D &this_cpu_ptr(zone->pageset)->pcp;
+-	if (cold)
++	if (IS_ENABLED(CONFIG_DEBUG_PAGEALLOC) || cold)
+ 		list_add_tail(&page->lru, &pcp->lists[migratetype]);
+ 	else
+ 		list_add(&page->lru, &pcp->lists[migratetype]);
 
 
-3) Stats: is there a reason not to use the net_device->stats field for
-   statistics on the hsr device? (I see many drivers keep their own
-   net_device_stats data and implement ndo_get_stats64() instead.)
-
--- 
-Arvid Brodin
-Enea Services Stockholm AB
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
+.ca/
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
