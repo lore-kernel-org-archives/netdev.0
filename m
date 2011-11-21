@@ -1,91 +1,95 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [patch] fix error handle in ip_mc_add_src()
-Date: Mon, 21 Nov 2011 07:37:54 -0800
-Message-ID: <OFBC156DC4.826FDC8E-ON8825794F.0055A924-8825794F.0055DE4A@us.ibm.com>
-References: <1321887946.14281.27.camel@barry.pixelworks.com>	 <1321889066.10470.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1321889410.14281.31.camel@barry.pixelworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+Date: Mon, 21 Nov 2011 16:48:30 +0100
+Message-ID: <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20111118075521.GB1615@x4.trippels.de>
+	 <1321605837.30341.551.camel@debian> <20111118085436.GC1615@x4.trippels.de>
+	 <20111118120201.GA1642@x4.trippels.de> <1321836285.30341.554.camel@debian>
+	 <20111121080554.GB1625@x4.trippels.de>
+	 <20111121082445.GD1625@x4.trippels.de>
+	 <1321866988.2552.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121131531.GA1679@x4.trippels.de>
+	 <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121153621.GA1678@x4.trippels.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: Jun Zhao <mypopydev@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:47054 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751802Ab1KUPqn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 10:46:43 -0500
-Received: from /spool/local
-	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Mon, 21 Nov 2011 08:46:41 -0700
-In-Reply-To: <1321889410.14281.31.camel@barry.pixelworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: "Alex,Shi" <alex.shi@intel.com>, "linux-kernel@vger.kernel.org"
+ <linux-kernel@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>,
+ Christoph Lameter <cl@linux-foundation.org>, Pekka Enberg
+ <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>, tj@kernel.org
+To: Markus Trippelsdorf <markus@trippelsdorf.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20111121153621.GA1678@x4.trippels.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-
-With Eric's changes,
-
-Acked-by: David L Stevens <dlstevens@us.ibm.com>
-
-Good catch!
-
-					+-DLS
-
-netdev-owner@vger.kernel.org wrote on 11/21/2011 07:30:10 AM:
-
-> From: Jun Zhao <mypopydev@gmail.com>
-> To: Eric Dumazet <eric.dumazet@gmail.com>,
-> Cc: davem@davemloft.net, netdev@vger.kernel.org
-> Date: 11/21/2011 07:32 AM
-> Subject: Re: [patch] fix error handle in ip_mc_add_src()
-> Sent by: netdev-owner@vger.kernel.org
->
-> On Mon, 2011-11-21 at 16:24 +0100, Eric Dumazet wrote:
-> > Le lundi 21 novembre 2011 =E0 23:05 +0800, Jun Zhao a =E9crit :
-> > > When add sources to interface failure, need to roll back the
-> sfcount[MODE]
-> > > to before state. We need to match it corresponding.
-> > >
-> >
-> > Missing "---" separator
-> >
-> > > diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-> > > index c7472ef..276719a 100644
-> > > --- a/net/ipv4/igmp.c
-> > > +++ b/net/ipv4/igmp.c
-> > > @@ -1716,7 +1716,8 @@ static int ip_mc_add_src(struct in_device
-> *in_dev, __be32 *pmca, int sfmode,
-> > >     if (err) {
-> > >        int j;
-> > >
-> > > -      pmc->sfcount[sfmode]--;
-> > > +      if(!delta)
-> >
-> > Missing space, should be  : if (!delta)
-> >
-> > > +         pmc->sfcount[sfmode]--;
-> > >        for (j=3D0; j<i; j++)
-> > >           (void) ip_mc_del1_src(pmc, sfmode, &psfsrc[j]);
-> > >     } else if (isexclude !=3D (pmc->sfcount[MCAST_EXCLUDE] !=3D 0=
-)) {
-> > >
-> > > Signed-off-by: Jun Zhao <mypopydev@gmail.com>
-> > >
-> >
-> > Your "Signed-off-by:" should come before actual patch
-> >
-> > Please read Documentation/SubmittingPatches
-> >
+Le lundi 21 novembre 2011 =C3=A0 16:36 +0100, Markus Trippelsdorf a =C3=A9=
+crit :
+> On 2011.11.21 at 15:16 +0100, Eric Dumazet wrote:
+> > Le lundi 21 novembre 2011 =C3=A0 14:15 +0100, Markus Trippelsdorf a =C3=
+=A9crit :
+> >=20
+> > > I've enabled CONFIG_SLUB_DEBUG_ON and this is what happend:
+> > >=20
+> >=20
 > > Thanks
-> >
-> >
-> >
->
-> Tks, Eric Dumazet , I will re-submit this patch and follow the format=
-=2E
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+> >=20
+> > Please continue to provide more samples.
+> >=20
+> > There is something wrong somewhere, but where exactly, its hard to sa=
+y.
+>=20
+> New sample. This one points to lib/idr.c:
+>=20
+> [drm] Initialized drm 1.1.0 20060810
+> [drm] radeon defaulting to kernel modesetting.
+> [drm] radeon kernel modesetting enabled.
+> radeon 0000:01:05.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
+> radeon 0000:01:05.0: setting latency timer to 64
+> [drm] initializing kernel modesetting (RS780 0x1002:0x9614 0x1043:0x834=
+D).
+> [drm] register mmio base: 0xFBEE0000
+> [drm] register mmio size: 65536
+> ATOM BIOS: 113
+> radeon 0000:01:05.0: VRAM: 128M 0x00000000C0000000 - 0x00000000C7FFFFFF=
+ (128M used)
+> radeon 0000:01:05.0: GTT: 512M 0x00000000A0000000 - 0x00000000BFFFFFFF
+> [drm] Detected VRAM RAM=3D128M, BAR=3D128M
+> [drm] RAM width 32bits DDR
+> [TTM] Zone  kernel: Available graphics memory: 4083428 kiB.
+> [TTM] Zone   dma32: Available graphics memory: 2097152 kiB.
+> [TTM] Initializing pool allocator.
+> [drm] radeon: 128M of VRAM memory ready
+> [drm] radeon: 512M of GTT memory ready.
+> [drm] Supports vblank timestamp caching Rev 1 (10.10.2010).
+> [drm] Driver supports precise vblank timestamp query.
+> [drm] radeon: irq initialized.
+> [drm] GART: num cpu pages 131072, num gpu pages 131072
+> [drm] Loading RS780 Microcode
+> [drm] PCIE GART of 512M enabled (table at 0x00000000C0040000).
+> radeon 0000:01:05.0: WB enabled
+> [drm] ring test succeeded in 1 usecs
+> [drm] radeon: ib pool ready.
+> [drm] ib test succeeded in 0 usecs
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D
+> BUG idr_layer_cache: Poison overwritten
+> -----------------------------------------------------------------------=
+------
+
+Thanks, could you now add "CONFIG_DEBUG_PAGEALLOC=3Dy" in your config as
+well ?
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
+.ca/
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
