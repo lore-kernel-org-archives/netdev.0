@@ -1,52 +1,56 @@
-From: Petr =?utf-8?Q?=C5=A0abata?= <contyk@redhat.com>
-Subject: Re: iproute2 back at kernel.org
-Date: Mon, 21 Nov 2011 10:15:34 +0100
-Message-ID: <20111121091534.GA23163@rincewind.brq.redhat.com>
-References: <20110916103031.7f22b35f@nehalam.linuxnetplumber.net>
- <20111011165908.0d6ed7de@nehalam.linuxnetplumber.net>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] net, sja1000: Don't include version.h in peak_pci.c when
+ not needed
+Date: Mon, 21 Nov 2011 10:51:15 +0100
+Message-ID: <4ECA1F13.4080204@pengutronix.de>
+References: <alpine.LNX.2.00.1111202204480.17195@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="FCuugMFkClbJLl1L"
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22610 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751988Ab1KUJSD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Nov 2011 04:18:03 -0500
-Content-Disposition: inline
-In-Reply-To: <20111011165908.0d6ed7de@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigFC063C355B825F3AA1560730"
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Wolfgang Grandegger <wg@grandegger.com>
+To: Jesper Juhl <jj@chaosbits.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1111202204480.17195@swampdragon.chaosbits.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---FCuugMFkClbJLl1L
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigFC063C355B825F3AA1560730
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, Oct 11, 2011 at 04:59:08PM -0700, Stephen Hemminger wrote:
-> Now that kernel.org is back online, the iproute2 repository is back
-> at it's old location.
->    git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2
+On 11/20/2011 10:07 PM, Jesper Juhl wrote:
+> It was pointed out by "make versioncheck" that we do not need to includ=
+e
+> version.h in drivers/net/can/sja1000/peak_pci.c
+> This patch removes the unneeded include.
 >=20
-> I have frozen and tagged the v3.0 release, but don't have a good place
-> to put the tar ball yet (stay tuned). Also the signing key for the release
-> will be changing.
+> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
 
-Are there any news on this?
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
--- Petr
 
---FCuugMFkClbJLl1L
-Content-Type: application/pgp-signature
+--------------enigFC063C355B825F3AA1560730
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
 
-iF4EAREIAAYFAk7KFrYACgkQT+hZYwG3Kb5dcAEA2q+15RQosTk2OHiT+IZ+DHnj
-E94HNCpF0N9UA1cbARsA/3+4JLxXmVwjTPGvrgW9qeFaRfNQi8myjzRl0S2rmJwu
-=K4sM
+iEYEARECAAYFAk7KHxYACgkQjTAFq1RaXHMS/QCfaT5o1gzpvYtEw4CVhOHLbs4Y
+NqsAnRIOPuEbu63MLKswXSuOW0PDDjsy
+=odzp
 -----END PGP SIGNATURE-----
 
---FCuugMFkClbJLl1L--
+--------------enigFC063C355B825F3AA1560730--
