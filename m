@@ -1,19 +1,20 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 Subject: Re: [PATCH net-next 4/4] net: Add Open vSwitch kernel
 	components.
-Date: Tue, 22 Nov 2011 15:11:33 -0800
-Message-ID: <CAEP_g=8puZh8hihoyoHTc4f6cBu4jiDJQ6tqk6suQxR=dchyjA@mail.gmail.com>
+Date: Tue, 22 Nov 2011 15:11:43 -0800
+Message-ID: <CAEP_g=8Es=ZXkHq7L33t6oc3cYLxkx4uVnyV86FVe8ThdpD27Q@mail.gmail.com>
 References: <1321657938-21761-1-git-send-email-jesse@nicira.com>
 	<1321657938-21761-5-git-send-email-jesse@nicira.com>
 	<1321878007.2291.12.camel@mojatatu>
+	<1321878574.2291.15.camel@mojatatu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 To: jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1321878007.2291.12.camel@mojatatu>
+In-Reply-To: <1321878574.2291.15.camel@mojatatu>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
 	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -25,50 +26,13 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCBOb3YgMjEsIDIwMTEgYXQgNDoyMCBBTSwgamFtYWwgPGhhZGlAY3liZXJ1cy5jYT4g
-d3JvdGU6Cj4gT24gRnJpLCAyMDExLTExLTE4IGF0IDE1OjEyIC0wODAwLCBKZXNzZSBHcm9zcyB3
-cm90ZToKPj4gT3BlbiB2U3dpdGNoIGlzIGEgbXVsdGlsYXllciBFdGhlcm5ldCBzd2l0Y2ggdGFy
-Z2V0ZWQgYXQgdmlydHVhbGl6ZWQKPj4gZW52aXJvbm1lbnRzLiDCoEluIGFkZGl0aW9uIHRvIHN1
-cHBvcnRpbmcgYSB2YXJpZXR5IG9mIGZlYXR1cmVzCj4+IGV4cGVjdGVkIGluIGEgdHJhZGl0aW9u
-YWwgaGFyZHdhcmUgc3dpdGNoLCBpdCBlbmFibGVzIGZpbmUtZ3JhaW5lZAo+PiBwcm9ncmFtbWF0
-aWMgZXh0ZW5zaW9uIGFuZCBmbG93LWJhc2VkIGNvbnRyb2wgb2YgdGhlIG5ldHdvcmsuCj4+IFRo
-aXMgY29udHJvbCBpcyB1c2VmdWwgaW4gYSB3aWRlIHZhcmlldHkgb2YgYXBwbGljYXRpb25zIGJ1
-dCBpcwo+PiBwYXJ0aWN1bGFybHkgaW1wb3J0YW50IGluIG11bHRpLXNlcnZlciB2aXJ0dWFsaXph
-dGlvbiBkZXBsb3ltZW50cywKPj4gd2hpY2ggYXJlIG9mdGVuIGNoYXJhY3Rlcml6ZWQgYnkgaGln
-aGx5IGR5bmFtaWMgZW5kcG9pbnRzIGFuZCB0aGUgbmVlZAo+PiB0byBtYWludGFpbiBsb2dpY2Fs
-IGFic3RyYWN0aW9ucyBmb3IgbXVsdGlwbGUgdGVuYW50cy4KPj4KPj4gVGhlIE9wZW4gdlN3aXRj
-aCBkYXRhcGF0aCBwcm92aWRlcyBhbiBpbi1rZXJuZWwgZmFzdCBwYXRoIGZvciBwYWNrZXQKPj4g
-Zm9yd2FyZGluZy4gwqBJdCBpcyBjb21wbGVtZW50ZWQgYnkgYSB1c2Vyc3BhY2UgZGFlbW9uLCBv
-dnMtdnN3aXRjaGQsCj4+IHdoaWNoIGlzIGFibGUgdG8gYWNjZXB0IGNvbmZpZ3VyYXRpb24gZnJv
-bSBhIHZhcmlldHkgb2Ygc291cmNlcyBhbmQKPj4gdHJhbnNsYXRlIGl0IGludG8gcGFja2V0IHBy
-b2Nlc3NpbmcgcnVsZXMuCj4+Cj4KPiBTbyB0aGUgbGFzdCB0aW1lIHdlIGhhZCBhIGRpc2N1c3Np
-b24gb24gdGhpcyBvbiB0aGUgbGlzdCwgd2Ugc2VlbWVkCj4gdG8gYWdyZWUgdGhhdCB5b3UgY291
-bGQgdXNlIHRoZSB0YyBjbGFzc2lmaWVyLWFjdGlvbiBpbmZyYXN0cnVjdHVyZS4KPiBGb3Igc2lt
-cGxpY2l0eSwgd2UgYWdyZWVkIHlvdSB3aWxsIG5lZWQgdG8gZG8gYSBzcGVhY2lsaXplZCBjbGFz
-c2lmaWVyLgo+IFlvdSBtYXkgbmVlZCB0byBhZGQgYSBmZXcgbW9yZSBhY3Rpb25zLiBXaGF0IGhh
-cHBlbmVkIHNpbmNlPwo+Cj4gWW91IGFyZSByZXBsaWNhdGluZyBhIGxvdCBvZiBjb2RlIGFuZCBz
-ZW1hbnRpYyB0aGF0IGV4aXN0IChub3QganVzdCBvbgo+IGNsYXNzaWZpZXIgYWN0aW9ucykuIFlv
-dSBjb3VsZCBpbXByb3ZlIHRoZSBleGlzaXRpbmcgaW5mcmFzdHJ1Y3R1cmUKPiBpbnN0ZWFkLiBX
-ZSBhcmUgZXZlbnR1YWxseSBnb2luZyB0byBoYXZlIHR3byBjb21wZXRpbmcgaW50ZXJmYWNlcyBh
-cwo+IGEgcmVzdWx0LiBZb3UgbWF5IG9ubHkgbmVlZCAxIG9yIDIgZGlmZmVyZW50IGNsYXNzaWZp
-Y2F0aW9uIHNjaGVtZXMKPiB0b2RheSBhbmQgdHJ5IHRvIGp1c3RpZnkgeW91IG5lZWQgaXQgZm9y
-IHNpbXBsaWNpdHkgLSBidXQgaW4gYSBmZXcKPiBtb250aHMgeW91J2xsIG5lZWQgb25lIG1vcmUg
-dGhlbiBhbm90aGVyIGFjdGlvbiBhbmQgYW5vdGhlciBhbmQKPiB5b3UnbGwga2VlcCBhZGRpbmcg
-dG8geW91ciBpbmZyYXN0cnVjdHVyZS4KCkFzIHlvdSBtZW50aW9uLCBvbmUgb2YgdGhlIGJpZ2dl
-c3QgYmVuZWZpdHMgb2YgT3BlbiB2U3dpdGNoIGlzIGhvdwpzaW1wbGUgdGhlIGtlcm5lbCBwb3J0
-aW9ucyBhcmUgKGl0J3MgbGVzcyB0aGFuIDYwMDAgbGluZXMpLiAgSXQncwpleGlzdGVkIGFzIGFu
-IG91dC1vZi10cmVlIHByb2plY3QgZm9yIHNldmVyYWwgeWVhcnMgbm93IHNvIGl0J3MKYWN0dWFs
-bHkgZmFpcmx5IG1hdHVyZSBhbHJlYWR5IGFuZCB1bmxpa2VseSB0aGF0IHRoZXJlIHdpbGwgYmUg
-YQpzdWRkZW4gaW5mbHV4IG9mIG5ldyBjb2RlIG92ZXIgdGhlIGNvbWluZyBtb250aHMuICBUaGVy
-ZSdzIGFscmVhZHkKcXVpdGUgYSBiaXQgb2YgZnVuY3Rpb25hbGl0eSB0aGF0IGhhcyBiZWVuIGlt
-cGxlbWVudGVkIG9uIHRvcCBvZiBpdAphbmQgaXQncyBiZWVuIG1lbnRpb25lZCB0aGF0IHNldmVy
-YWwgb3RoZXIgY29tcG9uZW50cyBjYW4gYmUgd3JpdHRlbgppbiB0ZXJtcyBvZiBpdCBzbyBJIHRo
-aW5rIHRoYXQgaXQncyBmYWlybHkgZ2VuZXJpYyBpbmZyYXN0cnVjdHVyZSB0aGF0CmNhbiBiZSB1
-c2VkIGluIG1hbnkgd2F5cy4gIE92ZXIgdGltZSwgSSB0aGluayBpdCB3aWxsIHJlc3VsdCBpbiBh
-IG5ldApyZWR1Y3Rpb24gb2YgY29kZSBpbiB0aGUga2VybmVsIGFzIHRoZSBkZXNpZ24gaXMgaGVh
-dmlseSBmb2N1c2VkIG9uCmRlbGVnYXRpbmcgd29yayB0byB1c2Vyc3BhY2UuCgpJIHdvdWxkIHZp
-ZXcgaXQgYXMgc2ltaWxhciBpbiBtYW55IHdheXMgdG8gdGhlIHJlY2VudGx5IGFkZGVkIHRlYW0K
-ZGV2aWNlLCB3aGljaCBpcyBiYXNlZCBvbiB0aGUgaWRlYSBvZiBrZWVwaW5nIHNpbXBsZSB0aGlu
-Z3Mgc2ltcGxlLgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-XwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNo
-Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+On Mon, Nov 21, 2011 at 4:29 AM, jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org> wrote:
+>
+> Reading your website - it seems you indicate the code to be portable
+> across other platforms. That is a noble reason - but i dont think
+> it is good enough a reason in my opinion to have your own
+> replicated infrastructure on top of Linux.
+
+It's only the userspace portions that are designed to be portable.
+Nothing about the implementation of the kernel module was driven by
+portability concerns.
