@@ -1,51 +1,156 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Get TOS from IP header
-Date: Tue, 22 Nov 2011 06:31:00 +0100
-Message-ID: <1321939860.27077.10.camel@edumazet-laptop>
-References: <A2354B6A9F807641B21EEABD666ECEEA01F7DDEC@XMB-BGL-416.cisco.com>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: Re: 3.2-rc2+: Reported regressions from 3.0 and 3.1
+Date: Tue, 22 Nov 2011 11:19:24 +0530
+Message-ID: <4ECB37E4.6020204@linux.vnet.ibm.com>
+References: <lx6sezwGldO.A.IhF.UBpWOB@chimera> <201111212249.31196.rjw@sisk.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "Naveen B N (nbn)" <nbn@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:38910 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750815Ab1KVFbD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 00:31:03 -0500
-Received: by wwe3 with SMTP id 3so6676861wwe.1
-        for <netdev@vger.kernel.org>; Mon, 21 Nov 2011 21:31:02 -0800 (PST)
-In-Reply-To: <A2354B6A9F807641B21EEABD666ECEEA01F7DDEC@XMB-BGL-416.cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Florian Mickler <florian@mickler.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <201111212249.31196.rjw@sisk.pl>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 22 novembre 2011 =C3=A0 07:06 +0530, Naveen B N (nbn) a =C3=A9=
-crit :
-> Hi All,
+On 11/22/2011 03:19 AM, Rafael J. Wysocki wrote:
+> This message contains a list of some regressions from 3.0 and 3.1
+> for which there are no fixes in the mainline known to the tracking te=
+am.
+> If any of them have been fixed already, please let us know.
 >=20
-> I want  to get the TOS field content from IP header at=20
-> my application which is using SCTP protocol.
-> I know that it can be done by Using RAW socket but=20
-> There is a over head of implementing the sctp at the=20
-> Application layer .=20
-> Is there a better way of getting a TOS field filled
-> Which we received from IP header.
+> If you know of any other unresolved regressions from 3.0 and 3.1, ple=
+ase let us
+> know either and we'll add them to the list.  Also, please let us know=
+ if any of
+> the entries below are invalid.
 >=20
-> I taught of adding code in kernel to recognize a socket option at the=
- kernel,
-> If this option is set just and get TOS contents in receive .
+> The entries below are simplified and the statistics are not present d=
+ue to the
+> continuing Bugzilla outage.
 >=20
-> Please let me know if this is the way to go about it or is there=20
-> A better way to achieve the same .
+> Subject    : iwlagn is getting very shaky
+> Submitter  : Norbert Preining <preining@logic.at>
+> Date       : 2011-10-19 6:01
+> Message-ID : 20111019060108.GA11588@gamma.logic.tuwien.ac.at
+> References : http://marc.info/?l=3Dlinux-kernel&m=3D131914553920614&w=
+=3D2
+>=20
+> Subject    : Regression: "irqpoll" hasn't been working for me since M=
+arch 16 IRQ
+> Submitter  : Edward Donovan <edward.donovan@numble.net>
+> Date       : 2011-10-19 22:09
+> Message-ID : CADdbW+HXdCPfJu2RTF6zz+ujCmiu_dmZwL2iScuF53p=3DAaZ1Uw@ma=
+il.gmail.com
+> References : http://marc.info/?l=3Dlinux-kernel&m=3D131914554220679&w=
+=3D2
+>=20
+> Subject    : Regression in 3.1 causes Xen to use wrong idle routine
+> Submitter  : Stefan Bader <stefan.bader@canonical.com>
+> Date       : 2011-10-26 10:24
+> Message-ID : 4EA7DFD1.9060608@canonical.com
+> References : http://marc.info/?l=3Dlinux-acpi&m=3D131962467924564&w=3D=
+2
+>=20
+> Subject    : 3.1+ iwlwifi lockup
+> Submitter  : Dave Jones <davej@redhat.com>
+> Date       : 2011-10-31 14:34
+> Message-ID : 20111031143408.GA17152@redhat.com
+> References : http://marc.info/?l=3Dlinux-kernel&m=3D132007169420160&w=
+=3D2
+>=20
+> Subject    : hugetlb oops on 3.1.0-rc8-devel
+> Submitter  : Andy Lutomirski <luto@amacapital.net>
+> Date       : 2011-11-01 22:20
+> Message-ID : CALCETrW1mpVCz2tO5roaz1r6vnno+srHR-dHA6_pkRi2qiCfdw@mail=
+=2Egmail.com
+> References : http://marc.info/?l=3Dlinux-kernel&m=3D132018604426692&w=
+=3D2
+>=20
+> Subject    : Simultaneous cat and external keyboard input causing ker=
+nel panic
+> Submitter  : Timo Jyrinki <timo.jyrinki@gmail.com>
+> Date       : 2011-11-03 12:14
+> Message-ID : CAJtFfxmovJHspHHKbvBVc4pw+u5mjGmUejCXEzdV+GqE=3DjVSOQ@ma=
+il.gmail.com
+> References : http://marc.info/?l=3Dlinux-kernel&m=3D132032253903074&w=
+=3D2
+>=20
+> Subject    : Linus GIT - INFO: possible circular locking dependency d=
+etected
+> Submitter  : Miles Lane <miles.lane@gmail.com>
+> Date       : 2011-11-03 15:57
+> Message-ID : CAHFgRy8S0xLfhZxTUOEH5A0PL_Fb79-0-gmbQ=3D9h2D-xMqt1hA@ma=
+il.gmail.com
+> References : http://marc.info/?l=3Dlinux-kernel&m=3D132033587908426&w=
+=3D2
+>=20
+> Subject    : lockdep warning after aa6afca5bcab: "proc: fix races aga=
+inst execve() of /proc/PID/fd**"
+> Submitter  : Ari Savolainen <ari.m.savolainen@gmail.com>
+> Date       : 2011-11-08 3:47
+> Message-ID : CAEbykaXYZEFhTgWMm2AfaWQ2SaXYuO_ypTnw+6AVWScOYSCuuw@mail=
+=2Egmail.com
+> References : http://marc.info/?l=3Dlinux-kernel&m=3D132072413125099&w=
+=3D2
+>=20
+> Subject    : DMA-API check_sync errors with 3.2
+> Submitter  : Josh Boyer <jwboyer@redhat.com>
+> Date       : 2011-11-08 17:31
+> Message-ID : 20111108173153.GE14216@zod.bos.redhat.com
+> References : http://marc.info/?l=3Dlinux-kernel&m=3D132077357608797&w=
+=3D2
+>=20
+> Subject    : [3.1-rc8 REGRESSION] sky2 hangs machine on turning off o=
+r suspending
+> Submitter  : Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+> Date       : 2011-11-09 11:46
+> Message-ID : CACna6ryTdLcWVYgHu=3D_mRFga1sFivpE_DyZOY-HMmKggkWAJAw@ma=
+il.gmail.com
+> References : http://marc.info/?l=3Dlinux-netdev&m=3D132083922228088&w=
+=3D4
+>=20
+> Subject    : 3.2-rc1 doesn't boot on dual socket opteron without swap
+> Submitter  : Niklas Schnelle <niklas@komani.de>
+> Date       : 2011-11-10 20:09
+> Message-ID : 1320955769.1718.8.camel@jupiter
+> References : http://marc.info/?l=3Dlinux-kernel&m=3D132095583501767&w=
+=3D2
+>=20
+> Subject    : Sparc-32 doesn't work in 3.1.
+> Submitter  : Rob Landley <rob@landley.net>
+> Date       : 2011-11-12 11:22
+> Message-ID : 4EBEAB5A.5020809@landley.net
+> References : http://www.spinics.net/lists/kernel/msg1260383.html
+>=20
+> Subject    : khugepaged blocks suspend2ram (3.2.0-rc1-00252-g8f042aa)
+> Submitter  : Sergei Trofimovich <slyich@gmail.com>
+> Date       : 2011-11-12 10:48
+> Message-ID : 20111112104859.7744b282@sf.home
+> References : https://lkml.org/lkml/2011/11/12/11
 >=20
 
-I believe SCTP is not yet described in "man 7 ip", but since its
-obviously an IP protocol, all things described in this man page should
-work.
+Andrea's patch already fixes this issue, which was reported first by
+Jiri Slaby. https://lkml.org/lkml/2011/11/11/93
+I remember Andrew Morton taking this patch in his -mm tree. But it is
+not in mainline yet. So can we consider this closed or not?
 
-       IP_RECVTOS (since Linux 2.2)
-              If enabled the IP_TOS ancillary message is passed with  i=
-ncoming  packets.
-              It contains a byte which specifies the Type of Service/Pr=
-ecedence field of
-              the packet header.  Expects a boolean integer flag.
+Thanks,
+Srivatsa S. Bhat
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-acpi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
