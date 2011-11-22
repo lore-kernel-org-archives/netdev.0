@@ -1,84 +1,121 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: Kernel v3.0.8 igb driver dies when pulling network cable
-Date: Tue, 22 Nov 2011 10:36:28 +0100
-Message-ID: <4ECB6D1C.8010208@profihost.ag>
-References: <4ECA4362.2050307@profihost.ag> <4ECA884C.5010706@intel.com> <4ECA936E.8060301@profihost.ag> <4ECAD3D4.4070306@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+Date: Tue, 22 Nov 2011 10:38:49 +0100
+Message-ID: <1321954729.2474.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20111121161036.GA1679@x4.trippels.de>
+	 <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121173556.GA1673@x4.trippels.de>
+	 <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121185215.GA1673@x4.trippels.de>
+	 <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop>
+	 <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
+	 <alpine.DEB.2.00.1111212105330.19606@router.home>
+	 <20111122084513.GA1688@x4.trippels.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stable Tree <stable@kernel.org>, stable@vger.kernel.org,
-	Greg KH <gregkh@suse.de>, LKML <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"Jesse Brandeburg <jesse.brandeburg@intel.com> Bruce Allan"
-	<bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	John Ronciak <john.ronciak@intel.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4ECAD3D4.4070306@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Christoph Lameter <cl@linux.com>, Christian Kujau
+ <lists@nerdbynature.de>,  Benjamin Herrenschmidt
+ <benh@kernel.crashing.org>, "Alex,Shi" <alex.shi@intel.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "linux-mm@kvack.org" <linux-mm@kvack.org>,  Pekka Enberg
+ <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>
+To: Markus Trippelsdorf <markus@trippelsdorf.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20111122084513.GA1688@x4.trippels.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-> It would be useful if you could try the latest driver from e1000.sf.net
-> just to verify  if this is a bug in the upstream kernel or if it is also
-> present in our e1000.sf.net.driver.  This way we can figure out if this
-> is an issue where a patch wasn't pushed into the stable kernel or if it
-> is an issue that still exists in our latest release.
->
-> Also could you provide us with the part number you are currently using.
-> If you could provide us with the device ID for the part via lspci we can
-> start narrowing down the root cause for the issue as currently we don't
-> have any information about what hardware you are experiencing this issue on.
+Le mardi 22 novembre 2011 =C3=A0 09:45 +0100, Markus Trippelsdorf a =C3=A9=
+crit :
 
-Ok another note i missed last time. Ethernet and Server stays fully 
-functional - it just prints the message and resets the adapter.
+> I sometimes see the following pattern. Is this a false positive?
+>=20
+>=20
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D
+> BUG anon_vma: Redzone overwritten
+> -----------------------------------------------------------------------=
+------
+>=20
+> INFO: 0xffff88020f347c80-0xffff88020f347c87. First byte 0xbb instead of=
+ 0xcc
+> INFO: Allocated in anon_vma_fork+0x51/0x140 age=3D1 cpu=3D2 pid=3D1826
+> 	__slab_alloc.constprop.70+0x1ac/0x1e8
+> 	kmem_cache_alloc+0x12e/0x160
+> 	anon_vma_fork+0x51/0x140
+> 	dup_mm+0x1f2/0x4a0
+> 	copy_process+0xd10/0xf70
+> 	do_fork+0x100/0x2b0
+> 	sys_clone+0x23/0x30
+> 	stub_clone+0x13/0x20
+> INFO: Freed in __put_anon_vma+0x54/0xa0 age=3D0 cpu=3D1 pid=3D1827
+> 	__slab_free+0x33/0x2d0
+> 	kmem_cache_free+0x10e/0x120
+> 	__put_anon_vma+0x54/0xa0
+> 	unlink_anon_vmas+0x12f/0x1c0
+> 	free_pgtables+0x83/0xe0
+> 	exit_mmap+0xee/0x140
+> 	mmput+0x43/0xf0
+> 	flush_old_exec+0x33f/0x630
+> 	load_elf_binary+0x340/0x1960
+> 	search_binary_handler+0x8f/0x180
+> 	do_execve+0x2d3/0x370
+> 	sys_execve+0x42/0x70
+> 	stub_execve+0x6c/0xc0
+> INFO: Slab 0xffffea00083cd1c0 objects=3D10 used=3D9 fp=3D0xffff88020f34=
+7ab8 flags=3D0x4000000000000081
+> INFO: Object 0xffff88020f347c40 @offset=3D3136 fp=3D0xffff88020f347ab8
+>=20
+> Bytes b4 ffff88020f347c30: 39 b6 fb ff 00 00 00 00 5a 5a 5a 5a 5a 5a 5a=
+ 5a  9.......ZZZZZZZZ
+> Object ffff88020f347c40: 30 c9 9b 0d 02 88 ff ff 01 00 00 00 00 00 5a 5=
+a  0.............ZZ
+> Object ffff88020f347c50: 50 7c 34 0f 02 88 ff ff 50 7c 34 0f 02 88 ff f=
+f  P|4.....P|4.....
+> Object ffff88020f347c60: 00 00 00 00 00 00 00 00 00 00 00 00 5a 5a 5a 5=
+a  ............ZZZZ
+> Object ffff88020f347c70: 70 7c 34 0f 02 88 ff ff 70 7c 34 0f 02 88 ff f=
+f  p|4.....p|4.....
+> Redzone ffff88020f347c80: bb bb bb bb bb bb bb bb                      =
+    ........
+> Padding ffff88020f347dc0: 5a 5a 5a 5a 5a 5a 5a 5a                      =
+    ZZZZZZZZ
+> Pid: 1820, comm: slabinfo Not tainted 3.2.0-rc2-00369-gbbbc479-dirty #8=
+3
+> Call Trace:
+>  [<ffffffff81105df8>] ? print_section+0x38/0x40
+>  [<ffffffff811062f3>] print_trailer+0xe3/0x150
+>  [<ffffffff811064f0>] check_bytes_and_report+0xe0/0x100
+>  [<ffffffff81107313>] check_object+0x183/0x240
+>  [<ffffffff81107eb0>] validate_slab_slab+0x1c0/0x230
+>  [<ffffffff8110a4a6>] validate_store+0xa6/0x190
+>  [<ffffffff8110573c>] slab_attr_store+0x1c/0x30
+>  [<ffffffff81168838>] sysfs_write_file+0xc8/0x140
+>  [<ffffffff811124a3>] vfs_write+0xa3/0x160
+>  [<ffffffff81112635>] sys_write+0x45/0x90
+>  [<ffffffff814d3ffb>] system_call_fastpath+0x16/0x1b
+> FIX anon_vma: Restoring 0xffff88020f347c80-0xffff88020f347c87=3D0xcc
 
-OK let's start with lspci:
-a:00.0 Ethernet controller: Intel Corporation Device 10c9 (rev 01)
-         Subsystem: Super Micro Computer Inc Device 10c9
-         Flags: bus master, fast devsel, latency 0, IRQ 28
-         Memory at fbe60000 (32-bit, non-prefetchable) [size=128K]
-         Memory at fbe40000 (32-bit, non-prefetchable) [size=128K]
-         I/O ports at e880 [size=32]
-         Memory at fbe1c000 (32-bit, non-prefetchable) [size=16K]
-         Expansion ROM at fbe20000 [disabled] [size=128K]
-         Capabilities: [40] Power Management version 3
-         Capabilities: [50] Message Signalled Interrupts: Mask+ 64bit+ 
-Queue=0/0 Enable-
-         Capabilities: [70] MSI-X: Enable+ Mask- TabSize=10
-         Capabilities: [a0] Express Endpoint, MSI 00
-         Capabilities: [100] Advanced Error Reporting <?>
-         Capabilities: [140] Device Serial Number ce-5a-2b-ff-ff-90-25-00
-         Capabilities: [150] #0e
-         Capabilities: [160] #10
-         Kernel driver in use: igb
 
-0a:00.1 Ethernet controller: Intel Corporation Device 10c9 (rev 01)
-         Subsystem: Super Micro Computer Inc Device 10c9
-         Flags: bus master, fast devsel, latency 0, IRQ 40
-         Memory at fbee0000 (32-bit, non-prefetchable) [size=128K]
-         Memory at fbec0000 (32-bit, non-prefetchable) [size=128K]
-         I/O ports at ec00 [size=32]
-         Memory at fbe9c000 (32-bit, non-prefetchable) [size=16K]
-         Expansion ROM at fbea0000 [disabled] [size=128K]
-         Capabilities: [40] Power Management version 3
-         Capabilities: [50] Message Signalled Interrupts: Mask+ 64bit+ 
-Queue=0/0 Enable-
-         Capabilities: [70] MSI-X: Enable+ Mask- TabSize=10
-         Capabilities: [a0] Express Endpoint, MSI 00
-         Capabilities: [100] Advanced Error Reporting <?>
-         Capabilities: [140] Device Serial Number ce-5a-2b-ff-ff-90-25-00
-         Capabilities: [150] #0e
-         Capabilities: [160] #10
-         Kernel driver in use: igb
+Wait a minute
 
-Using the latest stable igb driver from e1000.sf.net works fine without 
-any message.
+You trigger this using slabinfo looping or something ?
 
-Thanks,
+Bug is in slabinfo then, dont use it, and see if bug triggers.
 
-Stefan
+Given slub is now lockless, validate_slab_slab() is probably very wrong
+these days.
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
+.ca/
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
