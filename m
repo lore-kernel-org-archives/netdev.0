@@ -1,31 +1,52 @@
-From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v2 5/5] net: Add Open vSwitch kernel
-	components.
-Date: Mon, 21 Nov 2011 16:27:35 -0800
-Message-ID: <20111121162735.1dfe4cc4@nehalam.linuxnetplumber.net>
-References: <1321911029-20707-1-git-send-email-jesse@nicira.com>
-	<1321911029-20707-6-git-send-email-jesse@nicira.com>
+From: Christian Kujau <lists@nerdbynature.de>
+Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+Date: Mon, 21 Nov 2011 16:42:47 -0800 (PST)
+Message-ID: <alpine.DEB.2.01.1111211638140.8000@trent.utfs.org>
+References: <20111121131531.GA1679@x4.trippels.de>  <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121153621.GA1678@x4.trippels.de>  <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121161036.GA1679@x4.trippels.de>
+  <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121173556.GA1673@x4.trippels.de>  <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121185215.GA1673@x4.trippels.de>
+  <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop> <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1321911029-20707-6-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
+    Eric Dumazet <eric.dumazet@gmail.com>, "Alex,Shi" <alex.shi@intel.com>,
+    "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+    "linux-mm@kvack.org" <linux-mm@kvack.org>,
+    Christoph Lameter <cl@linux-foundation.org>,
+    Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
+    "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+    Tejun Heo <tj@kernel.org>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-One more comment...
+On Mon, 21 Nov 2011 at 16:21, Christian Kujau wrote:
+> With debug options enabled I'm currently in the xmon debugger, not sure 
+> what to make of it yet, I'll try to get something useful out of it :)
 
-Shouldn't this device be using netdev_increment_features() like bridging and bonding
-to have the features of the pseudo device reflect those of the underlying hardware.
-This would make the device have TSO only if underlying hardware supported it, etc.
+Only screenshots, see the *xmon jpegs in:
+
+   http://nerdbynature.de/bits/3.2.0-rc1/oops/
+
+> SLAB does not have the same capabilities to detect corruption.
+> You can disable most the cpu partial functionality by setting
+>       /sys/kernel/slab/*/cpu_partial
+> to 0
+
+I'll try to reproduce with those set to 0 (I'm on UP here, in case that 
+matters).
+
+Thanks,
+Christian.
+-- 
+BOFH excuse #296:
+
+The hardware bus needs a new token.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
