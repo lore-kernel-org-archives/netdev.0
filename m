@@ -1,52 +1,31 @@
-From: Christian Kujau <lists@nerdbynature.de>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Mon, 21 Nov 2011 16:21:49 -0800 (PST)
-Message-ID: <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
-References: <20111121131531.GA1679@x4.trippels.de>  <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121153621.GA1678@x4.trippels.de>  <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121161036.GA1679@x4.trippels.de>
-  <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121173556.GA1673@x4.trippels.de>  <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121185215.GA1673@x4.trippels.de>
-  <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop>
+From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2 5/5] net: Add Open vSwitch kernel
+	components.
+Date: Mon, 21 Nov 2011 16:27:35 -0800
+Message-ID: <20111121162735.1dfe4cc4@nehalam.linuxnetplumber.net>
+References: <1321911029-20707-1-git-send-email-jesse@nicira.com>
+	<1321911029-20707-6-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
-    Eric Dumazet <eric.dumazet@gmail.com>, "Alex,Shi" <alex.shi@intel.com>,
-    "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-    "linux-mm@kvack.org" <linux-mm@kvack.org>,
-    Christoph Lameter <cl@linux-foundation.org>,
-    Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
-    "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-    Tejun Heo <tj@kernel.org>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1321907275.13860.12.camel@pasglop>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1321911029-20707-6-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Nov 2011 at 07:27, Benjamin Herrenschmidt wrote:
-> Note that I hit a similar looking crash (sorry, I couldn't capture a
-> backtrace back then) on a PowerMac G5 (ppc64) while doing a large rsync
-> transfer yesterday with -rc2-something (cfcfc9ec) and 
-> Christian Kujau (CC) seems to be able to reproduce something similar on
-> some other ppc platform (Christian, what is your setup ?)
+One more comment...
 
-I seem to hit it with heavy disk & cpu IO is in progress on this PowerBook 
-G4. Full dmesg & .config: http://nerdbynature.de/bits/3.2.0-rc1/oops/
-
-I've enabled some debug options and now it really points to slub.c:2166
-
-   http://nerdbynature.de/bits/3.2.0-rc1/oops/oops4m.jpg
-
-With debug options enabled I'm currently in the xmon debugger, not sure 
-what to make of it yet, I'll try to get something useful out of it :)
-
-Christian.
--- 
-BOFH excuse #399:
-
-We are a 100% Microsoft Shop.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Shouldn't this device be using netdev_increment_features() like bridging and bonding
+to have the features of the pseudo device reflect those of the underlying hardware.
+This would make the device have TSO only if underlying hardware supported it, etc.
