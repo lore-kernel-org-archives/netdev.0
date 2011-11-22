@@ -1,44 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V2] tg3: Fix advertisement handling
-Date: Tue, 22 Nov 2011 15:18:06 -0500 (EST)
-Message-ID: <20111122.151806.1120520761351993603.davem@davemloft.net>
-References: <20111122230541.f2f96c9e.shimoda.hiroaki@gmail.com>
+Subject: Re: [PATCH 0/2] net: Add network priority cgroup (v4)
+Date: Tue, 22 Nov 2011 15:23:15 -0500 (EST)
+Message-ID: <20111122.152315.2256366823688148380.davem@davemloft.net>
+References: <1321476666-8225-1-git-send-email-nhorman@tuxdriver.com>
+	<1321974652-8318-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mcarlson@broadcom.com, mchan@broadcom.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: shimoda.hiroaki@gmail.com
+Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com,
+	robert.w.love@intel.com
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53400 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:53467 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753146Ab1KVUSK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 15:18:10 -0500
-In-Reply-To: <20111122230541.f2f96c9e.shimoda.hiroaki@gmail.com>
+	with ESMTP id S1756381Ab1KVUY0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 15:24:26 -0500
+In-Reply-To: <1321974652-8318-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-Date: Tue, 22 Nov 2011 23:05:41 +0900
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Tue, 22 Nov 2011 10:10:50 -0500
 
-> Commit 28011cf19b (net: Add ethtool to mii advertisment conversion
-> helpers) added a helper function ethtool_adv_to_mii_100bt() and
-> tg3_copper_is_advertising_all(), tg3_phy_autoneg_cfg() were
-> modified to use this.
-> Before that commit, ethtool to mii advertisement conversion was
-> done wrt speed, but now pause operation is also taken account.
-> So, in tg3_copper_is_advertising_all(), below condition becomes
-> true and this makes link up fails.
+> (v2)
+> Based on reviews from John F., Amerigo Wang and Neerav Parikh, I've cleaned up
+> the rcu locking, fixed a memory leak in an error path, and corrected some typos.
 > 
-> 	if ((adv_reg & ADVERTISE_ALL) != all_mask)
-> 		return 0;
+> (v3)
+> Converted rcu_dereference to rntl_dereference where appropriate as per request
+> from John F.
 > 
-> To fix this add ADVERTISE_ALL bit and operation to cap speed,
-> and change default advertisement not including ADVERTISED_Pause.
+> (v4)
+> Cleaned up some spacing issues, and optimized the skb_update_priority path as
+> per request from Dave M.
 > 
-> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-> ---
-> V2: change default advertisement not including ADVERTISED_Pause
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> CC: Robert Love <robert.w.love@intel.com>
+> CC: "David S. Miller" <davem@davemloft.net>
 
-I'll apply this, thank you.
+Applied and going through some build testing now, thanks Neil.
