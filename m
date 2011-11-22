@@ -1,83 +1,49 @@
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH net-next-2.6] atm: eliminate atm_guess_pdu2truesize()
-Date: Tue, 22 Nov 2011 17:51:56 -0500
-Message-ID: <201111222251.pAMMpujb007390@cmf.nrl.navy.mil>
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Jun Zhao <mypopydev@gmail.com>
+Subject: Re: [patch v2 1/1] fix error handle in ip_mc_add_src()
+Date: Wed, 23 Nov 2011 07:08:21 +0800
+Message-ID: <1322003302.4977.3.camel@barry.pixelworks.com>
+References: <1321891516.14281.62.camel@barry.pixelworks.com>
+	 <20111122.162237.1924632736368263053.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	dlstevens@us.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:49741 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753104Ab1KVWwt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 17:52:49 -0500
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:55495 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752726Ab1KVXKQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 18:10:16 -0500
+Received: by iage36 with SMTP id e36so806191iag.19
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 15:10:15 -0800 (PST)
+In-Reply-To: <20111122.162237.1924632736368263053.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+On Tue, 2011-11-22 at 16:22 -0500, David Miller wrote:
+> From: Jun Zhao <mypopydev@gmail.com>
+> Date: Tue, 22 Nov 2011 00:05:16 +0800
+> 
+> > from: Jun Zhao <mypopydev@gmail.com>
+> > 
+> > When add sources to interface failure, need to roll back the sfcount[MODE] 
+> > to before state. We need to match it corresponding. 
+> > 
+> > Acked-by: David L Stevens <dlstevens@us.ibm.com>
+> > Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> > Signed-off-by: Jun Zhao <mypopydev@gmail.com>
+> 
+> Please use an appropriate prefix in your subject line after the
+> closing "]" bracket.  For example, something like "ipv4: " for this
+> specific patch is fine.
+> 
+> Your patch has also been corrupted by your email client, it turned tab
+> characters into spaces amongst other things.  Please correct this,
+> email a test patch to yourself, and make absolutely sure you are able
+> to successfully apply it before you retry submitting your fix here.
+> 
+> Thank you.
 
-Signed-off-by: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
----
- drivers/atm/iphase.c   |    4 ++--
- include/linux/atmdev.h |   10 ----------
- net/atm/atm_misc.c     |    2 +-
- 3 files changed, 3 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/atm/iphase.c b/drivers/atm/iphase.c
-index 3d0c2b0..9e373ba 100644
---- a/drivers/atm/iphase.c
-+++ b/drivers/atm/iphase.c
-@@ -1320,8 +1320,8 @@ static void rx_dle_intr(struct atm_dev *dev)
-           if (ia_vcc == NULL)
-           {
-              atomic_inc(&vcc->stats->rx_err);
-+             atm_return(vcc, skb->truesize);
-              dev_kfree_skb_any(skb);
--             atm_return(vcc, atm_guess_pdu2truesize(len));
-              goto INCR_DLE;
-            }
-           // get real pkt length  pwang_test
-@@ -1334,8 +1334,8 @@ static void rx_dle_intr(struct atm_dev *dev)
-              atomic_inc(&vcc->stats->rx_err);
-              IF_ERR(printk("rx_dle_intr: Bad  AAL5 trailer %d (skb len %d)", 
-                                                             length, skb->len);)
-+             atm_return(vcc, skb->truesize);
-              dev_kfree_skb_any(skb);
--             atm_return(vcc, atm_guess_pdu2truesize(len));
-              goto INCR_DLE;
-           }
-           skb_trim(skb, length);
-diff --git a/include/linux/atmdev.h b/include/linux/atmdev.h
-index 43ea1b2..f4ff882 100644
---- a/include/linux/atmdev.h
-+++ b/include/linux/atmdev.h
-@@ -445,16 +445,6 @@ void vcc_insert_socket(struct sock *sk);
- 
- void atm_dev_release_vccs(struct atm_dev *dev);
- 
--/*
-- * This is approximately the algorithm used by alloc_skb.
-- *
-- */
--
--static inline int atm_guess_pdu2truesize(int size)
--{
--	return SKB_TRUESIZE(size);
--}
--
- 
- static inline void atm_force_charge(struct atm_vcc *vcc,int truesize)
- {
-diff --git a/net/atm/atm_misc.c b/net/atm/atm_misc.c
-index f41f026..876fbe8 100644
---- a/net/atm/atm_misc.c
-+++ b/net/atm/atm_misc.c
-@@ -26,7 +26,7 @@ struct sk_buff *atm_alloc_charge(struct atm_vcc *vcc, int pdu_size,
- 				 gfp_t gfp_flags)
- {
- 	struct sock *sk = sk_atm(vcc);
--	int guess = atm_guess_pdu2truesize(pdu_size);
-+	int guess = SKB_TRUESIZE(pdu_size);
- 
- 	atm_force_charge(vcc, guess);
- 	if (atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf) {
--- 
-1.7.6
+Ok, I will double-check this according to your comments, after that,
+re-submit the patch, Tks.
