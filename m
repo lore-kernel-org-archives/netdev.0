@@ -1,113 +1,56 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH net-next] atm: use SKB_TRUESIZE() in
- atm_guess_pdu2truesize()
-Date: Tue, 22 Nov 2011 15:22:07 -0500
-Message-ID: <20111122152207.114bcd68@thirdoffive.cmf.nrl.navy.mil>
-References: <1321941094.27077.14.camel@edumazet-laptop>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 0/2] net: Add network priority cgroup (v4)
+Date: Tue, 22 Nov 2011 15:39:38 -0500
+Message-ID: <20111122203938.GB4207@hmsreliant.think-freely.org>
+References: <1321476666-8225-1-git-send-email-nhorman@tuxdriver.com>
+ <1321974652-8318-1-git-send-email-nhorman@tuxdriver.com>
+ <20111122.152315.2256366823688148380.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com,
+	robert.w.love@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:53494 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754496Ab1KVUgx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 15:36:53 -0500
-In-Reply-To: <1321941094.27077.14.camel@edumazet-laptop>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:37277 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753078Ab1KVUjo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 15:39:44 -0500
+Content-Disposition: inline
+In-Reply-To: <20111122.152315.2256366823688148380.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-it doesnt seem like a good idea to create a wrapper for a one to one
-call.  perhaps this whole bit of nonsense should be removed.  the
-iphase driver should be returning skb->truesize like everyone.  
-
-if atm_alloc_charge() just uses SKB_TRUESIZE() then we konw that guess
-will be the same as skb->truesize and atm_alloc_charge() can be
-simplified by removing atomic_add(skb->truesize - guess, which will be
-0 in all cases.
-
-something like:
-
-diff --git a/drivers/atm/iphase.c b/drivers/atm/iphase.c
-index 3d0c2b0..9e373ba 100644
---- a/drivers/atm/iphase.c
-+++ b/drivers/atm/iphase.c
-@@ -1320,8 +1320,8 @@ static void rx_dle_intr(struct atm_dev *dev)
-           if (ia_vcc == NULL)
-           {
-              atomic_inc(&vcc->stats->rx_err);
-+             atm_return(vcc, skb->truesize);
-              dev_kfree_skb_any(skb);
--             atm_return(vcc, atm_guess_pdu2truesize(len));
-              goto INCR_DLE;
-            }
-           // get real pkt length  pwang_test
-@@ -1334,8 +1334,8 @@ static void rx_dle_intr(struct atm_dev *dev)
-              atomic_inc(&vcc->stats->rx_err);
-              IF_ERR(printk("rx_dle_intr: Bad  AAL5 trailer %d (skb len %d)", 
-                                                             length, skb->len);)
-+             atm_return(vcc, skb->truesize);
-              dev_kfree_skb_any(skb);
--             atm_return(vcc, atm_guess_pdu2truesize(len));
-              goto INCR_DLE;
-           }
-           skb_trim(skb, length);
-diff --git a/net/atm/atm_misc.c b/net/atm/atm_misc.c
-index f41f026..073fd99 100644
---- a/net/atm/atm_misc.c
-+++ b/net/atm/atm_misc.c
-@@ -26,19 +26,16 @@ struct sk_buff *atm_alloc_charge(struct atm_vcc *vcc, int pdu_size,
-                                 gfp_t gfp_flags)
- {
-        struct sock *sk = sk_atm(vcc);
--       int guess = atm_guess_pdu2truesize(pdu_size);
-+       int truesize = SKB_TRUESIZE(pdu_size);
- 
--       atm_force_charge(vcc, guess);
-+       atm_force_charge(vcc, truesize);
-        if (atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf) {
-                struct sk_buff *skb = alloc_skb(pdu_size, gfp_flags);
- 
--               if (skb) {
--                       atomic_add(skb->truesize-guess,
--                                  &sk->sk_rmem_alloc);
-+               if (skb)
-                        return skb;
--               }
-        }
--       atm_return(vcc, guess);
-+       atm_return(vcc, truesize);
-        atomic_inc(&vcc->stats->rx_drop);
-        return NULL;
- }
-
-
-On Tue, 22 Nov 2011 06:51:34 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-
-> SKB_TRUESIZE() provides a better approximation of expected skb truesize.
+On Tue, Nov 22, 2011 at 03:23:15PM -0500, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Tue, 22 Nov 2011 10:10:50 -0500
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
->  include/linux/atmdev.h |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> > (v2)
+> > Based on reviews from John F., Amerigo Wang and Neerav Parikh, I've cleaned up
+> > the rcu locking, fixed a memory leak in an error path, and corrected some typos.
+> > 
+> > (v3)
+> > Converted rcu_dereference to rntl_dereference where appropriate as per request
+> > from John F.
+> > 
+> > (v4)
+> > Cleaned up some spacing issues, and optimized the skb_update_priority path as
+> > per request from Dave M.
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> > Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> > CC: Robert Love <robert.w.love@intel.com>
+> > CC: "David S. Miller" <davem@davemloft.net>
 > 
-> diff --git a/include/linux/atmdev.h b/include/linux/atmdev.h
-> index 49a83ca..43ea1b2 100644
-> --- a/include/linux/atmdev.h
-> +++ b/include/linux/atmdev.h
-> @@ -452,7 +452,7 @@ void atm_dev_release_vccs(struct atm_dev *dev);
->  
->  static inline int atm_guess_pdu2truesize(int size)
->  {
-> -	return SKB_DATA_ALIGN(size) + sizeof(struct skb_shared_info);
-> +	return SKB_TRUESIZE(size);
->  }
->  
->  
-> 
-> 
+> Applied and going through some build testing now, thanks Neil.
+Thanks Dave!  I tested here building separately with:
+CONFIG_CGROUPS=n
+CONFIG_CROUPS=y && CONFIG_NETPRIO_CGROUP=y
+CONFIG_CROUPS=y && CONFIG_NETPRIO_CGROUP=m
+
+So you should be square, but theres rarely any valid accounting for my ability
+to screw something up :)
+
+
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
