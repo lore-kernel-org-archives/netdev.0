@@ -1,42 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] net: Add network priority cgroup (v4)
-Date: Tue, 22 Nov 2011 15:23:15 -0500 (EST)
-Message-ID: <20111122.152315.2256366823688148380.davem@davemloft.net>
-References: <1321476666-8225-1-git-send-email-nhorman@tuxdriver.com>
-	<1321974652-8318-1-git-send-email-nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2] xfrm: optimize ipv4 selector matching
+Date: Tue, 22 Nov 2011 15:27:34 -0500 (EST)
+Message-ID: <20111122.152734.1823043516337464576.davem@davemloft.net>
+References: <1321974652.2474.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<AE90C24D6B3A694183C094C60CF0A2F6D8AED9@saturn3.aculab.com>
+	<20111122164602.GC25127@p183.telecom.by>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com,
-	robert.w.love@intel.com
-To: nhorman@tuxdriver.com
+Cc: David.Laight@ACULAB.COM, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53467 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:53501 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756381Ab1KVUY0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 15:24:26 -0500
-In-Reply-To: <1321974652-8318-1-git-send-email-nhorman@tuxdriver.com>
+	with ESMTP id S1757619Ab1KVU1k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 15:27:40 -0500
+In-Reply-To: <20111122164602.GC25127@p183.telecom.by>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Tue, 22 Nov 2011 10:10:50 -0500
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Tue, 22 Nov 2011 19:46:02 +0300
 
-> (v2)
-> Based on reviews from John F., Amerigo Wang and Neerav Parikh, I've cleaned up
-> the rcu locking, fixed a memory leak in an error path, and corrected some typos.
+> Current addr_match() is errh, under-optimized.
 > 
-> (v3)
-> Converted rcu_dereference to rntl_dereference where appropriate as per request
-> from John F.
+> Compiler doesn't know that memcmp() branch doesn't trigger for IPv4.
+> Also, pass addresses by value -- they fit into register.
 > 
-> (v4)
-> Cleaned up some spacing issues, and optimized the skb_update_priority path as
-> per request from Dave M.
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> CC: Robert Love <robert.w.love@intel.com>
-> CC: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-Applied and going through some build testing now, thanks Neil.
+Applied, thanks.
