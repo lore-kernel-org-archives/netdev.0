@@ -1,37 +1,65 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Tue, 22 Nov 2011 10:41:02 -0600 (CST)
-Message-ID: <alpine.DEB.2.00.1111221040300.28197@router.home>
-References: <alpine.DEB.2.00.1111221033350.28197@router.home>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH v2] xfrm: optimize ipv4 selector matching
+Date: Tue, 22 Nov 2011 19:46:02 +0300
+Message-ID: <20111122164602.GC25127@p183.telecom.by>
+References: <1321974652.2474.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <AE90C24D6B3A694183C094C60CF0A2F6D8AED9@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII
-Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
-  Christian Kujau <lists@nerdbynature.de>,
-  Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-  "Alex,Shi" <alex.shi@intel.com>,
-  "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-  "linux-mm@kvack.org" <linux-mm@kvack.org>,
-  Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
-  "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.00.1111221033350.28197@router.home>
-Content-ID: <alpine.DEB.2.00.1111221040302.28197@router.home>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:60172 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753701Ab1KVQqH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 11:46:07 -0500
+Received: by bke11 with SMTP id 11so416265bke.19
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 08:46:06 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6D8AED9@saturn3.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 22 Nov 2011, Christoph Lameter wrote:
+Current addr_match() is errh, under-optimized.
 
-> It may be easier to simply disable interrupts early in __slab_free
-> if debugging is on. Doesnt look nice right now. Draft patch (not tested
-> yet):
+Compiler doesn't know that memcmp() branch doesn't trigger for IPv4.
+Also, pass addresses by value -- they fit into register.
 
-Well thats not enough. We have to take the slab_lock to stop validate_slab
-from checking up on things.
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+ include/net/xfrm.h     |    8 ++++++++
+ net/xfrm/xfrm_policy.c |    4 ++--
+ 2 files changed, 10 insertions(+), 2 deletions(-)
+
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -827,6 +827,14 @@ static inline bool addr_match(const void *token1, const void *token2,
+ 	return true;
+ }
+ 
++static inline bool addr4_match(__be32 a1, __be32 a2, u8 prefixlen)
++{
++	/* C99 6.5.7 (3): u32 << 32 is undefined behaviour */
++	if (prefixlen == 0)
++		return true;
++	return !((a1 ^ a2) & htonl(0xFFFFFFFFu << (32 - prefixlen)));
++}
++
+ static __inline__
+ __be16 xfrm_flowi_sport(const struct flowi *fl, const union flowi_uli *uli)
+ {
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -61,8 +61,8 @@ __xfrm4_selector_match(const struct xfrm_selector *sel, const struct flowi *fl)
+ {
+ 	const struct flowi4 *fl4 = &fl->u.ip4;
+ 
+-	return  addr_match(&fl4->daddr, &sel->daddr, sel->prefixlen_d) &&
+-		addr_match(&fl4->saddr, &sel->saddr, sel->prefixlen_s) &&
++	return  addr4_match(fl4->daddr, sel->daddr.a4, sel->prefixlen_d) &&
++		addr4_match(fl4->saddr, sel->saddr.a4, sel->prefixlen_s) &&
+ 		!((xfrm_flowi_dport(fl, &fl4->uli) ^ sel->dport) & sel->dport_mask) &&
+ 		!((xfrm_flowi_sport(fl, &fl4->uli) ^ sel->sport) & sel->sport_mask) &&
+ 		(fl4->flowi4_proto == sel->proto || !sel->proto) &&
