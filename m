@@ -1,53 +1,51 @@
-From: Ari Savolainen <ari.m.savolainen@gmail.com>
-Subject: Re: 3.2-rc2+: Reported regressions from 3.0 and 3.1
-Date: Tue, 22 Nov 2011 07:27:03 +0200
-Message-ID: <CAEbykaWN_PMQh_KJEhO0XQZwcUoOad8bugruX+9NbGszVp=2Hw@mail.gmail.com>
-References: <lx6sezwGldO.A.IhF.UBpWOB@chimera>
-	<201111212249.31196.rjw@sisk.pl>
-	<CA+55aFyceMKgS-YRv=r=FrHQ1P9=z7=2PC5gvZcCHoYKnzn_Aw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Get TOS from IP header
+Date: Tue, 22 Nov 2011 06:31:00 +0100
+Message-ID: <1321939860.27077.10.camel@edumazet-laptop>
+References: <A2354B6A9F807641B21EEABD666ECEEA01F7DDEC@XMB-BGL-416.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>,
-	Florian Mickler <florian@mickler.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.freedesktop.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
+Cc: netdev@vger.kernel.org
+To: "Naveen B N (nbn)" <nbn@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:53362 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751159Ab1KVF1G convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 00:27:06 -0500
-In-Reply-To: <CA+55aFyceMKgS-YRv=r=FrHQ1P9=z7=2PC5gvZcCHoYKnzn_Aw@mail.gmail.com>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:38910 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750815Ab1KVFbD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 00:31:03 -0500
+Received: by wwe3 with SMTP id 3so6676861wwe.1
+        for <netdev@vger.kernel.org>; Mon, 21 Nov 2011 21:31:02 -0800 (PST)
+In-Reply-To: <A2354B6A9F807641B21EEABD666ECEEA01F7DDEC@XMB-BGL-416.cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/11/22 Linus Torvalds <torvalds@linux-foundation.org>:
-> On Mon, Nov 21, 2011 at 1:49 PM, Rafael J. Wysocki <rjw@sisk.pl> wrot=
-e:
->>
->> Subject =A0 =A0: lockdep warning after aa6afca5bcab: "proc: fix race=
-s against execve() of /proc/PID/fd**"
->> Submitter =A0: Ari Savolainen <ari.m.savolainen@gmail.com>
->> Date =A0 =A0 =A0 : 2011-11-08 3:47
->> Message-ID : CAEbykaXYZEFhTgWMm2AfaWQ2SaXYuO_ypTnw+6AVWScOYSCuuw@mai=
-l.gmail.com
->> References : http://marc.info/?l=3Dlinux-kernel&m=3D132072413125099&=
-w=3D2
->
-> Commit aa6afca5bcab was reverted by commit 5e442a493fc5, so this one
-> is presumably stale.
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Linus
+Le mardi 22 novembre 2011 =C3=A0 07:06 +0530, Naveen B N (nbn) a =C3=A9=
+crit :
+> Hi All,
+>=20
+> I want  to get the TOS field content from IP header at=20
+> my application which is using SCTP protocol.
+> I know that it can be done by Using RAW socket but=20
+> There is a over head of implementing the sctp at the=20
+> Application layer .=20
+> Is there a better way of getting a TOS field filled
+> Which we received from IP header.
+>=20
+> I taught of adding code in kernel to recognize a socket option at the=
+ kernel,
+> If this option is set just and get TOS contents in receive .
+>=20
+> Please let me know if this is the way to go about it or is there=20
+> A better way to achieve the same .
+>=20
 
-Yes, this went away after the reversion.
+I believe SCTP is not yet described in "man 7 ip", but since its
+obviously an IP protocol, all things described in this man page should
+work.
 
-Ari
+       IP_RECVTOS (since Linux 2.2)
+              If enabled the IP_TOS ancillary message is passed with  i=
+ncoming  packets.
+              It contains a byte which specifies the Type of Service/Pr=
+ecedence field of
+              the packet header.  Expects a boolean integer flag.
