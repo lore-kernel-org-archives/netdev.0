@@ -1,85 +1,69 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Subject: Re: [Devel] Re: [PATCH v5 00/10] per-cgroup tcp memory pressure
-Date: Tue, 22 Nov 2011 11:07:07 +0900
-Message-ID: <20111122110707.377ff8ef.kamezawa.hiroyu@jp.fujitsu.com>
-References: <1320679595-21074-1-git-send-email-glommer@parallels.com>
-	<4EBAC04F.1010901@parallels.com>
-	<1321381632.3021.57.camel@dabdike.int.hansenpartnership.com>
-	<20111117.163501.1963137869848419475.davem@davemloft.net>
-	<4EC6B457.4010502@parallels.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+Date: Tue, 22 Nov 2011 13:17:15 +1100
+Message-ID: <1321928235.13860.31.camel@pasglop>
+References: <20111121131531.GA1679@x4.trippels.de>
+	 <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121153621.GA1678@x4.trippels.de>
+	 <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121161036.GA1679@x4.trippels.de>
+	 <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121173556.GA1673@x4.trippels.de>
+	 <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121185215.GA1673@x4.trippels.de>
+	 <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop>
+	 <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <jbottomley@parallels.com>,
- <eric.dumazet@gmail.com>, <linux-kernel@vger.kernel.org>,
- <netdev@vger.kernel.org>, <paul@paulmenage.org>, <lizf@cn.fujitsu.com>,
- <linux-mm@kvack.org>, <devel@openvz.org>, <kirill@shutemov.name>,
- <gthelen@google.com>
-To: Glauber Costa <glommer@parallels.com>
+Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
+        Eric Dumazet
+ <eric.dumazet@gmail.com>,
+        "Alex,Shi" <alex.shi@intel.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-mm@kvack.org" <linux-mm@kvack.org>,
+        Christoph Lameter
+ <cl@linux-foundation.org>,
+        Pekka Enberg <penberg@kernel.org>, Matt Mackall
+ <mpm@selenic.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Tejun Heo <tj@kernel.org>
+To: Christian Kujau <lists@nerdbynature.de>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4EC6B457.4010502@parallels.com>
+In-Reply-To: <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 18 Nov 2011 17:39:03 -0200
-Glauber Costa <glommer@parallels.com> wrote:
-
-> On 11/17/2011 07:35 PM, David Miller wrote:
-> > TCP specific stuff in mm/memcontrol.c, at best that's not nice at all.
+On Mon, 2011-11-21 at 16:21 -0800, Christian Kujau wrote:
+> On Tue, 22 Nov 2011 at 07:27, Benjamin Herrenschmidt wrote:
+> > Note that I hit a similar looking crash (sorry, I couldn't capture a
+> > backtrace back then) on a PowerMac G5 (ppc64) while doing a large rsync
+> > transfer yesterday with -rc2-something (cfcfc9ec) and 
+> > Christian Kujau (CC) seems to be able to reproduce something similar on
+> > some other ppc platform (Christian, what is your setup ?)
 > 
-> How crucial is that? Thing is that as far as I am concerned, all the 
-> memcg people really want the inner layout of struct mem_cgroup to be 
-> private to memcontrol.c 
-
-This is just because memcg is just related to memory management and I don't
-want it be wide spreaded, 'struct mem_cgroup' has been changed often.
-
-But I don't like to have TCP code in memcgroup.c.
-
-New idea is welcome.
-
-> This means that at some point, we need to have
-> at least a wrapper in memcontrol.c that is able to calculate the offset
-> of the tcp structure, and since most functions are actually quite 
-> simple, that would just make us do more function calls.
+> I seem to hit it with heavy disk & cpu IO is in progress on this PowerBook 
+> G4. Full dmesg & .config: http://nerdbynature.de/bits/3.2.0-rc1/oops/
 > 
-> Well, an alternative to that would be to use a void pointer in the newly 
-> added struct cg_proto to an already parsed memcg-related field
-> (in this case tcp_memcontrol), that would be passed to the functions
-> instead of the whole memcg structure. Do you think this would be 
-> preferable ?
+> I've enabled some debug options and now it really points to slub.c:2166
 > 
-like this ?
+>    http://nerdbynature.de/bits/3.2.0-rc1/oops/oops4m.jpg
+> 
+> With debug options enabled I'm currently in the xmon debugger, not sure 
+> what to make of it yet, I'll try to get something useful out of it :)
 
-struct mem_cgroup_sub_controls {
-	struct mem_cgroup *mem;
-	union {
-		struct tcp_mem_control tcp;
-	} data;
-};
-/* for loosely coupled controls for memcg */
-struct memcg_sub_controls_function
-{
-	struct memcg_sub_controls	(*create)(struct mem_cgroup *);
-	struct memcg_sub_controls	(*destroy)(struct mem_cgroup *);
-}
+Is your powerbook one of those who can actually use xmon ? (ie, keyboard
+is working ? If it's usb it won't but if it's adb it will).
 
-int register_memcg_sub_controls(char *name, 
-		struct memcg_sub_controls_function *abis);
+You probably landed there too late tho, after the corruption happened.
 
+What would be useful would be to see if you can reproduce with SLAB
+and/or after backing out the cpu partial functionality.
 
-struct mem_cgroup {
-	.....
-	.....
-	/* Root memcg will have no sub_controls! */
-	struct memcg_sub_controls	*sub_controls[NR_MEMCG_SUB_CONTROLS];
-}
+Cheers,
+Ben.
 
-
-Maybe some functions should be exported. 
-
-Thanks,
--Kame
 
 
 --
