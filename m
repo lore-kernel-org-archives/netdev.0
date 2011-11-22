@@ -1,62 +1,52 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: drivers/net: Kconfig & Makefile cleanup
-Date: Tue, 22 Nov 2011 06:51:02 +0000
-Message-ID: <1321944662.2839.222.camel@deadeye>
-References: <1321944512.2839.219.camel@deadeye>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: 3.2-rc2+: Reported regressions from 3.0 and 3.1
+Date: Mon, 21 Nov 2011 23:16:25 -0800
+Message-ID: <CALCETrXP63VYU6mvxuUJKq7uJ-a3LG6c4t6asQFGUsJnrP6_ow@mail.gmail.com>
+References: <lx6sezwGldO.A.IhF.UBpWOB@chimera> <201111212249.31196.rjw@sisk.pl>
+ <CA+55aFwAELQieN=qR7Gz_MT5rHPp90H10uTMS+DOJjefk7q3ng@mail.gmail.com> <CALCETrUpXrsjBLZsZU3u+y7KCDO0LW55QoBQkBqN_BPFZHsrkw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-xgh/mmn4iWPPcfI3QiV3"
-Cc: netdev <netdev@vger.kernel.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54197 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755240Ab1KVGvL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 01:51:11 -0500
-In-Reply-To: <1321944512.2839.219.camel@deadeye>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>
+To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CALCETrUpXrsjBLZsZU3u+y7KCDO0LW55QoBQkBqN_BPFZHsrkw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Nov 21, 2011 at 2:34 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> =
+wrote:
+> On Mon, Nov 21, 2011 at 2:11 PM, Linus Torvalds
+> <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> wrote:
+>> On Mon, Nov 21, 2011 at 1:49 PM, Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org> wro=
+te:
+>>>
+>>> Subject =A0 =A0: [3.1 REGRESSION] Commit 5cec93c216db77c45f7ce970d4=
+6283bcb1933884 breaks the Chromium seccomp sandbox
+>>> Submitter =A0: Nix <nix-dKoSMcxRz+Te9xe1eoZjHA@public.gmane.org>
+>>> Date =A0 =A0 =A0 : 2011-11-14 0:40
+>>> Message-ID : 8762inleno.fsf-AdTWujXS48Mg67Zj9sPl2A@public.gmane.org
+>>> References : http://marc.info/?l=3Dlinux-kernel&m=3D132123396226377=
+&w=3D2
+>>
 
---=-xgh/mmn4iWPPcfI3QiV3
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+This is apparently fixed in seccompsandbox.  See:
 
-You wrote that (some time ago now):
-> As a side cleanup, found that the arcnet, token ring, and PHY
-> Kconfig options were a tri-state option and should have been
-> a bool option.
+https://code.google.com/p/seccompsandbox/issues/detail?id=3D17
+https://code.google.com/p/seccompsandbox/source/detail?r=3D178
 
-How did you decide that?  This seems to be correct for TR, but ARCNET
-and PHYLIB each select some support code that can be built as a module
-(and which has been, in Debian).
+Unless someone objects, I'll consider this to not be a kernel
+regression worth fixing.
 
-Ben.
-
---=20
-Ben Hutchings
-Teamwork is essential - it allows you to blame someone else.
-
---=-xgh/mmn4iWPPcfI3QiV3
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIVAwUATstGVue/yOyVhhEJAQrguxAAiWmU5sWYJ2ytzjmUA471L5AEz0UQRaQy
-ZkwFuqpcA38CFPoJ/L1FfXQma3cpw7ic+Ib70b6rBl1lCKWw3oDZYdPcRv+CHe7A
-mTXQ2Q7TlrcQRYyXE6NQsD6cbnC2zr6pPylTGlTP25pST4PqN885vJZTVaM5olXG
-VUoLYlomktQLffJumCGZHF2SzdwPRNxqJ0CuLIJvWQ3CSLgQA45E22cQtuwTm75S
-LwwBmdMjBlPJshu8tooyouF5J6Q8B7aVNXd3ziDA0Xyfr/dn9MRuFNgV07rTXr+Q
-s87eeKr3PHhFW9HCfkZJeRUztA8Qixv5nyicDYJHIAnIWvr+yQFRVQK3J1w1QcDQ
-N6EtJxRryaxydoRt+gO/cvEL70HmwsVqv4LqKRMwsIILdSJ5XJOuxXPCCT8PQ50y
-l+gAOLuTQbYp5RAmAjX8w8oplhQGTKvJobvmOwt1CKKeSb55tA1IVrAQYTALdlK9
-BylUm9bQu2m28gfBgx9KV5bn6qYZ3ubeaBPc3p3ys3WjgL8R8L/n7oSdbNIWgLMs
-g0B6IH8JpNDv6Vw/PE8rmfOSFhGIkydhgApekkgx7d5sMD/NEx//2hrrAsyBsJ0x
-qbtrPAt/diC8vumhRszVZnI+pHsN8jsgYt/KZDqXGohb4t6iKbkxgiJ1V3ij0xGX
-HkYmBFD5ylo=
-=Bdfh
------END PGP SIGNATURE-----
-
---=-xgh/mmn4iWPPcfI3QiV3--
+--Andy
