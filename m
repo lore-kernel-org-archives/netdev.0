@@ -1,60 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Tue, 22 Nov 2011 15:52:47 +0100
-Message-ID: <1321973567.2474.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20111121161036.GA1679@x4.trippels.de>
-	  <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	  <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	  <20111121173556.GA1673@x4.trippels.de>
-	  <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121185215.GA1673@x4.trippels.de>
-	  <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop>
-	  <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
-	  <alpine.DEB.2.00.1111212105330.19606@router.home>
-	  <20111122084513.GA1688@x4.trippels.de>
-	 <1321954729.2474.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1321955185.2474.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <alpine.DEB.2.00.1111220844400.25785@router.home>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] xfrm: optimize ipv4 selector matching
+Date: Tue, 22 Nov 2011 14:50:59 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AED7@saturn3.aculab.com>
+References: <20111122144334.GA22824@p183.telecom.by>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Markus Trippelsdorf <markus@trippelsdorf.de>, Christian Kujau
- <lists@nerdbynature.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-  "Alex,Shi" <alex.shi@intel.com>, "linux-kernel@vger.kernel.org"
- <linux-kernel@vger.kernel.org>,  "linux-mm@kvack.org" <linux-mm@kvack.org>,
- Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>
-To: Christoph Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.00.1111220844400.25785@router.home>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "Alexey Dobriyan" <adobriyan@gmail.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:48592 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1755482Ab1KVOww convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 09:52:52 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 26171-06 for <netdev@vger.kernel.org>;
+ Tue, 22 Nov 2011 14:52:49 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <20111122144334.GA22824@p183.telecom.by>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 22 novembre 2011 =C3=A0 08:46 -0600, Christoph Lameter a =C3=A9c=
-rit :
-> On Tue, 22 Nov 2011, Eric Dumazet wrote:
->=20
-> > I trigger a bug in less than 10 secondes, with this running while a
-> > "make -j16 " kernel build is run.
-> >
-> > while :; do slabinfo -v; done
->=20
-> Hmm.... Yeah there was limited testing on the debug features. There cou=
-ld
-> be something amiss there. Need to review the validation interactions wi=
-th
-> the new code.
->=20
->=20
+ 
+> +static inline int addr4_match(const __be32 a1, const __be32 
+> a2, const u8 prefixlen)
+> +{
+> +	/* C99 6.5.7 (3): u32 << 32 is undefined behaviour */
+> +	if (prefixlen == 0) {
+> +		/* Matching constants result in smaller assembly. */
+> +		return 0xFFFFFFFFu;
+> +	}
+> +	return !((a1 ^ a2) & htonl(0xFFFFFFFFu << (32 - prefixlen)));
+> +}
+> +
 
-Hmm... yes, we probably should take a look.
+It would probably be clearer to 'return 1' when prefixlen is zero.
 
+If this is a common path, might be worth caching
+    htonl(0xFFFFFFFFu << (32 - prefixlen))
+in the enclosing structure.
 
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
-.ca/
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+	David
