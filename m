@@ -1,37 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: remove netdev_alloc_page and use
- __GFP_COLD
-Date: Tue, 22 Nov 2011 16:52:03 -0500 (EST)
-Message-ID: <20111122.165203.2145992499287654130.davem@davemloft.net>
-References: <1321995461.19663.16.camel@edumazet-laptop>
+Subject: Re: [PATCH] net: remove ipv6_addr_copy()
+Date: Tue, 22 Nov 2011 16:53:24 -0500 (EST)
+Message-ID: <20111122.165324.1422154522209575302.davem@davemloft.net>
+References: <20111121133903.GA18453@p183.telecom.by>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com, dm@chelsio.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:54511 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:54526 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756865Ab1KVVwI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 16:52:08 -0500
-In-Reply-To: <1321995461.19663.16.camel@edumazet-laptop>
+	with ESMTP id S1752874Ab1KVVx2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 16:53:28 -0500
+In-Reply-To: <20111121133903.GA18453@p183.telecom.by>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 22 Nov 2011 21:57:41 +0100
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Mon, 21 Nov 2011 16:39:03 +0300
 
-> Given we dont use anymore the struct net_device *dev argument, and this
-> interface brings litle benefit, remove netdev_{alloc|free}_page(), to
-> debloat include/linux/skbuff.h a bit.
+> C assignment can handle struct in6_addr copying.
 > 
-> (Some drivers used a mix of these interfaces and alloc_pages())
-> 
-> When allocating a page given to device for DMA transfert (device to
-> memory), it makes sense to use a cold one (__GFP_COLD)
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> CC: Dimitris Michailidis <dm@chelsio.com>
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
 Fair enough, applied.
