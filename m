@@ -1,62 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] xfrm: optimize ipv4 selector matching
-Date: Tue, 22 Nov 2011 16:10:52 +0100
-Message-ID: <1321974652.2474.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20111122144334.GA22824@p183.telecom.by>
-	 <AE90C24D6B3A694183C094C60CF0A2F6D8AED7@saturn3.aculab.com>
-	 <20111122145940.GA24909@p183.telecom.by>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Laight <David.Laight@ACULAB.COM>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH 0/2] net: Add network priority cgroup (v4)
+Date: Tue, 22 Nov 2011 10:10:50 -0500
+Message-ID: <1321974652-8318-1-git-send-email-nhorman@tuxdriver.com>
+References: <1321476666-8225-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Robert Love <robert.w.love@intel.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:49205 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752739Ab1KVPK5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 10:10:57 -0500
-Received: by bke11 with SMTP id 11so309123bke.19
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 07:10:56 -0800 (PST)
-In-Reply-To: <20111122145940.GA24909@p183.telecom.by>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:53154 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756568Ab1KVPLB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 10:11:01 -0500
+In-Reply-To: <1321476666-8225-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 22 novembre 2011 =C3=A0 17:59 +0300, Alexey Dobriyan a =C3=A9c=
-rit :
-> On Tue, Nov 22, 2011 at 02:50:59PM -0000, David Laight wrote:
-> > =20
-> > > +static inline int addr4_match(const __be32 a1, const __be32=20
-> > > a2, const u8 prefixlen)
-> > > +{
-> > > +	/* C99 6.5.7 (3): u32 << 32 is undefined behaviour */
-> > > +	if (prefixlen =3D=3D 0) {
-> > > +		/* Matching constants result in smaller assembly. */
-> > > +		return 0xFFFFFFFFu;
-> > > +	}
-> > > +	return !((a1 ^ a2) & htonl(0xFFFFFFFFu << (32 - prefixlen)));
-> > > +}
-> > > +
-> >=20
-> > It would probably be clearer to 'return 1' when prefixlen is zero.
->=20
-> "return 1" results in bigger code.
-> This function used only in boolean context, so exact return value doe=
-sn't matter.
+
+Data Center Bridging environments are currently somewhat limited in their
+ability to provide a general mechanism for controlling traffic priority.
+Specifically they are unable to administratively control the priority at which
+various types of network traffic are sent.
+ 
+Currently, the only ways to set the priority of a network buffer are:
+
+1) Through the use of the SO_PRIORITY socket option
+2) By using low level hooks, like a tc action
+
+(1) is difficult from an administrative perspective because it requires that the
+application to be coded to not just assume the default priority is sufficient,
+and must expose an administrative interface to allow priority adjustment.  Such
+a solution is not scalable in a DCB environment
+
+(2) is also difficult, as it requires constant administrative oversight of
+applications so as to build appropriate rules to match traffic belonging to
+various classes, so that priority can be appropriately set. It is further
+limiting when DCB enabled hardware is in use, due to the fact that tc rules are
+only run after a root qdisc has been selected (DCB enabled hardware may reserve
+hw queues for various traffic classes and needs the priority to be set prior to
+selecting the root qdisc)
 
 
-Thats too ugly, sorry.
+I've discussed various solutions with John Fastabend, and we saw a cgroup as
+being a good general solution to this problem.  The network priority cgroup
+allows for a per-interface priority map to be built per cgroup.  Any traffic
+originating from an application in a cgroup, that does not explicitly set its
+priority with SO_PRIORITY will have its priority assigned to the value
+designated for that group on that interface.  This allows a user space daemon,
+when conducting LLDP negotiation with a DCB enabled peer to create a cgroup
+based on the APP_TLV value received and administratively assign applications to
+that priority using the existing cgroup utility infrastructure.
 
-Also, using "const" attributes on integral types (not pointers) make
-code less clear. Caller doesnt care if the implementation wants to
-change a1 or a2 or prefixlen.
+Tested by John and myself, with good results
 
-Please use :
+(v2)
+Based on reviews from John F., Amerigo Wang and Neerav Parikh, I've cleaned up
+the rcu locking, fixed a memory leak in an error path, and corrected some typos.
 
-+static inline bool addr4_match(__be32 a1, __be32 a2, u8 prefixlen)
-+{
-+       /* C99 6.5.7 (3): u32 << 32 is undefined behaviour */
-+       if (prefixlen =3D=3D 0)
-+               return true;
-+       return !((a1 ^ a2) & htonl(0xFFFFFFFFu << (32 - prefixlen)));
-+}
+(v3)
+Converted rcu_dereference to rntl_dereference where appropriate as per request
+from John F.
+
+(v4)
+Cleaned up some spacing issues, and optimized the skb_update_priority path as
+per request from Dave M.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+CC: Robert Love <robert.w.love@intel.com>
+CC: "David S. Miller" <davem@davemloft.net>
