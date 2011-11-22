@@ -1,65 +1,68 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: Re: [GIT PULL] Support for Cadence GEM in the MACB driver
-Date: Tue, 22 Nov 2011 15:59:22 +0100
-Message-ID: <20111122145922.GM21480@game.jcrosoft.org>
-References: <20111121100020.GB7314@totoro>
- <20111122100032.GL21480@game.jcrosoft.org>
- <20111122102039.GB8872@totoro>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+Date: Tue, 22 Nov 2011 09:02:27 -0600 (CST)
+Message-ID: <alpine.DEB.2.00.1111220900330.25785@router.home>
+References: <20111121161036.GA1679@x4.trippels.de>   <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>   <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>   <20111121173556.GA1673@x4.trippels.de>   <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+  <20111121185215.GA1673@x4.trippels.de>   <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop>   <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>   <alpine.DEB.2.00.1111212105330.19606@router.home>   <20111122084513.GA1688@x4.trippels.de>
+  <1321954729.2474.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <1321955185.2474.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <alpine.DEB.2.00.1111220844400.25785@router.home> <1321973567.2474.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	davem@davemloft.net
-To: Jamie Iles <jamie@jamieiles.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo2.mail-out.ovh.net ([178.32.228.2]:33017 "EHLO
-	mo2.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755641Ab1KVPBx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 10:01:53 -0500
-Received: from mail190.ha.ovh.net (b7.ovh.net [213.186.33.57])
-	by mo2.mail-out.ovh.net (Postfix) with SMTP id E41C5DC95AB
-	for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 16:08:12 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <20111122102039.GB8872@totoro>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811839-315387018-1321974150=:25785"
+Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
+  Christian Kujau <lists@nerdbynature.de>,
+  Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+  "Alex,Shi" <alex.shi@intel.com>,
+  "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+  "linux-mm@kvack.org" <linux-mm@kvack.org>,
+  Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
+  "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1321973567.2474.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 10:20 Tue 22 Nov     , Jamie Iles wrote:
-> Hi Jean-Christophe,
-> 
-> On Tue, Nov 22, 2011 at 11:00:32AM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> > On 10:00 Mon 21 Nov     , Jamie Iles wrote:
-> > > Hi Arnd,
-> > > 
-> > > Please consider pulling the patches to add support for Cadence GEM to 
-> > > the MACB driver.  These have been ready to go for a little while but got 
-> > > held up with the rename of Ethernet drivers in the last merge window.  
-> > > It would be great if we can get some exposure in -next for a little 
-> > > while before the next merge window.
-> > > 
-> > > Thanks,
-> > > 
-> > > Jamie
-> > > 
-> > > The following changes since commit cfcfc9eca2bcbd26a8e206baeb005b055dbf8e37:
-> > > 
-> > >   Linux 3.2-rc2 (2011-11-15 15:02:59 -0200)
-> > > 
-> > > are available in the git repository at:
-> > >   git://github.com/jamieiles/linux-2.6-ji.git macb-gem
-> > Arnd please wait
-> > 
-> > please update his patch
-> > 
-> > "at91: provide macb clks with "pclk" and "hclk" name"
-> > 
-> > with the version I send to the ML
-> 
-> Is that a patch that you've already posted or will be posting?
-http://patchwork.ozlabs.org/patch/109265/
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-but please specify the device too
+---1463811839-315387018-1321974150=:25785
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
-Best Regards,
-J.
+On Tue, 22 Nov 2011, Eric Dumazet wrote:
+
+> Le mardi 22 novembre 2011 =C3=A0 08:46 -0600, Christoph Lameter a =C3=A9c=
+rit :
+> > On Tue, 22 Nov 2011, Eric Dumazet wrote:
+> >
+> > > I trigger a bug in less than 10 secondes, with this running while a
+> > > "make -j16 " kernel build is run.
+> > >
+> > > while :; do slabinfo -v; done
+> >
+> > Hmm.... Yeah there was limited testing on the debug features. There cou=
+ld
+> > be something amiss there. Need to review the validation interactions wi=
+th
+> > the new code.
+> >
+> >
+>
+> Hmm... yes, we probably should take a look.
+
+Allright there is an obvious issue if debugging is off since the lockless
+paths do not take the page lock in that case but the validation logic
+does. Did you run the test with debugging on or off?
+
+Not sure what the solution is but the simplest would be to disable
+validation if lockless is active.
+
+
+
+---1463811839-315387018-1321974150=:25785--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
