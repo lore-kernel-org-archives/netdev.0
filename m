@@ -1,9 +1,10 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next v1 0/4] e1000e: ethtool
  setfeatures fixes + loopback
-Date: Tue, 22 Nov 2011 15:49:27 -0500 (EST)
-Message-ID: <20111122.154927.1808817488257424268.davem@davemloft.net>
+Date: Tue, 22 Nov 2011 15:49:47 -0500 (EST)
+Message-ID: <20111122.154947.1718064671878190578.davem@davemloft.net>
 References: <cover.1321917278.git.david.decotigny@google.com>
+	<20111122.154927.1808817488257424268.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,7 +14,7 @@ Cc: ian.campbell@citrix.com, paul.gortmaker@windriver.com,
 	john.ronciak@intel.com, netdev@vger.kernel.org
 To: david.decotigny@google.com
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <cover.1321917278.git.david.decotigny@google.com>
+In-Reply-To: <20111122.154927.1808817488257424268.davem@davemloft.net>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -25,9 +26,7 @@ Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
 
-I would like to see some discussion wrt. Jamal's feedback, which is that
-a lot of the side-band functionality added by this code is either 1) already
-doable with packet scheduler actions or 2) should be implemented there.
+Sorry I replied to the wrong posting :-/  My bad.
 
 ------------------------------------------------------------------------------
 All the data continuously generated in your IT infrastructure 
