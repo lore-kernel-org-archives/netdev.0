@@ -1,41 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2011-11-22 #2
-Date: Tue, 22 Nov 2011 18:17:57 -0500 (EST)
-Message-ID: <20111122.181757.1296497307756213535.davem@davemloft.net>
-References: <20111122215611.GI8452@tuxdriver.com>
-	<20111122.173729.1155753802137219940.davem@davemloft.net>
-	<20111122224108.GJ8452@tuxdriver.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next 4/4] net: Add Open vSwitch kernel
+	components.
+Date: Tue, 22 Nov 2011 18:19:30 -0500 (EST)
+Message-ID: <20111122.181930.1186109067515095173.davem@davemloft.net>
+References: <1321657938-21761-5-git-send-email-jesse@nicira.com>
+	<1321878007.2291.12.camel@mojatatu>
+	<CAEP_g=8puZh8hihoyoHTc4f6cBu4jiDJQ6tqk6suQxR=dchyjA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111122224108.GJ8452@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
+To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAEP_g=8puZh8hihoyoHTc4f6cBu4jiDJQ6tqk6suQxR=dchyjA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Tue, 22 Nov 2011 17:41:08 -0500
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Date: Tue, 22 Nov 2011 15:11:33 -0800
 
-> On Tue, Nov 22, 2011 at 05:37:29PM -0500, David Miller wrote:
-> ...
-> They're here...
-> 
->> 0003-rt2x00-Fix-efuse-EEPROM-reading-on-PPC32.patch
->> 0004-p54spi-Add-missing-spin_lock_init.patch
->> 0005-p54spi-Fix-workqueue-deadlock.patch
->> 0006-mac80211-Fix-AMSDU-rate-printout-in-debugfs.patch
->> 0007-mac80211-Fix-endian-bug-in-radiotap-header-generatio.patch
->> 0008-cfg80211-fix-regulatory-NULL-dereference.patch
->> 0009-prism54-potential-memory-corruption-in-prism54_get_e.patch
->> 0010-Revert-rt2x00-handle-spurious-pci-interrupts.patch
->> 0011-Revert-rt2800pci-handle-spurious-interrupts.patch
-> 
-> And I revert them here.
-> 
-> Linus always says to live with our mistakes?  I was trying to avoid
-> a rebase both for my own pain and that of my downstream maintainers.
+> As you mention, one of the biggest benefits of Open vSwitch is how
+> simple the kernel portions are (it's less than 6000 lines).  It's
+> existed as an out-of-tree project for several years now so it's
+> actually fairly mature already and unlikely that there will be a
+> sudden influx of new code over the coming months.
 
-Gotcha, I'll repull, thanks.
+The packet scheduler classification and packet action infrastructure
+has been around 5 times longer.
