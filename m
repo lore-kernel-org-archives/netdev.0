@@ -1,22 +1,31 @@
-From: "Roland Anthony" <VBKIEU_11NH@agu.edu.vn>
-Subject: CONGRAT!!!
-Date: Tue, 22 Nov 2011 20:42:42 +0100
-Message-ID: <20111122194459.7DDFA3E87CB@zimbra.aswara.edu.my>
-Reply-To: roland_1963@filipinos.ca
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next] Sweep away N/A fw_version dustbunnies from the .get_drvinfo routine of a number of drivers
+Date: Tue, 22 Nov 2011 23:22:35 +0100
+Message-ID: <20111122222235.GA24136@electric-eye.fr.zoreil.com>
+References: <20111121205405.A0FF1290041F@tardy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <VBKIEU_11NH@agu.edu.vn>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Rick Jones <raj@tardy.cup.hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [58.27.21.104] ([58.27.21.104]:39836 "EHLO zimbra.aswara.edu.my"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751698Ab1KVWV2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 17:21:28 -0500
-Content-Description: Mail message body
+Received: from violet.fr.zoreil.com ([92.243.8.30]:47890 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753536Ab1KVW3L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 17:29:11 -0500
+Content-Disposition: inline
+In-Reply-To: <20111121205405.A0FF1290041F@tardy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You Won =A3650,000.00GBP from Sony Ericsson Promotion,Nigeria 2011. Con=
-tact Mr. Roland Anthony with Ticket number: SCP/5000021/2011 (roland_19=
-63@filipinos.ca) for your winning claims with your Name,Address,Country=
-,Phone Number
+Rick Jones <raj@tardy.cup.hp.com> :
+[...]
+> Per discussion with Ben Hutchings and David Miller, go through and
+> remove assignments of "N/A" to fw_version in various drivers'
+> .get_drvinfo routines.  While there clean-up some use of bare
+> constants and such.
+
+Any reason why drivers/net/ethernet/realtek/r8169.c is left in the
+cold ?
+
+-- 
+Ueimor
