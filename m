@@ -1,47 +1,57 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: slub: Lockout validation scans during freeing of object
-Date: Tue, 22 Nov 2011 13:20:12 -0600 (CST)
-Message-ID: <alpine.DEB.2.00.1111221319070.30368@router.home>
-References: <alpine.DEB.2.00.1111221033350.28197@router.home> <alpine.DEB.2.00.1111221040300.28197@router.home> <alpine.DEB.2.00.1111221052130.28197@router.home> <1321982484.18002.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <alpine.DEB.2.00.1111221139240.28197@router.home>
- <20111122185540.GA1627@x4.trippels.de>
+From: David Decotigny <david.decotigny@google.com>
+Subject: [PATCH net-next v2 0/4] e1000e: ethtool setfeatures fixes + loopback
+Date: Tue, 22 Nov 2011 11:23:34 -0800
+Message-ID: <cover.1321989502.git.david.decotigny@google.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-  Christian Kujau <lists@nerdbynature.de>,
-  Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-  "Alex,Shi" <alex.shi@intel.com>,
-  "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-  "linux-mm@kvack.org" <linux-mm@kvack.org>,
-  Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
-  "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>
-To: Markus Trippelsdorf <markus@trippelsdorf.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20111122185540.GA1627@x4.trippels.de>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Decotigny <david.decotigny@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Nov 2011, Markus Trippelsdorf wrote:
+This series fixes a bug in ethtool setfeatures and adds loopback
+support through ethtool setfeatures.
 
-> On 2011.11.22 at 11:40 -0600, Christoph Lameter wrote:
-> > On Tue, 22 Nov 2011, Eric Dumazet wrote:
-> >
-> > > This seems better, but I still have some warnings :
-> >
-> > Trying to reproduce with a kernel configured to do preempt. This is
-> > actually quite interesting since its always off by 1.
->
-> BTW there are some obvious overflows in the "slabinfo -l" output on my machine:
+I believe these patches could easily be adapted to e1000, but I don't
+have the hardware to test.
 
-Could you get me the value of the "slabs" field for the slabs showing the
-wierd values. I.e. do
+Changes since v1:
+  - simplification in patch 1/4 (from Micha=C5=82 Miros=C5=82aw)
 
-cat /sys/kernel/slab/signal_cache/slabs
+############################################
+# Patch Set Summary:
 
-> signal_cache               268     920   360.4K 18446744073709551614/7/24   17 2  31  68 A
+David Decotigny (2):
+  net-e1000e: fix ethtool set_features taking new features into account
+    too late
+  net-e1000e: ethtool loopback support
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Maciej =C5=BBenczykowski (2):
+  net-e1000e: reworked carrier detection logic
+  net-e1000e: Report carrier in loopback mode
+
+ drivers/net/ethernet/intel/e1000e/e1000.h   |    2 +
+ drivers/net/ethernet/intel/e1000e/ethtool.c |    6 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c  |   32 +++++++++++-
+ drivers/net/ethernet/intel/e1000e/phy.c     |   69 +++++++++++++++++--=
+--------
+ 4 files changed, 78 insertions(+), 31 deletions(-)
+
+--=20
+1.7.3.1
