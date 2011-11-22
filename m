@@ -1,44 +1,74 @@
-From: Felipe Dias <felipediassss@gmail.com>
-Subject: Re: skb->timestamp == 0.000000 ?
-Date: Tue, 22 Nov 2011 11:04:45 -0300
-Message-ID: <CAJX4=r2XBGGzMFgeKC-TvZ-WQ9skwoBFA5na_XiLNqDn0U9V+Q@mail.gmail.com>
-References: <CAJX4=r3wTn9v6-5oEpGdeKkFjKsRLZwc76tE9M4FiVJX4Lpisg@mail.gmail.com>
-	<20111121211140.GB24753@d2.suse.de>
+From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Subject: [PATCH net-next V2] tg3: Fix advertisement handling
+Date: Tue, 22 Nov 2011 23:05:41 +0900
+Message-ID: <20111122230541.f2f96c9e.shimoda.hiroaki@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Benjamin Poirier <benjamin.poirier@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: davem@davemloft.net, mcarlson@broadcom.com, mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f66.google.com ([209.85.214.66]:38718 "EHLO
-	mail-bw0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753189Ab1KVOEr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 09:04:47 -0500
-Received: by bkbzt12 with SMTP id zt12so90618bkb.1
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 06:04:46 -0800 (PST)
-In-Reply-To: <20111121211140.GB24753@d2.suse.de>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:41296 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753189Ab1KVOFq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 09:05:46 -0500
+Received: by vcbfk1 with SMTP id fk1so234088vcb.19
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 06:05:46 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 21, 2011 at 6:11 PM, Benjamin Poirier
-<benjamin.poirier@gmail.com> wrote:
-> On 11/11/19 18:13, Felipe Dias wrote:
->> And time_skb.tv_sec and time_skb.tv_usec are equal to 0;
->>
->> I'm doing some wrong ?
->
-> Timestamps have to be enabled
-> have a look at:
-> net_enable_timestamp()
->
+Commit 28011cf19b (net: Add ethtool to mii advertisment conversion
+helpers) added a helper function ethtool_adv_to_mii_100bt() and
+tg3_copper_is_advertising_all(), tg3_phy_autoneg_cfg() were
+modified to use this.
+Before that commit, ethtool to mii advertisement conversion was
+done wrt speed, but now pause operation is also taken account.
+So, in tg3_copper_is_advertising_all(), below condition becomes
+true and this makes link up fails.
 
-who is responsible for enabling? Would not it be the driver?
+	if ((adv_reg & ADVERTISE_ALL) != all_mask)
+		return 0;
 
-Some packets (icmp) appear timestamp other packages do not appear.
+To fix this add ADVERTISE_ALL bit and operation to cap speed,
+and change default advertisement not including ADVERTISED_Pause.
 
-I'm confused, in my mind, after the registration of the "protocol
-handler" (with dev_add_pack) any skb should have the timestamp.
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+---
+V2: change default advertisement not including ADVERTISED_Pause
 
-Sorry, but I'm confused.
+ drivers/net/ethernet/broadcom/tg3.c |    7 +++----
+ 1 files changed, 3 insertions(+), 4 deletions(-)
 
-Best regards,
-Felipe.
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index d9e9c8c..ff3c48a 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -3594,7 +3594,7 @@ static int tg3_phy_autoneg_cfg(struct tg3 *tp, u32 advertise, u32 flowctrl)
+ 	u32 val, new_adv;
+ 
+ 	new_adv = ADVERTISE_CSMA;
+-	new_adv |= ethtool_adv_to_mii_adv_t(advertise);
++	new_adv |= ethtool_adv_to_mii_adv_t(advertise) & ADVERTISE_ALL;
+ 	new_adv |= tg3_advert_flowctrl_1000T(flowctrl);
+ 
+ 	err = tg3_writephy(tp, MII_ADVERTISE, new_adv);
+@@ -3778,7 +3778,7 @@ static int tg3_copper_is_advertising_all(struct tg3 *tp, u32 mask)
+ {
+ 	u32 adv_reg, all_mask = 0;
+ 
+-	all_mask = ethtool_adv_to_mii_adv_t(mask);
++	all_mask = ethtool_adv_to_mii_adv_t(mask) & ADVERTISE_ALL;
+ 
+ 	if (tg3_readphy(tp, MII_ADVERTISE, &adv_reg))
+ 		return 0;
+@@ -13199,8 +13199,7 @@ static u32 __devinit tg3_read_otp_phycfg(struct tg3 *tp)
+ 
+ static void __devinit tg3_phy_init_link_config(struct tg3 *tp)
+ {
+-	u32 adv = ADVERTISED_Autoneg |
+-		  ADVERTISED_Pause;
++	u32 adv = ADVERTISED_Autoneg;
+ 
+ 	if (!(tp->phy_flags & TG3_PHYFLG_10_100_ONLY))
+ 		adv |= ADVERTISED_1000baseT_Half |
