@@ -1,53 +1,71 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: 3.2-rc2+: Reported regressions from 3.0 and 3.1
-Date: Mon, 21 Nov 2011 21:59:18 -0800
-Message-ID: <20111121215918.febd9fd4.akpm@linux-foundation.org>
-References: <lx6sezwGldO.A.IhF.UBpWOB@chimera> <201111212249.31196.rjw@sisk.pl>
-	<4ECB37E4.6020204@linux.vnet.ibm.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: drivers/net: Kconfig & Makefile cleanup
+Date: Tue, 22 Nov 2011 06:48:32 +0000
+Message-ID: <1321944512.2839.219.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrea Arcangeli <aarcange@redhat.com>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	DRI <dri-devel@lists.freedesktop.org>,
-	Florian Mickler <florian@mickler.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-pm-bounces@lists.linux-foundation.org>
-In-Reply-To: <4ECB37E4.6020204@linux.vnet.ibm.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
-List-Post: <mailto:linux-pm@lists.linux-foundation.org>
-List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.linux-foundation.org
-Errors-To: linux-pm-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-n+mTcrKsMYpjNUD+IyMh"
+Cc: netdev <netdev@vger.kernel.org>
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54175 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754208Ab1KVGsl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 01:48:41 -0500
+Received: from [2001:470:1f08:1539:21c:bfff:fe03:f805] (helo=deadeye)
+	by shadbolt.decadent.org.uk with esmtps (TLS1.0:RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.72)
+	(envelope-from <ben@decadent.org.uk>)
+	id 1RSk9n-0003RR-5p
+	for netdev@vger.kernel.org; Tue, 22 Nov 2011 06:48:39 +0000
+Received: from ben by deadeye with local (Exim 4.77)
+	(envelope-from <ben@decadent.org.uk>)
+	id 1RSk9h-0001DB-2r
+	for netdev@vger.kernel.org; Tue, 22 Nov 2011 06:48:33 +0000
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 22 Nov 2011 11:19:24 +0530 "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com> wrote:
 
-> > Subject    : khugepaged blocks suspend2ram (3.2.0-rc1-00252-g8f042aa)
-> > Submitter  : Sergei Trofimovich <slyich@gmail.com>
-> > Date       : 2011-11-12 10:48
-> > Message-ID : 20111112104859.7744b282@sf.home
-> > References : https://lkml.org/lkml/2011/11/12/11
-> > 
-> 
-> Andrea's patch already fixes this issue, which was reported first by
-> Jiri Slaby. https://lkml.org/lkml/2011/11/11/93
-> I remember Andrew Morton taking this patch in his -mm tree. But it is
-> not in mainline yet. So can we consider this closed or not?
+--=-n+mTcrKsMYpjNUD+IyMh
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-grr, nothing in that patch's changelog indicates that it fixed a
-regression nor that it fixed an infinite blockage of suspend.
+You wrote that (some time ago now):
+> As a side cleanup, found that the arcnet, token ring, and PHY
+> Kconfig options were a tri-state option and should have been
+> a bool option.
 
-I moved it to my 3.2 queue, thanks.
+How did you decide that?  This seems to be correct for TR, but ARCNET
+and PHYLIB each select some support code that can be built as a module
+(and which has been, in Debian).
+
+Ben.
+
+--=20
+Ben Hutchings
+Teamwork is essential - it allows you to blame someone else.
+
+
+--=-n+mTcrKsMYpjNUD+IyMh
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIVAwUATstFwOe/yOyVhhEJAQo53xAApvTc8THKbFryLL2PaeQR9tnoPItLAauq
+/jqPn2uVemviNr8DGIkgZGLxSQQaBcgm5oHimUY5MjX7zx2Y4+tJNxGYUvA6RUvh
+yhXqRrA3X2gy7eqsCZAufa46liuvoDKMZblfK3SiwaiaaR/BnR6RrufSL+8reQ2O
+a4QFwFjWsffse8rFO/aabJ0Il7NB9x4YBwl00UvhNgdPxxwKRkARO4Kn8fCjwZJs
+2bBtRR/oQfmQeV6QVG9s0Jv/a6/bjtAM5hbVxOZSThNl9DenuceKgc4dFosrzMPY
+Qk2pJlNDX/JciFr+vhSC+Nd25OEZFwZPvHFsxyJQxx1T2Q90dnSC5tPgyhwFOgI3
+Xy+mCybrFWgNqXpTK/IYBLOY0SoAVLukT1+UXPD4cnnLSb2Yvdk1fbAXudrzKGP3
+njREZMDLCf18YnYR8BqytyQTEl4SR77Yv5gyvAbHH29QPr5garUYFHd+3OX5tsUc
+pzgYUBbCopg3DoSrf+XdbYtsyil6P9n0XhCuM36abbAZnA1iemLTvuICAxTlq5t+
+gbTzKyR3hlVljPU6BzBLhCNRrd4sgsN5J40Frk8qPi0LVvkGGoQYUfBjK/CDxAOr
+rBjYM+3IK2cG9muMSJ1LVqN1CeDndCi0RlvyRKJ3p6Me8SpsGLmNmjMd4Nvz2HNG
+vypekFSmaIc=
+=CnHc
+-----END PGP SIGNATURE-----
+
+--=-n+mTcrKsMYpjNUD+IyMh--
