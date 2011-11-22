@@ -1,63 +1,36 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] xfrm: optimize ipv4 selector matching
-Date: Tue, 22 Nov 2011 17:43:34 +0300
-Message-ID: <20111122144334.GA22824@p183.telecom.by>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+Date: Tue, 22 Nov 2011 08:44:10 -0600 (CST)
+Message-ID: <alpine.DEB.2.00.1111220843420.25785@router.home>
+References: <20111121161036.GA1679@x4.trippels.de>  <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121173556.GA1673@x4.trippels.de>  <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+  <20111121185215.GA1673@x4.trippels.de>  <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop>  <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>  <alpine.DEB.2.00.1111212105330.19606@router.home>  <20111122084513.GA1688@x4.trippels.de>
+ <1321954729.2474.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:61370 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755932Ab1KVOnm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 09:43:42 -0500
-Received: by bke11 with SMTP id 11so279970bke.19
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 06:43:40 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
+  Christian Kujau <lists@nerdbynature.de>,
+  Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+  "Alex,Shi" <alex.shi@intel.com>,
+  "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+  "linux-mm@kvack.org" <linux-mm@kvack.org>,
+  Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
+  "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1321954729.2474.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Current addr_match() is errh, under-optimized.
+On Tue, 22 Nov 2011, Eric Dumazet wrote:
 
-Compiler doesn't know that memcmp() branch doesn't trigger for IPv4.
-Pass addresses by value.
+> Given slub is now lockless, validate_slab_slab() is probably very wrong
+> these days.
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+Debugging reenables the use of the page lock.
 
- include/net/xfrm.h     |   10 ++++++++++
- net/xfrm/xfrm_policy.c |    4 ++--
- 2 files changed, 12 insertions(+), 2 deletions(-)
-
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -827,6 +827,16 @@ static inline bool addr_match(const void *token1, const void *token2,
- 	return true;
- }
- 
-+static inline int addr4_match(const __be32 a1, const __be32 a2, const u8 prefixlen)
-+{
-+	/* C99 6.5.7 (3): u32 << 32 is undefined behaviour */
-+	if (prefixlen == 0) {
-+		/* Matching constants result in smaller assembly. */
-+		return 0xFFFFFFFFu;
-+	}
-+	return !((a1 ^ a2) & htonl(0xFFFFFFFFu << (32 - prefixlen)));
-+}
-+
- static __inline__
- __be16 xfrm_flowi_sport(const struct flowi *fl, const union flowi_uli *uli)
- {
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -61,8 +61,8 @@ __xfrm4_selector_match(const struct xfrm_selector *sel, const struct flowi *fl)
- {
- 	const struct flowi4 *fl4 = &fl->u.ip4;
- 
--	return  addr_match(&fl4->daddr, &sel->daddr, sel->prefixlen_d) &&
--		addr_match(&fl4->saddr, &sel->saddr, sel->prefixlen_s) &&
-+	return  addr4_match(fl4->daddr, sel->daddr.a4, sel->prefixlen_d) &&
-+		addr4_match(fl4->saddr, sel->saddr.a4, sel->prefixlen_s) &&
- 		!((xfrm_flowi_dport(fl, &fl4->uli) ^ sel->dport) & sel->dport_mask) &&
- 		!((xfrm_flowi_sport(fl, &fl4->uli) ^ sel->sport) & sel->sport_mask) &&
- 		(fl4->flowi4_proto == sel->proto || !sel->proto) &&
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
