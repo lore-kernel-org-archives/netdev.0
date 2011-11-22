@@ -1,120 +1,63 @@
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Tue, 22 Nov 2011 08:51:59 +0100
-Message-ID: <20111122075159.GA1675@x4.trippels.de>
-References: <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20111121173556.GA1673@x4.trippels.de>
- <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20111121185215.GA1673@x4.trippels.de>
- <20111121195113.GA1678@x4.trippels.de>
- <1321907275.13860.12.camel@pasglop>
- <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
- <alpine.DEB.2.00.1111212105330.19606@router.home>
- <1321948113.27077.24.camel@edumazet-laptop>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: ieee802154:  WARNING: at mm/page_alloc.c:2095
+Date: Tue, 22 Nov 2011 09:53:30 +0200
+Message-ID: <1321948410.3787.3.camel@lappy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: Christoph Lameter <cl@linux.com>,
-	Christian Kujau <lists@nerdbynature.de>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	"Alex,Shi" <alex.shi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Tejun Heo <tj@kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1321948113.27077.24.camel@edumazet-laptop>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-zigbee-devel@lists.sourceforge.net,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: dbaryshkov@gmail.com, slapin@ossfans.org,
+	davem <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2011.11.22 at 08:48 +0100, Eric Dumazet wrote:
-> Le lundi 21 novembre 2011 =E0 21:18 -0600, Christoph Lameter a =E9crit =
-:
->=20
-> > Hmmm... That means that c->page points to page not frozen. Per cpu
-> > partial pages are frozen until they are reused or until the partial l=
-ist
-> > is flushed.
-> >=20
-> > Does this ever happen on x86 or only on other platforms? In put_cpu_p=
-artial() the
-> > this_cpu_cmpxchg really needs really to be irq safe. this_cpu_cmpxchg=
- is
-> > only preempt safe.
-> >=20
-> > Index: linux-2.6/mm/slub.c
-> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> > --- linux-2.6.orig/mm/slub.c	2011-11-21 21:15:41.575673204 -0600
-> > +++ linux-2.6/mm/slub.c	2011-11-21 21:16:33.442336849 -0600
-> > @@ -1969,7 +1969,7 @@
-> >  		page->pobjects =3D pobjects;
-> >  		page->next =3D oldpage;
-> >=20
-> > -	} while (this_cpu_cmpxchg(s->cpu_slab->partial, oldpage, page) !=3D=
- oldpage);
-> > +	} while (irqsafe_cpu_cmpxchg(s->cpu_slab->partial, oldpage, page) !=
-=3D oldpage);
-> >  	stat(s, CPU_PARTIAL_FREE);
-> >  	return pobjects;
-> >  }
-> >=20
->=20
-> For x86, I wonder if our !X86_FEATURE_CX16 support is correct on SMP
-> machines.
->=20
-> this_cpu_cmpxchg16b_emu() claims to be IRQ safe, but may be buggy...
->=20
-> Could we have somewhere a NMI handler calling kmalloc() ?
->=20
-> Please Markus send us :
->=20
-> cat /proc/cpuinfo
- processor       : 0
- vendor_id       : AuthenticAMD
- cpu family      : 16
- model           : 4
- model name      : AMD Phenom(tm) II X4 955 Processor
- stepping        : 2
- microcode       : 0x10000c6
- cpu MHz         : 800.000
- cache size      : 512 KB
- physical id     : 0
- siblings        : 4
- core id         : 0
- cpu cores       : 4
- apicid          : 0
- initial apicid  : 0
- fpu             : yes
- fpu_exception   : yes
- cpuid level     : 5
- wp              : yes
- flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge
- mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext
- fxsr_opt pdpe1gb rdtscp lm 3dnowext 3dnow constant_tsc rep_good nopl
- nonstop_tsc extd_apicid pni monitor cx16 popcnt lahf_lm cmp_legacy svm
- extapic cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw ibs skinit
- wdt npt lbrv svm_lock nrip_save
- bogomips        : 6420.59
- TLB size        : 1024 4K pages
- clflush size    : 64
- cache_alignment : 64
- address sizes   : 48 bits physical, 48 bits virtual
- power management: ts ttp tm stc 100mhzsteps hwpstate
-(*4)
+Hi all,
 
---=20
-Markus
+I got the following warning when trying out ieee802154:
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
-.ca/
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+[  157.736372] WARNING: at mm/page_alloc.c:2095 __alloc_pages_nodemask+0x177/0x722()
+[  157.737707] Pid: 9100, comm: trinity Not tainted 3.2.0-rc2-sasha-00280-g45a222d #22
+[  157.739114] Call Trace:
+[  157.739559]  [<ffffffff810fcd7f>] ? __alloc_pages_nodemask+0x177/0x722
+[  157.740746]  [<ffffffff81086984>] warn_slowpath_common+0x7b/0x93
+[  157.741824]  [<ffffffff81086a47>] warn_slowpath_null+0x15/0x17
+[  157.743283]  [<ffffffff810fcd7f>] __alloc_pages_nodemask+0x177/0x722
+[  157.744434]  [<ffffffff8112f8a3>] ? __slab_alloc.clone.46+0x42d/0x456
+[  157.745598]  [<ffffffff810b1d97>] ? trace_hardirqs_on_caller+0x151/0x197
+[  157.747204]  [<ffffffff8112f8ab>] ? __slab_alloc.clone.46+0x435/0x456
+[  157.748375]  [<ffffffff810a4875>] ? sched_clock_local+0x12/0x75
+[  157.749475]  [<ffffffff81b96dd6>] ? __alloc_skb+0x42/0x14a
+[  157.750682]  [<ffffffff810b2c3a>] ? lock_is_held+0x92/0x9d
+[  157.751693]  [<ffffffff8112d399>] kmalloc_large_node+0x51/0x83
+[  157.752757]  [<ffffffff81131ada>] __kmalloc_node_track_caller+0x29/0x127
+[  157.753955]  [<ffffffff81b9449e>] ? sock_alloc_send_pskb+0xbd/0x2d7
+[  157.755084]  [<ffffffff81b96e0a>] __alloc_skb+0x76/0x14a
+[  157.756055]  [<ffffffff81b9449e>] sock_alloc_send_pskb+0xbd/0x2d7
+[  157.757155]  [<ffffffff81b9e6ed>] ? rcu_read_unlock+0x21/0x23
+[  157.758206]  [<ffffffff81b946c8>] sock_alloc_send_skb+0x10/0x12
+[  157.759292]  [<ffffffff81e18f4c>] dgram_sendmsg+0xa8/0x22c
+[  157.760292]  [<ffffffff81e182af>] ieee802154_sock_sendmsg+0xf/0x11
+[  157.761376]  [<ffffffff81b8fc6f>] __sock_sendmsg+0x65/0x72
+[  157.762388]  [<ffffffff81b908bb>] sock_sendmsg+0xa3/0xbc
+[  157.763351]  [<ffffffff810a4875>] ? sched_clock_local+0x12/0x75
+[  157.764420]  [<ffffffff8107ecfc>] ? get_parent_ip+0x11/0x41
+[  157.765428]  [<ffffffff8107ecfc>] ? get_parent_ip+0x11/0x41
+[  157.766439]  [<ffffffff810b2c3a>] ? lock_is_held+0x92/0x9d
+[  157.767440]  [<ffffffff81141631>] ? fget_light+0x35/0x9e
+[  157.768409]  [<ffffffff810a355f>] ? up_read+0x1e/0x35
+[  157.769336]  [<ffffffff81b90479>] ? sockfd_lookup_light+0x1b/0x53
+[  157.770434]  [<ffffffff81b91b1d>] sys_sendto+0x12d/0x16f
+[  157.771396]  [<ffffffff810b1e8f>] ? trace_hardirqs_off_caller+0xa3/0x10b
+[  157.772594]  [<ffffffff81e6fd1d>] ? retint_swapgs+0x13/0x1b
+[  157.773599]  [<ffffffff810b1d97>] ? trace_hardirqs_on_caller+0x151/0x197
+[  157.774826]  [<ffffffff8161620e>] ? trace_hardirqs_on_thunk+0x3a/0x3f
+[  157.775989]  [<ffffffff81e705d2>] system_call_fastpath+0x16/0x1b
+
+Please let me know if theres anything I can help with debugging it.
+
+-- 
+
+Sasha.
