@@ -1,33 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2011-11-22
-Date: Tue, 22 Nov 2011 15:14:29 -0500 (EST)
-Message-ID: <20111122.151429.253381379981773726.davem@davemloft.net>
-References: <20111122193505.GC8452@tuxdriver.com>
+Subject: Re: [PATCH net-next] atm: use SKB_TRUESIZE() in
+ atm_guess_pdu2truesize()
+Date: Tue, 22 Nov 2011 15:16:16 -0500 (EST)
+Message-ID: <20111122.151616.1377539755421081186.davem@davemloft.net>
+References: <1321941094.27077.14.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111122193505.GC8452@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:53378 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756001Ab1KVUQU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 15:16:20 -0500
+In-Reply-To: <1321941094.27077.14.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Tue, 22 Nov 2011 14:35:05 -0500
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 22 Nov 2011 06:51:34 +0100
 
-> Here is the latest batch of fixes intended for 3.2.  This includes a
-> correction for a user-visible error in mac80211's debugfs info, a fix
-> for a potential memory corrupter in prism54, an endian fix for rt2x00,
-> an endian fix for mac80211, a fix for a NULL derefernce in cfg80211, a
-> locking fix and a deadlock fix for p54spi, and a pair of rt2x00 fixes
-> for handling some spurious interrupts that hardware can generate.
+> SKB_TRUESIZE() provides a better approximation of expected skb truesize.
 > 
-> Please let me know if there are problems!
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-The rt2800pci change doesn't look correct.
-
-If the IRQ line is shared with another device, this change will make it
-never see interrupts.  Once you say "IRQ_HANDLED" the IRQ dispatch
-stops processing the interrupt handler list.
+Applied.
