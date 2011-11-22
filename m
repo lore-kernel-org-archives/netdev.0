@@ -1,74 +1,86 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Tue, 22 Nov 2011 13:17:15 +1100
-Message-ID: <1321928235.13860.31.camel@pasglop>
-References: <20111121131531.GA1679@x4.trippels.de>
-	 <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121153621.GA1678@x4.trippels.de>
-	 <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121161036.GA1679@x4.trippels.de>
-	 <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121173556.GA1673@x4.trippels.de>
-	 <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121185215.GA1673@x4.trippels.de>
-	 <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop>
-	 <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
-        Eric Dumazet
- <eric.dumazet@gmail.com>,
-        "Alex,Shi" <alex.shi@intel.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-mm@kvack.org" <linux-mm@kvack.org>,
-        Christoph Lameter
- <cl@linux-foundation.org>,
-        Pekka Enberg <penberg@kernel.org>, Matt Mackall
- <mpm@selenic.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Tejun Heo <tj@kernel.org>
-To: Christian Kujau <lists@nerdbynature.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH] tcp: do not scale TSO segment size with reordering degree
+Date: Mon, 21 Nov 2011 22:15:14 -0500
+Message-ID: <1321931714-28176-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
+	Nandita Dukkipati <nanditad@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Jerry Chu <hkchu@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f74.google.com ([209.85.161.74]:59528 "EHLO
+	mail-fx0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752300Ab1KVDPa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 22:15:30 -0500
+Received: by fabs1 with SMTP id s1so80fab.1
+        for <netdev@vger.kernel.org>; Mon, 21 Nov 2011 19:15:28 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-11-21 at 16:21 -0800, Christian Kujau wrote:
-> On Tue, 22 Nov 2011 at 07:27, Benjamin Herrenschmidt wrote:
-> > Note that I hit a similar looking crash (sorry, I couldn't capture a
-> > backtrace back then) on a PowerMac G5 (ppc64) while doing a large rsync
-> > transfer yesterday with -rc2-something (cfcfc9ec) and 
-> > Christian Kujau (CC) seems to be able to reproduce something similar on
-> > some other ppc platform (Christian, what is your setup ?)
-> 
-> I seem to hit it with heavy disk & cpu IO is in progress on this PowerBook 
-> G4. Full dmesg & .config: http://nerdbynature.de/bits/3.2.0-rc1/oops/
-> 
-> I've enabled some debug options and now it really points to slub.c:2166
-> 
->    http://nerdbynature.de/bits/3.2.0-rc1/oops/oops4m.jpg
-> 
-> With debug options enabled I'm currently in the xmon debugger, not sure 
-> what to make of it yet, I'll try to get something useful out of it :)
+Since 2005 (c1b4a7e69576d65efc31a8cea0714173c2841244)
+tcp_tso_should_defer has been using tcp_max_burst() as a target limit
+for deciding how large to make outgoing TSO packets when not using
+sysctl_tcp_tso_win_divisor. But since 2008
+(dd9e0dda66ba38a2ddd1405ac279894260dc5c36) tcp_max_burst() returns the
+reordering degree. We should not have tcp_tso_should_defer attempt to
+build larger segments just because there is more reordering. This
+commit splits the notion of deferral size used in TSO from the notion
+of burst size used in cwnd moderation, and returns the TSO deferral
+limit to its original value.
 
-Is your powerbook one of those who can actually use xmon ? (ie, keyboard
-is working ? If it's usb it won't but if it's adb it will).
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ include/net/tcp.h     |    8 ++++++++
+ net/ipv4/tcp_cong.c   |    2 +-
+ net/ipv4/tcp_output.c |    2 +-
+ 3 files changed, 10 insertions(+), 2 deletions(-)
 
-You probably landed there too late tho, after the corruption happened.
-
-What would be useful would be to see if you can reproduce with SLAB
-and/or after backing out the cpu partial functionality.
-
-Cheers,
-Ben.
-
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 113160b..87e3c80 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -834,6 +834,14 @@ static inline __u32 tcp_current_ssthresh(const struct sock *sk)
+ extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
+ extern __u32 tcp_init_cwnd(const struct tcp_sock *tp, const struct dst_entry *dst);
+ 
++/* The maximum number of MSS of available cwnd for which TSO defers
++ * sending if not using sysctl_tcp_tso_win_divisor.
++ */
++static inline __u32 tcp_max_tso_deferred_mss(const struct tcp_sock *tp)
++{
++	return 3;
++}
++
+ /* Slow start with delack produces 3 packets of burst, so that
+  * it is safe "de facto".  This will be the default - same as
+  * the default reordering threshold - but if reordering increases,
+diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+index 850c737..fc6d475 100644
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -292,7 +292,7 @@ int tcp_is_cwnd_limited(const struct sock *sk, u32 in_flight)
+ 	    left * sysctl_tcp_tso_win_divisor < tp->snd_cwnd &&
+ 	    left * tp->mss_cache < sk->sk_gso_max_size)
+ 		return 1;
+-	return left <= tcp_max_burst(tp);
++	return left <= tcp_max_tso_deferred_mss(tp);
+ }
+ EXPORT_SYMBOL_GPL(tcp_is_cwnd_limited);
+ 
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 63170e2..58f69ac 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1581,7 +1581,7 @@ static int tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb)
+ 		 * frame, so if we have space for more than 3 frames
+ 		 * then send now.
+ 		 */
+-		if (limit > tcp_max_burst(tp) * tp->mss_cache)
++		if (limit > tcp_max_tso_deferred_mss(tp) * tp->mss_cache)
+ 			goto send_now;
+ 	}
+ 
+-- 
+1.7.3.1
