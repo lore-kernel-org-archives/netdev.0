@@ -1,32 +1,24 @@
 From: Ben Hutchings <ben@decadent.org.uk>
 Subject: Re: drivers/net: Kconfig & Makefile cleanup
-Date: Tue, 22 Nov 2011 06:49:00 +0000
-Message-ID: <1321944540.2839.220.camel@deadeye>
+Date: Tue, 22 Nov 2011 06:51:02 +0000
+Message-ID: <1321944662.2839.222.camel@deadeye>
+References: <1321944512.2839.219.camel@deadeye>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-LAcYlV4XZjiKayKzLYsG"
+	protocol="application/pgp-signature"; boundary="=-xgh/mmn4iWPPcfI3QiV3"
 Cc: netdev <netdev@vger.kernel.org>
-To: unlisted-recipients:; (no To-header on input)
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54181 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54197 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754882Ab1KVGtI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 01:49:08 -0500
-Received: from [2001:470:1f08:1539:21c:bfff:fe03:f805] (helo=deadeye)
-	by shadbolt.decadent.org.uk with esmtps (TLS1.0:RSA_AES_256_CBC_SHA1:32)
-	(Exim 4.72)
-	(envelope-from <ben@decadent.org.uk>)
-	id 1RSkAF-0003RV-Le
-	for netdev@vger.kernel.org; Tue, 22 Nov 2011 06:49:07 +0000
-Received: from ben by deadeye with local (Exim 4.77)
-	(envelope-from <ben@decadent.org.uk>)
-	id 1RSkA9-0001DR-Bd
-	for netdev@vger.kernel.org; Tue, 22 Nov 2011 06:49:01 +0000
+	by vger.kernel.org with ESMTP id S1755240Ab1KVGvL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 01:51:11 -0500
+In-Reply-To: <1321944512.2839.219.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-LAcYlV4XZjiKayKzLYsG
+--=-xgh/mmn4iWPPcfI3QiV3
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
@@ -45,27 +37,26 @@ Ben.
 Ben Hutchings
 Teamwork is essential - it allows you to blame someone else.
 
-
---=-LAcYlV4XZjiKayKzLYsG
+--=-xgh/mmn4iWPPcfI3QiV3
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQIVAwUATstF3Oe/yOyVhhEJAQolfhAAt/JeiW5TFFnUwcDbZ06eVk0CPbSOqpmv
-DlEmLjHkV9hNg7i1UyKdzWbTBJfRb9BULH4PX7wfpIPZgTUgf43Yu/JG9t4KJoe/
-BIEMyO0shl9lv6HgGaU2KrfDve1jEa/NpVVFOmvWvMZFFjTCTd5MX5NMMkL10cio
-f4YGhB/KXHQbaPVpPl69eOst7PBi3uPetwnIw9l45jnAW9AtK5YttEQlngqOG4VB
-fqp03oQ6RNuue7YE4v8zlYuo80oSujOSGj6tdT4HU4TOezA8AaHGCSxA/fkFyH4B
-w/oQFnMA7GzE7w0xtP2vX1jz9pOx6kNzqFxr++mCB9xl/h1cQRKqdKrZiyQ9M2hU
-4fWOXpbbRs9YuvHC5qpmYzw4hrIbmdxVg4gwzo/XV8/YzFnqluZ0rtb10znilcsL
-JjHkCjcw3etoA+3McBhDQqDmScOzR1pcUE7nMbCsj4pjZlTqiUbJfsXDAvdN4vzn
-60+Uxm7NXPgBYVQwCfi1B5IiWg/nH3Yru+rsmTiUjFug3jfAUzv+7OvQ/pxfJ/BR
-jt8t0PMck7OdIlhaCwL6EnUU3GShzXmLelJk+5DsaE+s5x4IRhaZzel7OKoQMBqO
-+LSBdH7g2YcPG8ocbuUo4YdxthY+B9UEAuFhBIu6pPokYxJBvuMorfQoVWXtgm/L
-slRk0IUg5dg=
-=uk8Y
+iQIVAwUATstGVue/yOyVhhEJAQrguxAAiWmU5sWYJ2ytzjmUA471L5AEz0UQRaQy
+ZkwFuqpcA38CFPoJ/L1FfXQma3cpw7ic+Ib70b6rBl1lCKWw3oDZYdPcRv+CHe7A
+mTXQ2Q7TlrcQRYyXE6NQsD6cbnC2zr6pPylTGlTP25pST4PqN885vJZTVaM5olXG
+VUoLYlomktQLffJumCGZHF2SzdwPRNxqJ0CuLIJvWQ3CSLgQA45E22cQtuwTm75S
+LwwBmdMjBlPJshu8tooyouF5J6Q8B7aVNXd3ziDA0Xyfr/dn9MRuFNgV07rTXr+Q
+s87eeKr3PHhFW9HCfkZJeRUztA8Qixv5nyicDYJHIAnIWvr+yQFRVQK3J1w1QcDQ
+N6EtJxRryaxydoRt+gO/cvEL70HmwsVqv4LqKRMwsIILdSJ5XJOuxXPCCT8PQ50y
+l+gAOLuTQbYp5RAmAjX8w8oplhQGTKvJobvmOwt1CKKeSb55tA1IVrAQYTALdlK9
+BylUm9bQu2m28gfBgx9KV5bn6qYZ3ubeaBPc3p3ys3WjgL8R8L/n7oSdbNIWgLMs
+g0B6IH8JpNDv6Vw/PE8rmfOSFhGIkydhgApekkgx7d5sMD/NEx//2hrrAsyBsJ0x
+qbtrPAt/diC8vumhRszVZnI+pHsN8jsgYt/KZDqXGohb4t6iKbkxgiJ1V3ij0xGX
+HkYmBFD5ylo=
+=Bdfh
 -----END PGP SIGNATURE-----
 
---=-LAcYlV4XZjiKayKzLYsG--
+--=-xgh/mmn4iWPPcfI3QiV3--
