@@ -1,34 +1,55 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Anyone tried the 40G Mellanox card?
-Date: Mon, 21 Nov 2011 17:01:12 -0800
-Message-ID: <4ECAF458.3050106@candelatech.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH net-next 2/4] tg3: Adjust BD replenish thresholds
+Date: Mon, 21 Nov 2011 17:01:18 -0800
+Message-ID: <1321923680-7925-3-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:50998 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757598Ab1KVBBN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2011 20:01:13 -0500
-Received: from [192.168.100.111] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id pAM11Csm004588
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 21 Nov 2011 17:01:12 -0800
+Received: from mms2.broadcom.com ([216.31.210.18]:2489 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757639Ab1KVBCF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Nov 2011 20:02:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I just noticed that Mellanox has a 40G Ethernet NIC.  Seems it supports
-pci-e 3.0 (8GT/s), if someone could find a motherboard and processor
-to go with it...
+The BD replenish thresholds for the 57765 and newer ASIC revs are a
+little strict.  They were tuned for a mode that is currently unused.
+This patch relaxes the thresholds so that they are set to values more
+inline with the resources available.
 
-Anyway, if anyone has done any performance tests with this NIC I'd
-love to hear how it went...
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c |    8 +++-----
+ 1 files changed, 3 insertions(+), 5 deletions(-)
 
-Thanks,
-Ben
-
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 438d099..096a67e 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -8171,7 +8171,8 @@ static void tg3_setup_rxbd_thresholds(struct tg3 *tp)
+ 	if (!tg3_flag(tp, 5750_PLUS) ||
+ 	    tg3_flag(tp, 5780_CLASS) ||
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5750 ||
+-	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5752)
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5752 ||
++	    tg3_flag(tp, 57765_PLUS))
+ 		bdcache_maxcnt = TG3_SRAM_RX_STD_BDCACHE_SIZE_5700;
+ 	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5755 ||
+ 		 GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5787)
+@@ -8191,10 +8192,7 @@ static void tg3_setup_rxbd_thresholds(struct tg3 *tp)
+ 	if (!tg3_flag(tp, JUMBO_CAPABLE) || tg3_flag(tp, 5780_CLASS))
+ 		return;
+ 
+-	if (!tg3_flag(tp, 5705_PLUS))
+-		bdcache_maxcnt = TG3_SRAM_RX_JMB_BDCACHE_SIZE_5700;
+-	else
+-		bdcache_maxcnt = TG3_SRAM_RX_JMB_BDCACHE_SIZE_5717;
++	bdcache_maxcnt = TG3_SRAM_RX_JMB_BDCACHE_SIZE_5700;
+ 
+ 	host_rep_thresh = max_t(u32, tp->rx_jumbo_pending / 8, 1);
+ 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+1.7.3.4
