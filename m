@@ -1,39 +1,128 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: skb->timestamp == 0.000000 ?
-Date: Tue, 22 Nov 2011 15:10:40 +0100
-Message-ID: <1321971040.2474.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <CAJX4=r3wTn9v6-5oEpGdeKkFjKsRLZwc76tE9M4FiVJX4Lpisg@mail.gmail.com>
-	 <20111121211140.GB24753@d2.suse.de>
-	 <CAJX4=r2XBGGzMFgeKC-TvZ-WQ9skwoBFA5na_XiLNqDn0U9V+Q@mail.gmail.com>
+From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
+Subject: Re: MPLS for Linux kernel
+Date: Tue, 22 Nov 2011 15:33:40 +0100
+Message-ID: <4ECBB2C4.9000505@dti2.net>
+References: <CAFdo_mWE8wMB6QJt_DPi9Ou9OiayzV48URDq7KhKf+q8OfP+Gw@mail.gmail.com> <4ECA67C6.2080802@dti2.net> <20111121.132914.1611617296397809001.davem@davemloft.net> <4ECAA41C.9040007@dti2.net> <CAFdo_mXzqC_v5OkC6P012gFT_OmRO_yDTA0w96VhV-Lp3Hp7Fw@mail.gmail.com> <4ECB95D7.7030702@dti2.net> <CAFdo_mXD7by23i38GZHePiHhESpcX66vamBUqHU-fQQFU1RcaA@mail.gmail.com>
+Reply-To: jorge@dti2.net
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Benjamin Poirier <benjamin.poirier@gmail.com>,
-	netdev@vger.kernel.org
-To: Felipe Dias <felipediassss@gmail.com>
+Cc: netdev@vger.kernel.org
+To: igorm@etf.rs
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:60819 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750995Ab1KVOKo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 09:10:44 -0500
-Received: by fagn18 with SMTP id n18so435087fag.19
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 06:10:43 -0800 (PST)
-In-Reply-To: <CAJX4=r2XBGGzMFgeKC-TvZ-WQ9skwoBFA5na_XiLNqDn0U9V+Q@mail.gmail.com>
+Received: from alcalazamora.dti2.net ([81.24.162.8]:49435 "EHLO
+	alcalazamora.dti2.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754236Ab1KVOdr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 09:33:47 -0500
+Received: from [172.16.16.6] ([81.24.161.20])
+	(authenticated user jorge@dti2.net)
+	by alcalazamora.dti2.net (alcalazamora.dti2.net [81.24.162.8])
+	(MDaemon PRO v12.5.0)
+	with ESMTP id md50019779756.msg
+	for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 15:33:45 +0100
+In-Reply-To: <CAFdo_mXD7by23i38GZHePiHhESpcX66vamBUqHU-fQQFU1RcaA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 22 novembre 2011 =C3=A0 11:04 -0300, Felipe Dias a =C3=A9crit =
-:
-
-> who is responsible for enabling? Would not it be the driver?
+El 22/11/2011 14:55, Igor Maravi=C4=87 escribi=C3=B3:
+> 2011/11/22 Jorge Boncompte [DTI2] <jorge@dti2.net>:
+>>        You keep insisting in that you fixed a lot of things, but you=
+ have provided a
+>> git tree with just one big commit and say that have taken some of my=
+ patches on
+>> it, could you please provide patches on TOP of the sourceforge code =
+for the
+>> things that are not fixed there?
 >=20
-> Some packets (icmp) appear timestamp other packages do not appear.
->=20
-> I'm confused, in my mind, after the registration of the "protocol
-> handler" (with dev_add_pack) any skb should have the timestamp.
->=20
+> I insist on that because I did do a lot of things. When I did send yo=
+u
+> patch, on TOP of your net-next code, about the most important bug
+> (stack overflow that was happening when mpls nhlfe entry was built)
+> that I fixed it was just ignored. Unfortunately I started  fixing MPL=
+S
+> code without git, and I added your patches manually.
 
-This is not the trigger for timestamps.
+	(Dropped Dave from the cc: list)
 
-You need to call setsockopt(SO_TIMESTAMP or SO_TIMESTAMPNS) on at least
-one socket.
+	But you failed to provide patches, that fix ONE thing at a time, and n=
+ot a
+patch with all the work that you have done, that's what you sent me for=
+ the
+stack overflow bug or have done now with the git tree. Providing clean,
+separated patches it's YOUR work if you WANT to see them applied on the
+mpls-linux tree.
+
+>>        The kernel code that is not commented out on the mpls-linux c=
+ode when you build
+>> the kernel it the shim layer and it's not done on purpose. This code=
+ was written
+>> by James to be a generic feature of the networking layer. Now I am n=
+ot sure that
+>> it has any value keeping it and am for removing it.
+>=20
+> I didn't understand what did You want to say here.
+
+	You have #ifdefed the MPLS code in the core networking code, that's wr=
+ong,
+that's not the way to go if you want to see the code merged upstream. T=
+he shim
+layer was thought as a core component of the kernel. If we rip it what =
+we come
+at with should be #ifdef-less.
+
+>>        The other thing that probably I am going to remove is the lab=
+elspace support. I
+>> don't see a use for it, and even Cisco doesn't implement it either t=
+hat I know.
+>=20
+> That's 15 min of work, but I think that labelspaces should stay.
+
+	Yes, I dit it an hour ago on a private branch. :) Why should did it st=
+ay?
+
+>>        Then we must rework the netlink interface to make it cleaner =
+and extensible.
+>=20
+> What do you mean by extensible? With my netlink code you can add,
+> change and delete ilm, nhlfe and xc entries without any problem. What
+> other could one wish for? As I could see in your code you can't chang=
+e
+> ilm, nhlfe and xc entries.
+
+	Yes, I did not finish the change code because no ones uses it currentl=
+y
+(iproute, quagga). In my opinion the instructions should be nested attr=
+ibutes,
+and we have to change how the MPLS_CHANGE_* flags get passed, currently=
+ it's a hack.
+
+>=20
+>>        Check the dst's usages, there has been a lot of changes in th=
+e core kernel here
+>> lately and I am not sure if we are using it correctly.
+>=20
+> As far I could see you did a great job of using nhlfe as dst entry.
+> Problem was when you delete nhlfe entry that is referenced with ilm
+> entry. It shouldn't be allowed to be deleted, or the ilm should chang=
+e
+> last instructions from fwd to peek. I did the last thing.
+
+	If I delete an nhlfe I for sure don't want the traffic for be routed i=
+nstead of
+dropped. Instructions are policy set by the user and you shouldn't chan=
+ge them
+under the hood.
+
+> Also there was the problem with neighbor hh_cache, because we are
+> using nhlfe as dst_entry but I fixed that too.  (hh_cache wouldn't
+> change when we are sending packets with diferent type (ETH_P_IP and
+> ETH_P_MPLS_UC))
+
+	patch.
+
+> Also ilm shouldn't be dst_entry. I'm going to change that.
+
+	I agree 100%. I did forgot it.
+
+	Regards,
+		Jorge
