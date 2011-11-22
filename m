@@ -1,68 +1,33 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: slub: Lockout validation scans during freeing of object
-Date: Tue, 22 Nov 2011 11:59:22 -0600 (CST)
-Message-ID: <alpine.DEB.2.00.1111221144580.28197@router.home>
-References: <alpine.DEB.2.00.1111221033350.28197@router.home>  <alpine.DEB.2.00.1111221040300.28197@router.home>  <alpine.DEB.2.00.1111221052130.28197@router.home> <1321982484.18002.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] kvm tools: Implement multiple VQ for virtio-net
+Date: Tue, 22 Nov 2011 10:14:16 -0800
+Message-ID: <20111122101416.7bccf6c6@nehalam.linuxnetplumber.net>
+References: <1321049521-26376-1-git-send-email-levinsasha928@gmail.com>
+	<20111113102428.GD15322@redhat.com>
+	<1321196430.2425.2.camel@sasha>
+	<4EC07729.3050303@gmail.com>
+	<CAOJsxLE4yRO+5XncrDEzVh5-RGXG+=HGTAmQ=bX=KMsDqf=feA@mail.gmail.com>
+	<20111114130507.GA18288@redhat.com>
+	<877h31ortx.fsf@rustcorp.com.au>
+	<20111116072317.GG5433@redhat.com>
+	<87bos6b936.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
-  Christian Kujau <lists@nerdbynature.de>,
-  Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-  "Alex,Shi" <alex.shi@intel.com>,
-  "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-  "linux-mm@kvack.org" <linux-mm@kvack.org>,
-  Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
-  "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1321982484.18002.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Pekka Enberg <penberg@kernel.org>,
+	Asias He <asias.hejun@gmail.com>,
+	Sasha Levin <levinsasha928@gmail.com>, kvm@vger.kernel.org,
+	mingo@elte.hu, gorcunov@gmail.com,
+	Krishna Kumar <krkumar2@in.ibm.com>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <87bos6b936.fsf@rustcorp.com.au>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Nov 2011, Eric Dumazet wrote:
+I have been playing with userspace-rcu which has a number of neat
+lockless routines for queuing and hashing. But there aren't kernel versions
+and several of them may require cmpxchg to work.
 
-> This seems better, but I still have some warnings :
->
-> [  162.117574] SLUB: selinux_inode_security 136 slabs counted but counter=137
-> [  179.879907] SLUB: task_xstate 1 slabs counted but counter=2
-
-This is the total # of slabs that mismatches. Some slabs are not on the
-partial list and are neither on the full list since they are currently
-on the per cpu partial lists. Thats an accounting issue introduced in 3.2
-with the per cpu pages. Need to find some way to count the per cpu partial
-pages correctly. Could just force the per cpu pages to be empty?
-
-
-Subject: Switch per cpu partial page support off for debugging
-
-Otherwise we have accounting issues.
-
-Signed-off-by: Christoph Lameter <cl@linux.com>
-
-
----
- mm/slub.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-Index: linux-2.6/mm/slub.c
-===================================================================
---- linux-2.6.orig/mm/slub.c	2011-11-22 11:57:21.000000000 -0600
-+++ linux-2.6/mm/slub.c	2011-11-22 11:57:55.000000000 -0600
-@@ -3027,7 +3027,9 @@ static int kmem_cache_open(struct kmem_c
- 	 *    per node list when we run out of per cpu objects. We only fetch 50%
- 	 *    to keep some capacity around for frees.
- 	 */
--	if (s->size >= PAGE_SIZE)
-+	if (kmem_cache_debug(s))
-+		s->cpu_partial = 0;
-+	else if (s->size >= PAGE_SIZE)
- 		s->cpu_partial = 2;
- 	else if (s->size >= 1024)
- 		s->cpu_partial = 6;
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
