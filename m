@@ -1,30 +1,56 @@
-From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
-Subject: Re: MPLS for Linux kernel
-Date: Tue, 22 Nov 2011 15:35:34 +0100
-Message-ID: <4ECBB336.9020400@dti2.net>
-References: <CAFdo_mWE8wMB6QJt_DPi9Ou9OiayzV48URDq7KhKf+q8OfP+Gw@mail.gmail.com> <4ECA67C6.2080802@dti2.net> <20111121.132914.1611617296397809001.davem@davemloft.net> <4ECAA41C.9040007@dti2.net> <CAFdo_mXzqC_v5OkC6P012gFT_OmRO_yDTA0w96VhV-Lp3Hp7Fw@mail.gmail.com> <4ECB95D7.7030702@dti2.net> <CAFdo_mXD7by23i38GZHePiHhESpcX66vamBUqHU-fQQFU1RcaA@mail.gmail.com> <4ECBB2C4.9000505@dti2.net>
-Reply-To: jorge@dti2.net
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH 0/6] SUNPRC: cleanup PipeFS for network-namespace-aware users
+Date: Tue, 22 Nov 2011 18:41:25 +0300
+Message-ID: <20111122134514.479.9848.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alcalazamora.dti2.net ([81.24.162.8]:49561 "EHLO
-	alcalazamora.dti2.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753146Ab1KVOfg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 09:35:36 -0500
-Received: from [172.16.16.6] ([81.24.161.20])
-	(authenticated user jorge@dti2.net)
-	by alcalazamora.dti2.net (alcalazamora.dti2.net [81.24.162.8])
-	(MDaemon PRO v12.5.0)
-	with ESMTP id md50019779784.msg
-	for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 15:35:36 +0100
-In-Reply-To: <4ECBB2C4.9000505@dti2.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
+	davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-El 22/11/2011 15:33, Jorge Boncompte [DTI2] escribi=C3=B3:
->=20
-> 	(Dropped Dave from the cc: list)
+This patch-set was created in context of clone of git
+branch: git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git.
+tag: v3.1
 
-	That should have been David, sorry.
+This is cleanup precursor patch set. It's required for easier further
+implementation of network-namespace-aware SUNRPC PipeFS pipes creators.
+Generally, this patch set split SUNRPC PipeFS logic into two parts: working
+with pipes (new rpc_pipe structure with link to PipeFS dentry) and
+creating/destroying PipeFS dentries (old rpc_inode structure with link to
+rpc_pipe).
+With this patch-set kernel PipeFS pipes users initially creates
+rpc_pipe data and then creates Pipefs dentries. Later these dentries will be
+created in notifier callbacks on PipeFS mount event from user-space and in
+network namespace operations for such modules like nfs and blocklayout.
+
+The following series consists of:
+
+---
+
+Stanislav Kinsbursky (6):
+      SUNRPC: replace inode lock with pipe lock for RPC PipeFS operations
+      SUNRPC: split SUNPRC PipeFS pipe data and inode creation
+      SUNRPC: cleanup PipeFS redundant RPC inode usage
+      SUNPRC: cleanup RPC PipeFS pipes upcall interface
+      SUNRPC: cleanup GSS pipes usage
+      SUNRPC: split SUNPRC PipeFS dentry and private pipe data creation
+
+
+ fs/nfs/blocklayout/blocklayout.c    |   16 ++
+ fs/nfs/blocklayout/blocklayout.h    |    2 
+ fs/nfs/blocklayout/blocklayoutdev.c |    2 
+ fs/nfs/blocklayout/blocklayoutdm.c  |    2 
+ fs/nfs/idmap.c                      |   28 +++-
+ include/linux/sunrpc/rpc_pipe_fs.h  |   20 ++-
+ net/sunrpc/auth_gss/auth_gss.c      |  130 ++++++++++--------
+ net/sunrpc/rpc_pipe.c               |  258 +++++++++++++++++++----------------
+ 8 files changed, 262 insertions(+), 196 deletions(-)
+
+-- 
+Signature
