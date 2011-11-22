@@ -1,96 +1,129 @@
-From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
-Subject: Re: MPLS for Linux kernel
-Date: Tue, 22 Nov 2011 13:30:15 +0100
-Message-ID: <4ECB95D7.7030702@dti2.net>
-References: <CAFdo_mWE8wMB6QJt_DPi9Ou9OiayzV48URDq7KhKf+q8OfP+Gw@mail.gmail.com> <4ECA67C6.2080802@dti2.net> <20111121.132914.1611617296397809001.davem@davemloft.net> <4ECAA41C.9040007@dti2.net> <CAFdo_mXzqC_v5OkC6P012gFT_OmRO_yDTA0w96VhV-Lp3Hp7Fw@mail.gmail.com>
-Reply-To: jorge@dti2.net
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 4/5] tcp: allow undo from reordered DSACKs
+Date: Tue, 22 Nov 2011 14:44:32 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.1111221347290.31705@wel-95.cs.helsinki.fi>
+References: <1321469885-10885-1-git-send-email-ncardwell@google.com> <1321469885-10885-4-git-send-email-ncardwell@google.com> <alpine.DEB.2.00.1111170715060.23028@melkinpaasi.cs.helsinki.fi>
+ <CADVnQykNffEvpr5bnLiLyNGZiuhxx=5wxqFaZjC+Dk4mxe1Okw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: igorm@etf.rs
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-548910336-1321965873=:31705"
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Nandita Dukkipati <nanditad@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Tom Herbert <therbert@google.com>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alcalazamora.dti2.net ([81.24.162.8]:54541 "EHLO
-	alcalazamora.dti2.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750851Ab1KVMgf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 07:36:35 -0500
-Received: from [172.16.16.6] ([81.24.161.20])
-	(authenticated user jorge@dti2.net)
-	by alcalazamora.dti2.net (alcalazamora.dti2.net [81.24.162.8])
-	(MDaemon PRO v12.5.0)
-	with ESMTP id md50019776987.msg
-	for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 13:30:21 +0100
-In-Reply-To: <CAFdo_mXzqC_v5OkC6P012gFT_OmRO_yDTA0w96VhV-Lp3Hp7Fw@mail.gmail.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:37080 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752716Ab1KVMoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 07:44:34 -0500
+In-Reply-To: <CADVnQykNffEvpr5bnLiLyNGZiuhxx=5wxqFaZjC+Dk4mxe1Okw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-El 22/11/2011 9:52, Igor Maravi=C4=87 escribi=C3=B3:
-> What are the main reasons for You to think that mpls-linux is not
-> ready to go upstream?
-> As I said, I fixed a lot of bugs so code can be run with all the
-> kernel hacking options enabled, without causing panics and oopses.
-> Also fixed a lot of other things and added preprocessor if statements
-> where code is intertwined with normal kernel code, so I'm sure that i=
-t
-> want break existing kernel compilation if the kernel is compiled
-> without MPLS.
-> Why would it be so hard to implemented it in terms of packet schedule=
-r?
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-	First, please, don't top post.
+--8323329-548910336-1321965873=:31705
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
-	You keep insisting in that you fixed a lot of things, but you have pro=
-vided a
-git tree with just one big commit and say that have taken some of my pa=
-tches on
-it, could you please provide patches on TOP of the sourceforge code for=
- the
-things that are not fixed there? And for the new features like the MIB =
-stats
-work that you have done? It seems to me that you have not noticed that =
-while
-fixing bugs I have reworked a lot of code to make it cleaner or simpler=
-, simply
-deleted it and fixed the style.
+On Thu, 17 Nov 2011, Neal Cardwell wrote:
 
-	What's needs to be done, and it's on my TODO list...
+> On Thu, Nov 17, 2011 at 12:18 AM, Ilpo Järvinen
+> <ilpo.jarvinen@helsinki.fi> wrote:
+> > On Wed, 16 Nov 2011, Neal Cardwell wrote:
+> >
+> >> Previously, SACK-enabled connections hung around in TCP_CA_Disorder
+> >> state while snd_una==high_seq, just waiting to accumulate DSACKs and
+> >> hopefully undo a cwnd reduction. This could and did lead to the
+> >> following unfortunate scenario: if some incoming ACKs advance snd_una
+> >> beyond high_seq then we were setting undo_marker to 0 and moving to
+> >> TCP_CA_Open, so if (due to reordering in the ACK return path) we
+> >> shortly thereafter received a DSACK then we were no longer able to
+> >> undo the cwnd reduction.
+> >>
+> >> The change: Simplify the congestion avoidance state machine by
+> >> removing the behavior where SACK-enabled connections hung around in
+> >> the TCP_CA_Disorder state just waiting for DSACKs. Instead, when
+> >> snd_una advances to high_seq or beyond we typically move to
+> >> TCP_CA_Open immediately and allow an undo in either TCP_CA_Open or
+> >> TCP_CA_Disorder if we later receive enough DSACKs.
+> >>
+> >> Other patches in this series will provide other changes that are
+> >> necessary to fully fix this problem.
+> >>
+> >> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> >> ---
+> >>  net/ipv4/tcp_input.c |   15 ++-------------
+> >>  1 files changed, 2 insertions(+), 13 deletions(-)
+> >>
+> >> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> >> index 751d390..a4efdd7 100644
+> >> --- a/net/ipv4/tcp_input.c
+> >> +++ b/net/ipv4/tcp_input.c
+> >> @@ -2858,7 +2858,7 @@ static void tcp_try_keep_open(struct sock *sk)
+> >>       struct tcp_sock *tp = tcp_sk(sk);
+> >>       int state = TCP_CA_Open;
+> >>
+> >> -     if (tcp_left_out(tp) || tcp_any_retrans_done(sk) || tp->undo_marker)
+> >> +     if (tcp_left_out(tp) || tcp_any_retrans_done(sk))
+> >>               state = TCP_CA_Disorder;
+> >>
+> >>       if (inet_csk(sk)->icsk_ca_state != state) {
+> >> @@ -3066,17 +3066,6 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
+> >>                       }
+> >>                       break;
+> >>
+> >> -             case TCP_CA_Disorder:
+> >> -                     tcp_try_undo_dsack(sk);
+> >> -                     if (!tp->undo_marker ||
+> >> -                         /* For SACK case do not Open to allow to undo
+> >> -                          * catching for all duplicate ACKs. */
+> >> -                         tcp_is_reno(tp) || tp->snd_una != tp->high_seq) {
+> >> -                             tp->undo_marker = 0;
+> >> -                             tcp_set_ca_state(sk, TCP_CA_Open);
+> >> -                     }
+> >> -                     break;
+> >> -
+> >>               case TCP_CA_Recovery:
+> >>                       if (tcp_is_reno(tp))
+> >>                               tcp_reset_reno_sack(tp);
+> >> @@ -3117,7 +3106,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
+> >>                               tcp_add_reno_sack(sk);
+> >>               }
+> >>
+> >> -             if (icsk->icsk_ca_state == TCP_CA_Disorder)
+> >> +             if (icsk->icsk_ca_state <= TCP_CA_Disorder)
+> >>                       tcp_try_undo_dsack(sk);
+> >>
+> >>               if (!tcp_time_to_recover(sk)) {
+> >
+> > How about extending Disorder state until second cumulative ACK that is
+> > acking >= high_seq?
+> 
+> That would seem to add complexity but only provide a partial solution.
 
-	The kernel code that is not commented out on the mpls-linux code when =
-you build
-the kernel it the shim layer and it's not done on purpose. This code wa=
-s written
-by James to be a generic feature of the networking layer. Now I am not =
-sure that
-it has any value keeping it and am for removing it.
-	The other thing that probably I am going to remove is the labelspace s=
-upport. I
-don't see a use for it, and even Cisco doesn't implement it either that=
- I know.
-	Then we must rework the netlink interface to make it cleaner and exten=
-sible.
-	Move the tunnel code to use the netlink interface and generic tunnel c=
-ode.
-	Check the dst's usages, there has been a lot of changes in the core ke=
-rnel here
-lately and I am not sure if we are using it correctly.
-	Check the locking and RCU usage.
-	Look for a way to remove the mpls_ptr from the net_device structure. T=
-here's
-code on another branch that does a radix-tree lookup for every packet b=
-ut I
-would like something simpler/lighter.
+Right, I forgot the reordering.
 
-	As I said I am not for implementing MPLS support on top of the openvsw=
-itch
-stuff, that I don't know, like I don't think that we are going to port =
-the
-bridge, vlan, ip_gre, or even l2tp support over it, aren't we? :)
+> This proposed patch has the virtue of providing a general solution
+> while simplifying the code a little.
+>
+> What are your concerns with this patch?
 
-	I am committed to support this code as best as I can and try to get it=
- merged
-but I would be nice if at least I can receive I confirmation of where w=
-e are
-heading on upstream.
+...I was thinking that if we go to the direction of removal of more and 
+more CA_Disorder stuff we could just as well remove the whole state. But 
+I've since that time convinced myself that the state itself is still 
+necessary even if less action takes place in it after this patch.
 
-	Regards,
-		Jorge
+Also, one (serious) word of caution! This change, by its extending of 
+CA_Open state, is somewhat similar to what I made FRTO years ago, and 
+managed to introduces subtle breaking to the state machine. Please check 
+that the problem similar to what was fixed by 
+a1c1f281b84a751fdb5ff919da3b09df7297619f does not reappear (possibly in 
+some other form causing spurious undos). ...To me it seems that 
+tcp_packet_delayed might be similarly confused after the given patch.
+
+-- 
+ i.
+--8323329-548910336-1321965873=:31705--
