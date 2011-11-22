@@ -1,8 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 1/6] SUNRPC: replace inode lock with pipe lock for RPC PipeFS
-	operations
-Date: Tue, 22 Nov 2011 18:41:35 +0300
-Message-ID: <20111122144134.479.46757.stgit@localhost6.localdomain6>
+Subject: [PATCH 3/6] SUNRPC: cleanup PipeFS redundant RPC inode usage
+Date: Tue, 22 Nov 2011 18:41:51 +0300
+Message-ID: <20111122144151.479.81332.stgit@localhost6.localdomain6>
 References: <20111122134514.479.9848.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -17,371 +16,218 @@ In-Reply-To: <20111122134514.479.9848.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currenly, inode i_lock is used to provide concurrent access to SUNPRC PipeFS
-pipes. It looks redundant, since now other use of inode is present in most of
-these places and thus can be easely replaced, which will allow to remove most
-of inode references from PipeFS code. This is a first step towards to removing
-PipeFS inode references from kernel code other than PipeFS itself.
+This patch removes redundant RPC inode references from PipeFS. These places are
+actually where pipes operations are performed.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- include/linux/sunrpc/rpc_pipe_fs.h |    1 +
- net/sunrpc/auth_gss/auth_gss.c     |   57 ++++++++++++++++++------------------
- net/sunrpc/rpc_pipe.c              |   38 ++++++++++++------------
- 3 files changed, 48 insertions(+), 48 deletions(-)
+ net/sunrpc/rpc_pipe.c |   93 ++++++++++++++++++++++++-------------------------
+ 1 files changed, 46 insertions(+), 47 deletions(-)
 
-diff --git a/include/linux/sunrpc/rpc_pipe_fs.h b/include/linux/sunrpc/rpc_pipe_fs.h
-index f32490c..8c51471 100644
---- a/include/linux/sunrpc/rpc_pipe_fs.h
-+++ b/include/linux/sunrpc/rpc_pipe_fs.h
-@@ -35,6 +35,7 @@ struct rpc_inode {
- 	int flags;
- 	struct delayed_work queue_timeout;
- 	const struct rpc_pipe_ops *ops;
-+	spinlock_t lock;
- };
- 
- static inline struct rpc_inode *
-diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
-index 364eb45..6ba2784 100644
---- a/net/sunrpc/auth_gss/auth_gss.c
-+++ b/net/sunrpc/auth_gss/auth_gss.c
-@@ -112,7 +112,7 @@ gss_put_ctx(struct gss_cl_ctx *ctx)
- /* gss_cred_set_ctx:
-  * called by gss_upcall_callback and gss_create_upcall in order
-  * to set the gss context. The actual exchange of an old context
-- * and a new one is protected by the inode->i_lock.
-+ * and a new one is protected by the rpci->lock.
-  */
- static void
- gss_cred_set_ctx(struct rpc_cred *cred, struct gss_cl_ctx *ctx)
-@@ -316,17 +316,16 @@ static inline struct gss_upcall_msg *
- gss_add_msg(struct gss_upcall_msg *gss_msg)
- {
- 	struct rpc_inode *rpci = gss_msg->inode;
--	struct inode *inode = &rpci->vfs_inode;
- 	struct gss_upcall_msg *old;
- 
--	spin_lock(&inode->i_lock);
-+	spin_lock(&rpci->lock);
- 	old = __gss_find_upcall(rpci, gss_msg->uid);
- 	if (old == NULL) {
- 		atomic_inc(&gss_msg->count);
- 		list_add(&gss_msg->list, &rpci->in_downcall);
- 	} else
- 		gss_msg = old;
--	spin_unlock(&inode->i_lock);
-+	spin_unlock(&rpci->lock);
- 	return gss_msg;
- }
- 
-@@ -342,14 +341,14 @@ __gss_unhash_msg(struct gss_upcall_msg *gss_msg)
- static void
- gss_unhash_msg(struct gss_upcall_msg *gss_msg)
- {
--	struct inode *inode = &gss_msg->inode->vfs_inode;
-+	struct rpc_inode *rpci = gss_msg->inode;
- 
- 	if (list_empty(&gss_msg->list))
- 		return;
--	spin_lock(&inode->i_lock);
-+	spin_lock(&rpci->lock);
- 	if (!list_empty(&gss_msg->list))
- 		__gss_unhash_msg(gss_msg);
--	spin_unlock(&inode->i_lock);
-+	spin_unlock(&rpci->lock);
- }
- 
- static void
-@@ -376,11 +375,11 @@ gss_upcall_callback(struct rpc_task *task)
- 	struct gss_cred *gss_cred = container_of(task->tk_rqstp->rq_cred,
- 			struct gss_cred, gc_base);
- 	struct gss_upcall_msg *gss_msg = gss_cred->gc_upcall;
--	struct inode *inode = &gss_msg->inode->vfs_inode;
-+	struct rpc_inode *rpci = gss_msg->inode;
- 
--	spin_lock(&inode->i_lock);
-+	spin_lock(&rpci->lock);
- 	gss_handle_downcall_result(gss_cred, gss_msg);
--	spin_unlock(&inode->i_lock);
-+	spin_unlock(&rpci->lock);
- 	task->tk_status = gss_msg->msg.errno;
- 	gss_release_msg(gss_msg);
- }
-@@ -508,7 +507,7 @@ gss_refresh_upcall(struct rpc_task *task)
- 	struct gss_cred *gss_cred = container_of(cred,
- 			struct gss_cred, gc_base);
- 	struct gss_upcall_msg *gss_msg;
--	struct inode *inode;
-+	struct rpc_inode *rpci;
- 	int err = 0;
- 
- 	dprintk("RPC: %5u gss_refresh_upcall for uid %u\n", task->tk_pid,
-@@ -526,8 +525,8 @@ gss_refresh_upcall(struct rpc_task *task)
- 		err = PTR_ERR(gss_msg);
- 		goto out;
- 	}
--	inode = &gss_msg->inode->vfs_inode;
--	spin_lock(&inode->i_lock);
-+	rpci = gss_msg->inode;
-+	spin_lock(&rpci->lock);
- 	if (gss_cred->gc_upcall != NULL)
- 		rpc_sleep_on(&gss_cred->gc_upcall->rpc_waitqueue, task, NULL);
- 	else if (gss_msg->ctx == NULL && gss_msg->msg.errno >= 0) {
-@@ -540,7 +539,7 @@ gss_refresh_upcall(struct rpc_task *task)
- 		gss_handle_downcall_result(gss_cred, gss_msg);
- 		err = gss_msg->msg.errno;
- 	}
--	spin_unlock(&inode->i_lock);
-+	spin_unlock(&rpci->lock);
- 	gss_release_msg(gss_msg);
- out:
- 	dprintk("RPC: %5u gss_refresh_upcall for uid %u result %d\n",
-@@ -551,7 +550,7 @@ out:
- static inline int
- gss_create_upcall(struct gss_auth *gss_auth, struct gss_cred *gss_cred)
- {
--	struct inode *inode;
-+	struct rpc_inode *rpci;
- 	struct rpc_cred *cred = &gss_cred->gc_base;
- 	struct gss_upcall_msg *gss_msg;
- 	DEFINE_WAIT(wait);
-@@ -575,14 +574,14 @@ retry:
- 		err = PTR_ERR(gss_msg);
- 		goto out;
- 	}
--	inode = &gss_msg->inode->vfs_inode;
-+	rpci = gss_msg->inode;
- 	for (;;) {
- 		prepare_to_wait(&gss_msg->waitqueue, &wait, TASK_KILLABLE);
--		spin_lock(&inode->i_lock);
-+		spin_lock(&rpci->lock);
- 		if (gss_msg->ctx != NULL || gss_msg->msg.errno < 0) {
- 			break;
- 		}
--		spin_unlock(&inode->i_lock);
-+		spin_unlock(&rpci->lock);
- 		if (fatal_signal_pending(current)) {
- 			err = -ERESTARTSYS;
- 			goto out_intr;
-@@ -593,7 +592,7 @@ retry:
- 		gss_cred_set_ctx(cred, gss_msg->ctx);
- 	else
- 		err = gss_msg->msg.errno;
--	spin_unlock(&inode->i_lock);
-+	spin_unlock(&rpci->lock);
- out_intr:
- 	finish_wait(&gss_msg->waitqueue, &wait);
- 	gss_release_msg(gss_msg);
-@@ -631,7 +630,7 @@ gss_pipe_downcall(struct file *filp, const char __user *src, size_t mlen)
- 	const void *p, *end;
- 	void *buf;
- 	struct gss_upcall_msg *gss_msg;
--	struct inode *inode = filp->f_path.dentry->d_inode;
-+	struct rpc_inode *rpci = RPC_I(filp->f_dentry->d_inode);
- 	struct gss_cl_ctx *ctx;
- 	uid_t uid;
- 	ssize_t err = -EFBIG;
-@@ -661,14 +660,14 @@ gss_pipe_downcall(struct file *filp, const char __user *src, size_t mlen)
- 
- 	err = -ENOENT;
- 	/* Find a matching upcall */
--	spin_lock(&inode->i_lock);
--	gss_msg = __gss_find_upcall(RPC_I(inode), uid);
-+	spin_lock(&rpci->lock);
-+	gss_msg = __gss_find_upcall(rpci, uid);
- 	if (gss_msg == NULL) {
--		spin_unlock(&inode->i_lock);
-+		spin_unlock(&rpci->lock);
- 		goto err_put_ctx;
- 	}
- 	list_del_init(&gss_msg->list);
--	spin_unlock(&inode->i_lock);
-+	spin_unlock(&rpci->lock);
- 
- 	p = gss_fill_context(p, end, ctx, gss_msg->auth->mech);
- 	if (IS_ERR(p)) {
-@@ -696,9 +695,9 @@ gss_pipe_downcall(struct file *filp, const char __user *src, size_t mlen)
- 	err = mlen;
- 
- err_release_msg:
--	spin_lock(&inode->i_lock);
-+	spin_lock(&rpci->lock);
- 	__gss_unhash_msg(gss_msg);
--	spin_unlock(&inode->i_lock);
-+	spin_unlock(&rpci->lock);
- 	gss_release_msg(gss_msg);
- err_put_ctx:
- 	gss_put_ctx(ctx);
-@@ -748,7 +747,7 @@ gss_pipe_release(struct inode *inode)
- 	struct gss_upcall_msg *gss_msg;
- 
- restart:
--	spin_lock(&inode->i_lock);
-+	spin_lock(&rpci->lock);
- 	list_for_each_entry(gss_msg, &rpci->in_downcall, list) {
- 
- 		if (!list_empty(&gss_msg->msg.list))
-@@ -756,11 +755,11 @@ restart:
- 		gss_msg->msg.errno = -EPIPE;
- 		atomic_inc(&gss_msg->count);
- 		__gss_unhash_msg(gss_msg);
--		spin_unlock(&inode->i_lock);
-+		spin_unlock(&rpci->lock);
- 		gss_release_msg(gss_msg);
- 		goto restart;
- 	}
--	spin_unlock(&inode->i_lock);
-+	spin_unlock(&rpci->lock);
- 
- 	put_pipe_version();
- }
 diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index a1f23c4..d0ffdf4 100644
+index a95ba18..edf140a 100644
 --- a/net/sunrpc/rpc_pipe.c
 +++ b/net/sunrpc/rpc_pipe.c
-@@ -83,12 +83,11 @@ rpc_timeout_upcall_queue(struct work_struct *work)
- 	LIST_HEAD(free_list);
- 	struct rpc_inode *rpci =
- 		container_of(work, struct rpc_inode, queue_timeout.work);
--	struct inode *inode = &rpci->vfs_inode;
- 	void (*destroy_msg)(struct rpc_pipe_msg *);
- 
--	spin_lock(&inode->i_lock);
-+	spin_lock(&rpci->lock);
- 	if (rpci->ops == NULL) {
--		spin_unlock(&inode->i_lock);
-+		spin_unlock(&rpci->lock);
- 		return;
- 	}
- 	destroy_msg = rpci->ops->destroy_msg;
-@@ -96,7 +95,7 @@ rpc_timeout_upcall_queue(struct work_struct *work)
- 		list_splice_init(&rpci->pipe, &free_list);
- 		rpci->pipelen = 0;
- 	}
--	spin_unlock(&inode->i_lock);
-+	spin_unlock(&rpci->lock);
- 	rpc_purge_list(rpci, &free_list, destroy_msg, -ETIMEDOUT);
- }
- 
-@@ -116,7 +115,7 @@ rpc_queue_upcall(struct inode *inode, struct rpc_pipe_msg *msg)
- 	struct rpc_inode *rpci = RPC_I(inode);
+@@ -112,28 +112,28 @@ rpc_timeout_upcall_queue(struct work_struct *work)
+ int
+ rpc_queue_upcall(struct inode *inode, struct rpc_pipe_msg *msg)
+ {
+-	struct rpc_inode *rpci = RPC_I(inode);
++	struct rpc_pipe *pipe = RPC_I(inode)->pipe;
  	int res = -EPIPE;
  
--	spin_lock(&inode->i_lock);
-+	spin_lock(&rpci->lock);
- 	if (rpci->ops == NULL)
+-	spin_lock(&rpci->pipe->lock);
+-	if (rpci->pipe->ops == NULL)
++	spin_lock(&pipe->lock);
++	if (pipe->ops == NULL)
  		goto out;
- 	if (rpci->nreaders) {
-@@ -133,7 +132,7 @@ rpc_queue_upcall(struct inode *inode, struct rpc_pipe_msg *msg)
+-	if (rpci->pipe->nreaders) {
+-		list_add_tail(&msg->list, &rpci->pipe->pipe);
+-		rpci->pipe->pipelen += msg->len;
++	if (pipe->nreaders) {
++		list_add_tail(&msg->list, &pipe->pipe);
++		pipe->pipelen += msg->len;
+ 		res = 0;
+-	} else if (rpci->pipe->flags & RPC_PIPE_WAIT_FOR_OPEN) {
+-		if (list_empty(&rpci->pipe->pipe))
++	} else if (pipe->flags & RPC_PIPE_WAIT_FOR_OPEN) {
++		if (list_empty(&pipe->pipe))
+ 			queue_delayed_work(rpciod_workqueue,
+-					&rpci->pipe->queue_timeout,
++					&pipe->queue_timeout,
+ 					RPC_UPCALL_TIMEOUT);
+-		list_add_tail(&msg->list, &rpci->pipe->pipe);
+-		rpci->pipe->pipelen += msg->len;
++		list_add_tail(&msg->list, &pipe->pipe);
++		pipe->pipelen += msg->len;
  		res = 0;
  	}
  out:
--	spin_unlock(&inode->i_lock);
-+	spin_unlock(&rpci->lock);
- 	wake_up(&rpci->waitq);
+-	spin_unlock(&rpci->pipe->lock);
+-	wake_up(&rpci->pipe->waitq);
++	spin_unlock(&pipe->lock);
++	wake_up(&pipe->waitq);
  	return res;
  }
-@@ -156,14 +155,14 @@ rpc_close_pipes(struct inode *inode)
- 	ops = rpci->ops;
- 	if (ops != NULL) {
- 		LIST_HEAD(free_list);
--		spin_lock(&inode->i_lock);
-+		spin_lock(&rpci->lock);
- 		need_release = rpci->nreaders != 0 || rpci->nwriters != 0;
- 		rpci->nreaders = 0;
- 		list_splice_init(&rpci->in_upcall, &free_list);
- 		list_splice_init(&rpci->pipe, &free_list);
- 		rpci->pipelen = 0;
- 		rpci->ops = NULL;
--		spin_unlock(&inode->i_lock);
-+		spin_unlock(&rpci->lock);
- 		rpc_purge_list(rpci, &free_list, ops->destroy_msg, -EPIPE);
- 		rpci->nwriters = 0;
- 		if (need_release && ops->release_pipe)
-@@ -236,10 +235,10 @@ rpc_pipe_release(struct inode *inode, struct file *filp)
+ EXPORT_SYMBOL_GPL(rpc_queue_upcall);
+@@ -201,23 +201,23 @@ rpc_destroy_inode(struct inode *inode)
+ static int
+ rpc_pipe_open(struct inode *inode, struct file *filp)
+ {
+-	struct rpc_inode *rpci = RPC_I(inode);
++	struct rpc_pipe *pipe = RPC_I(inode)->pipe;
+ 	int first_open;
+ 	int res = -ENXIO;
+ 
+ 	mutex_lock(&inode->i_mutex);
+-	if (rpci->pipe->ops == NULL)
++	if (pipe->ops == NULL)
  		goto out;
- 	msg = filp->private_data;
- 	if (msg != NULL) {
--		spin_lock(&inode->i_lock);
-+		spin_lock(&rpci->lock);
- 		msg->errno = -EAGAIN;
- 		list_del_init(&msg->list);
--		spin_unlock(&inode->i_lock);
-+		spin_unlock(&rpci->lock);
- 		rpci->ops->destroy_msg(msg);
+-	first_open = rpci->pipe->nreaders == 0 && rpci->pipe->nwriters == 0;
+-	if (first_open && rpci->pipe->ops->open_pipe) {
+-		res = rpci->pipe->ops->open_pipe(inode);
++	first_open = pipe->nreaders == 0 && pipe->nwriters == 0;
++	if (first_open && pipe->ops->open_pipe) {
++		res = pipe->ops->open_pipe(inode);
+ 		if (res)
+ 			goto out;
  	}
+ 	if (filp->f_mode & FMODE_READ)
+-		rpci->pipe->nreaders++;
++		pipe->nreaders++;
  	if (filp->f_mode & FMODE_WRITE)
-@@ -248,10 +247,10 @@ rpc_pipe_release(struct inode *inode, struct file *filp)
- 		rpci->nreaders --;
- 		if (rpci->nreaders == 0) {
- 			LIST_HEAD(free_list);
--			spin_lock(&inode->i_lock);
-+			spin_lock(&rpci->lock);
- 			list_splice_init(&rpci->pipe, &free_list);
- 			rpci->pipelen = 0;
--			spin_unlock(&inode->i_lock);
-+			spin_unlock(&rpci->lock);
- 			rpc_purge_list(rpci, &free_list,
- 					rpci->ops->destroy_msg, -EAGAIN);
- 		}
-@@ -279,7 +278,7 @@ rpc_pipe_read(struct file *filp, char __user *buf, size_t len, loff_t *offset)
+-		rpci->pipe->nwriters++;
++		pipe->nwriters++;
+ 	res = 0;
+ out:
+ 	mutex_unlock(&inode->i_mutex);
+@@ -268,39 +268,39 @@ static ssize_t
+ rpc_pipe_read(struct file *filp, char __user *buf, size_t len, loff_t *offset)
+ {
+ 	struct inode *inode = filp->f_path.dentry->d_inode;
+-	struct rpc_inode *rpci = RPC_I(inode);
++	struct rpc_pipe *pipe = RPC_I(inode)->pipe;
+ 	struct rpc_pipe_msg *msg;
+ 	int res = 0;
+ 
+ 	mutex_lock(&inode->i_mutex);
+-	if (rpci->pipe->ops == NULL) {
++	if (pipe->ops == NULL) {
+ 		res = -EPIPE;
+ 		goto out_unlock;
  	}
  	msg = filp->private_data;
  	if (msg == NULL) {
--		spin_lock(&inode->i_lock);
-+		spin_lock(&rpci->lock);
- 		if (!list_empty(&rpci->pipe)) {
- 			msg = list_entry(rpci->pipe.next,
+-		spin_lock(&rpci->pipe->lock);
+-		if (!list_empty(&rpci->pipe->pipe)) {
+-			msg = list_entry(rpci->pipe->pipe.next,
++		spin_lock(&pipe->lock);
++		if (!list_empty(&pipe->pipe)) {
++			msg = list_entry(pipe->pipe.next,
  					struct rpc_pipe_msg,
-@@ -289,7 +288,7 @@ rpc_pipe_read(struct file *filp, char __user *buf, size_t len, loff_t *offset)
+ 					list);
+-			list_move(&msg->list, &rpci->pipe->in_upcall);
+-			rpci->pipe->pipelen -= msg->len;
++			list_move(&msg->list, &pipe->in_upcall);
++			pipe->pipelen -= msg->len;
  			filp->private_data = msg;
  			msg->copied = 0;
  		}
--		spin_unlock(&inode->i_lock);
-+		spin_unlock(&rpci->lock);
+-		spin_unlock(&rpci->pipe->lock);
++		spin_unlock(&pipe->lock);
  		if (msg == NULL)
  			goto out_unlock;
  	}
-@@ -297,9 +296,9 @@ rpc_pipe_read(struct file *filp, char __user *buf, size_t len, loff_t *offset)
- 	res = rpci->ops->upcall(filp, msg, buf, len);
+ 	/* NOTE: it is up to the callback to update msg->copied */
+-	res = rpci->pipe->ops->upcall(filp, msg, buf, len);
++	res = pipe->ops->upcall(filp, msg, buf, len);
  	if (res < 0 || msg->len == msg->copied) {
  		filp->private_data = NULL;
--		spin_lock(&inode->i_lock);
-+		spin_lock(&rpci->lock);
+-		spin_lock(&rpci->pipe->lock);
++		spin_lock(&pipe->lock);
  		list_del_init(&msg->list);
--		spin_unlock(&inode->i_lock);
-+		spin_unlock(&rpci->lock);
- 		rpci->ops->destroy_msg(msg);
+-		spin_unlock(&rpci->pipe->lock);
+-		rpci->pipe->ops->destroy_msg(msg);
++		spin_unlock(&pipe->lock);
++		pipe->ops->destroy_msg(msg);
  	}
  out_unlock:
-@@ -348,9 +347,9 @@ rpc_pipe_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 	mutex_unlock(&inode->i_mutex);
+@@ -311,13 +311,13 @@ static ssize_t
+ rpc_pipe_write(struct file *filp, const char __user *buf, size_t len, loff_t *offset)
+ {
+ 	struct inode *inode = filp->f_path.dentry->d_inode;
+-	struct rpc_inode *rpci = RPC_I(inode);
++	struct rpc_pipe *pipe = RPC_I(inode)->pipe;
+ 	int res;
+ 
+ 	mutex_lock(&inode->i_mutex);
+ 	res = -EPIPE;
+-	if (rpci->pipe->ops != NULL)
+-		res = rpci->pipe->ops->downcall(filp, buf, len);
++	if (pipe->ops != NULL)
++		res = pipe->ops->downcall(filp, buf, len);
+ 	mutex_unlock(&inode->i_mutex);
+ 	return res;
+ }
+@@ -325,16 +325,15 @@ rpc_pipe_write(struct file *filp, const char __user *buf, size_t len, loff_t *of
+ static unsigned int
+ rpc_pipe_poll(struct file *filp, struct poll_table_struct *wait)
+ {
+-	struct rpc_inode *rpci;
++	struct rpc_pipe *pipe = RPC_I(filp->f_path.dentry->d_inode)->pipe;
+ 	unsigned int mask = 0;
+ 
+-	rpci = RPC_I(filp->f_path.dentry->d_inode);
+-	poll_wait(filp, &rpci->pipe->waitq, wait);
++	poll_wait(filp, &pipe->waitq, wait);
+ 
+ 	mask = POLLOUT | POLLWRNORM;
+-	if (rpci->pipe->ops == NULL)
++	if (pipe->ops == NULL)
+ 		mask |= POLLERR | POLLHUP;
+-	if (filp->private_data || !list_empty(&rpci->pipe->pipe))
++	if (filp->private_data || !list_empty(&pipe->pipe))
+ 		mask |= POLLIN | POLLRDNORM;
+ 	return mask;
+ }
+@@ -343,23 +342,23 @@ static long
+ rpc_pipe_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ {
+ 	struct inode *inode = filp->f_path.dentry->d_inode;
+-	struct rpc_inode *rpci = RPC_I(inode);
++	struct rpc_pipe *pipe = RPC_I(inode)->pipe;
+ 	int len;
  
  	switch (cmd) {
  	case FIONREAD:
--		spin_lock(&inode->i_lock);
-+		spin_lock(&rpci->lock);
- 		if (rpci->ops == NULL) {
--			spin_unlock(&inode->i_lock);
-+			spin_unlock(&rpci->lock);
+-		spin_lock(&rpci->pipe->lock);
+-		if (rpci->pipe->ops == NULL) {
+-			spin_unlock(&rpci->pipe->lock);
++		spin_lock(&pipe->lock);
++		if (pipe->ops == NULL) {
++			spin_unlock(&pipe->lock);
  			return -EPIPE;
  		}
- 		len = rpci->pipelen;
-@@ -359,7 +358,7 @@ rpc_pipe_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+-		len = rpci->pipe->pipelen;
++		len = pipe->pipelen;
+ 		if (filp->private_data) {
+ 			struct rpc_pipe_msg *msg;
  			msg = filp->private_data;
  			len += msg->len - msg->copied;
  		}
--		spin_unlock(&inode->i_lock);
-+		spin_unlock(&rpci->lock);
+-		spin_unlock(&rpci->pipe->lock);
++		spin_unlock(&pipe->lock);
  		return put_user(len, (int __user *)arg);
  	default:
  		return -EINVAL;
-@@ -1134,6 +1133,7 @@ init_once(void *foo)
- 	INIT_DELAYED_WORK(&rpci->queue_timeout,
- 			    rpc_timeout_upcall_queue);
- 	rpci->ops = NULL;
-+	spin_lock_init(&rpci->lock);
- }
- 
- int register_rpc_pipefs(void)
+@@ -789,7 +788,7 @@ static int rpc_rmdir_depopulate(struct dentry *dentry,
+  * @private: private data to associate with the pipe, for the caller's use
+  * @ops: operations defining the behavior of the pipe: upcall, downcall,
+  *	release_pipe, open_pipe, and destroy_msg.
+- * @flags: rpc_inode flags
++ * @flags: rpc_pipe flags
+  *
+  * Data is made available for userspace to read by calls to
+  * rpc_queue_upcall().  The actual reads will result in calls to
