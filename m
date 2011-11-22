@@ -1,65 +1,74 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH v2] xfrm: optimize ipv4 selector matching
-Date: Tue, 22 Nov 2011 19:46:02 +0300
-Message-ID: <20111122164602.GC25127@p183.telecom.by>
-References: <1321974652.2474.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <AE90C24D6B3A694183C094C60CF0A2F6D8AED9@saturn3.aculab.com>
+From: Christoph Lameter <cl@linux.com>
+Subject: slub: Lockout validation scans during freeing of object
+Date: Tue, 22 Nov 2011 10:53:06 -0600 (CST)
+Message-ID: <alpine.DEB.2.00.1111221052130.28197@router.home>
+References: <alpine.DEB.2.00.1111221033350.28197@router.home> <alpine.DEB.2.00.1111221040300.28197@router.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:60172 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753701Ab1KVQqH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 11:46:07 -0500
-Received: by bke11 with SMTP id 11so416265bke.19
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 08:46:06 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6D8AED9@saturn3.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
+  Christian Kujau <lists@nerdbynature.de>,
+  Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+  "Alex,Shi" <alex.shi@intel.com>,
+  "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+  "linux-mm@kvack.org" <linux-mm@kvack.org>,
+  Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
+  "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <alpine.DEB.2.00.1111221040300.28197@router.home>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Current addr_match() is errh, under-optimized.
+A bit heavy handed locking but this should do the trick.
 
-Compiler doesn't know that memcmp() branch doesn't trigger for IPv4.
-Also, pass addresses by value -- they fit into register.
+Subject: slub: Lockout validation scans during freeing of object
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+Slab validation can run right now while the slab free paths prepare
+the redzone fields etc around the objects in preparation of the
+actual freeing of the object. This can lead to false positives.
+
+Take the node lock unconditionally during free so that the validation
+can examine objects without them being disturbed by freeing operations.
+
+Signed-off-by: Christoph Lameter <cl@linux.com>
+
 ---
+ mm/slub.c |   12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
- include/net/xfrm.h     |    8 ++++++++
- net/xfrm/xfrm_policy.c |    4 ++--
- 2 files changed, 10 insertions(+), 2 deletions(-)
+Index: linux-2.6/mm/slub.c
+===================================================================
+--- linux-2.6.orig/mm/slub.c	2011-11-22 10:42:19.000000000 -0600
++++ linux-2.6/mm/slub.c	2011-11-22 10:44:34.000000000 -0600
+@@ -2391,8 +2391,15 @@ static void __slab_free(struct kmem_cach
 
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -827,6 +827,14 @@ static inline bool addr_match(const void *token1, const void *token2,
- 	return true;
- }
- 
-+static inline bool addr4_match(__be32 a1, __be32 a2, u8 prefixlen)
-+{
-+	/* C99 6.5.7 (3): u32 << 32 is undefined behaviour */
-+	if (prefixlen == 0)
-+		return true;
-+	return !((a1 ^ a2) & htonl(0xFFFFFFFFu << (32 - prefixlen)));
-+}
+ 	stat(s, FREE_SLOWPATH);
+
+-	if (kmem_cache_debug(s) && !free_debug_processing(s, page, x, addr))
+-		return;
++	if (kmem_cache_debug(s)) {
 +
- static __inline__
- __be16 xfrm_flowi_sport(const struct flowi *fl, const union flowi_uli *uli)
- {
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -61,8 +61,8 @@ __xfrm4_selector_match(const struct xfrm_selector *sel, const struct flowi *fl)
- {
- 	const struct flowi4 *fl4 = &fl->u.ip4;
- 
--	return  addr_match(&fl4->daddr, &sel->daddr, sel->prefixlen_d) &&
--		addr_match(&fl4->saddr, &sel->saddr, sel->prefixlen_s) &&
-+	return  addr4_match(fl4->daddr, sel->daddr.a4, sel->prefixlen_d) &&
-+		addr4_match(fl4->saddr, sel->saddr.a4, sel->prefixlen_s) &&
- 		!((xfrm_flowi_dport(fl, &fl4->uli) ^ sel->dport) & sel->dport_mask) &&
- 		!((xfrm_flowi_sport(fl, &fl4->uli) ^ sel->sport) & sel->sport_mask) &&
- 		(fl4->flowi4_proto == sel->proto || !sel->proto) &&
++		/* Lock out any concurrent validate_slab calls */
++		n = get_node(s, page_to_nid(page));
++		spin_lock_irqsave(&n->list_lock, flags);
++
++		if (!free_debug_processing(s, page, x, addr))
++			goto out;
++	}
+
+ 	do {
+ 		prior = page->freelist;
+@@ -2471,6 +2478,7 @@ static void __slab_free(struct kmem_cach
+ 			stat(s, FREE_ADD_PARTIAL);
+ 		}
+ 	}
++out:
+ 	spin_unlock_irqrestore(&n->list_lock, flags);
+ 	return;
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
