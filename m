@@ -1,66 +1,80 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Mon, 21 Nov 2011 21:18:52 -0600 (CST)
-Message-ID: <alpine.DEB.2.00.1111212105330.19606@router.home>
-References: <20111121131531.GA1679@x4.trippels.de>  <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121153621.GA1678@x4.trippels.de>  <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121161036.GA1679@x4.trippels.de>
-  <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121173556.GA1673@x4.trippels.de>  <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121185215.GA1673@x4.trippels.de>
-  <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop> <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] AF_UNIX: Fix poll locking problem when reading from
+ a stream socket
+Date: Tue, 22 Nov 2011 06:23:01 +0100
+Message-ID: <1321939381.27077.7.camel@edumazet-laptop>
+References: <1321918525-5078-1-git-send-email-himeraster@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-  Markus Trippelsdorf <markus@trippelsdorf.de>,
-  Eric Dumazet <eric.dumazet@gmail.com>, "Alex,Shi" <alex.shi@intel.com>,
-  "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-  "linux-mm@kvack.org" <linux-mm@kvack.org>,
-  Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
-  "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>
-To: Christian Kujau <lists@nerdbynature.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexey Moiseytsev <himeraster@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1321918525-5078-1-git-send-email-himeraster@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 21 Nov 2011, Christian Kujau wrote:
+Le mardi 22 novembre 2011 =C3=A0 03:35 +0400, Alexey Moiseytsev a =C3=A9=
+crit :
+> poll() call may be locked by concurrent reading from the same stream
+> socket.
+>=20
+> Signed-off-by: Alexey Moiseytsev <himeraster@gmail.com>
+> ---
+>  net/unix/af_unix.c |    4 ++++
+>  1 files changed, 4 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> index 466fbcc..b595a3d 100644
+> --- a/net/unix/af_unix.c
+> +++ b/net/unix/af_unix.c
+> @@ -1957,6 +1957,7 @@ static int unix_stream_recvmsg(struct kiocb *io=
+cb, struct socket *sock,
+>  			if ((UNIXCB(skb).pid  !=3D siocb->scm->pid) ||
+>  			    (UNIXCB(skb).cred !=3D siocb->scm->cred)) {
+>  				skb_queue_head(&sk->sk_receive_queue, skb);
+> +				sk->sk_data_ready(sk, skb->len);
+>  				break;
+>  			}
+>  		} else {
+> @@ -1974,6 +1975,7 @@ static int unix_stream_recvmsg(struct kiocb *io=
+cb, struct socket *sock,
+>  		chunk =3D min_t(unsigned int, skb->len, size);
+>  		if (memcpy_toiovec(msg->msg_iov, skb->data, chunk)) {
+>  			skb_queue_head(&sk->sk_receive_queue, skb);
+> +			sk->sk_data_ready(sk, skb->len);
+>  			if (copied =3D=3D 0)
+>  				copied =3D -EFAULT;
+>  			break;
+> @@ -1991,6 +1993,7 @@ static int unix_stream_recvmsg(struct kiocb *io=
+cb, struct socket *sock,
+>  			/* put the skb back if we didn't use it up.. */
+>  			if (skb->len) {
+>  				skb_queue_head(&sk->sk_receive_queue, skb);
+> +				sk->sk_data_ready(sk, skb->len);
+>  				break;
+>  			}
+> =20
+> @@ -2006,6 +2009,7 @@ static int unix_stream_recvmsg(struct kiocb *io=
+cb, struct socket *sock,
+> =20
+>  			/* put message back and return */
+>  			skb_queue_head(&sk->sk_receive_queue, skb);
+> +			sk->sk_data_ready(sk, skb->len);
+>  			break;
+>  		}
+>  	} while (size);
 
-> On Tue, 22 Nov 2011 at 07:27, Benjamin Herrenschmidt wrote:
-> > Note that I hit a similar looking crash (sorry, I couldn't capture a
-> > backtrace back then) on a PowerMac G5 (ppc64) while doing a large rsync
-> > transfer yesterday with -rc2-something (cfcfc9ec) and
-> > Christian Kujau (CC) seems to be able to reproduce something similar on
-> > some other ppc platform (Christian, what is your setup ?)
->
-> I seem to hit it with heavy disk & cpu IO is in progress on this PowerBook
-> G4. Full dmesg & .config: http://nerdbynature.de/bits/3.2.0-rc1/oops/
->
-> I've enabled some debug options and now it really points to slub.c:2166
+=46ine, the fix is technically correct since we own u->readlock mutex,
+another thread cannot consume the just requeued skb.=20
 
-Hmmm... That means that c->page points to page not frozen. Per cpu
-partial pages are frozen until they are reused or until the partial list
-is flushed.
+Small note : the words "locking" and "locked" are more used to describe
+the action of taking a spinlock/mutex/rwlock or something, while the bu=
+g
+you fixed is more about poll() system call being blocked/frozen forever=
+=2E
 
-Does this ever happen on x86 or only on other platforms? In put_cpu_partial() the
-this_cpu_cmpxchg really needs really to be irq safe. this_cpu_cmpxchg is
-only preempt safe.
+Thanks !
 
-Index: linux-2.6/mm/slub.c
-===================================================================
---- linux-2.6.orig/mm/slub.c	2011-11-21 21:15:41.575673204 -0600
-+++ linux-2.6/mm/slub.c	2011-11-21 21:16:33.442336849 -0600
-@@ -1969,7 +1969,7 @@
- 		page->pobjects = pobjects;
- 		page->next = oldpage;
-
--	} while (this_cpu_cmpxchg(s->cpu_slab->partial, oldpage, page) != oldpage);
-+	} while (irqsafe_cpu_cmpxchg(s->cpu_slab->partial, oldpage, page) != oldpage);
- 	stat(s, CPU_PARTIAL_FREE);
- 	return pobjects;
- }
-
-x
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
