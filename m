@@ -1,139 +1,143 @@
-From: Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Subject: Re: NFS TCP race condition with SOCK_ASYNC_NOSPACE
-Date: Tue, 22 Nov 2011 13:23:48 +0000
-Message-ID: <4ECBA264.2030205@citrix.com>
-References: <4EC6A681.30902@citrix.com>				  <1321642368.2653.35.camel@lade.trondhjem.org>		 <4EC6AC47.60404@citrix.com>			 <1321643673.2653.41.camel@lade.trondhjem.org>			 <4EC6B82B.3000701@citrix.com>	 <4ECA94F9.4090503@citrix.com>			 <1321961913.3323.67.camel@lade.trondhjem.org> <4ECB8F47.105@citrix.com>		 <1321963839.7645.5.camel@lade.trondhjem.org> <4ECB9294.20002@citrix.com>	 <1321964578.7645.9.camel@lade.trondhjem.org> <4ECB96DA.9030202@citrix.com> <1321965938.7645.13.camel@lade.trondhjem.org>
+From: Xander Hover <lkml@hover.be>
+Subject: Re: softirq oops from b44_poll
+Date: Tue, 22 Nov 2011 14:43:33 +0100
+Message-ID: <CAJfGthT1Fbez_oyfjepo8gdh4BFhpfUPAX45aeRe+8dMd=Ku=Q@mail.gmail.com>
+References: <CAJfGthSxanFbL2vKCpOQbP9K5oNAxeaYt7OMdmdoCb4eLQ_Fww@mail.gmail.com>
+	<1321917453.10276.3.camel@pjaxe>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1321965938.7645.13.camel-SyLVLa/KEI9HwK5hSS5vWB2eb7JE58TQ@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1321917453.10276.3.camel@pjaxe>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 22/11/11 12:45, Trond Myklebust wrote:
-> On Tue, 2011-11-22 at 12:34 +0000, Andrew Cooper wrote: 
->> On 22/11/11 12:22, Trond Myklebust wrote:
->>> On Tue, 2011-11-22 at 12:16 +0000, Andrew Cooper wrote: 
->>>> On 22/11/11 12:10, Trond Myklebust wrote:
->>>>> On Tue, 2011-11-22 at 12:02 +0000, Andrew Cooper wrote: 
->>>>>> On 22/11/11 11:38, Trond Myklebust wrote:
->>>>>>> On Mon, 2011-11-21 at 18:14 +0000, Andrew Cooper wrote: 
->>>>>>>> Following some debugging, I believe that the attached patch fixes the
->>>>>>>> problem.
->>>>>>>>
->>>>>>>> Simply returning EAGAIN is not sufficient, as the task does not get
->>>>>>>> requeued, and times out 13 seconds later (as per our mount options). 
->>>>>>>> Setting the SOCK_ASYNC_NOSPACE bit causes the requeue to happen.
->>>>>>>>
->>>>>>>> I realize that this is a gross hack and I should probably not be using
->>>>>>>> SOCK_ASYNC_NOSPACE in that way.  Is there a better way to achieve the
->>>>>>>> same solution?
->>>>>>>>
->>>>>>> What you are doing will cause the request to be put to sleep with no
->>>>>>> guarantee that it will ever be woken up. Why would we want to do that if
->>>>>>> there is no report of a tcp window/buffer space congestion?
->>>>>> But the reason we get to this code is because there was a report of
->>>>>> space collision.  What would you suggest instead?  Changing
->>>>>> xs_{tcp,udp}_send_request() to retry in this case would defeat the point
->>>>>> of having xs_nospace().
->>>>> I suggest doing absolutely nothing: do what you originally proposed,
->>>>> which is to report the EAGAIN so that the client state machine retries
->>>>> the socket write.
->>>>>
->>>>> My point is that this is a context which is _not_ atomic with the
->>>>> original report of tcp window/buffer space congestion. There are no
->>>>> locks or anything else that will guarantee that the congestion still
->>>>> exists, and the fact that the SOCK_ASYNC_NOSPACE flag is now clear
->>>>> indicates that this is the case.
->>>>> The whole purpose of xs_nospace() is to wait until a congestion
->>>>> condition clears. If the congestion clears before we get here, then we
->>>>> have no reason to do anything special other than retry.
->>>>>
->>>>> Trond
->>>> I am slightly confused as to what you mean now.
->>>>
->>>> When you take out the if(test_bit test and always set ret to EAGAIN and
->>>> requeue the request, the next time it wakes up is when it is killed due
->>>> to timeout.  This results in substantially worse effects for the
->>>> userspace, as the NFS session is killed.
->>> What is putting the request to sleep? It should be awake when it enters
->>> xs_nospace(), and nothing in or after that function should be putting it
->>> to sleep until we've retried with call_transmit().
->>>
->> I presume it is the call to xprt_wait_for_buffer_space() which calls
->> rpc_sleep_on().  There is xs_tcp_write_space which appears to wake it up
->> based on sk->sk_write_space which is triggered on the sock gaining more
->> space, which has already happened in this specific case.
-> That call should only happen if we have to wait for congestion (i.e. if
-> SOCK_ASYNC_NOSPACE is set). 
->
-> Please can you test if the following patch fixes the problem.
->
-> Cheers
->   Trond
+Tested on 3.1.1 and 3.2_rc2+ now.
+=46ix is working as expected.
 
-Yup - this works and seems like a rather more elegant solution.
+Kind regards,
 
-Thanks for all you help - I have been chasing this bug on and off since
-the middle of May.
+Xander Hover
 
-> 8<--------------------------------------------------------------------- 
-> From 729b3861d9a2820735b648a044d558315bc9c9db Mon Sep 17 00:00:00 2001
-> From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-> Date: Tue, 22 Nov 2011 14:44:28 +0200
-> Subject: [PATCH] SUNRPC: Ensure we return EAGAIN in xs_nospace if congestion
->  is cleared
+
+On Tue, Nov 22, 2011 at 12:17 AM, Peter P Waskiewicz Jr
+<peter.p.waskiewicz.jr@intel.com> wrote:
+> On Mon, 2011-11-21 at 05:58 -0800, Xander Hover wrote:
+>> Hi all,
+>>
+>> I noticed the small discussion about the b44_poll OOPS and
+>> I also have a uni-processor PC with a broadcom network device (b44)
+>> that causes similar kernel OOPSes.
+>>
+>> Here is a (reproducible) trace that still shows up in kernel 3.1.1:
+>>
+>> =A0------------[ cut here ]------------
+>> =A0 =A0 WARNING: at kernel/softirq.c:159 local_bh_enable+0x32/0x79()
+>> =A0 =A0 Hardware name: Dimension 2400
+>> =A0 =A0 Modules linked in: snd_seq_midi snd_emu10k1_synth snd_emux_s=
+ynth
+>> snd_seq_virmidi snd_seq_midi_emul snd_seq_oss snd_seq_midi_event
+>> snd_seq snd_pcm_oss snd_mixer_oss bnep rfcomm cryptd aes_i586
+>> aes_generic ecb btusb bluetooth rfkill ppdev snd_emu10k1 snd_rawmidi
+>> snd_ac97_codec ac97_bus snd_pcm snd_seq_device snd_timer
+>> snd_page_alloc dcdbas snd_util_mem parport_pc snd_hwdep snd parport
+>> emu10k1_gp rtc_cmos gameport i2c_i801
+>> =A0 =A0 Pid: 0, comm: swapper Not tainted 3.1.1-gentoo #1
+>> =A0 =A0 Call Trace:
+>> =A0 =A0 =A0[<c1022970>] warn_slowpath_common+0x65/0x7a
+>> =A0 =A0 =A0[<c102699e>] ? local_bh_enable+0x32/0x79
+>> =A0 =A0 =A0[<c1022994>] warn_slowpath_null+0xf/0x13
+>> =A0 =A0 =A0[<c102699e>] local_bh_enable+0x32/0x79
+>> =A0 =A0 =A0[<c134bfd8>] destroy_conntrack+0x7c/0x9b
+>> =A0 =A0 =A0[<c134890b>] nf_conntrack_destroy+0x1f/0x26
+>> =A0 =A0 =A0[<c132e3a6>] skb_release_head_state+0x74/0x83
+>> =A0 =A0 =A0[<c132e286>] __kfree_skb+0xb/0x6b
+>> =A0 =A0 =A0[<c132e30a>] consume_skb+0x24/0x26
+>> =A0 =A0 =A0[<c127c925>] b44_poll+0xaa/0x449
+>> =A0 =A0 =A0[<c1333ca1>] net_rx_action+0x3f/0xea
+>> =A0 =A0 =A0[<c1026a44>] __do_softirq+0x5f/0xd5
+>> =A0 =A0 =A0[<c10269e5>] ? local_bh_enable+0x79/0x79
+>> =A0 =A0 =A0<IRQ> =A0[<c1026c32>] ? irq_exit+0x34/0x8d
+>> =A0 =A0 =A0[<c1003628>] ? do_IRQ+0x74/0x87
+>> =A0 =A0 =A0[<c13f5329>] ? common_interrupt+0x29/0x30
+>> =A0 =A0 =A0[<c1006e18>] ? default_idle+0x29/0x3e
+>> =A0 =A0 =A0[<c10015a7>] ? cpu_idle+0x2f/0x5d
+>> =A0 =A0 =A0[<c13e91c5>] ? rest_init+0x79/0x7b
+>> =A0 =A0 =A0[<c15c66a9>] ? start_kernel+0x297/0x29c
+>> =A0 =A0 =A0[<c15c60b0>] ? i386_start_kernel+0xb0/0xb7
+>> =A0 =A0 ---[ end trace 583f33bb1aa207a9 ]---
+>>
+>>
+>> However if I apply the following patch this error does not show up a=
+nymore:
+>>
+>>
+>> diff --git a/drivers/net/ethernet/broadcom/b44.c
+>> b/drivers/net/ethernet/broadcom/b44.c
+>> index 4cf835d..3fb66d0 100644
+>> --- a/drivers/net/ethernet/broadcom/b44.c
+>> +++ b/drivers/net/ethernet/broadcom/b44.c
+>> @@ -608,7 +608,7 @@ static void b44_tx(struct b44 *bp)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0s=
+kb->len,
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0D=
+MA_TO_DEVICE);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 rp->skb =3D NULL;
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_kfree_skb(skb);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_kfree_skb_irq(skb);
 >
-> By returning '0' instead of 'EAGAIN' when the tests in xs_nospace() fail
-> to find evidence of socket congestion, we are making the RPC engine believe
-> that the message was incompletely sent, and so it disconnects the socket
-> instead of just retrying the send.
+> I suspect the "right" way to fix this is to call dev_kfree_skb_any(sk=
+b);
+> instead, since that will handle the in-interrupt case if that's where
+> we're stuck.
 >
-> The bug appears to have been introduced by commit
-> 5e3771ce2d6a69e10fcc870cdf226d121d868491 (SUNRPC: Ensure that xs_nospace
-> return values are propagated).
+> Can you try this patch (compile-tested only) and see if fixes the iss=
+ue
+> you're seeing:
 >
-> Reported-by: Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-
-Tested-by: Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-
-> Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org [>= 2.6.30]
+> commit e36ef2c1a2b6b517ed43254eb89768794a049b1c
+> Author: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Date: =A0 Mon Nov 21 15:14:18 2011 -0800
+>
+> b44: Use dev_kfree_skb_any() in b44_tx()
+>
+> Reported issues when using dev_kfree_skb() on UP systems and
+> systems with low numbers of cores. =A0dev_kfree_skb_any() will
+> properly save IRQ state before freeing the skb, depending on
+> how b44_tx() is invoked.
+>
+> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com=
+>
 > ---
->  net/sunrpc/xprtsock.c |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
 >
-> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-> index 2d78d95..55472c4 100644
-> --- a/net/sunrpc/xprtsock.c
-> +++ b/net/sunrpc/xprtsock.c
-> @@ -496,7 +496,7 @@ static int xs_nospace(struct rpc_task *task)
->  	struct rpc_rqst *req = task->tk_rqstp;
->  	struct rpc_xprt *xprt = req->rq_xprt;
->  	struct sock_xprt *transport = container_of(xprt, struct sock_xprt, xprt);
-> -	int ret = 0;
-> +	int ret = -EAGAIN;
->  
->  	dprintk("RPC: %5u xmit incomplete (%u left of %u)\n",
->  			task->tk_pid, req->rq_slen - req->rq_bytes_sent,
-> @@ -508,7 +508,6 @@ static int xs_nospace(struct rpc_task *task)
->  	/* Don't race with disconnect */
->  	if (xprt_connected(xprt)) {
->  		if (test_bit(SOCK_ASYNC_NOSPACE, &transport->sock->flags)) {
-> -			ret = -EAGAIN;
->  			/*
->  			 * Notify TCP that we're limited by the application
->  			 * window size
-
--- 
-Andrew Cooper - Dom0 Kernel Engineer, Citrix XenServer
-T: +44 (0)1223 225 900, http://www.citrix.com
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> =A0drivers/net/ethernet/broadcom/b44.c | =A0 =A02 +-
+> =A01 files changed, 1 insertions(+), 1 deletions(-)
+>
+>
+> diff --git a/drivers/net/ethernet/broadcom/b44.c
+> b/drivers/net/ethernet/broadcom/b44.c
+> index 4cf835d..6a7c39b 100644
+> --- a/drivers/net/ethernet/broadcom/b44.c
+> +++ b/drivers/net/ethernet/broadcom/b44.c
+> @@ -608,7 +608,7 @@ static void b44_tx(struct b44 *bp)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->=
+len,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 DMA_T=
+O_DEVICE);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rp->skb =3D NULL;
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_kfree_skb(skb);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_kfree_skb_any(skb);
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0bp->tx_cons =3D cons;
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
+l" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at =A0http://www.tux.org/lkml/
+>
