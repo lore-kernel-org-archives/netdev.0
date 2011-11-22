@@ -1,80 +1,83 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: pull request: wireless 2011-11-22 #2
-Date: Tue, 22 Nov 2011 17:41:08 -0500
-Message-ID: <20111122224108.GJ8452@tuxdriver.com>
-References: <20111122193505.GC8452@tuxdriver.com>
- <20111122215611.GI8452@tuxdriver.com>
- <20111122.173729.1155753802137219940.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: [PATCH net-next-2.6] atm: eliminate atm_guess_pdu2truesize()
+Date: Tue, 22 Nov 2011 17:51:56 -0500
+Message-ID: <201111222251.pAMMpujb007390@cmf.nrl.navy.mil>
+Cc: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43299 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752334Ab1KVWp2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 17:45:28 -0500
-Content-Disposition: inline
-In-Reply-To: <20111122.173729.1155753802137219940.davem@davemloft.net>
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:49741 "EHLO
+	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753104Ab1KVWwt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 17:52:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 22, 2011 at 05:37:29PM -0500, David Miller wrote:
-> From: "John W. Linville" <linville@tuxdriver.com>
-> Date: Tue, 22 Nov 2011 16:56:12 -0500
-> 
-> > Here is the latest batch of fixes intended for 3.2.  This includes a
-> > correction for a user-visible error in mac80211's debugfs info, a fix
-> > for a potential memory corrupter in prism54, an endian fix for rt2x00,
-> > an endian fix for mac80211, a fix for a NULL derefernce in cfg80211, a
-> > locking fix for p54spi and a deadlock fix also for p54spi.
-> > 
-> > This reverts the problematic rt2x00 patches from the earlier pull
-> > request.
-> > 
-> > Please let me know if there are problems!
-> 
-> I'm still seeing the problematic rt2x00 changes when I pull:
-> 
-> [davem@boricha net]$ git pull git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-davem
-> remote: Counting objects: 112, done.        
-> remote: Compressing objects: 100% (82/82), done.        
-> remote: Total 82 (delta 71), reused 0 (delta 0)        
-> Unpacking objects: 100% (82/82), done.
-> From git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless
->  * branch            for-davem  -> FETCH_HEAD
-> Updating 5eccdf5..02f1ce3
-> Fast-forward
->  drivers/net/wireless/p54/p54spi.c        |    5 +++--
->  drivers/net/wireless/prism54/isl_ioctl.c |    2 +-
->  drivers/net/wireless/rt2x00/rt2800lib.c  |    2 +-
->  net/mac80211/debugfs_sta.c               |    4 ++--
->  net/mac80211/status.c                    |    8 ++++----
->  net/wireless/reg.c                       |    4 ++++
->  6 files changed, 15 insertions(+), 10 deletions(-)
-> [davem@boricha net]$ git format-patch ORIG_HEAD
-> 0001-rt2800pci-handle-spurious-interrupts.patch
-> 0002-rt2x00-handle-spurious-pci-interrupts.patch
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 
-They're here...
+Signed-off-by: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+---
+ drivers/atm/iphase.c   |    4 ++--
+ include/linux/atmdev.h |   10 ----------
+ net/atm/atm_misc.c     |    2 +-
+ 3 files changed, 3 insertions(+), 13 deletions(-)
 
-> 0003-rt2x00-Fix-efuse-EEPROM-reading-on-PPC32.patch
-> 0004-p54spi-Add-missing-spin_lock_init.patch
-> 0005-p54spi-Fix-workqueue-deadlock.patch
-> 0006-mac80211-Fix-AMSDU-rate-printout-in-debugfs.patch
-> 0007-mac80211-Fix-endian-bug-in-radiotap-header-generatio.patch
-> 0008-cfg80211-fix-regulatory-NULL-dereference.patch
-> 0009-prism54-potential-memory-corruption-in-prism54_get_e.patch
-> 0010-Revert-rt2x00-handle-spurious-pci-interrupts.patch
-> 0011-Revert-rt2800pci-handle-spurious-interrupts.patch
-
-And I revert them here.
-
-Linus always says to live with our mistakes?  I was trying to avoid
-a rebase both for my own pain and that of my downstream maintainers.
-
-John
+diff --git a/drivers/atm/iphase.c b/drivers/atm/iphase.c
+index 3d0c2b0..9e373ba 100644
+--- a/drivers/atm/iphase.c
++++ b/drivers/atm/iphase.c
+@@ -1320,8 +1320,8 @@ static void rx_dle_intr(struct atm_dev *dev)
+           if (ia_vcc == NULL)
+           {
+              atomic_inc(&vcc->stats->rx_err);
++             atm_return(vcc, skb->truesize);
+              dev_kfree_skb_any(skb);
+-             atm_return(vcc, atm_guess_pdu2truesize(len));
+              goto INCR_DLE;
+            }
+           // get real pkt length  pwang_test
+@@ -1334,8 +1334,8 @@ static void rx_dle_intr(struct atm_dev *dev)
+              atomic_inc(&vcc->stats->rx_err);
+              IF_ERR(printk("rx_dle_intr: Bad  AAL5 trailer %d (skb len %d)", 
+                                                             length, skb->len);)
++             atm_return(vcc, skb->truesize);
+              dev_kfree_skb_any(skb);
+-             atm_return(vcc, atm_guess_pdu2truesize(len));
+              goto INCR_DLE;
+           }
+           skb_trim(skb, length);
+diff --git a/include/linux/atmdev.h b/include/linux/atmdev.h
+index 43ea1b2..f4ff882 100644
+--- a/include/linux/atmdev.h
++++ b/include/linux/atmdev.h
+@@ -445,16 +445,6 @@ void vcc_insert_socket(struct sock *sk);
+ 
+ void atm_dev_release_vccs(struct atm_dev *dev);
+ 
+-/*
+- * This is approximately the algorithm used by alloc_skb.
+- *
+- */
+-
+-static inline int atm_guess_pdu2truesize(int size)
+-{
+-	return SKB_TRUESIZE(size);
+-}
+-
+ 
+ static inline void atm_force_charge(struct atm_vcc *vcc,int truesize)
+ {
+diff --git a/net/atm/atm_misc.c b/net/atm/atm_misc.c
+index f41f026..876fbe8 100644
+--- a/net/atm/atm_misc.c
++++ b/net/atm/atm_misc.c
+@@ -26,7 +26,7 @@ struct sk_buff *atm_alloc_charge(struct atm_vcc *vcc, int pdu_size,
+ 				 gfp_t gfp_flags)
+ {
+ 	struct sock *sk = sk_atm(vcc);
+-	int guess = atm_guess_pdu2truesize(pdu_size);
++	int guess = SKB_TRUESIZE(pdu_size);
+ 
+ 	atm_force_charge(vcc, guess);
+ 	if (atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf) {
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+1.7.6
