@@ -1,79 +1,66 @@
-From: David Decotigny <david.decotigny@google.com>
-Subject: Re: [PATCH net-next v2 0/4] e1000e: ethtool
-	setfeatures fixes + loopback
-Date: Tue, 22 Nov 2011 13:13:19 -0800
-Message-ID: <CAG88wWY_6o_1Ecxe6+XiA8ga6+t4ua+L6fZ8AOOFyrKgZ8LDMQ@mail.gmail.com>
-References: <cover.1321989502.git.david.decotigny@google.com>
-	<1321994813.2304.90.camel@jtkirshe-mobl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless 2011-11-22
+Date: Tue, 22 Nov 2011 16:13:22 -0500 (EST)
+Message-ID: <20111122.161322.454163033398038634.davem@davemloft.net>
+References: <20111122.151429.253381379981773726.davem@davemloft.net>
+	<20111122205655.GE8452@tuxdriver.com>
+	<20111122.160511.2302883259439708995.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Ian Campbell <ian.campbell@citrix.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	Mahesh Bandewar <maheshb@google.com>, "Allan,
-	Bruce W" <bruce.w.allan@intel.com>, "Brandeburg,
-	Jesse" <jesse.brandeburg@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: jeffrey.t.kirsher@intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1321994813.2304.90.camel@jtkirshe-mobl>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111122.160511.2302883259439708995.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SmVmZiwgQnJ1Y2UsCgpQbGVhc2UgZHJvcCB0aGlzIHBhdGNoIHNlcmllcyBhcyBJIHdhcyBpbmZv
-cm1lZCB0aGF0OgogLSBodHRwOi8vcGF0Y2h3b3JrLm96bGFicy5vcmcvcGF0Y2gvOTUxNzUvIGFs
-cmVhZHkgaW1wbGVtZW50ZWQKbG9vcGJhY2sgZm9yIGV0aHRvb2wgYW5kIGlzIHVuZGVyIHJldmll
-dy4gUGxlYXNlIG5vdGUsIHRob3VnaCwgdGhhdAp0aGUgdmVyc2lvbiAocGF0Y2ggMikgSSBzdWJt
-aXR0ZWQgYnVpbGRzIG9uIHRvcCBvZiBuZXdlciBuZXQtbmV4dApjaGFuZ2VzCiAtIE1hY2llaiDF
-u2VuY3p5a293c2tpIHdvdWxkIHByZWZlciBub3QgdG8gdXNlIHRoZSB2ZXJzaW9uIEkgc2VudCBm
-b3IKcGF0Y2hlcyAzIGFuZCA0LCBhbmQgd2lsbCBwcm92aWRlIGFuIGltcHJvdmVkIHBhdGNoCgpJ
-IHdpbGwgbWFyayB0aGUgc2VyaWVzIGFzIHJlamVjdGVkIG9uIHBhdGNod29yayBhbmQgd2lsbCBy
-ZXNlbmQgcGF0Y2gKMSAoZml4KSBhcyAidjMiLgoKTXkgYXBvbG9naWVzIGZvciB0aGlzIGhpY2st
-dXAuCgpSZWdhcmRzLAoKLS0KRGF2aWQgRGVjb3RpZ255CgoKCk9uIFR1ZSwgTm92IDIyLCAyMDEx
-IGF0IDEyOjQ2IFBNLCBKZWZmIEtpcnNoZXIKPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4g
-d3JvdGU6Cj4gT24gVHVlLCAyMDExLTExLTIyIGF0IDExOjIzIC0wODAwLCBEYXZpZCBEZWNvdGln
-bnkgd3JvdGU6Cj4+IFRoaXMgc2VyaWVzIGZpeGVzIGEgYnVnIGluIGV0aHRvb2wgc2V0ZmVhdHVy
-ZXMgYW5kIGFkZHMgbG9vcGJhY2sKPj4gc3VwcG9ydCB0aHJvdWdoIGV0aHRvb2wgc2V0ZmVhdHVy
-ZXMuCj4+Cj4+IEkgYmVsaWV2ZSB0aGVzZSBwYXRjaGVzIGNvdWxkIGVhc2lseSBiZSBhZGFwdGVk
-IHRvIGUxMDAwLCBidXQgSSBkb24ndAo+PiBoYXZlIHRoZSBoYXJkd2FyZSB0byB0ZXN0Lgo+Pgo+
-PiBDaGFuZ2VzIHNpbmNlIHYxOgo+PiDCoCAtIHNpbXBsaWZpY2F0aW9uIGluIHBhdGNoIDEvNCAo
-ZnJvbSBNaWNoYcWCIE1pcm9zxYJhdykKPj4KPj4gIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMj
-IyMjIyMjIyMjIyMjIyMjIyMKPj4gIyBQYXRjaCBTZXQgU3VtbWFyeToKPj4KPj4gRGF2aWQgRGVj
-b3RpZ255ICgyKToKPj4gwqAgbmV0LWUxMDAwZTogZml4IGV0aHRvb2wgc2V0X2ZlYXR1cmVzIHRh
-a2luZyBuZXcgZmVhdHVyZXMgaW50byBhY2NvdW50Cj4+IMKgIMKgIHRvbyBsYXRlCj4+IMKgIG5l
-dC1lMTAwMGU6IGV0aHRvb2wgbG9vcGJhY2sgc3VwcG9ydAo+Pgo+PiBNYWNpZWogxbtlbmN6eWtv
-d3NraSAoMik6Cj4+IMKgIG5ldC1lMTAwMGU6IHJld29ya2VkIGNhcnJpZXIgZGV0ZWN0aW9uIGxv
-Z2ljCj4+IMKgIG5ldC1lMTAwMGU6IFJlcG9ydCBjYXJyaWVyIGluIGxvb3BiYWNrIG1vZGUKPj4K
-Pj4gwqBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9lMTAwMGUvZTEwMDAuaCDCoCB8IMKgIMKg
-MiArCj4+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBlL2V0aHRvb2wuYyB8IMKg
-IMKgNiArLQo+PiDCoGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYyDC
-oHwgwqAgMzIgKysrKysrKysrKystCj4+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEw
-MDBlL3BoeS5jIMKgIMKgIHwgwqAgNjkgKysrKysrKysrKysrKysrKystLS0tLS0tLS0tCj4+IMKg
-NCBmaWxlcyBjaGFuZ2VkLCA3OCBpbnNlcnRpb25zKCspLCAzMSBkZWxldGlvbnMoLSkKPj4KPgo+
-IFRoYW5rcyBEYXZpZCBmb3IgdGhlIHBhdGNoIHNldC4gwqBJIGhhdmUgYWRkZWQgdGhlIGUxMDAw
-ZSBwYXRjaGVzIHRvIG15Cj4gcXVldWUuIMKgQXMgYW4gZnlpLCBJIHdhbnQgQnJ1Y2UgQWxsYW4g
-dG8gbG9vayBvdmVyIHRoZXNlIHBhdGNoZXMgYW5kIGhlCj4gaXMgb3V0IHRoaXMgd2VlayBvbiB2
-YWNhdGlvbi4KCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpBbGwgdGhlIGRhdGEgY29udGludW91c2x5
-IGdlbmVyYXRlZCBpbiB5b3VyIElUIGluZnJhc3RydWN0dXJlIApjb250YWlucyBhIGRlZmluaXRp
-dmUgcmVjb3JkIG9mIGN1c3RvbWVycywgYXBwbGljYXRpb24gcGVyZm9ybWFuY2UsIApzZWN1cml0
-eSB0aHJlYXRzLCBmcmF1ZHVsZW50IGFjdGl2aXR5LCBhbmQgbW9yZS4gU3BsdW5rIHRha2VzIHRo
-aXMgCmRhdGEgYW5kIG1ha2VzIHNlbnNlIG9mIGl0LiBJVCBzZW5zZS4gQW5kIGNvbW1vbiBzZW5z
-ZS4KaHR0cDovL3Auc2YubmV0L3NmdS9zcGx1bmstbm92ZDJkCl9fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fCkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAw
-MC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5u
-ZXQvbGlzdHMvbGlzdGluZm8vZTEwMDAtZGV2ZWwKVG8gbGVhcm4gbW9yZSBhYm91dCBJbnRlbCYj
-MTc0OyBFdGhlcm5ldCwgdmlzaXQgaHR0cDovL2NvbW11bml0aWVzLmludGVsLmNvbS9jb21tdW5p
-dHkvd2lyZWQK
+From: David Miller <davem@davemloft.net>
+Date: Tue, 22 Nov 2011 16:05:11 -0500 (EST)
+
+> From: "John W. Linville" <linville@tuxdriver.com>
+> Date: Tue, 22 Nov 2011 15:56:55 -0500
+> 
+>> On Tue, Nov 22, 2011 at 03:14:29PM -0500, David Miller wrote:
+>>> From: "John W. Linville" <linville@tuxdriver.com>
+>>> Date: Tue, 22 Nov 2011 14:35:05 -0500
+>>> 
+>>> > Here is the latest batch of fixes intended for 3.2.  This includes a
+>>> > correction for a user-visible error in mac80211's debugfs info, a fix
+>>> > for a potential memory corrupter in prism54, an endian fix for rt2x00,
+>>> > an endian fix for mac80211, a fix for a NULL derefernce in cfg80211, a
+>>> > locking fix and a deadlock fix for p54spi, and a pair of rt2x00 fixes
+>>> > for handling some spurious interrupts that hardware can generate.
+>>> > 
+>>> > Please let me know if there are problems!
+>>> 
+>>> The rt2800pci change doesn't look correct.
+>>> 
+>>> If the IRQ line is shared with another device, this change will make it
+>>> never see interrupts.  Once you say "IRQ_HANDLED" the IRQ dispatch
+>>> stops processing the interrupt handler list.
+>> 
+>> I thought this at first as well.  But looking at the code in
+>> kernel/irq/handle.c doesn't support that conclusion.  In fact, every
+>> handler gets invoked no matter what they all return.  All of the irq
+>> handler return values are ORed together and passed to note_interrupt.
+>> Only if every irq handler returns IRQ_NONE does the code in
+>> kernel/irq/spurious.c start getting involved.
+>> 
+>> Anyway, this seems to be safe even for shared interrupts.  That said,
+>> this is a bit ugly.  But it makes a serious difference in performance
+>> for those afflicted with this issue.
+> 
+> It just means that we won't notice spurious interrupts if the device
+> sharing the line with rt2800pci generates one.
+> 
+> This change is wrong.
+
+BTW, look at it this way, if what you say is true John then what's the point
+in returning any specific value at all?
+
+Everyone can just return IRQ_HANDLED and everything would just work.
+
+But you know that's not the case, and that it's important that this value
+is returned accurately.
