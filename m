@@ -1,121 +1,191 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Tue, 22 Nov 2011 10:38:49 +0100
-Message-ID: <1321954729.2474.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20111121161036.GA1679@x4.trippels.de>
-	 <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121173556.GA1673@x4.trippels.de>
-	 <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121185215.GA1673@x4.trippels.de>
-	 <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop>
-	 <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
-	 <alpine.DEB.2.00.1111212105330.19606@router.home>
-	 <20111122084513.GA1688@x4.trippels.de>
+From: Milan Kocian <milon@wq.cz>
+Subject: Re: sky2 tx watchdog timeout with 1Gb speed
+Date: Tue, 22 Nov 2011 10:42:34 +0100
+Message-ID: <20111122094234.GA28500@ntm.wq.cz>
+References: <20111120232118.GA29748@ntm.wq.cz>
+ <20111121160543.2ae9c04c@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Christoph Lameter <cl@linux.com>, Christian Kujau
- <lists@nerdbynature.de>,  Benjamin Herrenschmidt
- <benh@kernel.crashing.org>, "Alex,Shi" <alex.shi@intel.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "linux-mm@kvack.org" <linux-mm@kvack.org>,  Pekka Enberg
- <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>
-To: Markus Trippelsdorf <markus@trippelsdorf.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20111122084513.GA1688@x4.trippels.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srw1.wq.cz ([80.92.240.72]:50900 "EHLO srw1.wq.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753655Ab1KVJmp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Nov 2011 04:42:45 -0500
+Content-Disposition: inline
+In-Reply-To: <20111121160543.2ae9c04c@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 22 novembre 2011 =C3=A0 09:45 +0100, Markus Trippelsdorf a =C3=A9=
-crit :
+hi stephen,
 
-> I sometimes see the following pattern. Is this a false positive?
->=20
->=20
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D
-> BUG anon_vma: Redzone overwritten
-> -----------------------------------------------------------------------=
-------
->=20
-> INFO: 0xffff88020f347c80-0xffff88020f347c87. First byte 0xbb instead of=
- 0xcc
-> INFO: Allocated in anon_vma_fork+0x51/0x140 age=3D1 cpu=3D2 pid=3D1826
-> 	__slab_alloc.constprop.70+0x1ac/0x1e8
-> 	kmem_cache_alloc+0x12e/0x160
-> 	anon_vma_fork+0x51/0x140
-> 	dup_mm+0x1f2/0x4a0
-> 	copy_process+0xd10/0xf70
-> 	do_fork+0x100/0x2b0
-> 	sys_clone+0x23/0x30
-> 	stub_clone+0x13/0x20
-> INFO: Freed in __put_anon_vma+0x54/0xa0 age=3D0 cpu=3D1 pid=3D1827
-> 	__slab_free+0x33/0x2d0
-> 	kmem_cache_free+0x10e/0x120
-> 	__put_anon_vma+0x54/0xa0
-> 	unlink_anon_vmas+0x12f/0x1c0
-> 	free_pgtables+0x83/0xe0
-> 	exit_mmap+0xee/0x140
-> 	mmput+0x43/0xf0
-> 	flush_old_exec+0x33f/0x630
-> 	load_elf_binary+0x340/0x1960
-> 	search_binary_handler+0x8f/0x180
-> 	do_execve+0x2d3/0x370
-> 	sys_execve+0x42/0x70
-> 	stub_execve+0x6c/0xc0
-> INFO: Slab 0xffffea00083cd1c0 objects=3D10 used=3D9 fp=3D0xffff88020f34=
-7ab8 flags=3D0x4000000000000081
-> INFO: Object 0xffff88020f347c40 @offset=3D3136 fp=3D0xffff88020f347ab8
->=20
-> Bytes b4 ffff88020f347c30: 39 b6 fb ff 00 00 00 00 5a 5a 5a 5a 5a 5a 5a=
- 5a  9.......ZZZZZZZZ
-> Object ffff88020f347c40: 30 c9 9b 0d 02 88 ff ff 01 00 00 00 00 00 5a 5=
-a  0.............ZZ
-> Object ffff88020f347c50: 50 7c 34 0f 02 88 ff ff 50 7c 34 0f 02 88 ff f=
-f  P|4.....P|4.....
-> Object ffff88020f347c60: 00 00 00 00 00 00 00 00 00 00 00 00 5a 5a 5a 5=
-a  ............ZZZZ
-> Object ffff88020f347c70: 70 7c 34 0f 02 88 ff ff 70 7c 34 0f 02 88 ff f=
-f  p|4.....p|4.....
-> Redzone ffff88020f347c80: bb bb bb bb bb bb bb bb                      =
-    ........
-> Padding ffff88020f347dc0: 5a 5a 5a 5a 5a 5a 5a 5a                      =
-    ZZZZZZZZ
-> Pid: 1820, comm: slabinfo Not tainted 3.2.0-rc2-00369-gbbbc479-dirty #8=
-3
-> Call Trace:
->  [<ffffffff81105df8>] ? print_section+0x38/0x40
->  [<ffffffff811062f3>] print_trailer+0xe3/0x150
->  [<ffffffff811064f0>] check_bytes_and_report+0xe0/0x100
->  [<ffffffff81107313>] check_object+0x183/0x240
->  [<ffffffff81107eb0>] validate_slab_slab+0x1c0/0x230
->  [<ffffffff8110a4a6>] validate_store+0xa6/0x190
->  [<ffffffff8110573c>] slab_attr_store+0x1c/0x30
->  [<ffffffff81168838>] sysfs_write_file+0xc8/0x140
->  [<ffffffff811124a3>] vfs_write+0xa3/0x160
->  [<ffffffff81112635>] sys_write+0x45/0x90
->  [<ffffffff814d3ffb>] system_call_fastpath+0x16/0x1b
-> FIX anon_vma: Restoring 0xffff88020f347c80-0xffff88020f347c87=3D0xcc
+many thanks for reply.
+
+On Mon, Nov 21, 2011 at 04:05:43PM -0800, Stephen Hemminger wrote:
+> On Mon, 21 Nov 2011 00:21:18 +0100
+> Milan Kocian <milon@wq.cz> wrote:
+> 
+> > hi all,
+> > 
+> > I switched my home pc from 100Mb/s to 1000Mb/s and I see 
+> > this warning below.
+> > 
+> > The original kernel was 2.6.39.4 then I tested 3.1.1 with the same
+> > result. (self compiled 32bit vanilla). The workaround is to force 10/100 speed
+> > on my new switch (hp).
+> > 
+> > lspci:
+> > 
+> > 03:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8056 PCI-E Gigabit Ethernet Controller (rev 13)
+> >         Subsystem: Giga-byte Technology Device e000
+> >         Flags: bus master, fast devsel, latency 0, IRQ 45
+> >         Memory at f5000000 (64-bit, non-prefetchable) [size=16K]
+> >         I/O ports at 9000 [size=256]
+> >         [virtual] Expansion ROM at 80300000 [disabled] [size=128K]
+> >         Capabilities: [48] Power Management version 3
+> >         Capabilities: [50] Vital Product Data
+> >         Capabilities: [5c] MSI: Enable+ Count=1/1 Maskable- 64bit+
+> >         Capabilities: [e0] Express Legacy Endpoint, MSI 00
+> >         Capabilities: [100] Advanced Error Reporting
+> >         Kernel driver in use: sky2
+> > 
+> > 
+> > Nov 20 21:32:54 milu kernel: sky2 0000:03:00.0: eth0: Link is up at 1000 Mbps, full duplex, flow control both
+> > Nov 20 21:35:29 milu kernel: ------------[ cut here ]------------
+> > Nov 20 21:35:29 milu kernel: WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x1fa/0x206()
+> > Nov 20 21:35:29 milu kernel: Hardware name: 965GM-S2
+> > Nov 20 21:35:29 milu kernel: NETDEV WATCHDOG: eth0 (sky2): transmit queue 0 timed out
+> > Nov 20 21:35:29 milu kernel: Modules linked in: parport_pc parport fuse nfsd ipv6 nfs lockd auth_rpcgss nfs_acl sunrpc usbhid snd_hda_codec_realtek snd_hda_intel snd_hda_codec snd_hwdep snd_intel8x0 sg snd_ac97_codec sr_mod ac97_bus cdrom sky2 snd_pcm_oss snd_mixer_oss snd_pcm snd_seq_dummy snd_seq_oss intel_agp snd_seq_midi snd_rawmidi snd_seq_midi_event snd_seq snd_timer snd_seq_device snd bitrev i2c_i801 crc32 intel_gtt uhci_hcd i2c_core ehci_hcd soundcore usbcore agpgart evdev snd_page_alloc
+> > Nov 20 21:35:29 milu kernel: Pid: 0, comm: swapper Not tainted 3.1.1 #2
+> > Nov 20 21:35:29 milu kernel: Call Trace:
+> > Nov 20 21:35:29 milu kernel: [<c102cd5d>] ? warn_slowpath_common+0x6c/0x94
+> > Nov 20 21:35:29 milu kernel: [<c1254deb>] ? dev_watchdog+0x1fa/0x206
+> > Nov 20 21:35:29 milu kernel: [<c1254deb>] ? dev_watchdog+0x1fa/0x206
+> > Nov 20 21:35:29 milu kernel: [<c102ce0e>] ? warn_slowpath_fmt+0x33/0x37
+> > Nov 20 21:35:29 milu kernel: [<c1254deb>] ? dev_watchdog+0x1fa/0x206
+> > Nov 20 21:35:29 milu kernel: [<c1254bf1>] ? qdisc_reset+0x2d/0x2d
+> > Nov 20 21:35:29 milu kernel: [<c1036434>] ? run_timer_softirq+0xc6/0x1c4
+> > Nov 20 21:35:29 milu kernel: [<c1027e9b>] ? run_rebalance_domains+0x148/0x169
+> > Nov 20 21:35:29 milu kernel: [<c103163b>] ? __do_softirq+0x6e/0xea
+> > Nov 20 21:35:29 milu kernel: [<c10315cd>] ? remote_softirq_receive+0x11/0x11
+> > Nov 20 21:35:29 milu kernel: <IRQ>  [<c1031906>] ? irq_exit+0x5b/0x67
+> > Nov 20 21:35:29 milu kernel: [<c101631f>] ? smp_apic_timer_interrupt+0x51/0x81
+> > Nov 20 21:35:29 milu kernel: [<c12ccd96>] ? apic_timer_interrupt+0x2a/0x30
+> > Nov 20 21:35:29 milu kernel: [<c13f007b>] ? asus_hides_smbus_hostbridge+0xcb/0x249
+> > Nov 20 21:35:29 milu kernel: [<c1008732>] ? mwait_idle+0x41/0x51
+> > Nov 20 21:35:29 milu kernel: [<c10015d8>] ? cpu_idle+0x74/0x84
+> > Nov 20 21:35:29 milu kernel: [<c13d6638>] ? start_kernel+0x28a/0x28f
+> > Nov 20 21:35:29 milu kernel: [<c13d615e>] ? loglevel+0x2b/0x2b
+> > Nov 20 21:35:29 milu kernel: ---[ end trace ef84175f674c7842 ]---
+> > Nov 20 21:35:29 milu kernel: sky2 0000:03:00.0: eth0: tx timeout
+> > Nov 20 21:35:29 milu kernel: sky2 0000:03:00.0: eth0: transmit ring 52 .. 30 report=52 done=52
+> > Nov 20 21:35:32 milu kernel: sky2 0000:03:00.0: eth0: Link is up at 1000 Mbps, full duplex, flow control both
+> > Nov 20 21:37:13 milu kernel: sky2 0000:03:00.0: eth0: tx timeout
+> > Nov 20 21:37:13 milu kernel: sky2 0000:03:00.0: eth0: transmit ring 37 .. 15 report=37 done=37
+> > Nov 20 21:37:16 milu kernel: sky2 0000:03:00.0: eth0: Link is up at 1000 Mbps, full duplex, flow control both
+> > 
+> > Any suggestion ? As I said its home machine so I can test what you want :-).
+> 
+> I haven't seen this, is it under heavy or light traffic.
+
+Imho heavy traffic is not needed (will do more tests). After boot all seems ok,
+ping is working. But when I start something to do, net is freezing. It's not possible
+to copy something over net.
+
+> Are you running something that might cause device to miss interrupts?
+> 
+
+Imho no. In pc is nvidia card but the warning happens without nvidia driver
+loaded (i tested sending data over net without X, no nvidia driver loaded
+with the same result). For sure I'm sending /proc/interrupts and list of all devices.
+
+I noticed one thing, when 1Gb is set I see this in kerne.log too:
+
+Nov 20 21:49:31 milu kernel: ata1.00: exception Emask 0x10 SAct 0x0 SErr 0x400100 action 0x6 frozen
+Nov 20 21:49:31 milu kernel: ata1.00: irq_stat 0x08000000, interface fatal error
+Nov 20 21:49:31 milu kernel: ata1: SError: { UnrecovData Handshk }
+Nov 20 21:49:31 milu kernel: ata1.00: failed command: WRITE DMA EXT
+Nov 20 21:49:31 milu kernel: ata1.00: cmd 35/00:00:4f:d3:04/00:03:00:00:00/e0 tag 0 dma 393216 out
+Nov 20 21:49:31 milu kernel:         res 50/00:00:f6:0c:e6/00:00:06:00:00/e6 Emask 0x10 (ATA bus error)
+Nov 20 21:49:31 milu kernel: ata1.00: status: { DRDY }
+Nov 20 21:49:31 milu kernel: ata1: hard resetting link
+Nov 20 21:49:31 milu kernel: ata1: SATA link up 3.0 Gbps (SStatus 123 SControl 300)
+Nov 20 21:49:31 milu kernel: ata1.00: configured for UDMA/133
+Nov 20 21:49:31 milu kernel: ata1: EH complete
+Nov 20 21:50:12 milu kernel: ata1.00: exception Emask 0x10 SAct 0x0 SErr 0x400100 action 0x6 frozen
+Nov 20 21:50:12 milu kernel: ata1.00: irq_stat 0x08000000, interface fatal error
+Nov 20 21:50:12 milu kernel: ata1: SError: { UnrecovData Handshk }
+Nov 20 21:50:12 milu kernel: ata1.00: failed command: WRITE DMA EXT
+Nov 20 21:50:12 milu kernel: ata1.00: cmd 35/00:e0:17:a2:15/00:03:08:00:00/e0 tag 0 dma 507904 out
+Nov 20 21:50:12 milu kernel:         res 50/00:00:16:a2:15/00:00:08:00:00/e0 Emask 0x10 (ATA bus error)
+Nov 20 21:50:12 milu kernel: ata1.00: status: { DRDY }
+Nov 20 21:50:12 milu kernel: ata1: hard resetting link
+Nov 20 21:50:12 milu kernel: ata1: SATA link up 3.0 Gbps (SStatus 123 SControl 300)
+Nov 20 21:50:12 milu kernel: ata1.00: configured for UDMA/133
+Nov 20 21:50:12 milu kernel: ata1: EH complete
+Nov 20 21:50:12 milu kernel: ata1.00: exception Emask 0x10 SAct 0x0 SErr 0x400100 action 0x6 frozen
+Nov 20 21:50:12 milu kernel: ata1.00: irq_stat 0x08000000, interface fatal error
+Nov 20 21:50:12 milu kernel: ata1: SError: { UnrecovData Handshk }
+Nov 20 21:50:12 milu kernel: ata1.00: failed command: WRITE DMA EXT
+Nov 20 21:50:12 milu kernel: ata1.00: cmd 35/00:e0:c7:95:a9/00:03:08:00:00/e0 tag 0 dma 507904 out
+Nov 20 21:50:12 milu kernel:         res 50/00:00:c6:95:a9/00:00:08:00:00/e0 Emask 0x10 (ATA bus error)
 
 
-Wait a minute
+milu:~# cat /proc/interrupts 
+           CPU0       CPU1       
+  0:        555          0   IO-APIC-edge      timer
+  1:      58816          0   IO-APIC-edge      i8042
+  8:          1          0   IO-APIC-edge      rtc0
+  9:          0          0   IO-APIC-fasteoi   acpi
+ 16:    2757269          0   IO-APIC-fasteoi   uhci_hcd:usb3, nvidia
+ 18:     206547          0   IO-APIC-fasteoi   ahci, ehci_hcd:usb1, uhci_hcd:usb7
+ 19:     770339          0   IO-APIC-fasteoi   pata_jmicron, uhci_hcd:usb6
+ 21:          0          0   IO-APIC-fasteoi   uhci_hcd:usb4
+ 23:          2          0   IO-APIC-fasteoi   ehci_hcd:usb2, uhci_hcd:usb5
+ 44:       1606      50210   PCI-MSI-edge      ahci
+ 45:    1092296          0   PCI-MSI-edge      sky2@pci:0000:03:00.0
+ 46:        377          0   PCI-MSI-edge      snd_hda_intel
+NMI:          0          0   Non-maskable interrupts
+LOC:  133229573  133104650   Local timer interrupts
+SPU:          0          0   Spurious interrupts
+PMI:          0          0   Performance monitoring interrupts
+IWI:          0          0   IRQ work interrupts
+RES:    1719676    2541118   Rescheduling interrupts
+CAL:      72289     222200   Function call interrupts
+TLB:      69670      53360   TLB shootdowns
+TRM:          0          0   Thermal event interrupts
+THR:          0          0   Threshold APIC interrupts
+MCE:          0          0   Machine check exceptions
+MCP:        438        438   Machine check polls
+ERR:          0
+MIS:          0
 
-You trigger this using slabinfo looping or something ?
+milu:~# lspci
+00:00.0 Host bridge: Intel Corporation 82P965/G965 Memory Controller Hub (rev 02)
+00:01.0 PCI bridge: Intel Corporation 82P965/G965 PCI Express Root Port (rev 02)
+00:1a.0 USB Controller: Intel Corporation 82801H (ICH8 Family) USB UHCI Controller #4 (rev 02)
+00:1a.1 USB Controller: Intel Corporation 82801H (ICH8 Family) USB UHCI Controller #5 (rev 02)
+00:1a.7 USB Controller: Intel Corporation 82801H (ICH8 Family) USB2 EHCI Controller #2 (rev 02)
+00:1b.0 Audio device: Intel Corporation 82801H (ICH8 Family) HD Audio Controller (rev 02)
+00:1c.0 PCI bridge: Intel Corporation 82801H (ICH8 Family) PCI Express Port 1 (rev 02)
+00:1c.1 PCI bridge: Intel Corporation 82801H (ICH8 Family) PCI Express Port 2 (rev 02)
+00:1c.2 PCI bridge: Intel Corporation 82801H (ICH8 Family) PCI Express Port 3 (rev 02)
+00:1d.0 USB Controller: Intel Corporation 82801H (ICH8 Family) USB UHCI Controller #1 (rev 02)
+00:1d.1 USB Controller: Intel Corporation 82801H (ICH8 Family) USB UHCI Controller #2 (rev 02)
+00:1d.2 USB Controller: Intel Corporation 82801H (ICH8 Family) USB UHCI Controller #3 (rev 02)
+00:1d.7 USB Controller: Intel Corporation 82801H (ICH8 Family) USB2 EHCI Controller #1 (rev 02)
+00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev f2)
+00:1f.0 ISA bridge: Intel Corporation 82801HB/HR (ICH8/R) LPC Interface Controller (rev 02)
+00:1f.2 SATA controller: Intel Corporation 82801HB (ICH8) 4 port SATA AHCI Controller (rev 02)
+00:1f.3 SMBus: Intel Corporation 82801H (ICH8 Family) SMBus Controller (rev 02)
+01:00.0 VGA compatible controller: nVidia Corporation G94 [GeForce 9600 GT] (rev a1)
+03:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8056 PCI-E Gigabit Ethernet Controller (rev 13)
+04:00.0 SATA controller: JMicron Technology Corp. JMB362/JMB363 Serial ATA Controller (rev 02)
+04:00.1 IDE interface: JMicron Technology Corp. JMB362/JMB363 Serial ATA Controller (rev 02)
+05:07.0 FireWire (IEEE 1394): Texas Instruments TSB43AB23 IEEE-1394a-2000 Controller (PHY/Link)
 
-Bug is in slabinfo then, dont use it, and see if bug triggers.
+Best regards,
 
-Given slub is now lockless, validate_slab_slab() is probably very wrong
-these days.
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
-.ca/
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+-- 
+Milan Kocian
