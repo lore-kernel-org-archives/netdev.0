@@ -1,49 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Tue, 22 Nov 2011 10:27:09 +0100
-Message-ID: <1321954029.2474.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20111121161036.GA1679@x4.trippels.de>
-	 <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121173556.GA1673@x4.trippels.de>
-	 <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121185215.GA1673@x4.trippels.de>
-	 <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop>
-	 <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
-	 <alpine.DEB.2.00.1111212105330.19606@router.home>
-	 <20111122084513.GA1688@x4.trippels.de>
-	 <1321953911.2474.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Re: Kernel v3.0.8 igb driver dies when pulling network cable
+Date: Tue, 22 Nov 2011 10:36:28 +0100
+Message-ID: <4ECB6D1C.8010208@profihost.ag>
+References: <4ECA4362.2050307@profihost.ag> <4ECA884C.5010706@intel.com> <4ECA936E.8060301@profihost.ag> <4ECAD3D4.4070306@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Christoph Lameter <cl@linux.com>, Christian Kujau
- <lists@nerdbynature.de>,  Benjamin Herrenschmidt
- <benh@kernel.crashing.org>, "Alex,Shi" <alex.shi@intel.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "linux-mm@kvack.org" <linux-mm@kvack.org>,  Pekka Enberg
- <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>
-To: Markus Trippelsdorf <markus@trippelsdorf.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1321953911.2474.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stable Tree <stable@kernel.org>, stable@vger.kernel.org,
+	Greg KH <gregkh@suse.de>, LKML <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"Jesse Brandeburg <jesse.brandeburg@intel.com> Bruce Allan"
+	<bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	John Ronciak <john.ronciak@intel.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4ECAD3D4.4070306@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le mardi 22 novembre 2011 =C3=A0 10:25 +0100, Eric Dumazet a =C3=A9crit :
+> It would be useful if you could try the latest driver from e1000.sf.net
+> just to verify  if this is a bug in the upstream kernel or if it is also
+> present in our e1000.sf.net.driver.  This way we can figure out if this
+> is an issue where a patch wasn't pushed into the stable kernel or if it
+> is an issue that still exists in our latest release.
+>
+> Also could you provide us with the part number you are currently using.
+> If you could provide us with the device ID for the part via lspci we can
+> start narrowing down the root cause for the issue as currently we don't
+> have any information about what hardware you are experiencing this issue on.
 
-> One thing you could do is to disable slub merge, with following
-> additional boot param : "slub_nomerge=3D1"
->=20
->=20
+Ok another note i missed last time. Ethernet and Server stays fully 
+functional - it just prints the message and resets the adapter.
 
-Oh well, this is the default with debug options, sorry.
+OK let's start with lspci:
+a:00.0 Ethernet controller: Intel Corporation Device 10c9 (rev 01)
+         Subsystem: Super Micro Computer Inc Device 10c9
+         Flags: bus master, fast devsel, latency 0, IRQ 28
+         Memory at fbe60000 (32-bit, non-prefetchable) [size=128K]
+         Memory at fbe40000 (32-bit, non-prefetchable) [size=128K]
+         I/O ports at e880 [size=32]
+         Memory at fbe1c000 (32-bit, non-prefetchable) [size=16K]
+         Expansion ROM at fbe20000 [disabled] [size=128K]
+         Capabilities: [40] Power Management version 3
+         Capabilities: [50] Message Signalled Interrupts: Mask+ 64bit+ 
+Queue=0/0 Enable-
+         Capabilities: [70] MSI-X: Enable+ Mask- TabSize=10
+         Capabilities: [a0] Express Endpoint, MSI 00
+         Capabilities: [100] Advanced Error Reporting <?>
+         Capabilities: [140] Device Serial Number ce-5a-2b-ff-ff-90-25-00
+         Capabilities: [150] #0e
+         Capabilities: [160] #10
+         Kernel driver in use: igb
 
+0a:00.1 Ethernet controller: Intel Corporation Device 10c9 (rev 01)
+         Subsystem: Super Micro Computer Inc Device 10c9
+         Flags: bus master, fast devsel, latency 0, IRQ 40
+         Memory at fbee0000 (32-bit, non-prefetchable) [size=128K]
+         Memory at fbec0000 (32-bit, non-prefetchable) [size=128K]
+         I/O ports at ec00 [size=32]
+         Memory at fbe9c000 (32-bit, non-prefetchable) [size=16K]
+         Expansion ROM at fbea0000 [disabled] [size=128K]
+         Capabilities: [40] Power Management version 3
+         Capabilities: [50] Message Signalled Interrupts: Mask+ 64bit+ 
+Queue=0/0 Enable-
+         Capabilities: [70] MSI-X: Enable+ Mask- TabSize=10
+         Capabilities: [a0] Express Endpoint, MSI 00
+         Capabilities: [100] Advanced Error Reporting <?>
+         Capabilities: [140] Device Serial Number ce-5a-2b-ff-ff-90-25-00
+         Capabilities: [150] #0e
+         Capabilities: [160] #10
+         Kernel driver in use: igb
 
+Using the latest stable igb driver from e1000.sf.net works fine without 
+any message.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
-.ca/
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks,
+
+Stefan
