@@ -1,52 +1,68 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: pull request: wireless 2011-11-22
-Date: Tue, 22 Nov 2011 16:44:39 -0500
-Message-ID: <20111122214438.GG8452@tuxdriver.com>
-References: <20111122.151429.253381379981773726.davem@davemloft.net>
- <20111122205655.GE8452@tuxdriver.com>
- <20111122.160511.2302883259439708995.davem@davemloft.net>
- <20111122.161322.454163033398038634.davem@davemloft.net>
- <4ECC1479.8090209@lwfinger.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: MPLS for Linux kernel
+Date: Tue, 22 Nov 2011 16:49:09 -0500 (EST)
+Message-ID: <20111122.164909.156852889818363753.davem@davemloft.net>
+References: <4ECBB2C4.9000505@dti2.net>
+	<CAFdo_mUH=21_+xuLqE6tytHmD-QwXb9XXfTzixYFqUcbcLAfWQ@mail.gmail.com>
+	<CAFdo_mVdva4=4bJOaXQTNHhD-3h5LSLvERi8D7s-45SdRO5ibA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4ECC1479.8090209@lwfinger.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: igorm@etf.rs
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:54475 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752771Ab1KVVtQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 16:49:16 -0500
+In-Reply-To: <CAFdo_mVdva4=4bJOaXQTNHhD-3h5LSLvERi8D7s-45SdRO5ibA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 22, 2011 at 03:30:33PM -0600, Larry Finger wrote:
-> On 11/22/2011 03:13 PM, David Miller wrote:
-> >From: David Miller<davem@davemloft.net>
-> >Date: Tue, 22 Nov 2011 16:05:11 -0500 (EST)
+=46rom: Igor Maravi=E6 <igorm@etf.rs>
+Date: Tue, 22 Nov 2011 22:41:44 +0100
 
-> >Everyone can just return IRQ_HANDLED and everything would just work.
-> >
-> >But you know that's not the case, and that it's important that this value
-> >is returned accurately.
-> 
-> I was trying to find the thread that reported the improvement in
-> performance with this change, but failed. Is it possible that their
-> change just papered over an interrupt storm from some other device
-> that shared that interrupt?
+> I would like to know what is necesary for MPLS implementation to have=
+,
+> and to do, so it would be accepted in upstream kernel?
 
-Original patch was posted here:
+A long and laborious back and forth review process, taking into conside=
+ration
+not just the technical details of the patches themselves, but the top l=
+evel
+and overall design.
 
-	http://marc.info/?l=linux-wireless&m=132143811916674&w=2
+That's what it will take.
 
-And the Red Hat Bugzilla entry is here:
+Taking someone else's work, fixing all the bugs and cleaning them up is
+far from sufficient for a feature of this nature.  There is natural
+overlap all over and we have to make sure the implementation bits are
+going into the right places.
 
-	https://bugzilla.redhat.com/show_bug.cgi?id=658451
+One issue of constant contention is that people want to add all of thei=
+r
+favorite packet filtering and packet mangling into their protocol handl=
+ing
+code, with all kinds of custom controls and configuration mechanisms.
 
-> I'm following this because the rtlwifi-family of drivers already did
-> what was suggested here. If this is wrong, then so is it.
+WE HATE THIS.
 
-Sounds like that nees to be fixed...
+We have the packet scheduler classifiers and packet actions for a reaso=
+n,
+and we want them to used instead of ignored.
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+We are going through the same thing in the review process for the openv=
+switch
+code, which brings up another design question for MPLS, which is whethe=
+r MPLS
+can be better implemented in terms of openvswitch.
+
+You're in the unfortunate position of submitting a feature that has a
+lot of overlap with many other subsystems, existing code, and features
+being submitted at the same time.  We want as much reuse as possible,
+and we want it all designed right before it gets integrated.
+
+I frankly don't care very much about MPLS personally, it's such a
+fringe facility.  So if people just argue themselves into oblivion and
+no forward progress is made, just like last time an MPLS submission
+was attempted, that's also fine with me :-)
