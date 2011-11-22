@@ -1,129 +1,147 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 4/5] tcp: allow undo from reordered DSACKs
-Date: Tue, 22 Nov 2011 14:44:32 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.1111221347290.31705@wel-95.cs.helsinki.fi>
-References: <1321469885-10885-1-git-send-email-ncardwell@google.com> <1321469885-10885-4-git-send-email-ncardwell@google.com> <alpine.DEB.2.00.1111170715060.23028@melkinpaasi.cs.helsinki.fi>
- <CADVnQykNffEvpr5bnLiLyNGZiuhxx=5wxqFaZjC+Dk4mxe1Okw@mail.gmail.com>
+From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Subject: Re: NFS TCP race condition with SOCK_ASYNC_NOSPACE
+Date: Tue, 22 Nov 2011 14:45:38 +0200
+Message-ID: <1321965938.7645.13.camel@lade.trondhjem.org>
+References: <4EC6A681.30902@citrix.com>
+				  <1321642368.2653.35.camel@lade.trondhjem.org>
+		 <4EC6AC47.60404@citrix.com>
+			 <1321643673.2653.41.camel@lade.trondhjem.org>
+			 <4EC6B82B.3000701@citrix.com>	 <4ECA94F9.4090503@citrix.com>
+			 <1321961913.3323.67.camel@lade.trondhjem.org> <4ECB8F47.105@citrix.com>
+		 <1321963839.7645.5.camel@lade.trondhjem.org> <4ECB9294.20002@citrix.com>
+	 <1321964578.7645.9.camel@lade.trondhjem.org> <4ECB96DA.9030202@citrix.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-548910336-1321965873=:31705"
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Tom Herbert <therbert@google.com>
-To: Neal Cardwell <ncardwell@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:37080 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752716Ab1KVMoe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 07:44:34 -0500
-In-Reply-To: <CADVnQykNffEvpr5bnLiLyNGZiuhxx=5wxqFaZjC+Dk4mxe1Okw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
---8323329-548910336-1321965873=:31705
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8BIT
+Cc: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4ECB96DA.9030202-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 17 Nov 2011, Neal Cardwell wrote:
-
-> On Thu, Nov 17, 2011 at 12:18 AM, Ilpo Järvinen
-> <ilpo.jarvinen@helsinki.fi> wrote:
-> > On Wed, 16 Nov 2011, Neal Cardwell wrote:
-> >
-> >> Previously, SACK-enabled connections hung around in TCP_CA_Disorder
-> >> state while snd_una==high_seq, just waiting to accumulate DSACKs and
-> >> hopefully undo a cwnd reduction. This could and did lead to the
-> >> following unfortunate scenario: if some incoming ACKs advance snd_una
-> >> beyond high_seq then we were setting undo_marker to 0 and moving to
-> >> TCP_CA_Open, so if (due to reordering in the ACK return path) we
-> >> shortly thereafter received a DSACK then we were no longer able to
-> >> undo the cwnd reduction.
-> >>
-> >> The change: Simplify the congestion avoidance state machine by
-> >> removing the behavior where SACK-enabled connections hung around in
-> >> the TCP_CA_Disorder state just waiting for DSACKs. Instead, when
-> >> snd_una advances to high_seq or beyond we typically move to
-> >> TCP_CA_Open immediately and allow an undo in either TCP_CA_Open or
-> >> TCP_CA_Disorder if we later receive enough DSACKs.
-> >>
-> >> Other patches in this series will provide other changes that are
-> >> necessary to fully fix this problem.
-> >>
-> >> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-> >> ---
-> >>  net/ipv4/tcp_input.c |   15 ++-------------
-> >>  1 files changed, 2 insertions(+), 13 deletions(-)
-> >>
-> >> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> >> index 751d390..a4efdd7 100644
-> >> --- a/net/ipv4/tcp_input.c
-> >> +++ b/net/ipv4/tcp_input.c
-> >> @@ -2858,7 +2858,7 @@ static void tcp_try_keep_open(struct sock *sk)
-> >>       struct tcp_sock *tp = tcp_sk(sk);
-> >>       int state = TCP_CA_Open;
-> >>
-> >> -     if (tcp_left_out(tp) || tcp_any_retrans_done(sk) || tp->undo_marker)
-> >> +     if (tcp_left_out(tp) || tcp_any_retrans_done(sk))
-> >>               state = TCP_CA_Disorder;
-> >>
-> >>       if (inet_csk(sk)->icsk_ca_state != state) {
-> >> @@ -3066,17 +3066,6 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
-> >>                       }
-> >>                       break;
-> >>
-> >> -             case TCP_CA_Disorder:
-> >> -                     tcp_try_undo_dsack(sk);
-> >> -                     if (!tp->undo_marker ||
-> >> -                         /* For SACK case do not Open to allow to undo
-> >> -                          * catching for all duplicate ACKs. */
-> >> -                         tcp_is_reno(tp) || tp->snd_una != tp->high_seq) {
-> >> -                             tp->undo_marker = 0;
-> >> -                             tcp_set_ca_state(sk, TCP_CA_Open);
-> >> -                     }
-> >> -                     break;
-> >> -
-> >>               case TCP_CA_Recovery:
-> >>                       if (tcp_is_reno(tp))
-> >>                               tcp_reset_reno_sack(tp);
-> >> @@ -3117,7 +3106,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
-> >>                               tcp_add_reno_sack(sk);
-> >>               }
-> >>
-> >> -             if (icsk->icsk_ca_state == TCP_CA_Disorder)
-> >> +             if (icsk->icsk_ca_state <= TCP_CA_Disorder)
-> >>                       tcp_try_undo_dsack(sk);
-> >>
-> >>               if (!tcp_time_to_recover(sk)) {
-> >
-> > How about extending Disorder state until second cumulative ACK that is
-> > acking >= high_seq?
+On Tue, 2011-11-22 at 12:34 +0000, Andrew Cooper wrote: 
 > 
-> That would seem to add complexity but only provide a partial solution.
+> On 22/11/11 12:22, Trond Myklebust wrote:
+> > On Tue, 2011-11-22 at 12:16 +0000, Andrew Cooper wrote: 
+> >> On 22/11/11 12:10, Trond Myklebust wrote:
+> >>> On Tue, 2011-11-22 at 12:02 +0000, Andrew Cooper wrote: 
+> >>>> On 22/11/11 11:38, Trond Myklebust wrote:
+> >>>>> On Mon, 2011-11-21 at 18:14 +0000, Andrew Cooper wrote: 
+> >>>>>> Following some debugging, I believe that the attached patch fixes the
+> >>>>>> problem.
+> >>>>>>
+> >>>>>> Simply returning EAGAIN is not sufficient, as the task does not get
+> >>>>>> requeued, and times out 13 seconds later (as per our mount options). 
+> >>>>>> Setting the SOCK_ASYNC_NOSPACE bit causes the requeue to happen.
+> >>>>>>
+> >>>>>> I realize that this is a gross hack and I should probably not be using
+> >>>>>> SOCK_ASYNC_NOSPACE in that way.  Is there a better way to achieve the
+> >>>>>> same solution?
+> >>>>>>
+> >>>>> What you are doing will cause the request to be put to sleep with no
+> >>>>> guarantee that it will ever be woken up. Why would we want to do that if
+> >>>>> there is no report of a tcp window/buffer space congestion?
+> >>>> But the reason we get to this code is because there was a report of
+> >>>> space collision.  What would you suggest instead?  Changing
+> >>>> xs_{tcp,udp}_send_request() to retry in this case would defeat the point
+> >>>> of having xs_nospace().
+> >>> I suggest doing absolutely nothing: do what you originally proposed,
+> >>> which is to report the EAGAIN so that the client state machine retries
+> >>> the socket write.
+> >>>
+> >>> My point is that this is a context which is _not_ atomic with the
+> >>> original report of tcp window/buffer space congestion. There are no
+> >>> locks or anything else that will guarantee that the congestion still
+> >>> exists, and the fact that the SOCK_ASYNC_NOSPACE flag is now clear
+> >>> indicates that this is the case.
+> >>> The whole purpose of xs_nospace() is to wait until a congestion
+> >>> condition clears. If the congestion clears before we get here, then we
+> >>> have no reason to do anything special other than retry.
+> >>>
+> >>> Trond
+> >> I am slightly confused as to what you mean now.
+> >>
+> >> When you take out the if(test_bit test and always set ret to EAGAIN and
+> >> requeue the request, the next time it wakes up is when it is killed due
+> >> to timeout.  This results in substantially worse effects for the
+> >> userspace, as the NFS session is killed.
+> > What is putting the request to sleep? It should be awake when it enters
+> > xs_nospace(), and nothing in or after that function should be putting it
+> > to sleep until we've retried with call_transmit().
+> >
+> 
+> I presume it is the call to xprt_wait_for_buffer_space() which calls
+> rpc_sleep_on().  There is xs_tcp_write_space which appears to wake it up
+> based on sk->sk_write_space which is triggered on the sock gaining more
+> space, which has already happened in this specific case.
 
-Right, I forgot the reordering.
+That call should only happen if we have to wait for congestion (i.e. if
+SOCK_ASYNC_NOSPACE is set). 
 
-> This proposed patch has the virtue of providing a general solution
-> while simplifying the code a little.
->
-> What are your concerns with this patch?
+Please can you test if the following patch fixes the problem.
 
-...I was thinking that if we go to the direction of removal of more and 
-more CA_Disorder stuff we could just as well remove the whole state. But 
-I've since that time convinced myself that the state itself is still 
-necessary even if less action takes place in it after this patch.
+Cheers
+  Trond
 
-Also, one (serious) word of caution! This change, by its extending of 
-CA_Open state, is somewhat similar to what I made FRTO years ago, and 
-managed to introduces subtle breaking to the state machine. Please check 
-that the problem similar to what was fixed by 
-a1c1f281b84a751fdb5ff919da3b09df7297619f does not reappear (possibly in 
-some other form causing spurious undos). ...To me it seems that 
-tcp_packet_delayed might be similarly confused after the given patch.
+8<--------------------------------------------------------------------- 
+>From 729b3861d9a2820735b648a044d558315bc9c9db Mon Sep 17 00:00:00 2001
+From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Date: Tue, 22 Nov 2011 14:44:28 +0200
+Subject: [PATCH] SUNRPC: Ensure we return EAGAIN in xs_nospace if congestion
+ is cleared
+
+By returning '0' instead of 'EAGAIN' when the tests in xs_nospace() fail
+to find evidence of socket congestion, we are making the RPC engine believe
+that the message was incompletely sent, and so it disconnects the socket
+instead of just retrying the send.
+
+The bug appears to have been introduced by commit
+5e3771ce2d6a69e10fcc870cdf226d121d868491 (SUNRPC: Ensure that xs_nospace
+return values are propagated).
+
+Reported-by: Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org [>= 2.6.30]
+---
+ net/sunrpc/xprtsock.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
+
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index 2d78d95..55472c4 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -496,7 +496,7 @@ static int xs_nospace(struct rpc_task *task)
+ 	struct rpc_rqst *req = task->tk_rqstp;
+ 	struct rpc_xprt *xprt = req->rq_xprt;
+ 	struct sock_xprt *transport = container_of(xprt, struct sock_xprt, xprt);
+-	int ret = 0;
++	int ret = -EAGAIN;
+ 
+ 	dprintk("RPC: %5u xmit incomplete (%u left of %u)\n",
+ 			task->tk_pid, req->rq_slen - req->rq_bytes_sent,
+@@ -508,7 +508,6 @@ static int xs_nospace(struct rpc_task *task)
+ 	/* Don't race with disconnect */
+ 	if (xprt_connected(xprt)) {
+ 		if (test_bit(SOCK_ASYNC_NOSPACE, &transport->sock->flags)) {
+-			ret = -EAGAIN;
+ 			/*
+ 			 * Notify TCP that we're limited by the application
+ 			 * window size
+-- 
+1.7.7.3
+
 
 -- 
- i.
---8323329-548910336-1321965873=:31705--
+Trond Myklebust
+Linux NFS client maintainer
+
+NetApp
+Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
+www.netapp.com
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
