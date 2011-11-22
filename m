@@ -1,76 +1,92 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH] xfrm: optimize ipv4 selector matching
-Date: Tue, 22 Nov 2011 18:47:55 +0300
-Message-ID: <20111122154755.GB25127@p183.telecom.by>
-References: <20111122144334.GA22824@p183.telecom.by>
- <AE90C24D6B3A694183C094C60CF0A2F6D8AED7@saturn3.aculab.com>
- <20111122145940.GA24909@p183.telecom.by>
- <1321974652.2474.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: =?ISO-8859-2?Q?Igor_Maravi=E6?= <igorm@etf.rs>
+Subject: Re: MPLS for Linux kernel
+Date: Tue, 22 Nov 2011 16:51:55 +0100
+Message-ID: <CAFdo_mUH=21_+xuLqE6tytHmD-QwXb9XXfTzixYFqUcbcLAfWQ@mail.gmail.com>
+References: <CAFdo_mWE8wMB6QJt_DPi9Ou9OiayzV48URDq7KhKf+q8OfP+Gw@mail.gmail.com>
+	<4ECA67C6.2080802@dti2.net>
+	<20111121.132914.1611617296397809001.davem@davemloft.net>
+	<4ECAA41C.9040007@dti2.net>
+	<CAFdo_mXzqC_v5OkC6P012gFT_OmRO_yDTA0w96VhV-Lp3Hp7Fw@mail.gmail.com>
+	<4ECB95D7.7030702@dti2.net>
+	<CAFdo_mXD7by23i38GZHePiHhESpcX66vamBUqHU-fQQFU1RcaA@mail.gmail.com>
+	<4ECBB2C4.9000505@dti2.net>
+Reply-To: igorm@etf.rs
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Laight <David.Laight@ACULAB.COM>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: jorge@dti2.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:34316 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754882Ab1KVPsA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 10:48:00 -0500
-Received: by fagn18 with SMTP id n18so546246fag.19
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 07:47:59 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1321974652.2474.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mx2.etf.rs ([147.91.14.170]:53895 "EHLO mx2.etf.bg.ac.rs"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757463Ab1KVPwE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 10:52:04 -0500
+Received: from localhost (avs2.etf.rs [147.91.14.173])
+	by mx2.etf.bg.ac.rs (Postfix) with ESMTP id 9976060130
+	for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 16:52:02 +0100 (CET)
+Received: from mx1.etf.bg.ac.rs ([147.91.14.169])
+	by localhost (avs2.etf.rs [147.91.14.171]) (amavisd-new, port 10026)
+	with ESMTP id 3AGuJk+6WVfO for <netdev@vger.kernel.org>;
+	Tue, 22 Nov 2011 16:51:58 +0100 (CET)
+Received: from mail-gx0-f174.google.com (mail-gx0-f174.google.com [209.85.161.174])
+	(using TLSv1 with cipher RC4-SHA (128/128 bits))
+	(No client certificate requested)
+	(Authenticated sender: igorm)
+	by mx1.etf.bg.ac.rs (Postfix) with ESMTP id 236EF12011A
+	for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 16:51:57 +0100 (CET)
+Received: by ggnr5 with SMTP id r5so333374ggn.19
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 07:51:56 -0800 (PST)
+In-Reply-To: <4ECBB2C4.9000505@dti2.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 22, 2011 at 04:10:52PM +0100, Eric Dumazet wrote:
-> Le mardi 22 novembre 2011 =E0 17:59 +0300, Alexey Dobriyan a =E9crit =
-:
-> > On Tue, Nov 22, 2011 at 02:50:59PM -0000, David Laight wrote:
-> > > =20
-> > > > +static inline int addr4_match(const __be32 a1, const __be32=20
-> > > > a2, const u8 prefixlen)
-> > > > +{
-> > > > +	/* C99 6.5.7 (3): u32 << 32 is undefined behaviour */
-> > > > +	if (prefixlen =3D=3D 0) {
-> > > > +		/* Matching constants result in smaller assembly. */
-> > > > +		return 0xFFFFFFFFu;
-> > > > +	}
-> > > > +	return !((a1 ^ a2) & htonl(0xFFFFFFFFu << (32 - prefixlen)));
-> > > > +}
-> > > > +
-> > >=20
-> > > It would probably be clearer to 'return 1' when prefixlen is zero=
-=2E
-> >=20
-> > "return 1" results in bigger code.
-> > This function used only in boolean context, so exact return value d=
-oesn't matter.
->=20
->=20
-> Thats too ugly, sorry.
->=20
-> Also, using "const" attributes on integral types (not pointers) make
-> code less clear.
+> =A0 =A0 =A0 =A0But you failed to provide patches, that fix ONE thing =
+at a time, and not a
+> patch with all the work that you have done, that's what you sent me f=
+or the
+> stack overflow bug or have done now with the git tree. Providing clea=
+n,
+> separated patches it's YOUR work if you WANT to see them applied on t=
+he
+> mpls-linux tree.
+>
 
-No. it doesn't.
-It signals to programmer that functions doesn't change its arguments.
+It will do that when I have free time.
 
-> Caller doesnt care if the implementation wants to
-> change a1 or a2 or prefixlen.
+> =A0 =A0 =A0 =A0You have #ifdefed the MPLS code in the core networking=
+ code, that's wrong,
+> that's not the way to go if you want to see the code merged upstream.=
+ The shim
+> layer was thought as a core component of the kernel. If we rip it wha=
+t we come
+> at with should be #ifdef-less.
+>
 
-const is never about caller.
-Millions of const qualifiers were injected already, so who cares.
+If the kernel is compiled witout CONFIG_IP_MPLS we would have intact
+core networking code.
+That was my idea. Why we would need that code if we don't use MPLS?
 
-> Please use :
->=20
-> +static inline bool addr4_match(__be32 a1, __be32 a2, u8 prefixlen)
-> +{
-> +       /* C99 6.5.7 (3): u32 << 32 is undefined behaviour */
-> +       if (prefixlen =3D=3D 0)
-> +               return true;
-> +       return !((a1 ^ a2) & htonl(0xFFFFFFFFu << (32 - prefixlen)));
-> +}
 
-hmm, bool results in smaller code for -Os, so I'll resend.
+>>> =A0 =A0 =A0 =A0The other thing that probably I am going to remove i=
+s the labelspace support. I
+>>> don't see a use for it, and even Cisco doesn't implement it either =
+that I know.
+>>
+>> That's 15 min of work, but I think that labelspaces should stay.
+>
+> =A0 =A0 =A0 =A0Yes, I dit it an hour ago on a private branch. :) Why =
+should did it stay?
+
+Because of RFCs.
+
+> =A0 =A0 =A0 =A0Yes, I did not finish the change code because no ones =
+uses it currently
+> (iproute, quagga). In my opinion the instructions should be nested at=
+tributes,
+> and we have to change how the MPLS_CHANGE_* flags get passed, current=
+ly it's a hack.
+>
+
+I like it this way. Don't see the problem with that part of the code.
+BR
+Igor
