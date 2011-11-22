@@ -1,86 +1,106 @@
-From: =?ISO-8859-2?Q?Igor_Maravi=E6?= <igorm@etf.rs>
-Subject: Re: MPLS for Linux kernel
-Date: Tue, 22 Nov 2011 09:52:07 +0100
-Message-ID: <CAFdo_mXzqC_v5OkC6P012gFT_OmRO_yDTA0w96VhV-Lp3Hp7Fw@mail.gmail.com>
-References: <CAFdo_mWE8wMB6QJt_DPi9Ou9OiayzV48URDq7KhKf+q8OfP+Gw@mail.gmail.com>
-	<4ECA67C6.2080802@dti2.net>
-	<20111121.132914.1611617296397809001.davem@davemloft.net>
-	<4ECAA41C.9040007@dti2.net>
-Reply-To: igorm@etf.rs
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+Date: Tue, 22 Nov 2011 10:25:11 +0100
+Message-ID: <1321953911.2474.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20111121161036.GA1679@x4.trippels.de>
+	 <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121173556.GA1673@x4.trippels.de>
+	 <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121185215.GA1673@x4.trippels.de>
+	 <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop>
+	 <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
+	 <alpine.DEB.2.00.1111212105330.19606@router.home>
+	 <20111122084513.GA1688@x4.trippels.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: jorge@dti2.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.etf.rs ([147.91.14.169]:53973 "EHLO mx1.etf.bg.ac.rs"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755230Ab1KVIwM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 03:52:12 -0500
-Received: from localhost (avs1.etf.rs [147.91.14.172])
-	by mx1.etf.bg.ac.rs (Postfix) with ESMTP id AA41212011A
-	for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 09:52:10 +0100 (CET)
-Received: from mx2.etf.bg.ac.rs ([147.91.14.170])
-	by localhost (avs1.etf.rs [147.91.14.171]) (amavisd-new, port 10026)
-	with ESMTP id z+CTvlrpgTdZ for <netdev@vger.kernel.org>;
-	Tue, 22 Nov 2011 09:52:10 +0100 (CET)
-Received: from mail-pz0-f42.google.com (mail-pz0-f42.google.com [209.85.210.42])
-	(using TLSv1 with cipher RC4-SHA (128/128 bits))
-	(No client certificate requested)
-	(Authenticated sender: igorm)
-	by mx2.etf.bg.ac.rs (Postfix) with ESMTP id AAD1E6013B
-	for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 09:52:09 +0100 (CET)
-Received: by pzk36 with SMTP id 36so16265421pzk.1
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 00:52:07 -0800 (PST)
-In-Reply-To: <4ECAA41C.9040007@dti2.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Christoph Lameter <cl@linux.com>, Christian Kujau
+ <lists@nerdbynature.de>,  Benjamin Herrenschmidt
+ <benh@kernel.crashing.org>, "Alex,Shi" <alex.shi@intel.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "linux-mm@kvack.org" <linux-mm@kvack.org>,  Pekka Enberg
+ <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>
+To: Markus Trippelsdorf <markus@trippelsdorf.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20111122084513.GA1688@x4.trippels.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-What are the main reasons for You to think that mpls-linux is not
-ready to go upstream?
-As I said, I fixed a lot of bugs so code can be run with all the
-kernel hacking options enabled, without causing panics and oopses.
-Also fixed a lot of other things and added preprocessor if statements
-where code is intertwined with normal kernel code, so I'm sure that it
-want break existing kernel compilation if the kernel is compiled
-without MPLS.
-Why would it be so hard to implemented it in terms of packet scheduler?
-BR
-Igor
+Le mardi 22 novembre 2011 =C3=A0 09:45 +0100, Markus Trippelsdorf a =C3=A9=
+crit :
+> On 2011.11.21 at 21:18 -0600, Christoph Lameter wrote:
+> > On Mon, 21 Nov 2011, Christian Kujau wrote:
+> >=20
+> > > On Tue, 22 Nov 2011 at 07:27, Benjamin Herrenschmidt wrote:
+> > > > Note that I hit a similar looking crash (sorry, I couldn't captur=
+e a
+> > > > backtrace back then) on a PowerMac G5 (ppc64) while doing a large=
+ rsync
+> > > > transfer yesterday with -rc2-something (cfcfc9ec) and
+> > > > Christian Kujau (CC) seems to be able to reproduce something simi=
+lar on
+> > > > some other ppc platform (Christian, what is your setup ?)
+> > >
+> > > I seem to hit it with heavy disk & cpu IO is in progress on this Po=
+werBook
+> > > G4. Full dmesg & .config: http://nerdbynature.de/bits/3.2.0-rc1/oop=
+s/
+> > >
+> > > I've enabled some debug options and now it really points to slub.c:=
+2166
+> >=20
+>=20
+> I sometimes see the following pattern. Is this a false positive?
+>=20
+>=20
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D
+> BUG anon_vma: Redzone overwritten
+> -----------------------------------------------------------------------=
+------
+>=20
+> INFO: 0xffff88020f347c80-0xffff88020f347c87. First byte 0xbb instead of=
+ 0xcc
+> INFO: Allocated in anon_vma_fork+0x51/0x140 age=3D1 cpu=3D2 pid=3D1826
+> 	__slab_alloc.constprop.70+0x1ac/0x1e8
+> 	kmem_cache_alloc+0x12e/0x160
+> 	anon_vma_fork+0x51/0x140
+> 	dup_mm+0x1f2/0x4a0
+> 	copy_process+0xd10/0xf70
+> 	do_fork+0x100/0x2b0
+> 	sys_clone+0x23/0x30
+> 	stub_clone+0x13/0x20
+> INFO: Freed in __put_anon_vma+0x54/0xa0 age=3D0 cpu=3D1 pid=3D1827
+> 	__slab_free+0x33/0x2d0
+> 	kmem_cache_free+0x10e/0x120
+> 	__put_anon_vma+0x54/0xa0
+> 	unlink_anon_vmas+0x12f/0x1c0
+> 	free_pgtables+0x83/0xe0
+> 	exit_mmap+0xee/0x140
+> 	mmput+0x43/0xf0
+> 	flush_old_exec+0x33f/0x630
+> 	load_elf_binary+0x340/0x1960
+> 	search_binary_handler+0x8f/0x180
+> 	do_execve+0x2d3/0x370
+> 	sys_execve+0x42/0x70
+> 	stub_execve+0x6c/0xc0
+> INFO: Slab 0xffffea00083cd1c0 objects=3D10 used=3D9 fp=3D0xffff88020f34=
+7ab8 flags=3D0x4000000000000081
+> INFO: Object 0xffff88020f347c40 @offset=3D3136 fp=3D0xffff88020f347ab8
 
-2011/11/21 Jorge Boncompte [DTI2] <jorge@dti2.net>:
-> El 21/11/2011 19:29, David Miller escribi=F3:
->> From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
->> Date: Mon, 21 Nov 2011 16:01:26 +0100
->>
->>> =A0 =A0 =A0mpls-linux it is not ready to go upstream in my opinion.
->>
->> And can arguably be implemented in terms of openvswitch and packet s=
-cheduler actions.
->
-> =A0 =A0 =A0 =A0I guess so, I have not really looked much at the openv=
-switch code. The MPLS
-> code it is pretty self contained and in my opinion more tied to routi=
-ng than to
-> switching (*). I don't think it should be necessary an userspace daem=
-on, like it
-> seems necessary for openvswitch, just to bind a label to a route, the=
- same way
-> that it is not necessary a daemon to support VLAN's currently. The la=
-bel
-> signaling protocols are already complicated :)
->
-> =A0 =A0 =A0 =A0I work in this code, like a lot of people do, because =
-I have a use for it. I
-> would really like to see it upstreamed but if it does not fit upstrea=
-m plans, it
-> is not a problem, this code it is not that hard to maintain.
->
-> =A0 =A0 =A0 =A0In any case critics/reviews/patches are most than welc=
-ome.
->
-> (*) The code that you implemented for 2.6.1 and that James R. Leu use=
-d in this
-> codebase it is even more tied together to routing.
->
->
+One thing you could do is to disable slub merge, with following
+additional boot param : "slub_nomerge=3D1"
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
+.ca/
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
