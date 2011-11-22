@@ -1,110 +1,39 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: Kernel v3.0.8 igb driver dies when pulling network cable
-Date: Tue, 22 Nov 2011 13:35:14 -0800
-Message-ID: <4ECC1592.60607@intel.com>
-References: <4ECA4362.2050307@profihost.ag> <4ECA884C.5010706@intel.com> <4ECA936E.8060301@profihost.ag> <4ECAD3D4.4070306@intel.com> <4ECB6D1C.8010208@profihost.ag>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tc: comment spelling fixes
+Date: Tue, 22 Nov 2011 16:38:00 -0500 (EST)
+Message-ID: <20111122.163800.290426826465603259.davem@davemloft.net>
+References: <20111121085346.2203c4f4@nehalam.linuxnetplumber.net>
+	<1321895528.2692.4.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stable Tree <stable@kernel.org>, stable@vger.kernel.org,
-	Greg KH <gregkh@suse.de>, LKML <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"Jesse Brandeburg <jesse.brandeburg@intel.com> Bruce Allan"
-	<bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	John Ronciak <john.ronciak@intel.com>
-To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4ECB6D1C.8010208@profihost.ag>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:54354 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755831Ab1KVViE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 16:38:04 -0500
+In-Reply-To: <1321895528.2692.4.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/22/2011 01:36 AM, Stefan Priebe - Profihost AG wrote:
->> It would be useful if you could try the latest driver from e1000.sf.net
->> just to verify  if this is a bug in the upstream kernel or if it is also
->> present in our e1000.sf.net.driver.  This way we can figure out if this
->> is an issue where a patch wasn't pushed into the stable kernel or if it
->> is an issue that still exists in our latest release.
->>
->> Also could you provide us with the part number you are currently using.
->> If you could provide us with the device ID for the part via lspci we can
->> start narrowing down the root cause for the issue as currently we don't
->> have any information about what hardware you are experiencing this
->> issue on.
->
-> Ok another note i missed last time. Ethernet and Server stays fully
-> functional - it just prints the message and resets the adapter.
->
-> OK let's start with lspci:
-> a:00.0 Ethernet controller: Intel Corporation Device 10c9 (rev 01)
->         Subsystem: Super Micro Computer Inc Device 10c9
->         Flags: bus master, fast devsel, latency 0, IRQ 28
->         Memory at fbe60000 (32-bit, non-prefetchable) [size=128K]
->         Memory at fbe40000 (32-bit, non-prefetchable) [size=128K]
->         I/O ports at e880 [size=32]
->         Memory at fbe1c000 (32-bit, non-prefetchable) [size=16K]
->         Expansion ROM at fbe20000 [disabled] [size=128K]
->         Capabilities: [40] Power Management version 3
->         Capabilities: [50] Message Signalled Interrupts: Mask+ 64bit+
-> Queue=0/0 Enable-
->         Capabilities: [70] MSI-X: Enable+ Mask- TabSize=10
->         Capabilities: [a0] Express Endpoint, MSI 00
->         Capabilities: [100] Advanced Error Reporting <?>
->         Capabilities: [140] Device Serial Number ce-5a-2b-ff-ff-90-25-00
->         Capabilities: [150] #0e
->         Capabilities: [160] #10
->         Kernel driver in use: igb
->
-> 0a:00.1 Ethernet controller: Intel Corporation Device 10c9 (rev 01)
->         Subsystem: Super Micro Computer Inc Device 10c9
->         Flags: bus master, fast devsel, latency 0, IRQ 40
->         Memory at fbee0000 (32-bit, non-prefetchable) [size=128K]
->         Memory at fbec0000 (32-bit, non-prefetchable) [size=128K]
->         I/O ports at ec00 [size=32]
->         Memory at fbe9c000 (32-bit, non-prefetchable) [size=16K]
->         Expansion ROM at fbea0000 [disabled] [size=128K]
->         Capabilities: [40] Power Management version 3
->         Capabilities: [50] Message Signalled Interrupts: Mask+ 64bit+
-> Queue=0/0 Enable-
->         Capabilities: [70] MSI-X: Enable+ Mask- TabSize=10
->         Capabilities: [a0] Express Endpoint, MSI 00
->         Capabilities: [100] Advanced Error Reporting <?>
->         Capabilities: [140] Device Serial Number ce-5a-2b-ff-ff-90-25-00
->         Capabilities: [150] #0e
->         Capabilities: [160] #10
->         Kernel driver in use: igb
->
-> Using the latest stable igb driver from e1000.sf.net works fine
-> without any message.
->
-> Thanks,
->
-> Stefan
-Hi Stefan,
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Mon, 21 Nov 2011 17:12:08 +0000
 
-It seems like there might be an issue with something specific to your
-board since I tried reproducing the issue here on an 82576 based adapter
-and the stable 3.0.9 kernel I have and I have not had much success.
+> On Mon, 2011-11-21 at 08:53 -0800, Stephen Hemminger wrote:
+>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>> 
+>> --- a/include/linux/pkt_sched.h	2011-11-09 13:54:59.780009551 -0800
+>> +++ b/include/linux/pkt_sched.h	2011-11-21 08:51:20.062228855 -0800
+>> @@ -30,7 +30,7 @@
+>>   */
+>>  
+>>  struct tc_stats {
+>> -	__u64	bytes;			/* NUmber of enqueues bytes */
+>> +	__u64	bytes;			/* Number of enqueues bytes */
+> [...]
+> 
+> Further fix needed: 'enqueued'.
 
-I'm assuming the device that is failing is eth0.  I was wondering if you
-could send me the output of the following three commands so that I can
-do some further work to try and isolate the root cause for this issue:
-ethtool eth0
-ethtool -e eth0
-grep eth0 /proc/interrupts
-
-The issue seems to be that your adapter is not detecting that the cable
-was unplugged.  This in turn is leaving stale packets on the Tx ring and
-is what is resulting in the dev_watchdog message you are seeing. 
-Typically this is due to one of two possible causes.  Either the device
-is not detecting that the link went down, or the interrupt for the link
-down event was never delivered.  Once we can isolate which of these two
-events is occurring we will be much closer to having the root cause.
-
-Thanks,
-
-Alex
+I took care of this when applying Stephen's patch.
