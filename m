@@ -1,68 +1,69 @@
-From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net-next v2 4/4] net-e1000e: Report carrier in
-	loopback mode
-Date: Tue, 22 Nov 2011 11:23:38 -0800
-Message-ID: <9f22e42c3077643fe66221eb180be6e66a0ef32a.1321989502.git.david.decotigny@google.com>
-References: <cover.1321989502.git.david.decotigny@google.com>
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
+Subject: Re: slub: Lockout validation scans during freeing of object
+Date: Tue, 22 Nov 2011 20:32:31 +0100
+Message-ID: <20111122193231.GB1627@x4.trippels.de>
+References: <alpine.DEB.2.00.1111221033350.28197@router.home>
+ <alpine.DEB.2.00.1111221040300.28197@router.home>
+ <alpine.DEB.2.00.1111221052130.28197@router.home>
+ <1321982484.18002.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <alpine.DEB.2.00.1111221139240.28197@router.home>
+ <20111122185540.GA1627@x4.trippels.de>
+ <alpine.DEB.2.00.1111221319070.30368@router.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Decotigny <david.decotigny@google.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <cover.1321989502.git.david.decotigny@google.com>
-In-Reply-To: <cover.1321989502.git.david.decotigny@google.com>
-References: <cover.1321989502.git.david.decotigny@google.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Christian Kujau <lists@nerdbynature.de>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	"Alex,Shi" <alex.shi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>,
+	Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Tejun Heo <tj@kernel.org>
+To: Christoph Lameter <cl@linux.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.00.1111221319070.30368@router.home>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogTWFjaWVqIMW7ZW5jenlrb3dza2kgPHplbmN6eWtvd3NraUBnbWFpbC5jb20+CgpXaGVu
-IGludGVyZmFjZSBpcyBjb25maWd1cmVkIGluIGxvb3BiYWNrIG1vZGUsIGZvcmNlIGNhcnJpZXIg
-Y2hlY2sKcG9zaXRpdmUuICBUaGlzIGlzIHVzZWZ1bCB3aGVuIGludGVyZmFjZSBkb2VzIG5vdCBo
-YXZlIGNhcnJpZXIgYW5kCnRlc3QgcHV0cyB0aGUgaW50ZXJmYWNlIGluIGxvb3BiYWNrIG1vZGUu
-CgpUZXN0ZWQ6IHBrdGdlbiBsb29wYmFjayBvbiA4MDAwM0VTMkxBTgoKClNpZ25lZC1vZmYtYnk6
-IERhdmlkIERlY290aWdueSA8ZGF2aWQuZGVjb3RpZ255QGdvb2dsZS5jb20+Ci0tLQogZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBlL3BoeS5jIHwgICAgNSArKysrKwogMSBmaWxlcyBj
-aGFuZ2VkLCA1IGluc2VydGlvbnMoKyksIDAgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJp
-dmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBlL3BoeS5jIGIvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvaW50ZWwvZTEwMDBlL3BoeS5jCmluZGV4IGY0ODdhN2YuLjk0NzZjOGYgMTAwNjQ0Ci0tLSBh
-L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9waHkuYworKysgYi9kcml2ZXJzL25l
-dC9ldGhlcm5ldC9pbnRlbC9lMTAwMGUvcGh5LmMKQEAgLTE3ODEsNiArMTc4MSwxMSBAQCBzMzIg
-ZTEwMDBlX3BoeV9oYXNfbGlua19nZW5lcmljKHN0cnVjdCBlMTAwMF9odyAqaHcsIHUzMiBpdGVy
-YXRpb25zLAogCXUxNiBwaHlfcmVnOwogCWludCBnb29kX3JlYWRzX3BoeV9zdGF0dXMgPSAwOwog
-CisJLyogSWYgbG9vcGJhY2sgaXMgZW5hYmxlZCwgd2UgY2xhaW0gdGhlIGxpbmsgaXMgdXAgKi8K
-KwlpZiAoKDAgPT0gZTFlX3JwaHkoaHcsIFBIWV9DT05UUk9MLCAmcGh5X3JlZykpCisJICAgICYm
-IChwaHlfcmVnICYgTUlJX0NSX0xPT1BCQUNLKSkgeworCQkqc3VjY2VzcyA9IHRydWU7CisJCXJl
-dHVybiAwOwogCX0KIAogCS8qCi0tIAoxLjcuMy4xCgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkFs
-bCB0aGUgZGF0YSBjb250aW51b3VzbHkgZ2VuZXJhdGVkIGluIHlvdXIgSVQgaW5mcmFzdHJ1Y3R1
-cmUgCmNvbnRhaW5zIGEgZGVmaW5pdGl2ZSByZWNvcmQgb2YgY3VzdG9tZXJzLCBhcHBsaWNhdGlv
-biBwZXJmb3JtYW5jZSwgCnNlY3VyaXR5IHRocmVhdHMsIGZyYXVkdWxlbnQgYWN0aXZpdHksIGFu
-ZCBtb3JlLiBTcGx1bmsgdGFrZXMgdGhpcyAKZGF0YSBhbmQgbWFrZXMgc2Vuc2Ugb2YgaXQuIElU
-IHNlbnNlLiBBbmQgY29tbW9uIHNlbnNlLgpodHRwOi8vcC5zZi5uZXQvc2Z1L3NwbHVuay1ub3Zk
-MmQKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KRTEwMDAt
-ZGV2ZWwgbWFpbGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRw
-czovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApUbyBs
-ZWFybiBtb3JlIGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29tbXVu
-aXRpZXMuaW50ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
+On 2011.11.22 at 13:20 -0600, Christoph Lameter wrote:
+> On Tue, 22 Nov 2011, Markus Trippelsdorf wrote:
+> 
+> > On 2011.11.22 at 11:40 -0600, Christoph Lameter wrote:
+> > > On Tue, 22 Nov 2011, Eric Dumazet wrote:
+> > >
+> > > > This seems better, but I still have some warnings :
+> > >
+> > > Trying to reproduce with a kernel configured to do preempt. This is
+> > > actually quite interesting since its always off by 1.
+> >
+> > BTW there are some obvious overflows in the "slabinfo -l" output on my machine:
+> 
+> Could you get me the value of the "slabs" field for the slabs showing the
+> wierd values. I.e. do
+> 
+> cat /sys/kernel/slab/signal_cache/slabs
+> 
+> > signal_cache               268     920   360.4K 18446744073709551614/7/24   17 2  31  68 A
+> 
+
+It's quite easy to explain. You're using unsigned ints in:
+snprintf(dist_str, 40, "%lu/%lu/%d", s->slabs - s->cpu_slabs, s->partial, s->cpu_slabs);
+
+and  (s->slabs - s->cpu_slabs) can get negative. For example:
+
+task_struct                269    1504   557.0K 18446744073709551601/5/32   21 3  29  72
+
+Here s-slabs is 17 and s->cpu_slabs is 32. 
+That gives: 17-32=18446744073709551601.
+
+-- 
+Markus
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
