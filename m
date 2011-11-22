@@ -1,191 +1,1546 @@
-From: Milan Kocian <milon@wq.cz>
-Subject: Re: sky2 tx watchdog timeout with 1Gb speed
-Date: Tue, 22 Nov 2011 10:42:34 +0100
-Message-ID: <20111122094234.GA28500@ntm.wq.cz>
-References: <20111120232118.GA29748@ntm.wq.cz>
- <20111121160543.2ae9c04c@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+Date: Tue, 22 Nov 2011 10:46:25 +0100
+Message-ID: <1321955185.2474.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20111121161036.GA1679@x4.trippels.de>
+	 <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121173556.GA1673@x4.trippels.de>
+	 <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121185215.GA1673@x4.trippels.de>
+	 <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop>
+	 <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
+	 <alpine.DEB.2.00.1111212105330.19606@router.home>
+	 <20111122084513.GA1688@x4.trippels.de>
+	 <1321954729.2474.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srw1.wq.cz ([80.92.240.72]:50900 "EHLO srw1.wq.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753655Ab1KVJmp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Nov 2011 04:42:45 -0500
-Content-Disposition: inline
-In-Reply-To: <20111121160543.2ae9c04c@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Christoph Lameter <cl@linux.com>, Christian Kujau
+ <lists@nerdbynature.de>,  Benjamin Herrenschmidt
+ <benh@kernel.crashing.org>, "Alex,Shi" <alex.shi@intel.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "linux-mm@kvack.org" <linux-mm@kvack.org>,  Pekka Enberg
+ <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>
+To: Markus Trippelsdorf <markus@trippelsdorf.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1321954729.2474.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-hi stephen,
+Le mardi 22 novembre 2011 =C3=A0 10:38 +0100, Eric Dumazet a =C3=A9crit :
 
-many thanks for reply.
+> Wait a minute
+>=20
+> You trigger this using slabinfo looping or something ?
+>=20
+> Bug is in slabinfo then, dont use it, and see if bug triggers.
+>=20
+> Given slub is now lockless, validate_slab_slab() is probably very wrong
+> these days.
+>=20
 
-On Mon, Nov 21, 2011 at 04:05:43PM -0800, Stephen Hemminger wrote:
-> On Mon, 21 Nov 2011 00:21:18 +0100
-> Milan Kocian <milon@wq.cz> wrote:
-> 
-> > hi all,
-> > 
-> > I switched my home pc from 100Mb/s to 1000Mb/s and I see 
-> > this warning below.
-> > 
-> > The original kernel was 2.6.39.4 then I tested 3.1.1 with the same
-> > result. (self compiled 32bit vanilla). The workaround is to force 10/100 speed
-> > on my new switch (hp).
-> > 
-> > lspci:
-> > 
-> > 03:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8056 PCI-E Gigabit Ethernet Controller (rev 13)
-> >         Subsystem: Giga-byte Technology Device e000
-> >         Flags: bus master, fast devsel, latency 0, IRQ 45
-> >         Memory at f5000000 (64-bit, non-prefetchable) [size=16K]
-> >         I/O ports at 9000 [size=256]
-> >         [virtual] Expansion ROM at 80300000 [disabled] [size=128K]
-> >         Capabilities: [48] Power Management version 3
-> >         Capabilities: [50] Vital Product Data
-> >         Capabilities: [5c] MSI: Enable+ Count=1/1 Maskable- 64bit+
-> >         Capabilities: [e0] Express Legacy Endpoint, MSI 00
-> >         Capabilities: [100] Advanced Error Reporting
-> >         Kernel driver in use: sky2
-> > 
-> > 
-> > Nov 20 21:32:54 milu kernel: sky2 0000:03:00.0: eth0: Link is up at 1000 Mbps, full duplex, flow control both
-> > Nov 20 21:35:29 milu kernel: ------------[ cut here ]------------
-> > Nov 20 21:35:29 milu kernel: WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x1fa/0x206()
-> > Nov 20 21:35:29 milu kernel: Hardware name: 965GM-S2
-> > Nov 20 21:35:29 milu kernel: NETDEV WATCHDOG: eth0 (sky2): transmit queue 0 timed out
-> > Nov 20 21:35:29 milu kernel: Modules linked in: parport_pc parport fuse nfsd ipv6 nfs lockd auth_rpcgss nfs_acl sunrpc usbhid snd_hda_codec_realtek snd_hda_intel snd_hda_codec snd_hwdep snd_intel8x0 sg snd_ac97_codec sr_mod ac97_bus cdrom sky2 snd_pcm_oss snd_mixer_oss snd_pcm snd_seq_dummy snd_seq_oss intel_agp snd_seq_midi snd_rawmidi snd_seq_midi_event snd_seq snd_timer snd_seq_device snd bitrev i2c_i801 crc32 intel_gtt uhci_hcd i2c_core ehci_hcd soundcore usbcore agpgart evdev snd_page_alloc
-> > Nov 20 21:35:29 milu kernel: Pid: 0, comm: swapper Not tainted 3.1.1 #2
-> > Nov 20 21:35:29 milu kernel: Call Trace:
-> > Nov 20 21:35:29 milu kernel: [<c102cd5d>] ? warn_slowpath_common+0x6c/0x94
-> > Nov 20 21:35:29 milu kernel: [<c1254deb>] ? dev_watchdog+0x1fa/0x206
-> > Nov 20 21:35:29 milu kernel: [<c1254deb>] ? dev_watchdog+0x1fa/0x206
-> > Nov 20 21:35:29 milu kernel: [<c102ce0e>] ? warn_slowpath_fmt+0x33/0x37
-> > Nov 20 21:35:29 milu kernel: [<c1254deb>] ? dev_watchdog+0x1fa/0x206
-> > Nov 20 21:35:29 milu kernel: [<c1254bf1>] ? qdisc_reset+0x2d/0x2d
-> > Nov 20 21:35:29 milu kernel: [<c1036434>] ? run_timer_softirq+0xc6/0x1c4
-> > Nov 20 21:35:29 milu kernel: [<c1027e9b>] ? run_rebalance_domains+0x148/0x169
-> > Nov 20 21:35:29 milu kernel: [<c103163b>] ? __do_softirq+0x6e/0xea
-> > Nov 20 21:35:29 milu kernel: [<c10315cd>] ? remote_softirq_receive+0x11/0x11
-> > Nov 20 21:35:29 milu kernel: <IRQ>  [<c1031906>] ? irq_exit+0x5b/0x67
-> > Nov 20 21:35:29 milu kernel: [<c101631f>] ? smp_apic_timer_interrupt+0x51/0x81
-> > Nov 20 21:35:29 milu kernel: [<c12ccd96>] ? apic_timer_interrupt+0x2a/0x30
-> > Nov 20 21:35:29 milu kernel: [<c13f007b>] ? asus_hides_smbus_hostbridge+0xcb/0x249
-> > Nov 20 21:35:29 milu kernel: [<c1008732>] ? mwait_idle+0x41/0x51
-> > Nov 20 21:35:29 milu kernel: [<c10015d8>] ? cpu_idle+0x74/0x84
-> > Nov 20 21:35:29 milu kernel: [<c13d6638>] ? start_kernel+0x28a/0x28f
-> > Nov 20 21:35:29 milu kernel: [<c13d615e>] ? loglevel+0x2b/0x2b
-> > Nov 20 21:35:29 milu kernel: ---[ end trace ef84175f674c7842 ]---
-> > Nov 20 21:35:29 milu kernel: sky2 0000:03:00.0: eth0: tx timeout
-> > Nov 20 21:35:29 milu kernel: sky2 0000:03:00.0: eth0: transmit ring 52 .. 30 report=52 done=52
-> > Nov 20 21:35:32 milu kernel: sky2 0000:03:00.0: eth0: Link is up at 1000 Mbps, full duplex, flow control both
-> > Nov 20 21:37:13 milu kernel: sky2 0000:03:00.0: eth0: tx timeout
-> > Nov 20 21:37:13 milu kernel: sky2 0000:03:00.0: eth0: transmit ring 37 .. 15 report=37 done=37
-> > Nov 20 21:37:16 milu kernel: sky2 0000:03:00.0: eth0: Link is up at 1000 Mbps, full duplex, flow control both
-> > 
-> > Any suggestion ? As I said its home machine so I can test what you want :-).
-> 
-> I haven't seen this, is it under heavy or light traffic.
+I trigger a bug in less than 10 secondes, with this running while a
+"make -j16 " kernel build is run.
 
-Imho heavy traffic is not needed (will do more tests). After boot all seems ok,
-ping is working. But when I start something to do, net is freezing. It's not possible
-to copy something over net.
-
-> Are you running something that might cause device to miss interrupts?
-> 
-
-Imho no. In pc is nvidia card but the warning happens without nvidia driver
-loaded (i tested sending data over net without X, no nvidia driver loaded
-with the same result). For sure I'm sending /proc/interrupts and list of all devices.
-
-I noticed one thing, when 1Gb is set I see this in kerne.log too:
-
-Nov 20 21:49:31 milu kernel: ata1.00: exception Emask 0x10 SAct 0x0 SErr 0x400100 action 0x6 frozen
-Nov 20 21:49:31 milu kernel: ata1.00: irq_stat 0x08000000, interface fatal error
-Nov 20 21:49:31 milu kernel: ata1: SError: { UnrecovData Handshk }
-Nov 20 21:49:31 milu kernel: ata1.00: failed command: WRITE DMA EXT
-Nov 20 21:49:31 milu kernel: ata1.00: cmd 35/00:00:4f:d3:04/00:03:00:00:00/e0 tag 0 dma 393216 out
-Nov 20 21:49:31 milu kernel:         res 50/00:00:f6:0c:e6/00:00:06:00:00/e6 Emask 0x10 (ATA bus error)
-Nov 20 21:49:31 milu kernel: ata1.00: status: { DRDY }
-Nov 20 21:49:31 milu kernel: ata1: hard resetting link
-Nov 20 21:49:31 milu kernel: ata1: SATA link up 3.0 Gbps (SStatus 123 SControl 300)
-Nov 20 21:49:31 milu kernel: ata1.00: configured for UDMA/133
-Nov 20 21:49:31 milu kernel: ata1: EH complete
-Nov 20 21:50:12 milu kernel: ata1.00: exception Emask 0x10 SAct 0x0 SErr 0x400100 action 0x6 frozen
-Nov 20 21:50:12 milu kernel: ata1.00: irq_stat 0x08000000, interface fatal error
-Nov 20 21:50:12 milu kernel: ata1: SError: { UnrecovData Handshk }
-Nov 20 21:50:12 milu kernel: ata1.00: failed command: WRITE DMA EXT
-Nov 20 21:50:12 milu kernel: ata1.00: cmd 35/00:e0:17:a2:15/00:03:08:00:00/e0 tag 0 dma 507904 out
-Nov 20 21:50:12 milu kernel:         res 50/00:00:16:a2:15/00:00:08:00:00/e0 Emask 0x10 (ATA bus error)
-Nov 20 21:50:12 milu kernel: ata1.00: status: { DRDY }
-Nov 20 21:50:12 milu kernel: ata1: hard resetting link
-Nov 20 21:50:12 milu kernel: ata1: SATA link up 3.0 Gbps (SStatus 123 SControl 300)
-Nov 20 21:50:12 milu kernel: ata1.00: configured for UDMA/133
-Nov 20 21:50:12 milu kernel: ata1: EH complete
-Nov 20 21:50:12 milu kernel: ata1.00: exception Emask 0x10 SAct 0x0 SErr 0x400100 action 0x6 frozen
-Nov 20 21:50:12 milu kernel: ata1.00: irq_stat 0x08000000, interface fatal error
-Nov 20 21:50:12 milu kernel: ata1: SError: { UnrecovData Handshk }
-Nov 20 21:50:12 milu kernel: ata1.00: failed command: WRITE DMA EXT
-Nov 20 21:50:12 milu kernel: ata1.00: cmd 35/00:e0:c7:95:a9/00:03:08:00:00/e0 tag 0 dma 507904 out
-Nov 20 21:50:12 milu kernel:         res 50/00:00:c6:95:a9/00:00:08:00:00/e0 Emask 0x10 (ATA bus error)
+while :; do slabinfo -v; done
 
 
-milu:~# cat /proc/interrupts 
-           CPU0       CPU1       
-  0:        555          0   IO-APIC-edge      timer
-  1:      58816          0   IO-APIC-edge      i8042
-  8:          1          0   IO-APIC-edge      rtc0
-  9:          0          0   IO-APIC-fasteoi   acpi
- 16:    2757269          0   IO-APIC-fasteoi   uhci_hcd:usb3, nvidia
- 18:     206547          0   IO-APIC-fasteoi   ahci, ehci_hcd:usb1, uhci_hcd:usb7
- 19:     770339          0   IO-APIC-fasteoi   pata_jmicron, uhci_hcd:usb6
- 21:          0          0   IO-APIC-fasteoi   uhci_hcd:usb4
- 23:          2          0   IO-APIC-fasteoi   ehci_hcd:usb2, uhci_hcd:usb5
- 44:       1606      50210   PCI-MSI-edge      ahci
- 45:    1092296          0   PCI-MSI-edge      sky2@pci:0000:03:00.0
- 46:        377          0   PCI-MSI-edge      snd_hda_intel
-NMI:          0          0   Non-maskable interrupts
-LOC:  133229573  133104650   Local timer interrupts
-SPU:          0          0   Spurious interrupts
-PMI:          0          0   Performance monitoring interrupts
-IWI:          0          0   IRQ work interrupts
-RES:    1719676    2541118   Rescheduling interrupts
-CAL:      72289     222200   Function call interrupts
-TLB:      69670      53360   TLB shootdowns
-TRM:          0          0   Thermal event interrupts
-THR:          0          0   Threshold APIC interrupts
-MCE:          0          0   Machine check exceptions
-MCP:        438        438   Machine check polls
-ERR:          0
-MIS:          0
+[42593.070289] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42593.070445] BUG kmalloc-192: Wrong object count. Counter is 12 but cou=
+nted were 13
+[42593.070599] ----------------------------------------------------------=
+-------------------
+[42593.070600]=20
+[42593.070822] INFO: Slab 0xffffea00046f4400 objects=3D42 used=3D12 fp=3D=
+0xffff88011bd10f00 flags=3D0x60000000004081
+[42593.070977] Pid: 5632, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42593.070979] Call Trace:
+[42593.070987]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42593.070990]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42593.070993]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42593.071000]  [<ffffffff816c923e>] ? _raw_spin_unlock_irqrestore+0xe/0x=
+20
+[42593.071003]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42593.071005]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42593.071010]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42593.071013]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42593.071015]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42593.071019]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42593.071021] FIX kmalloc-192: Object count adjusted.
+[42605.106241] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42605.106405] BUG kmalloc-32: Wrong object count. Counter is 53 but coun=
+ted were 59
+[42605.106558] ----------------------------------------------------------=
+-------------------
+[42605.106560]=20
+[42605.106787] INFO: Slab 0xffffea00046f8c00 objects=3D128 used=3D49 fp=3D=
+0xffff88011be30660 flags=3D0x60000000000081
+[42605.106950] Pid: 8545, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42605.106952] Call Trace:
+[42605.106962]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42605.106967]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42605.106970]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42605.106974]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42605.106977]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42605.106983]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42605.106988]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42605.106991]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42605.106998]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42605.107001] FIX kmalloc-32: Object count adjusted.
+[42605.109228] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42605.109389] BUG kmalloc-192: Wrong object count. Counter is 19 but cou=
+nted were 25
+[42605.109541] ----------------------------------------------------------=
+-------------------
+[42605.109543]=20
+[42605.109785] INFO: Slab 0xffffea0001ef2600 objects=3D42 used=3D13 fp=3D=
+0xffff88007bc98300 flags=3D0x10000000004081
+[42605.109944] Pid: 8545, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42605.109946] Call Trace:
+[42605.109956]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42605.109961]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42605.109965]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42605.109969]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42605.109972]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42605.109977]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42605.109982]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42605.109985]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42605.109991]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42605.109994] FIX kmalloc-192: Object count adjusted.
+[42605.165152] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42605.165316] BUG kmalloc-32: Wrong object count. Counter is 51 but coun=
+ted were 41
+[42605.165472] ----------------------------------------------------------=
+-------------------
+[42605.165474]=20
+[42605.165704] INFO: Slab 0xffffea00046f8c00 objects=3D128 used=3D51 fp=3D=
+0xffff88011be304c0 flags=3D0x60000000000081
+[42605.165866] Pid: 8588, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42605.165869] Call Trace:
+[42605.165879]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42605.165884]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42605.165888]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42605.165892]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42605.165895]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42605.165901]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42605.165906]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42605.165909]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42605.165916]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42605.165919] FIX kmalloc-32: Object count adjusted.
+[42605.694221] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42605.694381] BUG shared_policy_node: Wrong object count. Counter is 55 =
+but counted were 56
+[42605.694537] ----------------------------------------------------------=
+-------------------
+[42605.694540]=20
+[42605.694781] INFO: Slab 0xffffea00046f0200 objects=3D85 used=3D55 fp=3D=
+0xffff88011bc08510 flags=3D0x60000000000081
+[42605.694942] Pid: 8812, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42605.694944] Call Trace:
+[42605.694952]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42605.694957]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42605.694960]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42605.694967]  [<ffffffff816c923e>] ? _raw_spin_unlock_irqrestore+0xe/0x=
+20
+[42605.694971]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42605.694975]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42605.694980]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42605.694985]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42605.694988]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42605.694993]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42605.694996] FIX shared_policy_node: Object count adjusted.
+[42605.767360] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42605.767521] BUG shared_policy_node: Wrong object count. Counter is 56 =
+but counted were 55
+[42605.767676] ----------------------------------------------------------=
+-------------------
+[42605.767677]=20
+[42605.767903] INFO: Slab 0xffffea00046f0200 objects=3D85 used=3D56 fp=3D=
+0xffff88011bc08510 flags=3D0x60000000000081
+[42605.768063] Pid: 8833, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42605.768065] Call Trace:
+[42605.768075]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42605.768079]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42605.768083]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42605.768086]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42605.768090]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42605.768094]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42605.768099]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42605.768101]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42605.768106]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42605.768109] FIX shared_policy_node: Object count adjusted.
+[42606.357049] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42606.357208] BUG vm_area_struct: Wrong object count. Counter is 20 but =
+counted were 26
+[42606.357365] ----------------------------------------------------------=
+-------------------
+[42606.357367]=20
+[42606.357600] INFO: Slab 0xffffea00046f6d00 objects=3D46 used=3D20 fp=3D=
+0xffff88011bdb53f0 flags=3D0x60000000004081
+[42606.357762] Pid: 9146, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42606.357764] Call Trace:
+[42606.357772]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42606.357776]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42606.357780]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42606.357783]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42606.357787]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42606.357791]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42606.357796]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42606.357799]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42606.357805]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42606.357808] FIX vm_area_struct: Object count adjusted.
+[42607.719968] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42607.720123] BUG kmalloc-128: Wrong object count. Counter is 15 but cou=
+nted were 16
+[42607.720271] ----------------------------------------------------------=
+-------------------
+[42607.720272]=20
+[42607.720495] INFO: Slab 0xffffea00046f5980 objects=3D32 used=3D15 fp=3D=
+0xffff88011bd66400 flags=3D0x60000000000081
+[42607.720649] Pid: 9403, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42607.720651] Call Trace:
+[42607.720657]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42607.720660]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42607.720663]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42607.720665]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42607.720667]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42607.720671]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42607.720674]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42607.720676]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42607.720680]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42607.720682] FIX kmalloc-128: Object count adjusted.
+[42607.788584] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42607.788749] BUG kmalloc-128: Wrong object count. Counter is 15 but cou=
+nted were 14
+[42607.788915] ----------------------------------------------------------=
+-------------------
+[42607.788917]=20
+[42607.789148] INFO: Slab 0xffffea00046f5980 objects=3D32 used=3D15 fp=3D=
+0xffff88011bd66d00 flags=3D0x60000000000081
+[42607.789312] Pid: 9425, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42607.789314] Call Trace:
+[42607.789325]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42607.789330]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42607.789334]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42607.789338]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42607.789341]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42607.789347]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42607.789352]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42607.789355]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42607.789362]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42607.789365] FIX kmalloc-128: Object count adjusted.
+[42607.995101] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42607.995267] BUG shared_policy_node: Wrong object count. Counter is 69 =
+but counted were 70
+[42607.995426] ----------------------------------------------------------=
+-------------------
+[42607.995428]=20
+[42607.995659] INFO: Slab 0xffffea0001e97880 objects=3D85 used=3D69 fp=3D=
+0xffff88007a5e2270 flags=3D0x10000000000081
+[42607.995819] Pid: 9429, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42607.995822] Call Trace:
+[42607.995833]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42607.995838]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42607.995842]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42607.995847]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42607.995850]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42607.995856]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42607.995861]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42607.995864]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42607.995871]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42607.995874] FIX shared_policy_node: Object count adjusted.
+[42610.796510] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42610.796675] BUG kmalloc-32: Wrong object count. Counter is 72 but coun=
+ted were 78
+[42610.796833] ----------------------------------------------------------=
+-------------------
+[42610.796835]=20
+[42610.797068] INFO: Slab 0xffffea0001f59880 objects=3D128 used=3D71 fp=3D=
+0xffff88007d6625c0 flags=3D0x10000000000081
+[42610.797231] Pid: 10020, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42610.797234] Call Trace:
+[42610.797244]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42610.797249]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42610.797253]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42610.797256]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42610.797260]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42610.797265]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42610.797271]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42610.797274]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42610.797280]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42610.797283] FIX kmalloc-32: Object count adjusted.
+[42610.867763] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42610.867928] BUG kmalloc-32: Wrong object count. Counter is 52 but coun=
+ted were 45
+[42610.868084] ----------------------------------------------------------=
+-------------------
+[42610.868086]=20
+[42610.868325] INFO: Slab 0xffffea0001f59880 objects=3D128 used=3D52 fp=3D=
+0xffff88007d662580 flags=3D0x10000000000081
+[42610.868489] Pid: 10037, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42610.868491] Call Trace:
+[42610.868501]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42610.868505]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42610.868509]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42610.868513]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42610.868516]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42610.868522]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42610.868527]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42610.868530]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42610.868537]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42610.868540] FIX kmalloc-32: Object count adjusted.
+[42613.580115] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42613.580285] BUG kmalloc-192: Wrong object count. Counter is 7 but coun=
+ted were 16
+[42613.580436] ----------------------------------------------------------=
+-------------------
+[42613.580438]=20
+[42613.580667] INFO: Slab 0xffffea0001ef0c80 objects=3D42 used=3D7 fp=3D0=
+xffff88007bc32600 flags=3D0x10000000004081
+[42613.580825] Pid: 10700, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42613.580827] Call Trace:
+[42613.580837]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42613.580842]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42613.580845]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42613.580849]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42613.580852]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42613.580857]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42613.580862]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42613.580865]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42613.580870]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42613.580873] FIX kmalloc-192: Object count adjusted.
+[42614.157835] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42614.157992] BUG kmalloc-192: Wrong object count. Counter is 1 but coun=
+ted were 4
+[42614.159747] ----------------------------------------------------------=
+-------------------
+[42614.159749]=20
+[42614.159978] INFO: Slab 0xffffea0001e98980 objects=3D42 used=3D1 fp=3D0=
+xffff88007a626900 flags=3D0x10000000004081
+[42614.160135] Pid: 10879, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42614.160138] Call Trace:
+[42614.160146]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42614.160149]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42614.160153]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42614.160156]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42614.160159]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42614.160164]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42614.160168]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42614.160171]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42614.160176]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42614.160179] FIX kmalloc-192: Object count adjusted.
+[42614.870334] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42614.870497] BUG kmalloc-64: Wrong object count. Counter is 55 but coun=
+ted were 56
+[42614.870651] ----------------------------------------------------------=
+-------------------
+[42614.870653]=20
+[42614.870884] INFO: Slab 0xffffea0001ec7400 objects=3D64 used=3D54 fp=3D=
+0xffff88007b1d0800 flags=3D0x10000000000081
+[42614.871046] Pid: 11064, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42614.871048] Call Trace:
+[42614.871058]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42614.871063]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42614.871067]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42614.871071]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42614.871075]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42614.871081]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42614.871086]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42614.871090]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42614.871096]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42614.871099] FIX kmalloc-64: Object count adjusted.
+[42615.644506] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42615.644668] BUG shared_policy_node: Wrong object count. Counter is 52 =
+but counted were 55
+[42615.644824] ----------------------------------------------------------=
+-------------------
+[42615.644826]=20
+[42615.645055] INFO: Slab 0xffffea0001f02340 objects=3D85 used=3D51 fp=3D=
+0xffff88007c08da20 flags=3D0x10000000000081
+[42615.645229] Pid: 11349, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42615.645231] Call Trace:
+[42615.645239]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42615.645243]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42615.645247]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42615.645251]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42615.645255]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42615.645259]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42615.645264]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42615.645267]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42615.645272]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42615.645275] FIX shared_policy_node: Object count adjusted.
+[42615.714092] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42615.714255] BUG shared_policy_node: Wrong object count. Counter is 33 =
+but counted were 29
+[42615.714413] ----------------------------------------------------------=
+-------------------
+[42615.714415]=20
+[42615.714646] INFO: Slab 0xffffea0001f02340 objects=3D85 used=3D33 fp=3D=
+0xffff88007c08d0c0 flags=3D0x10000000000081
+[42615.714808] Pid: 11376, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42615.714810] Call Trace:
+[42615.714820]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42615.714825]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42615.714829]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42615.714833]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42615.714836]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42615.714841]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42615.714845]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42615.714848]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42615.714853]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42615.714856] FIX shared_policy_node: Object count adjusted.
+[42616.120500] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42616.120660] BUG anon_vma: Wrong object count. Counter is 37 but counte=
+d were 38
+[42616.120812] ----------------------------------------------------------=
+-------------------
+[42616.120814]=20
+[42616.121040] INFO: Slab 0xffffea0001f56440 objects=3D56 used=3D29 fp=3D=
+0xffff88007d591dc8 flags=3D0x10000000000081
+[42616.121200] Pid: 11487, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42616.121202] Call Trace:
+[42616.121210]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42616.121214]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42616.121218]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42616.121222]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42616.121225]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42616.121230]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42616.121234]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42616.121237]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42616.121243]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42616.121246] FIX anon_vma: Object count adjusted.
+[42616.187602] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42616.187763] BUG anon_vma: Wrong object count. Counter is 38 but counte=
+d were 29
+[42616.187920] ----------------------------------------------------------=
+-------------------
+[42616.187922]=20
+[42616.188154] INFO: Slab 0xffffea0001f56440 objects=3D56 used=3D38 fp=3D=
+0xffff88007d591dc8 flags=3D0x10000000000081
+[42616.188318] Pid: 11554, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42616.188320] Call Trace:
+[42616.188328]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42616.188332]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42616.188335]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42616.188339]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42616.188343]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42616.188347]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42616.188352]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42616.188355]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42616.188361]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42616.188364] FIX anon_vma: Object count adjusted.
+[42616.615663] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42616.615829] BUG files_cache: Wrong object count. Counter is 4 but coun=
+ted were 5
+[42616.615983] ----------------------------------------------------------=
+-------------------
+[42616.615985]=20
+[42616.616214] INFO: Slab 0xffffea0001e27000 objects=3D46 used=3D4 fp=3D0=
+xffff8800789c0b00 flags=3D0x10000000004081
+[42616.616377] Pid: 11643, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42616.616380] Call Trace:
+[42616.616391]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42616.616396]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42616.616400]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42616.616404]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42616.616407]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42616.616413]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42616.616419]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42616.616423]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42616.616430]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42616.616433] FIX files_cache: Object count adjusted.
+[42618.356527] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42618.356689] BUG mm_struct: Wrong object count. Counter is 3 but counte=
+d were 4
+[42618.356848] ----------------------------------------------------------=
+-------------------
+[42618.356850]=20
+[42618.357083] INFO: Slab 0xffffea00046f3800 objects=3D23 used=3D3 fp=3D0=
+xffff88011bce1b80 flags=3D0x60000000004081
+[42618.357244] Pid: 12232, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42618.357247] Call Trace:
+[42618.357255]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42618.357259]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42618.357263]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42618.357267]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42618.357271]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42618.357276]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42618.357281]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42618.357284]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42618.357290]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42618.357293] FIX mm_struct: Object count adjusted.
+[42618.427688] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42618.427849] BUG mm_struct: Wrong object count. Counter is 4 but counte=
+d were 3
+[42618.428018] ----------------------------------------------------------=
+-------------------
+[42618.428019]=20
+[42618.428250] INFO: Slab 0xffffea00046f3800 objects=3D23 used=3D4 fp=3D0=
+xffff88011bce1b80 flags=3D0x60000000004081
+[42618.428414] Pid: 12255, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42618.428416] Call Trace:
+[42618.428424]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42618.428429]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42618.428433]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42618.428437]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42618.428441]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42618.428446]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42618.428451]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42618.428454]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42618.428458]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42618.428461] FIX mm_struct: Object count adjusted.
+[42619.289348] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42619.289514] BUG files_cache: Wrong object count. Counter is 4 but coun=
+ted were 5
+[42619.289670] ----------------------------------------------------------=
+-------------------
+[42619.289671]=20
+[42619.289903] INFO: Slab 0xffffea000472e000 objects=3D46 used=3D3 fp=3D0=
+xffff88011cb87bc0 flags=3D0x60000000004081
+[42619.290066] Pid: 12491, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42619.290069] Call Trace:
+[42619.290076]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42619.290081]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42619.290084]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42619.290088]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42619.290092]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42619.290096]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42619.290101]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42619.290104]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42619.290109]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42619.290112] FIX files_cache: Object count adjusted.
+[42619.358478] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42619.358655] BUG files_cache: Wrong object count. Counter is 5 but coun=
+ted were 3
+[42619.358810] ----------------------------------------------------------=
+-------------------
+[42619.358812]=20
+[42619.359043] INFO: Slab 0xffffea000472e000 objects=3D46 used=3D5 fp=3D0=
+xffff88011cb87bc0 flags=3D0x60000000004081
+[42619.359205] Pid: 12517, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42619.359208] Call Trace:
+[42619.359215]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42619.359219]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42619.359223]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42619.359227]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42619.359230]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42619.359235]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42619.359240]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42619.359243]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42619.359248]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42619.359251] FIX files_cache: Object count adjusted.
+[42620.247231] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42620.247390] BUG vm_area_struct: Wrong object count. Counter is 33 but =
+counted were 34
+[42620.247542] ----------------------------------------------------------=
+-------------------
+[42620.247544]=20
+[42620.247771] INFO: Slab 0xffffea0001f27d80 objects=3D46 used=3D30 fp=3D=
+0xffff88007c9f6bb0 flags=3D0x10000000004081
+[42620.247928] Pid: 12799, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42620.247930] Call Trace:
+[42620.247937]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42620.247941]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42620.247944]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42620.247947]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42620.247950]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42620.247955]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42620.247958]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42620.247961]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42620.247966]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42620.247968] FIX vm_area_struct: Object count adjusted.
+[42620.316231] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42620.316394] BUG vm_area_struct: Wrong object count. Counter is 34 but =
+counted were 30
+[42620.316550] ----------------------------------------------------------=
+-------------------
+[42620.316552]=20
+[42620.316786] INFO: Slab 0xffffea0001f27d80 objects=3D46 used=3D34 fp=3D=
+0xffff88007c9f6bb0 flags=3D0x10000000004081
+[42620.316949] Pid: 12836, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42620.316952] Call Trace:
+[42620.316962]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42620.316966]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42620.316970]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42620.316973]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42620.316977]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42620.316982]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42620.316987]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42620.316990]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42620.316997]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42620.316999] FIX vm_area_struct: Object count adjusted.
+[42620.873381] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42620.873545] BUG Acpi-Namespace: Wrong object count. Counter is 1 but c=
+ounted were 2
+[42620.873701] ----------------------------------------------------------=
+-------------------
+[42620.873703]=20
+[42620.873936] INFO: Slab 0xffffea00046f08c0 objects=3D102 used=3D1 fp=3D=
+0xffff88011bc23fc8 flags=3D0x60000000000081
+[42620.874100] Pid: 12988, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42620.874103] Call Trace:
+[42620.874110]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42620.874117]  [<ffffffff8128bd99>] ? free_cpumask_var+0x9/0x10
+[42620.874121]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42620.874124]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42620.874127]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42620.874131]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42620.874135]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42620.874140]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42620.874143]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42620.874148]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42620.874151] FIX Acpi-Namespace: Object count adjusted.
+[42620.924386] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42620.924541] BUG Acpi-Namespace: Wrong object count. Counter is 2 but c=
+ounted were 1
+[42620.924692] ----------------------------------------------------------=
+-------------------
+[42620.924693]=20
+[42620.924915] INFO: Slab 0xffffea00046f08c0 objects=3D102 used=3D2 fp=3D=
+0xffff88011bc23fc8 flags=3D0x60000000000081
+[42620.925069] Pid: 13027, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42620.925071] Call Trace:
+[42620.925078]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42620.925083]  [<ffffffff8128bd99>] ? free_cpumask_var+0x9/0x10
+[42620.925085]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42620.925088]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42620.925090]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42620.925093]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42620.925096]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42620.925100]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42620.925102]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42620.925106]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42620.925108] FIX Acpi-Namespace: Object count adjusted.
+[42622.286888] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42622.287046] BUG kmalloc-32: Wrong object count. Counter is 35 but coun=
+ted were 36
+[42622.287208] ----------------------------------------------------------=
+-------------------
+[42622.287209]=20
+[42622.287429] INFO: Slab 0xffffea0001f54500 objects=3D128 used=3D22 fp=3D=
+0xffff88007d514ae0 flags=3D0x10000000000081
+[42622.287584] Pid: 13338, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42622.287585] Call Trace:
+[42622.287592]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42622.287595]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42622.287597]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42622.287600]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42622.287602]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42622.287606]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42622.287609]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42622.287611]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42622.287615]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42622.287617] FIX kmalloc-32: Object count adjusted.
+[42622.345596] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42622.345757] BUG kmalloc-32: Wrong object count. Counter is 32 but coun=
+ted were 18
+[42622.345912] ----------------------------------------------------------=
+-------------------
+[42622.345914]=20
+[42622.346144] INFO: Slab 0xffffea0001f54500 objects=3D128 used=3D31 fp=3D=
+0xffff88007d514a80 flags=3D0x10000000000081
+[42622.346309] Pid: 13352, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42622.346311] Call Trace:
+[42622.346319]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42622.346323]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42622.346327]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42622.346330]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42622.346334]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42622.346339]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42622.346343]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42622.346346]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42622.346352]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42622.346355] FIX kmalloc-32: Object count adjusted.
+[42622.414077] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42622.414240] BUG kmalloc-32: Wrong object count. Counter is 17 but coun=
+ted were 16
+[42622.414397] ----------------------------------------------------------=
+-------------------
+[42622.414399]=20
+[42622.414636] INFO: Slab 0xffffea0001f54500 objects=3D128 used=3D17 fp=3D=
+0xffff88007d514200 flags=3D0x10000000000081
+[42622.414798] Pid: 13379, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42622.414801] Call Trace:
+[42622.414810]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42622.414814]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42622.414818]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42622.414822]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42622.414826]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42622.414831]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42622.414835]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42622.414839]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42622.414844]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42622.414847] FIX kmalloc-32: Object count adjusted.
+[42628.657791] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42628.657953] BUG kmalloc-192: Wrong object count. Counter is 6 but coun=
+ted were 8
+[42628.659705] ----------------------------------------------------------=
+-------------------
+[42628.659708]=20
+[42628.659939] INFO: Slab 0xffffea0004251d00 objects=3D42 used=3D4 fp=3D0=
+xffff8801094755c0 flags=3D0x60000000004081
+[42628.660103] Pid: 14941, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42628.660105] Call Trace:
+[42628.660113]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42628.660118]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42628.660121]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42628.660125]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42628.660129]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42628.660134]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42628.660139]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42628.660142]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42628.660148]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42628.660151] FIX kmalloc-192: Object count adjusted.
+[42628.878121] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42628.878293] BUG kmalloc-256: Wrong object count. Counter is 23 but cou=
+nted were 24
+[42628.878450] ----------------------------------------------------------=
+-------------------
+[42628.878452]=20
+[42628.878684] INFO: Slab 0xffffea0001f3e900 objects=3D32 used=3D23 fp=3D=
+0xffff88007cfa4600 flags=3D0x10000000004081
+[42628.878848] Pid: 14996, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42628.878850] Call Trace:
+[42628.878860]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42628.878865]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42628.878869]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42628.878872]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42628.878875]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42628.878881]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42628.878887]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42628.878890]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42628.878896]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42628.878899] FIX kmalloc-256: Object count adjusted.
+[42635.424636] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42635.424797] BUG selinux_inode_security: Wrong object count. Counter is=
+ 44 but counted were 45
+[42635.424955] ----------------------------------------------------------=
+-------------------
+[42635.424957]=20
+[42635.425202] INFO: Slab 0xffffea0001ef31c0 objects=3D56 used=3D44 fp=3D=
+0xffff88007bcc7438 flags=3D0x10000000000081
+[42635.425373] Pid: 16327, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42635.425375] Call Trace:
+[42635.425385]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42635.425392]  [<ffffffff8128bd99>] ? free_cpumask_var+0x9/0x10
+[42635.425396]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42635.425400]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42635.425404]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42635.425408]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42635.425413]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42635.425418]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42635.425422]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42635.425427]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42635.425430] FIX selinux_inode_security: Object count adjusted.
+[42640.824909] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42640.825068] BUG kmalloc-192: Wrong object count. Counter is 5 but coun=
+ted were 6
+[42640.825221] ----------------------------------------------------------=
+-------------------
+[42640.825222]=20
+[42640.825447] INFO: Slab 0xffffea00046fa100 objects=3D42 used=3D5 fp=3D0=
+xffff88011be85a40 flags=3D0x60000000004081
+[42640.825606] Pid: 17630, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42640.825609] Call Trace:
+[42640.825617]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42640.825621]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42640.825625]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42640.825628]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42640.825632]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42640.825637]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42640.825642]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42640.825645]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42640.825650]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42640.825653] FIX kmalloc-192: Object count adjusted.
+[42648.728040] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42648.728199] BUG kmalloc-64: Wrong object count. Counter is 39 but coun=
+ted were 40
+[42648.728347] ----------------------------------------------------------=
+-------------------
+[42648.728348]=20
+[42648.728579] INFO: Slab 0xffffea0004723400 objects=3D64 used=3D37 fp=3D=
+0xffff88011c8d0ec0 flags=3D0x60000000000081
+[42648.728735] Pid: 19370, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42648.728737] Call Trace:
+[42648.728745]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42648.728748]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42648.728751]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42648.728753]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42648.728756]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42648.728760]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42648.728764]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42648.728766]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42648.728771]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42648.728772] FIX kmalloc-64: Object count adjusted.
+[42648.774479] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42648.774638] BUG kmalloc-64: Wrong object count. Counter is 39 but coun=
+ted were 36
+[42648.774790] ----------------------------------------------------------=
+-------------------
+[42648.774792]=20
+[42648.775018] INFO: Slab 0xffffea0004723400 objects=3D64 used=3D39 fp=3D=
+0xffff88011c8d0600 flags=3D0x60000000000081
+[42648.775174] Pid: 19381, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42648.775176] Call Trace:
+[42648.775187]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42648.775191]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42648.775195]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42648.775198]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42648.775202]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42648.775208]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42648.775212]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42648.775215]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42648.775222]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42648.775224] FIX kmalloc-64: Object count adjusted.
+[42650.005252] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42650.005415] BUG kmalloc-16: Wrong object count. Counter is 62 but coun=
+ted were 63
+[42650.005583] ----------------------------------------------------------=
+-------------------
+[42650.005585]=20
+[42650.005817] INFO: Slab 0xffffea0001f57c80 objects=3D256 used=3D47 fp=3D=
+0xffff88007d5f23e0 flags=3D0x10000000000081
+[42650.005981] Pid: 19669, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42650.005983] Call Trace:
+[42650.005991]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42650.005996]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42650.005999]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42650.006003]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42650.006006]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42650.006011]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42650.006015]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42650.006018]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42650.006023]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42650.006026] FIX kmalloc-16: Object count adjusted.
+[42650.283404] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42650.283571] BUG kmalloc-16: Wrong object count. Counter is 19 but coun=
+ted were 21
+[42650.283724] ----------------------------------------------------------=
+-------------------
+[42650.283726]=20
+[42650.283954] INFO: Slab 0xffffea0004728a80 objects=3D256 used=3D14 fp=3D=
+0xffff88011ca2a6a0 flags=3D0x60000000000081
+[42650.284116] Pid: 19698, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42650.284118] Call Trace:
+[42650.284129]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42650.284134]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42650.284138]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42650.284141]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42650.284144]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42650.284150]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42650.284156]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42650.284159]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42650.284166]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42650.284169] FIX kmalloc-16: Object count adjusted.
+[42650.700060] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42650.700219] BUG kmalloc-64: Wrong object count. Counter is 32 but coun=
+ted were 33
+[42650.700372] ----------------------------------------------------------=
+-------------------
+[42650.700373]=20
+[42650.700601] INFO: Slab 0xffffea00044fe380 objects=3D64 used=3D32 fp=3D=
+0xffff880113f8e700 flags=3D0x60000000000081
+[42650.700761] Pid: 19863, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42650.700764] Call Trace:
+[42650.700773]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42650.700778]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42650.700782]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42650.700786]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42650.700790]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42650.700795]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42650.700801]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42650.700803]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42650.700810]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42650.700813] FIX kmalloc-64: Object count adjusted.
+[42650.770200] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42650.770364] BUG kmalloc-64: Wrong object count. Counter is 33 but coun=
+ted were 32
+[42650.770520] ----------------------------------------------------------=
+-------------------
+[42650.770522]=20
+[42650.770753] INFO: Slab 0xffffea00044fe380 objects=3D64 used=3D33 fp=3D=
+0xffff880113f8e700 flags=3D0x60000000000081
+[42650.770933] Pid: 19872, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42650.770935] Call Trace:
+[42650.770946]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42650.770951]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42650.770954]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42650.770963]  [<ffffffff816c923e>] ? _raw_spin_unlock_irqrestore+0xe/0x=
+20
+[42650.770967]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42650.770971]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42650.770977]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42650.770982]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42650.770985]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42650.770991]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42650.770994] FIX kmalloc-64: Object count adjusted.
+[42651.712140] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42651.712302] BUG kmalloc-16: Wrong object count. Counter is 9 but count=
+ed were 10
+[42651.712456] ----------------------------------------------------------=
+-------------------
+[42651.712458]=20
+[42651.712686] INFO: Slab 0xffffea0001f158c0 objects=3D256 used=3D3 fp=3D=
+0xffff88007c563070 flags=3D0x10000000000081
+[42651.712848] Pid: 20076, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42651.712851] Call Trace:
+[42651.712859]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42651.712863]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42651.712867]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42651.712870]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42651.712873]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42651.712878]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42651.712882]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42651.712886]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42651.712891]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42651.712894] FIX kmalloc-16: Object count adjusted.
+[42652.605163] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42652.605329] BUG kmalloc-128: Wrong object count. Counter is 27 but cou=
+nted were 28
+[42652.605486] ----------------------------------------------------------=
+-------------------
+[42652.605488]=20
+[42652.605719] INFO: Slab 0xffffea00047299c0 objects=3D32 used=3D27 fp=3D=
+0xffff88011ca67c80 flags=3D0x60000000000081
+[42652.605882] Pid: 20247, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42652.605884] Call Trace:
+[42652.605893]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42652.605897]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42652.605901]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42652.605905]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42652.605908]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42652.605913]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42652.605918]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42652.605921]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42652.605926]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42652.605929] FIX kmalloc-128: Object count adjusted.
+[42652.675463] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42652.675626] BUG kmalloc-128: Wrong object count. Counter is 28 but cou=
+nted were 27
+[42652.675782] ----------------------------------------------------------=
+-------------------
+[42652.675784]=20
+[42652.676014] INFO: Slab 0xffffea00047299c0 objects=3D32 used=3D28 fp=3D=
+0xffff88011ca67c80 flags=3D0x60000000000081
+[42652.676186] Pid: 20268, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42652.676189] Call Trace:
+[42652.676197]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42652.676201]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42652.676205]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42652.676208]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42652.676212]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42652.676216]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42652.676221]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42652.676224]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42652.676229]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42652.676232] FIX kmalloc-128: Object count adjusted.
+[42653.190925] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42653.191102] BUG files_cache: Wrong object count. Counter is 5 but coun=
+ted were 6
+[42653.191259] ----------------------------------------------------------=
+-------------------
+[42653.191261]=20
+[42653.191493] INFO: Slab 0xffffea000472b600 objects=3D46 used=3D5 fp=3D0=
+xffff88011caddd80 flags=3D0x60000000004081
+[42653.191655] Pid: 20391, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42653.191658] Call Trace:
+[42653.191668]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42653.191673]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42653.191677]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42653.191685]  [<ffffffff816c923e>] ? _raw_spin_unlock_irqrestore+0xe/0x=
+20
+[42653.191689]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42653.191693]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42653.191699]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42653.191704]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42653.191707]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42653.191712]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42653.191716] FIX files_cache: Object count adjusted.
+[42653.596810] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42653.596973] BUG kmalloc-256: Wrong object count. Counter is 6 but coun=
+ted were 7
+[42653.597130] ----------------------------------------------------------=
+-------------------
+[42653.597132]=20
+[42653.597366] INFO: Slab 0xffffea00046ea400 objects=3D32 used=3D5 fp=3D0=
+xffff88011ba91d00 flags=3D0x60000000004081
+[42653.597530] Pid: 20487, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42653.597533] Call Trace:
+[42653.597541]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42653.597545]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42653.597548]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42653.597552]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42653.597555]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42653.597560]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42653.597564]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42653.597567]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42653.597572]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42653.597574] FIX kmalloc-256: Object count adjusted.
+[42653.642975] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42653.643130] BUG kmalloc-256: Wrong object count. Counter is 7 but coun=
+ted were 5
+[42653.643293] ----------------------------------------------------------=
+-------------------
+[42653.643294]=20
+[42653.643530] INFO: Slab 0xffffea00046ea400 objects=3D32 used=3D7 fp=3D0=
+xffff88011ba91d00 flags=3D0x60000000004081
+[42653.643685] Pid: 20507, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42653.643687] Call Trace:
+[42653.643693]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42653.643698]  [<ffffffff8128bd99>] ? free_cpumask_var+0x9/0x10
+[42653.643701]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42653.643704]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42653.643706]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42653.643709]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42653.643712]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42653.643715]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42653.643717]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42653.643721]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42653.643723] FIX kmalloc-256: Object count adjusted.
+[42657.456254] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42657.456414] BUG mm_struct: Wrong object count. Counter is 9 but counte=
+d were 10
+[42657.456567] ----------------------------------------------------------=
+-------------------
+[42657.456569]=20
+[42657.456804] INFO: Slab 0xffffea0001f12e00 objects=3D23 used=3D9 fp=3D0=
+xffff88007c4bd280 flags=3D0x10000000004081
+[42657.456968] Pid: 21495, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42657.456970] Call Trace:
+[42657.456978]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42657.456983]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42657.456987]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42657.456991]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42657.456995]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42657.456999]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42657.457005]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42657.457008]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42657.457013]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42657.457016] FIX mm_struct: Object count adjusted.
+[42657.524588] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42657.524749] BUG mm_struct: Wrong object count. Counter is 9 but counte=
+d were 8
+[42657.524902] ----------------------------------------------------------=
+-------------------
+[42657.524904]=20
+[42657.525138] INFO: Slab 0xffffea0001f12e00 objects=3D23 used=3D9 fp=3D0=
+xffff88007c4bf380 flags=3D0x10000000004081
+[42657.525298] Pid: 21519, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42657.525301] Call Trace:
+[42657.525309]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42657.525313]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42657.525317]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42657.525321]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42657.525324]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42657.525329]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42657.525333]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42657.525337]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42657.525342]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42657.525345] FIX mm_struct: Object count adjusted.
+[42657.996274] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42657.996438] BUG selinux_inode_security: Wrong object count. Counter is=
+ 43 but counted were 44
+[42657.998199] ----------------------------------------------------------=
+-------------------
+[42657.998201]=20
+[42657.998432] INFO: Slab 0xffffea0004706f00 objects=3D56 used=3D40 fp=3D=
+0xffff88011c1bc5a0 flags=3D0x60000000000081
+[42657.998595] Pid: 21688, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42657.998597] Call Trace:
+[42657.998604]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42657.998609]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42657.998613]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42657.998616]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42657.998620]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42657.998625]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42657.998629]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42657.998632]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42657.998637]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42657.998641] FIX selinux_inode_security: Object count adjusted.
+[42658.066185] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42658.066344] BUG selinux_inode_security: Wrong object count. Counter is=
+ 44 but counted were 40
+[42658.066500] ----------------------------------------------------------=
+-------------------
+[42658.066501]=20
+[42658.066729] INFO: Slab 0xffffea0004706f00 objects=3D56 used=3D44 fp=3D=
+0xffff88011c1bc5a0 flags=3D0x60000000000081
+[42658.066887] Pid: 21705, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42658.066890] Call Trace:
+[42658.066898]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42658.066902]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42658.066906]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42658.066910]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42658.066913]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42658.066918]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42658.066923]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42658.066925]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42658.066930]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42658.066933] FIX selinux_inode_security: Object count adjusted.
+[42663.708769] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42663.708926] BUG kmalloc-512: Wrong object count. Counter is 9 but coun=
+ted were 10
+[42663.709078] ----------------------------------------------------------=
+-------------------
+[42663.709080]=20
+[42663.709312] INFO: Slab 0xffffea00046f0e00 objects=3D32 used=3D9 fp=3D0=
+xffff88011bc39e00 flags=3D0x60000000004081
+[42663.709478] Pid: 22908, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42663.709481] Call Trace:
+[42663.709489]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42663.709493]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42663.709496]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42663.709499]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42663.709503]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42663.709509]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42663.709514]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42663.709517]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42663.709524]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42663.709527] FIX kmalloc-512: Object count adjusted.
+[42663.774783] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42663.774941] BUG kmalloc-512: Wrong object count. Counter is 8 but coun=
+ted were 7
+[42663.775093] ----------------------------------------------------------=
+-------------------
+[42663.775095]=20
+[42663.775330] INFO: Slab 0xffffea00046f0e00 objects=3D32 used=3D8 fp=3D0=
+xffff88011bc39c00 flags=3D0x60000000004081
+[42663.775488] Pid: 22957, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42663.775490] Call Trace:
+[42663.775498]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42663.775502]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42663.775506]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42663.775513]  [<ffffffff816c923e>] ? _raw_spin_unlock_irqrestore+0xe/0x=
+20
+[42663.775516]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42663.775520]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42663.775525]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42663.775529]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42663.775532]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42663.775537]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42663.775539] FIX kmalloc-512: Object count adjusted.
+[42665.867898] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42665.868058] BUG kmalloc-192: Wrong object count. Counter is 4 but coun=
+ted were 5
+[42665.868222] ----------------------------------------------------------=
+-------------------
+[42665.868223]=20
+[42665.868454] INFO: Slab 0xffffea0001d00600 objects=3D42 used=3D4 fp=3D0=
+xffff880074018840 flags=3D0x10000000004081
+[42665.868612] Pid: 23309, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42665.868615] Call Trace:
+[42665.868625]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42665.868629]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42665.868633]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42665.868637]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42665.868640]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42665.868645]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42665.868649]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42665.868652]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42665.868657]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42665.868660] FIX kmalloc-192: Object count adjusted.
+[42667.279030] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42667.279201] BUG kmalloc-32: Wrong object count. Counter is 48 but coun=
+ted were 49
+[42667.279356] ----------------------------------------------------------=
+-------------------
+[42667.279358]=20
+[42667.279584] INFO: Slab 0xffffea0001f56480 objects=3D128 used=3D30 fp=3D=
+0xffff88007d5925e0 flags=3D0x10000000000081
+[42667.279744] Pid: 23597, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42667.279747] Call Trace:
+[42667.279754]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42667.279759]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42667.279763]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42667.279767]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42667.279770]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42667.279774]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42667.279779]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42667.279782]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42667.279787]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42667.279790] FIX kmalloc-32: Object count adjusted.
+[42667.349500] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42667.349661] BUG kmalloc-32: Wrong object count. Counter is 45 but coun=
+ted were 26
+[42667.349819] ----------------------------------------------------------=
+-------------------
+[42667.349820]=20
+[42667.350054] INFO: Slab 0xffffea0001f56480 objects=3D128 used=3D45 fp=3D=
+0xffff88007d592900 flags=3D0x10000000000081
+[42667.350216] Pid: 23667, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42667.350218] Call Trace:
+[42667.350226]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42667.350230]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42667.350234]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42667.350237]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42667.350241]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42667.350245]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42667.350250]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42667.350253]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42667.350257]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42667.350260] FIX kmalloc-32: Object count adjusted.
+[42670.139647] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42670.139809] BUG kmalloc-32: Wrong object count. Counter is 11 but coun=
+ted were 12
+[42670.139967] ----------------------------------------------------------=
+-------------------
+[42670.139968]=20
+[42670.140201] INFO: Slab 0xffffea0001f57280 objects=3D128 used=3D11 fp=3D=
+0xffff88007d5cae40 flags=3D0x10000000000081
+[42670.140365] Pid: 24137, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42670.140368] Call Trace:
+[42670.140378]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42670.140382]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42670.140386]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42670.140390]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42670.140393]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42670.140398]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42670.140403]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42670.140406]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42670.140412]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42670.140415] FIX kmalloc-32: Object count adjusted.
+[42674.564500] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42674.564663] BUG kmalloc-192: Wrong object count. Counter is 3 but coun=
+ted were 4
+[42674.564820] ----------------------------------------------------------=
+-------------------
+[42674.564822]=20
+[42674.565054] INFO: Slab 0xffffea0001f10000 objects=3D42 used=3D3 fp=3D0=
+xffff88007c401080 flags=3D0x10000000004081
+[42674.565218] Pid: 24985, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42674.565221] Call Trace:
+[42674.565231]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42674.565236]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42674.565240]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42674.565244]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42674.565247]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42674.565253]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42674.565258]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42674.565261]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42674.565268]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42674.565271] FIX kmalloc-192: Object count adjusted.
+[42678.865745] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42678.865900] BUG vm_area_struct: Wrong object count. Counter is 20 but =
+counted were 34
+[42678.866051] ----------------------------------------------------------=
+-------------------
+[42678.866052]=20
+[42678.866274] INFO: Slab 0xffffea000472fb00 objects=3D46 used=3D19 fp=3D=
+0xffff88011cbed760 flags=3D0x60000000004081
+[42678.866428] Pid: 25978, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42678.866430] Call Trace:
+[42678.866436]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42678.866439]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42678.866442]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42678.866444]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42678.866447]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42678.866450]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42678.866454]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42678.866456]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42678.866460]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42678.866461] FIX vm_area_struct: Object count adjusted.
+[42678.911513] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42678.911668] BUG vm_area_struct: Wrong object count. Counter is 34 but =
+counted were 19
+[42678.911819] ----------------------------------------------------------=
+-------------------
+[42678.911820]=20
+[42678.912042] INFO: Slab 0xffffea000472fb00 objects=3D46 used=3D34 fp=3D=
+0xffff88011cbed760 flags=3D0x60000000004081
+[42678.912196] Pid: 25983, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42678.912197] Call Trace:
+[42678.912204]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42678.912207]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42678.912209]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42678.912215]  [<ffffffff816c923e>] ? _raw_spin_unlock_irqrestore+0xe/0x=
+20
+[42678.912218]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42678.912220]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42678.912224]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42678.912227]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42678.912229]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42678.912233]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42678.912235] FIX vm_area_struct: Object count adjusted.
+[42680.366372] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42680.366548] BUG kmalloc-96: Wrong object count. Counter is 32 but coun=
+ted were 33
+[42680.366702] ----------------------------------------------------------=
+-------------------
+[42680.366704]=20
+[42680.366931] INFO: Slab 0xffffea0001f27080 objects=3D42 used=3D32 fp=3D=
+0xffff88007c9c2c60 flags=3D0x10000000000081
+[42680.367091] Pid: 26276, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42680.367094] Call Trace:
+[42680.367103]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42680.367108]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42680.367112]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42680.367116]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42680.367120]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42680.367126]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42680.367131]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42680.367134]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42680.367141]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42680.367144] FIX kmalloc-96: Object count adjusted.
+[42680.435088] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42680.435246] BUG kmalloc-96: Wrong object count. Counter is 31 but coun=
+ted were 30
+[42680.435397] ----------------------------------------------------------=
+-------------------
+[42680.435398]=20
+[42680.435630] INFO: Slab 0xffffea0001f27080 objects=3D42 used=3D31 fp=3D=
+0xffff88007c9c2ea0 flags=3D0x10000000000081
+[42680.435788] Pid: 26277, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42680.435791] Call Trace:
+[42680.435801]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42680.435805]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42680.435809]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42680.435812]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42680.435815]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42680.435822]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42680.435827]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42680.435830]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42680.435836]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42680.435839] FIX kmalloc-96: Object count adjusted.
+[42680.990846] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42680.991011] BUG kmalloc-16: Wrong object count. Counter is 221 but cou=
+nted were 223
+[42680.991168] ----------------------------------------------------------=
+-------------------
+[42680.991169]=20
+[42680.991402] INFO: Slab 0xffffea0001f28800 objects=3D256 used=3D220 fp=3D=
+0xffff88007ca20510 flags=3D0x10000000000081
+[42680.991574] Pid: 26401, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42680.991576] Call Trace:
+[42680.991587]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42680.991592]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42680.991596]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42680.991600]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42680.991604]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42680.991610]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42680.991616]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42680.991619]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42680.991625]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42680.991628] FIX kmalloc-16: Object count adjusted.
+[42681.344221] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[42681.344384] BUG kmalloc-192: Wrong object count. Counter is 3 but coun=
+ted were 4
+[42681.344541] ----------------------------------------------------------=
+-------------------
+[42681.344543]=20
+[42681.344775] INFO: Slab 0xffffea0001ef4580 objects=3D42 used=3D3 fp=3D0=
+xffff88007bd16cc0 flags=3D0x10000000004081
+[42681.344939] Pid: 26485, comm: slabinfo Not tainted 3.2.0-rc2+ #142
+[42681.344942] Call Trace:
+[42681.344952]  [<ffffffff81127c66>] slab_err+0x76/0x90
+[42681.344957]  [<ffffffff811293a4>] on_freelist+0x1c4/0x270
+[42681.344961]  [<ffffffff8112a655>] validate_slab_slab+0x85/0x210
+[42681.344965]  [<ffffffff8112be46>] validate_store+0xe6/0x210
+[42681.344969]  [<ffffffff811272c1>] slab_attr_store+0x21/0x40
+[42681.344974]  [<ffffffff811a8d19>] sysfs_write_file+0xf9/0x180
+[42681.344980]  [<ffffffff81135c63>] vfs_write+0xb3/0x180
+[42681.344983]  [<ffffffff81135f8a>] sys_write+0x4a/0x90
+[42681.344989]  [<ffffffff816d112b>] system_call_fastpath+0x16/0x1b
+[42681.344992] FIX kmalloc-192: Object count adjusted.
 
-milu:~# lspci
-00:00.0 Host bridge: Intel Corporation 82P965/G965 Memory Controller Hub (rev 02)
-00:01.0 PCI bridge: Intel Corporation 82P965/G965 PCI Express Root Port (rev 02)
-00:1a.0 USB Controller: Intel Corporation 82801H (ICH8 Family) USB UHCI Controller #4 (rev 02)
-00:1a.1 USB Controller: Intel Corporation 82801H (ICH8 Family) USB UHCI Controller #5 (rev 02)
-00:1a.7 USB Controller: Intel Corporation 82801H (ICH8 Family) USB2 EHCI Controller #2 (rev 02)
-00:1b.0 Audio device: Intel Corporation 82801H (ICH8 Family) HD Audio Controller (rev 02)
-00:1c.0 PCI bridge: Intel Corporation 82801H (ICH8 Family) PCI Express Port 1 (rev 02)
-00:1c.1 PCI bridge: Intel Corporation 82801H (ICH8 Family) PCI Express Port 2 (rev 02)
-00:1c.2 PCI bridge: Intel Corporation 82801H (ICH8 Family) PCI Express Port 3 (rev 02)
-00:1d.0 USB Controller: Intel Corporation 82801H (ICH8 Family) USB UHCI Controller #1 (rev 02)
-00:1d.1 USB Controller: Intel Corporation 82801H (ICH8 Family) USB UHCI Controller #2 (rev 02)
-00:1d.2 USB Controller: Intel Corporation 82801H (ICH8 Family) USB UHCI Controller #3 (rev 02)
-00:1d.7 USB Controller: Intel Corporation 82801H (ICH8 Family) USB2 EHCI Controller #1 (rev 02)
-00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev f2)
-00:1f.0 ISA bridge: Intel Corporation 82801HB/HR (ICH8/R) LPC Interface Controller (rev 02)
-00:1f.2 SATA controller: Intel Corporation 82801HB (ICH8) 4 port SATA AHCI Controller (rev 02)
-00:1f.3 SMBus: Intel Corporation 82801H (ICH8 Family) SMBus Controller (rev 02)
-01:00.0 VGA compatible controller: nVidia Corporation G94 [GeForce 9600 GT] (rev a1)
-03:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8056 PCI-E Gigabit Ethernet Controller (rev 13)
-04:00.0 SATA controller: JMicron Technology Corp. JMB362/JMB363 Serial ATA Controller (rev 02)
-04:00.1 IDE interface: JMicron Technology Corp. JMB362/JMB363 Serial ATA Controller (rev 02)
-05:07.0 FireWire (IEEE 1394): Texas Instruments TSB43AB23 IEEE-1394a-2000 Controller (PHY/Link)
 
-Best regards,
-
--- 
-Milan Kocian
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
+.ca/
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
