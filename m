@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Tue, 22 Nov 2011 10:25:11 +0100
-Message-ID: <1321953911.2474.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Date: Tue, 22 Nov 2011 10:27:09 +0100
+Message-ID: <1321954029.2474.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 References: <20111121161036.GA1679@x4.trippels.de>
 	 <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 	 <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
@@ -12,6 +12,7 @@ References: <20111121161036.GA1679@x4.trippels.de>
 	 <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
 	 <alpine.DEB.2.00.1111212105330.19606@router.home>
 	 <20111122084513.GA1688@x4.trippels.de>
+	 <1321953911.2474.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
@@ -24,76 +25,18 @@ Cc: Christoph Lameter <cl@linux.com>, Christian Kujau
  "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>
 To: Markus Trippelsdorf <markus@trippelsdorf.de>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20111122084513.GA1688@x4.trippels.de>
+In-Reply-To: <1321953911.2474.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Le mardi 22 novembre 2011 =C3=A0 09:45 +0100, Markus Trippelsdorf a =C3=A9=
-crit :
-> On 2011.11.21 at 21:18 -0600, Christoph Lameter wrote:
-> > On Mon, 21 Nov 2011, Christian Kujau wrote:
-> >=20
-> > > On Tue, 22 Nov 2011 at 07:27, Benjamin Herrenschmidt wrote:
-> > > > Note that I hit a similar looking crash (sorry, I couldn't captur=
-e a
-> > > > backtrace back then) on a PowerMac G5 (ppc64) while doing a large=
- rsync
-> > > > transfer yesterday with -rc2-something (cfcfc9ec) and
-> > > > Christian Kujau (CC) seems to be able to reproduce something simi=
-lar on
-> > > > some other ppc platform (Christian, what is your setup ?)
-> > >
-> > > I seem to hit it with heavy disk & cpu IO is in progress on this Po=
-werBook
-> > > G4. Full dmesg & .config: http://nerdbynature.de/bits/3.2.0-rc1/oop=
-s/
-> > >
-> > > I've enabled some debug options and now it really points to slub.c:=
-2166
-> >=20
->=20
-> I sometimes see the following pattern. Is this a false positive?
->=20
->=20
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D
-> BUG anon_vma: Redzone overwritten
-> -----------------------------------------------------------------------=
-------
->=20
-> INFO: 0xffff88020f347c80-0xffff88020f347c87. First byte 0xbb instead of=
- 0xcc
-> INFO: Allocated in anon_vma_fork+0x51/0x140 age=3D1 cpu=3D2 pid=3D1826
-> 	__slab_alloc.constprop.70+0x1ac/0x1e8
-> 	kmem_cache_alloc+0x12e/0x160
-> 	anon_vma_fork+0x51/0x140
-> 	dup_mm+0x1f2/0x4a0
-> 	copy_process+0xd10/0xf70
-> 	do_fork+0x100/0x2b0
-> 	sys_clone+0x23/0x30
-> 	stub_clone+0x13/0x20
-> INFO: Freed in __put_anon_vma+0x54/0xa0 age=3D0 cpu=3D1 pid=3D1827
-> 	__slab_free+0x33/0x2d0
-> 	kmem_cache_free+0x10e/0x120
-> 	__put_anon_vma+0x54/0xa0
-> 	unlink_anon_vmas+0x12f/0x1c0
-> 	free_pgtables+0x83/0xe0
-> 	exit_mmap+0xee/0x140
-> 	mmput+0x43/0xf0
-> 	flush_old_exec+0x33f/0x630
-> 	load_elf_binary+0x340/0x1960
-> 	search_binary_handler+0x8f/0x180
-> 	do_execve+0x2d3/0x370
-> 	sys_execve+0x42/0x70
-> 	stub_execve+0x6c/0xc0
-> INFO: Slab 0xffffea00083cd1c0 objects=3D10 used=3D9 fp=3D0xffff88020f34=
-7ab8 flags=3D0x4000000000000081
-> INFO: Object 0xffff88020f347c40 @offset=3D3136 fp=3D0xffff88020f347ab8
+Le mardi 22 novembre 2011 =C3=A0 10:25 +0100, Eric Dumazet a =C3=A9crit :
 
-One thing you could do is to disable slub merge, with following
-additional boot param : "slub_nomerge=3D1"
+> One thing you could do is to disable slub merge, with following
+> additional boot param : "slub_nomerge=3D1"
+>=20
+>=20
+
+Oh well, this is the default with debug options, sorry.
 
 
 
