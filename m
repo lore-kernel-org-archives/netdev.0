@@ -1,39 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] atm: use SKB_TRUESIZE() in atm_guess_pdu2truesize()
-Date: Tue, 22 Nov 2011 06:51:34 +0100
-Message-ID: <1321941094.27077.14.camel@edumazet-laptop>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: 3.2-rc2+: Reported regressions from 3.0 and 3.1
+Date: Mon, 21 Nov 2011 21:59:18 -0800
+Message-ID: <20111121215918.febd9fd4.akpm@linux-foundation.org>
+References: <lx6sezwGldO.A.IhF.UBpWOB@chimera> <201111212249.31196.rjw@sisk.pl>
+	<4ECB37E4.6020204@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:43363 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751913Ab1KVFvi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 00:51:38 -0500
-Received: by wwe5 with SMTP id 5so11851597wwe.1
-        for <netdev@vger.kernel.org>; Mon, 21 Nov 2011 21:51:37 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrea Arcangeli <aarcange@redhat.com>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>,
+	Florian Mickler <florian@mickler.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>
+To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+In-Reply-To: <4ECB37E4.6020204@linux.vnet.ibm.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-SKB_TRUESIZE() provides a better approximation of expected skb truesize.
+On Tue, 22 Nov 2011 11:19:24 +0530 "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com> wrote:
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/linux/atmdev.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> > Subject    : khugepaged blocks suspend2ram (3.2.0-rc1-00252-g8f042aa)
+> > Submitter  : Sergei Trofimovich <slyich@gmail.com>
+> > Date       : 2011-11-12 10:48
+> > Message-ID : 20111112104859.7744b282@sf.home
+> > References : https://lkml.org/lkml/2011/11/12/11
+> > 
+> 
+> Andrea's patch already fixes this issue, which was reported first by
+> Jiri Slaby. https://lkml.org/lkml/2011/11/11/93
+> I remember Andrew Morton taking this patch in his -mm tree. But it is
+> not in mainline yet. So can we consider this closed or not?
 
-diff --git a/include/linux/atmdev.h b/include/linux/atmdev.h
-index 49a83ca..43ea1b2 100644
---- a/include/linux/atmdev.h
-+++ b/include/linux/atmdev.h
-@@ -452,7 +452,7 @@ void atm_dev_release_vccs(struct atm_dev *dev);
- 
- static inline int atm_guess_pdu2truesize(int size)
- {
--	return SKB_DATA_ALIGN(size) + sizeof(struct skb_shared_info);
-+	return SKB_TRUESIZE(size);
- }
- 
- 
+grr, nothing in that patch's changelog indicates that it fixed a
+regression nor that it fixed an infinite blockage of suspend.
+
+I moved it to my 3.2 queue, thanks.
