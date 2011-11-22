@@ -1,61 +1,80 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH net-next] atm: use SKB_TRUESIZE() in
- atm_guess_pdu2truesize()
-Date: Tue, 22 Nov 2011 17:42:05 -0500
-Message-ID: <20111122174205.6ef2021d@thirdoffive.cmf.nrl.navy.mil>
-References: <1321941094.27077.14.camel@edumazet-laptop>
-	<20111122152207.114bcd68@thirdoffive.cmf.nrl.navy.mil>
-	<1321994034.19663.9.camel@edumazet-laptop>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: pull request: wireless 2011-11-22 #2
+Date: Tue, 22 Nov 2011 17:41:08 -0500
+Message-ID: <20111122224108.GJ8452@tuxdriver.com>
+References: <20111122193505.GC8452@tuxdriver.com>
+ <20111122215611.GI8452@tuxdriver.com>
+ <20111122.173729.1155753802137219940.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:52206 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752565Ab1KVWnH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 17:43:07 -0500
-In-Reply-To: <1321994034.19663.9.camel@edumazet-laptop>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43299 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752334Ab1KVWp2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 17:45:28 -0500
+Content-Disposition: inline
+In-Reply-To: <20111122.173729.1155753802137219940.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 22 Nov 2011 21:33:54 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Tue, Nov 22, 2011 at 05:37:29PM -0500, David Miller wrote:
+> From: "John W. Linville" <linville@tuxdriver.com>
+> Date: Tue, 22 Nov 2011 16:56:12 -0500
+> 
+> > Here is the latest batch of fixes intended for 3.2.  This includes a
+> > correction for a user-visible error in mac80211's debugfs info, a fix
+> > for a potential memory corrupter in prism54, an endian fix for rt2x00,
+> > an endian fix for mac80211, a fix for a NULL derefernce in cfg80211, a
+> > locking fix for p54spi and a deadlock fix also for p54spi.
+> > 
+> > This reverts the problematic rt2x00 patches from the earlier pull
+> > request.
+> > 
+> > Please let me know if there are problems!
+> 
+> I'm still seeing the problematic rt2x00 changes when I pull:
+> 
+> [davem@boricha net]$ git pull git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-davem
+> remote: Counting objects: 112, done.        
+> remote: Compressing objects: 100% (82/82), done.        
+> remote: Total 82 (delta 71), reused 0 (delta 0)        
+> Unpacking objects: 100% (82/82), done.
+> From git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless
+>  * branch            for-davem  -> FETCH_HEAD
+> Updating 5eccdf5..02f1ce3
+> Fast-forward
+>  drivers/net/wireless/p54/p54spi.c        |    5 +++--
+>  drivers/net/wireless/prism54/isl_ioctl.c |    2 +-
+>  drivers/net/wireless/rt2x00/rt2800lib.c  |    2 +-
+>  net/mac80211/debugfs_sta.c               |    4 ++--
+>  net/mac80211/status.c                    |    8 ++++----
+>  net/wireless/reg.c                       |    4 ++++
+>  6 files changed, 15 insertions(+), 10 deletions(-)
+> [davem@boricha net]$ git format-patch ORIG_HEAD
+> 0001-rt2800pci-handle-spurious-interrupts.patch
+> 0002-rt2x00-handle-spurious-pci-interrupts.patch
 
-> Le mardi 22 novembre 2011 =C3=A0 15:22 -0500, chas williams - CONTRAC=
-TOR a
-> =C3=A9crit :
-> > it doesnt seem like a good idea to create a wrapper for a one to on=
-e
-> > call.  perhaps this whole bit of nonsense should be removed.  the
-> > iphase driver should be returning skb->truesize like everyone. =20
-> >=20
-> > if atm_alloc_charge() just uses SKB_TRUESIZE() then we konw that gu=
-ess
-> > will be the same as skb->truesize and atm_alloc_charge() can be
-> > simplified by removing atomic_add(skb->truesize - guess, which will=
- be
-> > 0 in all cases.
-> >=20
->=20
-> Please note I didnt create a wrapper, only correct existing one :)
->=20
-> Feel free to send a (tested) patch, but be warned that following code=
- is
-> not correct :
->=20
-> int size =3D something;
->=20
-> struct sk_buff *skb =3D skb_alloc(size);
->=20
-> ASSERT(skb->truesize =3D=3D SKB_TRUESIZE(size));
->=20
-> (It might be true with SLOB only)
+They're here...
 
-perhaps it is best to say that you discovered an inadvertent wrapper.
+> 0003-rt2x00-Fix-efuse-EEPROM-reading-on-PPC32.patch
+> 0004-p54spi-Add-missing-spin_lock_init.patch
+> 0005-p54spi-Fix-workqueue-deadlock.patch
+> 0006-mac80211-Fix-AMSDU-rate-printout-in-debugfs.patch
+> 0007-mac80211-Fix-endian-bug-in-radiotap-header-generatio.patch
+> 0008-cfg80211-fix-regulatory-NULL-dereference.patch
+> 0009-prism54-potential-memory-corruption-in-prism54_get_e.patch
+> 0010-Revert-rt2x00-handle-spurious-pci-interrupts.patch
+> 0011-Revert-rt2800pci-handle-spurious-interrupts.patch
 
-given skb->truesize !=3D SKB_TRUESIZE() for all cases, it is certainly
-wrong in the iphase driver to return the guessed value.  it should be
-returning skb->truesize.  i will send along a patch shortly to just get
-rid of this function.
+And I revert them here.
+
+Linus always says to live with our mistakes?  I was trying to avoid
+a rebase both for my own pain and that of my downstream maintainers.
+
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
