@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 03/10] net: Add netdev interfaces recording
- send/compl
-Date: Wed, 23 Nov 2011 18:58:12 -0500 (EST)
-Message-ID: <20111123.185812.1721878183759040757.davem@davemloft.net>
-References: <alpine.DEB.2.00.1111222139560.14623@pokey.mtv.corp.google.com>
-	<20111123094614.36560215@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH v3 0/10] bql: Byte Queue Limits
+Date: Wed, 23 Nov 2011 18:59:30 -0500 (EST)
+Message-ID: <20111123.185930.873414204064925516.davem@davemloft.net>
+References: <alpine.DEB.2.00.1111222134590.9126@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40181 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:40195 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753090Ab1KWX6O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 18:58:14 -0500
-In-Reply-To: <20111123094614.36560215@nehalam.linuxnetplumber.net>
+	with ESMTP id S1753090Ab1KWX7d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 18:59:33 -0500
+In-Reply-To: <alpine.DEB.2.00.1111222134590.9126@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 23 Nov 2011 09:46:14 -0800
+From: Tom Herbert <therbert@google.com>
+Date: Tue, 22 Nov 2011 21:52:12 -0800 (PST)
 
-> Since all the drivers that you show do this for one packet at a time,
-> why bother with a packets arguement to netdev_sent_queue()?
+> This patch series implements byte queue limits (bql) for NIC TX queues.
 
-They batch the completion, that's why f.e. e1000e's changes keep track of
-pkts_compl and bytes_compl, and then pass that in at the end of the TX
-completion processing so that we only invoke these interfaces once per
-run instead of once per packet.
+No fundamental objections from me.
+
+Please address the feedback (in particular the dql data structure layout,
+32-bit counters, and getting rid of the config options).
