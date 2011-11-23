@@ -1,75 +1,45 @@
-From: paul bilke <fsmail@conspiracy.net>
-Subject: Udp packets received with improper length
-Date: Wed, 23 Nov 2011 14:14:04 -0600
-Message-ID: <4ECD540C.60108@conspiracy.net>
-Reply-To: fsmail@conspiracy.net
+From: Arkadiusz =?utf-8?q?Mi=C5=9Bkiewicz?= <a.miskiewicz@gmail.com>
+Subject: Re: cache forver in 3.2.0-rc2-00400-g866d43c ?
+Date: Wed, 23 Nov 2011 21:35:55 +0100
+Message-ID: <201111232135.55122.a.miskiewicz@gmail.com>
+References: <201111231910.37190.a.miskiewicz@gmail.com> <1322073450.2775.2.camel@edumazet-laptop> <1322077447.2775.6.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway07.websitewelcome.com ([69.56.184.21]:45384 "EHLO
-	gateway.websitewelcome.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751196Ab1KWUfr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 15:35:47 -0500
-Received: from phantom.websitewelcome.com (phantom.websitewelcome.com [174.120.148.130])
-	by gateway.websitewelcome.com (Postfix) with ESMTP id A8C6E654F5978
-	for <netdev@vger.kernel.org>; Wed, 23 Nov 2011 14:14:07 -0600 (CST)
-Received: from [71.113.245.211] (port=2160 helo=[10.10.10.160])
-	by phantom.websitewelcome.com with esmtpsa (TLSv1:AES256-SHA:256)
-	(Exim 4.69)
-	(envelope-from <fsmail@conspiracy.net>)
-	id 1RTJCp-0007j8-7g
-	for netdev@vger.kernel.org; Wed, 23 Nov 2011 14:14:07 -0600
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:35075 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754436Ab1KWUf6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 15:35:58 -0500
+Received: by bke11 with SMTP id 11so2036095bke.19
+        for <netdev@vger.kernel.org>; Wed, 23 Nov 2011 12:35:57 -0800 (PST)
+In-Reply-To: <1322077447.2775.6.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We recently updated an embedded powerpc platform from 2.6.32 to 2.6.37.  When deployed in the field devices with the new kernel have started receiving truncated UDP packets from their mates across noisy links.  To test we wrote a simple client and
-server.  The client sends 512 byte packets with a sequence number to the server listening on a UDP socket.  On the client box we use netem to corrupt 100% of the packets sent(after transferring some data so arp cache is populated).  The server then
-dumps the length received and the serial number from any packets that are received.   Netem sometimes corrupts bits in the source MAC address so these packets arrive with valid UDP checksums and are delivered to the user application.   With the
-server running on the 2.6.32 box we send a few million packets to it and only receive packets that are exactly 512 bytes long.  When we do the same on the box running 2.6.37 we receive hundred of short packets, zero length and also 504 byte packets.
-When I use TCPdump on the box running 2.6.37 the truncated packets have valid checksums (Source MAC was corrupted by NETEM) and are of proper length (554 byte ethernet frame, 540 Byte IP portion and 520 byte UDP length) but the userland receives 504
-or 0 length in recvfrom. To see if this was just a powerpc related issue I repeated the test on x86 virtual machines.  A vm running 2.6.18 (Centos 5) receives only 512 byte packets.  On a vm running 2.6.40 (Fedora 15) I receive 512, 504 and 0 length
-packets.
-Below is a hex dump of a packet captured on the 2.6.37 box (its identical on the wire as captured by a probe) but is dispatched to the user application which receives it as a 504 byte packet.
-This is problematic in our environment since the IP connectivity is typically a high error rate (Satellite or long haul microwave link).
-I did not know if there is a known behavior change that was introduced after 2.6.32 (before .37) that would explain this behavior.
+On Wednesday 23 of November 2011, Eric Dumazet wrote:
+> Le mercredi 23 novembre 2011 =C3=A0 19:37 +0100, Eric Dumazet a =C3=A9=
+crit :
+> > Le mercredi 23 novembre 2011 =C3=A0 19:31 +0100, Arkadiusz Mi=C5=9B=
+kiewicz a
+> >=20
+> > =C3=A9crit :
+> > > Mine 00400-g866d43c was after 6fe4c6d466e95d31164f14b1ac4aefb51f0=
+f4f82
+> > > (which is merge of ipv4: fix redirect handling), so I have it.
+> > >=20
+> > > (I'm using pure linus git repo)
+> >=20
+> > OK thanks for this information, I am working on a patch.
+>=20
+> Please test the following patch, thanks !
 
-Any ideas what is going on here would be appreciated.
-Paul Bilke
+Applied and running, results in a few days (since using net A only once=
+ per=20
+day).
 
-00e10c0000fe00115510132808004500
-021c00004000401110360a0a0a450a0a
-0a43b0971391020875b4323233333400
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000
+--=20
+Arkadiusz Mi=C5=9Bkiewicz        PLD/Linux Team
+arekm / maven.pl            http://ftp.pld-linux.org/
