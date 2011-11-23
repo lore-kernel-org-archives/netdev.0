@@ -1,214 +1,322 @@
-From: Christian Kujau <lists@nerdbynature.de>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Tue, 22 Nov 2011 21:51:56 -0800 (PST)
-Message-ID: <alpine.DEB.2.01.1111222145470.8000@trent.utfs.org>
-References: <20111121131531.GA1679@x4.trippels.de>  <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121153621.GA1678@x4.trippels.de>  <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121161036.GA1679@x4.trippels.de>
-  <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121173556.GA1673@x4.trippels.de>  <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121185215.GA1673@x4.trippels.de>
-  <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop>  <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>  <alpine.DEB.2.00.1111212105330.19606@router.home>  <1321948113.27077.24.camel@edumazet-laptop>  <1321999085.14573.2.camel@pasglop>
-  <alpine.DEB.2.01.1111221511070.8000@trent.utfs.org> <1322007501.14573.15.camel@pasglop>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH v3 01/10] dql: Dynamic queue limits
+Date: Tue, 22 Nov 2011 21:52:21 -0800 (PST)
+Message-ID: <alpine.DEB.2.00.1111222138280.13686@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-155031685-737418997-1322027516=:8000"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Christoph Lameter <cl@linux.com>,
-    Markus Trippelsdorf <markus@trippelsdorf.de>,
-    "Alex,Shi" <alex.shi@intel.com>,
-    "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-    "linux-mm@kvack.org" <linux-mm@kvack.org>,
-    Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
-    "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-    Tejun Heo <tj@kernel.org>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1322007501.14573.15.camel@pasglop>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
-
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----155031685-737418997-1322027516=:8000
 Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f74.google.com ([209.85.161.74]:54794 "EHLO
+	mail-fx0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750952Ab1KWFwY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 00:52:24 -0500
+Received: by fabs1 with SMTP id s1so38323fab.1
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 21:52:23 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 23 Nov 2011 at 11:18, Benjamin Herrenschmidt wrote:
-> I'd say only this one liner for now, just don't do slabinfo :-) I just
-> want to see whether your network + heavy IO load problem goes away with
-> that one patch.
+Implementation of dynamic queue limits (dql).  This is a libary which
+allows a queue limit to be dynamically managed.  The goal of dql is
+to set the queue limit, number of objects to the queue, to be minimized
+without allowing the queue to be starved.
 
-OK, with Christoph's patch applied, 3.2.0-rc2-00274-g6fe4c6d-dirty survives 
-on this machine, with the disk & cpu workload that caused the machine to 
-panic w/o the patch. Load was at 4-5 this time, which is expected for this 
-box. I'll run a few more tests later on, but it seems ok for now.
+dql would be used with a queue which has these properties:
 
-I couldn't resist and ran "slabinfo" anyway (after the workload!) - the 
-box survived, nothing was printed in syslog either. Output attached.
+1) Objects are queued up to some limit which can be expressed as a
+   count of objects.
+2) Periodically a completion process executes which retires consumed
+   objects.
+3) Starvation occurs when limit has been reached, all queued data has
+   actually been consumed but completion processing has not yet run,
+   so queuing new data is blocked.
+4) Minimizing the amount of queued data is desirable.
 
-Thanks!
-Christian.
+A canonical example of such a queue would be a NIC HW transmit queue.
 
---- linux-2.6.orig/mm/slub.c	2011-11-21 21:15:41.575673204 -0600
-+++ linux-2.6/mm/slub.c	2011-11-21 21:16:33.442336849 -0600
-@@ -1969,7 +1969,7 @@
- 		page->pobjects = pobjects;
- 		page->next = oldpage;
+The queue limit is dynamic, it will increase or decrease over time
+depending on the workload.  The queue limit is recalculated each time
+completion processing is done.  Increases occur when the queue is
+starved and can exponentially increase over successive intervals.
+Decreases occur when more data is being maintained in the queue than
+needed to prevent starvation.  The number of extra objects, or "slack",
+is measured over successive intervals, and to avoid hysteresis the
+limit is only reduced by the miminum slack seen over a configurable
+time period.
 
--	} while (this_cpu_cmpxchg(s->cpu_slab->partial, oldpage, page) != oldpage);
-+	} while (irqsafe_cpu_cmpxchg(s->cpu_slab->partial, oldpage, page) != oldpage);
- 	stat(s, CPU_PARTIAL_FREE);
- 	return pobjects;
- }
+dql API provides routines to manage the queue:
+- dql_init is called to intialize the dql structure
+- dql_reset is called to reset dynamic values
+- dql_queued called when objects are being enqueued
+- dql_avail returns availability in the queue
+- dql_completed is called when objects have be consumed in the queue
 
+Configuration consists of:
+- max_limit, maximum limit
+- min_limit, minimum limit
+- slack_hold_time, time to measure instances of slack before reducing
+  queue limit
+
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ include/linux/dynamic_queue_limits.h |   81 +++++++++++++++++++++
+ lib/Kconfig                          |    3 +
+ lib/Makefile                         |    2 +
+ lib/dynamic_queue_limits.c           |  132 ++++++++++++++++++++++++++++++++++
+ 4 files changed, 218 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/dynamic_queue_limits.h
+ create mode 100644 lib/dynamic_queue_limits.c
+
+diff --git a/include/linux/dynamic_queue_limits.h b/include/linux/dynamic_queue_limits.h
+new file mode 100644
+index 0000000..8953187
+--- /dev/null
++++ b/include/linux/dynamic_queue_limits.h
+@@ -0,0 +1,81 @@
++/*
++ * Dynamic queue limits (dql) - Definitions
++ *
++ * Copyright (c) 2011, Tom Herbert <therbert@google.com>
++ *
++ * This header file contains the definitions for dynamic queue limits (dql).
++ * dql would be used in conjunction with a producer/consumer type queue
++ * (possibly a HW queue).  Such a queue would have these general properties:
++ *
++ *   1) Objects are queued up to some limit specified as number of objects.
++ *   2) Periodically a completion process executes which retires consumed
++ *      objects.
++ *   3) Starvation occurs when limit has been reached, all queued data has
++ *      actually been consumed, but completion processing has not yet run
++ *      so queuing new data is blocked.
++ *   4) Minimizing the amount of queued data is desirable.
++ *
++ * The goal of dql is to calculate the limit as the minimum number of objects
++ * needed to prevent starvation.
++ *
++ * The dql implementation does not implement any locking for the dql data
++ * structures, the higher layer should provide this.
++ */
++
++#ifndef _LINUX_DQL_H
++#define _LINUX_DQL_H
++
++#ifdef __KERNEL__
++
++struct dql {
++	unsigned long	num_queued;		/* Total ever queued */
++	unsigned long	last_obj_cnt;		/* Count at last queuing */
++
++	unsigned long	limit ____cacheline_aligned_in_smp; /* Current limit */
++	unsigned long	prev_ovlimit;		/* Previous over limit */
++
++	unsigned long	prev_num_queued;	/* Previous queue total */
++	unsigned long	num_completed;		/* Total ever completed */
++
++	unsigned long	prev_last_obj_cnt;	/* Previous queuing cnt */
++
++	unsigned long	lowest_slack;		/* Lowest slack found */
++	unsigned long	slack_start_time;	/* Time slacks seen */
++
++	unsigned long	max_limit ____cacheline_aligned_in_smp; /* Max limit */
++	unsigned long	min_limit;		/* Minimum limit */
++	unsigned	slack_hold_time;	/* Time to measure slack */
++};
++
++/* Set some static maximums */
++#define	DQL_MAX_OBJECT (-1UL / 16)
++#define	DQL_MAX_LIMIT ((-1UL / 2) - DQL_MAX_OBJECT)
++
++/* Record number of objects queued. */
++static inline void dql_queued(struct dql *dql, unsigned long count)
++{
++	BUG_ON(count > DQL_MAX_OBJECT);
++	BUG_ON(dql->num_queued - dql->num_completed > DQL_MAX_LIMIT);
++
++	dql->num_queued += count;
++	dql->last_obj_cnt = count;
++}
++
++/* Returns how many objects can be queued, < 0 indicates over limit. */
++static inline long dql_avail(struct dql *dql)
++{
++	return dql->limit - (dql->num_queued - dql->num_completed);
++}
++
++/* Record number of completed objects and recalculate the limit. */
++extern void dql_completed(struct dql *dql, unsigned long count);
++
++/* Reset dql state */
++extern void dql_reset(struct dql *dql);
++
++/* Initialize dql state */
++extern int dql_init(struct dql *dql, unsigned hold_time);
++
++#endif /* _KERNEL_ */
++
++#endif /* _LINUX_DQL_H */
+diff --git a/lib/Kconfig b/lib/Kconfig
+index 32f3e5a..63b5782 100644
+--- a/lib/Kconfig
++++ b/lib/Kconfig
+@@ -244,6 +244,9 @@ config CPU_RMAP
+ 	bool
+ 	depends on SMP
+ 
++config DQL
++	bool
++
+ #
+ # Netlink attribute parsing support is select'ed if needed
+ #
+diff --git a/lib/Makefile b/lib/Makefile
+index a4da283..ff00d4d 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -115,6 +115,8 @@ obj-$(CONFIG_CPU_RMAP) += cpu_rmap.o
+ 
+ obj-$(CONFIG_CORDIC) += cordic.o
+ 
++obj-$(CONFIG_DQL) += dynamic_queue_limits.o
++
+ hostprogs-y	:= gen_crc32table
+ clean-files	:= crc32table.h
+ 
+diff --git a/lib/dynamic_queue_limits.c b/lib/dynamic_queue_limits.c
+new file mode 100644
+index 0000000..9b9edb0
+--- /dev/null
++++ b/lib/dynamic_queue_limits.c
+@@ -0,0 +1,132 @@
++/*
++ * Dynamic byte queue limits.  See include/linux/dynamic_queue_limits.h
++ *
++ * Copyright (c) 2011, Tom Herbert <therbert@google.com>
++ */
++#include <linux/module.h>
++#include <linux/types.h>
++#include <linux/ctype.h>
++#include <linux/kernel.h>
++#include <linux/dynamic_queue_limits.h>
++
++#define POSDIFF(A, B) ((A) > (B) ? (A) - (B) : 0)
++
++/* Records completed count and recalculates the queue limit */
++void dql_completed(struct dql *dql, unsigned long count)
++{
++	unsigned long inprogress, prev_inprogress, limit;
++	unsigned long ovlimit, all_prev_completed, completed;
++
++	/* Can't complete more than what's in queue */
++	BUG_ON(count > dql->num_queued - dql->num_completed);
++
++	completed = dql->num_completed + count;
++	limit = dql->limit;
++	ovlimit = POSDIFF(dql->num_queued - dql->num_completed, limit);
++	inprogress = dql->num_queued - completed;
++	prev_inprogress = dql->prev_num_queued - dql->num_completed;
++	all_prev_completed = POSDIFF(completed, dql->prev_num_queued);
++
++	if ((ovlimit && !inprogress) ||
++	    (dql->prev_ovlimit && all_prev_completed)) {
++		/*
++		 * Queue considered starved if:
++		 *   - The queue was over-limit in the last interval,
++		 *     and there is no more data in the queue.
++		 *  OR
++		 *   - The queue was over-limit in the previous interval and
++		 *     when enqueuing it was possible that all queued data
++		 *     had been consumed.  This covers the case when queue
++		 *     may have becomes starved between completion processing
++		 *     running and next time enqueue was scheduled.
++		 *
++		 *     When queue is starved increase the limit by the amount
++		 *     of bytes both sent and completed in the last interval,
++		 *     plus any previous over-limit.
++		 */
++		limit += POSDIFF(completed, dql->prev_num_queued) +
++		     dql->prev_ovlimit;
++		dql->slack_start_time = jiffies;
++		dql->lowest_slack = -1UL;
++	} else if (inprogress && prev_inprogress && !all_prev_completed) {
++		/*
++		 * Queue was not starved, check if the limit can be decreased.
++		 * A decrease is only considered if the queue has been busy in
++		 * the whole interval (the check above).
++		 *
++		 * If there is slack, the amount of execess data queued above
++		 * the the amount needed to prevent starvation, the queue limit
++		 * can be decreased.  To avoid hysteresis we consider the
++		 * minimum amount of slack found over several iterations of the
++		 * completion routine.
++		 */
++		unsigned long slack, slack_last_objs;
++
++		/*
++		 * Slack is the maximum of
++		 *   - The queue limit plus previous over-limit minus twice
++		 *     the number of objects completed.  Note that two times
++		 *     number of completed bytes is a basis for an upper bound
++		 *     of the limit.
++		 *   - Portion of objects in the last queuing operation that
++		 *     was not part of non-zero previous over-limit.  That is
++		 *     "round down" by non-overlimit portion of the last
++		 *     queueing operation.
++		 */
++		slack = POSDIFF(limit + dql->prev_ovlimit,
++		    2 * (completed - dql->num_completed));
++		slack_last_objs = dql->prev_ovlimit ?
++		    POSDIFF(dql->prev_last_obj_cnt, dql->prev_ovlimit) : 0;
++
++		slack = max(slack, slack_last_objs);
++
++		if (slack < dql->lowest_slack)
++			dql->lowest_slack = slack;
++
++		if (time_after(jiffies,
++			       dql->slack_start_time + dql->slack_hold_time)) {
++			limit = POSDIFF(limit, dql->lowest_slack);
++			dql->slack_start_time = jiffies;
++			dql->lowest_slack = -1UL;
++		}
++	}
++
++	/* Enforce bounds on limit */
++	limit = clamp(limit, dql->min_limit, dql->max_limit);
++
++	if (limit != dql->limit) {
++		dql->limit = limit;
++		ovlimit = 0;
++	}
++
++	dql->prev_ovlimit = ovlimit;
++	dql->prev_last_obj_cnt = dql->last_obj_cnt;
++	dql->num_completed = completed;
++	dql->prev_num_queued = dql->num_queued;
++}
++EXPORT_SYMBOL(dql_completed);
++
++void dql_reset(struct dql *dql)
++{
++	/* Reset all dynamic values */
++	dql->limit = 0;
++	dql->num_queued = 0;
++	dql->num_completed = 0;
++	dql->last_obj_cnt = 0;
++	dql->prev_num_queued = 0;
++	dql->prev_last_obj_cnt = 0;
++	dql->prev_ovlimit = 0;
++	dql->lowest_slack = -1UL;
++	dql->slack_start_time = jiffies;
++}
++EXPORT_SYMBOL(dql_reset);
++
++int dql_init(struct dql *dql, unsigned hold_time)
++{
++	dql->max_limit = DQL_MAX_LIMIT;
++	dql->min_limit = 0;
++	dql->slack_hold_time = hold_time;
++	dql_reset(dql);
++	return 0;
++}
++EXPORT_SYMBOL(dql_init);
 -- 
-BOFH excuse #6:
-
-global warming
----155031685-737418997-1322027516=:8000
-Content-Type: TEXT/plain; name=slabinfo.txt
-Content-Transfer-Encoding: BASE64
-Content-ID: <alpine.DEB.2.01.1111222151560.8000@trent.utfs.org>
-Content-Description: 
-Content-Disposition: attachment; filename=slabinfo.txt
-
-TmFtZSAgICAgICAgICAgICAgICAgICBPYmplY3RzIE9ianNpemUgICAgU3Bh
-Y2UgU2xhYnMvUGFydC9DcHUgIE8vUyBPICVGciAlRWYgRmxnDQo6YXQtMDAw
-MDA0MCAgICAgICAgICAgICAgICAxMDIgICAgICAzNiAgICAgNC4wSyAgICAg
-ICAgICAwLzAvMSAgMTAyIDAgICAwICA4OSAqYQ0KOmF0LTAwMDAwNjQgICAg
-ICAgICAgICAgIDQxMjg4ICAgICAgNjQgICAgIDQuME0gICAgIDk2NC81NjUv
-MTUgICA2NCAwICA1NyAgNjUgKmENCjp0LTAwMDAwMDggICAgICAgICAgICAg
-ICAgMjA0OCAgICAgICA4ICAgIDE2LjNLIDQyOTQ5NjcwNzgvMC8yMjIgIDUx
-MiAwICAgMCAxMDAgKg0KOnQtMDAwMDAxNiAgICAgICAgICAgICAgICAyNjI0
-ICAgICAgMTYgICAgOTQuMksgNDI5NDk2NzA2OS8xNS8yNTAgIDI1NiAwICA2
-NSAgNDQgKg0KOnQtMDAwMDAyNCAgICAgICAgICAgICAgICAzMjc5ICAgICAg
-MjQgICAgOTguM0sgICAgICAgIDE5LzE3LzUgIDE3MCAwICA3MCAgODAgKg0K
-OnQtMDAwMDAzMiAgICAgICAgICAgICAgICAgNzUwICAgICAgMzIgICAgMjgu
-NksgNDI5NDk2NzE3NS80LzEyOCAgMTI4IDAgIDU3ICA4MyAqDQo6dC0wMDAw
-MDU2ICAgICAgICAgICAgICAgICA3NzEgICAgICA1NiAgICA2OS42SyAgICAg
-ICAgIDE3LzcvMCAgIDczIDAgIDQxICA2MiAqDQo6dC0wMDAwMDY0ICAgICAg
-ICAgICAgICAgIDUyMjYgICAgICA2NCAgIDYxMC4zSyAgICAgMTM3LzEwMS8x
-MiAgIDY0IDAgIDY3ICA1NCAqDQo6dC0wMDAwMDcyICAgICAgICAgICAgICAg
-ICAxMTIgICAgICA3MiAgICAgOC4xSyA0Mjk0OTY3MjUzLzAvNDUgICA1NiAw
-ICAgMCAgOTggKg0KOnQtMDAwMDA4OCAgICAgICAgICAgICAgICA0MDEzICAg
-ICAgODggICAzNjAuNEsgICAgICAgIDY5LzMvMTkgICA0NiAwICAgMyAgOTcg
-Kg0KOnQtMDAwMDA5NiAgICAgICAgICAgICAgICA5MTg0ICAgICAgOTYgICAg
-IDEuME0gICAgICAyMzkvNzIvMjMgICA0MiAwICAyNyAgODIgKg0KOnQtMDAw
-MDEwNCAgICAgICAgICAgICAgICAgIDI2ICAgICAxMDQgICAgIDQuMEsgICAg
-ICAgICAgMS8xLzAgICAzOSAwIDEwMCAgNjYgKg0KOnQtMDAwMDEyOCAgICAg
-ICAgICAgICAgICAyMTI3ICAgICAxMjggICA1MTIuMEsgICAgICAxMDYvOTEv
-MTkgICAzMiAwICA3MiAgNTMgKg0KOnQtMDAwMDE0NCAgICAgICAgICAgICAg
-ICAgIDU2ICAgICAxNDQgICAgIDguMUsgNDI5NDk2NzI2OS8wLzI5ICAgMjgg
-MCAgIDAgIDk4ICoNCjp0LTAwMDAxNTIgICAgICAgICAgICAgICAgIDQzMCAg
-ICAgMTUyICAgMTQ3LjRLICAgICAgIDExLzI5LzI1ICAgMjYgMCAgODAgIDQ0
-ICoNCjp0LTAwMDAxNjAgICAgICAgICAgICAgICAgNzAwMCAgICAgMTYwICAg
-ICAxLjFNICAgICAgIDI2OC8wLzEyICAgMjUgMCAgIDAgIDk3ICpBDQo6dC0w
-MDAwMTkyICAgICAgICAgICAgICAgIDI5NTkgICAgIDE5MiAgIDYzOC45SyAg
-ICAgICAxNDcvMjQvOSAgIDIxIDAgIDE1ICA4OCAqDQo6dC0wMDAwMzIwICAg
-ICAgICAgICAgICAgIDk0ODIgICAgIDMyMCAgICAgMy42TSAgICAgIDg3OS8x
-NjcvMCAgIDEyIDAgIDE4ICA4NCAqQQ0KOnQtMDAwMDM1MiAgICAgICAgICAg
-ICAgICAgIDMxICAgICAzNTIgICAgMjQuNUsgICAgICAgICAgNC80LzIgICAx
-MSAwICA2NiAgNDQgKkENCjp0LTAwMDA0ODAgICAgICAgICAgICAgICAgICAz
-NiAgICAgNDgwICAgIDIwLjRLICAgICAgICAgIDUvMS8wICAgIDggMCAgMjAg
-IDg0ICpBDQo6dC0wMDAwNzM2ICAgICAgICAgICAgICAgICAgIDIgICAgIDcy
-OCAgICAgOC4xSyAgICAgICAgICAxLzEvMCAgIDExIDEgMTAwICAxNyAqQQ0K
-OnQtMDAwMDc2OCAgICAgICAgICAgICAgICAgMjY4ICAgICA3NjggICAyNTMu
-OUsgICAgICAgICAyNS85LzYgICAxMCAxICAyOSAgODEgKkENCjp0LTAwMDIw
-NDggICAgICAgICAgICAgICAgIDI1NiAgICAyMDQ4ICAgNTczLjRLICAgICAg
-ICAgMzEvNi80ICAgIDggMiAgMTcgIDkxICoNCjp0LTAwMDQwOTYgICAgICAg
-ICAgICAgICAgIDE2OCAgICA0MDk2ICAgNzIwLjhLICAgICAgICAgMjAvMS8y
-ICAgIDggMyAgIDQgIDk1ICoNCmFub25fdm1hICAgICAgICAgICAgICAgICAg
-MjExNyAgICAgIDg4ICAgMjE3LjBLICAgICAgICAgNTEvNC8yICAgNDIgMCAg
-IDcgIDg1IA0KYXJwX2NhY2hlICAgICAgICAgICAgICAgICAgICA2ICAgICAz
-ODAgICAgIDQuMEsgICAgICAgICAgMS8xLzAgICAxMCAwIDEwMCAgNTUgQQ0K
-YmRldl9jYWNoZSAgICAgICAgICAgICAgICAgIDI1ICAgICA3NDQgICAgMjQu
-NUsgICAgICAgICAgMy8xLzAgICAxMCAxICAzMyAgNzUgQWENCmJpb3ZlYy0x
-MjggICAgICAgICAgICAgICAgICAyMCAgICAxNTM2ICAgIDMyLjdLIDQyOTQ5
-NjcyODcvMC8xMSAgIDEwIDIgICAwICA5MyBBDQpiaW92ZWMtMjU2ICAgICAg
-ICAgICAgICAgICAgOTggICAgMzA3MiAgIDM2MC40SyAgICAgICAgIDExLzIv
-MCAgIDEwIDMgIDE4ICA4MyBBDQpibGtkZXZfcXVldWUgICAgICAgICAgICAg
-ICAgMTUgICAgMTI0MCAgICAzMi43SyAgICAgICAgICAyLzEvMCAgIDEzIDIg
-IDUwICA1NiANCmJsa2Rldl9yZXF1ZXN0cyAgICAgICAgICAgICA2MiAgICAg
-MjE2ICAgIDI0LjVLIDQyOTQ5NjcyNzMvMy8yOSAgIDE4IDAgIDUwICA1NCAN
-CmRlbnRyeSAgICAgICAgICAgICAgICAgIDIxOTI1OSAgICAgMTYwICAgIDM2
-LjNNICAgIDg4NDIvMjI0LzIxICAgMjUgMCAgIDIgIDk2IGENCmV2ZW50cG9s
-bF9wd3EgICAgICAgICAgICAgICA5MiAgICAgIDM2ICAgIDIwLjRLICAgICAg
-ICAgIDUvNS8wICAxMDIgMCAxMDAgIDE2IA0KZXh0NF9hbGxvY2F0aW9uX2Nv
-bnRleHQgICAgICAgIDAgICAgIDEwOCAgICAgNC4wSyAgICAgICAgICAxLzEv
-MCAgIDM2IDAgMTAwICAgMCBhDQpleHQ0X2dyb3VwaW5mb180ayAgICAgICAg
-IDc0OTggICAgIDE0OCAgICAgMS4xTSAgICAgICAgMjg5LzEvMCAgIDI2IDAg
-ICAwICA5MyBhDQpleHQ0X2lub2RlX2NhY2hlICAgICAgICAyMDYyMjIgICAg
-IDkzNiAgIDE5OS42TSAgICAxMjE3Ny8xNTkvOCAgIDE3IDIgICAxICAxMCBh
-DQpleHQ0X2lvX2VuZCAgICAgICAgICAgICAgICAgMTMgICAgIDU5MiAgICAg
-OC4xSyAgICAgICAgICAwLzAvMSAgIDEzIDEgICAwICA5MyBhDQpleHQ0X2lv
-X3BhZ2UgICAgICAgICAgICAgICA1MTIgICAgICAgOCAgICAgNC4wSyAgICAg
-ICAgICAwLzAvMSAgNTEyIDAgICAwIDEwMCBhDQpleHQ0X3ByZWFsbG9jX3Nw
-YWNlICAgICAgICAgMTcgICAgICA5NiAgICAgNC4wSyAgICAgICAgICAxLzEv
-MCAgIDQyIDAgMTAwICAzOSBhDQpmaWxlc19jYWNoZSAgICAgICAgICAgICAg
-ICAgOTAgICAgIDIwOCAgICAyMC40SyA0Mjk0OTY3Mjg4LzAvMTMgICAxOCAw
-ICAgMCAgOTEgQQ0KaW5vZGVfY2FjaGUgICAgICAgICAgICAgICAzNzM1ICAg
-ICA1MTIgICAgIDIuME0gICAgICAgIDI0OC8wLzEgICAxNSAxICAgMCAgOTMg
-YQ0KamJkMl9yZXZva2VfcmVjb3JkICAgICAgICAgICAwICAgICAgMjQgICAg
-IDQuMEsgICAgICAgICAgMS8xLzAgIDEyOCAwIDEwMCAgIDAgQWENCmpiZDJf
-cmV2b2tlX3RhYmxlICAgICAgICAgICAgNCAgICAgIDEyICAgICA0LjBLICAg
-ICAgICAgIDEvMS8wICAyNTYgMCAxMDAgICAxIGENCmttYWxsb2MtMTAyNCAg
-ICAgICAgICAgICAgIDMxMCAgICAxMDI0ICAgMzUyLjJLICAgICAgICAgMzYv
-Ny83ICAgIDggMSAgMTYgIDkwIA0Ka21hbGxvYy0yNTYgICAgICAgICAgICAg
-ICAgMTEwICAgICAyNTYgICAgNjUuNUsgICAgICAgIDQvMTMvMTIgICAxNiAw
-ICA4MSAgNDIgDQprbWFsbG9jLTUxMiAgICAgICAgICAgICAgICA1MzIgICAg
-IDUxMiAgIDI4Mi42SyAgICAgICAgNTgvNS8xMSAgICA4IDAgICA3ICA5NiAN
-CmttYWxsb2MtODE5MiAgICAgICAgICAgICAgICAgNyAgICA4MTkyICAgIDk4
-LjNLICAgICAgICAgIDMvMi8wICAgIDQgMyAgNjYgIDU4IA0Ka21lbV9jYWNo
-ZSAgICAgICAgICAgICAgICAgIDI4ICAgICAxMTYgICAgIDQuMEsgICAgICAg
-ICAgMS8xLzAgICAzMiAwIDEwMCAgNzkgKkENCmttZW1fY2FjaGVfbm9kZSAg
-ICAgICAgICAgIDEwMCAgICAgIDYwICAgICA4LjFLICAgICAgICAgIDIvMS8w
-ICAgNjQgMCAgNTAgIDczICpBDQptbV9zdHJ1Y3QgICAgICAgICAgICAgICAg
-ICAgNzAgICAgIDU0MCAgICA0OS4xSyAgICAgICAgICA0LzQvMiAgIDE1IDEg
-IDY2ICA3NiBBDQptcXVldWVfaW5vZGVfY2FjaGUgICAgICAgICAgIDEgICAg
-IDc0NCAgICAgOC4xSyAgICAgICAgICAxLzEvMCAgIDEwIDEgMTAwICAgOSBB
-DQpuZGlzY19jYWNoZSAgICAgICAgICAgICAgICAgIDIgICAgIDM5MiAgICAg
-OC4xSyAgICAgICAgICAxLzEvMCAgIDE5IDEgMTAwICAgOSBBDQpwb3NpeF90
-aW1lcnNfY2FjaGUgICAgICAgICAgIDAgICAgIDEzNiAgICAgNC4wSyAgICAg
-ICAgICAxLzEvMCAgIDMwIDAgMTAwICAgMCANCnByb2NfaW5vZGVfY2FjaGUg
-ICAgICAgICAgMTE5NCAgICAgNTQ0ICAgNzUzLjZLICAgICAgIDc5LzI0LzEz
-ICAgMTQgMSAgMjYgIDg2IGENCnJhZGl4X3RyZWVfbm9kZSAgICAgICAgICAx
-NzkzNCAgICAgMjk2ICAgICA2LjhNICAgIDE2NjkvOTYyLzE0ICAgMTMgMCAg
-NTcgIDc3IGENClJBV3Y2ICAgICAgICAgICAgICAgICAgICAgICAgNSAgICAg
-ODk2ICAgICA4LjFLICAgICAgICAgIDEvMS8wICAgIDkgMSAxMDAgIDU0IEEN
-CnJwY19pbm9kZV9jYWNoZSAgICAgICAgICAgICAxMiAgICAgNjgwICAgIDE2
-LjNLICAgICAgICAgIDIvMS8wICAgMTEgMSAgNTAgIDQ5IEFhDQpzZ3Bvb2wt
-MTI4ICAgICAgICAgICAgICAgICAgIDIgICAgMjU2MCAgICAzMi43SyAgICAg
-ICAgICAxLzEvMCAgIDEyIDMgMTAwICAxNSBBDQpzZ3Bvb2wtMzIgICAgICAg
-ICAgICAgICAgICAgIDIgICAgIDY0MCAgICAgOC4xSyAgICAgICAgICAxLzEv
-MCAgIDEyIDEgMTAwICAxNSBBDQpzZ3Bvb2wtNjQgICAgICAgICAgICAgICAg
-ICAgIDIgICAgMTI4MCAgICAxNi4zSyAgICAgICAgICAxLzEvMCAgIDEyIDIg
-MTAwICAxNSBBDQpzaG1lbV9pbm9kZV9jYWNoZSAgICAgICAgICA3MDAgICAg
-IDU3NiAgIDQwOS42SyAgICAgICAgIDQyLzAvOCAgIDE0IDEgICAwICA5OCAN
-CnNpZ2hhbmRfY2FjaGUgICAgICAgICAgICAgIDE0MSAgICAxMzU2ICAgMjI5
-LjNLICAgICAgICAgIDMvMy80ICAgMjMgMyAgNDIgIDgzIEENCnNvY2tfaW5v
-ZGVfY2FjaGUgICAgICAgICAgIDIyNSAgICAgNTQ0ICAgMTU1LjZLICAgICAg
-ICAgMS83LzE4ICAgMTQgMSAgMzYgIDc4IEFhDQp0YXNrX2RlbGF5X2luZm8g
-ICAgICAgICAgICAxNTkgICAgIDExMiAgICAyMC40SyA0Mjk0OTY3Mjk1LzEv
-NiAgIDM2IDAgIDIwICA4NiANCnRhc2tfc3RydWN0ICAgICAgICAgICAgICAg
-IDE0MyAgICAyOTkyICAgNTI0LjJLICAgICAgICAgMTEvNS81ICAgMTAgMyAg
-MzEgIDgxIA0KdGFza3N0YXRzICAgICAgICAgICAgICAgICAgICAxICAgICAz
-MjggICAgIDQuMEsgICAgICAgICAgMS8xLzAgICAxMiAwIDEwMCAgIDggDQpU
-Q1AgICAgICAgICAgICAgICAgICAgICAgICAgNTkgICAgMTQ4MCAgIDI2Mi4x
-SyAgICAgICAgICAyLzYvNiAgIDIxIDMgIDc1ICAzMyBBDQpUQ1B2NiAgICAg
-ICAgICAgICAgICAgICAgICAgIDYgICAgMTYxNiAgICAxNi4zSyAgICAgICAg
-ICAxLzEvMCAgIDEwIDIgMTAwICA1OSBBDQp0d19zb2NrX1RDUCAgICAgICAg
-ICAgICAgICAgMTAgICAgIDEwNCAgICAgNC4wSyAgICAgICAgICAxLzEvMCAg
-IDMyIDAgMTAwICAyNSBBDQpVRFAgICAgICAgICAgICAgICAgICAgICAgICAg
-MzAgICAgIDc0NCAgICAyNC41SyAgICAgICAgICAyLzAvMSAgIDEwIDEgICAw
-ICA5MCBBDQpVRFB2NiAgICAgICAgICAgICAgICAgICAgICAgIDkgICAgIDg4
-MCAgICAgOC4xSyAgICAgICAgICAwLzAvMSAgICA5IDEgICAwICA5NiBBDQp4
-ZnNfZGFfc3RhdGUgICAgICAgICAgICAgICAgIDAgICAgIDM5MiAgICAgNC4w
-SyAgICAgICAgICAxLzEvMCAgIDEwIDAgMTAwICAgMCANCnhmc19pbm9kZSAg
-ICAgICAgICAgICAgIDE5MjI3MCAgICAgOTg0ICAgMjAwLjlNICAgMjQ1MzMv
-MTE5OS8wICAgIDggMSAgIDQgICA4IEFhDQp4ZnNfbG9nX3RpY2tldCAgICAg
-ICAgICAgICAgIDEgICAgIDIwOCAgICAgNC4wSyAgICAgICAgICAxLzEvMCAg
-IDE5IDAgMTAwICAgNSANCg==
-
----155031685-737418997-1322027516=:8000--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+1.7.3.1
