@@ -1,49 +1,95 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Wed, 23 Nov 2011 10:06:24 -0600 (CST)
-Message-ID: <alpine.DEB.2.00.1111231004490.17317@router.home>
-References: <1321605837.30341.551.camel@debian> <20111118085436.GC1615@x4.trippels.de> <20111118120201.GA1642@x4.trippels.de> <1321836285.30341.554.camel@debian> <20111121080554.GB1625@x4.trippels.de> <20111121082445.GD1625@x4.trippels.de>
- <1321866988.2552.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20111121131531.GA1679@x4.trippels.de> <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20111121153621.GA1678@x4.trippels.de> <20111123160353.GA1673@x4.trippels.de>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [3.1-rc8 REGRESSION] sky2 hangs machine on turning off or
+ suspending
+Date: Wed, 23 Nov 2011 08:19:38 -0800
+Message-ID: <20111123081938.13f44cd7@nehalam.linuxnetplumber.net>
+References: <CACna6ryTdLcWVYgHu=_mRFga1sFivpE_DyZOY-HMmKggkWAJAw@mail.gmail.com>
+	<CACna6rwDjqwypAr_03NEA=x8J_2DpL2LjgSMiQmLHHGv3AA7GA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, "Alex,Shi" <alex.shi@intel.com>,
-  "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-  "linux-mm@kvack.org" <linux-mm@kvack.org>,
-  Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
-  "netdev@vger.kernel.org" <netdev@vger.kernel.org>, tj@kernel.org,
-  dri-devel@lists.freedesktop.org, Alex Deucher <alexander.deucher@amd.com>
-To: Markus Trippelsdorf <markus@trippelsdorf.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20111123160353.GA1673@x4.trippels.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Network Development <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:53182 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751288Ab1KWQTl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 11:19:41 -0500
+In-Reply-To: <CACna6rwDjqwypAr_03NEA=x8J_2DpL2LjgSMiQmLHHGv3AA7GA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 23 Nov 2011, Markus Trippelsdorf wrote:
+On Wed, 23 Nov 2011 08:43:30 +0100
+Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> wrote:
 
-> > FIX idr_layer_cache: Marking all objects used
->
-> Yesterday I couldn't reproduce the issue at all. But today I've hit
-> exactly the same spot again. (CCing the drm list)
+> W dniu 9 listopada 2011 12:46 u=C5=BCytkownik Rafa=C5=82 Mi=C5=82ecki
+> <zajec5@gmail.com> napisa=C5=82:
+> > I've Sony VAIO FW11S with:
+> >
+> > 08:00.0 Ethernet controller [0200]: Marvell Technology Group Ltd.
+> > 88E8055 PCI-E Gigabit Ethernet Controller [11ab:4363] (rev 13)
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Subsystem: Sony Corporation Device [104d=
+:9035]
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Flags: bus master, fast devsel, latency =
+0, IRQ 47
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Memory at d0120000 (64-bit, non-prefetch=
+able) [size=3D16K]
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0I/O ports at 2000 [size=3D256]
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Expansion ROM at d0100000 [disabled] [si=
+ze=3D128K]
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Capabilities: [48] Power Management vers=
+ion 3
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Capabilities: [50] Vital Product Data
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Capabilities: [5c] MSI: Enable+ Count=3D=
+1/1 Maskable- 64bit+
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Capabilities: [e0] Express Legacy Endpoi=
+nt, MSI 00
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Capabilities: [100] Advanced Error Repor=
+ting
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Kernel driver in use: sky2
+> >
+> > Starting with:
+> >
+> > 0bdb0bd0139f3b6afa252de1487e3ce82a494db9
+> > Author: stephen hemminger <shemminger@vyatta.com>
+> > Date: =C2=A0 Fri Sep 23 11:13:40 2011 +0000
+> >
+> > =C2=A0 =C2=A0sky2: manage irq better on single port card
+> >
+> > I can not turn off my machine. I see "The system will be halted
+> > immediately" on ALT+CTRL+F10 and that's all. Machine doesn't turn o=
+ff,
+> > I can no use SysRq, fan goes up. On CTRL+ATL+F1 I can see info abou=
+t
+> > sending KILL signal to all processes.
+> >
+> > Reverting this single patch fixes the problem.
+> >
+> > Some dmesg sky2 output:
+> > [ =C2=A0 10.001833] sky2: driver version 1.29
+> > [ =C2=A0 10.001873] sky2 0000:08:00.0: PCI INT A -> GSI 16 (level, =
+low) -> IRQ 16
+> > [ =C2=A0 10.001886] sky2 0000:08:00.0: setting latency timer to 64
+> > [ =C2=A0 10.001916] sky2 0000:08:00.0: Yukon-2 EC Ultra chip revisi=
+on 3
+> > [ =C2=A0 10.002022] sky2 0000:08:00.0: irq 47 for MSI/MSI-X
+> > [ =C2=A0 10.002515] sky2 0000:08:00.0: eth0: addr 00:1d:ba:19:9e:db
+> > [ =C2=A0 58.764733] sky2 0000:08:00.0: eth0: enabling interface
+> > [ =C2=A0638.178629] sky2 0000:08:00.0: eth0: Link is up at 100 Mbps=
+, full
+> > duplex, flow control rx
+>=20
+> The bug was resolved by:
+> sky2: fix hang in napi_disable
+>=20
+> Stephen, two comments to you:
+>=20
+> 1) I really hoped to get some info about resolving this issue. You
+> could just ping me that something worth testing was posted.
+It was a duplicate of other bug report. Sorry you didn't get cc'd
+on the bug fixes.
 
-Well this is looks like write after free.
-
-> =============================================================================
-> BUG idr_layer_cache: Poison overwritten
-> -----------------------------------------------------------------------------
-> Object ffff8802156487c0: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-> Object ffff8802156487d0: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-> Object ffff8802156487e0: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-> Object ffff8802156487f0: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-> Object ffff880215648800: 00 00 00 00 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  ....kkkkkkkkkkkk
-> Object ffff880215648810: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-
-And its an integer sized write of 0. If you look at the struct definition
-and lookup the offset you should be able to locate the field that
-was modified.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> 2) Update your e-mail address in MAINTAINERS please.
+That patch went in just recently.
