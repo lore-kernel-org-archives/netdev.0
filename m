@@ -1,41 +1,36 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: slub: use irqsafe_cpu_cmpxchg for put_cpu_partial
-Date: Wed, 23 Nov 2011 15:15:57 -0800 (PST)
-Message-ID: <alpine.DEB.2.00.1111231515250.24794@chino.kir.corp.google.com>
-References: <20111121131531.GA1679@x4.trippels.de> <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20111121161036.GA1679@x4.trippels.de> <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20111121173556.GA1673@x4.trippels.de> <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20111121185215.GA1673@x4.trippels.de> <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop> <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
- <alpine.DEB.2.00.1111212105330.19606@router.home> <1321948113.27077.24.camel@edumazet-laptop> <1321999085.14573.2.camel@pasglop> <alpine.DEB.2.01.1111221511070.8000@trent.utfs.org> <1322007501.14573.15.camel@pasglop> <alpine.DEB.2.01.1111222145470.8000@trent.utfs.org>
- <CAOJsxLGWTRuwQ04Mg26fNhZEmo7yVXG5vSZgF7Q5GESCk65odA@mail.gmail.com> <alpine.DEB.2.00.1111230907330.16139@router.home>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the final tree
+ (net-next tree related)
+Date: Wed, 23 Nov 2011 18:44:25 -0500 (EST)
+Message-ID: <20111123.184425.1412287327735765077.davem@davemloft.net>
+References: <20111123150004.59be04eb36c480ec44edc9d5@canb.auug.org.au>
+	<20111123120937.GB27968@hmsreliant.think-freely.org>
+	<20111123150213.ed7257cb.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pekka Enberg <penberg@kernel.org>, Christian Kujau <lists@nerdbynature.de>,
-    Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-    Eric Dumazet <eric.dumazet@gmail.com>,
-    Markus Trippelsdorf <markus@trippelsdorf.de>,
-    "Alex,Shi" <alex.shi@intel.com>, linux-kernel@vger.kernel.org,
-    linux-mm@kvack.org, Matt Mackall <mpm@selenic.com>, netdev@vger.kernel.org,
-    Tejun Heo <tj@kernel.org>
-To: Christoph Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.00.1111230907330.16139@router.home>
-Sender: owner-linux-mm@kvack.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nhorman@tuxdriver.com, sfr@canb.auug.org.au,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: akpm@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111123150213.ed7257cb.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Nov 2011, Christoph Lameter wrote:
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Wed, 23 Nov 2011 15:02:13 -0800
 
-> Subject: slub: use irqsafe_cpu_cmpxchg for put_cpu_partial
+> Needs a thorough redo.  Please take a look at the other cgroup
+> subsystem headers.  The basic pattern is
 > 
-> The cmpxchg must be irq safe. The fallback for this_cpu_cmpxchg only
-> disables preemption which results in per cpu partial page operation
-> potentially failing on non x86 platforms.
+> #ifdef CONFIG_FOO_CGROUP
+> <definitions and declarations>
+> #else
+> <any needed stubs go here>
+> #endif
 > 
-> Signed-off-by: Christoph Lameter <cl@linux.com>
+> And that's it.
 
-Acked-by: David Rientjes <rientjes@google.com>
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I told Neil to put the stub in net/core/dev.c since that's the one and
+only call site.
