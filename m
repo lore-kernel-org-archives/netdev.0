@@ -1,38 +1,29 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Finding a hidden bound TCP socket
-Date: Wed, 23 Nov 2011 13:38:15 -0800
-Message-ID: <4ECD67C7.3010702@hp.com>
-References: <CALmbKGV0g2nfNAghF5dGrt=TCyrms6RznOL8jSkg+gkgyfekLg@mail.gmail.com> <CAFLxGvynabpEcX2RwiLxatjOEzizj95jAVY6E4D9ymDpn8s9UA@mail.gmail.com> <CALmbKGVUuZs+wigpkr0WPfn2pYP=tQh5-MsYWeRxbug=HskVQQ@mail.gmail.com> <20111123.160143.58902472755124590.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] b44.c Use dev_kfree_skb_irq() in b44_tx()
+Date: Wed, 23 Nov 2011 16:40:44 -0500 (EST)
+Message-ID: <20111123.164044.1368395311869170507.davem@davemloft.net>
+References: <Re:_softirq_oops_from_b44_poll>
+	<1322056588-26171-1-git-send-email-LKML@hover.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gdfuego@gmail.com, richard.weinberger@gmail.com,
+Cc: peter.p.waskiewicz.jr@intel.com, zambrano@broadcom.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: LKML@hover.be
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111123.160143.58902472755124590.davem@davemloft.net>
+In-Reply-To: <1322056588-26171-1-git-send-email-LKML@hover.be>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/23/2011 01:01 PM, David Miller wrote:
-> From: "G. D. Fuego"<gdfuego@gmail.com>
-> Date: Wed, 23 Nov 2011 15:27:33 -0500
->
->> Any comments?  The behavior seems broken.  At the very least its very
->> inconsistent with other Unixes.
->
-> Until the socket has a full final tuple it is bound to, there is no
-> reason to list it.
->
-> No UNIX lists a socket which is partially bound and hasn't either
-> performed a listen() or a connect().
+From: Xander Hover <LKML@hover.be>
+Date: Wed, 23 Nov 2011 14:56:28 +0100
 
-Well....  I took the .c file mentioned previously, and compiled it on a 
-Solaris 10 8/11 instance.  The 25-odd sockets it created *were* listed 
-in the output of netstat -an -- local address as *.<portnum> remote 
-address as *.* and a state of "BOUND."
+> Reported issues when using dev_kfree_skb() on UP systems and
+> systems with low numbers of cores.  dev_kfree_skb_irq() will
+> properly save IRQ state before freeing the skb.
+> 
+> Tested on 3.1.1 and 3.2_rc2
+ ...
+> Signed-off-by: Xander Hover <LKML@hover.be>
 
-A FreeBSD  (rev 8 IIRC) netstat -an seems to display them in a state of 
-"CLOSED."  I didn't check HP-UX 11i v3 or AIX 6.
-
-rick jones
+Applied, thanks.
