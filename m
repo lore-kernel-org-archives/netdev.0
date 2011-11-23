@@ -1,29 +1,69 @@
-From: Kirill Smelkov <kirr@mns.spb.ru>
-Subject: Re: [PATCH] netprio_cgroup: Fix build break
-Date: Wed, 23 Nov 2011 17:11:47 +0400
-Message-ID: <20111123131147.GA11508@tugrik.mns.mnsspb.ru>
-References: <1322051553-28987-1-git-send-email-nhorman@tuxdriver.com>
+From: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
+Subject: Re: [GIT PULL v2] Open vSwitch
+Date: Wed, 23 Nov 2011 08:36:17 -0500
+Message-ID: <1322055377.2039.179.camel@mojatatu>
+References: <20111123075433.GA7928@gondor.apana.org.au>
+	<1322035942.1298.56.camel@edumazet-laptop>
+	<1322052463.2039.135.camel@mojatatu>  <4ECCF17D.5020509@gmail.com>
+Reply-To: jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	john.r.fastabend@intel.com, robert.w.love@intel.com,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mnsspb.ru ([84.204.75.2]:58892 "EHLO mail.mnsspb.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755122Ab1KWNOC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Nov 2011 08:14:02 -0500
-Content-Disposition: inline
-In-Reply-To: <1322051553-28987-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: David =?ISO-8859-1?Q?T=E4ht?= <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <4ECCF17D.5020509-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 23, 2011 at 07:32:33AM -0500, Neil Horman wrote:
-> I broke the build with the addition of netprio_cgroups if CONFIG_CGROUPS=n.
-> This patch corrects it by moving the offending struct into an ifdef
-> CONFIG_CGROUPS block.  Also clean up a few needless defines and inline functions
-> that don't get called if CONFIG_CGROUPS isn't defined while Im at it.
-
-Thanks Neil, now it compiles ok.
+T24gV2VkLCAyMDExLTExLTIzIGF0IDE0OjEzICswMTAwLCBEYXZpZCBUw6RodCB3cm90ZToKCj4g
+SXQncyBub3Qgc28gbXVjaCAnbW9kZXJuIHRlY25pcXVlcycsIGFzIG1vZGVybiBlbnZpcm9ubWVu
+dHMuCgptb2Rlcm4gYXMgaW4gInByZXNlbmNlIG9mIGEgZ2F6aWxsaW9uIGNwdXMiIGFsbCB0cnlp
+bmcgdG8gc2VuZAp0byB0aGF0IDQwRyBwb3J0LiBZb3Ugd29udCBzZWUgbXVjaCBkaWZmZXJlbmNl
+IGluIGEgMi00IGNwdQpzZW5kaW5nIHRvIGEgR0lHIHBvcnQuCgo+IEhpZ2ggb24gbXkgbGlzdCB3
+b3VsZCBiZSBhIHdheSB0byBtb3JlIGVhc2lseSBleHBvc2UgUW9TIGFuZCBBUU0KPiBmZWF0dXJl
+cyBpbiB0aGUgaGFyZHdhcmUgYWxsIHRoZSB3YXkgdXAgdGhlIHN0YWNrLgo+Cj4gSSdkIGxpa2Ug
+dGhlIGhhcmR3YXJlIHRvIGJlIGFibGUgdG8gZXhwcmVzcyAnSSBoYXZlIEZRJywgb3IgJ0kgaGF2
+ZSByZWQnLAo+IG11Y2ggbGlrZSB3ZSBleHByZXNzIG1hbnkgb3RoZXIgZmVhdHVyZXMgaW4gZXRo
+dG9vbCwgb25seSBhYnN0cmFjdGx5IAo+IGVub3VnaCBzbyB0aGF0IGEgcWRpc2Mgc2V0dXAgY2Fu
+IGJlIG1hZGUgZ2VuZXJpYy4KPiAKCkl0cyBiZWVuIGRvbmUgLSB0aGUgY2hhbGxlbmdlIGlzIGFn
+cmVlaW5nIG9uIHdoYXQgdGhlIGJlc3QgcGF0aCBpcy4KTXkgdmlldyBpcyB0aGF0IHdlIHN0aWxs
+IG5lZWQgd2hhdGV2ZXIgdGhpbmcgdGhlIGhhcmR3YXJlIGNhbiBkbwppbiBzb2Z0d2FyZSBzbyB3
+ZSBjYW4gY29uZmlndXJlIHRoZSBoYXJkd2FyZSB3aXRoIHplcm8gY2hhbmdlcyB0bwp0aGUgdXNl
+ciBzcGFjZSBhcmNoaXRlY3R1cmUuIFRoZSBkYXRhcGF0aCBjYW4gYmUgYnlwYXNzZWQuCgo+IEkg
+ZmluZCB0aGUgbWFwcGluZyBmcm9tIGhhcmR3YXJlIHF1ZXVlcyB0byBhbnkgc29ydCBvZiBjb21w
+bGV4IHNvZnR3YXJlIAo+IHF1ZXVpbmcgc2NoZW1lIGhhcmQgdG8gY29uY2VwdHVhbGl6ZS4gQWxz
+bywgYXMgc3RydWN0dXJlZCwgdGMgY2Fubm90IGJlIAo+IGVhc2lseSBhcHBsaWVkIHRvIHdpcmVs
+ZXNzIEFQcy4KCkkgZGlkbnQgZm9sbG93IHdoYXQgdGhhdCBtZWFucyAtIGJ1dCB5b3UgaGF2ZSBh
+bGwgdGhlIHRvb2xzIHlvdSBuZWVkLgpZb3UgbWF5IG5lZWQgdG8gcHJvdmlkZSB0aGUgdXNlciBh
+IHNsaWdodGx5IGRpZmZlcmVudCBhYnN0cmFjdGlvbiB0aGFuCndoYXQgdGMgcHJvdmlkZXMuIHRj
+IGFjdHVhbGx5IGhhcyBhIEJORiBncmFtbWFyLCBzbyB0aGVyZXMgcGxlbnR5IG9mCm9wcG9ydHVu
+aXRpZXMgdG8gYWJzdHJhY3QuCmkuZSBpZiB0YyB3YXMgQyB0aGVuIHlvdSBtYXkgbmVlZCB0byB3
+cml0ZSBhIHB5dGhvbiBpbnRlcmZhY2UKdGhhdCB1c2VzIEMgdW5kZXJuZWF0aC4KCgo+IEFmdGVy
+IGJ1cm5pbmcgdGhlIGxhc3Qgc2V2ZXJhbCBtb250aHMgZ2V0dGluZyBnb29kIGVub3VnaCBhdCB0
+aGUgdGMgbGF5ZXIKPiB0byBkbyBzdHVmZiBpbiBpdCwgSSB3b3VsZCBjZXJ0YWlubHkgbGlrZSB0
+byBoYXZlIGEgcGxhY2UgdG8gcHV0IAo+IGRvY3VtZW50YXRpb24sCj4gYW5kIGFsc28gZWFzaWx5
+IHVwZGF0ZSB3aGF0IGFscmVhZHkgZXhpc3RzLgo+IAo+IElmIGl0IGhlbHBzIGFueSBJIGNvdWxk
+IG9mZmVyIGEgcmVkbWluZSBpbnN0YW5jZSBvbiBidWZmZXJibG9hdC5uZXQgZm9yIAo+IHRoaXMu
+Cj4gcmVkbWluZSBoYXMgYnVnIHRyYWNraW5nIGFuZCBhIHdpa2kuLi4KPiAKPiBJdCB3b3VsZCBi
+ZSBuaWNlIGFsc28gaWYgdGhlIGlwcm91dGUyIGNvZGUgY29udGFpbmVkIG1vcmUgd29ya2luZyBl
+eGFtcGxlcywKPiBhbmQgbWFuIHBhZ2VzLgoKbWFuIHBhZ2VzIGV4aXN0LgppcHJvdXRlMiBoYXMg
+ZG9jcyAtIHRoYXQgbWF5IGJlIGRhdGVkIGFuZCBuZWVkIHBhdGNoaW5nLgoKPiBJdCdzIGEgdG9u
+IG9mIGRvYyB3b3JrLCBidXQgSSdkIGJlIHdpbGxpbmcgdG8gZG8gc29tZSBvZiBpdC4KCklmIHlv
+dSB3YW5uYSBkbyB0aGlzIHJpZ2h0IC0gSSBzdWdnZXN0IHlvdSBnZXQgYSBkaWZmZXJlbnQgZG9t
+YWluIG5hbWUuCnRjLm9yZyBvciBzb21ldGhpbmcgYWxvbmcgdGhvc2UgbGluZXMuClN0YXJ0IGFn
+Z3JlZ2F0aW5nIGRvY3VtZW50YXRpb24gdGhhdCBpcyB2YWxpZGF0ZWQgdG8gYmUgd29ya2luZy4g
+VGhlcmUncwphIGxvdCBvZiAib3BpbmlvbnMiIG91dCB0aGVyZSBpbnN0ZWFkIG9mIGZhY3RzLgoK
+Y2hlZXJzLApqYW1hbAoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZz
+d2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
