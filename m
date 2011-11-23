@@ -1,46 +1,50 @@
 From: Anton Blanchard <anton@samba.org>
-Subject: [PATCH 1/2] ehea: Reduce memory usage in buffer pools
-Date: Wed, 23 Nov 2011 21:13:02 +1100
-Message-ID: <20111123211302.2a37debb@kryten>
+Subject: [PATCH 2/2] ehea: Use round_jiffies_relative to align workqueue
+Date: Wed, 23 Nov 2011 21:13:54 +1100
+Message-ID: <20111123211354.74a81a88@kryten>
+References: <20111123211302.2a37debb@kryten>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: cascardo@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:59152 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:58474 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750711Ab1KWKNF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Nov 2011 05:13:05 -0500
+	id S1751533Ab1KWKN4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Nov 2011 05:13:56 -0500
+In-Reply-To: <20111123211302.2a37debb@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Now that we enable multiqueue by default the ehea driver is using
-quite a lot of memory for its buffer pools. With 4 queues we
-consume 64MB in the jumbo packet ring, 16MB in the medium packet
-ring and 16MB in the tiny packet ring.
-
-We should only fill the jumbo ring once the MTU is increased but
-for now halve it's size so it consumes 32MB. Also reduce the tiny
-packet ring, with 4 queues we had 16k entries which is overkill.
+Use round_jiffies_relative to align the ehea workqueue and avoid
+extra wakeups.
 
 Signed-off-by: Anton Blanchard <anton@samba.org>
 ---
 
-Index: linux-build/drivers/net/ethernet/ibm/ehea/ehea.h
+Index: linux-build/drivers/net/ethernet/ibm/ehea/ehea_main.c
 ===================================================================
---- linux-build.orig/drivers/net/ethernet/ibm/ehea/ehea.h	2011-11-15 11:35:21.703449412 +1100
-+++ linux-build/drivers/net/ethernet/ibm/ehea/ehea.h	2011-11-15 11:48:56.461767694 +1100
-@@ -61,9 +61,9 @@
- #ifdef EHEA_SMALL_QUEUES
- #define EHEA_MAX_CQE_COUNT      1023
- #define EHEA_DEF_ENTRIES_SQ     1023
--#define EHEA_DEF_ENTRIES_RQ1    4095
-+#define EHEA_DEF_ENTRIES_RQ1    1023
- #define EHEA_DEF_ENTRIES_RQ2    1023
--#define EHEA_DEF_ENTRIES_RQ3    1023
-+#define EHEA_DEF_ENTRIES_RQ3    511
- #else
- #define EHEA_MAX_CQE_COUNT      4080
- #define EHEA_DEF_ENTRIES_SQ     4080
+--- linux-build.orig/drivers/net/ethernet/ibm/ehea/ehea_main.c	2011-11-23 16:04:23.941615040 +1100
++++ linux-build/drivers/net/ethernet/ibm/ehea/ehea_main.c	2011-11-23 16:04:55.654208250 +1100
+@@ -371,7 +371,8 @@ static void ehea_update_stats(struct wor
+ out_herr:
+ 	free_page((unsigned long)cb2);
+ resched:
+-	schedule_delayed_work(&port->stats_work, msecs_to_jiffies(1000));
++	schedule_delayed_work(&port->stats_work,
++			      round_jiffies_relative(msecs_to_jiffies(1000)));
+ }
+ 
+ static void ehea_refill_rq1(struct ehea_port_res *pr, int index, int nr_of_wqes)
+@@ -2434,7 +2435,8 @@ static int ehea_open(struct net_device *
+ 	}
+ 
+ 	mutex_unlock(&port->port_lock);
+-	schedule_delayed_work(&port->stats_work, msecs_to_jiffies(1000));
++	schedule_delayed_work(&port->stats_work,
++			      round_jiffies_relative(msecs_to_jiffies(1000)));
+ 
+ 	return ret;
+ }
