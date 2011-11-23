@@ -1,55 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [3.1-rc8 REGRESSION] sky2 hangs machine on turning off or
- suspending
-Date: Wed, 23 Nov 2011 09:03:15 +0100
-Message-ID: <1322035395.1298.50.camel@edumazet-laptop>
-References: <CACna6ryTdLcWVYgHu=_mRFga1sFivpE_DyZOY-HMmKggkWAJAw@mail.gmail.com>
-	 <CACna6rwDjqwypAr_03NEA=x8J_2DpL2LjgSMiQmLHHGv3AA7GA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [GIT PULL v2] Open vSwitch
+Date: Wed, 23 Nov 2011 09:12:22 +0100
+Message-ID: <1322035942.1298.56.camel@edumazet-laptop>
+References: <20111123075433.GA7928@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Network Development <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: =?UTF-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACna6rwDjqwypAr_03NEA=x8J_2DpL2LjgSMiQmLHHGv3AA7GA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20111123075433.GA7928-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le mercredi 23 novembre 2011 =C3=A0 08:43 +0100, Rafa=C5=82 Mi=C5=82eck=
-i a =C3=A9crit :
-
-> The bug was resolved by:
-> sky2: fix hang in napi_disable
->=20
-> Stephen, two comments to you:
->=20
-> 1) I really hoped to get some info about resolving this issue. You
-> could just ping me that something worth testing was posted.
->=20
-
-I agree 100%, I am verry sorry this happened.
-
-Stephen, we must show toal respect to bug reporters, they do their part
-of the job.
-
-We need more bug reports :)
-
-A "Reported-by:" tag is mandatory, not counting a CC on mails
-
-As Rafal spent incredible time to bisect the bug, another tag is welcom=
-e
-as well :
-
-"Bisected-by:" ...
-
-This takes maybe 20 seconds, while the bug fix took far more...
-
-> 2) Update your e-mail address in MAINTAINERS please.
->=20
-
-What do you mean, it seems OK to me (Stephen Hemminger
-<shemminger@vyatta.com>) ?
+TGUgbWVyY3JlZGkgMjMgbm92ZW1icmUgMjAxMSDDoCAxNTo1NCArMDgwMCwgSGVyYmVydCBYdSBh
+IMOpY3JpdCA6Cj4gRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PiB3cm90ZToKPiA+
+IAo+ID4gSSB3b3VsZCBsaWtlIHRvIHNlZSBzb21lIGRpc2N1c3Npb24gd3J0LiBKYW1hbCdzIGZl
+ZWRiYWNrLCB3aGljaCBpcyB0aGF0Cj4gPiBhIGxvdCBvZiB0aGUgc2lkZS1iYW5kIGZ1bmN0aW9u
+YWxpdHkgYWRkZWQgYnkgdGhpcyBjb2RlIGlzIGVpdGhlciAxKSBhbHJlYWR5Cj4gPiBkb2FibGUg
+d2l0aCBwYWNrZXQgc2NoZWR1bGVyIGFjdGlvbnMgb3IgMikgc2hvdWxkIGJlIGltcGxlbWVudGVk
+IHRoZXJlLgo+IAo+IEkgbW9zdGx5IGFncmVlIHdpdGggSmFtYWwuICBBcyBmYXIgYXMgdGhlIGNv
+bmNlcHQgb2YgYSBwb2xpY3kKPiBsb29rdXAgY2FjaGUgZ29lcyAod2hpY2ggYXBwZWFycyB0byBi
+ZSBhdCB0aGUgY29yZSBvZiBPVlMpLCB0aGlzCj4gYWxtb3N0IGZpdHMgZXhhY3RseSBvbnRvIGEg
+dTMyIGhhc2ggdGFibGUuICBBbGwgdGhhdCB3b3VsZCBiZSBuZWVkZWQKPiBpcyB0byBhZGQgdGhl
+IHRhaWwgZW5kIG9mIHRoZSBwb2xpY2llcywgZS5nLiwgd2l0aCBuZXcgcGFja2V0Cj4gYWN0aW9u
+cy4KPiAKPiBIb3dldmVyLCB0aGlzIGlzIHB1cmVseSBiYXNlZCBvbiBteSBjb25jZXB0dWFsIHZp
+ZXcgb2YgT1ZTLCB3aGljaAo+IG1heSBvciBtYXkgbm90IGJlIGFjY3VyYXRlLiAgSSdsbCBkaWcg
+aW50byB0aGUgcGF0Y2hlcyBvdmVyIHRoZQo+IG5leHQgY291cGxlIG9mIGRheXMgdG8gc2VlIGlm
+IHRoZXkgY291bGQgYmUgZWFzaWx5IHR1cm5lZCBpbnRvCj4gcGFja2V0IGFjdGlvbnMgb3Igd2hl
+dGhlciB0aGlzIGlzIGRpZmZpY3VsdCBmb3IgcmVhc29ucyB0aGF0IHdlCj4gaGF2ZSBub3QgeWV0
+IGRpc2NvdmVyZWQuCj4gCgpJIGhhZCBubyB0aW1lIHRvIGxvb2sgYXQgT1ZTLCBidXQgY3VycmVu
+dCB0YyBtb2RlbCBpcyBub3Qgc2NhbGFibGUsCmV2ZXJ5dGhpbmcgaXMgcGVyZm9ybWVkIHVuZGVy
+IGEgcXVldWUgbG9jay4KCk1heWJlIGl0cyB0aW1lIHRvIHJlZGVzaWduIGEgbmV3IG1vZGVsLCBi
+YXNlZCBvbiBtb2Rlcm4gdGVjaG5pcXVlcy4KCkJ5IHRoZSB3YXksIHdlIHNlcmlvdXNseSBsYWNr
+IGdvb2QgZG9jdW1lbnRhdGlvbiBvbiB0Yywgbm90IGNvdW50aW5nCm1hbnkgZmVhdHVyZXMuIENv
+ZGUgbWlnaHQgYmUgdGhlcmUsIGJ1dCB3aXRob3V0IGRvY3VtZW5hdGlvbiwgd29ya2luZwpzYW1w
+bGVzLCB3aG8gY2FuIHVzZSBpdCA/CgpUYWtlIGEgbG9vayBhdCBsYXN0IGNsc19mbG93IGV4dGVu
+c2lvbiwgYW5kIHRyeSB0byB1c2UgaXQgb24gYSByZWFsCnNldHVwLCB5b3UnbGwgZmluZCBpdHMg
+YWxtb3N0IG5vdCBwb3NzaWJsZS4uLgoKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0
+cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
