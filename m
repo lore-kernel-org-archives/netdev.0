@@ -1,19 +1,26 @@
-From: "Cortese, Lorraine L" <lcortese@cherrycreekschools.org>
-Subject: Loan Offer............(3%.Interest Rate)
-Date: Wed, 23 Nov 2011 20:53:47 +0000
-Message-ID: <DC1E9A98E5F2CA49B234FAC6F931B71D2B24B8__48733.9780353524$1322082519$gmane$org@CCSD-EXMB3.ccsd.d5>
+From: Iain Paton <selsinork@gmail.com>
+Subject: Re: [ANNOUNCE] iproute2 v3.0.1
+Date: Wed, 23 Nov 2011 21:08:39 +0000
+Message-ID: <4ECD60D7.2010903@gmail.com>
+References: <20111123122951.6ad25f74@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Undisclosed recipients:;
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.cherrycreekschools.org ([166.113.2.210]:38325 "EHLO
-	smtp.cherrycreekschools.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752957Ab1KWVIK convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Nov 2011 16:08:10 -0500
-Content-Language: en-US
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:56666 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753344Ab1KWVIn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 16:08:43 -0500
+In-Reply-To: <20111123122951.6ad25f74@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Home Finance Loan Firm is offering out loans for a low interest rate of 3%. If interested, Kindly provide the following details such as Full name, Address,Gender,Loan Amount, Mobile Number and Country Name to our email address: homeloan11@hotmail.com
+Stephen Hemminger wrote:
+> Source: no longer at linux-foundation
+>   http://kernel.org/pub/linux/kernel/utils/networking/iproute2/iproute2-3.1.0.gz
+
+That's a 404. 
+
+Maybe http://kernel.org/pub/linux/utils/networking/iproute2/iproute2-3.1.0.tar.gz ?
