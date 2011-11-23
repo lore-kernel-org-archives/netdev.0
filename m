@@ -1,63 +1,103 @@
-From: Christian Kujau <lists@nerdbynature.de>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Tue, 22 Nov 2011 17:22:14 -0800 (PST)
-Message-ID: <alpine.DEB.2.01.1111221711410.8000@trent.utfs.org>
-References: <20111121131531.GA1679@x4.trippels.de>  <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121153621.GA1678@x4.trippels.de>  <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121161036.GA1679@x4.trippels.de>
-  <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121173556.GA1673@x4.trippels.de>  <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20111121185215.GA1673@x4.trippels.de>
-  <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop>  <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>  <alpine.DEB.2.00.1111212105330.19606@router.home>  <1321948113.27077.24.camel@edumazet-laptop>  <1321999085.14573.2.camel@pasglop>
-  <alpine.DEB.2.01.1111221511070.8000@trent.utfs.org> <1322007501.14573.15.camel@pasglop>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH 7/8] net/mlx4_en: adding loopback support
+Date: Tue, 22 Nov 2011 17:34:32 -0800
+Message-ID: <CAF2d9jhesfOW8c4pXOAmMGonGv+1ryFsZ_PoCknX+ahy-fGdaw@mail.gmail.com>
+References: <4ECA0F4A.30308@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Christoph Lameter <cl@linux.com>,
-    Markus Trippelsdorf <markus@trippelsdorf.de>,
-    "Alex,Shi" <alex.shi@intel.com>,
-    "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-    "linux-mm@kvack.org" <linux-mm@kvack.org>,
-    Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
-    "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-    Tejun Heo <tj@kernel.org>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1322007501.14573.15.camel@pasglop>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	oren@mellanox.co.il, amirv@mellanox.co.il
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:33481 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752796Ab1KWBez convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 20:34:55 -0500
+Received: by bke11 with SMTP id 11so958279bke.19
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 17:34:53 -0800 (PST)
+In-Reply-To: <4ECA0F4A.30308@mellanox.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 23 Nov 2011 at 11:18, Benjamin Herrenschmidt wrote:
-> I'd say only this one liner for now, just don't do slabinfo :-)
+On Mon, Nov 21, 2011 at 12:43 AM, Yevgeny Petrilin
+<yevgenyp@mellanox.co.il> wrote:
+>
+> From: Amir Vadai <amirv@mellanox.co.il>
+>
+> Device must be in promiscious mode or DMAC must be same as the host M=
+AC, or
+> else packet will be dropped by the HW rx filtering.
+>
+> Signed-off-by: Amir Vadai <amirv@mellanox.co.il>
+> ---
+> =A0drivers/net/ethernet/mellanox/mlx4/en_netdev.c | =A0 =A01 +
+> =A0drivers/net/ethernet/mellanox/mlx4/en_tx.c =A0 =A0 | =A0 =A03 +++
+> =A0include/linux/mlx4/qp.h =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0| =A0 =A01 +
+> =A03 files changed, 5 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers=
+/net/ethernet/mellanox/mlx4/en_netdev.c
+> index 78d776b..55fdbce 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> @@ -1088,6 +1088,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mde=
+v, int port,
+> =A0 =A0 =A0 =A0dev->features =3D dev->hw_features | NETIF_F_HIGHDMA |
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0NETIF_F_HW_VLAN_TX | N=
+ETIF_F_HW_VLAN_RX |
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0NETIF_F_HW_VLAN_FILTER=
+;
+> + =A0 =A0 =A0 dev->hw_features |=3D NETIF_F_LOOPBACK;
+>
+> =A0 =A0 =A0 =A0mdev->pndev[port] =3D dev;
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net=
+/ethernet/mellanox/mlx4/en_tx.c
+> index 3094f94..f9093b5 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> @@ -681,6 +681,9 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, str=
+uct net_device *dev)
+> =A0 =A0 =A0 =A0tx_desc->ctrl.fence_size =3D (real_size / 16) & 0x3f;
+> =A0 =A0 =A0 =A0tx_desc->ctrl.srcrb_flags =3D cpu_to_be32(MLX4_WQE_CTR=
+L_CQ_UPDATE |
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0MLX4_WQE_CTRL_SOLICITED);
+> + =A0 =A0 =A0 if (dev->features & NETIF_F_LOOPBACK)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 tx_desc->ctrl.srcrb_flags |=3D
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 cpu_to_be32(MLX4_WQE_CT=
+RL_FORCE_LOOPBACK);
 
-It's still building, for 2hrs now, must be those debug options I added, a 
-"normal" build on this machine "only" takes 30min otherwise. Unfortunately 
-I failed to setup a crosscompile env with the latest crosstool checkout :(
+This is re-calculated for every xmit. Is it required to be that way?
+May be you can pre-calculate it and just assign / add it to the
+control-flags here.
 
-> I just want to see whether your network + heavy IO load problem goes
-> away with that one patch.
-
-Sorry, I should have been clearer in that mail: the high "load" value 
-isn't a problem - the intermittent panics are. What I meant to say was: 
-the panics usually occur when lots of disk & cpu IO is in progress (rsync 
-to an external but local disk over firewire). While doing this the load is 
-usally at 3-5, but that's "normal" and expected for a machine of that age. 
-
-But then the machine crashes with recent kernels. After setting the 
-cpu_partial files to 0 I tried to reproduce the same I/O pattern, *plus* a 
-bit more, to really stress the machine, so load went up to 6-7 and the 
-machine did not crash. So the load of 6-7 was expected and I'm glad that 
-the machine did not crash with that workaround. I don't know of the 
-implications of setting cpu_partial to 0 though.
-
-As soon as the build with Christoph's one-liner is done I'll test w/o 
-setting cpu_partial to 0 and see what it gives.
-
-Thanks,
-Christian.
--- 
-BOFH excuse #380:
-
-Operators killed when huge stack of backup tapes fell over.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> =A0 =A0 =A0 =A0if (likely(skb->ip_summed =3D=3D CHECKSUM_PARTIAL)) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tx_desc->ctrl.srcrb_flags |=3D cpu_to_=
+be32(MLX4_WQE_CTRL_IP_CSUM |
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 MLX4_WQE_CTRL_TCP_UDP_CSUM);
+> diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
+> index 6562ff6..bee8fa2 100644
+> --- a/include/linux/mlx4/qp.h
+> +++ b/include/linux/mlx4/qp.h
+> @@ -210,6 +210,7 @@ struct mlx4_wqe_ctrl_seg {
+> =A0 =A0 =A0 =A0 * [4] =A0 IP checksum
+> =A0 =A0 =A0 =A0 * [3:2] C (generate completion queue entry)
+> =A0 =A0 =A0 =A0 * [1] =A0 SE (solicited event)
+> + =A0 =A0 =A0 =A0* [0] =A0 FL (force loopback)
+> =A0 =A0 =A0 =A0 */
+> =A0 =A0 =A0 =A0__be32 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0srcrb_flags;
+> =A0 =A0 =A0 =A0/*
+> --
+> 1.7.7
+>
+>
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
