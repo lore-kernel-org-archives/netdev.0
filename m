@@ -1,115 +1,79 @@
-From: John Heffner <johnwheffner@gmail.com>
-Subject: Re: Missing TCP SYN on loopback, retransmits after 1s
-Date: Tue, 22 Nov 2011 21:06:04 -0500
-Message-ID: <CABrhC0m75OHmdDD-crr=tvTiRq_hnh7WpHtLjM9TKgTa24MSOA@mail.gmail.com>
-References: <20111122181320.38a70cf8@telperion.jlyo.org>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+Date: Wed, 23 Nov 2011 12:43:53 +1100
+Message-ID: <1322012633.14573.22.camel@pasglop>
+References: <20111121131531.GA1679@x4.trippels.de>
+	 <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121153621.GA1678@x4.trippels.de>
+	 <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121161036.GA1679@x4.trippels.de>
+	 <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121173556.GA1673@x4.trippels.de>
+	 <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111121185215.GA1673@x4.trippels.de>
+	 <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop>
+	 <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
+	 <alpine.DEB.2.00.1111212105330.19606@router.home>
+	 <1321948113.27077.24.camel@edumazet-laptop>
+	 <1321999085.14573.2.camel@pasglop>
+	 <alpine.DEB.2.01.1111221511070.8000@trent.utfs.org>
+	 <1322007501.14573.15.camel@pasglop>
+	 <alpine.DEB.2.01.1111221711410.8000@trent.utfs.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Jesse Young <jlyo@jlyo.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:45225 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754746Ab1KWCGG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 21:06:06 -0500
-Received: by ywt32 with SMTP id 32so856371ywt.19
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 18:06:05 -0800 (PST)
-In-Reply-To: <20111122181320.38a70cf8@telperion.jlyo.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Offhand, I'd guess you're overflowing the TCP SYN queue.  (You can try
-tuning tcp_max_syn_backlog.)
-
-  -John
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, Christoph Lameter <cl@linux.com>,
+        Markus Trippelsdorf <markus@trippelsdorf.de>,
+        "Alex,Shi"
+ <alex.shi@intel.com>,
+        "linux-kernel@vger.kernel.org"
+ <linux-kernel@vger.kernel.org>,
+        "linux-mm@kvack.org" <linux-mm@kvack.org>,
+        Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Tejun Heo <tj@kernel.org>
+To: Christian Kujau <lists@nerdbynature.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <alpine.DEB.2.01.1111221711410.8000@trent.utfs.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
 
-On Tue, Nov 22, 2011 at 7:13 PM, Jesse Young <jlyo@jlyo.org> wrote:
-> Hi all,
->
-> I am experiencing packet loss over TCP/IPv[46], which causes 1 second
-> delays when connect()ing to a socket. This happens even on loopback, =
-and
-> on multiple kernels. On the older kernels, the connect() time is near=
-ly
-> 3 seconds, I believe this is due to a recent TCP connect retrasmit
-> parameter changed in the kernel.
->
-> 1. Linux dc-s1000-2114 2.6.32-35-server #78-Ubuntu SMP Tue Oct 11
-> =A0 =A016:26:12 UTC 2011 x86_64 GNU/Linux
-> 2. Linux dc-a1000-2131.cleversafelabs.com 2.6.39.4-2-clevos+ #1 SMP
-> =A0 =A0Tue Nov 8 09:06:49 CST 2011 x86_64 x86_64 x86_64 GNU/Linux
-> 3. Linux telperion.jlyo.org 3.1.0-4-ARCH #1 SMP PREEMPT Mon Nov 7
-> =A0 =A022:47:18 CET 2011 x86_64 Intel(R) Core(TM) i7-2630QM CPU @ 2.0=
-0GHz
-> =A0 =A0GenuineIntel GNU/Linux
->
-> I have created some test cases which reify this problem, the first se=
-t
-> of tests use select() multiplexing, and have some problems, however,
-> they exhibit odd behavior as well, especially in the difference betwe=
-en
-> tcp4 and tcp6.
->
-> Please note: these tests will quickly exaust the amount of available
-> ephemeral TCP ports on your system, which will cause any TCP connect(=
-)
-> calls in other processes to return with EADDRNOTAVAIL. However, ports
-> will become available after a short while.
->
-> The first test fails super quick, while the others haven't timed out
-> so far. =A0NOTE: The second test requires /proc/sys/net/ipv6/bindv6on=
-ly
-> to be set to 1.
->
-> ./packetloss :: ::1
-> ./packetloss :: 127.0.0.1
-> ./packetloss 0.0.0.0 127.0.0.1
->
-> The other tests run a client and server in different processes.
-> Run the "close" daemon using one of:
-> ./closed ::
-> ./closed 0.0.0.0
->
-> And flood connect() pings against 8009, the port closed listens on.
-> ./tcping -f -p8009 ::1
-> ./tcping -f -p8009 127.0.0.1
->
-> Wait for a pause, then ^C, and notice the max statistic is ~1000ms.
->
-> These tests have been rn between machines on a relativley noiseless
-> ethernet LAN with similar results.
->
-> What's also puzzling, is that I see no packet drop reporting in
-> $ ifconfig lo
-> lo: flags=3D73<UP,LOOPBACK,RUNNING> =A0mtu 16436 =A0metric 1
-> inet 127.0.0.1 =A0netmask 255.0.0.0
-> inet6 ::1 =A0prefixlen 128 =A0scopeid 0x10<host>
-> loop =A0txqueuelen 0 =A0(Local Loopback)
-> RX packets 276411482 =A0bytes 15822880567 (14.7 GiB)
-> RX errors 0 =A0dropped 0 =A0overruns 0 =A0frame 0
-> TX packets 276411482 bytes 15822880567 (14.7 GiB)
-> TX errors 0 dropped 0 overruns 0 carrier 0 collisions
->
-> I'm thinking this may be a bug in the TCP/IP stack, however, I'm not
-> certain if I'm missing a socket option, or some other configuration
-> that may elimiate this behavior.
->
-> If there's anything else I can help you with, please don't hesitate
-> to Cc me.
->
-> Thanks,
-> Jesse
->
-> Attached: syndrop.pcap
->
-> Get the code here
-> https://github.com/jlyo/packetloss
-> git clone git://github.com/jlyo/packetloss.git
->
-> https://github.com/jlyo/tcping
-> git clone git://github.com/jlyo/tcping.git
->
-> https://github.com/jlyo/closed
-> git clone git://github.com/jlyo/closed.git
+> > I just want to see whether your network + heavy IO load problem goes
+> > away with that one patch.
+> 
+> Sorry, I should have been clearer in that mail: the high "load" value 
+> isn't a problem - the intermittent panics are. What I meant to say was: 
+> the panics usually occur when lots of disk & cpu IO is in progress (rsync 
+> to an external but local disk over firewire). While doing this the load is 
+> usally at 3-5, but that's "normal" and expected for a machine of that age. 
+
+No, I understand your problem. What I meant above is to see whether you
+reproduce the crash caused by network + heavy IO :-)
+
+> But then the machine crashes with recent kernels. After setting the 
+> cpu_partial files to 0 I tried to reproduce the same I/O pattern, *plus* a 
+> bit more, to really stress the machine, so load went up to 6-7 and the 
+> machine did not crash. So the load of 6-7 was expected and I'm glad that 
+> the machine did not crash with that workaround. I don't know of the 
+> implications of setting cpu_partial to 0 though.
+
+Right. Now we want to check if that patch from Christoph fixes cpu
+partial.
+
+> As soon as the build with Christoph's one-liner is done I'll test w/o 
+> setting cpu_partial to 0 and see what it gives.
+
+Thanks !
+
+Cheers,
+Ben.
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
