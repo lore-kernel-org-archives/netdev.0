@@ -1,111 +1,99 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 0/2] net: Add network priority cgroup (v4)
-Date: Wed, 23 Nov 2011 06:49:26 -0500
-Message-ID: <20111123114926.GA27968@hmsreliant.think-freely.org>
-References: <1321974652-8318-1-git-send-email-nhorman@tuxdriver.com>
- <20111122.152315.2256366823688148380.davem@davemloft.net>
- <20111122203938.GB4207@hmsreliant.think-freely.org>
- <20111122.154516.228225371031125826.davem@davemloft.net>
- <20111122210008.GC4207@hmsreliant.think-freely.org>
- <20111123101933.GA10127@tugrik.mns.mnsspb.ru>
+From: "Yaniv Rosner" <yanivr@broadcom.com>
+Subject: [net] bnx2x: Fix 5461x LED
+Date: Wed, 23 Nov 2011 15:54:08 +0200
+Message-ID: <1322056448-22290-1-git-send-email-yanivr@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	john.r.fastabend@intel.com, robert.w.love@intel.com
-To: Kirill Smelkov <kirr@mns.spb.ru>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"Yaniv Rosner" <yanivr@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:41494 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753314Ab1KWLts (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 06:49:48 -0500
-Content-Disposition: inline
-In-Reply-To: <20111123101933.GA10127@tugrik.mns.mnsspb.ru>
+Received: from mms3.broadcom.com ([216.31.210.19]:4200 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753261Ab1KWLzV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Nov 2011 06:55:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 23, 2011 at 02:19:34PM +0400, Kirill Smelkov wrote:
-> On Tue, Nov 22, 2011 at 04:00:08PM -0500, Neil Horman wrote:
-> > On Tue, Nov 22, 2011 at 03:45:16PM -0500, David Miller wrote:
-> > > From: Neil Horman <nhorman@tuxdriver.com>
-> > > Date: Tue, 22 Nov 2011 15:39:38 -0500
-> > >=20
-> > > > On Tue, Nov 22, 2011 at 03:23:15PM -0500, David Miller wrote:
-> > > >> From: Neil Horman <nhorman@tuxdriver.com>
-> > > >> Date: Tue, 22 Nov 2011 10:10:50 -0500
-> > > >>=20
-> > > >> > (v2)
-> > > >> > Based on reviews from John F., Amerigo Wang and Neerav Parik=
-h, I've cleaned up
-> > > >> > the rcu locking, fixed a memory leak in an error path, and c=
-orrected some typos.
-> > > >> >=20
-> > > >> > (v3)
-> > > >> > Converted rcu_dereference to rntl_dereference where appropri=
-ate as per request
-> > > >> > from John F.
-> > > >> >=20
-> > > >> > (v4)
-> > > >> > Cleaned up some spacing issues, and optimized the skb_update=
-_priority path as
-> > > >> > per request from Dave M.
-> > > >> >=20
-> > > >> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> > > >> > Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> > > >> > CC: Robert Love <robert.w.love@intel.com>
-> > > >> > CC: "David S. Miller" <davem@davemloft.net>
-> > > >>=20
-> > > >> Applied and going through some build testing now, thanks Neil.
-> > > > Thanks Dave!  I tested here building separately with:
-> > > > CONFIG_CGROUPS=3Dn
-> > > > CONFIG_CROUPS=3Dy && CONFIG_NETPRIO_CGROUP=3Dy
-> > > > CONFIG_CROUPS=3Dy && CONFIG_NETPRIO_CGROUP=3Dm
-> > > >=20
-> > > > So you should be square, but theres rarely any valid accounting=
- for my ability
-> > > > to screw something up :)
-> > >=20
-> > > I want to be absolutely sure, because I had to apply your changes=
- by hand,
-> > > in particular the linux/netdevice.h changes had line offsets of u=
-p to 67.
-> > Really?  Thats odd, I've got thse changes here applied to a local c=
-opy of the
-> > net-next tree.  I branched from commit 8b3408f8ee994973869d8ba32c5b=
-f482bc4ddca4
-> > and it applies cleanly.  Perhaps something wen't in while I was dev=
-eloping this?
->=20
-> The patch broke the build with CONFIG_CGROUPS=3Dn (testing on today's
-> net-next v3.2-rc2-714-g1f2149c):
->=20
-> kirr@mini:~/src/linux/linux-net-next$ make
->   CHK     include/linux/version.h
->   CHK     include/generated/utsrelease.h
->   CALL    scripts/checksyscalls.sh
->   CHK     include/generated/compile.h
->   CC      init/do_mounts.o
-> In file included from include/linux/netdevice.h:53,
->                  from include/linux/icmpv6.h:173,
->                  from include/linux/ipv6.h:220,
->                  from include/net/ipv6.h:16,
->                  from include/linux/sunrpc/clnt.h:26,
->                  from include/linux/nfs_fs.h:50,
->                  from init/do_mounts.c:20:
-> include/net/netprio_cgroup.h:23: error: field =E2=80=98css=E2=80=99 h=
-as incomplete type
-> scripts/Makefile.build:305: recipe for target `init/do_mounts.o' fail=
-ed
-> make[1]: *** [init/do_mounts.o] Error 1
-> Makefile:945: recipe for target `init' failed
-> make: *** [init] Error 2
->=20
->=20
-> Config attached.
->=20
-Damn, I apologize.  I had tested with CGROUP_CONFIG=3Dn, but when I did=
- a make
-oldconfig, since I had cgroup subsystems enabled, it re-selected CGROUP=
-_CONFIG,
-instead of squashing the subsystems.  I'll fix this immediately. =20
-Neil
+Fix port identify test on 5461x PHY by driving LEDs through MDIO.
+
+Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   39 +++++++++++++++++++++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h  |    1 +
+ 2 files changed, 39 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+index bce203f..882f48f 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+@@ -10327,6 +10327,43 @@ static int bnx2x_54618se_config_init(struct bnx2x_phy *phy,
+ 	return 0;
+ }
+ 
++
++static void bnx2x_5461x_set_link_led(struct bnx2x_phy *phy,
++				       struct link_params *params, u8 mode)
++{
++	struct bnx2x *bp = params->bp;
++	u16 temp;
++
++	bnx2x_cl22_write(bp, phy,
++		MDIO_REG_GPHY_SHADOW,
++		MDIO_REG_GPHY_SHADOW_LED_SEL1);
++	bnx2x_cl22_read(bp, phy,
++		MDIO_REG_GPHY_SHADOW,
++		&temp);
++	temp &= 0xff00;
++
++	DP(NETIF_MSG_LINK, "54618x set link led (mode=%x)\n", mode);
++	switch (mode) {
++	case LED_MODE_FRONT_PANEL_OFF:
++	case LED_MODE_OFF:
++		temp |= 0x00ee;
++		break;
++	case LED_MODE_OPER:
++		temp |= 0x0001;
++		break;
++	case LED_MODE_ON:
++		temp |= 0x00ff;
++		break;
++	default:
++		break;
++	}
++	bnx2x_cl22_write(bp, phy,
++		MDIO_REG_GPHY_SHADOW,
++		MDIO_REG_GPHY_SHADOW_WR_ENA | temp);
++	return;
++}
++
++
+ static void bnx2x_54618se_link_reset(struct bnx2x_phy *phy,
+ 				     struct link_params *params)
+ {
+@@ -11103,7 +11140,7 @@ static struct bnx2x_phy phy_54618se = {
+ 	.config_loopback = (config_loopback_t)bnx2x_54618se_config_loopback,
+ 	.format_fw_ver	= (format_fw_ver_t)NULL,
+ 	.hw_reset	= (hw_reset_t)NULL,
+-	.set_link_led	= (set_link_led_t)NULL,
++	.set_link_led	= (set_link_led_t)bnx2x_5461x_set_link_led,
+ 	.phy_specific_func = (phy_specific_func_t)NULL
+ };
+ /*****************************************************************/
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+index fc7bd0f..e58073e 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+@@ -6990,6 +6990,7 @@ Theotherbitsarereservedandshouldbezero*/
+ #define MDIO_REG_INTR_MASK				0x1b
+ #define MDIO_REG_INTR_MASK_LINK_STATUS			(0x1 << 1)
+ #define MDIO_REG_GPHY_SHADOW				0x1c
++#define MDIO_REG_GPHY_SHADOW_LED_SEL1			(0x0d << 10)
+ #define MDIO_REG_GPHY_SHADOW_LED_SEL2			(0x0e << 10)
+ #define MDIO_REG_GPHY_SHADOW_WR_ENA			(0x1 << 15)
+ #define MDIO_REG_GPHY_SHADOW_AUTO_DET_MED		(0x1e << 10)
+-- 
+1.7.7.1
