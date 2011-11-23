@@ -1,103 +1,43 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH 7/8] net/mlx4_en: adding loopback support
-Date: Tue, 22 Nov 2011 17:34:32 -0800
-Message-ID: <CAF2d9jhesfOW8c4pXOAmMGonGv+1ryFsZ_PoCknX+ahy-fGdaw@mail.gmail.com>
-References: <4ECA0F4A.30308@mellanox.co.il>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next 4/4] net: Add Open vSwitch kernel
+	components.
+Date: Tue, 22 Nov 2011 17:34:57 -0800
+Message-ID: <CAEP_g=8EqkfRq4XmGy_8-f1FrXrvjHNBT6u70a_2mqDnyp2Miw@mail.gmail.com>
+References: <1321657938-21761-5-git-send-email-jesse@nicira.com>
+	<1321878007.2291.12.camel@mojatatu>
+	<CAEP_g=8puZh8hihoyoHTc4f6cBu4jiDJQ6tqk6suQxR=dchyjA@mail.gmail.com>
+	<20111122.181930.1186109067515095173.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	oren@mellanox.co.il, amirv@mellanox.co.il
-To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:33481 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752796Ab1KWBez convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 20:34:55 -0500
-Received: by bke11 with SMTP id 11so958279bke.19
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 17:34:53 -0800 (PST)
-In-Reply-To: <4ECA0F4A.30308@mellanox.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20111122.181930.1186109067515095173.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 21, 2011 at 12:43 AM, Yevgeny Petrilin
-<yevgenyp@mellanox.co.il> wrote:
->
-> From: Amir Vadai <amirv@mellanox.co.il>
->
-> Device must be in promiscious mode or DMAC must be same as the host M=
-AC, or
-> else packet will be dropped by the HW rx filtering.
->
-> Signed-off-by: Amir Vadai <amirv@mellanox.co.il>
-> ---
-> =A0drivers/net/ethernet/mellanox/mlx4/en_netdev.c | =A0 =A01 +
-> =A0drivers/net/ethernet/mellanox/mlx4/en_tx.c =A0 =A0 | =A0 =A03 +++
-> =A0include/linux/mlx4/qp.h =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0| =A0 =A01 +
-> =A03 files changed, 5 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers=
-/net/ethernet/mellanox/mlx4/en_netdev.c
-> index 78d776b..55fdbce 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> @@ -1088,6 +1088,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mde=
-v, int port,
-> =A0 =A0 =A0 =A0dev->features =3D dev->hw_features | NETIF_F_HIGHDMA |
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0NETIF_F_HW_VLAN_TX | N=
-ETIF_F_HW_VLAN_RX |
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0NETIF_F_HW_VLAN_FILTER=
-;
-> + =A0 =A0 =A0 dev->hw_features |=3D NETIF_F_LOOPBACK;
->
-> =A0 =A0 =A0 =A0mdev->pndev[port] =3D dev;
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net=
-/ethernet/mellanox/mlx4/en_tx.c
-> index 3094f94..f9093b5 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> @@ -681,6 +681,9 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, str=
-uct net_device *dev)
-> =A0 =A0 =A0 =A0tx_desc->ctrl.fence_size =3D (real_size / 16) & 0x3f;
-> =A0 =A0 =A0 =A0tx_desc->ctrl.srcrb_flags =3D cpu_to_be32(MLX4_WQE_CTR=
-L_CQ_UPDATE |
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0MLX4_WQE_CTRL_SOLICITED);
-> + =A0 =A0 =A0 if (dev->features & NETIF_F_LOOPBACK)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 tx_desc->ctrl.srcrb_flags |=3D
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 cpu_to_be32(MLX4_WQE_CT=
-RL_FORCE_LOOPBACK);
-
-This is re-calculated for every xmit. Is it required to be that way?
-May be you can pre-calculate it and just assign / add it to the
-control-flags here.
-
-> =A0 =A0 =A0 =A0if (likely(skb->ip_summed =3D=3D CHECKSUM_PARTIAL)) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tx_desc->ctrl.srcrb_flags |=3D cpu_to_=
-be32(MLX4_WQE_CTRL_IP_CSUM |
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 MLX4_WQE_CTRL_TCP_UDP_CSUM);
-> diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
-> index 6562ff6..bee8fa2 100644
-> --- a/include/linux/mlx4/qp.h
-> +++ b/include/linux/mlx4/qp.h
-> @@ -210,6 +210,7 @@ struct mlx4_wqe_ctrl_seg {
-> =A0 =A0 =A0 =A0 * [4] =A0 IP checksum
-> =A0 =A0 =A0 =A0 * [3:2] C (generate completion queue entry)
-> =A0 =A0 =A0 =A0 * [1] =A0 SE (solicited event)
-> + =A0 =A0 =A0 =A0* [0] =A0 FL (force loopback)
-> =A0 =A0 =A0 =A0 */
-> =A0 =A0 =A0 =A0__be32 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0srcrb_flags;
-> =A0 =A0 =A0 =A0/*
-> --
-> 1.7.7
->
->
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+T24gVHVlLCBOb3YgMjIsIDIwMTEgYXQgMzoxOSBQTSwgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZl
+bWxvZnQubmV0PiB3cm90ZToKPiBGcm9tOiBKZXNzZSBHcm9zcyA8amVzc2VAbmljaXJhLmNvbT4K
+PiBEYXRlOiBUdWUsIDIyIE5vdiAyMDExIDE1OjExOjMzIC0wODAwCj4KPj4gQXMgeW91IG1lbnRp
+b24sIG9uZSBvZiB0aGUgYmlnZ2VzdCBiZW5lZml0cyBvZiBPcGVuIHZTd2l0Y2ggaXMgaG93Cj4+
+IHNpbXBsZSB0aGUga2VybmVsIHBvcnRpb25zIGFyZSAoaXQncyBsZXNzIHRoYW4gNjAwMCBsaW5l
+cykuIMKgSXQncwo+PiBleGlzdGVkIGFzIGFuIG91dC1vZi10cmVlIHByb2plY3QgZm9yIHNldmVy
+YWwgeWVhcnMgbm93IHNvIGl0J3MKPj4gYWN0dWFsbHkgZmFpcmx5IG1hdHVyZSBhbHJlYWR5IGFu
+ZCB1bmxpa2VseSB0aGF0IHRoZXJlIHdpbGwgYmUgYQo+PiBzdWRkZW4gaW5mbHV4IG9mIG5ldyBj
+b2RlIG92ZXIgdGhlIGNvbWluZyBtb250aHMuCj4KPiBUaGUgcGFja2V0IHNjaGVkdWxlciBjbGFz
+c2lmaWNhdGlvbiBhbmQgcGFja2V0IGFjdGlvbiBpbmZyYXN0cnVjdHVyZQo+IGhhcyBiZWVuIGFy
+b3VuZCA1IHRpbWVzIGxvbmdlci4KClRoZSBvbmx5IHBvaW50IHRoYXQgSSB3YXMgdHJ5aW5nIHRv
+IG1ha2Ugd2l0aCB0aGF0IGNvbW1lbnQgaXMgdGhhdAppdCdzIHVubGlrZWx5IHRoYXQgT3BlbiB2
+U3dpdGNoIHdpbGwgc3VkZGVubHkgZ2V0IG1vcmUgY29tcGxleCBkdWUgdG8KdGhlIGludHJvZHVj
+dGlvbiBvZiBuZXcgY29kZS4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVu
+dnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
