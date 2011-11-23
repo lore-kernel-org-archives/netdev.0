@@ -1,35 +1,39 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: RAW netfilter - "advanced netfilter setting" or not?
-Date: Wed, 23 Nov 2011 23:32:23 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1111232325500.27025@frira.zrqbmnf.qr>
-References: <CA+55aFxtSgLppJQ8EbQEovdXsCNxQ1gT31FyP2cpyuvoBLajZw@mail.gmail.com> <alpine.LNX.2.01.1111232217220.27025@frira.zrqbmnf.qr> <CA+55aFyQGf4sFNOVsv4krddn3gxQ=roqVHpC98-Ynx8iBqpRaQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netns: fix proxy ARP entries listing on a netns
+Date: Wed, 23 Nov 2011 17:36:13 -0500 (EST)
+Message-ID: <20111123.173613.1360696422325749253.davem@davemloft.net>
+References: <1321904774-3030-1-git-send-email-jorge@dti2.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFyQGf4sFNOVsv4krddn3gxQ=roqVHpC98-Ynx8iBqpRaQ@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: jorge@dti2.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:39603 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754582Ab1KWWgV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 17:36:21 -0500
+In-Reply-To: <1321904774-3030-1-git-send-email-jorge@dti2.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
+Date: Mon, 21 Nov 2011 20:46:14 +0100
 
-On Wednesday 2011-11-23 23:02, Linus Torvalds wrote:
->On Wed, Nov 23, 2011 at 1:27 PM, Jan Engelhardt <jengelh@medozas.de> wrote:
->>
->> In my opinion, NETFILTER_ADVANCED should be changed to only control
->> the visibility of all suboptions, i.e. I suggest that "default m if
->> NETFILTER_ADVANCED=n" be done for all non-deprecated modules.
->> (Similar to how CONFIG_EXPERT works.)
->
->No thank you. That makes the whole option pointless. [...]
->The whole point of NETFILTER_ADVANCED is for people like me who
->actually want a fairly *minimal* kernel config, and probably one that
->has no modules.
+> @@ -2397,6 +2397,7 @@ static struct pneigh_entry *pneigh_get_next(struct seq_file *seq,
+>  	struct net *net = seq_file_net(seq);
+>  	struct neigh_table *tbl = state->tbl;
+>  
+> +restart:
+>  	pn = pn->next;
+>  	while (!pn) {
 
-Right, but how would you decide what will be enabled/disabled by
-default? It seems unlikely you will be adding a patch (like Dave's)
-everytime a default distro installation throws certain errors once
-you run your own kernel configs.
+We don't need to use goto to fix this bug, instead change this assignment
+to something like:
+
+	do {
+		pn = pn->next;
+	} while (pn && !net_eq(pneigh_net(pn), net));
+
+and this way it will mirror the while loop inside of the "while (!pn)"
+code block.
