@@ -1,73 +1,46 @@
-From: Zhi Yong Wu <zwu.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: =?utf-8?q?=5BPATCH=5D_datapath=3A_Fix_build_breakage_on?=
-	=?utf-8?q?_kernel_2=2E6=2E40?=
-Date: Wed, 23 Nov 2011 17:58:38 +0800
-Message-ID: <1322042318-4809-1-git-send-email-zwu.kernel@gmail.com>
+From: Anton Blanchard <anton@samba.org>
+Subject: [PATCH 1/2] ehea: Reduce memory usage in buffer pools
+Date: Wed, 23 Nov 2011 21:13:02 +1100
+Message-ID: <20111123211302.2a37debb@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, aliguori-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, stefanha-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: cascardo@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:59152 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750711Ab1KWKNF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Nov 2011 05:13:05 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogWmhpIFlvbmcgV3UgPHd1emh5QGxpbnV4LnZuZXQuaWJtLmNvbT4KClRvZGF5IGkgcGxh
-eWVkIHdpdGggb3BlbnZzd2l0Y2ggb24gbXkgd29ya3N0YXRpb24gd2l0aCBrZXJuZWwgMi42LjQw
-IGFuZCBmb3VuZCB0aGF0IGl0IGJyZWFrIHdoZW4gaSBidWlsdC4gVGhlIGlzc3VlIGlzIGludHJv
-ZHVjZWQgYnkgY29tbWl0IGNlYjE3NmZkYjcyYmI3Y2U5MGRlYmM2NmUxZWViMWQyNTgyM2QzMGEK
-CkJlbG93IGlzIHRoZSBlcnJvciBsb2cuCgogICAgICAgICAgICAgICAgIGZyb20gL2hvbWUvend1
-L3dvcmsvdmlydC9vcGVudnN3aXRjaC9kYXRhcGF0aC9saW51eC9nZW5ldGxpbmstYnJjb21wYXQu
-YzoxMDoKL2hvbWUvend1L3dvcmsvdmlydC9vcGVudnN3aXRjaC9kYXRhcGF0aC9saW51eC9jb21w
-YXQvaW5jbHVkZS9saW51eC9za2J1ZmYuaDoyNDM6MjA6IGVycm9yOiByZWRlZmluaXRpb24gb2Yg
-4oCYc2tiX3Jlc2V0X21hY19sZW7igJkKaW5jbHVkZS9saW51eC9za2J1ZmYuaDoxMjU5OjIwOiBu
-b3RlOiBwcmV2aW91cyBkZWZpbml0aW9uIG9mIOKAmHNrYl9yZXNldF9tYWNfbGVu4oCZIHdhcyBo
-ZXJlCm1ha2VbNV06ICoqKiBbL2hvbWUvend1L3dvcmsvdmlydC9vcGVudnN3aXRjaC9kYXRhcGF0
-aC9saW51eC9nZW5ldGxpbmstYnJjb21wYXQub10gRXJyb3IgMQptYWtlWzRdOiAqKiogW19tb2R1
-bGVfL2hvbWUvend1L3dvcmsvdmlydC9vcGVudnN3aXRjaC9kYXRhcGF0aC9saW51eF0gRXJyb3Ig
-MgptYWtlWzRdOiBMZWF2aW5nIGRpcmVjdG9yeSBgL3Vzci9zcmMva2VybmVscy8yLjYuNDAuNi0w
-LmZjMTUueDg2XzY0JwptYWtlWzNdOiAqKiogW2RlZmF1bHRdIEVycm9yIDIKbWFrZVszXTogTGVh
-dmluZyBkaXJlY3RvcnkgYC9ob21lL3p3dS93b3JrL3ZpcnQvb3BlbnZzd2l0Y2gvZGF0YXBhdGgv
-bGludXgnCm1ha2VbMl06ICoqKiBbYWxsLXJlY3Vyc2l2ZV0gRXJyb3IgMQptYWtlWzJdOiBMZWF2
-aW5nIGRpcmVjdG9yeSBgL2hvbWUvend1L3dvcmsvdmlydC9vcGVudnN3aXRjaC9kYXRhcGF0aCcK
-bWFrZVsxXTogKioqIFthbGwtcmVjdXJzaXZlXSBFcnJvciAxCm1ha2VbMV06IExlYXZpbmcgZGly
-ZWN0b3J5IGAvaG9tZS96d3Uvd29yay92aXJ0L29wZW52c3dpdGNoJwptYWtlOiAqKiogW2FsbF0g
-RXJyb3IgMgoKQWZ0ZXIgdGhpcyBwYXRjaCBpcyBhcHBsaWVkLCBpIGNhbiBzdWNjZXNzZnVsbHkg
-ZG8gb25lIGJ1aWxkIGFuZCBiZSBoYXBweSB0byBzZWUgdGhhdCBtdWx0aXBsZSBWTXMgY2FuIGNv
-bW11bmljYXRlIHdpdGggZWFjaCBvdGhlci4KCgpTaWduZWQtb2ZmLWJ5OiBaaGkgWW9uZyBXdSA8
-d3V6aHlAbGludXgudm5ldC5pYm0uY29tPgotLS0KIGFjaW5jbHVkZS5tNCAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgIHwgICAgMiArKwogZGF0YXBhdGgvbGludXgvY29tcGF0L2luY2x1
-ZGUvbGludXgvc2tidWZmLmggfCAgICAyICstCiAyIGZpbGVzIGNoYW5nZWQsIDMgaW5zZXJ0aW9u
-cygrKSwgMSBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9hY2luY2x1ZGUubTQgYi9hY2luY2x1
-ZGUubTQKaW5kZXggNjQ4MTMyYS4uMzJjZGYxNyAxMDA2NDQKLS0tIGEvYWNpbmNsdWRlLm00Cisr
-KyBiL2FjaW5jbHVkZS5tNApAQCAtMjMzLDYgKzIzMyw4IEBAIEFDX0RFRlVOKFtPVlNfQ0hFQ0tf
-TElOVVhfQ09NUEFUXSwgWwogICBPVlNfR1JFUF9JRkVMU0UoWyRLU1JDL2luY2x1ZGUvbGludXgv
-c2tidWZmLmhdLCBbc2tiX2Nvd19oZWFkXSkKICAgT1ZTX0dSRVBfSUZFTFNFKFskS1NSQy9pbmNs
-dWRlL2xpbnV4L3NrYnVmZi5oXSwgW3NrYl90cmFuc3BvcnRfaGVhZGVyXSwKICAgICAgICAgICAg
-ICAgICAgIFtPVlNfREVGSU5FKFtIQVZFX1NLQlVGRl9IRUFERVJfSEVMUEVSU10pXSkKKyAgT1ZT
-X0dSRVBfSUZFTFNFKFskS1NSQy9pbmNsdWRlL2xpbnV4L3NrYnVmZi5oXSwgW3NrYl9yZXNldF9t
-YWNfbGVuXSwKKyAgICAgICAgICAgICAgICAgIFtPVlNfREVGSU5FKFtIQVZFX1NLQl9SRVNFVF9N
-QUNfTEVOXSldKQogICBPVlNfR1JFUF9JRkVMU0UoWyRLU1JDL2luY2x1ZGUvbGludXgvaWNtcHY2
-LmhdLCBbaWNtcDZfaGRyXSwKICAgICAgICAgICAgICAgICAgIFtPVlNfREVGSU5FKFtIQVZFX0lD
-TVA2X0hEUl0pXSkKICAgT1ZTX0dSRVBfSUZFTFNFKFskS1NSQy9pbmNsdWRlL2xpbnV4L3NrYnVm
-Zi5oXSwgW3NrYl93YXJuX2lmX2xyb10sCmRpZmYgLS1naXQgYS9kYXRhcGF0aC9saW51eC9jb21w
-YXQvaW5jbHVkZS9saW51eC9za2J1ZmYuaCBiL2RhdGFwYXRoL2xpbnV4L2NvbXBhdC9pbmNsdWRl
-L2xpbnV4L3NrYnVmZi5oCmluZGV4IDMxMWJmZGIuLjIyYmEyZTYgMTAwNjQ0Ci0tLSBhL2RhdGFw
-YXRoL2xpbnV4L2NvbXBhdC9pbmNsdWRlL2xpbnV4L3NrYnVmZi5oCisrKyBiL2RhdGFwYXRoL2xp
-bnV4L2NvbXBhdC9pbmNsdWRlL2xpbnV4L3NrYnVmZi5oCkBAIC0yMzksNyArMjM5LDcgQEAgc3Rh
-dGljIGlubGluZSBzdHJ1Y3QgcGFnZSAqc2tiX2ZyYWdfcGFnZShjb25zdCBza2JfZnJhZ190ICpm
-cmFnKQogfQogI2VuZGlmCiAKLSNpZiBMSU5VWF9WRVJTSU9OX0NPREUgPCBLRVJORUxfVkVSU0lP
-TigzLDAsMCkKKyNpZm5kZWYgSEFWRV9TS0JfUkVTRVRfTUFDX0xFTgogc3RhdGljIGlubGluZSB2
-b2lkIHNrYl9yZXNldF9tYWNfbGVuKHN0cnVjdCBza19idWZmICpza2IpCiB7CiAJc2tiLT5tYWNf
-bGVuID0gc2tiLT5uZXR3b3JrX2hlYWRlciAtIHNrYi0+bWFjX2hlYWRlcjsKLS0gCjEuNy42Cgpf
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGlu
-ZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFu
-L2xpc3RpbmZvL2Rldgo=
+
+Now that we enable multiqueue by default the ehea driver is using
+quite a lot of memory for its buffer pools. With 4 queues we
+consume 64MB in the jumbo packet ring, 16MB in the medium packet
+ring and 16MB in the tiny packet ring.
+
+We should only fill the jumbo ring once the MTU is increased but
+for now halve it's size so it consumes 32MB. Also reduce the tiny
+packet ring, with 4 queues we had 16k entries which is overkill.
+
+Signed-off-by: Anton Blanchard <anton@samba.org>
+---
+
+Index: linux-build/drivers/net/ethernet/ibm/ehea/ehea.h
+===================================================================
+--- linux-build.orig/drivers/net/ethernet/ibm/ehea/ehea.h	2011-11-15 11:35:21.703449412 +1100
++++ linux-build/drivers/net/ethernet/ibm/ehea/ehea.h	2011-11-15 11:48:56.461767694 +1100
+@@ -61,9 +61,9 @@
+ #ifdef EHEA_SMALL_QUEUES
+ #define EHEA_MAX_CQE_COUNT      1023
+ #define EHEA_DEF_ENTRIES_SQ     1023
+-#define EHEA_DEF_ENTRIES_RQ1    4095
++#define EHEA_DEF_ENTRIES_RQ1    1023
+ #define EHEA_DEF_ENTRIES_RQ2    1023
+-#define EHEA_DEF_ENTRIES_RQ3    1023
++#define EHEA_DEF_ENTRIES_RQ3    511
+ #else
+ #define EHEA_MAX_CQE_COUNT      4080
+ #define EHEA_DEF_ENTRIES_SQ     4080
