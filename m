@@ -1,51 +1,250 @@
-From: Jun Zhao <mypopydev@gmail.com>
-Subject: [PATCH v2] ipv4 : igmp : optimize timer modify logic in igmp_mod_timer()
-Date: Thu, 24 Nov 2011 00:38:42 +0800
-Message-ID: <1322066322-4782-1-git-send-email-mypopydev@gmail.com>
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	Jun Zhao <mypopydev@gmail.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: |PATCH net-next] net: treewide use of RCU_INIT_POINTER
+Date: Wed, 23 Nov 2011 18:09:32 +0100
+Message-ID: <1322068172.17693.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:44585 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753677Ab1KWQlA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 11:41:00 -0500
-Received: by ywt32 with SMTP id 32so1561475ywt.19
-        for <netdev@vger.kernel.org>; Wed, 23 Nov 2011 08:40:59 -0800 (PST)
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:59373 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750896Ab1KWRJf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 12:09:35 -0500
+Received: by qadc14 with SMTP id c14so2767067qad.19
+        for <netdev@vger.kernel.org>; Wed, 23 Nov 2011 09:09:34 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When timer is pending and expires less-than-or-equal-to new delay,
-we need not used del_timer()/add_timer().
+rcu_assign_pointer(ptr, NULL) can be safely replaced by
+RCU_INIT_POINTER(ptr, NULL)
 
-Signed-off-by: Jun Zhao <mypopydev@gmail.com>
+(old rcu_assign_pointer() macro was testing the NULL value and could
+omit the smp_wmb(), but this had to be removed because of compiler
+warnings)
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- net/ipv4/igmp.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2.c               |    2 -
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |    2 -
+ drivers/net/ethernet/broadcom/cnic.c               |    6 ++---
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c |    4 +--
+ drivers/net/macvtap.c                              |    8 +++----
+ drivers/net/ppp/pptp.c                             |    2 -
+ drivers/net/team/team_mode_activebackup.c          |    2 -
+ drivers/net/wireless/ath/carl9170/main.c           |   12 +++++------
+ net/core/netprio_cgroup.c                          |    4 +--
+ 9 files changed, 21 insertions(+), 21 deletions(-)
 
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index c7472ef..5f2aedf 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -215,14 +215,14 @@ static void igmp_mod_timer(struct ip_mc_list *im, int max_delay)
- {
- 	spin_lock_bh(&im->lock);
- 	im->unsolicit_count = 0;
--	if (del_timer(&im->timer)) {
--		if ((long)(im->timer.expires-jiffies) < max_delay) {
--			add_timer(&im->timer);
--			im->tm_running = 1;
-+	if (timer_pending(&im->timer)) {
-+		if (time_before_eq(im->timer.expires, (jiffies + max_delay))) {
- 			spin_unlock_bh(&im->lock);
- 			return;
-+		} else {
-+			del_timer(&im->timer);
-+			atomic_dec(&im->refcnt);
- 		}
--		atomic_dec(&im->refcnt);
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index 83d8cef..d573169 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -409,7 +409,7 @@ static int bnx2_unregister_cnic(struct net_device *dev)
+ 	mutex_lock(&bp->cnic_lock);
+ 	cp->drv_state = 0;
+ 	bnapi->cnic_present = 0;
+-	rcu_assign_pointer(bp->cnic_ops, NULL);
++	RCU_INIT_POINTER(bp->cnic_ops, NULL);
+ 	mutex_unlock(&bp->cnic_lock);
+ 	synchronize_rcu();
+ 	return 0;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 83481e2..0cdbb70 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -11587,7 +11587,7 @@ static int bnx2x_unregister_cnic(struct net_device *dev)
+ 
+ 	mutex_lock(&bp->cnic_mutex);
+ 	cp->drv_state = 0;
+-	rcu_assign_pointer(bp->cnic_ops, NULL);
++	RCU_INIT_POINTER(bp->cnic_ops, NULL);
+ 	mutex_unlock(&bp->cnic_mutex);
+ 	synchronize_rcu();
+ 	kfree(bp->cnic_kwq);
+diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+index 099f41d..b336e55 100644
+--- a/drivers/net/ethernet/broadcom/cnic.c
++++ b/drivers/net/ethernet/broadcom/cnic.c
+@@ -506,7 +506,7 @@ int cnic_unregister_driver(int ulp_type)
  	}
- 	igmp_start_timer(im, max_delay);
- 	spin_unlock_bh(&im->lock);
--- 
-1.7.2.5
+ 	read_unlock(&cnic_dev_lock);
+ 
+-	rcu_assign_pointer(cnic_ulp_tbl[ulp_type], NULL);
++	RCU_INIT_POINTER(cnic_ulp_tbl[ulp_type], NULL);
+ 
+ 	mutex_unlock(&cnic_lock);
+ 	synchronize_rcu();
+@@ -579,7 +579,7 @@ static int cnic_unregister_device(struct cnic_dev *dev, int ulp_type)
+ 	}
+ 	mutex_lock(&cnic_lock);
+ 	if (rcu_dereference(cp->ulp_ops[ulp_type])) {
+-		rcu_assign_pointer(cp->ulp_ops[ulp_type], NULL);
++		RCU_INIT_POINTER(cp->ulp_ops[ulp_type], NULL);
+ 		cnic_put(dev);
+ 	} else {
+ 		pr_err("%s: device not registered to this ulp type %d\n",
+@@ -5134,7 +5134,7 @@ static void cnic_stop_hw(struct cnic_dev *dev)
+ 		}
+ 		cnic_shutdown_rings(dev);
+ 		clear_bit(CNIC_F_CNIC_UP, &dev->flags);
+-		rcu_assign_pointer(cp->ulp_ops[CNIC_ULP_L4], NULL);
++		RCU_INIT_POINTER(cp->ulp_ops[CNIC_ULP_L4], NULL);
+ 		synchronize_rcu();
+ 		cnic_cm_shutdown(dev);
+ 		cp->stop_hw(dev);
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
+index 90ff131..7f7882d 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
+@@ -1301,7 +1301,7 @@ int cxgb3_offload_activate(struct adapter *adapter)
+ 
+ out_free_l2t:
+ 	t3_free_l2t(L2DATA(dev));
+-	rcu_assign_pointer(dev->l2opt, NULL);
++	RCU_INIT_POINTER(dev->l2opt, NULL);
+ out_free:
+ 	kfree(t);
+ 	return err;
+@@ -1329,7 +1329,7 @@ void cxgb3_offload_deactivate(struct adapter *adapter)
+ 	rcu_read_lock();
+ 	d = L2DATA(tdev);
+ 	rcu_read_unlock();
+-	rcu_assign_pointer(tdev->l2opt, NULL);
++	RCU_INIT_POINTER(tdev->l2opt, NULL);
+ 	call_rcu(&d->rcu_head, clean_l2_data);
+ 	if (t->nofail_skb)
+ 		kfree_skb(t->nofail_skb);
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 1b7082d..7c88d13 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -145,8 +145,8 @@ static void macvtap_put_queue(struct macvtap_queue *q)
+ 	if (vlan) {
+ 		int index = get_slot(vlan, q);
+ 
+-		rcu_assign_pointer(vlan->taps[index], NULL);
+-		rcu_assign_pointer(q->vlan, NULL);
++		RCU_INIT_POINTER(vlan->taps[index], NULL);
++		RCU_INIT_POINTER(q->vlan, NULL);
+ 		sock_put(&q->sk);
+ 		--vlan->numvtaps;
+ 	}
+@@ -223,8 +223,8 @@ static void macvtap_del_queues(struct net_device *dev)
+ 					      lockdep_is_held(&macvtap_lock));
+ 		if (q) {
+ 			qlist[j++] = q;
+-			rcu_assign_pointer(vlan->taps[i], NULL);
+-			rcu_assign_pointer(q->vlan, NULL);
++			RCU_INIT_POINTER(vlan->taps[i], NULL);
++			RCU_INIT_POINTER(q->vlan, NULL);
+ 			vlan->numvtaps--;
+ 		}
+ 	}
+diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
+index 89f829f..ede899c 100644
+--- a/drivers/net/ppp/pptp.c
++++ b/drivers/net/ppp/pptp.c
+@@ -162,7 +162,7 @@ static void del_chan(struct pppox_sock *sock)
+ {
+ 	spin_lock(&chan_lock);
+ 	clear_bit(sock->proto.pptp.src_addr.call_id, callid_bitmap);
+-	rcu_assign_pointer(callid_sock[sock->proto.pptp.src_addr.call_id], NULL);
++	RCU_INIT_POINTER(callid_sock[sock->proto.pptp.src_addr.call_id], NULL);
+ 	spin_unlock(&chan_lock);
+ 	synchronize_rcu();
+ }
+diff --git a/drivers/net/team/team_mode_activebackup.c b/drivers/net/team/team_mode_activebackup.c
+index b344275..f4d960e 100644
+--- a/drivers/net/team/team_mode_activebackup.c
++++ b/drivers/net/team/team_mode_activebackup.c
+@@ -56,7 +56,7 @@ drop:
+ static void ab_port_leave(struct team *team, struct team_port *port)
+ {
+ 	if (ab_priv(team)->active_port == port)
+-		rcu_assign_pointer(ab_priv(team)->active_port, NULL);
++		RCU_INIT_POINTER(ab_priv(team)->active_port, NULL);
+ }
+ 
+ static int ab_active_port_get(struct team *team, void *arg)
+diff --git a/drivers/net/wireless/ath/carl9170/main.c b/drivers/net/wireless/ath/carl9170/main.c
+index f06e069..5518592 100644
+--- a/drivers/net/wireless/ath/carl9170/main.c
++++ b/drivers/net/wireless/ath/carl9170/main.c
+@@ -446,7 +446,7 @@ static void carl9170_op_stop(struct ieee80211_hw *hw)
+ 
+ 	mutex_lock(&ar->mutex);
+ 	if (IS_ACCEPTING_CMD(ar)) {
+-		rcu_assign_pointer(ar->beacon_iter, NULL);
++		RCU_INIT_POINTER(ar->beacon_iter, NULL);
+ 
+ 		carl9170_led_set_state(ar, 0);
+ 
+@@ -678,7 +678,7 @@ unlock:
+ 		vif_priv->active = false;
+ 		bitmap_release_region(&ar->vif_bitmap, vif_id, 0);
+ 		ar->vifs--;
+-		rcu_assign_pointer(ar->vif_priv[vif_id].vif, NULL);
++		RCU_INIT_POINTER(ar->vif_priv[vif_id].vif, NULL);
+ 		list_del_rcu(&vif_priv->list);
+ 		mutex_unlock(&ar->mutex);
+ 		synchronize_rcu();
+@@ -716,7 +716,7 @@ static void carl9170_op_remove_interface(struct ieee80211_hw *hw,
+ 	WARN_ON(vif_priv->enable_beacon);
+ 	vif_priv->enable_beacon = false;
+ 	list_del_rcu(&vif_priv->list);
+-	rcu_assign_pointer(ar->vif_priv[id].vif, NULL);
++	RCU_INIT_POINTER(ar->vif_priv[id].vif, NULL);
+ 
+ 	if (vif == main_vif) {
+ 		rcu_read_unlock();
+@@ -1258,7 +1258,7 @@ static int carl9170_op_sta_add(struct ieee80211_hw *hw,
+ 		}
+ 
+ 		for (i = 0; i < CARL9170_NUM_TID; i++)
+-			rcu_assign_pointer(sta_info->agg[i], NULL);
++			RCU_INIT_POINTER(sta_info->agg[i], NULL);
+ 
+ 		sta_info->ampdu_max_len = 1 << (3 + sta->ht_cap.ampdu_factor);
+ 		sta_info->ht_sta = true;
+@@ -1285,7 +1285,7 @@ static int carl9170_op_sta_remove(struct ieee80211_hw *hw,
+ 			struct carl9170_sta_tid *tid_info;
+ 
+ 			tid_info = rcu_dereference(sta_info->agg[i]);
+-			rcu_assign_pointer(sta_info->agg[i], NULL);
++			RCU_INIT_POINTER(sta_info->agg[i], NULL);
+ 
+ 			if (!tid_info)
+ 				continue;
+@@ -1398,7 +1398,7 @@ static int carl9170_op_ampdu_action(struct ieee80211_hw *hw,
+ 			spin_unlock_bh(&ar->tx_ampdu_list_lock);
+ 		}
+ 
+-		rcu_assign_pointer(sta_info->agg[tid], NULL);
++		RCU_INIT_POINTER(sta_info->agg[tid], NULL);
+ 		rcu_read_unlock();
+ 
+ 		ieee80211_stop_tx_ba_cb_irqsafe(vif, sta->addr, tid);
+diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+index 72ad0bc..3a9fd48 100644
+--- a/net/core/netprio_cgroup.c
++++ b/net/core/netprio_cgroup.c
+@@ -285,7 +285,7 @@ static int netprio_device_event(struct notifier_block *unused,
+ 		break;
+ 	case NETDEV_UNREGISTER:
+ 		old = rtnl_dereference(dev->priomap);
+-		rcu_assign_pointer(dev->priomap, NULL);
++		RCU_INIT_POINTER(dev->priomap, NULL);
+ 		if (old)
+ 			kfree_rcu(old, rcu);
+ 		break;
+@@ -332,7 +332,7 @@ static void __exit exit_cgroup_netprio(void)
+ 	rtnl_lock();
+ 	for_each_netdev(&init_net, dev) {
+ 		old = rtnl_dereference(dev->priomap);
+-		rcu_assign_pointer(dev->priomap, NULL);
++		RCU_INIT_POINTER(dev->priomap, NULL);
+ 		if (old)
+ 			kfree_rcu(old, rcu);
+ 	}
