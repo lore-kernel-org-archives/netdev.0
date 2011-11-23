@@ -1,53 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] ipv4: Don't use the cached pmtu informations for
- input routes
-Date: Wed, 23 Nov 2011 16:49:41 -0500 (EST)
-Message-ID: <20111123.164941.1950228526500366081.davem@davemloft.net>
-References: <20111123121450.GE6348@secunet.com>
-	<20111123155245.GA11638@gondor.apana.org.au>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: RAW netfilter - "advanced netfilter setting" or not?
+Date: Wed, 23 Nov 2011 14:02:18 -0800
+Message-ID: <CA+55aFyQGf4sFNOVsv4krddn3gxQ=roqVHpC98-Ynx8iBqpRaQ@mail.gmail.com>
+References: <CA+55aFxtSgLppJQ8EbQEovdXsCNxQ1gT31FyP2cpyuvoBLajZw@mail.gmail.com>
+ <alpine.LNX.2.01.1111232217220.27025@frira.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
-To: herbert@gondor.hengli.com.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39226 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753283Ab1KWVt5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 16:49:57 -0500
-In-Reply-To: <20111123155245.GA11638@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.01.1111232217220.27025@frira.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.hengli.com.au>
-Date: Wed, 23 Nov 2011 23:52:45 +0800
+On Wed, Nov 23, 2011 at 1:27 PM, Jan Engelhardt <jengelh@medozas.de> wrote:
+>
+> In my opinion, NETFILTER_ADVANCED should be changed to only control
+> the visibility of all suboptions, i.e. I suggest that "default m if
+> NETFILTER_ADVANCED=n" be done for all non-deprecated modules.
+> (Similar to how CONFIG_EXPERT works.)
 
-> Steffen Klassert <steffen.klassert@secunet.com> wrote:
->> The pmtu informations on the inetpeer are visible for output and
->> input routes. On packet forwarding, we might propagate a learned
->> pmtu to the sender. As we update the pmtu informations of the
->> inetpeer on demand, the original sender of the forwarded packets
->> might never notice when the pmtu to that inetpeer increases.
->> So use the mtu of the outgoing device on packet forwarding instead
->> of the pmtu to the final destination.
-> 
-> I disagree.  MTU increases are detected by the source retrying,
-> so they most certainly should notice if our cached value expires.
+No thank you. That makes the whole option pointless.
 
-Herbert, consider the issue one level higher :-)
+If you want all the modules, just hold down the 'm' key, and be done
+with it. There's no skill needed, or need for NETFILTER_ADVANCED.
 
-The issue is that "we", the forwarding entity, end up with a cached on
-the input route and report this cached PMTU to the sender.
+The whole point of NETFILTER_ADVANCED is for people like me who
+actually want a fairly *minimal* kernel config, and probably one that
+has no modules.
 
-This takes a while to time out.
+Modules are evil. They are a security issue, and they encourage a
+"distro kernel" approach that takes forever to compile. Just say no.
+Build a lean and mean kernel that actually has what you need, and
+nothing more. And don't spend stupid time compiling modules you won't
+need.
 
-So even if the sender "probes" he will be kept from seeing new MTU space
-becomming available due to our cached value.
+I wish we had a better way of doing a sane localized kernel. "make
+localyesconfig" certainly isn't it, even if it tries. But options like
+NETFILTER_ADVANCED are at least meant to lessen the pain, and not have
+to wade through options that no sane person will know whether they
+would ever need.
 
-What Steffen is doing is simply re-instating the behavior we had
-before the inetpeer conversion occurred.  We never used learned PMTU
-information on input routes, only output routes stored them.
-
-But now that input and output routes share learned information from
-the same set of inetpeer entries, we have to accomodate cases like this
-one.
+                      Linus
