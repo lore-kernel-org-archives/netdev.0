@@ -1,31 +1,19 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Finding a hidden bound TCP socket
-Date: Wed, 23 Nov 2011 16:01:43 -0500 (EST)
-Message-ID: <20111123.160143.58902472755124590.davem@davemloft.net>
-References: <CALmbKGV0g2nfNAghF5dGrt=TCyrms6RznOL8jSkg+gkgyfekLg@mail.gmail.com>
-	<CAFLxGvynabpEcX2RwiLxatjOEzizj95jAVY6E4D9ymDpn8s9UA@mail.gmail.com>
-	<CALmbKGVUuZs+wigpkr0WPfn2pYP=tQh5-MsYWeRxbug=HskVQQ@mail.gmail.com>
+From: "Cortese, Lorraine L" <lcortese@cherrycreekschools.org>
+Subject: Loan Offer............(3%.Interest Rate)
+Date: Wed, 23 Nov 2011 20:53:47 +0000
+Message-ID: <DC1E9A98E5F2CA49B234FAC6F931B71D2B24B8__48733.9780353524$1322082519$gmane$org@CCSD-EXMB3.ccsd.d5>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: richard.weinberger@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: gdfuego@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALmbKGVUuZs+wigpkr0WPfn2pYP=tQh5-MsYWeRxbug=HskVQQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Undisclosed recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.cherrycreekschools.org ([166.113.2.210]:38325 "EHLO
+	smtp.cherrycreekschools.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752957Ab1KWVIK convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Nov 2011 16:08:10 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "G. D. Fuego" <gdfuego@gmail.com>
-Date: Wed, 23 Nov 2011 15:27:33 -0500
-
-> Any comments?  The behavior seems broken.  At the very least its very
-> inconsistent with other Unixes.
-
-Until the socket has a full final tuple it is bound to, there is no
-reason to list it.
-
-No UNIX lists a socket which is partially bound and hasn't either
-performed a listen() or a connect().
-
-Nobody has any comments because nobody thinks it's worth worrying about.
+Home Finance Loan Firm is offering out loans for a low interest rate of 3%. If interested, Kindly provide the following details such as Full name, Address,Gender,Loan Amount, Mobile Number and Country Name to our email address: homeloan11@hotmail.com
