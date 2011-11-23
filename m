@@ -1,118 +1,119 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v3 07/10] forcedeth: Support for byte queue limits
-Date: Tue, 22 Nov 2011 21:53:04 -0800 (PST)
-Message-ID: <alpine.DEB.2.00.1111222141340.17052@pokey.mtv.corp.google.com>
+Subject: [PATCH v3 0/10] bql: Byte Queue Limits
+Date: Tue, 22 Nov 2011 21:52:12 -0800 (PST)
+Message-ID: <alpine.DEB.2.00.1111222134590.9126@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f74.google.com ([209.85.161.74]:54794 "EHLO
-	mail-fx0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752411Ab1KWFxH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 00:53:07 -0500
-Received: by mail-fx0-f74.google.com with SMTP id s1so38323fab.1
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 21:53:07 -0800 (PST)
+Received: from mail-qy0-f202.google.com ([209.85.216.202]:56241 "EHLO
+	mail-qy0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751797Ab1KWF5b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 00:57:31 -0500
+Received: by qyk10 with SMTP id 10so107548qyk.1
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 21:57:30 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes to forcedeth to use byte queue limits.
+Changes from last version:
+  - Rebase to 3.2
+  - Added CONFIG_BQL and CONFIG_DQL
+  - Added some cache alignment in struct dql, to split read only, writeable
+    elements, and split those elements written on transmit from those
+    written at transmit completion (suggested by Eric).
+  - Split out adding xps_queue_release as its own patch.
+  - Some minor performance changes, use likely and unlikely for some
+    conditionals.
+  - Cleaned up some "show" functions for bql (pointed out by Ben).
+  - Change netdev_tx_completed_queue to do check xoff, check
+    availability, and then check xoff again.  This to prevent potential
+    race conditions with netdev_sent_queue (as Ben pointed out).
+  - Did some more testing trying to evaluate overhead of BQL in the
+    transmit path.  I see about 1-3% degradation in CPU utilization
+    and maximum pps when BQL is enabled.  Any ideas to beat this
+    down as much as possible would be appreciated!
+  - Added high versus low priority traffic test to results below.
+  
+----
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- drivers/net/ethernet/nvidia/forcedeth.c |   18 ++++++++++++++++++
- 1 files changed, 18 insertions(+), 0 deletions(-)
+This patch series implements byte queue limits (bql) for NIC TX queues.
 
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index e8a5ae3..98e5464 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -1842,6 +1842,7 @@ static void nv_init_tx(struct net_device *dev)
- 		np->last_tx.ex = &np->tx_ring.ex[np->tx_ring_size-1];
- 	np->get_tx_ctx = np->put_tx_ctx = np->first_tx_ctx = np->tx_skb;
- 	np->last_tx_ctx = &np->tx_skb[np->tx_ring_size-1];
-+	netdev_reset_queue(np->dev);
- 	np->tx_pkts_in_progress = 0;
- 	np->tx_change_owner = NULL;
- 	np->tx_end_flip = NULL;
-@@ -2187,6 +2188,9 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	/* set tx flags */
- 	start_tx->flaglen |= cpu_to_le32(tx_flags | tx_flags_extra);
-+
-+	netdev_sent_queue(np->dev, 1, skb->len);
-+
- 	np->put_tx.orig = put_tx;
- 
- 	spin_unlock_irqrestore(&np->lock, flags);
-@@ -2331,6 +2335,9 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
- 
- 	/* set tx flags */
- 	start_tx->flaglen |= cpu_to_le32(tx_flags | tx_flags_extra);
-+
-+	netdev_sent_queue(np->dev, 1, skb->len);
-+
- 	np->put_tx.ex = put_tx;
- 
- 	spin_unlock_irqrestore(&np->lock, flags);
-@@ -2368,6 +2375,7 @@ static int nv_tx_done(struct net_device *dev, int limit)
- 	u32 flags;
- 	int tx_work = 0;
- 	struct ring_desc *orig_get_tx = np->get_tx.orig;
-+	unsigned int bytes_compl = 0;
- 
- 	while ((np->get_tx.orig != np->put_tx.orig) &&
- 	       !((flags = le32_to_cpu(np->get_tx.orig->flaglen)) & NV_TX_VALID) &&
-@@ -2381,6 +2389,7 @@ static int nv_tx_done(struct net_device *dev, int limit)
- 					if ((flags & NV_TX_RETRYERROR) && !(flags & NV_TX_RETRYCOUNT_MASK))
- 						nv_legacybackoff_reseed(dev);
- 				}
-+				bytes_compl += np->get_tx_ctx->skb->len;
- 				dev_kfree_skb_any(np->get_tx_ctx->skb);
- 				np->get_tx_ctx->skb = NULL;
- 				tx_work++;
-@@ -2391,6 +2400,7 @@ static int nv_tx_done(struct net_device *dev, int limit)
- 					if ((flags & NV_TX2_RETRYERROR) && !(flags & NV_TX2_RETRYCOUNT_MASK))
- 						nv_legacybackoff_reseed(dev);
- 				}
-+				bytes_compl += np->get_tx_ctx->skb->len;
- 				dev_kfree_skb_any(np->get_tx_ctx->skb);
- 				np->get_tx_ctx->skb = NULL;
- 				tx_work++;
-@@ -2401,6 +2411,9 @@ static int nv_tx_done(struct net_device *dev, int limit)
- 		if (unlikely(np->get_tx_ctx++ == np->last_tx_ctx))
- 			np->get_tx_ctx = np->first_tx_ctx;
- 	}
-+
-+	netdev_completed_queue(np->dev, tx_work, bytes_compl);
-+
- 	if (unlikely((np->tx_stop == 1) && (np->get_tx.orig != orig_get_tx))) {
- 		np->tx_stop = 0;
- 		netif_wake_queue(dev);
-@@ -2414,6 +2427,7 @@ static int nv_tx_done_optimized(struct net_device *dev, int limit)
- 	u32 flags;
- 	int tx_work = 0;
- 	struct ring_desc_ex *orig_get_tx = np->get_tx.ex;
-+	unsigned long bytes_cleaned = 0;
- 
- 	while ((np->get_tx.ex != np->put_tx.ex) &&
- 	       !((flags = le32_to_cpu(np->get_tx.ex->flaglen)) & NV_TX2_VALID) &&
-@@ -2431,6 +2445,7 @@ static int nv_tx_done_optimized(struct net_device *dev, int limit)
- 				}
- 			}
- 
-+			bytes_cleaned += np->get_tx_ctx->skb->len;
- 			dev_kfree_skb_any(np->get_tx_ctx->skb);
- 			np->get_tx_ctx->skb = NULL;
- 			tx_work++;
-@@ -2438,6 +2453,9 @@ static int nv_tx_done_optimized(struct net_device *dev, int limit)
- 			if (np->tx_limit)
- 				nv_tx_flip_ownership(dev);
- 		}
-+
-+		netdev_completed_queue(np->dev, tx_work, bytes_cleaned);
-+
- 		if (unlikely(np->get_tx.ex++ == np->last_tx.ex))
- 			np->get_tx.ex = np->first_tx.ex;
- 		if (unlikely(np->get_tx_ctx++ == np->last_tx_ctx))
--- 
-1.7.3.1
+Byte queue limits are a mechanism to limit the size of the transmit
+hardware queue on a NIC by number of bytes. The goal of these byte
+limits is too reduce latency (HOL blocking) caused by excessive queuing
+in hardware (aka buffer bloat) without sacrificing throughput.
+
+Hardware queuing limits are typically specified in terms of a number
+hardware descriptors, each of which has a variable size. The variability
+of the size of individual queued items can have a very wide range. For
+instance with the e1000 NIC the size could range from 64 bytes to 4K
+(with TSO enabled). This variability makes it next to impossible to
+choose a single queue limit that prevents starvation and provides lowest
+possible latency.
+
+The objective of byte queue limits is to set the limit to be the
+minimum needed to prevent starvation between successive transmissions to
+the hardware. The latency between two transmissions can be variable in a
+system. It is dependent on interrupt frequency, NAPI polling latencies,
+scheduling of the queuing discipline, lock contention, etc. Therefore we
+propose that byte queue limits should be dynamic and change in
+accordance with networking stack latencies a system encounters.  BQL
+should not need to take the underlying link speed as input, it should
+automatically adjust to whatever the speed is (even if that in itself is
+dynamic).
+
+Patches to implement this:
+- Dynamic queue limits (dql) library.  This provides the general
+queuing algorithm.
+- netdev changes that use dlq to support byte queue limits.
+- Support in drivers for byte queue limits.
+
+The effects of BQL are demonstrated in the benchmark results below.
+
+--- High priority versus low priority traffic:
+
+In this test 100 netperf TCP_STREAMs were started to saturate the link.
+A single instance of a netperf TCP_RR was run with high priority set.
+Queuing discipline in pfifo_fast, NIC is e1000 with TX ring size set to
+1024.  tps for the high priority RR is listed.
+
+No BQL, tso on: 3000-3200K bytes in queue: 36 tps
+BQL, tso on: 156-194K bytes in queue, 535 tps
+No BQL, tso off: 453-454K bytes int queue, 234 tps
+BQL, tso off: 66K bytes in queue, 914 tps
+
+---  Various RR sizes
+
+These tests were done running 200 stream of netperf RR tests.  The
+results demonstrate the reduction in queuing and also illustrates 
+the overhead due to BQL (in small RR sizes).
+
+140000 rr size
+BQL: 80-215K bytes in queue, 856 tps, 3.26%
+No BQL: 2700-2930K bytes in queue, 854 tps, 3.71% cpu
+
+14000 rr size
+BQL: 25-55K bytes in queue, 8500 tps
+No BQL: 1500-1622K bytes in queue,  8523 tps, 4.53% cpu
+
+1400 rr size
+BQL: 20-38K in queue bytes in queue, 86582 tps,  7.38% cpu
+No BQL: 29-117K 85738 tps, 7.67% cpu
+
+140 rr size
+BQL: 1-10K bytes in queue, 320540 tps, 34.6% cpu
+No BQL: 1-13K bytes in queue, 323158, 37.16% cpu
+
+1 rr size
+BQL: 0-3K in queue, 338811 tps, 41.41% cpu
+No BQL: 0-3K in queue, 339947 42.36% cpu
+
+So the amount of queuing in the NIC can be reduced up to 90% or more.
+Accordingly, the latency for high priority packets in the prescence
+of low priority bulk throughput traffic can be reduced by 90% or more.
+
+Since BQL accounting is in the transmit path for every packet, and the
+function to recompute the byte limit is run once per transmit
+completion-- there will be some overhead in using BQL.  So far, Ive see
+the overhead to be in the range of 1-3% for CPU utilization and maximum
+pps.
