@@ -1,39 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netns: fix proxy ARP entries listing on a netns
-Date: Wed, 23 Nov 2011 17:36:13 -0500 (EST)
-Message-ID: <20111123.173613.1360696422325749253.davem@davemloft.net>
-References: <1321904774-3030-1-git-send-email-jorge@dti2.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [iproute2 PATCH 2/2] tc: Use correct variable type for
+ get_distribution() result
+Date: Wed, 23 Nov 2011 14:48:31 -0800
+Message-ID: <20111123144831.0b51488b@nehalam.linuxnetplumber.net>
+References: <4ECD6267.3090406@intra2net.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: jorge@dti2.net
+To: Thomas Jarosch <thomas.jarosch@intra2net.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39603 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754582Ab1KWWgV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 17:36:21 -0500
-In-Reply-To: <1321904774-3030-1-git-send-email-jorge@dti2.net>
+Received: from mail.vyatta.com ([76.74.103.46]:56617 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754801Ab1KWWse (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Nov 2011 17:48:34 -0500
+In-Reply-To: <4ECD6267.3090406@intra2net.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
-Date: Mon, 21 Nov 2011 20:46:14 +0100
+On Wed, 23 Nov 2011 22:15:19 +0100
+Thomas Jarosch <thomas.jarosch@intra2net.com> wrote:
 
-> @@ -2397,6 +2397,7 @@ static struct pneigh_entry *pneigh_get_next(struct seq_file *seq,
->  	struct net *net = seq_file_net(seq);
->  	struct neigh_table *tbl = state->tbl;
->  
-> +restart:
->  	pn = pn->next;
->  	while (!pn) {
+> get_distribution() returns an int.
+> 
+> cppcheck reported:
+> [tc/q_netem.c:243]: (style) Checking if unsigned variable 'dist_size' is less than zero.
+> 
 
-We don't need to use goto to fix this bug, instead change this assignment
-to something like:
-
-	do {
-		pn = pn->next;
-	} while (pn && !net_eq(pneigh_net(pn), net));
-
-and this way it will mirror the while loop inside of the "while (!pn)"
-code block.
+Both applied, thanks.
