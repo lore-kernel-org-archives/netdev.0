@@ -1,77 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Missing TCP SYN on loopback, retransmits after 1s
-Date: Wed, 23 Nov 2011 07:13:22 +0100
-Message-ID: <1322028802.1298.10.camel@edumazet-laptop>
-References: <20111122181320.38a70cf8@telperion.jlyo.org>
-	 <CABrhC0m75OHmdDD-crr=tvTiRq_hnh7WpHtLjM9TKgTa24MSOA@mail.gmail.com>
-	 <1322025880.29324.1.camel@edumazet-laptop>
-	 <1322027911.1298.4.camel@edumazet-laptop>
-	 <1322028540.1298.8.camel@edumazet-laptop>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Re: Kernel v3.0.8 igb driver dies when pulling network cable
+Date: Wed, 23 Nov 2011 07:15:40 +0100
+Message-ID: <4ECC8F8C.9030607@profihost.ag>
+References: <4ECA4362.2050307@profihost.ag> <4ECA884C.5010706@intel.com> <4ECA936E.8060301@profihost.ag> <4ECAD3D4.4070306@intel.com> <4ECB6D1C.8010208@profihost.ag> <4ECC1592.60607@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesse Young <jlyo@jlyo.org>, netdev@vger.kernel.org
-To: John Heffner <johnwheffner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:39000 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754473Ab1KWGN0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 01:13:26 -0500
-Received: by fagn18 with SMTP id n18so1293225fag.19
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 22:13:25 -0800 (PST)
-In-Reply-To: <1322028540.1298.8.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stable Tree <stable@kernel.org>, stable@vger.kernel.org,
+	Greg KH <gregkh@suse.de>, LKML <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"Jesse Brandeburg <jesse.brandeburg@intel.com> Bruce Allan"
+	<bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	John Ronciak <john.ronciak@intel.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4ECC1592.60607@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 23 novembre 2011 =C3=A0 07:09 +0100, Eric Dumazet a =C3=A9c=
-rit :
-> Le mercredi 23 novembre 2011 =C3=A0 06:58 +0100, Eric Dumazet a =C3=A9=
-crit :
->=20
-> > First connection went well.
-> >=20
-> > Now we try to reuse tuple  (ports 49374, 8009 on loopback) while a =
-socket is in TIMEWAIT, and first
-> > SYN packet (time 06:48:20.337335) is dropped (considered as a packe=
-t part of previous session)
-> >=20
-> > Now why the first SYN packet is dropped and not the second one, I d=
-ont know yet.
->=20
->=20
-> in netstat -s output, the suspect increasing counter is :
->=20
-> "45 congestion windows recovered without slow start after partial ack=
-"
->=20
->=20
+Hi Alex,
 
-# vi +2831 net/ipv4/tcp_input.c
+> It seems like there might be an issue with something specific to your
+> board since I tried reproducing the issue here on an 82576 based adapter
+> and the stable 3.0.9 kernel I have and I have not had much success.
+but as it is working fine with the up2date igb module - it still was 
+fixed ;-)
 
-/* Undo during loss recovery after partial ACK. */
-static int tcp_try_undo_loss(struct sock *sk)
-{
-        struct tcp_sock *tp =3D tcp_sk(sk);
+To reproduce try the following (gave me 100% success rate). Configure 
+eth0 to DHCP, leave eth1 unconfigured.
+Boot the system with lan cable plugged into eth1 !!
+When the boot has finished switch the LAN cable from eth1 to eth0.
 
-        if (tcp_may_undo(tp)) {
-                struct sk_buff *skb;
-                tcp_for_write_queue(skb, sk) {
-                        if (skb =3D=3D tcp_send_head(sk))
-                                break;
-                        TCP_SKB_CB(skb)->sacked &=3D ~TCPCB_LOST;
-                }
+> I'm assuming the device that is failing is eth0.  I was wondering if you
+> could send me the output of the following three commands so that I can
+> do some further work to try and isolate the root cause for this issue:
+> ethtool eth0
+> ethtool -e eth0
+> grep eth0 /proc/interrupts
 
-                tcp_clear_all_retrans_hints(tp);
+Will send them as soon i have access to the machine again.
 
-                DBGUNDO(sk, "partial loss");
-                tp->lost_out =3D 0;
-                tcp_undo_cwr(sk, true);
-HERE:            NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPLOSSUNDO);
-                inet_csk(sk)->icsk_retransmits =3D 0;
-                tp->undo_marker =3D 0;
-                if (tcp_is_sack(tp))
-                        tcp_set_ca_state(sk, TCP_CA_Open);
-                return 1;
-        }
-        return 0;
-}
+> The issue seems to be that your adapter is not detecting that the cable
+> was unplugged.  This in turn is leaving stale packets on the Tx ring and
+> is what is resulting in the dev_watchdog message you are seeing.
+Are you sure? Cause when you look at the dmesg you'll see this:
+
+igb: eth0 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: RX/TX
+
+ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+
+STACKTRACE!
+
+igb 0000:0a:00.0: eth0: Reset adapter
+
+eth0: no IPv6 routers present
+
+igb: eth0 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: RX/TX
+
+igb 0000:0a:00.0: eth0: Reset adapter
+
+igb: eth0 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: RX/TX
+
+So it happens when the cable is plugged in and NOT when i unplug it.
+
+Stefan
