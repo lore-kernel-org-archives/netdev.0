@@ -1,33 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] ipv4 : igmp : fix error handle in ip_mc_add_src()
-Date: Wed, 23 Nov 2011 17:32:12 -0500 (EST)
-Message-ID: <20111123.173212.1247350681218413175.davem@davemloft.net>
-References: <1322018343-7552-1-git-send-email-mypopydev@gmail.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: RAW netfilter - "advanced netfilter setting" or not?
+Date: Wed, 23 Nov 2011 23:32:23 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1111232325500.27025@frira.zrqbmnf.qr>
+References: <CA+55aFxtSgLppJQ8EbQEovdXsCNxQ1gT31FyP2cpyuvoBLajZw@mail.gmail.com> <alpine.LNX.2.01.1111232217220.27025@frira.zrqbmnf.qr> <CA+55aFyQGf4sFNOVsv4krddn3gxQ=roqVHpC98-Ynx8iBqpRaQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, dlstevens@us.ibm.com,
-	netdev@vger.kernel.org
-To: mypopydev@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39551 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752784Ab1KWWcR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 17:32:17 -0500
-In-Reply-To: <1322018343-7552-1-git-send-email-mypopydev@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFyQGf4sFNOVsv4krddn3gxQ=roqVHpC98-Ynx8iBqpRaQ@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jun Zhao <mypopydev@gmail.com>
-Date: Wed, 23 Nov 2011 11:19:03 +0800
 
-> from: Jun Zhao <mypopydev@gmail.com>
-> 
-> When add sources to interface failure, need to roll back the sfcount[MODE]
-> to before state. We need to match it corresponding.
-> 
-> Acked-by: David L Stevens <dlstevens@us.ibm.com>
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Jun Zhao <mypopydev@gmail.com>
+On Wednesday 2011-11-23 23:02, Linus Torvalds wrote:
+>On Wed, Nov 23, 2011 at 1:27 PM, Jan Engelhardt <jengelh@medozas.de> wrote:
+>>
+>> In my opinion, NETFILTER_ADVANCED should be changed to only control
+>> the visibility of all suboptions, i.e. I suggest that "default m if
+>> NETFILTER_ADVANCED=n" be done for all non-deprecated modules.
+>> (Similar to how CONFIG_EXPERT works.)
+>
+>No thank you. That makes the whole option pointless. [...]
+>The whole point of NETFILTER_ADVANCED is for people like me who
+>actually want a fairly *minimal* kernel config, and probably one that
+>has no modules.
 
-Applied, thanks.
+Right, but how would you decide what will be enabled/disabled by
+default? It seems unlikely you will be adding a patch (like Dave's)
+everytime a default distro installation throws certain errors once
+you run your own kernel configs.
