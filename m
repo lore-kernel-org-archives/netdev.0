@@ -1,95 +1,73 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: [PATCH] ipv4: Save nexthop address of LSRR/SSRR option to IPCB.
-Date: Wed, 23 Nov 2011 17:33:10 +0800
-Message-ID: <4ECCBDD6.8080708@cn.fujitsu.com>
+From: Zhi Yong Wu <zwu.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: =?utf-8?q?=5BPATCH=5D_datapath=3A_Fix_build_breakage_on?=
+	=?utf-8?q?_kernel_2=2E6=2E40?=
+Date: Wed, 23 Nov 2011 17:58:38 +0800
+Message-ID: <1322042318-4809-1-git-send-email-zwu.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:56588 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750959Ab1KWJc7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Nov 2011 04:32:59 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, aliguori-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, stefanha-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-We can not update iph->daddr in ip_options_rcv_srr(), It is too early.
-When some exception ocurred later (eg. in ip_forward() when goto
-sr_failed) we need the ip header be identical to the original one as
-ICMP need it.
-
-Add a field 'nexthop' in struct ip_options to save nexthop of LSRR
-or SSRR option.
-
-Signed-off-by: Li Wei <lw@cn.fujitsu.com>
----
- include/net/inet_sock.h |    2 ++
- net/ipv4/ip_forward.c   |    2 +-
- net/ipv4/ip_options.c   |    5 +++--
- 3 files changed, 6 insertions(+), 3 deletions(-)
-
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index b897d6e..f941964 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -31,6 +31,7 @@
- /** struct ip_options - IP Options
-  *
-  * @faddr - Saved first hop address
-+ * @nexthop - Saved nexthop address in LSRR and SSRR
-  * @is_data - Options in __data, rather than skb
-  * @is_strictroute - Strict source route
-  * @srr_is_hit - Packet destination addr was our one
-@@ -41,6 +42,7 @@
-  */
- struct ip_options {
- 	__be32		faddr;
-+	__be32		nexthop;
- 	unsigned char	optlen;
- 	unsigned char	srr;
- 	unsigned char	rr;
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 3b34d1c..29a07b6 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -84,7 +84,7 @@ int ip_forward(struct sk_buff *skb)
- 
- 	rt = skb_rtable(skb);
- 
--	if (opt->is_strictroute && ip_hdr(skb)->daddr != rt->rt_gateway)
-+	if (opt->is_strictroute && opt->nexthop != rt->rt_gateway)
- 		goto sr_failed;
- 
- 	if (unlikely(skb->len > dst_mtu(&rt->dst) && !skb_is_gso(skb) &&
-diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
-index 05d20cc..1e60f76 100644
---- a/net/ipv4/ip_options.c
-+++ b/net/ipv4/ip_options.c
-@@ -568,12 +568,13 @@ void ip_forward_options(struct sk_buff *skb)
- 		     ) {
- 			if (srrptr + 3 > srrspace)
- 				break;
--			if (memcmp(&ip_hdr(skb)->daddr, &optptr[srrptr-1], 4) == 0)
-+			if (memcmp(&opt->nexthop, &optptr[srrptr-1], 4) == 0)
- 				break;
- 		}
- 		if (srrptr + 3 <= srrspace) {
- 			opt->is_changed = 1;
- 			ip_rt_get_source(&optptr[srrptr-1], skb, rt);
-+			ip_hdr(skb)->daddr = opt->nexthop;
- 			optptr[2] = srrptr+4;
- 		} else if (net_ratelimit())
- 			printk(KERN_CRIT "ip_forward(): Argh! Destination lost!\n");
-@@ -640,7 +641,7 @@ int ip_options_rcv_srr(struct sk_buff *skb)
- 	}
- 	if (srrptr <= srrspace) {
- 		opt->srr_is_hit = 1;
--		iph->daddr = nexthop;
-+		opt->nexthop = nexthop;
- 		opt->is_changed = 1;
- 	}
- 	return 0;
--- 
-1.7.3.2
+RnJvbTogWmhpIFlvbmcgV3UgPHd1emh5QGxpbnV4LnZuZXQuaWJtLmNvbT4KClRvZGF5IGkgcGxh
+eWVkIHdpdGggb3BlbnZzd2l0Y2ggb24gbXkgd29ya3N0YXRpb24gd2l0aCBrZXJuZWwgMi42LjQw
+IGFuZCBmb3VuZCB0aGF0IGl0IGJyZWFrIHdoZW4gaSBidWlsdC4gVGhlIGlzc3VlIGlzIGludHJv
+ZHVjZWQgYnkgY29tbWl0IGNlYjE3NmZkYjcyYmI3Y2U5MGRlYmM2NmUxZWViMWQyNTgyM2QzMGEK
+CkJlbG93IGlzIHRoZSBlcnJvciBsb2cuCgogICAgICAgICAgICAgICAgIGZyb20gL2hvbWUvend1
+L3dvcmsvdmlydC9vcGVudnN3aXRjaC9kYXRhcGF0aC9saW51eC9nZW5ldGxpbmstYnJjb21wYXQu
+YzoxMDoKL2hvbWUvend1L3dvcmsvdmlydC9vcGVudnN3aXRjaC9kYXRhcGF0aC9saW51eC9jb21w
+YXQvaW5jbHVkZS9saW51eC9za2J1ZmYuaDoyNDM6MjA6IGVycm9yOiByZWRlZmluaXRpb24gb2Yg
+4oCYc2tiX3Jlc2V0X21hY19sZW7igJkKaW5jbHVkZS9saW51eC9za2J1ZmYuaDoxMjU5OjIwOiBu
+b3RlOiBwcmV2aW91cyBkZWZpbml0aW9uIG9mIOKAmHNrYl9yZXNldF9tYWNfbGVu4oCZIHdhcyBo
+ZXJlCm1ha2VbNV06ICoqKiBbL2hvbWUvend1L3dvcmsvdmlydC9vcGVudnN3aXRjaC9kYXRhcGF0
+aC9saW51eC9nZW5ldGxpbmstYnJjb21wYXQub10gRXJyb3IgMQptYWtlWzRdOiAqKiogW19tb2R1
+bGVfL2hvbWUvend1L3dvcmsvdmlydC9vcGVudnN3aXRjaC9kYXRhcGF0aC9saW51eF0gRXJyb3Ig
+MgptYWtlWzRdOiBMZWF2aW5nIGRpcmVjdG9yeSBgL3Vzci9zcmMva2VybmVscy8yLjYuNDAuNi0w
+LmZjMTUueDg2XzY0JwptYWtlWzNdOiAqKiogW2RlZmF1bHRdIEVycm9yIDIKbWFrZVszXTogTGVh
+dmluZyBkaXJlY3RvcnkgYC9ob21lL3p3dS93b3JrL3ZpcnQvb3BlbnZzd2l0Y2gvZGF0YXBhdGgv
+bGludXgnCm1ha2VbMl06ICoqKiBbYWxsLXJlY3Vyc2l2ZV0gRXJyb3IgMQptYWtlWzJdOiBMZWF2
+aW5nIGRpcmVjdG9yeSBgL2hvbWUvend1L3dvcmsvdmlydC9vcGVudnN3aXRjaC9kYXRhcGF0aCcK
+bWFrZVsxXTogKioqIFthbGwtcmVjdXJzaXZlXSBFcnJvciAxCm1ha2VbMV06IExlYXZpbmcgZGly
+ZWN0b3J5IGAvaG9tZS96d3Uvd29yay92aXJ0L29wZW52c3dpdGNoJwptYWtlOiAqKiogW2FsbF0g
+RXJyb3IgMgoKQWZ0ZXIgdGhpcyBwYXRjaCBpcyBhcHBsaWVkLCBpIGNhbiBzdWNjZXNzZnVsbHkg
+ZG8gb25lIGJ1aWxkIGFuZCBiZSBoYXBweSB0byBzZWUgdGhhdCBtdWx0aXBsZSBWTXMgY2FuIGNv
+bW11bmljYXRlIHdpdGggZWFjaCBvdGhlci4KCgpTaWduZWQtb2ZmLWJ5OiBaaGkgWW9uZyBXdSA8
+d3V6aHlAbGludXgudm5ldC5pYm0uY29tPgotLS0KIGFjaW5jbHVkZS5tNCAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgIHwgICAgMiArKwogZGF0YXBhdGgvbGludXgvY29tcGF0L2luY2x1
+ZGUvbGludXgvc2tidWZmLmggfCAgICAyICstCiAyIGZpbGVzIGNoYW5nZWQsIDMgaW5zZXJ0aW9u
+cygrKSwgMSBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9hY2luY2x1ZGUubTQgYi9hY2luY2x1
+ZGUubTQKaW5kZXggNjQ4MTMyYS4uMzJjZGYxNyAxMDA2NDQKLS0tIGEvYWNpbmNsdWRlLm00Cisr
+KyBiL2FjaW5jbHVkZS5tNApAQCAtMjMzLDYgKzIzMyw4IEBAIEFDX0RFRlVOKFtPVlNfQ0hFQ0tf
+TElOVVhfQ09NUEFUXSwgWwogICBPVlNfR1JFUF9JRkVMU0UoWyRLU1JDL2luY2x1ZGUvbGludXgv
+c2tidWZmLmhdLCBbc2tiX2Nvd19oZWFkXSkKICAgT1ZTX0dSRVBfSUZFTFNFKFskS1NSQy9pbmNs
+dWRlL2xpbnV4L3NrYnVmZi5oXSwgW3NrYl90cmFuc3BvcnRfaGVhZGVyXSwKICAgICAgICAgICAg
+ICAgICAgIFtPVlNfREVGSU5FKFtIQVZFX1NLQlVGRl9IRUFERVJfSEVMUEVSU10pXSkKKyAgT1ZT
+X0dSRVBfSUZFTFNFKFskS1NSQy9pbmNsdWRlL2xpbnV4L3NrYnVmZi5oXSwgW3NrYl9yZXNldF9t
+YWNfbGVuXSwKKyAgICAgICAgICAgICAgICAgIFtPVlNfREVGSU5FKFtIQVZFX1NLQl9SRVNFVF9N
+QUNfTEVOXSldKQogICBPVlNfR1JFUF9JRkVMU0UoWyRLU1JDL2luY2x1ZGUvbGludXgvaWNtcHY2
+LmhdLCBbaWNtcDZfaGRyXSwKICAgICAgICAgICAgICAgICAgIFtPVlNfREVGSU5FKFtIQVZFX0lD
+TVA2X0hEUl0pXSkKICAgT1ZTX0dSRVBfSUZFTFNFKFskS1NSQy9pbmNsdWRlL2xpbnV4L3NrYnVm
+Zi5oXSwgW3NrYl93YXJuX2lmX2xyb10sCmRpZmYgLS1naXQgYS9kYXRhcGF0aC9saW51eC9jb21w
+YXQvaW5jbHVkZS9saW51eC9za2J1ZmYuaCBiL2RhdGFwYXRoL2xpbnV4L2NvbXBhdC9pbmNsdWRl
+L2xpbnV4L3NrYnVmZi5oCmluZGV4IDMxMWJmZGIuLjIyYmEyZTYgMTAwNjQ0Ci0tLSBhL2RhdGFw
+YXRoL2xpbnV4L2NvbXBhdC9pbmNsdWRlL2xpbnV4L3NrYnVmZi5oCisrKyBiL2RhdGFwYXRoL2xp
+bnV4L2NvbXBhdC9pbmNsdWRlL2xpbnV4L3NrYnVmZi5oCkBAIC0yMzksNyArMjM5LDcgQEAgc3Rh
+dGljIGlubGluZSBzdHJ1Y3QgcGFnZSAqc2tiX2ZyYWdfcGFnZShjb25zdCBza2JfZnJhZ190ICpm
+cmFnKQogfQogI2VuZGlmCiAKLSNpZiBMSU5VWF9WRVJTSU9OX0NPREUgPCBLRVJORUxfVkVSU0lP
+TigzLDAsMCkKKyNpZm5kZWYgSEFWRV9TS0JfUkVTRVRfTUFDX0xFTgogc3RhdGljIGlubGluZSB2
+b2lkIHNrYl9yZXNldF9tYWNfbGVuKHN0cnVjdCBza19idWZmICpza2IpCiB7CiAJc2tiLT5tYWNf
+bGVuID0gc2tiLT5uZXR3b3JrX2hlYWRlciAtIHNrYi0+bWFjX2hlYWRlcjsKLS0gCjEuNy42Cgpf
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGlu
+ZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFu
+L2xpc3RpbmZvL2Rldgo=
