@@ -1,58 +1,76 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [GIT PULL v2] Open vSwitch
-Date: Wed, 23 Nov 2011 07:22:56 -0500
-Message-ID: <1322050976.2039.125.camel@mojatatu>
-References: <20111123075433.GA7928@gondor.apana.org.au>
-Reply-To: jhs@mojatatu.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jesse@nicira.com,
-	netdev@vger.kernel.org, dev@openvswitch.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:51752 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751457Ab1KWMXA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 07:23:00 -0500
-Received: by yenq3 with SMTP id q3so1316307yen.19
-        for <netdev@vger.kernel.org>; Wed, 23 Nov 2011 04:23:00 -0800 (PST)
-In-Reply-To: <20111123075433.GA7928@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] netprio_cgroup: Fix build break
+Date: Wed, 23 Nov 2011 07:32:33 -0500
+Message-ID: <1322051553-28987-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Kirill Smelkov <kirr@mns.spb.ru>,
+	"David S. Miller" <davem@davemloft.net>,
+	john.r.fastabend@intel.com, robert.w.love@intel.com,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-11-23 at 15:54 +0800, Herbert Xu wrote:
+I broke the build with the addition of netprio_cgroups if CONFIG_CGROUPS=n.
+This patch corrects it by moving the offending struct into an ifdef
+CONFIG_CGROUPS block.  Also clean up a few needless defines and inline functions
+that don't get called if CONFIG_CGROUPS isn't defined while Im at it.
 
-> I mostly agree with Jamal.  As far as the concept of a policy
-> lookup cache goes (which appears to be at the core of OVS), this
-> almost fits exactly onto a u32 hash table.  All that would be needed
-> is to add the tail end of the policies, e.g., with new packet
-> actions.
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Kirill Smelkov <kirr@mns.spb.ru>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: john.r.fastabend@intel.com
+CC: robert.w.love@intel.com
+CC: Stephen Rothwell <sfr@canb.auug.org.au>
+CC: linux-next@vger.kernel.org
+---
+ include/net/netprio_cgroup.h |   18 +++++-------------
+ 1 files changed, 5 insertions(+), 13 deletions(-)
 
-For a classifier, u32 or em matches would do the job  - but they may
-need a wrapper around it in user space; so from a usability pov, it
-would make sense to have a new classifier that is specific to them.
-All the VLAN actions could go into one tc action; the checksum action
-is already present. The IP/TCP/UDP header re-writes may require 
-their own actions - I think one would be sufficient for all.
-So in my estimate one classifier and two actions.
-Then you get rid of half the code (they use generic netlink to set/get
-policies)
-
-> However, this is purely based on my conceptual view of OVS, which
-> may or may not be accurate.  I'll dig into the patches over the
-> next couple of days to see if they could be easily turned into
-> packet actions or whether this is difficult for reasons that we
-> have not yet discovered.
-> 
-
-I cant find one - you may. After staring at the code, I am also now
-questioning if the existing bridge code couldnt have been re-used with
-some small tweaks.
-The virtual ports attached to the bridging code may be needed.
-A lot of the multi-tenancy intelligence belongs in user space controller
-(my reading was that was justification for not re-using bridging code 
-as is).
-
-cheers,
-jamal
+diff --git a/include/net/netprio_cgroup.h b/include/net/netprio_cgroup.h
+index c432e99..e503b87 100644
+--- a/include/net/netprio_cgroup.h
++++ b/include/net/netprio_cgroup.h
+@@ -18,11 +18,6 @@
+ #include <linux/hardirq.h>
+ #include <linux/rcupdate.h>
+ 
+-struct cgroup_netprio_state
+-{
+-	struct cgroup_subsys_state css;
+-	u32 prioidx;
+-};
+ 
+ struct netprio_map {
+ 	struct rcu_head rcu;
+@@ -32,6 +27,11 @@ struct netprio_map {
+ 
+ #ifdef CONFIG_CGROUPS
+ 
++struct cgroup_netprio_state {
++	struct cgroup_subsys_state css;
++	u32 prioidx;
++};
++
+ #ifndef CONFIG_NETPRIO_CGROUP
+ extern int net_prio_subsys_id;
+ #endif
+@@ -52,14 +52,6 @@ static inline struct cgroup_netprio_state
+ #else
+ 
+ #define sock_update_netprioidx(sk)
+-#define skb_update_prio(skb)
+-
+-static inline struct cgroup_netprio_state
+-		*task_netprio_state(struct task_struct *p)
+-{
+-	return NULL;
+-}
+-
+ #endif
+ 
+ #endif  /* _NET_CLS_CGROUP_H */
+-- 
+1.7.6.4
