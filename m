@@ -1,45 +1,78 @@
-From: Jun Zhao <mypopydev@gmail.com>
-Subject: [PATCH v3] ipv4 : igmp : fix error handle in ip_mc_add_src()
-Date: Wed, 23 Nov 2011 11:19:03 +0800
-Message-ID: <1322018343-7552-1-git-send-email-mypopydev@gmail.com>
-Cc: eric.dumazet@gmail.com, dlstevens@us.ibm.com,
-	netdev@vger.kernel.org, Jun Zhao <mypopydev@gmail.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:51046 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755125Ab1KWDTc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2011 22:19:32 -0500
-Received: by ywt32 with SMTP id 32so907350ywt.19
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 19:19:31 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the akpm tree with the net-next tree
+Date: Wed, 23 Nov 2011 14:27:42 +1100
+Message-ID: <20111123142742.9b4fb79fd3748325753a896a@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__23_Nov_2011_14_27_42_+1100_cMGT=Q/OnerWj4Hw"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-from: Jun Zhao <mypopydev@gmail.com>
+--Signature=_Wed__23_Nov_2011_14_27_42_+1100_cMGT=Q/OnerWj4Hw
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-When add sources to interface failure, need to roll back the sfcount[MODE]
-to before state. We need to match it corresponding.
+Hi Andrew,
 
-Acked-by: David L Stevens <dlstevens@us.ibm.com>
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Jun Zhao <mypopydev@gmail.com>
----
- net/ipv4/igmp.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+Today's linux-next merge of the akpm got a conflict in
+include/linux/cgroup_subsys.h between commit 5bc1421e34ec ("net: add
+network priority cgroup infrastructure (v4)") from the net-next tree and
+commit 22a20a26f21c ("cgroups: add a task counter subsystem") from the
+akpm tree.
 
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index c7472ef..b2ca095 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -1716,7 +1716,8 @@ static int ip_mc_add_src(struct in_device *in_dev, __be32 *pmca, int sfmode,
- 	if (err) {
- 		int j;
- 
--		pmc->sfcount[sfmode]--;
-+		if (!delta)
-+			pmc->sfcount[sfmode]--;
- 		for (j=0; j<i; j++)
- 			(void) ip_mc_del1_src(pmc, sfmode, &psfsrc[j]);
- 	} else if (isexclude != (pmc->sfcount[MCAST_EXCLUDE] != 0)) {
--- 
-1.7.2.5
+Just overlapping additions.  I fixed it up (see below) and can carry the
+fix as necessary.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc include/linux/cgroup_subsys.h
+index 0bd390c,5425822..0000000
+--- a/include/linux/cgroup_subsys.h
++++ b/include/linux/cgroup_subsys.h
+@@@ -67,8 -67,8 +67,14 @@@ SUBSYS(perf
+ =20
+  /* */
+ =20
+ +#ifdef CONFIG_NETPRIO_CGROUP
+ +SUBSYS(net_prio)
+ +#endif
+ +
+ +/* */
+++
++ #ifdef CONFIG_CGROUP_TASK_COUNTER
++ SUBSYS(tasks)
++ #endif
++=20
++ /* */
+
+--Signature=_Wed__23_Nov_2011_14_27_42_+1100_cMGT=Q/OnerWj4Hw
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBCAAGBQJOzGguAAoJEECxmPOUX5FE1rEQAJTVVX35i0vcp2ba53PuE5K8
+6udjOmvxpbUARONSKzBt4KT1y/XXdF0kU3qUBQEDyAPJKXaf0yJr1X+kyu4Z9LKG
+XQoll455vi73vaH3ywY1szfoLwHr58JejIwm3hmPXyC+XKgU3OHsEJAnTPZ/WixL
+W5OdppmqA6h2n/8K2ul3IrZosz09jf22ozwdMoPPRDDixPFEti9L/FPd+/lRWhBc
+ai9T/mpTJFlOm0xpk8YE2FcBcW6E/8sBCApbWUGUCCqH4SpZg0nsTwsY/FZtTOfX
+L//RgGFLP95qQwYHx2Yws+sKjqwjX1ImnMNzr/Fwxa2idImswxJ9PP7hFRvbVSfm
+TKdASpGkcywR4/c8JY01fPHJ6z9JeYPBFDVpt564PQinX1tCSrfIIWVeuw5s0YNc
+hbZdFdhccD5BQ7646xsTCjlv3Wzgqwb0IDQvTUhq0au/hP4dYt3Sxq/sanHrhlPk
+hLD2qz0bxPmnzH2KtNFZEz3hjVNcg78UJV3lJ8zifUKhpCpOkKHsXKYbfl4FwLJf
+GAwmlSkyfB/9QNQoL92whgG5XqigsHZSbLxNAPMVvs1rOMmDsuucynCjRnDO/zgz
+YpMh5wQZSWzUMmsVw7njfQ2Ngr1krK6RAp+q/oot6vXn1u7auaEHUsHMRBvMw3Km
+GtgqhGaYSok+hzy25C6g
+=cYn7
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__23_Nov_2011_14_27_42_+1100_cMGT=Q/OnerWj4Hw--
