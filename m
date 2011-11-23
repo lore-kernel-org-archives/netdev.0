@@ -1,46 +1,65 @@
 From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Subject: Re: softirq oops from b44_poll
-Date: Wed, 23 Nov 2011 00:13:10 -0800
-Message-ID: <1322035990.29851.0.camel@ppwaskie-mobl2>
+Date: Wed, 23 Nov 2011 00:14:26 -0800
+Message-ID: <1322036066.29851.2.camel@ppwaskie-mobl2>
 References: <CAJfGthSxanFbL2vKCpOQbP9K5oNAxeaYt7OMdmdoCb4eLQ_Fww@mail.gmail.com>
 	 <1321917453.10276.3.camel@pjaxe>
 	 <20111122.155426.1153643155035648664.davem@davemloft.net>
+	 <CAJfGthTb8PJXNq3gP_NPxTLQQNuVM600oF5Qx7cW-ykGe4n9gQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature"; boundary="=-T2W7Q0HLxyXPu6ebm9ov"
-Cc: "lkml@hover.be" <lkml@hover.be>,
+Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature"; boundary="=-AjLu1SfYbvW+ou+H+Wrh"
+Cc: David Miller <davem@davemloft.net>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+To: Xander Hover <lkml@hover.be>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111122.155426.1153643155035648664.davem@davemloft.net>
+In-Reply-To: <CAJfGthTb8PJXNq3gP_NPxTLQQNuVM600oF5Qx7cW-ykGe4n9gQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-T2W7Q0HLxyXPu6ebm9ov
+--=-AjLu1SfYbvW+ou+H+Wrh
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, 2011-11-22 at 12:54 -0800, David Miller wrote:
-> From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Date: Mon, 21 Nov 2011 15:17:33 -0800
->=20
-> > I suspect the "right" way to fix this is to call dev_kfree_skb_any(skb)=
-;
-> > instead, since that will handle the in-interrupt case if that's where
-> > we're stuck.
->=20
-> Caller is always b44_poll(), and that caller always does spin_lock_irqsav=
-e().
->=20
-> Adding the extra tests implied by dev_kfree_skb_any() therefore doesn't
-> make any sense, as it will always evaluate to dev_kfree_skb_irq().
+On Tue, 2011-11-22 at 15:16 -0800, Xander Hover wrote:
+> Indeed will the in_irq() test will force dev_kfree_skb_any() to call
+> dev_kfree_skb_irq().
+> The kernel warning before this patch was applied, was also trigged by
+> a WARN_ON_ONCE(in_irq()).
+> I think David is right on this one.
 
-Agreed, I didn't dig enough through the code.  Thanks Dave.
+Of course he is.  :)
+
+I think your patch should be submitted to fix the warning.  I'd send it
+to the netdev list (cc'd) to make sure David and the rest of those folks
+see it.
 
 -PJ
 
---=-T2W7Q0HLxyXPu6ebm9ov
+>=20
+> On Tue, Nov 22, 2011 at 9:54 PM, David Miller <davem@davemloft.net> wrote=
+:
+> > From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> > Date: Mon, 21 Nov 2011 15:17:33 -0800
+> >
+> >> I suspect the "right" way to fix this is to call dev_kfree_skb_any(skb=
+);
+> >> instead, since that will handle the in-interrupt case if that's where
+> >> we're stuck.
+> >
+> > Caller is always b44_poll(), and that caller always does spin_lock_irqs=
+ave().
+> >
+> > Adding the extra tests implied by dev_kfree_skb_any() therefore doesn't
+> > make any sense, as it will always evaluate to dev_kfree_skb_irq().
+> >
+
+--=20
+Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+LAN Access Division, Intel Corporation
+
+--=-AjLu1SfYbvW+ou+H+Wrh
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -116,13 +135,13 @@ EY0z7VFdjsZjJH9EQA0UbF1aYcshv0a/M2deKN9TdYuJ1eTKRSZdzSiRG5w75xujFMYZgo4ETlu1
 Behgey1jvJiyWdOsPt7at08QMYIB6jCCAeYCAQEwZDBWMQswCQYDVQQGEwJVUzEaMBgGA1UEChMR
 SW50ZWwgQ29ycG9yYXRpb24xKzApBgNVBAMTIkludGVsIEV4dGVybmFsIEJhc2ljIElzc3Vpbmcg
 Q0EgM0ICCn9HrP0AAQAAURUwCQYFKw4DAhoFAKBdMBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEw
-HAYJKoZIhvcNAQkFMQ8XDTExMTEyMzA4MTMwN1owIwYJKoZIhvcNAQkEMRYEFNIvzNwebnxNyIzW
-Pj60NhgHowoCMA0GCSqGSIb3DQEBAQUABIIBACtNllMXtagLtlSiiGcw6fIYVLwOFuXa0GMUQQxL
-AZWLbEjYpbyOLX9r/G8SzpcEhAY1sFzDjE/OeQE9nx28fPtQVGq1kfDQpDtz1MPlSEbEAwBZUgYB
-6SgL9l7kGvFhVIN6hH/vmXeDnvU7dAQkMpg+QwU63WpdSKEIHT1Kr87p19Sw6smpTmXyAVOcyMOF
-yATiKa4CapyZDprW7f5BOj6e+4rVy8EyBpk87eOMuxQgKomMSM3ZT+HE+4eXkjwHTZfSRuVpIbX1
-jFUcCp8hyoYs8VSQydQupbxUF5vvdO62EYQUsd8IIDaI9lpIULyBVXS5knups1OCJ10NJg65rooA
+HAYJKoZIhvcNAQkFMQ8XDTExMTEyMzA4MTQyNlowIwYJKoZIhvcNAQkEMRYEFP4eEITIIZGVXglW
+4uHnnW4bl8RrMA0GCSqGSIb3DQEBAQUABIIBAE8mtxxa+ym7gF2WtW4MYQVYazKXRzqosf0ZlhIa
+qeha9G8zcUeeDMDZOtV1ennhy5XLuVS7U8pChMVhbG6Mzsr4pEK7hLsXf3SviL9pNDsNdK7ImGFS
+AaM52vas/ZWmsKBOeSu/hVPP3VPPYqxzo1t0uX7Y+/6SFDTuNqDi1MuBDTqvnEF0zlzX1nl+uf4e
+orjSEU6nutrXAAQdffGifUmAdEcc8yEvXIloUB4mwY7BocxF7v9S03oy18ahycHeZR7+1u3uZ5Ho
+sQhCVQplhWisMYHEYAIu/+dSbioriswoXNrokV2mHz7X0nMLEoEUvYIT+FBqWZ+ym7DXOjj5JPIA
 AAAAAAA=
 
 
---=-T2W7Q0HLxyXPu6ebm9ov--
+--=-AjLu1SfYbvW+ou+H+Wrh--
