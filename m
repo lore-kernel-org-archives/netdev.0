@@ -1,111 +1,77 @@
-From: Arkadiusz =?utf-8?q?Mi=C5=9Bkiewicz?= <a.miskiewicz@gmail.com>
-Subject: Re: cache forver in 3.2.0-rc2-00400-g866d43c ?
-Date: Wed, 23 Nov 2011 19:31:08 +0100
-Message-ID: <201111231931.08596.a.miskiewicz@gmail.com>
-References: <201111231910.37190.a.miskiewicz@gmail.com> <1322072541.2775.1.camel@edumazet-laptop>
+From: Christian Kujau <lists@nerdbynature.de>
+Subject: Re: slub: use irqsafe_cpu_cmpxchg for put_cpu_partial
+Date: Wed, 23 Nov 2011 10:33:44 -0800 (PST)
+Message-ID: <alpine.DEB.2.01.1111231025180.8000@trent.utfs.org>
+References: <20111121131531.GA1679@x4.trippels.de> <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20111121161036.GA1679@x4.trippels.de> <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <20111121173556.GA1673@x4.trippels.de> <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20111121185215.GA1673@x4.trippels.de> <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop> <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
+ <alpine.DEB.2.00.1111212105330.19606@router.home> <1321948113.27077.24.camel@edumazet-laptop> <1321999085.14573.2.camel@pasglop> <alpine.DEB.2.01.1111221511070.8000@trent.utfs.org> <1322007501.14573.15.camel@pasglop> <alpine.DEB.2.01.1111222145470.8000@trent.utfs.org>
+ <CAOJsxLGWTRuwQ04Mg26fNhZEmo7yVXG5vSZgF7Q5GESCk65odA@mail.gmail.com> <alpine.DEB.2.00.1111230907330.16139@router.home>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:51219 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750862Ab1KWSbM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 13:31:12 -0500
-Received: by bke11 with SMTP id 11so1913803bke.19
-        for <netdev@vger.kernel.org>; Wed, 23 Nov 2011 10:31:11 -0800 (PST)
-In-Reply-To: <1322072541.2775.1.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pekka Enberg <penberg@kernel.org>,
+    Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+    Eric Dumazet <eric.dumazet@gmail.com>,
+    Markus Trippelsdorf <markus@trippelsdorf.de>,
+    "Alex,Shi" <alex.shi@intel.com>,
+    "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+    "linux-mm@kvack.org" <linux-mm@kvack.org>, Matt Mackall <mpm@selenic.com>,
+    "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+    Tejun Heo <tj@kernel.org>, David Rientjes <rientjes@google.com>
+To: Christoph Lameter <cl@linux.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <alpine.DEB.2.00.1111230907330.16139@router.home>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 23 of November 2011, Eric Dumazet wrote:
-> Le mercredi 23 novembre 2011 =C3=A0 19:10 +0100, Arkadiusz Mi=C5=9Bki=
-ewicz a
->=20
-> =C3=A9crit :
-> > Hello,
-> >=20
-> > I'm using  my notebook in two different networks, suspending and re=
-suming
-> > from ram between.
-> >=20
-> > Network A (192.168.1.0/24) has server with IP 87.204.99.133 in the =
-same
-> > lan. Now when I suspend, go to totally different network B (differe=
-nt
-> > provider, different lan, 192.168.0.0/24) and resume then I'm unable=
- to
-> > connect to 87.204.99.133.
-> >=20
-> > Looks like network stack thinks that 87...133 is still directly rea=
-chable
-> > on eth1and I'm unable to make it forget that.
-> >=20
-> > [root@t400 ~]# ip ne flush dev eth1; ip r flush table cache
-> > [root@t400 ~]# ip r show table cache to 87.204.99.133
-> > [root@t400 ~]# ping -c 1 87.204.99.133
-> > PING 87.204.99.133 (87.204.99.133) 56(84) bytes of data.
-> > From 192.168.0.5: icmp_seq=3D1 Destination Host Unreachable
-> >=20
-> > --- 87.204.99.133 ping statistics ---
-> > 1 packets transmitted, 0 received, +1 errors, 100% packet loss, tim=
-e 0ms
-> >=20
-> > zsh: exit 1     ping -c 1 87.204.99.133
-> > [root@t400 ~]# ip r show table cache to 87.204.99.133
-> > 87.204.99.133 dev eth1  src 192.168.0.5
-> >=20
-> >     cache <redirected>  ipid 0x2838 rtt 17ms rttvar 12ms cwnd 10
-> >=20
-> > 87.204.99.133 from 192.168.0.5 dev eth1
-> >=20
-> >     cache <redirected>  ipid 0x2838 rtt 17ms rttvar 12ms cwnd 10
-> >=20
-> > [root@t400 ~]# ip ne show to 87.204.99.133
-> > 87.204.99.133 dev eth1  FAILED
-> >=20
-> > tcpdump in meantime sees this:
-> > 19:06:26.907153 ARP, Ethernet (len 6), IPv4 (len 4), Request who-ha=
-s
-> > 87.204.99.133 tell 192.168.0.5, length 28
-> > 19:06:27.908379 ARP, Ethernet (len 6), IPv4 (len 4), Request who-ha=
-s
-> > 87.204.99.133 tell 192.168.0.5, length 28
-> > 19:06:28.907084 ARP, Ethernet (len 6), IPv4 (len 4), Request who-ha=
-s
-> > 87.204.99.133 tell 192.168.0.5, length 28
-> > 19:06:29.907145 IP (tos 0xc0, ttl 64, id 34465, offset 0, flags [no=
-ne],
-> > proto ICMP (1), length 112)
-> >=20
-> >     192.168.0.5 > 192.168.0.5: ICMP host 87.204.99.133 unreachable,
-> >     length 92
-> >    =20
-> >         IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto ICMP=
- (1),
-> >=20
-> > length 84)
-> >=20
-> >     192.168.0.5 > 87.204.99.133: ICMP echo request, id 17590, seq 1=
-,
-> >     length 64
-> >=20
-> > Any ideas?
-> >=20
-> > Thanks,
->=20
-> Hmm, could you check you have this fix in your tree ?
->=20
-> http://git2.kernel.org/?p=3Dlinux/kernel/git/davem/net.git;a=3Dcommit=
-;h=3D9cc20b2
-> 68a5a14f5e57b8ad405a83513ab0d78dc
+On Wed, 23 Nov 2011 at 09:14, Christoph Lameter wrote:
+> I think he only tested the patch that he showed us.
 
-Mine 00400-g866d43c was after 6fe4c6d466e95d31164f14b1ac4aefb51f0f4f82 =
-(which=20
-is merge of ipv4: fix redirect handling), so I have it.
+Yes, that's the (only) one I tested so far. I did some overnight testing 
+(rsync'ing to the external disk again) for 6hrs and ran "slabinfo" every 
+30s during the run: http://nerdbynature.de/bits/3.2.0-rc1/oops/slabinfo-1.txt.xz
 
-(I'm using pure linus git repo)
---=20
-Arkadiusz Mi=C5=9Bkiewicz        PLD/Linux Team
-arekm / maven.pl            http://ftp.pld-linux.org/
+The machine is still up & running. So for me, your patch fixes it!
+
+  Tested-by: Christian Kujau <lists@nerdbynature.de>
+
+Thanks!
+Christian.
+
+> Subject: slub: use irqsafe_cpu_cmpxchg for put_cpu_partial
+> 
+> The cmpxchg must be irq safe. The fallback for this_cpu_cmpxchg only
+> disables preemption which results in per cpu partial page operation
+> potentially failing on non x86 platforms.
+> 
+> Signed-off-by: Christoph Lameter <cl@linux.com>
+> 
+> ---
+>  mm/slub.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> Index: linux-2.6/mm/slub.c
+> ===================================================================
+> --- linux-2.6.orig/mm/slub.c	2011-11-23 09:10:48.000000000 -0600
+> +++ linux-2.6/mm/slub.c	2011-11-23 09:10:57.000000000 -0600
+> @@ -1969,7 +1969,7 @@ int put_cpu_partial(struct kmem_cache *s
+>  		page->pobjects = pobjects;
+>  		page->next = oldpage;
+> 
+> -	} while (this_cpu_cmpxchg(s->cpu_slab->partial, oldpage, page) != oldpage);
+> +	} while (irqsafe_cpu_cmpxchg(s->cpu_slab->partial, oldpage, page) != oldpage);
+>  	stat(s, CPU_PARTIAL_FREE);
+>  	return pobjects;
+>  }
+> 
+
+-- 
+BOFH excuse #43:
+
+boss forgot system password
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
