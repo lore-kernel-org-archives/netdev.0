@@ -1,90 +1,104 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: slub: use irqsafe_cpu_cmpxchg for put_cpu_partial
-Date: Wed, 23 Nov 2011 17:04:51 +0100
-Message-ID: <1322064291.17693.54.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20111121131531.GA1679@x4.trippels.de>
-	 <20111121153621.GA1678@x4.trippels.de>
-	 <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121161036.GA1679@x4.trippels.de>
-	 <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121173556.GA1673@x4.trippels.de>
-	 <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121185215.GA1673@x4.trippels.de>
-	 <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop>
-	 <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
-	 <alpine.DEB.2.00.1111212105330.19606@router.home>
-	 <1321948113.27077.24.camel@edumazet-laptop>
-	 <1321999085.14573.2.camel@pasglop>
-	 <alpine.DEB.2.01.1111221511070.8000@trent.utfs.org>
-	 <1322007501.14573.15.camel@pasglop>
-	 <alpine.DEB.2.01.1111222145470.8000@trent.utfs.org>
-	 <CAOJsxLGWTRuwQ04Mg26fNhZEmo7yVXG5vSZgF7Q5GESCk65odA@mail.gmail.com>
-	 <alpine.DEB.2.00.1111230907330.16139@router.home>
+From: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [GIT PULL v2] Open vSwitch
+Date: Wed, 23 Nov 2011 08:05:00 -0800
+Message-ID: <4ECD19AC.8090505@intel.com>
+References: <20111123075433.GA7928@gondor.apana.org.au>
+	<1322035942.1298.56.camel@edumazet-laptop>
+	<1322052463.2039.135.camel@mojatatu>
+	<1322052938.17693.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<1322055858.2039.188.camel@mojatatu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Pekka Enberg <penberg@kernel.org>, Christian Kujau
- <lists@nerdbynature.de>,  Benjamin Herrenschmidt
- <benh@kernel.crashing.org>, Markus Trippelsdorf <markus@trippelsdorf.de>,
- "Alex,Shi" <alex.shi@intel.com>,  "linux-kernel@vger.kernel.org"
- <linux-kernel@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>,
- Matt Mackall <mpm@selenic.com>, "netdev@vger.kernel.org"
- <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>,  David Rientjes
- <rientjes@google.com>
-To: Christoph Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.00.1111230907330.16139@router.home>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1322055858.2039.188.camel@mojatatu>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le mercredi 23 novembre 2011 =C3=A0 09:14 -0600, Christoph Lameter a =C3=A9=
-crit :
+On 11/23/2011 5:44 AM, Jamal Hadi Salim wrote:
+> On Wed, 2011-11-23 at 13:55 +0100, Eric Dumazet wrote:
+> 
+>> Currently thinking about it. I was also waiting Tom Herbert BQL patches.
+> 
+> Excellent. I can test when you have something.
+> 
+>> Several people are interested, and John Fastabend told me he plans to :
+>>
+>>  (1) rcu'ify classifiers/actions as needed
+> 
+> Makes sense in most cases. If you have a lot of flow setup/teardown
+> it may harm.
 
-> I think he only tested the patch that he showed us. Here is the patch
-> cleaned up. Do you Want me to feed you the debug fixes patch by patch a=
-s
-> well?
->=20
-> Subject: slub: use irqsafe_cpu_cmpxchg for put_cpu_partial
->=20
-> The cmpxchg must be irq safe. The fallback for this_cpu_cmpxchg only
-> disables preemption which results in per cpu partial page operation
-> potentially failing on non x86 platforms.
->=20
-> Signed-off-by: Christoph Lameter <cl@linux.com>
->=20
-> ---
->  mm/slub.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> Index: linux-2.6/mm/slub.c
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> --- linux-2.6.orig/mm/slub.c	2011-11-23 09:10:48.000000000 -0600
-> +++ linux-2.6/mm/slub.c	2011-11-23 09:10:57.000000000 -0600
-> @@ -1969,7 +1969,7 @@ int put_cpu_partial(struct kmem_cache *s
->  		page->pobjects =3D pobjects;
->  		page->next =3D oldpage;
->=20
-> -	} while (this_cpu_cmpxchg(s->cpu_slab->partial, oldpage, page) !=3D o=
-ldpage);
-> +	} while (irqsafe_cpu_cmpxchg(s->cpu_slab->partial, oldpage, page) !=3D=
- oldpage);
->  	stat(s, CPU_PARTIAL_FREE);
->  	return pobjects;
->  }
+We could have a CONFIG option to always do locking in some
+cases if thats not too ugly.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Another one - but dont see how much you can do about this; useful
+> when you want to share state (eg multiple flows being policed
+> by a single rate meter);
+> An action could be shared across multiple policies i.e you can
+> have:
+> match1, action foo instance 1, action bar instance 3
+> match2, action bar instance3
+> match3, ....
+> This could would mean a lock contended across cpus when different
+> flows hitting match1/2 show up on different cpus.
+>  
+>>  (2) add flag to drop qdisc lock on simple or hw qdiscs
+> 
+> Where does config for the hardware happen from?
+> 
 
-Thanks !
+I assume you mean something like setup_tc() which we have
+today to call into into the driver at qdisc create time. This
+happens with the RTNL held. I don't see any reason not to also
+call into the hardware on qdisc_change() I just haven't done
+it yet.
 
+Although I'm pretty sure we don't want to add a new ndo_ops
+ever time we have some hardware feature we want to expose.
+Assuming there are more than 1 or 2 hw features. So maybe
+we could convert to something more generic. A setup_qos()
+call that passes an skb with nl attributes.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
-.ca/
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+Is that what you were asking?
+
+>>  (3) mq and mqprio call root qdisc and run a pass over classifiers
+>>      actions possibly resetting queue_mapping.
+> 
+> 
+> It seems to make sense - but I will wait and see to have better
+> understanding.
+
+One of the problems this resolves is not being able to
+call the classifier-actions until after the queue is
+already selected. At this point you can't send it to
+a higher/lower priority queue.
+
+I'm traveling for a couple days, but I'll try to get
+some actual patches out next week to illustrate this.
+
+Thanks,
+John
+
+> 
+> cheers,
+> jamal
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
