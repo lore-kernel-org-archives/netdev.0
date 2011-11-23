@@ -1,75 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Wed, 23 Nov 2011 08:20:36 +0100
-Message-ID: <1322032836.1298.39.camel@edumazet-laptop>
-References: <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121173556.GA1673@x4.trippels.de>
-	 <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121185215.GA1673@x4.trippels.de>
-	 <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop>
-	 <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
-	 <alpine.DEB.2.00.1111212105330.19606@router.home>
-	 <1321948113.27077.24.camel@edumazet-laptop>
-	 <1321950432.27077.27.camel@edumazet-laptop>
-	 <20111123071349.GA1671@x4.trippels.de>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: 3.2-rc2+: Reported regressions from 3.0 and 3.1
+Date: Wed, 23 Nov 2011 08:37:45 +0100
+Message-ID: <CACna6rzQhp4DXonK_Mr+Od9yMQJtr24Z5TE27VxhcMrcY4u+EA@mail.gmail.com>
+References: <lx6sezwGldO.A.IhF.UBpWOB@chimera>
+	<201111212249.31196.rjw@sisk.pl>
+	<CA+55aFyy19VYSdZW0+jNxAb8ix0xpX2j9YFw9oQi3jm3+mDEvw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Christoph Lameter <cl@linux.com>, Christian Kujau
- <lists@nerdbynature.de>,  Benjamin Herrenschmidt
- <benh@kernel.crashing.org>, "Alex,Shi" <alex.shi@intel.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "linux-mm@kvack.org" <linux-mm@kvack.org>,  Pekka Enberg
- <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>
-To: Markus Trippelsdorf <markus@trippelsdorf.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20111123071349.GA1671@x4.trippels.de>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>
+To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	stephen hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+55aFyy19VYSdZW0+jNxAb8ix0xpX2j9YFw9oQi3jm3+mDEvw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le mercredi 23 novembre 2011 =C3=A0 08:13 +0100, Markus Trippelsdorf a
-=C3=A9crit :
-> On 2011.11.22 at 09:27 +0100, Eric Dumazet wrote:
-> > Le mardi 22 novembre 2011 =C3=A0 08:48 +0100, Eric Dumazet a =C3=A9cr=
-it :
-> >=20
-> > > For x86, I wonder if our !X86_FEATURE_CX16 support is correct on SM=
-P
-> > > machines.
-> > >=20
-> >=20
-> >=20
-> > By the way, I wonder why we still emit this_cpu_cmpxchg16b_emu() code
-> > and calls when compiling a kernel for a cpu implementing cmpxchg16b
-> >=20
-> > (CONFIG_MCORE2=3Dy)
->=20
-> Yeah, it's strange (CONFIG_MK8):
->=20
-> ffffffff811058b0 <__kmalloc>:
-> ...
-> ffffffff8110594f:       48 8d 4a 04             lea    0x4(%rdx),%rcx
-> ffffffff81105953:       49 8b 1c 04             mov    (%r12,%rax,1),%r=
-bx
-> ffffffff81105957:       4c 89 e0                mov    %r12,%rax
-> ffffffff8110595a:       e8 11 70 10 00          callq  ffffffff8120c970=
- <this_cpu_cmpxchg16b_emu>
-> ffffffff8110595f:       66 66 90                data32 xchg %ax,%ax
-> ffffffff81105962:       84 c0                   test   %al,%al
-> ffffffff81105964:       74 c6                   je     ffffffff8110592c=
- <__kmalloc+0x7c>
-> ...
->=20
+W dniu 21 listopada 2011 23:22 u=C5=BCytkownik Linus Torvalds
+<torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> napisa=C5=82:
+> On Mon, Nov 21, 2011 at 1:49 PM, Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org> wrot=
+e:
+>>
+>> Subject =C2=A0 =C2=A0: [3.1-rc8 REGRESSION] sky2 hangs machine on tu=
+rning off or suspending
+>> Submitter =C2=A0: Rafa=C5=82 Mi=C5=82ecki <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> Date =C2=A0 =C2=A0 =C2=A0 : 2011-11-09 11:46
+>> Message-ID : CACna6ryTdLcWVYgHu=3D_mRFga1sFivpE_DyZOY-HMmKggkWAJAw@m=
+ail.gmail.com
+>> References : http://marc.info/?l=3Dlinux-netdev&m=3D132083922228088&=
+w=3D4
+>
+> This should be fixed by commit 1401a8008a09 ("sky2: fix hang on
+> shutdown (and other irq issues)") in current -git.
 
-This is patched at bootime (asm alternative)
+This patch doesn't fix my hang.
 
+However git contains also:
+sky2: fix hang in napi_disable
+This is the one fixing my case.
 
+So the bug is resolved, however I'm a little disappointed noone
+ping-ed me about that patches. I've spent some time on bisecting this
+issue, expected to get some response :/
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
-.ca/
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+--=20
+Rafa=C5=82
