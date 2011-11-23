@@ -1,38 +1,32 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] isdn: avoid copying too long drvid
-Date: Wed, 23 Nov 2011 09:43:46 +0300
-Message-ID: <20111123064345.GB6871@elgon.mountain>
+Subject: [patch] netrom: check that user string is terminated
+Date: Wed, 23 Nov 2011 09:52:40 +0300
+Message-ID: <20111123065240.GD6871@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org, netdev@vger.kernel.org,
 	kernel-janitors@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:29223 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753048Ab1KWGoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 01:44:19 -0500
+To: Ralf Baechle <ralf@linux-mips.org>
+Return-path: <linux-hams-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-"cfg->drvid" comes from the user so there is a possibility they
-didn't NUL terminate properly.
+We do an strcpy() of mnemonic in nr_add_node().
 
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
-index 1f73d7f..487d214 100644
---- a/drivers/isdn/i4l/isdn_net.c
-+++ b/drivers/isdn/i4l/isdn_net.c
-@@ -2756,6 +2756,8 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
- 			char *c,
- 			*e;
- 
-+			if (strlen(cfg->drvid) >= sizeof(drvid))
-+				return -EINVAL;
- 			drvidx = -1;
- 			chidx = -1;
- 			strcpy(drvid, cfg->drvid);
+diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
+index 915a87b..e126c48 100644
+--- a/net/netrom/nr_route.c
++++ b/net/netrom/nr_route.c
+@@ -670,6 +670,8 @@ int nr_rt_ioctl(unsigned int cmd, void __user *arg)
+ 	case SIOCADDRT:
+ 		if (copy_from_user(&nr_route, arg, sizeof(struct nr_route_struct)))
+ 			return -EFAULT;
++		if (strlen(nr_route.mnemonic) >= sizeof(nr_route.mnemonic))
++			return -EINVAL;
+ 		if ((dev = nr_ax25_dev_get(nr_route.device)) == NULL)
+ 			return -EINVAL;
+ 		if (nr_route.ndigis < 0 || nr_route.ndigis > AX25_MAX_DIGIS) {
