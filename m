@@ -1,34 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: tcp: fix panic in SYN processing
-Date: Wed, 23 Nov 2011 15:49:55 -0500 (EST)
-Message-ID: <20111123.154955.253837848372352962.davem@davemloft.net>
-References: <1322048036.17693.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: richard -rw- weinberger <richard.weinberger@gmail.com>
+Subject: Re: RAW netfilter - "advanced netfilter setting" or not?
+Date: Wed, 23 Nov 2011 21:51:48 +0100
+Message-ID: <CAFLxGvzQc4MqmPqjeviMuFtRTzH_LZDt6veO7Hk+yapjDvne1g@mail.gmail.com>
+References: <CA+55aFxtSgLppJQ8EbQEovdXsCNxQ1gT31FyP2cpyuvoBLajZw@mail.gmail.com>
+	<4ECD5069.4090106@trash.net>
+	<CA+55aFxy5iojY8AZfK+fK_OURLPsD_8Y6z9FXnHt88jYFMrimg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38628 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752819Ab1KWUt6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 15:49:58 -0500
-In-Reply-To: <1322048036.17693.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFxy5iojY8AZfK+fK_OURLPsD_8Y6z9FXnHt88jYFMrimg@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 23 Nov 2011 12:33:56 +0100
+On Wed, Nov 23, 2011 at 9:17 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+> On Wed, Nov 23, 2011 at 11:58 AM, Patrick McHardy <kaber@trash.net> wrote:
+>>
+>> Most likely they're using NOTRACK to avoid connection tracking for
+>> some traffic. Could you post the output of "iptables -t raw -vxnL"?
+>
+> Hmm. That's actually empty for me. I only went by some error messages
+> during bootup. Or maybe I should boot the distro kernel to see that
+> there isn't something else I'm missing that makes the user setup
+> unhappy.
+>
 
-> commit 72a3effaf633bc ([NET]: Size listen hash tables using backlog
-> hint) added a bug allowing inet6_synq_hash() to return an out of bound
-> array index, because of u16 overflow.
-> 
-> Bug can happen if system admins set net.core.somaxconn &
-> net.ipv4.tcp_max_syn_backlog sysctls to values greater than 65536
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+SuSEfirewall2 is using NOTRACK for the lo interface.
 
-Good catch, applied and queued up for -stable.
+iptables -t raw -A PREROUTING -j NOTRACK -i lo
+iptables -t raw -A OUTPUT -j NOTRACK -o lo
 
-Thanks!
+
+-- 
+Thanks,
+//richard
