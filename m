@@ -1,69 +1,62 @@
-From: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 Subject: Re: [GIT PULL v2] Open vSwitch
-Date: Wed, 23 Nov 2011 08:36:17 -0500
-Message-ID: <1322055377.2039.179.camel@mojatatu>
+Date: Wed, 23 Nov 2011 08:44:18 -0500
+Message-ID: <1322055858.2039.188.camel@mojatatu>
 References: <20111123075433.GA7928@gondor.apana.org.au>
-	<1322035942.1298.56.camel@edumazet-laptop>
-	<1322052463.2039.135.camel@mojatatu>  <4ECCF17D.5020509@gmail.com>
-Reply-To: jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
+	 <1322035942.1298.56.camel@edumazet-laptop>
+	 <1322052463.2039.135.camel@mojatatu>
+	 <1322052938.17693.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: David =?ISO-8859-1?Q?T=E4ht?= <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <4ECCF17D.5020509-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>, jesse@nicira.com,
+	netdev@vger.kernel.org, dev@openvswitch.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:63623 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755572Ab1KWNoX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 08:44:23 -0500
+Received: by ghrr1 with SMTP id r1so1370008ghr.19
+        for <netdev@vger.kernel.org>; Wed, 23 Nov 2011 05:44:22 -0800 (PST)
+In-Reply-To: <1322052938.17693.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCAyMDExLTExLTIzIGF0IDE0OjEzICswMTAwLCBEYXZpZCBUw6RodCB3cm90ZToKCj4g
-SXQncyBub3Qgc28gbXVjaCAnbW9kZXJuIHRlY25pcXVlcycsIGFzIG1vZGVybiBlbnZpcm9ubWVu
-dHMuCgptb2Rlcm4gYXMgaW4gInByZXNlbmNlIG9mIGEgZ2F6aWxsaW9uIGNwdXMiIGFsbCB0cnlp
-bmcgdG8gc2VuZAp0byB0aGF0IDQwRyBwb3J0LiBZb3Ugd29udCBzZWUgbXVjaCBkaWZmZXJlbmNl
-IGluIGEgMi00IGNwdQpzZW5kaW5nIHRvIGEgR0lHIHBvcnQuCgo+IEhpZ2ggb24gbXkgbGlzdCB3
-b3VsZCBiZSBhIHdheSB0byBtb3JlIGVhc2lseSBleHBvc2UgUW9TIGFuZCBBUU0KPiBmZWF0dXJl
-cyBpbiB0aGUgaGFyZHdhcmUgYWxsIHRoZSB3YXkgdXAgdGhlIHN0YWNrLgo+Cj4gSSdkIGxpa2Ug
-dGhlIGhhcmR3YXJlIHRvIGJlIGFibGUgdG8gZXhwcmVzcyAnSSBoYXZlIEZRJywgb3IgJ0kgaGF2
-ZSByZWQnLAo+IG11Y2ggbGlrZSB3ZSBleHByZXNzIG1hbnkgb3RoZXIgZmVhdHVyZXMgaW4gZXRo
-dG9vbCwgb25seSBhYnN0cmFjdGx5IAo+IGVub3VnaCBzbyB0aGF0IGEgcWRpc2Mgc2V0dXAgY2Fu
-IGJlIG1hZGUgZ2VuZXJpYy4KPiAKCkl0cyBiZWVuIGRvbmUgLSB0aGUgY2hhbGxlbmdlIGlzIGFn
-cmVlaW5nIG9uIHdoYXQgdGhlIGJlc3QgcGF0aCBpcy4KTXkgdmlldyBpcyB0aGF0IHdlIHN0aWxs
-IG5lZWQgd2hhdGV2ZXIgdGhpbmcgdGhlIGhhcmR3YXJlIGNhbiBkbwppbiBzb2Z0d2FyZSBzbyB3
-ZSBjYW4gY29uZmlndXJlIHRoZSBoYXJkd2FyZSB3aXRoIHplcm8gY2hhbmdlcyB0bwp0aGUgdXNl
-ciBzcGFjZSBhcmNoaXRlY3R1cmUuIFRoZSBkYXRhcGF0aCBjYW4gYmUgYnlwYXNzZWQuCgo+IEkg
-ZmluZCB0aGUgbWFwcGluZyBmcm9tIGhhcmR3YXJlIHF1ZXVlcyB0byBhbnkgc29ydCBvZiBjb21w
-bGV4IHNvZnR3YXJlIAo+IHF1ZXVpbmcgc2NoZW1lIGhhcmQgdG8gY29uY2VwdHVhbGl6ZS4gQWxz
-bywgYXMgc3RydWN0dXJlZCwgdGMgY2Fubm90IGJlIAo+IGVhc2lseSBhcHBsaWVkIHRvIHdpcmVs
-ZXNzIEFQcy4KCkkgZGlkbnQgZm9sbG93IHdoYXQgdGhhdCBtZWFucyAtIGJ1dCB5b3UgaGF2ZSBh
-bGwgdGhlIHRvb2xzIHlvdSBuZWVkLgpZb3UgbWF5IG5lZWQgdG8gcHJvdmlkZSB0aGUgdXNlciBh
-IHNsaWdodGx5IGRpZmZlcmVudCBhYnN0cmFjdGlvbiB0aGFuCndoYXQgdGMgcHJvdmlkZXMuIHRj
-IGFjdHVhbGx5IGhhcyBhIEJORiBncmFtbWFyLCBzbyB0aGVyZXMgcGxlbnR5IG9mCm9wcG9ydHVu
-aXRpZXMgdG8gYWJzdHJhY3QuCmkuZSBpZiB0YyB3YXMgQyB0aGVuIHlvdSBtYXkgbmVlZCB0byB3
-cml0ZSBhIHB5dGhvbiBpbnRlcmZhY2UKdGhhdCB1c2VzIEMgdW5kZXJuZWF0aC4KCgo+IEFmdGVy
-IGJ1cm5pbmcgdGhlIGxhc3Qgc2V2ZXJhbCBtb250aHMgZ2V0dGluZyBnb29kIGVub3VnaCBhdCB0
-aGUgdGMgbGF5ZXIKPiB0byBkbyBzdHVmZiBpbiBpdCwgSSB3b3VsZCBjZXJ0YWlubHkgbGlrZSB0
-byBoYXZlIGEgcGxhY2UgdG8gcHV0IAo+IGRvY3VtZW50YXRpb24sCj4gYW5kIGFsc28gZWFzaWx5
-IHVwZGF0ZSB3aGF0IGFscmVhZHkgZXhpc3RzLgo+IAo+IElmIGl0IGhlbHBzIGFueSBJIGNvdWxk
-IG9mZmVyIGEgcmVkbWluZSBpbnN0YW5jZSBvbiBidWZmZXJibG9hdC5uZXQgZm9yIAo+IHRoaXMu
-Cj4gcmVkbWluZSBoYXMgYnVnIHRyYWNraW5nIGFuZCBhIHdpa2kuLi4KPiAKPiBJdCB3b3VsZCBi
-ZSBuaWNlIGFsc28gaWYgdGhlIGlwcm91dGUyIGNvZGUgY29udGFpbmVkIG1vcmUgd29ya2luZyBl
-eGFtcGxlcywKPiBhbmQgbWFuIHBhZ2VzLgoKbWFuIHBhZ2VzIGV4aXN0LgppcHJvdXRlMiBoYXMg
-ZG9jcyAtIHRoYXQgbWF5IGJlIGRhdGVkIGFuZCBuZWVkIHBhdGNoaW5nLgoKPiBJdCdzIGEgdG9u
-IG9mIGRvYyB3b3JrLCBidXQgSSdkIGJlIHdpbGxpbmcgdG8gZG8gc29tZSBvZiBpdC4KCklmIHlv
-dSB3YW5uYSBkbyB0aGlzIHJpZ2h0IC0gSSBzdWdnZXN0IHlvdSBnZXQgYSBkaWZmZXJlbnQgZG9t
-YWluIG5hbWUuCnRjLm9yZyBvciBzb21ldGhpbmcgYWxvbmcgdGhvc2UgbGluZXMuClN0YXJ0IGFn
-Z3JlZ2F0aW5nIGRvY3VtZW50YXRpb24gdGhhdCBpcyB2YWxpZGF0ZWQgdG8gYmUgd29ya2luZy4g
-VGhlcmUncwphIGxvdCBvZiAib3BpbmlvbnMiIG91dCB0aGVyZSBpbnN0ZWFkIG9mIGZhY3RzLgoK
-Y2hlZXJzLApqYW1hbAoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZz
-d2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+On Wed, 2011-11-23 at 13:55 +0100, Eric Dumazet wrote:
+
+> Currently thinking about it. I was also waiting Tom Herbert BQL patches.
+
+Excellent. I can test when you have something.
+
+> Several people are interested, and John Fastabend told me he plans to :
+> 
+>  (1) rcu'ify classifiers/actions as needed
+
+Makes sense in most cases. If you have a lot of flow setup/teardown
+it may harm.
+Another one - but dont see how much you can do about this; useful
+when you want to share state (eg multiple flows being policed
+by a single rate meter);
+An action could be shared across multiple policies i.e you can
+have:
+match1, action foo instance 1, action bar instance 3
+match2, action bar instance3
+match3, ....
+This could would mean a lock contended across cpus when different
+flows hitting match1/2 show up on different cpus.
+ 
+>  (2) add flag to drop qdisc lock on simple or hw qdiscs
+
+Where does config for the hardware happen from?
+
+>  (3) mq and mqprio call root qdisc and run a pass over classifiers
+>      actions possibly resetting queue_mapping.
+
+
+It seems to make sense - but I will wait and see to have better
+understanding.
+
+cheers,
+jamal
