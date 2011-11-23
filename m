@@ -1,45 +1,54 @@
-From: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Subject: [iproute2 PATCH 2/2] tc: Use correct variable type for get_distribution()
- result
-Date: Wed, 23 Nov 2011 22:15:19 +0100
-Message-ID: <4ECD6267.3090406@intra2net.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: RAW netfilter - "advanced netfilter setting" or not?
+Date: Wed, 23 Nov 2011 22:27:46 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1111232217220.27025@frira.zrqbmnf.qr>
+References: <CA+55aFxtSgLppJQ8EbQEovdXsCNxQ1gT31FyP2cpyuvoBLajZw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from re04.intra2net.com ([82.165.46.26]:43796 "EHLO
-	re04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753472Ab1KWVPW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 16:15:22 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFxtSgLppJQ8EbQEovdXsCNxQ1gT31FyP2cpyuvoBLajZw@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-get_distribution() returns an int.
+On Wednesday 2011-11-23 20:45, Linus Torvalds wrote:
 
-cppcheck reported:
-[tc/q_netem.c:243]: (style) Checking if unsigned variable 'dist_size' is less than zero.
+>So I'm the one who long ago asked for some of the more esoteric
+>netfilter configuration questions to be hidden behind some "advanced"
+>question, and thus the reason why a lot of them are behind that
+>NETFILTER_ADVANCED Kconfig setting.
+>
+>However, I'm now trying OpenSUSE on one of my laptops, and it looks
+>like the RAW filter is used by the default OS iptables setup. The fact
+>that it is hidden behind NETFILTER_ADVANCED now means that I either
+>have to enable the advanced netfilter Kconfig questions, or we should
+>just remove the "depends on NETFILTER_ADVANCED" for the RAW case (or,
+>rather - caseS - since there's a separate raw filter for ipv4 and
+>ipv6, which sounds odd in itself, but that's another issue entirely)
 
-The mismatch actually rendered the error checking
-after get_distribution() ineffective.
+Welcome to the green. You will find the most complete Netfilter stack
+here :)
 
-Signed-off-by: Thomas Jarosch <thomas.jarosch@intra2net.com>
----
- tc/q_netem.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+>My gut feel is that if it's one of the filters that a major distro
+>depends on by default, it should no longer be hidden. But honestly, I
+>didn't look at *why* OpenSUSE uses that filter. Maybe it's just doing
+>something really odd and crazy.
 
-diff --git a/tc/q_netem.c b/tc/q_netem.c
-index 01639a8..6dc40bd 100644
---- a/tc/q_netem.c
-+++ b/tc/q_netem.c
-@@ -125,7 +125,7 @@ static int get_ticks(__u32 *ticks, const char *str)
- static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 			   struct nlmsghdr *n)
- {
--	size_t dist_size = 0;
-+	int dist_size = 0;
- 	struct rtattr *tail;
- 	struct tc_netem_qopt opt;
- 	struct tc_netem_corr cor;
--- 
-1.7.6.4
+The "raw" table is populated by SUSE SFW2 with rules to exempt all
+loopback packets from connection tracking since SFW2 at the same time
+unconditionally allows all lo transfers in the "filter" table.
+
+>Comments?
+
+In my opinion, NETFILTER_ADVANCED should be changed to only control
+the visibility of all suboptions, i.e. I suggest that "default m if
+NETFILTER_ADVANCED=n" be done for all non-deprecated modules.
+(Similar to how CONFIG_EXPERT works.)
+
+Unless one wants to argue that "that's a detail left to the distro
+makers" and "people not compiling kernels would never run into this
+issue".
