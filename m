@@ -1,8 +1,8 @@
 From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
 Subject: Re: [PATCH 0/6] SUNRPC: make RPC clients use
  network-namespace-aware PipeFS routines
-Date: Wed, 23 Nov 2011 11:27:11 -0500
-Message-ID: <20111123162711.GA30672@fieldses.org>
+Date: Wed, 23 Nov 2011 11:36:32 -0500
+Message-ID: <20111123163632.GB30672@fieldses.org>
 References: <20111123104945.11077.10270.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -25,20 +25,24 @@ On Wed, Nov 23, 2011 at 02:51:10PM +0300, Stanislav Kinsbursky wrote:
 > This patch set depends on previous patch sets titled:
 > 1) "SUNRPC: initial part of making pipefs work in net ns"
 > 2) "SUNPRC: cleanup PipeFS for network-namespace-aware users"
-
-Do you have a git tree set up with all of these applied?
-
-(If I want to take a quick look it would personally be easier for me to
-fetch your git tree than to get those patches out of old email.)
-
---b.
-
 > 
 > This patch set is a first part of reworking SUNPRC PipeFS users.
 > It makes SUNRPC clients using PipeFS nofitications for directory and GSS pipes
 > dentries creation. With this patch set RPC clients and GSS auth creations
 > routines doesn't force SUNRPC PipeFS mount point creation which actually means,
 > that they now can work without PipeFS dentries.
+
+I'm not following very well.  (My fault, I haven't been paying
+attention.)  Could you summarize the itended behavior of pipefs after
+all this is done?
+
+So there's a separate superblock (and separate dentries) for each
+namespace?
+
+What decides which clients are visible in which network namespaces?
+
+--b.
+
 > 
 > The following series consists of:
 > 
