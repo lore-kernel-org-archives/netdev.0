@@ -1,66 +1,58 @@
 From: walter harms <wharms@bfs.de>
-Subject: Re: [patch] netrom: check that user string is terminated
-Date: Wed, 23 Nov 2011 09:22:16 +0100
-Message-ID: <4ECCAD38.9090309@bfs.de>
-References: <20111123065240.GD6871@elgon.mountain>
+Subject: Re: [patch] isdn: make sure strings are null terminated
+Date: Wed, 23 Nov 2011 09:25:56 +0100
+Message-ID: <4ECCAE14.3070008@bfs.de>
+References: <20111123064204.GA6871@elgon.mountain>
 Reply-To: wharms@bfs.de
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Ralf Baechle <ralf@linux-mips.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
 	kernel-janitors@vger.kernel.org
 To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <20111123065240.GD6871@elgon.mountain>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx01.sz.bfs.de ([194.94.69.103]:39787 "EHLO mx01.sz.bfs.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751698Ab1KWIgw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Nov 2011 03:36:52 -0500
+In-Reply-To: <20111123064204.GA6871@elgon.mountain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 
-Am 23.11.2011 07:52, schrieb Dan Carpenter:
-> We do an strcpy() of mnemonic in nr_add_node().
+Am 23.11.2011 07:42, schrieb Dan Carpenter:
+> These strings come from the user.  We strcpy() them inside
+> cf_command() so we should check that they are NULL terminated and
+> return an error if not.
 > 
 > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 > 
-> diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
-> index 915a87b..e126c48 100644
-> --- a/net/netrom/nr_route.c
-> +++ b/net/netrom/nr_route.c
-> @@ -670,6 +670,8 @@ int nr_rt_ioctl(unsigned int cmd, void __user *arg)
->  	case SIOCADDRT:
->  		if (copy_from_user(&nr_route, arg, sizeof(struct nr_route_struct)))
->  			return -EFAULT;
-> +		if (strlen(nr_route.mnemonic) >= sizeof(nr_route.mnemonic))
-> +			return -EINVAL;
+> diff --git a/drivers/isdn/divert/divert_procfs.c b/drivers/isdn/divert/divert_procfs.c
+> index 33ec9e4..0c16687 100644
+> --- a/drivers/isdn/divert/divert_procfs.c
+> +++ b/drivers/isdn/divert/divert_procfs.c
+> @@ -242,6 +242,10 @@ static int isdn_divert_ioctl_unlocked(struct file *file, uint cmd, ulong arg)
+>  		case IIOCDOCFINT:
+>  			if (!divert_if.drv_to_name(dioctl.cf_ctrl.drvid))
+>  				return (-EINVAL);	/* invalid driver */
+> +			if (strlen(dioctl.cf_ctrl.msn) >= sizeof(dioctl.cf_ctrl.msn))
+> +				return -EINVAL;
+> +			if (strlen(dioctl.cf_ctrl.fwd_nr) >= sizeof(dioctl.cf_ctrl.fwd_nr))
+> +				return -EINVAL;
 
+forcing the last field to be zero seems more easy.
+dioctl.cf_ctrl.fwd_nr[sizeof(dioctl.cf_ctrl.fwd_nr))-1]=0;
 
-I am not sure that it does what you intends.
-mnemonic is an array and a  malicious use may fill it upto the last char
-causing strlen go beyond. perhaps this may help:
-	nr_route.mnemonic[sizeof(nr_route.mnemonic)-1]=0;
-this of cause makes the if() redundant.
-
-
-
->  		if ((dev = nr_ax25_dev_get(nr_route.device)) == NULL)
->  			return -EINVAL;
-while you are here:
-
-	dev = nr_ax25_dev_get(nr_route.device);
-	if ( dev == NULL )
-		return -EINVAL;
-
->  		if (nr_route.ndigis < 0 || nr_route.ndigis > AX25_MAX_DIGIS) {
-
-if guess "nr_route.ndigis >= AX25_MAX_DIGIS" is intended ?
-
-hope that helps,
+re,
  wh
 
+>  			if ((i = cf_command(dioctl.cf_ctrl.drvid,
+>  					    (cmd == IIOCDOCFACT) ? 1 : (cmd == IIOCDOCFDIS) ? 0 : 2,
+>  					    dioctl.cf_ctrl.cfproc,
 > --
 > To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 > 
