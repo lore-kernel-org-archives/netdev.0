@@ -1,7 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 3/6] SUNRPC: subscribe RPC clients to pipefs notifications
-Date: Wed, 23 Nov 2011 14:51:39 +0300
-Message-ID: <20111123105139.11077.92092.stgit@localhost6.localdomain6>
+Subject: [PATCH 1/6] SUNRPC: handle RPC client pipefs dentries by network
+	namespace aware routines
+Date: Wed, 23 Nov 2011 14:51:21 +0300
+Message-ID: <20111123105121.11077.53982.stgit@localhost6.localdomain6>
 References: <20111123104945.11077.10270.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,213 +11,201 @@ Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	jbottomley@parallels.com, davem@davemloft.net, devel@openvz.org
 To: bfields@fieldses.org, Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:12885 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753616Ab1KWKwr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Nov 2011 05:52:47 -0500
 In-Reply-To: <20111123104945.11077.10270.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch subscribes RPC clients to RPC pipefs notifications. RPC clients
-notifier block is registering with pipefs initialization during SUNRPC module
-init.
-This notifier callback is responsible for RPC client PipeFS directory and GSS
-pipes creation. For pipes creation and destruction two additional callbacks
-were added to struct rpc_authops.
-Note that no locking required in notifier callback because PipeFS superblock
-pointer is passed as an argument from it's creation or destruction routine and
-thus we can be sure about it's validity.
+This patch makes RPC clients PipeFs dentries allocations in it's owner network
+namespace context.
+RPC client pipefs dentries creation logic has been changed:
+1) Pipefs dentries creation by sb was moved to separated function, which will
+be used for handling PipeFS mount notification.
+2) Initial value of RPC client PipeFS dir dentry is set no NULL now.
+
+RPC client pipefs dentries cleanup logic has been changed:
+1) Cleanup is done now in separated rpc_remove_pipedir() function, which takes
+care about pipefs superblock locking.
+
+Also this patch removes slashes from cb_program.pipe_dir_name and from
+NFS_PIPE_DIRNAME to make rpc_d_lookup_sb() work. This doesn't affect
+vfs_path_lookup() results in nfs4blocklayout_init() since this slash is cutted
+off anyway in link_path_walk().
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- include/linux/sunrpc/auth.h    |    2 +
- net/sunrpc/auth_gss/auth_gss.c |   10 ++++--
- net/sunrpc/clnt.c              |   70 +++++++++++++++++++++++++++++++++++++++-
- net/sunrpc/rpc_pipe.c          |   19 +++++++----
- net/sunrpc/sunrpc.h            |    2 +
- 5 files changed, 93 insertions(+), 10 deletions(-)
+ fs/nfsd/nfs4callback.c |    2 +
+ include/linux/nfs.h    |    2 +
+ net/sunrpc/clnt.c      |   93 +++++++++++++++++++++++++++++++-----------------
+ 3 files changed, 62 insertions(+), 35 deletions(-)
 
-diff --git a/include/linux/sunrpc/auth.h b/include/linux/sunrpc/auth.h
-index febc4db..83f493f 100644
---- a/include/linux/sunrpc/auth.h
-+++ b/include/linux/sunrpc/auth.h
-@@ -98,6 +98,8 @@ struct rpc_authops {
- 
- 	struct rpc_cred *	(*lookup_cred)(struct rpc_auth *, struct auth_cred *, int);
- 	struct rpc_cred *	(*crcreate)(struct rpc_auth*, struct auth_cred *, int);
-+	int			(*pipes_create)(struct rpc_auth *);
-+	void			(*pipes_destroy)(struct rpc_auth *);
+diff --git a/fs/nfsd/nfs4callback.c b/fs/nfsd/nfs4callback.c
+index 02eb4ed..1ac6f55 100644
+--- a/fs/nfsd/nfs4callback.c
++++ b/fs/nfsd/nfs4callback.c
+@@ -618,7 +618,7 @@ static struct rpc_program cb_program = {
+ 	.nrvers			= ARRAY_SIZE(nfs_cb_version),
+ 	.version		= nfs_cb_version,
+ 	.stats			= &cb_stats,
+-	.pipe_dir_name		= "/nfsd4_cb",
++	.pipe_dir_name		= "nfsd4_cb",
  };
  
- struct rpc_credops {
-diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
-index 248acd0..66293dc 100644
---- a/net/sunrpc/auth_gss/auth_gss.c
-+++ b/net/sunrpc/auth_gss/auth_gss.c
-@@ -784,8 +784,10 @@ static void gss_pipes_dentries_destroy(struct rpc_auth *auth)
- 	struct gss_auth *gss_auth;
+ static int max_cb_time(void)
+diff --git a/include/linux/nfs.h b/include/linux/nfs.h
+index 8c6ee44..6d1fb63 100644
+--- a/include/linux/nfs.h
++++ b/include/linux/nfs.h
+@@ -29,7 +29,7 @@
+ #define NFS_MNT_VERSION		1
+ #define NFS_MNT3_VERSION	3
  
- 	gss_auth = container_of(auth, struct gss_auth, rpc_auth);
--	rpc_unlink(gss_auth->pipe[0]->dentry);
--	rpc_unlink(gss_auth->pipe[1]->dentry);
-+	if (gss_auth->pipe[0]->dentry)
-+		rpc_unlink(gss_auth->pipe[0]->dentry);
-+	if (gss_auth->pipe[1]->dentry)
-+		rpc_unlink(gss_auth->pipe[1]->dentry);
- }
+-#define NFS_PIPE_DIRNAME "/nfs"
++#define NFS_PIPE_DIRNAME "nfs"
  
- static int gss_pipes_dentries_create(struct rpc_auth *auth)
-@@ -1628,7 +1630,9 @@ static const struct rpc_authops authgss_ops = {
- 	.create		= gss_create,
- 	.destroy	= gss_destroy,
- 	.lookup_cred	= gss_lookup_cred,
--	.crcreate	= gss_create_cred
-+	.crcreate	= gss_create_cred,
-+	.pipes_create	= gss_pipes_dentries_create,
-+	.pipes_destroy	= gss_pipes_dentries_destroy,
- };
- 
- static const struct rpc_credops gss_credops = {
+ /*
+  * NFS stats. The good thing with these values is that NFSv3 errors are
 diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-index 008c755..61c76ae 100644
+index c5347d2..008c755 100644
 --- a/net/sunrpc/clnt.c
 +++ b/net/sunrpc/clnt.c
-@@ -95,8 +95,11 @@ static void rpc_unregister_client(struct rpc_clnt *clnt)
- 
- static void __rpc_clnt_remove_pipedir(struct rpc_clnt *clnt)
- {
--	if (clnt->cl_path.dentry)
-+	if (clnt->cl_path.dentry) {
-+		if (clnt->cl_auth && clnt->cl_auth->au_ops->pipes_destroy)
-+			clnt->cl_auth->au_ops->pipes_destroy(clnt->cl_auth);
- 		rpc_remove_client_dir(clnt->cl_path.dentry);
-+	}
- 	clnt->cl_path.dentry = NULL;
+@@ -93,52 +93,85 @@ static void rpc_unregister_client(struct rpc_clnt *clnt)
+ 	spin_unlock(&rpc_client_lock);
  }
  
-@@ -174,6 +177,71 @@ rpc_setup_pipedir(struct rpc_clnt *clnt, char *dir_name)
- 	return 0;
- }
- 
-+static int __rpc_pipefs_event(struct rpc_clnt *clnt, unsigned long event,
-+				struct super_block *sb)
+-static int
+-rpc_setup_pipedir(struct rpc_clnt *clnt, char *dir_name)
++static void __rpc_clnt_remove_pipedir(struct rpc_clnt *clnt)
 +{
-+	struct dentry *dentry;
-+	int err = 0;
++	if (clnt->cl_path.dentry)
++		rpc_remove_client_dir(clnt->cl_path.dentry);
++	clnt->cl_path.dentry = NULL;
++}
 +
-+	switch (event) {
-+	case RPC_PIPEFS_MOUNT:
-+		if (clnt->cl_program->pipe_dir_name == NULL)
-+			break;
-+		dentry = rpc_setup_pipedir_sb(sb, clnt,
-+					      clnt->cl_program->pipe_dir_name);
-+		BUG_ON(dentry == NULL);
-+		if (IS_ERR(dentry))
-+			return PTR_ERR(dentry);
-+		clnt->cl_path.dentry = dentry;
-+		if (clnt->cl_auth->au_ops->pipes_create) {
-+			err = clnt->cl_auth->au_ops->pipes_create(clnt->cl_auth);
-+			if (err)
-+				__rpc_clnt_remove_pipedir(clnt);
-+		}
-+		break;
-+	case RPC_PIPEFS_UMOUNT:
++static void rpc_clnt_remove_pipedir(struct rpc_clnt *clnt)
++{
++	struct super_block *pipefs_sb;
++
++	pipefs_sb = rpc_get_sb_net(clnt->cl_xprt->xprt_net);
++	if (pipefs_sb) {
 +		__rpc_clnt_remove_pipedir(clnt);
-+		break;
-+	default:
-+		printk(KERN_ERR "%s: unknown event: %ld\n", __func__, event);
-+		return -ENOTSUPP;
++		rpc_put_sb_net(clnt->cl_xprt->xprt_net);
 +	}
-+	return err;
++	rpc_put_mount();
 +}
 +
-+static int rpc_pipefs_event(struct notifier_block *nb, unsigned long event,
-+			    void *ptr)
-+{
-+	struct super_block *sb = ptr;
-+	struct rpc_clnt *clnt;
-+	int error = 0;
-+
-+	spin_lock(&rpc_client_lock);
-+	list_for_each_entry(clnt, &all_clients, cl_clients) {
-+		if (clnt->cl_xprt->xprt_net != sb->s_fs_info)
-+			continue;
-+		error = __rpc_pipefs_event(clnt, event, sb);
-+		if (error)
-+			break;
-+	}
-+	spin_unlock(&rpc_client_lock);
-+	return error;
-+}
-+
-+static struct notifier_block rpc_clients_block = {
-+	.notifier_call	= rpc_pipefs_event,
-+};
-+
-+int rpc_clients_notifier_register(void)
-+{
-+	return rpc_pipefs_notifier_register(&rpc_clients_block);
-+}
-+
-+void rpc_clients_notifier_unregister(void)
-+{
-+	return rpc_pipefs_notifier_unregister(&rpc_clients_block);
-+}
-+
- static struct rpc_clnt * rpc_new_client(const struct rpc_create_args *args, struct rpc_xprt *xprt)
++static struct dentry *rpc_setup_pipedir_sb(struct super_block *sb,
++				    struct rpc_clnt *clnt, char *dir_name)
  {
- 	struct rpc_program	*program = args->program;
-diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index 8e59580..1ea0dcf 100644
---- a/net/sunrpc/rpc_pipe.c
-+++ b/net/sunrpc/rpc_pipe.c
-@@ -918,7 +918,7 @@ struct dentry *rpc_create_client_dir(struct dentry *dentry,
+ 	static uint32_t clntid;
+-	struct path path, dir;
+ 	char name[15];
+ 	struct qstr q = {
+ 		.name = name,
+ 	};
++	struct dentry *dir, *dentry;
+ 	int error;
  
- /**
-  * rpc_remove_client_dir - Remove a directory created with rpc_create_client_dir()
-- * @dentry: directory to remove
-+ * @clnt: rpc client
-  */
- int rpc_remove_client_dir(struct dentry *dentry)
- {
-@@ -1169,17 +1169,24 @@ int register_rpc_pipefs(void)
- 				init_once);
- 	if (!rpc_inode_cachep)
- 		return -ENOMEM;
-+	err = rpc_clients_notifier_register();
-+	if (err)
-+		goto err_notifier;
- 	err = register_filesystem(&rpc_pipe_fs_type);
--	if (err) {
--		kmem_cache_destroy(rpc_inode_cachep);
--		return err;
--	}
+-	clnt->cl_path.mnt = ERR_PTR(-ENOENT);
+-	clnt->cl_path.dentry = ERR_PTR(-ENOENT);
+-	if (dir_name == NULL)
+-		return 0;
 -
-+	if (err)
-+		goto err_register;
- 	return 0;
+-	path.mnt = rpc_get_mount();
+-	if (IS_ERR(path.mnt))
+-		return PTR_ERR(path.mnt);
+-	error = vfs_path_lookup(path.mnt->mnt_root, path.mnt, dir_name, 0, &dir);
+-	if (error)
+-		goto err;
+-
++	dir = rpc_d_lookup_sb(sb, dir_name);
++	if (dir == NULL)
++		return dir;
+ 	for (;;) {
+ 		q.len = snprintf(name, sizeof(name), "clnt%x", (unsigned int)clntid++);
+ 		name[sizeof(name) - 1] = '\0';
+ 		q.hash = full_name_hash(q.name, q.len);
+-		path.dentry = rpc_create_client_dir(dir.dentry, &q, clnt);
+-		if (!IS_ERR(path.dentry))
++		dentry = rpc_create_client_dir(dir, &q, clnt);
++		if (!IS_ERR(dentry))
+ 			break;
+-		error = PTR_ERR(path.dentry);
++		error = PTR_ERR(dentry);
+ 		if (error != -EEXIST) {
+ 			printk(KERN_INFO "RPC: Couldn't create pipefs entry"
+ 					" %s/%s, error %d\n",
+ 					dir_name, name, error);
+-			goto err_path_put;
++			break;
+ 		}
+ 	}
+-	path_put(&dir);
++	dput(dir);
++	return dentry;
++}
 +
-+err_register:
-+	rpc_clients_notifier_unregister();
-+err_notifier:
-+	kmem_cache_destroy(rpc_inode_cachep);
-+	return err;
++static int
++rpc_setup_pipedir(struct rpc_clnt *clnt, char *dir_name)
++{
++	struct super_block *pipefs_sb;
++	struct path path;
++
++	clnt->cl_path.mnt = ERR_PTR(-ENOENT);
++	clnt->cl_path.dentry = NULL;
++	if (dir_name == NULL)
++		return 0;
++
++	path.mnt = rpc_get_mount();
++	if (IS_ERR(path.mnt))
++		return PTR_ERR(path.mnt);
++	pipefs_sb = rpc_get_sb_net(clnt->cl_xprt->xprt_net);
++	if (!pipefs_sb) {
++		rpc_put_mount();
++		return -ENOENT;
++	}
++	path.dentry = rpc_setup_pipedir_sb(pipefs_sb, clnt, dir_name);
++	rpc_put_sb_net(clnt->cl_xprt->xprt_net);
++	if (IS_ERR(path.dentry)) {
++		rpc_put_mount();
++		return PTR_ERR(path.dentry);
++	}
+ 	clnt->cl_path = path;
+ 	return 0;
+-err_path_put:
+-	path_put(&dir);
+-err:
+-	rpc_put_mount();
+-	return error;
  }
  
- void unregister_rpc_pipefs(void)
+ static struct rpc_clnt * rpc_new_client(const struct rpc_create_args *args, struct rpc_xprt *xprt)
+@@ -246,10 +279,7 @@ static struct rpc_clnt * rpc_new_client(const struct rpc_create_args *args, stru
+ 	return clnt;
+ 
+ out_no_auth:
+-	if (!IS_ERR(clnt->cl_path.dentry)) {
+-		rpc_remove_client_dir(clnt->cl_path.dentry);
+-		rpc_put_mount();
+-	}
++	rpc_clnt_remove_pipedir(clnt);
+ out_no_path:
+ 	kfree(clnt->cl_principal);
+ out_no_principal:
+@@ -474,10 +504,7 @@ rpc_free_client(struct rpc_clnt *clnt)
  {
-+	rpc_clients_notifier_unregister();
- 	kmem_cache_destroy(rpc_inode_cachep);
- 	unregister_filesystem(&rpc_pipe_fs_type);
- }
-diff --git a/net/sunrpc/sunrpc.h b/net/sunrpc/sunrpc.h
-index 90c292e..14c9f6d 100644
---- a/net/sunrpc/sunrpc.h
-+++ b/net/sunrpc/sunrpc.h
-@@ -47,5 +47,7 @@ int svc_send_common(struct socket *sock, struct xdr_buf *xdr,
- 		    struct page *headpage, unsigned long headoffset,
- 		    struct page *tailpage, unsigned long tailoffset);
- 
-+int rpc_clients_notifier_register(void);
-+void rpc_clients_notifier_unregister(void);
- #endif /* _NET_SUNRPC_SUNRPC_H */
- 
+ 	dprintk("RPC:       destroying %s client for %s\n",
+ 			clnt->cl_protname, clnt->cl_server);
+-	if (!IS_ERR(clnt->cl_path.dentry)) {
+-		rpc_remove_client_dir(clnt->cl_path.dentry);
+-		rpc_put_mount();
+-	}
++	rpc_clnt_remove_pipedir(clnt);
+ 	if (clnt->cl_parent != clnt) {
+ 		rpc_release_client(clnt->cl_parent);
+ 		goto out_free;
