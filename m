@@ -1,58 +1,53 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [ANNOUNCE] iproute2 v3.0.1
-Date: Wed, 23 Nov 2011 13:45:23 -0800
-Message-ID: <20111123134523.47aae16b@nehalam.linuxnetplumber.net>
-References: <20111123122951.6ad25f74@nehalam.linuxnetplumber.net>
-	<4ECD60D7.2010903@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 5/5] ipv4: Don't use the cached pmtu informations for
+ input routes
+Date: Wed, 23 Nov 2011 16:49:41 -0500 (EST)
+Message-ID: <20111123.164941.1950228526500366081.davem@davemloft.net>
+References: <20111123121450.GE6348@secunet.com>
+	<20111123155245.GA11638@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA256;
- boundary="Sig_/hTewtes125gLq4d0Uly6x4O"; protocol="application/pgp-signature"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Iain Paton <selsinork@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4ECD60D7.2010903@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
+To: herbert@gondor.hengli.com.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:39226 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753283Ab1KWVt5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 16:49:57 -0500
+In-Reply-To: <20111123155245.GA11638@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/hTewtes125gLq4d0Uly6x4O
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+From: Herbert Xu <herbert@gondor.hengli.com.au>
+Date: Wed, 23 Nov 2011 23:52:45 +0800
 
-On Wed, 23 Nov 2011 21:08:39 +0000
-Iain Paton <selsinork@gmail.com> wrote:
+> Steffen Klassert <steffen.klassert@secunet.com> wrote:
+>> The pmtu informations on the inetpeer are visible for output and
+>> input routes. On packet forwarding, we might propagate a learned
+>> pmtu to the sender. As we update the pmtu informations of the
+>> inetpeer on demand, the original sender of the forwarded packets
+>> might never notice when the pmtu to that inetpeer increases.
+>> So use the mtu of the outgoing device on packet forwarding instead
+>> of the pmtu to the final destination.
+> 
+> I disagree.  MTU increases are detected by the source retrying,
+> so they most certainly should notice if our cached value expires.
 
-> Stephen Hemminger wrote:
-> > Source: no longer at linux-foundation
-> >   http://kernel.org/pub/linux/kernel/utils/networking/iproute2/iproute2=
--3.1.0.gz
->=20
-> That's a 404.=20
->=20
-> Maybe http://kernel.org/pub/linux/utils/networking/iproute2/iproute2-3.1.=
-0.tar.gz ?
+Herbert, consider the issue one level higher :-)
 
-Yes. Thanks.
+The issue is that "we", the forwarding entity, end up with a cached on
+the input route and report this cached PMTU to the sender.
 
---Sig_/hTewtes125gLq4d0Uly6x4O
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
+This takes a while to time out.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+So even if the sender "probes" he will be kept from seeing new MTU space
+becomming available due to our cached value.
 
-iQIcBAEBCAAGBQJOzWlzAAoJEICnf2CVzeR+c3EQAK1Ew25LvDlOi0caW5BUrvCA
-qu7xMOVyC3gmA7Mf4kp9zEfjsnR5O7vnDoaE8iuAT2v2ZWWruIHdnR0MJjj/8kjI
-H0bH6ZmUvLyvPwvplbj0Hg7cDuAjAruxW3Zlf88M6ObEv1gHIq2uFHX+laLl312g
-xoVsGBoSNtz932PDgTN1k/FsM4fd3s7X/DX9n+mfBuNq//3aRN9wSvvcnTkqhV5+
-ARHPvC/fZHlSSqvD6cwfNLV/QQVXYvsXXLrKXZv00CUFcjeUES0Y/6hy/Y7XGsTa
-g2mvIdJU5DPvDI4E63zsV7h9Naxj53PkFzCiCgAIG1qp1rGksKIUsmzV4NaOMs7L
-B027H7v7gLHGg24Cz6vVyoubk0Wg73l/QmyY7MdO9Bf3WGz4OmCcAhkKGR8t7/lh
-n/sDokx3fxGX9TGRn5WsVt+p7DaxIGBPb+rGU2H5+feAfgJjZEIIGFXBiII4LYd0
-0rLMKRh6Ik9YB5dfa0BPX8tGV2P2PRhwkmkisYkMmvUWHOO8VkLRH9jLn9JRXZZQ
-UPaS34+8BMTCduTyLg5rJoVDAxHYKWn84+iMxtqn5pN5p7qYSka0kuPGtq5OXe1E
-OrlChToVFsNJitywHR4aiAEpXHuwAsq/hx/eXd8XrPpvox5iq+OSkGaw1iVHi/7g
-R/JE4jNXkyVy0rVN+o0p
-=lx00
------END PGP SIGNATURE-----
+What Steffen is doing is simply re-instating the behavior we had
+before the inetpeer conversion occurred.  We never used learned PMTU
+information on input routes, only output routes stored them.
 
---Sig_/hTewtes125gLq4d0Uly6x4O--
+But now that input and output routes share learned information from
+the same set of inetpeer entries, we have to accomodate cases like this
+one.
