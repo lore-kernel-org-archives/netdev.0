@@ -1,42 +1,45 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [GIT PULL] Support for Cadence GEM in the MACB driver
-Date: Wed, 23 Nov 2011 21:14:11 +0000
-Message-ID: <201111232114.12124.arnd@arndb.de>
-References: <20111121100020.GB7314@totoro>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: [iproute2 PATCH 2/2] tc: Use correct variable type for get_distribution()
+ result
+Date: Wed, 23 Nov 2011 22:15:19 +0100
+Message-ID: <4ECD6267.3090406@intra2net.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Jean-Christophe PLAGNIOL-VILLARD" <plagnioj@jcrosoft.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	davem@davemloft.net
-To: Jamie Iles <jamie@jamieiles.com>
+To: netdev@vger.kernel.org, shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:64828 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753248Ab1KWVOV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 16:14:21 -0500
-In-Reply-To: <20111121100020.GB7314@totoro>
+Received: from re04.intra2net.com ([82.165.46.26]:43796 "EHLO
+	re04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753472Ab1KWVPW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 16:15:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 21 November 2011, Jamie Iles wrote:
-> Hi Arnd,
-> 
-> Please consider pulling the patches to add support for Cadence GEM to 
-> the MACB driver.  These have been ready to go for a little while but got 
-> held up with the rename of Ethernet drivers in the last merge window.  
-> It would be great if we can get some exposure in -next for a little 
-> while before the next merge window.
+get_distribution() returns an int.
 
-Hi Jamie,
+cppcheck reported:
+[tc/q_netem.c:243]: (style) Checking if unsigned variable 'dist_size' is less than zero.
 
-I was actually meaning to pull these in time for 3.2, but for some reason
-this got dropped on the floor when I was travelling just before
-and during the merge window.
+The mismatch actually rendered the error checking
+after get_distribution() ineffective.
 
-Anyway, I've pulled them into the next/driver branch of the arm-soc tree
-now. Thanks for your patience!
+Signed-off-by: Thomas Jarosch <thomas.jarosch@intra2net.com>
+---
+ tc/q_netem.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-	Arnd
+diff --git a/tc/q_netem.c b/tc/q_netem.c
+index 01639a8..6dc40bd 100644
+--- a/tc/q_netem.c
++++ b/tc/q_netem.c
+@@ -125,7 +125,7 @@ static int get_ticks(__u32 *ticks, const char *str)
+ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
+ 			   struct nlmsghdr *n)
+ {
+-	size_t dist_size = 0;
++	int dist_size = 0;
+ 	struct rtattr *tail;
+ 	struct tc_netem_qopt opt;
+ 	struct tc_netem_corr cor;
+-- 
+1.7.6.4
