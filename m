@@ -1,102 +1,54 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH 1/2] ax25: integer overflows in ax25_setsockopt()
-Date: Wed, 23 Nov 2011 17:09:30 +0000
-Message-ID: <20111123170930.GA7260@linux-mips.org>
-References: <7187C142-99F1-4A96-9BE6-650B10C9B22D@gmail.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH 0/6] SUNRPC: make RPC clients use network-namespace-aware
+ PipeFS routines
+Date: Wed, 23 Nov 2011 21:18:41 +0400
+Message-ID: <4ECD2AF1.9090101@parallels.com>
+References: <20111123104945.11077.10270.stgit@localhost6.localdomain6> <20111123162711.GA30672@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Joerg Reuter <jreuter@yaina.de>,
-	David Miller <davem@davemloft.net>, linux-hams@vger.kernel.org,
-	netdev@vger.kernel.org, Thomas Osterried <thomas@osterried.de>
-To: Xi Wang <xi.wang@gmail.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: "J. Bruce Fields" <bfields@fieldses.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <7187C142-99F1-4A96-9BE6-650B10C9B22D@gmail.com>
+In-Reply-To: <20111123162711.GA30672@fieldses.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 22, 2011 at 11:28:24PM -0500, Xi Wang wrote:
+23.11.2011 20:27, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Wed, Nov 23, 2011 at 02:51:10PM +0300, Stanislav Kinsbursky wrote:
+>> This patch set was created in context of clone of git
+>> branch: git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git.
+>> tag: v3.1
+>>
+>> This patch set depends on previous patch sets titled:
+>> 1) "SUNRPC: initial part of making pipefs work in net ns"
+>> 2) "SUNPRC: cleanup PipeFS for network-namespace-aware users"
+>
+> Do you have a git tree set up with all of these applied?
+>
 
-> ax25_setsockopt() misses several upper-bound checks on the
-> user-controlled value.
-> 
-> 
-> Reported-by: Fan Long <longfancn@gmail.com>
-> Signed-off-by: Xi Wang <xi.wang@gmail.com>
-> ---
->  net/ax25/af_ax25.c |    8 ++++----
->  1 files changed, 4 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
-> index e7c69f4..be6a8cf 100644
-> --- a/net/ax25/af_ax25.c
-> +++ b/net/ax25/af_ax25.c
-> @@ -571,7 +571,7 @@ static int ax25_setsockopt(struct socket *sock, int level, int optname,
->  		break;
->  
->  	case AX25_T1:
-> -		if (opt < 1) {
-> +		if (opt < 1 || opt > 30) {
->  			res = -EINVAL;
->  			break;
->  		}
+I have, but no external access to it yet.
 
-30 seconds is definitively too low.  The TCP spec assumes that a RTT
-of up to 120s is possible.  In slow packet radio networks 15 minutes are
-easily possible in HF networks.
+> (If I want to take a quick look it would personally be easier for me =
+to
+> fetch your git tree than to get those patches out of old email.)
+>
 
-How about AX.25 to the P5A mars mission?
+Will check tomorrow, is it possible to organize it.
 
-A silly value for T1 will be caught further down the road, so no damage
-but an application really should receive a sensible return value when
-trying something stupid.
+> --b.
+>
 
-If an apps wants to shoot itself into the foot there is nothing wrong with
-being the arms dealer so an error check should be something like
 
-	if (val > ULONG_MAX / HZ)
-		bail_out;
-
-which will do the right thing even on a 64-bit system and prevent an
-overflow in the multiplication further down.
-
-> @@ -580,7 +580,7 @@ static int ax25_setsockopt(struct socket *sock, int level, int optname,
->  		break;
->  
->  	case AX25_T2:
-> -		if (opt < 1) {
-> +		if (opt < 1 || opt > 20) {
->  			res = -EINVAL;
->  			break;
->  		}
-
-An excessive value here could result in a timer being set to expire in
-the past similar in effect to setting a very low value.  Again it's ok
-if a user tries to shoot himself into the other foot as well.
-
-> @@ -596,7 +596,7 @@ static int ax25_setsockopt(struct socket *sock, int level, int optname,
->  		break;
->  
->  	case AX25_T3:
-> -		if (opt < 1) {
-> +		if (opt < 0 || opt > 3600) {
->  			res = -EINVAL;
->  			break;
->  		}
-
-For a stable link it should be possible to set a very high T3 value,
-potencially high enough to effectively disable the T3 functionality.
-
-> @@ -604,7 +604,7 @@ static int ax25_setsockopt(struct socket *sock, int level, int optname,
->  		break;
->  
->  	case AX25_IDLE:
-> -		if (opt < 0) {
-> +		if (opt < 0 || opt > 65535) {
->  			res = -EINVAL;
->  			break;
->  		}
-
-I have an updated patch which I'm testing right now.
-
-  Ralf
+--=20
+Best regards,
+Stanislav Kinsbursky
