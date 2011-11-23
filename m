@@ -1,7 +1,7 @@
 From: Xi Wang <xi.wang@gmail.com>
-Subject: [PATCH 1/2] ax25: integer overflows in ax25_setsockopt()
-Date: Tue, 22 Nov 2011 23:28:24 -0500
-Message-ID: <7187C142-99F1-4A96-9BE6-650B10C9B22D@gmail.com>
+Subject: [PATCH 2/2] ax25: integer overflows in ax25_ctl_ioctl()
+Date: Tue, 22 Nov 2011 23:35:13 -0500
+Message-ID: <BE9FC917-43B3-47E1-BFC7-5E5F2B1F68A1@gmail.com>
 Mime-Version: 1.0 (Apple Message framework v1084)
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 8BIT
@@ -14,56 +14,49 @@ Return-path: <linux-hams-owner@vger.kernel.org>
 Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ax25_setsockopt() misses several upper-bound checks on the
-user-controlled value.
+ax25_ctl_ioctl() misses several bound checks on the user-controlled value.
 
-
-Reported-by: Fan Long <longfancn@gmail.com>
 Signed-off-by: Xi Wang <xi.wang@gmail.com>
 ---
- net/ax25/af_ax25.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ net/ax25/af_ax25.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
 diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
-index e7c69f4..be6a8cf 100644
+index be6a8cf..bd47e22 100644
 --- a/net/ax25/af_ax25.c
 +++ b/net/ax25/af_ax25.c
-@@ -571,7 +571,7 @@ static int ax25_setsockopt(struct socket *sock, int level, int optname,
+@@ -402,14 +402,14 @@ static int ax25_ctl_ioctl(const unsigned int cmd, void __user *arg)
  		break;
  
  	case AX25_T1:
--		if (opt < 1) {
-+		if (opt < 1 || opt > 30) {
- 			res = -EINVAL;
- 			break;
- 		}
-@@ -580,7 +580,7 @@ static int ax25_setsockopt(struct socket *sock, int level, int optname,
+-		if (ax25_ctl.arg < 1)
++		if (ax25_ctl.arg < 1 || ax25_ctl.arg > 30)
+ 			goto einval_put;
+ 		ax25->rtt = (ax25_ctl.arg * HZ) / 2;
+ 		ax25->t1  = ax25_ctl.arg * HZ;
  		break;
  
  	case AX25_T2:
--		if (opt < 1) {
-+		if (opt < 1 || opt > 20) {
- 			res = -EINVAL;
- 			break;
- 		}
-@@ -596,7 +596,7 @@ static int ax25_setsockopt(struct socket *sock, int level, int optname,
+-		if (ax25_ctl.arg < 1)
++		if (ax25_ctl.arg < 1 || ax25_ctl.arg > 20)
+ 			goto einval_put;
+ 		ax25->t2 = ax25_ctl.arg * HZ;
+ 		break;
+@@ -422,10 +422,14 @@ static int ax25_ctl_ioctl(const unsigned int cmd, void __user *arg)
  		break;
  
  	case AX25_T3:
--		if (opt < 1) {
-+		if (opt < 0 || opt > 3600) {
- 			res = -EINVAL;
- 			break;
- 		}
-@@ -604,7 +604,7 @@ static int ax25_setsockopt(struct socket *sock, int level, int optname,
++		if (ax25_ctl.arg > 3600)
++			goto einval_put;
+ 		ax25->t3 = ax25_ctl.arg * HZ;
  		break;
  
  	case AX25_IDLE:
--		if (opt < 0) {
-+		if (opt < 0 || opt > 65535) {
- 			res = -EINVAL;
- 			break;
- 		}
++		if (ax25_ctl.arg > 65535)
++			goto einval_put;
+ 		ax25->idle = ax25_ctl.arg * 60 * HZ;
+ 		break;
+ 
 -- 
 1.7.5.4
 
