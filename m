@@ -1,137 +1,79 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v3 04/10] xps: Add xps_queue_release function
-Date: Tue, 22 Nov 2011 21:52:43 -0800 (PST)
-Message-ID: <alpine.DEB.2.00.1111222140180.14839@pokey.mtv.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Missing TCP SYN on loopback, retransmits after 1s
+Date: Wed, 23 Nov 2011 06:58:31 +0100
+Message-ID: <1322027911.1298.4.camel@edumazet-laptop>
+References: <20111122181320.38a70cf8@telperion.jlyo.org>
+	 <CABrhC0m75OHmdDD-crr=tvTiRq_hnh7WpHtLjM9TKgTa24MSOA@mail.gmail.com>
+	 <1322025880.29324.1.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jesse Young <jlyo@jlyo.org>, netdev@vger.kernel.org
+To: John Heffner <johnwheffner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f74.google.com ([74.125.82.74]:56595 "EHLO
-	mail-ww0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751984Ab1KWF63 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 00:58:29 -0500
-Received: by wwe5 with SMTP id 5so34139wwe.1
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 21:58:28 -0800 (PST)
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:33841 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754381Ab1KWF6g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2011 00:58:36 -0500
+Received: by wwo28 with SMTP id 28so459433wwo.1
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2011 21:58:35 -0800 (PST)
+In-Reply-To: <1322025880.29324.1.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch moves the xps specific parts in netdev_queue_release into
-its own function which netdev_queue_release can call.  This allows
-netdev_queue_release to be more generic (for adding new attributes
-to tx queues).
+Le mercredi 23 novembre 2011 =C3=A0 06:24 +0100, Eric Dumazet a =C3=A9c=
+rit :
+> Le mardi 22 novembre 2011 =C3=A0 21:06 -0500, John Heffner a =C3=A9cr=
+it :
+> > Offhand, I'd guess you're overflowing the TCP SYN queue.  (You can =
+try
+> > tuning tcp_max_syn_backlog.)
+> >=20
+>=20
+> There is one litle thing called "netstat -s", a very useful tool,
+> included in many distros :)
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/core/net-sysfs.c |   89 ++++++++++++++++++++++++++-----------------------
- 1 files changed, 47 insertions(+), 42 deletions(-)
+This is related to TIMEWAIT syndrom ?
 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index c71c434..fffd5b2 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -890,6 +890,52 @@ static DEFINE_MUTEX(xps_map_mutex);
- #define xmap_dereference(P)		\
- 	rcu_dereference_protected((P), lockdep_is_held(&xps_map_mutex))
- 
-+static void xps_queue_release(struct netdev_queue *queue)
-+{
-+	struct net_device *dev = queue->dev;
-+	struct xps_dev_maps *dev_maps;
-+	struct xps_map *map;
-+	unsigned long index;
-+	int i, pos, nonempty = 0;
-+
-+	index = get_netdev_queue_index(queue);
-+
-+	mutex_lock(&xps_map_mutex);
-+	dev_maps = xmap_dereference(dev->xps_maps);
-+
-+	if (dev_maps) {
-+		for_each_possible_cpu(i) {
-+			map = xmap_dereference(dev_maps->cpu_map[i]);
-+			if (!map)
-+				continue;
-+
-+			for (pos = 0; pos < map->len; pos++)
-+				if (map->queues[pos] == index)
-+					break;
-+
-+			if (pos < map->len) {
-+				if (map->len > 1)
-+					map->queues[pos] =
-+					    map->queues[--map->len];
-+				else {
-+					RCU_INIT_POINTER(dev_maps->cpu_map[i],
-+					    NULL);
-+					kfree_rcu(map, rcu);
-+					map = NULL;
-+				}
-+			}
-+			if (map)
-+				nonempty = 1;
-+		}
-+
-+		if (!nonempty) {
-+			RCU_INIT_POINTER(dev->xps_maps, NULL);
-+			kfree_rcu(dev_maps, rcu);
-+		}
-+	}
-+	mutex_unlock(&xps_map_mutex);
-+}
-+
- static ssize_t store_xps_map(struct netdev_queue *queue,
- 		      struct netdev_queue_attribute *attribute,
- 		      const char *buf, size_t len)
-@@ -1029,49 +1075,8 @@ static struct attribute *netdev_queue_default_attrs[] = {
- static void netdev_queue_release(struct kobject *kobj)
- {
- 	struct netdev_queue *queue = to_netdev_queue(kobj);
--	struct net_device *dev = queue->dev;
--	struct xps_dev_maps *dev_maps;
--	struct xps_map *map;
--	unsigned long index;
--	int i, pos, nonempty = 0;
--
--	index = get_netdev_queue_index(queue);
--
--	mutex_lock(&xps_map_mutex);
--	dev_maps = xmap_dereference(dev->xps_maps);
- 
--	if (dev_maps) {
--		for_each_possible_cpu(i) {
--			map = xmap_dereference(dev_maps->cpu_map[i]);
--			if (!map)
--				continue;
--
--			for (pos = 0; pos < map->len; pos++)
--				if (map->queues[pos] == index)
--					break;
--
--			if (pos < map->len) {
--				if (map->len > 1)
--					map->queues[pos] =
--					    map->queues[--map->len];
--				else {
--					RCU_INIT_POINTER(dev_maps->cpu_map[i],
--					    NULL);
--					kfree_rcu(map, rcu);
--					map = NULL;
--				}
--			}
--			if (map)
--				nonempty = 1;
--		}
--
--		if (!nonempty) {
--			RCU_INIT_POINTER(dev->xps_maps, NULL);
--			kfree_rcu(dev_maps, rcu);
--		}
--	}
--
--	mutex_unlock(&xps_map_mutex);
-+	xps_queue_release(queue);
- 
- 	memset(kobj, 0, sizeof(*kobj));
- 	dev_put(queue->dev);
--- 
-1.7.3.1
+06:47:42.090522 IP6 ::1.49374 > ::1.8009: Flags [SEW], seq 2646115915, =
+win 32752, options [mss 16376,sackOK,TS val 26574090 ecr 0,nop,wscale 6=
+], length 0
+06:47:42.090579 IP6 ::1.8009 > ::1.49374: Flags [S.E], seq 184529170, a=
+ck 2646115916, win 32728, options [mss 16376,sackOK,TS val 26574090 ecr=
+ 26574090,nop,wscale 6], length 0
+06:47:42.090616 IP6 ::1.49374 > ::1.8009: Flags [.], ack 1, win 512, op=
+tions [nop,nop,TS val 26574090 ecr 26574090], length 0
+06:47:42.090718 IP6 ::1.8009 > ::1.49374: Flags [F.], seq 1, ack 1, win=
+ 512, options [nop,nop,TS val 26574090 ecr 26574090], length 0
+06:47:42.090780 IP6 ::1.49374 > ::1.8009: Flags [F.], seq 1, ack 2, win=
+ 512, options [nop,nop,TS val 26574090 ecr 26574090], length 0
+06:47:42.090843 IP6 ::1.8009 > ::1.49374: Flags [.], ack 2, win 512, op=
+tions [nop,nop,TS val 26574090 ecr 26574090], length 0
+
+=46irst connection went well.
+
+Now we try to reuse tuple  (ports 49374, 8009 on loopback) while a sock=
+et is in TIMEWAIT, and first
+SYN packet (time 06:48:20.337335) is dropped (considered as a packet pa=
+rt of previous session)
+
+Now why the first SYN packet is dropped and not the second one, I dont =
+know yet.
+
+06:48:20.337335 IP6 ::1.49374 > ::1.8009: Flags [SEW], seq 3243722104, =
+win 32752, options [mss 16376,sackOK,TS val 26612337 ecr 0,nop,wscale 6=
+], length 0
+06:48:21.340112 IP6 ::1.49374 > ::1.8009: Flags [SEW], seq 3243722104, =
+win 32752, options [mss 16376,sackOK,TS val 26613340 ecr 0,nop,wscale 6=
+], length 0
+06:48:21.340162 IP6 ::1.8009 > ::1.49374: Flags [S.E], seq 797804014, a=
+ck 3243722105, win 32728, options [mss 16376,sackOK,TS val 26613340 ecr=
+ 26613340,nop,wscale 6], length 0
+06:48:21.340217 IP6 ::1.49374 > ::1.8009: Flags [.], ack 1, win 512, op=
+tions [nop,nop,TS val 26613340 ecr 26613340], length 0
+06:48:21.340360 IP6 ::1.8009 > ::1.49374: Flags [F.], seq 1, ack 1, win=
+ 512, options [nop,nop,TS val 26613340 ecr 26613340], length 0
+06:48:21.340466 IP6 ::1.49374 > ::1.8009: Flags [F.], seq 1, ack 2, win=
+ 512, options [nop,nop,TS val 26613340 ecr 26613340], length 0
+06:48:21.340541 IP6 ::1.8009 > ::1.49374: Flags [.], ack 2, win 512, op=
+tions [nop,nop,TS val 26613340 ecr 26613340], length 0
