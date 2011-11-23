@@ -1,79 +1,109 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Wed, 23 Nov 2011 12:43:53 +1100
-Message-ID: <1322012633.14573.22.camel@pasglop>
-References: <20111121131531.GA1679@x4.trippels.de>
-	 <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121153621.GA1678@x4.trippels.de>
-	 <1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121161036.GA1679@x4.trippels.de>
-	 <1321894353.10470.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1321895706.10470.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121173556.GA1673@x4.trippels.de>
-	 <1321900743.10470.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111121185215.GA1673@x4.trippels.de>
-	 <20111121195113.GA1678@x4.trippels.de> <1321907275.13860.12.camel@pasglop>
-	 <alpine.DEB.2.01.1111211617220.8000@trent.utfs.org>
-	 <alpine.DEB.2.00.1111212105330.19606@router.home>
-	 <1321948113.27077.24.camel@edumazet-laptop>
-	 <1321999085.14573.2.camel@pasglop>
-	 <alpine.DEB.2.01.1111221511070.8000@trent.utfs.org>
-	 <1322007501.14573.15.camel@pasglop>
-	 <alpine.DEB.2.01.1111221711410.8000@trent.utfs.org>
+From: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next 4/4] net: Add Open vSwitch kernel
+	components.
+Date: Tue, 22 Nov 2011 18:30:03 -0800
+Message-ID: <4ECC5AAB.8000605@intel.com>
+References: <1321657938-21761-1-git-send-email-jesse@nicira.com>
+	<1321657938-21761-5-git-send-email-jesse@nicira.com>
+	<1321878007.2291.12.camel@mojatatu>
+	<CAEP_g=8puZh8hihoyoHTc4f6cBu4jiDJQ6tqk6suQxR=dchyjA@mail.gmail.com>
+	<1322012755.2039.36.camel@mojatatu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Christoph Lameter <cl@linux.com>,
-        Markus Trippelsdorf <markus@trippelsdorf.de>,
-        "Alex,Shi"
- <alex.shi@intel.com>,
-        "linux-kernel@vger.kernel.org"
- <linux-kernel@vger.kernel.org>,
-        "linux-mm@kvack.org" <linux-mm@kvack.org>,
-        Pekka Enberg <penberg@kernel.org>, Matt Mackall <mpm@selenic.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Tejun Heo <tj@kernel.org>
-To: Christian Kujau <lists@nerdbynature.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.01.1111221711410.8000@trent.utfs.org>
-Sender: owner-linux-mm@kvack.org
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1322012755.2039.36.camel@mojatatu>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-
-> > I just want to see whether your network + heavy IO load problem goes
-> > away with that one patch.
+On 11/22/2011 5:45 PM, Jamal Hadi Salim wrote:
+> On Tue, 2011-11-22 at 15:11 -0800, Jesse Gross wrote:
 > 
-> Sorry, I should have been clearer in that mail: the high "load" value 
-> isn't a problem - the intermittent panics are. What I meant to say was: 
-> the panics usually occur when lots of disk & cpu IO is in progress (rsync 
-> to an external but local disk over firewire). While doing this the load is 
-> usally at 3-5, but that's "normal" and expected for a machine of that age. 
+> 
+>> As you mention, one of the biggest benefits of Open vSwitch is how
+>> simple the kernel portions are (it's less than 6000 lines).  
+> 
+> I said that was the reason _you_ were using to justify things
+> and i argue that is not accurate.
+> You will be adding more actions and more classification fields to
+> the datapath - and  you are going to add them to that monolithic
+> "simple" code. And it is going to grow.
+> 
+> BTW, you  _are using some of the actions_ already (the policer for
+> example to do rate control; no disrespect intended but in a terrible
+> way). 
+> Eventually you will canibalize that in your code because it is "simpler"
+> to do that.
+> So to be explicit: I dont think this is a good arguement.
+> 
+>> It's
+>> existed as an out-of-tree project for several years now so it's
+>> actually fairly mature already and unlikely that there will be a
+>> sudden influx of new code over the coming months.  There's already
+>> quite a bit of functionality that has been implemented on top of it
+>> and it's been mentioned that several other components can be written
+>> in terms of it 
+> 
+> I very much empathize with this point. But that is not a technical
+> issue.
+> 
+>> so I think that it's fairly generic infrastructure that
+>> can be used in many ways.  Over time, I think it will result in a net
+>> reduction of code in the kernel as the design is heavily focused on
+>> delegating work to userspace.
+> 
+> Both your goal and the Linux qos/filtering/action code is to be be
+> modular and move policy control out of the kernel. In our case,
+> any of the actions, classifiers, qos schedulers can be experimented 
+> with out of tree with zero patch needs and when ready pushed into the
+> kernel with zero code changes to the core. So nothing in what we have
+> says the policy control sits in the kernel.
+> 
+>> I would view it as similar in many ways to the recently added team
+>> device, which is based on the idea of keeping simple things simple.
+> 
+> Good analogy, but wrong direction: Bonding is a monolithic christmas
+> tree which people kept adding code to because it was "simpler" to do 
+> so.
+> Your code is heading that way because as openflow progresses or some 
+> new thing comes along (I notice capwap) you'll be adding more code for
+> more classifiers and more actions and maybe more schedulers and will
+> have to replicate things we provide. And they all go into this
+> monolithic code because it is "simpler".
+> 
+> Is there anything we do that makes it hard for you to use the
+> infrastructure provided? Is there anything you do that we cant 
+> provide via the classifier-action-scheduler infrastructure? 
+> If you need help let me know.
+> 
+> 
+> cheers,
+> jamal
+> 
 
-No, I understand your problem. What I meant above is to see whether you
-reproduce the crash caused by network + heavy IO :-)
+He is pushing and popping entire tags off 802.1Q for now but
+you can easily imagine MPLS tags and all sorts of other things
+people will _need_.
 
-> But then the machine crashes with recent kernels. After setting the 
-> cpu_partial files to 0 I tried to reproduce the same I/O pattern, *plus* a 
-> bit more, to really stress the machine, so load went up to 6-7 and the 
-> machine did not crash. So the load of 6-7 was expected and I'm glad that 
-> the machine did not crash with that workaround. I don't know of the 
-> implications of setting cpu_partial to 0 though.
+Do we want tc and likely the skbedit action to explode into a
+packet mangling tool? Would it make sense to plug into ebtables
+perhaps with a new family, NFPROTO_OPENFLOW or even on the
+existing NFPROTO_BRIDGE.
 
-Right. Now we want to check if that patch from Christoph fixes cpu
-partial.
+Although doing it with classifiers and more actions would flush
+out that TODO in act_mirred, and get us an mq_ingress among
+other things.
 
-> As soon as the build with Christoph's one-liner is done I'll test w/o 
-> setting cpu_partial to 0 and see what it gives.
-
-Thanks !
-
-Cheers,
-Ben.
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+.John
