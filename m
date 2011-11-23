@@ -1,86 +1,146 @@
-From: "G. D. Fuego" <gdfuego@gmail.com>
-Subject: Re: Finding a hidden bound TCP socket
-Date: Wed, 23 Nov 2011 15:27:33 -0500
-Message-ID: <CALmbKGVUuZs+wigpkr0WPfn2pYP=tQh5-MsYWeRxbug=HskVQQ@mail.gmail.com>
-References: <CALmbKGV0g2nfNAghF5dGrt=TCyrms6RznOL8jSkg+gkgyfekLg@mail.gmail.com>
-	<CAFLxGvynabpEcX2RwiLxatjOEzizj95jAVY6E4D9ymDpn8s9UA@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [ANNOUNCE] iproute2 v3.0.1
+Date: Wed, 23 Nov 2011 12:29:51 -0800
+Message-ID: <20111123122951.6ad25f74@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: richard -rw- weinberger <richard.weinberger@gmail.com>
+Content-Type: multipart/signed; micalg=PGP-SHA256;
+ boundary="Sig_/m3ujiHXs+hL2j_EucPxg_GD"; protocol="application/pgp-signature"
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFLxGvynabpEcX2RwiLxatjOEzizj95jAVY6E4D9ymDpn8s9UA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Any comments?  The behavior seems broken.  At the very least its very
-inconsistent with other Unixes.
+--Sig_/m3ujiHXs+hL2j_EucPxg_GD
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-On Tue, Nov 15, 2011 at 3:23 PM, richard -rw- weinberger
-<richard.weinberger@gmail.com> wrote:
-> On Tue, Nov 15, 2011 at 8:21 PM, G. D. Fuego <gdfuego@gmail.com> wrot=
-e:
->> Hello,
->>
->> I have a question about an odd linux networking behavior, that could
->> potentially be a local networking DoS. =A0I'm curious if anyone is
->> familiar with this behavior.
->>
->> Essentially I was assisting someone with tracking down a hidden tcp
->> connection. =A0Attempts to bind to a particular port were failing,
->> saying the socket was in use, even though netstat was not reporting
->> any sort of connection. =A0They were initially suspecting a root kit=
-,
->> but after a bit of digging, I came across this page:
->>
->> http://dcid.me/2007/06/hidden-ports-on-linux/
->>
->> From the page:
->>
->> "Here is the idea. If you get this simple C program, it will attempt
->> to bind every TCP port from 1025 to 1050, but it will not listen on
->> them. After it is done, if you do a netstat (or fuser or lsof) nothi=
-ng
->> will be shown. However, if you try to use the port, you will get an
->> error saying that it is already in use."
->>
->> I tested it out and confirmed that connections opened by their test
->> program do in fact cause the port to be unavailable for use, and the=
-y
->> are not reported in netstat, lsof, ss, or any other networking tools
->> that I tried. =A0I'm unable to to find any references to the ports b=
-eing
->> in use anywhere I've looked within /proc. =A0Are you aware of anothe=
-r
->> way to figure out which process may be bound to the port? =A0In our
->> case, we figured out via trial and error which software was likely
->> triggering this behavior.
->>
->> It seems to me that this could be a potentially interesting local
->> networking DoS. =A0By binding to all ephemeral ports in this way, yo=
-u'd
->> prevent the local system from being able to establish any tcp
->> connections, and it would be a pain to figure out which process was
->> causing the problem.
->>
->> My lame attempts to exploit this failed due to a max file descriptor
->> limit, but I'm told this could be doable by forking more processes f=
-or
->> doing the binding.
->>
->> Is this behavior known/expected?
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-kern=
-el" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->> Please read the FAQ at =A0http://www.tux.org/lkml/
->>
->
-> CC'ing netdev
->
-> --
-> Thanks,
-> //richard
->
+This version of iproute2 utilities intended for use with 3.1.0 or
+later kernel, but should be backward compatible with older releases.
+It includes many bug fixes for error cases, support for new kernel features,
+and manual enhancements.
+
+Source: no longer at linux-foundation
+  http://kernel.org/pub/linux/kernel/utils/networking/iproute2/iproute2-3.1=
+.0.gz
+
+Repository:
+  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+
+This version is signed with my GPG public key
+
+Report problems (or enhancements) to the netdev@vger.kernel.org mailing lis=
+t.
+
+Changelog since last version v2.6.39
+
+Andreas Henriksson (2):
+      iproute2: Fix building xt module against xtables version 6
+      iproute2: Remove "monitor" from "ip route help" output
+
+Bin Li (1):
+      ip: fix typo in ip link manual page
+
+Christoph Biedl (1):
+      ip: fix display of prefix cache info
+
+Dan McGee (6):
+      iproute2: Remove ChangeLog
+      Make iproute2 configure script more flexible
+      iptuntap: avoid double open
+      genl: remove unused code
+      ensure uptime is initialized if /proc/uptime cannot be opened
+      xt: only unset fields if m is non NULL
+
+David Ward (1):
+      xfrm: Update documentation
+
+Eric W. Biederman (3):
+      iproute2: Add processless network namespace support
+      iproute2: Auto-detect the presence of setns in libc
+      iproute2: Fail "ip netns add" on existing network namespaces.
+
+Florian Westphal (3):
+      tc: man: add man page for choke scheduler
+      tc: man: update sfq man page
+      tc: filter: fix default 'protocol all' on little-endian platforms
+
+Gilles Espinasse (1):
+      iproute2: fix minor typo in comments
+
+Jiri Benc (1):
+      iproute2: fix changing of ip6ip6 tunnel parameters
+
+Michal Soltys (2):
+      HFSC (7) & (8) documentation + assorted changes
+      HFS manpage changes
+
+Mike Frysinger (1):
+      tc: fix parallel build file with lex/yacc
+
+Petr Sabata (4):
+      iproute2: Remove unreachable code
+      iproute2: ss - fix missing parameters
+      iproute2: lnstat - fix typos
+      iproute2: arpd - fix usage and manpage options
+
+Petr =C5=A0abata (1):
+      Display closed UDP sockets on 'ss -ul'
+
+Sridhar Samudrala (1):
+      iproute2: Fix usage and man page for 'ip link'
+
+Stephen Hemminger (14):
+      Update .gitignore
+      Update kernel headers to 3.0
+      Fix test for EOF on continuation line
+      Remove redundant limits.h
+      Add QFQ scheduler
+      Add LLDP to ethernet type table
+      Update headers to 3.0.4
+      Add ntable to ip man page
+      ip: fix man page warnings
+      v3.0.0
+      Update to 3.1-rc9 kernel headers
+      ip: fix exit codes
+      cleanup ematch yacc files
+      v3.1.0
+
+Thomas Jarosch (12):
+      Fix pipe I/O stream descriptor leak in init_service_resolver()
+      Fix file descriptor leak on error in rtnl_hash_initialize()
+      Fix wrong comparison in cmp_print_eopt()
+      Fix wrong sanity check in choke_parse_opt()
+      Fix memory leak of lname variable in get_target_name()
+      Add missing closedir() call in do_show()
+      Fix file descriptor leak on error in iproute_flush_cache()
+      Fix file descriptor leak on error in read_viftable()
+      Fix file descriptor leak on error in read_mroute_list()
+      Fix file descriptor leak in do_tunnels_list()
+      Fix file descriptor leak on error in read_igmp()
+      Fix unterminated readlink() buffer usage
+
+
+--Sig_/m3ujiHXs+hL2j_EucPxg_GD
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBCAAGBQJOzVe/AAoJEICnf2CVzeR+V/MQAMjcK6cY68UoPEwi36h0fj8X
+6vdj20f5xm5aFZfyPfUkZBjwX41eB5L+aiUARd61DG2Wle3R/skOl0V2byU1tC3d
+PukF8cM8AUyfajVSorP0rcxV3kDs7/pGksAqmI6D9IiQGF32adRWjLh3sQm1Ppn/
+QagTcBImhLTePkFrk7PlxptM0DH9hnm/uN0lRoZ7K4O6WwXTrJKaK9ymvdEIaJND
++5zXExWNWeIBX2w8auEvi8S/Q8Rd3vxraFlAU5rrqRJ/QNJYlzBxk1XBRpF3Rnk4
+QLpNAbgifGJ9xAVYgnhT34bYJPtUAtVGlt3VDTuY03GJB+BSgaJJpOWND8lisKaZ
+AF9/GIVSzAEoLWqnmeaFJlrSUgvhfiGEkpY082//avdSU9+Gx6FVG8ps7NboeiNf
+KxU2G6oZVHrXzG4u/3mVGssG7+ZZTAD9JDqFG2xuv69avHI4/iYa+plM+DZeK0eq
+cty9aUPUCbLbPSbUVq5TImkdQCR8O9+fEfn/3Hh+3n/Td4PfRzWoglmx9vvn8mY9
+G8QlDPdI0HJ+oKpPiKX7QpAQ1HSt15ZjbIgu/5vbHtdrC1zeBUiYF+Dc4/I1/xms
++4cWs3ZcLwyruI5fnzkTCnsGqjHu4PxtBvuMNIrm1DFYCFqmbt9JuQPM0Zc10qkI
+8JXeddHEqBeL3S8bM4Cm
+=XPHQ
+-----END PGP SIGNATURE-----
+
+--Sig_/m3ujiHXs+hL2j_EucPxg_GD--
