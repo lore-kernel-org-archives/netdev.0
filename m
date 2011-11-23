@@ -1,49 +1,23 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [patch] netrom: check that user string is terminated
-Date: Wed, 23 Nov 2011 19:12:49 +0000
-Message-ID: <20111123191249.GB7260@linux-mips.org>
-References: <20111123065240.GD6871@elgon.mountain>
- <4ECCAD38.9090309@bfs.de>
+From: Arvid Brodin <arvid.brodin@enea.com>
+Subject: header_ops and virtual devices
+Date: Wed, 23 Nov 2011 20:26:44 +0100
+Message-ID: <4ECD48F4.40501@enea.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: walter harms <wharms@bfs.de>
-Return-path: <linux-hams-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4ECCAD38.9090309@bfs.de>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sestofw01.enea.se ([192.36.1.252]:20732 "HELO mx-3.enea.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1753323Ab1KWT0u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Nov 2011 14:26:50 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 23, 2011 at 09:22:16AM +0100, walter harms wrote:
+Which device's header_ops->create() is called when several devices are
+involved in the egress path of a frame? For example, with VLAN configured?
+I'm having a hard time following the code...
 
-> I am not sure that it does what you intends.
-> mnemonic is an array and a  malicious use may fill it upto the last char
-> causing strlen go beyond. perhaps this may help:
-
-Correct, it makes thigs worse.  I'm going to reply in detail later tonight,
-have to bail out now.
-
-> >  		if ((dev = nr_ax25_dev_get(nr_route.device)) == NULL)
-> >  			return -EINVAL;
-> while you are here:
-> 
-> 	dev = nr_ax25_dev_get(nr_route.device);
-> 	if ( dev == NULL )
-> 		return -EINVAL;
-> 
-> >  		if (nr_route.ndigis < 0 || nr_route.ndigis > AX25_MAX_DIGIS) {
-> 
-> if guess "nr_route.ndigis >= AX25_MAX_DIGIS" is intended ?
-
-No, values of 0 .. AX25_MAX_DIGIS are permitted with zero meaning no
-digipeater at all.
-
-The actual bug if you want to call it that in this line is cosmetic -
-nr_route.ndigis is an unsigned int so nr_route.ndigis < 0 will never become
-true.  There are other simplifications possible to the error checking
-here.  I've whipped a cleanup patch for this part of the code.
-
-  Ralf
+-- 
+Arvid Brodin
+Enea Services Stockholm AB
