@@ -1,33 +1,78 @@
 From: Alex Juncu <ajuncu@ixiacom.com>
-Subject: [PATCH 0/1] Adding examples in ip man page on basic use of the ip
+Subject: [PATCH 1/1] Adding examples in ip man page on basic use of the ip
  command.
-Date: Thu, 24 Nov 2011 14:00:32 +0200
-Message-ID: <4ECE31E0.3050403@ixiacom.com>
+Date: Thu, 24 Nov 2011 14:00:54 +0200
+Message-ID: <4ECE31F6.4070002@ixiacom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <shemminger@vyatta.com>
-To: <netdev@vger.kernel.org>
+To: <netdev@vger.kernel.org>, <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 207.47.100.214.static.nextweb.net ([207.47.100.214]:55944 "EHLO
+Received: from 207.47.100.214.static.nextweb.net ([207.47.100.214]:1592 "EHLO
 	ixqw-mail-out.ixiacom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752685Ab1KXMFl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 07:05:41 -0500
+	with ESMTP id S1753789Ab1KXMGW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 07:06:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+---
+  man/man8/ip.8 |   43 +++++++++++++++++++++++++++++++++++++++++++
+  1 files changed, 43 insertions(+), 0 deletions(-)
 
-I believe that some people are scared by the size of the ip man page 
-(1600 lines vs 180 of ifconfig) and don't use iproute2 because they 
-can't figure out how to use it. A lot of man pages for other tools 
-provide examples on how to use the tool with its basic features.
+diff --git a/man/man8/ip.8 b/man/man8/ip.8
+index a20eca7..99c8953 100644
+--- a/man/man8/ip.8
++++ b/man/man8/ip.8
+@@ -2855,6 +2855,49 @@ can be
+  .SS ip xfrm monitor - state monitoring for xfrm objects
+  The xfrm objects to monitor can be optionally specified.
 
-So I am suggesting adding a couple of examples to the man page of 
-iproute2 (ip command) in order to be more friendly for beginners.
-
-This is the first time I submit a patch (even if it is a very small one) 
-and I hope I got the procedure right.
-
---
-Alexandru Juncu
++.SH EXAMPLES
++.LP
++To turn on an interface:
++.RS
++.nf
++.B ip link set up dev eth0
++.fi
++.RE
++.LP
++To add an IPv4 address to an interface:
++.RS
++.nf
++.B ip address add 141.85.37.42/24 dev eth0
++.fi
++.RE
++.LP
++To add a default route in the IPv4 routing table using a next hop IP 
+address:
++.RS
++.nf
++.B ip route add  default via 141.85.37.1
++.fi
++.RE
++.LP
++Equivalent ways of listing address information for all the interfaces:
++.RS
++.nf
++.B ip addr show
++.fi
++.RE
++.LP
++.RS
++.nf
++.B ip a s
++.fi
++.RE
++.LP
++.RS
++.nf
++.B ip a
++.fi
++.RE
++.LP
++
+  .SH HISTORY
+  .B ip
+  was written by Alexey N. Kuznetsov and added in Linux 2.2.
+-- 
+1.7.4.1
