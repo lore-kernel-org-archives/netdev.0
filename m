@@ -1,76 +1,54 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: [PATCH] can: sja1000_isa: fix "limited range" compiler warnings
-Date: Thu, 24 Nov 2011 10:08:35 +0100
-Message-ID: <4ECE0993.6050902@grandegger.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-To: Netdev@vger.kernel.org
+From: roy.qing.li@gmail.com
+Subject: [PATCH] ipv4: remove useless codes in ipmr_device_event()
+Date: Thu, 24 Nov 2011 17:10:52 +0800
+Message-ID: <1322125852-15395-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:53790 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753949Ab1KXJLJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 04:11:09 -0500
+Received: by iage36 with SMTP id e36so2731839iag.19
+        for <netdev@vger.kernel.org>; Thu, 24 Nov 2011 01:11:09 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the compiler warnings: "comparison is always
-false due to limited range of data type" by using "0xff" instead
-of "-1" for unsigned values.
+From: RongQing.Li <roy.qing.li@gmail.com>
 
-Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+Commit 7dc00c82 added a 'notify' parameter for vif_delete() to
+distinguish whether to unregister the device.
+
+When notify=1 means we does not need to unregister the device,
+so calling unregister_netdevice_many is useless.
+
+Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
 ---
- drivers/net/can/sja1000/sja1000_isa.c |   24 ++++++++++++------------
- 1 files changed, 12 insertions(+), 12 deletions(-)
+ net/ipv4/ipmr.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/can/sja1000/sja1000_isa.c b/drivers/net/can/sja1000/sja1000_isa.c
-index 496223e..f0840d5 100644
---- a/drivers/net/can/sja1000/sja1000_isa.c
-+++ b/drivers/net/can/sja1000/sja1000_isa.c
-@@ -44,9 +44,9 @@ static unsigned long port[MAXDEV];
- static unsigned long mem[MAXDEV];
- static int __devinitdata irq[MAXDEV];
- static int __devinitdata clk[MAXDEV];
--static char __devinitdata cdr[MAXDEV] = {[0 ... (MAXDEV - 1)] = -1};
--static char __devinitdata ocr[MAXDEV] = {[0 ... (MAXDEV - 1)] = -1};
--static char __devinitdata indirect[MAXDEV] = {[0 ... (MAXDEV - 1)] = -1};
-+static unsigned char __devinitdata cdr[MAXDEV] = {[0 ... (MAXDEV - 1)] = 0xff};
-+static unsigned char __devinitdata ocr[MAXDEV] = {[0 ... (MAXDEV - 1)] = 0xff};
-+static int __devinitdata indirect[MAXDEV] = {[0 ... (MAXDEV - 1)] = -1};
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 76a7f07..8e54490 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1520,7 +1520,6 @@ static int ipmr_device_event(struct notifier_block *this, unsigned long event, v
+ 	struct mr_table *mrt;
+ 	struct vif_device *v;
+ 	int ct;
+-	LIST_HEAD(list);
  
- module_param_array(port, ulong, NULL, S_IRUGO);
- MODULE_PARM_DESC(port, "I/O port number");
-@@ -54,7 +54,7 @@ MODULE_PARM_DESC(port, "I/O port number");
- module_param_array(mem, ulong, NULL, S_IRUGO);
- MODULE_PARM_DESC(mem, "I/O memory address");
- 
--module_param_array(indirect, byte, NULL, S_IRUGO);
-+module_param_array(indirect, int, NULL, S_IRUGO);
- MODULE_PARM_DESC(indirect, "Indirect access via address and data port");
- 
- module_param_array(irq, int, NULL, S_IRUGO);
-@@ -189,17 +189,17 @@ static int __devinit sja1000_isa_probe(struct device *pdev, unsigned int idx)
- 	else
- 		priv->can.clock.freq = CLK_DEFAULT / 2;
- 
--	if (ocr[idx] != -1)
--		priv->ocr = ocr[idx] & 0xff;
--	else if (ocr[0] != -1)
--		priv->ocr = ocr[0] & 0xff;
-+	if (ocr[idx] != 0xff)
-+		priv->ocr = ocr[idx];
-+	else if (ocr[0] != 0xff)
-+		priv->ocr = ocr[0];
- 	else
- 		priv->ocr = OCR_DEFAULT;
- 
--	if (cdr[idx] != -1)
--		priv->cdr = cdr[idx] & 0xff;
--	else if (cdr[0] != -1)
--		priv->cdr = cdr[0] & 0xff;
-+	if (cdr[idx] != 0xff)
-+		priv->cdr = cdr[idx];
-+	else if (cdr[0] != 0xff)
-+		priv->cdr = cdr[0];
- 	else
- 		priv->cdr = CDR_DEFAULT;
+ 	if (event != NETDEV_UNREGISTER)
+ 		return NOTIFY_DONE;
+@@ -1529,10 +1528,9 @@ static int ipmr_device_event(struct notifier_block *this, unsigned long event, v
+ 		v = &mrt->vif_table[0];
+ 		for (ct = 0; ct < mrt->maxvif; ct++, v++) {
+ 			if (v->dev == dev)
+-				vif_delete(mrt, ct, 1, &list);
++				vif_delete(mrt, ct, 1, NULL);
+ 		}
+ 	}
+-	unregister_netdevice_many(&list);
+ 	return NOTIFY_DONE;
+ }
  
 -- 
-1.7.4.1
+1.7.1
