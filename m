@@ -1,41 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 5/5] ipv4: Don't use the cached pmtu informations for
-	input routes
-Date: Thu, 24 Nov 2011 20:06:48 +0800
-Message-ID: <20111124120648.GB18807@gondor.apana.org.au>
-References: <20111123155245.GA11638@gondor.apana.org.au> <20111123.164941.1950228526500366081.davem@davemloft.net> <20111124001035.GA14996@gondor.apana.org.au> <20111123.191758.1061988020384521241.davem@davemloft.net> <20111124010147.GA15318@gondor.apana.org.au> <20111124084952.GF6348@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:50791 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750757Ab1KXMG5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 07:06:57 -0500
-Content-Disposition: inline
-In-Reply-To: <20111124084952.GF6348@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: [PATCH next-next 0/2] can: cc770: add support for the Bosch CC770 and Intel AN82527
+Date: Thu, 24 Nov 2011 13:07:26 +0100
+Message-ID: <1322136448-7311-1-git-send-email-wg@grandegger.com>
+Cc: linux-can@vger.kernel.org, socketcan-users@lists.berlios.de,
+	IreneV <boir1@yandex.ru>,
+	Stanislav Yelenskiy <stanislavelensky@yahoo.com>,
+	Wolfgang Grandegger <wg@grandegger.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 24, 2011 at 09:49:52AM +0100, Steffen Klassert wrote:
->
-> Well, it simply got unpredictable how long pmtu propagation takes.
-> This depends now on the network activity of the routers and on the
-> individual configuration of the expiration time on each router. With
-> the original behaviour, we could expect to notice a pmtu increase
-> if we probe after our timeout X. Now we don't know when this is going
-> to happen.
+Already since a while we have support for the Bosch CC770 and Intel
+AN82527 CAN controllers in our out-of-tree Socket-CAN repository.
+It would be nice if somebody could test the driver. Unfortunately,
+I currently do not have hardware at hand. I have not yet ported the
+OF platform driver as it needs further attaention due to the merge
+of the platform and OF platform interface.
 
-With IPsec tunnel mode this already happens to an extent anyway.
-Any PMTU event outside the tunnel is invisible to hosts within it.
-Only the router can see those events.
+Wolfgang Grandegger (2):
+  can: cc770: add driver core for the Bosch CC770 and Intel AN82527
+  can: cc770: legacy CC770 ISA bus driver
 
-However, as I said I'm not too bothered with this so feel free
-to go with your patch.
+ drivers/net/can/Kconfig           |    2 +
+ drivers/net/can/Makefile          |    1 +
+ drivers/net/can/cc770/Kconfig     |   14 +
+ drivers/net/can/cc770/Makefile    |    8 +
+ drivers/net/can/cc770/cc770.c     |  895 +++++++++++++++++++++++++++++++++++++
+ drivers/net/can/cc770/cc770.h     |  247 ++++++++++
+ drivers/net/can/cc770/cc770_isa.c |  337 ++++++++++++++
+ 7 files changed, 1504 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/can/cc770/Kconfig
+ create mode 100644 drivers/net/can/cc770/Makefile
+ create mode 100644 drivers/net/can/cc770/cc770.c
+ create mode 100644 drivers/net/can/cc770/cc770.h
+ create mode 100644 drivers/net/can/cc770/cc770_isa.c
 
-Cheers,
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.7.4.1
+
