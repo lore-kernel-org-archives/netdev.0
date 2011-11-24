@@ -1,75 +1,122 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Open vSwitch Design
-Date: Thu, 24 Nov 2011 12:10:42 -0800
-Message-ID: <CAEP_g=_2L1xFWtDXh_6YyXz1Mt9TR3zvjLzix+SpO6yzeOLsSQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Chris Wright <chrisw@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Justin Pettit <jpettit@nicira.com>, jhs@mojatatu.com
-To: netdev <netdev@vger.kernel.org>, dev@openvswitch.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:64119 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751618Ab1KXULE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 15:11:04 -0500
-Received: by ghrr1 with SMTP id r1so2848258ghr.19
-        for <netdev@vger.kernel.org>; Thu, 24 Nov 2011 12:11:03 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: [PATCH] at91_ether: use gpio_is_valid for phy IRQ line
+Date: Thu, 24 Nov 2011 22:21:14 +0100
+Message-ID: <1322169674-4109-1-git-send-email-nicolas.ferre@atmel.com>
+References: <1322128098-17724-1-git-send-email-jamie@jamieiles.com>
+Cc: plagnioj@jcrosoft.com, sfr@canb.auug.org.au,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Nicolas Ferre <nicolas.ferre@atmel.com>
+To: jamie@jamieiles.com, netdev@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1322128098-17724-1-git-send-email-jamie@jamieiles.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I realized that since Open vSwitch is so userspace-centric some of the
-design considerations might not be apparent from the kernel code
-alone.  I did a poor job of explaining the larger picture which has
-lead to some misconceptions, so I thought it would be helpful if I
-gave a short overview.
+Use the generic gpiolib gpio_is_valid() function to test
+if the phy IRQ line GPIO is actually provided.
 
-One of the driving goals was to push as much logic as possible to
-userspace, so the kernel portion is less than 6000 lines and has four
-components:
+For non-connected or non-existing phy IRQ lines, -EINVAL
+value is used for phy_irq_pin field of struct at91_eth_data.
 
- * Switching infrastructure:  As the name implies, Open vSwitch is
-intended to be a network switch, focused on
-virtualization/OpenFlow/software defined networking.  This means that
-what we are modeling is not actually a collection of flows but a
-switch which contains a group of related ports, a software virtual
-device, etc.  The switch model is used in a variety of places, such as
-to measure traffic that actually flows through it in order to
-implement monitoring and sampling protocols.
+Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+---
+ drivers/net/ethernet/cadence/at91_ether.c |   23 +++++++++++++----------
+ 1 files changed, 13 insertions(+), 10 deletions(-)
 
- * Flow lookup:  Although used to implement OpenFlow, the kernel flow
-table does not actually directly contain OpenFlow flows.  This is
-because OpenFlow tables can contain wildcards, multiple pipeline
-stages, etc. and we did not want to push that complexity into the
-kernel fast path (nor tie it to a specific version of OpenFlow).
-Instead an exact match flow table is populated on-demand from
-userspace based on the more complex rules stored there.  Although it
-might seem limiting, this design has allowed significant new
-functionality to be added without modifications to the kernel or
-performance impact.
-
- * Packet execution:  Once a flow is matched it can be output,
-enqueued to a particular qdisc, etc.  Some of these operations are
-specific to Open vSwitch, such as sampling, whereas others we leverage
-existing infrastructure (including tc for QoS) by simply marking the
-packet for further processing.
-
- * Userspace interfaces:  One of the difficulties of having a
-specialized, exact match flow lookup engine is maintaining
-compatibility across differing kernel/userspace versions.  This
-compatibility shows up heavily in the userspace interfaces and is
-achieved by passing the kernel's version of the flow along with packet
-information.  This allows userspace to install appropriate flows even
-if its interpretation of a packet differs from the kernel's without
-version checks or maintaining multiple implementations of the flow
-extraction code in the kernel.
-
-It's obviously possible to put this code anywhere, whether it is an
-independent module, in the bridge, or tc.  Regardless, however, it's
-largely new code that is geared towards this particular model so it
-seems better not to add to the complexity of existing components if at
-all possible.
+diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
+index 56624d3..a1c4143 100644
+--- a/drivers/net/ethernet/cadence/at91_ether.c
++++ b/drivers/net/ethernet/cadence/at91_ether.c
+@@ -255,8 +255,7 @@ static void enable_phyirq(struct net_device *dev)
+ 	unsigned int dsintr, irq_number;
+ 	int status;
+ 
+-	irq_number = lp->board_data.phy_irq_pin;
+-	if (!irq_number) {
++	if (!gpio_is_valid(lp->board_data.phy_irq_pin)) {
+ 		/*
+ 		 * PHY doesn't have an IRQ pin (RTL8201, DP83847, AC101L),
+ 		 * or board does not have it connected.
+@@ -265,6 +264,7 @@ static void enable_phyirq(struct net_device *dev)
+ 		return;
+ 	}
+ 
++	irq_number = lp->board_data.phy_irq_pin;
+ 	status = request_irq(irq_number, at91ether_phy_interrupt, 0, dev->name, dev);
+ 	if (status) {
+ 		printk(KERN_ERR "at91_ether: PHY IRQ %d request failed - status %d!\n", irq_number, status);
+@@ -319,8 +319,7 @@ static void disable_phyirq(struct net_device *dev)
+ 	unsigned int dsintr;
+ 	unsigned int irq_number;
+ 
+-	irq_number = lp->board_data.phy_irq_pin;
+-	if (!irq_number) {
++	if (!gpio_is_valid(lp->board_data.phy_irq_pin)) {
+ 		del_timer_sync(&lp->check_timer);
+ 		return;
+ 	}
+@@ -365,6 +364,7 @@ static void disable_phyirq(struct net_device *dev)
+ 	disable_mdi();
+ 	spin_unlock_irq(&lp->lock);
+ 
++	irq_number = lp->board_data.phy_irq_pin;
+ 	free_irq(irq_number, dev);			/* Free interrupt handler */
+ }
+ 
+@@ -1077,7 +1077,7 @@ static int __init at91ether_setup(unsigned long phy_type, unsigned short phy_add
+ 	netif_carrier_off(dev);		/* will be enabled in open() */
+ 
+ 	/* If board has no PHY IRQ, use a timer to poll the PHY */
+-	if (!lp->board_data.phy_irq_pin) {
++	if (!gpio_is_valid(lp->board_data.phy_irq_pin)) {
+ 		init_timer(&lp->check_timer);
+ 		lp->check_timer.data = (unsigned long)dev;
+ 		lp->check_timer.function = at91ether_check_link;
+@@ -1169,7 +1169,8 @@ static int __devexit at91ether_remove(struct platform_device *pdev)
+ 	struct net_device *dev = platform_get_drvdata(pdev);
+ 	struct at91_private *lp = netdev_priv(dev);
+ 
+-	if (lp->board_data.phy_irq_pin >= 32)
++	if (gpio_is_valid(lp->board_data.phy_irq_pin) &&
++	    lp->board_data.phy_irq_pin >= 32)
+ 		gpio_free(lp->board_data.phy_irq_pin);
+ 
+ 	unregister_netdev(dev);
+@@ -1188,11 +1189,12 @@ static int at91ether_suspend(struct platform_device *pdev, pm_message_t mesg)
+ {
+ 	struct net_device *net_dev = platform_get_drvdata(pdev);
+ 	struct at91_private *lp = netdev_priv(net_dev);
+-	int phy_irq = lp->board_data.phy_irq_pin;
+ 
+ 	if (netif_running(net_dev)) {
+-		if (phy_irq)
++		if (gpio_is_valid(lp->board_data.phy_irq_pin)) {
++			int phy_irq = lp->board_data.phy_irq_pin;
+ 			disable_irq(phy_irq);
++		}
+ 
+ 		netif_stop_queue(net_dev);
+ 		netif_device_detach(net_dev);
+@@ -1206,7 +1208,6 @@ static int at91ether_resume(struct platform_device *pdev)
+ {
+ 	struct net_device *net_dev = platform_get_drvdata(pdev);
+ 	struct at91_private *lp = netdev_priv(net_dev);
+-	int phy_irq = lp->board_data.phy_irq_pin;
+ 
+ 	if (netif_running(net_dev)) {
+ 		clk_enable(lp->ether_clk);
+@@ -1214,8 +1215,10 @@ static int at91ether_resume(struct platform_device *pdev)
+ 		netif_device_attach(net_dev);
+ 		netif_start_queue(net_dev);
+ 
+-		if (phy_irq)
++		if (gpio_is_valid(lp->board_data.phy_irq_pin)) {
++			int phy_irq = lp->board_data.phy_irq_pin;
+ 			enable_irq(phy_irq);
++		}
+ 	}
+ 	return 0;
+ }
+-- 
+1.7.5.4
