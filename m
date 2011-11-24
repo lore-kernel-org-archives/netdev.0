@@ -1,67 +1,57 @@
-From: Dave Taht <dave.taht@gmail.com>
-Subject: Re: [PATCH v3 03/10] net: Add netdev interfaces recording send/compl
-Date: Thu, 24 Nov 2011 08:30:26 +0100
-Message-ID: <CAA93jw6OuuUhSMMnmX3k2=+HB3A92X3CrvfbPHDGV=0fbS-YOA@mail.gmail.com>
-References: <20111123094614.36560215@nehalam.linuxnetplumber.net>
-	<20111123.185812.1721878183759040757.davem@davemloft.net>
-	<20111123160320.76143e3b@nehalam.linuxnetplumber.net>
-	<20111123.190623.2026426589805797580.davem@davemloft.net>
-	<CA+mtBx-VSJ6U2SyUxQt7eK9+cXFFAEQXgmhc+yWwpTX8zd6TJA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH] net: fsl_pq_mdio: fix oops when using uninitialized mutex
+Date: Thu, 24 Nov 2011 01:50:58 -0600
+Message-ID: <2465EDAB-01F8-4D5B-9950-E5F180E8A435@kernel.crashing.org>
+References: <59b050a97a9b5382918b66f2850a80c86e52f409.1320736936.git.baruch@tkos.co.il> <CAKWjMd5WCx8pSJiL5U_WkD6XA5dSZLgLZkvMA6sjAKNuAz7PKg@mail.gmail.com>
+Mime-Version: 1.0 (Apple Message framework v1251.1)
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Baruch Siach <baruch@tkos.co.il>, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org,
+	Andy Fleming <afleming@freescale.com>
+To: Andy Fleming <afleming@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:43132 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751450Ab1KXHa1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 02:30:27 -0500
-Received: by qyd20 with SMTP id 20so986346qyd.19
-        for <netdev@vger.kernel.org>; Wed, 23 Nov 2011 23:30:26 -0800 (PST)
-In-Reply-To: <CA+mtBx-VSJ6U2SyUxQt7eK9+cXFFAEQXgmhc+yWwpTX8zd6TJA@mail.gmail.com>
+Received: from gate.crashing.org ([63.228.1.57]:33854 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750810Ab1KXHv0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 02:51:26 -0500
+In-Reply-To: <CAKWjMd5WCx8pSJiL5U_WkD6XA5dSZLgLZkvMA6sjAKNuAz7PKg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 24, 2011 at 1:32 AM, Tom Herbert <therbert@google.com> wrot=
-e:
->>> I was referring to the transmit routine, there for netdev_sent_queu=
-e()
->>> is always called with one packet.
->>
->> Optimism for the future? :-)
->>
->
-> Yep, I am looking forward to the day that someone figures out how to
-> batch transmits in a meaningful way!
 
-I liked it in potentia, as wireless likes to aggregate packets into
-batches that fit into an AMPDU directed at a single station
-and/or TXOP.
+On Nov 9, 2011, at 2:10 PM, Andy Fleming wrote:
 
-not that BQL can help there at present as this happens below the
-mac80211 layer, and packets vanish once consumed by the driver.
+>> Fix this by moving the of_mdiobus_register() call earlier.
+>> 
+>> Cc: Andy Fleming <afleming@freescale.com>
+>> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+>> ---
+>>  drivers/net/ethernet/freescale/fsl_pq_mdio.c |   14 +++++++-------
+>>  1 files changed, 7 insertions(+), 7 deletions(-)
+>> 
+>> diff --git a/drivers/net/ethernet/freescale/fsl_pq_mdio.c b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
+>> index 52f4e8a..e17fd2f 100644
+>> --- a/drivers/net/ethernet/freescale/fsl_pq_mdio.c
+>> +++ b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
+>> @@ -385,6 +385,13 @@ static int fsl_pq_mdio_probe(struct platform_device *ofdev)
+>>                        tbiaddr = *prop;
+>>        }
+>> 
+>> +       err = of_mdiobus_register(new_bus, np);
+>> +       if (err) {
+>> +               printk (KERN_ERR "%s: Cannot register as MDIO bus\n",
+>> +                               new_bus->name);
+>> +               goto err_free_irqs;
+>> +       }
+>> +
+> 
+> 
+> This fix totally breaks the point of setting tbipa beforehand.
+> mdiobus_register will cause the bus to be scanned, and if any of the
+> PHYs are at the default address for tbipa, they won't be found. I have
+> a different fix which I will (re)submit today.
 
->
->> But yeah if nobody batches right now, no reason to support this in t=
-he
->> interfaces, we can add it later.
->
-> Okay.
->
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+What happened here, did you send a patch?
 
-
-
---=20
-Dave T=E4ht
-SKYPE: davetaht
-US Tel: 1-239-829-5608
-=46R Tel: 0638645374
-http://www.bufferbloat.net
+- k
