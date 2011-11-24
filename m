@@ -1,24 +1,23 @@
-From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Subject: Re: [GIT PULL v2] Open vSwitch
-Date: Thu, 24 Nov 2011 08:19:39 -0500
-Message-ID: <1322140779.1949.191.camel@mojatatu>
-References: <20111123075433.GA7928@gondor.apana.org.au>
-	<1322035942.1298.56.camel@edumazet-laptop>
-	<1322052463.2039.135.camel@mojatatu>
-	<1322052938.17693.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1322055858.2039.188.camel@mojatatu>  <4ECD19AC.8090505@intel.com>
+From: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
+Subject: Re: [PATCH net-next 4/4] net: Add Open vSwitch kernel
+ components.
+Date: Thu, 24 Nov 2011 08:25:02 -0500
+Message-ID: <1322141102.1949.198.camel@mojatatu>
+References: <1321657938-21761-1-git-send-email-jesse@nicira.com>
+	<1321657938-21761-5-git-send-email-jesse@nicira.com>
+	<1321878007.2291.12.camel@mojatatu>
+	<CAEP_g=8puZh8hihoyoHTc4f6cBu4jiDJQ6tqk6suQxR=dchyjA@mail.gmail.com>
+	<1322012755.2039.36.camel@mojatatu>
+	<E521938A-E5E5-48CE-B784-6BF38ED274AE@nicira.com>
+Reply-To: jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Lennert Buytenhek <kernel-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Justin Pettit <jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <4ECD19AC.8090505-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <E521938A-E5E5-48CE-B784-6BF38ED274AE-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
 	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -30,68 +29,41 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-11-23 at 08:05 -0800, John Fastabend wrote:
+Hi Justin,
 
-> > Makes sense in most cases. If you have a lot of flow setup/teardown
-> > it may harm.
-> 
-> We could have a CONFIG option to always do locking in some
-> cases if thats not too ugly.
+I apologize, I did not intend to demean your work. There
+are lots of clever ideas in there and you may have wanted
+to put out something in a short period out there.
 
-What i mean is RCU is useful when you have a substantially 
-larger reads over writes(DEL/updates). The later comes up
-when you are setting up and tearing down state all the
-time. Actually, I think conntrack uses rcu now - that would
-be a good metric of how much useful it is since conntrack
-falls under this category.
+The most basic IMO is to use netlink if you are doing
+it from a programmatic interface. You seem to be doing that
+already for other items (eg HTB) in the setup. There are
+a few libraries out there you could use but i realize
+that they may not match your license requirements.
+Maybe you could isolate your netlink code and make it 
+standalone based on the license you use and people who 
+need that could use it.
 
-> I assume you mean something like setup_tc() which we have
-> today to call into into the driver at qdisc create time. This
-> happens with the RTNL held. I don't see any reason not to also
-> call into the hardware on qdisc_change() I just haven't done
-> it yet.
-
-Yes, the operative piece is "also". In other words, I should be
-able to run tc qdisc blah and not see the difference.
-In the distant past what i have done in the case of absence of software
-support is to write the "hwardware" scheduler in the kernel. If we
-already have the hardware support, then there is no need for that step.
-Let tc be responsible for controlling this "hardware" qdisc. It doesnt
-talk to the hardware.
-A user space helper app listens to things being added and deleted by
-tc in the kernel and synchronizes them via a driver-specific call.
-Different drivers tend to have different lower layer "hard-coded" 
-ways of setting up the hardware; so you may end up with different
-backends.
-The challenge is synchronizing stats.
-
-> Although I'm pretty sure we don't want to add a new ndo_ops
-> ever time we have some hardware feature we want to expose.
-> Assuming there are more than 1 or 2 hw features. So maybe
-> we could convert to something more generic. A setup_qos()
-> call that passes an skb with nl attributes.
-
-You only need one - call it "hardware_setup" so you can do
-other esoteric things with it.
-
-> Is that what you were asking?
-
-Something like that. I described how i did it - but thats because
-I wanted to make zero changes to the kernel. It is better to have
-kernel support of some sort but you dont want to do too much
-otherwise you start adding a lot of shit in the kernel like
-the infiniband guys. Have a user space helper when in doubt.
-I almost forgot, a good example (of good work in the kernel already)
-you wanna take  a look at is something Lennert (added to CC) did for
-Marvel chips (i think it is called DSA). 
-
-> One of the problems this resolves is not being able to
-> call the classifier-actions until after the queue is
-> already selected. At this point you can't send it to
-> a higher/lower priority queue.
-> 
-
-Still blanking out - will wait for the code to comment.
+The other thing, is you match every flow on the specific
+virtual port - this may be design intent but it appears
+very inflexible.
 
 cheers,
 jamal
+
+On Wed, 2011-11-23 at 18:34 -0800, Justin Pettit wrote:
+> On Nov 22, 2011, at 5:45 PM, Jamal Hadi Salim wrote:
+> 
+> > BTW, you  _are using some of the actions_ already (the policer for
+> > example to do rate control; no disrespect intended but in a terrible
+> > way). 
+> 
+> Hi, Jamal.  I did the initial implementation of the rate control in Open vSwitch.  
+> Can you help us out with a few more specifics on the problems you see and how they 
+> could be improved?
+> 
+> Thanks,
+> 
+> --Justin
+> 
+> 
