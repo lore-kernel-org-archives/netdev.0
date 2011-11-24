@@ -1,192 +1,132 @@
-From: kaber@trash.net
-Subject: [PATCH 04/18] netfilter: nat: remove module reference counting from NAT protocols
-Date: Thu, 24 Nov 2011 17:57:15 +0100
-Message-ID: <1322153850-10533-5-git-send-email-kaber@trash.net>
-References: <1322153850-10533-1-git-send-email-kaber@trash.net>
-Cc: netdev@vger.kernel.org, kaber@trash.net, ulrich.weber@sophos.com
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1322153850-10533-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: [PATCH net-next 2/2] netem: add cell concept to simulate special MAC behavior
+Date: Thu, 24 Nov 2011 18:39:37 +0100
+Message-ID: <1322156378-23257-2-git-send-email-hagen@jauu.net>
+References: <1322156378-23257-1-git-send-email-hagen@jauu.net>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:37273 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751196Ab1KXRjv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 12:39:51 -0500
+In-Reply-To: <1322156378-23257-1-git-send-email-hagen@jauu.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+This extension can be used to simulate special link layer
+characteristics. Simulate because packet data is not modified, only the
+calculation base is changed to delay a packet based on the original
+packet size and artificial cell information.
 
-The only remaining user of NAT protocol module reference counting is NAT
-ctnetlink support. Since this is a fairly short sequence of code, convert
-over to use RCU and remove module reference counting.
+packet_overhead can be used to simulate a link layer header compression
+scheme (e.g. set packet_overhead to -20) or with a positive
+packet_overhead value an additional MAC header can be simulated. It is
+also possible to "replace" the 14 byte Ethernet header with something
+else.
 
-Module unregistration is already protected by RCU using synchronize_rcu(),
-so no further changes are necessary.
+cell_size and cell_overhead can be used to simulate link layer schemes,
+based on cells, like some TDMA schemes. Another application area are MAC
+schemes using a link layer fragmentation with a (small) header each.
+Cell size is the maximum amount of data bytes within one cell. Cell
+overhead is an additional variable to change the per-cell-overhead (e.g.
+5 byte header per fragment).
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Example (5 kbit/s, 20 byte per packet overhead, cellsize 100 byte, per
+cell overhead 5 byte):
+
+	tc qdisc add dev eth0 root netem ratelatency 5kbit 20 100 5
+
+Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
 ---
- include/net/netfilter/nf_nat_protocol.h   |    2 --
- net/ipv4/netfilter/nf_nat_core.c          |   25 +++----------------------
- net/ipv4/netfilter/nf_nat_proto_dccp.c    |    1 -
- net/ipv4/netfilter/nf_nat_proto_gre.c     |    1 -
- net/ipv4/netfilter/nf_nat_proto_icmp.c    |    1 -
- net/ipv4/netfilter/nf_nat_proto_sctp.c    |    1 -
- net/ipv4/netfilter/nf_nat_proto_tcp.c     |    1 -
- net/ipv4/netfilter/nf_nat_proto_udp.c     |    1 -
- net/ipv4/netfilter/nf_nat_proto_udplite.c |    1 -
- net/ipv4/netfilter/nf_nat_proto_unknown.c |    1 -
- 10 files changed, 3 insertions(+), 32 deletions(-)
+ include/linux/pkt_sched.h |    3 +++
+ net/sched/sch_netem.c     |   30 +++++++++++++++++++++++++++---
+ 2 files changed, 30 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/netfilter/nf_nat_protocol.h b/include/net/netfilter/nf_nat_protocol.h
-index 7156c00..eaad0ac 100644
---- a/include/net/netfilter/nf_nat_protocol.h
-+++ b/include/net/netfilter/nf_nat_protocol.h
-@@ -10,8 +10,6 @@ struct nf_nat_protocol {
- 	/* Protocol number. */
- 	unsigned int protonum;
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index cf826d3..5ad3858 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -498,6 +498,9 @@ struct tc_netem_corrupt {
  
--	struct module *me;
--
- 	/* Translate a packet to the target according to manip type.
- 	   Return true if succeeded. */
- 	bool (*manip_pkt)(struct sk_buff *skb,
-diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
-index 610eb44..5e1bd85 100644
---- a/net/ipv4/netfilter/nf_nat_core.c
-+++ b/net/ipv4/netfilter/nf_nat_core.c
-@@ -575,26 +575,6 @@ static struct nf_ct_ext_type nat_extend __read_mostly = {
- #include <linux/netfilter/nfnetlink.h>
- #include <linux/netfilter/nfnetlink_conntrack.h>
+ struct tc_netem_ratelatency {
+ 	__u32	ratelatency;	/* byte/s */
++	__s32   packet_overhead;
++	__u32   cell_size;
++	__s32   cell_overhead;
+ };
  
--static const struct nf_nat_protocol *
--nf_nat_proto_find_get(u_int8_t protonum)
--{
--	const struct nf_nat_protocol *p;
--
--	rcu_read_lock();
--	p = __nf_nat_proto_find(protonum);
--	if (!try_module_get(p->me))
--		p = &nf_nat_unknown_protocol;
--	rcu_read_unlock();
--
--	return p;
--}
--
--static void
--nf_nat_proto_put(const struct nf_nat_protocol *p)
--{
--	module_put(p->me);
--}
--
- static const struct nla_policy protonat_nla_policy[CTA_PROTONAT_MAX+1] = {
- 	[CTA_PROTONAT_PORT_MIN]	= { .type = NLA_U16 },
- 	[CTA_PROTONAT_PORT_MAX]	= { .type = NLA_U16 },
-@@ -612,10 +592,11 @@ static int nfnetlink_parse_nat_proto(struct nlattr *attr,
- 	if (err < 0)
- 		return err;
+ enum {
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 3ae1cdd..40ad634 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -80,6 +80,9 @@ struct netem_sched_data {
+ 	u32 reorder;
+ 	u32 corrupt;
+ 	u32 ratelatency;
++	s32 packet_overhead;
++	u32 cell_size;
++	s32 cell_overhead;
  
--	npt = nf_nat_proto_find_get(nf_ct_protonum(ct));
-+	rcu_read_lock();
-+	npt = __nf_nat_proto_find(nf_ct_protonum(ct));
- 	if (npt->nlattr_to_range)
- 		err = npt->nlattr_to_range(tb, range);
--	nf_nat_proto_put(npt);
-+	rcu_read_unlock();
- 	return err;
+ 	struct crndstate {
+ 		u32 last;
+@@ -299,9 +302,24 @@ static psched_tdiff_t tabledist(psched_tdiff_t mu, psched_tdiff_t sigma,
+ 	return  x / NETEM_DIST_SCALE + (sigma / NETEM_DIST_SCALE) * t + mu;
  }
  
-diff --git a/net/ipv4/netfilter/nf_nat_proto_dccp.c b/net/ipv4/netfilter/nf_nat_proto_dccp.c
-index c43d5b3..466d63d 100644
---- a/net/ipv4/netfilter/nf_nat_proto_dccp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_dccp.c
-@@ -80,7 +80,6 @@ dccp_manip_pkt(struct sk_buff *skb,
- 
- static const struct nf_nat_protocol nf_nat_protocol_dccp = {
- 	.protonum		= IPPROTO_DCCP,
--	.me			= THIS_MODULE,
- 	.manip_pkt		= dccp_manip_pkt,
- 	.in_range		= nf_nat_proto_in_range,
- 	.unique_tuple		= dccp_unique_tuple,
-diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_proto_gre.c
-index 9b1c629..35cd158 100644
---- a/net/ipv4/netfilter/nf_nat_proto_gre.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_gre.c
-@@ -119,7 +119,6 @@ gre_manip_pkt(struct sk_buff *skb, unsigned int iphdroff,
- 
- static const struct nf_nat_protocol gre = {
- 	.protonum		= IPPROTO_GRE,
--	.me			= THIS_MODULE,
- 	.manip_pkt		= gre_manip_pkt,
- 	.in_range		= nf_nat_proto_in_range,
- 	.unique_tuple		= gre_unique_tuple,
-diff --git a/net/ipv4/netfilter/nf_nat_proto_icmp.c b/net/ipv4/netfilter/nf_nat_proto_icmp.c
-index 8f87b4b..036c009 100644
---- a/net/ipv4/netfilter/nf_nat_proto_icmp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_icmp.c
-@@ -74,7 +74,6 @@ icmp_manip_pkt(struct sk_buff *skb,
- 
- const struct nf_nat_protocol nf_nat_protocol_icmp = {
- 	.protonum		= IPPROTO_ICMP,
--	.me			= THIS_MODULE,
- 	.manip_pkt		= icmp_manip_pkt,
- 	.in_range		= icmp_in_range,
- 	.unique_tuple		= icmp_unique_tuple,
-diff --git a/net/ipv4/netfilter/nf_nat_proto_sctp.c b/net/ipv4/netfilter/nf_nat_proto_sctp.c
-index 4e70dc6..50283ab 100644
---- a/net/ipv4/netfilter/nf_nat_proto_sctp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_sctp.c
-@@ -70,7 +70,6 @@ sctp_manip_pkt(struct sk_buff *skb,
- 
- static const struct nf_nat_protocol nf_nat_protocol_sctp = {
- 	.protonum		= IPPROTO_SCTP,
--	.me			= THIS_MODULE,
- 	.manip_pkt		= sctp_manip_pkt,
- 	.in_range		= nf_nat_proto_in_range,
- 	.unique_tuple		= sctp_unique_tuple,
-diff --git a/net/ipv4/netfilter/nf_nat_proto_tcp.c b/net/ipv4/netfilter/nf_nat_proto_tcp.c
-index 6fcc865..e0e2ba8 100644
---- a/net/ipv4/netfilter/nf_nat_proto_tcp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_tcp.c
-@@ -82,7 +82,6 @@ tcp_manip_pkt(struct sk_buff *skb,
- 
- const struct nf_nat_protocol nf_nat_protocol_tcp = {
- 	.protonum		= IPPROTO_TCP,
--	.me			= THIS_MODULE,
- 	.manip_pkt		= tcp_manip_pkt,
- 	.in_range		= nf_nat_proto_in_range,
- 	.unique_tuple		= tcp_unique_tuple,
-diff --git a/net/ipv4/netfilter/nf_nat_proto_udp.c b/net/ipv4/netfilter/nf_nat_proto_udp.c
-index 18ea44e..bde94cd 100644
---- a/net/ipv4/netfilter/nf_nat_proto_udp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_udp.c
-@@ -73,7 +73,6 @@ udp_manip_pkt(struct sk_buff *skb,
- 
- const struct nf_nat_protocol nf_nat_protocol_udp = {
- 	.protonum		= IPPROTO_UDP,
--	.me			= THIS_MODULE,
- 	.manip_pkt		= udp_manip_pkt,
- 	.in_range		= nf_nat_proto_in_range,
- 	.unique_tuple		= udp_unique_tuple,
-diff --git a/net/ipv4/netfilter/nf_nat_proto_udplite.c b/net/ipv4/netfilter/nf_nat_proto_udplite.c
-index a17b75b..58e9a3a 100644
---- a/net/ipv4/netfilter/nf_nat_proto_udplite.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_udplite.c
-@@ -72,7 +72,6 @@ udplite_manip_pkt(struct sk_buff *skb,
- 
- static const struct nf_nat_protocol nf_nat_protocol_udplite = {
- 	.protonum		= IPPROTO_UDPLITE,
--	.me			= THIS_MODULE,
- 	.manip_pkt		= udplite_manip_pkt,
- 	.in_range		= nf_nat_proto_in_range,
- 	.unique_tuple		= udplite_unique_tuple,
-diff --git a/net/ipv4/netfilter/nf_nat_proto_unknown.c b/net/ipv4/netfilter/nf_nat_proto_unknown.c
-index ab8e8c1..e0afe81 100644
---- a/net/ipv4/netfilter/nf_nat_proto_unknown.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_unknown.c
-@@ -46,7 +46,6 @@ unknown_manip_pkt(struct sk_buff *skb,
+-static psched_time_t packet_len_2_sched_time(unsigned int len, u32 rate)
++static psched_time_t packet_len_2_sched_time(unsigned int len,
++					     struct netem_sched_data *q)
+ {
+-	return PSCHED_NS2TICKS((u64)len * NSEC_PER_SEC / rate);
++	len += q->packet_overhead;
++
++	if (q->cell_size) {
++		u32 carry = len % q->cell_size;
++		len += carry;
++
++		if (q->cell_overhead) {
++			u32 cells = len / q->cell_size;
++			if (carry)
++				cells += 1;
++			len += cells * q->cell_overhead;
++		}
++	}
++
++	return PSCHED_NS2TICKS((u64)len * NSEC_PER_SEC / q->ratelatency);
  }
  
- const struct nf_nat_protocol nf_nat_unknown_protocol = {
--	/* .me isn't set: getting a ref to this cannot fail. */
- 	.manip_pkt		= unknown_manip_pkt,
- 	.in_range		= unknown_in_range,
- 	.unique_tuple		= unknown_unique_tuple,
+ /*
+@@ -381,7 +399,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 		if (q->ratelatency) {
+ 			struct sk_buff_head *list = &q->qdisc->q;
+ 
+-			delay += packet_len_2_sched_time(skb->len, q->ratelatency);
++			delay += packet_len_2_sched_time(skb->len, q);
+ 
+ 			if (!skb_queue_empty(list)) {
+ 				/*
+@@ -565,6 +583,9 @@ static void get_ratelatency(struct Qdisc *sch, const struct nlattr *attr)
+ 	const struct tc_netem_ratelatency *r = nla_data(attr);
+ 
+ 	q->ratelatency = r->ratelatency;
++	q->packet_overhead = r->packet_overhead;
++	q->cell_size       = r->cell_size;
++	q->cell_overhead   = r->cell_overhead;
+ }
+ 
+ static int get_loss_clg(struct Qdisc *sch, const struct nlattr *attr)
+@@ -906,6 +927,9 @@ static int netem_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	NLA_PUT(skb, TCA_NETEM_CORRUPT, sizeof(corrupt), &corrupt);
+ 
+ 	ratelatency.ratelatency = q->ratelatency;
++	ratelatency.packet_overhead = q->packet_overhead;
++	ratelatency.cell_size       = q->cell_size;
++	ratelatency.cell_overhead   = q->cell_overhead;
+ 	NLA_PUT(skb, TCA_NETEM_RATELATENCY, sizeof(ratelatency), &ratelatency);
+ 
+ 	if (dump_loss_model(q, skb) != 0)
 -- 
-1.7.1
-
+1.7.7
