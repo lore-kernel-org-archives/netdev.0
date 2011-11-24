@@ -1,54 +1,57 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH] ipv4: remove useless codes in ipmr_device_event()
-Date: Thu, 24 Nov 2011 17:10:52 +0800
-Message-ID: <1322125852-15395-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH] virtio_net: Give indication on device probe failure.
+Date: Thu, 24 Nov 2011 14:17:43 +0530
+Message-ID: <OF0C38CC5A.2D445246-ON65257952.002F945B-65257952.00301BA1@in.ibm.com>
+References: <20111124082421.26821.71126.sendpatchset@krkumar2.in.ibm.com> <1322123722.4248.4.camel@lappy>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
+	rusty@rustcorp.com.au
+To: Sasha Levin <levinsasha928@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:53790 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753949Ab1KXJLJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 04:11:09 -0500
-Received: by iage36 with SMTP id e36so2731839iag.19
-        for <netdev@vger.kernel.org>; Thu, 24 Nov 2011 01:11:09 -0800 (PST)
+Received: from e28smtp02.in.ibm.com ([122.248.162.2]:38865 "EHLO
+	e28smtp02.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754585Ab1KXJOQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 04:14:16 -0500
+Received: from /spool/local
+	by e28smtp02.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <krkumar2@in.ibm.com>;
+	Thu, 24 Nov 2011 14:17:17 +0530
+Received: from d28av06.in.ibm.com (d28av06.in.ibm.com [9.184.220.48])
+	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id pAO8jTTq3088396
+	for <netdev@vger.kernel.org>; Thu, 24 Nov 2011 14:15:33 +0530
+Received: from d28av06.in.ibm.com (loopback [127.0.0.1])
+	by d28av06.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id pAO8jTAJ016628
+	for <netdev@vger.kernel.org>; Thu, 24 Nov 2011 14:15:29 +0530
+In-Reply-To: <1322123722.4248.4.camel@lappy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: RongQing.Li <roy.qing.li@gmail.com>
+Sasha Levin <levinsasha928@gmail.com> wrote on 11/24/2011 02:05:22 PM:
 
-Commit 7dc00c82 added a 'notify' parameter for vif_delete() to
-distinguish whether to unregister the device.
+> > Provide an indication when the virtio_net device fails to
+> > initialize.
+> >
+> > Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+> > ---
+>
+> [snip]
+>
+> You already get a warning from the thingie that probes PCI:
+>
+> [    1.166311] virtio_net: probe of virtio1 failed with error -12
 
-When notify=1 means we does not need to unregister the device,
-so calling unregister_netdevice_many is useless.
+Ah, I created this patch based on your feedback:
 
-Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
----
- net/ipv4/ipmr.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+> I would suggest adding some output if we take the failure path, since
+> while the guest does boot peacefully, it doesn't have a network
+> interface and there's nothing in the boot log to indicate anything has
+> gone wrong.
 
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 76a7f07..8e54490 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -1520,7 +1520,6 @@ static int ipmr_device_event(struct notifier_block *this, unsigned long event, v
- 	struct mr_table *mrt;
- 	struct vif_device *v;
- 	int ct;
--	LIST_HEAD(list);
- 
- 	if (event != NETDEV_UNREGISTER)
- 		return NOTIFY_DONE;
-@@ -1529,10 +1528,9 @@ static int ipmr_device_event(struct notifier_block *this, unsigned long event, v
- 		v = &mrt->vif_table[0];
- 		for (ct = 0; ct < mrt->maxvif; ct++, v++) {
- 			if (v->dev == dev)
--				vif_delete(mrt, ct, 1, &list);
-+				vif_delete(mrt, ct, 1, NULL);
- 		}
- 	}
--	unregister_netdevice_many(&list);
- 	return NOTIFY_DONE;
- }
- 
--- 
-1.7.1
+Is this probe error enough to find there was a problem,
+or do you think detailed error in all fail cases is
+required?
+
+Thanks,
+
+- KK
