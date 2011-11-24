@@ -1,64 +1,67 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net] net: Revert ARCNET and PHYLIB to tristate options
-Date: Thu, 24 Nov 2011 07:23:30 +0000
-Message-ID: <1322119410.2839.262.camel@deadeye>
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: [PATCH v3 03/10] net: Add netdev interfaces recording send/compl
+Date: Thu, 24 Nov 2011 08:30:26 +0100
+Message-ID: <CAA93jw6OuuUhSMMnmX3k2=+HB3A92X3CrvfbPHDGV=0fbS-YOA@mail.gmail.com>
+References: <20111123094614.36560215@nehalam.linuxnetplumber.net>
+	<20111123.185812.1721878183759040757.davem@davemloft.net>
+	<20111123160320.76143e3b@nehalam.linuxnetplumber.net>
+	<20111123.190623.2026426589805797580.davem@davemloft.net>
+	<CA+mtBx-VSJ6U2SyUxQt7eK9+cXFFAEQXgmhc+yWwpTX8zd6TJA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	Debian kernel maintainers <debian-kernel@lists.debian.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:46061 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752613Ab1KXHXj convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Nov 2011 02:23:39 -0500
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:43132 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751450Ab1KXHa1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 02:30:27 -0500
+Received: by qyd20 with SMTP id 20so986346qyd.19
+        for <netdev@vger.kernel.org>; Wed, 23 Nov 2011 23:30:26 -0800 (PST)
+In-Reply-To: <CA+mtBx-VSJ6U2SyUxQt7eK9+cXFFAEQXgmhc+yWwpTX8zd6TJA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 88491d8103498a6166f70d5999902fec70924314 ("drivers/net: Kconfig
-& Makefile cleanup") changed the type of these options to bool, but
-they select code that could (and still can) be built as modules.
+On Thu, Nov 24, 2011 at 1:32 AM, Tom Herbert <therbert@google.com> wrot=
+e:
+>>> I was referring to the transmit routine, there for netdev_sent_queu=
+e()
+>>> is always called with one packet.
+>>
+>> Optimism for the future? :-)
+>>
+>
+> Yep, I am looking forward to the day that someone figures out how to
+> batch transmits in a meaningful way!
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
-I consider the inability to build arcnet.o and libphy.o as modules to be
-a regression in 3.2 for general-purpose distribution kernels.
-Therefore, please apply this to the net tree.
+I liked it in potentia, as wireless likes to aggregate packets into
+batches that fit into an AMPDU directed at a single station
+and/or TXOP.
 
-Ben.
+not that BQL can help there at present as this happens below the
+mac80211 layer, and packets vanish once consumed by the driver.
 
- drivers/net/arcnet/Kconfig |    2 +-
- drivers/net/phy/Kconfig    |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+>
+>> But yeah if nobody batches right now, no reason to support this in t=
+he
+>> interfaces, we can add it later.
+>
+> Okay.
+>
+>>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
 
-diff --git a/drivers/net/arcnet/Kconfig b/drivers/net/arcnet/Kconfig
-index a73d9dc..84fb634 100644
---- a/drivers/net/arcnet/Kconfig
-+++ b/drivers/net/arcnet/Kconfig
-@@ -4,7 +4,7 @@
- 
- menuconfig ARCNET
- 	depends on NETDEVICES && (ISA || PCI || PCMCIA)
--	bool "ARCnet support"
-+	tristate "ARCnet support"
- 	---help---
- 	  If you have a network card of this type, say Y and check out the
- 	  (arguably) beautiful poetry in
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index bb88e12..a702443 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -3,7 +3,7 @@
- #
- 
- menuconfig PHYLIB
--	bool "PHY Device support and infrastructure"
-+	tristate "PHY Device support and infrastructure"
- 	depends on !S390
- 	depends on NETDEVICES
- 	help
--- 
-1.7.7.3
+
+
+--=20
+Dave T=E4ht
+SKYPE: davetaht
+US Tel: 1-239-829-5608
+=46R Tel: 0638645374
+http://www.bufferbloat.net
