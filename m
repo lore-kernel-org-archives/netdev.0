@@ -1,57 +1,71 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH] net: fsl_pq_mdio: fix oops when using uninitialized mutex
-Date: Thu, 24 Nov 2011 01:50:58 -0600
-Message-ID: <2465EDAB-01F8-4D5B-9950-E5F180E8A435@kernel.crashing.org>
-References: <59b050a97a9b5382918b66f2850a80c86e52f409.1320736936.git.baruch@tkos.co.il> <CAKWjMd5WCx8pSJiL5U_WkD6XA5dSZLgLZkvMA6sjAKNuAz7PKg@mail.gmail.com>
-Mime-Version: 1.0 (Apple Message framework v1251.1)
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Baruch Siach <baruch@tkos.co.il>, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org,
-	Andy Fleming <afleming@freescale.com>
-To: Andy Fleming <afleming@gmail.com>
+From: Krishna Kumar <krkumar2@in.ibm.com>
+Subject: [PATCH] virtio_net: Give indication on device probe failure.
+Date: Thu, 24 Nov 2011 13:54:21 +0530
+Message-ID: <20111124082421.26821.71126.sendpatchset@krkumar2.in.ibm.com>
+Cc: netdev@vger.kernel.org, levinsasha928@gmail.com,
+	Krishna Kumar <krkumar2@in.ibm.com>, davem@davemloft.net
+To: rusty@rustcorp.com.au, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:33854 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750810Ab1KXHv0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 02:51:26 -0500
-In-Reply-To: <CAKWjMd5WCx8pSJiL5U_WkD6XA5dSZLgLZkvMA6sjAKNuAz7PKg@mail.gmail.com>
+Received: from e23smtp01.au.ibm.com ([202.81.31.143]:58425 "EHLO
+	e23smtp01.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753334Ab1KXIYb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 03:24:31 -0500
+Received: from /spool/local
+	by e23smtp01.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <krkumar2@in.ibm.com>;
+	Thu, 24 Nov 2011 08:20:26 +1000
+Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.234.97])
+	by d23relay04.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id pAO8L8Tx1388558
+	for <netdev@vger.kernel.org>; Thu, 24 Nov 2011 19:21:08 +1100
+Received: from d23av03.au.ibm.com (loopback [127.0.0.1])
+	by d23av03.au.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id pAO8ONc1002266
+	for <netdev@vger.kernel.org>; Thu, 24 Nov 2011 19:24:25 +1100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Provide an indication when the virtio_net device fails to
+initialize.
 
-On Nov 9, 2011, at 2:10 PM, Andy Fleming wrote:
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+---
+ drivers/net/virtio_net.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
->> Fix this by moving the of_mdiobus_register() call earlier.
->> 
->> Cc: Andy Fleming <afleming@freescale.com>
->> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
->> ---
->>  drivers/net/ethernet/freescale/fsl_pq_mdio.c |   14 +++++++-------
->>  1 files changed, 7 insertions(+), 7 deletions(-)
->> 
->> diff --git a/drivers/net/ethernet/freescale/fsl_pq_mdio.c b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
->> index 52f4e8a..e17fd2f 100644
->> --- a/drivers/net/ethernet/freescale/fsl_pq_mdio.c
->> +++ b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
->> @@ -385,6 +385,13 @@ static int fsl_pq_mdio_probe(struct platform_device *ofdev)
->>                        tbiaddr = *prop;
->>        }
->> 
->> +       err = of_mdiobus_register(new_bus, np);
->> +       if (err) {
->> +               printk (KERN_ERR "%s: Cannot register as MDIO bus\n",
->> +                               new_bus->name);
->> +               goto err_free_irqs;
->> +       }
->> +
-> 
-> 
-> This fix totally breaks the point of setting tbipa beforehand.
-> mdiobus_register will cause the bus to be scanned, and if any of the
-> PHYs are at the default address for tbipa, they won't be found. I have
-> a different fix which I will (re)submit today.
-
-What happened here, did you send a patch?
-
-- k
+diff -ruNp org/drivers/net/virtio_net.c new/drivers/net/virtio_net.c
+--- org/drivers/net/virtio_net.c	2011-11-24 11:53:08.000000000 +0530
++++ new/drivers/net/virtio_net.c	2011-11-24 13:51:32.000000000 +0530
+@@ -971,7 +971,7 @@ static void virtnet_config_changed(struc
+ 
+ static int virtnet_probe(struct virtio_device *vdev)
+ {
+-	int err;
++	int err = -ENOMEM;
+ 	struct net_device *dev;
+ 	struct virtnet_info *vi;
+ 	struct virtqueue *vqs[3];
+@@ -982,7 +982,7 @@ static int virtnet_probe(struct virtio_d
+ 	/* Allocate ourselves a network device with room for our info */
+ 	dev = alloc_etherdev(sizeof(struct virtnet_info));
+ 	if (!dev)
+-		return -ENOMEM;
++		goto out;
+ 
+ 	/* Set up network device as normal. */
+ 	dev->priv_flags |= IFF_UNICAST_FLT;
+@@ -1032,7 +1032,6 @@ static int virtnet_probe(struct virtio_d
+ 	vdev->priv = vi;
+ 	vi->pages = NULL;
+ 	vi->stats = alloc_percpu(struct virtnet_stats);
+-	err = -ENOMEM;
+ 	if (vi->stats == NULL)
+ 		goto free;
+ 
+@@ -1104,6 +1103,8 @@ free_stats:
+ 	free_percpu(vi->stats);
+ free:
+ 	free_netdev(dev);
++out:
++	dev_err(&vdev->dev, "Device probe failed with errno: %d\n", err);
+ 	return err;
+ }
+ 
