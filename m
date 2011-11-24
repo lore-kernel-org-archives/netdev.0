@@ -1,39 +1,64 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] net/netlabel: copy and paste bug in
- netlbl_cfg_unlbl_map_add()
-Date: Thu, 24 Nov 2011 10:18:20 +0300
-Message-ID: <20111124071820.GB14122@elgon.mountain>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH net] net: Revert ARCNET and PHYLIB to tristate options
+Date: Thu, 24 Nov 2011 07:23:30 +0000
+Message-ID: <1322119410.2839.262.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Paul Moore <paul@paul-moore.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	Debian kernel maintainers <debian-kernel@lists.debian.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:33868 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751230Ab1KXHSm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 02:18:42 -0500
-Content-Disposition: inline
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:46061 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752613Ab1KXHXj convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Nov 2011 02:23:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This was copy and pasted from the IPv4 code.  We're calling the
-ip4 version of that function and map4 is NULL.
+Commit 88491d8103498a6166f70d5999902fec70924314 ("drivers/net: Kconfig
+& Makefile cleanup") changed the type of these options to bool, but
+they select code that could (and still can) be built as modules.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+I consider the inability to build arcnet.o and libphy.o as modules to be
+a regression in 3.2 for general-purpose distribution kernels.
+Therefore, please apply this to the net tree.
 
-diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
-index 8ed67dcc..3735297 100644
---- a/net/netlabel/netlabel_kapi.c
-+++ b/net/netlabel/netlabel_kapi.c
-@@ -162,8 +162,8 @@ int netlbl_cfg_unlbl_map_add(const char *domain,
- 			map6->list.addr.s6_addr32[3] &= mask6->s6_addr32[3];
- 			map6->list.mask = *mask6;
- 			map6->list.valid = 1;
--			ret_val = netlbl_af4list_add(&map4->list,
--						     &addrmap->list4);
-+			ret_val = netlbl_af6list_add(&map6->list,
-+						     &addrmap->list6);
- 			if (ret_val != 0)
- 				goto cfg_unlbl_map_add_failure;
- 			break;
+Ben.
+
+ drivers/net/arcnet/Kconfig |    2 +-
+ drivers/net/phy/Kconfig    |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/arcnet/Kconfig b/drivers/net/arcnet/Kconfig
+index a73d9dc..84fb634 100644
+--- a/drivers/net/arcnet/Kconfig
++++ b/drivers/net/arcnet/Kconfig
+@@ -4,7 +4,7 @@
+ 
+ menuconfig ARCNET
+ 	depends on NETDEVICES && (ISA || PCI || PCMCIA)
+-	bool "ARCnet support"
++	tristate "ARCnet support"
+ 	---help---
+ 	  If you have a network card of this type, say Y and check out the
+ 	  (arguably) beautiful poetry in
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index bb88e12..a702443 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -3,7 +3,7 @@
+ #
+ 
+ menuconfig PHYLIB
+-	bool "PHY Device support and infrastructure"
++	tristate "PHY Device support and infrastructure"
+ 	depends on !S390
+ 	depends on NETDEVICES
+ 	help
+-- 
+1.7.7.3
