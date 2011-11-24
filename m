@@ -1,132 +1,176 @@
 From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: [PATCH net-next 2/2] netem: add cell concept to simulate special MAC behavior
-Date: Thu, 24 Nov 2011 18:39:37 +0100
-Message-ID: <1322156378-23257-2-git-send-email-hagen@jauu.net>
-References: <1322156378-23257-1-git-send-email-hagen@jauu.net>
+Subject: [PATCH net-next 1/2] netem: rate-latency extension
+Date: Thu, 24 Nov 2011 18:39:36 +0100
+Message-ID: <1322156378-23257-1-git-send-email-hagen@jauu.net>
 Cc: Stephen Hemminger <shemminger@vyatta.com>,
 	Hagen Paul Pfeifer <hagen@jauu.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:37273 "EHLO
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:37270 "EHLO
 	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751196Ab1KXRjv (ORCPT
+	by vger.kernel.org with ESMTP id S1750882Ab1KXRjv (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 12:39:51 -0500
-In-Reply-To: <1322156378-23257-1-git-send-email-hagen@jauu.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This extension can be used to simulate special link layer
-characteristics. Simulate because packet data is not modified, only the
-calculation base is changed to delay a packet based on the original
-packet size and artificial cell information.
+Currently netem is not in the ability to emulate channel bandwidth. Only static
+delay (and optional random jitter) can be configured.
 
-packet_overhead can be used to simulate a link layer header compression
-scheme (e.g. set packet_overhead to -20) or with a positive
-packet_overhead value an additional MAC header can be simulated. It is
-also possible to "replace" the 14 byte Ethernet header with something
-else.
+To emulate the channel rate the token bucket filter (sch_tbf) can be used.  But
+TBF has some major emulation flaws. The buffer (token bucket depth/rate) cannot
+be 0. Also the idea behind TBF is that the credit (token in buckets) fills if
+no packet is transmitted. So that there is always a "positive" credit for new
+packets. In real life this behavior contradicts the law of nature where
+nothing can travel faster as speed of light. E.g.: on an emulated 1000 byte/s
+link a small IPv4/TCP SYN packet with ~50 byte require ~0.05 seconds - not 0
+seconds.
 
-cell_size and cell_overhead can be used to simulate link layer schemes,
-based on cells, like some TDMA schemes. Another application area are MAC
-schemes using a link layer fragmentation with a (small) header each.
-Cell size is the maximum amount of data bytes within one cell. Cell
-overhead is an additional variable to change the per-cell-overhead (e.g.
-5 byte header per fragment).
+Netem is an excellent place to implement a rate limiting feature: static
+delay is already implemented, tfifo already has time information and the
+user can skip TBF configuration completely.
 
-Example (5 kbit/s, 20 byte per packet overhead, cellsize 100 byte, per
-cell overhead 5 byte):
+This patch implement rate latency feature which can be configured via
+tc. e.g:
 
-	tc qdisc add dev eth0 root netem ratelatency 5kbit 20 100 5
+	tc qdisc add dev eth0 root netem ratelatency 10kbit
+
+To emulate a link of 5000byte/s and add an additional static delay of 10ms:
+
+	tc qdisc add dev eth0 root netem delay 10ms ratelatency 5KBps
+
+Note: similar to TBF the rate-latency extension is bounded to the kernel timing
+system. Depending on the architecture timer granularity, higher rates (e.g.
+10mbit/s and higher) tend to transmission bursts. Also note: further queues
+living in network adaptors; see ethtool(8).
 
 Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
 ---
- include/linux/pkt_sched.h |    3 +++
- net/sched/sch_netem.c     |   30 +++++++++++++++++++++++++++---
- 2 files changed, 30 insertions(+), 3 deletions(-)
+ include/linux/pkt_sched.h |    5 +++++
+ net/sched/sch_netem.c     |   40 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 45 insertions(+), 0 deletions(-)
 
 diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index cf826d3..5ad3858 100644
+index c533670..cf826d3 100644
 --- a/include/linux/pkt_sched.h
 +++ b/include/linux/pkt_sched.h
-@@ -498,6 +498,9 @@ struct tc_netem_corrupt {
- 
- struct tc_netem_ratelatency {
- 	__u32	ratelatency;	/* byte/s */
-+	__s32   packet_overhead;
-+	__u32   cell_size;
-+	__s32   cell_overhead;
+@@ -465,6 +465,7 @@ enum {
+ 	TCA_NETEM_REORDER,
+ 	TCA_NETEM_CORRUPT,
+ 	TCA_NETEM_LOSS,
++	TCA_NETEM_RATELATENCY,
+ 	__TCA_NETEM_MAX,
  };
  
+@@ -495,6 +496,10 @@ struct tc_netem_corrupt {
+ 	__u32	correlation;
+ };
+ 
++struct tc_netem_ratelatency {
++	__u32	ratelatency;	/* byte/s */
++};
++
  enum {
+ 	NETEM_LOSS_UNSPEC,
+ 	NETEM_LOSS_GI,		/* General Intuitive - 4 state model */
 diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index 3ae1cdd..40ad634 100644
+index eb3b9a8..3ae1cdd 100644
 --- a/net/sched/sch_netem.c
 +++ b/net/sched/sch_netem.c
-@@ -80,6 +80,9 @@ struct netem_sched_data {
+@@ -79,6 +79,7 @@ struct netem_sched_data {
+ 	u32 duplicate;
  	u32 reorder;
  	u32 corrupt;
- 	u32 ratelatency;
-+	s32 packet_overhead;
-+	u32 cell_size;
-+	s32 cell_overhead;
++	u32 ratelatency;
  
  	struct crndstate {
  		u32 last;
-@@ -299,9 +302,24 @@ static psched_tdiff_t tabledist(psched_tdiff_t mu, psched_tdiff_t sigma,
+@@ -298,6 +299,11 @@ static psched_tdiff_t tabledist(psched_tdiff_t mu, psched_tdiff_t sigma,
  	return  x / NETEM_DIST_SCALE + (sigma / NETEM_DIST_SCALE) * t + mu;
  }
  
--static psched_time_t packet_len_2_sched_time(unsigned int len, u32 rate)
-+static psched_time_t packet_len_2_sched_time(unsigned int len,
-+					     struct netem_sched_data *q)
- {
--	return PSCHED_NS2TICKS((u64)len * NSEC_PER_SEC / rate);
-+	len += q->packet_overhead;
++static psched_time_t packet_len_2_sched_time(unsigned int len, u32 rate)
++{
++	return PSCHED_NS2TICKS((u64)len * NSEC_PER_SEC / rate);
++}
 +
-+	if (q->cell_size) {
-+		u32 carry = len % q->cell_size;
-+		len += carry;
-+
-+		if (q->cell_overhead) {
-+			u32 cells = len / q->cell_size;
-+			if (carry)
-+				cells += 1;
-+			len += cells * q->cell_overhead;
-+		}
-+	}
-+
-+	return PSCHED_NS2TICKS((u64)len * NSEC_PER_SEC / q->ratelatency);
- }
- 
  /*
-@@ -381,7 +399,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		if (q->ratelatency) {
- 			struct sk_buff_head *list = &q->qdisc->q;
+  * Insert one skb into qdisc.
+  * Note: parent depends on return value to account for queue length.
+@@ -371,6 +377,24 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 				  &q->delay_cor, q->delay_dist);
  
--			delay += packet_len_2_sched_time(skb->len, q->ratelatency);
-+			delay += packet_len_2_sched_time(skb->len, q);
- 
- 			if (!skb_queue_empty(list)) {
- 				/*
-@@ -565,6 +583,9 @@ static void get_ratelatency(struct Qdisc *sch, const struct nlattr *attr)
- 	const struct tc_netem_ratelatency *r = nla_data(attr);
- 
- 	q->ratelatency = r->ratelatency;
-+	q->packet_overhead = r->packet_overhead;
-+	q->cell_size       = r->cell_size;
-+	q->cell_overhead   = r->cell_overhead;
+ 		now = psched_get_time();
++
++		if (q->ratelatency) {
++			struct sk_buff_head *list = &q->qdisc->q;
++
++			delay += packet_len_2_sched_time(skb->len, q->ratelatency);
++
++			if (!skb_queue_empty(list)) {
++				/*
++				 * Last packet in queue is reference point (now).
++				 * First packet in queue is already in flight,
++				 * calculate this time bonus and substract
++				 * from delay.
++				 */
++				delay -= now - netem_skb_cb(skb_peek(list))->time_to_send;
++				now = netem_skb_cb(skb_peek_tail(list))->time_to_send;
++			}
++		}
++
+ 		cb->time_to_send = now + delay;
+ 		++q->counter;
+ 		ret = qdisc_enqueue(skb, q->qdisc);
+@@ -535,6 +559,14 @@ static void get_corrupt(struct Qdisc *sch, const struct nlattr *attr)
+ 	init_crandom(&q->corrupt_cor, r->correlation);
  }
  
++static void get_ratelatency(struct Qdisc *sch, const struct nlattr *attr)
++{
++	struct netem_sched_data *q = qdisc_priv(sch);
++	const struct tc_netem_ratelatency *r = nla_data(attr);
++
++	q->ratelatency = r->ratelatency;
++}
++
  static int get_loss_clg(struct Qdisc *sch, const struct nlattr *attr)
-@@ -906,6 +927,9 @@ static int netem_dump(struct Qdisc *sch, struct sk_buff *skb)
+ {
+ 	struct netem_sched_data *q = qdisc_priv(sch);
+@@ -594,6 +626,7 @@ static const struct nla_policy netem_policy[TCA_NETEM_MAX + 1] = {
+ 	[TCA_NETEM_CORR]	= { .len = sizeof(struct tc_netem_corr) },
+ 	[TCA_NETEM_REORDER]	= { .len = sizeof(struct tc_netem_reorder) },
+ 	[TCA_NETEM_CORRUPT]	= { .len = sizeof(struct tc_netem_corrupt) },
++	[TCA_NETEM_RATELATENCY]	= { .len = sizeof(struct tc_netem_ratelatency) },
+ 	[TCA_NETEM_LOSS]	= { .type = NLA_NESTED },
+ };
+ 
+@@ -666,6 +699,9 @@ static int netem_change(struct Qdisc *sch, struct nlattr *opt)
+ 	if (tb[TCA_NETEM_CORRUPT])
+ 		get_corrupt(sch, tb[TCA_NETEM_CORRUPT]);
+ 
++	if (tb[TCA_NETEM_RATELATENCY])
++		get_ratelatency(sch, tb[TCA_NETEM_RATELATENCY]);
++
+ 	q->loss_model = CLG_RANDOM;
+ 	if (tb[TCA_NETEM_LOSS])
+ 		ret = get_loss_clg(sch, tb[TCA_NETEM_LOSS]);
+@@ -846,6 +882,7 @@ static int netem_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	struct tc_netem_corr cor;
+ 	struct tc_netem_reorder reorder;
+ 	struct tc_netem_corrupt corrupt;
++	struct tc_netem_ratelatency ratelatency;
+ 
+ 	qopt.latency = q->latency;
+ 	qopt.jitter = q->jitter;
+@@ -868,6 +905,9 @@ static int netem_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	corrupt.correlation = q->corrupt_cor.rho;
  	NLA_PUT(skb, TCA_NETEM_CORRUPT, sizeof(corrupt), &corrupt);
  
- 	ratelatency.ratelatency = q->ratelatency;
-+	ratelatency.packet_overhead = q->packet_overhead;
-+	ratelatency.cell_size       = q->cell_size;
-+	ratelatency.cell_overhead   = q->cell_overhead;
- 	NLA_PUT(skb, TCA_NETEM_RATELATENCY, sizeof(ratelatency), &ratelatency);
- 
++	ratelatency.ratelatency = q->ratelatency;
++	NLA_PUT(skb, TCA_NETEM_RATELATENCY, sizeof(ratelatency), &ratelatency);
++
  	if (dump_loss_model(q, skb) != 0)
+ 		goto nla_put_failure;
+ 
 -- 
 1.7.7
