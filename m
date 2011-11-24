@@ -1,65 +1,50 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH net-next] netxen: write IP address to firmware when
-	using bonding
-Date: Wed, 23 Nov 2011 22:24:27 -0500
-Message-ID: <20111124032426.GG25132@gospo.rdu.redhat.com>
-References: <1322073791-15223-1-git-send-email-andy@greyhouse.net> <20111123.160922.1983654308126240492.davem@davemloft.net>
+From: Axel Lin <axel.lin@gmail.com>
+Subject: [PATCH] net: mv643xx_eth: fix build error
+Date: Thu, 24 Nov 2011 11:47:18 +0800
+Message-ID: <1322106438.16201.11.camel@phoenix>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andy@greyhouse.net, netdev@vger.kernel.org, sony.chacko@qlogic.com,
-	rajesh.borundia@qlogic.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38136 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751724Ab1KXDYc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Nov 2011 22:24:32 -0500
-Content-Disposition: inline
-In-Reply-To: <20111123.160922.1983654308126240492.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 23, 2011 at 04:09:22PM -0500, David Miller wrote:
-> From: Andy Gospodarek <andy@greyhouse.net>
-> Date: Wed, 23 Nov 2011 13:43:11 -0500
-> 
-> > The following patch was added to enable NX3031 devices to properly
-> > aggregate frames for LRO:
-> > 
-> > 	commit 6598b169b856793f8f9b80a3f3c5a48f5eaf40e3
-> > 	Author: Dhananjay Phadke <dhananjay@netxen.com>
-> > 	Date:   Sun Jul 26 20:07:37 2009 +0000
-> > 
-> > 	    netxen: enable ip addr hashing
-> > 
-> > This patch is a followup to that fix as it allows LRO aggregation on
-> > bonded devices that contain an NX3031 device.  This was tested on an
-> > older distro and modified slightly to the latest upstream.
-> > 
-> > Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> 
-> Let's put a helper function somewhere instead of expanding this sequence
-> in every driver that might want to determine if it is a bonding slave.
+Fix below build error:
+  CC      drivers/net/ethernet/marvell/mv643xx_eth.o
+drivers/net/ethernet/marvell/mv643xx_eth.c: In function 'mv643xx_eth_get_drvinfo':
+drivers/net/ethernet/marvell/mv643xx_eth.c:1505: error: 'info' undeclared (first use in this function)
+drivers/net/ethernet/marvell/mv643xx_eth.c:1505: error: (Each undeclared identifier is reported only once
+drivers/net/ethernet/marvell/mv643xx_eth.c:1505: error: for each function it appears in.)
+make[4]: *** [drivers/net/ethernet/marvell/mv643xx_eth.o] Error 1
 
-Dave,
+Signed-off-by: Axel Lin <axel.lin@gmail.com>
+---
+ drivers/net/ethernet/marvell/mv643xx_eth.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
-Are you talking about adding a macro like this:
-
-	for_each_dev_in_bond(bond,slave) {
-		[...]
-	}
-
-to replace the statements I added that were like this:
-
-	for_each_netdev_rcu(&init_net, slave) {
-		if (slave->master == dev) {
-			[...]
-		}
-	}
-
-If so, that totally seems reasonable.  If were requesting something
-else, please let me know.
-
-Thanks,
-
--andy
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 43e3e61..e87847e 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -1502,11 +1502,12 @@ mv643xx_eth_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ static void mv643xx_eth_get_drvinfo(struct net_device *dev,
+ 				    struct ethtool_drvinfo *drvinfo)
+ {
+-	strlcpy(drvinfo->driver, mv643xx_eth_driver_name, sizeof(info->driver));
++	strlcpy(drvinfo->driver, mv643xx_eth_driver_name,
++		sizeof(drvinfo->driver));
+ 	strlcpy(drvinfo->version, mv643xx_eth_driver_version,
+-		sizeof(info->version));
+-	strlcpy(drvinfo->fw_version, "N/A", sizeof(info->fw_version));
+-	strlcpy(drvinfo->bus_info, "platform", sizeof(info->bus_info));
++		sizeof(drvinfo->version));
++	strlcpy(drvinfo->fw_version, "N/A", sizeof(drvinfo->fw_version));
++	strlcpy(drvinfo->bus_info, "platform", sizeof(drvinfo->bus_info));
+ 	drvinfo->n_stats = ARRAY_SIZE(mv643xx_eth_stats);
+ }
+ 
+-- 
+1.7.5.4
