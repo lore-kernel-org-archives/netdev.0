@@ -1,78 +1,41 @@
-From: Alex Juncu <ajuncu@ixiacom.com>
-Subject: [PATCH 1/1] Adding examples in ip man page on basic use of the ip
- command.
-Date: Thu, 24 Nov 2011 14:00:54 +0200
-Message-ID: <4ECE31F6.4070002@ixiacom.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 5/5] ipv4: Don't use the cached pmtu informations for
+	input routes
+Date: Thu, 24 Nov 2011 20:06:48 +0800
+Message-ID: <20111124120648.GB18807@gondor.apana.org.au>
+References: <20111123155245.GA11638@gondor.apana.org.au> <20111123.164941.1950228526500366081.davem@davemloft.net> <20111124001035.GA14996@gondor.apana.org.au> <20111123.191758.1061988020384521241.davem@davemloft.net> <20111124010147.GA15318@gondor.apana.org.au> <20111124084952.GF6348@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>, <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 207.47.100.214.static.nextweb.net ([207.47.100.214]:1592 "EHLO
-	ixqw-mail-out.ixiacom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753789Ab1KXMGW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 07:06:22 -0500
+Received: from helcar.apana.org.au ([209.40.204.226]:50791 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750757Ab1KXMG5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 07:06:57 -0500
+Content-Disposition: inline
+In-Reply-To: <20111124084952.GF6348@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
----
-  man/man8/ip.8 |   43 +++++++++++++++++++++++++++++++++++++++++++
-  1 files changed, 43 insertions(+), 0 deletions(-)
+On Thu, Nov 24, 2011 at 09:49:52AM +0100, Steffen Klassert wrote:
+>
+> Well, it simply got unpredictable how long pmtu propagation takes.
+> This depends now on the network activity of the routers and on the
+> individual configuration of the expiration time on each router. With
+> the original behaviour, we could expect to notice a pmtu increase
+> if we probe after our timeout X. Now we don't know when this is going
+> to happen.
 
-diff --git a/man/man8/ip.8 b/man/man8/ip.8
-index a20eca7..99c8953 100644
---- a/man/man8/ip.8
-+++ b/man/man8/ip.8
-@@ -2855,6 +2855,49 @@ can be
-  .SS ip xfrm monitor - state monitoring for xfrm objects
-  The xfrm objects to monitor can be optionally specified.
+With IPsec tunnel mode this already happens to an extent anyway.
+Any PMTU event outside the tunnel is invisible to hosts within it.
+Only the router can see those events.
 
-+.SH EXAMPLES
-+.LP
-+To turn on an interface:
-+.RS
-+.nf
-+.B ip link set up dev eth0
-+.fi
-+.RE
-+.LP
-+To add an IPv4 address to an interface:
-+.RS
-+.nf
-+.B ip address add 141.85.37.42/24 dev eth0
-+.fi
-+.RE
-+.LP
-+To add a default route in the IPv4 routing table using a next hop IP 
-address:
-+.RS
-+.nf
-+.B ip route add  default via 141.85.37.1
-+.fi
-+.RE
-+.LP
-+Equivalent ways of listing address information for all the interfaces:
-+.RS
-+.nf
-+.B ip addr show
-+.fi
-+.RE
-+.LP
-+.RS
-+.nf
-+.B ip a s
-+.fi
-+.RE
-+.LP
-+.RS
-+.nf
-+.B ip a
-+.fi
-+.RE
-+.LP
-+
-  .SH HISTORY
-  .B ip
-  was written by Alexey N. Kuznetsov and added in Linux 2.2.
+However, as I said I'm not too bothered with this so feel free
+to go with your patch.
+
+Cheers,
 -- 
-1.7.4.1
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
