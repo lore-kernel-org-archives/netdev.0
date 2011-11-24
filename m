@@ -1,66 +1,267 @@
-From: Fleming Andy-AFLEMING <afleming@freescale.com>
-Subject: Re: [PATCH] net: fsl_pq_mdio: fix oops when using uninitialized
- mutex
-Date: Thu, 24 Nov 2011 17:46:40 +0000
-Message-ID: <64079AFE-7F15-4207-BEC2-E5F9CC7D7C93@freescale.com>
-References: <59b050a97a9b5382918b66f2850a80c86e52f409.1320736936.git.baruch@tkos.co.il>
- <CAKWjMd5WCx8pSJiL5U_WkD6XA5dSZLgLZkvMA6sjAKNuAz7PKg@mail.gmail.com>,<2465EDAB-01F8-4D5B-9950-E5F180E8A435@kernel.crashing.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next] bonding: Remove obsolete source file 'bond_ipv6.c'
+Date: Thu, 24 Nov 2011 18:16:21 +0000
+Message-ID: <1322158581.2784.16.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Andy Fleming <afleming@gmail.com>,
-	Baruch Siach <baruch@tkos.co.il>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
-To: Kumar Gala <galak@kernel.crashing.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe001.messaging.microsoft.com ([216.32.181.181]:14480
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750820Ab1KXRrq convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Nov 2011 12:47:46 -0500
-In-Reply-To: <2465EDAB-01F8-4D5B-9950-E5F180E8A435@kernel.crashing.org>
-Content-Language: en-US
+Received: from exchange.solarflare.com ([216.237.3.220]:22467 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752502Ab1KXSQ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 13:16:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yes, I sent a patch. Then he sent another patch which breaks things differently. I have not yet submitted my fix. My fix is to revert his patch, and then modify your updated device trees to automatically set the tbi to something.
+This file is now unused and should have been removed by commit
+7c89943236750537d26421d9bbb6f6575e2d1e1b ("bonding, ipv4, ipv6, vlan:
+Handle NETDEV_BONDING_FAILOVER like NETDEV_NOTIFY_PEERS").
 
-On Nov 24, 2011, at 1:51, "Kumar Gala" <galak@kernel.crashing.org> wrote:
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/bonding/bond_ipv6.c |  225 ---------------------------------------
+ 1 files changed, 0 insertions(+), 225 deletions(-)
+ delete mode 100644 drivers/net/bonding/bond_ipv6.c
 
-> 
-> On Nov 9, 2011, at 2:10 PM, Andy Fleming wrote:
-> 
->>> Fix this by moving the of_mdiobus_register() call earlier.
->>> 
->>> Cc: Andy Fleming <afleming@freescale.com>
->>> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
->>> ---
->>> drivers/net/ethernet/freescale/fsl_pq_mdio.c |   14 +++++++-------
->>> 1 files changed, 7 insertions(+), 7 deletions(-)
->>> 
->>> diff --git a/drivers/net/ethernet/freescale/fsl_pq_mdio.c b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
->>> index 52f4e8a..e17fd2f 100644
->>> --- a/drivers/net/ethernet/freescale/fsl_pq_mdio.c
->>> +++ b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
->>> @@ -385,6 +385,13 @@ static int fsl_pq_mdio_probe(struct platform_device *ofdev)
->>>                       tbiaddr = *prop;
->>>       }
->>> 
->>> +       err = of_mdiobus_register(new_bus, np);
->>> +       if (err) {
->>> +               printk (KERN_ERR "%s: Cannot register as MDIO bus\n",
->>> +                               new_bus->name);
->>> +               goto err_free_irqs;
->>> +       }
->>> +
->> 
->> 
->> This fix totally breaks the point of setting tbipa beforehand.
->> mdiobus_register will cause the bus to be scanned, and if any of the
->> PHYs are at the default address for tbipa, they won't be found. I have
->> a different fix which I will (re)submit today.
-> 
-> What happened here, did you send a patch?
-> 
-> - k
+diff --git a/drivers/net/bonding/bond_ipv6.c b/drivers/net/bonding/bond_ipv6.c
+deleted file mode 100644
+index 027a0ee..0000000
+--- a/drivers/net/bonding/bond_ipv6.c
++++ /dev/null
+@@ -1,225 +0,0 @@
+-/*
+- * Copyright(c) 2008 Hewlett-Packard Development Company, L.P.
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of the GNU General Public License as published by the
+- * Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful, but
+- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+- * for more details.
+- *
+- * You should have received a copy of the GNU General Public License along
+- * with this program; if not, write to the Free Software Foundation, Inc.,
+- * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+- *
+- * The full GNU General Public License is included in this distribution in the
+- * file called LICENSE.
+- *
+- */
+-
+-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+-
+-#include <linux/types.h>
+-#include <linux/if_vlan.h>
+-#include <net/ipv6.h>
+-#include <net/ndisc.h>
+-#include <net/addrconf.h>
+-#include <net/netns/generic.h>
+-#include "bonding.h"
+-
+-/*
+- * Assign bond->master_ipv6 to the next IPv6 address in the list, or
+- * zero it out if there are none.
+- */
+-static void bond_glean_dev_ipv6(struct net_device *dev, struct in6_addr *addr)
+-{
+-	struct inet6_dev *idev;
+-
+-	if (!dev)
+-		return;
+-
+-	idev = in6_dev_get(dev);
+-	if (!idev)
+-		return;
+-
+-	read_lock_bh(&idev->lock);
+-	if (!list_empty(&idev->addr_list)) {
+-		struct inet6_ifaddr *ifa
+-			= list_first_entry(&idev->addr_list,
+-					   struct inet6_ifaddr, if_list);
+-		ipv6_addr_copy(addr, &ifa->addr);
+-	} else
+-		ipv6_addr_set(addr, 0, 0, 0, 0);
+-
+-	read_unlock_bh(&idev->lock);
+-
+-	in6_dev_put(idev);
+-}
+-
+-static void bond_na_send(struct net_device *slave_dev,
+-			 struct in6_addr *daddr,
+-			 int router,
+-			 unsigned short vlan_id)
+-{
+-	struct in6_addr mcaddr;
+-	struct icmp6hdr icmp6h = {
+-		.icmp6_type = NDISC_NEIGHBOUR_ADVERTISEMENT,
+-	};
+-	struct sk_buff *skb;
+-
+-	icmp6h.icmp6_router = router;
+-	icmp6h.icmp6_solicited = 0;
+-	icmp6h.icmp6_override = 1;
+-
+-	addrconf_addr_solict_mult(daddr, &mcaddr);
+-
+-	pr_debug("ipv6 na on slave %s: dest %pI6, src %pI6\n",
+-		 slave_dev->name, &mcaddr, daddr);
+-
+-	skb = ndisc_build_skb(slave_dev, &mcaddr, daddr, &icmp6h, daddr,
+-			      ND_OPT_TARGET_LL_ADDR);
+-
+-	if (!skb) {
+-		pr_err("NA packet allocation failed\n");
+-		return;
+-	}
+-
+-	if (vlan_id) {
+-		/* The Ethernet header is not present yet, so it is
+-		 * too early to insert a VLAN tag.  Force use of an
+-		 * out-of-line tag here and let dev_hard_start_xmit()
+-		 * insert it if the slave hardware can't.
+-		 */
+-		skb = __vlan_hwaccel_put_tag(skb, vlan_id);
+-		if (!skb) {
+-			pr_err("failed to insert VLAN tag\n");
+-			return;
+-		}
+-	}
+-
+-	ndisc_send_skb(skb, slave_dev, NULL, &mcaddr, daddr, &icmp6h);
+-}
+-
+-/*
+- * Kick out an unsolicited Neighbor Advertisement for an IPv6 address on
+- * the bonding master.  This will help the switch learn our address
+- * if in active-backup mode.
+- *
+- * Caller must hold curr_slave_lock for read or better
+- */
+-void bond_send_unsolicited_na(struct bonding *bond)
+-{
+-	struct slave *slave = bond->curr_active_slave;
+-	struct vlan_entry *vlan;
+-	struct inet6_dev *idev;
+-	int is_router;
+-
+-	pr_debug("%s: bond %s slave %s\n", bond->dev->name,
+-		 __func__, slave ? slave->dev->name : "NULL");
+-
+-	if (!slave || !bond->send_unsol_na ||
+-	    test_bit(__LINK_STATE_LINKWATCH_PENDING, &slave->dev->state))
+-		return;
+-
+-	bond->send_unsol_na--;
+-
+-	idev = in6_dev_get(bond->dev);
+-	if (!idev)
+-		return;
+-
+-	is_router = !!idev->cnf.forwarding;
+-
+-	in6_dev_put(idev);
+-
+-	if (!ipv6_addr_any(&bond->master_ipv6))
+-		bond_na_send(slave->dev, &bond->master_ipv6, is_router, 0);
+-
+-	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
+-		if (!ipv6_addr_any(&vlan->vlan_ipv6)) {
+-			bond_na_send(slave->dev, &vlan->vlan_ipv6, is_router,
+-				     vlan->vlan_id);
+-		}
+-	}
+-}
+-
+-/*
+- * bond_inet6addr_event: handle inet6addr notifier chain events.
+- *
+- * We keep track of device IPv6 addresses primarily to use as source
+- * addresses in NS probes.
+- *
+- * We track one IPv6 for the main device (if it has one).
+- */
+-static int bond_inet6addr_event(struct notifier_block *this,
+-				unsigned long event,
+-				void *ptr)
+-{
+-	struct inet6_ifaddr *ifa = ptr;
+-	struct net_device *vlan_dev, *event_dev = ifa->idev->dev;
+-	struct bonding *bond;
+-	struct vlan_entry *vlan;
+-	struct bond_net *bn = net_generic(dev_net(event_dev), bond_net_id);
+-
+-	list_for_each_entry(bond, &bn->dev_list, bond_list) {
+-		if (bond->dev == event_dev) {
+-			switch (event) {
+-			case NETDEV_UP:
+-				if (ipv6_addr_any(&bond->master_ipv6))
+-					ipv6_addr_copy(&bond->master_ipv6,
+-						       &ifa->addr);
+-				return NOTIFY_OK;
+-			case NETDEV_DOWN:
+-				if (ipv6_addr_equal(&bond->master_ipv6,
+-						    &ifa->addr))
+-					bond_glean_dev_ipv6(bond->dev,
+-							    &bond->master_ipv6);
+-				return NOTIFY_OK;
+-			default:
+-				return NOTIFY_DONE;
+-			}
+-		}
+-
+-		list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
+-			rcu_read_lock();
+-			vlan_dev = __vlan_find_dev_deep(bond->dev,
+-							vlan->vlan_id);
+-			rcu_read_unlock();
+-			if (vlan_dev == event_dev) {
+-				switch (event) {
+-				case NETDEV_UP:
+-					if (ipv6_addr_any(&vlan->vlan_ipv6))
+-						ipv6_addr_copy(&vlan->vlan_ipv6,
+-							       &ifa->addr);
+-					return NOTIFY_OK;
+-				case NETDEV_DOWN:
+-					if (ipv6_addr_equal(&vlan->vlan_ipv6,
+-							    &ifa->addr))
+-						bond_glean_dev_ipv6(vlan_dev,
+-								    &vlan->vlan_ipv6);
+-					return NOTIFY_OK;
+-				default:
+-					return NOTIFY_DONE;
+-				}
+-			}
+-		}
+-	}
+-	return NOTIFY_DONE;
+-}
+-
+-static struct notifier_block bond_inet6addr_notifier = {
+-	.notifier_call = bond_inet6addr_event,
+-};
+-
+-void bond_register_ipv6_notifier(void)
+-{
+-	register_inet6addr_notifier(&bond_inet6addr_notifier);
+-}
+-
+-void bond_unregister_ipv6_notifier(void)
+-{
+-	unregister_inet6addr_notifier(&bond_inet6addr_notifier);
+-}
+-
+-- 
+1.7.4.4
+
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
