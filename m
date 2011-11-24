@@ -1,94 +1,78 @@
-From: Henrik Saavedra Persson <henrik.e.persson@ericsson.com>
-Subject: [PATCH] bonding: only use primary address for ARP
-Date: Thu, 24 Nov 2011 10:37:15 +0100
-Message-ID: <20111124093715.GA25365@as68121.uab.ericsson.se>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] macvtap: Fix macvtap_get_queue to use rxhash first
+Date: Thu, 24 Nov 2011 11:59:03 +0200
+Message-ID: <20111124095902.GD14491@redhat.com>
+References: <20111124081714.26635.68141.sendpatchset@krkumar2.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <fubar@us.ibm.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw9.se.ericsson.net ([193.180.251.57]:51995 "EHLO
-	mailgw9.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754941Ab1KXJ7q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 04:59:46 -0500
+Content-Transfer-Encoding: 7bit
+Cc: arnd@arndb.de, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	levinsasha928@gmail.com, davem@davemloft.net
+To: Krishna Kumar <krkumar2@in.ibm.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20111124081714.26635.68141.sendpatchset@krkumar2.in.ibm.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Only use the primary address of the bond device
-for master_ip. This will prevent changing the ARP source
-address in Active-Backup mode whenever a secondry address
-is added to the bond device.
+On Thu, Nov 24, 2011 at 01:47:14PM +0530, Krishna Kumar wrote:
+> It was reported that the macvtap device selects a
+> different vhost (when used with multiqueue feature)
+> for incoming packets of a single connection. Use
+> packet hash first. Patch tested on MQ virtio_net.
 
-Signed-off-by: Henrik Saavedra Persson <henrik.e.persson@ericsson.com>
----
- drivers/net/bonding/bond_main.c |   33 ++++++---------------------------
- 1 files changed, 6 insertions(+), 27 deletions(-)
+So this is sure to address the problem, why exactly does this happen?
+Does your device spread a single flow across multiple RX queues? Would
+not that cause trouble in the TCP layer?
+It would seem that using the recorded queue should be faster with
+less cache misses. Before we give up on that, I'd
+like to understand why it's wrong. Do you know?
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 6191e63..ec293b3 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2551,30 +2551,6 @@ out:
- 	}
- }
- 
--static __be32 bond_glean_dev_ip(struct net_device *dev)
--{
--	struct in_device *idev;
--	struct in_ifaddr *ifa;
--	__be32 addr = 0;
--
--	if (!dev)
--		return 0;
--
--	rcu_read_lock();
--	idev = __in_dev_get_rcu(dev);
--	if (!idev)
--		goto out;
--
--	ifa = idev->ifa_list;
--	if (!ifa)
--		goto out;
--
--	addr = ifa->ifa_local;
--out:
--	rcu_read_unlock();
--	return addr;
--}
--
- static int bond_has_this_ip(struct bonding *bond, __be32 ip)
- {
- 	struct vlan_entry *vlan;
-@@ -3316,6 +3292,10 @@ static int bond_inetaddr_event(struct notifier_block *this, unsigned long event,
- 	struct bonding *bond;
- 	struct vlan_entry *vlan;
- 
-+	/* we only care about primary address */
-+	if(ifa->ifa_flags & IFA_F_SECONDARY)
-+		return NOTIFY_DONE;
-+
- 	list_for_each_entry(bond, &bn->dev_list, bond_list) {
- 		if (bond->dev == event_dev) {
- 			switch (event) {
-@@ -3323,7 +3303,7 @@ static int bond_inetaddr_event(struct notifier_block *this, unsigned long event,
- 				bond->master_ip = ifa->ifa_local;
- 				return NOTIFY_OK;
- 			case NETDEV_DOWN:
--				bond->master_ip = bond_glean_dev_ip(bond->dev);
-+				bond->master_ip = 0;
- 				return NOTIFY_OK;
- 			default:
- 				return NOTIFY_DONE;
-@@ -3339,8 +3319,7 @@ static int bond_inetaddr_event(struct notifier_block *this, unsigned long event,
- 					vlan->vlan_ip = ifa->ifa_local;
- 					return NOTIFY_OK;
- 				case NETDEV_DOWN:
--					vlan->vlan_ip =
--						bond_glean_dev_ip(vlan_dev);
-+					vlan->vlan_ip = 0;
- 					return NOTIFY_OK;
- 				default:
- 					return NOTIFY_DONE;
--- 
-1.7.1
+> 
+> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+> ---
+>  drivers/net/macvtap.c |   16 ++++++++--------
+>  1 file changed, 8 insertions(+), 8 deletions(-)
+> 
+> diff -ruNp org/drivers/net/macvtap.c new/drivers/net/macvtap.c
+> --- org/drivers/net/macvtap.c	2011-10-22 08:38:01.000000000 +0530
+> +++ new/drivers/net/macvtap.c	2011-11-16 18:34:51.000000000 +0530
+> @@ -175,6 +175,14 @@ static struct macvtap_queue *macvtap_get
+>  	if (!numvtaps)
+>  		goto out;
+>  
+> +	/* Check if we can use flow to select a queue */
+> +	rxq = skb_get_rxhash(skb);
+> +	if (rxq) {
+> +		tap = rcu_dereference(vlan->taps[rxq % numvtaps]);
+> +		if (tap)
+> +			goto out;
+> +	}
+> +
+>  	if (likely(skb_rx_queue_recorded(skb))) {
+>  		rxq = skb_get_rx_queue(skb);
+>  
+> @@ -186,14 +194,6 @@ static struct macvtap_queue *macvtap_get
+>  			goto out;
+>  	}
+>  
+> -	/* Check if we can use flow to select a queue */
+> -	rxq = skb_get_rxhash(skb);
+> -	if (rxq) {
+> -		tap = rcu_dereference(vlan->taps[rxq % numvtaps]);
+> -		if (tap)
+> -			goto out;
+> -	}
+> -
+>  	/* Everything failed - find first available queue */
+>  	for (rxq = 0; rxq < MAX_MACVTAP_QUEUES; rxq++) {
+>  		tap = rcu_dereference(vlan->taps[rxq]);
