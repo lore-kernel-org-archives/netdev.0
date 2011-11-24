@@ -1,77 +1,97 @@
-From: Karsten Keil <kkeil@linux-pingi.de>
-Subject: Re: [patch] isdn: make sure strings are null terminated
-Date: Thu, 24 Nov 2011 14:17:20 +0100
-Message-ID: <20111124131720.GA16966@gw.linux-pingi.de>
-References: <20111123064204.GA6871@elgon.mountain>
- <4ECCAE14.3070008@bfs.de>
- <20111124113456.GI3258@mwanda>
- <4ECE36D6.7060503@bfs.de>
+From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+Subject: Re: [GIT PULL v2] Open vSwitch
+Date: Thu, 24 Nov 2011 08:19:39 -0500
+Message-ID: <1322140779.1949.191.camel@mojatatu>
+References: <20111123075433.GA7928@gondor.apana.org.au>
+	<1322035942.1298.56.camel@edumazet-laptop>
+	<1322052463.2039.135.camel@mojatatu>
+	<1322052938.17693.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<1322055858.2039.188.camel@mojatatu>  <4ECD19AC.8090505@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: walter harms <wharms@bfs.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:52016 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755879Ab1KXNR2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 08:17:28 -0500
-Content-Disposition: inline
-In-Reply-To: <4ECE36D6.7060503@bfs.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Lennert Buytenhek <kernel-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <4ECD19AC.8090505-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 24, 2011 at 01:21:42PM +0100, walter harms wrote:
+On Wed, 2011-11-23 at 08:05 -0800, John Fastabend wrote:
+
+> > Makes sense in most cases. If you have a lot of flow setup/teardown
+> > it may harm.
 > 
-> 
-> Am 24.11.2011 12:34, schrieb Dan Carpenter:
-> > On Wed, Nov 23, 2011 at 09:25:56AM +0100, walter harms wrote:
-> >>
-> >>
-> >> Am 23.11.2011 07:42, schrieb Dan Carpenter:
-> >>> These strings come from the user.  We strcpy() them inside
-> >>> cf_command() so we should check that they are NULL terminated and
-> >>> return an error if not.
-> >>>
-> >>> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> >>>
-> >>> diff --git a/drivers/isdn/divert/divert_procfs.c b/drivers/isdn/divert/divert_procfs.c
-> >>> index 33ec9e4..0c16687 100644
-> >>> --- a/drivers/isdn/divert/divert_procfs.c
-> >>> +++ b/drivers/isdn/divert/divert_procfs.c
-> >>> @@ -242,6 +242,10 @@ static int isdn_divert_ioctl_unlocked(struct file *file, uint cmd, ulong arg)
-> >>>  		case IIOCDOCFINT:
-> >>>  			if (!divert_if.drv_to_name(dioctl.cf_ctrl.drvid))
-> >>>  				return (-EINVAL);	/* invalid driver */
-> >>> +			if (strlen(dioctl.cf_ctrl.msn) >= sizeof(dioctl.cf_ctrl.msn))
-> >>> +				return -EINVAL;
-> >>> +			if (strlen(dioctl.cf_ctrl.fwd_nr) >= sizeof(dioctl.cf_ctrl.fwd_nr))
-> >>> +				return -EINVAL;
-> >>
-> >> forcing the last field to be zero seems more easy.
-> >> dioctl.cf_ctrl.fwd_nr[sizeof(dioctl.cf_ctrl.fwd_nr))-1]=0;
-> >>
-> > 
-> > That's a valid option to use, but I'd prefer to return an error code
-> > here because that's what we do on the line before.  Passing a too
-> > long string is clearly invalid.
-> > 
-> 
-> the line before has the same problem, of cause.
-> 
-> So far i see you do not get a string, you get a structure. An it will hard
-> to validate the element is a useful string. I thing my (sledgehammer) method
-> is ok here because you make sure that all later calls (strcmp,strcpy) will succeed.
-> If someone supplies a bad string the later calls will catch by failing to identify
-> and return a proper code from there (at least i hope so).
+> We could have a CONFIG option to always do locking in some
+> cases if thats not too ugly.
+
+What i mean is RCU is useful when you have a substantially 
+larger reads over writes(DEL/updates). The later comes up
+when you are setting up and tearing down state all the
+time. Actually, I think conntrack uses rcu now - that would
+be a good metric of how much useful it is since conntrack
+falls under this category.
+
+> I assume you mean something like setup_tc() which we have
+> today to call into into the driver at qdisc create time. This
+> happens with the RTNL held. I don't see any reason not to also
+> call into the hardware on qdisc_change() I just haven't done
+> it yet.
+
+Yes, the operative piece is "also". In other words, I should be
+able to run tc qdisc blah and not see the difference.
+In the distant past what i have done in the case of absence of software
+support is to write the "hwardware" scheduler in the kernel. If we
+already have the hardware support, then there is no need for that step.
+Let tc be responsible for controlling this "hardware" qdisc. It doesnt
+talk to the hardware.
+A user space helper app listens to things being added and deleted by
+tc in the kernel and synchronizes them via a driver-specific call.
+Different drivers tend to have different lower layer "hard-coded" 
+ways of setting up the hardware; so you may end up with different
+backends.
+The challenge is synchronizing stats.
+
+> Although I'm pretty sure we don't want to add a new ndo_ops
+> ever time we have some hardware feature we want to expose.
+> Assuming there are more than 1 or 2 hw features. So maybe
+> we could convert to something more generic. A setup_qos()
+> call that passes an skb with nl attributes.
+
+You only need one - call it "hardware_setup" so you can do
+other esoteric things with it.
+
+> Is that what you were asking?
+
+Something like that. I described how i did it - but thats because
+I wanted to make zero changes to the kernel. It is better to have
+kernel support of some sort but you dont want to do too much
+otherwise you start adding a lot of shit in the kernel like
+the infiniband guys. Have a user space helper when in doubt.
+I almost forgot, a good example (of good work in the kernel already)
+you wanna take  a look at is something Lennert (added to CC) did for
+Marvel chips (i think it is called DSA). 
+
+> One of the problems this resolves is not being able to
+> call the classifier-actions until after the queue is
+> already selected. At this point you can't send it to
+> a higher/lower priority queue.
 > 
 
-Since the proper userspace programs should use the correct size, these valid
-fixes (Thanks !) will prevent bad programs to use this for some bad purpose.
-I think both methods are OK, I tend to the sledgehammer, because it is the
-lowest CPU consuming method - but on the other side the valid length is
-small enough.
+Still blanking out - will wait for the code to comment.
 
-Thanks
-Karsten
+cheers,
+jamal
