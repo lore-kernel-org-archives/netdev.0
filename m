@@ -1,62 +1,52 @@
-From: Jun Zhao <mypopydev@gmail.com>
-Subject: [BUG] igmpv3 report bug ?
-Date: Thu, 24 Nov 2011 23:19:12 +0800
-Message-ID: <1322147954.9333.60.camel@barry.pixelworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Patrick Kelle <patrick.kelle81@gmail.com>
+Subject: [PATCH] icplus: mdio_write(), remove unnecessary for loop
+Date: Thu, 24 Nov 2011 16:39:05 +0100
+Message-ID: <1322149145-32242-1-git-send-email-patrick.kelle81@gmail.com>
+Cc: romieu@fr.zoreil.com, sorbica@icplus.com.tw,
+	Patrick Kelle <patrick.kelle81@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:38225 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751030Ab1KXPUS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 10:20:18 -0500
-Received: by yenl6 with SMTP id l6so277813yen.19
-        for <netdev@vger.kernel.org>; Thu, 24 Nov 2011 07:20:18 -0800 (PST)
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:45729 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754032Ab1KXPl0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 10:41:26 -0500
+Received: by faas1 with SMTP id s1so1692536faa.19
+        for <netdev@vger.kernel.org>; Thu, 24 Nov 2011 07:41:25 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, David:
+At this point the variable j is always set to 7 and the code within
+the loop has to run only once anyway.
 
-When Linux have a interface that is attached with SSM(Source-specific
-multicast) and filter mode is EXCLUDE, if the multicast router send
-group-and-source specific query to this interface for this group, Linux
-respond this query with IS_EX record type.According to RFC 3376 $5.2
-Page 24, need to respond this query with IS_IN record type.
+Signed-off-by: Patrick Kelle <patrick.kelle81@gmail.com>
+---
+ drivers/net/ethernet/icplus/ipg.c |   12 +++++-------
+ 1 files changed, 5 insertions(+), 7 deletions(-)
 
-+--------+              +--------+
-|LINUX   |    < - >     |Router  |    
-+--------+              +--------+
-
-This is the step to reappear symptom.
-
-1). LINUX join the SSM with EXCLUDE mode.Conceptually equivalent
-IPMulticastListen ( interface, multicast-address,
-                          EXCLUDE, source-list(A) )
-
-2). Router send the group-and-source specific query to this interface
-for this group. 
-Query(multicast-address, source-list(B)).
-
-3). Observe the igmpv3 report that send from LINUX, the respond is the
-report with IS_EX record type.  
-IS_EX(A)
-
-Below is the action from RFC 3376 $ 5.2 Page 24:
-
-                         set of sources in the
-      interface state   pending response record   Current-State Record
-      ---------------   -----------------------   --------------------
-       EXCLUDE (A)               Query(B)          IS_IN (B-A)
-
-This is linux action
-
-                         set of sources in the
-      interface state   pending response record   Current-State Record
-      ---------------   -----------------------   --------------------
-       EXCLUDE (A)               Query(B)          IS_EX (A)
-
-I find MLDv2 have this symptom too.
-
-Tks.
+diff --git a/drivers/net/ethernet/icplus/ipg.c b/drivers/net/ethernet/icplus/ipg.c
+index 8fd80a0..a65d747 100644
+--- a/drivers/net/ethernet/icplus/ipg.c
++++ b/drivers/net/ethernet/icplus/ipg.c
+@@ -371,15 +371,13 @@ static void mdio_write(struct net_device *dev, int phy_id, int phy_reg, int val)
+ 	}
+ 
+ 	/* The last cycle is a tri-state, so read from the PHY. */
+-	for (j = 7; j < 8; j++) {
+-		for (i = 0; i < p[j].len; i++) {
+-			ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_LO | polarity);
++	for (i = 0; i < p[j].len; i++) {
++		ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_LO | polarity);
+ 
+-			p[j].field |= ((ipg_r8(PHY_CTRL) &
+-				IPG_PC_MGMTDATA) >> 1) << (p[j].len - 1 - i);
++		p[j].field |= ((ipg_r8(PHY_CTRL) &
++			IPG_PC_MGMTDATA) >> 1) << (p[j].len - 1 - i);
+ 
+-			ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_HI | polarity);
+-		}
++		ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_HI | polarity);
+ 	}
+ }
+ 
+-- 
+1.7.7.1
