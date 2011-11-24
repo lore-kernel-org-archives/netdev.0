@@ -1,52 +1,46 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH 0/6] SUNRPC: make RPC clients use network-namespace-aware
- PipeFS routines
-Date: Thu, 24 Nov 2011 12:45:30 +0400
-Message-ID: <4ECE042A.1030500@parallels.com>
-References: <20111123104945.11077.10270.stgit@localhost6.localdomain6> <20111123162711.GA30672@fieldses.org>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 5/5] ipv4: Don't use the cached pmtu informations for
+ input routes
+Date: Thu, 24 Nov 2011 09:49:52 +0100
+Message-ID: <20111124084952.GF6348@secunet.com>
+References: <20111123155245.GA11638@gondor.apana.org.au>
+ <20111123.164941.1950228526500366081.davem@davemloft.net>
+ <20111124001035.GA14996@gondor.apana.org.au>
+ <20111123.191758.1061988020384521241.davem@davemloft.net>
+ <20111124010147.GA15318@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	James Bottomley <jbottomley@parallels.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: "J. Bruce Fields" <bfields@fieldses.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111123162711.GA30672@fieldses.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:32924 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752896Ab1KXIt7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Nov 2011 03:49:59 -0500
+Content-Disposition: inline
+In-Reply-To: <20111124010147.GA15318@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-23.11.2011 20:27, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Wed, Nov 23, 2011 at 02:51:10PM +0300, Stanislav Kinsbursky wrote:
->> This patch set was created in context of clone of git
->> branch: git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git.
->> tag: v3.1
->>
->> This patch set depends on previous patch sets titled:
->> 1) "SUNRPC: initial part of making pipefs work in net ns"
->> 2) "SUNPRC: cleanup PipeFS for network-namespace-aware users"
->
-> Do you have a git tree set up with all of these applied?
->
+On Thu, Nov 24, 2011 at 09:01:47AM +0800, Herbert Xu wrote:
+> On Wed, Nov 23, 2011 at 07:17:58PM -0500, David Miller wrote:
+> >
+> > It means there is a propagation delay of PMTU increasing which is on the
+> > order of the number of hops between the sender and the PMTU increased link.
+> > So if the PMTU timeout is X, the propagation time is X * N_HOPS.
+> 
+> That assumes that each router in the path would constantly probe
+> to refresh its cached value, as otherwise they should all expire
+> after X.
 
-Hello, Bruce.
-You can clone my current working branch from:
+Well, it simply got unpredictable how long pmtu propagation takes.
+This depends now on the network activity of the routers and on the
+individual configuration of the expiration time on each router. With
+the original behaviour, we could expect to notice a pmtu increase
+if we probe after our timeout X. Now we don't know when this is going
+to happen.
 
-git://github.com/skinsbursky/nfs-per-net-ns.git
-
-I'll update it after any significant changes.
-
-There is also web interface:
-
-https://github.com/skinsbursky/nfs-per-net-ns/tree/rpcpipefs_per_netns
-
---=20
-Best regards,
-Stanislav Kinsbursky
+Btw. we leak a trigger to check if the learned pmtu information has
+expired in our current tree, the learned pmtu informations never
+expire. So we are doing good to not propagate our learned pmtu
+to other hosts :)
