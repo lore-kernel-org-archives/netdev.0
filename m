@@ -1,30 +1,39 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: RAW netfilter - "advanced netfilter setting" or not?
-Date: Thu, 24 Nov 2011 08:11:56 +0100
-Message-ID: <4ECDEE3C.1030306@trash.net>
-References: <CA+55aFxtSgLppJQ8EbQEovdXsCNxQ1gT31FyP2cpyuvoBLajZw@mail.gmail.com> <alpine.LNX.2.01.1111232217220.27025@frira.zrqbmnf.qr> <CA+55aFyQGf4sFNOVsv4krddn3gxQ=roqVHpC98-Ynx8iBqpRaQ@mail.gmail.com> <alpine.LNX.2.01.1111232325500.27025@frira.zrqbmnf.qr> <CA+55aFxPHAf7DDD4cd3ZHNhwdbV4ijSZz83U5=5BzYqgiVKdtg@mail.gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] net/netlabel: copy and paste bug in
+ netlbl_cfg_unlbl_map_add()
+Date: Thu, 24 Nov 2011 10:18:20 +0300
+Message-ID: <20111124071820.GB14122@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	David Miller <davem@davemloft.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFxPHAf7DDD4cd3ZHNhwdbV4ijSZz83U5=5BzYqgiVKdtg@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Paul Moore <paul@paul-moore.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet15.oracle.com ([148.87.113.117]:33868 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751230Ab1KXHSm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 02:18:42 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 23.11.2011 23:58, Linus Torvalds wrote:
-> On Wed, Nov 23, 2011 at 2:32 PM, Jan Engelhardt <jengelh@medozas.de> wrote:
->>
->> Right, but how would you decide what will be enabled/disabled by
->> default? It seems unlikely you will be adding a patch (like Dave's)
->> everytime a default distro installation throws certain errors once
->> you run your own kernel configs.
-> 
-> I do think that "major distributions do this by default" should simply
-> be the point for deciding it. Nothing more, nothing less.
+This was copy and pasted from the IPv4 code.  We're calling the
+ip4 version of that function and map4 is NULL.
 
-Agreed, that's also the criteria we used when we introduced this option.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+
+diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
+index 8ed67dcc..3735297 100644
+--- a/net/netlabel/netlabel_kapi.c
++++ b/net/netlabel/netlabel_kapi.c
+@@ -162,8 +162,8 @@ int netlbl_cfg_unlbl_map_add(const char *domain,
+ 			map6->list.addr.s6_addr32[3] &= mask6->s6_addr32[3];
+ 			map6->list.mask = *mask6;
+ 			map6->list.valid = 1;
+-			ret_val = netlbl_af4list_add(&map4->list,
+-						     &addrmap->list4);
++			ret_val = netlbl_af6list_add(&map6->list,
++						     &addrmap->list6);
+ 			if (ret_val != 0)
+ 				goto cfg_unlbl_map_add_failure;
+ 			break;
