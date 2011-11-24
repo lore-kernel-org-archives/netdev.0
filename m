@@ -1,89 +1,63 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch] isdn: make sure strings are null terminated
-Date: Thu, 24 Nov 2011 14:34:56 +0300
-Message-ID: <20111124113456.GI3258@mwanda>
-References: <20111123064204.GA6871@elgon.mountain>
- <4ECCAE14.3070008@bfs.de>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH] macvtap: Fix macvtap_get_queue to use rxhash first
+Date: Thu, 24 Nov 2011 16:44:34 +0530
+Message-ID: <OF12661931.5C4899F8-ON65257952.003B84A6-65257952.003D8DA6@in.ibm.com>
+References: <20111124081714.26635.68141.sendpatchset@krkumar2.in.ibm.com> <20111124095902.GD14491@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="GBuTPvBEOL0MYPgd"
-Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: walter harms <wharms@bfs.de>
+Content-Type: text/plain; charset=US-ASCII
+Cc: arnd@arndb.de, davem@davemloft.net, jasowang@redhat.com,
+	levinsasha928@gmail.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	jeffrey.t.kirsher@intel.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:46770 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751015Ab1KXLey (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 06:34:54 -0500
-Content-Disposition: inline
-In-Reply-To: <4ECCAE14.3070008@bfs.de>
+Received: from e28smtp03.in.ibm.com ([122.248.162.3]:40222 "EHLO
+	e28smtp03.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750938Ab1KXLpZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 06:45:25 -0500
+Received: from /spool/local
+	by e28smtp03.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <krkumar2@in.ibm.com>;
+	Thu, 24 Nov 2011 16:52:04 +0530
+Received: from d28av02.in.ibm.com (d28av02.in.ibm.com [9.184.220.64])
+	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id pAOBGsUK4726796
+	for <netdev@vger.kernel.org>; Thu, 24 Nov 2011 16:48:39 +0530
+Received: from d28av02.in.ibm.com (loopback [127.0.0.1])
+	by d28av02.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id pAOBCKZc017865
+	for <netdev@vger.kernel.org>; Thu, 24 Nov 2011 22:12:21 +1100
+In-Reply-To: <20111124095902.GD14491@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+"Michael S. Tsirkin" <mst@redhat.com> wrote on 11/24/2011 03:29:03 PM:
 
---GBuTPvBEOL0MYPgd
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> Subject Re: [PATCH] macvtap: Fix macvtap_get_queue to use rxhash first
+>
+> On Thu, Nov 24, 2011 at 01:47:14PM +0530, Krishna Kumar wrote:
+> > It was reported that the macvtap device selects a
+> > different vhost (when used with multiqueue feature)
+> > for incoming packets of a single connection. Use
+> > packet hash first. Patch tested on MQ virtio_net.
+>
+> So this is sure to address the problem, why exactly does this happen?
+> Does your device spread a single flow across multiple RX queues? Would
+> not that cause trouble in the TCP layer?
+> It would seem that using the recorded queue should be faster with
+> less cache misses. Before we give up on that, I'd
+> like to understand why it's wrong. Do you know?
 
-On Wed, Nov 23, 2011 at 09:25:56AM +0100, walter harms wrote:
->=20
->=20
-> Am 23.11.2011 07:42, schrieb Dan Carpenter:
-> > These strings come from the user.  We strcpy() them inside
-> > cf_command() so we should check that they are NULL terminated and
-> > return an error if not.
-> >=20
-> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> >=20
-> > diff --git a/drivers/isdn/divert/divert_procfs.c b/drivers/isdn/divert/=
-divert_procfs.c
-> > index 33ec9e4..0c16687 100644
-> > --- a/drivers/isdn/divert/divert_procfs.c
-> > +++ b/drivers/isdn/divert/divert_procfs.c
-> > @@ -242,6 +242,10 @@ static int isdn_divert_ioctl_unlocked(struct file =
-*file, uint cmd, ulong arg)
-> >  		case IIOCDOCFINT:
-> >  			if (!divert_if.drv_to_name(dioctl.cf_ctrl.drvid))
-> >  				return (-EINVAL);	/* invalid driver */
-> > +			if (strlen(dioctl.cf_ctrl.msn) >=3D sizeof(dioctl.cf_ctrl.msn))
-> > +				return -EINVAL;
-> > +			if (strlen(dioctl.cf_ctrl.fwd_nr) >=3D sizeof(dioctl.cf_ctrl.fwd_nr=
-))
-> > +				return -EINVAL;
->=20
-> forcing the last field to be zero seems more easy.
-> dioctl.cf_ctrl.fwd_nr[sizeof(dioctl.cf_ctrl.fwd_nr))-1]=3D0;
->=20
+I am using ixgbe. From what I briefly saw, ixgbe_alloc_rx_buffers
+calls skb_record_rx_queue when a skb is allocated. When a packet
+is received (ixgbe_alloc_rx_buffers), it sets rxhash. The
+recorded value is different for most skbs when I ran a single
+stream TCP stream test (does skbs move between the rx_rings?).
+With this patch, macvtap selects the same device for each
+incoming packet. I can add some debugs in ixgbe to see what is
+happening also. I am not sure if Sasha was using a different
+device.
 
-That's a valid option to use, but I'd prefer to return an error code
-here because that's what we do on the line before.  Passing a too
-long string is clearly invalid.
+Cc'ing Jeffrey in case he can add something.
 
-regards,
-dan carpenter
+thanks,
 
-
---GBuTPvBEOL0MYPgd
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAEBAgAGBQJOzivgAAoJEOnZkXI/YHqRJxIQAK/ueDDtlnugSjTRLQpRw9f1
-Rh8QC+gyeE4GedQPqTLCHd85uqvkg9p+eUyRBnzQt7wyvUBXbiFwwY9ODlvlrLgG
-hig8cU9T0CUwjzfWQ4S/wCfTmirMBLpFuLLUjNoWob3qkcWVrazRM7giDjGuO2+C
-PX0HtMlLPG6i2ZcwAI/uAHGQKmB4IpnJ0cBx2bUL4dCs2HOeeoSOdL6/XcPhWkVL
-aF/ypISqxefJH+NPCJoRFeb7iQGuhku5GVG2bqiyGlgIwFMLvtWnLxfRf8bXHM7b
-MNkF9EiXVXZ6N7I3L/zIvlSqOuXS/piZ4G+dslKA69R0cQMl5G/wWgDDfT9Coj4n
-1KdkahOAtR8QtO1KlRsv58IwFfrey31T2IL3uY/tL0cjX8zJqeN+/hWWK+vk6Yzw
-MnB9CQnt5OxDaCWh5R2Ptbpvy3dOcR7krfyIZBGrBdt0i2rUoJZJNaoS6sUQxuFL
-oOeGDLJGWSHB4bxE/0kWH1Kf0iXXmPSvVDoyUNTZf3Sjpa1ROHPnt8koR+Ikuy0e
-M5LA2Qj9mxagDeQIjg9HCxjJmwrW+JGkgdVUz92W2Kts2kdJ6891kxJ1B5u//O0l
-Vp4ZjOGRvgNZiSgLUxv9TyZ3BXOy6RGaHehGCOfGbP61TLyrkcHwLCEXgBsVax+x
-1wsp3A1UNrfmBcEaz3/L
-=ItrF
------END PGP SIGNATURE-----
-
---GBuTPvBEOL0MYPgd--
+- KK
