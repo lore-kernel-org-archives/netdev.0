@@ -1,59 +1,52 @@
 From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [PATCH 2/4] NET: NETROM: When adding a route verify length of
- mnemonic string.
-Date: Fri, 25 Nov 2011 09:08:49 +0000
-Message-ID: <cfff1df64b18a89140ff995189c6a3c484815997.1322214950.git.ralf@linux-mips.org>
-References: <cover.1322214950.git.ralf@linux-mips.org>
+Subject: [PATCH 0/4] AX.25 and NET/ROM fixes and improvments.
+Date: Fri, 25 Nov 2011 09:55:50 +0000
+Message-ID: <cover.1322214950.git.ralf@linux-mips.org>
 Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org,
+	Xi Wang <xi.wang@gmail.com>, Joerg Reuter <jreuter@yaina.de>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
 	Dan Carpenter <dan.carpenter@oracle.com>,
 	Walter Harms <wharms@bfs.de>,
 	Thomas Osterried <thomas@osterried.de>
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <cover.1322214950.git.ralf@linux-mips.org>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from h5.dl5rb.org.uk ([81.2.74.5]:52587 "EHLO linux-mips.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754595Ab1KYLJ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Nov 2011 06:09:59 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-struct nr_route_struct's mnemonic permits a string of up to 7 bytes to be
-used.  If userland passes a not zero terminated string to the kernel adding
-a node to the routing table might result in the kernel attempting to read
-copy a too long string.
+AX.25 ioctl didn't do sufficient argument checking.  The result of these
+overflows is harmless as it will be dealt with further further down in the
+stack but an application should get an error code when trying to set
+such a bogus value.  To not restrict the more extreme use cases of AX.25
+there is no attempt to clamp values to a "sensible" range.
 
-Mnemonic is part of the NET/ROM routing protocol; NET/ROM routing table
-updates only broadcast 6 bytes.  The 7th byte in the mnemonic array exists
-only as a \0 termination character for the kernel code's convenience.
+The NET/ROM stack's routing ioctl didn't check the lengths of the mnemonic
+string that is being passed as part of the nr_route_struct structure to the
+kernel.  In theory this could result in an oops but no memory corruption
+but again is fairly harmless because it requires CAP_NET_ADMIN priviledges
+which in practice only root has and ax25-tools don't send malformed 
+ioctls.
 
-Fixed by rejecting mnemonic strings that have no terminating \0 in the first
-7 characters.  Do this test only NETROM_NODE to avoid breaking NETROM_NEIGH
-where userland might passing an uninitialized mnemonic field.
+Two further patches simplify the checks at the beginning of nr_rt_ioctl
+and do minor reformatting to nr_ioctl.
 
-Initial patch by Dan Carpenter <dan.carpenter@oracle.com>.
+Patches 1 and 2 are meant for v3.2; 3 and 4 are only cosmetic and thus
+are v3.3 material.
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
-Cc: Dan Carpenter <dan.carpenter@oracle.com>
-Cc: Walter Harms <wharms@bfs.de>
-Cc: Thomas Osterried <thomas@osterried.de>
----
- net/netrom/nr_route.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+Ralf Baechle (4):
+  NET: AX.25: Check ioctl arguments to avoid overflows further down the
+    road.
+  NET: NETROM: When adding a route verify length of mnemonic string.
+  NET: NETROM: Cleanup argument SIOCADDRT ioctl argument checking.
+  NET: NETROM: Fix formatting.
 
-diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
-index 915a87b..8d7716c 100644
---- a/net/netrom/nr_route.c
-+++ b/net/netrom/nr_route.c
-@@ -678,6 +678,11 @@ int nr_rt_ioctl(unsigned int cmd, void __user *arg)
- 		}
- 		switch (nr_route.type) {
- 		case NETROM_NODE:
-+			if (strnlen(nr_route.mnemonic, 7) == 7) {
-+				ret = -EINVAL;
-+				break;
-+			}
-+
- 			ret = nr_add_node(&nr_route.callsign,
- 				nr_route.mnemonic,
- 				&nr_route.neighbour,
+ net/ax25/af_ax25.c     |   17 +++++++++++------
+ net/netrom/af_netrom.c |    3 ++-
+ net/netrom/nr_route.c  |   11 +++++++----
+ 3 files changed, 20 insertions(+), 11 deletions(-)
+
 -- 
 1.7.4.4
-
-
