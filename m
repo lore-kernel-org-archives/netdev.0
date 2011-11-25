@@ -1,43 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/2] netem: rate-latency extension
-Date: Fri, 25 Nov 2011 07:13:20 +0100
-Message-ID: <1322201600.2872.15.camel@edumazet-laptop>
-References: <1322156378-23257-1-git-send-email-hagen@jauu.net>
-	 <1322172898.2872.7.camel@edumazet-laptop>
-	 <20111124210926.3e4b7567@s6510.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Open vSwitch Design
+Date: Fri, 25 Nov 2011 07:18:03 +0100
+Message-ID: <1322201883.2872.19.camel@edumazet-laptop>
+References: <CAEP_g=_2L1xFWtDXh_6YyXz1Mt9TR3zvjLzix+SpO6yzeOLsSQ@mail.gmail.com>
+	<1322173833.1944.5.camel@mojatatu>
+	<20111124212021.2ae2fb7f@s6510.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:47761 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751081Ab1KYGNZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 01:13:25 -0500
-Received: by bke11 with SMTP id 11so3895057bke.19
-        for <netdev@vger.kernel.org>; Thu, 24 Nov 2011 22:13:24 -0800 (PST)
-In-Reply-To: <20111124210926.3e4b7567@s6510.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Chris Wright <chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org,
+	jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20111124212021.2ae2fb7f-QE31Isp8l5DVJhW05BI4jyWSNWFUUkiGXqFh9Ls21Oc@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 24 novembre 2011 =C3=A0 21:09 -0800, Stephen Hemminger a =C3=A9=
-crit :
-
-> I would rather a new qdisc then add more features to the already comp=
-lex
-> netem.  Initially, there where was a rate control built into netem, b=
-ut
-> the consensus was to use stacking to do it.
-
-Yes, but Hagen change adds a few lines to netem, and netem already
-handles throttling. This is why I believe its a nice enhancement.
-
-Being able to simulate a ratelimit  (in bits per second by the way, the
-usual bandwith unit, not bytes per second...) in a very easy way seems =
-a
-good thing, even if it handles only the egress side.
-
-As Hagen mentioned, a standard qdisc is able to rate limit, but the
-first packet sent has a null delay, even if its 64Kbyte packet. It
-doesnt mimic a true link.
+TGUgamV1ZGkgMjQgbm92ZW1icmUgMjAxMSDDoCAyMToyMCAtMDgwMCwgU3RlcGhlbiBIZW1taW5n
+ZXIgYSDDqWNyaXQgOgoKPiBUaGUgcHJvYmxlbSBpcyB0aGF0IHRoZXJlIGFyZSB0d28gZmxvdyBj
+bGFzc2lmaWVycywgb25lIGluIE9wZW5Wc3dpdGNoCj4gaW4gdGhlIGtlcm5lbCwgYW5kIHRoZSBv
+dGhlciBpbiB0aGUgdXNlciBzcGFjZSBmbG93IG1hbmFnZXIuIEkgdGhpbmsgdGhlCj4gaXNzdWUg
+aXMgdGhhdCB0aGUgdHdvIGhhdmUgZGlmZmVyZW50IGNvZGUuCgpXZSBoYXZlIGtpbmQgb2Ygc2Ft
+ZSBkdXBsaWNhdGlvbiBpbiBrZXJuZWwgYWxyZWFkeSA6KQoKX19za2JfZ2V0X3J4aGFzaCgpIGFu
+ZCBuZXQvc2NoZWQvY2xzX2Zsb3cuYyBjb250YWluIHJvdWdobHkgdGhlIHNhbWUKbG9naWMuLi4K
+Ck1heWJlIGl0cyB0aW1lIHRvIGZhY3Rvcml6ZSB0aGUgdGhpbmcsIGV2ZW50dWFsbHkgdXNlIGl0
+IGluIGEgdGhpcmQKY29tcG9uZW50IChPcGVuIHZTd2l0Y2guLi4pCgoKCl9fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9w
+ZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2
+Cg==
