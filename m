@@ -1,78 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [v4 PATCH 1/2] NETFILTER module xt_hmark, new target for HASH
- based fwmark
-Date: Fri, 25 Nov 2011 15:43:52 +0100
-Message-ID: <1322232232.2403.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1322213787-25796-1-git-send-email-hans@schillstrom.com>
-	 <1322213787-25796-2-git-send-email-hans@schillstrom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kaber@trash.net, pablo@netfilter.org, jengelh@medozas.de,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	hans.schillstrom@ericsson.com
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1322213787-25796-2-git-send-email-hans@schillstrom.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
+Subject: [PATCH v2] netns: fix proxy ARP entries listing on a netns
+Date: Fri, 25 Nov 2011 15:41:29 +0100
+Message-ID: <1322232089-31902-1-git-send-email-jorge@dti2.net>
+References: <20111123.173613.1360696422325749253.davem@davemloft.net>
+Reply-To: jorge@dti2.net
+Cc: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alcalazamora.dti2.net ([81.24.162.8]:64747 "EHLO
+	alcalazamora.dti2.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755468Ab1KYOr1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 09:47:27 -0500
+Received: from nikopol.intranet.dti2.net ([81.24.160.13])
+	(authenticated user jorge@dti2.net)
+	by alcalazamora.dti2.net (alcalazamora.dti2.net [81.24.162.8])
+	(MDaemon PRO v12.5.0)
+	with ESMTP id md50019844272.msg
+	for <netdev@vger.kernel.org>; Fri, 25 Nov 2011 15:41:50 +0100
+In-Reply-To: <20111123.173613.1360696422325749253.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 25 novembre 2011 =C3=A0 10:36 +0100, Hans Schillstrom a =C3=
-=A9crit :
-> From: Hans Schillstrom <hans.schillstrom@ericsson.com>
->=20
-> The target allows you to create rules in the "raw" and "mangle" table=
-s
-> which alter the netfilter mark (nfmark) field within a given range.
-> First a 32 bit hash value is generated then modulus by <limit> and
-> finally an offset is added before it's written to nfmark.
-> Prior to routing, the nfmark can influence the routing method (see
-> "Use netfilter MARK value as routing key") and can also be used by
-> other subsystems to change their behavior.
->=20
+From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
 
+Skip entries from foreign network namespaces.
 
-Oh well, yet another duplicated flow dissector ...
+V2:
+    Fixed as suggested by David Miller to avoid a goto.
 
-> +/*
-> + * Calc hash value, special casre is taken on icmp and fragmented me=
-ssages
-> + * i.e. fragmented messages don't use ports.
-> + */
-> +__u32 hmark_v6(struct sk_buff *skb, const struct xt_action_param *pa=
-r)
-> +{
-> +	struct xt_hmark_info *info =3D (struct xt_hmark_info *)par->targinf=
-o;
+Signed-off-by: Jorge Boncompte [DTI2] <jorge@dti2.net>
+---
+ net/core/neighbour.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
-
-
-> +no6ports:
-> +	nexthdr &=3D info->prmask;
-> +	/* get a consistent hash (same value on both flow directions) */
-> +	if (addr2 < addr1)
-> +		swap(addr1, addr2);
-> +	hash =3D jhash_3words(addr1, addr2, ports.v32, info->hashrnd) ^ nex=
-thdr;
-
-whats the point computing hash, if info->hmod is null, since we dont se=
-t
-skb->mark ?
-
-> +	if (info->hmod)
-> +		skb->mark =3D (hash % info->hmod) + info->hoffs;
-> +
-> +	return XT_CONTINUE;
-> +}
-> +#endif
-> +
-
-
-Same problem/question on hmark_v4()
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 2684794..27d3fef 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -2414,7 +2414,10 @@ static struct pneigh_entry *pneigh_get_next(struct seq_file *seq,
+ 	struct net *net = seq_file_net(seq);
+ 	struct neigh_table *tbl = state->tbl;
+ 
+-	pn = pn->next;
++	do {
++		pn = pn->next;
++	} while (pn && !net_eq(pneigh_net(pn), net));
++
+ 	while (!pn) {
+ 		if (++state->bucket > PNEIGH_HASHMASK)
+ 			break;
+-- 
+1.7.7.1
