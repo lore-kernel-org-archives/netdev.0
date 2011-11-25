@@ -1,7 +1,7 @@
 From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next 5/5] be2net: Fix non utilization of RX queues
-Date: Fri, 25 Nov 2011 21:18:53 +0530
-Message-ID: <42d96290-6e47-49e4-8a11-38914e4725fe@exht2.ad.emulex.com>
+Subject: [PATCH net-next 4/5] be2net: Use new hash key
+Date: Fri, 25 Nov 2011 21:18:38 +0530
+Message-ID: <d4ba7c58-c065-4795-9d4f-bb683b6e3f88@exht2.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
@@ -9,54 +9,34 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from exht2.emulex.com ([138.239.113.184]:44971 "EHLO
 	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753928Ab1KYPtf (ORCPT
+	with ESMTP id S1753793Ab1KYPtf (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 10:49:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When non power of two MSIX vectors are given to driver, some RX queues
-are not utilized. Program RSS table in such a way that all queues
-are utilized.
+This new hash key gives better distribution of packets across RX
+queues.
 
 Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |   16 ++++++++++------
- 1 files changed, 10 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 66429ea..7236280 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2312,8 +2312,8 @@ static int be_close(struct net_device *netdev)
- static int be_rx_queues_setup(struct be_adapter *adapter)
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 7988798..62868ea 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -1669,8 +1669,9 @@ int be_cmd_rss_config(struct be_adapter *adapter, u8 *rsstable, u16 table_size)
  {
- 	struct be_rx_obj *rxo;
--	int rc, i;
--	u8 rsstable[MAX_RSS_QS];
-+	int rc, i, j;
-+	u8 rsstable[128];
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_req_rss_config *req;
+-	u32 myhash[10] = {0x0123, 0x4567, 0x89AB, 0xCDEF, 0x01EF,
+-			0x0123, 0x4567, 0x89AB, 0xCDEF, 0x01EF};
++	u32 myhash[10] = {0x15d43fa5, 0x2534685a, 0x5f87693a, 0x5668494e,
++			0x33cf6a53, 0x383334c6, 0x76ac4257, 0x59b242b2,
++			0x3ea83c02, 0x4a110304};
+ 	int status;
  
- 	for_all_rx_queues(adapter, rxo, i) {
- 		rc = be_cmd_rxq_create(adapter, &rxo->q, rxo->cq.id,
-@@ -2325,11 +2325,15 @@ static int be_rx_queues_setup(struct be_adapter *adapter)
- 	}
- 
- 	if (be_multi_rxq(adapter)) {
--		for_all_rss_queues(adapter, rxo, i)
--			rsstable[i] = rxo->rss_id;
-+		for (j = 0; j < 128; j += adapter->num_rx_qs - 1) {
-+			for_all_rss_queues(adapter, rxo, i) {
-+				if ((j + i) >= 128)
-+					break;
-+				rsstable[j + i] = rxo->rss_id;
-+			}
-+		}
-+		rc = be_cmd_rss_config(adapter, rsstable, 128);
- 
--		rc = be_cmd_rss_config(adapter, rsstable,
--			adapter->num_rx_qs - 1);
- 		if (rc)
- 			return rc;
- 	}
+ 	if (mutex_lock_interruptible(&adapter->mbox_lock))
 -- 
 1.6.0.2
