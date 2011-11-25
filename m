@@ -1,40 +1,37 @@
-From: Bill Fink <billfink@mindspring.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
 Subject: Re: [PATCH net-next 1/2] netem: rate-latency extension
-Date: Thu, 24 Nov 2011 20:06:50 -0500
-Message-ID: <20111124200650.c1f609ef.billfink@mindspring.com>
+Date: Fri, 25 Nov 2011 02:23:50 +0100
+Message-ID: <20111125012349.GI2673@hell>
 References: <1322156378-23257-1-git-send-email-hagen@jauu.net>
-	<1322172898.2872.7.camel@edumazet-laptop>
-	<20111124223118.GH2673@hell>
+ <1322172898.2872.7.camel@edumazet-laptop>
+ <20111124223118.GH2673@hell>
+ <20111124200650.c1f609ef.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
 	Stephen Hemminger <shemminger@vyatta.com>
-To: Hagen Paul Pfeifer <hagen@jauu.net>
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-spurfowl.atl.sa.earthlink.net ([209.86.89.66]:45947
-	"EHLO elasmtp-spurfowl.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752140Ab1KYBQ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 20:16:27 -0500
-In-Reply-To: <20111124223118.GH2673@hell>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:39778 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753244Ab1KYBXw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 20:23:52 -0500
+Content-Disposition: inline
+In-Reply-To: <20111124200650.c1f609ef.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 24 Nov 2011, Hagen Paul Pfeifer wrote:
-
-> * Eric Dumazet | 2011-11-24 23:14:58 [+0100]:
-> 
-> >Only point is why you chose ratelatency instead of rate ?
-> 
-> 
-> Not sure why, it was called rate in v1, then somebody said ratelatency and I
-> found it more stating. So in v2 it become ratelatency. I have no strong
-> opinion here - should I generate v3?
+* Bill Fink | 2011-11-24 20:06:50 [-0500]:
 
 >From the user perspective, I also find rate much more natural.
-No need to add further to tc obscurity.
+>No need to add further to tc obscurity.
 
-I would ask for an update to the netem man page, but I guess
-there isn't a netem man page.  :-(
+ok, then I will respin the patch.
 
-					-Bill
+>I would ask for an update to the netem man page, but I guess
+>there isn't a netem man page.  :-(
+
+Someone wrote a man page, but it was never commited to iproute2. I will have a
+look.
+
+Hagen
