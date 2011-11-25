@@ -1,33 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] netns: fix proxy ARP entries listing on a netns
-Date: Fri, 25 Nov 2011 13:24:57 -0500 (EST)
-Message-ID: <20111125.132457.1189039148745073387.davem@davemloft.net>
-References: <20111123.173613.1360696422325749253.davem@davemloft.net>
-	<1322232089-31902-1-git-send-email-jorge@dti2.net>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [v4 PATCH 1/2] NETFILTER module xt_hmark, new target for HASH
+ based fwmark
+Date: Fri, 25 Nov 2011 19:31:55 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1111251925100.32630@frira.zrqbmnf.qr>
+References: <1322213787-25796-1-git-send-email-hans@schillstrom.com> <1322213787-25796-2-git-send-email-hans@schillstrom.com> <20111125173649.GA9304@1984>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jorge@dti2.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Hans Schillstrom <hans@schillstrom.com>, kaber@trash.net,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	hans.schillstrom@ericsson.com
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56480 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751604Ab1KYSZS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 13:25:18 -0500
-In-Reply-To: <1322232089-31902-1-git-send-email-jorge@dti2.net>
+Received: from seven.medozas.de ([188.40.89.202]:55337 "EHLO seven.medozas.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751521Ab1KYSb5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Nov 2011 13:31:57 -0500
+In-Reply-To: <20111125173649.GA9304@1984>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
-Date: Fri, 25 Nov 2011 15:41:29 +0100
+On Friday 2011-11-25 18:36, Pablo Neira Ayuso wrote:
 
-> From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
-> 
-> Skip entries from foreign network namespaces.
-> 
-> V2:
->     Fixed as suggested by David Miller to avoid a goto.
-> 
-> Signed-off-by: Jorge Boncompte [DTI2] <jorge@dti2.net>
+>On Fri, Nov 25, 2011 at 10:36:26AM +0100, Hans Schillstrom wrote:
+>> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+>> index 3f0258d..9e4d4f9 100644
+>> --- a/include/net/ipv6.h
+>> +++ b/include/net/ipv6.h
+>> @@ -39,6 +39,7 @@
+>>  #define NEXTHDR_ICMP		58	/* ICMP for IPv6. */
+>>  #define NEXTHDR_NONE		59	/* No next header */
+>>  #define NEXTHDR_DEST		60	/* Destination options header. */
+>> +#define NEXTHDR_SCTP		132	/* Stream Control Transport Protocol */
+>>  #define NEXTHDR_MOBILITY	135	/* Mobility header. */
+>>  
+>>  #define NEXTHDR_MAX		255
+>
+>This has to go in a separated patch. Please, send it to netdev. I
+>think davem can pick that for 3.2-rc
 
-Applied, thanks.
+I do have to wonder a little why we need the l4proto values twice 
+(IPPROTO_SCTP plus NEXTHDR_SCTP). Has nobody ever thought of
+doing one foobar_<PROTOCOL>?
+
+>> +	    icmph->type != ICMP_REDIRECT)
+>> +		return nhoff;
+>> +	/* Checkin full IP header plus 8 bytes of protocol to
+>> +	 * avoid additional coding at protocol handlers.
+>> +	 */
+>> +	if (!pskb_may_pull(skb, nhoff + iphsz + sizeof(_ih) + 8))
+>> +		return nhoff;
+
+NB:I point out that the preferred long comment style begins with /*\n 
+(to match the trailing \n*/, naturally) like in
+
+>> +/*
+>> + * ICMPv6
+>> + * Input nhoff Offset into network header
+>> + *       offset where ICMPv6 header starts
+>> + * Returns true if it's a icmp error and updates nhoff
+>> + */
