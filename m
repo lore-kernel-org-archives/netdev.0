@@ -1,69 +1,119 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [v4 PATCH 2/2] NETFILTER userspace part for target HMARK
-Date: Fri, 25 Nov 2011 14:20:05 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1111251418440.6279@frira.zrqbmnf.qr>
-References: <1322213787-25796-1-git-send-email-hans@schillstrom.com> <1322213787-25796-3-git-send-email-hans@schillstrom.com>
+From: Thomas Osterried <thomas@osterried.de>
+Subject: Re: [PATCH 3/4] NET: NETROM: Cleanup argument SIOCADDRT ioctl argument checking.
+Date: Fri, 25 Nov 2011 14:26:25 +0100
+Message-ID: <201111251426.26469.thomas@osterried.de>
+References: <cover.1322214950.git.ralf@linux-mips.org> <4ECF7A76.3090305@bfs.de> <4ECF8629.7000301@bfs.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: kaber@trash.net, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	hans.schillstrom@ericsson.com
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1322213787-25796-3-git-send-email-hans@schillstrom.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ralf Baechle <ralf@linux-mips.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org,
+	Kernel Janitors List <kernel-janitors@vger.kernel.org>
+To: wharms@bfs.de
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <4ECF8629.7000301@bfs.de>
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-On Friday 2011-11-25 10:36, Hans Schillstrom wrote:
+Am Freitag, den 25. November 2011 um 13:12:25 Uhr, schrieb walter harms <wharms@bfs.de> in <4ECF8629.7000301@bfs.de>:
+> hi,
+> according to LXR there are several places where the check is >AX25_MAX_DIGIS instead of >=.
+> 
+> any takers ?
 
->+Parameters:
->+For all masks default is all "1:s", to disable a field use mask 0
->+For IPv6 it's just the last 32 bits that is included in the hash
 
-Why limit IPv6 to 32?
+nr_route.ndigis is used at 
+  nr_call_to_digi(&digi, nr_route.ndigis, nr_route.digipeaters),
 
->diff --git a/include/linux/netfilter/xt_hmark.h b/include/linux/netfilter/xt_hmark.h
->new file mode 100644
->index 0000000..1760015
->--- /dev/null
->+++ b/include/linux/netfilter/xt_hmark.h
->@@ -0,0 +1,62 @@
->+#ifndef XT_HMARK_H_
->+#define XT_HMARK_H_
->+
->+#include <linux/types.h>
->+
->+/*
->+ * Flags must not start at 0, since it's used as none.
->+ */
->+enum {
->+	XT_HMARK_USE_SNAT = 1,	/* SNAT & DNAT are used by the kernel module */
->+	XT_HMARK_USE_DNAT,
->+	XT_HMARK_SADR_AND,
->+	XT_HMARK_DADR_AND,
->+	XT_HMARK_SPI_AND,
->+	XT_HMARK_SPI_OR,
->+	XT_HMARK_SPORT_AND,
->+	XT_HMARK_DPORT_AND,
->+	XT_HMARK_SPORT_OR,
->+	XT_HMARK_DPORT_OR,
->+	XT_HMARK_PROTO_AND,
->+	XT_HMARK_RND,
->+	XT_HMARK_MODULUS,
->+	XT_HMARK_OFFSET,
->+	XT_F_HMARK_USE_SNAT = 1 << XT_HMARK_USE_SNAT,
+Image nr_route.ndigis is 0.
 
-This file does not match the kernel-side xt_hmark.h.
-Definitions only used within the userspace side should go into libxt_hmark.c
-anyhow.
+static ax25_digi *nr_call_to_digi(ax25_digi *digi, int ndigis,
+        ax25_address *digipeaters)
+{
+        int i;
 
->+union ports {
->+	struct {
->+		__u16	src;
->+		__u16	dst;
->+	} p16;
->+	__u32	v32;
->+};
+        if (ndigis == 0)
+                return NULL;
 
-Bad name "ports", big clash potential.
+           ################ here we leave
+
+        for (i = 0; i < ndigis; i++) {
+                digi->calls[i]    = digipeaters[i];
+                digi->repeated[i] = 0;
+        }
+
+        digi->ndigi      = ndigis;
+        digi->lastrepeat = -1;
+
+        return digi;
+}
+
+
+Image ndigi is 8 (AX25_MAX_DIGIS), as large as nr_route.digipeaters (because it's digipeaters[AX25_MAX_DIGIS]).
+
+we fill the array from i = 0 to i < ndigis (=7) -> 8 times == sizeof(digipeaters)
+
+-> everything is fine with that.
+
+vy 73,
+	- Thomas  dl9sau
+
+> 
+> re,
+>  wh
+> 
+> 
+> Am 25.11.2011 12:22, schrieb walter harms:
+> > 
+> > 
+> > Am 25.11.2011 10:09, schrieb Ralf Baechle:
+> >> nr_route.ndigis is unsigned int so the nr_route.ndigis < 0 expression is
+> >> never true and can be dropped.  Doing the nr_ax25_dev_get call later
+> >> allows the nr_route.ndigis test to bail out without having to dev_put.
+> >>
+> >> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> >> Cc: Thomas Osterried <thomas@osterried.de>
+> >> ---
+> >>  net/netrom/nr_route.c |    6 ++----
+> >>  1 files changed, 2 insertions(+), 4 deletions(-)
+> >>
+> >> diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
+> >> index 8d7716c..2cf3301 100644
+> >> --- a/net/netrom/nr_route.c
+> >> +++ b/net/netrom/nr_route.c
+> >> @@ -670,12 +670,10 @@ int nr_rt_ioctl(unsigned int cmd, void __user *arg)
+> >>  	case SIOCADDRT:
+> >>  		if (copy_from_user(&nr_route, arg, sizeof(struct nr_route_struct)))
+> >>  			return -EFAULT;
+> >> -		if ((dev = nr_ax25_dev_get(nr_route.device)) == NULL)
+> >> +		if (nr_route.ndigis > AX25_MAX_DIGIS)
+> >>  			return -EINVAL;
+> >> -		if (nr_route.ndigis < 0 || nr_route.ndigis > AX25_MAX_DIGIS) {
+> >> -			dev_put(dev);
+> >> +		if ((dev = nr_ax25_dev_get(nr_route.device)) == NULL)
+> >>  			return -EINVAL;
+> >> -		}
+> >>  		switch (nr_route.type) {
+> >>  		case NETROM_NODE:
+> >>  			if (strnlen(nr_route.mnemonic, 7) == 7) {
+> > 
+> > I realy do not know if that matters but some use AX25_MAX_DIGIS as array
+> > and therefore it should be >=AX25_MAX_DIGIS.
+> > 
+> > struct rose_route_struct {
+> >          rose_address    address;
+> >         unsigned short  mask;
+> >         ax25_address    neighbour;
+> >         char            device[16];
+> >          unsigned char   ndigis;
+> >          ax25_address    digipeaters[AX25_MAX_DIGIS];
+> >   };
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe linux-hams" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > 
+> 
