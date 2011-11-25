@@ -1,51 +1,40 @@
-From: igorm@etf.rs
-Subject: [PATCH] Fix skb_update_prio
-Date: Fri, 25 Nov 2011 18:44:54 +0100
-Message-ID: <1322243094-10420-2-git-send-email-igorm@etf.rs>
-References: <igorm@etf.rs>
- <1322243094-10420-1-git-send-email-igorm@etf.rs>
-Cc: Igor Maravic <igorm@etf.rs>
-To: netdev@vger.kernel.org
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH iproute2 1/2] utils: add s32 parser
+Date: Fri, 25 Nov 2011 18:47:51 +0100
+Message-ID: <20111125174751.GA3751@hell>
+References: <20111125092451.19e0e9d4@nehalam.linuxnetplumber.net>
+ <AE90C24D6B3A694183C094C60CF0A2F6D8AEE6@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.etf.rs ([147.91.14.169]:58525 "EHLO mx1.etf.bg.ac.rs"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752947Ab1KYRpL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Nov 2011 12:45:11 -0500
-In-Reply-To: <1322243094-10420-1-git-send-email-igorm@etf.rs>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:53990 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752474Ab1KYRry (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 12:47:54 -0500
+Content-Disposition: inline
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6D8AEE6@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Igor Maravic <igorm@etf.rs>
+* David Laight | 2011-11-25 17:34:21 [-0000]:
 
-Change function rcu_dereference to rcu_dereference_bh to avoid warning
+>If you are that worried about numeric overflow (IIRC) you have
+>have to check the result for LONG_MIN/MAX (etc) before looking
+>at errno.
+>
+>strtoul() is defined to support -ve values, and I think the
+>C rules for conversion between signed and unsigned ints
+>DTRT even for non 2's compliment systems.
+>
+>Some of these bound checks are a waste of time.
+>The SUS doesn't require standard utilities to perform them.
 
-[ INFO: suspicious RCU usage. ]
--------------------------------
-net/core/dev.c:2459 suspicious rcu_dereference_check() usage!
+David: are you able to fix all conversations functions in utils.c (and add
+get_s32). If not I will repost get_s32 with strtol() with the same error check
+mechanism as get_* (to be consistent).
 
-because we are locking with
+Stephen, any other ideas?
 
-rcu_read_lock_bh();
-
-in function dev_queue_xmit(struct sk_buff *skb)
-
-Signed-off-by: Igor Maravic <igorm@etf.rs>
----
- net/core/dev.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 8afb244..d1f1071 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2452,7 +2452,7 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
- #if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
- static void skb_update_prio(struct sk_buff *skb)
- {
--	struct netprio_map *map = rcu_dereference(skb->dev->priomap);
-+	struct netprio_map *map = rcu_dereference_bh(skb->dev->priomap);
- 
- 	if ((!skb->priority) && (skb->sk) && map)
- 		skb->priority = map->priomap[skb->sk->sk_cgrp_prioidx];
--- 
-1.7.5.4
+Hagen
