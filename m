@@ -1,79 +1,58 @@
-From: walter harms <wharms@bfs.de>
-Subject: Re: [PATCH 3/4] NET: NETROM: Cleanup argument SIOCADDRT ioctl argument
- checking.
-Date: Fri, 25 Nov 2011 13:12:25 +0100
-Message-ID: <4ECF8629.7000301@bfs.de>
-References: <cover.1322214950.git.ralf@linux-mips.org> <9f87aed932fc551c6f5c474b39d01fb337237a7e.1322214950.git.ralf@linux-mips.org> <4ECF7A76.3090305@bfs.de>
-Reply-To: wharms@bfs.de
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Open vSwitch Design
+Date: Fri, 25 Nov 2011 14:02:51 +0100
+Message-ID: <1322226171.2403.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1322173833.1944.5.camel@mojatatu>
+	<20111124212021.2ae2fb7f@s6510.linuxnetplumber.net>
+	<1322201883.2872.19.camel@edumazet-laptop>
+	<20111125.012517.2221372383643417980.davem@davemloft.net>
+	<1322203013.2872.28.camel@edumazet-laptop>
+	<1322220862.1908.79.camel@mojatatu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Ralf Baechle <ralf@linux-mips.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-hams@vger.kernel.org, Thomas Osterried <thomas@osterried.de>,
-	Kernel Janitors List <kernel-janitors@vger.kernel.org>
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <4ECF7A76.3090305@bfs.de>
-Sender: linux-hams-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1322220862.1908.79.camel@mojatatu>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-hi,
-according to LXR there are several places where the check is >AX25_MAX_DIGIS instead of >=.
-
-any takers ?
-
-re,
- wh
-
-
-Am 25.11.2011 12:22, schrieb walter harms:
-> 
-> 
-> Am 25.11.2011 10:09, schrieb Ralf Baechle:
->> nr_route.ndigis is unsigned int so the nr_route.ndigis < 0 expression is
->> never true and can be dropped.  Doing the nr_ax25_dev_get call later
->> allows the nr_route.ndigis test to bail out without having to dev_put.
->>
->> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
->> Cc: Thomas Osterried <thomas@osterried.de>
->> ---
->>  net/netrom/nr_route.c |    6 ++----
->>  1 files changed, 2 insertions(+), 4 deletions(-)
->>
->> diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
->> index 8d7716c..2cf3301 100644
->> --- a/net/netrom/nr_route.c
->> +++ b/net/netrom/nr_route.c
->> @@ -670,12 +670,10 @@ int nr_rt_ioctl(unsigned int cmd, void __user *arg)
->>  	case SIOCADDRT:
->>  		if (copy_from_user(&nr_route, arg, sizeof(struct nr_route_struct)))
->>  			return -EFAULT;
->> -		if ((dev = nr_ax25_dev_get(nr_route.device)) == NULL)
->> +		if (nr_route.ndigis > AX25_MAX_DIGIS)
->>  			return -EINVAL;
->> -		if (nr_route.ndigis < 0 || nr_route.ndigis > AX25_MAX_DIGIS) {
->> -			dev_put(dev);
->> +		if ((dev = nr_ax25_dev_get(nr_route.device)) == NULL)
->>  			return -EINVAL;
->> -		}
->>  		switch (nr_route.type) {
->>  		case NETROM_NODE:
->>  			if (strnlen(nr_route.mnemonic, 7) == 7) {
-> 
-> I realy do not know if that matters but some use AX25_MAX_DIGIS as array
-> and therefore it should be >=AX25_MAX_DIGIS.
-> 
-> struct rose_route_struct {
->          rose_address    address;
->         unsigned short  mask;
->         ax25_address    neighbour;
->         char            device[16];
->          unsigned char   ndigis;
->          ax25_address    digipeaters[AX25_MAX_DIGIS];
->   };
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-hams" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+TGUgdmVuZHJlZGkgMjUgbm92ZW1icmUgMjAxMSDDoCAwNjozNCAtMDUwMCwgamFtYWwgYSDDqWNy
+aXQgOgo+IEhybS4gSSBmb3Jnb3QgYWJvdXQgdGhlIGZsb3cgY2xhc3NpZmllciAtIGl0IG1heSBi
+ZSB3aGF0IHRoZSBvcGVuZmxvdwo+IGZvbGtzIG5lZWQuIEl0IGlzIG1vcmUgZnJpZW5kbHkgZm9y
+IHRoZSB3ZWxsIGRlZmluZWQgdHVwbGVzIHRoYW4gdTMyLgo+IAo+IEJ1dCB3aGF0IGRvIHlvdSBt
+ZWFuICJyZWZhY3RvciI/IEkgY2FuIGFscmVhZHkgdXNlIHRoaXMgY2xhc3NpZmllcgo+IGFuZCBh
+dHRhY2ggYWN0aW9ucyB0byBzZXQgcG9saWN5IGluIHRoZSBrZXJuZWwuCgoKY2xzX2Zsb3cgaXMg
+bm90IGNvbXBsZXRlLCBzaW5jZSBpdCBkb2VzbnQgaGFuZGxlIHR1bm5lbHMgZm9yIGV4YW1wbGUu
+CgpJdCBjYWxscyBhICdwYXJ0aWFsIGZsb3cgY2xhc3NpZmllcicgdG8gZmluZCBlYWNoIG5lZWRl
+ZCBlbGVtZW50LCBvbmUgYnkKb25lLgooYWRkaW5nIHR1bm5lbCBkZWNhcCB3b3VsZCBuZWVkIHRv
+IHBlcmZvcm0gdGhpcyBzZXZlcmFsIHRpbWUgZm9yIGVhY2gKcGFja2V0KQoKX19za2JfZ2V0X3J4
+aGFzaCgpIGlzIG1vcmUgdHVubmVsIGF3YXJlLCB5ZXQgc29tZSBwcm90b2NvbHMgYXJlIHN0aWxs
+Cm1pc3NpbmcsIGZvciBleGFtcGxlIElQUFJPVE9fSVBWNi4KCkluc3RlYWQgb2YgYWRkaW5nIGxv
+Z2ljIHRvIGJvdGggZGlzc2VjdG9ycywgd2UgY291bGQgaGF2ZSBhIGNlbnRyYWwgZmxvdwpkaXNz
+ZWN0b3IsIGZpbGxpbmcgYSB0ZW1wb3JhcnkgcGl2b3Qgc3RydWN0dXJlIHdpdGggZm91bmQgZWxl
+bWVudHMgKHNyYwphZGRyLCBkc3QgYWRkciwgcG9ydHMsIC4uLiksIGdvaW5nIHRocm91Z2ggdHVu
+bmVscyBlbmNhcCBpZiBmb3VuZC4KClRoZW4gbmV0L3NjaGVkL2Nsc19mbG93LmMgY291bGQgcGlj
+ayBuZWVkZWQgZWxlbXMgZnJvbSB0aGlzIHN0cnVjdHVyZSB0bwpjb21wdXRlIHRoZSBoYXNoIGFz
+IHNwZWNpZmllZCBpbiB0YyBjb21tYW5kIDoKKGZvciBleGFtcGxlIDogdGMgZmlsdGVyIC4uLiAg
+ZmxvdyBoYXNoIGtleXMgcHJvdG8tZHN0LGRzdCAuLi4pCgooT25lIGRpc3NlY3RvciBjYWxsIHBl
+ciBwYWNrZXQgZm9yIGFueSBudW1iZXIgb2Yga2V5cyBpbiB0aGUgZmlsdGVyKQoKU2FtZSBmb3Ig
+bmV0L3NjaGVkL3NjaF9zZmIuYyA6IFVzZSB0aGUgcGl2b3Qgc3RydWN0dXJlIGFuZCBjb21wdXRl
+IHRoZQp0d28gaGFzaGVzICh1c2luZyB0d28gaGFzaHJuZCB2YWx1ZXMpCgpBbmQgX19za2JfZ2V0
+X3J4aGFzaCgpIGNvdWxkIHVzZSB0aGUgc2FtZSBmbG93IGRpc3NlY3RvciwgYW5kIHBpY2sgKHNy
+YwphZGRyLCBkc3QgYWRkciwgcG9ydHMpIHRvIGNvbXB1dGUgc2tiLT5yeGhhc2gsIGFuZCBzZXQg
+c2tiLT5sNF9yeGhhc2ggaWYKInBvcnRzIiBpcyBub3QgbnVsbC4KCgoKX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3Bl
+bnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
