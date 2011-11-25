@@ -1,73 +1,69 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 6/6] NFS: remove RPC PipeFS mount point references from NFS
-	cache routines
-Date: Fri, 25 Nov 2011 17:13:20 +0300
-Message-ID: <20111125131320.6271.49000.stgit@localhost6.localdomain6>
-References: <20111125130557.6271.95071.stgit@localhost6.localdomain6>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [v4 PATCH 2/2] NETFILTER userspace part for target HMARK
+Date: Fri, 25 Nov 2011 14:20:05 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1111251418440.6279@frira.zrqbmnf.qr>
+References: <1322213787-25796-1-git-send-email-hans@schillstrom.com> <1322213787-25796-3-git-send-email-hans@schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbottomley@parallels.com, bfields@fieldses.org,
-	davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111125130557.6271.95071.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kaber@trash.net, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	hans.schillstrom@ericsson.com
+To: Hans Schillstrom <hans@schillstrom.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1322213787-25796-3-git-send-email-hans@schillstrom.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a cleanup patch. We don't need this reference anymore, because DNS
-resolver cache now creates it's dentries in per-net operations and on PipeFS
-mount/umount notification.
-Note that nfs_cache_register_net() now returns 0 instead of -ENOENT in case of
-PiepFS superblock absence. This is ok, Dns resolver cache will be regestered on
-PipeFS mount event.
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+On Friday 2011-11-25 10:36, Hans Schillstrom wrote:
 
----
- fs/nfs/cache_lib.c |   19 ++++---------------
- 1 files changed, 4 insertions(+), 15 deletions(-)
+>+Parameters:
+>+For all masks default is all "1:s", to disable a field use mask 0
+>+For IPv6 it's just the last 32 bits that is included in the hash
 
-diff --git a/fs/nfs/cache_lib.c b/fs/nfs/cache_lib.c
-index 5905a31..dded263 100644
---- a/fs/nfs/cache_lib.c
-+++ b/fs/nfs/cache_lib.c
-@@ -126,24 +126,14 @@ int nfs_cache_register_sb(struct super_block *sb, struct cache_detail *cd)
- 
- int nfs_cache_register_net(struct net *net, struct cache_detail *cd)
- {
--	struct vfsmount *mnt;
- 	struct super_block *pipefs_sb;
--	int ret;
-+	int ret = 0;
- 
--	mnt = rpc_get_mount();
--	if (IS_ERR(mnt))
--		return PTR_ERR(mnt);
- 	pipefs_sb = rpc_get_sb_net(net);
--	if (!pipefs_sb) {
--		ret = -ENOENT;
--		goto err;
-+	if (pipefs_sb) {
-+		ret = nfs_cache_register_sb(pipefs_sb, cd);
-+		rpc_put_sb_net(net);
- 	}
--	ret = nfs_cache_register_sb(pipefs_sb, cd);
--	rpc_put_sb_net(net);
--	if (!ret)
--		return ret;
--err:
--	rpc_put_mount();
- 	return ret;
- }
- 
-@@ -162,7 +152,6 @@ void nfs_cache_unregister_net(struct net *net, struct cache_detail *cd)
- 		nfs_cache_unregister_sb(pipefs_sb, cd);
- 		rpc_put_sb_net(net);
- 	}
--	rpc_put_mount();
- }
- 
- void nfs_cache_init(struct cache_detail *cd)
+Why limit IPv6 to 32?
+
+>diff --git a/include/linux/netfilter/xt_hmark.h b/include/linux/netfilter/xt_hmark.h
+>new file mode 100644
+>index 0000000..1760015
+>--- /dev/null
+>+++ b/include/linux/netfilter/xt_hmark.h
+>@@ -0,0 +1,62 @@
+>+#ifndef XT_HMARK_H_
+>+#define XT_HMARK_H_
+>+
+>+#include <linux/types.h>
+>+
+>+/*
+>+ * Flags must not start at 0, since it's used as none.
+>+ */
+>+enum {
+>+	XT_HMARK_USE_SNAT = 1,	/* SNAT & DNAT are used by the kernel module */
+>+	XT_HMARK_USE_DNAT,
+>+	XT_HMARK_SADR_AND,
+>+	XT_HMARK_DADR_AND,
+>+	XT_HMARK_SPI_AND,
+>+	XT_HMARK_SPI_OR,
+>+	XT_HMARK_SPORT_AND,
+>+	XT_HMARK_DPORT_AND,
+>+	XT_HMARK_SPORT_OR,
+>+	XT_HMARK_DPORT_OR,
+>+	XT_HMARK_PROTO_AND,
+>+	XT_HMARK_RND,
+>+	XT_HMARK_MODULUS,
+>+	XT_HMARK_OFFSET,
+>+	XT_F_HMARK_USE_SNAT = 1 << XT_HMARK_USE_SNAT,
+
+This file does not match the kernel-side xt_hmark.h.
+Definitions only used within the userspace side should go into libxt_hmark.c
+anyhow.
+
+>+union ports {
+>+	struct {
+>+		__u16	src;
+>+		__u16	dst;
+>+	} p16;
+>+	__u32	v32;
+>+};
+
+Bad name "ports", big clash potential.
