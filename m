@@ -1,47 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] macvtap: Fix macvtap_get_queue to use rxhash first
-Date: Fri, 25 Nov 2011 01:35:52 -0500 (EST)
-Message-ID: <20111125.013552.1613051198566054931.davem@davemloft.net>
-References: <OF86B15006.7F4BE3FB-ON65257953.00104C3E-65257953.0010EFCA@in.ibm.com>
-	<4ECF09D5.4010700@redhat.com>
-	<OF835A6FF5.7D752AD1-ON65257953.0016350C-65257953.00169AF4@in.ibm.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Open vSwitch Design
+Date: Fri, 25 Nov 2011 07:36:53 +0100
+Message-ID: <1322203013.2872.28.camel@edumazet-laptop>
+References: <1322173833.1944.5.camel@mojatatu>
+	<20111124212021.2ae2fb7f@s6510.linuxnetplumber.net>
+	<1322201883.2872.19.camel@edumazet-laptop>
+	<20111125.012517.2221372383643417980.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, mst@redhat.com, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, levinsasha928@gmail.com
-To: krkumar2@in.ibm.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <OF835A6FF5.7D752AD1-ON65257953.0016350C-65257953.00169AF4@in.ibm.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
+	john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org,
+	shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20111125.012517.2221372383643417980.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Date: Fri, 25 Nov 2011 09:39:11 +0530
-
-> Jason Wang <jasowang@redhat.com> wrote on 11/25/2011 08:51:57 AM:
->>
->> My description is not clear again :(
->> I mean the same vhost thead:
->>
->> vhost thread #0 transmits packets of flow A on processor M
->> ...
->> vhost thread #0 move to another process N and start to transmit packets
->> of flow A
-> 
-> Thanks for clarifying. Yes, binding vhosts to CPU's
-> makes the incoming packet go to the same vhost each
-> time. BTW, are you doing any binding and/or irqbalance
-> when you run your tests? I am not running either at
-> this time, but thought both might be useful.
-
-So are we going with this patch or are we saying that vhost binding
-is a requirement?
+TGUgdmVuZHJlZGkgMjUgbm92ZW1icmUgMjAxMSDDoCAwMToyNSAtMDUwMCwgRGF2aWQgTWlsbGVy
+IGEgw6ljcml0IDoKPiBGcm9tOiBFcmljIER1bWF6ZXQgPGVyaWMuZHVtYXpldEBnbWFpbC5jb20+
+Cj4gRGF0ZTogRnJpLCAyNSBOb3YgMjAxMSAwNzoxODowMyArMDEwMAo+IAo+ID4gTGUgamV1ZGkg
+MjQgbm92ZW1icmUgMjAxMSDDoCAyMToyMCAtMDgwMCwgU3RlcGhlbiBIZW1taW5nZXIgYSDDqWNy
+aXQgOgo+ID4gCj4gPj4gVGhlIHByb2JsZW0gaXMgdGhhdCB0aGVyZSBhcmUgdHdvIGZsb3cgY2xh
+c3NpZmllcnMsIG9uZSBpbiBPcGVuVnN3aXRjaAo+ID4+IGluIHRoZSBrZXJuZWwsIGFuZCB0aGUg
+b3RoZXIgaW4gdGhlIHVzZXIgc3BhY2UgZmxvdyBtYW5hZ2VyLiBJIHRoaW5rIHRoZQo+ID4+IGlz
+c3VlIGlzIHRoYXQgdGhlIHR3byBoYXZlIGRpZmZlcmVudCBjb2RlLgo+ID4gCj4gPiBXZSBoYXZl
+IGtpbmQgb2Ygc2FtZSBkdXBsaWNhdGlvbiBpbiBrZXJuZWwgYWxyZWFkeSA6KQo+ID4gCj4gPiBf
+X3NrYl9nZXRfcnhoYXNoKCkgYW5kIG5ldC9zY2hlZC9jbHNfZmxvdy5jIGNvbnRhaW4gcm91Z2hs
+eSB0aGUgc2FtZQo+ID4gbG9naWMuLi4KPiA+IAo+ID4gTWF5YmUgaXRzIHRpbWUgdG8gZmFjdG9y
+aXplIHRoZSB0aGluZywgZXZlbnR1YWxseSB1c2UgaXQgaW4gYSB0aGlyZAo+ID4gY29tcG9uZW50
+IChPcGVuIHZTd2l0Y2guLi4pCj4gCj4gWWVzLgoKQSB0aGlyZCByZWFzb24gdG8gZG8gdGhhdCBh
+bnl3YXkgaXMgdGhhdCBuZXQvc2NoZWQvc2NoX3NmYi5jIHNob3VsZCB1c2UKX19za2JfZ2V0X3J4
+aGFzaCgpIHByb3ZpZGluZyB0aGUgcGVydHVyYmF0aW9uIGl0c2VsZiwgYW5kIG5vdCB1c2UgdGhl
+CnN0YW5kYXJkIChoYXNocm5kKSBvbmUgKS4KClJpZ2h0IG5vdywgaWYgdHdvIGZsb3dzIHNoYXJl
+IHNhbWUgcnhoYXNoLCB0aGUgZG91YmxlIFNGQiBoYXNoIHdpbGwgYWxzbwpzaGFyZSB0aGUgc2Ft
+ZSBmaW5hbCBoYXNoLgoKKFRoaXMgcG9pbnQgd2FzIG1lbnRpb25lZCBieSBGbG9yaWFuIFdlc3Rw
+aGFsKQoKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpk
+ZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9y
+Zy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
