@@ -1,35 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: MPLS for Linux kernel
-Date: Fri, 25 Nov 2011 00:43:57 -0500 (EST)
-Message-ID: <20111125.004357.2188293502188995463.davem@davemloft.net>
-References: <CAFdo_mVdva4=4bJOaXQTNHhD-3h5LSLvERi8D7s-45SdRO5ibA@mail.gmail.com>
-	<20111122.164909.156852889818363753.davem@davemloft.net>
-	<1322177970.3236.57.camel@ilion>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] netem: rate-latency extension
+Date: Fri, 25 Nov 2011 07:13:20 +0100
+Message-ID: <1322201600.2872.15.camel@edumazet-laptop>
+References: <1322156378-23257-1-git-send-email-hagen@jauu.net>
+	 <1322172898.2872.7.camel@edumazet-laptop>
+	 <20111124210926.3e4b7567@s6510.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: igorm@etf.rs, netdev@vger.kernel.org
-To: gdt@gdt.id.au
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50961 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751081Ab1KYFoJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 00:44:09 -0500
-In-Reply-To: <1322177970.3236.57.camel@ilion>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:47761 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751081Ab1KYGNZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 01:13:25 -0500
+Received: by bke11 with SMTP id 11so3895057bke.19
+        for <netdev@vger.kernel.org>; Thu, 24 Nov 2011 22:13:24 -0800 (PST)
+In-Reply-To: <20111124210926.3e4b7567@s6510.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Glen Turner <gdt@gdt.id.au>
-Date: Fri, 25 Nov 2011 10:09:30 +1030
+Le jeudi 24 novembre 2011 =C3=A0 21:09 -0800, Stephen Hemminger a =C3=A9=
+crit :
 
-> On Tue, 2011-11-22 at 16:49 -0500, David Miller wrote:
->> I frankly don't care very much about MPLS personally, it's such a
->> fringe facility.  So if people just argue themselves into oblivion and
->> no forward progress is made, just like last time an MPLS submission
->> was attempted, that's also fine with me :-)
-> 
-> Hello David,
+> I would rather a new qdisc then add more features to the already comp=
+lex
+> netem.  Initially, there where was a rate control built into netem, b=
+ut
+> the consensus was to use stacking to do it.
 
-Just wanted to let you know that with the workload of patch review and
-coding I have, I basically have zero time for verbose editorials like
-this and, without exception, I never read them.
+Yes, but Hagen change adds a few lines to netem, and netem already
+handles throttling. This is why I believe its a nice enhancement.
+
+Being able to simulate a ratelimit  (in bits per second by the way, the
+usual bandwith unit, not bytes per second...) in a very easy way seems =
+a
+good thing, even if it handles only the egress side.
+
+As Hagen mentioned, a standard qdisc is able to rate limit, but the
+first packet sent has a null delay, even if its 64Kbyte packet. It
+doesnt mimic a true link.
