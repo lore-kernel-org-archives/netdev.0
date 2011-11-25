@@ -1,50 +1,67 @@
-From: Arkadiusz =?utf-8?q?Mi=C5=9Bkiewicz?= <a.miskiewicz@gmail.com>
-Subject: Re: cache forver in 3.2.0-rc2-00400-g866d43c ?
-Date: Fri, 25 Nov 2011 18:53:19 +0100
-Message-ID: <201111251853.19551.a.miskiewicz@gmail.com>
-References: <201111231910.37190.a.miskiewicz@gmail.com> <1322077447.2775.6.camel@edumazet-laptop> <201111232135.55122.a.miskiewicz@gmail.com>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: Open vSwitch Design
+Date: Fri, 25 Nov 2011 09:55:32 -0800
+Message-ID: <CAEP_g=-brHeUm_zGf5QuAg1X7F1-xCKm3BuZee-9j=WXmjtEkQ@mail.gmail.com>
+References: <CAEP_g=_2L1xFWtDXh_6YyXz1Mt9TR3zvjLzix+SpO6yzeOLsSQ@mail.gmail.com>
+	<1322173833.1944.5.camel@mojatatu>
+	<20111124212021.2ae2fb7f@s6510.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:59692 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751965Ab1KYRx0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 12:53:26 -0500
-Received: by bke11 with SMTP id 11so4658016bke.19
-        for <netdev@vger.kernel.org>; Fri, 25 Nov 2011 09:53:25 -0800 (PST)
-In-Reply-To: <201111232135.55122.a.miskiewicz@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Chris Wright <chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org,
+	jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20111124212021.2ae2fb7f-QE31Isp8l5DVJhW05BI4jyWSNWFUUkiGXqFh9Ls21Oc@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 23 of November 2011, Arkadiusz Mi=C5=9Bkiewicz wrote:
-> On Wednesday 23 of November 2011, Eric Dumazet wrote:
-> > Le mercredi 23 novembre 2011 =C3=A0 19:37 +0100, Eric Dumazet a =C3=
-=A9crit :
-> > > Le mercredi 23 novembre 2011 =C3=A0 19:31 +0100, Arkadiusz Mi=C5=9B=
-kiewicz a
-> > >=20
-> > > =C3=A9crit :
-> > > > Mine 00400-g866d43c was after
-> > > > 6fe4c6d466e95d31164f14b1ac4aefb51f0f4f82 (which is merge of ipv=
-4:
-> > > > fix redirect handling), so I have it.
-> > > >=20
-> > > > (I'm using pure linus git repo)
-> > >=20
-> > > OK thanks for this information, I am working on a patch.
-> >=20
-> > Please test the following patch, thanks !
->=20
-> Applied and running, results in a few days (since using net A only on=
-ce per
-> day).
-
-Two days and no problems. More tests possible in next week.
-
-Thanks!
---=20
-Arkadiusz Mi=C5=9Bkiewicz        PLD/Linux Team
-arekm / maven.pl            http://ftp.pld-linux.org/
+T24gVGh1LCBOb3YgMjQsIDIwMTEgYXQgOToyMCBQTSwgU3RlcGhlbiBIZW1taW5nZXIKPHNoZW1t
+aW5nZXJAdnlhdHRhLmNvbT4gd3JvdGU6Cj4gT24gVGh1LCAyNCBOb3YgMjAxMSAxNzozMDozMyAt
+MDUwMAo+IGphbWFsIDxoYWRpQGN5YmVydXMuY2E+IHdyb3RlOgo+PiBPbiBUaHUsIDIwMTEtMTEt
+MjQgYXQgMTI6MTAgLTA4MDAsIEplc3NlIEdyb3NzIHdyb3RlOgo+PiA+IMKgKiBVc2Vyc3BhY2Ug
+aW50ZXJmYWNlczogwqBPbmUgb2YgdGhlIGRpZmZpY3VsdGllcyBvZiBoYXZpbmcgYQo+PiA+IHNw
+ZWNpYWxpemVkLCBleGFjdCBtYXRjaCBmbG93IGxvb2t1cCBlbmdpbmUgaXMgbWFpbnRhaW5pbmcK
+Pj4gPiBjb21wYXRpYmlsaXR5IGFjcm9zcyBkaWZmZXJpbmcga2VybmVsL3VzZXJzcGFjZSB2ZXJz
+aW9ucy4gwqBUaGlzCj4+ID4gY29tcGF0aWJpbGl0eSBzaG93cyB1cCBoZWF2aWx5IGluIHRoZSB1
+c2Vyc3BhY2UgaW50ZXJmYWNlcyBhbmQgaXMKPj4gPiBhY2hpZXZlZCBieSBwYXNzaW5nIHRoZSBr
+ZXJuZWwncyB2ZXJzaW9uIG9mIHRoZSBmbG93IGFsb25nIHdpdGggcGFja2V0Cj4+ID4gaW5mb3Jt
+YXRpb24uIMKgVGhpcyBhbGxvd3MgdXNlcnNwYWNlIHRvIGluc3RhbGwgYXBwcm9wcmlhdGUgZmxv
+d3MgZXZlbgo+PiA+IGlmIGl0cyBpbnRlcnByZXRhdGlvbiBvZiBhIHBhY2tldCBkaWZmZXJzIGZy
+b20gdGhlIGtlcm5lbCdzIHdpdGhvdXQKPj4gPiB2ZXJzaW9uIGNoZWNrcyBvciBtYWludGFpbmlu
+ZyBtdWx0aXBsZSBpbXBsZW1lbnRhdGlvbnMgb2YgdGhlIGZsb3cKPj4gPiBleHRyYWN0aW9uIGNv
+ZGUgaW4gdGhlIGtlcm5lbC4KPj4KPj4gSSBkaWRudCBxdWlldCBmb2xsb3cgLSBhcmUgd2UgdGFs
+a2luZyBhYm91dCBiYWNrd2FyZC9mb3J3YXJkCj4+IGNvbXBhdGliaWxpdHk/Cj4KPiBUaGUgcHJv
+YmxlbSBpcyB0aGF0IHRoZXJlIGFyZSB0d28gZmxvdyBjbGFzc2lmaWVycywgb25lIGluIE9wZW5W
+c3dpdGNoCj4gaW4gdGhlIGtlcm5lbCwgYW5kIHRoZSBvdGhlciBpbiB0aGUgdXNlciBzcGFjZSBm
+bG93IG1hbmFnZXIuIEkgdGhpbmsgdGhlCj4gaXNzdWUgaXMgdGhhdCB0aGUgdHdvIGhhdmUgZGlm
+ZmVyZW50IGNvZGUuCgpZZXMsIHNpbmNlIHVzZXJzcGFjZSBpcyBpbnN0YWxsaW5nIGV4YWN0IG1h
+dGNoIGVudHJpZXMsIHRoZXNlIGZsb3dzCm9idmlvdXNseSBuZWVkIHRvIGJlIG9mIHRoZSBzYW1l
+IGZvcm0gdGhhdCB0aGUga2VybmVsIHdvdWxkIGV4dHJhY3QKZnJvbSB0aGUgcGFja2V0LiAgT3Zl
+ciB0aW1lLCBJJ20gc3VyZSB0aGF0IGFkZGl0aW9uYWwgcGFja2V0IGZvcm1hdHMKd2lsbCBiZSBh
+ZGRlZCBzbyBpdCdzIGltcG9ydGFudCB0byBoYW5kbGUgdGhlIGNhc2Ugd2hlcmUgdGhlcmUgaXMg
+YQptaXNtYXRjaC4KCj4gSXMgdGhlIGtlcm5lbC91c2Vyc3BhY2UgQVBJIGZvciBPcGVuVnN3aXRj
+aCBuYWlsZWQgZG93biBhbmQgZG9jdW1lbnRlZAo+IHdlbGwgZW5vdWdoIHRoYXQgYWx0ZXJuYXRp
+dmUgY29udHJvbCBwbGFuZSBzb2Z0d2FyZSBjb3VsZCBiZSBidWlsdD8KClllcywgdGhhdCdzIGFj
+dHVhbGx5IHRoZSByZWFzb24gd2h5IGl0IHRvb2sgc28gbG9uZyB0byBhY3R1YWxseSBzdWJtaXQK
+dGhlIGNvZGUgZm9yIHVwc3RyZWFtIC0gd2Ugc3BlbnQgYSBsb3Qgb2YgdGltZSBjbGVhbmluZyB1
+cCBhbmQKc3RyaXBwaW5nIGRvd24gdGhlIGludGVyZmFjZXMgc28gdGhleSBjb3VsZCBiZSBsb2Nr
+ZWQgZG93biAob3IgY2xlYW5seQpleHRlbmRlZCkuCgpUaGVyZSdzIGEgZmFpciBhbW91bnQgb2Yg
+ZG9jdW1lbnRhdGlvbiBvbiBob3cgdG8gbWFpbnRhaW4KY29tcGF0aWJpbGl0eSBmb3IgZmxvd3Mg
+YXMgbWVudGlvbmVkIGFib3ZlIGluIHRoZSBwYXRjaCB0aGF0IEkKc3VibWl0dGVkIGFuZCB3ZSdy
+ZSBjZXJ0YWlubHkgaGFwcHkgdG8gd3JpdGUgbW9yZSBpZiBvdGhlciB0aGluZ3MgYXJlCnVuY2xl
+YXIuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBt
+YWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21h
+aWxtYW4vbGlzdGluZm8vZGV2Cg==
