@@ -1,49 +1,59 @@
 From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [PATCH 3/4] NET: NETROM: Cleanup argument SIOCADDRT ioctl argument
- checking.
-Date: Fri, 25 Nov 2011 09:09:00 +0000
-Message-ID: <9f87aed932fc551c6f5c474b39d01fb337237a7e.1322214950.git.ralf@linux-mips.org>
+Subject: [PATCH 2/4] NET: NETROM: When adding a route verify length of
+ mnemonic string.
+Date: Fri, 25 Nov 2011 09:08:49 +0000
+Message-ID: <cfff1df64b18a89140ff995189c6a3c484815997.1322214950.git.ralf@linux-mips.org>
 References: <cover.1322214950.git.ralf@linux-mips.org>
 Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org,
+	Dan Carpenter <dan.carpenter@oracle.com>,
+	Walter Harms <wharms@bfs.de>,
 	Thomas Osterried <thomas@osterried.de>
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from h5.dl5rb.org.uk ([81.2.74.5]:52582 "EHLO linux-mips.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754317Ab1KYLJt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Nov 2011 06:09:49 -0500
+Return-path: <linux-hams-owner@vger.kernel.org>
 In-Reply-To: <cover.1322214950.git.ralf@linux-mips.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-nr_route.ndigis is unsigned int so the nr_route.ndigis < 0 expression is
-never true and can be dropped.  Doing the nr_ax25_dev_get call later
-allows the nr_route.ndigis test to bail out without having to dev_put.
+struct nr_route_struct's mnemonic permits a string of up to 7 bytes to be
+used.  If userland passes a not zero terminated string to the kernel adding
+a node to the routing table might result in the kernel attempting to read
+copy a too long string.
+
+Mnemonic is part of the NET/ROM routing protocol; NET/ROM routing table
+updates only broadcast 6 bytes.  The 7th byte in the mnemonic array exists
+only as a \0 termination character for the kernel code's convenience.
+
+Fixed by rejecting mnemonic strings that have no terminating \0 in the first
+7 characters.  Do this test only NETROM_NODE to avoid breaking NETROM_NEIGH
+where userland might passing an uninitialized mnemonic field.
+
+Initial patch by Dan Carpenter <dan.carpenter@oracle.com>.
 
 Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+Cc: Dan Carpenter <dan.carpenter@oracle.com>
+Cc: Walter Harms <wharms@bfs.de>
 Cc: Thomas Osterried <thomas@osterried.de>
 ---
- net/netrom/nr_route.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ net/netrom/nr_route.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
 diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
-index 8d7716c..2cf3301 100644
+index 915a87b..8d7716c 100644
 --- a/net/netrom/nr_route.c
 +++ b/net/netrom/nr_route.c
-@@ -670,12 +670,10 @@ int nr_rt_ioctl(unsigned int cmd, void __user *arg)
- 	case SIOCADDRT:
- 		if (copy_from_user(&nr_route, arg, sizeof(struct nr_route_struct)))
- 			return -EFAULT;
--		if ((dev = nr_ax25_dev_get(nr_route.device)) == NULL)
-+		if (nr_route.ndigis > AX25_MAX_DIGIS)
- 			return -EINVAL;
--		if (nr_route.ndigis < 0 || nr_route.ndigis > AX25_MAX_DIGIS) {
--			dev_put(dev);
-+		if ((dev = nr_ax25_dev_get(nr_route.device)) == NULL)
- 			return -EINVAL;
--		}
+@@ -678,6 +678,11 @@ int nr_rt_ioctl(unsigned int cmd, void __user *arg)
+ 		}
  		switch (nr_route.type) {
  		case NETROM_NODE:
- 			if (strnlen(nr_route.mnemonic, 7) == 7) {
++			if (strnlen(nr_route.mnemonic, 7) == 7) {
++				ret = -EINVAL;
++				break;
++			}
++
+ 			ret = nr_add_node(&nr_route.callsign,
+ 				nr_route.mnemonic,
+ 				&nr_route.neighbour,
 -- 
 1.7.4.4
+
+
