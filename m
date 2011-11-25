@@ -1,40 +1,50 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH iproute2 1/2] utils: add s32 parser
-Date: Fri, 25 Nov 2011 18:47:51 +0100
-Message-ID: <20111125174751.GA3751@hell>
-References: <20111125092451.19e0e9d4@nehalam.linuxnetplumber.net>
- <AE90C24D6B3A694183C094C60CF0A2F6D8AEE6@saturn3.aculab.com>
+From: Arkadiusz =?utf-8?q?Mi=C5=9Bkiewicz?= <a.miskiewicz@gmail.com>
+Subject: Re: cache forver in 3.2.0-rc2-00400-g866d43c ?
+Date: Fri, 25 Nov 2011 18:53:19 +0100
+Message-ID: <201111251853.19551.a.miskiewicz@gmail.com>
+References: <201111231910.37190.a.miskiewicz@gmail.com> <1322077447.2775.6.camel@edumazet-laptop> <201111232135.55122.a.miskiewicz@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:53990 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752474Ab1KYRry (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 12:47:54 -0500
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6D8AEE6@saturn3.aculab.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:59692 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751965Ab1KYRx0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 12:53:26 -0500
+Received: by bke11 with SMTP id 11so4658016bke.19
+        for <netdev@vger.kernel.org>; Fri, 25 Nov 2011 09:53:25 -0800 (PST)
+In-Reply-To: <201111232135.55122.a.miskiewicz@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* David Laight | 2011-11-25 17:34:21 [-0000]:
+On Wednesday 23 of November 2011, Arkadiusz Mi=C5=9Bkiewicz wrote:
+> On Wednesday 23 of November 2011, Eric Dumazet wrote:
+> > Le mercredi 23 novembre 2011 =C3=A0 19:37 +0100, Eric Dumazet a =C3=
+=A9crit :
+> > > Le mercredi 23 novembre 2011 =C3=A0 19:31 +0100, Arkadiusz Mi=C5=9B=
+kiewicz a
+> > >=20
+> > > =C3=A9crit :
+> > > > Mine 00400-g866d43c was after
+> > > > 6fe4c6d466e95d31164f14b1ac4aefb51f0f4f82 (which is merge of ipv=
+4:
+> > > > fix redirect handling), so I have it.
+> > > >=20
+> > > > (I'm using pure linus git repo)
+> > >=20
+> > > OK thanks for this information, I am working on a patch.
+> >=20
+> > Please test the following patch, thanks !
+>=20
+> Applied and running, results in a few days (since using net A only on=
+ce per
+> day).
 
->If you are that worried about numeric overflow (IIRC) you have
->have to check the result for LONG_MIN/MAX (etc) before looking
->at errno.
->
->strtoul() is defined to support -ve values, and I think the
->C rules for conversion between signed and unsigned ints
->DTRT even for non 2's compliment systems.
->
->Some of these bound checks are a waste of time.
->The SUS doesn't require standard utilities to perform them.
+Two days and no problems. More tests possible in next week.
 
-David: are you able to fix all conversations functions in utils.c (and add
-get_s32). If not I will repost get_s32 with strtol() with the same error check
-mechanism as get_* (to be consistent).
-
-Stephen, any other ideas?
-
-Hagen
+Thanks!
+--=20
+Arkadiusz Mi=C5=9Bkiewicz        PLD/Linux Team
+arekm / maven.pl            http://ftp.pld-linux.org/
