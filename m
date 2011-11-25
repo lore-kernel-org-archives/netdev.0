@@ -1,66 +1,314 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH iproute2 1/2] utils: add s32 parser
-Date: Fri, 25 Nov 2011 17:34:21 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AEE6@saturn3.aculab.com>
-References: <20111125092451.19e0e9d4@nehalam.linuxnetplumber.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [v4 PATCH 1/2] NETFILTER module xt_hmark, new target for HASH
+ based fwmark
+Date: Fri, 25 Nov 2011 18:36:49 +0100
+Message-ID: <20111125173649.GA9304@1984>
+References: <1322213787-25796-1-git-send-email-hans@schillstrom.com>
+ <1322213787-25796-2-git-send-email-hans@schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Hagen Paul Pfeifer" <hagen@jauu.net>, <netdev@vger.kernel.org>
-To: "Stephen Hemminger" <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:46465 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752300Ab1KYRgR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 12:36:17 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 15589-04 for <netdev@vger.kernel.org>;
- Fri, 25 Nov 2011 17:36:14 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <20111125092451.19e0e9d4@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, jengelh@medozas.de,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	hans.schillstrom@ericsson.com
+To: Hans Schillstrom <hans@schillstrom.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1322213787-25796-2-git-send-email-hans@schillstrom.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: Stephen Hemminger [mailto:shemminger@vyatta.com] 
-> "David Laight" <David.Laight@ACULAB.COM> wrote:
-> 
-> > > +	res = strtoul(arg, &ptr, base);
-> > > +	if (!ptr || ptr == arg || *ptr || res > INT32_MAX || res <  
-> > INT32_MIN)
-> > 
-> > No need to check !ptr.
-> 
-> Also don't you want signed value?  Reading strtol() man page,
-> the correct way is:
-> 	errno = 0;
-> 	res = strtol(arg, &ptr, base);
-> 	if (ptr == arg || errno)
-> 		return -1;
-> 
-> "RETURN VALUE
->        The strtol() function returns the result of the conversion,
-unless  the
->        value  would  underflow  or overflow.  If an underflow occurs,
-strtol()
->        returns LONG_MIN.  If an overflow occurs,  strtol() returns
-LONG_MAX.
->        In  both  cases,  errno is set to ERANGE.  Precisely the same
-holds for
->        strtoll()  (with  LLONG_MIN  and  LLONG_MAX  instead  of
-LONG_MIN  and
->        LONG_MAX).
+On Fri, Nov 25, 2011 at 10:36:26AM +0100, Hans Schillstrom wrote:
+> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+> index 3f0258d..9e4d4f9 100644
+> --- a/include/net/ipv6.h
+> +++ b/include/net/ipv6.h
+> @@ -39,6 +39,7 @@
+>  #define NEXTHDR_ICMP		58	/* ICMP for IPv6. */
+>  #define NEXTHDR_NONE		59	/* No next header */
+>  #define NEXTHDR_DEST		60	/* Destination options header. */
+> +#define NEXTHDR_SCTP		132	/* Stream Control Transport Protocol */
+>  #define NEXTHDR_MOBILITY	135	/* Mobility header. */
+>  
+>  #define NEXTHDR_MAX		255
 
-If you are that worried about numeric overflow (IIRC) you have
-have to check the result for LONG_MIN/MAX (etc) before looking
-at errno.
+This has to go in a separated patch. Please, send it to netdev. I
+think davem can pick that for 3.2-rc
 
-strtoul() is defined to support -ve values, and I think the
-C rules for conversion between signed and unsigned ints
-DTRT even for non 2's compliment systems.
+> diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+> index 8260b13..41bee43 100644
+> --- a/net/netfilter/Kconfig
+> +++ b/net/netfilter/Kconfig
+> @@ -471,6 +471,23 @@ config NETFILTER_XT_TARGET_HL
+>  	since you can easily create immortal packets that loop
+>  	forever on the network.
+>  
+> +config NETFILTER_XT_TARGET_HMARK
+> +	tristate '"HMARK" target support'
+> +	depends on NETFILTER_ADVANCED
+> +	---help---
+> +	This option adds the "HMARK" target.
+> +
+> +	The target allows you to create rules in the "raw" and "mangle" tables
+> +	which alter the netfilter mark (nfmark) field within a given range.
+> +	First a 32 bit hash value is generated then modulus by <limit> and
+> +	finally an offset is added before it's written to nfmark.
+> +
+> +	Prior to routing, the nfmark can influence the routing method (see
+> +	"Use netfilter MARK value as routing key") and can also be used by
+> +	other subsystems to change their behavior.
+> +
+> +	The mark match can also be used to match nfmark produced by this module.
+> +
+>  config NETFILTER_XT_TARGET_IDLETIMER
+>  	tristate  "IDLETIMER target support"
+>  	depends on NETFILTER_ADVANCED
+> diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+> index 1a02853..359eeb6 100644
+> --- a/net/netfilter/Makefile
+> +++ b/net/netfilter/Makefile
+> @@ -56,6 +56,7 @@ obj-$(CONFIG_NETFILTER_XT_TARGET_CONNSECMARK) += xt_CONNSECMARK.o
+>  obj-$(CONFIG_NETFILTER_XT_TARGET_CT) += xt_CT.o
+>  obj-$(CONFIG_NETFILTER_XT_TARGET_DSCP) += xt_DSCP.o
+>  obj-$(CONFIG_NETFILTER_XT_TARGET_HL) += xt_HL.o
+> +obj-$(CONFIG_NETFILTER_XT_TARGET_HMARK) += xt_hmark.o
+>  obj-$(CONFIG_NETFILTER_XT_TARGET_LED) += xt_LED.o
+>  obj-$(CONFIG_NETFILTER_XT_TARGET_NFLOG) += xt_NFLOG.o
+>  obj-$(CONFIG_NETFILTER_XT_TARGET_NFQUEUE) += xt_NFQUEUE.o
+> diff --git a/net/netfilter/xt_hmark.c b/net/netfilter/xt_hmark.c
+> new file mode 100644
+> index 0000000..ae33293
+> --- /dev/null
+> +++ b/net/netfilter/xt_hmark.c
+> @@ -0,0 +1,327 @@
+> +/*
+> + *	xt_hmark - Netfilter module to set mark as hash value
+> + *
+> + *	(C) 2011 Hans Schillstrom <hans.schillstrom@ericsson.com>
+> + *
+> + *	Description:
+> + *	This module calculates a hash value that can be modified by modulus
+> + *	and an offset. The hash value is based on a direction independent
+> + *	five tuple: src & dst addr src & dst ports and protocol.
+> + *	However src & dst port can be masked and are not used for fragmented
+> + *	packets, ESP and AH don't have ports so SPI will be used instead.
+> + *	For ICMP error messages the hash mark values will be calculated on
+> + *	the source packet i.e. the packet caused the error (If sufficient
+> + *	amount of data exists).
+> + *
+> + *	This program is free software; you can redistribute it and/or modify
+> + *	it under the terms of the GNU General Public License version 2 as
+> + *	published by the Free Software Foundation.
+> + */
+> +
+> +#include <linux/module.h>
+> +#include <linux/skbuff.h>
+> +#include <net/ip.h>
+> +#include <linux/icmp.h>
+> +
+> +#include <linux/netfilter/xt_hmark.h>
+> +#include <linux/netfilter/x_tables.h>
+> +#include <net/netfilter/nf_nat.h>
+> +
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+> +#	define WITH_IPV6 1
+> +#include <net/ipv6.h>
+> +#include <linux/netfilter_ipv6/ip6_tables.h>
+> +#endif
+> +
+> +
 
-Some of these bound checks are a waste of time.
-The SUS doesn't require standard utilities to perform them.
+Comestic: unnecessary extra line.
 
-	David
+> +MODULE_LICENSE("GPL");
+> +MODULE_AUTHOR("Hans Schillstrom <hans.schillstrom@ericsson.com>");
+> +MODULE_DESCRIPTION("Xtables: packet range mark operations by hash value");
+> +MODULE_ALIAS("ipt_HMARK");
+> +MODULE_ALIAS("ip6t_HMARK");
+> +
+> +/*
+> + * ICMP, get inner header so calc can be made on the source message
+> + *       not the icmp header, i.e. same hash mark must be produced
+> + *       on an icmp error message.
+> + */
+> +static int get_inner_hdr(struct sk_buff *skb, int iphsz, int nhoff)
+> +{
+> +	const struct icmphdr *icmph;
+> +	struct icmphdr _ih;
+> +	struct iphdr *iph = NULL;
+> +
+> +	/* Not enough header? */
+> +	icmph = skb_header_pointer(skb, nhoff + iphsz, sizeof(_ih), &_ih);
+> +	if (icmph == NULL)
+> +		return nhoff;
+> +
+> +	if (icmph->type > NR_ICMP_TYPES)
+> +		return nhoff;
+> +
+> +	/* Error message? */
+> +	if (icmph->type != ICMP_DEST_UNREACH &&
+> +	    icmph->type != ICMP_SOURCE_QUENCH &&
+> +	    icmph->type != ICMP_TIME_EXCEEDED &&
+> +	    icmph->type != ICMP_PARAMETERPROB &&
+> +	    icmph->type != ICMP_REDIRECT)
+> +		return nhoff;
+> +	/* Checkin full IP header plus 8 bytes of protocol to
+> +	 * avoid additional coding at protocol handlers.
+> +	 */
+> +	if (!pskb_may_pull(skb, nhoff + iphsz + sizeof(_ih) + 8))
+> +		return nhoff;
+
+skb_header_pointer again here, if conntrack is enabled, we can benefit
+from handling fragments.
+
+> +	iph = (struct iphdr *)(skb->data + nhoff + iphsz + sizeof(_ih));
+> +	return nhoff + iphsz + sizeof(_ih);
+> +}
+> +/*
+> + * ICMPv6
+> + * Input nhoff Offset into network header
+> + *       offset where ICMPv6 header starts
+> + * Returns true if it's a icmp error and updates nhoff
+> + */
+> +#ifdef WITH_IPV6
+> +static int get_inner6_hdr(struct sk_buff *skb, int *offset, int hdrlen)
+> +{
+> +	struct icmp6hdr *icmp6h;
+> +	struct icmp6hdr _ih6;
+> +
+> +	icmp6h = skb_header_pointer(skb, *offset + hdrlen, sizeof(_ih6), &_ih6);
+> +	if (icmp6h == NULL)
+> +		return 0;
+> +
+> +	if (icmp6h->icmp6_type && icmp6h->icmp6_type < 128) {
+> +		*offset += hdrlen + sizeof(_ih6);
+> +		return 1;
+> +	}
+> +	return 0;
+> +}
+> +/*
+> + * Calc hash value, special casre is taken on icmp and fragmented messages
+> + * i.e. fragmented messages don't use ports.
+> + */
+> +__u32 hmark_v6(struct sk_buff *skb, const struct xt_action_param *par)
+> +{
+> +	struct xt_hmark_info *info = (struct xt_hmark_info *)par->targinfo;
+> +	int nhoff, poff, hdrlen;
+> +	u32 addr1, addr2, hash;
+> +	struct ipv6hdr *ip6;
+> +	u8 nexthdr;
+> +	int frag = 0, ip6hdrlvl = 0;	/* Header level */
+> +	struct ipv6_opt_hdr _hdr, *hp;
+> +	union {
+> +		u32 v32;
+> +		u16 v16[2];
+> +	} ports;
+> +
+> +	ports.v32 = 0;
+> +	nhoff = skb_network_offset(skb);
+> +
+> +hdr_new:
+> +	/* Get header info */
+> +	ip6 = (struct ipv6hdr *) (skb->data + nhoff);
+> +	nexthdr = ip6->nexthdr;
+> +	hdrlen = sizeof(struct ipv6hdr);
+> +	hp = skb_header_pointer(skb, nhoff + hdrlen, sizeof(_hdr), &_hdr);
+
+you have to check return value of skb_header_pointer here.
+
+> +	while (nexthdr) {
+> +		switch (nexthdr) {
+> +		case IPPROTO_ICMPV6:
+> +			/* ICMP Error then move ptr to inner header */
+> +			if (get_inner6_hdr(skb, &nhoff, hdrlen)) {
+> +				ip6hdrlvl++;
+> +				if (!pskb_may_pull(skb, sizeof(_hdr) + nhoff))
+> +					return XT_CONTINUE;
+> +				goto hdr_new;
+> +			}
+> +			nhoff += hdrlen;
+> +			goto hdr_rdy;
+> +
+> +		case NEXTHDR_FRAGMENT:
+> +			if (!ip6hdrlvl) /* Do not use ports if fragmented */
+> +				frag = 1;
+> +			break;
+> +
+> +		/* End of hdr traversing cont. with ports and hash calc. */
+> +		case NEXTHDR_IPV6:	/* Do not process tunnels */
+> +		case NEXTHDR_TCP:
+> +		case NEXTHDR_UDP:
+> +		case NEXTHDR_ESP:
+> +		case NEXTHDR_AUTH:
+> +		case NEXTHDR_SCTP:
+> +		case NEXTHDR_NONE:	/* Last hdr of something unknown */
+> +			nhoff += hdrlen;
+> +			goto hdr_rdy;
+> +		default:
+> +			return XT_CONTINUE;
+> +		}
+> +		if (!hp)
+> +			return XT_CONTINUE;
+> +		nhoff += hdrlen;	/* eat current header */
+> +		nexthdr =  hp->nexthdr;	/* Next header */
+> +		hdrlen = ipv6_optlen(hp);
+> +		hp = skb_header_pointer(skb, nhoff + hdrlen, sizeof(_hdr),
+> +					&_hdr);
+
+same here.
+
+> +		if (!pskb_may_pull(skb, nhoff))
+
+why this after skb_header_pointer?
+
+[... trimmed off ...]
+>       poff = proto_ports_offset(ip_proto);
+>       nhoff += ip->ihl * 4 + poff;
+>       if (frag || poff < 0 || !pskb_may_pull(skb, nhoff + 4))
+>               goto noports;
+>
+>       ports.v32 = * (__force u32 *) (skb->data + nhoff);
+>       if (ip_proto == IPPROTO_ESP || ip_proto == IPPROTO_AH) {
+>               ports.v32 = (ports.v32 & info->spimask) | nfo->spiset;
+>       } else {
+>               if (snatport)   /* Replace nat'ed port(s) */
+>                       ports.v16[1] = snatport;
+>               if (dnatport)
+>                       ports.v16[0] = dnatport;
+>               ports.v32 = (ports.v32 & info->pmask.v32) |
+>                               info->pset.v32;
+>               if (ports.v16[1] < ports.v16[0])
+>                       swap(ports.v16[0], ports.v16[1]);
+>       }
+>
+>noports:
+>       ip_proto &= info->prmask;
+>       /* get a consistent hash (same value on both flow directions)/
+>       if (addr2 < addr1)
+>               swap(addr1, addr2);
+>
+>       hash = jhash_3words(addr1, addr2, ports.v32, info->hashrnd) ^ p_proto;
+>       if (info->hmod)
+>               skb->mark = (hash % info->hmod) + info->hoffs;
+>       return XT_CONTINUE;
+> }
+
+Hm, I think the fragmentation handling is broken.
+
+Say that the first fragment contains the transport header
+header, then the mark is calculated based on the address and ports.
+Then, later on fragments will receive the mark based on the network
+header only. They may have different marks.
+
+If you don't want to use conntrack in your setup and you want to handle
+fragments, then you have to configure HMARK to calculate the hashing
+based on the network addresses. If you want to fully support fragments,
+then enable conntrack and you can configure HMARK to calculate the
+hashing based on network address + transport bits.
+
+Fix this by removing the fragmentation handling, then assume that
+people can select between two hashing configuration for HMARK. One
+based for network address which is fragment-safe, one that uses the
+transport layer information, that requires conntrack. Otherwise, I
+don't see a sane way to handle this situation.
+
+I think this has to be documented in the iptables manpage for HMARK.
