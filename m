@@ -1,425 +1,83 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: [PATCH v6 04/10] Account tcp memory as kernel memory
-Date: Fri, 25 Nov 2011 15:38:10 -0200
-Message-ID: <1322242696-27682-5-git-send-email-glommer@parallels.com>
-References: <1322242696-27682-1-git-send-email-glommer@parallels.com>
-Cc: lizf@cn.fujitsu.com, kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com,
-        davem@davemloft.net, paul@paulmenage.org, gthelen@google.com,
-        netdev@vger.kernel.org, linux-mm@kvack.org, kirill@shutemov.name,
-        avagin@parallels.com, devel@openvz.org, eric.dumazet@gmail.com,
-        cgroups@vger.kernel.org, Glauber Costa <glommer@parallels.com>,
-        KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujtisu.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1322242696-27682-1-git-send-email-glommer@parallels.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: igorm@etf.rs
+Subject: [PATCH] Fix skb_update_prio
+Date: Fri, 25 Nov 2011 18:44:53 +0100
+Message-ID: <1322243094-10420-1-git-send-email-igorm@etf.rs>
+References: <igorm@etf.rs>
+Cc: Igor Maravic <igorm@etf.rs>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.etf.rs ([147.91.14.169]:58522 "EHLO mx1.etf.bg.ac.rs"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753301Ab1KYRpJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Nov 2011 12:45:09 -0500
+In-Reply-To: <igorm@etf.rs>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now that we account and control tcp memory buffers memory for pressure
-controlling purposes, display this information as part of the normal memcg
-files and other usages.
+From: Igor Maravic <igorm@etf.rs>
 
-Signed-off-by: Glauber Costa <glommer@parallels.com>
-CC: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujtisu.com>
-CC: Eric W. Biederman <ebiederm@xmission.com>
----
- include/linux/memcontrol.h |    3 ++
- include/net/sock.h         |    3 ++
- include/net/tcp_memcg.h    |   17 +++++++++++
- mm/memcontrol.c            |   39 ++++++++++++++++++++++++--
- net/core/sock.c            |   42 ++++++++++++++++++++++++++--
- net/ipv4/Makefile          |    1 +
- net/ipv4/tcp_ipv4.c        |    8 +++++-
- net/ipv4/tcp_memcg.c       |   64 ++++++++++++++++++++++++++++++++++++++++++++
- net/ipv6/tcp_ipv6.c        |    4 +++
- 9 files changed, 174 insertions(+), 7 deletions(-)
- create mode 100644 include/net/tcp_memcg.h
- create mode 100644 net/ipv4/tcp_memcg.c
+Fixed warning
 
-diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
-index 6644d90..1aff2f6 100644
---- a/include/linux/memcontrol.h
-+++ b/include/linux/memcontrol.h
-@@ -85,6 +85,9 @@ extern struct mem_cgroup *try_get_mem_cgroup_from_page(struct page *page);
- extern struct mem_cgroup *mem_cgroup_from_task(struct task_struct *p);
- extern struct mem_cgroup *try_get_mem_cgroup_from_mm(struct mm_struct *mm);
- 
-+extern struct mem_cgroup *mem_cgroup_from_cont(struct cgroup *cont);
-+extern struct mem_cgroup *parent_mem_cgroup(struct mem_cgroup *mem);
-+
- static inline
- int mm_match_cgroup(const struct mm_struct *mm, const struct mem_cgroup *cgroup)
- {
-diff --git a/include/net/sock.h b/include/net/sock.h
-index d802761..da38de2 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -65,6 +65,9 @@
- #include <net/dst.h>
- #include <net/checksum.h>
- 
-+int sockets_populate(struct cgroup *cgrp, struct cgroup_subsys *ss);
-+void sockets_destroy(struct cgroup *cgrp, struct cgroup_subsys *ss);
-+
- /*
-  * This structure really needs to be cleaned up.
-  * Most of it is for TCP, and not used by any of
-diff --git a/include/net/tcp_memcg.h b/include/net/tcp_memcg.h
-new file mode 100644
-index 0000000..5f5e158
---- /dev/null
-+++ b/include/net/tcp_memcg.h
-@@ -0,0 +1,17 @@
-+#ifndef _TCP_MEMCG_H
-+#define _TCP_MEMCG_H
-+
-+struct tcp_memcontrol {
-+	struct cg_proto cg_proto;
-+	/* per-cgroup tcp memory pressure knobs */
-+	struct res_counter tcp_memory_allocated;
-+	struct percpu_counter tcp_sockets_allocated;
-+	/* those two are read-mostly, leave them at the end */
-+	long tcp_prot_mem[3];
-+	int tcp_memory_pressure;
-+};
-+
-+struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg);
-+int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss);
-+void tcp_destroy_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss);
-+#endif /* _TCP_MEMCG_H */
-diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index 5f29194..2df5d3c 100644
---- a/mm/memcontrol.c
-+++ b/mm/memcontrol.c
-@@ -49,6 +49,8 @@
- #include <linux/cpu.h>
- #include <linux/oom.h>
- #include "internal.h"
-+#include <net/sock.h>
-+#include <net/tcp_memcg.h>
- 
- #include <asm/uaccess.h>
- 
-@@ -294,6 +296,10 @@ struct mem_cgroup {
- 	 */
- 	struct mem_cgroup_stat_cpu nocpu_base;
- 	spinlock_t pcp_counter_lock;
-+
-+#ifdef CONFIG_INET
-+	struct tcp_memcontrol tcp_mem;
-+#endif
- };
- 
- /* Stuffs for move charges at task migration. */
-@@ -385,6 +391,7 @@ static inline bool mem_cgroup_is_root(struct mem_cgroup *mem)
- #ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
- #ifdef CONFIG_INET
- #include <net/sock.h>
-+#include <net/ip.h>
- 
- void sock_update_memcg(struct sock *sk)
- {
-@@ -406,13 +413,21 @@ void sock_update_memcg(struct sock *sk)
- 	}
- }
- 
-+struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg)
-+{
-+	if (!memcg || mem_cgroup_is_root(memcg))
-+		return NULL;
-+
-+	return &memcg->tcp_mem.cg_proto;
-+}
-+EXPORT_SYMBOL(tcp_proto_cgroup);
-+
- #endif /* CONFIG_INET */
- #endif /* CONFIG_CGROUP_MEM_RES_CTLR_KMEM */
- 
- 
- static void mem_cgroup_get(struct mem_cgroup *mem);
- static void mem_cgroup_put(struct mem_cgroup *mem);
--static struct mem_cgroup *parent_mem_cgroup(struct mem_cgroup *mem);
- static void drain_all_stock_async(struct mem_cgroup *mem);
- 
- static struct mem_cgroup_per_zone *
-@@ -787,7 +802,7 @@ static void memcg_check_events(struct mem_cgroup *mem, struct page *page)
- 	}
- }
- 
--static struct mem_cgroup *mem_cgroup_from_cont(struct cgroup *cont)
-+struct mem_cgroup *mem_cgroup_from_cont(struct cgroup *cont)
- {
- 	return container_of(cgroup_subsys_state(cont,
- 				mem_cgroup_subsys_id), struct mem_cgroup,
-@@ -4828,14 +4843,28 @@ static int register_kmem_files(struct cgroup *cont, struct cgroup_subsys *ss)
- 
- 	ret = cgroup_add_files(cont, ss, kmem_cgroup_files,
- 			       ARRAY_SIZE(kmem_cgroup_files));
-+
-+	if (!ret)
-+		ret = sockets_populate(cont, ss);
-+
- 	return ret;
- };
- 
-+static void kmem_cgroup_destroy(struct cgroup_subsys *ss,
-+				struct cgroup *cont)
-+{
-+	sockets_destroy(cont, ss);
-+}
- #else
- static int register_kmem_files(struct cgroup *cont, struct cgroup_subsys *ss)
- {
- 	return 0;
- }
-+
-+static void kmem_cgroup_destroy(struct cgroup_subsys *ss,
-+				struct cgroup *cont)
-+{
-+}
- #endif
- 
- static int alloc_mem_cgroup_per_zone_info(struct mem_cgroup *mem, int node)
-@@ -4954,7 +4983,7 @@ static void mem_cgroup_put(struct mem_cgroup *mem)
- /*
-  * Returns the parent mem_cgroup in memcgroup hierarchy with hierarchy enabled.
-  */
--static struct mem_cgroup *parent_mem_cgroup(struct mem_cgroup *mem)
-+struct mem_cgroup *parent_mem_cgroup(struct mem_cgroup *mem)
- {
- 	if (!mem->res.parent)
- 		return NULL;
-@@ -5037,6 +5066,7 @@ mem_cgroup_create(struct cgroup_subsys *ss, struct cgroup *cont)
- 		res_counter_init(&mem->res, &parent->res);
- 		res_counter_init(&mem->memsw, &parent->memsw);
- 		res_counter_init(&mem->kmem, &parent->kmem);
-+
- 		/*
- 		 * We increment refcnt of the parent to ensure that we can
- 		 * safely access it on res_counter_charge/uncharge.
-@@ -5053,6 +5083,7 @@ mem_cgroup_create(struct cgroup_subsys *ss, struct cgroup *cont)
- 	mem->last_scanned_node = MAX_NUMNODES;
- 	INIT_LIST_HEAD(&mem->oom_notify);
- 
-+
- 	if (parent)
- 		mem->swappiness = mem_cgroup_swappiness(parent);
- 	atomic_set(&mem->refcnt, 1);
-@@ -5078,6 +5109,8 @@ static void mem_cgroup_destroy(struct cgroup_subsys *ss,
- {
- 	struct mem_cgroup *mem = mem_cgroup_from_cont(cont);
- 
-+	kmem_cgroup_destroy(ss, cont);
-+
- 	mem_cgroup_put(mem);
- }
- 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 8382c80..399e566 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -135,6 +135,45 @@
- #include <net/tcp.h>
- #endif
- 
-+static DEFINE_RWLOCK(proto_list_lock);
-+static LIST_HEAD(proto_list);
-+
-+#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
-+int sockets_populate(struct cgroup *cgrp, struct cgroup_subsys *ss)
-+{
-+	struct proto *proto;
-+	int ret = 0;
-+
-+	read_lock(&proto_list_lock);
-+	list_for_each_entry(proto, &proto_list, node) {
-+		if (proto->init_cgroup)
-+			ret = proto->init_cgroup(cgrp, ss);
-+			if (ret)
-+				goto out;
-+	}
-+
-+	read_unlock(&proto_list_lock);
-+	return ret;
-+out:
-+	list_for_each_entry_continue_reverse(proto, &proto_list, node)
-+		if (proto->destroy_cgroup)
-+			proto->destroy_cgroup(cgrp, ss);
-+	read_unlock(&proto_list_lock);
-+	return ret;
-+}
-+
-+void sockets_destroy(struct cgroup *cgrp, struct cgroup_subsys *ss)
-+{
-+	struct proto *proto;
-+
-+	read_lock(&proto_list_lock);
-+	list_for_each_entry_reverse(proto, &proto_list, node)
-+		if (proto->destroy_cgroup)
-+			proto->destroy_cgroup(cgrp, ss);
-+	read_unlock(&proto_list_lock);
-+}
-+#endif
-+
- /*
-  * Each address family might have different locking rules, so we have
-  * one slock key per address family:
-@@ -2259,9 +2298,6 @@ void sk_common_release(struct sock *sk)
- }
- EXPORT_SYMBOL(sk_common_release);
- 
--static DEFINE_RWLOCK(proto_list_lock);
--static LIST_HEAD(proto_list);
--
- #ifdef CONFIG_PROC_FS
- #define PROTO_INUSE_NR	64	/* should be enough for the first time */
- struct prot_inuse {
-diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-index f2dc69c..393e0af 100644
---- a/net/ipv4/Makefile
-+++ b/net/ipv4/Makefile
-@@ -47,6 +47,7 @@ obj-$(CONFIG_TCP_CONG_SCALABLE) += tcp_scalable.o
- obj-$(CONFIG_TCP_CONG_LP) += tcp_lp.o
- obj-$(CONFIG_TCP_CONG_YEAH) += tcp_yeah.o
- obj-$(CONFIG_TCP_CONG_ILLINOIS) += tcp_illinois.o
-+obj-$(CONFIG_CGROUP_MEM_RES_CTLR_KMEM) += tcp_memcg.o
- obj-$(CONFIG_NETLABEL) += cipso_ipv4.o
- 
- obj-$(CONFIG_XFRM) += xfrm4_policy.o xfrm4_state.o xfrm4_input.o \
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index f124a4b..c517d04 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -73,6 +73,7 @@
- #include <net/xfrm.h>
- #include <net/netdma.h>
- #include <net/secure_seq.h>
-+#include <net/tcp_memcg.h>
- 
- #include <linux/inet.h>
- #include <linux/ipv6.h>
-@@ -1917,6 +1918,7 @@ static int tcp_v4_init_sock(struct sock *sk)
- 	sk_sockets_allocated_inc(sk);
- 	local_bh_enable();
- 
-+	sock_update_memcg(sk);
- 	return 0;
- }
- 
-@@ -2629,10 +2631,14 @@ struct proto tcp_prot = {
- 	.compat_setsockopt	= compat_tcp_setsockopt,
- 	.compat_getsockopt	= compat_tcp_getsockopt,
- #endif
-+#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
-+	.init_cgroup		= tcp_init_cgroup,
-+	.destroy_cgroup		= tcp_destroy_cgroup,
-+	.proto_cgroup		= tcp_proto_cgroup,
-+#endif
- };
- EXPORT_SYMBOL(tcp_prot);
- 
--
- static int __net_init tcp_sk_init(struct net *net)
- {
- 	return inet_ctl_sock_create(&net->ipv4.tcp_sock,
-diff --git a/net/ipv4/tcp_memcg.c b/net/ipv4/tcp_memcg.c
-new file mode 100644
-index 0000000..cc91918
---- /dev/null
-+++ b/net/ipv4/tcp_memcg.c
-@@ -0,0 +1,64 @@
-+#include <net/tcp.h>
-+#include <net/tcp_memcg.h>
-+#include <net/sock.h>
-+#include <linux/memcontrol.h>
-+
-+static inline struct tcp_memcontrol *tcp_from_cgproto(struct cg_proto *cg_proto)
-+{
-+	return container_of(cg_proto, struct tcp_memcontrol, cg_proto);
-+}
-+
-+int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss)
-+{
-+	/*
-+	 * The root cgroup does not use res_counters, but rather,
-+	 * rely on the data already collected by the network
-+	 * subsystem
-+	 */
-+	struct res_counter *res_parent = NULL;
-+	struct cg_proto *cg_proto;
-+	struct tcp_memcontrol *tcp;
-+	struct mem_cgroup *memcg = mem_cgroup_from_cont(cgrp);
-+	struct mem_cgroup *parent = parent_mem_cgroup(memcg);
-+
-+	cg_proto = tcp_prot.proto_cgroup(memcg);
-+	if (!cg_proto)
-+		return 0;
-+
-+	tcp = tcp_from_cgproto(cg_proto);
-+	cg_proto->parent = tcp_prot.proto_cgroup(parent);
-+
-+	tcp->tcp_prot_mem[0] = sysctl_tcp_mem[0];
-+	tcp->tcp_prot_mem[1] = sysctl_tcp_mem[1];
-+	tcp->tcp_prot_mem[2] = sysctl_tcp_mem[2];
-+	tcp->tcp_memory_pressure = 0;
-+
-+	if (cg_proto->parent)
-+		res_parent = cg_proto->parent->memory_allocated;
-+
-+	res_counter_init(&tcp->tcp_memory_allocated, res_parent);
-+	percpu_counter_init(&tcp->tcp_sockets_allocated, 0);
-+
-+	cg_proto->memory_pressure = &tcp->tcp_memory_pressure;
-+	cg_proto->sysctl_mem = tcp->tcp_prot_mem;
-+	cg_proto->memory_allocated = &tcp->tcp_memory_allocated;
-+	cg_proto->sockets_allocated = &tcp->tcp_sockets_allocated;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(tcp_init_cgroup);
-+
-+void tcp_destroy_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss)
-+{
-+	struct mem_cgroup *memcg = mem_cgroup_from_cont(cgrp);
-+	struct cg_proto *cg_proto;
-+	struct tcp_memcontrol *tcp;
-+
-+	cg_proto = tcp_prot.proto_cgroup(memcg);
-+	if (!cg_proto)
-+		return;
-+
-+	tcp = tcp_from_cgproto(cg_proto);
-+	percpu_counter_destroy(&tcp->tcp_sockets_allocated);
-+}
-+EXPORT_SYMBOL(tcp_destroy_cgroup);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 3a08fcd..d57d7a7 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -62,6 +62,7 @@
- #include <net/netdma.h>
- #include <net/inet_common.h>
- #include <net/secure_seq.h>
-+#include <net/tcp_memcg.h>
- 
- #include <asm/uaccess.h>
- 
-@@ -2222,6 +2223,9 @@ struct proto tcpv6_prot = {
- 	.compat_setsockopt	= compat_tcp_setsockopt,
- 	.compat_getsockopt	= compat_tcp_getsockopt,
- #endif
-+#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
-+	.proto_cgroup		= tcp_proto_cgroup,
-+#endif
- };
- 
- static const struct inet6_protocol tcpv6_protocol = {
+Nov 25 14:50:07 igor-PC kernel: [   94.864139]
+Nov 25 14:50:07 igor-PC kernel: [   94.864143] ===============================
+Nov 25 14:50:07 igor-PC kernel: [   94.864144] [ INFO: suspicious RCU usage. ]
+Nov 25 14:50:07 igor-PC kernel: [   94.864146] -------------------------------
+Nov 25 14:50:07 igor-PC kernel: [   94.864149] net/core/dev.c:2459 suspicious rcu_dereference_check() usage!
+Nov 25 14:50:07 igor-PC kernel: [   94.864151]
+Nov 25 14:50:07 igor-PC kernel: [   94.864151] other info that might help us debug this:
+Nov 25 14:50:07 igor-PC kernel: [   94.864152]
+Nov 25 14:50:07 igor-PC kernel: [   94.864153]
+Nov 25 14:50:07 igor-PC kernel: [   94.864154] rcu_scheduler_active = 1, debug_locks = 1
+Nov 25 14:50:07 igor-PC kernel: [   94.864156] 3 locks held by kworker/0:0/0:
+Nov 25 14:50:07 igor-PC kernel: [   94.864158]  #0:  (&n->timer){+.-...}, at: [<c1074320>] call_timer_fn+0x0/0x2d0
+Nov 25 14:50:07 igor-PC kernel: [   94.864168]  #1:  (&n->lock){++--..}, at: [<c156d3d8>] arp_solicit+0x228/0x300
+Nov 25 14:50:07 igor-PC kernel: [   94.864173]  #2:  (rcu_read_lock_bh){.+....}, at: [<c14fdd10>] dev_queue_xmit+0x0/0x6e0
+Nov 25 14:50:07 igor-PC kernel: [   94.864179]
+Nov 25 14:50:07 igor-PC kernel: [   94.864180] stack backtrace:
+Nov 25 14:50:07 igor-PC kernel: [   94.864183] Pid: 0, comm: kworker/0:0 Not tainted 3.2.0-rc2-net-next-mpls+ #13
+Nov 25 14:50:07 igor-PC kernel: [   94.864185] Call Trace:
+Nov 25 14:50:07 igor-PC kernel: [   94.864189]  [<c1617d55>] ? printk+0x2d/0x2f
+Nov 25 14:50:07 igor-PC kernel: [   94.864194]  [<c109dfaa>] lockdep_rcu_suspicious+0xaa/0xc0
+Nov 25 14:50:07 igor-PC kernel: [   94.864197]  [<c14fe17a>] dev_queue_xmit+0x46a/0x6e0
+Nov 25 14:50:07 igor-PC kernel: [   94.864200]  [<c14fdd10>] ? dev_hard_start_xmit+0x650/0x650
+Nov 25 14:50:07 igor-PC kernel: [   94.864203]  [<c156cc6f>] ? arp_create+0x1ff/0x220
+Nov 25 14:50:07 igor-PC kernel: [   94.864205]  [<c156cf5d>] arp_xmit+0x1d/0x60
+Nov 25 14:50:07 igor-PC kernel: [   94.864209]  [<c1516fd0>] ? eth_rebuild_header+0x80/0x80
+Nov 25 14:50:07 igor-PC kernel: [   94.864211]  [<c156cff5>] arp_send+0x55/0x60
+Nov 25 14:50:07 igor-PC kernel: [   94.864214]  [<c156d40a>] arp_solicit+0x25a/0x300
+Nov 25 14:50:07 igor-PC kernel: [   94.864217]  [<c15041dd>] neigh_probe+0x3d/0x60
+Nov 25 14:50:07 igor-PC kernel: [   94.864220]  [<c1506f5f>] neigh_timer_handler+0x16f/0x260
+Nov 25 14:50:07 igor-PC kernel: [   94.864223]  [<c107439d>] call_timer_fn+0x7d/0x2d0
+Nov 25 14:50:07 igor-PC kernel: [   94.864226]  [<c1074320>] ? init_timer_deferrable_key+0x20/0x20
+Nov 25 14:50:07 igor-PC kernel: [   94.864230]  [<c1630837>] ? _raw_spin_unlock_irq+0x27/0x40
+Nov 25 14:50:07 igor-PC kernel: [   94.864233]  [<c1506df0>] ? neigh_update+0x560/0x560
+Nov 25 14:50:07 igor-PC kernel: [   94.864236]  [<c10746e0>] run_timer_softirq+0xf0/0x260
+Nov 25 14:50:07 igor-PC kernel: [   94.864239]  [<c12e1802>] ? blk_done_softirq+0x42/0x80
+Nov 25 14:50:07 igor-PC kernel: [   94.864242]  [<c106b6e0>] ? remote_softirq_receive+0x80/0x80
+Nov 25 14:50:07 igor-PC kernel: [   94.864245]  [<c1506df0>] ? neigh_update+0x560/0x560
+Nov 25 14:50:07 igor-PC kernel: [   94.864248]  [<c106b777>] __do_softirq+0x97/0x320
+Nov 25 14:50:07 igor-PC kernel: [   94.864251]  [<c106b6e0>] ? remote_softirq_receive+0x80/0x80
+Nov 25 14:50:07 igor-PC kernel: [   94.864252]  <IRQ>  [<c106bcd6>] ? irq_exit+0x86/0xb0
+Nov 25 14:50:07 igor-PC kernel: [   94.864258]  [<c1639139>] ? smp_apic_timer_interrupt+0x59/0x88
+Nov 25 14:50:07 igor-PC kernel: [   94.864262]  [<c12ff648>] ? trace_hardirqs_off_thunk+0xc/0x14
+Nov 25 14:50:07 igor-PC kernel: [   94.864265]  [<c1631492>] ? apic_timer_interrupt+0x36/0x3c
+Nov 25 14:50:07 igor-PC kernel: [   94.864269]  [<c103ac4a>] ? native_safe_halt+0xa/0x10
+Nov 25 14:50:07 igor-PC kernel: [   94.864272]  [<c101cdf1>] ? default_idle.part.5+0x41/0x230
+Nov 25 14:50:07 igor-PC kernel: [   94.864275]  [<c101cfff>] ? default_idle+0x1f/0x50
+Nov 25 14:50:07 igor-PC kernel: [   94.864277]  [<c101d0da>] ? amd_e400_idle+0xaa/0x140
+Nov 25 14:50:07 igor-PC kernel: [   94.864280]  [<c10146d6>] ? cpu_idle+0xb6/0x120
+Nov 25 14:50:07 igor-PC kernel: [   94.864284]  [<c16103f2>] ? start_secondary+0x101/0x106
+
+Just replaced function rcu_dereference with rcu_dereference_bh to avoid this warning
+in function skb_update_prio
+BR
+Igor
+
+Igor Maravic (1):
+  Fix skb_update_prio
+
+ net/core/dev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
 -- 
-1.7.6.4
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+1.7.5.4
