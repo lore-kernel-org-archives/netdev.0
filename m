@@ -1,37 +1,86 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [bug?] r8169: hangs under heavy load
-Date: Fri, 25 Nov 2011 23:22:11 +0100
-Message-ID: <20111125222211.GA13719@electric-eye.fr.zoreil.com>
-References: <4E7F4D45.7040902@wolke7.net> <1316978632.4122.103.camel@deadeye> <4E82C0B5.1050902@wolke7.net> <1317254171.4068.12.camel@deadeye> <20111124044137.GA18262@elie.hsd1.il.comcast.net> <4ECFE7A7.5070300@wolke7.net> <20111125201936.GA26692@elie.hsd1.il.comcast.net> <1322253122.2550.3.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jonathan Nieder <jrnieder@gmail.com>, netdev@vger.kernel.org,
-	nic_swsd@realtek.com, linux-kernel@vger.kernel.org,
-	Armin Kazmi <armin.kazmi@tu-dortmund.de>,
-	Gerd <booster@wolke7.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1322253122.2550.3.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: [PATCH iproute2] utils: add s32 parser
+Date: Sat, 26 Nov 2011 00:00:26 +0100
+Message-ID: <1322262026-8561-1-git-send-email-hagen@jauu.net>
+References: <20111125174751.GA3751@hell>
+Cc: David.Laight@ACULAB.COM, Stephen Hemminger <shemminger@vyatta.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:35488 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752460Ab1KYXAg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 18:00:36 -0500
+In-Reply-To: <20111125174751.GA3751@hell>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> :
+This should be enough "security", tc users have root capabilities
+anyway.
+
+Not sure if we should save errno and restore afterwards:
+
+errno_save = errno;
+errno = 0;
 [...]
-> rtl8169_rx_interrupt(..., budget) can return budget + 1 sometimes
-> because of :
-> 
->                 /* Work around for AMD plateform. */
->                 if ((desc->opts2 & cpu_to_le32(0xfffe000)) &&
->                     (tp->mac_version == RTL_GIGA_MAC_VER_05)) {
->                         desc->opts2 = 0;
->                         cur_rx++;
->                 }
+errno = errno_save;
 
-It needs fixing but RTL_GIGA_MAC_VER_05 is an old PCI 8169sc while
-debian's bug #642911 is about a 8168c (aka RTL_GIGA_MAC_VER_{19 .. 22}).
 
-This path is not used.
+Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+---
 
+ include/utils.h |    1 +
+ lib/utils.c     |   19 +++++++++++++++++++
+ 2 files changed, 20 insertions(+), 0 deletions(-)
+
+diff --git a/include/utils.h b/include/utils.h
+index 47f8e07..496db68 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -85,6 +85,7 @@ extern int get_time_rtt(unsigned *val, const char *arg, int *raw);
+ #define get_short get_s16
+ extern int get_u64(__u64 *val, const char *arg, int base);
+ extern int get_u32(__u32 *val, const char *arg, int base);
++extern int get_s32(__s32 *val, const char *arg, int base);
+ extern int get_u16(__u16 *val, const char *arg, int base);
+ extern int get_s16(__s16 *val, const char *arg, int base);
+ extern int get_u8(__u8 *val, const char *arg, int base);
+diff --git a/lib/utils.c b/lib/utils.c
+index efaf377..9cd45e4 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -25,6 +25,7 @@
+ #include <linux/pkt_sched.h>
+ #include <time.h>
+ #include <sys/time.h>
++#include <errno.h>
+ 
+ 
+ #include "utils.h"
+@@ -198,6 +199,24 @@ int get_u8(__u8 *val, const char *arg, int base)
+ 	return 0;
+ }
+ 
++int get_s32(__s32 *val, const char *arg, int base)
++{
++	long res;
++	char *ptr;
++
++	errno = 0;
++
++	if (!arg || !*arg)
++		return -1;
++	res = strtol(arg, &ptr, base);
++	if (ptr == arg || *ptr ||
++	    ((res =  LONG_MIN || res == LONG_MAX) && errno == ERANGE) ||
++	    res > INT32_MAX || res < INT32_MIN)
++		return -1;
++	*val = res;
++	return 0;
++}
++
+ int get_s16(__s16 *val, const char *arg, int base)
+ {
+ 	long res;
 -- 
-Ueimor
+1.7.7
