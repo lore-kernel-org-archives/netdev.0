@@ -1,68 +1,77 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
+From: Jason Wang <jasowang@redhat.com>
 Subject: Re: [PATCH] macvtap: Fix macvtap_get_queue to use rxhash first
-Date: Fri, 25 Nov 2011 08:37:16 +0530
-Message-ID: <OF86B15006.7F4BE3FB-ON65257953.00104C3E-65257953.0010EFCA@in.ibm.com>
-References: <20111124081714.26635.68141.sendpatchset@krkumar2.in.ibm.com> <20111124095902.GD14491@redhat.com> <4ECE18D5.3060605@redhat.com> <20111124103449.GA16031@redhat.com> <4ECE3F0D.3090908@redhat.com> <20111124161430.GC26770@redhat.com>
+Date: Fri, 25 Nov 2011 11:09:21 +0800
+Message-ID: <4ECF06E1.8000206@redhat.com>
+References: <20111124081714.26635.68141.sendpatchset@krkumar2.in.ibm.com>
+	<20111124095902.GD14491@redhat.com> <4ECE18D5.3060605@redhat.com>
+	<20111124103449.GA16031@redhat.com> <4ECE3F0D.3090908@redhat.com>
+	<20111124161430.GC26770@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: arnd@arndb.de, davem@davemloft.net, jasowang <jasowang@redhat.com>,
-	levinsasha928@gmail.com, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar <krkumar2@in.ibm.com>, arnd@arndb.de, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	levinsasha928@gmail.com, davem@davemloft.net
 To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp06.in.ibm.com ([122.248.162.6]:46779 "EHLO
-	e28smtp06.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751971Ab1KYDFJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2011 22:05:09 -0500
-Received: from /spool/local
-	by e28smtp06.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <krkumar2@in.ibm.com>;
-	Fri, 25 Nov 2011 08:35:04 +0530
-Received: from d28av06.in.ibm.com (d28av06.in.ibm.com [9.184.220.48])
-	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id pAP3516g4657230
-	for <netdev@vger.kernel.org>; Fri, 25 Nov 2011 08:35:01 +0530
-Received: from d28av06.in.ibm.com (loopback [127.0.0.1])
-	by d28av06.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id pAP350f8029803
-	for <netdev@vger.kernel.org>; Fri, 25 Nov 2011 08:35:01 +0530
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 In-Reply-To: <20111124161430.GC26770@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-"Michael S. Tsirkin" <mst@redhat.com> wrote on 11/24/2011 09:44:31 PM:
-
-> > As far as I can see, ixgbe binds queues to physical cpu, so let
-consider:
-> >
-> > vhost thread transmits packets of flow A on processor M
-> > during packet transmission, ixgbe driver programs the card to
-> > deliver the packet of flow A to queue/cpu M through flow director
-> > (see ixgbe_atr())
-> > vhost thread then receives packet of flow A with from M
-> > ...
-> > vhost thread transmits packets of flow A on processor N
-> > ixgbe driver programs the flow director to change the delivery of
-> > flow A to queue N ( cpu N )
-> > vhost thread then receives packet of flow A with from N
-> > ...
-> >
-> > So, for a single flow A, we may get different queue mappings. Using
-> > rxhash instead may solve this issue.
->
+On 11/25/2011 12:14 AM, Michael S. Tsirkin wrote:
+> On Thu, Nov 24, 2011 at 08:56:45PM +0800, jasowang wrote:
+>> >  On 11/24/2011 06:34 PM, Michael S. Tsirkin wrote:
+>>> >  >On Thu, Nov 24, 2011 at 06:13:41PM +0800, jasowang wrote:
+>>>> >  >>On 11/24/2011 05:59 PM, Michael S. Tsirkin wrote:
+>>>>> >  >>>On Thu, Nov 24, 2011 at 01:47:14PM +0530, Krishna Kumar wrote:
+>>>>>> >  >>>>It was reported that the macvtap device selects a
+>>>>>> >  >>>>different vhost (when used with multiqueue feature)
+>>>>>> >  >>>>for incoming packets of a single connection. Use
+>>>>>> >  >>>>packet hash first. Patch tested on MQ virtio_net.
+>>>>> >  >>>So this is sure to address the problem, why exactly does this happen?
+>>>> >  >>Ixgbe has flow director and bind queue to host cpu, so it can make
+>>>> >  >>sure the packet of a flow to be handled by the same queue/cpu. So
+>>>> >  >>when vhost thread moves from one host cpu to another, ixgbe would
+>>>> >  >>therefore send the packet to the new cpu/queue.
+>>> >  >Confused. How does ixgbe know about vhost thread moving?
+>> >  
+>> >  As far as I can see, ixgbe binds queues to physical cpu, so let consider:
+>> >  
+>> >  vhost thread transmits packets of flow A on processor M
+>> >  during packet transmission, ixgbe driver programs the card to
+>> >  deliver the packet of flow A to queue/cpu M through flow director
+>> >  (see ixgbe_atr())
+>> >  vhost thread then receives packet of flow A with from M
+>> >  ...
+>> >  vhost thread transmits packets of flow A on processor N
+>> >  ixgbe driver programs the flow director to change the delivery of
+>> >  flow A to queue N ( cpu N )
+>> >  vhost thread then receives packet of flow A with from N
+>> >  ...
+>> >  
+>> >  So, for a single flow A, we may get different queue mappings. Using
+>> >  rxhash instead may solve this issue.
 > Or better, transmit a single flow from a single vhost thread.
+
+It has already worked this way, as the tx queue were choose based on tx 
+hash in guest(),  but vhost thread can move among processors.
+
 >
 > If packets of a single flow get spread over different CPUs,
 > they will get reordered and things are not going to work well.
+>
 
-My testing so far shows that guest sends on (e.g.) TXQ#2
-only, which is handled by vhost#2; and this doesn't change
-for the entire duration of the test. Incoming keeps
-changing for different packets but become same with
-this patch. To iterate, I have not seen the following:
+The problem is that vhost does not handle TCP itself but ixgbe driver 
+would think it does, so the nic would deliver packets of a single flow 
+to different CPUs when the vhost thread who does the transmission moves.
 
-"
-vhost thread transmits packets of flow A on processor M
-...
-vhost thread transmits packets of flow A on processor N
-"
-
-- KK
+So, in conclusion, if we do not consider features of  under layer nic, 
+using rxhash instead of queue mappings to identify a flow is better.
