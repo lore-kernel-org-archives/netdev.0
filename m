@@ -1,303 +1,66 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: [PATCH iproute2] netem: add man-page
-Date: Fri, 25 Nov 2011 14:47:56 +0100
-Message-ID: <1322228876-10500-2-git-send-email-hagen@jauu.net>
-References: <1322228876-10500-1-git-send-email-hagen@jauu.net>
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:50052 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755445Ab1KYNsA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 08:48:00 -0500
-In-Reply-To: <1322228876-10500-1-git-send-email-hagen@jauu.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: Re: [PATCH] at91_ether: use gpio_is_valid for phy IRQ line
+Date: Fri, 25 Nov 2011 14:47:08 +0100
+Message-ID: <20111125134708.GM15531@game.jcrosoft.org>
+References: <1322128098-17724-1-git-send-email-jamie@jamieiles.com>
+ <1322169674-4109-1-git-send-email-nicolas.ferre@atmel.com>
+ <20111124222836.GB28582@gallagher>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
+	sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Jamie Iles <jamie@jamieiles.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20111124222836.GB28582@gallagher>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
----
- man/man8/tc-netem.8 |  272 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 272 insertions(+), 0 deletions(-)
- create mode 100644 man/man8/tc-netem.8
+On 22:28 Thu 24 Nov     , Jamie Iles wrote:
+> Hi Nicolas,
+> 
+> On Thu, Nov 24, 2011 at 10:21:14PM +0100, Nicolas Ferre wrote:
+> > Use the generic gpiolib gpio_is_valid() function to test
+> > if the phy IRQ line GPIO is actually provided.
+> > 
+> > For non-connected or non-existing phy IRQ lines, -EINVAL
+> > value is used for phy_irq_pin field of struct at91_eth_data.
+> > 
+> > Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> > ---
+> >  drivers/net/ethernet/cadence/at91_ether.c |   23 +++++++++++++----------
+> >  1 files changed, 13 insertions(+), 10 deletions(-)
+> > 
+> > diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
+> > index 56624d3..a1c4143 100644
+> > --- a/drivers/net/ethernet/cadence/at91_ether.c
+> > +++ b/drivers/net/ethernet/cadence/at91_ether.c
+> > @@ -255,8 +255,7 @@ static void enable_phyirq(struct net_device *dev)
+> >  	unsigned int dsintr, irq_number;
+> >  	int status;
+> >  
+> > -	irq_number = lp->board_data.phy_irq_pin;
+> > -	if (!irq_number) {
+> > +	if (!gpio_is_valid(lp->board_data.phy_irq_pin)) {
+> >  		/*
+> >  		 * PHY doesn't have an IRQ pin (RTL8201, DP83847, AC101L),
+> >  		 * or board does not have it connected.
+> > @@ -265,6 +264,7 @@ static void enable_phyirq(struct net_device *dev)
+> >  		return;
+> >  	}
+> >  
+> > +	irq_number = lp->board_data.phy_irq_pin;
+> 
+> Does this need to be:
+> 
+> 	irq_number = gpio_to_irq(lp->board_data.phy_irq_pin);
+> 
+> and the same for the other occurrences?  Otherwise this looks like the 
+> right thing to me.
+yes
 
-diff --git a/man/man8/tc-netem.8 b/man/man8/tc-netem.8
-new file mode 100644
-index 0000000..c8ed292
---- /dev/null
-+++ b/man/man8/tc-netem.8
-@@ -0,0 +1,272 @@
-+.TH NETEM 8 "25 November 2011" "iproute2" "Linux"
-+.SH NAME
-+NetEm \- Network Emulator
-+.SH SYNOPSIS
-+.B tc qdisc ... dev
-+dev
-+.B ] add netem  [ limit
-+packets
-+.B ]
-+
-+.B tc qdisc ... dev
-+dev
-+.B ] add netem [ logging
-+LEVEL ]
-+.B ]
-+
-+.B tc qdisc ... dev
-+dev
-+.B ] add netem [ delay
-+TIME [ JITTER [CORRELATION]]]
-+.B ]
-+
-+.B tc qdisc ... dev
-+dev
-+.B ] add netem [ distribution
-+{uniform|normal|pareto|paretonormal} ]
-+.B ]
-+
-+.B tc qdisc ... dev
-+dev
-+.B ] add netem [ drop
-+PERCENT [CORRELATION]]
-+.B ]
-+
-+.B tc qdisc ... dev
-+dev
-+.B ] add netem [ loss
-+PERCENT [CORRELATION]]
-+.B ]
-+
-+
-+.B tc qdisc ... dev
-+dev
-+.B ] add netem [ query ] [ loss_GI
-+ploss [burst_length [density [pisol [good_burst_length]]]]
-+.B ]
-+
-+.B tc qdisc ... dev
-+dev
-+.B ] add netem [ query ] [ loss_4state
-+[p13 [p31 [p32 [p23 [p14]]]]]
-+.B ]
-+
-+.B tc qdisc ... dev
-+dev
-+.B ] add netem  [ loss_gilb_ell
-+p [r [1-h [1-k]]]
-+.B ]
-+
-+.B tc qdisc ... dev
-+dev
-+.B ] add netem  [ loss_gilb_ell_4s
-+p [r [1-h [1-k]]]
-+.B ]
-+
-+.B tc qdisc ... dev
-+dev
-+.B ] add netem [ loss_pattern
-+FILENAME [REPETITIONS]]
-+.B ]
-+
-+.B tc qdisc ... dev
-+dev
-+.B ] add netem  [ corrupt
-+PERCENT [CORRELATION]]
-+.B ]
-+
-+.B tc qdisc ... dev
-+dev
-+.B ] add netem  [ duplicate
-+PERCENT [CORRELATION]]
-+.B ]
-+
-+.B tc qdisc ... dev
-+dev
-+.B ] add netem  [ reorder
-+PRECENT [CORRELATION] [ gap DISTANCE ]]
-+.B ]
-+
-+.SH DESCRIPTION
-+NetEm is an enhancement of the Linux traffic control facilities
-+that allow to add delay, packet loss, duplication and more other
-+characteristics to packets outgoing from a selected network
-+interface. NetEm is build using the existing Quality Of Service (QOS)
-+and Differentiated Services (diffserv) facilities in the Linux
-+kernel.
-+
-+.SH netem OPTIONS
-+netem has the following options:
-+
-+.B limit
-+packets
-+
-+limits the effect of selected options to the indicated number of next packets.
-+
-+.B logging
-+LEVEL
-+
-+sets a logging level. Actually it works with loss_GI, loss_4state, loss_bern,
-+loss_gilb, loss_gilb_ell, loss_gilb_ell_4s, loss_pattern options. The default
-+value is level 0, which means that no data will be logged. When logging level
-+is set to 1 the kernel logs will include a line like "netem loss event
-+algorithm [type] x RFPLE y" for each loss event. The acronym RFPLE means
-+"Received From Previous Loss Event" and it counts the number y of good packets
-+received between two loss events while x is the number of all lost packets and
-+algorithm refers to the selected loss generation algorithm (4-state, gilb_ell
-+or deterministic). The type label applies only to the GI algorithm and can be
-+burst or isolated.
-+
-+.B delay
-+TIME [ JITTER [CORRELATION]]]
-+
-+adds the chosen delay to the packets outgoing to chosen network interface. The
-+optional parameters allows to introduce a delay variation and a correlation.
-+Delay and jitter values are expressed in ms while correlation is percentage.
-+
-+.B distribution
-+{uniform|normal|pareto|paretonormal}
-+
-+allow the choose the delay distribution. If not specified, the default
-+distribution is normal. Additional parameters allow to consider situations in
-+which network has variable delays depending on traffic flows concurring on the
-+same path, that causes severeal delay peaks and a tail.
-+
-+.B drop
-+PERCENT [CORRELATION]
-+
-+OR
-+
-+.B loss
-+PERCENT [CORRELATION]
-+
-+adds an independent loss probability to the packets outgoing from the chosen
-+network interface. It is also possibile to add a correlation, but this option
-+is now deprecated due to the noticed bad behaviour.
-+
-+.B query
-+
-+enables the query mode. It applies to loss_GI and loss_4state options. If it is
-+used with the loss_GI option, the transition probabilities which correspond to
-+the input intuitive parameters are calculated and printed to screen, without
-+copying them in the netem qdisc. Similarly, if it is used with the loss_4state
-+option, it calculates and prints the intuitive parameters that corresponds to
-+the input transition probabilities.
-+
-+.B loss_GI
-+ploss [burst_length [density [pisol [good_burst_length]]]]
-+
-+adds packet losses according to the GI (General and Intuitive) loss model,
-+using the intuitive parameters. The parameter ploss is mandatory while the
-+others are optional. The intuitive parameters are converted to the transition
-+probabilities of the 4-state Markov model. If the only parameter specified is
-+ploss, it corresponds to the Bernoulli model while the optional parameters
-+allow to extend the model to 2-state (burst_length), 3-state (density), and
-+4-state (pisol). If the good_burst_length is not specified the hyphotesis of
-+statistical independence for the losses within the burst will be used.
-+
-+.B loss_4state
-+p13 [p31 [p32 [p23 [p14]]]]
-+
-+adds packet losses according to the 4-state Markov using the transition
-+probabilities as input parameters. The parameters p13 is mandatory and if used
-+alone corresponds to the Bernoulli model. The optional parameters allows to
-+extend the model to 2-state (p31), 3-state (p23 and p32) and 4-state (p14).
-+State 1 corresponds to good reception, State 4 to independent losses, State 3
-+to burst losses and State 2 to good reception within a burst.
-+
-+.B loss_gilb_ell
-+p [r [1-h [1-k]]]
-+
-+adds packet losses according to the Gilbert-Elliot loss model or its special
-+cases (Gilbert, Simple Gilbert and Bernoulli). To use the Bernoulli model, the
-+only needed parameter is p while the the others will be set to the default
-+values r=1-p, 1-h=1 and 1-k=0. The parameters needed for the Simple Gilbert
-+model are two (p and r), while three parameters (p, r, 1-h) are needed for the
-+Gilbert model and four (p, r, 1-h and 1-k) are needed for the Gilbert-Elliot
-+model. As known, p and r are the transition probabilities between the bad and
-+the good states, 1-h is the loss probability in the bad state and 1-k is the
-+loss probability in the good state.
-+
-+.B loss_gilb_ell_4s
-+p [r [1-h [1-k]]]
-+
-+adds packet losses according to the Gilbert-Elliot-4s loss model. It is a
-+particular version of the GI model which behaviour is very similar to the
-+Gilbert-Elliot's. The input parameters are the same of the real Gilbert-Elliot
-+model or its special cases. The transition probabilities and GI parameters that
-+corresponds to the Gilbert-Elliot input parameters are calculated and, if the
-+query mode is enabled, printed to screen. This option is included to study the
-+correspondence between GI model and the models available in the literature, it
-+has no practical use at the moment.
-+
-+.B loss_pattern
-+FILENAME [REPETITIONS]
-+
-+adds packet losses according to a deterministic loss pattern. It reads from the
-+text file FILENAME a sequence of "1" and "0" where "1" are the loss events and
-+"0" are the regular transmission of packets . The parameter repetitions is
-+optional and is the number of "replicas" of the loss pattern file. It is
-+optional and by default is 0 which means infinite repetition of the loss
-+pattern.
-+
-+.B corrupt
-+PERCENT [CORRELATION]]
-+
-+allows the emulate the random noise introducing an error in a random position
-+for a chosen percent of packets. It is also possible to add a correlation
-+through the proper parameter.
-+
-+.B duplicate
-+PERCENT [CORRELATION]]
-+
-+using this option the chosen percent of packets is duplicated before queueing
-+them. It is also possible to add a correlation through the proper parameter.
-+
-+.B reorder
-+PRECENT [CORRELATION] [ gap DISTANCE ]]
-+
-+there are two ways to use this option:
-+
-+.B reorder
-+gap 5 10 ms
-+
-+in this first example every 5th (10th, 15th) packet is sent immediately while
-+other packets are delayed by 10 ms
-+
-+.B reorder
-+25% 50%
-+
-+in this second example 25% of packets are sent immediately (with correlation of
-+50%) while the other are delayed by 10 ms.
-+
-+.SH LIMITATIONS
-+The main known limitation of Netem are related to timer granularity, since
-+Linux is not a real-time operating system; to the choice of Pseudo-Random
-+Number Generator (PRNG) and the original loss model.
-+
-+.SH SOURCES
-+.TP
-+o
-+Hemminger S. , "Network Emulation with NetEm", Open Source Development Lab,
-+April 2005
-+(http://devresources.linux-foundation.org/shemminger/netem/LCA2005_paper.pdf)
-+
-+.TP
-+o
-+Netem page from Linux foundation, (http://www.linuxfoundation.org/en/Net:Netem)
-+
-+.TP
-+o
-+Salsano S., Ludovici F., Ordine A., "Definition of a general and intuitive loss
-+model for packet networks and its implementation in the Netem module in the
-+Linux kernel", available at http://netgroup.uniroma2.it/NetemCLG
-+
-+.SH SEE ALSO
-+.BR tc (8),
-+.BR tc-tbf (8)
-+
-+.SH AUTHOR
-+Netem was written by Stephen Hemminger at OSDL and is based on NISTnet.  This
-+manpage was created by Fabio Ludovici <fabio.ludovici at yahoo dot it> and
-+Hagen Paul Pfeifer <hagen@jauu.net>
--- 
-1.7.7
+Acked-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+
+Best Regards,
+J.
