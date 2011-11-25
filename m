@@ -1,220 +1,62 @@
 From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next 3/5] be2net: Add error handling for Lancer
-Date: Fri, 25 Nov 2011 21:18:23 +0530
-Message-ID: <e2e1f0c5-c4a1-4152-977f-f85ed46ca052@exht2.ad.emulex.com>
+Subject: [PATCH net-next 5/5] be2net: Fix non utilization of RX queues
+Date: Fri, 25 Nov 2011 21:18:53 +0530
+Message-ID: <42d96290-6e47-49e4-8a11-38914e4725fe@exht2.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:44961 "EHLO
+Received: from exht2.emulex.com ([138.239.113.184]:44971 "EHLO
 	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753793Ab1KYPtK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 10:49:10 -0500
+	with ESMTP id S1753928Ab1KYPtf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 10:49:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Detect error in Lancer by polling a HW register and
-recover from this error if it is recoverable.
+When non power of two MSIX vectors are given to driver, some RX queues
+are not utilized. Program RSS table in such a way that all queues
+are utilized.
 
 Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |  155 ++++++++++++++++++---------
- 1 files changed, 106 insertions(+), 49 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |   16 ++++++++++------
+ 1 files changed, 10 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index a1b8ebc..66429ea 100644
+index 66429ea..7236280 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2044,52 +2044,6 @@ void be_detect_dump_ue(struct be_adapter *adapter)
- 	}
- }
- 
--static void be_worker(struct work_struct *work)
--{
--	struct be_adapter *adapter =
--		container_of(work, struct be_adapter, work.work);
--	struct be_rx_obj *rxo;
--	int i;
--
--	be_detect_dump_ue(adapter);
--
--	/* when interrupts are not yet enabled, just reap any pending
--	* mcc completions */
--	if (!netif_running(adapter->netdev)) {
--		int mcc_compl, status = 0;
--
--		mcc_compl = be_process_mcc(adapter, &status);
--
--		if (mcc_compl) {
--			struct be_mcc_obj *mcc_obj = &adapter->mcc_obj;
--			be_cq_notify(adapter, mcc_obj->cq.id, false, mcc_compl);
--		}
--
--		goto reschedule;
--	}
--
--	if (!adapter->stats_cmd_sent) {
--		if (lancer_chip(adapter))
--			lancer_cmd_get_pport_stats(adapter,
--						&adapter->stats_cmd);
--		else
--			be_cmd_get_stats(adapter, &adapter->stats_cmd);
--	}
--
--	for_all_rx_queues(adapter, rxo, i) {
--		be_rx_eqd_update(adapter, rxo);
--
--		if (rxo->rx_post_starved) {
--			rxo->rx_post_starved = false;
--			be_post_rx_frags(rxo, GFP_KERNEL);
--		}
--	}
--
--reschedule:
--	adapter->work_counter++;
--	schedule_delayed_work(&adapter->work, msecs_to_jiffies(1000));
--}
--
- static void be_msix_disable(struct be_adapter *adapter)
+@@ -2312,8 +2312,8 @@ static int be_close(struct net_device *netdev)
+ static int be_rx_queues_setup(struct be_adapter *adapter)
  {
- 	if (msix_enabled(adapter)) {
-@@ -3328,7 +3282,7 @@ static int be_dev_family_check(struct be_adapter *adapter)
+ 	struct be_rx_obj *rxo;
+-	int rc, i;
+-	u8 rsstable[MAX_RSS_QS];
++	int rc, i, j;
++	u8 rsstable[128];
  
- static int lancer_wait_ready(struct be_adapter *adapter)
- {
--#define SLIPORT_READY_TIMEOUT 500
-+#define SLIPORT_READY_TIMEOUT 30
- 	u32 sliport_status;
- 	int status = 0, i;
- 
-@@ -3337,7 +3291,7 @@ static int lancer_wait_ready(struct be_adapter *adapter)
- 		if (sliport_status & SLIPORT_STATUS_RDY_MASK)
- 			break;
- 
--		msleep(20);
-+		msleep(1000);
+ 	for_all_rx_queues(adapter, rxo, i) {
+ 		rc = be_cmd_rxq_create(adapter, &rxo->q, rxo->cq.id,
+@@ -2325,11 +2325,15 @@ static int be_rx_queues_setup(struct be_adapter *adapter)
  	}
  
- 	if (i == SLIPORT_READY_TIMEOUT)
-@@ -3374,6 +3328,104 @@ static int lancer_test_and_set_rdy_state(struct be_adapter *adapter)
- 	return status;
- }
+ 	if (be_multi_rxq(adapter)) {
+-		for_all_rss_queues(adapter, rxo, i)
+-			rsstable[i] = rxo->rss_id;
++		for (j = 0; j < 128; j += adapter->num_rx_qs - 1) {
++			for_all_rss_queues(adapter, rxo, i) {
++				if ((j + i) >= 128)
++					break;
++				rsstable[j + i] = rxo->rss_id;
++			}
++		}
++		rc = be_cmd_rss_config(adapter, rsstable, 128);
  
-+static void lancer_test_and_recover_fn_err(struct be_adapter *adapter)
-+{
-+	int status;
-+	u32 sliport_status;
-+
-+	if (adapter->eeh_err || adapter->ue_detected)
-+		return;
-+
-+	sliport_status = ioread32(adapter->db + SLIPORT_STATUS_OFFSET);
-+
-+	if (sliport_status & SLIPORT_STATUS_ERR_MASK) {
-+		dev_err(&adapter->pdev->dev,
-+				"Adapter in error state."
-+				"Trying to recover.\n");
-+
-+		status = lancer_test_and_set_rdy_state(adapter);
-+		if (status)
-+			goto err;
-+
-+		netif_device_detach(adapter->netdev);
-+
-+		if (netif_running(adapter->netdev))
-+			be_close(adapter->netdev);
-+
-+		be_clear(adapter);
-+
-+		adapter->fw_timeout = false;
-+
-+		status = be_setup(adapter);
-+		if (status)
-+			goto err;
-+
-+		if (netif_running(adapter->netdev)) {
-+			status = be_open(adapter->netdev);
-+			if (status)
-+				goto err;
-+		}
-+
-+		netif_device_attach(adapter->netdev);
-+
-+		dev_err(&adapter->pdev->dev,
-+				"Adapter error recovery succeeded\n");
-+	}
-+	return;
-+err:
-+	dev_err(&adapter->pdev->dev,
-+			"Adapter error recovery failed\n");
-+}
-+
-+static void be_worker(struct work_struct *work)
-+{
-+	struct be_adapter *adapter =
-+		container_of(work, struct be_adapter, work.work);
-+	struct be_rx_obj *rxo;
-+	int i;
-+
-+	if (lancer_chip(adapter))
-+		lancer_test_and_recover_fn_err(adapter);
-+
-+	be_detect_dump_ue(adapter);
-+
-+	/* when interrupts are not yet enabled, just reap any pending
-+	* mcc completions */
-+	if (!netif_running(adapter->netdev)) {
-+		int mcc_compl, status = 0;
-+
-+		mcc_compl = be_process_mcc(adapter, &status);
-+
-+		if (mcc_compl) {
-+			struct be_mcc_obj *mcc_obj = &adapter->mcc_obj;
-+			be_cq_notify(adapter, mcc_obj->cq.id, false, mcc_compl);
-+		}
-+
-+		goto reschedule;
-+	}
-+
-+	if (!adapter->stats_cmd_sent) {
-+		if (lancer_chip(adapter))
-+			lancer_cmd_get_pport_stats(adapter,
-+						&adapter->stats_cmd);
-+		else
-+			be_cmd_get_stats(adapter, &adapter->stats_cmd);
-+	}
-+
-+	for_all_rx_queues(adapter, rxo, i) {
-+		be_rx_eqd_update(adapter, rxo);
-+
-+		if (rxo->rx_post_starved) {
-+			rxo->rx_post_starved = false;
-+			be_post_rx_frags(rxo, GFP_KERNEL);
-+		}
-+	}
-+
-+reschedule:
-+	adapter->work_counter++;
-+	schedule_delayed_work(&adapter->work, msecs_to_jiffies(1000));
-+}
-+
- static int __devinit be_probe(struct pci_dev *pdev,
- 			const struct pci_device_id *pdev_id)
- {
-@@ -3426,7 +3478,12 @@ static int __devinit be_probe(struct pci_dev *pdev,
- 		goto disable_sriov;
- 
- 	if (lancer_chip(adapter)) {
--		status = lancer_test_and_set_rdy_state(adapter);
-+		status = lancer_wait_ready(adapter);
-+		if (!status) {
-+			iowrite32(SLI_PORT_CONTROL_IP_MASK,
-+					adapter->db + SLIPORT_CONTROL_OFFSET);
-+			status = lancer_test_and_set_rdy_state(adapter);
-+		}
- 		if (status) {
- 			dev_err(&pdev->dev, "Adapter in non recoverable error\n");
- 			goto ctrl_clean;
+-		rc = be_cmd_rss_config(adapter, rsstable,
+-			adapter->num_rx_qs - 1);
+ 		if (rc)
+ 			return rc;
+ 	}
 -- 
 1.6.0.2
