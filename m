@@ -1,42 +1,46 @@
-From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next 4/5] be2net: Use new hash key
-Date: Fri, 25 Nov 2011 21:18:38 +0530
-Message-ID: <d4ba7c58-c065-4795-9d4f-bb683b6e3f88@exht2.ad.emulex.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP fast retransmit
+Date: Fri, 25 Nov 2011 17:36:56 +0100
+Message-ID: <1322239016.5793.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <2D9E1426-D432-4D08-BF28-FD2615AAEDBA@mpi-bpc.mpg.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Esztermann, Ansgar" <Ansgar.Esztermann@mpi-bpc.mpg.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:44971 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753793Ab1KYPtf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 10:49:35 -0500
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:42465 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753671Ab1KYQhA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 11:37:00 -0500
+Received: by vcbfk14 with SMTP id fk14so2189115vcb.19
+        for <netdev@vger.kernel.org>; Fri, 25 Nov 2011 08:36:59 -0800 (PST)
+In-Reply-To: <2D9E1426-D432-4D08-BF28-FD2615AAEDBA@mpi-bpc.mpg.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This new hash key gives better distribution of packets across RX
-queues.
+Le vendredi 25 novembre 2011 =C3=A0 14:33 +0100, Esztermann, Ansgar a =C3=
+=A9crit :
+> [originally posted to lkml]
+> Hello list,
+>=20
+> is there some documentation available on TCP fast retransmit? There
+> seem to be quite a lot of descriptions -- from informal to scholarly
+> papers -- on the various algorithms available to calculate the proper
+> size of the congestion window, but I have been unable so far to find
+> out *when* a fast retransmit is triggered. RFC 2581 states the third
+> dupACK "should" do it, and this seems to be quoted fairly often.
+> However, I can easily produce connections that fail to perform fast
+> retransmit even after 5 dupACKs. Some people mention Linux uses a
+> different (presumable more sophisticated) algorithm to trigger fast
+> retransmits, but no-one seems to elaborate.
 
-Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_cmds.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+Could you send a sample pcap of such problem, but please include full
+tcp sesssion, from the first SYN packet, up to packets following
+restransmits.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 7988798..62868ea 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -1669,8 +1669,9 @@ int be_cmd_rss_config(struct be_adapter *adapter, u8 *rsstable, u16 table_size)
- {
- 	struct be_mcc_wrb *wrb;
- 	struct be_cmd_req_rss_config *req;
--	u32 myhash[10] = {0x0123, 0x4567, 0x89AB, 0xCDEF, 0x01EF,
--			0x0123, 0x4567, 0x89AB, 0xCDEF, 0x01EF};
-+	u32 myhash[10] = {0x15d43fa5, 0x2534685a, 0x5f87693a, 0x5668494e,
-+			0x33cf6a53, 0x383334c6, 0x76ac4257, 0x59b242b2,
-+			0x3ea83c02, 0x4a110304};
- 	int status;
- 
- 	if (mutex_lock_interruptible(&adapter->mbox_lock))
--- 
-1.6.0.2
+A diff of "netstat -s" taken before your session and after your session
+on receiver would help too, if receiver is not a loaded machine of
+course.
+
+Also, what version of linux kernel are you using in receiver ?
