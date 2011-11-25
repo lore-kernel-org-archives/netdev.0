@@ -1,58 +1,131 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
-Subject: Re: Fwd: Re: [RFC] kvm tools: Implement multiple VQ for virtio-net
-Date: Fri, 25 Nov 2011 02:47:44 -0500
-Message-ID: <20111125074744.GA5705@Krystal>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Pekka Enberg <penberg@kernel.org>,
-	Asias He <asias.hejun@gmail.com>,
-	Sasha Levin <levinsasha928@gmail.com>, kvm@vger.kernel.org,
-	mingo@elte.hu, gorcunov@gmail.com,
-	Krishna Kumar <krkumar2@in.ibm.com>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	Benjamin Poirier <benjamin.poirier@gmail.com>,
-	Lai Jiangshan <laijs@cn.fujitsu.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.openrapids.net ([64.15.138.104]:55609 "EHLO
-	blackscsi.openrapids.net" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752374Ab1KYHyW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 02:54:22 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hans Schillstrom <hans@schillstrom.com>
+Subject: [v4 PATCH 0/2] NETFILTER new target module, HMARK
+Date: Fri, 25 Nov 2011 10:36:25 +0100
+Message-ID: <1322213787-25796-1-git-send-email-hans@schillstrom.com>
+Cc: hans.schillstrom@ericsson.com
+To: kaber@trash.net, pablo@netfilter.org, jengelh@medozas.de,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
-Benjamin forwarded me your email stating:
+The target allows you to create rules in the "raw" and "mangle" tables
+which alter the netfilter mark (nfmark) field within a given range.
+First a 32 bit hash value is generated then modulus by <limit> and
+finally an offset is added before it's written to nfmark.
+Prior to routing, the nfmark can influence the routing method (see
+"Use netfilter MARK value as routing key") and can also be used by
+other subsystems to change their behavior.
 
-> I have been playing with userspace-rcu which has a number of neat
-> lockless routines for queuing and hashing. But there aren't kernel versions
-> and several of them may require cmpxchg to work.
+The mark match can also be used to match nfmark produced by this module.
+See the kernel module for more info.
 
-Just FYI, I made sure a few years ago that cmpxchg is implemented on all
-architectures within the Linux kernel (using a interrupt disable
-fallback on the cases where it is not supported architecturally, on
-UP-only architectures), so we should be good to use the lock-free
-structures as-is in the kernel on this front. As for the RCU use by
-these structures, userspace RCU has very much the same semantic as in
-the kernel, so we can implement and test these structures in userspace
-and eventually port them to the kernel as needed.
+REVISION
+Version 4
+	Split of IPv6 and IPv4, use IP_CT_IS_REPLY, as Pablo suggested.
+	removed one pskb_may_pull()
+	xtoption parse used in the user space part.
 
-Lai Jiangshan is actively working at making sure the user-level
-implementation of the RCU lock-free hash table (currently in a
-development branch of the userspace RCU git tree : urcu/ht-shrink, not
-yet in master) is suitable for use in the Linux kernel too.
+Version 3
+        Handling of SCTP for IPv6 added.
 
-Best regards,
+Version 2
+	NAT Added for IPv4
+	IPv6 ICMP handling enhanced.
+	Usage example added
 
-Mathieu
+Version 1
+	Initial RFC
 
--- 
-Mathieu Desnoyers
-Operating System Efficiency R&D Consultant
-EfficiOS Inc.
-http://www.efficios.com
+
+We (Ericsson) use hmark in-front of ipvs as a pre-loadbalancer and
+handles up to 70 ipvs running in parallel in clusters.
+However hmark is not restricted to run in front of IPVS it can also be used as
+"poor mans" load balancer.
+With this version is also NAT supported as an option, with very high flows
+you might not want to use conntrack.
+
+The idea is to generate a direction independent fw mark range to use as input to
+the routing (i.e. ip rule add fwmark ...).
+Pretty straight forward and simple.
+
+
+Example:
+                                      App Server (Real Server)
+
+                                           +---------+
+                                        -->| Service |
+     Gateway A                             +---------+
+                          /
+            +----------+ /     +----+      +---------+
+--- if -A---| selector |---->  |ipvs|  --->| Service |
+            +----------+ \     +----+      +---------+
+                          \
+                               +----+      +---------+
+                               |ipvs|   -->| Service |
+                               +----+      +---------+
+      Gateway C
+            +----------+ /     +----+
+--- if-B ---| selector | --->  |ipvs|
+            +----------+ \     +----+      +---------+
+                                           | Service |
+                                           +---------+
+                          /
+            +----------+ /     +----+     ..
+--- if-B ---| selector | --->  |ipvs|      +---------+
+            +----------+ \     +----+      | Service |
+                          \                +---------+
+#
+# Example with four ipvs loadbalancers
+#
+iptables -t mangle -I PREROUTING -d $IPADDR -j HMARK --hmark-mod 4 --hmark-offs 100
+
+ip rule add fwmark 100 table 100
+ip rule add fwmark 101 table 101
+ip rule add fwmark 102 table 102
+ip rule add fwmark 103 table 103
+
+ip ro ad table 100 default via x.y.z.1 dev bond1
+ip ro ad table 101 default via x.y.z.2 dev bond1
+ip ro ad table 102 default via x.y.z.3 dev bond1
+ip ro ad table 103 default via x.y.z.4 dev bond1
+
+
+If conntrack doesn't handle the return path,
+do the oposite with HMARK and send it back right to ipvs.
+
+Another exmaple of usage could be if you have cluster originated connections
+and want to spread the connections over a number of interfaces
+(NAT will complpicate things for you in this case)
+
+
+
+                     \  Blade 1
+                      \ +----------+      +---------+
+                    <-- | selector | <--- | Service |
+                      / +----------+      +---------+
+                     /
+   +------+
+-- | Gw-A |          \  Blade 2
+   +------+           \ +----------+      +---------+
+   +------+         <-- | selector | <--- | Service |
+-- | Gw-B |           / +----------+      +---------+
+   +------+          /
+   +------+
+-- | Gw-C |          \
+   +------+           \ +----------+      +---------+
+                    <-- | selector | <--- | Service |
+                      / +----------+      +---------+
+                     /
+
+                     \  Blande -n
+                      \ +----------+      +---------+
+                    <-- | selector | <--- | Service |
+                      / +----------+      +---------+
+                     /
+
+Regards
+Hans Schillstrom <hans.schillstrom@ericsson.com>
+
