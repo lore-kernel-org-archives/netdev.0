@@ -1,58 +1,59 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Open vSwitch Design
-Date: Fri, 25 Nov 2011 14:02:51 +0100
-Message-ID: <1322226171.2403.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1322173833.1944.5.camel@mojatatu>
-	<20111124212021.2ae2fb7f@s6510.linuxnetplumber.net>
-	<1322201883.2872.19.camel@edumazet-laptop>
-	<20111125.012517.2221372383643417980.davem@davemloft.net>
-	<1322203013.2872.28.camel@edumazet-laptop>
-	<1322220862.1908.79.camel@mojatatu>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH 0/6] NFS: create DNS resolver cache per network namespace
+Date: Fri, 25 Nov 2011 17:12:29 +0300
+Message-ID: <20111125130557.6271.95071.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1322220862.1908.79.camel@mojatatu>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Transfer-Encoding: 7bit
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
+	davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-TGUgdmVuZHJlZGkgMjUgbm92ZW1icmUgMjAxMSDDoCAwNjozNCAtMDUwMCwgamFtYWwgYSDDqWNy
-aXQgOgo+IEhybS4gSSBmb3Jnb3QgYWJvdXQgdGhlIGZsb3cgY2xhc3NpZmllciAtIGl0IG1heSBi
-ZSB3aGF0IHRoZSBvcGVuZmxvdwo+IGZvbGtzIG5lZWQuIEl0IGlzIG1vcmUgZnJpZW5kbHkgZm9y
-IHRoZSB3ZWxsIGRlZmluZWQgdHVwbGVzIHRoYW4gdTMyLgo+IAo+IEJ1dCB3aGF0IGRvIHlvdSBt
-ZWFuICJyZWZhY3RvciI/IEkgY2FuIGFscmVhZHkgdXNlIHRoaXMgY2xhc3NpZmllcgo+IGFuZCBh
-dHRhY2ggYWN0aW9ucyB0byBzZXQgcG9saWN5IGluIHRoZSBrZXJuZWwuCgoKY2xzX2Zsb3cgaXMg
-bm90IGNvbXBsZXRlLCBzaW5jZSBpdCBkb2VzbnQgaGFuZGxlIHR1bm5lbHMgZm9yIGV4YW1wbGUu
-CgpJdCBjYWxscyBhICdwYXJ0aWFsIGZsb3cgY2xhc3NpZmllcicgdG8gZmluZCBlYWNoIG5lZWRl
-ZCBlbGVtZW50LCBvbmUgYnkKb25lLgooYWRkaW5nIHR1bm5lbCBkZWNhcCB3b3VsZCBuZWVkIHRv
-IHBlcmZvcm0gdGhpcyBzZXZlcmFsIHRpbWUgZm9yIGVhY2gKcGFja2V0KQoKX19za2JfZ2V0X3J4
-aGFzaCgpIGlzIG1vcmUgdHVubmVsIGF3YXJlLCB5ZXQgc29tZSBwcm90b2NvbHMgYXJlIHN0aWxs
-Cm1pc3NpbmcsIGZvciBleGFtcGxlIElQUFJPVE9fSVBWNi4KCkluc3RlYWQgb2YgYWRkaW5nIGxv
-Z2ljIHRvIGJvdGggZGlzc2VjdG9ycywgd2UgY291bGQgaGF2ZSBhIGNlbnRyYWwgZmxvdwpkaXNz
-ZWN0b3IsIGZpbGxpbmcgYSB0ZW1wb3JhcnkgcGl2b3Qgc3RydWN0dXJlIHdpdGggZm91bmQgZWxl
-bWVudHMgKHNyYwphZGRyLCBkc3QgYWRkciwgcG9ydHMsIC4uLiksIGdvaW5nIHRocm91Z2ggdHVu
-bmVscyBlbmNhcCBpZiBmb3VuZC4KClRoZW4gbmV0L3NjaGVkL2Nsc19mbG93LmMgY291bGQgcGlj
-ayBuZWVkZWQgZWxlbXMgZnJvbSB0aGlzIHN0cnVjdHVyZSB0bwpjb21wdXRlIHRoZSBoYXNoIGFz
-IHNwZWNpZmllZCBpbiB0YyBjb21tYW5kIDoKKGZvciBleGFtcGxlIDogdGMgZmlsdGVyIC4uLiAg
-ZmxvdyBoYXNoIGtleXMgcHJvdG8tZHN0LGRzdCAuLi4pCgooT25lIGRpc3NlY3RvciBjYWxsIHBl
-ciBwYWNrZXQgZm9yIGFueSBudW1iZXIgb2Yga2V5cyBpbiB0aGUgZmlsdGVyKQoKU2FtZSBmb3Ig
-bmV0L3NjaGVkL3NjaF9zZmIuYyA6IFVzZSB0aGUgcGl2b3Qgc3RydWN0dXJlIGFuZCBjb21wdXRl
-IHRoZQp0d28gaGFzaGVzICh1c2luZyB0d28gaGFzaHJuZCB2YWx1ZXMpCgpBbmQgX19za2JfZ2V0
-X3J4aGFzaCgpIGNvdWxkIHVzZSB0aGUgc2FtZSBmbG93IGRpc3NlY3RvciwgYW5kIHBpY2sgKHNy
-YwphZGRyLCBkc3QgYWRkciwgcG9ydHMpIHRvIGNvbXB1dGUgc2tiLT5yeGhhc2gsIGFuZCBzZXQg
-c2tiLT5sNF9yeGhhc2ggaWYKInBvcnRzIiBpcyBub3QgbnVsbC4KCgoKX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3Bl
-bnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+This patch set was created in context of clone of git
+branch: git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git.
+tag: v3.1
+
+This patch set depends on previous patch sets titled:
+1) "SUNRPC: initial part of making pipefs work in net ns"
+2) "SUNPRC: cleanup PipeFS for network-namespace-aware users"
+
+Actually, this patch set consists of two tightly connected parts:
+1) DNS resolver cache per network namespcae implementation itself
+2) DNS resolver cache dentries creation by PipeFS network namespace aware
+routines.
+
+Thus this patch set is the second part of "PipeFS per network namespace"
+story.
+
+The following series consists of:
+
+---
+
+Stanislav Kinsbursky (6):
+      SUNRPC: split cache creation and PipeFS registration
+      NFS: split cache creation and PipeFS registration
+      NFS: handle NFS caches dentries by network namespace aware routines
+      NFS: DNS resolver cache per network namespace context introduced
+      NFS: DNS resolver PipeFS notifier introduced
+      NFS: remove RPC PipeFS mount point references from NFS cache routines
+
+
+ fs/nfs/cache_lib.c           |   61 ++++++++++++++------
+ fs/nfs/cache_lib.h           |   10 +++
+ fs/nfs/dns_resolve.c         |  125 ++++++++++++++++++++++++++++++++++--------
+ fs/nfs/dns_resolve.h         |   14 ++++-
+ fs/nfs/inode.c               |   33 ++++++++++-
+ fs/nfs/netns.h               |   13 ++++
+ fs/nfs/nfs4namespace.c       |    8 ++-
+ include/linux/sunrpc/cache.h |    2 +
+ net/sunrpc/cache.c           |   12 ++--
+ 9 files changed, 218 insertions(+), 60 deletions(-)
+ create mode 100644 fs/nfs/netns.h
+
+-- 
+Signature
