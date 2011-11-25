@@ -1,86 +1,64 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: [PATCH iproute2] utils: add s32 parser
-Date: Sat, 26 Nov 2011 00:00:26 +0100
-Message-ID: <1322262026-8561-1-git-send-email-hagen@jauu.net>
-References: <20111125174751.GA3751@hell>
-Cc: David.Laight@ACULAB.COM, Stephen Hemminger <shemminger@vyatta.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:35488 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752460Ab1KYXAg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 18:00:36 -0500
-In-Reply-To: <20111125174751.GA3751@hell>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [bug?] r8169: hangs under heavy load
+Date: Sat, 26 Nov 2011 00:05:57 +0100
+Message-ID: <1322262357.2550.12.camel@edumazet-laptop>
+References: <4E7F4D45.7040902@wolke7.net>
+	 <1316978632.4122.103.camel@deadeye> <4E82C0B5.1050902@wolke7.net>
+	 <1317254171.4068.12.camel@deadeye>
+	 <20111124044137.GA18262@elie.hsd1.il.comcast.net>
+	 <4ECFE7A7.5070300@wolke7.net>
+	 <20111125201936.GA26692@elie.hsd1.il.comcast.net>
+	 <1322253122.2550.3.camel@edumazet-laptop>
+	 <20111125222211.GA13719@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jonathan Nieder <jrnieder@gmail.com>, netdev@vger.kernel.org,
+	nic_swsd@realtek.com, linux-kernel@vger.kernel.org,
+	Armin Kazmi <armin.kazmi@tu-dortmund.de>,
+	Gerd <booster@wolke7.net>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111125222211.GA13719@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This should be enough "security", tc users have root capabilities
-anyway.
+Le vendredi 25 novembre 2011 =C3=A0 23:22 +0100, Francois Romieu a =C3=A9=
+crit :
+> Eric Dumazet <eric.dumazet@gmail.com> :
+> [...]
+> > rtl8169_rx_interrupt(..., budget) can return budget + 1 sometimes
+> > because of :
+> >=20
+> >                 /* Work around for AMD plateform. */
+> >                 if ((desc->opts2 & cpu_to_le32(0xfffe000)) &&
+> >                     (tp->mac_version =3D=3D RTL_GIGA_MAC_VER_05)) {
+> >                         desc->opts2 =3D 0;
+> >                         cur_rx++;
+> >                 }
+>=20
+> It needs fixing but RTL_GIGA_MAC_VER_05 is an old PCI 8169sc while
+> debian's bug #642911 is about a 8168c (aka RTL_GIGA_MAC_VER_{19 .. 22=
+}).
+>=20
+> This path is not used.
+>=20
 
-Not sure if we should save errno and restore afterwards:
+OK, then we receive a RxFIFOOver indication while napi handler is
+running (quite possible if machine under network load)
 
-errno_save = errno;
-errno = 0;
-[...]
-errno = errno_save;
+This (hard) interrupt calls rtl8169_tx_timeout()
+	-> rtl8169_hw_reset()
+		-> rtl_hw_reset()
+			-> rtl8169_init_ring_indexes()
+
+tp->dirty_tx =3D tp->dirty_rx =3D tp->cur_tx =3D tp->cur_rx =3D 0;
+
+When control returns to softirq handler (rtl8169_rx_interrupt())
+it can then catch tp->cur_rx being now 0 instead of value at start of
+handler.
+
+count =3D cur_rx - tp->cur_rx; // too big
 
 
-Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
----
-
- include/utils.h |    1 +
- lib/utils.c     |   19 +++++++++++++++++++
- 2 files changed, 20 insertions(+), 0 deletions(-)
-
-diff --git a/include/utils.h b/include/utils.h
-index 47f8e07..496db68 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -85,6 +85,7 @@ extern int get_time_rtt(unsigned *val, const char *arg, int *raw);
- #define get_short get_s16
- extern int get_u64(__u64 *val, const char *arg, int base);
- extern int get_u32(__u32 *val, const char *arg, int base);
-+extern int get_s32(__s32 *val, const char *arg, int base);
- extern int get_u16(__u16 *val, const char *arg, int base);
- extern int get_s16(__s16 *val, const char *arg, int base);
- extern int get_u8(__u8 *val, const char *arg, int base);
-diff --git a/lib/utils.c b/lib/utils.c
-index efaf377..9cd45e4 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -25,6 +25,7 @@
- #include <linux/pkt_sched.h>
- #include <time.h>
- #include <sys/time.h>
-+#include <errno.h>
- 
- 
- #include "utils.h"
-@@ -198,6 +199,24 @@ int get_u8(__u8 *val, const char *arg, int base)
- 	return 0;
- }
- 
-+int get_s32(__s32 *val, const char *arg, int base)
-+{
-+	long res;
-+	char *ptr;
-+
-+	errno = 0;
-+
-+	if (!arg || !*arg)
-+		return -1;
-+	res = strtol(arg, &ptr, base);
-+	if (ptr == arg || *ptr ||
-+	    ((res =  LONG_MIN || res == LONG_MAX) && errno == ERANGE) ||
-+	    res > INT32_MAX || res < INT32_MIN)
-+		return -1;
-+	*val = res;
-+	return 0;
-+}
-+
- int get_s16(__s16 *val, const char *arg, int base)
- {
- 	long res;
--- 
-1.7.7
+Really, calling rtl8169_init_ring_indexes() from hardirq is killing us.
