@@ -1,51 +1,116 @@
-From: Domenico Andreoli <cavokz@gmail.com>
-Subject: Re: MACH_QQ2440 (and CS890x)
-Date: Fri, 25 Nov 2011 10:57:30 +0100
-Message-ID: <20111125095730.GA16935@glitch>
-References: <1322169455.25125.104.camel@x61.thuisdomein>
- <20111125093651.GA10636@glitch>
- <1322214386.25125.127.camel@x61.thuisdomein>
+From: Vitalii Demianets <vitas@nppfactor.kiev.ua>
+Subject: [PATCH] bridge: master device stuck in no-carrier state
+	forever when in user-stp mode
+Date: Fri, 25 Nov 2011 12:16:37 +0200
+Message-ID: <201111251216.37466.vitas@nppfactor.kiev.ua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Russell King <linux@arm.linux.org.uk>,
-	Sascha Hauer <s.hauer@pengutronix.de>, netdev@vger.kernel.org,
-	Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>, kernel@pengutronix.de
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:39189 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752714Ab1KYJ5c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 04:57:32 -0500
-Received: by bke11 with SMTP id 11so4142013bke.19
-        for <netdev@vger.kernel.org>; Fri, 25 Nov 2011 01:57:31 -0800 (PST)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	bridge@lists.linux-foundation.org,
+	Michael Tremer <michael.tremer@ipfire.org>
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1322214386.25125.127.camel@x61.thuisdomein>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 25, 2011 at 10:46:26AM +0100, Paul Bolle wrote:
-> (Canned message follows.)
-> 
-> On Fri, 2011-11-25 at 10:36 +0100, Domenico Andreoli wrote:
-> > On Thu, Nov 24, 2011 at 10:17:35PM +0100, Paul Bolle wrote:
-> > > 3) Are there any plans to add a Kconfig entry for MACH_QQ2440? If not,
-> > > should I submit the (trivial) patch to drop that Kconfig symbol and that
-> > > preprocessor macro?
-> > 
-> > The plan for qq2440 is to use the cs890x platform driver which is being
-> > developed by Jaccon [0], maybe in the OF variant.  I already asked him
-> > to remove these specific and unused macros for me.
-> > 
-> > So thank you for the offer but I hope the work of Jaccon will be
-> > merged soon.
-> 
-> Thanks. I'll stop worrying about this invalid Kconfig dependency for
-> now. It might pop up again if I ever decide to scan the mainline tree
-> for invalid symbols again. We'll see.
+When in user-stp mode, bridge master do not follow state of its slaves, so 
+after the following sequence of events it can stuck forever in no-carrier 
+state:
+1) turn stp off
+2) put all slaves down - master device will follow their state and also go in 
+no-carrier state
+3) turn stp on with bridge-stp script returning 0 (go to the user-stp mode)
+Now bridge master won't follow slaves' state and will never reach running 
+state.
 
-In such case I already ack the commit.
+This patch solves the problem by making user-stp and kernel-stp behavior 
+similar regarding master following slaves' states.
 
-> Paul Bolle
-Domenico
+Signed-off-by: Vitalii Demianets <vitas@nppfactor.kiev.ua>
+
+---
+ net/bridge/br_netlink.c |    6 ++++++
+ net/bridge/br_stp.c     |   29 ++++++++++++++---------------
+ 2 files changed, 20 insertions(+), 15 deletions(-)
+
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index e5f9ece3..a1daf82 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -18,6 +18,7 @@
+ #include <net/sock.h>
+ 
+ #include "br_private.h"
++#include "br_private_stp.h"
+ 
+ static inline size_t br_nlmsg_size(void)
+ {
+@@ -188,6 +189,11 @@ static int br_rtm_setlink(struct sk_buff *skb,  struct 
+nlmsghdr *nlh, void *arg)
+ 
+ 	p->state = new_state;
+ 	br_log_state(p);
++
++	spin_lock_bh(&p->br->lock);
++	br_port_state_selection(p->br);
++	spin_unlock_bh(&p->br->lock);
++
+ 	br_ifinfo_notify(RTM_NEWLINK, p);
+ 
+ 	return 0;
+diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+index ad0a3f7..dd147d7 100644
+--- a/net/bridge/br_stp.c
++++ b/net/bridge/br_stp.c
+@@ -399,25 +399,24 @@ void br_port_state_selection(struct net_bridge *br)
+ 	struct net_bridge_port *p;
+ 	unsigned int liveports = 0;
+ 
+-	/* Don't change port states if userspace is handling STP */
+-	if (br->stp_enabled == BR_USER_STP)
+-		return;
+-
+ 	list_for_each_entry(p, &br->port_list, list) {
+ 		if (p->state == BR_STATE_DISABLED)
+ 			continue;
+ 
+-		if (p->port_no == br->root_port) {
+-			p->config_pending = 0;
+-			p->topology_change_ack = 0;
+-			br_make_forwarding(p);
+-		} else if (br_is_designated_port(p)) {
+-			del_timer(&p->message_age_timer);
+-			br_make_forwarding(p);
+-		} else {
+-			p->config_pending = 0;
+-			p->topology_change_ack = 0;
+-			br_make_blocking(p);
++		/* Don't change port states if userspace is handling STP */
++		if (br->stp_enabled != BR_USER_STP) {
++			if (p->port_no == br->root_port) {
++				p->config_pending = 0;
++				p->topology_change_ack = 0;
++				br_make_forwarding(p);
++			} else if (br_is_designated_port(p)) {
++				del_timer(&p->message_age_timer);
++				br_make_forwarding(p);
++			} else {
++				p->config_pending = 0;
++				p->topology_change_ack = 0;
++				br_make_blocking(p);
++			}
+ 		}
+ 
+ 		if (p->state == BR_STATE_FORWARDING)
+-- 
+1.7.3.4
