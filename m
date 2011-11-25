@@ -1,37 +1,66 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH iproute2 1/2] utils: add s32 parser
-Date: Fri, 25 Nov 2011 12:13:34 +0100
-Message-ID: <20111125111333.GA2810@hell>
-References: <1322156415-23331-1-git-send-email-hagen@jauu.net>
- <AE90C24D6B3A694183C094C60CF0A2F6D8AEE2@saturn3.aculab.com>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [PATCH 3/4] NET: NETROM: Cleanup argument SIOCADDRT ioctl argument
+ checking.
+Date: Fri, 25 Nov 2011 12:22:30 +0100
+Message-ID: <4ECF7A76.3090305@bfs.de>
+References: <cover.1322214950.git.ralf@linux-mips.org> <9f87aed932fc551c6f5c474b39d01fb337237a7e.1322214950.git.ralf@linux-mips.org>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org, Thomas Osterried <thomas@osterried.de>
+To: Ralf Baechle <ralf@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:46262 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754403Ab1KYLNg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 06:13:36 -0500
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6D8AEE2@saturn3.aculab.com>
+Received: from mx01.sz.bfs.de ([194.94.69.103]:37455 "EHLO mx01.sz.bfs.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754730Ab1KYLWc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Nov 2011 06:22:32 -0500
+In-Reply-To: <9f87aed932fc551c6f5c474b39d01fb337237a7e.1322214950.git.ralf@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* David Laight | 2011-11-25 09:46:09 [-0000]:
 
->> +int get_s32(__s32 *val, const char *arg, int base)
->> +{
->> +	long res;
->> +	char *ptr;
->> +
->> +	if (!arg || !*arg)
->> +		return -1;
->
->No need to check *arg, picked up below.
 
-Yes, it is a little bit explicit/duplicate, but I decided to follow all
-get_[su][16 32 64] functions to be consistent. If you want you can send a
-separate patch afterwards.
+Am 25.11.2011 10:09, schrieb Ralf Baechle:
+> nr_route.ndigis is unsigned int so the nr_route.ndigis < 0 expression is
+> never true and can be dropped.  Doing the nr_ax25_dev_get call later
+> allows the nr_route.ndigis test to bail out without having to dev_put.
+> 
+> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> Cc: Thomas Osterried <thomas@osterried.de>
+> ---
+>  net/netrom/nr_route.c |    6 ++----
+>  1 files changed, 2 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
+> index 8d7716c..2cf3301 100644
+> --- a/net/netrom/nr_route.c
+> +++ b/net/netrom/nr_route.c
+> @@ -670,12 +670,10 @@ int nr_rt_ioctl(unsigned int cmd, void __user *arg)
+>  	case SIOCADDRT:
+>  		if (copy_from_user(&nr_route, arg, sizeof(struct nr_route_struct)))
+>  			return -EFAULT;
+> -		if ((dev = nr_ax25_dev_get(nr_route.device)) == NULL)
+> +		if (nr_route.ndigis > AX25_MAX_DIGIS)
+>  			return -EINVAL;
+> -		if (nr_route.ndigis < 0 || nr_route.ndigis > AX25_MAX_DIGIS) {
+> -			dev_put(dev);
+> +		if ((dev = nr_ax25_dev_get(nr_route.device)) == NULL)
+>  			return -EINVAL;
+> -		}
+>  		switch (nr_route.type) {
+>  		case NETROM_NODE:
+>  			if (strnlen(nr_route.mnemonic, 7) == 7) {
 
-HGN
+I realy do not know if that matters but some use AX25_MAX_DIGIS as array
+and therefore it should be >=AX25_MAX_DIGIS.
+
+struct rose_route_struct {
+         rose_address    address;
+        unsigned short  mask;
+        ax25_address    neighbour;
+        char            device[16];
+         unsigned char   ndigis;
+         ax25_address    digipeaters[AX25_MAX_DIGIS];
+  };
