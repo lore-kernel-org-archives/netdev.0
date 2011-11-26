@@ -1,44 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] ifenslave: Fix unused variable warnings.
-Date: Sat, 26 Nov 2011 16:54:57 -0500 (EST)
-Message-ID: <20111126.165457.1325867736375841646.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: cache forver in 3.2.0-rc2-00400-g866d43c ?
+Date: Sat, 26 Nov 2011 23:10:27 +0100
+Message-ID: <1322345427.10212.18.camel@edumazet-laptop>
+References: <201111231910.37190.a.miskiewicz@gmail.com>
+	 <1322077447.2775.6.camel@edumazet-laptop>
+	 <201111232135.55122.a.miskiewicz@gmail.com>
+	 <201111251853.19551.a.miskiewicz@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Arkadiusz =?UTF-8?Q?Mi=C5=9Bkiewicz?= <a.miskiewicz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40008 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753591Ab1KZVy7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 16:54:59 -0500
-Received: from localhost (cpe-66-65-61-233.nyc.res.rr.com [66.65.61.233])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id pAQLswYd010337
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Sat, 26 Nov 2011 13:54:58 -0800
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:43130 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754198Ab1KZWKc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 17:10:32 -0500
+Received: by bke11 with SMTP id 11so6189655bke.19
+        for <netdev@vger.kernel.org>; Sat, 26 Nov 2011 14:10:31 -0800 (PST)
+In-Reply-To: <201111251853.19551.a.miskiewicz@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpEb2N1bWVudGF0aW9uL25ldHdvcmtpbmcvaWZlbnNsYXZlLmM6IEluIGZ1bmN0aW9uIKFpZl9n
-ZXRjb25maWeiOg0KRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL2lmZW5zbGF2ZS5jOjUwODoxNDog
-d2FybmluZzogdmFyaWFibGUgoW10daIgc2V0IGJ1dCBub3QgdXNlZCBbLVd1bnVzZWQtYnV0LXNl
-dC12YXJpYWJsZV0NCkRvY3VtZW50YXRpb24vbmV0d29ya2luZy9pZmVuc2xhdmUuYzo1MDg6Njog
-d2FybmluZzogdmFyaWFibGUgoW1ldHJpY6Igc2V0IGJ1dCBub3QgdXNlZCBbLVd1bnVzZWQtYnV0
-LXNldC12YXJpYWJsZV0NCg0KVGhlIHB1cnBvc2Ugb2YgdGhpcyBmdW5jdGlvbiBpcyB0byBzaW1w
-bHkgcHJpbnQgb3V0IHRoZSB2YWx1ZXMNCml0IHByb2Jlcywgc28uLi4NCg0KU2lnbmVkLW9mZi1i
-eTogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KLS0tDQoNCk1vcmUgYW5u
-b3lpbmcgd2FybmluZ3MsIGNvbW1pdHRlZCB0byBuZXQtbmV4dC4NCg0KIERvY3VtZW50YXRpb24v
-bmV0d29ya2luZy9pZmVuc2xhdmUuYyB8ICAgIDIgKysNCiAxIGZpbGVzIGNoYW5nZWQsIDIgaW5z
-ZXJ0aW9ucygrKSwgMCBkZWxldGlvbnMoLSkNCg0KZGlmZiAtLWdpdCBhL0RvY3VtZW50YXRpb24v
-bmV0d29ya2luZy9pZmVuc2xhdmUuYyBiL0RvY3VtZW50YXRpb24vbmV0d29ya2luZy9pZmVuc2xh
-dmUuYw0KaW5kZXggNjU5NjhmYi4uYWM1ZGViYiAxMDA2NDQNCi0tLSBhL0RvY3VtZW50YXRpb24v
-bmV0d29ya2luZy9pZmVuc2xhdmUuYw0KKysrIGIvRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL2lm
-ZW5zbGF2ZS5jDQpAQCAtNTM5LDEyICs1MzksMTQgQEAgc3RhdGljIGludCBpZl9nZXRjb25maWco
-Y2hhciAqaWZuYW1lKQ0KIAkJbWV0cmljID0gMDsNCiAJfSBlbHNlDQogCQltZXRyaWMgPSBpZnIu
-aWZyX21ldHJpYzsNCisJcHJpbnRmKCJUaGUgcmVzdWx0IG9mIFNJT0NHSUZNRVRSSUMgaXMgJWRc
-biIsIG1ldHJpYyk7DQogDQogCXN0cmNweShpZnIuaWZyX25hbWUsIGlmbmFtZSk7DQogCWlmIChp
-b2N0bChza2ZkLCBTSU9DR0lGTVRVLCAmaWZyKSA8IDApDQogCQltdHUgPSAwOw0KIAllbHNlDQog
-CQltdHUgPSBpZnIuaWZyX210dTsNCisJcHJpbnRmKCJUaGUgcmVzdWx0IG9mIFNJT0NHSUZNVFUg
-aXMgJWRcbiIsIG10dSk7DQogDQogCXN0cmNweShpZnIuaWZyX25hbWUsIGlmbmFtZSk7DQogCWlm
-IChpb2N0bChza2ZkLCBTSU9DR0lGRFNUQUREUiwgJmlmcikgPCAwKSB7DQotLSANCjEuNy42LjQN
-Cg0K
+Le vendredi 25 novembre 2011 =C3=A0 18:53 +0100, Arkadiusz Mi=C5=9Bkiew=
+icz a=20
+> Two days and no problems. More tests possible in next week.
+>=20
+> Thanks!
+
+Thansk to you, I'll send official submission in a couple of minutes
+then.
