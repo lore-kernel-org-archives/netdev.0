@@ -1,72 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next 1/2] netem: rate extension
-Date: Sat, 26 Nov 2011 12:00:42 +0100
-Message-ID: <1322305242.10212.9.camel@edumazet-laptop>
-References: <1322156378-23257-1-git-send-email-hagen@jauu.net>
-	 <1322187773-27768-1-git-send-email-hagen@jauu.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
-To: Hagen Paul Pfeifer <hagen@jauu.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:40011 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754154Ab1KZLAr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 06:00:47 -0500
-Received: by bke11 with SMTP id 11so5502898bke.19
-        for <netdev@vger.kernel.org>; Sat, 26 Nov 2011 03:00:45 -0800 (PST)
-In-Reply-To: <1322187773-27768-1-git-send-email-hagen@jauu.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Subject: pull request: batman-adv 2011-11-26
+Date: Sat, 26 Nov 2011 22:26:42 +0800
+Message-ID: <1322317612-7770-1-git-send-email-lindner_marek@yahoo.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 25 novembre 2011 =C3=A0 03:22 +0100, Hagen Paul Pfeifer a =C3=
-=A9crit :
-> Currently netem is not in the ability to emulate channel bandwidth. O=
-nly static
-> delay (and optional random jitter) can be configured.
->=20
-> To emulate the channel rate the token bucket filter (sch_tbf) can be =
-used.  But
-> TBF has some major emulation flaws. The buffer (token bucket depth/ra=
-te) cannot
-> be 0. Also the idea behind TBF is that the credit (token in buckets) =
-fills if
-> no packet is transmitted. So that there is always a "positive" credit=
- for new
-> packets. In real life this behavior contradicts the law of nature whe=
-re
-> nothing can travel faster as speed of light. E.g.: on an emulated 100=
-0 byte/s
-> link a small IPv4/TCP SYN packet with ~50 byte require ~0.05 seconds =
-- not 0
-> seconds.
->=20
-> Netem is an excellent place to implement a rate limiting feature: sta=
-tic
-> delay is already implemented, tfifo already has time information and =
-the
-> user can skip TBF configuration completely.
->=20
-> This patch implement rate feature which can be configured via tc. e.g=
-:
->=20
-> 	tc qdisc add dev eth0 root netem rate 10kbit
->=20
-> To emulate a link of 5000byte/s and add an additional static delay of=
- 10ms:
->=20
-> 	tc qdisc add dev eth0 root netem delay 10ms rate 5KBps
->=20
-> Note: similar to TBF the rate extension is bounded to the kernel timi=
-ng
-> system. Depending on the architecture timer granularity, higher rates=
- (e.g.
-> 10mbit/s and higher) tend to transmission bursts. Also note: further =
-queues
-> living in network adaptors; see ethtool(8).
->=20
-> Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
-> ---
+Hi David,
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+the following 10 patches constitute the first batch I'd like to get the pulled
+into net-next-2.6/3.3. They're mostly uncritical fixes around the recently
+introduced tt code, some code refactoring, the kstrto update and the range
+check fix reported by Thomas Jarosch. 
+
+Thanks,
+Marek
+
+The following changes since commit 1ea6b8f48918282bdca0b32a34095504ee65bab5:
+
+  Linux 3.2-rc1 (2011-11-07 16:16:02 -0800)
+
+are available in the git repository at:
+  git://git.open-mesh.org/linux-merge.git for_david
+
+Antonio Quartulli (5):
+      batman-adv: tt_global_del_orig() has to print the correct message
+      batman-adv: use orig_hash_find() instead of get_orig_node() in TT code
+      batman-adv: fixed hash functions type to uint32_t instead of int
+      batman-adv: linearise the tt_response skb only if needed
+      batman-adv: check for tt_reponse packet real length
+
+Marek Lindner (1):
+      batman-adv: refactoring gateway handling code
+
+Simon Wunderlich (2):
+      batman-adv: directly write tt entries without buffering
+      batman-adv: Fix range check for expected packets
+
+Sven Eckelmann (2):
+      batman-adv: update internal version number
+      batman-adv: Replace obsolete strict_strto<foo> with kstrto<foo>
+
+ net/batman-adv/bat_sysfs.c         |    4 +-
+ net/batman-adv/bitarray.c          |    2 +-
+ net/batman-adv/gateway_client.c    |  153 ++++++++++++++++++++++--------------
+ net/batman-adv/gateway_client.h    |    5 +-
+ net/batman-adv/gateway_common.c    |    4 +-
+ net/batman-adv/hash.c              |    4 +-
+ net/batman-adv/hash.h              |   13 ++--
+ net/batman-adv/main.h              |    2 +-
+ net/batman-adv/originator.c        |   13 ++-
+ net/batman-adv/originator.h        |    2 +-
+ net/batman-adv/routing.c           |   22 ++++--
+ net/batman-adv/soft-interface.c    |   43 +++++++---
+ net/batman-adv/translation-table.c |  100 ++++++-----------------
+ net/batman-adv/vis.c               |   17 +++--
+ 14 files changed, 202 insertions(+), 182 deletions(-)
