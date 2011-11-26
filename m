@@ -1,59 +1,74 @@
-From: "Greg Scott" <GregScott@Infrasupport.com>
-Subject: RE: ebtables on a stick
-Date: Sat, 26 Nov 2011 02:27:12 -0600
-Message-ID: <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com>
-References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: [PATCH iproute2] utils: add s32 parser
+Date: Sat, 26 Nov 2011 11:54:06 +0100
+Message-ID: <1322304846-4836-1-git-send-email-hagen@jauu.net>
+References: <20111125165008.05f4dbf3@nehalam.linuxnetplumber.net>
+Cc: David.Laight@ACULAB.COM, Stephen Hemminger <shemminger@vyatta.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.infrasupportetc.com ([216.160.2.132]:31202 "EHLO
-	mail.infrasupport.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752569Ab1KZIi6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 03:38:58 -0500
-Content-class: urn:content-classes:message
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:53979 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753511Ab1KZKyM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 05:54:12 -0500
+In-Reply-To: <20111125165008.05f4dbf3@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SSBoYXZlIGEgc2l0dWF0aW9uIHRoYXQgbmVlZHMgdG8gcm91dGUgbW9zdGx5IGFuZCBicmlkZ2Ug
-b25seSBhIGxpdHRsZSBiaXQuwqAgDQoNCkkgaGF2ZSBhIHByaXZhdGUgaW50ZXJuYWwgTEFOLCAx
-OTIuMTY4LjEwLm5ubi7CoCBCdXQgb25lIGhvc3QgaW4gdGhlIGludGVybmFsIHNpZGUgbmVlZHMg
-YSByZWFsIHB1YmxpYyBJUCBBZGRyZXNzLCBjYWxsIGl0IDEuMi4xMTUuMTU3LsKgIA0KDQpJIGhh
-dmUgYSBMaW51eCBmaXJld2FsbCBzZXQgdXAgd2l0aCBlYnRhYmxlcy7CoCBJbnRlcmZhY2UgZXRo
-MCBmYWNlcyB0aGUgSW50ZXJuZXQgYW5kIGhhcyBhbiBJUCBBZGRyZXNzIG9mIDEuMi4xMTUuMTQ2
-LsKgIEludGVyZmFjZSBldGgxIGlzIG9uIHRoZSBMQU4gc2lkZSB3aXRoIElQIEFkZHJlc3MgwqAx
-OTIuMTY4LjEwLjEuwqAgQnJpZGdlIGJyMCBjdXJyZW50bHkgaGFzIG5vIElQIEFkZHJlc3MgYW5k
-IGJyaWRnZXMgZXRoMCBhbmQgZXRoMS7CoCBFdmVyeW9uZSBvbiB0aGUgTEFOIHNpZGUgZXhjZXB0
-IG15IHB1YmxpYyBJUCBBZGRyZXNzIGhvc3QgdXNlcyB0aGUgcHJpdmF0ZSBzaWRlIG9mIHRoZSBm
-aXJld2FsbCBhdCAxOTIuMTYwLjEwLjEgZm9yIGRlZmF1bHQgZ2F0ZXdheS7CoCBUaGUgcHVibGlj
-IElQIEFkZHJlc3MgaG9zdCB1c2VzIHRoZSBwdWJsaWMgc2lkZSBvZiB0aGUgZmlyZXdhbGwgYXQg
-MS4yLjExNS4xNDYgZm9yIGRlZmF1bHQgZ2F0ZXdheS7CoCANCg0KVGhlIGNoYWxsZW5nZSAtIEkg
-bmVlZCBteSBwdWJsaWMgSVAgQWRkcmVzcyBob3N0IHRvIGNvbW11bmljYXRlIHdpdGggZXZlcnlv
-bmUgYXJvdW5kIHRoZSBJbnRlcm5ldCwgaW5jbHVkaW5nIHRoZSBwcml2YXRlIExBTiDigJMgYW5k
-IEnigJlsbCBmaWx0ZXIgdGhhdCBhcHByb3ByaWF0ZWx5IHdpdGggaXB0YWJsZXMuwqAgRXZlcnl0
-aGluZyBlbHNlIHNob3VsZCByb3V0ZSB0cmFkaXRpb25hbGx5LsKgIA0KDQpUaGlzIG1vc3RseSB3
-b3JrcywgZXhjZXB0IEkgYW0gaGF2aW5nIHRyb3VibGUgY29tbXVuaWNhdGluZyB3aXRoIGhvc3Rz
-IGluIHRoZSBwcml2YXRlIExBTi4gwqBJIGNhbiBjb21tdW5pY2F0ZSBhbnl3aGVyZSBlbHNlIG9u
-IHRoZSBJbnRlcm5ldCBhcyBsb25nIGFzIEkgZG9u4oCZdCB0cnkgdG8gdXNlIG15IG93biBETlMg
-c2VydmVycyBpbiB0aGUgcHJpdmF0ZSBMQU4gdG8gdHJhbnNsYXRlIG5hbWVzLsKgIMKgQWZ0ZXIg
-c3R1ZHlpbmcgZWJ0YWJsZXMgZXhhbXBsZXMgYW5kIHRvbnMgb2YgdHJpYWwgYW5kIGVycm9yLCBJ
-IHN0aWxsIGRvbuKAmXQgZ2V0IGl0LsKgIEhlcmUgYXJlIHRoZSBlYnRhYmxlcyBydWxlczoNCg0K
-W3Jvb3RAZWhhYy1mdzIwMTEgZmlyZXdhbGwtc2NyaXB0c10jIGVidGFibGVzIC10IGJyb3V0ZSAt
-TGMNCkJyaWRnZSB0YWJsZTogYnJvdXRlDQoNCkJyaWRnZSBjaGFpbjogQlJPVVRJTkcsIGVudHJp
-ZXM6IDksIHBvbGljeTogQUNDRVBUDQotcCBJUHY0IC0taXAtc3JjIDEuMi4xMTUuMTU3IC1qIEFD
-Q0VQVA0KLXAgSVB2NCAtLWlwLWRzdCAxLjIuMTE1LjE1NyAtaiBBQ0NFUFQNCi1wIEFSUCAtLWFy
-cC1pcC1zcmMgMS4yLjExNS4xNTcgLWogQUNDRVBUDQotcCBBUlAgLS1hcnAtaXAtZHN0IDEuMi4x
-MTUuMTU3IC1qIEFDQ0VQVA0KLWogcmVkaXJlY3TCoCAtLXJlZGlyZWN0LXRhcmdldCBEUk9QDQpb
-cm9vdEBlaGFjLWZ3MjAxMSBmaXJld2FsbC1zY3JpcHRzXSMNCg0KV2hlbiBteSBwdWJsaWMgSVAg
-aG9zdCBwaW5ncyB0aGUgSW50ZXJuYWwgTEFOLCB0aGUgaW50ZXJuYWwgTEFOIGhvc3QgcmVwbGll
-cy7CoMKgIFdhdGNoaW5nIHRjcGR1bXAgZnJvbSB0aGUgZmlyZXdhbGwsIEkgY2FuIHNlZSB0aGUg
-ZWNobyByZXF1ZXN0IGNvbWUgaW4gYW5kIGdvIG91dCBvbiBib3RoIGJyMCBhbmQgZXRoMSBhbmTC
-oCBJIHNlZSB0aGUgZWNobyByZXBseSBjb21lIGJhY2sgb24gZXRoMS7CoCBCdXQgdGhlbiB0aGUg
-wqByZXBseSBkaWVzIGFuZCBJIG5ldmVyIHNlbmQgaXQgYmFjayBvdXQgZXRoMSBvdmVyIHRoZSB3
-aXJlLiDCoMKgQW5kIHdoZW4gYSBwcml2YXRlIGhvc3QgcGluZ3MgdGhlIHB1YmxpYyBob3N0LCB0
-aGUgZWNobyByZXF1ZXN0IGRpZXMgYXQgdGhlIGZpcmV3YWxsLsKgIMKgwqBTbyBzb21laG93LCBJ
-IGFtIGhhdmluZyB0cm91YmxlIGdldHRpbmcgcHJpdmF0ZeKGknB1YmxpYyB0cmFmZmljIG91dCBv
-ZiBicjAgYW5kIG9udG8gZXRoMS7CoCANCg0KV2hhdCBhbSBJIG1pc3Npbmc/DQoNClRoYW5rcw0K
-DQotIEdyZWcgU2NvdHQNCg==
+Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+---
+ include/utils.h |    1 +
+ lib/utils.c     |   19 +++++++++++++++++++
+ 2 files changed, 20 insertions(+), 0 deletions(-)
+
+diff --git a/include/utils.h b/include/utils.h
+index 47f8e07..496db68 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -85,6 +85,7 @@ extern int get_time_rtt(unsigned *val, const char *arg, int *raw);
+ #define get_short get_s16
+ extern int get_u64(__u64 *val, const char *arg, int base);
+ extern int get_u32(__u32 *val, const char *arg, int base);
++extern int get_s32(__s32 *val, const char *arg, int base);
+ extern int get_u16(__u16 *val, const char *arg, int base);
+ extern int get_s16(__s16 *val, const char *arg, int base);
+ extern int get_u8(__u8 *val, const char *arg, int base);
+diff --git a/lib/utils.c b/lib/utils.c
+index efaf377..d80f79b 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -25,6 +25,7 @@
+ #include <linux/pkt_sched.h>
+ #include <time.h>
+ #include <sys/time.h>
++#include <errno.h>
+ 
+ 
+ #include "utils.h"
+@@ -198,6 +199,24 @@ int get_u8(__u8 *val, const char *arg, int base)
+ 	return 0;
+ }
+ 
++int get_s32(__s32 *val, const char *arg, int base)
++{
++	long res;
++	char *ptr;
++
++	errno = 0;
++
++	if (!arg || !*arg)
++		return -1;
++	res = strtol(arg, &ptr, base);
++	if (ptr == arg || *ptr ||
++	    ((res ==  LONG_MIN || res == LONG_MAX) && errno == ERANGE) ||
++	    res > INT32_MAX || res < INT32_MIN)
++		return -1;
++	*val = res;
++	return 0;
++}
++
+ int get_s16(__s16 *val, const char *arg, int base)
+ {
+ 	long res;
+-- 
+1.7.7
