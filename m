@@ -1,8 +1,8 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-next 5/8] dsa: Define module author, description,
- license and aliases for drivers
-Date: Sat, 26 Nov 2011 00:37:16 +0000
-Message-ID: <1322267836.2839.386.camel@deadeye>
+Subject: [PATCH net-next 6/8] dsa: Allow core and drivers to be built as
+ modules
+Date: Sat, 26 Nov 2011 00:38:38 +0000
+Message-ID: <1322267918.2839.388.camel@deadeye>
 References: <1322267572.2839.381.camel@deadeye>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,72 +10,106 @@ Content-Transfer-Encoding: 8BIT
 Cc: Lennert Buytenhek <buytenh@wantstofly.org>, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:34293 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:34302 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753937Ab1KZAhX convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1753937Ab1KZAiq convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Nov 2011 19:37:23 -0500
+	Fri, 25 Nov 2011 19:38:46 -0500
 In-Reply-To: <1322267572.2839.381.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Change the kconfig types to tristate and adjust the condition for
+declaring net_device::dsa_ptr to allow for this.
+
+Adjust the makefile so that if NET_DSA_MV88E6123_61_65=y and
+NET_DSA_MV88E6131=m or vice versa then both drivers are built-in.  We
+could leave these options as bool and make NET_DSA_MV88E6XXX a
+user-selected option, but that would break existing configurations.
+
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
- net/dsa/mv88e6060.c       |    5 +++++
- net/dsa/mv88e6123_61_65.c |    4 ++++
- net/dsa/mv88e6131.c       |    5 +++++
- net/dsa/mv88e6xxx.c       |    4 ++++
- 4 files changed, 18 insertions(+), 0 deletions(-)
+I've tested that the all-modules configuration works as far as building
+and loading them, but no further.
 
-diff --git a/net/dsa/mv88e6060.c b/net/dsa/mv88e6060.c
-index 8f4ff5a..0e028df 100644
---- a/net/dsa/mv88e6060.c
-+++ b/net/dsa/mv88e6060.c
-@@ -286,3 +286,8 @@ static void __exit mv88e6060_cleanup(void)
- 	unregister_switch_driver(&mv88e6060_switch_driver);
- }
- module_exit(mv88e6060_cleanup);
-+
-+MODULE_AUTHOR("Lennert Buytenhek <buytenh@wantstofly.org>");
-+MODULE_DESCRIPTION("Driver for Marvell 88E6060 ethernet switch chip");
-+MODULE_LICENSE("GPL");
-+MODULE_ALIAS("platform:mv88e6060");
-diff --git a/net/dsa/mv88e6123_61_65.c b/net/dsa/mv88e6123_61_65.c
-index 7951a6c..6504405 100644
---- a/net/dsa/mv88e6123_61_65.c
-+++ b/net/dsa/mv88e6123_61_65.c
-@@ -432,3 +432,7 @@ struct dsa_switch_driver mv88e6123_61_65_switch_driver = {
- 	.get_ethtool_stats	= mv88e6123_61_65_get_ethtool_stats,
- 	.get_sset_count		= mv88e6123_61_65_get_sset_count,
- };
-+
-+MODULE_ALIAS("platform:mv88e6123");
-+MODULE_ALIAS("platform:mv88e6161");
-+MODULE_ALIAS("platform:mv88e6165");
-diff --git a/net/dsa/mv88e6131.c b/net/dsa/mv88e6131.c
-index 45f4123..6786ba4 100644
---- a/net/dsa/mv88e6131.c
-+++ b/net/dsa/mv88e6131.c
-@@ -428,3 +428,8 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
- 	.get_ethtool_stats	= mv88e6131_get_ethtool_stats,
- 	.get_sset_count		= mv88e6131_get_sset_count,
- };
-+
-+MODULE_ALIAS("platform:mv88e6085");
-+MODULE_ALIAS("platform:mv88e6095");
-+MODULE_ALIAS("platform:mv88e6095f");
-+MODULE_ALIAS("platform:mv88e6131");
-diff --git a/net/dsa/mv88e6xxx.c b/net/dsa/mv88e6xxx.c
-index 50fd860..cacd955 100644
---- a/net/dsa/mv88e6xxx.c
-+++ b/net/dsa/mv88e6xxx.c
-@@ -543,3 +543,7 @@ static void __exit mv88e6xxx_cleanup(void)
+Ben.
+
+ include/linux/netdevice.h |    2 +-
+ net/dsa/Kconfig           |   10 +++++-----
+ net/dsa/Makefile          |    8 ++++++--
+ 3 files changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 63721a6..87f7353 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1079,7 +1079,7 @@ struct net_device {
+ #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+ 	struct vlan_group __rcu	*vlgrp;		/* VLAN group */
  #endif
- }
- module_exit(mv88e6xxx_cleanup);
-+
-+MODULE_AUTHOR("Lennert Buytenhek <buytenh@wantstofly.org>");
-+MODULE_DESCRIPTION("Driver for Marvell 88E6XXX ethernet switch chips");
-+MODULE_LICENSE("GPL");
+-#ifdef CONFIG_NET_DSA
++#if IS_ENABLED(CONFIG_NET_DSA)
+ 	struct dsa_switch_tree	*dsa_ptr;	/* dsa specific data */
+ #endif
+ 	void 			*atalk_ptr;	/* AppleTalk link 	*/
+diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+index c53ded2..7e12303 100644
+--- a/net/dsa/Kconfig
++++ b/net/dsa/Kconfig
+@@ -1,5 +1,5 @@
+ menuconfig NET_DSA
+-	bool "Distributed Switch Architecture support"
++	tristate "Distributed Switch Architecture support"
+ 	default n
+ 	depends on EXPERIMENTAL && NETDEVICES && !S390
+ 	select PHYLIB
+@@ -26,11 +26,11 @@ config NET_DSA_TAG_TRAILER
+ 
+ # switch drivers
+ config NET_DSA_MV88E6XXX
+-	bool
++	tristate
+ 	default n
+ 
+ config NET_DSA_MV88E6060
+-	bool "Marvell 88E6060 ethernet switch chip support"
++	tristate "Marvell 88E6060 ethernet switch chip support"
+ 	select NET_DSA_TAG_TRAILER
+ 	---help---
+ 	  This enables support for the Marvell 88E6060 ethernet switch
+@@ -41,7 +41,7 @@ config NET_DSA_MV88E6XXX_NEED_PPU
+ 	default n
+ 
+ config NET_DSA_MV88E6131
+-	bool "Marvell 88E6085/6095/6095F/6131 ethernet switch chip support"
++	tristate "Marvell 88E6085/6095/6095F/6131 ethernet switch chip support"
+ 	select NET_DSA_MV88E6XXX
+ 	select NET_DSA_MV88E6XXX_NEED_PPU
+ 	select NET_DSA_TAG_DSA
+@@ -50,7 +50,7 @@ config NET_DSA_MV88E6131
+ 	  ethernet switch chips.
+ 
+ config NET_DSA_MV88E6123_61_65
+-	bool "Marvell 88E6123/6161/6165 ethernet switch chip support"
++	tristate "Marvell 88E6123/6161/6165 ethernet switch chip support"
+ 	select NET_DSA_MV88E6XXX
+ 	select NET_DSA_TAG_EDSA
+ 	---help---
+diff --git a/net/dsa/Makefile b/net/dsa/Makefile
+index 5c48ac5..191dd48 100644
+--- a/net/dsa/Makefile
++++ b/net/dsa/Makefile
+@@ -11,5 +11,9 @@ dsa_core-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
+ obj-$(CONFIG_NET_DSA_MV88E6060) += mv88e6060.o
+ obj-$(CONFIG_NET_DSA_MV88E6XXX) += mv88e6xxx_drv.o
+ mv88e6xxx_drv-y += mv88e6xxx.o
+-mv88e6xxx_drv-$(CONFIG_NET_DSA_MV88E6123_61_65) += mv88e6123_61_65.o
+-mv88e6xxx_drv-$(CONFIG_NET_DSA_MV88E6131) += mv88e6131.o
++ifdef CONFIG_NET_DSA_MV88E6123_61_65
++mv88e6xxx_drv-y += mv88e6123_61_65.o
++endif
++ifdef CONFIG_NET_DSA_MV88E6131
++mv88e6xxx_drv-y += mv88e6131.o
++endif
 -- 
 1.7.7.3
