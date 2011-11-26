@@ -1,38 +1,39 @@
-From: "E-Mail Account Maintenance" <info@upc.nl>
-Subject: E-Mail Account Maintenance
-Date: Sun, 27 Nov 2011 00:24:47 +0530
-Message-ID: <7807_1322333688_4ED135F8_7807_5914437_1_20111126185349.3A3CD8B8C2A@mail4.rcsd.ms>
-Reply-To: <alert01@cpll.cn>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 7/8] net: Revert ARCNET and PHYLIB to tristate
+ options
+Date: Sat, 26 Nov 2011 14:42:08 -0500 (EST)
+Message-ID: <20111126.144208.824312454374500957.davem@davemloft.net>
+References: <1322267572.2839.381.camel@deadeye>
+	<1322268002.2839.390.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Cc: netdev@vger.kernel.org
+To: ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw2.rcsd.ms ([68.216.50.44]:53096 "EHLO mailgw2.rcsd.ms"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753661Ab1KZTEq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Nov 2011 14:04:46 -0500
+Received: from shards.monkeyblade.net ([198.137.202.13]:39353 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754042Ab1KZTmQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 14:42:16 -0500
+In-Reply-To: <1322268002.2839.390.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Sat, 26 Nov 2011 00:40:02 +0000
 
- Beste UPC gebruiker,
+> commit 88491d8103498a6166f70d5999902fec70924314 ("drivers/net: Kconfig
+> & Makefile cleanup") changed the type of these options to bool, but
+> they select code that could (and still can) be built as modules.
+> 
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> ---
+> Yes David, they do still build this way.  Even in an allmodconfig
+> configuration, now.  And I still really want this in net.
 
- Willen wij u mededelen dat wij momenteel uitvoeren van gepland onderhouden
- upgrade van onze UPC webmail service en als gevolg van deze onze UPC klant 
- is
- Om uw UPC account, zodat u om ons uw e-mail account gegevens die zijn als 
- volgt:
+Color me extremely impressed.
 
- * User name:
- * Wachtwoord:
- * Geboortedatum:
+Ok, I'll put this into 'net', pull it into 'net-next', then apply the
+rest of this series there.
 
- Doet u dit niet binnen 48 uur zal onmiddellijk maken van uw UPC account
- gedeactiveerd uit onze database.
-
-This message may contain confidential and/or proprietary
-information, and is intended for the person/entity to
-whom it was originally addressed. Any use by others is
-strictly prohibited.
+Thanks!
