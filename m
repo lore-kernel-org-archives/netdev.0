@@ -1,66 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH] ray_cs: Fix array bounds warnings.
-Date: Sat, 26 Nov 2011 15:42:24 -0500 (EST)
-Message-ID: <20111126.154224.363743641955094391.davem@davemloft.net>
+Subject: Re: [PATCH] vhost-net: Acquire device lock when releasing device
+Date: Sat, 26 Nov 2011 15:45:03 -0500 (EST)
+Message-ID: <20111126.154503.1317670837061338352.davem@davemloft.net>
+References: <1321607982-16283-1-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: linux-wireless@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, mst@redhat.com, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: levinsasha928@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39631 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:39651 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754561Ab1KZUm0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 15:42:26 -0500
+	with ESMTP id S1753603Ab1KZUpL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 15:45:11 -0500
+In-Reply-To: <1321607982-16283-1-git-send-email-levinsasha928@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpyeF9tc2cgaXMgZGVmaW5lZCB0byBoYXZlIGEgMSBlbnRyeSBhcnJheSBhdCB0aGUgZW5kLCBz
-byBnY2Mgd2FybnM6DQoNCmRyaXZlcnMvbmV0L3dpcmVsZXNzL3JheV9jcy5jOiBJbiBmdW5jdGlv
-biChcnhfYXV0aGVudGljYXRlojoNCmRyaXZlcnMvbmV0L3dpcmVsZXNzL3JheV9jcy5jOjI0MzY6
-Mzogd2FybmluZzogYXJyYXkgc3Vic2NyaXB0IGlzIGFib3ZlIGFycmF5IGJvdW5kcyBbLVdhcnJh
-eS1ib3VuZHNdDQpkcml2ZXJzL25ldC93aXJlbGVzcy9yYXlfY3MuYzoyNDM2OjM6IHdhcm5pbmc6
-IGFycmF5IHN1YnNjcmlwdCBpcyBhYm92ZSBhcnJheSBib3VuZHMgWy1XYXJyYXktYm91bmRzXQ0K
-ZHJpdmVycy9uZXQvd2lyZWxlc3MvcmF5X2NzLmM6MjQzNjozOiB3YXJuaW5nOiBhcnJheSBzdWJz
-Y3JpcHQgaXMgYWJvdmUgYXJyYXkgYm91bmRzIFstV2FycmF5LWJvdW5kc10NCmRyaXZlcnMvbmV0
-L3dpcmVsZXNzL3JheV9jcy5jOjI0MzY6Mzogd2FybmluZzogYXJyYXkgc3Vic2NyaXB0IGlzIGFi
-b3ZlIGFycmF5IGJvdW5kcyBbLVdhcnJheS1ib3VuZHNdDQpkcml2ZXJzL25ldC93aXJlbGVzcy9y
-YXlfY3MuYzoyNDM2OjM6IHdhcm5pbmc6IGFycmF5IHN1YnNjcmlwdCBpcyBhYm92ZSBhcnJheSBi
-b3VuZHMgWy1XYXJyYXktYm91bmRzXQ0KZHJpdmVycy9uZXQvd2lyZWxlc3MvcmF5X2NzLmM6MjQz
-OToxNTogd2FybmluZzogYXJyYXkgc3Vic2NyaXB0IGlzIGFib3ZlIGFycmF5IGJvdW5kcyBbLVdh
-cnJheS1ib3VuZHNdDQpkcml2ZXJzL25ldC93aXJlbGVzcy9yYXlfY3MuYzoyNDUyOjE2OiB3YXJu
-aW5nOiBhcnJheSBzdWJzY3JpcHQgaXMgYWJvdmUgYXJyYXkgYm91bmRzIFstV2FycmF5LWJvdW5k
-c10NCmRyaXZlcnMvbmV0L3dpcmVsZXNzL3JheV9jcy5jOjI0NTM6MTg6IHdhcm5pbmc6IGFycmF5
-IHN1YnNjcmlwdCBpcyBhYm92ZSBhcnJheSBib3VuZHMgWy1XYXJyYXktYm91bmRzXQ0KZHJpdmVy
-cy9uZXQvd2lyZWxlc3MvcmF5X2NzLmM6MjQ1MzozMjogd2FybmluZzogYXJyYXkgc3Vic2NyaXB0
-IGlzIGFib3ZlIGFycmF5IGJvdW5kcyBbLVdhcnJheS1ib3VuZHNdDQoNClVzZSBhIHplcm8gbGVu
-Z3RoIGFycmF5IGFuZCByZW5hbWUgdG8gInJheV9yeF9tc2ciIHRvIG1ha2Ugc3VyZSB3ZSBoaXQg
-YWxsDQpvZiB0aGUgbmVjZXNzYXJ5IGNhc2VzLg0KDQpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBN
-aWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQotLS0NCg0KQW5vdGhlciB3YXJuaW5nIHNwZXcg
-dGhhdCdzIGJlZW4gZHJpdmluZyBtZSBiYW5hbmFzIGZvciBhIHdoaWxlLCBjb21taXR0ZWQNCnRv
-IG5ldC1uZXh0Lg0KDQogZHJpdmVycy9uZXQvd2lyZWxlc3MvcmF5X2NzLmMgfCAgICA0ICsrLS0N
-CiBkcml2ZXJzL25ldC93aXJlbGVzcy9yYXljdGwuaCB8ICAgIDQgKystLQ0KIDIgZmlsZXMgY2hh
-bmdlZCwgNCBpbnNlcnRpb25zKCspLCA0IGRlbGV0aW9ucygtKQ0KDQpkaWZmIC0tZ2l0IGEvZHJp
-dmVycy9uZXQvd2lyZWxlc3MvcmF5X2NzLmMgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9yYXlfY3Mu
-Yw0KaW5kZXggMDAyMWU0OS4uMDRmZWMxZiAxMDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L3dpcmVs
-ZXNzL3JheV9jcy5jDQorKysgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9yYXlfY3MuYw0KQEAgLTI0
-MjYsNyArMjQyNiw3IEBAIHN0YXRpYyB2b2lkIHJ4X2F1dGhlbnRpY2F0ZShyYXlfZGV2X3QgKmxv
-Y2FsLCBzdHJ1Y3QgcmNzIF9faW9tZW0gKnByY3MsDQogCQkJICAgIHVuc2lnbmVkIGludCBwa3Rf
-YWRkciwgaW50IHJ4X2xlbikNCiB7DQogCVVDSEFSIGJ1ZmZbMjU2XTsNCi0Jc3RydWN0IHJ4X21z
-ZyAqbXNnID0gKHN0cnVjdCByeF9tc2cgKilidWZmOw0KKwlzdHJ1Y3QgcmF5X3J4X21zZyAqbXNn
-ID0gKHN0cnVjdCByYXlfcnhfbXNnICopIGJ1ZmY7DQogDQogCWRlbF90aW1lcigmbG9jYWwtPnRp
-bWVyKTsNCiANCkBAIC0yNTEzLDcgKzI1MTMsNyBAQCBzdGF0aWMgdm9pZCByeF9kZWF1dGhlbnRp
-Y2F0ZShyYXlfZGV2X3QgKmxvY2FsLCBzdHJ1Y3QgcmNzIF9faW9tZW0gKnByY3MsDQogCQkJICAg
-ICAgdW5zaWduZWQgaW50IHBrdF9hZGRyLCBpbnQgcnhfbGVuKQ0KIHsNCiAvKiAgVUNIQVIgYnVm
-ZlsyNTZdOw0KLSAgICBzdHJ1Y3QgcnhfbXNnICptc2cgPSAoc3RydWN0IHJ4X21zZyAqKWJ1ZmY7
-DQorICAgIHN0cnVjdCByYXlfcnhfbXNnICptc2cgPSAoc3RydWN0IHJheV9yeF9tc2cgKikgYnVm
-ZjsNCiAqLw0KIAlwcl9kZWJ1ZygiRGVhdXRoZW50aWNhdGlvbiBmcmFtZSByZWNlaXZlZFxuIik7
-DQogCWxvY2FsLT5hdXRoZW50aWNhdGlvbl9zdGF0ZSA9IFVOQVVUSEVOVElDQVRFRDsNCmRpZmYg
-LS1naXQgYS9kcml2ZXJzL25ldC93aXJlbGVzcy9yYXljdGwuaCBiL2RyaXZlcnMvbmV0L3dpcmVs
-ZXNzL3JheWN0bC5oDQppbmRleCBkNzY0NmYyLi4zYzNiOThiIDEwMDY0NA0KLS0tIGEvZHJpdmVy
-cy9uZXQvd2lyZWxlc3MvcmF5Y3RsLmgNCisrKyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL3JheWN0
-bC5oDQpAQCAtNTY2LDkgKzU2Niw5IEBAIHN0cnVjdCBwaHlfaGVhZGVyIHsNCiAgICAgVUNIQVIg
-aGRyXzM7DQogICAgIFVDSEFSIGhkcl80Ow0KIH07DQotc3RydWN0IHJ4X21zZyB7DQorc3RydWN0
-IHJheV9yeF9tc2cgew0KICAgICBzdHJ1Y3QgbWFjX2hlYWRlciBtYWM7DQotICAgIFVDSEFSICB2
-YXJbMV07DQorICAgIFVDSEFSICB2YXJbMF07DQogfTsNCiANCiBzdHJ1Y3QgdHhfbXNnIHsNCi0t
-IA0KMS43LjYuNA0KDQo=
+From: Sasha Levin <levinsasha928@gmail.com>
+Date: Fri, 18 Nov 2011 11:19:42 +0200
+
+> Device lock should be held when releasing a device, and specifically
+> when calling vhost_dev_cleanup(). Otherwise, RCU complains about it:
+ ...
+> Cc: "Michael S. Tsirkin" <mst@redhat.com>
+> Cc: kvm@vger.kernel.org
+> Cc: virtualization@lists.linux-foundation.org
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+
+Michael et al., are you guys going to gather this fix or should I
+apply it directly to thet net tree?
+
+Thanks.
