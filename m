@@ -1,66 +1,59 @@
-From: Martin Casado <casado-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: Open vSwitch Design
-Date: Sat, 26 Nov 2011 00:05:25 -0800
-Message-ID: <4ED09DC5.4000501@nicira.com>
-References: <ec23d63d-27c9-4761-bdd3-e3f54bdb5e77@tahiti.vyatta.com>
+From: "Greg Scott" <GregScott@Infrasupport.com>
+Subject: RE: ebtables on a stick
+Date: Sat, 26 Nov 2011 02:27:12 -0600
+Message-ID: <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com>
+References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Chris Wright <chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Stephen Hemminger <stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <ec23d63d-27c9-4761-bdd3-e3f54bdb5e77-bX68f012229Xuxj3zoTs5AC/G2K4zDHf@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.infrasupportetc.com ([216.160.2.132]:31202 "EHLO
+	mail.infrasupport.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752569Ab1KZIi6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 03:38:58 -0500
+Content-class: urn:content-classes:message
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-> Not sure how Openvswitch implementation relates to Openflow specification.
-The short answer is that Open vSwitch serves as one of the standard 
-reference implementations for OpenFlow (in fact, the primary developers 
-of Open vSwitch were some of the original designers of OpenFlow).  
-Multiple hardware switches on the market use Open vSwitch as the basis 
-for their OpenFlow support.
->
-> There are a few switches supporting Openflow already:
->    http://www.openflow.org/wp/switch-nec/
->    http://www-03.ibm.com/systems/x/options/networking/bnt8264/index.html
-
-There are many other ports announced or available from vendors such as 
-HP, Brocade, Pica8, Extreme, Juniper, and NetGear.  Cisco has even 
-announced support support for OpenFlow on the Nexus 3k 
-(http://www.lightreading.com/document.asp?doc_id=213545).
-
-.martin
-
->
-> The standard(s) are here:
->    http://www.openflow.org/wp/documents/
->
-> Good info from recent symposium:
->   http://opennetsummit.org/past_conferences.html
-> _______________________________________________
-> dev mailing list
-> dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-> http://openvswitch.org/mailman/listinfo/dev
-
-
--- 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Martin Casado
-Nicira Networks, Inc.
-www.nicira.com
-cell: 650-776-1457
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+SSBoYXZlIGEgc2l0dWF0aW9uIHRoYXQgbmVlZHMgdG8gcm91dGUgbW9zdGx5IGFuZCBicmlkZ2Ug
+b25seSBhIGxpdHRsZSBiaXQuwqAgDQoNCkkgaGF2ZSBhIHByaXZhdGUgaW50ZXJuYWwgTEFOLCAx
+OTIuMTY4LjEwLm5ubi7CoCBCdXQgb25lIGhvc3QgaW4gdGhlIGludGVybmFsIHNpZGUgbmVlZHMg
+YSByZWFsIHB1YmxpYyBJUCBBZGRyZXNzLCBjYWxsIGl0IDEuMi4xMTUuMTU3LsKgIA0KDQpJIGhh
+dmUgYSBMaW51eCBmaXJld2FsbCBzZXQgdXAgd2l0aCBlYnRhYmxlcy7CoCBJbnRlcmZhY2UgZXRo
+MCBmYWNlcyB0aGUgSW50ZXJuZXQgYW5kIGhhcyBhbiBJUCBBZGRyZXNzIG9mIDEuMi4xMTUuMTQ2
+LsKgIEludGVyZmFjZSBldGgxIGlzIG9uIHRoZSBMQU4gc2lkZSB3aXRoIElQIEFkZHJlc3MgwqAx
+OTIuMTY4LjEwLjEuwqAgQnJpZGdlIGJyMCBjdXJyZW50bHkgaGFzIG5vIElQIEFkZHJlc3MgYW5k
+IGJyaWRnZXMgZXRoMCBhbmQgZXRoMS7CoCBFdmVyeW9uZSBvbiB0aGUgTEFOIHNpZGUgZXhjZXB0
+IG15IHB1YmxpYyBJUCBBZGRyZXNzIGhvc3QgdXNlcyB0aGUgcHJpdmF0ZSBzaWRlIG9mIHRoZSBm
+aXJld2FsbCBhdCAxOTIuMTYwLjEwLjEgZm9yIGRlZmF1bHQgZ2F0ZXdheS7CoCBUaGUgcHVibGlj
+IElQIEFkZHJlc3MgaG9zdCB1c2VzIHRoZSBwdWJsaWMgc2lkZSBvZiB0aGUgZmlyZXdhbGwgYXQg
+MS4yLjExNS4xNDYgZm9yIGRlZmF1bHQgZ2F0ZXdheS7CoCANCg0KVGhlIGNoYWxsZW5nZSAtIEkg
+bmVlZCBteSBwdWJsaWMgSVAgQWRkcmVzcyBob3N0IHRvIGNvbW11bmljYXRlIHdpdGggZXZlcnlv
+bmUgYXJvdW5kIHRoZSBJbnRlcm5ldCwgaW5jbHVkaW5nIHRoZSBwcml2YXRlIExBTiDigJMgYW5k
+IEnigJlsbCBmaWx0ZXIgdGhhdCBhcHByb3ByaWF0ZWx5IHdpdGggaXB0YWJsZXMuwqAgRXZlcnl0
+aGluZyBlbHNlIHNob3VsZCByb3V0ZSB0cmFkaXRpb25hbGx5LsKgIA0KDQpUaGlzIG1vc3RseSB3
+b3JrcywgZXhjZXB0IEkgYW0gaGF2aW5nIHRyb3VibGUgY29tbXVuaWNhdGluZyB3aXRoIGhvc3Rz
+IGluIHRoZSBwcml2YXRlIExBTi4gwqBJIGNhbiBjb21tdW5pY2F0ZSBhbnl3aGVyZSBlbHNlIG9u
+IHRoZSBJbnRlcm5ldCBhcyBsb25nIGFzIEkgZG9u4oCZdCB0cnkgdG8gdXNlIG15IG93biBETlMg
+c2VydmVycyBpbiB0aGUgcHJpdmF0ZSBMQU4gdG8gdHJhbnNsYXRlIG5hbWVzLsKgIMKgQWZ0ZXIg
+c3R1ZHlpbmcgZWJ0YWJsZXMgZXhhbXBsZXMgYW5kIHRvbnMgb2YgdHJpYWwgYW5kIGVycm9yLCBJ
+IHN0aWxsIGRvbuKAmXQgZ2V0IGl0LsKgIEhlcmUgYXJlIHRoZSBlYnRhYmxlcyBydWxlczoNCg0K
+W3Jvb3RAZWhhYy1mdzIwMTEgZmlyZXdhbGwtc2NyaXB0c10jIGVidGFibGVzIC10IGJyb3V0ZSAt
+TGMNCkJyaWRnZSB0YWJsZTogYnJvdXRlDQoNCkJyaWRnZSBjaGFpbjogQlJPVVRJTkcsIGVudHJp
+ZXM6IDksIHBvbGljeTogQUNDRVBUDQotcCBJUHY0IC0taXAtc3JjIDEuMi4xMTUuMTU3IC1qIEFD
+Q0VQVA0KLXAgSVB2NCAtLWlwLWRzdCAxLjIuMTE1LjE1NyAtaiBBQ0NFUFQNCi1wIEFSUCAtLWFy
+cC1pcC1zcmMgMS4yLjExNS4xNTcgLWogQUNDRVBUDQotcCBBUlAgLS1hcnAtaXAtZHN0IDEuMi4x
+MTUuMTU3IC1qIEFDQ0VQVA0KLWogcmVkaXJlY3TCoCAtLXJlZGlyZWN0LXRhcmdldCBEUk9QDQpb
+cm9vdEBlaGFjLWZ3MjAxMSBmaXJld2FsbC1zY3JpcHRzXSMNCg0KV2hlbiBteSBwdWJsaWMgSVAg
+aG9zdCBwaW5ncyB0aGUgSW50ZXJuYWwgTEFOLCB0aGUgaW50ZXJuYWwgTEFOIGhvc3QgcmVwbGll
+cy7CoMKgIFdhdGNoaW5nIHRjcGR1bXAgZnJvbSB0aGUgZmlyZXdhbGwsIEkgY2FuIHNlZSB0aGUg
+ZWNobyByZXF1ZXN0IGNvbWUgaW4gYW5kIGdvIG91dCBvbiBib3RoIGJyMCBhbmQgZXRoMSBhbmTC
+oCBJIHNlZSB0aGUgZWNobyByZXBseSBjb21lIGJhY2sgb24gZXRoMS7CoCBCdXQgdGhlbiB0aGUg
+wqByZXBseSBkaWVzIGFuZCBJIG5ldmVyIHNlbmQgaXQgYmFjayBvdXQgZXRoMSBvdmVyIHRoZSB3
+aXJlLiDCoMKgQW5kIHdoZW4gYSBwcml2YXRlIGhvc3QgcGluZ3MgdGhlIHB1YmxpYyBob3N0LCB0
+aGUgZWNobyByZXF1ZXN0IGRpZXMgYXQgdGhlIGZpcmV3YWxsLsKgIMKgwqBTbyBzb21laG93LCBJ
+IGFtIGhhdmluZyB0cm91YmxlIGdldHRpbmcgcHJpdmF0ZeKGknB1YmxpYyB0cmFmZmljIG91dCBv
+ZiBicjAgYW5kIG9udG8gZXRoMS7CoCANCg0KV2hhdCBhbSBJIG1pc3Npbmc/DQoNClRoYW5rcw0K
+DQotIEdyZWcgU2NvdHQNCg==
