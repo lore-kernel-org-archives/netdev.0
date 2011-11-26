@@ -1,52 +1,64 @@
-From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Subject: [PATCH 10/10] batman-adv: Fix range check for
-	expected packets
-Date: Sat, 26 Nov 2011 22:26:52 +0800
-Message-ID: <1322317612-7770-11-git-send-email-lindner_marek@yahoo.de>
-References: <1322317612-7770-1-git-send-email-lindner_marek@yahoo.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
-	Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1322317612-7770-1-git-send-email-lindner_marek-LWAfsSFWpa4@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH net-next v2 2/4] can: cc770: add
+ legacy ISA bus driver for the CC770 and AN82527
+Date: Sat, 26 Nov 2011 15:59:17 +0100
+Message-ID: <4ED0FEC5.3070108@hartkopp.net>
+References: <1322214204-1121-1-git-send-email-wg@grandegger.com>
+	<1322214204-1121-3-git-send-email-wg@grandegger.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, Wolfgang Zarre <info-PyqsHJVlJN8AvxtiuMwx3w@public.gmane.org>
+Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1322214204-1121-3-git-send-email-wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
+List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Simon Wunderlich <simon.wunderlich-Y4E02TeZ33kaBlGTGt4zH4SGEyLTKazZ@public.gmane.org>
+Hello Wolfgang,
 
-The check for new packets in the future used a wrong binary operator,
-which makes the check expression always true and accepting too many
-packets.
+many thanks for posting this driver. Indeed this is the last from the missing
+drivers in the SVN ...
 
-Reported-by: Thomas Jarosch <thomas.jarosch-XXsH3GEs1jrby3iVrkZq2A@public.gmane.org>
-Signed-off-by: Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
-Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
----
- net/batman-adv/bitarray.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+I added Wolfgang Zarre to the list of recipients who tested your CC770 driver
+recently:
 
-diff --git a/net/batman-adv/bitarray.c b/net/batman-adv/bitarray.c
-index 0be9ff3..9bc63b2 100644
---- a/net/batman-adv/bitarray.c
-+++ b/net/batman-adv/bitarray.c
-@@ -155,7 +155,7 @@ int bit_get_packet(void *priv, unsigned long *seq_bits,
- 	/* sequence number is much newer, probably missed a lot of packets */
- 
- 	if ((seq_num_diff >= TQ_LOCAL_WINDOW_SIZE)
--		|| (seq_num_diff < EXPECTED_SEQNO_RANGE)) {
-+		&& (seq_num_diff < EXPECTED_SEQNO_RANGE)) {
- 		bat_dbg(DBG_BATMAN, bat_priv,
- 			"We missed a lot of packets (%i) !\n",
- 			seq_num_diff - 1);
--- 
-1.7.5.4
+http://old.nabble.com/Compile-Fails-On-2.6.39-2-td32259346.html
+
+Maybe he can check this latest version and can send a "Tested-by:"
+
+@Wolfgang Zarre: The entire patch set from Wolfgang Grandegger is here:
+
+http://patchwork.ozlabs.org/patch/127653/
+http://patchwork.ozlabs.org/patch/127651/
+http://patchwork.ozlabs.org/patch/127654/
+http://patchwork.ozlabs.org/patch/127652/
+
+Just a nitpick in the description:
+
+> Furthermore, the following mode parameter can be defined:
+
+> 
+>   clk: External oscillator clock frequency (default=16000000 [16 MHz])
+>   cir: CPU interface register (default=0x40 [DSC])
+>   ocr, Bus configuration register (default=0x40 [CBY])
+
+
+-> bcr: CPU ...
+
+>   cor, Clockout register (default=0x00)
+
+
+-> cor: Clockout ...
+
+Regards,
+Oliver
