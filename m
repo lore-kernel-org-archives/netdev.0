@@ -1,31 +1,71 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH iproute2] utils: add s32 parser
-Date: Fri, 25 Nov 2011 16:50:08 -0800
-Message-ID: <20111125165008.05f4dbf3@nehalam.linuxnetplumber.net>
-References: <20111125174751.GA3751@hell>
-	<1322262026-8561-1-git-send-email-hagen@jauu.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [bug?] r8169: hangs under heavy load
+Date: Sat, 26 Nov 2011 01:44:47 +0100
+Message-ID: <20111126004447.GA14744@electric-eye.fr.zoreil.com>
+References: <4E7F4D45.7040902@wolke7.net> <1316978632.4122.103.camel@deadeye> <4E82C0B5.1050902@wolke7.net> <1317254171.4068.12.camel@deadeye> <20111124044137.GA18262@elie.hsd1.il.comcast.net> <4ECFE7A7.5070300@wolke7.net> <20111125201936.GA26692@elie.hsd1.il.comcast.net> <1322253122.2550.3.camel@edumazet-laptop> <20111125222211.GA13719@electric-eye.fr.zoreil.com> <1322262357.2550.12.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David.Laight@ACULAB.COM
-To: Hagen Paul Pfeifer <hagen@jauu.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:48207 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754035Ab1KZAuM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Nov 2011 19:50:12 -0500
-In-Reply-To: <1322262026-8561-1-git-send-email-hagen@jauu.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jonathan Nieder <jrnieder@gmail.com>, netdev@vger.kernel.org,
+	nic_swsd@realtek.com, linux-kernel@vger.kernel.org,
+	Armin Kazmi <armin.kazmi@tu-dortmund.de>,
+	Gerd <booster@wolke7.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1322262357.2550.12.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 26 Nov 2011 00:00:26 +0100
-Hagen Paul Pfeifer <hagen@jauu.net> wrote:
-
-> Not sure if we should save errno and restore afterwards:
+Eric Dumazet <eric.dumazet@gmail.com> :
+> Le vendredi 25 novembre 2011 ?? 23:22 +0100, Francois Romieu a ??crit :
+[...]
+> > This path is not used.
 > 
-> errno_save = errno;
-> errno = 0;
-> [...]
-> errno = errno_save;
+> OK, then we receive a RxFIFOOver indication while napi handler is
+> running (quite possible if machine under network load)
 
-Not worth it. errno is only meaningful after a failed library or syscall.
+Welcome to the post 92fc43b4159b518f5baae57301f26d770b0834c9 world. :o/
+
+The hack below could help (the XID matches RTL_GIGA_MAC_VER_22):
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 6f06aa1..4fcfb3f 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -5818,7 +5818,6 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+ 			switch (tp->mac_version) {
+ 			/* Work around for rx fifo overflow */
+ 			case RTL_GIGA_MAC_VER_11:
+-			case RTL_GIGA_MAC_VER_22:
+ 			case RTL_GIGA_MAC_VER_26:
+ 				netif_stop_queue(dev);
+ 				rtl8169_tx_timeout(dev);
+@@ -5835,6 +5834,7 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+ 			case RTL_GIGA_MAC_VER_31:
+ 			/* Experimental science. Pktgen proof. */
+ 			case RTL_GIGA_MAC_VER_12:
++			case RTL_GIGA_MAC_VER_22:
+ 			case RTL_GIGA_MAC_VER_25:
+ 				if (status == RxFIFOOver)
+ 					goto done;
+
+
+Traffic may stop flowing though. The patch below should be better:
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 6f06aa1..54be9e1 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -5820,8 +5820,7 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+ 			case RTL_GIGA_MAC_VER_11:
+ 			case RTL_GIGA_MAC_VER_22:
+ 			case RTL_GIGA_MAC_VER_26:
+-				netif_stop_queue(dev);
+-				rtl8169_tx_timeout(dev);
++				rtl8169_schedule_work(dev, rtl8169_reset_task);
+ 				goto done;
+ 			/* Testers needed. */
+ 			case RTL_GIGA_MAC_VER_17:
+
+-- 
+Ueimor
