@@ -1,39 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 7/8] net: Revert ARCNET and PHYLIB to tristate
- options
-Date: Sat, 26 Nov 2011 14:42:08 -0500 (EST)
-Message-ID: <20111126.144208.824312454374500957.davem@davemloft.net>
-References: <1322267572.2839.381.camel@deadeye>
-	<1322268002.2839.390.camel@deadeye>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: batman-adv 2011-11-26
+Date: Sat, 26 Nov 2011 14:41:22 -0500 (EST)
+Message-ID: <20111126.144122.775553783672941660.davem@davemloft.net>
+References: <1322317612-7770-1-git-send-email-lindner_marek@yahoo.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ben@decadent.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39353 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754042Ab1KZTmQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 14:42:16 -0500
-In-Reply-To: <1322268002.2839.390.camel@deadeye>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: lindner_marek-LWAfsSFWpa4@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1322317612-7770-1-git-send-email-lindner_marek-LWAfsSFWpa4@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Sat, 26 Nov 2011 00:40:02 +0000
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Date: Sat, 26 Nov 2011 22:26:42 +0800
 
-> commit 88491d8103498a6166f70d5999902fec70924314 ("drivers/net: Kconfig
-> & Makefile cleanup") changed the type of these options to bool, but
-> they select code that could (and still can) be built as modules.
-> 
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> ---
-> Yes David, they do still build this way.  Even in an allmodconfig
-> configuration, now.  And I still really want this in net.
+> the following 10 patches constitute the first batch I'd like to get the pulled
+> into net-next-2.6/3.3. They're mostly uncritical fixes around the recently
+> introduced tt code, some code refactoring, the kstrto update and the range
+> check fix reported by Thomas Jarosch. 
 
-Color me extremely impressed.
+Pulled, thanks.
 
-Ok, I'll put this into 'net', pull it into 'net-next', then apply the
-rest of this series there.
+Some things to look into:
 
-Thanks!
++			if (unlikely(skb_headlen(skb) <
++					sizeof(struct tt_query_packet) +
++					tt_len))
+
+This isn't formatted correctly, all the leading edges should line
+up to the openning parenthesis of the unlikely:
+
++			if (unlikely(skb_headlen(skb) <
++				     sizeof(struct tt_query_packet) +
++				     tt_len))
+
+Next, there is a lot of linearization done by the stack, but really the
+thing to do is to make sure that the part you want to look at is
+linear.
+
+You do this using pskb_may_pull() right before you want to look at some
+headers. It makes sure that, for the length given, that many bytes are
+linear at the head of the skb.
+
+Thanks.
