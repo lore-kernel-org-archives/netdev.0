@@ -1,74 +1,77 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: [PATCH iproute2] utils: add s32 parser
-Date: Sat, 26 Nov 2011 11:54:06 +0100
-Message-ID: <1322304846-4836-1-git-send-email-hagen@jauu.net>
-References: <20111125165008.05f4dbf3@nehalam.linuxnetplumber.net>
-Cc: David.Laight@ACULAB.COM, Stephen Hemminger <shemminger@vyatta.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:53979 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753511Ab1KZKyM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 05:54:12 -0500
-In-Reply-To: <20111125165008.05f4dbf3@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: [BUG] 3.2-rc2: BUG kmalloc-8: Redzone overwritten
+Date: Sat, 26 Nov 2011 12:54:38 +0200
+Message-ID: <1322304878.28191.1.camel@sasha>
+References: <1321866845.3831.7.camel@lappy>
+	 <1321870529.2552.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1321870915.2552.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1321870967.8173.1.camel@lappy>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: David Miller <davem@davemloft.net>, Matt Mackall <mpm@selenic.com>,
+ Christoph Lameter <cl@linux-foundation.org>, Pekka Enberg
+ <penberg@kernel.org>, linux-mm <linux-mm@kvack.org>,  linux-kernel
+ <linux-kernel@vger.kernel.org>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1321870967.8173.1.camel@lappy>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
----
- include/utils.h |    1 +
- lib/utils.c     |   19 +++++++++++++++++++
- 2 files changed, 20 insertions(+), 0 deletions(-)
+On Mon, 2011-11-21 at 12:22 +0200, Sasha Levin wrote:
+> On Mon, 2011-11-21 at 11:21 +0100, Eric Dumazet wrote:
+> > Le lundi 21 novembre 2011 =E0 11:15 +0100, Eric Dumazet a =E9crit :
+> >=20
+> > >=20
+> > > Hmm, trinity tries to crash decnet ;)
+> > >=20
+> > > Maybe we should remove this decnet stuff for good instead of tracki=
+ng
+> > > all bugs just for the record. Is there anybody still using decnet ?
+> > >=20
+> > > For example dn_start_slow_timer() starts a timer without holding a
+> > > reference on struct sock, this is highly suspect.
+> > >=20
+> > > [PATCH] decnet: proper socket refcounting
+> > >=20
+> > > Better use sk_reset_timer() / sk_stop_timer() helpers to make sure =
+we
+> > > dont access already freed/reused memory later.
+> > >=20
+> > > Reported-by: Sasha Levin <levinsasha928@gmail.com>
+> > > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> >=20
+> > Hmm, I forgot to remove the sock_hold(sk) call from dn_slow_timer(),
+> > here is V2 :
+> >=20
+> > [PATCH] decnet: proper socket refcounting
+> >=20
+> > Better use sk_reset_timer() / sk_stop_timer() helpers to make sure we
+> > dont access already freed/reused memory later.
+> >=20
+> > Reported-by: Sasha Levin <levinsasha928@gmail.com>
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> > ---
+>=20
+> [snip]
+>=20
+> Applied locally and running same tests as before, will update with
+> results.
+>=20
 
-diff --git a/include/utils.h b/include/utils.h
-index 47f8e07..496db68 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -85,6 +85,7 @@ extern int get_time_rtt(unsigned *val, const char *arg, int *raw);
- #define get_short get_s16
- extern int get_u64(__u64 *val, const char *arg, int base);
- extern int get_u32(__u32 *val, const char *arg, int base);
-+extern int get_s32(__s32 *val, const char *arg, int base);
- extern int get_u16(__u16 *val, const char *arg, int base);
- extern int get_s16(__s16 *val, const char *arg, int base);
- extern int get_u8(__u8 *val, const char *arg, int base);
-diff --git a/lib/utils.c b/lib/utils.c
-index efaf377..d80f79b 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -25,6 +25,7 @@
- #include <linux/pkt_sched.h>
- #include <time.h>
- #include <sys/time.h>
-+#include <errno.h>
- 
- 
- #include "utils.h"
-@@ -198,6 +199,24 @@ int get_u8(__u8 *val, const char *arg, int base)
- 	return 0;
- }
- 
-+int get_s32(__s32 *val, const char *arg, int base)
-+{
-+	long res;
-+	char *ptr;
-+
-+	errno = 0;
-+
-+	if (!arg || !*arg)
-+		return -1;
-+	res = strtol(arg, &ptr, base);
-+	if (ptr == arg || *ptr ||
-+	    ((res ==  LONG_MIN || res == LONG_MAX) && errno == ERANGE) ||
-+	    res > INT32_MAX || res < INT32_MIN)
-+		return -1;
-+	*val = res;
-+	return 0;
-+}
-+
- int get_s16(__s16 *val, const char *arg, int base)
- {
- 	long res;
--- 
-1.7.7
+Looks ok after a couple days of testing.
+
+	Tested-by: Sasha Levin <levinsasha928@gmail.com>
+
+--=20
+
+Sasha.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
+.ca/
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
