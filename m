@@ -1,28 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dm9000: Fix check for disabled wake on LAN
-Date: Sat, 26 Nov 2011 15:58:58 -0500 (EST)
-Message-ID: <20111126.155858.77400285908658394.davem@davemloft.net>
-References: <1321897916-5030-1-git-send-email-broonie@opensource.wolfsonmicro.com>
+Subject: Re: [PATCH 1/1] AF_UNIX: Fix poll locking problem when reading
+ from a stream socket
+Date: Sat, 26 Nov 2011 16:35:15 -0500 (EST)
+Message-ID: <20111126.163515.1110138680165158231.davem@davemloft.net>
+References: <1321918525-5078-1-git-send-email-himeraster@gmail.com>
+	<1321939381.27077.7.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, patches@opensource.wolfsonmicro.com
-To: broonie@opensource.wolfsonmicro.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39737 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752307Ab1KZU7D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 15:59:03 -0500
-In-Reply-To: <1321897916-5030-1-git-send-email-broonie@opensource.wolfsonmicro.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: himeraster@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1321939381.27077.7.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Date: Mon, 21 Nov 2011 17:51:56 +0000
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 22 Nov 2011 06:23:01 +0100
 
-> We're trying to check if any options are defined which isn't wha the
-> existing code does due to confusing & and &&.
-> 
-> Signed-off-by: Mark Brown <broonie@opensource.wolfsonmicro.com>
+> Le mardi 22 novembre 2011 =E0 03:35 +0400, Alexey Moiseytsev a =E9cri=
+t :
+>> poll() call may be locked by concurrent reading from the same stream
+>> socket.
+>>=20
+>> Signed-off-by: Alexey Moiseytsev <himeraster@gmail.com>
+ ..
+> Fine, the fix is technically correct since we own u->readlock mutex,
+> another thread cannot consume the just requeued skb.=20
+>=20
+> Small note : the words "locking" and "locked" are more used to descri=
+be
+> the action of taking a spinlock/mutex/rwlock or something, while the =
+bug
+> you fixed is more about poll() system call being blocked/frozen forev=
+er.
+>=20
+> Thanks !
+>=20
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Good catch, applied, thanks.
+Applied, with 'lock{ing,ed}' adjusted to 'block{ing,ed}'.
