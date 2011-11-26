@@ -1,43 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] AF_UNIX: Fix poll locking problem when reading
- from a stream socket
-Date: Sat, 26 Nov 2011 16:35:15 -0500 (EST)
-Message-ID: <20111126.163515.1110138680165158231.davem@davemloft.net>
-References: <1321918525-5078-1-git-send-email-himeraster@gmail.com>
-	<1321939381.27077.7.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next-2.6] atm: eliminate atm_guess_pdu2truesize()
+Date: Sat, 26 Nov 2011 16:41:50 -0500 (EST)
+Message-ID: <20111126.164150.583798372229892587.davem@davemloft.net>
+References: <201111222251.pAMMpujb007390@cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: himeraster@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1321939381.27077.7.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: chas@cmf.nrl.navy.mil
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:39936 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753591Ab1KZVnw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 16:43:52 -0500
+In-Reply-To: <201111222251.pAMMpujb007390@cmf.nrl.navy.mil>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 22 Nov 2011 06:23:01 +0100
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Date: Tue, 22 Nov 2011 17:51:56 -0500
 
-> Le mardi 22 novembre 2011 =E0 03:35 +0400, Alexey Moiseytsev a =E9cri=
-t :
->> poll() call may be locked by concurrent reading from the same stream
->> socket.
->>=20
->> Signed-off-by: Alexey Moiseytsev <himeraster@gmail.com>
- ..
-> Fine, the fix is technically correct since we own u->readlock mutex,
-> another thread cannot consume the just requeued skb.=20
->=20
-> Small note : the words "locking" and "locked" are more used to descri=
-be
-> the action of taking a spinlock/mutex/rwlock or something, while the =
-bug
-> you fixed is more about poll() system call being blocked/frozen forev=
-er.
->=20
-> Thanks !
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+> 
+> Signed-off-by: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 
-Applied, with 'lock{ing,ed}' adjusted to 'block{ing,ed}'.
+Applied, thanks.
