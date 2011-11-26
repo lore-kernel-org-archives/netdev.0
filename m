@@ -1,37 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] ks8851 MAC and eeprom updates
-Date: Sat, 26 Nov 2011 14:57:28 -0500 (EST)
-Message-ID: <20111126.145728.475483160422235867.davem@davemloft.net>
-References: <1321901880-12883-1-git-send-email-sboyd@codeaurora.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: [PATCH] airo: Fix array bounds warning when moving packet payload.
+Date: Sat, 26 Nov 2011 15:36:12 -0500 (EST)
+Message-ID: <20111126.153612.261362172680649109.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, s-jan@ti.com,
-	ben@simtec.co.uk
-To: sboyd@codeaurora.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1321901880-12883-1-git-send-email-sboyd@codeaurora.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Boyd <sboyd@codeaurora.org>
-Date: Mon, 21 Nov 2011 10:57:55 -0800
-
-> I pulled this patch series off the netdev list[1] when the eeprom
-> reading didn't work for my ks8851 and I wanted the mac address to be
-> read out at boot. It all seems to work well, so I'm posting it here
-> again, slightly cleaned up and simplified, for inclusion.
-> 
-> Overall it reduces the lines of code and properly supports eeprom
-> reading; two things the previous implementation doesn't do.
-> 
-> This is based off of linux-next-20111025.
-> 
-> Thanks to Ben Dooks for doing the heavy lifting.
-> 
-> [1] http://article.gmane.org/gmane.linux.network/159708
-
-I guess I'll apply this series to net-next, I hope the eeprom layer
-maintainers don't mind.
-
-Thanks.
+DQpkcml2ZXJzL25ldC93aXJlbGVzcy9haXJvLmM6IEluIGZ1bmN0aW9uIKFlbmNhcHN1bGF0ZaI6
+DQpkcml2ZXJzL25ldC93aXJlbGVzcy9haXJvLmM6MTQyMToxNTogd2FybmluZzogYXJyYXkgc3Vi
+c2NyaXB0IGlzIGFib3ZlIGFycmF5IGJvdW5kcyBbLVdhcnJheS1ib3VuZHNdDQpkcml2ZXJzL25l
+dC93aXJlbGVzcy9haXJvLmM6IEluIGZ1bmN0aW9uIKFkZWNhcHN1bGF0ZaI6DQpkcml2ZXJzL25l
+dC93aXJlbGVzcy9haXJvLmM6MTUwOToxNjogd2FybmluZzogYXJyYXkgc3Vic2NyaXB0IGlzIGFi
+b3ZlIGFycmF5IGJvdW5kcyBbLVdhcnJheS1ib3VuZHNdDQoNClNpZ25lZC1vZmYtYnk6IERhdmlk
+IFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCi0tLQ0KDQpJIHdhcyBzaW1wbHkgdGly
+ZWQgb2Ygc2VlaW5nIHRoZXNlIHdhcm5pbmdzIGFsbCB0aGUgdGltZSwgY29tbWl0dGVkIHRvIG5l
+dC1uZXh0Lg0KDQogZHJpdmVycy9uZXQvd2lyZWxlc3MvYWlyby5jIHwgICAgNCArKy0tDQogMSBm
+aWxlcyBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pDQoNCmRpZmYgLS1n
+aXQgYS9kcml2ZXJzL25ldC93aXJlbGVzcy9haXJvLmMgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9h
+aXJvLmMNCmluZGV4IGFjMTE3NmEuLjFjMDA4YzYgMTAwNjQ0DQotLS0gYS9kcml2ZXJzL25ldC93
+aXJlbGVzcy9haXJvLmMNCisrKyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2Fpcm8uYw0KQEAgLTE0
+MTgsNyArMTQxOCw3IEBAIHN0YXRpYyBpbnQgZW5jYXBzdWxhdGUoc3RydWN0IGFpcm9faW5mbyAq
+YWkgLGV0aGVySGVhZCAqZnJhbWUsIE1JQ0J1ZmZlciAqbWljLCBpDQogCWVtbWgzMl91cGRhdGUo
+JmNvbnRleHQtPnNlZWQsZnJhbWUtPmRhLEVUSF9BTEVOICogMik7IC8vIERBLFNBDQogCWVtbWgz
+Ml91cGRhdGUoJmNvbnRleHQtPnNlZWQsKHU4KikmbWljLT50eXBlbGVuLDEwKTsgLy8gVHlwZS9M
+ZW5ndGggYW5kIFNuYXANCiAJZW1taDMyX3VwZGF0ZSgmY29udGV4dC0+c2VlZCwodTgqKSZtaWMt
+PnNlcSxzaXplb2YobWljLT5zZXEpKTsgLy9TRVENCi0JZW1taDMyX3VwZGF0ZSgmY29udGV4dC0+
+c2VlZCxmcmFtZS0+ZGEgKyBFVEhfQUxFTiAqIDIscGF5TGVuKTsgLy9wYXlsb2FkDQorCWVtbWgz
+Ml91cGRhdGUoJmNvbnRleHQtPnNlZWQsKHU4KikoZnJhbWUgKyAxKSxwYXlMZW4pOyAvL3BheWxv
+YWQNCiAJZW1taDMyX2ZpbmFsKCZjb250ZXh0LT5zZWVkLCAodTgqKSZtaWMtPm1pYyk7DQogDQog
+CS8qICAgIE5ldyBUeXBlL2xlbmd0aCA/Pz8/Pz8/Pz8/ICovDQpAQCAtMTUwNiw3ICsxNTA2LDcg
+QEAgc3RhdGljIGludCBkZWNhcHN1bGF0ZShzdHJ1Y3QgYWlyb19pbmZvICphaSwgTUlDQnVmZmVy
+ICptaWMsIGV0aGVySGVhZCAqZXRoLCB1MTYNCiAJCWVtbWgzMl91cGRhdGUoJmNvbnRleHQtPnNl
+ZWQsIGV0aC0+ZGEsIEVUSF9BTEVOKjIpOyANCiAJCWVtbWgzMl91cGRhdGUoJmNvbnRleHQtPnNl
+ZWQsICh1OCAqKSZtaWMtPnR5cGVsZW4sIHNpemVvZihtaWMtPnR5cGVsZW4pK3NpemVvZihtaWMt
+PnUuc25hcCkpOyANCiAJCWVtbWgzMl91cGRhdGUoJmNvbnRleHQtPnNlZWQsICh1OCAqKSZtaWMt
+PnNlcSxzaXplb2YobWljLT5zZXEpKTsJDQotCQllbW1oMzJfdXBkYXRlKCZjb250ZXh0LT5zZWVk
+LCBldGgtPmRhICsgRVRIX0FMRU4qMixwYXlMZW4pOwkNCisJCWVtbWgzMl91cGRhdGUoJmNvbnRl
+eHQtPnNlZWQsICh1OCAqKShldGggKyAxKSxwYXlMZW4pOwkNCiAJCS8vQ2FsY3VsYXRlIE1JQw0K
+IAkJZW1taDMyX2ZpbmFsKCZjb250ZXh0LT5zZWVkLCBkaWdlc3QpOw0KIAkNCi0tIA0KMS43LjYu
+NA0KDQo=
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
