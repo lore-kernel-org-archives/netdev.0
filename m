@@ -1,67 +1,99 @@
-From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Subject: Re: Open vSwitch Design
-Date: Fri, 25 Nov 2011 20:23:25 -0500
-Message-ID: <1322270605.7338.35.camel@mojatatu>
-References: <1322173833.1944.5.camel@mojatatu>
-	<20111124212021.2ae2fb7f@s6510.linuxnetplumber.net>
-	<1322201883.2872.19.camel@edumazet-laptop>
-	<20111125.012517.2221372383643417980.davem@davemloft.net>
-	<1322203013.2872.28.camel@edumazet-laptop>
-	<1322220862.1908.79.camel@mojatatu>
-	<CAEP_g=9tcH9kJrVsHc26kXWZEUS8G-U=U7y6k8xaZG5MD0OTyg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [bug?] r8169: hangs under heavy load
+Date: Sat, 26 Nov 2011 05:07:03 +0100
+Message-ID: <1322280423.10212.3.camel@edumazet-laptop>
+References: <4E7F4D45.7040902@wolke7.net>
+	 <1316978632.4122.103.camel@deadeye> <4E82C0B5.1050902@wolke7.net>
+	 <1317254171.4068.12.camel@deadeye>
+	 <20111124044137.GA18262@elie.hsd1.il.comcast.net>
+	 <4ECFE7A7.5070300@wolke7.net>
+	 <20111125201936.GA26692@elie.hsd1.il.comcast.net>
+	 <1322253122.2550.3.camel@edumazet-laptop>
+	 <20111125222211.GA13719@electric-eye.fr.zoreil.com>
+	 <1322262357.2550.12.camel@edumazet-laptop>
+	 <20111126004447.GA14744@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CAEP_g=9tcH9kJrVsHc26kXWZEUS8G-U=U7y6k8xaZG5MD0OTyg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jonathan Nieder <jrnieder@gmail.com>, netdev@vger.kernel.org,
+	nic_swsd@realtek.com, linux-kernel@vger.kernel.org,
+	Armin Kazmi <armin.kazmi@tu-dortmund.de>,
+	Gerd <booster@wolke7.net>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:47832 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750920Ab1KZEHH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2011 23:07:07 -0500
+In-Reply-To: <20111126004447.GA14744@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-11-25 at 12:20 -0800, Jesse Gross wrote:
+Le samedi 26 novembre 2011 =C3=A0 01:44 +0100, Francois Romieu a =C3=A9=
+crit :
+> Eric Dumazet <eric.dumazet@gmail.com> :
+> > Le vendredi 25 novembre 2011 ?? 23:22 +0100, Francois Romieu a ??cr=
+it :
+> [...]
+> > > This path is not used.
+> >=20
+> > OK, then we receive a RxFIFOOver indication while napi handler is
+> > running (quite possible if machine under network load)
+>=20
+> Welcome to the post 92fc43b4159b518f5baae57301f26d770b0834c9 world. :=
+o/
+>=20
+> The hack below could help (the XID matches RTL_GIGA_MAC_VER_22):
+>=20
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ether=
+net/realtek/r8169.c
+> index 6f06aa1..4fcfb3f 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -5818,7 +5818,6 @@ static irqreturn_t rtl8169_interrupt(int irq, v=
+oid *dev_instance)
+>  			switch (tp->mac_version) {
+>  			/* Work around for rx fifo overflow */
+>  			case RTL_GIGA_MAC_VER_11:
+> -			case RTL_GIGA_MAC_VER_22:
+>  			case RTL_GIGA_MAC_VER_26:
+>  				netif_stop_queue(dev);
+>  				rtl8169_tx_timeout(dev);
+> @@ -5835,6 +5834,7 @@ static irqreturn_t rtl8169_interrupt(int irq, v=
+oid *dev_instance)
+>  			case RTL_GIGA_MAC_VER_31:
+>  			/* Experimental science. Pktgen proof. */
+>  			case RTL_GIGA_MAC_VER_12:
+> +			case RTL_GIGA_MAC_VER_22:
+>  			case RTL_GIGA_MAC_VER_25:
+>  				if (status =3D=3D RxFIFOOver)
+>  					goto done;
+>=20
+>=20
+> Traffic may stop flowing though. The patch below should be better:
+>=20
 
-> The flow classifier isn't really designed to do rule lookup in the way
-> that OpenFlow/Open vSwitch does, since it's more about choosing which
-> fields are considered significant to the flow.  I'm sure that it could
-> be extended in some way but it seems that the better approach would be
-> to factor out the common pieces (such as the header extraction
-> mentioned before) than try to cram both models into one component.
+Yes, this is a workaround, and following _is_ the way to go...
 
-Yes, it would need a tweak or two.
-But u32 would. And the action subsystem does.
 
-> I understand that you see some commonalities with various parts of the
-> system but often there are enough conceptual differences that you end
-> up trying to shove a square peg into a round hole. 
 
-I have done this for years. I have very good knowledge of merchant
-sillicom and i have programmed them on Linux; i know this space a lot
-more than you are assuming.
-If you can point me to _one_, just _one_ thing, that you do in the
-classifier action piece that cannot be done in Linux today and is
-more flexible in your setup than it is on Linux we can have a
-useful discussion.
 
->  As Stephen
-> mentioned about the bridge, many of these components are already
-> fairly complex and combining more functionality into them isn't always
-> a win.
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ether=
+net/realtek/r8169.c
+> index 6f06aa1..54be9e1 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -5820,8 +5820,7 @@ static irqreturn_t rtl8169_interrupt(int irq, v=
+oid *dev_instance)
+>  			case RTL_GIGA_MAC_VER_11:
+>  			case RTL_GIGA_MAC_VER_22:
+>  			case RTL_GIGA_MAC_VER_26:
+> -				netif_stop_queue(dev);
+> -				rtl8169_tx_timeout(dev);
+> +				rtl8169_schedule_work(dev, rtl8169_reset_task);
+>  				goto done;
+>  			/* Testers needed. */
+>  			case RTL_GIGA_MAC_VER_17:
+>=20
 
-I think the bridge started on a bad foot for not properly integrating
-with Vlans and tightly integrating STP control in the kernel.
-
-cheers,
-jamal
+Please Jonathan, Gerd, try this fix !
