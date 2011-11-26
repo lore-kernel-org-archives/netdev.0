@@ -1,54 +1,59 @@
-From: Benjamin Poirier <bpoirier@suse.de>
-Subject: [PATCH net/stable] gro: reset vlan_tci on reuse
-Date: Sat, 26 Nov 2011 10:19:09 -0500
-Message-ID: <1322320749-8055-1-git-send-email-bpoirier@suse.de>
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
-	Jesse Gross <jesse@nicira.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH net/stable] gro: reset vlan_tci on reuse
+Date: Sat, 26 Nov 2011 07:52:02 -0800
+Message-ID: <20111126155202.GA8467@kroah.com>
+References: <1322320749-8055-1-git-send-email-bpoirier@suse.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	stable@vger.kernel.org, Jesse Gross <jesse@nicira.com>
+To: Benjamin Poirier <bpoirier@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:60347 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752620Ab1KZPjL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 10:39:11 -0500
+Received: from out2.smtp.messagingengine.com ([66.111.4.26]:44020 "EHLO
+	out2.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752620Ab1KZPwh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 10:52:37 -0500
+Received: from compute1.internal (compute1.nyi.mail.srv.osa [10.202.2.41])
+	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id 4131720C66
+	for <netdev@vger.kernel.org>; Sat, 26 Nov 2011 10:52:37 -0500 (EST)
+Content-Disposition: inline
+In-Reply-To: <1322320749-8055-1-git-send-email-bpoirier@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This one liner is part of upstream
-commit 3701e51382a026cba10c60b03efabe534fba4ca4
+On Sat, Nov 26, 2011 at 10:19:09AM -0500, Benjamin Poirier wrote:
+> This one liner is part of upstream
+> commit 3701e51382a026cba10c60b03efabe534fba4ca4
+> 
+> and it is in the same vein as
+> commit 66c46d741e2e60f0e8b625b80edb0ab820c46d7a
+> commit 6d152e23ad1a7a5b40fef1f42e017d66e6115159
+> 
+> which are already in -stable.
+> 
+> For drivers using the vlan_gro_frags() interface, a packet with invalid tci
+> leads to GRO_DROP and napi_reuse_skb(). The skb has to be sanitized before
+> being reused or we'll send skb's with invalid vlan_tci up the stack where
+> they're not expected.
+> 
+> Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
+> Cc: Jesse Gross <jesse@nicira.com>
+> 
+> ---
+> 
+> Please note, reusing skb's with an invalid vlan_tci can cause panics on
+> 2.6.32.y -stable kernels.
 
-and it is in the same vein as
-commit 66c46d741e2e60f0e8b625b80edb0ab820c46d7a
-commit 6d152e23ad1a7a5b40fef1f42e017d66e6115159
+You forgot to mention what stable kernel tree(s) you want this patch
+applied to.  And why can't I just take all of
+3701e51382a026cba10c60b03efabe534fba4ca4? (hint, when refering to git
+commit ids, please put the description of what they are in () after them
+so we have a hint and don't have to dig through a git tree to find
+them.)
 
-which are already in -stable.
+Also, I need David's ack before I can take this, or any other network
+patch, for the stable tree.
 
-For drivers using the vlan_gro_frags() interface, a packet with invalid tci
-leads to GRO_DROP and napi_reuse_skb(). The skb has to be sanitized before
-being reused or we'll send skb's with invalid vlan_tci up the stack where
-they're not expected.
+thanks,
 
-Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
-Cc: Jesse Gross <jesse@nicira.com>
-
----
-
-Please note, reusing skb's with an invalid vlan_tci can cause panics on
-2.6.32.y -stable kernels.
-
- net/core/dev.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 64eb849..84a0705 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2614,6 +2614,7 @@ void napi_reuse_skb(struct napi_struct *napi, struct sk_buff *skb)
- {
- 	__skb_pull(skb, skb_headlen(skb));
- 	skb_reserve(skb, NET_IP_ALIGN - skb_headroom(skb));
-+	skb->vlan_tci = 0;
- 	skb->dev = napi->dev;
- 	skb->iif = 0;
- 
--- 
-1.7.7
+greg k-h
