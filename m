@@ -1,56 +1,51 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next 2/8] dsa: Export functions from core to modules
-Date: Sun, 27 Nov 2011 22:38:57 +0000
-Message-ID: <1322433537.7454.32.camel@deadeye>
+Subject: Re: [PATCH net-next 6/8] dsa: Allow core and drivers to be built as
+ modules
+Date: Sun, 27 Nov 2011 22:39:24 +0000
+Message-ID: <1322433564.7454.33.camel@deadeye>
 References: <1322267572.2839.381.camel@deadeye>
-	 <1322267647.2839.382.camel@deadeye> <20111127191556.GQ795@wantstofly.org>
+	 <1322267918.2839.388.camel@deadeye> <20111127191955.GU795@wantstofly.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-MP4VqjRui8aMplNc69zS"
+	protocol="application/pgp-signature"; boundary="=-l1TalImSs6mX55nFK+ki"
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52321 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52325 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751030Ab1K0WjN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2011 17:39:13 -0500
-In-Reply-To: <20111127191556.GQ795@wantstofly.org>
+	by vger.kernel.org with ESMTP id S1751514Ab1K0Wjb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2011 17:39:31 -0500
+In-Reply-To: <20111127191955.GU795@wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-MP4VqjRui8aMplNc69zS
+--=-l1TalImSs6mX55nFK+ki
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Sun, 2011-11-27 at 20:15 +0100, Lennert Buytenhek wrote:
-[...]
-> > diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> > index 56cf9b8..c9d52ca 100644
-> > --- a/net/dsa/slave.c
-> > +++ b/net/dsa/slave.c
-> > @@ -45,6 +45,7 @@ void dsa_slave_mii_bus_init(struct dsa_switch *ds)
-> >  			ds->master_mii_bus->id, ds->pd->sw_addr);
-> >  	ds->slave_mii_bus->parent =3D &ds->master_mii_bus->dev;
-> >  }
-> > +EXPORT_SYMBOL_GPL(dsa_slave_mii_bus_init);
-> > =20
-> >=20
-> >  /* slave device handling *********************************************=
-*******/
-> > @@ -402,3 +403,4 @@ dsa_slave_create(struct dsa_switch *ds, struct devi=
-ce *parent,
-> > =20
-> >  	return slave_dev;
-> >  }
-> > +EXPORT_SYMBOL_GPL(dsa_slave_create);
+On Sun, 2011-11-27 at 20:19 +0100, Lennert Buytenhek wrote:
+> On Sat, Nov 26, 2011 at 12:38:38AM +0000, Ben Hutchings wrote:
 >=20
-> Why do these need to be exported?  They are only called from dsa.c,
-> and dsa.c and slave.c are always linked into the same entity, even
-> after your patches.
+> > Change the kconfig types to tristate and adjust the condition for
+> > declaring net_device::dsa_ptr to allow for this.
+> >=20
+> > Adjust the makefile so that if NET_DSA_MV88E6123_61_65=3Dy and
+> > NET_DSA_MV88E6131=3Dm or vice versa then both drivers are built-in.  We
+> > could leave these options as bool and make NET_DSA_MV88E6XXX a
+> > user-selected option, but that would break existing configurations.
+> >=20
+> > Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+>=20
+> Acked-by: Lennert Buytenhek <buytenh@wantstofly.org>
+>=20
+> Thanks for the patches!
+>=20
+> (While you're at it -- the switch chip drivers in net/dsa/ still
+> ought to be moved to drivers/net/dsa/ or so -- feel like whipping up
+> a patch for that?)
 
-Oh, yes.  I just failed to revert these exports when I decided they
-should be linked together.
+I agree.  Maybe.
 
 Ben.
 
@@ -58,26 +53,26 @@ Ben.
 Ben Hutchings
 The two most common things in the universe are hydrogen and stupidity.
 
---=-MP4VqjRui8aMplNc69zS
+--=-l1TalImSs6mX55nFK+ki
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQIVAwUATtK8Aee/yOyVhhEJAQqtvw/+J1GKzwyYiVzyQn/UxWycC8slxtnmq0Xr
-ftbsn3NWeUSglt6H0wd4OLSU4U/t0rnldelhaPkXxiKn2RlMVl1jb63EHhETA6iB
-jgtISJ0m2r5K8aG0s26TMAZrQVaikFnbdY05gxYnZb6Y7ubfk/jQZWKlM40Ef3io
-AUpxfAA+qgb4hFnN+imi1gR0LyrMb2Zn9FReQ2dwwtxyjr4qebayreKl2jxPTdBc
-8duf35TP/mKBumr2gHbZIjrpL0Gg1ZUFIrfjlW3BgtqgIRb341m5jUElYCJHJv5+
-tV1KlS/oi02xiX1bW2rBEHTFGwSoaOO2N8qoo+1EB940oUCYTkiFvpNjfCDL+WgE
-aw0qezvxVHU0GIDLvA2LMcg/zTVLUD3lfo4gzKS1DE3RB7wZtUJ4iFnxz8VDVT7F
-DAqLnLTOXFb6NHlpgAQR+qM0CXgV91zoLgVbNPvt7CjjedL3Tj1uhxHw3oX2jcy5
-tPJOVIMDy5pHwvqS6fdnEydJiEAMwI7tnR5eVMPEziPHldDjEoIxAguj82y3DxKx
-VodvRmw3h1vryQosQr4e1QpIpVf3NhnRhFjw+QaBsqvuV3nzBsK/6iZLXHIl4COp
-NWYPF/571rKw0edvqQUguWy4IJuXWR4ObEhS8sE5Hgs6dCTQIk6OIipzMPPgIt3v
-vvetzLRuaug=
-=Hxhj
+iQIVAwUATtK8HOe/yOyVhhEJAQqw1xAAk4Juss3B7yE0Zji8h/+Y2rBYmTHL6c6y
+BiVnMKzCBMXLTYwAkRM8k7fq/3bRiDGZpJ83TBU4hvVK4XZ4eefNp79VY7tlgADC
+uBm9gpBTN7/WXpfL7pXTq94zyHYijH428uYucl7W27wYV+NZBq/Je8J+cmasuhab
++IQWhXcsXcMGYlGe6SGaAnx26llzBy53hXhagp8r6wq5LM8ScrlkxUVZqNoZJGAP
+qM54ZyaoIuAitpXofo9eDgG99g13miomuZS5ZMAFJZMe3WpWDbfEN2znSUyS5w4D
+2sFdfQNvRcbuXRffeYDBGxGAcj1QisbMu21WFkVSIQX9MbmcF+2aQwfacpChRcSP
+frbSQaXSWvQ66xupMPvNKZj4bba53KpQx2KXBBhFBAafAUvd9ITSs/I/jb3rOMHH
+BNKvt5xvQYk4inJqht+ZBkepnj/DYKAHH/szbVd7P/a+7E2IwXMNfjU5kkOhK7+a
+ZxzGdjQtvDsewahL3zt9aQxjJ3sSs8m1Xm5HyndzZeMTAP5ukCX7llqbAxqauDac
+FS5QjVJpUhApfURvSBAvgrmsdytmOA9EWkt+44qGyDOmJyuUXorzG+1Nh1YRR+Hr
+KayEMtaVB9yFj7N5lpRIkbl3UVB/aD4MloGV1SCeMdfTUzbCRUzm98yldQQkYyZJ
+lJSucaycUoc=
+=HNUh
 -----END PGP SIGNATURE-----
 
---=-MP4VqjRui8aMplNc69zS--
+--=-l1TalImSs6mX55nFK+ki--
