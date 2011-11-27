@@ -1,40 +1,26 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH net-next 6/8] dsa: Allow core and drivers to be built as
- modules
-Date: Sun, 27 Nov 2011 20:19:55 +0100
-Message-ID: <20111127191955.GU795@wantstofly.org>
+Subject: Re: [PATCH net-next 1/8] dsa: Change dsa_uses_{dsa,trailer}_tags()
+ into inline functions
+Date: Sun, 27 Nov 2011 20:12:32 +0100
+Message-ID: <20111127191232.GP795@wantstofly.org>
 References: <1322267572.2839.381.camel@deadeye>
- <1322267918.2839.388.camel@deadeye>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wantstofly.org ([80.101.37.227]:65488 "EHLO
+Received: from fw.wantstofly.org ([80.101.37.227]:65490 "EHLO
 	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753808Ab1K0TT5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2011 14:19:57 -0500
+	with ESMTP id S1753397Ab1K0TU7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2011 14:20:59 -0500
 Content-Disposition: inline
-In-Reply-To: <1322267918.2839.388.camel@deadeye>
+In-Reply-To: <1322267572.2839.381.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 26, 2011 at 12:38:38AM +0000, Ben Hutchings wrote:
+On Sat, Nov 26, 2011 at 12:32:52AM +0000, Ben Hutchings wrote:
 
-> Change the kconfig types to tristate and adjust the condition for
-> declaring net_device::dsa_ptr to allow for this.
-> 
-> Adjust the makefile so that if NET_DSA_MV88E6123_61_65=y and
-> NET_DSA_MV88E6131=m or vice versa then both drivers are built-in.  We
-> could leave these options as bool and make NET_DSA_MV88E6XXX a
-> user-selected option, but that would break existing configurations.
-> 
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> eth_type_trans() will use these functions if DSA is enabled, which
+> blocks building DSA as a module.
 
 Acked-by: Lennert Buytenhek <buytenh@wantstofly.org>
-
-Thanks for the patches!
-
-(While you're at it -- the switch chip drivers in net/dsa/ still
-ought to be moved to drivers/net/dsa/ or so -- feel like whipping up
-a patch for that?)
