@@ -1,33 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 5/8] bnx2x: Change Warpcore MDIO work around mode
-Date: Sun, 27 Nov 2011 17:03:45 -0500 (EST)
-Message-ID: <20111127.170345.210055753705612508.davem@davemloft.net>
-References: <1322417881-17760-1-git-send-email-yanivr@broadcom.com>
-	<1322417881-17760-6-git-send-email-yanivr@broadcom.com>
+Subject: Re: [PATCH] isdn/gigaset: report ISDN4Linux interface only once
+Date: Sun, 27 Nov 2011 17:08:43 -0500 (EST)
+Message-ID: <20111127.170843.1218883428304355076.davem@davemloft.net>
+References: <20111127-patch-gigaset-01.tilman@imap.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: yanivr@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47266 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755726Ab1K0WDs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2011 17:03:48 -0500
-In-Reply-To: <1322417881-17760-6-git-send-email-yanivr@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: isdn@linux-pingi.de, hjlipp@web.de, keil@b1-systems.de,
+	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: tilman@imap.cc
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111127-patch-gigaset-01.tilman@imap.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Yaniv Rosner" <yanivr@broadcom.com>
-Date: Sun, 27 Nov 2011 20:17:58 +0200
+From: Tilman Schmidt <tilman@imap.cc>
+Date: Sun, 27 Nov 2011 18:39:22 +0100
 
-> @@ -11308,7 +11308,9 @@ static int bnx2x_populate_int_phy(struct bnx2x *bp, u32 shmem_base, u8 port,
->  				       offsetof(struct shmem_region,
->  			dev_info.port_feature_config[port].link_config)) &
->  			  PORT_FEATURE_CONNECTED_SWITCH_MASK);
-> -	chip_id = REG_RD(bp, MISC_REG_CHIP_NUM) << 16;
-> +	chip_id = (REG_RD(bp, MISC_REG_CHIP_NUM) << 16) |
-> +				((REG_RD(bp, MISC_REG_CHIP_REV) & 0xf) << 12);
-> +
+> Move the "ISDN4Linux interface" message from device registration,
+> where it is emitted for each device, to driver registration, where
+> it is emitted only once, for consistency with the CAPI variant.
+> 
+> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 
-Bad formatting.
+Applied to net-next, thanks.
