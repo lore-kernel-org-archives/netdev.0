@@ -1,51 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] inet:
-Date: Sat, 26 Nov 2011 23:16:30 +0100
-Message-ID: <1322345790.10212.23.camel@edumazet-laptop>
-References: <201111231910.37190.a.miskiewicz@gmail.com>
-	 <1322077447.2775.6.camel@edumazet-laptop>
-	 <201111232135.55122.a.miskiewicz@gmail.com>
-	 <201111251853.19551.a.miskiewicz@gmail.com>
-	 <1322345624.10212.21.camel@edumazet-laptop>
+Date: Sat, 26 Nov 2011 19:17:12 -0500 (EST)
+Message-ID: <20111126.191712.529707882787134808.davem@davemloft.net>
+References: <201111251853.19551.a.miskiewicz@gmail.com>
+	<1322345624.10212.21.camel@edumazet-laptop>
+	<1322345790.10212.23.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Arkadiusz =?UTF-8?Q?Mi=C5=9Bkiewicz?= <a.miskiewicz@gmail.com>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: a.miskiewicz@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:39827 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754958Ab1KZWQe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 17:16:34 -0500
-Received: by mail-bw0-f46.google.com with SMTP id 11so6194766bke.19
-        for <netdev@vger.kernel.org>; Sat, 26 Nov 2011 14:16:33 -0800 (PST)
-In-Reply-To: <1322345624.10212.21.camel@edumazet-laptop>
+Received: from shards.monkeyblade.net ([198.137.202.13]:40644 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755152Ab1K0ARS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 19:17:18 -0500
+In-Reply-To: <1322345790.10212.23.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 26 novembre 2011 =C3=A0 23:13 +0100, Eric Dumazet a =C3=A9cri=
-t :
-> Now inetpeer is the place where we cache redirect information for ipv=
-4
-> destinations, we must be able to invalidate informations when a route=
- is
-> added/removed on host.
->=20
-> As inetpeer is not yet namespace aware, this patch adds a shared
-> redirect_genid, and a per inetpeer redirect_genid. This might be chan=
-ged
-> later if inetpeer becomes ns aware.
->=20
-> Cache information for one inerpeer is valid as long as its
-> redirect_genid has the same value than global redirect_genid.
->=20
-> Reported-by: Arkadiusz Mi=C5=9Bkiewicz <a.miskiewicz@gmail.com>
-> Tested-by: Arkadiusz Mi=C5=9Bkiewicz <a.miskiewicz@gmail.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
-
-Arg, patch title was not complete, it could be :
-
-[PATCH] inet: add a redirect generation id in inetpeer
-
-Sorry :(
+RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogU2F0LCAy
+NiBOb3YgMjAxMSAyMzoxNjozMCArMDEwMA0KDQo+IExlIHNhbWVkaSAyNiBub3ZlbWJyZSAyMDEx
+IMOgIDIzOjEzICswMTAwLCBFcmljIER1bWF6ZXQgYSDDqWNyaXQgOg0KPj4gTm93IGluZXRwZWVy
+IGlzIHRoZSBwbGFjZSB3aGVyZSB3ZSBjYWNoZSByZWRpcmVjdCBpbmZvcm1hdGlvbiBmb3IgaXB2
+NA0KPj4gZGVzdGluYXRpb25zLCB3ZSBtdXN0IGJlIGFibGUgdG8gaW52YWxpZGF0ZSBpbmZvcm1h
+dGlvbnMgd2hlbiBhIHJvdXRlIGlzDQo+PiBhZGRlZC9yZW1vdmVkIG9uIGhvc3QuDQo+PiANCj4+
+IEFzIGluZXRwZWVyIGlzIG5vdCB5ZXQgbmFtZXNwYWNlIGF3YXJlLCB0aGlzIHBhdGNoIGFkZHMg
+YSBzaGFyZWQNCj4+IHJlZGlyZWN0X2dlbmlkLCBhbmQgYSBwZXIgaW5ldHBlZXIgcmVkaXJlY3Rf
+Z2VuaWQuIFRoaXMgbWlnaHQgYmUgY2hhbmdlZA0KPj4gbGF0ZXIgaWYgaW5ldHBlZXIgYmVjb21l
+cyBucyBhd2FyZS4NCj4+IA0KPj4gQ2FjaGUgaW5mb3JtYXRpb24gZm9yIG9uZSBpbmVycGVlciBp
+cyB2YWxpZCBhcyBsb25nIGFzIGl0cw0KPj4gcmVkaXJlY3RfZ2VuaWQgaGFzIHRoZSBzYW1lIHZh
+bHVlIHRoYW4gZ2xvYmFsIHJlZGlyZWN0X2dlbmlkLg0KPj4gDQo+PiBSZXBvcnRlZC1ieTogQXJr
+YWRpdXN6IE1pxZtraWV3aWN6IDxhLm1pc2tpZXdpY3pAZ21haWwuY29tPg0KPj4gVGVzdGVkLWJ5
+OiBBcmthZGl1c3ogTWnFm2tpZXdpY3ogPGEubWlza2lld2ljekBnbWFpbC5jb20+DQo+PiBTaWdu
+ZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVyaWMuZHVtYXpldEBnbWFpbC5jb20+DQo+PiAtLS0N
+Cj4gDQo+IEFyZywgcGF0Y2ggdGl0bGUgd2FzIG5vdCBjb21wbGV0ZSwgaXQgY291bGQgYmUgOg0K
+PiANCj4gW1BBVENIXSBpbmV0OiBhZGQgYSByZWRpcmVjdCBnZW5lcmF0aW9uIGlkIGluIGluZXRw
+ZWVyDQoNCkl0IGhhcHBlbnMgOi0pICBBcHBsaWVkLCB0aGFua3MgRXJpYy4NCg==
