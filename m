@@ -1,65 +1,35 @@
-From: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
-Subject: Re: [GIT PULL v2] Open vSwitch
-Date: Sun, 27 Nov 2011 16:31:45 -0500
-Message-ID: <1322429505.7338.56.camel@mojatatu>
-References: <20111123075433.GA7928@gondor.apana.org.au>
-	<1322035942.1298.56.camel@edumazet-laptop>
-	<1322052463.2039.135.camel@mojatatu>
-	<1322052938.17693.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1322055858.2039.188.camel@mojatatu> <4ECD19AC.8090505@intel.com>
-	<1322140779.1949.191.camel@mojatatu>
-	<20111127193438.GV795@wantstofly.org>
-Reply-To: jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 6/8] bnx2x: Add known PHY type check
+Date: Sun, 27 Nov 2011 17:01:00 -0500 (EST)
+Message-ID: <20111127.170100.379387551488831733.davem@davemloft.net>
+References: <1322417881-17760-1-git-send-email-yanivr@broadcom.com>
+	<1322417881-17760-7-git-send-email-yanivr@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20111127193438.GV795-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: yanivr@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:47244 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753122Ab1K0WBE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2011 17:01:04 -0500
+In-Reply-To: <1322417881-17760-7-git-send-email-yanivr@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2011-11-27 at 20:34 +0100, Lennert Buytenhek wrote:
-> On Thu, Nov 24, 2011 at 08:19:39AM -0500, Jamal Hadi Salim wrote:
+From: "Yaniv Rosner" <yanivr@broadcom.com>
+Date: Sun, 27 Nov 2011 20:17:59 +0200
 
+> +		if ((phy_type != PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT) &&
+> +			(phy_type != PORT_HW_CFG_XGXS_EXT_PHY_TYPE_NOT_CONN))
+> +			return -EINVAL;
 
-> There's a bunch of features that the hardware supports that have no
-> analog in the Linux networking stack (e.g. port mirroring a non-CPU
-> port to another non-CPU port),
+Please format this correctly:
 
-You can mirror on Linux; eg to intercept packets on dev XXX
-and mirror on eth0:
+		if ((phy_type != PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT) &&
+		    (phy_type != PORT_HW_CFG_XGXS_EXT_PHY_TYPE_NOT_CONN))
+			return -EINVAL;
 
-tc filter add dev XXX parent ffff: prio Y .. match blah \
-action mirred egress mirror dev eth0
-
-a more fun one to mirror to two ports:
-tc filter add dev XXX parent ffff: prio Y .. match blah \
-action mirred egress mirror dev eth0 \
-action mirred egress mirror dev eth1
-
-or even more fun, to mirror to two then do a total redirect:
-tc filter add dev XXX parent ffff: prio Y .. match blah \
-action mirred egress mirror dev eth0 \
-action mirred egress mirror dev eth1 \
-action mirred egress redirect dev eth2
-
-Of course you can thrown in other actions in between those
-to edit packets etc before redirecting.
-
-cheers,
-jamal
+If you can't get the tabs right by hand, use something that does
+it transparently for you such as C-mode in emacs.
