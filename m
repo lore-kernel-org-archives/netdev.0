@@ -1,36 +1,35 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 8/8] staging: octeon_ethernet: Convert to use device tree.
-Date: Sat, 26 Nov 2011 18:04:44 -0800
-Message-ID: <20111127020444.GA32071@kroah.com>
-References: <1320978124-13042-1-git-send-email-ddaney.cavm@gmail.com>
- <1320978124-13042-9-git-send-email-ddaney.cavm@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: (repost) vhost tree for linux-next
+Date: Sun, 27 Nov 2011 14:48:17 +0200
+Message-ID: <20111127124816.GA23270@redhat.com>
+References: <20111124203843.GC4873@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
-	devicetree-discuss@lists.ozlabs.org, grant.likely@secretlab.ca,
-	linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@suse.de>, devel@driverdev.osuosl.org
-To: ddaney.cavm@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: sfr@canb.auug.org.au, linux-pci@vger.kernel.org,
+	netdev@vger.kernel.org, linux-scsi@vger.kernel.org
+To: linux-next@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1320978124-13042-9-git-send-email-ddaney.cavm@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20111124203843.GC4873@redhat.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 10, 2011 at 06:22:04PM -0800, ddaney.cavm@gmail.com wrote:
-> From: David Daney <david.daney@cavium.com>
-> 
-> Get MAC address and PHY connection from the device tree.
-> 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
-> Cc: Greg Kroah-Hartman <gregkh@suse.de>
+I normally merge things through Dave, Rusty, Jesse or Jens,
+not directly to Linus. However, sometimes there's a large change
+(for example, my recent RFC for pci_iomap changes)
+where estimating how it interacts with other platforms and planned
+changes in the next kernel would be beneficial.
 
-Acked-by: Greg Kroah-Hartman <gregkh@suse.de>
+For this purpose, it would be helpful if my tree were added to linux-next.
+The tree is:
+git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git linux-next
 
-This usually goes through the MIPS tree, so I'll let Ralf take it.
+Could you do this please?
+(The current contents of that tree was posted for review/feedback
+for the first time today.   It might make sense to give it a few days
+for any responses ...)
 
-thanks,
+Thanks!
 
-greg k-h
+-- 
+MST
