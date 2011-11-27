@@ -1,7 +1,7 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [net-next 2/8] bnx2x: ETS changes
-Date: Sun, 27 Nov 2011 20:17:55 +0200
-Message-ID: <1322417881-17760-3-git-send-email-yanivr@broadcom.com>
+Subject: [net-next 3/8] bnx2x: Warpcore-HW reset following fan failure
+Date: Sun, 27 Nov 2011 20:17:56 +0200
+Message-ID: <1322417881-17760-4-git-send-email-yanivr@broadcom.com>
 References: <1322417881-17760-1-git-send-email-yanivr@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,87 +11,69 @@ Cc: netdev <netdev@vger.kernel.org>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3748 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1444 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755781Ab1K0QTA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Nov 2011 11:19:00 -0500
+	id S1755789Ab1K0QTC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Nov 2011 11:19:02 -0500
 In-Reply-To: <1322417881-17760-1-git-send-email-yanivr@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix a problem when new traffic class is created with 0% BW, the ETS is not conforming.
+Put Warpcore in low power mode in case of fan failure to reduce heat.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   19 ++++++++++++++++---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h |    2 +-
- 2 files changed, 17 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |    8 ++++++++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h  |    9 +++++++++
+ 2 files changed, 17 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 8e6909a..c875efb 100644
+index c875efb..91c0170 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -874,23 +874,36 @@ static int bnx2x_ets_e3b0_set_cos_bw(struct bnx2x *bp,
- ******************************************************************************/
- static int bnx2x_ets_e3b0_get_total_bw(
- 	const struct link_params *params,
--	const struct bnx2x_ets_params *ets_params,
-+	struct bnx2x_ets_params *ets_params,
- 	u16 *total_bw)
+@@ -8216,7 +8216,15 @@ static void bnx2x_warpcore_power_module(struct link_params *params,
+ static void bnx2x_warpcore_hw_reset(struct bnx2x_phy *phy,
+ 				    struct link_params *params)
  {
- 	struct bnx2x *bp = params->bp;
- 	u8 cos_idx = 0;
-+	u8 is_bw_cos_exist = 0;
- 
- 	*total_bw = 0 ;
++	struct bnx2x *bp = params->bp;
+ 	bnx2x_warpcore_power_module(params, phy, 0);
++	/* Put Warpcore in low power mode */
++	REG_WR(bp, MISC_REG_WC0_RESET, 0x0c0e);
 +
- 	/* Calculate total BW requested */
- 	for (cos_idx = 0; cos_idx < ets_params->num_of_cos; cos_idx++) {
- 		if (bnx2x_cos_state_bw == ets_params->cos[cos_idx].state) {
-+			is_bw_cos_exist = 1;
-+			if (0 == ets_params->cos[cos_idx].params.bw_params.bw) {
-+				DP(NETIF_MSG_LINK, "bnx2x_ets_E3B0_config BW"
-+						   "was set to 0\n");
-+				/*
-+				 * This is to prevent a state when ramrods
-+				 * can't be sent
-+				*/
-+				ets_params->cos[cos_idx].params.bw_params.bw
-+					 = 1;
-+			}
- 			*total_bw +=
- 				ets_params->cos[cos_idx].params.bw_params.bw;
- 		}
- 	}
++	/* Put LCPLL in low power mode */
++	REG_WR(bp, MISC_REG_LCPLL_E40_PWRDWN, 1);
++	REG_WR(bp, MISC_REG_LCPLL_E40_RESETB_ANA, 0);
++	REG_WR(bp, MISC_REG_LCPLL_E40_RESETB_DIG, 0);
+ }
  
- 	/* Check total BW is valid */
--	if ((100 != *total_bw) || (0 == *total_bw)) {
-+	if ((1 == is_bw_cos_exist) && (100 != *total_bw)) {
- 		if (0 == *total_bw) {
- 			DP(NETIF_MSG_LINK,
- 			   "bnx2x_ets_E3B0_config toatl BW shouldn't be 0\n");
-@@ -1100,7 +1113,7 @@ static int bnx2x_ets_e3b0_sp_set_pri_cli_reg(const struct link_params *params,
- ******************************************************************************/
- int bnx2x_ets_e3b0_config(const struct link_params *params,
- 			 const struct link_vars *vars,
--			 const struct bnx2x_ets_params *ets_params)
-+			 struct bnx2x_ets_params *ets_params)
- {
- 	struct bnx2x *bp = params->bp;
- 	int bnx2x_status = 0;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-index 2a46e63..e02a68a 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-@@ -479,7 +479,7 @@ int bnx2x_ets_strict(const struct link_params *params, const u8 strict_cos);
- /*  Configure the COS to ETS according to BW and SP settings.*/
- int bnx2x_ets_e3b0_config(const struct link_params *params,
- 			 const struct link_vars *vars,
--			 const struct bnx2x_ets_params *ets_params);
-+			 struct bnx2x_ets_params *ets_params);
- /* Read pfc statistic*/
- void bnx2x_pfc_statistic(struct link_params *params, struct link_vars *vars,
- 						 u32 pfc_frames_sent[2],
+ static void bnx2x_power_sfp_module(struct link_params *params,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+index 92584d3..d5a0dde 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+@@ -1622,6 +1622,14 @@
+    register bits. */
+ #define MISC_REG_LCPLL_CTRL_1					 0xa2a4
+ #define MISC_REG_LCPLL_CTRL_REG_2				 0xa2a8
++/* [RW 1] LCPLL power down. Global register. Active High. Reset on POR
++ * reset. */
++#define MISC_REG_LCPLL_E40_PWRDWN				 0xaa74
++/* [RW 1] LCPLL VCO reset. Global register. Active Low Reset on POR reset. */
++#define MISC_REG_LCPLL_E40_RESETB_ANA				 0xaa78
++/* [RW 1] LCPLL post-divider reset. Global register. Active Low Reset on POR
++ * reset. */
++#define MISC_REG_LCPLL_E40_RESETB_DIG				 0xaa7c
+ /* [RW 4] Interrupt mask register #0 read/write */
+ #define MISC_REG_MISC_INT_MASK					 0xa388
+ /* [RW 1] Parity mask register #0 read/write */
+@@ -1757,6 +1765,7 @@
+  * is compared to the value on ctrl_md_devad. Drives output
+  * misc_xgxs0_phy_addr. Global register. */
+ #define MISC_REG_WC0_CTRL_PHY_ADDR				 0xa9cc
++#define MISC_REG_WC0_RESET					 0xac30
+ /* [RW 2] XMAC Core port mode. Indicates the number of ports on the system
+    side. This should be less than or equal to phy_port_mode; if some of the
+    ports are not used. This enables reduction of frequency on the core side.
 -- 
 1.7.7.1
