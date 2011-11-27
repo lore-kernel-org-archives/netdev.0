@@ -1,45 +1,43 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH] isdn/gigaset: report ISDN4Linux interface only once
-Date: Sun, 27 Nov 2011 18:39:22 +0100
-Message-ID: <20111127-patch-gigaset-01.tilman@imap.cc>
-Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH net-next 4/8] mv88e6xxx: Combine mv88e6131 and
+ mv88e612_61_65 drivers
+Date: Sun, 27 Nov 2011 20:18:38 +0100
+Message-ID: <20111127191838.GT795@wantstofly.org>
+References: <1322267572.2839.381.camel@deadeye>
+ <1322267779.2839.385.camel@deadeye>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fw.wantstofly.org ([80.101.37.227]:65485 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752994Ab1K0TSk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2011 14:18:40 -0500
+Content-Disposition: inline
+In-Reply-To: <1322267779.2839.385.camel@deadeye>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Move the "ISDN4Linux interface" message from device registration,
-where it is emitted for each device, to driver registration, where
-it is emitted only once, for consistency with the CAPI variant.
+On Sat, Nov 26, 2011 at 12:36:19AM +0000, Ben Hutchings wrote:
 
-Signed-off-by: Tilman Schmidt <tilman@imap.cc>
----
- drivers/isdn/gigaset/i4l.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+> These drivers share a lot of code, so if we make them modular they
+> should be built into the same module.  Therefore, link them together
+> and merge their respective module init and exit functions.
+> 
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 
-diff --git a/drivers/isdn/gigaset/i4l.c b/drivers/isdn/gigaset/i4l.c
-index 04231cb..1793ba1 100644
---- a/drivers/isdn/gigaset/i4l.c
-+++ b/drivers/isdn/gigaset/i4l.c
-@@ -624,8 +624,6 @@ int gigaset_isdn_regdev(struct cardstate *cs, const char *isdnid)
- {
- 	isdn_if *iif;
- 
--	pr_info("ISDN4Linux interface\n");
--
- 	iif = kmalloc(sizeof *iif, GFP_KERNEL);
- 	if (!iif) {
- 		pr_err("out of memory\n");
-@@ -684,6 +682,7 @@ void gigaset_isdn_unregdev(struct cardstate *cs)
-  */
- void gigaset_isdn_regdrv(void)
- {
-+	pr_info("ISDN4Linux interface\n");
- 	/* nothing to do */
- }
- 
--- 
-1.7.3.4
+Acked-by: Lennert Buytenhek <buytenh@wantstofly.org>
+
+Minor nit: s/612_/6123_/ in Subject: line.
+
+
+> ---
+>  net/dsa/Makefile          |    7 ++++---
+>  net/dsa/mv88e6123_61_65.c |   15 +--------------
+>  net/dsa/mv88e6131.c       |   15 +--------------
+>  net/dsa/mv88e6xxx.c       |   23 +++++++++++++++++++++++
+>  net/dsa/mv88e6xxx.h       |    3 +++
+>  5 files changed, 32 insertions(+), 31 deletions(-)
+
+[...]
