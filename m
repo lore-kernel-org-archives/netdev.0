@@ -1,52 +1,155 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Subject: Re: (repost) vhost tree for linux-next
-Date: Sun, 27 Nov 2011 08:00:08 -0600
-Message-ID: <1322402408.2992.4.camel@dabdike.int.hansenpartnership.com>
-References: <20111124203843.GC4873@redhat.com>
-	 <20111127124816.GA23270@redhat.com>
-	 <1322401139.2992.1.camel@dabdike.int.hansenpartnership.com>
-	 <20111127135916.GB23302@redhat.com>
+From: Axel Lin <axel.lin@gmail.com>
+Subject: [PATCH] net/irda: convert drivers/net/irda/* to use
+ module_platform_driver()
+Date: Sun, 27 Nov 2011 22:08:05 +0800
+Message-ID: <1322402885.2746.1.camel@phoenix>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, sfr@canb.auug.org.au,
-	linux-pci@vger.kernel.org, netdev@vger.kernel.org,
-	linux-scsi@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20111127135916.GB23302@redhat.com>
-Sender: linux-next-owner@vger.kernel.org
+Cc: Pete Popov <ppopov@mvista.com>, Graf Yang <graf.yang@analog.com>,
+	Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>,
+	Samuel Ortiz <samuel@sortiz.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2011-11-27 at 15:59 +0200, Michael S. Tsirkin wrote:
-> On Sun, Nov 27, 2011 at 07:38:59AM -0600, James Bottomley wrote:
-> > On Sun, 2011-11-27 at 14:48 +0200, Michael S. Tsirkin wrote:
-> > > I normally merge things through Dave, Rusty, Jesse or Jens,
-> > > not directly to Linus. However, sometimes there's a large change
-> > > (for example, my recent RFC for pci_iomap changes)
-> > > where estimating how it interacts with other platforms and planned
-> > > changes in the next kernel would be beneficial.
-> > > 
-> > > For this purpose, it would be helpful if my tree were added to linux-next.
-> > > The tree is:
-> > > git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git linux-next
-> > > 
-> > > Could you do this please?
-> > > (The current contents of that tree was posted for review/feedback
-> > > for the first time today.   It might make sense to give it a few days
-> > > for any responses ...)
-> > 
-> > I'm a little confused by your to: field.  This is a linux-arch issue,
-> > isn't it, since it's altering architecture implementations of a PCI
-> > function rather than altering anything in SCSI or net?
-> > 
-> > James
-> 
-> Yes. Stephen Rothwell asked me to Cc widely to see if anyone
-> objects to picking this stuff in linux-next.
-> Sorry about any confusion.
+This patch converts the drivers in drivers/net/irda/* to use the
+module_platform_driver() macro which makes the code smaller and a bit
+simpler.
 
-I;m fine with that, but the fact that you didn't send it to linux-arch
-was more my point ...
+Cc: Pete Popov <ppopov@mvista.com>
+Cc: Graf Yang <graf.yang@analog.com>
+Cc: Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>
+Signed-off-by: Axel Lin <axel.lin@gmail.com>
+---
+ drivers/net/irda/au1k_ir.c    |   13 +------------
+ drivers/net/irda/bfin_sir.c   |   13 +------------
+ drivers/net/irda/pxaficp_ir.c |   13 +------------
+ drivers/net/irda/sh_irda.c    |   13 +------------
+ drivers/net/irda/sh_sir.c     |   13 +------------
+ 5 files changed, 5 insertions(+), 60 deletions(-)
 
-James
+diff --git a/drivers/net/irda/au1k_ir.c b/drivers/net/irda/au1k_ir.c
+index fc503aa..b267d73 100644
+--- a/drivers/net/irda/au1k_ir.c
++++ b/drivers/net/irda/au1k_ir.c
+@@ -952,18 +952,7 @@ static struct platform_driver au1k_irda_driver = {
+ 	.remove		= __devexit_p(au1k_irda_remove),
+ };
+ 
+-static int __init au1k_irda_load(void)
+-{
+-	return platform_driver_register(&au1k_irda_driver);
+-}
+-
+-static void __exit au1k_irda_unload(void)
+-{
+-	return platform_driver_unregister(&au1k_irda_driver);
+-}
++module_platform_driver(au1k_irda_driver);
+ 
+ MODULE_AUTHOR("Pete Popov <ppopov@mvista.com>");
+ MODULE_DESCRIPTION("Au1000 IrDA Device Driver");
+-
+-module_init(au1k_irda_load);
+-module_exit(au1k_irda_unload);
+diff --git a/drivers/net/irda/bfin_sir.c b/drivers/net/irda/bfin_sir.c
+index 9d4ce1a..a561ae4 100644
+--- a/drivers/net/irda/bfin_sir.c
++++ b/drivers/net/irda/bfin_sir.c
+@@ -806,18 +806,7 @@ static struct platform_driver bfin_ir_driver = {
+ 	},
+ };
+ 
+-static int __init bfin_sir_init(void)
+-{
+-	return platform_driver_register(&bfin_ir_driver);
+-}
+-
+-static void __exit bfin_sir_exit(void)
+-{
+-	platform_driver_unregister(&bfin_ir_driver);
+-}
+-
+-module_init(bfin_sir_init);
+-module_exit(bfin_sir_exit);
++module_platform_driver(bfin_ir_driver);
+ 
+ module_param(max_rate, int, 0);
+ MODULE_PARM_DESC(max_rate, "Maximum baud rate (115200, 57600, 38400, 19200, 9600)");
+diff --git a/drivers/net/irda/pxaficp_ir.c b/drivers/net/irda/pxaficp_ir.c
+index d0851df..81d5275 100644
+--- a/drivers/net/irda/pxaficp_ir.c
++++ b/drivers/net/irda/pxaficp_ir.c
+@@ -966,18 +966,7 @@ static struct platform_driver pxa_ir_driver = {
+ 	.resume		= pxa_irda_resume,
+ };
+ 
+-static int __init pxa_irda_init(void)
+-{
+-	return platform_driver_register(&pxa_ir_driver);
+-}
+-
+-static void __exit pxa_irda_exit(void)
+-{
+-	platform_driver_unregister(&pxa_ir_driver);
+-}
+-
+-module_init(pxa_irda_init);
+-module_exit(pxa_irda_exit);
++module_platform_driver(pxa_ir_driver);
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_ALIAS("platform:pxa2xx-ir");
+diff --git a/drivers/net/irda/sh_irda.c b/drivers/net/irda/sh_irda.c
+index d275e27..725d6b3 100644
+--- a/drivers/net/irda/sh_irda.c
++++ b/drivers/net/irda/sh_irda.c
+@@ -873,18 +873,7 @@ static struct platform_driver sh_irda_driver = {
+ 	},
+ };
+ 
+-static int __init sh_irda_init(void)
+-{
+-	return platform_driver_register(&sh_irda_driver);
+-}
+-
+-static void __exit sh_irda_exit(void)
+-{
+-	platform_driver_unregister(&sh_irda_driver);
+-}
+-
+-module_init(sh_irda_init);
+-module_exit(sh_irda_exit);
++module_platform_driver(sh_irda_driver);
+ 
+ MODULE_AUTHOR("Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>");
+ MODULE_DESCRIPTION("SuperH IrDA driver");
+diff --git a/drivers/net/irda/sh_sir.c b/drivers/net/irda/sh_sir.c
+index ed7d7d6..e6661b5 100644
+--- a/drivers/net/irda/sh_sir.c
++++ b/drivers/net/irda/sh_sir.c
+@@ -808,18 +808,7 @@ static struct platform_driver sh_sir_driver = {
+ 	},
+ };
+ 
+-static int __init sh_sir_init(void)
+-{
+-	return platform_driver_register(&sh_sir_driver);
+-}
+-
+-static void __exit sh_sir_exit(void)
+-{
+-	platform_driver_unregister(&sh_sir_driver);
+-}
+-
+-module_init(sh_sir_init);
+-module_exit(sh_sir_exit);
++module_platform_driver(sh_sir_driver);
+ 
+ MODULE_AUTHOR("Kuninori Morimoto <morimoto.kuninori@renesas.com>");
+ MODULE_DESCRIPTION("SuperH IrDA driver");
+-- 
+1.7.5.4
