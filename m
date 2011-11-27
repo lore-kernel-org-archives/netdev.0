@@ -1,85 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 21/62] net: remove the second argument of
- k[un]map_atomic()
-Date: Sun, 27 Nov 2011 09:07:28 +0100
-Message-ID: <1322381248.2826.1.camel@edumazet-laptop>
-References: <1322371662-26166-1-git-send-email-amwang@redhat.com>
-	<1322371662-26166-22-git-send-email-amwang@redhat.com>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH V2 0/7] net/mlx4 features and fixes
+Date: Sun, 27 Nov 2011 07:54:51 +0200
+Message-ID: <4ED1D0AB.5010804@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jiri Pirko <jpirko@redhat.com>, Ian Campbell <ian.campbell@citrix.com>,
-	"David S. Miller" <davem@davemloft.net>, e1000-devel@lists.sourceforge.net,
-	Dean Nelson <dnelson@redhat.com>, Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org,
-	John Ronciak <john.ronciak@intel.com>, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, Peter
-To: Cong Wang <amwang@redhat.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1322371662-26166-22-git-send-email-amwang@redhat.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
+	<ogerlitz@mellanox.com>, <oren@mellanox.co.il>,
+	<amirv@mellanox.co.il>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:56020 "HELO
+	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752076Ab1K0ITp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2011 03:19:45 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TGUgZGltYW5jaGUgMjcgbm92ZW1icmUgMjAxMSDDoCAxMzoyNyArMDgwMCwgQ29uZyBXYW5nIGEg
-w6ljcml0IDoKPiBTaWduZWQtb2ZmLWJ5OiBDb25nIFdhbmcgPGFtd2FuZ0ByZWRoYXQuY29tPgo+
-IC0tLQoKPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDAvZTEw
-MDBfbWFpbi5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDAvZTEwMDBfbWFpbi5j
-Cj4gaW5kZXggY2Y0ODBiNS4uYjE5NGJlYiAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9pbnRlbC9lMTAwMC9lMTAwMF9tYWluLmMKPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5l
-dC9pbnRlbC9lMTAwMC9lMTAwMF9tYWluLmMKPiBAQCAtMzg3OCwxMSArMzg3OCw5IEBAIHN0YXRp
-YyBib29sIGUxMDAwX2NsZWFuX2p1bWJvX3J4X2lycShzdHJ1Y3QgZTEwMDBfYWRhcHRlciAqYWRh
-cHRlciwKPiAgCQkJCWlmIChsZW5ndGggPD0gY29weWJyZWFrICYmCj4gIAkJCQkgICAgc2tiX3Rh
-aWxyb29tKHNrYikgPj0gbGVuZ3RoKSB7Cj4gIAkJCQkJdTggKnZhZGRyOwo+IC0JCQkJCXZhZGRy
-ID0ga21hcF9hdG9taWMoYnVmZmVyX2luZm8tPnBhZ2UsCj4gLQkJCQkJICAgICAgICAgICAgICAg
-ICAgICBLTV9TS0JfREFUQV9TT0ZUSVJRKTsKPiArCQkJCQl2YWRkciA9IGttYXBfYXRvbWljKGJ1
-ZmZlcl9pbmZvLT5wYWdlKTsKPiAgCQkJCQltZW1jcHkoc2tiX3RhaWxfcG9pbnRlcihza2IpLCB2
-YWRkciwgbGVuZ3RoKTsKPiAtCQkJCQlrdW5tYXBfYXRvbWljKHZhZGRyLAo+IC0JCQkJCSAgICAg
-ICAgICAgICAgS01fU0tCX0RBVEFfU09GVElSUSk7Cj4gKwkJCQkJa3VubWFwX2F0b21pYyh2YWRk
-cik7Cj4gIAkJCQkJLyogcmUtdXNlIHRoZSBwYWdlLCBzbyBkb24ndCBlcmFzZQo+ICAJCQkJCSAq
-IGJ1ZmZlcl9pbmZvLT5wYWdlICovCj4gIAkJCQkJc2tiX3B1dChza2IsIGxlbmd0aCk7Cj4gZGlm
-ZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYyBiL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYwo+IGluZGV4IGE4NTVkYjEu
-Ljg2MDNjODcgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBl
-L25ldGRldi5jCj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBlL25ldGRl
-di5jCj4gQEAgLTEyNzIsOSArMTI3Miw5IEBAIHN0YXRpYyBib29sIGUxMDAwX2NsZWFuX3J4X2ly
-cV9wcyhzdHJ1Y3QgZTEwMDBfYWRhcHRlciAqYWRhcHRlciwKPiAgCQkJICovCj4gIAkJCWRtYV9z
-eW5jX3NpbmdsZV9mb3JfY3B1KCZwZGV2LT5kZXYsIHBzX3BhZ2UtPmRtYSwKPiAgCQkJCQkJUEFH
-RV9TSVpFLCBETUFfRlJPTV9ERVZJQ0UpOwo+IC0JCQl2YWRkciA9IGttYXBfYXRvbWljKHBzX3Bh
-Z2UtPnBhZ2UsIEtNX1NLQl9EQVRBX1NPRlRJUlEpOwo+ICsJCQl2YWRkciA9IGttYXBfYXRvbWlj
-KHBzX3BhZ2UtPnBhZ2UpOwo+ICAJCQltZW1jcHkoc2tiX3RhaWxfcG9pbnRlcihza2IpLCB2YWRk
-ciwgbDEpOwo+IC0JCQlrdW5tYXBfYXRvbWljKHZhZGRyLCBLTV9TS0JfREFUQV9TT0ZUSVJRKTsK
-PiArCQkJa3VubWFwX2F0b21pYyh2YWRkcik7Cj4gIAkJCWRtYV9zeW5jX3NpbmdsZV9mb3JfZGV2
-aWNlKCZwZGV2LT5kZXYsIHBzX3BhZ2UtPmRtYSwKPiAgCQkJCQkJICAgUEFHRV9TSVpFLCBETUFf
-RlJPTV9ERVZJQ0UpOwo+ICAKPiBAQCAtMTQ2NSwxMiArMTQ2NSwxMCBAQCBzdGF0aWMgYm9vbCBl
-MTAwMF9jbGVhbl9qdW1ib19yeF9pcnEoc3RydWN0IGUxMDAwX2FkYXB0ZXIgKmFkYXB0ZXIsCj4g
-IAkJCQlpZiAobGVuZ3RoIDw9IGNvcHlicmVhayAmJgo+ICAJCQkJICAgIHNrYl90YWlscm9vbShz
-a2IpID49IGxlbmd0aCkgewo+ICAJCQkJCXU4ICp2YWRkcjsKPiAtCQkJCQl2YWRkciA9IGttYXBf
-YXRvbWljKGJ1ZmZlcl9pbmZvLT5wYWdlLAo+IC0JCQkJCSAgICAgICAgICAgICAgICAgICBLTV9T
-S0JfREFUQV9TT0ZUSVJRKTsKPiArCQkJCQl2YWRkciA9IGttYXBfYXRvbWljKGJ1ZmZlcl9pbmZv
-LT5wYWdlKTsKPiAgCQkJCQltZW1jcHkoc2tiX3RhaWxfcG9pbnRlcihza2IpLCB2YWRkciwKPiAg
-CQkJCQkgICAgICAgbGVuZ3RoKTsKPiAtCQkJCQlrdW5tYXBfYXRvbWljKHZhZGRyLAo+IC0JCQkJ
-CSAgICAgICAgICAgICAgS01fU0tCX0RBVEFfU09GVElSUSk7Cj4gKwkJCQkJa3VubWFwX2F0b21p
-Yyh2YWRkcik7Cj4gIAkJCQkJLyogcmUtdXNlIHRoZSBwYWdlLCBzbyBkb24ndCBlcmFzZQo+ICAJ
-CQkJCSAqIGJ1ZmZlcl9pbmZvLT5wYWdlICovCj4gIAkJCQkJc2tiX3B1dChza2IsIGxlbmd0aCk7
-CgpCdXQgd2h5IGFyZSB0aGVzZSBkcml2ZXJzIHVzaW5nIGttYXBfYXRvbWljKCkgaW4gZmlyc3Qg
-cGxhY2UsIHNpbmNlCnRoZWlyIGZyYWdtZW50cyBhcmUgYWxsb2NhdGVkIGluIHJlZ3VsYXIgem9u
-ZSAoR0ZQX0FUT01JQyBvcgpHRlBfS0VSTkVMKSA/CgoKCgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-CkFsbCB0aGUgZGF0YSBjb250aW51b3VzbHkgZ2VuZXJhdGVkIGluIHlvdXIgSVQgaW5mcmFzdHJ1
-Y3R1cmUgCmNvbnRhaW5zIGEgZGVmaW5pdGl2ZSByZWNvcmQgb2YgY3VzdG9tZXJzLCBhcHBsaWNh
-dGlvbiBwZXJmb3JtYW5jZSwgCnNlY3VyaXR5IHRocmVhdHMsIGZyYXVkdWxlbnQgYWN0aXZpdHks
-IGFuZCBtb3JlLiBTcGx1bmsgdGFrZXMgdGhpcyAKZGF0YSBhbmQgbWFrZXMgc2Vuc2Ugb2YgaXQu
-IElUIHNlbnNlLiBBbmQgY29tbW9uIHNlbnNlLgpodHRwOi8vcC5zZi5uZXQvc2Z1L3NwbHVuay1u
-b3ZkMmQKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KRTEw
-MDAtZGV2ZWwgbWFpbGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApo
-dHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApU
-byBsZWFybiBtb3JlIGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29t
-bXVuaXRpZXMuaW50ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
+Hello David,
+
+This is V2 ofa series of patches for mlx4_en driver.
+synchronized the different commits into a single series.
+
+The changes from initial commit:
+1. loobback support patch: control flags are not set on data path.
+2. Setting number of RSS rings patch was removed for rework following the review.
+
+Thanks,
+Yevgeny
+
+Or Gerlitz (3):
+      net/mlx4: move RSS related definitions to be global
+      net/mlx4: fix UDP RSS related settings
+      net/mlx4_en: fix sparse warning on a cast which truncates bits from constant value
+
+Yevgeny Petrilin (1):
+      net/mlx4_en: using non collapsed CQ on TX
+
+Oren Duer (1):
+      net/mlx4_en: fix WOL handlers were always looking at port2, capability bit
+
+Amir Vadai (2):
+      net/mlx4_en: adding loopback support
+      net/mlx4_en: bug fix for the case of vlan id 0 and UP 0
+
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c        |    7 --
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c   |   20 +++++
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |   19 +++++
+ drivers/net/ethernet/mellanox/mlx4/en_resources.c |    2
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c        |   16 ++--
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c        |   74 +++++++++++-----------
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |   13 ---
+ include/linux/mlx4/device.h                       |    3
+ include/linux/mlx4/qp.h                           |   28 ++++++++
+ 9 files changed, 120 insertions(+), 62 deletions(-)
