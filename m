@@ -1,7 +1,7 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [net-next 1/8] bnx2x: PFC changes
-Date: Sun, 27 Nov 2011 20:17:54 +0200
-Message-ID: <1322417881-17760-2-git-send-email-yanivr@broadcom.com>
+Subject: [net-next 2/8] bnx2x: ETS changes
+Date: Sun, 27 Nov 2011 20:17:55 +0200
+Message-ID: <1322417881-17760-3-git-send-email-yanivr@broadcom.com>
 References: <1322417881-17760-1-git-send-email-yanivr@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,438 +13,85 @@ To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms3.broadcom.com ([216.31.210.19]:3748 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755733Ab1K0QS4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Nov 2011 11:18:56 -0500
+	id S1755781Ab1K0QTA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Nov 2011 11:19:00 -0500
 In-Reply-To: <1322417881-17760-1-git-send-email-yanivr@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change BRB to work in per class guaranteed mode and handle cases for BW 0%.
+Fix a problem when new traffic class is created with 0% BW, the ETS is not conforming.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |  248 +++++++++++++++-------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h  |    7 +-
- 2 files changed, 179 insertions(+), 76 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   19 ++++++++++++++++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h |    2 +-
+ 2 files changed, 17 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 882f48f..8e6909a 100644
+index 8e6909a..c875efb 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -163,6 +163,11 @@
- #define EDC_MODE_LIMITING				0x0044
- #define EDC_MODE_PASSIVE_DAC			0x0055
- 
-+/* BRB default for class 0 E2 */
-+#define DEFAULT0_E2_BRB_MAC_PAUSE_XOFF_THR	170
-+#define DEFAULT0_E2_BRB_MAC_PAUSE_XON_THR		250
-+#define DEFAULT0_E2_BRB_MAC_FULL_XOFF_THR		10
-+#define DEFAULT0_E2_BRB_MAC_FULL_XON_THR		50
- 
- /* BRB thresholds for E2*/
- #define PFC_E2_BRB_MAC_PAUSE_XOFF_THR_PAUSE		170
-@@ -177,6 +182,12 @@
- #define PFC_E2_BRB_MAC_FULL_XON_THR_PAUSE			50
- #define PFC_E2_BRB_MAC_FULL_XON_THR_NON_PAUSE		250
- 
-+/* BRB default for class 0 E3A0 */
-+#define DEFAULT0_E3A0_BRB_MAC_PAUSE_XOFF_THR	290
-+#define DEFAULT0_E3A0_BRB_MAC_PAUSE_XON_THR	410
-+#define DEFAULT0_E3A0_BRB_MAC_FULL_XOFF_THR	10
-+#define DEFAULT0_E3A0_BRB_MAC_FULL_XON_THR	50
-+
- /* BRB thresholds for E3A0 */
- #define PFC_E3A0_BRB_MAC_PAUSE_XOFF_THR_PAUSE		290
- #define PFC_E3A0_BRB_MAC_PAUSE_XOFF_THR_NON_PAUSE		0
-@@ -190,6 +201,11 @@
- #define PFC_E3A0_BRB_MAC_FULL_XON_THR_PAUSE		50
- #define PFC_E3A0_BRB_MAC_FULL_XON_THR_NON_PAUSE		410
- 
-+/* BRB default for E3B0 */
-+#define DEFAULT0_E3B0_BRB_MAC_PAUSE_XOFF_THR	330
-+#define DEFAULT0_E3B0_BRB_MAC_PAUSE_XON_THR	490
-+#define DEFAULT0_E3B0_BRB_MAC_FULL_XOFF_THR	15
-+#define DEFAULT0_E3B0_BRB_MAC_FULL_XON_THR	55
- 
- /* BRB thresholds for E3B0 2 port mode*/
- #define PFC_E3B0_2P_BRB_MAC_PAUSE_XOFF_THR_PAUSE		1025
-@@ -251,6 +267,18 @@
- #define PFC_E3B0_4P_BRB_MAC_1_CLASS_T_GUART		80
- #define PFC_E3B0_4P_BRB_MAC_1_CLASS_T_GUART_HYST		120
- 
-+/* Pause defines*/
-+#define DEFAULT_E3B0_BRB_FULL_LB_XOFF_THR			330
-+#define DEFAULT_E3B0_BRB_FULL_LB_XON_THR			490
-+#define DEFAULT_E3B0_LB_GUART		40
-+
-+#define DEFAULT_E3B0_BRB_MAC_0_CLASS_T_GUART		40
-+#define DEFAULT_E3B0_BRB_MAC_0_CLASS_T_GUART_HYST	0
-+
-+#define DEFAULT_E3B0_BRB_MAC_1_CLASS_T_GUART		40
-+#define DEFAULT_E3B0_BRB_MAC_1_CLASS_T_GUART_HYST	0
-+
-+/* ETS defines*/
- #define DCBX_INVALID_COS					(0xFF)
- 
- #define ETS_BW_LIMIT_CREDIT_UPPER_BOUND		(0x5000)
-@@ -2009,6 +2037,8 @@ struct bnx2x_pfc_brb_threshold_val {
- };
- 
- struct bnx2x_pfc_brb_e3b0_val {
-+	u32 per_class_guaranty_mode;
-+	u32 lb_guarantied_hyst;
- 	u32 full_lb_xoff_th;
- 	u32 full_lb_xon_threshold;
- 	u32 lb_guarantied;
-@@ -2021,6 +2051,9 @@ struct bnx2x_pfc_brb_e3b0_val {
- struct bnx2x_pfc_brb_th_val {
- 	struct bnx2x_pfc_brb_threshold_val pauseable_th;
- 	struct bnx2x_pfc_brb_threshold_val non_pauseable_th;
-+	struct bnx2x_pfc_brb_threshold_val default_class0;
-+	struct bnx2x_pfc_brb_threshold_val default_class1;
-+
- };
- static int bnx2x_pfc_brb_get_config_params(
- 				struct link_params *params,
-@@ -2028,7 +2061,23 @@ static int bnx2x_pfc_brb_get_config_params(
+@@ -874,23 +874,36 @@ static int bnx2x_ets_e3b0_set_cos_bw(struct bnx2x *bp,
+ ******************************************************************************/
+ static int bnx2x_ets_e3b0_get_total_bw(
+ 	const struct link_params *params,
+-	const struct bnx2x_ets_params *ets_params,
++	struct bnx2x_ets_params *ets_params,
+ 	u16 *total_bw)
  {
  	struct bnx2x *bp = params->bp;
- 	DP(NETIF_MSG_LINK, "Setting PFC BRB configuration\n");
-+
-+	config_val->default_class1.pause_xoff = 0;
-+	config_val->default_class1.pause_xon = 0;
-+	config_val->default_class1.full_xoff = 0;
-+	config_val->default_class1.full_xon = 0;
-+
- 	if (CHIP_IS_E2(bp)) {
-+		/*  class0 defaults */
-+		config_val->default_class0.pause_xoff =
-+			DEFAULT0_E2_BRB_MAC_PAUSE_XOFF_THR;
-+		config_val->default_class0.pause_xon =
-+		    DEFAULT0_E2_BRB_MAC_PAUSE_XON_THR;
-+		config_val->default_class0.full_xoff =
-+		    DEFAULT0_E2_BRB_MAC_FULL_XOFF_THR;
-+		config_val->default_class0.full_xon =
-+		    DEFAULT0_E2_BRB_MAC_FULL_XON_THR;
-+		/*  pause able*/
- 		config_val->pauseable_th.pause_xoff =
- 		    PFC_E2_BRB_MAC_PAUSE_XOFF_THR_PAUSE;
- 		config_val->pauseable_th.pause_xon =
-@@ -2047,6 +2096,16 @@ static int bnx2x_pfc_brb_get_config_params(
- 		config_val->non_pauseable_th.full_xon =
- 		    PFC_E2_BRB_MAC_FULL_XON_THR_NON_PAUSE;
- 	} else if (CHIP_IS_E3A0(bp)) {
-+		/*  class0 defaults */
-+		config_val->default_class0.pause_xoff =
-+			DEFAULT0_E3A0_BRB_MAC_PAUSE_XOFF_THR;
-+		config_val->default_class0.pause_xon =
-+		    DEFAULT0_E3A0_BRB_MAC_PAUSE_XON_THR;
-+		config_val->default_class0.full_xoff =
-+		    DEFAULT0_E3A0_BRB_MAC_FULL_XOFF_THR;
-+		config_val->default_class0.full_xon =
-+		    DEFAULT0_E3A0_BRB_MAC_FULL_XON_THR;
-+		/*  pause able */
- 		config_val->pauseable_th.pause_xoff =
- 		    PFC_E3A0_BRB_MAC_PAUSE_XOFF_THR_PAUSE;
- 		config_val->pauseable_th.pause_xon =
-@@ -2065,29 +2124,39 @@ static int bnx2x_pfc_brb_get_config_params(
- 		config_val->non_pauseable_th.full_xon =
- 		    PFC_E3A0_BRB_MAC_FULL_XON_THR_NON_PAUSE;
- 	} else if (CHIP_IS_E3B0(bp)) {
-+		/*  class0 defaults */
-+		config_val->default_class0.pause_xoff =
-+			DEFAULT0_E3B0_BRB_MAC_PAUSE_XOFF_THR;
-+		config_val->default_class0.pause_xon =
-+		    DEFAULT0_E3B0_BRB_MAC_PAUSE_XON_THR;
-+		config_val->default_class0.full_xoff =
-+		    DEFAULT0_E3B0_BRB_MAC_FULL_XOFF_THR;
-+		config_val->default_class0.full_xon =
-+		    DEFAULT0_E3B0_BRB_MAC_FULL_XON_THR;
-+
- 		if (params->phy[INT_PHY].flags &
--		    FLAGS_4_PORT_MODE) {
-+			FLAGS_4_PORT_MODE) {
- 			config_val->pauseable_th.pause_xoff =
--			    PFC_E3B0_4P_BRB_MAC_PAUSE_XOFF_THR_PAUSE;
-+				PFC_E3B0_4P_BRB_MAC_PAUSE_XOFF_THR_PAUSE;
- 			config_val->pauseable_th.pause_xon =
--			    PFC_E3B0_4P_BRB_MAC_PAUSE_XON_THR_PAUSE;
-+				PFC_E3B0_4P_BRB_MAC_PAUSE_XON_THR_PAUSE;
- 			config_val->pauseable_th.full_xoff =
--			    PFC_E3B0_4P_BRB_MAC_FULL_XOFF_THR_PAUSE;
-+				PFC_E3B0_4P_BRB_MAC_FULL_XOFF_THR_PAUSE;
- 			config_val->pauseable_th.full_xon =
--			    PFC_E3B0_4P_BRB_MAC_FULL_XON_THR_PAUSE;
-+				PFC_E3B0_4P_BRB_MAC_FULL_XON_THR_PAUSE;
- 			/* non pause able*/
- 			config_val->non_pauseable_th.pause_xoff =
--			    PFC_E3B0_4P_BRB_MAC_PAUSE_XOFF_THR_NON_PAUSE;
-+			PFC_E3B0_4P_BRB_MAC_PAUSE_XOFF_THR_NON_PAUSE;
- 			config_val->non_pauseable_th.pause_xon =
--			    PFC_E3B0_4P_BRB_MAC_PAUSE_XON_THR_NON_PAUSE;
-+			PFC_E3B0_4P_BRB_MAC_PAUSE_XON_THR_NON_PAUSE;
- 			config_val->non_pauseable_th.full_xoff =
--			    PFC_E3B0_4P_BRB_MAC_FULL_XOFF_THR_NON_PAUSE;
-+			PFC_E3B0_4P_BRB_MAC_FULL_XOFF_THR_NON_PAUSE;
- 			config_val->non_pauseable_th.full_xon =
--			    PFC_E3B0_4P_BRB_MAC_FULL_XON_THR_NON_PAUSE;
--	    } else {
--		config_val->pauseable_th.pause_xoff =
--		    PFC_E3B0_2P_BRB_MAC_PAUSE_XOFF_THR_PAUSE;
--		config_val->pauseable_th.pause_xon =
-+			PFC_E3B0_4P_BRB_MAC_FULL_XON_THR_NON_PAUSE;
-+		} else {
-+			config_val->pauseable_th.pause_xoff =
-+				PFC_E3B0_2P_BRB_MAC_PAUSE_XOFF_THR_PAUSE;
-+			config_val->pauseable_th.pause_xon =
- 		    PFC_E3B0_2P_BRB_MAC_PAUSE_XON_THR_PAUSE;
- 		config_val->pauseable_th.full_xoff =
- 		    PFC_E3B0_2P_BRB_MAC_FULL_XOFF_THR_PAUSE;
-@@ -2109,59 +2178,83 @@ static int bnx2x_pfc_brb_get_config_params(
- 	return 0;
- }
+ 	u8 cos_idx = 0;
++	u8 is_bw_cos_exist = 0;
  
--
--static void bnx2x_pfc_brb_get_e3b0_config_params(struct link_params *params,
--						 struct bnx2x_pfc_brb_e3b0_val
--						 *e3b0_val,
--						 u32 cos0_pauseable,
--						 u32 cos1_pauseable)
-+static void bnx2x_pfc_brb_get_e3b0_config_params(
-+		struct link_params *params,
-+		struct bnx2x_pfc_brb_e3b0_val
-+		*e3b0_val,
-+		struct bnx2x_nig_brb_pfc_port_params *pfc_params,
-+		const u8 pfc_enabled)
- {
--	if (params->phy[INT_PHY].flags & FLAGS_4_PORT_MODE) {
-+	if (pfc_enabled && pfc_params) {
-+		e3b0_val->per_class_guaranty_mode = 1;
-+		e3b0_val->lb_guarantied_hyst = 80;
+ 	*total_bw = 0 ;
 +
-+		if (params->phy[INT_PHY].flags &
-+		    FLAGS_4_PORT_MODE) {
-+			e3b0_val->full_lb_xoff_th =
-+				PFC_E3B0_4P_BRB_FULL_LB_XOFF_THR;
-+			e3b0_val->full_lb_xon_threshold =
-+				PFC_E3B0_4P_BRB_FULL_LB_XON_THR;
-+			e3b0_val->lb_guarantied =
-+				PFC_E3B0_4P_LB_GUART;
-+			e3b0_val->mac_0_class_t_guarantied =
-+				PFC_E3B0_4P_BRB_MAC_0_CLASS_T_GUART;
-+			e3b0_val->mac_0_class_t_guarantied_hyst =
-+				PFC_E3B0_4P_BRB_MAC_0_CLASS_T_GUART_HYST;
-+			e3b0_val->mac_1_class_t_guarantied =
-+				PFC_E3B0_4P_BRB_MAC_1_CLASS_T_GUART;
-+			e3b0_val->mac_1_class_t_guarantied_hyst =
-+				PFC_E3B0_4P_BRB_MAC_1_CLASS_T_GUART_HYST;
-+		} else {
-+			e3b0_val->full_lb_xoff_th =
-+				PFC_E3B0_2P_BRB_FULL_LB_XOFF_THR;
-+			e3b0_val->full_lb_xon_threshold =
-+				PFC_E3B0_2P_BRB_FULL_LB_XON_THR;
-+			e3b0_val->mac_0_class_t_guarantied_hyst =
-+				PFC_E3B0_2P_BRB_MAC_0_CLASS_T_GUART_HYST;
-+			e3b0_val->mac_1_class_t_guarantied =
-+				PFC_E3B0_2P_BRB_MAC_1_CLASS_T_GUART;
-+			e3b0_val->mac_1_class_t_guarantied_hyst =
-+				PFC_E3B0_2P_BRB_MAC_1_CLASS_T_GUART_HYST;
-+
-+			if (pfc_params->cos0_pauseable !=
-+				pfc_params->cos1_pauseable) {
-+				/* nonpauseable= Lossy + pauseable = Lossless*/
-+				e3b0_val->lb_guarantied =
-+					PFC_E3B0_2P_MIX_PAUSE_LB_GUART;
-+				e3b0_val->mac_0_class_t_guarantied =
-+			       PFC_E3B0_2P_MIX_PAUSE_MAC_0_CLASS_T_GUART;
-+			} else if (pfc_params->cos0_pauseable) {
-+				/* Lossless +Lossless*/
-+				e3b0_val->lb_guarantied =
-+					PFC_E3B0_2P_PAUSE_LB_GUART;
-+				e3b0_val->mac_0_class_t_guarantied =
-+				   PFC_E3B0_2P_PAUSE_MAC_0_CLASS_T_GUART;
-+			} else {
-+				/* Lossy +Lossy*/
-+				e3b0_val->lb_guarantied =
-+					PFC_E3B0_2P_NON_PAUSE_LB_GUART;
-+				e3b0_val->mac_0_class_t_guarantied =
-+			       PFC_E3B0_2P_NON_PAUSE_MAC_0_CLASS_T_GUART;
+ 	/* Calculate total BW requested */
+ 	for (cos_idx = 0; cos_idx < ets_params->num_of_cos; cos_idx++) {
+ 		if (bnx2x_cos_state_bw == ets_params->cos[cos_idx].state) {
++			is_bw_cos_exist = 1;
++			if (0 == ets_params->cos[cos_idx].params.bw_params.bw) {
++				DP(NETIF_MSG_LINK, "bnx2x_ets_E3B0_config BW"
++						   "was set to 0\n");
++				/*
++				 * This is to prevent a state when ramrods
++				 * can't be sent
++				*/
++				ets_params->cos[cos_idx].params.bw_params.bw
++					 = 1;
 +			}
-+		}
-+	} else {
-+		e3b0_val->per_class_guaranty_mode = 0;
-+		e3b0_val->lb_guarantied_hyst = 0;
- 		e3b0_val->full_lb_xoff_th =
--		    PFC_E3B0_4P_BRB_FULL_LB_XOFF_THR;
-+			DEFAULT_E3B0_BRB_FULL_LB_XOFF_THR;
- 		e3b0_val->full_lb_xon_threshold =
--		    PFC_E3B0_4P_BRB_FULL_LB_XON_THR;
-+			DEFAULT_E3B0_BRB_FULL_LB_XON_THR;
- 		e3b0_val->lb_guarantied =
--		    PFC_E3B0_4P_LB_GUART;
-+			DEFAULT_E3B0_LB_GUART;
- 		e3b0_val->mac_0_class_t_guarantied =
--		    PFC_E3B0_4P_BRB_MAC_0_CLASS_T_GUART;
--		e3b0_val->mac_0_class_t_guarantied_hyst =
--		    PFC_E3B0_4P_BRB_MAC_0_CLASS_T_GUART_HYST;
--		e3b0_val->mac_1_class_t_guarantied =
--		    PFC_E3B0_4P_BRB_MAC_1_CLASS_T_GUART;
--		e3b0_val->mac_1_class_t_guarantied_hyst =
--		    PFC_E3B0_4P_BRB_MAC_1_CLASS_T_GUART_HYST;
--	} else {
--		e3b0_val->full_lb_xoff_th =
--		    PFC_E3B0_2P_BRB_FULL_LB_XOFF_THR;
--		e3b0_val->full_lb_xon_threshold =
--		    PFC_E3B0_2P_BRB_FULL_LB_XON_THR;
-+			DEFAULT_E3B0_BRB_MAC_0_CLASS_T_GUART;
- 		e3b0_val->mac_0_class_t_guarantied_hyst =
--		    PFC_E3B0_2P_BRB_MAC_0_CLASS_T_GUART_HYST;
-+			DEFAULT_E3B0_BRB_MAC_0_CLASS_T_GUART_HYST;
- 		e3b0_val->mac_1_class_t_guarantied =
--		    PFC_E3B0_2P_BRB_MAC_1_CLASS_T_GUART;
-+			DEFAULT_E3B0_BRB_MAC_1_CLASS_T_GUART;
- 		e3b0_val->mac_1_class_t_guarantied_hyst =
--		    PFC_E3B0_2P_BRB_MAC_1_CLASS_T_GUART_HYST;
--
--		if (cos0_pauseable != cos1_pauseable) {
--			/* nonpauseable= Lossy + pauseable = Lossless*/
--			e3b0_val->lb_guarantied =
--			    PFC_E3B0_2P_MIX_PAUSE_LB_GUART;
--			e3b0_val->mac_0_class_t_guarantied =
--			    PFC_E3B0_2P_MIX_PAUSE_MAC_0_CLASS_T_GUART;
--		} else if (cos0_pauseable) {
--			/* Lossless +Lossless*/
--			e3b0_val->lb_guarantied =
--			    PFC_E3B0_2P_PAUSE_LB_GUART;
--			e3b0_val->mac_0_class_t_guarantied =
--			    PFC_E3B0_2P_PAUSE_MAC_0_CLASS_T_GUART;
--		} else {
--			/* Lossy +Lossy*/
--			e3b0_val->lb_guarantied =
--			    PFC_E3B0_2P_NON_PAUSE_LB_GUART;
--			e3b0_val->mac_0_class_t_guarantied =
--			    PFC_E3B0_2P_NON_PAUSE_MAC_0_CLASS_T_GUART;
--		}
-+			DEFAULT_E3B0_BRB_MAC_1_CLASS_T_GUART_HYST;
+ 			*total_bw +=
+ 				ets_params->cos[cos_idx].params.bw_params.bw;
+ 		}
  	}
- }
- static int bnx2x_update_pfc_brb(struct link_params *params,
-@@ -2174,8 +2267,9 @@ static int bnx2x_update_pfc_brb(struct link_params *params,
- 	struct bnx2x_pfc_brb_threshold_val *reg_th_config =
- 	    &config_val.pauseable_th;
- 	struct bnx2x_pfc_brb_e3b0_val e3b0_val = {0};
--	int set_pfc = params->feature_config_flags &
-+	const int set_pfc = params->feature_config_flags &
- 		FEATURE_CONFIG_PFC_ENABLED;
-+	const u8 pfc_enabled = (set_pfc && pfc_params);
+ 
+ 	/* Check total BW is valid */
+-	if ((100 != *total_bw) || (0 == *total_bw)) {
++	if ((1 == is_bw_cos_exist) && (100 != *total_bw)) {
+ 		if (0 == *total_bw) {
+ 			DP(NETIF_MSG_LINK,
+ 			   "bnx2x_ets_E3B0_config toatl BW shouldn't be 0\n");
+@@ -1100,7 +1113,7 @@ static int bnx2x_ets_e3b0_sp_set_pri_cli_reg(const struct link_params *params,
+ ******************************************************************************/
+ int bnx2x_ets_e3b0_config(const struct link_params *params,
+ 			 const struct link_vars *vars,
+-			 const struct bnx2x_ets_params *ets_params)
++			 struct bnx2x_ets_params *ets_params)
+ {
+ 	struct bnx2x *bp = params->bp;
  	int bnx2x_status = 0;
- 	u8 port = params->port;
- 
-@@ -2185,10 +2279,14 @@ static int bnx2x_update_pfc_brb(struct link_params *params,
- 	if (0 != bnx2x_status)
- 		return bnx2x_status;
- 
--	if (set_pfc && pfc_params)
-+	if (pfc_enabled) {
- 		/* First COS */
--		if (!pfc_params->cos0_pauseable)
-+		if (pfc_params->cos0_pauseable)
-+			reg_th_config = &config_val.pauseable_th;
-+		else
- 			reg_th_config = &config_val.non_pauseable_th;
-+	} else
-+		reg_th_config = &config_val.default_class0;
- 	/*
- 	 * The number of free blocks below which the pause signal to class 0
- 	 * of MAC #n is asserted. n=0,1
-@@ -2215,12 +2313,14 @@ static int bnx2x_update_pfc_brb(struct link_params *params,
- 	REG_WR(bp, (port) ? BRB1_REG_FULL_0_XON_THRESHOLD_1 :
- 	       BRB1_REG_FULL_0_XON_THRESHOLD_0 , reg_th_config->full_xon);
- 
--	if (set_pfc && pfc_params) {
-+	if (pfc_enabled) {
- 		/* Second COS */
- 		if (pfc_params->cos1_pauseable)
- 			reg_th_config = &config_val.pauseable_th;
- 		else
- 			reg_th_config = &config_val.non_pauseable_th;
-+	} else
-+		reg_th_config = &config_val.default_class1;
- 		/*
- 		 * The number of free blocks below which the pause signal to
- 		 * class 1 of MAC #n is asserted. n=0,1
-@@ -2250,32 +2350,34 @@ static int bnx2x_update_pfc_brb(struct link_params *params,
- 		       BRB1_REG_FULL_1_XON_THRESHOLD_0,
- 		       reg_th_config->full_xon);
- 
-+	if (CHIP_IS_E3B0(bp)) {
-+		bnx2x_pfc_brb_get_e3b0_config_params(
-+			params,
-+			&e3b0_val,
-+			pfc_params,
-+			pfc_enabled);
- 
--		if (CHIP_IS_E3B0(bp)) {
- 			/*Should be done by init tool */
- 			/*
- 			* BRB_empty_for_dup = BRB1_REG_BRB_EMPTY_THRESHOLD
- 			* reset value
- 			* 944
- 			*/
-+		REG_WR(bp, BRB1_REG_PER_CLASS_GUARANTY_MODE,
-+			   e3b0_val.per_class_guaranty_mode);
- 
- 			/**
- 			 * The hysteresis on the guarantied buffer space for the Lb port
- 			 * before signaling XON.
- 			 **/
--			REG_WR(bp, BRB1_REG_LB_GUARANTIED_HYST, 80);
--
--			bnx2x_pfc_brb_get_e3b0_config_params(
--			    params,
--			    &e3b0_val,
--			    pfc_params->cos0_pauseable,
--			    pfc_params->cos1_pauseable);
-+		REG_WR(bp, BRB1_REG_LB_GUARANTIED_HYST,
-+			   e3b0_val.lb_guarantied_hyst);
- 			/**
- 			 * The number of free blocks below which the full signal to the
- 			 * LB port is asserted.
- 			*/
--			REG_WR(bp, BRB1_REG_FULL_LB_XOFF_THRESHOLD,
--				   e3b0_val.full_lb_xoff_th);
-+		REG_WR(bp, BRB1_REG_FULL_LB_XOFF_THRESHOLD,
-+			e3b0_val.full_lb_xoff_th);
- 			/**
- 			 * The number of free blocks above which the full signal to the
- 			 * LB port is de-asserted.
-@@ -2331,8 +2433,6 @@ static int bnx2x_update_pfc_brb(struct link_params *params,
- 
- 	    }
- 
--	}
--
- 	return bnx2x_status;
- }
- 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-index e58073e..92584d3 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-@@ -160,8 +160,11 @@
- #define BRB1_REG_PAUSE_HIGH_THRESHOLD_1 			 0x6007c
- /* [RW 10] Write client 0: Assert pause threshold. */
- #define BRB1_REG_PAUSE_LOW_THRESHOLD_0				 0x60068
--#define BRB1_REG_PAUSE_LOW_THRESHOLD_1				 0x6006c
--/* [R 24] The number of full blocks occupied by port. */
-+/* [RW 1] Indicates if to use per-class guaranty mode (new mode) or per-MAC
-+ * guaranty mode (backwards-compatible mode). 0=per-MAC guaranty mode (BC
-+ * mode). 1=per-class guaranty mode (new mode). */
-+#define BRB1_REG_PER_CLASS_GUARANTY_MODE			 0x60268
-+/* [R 24] The number of full blocks occpied by port. */
- #define BRB1_REG_PORT_NUM_OCC_BLOCKS_0				 0x60094
- /* [RW 1] Reset the design by software. */
- #define BRB1_REG_SOFT_RESET					 0x600dc
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
+index 2a46e63..e02a68a 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
+@@ -479,7 +479,7 @@ int bnx2x_ets_strict(const struct link_params *params, const u8 strict_cos);
+ /*  Configure the COS to ETS according to BW and SP settings.*/
+ int bnx2x_ets_e3b0_config(const struct link_params *params,
+ 			 const struct link_vars *vars,
+-			 const struct bnx2x_ets_params *ets_params);
++			 struct bnx2x_ets_params *ets_params);
+ /* Read pfc statistic*/
+ void bnx2x_pfc_statistic(struct link_params *params, struct link_vars *vars,
+ 						 u32 pfc_frames_sent[2],
 -- 
 1.7.7.1
