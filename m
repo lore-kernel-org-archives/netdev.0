@@ -1,54 +1,24 @@
-From: "Greg Scott" <GregScott@Infrasupport.com>
-Subject: ebtables on a stick
-Date: Sun, 27 Nov 2011 09:10:08 -0600
-Message-ID: <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com>
-References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com>
+From: "Yaniv Rosner" <yanivr@broadcom.com>
+Subject: [net-next 0/8] bnx2x: Link changes
+Date: Sun, 27 Nov 2011 20:17:53 +0200
+Message-ID: <1322417881-17760-1-git-send-email-yanivr@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"Yaniv Rosner" <yanivr@broadcom.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.infrasupportetc.com ([216.160.2.132]:55107 "EHLO
-	mail.infrasupport.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755421Ab1K0PKK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2011 10:10:10 -0500
-Content-class: urn:content-classes:message
+Received: from mms2.broadcom.com ([216.31.210.18]:3348 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755602Ab1K0QSv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Nov 2011 11:18:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SSBoYXZlIGEgc2l0dWF0aW9uIHRoYXQgbmVlZHMgdG8gcm91dGUgbW9zdGx5IGFuZCBicmlkZ2Ug
-b25seSBhIGxpdHRsZSBiaXQuwqAgDQoNCkkgaGF2ZSBhIHByaXZhdGUgaW50ZXJuYWwgTEFOLCAx
-OTIuMTY4LjEwLm5ubi7CoCBCdXQgb25lIGhvc3QgaW4gdGhlIGludGVybmFsIHNpZGUgbmVlZHMg
-YSByZWFsIHB1YmxpYyBJUCBBZGRyZXNzLCBjYWxsIGl0IDEuMi4xMTUuMTU3LsKgIEV2ZXJ5dGhp
-bmcgZXhjZXB0IHRoYXQgcHVibGljIElQIGhvc3QgbmVlZHMgdG8gcm91dGUuICBUaGUgcHVibGlj
-IGhvc3QgbmVlZHMgdG8gYnJpZGdlIHNvIGl0IGNhbiBpbnRlcmFjdCB3aXRoIHRoZSB3b3JsZC4g
-IEJ1dCBpdCBhbHNvIG5lZWRzIHRvIGludGVyYWN0IHdpdGggdGhlIGludGVybmFsIExBTi4gIA0K
-DQpJIGhhdmUgYSBMaW51eCBicm91dGVyIHNldCB1cCB3aXRoIGV0aDAgZmFjaW5nIHRoZSBJbnRl
-cm5ldCwgZXRoMSBmYWNpbmcgdGhlIExBTiBhcyBmb2xsb3dzOg0KDQppZmNvbmZpZyBldGgwIDEu
-Mi4xMTUuMTQ2IG1hc2sgMjU1LjI1NS4yNTUuMjQwDQppZmNvbmZpZyBldGgxIDE5Mi4xNjguMTAu
-MSBtYXNrIDI1NS4yNTUuMjU1LjANCmJyY3RsIGFkZGJyIGJyMA0KYnJjdGwgYWRkaWYgYnIwIGV0
-aDANCmJyY3RsIGFkZGlmIGJyMCBldGgxDQplYnRhYmxlcyAtdCBicm91dGUgLUEgQlJPVVRJTkcg
-LXAgSVB2NCAtLWlwLXNvdXJjZSAxLjIuMTE1LjE1NyAtaiBBQ0NFUFQNCmVidGFibGVzIC10IGJy
-b3V0ZSAtQSBCUk9VVElORyAtcCBJUHY0IC0taXAtZGVzdGluYXRpb24gMS4yLjExNS4xNTcgLWog
-QUNDRVBUDQplYnRhYmxlcyAtdCBicm91dGUgLUEgQlJPVVRJTkcgLXAgYXJwIC0tYXJwLWlwLXNy
-YyAxLjIuMTE1LjE1NyAtaiBBQ0NFUFQNCmVidGFibGVzIC10IGJyb3V0ZSAtQSBCUk9VVElORyAt
-cCBhcnAgLS1hcnAtaXAtZHN0IDEuMi4xMTUuMTU3IC1qIEFDQ0VQVA0KZWJ0YWJsZXMgLXQgYnJv
-dXRlIC1BIEJST1VUSU5HIC1qIHJlZGlyZWN0IC0tcmVkaXJlY3QtdGFyZ2V0IERST1ANCg0KDQpU
-aGlzIG1vc3RseSB3b3JrcywgZXhjZXB0IEkgYW0gaGF2aW5nIHRyb3VibGUgY29tbXVuaWNhdGlu
-ZyB3aXRoIGhvc3RzIGluIHRoZSBwcml2YXRlIExBTi4gwqBJIGNhbiBjb21tdW5pY2F0ZSBhbnl3
-aGVyZSBlbHNlIG9uIHRoZSBJbnRlcm5ldCwganVzdCBub3QgaW4gdGhlIHByaXZhdGUgTEFOLsKg
-IMKgQWZ0ZXIgc3R1ZHlpbmcgZWJ0YWJsZXMgZXhhbXBsZXMgYW5kIHRvbnMgb2YgdHJpYWwgYW5k
-IGVycm9yLCBJIHN0aWxsIGRvbuKAmXQgZ2V0IGl0LsKgIA0KDQpXaGVuIG15IHB1YmxpYyBJUCBo
-b3N0IHBpbmdzIHRoZSBpbnRlcm5hbCBMQU4sIHRoZSBpbnRlcm5hbCBMQU4gaG9zdCByZXBsaWVz
-LCBidXQgdGhlIHJlcGxpZXMgbmV2ZXIgZ2V0IHBhc3QgdGhlIGJyb3V0ZXIuwqAgV2F0Y2hpbmcg
-dGNwZHVtcCBmcm9tIHRoZSBmaXJld2FsbCwgSSBjYW4gc2VlIHRoZSBlY2hvIHJlcXVlc3QgY29t
-ZSBpbiBhbmQgZ28gb3V0IG9uIGJvdGggYnIwIGFuZCBldGgxIGFuZMKgSSBzZWUgdGhlIGVjaG8g
-cmVwbHkgY29tZSBiYWNrIG9uIGV0aDEuwqAgQnV0IHRoZW4gdGhlIHJlcGx5IGRpZXMgYW5kIEkg
-bmV2ZXIgc2VuZCBpdCBiYWNrIG91dCBldGgxIG92ZXIgdGhlIHdpcmUuIMKgwqBBbmQgd2hlbiBh
-IHByaXZhdGUgaG9zdCBwaW5ncyB0aGUgcHVibGljIGhvc3QsIHRoZSBlY2hvIHJlcXVlc3QgZGll
-cyBhdCB0aGUgYnJvdXRlci7CoMKgU28gcHVibGljIC0tPiBwcml2YXRlIHdvcmtzLCBidXQgcHJp
-dmF0ZSAtLT4gcHVibGljIGluY2x1ZGluZyBJQ01QIGVjaG8gcmVwbGllcyBkaWUgYXQgdGhlIGJy
-b3V0ZXIuwqAgDQoNCkkndmUgdHJpZWQgdmFyaW91cyBzb2x1dGlvbnMgc3VjaCBhcyAiaXAgcm91
-dGUgYWRkIDEuMi4xMTUuMTU3LzMyIHZpYSBicjAiIHdpdGhvdXQgc3VjY2Vzcy4gIFdoYXQgYW0g
-SSBtaXNzaW5nPw0KDQpUaGFua3MNCg0KLSBHcmVnIFNjb3R0DQo=
+Hi Dave,
+The following patch series describe some link changes.
+Please consider applying it to net-next.
+
+Thanks,
+Yaniv
