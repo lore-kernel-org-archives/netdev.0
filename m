@@ -1,27 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] isdn/gigaset: report ISDN4Linux interface only once
-Date: Sun, 27 Nov 2011 17:08:43 -0500 (EST)
-Message-ID: <20111127.170843.1218883428304355076.davem@davemloft.net>
-References: <20111127-patch-gigaset-01.tilman@imap.cc>
+Subject: Re: [PATCH] net/irda: convert drivers/net/irda/* to use
+ module_platform_driver()
+Date: Sun, 27 Nov 2011 17:15:05 -0500 (EST)
+Message-ID: <20111127.171505.133514253141034705.davem@davemloft.net>
+References: <1322402885.2746.1.camel@phoenix>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, hjlipp@web.de, keil@b1-systems.de,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: tilman@imap.cc
+Cc: linux-kernel@vger.kernel.org, ppopov@mvista.com,
+	graf.yang@analog.com, kuninori.morimoto.gx@renesas.com,
+	samuel@sortiz.org, netdev@vger.kernel.org
+To: axel.lin@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111127-patch-gigaset-01.tilman@imap.cc>
+In-Reply-To: <1322402885.2746.1.camel@phoenix>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tilman Schmidt <tilman@imap.cc>
-Date: Sun, 27 Nov 2011 18:39:22 +0100
+From: Axel Lin <axel.lin@gmail.com>
+Date: Sun, 27 Nov 2011 22:08:05 +0800
 
-> Move the "ISDN4Linux interface" message from device registration,
-> where it is emitted for each device, to driver registration, where
-> it is emitted only once, for consistency with the CAPI variant.
+> This patch converts the drivers in drivers/net/irda/* to use the
+> module_platform_driver() macro which makes the code smaller and a bit
+> simpler.
 > 
-> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+> Cc: Pete Popov <ppopov@mvista.com>
+> Cc: Graf Yang <graf.yang@analog.com>
+> Cc: Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>
+> Signed-off-by: Axel Lin <axel.lin@gmail.com>
 
-Applied to net-next, thanks.
+This doesn't apply cleanly to the net-next tree, please respin.
