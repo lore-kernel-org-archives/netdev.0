@@ -1,51 +1,85 @@
-From: Justin Pettit <jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next 4/4] net: Add Open vSwitch kernel
-	components.
-Date: Sat, 26 Nov 2011 23:17:50 -0800
-Message-ID: <198A6700-6BB3-4639-A2AC-C306DFB24CE0@nicira.com>
-References: <1321657938-21761-1-git-send-email-jesse@nicira.com>
-	<1321657938-21761-5-git-send-email-jesse@nicira.com>
-	<1321878007.2291.12.camel@mojatatu>
-	<CAEP_g=8puZh8hihoyoHTc4f6cBu4jiDJQ6tqk6suQxR=dchyjA@mail.gmail.com>
-	<1322012755.2039.36.camel@mojatatu>
-	<E521938A-E5E5-48CE-B784-6BF38ED274AE@nicira.com>
-	<1322141102.1949.198.camel@mojatatu>
-Mime-Version: 1.0 (Apple Message framework v1251.1)
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1322141102.1949.198.camel@mojatatu>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 21/62] net: remove the second argument of
+ k[un]map_atomic()
+Date: Sun, 27 Nov 2011 09:07:28 +0100
+Message-ID: <1322381248.2826.1.camel@edumazet-laptop>
+References: <1322371662-26166-1-git-send-email-amwang@redhat.com>
+	<1322371662-26166-22-git-send-email-amwang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jiri Pirko <jpirko@redhat.com>, Ian Campbell <ian.campbell@citrix.com>,
+	"David S. Miller" <davem@davemloft.net>, e1000-devel@lists.sourceforge.net,
+	Dean Nelson <dnelson@redhat.com>, Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org,
+	John Ronciak <john.ronciak@intel.com>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, Peter
+To: Cong Wang <amwang@redhat.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1322371662-26166-22-git-send-email-amwang@redhat.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Nov 24, 2011, at 5:25 AM, jamal wrote:
-
-> The most basic IMO is to use netlink if you are doing
-> it from a programmatic interface. You seem to be doing that
-> already for other items (eg HTB) in the setup. There are
-> a few libraries out there you could use but i realize
-> that they may not match your license requirements.
-> Maybe you could isolate your netlink code and make it 
-> standalone based on the license you use and people who 
-> need that could use it.
-
-You're right--calling tc directly through system() is kind of ugly.  That code was written a *long* time ago when we wanted a quick QoS story.  As you mentioned, we use netlink to configure traffic shaping, so we have all the pieces at this point.  I just think no one ever bothered to clean up that little wart in userspace.  I'll put that on my to-do list.  Obviously, this doesn't affect the kernel portions.  Thanks for bringing it to our attention.
-
-> The other thing, is you match every flow on the specific
-> virtual port - this may be design intent but it appears
-> very inflexible.
-
-We encourage users to use shaping, since it generally provides better results (and we do expose per-flow granularity there).  As a result, we haven't seen a need to improve support for policing.
-
---Justin
+TGUgZGltYW5jaGUgMjcgbm92ZW1icmUgMjAxMSDDoCAxMzoyNyArMDgwMCwgQ29uZyBXYW5nIGEg
+w6ljcml0IDoKPiBTaWduZWQtb2ZmLWJ5OiBDb25nIFdhbmcgPGFtd2FuZ0ByZWRoYXQuY29tPgo+
+IC0tLQoKPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDAvZTEw
+MDBfbWFpbi5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDAvZTEwMDBfbWFpbi5j
+Cj4gaW5kZXggY2Y0ODBiNS4uYjE5NGJlYiAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9pbnRlbC9lMTAwMC9lMTAwMF9tYWluLmMKPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5l
+dC9pbnRlbC9lMTAwMC9lMTAwMF9tYWluLmMKPiBAQCAtMzg3OCwxMSArMzg3OCw5IEBAIHN0YXRp
+YyBib29sIGUxMDAwX2NsZWFuX2p1bWJvX3J4X2lycShzdHJ1Y3QgZTEwMDBfYWRhcHRlciAqYWRh
+cHRlciwKPiAgCQkJCWlmIChsZW5ndGggPD0gY29weWJyZWFrICYmCj4gIAkJCQkgICAgc2tiX3Rh
+aWxyb29tKHNrYikgPj0gbGVuZ3RoKSB7Cj4gIAkJCQkJdTggKnZhZGRyOwo+IC0JCQkJCXZhZGRy
+ID0ga21hcF9hdG9taWMoYnVmZmVyX2luZm8tPnBhZ2UsCj4gLQkJCQkJICAgICAgICAgICAgICAg
+ICAgICBLTV9TS0JfREFUQV9TT0ZUSVJRKTsKPiArCQkJCQl2YWRkciA9IGttYXBfYXRvbWljKGJ1
+ZmZlcl9pbmZvLT5wYWdlKTsKPiAgCQkJCQltZW1jcHkoc2tiX3RhaWxfcG9pbnRlcihza2IpLCB2
+YWRkciwgbGVuZ3RoKTsKPiAtCQkJCQlrdW5tYXBfYXRvbWljKHZhZGRyLAo+IC0JCQkJCSAgICAg
+ICAgICAgICAgS01fU0tCX0RBVEFfU09GVElSUSk7Cj4gKwkJCQkJa3VubWFwX2F0b21pYyh2YWRk
+cik7Cj4gIAkJCQkJLyogcmUtdXNlIHRoZSBwYWdlLCBzbyBkb24ndCBlcmFzZQo+ICAJCQkJCSAq
+IGJ1ZmZlcl9pbmZvLT5wYWdlICovCj4gIAkJCQkJc2tiX3B1dChza2IsIGxlbmd0aCk7Cj4gZGlm
+ZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYyBiL2Ry
+aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYwo+IGluZGV4IGE4NTVkYjEu
+Ljg2MDNjODcgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBl
+L25ldGRldi5jCj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBlL25ldGRl
+di5jCj4gQEAgLTEyNzIsOSArMTI3Miw5IEBAIHN0YXRpYyBib29sIGUxMDAwX2NsZWFuX3J4X2ly
+cV9wcyhzdHJ1Y3QgZTEwMDBfYWRhcHRlciAqYWRhcHRlciwKPiAgCQkJICovCj4gIAkJCWRtYV9z
+eW5jX3NpbmdsZV9mb3JfY3B1KCZwZGV2LT5kZXYsIHBzX3BhZ2UtPmRtYSwKPiAgCQkJCQkJUEFH
+RV9TSVpFLCBETUFfRlJPTV9ERVZJQ0UpOwo+IC0JCQl2YWRkciA9IGttYXBfYXRvbWljKHBzX3Bh
+Z2UtPnBhZ2UsIEtNX1NLQl9EQVRBX1NPRlRJUlEpOwo+ICsJCQl2YWRkciA9IGttYXBfYXRvbWlj
+KHBzX3BhZ2UtPnBhZ2UpOwo+ICAJCQltZW1jcHkoc2tiX3RhaWxfcG9pbnRlcihza2IpLCB2YWRk
+ciwgbDEpOwo+IC0JCQlrdW5tYXBfYXRvbWljKHZhZGRyLCBLTV9TS0JfREFUQV9TT0ZUSVJRKTsK
+PiArCQkJa3VubWFwX2F0b21pYyh2YWRkcik7Cj4gIAkJCWRtYV9zeW5jX3NpbmdsZV9mb3JfZGV2
+aWNlKCZwZGV2LT5kZXYsIHBzX3BhZ2UtPmRtYSwKPiAgCQkJCQkJICAgUEFHRV9TSVpFLCBETUFf
+RlJPTV9ERVZJQ0UpOwo+ICAKPiBAQCAtMTQ2NSwxMiArMTQ2NSwxMCBAQCBzdGF0aWMgYm9vbCBl
+MTAwMF9jbGVhbl9qdW1ib19yeF9pcnEoc3RydWN0IGUxMDAwX2FkYXB0ZXIgKmFkYXB0ZXIsCj4g
+IAkJCQlpZiAobGVuZ3RoIDw9IGNvcHlicmVhayAmJgo+ICAJCQkJICAgIHNrYl90YWlscm9vbShz
+a2IpID49IGxlbmd0aCkgewo+ICAJCQkJCXU4ICp2YWRkcjsKPiAtCQkJCQl2YWRkciA9IGttYXBf
+YXRvbWljKGJ1ZmZlcl9pbmZvLT5wYWdlLAo+IC0JCQkJCSAgICAgICAgICAgICAgICAgICBLTV9T
+S0JfREFUQV9TT0ZUSVJRKTsKPiArCQkJCQl2YWRkciA9IGttYXBfYXRvbWljKGJ1ZmZlcl9pbmZv
+LT5wYWdlKTsKPiAgCQkJCQltZW1jcHkoc2tiX3RhaWxfcG9pbnRlcihza2IpLCB2YWRkciwKPiAg
+CQkJCQkgICAgICAgbGVuZ3RoKTsKPiAtCQkJCQlrdW5tYXBfYXRvbWljKHZhZGRyLAo+IC0JCQkJ
+CSAgICAgICAgICAgICAgS01fU0tCX0RBVEFfU09GVElSUSk7Cj4gKwkJCQkJa3VubWFwX2F0b21p
+Yyh2YWRkcik7Cj4gIAkJCQkJLyogcmUtdXNlIHRoZSBwYWdlLCBzbyBkb24ndCBlcmFzZQo+ICAJ
+CQkJCSAqIGJ1ZmZlcl9pbmZvLT5wYWdlICovCj4gIAkJCQkJc2tiX3B1dChza2IsIGxlbmd0aCk7
+CgpCdXQgd2h5IGFyZSB0aGVzZSBkcml2ZXJzIHVzaW5nIGttYXBfYXRvbWljKCkgaW4gZmlyc3Qg
+cGxhY2UsIHNpbmNlCnRoZWlyIGZyYWdtZW50cyBhcmUgYWxsb2NhdGVkIGluIHJlZ3VsYXIgem9u
+ZSAoR0ZQX0FUT01JQyBvcgpHRlBfS0VSTkVMKSA/CgoKCgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+CkFsbCB0aGUgZGF0YSBjb250aW51b3VzbHkgZ2VuZXJhdGVkIGluIHlvdXIgSVQgaW5mcmFzdHJ1
+Y3R1cmUgCmNvbnRhaW5zIGEgZGVmaW5pdGl2ZSByZWNvcmQgb2YgY3VzdG9tZXJzLCBhcHBsaWNh
+dGlvbiBwZXJmb3JtYW5jZSwgCnNlY3VyaXR5IHRocmVhdHMsIGZyYXVkdWxlbnQgYWN0aXZpdHks
+IGFuZCBtb3JlLiBTcGx1bmsgdGFrZXMgdGhpcyAKZGF0YSBhbmQgbWFrZXMgc2Vuc2Ugb2YgaXQu
+IElUIHNlbnNlLiBBbmQgY29tbW9uIHNlbnNlLgpodHRwOi8vcC5zZi5uZXQvc2Z1L3NwbHVuay1u
+b3ZkMmQKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KRTEw
+MDAtZGV2ZWwgbWFpbGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApo
+dHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApU
+byBsZWFybiBtb3JlIGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29t
+bXVuaXRpZXMuaW50ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
