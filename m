@@ -1,7 +1,7 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH V2 2/7] net/mlx4: fix UDP RSS related settings
-Date: Sun, 27 Nov 2011 07:55:02 +0200
-Message-ID: <4ED1D0B6.3000103@mellanox.co.il>
+Subject: [PATCH V2 6/7] net/mlx4_en: adding loopback support
+Date: Sun, 27 Nov 2011 07:55:19 +0200
+Message-ID: <4ED1D0C7.2040906@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
@@ -10,56 +10,114 @@ Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
 	<amirv@mellanox.co.il>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:48172 "HELO
-	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752574Ab1K0ITq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2011 03:19:46 -0500
+Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:57180 "HELO
+	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754396Ab1K0ITx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2011 03:19:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+From: Amir Vadai <amirv@mellanox.co.il>
 
-Using RSS which takes into account UDP headers is controlled by
-a module param, fix the setting of the HW RSS context to align
-with that scheme. So far it was uncoditionally allowing hashing
-on the UDP headers.
+Device must be in promiscuous mode or DMAC must be same as the host MAC, or
+else packet will be dropped by the HW rx filtering.
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.co.il>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   19 +++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c     |    3 +--
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    1 +
+ include/linux/mlx4/qp.h                        |    1 +
+ 4 files changed, 22 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 86cb300..3c24e16 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -836,7 +836,7 @@ int mlx4_en_config_rss_steer(struct mlx4_en_priv *priv)
- 	struct mlx4_rss_context *rss_context;
- 	void *ptr;
- 	u8 rss_mask = (MLX4_RSS_IPV4 | MLX4_RSS_TCP_IPV4 | MLX4_RSS_IPV6 |
--		MLX4_RSS_TCP_IPV6 | MLX4_RSS_UDP_IPV4 | MLX4_RSS_UDP_IPV6);
-+			MLX4_RSS_TCP_IPV6);
- 	int i, qpn;
- 	int err = 0;
- 	int good_qps = 0;
-@@ -879,14 +879,16 @@ int mlx4_en_config_rss_steer(struct mlx4_en_priv *priv)
- 	rss_context = ptr;
- 	rss_context->base_qpn = cpu_to_be32(ilog2(priv->rx_ring_num) << 24 |
- 					    (rss_map->base_qpn));
-+	if (priv->mdev->profile.udp_rss) {
-+		rss_mask |=  MLX4_RSS_UDP_IPV4 | MLX4_RSS_UDP_IPV6;
-+		rss_context->base_qpn_udp = rss_context->default_qpn;
-+	}
- 	rss_context->default_qpn = cpu_to_be32(rss_map->base_qpn);
- 	rss_context->flags = rss_mask;
- 	rss_context->hash_fn = MLX4_RSS_HASH_TOP;
- 	for (i = 0; i < 10; i++)
- 		rss_context->rss_key[i] = rsskey[i];
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 78d776b..4c5bbb3 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -974,6 +974,21 @@ static int mlx4_en_change_mtu(struct net_device *dev, int new_mtu)
+ 	return 0;
+ }
  
--	if (priv->mdev->profile.udp_rss)
--		rss_context->base_qpn_udp = rss_context->default_qpn;
- 	err = mlx4_qp_to_ready(mdev->dev, &priv->res.mtt, &context,
- 			       &rss_map->indir_qp, &rss_map->indir_state);
- 	if (err)
++static int mlx4_en_set_features(struct net_device *netdev,
++		netdev_features_t features)
++{
++	struct mlx4_en_priv *priv = netdev_priv(netdev);
++
++	if (features & NETIF_F_LOOPBACK)
++		priv->ctrl_flags |= cpu_to_be32(MLX4_WQE_CTRL_FORCE_LOOPBACK);
++	else
++		priv->ctrl_flags &=
++			cpu_to_be32(~MLX4_WQE_CTRL_FORCE_LOOPBACK);
++
++	return 0;
++
++}
++
+ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_open		= mlx4_en_open,
+ 	.ndo_stop		= mlx4_en_close,
+@@ -990,6 +1005,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= mlx4_en_netpoll,
+ #endif
++	.ndo_set_features	= mlx4_en_set_features,
+ };
+ 
+ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+@@ -1022,6 +1038,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	priv->port = port;
+ 	priv->port_up = false;
+ 	priv->flags = prof->flags;
++	priv->ctrl_flags = cpu_to_be32(MLX4_WQE_CTRL_CQ_UPDATE |
++			MLX4_WQE_CTRL_SOLICITED);
+ 	priv->tx_ring_num = prof->tx_ring_num;
+ 	priv->rx_ring_num = prof->rx_ring_num;
+ 	priv->mac_index = -1;
+@@ -1088,6 +1106,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	dev->features = dev->hw_features | NETIF_F_HIGHDMA |
+ 			NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX |
+ 			NETIF_F_HW_VLAN_FILTER;
++	dev->hw_features |= NETIF_F_LOOPBACK;
+ 
+ 	mdev->pndev[port] = dev;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 3094f94..807c218 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -679,8 +679,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	tx_desc->ctrl.vlan_tag = cpu_to_be16(vlan_tag);
+ 	tx_desc->ctrl.ins_vlan = MLX4_WQE_CTRL_INS_VLAN * !!vlan_tag;
+ 	tx_desc->ctrl.fence_size = (real_size / 16) & 0x3f;
+-	tx_desc->ctrl.srcrb_flags = cpu_to_be32(MLX4_WQE_CTRL_CQ_UPDATE |
+-						MLX4_WQE_CTRL_SOLICITED);
++	tx_desc->ctrl.srcrb_flags = priv->ctrl_flags;
+ 	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
+ 		tx_desc->ctrl.srcrb_flags |= cpu_to_be32(MLX4_WQE_CTRL_IP_CSUM |
+ 							 MLX4_WQE_CTRL_TCP_UDP_CSUM);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index c367832..7d26b7a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -452,6 +452,7 @@ struct mlx4_en_priv {
+ 	int base_qpn;
+ 
+ 	struct mlx4_en_rss_map rss_map;
++	u32 ctrl_flags;
+ 	u32 flags;
+ #define MLX4_EN_FLAG_PROMISC	0x1
+ #define MLX4_EN_FLAG_MC_PROMISC	0x2
+diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
+index 6562ff6..bee8fa2 100644
+--- a/include/linux/mlx4/qp.h
++++ b/include/linux/mlx4/qp.h
+@@ -210,6 +210,7 @@ struct mlx4_wqe_ctrl_seg {
+ 	 * [4]   IP checksum
+ 	 * [3:2] C (generate completion queue entry)
+ 	 * [1]   SE (solicited event)
++	 * [0]   FL (force loopback)
+ 	 */
+ 	__be32			srcrb_flags;
+ 	/*
 -- 
 1.7.7
