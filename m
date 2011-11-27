@@ -1,69 +1,61 @@
-From: Jonathan Nieder <jrnieder@gmail.com>
-Subject: Re: [bug?] r8169: hangs under heavy load
-Date: Sun, 27 Nov 2011 03:28:08 -0600
-Message-ID: <20111127092808.GE21635@elie.hsd1.il.comcast.net>
-References: <4E82C0B5.1050902@wolke7.net>
- <1317254171.4068.12.camel@deadeye>
- <20111124044137.GA18262@elie.hsd1.il.comcast.net>
- <4ECFE7A7.5070300@wolke7.net>
- <20111125201936.GA26692@elie.hsd1.il.comcast.net>
- <1322253122.2550.3.camel@edumazet-laptop>
- <20111125222211.GA13719@electric-eye.fr.zoreil.com>
- <1322262357.2550.12.camel@edumazet-laptop>
- <20111126004447.GA14744@electric-eye.fr.zoreil.com>
- <1322280423.10212.3.camel@edumazet-laptop>
+From: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: timestamping at the mac80211 layer before it hits tc?
+Date: Sun, 27 Nov 2011 10:48:09 +0100
+Message-ID: <CAA93jw7zdM6+36CnvzcYoSjyMxP+myoX46JSzCGwg7jC5OnwcQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	nic_swsd@realtek.com, linux-kernel@vger.kernel.org,
-	Armin Kazmi <armin.kazmi@tu-dortmund.de>,
-	Gerd <booster@wolke7.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1322280423.10212.3.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+To: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	bloat-devel <bloat-devel-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> Le samedi 26 novembre 2011 =C3=A0 01:44 +0100, Francois Romieu a =C3=A9=
-crit :
+My crazy idea at the moment is that since things can spend inordinate
+amounts of time in the txqueue in wireless in particular, that moving
+(tcp and packet) timestamping to where it enters the queue rather than
+hits the wireless device would make a difference. Unless that's
+already how it works.
 
->> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethe=
-rnet/realtek/r8169.c
->> index 6f06aa1..54be9e1 100644
->> --- a/drivers/net/ethernet/realtek/r8169.c
->> +++ b/drivers/net/ethernet/realtek/r8169.c
->> @@ -5820,8 +5820,7 @@ static irqreturn_t rtl8169_interrupt(int irq, =
-void *dev_instance)
->>  			case RTL_GIGA_MAC_VER_11:
->>  			case RTL_GIGA_MAC_VER_22:
->>  			case RTL_GIGA_MAC_VER_26:
->> -				netif_stop_queue(dev);
->> -				rtl8169_tx_timeout(dev);
->> +				rtl8169_schedule_work(dev, rtl8169_reset_task);
->>  				goto done;
->>  			/* Testers needed. */
->>  			case RTL_GIGA_MAC_VER_17:
->
-> Please Jonathan, Gerd, try this fix !
+http://www.bufferbloat.net/issues/304#change-1186
 
-Thanks, Eric.  Unfortunately I don't have the hardware.
+The secondary fallout of that is an easier way to expire (probably
+rescheduled) packets that have spent too much time in queue.
 
-Gerd, would you be able to try this patch?  It works like this:
+Eric had put up a (rfc) tc filter a while back that dumped a timestamp
+into the private block of the skb...
 
-  apt-get install git build-essential
-  git clone git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linu=
-x.git
-  cd linux
-  ... apply the fix, for example using "patch -p1" ...
-  make localmodconfig; # minimal configuration
-  make deb-pkg
-  dpkg -i ../<name of package>
-  reboot
+but...
 
-=46eel free to email me privately if you have any questions.
+I kind of like the idea of reusing the existing hwtstamps concept for
+the period "queue entrance to queue exit", as a queue is a 'device',
+IMHO.
 
-Regards,
-Jonathan
+from linux/skbuff.h
+
+* hwtstamps can only be compared against other hwtstamps from
+* the same device.
+*
+* This structure is attached to packets as part of the
+* &skb_shared_info. Use skb_hwtstamps() to get a pointer.
+*/
+struct skb_shared_hwtstamps {
+=A0 =A0 =A0 =A0ktime_t hwtstamp;
+=A0 =A0 =A0 =A0ktime_t syststamp;
+};
+
+
+Sign me,
+lost in a myriad of data paths on a sunday afternoon, wearing an asbest=
+os suit
+
+--
+Dave T=E4ht
+SKYPE: davetaht
+http://www.bufferbloat.net
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
