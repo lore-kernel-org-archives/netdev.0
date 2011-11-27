@@ -1,78 +1,87 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next 6/8] dsa: Allow core and drivers to be built as
- modules
-Date: Sun, 27 Nov 2011 22:39:24 +0000
-Message-ID: <1322433564.7454.33.camel@deadeye>
-References: <1322267572.2839.381.camel@deadeye>
-	 <1322267918.2839.388.camel@deadeye> <20111127191955.GU795@wantstofly.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [bug?] r8169: hangs under heavy load
+Date: Mon, 28 Nov 2011 00:11:47 +0100
+Message-ID: <20111127231147.GA1784@electric-eye.fr.zoreil.com>
+References: <20111124044137.GA18262@elie.hsd1.il.comcast.net> <4ECFE7A7.5070300@wolke7.net> <20111125201936.GA26692@elie.hsd1.il.comcast.net> <1322253122.2550.3.camel@edumazet-laptop> <20111125222211.GA13719@electric-eye.fr.zoreil.com> <1322262357.2550.12.camel@edumazet-laptop> <20111126004447.GA14744@electric-eye.fr.zoreil.com> <1322280423.10212.3.camel@edumazet-laptop> <20111127092808.GE21635@elie.hsd1.il.comcast.net> <4ED2A573.1020807@wolke7.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-l1TalImSs6mX55nFK+ki"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jonathan Nieder <jrnieder@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	nic_swsd@realtek.com, linux-kernel@vger.kernel.org,
+	Armin Kazmi <armin.kazmi@tu-dortmund.de>,
+	Hayes Wang <hayeswang@realtek.com>
+To: booster@wolke7.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52325 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751514Ab1K0Wjb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2011 17:39:31 -0500
-In-Reply-To: <20111127191955.GU795@wantstofly.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:51851 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753517Ab1K0XSC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2011 18:18:02 -0500
+Content-Disposition: inline
+In-Reply-To: <4ED2A573.1020807@wolke7.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+booster@wolke7.net <booster@wolke7.net> :
+[...]
+> Jonathan, I compiled a new kernel with the patch described above but the
+> behavior is still the same. During high network load the link hangs:
+> 
+> [  195.332478] r8169 0000:02:00.0: eth0: link up
+> [  222.517171] r8169 0000:02:00.0: eth0: link up
+> [  222.908277] r8169 0000:02:00.0: eth0: link up
+> [  223.508249] r8169 0000:02:00.0: eth0: link up
 
---=-l1TalImSs6mX55nFK+ki
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+It does recover, doesn't it ?
 
-On Sun, 2011-11-27 at 20:19 +0100, Lennert Buytenhek wrote:
-> On Sat, Nov 26, 2011 at 12:38:38AM +0000, Ben Hutchings wrote:
->=20
-> > Change the kconfig types to tristate and adjust the condition for
-> > declaring net_device::dsa_ptr to allow for this.
-> >=20
-> > Adjust the makefile so that if NET_DSA_MV88E6123_61_65=3Dy and
-> > NET_DSA_MV88E6131=3Dm or vice versa then both drivers are built-in.  We
-> > could leave these options as bool and make NET_DSA_MV88E6XXX a
-> > user-selected option, but that would break existing configurations.
-> >=20
-> > Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
->=20
-> Acked-by: Lennert Buytenhek <buytenh@wantstofly.org>
->=20
-> Thanks for the patches!
->=20
-> (While you're at it -- the switch chip drivers in net/dsa/ still
-> ought to be moved to drivers/net/dsa/ or so -- feel like whipping up
-> a patch for that?)
+> Is there a way to activate more driver debugging in the kernel ?
 
-I agree.  Maybe.
+You can lower the delay in rtl8169_schedule_work (4) but it is akin
+to papering over the issue.
 
-Ben.
+You may try the stuff below in place of the current patch. I will not
+be surprized if the link really hangs (no crash but no traffic).
 
---=20
-Ben Hutchings
-The two most common things in the universe are hydrogen and stupidity.
+Hayes, does the 8168c require something special to recover from Rx FIFO
+overflow ?
 
---=-l1TalImSs6mX55nFK+ki
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIVAwUATtK8HOe/yOyVhhEJAQqw1xAAk4Juss3B7yE0Zji8h/+Y2rBYmTHL6c6y
-BiVnMKzCBMXLTYwAkRM8k7fq/3bRiDGZpJ83TBU4hvVK4XZ4eefNp79VY7tlgADC
-uBm9gpBTN7/WXpfL7pXTq94zyHYijH428uYucl7W27wYV+NZBq/Je8J+cmasuhab
-+IQWhXcsXcMGYlGe6SGaAnx26llzBy53hXhagp8r6wq5LM8ScrlkxUVZqNoZJGAP
-qM54ZyaoIuAitpXofo9eDgG99g13miomuZS5ZMAFJZMe3WpWDbfEN2znSUyS5w4D
-2sFdfQNvRcbuXRffeYDBGxGAcj1QisbMu21WFkVSIQX9MbmcF+2aQwfacpChRcSP
-frbSQaXSWvQ66xupMPvNKZj4bba53KpQx2KXBBhFBAafAUvd9ITSs/I/jb3rOMHH
-BNKvt5xvQYk4inJqht+ZBkepnj/DYKAHH/szbVd7P/a+7E2IwXMNfjU5kkOhK7+a
-ZxzGdjQtvDsewahL3zt9aQxjJ3sSs8m1Xm5HyndzZeMTAP5ukCX7llqbAxqauDac
-FS5QjVJpUhApfURvSBAvgrmsdytmOA9EWkt+44qGyDOmJyuUXorzG+1Nh1YRR+Hr
-KayEMtaVB9yFj7N5lpRIkbl3UVB/aD4MloGV1SCeMdfTUzbCRUzm98yldQQkYyZJ
-lJSucaycUoc=
-=HNUh
------END PGP SIGNATURE-----
-
---=-l1TalImSs6mX55nFK+ki--
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 6f06aa1..e937737 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -427,6 +427,7 @@ enum rtl_register_content {
+ 	/* InterruptStatusBits */
+ 	SYSErr		= 0x8000,
+ 	PCSTimeout	= 0x4000,
++	RxFIFOEmpty	= 0x0200,
+ 	SWInt		= 0x0100,
+ 	TxDescUnavail	= 0x0080,
+ 	RxFIFOOver	= 0x0040,
+@@ -5815,15 +5816,27 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+ 		}
+ 
+ 		if (unlikely(status & RxFIFOOver)) {
++			int i;
++
+ 			switch (tp->mac_version) {
+ 			/* Work around for rx fifo overflow */
+ 			case RTL_GIGA_MAC_VER_11:
+-			case RTL_GIGA_MAC_VER_22:
+ 			case RTL_GIGA_MAC_VER_26:
+ 				netif_stop_queue(dev);
+ 				rtl8169_tx_timeout(dev);
+ 				goto done;
+ 			/* Testers needed. */
++			case RTL_GIGA_MAC_VER_22:
++				for (i = 0; i < 4000000; i++) {
++					if (RTL_R16(IntrStatus) & RxFIFOEmpty) {
++						RTL_W16(IntrStatus, RxFIFOOver);
++						printk(KERN_INFO "FEmp %d\n", i);
++						break;
++					}
++					udelay(10);
++				}
++				if (i >= 4000000)
++					printk(KERN_ERR "no FEmp\n");
+ 			case RTL_GIGA_MAC_VER_17:
+ 			case RTL_GIGA_MAC_VER_19:
+ 			case RTL_GIGA_MAC_VER_20:
