@@ -1,39 +1,89 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] inet:
-Date: Sat, 26 Nov 2011 19:17:12 -0500 (EST)
-Message-ID: <20111126.191712.529707882787134808.davem@davemloft.net>
-References: <201111251853.19551.a.miskiewicz@gmail.com>
-	<1322345624.10212.21.camel@edumazet-laptop>
-	<1322345790.10212.23.camel@edumazet-laptop>
+From: Benjamin Poirier <bpoirier@suse.de>
+Subject: Re: [PATCH net/stable] gro: reset vlan_tci on reuse
+Date: Sat, 26 Nov 2011 20:01:05 -0500
+Message-ID: <20111127010105.GA13428@gort.synalogic.ca>
+References: <1322320749-8055-1-git-send-email-bpoirier@suse.de>
+ <20111126155202.GA8467@kroah.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: a.miskiewicz@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	stable@vger.kernel.org, Jesse Gross <jesse@nicira.com>
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40644 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755152Ab1K0ARS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 19:17:18 -0500
-In-Reply-To: <1322345790.10212.23.camel@edumazet-laptop>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:62708 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755205Ab1K0A7F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2011 19:59:05 -0500
+Content-Disposition: inline
+In-Reply-To: <20111126155202.GA8467@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogU2F0LCAy
-NiBOb3YgMjAxMSAyMzoxNjozMCArMDEwMA0KDQo+IExlIHNhbWVkaSAyNiBub3ZlbWJyZSAyMDEx
-IMOgIDIzOjEzICswMTAwLCBFcmljIER1bWF6ZXQgYSDDqWNyaXQgOg0KPj4gTm93IGluZXRwZWVy
-IGlzIHRoZSBwbGFjZSB3aGVyZSB3ZSBjYWNoZSByZWRpcmVjdCBpbmZvcm1hdGlvbiBmb3IgaXB2
-NA0KPj4gZGVzdGluYXRpb25zLCB3ZSBtdXN0IGJlIGFibGUgdG8gaW52YWxpZGF0ZSBpbmZvcm1h
-dGlvbnMgd2hlbiBhIHJvdXRlIGlzDQo+PiBhZGRlZC9yZW1vdmVkIG9uIGhvc3QuDQo+PiANCj4+
-IEFzIGluZXRwZWVyIGlzIG5vdCB5ZXQgbmFtZXNwYWNlIGF3YXJlLCB0aGlzIHBhdGNoIGFkZHMg
-YSBzaGFyZWQNCj4+IHJlZGlyZWN0X2dlbmlkLCBhbmQgYSBwZXIgaW5ldHBlZXIgcmVkaXJlY3Rf
-Z2VuaWQuIFRoaXMgbWlnaHQgYmUgY2hhbmdlZA0KPj4gbGF0ZXIgaWYgaW5ldHBlZXIgYmVjb21l
-cyBucyBhd2FyZS4NCj4+IA0KPj4gQ2FjaGUgaW5mb3JtYXRpb24gZm9yIG9uZSBpbmVycGVlciBp
-cyB2YWxpZCBhcyBsb25nIGFzIGl0cw0KPj4gcmVkaXJlY3RfZ2VuaWQgaGFzIHRoZSBzYW1lIHZh
-bHVlIHRoYW4gZ2xvYmFsIHJlZGlyZWN0X2dlbmlkLg0KPj4gDQo+PiBSZXBvcnRlZC1ieTogQXJr
-YWRpdXN6IE1pxZtraWV3aWN6IDxhLm1pc2tpZXdpY3pAZ21haWwuY29tPg0KPj4gVGVzdGVkLWJ5
-OiBBcmthZGl1c3ogTWnFm2tpZXdpY3ogPGEubWlza2lld2ljekBnbWFpbC5jb20+DQo+PiBTaWdu
-ZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVyaWMuZHVtYXpldEBnbWFpbC5jb20+DQo+PiAtLS0N
-Cj4gDQo+IEFyZywgcGF0Y2ggdGl0bGUgd2FzIG5vdCBjb21wbGV0ZSwgaXQgY291bGQgYmUgOg0K
-PiANCj4gW1BBVENIXSBpbmV0OiBhZGQgYSByZWRpcmVjdCBnZW5lcmF0aW9uIGlkIGluIGluZXRw
-ZWVyDQoNCkl0IGhhcHBlbnMgOi0pICBBcHBsaWVkLCB0aGFua3MgRXJpYy4NCg==
+On 11/11/26 07:52, Greg KH wrote:
+> On Sat, Nov 26, 2011 at 10:19:09AM -0500, Benjamin Poirier wrote:
+> > This one liner is part of upstream
+> > commit 3701e51382a026cba10c60b03efabe534fba4ca4
+> > 
+> > and it is in the same vein as
+> > commit 66c46d741e2e60f0e8b625b80edb0ab820c46d7a
+> > commit 6d152e23ad1a7a5b40fef1f42e017d66e6115159
+> > 
+> > which are already in -stable.
+> > 
+> > For drivers using the vlan_gro_frags() interface, a packet with invalid tci
+> > leads to GRO_DROP and napi_reuse_skb(). The skb has to be sanitized before
+> > being reused or we'll send skb's with invalid vlan_tci up the stack where
+> > they're not expected.
+> > 
+> > Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
+> > Cc: Jesse Gross <jesse@nicira.com>
+> > 
+> > ---
+> > 
+> > Please note, reusing skb's with an invalid vlan_tci can cause panics on
+> > 2.6.32.y -stable kernels.
+> 
+> You forgot to mention what stable kernel tree(s) you want this patch
+> applied to.  And why can't I just take all of
+> 3701e51382a026cba10c60b03efabe534fba4ca4? (hint, when refering to git
+> commit ids, please put the description of what they are in () after them
+> so we have a hint and don't have to dig through a git tree to find
+> them.)
+
+Ah, thank you for spelling it out, I was clueless after re-reading
+kernel_stable_rules.txt
+
+> > This one liner is part of upstream
+> > commit 3701e51382a026cba10c60b03efabe534fba4ca4
+Author: Jesse Gross <jesse@nicira.com>
+vlan: Centralize handling of hardware acceleration.
+
+> > 
+> > and it is in the same vein as
+> > commit 66c46d741e2e60f0e8b625b80edb0ab820c46d7a
+Author: Herbert Xu <herbert@gondor.apana.org.au>
+gro: Reset dev pointer on reuse
+
+> > commit 6d152e23ad1a7a5b40fef1f42e017d66e6115159
+Author: Andy Gospodarek <andy@greyhouse.net>
+gro: reset skb_iif on reuse
+
+Jesse's upstream commit is a rework of the hardware assisted vlan
+tagging driver interface, and as such doesn't classify for -stable
+inclusion. The fix that is needed just happens to be part of that commit
+but can work independently of the rest -- I guess they could've been
+separate commits from the start.
+
+The vlan_gro_frags() interface was introduced in 2.6.29 and Jesse's
+commit went in 2.6.37. -stable kernels in between can make use of the
+fix which I believe makes it applicable to 2.6.32.y and .33.y given the
+-stable branches that seem to be getting updates at this time.
+
+> 
+> Also, I need David's ack before I can take this, or any other network
+> patch, for the stable tree.
+
+cc'ed.
+
+Thanks,
+-Benjamin
