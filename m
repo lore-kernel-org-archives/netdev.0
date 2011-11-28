@@ -1,137 +1,66 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH net-next v2 1/4] can: cc770: add
- driver core for the Bosch CC770 and Intel AN82527
-Date: Mon, 28 Nov 2011 15:01:01 +0100
-Message-ID: <4ED3941D.3070302@pengutronix.de>
-References: <1322214204-1121-1-git-send-email-wg@grandegger.com>
-	<1322214204-1121-2-git-send-email-wg@grandegger.com>
-	<4ED3704D.5020903@pengutronix.de> <4ED3922A.50704@grandegger.com>
+From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+Subject: Re: [GIT PULL v2] Open vSwitch
+Date: Mon, 28 Nov 2011 09:02:34 -0500
+Message-ID: <1322488954.7338.66.camel@mojatatu>
+References: <20111123075433.GA7928@gondor.apana.org.au>
+	<1322050976.2039.125.camel@mojatatu>
+	<20111128130409.GB16828@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4146954489056766960=="
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4ED3922A.50704-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
-List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20111128130409.GB16828-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============4146954489056766960==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig0677EA8AF30CD781CD429457"
+On Mon, 2011-11-28 at 21:04 +0800, Herbert Xu wrote:
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig0677EA8AF30CD781CD429457
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+> You're right, a new classifier for the hash table would be the
+> best option.
+>  
+> > I cant find one - you may. After staring at the code, I am also now
+> > questioning if the existing bridge code couldnt have been re-used with
+> > some small tweaks.
+> 
+> I wasn't able to find any functionality that could not be easily
+> done with the existing classifier/action code.
 
-On 11/28/2011 02:52 PM, Wolfgang Grandegger wrote:
+Thanks for validating Herbert. 
 
-[...]
+> Whether we want to go down this route though is open to debate
+> as someone would have to actually implement this :)
 
->>> +/*
->>> + * This driver uses the last 5 message objects 11..15. The definitio=
-ns
->>> + * and structure below allows to configure and assign them to the re=
-al
->>> + * message object.
->>> + */
->>> +static unsigned char cc770_obj_flags[CC770_OBJ_MAX] =3D {
->>> +	[CC770_OBJ_RX0] =3D CC770_OBJ_FLAG_RX,
->>> +	[CC770_OBJ_RX1] =3D CC770_OBJ_FLAG_RX | CC770_OBJ_FLAG_EFF,
->>> +	[CC770_OBJ_RX_RTR0] =3D CC770_OBJ_FLAG_RX | CC770_OBJ_FLAG_RTR,
->>> +	[CC770_OBJ_RX_RTR1] =3D CC770_OBJ_FLAG_RX | CC770_OBJ_FLAG_RTR |
->>> +			      CC770_OBJ_FLAG_EFF,
->>> +	[CC770_OBJ_TX] =3D 0,
->>> +};
->>
->> Is is worth the trouble making this a per device instance option? In a=
+I empathize that effort has been invested in coding the way it was. 
+But this is where an RFC to netdev would have been useful instead of
+reinventing things. I dont see it as a huge effort really; the
+refactoring should be mostly in user space.
 
->> OF-Tree world should this become an "attribute" (or what's the correct=
+Along the same lines:
+Even for the integration with existing silicon I am worried that using
+openvswitch as a proxy is not the right thing to do (the Intel approach
+or the DSA approach where Linux is the proxy is the right thing to
+do(TM).
 
->> of-tree word for it?)
->=20
-> Well, only msg object 15 does have double buffering and should therefor=
-e
-> be used for bulk data reception. Therefore we have for the i82527 the
-> module parameter:
->=20
->   MODULE_PARM_DESC(msgobj15_eff,
-> 	           "Extended 29-bit frames for message object 15 "
-> 	 	   "(default: 11-bit standard frames)");
->=20
-> For TX we currently use just one object. Anyway, the device tree is not=
+> However, what's more worrying for me right now is the gaping
+> DoS opportunities that exist in the patch as is.
+> 
+> In particular, the whole design principle of punting all new
+> flows to user-space is an excellent way of attacking the system.
 
-> the right place to define such parameters because it's too static. The
-> user may want to select it at runtime depending on the application, if
-> at all. We can change it when there is a *real* requirement.
+Indeed this is an issue with openflow in general.
+The general solution is to rate limit how much goes to the controller
+but even that is insufficient.
 
-Fine with me.
-
->>> +	for (o =3D 0; o <  CC770_OBJ_MAX; o++) {
->>                          ^^^^^^^^^^^^^
->>
->> what about ARRAY_SIZE(priv->obj_flags)
->=20
-> CC770_OBJ_MAX is not derived from a static array definition but as show=
-
-> below:
-
-Okay...
-
->   enum {
-> 	CC770_OBJ_RX0 =3D 0,	/* for receiving normal messages */
-> 	CC770_OBJ_RX1,		/* for receiving normal messages */
-> 	CC770_OBJ_RX_RTR0,	/* for receiving remote transmission requests */
-> 	CC770_OBJ_RX_RTR1,	/* for receiving remote transmission requests */
-> 	CC770_OBJ_TX,		/* for sending messages */
-> 	CC770_OBJ_MAX  <=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
-=2E..then add a "," here :P
-
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig0677EA8AF30CD781CD429457
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk7TlB8ACgkQjTAFq1RaXHN8ZgCfXlVCpKCa13RDfFIropgSbf2u
-5/AAmweRarRTG1RI+HoPGlfm5+yHvAHm
-=OqF1
------END PGP SIGNATURE-----
-
---------------enig0677EA8AF30CD781CD429457--
-
---===============4146954489056766960==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-users mailing list
-Socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-users
-
---===============4146954489056766960==--
+cheers,
+jamal
