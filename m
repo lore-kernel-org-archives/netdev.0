@@ -1,29 +1,27 @@
-From: richard -rw- weinberger <richard.weinberger@gmail.com>
-Subject: Re: [RFC PATCH 00/18] netfilter: IPv6 NAT
-Date: Mon, 28 Nov 2011 21:55:57 +0100
-Message-ID: <CAFLxGvwmsQOcOL2oO33_dvLgsA9Gsdtp5u=nCZFPV-ihNdCm3g@mail.gmail.com>
-References: <4ED3C174.9030302@earthlink.net>
-	<CAF9AA63.1622%ulrich.weber@sophos.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH 1/3] dsa: Remove unnecessary exports
+Date: Mon, 28 Nov 2011 22:13:15 +0100
+Message-ID: <20111128211315.GY795@wantstofly.org>
+References: <1322449506.7454.34.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "sclark46@earthlink.net" <sclark46@earthlink.net>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ulrich Weber <Ulrich.Weber@sophos.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CAF9AA63.1622%ulrich.weber@sophos.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fw.wantstofly.org ([80.101.37.227]:63731 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750936Ab1K1VNS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 16:13:18 -0500
+Content-Disposition: inline
+In-Reply-To: <1322449506.7454.34.camel@deadeye>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 28, 2011 at 9:25 PM, Ulrich Weber <Ulrich.Weber@sophos.com> wrote:
-> IPv6->IPv4:
->
-> http://ecdysis.viagenie.ca
+On Mon, Nov 28, 2011 at 03:05:06AM +0000, Ben Hutchings wrote:
 
-Is this solution stable?
-The last time I've tested it it had no SMP locking at all...
+> I mistakenly exported functions from slave.c that are only called from
+> dsa.c, part of the same module.
+> 
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 
--- 
-Thanks,
-//richard
+Acked-by: Lennert Buytenhek <buytenh@wantstofly.org>
