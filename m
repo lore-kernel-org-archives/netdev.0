@@ -1,48 +1,44 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: ebtables on a stick
-Date: Mon, 28 Nov 2011 16:30:02 +0100
-Message-ID: <20111128153002.GB589422@jupiter.n2.diac24.net>
-References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com>
- <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com>
- <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com>
- <20111128143901.GA589422@jupiter.n2.diac24.net>
- <925A849792280C4E80C5461017A4B8A2A0488A@mail733.InfraSupportEtc.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [ovs-dev] [GIT PULL v2] Open vSwitch
+Date: Mon, 28 Nov 2011 10:32:36 -0500
+Message-ID: <1322494356.7338.75.camel@mojatatu>
+References: <20111123075433.GA7928@gondor.apana.org.au>
+	 <1322050976.2039.125.camel@mojatatu>
+	 <20111128130409.GB16828@gondor.apana.org.au>
+	 <1322488954.7338.66.camel@mojatatu>  <4ED3A85A.1030003@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org
-To: Greg Scott <GregScott@Infrasupport.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, dev@openvswitch.org,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Martin Casado <casado@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:34042 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751293Ab1K1PaI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Nov 2011 10:30:08 -0500
-Content-Disposition: inline
-In-Reply-To: <925A849792280C4E80C5461017A4B8A2A0488A@mail733.InfraSupportEtc.com>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:41059 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750878Ab1K1Pcm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 10:32:42 -0500
+Received: by yenl6 with SMTP id l6so2966810yen.19
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2011 07:32:42 -0800 (PST)
+In-Reply-To: <4ED3A85A.1030003@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 28, 2011 at 08:54:09AM -0600, Greg Scott wrote:
-> > This doesn't answer your question, but your use case is better solved
-> > with proxy arp.
->
-> ...But maybe there's a way to make my NIC only answer ARPs for certain IP Addresses I care about?  That would nicely solve the problem.  If it works.  
+On Mon, 2011-11-28 at 07:27 -0800, Martin Casado wrote:
 
-"ip neigh add proxy 1.2.3.4 dev eth0". Please look at the example i gave
-you.
+> This is a common misunderstanding about OpenFlow.  It does not require 
+> the first packet of each flow to go to the controller.  
 
-> In my earlier near-disaster, I did this:
-> 
-> echo 1 > /proc/sys/net/ipv4/conf/${INET_IFACE}/proxy_arp
+I am reading this to mean that the switch CPU will resolve things?
+Typically those tend to be tiny cpus.
 
-NO. You do not touch this switch. Be afraid of this switch.
+> In fact, no 
+> production system I'm aware of does this.  Generally OpenFlow-based 
+> solutions targeted at large environments (e.g. data center, or WAN)  
+> send only traditional control traffic to the controller (e.g. BGP or 
+> OSPF), or none at all.
 
-The instructions i gave you are complete. This switch is not involved.
+Even OSPF or BGP  would be problematic imo if the architecture doesnt
+allow prioritization of some form towards the controller.
 
-> to turn on proxy arp.  I wonder if that ip neighbor stuff does it selectively?  
-
-We already had this discussion in July.
-
-"ip neigh add proxy" is independent of /proc/.../proxy_arp.
-
-
--David
+cheers,
+jamal
