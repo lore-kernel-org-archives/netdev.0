@@ -1,24 +1,48 @@
-From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Subject: Re: [PATCH 54/62] rds: remove the second argument of
- k[un]map_atomic()
-Date: Mon, 28 Nov 2011 07:28:28 -0800 (PST)
-Message-ID: <fa4c1eb1-a564-4984-8648-f754c83672da@default>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: ebtables on a stick
+Date: Mon, 28 Nov 2011 16:30:02 +0100
+Message-ID: <20111128153002.GB589422@jupiter.n2.diac24.net>
+References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com>
+ <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com>
+ <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com>
+ <20111128143901.GA589422@jupiter.n2.diac24.net>
+ <925A849792280C4E80C5461017A4B8A2A0488A@mail733.InfraSupportEtc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <rds-devel@oss.oracle.com>,
-	<akpm@linux-foundation.org>, <linux-kernel@vger.kernel.org>,
-	<amwang@redhat.com>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org
+To: Greg Scott <GregScott@Infrasupport.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from spaceboyz.net ([87.106.131.203]:34042 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751293Ab1K1PaI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Nov 2011 10:30:08 -0500
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <925A849792280C4E80C5461017A4B8A2A0488A@mail733.InfraSupportEtc.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
-Date: Sun, 27 Nov 2011 13:27:34 +0800
+On Mon, Nov 28, 2011 at 08:54:09AM -0600, Greg Scott wrote:
+> > This doesn't answer your question, but your use case is better solved
+> > with proxy arp.
+>
+> ...But maybe there's a way to make my NIC only answer ARPs for certain IP Addresses I care about?  That would nicely solve the problem.  If it works.  
 
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+"ip neigh add proxy 1.2.3.4 dev eth0". Please look at the example i gave
+you.
 
-Acked-by: David S. Miller <davem@davemloft.net>
-Acked-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+> In my earlier near-disaster, I did this:
+> 
+> echo 1 > /proc/sys/net/ipv4/conf/${INET_IFACE}/proxy_arp
+
+NO. You do not touch this switch. Be afraid of this switch.
+
+The instructions i gave you are complete. This switch is not involved.
+
+> to turn on proxy arp.  I wonder if that ip neighbor stuff does it selectively?  
+
+We already had this discussion in July.
+
+"ip neigh add proxy" is independent of /proc/.../proxy_arp.
+
+
+-David
