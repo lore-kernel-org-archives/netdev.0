@@ -1,109 +1,116 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH 21/62] net: remove the second argument of k[un]map_atomic()
-Date: Mon, 28 Nov 2011 10:06:03 -0800
-Message-ID: <4ED3CD8B.5060000@intel.com>
-References: <1322371662-26166-1-git-send-email-amwang@redhat.com>  <1322371662-26166-22-git-send-email-amwang@redhat.com> <1322381248.2826.1.camel@edumazet-laptop>
+From: Vincent Blut <vincent.debian@free.fr>
+Subject: Re: sky2: hw csum failure
+Date: Mon, 28 Nov 2011 19:20:45 +0000
+Message-ID: <4ED3DF0D.8030904@free.fr>
+References: <4ED37A2C.5040608@free.fr> <20111128085030.248ebcb7@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Cong Wang <amwang@redhat.com>, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Dean Nelson <dnelson@redhat.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1322381248.2826.1.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Debian Bug Tracking System <609994@bugs.debian.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp3-g21.free.fr ([212.27.42.3]:42510 "EHLO smtp3-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751795Ab1K1SUX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Nov 2011 13:20:23 -0500
+In-Reply-To: <20111128085030.248ebcb7@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/27/2011 12:07 AM, Eric Dumazet wrote:
-> Le dimanche 27 novembre 2011 =C3=A0 13:27 +0800, Cong Wang a =C3=A9cr=
-it :
->> Signed-off-by: Cong Wang <amwang@redhat.com>
->> ---
->> diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers=
-/net/ethernet/intel/e1000/e1000_main.c
->> index cf480b5..b194beb 100644
->> --- a/drivers/net/ethernet/intel/e1000/e1000_main.c
->> +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
->> @@ -3878,11 +3878,9 @@ static bool e1000_clean_jumbo_rx_irq(struct e=
-1000_adapter *adapter,
->>  				if (length <=3D copybreak &&
->>  				    skb_tailroom(skb) >=3D length) {
->>  					u8 *vaddr;
->> -					vaddr =3D kmap_atomic(buffer_info->page,
->> -					                    KM_SKB_DATA_SOFTIRQ);
->> +					vaddr =3D kmap_atomic(buffer_info->page);
->>  					memcpy(skb_tail_pointer(skb), vaddr, length);
->> -					kunmap_atomic(vaddr,
->> -					              KM_SKB_DATA_SOFTIRQ);
->> +					kunmap_atomic(vaddr);
->>  					/* re-use the page, so don't erase
->>  					 * buffer_info->page */
->>  					skb_put(skb, length);
->> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/ne=
-t/ethernet/intel/e1000e/netdev.c
->> index a855db1..8603c87 100644
->> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
->> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
->> @@ -1272,9 +1272,9 @@ static bool e1000_clean_rx_irq_ps(struct e1000=
-_adapter *adapter,
->>  			 */
->>  			dma_sync_single_for_cpu(&pdev->dev, ps_page->dma,
->>  						PAGE_SIZE, DMA_FROM_DEVICE);
->> -			vaddr =3D kmap_atomic(ps_page->page, KM_SKB_DATA_SOFTIRQ);
->> +			vaddr =3D kmap_atomic(ps_page->page);
->>  			memcpy(skb_tail_pointer(skb), vaddr, l1);
->> -			kunmap_atomic(vaddr, KM_SKB_DATA_SOFTIRQ);
->> +			kunmap_atomic(vaddr);
->>  			dma_sync_single_for_device(&pdev->dev, ps_page->dma,
->>  						   PAGE_SIZE, DMA_FROM_DEVICE);
->> =20
->> @@ -1465,12 +1465,10 @@ static bool e1000_clean_jumbo_rx_irq(struct =
-e1000_adapter *adapter,
->>  				if (length <=3D copybreak &&
->>  				    skb_tailroom(skb) >=3D length) {
->>  					u8 *vaddr;
->> -					vaddr =3D kmap_atomic(buffer_info->page,
->> -					                   KM_SKB_DATA_SOFTIRQ);
->> +					vaddr =3D kmap_atomic(buffer_info->page);
->>  					memcpy(skb_tail_pointer(skb), vaddr,
->>  					       length);
->> -					kunmap_atomic(vaddr,
->> -					              KM_SKB_DATA_SOFTIRQ);
->> +					kunmap_atomic(vaddr);
->>  					/* re-use the page, so don't erase
->>  					 * buffer_info->page */
->>  					skb_put(skb, length);
-> But why are these drivers using kmap_atomic() in first place, since
-> their fragments are allocated in regular zone (GFP_ATOMIC or
-> GFP_KERNEL) ?
+Le 28/11/2011 16:50, Stephen Hemminger a =C3=A9crit :
+> On Mon, 28 Nov 2011 12:10:20 +0000
+> Vincent Blut <vincent.debian@free.fr> wrote:
+>
+>  =20
+>> Hi,
+>>
+>> [reference: http://bugs.debian.org/609994]
+>>
+>> I have a Marvell ethernet controller which presents some failures wh=
+en
+>> 'rx checksumming' is enabled,
+>> here is the model:
+>>
+>> $ lspci -vvs 03:00.0
+>> 03:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8053 P=
+CI-E
+>> Gigabit Ethernet Controller (rev 15)
+>>         Subsystem: Micro-Star International Co., Ltd. Marvell 88E805=
+3
+>> Gigabit Ethernet Controller (MSI)
+>>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+>> ParErr- Stepping- SERR- FastB2B- DisINTx+
+>>         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=3Dfast >TAb=
+ort-
+>> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>>         Latency: 0, Cache Line Size: 32 bytes
+>>         Interrupt: pin A routed to IRQ 44
+>>         Region 0: Memory at fdbfc000 (64-bit, non-prefetchable) [siz=
+e=3D16K]
+>>         Region 2: I/O ports at 7c00 [size=3D256]
+>>         [virtual] Expansion ROM at fda00000 [disabled] [size=3D128K]
+>>         Capabilities: <access denied>
+>>         Kernel driver in use: sky2
+>>
+>> At first I thought it was due to the MTU size, so I tested different
+>> values but unfortunately without positive effect.
+>> Overall this issue appears randomly when the incoming traffic is hig=
+h. I
+>> tested 2.6.32, 3.1.1, and 3.2-rc3, sadly
+>> all are affected. Finally, the only way to avoid those failures is t=
+o
+>> disabled 'rx checksumming' (ethtool -K ethX rx off).
+>>
+>> Here is the stack trace:
+>>
+>> [   14.615648] sky2 0000:03:00.0: eth1: enabling interface
+>> [   14.616452] ADDRCONF(NETDEV_UP): eth1: link is not ready
+>> [   17.094194] sky2 0000:03:00.0: eth1: Link is up at 1000 Mbps, ful=
+l
+>> duplex, flow control both
+>> [   17.094887] ADDRCONF(NETDEV_CHANGE): eth1: link becomes ready
+>> [   28.080018] eth1: no IPv6 routers present
+>> [  563.816032] sky2 0000:03:00.0: eth1: hung mac 124:22 fifo 195 (15=
+0:145)
+>> [  563.816036] sky2 0000:03:00.0: eth1: receiver hang detected
+>> [  567.005422] sky2 0000:03:00.0: eth1: Link is up at 1000 Mbps, ful=
+l
+>> duplex, flow control both
+>> [ 1040.816314] sky2 0000:03:00.0: eth1: rx error, status 0x7ffc0001
+>> length 1004
+>> [ 2097.401616] sky2 0000:03:00.0: eth1: rx error, status 0x39a339a3 =
+length 0
+>>    =20
+> This isn't really a hardware checksum failure.
+> Your problem is deeper than that. The internal parts of the chip are =
+not
+> communicating correctly. The "hung mac" is a problem only occurs if t=
+he PCI
+> is really stuck. There may be a timing issue on your motherboard, or =
+the BIOS
+> isn't setting up the device properly. The timing then gets messed up =
+between
+> the end of frame status and the PCI shared memory region. Turning che=
+cksum
+> off masks the problem, but the status is probably still corrupt.
+>
+>  =20
 
-I was asking the same thing myself recently when I started working on
-some copy-break like code for the ixgbe driver.  I believe the main
-reason is a lack of documentation.  This code is based loosely on the
-skb_copy_bits code which will use kmap_skb_frag over all of the paged
-portions of the sk_buff.  As such it was decided to map things via
-kmap_atomic in order to guarantee the pages had a valid virtual address=
-=2E
+IMO, turning checksum off does more than masking the problem because it
+prevents the
+connection to stop working or even freeze the system.
 
-If I understand things correctly, what you are brining up is that pages
-allocated with either GFP_ATOMIC or GFP_KERNEL will always be allocated
-from the lowmem pool and as such page_address should always succeed.  I=
-s
-that correct?
+> In either case the problem is beyond the ability of the driver to fix=
+ or workaround.
+> Your best bet is to see if there is a BIOS update, or replace the har=
+dware.
+>  =20
 
-Thanks,
+Sadly the last BIOS update was in 2006, so I don't think I can rely on
+the manufacturer.
+But again, deactivate the capability of checksum by NIC hardware makes
+the interface stable since March.
 
-Alex
+Regards,
+Vincent
