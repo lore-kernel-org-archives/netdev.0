@@ -1,227 +1,115 @@
-From: "Hans Schillstrom" <hans@schillstrom.com>
-Subject: Re[2]:  [v4 PATCH 1/2] NETFILTER module xt_hmark, new target
-	for HASH based fwmark
-Date: Mon, 28 Nov 2011 10:36:51 +0100 (CET)
-Message-ID: <hr62jai.42522fc2b4c8846204d05566f5c6b926@obelix.schillstrom.com>
+From: Wolfgang Zarre <info@essax.com>
+Subject: Re: [PATCH net-next v2 2/4] can: cc770: add legacy ISA bus driver
+ for the CC770 and AN82527
+Date: Mon, 28 Nov 2011 09:56:13 +0100
+Message-ID: <4ED34CAD.7040000@essax.com>
+References: <1322214204-1121-1-git-send-email-wg@grandegger.com> <1322214204-1121-3-git-send-email-wg@grandegger.com> <4ED0FEC5.3070108@hartkopp.net>
+Reply-To: info@essax.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: kaber@trash.net, jengelh@medozas.de,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	hans.schillstrom@ericsson.com
-To: "Pablo Neira Ayuso" <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Wolfgang Grandegger <wg@grandegger.com>, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org, socketcan-users@lists.berlios.de,
+	IreneV <boir1@yandex.ru>,
+	Stanislav Yelenskiy <stanislavelensky@yahoo.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4ED0FEC5.3070108@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello Oliver,
+
+> Hello Wolfgang,
 >
->On Fri, Nov 25, 2011 at 10:36:26AM +0100, Hans Schillstrom wrote:
->> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
->> index 3f0258d..9e4d4f9 100644
->> --- a/include/net/ipv6.h
->> +++ b/include/net/ipv6.h
->> @@ -39,6 +39,7 @@
->>  #define NEXTHDR_ICMP		58	/* ICMP for IPv6. */
->>  #define NEXTHDR_NONE		59	/* No next header */
->>  #define NEXTHDR_DEST		60	/* Destination options header. */
->> +#define NEXTHDR_SCTP		132	/* Stream Control Transport Protocol */
->>  #define NEXTHDR_MOBILITY	135	/* Mobility header. */
->>  
->>  #define NEXTHDR_MAX		255
->
->This has to go in a separated patch. Please, send it to netdev. I
->think davem can pick that for 3.2-rc
+> many thanks for posting this driver. Indeed this is the last from the missing
+> drivers in the SVN ...
 
-I will send this tiny one to Dave
+@Wolfgang
 
-[snip]
-
->> +static int get_inner_hdr(struct sk_buff *skb, int iphsz, int nhoff)
->> +{
->> +	const struct icmphdr *icmph;
->> +	struct icmphdr _ih;
->> +	struct iphdr *iph = NULL;
->> +
->> +	/* Not enough header? */
->> +	icmph = skb_header_pointer(skb, nhoff + iphsz, sizeof(_ih), &_ih);
->> +	if (icmph == NULL)
->> +		return nhoff;
->> +
->> +	if (icmph->type > NR_ICMP_TYPES)
->> +		return nhoff;
->> +
->> +	/* Error message? */
->> +	if (icmph->type != ICMP_DEST_UNREACH &&
->> +	    icmph->type != ICMP_SOURCE_QUENCH &&
->> +	    icmph->type != ICMP_TIME_EXCEEDED &&
->> +	    icmph->type != ICMP_PARAMETERPROB &&
->> +	    icmph->type != ICMP_REDIRECT)
->> +		return nhoff;
->> +	/* Checkin full IP header plus 8 bytes of protocol to
->> +	 * avoid additional coding at protocol handlers.
->> +	 */
->> +	if (!pskb_may_pull(skb, nhoff + iphsz + sizeof(_ih) + 8))
->> +		return nhoff;
->
->skb_header_pointer again here, if conntrack is enabled, we can benefit
->from handling fragments.
->
-Yes, but I can't asume that conntrack is there.
-
-[snip]
-
->> +/*
->> + * Calc hash value, special casre is taken on icmp and fragmented messages
->> + * i.e. fragmented messages don't use ports.
->> + */
->> +__u32 hmark_v6(struct sk_buff *skb, const struct xt_action_param *par)
->> +{
->> +	struct xt_hmark_info *info = (struct xt_hmark_info *)par->targinfo;
->> +	int nhoff, poff, hdrlen;
->> +	u32 addr1, addr2, hash;
->> +	struct ipv6hdr *ip6;
->> +	u8 nexthdr;
->> +	int frag = 0, ip6hdrlvl = 0;	/* Header level */
->> +	struct ipv6_opt_hdr _hdr, *hp;
->> +	union {
->> +		u32 v32;
->> +		u16 v16[2];
->> +	} ports;
->> +
->> +	ports.v32 = 0;
->> +	nhoff = skb_network_offset(skb);
->> +
->> +hdr_new:
->> +	/* Get header info */
->> +	ip6 = (struct ipv6hdr *) (skb->data + nhoff);
->> +	nexthdr = ip6->nexthdr;
->> +	hdrlen = sizeof(struct ipv6hdr);
->> +	hp = skb_header_pointer(skb, nhoff + hdrlen, sizeof(_hdr), &_hdr);
->
->you have to check return value of skb_header_pointer here.
-
-This  is actually where next header will start if any, not the current one that is processed. 
-It's not time for checking it now. The check is done before using it further down.
+The same her, thanks a lot.
 
 >
->> +	while (nexthdr) {
->> +		switch (nexthdr) {
->> +		case IPPROTO_ICMPV6:
->> +			/* ICMP Error then move ptr to inner header */
->> +			if (get_inner6_hdr(skb, &nhoff, hdrlen)) {
->> +				ip6hdrlvl++;
->> +				if (!pskb_may_pull(skb, sizeof(_hdr) + nhoff))
->> +					return XT_CONTINUE;
->> +				goto hdr_new;
->> +			}
->> +			nhoff += hdrlen;
->> +			goto hdr_rdy;
->> +
->> +		case NEXTHDR_FRAGMENT:
->> +			if (!ip6hdrlvl) /* Do not use ports if fragmented */
->> +				frag = 1;
->> +			break;
->> +
->> +		/* End of hdr traversing cont. with ports and hash calc. */
->> +		case NEXTHDR_IPV6:	/* Do not process tunnels */
->> +		case NEXTHDR_TCP:
->> +		case NEXTHDR_UDP:
->> +		case NEXTHDR_ESP:
->> +		case NEXTHDR_AUTH:
->> +		case NEXTHDR_SCTP:
->> +		case NEXTHDR_NONE:	/* Last hdr of something unknown */
->> +			nhoff += hdrlen;
->> +			goto hdr_rdy;
->> +		default:
->> +			return XT_CONTINUE;
->> +		}
->> +		if (!hp)
->> +			return XT_CONTINUE;
->> +		nhoff += hdrlen;	/* eat current header */
->> +		nexthdr =  hp->nexthdr;	/* Next header */
->> +		hdrlen = ipv6_optlen(hp);
->> +		hp = skb_header_pointer(skb, nhoff + hdrlen, sizeof(_hdr),
->> +					&_hdr);
+> I added Wolfgang Zarre to the list of recipients who tested your CC770 driver
+> recently:
 >
->same here.
+> http://old.nabble.com/Compile-Fails-On-2.6.39-2-td32259346.html
 >
->> +		if (!pskb_may_pull(skb, nhoff))
+> Maybe he can check this latest version and can send a "Tested-by:"
 >
->why this after skb_header_pointer?
+> @Wolfgang Zarre: The entire patch set from Wolfgang Grandegger is here:
+>
+> http://patchwork.ozlabs.org/patch/127653/
+> http://patchwork.ozlabs.org/patch/127651/
+> http://patchwork.ozlabs.org/patch/127654/
+> http://patchwork.ozlabs.org/patch/127652/
 
-hp is used for next turn, but you got a point here  I'll swap them 
+In fact a month ago we discovered a problem with the previous isa driver but were not
+able to reproduce it.
+
+Last Friday during a test run we got the same problem and with some further tests I
+was able to reproduce and started with some investigation.
+
+So the patches came in quite handy and even not to waste time I was applying the
+patches to an updated svn tree but had to do some manual corrections to get it
+compiled.
+
+So far the driver is functioning quite good and I was hoping that our problem would
+be solved as well.
+
+But unfortunately that is not the case and it would be great if somebody would have
+an idea or similar experience and maybe a solution.
+
+In use:
+ISA card: B&R with CC770 (40007) Series Bosch CAN Controller - LQFP-44
+Kernel: 2.6.39.4
+Module: modprobe cc770_isa irq=0xa port=0x384 indirect=1
+Commands: ip link set can0 up type can bitrate 500000;ip link set can0 txqueuelen 2000
+
+dmesg:
+[190911.144337] CAN device driver interface
+[190911.153316] cc770 CAN netdevice driver
+[190911.159708] cc770_isa: platform device 0: port=0x384, mem=0x0, irq=10
+[190911.159740] cc770_isa cc770_isa.0: probing idx=0: port=0x384, mem=0x0, irq=10
+[190911.159799] cc770_isa cc770_isa.0: (unregistered net_device): i82527 mode with additional functions
+[190911.161338] cc770_isa cc770_isa.0: cc770_isa device registered (reg_base=0x00000384, irq=10)
+[190911.161384] Legacy cc770_isa driver for max. 8 devices registered
+[190912.173762] cc770_isa cc770_isa.0: can0: setting BTR0=0x00 BTR1=0x1c
+[190912.173835] cc770_isa cc770_isa.0: can0: Message object 15 for RX data, RTR, SFF and EFF
+[190912.173852] cc770_isa cc770_isa.0: can0: Message object 11 for TX data, RTR, SFF and EFF
+
+
+Description of problem:
+After a while sending quite some telegrams the driver of a sudden stops transmitting
+and the queue is running full but still capable to receive telegrams.
+This issue is not depending on the amount of transmitted telegrams and also no logfile
+entries.
+
+Further it is possible to recover with ip link set down and up again.
+
 
 >
->[... trimmed off ...]
->>       poff = proto_ports_offset(ip_proto);
->>       nhoff += ip->ihl * 4 + poff;
->>       if (frag || poff < 0 || !pskb_may_pull(skb, nhoff + 4))
->>               goto noports;
+> Just a nitpick in the description:
+>
+>> Furthermore, the following mode parameter can be defined:
+>
 >>
->>       ports.v32 = * (__force u32 *) (skb->data + nhoff);
->>       if (ip_proto == IPPROTO_ESP || ip_proto == IPPROTO_AH) {
->>               ports.v32 = (ports.v32 & info->spimask) | nfo->spiset;
->>       } else {
->>               if (snatport)   /* Replace nat'ed port(s) */
->>                       ports.v16[1] = snatport;
->>               if (dnatport)
->>                       ports.v16[0] = dnatport;
->>               ports.v32 = (ports.v32 & info->pmask.v32) |
->>                               info->pset.v32;
->>               if (ports.v16[1] < ports.v16[0])
->>                       swap(ports.v16[0], ports.v16[1]);
->>       }
->>
->>noports:
->>       ip_proto &= info->prmask;
->>       /* get a consistent hash (same value on both flow directions)/
->>       if (addr2 < addr1)
->>               swap(addr1, addr2);
->>
->>       hash = jhash_3words(addr1, addr2, ports.v32, info->hashrnd) ^ p_proto;
->>       if (info->hmod)
->>               skb->mark = (hash % info->hmod) + info->hoffs;
->>       return XT_CONTINUE;
->> }
+>>    clk: External oscillator clock frequency (default=16000000 [16 MHz])
+>>    cir: CPU interface register (default=0x40 [DSC])
+>>    ocr, Bus configuration register (default=0x40 [CBY])
 >
->Hm, I think the fragmentation handling is broken.
 >
->Say that the first fragment contains the transport header
->header, then the mark is calculated based on the address and ports.
->Then, later on fragments will receive the mark based on the network
->header only. They may have different marks.
-
-I think the documentation need improvments :-)
-Fragments  never try to use ports.
-"    if (frag)
-         goto noports;"
-
+> ->  bcr: CPU ...
 >
->If you don't want to use conntrack in your setup and you want to handle
->fragments, then you have to configure HMARK to calculate the hashing
->based on the network addresses. If you want to fully support fragments,
->then enable conntrack and you can configure HMARK to calculate the
->hashing based on network address + transport bits.
+>>    cor, Clockout register (default=0x00)
 >
->Fix this by removing the fragmentation handling, then assume that
->people can select between two hashing configuration for HMARK. One
->based for network address which is fragment-safe, one that uses the
->transport layer information, that requires conntrack. Otherwise, I
->don't see a sane way to handle this situation.
-
-Correct me if I'm wrong here, 
-If conntrack is enabled hmark don't see the packet until it is reassembled and 
-in that case the fragmentation header is removed.
-
-So, with conntrack HMARK will operate on full packets not fragments
-without conntrack ports will not be used on any fragment.
-
 >
->I think this has to be documented in the iptables manpage for HMARK.
+> ->  cor: Clockout ...
+>
+> Regards,
+> Oliver
 
-The documentation needs update here, this is not crystal clear.
+Thanks in advance.
 
-Thanks
-Hans
-
+Regards
+Wolfgang
