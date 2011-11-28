@@ -1,90 +1,42 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 3/6] NFS: pass NFS client owner network namespace to RPC
-	client creation routine
-Date: Mon, 28 Nov 2011 17:33:46 +0300
-Message-ID: <20111128133346.4251.47028.stgit@localhost6.localdomain6>
-References: <20111128132805.4251.15252.stgit@localhost6.localdomain6>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH] net/can/mscan: Enable interrupts when all TX buffers
+ are occupied to get notified when they are available again
+Date: Mon, 28 Nov 2011 14:37:53 +0100
+Message-ID: <4ED38EB1.6030806@grandegger.com>
+References: <C3745E3C7FD07D429C54EB3D7606A5A7677E7C@ZRHEX021.ads.zuehlke.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbottomley@parallels.com, bfields@fieldses.org,
-	davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111128132805.4251.15252.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"socketcan@hartkopp.net" <socketcan@hartkopp.net>,
+	"lucas.demarchi@profusion.mobi" <lucas.demarchi@profusion.mobi>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"mkl@pengutronix.de" <mkl@pengutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Mosler, Martin" <mmo@zuehlke.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <C3745E3C7FD07D429C54EB3D7606A5A7677E7C@ZRHEX021.ads.zuehlke.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch replaces static "init_net" with nfs_client->net pointer in RPC
-client creation calls.
+On 11/28/2011 02:25 PM, Mosler, Martin wrote:
+> When all TX buffers of the mscan are occupied the network layer is told to stop sending further packets. However the TX interrupts are not enabled and therefore the driver has no chance to tell the network layer when it is ready to accept further packets.
+> 
+> Signed-off-by: Martin Mosler <mmo@zuehlke.com>
+> 
+> --- linux-2.6/drivers/net/can/mscan/mscan.c.orig    2011-11-28 13:54:29.547850661 +0100
+> +++ linux-2.6/drivers/net/can/mscan/mscan.c 2011-11-28 13:55:52.427849601 +0100
+> @@ -214,6 +214,7 @@ static netdev_tx_t mscan_start_xmit(stru
+>     case 0:
+>         netif_stop_queue(dev);
+>         dev_err(dev->dev.parent, "Tx Ring full when queue awake!\n");
+> +       out_8(&regs->cantier, priv->tx_active);
+>         return NETDEV_TX_BUSY;
+>     case 1:
+>         /*  
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Hm, did you see the error message. Actually, it should never happen, IIRC.
 
----
- fs/nfs/client.c     |    2 +-
- fs/nfs/internal.h   |    1 +
- fs/nfs/mount_clnt.c |    4 ++--
- fs/nfs/super.c      |    1 +
- 4 files changed, 5 insertions(+), 3 deletions(-)
+Wolfgang.
 
-diff --git a/fs/nfs/client.c b/fs/nfs/client.c
-index 47a8cd6..58eebb5 100644
---- a/fs/nfs/client.c
-+++ b/fs/nfs/client.c
-@@ -641,7 +641,7 @@ static int nfs_create_rpc_client(struct nfs_client *clp,
- {
- 	struct rpc_clnt		*clnt = NULL;
- 	struct rpc_create_args args = {
--		.net		= &init_net,
-+		.net		= clp->net,
- 		.protocol	= clp->cl_proto,
- 		.address	= (struct sockaddr *)&clp->cl_addr,
- 		.addrsize	= clp->cl_addrlen,
-diff --git a/fs/nfs/internal.h b/fs/nfs/internal.h
-index 4565e76..451acb5 100644
---- a/fs/nfs/internal.h
-+++ b/fs/nfs/internal.h
-@@ -138,6 +138,7 @@ struct nfs_mount_request {
- 	int			noresvport;
- 	unsigned int		*auth_flav_len;
- 	rpc_authflavor_t	*auth_flavs;
-+	struct net		*net;
- };
- 
- extern int nfs_mount(struct nfs_mount_request *info);
-diff --git a/fs/nfs/mount_clnt.c b/fs/nfs/mount_clnt.c
-index d4c2d6b..4fbe3a8 100644
---- a/fs/nfs/mount_clnt.c
-+++ b/fs/nfs/mount_clnt.c
-@@ -153,7 +153,7 @@ int nfs_mount(struct nfs_mount_request *info)
- 		.rpc_resp	= &result,
- 	};
- 	struct rpc_create_args args = {
--		.net		= &init_net,
-+		.net		= info->net,
- 		.protocol	= info->protocol,
- 		.address	= info->sap,
- 		.addrsize	= info->salen,
-@@ -225,7 +225,7 @@ void nfs_umount(const struct nfs_mount_request *info)
- 		.to_retries = 2,
- 	};
- 	struct rpc_create_args args = {
--		.net		= &init_net,
-+		.net		= info->net,
- 		.protocol	= IPPROTO_UDP,
- 		.address	= info->sap,
- 		.addrsize	= info->salen,
-diff --git a/fs/nfs/super.c b/fs/nfs/super.c
-index 782260d..b52819e 100644
---- a/fs/nfs/super.c
-+++ b/fs/nfs/super.c
-@@ -1607,6 +1607,7 @@ static int nfs_try_mount(struct nfs_parsed_mount_data *args,
- 		.noresvport	= args->flags & NFS_MOUNT_NORESVPORT,
- 		.auth_flav_len	= &server_authlist_len,
- 		.auth_flavs	= server_authlist,
-+		.net		= args->net,
- 	};
- 	int status;
- 
