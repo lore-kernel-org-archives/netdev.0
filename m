@@ -1,38 +1,52 @@
-From: "Greg Scott" <GregScott@Infrasupport.com>
-Subject: RE: ebtables on a stick
-Date: Mon, 28 Nov 2011 08:54:09 -0600
-Message-ID: <925A849792280C4E80C5461017A4B8A2A0488A@mail733.InfraSupportEtc.com>
-References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com> <20111128143901.GA589422@jupiter.n2.diac24.net>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH net-next v2 2/4] can: cc770: add
+ legacy ISA bus driver for the CC770 and AN82527
+Date: Mon, 28 Nov 2011 16:10:03 +0100
+Message-ID: <4ED3A44B.8060907@grandegger.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6D8AEE9@saturn3.aculab.com>
+	<4ED3960F.4040508@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>
-To: "David Lamparter" <equinox@diac24.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.infrasupportetc.com ([216.160.2.132]:15169 "EHLO
-	mail.infrasupport.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750878Ab1K1OyK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 09:54:10 -0500
-Content-class: urn:content-classes:message
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>, socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4ED3960F.4040508-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
+List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-PiBUaGlzIGRvZXNuJ3QgYW5zd2VyIHlvdXIgcXVlc3Rpb24sIGJ1dCB5b3VyIHVzZSBjYXNlIGlz
-IGJldHRlciBzb2x2ZWQNCj4gd2l0aCBwcm94eSBhcnAuDQoNClByb3h5IGFycCBzY2FyZXMgbWUg
-dG8gZGVhdGguICBJIGxpdmVkIHRocm91Z2ggYSBkaXNhc3RlciBhIGZldyB5ZWFycyBhZ28gd2hl
-biBJIG1lc3NlZCB1cCBhIHdob2xlIGNvbG8gc2l0ZSB3aGVuIEkgcHV0IGluIGEgYm94IHdpdGgg
-aXRzIHB1YmxpYyBOSUMgc2V0IHVwIHdpdGggUHJveHkgYXJwLiAgSWYgSSB1bmRlcnN0YW5kIHdo
-YXQgaGFwcGVucywgdGhhdCBwcm94eS1hcnBlZCBOSUMgYW5zd2VycyBBUlAgcmVxdWVzdHMgZm9y
-IGV2ZXJ5b25lIHdpdGggaXRzIG93biBNQUMgQWRkcmVzcy4gIEZvcnR1bmF0ZWx5IGZvciBtZSwg
-aXQgb25seSBsYXN0ZWQgYSBsaXR0bGUgd2hpbGUgYXJvdW5kIDRBTSBvbmUgbW9ybmluZyBiZWZv
-cmUgSSByZWFsaXplZCB3aGF0IHdhcyBnb2luZyBvbiBhbmQgdG9vayBpdCBkb3duLiAgQWZ0ZXIg
-SSB3ZW50IHRocm91Z2ggdGhhdCBleHBlcmllbmNlIEkgcHJvbWlzZWQgbXlzZWxmIG5ldmVyIGFn
-YWluIGZvciBwcm94eSBhcnAuDQoNClRoYXQncyB3aHkgSSBzdGFydGVkIGxvb2tpbmcgYXQgYnJp
-ZGdpbmcuICANCg0KLi4uQnV0IG1heWJlIHRoZXJlJ3MgYSB3YXkgdG8gbWFrZSBteSBOSUMgb25s
-eSBhbnN3ZXIgQVJQcyBmb3IgY2VydGFpbiBJUCBBZGRyZXNzZXMgSSBjYXJlIGFib3V0PyAgVGhh
-dCB3b3VsZCBuaWNlbHkgc29sdmUgdGhlIHByb2JsZW0uICBJZiBpdCB3b3Jrcy4gIA0KDQpJbiBt
-eSBlYXJsaWVyIG5lYXItZGlzYXN0ZXIsIEkgZGlkIHRoaXM6DQoNCmVjaG8gMSA+IC9wcm9jL3N5
-cy9uZXQvaXB2NC9jb25mLyR7SU5FVF9JRkFDRX0vcHJveHlfYXJwDQoNCnRvIHR1cm4gb24gcHJv
-eHkgYXJwLiAgSSB3b25kZXIgaWYgdGhhdCBpcCBuZWlnaGJvciBzdHVmZiBkb2VzIGl0IHNlbGVj
-dGl2ZWx5PyAgDQoNCi0gR3JlZw0KDQo=
+On 11/28/2011 03:09 PM, Marc Kleine-Budde wrote:
+> On 11/28/2011 03:03 PM, David Laight wrote:
+>>>>> +	for (idx = 0; idx < MAXDEV; idx++) {
+>>>> ARRAY_SIZE?
+>>>
+>>> Well, I think ARRAY_SIZE is useful to derive the number of 
+>>> elements from a static array of the type:
+>>>
+>>>   static const int array[] = { 1, 2, 3, 4, }
+>>>
+>>> but not if its declared as:
+>>>
+>>>   static array[MAXDEV]:
+>>>
+>>> ... or have I missed something?
+>>
+>> Yes - if you use ARRAY_SIZE() then someone reading the code
+>> doesn't need to find the array definition to ensure the loop
+>> upper bound is correct.
+> 
+> Yep, that
+> was my intention, too.
+
+OK, I see, and as we are all just human beings ...
+
+Wolfgang.
