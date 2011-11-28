@@ -1,62 +1,90 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH] macvtap: Fix macvtap_get_queue to use rxhash first
-Date: Mon, 28 Nov 2011 12:40:47 +0800
-Message-ID: <4ED310CF.6010306@redhat.com>
-References: <OF86B15006.7F4BE3FB-ON65257953.00104C3E-65257953.0010EFCA@in.ibm.com>
-	<4ECF09D5.4010700@redhat.com>
-	<OF835A6FF5.7D752AD1-ON65257953.0016350C-65257953.00169AF4@in.ibm.com>
-	<20111125.013552.1613051198566054931.davem@davemloft.net>
-	<20111127172333.GD31987@redhat.com>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: RE: [PATCH net-next] netxen: write IP address to firmware when
+ using bonding
+Date: Mon, 28 Nov 2011 00:02:28 -0600
+Message-ID: <13A253B3F9BEFE43B93C09CF75F63CAA81602BBE98@MNEXMB1.qlogic.org>
+References: <1322073791-15223-1-git-send-email-andy@greyhouse.net>
+	<20111123.160922.1983654308126240492.davem@davemloft.net>
+	<20111124032426.GG25132@gospo.rdu.redhat.com>,<20111124.003855.1498231373002177172.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, arnd@arndb.de, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	levinsasha928@gmail.com, David Miller <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20111127172333.GD31987@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Sony Chacko <sony.chacko@qlogic.com>
+To: David Miller <davem@davemloft.net>,
+	"andy@greyhouse.net" <andy@greyhouse.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from va3ehsobe006.messaging.microsoft.com ([216.32.180.16]:57990
+	"EHLO VA3EHSOBE007.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751908Ab1K1GDA convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Nov 2011 01:03:00 -0500
+In-Reply-To: <20111124.003855.1498231373002177172.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/28/2011 01:23 AM, Michael S. Tsirkin wrote:
-> On Fri, Nov 25, 2011 at 01:35:52AM -0500, David Miller wrote:
->> From: Krishna Kumar2<krkumar2@in.ibm.com>
->> Date: Fri, 25 Nov 2011 09:39:11 +0530
->>
->>> Jason Wang<jasowang@redhat.com>  wrote on 11/25/2011 08:51:57 AM:
->>>> My description is not clear again :(
->>>> I mean the same vhost thead:
->>>>
->>>> vhost thread #0 transmits packets of flow A on processor M
->>>> ...
->>>> vhost thread #0 move to another process N and start to transmit packets
->>>> of flow A
->>> Thanks for clarifying. Yes, binding vhosts to CPU's
->>> makes the incoming packet go to the same vhost each
->>> time. BTW, are you doing any binding and/or irqbalance
->>> when you run your tests? I am not running either at
->>> this time, but thought both might be useful.
->> So are we going with this patch or are we saying that vhost binding
->> is a requirement?
-> I think it's a good idea to make sure we understand the problem
-> root cause well before applying the patch. We still
-> have a bit of time before 3.2. In particular, why does
-> the vhost thread bounce between CPUs so much?
+Hi Andy,
 
-Other than this, since we could not assume the behavior of the under 
-nic, using rxhash to identify a flow is more generic way.
+We need to restore the ip address after the adapter reset.
+netxen_restore_indev_addr is the function that restores normal ip addresses
+and vlan ip addresses. If we could find bond device directly from slave then 
+we can use netxen_config_indev_addr to add the ip address of the bond device.
+Otherwise we may need to cache the bond ip address in function netxen_list_config_vlan_ip
+and change the condition from
+
+if (!is_vlan_dev(dev))
+                return;
+
+to
+
+if (!is_vlan_dev(dev) && !is_bond_dev(dev))
+                return;
+
+
+Some of the code in if and else part is repeated.
+If possible can we have small functions for that ?
+eg:
+if (!is_netxen_netdev(dev))
++                       goto done;
++
++               adapter = netdev_priv(dev);
++               if (!adapter)
++                       goto done;
++
++               if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC)
++                       goto done;
++
++               netxen_config_indev_addr(adapter, orig_dev, event);
+
+
+Rajesh
+________________________________________
+From: David Miller [davem@davemloft.net]
+Sent: Thursday, November 24, 2011 11:08 AM
+To: andy@greyhouse.net
+Cc: netdev; Sony Chacko; Rajesh Borundia
+Subject: Re: [PATCH net-next] netxen: write IP address to firmware when using bonding
+
+From: Andy Gospodarek <andy@greyhouse.net>
+Date: Wed, 23 Nov 2011 22:24:27 -0500
+
+> Are you talking about adding a macro like this:
 >
-> Long term it seems the best way is to expose the preferred mapping
-> from the guest and forward it to the device.
+>       for_each_dev_in_bond(bond,slave) {
+>               [...]
+>       }
 >
+> to replace the statements I added that were like this:
+>
+>       for_each_netdev_rcu(&init_net, slave) {
+>               if (slave->master == dev) {
+>                       [...]
+>               }
+>       }
+>
+> If so, that totally seems reasonable.  If were requesting something
+> else, please let me know.
 
-I was working on this and hope to post it soon.
+Yes, some helper that walks the device list and tries to find
+a device whose ->master matches 'dev'.
