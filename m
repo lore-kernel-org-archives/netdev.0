@@ -1,97 +1,67 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH net-next v2 1/4] can: cc770: add
- driver core for the Bosch CC770 and Intel AN82527
-Date: Mon, 28 Nov 2011 15:18:25 +0100
-Message-ID: <4ED39831.4060008@pengutronix.de>
-References: <1322214204-1121-1-git-send-email-wg@grandegger.com>
-	<1322214204-1121-2-git-send-email-wg@grandegger.com>
-	<4ED3704D.5020903@pengutronix.de> <4ED3922A.50704@grandegger.com>
-	<4ED3941D.3070302@pengutronix.de> <4ED3966E.7080609@grandegger.com>
+From: Steven Whitehouse <swhiteho@redhat.com>
+Subject: Proposed removal of DECnet support (was: Re: [BUG] 3.2-rc2: BUG
+ kmalloc-8: Redzone overwritten)
+Date: Mon, 28 Nov 2011 14:22:41 +0000
+Message-ID: <1322490161.2711.26.camel@menhir>
+References: <1321870529.2552.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1321870915.2552.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1321873110.2710.13.camel@menhir>
+	 <20111126.155028.1986754382924402334.davem@davemloft.net>
+	 <4ED35B3E.7040105@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1930834364814412534=="
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4ED3966E.7080609-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
-List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+        levinsasha928@gmail.com, mpm@selenic.com, cl@linux-foundation.org,
+        penberg@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Christine Caulfield <ccaulfie@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <4ED35B3E.7040105@redhat.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============1930834364814412534==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigD3A04D58A975B8B45DF19976"
+Hi,
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigD3A04D58A975B8B45DF19976
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Mon, 2011-11-28 at 09:58 +0000, Christine Caulfield wrote:
+> On 26/11/11 20:50, David Miller wrote:
+> > From: Steven Whitehouse<swhiteho@redhat.com>
+> > Date: Mon, 21 Nov 2011 10:58:30 +0000
+> >
+> >> I have to say that I've been wondering lately whether it has got to the
+> >> point where it is no longer useful. Has anybody actually tested it
+> >> lately against "real" DEC implementations?
+> >
+> > I doubt it :-)
+> >
+> 
+> DECnet is in use against real DEC implementations - I have checked it 
+> quite recently against a VAX running OpenVMS. How many people are 
+> actually using it for real work is a different question though.
+> 
+Ok, thats useful info.
 
-On 11/28/2011 03:10 PM, Wolfgang Grandegger wrote:
+> It's also true that it's not really supported by anyone as I orphaned it 
+> some time ago and nobody else seems to care enough to take it over. So 
+> if it's becoming a burden on people doing real kernel work then I don't 
+> think many tears will be wept for its removal.
+> 
+> Chrissie
 
->>>   enum {
->>> 	CC770_OBJ_RX0 =3D 0,	/* for receiving normal messages */
->>> 	CC770_OBJ_RX1,		/* for receiving normal messages */
->>> 	CC770_OBJ_RX_RTR0,	/* for receiving remote transmission requests */
->>> 	CC770_OBJ_RX_RTR1,	/* for receiving remote transmission requests */
->>> 	CC770_OBJ_TX,		/* for sending messages */
->>> 	CC770_OBJ_MAX  <=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->>
->> ...then add a "," here :P
->=20
-> Why?
+Really the only issue with keeping it around is the maintenance burden I
+think. It doesn't look like anybody wants to take it on, but maybe we
+should give it another few days for someone to speak up, just in case
+they are on holiday or something at the moment.
 
-Okay - here the following argument will be not valid :), because OBJ_MAX
-will and has always to be the last element in the enum.
+Also, I've updated the subject of the thread, to make it more obvious
+what is being discussed, as well as bcc'ing it again to the DECnet list,
 
-But if you don't have a _MAX argument and a new element will be added to
-the enum, you'll have to change two lines: 1. add the missing "," 2. add
-the new element. Diff will look better if the last element always has a "=
-,".
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Steve.
 
 
---------------enigD3A04D58A975B8B45DF19976
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk7TmDMACgkQjTAFq1RaXHOi8gCaAo2aweSO9ERFP+Nd8MK64N46
-qGAAniLsZAZA88yX7w7A0w8mLsDnneYI
-=BX4f
------END PGP SIGNATURE-----
-
---------------enigD3A04D58A975B8B45DF19976--
-
---===============1930834364814412534==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-users mailing list
-Socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-users
-
---===============1930834364814412534==--
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
