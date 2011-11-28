@@ -1,59 +1,54 @@
-From: Ben Pfaff <blp@nicira.com>
-Subject: Re: [ovs-dev] [GIT PULL v2] Open vSwitch
-Date: Mon, 28 Nov 2011 15:14:24 -0800
-Message-ID: <20111128231424.GT3003@nicira.com>
-References: <20111123075433.GA7928@gondor.apana.org.au>
- <1322050976.2039.125.camel@mojatatu>
- <20111128130409.GB16828@gondor.apana.org.au>
- <1322488954.7338.66.camel@mojatatu>
- <20111128160117.GA6349@nicira.com>
- <1322518873.6118.7.camel@mojatatu>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH v2 net-next 2/2] netem: add cell concept to simulate
+ special MAC behavior
+Date: Tue, 29 Nov 2011 00:30:04 +0100
+Message-ID: <20111128233004.GH3045@nuttenaction>
+References: <1322156378-23257-1-git-send-email-hagen@jauu.net>
+ <1322187773-27768-1-git-send-email-hagen@jauu.net>
+ <1322187773-27768-2-git-send-email-hagen@jauu.net>
+ <1322521267.2970.43.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, dev@openvswitch.org,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:40285 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751530Ab1K1XOa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 18:14:30 -0500
-Received: by iage36 with SMTP id e36so9621157iag.19
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2011 15:14:29 -0800 (PST)
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:57205 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755611Ab1K1XaI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 18:30:08 -0500
 Content-Disposition: inline
-In-Reply-To: <1322518873.6118.7.camel@mojatatu>
+In-Reply-To: <1322521267.2970.43.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 28, 2011 at 05:21:13PM -0500, Jamal Hadi Salim wrote:
-> On Mon, 2011-11-28 at 08:01 -0800, Ben Pfaff wrote:
-> 
-> > Regarding OpenFlow rate limiting, in addition to Martin's response, Open
-> > vSwitch has implemented controller rate limiting since day one.  It is
-> > documented in ovs-vswitchd.conf.db(5):
-> 
-> Ok, I think thats a good start. My experience says just rate limiting
-> may not be sufficient - unless the rate limiting is adaptive in some
-> form; or just use strict prio where you let the exception traffic
-> rot if you have other work - maybe thats what Martin was talking 
-> about.
-> 
-> The problem is more in the outbound towards the external controller.
-> You dont have multiple queues (given a single TCP socket) and config,
-> events, and exception packets are all shared in one queue.
+* Eric Dumazet | 2011-11-29 00:01:07 [+0100]:
 
-I believe that Martin's point was that production controllers don't
-usually get any packets to the controller at all, because they
-configure the flow table to handle or drop all traffic.  Individual
-flow table entries can direct traffic to the controller (subject
-optionally to both Open vSwitch rate limiting of packets to the
-controller and to any QoS policy for the controller connection), and
-some controllers might use this feature to direct specific types of
-traffic (e.g. LLDP) to the controller.
+>> -static psched_time_t packet_len_2_sched_time(unsigned int len, u32 rate)
+>> +static psched_time_t packet_len_2_sched_time(unsigned int len,
+>> +					     struct netem_sched_data *q)
+>>  {
+>> -	return PSCHED_NS2TICKS((u64)len * NSEC_PER_SEC / rate);
+>> +	len += q->packet_overhead;
+>> +
+>> +	if (q->cell_size) {
+>> +		u32 carry = len % q->cell_size;
+>> +		len += carry;
+>
+>I dont understand this part  (len += carry;)
 
-Open vSwitch doesn't limit a controller to a single OpenFlow TCP
-connection.  A controller can set up multiple OpenFlow connections to
-a single OVS bridge, use one of them for receiving packets, and use
-the others for other purposes.  I don't know whether anyone does this,
-because keeping the amount of traffic sent to the controller to a
-minimum is effective in practice.
+Say the original packet is 100 byte, cellsize is 40 byte: three full size link
+layer frames are required: 40 + 40 + 40 == 100 + 20. This is used for TDMA,
+ATM or slot schemes where the remainder cannot be used.
+
+Later in code carry is reused if cell overhead is configured.
+
+>Also you use a lot of divides... Probably OK for netem...
+
+I know, but
+
+1) the branch is not hot (not taken at all if rate is not called)
+2) cell_size could not restricted to a power of two - so I saw no real
+   optimization potential.
+
+
+Hagen
