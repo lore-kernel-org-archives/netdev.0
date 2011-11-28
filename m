@@ -1,65 +1,71 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [NET][TG3] Fwd: page allocation failure with linux 3.1.1
-Date: Mon, 28 Nov 2011 11:05:53 -0800
-Message-ID: <4ED3DB91.9090409@hp.com>
-References: <CALkh-HhkzHb7-2LAwCNOZ-S4otfeM+tthyw2_XDbDUjFRSkKjA@mail.gmail.com> <CALkh-HiaDSJb7sStH=DHxXCmecFWYAC2q7hx72gGvFSYz+2r=A@mail.gmail.com> <1322462145.2826.6.camel@edumazet-laptop> <CALkh-Hi=Pb_cNUzHrJSe4o5-kmb+jLA8vpw8hiaGxROzNJ6oag@mail.gmail.com> <1322468762.2826.17.camel@edumazet-laptop>
+From: Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] net: rfkill: convert net/rfkill/* to use
+ module_platform_driver()
+Date: Mon, 28 Nov 2011 11:09:47 -0800
+Message-ID: <1322507387.3888.1.camel@rklein-linux2>
+References: <1322471704.2730.1.camel@phoenix>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?0J/Qu9Cw0LzQtdC9INCf0LXRgtGA0L7Qsg==?=
-	<plamen.sisi@gmail.com>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:18821 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752190Ab1K1TFz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 14:05:55 -0500
-In-Reply-To: <1322468762.2826.17.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Antonio Ospite <ospite-aNJ+ML1ZbiP93QAQaVx+gl6hYfS7NtTn@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Axel Lin <axel.lin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1322471704.2730.1.camel@phoenix>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 11/28/2011 12:26 AM, Eric Dumazet wrote:
-> Le lundi 28 novembre 2011 =C3=A0 09:16 +0200, =D0=9F=D0=BB=D0=B0=D0=BC=
-=D0=B5=D0=BD =D0=9F=D0=B5=D1=82=D1=80=D0=BE=D0=B2 a =C3=A9crit :
->
->> Well, Eric, thanks for the explanation! I will disable TSO and will
->> see how is that working out for me - if I recall correctly, I had no
->> problems when TSO was off.
->>
->> Sorry to bother you, if the above explanation was somewhere readily
->> available, but I didn't manage to find it.
->
-> You dont bother me at all :)
->
-> As a matter of fact, your mail reminded me something I wanted to do i=
-n
-> the past and forgot about.
->
-> Since some devices might copy skb to a linear one in their
-> ndo_start_xmit(), we could set a netdev limit so that TSO can still b=
-e
-> used on these devices, but limiting number of frags to
-> 2^PAGE_ALLOC_COSTLY_ORDER
+On Mon, 2011-11-28 at 01:15 -0800, Axel Lin wrote:
+> This patch converts the drivers in net/rfkill/* to use the
+> module_platform_driver() macro which makes the code smaller and a bit
+> simpler.
+> 
+> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+> Cc: Antonio Ospite <ospite-aNJ+ML1ZbiP93QAQaVx+gl6hYfS7NtTn@public.gmane.org>
+> Cc: Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Axel Lin <axel.lin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  net/rfkill/rfkill-gpio.c      |   13 +------------
+>  net/rfkill/rfkill-regulator.c |   12 +-----------
+>  2 files changed, 2 insertions(+), 23 deletions(-)
+> 
+> diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
+> index 128677d..ca355e7 100644
+> --- a/net/rfkill/rfkill-gpio.c
+> +++ b/net/rfkill/rfkill-gpio.c
+> @@ -220,18 +220,7 @@ static struct platform_driver rfkill_gpio_driver = {
+>  	},
+>  };
+>  
+> -static int __init rfkill_gpio_init(void)
+> -{
+> -	return platform_driver_register(&rfkill_gpio_driver);
+> -}
+> -
+> -static void __exit rfkill_gpio_exit(void)
+> -{
+> -	platform_driver_unregister(&rfkill_gpio_driver);
+> -}
+> -
+> -module_init(rfkill_gpio_init);
+> -module_exit(rfkill_gpio_exit);
+> +module_platform_driver(rfkill_gpio_driver);
+>  
+>  MODULE_DESCRIPTION("gpio rfkill");
+>  MODULE_AUTHOR("NVIDIA");
 
-How much "TSO value" remains after such a copy?
+Gpio part looks good to me.
 
-rick jones
+Acked-by: Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
 
->
-> (Since PAGE_ALLOC_COSTLY_ORDER =3D=3D 3, thats 8 frags, instead of 16=
- right
-> now on x86)
->
-> Of course, if memory is really tight, even an ATOMIC order-3 allocati=
-on
-> might fail. If this happens, device limit could be dynamically
-> decreased. In the end, only linear skb could be built by TCP.
->
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
