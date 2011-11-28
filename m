@@ -1,41 +1,46 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] macvtap: Fix macvtap_get_queue to use rxhash first
-Date: Mon, 28 Nov 2011 09:42:00 -0800
-Message-ID: <20111128094200.2cb823a0@nehalam.linuxnetplumber.net>
-References: <20111124081714.26635.68141.sendpatchset@krkumar2.in.ibm.com>
-	<20111124095902.GD14491@redhat.com> <4ECE18D5.3060605@redhat.com>
-	<20111124103449.GA16031@redhat.com> <4ECE3F0D.3090908@redhat.com>
-	<20111124161430.GC26770@redhat.com>
-	<OF86B15006.7F4BE3FB-ON65257953.00104C3E-65257953.0010EFCA@in.ibm.com>
-	<4ECF09D5.4010700@redhat.com>
-	<OF835A6FF5.7D752AD1-ON65257953.0016350C-65257953.00169AF4@in.ibm.com>
-	<4ED30D2B.10907@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v3 02/10] net: Add queue state xoff flag for stack
+Date: Mon, 28 Nov 2011 17:46:09 +0000
+Message-ID: <1322502369.26733.5.camel@bwh-desktop>
+References: <alpine.DEB.2.00.1111222139180.14467@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>, arnd@arndb.de, "Michael S.
-	Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	levinsasha928@gmail.com, davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <4ED30D2B.10907@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:12610 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751795Ab1K1RqM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 12:46:12 -0500
+In-Reply-To: <alpine.DEB.2.00.1111222139180.14467@pokey.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 28 Nov 2011 12:25:15 +0800
-Jason Wang <jasowang@redhat.com> wrote:
+On Tue, 2011-11-22 at 21:52 -0800, Tom Herbert wrote:
+> Create separate queue state flags so that either the stack or drivers
+> can turn on XOFF.  Added a set of functions used in the stack to determine
+> if a queue is really stopped (either by stack or driver)
+[...]
+>  static inline int netif_tx_queue_stopped(const struct netdev_queue *dev_queue)
+>  {
+> -	return test_bit(__QUEUE_STATE_XOFF, &dev_queue->state);
+> +	return test_bit(__QUEUE_STATE_DRV_XOFF, &dev_queue->state);
+>  }
+[...]
+> +static inline int netif_xmit_stopped(const struct netdev_queue *dev_queue)
+>  {
+> -	return dev_queue->state & QUEUE_STATE_XOFF_OR_FROZEN;
+> +	return dev_queue->state & QUEUE_STATE_ANY_XOFF;
+> +}
+[...]
 
-> I'm using ixgbe for testing also, for host, its driver seems provide irq 
-> affinity hint, so no binding or irqbalance is needed.
+The difference in names here doesn't really suggest the difference in
+semantics.  I think they will be easy to confuse.
 
-The hint is for irqbalance to use. You need to still do manual
-affinity or use irqbalance.
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
