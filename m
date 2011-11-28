@@ -1,72 +1,62 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Subject: Re: [PATCH v6 10/10] Disable task moving when using kernel memory
- accounting
-Date: Mon, 28 Nov 2011 13:32:03 +0900
-Message-ID: <20111128133203.2d52ee28.kamezawa.hiroyu@jp.fujitsu.com>
-References: <1322242696-27682-1-git-send-email-glommer@parallels.com>
-	<1322242696-27682-11-git-send-email-glommer@parallels.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH] macvtap: Fix macvtap_get_queue to use rxhash first
+Date: Mon, 28 Nov 2011 12:40:47 +0800
+Message-ID: <4ED310CF.6010306@redhat.com>
+References: <OF86B15006.7F4BE3FB-ON65257953.00104C3E-65257953.0010EFCA@in.ibm.com>
+	<4ECF09D5.4010700@redhat.com>
+	<OF835A6FF5.7D752AD1-ON65257953.0016350C-65257953.00169AF4@in.ibm.com>
+	<20111125.013552.1613051198566054931.davem@davemloft.net>
+	<20111127172333.GD31987@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org,
-	gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
-	kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org, avagin-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1322242696-27682-11-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: krkumar2@in.ibm.com, arnd@arndb.de, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	levinsasha928@gmail.com, David Miller <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20111127172333.GD31987@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 25 Nov 2011 15:38:16 -0200
-Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
+On 11/28/2011 01:23 AM, Michael S. Tsirkin wrote:
+> On Fri, Nov 25, 2011 at 01:35:52AM -0500, David Miller wrote:
+>> From: Krishna Kumar2<krkumar2@in.ibm.com>
+>> Date: Fri, 25 Nov 2011 09:39:11 +0530
+>>
+>>> Jason Wang<jasowang@redhat.com>  wrote on 11/25/2011 08:51:57 AM:
+>>>> My description is not clear again :(
+>>>> I mean the same vhost thead:
+>>>>
+>>>> vhost thread #0 transmits packets of flow A on processor M
+>>>> ...
+>>>> vhost thread #0 move to another process N and start to transmit packets
+>>>> of flow A
+>>> Thanks for clarifying. Yes, binding vhosts to CPU's
+>>> makes the incoming packet go to the same vhost each
+>>> time. BTW, are you doing any binding and/or irqbalance
+>>> when you run your tests? I am not running either at
+>>> this time, but thought both might be useful.
+>> So are we going with this patch or are we saying that vhost binding
+>> is a requirement?
+> I think it's a good idea to make sure we understand the problem
+> root cause well before applying the patch. We still
+> have a bit of time before 3.2. In particular, why does
+> the vhost thread bounce between CPUs so much?
 
-> Since this code is still experimental, we are leaving the exact
-> details of how to move tasks between cgroups when kernel memory
-> accounting is used as future work.
-> 
-> For now, we simply disallow movement if there are any pending
-> accounted memory.
-> 
-> Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-> CC: Hiroyouki Kamezawa <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-> ---
->  mm/memcontrol.c |   23 ++++++++++++++++++++++-
->  1 files changed, 22 insertions(+), 1 deletions(-)
-> 
-> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-> index 2df5d3c..ab7e57b 100644
-> --- a/mm/memcontrol.c
-> +++ b/mm/memcontrol.c
-> @@ -5451,10 +5451,19 @@ static int mem_cgroup_can_attach(struct cgroup_subsys *ss,
->  {
->  	int ret = 0;
->  	struct mem_cgroup *mem = mem_cgroup_from_cont(cgroup);
-> +	struct mem_cgroup *from = mem_cgroup_from_task(p);
-> +
-> +#if defined(CONFIG_CGROUP_MEM_RES_CTLR_KMEM) && defined(CONFIG_INET)
-> +	if (from != mem && !mem_cgroup_is_root(from) &&
-> +	    res_counter_read_u64(&from->tcp_mem.tcp_memory_allocated, RES_USAGE)) {
-> +		printk(KERN_WARNING "Can't move tasks between cgroups: "
-> +			"Kernel memory held. task: %s\n", p->comm);
-> +		return 1;
-> +	}
-> +#endif
+Other than this, since we could not assume the behavior of the under 
+nic, using rxhash to identify a flow is more generic way.
+>
+> Long term it seems the best way is to expose the preferred mapping
+> from the guest and forward it to the device.
+>
 
-Hmm, the kernel memory is not guaranteed as being held by the 'task' ?
-
-How about
-"Now, moving task between cgroup is disallowed while the source cgroup 
- containes kmem reference." ?
-
-Hmm.. we need to fix this task-move/rmdir issue before production use.
-
-
-Thanks,
--Kame
-
---
-To unsubscribe from this list: send the line "unsubscribe cgroups" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I was working on this and hope to post it soon.
