@@ -1,41 +1,42 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v3 03/10] net: Add netdev interfaces recording
- send/compl
-Date: Mon, 28 Nov 2011 17:49:51 +0000
-Message-ID: <1322502591.26733.8.camel@bwh-desktop>
-References: <20111123094614.36560215@nehalam.linuxnetplumber.net>
-	 <20111123.185812.1721878183759040757.davem@davemloft.net>
-	 <20111123160320.76143e3b@nehalam.linuxnetplumber.net>
-	 <20111123.190623.2026426589805797580.davem@davemloft.net>
-	 <CA+mtBx-VSJ6U2SyUxQt7eK9+cXFFAEQXgmhc+yWwpTX8zd6TJA@mail.gmail.com>
+Subject: Re: [PATCH] natsemi: make cable length magic configurable
+Date: Mon, 28 Nov 2011 17:51:04 +0000
+Message-ID: <1322502664.26733.9.camel@bwh-desktop>
+References: <201111241443.59191.jdelvare@suse.de>
+	 <20111125.013713.1783082973236989821.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <shemminger@vyatta.com>,
-	<netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Cc: <jdelvare@suse.de>, <netdev@vger.kernel.org>, <thockin@hockin.org>,
+	<okir@suse.de>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:12697 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:48268 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753437Ab1K1Rtz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 12:49:55 -0500
-In-Reply-To: <CA+mtBx-VSJ6U2SyUxQt7eK9+cXFFAEQXgmhc+yWwpTX8zd6TJA@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1750878Ab1K1RvI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 12:51:08 -0500
+In-Reply-To: <20111125.013713.1783082973236989821.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-11-23 at 16:32 -0800, Tom Herbert wrote:
-> >> I was referring to the transmit routine, there for netdev_sent_queue()
-> >> is always called with one packet.
-> >
-> > Optimism for the future? :-)
-> >
+On Fri, 2011-11-25 at 01:37 -0500, David Miller wrote:
+> From: Jean Delvare <jdelvare@suse.de>
+> Date: Thu, 24 Nov 2011 14:43:59 +0100
 > 
-> Yep, I am looking forward to the day that someone figures out how to
-> batch transmits in a meaningful way!
-[...]
+> > We had a customer report concerning problems with a Natsemi DP83815-D
+> > and long cables. With 100m cables, the network would be essentially dead,
+> > not a single packet would get through either way. We had to apply the
+> > patch below to make it work.
+> 
+> Please do not add new private device driver module knobs.
+> 
+> Instead, add generic flags to the ethtool interface or similar to
+> control device behavior.
 
-UFO/TSO do something like that.  Should we count physical or logical
-packets?
+This isn't a generic flag; it seems to be a workaround for a specific
+bug that unfortunately can't be automatic.
+
+That's why I suggested an ethtool private flag.
 
 Ben.
 
