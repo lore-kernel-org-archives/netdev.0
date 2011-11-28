@@ -1,58 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix corruption in /proc/*/net/dev_mcast
-Date: Mon, 28 Nov 2011 18:08:07 -0500 (EST)
-Message-ID: <20111128.180807.649757269111867027.davem@davemloft.net>
-References: <1321870529.2552.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20111128181446.2ab784d0@kryten>
-	<1322474116.2292.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: [PATCH] ipv6: Set mcast_hops to IPV6_DEFAULT_MCASTHOPS when -1
+ was given.
+Date: Mon, 28 Nov 2011 18:09:35 -0500 (EST)
+Message-ID: <20111128.180935.774474803377807469.davem@davemloft.net>
+References: <4ED3394E.7050602@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: anton@samba.org, levinsasha928@gmail.com, mpm@selenic.com,
-        cl@linux-foundation.org, penberg@kernel.org, linux-mm@kvack.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        mihai.maruseac@gmail.com
-To: eric.dumazet@gmail.com
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1322474116.2292.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: lw@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:59720 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754471Ab1K1XJn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 18:09:43 -0500
+In-Reply-To: <4ED3394E.7050602@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 28 Nov 2011 10:55:16 +0100
+From: Li Wei <lw@cn.fujitsu.com>
+Date: Mon, 28 Nov 2011 15:33:34 +0800
 
->> With slub debugging on I see red zone issues in /proc/*/net/dev_mcast:
->> 
->> =============================================================================
->> BUG kmalloc-8: Redzone overwritten
->> -----------------------------------------------------------------------------
- ...
->> dev_mc_seq_ops uses dev_seq_start/next/stop but only allocates
->> sizeof(struct seq_net_private) of private data, whereas it expects
->> sizeof(struct dev_iter_state):
->> 
->> struct dev_iter_state {
->> 	struct seq_net_private p;
->> 	unsigned int pos; /* bucket << BUCKET_SPACE + offset */
->> };
->> 
->> Create dev_seq_open_ops and use it so we don't have to expose
->> struct dev_iter_state.
->> 
->> Signed-off-by: Anton Blanchard <anton@samba.org>
- ...
-> Problem added by commit f04565ddf52e4 (dev: use name hash for
-> dev_seq_ops)
+> We need to set np->mcast_hops to it's default value at this moment
+> otherwise when we use it and found it's value is -1, the logic to
+> get default hop limit doesn't take multicast into account and will
+> return wrong hop limit(IPV6_DEFAULT_HOPLIMIT) which is for unicast.
 > 
-> 
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Mihai Maruseac <mihai.maruseac@gmail.com>
+> Signed-off-by: Li Wei <lw@cn.fujitsu.com>
 
-Applied, thanks everyone.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Applied, thank you.
