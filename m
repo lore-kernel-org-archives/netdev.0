@@ -1,295 +1,125 @@
-From: Axel Lin <axel.lin@gmail.com>
-Subject: [PATCH] net/can: convert drivers/net/can/* to use
- module_platform_driver()
-Date: Mon, 28 Nov 2011 09:42:31 +0800
-Message-ID: <1322444551.2408.2.camel@phoenix>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [PATCH v6 01/10] Basic kernel memory functionality for the
+ Memory Controller
+Date: Mon, 28 Nov 2011 11:24:41 +0900
+Message-ID: <20111128112441.44a6e166.kamezawa.hiroyu@jp.fujitsu.com>
+References: <1322242696-27682-1-git-send-email-glommer@parallels.com>
+	<1322242696-27682-2-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Bhupesh Sharma <bhupesh.sharma@st.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Anatolij Gustschin <agust@denx.de>,
-	Paul Bolle <pebolle@tiscali.nl>,
-	Kurt Van Dijck <kurt.van.dijck@eia.be>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, lizf@cn.fujitsu.com,
+ ebiederm@xmission.com, davem@davemloft.net, paul@paulmenage.org,
+ gthelen@google.com, netdev@vger.kernel.org, linux-mm@kvack.org,
+ kirill@shutemov.name, avagin@parallels.com, devel@openvz.org,
+ eric.dumazet@gmail.com, cgroups@vger.kernel.org
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1322242696-27682-2-git-send-email-glommer@parallels.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This patch converts the drivers in drivers/net/can/* to use the
-module_platform_driver() macro which makes the code smaller and a bit
-simpler.
+On Fri, 25 Nov 2011 15:38:07 -0200
+Glauber Costa <glommer@parallels.com> wrote:
 
-Cc: Wolfgang Grandegger <wg@grandegger.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Bhupesh Sharma <bhupesh.sharma@st.com> 
-Cc: Jiri Kosina <jkosina@suse.cz>
-Cc: Grant Likely <grant.likely@secretlab.ca>
-Cc: Anatolij Gustschin <agust@denx.de> 
-Cc: Paul Bolle <pebolle@tiscali.nl>
-Cc: Kurt Van Dijck <kurt.van.dijck@eia.be>
-Cc: Alexey Dobriyan <adobriyan@gmail.com> 
-Signed-off-by: Axel Lin <axel.lin@gmail.com>
----
- drivers/net/can/at91_can.c                    |   13 +------------
- drivers/net/can/bfin_can.c                    |   12 +-----------
- drivers/net/can/c_can/c_can_platform.c        |   12 +-----------
- drivers/net/can/flexcan.c                     |   15 +--------------
- drivers/net/can/janz-ican3.c                  |   13 +------------
- drivers/net/can/mscan/mpc5xxx_can.c           |   12 +-----------
- drivers/net/can/sja1000/sja1000_of_platform.c |   12 +-----------
- drivers/net/can/sja1000/sja1000_platform.c    |   13 +------------
- drivers/net/can/softing/softing_main.c        |   16 ++--------------
- drivers/net/can/ti_hecc.c                     |   15 +--------------
- 10 files changed, 11 insertions(+), 122 deletions(-)
+> This patch lays down the foundation for the kernel memory component
+> of the Memory Controller.
+> 
+> As of today, I am only laying down the following files:
+> 
+>  * memory.independent_kmem_limit
+>  * memory.kmem.limit_in_bytes (currently ignored)
+>  * memory.kmem.usage_in_bytes (always zero)
+> 
+> Signed-off-by: Glauber Costa <glommer@parallels.com>
+> Reviewed-by: Kirill A. Shutemov <kirill@shutemov.name>
+> CC: Paul Menage <paul@paulmenage.org>
+> CC: Greg Thelen <gthelen@google.com>
+> ---
+>  Documentation/cgroups/memory.txt |   36 ++++++++++++-
+>  init/Kconfig                     |   14 +++++
+>  mm/memcontrol.c                  |  107 ++++++++++++++++++++++++++++++++++++--
+>  3 files changed, 150 insertions(+), 7 deletions(-)
+> 
+> diff --git a/Documentation/cgroups/memory.txt b/Documentation/cgroups/memory.txt
+> index 06eb6d9..bf00cd2 100644
+> --- a/Documentation/cgroups/memory.txt
+> +++ b/Documentation/cgroups/memory.txt
+> @@ -44,8 +44,9 @@ Features:
+>   - oom-killer disable knob and oom-notifier
+>   - Root cgroup has no limit controls.
+>  
+> - Kernel memory and Hugepages are not under control yet. We just manage
+> - pages on LRU. To add more controls, we have to take care of performance.
+> + Hugepages is not under control yet. We just manage pages on LRU. To add more
+> + controls, we have to take care of performance. Kernel memory support is work
+> + in progress, and the current version provides basically functionality.
+>  
+>  Brief summary of control files.
+>  
+> @@ -56,8 +57,11 @@ Brief summary of control files.
+>  				 (See 5.5 for details)
+>   memory.memsw.usage_in_bytes	 # show current res_counter usage for memory+Swap
+>  				 (See 5.5 for details)
+> + memory.kmem.usage_in_bytes	 # show current res_counter usage for kmem only.
+> +				 (See 2.7 for details)
+>   memory.limit_in_bytes		 # set/show limit of memory usage
+>   memory.memsw.limit_in_bytes	 # set/show limit of memory+Swap usage
+> + memory.kmem.limit_in_bytes	 # if allowed, set/show limit of kernel memory
+>   memory.failcnt			 # show the number of memory usage hits limits
+>   memory.memsw.failcnt		 # show the number of memory+Swap hits limits
+>   memory.max_usage_in_bytes	 # show max memory usage recorded
+> @@ -72,6 +76,9 @@ Brief summary of control files.
+>   memory.oom_control		 # set/show oom controls.
+>   memory.numa_stat		 # show the number of memory usage per numa node
+>  
+> + memory.independent_kmem_limit	 # select whether or not kernel memory limits are
+> +				   independent of user limits
+> +
+>  1. History
+>  
+>  The memory controller has a long history. A request for comments for the memory
+> @@ -255,6 +262,31 @@ When oom event notifier is registered, event will be delivered.
+>    per-zone-per-cgroup LRU (cgroup's private LRU) is just guarded by
+>    zone->lru_lock, it has no lock of its own.
+>  
+> +2.7 Kernel Memory Extension (CONFIG_CGROUP_MEM_RES_CTLR_KMEM)
+> +
+> + With the Kernel memory extension, the Memory Controller is able to limit
+> +the amount of kernel memory used by the system. Kernel memory is fundamentally
+> +different than user memory, since it can't be swapped out, which makes it
+> +possible to DoS the system by consuming too much of this precious resource.
+> +Kernel memory limits are not imposed for the root cgroup.
+> +
+> +Memory limits as specified by the standard Memory Controller may or may not
+> +take kernel memory into consideration. This is achieved through the file
+> +memory.independent_kmem_limit. A Value different than 0 will allow for kernel
+> +memory to be controlled separately.
+> +
+> +When kernel memory limits are not independent, the limit values set in
+> +memory.kmem files are ignored.
+> +
+> +Currently no soft limit is implemented for kernel memory. It is future work
+> +to trigger slab reclaim when those limits are reached.
+> +
+> +CAUTION: As of this writing, the kmem extention may prevent tasks from moving
+> +among cgroups. If a task has kmem accounting in a cgroup, the task cannot be
+> +moved until the kmem resource is released. Also, until the resource is fully
+> +released, the cgroup cannot be destroyed. So, please consider your use cases
+> +and set kmem extention config option carefully.
+> +
 
-diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
-index 044ea06..6ea905c 100644
---- a/drivers/net/can/at91_can.c
-+++ b/drivers/net/can/at91_can.c
-@@ -1383,18 +1383,7 @@ static struct platform_driver at91_can_driver = {
- 	.id_table = at91_can_id_table,
- };
- 
--static int __init at91_can_module_init(void)
--{
--	return platform_driver_register(&at91_can_driver);
--}
--
--static void __exit at91_can_module_exit(void)
--{
--	platform_driver_unregister(&at91_can_driver);
--}
--
--module_init(at91_can_module_init);
--module_exit(at91_can_module_exit);
-+module_platform_driver(at91_can_driver);
- 
- MODULE_AUTHOR("Marc Kleine-Budde <mkl@pengutronix.de>");
- MODULE_LICENSE("GPL v2");
-diff --git a/drivers/net/can/bfin_can.c b/drivers/net/can/bfin_can.c
-index a1c5abc..349e0fa 100644
---- a/drivers/net/can/bfin_can.c
-+++ b/drivers/net/can/bfin_can.c
-@@ -676,17 +676,7 @@ static struct platform_driver bfin_can_driver = {
- 	},
- };
- 
--static int __init bfin_can_init(void)
--{
--	return platform_driver_register(&bfin_can_driver);
--}
--module_init(bfin_can_init);
--
--static void __exit bfin_can_exit(void)
--{
--	platform_driver_unregister(&bfin_can_driver);
--}
--module_exit(bfin_can_exit);
-+module_platform_driver(bfin_can_driver);
- 
- MODULE_AUTHOR("Barry Song <21cnbao@gmail.com>");
- MODULE_LICENSE("GPL");
-diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
-index 0b5c6f8..5e1a5ff 100644
---- a/drivers/net/can/c_can/c_can_platform.c
-+++ b/drivers/net/can/c_can/c_can_platform.c
-@@ -197,17 +197,7 @@ static struct platform_driver c_can_plat_driver = {
- 	.remove = __devexit_p(c_can_plat_remove),
- };
- 
--static int __init c_can_plat_init(void)
--{
--	return platform_driver_register(&c_can_plat_driver);
--}
--module_init(c_can_plat_init);
--
--static void __exit c_can_plat_exit(void)
--{
--	platform_driver_unregister(&c_can_plat_driver);
--}
--module_exit(c_can_plat_exit);
-+module_platform_driver(c_can_plat_driver);
- 
- MODULE_AUTHOR("Bhupesh Sharma <bhupesh.sharma@st.com>");
- MODULE_LICENSE("GPL v2");
-diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-index e023379..165a4c7 100644
---- a/drivers/net/can/flexcan.c
-+++ b/drivers/net/can/flexcan.c
-@@ -1060,20 +1060,7 @@ static struct platform_driver flexcan_driver = {
- 	.remove = __devexit_p(flexcan_remove),
- };
- 
--static int __init flexcan_init(void)
--{
--	pr_info("%s netdevice driver\n", DRV_NAME);
--	return platform_driver_register(&flexcan_driver);
--}
--
--static void __exit flexcan_exit(void)
--{
--	platform_driver_unregister(&flexcan_driver);
--	pr_info("%s: driver removed\n", DRV_NAME);
--}
--
--module_init(flexcan_init);
--module_exit(flexcan_exit);
-+module_platform_driver(flexcan_driver);
- 
- MODULE_AUTHOR("Sascha Hauer <kernel@pengutronix.de>, "
- 	      "Marc Kleine-Budde <kernel@pengutronix.de>");
-diff --git a/drivers/net/can/janz-ican3.c b/drivers/net/can/janz-ican3.c
-index 32778d5..08c893c 100644
---- a/drivers/net/can/janz-ican3.c
-+++ b/drivers/net/can/janz-ican3.c
-@@ -1803,20 +1803,9 @@ static struct platform_driver ican3_driver = {
- 	.remove		= __devexit_p(ican3_remove),
- };
- 
--static int __init ican3_init(void)
--{
--	return platform_driver_register(&ican3_driver);
--}
--
--static void __exit ican3_exit(void)
--{
--	platform_driver_unregister(&ican3_driver);
--}
-+module_platform_driver(ican3_driver);
- 
- MODULE_AUTHOR("Ira W. Snyder <iws@ovro.caltech.edu>");
- MODULE_DESCRIPTION("Janz MODULbus VMOD-ICAN3 Driver");
- MODULE_LICENSE("GPL");
- MODULE_ALIAS("platform:janz-ican3");
--
--module_init(ican3_init);
--module_exit(ican3_exit);
-diff --git a/drivers/net/can/mscan/mpc5xxx_can.c b/drivers/net/can/mscan/mpc5xxx_can.c
-index 5fedc33..5caa572 100644
---- a/drivers/net/can/mscan/mpc5xxx_can.c
-+++ b/drivers/net/can/mscan/mpc5xxx_can.c
-@@ -411,17 +411,7 @@ static struct platform_driver mpc5xxx_can_driver = {
- #endif
- };
- 
--static int __init mpc5xxx_can_init(void)
--{
--	return platform_driver_register(&mpc5xxx_can_driver);
--}
--module_init(mpc5xxx_can_init);
--
--static void __exit mpc5xxx_can_exit(void)
--{
--	platform_driver_unregister(&mpc5xxx_can_driver);
--};
--module_exit(mpc5xxx_can_exit);
-+module_platform_driver(mpc5xxx_can_driver);
- 
- MODULE_AUTHOR("Wolfgang Grandegger <wg@grandegger.com>");
- MODULE_DESCRIPTION("Freescale MPC5xxx CAN driver");
-diff --git a/drivers/net/can/sja1000/sja1000_of_platform.c b/drivers/net/can/sja1000/sja1000_of_platform.c
-index c3dd9d0..f2683eb 100644
---- a/drivers/net/can/sja1000/sja1000_of_platform.c
-+++ b/drivers/net/can/sja1000/sja1000_of_platform.c
-@@ -220,14 +220,4 @@ static struct platform_driver sja1000_ofp_driver = {
- 	.remove = __devexit_p(sja1000_ofp_remove),
- };
- 
--static int __init sja1000_ofp_init(void)
--{
--	return platform_driver_register(&sja1000_ofp_driver);
--}
--module_init(sja1000_ofp_init);
--
--static void __exit sja1000_ofp_exit(void)
--{
--	return platform_driver_unregister(&sja1000_ofp_driver);
--};
--module_exit(sja1000_ofp_exit);
-+module_platform_driver(sja1000_ofp_driver);
-diff --git a/drivers/net/can/sja1000/sja1000_platform.c b/drivers/net/can/sja1000/sja1000_platform.c
-index d9fadc4..4f50145 100644
---- a/drivers/net/can/sja1000/sja1000_platform.c
-+++ b/drivers/net/can/sja1000/sja1000_platform.c
-@@ -185,15 +185,4 @@ static struct platform_driver sp_driver = {
- 	},
- };
- 
--static int __init sp_init(void)
--{
--	return platform_driver_register(&sp_driver);
--}
--
--static void __exit sp_exit(void)
--{
--	platform_driver_unregister(&sp_driver);
--}
--
--module_init(sp_init);
--module_exit(sp_exit);
-+module_platform_driver(sp_driver);
-diff --git a/drivers/net/can/softing/softing_main.c b/drivers/net/can/softing/softing_main.c
-index 09a8b86..a7c77c7 100644
---- a/drivers/net/can/softing/softing_main.c
-+++ b/drivers/net/can/softing/softing_main.c
-@@ -874,21 +874,9 @@ static struct platform_driver softing_driver = {
- 	.remove = __devexit_p(softing_pdev_remove),
- };
- 
--MODULE_ALIAS("platform:softing");
--
--static int __init softing_start(void)
--{
--	return platform_driver_register(&softing_driver);
--}
--
--static void __exit softing_stop(void)
--{
--	platform_driver_unregister(&softing_driver);
--}
--
--module_init(softing_start);
--module_exit(softing_stop);
-+module_platform_driver(softing_driver);
- 
-+MODULE_ALIAS("platform:softing");
- MODULE_DESCRIPTION("Softing DPRAM CAN driver");
- MODULE_AUTHOR("Kurt Van Dijck <kurt.van.dijck@eia.be>");
- MODULE_LICENSE("GPL v2");
-diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
-index 2adc294..df809e3 100644
---- a/drivers/net/can/ti_hecc.c
-+++ b/drivers/net/can/ti_hecc.c
-@@ -1037,20 +1037,7 @@ static struct platform_driver ti_hecc_driver = {
- 	.resume = ti_hecc_resume,
- };
- 
--static int __init ti_hecc_init_driver(void)
--{
--	printk(KERN_INFO DRV_DESC "\n");
--	return platform_driver_register(&ti_hecc_driver);
--}
--
--static void __exit ti_hecc_exit_driver(void)
--{
--	printk(KERN_INFO DRV_DESC " unloaded\n");
--	platform_driver_unregister(&ti_hecc_driver);
--}
--
--module_exit(ti_hecc_exit_driver);
--module_init(ti_hecc_init_driver);
-+module_platform_driver(ti_hecc_driver);
- 
- MODULE_AUTHOR("Anant Gole <anantgole@ti.com>");
- MODULE_LICENSE("GPL v2");
--- 
-1.7.5.4
+This seems that memcg 'has' kernel memory limiting feature for all kinds of kmem..
+Could you add a list of "currently controled kmems" section ?
+And update the list in later patch ?
+
+Thanks,
+-Kame
 
 
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
