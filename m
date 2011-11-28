@@ -1,64 +1,101 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH] staging: hv: move hv_netvsc out of staging area
-Date: Mon, 28 Nov 2011 22:00:35 +0000
-Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0CCCC087@TK5EX14MBXC227.redmond.corp.microsoft.com>
-References: <1322516135-22221-1-git-send-email-haiyangz@microsoft.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: optimize socket timestamping
+Date: Mon, 28 Nov 2011 23:04:18 +0100
+Message-ID: <1322517858.2970.31.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Mike Sterling <Mike.Sterling@microsoft.com>,
-	KY Srinivasan <kys@microsoft.com>
-To: "gregkh@suse.de" <gregkh@suse.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	NetDev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1322516135-22221-1-git-send-email-haiyangz@microsoft.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:53094 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752596Ab1K1WEW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 17:04:22 -0500
+Received: by eaak14 with SMTP id k14so2293859eaa.19
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2011 14:04:20 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Haiyang Zhang [mailto:haiyangz@microsoft.com]
-> Sent: Monday, November 28, 2011 4:36 PM
-> To: Haiyang Zhang; KY Srinivasan; gregkh@suse.de; linux-
-> kernel@vger.kernel.org; devel@linuxdriverproject.org
-> Cc: Mike Sterling; NetDev
-> Subject: [PATCH] staging: hv: move hv_netvsc out of staging area
-> 
-> hv_netvsc has been reviewed on netdev mailing list on 6/09/2011.
-> All recommended changes have been made. We are requesting to move it
-> out of staging area.
-> 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Signed-off-by: KY Srinivasan <kys@microsoft.com>
-> Signed-off-by: Mike Sterling <Mike.Sterling@microsoft.com>
-> Cc: NetDev <netdev@vger.kernel.org>
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
-> ---
->  drivers/net/Kconfig                               |    2 ++
->  drivers/net/Makefile                              |    2 ++
->  drivers/net/hyperv/Kconfig                        |    5 +++++
->  drivers/net/hyperv/Makefile                       |    3 +++
->  drivers/{staging/hv => net/hyperv}/hyperv_net.h   |    0
->  drivers/{staging/hv => net/hyperv}/netvsc.c       |    0
->  drivers/{staging/hv => net/hyperv}/netvsc_drv.c   |    0
->  drivers/{staging/hv => net/hyperv}/rndis_filter.c |    0
->  drivers/staging/hv/Kconfig                        |    6 ------
->  drivers/staging/hv/Makefile                       |    2 --
->  drivers/staging/hv/TODO                           |    1 -
->  11 files changed, 12 insertions(+), 9 deletions(-)  create mode 100644
-> drivers/net/hyperv/Kconfig  create mode 100644
-> drivers/net/hyperv/Makefile  rename drivers/{staging/hv =>
-> net/hyperv}/hyperv_net.h (100%)  rename drivers/{staging/hv =>
-> net/hyperv}/netvsc.c (100%)  rename drivers/{staging/hv =>
-> net/hyperv}/netvsc_drv.c (100%)  rename drivers/{staging/hv =>
-> net/hyperv}/rndis_filter.c (100%)
-> 
+We can test/set multiple bits from sk_flags at once, to shorten a bit
+socket setup/dismantle phase.
 
-I have rebased the previous patch on the latest staging-next branch, and re-submitting it now.
-In another email, the same patch was submitted without using the "-M" flag, in case anyone
-wants to read the unchanged code in the patch body.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/core/sock.c |   27 ++++++++++++---------------
+ 1 file changed, 12 insertions(+), 15 deletions(-)
 
-Thanks,
-- Haiyang
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 1606913..9777da86 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -276,14 +276,14 @@ static void sock_warn_obsolete_bsdism(const char *name)
+ 	}
+ }
+ 
+-static void sock_disable_timestamp(struct sock *sk, int flag)
++#define SK_FLAGS_TIMESTAMP ((1UL << SOCK_TIMESTAMP) | (1UL << SOCK_TIMESTAMPING_RX_SOFTWARE))
++
++static void sock_disable_timestamp(struct sock *sk, unsigned long flags)
+ {
+-	if (sock_flag(sk, flag)) {
+-		sock_reset_flag(sk, flag);
+-		if (!sock_flag(sk, SOCK_TIMESTAMP) &&
+-		    !sock_flag(sk, SOCK_TIMESTAMPING_RX_SOFTWARE)) {
++	if (sk->sk_flags & flags) {
++		sk->sk_flags &= ~flags;
++		if (!(sk->sk_flags & SK_FLAGS_TIMESTAMP))
+ 			net_disable_timestamp();
+-		}
+ 	}
+ }
+ 
+@@ -689,7 +689,7 @@ set_rcvbuf:
+ 					      SOCK_TIMESTAMPING_RX_SOFTWARE);
+ 		else
+ 			sock_disable_timestamp(sk,
+-					       SOCK_TIMESTAMPING_RX_SOFTWARE);
++					       (1UL << SOCK_TIMESTAMPING_RX_SOFTWARE));
+ 		sock_valbool_flag(sk, SOCK_TIMESTAMPING_SOFTWARE,
+ 				  val & SOF_TIMESTAMPING_SOFTWARE);
+ 		sock_valbool_flag(sk, SOCK_TIMESTAMPING_SYS_HARDWARE,
+@@ -1187,8 +1187,7 @@ static void __sk_free(struct sock *sk)
+ 		RCU_INIT_POINTER(sk->sk_filter, NULL);
+ 	}
+ 
+-	sock_disable_timestamp(sk, SOCK_TIMESTAMP);
+-	sock_disable_timestamp(sk, SOCK_TIMESTAMPING_RX_SOFTWARE);
++	sock_disable_timestamp(sk, SK_FLAGS_TIMESTAMP);
+ 
+ 	if (atomic_read(&sk->sk_omem_alloc))
+ 		printk(KERN_DEBUG "%s: optmem leakage (%d bytes) detected.\n",
+@@ -1326,8 +1325,7 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
+ 		if (newsk->sk_prot->sockets_allocated)
+ 			percpu_counter_inc(newsk->sk_prot->sockets_allocated);
+ 
+-		if (sock_flag(newsk, SOCK_TIMESTAMP) ||
+-		    sock_flag(newsk, SOCK_TIMESTAMPING_RX_SOFTWARE))
++		if (newsk->sk_flags & SK_FLAGS_TIMESTAMP)
+ 			net_enable_timestamp();
+ 	}
+ out:
+@@ -2165,16 +2163,15 @@ EXPORT_SYMBOL(sock_get_timestampns);
+ void sock_enable_timestamp(struct sock *sk, int flag)
+ {
+ 	if (!sock_flag(sk, flag)) {
++		unsigned long previous_flags = sk->sk_flags;
++
+ 		sock_set_flag(sk, flag);
+ 		/*
+ 		 * we just set one of the two flags which require net
+ 		 * time stamping, but time stamping might have been on
+ 		 * already because of the other one
+ 		 */
+-		if (!sock_flag(sk,
+-				flag == SOCK_TIMESTAMP ?
+-				SOCK_TIMESTAMPING_RX_SOFTWARE :
+-				SOCK_TIMESTAMP))
++		if (!(previous_flags & SK_FLAGS_TIMESTAMP))
+ 			net_enable_timestamp();
+ 	}
+ }
