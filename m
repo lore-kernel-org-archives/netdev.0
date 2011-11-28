@@ -1,50 +1,97 @@
-From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Subject: Issues with openflow protocol WAS(RE: [GIT PULL v2] Open
-	vSwitch
-Date: Mon, 28 Nov 2011 09:07:10 -0500
-Message-ID: <1322489230.7338.71.camel@mojatatu>
-References: <20111123075433.GA7928@gondor.apana.org.au>
-	<1322050976.2039.125.camel@mojatatu>
-	<20111128130409.GB16828@gondor.apana.org.au>
-	<0199E0D51A61344794750DC57738F58E7586A74137@GVW1118EXC.americas.hpqcorp.net>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH net-next v2 1/4] can: cc770: add
+ driver core for the Bosch CC770 and Intel AN82527
+Date: Mon, 28 Nov 2011 15:18:25 +0100
+Message-ID: <4ED39831.4060008@pengutronix.de>
+References: <1322214204-1121-1-git-send-email-wg@grandegger.com>
+	<1322214204-1121-2-git-send-email-wg@grandegger.com>
+	<4ED3704D.5020903@pengutronix.de> <4ED3922A.50704@grandegger.com>
+	<4ED3941D.3070302@pengutronix.de> <4ED3966E.7080609@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: "Fischer, Anna" <anna.fischer-VXdhtT5mjnY@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <0199E0D51A61344794750DC57738F58E7586A74137-1IhDuF6AwYvulpxXP3Mx0dVKv6DIAtwysh7EHKopUjU@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: multipart/mixed; boundary="===============1930834364814412534=="
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4ED3966E.7080609-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
+List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-11-28 at 13:54 +0000, Fischer, Anna wrote:
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--===============1930834364814412534==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigD3A04D58A975B8B45DF19976"
 
-> Yes, I mentioned this months ago, and I am surprised this critical 
-> issue has never been picked up on and addressed. With a flaw like 
-> this there is no chance this component can be used in any serious 
-> virtualization deployment where different customers share the same physical server.
->
-> The path up to user-space needs to be designed in a multi-queue fashion, so that 
-> each vPort has its own queue up to user-space. Ideally those queues also need to 
-> be rate controlled in some form, so that no DoS is possible.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigD3A04D58A975B8B45DF19976
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Good - more folks scrutinizing openflow ;->
-That would resolve the kernel->user if in addition you then add
-prioritization of those queues. 
-But even then also the same problem exists with open flow in the 
-northbound direction towards the external controller where
-there is a single (TCP) socket.
+On 11/28/2011 03:10 PM, Wolfgang Grandegger wrote:
 
-cheers,
-jamal
+>>>   enum {
+>>> 	CC770_OBJ_RX0 =3D 0,	/* for receiving normal messages */
+>>> 	CC770_OBJ_RX1,		/* for receiving normal messages */
+>>> 	CC770_OBJ_RX_RTR0,	/* for receiving remote transmission requests */
+>>> 	CC770_OBJ_RX_RTR1,	/* for receiving remote transmission requests */
+>>> 	CC770_OBJ_TX,		/* for sending messages */
+>>> 	CC770_OBJ_MAX  <=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>>
+>> ...then add a "," here :P
+>=20
+> Why?
+
+Okay - here the following argument will be not valid :), because OBJ_MAX
+will and has always to be the last element in the enum.
+
+But if you don't have a _MAX argument and a new element will be added to
+the enum, you'll have to change two lines: 1. add the missing "," 2. add
+the new element. Diff will look better if the last element always has a "=
+,".
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enigD3A04D58A975B8B45DF19976
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk7TmDMACgkQjTAFq1RaXHOi8gCaAo2aweSO9ERFP+Nd8MK64N46
+qGAAniLsZAZA88yX7w7A0w8mLsDnneYI
+=BX4f
+-----END PGP SIGNATURE-----
+
+--------------enigD3A04D58A975B8B45DF19976--
+
+--===============1930834364814412534==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Socketcan-users mailing list
+Socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-users
+
+--===============1930834364814412534==--
