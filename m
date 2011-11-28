@@ -1,38 +1,40 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH 5/5] tcp: skip cwnd moderation in TCP_CA_Open in tcp_try_to_open
-Date: Mon, 28 Nov 2011 12:33:12 -0800
-Message-ID: <CAK6E8=dfjZ0tGnihL8cvrg0J=trj2UdB5s3ry+TvdG9Yhzf9jA@mail.gmail.com>
-References: <alpine.DEB.2.00.1111201024080.22397@melkinpaasi.cs.helsinki.fi>
- <CAK6E8=cNBCJbQs9dKcOwU1yZMC6czgMEuZt4Ubt=t-kBzHfFmw@mail.gmail.com>
- <alpine.DEB.2.00.1111221146060.31705@wel-95.cs.helsinki.fi>
- <20111127.190120.2116987138205753451.davem@davemloft.net> <CADVnQykp47igdNbN68nbdd4SzaPoDCVTX-bDog4MDesWBbv9MA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] netstamp_needed shouldn't be jump_label_key
+Date: Mon, 28 Nov 2011 21:33:46 +0100
+Message-ID: <1322512426.2970.15.camel@edumazet-laptop>
+References: <igorm@etf.rs> <1322511796-6908-1-git-send-email-igorm@etf.rs>
+	 <1322511796-6908-2-git-send-email-igorm@etf.rs>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, ilpo.jarvinen@helsinki.fi,
-	netdev@vger.kernel.org, nanditad@google.com, therbert@google.com
-To: Neal Cardwell <ncardwell@google.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: igorm@etf.rs
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f53.google.com ([209.85.216.53]:52934 "EHLO
-	mail-qw0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754065Ab1K1Ude (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 15:33:34 -0500
-Received: by qadb14 with SMTP id b14so4083848qad.19
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2011 12:33:33 -0800 (PST)
-In-Reply-To: <CADVnQykp47igdNbN68nbdd4SzaPoDCVTX-bDog4MDesWBbv9MA@mail.gmail.com>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:48365 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754458Ab1K1Udu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 15:33:50 -0500
+Received: by lahl5 with SMTP id l5so680190lah.19
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2011 12:33:49 -0800 (PST)
+In-Reply-To: <1322511796-6908-2-git-send-email-igorm@etf.rs>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 28, 2011 at 9:35 AM, Neal Cardwell <ncardwell@google.com> wrote:
-> On Sun, Nov 27, 2011 at 7:01 PM, David Miller <davem@davemloft.net> wrote:
->> I'm apply this patch to net-next now, but Neil and Yucheng are on the hook
->> to fully look into the issues Ilpo has raised.
->
-> Thanks! We will spend some time looking into these issues.
->
-Ilpo do you know any report on these types of cheating? I did some
-literature search but didn't find any.
+Le lundi 28 novembre 2011 =C3=A0 21:23 +0100, igorm@etf.rs a =C3=A9crit=
+ :
+> From: Igor Maravic <igorm@etf.rs>
+>=20
+> Problem with setting netstamp_needed as jump_label_key is that
+> it inc/dec, functions net_enable_timestamp/net_disable_timestamp,
+> are called from interrupts.
+>=20
+> That can cause DEADLOCK, because jump_label_{inc, dec} are using mute=
+x locking,
+> that may sleep.
+>=20
+> Signed-off-by: Igor Maravic <igorm@etf.rs>
+>=20
 
-If the receiver simply responds DSACK on good (non-spurious)
-retransmits, the sender may increase dupthresh (tp->reordering) and
-slows down triggering fast-recovery? given the connection has real
-losses, the receiver may end up shooting his feet.
+Come on, we can find another way to handle this :)
+
+Its net-next, we are allowed to try to find something better.
