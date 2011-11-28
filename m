@@ -1,12 +1,11 @@
 From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 2/4] net: use skb_flow_dissect() in
- __skb_get_rxhash()
-Date: Mon, 28 Nov 2011 16:23:23 +0100
-Message-ID: <1322493803.2292.70.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: [PATCH net-next 3/4] cls_flow: use skb_flow_dissect()
+Date: Mon, 28 Nov 2011 16:24:18 +0100
+Message-ID: <1322493858.2292.71.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+Cc: chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
 	john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org,
 	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>, Dan Siemon <dan-BZ4SNL/Vixll57MIdRCFDg@public.gmane.org>
@@ -23,166 +22,308 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-No functional changes.
+Instead of using a custom flow dissector, use skb_flow_dissect() and
+benefit from tunnelling support.
 
-This uses the code we factorized in skb_flow_dissect()
+This lack of tunnelling support was mentioned by Dan Siemon.
 
 Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- net/core/dev.c |  125 +++++------------------------------------------
- 1 file changed, 14 insertions(+), 111 deletions(-)
+ net/sched/cls_flow.c |  180 ++++++++++-------------------------------
+ 1 file changed, 48 insertions(+), 132 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 8afb244..962e3de 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -133,11 +133,9 @@
- #include <linux/pci.h>
- #include <linux/inetdevice.h>
- #include <linux/cpu_rmap.h>
--#include <linux/if_tunnel.h>
--#include <linux/if_pppox.h>
--#include <linux/ppp_defs.h>
- #include <linux/net_tstamp.h>
- #include <linux/jump_label.h>
+diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
+index 7b58230..a120ec5 100644
+--- a/net/sched/cls_flow.c
++++ b/net/sched/cls_flow.c
+@@ -26,6 +26,8 @@
+ #include <net/pkt_cls.h>
+ #include <net/ip.h>
+ #include <net/route.h>
 +#include <net/flow_keys.h>
- 
- #include "net-sysfs.h"
- 
-@@ -2598,123 +2596,28 @@ static inline void ____napi_schedule(struct softnet_data *sd,
-  */
- void __skb_get_rxhash(struct sk_buff *skb)
- {
--	int nhoff, hash = 0, poff;
--	const struct ipv6hdr *ip6;
--	const struct iphdr *ip;
--	const struct vlan_hdr *vlan;
--	u8 ip_proto;
--	u32 addr1, addr2;
--	u16 proto;
--	union {
--		u32 v32;
--		u16 v16[2];
--	} ports;
--
--	nhoff = skb_network_offset(skb);
--	proto = skb->protocol;
--
--again:
--	switch (proto) {
--	case __constant_htons(ETH_P_IP):
--ip:
--		if (!pskb_may_pull(skb, sizeof(*ip) + nhoff))
--			goto done;
--
--		ip = (const struct iphdr *) (skb->data + nhoff);
--		if (ip_is_fragment(ip))
--			ip_proto = 0;
--		else
--			ip_proto = ip->protocol;
--		addr1 = (__force u32) ip->saddr;
--		addr2 = (__force u32) ip->daddr;
--		nhoff += ip->ihl * 4;
--		break;
--	case __constant_htons(ETH_P_IPV6):
--ipv6:
--		if (!pskb_may_pull(skb, sizeof(*ip6) + nhoff))
--			goto done;
--
--		ip6 = (const struct ipv6hdr *) (skb->data + nhoff);
--		ip_proto = ip6->nexthdr;
--		addr1 = (__force u32) ip6->saddr.s6_addr32[3];
--		addr2 = (__force u32) ip6->daddr.s6_addr32[3];
--		nhoff += 40;
--		break;
--	case __constant_htons(ETH_P_8021Q):
--		if (!pskb_may_pull(skb, sizeof(*vlan) + nhoff))
--			goto done;
--		vlan = (const struct vlan_hdr *) (skb->data + nhoff);
--		proto = vlan->h_vlan_encapsulated_proto;
--		nhoff += sizeof(*vlan);
--		goto again;
--	case __constant_htons(ETH_P_PPP_SES):
--		if (!pskb_may_pull(skb, PPPOE_SES_HLEN + nhoff))
--			goto done;
--		proto = *((__be16 *) (skb->data + nhoff +
--				      sizeof(struct pppoe_hdr)));
--		nhoff += PPPOE_SES_HLEN;
--		switch (proto) {
--		case __constant_htons(PPP_IP):
--			goto ip;
--		case __constant_htons(PPP_IPV6):
--			goto ipv6;
--		default:
--			goto done;
--		}
--	default:
--		goto done;
--	}
--
--	switch (ip_proto) {
--	case IPPROTO_GRE:
--		if (pskb_may_pull(skb, nhoff + 16)) {
--			u8 *h = skb->data + nhoff;
--			__be16 flags = *(__be16 *)h;
-+	struct flow_keys keys;
-+	u32 hash;
- 
--			/*
--			 * Only look inside GRE if version zero and no
--			 * routing
--			 */
--			if (!(flags & (GRE_VERSION|GRE_ROUTING))) {
--				proto = *(__be16 *)(h + 2);
--				nhoff += 4;
--				if (flags & GRE_CSUM)
--					nhoff += 4;
--				if (flags & GRE_KEY)
--					nhoff += 4;
--				if (flags & GRE_SEQ)
--					nhoff += 4;
--				goto again;
--			}
--		}
--		break;
--	case IPPROTO_IPIP:
--		goto again;
--	default:
--		break;
--	}
-+	if (!skb_flow_dissect(skb, &keys))
-+		return;
- 
--	ports.v32 = 0;
--	poff = proto_ports_offset(ip_proto);
--	if (poff >= 0) {
--		nhoff += poff;
--		if (pskb_may_pull(skb, nhoff + 4)) {
--			ports.v32 = * (__force u32 *) (skb->data + nhoff);
--			if (ports.v16[1] < ports.v16[0])
--				swap(ports.v16[0], ports.v16[1]);
--			skb->l4_rxhash = 1;
--		}
-+	if (keys.ports) {
-+		if ((__force u16)keys.port16[1] < (__force u16)keys.port16[0])
-+			swap(keys.port16[0], keys.port16[1]);
-+		skb->l4_rxhash = 1;
- 	}
- 
- 	/* get a consistent hash (same value on both flow directions) */
--	if (addr2 < addr1)
--		swap(addr1, addr2);
-+	if ((__force u32)keys.dst < (__force u32)keys.src)
-+		swap(keys.dst, keys.src);
- 
--	hash = jhash_3words(addr1, addr2, ports.v32, hashrnd);
-+	hash = jhash_3words((__force u32)keys.dst,
-+			    (__force u32)keys.src,
-+			    (__force u32)keys.ports, hashrnd);
- 	if (!hash)
- 		hash = 1;
- 
--done:
- 	skb->rxhash = hash;
++
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ #include <net/netfilter/nf_conntrack.h>
+ #endif
+@@ -66,134 +68,37 @@ static inline u32 addr_fold(void *addr)
+ 	return (a & 0xFFFFFFFF) ^ (BITS_PER_LONG > 32 ? a >> 32 : 0);
  }
- EXPORT_SYMBOL(__skb_get_rxhash);
+ 
+-static u32 flow_get_src(const struct sk_buff *skb, int nhoff)
++static u32 flow_get_src(const struct sk_buff *skb, const struct flow_keys *flow)
+ {
+-	__be32 *data = NULL, hdata;
+-
+-	switch (skb->protocol) {
+-	case htons(ETH_P_IP):
+-		data = skb_header_pointer(skb,
+-					  nhoff + offsetof(struct iphdr,
+-							   saddr),
+-					  4, &hdata);
+-		break;
+-	case htons(ETH_P_IPV6):
+-		data = skb_header_pointer(skb,
+-					 nhoff + offsetof(struct ipv6hdr,
+-							  saddr.s6_addr32[3]),
+-					 4, &hdata);
+-		break;
+-	}
+-
+-	if (data)
+-		return ntohl(*data);
++	if (flow->src)
++		return ntohl(flow->src);
+ 	return addr_fold(skb->sk);
+ }
+ 
+-static u32 flow_get_dst(const struct sk_buff *skb, int nhoff)
++static u32 flow_get_dst(const struct sk_buff *skb, const struct flow_keys *flow)
+ {
+-	__be32 *data = NULL, hdata;
+-
+-	switch (skb->protocol) {
+-	case htons(ETH_P_IP):
+-		data = skb_header_pointer(skb,
+-					  nhoff + offsetof(struct iphdr,
+-							   daddr),
+-					  4, &hdata);
+-		break;
+-	case htons(ETH_P_IPV6):
+-		data = skb_header_pointer(skb,
+-					 nhoff + offsetof(struct ipv6hdr,
+-							  daddr.s6_addr32[3]),
+-					 4, &hdata);
+-		break;
+-	}
+-
+-	if (data)
+-		return ntohl(*data);
++	if (flow->dst)
++		return ntohl(flow->dst);
+ 	return addr_fold(skb_dst(skb)) ^ (__force u16)skb->protocol;
+ }
+ 
+-static u32 flow_get_proto(const struct sk_buff *skb, int nhoff)
+-{
+-	__u8 *data = NULL, hdata;
+-
+-	switch (skb->protocol) {
+-	case htons(ETH_P_IP):
+-		data = skb_header_pointer(skb,
+-					  nhoff + offsetof(struct iphdr,
+-							   protocol),
+-					  1, &hdata);
+-		break;
+-	case htons(ETH_P_IPV6):
+-		data = skb_header_pointer(skb,
+-					 nhoff + offsetof(struct ipv6hdr,
+-							  nexthdr),
+-					 1, &hdata);
+-		break;
+-	}
+-	if (data)
+-		return *data;
+-	return 0;
+-}
+-
+-/* helper function to get either src or dst port */
+-static __be16 *flow_get_proto_common(const struct sk_buff *skb, int nhoff,
+-				     __be16 *_port, int dst)
++static u32 flow_get_proto(const struct sk_buff *skb, const struct flow_keys *flow)
+ {
+-	__be16 *port = NULL;
+-	int poff;
+-
+-	switch (skb->protocol) {
+-	case htons(ETH_P_IP): {
+-		struct iphdr *iph, _iph;
+-
+-		iph = skb_header_pointer(skb, nhoff, sizeof(_iph), &_iph);
+-		if (!iph)
+-			break;
+-		if (ip_is_fragment(iph))
+-			break;
+-		poff = proto_ports_offset(iph->protocol);
+-		if (poff >= 0)
+-			port = skb_header_pointer(skb,
+-					nhoff + iph->ihl * 4 + poff + dst,
+-					sizeof(*_port), _port);
+-		break;
+-	}
+-	case htons(ETH_P_IPV6): {
+-		struct ipv6hdr *iph, _iph;
+-
+-		iph = skb_header_pointer(skb, nhoff, sizeof(_iph), &_iph);
+-		if (!iph)
+-			break;
+-		poff = proto_ports_offset(iph->nexthdr);
+-		if (poff >= 0)
+-			port = skb_header_pointer(skb,
+-					nhoff + sizeof(*iph) + poff + dst,
+-					sizeof(*_port), _port);
+-		break;
+-	}
+-	}
+-
+-	return port;
++	return flow->ip_proto;
+ }
+ 
+-static u32 flow_get_proto_src(const struct sk_buff *skb, int nhoff)
++static u32 flow_get_proto_src(const struct sk_buff *skb, const struct flow_keys *flow)
+ {
+-	__be16 _port, *port = flow_get_proto_common(skb, nhoff, &_port, 0);
+-
+-	if (port)
+-		return ntohs(*port);
++	if (flow->ports)
++		return ntohs(flow->port16[0]);
+ 
+ 	return addr_fold(skb->sk);
+ }
+ 
+-static u32 flow_get_proto_dst(const struct sk_buff *skb, int nhoff)
++static u32 flow_get_proto_dst(const struct sk_buff *skb, const struct flow_keys *flow)
+ {
+-	__be16 _port, *port = flow_get_proto_common(skb, nhoff, &_port, 2);
+-
+-	if (port)
+-		return ntohs(*port);
++	if (flow->ports)
++		return ntohs(flow->port16[1]);
+ 
+ 	return addr_fold(skb_dst(skb)) ^ (__force u16)skb->protocol;
+ }
+@@ -239,7 +144,7 @@ static u32 flow_get_nfct(const struct sk_buff *skb)
+ })
+ #endif
+ 
+-static u32 flow_get_nfct_src(const struct sk_buff *skb, int nhoff)
++static u32 flow_get_nfct_src(const struct sk_buff *skb, const struct flow_keys *flow)
+ {
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IP):
+@@ -248,10 +153,10 @@ static u32 flow_get_nfct_src(const struct sk_buff *skb, int nhoff)
+ 		return ntohl(CTTUPLE(skb, src.u3.ip6[3]));
+ 	}
+ fallback:
+-	return flow_get_src(skb, nhoff);
++	return flow_get_src(skb, flow);
+ }
+ 
+-static u32 flow_get_nfct_dst(const struct sk_buff *skb, int nhoff)
++static u32 flow_get_nfct_dst(const struct sk_buff *skb, const struct flow_keys *flow)
+ {
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IP):
+@@ -260,21 +165,21 @@ static u32 flow_get_nfct_dst(const struct sk_buff *skb, int nhoff)
+ 		return ntohl(CTTUPLE(skb, dst.u3.ip6[3]));
+ 	}
+ fallback:
+-	return flow_get_dst(skb, nhoff);
++	return flow_get_dst(skb, flow);
+ }
+ 
+-static u32 flow_get_nfct_proto_src(const struct sk_buff *skb, int nhoff)
++static u32 flow_get_nfct_proto_src(const struct sk_buff *skb, const struct flow_keys *flow)
+ {
+ 	return ntohs(CTTUPLE(skb, src.u.all));
+ fallback:
+-	return flow_get_proto_src(skb, nhoff);
++	return flow_get_proto_src(skb, flow);
+ }
+ 
+-static u32 flow_get_nfct_proto_dst(const struct sk_buff *skb, int nhoff)
++static u32 flow_get_nfct_proto_dst(const struct sk_buff *skb, const struct flow_keys *flow)
+ {
+ 	return ntohs(CTTUPLE(skb, dst.u.all));
+ fallback:
+-	return flow_get_proto_dst(skb, nhoff);
++	return flow_get_proto_dst(skb, flow);
+ }
+ 
+ static u32 flow_get_rtclassid(const struct sk_buff *skb)
+@@ -314,21 +219,19 @@ static u32 flow_get_rxhash(struct sk_buff *skb)
+ 	return skb_get_rxhash(skb);
+ }
+ 
+-static u32 flow_key_get(struct sk_buff *skb, int key)
++static u32 flow_key_get(struct sk_buff *skb, int key, struct flow_keys *flow)
+ {
+-	int nhoff = skb_network_offset(skb);
+-
+ 	switch (key) {
+ 	case FLOW_KEY_SRC:
+-		return flow_get_src(skb, nhoff);
++		return flow_get_src(skb, flow);
+ 	case FLOW_KEY_DST:
+-		return flow_get_dst(skb, nhoff);
++		return flow_get_dst(skb, flow);
+ 	case FLOW_KEY_PROTO:
+-		return flow_get_proto(skb, nhoff);
++		return flow_get_proto(skb, flow);
+ 	case FLOW_KEY_PROTO_SRC:
+-		return flow_get_proto_src(skb, nhoff);
++		return flow_get_proto_src(skb, flow);
+ 	case FLOW_KEY_PROTO_DST:
+-		return flow_get_proto_dst(skb, nhoff);
++		return flow_get_proto_dst(skb, flow);
+ 	case FLOW_KEY_IIF:
+ 		return flow_get_iif(skb);
+ 	case FLOW_KEY_PRIORITY:
+@@ -338,13 +241,13 @@ static u32 flow_key_get(struct sk_buff *skb, int key)
+ 	case FLOW_KEY_NFCT:
+ 		return flow_get_nfct(skb);
+ 	case FLOW_KEY_NFCT_SRC:
+-		return flow_get_nfct_src(skb, nhoff);
++		return flow_get_nfct_src(skb, flow);
+ 	case FLOW_KEY_NFCT_DST:
+-		return flow_get_nfct_dst(skb, nhoff);
++		return flow_get_nfct_dst(skb, flow);
+ 	case FLOW_KEY_NFCT_PROTO_SRC:
+-		return flow_get_nfct_proto_src(skb, nhoff);
++		return flow_get_nfct_proto_src(skb, flow);
+ 	case FLOW_KEY_NFCT_PROTO_DST:
+-		return flow_get_nfct_proto_dst(skb, nhoff);
++		return flow_get_nfct_proto_dst(skb, flow);
+ 	case FLOW_KEY_RTCLASSID:
+ 		return flow_get_rtclassid(skb);
+ 	case FLOW_KEY_SKUID:
+@@ -361,6 +264,16 @@ static u32 flow_key_get(struct sk_buff *skb, int key)
+ 	}
+ }
+ 
++#define FLOW_KEYS_NEEDED ((1 << FLOW_KEY_SRC) | 		\
++			  (1 << FLOW_KEY_DST) |			\
++			  (1 << FLOW_KEY_PROTO) |		\
++			  (1 << FLOW_KEY_PROTO_SRC) |		\
++			  (1 << FLOW_KEY_PROTO_DST) | 		\
++			  (1 << FLOW_KEY_NFCT_SRC) |		\
++			  (1 << FLOW_KEY_NFCT_DST) |		\
++			  (1 << FLOW_KEY_NFCT_PROTO_SRC) |	\
++			  (1 << FLOW_KEY_NFCT_PROTO_DST))
++ 
+ static int flow_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 			 struct tcf_result *res)
+ {
+@@ -373,16 +286,19 @@ static int flow_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 
+ 	list_for_each_entry(f, &head->filters, list) {
+ 		u32 keys[f->nkeys];
++		struct flow_keys flow_keys;
+ 
+ 		if (!tcf_em_tree_match(skb, &f->ematches, NULL))
+ 			continue;
+ 
+ 		keymask = f->keymask;
++		if (keymask & FLOW_KEYS_NEEDED)
++			skb_flow_dissect(skb, &flow_keys);
+ 
+ 		for (n = 0; n < f->nkeys; n++) {
+ 			key = ffs(keymask) - 1;
+ 			keymask &= ~(1 << key);
+-			keys[n] = flow_key_get(skb, key);
++			keys[n] = flow_key_get(skb, key, &flow_keys);
+ 		}
+ 
+ 		if (f->mode == FLOW_MODE_HASH)
