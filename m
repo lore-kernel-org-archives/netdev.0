@@ -1,260 +1,209 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net-next] bnx2x: handle iSCSI SD mode
-Date: Tue, 29 Nov 2011 00:31:49 +0200
-Message-ID: <1322519509-19802-1-git-send-email-dmitry@broadcom.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: Open vSwitch Design
+Date: Mon, 28 Nov 2011 17:42:51 -0500
+Message-ID: <1322520171.6118.29.camel@mojatatu>
+References: <CAEP_g=_2L1xFWtDXh_6YyXz1Mt9TR3zvjLzix+SpO6yzeOLsSQ@mail.gmail.com>
+	 <1322173833.1944.5.camel@mojatatu>
+	 <20111124212021.2ae2fb7f@s6510.linuxnetplumber.net>
+	 <2DB44B16-598F-4414-8B35-8E322D705A9A@nicira.com>
+	 <1322269906.7338.23.camel@mojatatu>
+	 <06FA64A0-9CCF-4621-9DE6-61A6B37B925F@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org, mchan@broadcom.com
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Jesse Gross <jesse@nicira.com>,
+	netdev <netdev@vger.kernel.org>, dev@openvswitch.org,
+	David Miller <davem@davemloft.net>,
+	Chris Wright <chrisw@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Justin Pettit <jpettit@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4986 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750876Ab1K1WcB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Nov 2011 17:32:01 -0500
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:64703 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753945Ab1K1Wmz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 17:42:55 -0500
+Received: by qyk4 with SMTP id 4so1286847qyk.19
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2011 14:42:54 -0800 (PST)
+In-Reply-To: <06FA64A0-9CCF-4621-9DE6-61A6B37B925F@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-in iSCSI SD mode to bnx2x device assigned single mac address
-which is supposted to be iscsi mac. If this mode is recognized
-bnx2x will disable LRO, decrease number of queues to 1 and rx ring
-size to the minumum allowed by FW, this in order minimize memory use.
-It will tranfer mac for iscsi usage and zero primary mac of the netdev.
+On Mon, 2011-11-28 at 10:34 -0800, Justin Pettit wrote:
+> On Nov 25, 2011, at 5:11 PM, Jamal Hadi Salim wrote:
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-Reviewed-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |   12 +++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |   21 ++++++++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h  |   12 +++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   50 +++++++++++++++++++---
- 4 files changed, 86 insertions(+), 9 deletions(-)
+> 
+> Are you talking about ASICs on NICs?  
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 0f7b7a4..6c7bd63 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -2084,4 +2084,16 @@ static const u32 dmae_reg_go_c[] = {
- 
- void bnx2x_set_ethtool_ops(struct net_device *netdev);
- void bnx2x_notify_link_changed(struct bnx2x *bp);
-+
-+
-+#define BNX2X_MF_PROTOCOL(bp) \
-+	((bp)->mf_config[BP_VN(bp)] & FUNC_MF_CFG_PROTOCOL_MASK)
-+
-+#ifdef BCM_CNIC
-+#define BNX2X_IS_MF_PROTOCOL_ISCSI(bp) \
-+	(BNX2X_MF_PROTOCOL(bp) == FUNC_MF_CFG_PROTOCOL_ISCSI)
-+
-+#define IS_MF_ISCSI_SD(bp) (IS_MF_SD(bp) && BNX2X_IS_MF_PROTOCOL_ISCSI(bp))
-+#endif
-+
- #endif /* bnx2x.h */
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 8336c78..76c6253 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -1427,6 +1427,11 @@ void bnx2x_set_num_queues(struct bnx2x *bp)
- 		break;
- 	}
- 
-+#ifdef BCM_CNIC
-+	/* override in ISCSI SD mod */
-+	if (IS_MF_ISCSI_SD(bp))
-+		bp->num_queues = 1;
-+#endif
- 	/* Add special queues */
- 	bp->num_queues += NON_ETH_CONTEXT_USE;
- }
-@@ -2970,8 +2975,13 @@ int bnx2x_change_mac_addr(struct net_device *dev, void *p)
- 	struct bnx2x *bp = netdev_priv(dev);
- 	int rc = 0;
- 
--	if (!is_valid_ether_addr((u8 *)(addr->sa_data)))
-+	if (!bnx2x_is_valid_ether_addr(bp, addr->sa_data))
-+		return -EINVAL;
-+
-+#ifdef BCM_CNIC
-+	if (IS_MF_ISCSI_SD(bp) && !is_zero_ether_addr(addr->sa_data))
- 		return -EINVAL;
-+#endif
- 
- 	if (netif_running(dev))  {
- 		rc = bnx2x_set_eth_mac(bp, false);
-@@ -3087,7 +3097,12 @@ static int bnx2x_alloc_fp_mem_at(struct bnx2x *bp, int index)
- 	u8 cos;
- 	int rx_ring_size = 0;
- 
--	/* if rx_ring_size specified - use it */
-+#ifdef BCM_CNIC
-+	if (IS_MF_ISCSI_SD(bp)) {
-+		rx_ring_size = MIN_RX_SIZE_NONTPA;
-+		bp->rx_ring_size = rx_ring_size;
-+	} else
-+#endif
- 	if (!bp->rx_ring_size) {
- 
- 		rx_ring_size = MAX_RX_AVAIL/BNX2X_NUM_RX_QUEUES(bp);
-@@ -3097,7 +3112,7 @@ static int bnx2x_alloc_fp_mem_at(struct bnx2x *bp, int index)
- 				     MIN_RX_SIZE_TPA, rx_ring_size);
- 
- 		bp->rx_ring_size = rx_ring_size;
--	} else
-+	} else /* if rx_ring_size specified - use it */
- 		rx_ring_size = bp->rx_ring_size;
- 
- 	/* Common */
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index 80c5ed0..2891cdc 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -20,6 +20,7 @@
- #include <linux/types.h>
- #include <linux/pci.h>
- #include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
- 
- 
- #include "bnx2x.h"
-@@ -1554,4 +1555,15 @@ static inline void bnx2x_update_drv_flags(struct bnx2x *bp, u32 flags, u32 set)
- 	}
- }
- 
-+static inline bool bnx2x_is_valid_ether_addr(struct bnx2x *bp, u8 *addr)
-+{
-+	if (is_valid_ether_addr(addr))
-+		return true;
-+#ifdef BCM_CNIC
-+	if (is_zero_ether_addr(addr) && IS_MF_ISCSI_SD(bp))
-+		return true;
-+#endif
-+	return false;
-+}
-+
- #endif /* BNX2X_CMN_H */
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 0cdbb70..2213e0b 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -7017,6 +7017,13 @@ int bnx2x_set_eth_mac(struct bnx2x *bp, bool set)
- {
- 	unsigned long ramrod_flags = 0;
- 
-+#ifdef BCM_CNIC
-+	if (is_zero_ether_addr(bp->dev->dev_addr) && IS_MF_ISCSI_SD(bp)) {
-+		DP(NETIF_MSG_IFUP, "Ignoring Zero MAC for iSCSI SD mode\n");
-+		return 0;
-+	}
-+#endif
-+
- 	DP(NETIF_MSG_IFUP, "Adding Eth MAC\n");
- 
- 	__set_bit(RAMROD_COMP_WAIT, &ramrod_flags);
-@@ -9400,7 +9407,8 @@ static void __devinit bnx2x_get_mac_hwinfo(struct bnx2x *bp)
- 			bnx2x_set_mac_buf(bp->dev->dev_addr, val, val2);
- 
- #ifdef BCM_CNIC
--		/* iSCSI and FCoE NPAR MACs: if there is no either iSCSI or
-+		/*
-+		 * iSCSI and FCoE NPAR MACs: if there is no either iSCSI or
- 		 * FCoE MAC then the appropriate feature should be disabled.
- 		 */
- 		if (IS_MF_SI(bp)) {
-@@ -9422,11 +9430,22 @@ static void __devinit bnx2x_get_mac_hwinfo(struct bnx2x *bp)
- 				val = MF_CFG_RD(bp, func_ext_config[func].
- 						    fcoe_mac_addr_lower);
- 				bnx2x_set_mac_buf(fip_mac, val, val2);
--				BNX2X_DEV_INFO("Read FCoE L2 MAC to %pM\n",
-+				BNX2X_DEV_INFO("Read FCoE L2 MAC: %pM\n",
- 					       fip_mac);
- 
- 			} else
- 				bp->flags |= NO_FCOE_FLAG;
-+		} else { /* SD mode */
-+			if (BNX2X_IS_MF_PROTOCOL_ISCSI(bp)) {
-+				/* use primary mac as iscsi mac */
-+				memcpy(iscsi_mac, bp->dev->dev_addr, ETH_ALEN);
-+				/* Zero primary MAC configuration */
-+				memset(bp->dev->dev_addr, 0, ETH_ALEN);
-+
-+				BNX2X_DEV_INFO("SD ISCSI MODE\n");
-+				BNX2X_DEV_INFO("Read iSCSI MAC: %pM\n",
-+					       iscsi_mac);
-+			}
- 		}
- #endif
- 	} else {
-@@ -9475,7 +9494,7 @@ static void __devinit bnx2x_get_mac_hwinfo(struct bnx2x *bp)
- 	}
- #endif
- 
--	if (!is_valid_ether_addr(bp->dev->dev_addr))
-+	if (!bnx2x_is_valid_ether_addr(bp, bp->dev->dev_addr))
- 		dev_err(&bp->pdev->dev,
- 			"bad Ethernet MAC address configuration: "
- 			"%pM, change it manually before bringing up "
-@@ -9866,15 +9885,20 @@ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
- 
- 	bp->multi_mode = multi_mode;
- 
-+	bp->disable_tpa = disable_tpa;
-+
-+#ifdef BCM_CNIC
-+	bp->disable_tpa |= IS_MF_ISCSI_SD(bp);
-+#endif
-+
- 	/* Set TPA flags */
--	if (disable_tpa) {
-+	if (bp->disable_tpa) {
- 		bp->flags &= ~TPA_ENABLE_FLAG;
- 		bp->dev->features &= ~NETIF_F_LRO;
- 	} else {
- 		bp->flags |= TPA_ENABLE_FLAG;
- 		bp->dev->features |= NETIF_F_LRO;
- 	}
--	bp->disable_tpa = disable_tpa;
- 
- 	if (CHIP_IS_E1(bp))
- 		bp->dropless_fc = 0;
-@@ -10145,6 +10169,11 @@ void bnx2x_set_rx_mode(struct net_device *dev)
- 	}
- 
- 	bp->rx_mode = rx_mode;
-+#ifdef BCM_CNIC
-+	/* handle ISCSI SD mode */
-+	if (IS_MF_ISCSI_SD(bp))
-+		bp->rx_mode = BNX2X_RX_MODE_NONE;
-+#endif
- 
- 	/* Schedule the rx_mode command */
- 	if (test_bit(BNX2X_FILTER_RX_MODE_PENDING, &bp->sp_state)) {
-@@ -10224,6 +10253,15 @@ static void poll_bnx2x(struct net_device *dev)
- }
- #endif
- 
-+static int bnx2x_validate_addr(struct net_device *dev)
-+{
-+	struct bnx2x *bp = netdev_priv(dev);
-+
-+	if (!bnx2x_is_valid_ether_addr(bp, dev->dev_addr))
-+		return -EADDRNOTAVAIL;
-+	return 0;
-+}
-+
- static const struct net_device_ops bnx2x_netdev_ops = {
- 	.ndo_open		= bnx2x_open,
- 	.ndo_stop		= bnx2x_close,
-@@ -10231,7 +10269,7 @@ static const struct net_device_ops bnx2x_netdev_ops = {
- 	.ndo_select_queue	= bnx2x_select_queue,
- 	.ndo_set_rx_mode	= bnx2x_set_rx_mode,
- 	.ndo_set_mac_address	= bnx2x_change_mac_addr,
--	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_validate_addr	= bnx2x_validate_addr,
- 	.ndo_do_ioctl		= bnx2x_ioctl,
- 	.ndo_change_mtu		= bnx2x_change_mtu,
- 	.ndo_fix_features	= bnx2x_fix_features,
--- 
-1.7.7.2
+I am indifferent - looking at it entirely from a control
+perspective. i.e if i do "ip link blah down" on a port
+i want that to work with zero changes to iproute2; the only
+way you can achieve that is if you expose those ports as
+netdevs.
+This is what I said was a good thing the Intel folks were trying to
+achieve (and what Lennert has done for the small Marvel switch chips).
+
+> I was referring to integrating Open vSwitch into top-of-rack switches.  
+> These typically have a 48x1G or 48x10G switching ASIC and a relatively 
+> slow (~800MHz PPC-class) management CPU running an operating system like 
+> Linux.  There's no way that these systems can have a standard CPU on the fastpath.
+
+No, not the datapath; just control of the hardware.  If i run
+"ip route add .." i want that to work on the ASIC.
+Same with tc action/classification. I want to run those tools and
+configure an ACL in the ASIC with no new learning curve.
+
+> 
+> I understood the original question to be: Can we make the interface to the 
+> kernel look like a hardware switch?  My answer had two main parts.  First, 
+> I don't think we could define a "standard" hardware interface, since they're
+> all very different.  Second, even if we could, I think a software fastpath's
+> strengths and weaknesses are such that the hardware model wouldn't be ideal.
+
+Not talking about datapath - but control interface to those devices.
+We cant define how the low levels look like. But if you expose things
+using standard linux interfaces, then user space tools and APIs stay
+unchanged.
+
+Then i shouldnt care where the feature runs (hardware NIC, ASIC, pure
+kernel level software etc).
+
+> 
+> The problem is that DRAM isn't going to cut it on the ACL tables--which are 
+> typically used for flow-based matching--on a 48x10G (or even 48x1G) switch.
+
+There are vendors who use DRAMS with speacilized interfaces that
+interleave requests behind the scenes. Maybe i can point you to one
+offline. 
+
+> I've seen a couple of switching ASICs that support many 10s of thousands of
+> ACL entries, but they require expensive external TCAMs for lookup and SRAM 
+> for counters.  Most of the white box vendors that I've seen that use those 
+> ASICs don't bother adding the external TCAM and SRAM to their designs.  
+> Even when they are added, their matching capabilities are typically limited 
+> in order to keep up with traffic.
+
+I thought SRAM markets have dried up these days. Anyways what you are
+refereing to above is generally true.
+
+> > Justin - theres nothing new you need in the kernel to have that feature.
+> > Let me rephrase that, that has not been a new feature for at least a
+> > decade in Linux.
+> > Add exact match filters with higher priority. Have the lowest priority
+> > filter to redirect to user space. Let user space lookup some service
+> > rule; have it download to the kernel one or more exact matches.
+> > Let the packet proceed on its way down the kernel to its destination if
+> > thats what is defined.
+> 
+> My point was that a software fastpath should look different than a hardware-based one.
+
+And i was pointing  to what your datapath patches which in conjunction
+with your user space code.
+
+> > 
+> > That bit sounds interesting - I will look at your spec.
+> 
+> Great!
+
+I am sorry - been overloaded elsewhere havent looked. But i think above
+I pretty much spelt out what my desires are.
+
+
+> Yes, Open vSwitch has been ported to 24x10G ASICs running Linux on their management CPUs.  
+> However, in these cases the datapath is handled by hardware and not the software forwarding 
+> plane, obviously.
+
+Of course.
+
+> > Do the vendors agree to some common interface?
+> 
+> Yes, if you view ofproto (as described in the porting guide) as that interface.  Every merchant silicon vendor 
+> I've seen views the interfaces to their ASICs as proprietary.  
+
+Yes, the XAL agony (HALS and PALS that run on 26 other OSes).
+
+> Someone (with the appropriate SDK and licenses) needs to write providers for those different hardware ports.  
+> We've helped multiple vendors do this and know a few others that have done it on their own.
+
+You know what would be really nice is if you achieved what i described
+above.
+Can I ifconfig an ethernet switch port?
+
+> This really seems besides the point for this discussion, though.  
+> We've written an ofproto provider for software switches called "dpif" 
+> (this is also described in the porting guide). What we're proposing be 
+> included in Linux is the kernel module that speaks to that dpif provider 
+> over a well-defined, stable, netlink-based protocol.
+> 
+> Here's just a quick (somewhat simplified) summary of the different layers. 
+> At the top, there are controllers and switches that communicate using OpenFlow.
+> OpenFlow gives controller writers the ability to inspect and modify the switches' 
+> flow tables and interfaces.  If a flow entry doesn't match an existing entry, the 
+> packet is forwarded to the controller for further processing.  OpenFlow 1.0 was 
+> pretty basic and exposed a single flow table.  OpenFlow 1.1 introduced a number 
+> of new features including multiple table support.  The forthcoming OpenFlow 1.2 
+> will include support for extensible matches, which means that new fields may be 
+> added without requiring a full revision of the specification.  OpenFlow is defined 
+> by the Open Networking Foundation and is not directly related to Open vSwitch.
+> 
+> The userspace in Open vSwitch has an OpenFlow library that interacts with the 
+> controllers.  Userspace has its own classifier that supports wildcard entries 
+> and multiple tables.  Many of the changes to the OpenFlow protocol only require 
+> modifying that library and perhaps some of the glue code with the classifier.  
+> (In theory, other software-defined networking protocols could be plugged in as well.)  
+> The classifier interacts with the ofproto layer below it, which implements a fastpath.
+
+Yes, when i looked at your code i can see that you have gone past
+openflow.
+
+> On a hardware switch, since it supports wildcarding, it essentially becomes a 
+> passthrough that just calls the appropriate APIs for the ASIC.  
+
+Are these APIs documented as well? Maybe thats all we need if you dont
+have the standard linux tools working.
+
+> On software, 
+> as we've discussed, exact-match flows work better.
+> 
+> For that reason, we've defined the dpif layer, which is an ofproto provider.  
+> It's primary purpose is to take high-level concepts like "treat this group of 
+> interfaces as a LACP bond" or "support this set of wildcard flow entries" and 
+> explode them into exact-match entries on-demand.  We've then implemented a 
+> Linux dpif provider that takes the exact match entries created by the dpif 
+> layer and converts them into netlink messages that the kernel module understands.  
+> These messages are well-defined and not specific to Open vSwitch or OpenFlow.
+
+Useful but that seems more like a service layer - I want just to be able
+to ifconfig a port as a basic need.
+In any case, I should look at your doc to get some clarity.
+
+> This layering has allowed us to introduce new OpenFlow-like features such as multiple tables 
+> and non-OpenFlow features such as port mirroring, STP, CCM, and new bonding modes without 
+> changes to the kernel module.  In fact, the only changes that should necessitate a kernel 
+> interface change are new matches or actions, such as would be required for handling MPLS.
+
+I just need the basic cobbling blocks.
+If you conform to what Linux already does and i can run standard tools,
+we can have a lot of creative things that could be done.
+
+
+> > Make these vendor switches work with plain Linux. The Intel folks are
+> > producing interfaces with L2, ACLs, VIs and are putting some effort to
+> > integrate them into plain Linux. I should be able to set the qos rules
+> > with tc on an intel chip.
+> > You guys can still take advantage of all that and still have your nice
+> > control plane.
+> 
+> Once again, I think we are talking about different things.  I believe you are 
+> discussing interfacing with NICs, which is quite different from a high fanout 
+> switching ASIC.  As I previously mentioned, the point of my original 
+
+> post was that I think it would be best not to model a high fanout switch in the interface to the kernel.
+> 
+
+I hope my clarification above makes more sense.
+
+cheers,
+jamal
