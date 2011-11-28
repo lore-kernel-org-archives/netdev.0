@@ -1,67 +1,49 @@
-From: Steven Whitehouse <swhiteho@redhat.com>
-Subject: Proposed removal of DECnet support (was: Re: [BUG] 3.2-rc2: BUG
- kmalloc-8: Redzone overwritten)
-Date: Mon, 28 Nov 2011 14:22:41 +0000
-Message-ID: <1322490161.2711.26.camel@menhir>
-References: <1321870529.2552.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1321870915.2552.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1321873110.2710.13.camel@menhir>
-	 <20111126.155028.1986754382924402334.davem@davemloft.net>
-	 <4ED35B3E.7040105@redhat.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH] net/can/mscan: Enable interrupts when all TX buffers
+ are occupied to get notified when they are available again
+Date: Mon, 28 Nov 2011 15:22:29 +0100
+Message-ID: <4ED39925.7080606@grandegger.com>
+References: <C3745E3C7FD07D429C54EB3D7606A5A7677E7C@ZRHEX021.ads.zuehlke.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-        levinsasha928@gmail.com, mpm@selenic.com, cl@linux-foundation.org,
-        penberg@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Christine Caulfield <ccaulfie@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4ED35B3E.7040105@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"socketcan@hartkopp.net" <socketcan@hartkopp.net>,
+	"lucas.demarchi@profusion.mobi" <lucas.demarchi@profusion.mobi>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"mkl@pengutronix.de" <mkl@pengutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Mosler, Martin" <mmo@zuehlke.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ngcobalt02.manitu.net ([217.11.48.102]:53485 "EHLO
+	ngcobalt02.manitu.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751034Ab1K1OWc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 09:22:32 -0500
+In-Reply-To: <C3745E3C7FD07D429C54EB3D7606A5A7677E7C@ZRHEX021.ads.zuehlke.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 11/28/2011 02:25 PM, Mosler, Martin wrote:
+> When all TX buffers of the mscan are occupied the network layer is told to stop sending further packets. However the TX interrupts are not enabled and therefore the driver has no chance to tell the network layer when it is ready to accept further packets.
 
-On Mon, 2011-11-28 at 09:58 +0000, Christine Caulfield wrote:
-> On 26/11/11 20:50, David Miller wrote:
-> > From: Steven Whitehouse<swhiteho@redhat.com>
-> > Date: Mon, 21 Nov 2011 10:58:30 +0000
-> >
-> >> I have to say that I've been wondering lately whether it has got to the
-> >> point where it is no longer useful. Has anybody actually tested it
-> >> lately against "real" DEC implementations?
-> >
-> > I doubt it :-)
-> >
+Please break lines after 72 chars, or so.
+
+> Signed-off-by: Martin Mosler <mmo@zuehlke.com>
 > 
-> DECnet is in use against real DEC implementations - I have checked it 
-> quite recently against a VAX running OpenVMS. How many people are 
-> actually using it for real work is a different question though.
-> 
-Ok, thats useful info.
+> --- linux-2.6/drivers/net/can/mscan/mscan.c.orig    2011-11-28 13:54:29.547850661 +0100
+> +++ linux-2.6/drivers/net/can/mscan/mscan.c 2011-11-28 13:55:52.427849601 +0100
+> @@ -214,6 +214,7 @@ static netdev_tx_t mscan_start_xmit(stru
+>     case 0:
+>         netif_stop_queue(dev);
+>         dev_err(dev->dev.parent, "Tx Ring full when queue awake!\n");
+> +       out_8(&regs->cantier, priv->tx_active);
+>         return NETDEV_TX_BUSY;
+>     case 1:
+>         /*  
 
-> It's also true that it's not really supported by anyone as I orphaned it 
-> some time ago and nobody else seems to care enough to take it over. So 
-> if it's becoming a burden on people doing real kernel work then I don't 
-> think many tears will be wept for its removal.
-> 
-> Chrissie
+I cannot apply this patch. It is white space mangled (no tabs but
+spaces, etc.). Please fix your mail agent or, even better, use "git
+send-email".
 
-Really the only issue with keeping it around is the maintenance burden I
-think. It doesn't look like anybody wants to take it on, but maybe we
-should give it another few days for someone to speak up, just in case
-they are on holiday or something at the moment.
-
-Also, I've updated the subject of the thread, to make it more obvious
-what is being discussed, as well as bcc'ing it again to the DECnet list,
-
-Steve.
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Wolfgang.
