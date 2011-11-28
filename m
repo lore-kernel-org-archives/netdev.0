@@ -1,221 +1,138 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-next 3/3] dsa: Move switch drivers to new directory
- drivers/net/dsa
-Date: Mon, 28 Nov 2011 03:08:33 +0000
-Message-ID: <1322449713.7454.36.camel@deadeye>
-References: <1322449506.7454.34.camel@deadeye>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [PATCH v6 04/10] Account tcp memory as kernel memory
+Date: Mon, 28 Nov 2011 12:14:18 +0900
+Message-ID: <20111128121418.b66469bf.kamezawa.hiroyu@jp.fujitsu.com>
+References: <1322242696-27682-1-git-send-email-glommer@parallels.com>
+	<1322242696-27682-5-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54055 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753141Ab1K1DIm convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Nov 2011 22:08:42 -0500
-In-Reply-To: <1322449506.7454.34.camel@deadeye>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, lizf@cn.fujitsu.com,
+ ebiederm@xmission.com, davem@davemloft.net, paul@paulmenage.org,
+ gthelen@google.com, netdev@vger.kernel.org, linux-mm@kvack.org,
+ kirill@shutemov.name, avagin@parallels.com, devel@openvz.org,
+ eric.dumazet@gmail.com, cgroups@vger.kernel.org, KAMEZAWA Hiroyuki
+ <kamezawa.hiroyu@jp.fujtisu.com>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1322242696-27682-5-git-send-email-glommer@parallels.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Support for specific hardware belongs under drivers/net/ not net/.
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
-This seems to work, but again it's compile-tested only.
+Some nitpicks.
 
-Ben.
+On Fri, 25 Nov 2011 15:38:10 -0200
+Glauber Costa <glommer@parallels.com> wrote:
 
- drivers/net/Kconfig                        |    2 +
- drivers/net/Makefile                       |    1 +
- drivers/net/dsa/Kconfig                    |   36 ++++++++++++++++++++++++++++
- drivers/net/dsa/Makefile                   |    9 +++++++
- {net => drivers/net}/dsa/mv88e6060.c       |    0
- {net => drivers/net}/dsa/mv88e6123_61_65.c |    0
- {net => drivers/net}/dsa/mv88e6131.c       |    0
- {net => drivers/net}/dsa/mv88e6xxx.c       |    0
- {net => drivers/net}/dsa/mv88e6xxx.h       |    0
- net/dsa/Kconfig                            |   36 +---------------------------
- net/dsa/Makefile                           |   11 --------
- 11 files changed, 49 insertions(+), 46 deletions(-)
- create mode 100644 drivers/net/dsa/Kconfig
- create mode 100644 drivers/net/dsa/Makefile
- rename {net => drivers/net}/dsa/mv88e6060.c (100%)
- rename {net => drivers/net}/dsa/mv88e6123_61_65.c (100%)
- rename {net => drivers/net}/dsa/mv88e6131.c (100%)
- rename {net => drivers/net}/dsa/mv88e6xxx.c (100%)
- rename {net => drivers/net}/dsa/mv88e6xxx.h (100%)
-
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index debdf1c..9845afb 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -243,6 +243,8 @@ source "drivers/atm/Kconfig"
+> Now that we account and control tcp memory buffers memory for pressure
+> controlling purposes, display this information as part of the normal memcg
+> files and other usages.
+> 
  
- source "drivers/net/caif/Kconfig"
- 
-+source "drivers/net/dsa/Kconfig"
-+
- source "drivers/net/ethernet/Kconfig"
- 
- source "drivers/net/fddi/Kconfig"
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 4e4ebfe..1988881 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -30,6 +30,7 @@ obj-$(CONFIG_DEV_APPLETALK) += appletalk/
- obj-$(CONFIG_CAIF) += caif/
- obj-$(CONFIG_CAN) += can/
- obj-$(CONFIG_ETRAX_ETHERNET) += cris/
-+obj-$(CONFIG_NET_DSA) += dsa/
- obj-$(CONFIG_ETHERNET) += ethernet/
- obj-$(CONFIG_FDDI) += fddi/
- obj-$(CONFIG_HIPPI) += hippi/
-diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
-new file mode 100644
-index 0000000..dd151d5
---- /dev/null
-+++ b/drivers/net/dsa/Kconfig
-@@ -0,0 +1,36 @@
-+menu "Distributed Switch Architecture drivers"
-+	depends on NET_DSA
-+
-+config NET_DSA_MV88E6XXX
-+	tristate
-+	default n
-+
-+config NET_DSA_MV88E6060
-+	tristate "Marvell 88E6060 ethernet switch chip support"
-+	select NET_DSA_TAG_TRAILER
-+	---help---
-+	  This enables support for the Marvell 88E6060 ethernet switch
-+	  chip.
-+
-+config NET_DSA_MV88E6XXX_NEED_PPU
-+	bool
-+	default n
-+
-+config NET_DSA_MV88E6131
-+	tristate "Marvell 88E6085/6095/6095F/6131 ethernet switch chip support"
-+	select NET_DSA_MV88E6XXX
-+	select NET_DSA_MV88E6XXX_NEED_PPU
-+	select NET_DSA_TAG_DSA
-+	---help---
-+	  This enables support for the Marvell 88E6085/6095/6095F/6131
-+	  ethernet switch chips.
-+
-+config NET_DSA_MV88E6123_61_65
-+	tristate "Marvell 88E6123/6161/6165 ethernet switch chip support"
-+	select NET_DSA_MV88E6XXX
-+	select NET_DSA_TAG_EDSA
-+	---help---
-+	  This enables support for the Marvell 88E6123/6161/6165
-+	  ethernet switch chips.
-+
-+endmenu
-diff --git a/drivers/net/dsa/Makefile b/drivers/net/dsa/Makefile
-new file mode 100644
-index 0000000..f3bda05
---- /dev/null
-+++ b/drivers/net/dsa/Makefile
-@@ -0,0 +1,9 @@
-+obj-$(CONFIG_NET_DSA_MV88E6060) += mv88e6060.o
-+obj-$(CONFIG_NET_DSA_MV88E6XXX) += mv88e6xxx_drv.o
-+mv88e6xxx_drv-y += mv88e6xxx.o
-+ifdef CONFIG_NET_DSA_MV88E6123_61_65
-+mv88e6xxx_drv-y += mv88e6123_61_65.o
-+endif
-+ifdef CONFIG_NET_DSA_MV88E6131
-+mv88e6xxx_drv-y += mv88e6131.o
-+endif
-diff --git a/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
-similarity index 100%
-rename from net/dsa/mv88e6060.c
-rename to drivers/net/dsa/mv88e6060.c
-diff --git a/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
-similarity index 100%
-rename from net/dsa/mv88e6123_61_65.c
-rename to drivers/net/dsa/mv88e6123_61_65.c
-diff --git a/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-similarity index 100%
-rename from net/dsa/mv88e6131.c
-rename to drivers/net/dsa/mv88e6131.c
-diff --git a/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-similarity index 100%
-rename from net/dsa/mv88e6xxx.c
-rename to drivers/net/dsa/mv88e6xxx.c
-diff --git a/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-similarity index 100%
-rename from net/dsa/mv88e6xxx.h
-rename to drivers/net/dsa/mv88e6xxx.h
-diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-index 7e12303..274791c 100644
---- a/net/dsa/Kconfig
-+++ b/net/dsa/Kconfig
-@@ -1,4 +1,4 @@
--menuconfig NET_DSA
-+config NET_DSA
- 	tristate "Distributed Switch Architecture support"
- 	default n
- 	depends on EXPERIMENTAL && NETDEVICES && !S390
-@@ -23,38 +23,4 @@ config NET_DSA_TAG_TRAILER
- 	bool
- 	default n
- 
--
--# switch drivers
--config NET_DSA_MV88E6XXX
--	tristate
--	default n
--
--config NET_DSA_MV88E6060
--	tristate "Marvell 88E6060 ethernet switch chip support"
--	select NET_DSA_TAG_TRAILER
--	---help---
--	  This enables support for the Marvell 88E6060 ethernet switch
--	  chip.
--
--config NET_DSA_MV88E6XXX_NEED_PPU
--	bool
--	default n
--
--config NET_DSA_MV88E6131
--	tristate "Marvell 88E6085/6095/6095F/6131 ethernet switch chip support"
--	select NET_DSA_MV88E6XXX
--	select NET_DSA_MV88E6XXX_NEED_PPU
--	select NET_DSA_TAG_DSA
--	---help---
--	  This enables support for the Marvell 88E6085/6095/6095F/6131
--	  ethernet switch chips.
--
--config NET_DSA_MV88E6123_61_65
--	tristate "Marvell 88E6123/6161/6165 ethernet switch chip support"
--	select NET_DSA_MV88E6XXX
--	select NET_DSA_TAG_EDSA
--	---help---
--	  This enables support for the Marvell 88E6123/6161/6165
--	  ethernet switch chips.
--
- endif
-diff --git a/net/dsa/Makefile b/net/dsa/Makefile
-index 191dd48..7b9fcbb 100644
---- a/net/dsa/Makefile
-+++ b/net/dsa/Makefile
-@@ -6,14 +6,3 @@ dsa_core-y += dsa.o slave.o
- dsa_core-$(CONFIG_NET_DSA_TAG_DSA) += tag_dsa.o
- dsa_core-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
- dsa_core-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
--
--# switch drivers
--obj-$(CONFIG_NET_DSA_MV88E6060) += mv88e6060.o
--obj-$(CONFIG_NET_DSA_MV88E6XXX) += mv88e6xxx_drv.o
--mv88e6xxx_drv-y += mv88e6xxx.o
--ifdef CONFIG_NET_DSA_MV88E6123_61_65
--mv88e6xxx_drv-y += mv88e6123_61_65.o
--endif
--ifdef CONFIG_NET_DSA_MV88E6131
--mv88e6xxx_drv-y += mv88e6131.o
--endif
--- 
-1.7.7.3
+> +extern struct mem_cgroup *mem_cgroup_from_cont(struct cgroup *cont);
+> +extern struct mem_cgroup *parent_mem_cgroup(struct mem_cgroup *mem);
+> +
+>  static inline
+>  int mm_match_cgroup(const struct mm_struct *mm, const struct mem_cgroup *cgroup)
+>  {
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index d802761..da38de2 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -65,6 +65,9 @@
+>  #include <net/dst.h>
+>  #include <net/checksum.h>
+>  
+> +int sockets_populate(struct cgroup *cgrp, struct cgroup_subsys *ss);
+> +void sockets_destroy(struct cgroup *cgrp, struct cgroup_subsys *ss);
+> +
+>  /*
+
+Hmm, what is this 'populate' function for ?
+mem_cgroup_sockets_init() ?
+
+
+
+>   * This structure really needs to be cleaned up.
+>   * Most of it is for TCP, and not used by any of
+> diff --git a/include/net/tcp_memcg.h b/include/net/tcp_memcg.h
+> new file mode 100644
+> index 0000000..5f5e158
+> --- /dev/null
+> +++ b/include/net/tcp_memcg.h
+> @@ -0,0 +1,17 @@
+> +#ifndef _TCP_MEMCG_H
+> +#define _TCP_MEMCG_H
+> +
+> +struct tcp_memcontrol {
+> +	struct cg_proto cg_proto;
+> +	/* per-cgroup tcp memory pressure knobs */
+> +	struct res_counter tcp_memory_allocated;
+> +	struct percpu_counter tcp_sockets_allocated;
+> +	/* those two are read-mostly, leave them at the end */
+> +	long tcp_prot_mem[3];
+> +	int tcp_memory_pressure;
+> +};
+> +
+> +struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg);
+> +int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss);
+> +void tcp_destroy_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss);
+> +#endif /* _TCP_MEMCG_H */
+> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+> index 5f29194..2df5d3c 100644
+> --- a/mm/memcontrol.c
+> +++ b/mm/memcontrol.c
+> @@ -49,6 +49,8 @@
+>  #include <linux/cpu.h>
+>  #include <linux/oom.h>
+>  #include "internal.h"
+> +#include <net/sock.h>
+> +#include <net/tcp_memcg.h>
+
+ok, tcp_memcg.h ... some other men may like tcp_memcontrol.h..
+
+>  
+>  #include <asm/uaccess.h>
+>  
+<snip>
+
+>  static int alloc_mem_cgroup_per_zone_info(struct mem_cgroup *mem, int node)
+> @@ -4954,7 +4983,7 @@ static void mem_cgroup_put(struct mem_cgroup *mem)
+>  /*
+>   * Returns the parent mem_cgroup in memcgroup hierarchy with hierarchy enabled.
+>   */
+> -static struct mem_cgroup *parent_mem_cgroup(struct mem_cgroup *mem)
+> +struct mem_cgroup *parent_mem_cgroup(struct mem_cgroup *mem)
+>  {
+>  	if (!mem->res.parent)
+>  		return NULL;
+> @@ -5037,6 +5066,7 @@ mem_cgroup_create(struct cgroup_subsys *ss, struct cgroup *cont)
+>  		res_counter_init(&mem->res, &parent->res);
+>  		res_counter_init(&mem->memsw, &parent->memsw);
+>  		res_counter_init(&mem->kmem, &parent->kmem);
+> +
+
+unnecessary blank line.
+
+
+>  		/*
+>  		 * We increment refcnt of the parent to ensure that we can
+>  		 * safely access it on res_counter_charge/uncharge.
+> @@ -5053,6 +5083,7 @@ mem_cgroup_create(struct cgroup_subsys *ss, struct cgroup *cont)
+>  	mem->last_scanned_node = MAX_NUMNODES;
+>  	INIT_LIST_HEAD(&mem->oom_notify);
+>  
+> +
+ditto.
+
+<snip>
+
+Reviewed-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
