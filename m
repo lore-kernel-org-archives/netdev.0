@@ -1,8 +1,8 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-next 2/3] dsa: Move all definitions needed by drivers
- into <net/dsa.h>
-Date: Mon, 28 Nov 2011 03:06:08 +0000
-Message-ID: <1322449568.7454.35.camel@deadeye>
+Subject: [PATCH net-next 3/3] dsa: Move switch drivers to new directory
+ drivers/net/dsa
+Date: Mon, 28 Nov 2011 03:08:33 +0000
+Message-ID: <1322449713.7454.36.camel@deadeye>
 References: <1322449506.7454.34.camel@deadeye>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,302 +10,212 @@ Content-Transfer-Encoding: 8BIT
 Cc: Lennert Buytenhek <buytenh@wantstofly.org>, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54042 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54055 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754951Ab1K1DGP convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1753141Ab1K1DIm convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Nov 2011 22:06:15 -0500
+	Sun, 27 Nov 2011 22:08:42 -0500
 In-Reply-To: <1322449506.7454.34.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Any headers included by drivers should be under include/, and
-any definitions they use are not really private to the core as
-the name "dsa_priv.h" suggests.
+Support for specific hardware belongs under drivers/net/ not net/.
 
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
- include/net/dsa.h         |   90 ++++++++++++++++++++++++++++++++++++++++++++
- net/dsa/dsa_priv.h        |   91 ---------------------------------------------
- net/dsa/mv88e6060.c       |    2 +-
- net/dsa/mv88e6123_61_65.c |    2 +-
- net/dsa/mv88e6131.c       |    2 +-
- net/dsa/mv88e6xxx.c       |    2 +-
- 6 files changed, 94 insertions(+), 95 deletions(-)
+This seems to work, but again it's compile-tested only.
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 32a1b49..b78db3c 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -11,6 +11,7 @@
- #ifndef __LINUX_NET_DSA_H
- #define __LINUX_NET_DSA_H
+Ben.
+
+ drivers/net/Kconfig                        |    2 +
+ drivers/net/Makefile                       |    1 +
+ drivers/net/dsa/Kconfig                    |   36 ++++++++++++++++++++++++++++
+ drivers/net/dsa/Makefile                   |    9 +++++++
+ {net => drivers/net}/dsa/mv88e6060.c       |    0
+ {net => drivers/net}/dsa/mv88e6123_61_65.c |    0
+ {net => drivers/net}/dsa/mv88e6131.c       |    0
+ {net => drivers/net}/dsa/mv88e6xxx.c       |    0
+ {net => drivers/net}/dsa/mv88e6xxx.h       |    0
+ net/dsa/Kconfig                            |   36 +---------------------------
+ net/dsa/Makefile                           |   11 --------
+ 11 files changed, 49 insertions(+), 46 deletions(-)
+ create mode 100644 drivers/net/dsa/Kconfig
+ create mode 100644 drivers/net/dsa/Makefile
+ rename {net => drivers/net}/dsa/mv88e6060.c (100%)
+ rename {net => drivers/net}/dsa/mv88e6123_61_65.c (100%)
+ rename {net => drivers/net}/dsa/mv88e6131.c (100%)
+ rename {net => drivers/net}/dsa/mv88e6xxx.c (100%)
+ rename {net => drivers/net}/dsa/mv88e6xxx.h (100%)
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index debdf1c..9845afb 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -243,6 +243,8 @@ source "drivers/atm/Kconfig"
  
-+#include <linux/list.h>
- #include <linux/timer.h>
- #include <linux/workqueue.h>
+ source "drivers/net/caif/Kconfig"
  
-@@ -90,6 +91,95 @@ struct dsa_switch_tree {
- 	struct dsa_switch	*ds[DSA_MAX_SWITCHES];
- };
++source "drivers/net/dsa/Kconfig"
++
+ source "drivers/net/ethernet/Kconfig"
  
-+struct dsa_switch {
-+	/*
-+	 * Parent switch tree, and switch index.
-+	 */
-+	struct dsa_switch_tree	*dst;
-+	int			index;
+ source "drivers/net/fddi/Kconfig"
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 4e4ebfe..1988881 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -30,6 +30,7 @@ obj-$(CONFIG_DEV_APPLETALK) += appletalk/
+ obj-$(CONFIG_CAIF) += caif/
+ obj-$(CONFIG_CAN) += can/
+ obj-$(CONFIG_ETRAX_ETHERNET) += cris/
++obj-$(CONFIG_NET_DSA) += dsa/
+ obj-$(CONFIG_ETHERNET) += ethernet/
+ obj-$(CONFIG_FDDI) += fddi/
+ obj-$(CONFIG_HIPPI) += hippi/
+diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
+new file mode 100644
+index 0000000..dd151d5
+--- /dev/null
++++ b/drivers/net/dsa/Kconfig
+@@ -0,0 +1,36 @@
++menu "Distributed Switch Architecture drivers"
++	depends on NET_DSA
 +
-+	/*
-+	 * Configuration data for this switch.
-+	 */
-+	struct dsa_chip_data	*pd;
++config NET_DSA_MV88E6XXX
++	tristate
++	default n
 +
-+	/*
-+	 * The used switch driver.
-+	 */
-+	struct dsa_switch_driver	*drv;
++config NET_DSA_MV88E6060
++	tristate "Marvell 88E6060 ethernet switch chip support"
++	select NET_DSA_TAG_TRAILER
++	---help---
++	  This enables support for the Marvell 88E6060 ethernet switch
++	  chip.
 +
-+	/*
-+	 * Reference to mii bus to use.
-+	 */
-+	struct mii_bus		*master_mii_bus;
++config NET_DSA_MV88E6XXX_NEED_PPU
++	bool
++	default n
 +
-+	/*
-+	 * Slave mii_bus and devices for the individual ports.
-+	 */
-+	u32			dsa_port_mask;
-+	u32			phys_port_mask;
-+	struct mii_bus		*slave_mii_bus;
-+	struct net_device	*ports[DSA_MAX_PORTS];
-+};
++config NET_DSA_MV88E6131
++	tristate "Marvell 88E6085/6095/6095F/6131 ethernet switch chip support"
++	select NET_DSA_MV88E6XXX
++	select NET_DSA_MV88E6XXX_NEED_PPU
++	select NET_DSA_TAG_DSA
++	---help---
++	  This enables support for the Marvell 88E6085/6095/6095F/6131
++	  ethernet switch chips.
 +
-+static inline bool dsa_is_cpu_port(struct dsa_switch *ds, int p)
-+{
-+	return !!(ds->index == ds->dst->cpu_switch && p == ds->dst->cpu_port);
-+}
++config NET_DSA_MV88E6123_61_65
++	tristate "Marvell 88E6123/6161/6165 ethernet switch chip support"
++	select NET_DSA_MV88E6XXX
++	select NET_DSA_TAG_EDSA
++	---help---
++	  This enables support for the Marvell 88E6123/6161/6165
++	  ethernet switch chips.
 +
-+static inline u8 dsa_upstream_port(struct dsa_switch *ds)
-+{
-+	struct dsa_switch_tree *dst = ds->dst;
-+
-+	/*
-+	 * If this is the root switch (i.e. the switch that connects
-+	 * to the CPU), return the cpu port number on this switch.
-+	 * Else return the (DSA) port number that connects to the
-+	 * switch that is one hop closer to the cpu.
-+	 */
-+	if (dst->cpu_switch == ds->index)
-+		return dst->cpu_port;
-+	else
-+		return ds->pd->rtable[dst->cpu_switch];
-+}
-+
-+struct dsa_switch_driver {
-+	struct list_head	list;
-+
-+	__be16			tag_protocol;
-+	int			priv_size;
-+
-+	/*
-+	 * Probing and setup.
-+	 */
-+	char	*(*probe)(struct mii_bus *bus, int sw_addr);
-+	int	(*setup)(struct dsa_switch *ds);
-+	int	(*set_addr)(struct dsa_switch *ds, u8 *addr);
-+
-+	/*
-+	 * Access to the switch's PHY registers.
-+	 */
-+	int	(*phy_read)(struct dsa_switch *ds, int port, int regnum);
-+	int	(*phy_write)(struct dsa_switch *ds, int port,
-+			     int regnum, u16 val);
-+
-+	/*
-+	 * Link state polling and IRQ handling.
-+	 */
-+	void	(*poll_link)(struct dsa_switch *ds);
-+
-+	/*
-+	 * ethtool hardware statistics.
-+	 */
-+	void	(*get_strings)(struct dsa_switch *ds, int port, uint8_t *data);
-+	void	(*get_ethtool_stats)(struct dsa_switch *ds,
-+				     int port, uint64_t *data);
-+	int	(*get_sset_count)(struct dsa_switch *ds);
-+};
-+
-+void register_switch_driver(struct dsa_switch_driver *type);
-+void unregister_switch_driver(struct dsa_switch_driver *type);
-+
- /*
-  * The original DSA tag format and some other tag formats have no
-  * ethertype, which means that we need to add a little hack to the
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 89a2eb4..d4cf5cc 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -11,64 +11,9 @@
- #ifndef __DSA_PRIV_H
- #define __DSA_PRIV_H
++endmenu
+diff --git a/drivers/net/dsa/Makefile b/drivers/net/dsa/Makefile
+new file mode 100644
+index 0000000..f3bda05
+--- /dev/null
++++ b/drivers/net/dsa/Makefile
+@@ -0,0 +1,9 @@
++obj-$(CONFIG_NET_DSA_MV88E6060) += mv88e6060.o
++obj-$(CONFIG_NET_DSA_MV88E6XXX) += mv88e6xxx_drv.o
++mv88e6xxx_drv-y += mv88e6xxx.o
++ifdef CONFIG_NET_DSA_MV88E6123_61_65
++mv88e6xxx_drv-y += mv88e6123_61_65.o
++endif
++ifdef CONFIG_NET_DSA_MV88E6131
++mv88e6xxx_drv-y += mv88e6131.o
++endif
+diff --git a/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
+similarity index 100%
+rename from net/dsa/mv88e6060.c
+rename to drivers/net/dsa/mv88e6060.c
+diff --git a/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
+similarity index 100%
+rename from net/dsa/mv88e6123_61_65.c
+rename to drivers/net/dsa/mv88e6123_61_65.c
+diff --git a/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+similarity index 100%
+rename from net/dsa/mv88e6131.c
+rename to drivers/net/dsa/mv88e6131.c
+diff --git a/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+similarity index 100%
+rename from net/dsa/mv88e6xxx.c
+rename to drivers/net/dsa/mv88e6xxx.c
+diff --git a/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+similarity index 100%
+rename from net/dsa/mv88e6xxx.h
+rename to drivers/net/dsa/mv88e6xxx.h
+diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+index 7e12303..274791c 100644
+--- a/net/dsa/Kconfig
++++ b/net/dsa/Kconfig
+@@ -1,4 +1,4 @@
+-menuconfig NET_DSA
++config NET_DSA
+ 	tristate "Distributed Switch Architecture support"
+ 	default n
+ 	depends on EXPERIMENTAL && NETDEVICES && !S390
+@@ -23,38 +23,4 @@ config NET_DSA_TAG_TRAILER
+ 	bool
+ 	default n
  
--#include <linux/list.h>
- #include <linux/phy.h>
--#include <linux/timer.h>
--#include <linux/workqueue.h>
- #include <net/dsa.h>
- 
--struct dsa_switch {
--	/*
--	 * Parent switch tree, and switch index.
--	 */
--	struct dsa_switch_tree	*dst;
--	int			index;
 -
--	/*
--	 * Configuration data for this switch.
--	 */
--	struct dsa_chip_data	*pd;
+-# switch drivers
+-config NET_DSA_MV88E6XXX
+-	tristate
+-	default n
 -
--	/*
--	 * The used switch driver.
--	 */
--	struct dsa_switch_driver	*drv;
+-config NET_DSA_MV88E6060
+-	tristate "Marvell 88E6060 ethernet switch chip support"
+-	select NET_DSA_TAG_TRAILER
+-	---help---
+-	  This enables support for the Marvell 88E6060 ethernet switch
+-	  chip.
 -
--	/*
--	 * Reference to mii bus to use.
--	 */
--	struct mii_bus		*master_mii_bus;
+-config NET_DSA_MV88E6XXX_NEED_PPU
+-	bool
+-	default n
 -
--	/*
--	 * Slave mii_bus and devices for the individual ports.
--	 */
--	u32			dsa_port_mask;
--	u32			phys_port_mask;
--	struct mii_bus		*slave_mii_bus;
--	struct net_device	*ports[DSA_MAX_PORTS];
--};
+-config NET_DSA_MV88E6131
+-	tristate "Marvell 88E6085/6095/6095F/6131 ethernet switch chip support"
+-	select NET_DSA_MV88E6XXX
+-	select NET_DSA_MV88E6XXX_NEED_PPU
+-	select NET_DSA_TAG_DSA
+-	---help---
+-	  This enables support for the Marvell 88E6085/6095/6095F/6131
+-	  ethernet switch chips.
 -
--static inline bool dsa_is_cpu_port(struct dsa_switch *ds, int p)
--{
--	return !!(ds->index == ds->dst->cpu_switch && p == ds->dst->cpu_port);
--}
+-config NET_DSA_MV88E6123_61_65
+-	tristate "Marvell 88E6123/6161/6165 ethernet switch chip support"
+-	select NET_DSA_MV88E6XXX
+-	select NET_DSA_TAG_EDSA
+-	---help---
+-	  This enables support for the Marvell 88E6123/6161/6165
+-	  ethernet switch chips.
 -
--static inline u8 dsa_upstream_port(struct dsa_switch *ds)
--{
--	struct dsa_switch_tree *dst = ds->dst;
+ endif
+diff --git a/net/dsa/Makefile b/net/dsa/Makefile
+index 191dd48..7b9fcbb 100644
+--- a/net/dsa/Makefile
++++ b/net/dsa/Makefile
+@@ -6,14 +6,3 @@ dsa_core-y += dsa.o slave.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_DSA) += tag_dsa.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
 -
--	/*
--	 * If this is the root switch (i.e. the switch that connects
--	 * to the CPU), return the cpu port number on this switch.
--	 * Else return the (DSA) port number that connects to the
--	 * switch that is one hop closer to the cpu.
--	 */
--	if (dst->cpu_switch == ds->index)
--		return dst->cpu_port;
--	else
--		return ds->pd->rtable[dst->cpu_switch];
--}
--
- struct dsa_slave_priv {
- 	/*
- 	 * The linux network interface corresponding to this
-@@ -90,44 +35,8 @@ struct dsa_slave_priv {
- 	struct phy_device	*phy;
- };
- 
--struct dsa_switch_driver {
--	struct list_head	list;
--
--	__be16			tag_protocol;
--	int			priv_size;
--
--	/*
--	 * Probing and setup.
--	 */
--	char	*(*probe)(struct mii_bus *bus, int sw_addr);
--	int	(*setup)(struct dsa_switch *ds);
--	int	(*set_addr)(struct dsa_switch *ds, u8 *addr);
--
--	/*
--	 * Access to the switch's PHY registers.
--	 */
--	int	(*phy_read)(struct dsa_switch *ds, int port, int regnum);
--	int	(*phy_write)(struct dsa_switch *ds, int port,
--			     int regnum, u16 val);
--
--	/*
--	 * Link state polling and IRQ handling.
--	 */
--	void	(*poll_link)(struct dsa_switch *ds);
--
--	/*
--	 * ethtool hardware statistics.
--	 */
--	void	(*get_strings)(struct dsa_switch *ds, int port, uint8_t *data);
--	void	(*get_ethtool_stats)(struct dsa_switch *ds,
--				     int port, uint64_t *data);
--	int	(*get_sset_count)(struct dsa_switch *ds);
--};
--
- /* dsa.c */
- extern char dsa_driver_version[];
--void register_switch_driver(struct dsa_switch_driver *type);
--void unregister_switch_driver(struct dsa_switch_driver *type);
- 
- /* slave.c */
- void dsa_slave_mii_bus_init(struct dsa_switch *ds);
-diff --git a/net/dsa/mv88e6060.c b/net/dsa/mv88e6060.c
-index 0e028df..7fc4e81 100644
---- a/net/dsa/mv88e6060.c
-+++ b/net/dsa/mv88e6060.c
-@@ -11,7 +11,7 @@
- #include <linux/list.h>
- #include <linux/netdevice.h>
- #include <linux/phy.h>
--#include "dsa_priv.h"
-+#include <net/dsa.h>
- 
- #define REG_PORT(p)		(8 + (p))
- #define REG_GLOBAL		0x0f
-diff --git a/net/dsa/mv88e6123_61_65.c b/net/dsa/mv88e6123_61_65.c
-index 6504405..c0a458f 100644
---- a/net/dsa/mv88e6123_61_65.c
-+++ b/net/dsa/mv88e6123_61_65.c
-@@ -11,7 +11,7 @@
- #include <linux/list.h>
- #include <linux/netdevice.h>
- #include <linux/phy.h>
--#include "dsa_priv.h"
-+#include <net/dsa.h>
- #include "mv88e6xxx.h"
- 
- static char *mv88e6123_61_65_probe(struct mii_bus *bus, int sw_addr)
-diff --git a/net/dsa/mv88e6131.c b/net/dsa/mv88e6131.c
-index 6786ba4..e0eb6824 100644
---- a/net/dsa/mv88e6131.c
-+++ b/net/dsa/mv88e6131.c
-@@ -11,7 +11,7 @@
- #include <linux/list.h>
- #include <linux/netdevice.h>
- #include <linux/phy.h>
--#include "dsa_priv.h"
-+#include <net/dsa.h>
- #include "mv88e6xxx.h"
- 
- /*
-diff --git a/net/dsa/mv88e6xxx.c b/net/dsa/mv88e6xxx.c
-index cacd955..5467c04 100644
---- a/net/dsa/mv88e6xxx.c
-+++ b/net/dsa/mv88e6xxx.c
-@@ -11,7 +11,7 @@
- #include <linux/list.h>
- #include <linux/netdevice.h>
- #include <linux/phy.h>
--#include "dsa_priv.h"
-+#include <net/dsa.h>
- #include "mv88e6xxx.h"
- 
- /*
+-# switch drivers
+-obj-$(CONFIG_NET_DSA_MV88E6060) += mv88e6060.o
+-obj-$(CONFIG_NET_DSA_MV88E6XXX) += mv88e6xxx_drv.o
+-mv88e6xxx_drv-y += mv88e6xxx.o
+-ifdef CONFIG_NET_DSA_MV88E6123_61_65
+-mv88e6xxx_drv-y += mv88e6123_61_65.o
+-endif
+-ifdef CONFIG_NET_DSA_MV88E6131
+-mv88e6xxx_drv-y += mv88e6131.o
+-endif
 -- 
 1.7.7.3
