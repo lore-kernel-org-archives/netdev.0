@@ -1,64 +1,71 @@
-From: Ulrich Weber <ulrich.weber@sophos.com>
-Subject: [PATCH 0/3] xfrm: add incoming interface to selector
-Date: Mon, 28 Nov 2011 21:14:49 +0100
-Message-ID: <1322511292-1413-1-git-send-email-ulrich.weber@sophos.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+From: igorm@etf.rs
+Subject: [PATCH 1/1] netstamp_needed shouldn't be jump_label_key
+Date: Mon, 28 Nov 2011 21:23:16 +0100
+Message-ID: <1322511796-6908-2-git-send-email-igorm@etf.rs>
+References: <igorm@etf.rs>
+ <1322511796-6908-1-git-send-email-igorm@etf.rs>
+Cc: eric.dumazet@gmail.com, Igor Maravic <igorm@etf.rs>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx6.sophos.com ([213.31.172.36]:58162 "EHLO mx6.sophos.com"
+Received: from mx2.etf.rs ([147.91.14.170]:46644 "EHLO mx2.etf.bg.ac.rs"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754296Ab1K1UVK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Nov 2011 15:21:10 -0500
+	id S1753931Ab1K1UXW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Nov 2011 15:23:22 -0500
+In-Reply-To: <1322511796-6908-1-git-send-email-igorm@etf.rs>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Current implementation allows to match IPsec policies based
-on the outgoing interface. This however is kind of broken:
- a) decode_session will not fill oif and is therefore always set to zero and
-    will never match (see patch #2).
- b) its not possible to match the incoming interface. This makes it impossible,
-    to create redundant IPsec tunnels over two uplink interfaces.
+From: Igor Maravic <igorm@etf.rs>
 
-Over a year ago there was a discussion about adding the incoming interface to
-the xfrm selector. See the following thread for more details:
-http://kerneltrap.org/mailarchive/linux-netdev/2010/3/31/6273708
+Problem with setting netstamp_needed as jump_label_key is that
+it inc/dec, functions net_enable_timestamp/net_disable_timestamp,
+are called from interrupts.
 
+That can cause DEADLOCK, because jump_label_{inc, dec} are using mutex locking,
+that may sleep.
 
-The first patch will reuse the user attribute in the xfrm selector as
-incoming interface. Yes, this breaks the ABI. But user in xfrm selector was
-never used and user space programs set it to zero. The alternative would
-be to have different xfrm_selector structs in kernel and user space.
+Signed-off-by: Igor Maravic <igorm@etf.rs>
 
-Second patch makes matching outgoing and incoming interfaces operational by
-setting oif and iif in flowi struct. Local generated packets will have iif
-set to loopback interface.
+:100644 100644 d1f1071... 4d88cac... M	net/core/dev.c
 
-Third patch allows to override the incoming interface of decrypted packets.
-This allows to create virtual IPsec devices for redundant IPsec tunnels, when
-only one Internet uplink is available (e.g. used by Amazon VPC Connector).
-
-Ulrich Weber (3):
-  xfrm: add incoming interface to selector
-  route: set iif and oif information in flowi struct
-  xfrm: allow to overwrite incoming dev after decryption
-
- include/linux/xfrm.h    |    5 +++--
- include/net/xfrm.h      |    6 +++++-
- net/ipv4/route.c        |    4 ++++
- net/ipv4/xfrm4_policy.c |   19 +++++++++++++++++--
- net/ipv4/xfrm4_state.c  |    3 ++-
- net/ipv6/fib6_rules.c   |   10 ++++++++--
- net/ipv6/mip6.c         |    3 ++-
- net/ipv6/xfrm6_policy.c |   18 ++++++++++++++++--
- net/ipv6/xfrm6_state.c  |    3 ++-
- net/key/af_key.c        |    2 +-
- net/xfrm/xfrm_input.c   |    5 +++++
- net/xfrm/xfrm_policy.c  |    6 ++++--
- net/xfrm/xfrm_state.c   |   44 +++++++++++++++++++++++++++++++++++++++-----
- net/xfrm/xfrm_user.c    |   14 +++++++++++++-
- 14 files changed, 121 insertions(+), 21 deletions(-)
-
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d1f1071..4d88cac 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1442,29 +1442,29 @@ int call_netdevice_notifiers(unsigned long val, struct net_device *dev)
+ }
+ EXPORT_SYMBOL(call_netdevice_notifiers);
+ 
+-static struct jump_label_key netstamp_needed __read_mostly;
++static atomic_t netstamp_needed = ATOMIC_INIT(0);
+ 
+ void net_enable_timestamp(void)
+ {
+-	jump_label_inc(&netstamp_needed);
++	atomic_inc(&netstamp_needed);
+ }
+ EXPORT_SYMBOL(net_enable_timestamp);
+ 
+ void net_disable_timestamp(void)
+ {
+-	jump_label_dec(&netstamp_needed);
++	atomic_dec(&netstamp_needed);
+ }
+ EXPORT_SYMBOL(net_disable_timestamp);
+ 
+ static inline void net_timestamp_set(struct sk_buff *skb)
+ {
+ 	skb->tstamp.tv64 = 0;
+-	if (static_branch(&netstamp_needed))
++	if (atomic_read(&netstamp_needed))
+ 		__net_timestamp(skb);
+ }
+ 
+ #define net_timestamp_check(COND, SKB)			\
+-	if (static_branch(&netstamp_needed)) {		\
++	if (atomic_read(&netstamp_needed)) {		\
+ 		if ((COND) && !(SKB)->tstamp.tv64)	\
+ 			__net_timestamp(SKB);		\
+ 	}						\
 -- 
-1.7.4.1
+1.7.5.4
