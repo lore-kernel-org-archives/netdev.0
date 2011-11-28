@@ -1,71 +1,63 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: AW: AW: [PATCH] net/can/mscan: Enable interrupts when all TX
- buffers are occupied to get notified when they are available again
-Date: Mon, 28 Nov 2011 15:31:02 +0100
-Message-ID: <4ED39B26.1070608@grandegger.com>
-References: <C3745E3C7FD07D429C54EB3D7606A5A7677E7C@ZRHEX021.ads.zuehlke.com>,<4ED38EB1.6030806@grandegger.com> <C3745E3C7FD07D429C54EB3D7606A5A7677EB2@ZRHEX021.ads.zuehlke.com>,<4ED395C8.5070009@grandegger.com> <C3745E3C7FD07D429C54EB3D7606A5A7677EDE@ZRHEX021.ads.zuehlke.com>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: ebtables on a stick
+Date: Mon, 28 Nov 2011 15:39:01 +0100
+Message-ID: <20111128143901.GA589422@jupiter.n2.diac24.net>
+References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com>
+ <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com>
+ <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"socketcan@hartkopp.net" <socketcan@hartkopp.net>,
-	"lucas.demarchi@profusion.mobi" <lucas.demarchi@profusion.mobi>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"mkl@pengutronix.de" <mkl@pengutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Mosler, Martin" <mmo@zuehlke.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <C3745E3C7FD07D429C54EB3D7606A5A7677EDE@ZRHEX021.ads.zuehlke.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Greg Scott <GregScott@Infrasupport.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from spaceboyz.net ([87.106.131.203]:51747 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751884Ab1K1OjG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Nov 2011 09:39:06 -0500
+Content-Disposition: inline
+In-Reply-To: <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/28/2011 03:13 PM, Mosler, Martin wrote:
->>>>> When all TX buffers of the mscan are occupied the network layer is told to stop sending further packets. However the TX interrupts are not enabled and therefore the driver has no chance to tell the network layer when it is ready to accept further packets.
->>>>>
->>>>> Signed-off-by: Martin Mosler <mmo@zuehlke.com>
->>>>>
->>>>> --- linux-2.6/drivers/net/can/mscan/mscan.c.orig    2011-11-28 13:54:29.547850661 +0100
->>>>> +++ linux-2.6/drivers/net/can/mscan/mscan.c 2011-11-28 13:55:52.427849601 +0100
->>>>> @@ -214,6 +214,7 @@ static netdev_tx_t mscan_start_xmit(stru
->>>>>     case 0:
->>>>>         netif_stop_queue(dev);
->>>>>         dev_err(dev->dev.parent, "Tx Ring full when queue awake!\n");
->>>>> +       out_8(&regs->cantier, priv->tx_active);
->>>>>         return NETDEV_TX_BUSY;
->>>>>     case 1:
->>>>>         /*
->>>>
->>>> Hm, did you see the error message. Actually, it should never happen, IIRC.
->>>>
->>>> Wolfgang.
->>>
->>> It is in fact a very rare condition, but it was triggered during testing when pulling CAN-HI and CAN-LO lines
->>> to GND and VCC in various combinations to verify how the system is recovering. I am working with a MPC5125
->>> if this is valuable information. (This was only one issue I ran into, I had to do other modifications for other
->>> issues as well, but I think they are chip specific, I'll share them in a separate thread if you like).
->>
->> Sounds like a problem with bus-off recovery. The software has restarted
->> the queue but the TX objects are still active. How do you handle
->> bus-offs? Manually? restart-ms = ?
->>
->> Would be great if you post patches for your other issues.
->>
->> Wolfgang.
-> 
-> We are using restart-ms = 500 for now.
+On Sun, Nov 27, 2011 at 09:10:08AM -0600, Greg Scott wrote:
+> I have a situation that needs to route mostly and bridge only a littl=
+e bit.=C2=A0=20
+>=20
+> I have a private internal LAN, 192.168.10.nnn.=C2=A0 But one host in =
+the internal side needs a real public IP Address, call it 1.2.115.157.=C2=
+=A0 Everything except that public IP host needs to route.  The public h=
+ost needs to bridge so it can interact with the world.  But it also nee=
+ds to interact with the internal LAN. =20
+>=20
+> I have a Linux brouter set up with eth0 facing the Internet, eth1 fac=
+ing the LAN as follows:
+>=20
+> ifconfig eth0 1.2.115.146 mask 255.255.255.240
+> ifconfig eth1 192.168.10.1 mask 255.255.255.0
+[...]
 
-OK. How the hardware recovers on bus-off on the MPC51xx and especially
-on the MPC51xx is still a mystery to me. I think the real problem is
-that the software does not wait until the hardware has fully recovered
-from bus-off by going to error active. Do you have a kernel log (dmesg
-output) with CONFIG_CAN_DEBUG_DEVICES=y and CONFIG_PRINTK_TIME=y?
+This doesn't answer your question, but your use case is better solved
+with proxy arp.
 
-> I'll post the other patches after I know I did the submit process correctly for this one and when I reviewed 
-> them more closely, as it is my first submission to the kernel.
+ip route add 1.2.115.157/32 dev eth1
+ip neigh add proxy 1.2.115.157 dev eth0
+# ... adjust iptables rules to make sure traffic is allowed
+# optional, but I'd recommend:
+iptables -t raw -I PREROUTING -d 1.2.115.157 -j NOTRACK
+iptables -t raw -I PREROUTING -s 1.2.115.157 -j NOTRACK
 
-I just commented on that.
+on the target host:
 
-Thanks.
+ip addr add 1.2.115.157/32 dev ethX
+ip route add 192.168.10.1/24 dev ethX
+ip route add default via 192.168.10.1
 
-Wolfgang.
+no bridge, no ebtables.
+
+you may need to tweak shared_media/icmp redirect settings on the router=
+,
+should work as-is though.
+
+
+-David
