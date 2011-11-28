@@ -1,7 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 1/6] SUNRPC: fix pipe->ops cleanup on pipe dentry unlink
-Date: Mon, 28 Nov 2011 17:33:30 +0300
-Message-ID: <20111128133330.4251.39196.stgit@localhost6.localdomain6>
+Subject: [PATCH 2/6] NFS: make NFS client allocated per network namespace
+	context
+Date: Mon, 28 Nov 2011 17:33:38 +0300
+Message-ID: <20111128133338.4251.34937.stgit@localhost6.localdomain6>
 References: <20111128132805.4251.15252.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -16,152 +17,147 @@ In-Reply-To: <20111128132805.4251.15252.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch looks late due to GSS AUTH patches sent already. But it fixes a flaw
-in RPC PipeFS pipes handling.
-I've added this patch in the series, because this series related to pipes. But
-it should be a part of previous series named "SUNPRC: cleanup PipeFS for
-network-namespace-aware users".
-
-Pipe dentry can be created and destroyed many times during pipe life cycle.
-This actually means, that we can't set pipe->ops to NULL in rpc_close_pipes()
-and use this variable as a flag, indicating, that pipe's dentry is unlinking.
-To follow this restriction, this patch replaces "pipe->ops = NULL" assignment
-and checks for NULL with "pipe->dentry = NULL" assignment and checks for
-NULL respectively.
-This patch also removes check for non-NULL pipe->ops (or pipe->dentry) in
-rpc_close_pipes() because it always non-NULL now.
+This patch adds new net variable to nfs_client structure. This variable is set
+on NFS client creation and cheched during matching NFS client search.
+Initially current->nsproxy->net_ns is used as network namespace owner for new
+NFS client to create. This network namespace pointer is set during mount
+options parsing and thus can be passed from user-spave utils in future if will
+be necessary.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- net/sunrpc/rpc_pipe.c |   51 +++++++++++++++++++------------------------------
- 1 files changed, 20 insertions(+), 31 deletions(-)
+ fs/nfs/client.c           |   16 +++++++++++++---
+ fs/nfs/internal.h         |    1 +
+ fs/nfs/super.c            |    3 +++
+ include/linux/nfs_fs_sb.h |    1 +
+ 4 files changed, 18 insertions(+), 3 deletions(-)
 
-diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index 1ea0dcf..b80d7bd 100644
---- a/net/sunrpc/rpc_pipe.c
-+++ b/net/sunrpc/rpc_pipe.c
-@@ -86,10 +86,6 @@ rpc_timeout_upcall_queue(struct work_struct *work)
- 	void (*destroy_msg)(struct rpc_pipe_msg *);
+diff --git a/fs/nfs/client.c b/fs/nfs/client.c
+index 5833fbb..47a8cd6 100644
+--- a/fs/nfs/client.c
++++ b/fs/nfs/client.c
+@@ -135,6 +135,7 @@ struct nfs_client_initdata {
+ 	const struct nfs_rpc_ops *rpc_ops;
+ 	int proto;
+ 	u32 minorversion;
++	struct net *net;
+ };
  
- 	spin_lock(&pipe->lock);
--	if (pipe->ops == NULL) {
--		spin_unlock(&pipe->lock);
--		return;
--	}
- 	destroy_msg = pipe->ops->destroy_msg;
- 	if (pipe->nreaders == 0) {
- 		list_splice_init(&pipe->pipe, &free_list);
-@@ -115,8 +111,6 @@ rpc_queue_upcall(struct rpc_pipe *pipe, struct rpc_pipe_msg *msg)
- 	int res = -EPIPE;
+ /*
+@@ -189,6 +190,7 @@ static struct nfs_client *nfs_alloc_client(const struct nfs_client_initdata *cl_
+ 	if (!IS_ERR(cred))
+ 		clp->cl_machine_cred = cred;
+ 	nfs_fscache_get_client_cookie(clp);
++	clp->net = cl_init->net;
  
- 	spin_lock(&pipe->lock);
--	if (pipe->ops == NULL)
--		goto out;
- 	if (pipe->nreaders) {
- 		list_add_tail(&msg->list, &pipe->pipe);
- 		pipe->pipelen += msg->len;
-@@ -130,7 +124,6 @@ rpc_queue_upcall(struct rpc_pipe *pipe, struct rpc_pipe_msg *msg)
- 		pipe->pipelen += msg->len;
- 		res = 0;
- 	}
--out:
- 	spin_unlock(&pipe->lock);
- 	wake_up(&pipe->waitq);
- 	return res;
-@@ -147,27 +140,23 @@ static void
- rpc_close_pipes(struct inode *inode)
+ 	return clp;
+ 
+@@ -475,6 +477,9 @@ static struct nfs_client *nfs_match_client(const struct nfs_client_initdata *dat
+ 		/* Match the full socket address */
+ 		if (!nfs_sockaddr_cmp(sap, clap))
+ 			continue;
++		/* Match network namespace */
++		if (clp->net != data->net)
++			continue;
+ 
+ 		atomic_inc(&clp->cl_count);
+ 		return clp;
+@@ -825,6 +830,7 @@ static int nfs_init_server(struct nfs_server *server,
+ 		.addrlen = data->nfs_server.addrlen,
+ 		.rpc_ops = &nfs_v2_clientops,
+ 		.proto = data->nfs_server.protocol,
++		.net = data->net,
+ 	};
+ 	struct rpc_timeout timeparms;
+ 	struct nfs_client *clp;
+@@ -1386,7 +1392,7 @@ static int nfs4_set_client(struct nfs_server *server,
+ 		const char *ip_addr,
+ 		rpc_authflavor_t authflavour,
+ 		int proto, const struct rpc_timeout *timeparms,
+-		u32 minorversion)
++		u32 minorversion, struct net *net)
  {
- 	struct rpc_pipe *pipe = RPC_I(inode)->pipe;
--	const struct rpc_pipe_ops *ops;
- 	int need_release;
-+	LIST_HEAD(free_list);
+ 	struct nfs_client_initdata cl_init = {
+ 		.hostname = hostname,
+@@ -1395,6 +1401,7 @@ static int nfs4_set_client(struct nfs_server *server,
+ 		.rpc_ops = &nfs_v4_clientops,
+ 		.proto = proto,
+ 		.minorversion = minorversion,
++		.net = net,
+ 	};
+ 	struct nfs_client *clp;
+ 	int error;
+@@ -1446,6 +1453,7 @@ struct nfs_client *nfs4_set_ds_client(struct nfs_client* mds_clp,
+ 		.rpc_ops = &nfs_v4_clientops,
+ 		.proto = ds_proto,
+ 		.minorversion = mds_clp->cl_minorversion,
++		.net = mds_clp->net,
+ 	};
+ 	struct rpc_timeout ds_timeout = {
+ 		.to_initval = 15 * HZ,
+@@ -1572,7 +1580,8 @@ static int nfs4_init_server(struct nfs_server *server,
+ 			data->auth_flavors[0],
+ 			data->nfs_server.protocol,
+ 			&timeparms,
+-			data->minorversion);
++			data->minorversion,
++			data->net);
+ 	if (error < 0)
+ 		goto error;
  
- 	mutex_lock(&inode->i_mutex);
--	ops = pipe->ops;
--	if (ops != NULL) {
--		LIST_HEAD(free_list);
--		spin_lock(&pipe->lock);
--		need_release = pipe->nreaders != 0 || pipe->nwriters != 0;
--		pipe->nreaders = 0;
--		list_splice_init(&pipe->in_upcall, &free_list);
--		list_splice_init(&pipe->pipe, &free_list);
--		pipe->pipelen = 0;
--		pipe->ops = NULL;
--		spin_unlock(&pipe->lock);
--		rpc_purge_list(pipe, &free_list, ops->destroy_msg, -EPIPE);
--		pipe->nwriters = 0;
--		if (need_release && ops->release_pipe)
--			ops->release_pipe(inode);
--		cancel_delayed_work_sync(&pipe->queue_timeout);
--	}
-+	spin_lock(&pipe->lock);
-+	need_release = pipe->nreaders != 0 || pipe->nwriters != 0;
-+	pipe->nreaders = 0;
-+	list_splice_init(&pipe->in_upcall, &free_list);
-+	list_splice_init(&pipe->pipe, &free_list);
-+	pipe->pipelen = 0;
-+	pipe->dentry = NULL;
-+	spin_unlock(&pipe->lock);
-+	rpc_purge_list(pipe, &free_list, pipe->ops->destroy_msg, -EPIPE);
-+	pipe->nwriters = 0;
-+	if (need_release && pipe->ops->release_pipe)
-+		pipe->ops->release_pipe(inode);
-+	cancel_delayed_work_sync(&pipe->queue_timeout);
- 	rpc_inode_setowner(inode, NULL);
- 	mutex_unlock(&inode->i_mutex);
- }
-@@ -204,7 +193,7 @@ rpc_pipe_open(struct inode *inode, struct file *filp)
- 	int res = -ENXIO;
+@@ -1669,7 +1678,8 @@ struct nfs_server *nfs4_create_referral_server(struct nfs_clone_mount *data,
+ 				data->authflavor,
+ 				parent_server->client->cl_xprt->prot,
+ 				parent_server->client->cl_timeout,
+-				parent_client->cl_mvops->minor_version);
++				parent_client->cl_mvops->minor_version,
++				parent_client->net);
+ 	if (error < 0)
+ 		goto error;
  
- 	mutex_lock(&inode->i_mutex);
--	if (pipe->ops == NULL)
-+	if (pipe->dentry == NULL)
- 		goto out;
- 	first_open = pipe->nreaders == 0 && pipe->nwriters == 0;
- 	if (first_open && pipe->ops->open_pipe) {
-@@ -230,7 +219,7 @@ rpc_pipe_release(struct inode *inode, struct file *filp)
- 	int last_close;
+diff --git a/fs/nfs/internal.h b/fs/nfs/internal.h
+index ab12913..4565e76 100644
+--- a/fs/nfs/internal.h
++++ b/fs/nfs/internal.h
+@@ -123,6 +123,7 @@ struct nfs_parsed_mount_data {
+ 	} nfs_server;
  
- 	mutex_lock(&inode->i_mutex);
--	if (pipe->ops == NULL)
-+	if (pipe->dentry == NULL)
- 		goto out;
- 	msg = filp->private_data;
- 	if (msg != NULL) {
-@@ -271,7 +260,7 @@ rpc_pipe_read(struct file *filp, char __user *buf, size_t len, loff_t *offset)
- 	int res = 0;
+ 	struct security_mnt_opts lsm_opts;
++	struct net		*net;
+ };
  
- 	mutex_lock(&inode->i_mutex);
--	if (pipe->ops == NULL) {
-+	if (pipe->dentry == NULL) {
- 		res = -EPIPE;
- 		goto out_unlock;
- 	}
-@@ -314,7 +303,7 @@ rpc_pipe_write(struct file *filp, const char __user *buf, size_t len, loff_t *of
+ /* mount_clnt.c */
+diff --git a/fs/nfs/super.c b/fs/nfs/super.c
+index 5b19b6a..782260d 100644
+--- a/fs/nfs/super.c
++++ b/fs/nfs/super.c
+@@ -53,6 +53,7 @@
+ #include <linux/nfs_xdr.h>
+ #include <linux/magic.h>
+ #include <linux/parser.h>
++#include <linux/nsproxy.h>
  
- 	mutex_lock(&inode->i_mutex);
- 	res = -EPIPE;
--	if (pipe->ops != NULL)
-+	if (pipe->dentry != NULL)
- 		res = pipe->ops->downcall(filp, buf, len);
- 	mutex_unlock(&inode->i_mutex);
- 	return res;
-@@ -329,7 +318,7 @@ rpc_pipe_poll(struct file *filp, struct poll_table_struct *wait)
- 	poll_wait(filp, &pipe->waitq, wait);
+ #include <asm/system.h>
+ #include <asm/uaccess.h>
+@@ -1089,6 +1090,8 @@ static int nfs_parse_mount_options(char *raw,
  
- 	mask = POLLOUT | POLLWRNORM;
--	if (pipe->ops == NULL)
-+	if (pipe->dentry == NULL)
- 		mask |= POLLERR | POLLHUP;
- 	if (filp->private_data || !list_empty(&pipe->pipe))
- 		mask |= POLLIN | POLLRDNORM;
-@@ -346,7 +335,7 @@ rpc_pipe_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
- 	switch (cmd) {
- 	case FIONREAD:
- 		spin_lock(&pipe->lock);
--		if (pipe->ops == NULL) {
-+		if (pipe->dentry == NULL) {
- 			spin_unlock(&pipe->lock);
- 			return -EPIPE;
- 		}
+ 	free_secdata(secdata);
+ 
++	mnt->net = current->nsproxy->net_ns;
++
+ 	while ((p = strsep(&raw, ",")) != NULL) {
+ 		substring_t args[MAX_OPT_ARGS];
+ 		unsigned long option;
+diff --git a/include/linux/nfs_fs_sb.h b/include/linux/nfs_fs_sb.h
+index b5479df..71fd605 100644
+--- a/include/linux/nfs_fs_sb.h
++++ b/include/linux/nfs_fs_sb.h
+@@ -85,6 +85,7 @@ struct nfs_client {
+ #endif
+ 
+ 	struct server_scope	*server_scope;	/* from exchange_id */
++	struct net		*net;
+ };
+ 
+ /*
