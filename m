@@ -1,131 +1,94 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: [PATCH] net: Fix corruption in /proc/*/net/dev_mcast
-Date: Mon, 28 Nov 2011 18:14:46 +1100
-Message-ID: <20111128181446.2ab784d0@kryten>
-References: <1321866845.3831.7.camel@lappy>
-	<1321870529.2552.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: =?UTF-8?B?0J/Qu9Cw0LzQtdC9INCf0LXRgtGA0L7Qsg==?=
+	<plamen.sisi@gmail.com>
+Subject: Re: [NET][TG3] Fwd: page allocation failure with linux 3.1.1
+Date: Mon, 28 Nov 2011 09:16:26 +0200
+Message-ID: <CALkh-Hi=Pb_cNUzHrJSe4o5-kmb+jLA8vpw8hiaGxROzNJ6oag@mail.gmail.com>
+References: <CALkh-HhkzHb7-2LAwCNOZ-S4otfeM+tthyw2_XDbDUjFRSkKjA@mail.gmail.com>
+	<CALkh-HiaDSJb7sStH=DHxXCmecFWYAC2q7hx72gGvFSYz+2r=A@mail.gmail.com>
+	<1322462145.2826.6.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Sasha Levin <levinsasha928@gmail.com>, David Miller
- <davem@davemloft.net>, Matt Mackall <mpm@selenic.com>, Christoph Lameter
- <cl@linux-foundation.org>, Pekka Enberg <penberg@kernel.org>, linux-mm
- <linux-mm@kvack.org>, linux-kernel <linux-kernel@vger.kernel.org>, netdev
- <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1321870529.2552.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:45891 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751901Ab1K1HQ2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 02:16:28 -0500
+Received: by wwp14 with SMTP id 14so8492374wwp.1
+        for <netdev@vger.kernel.org>; Sun, 27 Nov 2011 23:16:26 -0800 (PST)
+In-Reply-To: <1322462145.2826.6.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+2011/11/28 Eric Dumazet <eric.dumazet@gmail.com>:
+> Le dimanche 27 novembre 2011 =C3=A0 22:34 +0200, =D0=9F=D0=BB=D0=B0=D0=
+=BC=D0=B5=D0=BD =D0=9F=D0=B5=D1=82=D1=80=D0=BE=D0=B2 a =C3=A9crit :
+>> Hello, David, Jarek and Eric!
+>>
+>> In September 2010 I had trouble with the Broadcom Tygon 3 network dr=
+iver:
+>>
+>> http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux.git;a=3Dc=
+ommitdiff;h=3D64289c8e6851bca0e589e064c9a5c9fbd6ae5dd4
+>>
+>> Please, see below my most recent findings, where again tg3 is presen=
+t.
+>>
+>> I sent this earlier today to linux-kernel list. Sorry if this is not
+>> related to the above, thus to the tg3 kernel driver.
+>>
+>> ---------- Forwarded message ----------
+>> From: =D0=9F=D0=BB=D0=B0=D0=BC=D0=B5=D0=BD =D0=9F=D0=B5=D1=82=D1=80=D0=
+=BE=D0=B2 <plamen.sisi@gmail.com>
+>> Date: 2011/11/27
+>> Subject: page allocation failure with linux 3.1.1
+>> To: linux-kernel@vger.kernel.org
+>>
+>>
+>> Hello, folks!
+>>
+>> Please, cc me, as I'm not subsribed to the list.
+>>
+>> With Linux 3.1.1 I'm hitting a page allocation failure on a machine
+>> with 512 MB RAM and 2 GB swap, which looks like this:
+>>
+>> [388632.749423] swapper: page allocation failure: order:4, mode:0x40=
+20
+>> [388632.749431] Pid: 0, comm: swapper Not tainted 3.1.1-FS #1
+>> [388632.749434] Call Trace:
+>> [388632.749447] =C2=A0[<c106cd03>] ? warn_alloc_failed+0xab/0xd5
+>> [388632.749454] =C2=A0[<c106f5f5>] ? __alloc_pages_nodemask+0x4ea/0x=
+6aa
+>> [388632.749460] =C2=A0[<c106f822>] ? __get_free_pages+0x14/0x32
+>> [388632.749467] =C2=A0[<c12aecc7>] ? __alloc_skb+0x4c/0xe9
+>> [388632.749472] =C2=A0[<c12b02cc>] ? skb_copy+0x2e/0x7a
+>> [388632.749478] =C2=A0[<c122de36>] ? tg3_start_xmit+0x82f/0xa37
+>> [388632.749484] =C2=A0[<c12b778b>] ? dev_hard_start_xmit+0x27e/0x4f8
+>> [388632.749495] =C2=A0[<c130e851>] ? ip_fragment+0x7dd/0x7dd
+>> [388632.749500] =C2=A0[<c12e8b88>] ? nf_iterate+0x66/0x87
+=2E..
+>
+> You hit a known tg3 hardware bug, and the workaround needs to copy sk=
+b
+> to a new one.
+>
+> Since TCP layer can build big skbs if TSO is on, and you can hit an
+> allocation error because your memory gets fragmented after a while, a
+> way to avoid this is to switch off TSO :
+>
+> ethtool -K eth0 tso off
+> ip route flush cache
+>
+>
 
-Hi,
+Well, Eric, thanks for the explanation! I will disable TSO and will
+see how is that working out for me - if I recall correctly, I had no
+problems when TSO was off.
 
-> I got the following output when running some tests (I'm not really sure
-> what exactly happened when this bug was triggered):
-> 
-> [13850.947279] =============================================================================
-> [13850.948024] BUG kmalloc-8: Redzone overwritten
-> [13850.948024] -----------------------------------------------------------------------------
-> [13850.948024] 
-> [13850.948024] INFO: 0xffff8800104f6d28-0xffff8800104f6d2b. First byte 0x0 instead of 0xcc
-> [13850.948024] INFO: Allocated in __seq_open_private+0x20/0x5e age=4436 cpu=0 pid=17295
-> [13850.948024] 	__slab_alloc.clone.46+0x3e7/0x456
-> [13850.948024] 	__kmalloc+0x8c/0x110
-> [13850.948024] 	__seq_open_private+0x20/0x5e
-> [13850.948024] 	seq_open_net+0x3b/0x5d
-> [13850.948024] 	dev_mc_seq_open+0x15/0x17
-> [13850.948024] 	proc_reg_open+0xad/0x127
+Sorry to bother you, if the above explanation was somewhere readily
+available, but I didn't manage to find it.
 
-I just hit this during my testing. Isn't there another bug lurking?
-
-Anton
---
-
-
-With slub debugging on I see red zone issues in /proc/*/net/dev_mcast:
-
-=============================================================================
-BUG kmalloc-8: Redzone overwritten
------------------------------------------------------------------------------
-
-INFO: 0xc0000000de9dec48-0xc0000000de9dec4b. First byte 0x0 instead of 0xcc
-INFO: Allocated in .__seq_open_private+0x30/0xa0 age=0 cpu=5 pid=3896
-	.__kmalloc+0x1e0/0x2d0
-	.__seq_open_private+0x30/0xa0
-	.seq_open_net+0x60/0xe0
-	.dev_mc_seq_open+0x4c/0x70
-	.proc_reg_open+0xd8/0x260
-	.__dentry_open.clone.11+0x2b8/0x400
-	.do_last+0xf4/0x950
-	.path_openat+0xf8/0x480
-	.do_filp_open+0x48/0xc0
-	.do_sys_open+0x140/0x250
-	syscall_exit+0x0/0x40
-
-dev_mc_seq_ops uses dev_seq_start/next/stop but only allocates
-sizeof(struct seq_net_private) of private data, whereas it expects
-sizeof(struct dev_iter_state):
-
-struct dev_iter_state {
-	struct seq_net_private p;
-	unsigned int pos; /* bucket << BUCKET_SPACE + offset */
-};
-
-Create dev_seq_open_ops and use it so we don't have to expose
-struct dev_iter_state.
-
-Signed-off-by: Anton Blanchard <anton@samba.org>
----
-
-Index: linux-net/include/linux/netdevice.h
-===================================================================
---- linux-net.orig/include/linux/netdevice.h	2011-11-28 17:55:51.469508056 +1100
-+++ linux-net/include/linux/netdevice.h	2011-11-28 17:55:52.985535812 +1100
-@@ -2536,6 +2536,8 @@ extern void		net_disable_timestamp(void)
- extern void *dev_seq_start(struct seq_file *seq, loff_t *pos);
- extern void *dev_seq_next(struct seq_file *seq, void *v, loff_t *pos);
- extern void dev_seq_stop(struct seq_file *seq, void *v);
-+extern int dev_seq_open_ops(struct inode *inode, struct file *file,
-+			    const struct seq_operations *ops);
- #endif
- 
- extern int netdev_class_create_file(struct class_attribute *class_attr);
-Index: linux-net/net/core/dev.c
-===================================================================
---- linux-net.orig/net/core/dev.c	2011-11-28 17:55:51.481508276 +1100
-+++ linux-net/net/core/dev.c	2011-11-28 17:55:52.989535885 +1100
-@@ -4282,6 +4282,12 @@ static int dev_seq_open(struct inode *in
- 			    sizeof(struct dev_iter_state));
- }
- 
-+int dev_seq_open_ops(struct inode *inode, struct file *file,
-+		     const struct seq_operations *ops)
-+{
-+	return seq_open_net(inode, file, ops, sizeof(struct dev_iter_state));
-+}
-+
- static const struct file_operations dev_seq_fops = {
- 	.owner	 = THIS_MODULE,
- 	.open    = dev_seq_open,
-Index: linux-net/net/core/dev_addr_lists.c
-===================================================================
---- linux-net.orig/net/core/dev_addr_lists.c	2011-11-28 17:55:47.845441705 +1100
-+++ linux-net/net/core/dev_addr_lists.c	2011-11-28 17:55:52.989535885 +1100
-@@ -696,8 +696,7 @@ static const struct seq_operations dev_m
- 
- static int dev_mc_seq_open(struct inode *inode, struct file *file)
- {
--	return seq_open_net(inode, file, &dev_mc_seq_ops,
--			    sizeof(struct seq_net_private));
-+	return dev_seq_open_ops(inode, file, &dev_mc_seq_ops);
- }
- 
- static const struct file_operations dev_mc_seq_fops = {
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks,
+Plamen
