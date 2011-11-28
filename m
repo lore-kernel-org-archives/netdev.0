@@ -1,71 +1,44 @@
-From: Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] net: rfkill: convert net/rfkill/* to use
- module_platform_driver()
-Date: Mon, 28 Nov 2011 11:09:47 -0800
-Message-ID: <1322507387.3888.1.camel@rklein-linux2>
-References: <1322471704.2730.1.camel@phoenix>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [NET][TG3] Fwd: page allocation failure with linux 3.1.1
+Date: Mon, 28 Nov 2011 20:28:14 +0100
+Message-ID: <1322508494.2970.14.camel@edumazet-laptop>
+References: <CALkh-HhkzHb7-2LAwCNOZ-S4otfeM+tthyw2_XDbDUjFRSkKjA@mail.gmail.com>
+	 <CALkh-HiaDSJb7sStH=DHxXCmecFWYAC2q7hx72gGvFSYz+2r=A@mail.gmail.com>
+	 <1322462145.2826.6.camel@edumazet-laptop>
+	 <CALkh-Hi=Pb_cNUzHrJSe4o5-kmb+jLA8vpw8hiaGxROzNJ6oag@mail.gmail.com>
+	 <1322468762.2826.17.camel@edumazet-laptop> <4ED3DB91.9090409@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Antonio Ospite <ospite-aNJ+ML1ZbiP93QAQaVx+gl6hYfS7NtTn@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Axel Lin <axel.lin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1322471704.2730.1.camel@phoenix>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?Q?=D0=9F=D0=BB=D0=B0=D0=BC=D0=B5=D0=BD_?=
+	 =?UTF-8?Q?=D0=9F=D0=B5=D1=82=D1=80=D0=BE=D0=B2?=
+	<plamen.sisi@gmail.com>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:42078 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753436Ab1K1T2V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 14:28:21 -0500
+Received: by lahl5 with SMTP id l5so661853lah.19
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2011 11:28:19 -0800 (PST)
+In-Reply-To: <4ED3DB91.9090409@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-11-28 at 01:15 -0800, Axel Lin wrote:
-> This patch converts the drivers in net/rfkill/* to use the
-> module_platform_driver() macro which makes the code smaller and a bit
-> simpler.
-> 
-> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-> Cc: Antonio Ospite <ospite-aNJ+ML1ZbiP93QAQaVx+gl6hYfS7NtTn@public.gmane.org>
-> Cc: Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Axel Lin <axel.lin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  net/rfkill/rfkill-gpio.c      |   13 +------------
->  net/rfkill/rfkill-regulator.c |   12 +-----------
->  2 files changed, 2 insertions(+), 23 deletions(-)
-> 
-> diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
-> index 128677d..ca355e7 100644
-> --- a/net/rfkill/rfkill-gpio.c
-> +++ b/net/rfkill/rfkill-gpio.c
-> @@ -220,18 +220,7 @@ static struct platform_driver rfkill_gpio_driver = {
->  	},
->  };
->  
-> -static int __init rfkill_gpio_init(void)
-> -{
-> -	return platform_driver_register(&rfkill_gpio_driver);
-> -}
-> -
-> -static void __exit rfkill_gpio_exit(void)
-> -{
-> -	platform_driver_unregister(&rfkill_gpio_driver);
-> -}
-> -
-> -module_init(rfkill_gpio_init);
-> -module_exit(rfkill_gpio_exit);
-> +module_platform_driver(rfkill_gpio_driver);
->  
->  MODULE_DESCRIPTION("gpio rfkill");
->  MODULE_AUTHOR("NVIDIA");
+Le lundi 28 novembre 2011 =C3=A0 11:05 -0800, Rick Jones a =C3=A9crit :
+> On 11/28/2011 12:26 AM, Eric Dumazet wrote:
 
-Gpio part looks good to me.
+> > Since some devices might copy skb to a linear one in their
+> > ndo_start_xmit(), we could set a netdev limit so that TSO can still=
+ be
+> > used on these devices, but limiting number of frags to
+> > 2^PAGE_ALLOC_COSTLY_ORDER
+>=20
+> How much "TSO value" remains after such a copy?
 
-Acked-by: Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+Instead of filling up to 64Kbytes + one head of data per skb, we'll fil=
+l
+32kbytes (8*4Kbytes) + one head.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thats still better than 1460 bytes per skb :)
