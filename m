@@ -1,75 +1,122 @@
-From: "Fischer, Anna" <anna.fischer-VXdhtT5mjnY@public.gmane.org>
-Subject: Re: [GIT PULL v2] Open vSwitch
-Date: Mon, 28 Nov 2011 13:54:16 +0000
-Message-ID: <0199E0D51A61344794750DC57738F58E7586A74137@GVW1118EXC.americas.hpqcorp.net>
-References: <20111123075433.GA7928@gondor.apana.org.au>
-	<1322050976.2039.125.camel@mojatatu>
-	<20111128130409.GB16828@gondor.apana.org.au>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH net-next v2 2/4] can: cc770: add
+ legacy ISA bus driver for the CC770 and AN82527
+Date: Mon, 28 Nov 2011 14:59:12 +0100
+Message-ID: <4ED393B0.2030004@grandegger.com>
+References: <1322214204-1121-1-git-send-email-wg@grandegger.com>
+	<1322214204-1121-3-git-send-email-wg@grandegger.com>
+	<4ED379F3.1070206@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>, "jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org"
-	<jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20111128130409.GB16828-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Content-Language: en-US
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4ED379F3.1070206-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
+List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> Subject: Re: [GIT PULL v2] Open vSwitch
+On 11/28/2011 01:09 PM, Marc Kleine-Budde wrote:
+> On 11/25/2011 10:43 AM, Wolfgang Grandegger wrote:
+>> This patch adds support for legacy Bosch CC770 and Intel AN82527 CAN
+>> controllers on the ISA or PC-104 bus. The I/O port or memory address
+>> and the IRQ number must be specified via module parameters:
+>>
+>>   insmod cc770_isa.ko port=0x310,0x380 irq=7,11
+>>
+>> for ISA devices using I/O ports or:
+>>
+>>   insmod cc770_isa.ko mem=0xd1000,0xd1000 irq=7,11
+>>
+>> for memory mapped ISA devices.
+>>
+>> Indirect access via address and data port is supported as well:
+>>
+>>   insmod cc770_isa.ko port=0x310,0x380 indirect=1 irq=7,11
+>>
+>> Furthermore, the following mode parameter can be defined:
+>>
+>>   clk: External oscillator clock frequency (default=16000000 [16 MHz])
+>>   cir: CPU interface register (default=0x40 [DSC])
+>>   ocr, Bus configuration register (default=0x40 [CBY])
+>>   cor, Clockout register (default=0x00)
+>>
+>> Note: for clk, cir, bcr and cor, the first argument re-defines the
+>> default for all other devices, e.g.:
+>>
+>>   insmod cc770_isa.ko mem=0xd1000,0xd1000 irq=7,11 clk=24000000
+>>
+>> is equivalent to
+>>
+>>   insmod cc770_isa.ko mem=0xd1000,0xd1000 irq=7,11 clk=24000000,24000000
+>>
+>> Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 > 
-> On Wed, Nov 23, 2011 at 07:22:56AM -0500, jamal wrote:
-> >
-> > For a classifier, u32 or em matches would do the job  - but they may
-> > need a wrapper around it in user space; so from a usability pov, it
-> > would make sense to have a new classifier that is specific to them.
-> > All the VLAN actions could go into one tc action; the checksum action
-> > is already present. The IP/TCP/UDP header re-writes may require
-> > their own actions - I think one would be sufficient for all.
-> > So in my estimate one classifier and two actions.
-> > Then you get rid of half the code (they use generic netlink to
-> set/get
-> > policies)
+> Some nitpicking inside.
 > 
-> You're right, a new classifier for the hash table would be the
-> best option.
-> 
-> > I cant find one - you may. After staring at the code, I am also now
-> > questioning if the existing bridge code couldnt have been re-used
-> with
-> > some small tweaks.
-> 
-> I wasn't able to find any functionality that could not be easily
-> done with the existing classifier/action code.
-> 
-> Whether we want to go down this route though is open to debate
-> as someone would have to actually implement this :)
-> 
-> However, what's more worrying for me right now is the gaping
-> DoS opportunities that exist in the patch as is.
-> 
-> In particular, the whole design principle of punting all new
-> flows to user-space is an excellent way of attacking the system.
-> 
-> A would-be attacker would only need to continuously inject new
-> flows to prevent flow creation on all ports, since every single
-> port on a data path shares the same receive queue in user-space.
-> 
-> Considering that this is meant to be used in virtualisation
-> environments, where hostile entities may indeed exist on the
-> network, I think this needs to be addressed.
+> Marc
+>> ---
+>>  drivers/net/can/cc770/Kconfig     |   11 ++
+>>  drivers/net/can/cc770/Makefile    |    1 +
+>>  drivers/net/can/cc770/cc770_isa.c |  336 +++++++++++++++++++++++++++++++++++++
+>>  3 files changed, 348 insertions(+), 0 deletions(-)
+>>  create mode 100644 drivers/net/can/cc770/cc770_isa.c
+>>
+>> diff --git a/drivers/net/can/cc770/Kconfig b/drivers/net/can/cc770/Kconfig
+>> index 225131b..28e4d48 100644
+>> --- a/drivers/net/can/cc770/Kconfig
+>> +++ b/drivers/net/can/cc770/Kconfig
+>> @@ -1,3 +1,14 @@
+>>  menuconfig CAN_CC770
+>>  	tristate "Bosch CC770 and Intel AN82527 devices"
+>>  	depends on CAN_DEV && HAS_IOMEM
+>> +
+>> +if CAN_CC770
+>> +
+>> +config CAN_CC770_ISA
+>> +	tristate "ISA Bus based legacy CC770 driver"
+>> +	---help---
+>> +	  This driver adds legacy support for CC770 and AN82527 chips
+>> +	  connected to the ISA bus using I/O port, memory mapped or
+>> +	  indirect access.
+>> +
+>> +endif
+>> diff --git a/drivers/net/can/cc770/Makefile b/drivers/net/can/cc770/Makefile
+>> index 34e8180..872ecff 100644
+>> --- a/drivers/net/can/cc770/Makefile
+>> +++ b/drivers/net/can/cc770/Makefile
+>> @@ -3,5 +3,6 @@
+>>  #
+>>  
+>>  obj-$(CONFIG_CAN_CC770) += cc770.o
+>> +obj-$(CONFIG_CAN_CC770_ISA) += cc770_isa.o
+>>  
+>>  ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
+>> diff --git a/drivers/net/can/cc770/cc770_isa.c b/drivers/net/can/cc770/cc770_isa.c
+...
+>> +	for (idx = 0; idx < MAXDEV; idx++) {
+> ARRAY_SIZE?
 
-Yes, I mentioned this months ago, and I am surprised this critical issue has never been picked up on and addressed. With a flaw like this there is no chance this component can be used in any serious virtualization deployment where different customers share the same physical server.
+Well, I think ARRAY_SIZE is useful to derive the number of elements from
+a static array of the type:
 
-The path up to user-space needs to be designed in a multi-queue fashion, so that each vPort has its own queue up to user-space. Ideally those queues also need to be rate controlled in some form, so that no DoS is possible.
+  static const int array[] = { 1, 2, 3, 4, }
+
+but not if its declared as:
+
+  static array[MAXDEV]:
+
+... or have I missed something?
+
+I'm fine with all other comments.
+
+Wolfgang.
