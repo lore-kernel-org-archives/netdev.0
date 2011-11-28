@@ -1,102 +1,52 @@
-From: Dimitris Michailidis <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH net-next 1/4] net: introduce skb_flow_dissect()
-Date: Mon, 28 Nov 2011 08:25:39 -0800
-Message-ID: <4ED3B603.4010702@chelsio.com>
-References: <1322493738.2292.69.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Markus Feldmann <feldmann_markus@gmx.de>
+Subject: Daughterboard Jetway JAD3RTLANG with three RTL-8110SC/8169SC Gigabit
+ Ethernet is curious
+Date: Mon, 28 Nov 2011 17:35:05 +0100
+Message-ID: <jb0d7u$bbb$1@dough.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
-	john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org,
-	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>, Dan Siemon <dan-BZ4SNL/Vixll57MIdRCFDg@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1322493738.2292.69.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lo.gmane.org ([80.91.229.12]:37514 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750981Ab1K1Qf3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Nov 2011 11:35:29 -0500
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1RV4Au-0003bF-E5
+	for netdev@vger.kernel.org; Mon, 28 Nov 2011 17:35:24 +0100
+Received: from dslb-188-096-081-134.pools.arcor-ip.net ([188.96.81.134])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2011 17:35:24 +0100
+Received: from feldmann_markus by dslb-188-096-081-134.pools.arcor-ip.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2011 17:35:24 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/28/2011 07:22 AM, Eric Dumazet wrote:
-> We use at least two flow dissectors in network stack, with known
-> limitations and code duplication.
-> 
-> Introduce skb_flow_dissect() to factorize this, highly inspired from
-> existing dissector from __skb_get_rxhash()
-> 
-> Note : We extensively use skb_header_pointer(), this permits us to not
-> touch skb at all.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  include/net/flow_keys.h   |   15 ++++
->  net/core/Makefile         |    2 
->  net/core/flow_dissector.c |  134 ++++++++++++++++++++++++++++++++++++
->  3 files changed, 150 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
-> new file mode 100644
-> index 0000000..7a61e21
-> --- /dev/null
-> +++ b/include/net/flow_keys.h
-> @@ -0,0 +1,15 @@
-> +#ifndef _NET_FLOW_KEYS_H
-> +#define _NET_FLOW_KEYS_H
-> +
-> +struct flow_keys {
-> +	__be32 src;
-> +	__be32 dst;
-> +	union {
-> +		__be32 ports;
-> +		__be16 port16[2];
-> +	};
-> +	u8 ip_proto;
-> +};
-> +
-> +extern bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow);
-> +#endif
-> diff --git a/net/core/Makefile b/net/core/Makefile
-> index 3606d40..c4ecc86 100644
-> --- a/net/core/Makefile
-> +++ b/net/core/Makefile
-> @@ -3,7 +3,7 @@
->  #
->  
->  obj-y := sock.o request_sock.o skbuff.o iovec.o datagram.o stream.o scm.o \
-> -	 gen_stats.o gen_estimator.o net_namespace.o secure_seq.o
-> +	 gen_stats.o gen_estimator.o net_namespace.o secure_seq.o flow_dissector.o
->  
->  obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
->  
-> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-> new file mode 100644
-> index 0000000..d0e085b
-> --- /dev/null
-> +++ b/net/core/flow_dissector.c
-> @@ -0,0 +1,134 @@
-> +#include <linux/skbuff.h>
-> +#include <linux/ip.h>
-> +#include <linux/ipv6.h>
-> +#include <linux/if_vlan.h>
-> +#include <net/ip.h>
-> +#include <linux/if_tunnel.h>
-> +#include <linux/if_pppox.h>
-> +#include <linux/ppp_defs.h>
-> +#include <net/flow_keys.h>
-> +
-> +
-> +bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow)
-> +{
-> +	int poff, nhoff = skb_network_offset(skb);
-> +	u8 ip_proto;
-> +	u16 proto = skb->protocol;
+Hi All,
 
-__be16 instead of u16 for proto?
+i have a mini-ITX PC (Motherboard Jetway JNF92-270-LF), whit 3 ethernet 
+devices (RTL-8110SC/8169SC Gigabit Ethernet) on one additional 
+daughterboard (Jetway JAD3RTLANG).
+
+Here is my <hwinfo --netcard> output:
+http://pastebin.com/raw.php?i=Khy1NX61
+
+and dmesg:
+http://pastebin.com/raw.php?i=Ziq1mizy
+
+I am using this mini-ITX PC as server/router with a debian 
+squeeze/stable system.
+
+My problem is that only one of this three ethernet devices (from the 
+daughterboard not the internal one from motherboard) at once is working 
+correctly. Sometimes i have only one client to my server connected, but 
+only one specific ehernet port is working (mostly the physically upper 
+one). I didnt found any regularity yet.
+
+Any hints? is there a specific person whom i schould contact?
+
+regards markus
