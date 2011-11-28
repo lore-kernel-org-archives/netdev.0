@@ -1,48 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [GIT PULL v2] Open vSwitch
-Date: Mon, 28 Nov 2011 22:51:57 +0800
-Message-ID: <20111128145157.GA17678@gondor.apana.org.au>
-References: <20111123075433.GA7928@gondor.apana.org.au> <1322050976.2039.125.camel@mojatatu> <20111128130409.GB16828@gondor.apana.org.au> <0199E0D51A61344794750DC57738F58E7586A74137@GVW1118EXC.americas.hpqcorp.net>
+From: "Greg Scott" <GregScott@Infrasupport.com>
+Subject: RE: ebtables on a stick
+Date: Mon, 28 Nov 2011 08:54:09 -0600
+Message-ID: <925A849792280C4E80C5461017A4B8A2A0488A@mail733.InfraSupportEtc.com>
+References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com> <20111128143901.GA589422@jupiter.n2.diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "jhs@mojatatu.com" <jhs@mojatatu.com>,
-	David Miller <davem@davemloft.net>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: "Fischer, Anna" <anna.fischer@hp.com>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>
+To: "David Lamparter" <equinox@diac24.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:56805 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750795Ab1K1OwQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 09:52:16 -0500
-Content-Disposition: inline
-In-Reply-To: <0199E0D51A61344794750DC57738F58E7586A74137@GVW1118EXC.americas.hpqcorp.net>
+Received: from mail.infrasupportetc.com ([216.160.2.132]:15169 "EHLO
+	mail.infrasupport.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750878Ab1K1OyK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 09:54:10 -0500
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 28, 2011 at 01:54:16PM +0000, Fischer, Anna wrote:
->
-> Yes, I mentioned this months ago, and I am surprised this critical issue has never been picked up on and addressed. With a flaw like this there is no chance this component can be used in any serious virtualization deployment where different customers share the same physical server.
-> 
-> The path up to user-space needs to be designed in a multi-queue fashion, so that each vPort has its own queue up to user-space. Ideally those queues also need to be rate controlled in some form, so that no DoS is possible.
-
-Actually, rereading the patch it would appear that the interface
-does allow the use of multiple sockets at the user-space end.
-Whether the user-space daemon actually does so is another matter
-of course :)
-
-There are other issues with the hash implementation.  For example,
-there seems to be no limit on the number of collisions in each
-bucket.  As the hash table growth code simply continues when it
-fails to expand, this means that the number of collisions may
-rise without bound.
-
-At least this is each to fix, by using any one of our other
-similar hash table implementations as an example.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+PiBUaGlzIGRvZXNuJ3QgYW5zd2VyIHlvdXIgcXVlc3Rpb24sIGJ1dCB5b3VyIHVzZSBjYXNlIGlz
+IGJldHRlciBzb2x2ZWQNCj4gd2l0aCBwcm94eSBhcnAuDQoNClByb3h5IGFycCBzY2FyZXMgbWUg
+dG8gZGVhdGguICBJIGxpdmVkIHRocm91Z2ggYSBkaXNhc3RlciBhIGZldyB5ZWFycyBhZ28gd2hl
+biBJIG1lc3NlZCB1cCBhIHdob2xlIGNvbG8gc2l0ZSB3aGVuIEkgcHV0IGluIGEgYm94IHdpdGgg
+aXRzIHB1YmxpYyBOSUMgc2V0IHVwIHdpdGggUHJveHkgYXJwLiAgSWYgSSB1bmRlcnN0YW5kIHdo
+YXQgaGFwcGVucywgdGhhdCBwcm94eS1hcnBlZCBOSUMgYW5zd2VycyBBUlAgcmVxdWVzdHMgZm9y
+IGV2ZXJ5b25lIHdpdGggaXRzIG93biBNQUMgQWRkcmVzcy4gIEZvcnR1bmF0ZWx5IGZvciBtZSwg
+aXQgb25seSBsYXN0ZWQgYSBsaXR0bGUgd2hpbGUgYXJvdW5kIDRBTSBvbmUgbW9ybmluZyBiZWZv
+cmUgSSByZWFsaXplZCB3aGF0IHdhcyBnb2luZyBvbiBhbmQgdG9vayBpdCBkb3duLiAgQWZ0ZXIg
+SSB3ZW50IHRocm91Z2ggdGhhdCBleHBlcmllbmNlIEkgcHJvbWlzZWQgbXlzZWxmIG5ldmVyIGFn
+YWluIGZvciBwcm94eSBhcnAuDQoNClRoYXQncyB3aHkgSSBzdGFydGVkIGxvb2tpbmcgYXQgYnJp
+ZGdpbmcuICANCg0KLi4uQnV0IG1heWJlIHRoZXJlJ3MgYSB3YXkgdG8gbWFrZSBteSBOSUMgb25s
+eSBhbnN3ZXIgQVJQcyBmb3IgY2VydGFpbiBJUCBBZGRyZXNzZXMgSSBjYXJlIGFib3V0PyAgVGhh
+dCB3b3VsZCBuaWNlbHkgc29sdmUgdGhlIHByb2JsZW0uICBJZiBpdCB3b3Jrcy4gIA0KDQpJbiBt
+eSBlYXJsaWVyIG5lYXItZGlzYXN0ZXIsIEkgZGlkIHRoaXM6DQoNCmVjaG8gMSA+IC9wcm9jL3N5
+cy9uZXQvaXB2NC9jb25mLyR7SU5FVF9JRkFDRX0vcHJveHlfYXJwDQoNCnRvIHR1cm4gb24gcHJv
+eHkgYXJwLiAgSSB3b25kZXIgaWYgdGhhdCBpcCBuZWlnaGJvciBzdHVmZiBkb2VzIGl0IHNlbGVj
+dGl2ZWx5PyAgDQoNCi0gR3JlZw0KDQo=
