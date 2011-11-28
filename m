@@ -1,24 +1,16 @@
 From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 0/4] net: factorize flow dissector
-Date: Mon, 28 Nov 2011 16:20:16 +0100
-Message-ID: <1322493616.2292.68.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1322173833.1944.5.camel@mojatatu>
-	<20111124212021.2ae2fb7f@s6510.linuxnetplumber.net>
-	<1322201883.2872.19.camel@edumazet-laptop>
-	<20111125.012517.2221372383643417980.davem@davemloft.net>
-	<1322203013.2872.28.camel@edumazet-laptop>
-	<1322220862.1908.79.camel@mojatatu>
-	<1322226171.2403.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: [PATCH net-next 1/4] net: introduce skb_flow_dissect()
+Date: Mon, 28 Nov 2011 16:22:18 +0100
+Message-ID: <1322493738.2292.69.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org,
-	Dan Siemon <dan-BZ4SNL/Vixll57MIdRCFDg@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
+	Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
+	john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org,
+	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>, Dan Siemon <dan-BZ4SNL/Vixll57MIdRCFDg@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1322226171.2403.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
 	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -30,40 +22,193 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-TGUgdmVuZHJlZGkgMjUgbm92ZW1icmUgMjAxMSDDoCAxNDowMiArMDEwMCwgRXJpYyBEdW1hemV0
-IGEgw6ljcml0IDoKCj4gY2xzX2Zsb3cgaXMgbm90IGNvbXBsZXRlLCBzaW5jZSBpdCBkb2VzbnQg
-aGFuZGxlIHR1bm5lbHMgZm9yIGV4YW1wbGUuCj4gCj4gSXQgY2FsbHMgYSAncGFydGlhbCBmbG93
-IGNsYXNzaWZpZXInIHRvIGZpbmQgZWFjaCBuZWVkZWQgZWxlbWVudCwgb25lIGJ5Cj4gb25lLgo+
-IChhZGRpbmcgdHVubmVsIGRlY2FwIHdvdWxkIG5lZWQgdG8gcGVyZm9ybSB0aGlzIHNldmVyYWwg
-dGltZSBmb3IgZWFjaAo+IHBhY2tldCkKPiAKPiBfX3NrYl9nZXRfcnhoYXNoKCkgaXMgbW9yZSB0
-dW5uZWwgYXdhcmUsIHlldCBzb21lIHByb3RvY29scyBhcmUgc3RpbGwKPiBtaXNzaW5nLCBmb3Ig
-ZXhhbXBsZSBJUFBST1RPX0lQVjYuCj4gCj4gSW5zdGVhZCBvZiBhZGRpbmcgbG9naWMgdG8gYm90
-aCBkaXNzZWN0b3JzLCB3ZSBjb3VsZCBoYXZlIGEgY2VudHJhbCBmbG93Cj4gZGlzc2VjdG9yLCBm
-aWxsaW5nIGEgdGVtcG9yYXJ5IHBpdm90IHN0cnVjdHVyZSB3aXRoIGZvdW5kIGVsZW1lbnRzIChz
-cmMKPiBhZGRyLCBkc3QgYWRkciwgcG9ydHMsIC4uLiksIGdvaW5nIHRocm91Z2ggdHVubmVscyBl
-bmNhcCBpZiBmb3VuZC4KPiAKPiBUaGVuIG5ldC9zY2hlZC9jbHNfZmxvdy5jIGNvdWxkIHBpY2sg
-bmVlZGVkIGVsZW1zIGZyb20gdGhpcyBzdHJ1Y3R1cmUgdG8KPiBjb21wdXRlIHRoZSBoYXNoIGFz
-IHNwZWNpZmllZCBpbiB0YyBjb21tYW5kIDoKPiAoZm9yIGV4YW1wbGUgOiB0YyBmaWx0ZXIgLi4u
-ICBmbG93IGhhc2gga2V5cyBwcm90by1kc3QsZHN0IC4uLikKPiAKPiAoT25lIGRpc3NlY3RvciBj
-YWxsIHBlciBwYWNrZXQgZm9yIGFueSBudW1iZXIgb2Yga2V5cyBpbiB0aGUgZmlsdGVyKQo+IAo+
-IFNhbWUgZm9yIG5ldC9zY2hlZC9zY2hfc2ZiLmMgOiBVc2UgdGhlIHBpdm90IHN0cnVjdHVyZSBh
-bmQgY29tcHV0ZSB0aGUKPiB0d28gaGFzaGVzICh1c2luZyB0d28gaGFzaHJuZCB2YWx1ZXMpCj4g
-Cj4gQW5kIF9fc2tiX2dldF9yeGhhc2goKSBjb3VsZCB1c2UgdGhlIHNhbWUgZmxvdyBkaXNzZWN0
-b3IsIGFuZCBwaWNrIChzcmMKPiBhZGRyLCBkc3QgYWRkciwgcG9ydHMpIHRvIGNvbXB1dGUgc2ti
-LT5yeGhhc2gsIGFuZCBzZXQgc2tiLT5sNF9yeGhhc2ggaWYKPiAicG9ydHMiIGlzIG5vdCBudWxs
-Lgo+IAoKSGVyZSBpcyBhIHBhdGNoIHNlcmllIGRvaW5nIHRoaXMgZmFjdG9yaXphdGlvbiAvIGNs
-ZWFudXAuCgpbUEFUQ0ggbmV0LW5leHQgMS80XSBuZXQ6IGludHJvZHVjZSBza2JfZmxvd19kaXNz
-ZWN0KCkKW1BBVENIIG5ldC1uZXh0IDIvNF0gbmV0OiB1c2Ugc2tiX2Zsb3dfZGlzc2VjdCgpIGlu
-IF9fc2tiX2dldF9yeGhhc2goKQpbUEFUQ0ggbmV0LW5leHQgMy80XSBjbHNfZmxvdzogdXNlIHNr
-Yl9mbG93X2Rpc3NlY3QoKQpbUEFUQ0ggbmV0LW5leHQgNC80XSBzY2hfc2ZiOiB1c2Ugc2tiX2Zs
-b3dfZGlzc2VjdCgpCgpTaWduZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVyaWMuZHVtYXpldEBn
-bWFpbC5jb20+CgpjdW11bGF0aXZlIGRpZmZzdGF0IDoKIGluY2x1ZGUvbmV0L2Zsb3dfa2V5cy5o
-ICAgfCAgIDE1ICsrKwogbmV0L2NvcmUvTWFrZWZpbGUgICAgICAgICB8ICAgIDIgCiBuZXQvY29y
-ZS9kZXYuYyAgICAgICAgICAgIHwgIDEyNCArKy0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KIG5ldC9j
-b3JlL2Zsb3dfZGlzc2VjdG9yLmMgfCAgMTMwICsrKysrKysrKysrKysrKysrKysrKysrKysrCiBu
-ZXQvaXB2NC90Y3AuYyAgICAgICAgICAgIHwgICAgOCAtCiBuZXQvc2NoZWQvY2xzX2Zsb3cuYyAg
-ICAgIHwgIDE4MCArKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KIG5ldC9zY2hl
-ZC9zY2hfc2ZiLmMgICAgICAgfCAgIDE3ICsrLQogNyBmaWxlcyBjaGFuZ2VkLCAyMjUgaW5zZXJ0
-aW9ucygrKSwgMjUxIGRlbGV0aW9ucygtKQoKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcK
-aHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+We use at least two flow dissectors in network stack, with known
+limitations and code duplication.
+
+Introduce skb_flow_dissect() to factorize this, highly inspired from
+existing dissector from __skb_get_rxhash()
+
+Note : We extensively use skb_header_pointer(), this permits us to not
+touch skb at all.
+
+Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ include/net/flow_keys.h   |   15 ++++
+ net/core/Makefile         |    2 
+ net/core/flow_dissector.c |  134 ++++++++++++++++++++++++++++++++++++
+ 3 files changed, 150 insertions(+), 1 deletion(-)
+
+diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
+new file mode 100644
+index 0000000..7a61e21
+--- /dev/null
++++ b/include/net/flow_keys.h
+@@ -0,0 +1,15 @@
++#ifndef _NET_FLOW_KEYS_H
++#define _NET_FLOW_KEYS_H
++
++struct flow_keys {
++	__be32 src;
++	__be32 dst;
++	union {
++		__be32 ports;
++		__be16 port16[2];
++	};
++	u8 ip_proto;
++};
++
++extern bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow);
++#endif
+diff --git a/net/core/Makefile b/net/core/Makefile
+index 3606d40..c4ecc86 100644
+--- a/net/core/Makefile
++++ b/net/core/Makefile
+@@ -3,7 +3,7 @@
+ #
+ 
+ obj-y := sock.o request_sock.o skbuff.o iovec.o datagram.o stream.o scm.o \
+-	 gen_stats.o gen_estimator.o net_namespace.o secure_seq.o
++	 gen_stats.o gen_estimator.o net_namespace.o secure_seq.o flow_dissector.o
+ 
+ obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
+ 
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+new file mode 100644
+index 0000000..d0e085b
+--- /dev/null
++++ b/net/core/flow_dissector.c
+@@ -0,0 +1,134 @@
++#include <linux/skbuff.h>
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include <linux/if_vlan.h>
++#include <net/ip.h>
++#include <linux/if_tunnel.h>
++#include <linux/if_pppox.h>
++#include <linux/ppp_defs.h>
++#include <net/flow_keys.h>
++
++
++bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow)
++{
++	int poff, nhoff = skb_network_offset(skb);
++	u8 ip_proto;
++	u16 proto = skb->protocol;
++
++	memset(flow, 0, sizeof(*flow));
++
++again:
++	switch (proto) {
++	case __constant_htons(ETH_P_IP): {
++		const struct iphdr *iph;
++		struct iphdr _iph;
++ip:
++		iph = skb_header_pointer(skb, nhoff, sizeof(_iph), &_iph);
++		if (!iph)
++			return false;
++
++		if (ip_is_fragment(iph))
++			ip_proto = 0;
++		else
++			ip_proto = iph->protocol;
++		flow->src = iph->saddr;
++		flow->dst = iph->daddr;
++		nhoff += iph->ihl * 4;
++		break;
++	}
++	case __constant_htons(ETH_P_IPV6): {
++		const struct ipv6hdr *iph;
++		struct ipv6hdr _iph;
++ipv6:
++		iph = skb_header_pointer(skb, nhoff, sizeof(_iph), &_iph);
++		if (!iph)
++			return false;
++
++		ip_proto = iph->nexthdr;
++		flow->src = iph->saddr.s6_addr32[3];
++		flow->dst = iph->daddr.s6_addr32[3];
++		nhoff += sizeof(struct ipv6hdr);
++		break;
++	}
++	case __constant_htons(ETH_P_8021Q): {
++		const struct vlan_hdr *vlan;
++		struct vlan_hdr _vlan;
++
++		vlan = skb_header_pointer(skb, nhoff, sizeof(_vlan), &_vlan);
++		if (!vlan)
++			return false;
++
++		proto = vlan->h_vlan_encapsulated_proto;
++		nhoff += sizeof(*vlan);
++		goto again;
++	}
++	case __constant_htons(ETH_P_PPP_SES): {
++		struct {
++			struct pppoe_hdr hdr;
++			__be16 proto;
++		} *hdr, _hdr;
++		hdr = skb_header_pointer(skb, nhoff, sizeof(_hdr), &_hdr);
++		if (!hdr)
++			return false;
++		proto = hdr->proto;
++		nhoff += PPPOE_SES_HLEN;
++		switch (proto) {
++		case __constant_htons(PPP_IP):
++			goto ip;
++		case __constant_htons(PPP_IPV6):
++			goto ipv6;
++		default:
++			return false;
++		}
++	}
++	default:
++		return false;
++	}
++
++	switch (ip_proto) {
++	case IPPROTO_GRE: {
++		struct gre_hdr {
++			__be16 flags;
++			__be16 proto;
++		} *hdr, _hdr;
++
++		hdr = skb_header_pointer(skb, nhoff, sizeof(_hdr), &_hdr);
++		if (!hdr)
++			return false;
++		/*
++		 * Only look inside GRE if version zero and no
++		 * routing
++		 */
++		if (!(hdr->flags & (GRE_VERSION|GRE_ROUTING))) {
++			proto = hdr->proto;
++			nhoff += 4;
++			if (hdr->flags & GRE_CSUM)
++				nhoff += 4;
++			if (hdr->flags & GRE_KEY)
++				nhoff += 4;
++			if (hdr->flags & GRE_SEQ)
++				nhoff += 4;
++			goto again;
++		}
++		break;
++	}
++	case IPPROTO_IPIP:
++		goto again;
++	default:
++		break;
++	}
++
++	flow->ip_proto = ip_proto;
++	poff = proto_ports_offset(ip_proto);
++	if (poff >= 0) {
++		__be32 *ports, _ports;
++
++		nhoff += poff;
++		ports = skb_header_pointer(skb, nhoff, sizeof(_ports), &_ports);
++		if (ports)
++			flow->ports = *ports;
++	}
++
++	return true;
++}
++EXPORT_SYMBOL(skb_flow_dissect);
