@@ -1,17 +1,20 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 4/4] sch_sfb: use skb_flow_dissect()
-Date: Mon, 28 Nov 2011 16:25:02 +0100
-Message-ID: <1322493902.2292.72.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Martin Casado <casado-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [GIT PULL v2] Open vSwitch
+Date: Mon, 28 Nov 2011 07:27:22 -0800
+Message-ID: <4ED3A85A.1030003@nicira.com>
+References: <20111123075433.GA7928@gondor.apana.org.au>
+	<1322050976.2039.125.camel@mojatatu>
+	<20111128130409.GB16828@gondor.apana.org.au>
+	<1322488954.7338.66.camel@mojatatu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Dan Siemon <dan-BZ4SNL/Vixll57MIdRCFDg@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>,
-	jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org, chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1322488954.7338.66.camel@mojatatu>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
 	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -23,70 +26,28 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Current SFB double hashing is not fulfilling SFB theory, if two flows
-share same rxhash value.
 
-Using skb_flow_dissect() permits to really have better hash dispersion,
-and get tunnelling support as well.
+>> However, what's more worrying for me right now is the gaping
+>> DoS opportunities that exist in the patch as is.
+>>
+>> In particular, the whole design principle of punting all new
+>> flows to user-space is an excellent way of attacking the system.
+> Indeed this is an issue with openflow in general.
+> The general solution is to rate limit how much goes to the controller
+> but even that is insufficient.
+>
+This is a common misunderstanding about OpenFlow.  It does not require 
+the first packet of each flow to go to the controller.  In fact, no 
+production system I'm aware of does this.  Generally OpenFlow-based 
+solutions targeted at large environments (e.g. data center, or WAN)  
+send only traditional control traffic to the controller (e.g. BGP or 
+OSPF), or none at all.
+.martin
 
-Double hashing point was mentioned by Florian Westphal
-
-Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- net/sched/sch_sfb.c |   17 ++++++++++++++---
- 1 file changed, 14 insertions(+), 3 deletions(-)
-
-diff --git a/net/sched/sch_sfb.c b/net/sched/sch_sfb.c
-index e83c272..96e42ca 100644
---- a/net/sched/sch_sfb.c
-+++ b/net/sched/sch_sfb.c
-@@ -26,6 +26,7 @@
- #include <net/ip.h>
- #include <net/pkt_sched.h>
- #include <net/inet_ecn.h>
-+#include <net/flow_keys.h>
- 
- /*
-  * SFB uses two B[l][n] : L x N arrays of bins (L levels, N bins per level)
-@@ -286,6 +287,7 @@ static int sfb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	u32 minqlen = ~0;
- 	u32 r, slot, salt, sfbhash;
- 	int ret = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
-+	struct flow_keys keys;
- 
- 	if (unlikely(sch->q.qlen >= q->limit)) {
- 		sch->qstats.overlimits++;
-@@ -309,13 +311,19 @@ static int sfb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		/* If using external classifiers, get result and record it. */
- 		if (!sfb_classify(skb, q, &ret, &salt))
- 			goto other_drop;
-+		keys.src = salt;
-+		keys.dst = 0;
-+		keys.ports = 0;
- 	} else {
--		salt = skb_get_rxhash(skb);
-+		skb_flow_dissect(skb, &keys);
- 	}
- 
- 	slot = q->slot;
- 
--	sfbhash = jhash_1word(salt, q->bins[slot].perturbation);
-+	sfbhash = jhash_3words((__force u32)keys.dst,
-+			       (__force u32)keys.src,
-+			       (__force u32)keys.ports,
-+			       q->bins[slot].perturbation);
- 	if (!sfbhash)
- 		sfbhash = 1;
- 	sfb_skb_cb(skb)->hashes[slot] = sfbhash;
-@@ -347,7 +355,10 @@ static int sfb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	if (unlikely(p_min >= SFB_MAX_PROB)) {
- 		/* Inelastic flow */
- 		if (q->double_buffering) {
--			sfbhash = jhash_1word(salt, q->bins[slot].perturbation);
-+			sfbhash = jhash_3words((__force u32)keys.dst,
-+					       (__force u32)keys.src,
-+					       (__force u32)keys.ports,
-+					       q->bins[slot].perturbation);
- 			if (!sfbhash)
- 				sfbhash = 1;
- 			sfb_skb_cb(skb)->hashes[slot] = sfbhash;
+-- 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Martin Casado
+Nicira Networks, Inc.
+www.nicira.com
+cell: 650-776-1457
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
