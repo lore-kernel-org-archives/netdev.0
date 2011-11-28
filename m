@@ -1,49 +1,58 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next v2 2/4] can: cc770: add legacy ISA bus driver for the CC770 and AN82527
-Date: Mon, 28 Nov 2011 14:03:27 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AEE9@saturn3.aculab.com>
-References: <4ED393B0.2030004@grandegger.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: AW: [PATCH] net/can/mscan: Enable interrupts when all TX buffers
+ are occupied to get notified when they are available again
+Date: Mon, 28 Nov 2011 15:08:08 +0100
+Message-ID: <4ED395C8.5070009@grandegger.com>
+References: <C3745E3C7FD07D429C54EB3D7606A5A7677E7C@ZRHEX021.ads.zuehlke.com>,<4ED38EB1.6030806@grandegger.com> <C3745E3C7FD07D429C54EB3D7606A5A7677EB2@ZRHEX021.ads.zuehlke.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
-	<socketcan-users@lists.berlios.de>, "IreneV" <boir1@yandex.ru>,
-	"Stanislav Yelenskiy" <stanislavelensky@yahoo.com>
-To: "Wolfgang Grandegger" <wg@grandegger.com>,
-	"Marc Kleine-Budde" <mkl@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:40896 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750921Ab1K1OF0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 09:05:26 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 16134-09 for <netdev@vger.kernel.org>;
- Mon, 28 Nov 2011 14:05:23 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <4ED393B0.2030004@grandegger.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"socketcan@hartkopp.net" <socketcan@hartkopp.net>,
+	"lucas.demarchi@profusion.mobi" <lucas.demarchi@profusion.mobi>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"mkl@pengutronix.de" <mkl@pengutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Mosler, Martin" <mmo@zuehlke.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <C3745E3C7FD07D429C54EB3D7606A5A7677EB2@ZRHEX021.ads.zuehlke.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- 
-...
-> >> +	for (idx = 0; idx < MAXDEV; idx++) {
-> > ARRAY_SIZE?
+On 11/28/2011 02:59 PM, Mosler, Martin wrote:
+>>> When all TX buffers of the mscan are occupied the network layer is told to stop sending further packets. However the TX interrupts are not enabled and therefore the driver has no chance to tell the network layer when it is ready to accept further packets.
+>>>
+>>> Signed-off-by: Martin Mosler <mmo@zuehlke.com>
+>>>
+>>> --- linux-2.6/drivers/net/can/mscan/mscan.c.orig    2011-11-28 13:54:29.547850661 +0100
+>>> +++ linux-2.6/drivers/net/can/mscan/mscan.c 2011-11-28 13:55:52.427849601 +0100
+>>> @@ -214,6 +214,7 @@ static netdev_tx_t mscan_start_xmit(stru
+>>>     case 0:
+>>>         netif_stop_queue(dev);
+>>>         dev_err(dev->dev.parent, "Tx Ring full when queue awake!\n");
+>>> +       out_8(&regs->cantier, priv->tx_active);
+>>>         return NETDEV_TX_BUSY;
+>>>     case 1:
+>>>         /*
+>>
+>> Hm, did you see the error message. Actually, it should never happen, IIRC.
+>>
+>> Wolfgang.
 > 
-> Well, I think ARRAY_SIZE is useful to derive the number of 
-> elements from a static array of the type:
-> 
->   static const int array[] = { 1, 2, 3, 4, }
-> 
-> but not if its declared as:
-> 
->   static array[MAXDEV]:
-> 
-> ... or have I missed something?
+> It is in fact a very rare condition, but it was triggered during testing when pulling CAN-HI and CAN-LO lines
+> to GND and VCC in various combinations to verify how the system is recovering. I am working with a MPC5125 
+> if this is valuable information. (This was only one issue I ran into, I had to do other modifications for other 
+> issues as well, but I think they are chip specific, I'll share them in a separate thread if you like).
 
-Yes - if you use ARRAY_SIZE() then someone reading the code
-doesn't need to find the array definition to ensure the loop
-upper bound is correct.
+Sounds like a problem with bus-off recovery. The software has restarted
+the queue but the TX objects are still active. How do you handle
+bus-offs? Manually? restart-ms = ?
 
-	David
+Would be great if you post patches for your other issues.
+
+Wolfgang.
+
+
+
+
