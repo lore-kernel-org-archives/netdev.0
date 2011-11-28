@@ -1,51 +1,53 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] tcp: tcp_sendmsg() wrong access to sk_route_caps
-Date: Mon, 28 Nov 2011 16:53:36 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AEEB@saturn3.aculab.com>
-References: <1322496298.2292.76.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] 9p: Reduce object size with CONFIG_NET_9P_DEBUG
+Date: Mon, 28 Nov 2011 09:14:00 -0800
+Message-ID: <1322500440.2024.24.camel@Joe-Laptop>
+References: <1321661394.5917.7.camel@Joe-Laptop>
+	 <CAFkjPTmyn9POfTjYYjjYEaPt6M6Wdu-P=SEc=ZeTsbA+1=VraA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>,
-	"netdev" <netdev@vger.kernel.org>,
-	"Michal Miroslaw" <mirq-linux@rere.qmqm.pl>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Joe Perches" <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:44684 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752116Ab1K1Qzh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 11:55:37 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 21829-04 for <netdev@vger.kernel.org>;
- Mon, 28 Nov 2011 16:55:32 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1322496298.2292.76.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ron Minnich <rminnich@sandia.gov>,
+	Latchesar Ionkov <lucho@ionkov.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	v9fs-developer@lists.sourceforge.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Eric Van Hensbergen <ericvh@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFkjPTmyn9POfTjYYjjYEaPt6M6Wdu-P=SEc=ZeTsbA+1=VraA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- 
-> > > -	sg = sk->sk_route_caps & NETIF_F_SG;
-> > > +	sg = !!(sk->sk_route_caps & NETIF_F_SG);
-> > 
-> > As sg is now bool, using !! is unnecessary.
-> > 
-> > A commit was done recently to remove one.
-> > 3ad9b358e03fd9dbf6705721490c811b666b0fe2
-> > 
-> 
-> Hmm... I find it dangerous and error prone. Obviously not at 
-> the time we
-> commit such changes, but later, because a future reader might 
-> be fooled.
-> 
-> Using !!(expr) is pretty clear about the potential problem, and
-> generates no extra code if a bool is used for the target.
+On Mon, 2011-11-28 at 09:10 -0600, Eric Van Hensbergen wrote:
+> sorry, just got to reviewing this because of holidays.
+>=20
+> On Fri, Nov 18, 2011 at 6:09 PM, Joe Perches <joe@perches.com> wrote:
+> > Reduce object size by deduplicating formats.
+> >
+> > Use vsprintf extension %pV.
+> > Rename P9_DPRINTK uses to p9_debug, align arguments.
+> > Add function for _p9_debug and macro to add __func__.
+> > Add missing "\n"s to p9_debug uses.
+> > Remove embedded function names as p9_debug adds it.
+> > Remove P9_EPRINTK macro and convert use to pr_<level>.
+> > Add and use pr_fmt and pr_<level>.
+> >
+> > $ size fs/9p/built-in.o*
+> >   text    data     bss     dec     hex filename
+> >  62133     984   16000   79117   1350d fs/9p/built-in.o.new
+> >  67342     984   16928   85254   14d06 fs/9p/built-in.o.old
+> >
+> > Signed-off-by: Joe Perches <joe@perches.com>
+>=20
+> These changes seem reasonable enough, but since you only made changes
+> in the fs/9p directory and not the net/9p directory which causes
+> net/9p build to break with this patch.
+>=20
+> CC      net/9p/client.o
+> /home/ericvh/src/linux/v9fs-devel/net/9p/client.c: In function
+> =E2=80=98get_protocol_version=E2=80=99:
+> /home/ericvh/src/linux/v9fs-devel/net/9p/client.c:84:3: error:
+> implicit declaration of function =E2=80=98P9_DPRINTK=E2=80=99
 
-Or leave 'sg' as 'unsigned int' and add:
-    COMPILE_ASSERT(NETIF_F_SG & ~0);
-(or however linux spells the appropriate define)
-
-	David
+Sorry 'bout that.
+I'll fix it and resubmit later.
