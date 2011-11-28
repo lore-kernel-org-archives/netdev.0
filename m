@@ -1,53 +1,104 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [NET][TG3] Fwd: page allocation failure with linux 3.1.1
-Date: Mon, 28 Nov 2011 09:26:02 +0100
-Message-ID: <1322468762.2826.17.camel@edumazet-laptop>
-References: <CALkh-HhkzHb7-2LAwCNOZ-S4otfeM+tthyw2_XDbDUjFRSkKjA@mail.gmail.com>
-	 <CALkh-HiaDSJb7sStH=DHxXCmecFWYAC2q7hx72gGvFSYz+2r=A@mail.gmail.com>
-	 <1322462145.2826.6.camel@edumazet-laptop>
-	 <CALkh-Hi=Pb_cNUzHrJSe4o5-kmb+jLA8vpw8hiaGxROzNJ6oag@mail.gmail.com>
+From: Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
+Subject: [PATCH] hugetlb: release pages in the error path of hugetlb_cow()
+ (was: Re: 3.2-rc2+: Reported regressions from 3.0 and 3.1)
+Date: Mon, 28 Nov 2011 09:33:13 +0100
+Message-ID: <20111128083313.GA18337@tiehlicka.suse.cz>
+References: <lx6sezwGldO.A.IhF.UBpWOB@chimera>
+ <201111212249.31196.rjw@sisk.pl>
+ <CA+55aFygSFt+O5KLoiE_0V+o45eKfsoDDV5ML8EF=J0n9z_D-Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: =?UTF-8?Q?=D0=9F=D0=BB=D0=B0=D0=BC=D0=B5=D0=BD_?=
-	 =?UTF-8?Q?=D0=9F=D0=B5=D1=82=D1=80=D0=BE=D0=B2?=
-	<plamen.sisi@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:53751 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751070Ab1K1I0H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 03:26:07 -0500
-Received: by vcbfk14 with SMTP id fk14so3413997vcb.19
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2011 00:26:05 -0800 (PST)
-In-Reply-To: <CALkh-Hi=Pb_cNUzHrJSe4o5-kmb+jLA8vpw8hiaGxROzNJ6oag@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CA+55aFygSFt+O5KLoiE_0V+o45eKfsoDDV5ML8EF=J0n9z_D-Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 28 novembre 2011 =C3=A0 09:16 +0200, =D0=9F=D0=BB=D0=B0=D0=BC=D0=
-=B5=D0=BD =D0=9F=D0=B5=D1=82=D1=80=D0=BE=D0=B2 a =C3=A9crit :
-
-> Well, Eric, thanks for the explanation! I will disable TSO and will
-> see how is that working out for me - if I recall correctly, I had no
-> problems when TSO was off.
+On Mon 21-11-11 14:18:29, Linus Torvalds wrote:
+> On Mon, Nov 21, 2011 at 1:49 PM, Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org> wrot=
+e:
+> >
+> > Subject =A0 =A0: hugetlb oops on 3.1.0-rc8-devel
+> > Submitter =A0: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+> > Date =A0 =A0 =A0 : 2011-11-01 22:20
+> > Message-ID : CALCETrW1mpVCz2tO5roaz1r6vnno+srHR-dHA6_pkRi2qiCfdw@ma=
+il.gmail.com
+> > References : http://marc.info/?l=3Dlinux-kernel&m=3D132018604426692=
+&w=3D2
 >=20
-> Sorry to bother you, if the above explanation was somewhere readily
-> available, but I didn't manage to find it.
+> Despite the subject line, that's not an oops, it's a BUG_ON().
+>=20
+> And it *should* be fixed by commit ea4039a34c4c ("hugetlb: release
+> pages in the error path of hugetlb_cow()") although I don't think And=
+y
+> ever confirmed that (since it was hard to trigger).
 
-You dont bother me at all :)
+AFAICS the issue has been introduced by 0fe6e20b (hugetlb, rmap:
+add reverse mapping for hugepage) in 2.6.36-rc1 so this is a stable
+material. I do not see the patch in any stable branch so here we go.
+The patch is on top of 3.0.y branch and it applies as is to 3.1.y
+as well.
+---
+=46rom fdaa4aaa008cce149a5fd60934112acd8988e0b6 Mon Sep 17 00:00:00 200=
+1
+=46rom: Hillf Danton <dhillf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Tue, 15 Nov 2011 14:36:12 -0800
+Subject: [PATCH] hugetlb: release pages in the error path of hugetlb_co=
+w()
 
-As a matter of fact, your mail reminded me something I wanted to do in
-the past and forgot about.
+commit ea4039a34c4c206d015d34a49d0b00868e37db1d upstream.
 
-Since some devices might copy skb to a linear one in their
-ndo_start_xmit(), we could set a netdev limit so that TSO can still be
-used on these devices, but limiting number of frags to
-2^PAGE_ALLOC_COSTLY_ORDER
+If we fail to prepare an anon_vma, the {new, old}_page should be releas=
+ed,
+or they will leak.
 
-(Since PAGE_ALLOC_COSTLY_ORDER =3D=3D 3, thats 8 frags, instead of 16 r=
-ight
-now on x86)
+Signed-off-by: Hillf Danton <dhillf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Reviewed-by: Andrea Arcangeli <aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Cc: Hugh Dickins <hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Cc: Johannes Weiner <jweiner-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Signed-off-by: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+---
+ mm/hugetlb.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Of course, if memory is really tight, even an ATOMIC order-3 allocation
-might fail. If this happens, device limit could be dynamically
-decreased. In the end, only linear skb could be built by TCP.
+diff --git a/mm/hugetlb.c b/mm/hugetlb.c
+index bfcf153..2b57cd9 100644
+--- a/mm/hugetlb.c
++++ b/mm/hugetlb.c
+@@ -2415,6 +2415,8 @@ retry_avoidcopy:
+ 	 * anon_vma prepared.
+ 	 */
+ 	if (unlikely(anon_vma_prepare(vma))) {
++		page_cache_release(new_page);
++		page_cache_release(old_page);
+ 		/* Caller expects lock to be held */
+ 		spin_lock(&mm->page_table_lock);
+ 		return VM_FAULT_OOM;
+--=20
+1.7.7.3
+
+
+--=20
+Michal Hocko
+SUSE Labs
+SUSE LINUX s.r.o.
+Lihovarska 1060/12
+190 00 Praha 9   =20
+Czech Republic
