@@ -1,63 +1,41 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH 5/5] tcp: skip cwnd moderation in TCP_CA_Open in tcp_try_to_open
-Date: Mon, 28 Nov 2011 12:35:01 -0500
-Message-ID: <CADVnQykp47igdNbN68nbdd4SzaPoDCVTX-bDog4MDesWBbv9MA@mail.gmail.com>
-References: <alpine.DEB.2.00.1111201024080.22397@melkinpaasi.cs.helsinki.fi>
-	<CAK6E8=cNBCJbQs9dKcOwU1yZMC6czgMEuZt4Ubt=t-kBzHfFmw@mail.gmail.com>
-	<alpine.DEB.2.00.1111221146060.31705@wel-95.cs.helsinki.fi>
-	<20111127.190120.2116987138205753451.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] macvtap: Fix macvtap_get_queue to use rxhash first
+Date: Mon, 28 Nov 2011 09:42:00 -0800
+Message-ID: <20111128094200.2cb823a0@nehalam.linuxnetplumber.net>
+References: <20111124081714.26635.68141.sendpatchset@krkumar2.in.ibm.com>
+	<20111124095902.GD14491@redhat.com> <4ECE18D5.3060605@redhat.com>
+	<20111124103449.GA16031@redhat.com> <4ECE3F0D.3090908@redhat.com>
+	<20111124161430.GC26770@redhat.com>
+	<OF86B15006.7F4BE3FB-ON65257953.00104C3E-65257953.0010EFCA@in.ibm.com>
+	<4ECF09D5.4010700@redhat.com>
+	<OF835A6FF5.7D752AD1-ON65257953.0016350C-65257953.00169AF4@in.ibm.com>
+	<4ED30D2B.10907@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ilpo.jarvinen@helsinki.fi, ycheng@google.com,
-	netdev@vger.kernel.org, nanditad@google.com, therbert@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:33969 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751533Ab1K1RfD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 12:35:03 -0500
-Received: by yenl6 with SMTP id l6so3091446yen.19
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2011 09:35:01 -0800 (PST)
-In-Reply-To: <20111127.190120.2116987138205753451.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>, arnd@arndb.de, "Michael S.
+	Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	levinsasha928@gmail.com, davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <4ED30D2B.10907@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 27, 2011 at 7:01 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Tue, 22 Nov 2011 13:47:13 +0200 (EET)
->
->> On Mon, 21 Nov 2011, Yuchung Cheng wrote:
->>
->>> AFAIK cwnd moderation is to lower bursty drops not to discourage
->>> (dsack) cheating. I believe the reason is the same in
->>> tcp_try_to_open(). We are in common cases, e.g., loss-recovery, thi=
-s
->>> logic hurts performance.
->>
->> Quote from the patch description: "Senders were overriding cwnd valu=
-es
->> picked during an undo by calling tcp_moderate_cwnd()" ...so after al=
-l it
->> has to do with undo being limited. IMHO only up to orig_cwnd/2+IW is=
- safe
->> due to cheating opportunities. Also FRTO uses orig_cwnd/2 due to sam=
-e
->> reason (it could do the +IW too but IIRC it is only /2 currently). W=
-hat
->> would be the safeguard there after this one is removed? I kind of se=
-e your
->> point about this particular line being related to burst mitigation b=
-ut on
->> the same time the end result of removal is that undo becomes potenti=
-ally
->> much more aggressive.
->
-> I'm apply this patch to net-next now, but Neil and Yucheng are on the=
- hook
-> to fully look into the issues Ilpo has raised.
+On Mon, 28 Nov 2011 12:25:15 +0800
+Jason Wang <jasowang@redhat.com> wrote:
 
-Thanks! We will spend some time looking into these issues.
+> I'm using ixgbe for testing also, for host, its driver seems provide irq 
+> affinity hint, so no binding or irqbalance is needed.
 
-neal
+The hint is for irqbalance to use. You need to still do manual
+affinity or use irqbalance.
