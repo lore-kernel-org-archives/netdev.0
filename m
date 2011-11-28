@@ -1,7 +1,8 @@
 From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 1/4] net: introduce skb_flow_dissect()
-Date: Mon, 28 Nov 2011 16:22:18 +0100
-Message-ID: <1322493738.2292.69.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: [PATCH net-next 2/4] net: use skb_flow_dissect() in
+ __skb_get_rxhash()
+Date: Mon, 28 Nov 2011 16:23:23 +0100
+Message-ID: <1322493803.2292.70.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -22,193 +23,166 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-We use at least two flow dissectors in network stack, with known
-limitations and code duplication.
+No functional changes.
 
-Introduce skb_flow_dissect() to factorize this, highly inspired from
-existing dissector from __skb_get_rxhash()
-
-Note : We extensively use skb_header_pointer(), this permits us to not
-touch skb at all.
+This uses the code we factorized in skb_flow_dissect()
 
 Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- include/net/flow_keys.h   |   15 ++++
- net/core/Makefile         |    2 
- net/core/flow_dissector.c |  134 ++++++++++++++++++++++++++++++++++++
- 3 files changed, 150 insertions(+), 1 deletion(-)
+ net/core/dev.c |  125 +++++------------------------------------------
+ 1 file changed, 14 insertions(+), 111 deletions(-)
 
-diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
-new file mode 100644
-index 0000000..7a61e21
---- /dev/null
-+++ b/include/net/flow_keys.h
-@@ -0,0 +1,15 @@
-+#ifndef _NET_FLOW_KEYS_H
-+#define _NET_FLOW_KEYS_H
-+
-+struct flow_keys {
-+	__be32 src;
-+	__be32 dst;
-+	union {
-+		__be32 ports;
-+		__be16 port16[2];
-+	};
-+	u8 ip_proto;
-+};
-+
-+extern bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow);
-+#endif
-diff --git a/net/core/Makefile b/net/core/Makefile
-index 3606d40..c4ecc86 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -3,7 +3,7 @@
- #
- 
- obj-y := sock.o request_sock.o skbuff.o iovec.o datagram.o stream.o scm.o \
--	 gen_stats.o gen_estimator.o net_namespace.o secure_seq.o
-+	 gen_stats.o gen_estimator.o net_namespace.o secure_seq.o flow_dissector.o
- 
- obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
- 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-new file mode 100644
-index 0000000..d0e085b
---- /dev/null
-+++ b/net/core/flow_dissector.c
-@@ -0,0 +1,134 @@
-+#include <linux/skbuff.h>
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include <linux/if_vlan.h>
-+#include <net/ip.h>
-+#include <linux/if_tunnel.h>
-+#include <linux/if_pppox.h>
-+#include <linux/ppp_defs.h>
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8afb244..962e3de 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -133,11 +133,9 @@
+ #include <linux/pci.h>
+ #include <linux/inetdevice.h>
+ #include <linux/cpu_rmap.h>
+-#include <linux/if_tunnel.h>
+-#include <linux/if_pppox.h>
+-#include <linux/ppp_defs.h>
+ #include <linux/net_tstamp.h>
+ #include <linux/jump_label.h>
 +#include <net/flow_keys.h>
-+
-+
-+bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow)
-+{
-+	int poff, nhoff = skb_network_offset(skb);
-+	u8 ip_proto;
-+	u16 proto = skb->protocol;
-+
-+	memset(flow, 0, sizeof(*flow));
-+
-+again:
-+	switch (proto) {
-+	case __constant_htons(ETH_P_IP): {
-+		const struct iphdr *iph;
-+		struct iphdr _iph;
-+ip:
-+		iph = skb_header_pointer(skb, nhoff, sizeof(_iph), &_iph);
-+		if (!iph)
-+			return false;
-+
-+		if (ip_is_fragment(iph))
-+			ip_proto = 0;
-+		else
-+			ip_proto = iph->protocol;
-+		flow->src = iph->saddr;
-+		flow->dst = iph->daddr;
-+		nhoff += iph->ihl * 4;
-+		break;
-+	}
-+	case __constant_htons(ETH_P_IPV6): {
-+		const struct ipv6hdr *iph;
-+		struct ipv6hdr _iph;
-+ipv6:
-+		iph = skb_header_pointer(skb, nhoff, sizeof(_iph), &_iph);
-+		if (!iph)
-+			return false;
-+
-+		ip_proto = iph->nexthdr;
-+		flow->src = iph->saddr.s6_addr32[3];
-+		flow->dst = iph->daddr.s6_addr32[3];
-+		nhoff += sizeof(struct ipv6hdr);
-+		break;
-+	}
-+	case __constant_htons(ETH_P_8021Q): {
-+		const struct vlan_hdr *vlan;
-+		struct vlan_hdr _vlan;
-+
-+		vlan = skb_header_pointer(skb, nhoff, sizeof(_vlan), &_vlan);
-+		if (!vlan)
-+			return false;
-+
-+		proto = vlan->h_vlan_encapsulated_proto;
-+		nhoff += sizeof(*vlan);
-+		goto again;
-+	}
-+	case __constant_htons(ETH_P_PPP_SES): {
-+		struct {
-+			struct pppoe_hdr hdr;
-+			__be16 proto;
-+		} *hdr, _hdr;
-+		hdr = skb_header_pointer(skb, nhoff, sizeof(_hdr), &_hdr);
-+		if (!hdr)
-+			return false;
-+		proto = hdr->proto;
-+		nhoff += PPPOE_SES_HLEN;
-+		switch (proto) {
-+		case __constant_htons(PPP_IP):
-+			goto ip;
-+		case __constant_htons(PPP_IPV6):
-+			goto ipv6;
-+		default:
-+			return false;
-+		}
-+	}
-+	default:
-+		return false;
-+	}
-+
-+	switch (ip_proto) {
-+	case IPPROTO_GRE: {
-+		struct gre_hdr {
-+			__be16 flags;
-+			__be16 proto;
-+		} *hdr, _hdr;
-+
-+		hdr = skb_header_pointer(skb, nhoff, sizeof(_hdr), &_hdr);
-+		if (!hdr)
-+			return false;
-+		/*
-+		 * Only look inside GRE if version zero and no
-+		 * routing
-+		 */
-+		if (!(hdr->flags & (GRE_VERSION|GRE_ROUTING))) {
-+			proto = hdr->proto;
-+			nhoff += 4;
-+			if (hdr->flags & GRE_CSUM)
-+				nhoff += 4;
-+			if (hdr->flags & GRE_KEY)
-+				nhoff += 4;
-+			if (hdr->flags & GRE_SEQ)
-+				nhoff += 4;
-+			goto again;
-+		}
-+		break;
-+	}
-+	case IPPROTO_IPIP:
-+		goto again;
-+	default:
-+		break;
-+	}
-+
-+	flow->ip_proto = ip_proto;
-+	poff = proto_ports_offset(ip_proto);
-+	if (poff >= 0) {
-+		__be32 *ports, _ports;
-+
-+		nhoff += poff;
-+		ports = skb_header_pointer(skb, nhoff, sizeof(_ports), &_ports);
-+		if (ports)
-+			flow->ports = *ports;
-+	}
-+
-+	return true;
-+}
-+EXPORT_SYMBOL(skb_flow_dissect);
+ 
+ #include "net-sysfs.h"
+ 
+@@ -2598,123 +2596,28 @@ static inline void ____napi_schedule(struct softnet_data *sd,
+  */
+ void __skb_get_rxhash(struct sk_buff *skb)
+ {
+-	int nhoff, hash = 0, poff;
+-	const struct ipv6hdr *ip6;
+-	const struct iphdr *ip;
+-	const struct vlan_hdr *vlan;
+-	u8 ip_proto;
+-	u32 addr1, addr2;
+-	u16 proto;
+-	union {
+-		u32 v32;
+-		u16 v16[2];
+-	} ports;
+-
+-	nhoff = skb_network_offset(skb);
+-	proto = skb->protocol;
+-
+-again:
+-	switch (proto) {
+-	case __constant_htons(ETH_P_IP):
+-ip:
+-		if (!pskb_may_pull(skb, sizeof(*ip) + nhoff))
+-			goto done;
+-
+-		ip = (const struct iphdr *) (skb->data + nhoff);
+-		if (ip_is_fragment(ip))
+-			ip_proto = 0;
+-		else
+-			ip_proto = ip->protocol;
+-		addr1 = (__force u32) ip->saddr;
+-		addr2 = (__force u32) ip->daddr;
+-		nhoff += ip->ihl * 4;
+-		break;
+-	case __constant_htons(ETH_P_IPV6):
+-ipv6:
+-		if (!pskb_may_pull(skb, sizeof(*ip6) + nhoff))
+-			goto done;
+-
+-		ip6 = (const struct ipv6hdr *) (skb->data + nhoff);
+-		ip_proto = ip6->nexthdr;
+-		addr1 = (__force u32) ip6->saddr.s6_addr32[3];
+-		addr2 = (__force u32) ip6->daddr.s6_addr32[3];
+-		nhoff += 40;
+-		break;
+-	case __constant_htons(ETH_P_8021Q):
+-		if (!pskb_may_pull(skb, sizeof(*vlan) + nhoff))
+-			goto done;
+-		vlan = (const struct vlan_hdr *) (skb->data + nhoff);
+-		proto = vlan->h_vlan_encapsulated_proto;
+-		nhoff += sizeof(*vlan);
+-		goto again;
+-	case __constant_htons(ETH_P_PPP_SES):
+-		if (!pskb_may_pull(skb, PPPOE_SES_HLEN + nhoff))
+-			goto done;
+-		proto = *((__be16 *) (skb->data + nhoff +
+-				      sizeof(struct pppoe_hdr)));
+-		nhoff += PPPOE_SES_HLEN;
+-		switch (proto) {
+-		case __constant_htons(PPP_IP):
+-			goto ip;
+-		case __constant_htons(PPP_IPV6):
+-			goto ipv6;
+-		default:
+-			goto done;
+-		}
+-	default:
+-		goto done;
+-	}
+-
+-	switch (ip_proto) {
+-	case IPPROTO_GRE:
+-		if (pskb_may_pull(skb, nhoff + 16)) {
+-			u8 *h = skb->data + nhoff;
+-			__be16 flags = *(__be16 *)h;
++	struct flow_keys keys;
++	u32 hash;
+ 
+-			/*
+-			 * Only look inside GRE if version zero and no
+-			 * routing
+-			 */
+-			if (!(flags & (GRE_VERSION|GRE_ROUTING))) {
+-				proto = *(__be16 *)(h + 2);
+-				nhoff += 4;
+-				if (flags & GRE_CSUM)
+-					nhoff += 4;
+-				if (flags & GRE_KEY)
+-					nhoff += 4;
+-				if (flags & GRE_SEQ)
+-					nhoff += 4;
+-				goto again;
+-			}
+-		}
+-		break;
+-	case IPPROTO_IPIP:
+-		goto again;
+-	default:
+-		break;
+-	}
++	if (!skb_flow_dissect(skb, &keys))
++		return;
+ 
+-	ports.v32 = 0;
+-	poff = proto_ports_offset(ip_proto);
+-	if (poff >= 0) {
+-		nhoff += poff;
+-		if (pskb_may_pull(skb, nhoff + 4)) {
+-			ports.v32 = * (__force u32 *) (skb->data + nhoff);
+-			if (ports.v16[1] < ports.v16[0])
+-				swap(ports.v16[0], ports.v16[1]);
+-			skb->l4_rxhash = 1;
+-		}
++	if (keys.ports) {
++		if ((__force u16)keys.port16[1] < (__force u16)keys.port16[0])
++			swap(keys.port16[0], keys.port16[1]);
++		skb->l4_rxhash = 1;
+ 	}
+ 
+ 	/* get a consistent hash (same value on both flow directions) */
+-	if (addr2 < addr1)
+-		swap(addr1, addr2);
++	if ((__force u32)keys.dst < (__force u32)keys.src)
++		swap(keys.dst, keys.src);
+ 
+-	hash = jhash_3words(addr1, addr2, ports.v32, hashrnd);
++	hash = jhash_3words((__force u32)keys.dst,
++			    (__force u32)keys.src,
++			    (__force u32)keys.ports, hashrnd);
+ 	if (!hash)
+ 		hash = 1;
+ 
+-done:
+ 	skb->rxhash = hash;
+ }
+ EXPORT_SYMBOL(__skb_get_rxhash);
