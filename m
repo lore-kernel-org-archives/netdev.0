@@ -1,71 +1,65 @@
-From: "Fischer, Anna" <anna.fischer-VXdhtT5mjnY@public.gmane.org>
-Subject: Re: Issues with openflow protocol WAS(RE: [GIT PULL v2]
- Open vSwitch
-Date: Mon, 28 Nov 2011 18:54:22 +0000
-Message-ID: <0199E0D51A61344794750DC57738F58E7586A7435F@GVW1118EXC.americas.hpqcorp.net>
-References: <20111123075433.GA7928@gondor.apana.org.au>
-	<1322050976.2039.125.camel@mojatatu>
-	<20111128130409.GB16828@gondor.apana.org.au>
-	<0199E0D51A61344794750DC57738F58E7586A74137@GVW1118EXC.americas.hpqcorp.net>
-	<1322489230.7338.71.camel@mojatatu>
-	<20124540-D566-41B0-B86F-0BCA19B948AA@nicira.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [NET][TG3] Fwd: page allocation failure with linux 3.1.1
+Date: Mon, 28 Nov 2011 11:05:53 -0800
+Message-ID: <4ED3DB91.9090409@hp.com>
+References: <CALkh-HhkzHb7-2LAwCNOZ-S4otfeM+tthyw2_XDbDUjFRSkKjA@mail.gmail.com> <CALkh-HiaDSJb7sStH=DHxXCmecFWYAC2q7hx72gGvFSYz+2r=A@mail.gmail.com> <1322462145.2826.6.camel@edumazet-laptop> <CALkh-Hi=Pb_cNUzHrJSe4o5-kmb+jLA8vpw8hiaGxROzNJ6oag@mail.gmail.com> <1322468762.2826.17.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>, David-/PVsmBQoxgPKo9QCiBeYKEEOCMrvLtNR@public.gmane.org
-To: Justin Pettit <jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20124540-D566-41B0-B86F-0BCA19B948AA-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Content-Language: en-US
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?0J/Qu9Cw0LzQtdC9INCf0LXRgtGA0L7Qsg==?=
+	<plamen.sisi@gmail.com>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:18821 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752190Ab1K1TFz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 14:05:55 -0500
+In-Reply-To: <1322468762.2826.17.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Subject: Re: [ovs-dev] Issues with openflow protocol WAS(RE: [GIT PULL
-> v2] Open vSwitch
-> 
-> On Nov 28, 2011, at 6:07 AM, Jamal Hadi Salim wrote:
-> 
-> > On Mon, 2011-11-28 at 13:54 +0000, Fischer, Anna wrote:
-> >
-> >> Yes, I mentioned this months ago, and I am surprised this critical
-> >> issue has never been picked up on and addressed. With a flaw like
-> >> this there is no chance this component can be used in any serious
-> >> virtualization deployment where different customers share the same
-> physical server.
-> >>
-> >> The path up to user-space needs to be designed in a multi-queue
-> fashion, so that
-> >> each vPort has its own queue up to user-space. Ideally those queues
-> also need to
-> >> be rate controlled in some form, so that no DoS is possible.
-> >
-> > Good - more folks scrutinizing openflow ;->
-> 
-> I realize you chair an IETF standard with overlapping goals with
-> OpenFlow (ForCES), so you may have strong opinions about its design.
-> However, that's not relevant to this discussion, since OpenFlow's
-> design
-> has nothing to do with the discussion being held here in regards to
-> Open
-> vSwitch.  OpenFlow is just a bullet point--although an important one--
-> in
-> a large set of features that Open vSwitch provides.  Its design is such
-> that it should be fairly easy to include new control protocols;
-> OpenFlow
-> is just a library in Open vSwitch.  If you have issues with OpenFlow,
-> those would be better directed to the ONF or one of the OpenFlow
-> mailing
-> lists.
+On 11/28/2011 12:26 AM, Eric Dumazet wrote:
+> Le lundi 28 novembre 2011 =C3=A0 09:16 +0200, =D0=9F=D0=BB=D0=B0=D0=BC=
+=D0=B5=D0=BD =D0=9F=D0=B5=D1=82=D1=80=D0=BE=D0=B2 a =C3=A9crit :
+>
+>> Well, Eric, thanks for the explanation! I will disable TSO and will
+>> see how is that working out for me - if I recall correctly, I had no
+>> problems when TSO was off.
+>>
+>> Sorry to bother you, if the above explanation was somewhere readily
+>> available, but I didn't manage to find it.
+>
+> You dont bother me at all :)
+>
+> As a matter of fact, your mail reminded me something I wanted to do i=
+n
+> the past and forgot about.
+>
+> Since some devices might copy skb to a linear one in their
+> ndo_start_xmit(), we could set a netdev limit so that TSO can still b=
+e
+> used on these devices, but limiting number of frags to
+> 2^PAGE_ALLOC_COSTLY_ORDER
 
-True, and I was not interested in OpenFlow rate controlling but purely in rate controlling within the kernel for what goes up to user-space. And you addressed that with individual queues per vPort, so that solves my issues.
+How much "TSO value" remains after such a copy?
+
+rick jones
+
+>
+> (Since PAGE_ALLOC_COSTLY_ORDER =3D=3D 3, thats 8 frags, instead of 16=
+ right
+> now on x86)
+>
+> Of course, if memory is really tight, even an ATOMIC order-3 allocati=
+on
+> might fail. If this happens, device limit could be dynamically
+> decreased. In the end, only linear skb could be built by TCP.
+>
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
