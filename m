@@ -1,10 +1,9 @@
 From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Subject: Re: [PATCH v6 07/10] Display current tcp memory allocation in kmem
- cgroup
-Date: Mon, 28 Nov 2011 13:20:27 +0900
-Message-ID: <20111128132027.1551a7b0.kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [PATCH v6 08/10] Display current tcp failcnt in kmem cgroup
+Date: Mon, 28 Nov 2011 13:21:28 +0900
+Message-ID: <20111128132128.e9a0774d.kamezawa.hiroyu@jp.fujitsu.com>
 References: <1322242696-27682-1-git-send-email-glommer@parallels.com>
-	<1322242696-27682-8-git-send-email-glommer@parallels.com>
+	<1322242696-27682-9-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -15,16 +14,18 @@ Cc: linux-kernel@vger.kernel.org, lizf@cn.fujitsu.com,
  eric.dumazet@gmail.com, cgroups@vger.kernel.org
 To: Glauber Costa <glommer@parallels.com>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1322242696-27682-8-git-send-email-glommer@parallels.com>
+In-Reply-To: <1322242696-27682-9-git-send-email-glommer@parallels.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 25 Nov 2011 15:38:13 -0200
+On Fri, 25 Nov 2011 15:38:14 -0200
 Glauber Costa <glommer@parallels.com> wrote:
 
-> This patch introduces kmem.tcp.usage_in_bytes file, living in the
-> kmem_cgroup filesystem. It is a simple read-only file that displays the
-> amount of kernel memory currently consumed by the cgroup.
+> This patch introduces kmem.tcp.failcnt file, living in the
+> kmem_cgroup filesystem. Following the pattern in the other
+> memcg resources, this files keeps a counter of how many times
+> allocation failed due to limits being hit in this cgroup.
+> The root cgroup will always show a failcnt of 0.
 > 
 > Signed-off-by: Glauber Costa <glommer@parallels.com>
 > CC: David S. Miller <davem@davemloft.net>
