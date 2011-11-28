@@ -1,35 +1,64 @@
-From: paul bilke <fsmail@conspiracy.net>
-Subject: Re: Udp packets received with improper length
-Date: Mon, 28 Nov 2011 15:23:52 -0600
-Message-ID: <4ED3FBE8.2010006@conspiracy.net>
-References: <4ECD540C.60108@conspiracy.net>
-Reply-To: fsmail@conspiracy.net
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH] staging: hv: move hv_netvsc out of staging area
+Date: Mon, 28 Nov 2011 22:00:35 +0000
+Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0CCCC087@TK5EX14MBXC227.redmond.corp.microsoft.com>
+References: <1322516135-22221-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: gerrit@erg.abdn.ac.uk
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway12.websitewelcome.com ([67.18.137.84]:43773 "EHLO
-	gateway.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752053Ab1K1VvZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 16:51:25 -0500
-Received: from phantom.websitewelcome.com (phantom.websitewelcome.com [174.120.148.130])
-	by gateway.websitewelcome.com (Postfix) with ESMTP id 126455B42B882
-	for <netdev@vger.kernel.org>; Mon, 28 Nov 2011 15:23:55 -0600 (CST)
-In-Reply-To: <4ECD540C.60108@conspiracy.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Mike Sterling <Mike.Sterling@microsoft.com>,
+	KY Srinivasan <kys@microsoft.com>
+To: "gregkh@suse.de" <gregkh@suse.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	NetDev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1322516135-22221-1-git-send-email-haiyangz@microsoft.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/23/2011 2:14 PM, paul bilke wrote:
-> We recently updated an embedded powerpc platform from 2.6.32 to 2.6.37.  When deployed in the field devices with the new kernel have started receiving truncated UDP packets from their mates across noisy links.  To test we wrote a simple client and
-> server.  The client sends 512 byte packets with a sequence number to the server listening on a UDP socket.  On the client box we use netem to corrupt 100% of the packets sent(after transferring some data so arp cache is populated).  The server then
-> dumps the length received and the serial number from any packets that are received.   Netem sometimes corrupts bits in the source MAC address so these packets arrive with valid UDP checksums and are delivered to the user application.   With the
-> server running on the 2.6.32 box we send a few million packets to it and only receive packets that are exactly 512 bytes long.  When we do the same on the box running 2.6.37 we receive hundred of short packets, zero length and also 504 byte packets.
-> When I use TCPdump on the box running 2.6.37 the truncate packets have valid checksums (Source MAC was corrupted by NETEM) and are of proper length (554 byte ethernet frame, 540 Byte IP portion and 520 byte UDP length) but the userland receives 504
-> or 0 length in recvfrom. To see if this was just a powerpc related issue I repeated the test on x86 virtual machines.  A vm running 2.6.18 (Centos 5) receives only 512 byte packets.  On a vm running 2.6.40 (Fedora 15) I receive 512, 504 and 0 length
-> packets.
-<clip>
+> -----Original Message-----
+> From: Haiyang Zhang [mailto:haiyangz@microsoft.com]
+> Sent: Monday, November 28, 2011 4:36 PM
+> To: Haiyang Zhang; KY Srinivasan; gregkh@suse.de; linux-
+> kernel@vger.kernel.org; devel@linuxdriverproject.org
+> Cc: Mike Sterling; NetDev
+> Subject: [PATCH] staging: hv: move hv_netvsc out of staging area
+> 
+> hv_netvsc has been reviewed on netdev mailing list on 6/09/2011.
+> All recommended changes have been made. We are requesting to move it
+> out of staging area.
+> 
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Signed-off-by: KY Srinivasan <kys@microsoft.com>
+> Signed-off-by: Mike Sterling <Mike.Sterling@microsoft.com>
+> Cc: NetDev <netdev@vger.kernel.org>
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+> ---
+>  drivers/net/Kconfig                               |    2 ++
+>  drivers/net/Makefile                              |    2 ++
+>  drivers/net/hyperv/Kconfig                        |    5 +++++
+>  drivers/net/hyperv/Makefile                       |    3 +++
+>  drivers/{staging/hv => net/hyperv}/hyperv_net.h   |    0
+>  drivers/{staging/hv => net/hyperv}/netvsc.c       |    0
+>  drivers/{staging/hv => net/hyperv}/netvsc_drv.c   |    0
+>  drivers/{staging/hv => net/hyperv}/rndis_filter.c |    0
+>  drivers/staging/hv/Kconfig                        |    6 ------
+>  drivers/staging/hv/Makefile                       |    2 --
+>  drivers/staging/hv/TODO                           |    1 -
+>  11 files changed, 12 insertions(+), 9 deletions(-)  create mode 100644
+> drivers/net/hyperv/Kconfig  create mode 100644
+> drivers/net/hyperv/Makefile  rename drivers/{staging/hv =>
+> net/hyperv}/hyperv_net.h (100%)  rename drivers/{staging/hv =>
+> net/hyperv}/netvsc.c (100%)  rename drivers/{staging/hv =>
+> net/hyperv}/netvsc_drv.c (100%)  rename drivers/{staging/hv =>
+> net/hyperv}/rndis_filter.c (100%)
+> 
 
-Reverting commit 81d54ec8479a2c695760da81f05b5a9fb2dbe40a makes this problem disappear. The patch looks sane, the results are problematic.
-Paul Bilke
+I have rebased the previous patch on the latest staging-next branch, and re-submitting it now.
+In another email, the same patch was submitted without using the "-M" flag, in case anyone
+wants to read the unchanged code in the patch body.
+
+Thanks,
+- Haiyang
