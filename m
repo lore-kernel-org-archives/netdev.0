@@ -1,66 +1,90 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: ebtables on a stick
-Date: Tue, 29 Nov 2011 11:23:38 +0100
-Message-ID: <20111129102338.GF589422@jupiter.n2.diac24.net>
-References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com>
- <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com>
- <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com>
- <20111128143901.GA589422@jupiter.n2.diac24.net>
- <925A849792280C4E80C5461017A4B8A2A0488A@mail733.InfraSupportEtc.com>
- <20111128153002.GB589422@jupiter.n2.diac24.net>
- <925A849792280C4E80C5461017A4B8A2A048BC@mail733.InfraSupportEtc.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] netstamp_needed shouldn't be jump_label_key
+Date: Tue, 29 Nov 2011 11:27:30 +0100
+Message-ID: <1322562450.2285.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <igorm@etf.rs> <1322511796-6908-1-git-send-email-igorm@etf.rs>
+	 <1322511796-6908-2-git-send-email-igorm@etf.rs>
+	 <1322512426.2970.15.camel@edumazet-laptop>
+	 <1322515010.2970.24.camel@edumazet-laptop>
+	 <fba9911084786bf04747c0350e774615.squirrel@kondor.etf.bg.ac.rs>
+	 <1322559093.2970.102.camel@edumazet-laptop>
+	 <88caa73892721f74b81e72c1ff1a0be3.squirrel@kondor.etf.bg.ac.rs>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org
-To: Greg Scott <GregScott@Infrasupport.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: igorm@etf.rs
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:33394 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752866Ab1K2KXq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Nov 2011 05:23:46 -0500
-Content-Disposition: inline
-In-Reply-To: <925A849792280C4E80C5461017A4B8A2A048BC@mail733.InfraSupportEtc.com>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:59137 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753474Ab1K2K1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 05:27:36 -0500
+Received: by vbbfc26 with SMTP id fc26so4582756vbb.19
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 02:27:35 -0800 (PST)
+In-Reply-To: <88caa73892721f74b81e72c1ff1a0be3.squirrel@kondor.etf.bg.ac.rs>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 29, 2011 at 04:05:18AM -0600, Greg Scott wrote:
-> > We already had this discussion in July.
-> >
-> > "ip neigh add proxy" is independent of /proc/.../proxy_arp.
-> 
-> We did discuss this back in July but never finished.  I posted a bunch
-> of questions about "ip neigh add proxy" because I haven't seen much in
-> the way of documentation.  When nobody answered, I left it alone for a
-> while.  
-> 
-> I found a discussion starting here:
-> http://lkml.indiana.edu/hypermail/linux/kernel/0110.2/0523.html
-> 
-> where some of the kernel folks are suggesting "ip neigh add proxy" is
-> deprecated.  By now that discussion is 10 years old and it apparently is
-> still around.  But for how long?
+Le mardi 29 novembre 2011 =C3=A0 10:48 +0100, "Igor Maravi=C4=87" a =C3=
+=A9crit :
 
-While the feature is still around after 10 years, Alexey isn't touching
-the network stack much anymore. Funny, that.
+>=20
+> PS. Tested the patch - it works.
+>=20
+> [PATCH 1/1] Warning if_interrupt is true
 
-> Appendix B of this 2007 document, http://linux-ip.net/html/index.html,
-> by Martin Brown also says "ip neigh add proxy" is deprecated.
->
-> So now, in addition to my paranoia about proxy ARP in general, I have
-> this fear I will build a bunch of scripting around "ip neigh add proxy"
-> only to find it's gone in a future kernel, leaving me in a world of hurt
-> again.
->
-> So humor me and convince me that "ip neigh add" is not on the chopping
-> block so I can try it with a little bit of confidence.
+=46ew remarks, since you start to send official patches ;)
 
-I'll humor myself instead. I'm shipping this as a feature to customers,
-so if it comes up for chopping I'll have to maintain it myself
-worst-case.
+- Since its not a serie of several patches, you dont need the 1/1
+- Since tree is net-next, not net, you should say it to David
+- We need a better title, with subsystem: tag, for example
 
-(I wasn't actually aware that this is supposed to be deprecated. Yes,
-it's buggy in that you need "arp" to show the entries, but that's exacly
-that - a low-severity bug.)
+Here, it can be "net:"
 
+[PATCH net-next] net: check net_enable_timestamp() is not called in irq=
+ context
 
--David
+>=20
+> Move warning on the top of function net_enable_timestamp,
+> so we would be also warn if we are going to use jump_label_dec in int=
+errupt
+>=20
+> Signed-off-by: Igor Maravic <igorm@etf.rs>
+>=20
+> :100644 100644 45eab03... d358088... M	net/core/dev.c
+>=20
+
+Missing "---" separator
+
+Please carefully read Documentation/SubmittingPatches
+
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 45eab03..d358088 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1451,16 +1451,18 @@ static atomic_t netstamp_needed_deferred;
+>=20
+>  void net_enable_timestamp(void)
+>  {
+> +	WARN_ON(in_interrupt());
+>  #ifdef HAVE_JUMP_LABEL
+> -	int deferred =3D atomic_xchg(&netstamp_needed_deferred, 0);
+> -
+> -	if (deferred) {
+> -		while (--deferred)
+> -			jump_label_dec(&netstamp_needed);
+> -		return;
+> +	{
+> +		int deferred =3D atomic_xchg(&netstamp_needed_deferred, 0);
+> +
+> +		if (deferred) {
+> +			while (--deferred)
+> +				jump_label_dec(&netstamp_needed);
+> +			return;
+> +		}
+>  	}
+>  #endif
+> -	WARN_ON(in_interrupt());
+>  	jump_label_inc(&netstamp_needed);
+>  }
+>  EXPORT_SYMBOL(net_enable_timestamp);
