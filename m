@@ -1,63 +1,106 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next v2 1/4] can: cc770: add
- driver core for the Bosch CC770 and Intel AN82527
-Date: Tue, 29 Nov 2011 10:20:13 +0100
-Message-ID: <4ED4A3CD.4060908@grandegger.com>
-References: <1322214204-1121-1-git-send-email-wg@grandegger.com>
-	<1322214204-1121-2-git-send-email-wg@grandegger.com>
-	<4ED3704D.5020903@pengutronix.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] netstamp_needed shouldn't be jump_label_key
+Date: Tue, 29 Nov 2011 10:31:33 +0100
+Message-ID: <1322559093.2970.102.camel@edumazet-laptop>
+References: <igorm@etf.rs> <1322511796-6908-1-git-send-email-igorm@etf.rs>
+	 <1322511796-6908-2-git-send-email-igorm@etf.rs>
+	 <1322512426.2970.15.camel@edumazet-laptop>
+	 <1322515010.2970.24.camel@edumazet-laptop>
+	 <fba9911084786bf04747c0350e774615.squirrel@kondor.etf.bg.ac.rs>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4ED3704D.5020903-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
-List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: igorm@etf.rs
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:35244 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753188Ab1K2Jbj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 04:31:39 -0500
+Received: by vbbfc26 with SMTP id fc26so4557450vbb.19
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 01:31:38 -0800 (PST)
+In-Reply-To: <fba9911084786bf04747c0350e774615.squirrel@kondor.etf.bg.ac.rs>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Marc,
+Le mardi 29 novembre 2011 =C3=A0 10:03 +0100, "Igor Maravi=C4=87" a =C3=
+=A9crit :
+> >
+> > Could you test following patch ?
+> >
+>=20
+> I've just put it to compile. I'l let you know soon as it finishes com=
+piling.
+>=20
+> I have one proposition for your patch. To put WARN_ON before in ifdef=
+ endif,
+> because we don't needed if we don't have HAVE_JUMP_LABEL, and also to=
+ check it
+> before using jump_label_dec.
+>=20
+> Also I have few questions :)
+>=20
+> First - why can't we use spin_lock on jump_label?
+>=20
+> I know that You said that is because we are using mutex_lock in
+> arch_jump_label_transform() or text_poke_smp(), but I don't see why c=
+ouldn't
+> we use mutex_lock inside spin_lock.
+>=20
 
-On 11/28/2011 12:28 PM, Marc Kleine-Budde wrote:
-> On 11/25/2011 10:43 AM, Wolfgang Grandegger wrote:
->> Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
->> ---
->>  drivers/net/can/Kconfig            |    2 +
->>  drivers/net/can/Makefile           |    1 +
->>  drivers/net/can/cc770/Kconfig      |    3 +
->>  drivers/net/can/cc770/Makefile     |    7 +
->>  drivers/net/can/cc770/cc770.c      |  895 ++++++++++++++++++++++++++++++++++++
->>  drivers/net/can/cc770/cc770.h      |  234 ++++++++++
->>  include/linux/can/platform/cc770.h |   33 ++
->>  7 files changed, 1175 insertions(+), 0 deletions(-)
->>  create mode 100644 drivers/net/can/cc770/Kconfig
->>  create mode 100644 drivers/net/can/cc770/Makefile
->>  create mode 100644 drivers/net/can/cc770/cc770.c
->>  create mode 100644 drivers/net/can/cc770/cc770.h
->>  create mode 100644 include/linux/can/platform/cc770.h
-> 
-> I don't know the hardware, but the code looks good to me, some comments:
-> - The driver doesn't use NAPI, can this be added
-> - The rx-handlers have a while(1) loop
->   For NAPI you have to add accounting, for the non NAPI case it would
->   be good, too.
-> - I think you can move a large number of lines from the .h file into
->   the driver. Code that's not used in the different binding drivers.
-> 
-> More comments inline (mostly nitpicking)
 
-I just sent out v4. For the sake of readability, I finally did not move
-most of the head definitions in cc770.h into cc770.c and used the
-variable name "o" consistently for the message object index (instead of
-using "i").
+Try it, you'll see how bad it is.
 
-Wolfgang.
+> To me using spin_lock_irqsave and spin_lock_irqrestore does sound lik=
+e as most logical solution.
+> With that lock, we would be sure that our mutex_lock in arch_jump_lab=
+el_transform() or text_poke_smp()
+> isn't going to be interrupted.
+> Please correct if I'm wrong.
+>=20
+> Also I saw that you put calling of net_enable_timestamp outside of sp=
+in_lock_bh
+> Why?
+>=20
+
+Because its the same problem. We want to be allowed to sleep.
+
+> BR
+> Igor
+>=20
+> [PATCH 1/1] jump_label warning if_interrupt
+>=20
+> Move warning on the top of function net_enable_timestamp,
+> so we would be also warn if we are going to jump_label_dec in interru=
+pt
+>=20
+> Signed-off-by: Igor Maravic <igorm@etf.rs>
+>=20
+> :100644 100644 45eab03... ef23cf7... M	net/core/dev.c
+>=20
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 45eab03..ef23cf7 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1453,6 +1453,7 @@ void net_enable_timestamp(void)
+>  {
+>  #ifdef HAVE_JUMP_LABEL
+>  	int deferred =3D atomic_xchg(&netstamp_needed_deferred, 0);
+> +	WARN_ON(in_interrupt());
+>=20
+>  	if (deferred) {
+>  		while (--deferred)
+> @@ -1460,7 +1461,6 @@ void net_enable_timestamp(void)
+>  		return;
+>  	}
+>  #endif
+> -	WARN_ON(in_interrupt());
+>  	jump_label_inc(&netstamp_needed);
+>  }
+>  EXPORT_SYMBOL(net_enable_timestamp);
+
+Its better to have coverage of the test, even on machines with no
+HAVE_JUMP_LABEL.
+
+So move the test before the=20
+#ifdef HAVE_JUMP_LABEL
