@@ -1,26 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 0/9] bnx2x: Link changes
-Date: Tue, 29 Nov 2011 01:21:17 -0500 (EST)
-Message-ID: <20111129.012117.1380191345797992981.davem@davemloft.net>
-References: <1322477393-22904-1-git-send-email-yanivr@broadcom.com>
+Subject: Re: [PATCH] net/ethernet: convert drivers/net/ethernet/* to use
+ module_platform_driver()
+Date: Tue, 29 Nov 2011 01:17:17 -0500 (EST)
+Message-ID: <20111129.011717.1510779658553334799.davem@davemloft.net>
+References: <1322448257.2408.6.camel@phoenix>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yanivr@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34942 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751665Ab1K2GVU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 01:21:20 -0500
-In-Reply-To: <1322477393-22904-1-git-send-email-yanivr@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, pantelis.antoniou@gmail.com,
+	vbordug@ru.mvista.com, mcuos.com@gmail.com, nico@fluxnic.net,
+	peppe.cavallaro@st.com, mkl@pengutronix.de,
+	jeffrey.t.kirsher@intel.com, jpirko@redhat.com, daniel@gaisler.com,
+	adobriyan@gmail.com, tklauser@distanz.ch,
+	grant.likely@secretlab.ca, jkosina@suse.cz,
+	richard.cochran@omicron.at, jonas@southpole.se,
+	sebastian.poehn@belden.com, yoshihiro.shimoda.uh@renesas.com,
+	ricardo.ribalda@gmail.com, mirq-linux@rere.qmqm.pl,
+	netdev@vger.kernel.org
+To: axel.lin@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1322448257.2408.6.camel@phoenix>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Yaniv Rosner" <yanivr@broadcom.com>
-Date: Mon, 28 Nov 2011 12:49:44 +0200
+From: Axel Lin <axel.lin@gmail.com>
+Date: Mon, 28 Nov 2011 10:44:17 +0800
 
-> The following patch series describe some link changes.
-> Please consider applying it to net-next.
+> This patch converts the drivers in drivers/net/ethernet/* to use the
+> module_platform_driver() macro which makes the code smaller and a bit
+> simpler.
+> 
+> Signed-off-by: Axel Lin <axel.lin@gmail.com>
 
-Series applied.
+Applied.
