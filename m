@@ -1,40 +1,41 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: RCU'ed dst_get_neighbour()
-Date: Wed, 30 Nov 2011 00:25:43 +0100
-Message-ID: <1322609143.2596.54.camel@edumazet-laptop>
-References: <1322606542.2596.43.camel@edumazet-laptop>
-	 <alpine.WNT.2.00.1111291600220.228@TSI>
-	 <1322608261.2596.48.camel@edumazet-laptop>
-	 <20111129.182441.956675970003939556.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fix skb_update_prio
+Date: Tue, 29 Nov 2011 18:25:58 -0500 (EST)
+Message-ID: <20111129.182558.1550247306028343406.davem@davemloft.net>
+References: <igorm@etf.rs>
+	<1322243094-10420-1-git-send-email-igorm@etf.rs>
+	<1322243094-10420-2-git-send-email-igorm@etf.rs>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: tsi-yfeSBMgouQgsA/PxXw9srA@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20111129.182441.956675970003939556.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: igorm@etf.rs
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:44466 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756425Ab1K2X0E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 18:26:04 -0500
+In-Reply-To: <1322243094-10420-2-git-send-email-igorm@etf.rs>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 29 novembre 2011 =C3=A0 18:24 -0500, David Miller a =C3=A9crit=
- :
-> From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Wed, 30 Nov 2011 00:11:01 +0100
->=20
-> > For example, recently added skb_update_prio() is buggy, since it us=
-es
-> > rcu_dereference() while its caller, dev_queue_xmit() called
-> > rcu_read_lock_bh()
->=20
-> We have a fixed queued up for that from Igor, I'll apply that right n=
-ow.
+From: igorm@etf.rs
+Date: Fri, 25 Nov 2011 18:44:54 +0100
 
-OK, fine :)
+> From: Igor Maravic <igorm@etf.rs>
+> 
+> Change function rcu_dereference to rcu_dereference_bh to avoid warning
+> 
+> [ INFO: suspicious RCU usage. ]
+> -------------------------------
+> net/core/dev.c:2459 suspicious rcu_dereference_check() usage!
+> 
+> because we are locking with
+> 
+> rcu_read_lock_bh();
+> 
+> in function dev_queue_xmit(struct sk_buff *skb)
+> 
+> Signed-off-by: Igor Maravic <igorm@etf.rs>
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
