@@ -1,33 +1,60 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Daughterboard Jetway JAD3RTLANG with three RTL-8110SC/8169SC Gigabit Ethernet is curious
-Date: Wed, 30 Nov 2011 00:04:04 +0100
-Message-ID: <20111129230404.GB11127@electric-eye.fr.zoreil.com>
-References: <jb0d7u$bbb$1@dough.gmane.org> <201111291012.25426.carsten@wolffcarsten.de> <4ED4E946.40209@gmx.de>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: RCU'ed dst_get_neighbour()
+Date: Wed, 30 Nov 2011 00:11:01 +0100
+Message-ID: <1322608261.2596.48.camel@edumazet-laptop>
+References: <alpine.WNT.2.00.1111291027320.1036@TSI>
+	 <1322589661.2596.2.camel@edumazet-laptop>
+	 <1322599437.2596.10.camel@edumazet-laptop>
+	 <CAG4TOxNJfr3X1p358LBWdNQKdkw8KOSekcKpNu6K5_phPEiR4A@mail.gmail.com>
+	 <1322599991.2596.11.camel@edumazet-laptop>
+	 <alpine.WNT.2.00.1111291359290.1036@TSI>
+	 <1322601444.2596.21.camel@edumazet-laptop>
+	 <1322602283.2596.25.camel@edumazet-laptop>
+	 <alpine.WNT.2.00.1111291527360.228@TSI>
+	 <1322606542.2596.43.camel@edumazet-laptop>
+	 <alpine.WNT.2.00.1111291600220.228@TSI>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Markus Feldmann <feldmann_markus@gmx.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:42698 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753308Ab1K2XKS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 18:10:18 -0500
-Content-Disposition: inline
-In-Reply-To: <4ED4E946.40209@gmx.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marc Aurele La France <tsi-yfeSBMgouQgsA/PxXw9srA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.WNT.2.00.1111291600220.228@TSI>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Markus Feldmann <feldmann_markus@gmx.de> :
-[...]
-> You mean the latest Linux kernel was patched for a better
-> initialization? At the moment i am using the kernel 3.0.8. As i
-> understood the firmware must be loaded at every power on.
+Le mardi 29 novembre 2011 =C3=A0 16:03 -0700, Marc Aurele La France a =C3=
+=A9crit :
 
-What do you mean ? Afaik there is no out-of-driver firmware for the
-(old) 8169sc.
+> No, only warnings (splats as you call them) would be produced.  The f=
+act=20
+> is you added side-effects to dst_get_neighbour(), and I would expect =
+all=20
+> its invocations to be affected.
+>=20
 
-Can either of you or Carsten compare and send 'lspci -vv' before and
-after windows installs ?
+A splat _is_ a bad thing.
 
--- 
-Ueimor
+We certainly have some bugs, but I sent an infiniband patch, not a
+'change the world' one ;)
+
+Most of the network stack is run under rcu_read_lock() already.
+
+If you notice other lockdep splats, please shout :)
+
+Some changes are needed now rcu_read_lock_bh() doesnt imply
+rcu_read_lock().
+
+=46or example, recently added skb_update_prio() is buggy, since it uses
+rcu_dereference() while its caller, dev_queue_xmit() called
+rcu_read_lock_bh()
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
