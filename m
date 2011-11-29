@@ -1,34 +1,41 @@
-From: Josh Boyer <jwboyer@gmail.com>
-Subject: Re: Bonding fixes for 2.6.33.y
-Date: Tue, 29 Nov 2011 18:46:24 -0500
-Message-ID: <CA+5PVA6-tF5bPFwWQRKgit-m-BqQeK9TwsTTw4GkPWsNRettZQ@mail.gmail.com>
-References: <1322533200.26733.15.camel@bwh-desktop>
-	<20111129224909.GA27909@kroah.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] icplus: mdio_write(), remove unnecessary for loop
+Date: Tue, 29 Nov 2011 18:47:58 -0500 (EST)
+Message-ID: <20111129.184758.1166451793914536662.davem@davemloft.net>
+References: <1322149145-32242-1-git-send-email-patrick.kelle81@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Ben Hutchings <bhutchings@solarflare.com>, stable@vger.kernel.org,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org
-To: Greg KH <greg@kroah.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com, sorbica@icplus.com.tw
+To: patrick.kelle81@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:58492 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756571Ab1K2XqZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 18:46:25 -0500
-In-Reply-To: <20111129224909.GA27909@kroah.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:44652 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756571Ab1K2XtP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 18:49:15 -0500
+In-Reply-To: <1322149145-32242-1-git-send-email-patrick.kelle81@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 29, 2011 at 5:49 PM, Greg KH <greg@kroah.com> wrote:
-> On Tue, Nov 29, 2011 at 02:19:59AM +0000, Ben Hutchings wrote:
->> These have been applied to 2.6.32.y but are missing from 2.6.33.y:
->
-> Perhaps because 2.6.33.y is not end-of-life and is not having any more
-> releases?
+From: Patrick Kelle <patrick.kelle81@gmail.com>
+Date: Thu, 24 Nov 2011 16:39:05 +0100
 
-s/is not end-of-life/is now end-of-life/
+> At this point the variable j is always set to 7 and the code within
+> the loop has to run only once anyway.
+> 
+> Signed-off-by: Patrick Kelle <patrick.kelle81@gmail.com>
 
-?
+You can simply this even further since p[7] is what is used here,
+and this means len is one, the inner loop therefore executes only
+once, and the p[7].field value is not used (it's zero in the table)
+and the write to it is completely thrown away.
 
-josh
+It all reduces to something like:
+
+	ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_LO | polarity);
+	ipg_r8(PHY_CTRL);
+	ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_HI | polarity);
+
+Which is just asserting the management clock low, then high, and
+doing a PHY_CTRL read in between to force the write out, the read
+data is not used at all.
