@@ -1,96 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: avoid frag allocation for small frames
-Date: Tue, 29 Nov 2011 08:51:50 +0100
-Message-ID: <1322553110.2970.79.camel@edumazet-laptop>
-References: <1319286237.6180.49.camel@edumazet-laptop>
-	 <CAGK4HS_Nryz6jWuqcHPu8AK1Rp6kFRp6M_y-yaGFcnX+pjX47Q@mail.gmail.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH v4 0/10] bql: Byte Queue Limits
+Date: Tue, 29 Nov 2011 00:03:40 -0800
+Message-ID: <4ED491DC.8030304@intel.com>
+References: <alpine.DEB.2.00.1111281825200.25622@pokey.mtv.corp.google.com>   <CAA93jw7P=7YMOS_sMQWBJx0UJ6e+xw4e_hw8szNiVTOjGNwukw@mail.gmail.com>  <1322550138.2970.70.camel@edumazet-laptop> <4ED4885F.8060309@intel.com> <1322552733.2970.78.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Cc: Dave Taht <dave.taht@gmail.com>, Tom Herbert <therbert@google.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:49704 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752879Ab1K2Hv4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 02:51:56 -0500
-Received: by bkas6 with SMTP id s6so134112bka.19
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2011 23:51:55 -0800 (PST)
-In-Reply-To: <CAGK4HS_Nryz6jWuqcHPu8AK1Rp6kFRp6M_y-yaGFcnX+pjX47Q@mail.gmail.com>
+Received: from mga14.intel.com ([143.182.124.37]:51862 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751857Ab1K2IDm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Nov 2011 03:03:42 -0500
+In-Reply-To: <1322552733.2970.78.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 28 novembre 2011 =C3=A0 17:04 -0800, Vijay Subramanian a =C3=A9=
+On 11/28/2011 11:45 PM, Eric Dumazet wrote:
+> Le lundi 28 novembre 2011 =C3=A0 23:23 -0800, John Fastabend a =C3=A9=
 crit :
-> On 22 October 2011 05:23, Eric Dumazet <eric.dumazet@gmail.com> wrote=
-:
-> > tcp_sendmsg() uses select_size() helper to choose skb head size whe=
+>=20
+>> I wonder if we should consider enabling TSO/GSO per queue or per tra=
+ffic
+>> class on devices that support this. At least in devices that support
+>> multiple traffic classes it seems to be a common usage case to put b=
+ulk
+>> storage traffic (iSCSI) on a traffic class and low latency traffic o=
 n a
-> > new skb must be allocated.
-> >
-> > If GSO is enabled for the socket, current strategy is to force all
-> > payload data to be outside of headroom, in PAGE fragments.
-> >
-> > This strategy is not welcome for small packets, wasting memory.
-> >
-> > Experiments show that best results are obtained when using 2048 byt=
-es
-> > for skb head (This includes the skb overhead and various headers)
-> >
-> > This patch provides better len/truesize ratios for packets sent to
-> > loopback device, and reduce memory needs for in-flight loopback pac=
-kets,
-> > particularly on arches with big pages.
-> >
-> > If a sender sends many 1-byte packets to an unresponsive applicatio=
-n,
-> > receiver rmem_alloc will grow faster and will stop queuing these pa=
-ckets
-> > sooner, or will collapse its receive queue to free excess memory.
-> >
-> > netperf -t TCP_RR results are improved by ~4 %, and many workloads =
-are
-> > improved as well (tbench, mysql...)
-> >
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> > ---
-> >  net/ipv4/tcp.c |    9 ++++++---
-> >  1 file changed, 6 insertions(+), 3 deletions(-)
-> >
-> > diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> > index 704adad..cd45b44 100644
-> > --- a/net/ipv4/tcp.c
-> > +++ b/net/ipv4/tcp.c
-> > @@ -897,9 +897,12 @@ static inline int select_size(const struct soc=
-k *sk, int sg)
-> >        int tmp =3D tp->mss_cache;
-> >
-> >        if (sg) {
-> > -               if (sk_can_gso(sk))
-> > -                       tmp =3D 0;
-> > -               else {
-> > +               if (sk_can_gso(sk)) {
-> > +                       /* Small frames wont use a full page:
-> > +                        * Payload will immediately follow tcp head=
-er.
-> > +                        */
-> > +                       tmp =3D SKB_WITH_OVERHEAD(2048 - MAX_TCP_HE=
-ADER);
-> > +               } else {
-> >                        int pgbreak =3D SKB_MAX_HEAD(MAX_TCP_HEADER)=
-;
-> >
-> >                        if (tmp >=3D pgbreak &&
-> >
-> >
+>> separate traffic class, VoIP for example.
+>>
 >=20
->=20
->=20
-> This patch from Eric fixing select_size in tcp.c was queued to be
-> applied but does not seem to be in net-next tree. Was this somehow
-> overlooked or have I missed something?
+> It all depends on how device itself is doing its mux from queues to
+> ethernet wire. If queue 0 starts transmit of one 64KB 'super packet',
+> will queue 1 be able to insert a litle frame between the frames of qu=
+eue
+> 0 ?
 >=20
 
-Good catch Vijay, thanks for noticing !
+Yes this works at least on the ixgbe supported 82599 device as you
+would hope. 'super packets' from queues can and will be interleaved,
+perhaps with standard sized packets, depending on the currently
+configured arbitration scheme. So with multiple traffic classes we
+can make a link strict 'low latency' class to TX frames as soon as
+they are available.
 
-David, do you want me to respin this ?
+Also I would expect this to work correctly on any of the coined
+CNA devices, the bnx2x devices for example. I'll probably see what
+can be done after finishing up some other things first.
