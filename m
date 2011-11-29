@@ -1,75 +1,332 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: is non-inheritance of congestion control algorithm from the listen
- socket a bug or a feature?
-Date: Tue, 29 Nov 2011 12:03:45 -0800
-Message-ID: <4ED53AA1.9090800@hp.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] can: Update logging style
+Date: Tue, 29 Nov 2011 21:06:31 +0100
+Message-ID: <4ED53B47.1030703@pengutronix.de>
+References: <30551d0a6a0f7f7799a6981c81c770a528f430d2.1322592708.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:35414 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754334Ab1K2UDr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 15:03:47 -0500
-Received: from g4t0018.houston.hp.com (g4t0018.houston.hp.com [16.234.32.27])
-	by g4t0016.houston.hp.com (Postfix) with ESMTP id CDF68141F8
-	for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 20:03:46 +0000 (UTC)
-Received: from [16.89.64.213] (tardy.cup.hp.com [16.89.64.213])
-	by g4t0018.houston.hp.com (Postfix) with ESMTP id 9599F100FA
-	for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 20:03:46 +0000 (UTC)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig0EEC2B802DDCE32A2E224DA0"
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>,
+	"David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <30551d0a6a0f7f7799a6981c81c770a528f430d2.1322592708.git.joe@perches.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dave Taht asked me if I would consider adding control/reporting of the 
-congestion control algorithm to netperf.  I'm in the midst of doing that 
-and have noticed that setting a valid congestion control algorithm on a 
-listen endpoint does not seem to be inherited by subsequent connections. 
-  Rather than rely on netperf/netserver I cobbled-together a quick test 
-program to show what I mean.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig0EEC2B802DDCE32A2E224DA0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-raj@raj-ubuntu-guest:~$ uname -a
-Linux raj-ubuntu-guest 3.2.0-rc2+ #1 SMP Mon Nov 28 16:39:21 PST 2011 
-x86_64 x86_64 x86_64 GNU/Linux
+On 11/29/2011 07:54 PM, Joe Perches wrote:
+> Use pr_fmt, pr_<level> and pr_<level>_ratelimited.
+> Coalesce format strings.
+>=20
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-raj@raj-ubuntu-guest:~$ find /proc -name "*cong*" -print -exec cat {} \; 
-2>/dev/null
-/proc/sys/net/ipv4/tcp_congestion_control
-cubic
-/proc/sys/net/ipv4/tcp_available_congestion_control
-cubic reno
-/proc/sys/net/ipv4/tcp_allowed_congestion_control
-cubic reno
+The banners will probably looking a bit different, but I think nobody is
+screen scraping that output :)
+
+Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> ---
+>  net/can/af_can.c |   31 ++++++++++++++-----------------
+>  net/can/bcm.c    |   14 ++++++++------
+>  net/can/gw.c     |    6 ++++--
+>  net/can/proc.c   |    8 ++++----
+>  net/can/raw.c    |    8 +++++---
+>  5 files changed, 35 insertions(+), 32 deletions(-)
+>=20
+> diff --git a/net/can/af_can.c b/net/can/af_can.c
+> index 0ce2ad0..c4f0da5 100644
+> --- a/net/can/af_can.c
+> +++ b/net/can/af_can.c
+> @@ -40,6 +40,8 @@
+>   *
+>   */
+> =20
+> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> +
+>  #include <linux/module.h>
+>  #include <linux/init.h>
+>  #include <linux/kmod.h>
+> @@ -62,8 +64,8 @@
+> =20
+>  #include "af_can.h"
+> =20
+> -static __initdata const char banner[] =3D KERN_INFO
+> -	"can: controller area network core (" CAN_VERSION_STRING ")\n";
+> +static __initdata const char banner[] =3D
+> +	"controller area network core (" CAN_VERSION_STRING ")";
+> =20
+>  MODULE_DESCRIPTION("Controller Area Network PF_CAN core");
+>  MODULE_LICENSE("Dual BSD/GPL");
+> @@ -161,8 +163,8 @@ static int can_create(struct net *net, struct socke=
+t *sock, int protocol,
+>  		 * return -EPROTONOSUPPORT
+>  		 */
+>  		if (err)
+> -			printk_ratelimited(KERN_ERR "can: request_module "
+> -			       "(can-proto-%d) failed.\n", protocol);
+> +			pr_err_ratelimited("request_module (can-proto-%d) failed\n",
+> +					   protocol);
+> =20
+>  		cp =3D can_get_proto(protocol);
+>  	}
+> @@ -505,8 +507,7 @@ void can_rx_unregister(struct net_device *dev, cani=
+d_t can_id, canid_t mask,
+> =20
+>  	d =3D find_dev_rcv_lists(dev);
+>  	if (!d) {
+> -		printk(KERN_ERR "BUG: receive list not found for "
+> -		       "dev %s, id %03X, mask %03X\n",
+> +		pr_err("BUG: receive list not found for dev %s, id %03X, mask %03X\n=
+",
+>  		       DNAME(dev), can_id, mask);
+>  		goto out;
+>  	}
+> @@ -532,8 +533,7 @@ void can_rx_unregister(struct net_device *dev, cani=
+d_t can_id, canid_t mask,
+>  	 */
+> =20
+>  	if (!next) {
+> -		printk(KERN_ERR "BUG: receive list entry not found for "
+> -		       "dev %s, id %03X, mask %03X\n",
+> +		pr_err("BUG: receive list entry not found for dev %s, id %03X, mask =
+%03X\n",
+>  		       DNAME(dev), can_id, mask);
+>  		r =3D NULL;
+>  		goto out;
+> @@ -701,8 +701,7 @@ int can_proto_register(const struct can_proto *cp)
+>  	int err =3D 0;
+> =20
+>  	if (proto < 0 || proto >=3D CAN_NPROTO) {
+> -		printk(KERN_ERR "can: protocol number %d out of range\n",
+> -		       proto);
+> +		pr_err("protocol number %d out of range\n", proto);
+>  		return -EINVAL;
+>  	}
+> =20
+> @@ -713,8 +712,7 @@ int can_proto_register(const struct can_proto *cp)
+>  	mutex_lock(&proto_tab_lock);
+> =20
+>  	if (proto_tab[proto]) {
+> -		printk(KERN_ERR "can: protocol %d already registered\n",
+> -		       proto);
+> +		pr_err("protocol %d already registered\n", proto);
+>  		err =3D -EBUSY;
+>  	} else
+>  		RCU_INIT_POINTER(proto_tab[proto], cp);
+> @@ -769,8 +767,7 @@ static int can_notifier(struct notifier_block *nb, =
+unsigned long msg,
+>  		/* create new dev_rcv_lists for this device */
+>  		d =3D kzalloc(sizeof(*d), GFP_KERNEL);
+>  		if (!d) {
+> -			printk(KERN_ERR
+> -			       "can: allocation of receive list failed\n");
+> +			pr_err("allocation of receive list failed\n");
+>  			return NOTIFY_DONE;
+>  		}
+>  		BUG_ON(dev->ml_priv);
+> @@ -790,8 +787,8 @@ static int can_notifier(struct notifier_block *nb, =
+unsigned long msg,
+>  				dev->ml_priv =3D NULL;
+>  			}
+>  		} else
+> -			printk(KERN_ERR "can: notifier: receive list not "
+> -			       "found for dev %s\n", dev->name);
+> +			pr_err("notifier: receive list not found for dev %s\n",
+> +			       dev->name);
+> =20
+>  		spin_unlock(&can_rcvlists_lock);
+> =20
+> @@ -824,7 +821,7 @@ static struct notifier_block can_netdev_notifier __=
+read_mostly =3D {
+> =20
+>  static __init int can_init(void)
+>  {
+> -	printk(banner);
+> +	pr_info("%s\n", banner);
+> =20
+>  	memset(&can_rx_alldev_list, 0, sizeof(can_rx_alldev_list));
+> =20
+> diff --git a/net/can/bcm.c b/net/can/bcm.c
+> index 151b773..540c804 100644
+> --- a/net/can/bcm.c
+> +++ b/net/can/bcm.c
+> @@ -39,6 +39,8 @@
+>   *
+>   */
+> =20
+> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> +
+>  #include <linux/module.h>
+>  #include <linux/init.h>
+>  #include <linux/interrupt.h>
+> @@ -77,8 +79,8 @@
+>  		     (CAN_SFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG))
+> =20
+>  #define CAN_BCM_VERSION CAN_VERSION
+> -static __initdata const char banner[] =3D KERN_INFO
+> -	"can: broadcast manager protocol (rev " CAN_BCM_VERSION " t)\n";
+> +static __initdata const char banner[] =3D
+> +	"broadcast manager protocol (rev " CAN_BCM_VERSION " t)";
+> =20
+>  MODULE_DESCRIPTION("PF_CAN broadcast manager protocol");
+>  MODULE_LICENSE("Dual BSD/GPL");
+> @@ -729,8 +731,8 @@ static void bcm_rx_unreg(struct net_device *dev, st=
+ruct bcm_op *op)
+>  		/* mark as removed subscription */
+>  		op->rx_reg_dev =3D NULL;
+>  	} else
+> -		printk(KERN_ERR "can-bcm: bcm_rx_unreg: registered device "
+> -		       "mismatch %p %p\n", op->rx_reg_dev, dev);
+> +		pr_err("%s: registered device mismatch %p %p\n",
+> +		       __func__, op->rx_reg_dev, dev);
+>  }
+> =20
+>  /*
+> @@ -1606,11 +1608,11 @@ static int __init bcm_module_init(void)
+>  {
+>  	int err;
+> =20
+> -	printk(banner);
+> +	pr_info("%s\n", banner);
+> =20
+>  	err =3D can_proto_register(&bcm_can_proto);
+>  	if (err < 0) {
+> -		printk(KERN_ERR "can: registration of bcm protocol failed\n");
+> +		pr_err("registration of bcm protocol failed\n");
+>  		return err;
+>  	}
+> =20
+> diff --git a/net/can/gw.c b/net/can/gw.c
+> index 3d79b12..e17253f 100644
+> --- a/net/can/gw.c
+> +++ b/net/can/gw.c
+> @@ -39,6 +39,8 @@
+>   *
+>   */
+> =20
+> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> +
+>  #include <linux/module.h>
+>  #include <linux/init.h>
+>  #include <linux/types.h>
+> @@ -59,7 +61,7 @@
+> =20
+>  #define CAN_GW_VERSION "20101209"
+>  static __initdata const char banner[] =3D
+> -	KERN_INFO "can: netlink gateway (rev " CAN_GW_VERSION ")\n";
+> +	"netlink gateway (rev " CAN_GW_VERSION ")";
+> =20
+>  MODULE_DESCRIPTION("PF_CAN netlink gateway");
+>  MODULE_LICENSE("Dual BSD/GPL");
+> @@ -913,7 +915,7 @@ static int cgw_remove_job(struct sk_buff *skb,  str=
+uct nlmsghdr *nlh, void *arg)
+> =20
+>  static __init int cgw_module_init(void)
+>  {
+> -	printk(banner);
+> +	pr_info("%s\n", banner);
+> =20
+>  	cgw_cache =3D kmem_cache_create("can_gw", sizeof(struct cgw_job),
+>  				      0, 0, NULL);
+> diff --git a/net/can/proc.c b/net/can/proc.c
+> index ba873c3..c3aedf5 100644
+> --- a/net/can/proc.c
+> +++ b/net/can/proc.c
+> @@ -39,6 +39,8 @@
+>   *
+>   */
+> =20
+> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> +
+>  #include <linux/module.h>
+>  #include <linux/proc_fs.h>
+>  #include <linux/list.h>
+> @@ -118,8 +120,7 @@ static unsigned long calc_rate(unsigned long oldjif=
+, unsigned long newjif,
+> =20
+>  	/* see can_stat_update() - this should NEVER happen! */
+>  	if (count > (ULONG_MAX / HZ)) {
+> -		printk(KERN_ERR "can: calc_rate: count exceeded! %ld\n",
+> -		       count);
+> +		pr_err("%s: count exceeded! %ld\n", __func__, count);
+>  		return 99999999;
+>  	}
+> =20
+> @@ -475,8 +476,7 @@ void can_init_proc(void)
+>  	can_dir =3D proc_mkdir("can", init_net.proc_net);
+> =20
+>  	if (!can_dir) {
+> -		printk(KERN_INFO "can: failed to create /proc/net/can . "
+> -		       "CONFIG_PROC_FS missing?\n");
+> +		pr_info("failed to create /proc/net/can . CONFIG_PROC_FS missing?\n"=
+);
+>  		return;
+>  	}
+> =20
+> diff --git a/net/can/raw.c b/net/can/raw.c
+> index cde1b4a..2875c55 100644
+> --- a/net/can/raw.c
+> +++ b/net/can/raw.c
+> @@ -39,6 +39,8 @@
+>   *
+>   */
+> =20
+> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> +
+>  #include <linux/module.h>
+>  #include <linux/init.h>
+>  #include <linux/uio.h>
+> @@ -56,7 +58,7 @@
+> =20
+>  #define CAN_RAW_VERSION CAN_VERSION
+>  static __initdata const char banner[] =3D
+> -	KERN_INFO "can: raw protocol (rev " CAN_RAW_VERSION ")\n";
+> +	"raw protocol (rev " CAN_RAW_VERSION ")";
+> =20
+>  MODULE_DESCRIPTION("PF_CAN raw protocol");
+>  MODULE_LICENSE("Dual BSD/GPL");
+> @@ -783,11 +785,11 @@ static __init int raw_module_init(void)
+>  {
+>  	int err;
+> =20
+> -	printk(banner);
+> +	pr_info("%s\n", banner);
+> =20
+>  	err =3D can_proto_register(&raw_can_proto);
+>  	if (err < 0)
+> -		printk(KERN_ERR "can: registration of raw protocol failed\n");
+> +		pr_err("registration of raw protocol failed\n");
+> =20
+>  	return err;
+>  }
 
 
-# first just report what one gets
-raj@raj-ubuntu-guest:~$ ./tcp_congestion_test
-Will make no request to set congestion control algorithm
-active socket has '' for congestion control
-passive socket has '' for congestion control
-after listen() passive socket has '' for congestion control
-after connect() active has 'cubic' for congestion control
-after accept() accepted has 'cubic' for congestion control
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-# now specify a valid alternative
-raj@raj-ubuntu-guest:~$ ./tcp_congestion_test  reno
-Will be requesting 'reno' as the congestion control algorithm
-active socket has 'reno' for congestion control
-passive socket has 'reno' for congestion control
-after listen() passive socket has 'reno' for congestion control
-after connect() active has 'reno' for congestion control
-after accept() accepted has 'cubic' for congestion control
 
-# now specify an invalid alternative just for completeness
-raj@raj-ubuntu-guest:~$ ./tcp_congestion_test  bogus
-Will be requesting 'bogus' as the congestion control algorithm
-active socket has '' for congestion control
-passive socket has '' for congestion control
-after listen() passive socket has '' for congestion control
-after connect() active has 'cubic' for congestion control
-after accept() accepted has 'cubic' for congestion control
+--------------enig0EEC2B802DDCE32A2E224DA0
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Is the non-inheritance of the congestion control algorithm a bug or a 
-feature?
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
 
-rick jones
+iEYEARECAAYFAk7VO00ACgkQjTAFq1RaXHO9fACfRsS1j2ApsgbQqiBhP6ntgLbG
+WlIAnR1siXn6tKw0Rt0L88P1lsTq/c8E
+=AwtC
+-----END PGP SIGNATURE-----
+
+--------------enig0EEC2B802DDCE32A2E224DA0--
