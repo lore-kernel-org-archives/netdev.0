@@ -1,41 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix skb_update_prio
-Date: Tue, 29 Nov 2011 18:25:58 -0500 (EST)
-Message-ID: <20111129.182558.1550247306028343406.davem@davemloft.net>
-References: <igorm@etf.rs>
-	<1322243094-10420-1-git-send-email-igorm@etf.rs>
-	<1322243094-10420-2-git-send-email-igorm@etf.rs>
+Subject: Re: [PATCH] can: sja1000_isa: fix "limited range" compiler warnings
+Date: Tue, 29 Nov 2011 18:29:07 -0500 (EST)
+Message-ID: <20111129.182907.1183196314960241442.davem@davemloft.net>
+References: <4ECE0993.6050902@grandegger.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: igorm@etf.rs
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44466 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756425Ab1K2X0E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 18:26:04 -0500
-In-Reply-To: <1322243094-10420-2-git-send-email-igorm@etf.rs>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Netdev@vger.kernel.org, linux-can@vger.kernel.org
+To: wg@grandegger.com
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4ECE0993.6050902@grandegger.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: igorm@etf.rs
-Date: Fri, 25 Nov 2011 18:44:54 +0100
+From: Wolfgang Grandegger <wg@grandegger.com>
+Date: Thu, 24 Nov 2011 10:08:35 +0100
 
-> From: Igor Maravic <igorm@etf.rs>
+> This patch fixes the compiler warnings: "comparison is always
+> false due to limited range of data type" by using "0xff" instead
+> of "-1" for unsigned values.
 > 
-> Change function rcu_dereference to rcu_dereference_bh to avoid warning
-> 
-> [ INFO: suspicious RCU usage. ]
-> -------------------------------
-> net/core/dev.c:2459 suspicious rcu_dereference_check() usage!
-> 
-> because we are locking with
-> 
-> rcu_read_lock_bh();
-> 
-> in function dev_queue_xmit(struct sk_buff *skb)
-> 
-> Signed-off-by: Igor Maravic <igorm@etf.rs>
+> Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
 
-Applied, thanks.
+Applied to net-next, thanks.
