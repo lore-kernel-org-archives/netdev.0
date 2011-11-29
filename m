@@ -1,27 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: avoid frag allocation for small frames
-Date: Tue, 29 Nov 2011 03:13:13 -0500 (EST)
-Message-ID: <20111129.031313.643625090021271052.davem@davemloft.net>
-References: <1319286237.6180.49.camel@edumazet-laptop>
-	<CAGK4HS_Nryz6jWuqcHPu8AK1Rp6kFRp6M_y-yaGFcnX+pjX47Q@mail.gmail.com>
-	<1322553110.2970.79.camel@edumazet-laptop>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: pull request: wireless-next 2011-11-28
+Date: Tue, 29 Nov 2011 09:22:52 +0100
+Message-ID: <1322554972.4110.0.camel@jlt3.sipsolutions.net>
+References: <20111128200221.GD2681@tuxdriver.com>
+	 (sfid-20111128_211553_792888_D5B25BB4)
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: subramanian.vijay@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35744 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751430Ab1K2INS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 03:13:18 -0500
-In-Reply-To: <1322553110.2970.79.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20111128200221.GD2681-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> (sfid-20111128_211553_792888_D5B25BB4)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 29 Nov 2011 08:51:50 +0100
+On Mon, 2011-11-28 at 15:02 -0500, John W. Linville wrote:
 
-> David, do you want me to respin this ?
+> Johannes Berg (12):
 
-Please do, thank you.
+>       mac80211: use skb list for fragments
+>       mac80211: move fragment flag adjustment
+>       mac80211: make TX LED handling independent of fragmentation
+>       mac80211: transmit fragment list to drivers
+
+Since you included these patches, can you please pick up "mac80211: fix
+TX warning" relatively quickly? It fixes a harmless but possibly
+recurring WARN_ON in this code.
+
+johannes
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
