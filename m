@@ -1,37 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] netstamp_needed shouldn't be jump_label_key
-Date: Tue, 29 Nov 2011 01:22:22 -0500 (EST)
-Message-ID: <20111129.012222.1615213860721962427.davem@davemloft.net>
-References: <1322511796-6908-2-git-send-email-igorm@etf.rs>
-	<1322512426.2970.15.camel@edumazet-laptop>
-	<1322515010.2970.24.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next] net: optimize socket timestamping
+Date: Tue, 29 Nov 2011 01:22:31 -0500 (EST)
+Message-ID: <20111129.012231.1179552654543190543.davem@davemloft.net>
+References: <1322517858.2970.31.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: igorm@etf.rs, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34970 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:34973 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752933Ab1K2GWc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 01:22:32 -0500
-In-Reply-To: <1322515010.2970.24.camel@edumazet-laptop>
+	with ESMTP id S1751316Ab1K2GWf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 01:22:35 -0500
+In-Reply-To: <1322517858.2970.31.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 28 Nov 2011 22:16:50 +0100
+Date: Mon, 28 Nov 2011 23:04:18 +0100
 
-> [PATCH net-next] net: dont call jump_label_dec from irq context
+> We can test/set multiple bits from sk_flags at once, to shorten a bit
+> socket setup/dismantle phase.
 > 
-> Igor Maravic reported an error caused by jump_label_dec() being called
-> from IRQ context :
- ...
-> Since jump_label_{inc|dec} must be called from process context only,
-> we must defer jump_label_dec() if net_disable_timestamp() is called
-> from interrupt context.
-> 
-> Reported-by: Igor Maravic <igorm@etf.rs>
 > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
 Applied.
