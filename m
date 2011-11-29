@@ -1,88 +1,61 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 5/5] SUNRPC: kernel PipeFS mount point creation routines
-	removed
-Date: Tue, 29 Nov 2011 13:10:46 +0300
-Message-ID: <20111129091046.20730.69514.stgit@localhost6.localdomain6>
-References: <20111129090754.20730.64567.stgit@localhost6.localdomain6>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH net-next v2 2/4] can: cc770: add
+ legacy ISA bus driver for the CC770 and AN82527
+Date: Tue, 29 Nov 2011 10:16:28 +0100
+Message-ID: <4ED4A2EC.40103@grandegger.com>
+References: <1322214204-1121-1-git-send-email-wg@grandegger.com>
+	<1322214204-1121-3-git-send-email-wg@grandegger.com>
+	<4ED0FEC5.3070108@hartkopp.net> <4ED34CAD.7040000@essax.com>
+	<4ED351A8.8000102@grandegger.com> <4ED37885.8080909@essax.com>
+	<4ED3B198.2040308@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbottomley@parallels.com, bfields@fieldses.org,
-	davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111129090754.20730.64567.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, info-PyqsHJVlJN8AvxtiuMwx3w@public.gmane.org
+To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4ED3B198.2040308-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
+List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch removes static rpc_mnt variable and its creation and destruction
-routines, because they are not used anymore.
+On 11/28/2011 05:06 PM, Oliver Hartkopp wrote:
+> 
+>>> ... using a reasonable default for bcr of 0x40. But you may need to
+>>> provide better values for cir, bcr and cor.
+>>>
+>>
+>> OMG, sorry that I was bothering You but You are absolutely right and with Your
+>> statement You brought be back on track and You made my day. Thank You !!!!!!
+>>
+>> I just took the values for cpu and bus I was using in my lincan driver and funny
+>> enough now it's working absolutely perfect.
+>>
+>> Module: modprobe cc770_isa irq=0xa port=0x384 indirect=1 cir=0x61 bcr=0x4A
+>>
+>> Was just sending 50000 telegrams, perfect and no problem at all.
+>>
+>> Thanks a lot again!!!!
+>>
+> 
+> 
+> This looks like a Tested-by :-)
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Wolfgang, I just sent out v4. Any chance to give this patch a try? It
+would be best to use a recent kernel version but I could also adapt the
+patch to your kernel version, 2.6.39, I think!?
 
----
- include/linux/sunrpc/rpc_pipe_fs.h |    2 --
- net/sunrpc/rpc_pipe.c              |   21 ---------------------
- 2 files changed, 0 insertions(+), 23 deletions(-)
+As you are using a CC770 chip, I'm especially interested in the relevant
+kernel log (dmesg) and "ip -d -s link show".
 
-diff --git a/include/linux/sunrpc/rpc_pipe_fs.h b/include/linux/sunrpc/rpc_pipe_fs.h
-index 7eb0160..a28d2de 100644
---- a/include/linux/sunrpc/rpc_pipe_fs.h
-+++ b/include/linux/sunrpc/rpc_pipe_fs.h
-@@ -90,8 +90,6 @@ void rpc_destroy_pipe_data(struct rpc_pipe *pipe);
- extern struct dentry *rpc_mkpipe_dentry(struct dentry *, const char *, void *,
- 					struct rpc_pipe *);
- extern int rpc_unlink(struct dentry *);
--extern struct vfsmount *rpc_get_mount(void);
--extern void rpc_put_mount(void);
- extern int register_rpc_pipefs(void);
- extern void unregister_rpc_pipefs(void);
- 
-diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index e194e32..4b1d042 100644
---- a/net/sunrpc/rpc_pipe.c
-+++ b/net/sunrpc/rpc_pipe.c
-@@ -18,7 +18,6 @@
- #include <linux/kernel.h>
- 
- #include <asm/ioctls.h>
--#include <linux/fs.h>
- #include <linux/poll.h>
- #include <linux/wait.h>
- #include <linux/seq_file.h>
-@@ -37,9 +36,6 @@
- 
- #define NET_NAME(net)	((net == &init_net) ? " (init_net)" : "")
- 
--static struct vfsmount *rpc_mnt __read_mostly;
--static int rpc_mount_count;
--
- static struct file_system_type rpc_pipe_fs_type;
- 
- 
-@@ -430,23 +426,6 @@ struct rpc_filelist {
- 	umode_t mode;
- };
- 
--struct vfsmount *rpc_get_mount(void)
--{
--	int err;
--
--	err = simple_pin_fs(&rpc_pipe_fs_type, &rpc_mnt, &rpc_mount_count);
--	if (err != 0)
--		return ERR_PTR(err);
--	return rpc_mnt;
--}
--EXPORT_SYMBOL_GPL(rpc_get_mount);
--
--void rpc_put_mount(void)
--{
--	simple_release_fs(&rpc_mnt, &rpc_mount_count);
--}
--EXPORT_SYMBOL_GPL(rpc_put_mount);
--
- static int rpc_delete_dentry(const struct dentry *dentry)
- {
- 	return 1;
+Thanks,
+
+Wolfgang.
