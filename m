@@ -1,106 +1,147 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] netstamp_needed shouldn't be jump_label_key
-Date: Tue, 29 Nov 2011 10:31:33 +0100
-Message-ID: <1322559093.2970.102.camel@edumazet-laptop>
-References: <igorm@etf.rs> <1322511796-6908-1-git-send-email-igorm@etf.rs>
-	 <1322511796-6908-2-git-send-email-igorm@etf.rs>
-	 <1322512426.2970.15.camel@edumazet-laptop>
-	 <1322515010.2970.24.camel@edumazet-laptop>
-	 <fba9911084786bf04747c0350e774615.squirrel@kondor.etf.bg.ac.rs>
+From: "Esztermann, Ansgar" <Ansgar.Esztermann@mpi-bpc.mpg.de>
+Subject: Re: TCP fast retransmit
+Date: Tue, 29 Nov 2011 10:00:04 +0100
+Message-ID: <908E481A-0C6A-4FA6-AE10-DC51DAE9E80A@mpi-bpc.mpg.de>
+References: <2D9E1426-D432-4D08-BF28-FD2615AAEDBA@mpi-bpc.mpg.de>
+ <1322239016.5793.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: igorm@etf.rs
+Content-Type: multipart/signed; boundary="Apple-Mail-1-652621052";
+	protocol="application/pkcs7-signature"; micalg=sha1
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:35244 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753188Ab1K2Jbj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 04:31:39 -0500
-Received: by vbbfc26 with SMTP id fc26so4557450vbb.19
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 01:31:38 -0800 (PST)
-In-Reply-To: <fba9911084786bf04747c0350e774615.squirrel@kondor.etf.bg.ac.rs>
+Received: from tmailer.gwdg.de ([134.76.10.23]:33983 "EHLO tmailer.gwdg.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753967Ab1K2Jey (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Nov 2011 04:34:54 -0500
+Received: from gwdexc-fe12.exc.top.gwdg.de ([134.76.9.232] helo=smtp-exc.gwdg.de)
+	by mailer.gwdg.de with esmtps (TLSv1:RC4-MD5:128)
+	(Exim 4.72)
+	(envelope-from <Ansgar.Esztermann@mpi-bpc.mpg.de>)
+	id 1RVJTE-00076t-Cx
+	for netdev@vger.kernel.org; Tue, 29 Nov 2011 09:55:20 +0100
+In-Reply-To: <1322239016.5793.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 29 novembre 2011 =C3=A0 10:03 +0100, "Igor Maravi=C4=87" a =C3=
-=A9crit :
-> >
-> > Could you test following patch ?
-> >
->=20
-> I've just put it to compile. I'l let you know soon as it finishes com=
-piling.
->=20
-> I have one proposition for your patch. To put WARN_ON before in ifdef=
- endif,
-> because we don't needed if we don't have HAVE_JUMP_LABEL, and also to=
- check it
-> before using jump_label_dec.
->=20
-> Also I have few questions :)
->=20
-> First - why can't we use spin_lock on jump_label?
->=20
-> I know that You said that is because we are using mutex_lock in
-> arch_jump_label_transform() or text_poke_smp(), but I don't see why c=
-ouldn't
-> we use mutex_lock inside spin_lock.
->=20
+--Apple-Mail-1-652621052
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=iso-8859-1
 
 
-Try it, you'll see how bad it is.
+On Nov 25, 2011, at 17:36 , Eric Dumazet wrote:
 
-> To me using spin_lock_irqsave and spin_lock_irqrestore does sound lik=
-e as most logical solution.
-> With that lock, we would be sure that our mutex_lock in arch_jump_lab=
-el_transform() or text_poke_smp()
-> isn't going to be interrupted.
-> Please correct if I'm wrong.
->=20
-> Also I saw that you put calling of net_enable_timestamp outside of sp=
-in_lock_bh
-> Why?
->=20
+> Could you send a sample pcap of such problem, but please include full
+> tcp sesssion, from the first SYN packet, up to packets following
+> restransmits.
 
-Because its the same problem. We want to be allowed to sleep.
+I will prepare one (these session often run for hours or days, as =
+they're our backup runs). It may take a few days, as I'm on sick leave =
+because of an accident.
 
-> BR
-> Igor
+> A diff of "netstat -s" taken before your session and after your =
+session
+> on receiver would help too, if receiver is not a loaded machine of
+> course.
 >=20
-> [PATCH 1/1] jump_label warning if_interrupt
->=20
-> Move warning on the top of function net_enable_timestamp,
-> so we would be also warn if we are going to jump_label_dec in interru=
-pt
->=20
-> Signed-off-by: Igor Maravic <igorm@etf.rs>
->=20
-> :100644 100644 45eab03... ef23cf7... M	net/core/dev.c
->=20
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 45eab03..ef23cf7 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1453,6 +1453,7 @@ void net_enable_timestamp(void)
->  {
->  #ifdef HAVE_JUMP_LABEL
->  	int deferred =3D atomic_xchg(&netstamp_needed_deferred, 0);
-> +	WARN_ON(in_interrupt());
->=20
->  	if (deferred) {
->  		while (--deferred)
-> @@ -1460,7 +1461,6 @@ void net_enable_timestamp(void)
->  		return;
->  	}
->  #endif
-> -	WARN_ON(in_interrupt());
->  	jump_label_inc(&netstamp_needed);
->  }
->  EXPORT_SYMBOL(net_enable_timestamp);
+> Also, what version of linux kernel are you using in receiver ?
 
-Its better to have coverage of the test, even on machines with no
-HAVE_JUMP_LABEL.
+2.6.37.6 with openSUSE patches in the sender, some version of AIX in the =
+receiver. The latter seems to be critical: we've never encountered this =
+problem with any other combination of OSs but AIX & Linux.
 
-So move the test before the=20
-#ifdef HAVE_JUMP_LABEL
+
+A.
+--=20
+Ansgar Esztermann
+DV-Systemadministration
+Max-Planck-Institut f=FCr biophysikalische Chemie, Abteilung 105
+
+
+--Apple-Mail-1-652621052
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Type: application/pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIOcDCCBCEw
+ggMJoAMCAQICAgDHMA0GCSqGSIb3DQEBBQUAMHExCzAJBgNVBAYTAkRFMRwwGgYDVQQKExNEZXV0
+c2NoZSBUZWxla29tIEFHMR8wHQYDVQQLExZULVRlbGVTZWMgVHJ1c3QgQ2VudGVyMSMwIQYDVQQD
+ExpEZXV0c2NoZSBUZWxla29tIFJvb3QgQ0EgMjAeFw0wNjEyMTkxMDI5MDBaFw0xOTA2MzAyMzU5
+MDBaMFoxCzAJBgNVBAYTAkRFMRMwEQYDVQQKEwpERk4tVmVyZWluMRAwDgYDVQQLEwdERk4tUEtJ
+MSQwIgYDVQQDExtERk4tVmVyZWluIFBDQSBHbG9iYWwgLSBHMDEwggEiMA0GCSqGSIb3DQEBAQUA
+A4IBDwAwggEKAoIBAQDpm8NnhfkNrvWNVMOWUDU9YuluTO2U1wBblSJ01CDrNI/W7MAxBAuZgeKm
+FNJSoCgjhIt0iQReW+DieMF4yxbLKDU5ey2QRdDtoAB6fL9KDhsAw4bpXCsxEXsM84IkQ4wcOItq
+aACa7txPeKvSxhObdq3u3ibo7wGvdA/BCaL2a869080UME/15eOkyGKbghoDJzANAmVgTe3RCSMq
+ljVYJ9N2xnG2kB3E7f81hn1vM7PbD8URwoqDoZRdQWvY0hD1TP3KUazZve+Sg7va64sWVlZDz+HV
+Ez2mHycwzUlU28kTNJpxdcVs6qcLmPkhnSevPqM5OUhqjK3JmfvDEvK9AgMBAAGjgdkwgdYwcAYD
+VR0fBGkwZzBloGOgYYZfaHR0cDovL3BraS50ZWxlc2VjLmRlL2NnaS1iaW4vc2VydmljZS9hZl9E
+b3dubG9hZEFSTC5jcmw/LWNybF9mb3JtYXQ9WF81MDkmLWlzc3Vlcj1EVF9ST09UX0NBXzIwHQYD
+VR0OBBYEFEm3xs/oPR9/6kR7Eyn38QpwPt5kMB8GA1UdIwQYMBaAFDHDeRu69VPXF+CJei0XbAqz
+K50zMA4GA1UdDwEB/wQEAwIBBjASBgNVHRMBAf8ECDAGAQH/AgECMA0GCSqGSIb3DQEBBQUAA4IB
+AQA74Vp3wEgX3KkY7IGvWonwvSiSpspZGBJw7Cjy565/lizn8l0ZMfYTK3S9vYCyufdnyTmieTvh
+ERHua3iRM347XyYndVNljjNj7s9zw7CSI0khUHUjoR8Y4pSFPT8z6XcgjaK95qGFKUD2P3MyWA0J
+a6bahWzAP7uNZmRWJE6uDT8yNQFb6YyC2XJZT7GGhfF0hVblw/hc843uR7NTBXDn5U2KaYMo4RMJ
+hp5eyOpYHgwf+aTUWgRo/Sg+iwK2WLX2oSw3VwBnqyNojWOl75lrXP1LVvarQIc01BGSbOyHxQoL
+BzNytG8MHVQs2FHHzL8w00Ny8TK/jM5JY6gA9/IcMIIE5zCCA8+gAwIBAgIECs6x2DANBgkqhkiG
+9w0BAQUFADBaMQswCQYDVQQGEwJERTETMBEGA1UEChMKREZOLVZlcmVpbjEQMA4GA1UECxMHREZO
+LVBLSTEkMCIGA1UEAxMbREZOLVZlcmVpbiBQQ0EgR2xvYmFsIC0gRzAxMB4XDTA3MDczMTEzMDgy
+NVoXDTE5MDYzMDAwMDAwMFowXjELMAkGA1UEBhMCREUxIDAeBgNVBAoTF01heC1QbGFuY2stR2Vz
+ZWxsc2NoYWZ0MQ8wDQYDVQQDEwZNUEcgQ0ExHDAaBgkqhkiG9w0BCQEWDW1wZy1jYUBtcGcuZGUw
+ggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDYUXKeoNTLgkGwbani4rlua5jzlzISfHna
+j/5qS+mojQqA/eYa0bGucylV5hyQuyJz7d4gRckdhMDV8DZIxERUIsFlXFj6HGHjaZjlhIHbo4S1
+2GjLhTH5YZ37O7MHVw0L/JhhzUIxESM1ZfRT/xLqhz2idJYjT98W9OFvzPgT0yrdieMzkLUz5X/f
+pY8MuyYBgxnddBJRw6ZtlhdCml4F8Q35pSb8J2qANiwuJVu3WCTgL/ydo3eA8vDieMMZ7O+L1wAn
+CzBbHAjJ5H6xU1B7mlwmu7V3pToKPgcWmlO0HcTpa68McNTGGiY8pO0/Rn1fXkqDYf8z0lPdWUWx
+bM1RAgMBAAGjggGvMIIBqzASBgNVHRMBAf8ECDAGAQH/AgEBMAsGA1UdDwQEAwIBBjAdBgNVHQ4E
+FgQUAtYebgmrv1hlpwo8SDNh0c59w1swHwYDVR0jBBgwFoAUSbfGz+g9H3/qRHsTKffxCnA+3mQw
+GAYDVR0RBBEwD4ENbXBnLWNhQG1wZy5kZTCBiAYDVR0fBIGAMH4wPaA7oDmGN2h0dHA6Ly9jZHAx
+LnBjYS5kZm4uZGUvZ2xvYmFsLXJvb3QtY2EvcHViL2NybC9jYWNybC5jcmwwPaA7oDmGN2h0dHA6
+Ly9jZHAyLnBjYS5kZm4uZGUvZ2xvYmFsLXJvb3QtY2EvcHViL2NybC9jYWNybC5jcmwwgaIGCCsG
+AQUFBwEBBIGVMIGSMEcGCCsGAQUFBzAChjtodHRwOi8vY2RwMS5wY2EuZGZuLmRlL2dsb2JhbC1y
+b290LWNhL3B1Yi9jYWNlcnQvY2FjZXJ0LmNydDBHBggrBgEFBQcwAoY7aHR0cDovL2NkcDIucGNh
+LmRmbi5kZS9nbG9iYWwtcm9vdC1jYS9wdWIvY2FjZXJ0L2NhY2VydC5jcnQwDQYJKoZIhvcNAQEF
+BQADggEBABtJz5i/SGqQOficdRUN6myFVmVelCYgkGT+zX7frnBRJFoVVafXolstZdVB7ZpH9FAc
+qj8O6FTZyhAANwh3+Y1D6xYBWTB7mQGy0lUoUL+j0msZjaMvyj/2LCQp7cKB5vA4h6Ntq5BN5MPc
+aRhunzjJey/i+J/3jMdG7KpufV47Gl0E8ky9lDegaM7SToG4IOQKwv1wsnuHoxoGLRewxO7FmYd9
+uq9f4L2mHtqgq+vibT1DeehT0HGPnrjjd8NK6g2TvZwirwjydbGs7szB5oxDm/pfWoJxYzO68HKT
+iVBlmaWMLpGw4/UsLE+5xJHpvNXfkYCQ3T+k99KBUZuIpKwwggVcMIIERKADAgECAgQRHzZIMA0G
+CSqGSIb3DQEBBQUAMF4xCzAJBgNVBAYTAkRFMSAwHgYDVQQKExdNYXgtUGxhbmNrLUdlc2VsbHNj
+aGFmdDEPMA0GA1UEAxMGTVBHIENBMRwwGgYJKoZIhvcNAQkBFg1tcGctY2FAbXBnLmRlMB4XDTEw
+MTIwODE2NTYyNFoXDTEzMTIwNzE2NTYyNFowgY8xCzAJBgNVBAYTAkRFMSAwHgYDVQQKExdNYXgt
+UGxhbmNrLUdlc2VsbHNjaGFmdDE5MDcGA1UECxMwTWF4LVBsYW5jay1JbnN0aXR1dCBmdWVyIGJp
+b3BoeXNpa2FsaXNjaGUgQ2hlbWllMSMwIQYDVQQDExpBbnNnYXIgRXN6dGVybWFubi1LaXJjaG5l
+cjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKYjxwFTzyWFVOWVWqCrGgLO1IOjfUwZ
+rCYmWPbCEqBUe8j3VVhzRpygrDMQuPHRNEDyElaQnF+RxJqTT8jHI6IFhI2+geicgCYRne1Hdv75
+Bd7Gx8ytwDICk5kGUGzkXhEbSfjY0hCT4zAaDLkkbAayB/cf2ymQgrwaa6gfpeYagIph5nvkvLHO
+KuAZ1YY7yUuU7UmpPPeut2aWObBFP+n0C7E6ZnZVTL+nHX4HAPtgbToxif8IjS8Dq699iqv/td80
+uZU8AKDhYCt/TVZHyvAm7NfQANwiUxVcBOx1CcD8cTWscVzOH29kRFomLRld4zFUUVCwvpQJX3N7
+p1uKV0UCAwEAAaOCAe4wggHqMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgXgMB0GA1UdJQQWMBQGCCsG
+AQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQUbrwY+89Tw5RQrRlpos37frX58x8wHwYDVR0jBBgw
+FoAUAtYebgmrv1hlpwo8SDNh0c59w1swYwYDVR0RBFwwWoEfYW5zZ2FyLmVzenRlcm1hbm5AbXBp
+YnBjLm1wZy5kZYEVYWVzenRlckBtcGlicGMubXBnLmRlgSBBbnNnYXIuRXN6dGVybWFubkBtcGkt
+YnBjLm1wZy5kZTB3BgNVHR8EcDBuMDWgM6Axhi9odHRwOi8vY2RwMS5wY2EuZGZuLmRlL21wZy1j
+YS9wdWIvY3JsL2NhY3JsLmNybDA1oDOgMYYvaHR0cDovL2NkcDIucGNhLmRmbi5kZS9tcGctY2Ev
+cHViL2NybC9jYWNybC5jcmwwgZIGCCsGAQUFBwEBBIGFMIGCMD8GCCsGAQUFBzAChjNodHRwOi8v
+Y2RwMS5wY2EuZGZuLmRlL21wZy1jYS9wdWIvY2FjZXJ0L2NhY2VydC5jcnQwPwYIKwYBBQUHMAKG
+M2h0dHA6Ly9jZHAyLnBjYS5kZm4uZGUvbXBnLWNhL3B1Yi9jYWNlcnQvY2FjZXJ0LmNydDANBgkq
+hkiG9w0BAQUFAAOCAQEABO7mDo6jeYLlkASWpEL6Z05yKLOEi/CeDeFr8+orDv+xpVD7N5UyDp46
+O1zT74sf/BYchf1DQnp3wh91Jl7rF4RRP5zkSuudTDP0W6AnWI7PoudWqqWQPPGsBRDYOxs/LNc5
+CdV3OeU/bP5eX9xBeYslYnYZamCKdKoVJ/T2gtIfjfm9W2a5XptYcgJkOIZs9gM3Tl1uOhIKy5J8
+9A9PrrSRlRgWhjg58wfoE3mNg5Q22HTKmppNNryRXSd+ZFMHcVet3sKMMOqhIm2+Lf8C6Mu1aqw8
+k8QeIHnZIjbLou7pfo4nJY06gUK7X/COyw3wsMOhq4HvgK9A/sU7sJdmBTGCAt4wggLaAgEBMGYw
+XjELMAkGA1UEBhMCREUxIDAeBgNVBAoTF01heC1QbGFuY2stR2VzZWxsc2NoYWZ0MQ8wDQYDVQQD
+EwZNUEcgQ0ExHDAaBgkqhkiG9w0BCQEWDW1wZy1jYUBtcGcuZGUCBBEfNkgwCQYFKw4DAhoFAKCC
+AU0wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTExMTI5MDkwMDA1
+WjAjBgkqhkiG9w0BCQQxFgQUD3zuMtSxpRZ/bItjWEDrkYuJm3kwdQYJKwYBBAGCNxAEMWgwZjBe
+MQswCQYDVQQGEwJERTEgMB4GA1UEChMXTWF4LVBsYW5jay1HZXNlbGxzY2hhZnQxDzANBgNVBAMT
+Bk1QRyBDQTEcMBoGCSqGSIb3DQEJARYNbXBnLWNhQG1wZy5kZQIEER82SDB3BgsqhkiG9w0BCRAC
+CzFooGYwXjELMAkGA1UEBhMCREUxIDAeBgNVBAoTF01heC1QbGFuY2stR2VzZWxsc2NoYWZ0MQ8w
+DQYDVQQDEwZNUEcgQ0ExHDAaBgkqhkiG9w0BCQEWDW1wZy1jYUBtcGcuZGUCBBEfNkgwDQYJKoZI
+hvcNAQEBBQAEggEAokhIvkXWbG1pH8F0g8ekLHWLCLV/kVKxohQOUWsUJvvbmZ/ntkAGWGYN+Lxn
+axaajplosDcDX/9kIfUc8qezdsAmIh/2x2vKyjbIiLpPuRjstck8x2F5NQHsgfaeLvBD+VFWEWHp
+nO0KGVom/Ap/l98MxP7Tiumr+tLk1b8m/vAyPQFRG4LSLL0fCYm0CWsJGTazu+N4jmWGkrZjxKj2
+5o3DkA8BqQ1fcQgc6LyFRHNBnloee39nM1eepVtdRr6NbBtcSDlTRL1ETafmIqSuV+mb2eeBOnr2
+GHxR0r+VAzvOG9xNv+6QgCQa1vzKMfQ4rq2L18yv1Ta/ZxyO3lx1WQAAAAAAAA==
+
+--Apple-Mail-1-652621052--
