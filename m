@@ -1,79 +1,120 @@
-From: "Greg Scott" <GregScott@Infrasupport.com>
-Subject: RE: ebtables on a stick
-Date: Tue, 29 Nov 2011 04:48:25 -0600
-Message-ID: <925A849792280C4E80C5461017A4B8A2A048C2@mail733.InfraSupportEtc.com>
-References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com> <20111128143901.GA589422@jupiter.n2.diac24.net> <925A849792280C4E80C5461017A4B8A2A0488A@mail733.InfraSupportEtc.com> <20111128153002.GB589422@jupiter.n2.diac24.net> <925A849792280C4E80C5461017A4B8A2A048BC@mail733.InfraSupportEtc.com> <20111129102338.GF589422@jupiter.n2.diac24.net>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH net-next v4 0/4] can: cc770: add
+ support for the Bosch CC770 and Intel AN82527
+Date: Tue, 29 Nov 2011 11:51:39 +0100
+Message-ID: <4ED4B93B.10709@pengutronix.de>
+References: <1322557890-6363-1-git-send-email-wg@grandegger.com>
+	<4ED4B838.2060307@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "David Lamparter" <equinox@diac24.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.infrasupportetc.com ([216.160.2.132]:34717 "EHLO
-	mail.infrasupport.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753919Ab1K2Ksb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 05:48:31 -0500
-Content-class: urn:content-classes:message
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="===============3242389241186499354=="
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Wolfgang Zarre <info-PyqsHJVlJN8AvxtiuMwx3w@public.gmane.org>
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4ED4B838.2060307-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
+List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Well this seems like the only way to get done what I need, so if our
-votes count, we'll vote to leave it in.  Let me get some sleep and I'll
-try it and report back here later.  
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--===============3242389241186499354==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig2E28684C0E9631F3FEC60892"
 
-- Greg
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig2E28684C0E9631F3FEC60892
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+On 11/29/2011 11:47 AM, Marc Kleine-Budde wrote:
+> On 11/29/2011 10:11 AM, Wolfgang Grandegger wrote:
+>> Already since a while we have support for the Bosch CC770 and Intel
+>> AN82527 CAN controllers in our out-of-tree Socket-CAN repository.
+>>
+>> In the meantime I found a TQM855L board with two AN82527 on it,
+>> which allowed me to provide and test a generic platform driver
+>> as well.
+>>
+>> Changes since v1:
+>>
+>> - remove version.h includes
+>> - some minor corrections in the ISA bus driver
+>> - add platform header file to the driver core
+>> - add generic platform driver
+>> - add and update device tree nodes for tqm8xx and tqm8548
+>>
+>> Changes since v2:
+>>
+>> - correct license text as suggest by Oliver Hartkopp
+>> - use the new module_platform_driver function
+>> - provide get_berr_counter callback for cc770
+>> - improve CAN error state change handling
+>> - more comprehensive cc770_isa driver description
+>>
+>> Changes since v3:
+>>
+>> - pre-define pr_fmt()
+>> - use KBUILD_MODNAME instead of DRV_NAME
+>> - use ARRAY_SIZE() whenever appropriate
+>> - use variable name "o" for message objects consistantly
+>> - use proper error code for cc770_probe_chip
+>> - remove unneeded member priv->open_time
+>> - remove unnecessary masking of u8 variables (with 0xff)
+>> - use "!skb" instead of "skb =3D=3D NULL"
+>> - CC770_MSG_MAX now limits the number of messages read in the ISR
+>> - use "|" instead of "+" to combine bit masks
+>> - remove return code check of platform_get_resource() in remove functi=
+on
+>> - remove postal address from GPL copyright text
+>> - fix WARNING: __packed is preferred over __attribute__((packed))
+>> - some more minor fixes (casts, white space, etc.)
+>=20
+> Feel free to add by Acked-by to patches 1 and 2.
+                   ^^
+my
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
+--------------enig2E28684C0E9631F3FEC60892
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
------Original Message-----
-From: David Lamparter [mailto:equinox@diac24.net] 
-Sent: Tuesday, November 29, 2011 4:24 AM
-To: Greg Scott
-Cc: David Lamparter; netdev@vger.kernel.org
-Subject: Re: ebtables on a stick
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
 
-On Tue, Nov 29, 2011 at 04:05:18AM -0600, Greg Scott wrote:
-> > We already had this discussion in July.
-> >
-> > "ip neigh add proxy" is independent of /proc/.../proxy_arp.
-> 
-> We did discuss this back in July but never finished.  I posted a bunch
-> of questions about "ip neigh add proxy" because I haven't seen much in
-> the way of documentation.  When nobody answered, I left it alone for a
-> while.  
-> 
-> I found a discussion starting here:
-> http://lkml.indiana.edu/hypermail/linux/kernel/0110.2/0523.html
-> 
-> where some of the kernel folks are suggesting "ip neigh add proxy" is
-> deprecated.  By now that discussion is 10 years old and it apparently
-is
-> still around.  But for how long?
+iEYEARECAAYFAk7UuTsACgkQjTAFq1RaXHP5/wCcC/PgbMdLatM50FNy47hr0ttG
+EQUAnRTwYB+j8IIwU8SewOtyvDE8Ii3D
+=PY5T
+-----END PGP SIGNATURE-----
 
-While the feature is still around after 10 years, Alexey isn't touching
-the network stack much anymore. Funny, that.
+--------------enig2E28684C0E9631F3FEC60892--
 
-> Appendix B of this 2007 document, http://linux-ip.net/html/index.html,
-> by Martin Brown also says "ip neigh add proxy" is deprecated.
->
-> So now, in addition to my paranoia about proxy ARP in general, I have
-> this fear I will build a bunch of scripting around "ip neigh add
-proxy"
-> only to find it's gone in a future kernel, leaving me in a world of
-hurt
-> again.
->
-> So humor me and convince me that "ip neigh add" is not on the chopping
-> block so I can try it with a little bit of confidence.
+--===============3242389241186499354==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-I'll humor myself instead. I'm shipping this as a feature to customers,
-so if it comes up for chopping I'll have to maintain it myself
-worst-case.
+_______________________________________________
+Socketcan-users mailing list
+Socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-users
 
-(I wasn't actually aware that this is supposed to be deprecated. Yes,
-it's buggy in that you need "arp" to show the entries, but that's exacly
-that - a low-severity bug.)
-
-
--David
+--===============3242389241186499354==--
