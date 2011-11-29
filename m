@@ -1,118 +1,122 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v4 07/10] forcedeth: Support for byte queue limits
-Date: Mon, 28 Nov 2011 18:33:23 -0800 (PST)
-Message-ID: <alpine.DEB.2.00.1111281820200.23899@pokey.mtv.corp.google.com>
+Subject: [PATCH v4 09/10] bnx2x: Support for byte queue limits
+Date: Mon, 28 Nov 2011 18:33:37 -0800 (PST)
+Message-ID: <alpine.DEB.2.00.1111281821300.23758@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f202.google.com ([209.85.161.202]:56668 "EHLO
-	mail-gx0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752950Ab1K2Cdk (ORCPT
+Received: from mail-qy0-f202.google.com ([209.85.216.202]:54616 "EHLO
+	mail-qy0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752997Ab1K2Cdk (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 21:33:40 -0500
-Received: by mail-gx0-f202.google.com with SMTP id p2so609679ggn.1
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2011 18:33:39 -0800 (PST)
+Received: by qyk15 with SMTP id 15so380760qyk.1
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2011 18:33:40 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes to forcedeth to use byte queue limits.
+Changes to bnx2x to use byte queue limits.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- drivers/net/ethernet/nvidia/forcedeth.c |   18 ++++++++++++++++++
- 1 files changed, 18 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   26 +++++++++++++++++++---
+ 1 files changed, 22 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 8db0b37..5245dac 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -1928,6 +1928,7 @@ static void nv_init_tx(struct net_device *dev)
- 		np->last_tx.ex = &np->tx_ring.ex[np->tx_ring_size-1];
- 	np->get_tx_ctx = np->put_tx_ctx = np->first_tx_ctx = np->tx_skb;
- 	np->last_tx_ctx = &np->tx_skb[np->tx_ring_size-1];
-+	netdev_reset_queue(np->dev);
- 	np->tx_pkts_in_progress = 0;
- 	np->tx_change_owner = NULL;
- 	np->tx_end_flip = NULL;
-@@ -2276,6 +2277,9 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 8336c78..42ce566 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -102,7 +102,8 @@ int load_count[2][3] = { {0} }; /* per-path: 0-common, 1-port0, 2-port1 */
+  * return idx of last bd freed
+  */
+ static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata,
+-			     u16 idx)
++			     u16 idx, unsigned int *pkts_compl,
++			     unsigned int *bytes_compl)
+ {
+ 	struct sw_tx_bd *tx_buf = &txdata->tx_buf_ring[idx];
+ 	struct eth_tx_start_bd *tx_start_bd;
+@@ -159,6 +160,10 @@ static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata,
  
- 	/* set tx flags */
- 	start_tx->flaglen |= cpu_to_le32(tx_flags | tx_flags_extra);
+ 	/* release skb */
+ 	WARN_ON(!skb);
++	if (skb) {
++		(*pkts_compl)++;
++		(*bytes_compl) += skb->len;
++	}
+ 	dev_kfree_skb_any(skb);
+ 	tx_buf->first_bd = 0;
+ 	tx_buf->skb = NULL;
+@@ -170,6 +175,7 @@ int bnx2x_tx_int(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata)
+ {
+ 	struct netdev_queue *txq;
+ 	u16 hw_cons, sw_cons, bd_cons = txdata->tx_bd_cons;
++	unsigned int pkts_compl = 0, bytes_compl = 0;
+ 
+ #ifdef BNX2X_STOP_ON_ERROR
+ 	if (unlikely(bp->panic))
+@@ -189,10 +195,14 @@ int bnx2x_tx_int(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata)
+ 				      " pkt_cons %u\n",
+ 		   txdata->txq_index, hw_cons, sw_cons, pkt_cons);
+ 
+-		bd_cons = bnx2x_free_tx_pkt(bp, txdata, pkt_cons);
++		bd_cons = bnx2x_free_tx_pkt(bp, txdata, pkt_cons,
++		    &pkts_compl, &bytes_compl);
 +
-+	netdev_sent_queue(np->dev, skb->len);
-+
- 	np->put_tx.orig = put_tx;
- 
- 	spin_unlock_irqrestore(&np->lock, flags);
-@@ -2420,6 +2424,9 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
- 
- 	/* set tx flags */
- 	start_tx->flaglen |= cpu_to_le32(tx_flags | tx_flags_extra);
-+
-+	netdev_sent_queue(np->dev, skb->len);
-+
- 	np->put_tx.ex = put_tx;
- 
- 	spin_unlock_irqrestore(&np->lock, flags);
-@@ -2457,6 +2464,7 @@ static int nv_tx_done(struct net_device *dev, int limit)
- 	u32 flags;
- 	int tx_work = 0;
- 	struct ring_desc *orig_get_tx = np->get_tx.orig;
-+	unsigned int bytes_compl = 0;
- 
- 	while ((np->get_tx.orig != np->put_tx.orig) &&
- 	       !((flags = le32_to_cpu(np->get_tx.orig->flaglen)) & NV_TX_VALID) &&
-@@ -2476,6 +2484,7 @@ static int nv_tx_done(struct net_device *dev, int limit)
- 					np->stat_tx_bytes += np->get_tx_ctx->skb->len;
- 					u64_stats_update_end(&np->swstats_tx_syncp);
- 				}
-+				bytes_compl += np->get_tx_ctx->skb->len;
- 				dev_kfree_skb_any(np->get_tx_ctx->skb);
- 				np->get_tx_ctx->skb = NULL;
- 				tx_work++;
-@@ -2492,6 +2501,7 @@ static int nv_tx_done(struct net_device *dev, int limit)
- 					np->stat_tx_bytes += np->get_tx_ctx->skb->len;
- 					u64_stats_update_end(&np->swstats_tx_syncp);
- 				}
-+				bytes_compl += np->get_tx_ctx->skb->len;
- 				dev_kfree_skb_any(np->get_tx_ctx->skb);
- 				np->get_tx_ctx->skb = NULL;
- 				tx_work++;
-@@ -2502,6 +2512,9 @@ static int nv_tx_done(struct net_device *dev, int limit)
- 		if (unlikely(np->get_tx_ctx++ == np->last_tx_ctx))
- 			np->get_tx_ctx = np->first_tx_ctx;
+ 		sw_cons++;
  	}
-+
-+	netdev_completed_queue(np->dev, tx_work, bytes_compl);
-+
- 	if (unlikely((np->tx_stop == 1) && (np->get_tx.orig != orig_get_tx))) {
- 		np->tx_stop = 0;
- 		netif_wake_queue(dev);
-@@ -2515,6 +2528,7 @@ static int nv_tx_done_optimized(struct net_device *dev, int limit)
- 	u32 flags;
- 	int tx_work = 0;
- 	struct ring_desc_ex *orig_get_tx = np->get_tx.ex;
-+	unsigned long bytes_cleaned = 0;
  
- 	while ((np->get_tx.ex != np->put_tx.ex) &&
- 	       !((flags = le32_to_cpu(np->get_tx.ex->flaglen)) & NV_TX2_VALID) &&
-@@ -2538,6 +2552,7 @@ static int nv_tx_done_optimized(struct net_device *dev, int limit)
- 				u64_stats_update_end(&np->swstats_tx_syncp);
++	netdev_tx_completed_queue(txq, pkts_compl, bytes_compl);
++
+ 	txdata->tx_pkt_cons = sw_cons;
+ 	txdata->tx_bd_cons = bd_cons;
+ 
+@@ -1077,14 +1087,18 @@ static void bnx2x_free_tx_skbs(struct bnx2x *bp)
+ 		struct bnx2x_fastpath *fp = &bp->fp[i];
+ 		for_each_cos_in_tx_queue(fp, cos) {
+ 			struct bnx2x_fp_txdata *txdata = &fp->txdata[cos];
++			unsigned pkts_compl = 0, bytes_compl = 0;
+ 
+ 			u16 sw_prod = txdata->tx_pkt_prod;
+ 			u16 sw_cons = txdata->tx_pkt_cons;
+ 
+ 			while (sw_cons != sw_prod) {
+-				bnx2x_free_tx_pkt(bp, txdata, TX_BD(sw_cons));
++				bnx2x_free_tx_pkt(bp, txdata, TX_BD(sw_cons),
++				    &pkts_compl, &bytes_compl);
+ 				sw_cons++;
  			}
- 
-+			bytes_cleaned += np->get_tx_ctx->skb->len;
- 			dev_kfree_skb_any(np->get_tx_ctx->skb);
- 			np->get_tx_ctx->skb = NULL;
- 			tx_work++;
-@@ -2545,6 +2560,9 @@ static int nv_tx_done_optimized(struct net_device *dev, int limit)
- 			if (np->tx_limit)
- 				nv_tx_flip_ownership(dev);
++			netdev_tx_reset_queue(
++			    netdev_get_tx_queue(bp->dev, txdata->txq_index));
  		}
+ 	}
+ }
+@@ -2788,6 +2802,7 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		mapping = skb_frag_dma_map(&bp->pdev->dev, frag, 0,
+ 					   skb_frag_size(frag), DMA_TO_DEVICE);
+ 		if (unlikely(dma_mapping_error(&bp->pdev->dev, mapping))) {
++			unsigned int pkts_compl = 0, bytes_compl = 0;
+ 
+ 			DP(NETIF_MSG_TX_QUEUED, "Unable to map page - "
+ 						"dropping packet...\n");
+@@ -2799,7 +2814,8 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			 */
+ 			first_bd->nbd = cpu_to_le16(nbd);
+ 			bnx2x_free_tx_pkt(bp, txdata,
+-					  TX_BD(txdata->tx_pkt_prod));
++					  TX_BD(txdata->tx_pkt_prod),
++					  &pkts_compl, &bytes_compl);
+ 			return NETDEV_TX_OK;
+ 		}
+ 
+@@ -2860,6 +2876,8 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		   pbd_e2->parsing_data);
+ 	DP(NETIF_MSG_TX_QUEUED, "doorbell: nbd %d  bd %u\n", nbd, bd_prod);
+ 
++	netdev_tx_sent_queue(txq, skb->len);
 +
-+		netdev_completed_queue(np->dev, tx_work, bytes_cleaned);
-+
- 		if (unlikely(np->get_tx.ex++ == np->last_tx.ex))
- 			np->get_tx.ex = np->first_tx.ex;
- 		if (unlikely(np->get_tx_ctx++ == np->last_tx_ctx))
+ 	txdata->tx_pkt_prod++;
+ 	/*
+ 	 * Make sure that the BD data is updated before updating the producer
 -- 
 1.7.3.1
