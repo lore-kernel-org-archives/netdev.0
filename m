@@ -1,55 +1,77 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: Re: [PATCH v4 09/10] bnx2x: Support for byte queue limits
-Date: Tue, 29 Nov 2011 11:43:35 +0200
-Message-ID: <1322559815.25184.3.camel@lb-tlvb-dmitry>
-References: <alpine.DEB.2.00.1111281821300.23758@pokey.mtv.corp.google.com>
-Reply-To: dmitry@broadcom.com
+From: =?utf-8?B?Iklnb3IgTWFyYXZpxIci?= <igorm@etf.rs>
+Subject: Re: [PATCH 1/1] netstamp_needed shouldn't be jump_label_key
+Date: Tue, 29 Nov 2011 10:48:54 +0100
+Message-ID: <88caa73892721f74b81e72c1ff1a0be3.squirrel@kondor.etf.bg.ac.rs>
+References: <igorm@etf.rs> <1322511796-6908-1-git-send-email-igorm@etf.rs>
+    <1322511796-6908-2-git-send-email-igorm@etf.rs>
+    <1322512426.2970.15.camel@edumazet-laptop>
+    <1322515010.2970.24.camel@edumazet-laptop>
+    <fba9911084786bf04747c0350e774615.squirrel@kondor.etf.bg.ac.rs>
+    <1322559093.2970.102.camel@edumazet-laptop>
+Reply-To: igorm@etf.rs
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Tom Herbert" <therbert@google.com>
+Content-Type: text/plain;charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: igorm@etf.rs, netdev@vger.kernel.org
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4390 "EHLO MMS3.broadcom.com"
+Received: from mx1.etf.rs ([147.91.14.169]:39073 "EHLO mx1.etf.bg.ac.rs"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752866Ab1K2Jnr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Nov 2011 04:43:47 -0500
-In-Reply-To: <alpine.DEB.2.00.1111281821300.23758@pokey.mtv.corp.google.com>
+	id S1753289Ab1K2JtB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 04:49:01 -0500
+In-Reply-To: <1322559093.2970.102.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-11-28 at 18:33 -0800, Tom Herbert wrote:
-> Changes to bnx2x to use byte queue limits.
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   26 +++++++++++++++++++---
->  1 files changed, 22 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-> index 8336c78..42ce566 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-> @@ -102,7 +102,8 @@ int load_count[2][3] = { {0} }; /* per-path: 0-common, 1-port0, 2-port1 */
->   * return idx of last bd freed
->   */
->  static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata,
-> -			     u16 idx)
-> +			     u16 idx, unsigned int *pkts_compl,
-> +			     unsigned int *bytes_compl)
->  {
->  	struct sw_tx_bd *tx_buf = &txdata->tx_buf_ring[idx];
->  	struct eth_tx_start_bd *tx_start_bd;
-> @@ -159,6 +160,10 @@ static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata,
->  
->  	/* release skb */
->  	WARN_ON(!skb);
-> +	if (skb) {
-likely statement will be usefull here, since we don't expect it to be
-null
+> Its better to have coverage of the test, even on machines with no
+> HAVE_JUMP_LABEL.
+>
+> So move the test before the
+> #ifdef HAVE_JUMP_LABEL
+>
 
-> +		(*pkts_compl)++;
-> +		(*bytes_compl) += skb->len;
-> +	}
+Here is it.
+
+PS. Tested the patch - it works.
+
+[PATCH 1/1] Warning if_interrupt is true
+
+Move warning on the top of function net_enable_timestamp,
+so we would be also warn if we are going to use jump_label_dec in interrupt
+
+Signed-off-by: Igor Maravic <igorm@etf.rs>
+
+:100644 100644 45eab03... d358088... M	net/core/dev.c
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 45eab03..d358088 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1451,16 +1451,18 @@ static atomic_t netstamp_needed_deferred;
+
+ void net_enable_timestamp(void)
+ {
++	WARN_ON(in_interrupt());
+ #ifdef HAVE_JUMP_LABEL
+-	int deferred = atomic_xchg(&netstamp_needed_deferred, 0);
+-
+-	if (deferred) {
+-		while (--deferred)
+-			jump_label_dec(&netstamp_needed);
+-		return;
++	{
++		int deferred = atomic_xchg(&netstamp_needed_deferred, 0);
++
++		if (deferred) {
++			while (--deferred)
++				jump_label_dec(&netstamp_needed);
++			return;
++		}
+ 	}
+ #endif
+-	WARN_ON(in_interrupt());
+ 	jump_label_inc(&netstamp_needed);
+ }
+ EXPORT_SYMBOL(net_enable_timestamp);
+-- 
+1.7.5.4
