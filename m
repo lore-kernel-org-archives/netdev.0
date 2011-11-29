@@ -1,72 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] bnx2: Support for byte queue limits
-Date: Tue, 29 Nov 2011 22:53:05 +0100
-Message-ID: <1322603585.2596.34.camel@edumazet-laptop>
+From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
+Subject: Re: [RFC PATCH 00/18] netfilter: IPv6 NAT
+Date: Tue, 29 Nov 2011 22:38:47 +0100
+Message-ID: <4ED550E7.1090609@ans.pl>
+References: <CAF9AA63.1622%ulrich.weber@sophos.com> <a2407c3b6405bd682cedad6db82cf225@treenet.co.nz> <4ED4A399.6090709@sophos.com> <alpine.LNX.2.01.1111291255200.20965@frira.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:53700 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751020Ab1K2VxK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 16:53:10 -0500
-Received: by eeuu47 with SMTP id u47so1353122eeu.19
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 13:53:08 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ulrich Weber <ulrich.weber@sophos.com>,
+	Amos Jeffries <squid3@treenet.co.nz>,
+	"sclark46@earthlink.net" <sclark46@earthlink.net>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.01.1111291255200.20965@frira.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Changes to bnx2 to use byte queue limits.
+On 2011-11-29 13:23, Jan Engelhardt wrote:
+>
+> On Tuesday 2011-11-29 10:19, Ulrich Weber wrote:
+>> On 28.11.2011 23:03, Amos Jeffries wrote:
+>>> I'm going to dare to call FUD on those statements...
+>>>    * Load Balancing - what is preventing your routing rules or pack=
+et
+>>>   marking using the same criteria as the NAT changer? nothing. Load
+>>>   balancing works perfectly fine without NAT.
+>
+> Source address selection, having to occur on the source, would
+> require that the source has to know all the parameters that a {what
+> would have been your NAT GW} would need to know, which means you have
+> to (a) collect and/or (b) distribute this information. Given two
+> uplinks that only allow a certain source network address (different
+> for each uplink), combined with the desire to balance on utilization,
+> (a) a client is not in the position to easily obtain this data unless
+> it is the router for all participants itself, (b) the clients needs
+> to cooperate, and one cannot always trust client devices, or hope for
+> their technical cooperation (firewalled themselves off).
+>
+> Yes, NAT is evil, but if you actually think about it, policies are
+> best applied where [the policy] originates from. After all, we also
+> don't do LSRR, instead, routers do the routing, because they just
+> know much better.
+>
+>> I fully agree. NAT can not replace your firewall rules.
+>>
+>> However with NAT you could get some kind of anonymity.
+>
+> Same network prefix, some cookies, or a login form. Blam, identified,
+> or at least (Almost-)Uniquely Identified Visitor tagging.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Tom Herbert <therbert@google.com>
----
- drivers/net/ethernet/broadcom/bnx2.c |    6 ++++++
- 1 file changed, 6 insertions(+)
+But without NAT you have pretty big chance to have the same IPv6=20
+*suffix* everywhere, based on you MAC address. In your Home, your Work,=
+=20
+in a Cafe or in a hotel during your vacations in Portugal. So yes, NAT=20
+is not a perfect solution but it really helps you privacy.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-index d573169..787e175 100644
---- a/drivers/net/ethernet/broadcom/bnx2.c
-+++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -2810,6 +2810,7 @@ bnx2_tx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
- 	struct bnx2_tx_ring_info *txr = &bnapi->tx_ring;
- 	u16 hw_cons, sw_cons, sw_ring_cons;
- 	int tx_pkt = 0, index;
-+	unsigned int tx_bytes = 0;
- 	struct netdev_queue *txq;
- 
- 	index = (bnapi - bp->bnx2_napi);
-@@ -2864,6 +2865,7 @@ bnx2_tx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
- 
- 		sw_cons = NEXT_TX_BD(sw_cons);
- 
-+		tx_bytes += skb->len;
- 		dev_kfree_skb(skb);
- 		tx_pkt++;
- 		if (tx_pkt == budget)
-@@ -2873,6 +2875,7 @@ bnx2_tx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
- 			hw_cons = bnx2_get_hw_tx_cons(bnapi);
- 	}
- 
-+	netdev_tx_completed_queue(txq, tx_pkt, tx_bytes);
- 	txr->hw_tx_cons = hw_cons;
- 	txr->tx_cons = sw_cons;
- 
-@@ -5393,6 +5396,7 @@ bnx2_free_tx_skbs(struct bnx2 *bp)
- 			}
- 			dev_kfree_skb(skb);
- 		}
-+		netdev_tx_reset_queue(netdev_get_tx_queue(bp->dev, i));
- 	}
- }
- 
-@@ -6546,6 +6550,8 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 	txbd->tx_bd_vlan_tag_flags |= TX_BD_FLAGS_END;
- 
-+	netdev_tx_sent_queue(txq, skb->len);
-+
- 	prod = NEXT_TX_BD(prod);
- 	txr->tx_prod_bseq += skb->len;
- 
+Best regards,
+
+			Krzysztof Ol=C4=99dzki
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
