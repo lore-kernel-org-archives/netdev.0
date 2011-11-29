@@ -1,280 +1,76 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] can: Update logging style
-Date: Tue, 29 Nov 2011 10:54:29 -0800
-Message-ID: <30551d0a6a0f7f7799a6981c81c770a528f430d2.1322592708.git.joe@perches.com>
-Cc: "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-	Urs Thuermann <urs.thuermann@volkswagen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lucas Stach <dev@lynxeye.de>
+Subject: Re: [bug?] r8169: hangs under heavy load
+Date: Tue, 29 Nov 2011 20:09:47 +0100
+Message-ID: <1322593787.1642.6.camel@tellur>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Netdev <netdev@vger.kernel.org>,
+	Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.km20343-01.keymachine.de ([84.19.182.79]:41284 "EHLO
+	km20343-01.keymachine.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753699Ab1K2TJt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 14:09:49 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use pr_fmt, pr_<level> and pr_<level>_ratelimited.
-Coalesce format strings.
+[please cc me on every answer, I'm not subscribed to the list]
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- net/can/af_can.c |   31 ++++++++++++++-----------------
- net/can/bcm.c    |   14 ++++++++------
- net/can/gw.c     |    6 ++++--
- net/can/proc.c   |    8 ++++----
- net/can/raw.c    |    8 +++++---
- 5 files changed, 35 insertions(+), 32 deletions(-)
+Hello Francois and others,
 
-diff --git a/net/can/af_can.c b/net/can/af_can.c
-index 0ce2ad0..c4f0da5 100644
---- a/net/can/af_can.c
-+++ b/net/can/af_can.c
-@@ -40,6 +40,8 @@
-  *
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/kmod.h>
-@@ -62,8 +64,8 @@
- 
- #include "af_can.h"
- 
--static __initdata const char banner[] = KERN_INFO
--	"can: controller area network core (" CAN_VERSION_STRING ")\n";
-+static __initdata const char banner[] =
-+	"controller area network core (" CAN_VERSION_STRING ")";
- 
- MODULE_DESCRIPTION("Controller Area Network PF_CAN core");
- MODULE_LICENSE("Dual BSD/GPL");
-@@ -161,8 +163,8 @@ static int can_create(struct net *net, struct socket *sock, int protocol,
- 		 * return -EPROTONOSUPPORT
- 		 */
- 		if (err)
--			printk_ratelimited(KERN_ERR "can: request_module "
--			       "(can-proto-%d) failed.\n", protocol);
-+			pr_err_ratelimited("request_module (can-proto-%d) failed\n",
-+					   protocol);
- 
- 		cp = can_get_proto(protocol);
- 	}
-@@ -505,8 +507,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
- 
- 	d = find_dev_rcv_lists(dev);
- 	if (!d) {
--		printk(KERN_ERR "BUG: receive list not found for "
--		       "dev %s, id %03X, mask %03X\n",
-+		pr_err("BUG: receive list not found for dev %s, id %03X, mask %03X\n",
- 		       DNAME(dev), can_id, mask);
- 		goto out;
- 	}
-@@ -532,8 +533,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
- 	 */
- 
- 	if (!next) {
--		printk(KERN_ERR "BUG: receive list entry not found for "
--		       "dev %s, id %03X, mask %03X\n",
-+		pr_err("BUG: receive list entry not found for dev %s, id %03X, mask %03X\n",
- 		       DNAME(dev), can_id, mask);
- 		r = NULL;
- 		goto out;
-@@ -701,8 +701,7 @@ int can_proto_register(const struct can_proto *cp)
- 	int err = 0;
- 
- 	if (proto < 0 || proto >= CAN_NPROTO) {
--		printk(KERN_ERR "can: protocol number %d out of range\n",
--		       proto);
-+		pr_err("protocol number %d out of range\n", proto);
- 		return -EINVAL;
- 	}
- 
-@@ -713,8 +712,7 @@ int can_proto_register(const struct can_proto *cp)
- 	mutex_lock(&proto_tab_lock);
- 
- 	if (proto_tab[proto]) {
--		printk(KERN_ERR "can: protocol %d already registered\n",
--		       proto);
-+		pr_err("protocol %d already registered\n", proto);
- 		err = -EBUSY;
- 	} else
- 		RCU_INIT_POINTER(proto_tab[proto], cp);
-@@ -769,8 +767,7 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
- 		/* create new dev_rcv_lists for this device */
- 		d = kzalloc(sizeof(*d), GFP_KERNEL);
- 		if (!d) {
--			printk(KERN_ERR
--			       "can: allocation of receive list failed\n");
-+			pr_err("allocation of receive list failed\n");
- 			return NOTIFY_DONE;
- 		}
- 		BUG_ON(dev->ml_priv);
-@@ -790,8 +787,8 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
- 				dev->ml_priv = NULL;
- 			}
- 		} else
--			printk(KERN_ERR "can: notifier: receive list not "
--			       "found for dev %s\n", dev->name);
-+			pr_err("notifier: receive list not found for dev %s\n",
-+			       dev->name);
- 
- 		spin_unlock(&can_rcvlists_lock);
- 
-@@ -824,7 +821,7 @@ static struct notifier_block can_netdev_notifier __read_mostly = {
- 
- static __init int can_init(void)
- {
--	printk(banner);
-+	pr_info("%s\n", banner);
- 
- 	memset(&can_rx_alldev_list, 0, sizeof(can_rx_alldev_list));
- 
-diff --git a/net/can/bcm.c b/net/can/bcm.c
-index 151b773..540c804 100644
---- a/net/can/bcm.c
-+++ b/net/can/bcm.c
-@@ -39,6 +39,8 @@
-  *
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/interrupt.h>
-@@ -77,8 +79,8 @@
- 		     (CAN_SFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG))
- 
- #define CAN_BCM_VERSION CAN_VERSION
--static __initdata const char banner[] = KERN_INFO
--	"can: broadcast manager protocol (rev " CAN_BCM_VERSION " t)\n";
-+static __initdata const char banner[] =
-+	"broadcast manager protocol (rev " CAN_BCM_VERSION " t)";
- 
- MODULE_DESCRIPTION("PF_CAN broadcast manager protocol");
- MODULE_LICENSE("Dual BSD/GPL");
-@@ -729,8 +731,8 @@ static void bcm_rx_unreg(struct net_device *dev, struct bcm_op *op)
- 		/* mark as removed subscription */
- 		op->rx_reg_dev = NULL;
- 	} else
--		printk(KERN_ERR "can-bcm: bcm_rx_unreg: registered device "
--		       "mismatch %p %p\n", op->rx_reg_dev, dev);
-+		pr_err("%s: registered device mismatch %p %p\n",
-+		       __func__, op->rx_reg_dev, dev);
- }
- 
- /*
-@@ -1606,11 +1608,11 @@ static int __init bcm_module_init(void)
- {
- 	int err;
- 
--	printk(banner);
-+	pr_info("%s\n", banner);
- 
- 	err = can_proto_register(&bcm_can_proto);
- 	if (err < 0) {
--		printk(KERN_ERR "can: registration of bcm protocol failed\n");
-+		pr_err("registration of bcm protocol failed\n");
- 		return err;
- 	}
- 
-diff --git a/net/can/gw.c b/net/can/gw.c
-index 3d79b12..e17253f 100644
---- a/net/can/gw.c
-+++ b/net/can/gw.c
-@@ -39,6 +39,8 @@
-  *
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/types.h>
-@@ -59,7 +61,7 @@
- 
- #define CAN_GW_VERSION "20101209"
- static __initdata const char banner[] =
--	KERN_INFO "can: netlink gateway (rev " CAN_GW_VERSION ")\n";
-+	"netlink gateway (rev " CAN_GW_VERSION ")";
- 
- MODULE_DESCRIPTION("PF_CAN netlink gateway");
- MODULE_LICENSE("Dual BSD/GPL");
-@@ -913,7 +915,7 @@ static int cgw_remove_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
- 
- static __init int cgw_module_init(void)
- {
--	printk(banner);
-+	pr_info("%s\n", banner);
- 
- 	cgw_cache = kmem_cache_create("can_gw", sizeof(struct cgw_job),
- 				      0, 0, NULL);
-diff --git a/net/can/proc.c b/net/can/proc.c
-index ba873c3..c3aedf5 100644
---- a/net/can/proc.c
-+++ b/net/can/proc.c
-@@ -39,6 +39,8 @@
-  *
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/module.h>
- #include <linux/proc_fs.h>
- #include <linux/list.h>
-@@ -118,8 +120,7 @@ static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
- 
- 	/* see can_stat_update() - this should NEVER happen! */
- 	if (count > (ULONG_MAX / HZ)) {
--		printk(KERN_ERR "can: calc_rate: count exceeded! %ld\n",
--		       count);
-+		pr_err("%s: count exceeded! %ld\n", __func__, count);
- 		return 99999999;
- 	}
- 
-@@ -475,8 +476,7 @@ void can_init_proc(void)
- 	can_dir = proc_mkdir("can", init_net.proc_net);
- 
- 	if (!can_dir) {
--		printk(KERN_INFO "can: failed to create /proc/net/can . "
--		       "CONFIG_PROC_FS missing?\n");
-+		pr_info("failed to create /proc/net/can . CONFIG_PROC_FS missing?\n");
- 		return;
- 	}
- 
-diff --git a/net/can/raw.c b/net/can/raw.c
-index cde1b4a..2875c55 100644
---- a/net/can/raw.c
-+++ b/net/can/raw.c
-@@ -39,6 +39,8 @@
-  *
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/uio.h>
-@@ -56,7 +58,7 @@
- 
- #define CAN_RAW_VERSION CAN_VERSION
- static __initdata const char banner[] =
--	KERN_INFO "can: raw protocol (rev " CAN_RAW_VERSION ")\n";
-+	"raw protocol (rev " CAN_RAW_VERSION ")";
- 
- MODULE_DESCRIPTION("PF_CAN raw protocol");
- MODULE_LICENSE("Dual BSD/GPL");
-@@ -783,11 +785,11 @@ static __init int raw_module_init(void)
- {
- 	int err;
- 
--	printk(banner);
-+	pr_info("%s\n", banner);
- 
- 	err = can_proto_register(&raw_can_proto);
- 	if (err < 0)
--		printk(KERN_ERR "can: registration of raw protocol failed\n");
-+		pr_err("registration of raw protocol failed\n");
- 
- 	return err;
- }
--- 
-1.7.6.405.gc1be0
+>Gerd, can you try the patch below ? It should match Haye's description.
+>
+>diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+>index 6f06aa1..97b5593 100644
+>--- a/drivers/net/ethernet/realtek/r8169.c
+>+++ b/drivers/net/ethernet/realtek/r8169.c
+>@@ -4885,8 +4885,7 @@ static void rtl_hw_start_8168(struct net_device *dev)
+> 	RTL_W16(IntrMitigate, 0x5151);
+> 
+> 	/* Work around for RxFIFO overflow. */
+>-	if (tp->mac_version == RTL_GIGA_MAC_VER_11 ||
+>-	    tp->mac_version == RTL_GIGA_MAC_VER_22) {
+>+	if (tp->mac_version == RTL_GIGA_MAC_VER_11) {
+> 		tp->intr_event |= RxFIFOOver | PCSTimeout;
+> 		tp->intr_event &= ~RxOverflow;
+> 	}
+>@@ -5804,6 +5803,10 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+> 	 */
+> 	status = RTL_R16(IntrStatus);
+> 	while (status && status != 0xffff) {
+>+		status &= ~tp->intr_event;
+>+		if (!status)
+>+			break;
+>+
+> 		handled = 1;
+> 
+> 		/* Handle all of the error cases first. These will reset
+>@@ -5818,7 +5821,6 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+> 			switch (tp->mac_version) {
+> 			/* Work around for rx fifo overflow */
+> 			case RTL_GIGA_MAC_VER_11:
+>-			case RTL_GIGA_MAC_VER_22:
+> 			case RTL_GIGA_MAC_VER_26:
+> 				netif_stop_queue(dev);
+> 				rtl8169_tx_timeout(dev);
+>@@ -5828,6 +5830,7 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+> 			case RTL_GIGA_MAC_VER_19:
+> 			case RTL_GIGA_MAC_VER_20:
+> 			case RTL_GIGA_MAC_VER_21:
+>+			case RTL_GIGA_MAC_VER_22:
+ 			case RTL_GIGA_MAC_VER_23:
+ 			case RTL_GIGA_MAC_VER_24:
+ 			case RTL_GIGA_MAC_VER_27:
+
+I have tried the above patch in an attempt to solve my problem described
+in message "Lockups with r8169 driver (Was: Hangs with Linux
+3.2.0-rc3)", which are really similar to the problem described in this
+thread.
+
+The patch doesn't help, in fact it renders the ethernet adapter
+unusable, as it is failing even the media detect (according to network
+manager). I will gladly test any other patches you come up with.
+
+Thanks,
+Lucas
