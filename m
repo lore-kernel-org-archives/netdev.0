@@ -1,40 +1,54 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: SYN attack, with FIN flag set
-Date: Sat, 03 Dec 2011 10:18:29 +0200
-Message-ID: <b3ae04aef6b0ce233e8e8978782d1ccc@visp.net.lb>
-References: <1755dc626dee301261ef4fe4cd66fd47@visp.net.lb>
- <1322897233.2762.79.camel@edumazet-laptop>
- <1322898902.2762.81.camel@edumazet-laptop>
+From: Thomas Meyer <thomas@m3y3r.de>
+Subject: [PATCH] bnx2x: Use kcalloc instead of kzalloc to allocate array
+Date: Tue, 29 Nov 2011 22:08:00 +0100
+Message-ID: <1322600880.1534.320.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:48347 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752211Ab1LCISa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2011 03:18:30 -0500
-In-Reply-To: <1322898902.2762.81.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- On Sat, 03 Dec 2011 08:55:02 +0100, Eric Dumazet wrote:
-> Le samedi 03 d=C3=A9cembre 2011 =C3=A0 08:27 +0100, Eric Dumazet a =C3=
-=A9crit :
->
->> I believe netfilter tcp conntrack considers SYN|FIN as INVALID
->>
->
-> Or if you cannot afford conntracking, just do
->
-> iptables -A INPUT -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
+The advantage of kcalloc is, that will prevent integer overflows which could
+result from the multiplication of number of elements and size and it is also
+a bit nicer to read.
 
- Sure i did,thanks, but i just was curious, why connection with such=20
- flags are threated as SYN.
+The semantic patch that makes this change is available
+in https://lkml.org/lkml/2011/11/25/107
 
- ---
- System administrator
- Denys Fedoryshchenko
- Virtual ISP S.A.L.
+Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
+---
+
+diff -u -p a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c 2011-11-13 11:07:33.983607086 +0100
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c 2011-11-28 19:52:50.979887113 +0100
+@@ -3278,14 +3278,14 @@ int __devinit bnx2x_alloc_mem_bp(struct
+ 	msix_table_size = bp->igu_sb_cnt + 1;
+ 
+ 	/* fp array: RSS plus CNIC related L2 queues */
+-	fp = kzalloc((BNX2X_MAX_RSS_COUNT(bp) + NON_ETH_CONTEXT_USE) *
++	fp = kcalloc(BNX2X_MAX_RSS_COUNT(bp) + NON_ETH_CONTEXT_USE,
+ 		     sizeof(*fp), GFP_KERNEL);
+ 	if (!fp)
+ 		goto alloc_err;
+ 	bp->fp = fp;
+ 
+ 	/* msix table */
+-	tbl = kzalloc(msix_table_size * sizeof(*tbl), GFP_KERNEL);
++	tbl = kcalloc(msix_table_size, sizeof(*tbl), GFP_KERNEL);
+ 	if (!tbl)
+ 		goto alloc_err;
+ 	bp->msix_table = tbl;
+diff -u -p a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c 2011-11-28 19:36:47.716773832 +0100
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c 2011-11-28 19:52:53.063259517 +0100
+@@ -3342,7 +3342,7 @@ static inline int bnx2x_mcast_refresh_re
+ 		if (!list_empty(&o->registry.exact_match.macs))
+ 			return 0;
+ 
+-		elem = kzalloc(sizeof(*elem)*len, GFP_ATOMIC);
++		elem = kcalloc(len, sizeof(*elem), GFP_ATOMIC);
+ 		if (!elem) {
+ 			BNX2X_ERR("Failed to allocate registry memory\n");
+ 			return -ENOMEM;
