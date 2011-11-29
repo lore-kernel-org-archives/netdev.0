@@ -1,89 +1,83 @@
-From: Dave Taht <dave.taht@gmail.com>
-Subject: Re: [PATCH v4 0/10] bql: Byte Queue Limits
-Date: Tue, 29 Nov 2011 09:51:43 +0100
-Message-ID: <CAA93jw6bvzASrtvjhKL+haZb0VEPvQQD0guf7aBTPxJbxydEAg@mail.gmail.com>
-References: <alpine.DEB.2.00.1111281825200.25622@pokey.mtv.corp.google.com>
-	<CAA93jw7P=7YMOS_sMQWBJx0UJ6e+xw4e_hw8szNiVTOjGNwukw@mail.gmail.com>
-	<1322550138.2970.70.camel@edumazet-laptop>
-	<4ED4885F.8060309@intel.com>
-	<CAA93jw7prPymGuWdn0pgHXL81g19opm2=-T4msy-b_s2MJ9=Jw@mail.gmail.com>
-	<1322556234.2970.84.camel@edumazet-laptop>
+From: =?utf-8?B?Iklnb3IgTWFyYXZpxIci?= <igorm@etf.rs>
+Subject: Re: [PATCH 1/1] netstamp_needed shouldn't be jump_label_key
+Date: Tue, 29 Nov 2011 10:03:03 +0100
+Message-ID: <fba9911084786bf04747c0350e774615.squirrel@kondor.etf.bg.ac.rs>
+References: <igorm@etf.rs> <1322511796-6908-1-git-send-email-igorm@etf.rs>
+    <1322511796-6908-2-git-send-email-igorm@etf.rs>
+    <1322512426.2970.15.camel@edumazet-laptop>
+    <1322515010.2970.24.camel@edumazet-laptop>
+Reply-To: igorm@etf.rs
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	Tom Herbert <therbert@google.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: igorm@etf.rs, netdev@vger.kernel.org
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:48956 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753116Ab1K2Ivo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 03:51:44 -0500
-Received: by ggnr5 with SMTP id r5so6160712ggn.19
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 00:51:44 -0800 (PST)
-In-Reply-To: <1322556234.2970.84.camel@edumazet-laptop>
+Received: from mx2.etf.rs ([147.91.14.170]:60895 "EHLO mx2.etf.bg.ac.rs"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753011Ab1K2JDJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 04:03:09 -0500
+In-Reply-To: <1322515010.2970.24.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 29, 2011 at 9:43 AM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le mardi 29 novembre 2011 =E0 09:37 +0100, Dave Taht a =E9crit :
->> On Tue, Nov 29, 2011 at 8:23 AM, John Fastabend
->> <john.r.fastabend@intel.com> wrote:
->> >
->> > I wonder if we should consider enabling TSO/GSO per queue or per t=
-raffic
->> > class on devices that support this. At least in devices that suppo=
-rt
->> > multiple traffic classes it seems to be a common usage case to put=
- bulk
->> > storage traffic (iSCSI) on a traffic class and low latency traffic=
- on a
->> > separate traffic class, VoIP for example.
->>
->>
->> VOIP is a drop in the bucket.
->>
->> Turning TSO off on TCP exiting the datacenter (or more specifically)=
-,
->> destined anywhere there is potential tx/rx bandwidth disparity
->> would be goooooood.
->>
 >
-> If your cpu is fast enough (and they are most of the time), this make=
-s
-> no difference at all.
->
-> Instead of consuming 3% of cpu with TSO, you'll consume 10% or 15% an=
-d
-> no difference seen on the wire.
-
-Perhaps I don't understand the gross effects of TSO very well, but if y=
-ou have
-100 streams coming from a server, destined to X different destinations,
-and you FQ to each on a per packet basis, you end up impacting the down=
-stream
-receive buffers throughout much less than if you send each stream as a =
-burst.
-
->
-> Really, if you want to avoid bursts, TSO has litle to do with them.
-
-If I'm misunderstanding the downstream effects of TSO, I stand correcte=
-d.
-
->
->
->
+> Could you test following patch ?
 >
 
+I've just put it to compile. I'l let you know soon as it finishes compiling.
 
+I have one proposition for your patch. To put WARN_ON before in ifdef endif,
+because we don't needed if we don't have HAVE_JUMP_LABEL, and also to check it
+before using jump_label_dec.
 
---=20
-Dave T=E4ht
-SKYPE: davetaht
-US Tel: 1-239-829-5608
-=46R Tel: 0638645374
-http://www.bufferbloat.net
+Also I have few questions :)
+
+First - why can't we use spin_lock on jump_label?
+
+I know that You said that is because we are using mutex_lock in
+arch_jump_label_transform() or text_poke_smp(), but I don't see why couldn't
+we use mutex_lock inside spin_lock.
+
+To me using spin_lock_irqsave and spin_lock_irqrestore does sound like as most logical solution.
+With that lock, we would be sure that our mutex_lock in arch_jump_label_transform() or text_poke_smp()
+isn't going to be interrupted.
+Please correct if I'm wrong.
+
+Also I saw that you put calling of net_enable_timestamp outside of spin_lock_bh
+Why?
+
+BR
+Igor
+
+[PATCH 1/1] jump_label warning if_interrupt
+
+Move warning on the top of function net_enable_timestamp,
+so we would be also warn if we are going to jump_label_dec in interrupt
+
+Signed-off-by: Igor Maravic <igorm@etf.rs>
+
+:100644 100644 45eab03... ef23cf7... M	net/core/dev.c
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 45eab03..ef23cf7 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1453,6 +1453,7 @@ void net_enable_timestamp(void)
+ {
+ #ifdef HAVE_JUMP_LABEL
+ 	int deferred = atomic_xchg(&netstamp_needed_deferred, 0);
++	WARN_ON(in_interrupt());
+
+ 	if (deferred) {
+ 		while (--deferred)
+@@ -1460,7 +1461,6 @@ void net_enable_timestamp(void)
+ 		return;
+ 	}
+ #endif
+-	WARN_ON(in_interrupt());
+ 	jump_label_inc(&netstamp_needed);
+ }
+ EXPORT_SYMBOL(net_enable_timestamp);
+-- 
+1.7.5.4
