@@ -1,35 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ethernet: convert drivers/net/ethernet/* to use
- module_platform_driver()
-Date: Tue, 29 Nov 2011 01:17:17 -0500 (EST)
-Message-ID: <20111129.011717.1510779658553334799.davem@davemloft.net>
-References: <1322448257.2408.6.camel@phoenix>
+Subject: Re: [PATCH net-next] corral some wayward N/A fw_version dust
+ bunnies
+Date: Tue, 29 Nov 2011 01:18:37 -0500 (EST)
+Message-ID: <20111129.011837.1680857703021611216.davem@davemloft.net>
+References: <20111123000626.43E58290084C@tardy>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, pantelis.antoniou@gmail.com,
-	vbordug@ru.mvista.com, mcuos.com@gmail.com, nico@fluxnic.net,
-	peppe.cavallaro@st.com, mkl@pengutronix.de,
-	jeffrey.t.kirsher@intel.com, jpirko@redhat.com, daniel@gaisler.com,
-	adobriyan@gmail.com, tklauser@distanz.ch,
-	grant.likely@secretlab.ca, jkosina@suse.cz,
-	richard.cochran@omicron.at, jonas@southpole.se,
-	sebastian.poehn@belden.com, yoshihiro.shimoda.uh@renesas.com,
-	ricardo.ribalda@gmail.com, mirq-linux@rere.qmqm.pl,
-	netdev@vger.kernel.org
-To: axel.lin@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1322448257.2408.6.camel@phoenix>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com, jdmason@kudzu.us
+To: raj@tardy.cup.hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34956 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752143Ab1K2GVn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 01:21:43 -0500
+In-Reply-To: <20111123000626.43E58290084C@tardy>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Axel Lin <axel.lin@gmail.com>
-Date: Mon, 28 Nov 2011 10:44:17 +0800
+From: raj@tardy.cup.hp.com (Rick Jones)
+Date: Tue, 22 Nov 2011 16:06:26 -0800 (PST)
 
-> This patch converts the drivers in drivers/net/ethernet/* to use the
-> module_platform_driver() macro which makes the code smaller and a bit
-> simpler.
+> From: Rick Jones <rick.jones2@hp.com>
 > 
-> Signed-off-by: Axel Lin <axel.lin@gmail.com>
+> Round-up some wayward "N/A" fw_version dust bunnies as part of that
+> clean-up.
+> 
+> Signed-off-by: Rick Jones <rick.jones2@hp.com>
 
 Applied.
