@@ -1,31 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] at91_ether: use gpio_is_valid for phy IRQ line
-Date: Tue, 29 Nov 2011 18:53:42 -0500 (EST)
-Message-ID: <20111129.185342.105454076866922618.davem@davemloft.net>
-References: <1322128098-17724-1-git-send-email-jamie@jamieiles.com>
-	<1322169674-4109-1-git-send-email-nicolas.ferre@atmel.com>
+From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
+Subject: Re: [RFC PATCH 00/18] netfilter: IPv6 NAT
+Date: Wed, 30 Nov 2011 00:59:34 +0100
+Message-ID: <4ED571E6.5000707@ans.pl>
+References: <CAF9AA63.1622%ulrich.weber@sophos.com>  <a2407c3b6405bd682cedad6db82cf225@treenet.co.nz>  <4ED4A399.6090709@sophos.com>  <alpine.LNX.2.01.1111291255200.20965@frira.zrqbmnf.qr>  <4ED550E7.1090609@ans.pl> <1322604909.2596.38.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jamie@jamieiles.com, netdev@vger.kernel.org, plagnioj@jcrosoft.com,
-	sfr@canb.auug.org.au, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: nicolas.ferre@atmel.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1322169674-4109-1-git-send-email-nicolas.ferre@atmel.com>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jan Engelhardt <jengelh@medozas.de>,
+	Ulrich Weber <ulrich.weber@sophos.com>,
+	Amos Jeffries <squid3@treenet.co.nz>,
+	"sclark46@earthlink.net" <sclark46@earthlink.net>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1322604909.2596.38.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Date: Thu, 24 Nov 2011 22:21:14 +0100
+On 2011-11-29 23:15, Eric Dumazet wrote:
+> Le mardi 29 novembre 2011 =C3=A0 22:38 +0100, Krzysztof Ol=C4=99dzki =
+a =C3=A9crit :
+>
+>> But without NAT you have pretty big chance to have the same IPv6
+>> *suffix* everywhere, based on you MAC address. In your Home, your Wo=
+rk,
+>> in a Cafe or in a hotel during your vacations in Portugal. So yes, N=
+AT
+>> is not a perfect solution but it really helps you privacy.
+>>
+>
+> Good point, but we can change MAC address (use a random one) on most
+> NIC, cant we ?
 
-> Use the generic gpiolib gpio_is_valid() function to test
-> if the phy IRQ line GPIO is actually provided.
-> 
-> For non-connected or non-existing phy IRQ lines, -EINVAL
-> value is used for phy_irq_pin field of struct at91_eth_data.
-> 
-> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+Sure, but the problem is that you first need to know that you should do=
+=20
+it and you need to be able to do it - think of cell phones, tablets, et=
+c.
 
-I'm assuming this goes through the ARM tree, because in both of my networking
-trees there is no ARM at91 implementation of gpio_is_valid().
+Best regards,
+
+				Krzysztof Oledzki
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
