@@ -1,30 +1,40 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH v2 net-next 2/2] netem: add cell concept to simulate
- special MAC behavior
-Date: Tue, 29 Nov 2011 01:07:40 +0100
-Message-ID: <20111129000740.GI3045@nuttenaction>
-References: <1322156378-23257-1-git-send-email-hagen@jauu.net>
- <1322187773-27768-1-git-send-email-hagen@jauu.net>
- <1322187773-27768-2-git-send-email-hagen@jauu.net>
- <1322521267.2970.43.camel@edumazet-laptop>
- <20111128233004.GH3045@nuttenaction>
- <1322524125.2970.48.camel@edumazet-laptop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next 1/4] net: introduce skb_flow_dissect()
+Date: Mon, 28 Nov 2011 19:09:50 -0500 (EST)
+Message-ID: <20111128.190950.1313660081545124040.davem@davemloft.net>
+References: <1322493738.2292.69.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:45626 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752459Ab1K2AHn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 19:07:43 -0500
-Content-Disposition: inline
-In-Reply-To: <1322524125.2970.48.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, dan-BZ4SNL/Vixll57MIdRCFDg@public.gmane.org
+To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1322493738.2292.69.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-* Eric Dumazet | 2011-11-29 00:48:45 [+0100]:
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Mon, 28 Nov 2011 16:22:18 +0100
 
->Is it was is really needed ?
+> We use at least two flow dissectors in network stack, with known
+> limitations and code duplication.
+> 
+> Introduce skb_flow_dissect() to factorize this, highly inspired from
+> existing dissector from __skb_get_rxhash()
+> 
+> Note : We extensively use skb_header_pointer(), this permits us to not
+> touch skb at all.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-argl ... I will repost a final version - thank you Eric!
+Applied.
