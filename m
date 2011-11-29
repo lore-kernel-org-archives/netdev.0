@@ -1,174 +1,55 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next-2.6 PATCH 0/6 v4] macvlan: MAC Address filtering
- support for passthru mode
-Date: Tue, 29 Nov 2011 17:19:30 +0000
-Message-ID: <1322587170.2684.26.camel@bwh-desktop>
-References: <20111109075449.13549.58135.stgit@rhel6.1>
-	 <1321575301.2749.51.camel@bwh-desktop>  <4EC5A785.3060108@intel.com>
-	 <1321577078.2749.58.camel@bwh-desktop>  <4EC68EBB.3080303@intel.com>
-	 <1321638038.2883.28.camel@bwh-desktop>  <4ECA8D50.9080603@intel.com>
-	 <1322584544.2684.20.camel@bwh-desktop>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH 4/5] NFS: remove RPC PipeFS mount point reference from
+ blocklayout routines
+Date: Tue, 29 Nov 2011 12:27:02 -0500
+Message-ID: <20111129172702.GB19528@fieldses.org>
+References: <F19688880B763E40B28B2B462677FBF805E3A4AFF2@MX09A.corp.emc.com>
+ <4ED4CDCE.9080804@parallels.com>
+ <F19688880B763E40B28B2B462677FBF805E3A4AFFD@MX09A.corp.emc.com>
+ <2E1EB2CF9ED1CB4AA966F0EB76EAB4430C3CBC23@SACMVEXC2-PRD.hq.netapp.com>
+ <CA+a=Yy5GKMu8rbh8y3fOtK6pmqygPNBr=a+p7LfcmTqtXFH3iA@mail.gmail.com>
+ <1322579906.3619.1.camel@lade.trondhjem.org>
+ <CA+a=Yy6kJe0NemSiRwM+t8gz5-UF5fOdwdS2so+q=nSYjBx--w@mail.gmail.com>
+ <1322584830.4174.16.camel@lade.trondhjem.org>
+ <20111129164252.GA19528@fieldses.org>
+ <1322587165.4174.20.camel@lade.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Roopa Prabhu <roprabhu@cisco.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"chrisw@redhat.com" <chrisw@redhat.com>,
-	"sri@us.ibm.com" <sri@us.ibm.com>,
-	"dragos.tatulea@gmail.com" <dragos.tatulea@gmail.com>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"arnd@arndb.de" <arnd@arndb.de>, "mst@redhat.com" <mst@redhat.com>,
-	"mchan@broadcom.com" <mchan@broadcom.com>,
-	"dwang2@cisco.com" <dwang2@cisco.com>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"benve@cisco.com" <benve@cisco.com>
-To: Greg Rose <gregory.v.rose@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:40999 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754469Ab1K2RTg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 12:19:36 -0500
-In-Reply-To: <1322584544.2684.20.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Peng Tao <bergwolf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, tao.peng-mb1K0bWo544@public.gmane.org,
+	skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1322587165.4174.20.camel-SyLVLa/KEI9HwK5hSS5vWB2eb7JE58TQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-11-29 at 16:35 +0000, Ben Hutchings wrote:
-> On Mon, 2011-11-21 at 09:41 -0800, Greg Rose wrote:
-> > On 11/18/2011 9:40 AM, Ben Hutchings wrote:
-> [...]
-> > > What concerns me is that this seems to be a workaround rather than a fix
-> > > for over-use of promiscuous mode, and it changes the semantics of
-> > > filtering modes in ways that haven't been well-specified.
+On Tue, Nov 29, 2011 at 12:19:25PM -0500, Trond Myklebust wrote:
+> On Tue, 2011-11-29 at 11:42 -0500, J. Bruce Fields wrote: 
+> > On Tue, Nov 29, 2011 at 11:40:30AM -0500, Trond Myklebust wrote:
+> > > I mean that I'm perfectly entitled to do
+> > > 
+> > > 'modprobe -r blocklayoutdriver'
+> > > 
+> > > and when I do that, then I expect blkmapd to close the rpc pipe and wait
+> > > for a new one to be created just like rpc.idmapd and rpc.gssd do when I
+> > > remove the nfs and sunrpc modules.
 > > 
-> > I feel the opposite is true.  It allows a known set of receive filters 
-> > so that you don't have to use promiscuous mode, which cuts down on 
-> > overhead from processing packets the upper layer stack isn't really 
-> > interested in.
-> >
-> > >
-> > > What if there's a software bridge between two net devices corresponding
-> > > to separate physical ports, so that they really need to be promiscuous?
-> > > What if the administrator runs tcpdump and really wants the (PF) net
-> > > device to be promiscuous?
-> > 
-> > I don't believe there is anything in this patch set that removes 
-> > promiscuous mode operation as it is commonly used.  Perhaps I've missed 
-> > something.
-> [...]
+> > The rpc pipefs mount doesn't hold a reference on the sunrpc module?
 > 
-> Maybe I missed something!
-> 
-> Let's be clear on what our models are for filtering.  At the moment we
-> have MAC filters set through ndo_set_rx_mode and VF filters set through
-> ndo_set_vf_{mac,vlan}.
-> 
-> Ignoring anti-spoofing for the moment, should the currently defined
-> filters look like this (a):
-> 
->                 TX ^   | RX
->                    |   v
-> +------------------+---+-----------------+
-> |                  |  ++------------+    |
-> |                  |  |RX MAC filter|    |
-> |                  |  ++------------+    |
-> |                  |   |match            |
-> |                  ^   v                 |
-> |                  |  ++------------+    |
-> |                  |  |RX VF filters|    |
-> |                  |  +-------+-----+    |
-> |                 /|\     no /|\         |
-> |                | | \ match/ | |match 2 |
-> |                | ^  \    /  v |        |
-> |                | |   \  /match|        |
-> |                |  \   \/  1/  |        |
-> |                |   \  /\  /   |        |
-> |                ^    \/  \/    v        |
-> |                |    /\  /\    |        |
-> |                |   /  ||  \   |        |
-> |                |  /   ||   \  |        |
-> |                | /    ||    \ |        |
-> |                ||     ||     ||        |
-> +----------------++-----++-----++--------+
->                  ||     ||     ||
->                  PF    VF 1   VF 2
-> 
-> or like this (b):
-> 
->                 TX ^   | RX
->                    |   v
-> +------------------+---+-----------------+
-> |                  |  ++------------+    |
-> |                  |  |RX VF filters|    |
-> |                  |  ++--------+---+    |
-> |                  | no|match  /|        |
-> |                  ^   v      | |        |
-> |                  | +-+----+ | |        |
-> |                  | |RX MAC| | |        |
-> |                  | |filter| | |        |
-> |                  | +------+ | |        |
-> |                  |   |match | |        |
-> |                 /|\  |      | |        |
-> |                | | \ | match| |match 2 |
-> |                | ^  \/    1 v |        |
-> |                | |  /\      | |        |
-> |                |  \/  \    /  |        |
-> |                |  /\   \  /   |        |
-> |                ^ /  \   \/    v        |
-> |                ||    \  /\    |        |
-> |                ||     ||  \   |        |
-> |                ||     ||   \  |        |
-> |                ||     ||    \ |        |
-> |                ||     ||     ||        |
-> +----------------++-----++-----++--------+
->                  ||     ||     ||
->                  PF    VF 1   VF 2
-> 
-> I think the current model is (a); do you agree?
-> 
-> So is the proposed new model something like this (c):
+> I stand corrected: the mount does hold a reference to the sunrpc
+> module. 
+> However nothing holds a reference to the blocklayoutdriver module, so
+> the main point that the "blocklayout" pipe can disappear from underneath
+> the blkmapd stands.
 
-Corrected diagram:
+OK, that makes sense.
 
-                TX ^   | RX
-                   |   v
-+------------------+---+-----------------+
-|                  |  ++------------+    |
-|                  |  |RX MAC filter|    |
-|                  ^  ++------------+    |
-|                  |   |match            |
-|          no match|   v                 |
-|  +----------------+ ++------------+    |
-|  |loopback filters| |RX VF filters|    |
-|  +---------+-----++ +-------+-----+    |
-|           /|\   /|\ match  /|\         |
-|          v | `-+>+-+-.2   / | |        |
-|           \ \  | |m \ \   / | |        |
-|     match 0\ `-+-+.a \ \ /  v |        |
-|             \  | | \t \ X   / |        |
-|              \ |  \ \c X \ /  |        |
-|               \|   \ \h \ X   |        |
-|                \    \/\1 X \  v        |
-|                ||   /\ |/ \ \ |        |
-|                |v  /  ||   \ \|        |
-|                || /   ^|    \ |        |
-|                ||/    |v     ||        |
-|                ||     ||     ||        |
-+----------------++-----++-----++--------+
-                 ||     ||     ||
-                 PF    VF 1   VF 2
-
-> (I've labelled the new filters as loopback filters here, and I'm still
-> leaving out anti-spoofing.)
-> 
-> If not, please explain what the new model *is*.
-> 
-> Ben.
-> 
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--b.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
