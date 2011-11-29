@@ -1,53 +1,103 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: is non-inheritance of congestion control algorithm from the
- listen socket a bug or a feature?
-Date: Tue, 29 Nov 2011 14:01:58 -0800
-Message-ID: <20111129140158.352ea90b@nehalam.linuxnetplumber.net>
-References: <1322600212.2596.13.camel@edumazet-laptop>
-	<CAK6E8=djWDn=ZvD0XLxex3vOfsDjCT64k+DwDSNp6+tLbPen2A@mail.gmail.com>
-	<1322603175.2596.31.camel@edumazet-laptop>
-	<20111129.165205.91103035999089185.davem@davemloft.net>
-	<1322603786.2596.36.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, ycheng@google.com,
-	rick.jones2@hp.com, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49776 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754298Ab1K2WCE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 17:02:04 -0500
-In-Reply-To: <1322603786.2596.36.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Maxim <mike@okcupid.com>
+Subject: [PATCH 1/1] IPVS: Modify the SH scheduler to use weights
+Date: Tue, 29 Nov 2011 17:02:22 -0500
+Message-ID: <1322604142-15514-1-git-send-email-mike@okcupid.com>
+Cc: Mike Maxim <mike@okcupid.com>
+To: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 29 Nov 2011 22:56:26 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Modify the algorithm to build the source hashing hash table to add
+extra slots for destinations with higher weight. This has the effect
+of allowing an IPVS SH user to give more connections to hosts that
+have been configured to have a higher weight.
 
-> Le mardi 29 novembre 2011 =E0 16:52 -0500, David Miller a =E9crit :
->=20
-> > There is really no reason to keep the current behavior.
-> >=20
-> > If an application sets the congestion control algorithm on a listen=
-ing
-> > socket to a non-default value, what effect could possibly be intend=
-ed?
-> >=20
-> > Congestion control doesn't even come into play at all on a listenin=
-g
-> > socket, therefore the only logical expectation is that it inherits =
-to
-> > the child.
-> >=20
-> > The only other logical behavior would be to forbid this operation o=
-n a
-> > listening socket, since it has no effect, but that doesn't make any
-> > sense now does it? :-)
->=20
-> Moreover, an application can use setsockopt(TCP_CONGESTION) before
-> calling listen() (while socket is still in CLOSE state)
+Signed-off-by: Michael Maxim <mike@okcupid.com>
+---
+ net/netfilter/ipvs/Kconfig    |   15 +++++++++++++++
+ net/netfilter/ipvs/ip_vs_sh.c |   20 ++++++++++++++++++--
+ 2 files changed, 33 insertions(+), 2 deletions(-)
 
-Agreed, it was just an oversight of the initial design.
-The setsockopt() on the listening socket is ignored.
+diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
+index 70bd1d0..af4c0b8 100644
+--- a/net/netfilter/ipvs/Kconfig
++++ b/net/netfilter/ipvs/Kconfig
+@@ -232,6 +232,21 @@ config	IP_VS_NQ
+ 	  If you want to compile it in kernel, say Y. To compile it as a
+ 	  module, choose M here. If unsure, say N.
+ 
++comment 'IPVS SH scheduler'
++
++config IP_VS_SH_TAB_BITS
++	int "IPVS source hashing table size (the Nth power of 2)"
++	range 4 20
++	default 8
++	---help---
++	  The source hashing scheduler maps source IPs to destinations
++	  stored in a hash table. This table is tiled by each destination
++	  until all slots in the table are filled. When using weights to
++	  allow destinations to receive more connections, the table is
++	  tiled an amount proportional to the weights specified. The table
++	  needs to be large enough to effectively fit all the destinations
++	  multiplied by their respective weights.
++
+ comment 'IPVS application helper'
+ 
+ config	IP_VS_FTP
+diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
+index 33815f4..e0ca520 100644
+--- a/net/netfilter/ipvs/ip_vs_sh.c
++++ b/net/netfilter/ipvs/ip_vs_sh.c
+@@ -30,6 +30,11 @@
+  * server is dead or overloaded, the load balancer can bypass the cache
+  * server and send requests to the original server directly.
+  *
++ * The weight destination attribute can be used to control the
++ * distribution of connections to the destinations in servernode. The
++ * greater the weight, the more connections the destination
++ * will receive.
++ *
+  */
+ 
+ #define KMSG_COMPONENT "IPVS"
+@@ -99,9 +104,11 @@ ip_vs_sh_assign(struct ip_vs_sh_bucket *tbl, struct ip_vs_service *svc)
+ 	struct ip_vs_sh_bucket *b;
+ 	struct list_head *p;
+ 	struct ip_vs_dest *dest;
++	int d_count;
+ 
+ 	b = tbl;
+ 	p = &svc->destinations;
++	d_count = 0;
+ 	for (i=0; i<IP_VS_SH_TAB_SIZE; i++) {
+ 		if (list_empty(p)) {
+ 			b->dest = NULL;
+@@ -113,14 +120,23 @@ ip_vs_sh_assign(struct ip_vs_sh_bucket *tbl, struct ip_vs_service *svc)
+ 			atomic_inc(&dest->refcnt);
+ 			b->dest = dest;
+ 
+-			p = p->next;
++			IP_VS_DBG_BUF(6, "assigned i: %d dest: %s weight: %d\n",
++				      i, IP_VS_DBG_ADDR(svc->af, &dest->addr),
++				      atomic_read(&dest->weight));
++
++			/* Don't move to next dest until filling weight */
++			if (++d_count >= atomic_read(&dest->weight)) {
++				p = p->next;
++				d_count = 0;
++			}
++
+ 		}
+ 		b++;
+ 	}
++
+ 	return 0;
+ }
+ 
