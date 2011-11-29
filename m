@@ -1,55 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] sctp: better integer overflow check in
- sctp_auth_create_key()
-Date: Tue, 29 Nov 2011 14:35:28 -0500 (EST)
-Message-ID: <20111129.143528.342322755.davem@davemloft.net>
-References: <4ED4F428.9030807@hp.com>
-	<A1A6AF9D-8C35-4702-9693-7BCBEDE27219@gmail.com>
-	<125BB325-72D4-4FEF-A5CC-118680EC78D2@gmail.com>
+Subject: Re: [PATCH] sctp: integer overflow in sctp_auth_create_key()
+Date: Tue, 29 Nov 2011 14:39:50 -0500 (EST)
+Message-ID: <20111129.143950.406285357.davem@davemloft.net>
+References: <028246D6-9024-4E43-93A1-25A87878CBBC@gmail.com>
+	<20111129.011932.1501413448765180498.davem@davemloft.net>
+	<BC344CCF-A50F-4E5E-A9A5-F506D8BD9DB9@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vladislav.yasevich@hp.com, linux-kernel@vger.kernel.org,
+Cc: linux-kernel@vger.kernel.org, vladislav.yasevich@hp.com,
 	sri@us.ibm.com, linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
 	security@kernel.org
 To: xi.wang@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <125BB325-72D4-4FEF-A5CC-118680EC78D2@gmail.com>
+In-Reply-To: <BC344CCF-A50F-4E5E-A9A5-F506D8BD9DB9@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Xi Wang <xi.wang@gmail.com>
-Date: Tue, 29 Nov 2011 14:26:30 -0500
+Date: Tue, 29 Nov 2011 14:31:30 -0500
 
-> The check from commit 30c2235c is incomplete and cannot prevent
-> cases like key_len = 0x80000000 (INT_MAX + 1).  In that case, the
-> left-hand side of the check (INT_MAX - key_len), which is unsigned,
-> becomes 0xffffffff (UINT_MAX) and bypasses the check.
+> a5e5c374 --- it says "No differences found".
 > 
-> However this shouldn't be a security issue.  The function is called
-> from the following two code paths:
-> 
->  1) setsockopt()
-> 
->  2) sctp_auth_asoc_set_secret()
-> 
-> In case (1), sca_keylength is never going to exceed 65535 since it's
-> bounded by a u16 from the user API.  As such, the key length will
-> never overflow.
-> 
-> In case (2), sca_keylength is computed based on the user key (1 short)
-> and 2 * key_vector (3 shorts) for a total of 7 * USHRT_MAX, which still
-> will not overflow.
-> 
-> In other words, this overflow check is not really necessary.  Just
-> make it more correct.
-> 
-> Signed-off-by: Xi Wang <xi.wang@gmail.com>
-> Cc: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Can you please apply the new patch v2?  Thanks.
 
-I already applied your patch, you cannot just post a patch as if
-it hasn't been applied to the tree, it doesn't work like that.
+Sigh, probably a side effect of how your patch was corrupted
+and how I tried to fix it up by hand :-/
 
-Once I've applied one of your patches, it is "cast in stone" and
-cannot be reverted.  You must therefore develop relative to the
-change.
+Ok, I'll apply v2, thanks.
