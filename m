@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: integer overflow in sctp_auth_create_key()
-Date: Tue, 29 Nov 2011 01:19:32 -0500 (EST)
-Message-ID: <20111129.011932.1501413448765180498.davem@davemloft.net>
-References: <028246D6-9024-4E43-93A1-25A87878CBBC@gmail.com>
+Subject: Re: [PATCH 1/3] dsa: Remove unnecessary exports
+Date: Tue, 29 Nov 2011 01:20:18 -0500 (EST)
+Message-ID: <20111129.012018.778222884731997632.davem@davemloft.net>
+References: <1322449506.7454.34.camel@deadeye>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, vladislav.yasevich@hp.com,
-	sri@us.ibm.com, linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	security@kernel.org
-To: xi.wang@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <028246D6-9024-4E43-93A1-25A87878CBBC@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: buytenh@wantstofly.org, netdev@vger.kernel.org
+To: ben@decadent.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34909 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751569Ab1K2GU2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 01:20:28 -0500
+In-Reply-To: <1322449506.7454.34.camel@deadeye>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Xi Wang <xi.wang@gmail.com>
-Date: Tue, 22 Nov 2011 20:55:30 -0500
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Mon, 28 Nov 2011 03:05:06 +0000
 
-> The previous commit 30c2235c is incomplete and cannot prevent integer
-> overflows. For example, when key_len is 0x80000000 (INT_MAX + 1), the
-> left-hand side of the check, (INT_MAX - key_len), which is unsigned,
-> becomes 0xffffffff (UINT_MAX) and bypasses the check.
+> I mistakenly exported functions from slave.c that are only called from
+> dsa.c, part of the same module.
 > 
-> Signed-off-by: Xi Wang <xi.wang@gmail.com>
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 
-Applied, but I had to apply your patch by hand because it was
-corrupted by your email client.
-
-Please fix this problem because I am not applying any other patch
-you've submitted which has this issue.
+Applied.
