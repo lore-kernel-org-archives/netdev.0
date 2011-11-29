@@ -1,39 +1,71 @@
-From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Subject: Re: pull request: wireless-next 2011-11-28
-Date: Tue, 29 Nov 2011 13:58:06 +0200
-Message-ID: <4ED4C8CE.8030408@qca.qualcomm.com>
-References: <20111128200221.GD2681@tuxdriver.com> <20111128.195516.37800643865997337.davem@davemloft.net>
+From: <tao.peng-mb1K0bWo544@public.gmane.org>
+Subject: RE: [PATCH 4/5] NFS: remove RPC PipeFS mount point reference from
+	blocklayout routines
+Date: Tue, 29 Nov 2011 07:00:56 -0500
+Message-ID: <F19688880B763E40B28B2B462677FBF805E3A4AFF2@MX09A.corp.emc.com>
+References: <20111129090754.20730.64567.stgit@localhost6.localdomain6>
+ <20111129091037.20730.59391.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20111128.195516.37800643865997337.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	<neilb-l3A5Bk7waGM@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	<bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+To: <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20111129091037.20730.59391.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Content-Language: en-US
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 11/29/2011 02:55 AM, David Miller wrote:
-
-> Pulled, but please push back on the ath6kl guys, they seem to have
-> this disease where they add tons of debugfs files
-
-Sorry about that. I was under impression that there are no strict rules
-for debugfs files and drivers can add them without too much worries, but
-it seems I was wrong.
-
-> for controlling things like QoS from userspace instead of creating
-> and using generic configuration machanisms via netlink or similar
-> that any other driver could support too.
-
-Adding a generic QoS interface would take some time to implement and I
-doubt that we (=ath6kl team) can do that anytime soon as our first
-challange has been to get ath6kl working properly with cfg80211. That's
-why we ended up having a debugfs interface for qos as our first step.
-
-Kalle
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBsaW51eC1uZnMtb3duZXJAdmdl
+ci5rZXJuZWwub3JnIFttYWlsdG86bGludXgtbmZzLW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24g
+QmVoYWxmIE9mIFN0YW5pc2xhdg0KPiBLaW5zYnVyc2t5DQo+IFNlbnQ6IFR1ZXNkYXksIE5vdmVt
+YmVyIDI5LCAyMDExIDY6MTEgUE0NCj4gVG86IFRyb25kLk15a2xlYnVzdEBuZXRhcHAuY29tDQo+
+IENjOiBsaW51eC1uZnNAdmdlci5rZXJuZWwub3JnOyB4ZW11bEBwYXJhbGxlbHMuY29tOyBuZWls
+YkBzdXNlLmRlOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC0NCj4ga2VybmVsQHZnZXIu
+a2VybmVsLm9yZzsgamJvdHRvbWxleUBwYXJhbGxlbHMuY29tOyBiZmllbGRzQGZpZWxkc2VzLm9y
+ZzsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsNCj4gZGV2ZWxAb3BlbnZ6Lm9yZw0KPiBTdWJqZWN0OiBb
+UEFUQ0ggNC81XSBORlM6IHJlbW92ZSBSUEMgUGlwZUZTIG1vdW50IHBvaW50IHJlZmVyZW5jZSBm
+cm9tIGJsb2NrbGF5b3V0IHJvdXRpbmVzDQo+IA0KPiBUaGlzIGlzIGEgY2xlYW51cCBwYXRjaC4g
+V2UgZG9uJ3QgbmVlZCB0aGlzIHJlZmVyZW5jZSBhbnltb3JlLCBiZWNhdXNlDQo+IGJsb2NrbGF5
+b3V0IHBpcGVzIGRlbnRyaWVzIG5vdyBjcmVhdGVzIGFuZCBkZXN0cm95cyBpbiBwZXItbmV0IG9w
+ZXJhdGlvbnMgYW5kDQo+IG9uIFBpcGVGUyBtb3VudC91bW91bnQgbm90aWZpY2F0aW9uLg0KPiBO
+b3RlIHRoYXQgbmZzNGJsb2NrbGF5b3V0X3JlZ2lzdGVyX25ldCgpIG5vdyByZXR1cm5zIDAgaW5z
+dGVhZCBvZiAtRU5PRU5UIGluDQo+IGNhc2Ugb2YgUGlwZUZTIHN1cGVyYmxvY2sgYWJzZW5jZS4g
+VGhpcyBpcyBvaywgYmVjYXVzZSBibG9ja2xheW91dCBwaXBlIGRlbnRyeQ0KPiB3aWxsIGJlIGNy
+ZWF0ZWQgb24gUGlwZUZTIG1vdW50IGV2ZW50Lg0KV2hlbiBpcyB0aGUgInBpcGVmcyBtb3VudCBl
+dmVudCIgZ29pbmcgdG8gaGFwcGVuPyBXaGVuIGluc2VydGluZyBrZXJuZWwgbW9kdWxlcyBvciB3
+aGVuIHVzZXIgaXNzdWVzIG1vdW50IGNvbW1hbmQ/DQoNClRoYW5rcywNClRhbw0KDQo+IA0KPiBT
+aWduZWQtb2ZmLWJ5OiBTdGFuaXNsYXYgS2luc2J1cnNreSA8c2tpbnNidXJza3lAcGFyYWxsZWxz
+LmNvbT4NCj4gDQo+IC0tLQ0KPiAgZnMvbmZzL2Jsb2NrbGF5b3V0L2Jsb2NrbGF5b3V0LmMgfCAg
+ICA5ICstLS0tLS0tLQ0KPiAgMSBmaWxlcyBjaGFuZ2VkLCAxIGluc2VydGlvbnMoKyksIDggZGVs
+ZXRpb25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvZnMvbmZzL2Jsb2NrbGF5b3V0L2Jsb2NrbGF5
+b3V0LmMgYi9mcy9uZnMvYmxvY2tsYXlvdXQvYmxvY2tsYXlvdXQuYw0KPiBpbmRleCBhY2Y3YWM5
+Li44MjExZmZkIDEwMDY0NA0KPiAtLS0gYS9mcy9uZnMvYmxvY2tsYXlvdXQvYmxvY2tsYXlvdXQu
+Yw0KPiArKysgYi9mcy9uZnMvYmxvY2tsYXlvdXQvYmxvY2tsYXlvdXQuYw0KPiBAQCAtMTAzMiw3
+ICsxMDMyLDcgQEAgc3RhdGljIHN0cnVjdCBkZW50cnkgKm5mczRibG9ja2xheW91dF9yZWdpc3Rl
+cl9uZXQoc3RydWN0IG5ldCAqbmV0LA0KPiANCj4gIAlwaXBlZnNfc2IgPSBycGNfZ2V0X3NiX25l
+dChuZXQpOw0KPiAgCWlmICghcGlwZWZzX3NiKQ0KPiAtCQlyZXR1cm4gRVJSX1BUUigtRU5PRU5U
+KTsNCj4gKwkJcmV0dXJuIDA7DQo+ICAJZGVudHJ5ID0gbmZzNGJsb2NrbGF5b3V0X3JlZ2lzdGVy
+X3NiKHBpcGVmc19zYiwgcGlwZSk7DQo+ICAJcnBjX3B1dF9zYl9uZXQobmV0KTsNCj4gIAlyZXR1
+cm4gZGVudHJ5Ow0KPiBAQCAtMTA4Myw3ICsxMDgzLDYgQEAgc3RhdGljIHN0cnVjdCBwZXJuZXRf
+b3BlcmF0aW9ucyBuZnM0YmxvY2tsYXlvdXRfbmV0X29wcyA9IHsNCj4gDQo+ICBzdGF0aWMgaW50
+IF9faW5pdCBuZnM0YmxvY2tsYXlvdXRfaW5pdCh2b2lkKQ0KPiAgew0KPiAtCXN0cnVjdCB2ZnNt
+b3VudCAqbW50Ow0KPiAgCWludCByZXQ7DQo+IA0KPiAgCWRwcmludGsoIiVzOiBORlN2NCBCbG9j
+ayBMYXlvdXQgRHJpdmVyIFJlZ2lzdGVyaW5nLi4uXG4iLCBfX2Z1bmNfXyk7DQo+IEBAIC0xMDkz
+LDEyICsxMDkyLDYgQEAgc3RhdGljIGludCBfX2luaXQgbmZzNGJsb2NrbGF5b3V0X2luaXQodm9p
+ZCkNCj4gIAkJZ290byBvdXQ7DQo+IA0KPiAgCWluaXRfd2FpdHF1ZXVlX2hlYWQoJmJsX3dxKTsN
+Cj4gLQ0KPiAtCW1udCA9IHJwY19nZXRfbW91bnQoKTsNCj4gLQlpZiAoSVNfRVJSKG1udCkpIHsN
+Cj4gLQkJcmV0ID0gUFRSX0VSUihtbnQpOw0KPiAtCQlnb3RvIG91dF9yZW1vdmU7DQo+IC0JfQ0K
+PiAgCXJldCA9IHJwY19waXBlZnNfbm90aWZpZXJfcmVnaXN0ZXIoJm5mczRibG9ja2xheW91dF9i
+bG9jayk7DQo+ICAJaWYgKHJldCkNCj4gIAkJZ290byBvdXRfcmVtb3ZlOw0KPiANCj4gLS0NCj4g
+VG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJl
+IGxpbnV4LW5mcyIgaW4NCj4gdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2Vy
+Lmtlcm5lbC5vcmcNCj4gTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVs
+Lm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQoNCg==
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
