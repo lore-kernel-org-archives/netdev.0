@@ -1,44 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: master device stuck in no-carrier
- state forever when in user-stp mode
-Date: Tue, 29 Nov 2011 18:54:33 -0500 (EST)
-Message-ID: <20111129.185433.1527626185550800872.davem@davemloft.net>
-References: <201111251216.37466.vitas@nppfactor.kiev.ua>
+Subject: Re: [PATCH] at91_ether: use gpio_is_valid for phy IRQ line
+Date: Tue, 29 Nov 2011 18:53:42 -0500 (EST)
+Message-ID: <20111129.185342.105454076866922618.davem@davemloft.net>
+References: <1322128098-17724-1-git-send-email-jamie@jamieiles.com>
+	<1322169674-4109-1-git-send-email-nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
-	bridge@lists.linux-foundation.org
-To: vitas@nppfactor.kiev.ua
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <201111251216.37466.vitas@nppfactor.kiev.ua>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: jamie@jamieiles.com, netdev@vger.kernel.org, plagnioj@jcrosoft.com,
+	sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: nicolas.ferre@atmel.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1322169674-4109-1-git-send-email-nicolas.ferre@atmel.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vitalii Demianets <vitas@nppfactor.kiev.ua>
-Date: Fri, 25 Nov 2011 12:16:37 +0200
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Date: Thu, 24 Nov 2011 22:21:14 +0100
 
-> When in user-stp mode, bridge master do not follow state of its slaves, so 
-> after the following sequence of events it can stuck forever in no-carrier 
-> state:
-> 1) turn stp off
-> 2) put all slaves down - master device will follow their state and also go in 
-> no-carrier state
-> 3) turn stp on with bridge-stp script returning 0 (go to the user-stp mode)
-> Now bridge master won't follow slaves' state and will never reach running 
-> state.
+> Use the generic gpiolib gpio_is_valid() function to test
+> if the phy IRQ line GPIO is actually provided.
 > 
-> This patch solves the problem by making user-stp and kernel-stp behavior 
-> similar regarding master following slaves' states.
+> For non-connected or non-existing phy IRQ lines, -EINVAL
+> value is used for phy_irq_pin field of struct at91_eth_data.
 > 
-> Signed-off-by: Vitalii Demianets <vitas@nppfactor.kiev.ua>
+> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-Stephen, please review this patch, thanks.
+I'm assuming this goes through the ARM tree, because in both of my networking
+trees there is no ARM at91 implementation of gpio_is_valid().
