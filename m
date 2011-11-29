@@ -1,31 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] corral some wayward N/A fw_version dust
- bunnies
-Date: Tue, 29 Nov 2011 01:18:37 -0500 (EST)
-Message-ID: <20111129.011837.1680857703021611216.davem@davemloft.net>
-References: <20111123000626.43E58290084C@tardy>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v4] net: add calxeda xgmac ethernet driver
+Date: Tue, 29 Nov 2011 01:19:40 -0500 (EST)
+Message-ID: <20111129.011940.928445215881241355.davem@davemloft.net>
+References: <1322018299-30970-1-git-send-email-robherring2@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com, jdmason@kudzu.us
-To: raj@tardy.cup.hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34956 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752143Ab1K2GVn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 01:21:43 -0500
-In-Reply-To: <20111123000626.43E58290084C@tardy>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+ rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org,
+ saeed.bishara-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <1322018299-30970-1-git-send-email-robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: raj@tardy.cup.hp.com (Rick Jones)
-Date: Tue, 22 Nov 2011 16:06:26 -0800 (PST)
+From: Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Tue, 22 Nov 2011 21:18:19 -0600
 
-> From: Rick Jones <rick.jones2@hp.com>
+> From: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
 > 
-> Round-up some wayward "N/A" fw_version dust bunnies as part of that
-> clean-up.
+> Add support for the XGMAC 10Gb ethernet device in the Calxeda Highbank
+> SOC.
 > 
-> Signed-off-by: Rick Jones <rick.jones2@hp.com>
+> Signed-off-by: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
 
 Applied.
