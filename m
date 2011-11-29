@@ -1,132 +1,164 @@
-From: Marc Aurele La France <tsi@ualberta.ca>
-Subject: RCU'ed dst_get_neighbour()
-Date: Tue, 29 Nov 2011 10:44:36 -0700 (Mountain Standard Time)
-Message-ID: <alpine.WNT.2.00.1111291027320.1036@TSI>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: 3.2-rc2+: Reported regressions from 3.0 and 3.1
+Date: Tue, 29 Nov 2011 13:04:14 -0500
+Message-ID: <20111129180414.GA11459@phenom.dumpdata.com>
+References: <lx6sezwGldO.A.IhF.UBpWOB@chimera> <201111212249.31196.rjw@sisk.pl>
+	<20111122135412.GA29905@phenom.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-To: netdev@vger.kernel.org, eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.srv.ualberta.ca ([129.128.5.19]:61326 "EHLO
-	mail1.srv.ualberta.ca" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755968Ab1K2SFk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 13:05:40 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Florian Mickler <florian@mickler.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>, tglx@linutronix.de, mingo@redhat.com,
+	hpa@zytor.com, x86@kernel.org, borislav.petkov@amd.com
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20111122135412.GA29905@phenom.dumpdata.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi.
+On Tue, Nov 22, 2011 at 08:54:12AM -0500, Konrad Rzeszutek Wilk wrote:
+> > Subject    : Regression in 3.1 causes Xen to use wrong idle routine
+> > Submitter  : Stefan Bader <stefan.bader@canonical.com>
+> > Date       : 2011-10-26 10:24
+> > Message-ID : 4EA7DFD1.9060608@canonical.com
+> > References : http://marc.info/?l=linux-acpi&m=131962467924564&w=2
+> 
+> The patch mentioned in http://mid.gmane.org/20111115144004.GE22675@phenom.dumpdata.com 
+> should do it. But the patch needs an Ack from ACPI/x86 folks.
 
-Commit (1) seems to imply that all dst_get_neighbour() references now need 
-to be wrapped with rcu_read_lock()/rcu_read_unlock() sequences.  See (2) 
-for one such proposed change.
+This patch (mentioned in the URL above) fixes the issue. Could it be
+applied to the x86 tree for 3.2 or get an Ack, please?
 
-In the case I have here (ipoib), this commit results in ...
+>From 4f10ec7a7b9ff24657696aa98f25bcecde247373 Mon Sep 17 00:00:00 2001
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Date: Mon, 21 Nov 2011 18:02:02 -0500
+Subject: [PATCH] xen/pm_idle: Make pm_idle be default_idle under Xen.
 
-===================================================
-[ INFO: suspicious rcu_dereference_check() usage. ]
----------------------------------------------------
-include/net/dst.h:91 invoked rcu_dereference_check() without protection!
+This patch:
 
-other info that might help us debug this:
+commit d91ee5863b71e8c90eaf6035bff3078a85e2e7b5
+Author: Len Brown <len.brown@intel.com>
+Date:   Fri Apr 1 18:28:35 2011 -0400
 
+    cpuidle: replace xen access to x86 pm_idle and default_idle
 
-rcu_scheduler_active = 1, debug_locks = 1
-4 locks held by kworker/3:1/630:
-  #0:  (ib_cm){.+.+.+}, at: [<ffffffff81055735>] 
-process_one_work+0x1ab/0x4f9
-  #1:  ((&(&work->work)->work)){+.+.+.}, at: [<ffffffff81055735>] 
-process_one_work+0x1ab/0x4f9
-  #2:  (rcu_read_lock_bh){.+....}, at: [<ffffffff81388216>] 
-dev_queue_xmit+0x0/0x5ae
-  #3:  (_xmit_INFINIBAND){+.-...}, at: [<ffffffff8139eecc>] 
-sch_direct_xmit+0x4d/0x22b
+    ..scribble on pm_idle and access default_idle,
+   have it simply disable_cpuidle() so acpi_idle will not load and
+   architecture default HLT will be used.
 
-stack backtrace:
-Pid: 630, comm: kworker/3:1 Not tainted 3.1.3-smp #1
+idea was to have one call - disable_cpuidle() which would make
+pm_idle not be molested by other code. It disallows cpuidle_idle_call
+and acpi_idle_call to not set pm_idle (which is excellent). But the
+amd_e400_idle and mwait_idle can still setup pm_idle which we really
+do not want. In case of mwait_idle we can hit some instances where:
+
+Brought up 2 CPUs
+invalid opcode: 0000 [#1] SMP
+CPU 1
+Modules linked in:
+
+Pid: 0, comm: swapper Not tainted 3.1.0-0.rc6.git0.3.fc16.x86_64 #1
+RIP: e030:[<ffffffff81015d1d>]  [<ffffffff81015d1d>] mwait_idle+0x6f/0xb4
+RSP: e02b:ffff8801d28ddf10  EFLAGS: 00010082
+RAX: ffff8801d28dc010 RBX: ffff8801d28ddfd8 RCX: 0000000000000000
+RDX: 0000000000000000 RSI: 0000000000000001 RDI: 0000000000000001
+RBP: ffff8801d28ddf10 R08: 0000000000000000 R09: 0000000000000001
+R10: 0000000000000001 R11: ffff8801d28ddfd8 R12: ffffffff81b590d0
+R13: 0000000000000000 R14: 0000000000000000 R15: 0000000000000000
+FS:  0000000000000000(0000) GS:ffff8801dff81000(0000) knlGS:0000000000000000
+CS:  e033 DS: 002b ES: 002b CR0: 000000008005003b
+CR2: 0000000000000000 CR3: 0000000001a05000 CR4: 0000000000002660
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000000
+Process swapper (pid: 0, threadinfo ffff8801d28dc000, task ffff8801d28cae60)
+Stack:
+ ffff8801d28ddf40 ffffffff8100e2ed ffff8801dff8e390 c136dfe72feab515
+ 0000000000000000 0000000000000000 ffff8801d28ddf50 ffffffff8149ee78
+ 0000000000000000 0000000000000000 0000000000000000 0000000000000000
 Call Trace:
-  [<ffffffff8106c385>] lockdep_rcu_dereference+0x9b/0xa4
-  [<ffffffff81351cda>] ipoib_start_xmit+0xf4/0x36f
-  [<ffffffff81384215>] dev_hard_start_xmit+0x2a7/0x54f
-  [<ffffffff8139eeef>] sch_direct_xmit+0x70/0x22b
-  [<ffffffff8138851f>] dev_queue_xmit+0x309/0x5ae
-  [<ffffffff81388216>] ? napi_gro_receive+0xb3/0xb3
-  [<ffffffff813582d3>] ipoib_cm_rep_handler+0x208/0x248
-  [<ffffffff81433e16>] ? _raw_spin_unlock_irqrestore+0x3d/0x5b
-  [<ffffffff8135a912>] ipoib_cm_tx_handler+0x95/0x27f
-  [<ffffffff8106d183>] ? __trace_hardirqs_on_caller+0x41/0x65
-  [<ffffffff81327b29>] cm_process_work+0x26/0xbc
-  [<ffffffff81328d74>] cm_rep_handler+0x274/0x2ae
-  [<ffffffff81329582>] cm_work_handler+0x41/0x91
-  [<ffffffff8105582c>] process_one_work+0x2a2/0x4f9
-  [<ffffffff81055735>] ? process_one_work+0x1ab/0x4f9
-  [<ffffffff810580c6>] ? worker_thread+0x4a/0x1ca
-  [<ffffffff81329541>] ? cm_req_handler+0x355/0x355
-  [<ffffffff81058175>] worker_thread+0xf9/0x1ca
-  [<ffffffff8105807c>] ? gcwq_mayday_timeout+0x77/0x77
-  [<ffffffff8105bfa3>] kthread+0x86/0x8e
-  [<ffffffff81436b34>] kernel_thread_helper+0x4/0x10
-  [<ffffffff8143425d>] ? retint_restore_args+0xe/0xe
-  [<ffffffff8105bf1d>] ? kthread_stop+0x1cd/0x1cd
-  [<ffffffff81436b30>] ? gs_change+0xb/0xb
+ [<ffffffff8100e2ed>] cpu_idle+0xae/0xe8
+ [<ffffffff8149ee78>] cpu_bringup_and_idle+0xe/0x10
+RIP  [<ffffffff81015d1d>] mwait_idle+0x6f/0xb4
+ RSP <ffff8801d28ddf10>
 
-===================================================
-[ INFO: suspicious rcu_dereference_check() usage. ]
----------------------------------------------------
-include/net/dst.h:91 invoked rcu_dereference_check() without protection!
+RH BZ #739499 and Ubuntu #881076
 
-other info that might help us debug this:
+In case of amd_e400_idle we don't get so spectacular crashes, but
+we do end up making an MSR which is trapped in the hypervisor,
+and then follow it up with a yield hypercall. Meaning we end up
+going to hypervisor twice instead of just once.
 
+Lets make pm_idle be default_idle to take care of that.
 
-rcu_scheduler_active = 1, debug_locks = 1
-2 locks held by kworker/u:2/748:
-  #0:  ((name)){.+.+.+}, at: [<ffffffff81055735>] 
-process_one_work+0x1ab/0x4f9
-  #1:  ((&port_priv->work)){+.+.+.}, at: [<ffffffff81055735>] 
-process_one_work+0x1ab/0x4f9
+Reported-by: Stefan Bader <stefan.bader@canonical.com>
+Signed-off-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+---
+ arch/x86/include/asm/system.h |    1 +
+ arch/x86/kernel/process.c     |    8 ++++++++
+ arch/x86/xen/setup.c          |    2 +-
+ 3 files changed, 10 insertions(+), 1 deletions(-)
 
-stack backtrace:
-Pid: 748, comm: kworker/u:2 Not tainted 3.1.3-smp #1
-Call Trace:
-  [<ffffffff8106c385>] lockdep_rcu_dereference+0x9b/0xa4
-  [<ffffffff81354e68>] ipoib_mcast_join_finish+0x362/0x48a
-  [<ffffffff81355481>] ipoib_mcast_sendonly_join_complete+0x3b/0x174
-  [<ffffffff813246b3>] mcast_work_handler+0xba/0x182
-  [<ffffffff813248aa>] join_handler+0xe6/0xee
-  [<ffffffff81322af1>] ib_sa_mcmember_rec_callback+0x51/0x5c
-  [<ffffffff8132289c>] recv_handler+0x44/0x50
-  [<ffffffff8131efca>] ib_mad_complete_recv+0xc3/0x125
-  [<ffffffff8131debe>] ? find_mad_agent+0x13a/0x149
-  [<ffffffff8131f30a>] ib_mad_recv_done_handler+0x2de/0x326
-  [<ffffffff8131f3b0>] ib_mad_completion_handler+0x5e/0x91
-  [<ffffffff8105582c>] process_one_work+0x2a2/0x4f9
-  [<ffffffff81055735>] ? process_one_work+0x1ab/0x4f9
-  [<ffffffff810580c6>] ? worker_thread+0x4a/0x1ca
-  [<ffffffff8131f352>] ? ib_mad_recv_done_handler+0x326/0x326
-  [<ffffffff81058175>] worker_thread+0xf9/0x1ca
-  [<ffffffff8105807c>] ? gcwq_mayday_timeout+0x77/0x77
-  [<ffffffff8105bfa3>] kthread+0x86/0x8e
-  [<ffffffff81436b34>] kernel_thread_helper+0x4/0x10
-  [<ffffffff8143425d>] ? retint_restore_args+0xe/0xe
-  [<ffffffff8105bf1d>] ? kthread_stop+0x1cd/0x1cd
-  [<ffffffff81436b30>] ? gs_change+0xb/0xb
-
-Comments/flames?
-
-Thanks.
-
-Marc.
-
-PS:  Please reply-to-all as I am not subscribed to netdev.
-
-(1) http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commitdiff;h=f2c31e32b378a6653f8de606149d963baf11d7d3
-(2) http://www.spinics.net/lists/netdev/msg179639.html
-
-+----------------------------------+----------------------------------+
-|  Marc Aurele La France           |  work:   1-780-492-9310          |
-|  Academic Information and        |  fax:    1-780-492-1729          |
-|    Communications Technologies   |  email:  tsi@ualberta.ca         |
-|  352 General Services Building   +----------------------------------+
-|  University of Alberta           |                                  |
-|  Edmonton, Alberta               |    Standard disclaimers apply    |
-|  T6G 2H1                         |                                  |
-|  CANADA                          |                                  |
-+----------------------------------+----------------------------------+
+diff --git a/arch/x86/include/asm/system.h b/arch/x86/include/asm/system.h
+index c2ff2a1..2d2f01c 100644
+--- a/arch/x86/include/asm/system.h
++++ b/arch/x86/include/asm/system.h
+@@ -401,6 +401,7 @@ extern unsigned long arch_align_stack(unsigned long sp);
+ extern void free_init_pages(char *what, unsigned long begin, unsigned long end);
+ 
+ void default_idle(void);
++bool set_pm_idle_to_default(void);
+ 
+ void stop_this_cpu(void *dummy);
+ 
+diff --git a/arch/x86/kernel/process.c b/arch/x86/kernel/process.c
+index 1f7f8c8..336b299 100644
+--- a/arch/x86/kernel/process.c
++++ b/arch/x86/kernel/process.c
+@@ -404,6 +404,14 @@ void default_idle(void)
+ EXPORT_SYMBOL(default_idle);
+ #endif
+ 
++bool set_pm_idle_to_default()
++{
++	if (!pm_idle) {
++		pm_idle = default_idle;
++		return true;
++	}
++	return false;
++}
+ void stop_this_cpu(void *dummy)
+ {
+ 	local_irq_disable();
+diff --git a/arch/x86/xen/setup.c b/arch/x86/xen/setup.c
+index 46d6d21..7506181 100644
+--- a/arch/x86/xen/setup.c
++++ b/arch/x86/xen/setup.c
+@@ -448,6 +448,6 @@ void __init xen_arch_setup(void)
+ #endif
+ 	disable_cpuidle();
+ 	boot_option_idle_override = IDLE_HALT;
+-
++	WARN_ON(!set_pm_idle_to_default());
+ 	fiddle_vdso();
+ }
+-- 
+1.7.7.3
