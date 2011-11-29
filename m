@@ -1,47 +1,60 @@
-From: Jeroen van Ingen <jeroen@zijndomein.nl>
-Subject: ipv4: broadcast sometimes leaves wrong interface (since commit
- e066008b38ca9ace1b6de8dbbac8ed460640791d)
-Date: Tue, 29 Nov 2011 17:44:47 +0100
-Message-ID: <1322585087.25018.115.camel@icts-sp-039>
+From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 4/5] NFS: remove RPC PipeFS mount point reference from
+ blocklayout routines
+Date: Tue, 29 Nov 2011 12:19:25 -0500
+Message-ID: <1322587165.4174.20.camel@lade.trondhjem.org>
+References: <20111129090754.20730.64567.stgit@localhost6.localdomain6>
+	 <20111129091037.20730.59391.stgit@localhost6.localdomain6>
+	 <F19688880B763E40B28B2B462677FBF805E3A4AFF2@MX09A.corp.emc.com>
+	 <4ED4CDCE.9080804@parallels.com>
+	 <F19688880B763E40B28B2B462677FBF805E3A4AFFD@MX09A.corp.emc.com>
+	 <2E1EB2CF9ED1CB4AA966F0EB76EAB4430C3CBC23@SACMVEXC2-PRD.hq.netapp.com>
+	 <CA+a=Yy5GKMu8rbh8y3fOtK6pmqygPNBr=a+p7LfcmTqtXFH3iA@mail.gmail.com>
+	 <1322579906.3619.1.camel@lade.trondhjem.org>
+	 <CA+a=Yy6kJe0NemSiRwM+t8gz5-UF5fOdwdS2so+q=nSYjBx--w@mail.gmail.com>
+	 <1322584830.4174.16.camel@lade.trondhjem.org>
+	 <20111129164252.GA19528@fieldses.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.utsp.utwente.nl ([130.89.2.14]:59505 "EHLO mx.utwente.nl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751530Ab1K2RQJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Nov 2011 12:16:09 -0500
-Received: from [130.89.36.18] (icts-sp-039.itbe.utwente.nl [130.89.36.18])
-          by mx.utwente.nl (8.12.10/SuSE Linux 0.7) with ESMTP id pATGimPV029125
-          for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 17:44:48 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8BIT
+Cc: Peng Tao <bergwolf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, tao.peng-mb1K0bWo544@public.gmane.org,
+	skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20111129164252.GA19528-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, 2011-11-29 at 11:42 -0500, J. Bruce Fields wrote: 
+> On Tue, Nov 29, 2011 at 11:40:30AM -0500, Trond Myklebust wrote:
+> > I mean that I'm perfectly entitled to do
+> > 
+> > 'modprobe -r blocklayoutdriver'
+> > 
+> > and when I do that, then I expect blkmapd to close the rpc pipe and wait
+> > for a new one to be created just like rpc.idmapd and rpc.gssd do when I
+> > remove the nfs and sunrpc modules.
+> 
+> The rpc pipefs mount doesn't hold a reference on the sunrpc module?
 
-We're having an issue on our Linux PPTP servers. After the first PPTP
-client is connected, locally generated broadcast packets go out the ppp0
-interface while the routing rules should select eth0.
+I stand corrected: the mount does hold a reference to the sunrpc
+module. 
+However nothing holds a reference to the blocklayoutdriver module, so
+the main point that the "blocklayout" pipe can disappear from underneath
+the blkmapd stands.
 
-Some details were already mentioned on the linux-kernel list, see eg
-http://lkml.indiana.edu/hypermail/linux/kernel/1111.2/00290.html for
-reference.
+-- 
+Trond Myklebust
+Linux NFS client maintainer
 
-Finally we were able to narrow it down to one specific commit:
-e066008b38ca9ace1b6de8dbbac8ed460640791d ("ipv4: Fix __ip_dev_find() to
-use ifa_local instead of ifa_address."). With all recent kernels (tested
-up to 3.2.0rc3) we observe this issue and it's solved by reverting this
-single patch.
+NetApp
+Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
+www.netapp.com
 
-This is the first time we've had to debug a kernel issue. Any advice on
-how to proceed would be very welcome. If it's not possible to have this
-patch reverted in the kernel, hopefully someone can explain how to work
-around this behavior.
-
-
-Regards,
-
-Jeroen van Ingen
-ICT Service Centre
-University of Twente, P.O.Box 217, 7500 AE Enschede, The Netherlands
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
