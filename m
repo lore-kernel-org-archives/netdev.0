@@ -1,59 +1,114 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [RFC PATCH 00/18] netfilter: IPv6 NAT
-Date: Tue, 29 Nov 2011 23:21:11 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1111292306460.18953@frira.zrqbmnf.qr>
-References: <CAF9AA63.1622%ulrich.weber@sophos.com> <a2407c3b6405bd682cedad6db82cf225@treenet.co.nz> <4ED4A399.6090709@sophos.com> <alpine.LNX.2.01.1111291255200.20965@frira.zrqbmnf.qr> <4ED550E7.1090609@ans.pl>
+From: Marc Aurele La France <tsi-yfeSBMgouQgsA/PxXw9srA@public.gmane.org>
+Subject: Re: RCU'ed dst_get_neighbour()
+Date: Tue, 29 Nov 2011 15:32:35 -0700 (Mountain Standard Time)
+Message-ID: <alpine.WNT.2.00.1111291527360.228@TSI>
+References: <alpine.WNT.2.00.1111291027320.1036@TSI> <1322589661.2596.2.camel@edumazet-laptop> <1322599437.2596.10.camel@edumazet-laptop> <CAG4TOxNJfr3X1p358LBWdNQKdkw8KOSekcKpNu6K5_phPEiR4A@mail.gmail.com> <1322599991.2596.11.camel@edumazet-laptop>
+ <alpine.WNT.2.00.1111291359290.1036@TSI> <1322601444.2596.21.camel@edumazet-laptop> <1322602283.2596.25.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ulrich Weber <ulrich.weber@sophos.com>,
-	Amos Jeffries <squid3@treenet.co.nz>,
-	"sclark46@earthlink.net" <sclark46@earthlink.net>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?UTF-8?Q?Krzysztof_Ol=C4=99dzki?= <ole@ans.pl>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4ED550E7.1090609@ans.pl>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="652515-16898-1322605957=:228"
+Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1322602283.2596.25.camel@edumazet-laptop>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-On Tuesday 2011-11-29 22:38, Krzysztof Ol=C4=99dzki wrote:
->>
->> Same network prefix, some cookies, or a login form. Blam, identified=
-,
->> or at least (Almost-)Uniquely Identified Visitor tagging.
->
-> But without NAT you have pretty big chance to have the same IPv6 *suf=
-fix*
-> everywhere, based on you MAC address.
+--652515-16898-1322605957=:228
+Content-Type: TEXT/PLAIN; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8BIT
 
-Everywhere? No, one small village of indomitable Gauls.^^^^^^^^W
+On Tue, 29 Nov 2011, Eric Dumazet wrote:
 
-$ ip a
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP q=
-len 1000
-    link/ether 00:0d:93:9e:08:78 brd ff:ff:ff:ff:ff:ff
-    inet6 2001:638:600:8810:d070:3a36:464e:b3db/64 scope global tempora=
-ry dynamic=20
-       valid_lft 583732sec preferred_lft 64732sec
-    inet6 2001:638:600:8810:d9f5:18f5:4fc1:9a20/64 scope global tempora=
-ry deprecated dynamic=20
-       valid_lft 497938sec preferred_lft 0sec
-    [...]
+> Le mardi 29 novembre 2011 à 22:17 +0100, Eric Dumazet a écrit :
+>> Le mardi 29 novembre 2011 à 14:00 -0700, Marc Aurele La France a écrit :
+>>> On Tue, 29 Nov 2011, Eric Dumazet wrote:
+>>>> Oh well, I forgot one rcu_read_unlock(), I'll send a V2...
 
-Same suffix? Certainly not with contemporary configurations (and
-Linux did this quite on its own there). In fact, now that there is
-almost v6-NAT in the kernel, I fear that users who are blinded by NAT
-now make the problem worse by actually feeding perfectly good Privacy
-Extension Addresses into a n:1-configured SNAT/MASQUERADE target
-instead of a NETMAP.
+>>> This also doesn't address the other dst_get_neighbour() instances
+>>> introduced by
+>>> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commitdiff;h=69cce1d1404968f78b177a0314f5822d5afdbbfb
 
-> In your Home, your Work, in a Cafe or in
-> a hotel during your vacations in Portugal.
+>> Oh well, a complete audit is needed, and I have no choice but doing it.
+
+> Here is the result of this audit, please double check and test it, I
+> only compiled this.
+
+> [PATCH V2] drivers/infiniband: fix lockdep splats
+
+> commit f2c31e32b37 (net: fix NULL dereferences in check_peer_redir())
+> forgot to take care of infiniband uses of dst neighbours.
+
+> Many thanks to Marc Aurele who provided a nice bug report and feedback.
+
+> Reported-by: Marc Aurele La France <tsi-yfeSBMgouQgsA/PxXw9srA@public.gmane.org>
+> Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> CC: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> CC: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> ---
+> drivers/infiniband/core/addr.c                 |    9 +++++--
+> drivers/infiniband/hw/cxgb3/iwch_cm.c          |    4 +++
+> drivers/infiniband/hw/cxgb4/cm.c               |    6 +++++
+> drivers/infiniband/hw/nes/nes_cm.c             |    6 +++--
+> drivers/infiniband/ulp/ipoib/ipoib_main.c      |   18 +++++++++------
+> drivers/infiniband/ulp/ipoib/ipoib_multicast.c |    6 +++--
+> 6 files changed, 35 insertions(+), 14 deletions(-)
+
+This looks good to me, although I'm a little iffy on your use of
+dst_get_neighbour_raw(), but that could be just me.
+
+But your audit is incomplete, a grep of 3.1.3 for dst_get_neighbour() and 
+dst_get_neighbour_raw() reveals occurrences in ...
+
+drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
+drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+drivers/scsi/cxgbi/libcxgbi.c
+drivers/s390/net/qeth_l3_main.c
+drivers/net/cxgb3/cxgb3_offload.c
+drivers/infiniband/hw/cxgb3/iwch_cm.c
+drivers/infiniband/hw/nes/nes_cm.c
+drivers/infiniband/hw/cxgb4/cm.c
+drivers/infiniband/core/addr.c
+drivers/infiniband/ulp/ipoib/ipoib_main.c
+drivers/infiniband/ulp/ipoib/ipoib_multicast.c
+include/net/dst.h
+net/atm/clip.c
+net/sched/sch_teql.c
+net/core/neighbour.c
+net/ipv4/ip_gre.c
+net/ipv4/ip_output.c
+net/ipv4/route.c
+net/xfrm/xfrm_policy.c
+net/bridge/br_netfilter.c
+net/decnet/dn_neigh.c
+net/decnet/dn_route.c
+net/ipv6/sit.c
+net/ipv6/addrconf.c
+net/ipv6/route.c
+net/ipv6/ndisc.c
+net/ipv6/ip6_output.c
+net/ipv6/ip6_fib.c
+
+(I'd list them all here, but I'm having issues with my MUA when I do so.)
+
+Marc.
+
++----------------------------------+----------------------------------+
+|  Marc Aurele La France           |  work:   1-780-492-9310          |
+|  Academic Information and        |  fax:    1-780-492-1729          |
+|    Communications Technologies   |  email:  tsi-yfeSBMgouQgsA/PxXw9srA@public.gmane.org         |
+|  352 General Services Building   +----------------------------------+
+|  University of Alberta           |                                  |
+|  Edmonton, Alberta               |    Standard disclaimers apply    |
+|  T6G 2H1                         |                                  |
+|  CANADA                          |                                  |
++----------------------------------+----------------------------------+
+--652515-16898-1322605957=:228--
 --
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
