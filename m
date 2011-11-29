@@ -1,31 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: tcp_sendmsg() wrong access to
- sk_route_caps
-Date: Mon, 28 Nov 2011 18:58:40 -0500 (EST)
-Message-ID: <20111128.185840.2149356770304852693.davem@davemloft.net>
-References: <1322476067.2292.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next 1/4] net: introduce skb_flow_dissect()
+Date: Mon, 28 Nov 2011 19:06:04 -0500 (EST)
+Message-ID: <20111128.190604.1713178066845491526.davem@davemloft.net>
+References: <1322493738.2292.69.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<4ED3B603.4010702@chelsio.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, mirq-linux@rere.qmqm.pl
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60655 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753247Ab1K1X7u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 18:59:50 -0500
-In-Reply-To: <1322476067.2292.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
+	john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org,
+	shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, dan-BZ4SNL/Vixll57MIdRCFDg@public.gmane.org
+To: dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <4ED3B603.4010702-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 28 Nov 2011 11:27:47 +0100
+From: Dimitris Michailidis <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Date: Mon, 28 Nov 2011 08:25:39 -0800
 
-> Now sk_route_caps is u64, its dangerous to use an integer to store
-> result of an AND operator. It wont work if NETIF_F_SG is moved on the
-> upper part of u64.
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+>> +bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys
+>> *flow)
+>> +{
+>> +	int poff, nhoff = skb_network_offset(skb);
+>> +	u8 ip_proto;
+>> +	u16 proto = skb->protocol;
+> 
+> __be16 instead of u16 for proto?
 
-Applied, thanks Eric.
+I'll take care of this when I apply these patches.
