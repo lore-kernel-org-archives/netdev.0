@@ -1,137 +1,55 @@
-From: "Esztermann, Ansgar" <Ansgar.Esztermann@mpi-bpc.mpg.de>
-Subject: Re: TCP fast retransmit
-Date: Tue, 29 Nov 2011 10:00:58 +0100
-Message-ID: <4AA83E89-336E-4A1A-BE12-A0D415A7EC1B@mpi-bpc.mpg.de>
-References: <2D9E1426-D432-4D08-BF28-FD2615AAEDBA@mpi-bpc.mpg.de>
- <CAK6E8=e9jpK1QY_zO5oSEC6oM+JgCG+bHcauDPdDOUqz7RSumQ@mail.gmail.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: Re: [PATCH v4 09/10] bnx2x: Support for byte queue limits
+Date: Tue, 29 Nov 2011 11:43:35 +0200
+Message-ID: <1322559815.25184.3.camel@lb-tlvb-dmitry>
+References: <alpine.DEB.2.00.1111281821300.23758@pokey.mtv.corp.google.com>
+Reply-To: dmitry@broadcom.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="Apple-Mail-2-652675244";
-	protocol="application/pkcs7-signature"; micalg=sha1
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Tom Herbert" <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tmailer.gwdg.de ([134.76.10.23]:34135 "EHLO tmailer.gwdg.de"
+Received: from mms3.broadcom.com ([216.31.210.19]:4390 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753967Ab1K2JfO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Nov 2011 04:35:14 -0500
-Received: from gwdexc-fe11.exc.top.gwdg.de ([134.76.9.231] helo=smtp-exc.gwdg.de)
-	by mailer.gwdg.de with esmtps (TLSv1:RC4-MD5:128)
-	(Exim 4.72)
-	(envelope-from <Ansgar.Esztermann@mpi-bpc.mpg.de>)
-	id 1RVJU5-0007Mr-S5
-	for netdev@vger.kernel.org; Tue, 29 Nov 2011 09:56:14 +0100
-In-Reply-To: <CAK6E8=e9jpK1QY_zO5oSEC6oM+JgCG+bHcauDPdDOUqz7RSumQ@mail.gmail.com>
-Content-Language: en-US
+	id S1752866Ab1K2Jnr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Nov 2011 04:43:47 -0500
+In-Reply-To: <alpine.DEB.2.00.1111281821300.23758@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Apple-Mail-2-652675244
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=iso-8859-1
+On Mon, 2011-11-28 at 18:33 -0800, Tom Herbert wrote:
+> Changes to bnx2x to use byte queue limits.
+> 
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   26 +++++++++++++++++++---
+>  1 files changed, 22 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> index 8336c78..42ce566 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> @@ -102,7 +102,8 @@ int load_count[2][3] = { {0} }; /* per-path: 0-common, 1-port0, 2-port1 */
+>   * return idx of last bd freed
+>   */
+>  static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata,
+> -			     u16 idx)
+> +			     u16 idx, unsigned int *pkts_compl,
+> +			     unsigned int *bytes_compl)
+>  {
+>  	struct sw_tx_bd *tx_buf = &txdata->tx_buf_ring[idx];
+>  	struct eth_tx_start_bd *tx_start_bd;
+> @@ -159,6 +160,10 @@ static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata,
+>  
+>  	/* release skb */
+>  	WARN_ON(!skb);
+> +	if (skb) {
+likely statement will be usefull here, since we don't expect it to be
+null
 
-
-On Nov 28, 2011, at 22:17 , Yuchung Cheng wrote:
-
-> This 2003 paper has the core algorithms for Linux loss recovery.
-> http://www.cs.helsinki.fi/research/iwtcp/papers/linuxtcp.pdf
->=20
-> We've also detailed latest Linux fast retransmit algorithms in the PRR
-> paper (section 3.2).
-> http://research.google.com/pubs/pub37486.html
-
-Thank you very much, I will be sure to read them!
-
-
-A.
---=20
-Ansgar Esztermann
-DV-Systemadministration
-Max-Planck-Institut f=FCr biophysikalische Chemie, Abteilung 105
-
-
---Apple-Mail-2-652675244
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIOcDCCBCEw
-ggMJoAMCAQICAgDHMA0GCSqGSIb3DQEBBQUAMHExCzAJBgNVBAYTAkRFMRwwGgYDVQQKExNEZXV0
-c2NoZSBUZWxla29tIEFHMR8wHQYDVQQLExZULVRlbGVTZWMgVHJ1c3QgQ2VudGVyMSMwIQYDVQQD
-ExpEZXV0c2NoZSBUZWxla29tIFJvb3QgQ0EgMjAeFw0wNjEyMTkxMDI5MDBaFw0xOTA2MzAyMzU5
-MDBaMFoxCzAJBgNVBAYTAkRFMRMwEQYDVQQKEwpERk4tVmVyZWluMRAwDgYDVQQLEwdERk4tUEtJ
-MSQwIgYDVQQDExtERk4tVmVyZWluIFBDQSBHbG9iYWwgLSBHMDEwggEiMA0GCSqGSIb3DQEBAQUA
-A4IBDwAwggEKAoIBAQDpm8NnhfkNrvWNVMOWUDU9YuluTO2U1wBblSJ01CDrNI/W7MAxBAuZgeKm
-FNJSoCgjhIt0iQReW+DieMF4yxbLKDU5ey2QRdDtoAB6fL9KDhsAw4bpXCsxEXsM84IkQ4wcOItq
-aACa7txPeKvSxhObdq3u3ibo7wGvdA/BCaL2a869080UME/15eOkyGKbghoDJzANAmVgTe3RCSMq
-ljVYJ9N2xnG2kB3E7f81hn1vM7PbD8URwoqDoZRdQWvY0hD1TP3KUazZve+Sg7va64sWVlZDz+HV
-Ez2mHycwzUlU28kTNJpxdcVs6qcLmPkhnSevPqM5OUhqjK3JmfvDEvK9AgMBAAGjgdkwgdYwcAYD
-VR0fBGkwZzBloGOgYYZfaHR0cDovL3BraS50ZWxlc2VjLmRlL2NnaS1iaW4vc2VydmljZS9hZl9E
-b3dubG9hZEFSTC5jcmw/LWNybF9mb3JtYXQ9WF81MDkmLWlzc3Vlcj1EVF9ST09UX0NBXzIwHQYD
-VR0OBBYEFEm3xs/oPR9/6kR7Eyn38QpwPt5kMB8GA1UdIwQYMBaAFDHDeRu69VPXF+CJei0XbAqz
-K50zMA4GA1UdDwEB/wQEAwIBBjASBgNVHRMBAf8ECDAGAQH/AgECMA0GCSqGSIb3DQEBBQUAA4IB
-AQA74Vp3wEgX3KkY7IGvWonwvSiSpspZGBJw7Cjy565/lizn8l0ZMfYTK3S9vYCyufdnyTmieTvh
-ERHua3iRM347XyYndVNljjNj7s9zw7CSI0khUHUjoR8Y4pSFPT8z6XcgjaK95qGFKUD2P3MyWA0J
-a6bahWzAP7uNZmRWJE6uDT8yNQFb6YyC2XJZT7GGhfF0hVblw/hc843uR7NTBXDn5U2KaYMo4RMJ
-hp5eyOpYHgwf+aTUWgRo/Sg+iwK2WLX2oSw3VwBnqyNojWOl75lrXP1LVvarQIc01BGSbOyHxQoL
-BzNytG8MHVQs2FHHzL8w00Ny8TK/jM5JY6gA9/IcMIIE5zCCA8+gAwIBAgIECs6x2DANBgkqhkiG
-9w0BAQUFADBaMQswCQYDVQQGEwJERTETMBEGA1UEChMKREZOLVZlcmVpbjEQMA4GA1UECxMHREZO
-LVBLSTEkMCIGA1UEAxMbREZOLVZlcmVpbiBQQ0EgR2xvYmFsIC0gRzAxMB4XDTA3MDczMTEzMDgy
-NVoXDTE5MDYzMDAwMDAwMFowXjELMAkGA1UEBhMCREUxIDAeBgNVBAoTF01heC1QbGFuY2stR2Vz
-ZWxsc2NoYWZ0MQ8wDQYDVQQDEwZNUEcgQ0ExHDAaBgkqhkiG9w0BCQEWDW1wZy1jYUBtcGcuZGUw
-ggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDYUXKeoNTLgkGwbani4rlua5jzlzISfHna
-j/5qS+mojQqA/eYa0bGucylV5hyQuyJz7d4gRckdhMDV8DZIxERUIsFlXFj6HGHjaZjlhIHbo4S1
-2GjLhTH5YZ37O7MHVw0L/JhhzUIxESM1ZfRT/xLqhz2idJYjT98W9OFvzPgT0yrdieMzkLUz5X/f
-pY8MuyYBgxnddBJRw6ZtlhdCml4F8Q35pSb8J2qANiwuJVu3WCTgL/ydo3eA8vDieMMZ7O+L1wAn
-CzBbHAjJ5H6xU1B7mlwmu7V3pToKPgcWmlO0HcTpa68McNTGGiY8pO0/Rn1fXkqDYf8z0lPdWUWx
-bM1RAgMBAAGjggGvMIIBqzASBgNVHRMBAf8ECDAGAQH/AgEBMAsGA1UdDwQEAwIBBjAdBgNVHQ4E
-FgQUAtYebgmrv1hlpwo8SDNh0c59w1swHwYDVR0jBBgwFoAUSbfGz+g9H3/qRHsTKffxCnA+3mQw
-GAYDVR0RBBEwD4ENbXBnLWNhQG1wZy5kZTCBiAYDVR0fBIGAMH4wPaA7oDmGN2h0dHA6Ly9jZHAx
-LnBjYS5kZm4uZGUvZ2xvYmFsLXJvb3QtY2EvcHViL2NybC9jYWNybC5jcmwwPaA7oDmGN2h0dHA6
-Ly9jZHAyLnBjYS5kZm4uZGUvZ2xvYmFsLXJvb3QtY2EvcHViL2NybC9jYWNybC5jcmwwgaIGCCsG
-AQUFBwEBBIGVMIGSMEcGCCsGAQUFBzAChjtodHRwOi8vY2RwMS5wY2EuZGZuLmRlL2dsb2JhbC1y
-b290LWNhL3B1Yi9jYWNlcnQvY2FjZXJ0LmNydDBHBggrBgEFBQcwAoY7aHR0cDovL2NkcDIucGNh
-LmRmbi5kZS9nbG9iYWwtcm9vdC1jYS9wdWIvY2FjZXJ0L2NhY2VydC5jcnQwDQYJKoZIhvcNAQEF
-BQADggEBABtJz5i/SGqQOficdRUN6myFVmVelCYgkGT+zX7frnBRJFoVVafXolstZdVB7ZpH9FAc
-qj8O6FTZyhAANwh3+Y1D6xYBWTB7mQGy0lUoUL+j0msZjaMvyj/2LCQp7cKB5vA4h6Ntq5BN5MPc
-aRhunzjJey/i+J/3jMdG7KpufV47Gl0E8ky9lDegaM7SToG4IOQKwv1wsnuHoxoGLRewxO7FmYd9
-uq9f4L2mHtqgq+vibT1DeehT0HGPnrjjd8NK6g2TvZwirwjydbGs7szB5oxDm/pfWoJxYzO68HKT
-iVBlmaWMLpGw4/UsLE+5xJHpvNXfkYCQ3T+k99KBUZuIpKwwggVcMIIERKADAgECAgQRHzZIMA0G
-CSqGSIb3DQEBBQUAMF4xCzAJBgNVBAYTAkRFMSAwHgYDVQQKExdNYXgtUGxhbmNrLUdlc2VsbHNj
-aGFmdDEPMA0GA1UEAxMGTVBHIENBMRwwGgYJKoZIhvcNAQkBFg1tcGctY2FAbXBnLmRlMB4XDTEw
-MTIwODE2NTYyNFoXDTEzMTIwNzE2NTYyNFowgY8xCzAJBgNVBAYTAkRFMSAwHgYDVQQKExdNYXgt
-UGxhbmNrLUdlc2VsbHNjaGFmdDE5MDcGA1UECxMwTWF4LVBsYW5jay1JbnN0aXR1dCBmdWVyIGJp
-b3BoeXNpa2FsaXNjaGUgQ2hlbWllMSMwIQYDVQQDExpBbnNnYXIgRXN6dGVybWFubi1LaXJjaG5l
-cjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKYjxwFTzyWFVOWVWqCrGgLO1IOjfUwZ
-rCYmWPbCEqBUe8j3VVhzRpygrDMQuPHRNEDyElaQnF+RxJqTT8jHI6IFhI2+geicgCYRne1Hdv75
-Bd7Gx8ytwDICk5kGUGzkXhEbSfjY0hCT4zAaDLkkbAayB/cf2ymQgrwaa6gfpeYagIph5nvkvLHO
-KuAZ1YY7yUuU7UmpPPeut2aWObBFP+n0C7E6ZnZVTL+nHX4HAPtgbToxif8IjS8Dq699iqv/td80
-uZU8AKDhYCt/TVZHyvAm7NfQANwiUxVcBOx1CcD8cTWscVzOH29kRFomLRld4zFUUVCwvpQJX3N7
-p1uKV0UCAwEAAaOCAe4wggHqMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgXgMB0GA1UdJQQWMBQGCCsG
-AQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQUbrwY+89Tw5RQrRlpos37frX58x8wHwYDVR0jBBgw
-FoAUAtYebgmrv1hlpwo8SDNh0c59w1swYwYDVR0RBFwwWoEfYW5zZ2FyLmVzenRlcm1hbm5AbXBp
-YnBjLm1wZy5kZYEVYWVzenRlckBtcGlicGMubXBnLmRlgSBBbnNnYXIuRXN6dGVybWFubkBtcGkt
-YnBjLm1wZy5kZTB3BgNVHR8EcDBuMDWgM6Axhi9odHRwOi8vY2RwMS5wY2EuZGZuLmRlL21wZy1j
-YS9wdWIvY3JsL2NhY3JsLmNybDA1oDOgMYYvaHR0cDovL2NkcDIucGNhLmRmbi5kZS9tcGctY2Ev
-cHViL2NybC9jYWNybC5jcmwwgZIGCCsGAQUFBwEBBIGFMIGCMD8GCCsGAQUFBzAChjNodHRwOi8v
-Y2RwMS5wY2EuZGZuLmRlL21wZy1jYS9wdWIvY2FjZXJ0L2NhY2VydC5jcnQwPwYIKwYBBQUHMAKG
-M2h0dHA6Ly9jZHAyLnBjYS5kZm4uZGUvbXBnLWNhL3B1Yi9jYWNlcnQvY2FjZXJ0LmNydDANBgkq
-hkiG9w0BAQUFAAOCAQEABO7mDo6jeYLlkASWpEL6Z05yKLOEi/CeDeFr8+orDv+xpVD7N5UyDp46
-O1zT74sf/BYchf1DQnp3wh91Jl7rF4RRP5zkSuudTDP0W6AnWI7PoudWqqWQPPGsBRDYOxs/LNc5
-CdV3OeU/bP5eX9xBeYslYnYZamCKdKoVJ/T2gtIfjfm9W2a5XptYcgJkOIZs9gM3Tl1uOhIKy5J8
-9A9PrrSRlRgWhjg58wfoE3mNg5Q22HTKmppNNryRXSd+ZFMHcVet3sKMMOqhIm2+Lf8C6Mu1aqw8
-k8QeIHnZIjbLou7pfo4nJY06gUK7X/COyw3wsMOhq4HvgK9A/sU7sJdmBTGCAt4wggLaAgEBMGYw
-XjELMAkGA1UEBhMCREUxIDAeBgNVBAoTF01heC1QbGFuY2stR2VzZWxsc2NoYWZ0MQ8wDQYDVQQD
-EwZNUEcgQ0ExHDAaBgkqhkiG9w0BCQEWDW1wZy1jYUBtcGcuZGUCBBEfNkgwCQYFKw4DAhoFAKCC
-AU0wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTExMTI5MDkwMDU5
-WjAjBgkqhkiG9w0BCQQxFgQUaVLbk/C7932VI0kpp+jZrzFZn74wdQYJKwYBBAGCNxAEMWgwZjBe
-MQswCQYDVQQGEwJERTEgMB4GA1UEChMXTWF4LVBsYW5jay1HZXNlbGxzY2hhZnQxDzANBgNVBAMT
-Bk1QRyBDQTEcMBoGCSqGSIb3DQEJARYNbXBnLWNhQG1wZy5kZQIEER82SDB3BgsqhkiG9w0BCRAC
-CzFooGYwXjELMAkGA1UEBhMCREUxIDAeBgNVBAoTF01heC1QbGFuY2stR2VzZWxsc2NoYWZ0MQ8w
-DQYDVQQDEwZNUEcgQ0ExHDAaBgkqhkiG9w0BCQEWDW1wZy1jYUBtcGcuZGUCBBEfNkgwDQYJKoZI
-hvcNAQEBBQAEggEAntUxm/dBo7SkQu2APfTVk1U9eRn+q/4Z0ROaRYkM1M3qBFewgdu6l3huIvDZ
-meXGsPh8rmogMagFUncXwZFdjHTXOG/ZLobO7AYuuycbleHzFcTmWrw0izKkxNGqGiYUzLyv109t
-eLeQqKCvKqINBVnTE0hnZJWZWQwcDHd6JBM6KnldI3cej6Pk2Pr7fYL2tzVVBdeK1JJjAkpBI2UW
-v8KvRYyNvy5OCT7g1npG80h9Kg7MaHZkgdqMLQUTLMNFj+xmwlZsychk6d+IXmAyNv+RbRCUp1yz
-F0HaPtYDGrOCtaaEk6KgEvjQYbW0L8rZ++K3fUMm8+73At8t+KRy1QAAAAAAAA==
-
---Apple-Mail-2-652675244--
+> +		(*pkts_compl)++;
+> +		(*bytes_compl) += skb->len;
+> +	}
