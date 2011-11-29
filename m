@@ -1,71 +1,121 @@
-From: <tao.peng-mb1K0bWo544@public.gmane.org>
-Subject: RE: [PATCH 4/5] NFS: remove RPC PipeFS mount point reference from
-	blocklayout routines
-Date: Tue, 29 Nov 2011 07:00:56 -0500
-Message-ID: <F19688880B763E40B28B2B462677FBF805E3A4AFF2@MX09A.corp.emc.com>
-References: <20111129090754.20730.64567.stgit@localhost6.localdomain6>
- <20111129091037.20730.59391.stgit@localhost6.localdomain6>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH 4/5] NFS: remove RPC PipeFS mount point reference from
+ blocklayout routines
+Date: Tue, 29 Nov 2011 16:19:26 +0400
+Message-ID: <4ED4CDCE.9080804@parallels.com>
+References: <20111129090754.20730.64567.stgit@localhost6.localdomain6> <20111129091037.20730.59391.stgit@localhost6.localdomain6> <F19688880B763E40B28B2B462677FBF805E3A4AFF2@MX09A.corp.emc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	<neilb-l3A5Bk7waGM@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	<bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-To: <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20111129091037.20730.59391.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-Content-Language: en-US
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: "tao.peng@emc.com" <tao.peng@emc.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <F19688880B763E40B28B2B462677FBF805E3A4AFF2@MX09A.corp.emc.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBsaW51eC1uZnMtb3duZXJAdmdl
-ci5rZXJuZWwub3JnIFttYWlsdG86bGludXgtbmZzLW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24g
-QmVoYWxmIE9mIFN0YW5pc2xhdg0KPiBLaW5zYnVyc2t5DQo+IFNlbnQ6IFR1ZXNkYXksIE5vdmVt
-YmVyIDI5LCAyMDExIDY6MTEgUE0NCj4gVG86IFRyb25kLk15a2xlYnVzdEBuZXRhcHAuY29tDQo+
-IENjOiBsaW51eC1uZnNAdmdlci5rZXJuZWwub3JnOyB4ZW11bEBwYXJhbGxlbHMuY29tOyBuZWls
-YkBzdXNlLmRlOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC0NCj4ga2VybmVsQHZnZXIu
-a2VybmVsLm9yZzsgamJvdHRvbWxleUBwYXJhbGxlbHMuY29tOyBiZmllbGRzQGZpZWxkc2VzLm9y
-ZzsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsNCj4gZGV2ZWxAb3BlbnZ6Lm9yZw0KPiBTdWJqZWN0OiBb
-UEFUQ0ggNC81XSBORlM6IHJlbW92ZSBSUEMgUGlwZUZTIG1vdW50IHBvaW50IHJlZmVyZW5jZSBm
-cm9tIGJsb2NrbGF5b3V0IHJvdXRpbmVzDQo+IA0KPiBUaGlzIGlzIGEgY2xlYW51cCBwYXRjaC4g
-V2UgZG9uJ3QgbmVlZCB0aGlzIHJlZmVyZW5jZSBhbnltb3JlLCBiZWNhdXNlDQo+IGJsb2NrbGF5
-b3V0IHBpcGVzIGRlbnRyaWVzIG5vdyBjcmVhdGVzIGFuZCBkZXN0cm95cyBpbiBwZXItbmV0IG9w
-ZXJhdGlvbnMgYW5kDQo+IG9uIFBpcGVGUyBtb3VudC91bW91bnQgbm90aWZpY2F0aW9uLg0KPiBO
-b3RlIHRoYXQgbmZzNGJsb2NrbGF5b3V0X3JlZ2lzdGVyX25ldCgpIG5vdyByZXR1cm5zIDAgaW5z
-dGVhZCBvZiAtRU5PRU5UIGluDQo+IGNhc2Ugb2YgUGlwZUZTIHN1cGVyYmxvY2sgYWJzZW5jZS4g
-VGhpcyBpcyBvaywgYmVjYXVzZSBibG9ja2xheW91dCBwaXBlIGRlbnRyeQ0KPiB3aWxsIGJlIGNy
-ZWF0ZWQgb24gUGlwZUZTIG1vdW50IGV2ZW50Lg0KV2hlbiBpcyB0aGUgInBpcGVmcyBtb3VudCBl
-dmVudCIgZ29pbmcgdG8gaGFwcGVuPyBXaGVuIGluc2VydGluZyBrZXJuZWwgbW9kdWxlcyBvciB3
-aGVuIHVzZXIgaXNzdWVzIG1vdW50IGNvbW1hbmQ/DQoNClRoYW5rcywNClRhbw0KDQo+IA0KPiBT
-aWduZWQtb2ZmLWJ5OiBTdGFuaXNsYXYgS2luc2J1cnNreSA8c2tpbnNidXJza3lAcGFyYWxsZWxz
-LmNvbT4NCj4gDQo+IC0tLQ0KPiAgZnMvbmZzL2Jsb2NrbGF5b3V0L2Jsb2NrbGF5b3V0LmMgfCAg
-ICA5ICstLS0tLS0tLQ0KPiAgMSBmaWxlcyBjaGFuZ2VkLCAxIGluc2VydGlvbnMoKyksIDggZGVs
-ZXRpb25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvZnMvbmZzL2Jsb2NrbGF5b3V0L2Jsb2NrbGF5
-b3V0LmMgYi9mcy9uZnMvYmxvY2tsYXlvdXQvYmxvY2tsYXlvdXQuYw0KPiBpbmRleCBhY2Y3YWM5
-Li44MjExZmZkIDEwMDY0NA0KPiAtLS0gYS9mcy9uZnMvYmxvY2tsYXlvdXQvYmxvY2tsYXlvdXQu
-Yw0KPiArKysgYi9mcy9uZnMvYmxvY2tsYXlvdXQvYmxvY2tsYXlvdXQuYw0KPiBAQCAtMTAzMiw3
-ICsxMDMyLDcgQEAgc3RhdGljIHN0cnVjdCBkZW50cnkgKm5mczRibG9ja2xheW91dF9yZWdpc3Rl
-cl9uZXQoc3RydWN0IG5ldCAqbmV0LA0KPiANCj4gIAlwaXBlZnNfc2IgPSBycGNfZ2V0X3NiX25l
-dChuZXQpOw0KPiAgCWlmICghcGlwZWZzX3NiKQ0KPiAtCQlyZXR1cm4gRVJSX1BUUigtRU5PRU5U
-KTsNCj4gKwkJcmV0dXJuIDA7DQo+ICAJZGVudHJ5ID0gbmZzNGJsb2NrbGF5b3V0X3JlZ2lzdGVy
-X3NiKHBpcGVmc19zYiwgcGlwZSk7DQo+ICAJcnBjX3B1dF9zYl9uZXQobmV0KTsNCj4gIAlyZXR1
-cm4gZGVudHJ5Ow0KPiBAQCAtMTA4Myw3ICsxMDgzLDYgQEAgc3RhdGljIHN0cnVjdCBwZXJuZXRf
-b3BlcmF0aW9ucyBuZnM0YmxvY2tsYXlvdXRfbmV0X29wcyA9IHsNCj4gDQo+ICBzdGF0aWMgaW50
-IF9faW5pdCBuZnM0YmxvY2tsYXlvdXRfaW5pdCh2b2lkKQ0KPiAgew0KPiAtCXN0cnVjdCB2ZnNt
-b3VudCAqbW50Ow0KPiAgCWludCByZXQ7DQo+IA0KPiAgCWRwcmludGsoIiVzOiBORlN2NCBCbG9j
-ayBMYXlvdXQgRHJpdmVyIFJlZ2lzdGVyaW5nLi4uXG4iLCBfX2Z1bmNfXyk7DQo+IEBAIC0xMDkz
-LDEyICsxMDkyLDYgQEAgc3RhdGljIGludCBfX2luaXQgbmZzNGJsb2NrbGF5b3V0X2luaXQodm9p
-ZCkNCj4gIAkJZ290byBvdXQ7DQo+IA0KPiAgCWluaXRfd2FpdHF1ZXVlX2hlYWQoJmJsX3dxKTsN
-Cj4gLQ0KPiAtCW1udCA9IHJwY19nZXRfbW91bnQoKTsNCj4gLQlpZiAoSVNfRVJSKG1udCkpIHsN
-Cj4gLQkJcmV0ID0gUFRSX0VSUihtbnQpOw0KPiAtCQlnb3RvIG91dF9yZW1vdmU7DQo+IC0JfQ0K
-PiAgCXJldCA9IHJwY19waXBlZnNfbm90aWZpZXJfcmVnaXN0ZXIoJm5mczRibG9ja2xheW91dF9i
-bG9jayk7DQo+ICAJaWYgKHJldCkNCj4gIAkJZ290byBvdXRfcmVtb3ZlOw0KPiANCj4gLS0NCj4g
-VG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJl
-IGxpbnV4LW5mcyIgaW4NCj4gdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2Vy
-Lmtlcm5lbC5vcmcNCj4gTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVs
-Lm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQoNCg==
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+29.11.2011 16:00, tao.peng@emc.com =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>> -----Original Message-----
+>> From: linux-nfs-owner@vger.kernel.org [mailto:linux-nfs-owner@vger.k=
+ernel.org] On Behalf Of Stanislav
+>> Kinsbursky
+>> Sent: Tuesday, November 29, 2011 6:11 PM
+>> To: Trond.Myklebust@netapp.com
+>> Cc: linux-nfs@vger.kernel.org; xemul@parallels.com; neilb@suse.de; n=
+etdev@vger.kernel.org; linux-
+>> kernel@vger.kernel.org; jbottomley@parallels.com; bfields@fieldses.o=
+rg; davem@davemloft.net;
+>> devel@openvz.org
+>> Subject: [PATCH 4/5] NFS: remove RPC PipeFS mount point reference fr=
+om blocklayout routines
+>>
+>> This is a cleanup patch. We don't need this reference anymore, becau=
+se
+>> blocklayout pipes dentries now creates and destroys in per-net opera=
+tions and
+>> on PipeFS mount/umount notification.
+>> Note that nfs4blocklayout_register_net() now returns 0 instead of -E=
+NOENT in
+>> case of PipeFS superblock absence. This is ok, because blocklayout p=
+ipe dentry
+>> will be created on PipeFS mount event.
+> When is the "pipefs mount event" going to happen? When inserting kern=
+el modules or when user issues mount command?
+>
+
+When user issues mount command.
+Kernel mounts of PipeFS has been removed with all these patch sets I've=
+ sent=20
+already.
+
+
+> Thanks,
+> Tao
+>
+>>
+>> Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
+>>
+>> ---
+>>   fs/nfs/blocklayout/blocklayout.c |    9 +--------
+>>   1 files changed, 1 insertions(+), 8 deletions(-)
+>>
+>> diff --git a/fs/nfs/blocklayout/blocklayout.c b/fs/nfs/blocklayout/b=
+locklayout.c
+>> index acf7ac9..8211ffd 100644
+>> --- a/fs/nfs/blocklayout/blocklayout.c
+>> +++ b/fs/nfs/blocklayout/blocklayout.c
+>> @@ -1032,7 +1032,7 @@ static struct dentry *nfs4blocklayout_register=
+_net(struct net *net,
+>>
+>>   	pipefs_sb =3D rpc_get_sb_net(net);
+>>   	if (!pipefs_sb)
+>> -		return ERR_PTR(-ENOENT);
+>> +		return 0;
+>>   	dentry =3D nfs4blocklayout_register_sb(pipefs_sb, pipe);
+>>   	rpc_put_sb_net(net);
+>>   	return dentry;
+>> @@ -1083,7 +1083,6 @@ static struct pernet_operations nfs4blocklayou=
+t_net_ops =3D {
+>>
+>>   static int __init nfs4blocklayout_init(void)
+>>   {
+>> -	struct vfsmount *mnt;
+>>   	int ret;
+>>
+>>   	dprintk("%s: NFSv4 Block Layout Driver Registering...\n", __func_=
+_);
+>> @@ -1093,12 +1092,6 @@ static int __init nfs4blocklayout_init(void)
+>>   		goto out;
+>>
+>>   	init_waitqueue_head(&bl_wq);
+>> -
+>> -	mnt =3D rpc_get_mount();
+>> -	if (IS_ERR(mnt)) {
+>> -		ret =3D PTR_ERR(mnt);
+>> -		goto out_remove;
+>> -	}
+>>   	ret =3D rpc_pipefs_notifier_register(&nfs4blocklayout_block);
+>>   	if (ret)
+>>   		goto out_remove;
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-nfs"=
+ in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+
+
+--=20
+Best regards,
+Stanislav Kinsbursky
