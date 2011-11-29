@@ -1,33 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch v2] isdn: avoid copying too long drvid
-Date: Tue, 29 Nov 2011 18:40:06 -0500 (EST)
-Message-ID: <20111129.184006.1024419970584749707.davem@davemloft.net>
-References: <20111123064345.GB6871@elgon.mountain>
-	<20111124124209.GI3195@mwanda>
+From: Josh Boyer <jwboyer@gmail.com>
+Subject: Re: Bonding fixes for 2.6.33.y
+Date: Tue, 29 Nov 2011 18:46:24 -0500
+Message-ID: <CA+5PVA6-tF5bPFwWQRKgit-m-BqQeK9TwsTTw4GkPWsNRettZQ@mail.gmail.com>
+References: <1322533200.26733.15.camel@bwh-desktop>
+	<20111129224909.GA27909@kroah.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, lucas.demarchi@profusion.mobi,
-	nhorman@tuxdriver.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Ben Hutchings <bhutchings@solarflare.com>, stable@vger.kernel.org,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44583 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755941Ab1K2XlR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 18:41:17 -0500
-In-Reply-To: <20111124124209.GI3195@mwanda>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:58492 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756571Ab1K2XqZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 18:46:25 -0500
+In-Reply-To: <20111129224909.GA27909@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Thu, 24 Nov 2011 15:42:09 +0300
+On Tue, Nov 29, 2011 at 5:49 PM, Greg KH <greg@kroah.com> wrote:
+> On Tue, Nov 29, 2011 at 02:19:59AM +0000, Ben Hutchings wrote:
+>> These have been applied to 2.6.32.y but are missing from 2.6.33.y:
+>
+> Perhaps because 2.6.33.y is not end-of-life and is not having any more
+> releases?
 
-> "cfg->drvid" comes from the user so there is a possibility they
-> didn't NUL terminate it properly.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> v2: use strnlen() instead of strlen().
+s/is not end-of-life/is now end-of-life/
 
-Applied.
+?
+
+josh
