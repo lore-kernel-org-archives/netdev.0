@@ -1,61 +1,38 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next v2 2/4] can: cc770: add
- legacy ISA bus driver for the CC770 and AN82527
-Date: Tue, 29 Nov 2011 10:16:28 +0100
-Message-ID: <4ED4A2EC.40103@grandegger.com>
-References: <1322214204-1121-1-git-send-email-wg@grandegger.com>
-	<1322214204-1121-3-git-send-email-wg@grandegger.com>
-	<4ED0FEC5.3070108@hartkopp.net> <4ED34CAD.7040000@essax.com>
-	<4ED351A8.8000102@grandegger.com> <4ED37885.8080909@essax.com>
-	<4ED3B198.2040308@hartkopp.net>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH 0/5] NFS: create blocklayout pipe per network namesapce
+ context
+Date: Tue, 29 Nov 2011 13:17:35 +0400
+Message-ID: <4ED4A32F.90503@parallels.com>
+References: <20111129090754.20730.64567.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, info-PyqsHJVlJN8AvxtiuMwx3w@public.gmane.org
-To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4ED3B198.2040308-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
-List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111129090754.20730.64567.stgit@localhost6.localdomain6>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/28/2011 05:06 PM, Oliver Hartkopp wrote:
-> 
->>> ... using a reasonable default for bcr of 0x40. But you may need to
->>> provide better values for cir, bcr and cor.
->>>
->>
->> OMG, sorry that I was bothering You but You are absolutely right and with Your
->> statement You brought be back on track and You made my day. Thank You !!!!!!
->>
->> I just took the values for cpu and bus I was using in my lincan driver and funny
->> enough now it's working absolutely perfect.
->>
->> Module: modprobe cc770_isa irq=0xa port=0x384 indirect=1 cir=0x61 bcr=0x4A
->>
->> Was just sending 50000 telegrams, perfect and no problem at all.
->>
->> Thanks a lot again!!!!
->>
-> 
-> 
-> This looks like a Tested-by :-)
+Hello, Trond.
+This is the final part of SUNRPC PipeFS virtualization.
+I hope, that you'll find some time to review all series.
 
-Wolfgang, I just sent out v4. Any chance to give this patch a try? It
-would be best to use a recent kernel version but I could also adapt the
-patch to your kernel version, 2.6.39, I think!?
+You can clone my working tree to have a look at what will be at the end:
 
-As you are using a CC770 chip, I'm especially interested in the relevant
-kernel log (dmesg) and "ip -d -s link show".
+git://github.com/skinsbursky/nfs-per-net-ns.git
 
-Thanks,
+BTW, I can provide a simple "sandbox" (a kind of container with it's own network 
+namespace and veth device inside) which I use to test my changes.
 
-Wolfgang.
+-- 
+Best regards,
+Stanislav Kinsbursky
