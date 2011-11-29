@@ -1,89 +1,59 @@
-From: Philipp Schafft <lion@lion.leolix.org>
-Subject: Re: Proposed removal of DECnet support (was: Re: [BUG] 3.2-rc2:
-	BUG kmalloc-8: Redzone overwritten)
-Date: Tue, 29 Nov 2011 15:47:19 +0100
-Message-ID: <20111129144720.7374B7AD9E@priderock.keep-cool.org>
-References: <1322490161.2711.26.camel@menhir>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4 0/10] bql: Byte Queue Limits
+Date: Tue, 29 Nov 2011 15:57:47 +0100
+Message-ID: <1322578667.2465.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <alpine.DEB.2.00.1111281825200.25622@pokey.mtv.corp.google.com>
+	 <CAA93jw7P=7YMOS_sMQWBJx0UJ6e+xw4e_hw8szNiVTOjGNwukw@mail.gmail.com>
+	 <1322550138.2970.70.camel@edumazet-laptop> <4ED4885F.8060309@intel.com>
+	 <CAA93jw7prPymGuWdn0pgHXL81g19opm2=-T4msy-b_s2MJ9=Jw@mail.gmail.com>
+	 <1322556234.2970.84.camel@edumazet-laptop>
+	 <CAA93jw6bvzASrtvjhKL+haZb0VEPvQQD0guf7aBTPxJbxydEAg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-QqGfpRcyUr5aTlcWKTWh"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Sasha Levin <levinsasha928@gmail.com>,  David Miller <davem@davemloft.net>, Matt Mackall <mpm@selenic.com>, Christoph Lameter <cl@linux-foundation.org>, Pekka Enberg <penberg@kernel.org>, linux-mm <linux-mm@kvack.org>, linux-kernel <linux-kernel@vger.kernel.org>, netdev <netdev@vger.kernel.org>, Chrissie Caulfield <ccaulfie@redhat.com>,  Linux-DECnet user <linux-decnet-user@lists.sourceforge.net>, RoarAudio <roaraudio@lists.keep-cool.org>
-To: Steven Whitehouse <swhiteho@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1322490161.2711.26.camel@menhir>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Tom Herbert <therbert@google.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Dave Taht <dave.taht@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:45476 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754396Ab1K2O5w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 09:57:52 -0500
+Received: by qyk4 with SMTP id 4so1635898qyk.19
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 06:57:52 -0800 (PST)
+In-Reply-To: <CAA93jw6bvzASrtvjhKL+haZb0VEPvQQD0guf7aBTPxJbxydEAg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Le mardi 29 novembre 2011 =C3=A0 09:51 +0100, Dave Taht a =C3=A9crit :
 
---=-QqGfpRcyUr5aTlcWKTWh
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> Perhaps I don't understand the gross effects of TSO very well, but if=
+ you have
+> 100 streams coming from a server, destined to X different destination=
+s,
+> and you FQ to each on a per packet basis, you end up impacting the do=
+wnstream
+> receive buffers throughout much less than if you send each stream as =
+a burst.
 
-reflum,
+TSO makes packets larger, to lower cpu use in different layers (netfilt=
+er, qdisc, ...).
 
-On Tue, 2011-11-29 at 15:34 +0100, Steven Whitehouse wrote:
+Imagine you could have MSS=3D65000 on your ethernet wire.
 
-> Has anybody actually tested it
-> > >> lately against "real" DEC implementations?
-> > > I doubt it :-)
-> > DECnet is in use against real DEC implementations - I have checked it=20
-> > quite recently against a VAX running OpenVMS. How many people are=20
-> > actually using it for real work is a different question though.
-> >=20
-> Ok, thats useful info.
+If you need to send a high prio packet while a prior big one is
+in-flight on a dumb device (a single TX FIFO), there is nothing you
+can do but wait last bit of big packet hit the wire.
 
-I confirmed parts of it with tcpdump and the specs some weeks ago. The
-parts I worked on passed :) I also considered to send the tcpdump
-upstream a patch for protocol decoding.
+Even with one flow you lose. Hundred flows dont matter
+(as long as you have proper classification in Qdisc layer, of course)
 
+Most setups dont care.
 
-> > It's also true that it's not really supported by anyone as I orphaned i=
-t=20
-> > some time ago and nobody else seems to care enough to take it over. So=20
-> > if it's becoming a burden on people doing real kernel work then I don't=
-=20
-> > think many tears will be wept for its removal.
-> > Chrissie
->=20
-> Really the only issue with keeping it around is the maintenance burden I
-> think. It doesn't look like anybody wants to take it on, but maybe we
-> should give it another few days for someone to speak up, just in case
-> they are on holiday or something at the moment.
->=20
-> Also, I've updated the subject of the thread, to make it more obvious
-> what is being discussed, as well as bcc'ing it again to the DECnet list,
+The ones caring dedicate a link for exclusive use, making sure it wont
+cross loaded trunks. (Heartbeats in clusters)
 
-I'm very interested in the module. However my problem is that I had
-nothing to do with kernel coding yet. However I'm currently searching a
-new maintainer for it (I got info about this thread by today).
-If somebody is interested in this and only needs some "motivation" or
-maybe someone would like to get me into kernel coding, please just
-reply :)
-
---=20
-Philipp.
- (Rah of PH2)
-
---=-QqGfpRcyUr5aTlcWKTWh
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Because it's your freedom
-
-iQEVAwUATtTwd2CSpmW8W5B8AQIVnQf/bSVoNOvuLaxGDwXMmahSqdvjpjKrarjm
-Q+IAHtKWKsXoYLCdaJkCuTNfoHUJujCahTiEAI4WLpgZw2nKNOOolBJREVrJZatx
-mxgfYbXPU9nNC+P9DCPlX2mjDloWoivbD3jiPqU4/A/vqjl2bC2zLyP0mRxvEwGO
-znwgDhO3t5y83m6jtSJgu5FQ1qwxBW8ZHtWMMPKMdwGwK9+cRY32j4itnDHa4YY9
-wejjRnlHHnyzx5uH/ZwiGFRMppVsPjjQKwDv/J43UYKRls91L3CiX8L3BrRkDrMP
-rMBhrxyqE/ByTfIXBQ537m6ftgxWIw1pOvEWbbHypfmbxL1wBSvkeg==
-=I1G8
------END PGP SIGNATURE-----
-
---=-QqGfpRcyUr5aTlcWKTWh--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Even disabling TSO wont be enough for them, if a single tcp flow can co=
+mpete with them.
