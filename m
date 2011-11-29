@@ -1,31 +1,72 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC PATCH 00/18] netfilter: IPv6 NAT
-Date: Tue, 29 Nov 2011 15:05:20 +0100
-Message-ID: <4ED4E6A0.5010508@trash.net>
-References: <hr62jai.cb703ce1830a0044ae0461ba20654d29@obelix.schillstrom.com>
+From: Markus Feldmann <feldmann_markus@gmx.de>
+Subject: Re: Daughterboard Jetway JAD3RTLANG with three RTL-8110SC/8169SC
+ Gigabit Ethernet is curious
+Date: Tue, 29 Nov 2011 15:16:38 +0100
+Message-ID: <4ED4E946.40209@gmx.de>
+References: <jb0d7u$bbb$1@dough.gmane.org> <201111291012.25426.carsten@wolffcarsten.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: sclark46@earthlink.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, ulrich.weber@sophos.com
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <hr62jai.cb703ce1830a0044ae0461ba20654d29@obelix.schillstrom.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lo.gmane.org ([80.91.229.12]:57583 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754760Ab1K2OQ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Nov 2011 09:16:58 -0500
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1RVOUQ-0007Ie-Tc
+	for netdev@vger.kernel.org; Tue, 29 Nov 2011 15:16:54 +0100
+Received: from dslb-092-076-227-186.pools.arcor-ip.net ([92.76.227.186])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 15:16:54 +0100
+Received: from feldmann_markus by dslb-092-076-227-186.pools.arcor-ip.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 15:16:54 +0100
+In-Reply-To: <201111291012.25426.carsten@wolffcarsten.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2011 01:50 PM, Hans Schillstrom wrote:
->>> Probabably a dumb question but are these patches for natting ipv6 to
->>> ipv6 or ipv4 to ipv6?
->> IPv6 to IPv6. I haven't really considered IPv6 to IPv4 yet.
-> Have you ever tried  ivi  The IPv6 to IPv4 gateway ?
-> i.e  address mapping and packet translation between IPv4 and IPv6 networks
-
-No, I'm currently looking at stateless IPv6 NAT mechanisms.
-
-> I made a port to resent kernel  in the begining of this year ( i think it was 2.6.36 ... ) and it seems to work.
-> (however there is some issues left....)
+Am 29.11.2011 10:12, schrieb Carsten Wolff:
+> Hi Markus,
 >
-> I like the idea of "ivi"  for a larger scale of translation.
+> On Monday 28 November 2011, Markus Feldmann wrote:
+>> Hi All,
+>>
+>> i have a mini-ITX PC (Motherboard Jetway JNF92-270-LF), whit 3 ethernet
+>> devices (RTL-8110SC/8169SC Gigabit Ethernet) on one additional
+>> daughterboard (Jetway JAD3RTLANG).
+>>
+>> Here is my<hwinfo --netcard>  output:
+>> http://pastebin.com/raw.php?i=Khy1NX61
+>>
+>> and dmesg:
+>> http://pastebin.com/raw.php?i=Ziq1mizy
+>>
+>> I am using this mini-ITX PC as server/router with a debian
+>> squeeze/stable system.
+>>
+>> My problem is that only one of this three ethernet devices (from the
+>> daughterboard not the internal one from motherboard) at once is working
+>> correctly. Sometimes i have only one client to my server connected, but
+>> only one specific ehernet port is working (mostly the physically upper
+>> one). I didnt found any regularity yet.
+> I guess "not working" means "link detected: no" in ethtool?
+>
+>> Any hints? is there a specific person whom i schould contact?
+> I had a similar (the same?) problems with this hardware about 2 years ago. My
+> "solution" was to install windows + drivers, then throw windows away and
+> install debian. After that, I had no more problems with those NICs. Since
+> then, there have been some patches to the initialization code for these RTL
+> Linux drivers, but maybe the windows driver installs newer firmware, too,
+> which may be required for that particular product.
+>
+> Carsten
+Hi,
 
-Do you have a pointer to your port?
+You mean the latest Linux kernel was patched for a better 
+initialization? At the moment i am using the kernel 3.0.8. As i 
+understood the firmware must be loaded at every power on.
+
+regards Markus
