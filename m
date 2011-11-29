@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next-next 0/2] can: cc770: add support for the Bosch
- CC770 and Intel AN82527
-Date: Tue, 29 Nov 2011 18:39:50 -0500 (EST)
-Message-ID: <20111129.183950.1327835803051184146.davem@davemloft.net>
-References: <1322136448-7311-1-git-send-email-wg@grandegger.com>
+Subject: Re: [patch v2] isdn: make sure strings are null terminated
+Date: Tue, 29 Nov 2011 18:40:00 -0500 (EST)
+Message-ID: <20111129.184000.916136138216921151.davem@davemloft.net>
+References: <20111123064204.GA6871@elgon.mountain>
+	<1322031811.1298.38.camel@edumazet-laptop>
+	<20111124124149.GH3195@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	socketcan-users@lists.berlios.de, boir1@yandex.ru,
-	stanislavelensky@yahoo.com
-To: wg@grandegger.com
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1322136448-7311-1-git-send-email-wg@grandegger.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, isdn@linux-pingi.de,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:44564 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755941Ab1K2XkK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 18:40:10 -0500
+In-Reply-To: <20111124124149.GH3195@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wolfgang Grandegger <wg@grandegger.com>
-Date: Thu, 24 Nov 2011 13:07:26 +0100
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Thu, 24 Nov 2011 15:41:49 +0300
 
-> Already since a while we have support for the Bosch CC770 and Intel
-> AN82527 CAN controllers in our out-of-tree Socket-CAN repository.
-> It would be nice if somebody could test the driver. Unfortunately,
-> I currently do not have hardware at hand. I have not yet ported the
-> OF platform driver as it needs further attaention due to the merge
-> of the platform and OF platform interface.
+> These strings come from the user.  We strcpy() them inside
+> cf_command() so we should check that they are NULL terminated and
+> return an error if not.
 > 
-> Wolfgang Grandegger (2):
->   can: cc770: add driver core for the Bosch CC770 and Intel AN82527
->   can: cc770: legacy CC770 ISA bus driver
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> ---
+> v2: use strnlen() instead of strlen().
 
-All applied, thank you.
+Applied.
