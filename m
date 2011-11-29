@@ -1,78 +1,202 @@
-From: Ulrich Weber <ulrich.weber@sophos.com>
-Subject: Re: [RFC PATCH 00/18] netfilter: IPv6 NAT
-Date: Tue, 29 Nov 2011 10:19:21 +0100
-Message-ID: <4ED4A399.6090709@sophos.com>
-References: <CAF9AA63.1622%ulrich.weber@sophos.com> <a2407c3b6405bd682cedad6db82cf225@treenet.co.nz>
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [PATCH v6 02/10] foundations of per-cgroup memory pressure controlling.
+Date: Tue, 29 Nov 2011 07:19:12 -0200
+Message-ID: <4ED4A390.6070609@parallels.com>
+References: <1322242696-27682-1-git-send-email-glommer@parallels.com> <1322242696-27682-3-git-send-email-glommer@parallels.com> <20111128115541.bc8f2ffa.kamezawa.hiroyu@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "sclark46@earthlink.net" <sclark46@earthlink.net>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Amos Jeffries <squid3@treenet.co.nz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx6.sophos.com ([213.31.172.36]:51233 "EHLO mx6.sophos.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753997Ab1K2JTX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Nov 2011 04:19:23 -0500
-In-Reply-To: <a2407c3b6405bd682cedad6db82cf225@treenet.co.nz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <lizf@cn.fujitsu.com>,
+	<ebiederm@xmission.com>, <davem@davemloft.net>, <paul@paulmenage.org>,
+	<gthelen@google.com>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
+	<kirill@shutemov.name>, <avagin@parallels.com>, <devel@openvz.org>,
+	<eric.dumazet@gmail.com>, <cgroups@vger.kernel.org>
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20111128115541.bc8f2ffa.kamezawa.hiroyu@jp.fujitsu.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Please dont' let this deviate to a flame war.
-I just said there are use cases, nothing more, nothing less.
-
-This is software. There are lots of ways to archive the same goal.
-Every solution has its pro and cons, its not always black and white.
-
-
-On 28.11.2011 23:03, Amos Jeffries wrote:
-> I'm going to dare to call FUD on those statements...
->    * Load Balancing - what is preventing your routing rules or packet
->   marking using the same criteria as the NAT changer? nothing. Load
->   balancing works perfectly fine without NAT.
+On 11/28/2011 12:55 AM, KAMEZAWA Hiroyuki wrote:
+> On Fri, 25 Nov 2011 15:38:08 -0200
+> Glauber Costa<glommer@parallels.com>  wrote:
 >
-Nothing, you archive the same in a different way.
-However keep in mind that not all computers out there run Linux.
-
-Its quite simple to setup NAT rules, they work with every OS.
-
-On the other hand, balancing by changing MAC address or
-IPv6inIPv6 Tunnels can be a headache, getting this going with
-Windows, Mac, Solaris and so on.
-
-Issues with DAD and source address selection doesn't make it easier.
-Have a look at net/netfilter/ipvs/ip_vs_xmit.c. There is a reason, why
-NAT for IPv6 is already in the Kernel since three years.
-
->    * outgoing packet control - packets will happily leave the "wrong"
->   interface after NAT unless you add routing and firewall controls
->   separate to NAT. Packet control works *better* without NAT erasing
->   original IP information resulting in mistakenly NAT'ed packets go o=
-ut
->   the wrong interface.
+>> This patch replaces all uses of struct sock fields' memory_pressure,
+>> memory_allocated, sockets_allocated, and sysctl_mem to acessor
+>> macros. Those macros can either receive a socket argument, or a mem_cgroup
+>> argument, depending on the context they live in.
+>>
+>> Since we're only doing a macro wrapping here, no performance impact at all is
+>> expected in the case where we don't have cgroups disabled.
+>>
+>> Signed-off-by: Glauber Costa<glommer@parallels.com>
+>> CC: David S. Miller<davem@davemloft.net>
+>> CC: Hiroyouki Kamezawa<kamezawa.hiroyu@jp.fujitsu.com>
+>> CC: Eric W. Biederman<ebiederm@xmission.com>
+>> CC: Eric Dumazet<eric.dumazet@gmail.com>
+>
+> I have some comments on the style. Maybe a nitpick but many patches were
+> sent for fixing conding style in memcg recently.
+>
+> +static inline int *sk_memory_pressure(const struct sock *sk)
+> +{
+> +	return sk->sk_prot->memory_pressure;
+> +}
+> +
+> +static inline long sk_prot_mem(const struct sock *sk, int index)
+> +{
+> +	long *prot = sk->sk_prot->sysctl_mem;
+> +	return prot[index];
+> +}
+> +
+>
+> I don't think sk_prot_mem() is an easy to undestand name.
+> sk_prot_memory_limit() ?
+>
+>> +static inline int
+>> +kcg_sockets_allocated_sum_positive(struct proto *prot, struct mem_cgroup *cg)
+>> +{
+>> +	return percpu_counter_sum_positive(prot->sockets_allocated);
+>> +}
+>> +
+>> +static inline long
+>> +kcg_memory_allocated(struct proto *prot, struct mem_cgroup *cg)
+>> +{
+>> +	return atomic_long_read(prot->memory_allocated);
+>> +}
+>>
+>
+> I don't like 'kcg'. What it means ?
+> memory_cgrou_prot_socekts_allocated() ? and
+> memory_cgroup_prot_memory_allocated() ?
+>
+> And the variable for memory cgroup should be 'memcg'.
+> http://www.spinics.net/lists/linux-mm/msg26781.html
+> So, please rename.
 >
 >
-I fully agree. NAT can not replace your firewall rules.
+>
+>>   #ifdef CONFIG_PROC_FS
+>>   /* Called with local bh disabled */
+>> diff --git a/include/net/tcp.h b/include/net/tcp.h
+>> index e147f42..ccaa3b6 100644
+> <snip>
+>
+>   	seq_printf(seq, "RAW: inuse %d\n",
+>> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+>> index 34f5db1..89a2bfe 100644
+>> --- a/net/ipv4/tcp.c
+>> +++ b/net/ipv4/tcp.c
+>> @@ -319,9 +319,11 @@ EXPORT_SYMBOL(tcp_memory_pressure);
+>>
+>>   void tcp_enter_memory_pressure(struct sock *sk)
+>>   {
+>> -	if (!tcp_memory_pressure) {
+>> +	int *memory_pressure = sk_memory_pressure(sk);
+>> +
+>
+> Don't you need !memory_pressure check here ?
 
-However with NAT you could get some kind of anonymity.
-Think of Tor: If your server/client operates with private IP addresses,
-your public IP address is still masked after a security breach.
+Not really. Note that the original tcp code doesn't have it as well.
+The generic networking code deals with many protocols, not all of them 
+have memory pressure functionality implemented. Therefore, a check is 
+needed. If we're inside tcp boundaries, we can pretty much assume 
+memory_pressure is present.
 
->   I have long been of the opinion that all NAT really offers is the
->   ability to easily and cleanly multi-home several global public pref=
-ixes
->   from a unified PI space. This is a very important aspect for some
->   networks, even with plentiful IPv6 addresses.
-Also in my opinion the most important reason for NAT.
+> Hmm, can this function be
+>
+> +static inline int *sk_memory_pressure(const struct sock *sk)
+> +{
+> +	return sk->sk_prot->memory_pressure;
+> +}
+>
+> as
+>
+> static inline bool sk_under_prot_memory_pressure(const struct sock *sk)
+> {
+> 	if (sk->sk_prot->memory_pressure&&
+> 	*sk->sk_prot->memory_pressure)
+> 		return true;
+>
+> 	return false;
+> }
+>
+> and have sk_set/unset_prot_memory_pressure(),  ?
 
-Cheers
-  Ulrich
+Yes, it could. Would it be preferable for you?
+>
+>
+>> +	if (!*memory_pressure) {
+>>   		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPMEMORYPRESSURES);
+>> -		tcp_memory_pressure = 1;
+>> +		*memory_pressure = 1;
+>>   	}
+>>   }
+>>   EXPORT_SYMBOL(tcp_enter_memory_pressure);
+>> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+>> index 52b5c2d..3df862d 100644
+>> --- a/net/ipv4/tcp_input.c
+>> +++ b/net/ipv4/tcp_input.c
+>> @@ -322,7 +322,7 @@ static void tcp_grow_window(struct sock *sk, const struct sk_buff *skb)
+>>   	/* Check #1 */
+>>   	if (tp->rcv_ssthresh<  tp->window_clamp&&
+>>   	(int)tp->rcv_ssthresh<  tcp_space(sk)&&
+>> -	    !tcp_memory_pressure) {
+>> +	    !sk_memory_pressure(sk)) {
+>
+> Don't you need to check !*sk_memory_pressure(sk) ?
 
---=20
-Ulrich Weber | ulrich.weber@sophos.com | Senior Software Engineer
-Astaro - a Sophos company | Amalienbadstr 41 | 76227 Karlsruhe | German=
-y
-Phone +49-721-25516-0 | Fax =E2=80=93200 | www.astaro.com
+good catch!
+yes.
+
+>
+>
+>
+>>   		int incr;
+>>
+>>   		/* Check #2. Increase window, if skb with such overhead
+>> @@ -411,8 +411,8 @@ static void tcp_clamp_window(struct sock *sk)
+>>
+>>   	if (sk->sk_rcvbuf<  sysctl_tcp_rmem[2]&&
+>>   	!(sk->sk_userlocks&  SOCK_RCVBUF_LOCK)&&
+>> -	    !tcp_memory_pressure&&
+>> -	    atomic_long_read(&tcp_memory_allocated)<  sysctl_tcp_mem[0]) {
+>> +	    !sk_memory_pressure(sk)&&
+>> +	    sk_memory_allocated(sk)<  sk_prot_mem(sk, 0)) {
+>>   		sk->sk_rcvbuf = min(atomic_read(&sk->sk_rmem_alloc),
+>>   				    sysctl_tcp_rmem[2]);
+>>   	}
+>> @@ -4864,7 +4864,7 @@ static int tcp_prune_queue(struct sock *sk)
+>>
+>>   	if (atomic_read(&sk->sk_rmem_alloc)>= sk->sk_rcvbuf)
+>>   		tcp_clamp_window(sk);
+>> -	else if (tcp_memory_pressure)
+>> +	else if (sk_memory_pressure(sk))
+>>   		tp->rcv_ssthresh = min(tp->rcv_ssthresh, 4U * tp->advmss);
+>
+> Ditto.
+>
+>
+>>
+>>   	tcp_collapse_ofo_queue(sk);
+>> @@ -4930,11 +4930,11 @@ static int tcp_should_expand_sndbuf(const struct sock *sk)
+>>   		return 0;
+>>
+>>   	/* If we are under global TCP memory pressure, do not expand.  */
+>> -	if (tcp_memory_pressure)
+>> +	if (sk_memory_pressure(sk))
+>>   		return 0;
+>
+> again.
+>
+> Thanks,
+> -Kame
+>
+Ok, I will fix this and respin it.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
