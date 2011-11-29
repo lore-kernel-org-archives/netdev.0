@@ -1,68 +1,118 @@
-From: "Myklebust, Trond" <Trond.Myklebust@netapp.com>
-Subject: RE: [PATCH 4/5] NFS: remove RPC PipeFS mount point reference from blocklayout routines
-Date: Tue, 29 Nov 2011 05:35:51 -0800
-Message-ID: <2E1EB2CF9ED1CB4AA966F0EB76EAB4430C3CBC23@SACMVEXC2-PRD.hq.netapp.com>
-References: <20111129090754.20730.64567.stgit@localhost6.localdomain6> <20111129091037.20730.59391.stgit@localhost6.localdomain6> <F19688880B763E40B28B2B462677FBF805E3A4AFF2@MX09A.corp.emc.com> <4ED4CDCE.9080804@parallels.com> <F19688880B763E40B28B2B462677FBF805E3A4AFFD@MX09A.corp.emc.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] sch_sfq: use skb_flow_dissect()
+Date: Tue, 29 Nov 2011 14:40:45 +0100
+Message-ID: <1322574045.2465.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <linux-nfs@vger.kernel.org>, <xemul@parallels.com>,
-	<neilb@suse.de>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jbottomley@parallels.com>,
-	<bfields@fieldses.org>, <davem@davemloft.net>, <devel@openvz.org>
-To: <tao.peng@emc.com>, <skinsbursky@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <F19688880B763E40B28B2B462677FBF805E3A4AFFD@MX09A.corp.emc.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:56022 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754127Ab1K2Nks (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 08:40:48 -0500
+Received: by qadc14 with SMTP id c14so1957092qad.19
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 05:40:48 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiB0YW8ucGVuZ0BlbWMuY29tIFtt
-YWlsdG86dGFvLnBlbmdAZW1jLmNvbV0NCj4gU2VudDogVHVlc2RheSwgTm92ZW1iZXIgMjksIDIw
-MTEgNzo0MCBBTQ0KPiBUbzogc2tpbnNidXJza3lAcGFyYWxsZWxzLmNvbQ0KPiBDYzogTXlrbGVi
-dXN0LCBUcm9uZDsgbGludXgtbmZzQHZnZXIua2VybmVsLm9yZzsgeGVtdWxAcGFyYWxsZWxzLmNv
-bTsNCj4gbmVpbGJAc3VzZS5kZTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVs
-QHZnZXIua2VybmVsLm9yZzsNCj4gamJvdHRvbWxleUBwYXJhbGxlbHMuY29tOyBiZmllbGRzQGZp
-ZWxkc2VzLm9yZzsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsNCj4gZGV2ZWxAb3BlbnZ6Lm9yZw0KPiBT
-dWJqZWN0OiBSRTogW1BBVENIIDQvNV0gTkZTOiByZW1vdmUgUlBDIFBpcGVGUyBtb3VudCBwb2lu
-dCByZWZlcmVuY2UNCj4gZnJvbSBibG9ja2xheW91dCByb3V0aW5lcw0KPiANCj4gPiAtLS0tLU9y
-aWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+IEZyb206IFN0YW5pc2xhdiBLaW5zYnVyc2t5IFttYWls
-dG86c2tpbnNidXJza3lAcGFyYWxsZWxzLmNvbV0NCj4gPiBTZW50OiBUdWVzZGF5LCBOb3ZlbWJl
-ciAyOSwgMjAxMSA4OjE5IFBNDQo+ID4gVG86IFBlbmcsIFRhbw0KPiA+IENjOiBUcm9uZC5NeWts
-ZWJ1c3RAbmV0YXBwLmNvbTsgbGludXgtbmZzQHZnZXIua2VybmVsLm9yZzsgUGF2ZWwNCj4gPiBF
-bWVsaWFub3Y7IG5laWxiQHN1c2UuZGU7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+ID4gbGlu
-dXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsgSmFtZXMgQm90dG9tbGV5OyBiZmllbGRzQGZpZWxk
-c2VzLm9yZzsNCj4gPiBkYXZlbUBkYXZlbWxvZnQubmV0OyBkZXZlbEBvcGVudnoub3JnDQo+ID4g
-U3ViamVjdDogUmU6IFtQQVRDSCA0LzVdIE5GUzogcmVtb3ZlIFJQQyBQaXBlRlMgbW91bnQgcG9p
-bnQgcmVmZXJlbmNlDQo+ID4gZnJvbSBibG9ja2xheW91dCByb3V0aW5lcw0KPiA+DQo+ID4gMjku
-MTEuMjAxMSAxNjowMCwgdGFvLnBlbmdAZW1jLmNvbSDQv9C40YjQtdGCOg0KPiA+ID4+IC0tLS0t
-T3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gPj4gRnJvbTogbGludXgtbmZzLW93bmVyQHZnZXIu
-a2VybmVsLm9yZw0KPiA+ID4+IFttYWlsdG86bGludXgtbmZzLW93bmVyQHZnZXIua2VybmVsLm9y
-Z10gT24gQmVoYWxmIE9mDQo+ID4gU3RhbmlzbGF2DQo+ID4gPj4gS2luc2J1cnNreQ0KPiA+ID4+
-IFNlbnQ6IFR1ZXNkYXksIE5vdmVtYmVyIDI5LCAyMDExIDY6MTEgUE0NCj4gPiA+PiBUbzogVHJv
-bmQuTXlrbGVidXN0QG5ldGFwcC5jb20NCj4gPiA+PiBDYzogbGludXgtbmZzQHZnZXIua2VybmVs
-Lm9yZzsgeGVtdWxAcGFyYWxsZWxzLmNvbTsgbmVpbGJAc3VzZS5kZTsNCj4gPiA+PiBuZXRkZXZA
-dmdlci5rZXJuZWwub3JnOyBsaW51eC0ga2VybmVsQHZnZXIua2VybmVsLm9yZzsNCj4gPiA+PiBq
-Ym90dG9tbGV5QHBhcmFsbGVscy5jb207IGJmaWVsZHNAZmllbGRzZXMub3JnOw0KPiA+ID4+IGRh
-dmVtQGRhdmVtbG9mdC5uZXQ7IGRldmVsQG9wZW52ei5vcmcNCj4gPiA+PiBTdWJqZWN0OiBbUEFU
-Q0ggNC81XSBORlM6IHJlbW92ZSBSUEMgUGlwZUZTIG1vdW50IHBvaW50IHJlZmVyZW5jZQ0KPiA+
-ID4+IGZyb20gYmxvY2tsYXlvdXQgcm91dGluZXMNCj4gPiA+Pg0KPiA+ID4+IFRoaXMgaXMgYSBj
-bGVhbnVwIHBhdGNoLiBXZSBkb24ndCBuZWVkIHRoaXMgcmVmZXJlbmNlIGFueW1vcmUsDQo+ID4g
-Pj4gYmVjYXVzZSBibG9ja2xheW91dCBwaXBlcyBkZW50cmllcyBub3cgY3JlYXRlcyBhbmQgZGVz
-dHJveXMgaW4NCj4gPiA+PiBwZXItbmV0IG9wZXJhdGlvbnMgYW5kIG9uIFBpcGVGUyBtb3VudC91
-bW91bnQgbm90aWZpY2F0aW9uLg0KPiA+ID4+IE5vdGUgdGhhdCBuZnM0YmxvY2tsYXlvdXRfcmVn
-aXN0ZXJfbmV0KCkgbm93IHJldHVybnMgMCBpbnN0ZWFkIG9mDQo+ID4gPj4gLUVOT0VOVCBpbiBj
-YXNlIG9mIFBpcGVGUyBzdXBlcmJsb2NrIGFic2VuY2UuIFRoaXMgaXMgb2ssIGJlY2F1c2UNCj4g
-PiA+PiBibG9ja2xheW91dCBwaXBlIGRlbnRyeSB3aWxsIGJlIGNyZWF0ZWQgb24gUGlwZUZTIG1v
-dW50IGV2ZW50Lg0KPiA+ID4gV2hlbiBpcyB0aGUgInBpcGVmcyBtb3VudCBldmVudCIgZ29pbmcg
-dG8gaGFwcGVuPyBXaGVuIGluc2VydGluZw0KPiA+ID4ga2VybmVsIG1vZHVsZXMgb3Igd2hlbiB1
-c2VyIGlzc3Vlcw0KPiA+IG1vdW50IGNvbW1hbmQ/DQo+ID4gPg0KPiA+DQo+ID4gV2hlbiB1c2Vy
-IGlzc3VlcyBtb3VudCBjb21tYW5kLg0KPiA+IEtlcm5lbCBtb3VudHMgb2YgUGlwZUZTIGhhcyBi
-ZWVuIHJlbW92ZWQgd2l0aCBhbGwgdGhlc2UgcGF0Y2ggc2V0cw0KPiA+IEkndmUgc2VudCBhbHJl
-YWR5Lg0KPiBUaGVuIGl0IGlzIGdvaW5nIHRvIGJyZWFrIGJsb2NrbGF5b3V0IHVzZXIgc3BhY2Ug
-cHJvZ3JhbSBibGttYXBkLCB3aGljaCBpcw0KPiBzdGFyZWQgYmVmb3JlIG1vdW50aW5nIGFueSBm
-aWxlIHN5c3RlbSBhbmQgaXQgdHJpZXMgdG8gb3BlbiB0aGUgcGlwZSBmaWxlDQo+IHdoZW4gc3Rh
-cnRlZC4NCg0KV2h5IG9uIGVhcnRoIGlzIGJsa21hcGQgZG9pbmcgdGhpcyBpbnN0ZWFkIG9mIGxp
-c3RlbmluZyBmb3IgZmlsZSBjcmVhdGlvbiBub3RpZmljYXRpb25zIGxpa2UgdGhlIG90aGVyIHJw
-Y19waXBlZnMgZGFlbW9ucyBkbz8NCg0KVHJvbmQNCg0K
+Instead of using a custom flow dissector, use skb_flow_dissect() and
+benefit from tunnelling support.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/sched/sch_sfq.c |   65 ++++++------------------------------------
+ 1 file changed, 10 insertions(+), 55 deletions(-)
+
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index 4f5510e..c8da556 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -17,14 +17,13 @@
+ #include <linux/in.h>
+ #include <linux/errno.h>
+ #include <linux/init.h>
+-#include <linux/ipv6.h>
+ #include <linux/skbuff.h>
+ #include <linux/jhash.h>
+ #include <linux/slab.h>
+ #include <linux/vmalloc.h>
+-#include <net/ip.h>
+ #include <net/netlink.h>
+ #include <net/pkt_sched.h>
++#include <net/flow_keys.h>
+ 
+ 
+ /*	Stochastic Fairness Queuing algorithm.
+@@ -137,61 +136,17 @@ static inline struct sfq_head *sfq_dep_head(struct sfq_sched_data *q, sfq_index
+ 	return &q->dep[val - SFQ_SLOTS];
+ }
+ 
+-static unsigned int sfq_fold_hash(struct sfq_sched_data *q, u32 h, u32 h1)
++static unsigned int sfq_hash(const struct sfq_sched_data *q,
++			     const struct sk_buff *skb)
+ {
+-	return jhash_2words(h, h1, q->perturbation) & (q->divisor - 1);
+-}
+-
+-static unsigned int sfq_hash(struct sfq_sched_data *q, struct sk_buff *skb)
+-{
+-	u32 h, h2;
+-
+-	switch (skb->protocol) {
+-	case htons(ETH_P_IP):
+-	{
+-		const struct iphdr *iph;
+-		int poff;
+-
+-		if (!pskb_network_may_pull(skb, sizeof(*iph)))
+-			goto err;
+-		iph = ip_hdr(skb);
+-		h = (__force u32)iph->daddr;
+-		h2 = (__force u32)iph->saddr ^ iph->protocol;
+-		if (ip_is_fragment(iph))
+-			break;
+-		poff = proto_ports_offset(iph->protocol);
+-		if (poff >= 0 &&
+-		    pskb_network_may_pull(skb, iph->ihl * 4 + 4 + poff)) {
+-			iph = ip_hdr(skb);
+-			h2 ^= *(u32 *)((void *)iph + iph->ihl * 4 + poff);
+-		}
+-		break;
+-	}
+-	case htons(ETH_P_IPV6):
+-	{
+-		const struct ipv6hdr *iph;
+-		int poff;
+-
+-		if (!pskb_network_may_pull(skb, sizeof(*iph)))
+-			goto err;
+-		iph = ipv6_hdr(skb);
+-		h = (__force u32)iph->daddr.s6_addr32[3];
+-		h2 = (__force u32)iph->saddr.s6_addr32[3] ^ iph->nexthdr;
+-		poff = proto_ports_offset(iph->nexthdr);
+-		if (poff >= 0 &&
+-		    pskb_network_may_pull(skb, sizeof(*iph) + 4 + poff)) {
+-			iph = ipv6_hdr(skb);
+-			h2 ^= *(u32 *)((void *)iph + sizeof(*iph) + poff);
+-		}
+-		break;
+-	}
+-	default:
+-err:
+-		h = (unsigned long)skb_dst(skb) ^ (__force u32)skb->protocol;
+-		h2 = (unsigned long)skb->sk;
+-	}
++	struct flow_keys keys;
++	unsigned int hash;
+ 
+-	return sfq_fold_hash(q, h, h2);
++	skb_flow_dissect(skb, &keys);
++	hash = jhash_3words((__force u32)keys.dst,
++			    (__force u32)keys.src ^ keys.ip_proto,
++			    (__force u32)keys.ports, q->perturbation);
++	return hash & (q->divisor - 1);
+ }
+ 
+ static unsigned int sfq_classify(struct sk_buff *skb, struct Qdisc *sch,
