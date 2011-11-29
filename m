@@ -1,36 +1,37 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v4] net: add calxeda xgmac ethernet driver
-Date: Tue, 29 Nov 2011 01:19:40 -0500 (EST)
-Message-ID: <20111129.011940.928445215881241355.davem@davemloft.net>
-References: <1322018299-30970-1-git-send-email-robherring2@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] netstamp_needed shouldn't be jump_label_key
+Date: Tue, 29 Nov 2011 01:22:22 -0500 (EST)
+Message-ID: <20111129.012222.1615213860721962427.davem@davemloft.net>
+References: <1322511796-6908-2-git-send-email-igorm@etf.rs>
+	<1322512426.2970.15.camel@edumazet-laptop>
+	<1322515010.2970.24.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org,
- saeed.bishara-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1322018299-30970-1-git-send-email-robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: igorm@etf.rs, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34970 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752933Ab1K2GWc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 01:22:32 -0500
+In-Reply-To: <1322515010.2970.24.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Tue, 22 Nov 2011 21:18:19 -0600
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 28 Nov 2011 22:16:50 +0100
 
-> From: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
+> [PATCH net-next] net: dont call jump_label_dec from irq context
 > 
-> Add support for the XGMAC 10Gb ethernet device in the Calxeda Highbank
-> SOC.
+> Igor Maravic reported an error caused by jump_label_dec() being called
+> from IRQ context :
+ ...
+> Since jump_label_{inc|dec} must be called from process context only,
+> we must defer jump_label_dec() if net_disable_timestamp() is called
+> from interrupt context.
 > 
-> Signed-off-by: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
+> Reported-by: Igor Maravic <igorm@etf.rs>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
 Applied.
