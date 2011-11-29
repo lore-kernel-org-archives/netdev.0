@@ -1,55 +1,66 @@
-From: Peng Tao <bergwolf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 4/5] NFS: remove RPC PipeFS mount point reference from
- blocklayout routines
-Date: Wed, 30 Nov 2011 01:30:27 +0800
-Message-ID: <CA+a=Yy4bEKaeUihjYLRzXVbjA3fc2EuZ3ToAkf0w-oL3PnZJKQ@mail.gmail.com>
-References: <20111129090754.20730.64567.stgit@localhost6.localdomain6>
- <20111129091037.20730.59391.stgit@localhost6.localdomain6>
- <F19688880B763E40B28B2B462677FBF805E3A4AFF2@MX09A.corp.emc.com>
- <4ED4CDCE.9080804@parallels.com> <F19688880B763E40B28B2B462677FBF805E3A4AFFD@MX09A.corp.emc.com>
- <2E1EB2CF9ED1CB4AA966F0EB76EAB4430C3CBC23@SACMVEXC2-PRD.hq.netapp.com>
- <CA+a=Yy5GKMu8rbh8y3fOtK6pmqygPNBr=a+p7LfcmTqtXFH3iA@mail.gmail.com>
- <1322579906.3619.1.camel@lade.trondhjem.org> <CA+a=Yy6kJe0NemSiRwM+t8gz5-UF5fOdwdS2so+q=nSYjBx--w@mail.gmail.com>
- <1322584830.4174.16.camel@lade.trondhjem.org> <20111129164252.GA19528@fieldses.org>
- <1322587165.4174.20.camel@lade.trondhjem.org>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] staging: hv: move hv_netvsc out of staging area
+Date: Wed, 30 Nov 2011 00:16:38 +0900
+Message-ID: <20111129151638.GB24688@kroah.com>
+References: <1322516135-22221-1-git-send-email-haiyangz@microsoft.com>
+ <A1F3067C9B68744AA19F6802BAB8FFDC0CCCC087@TK5EX14MBXC227.redmond.corp.microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, tao.peng-mb1K0bWo544@public.gmane.org,
-	skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1322587165.4174.20.camel-SyLVLa/KEI9HwK5hSS5vWB2eb7JE58TQ@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "gregkh@suse.de" <gregkh@suse.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	NetDev <netdev@vger.kernel.org>
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <A1F3067C9B68744AA19F6802BAB8FFDC0CCCC087@TK5EX14MBXC227.redmond.corp.microsoft.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 30, 2011 at 1:19 AM, Trond Myklebust
-<Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org> wrote:
-> On Tue, 2011-11-29 at 11:42 -0500, J. Bruce Fields wrote:
->> On Tue, Nov 29, 2011 at 11:40:30AM -0500, Trond Myklebust wrote:
->> > I mean that I'm perfectly entitled to do
->> >
->> > 'modprobe -r blocklayoutdriver'
->> >
->> > and when I do that, then I expect blkmapd to close the rpc pipe and wait
->> > for a new one to be created just like rpc.idmapd and rpc.gssd do when I
->> > remove the nfs and sunrpc modules.
->>
->> The rpc pipefs mount doesn't hold a reference on the sunrpc module?
->
-> I stand corrected: the mount does hold a reference to the sunrpc
-> module.
-> However nothing holds a reference to the blocklayoutdriver module, so
-> the main point that the "blocklayout" pipe can disappear from underneath
-> the blkmapd stands.
-Thanks for the explanation and I agree it can cause problem if user
-reload blocklayout module. I will look into a fix to blkmapd.
+On Mon, Nov 28, 2011 at 10:00:35PM +0000, Haiyang Zhang wrote:
+> > -----Original Message-----
+> > From: Haiyang Zhang [mailto:haiyangz@microsoft.com]
+> > Sent: Monday, November 28, 2011 4:36 PM
+> > To: Haiyang Zhang; KY Srinivasan; gregkh@suse.de; linux-
+> > kernel@vger.kernel.org; devel@linuxdriverproject.org
+> > Cc: Mike Sterling; NetDev
+> > Subject: [PATCH] staging: hv: move hv_netvsc out of staging area
+> > 
+> > hv_netvsc has been reviewed on netdev mailing list on 6/09/2011.
+> > All recommended changes have been made. We are requesting to move it
+> > out of staging area.
+> > 
+> > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> > Signed-off-by: KY Srinivasan <kys@microsoft.com>
+> > Signed-off-by: Mike Sterling <Mike.Sterling@microsoft.com>
+> > Cc: NetDev <netdev@vger.kernel.org>
+> > Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+> > ---
+> >  drivers/net/Kconfig                               |    2 ++
+> >  drivers/net/Makefile                              |    2 ++
+> >  drivers/net/hyperv/Kconfig                        |    5 +++++
+> >  drivers/net/hyperv/Makefile                       |    3 +++
+> >  drivers/{staging/hv => net/hyperv}/hyperv_net.h   |    0
+> >  drivers/{staging/hv => net/hyperv}/netvsc.c       |    0
+> >  drivers/{staging/hv => net/hyperv}/netvsc_drv.c   |    0
+> >  drivers/{staging/hv => net/hyperv}/rndis_filter.c |    0
+> >  drivers/staging/hv/Kconfig                        |    6 ------
+> >  drivers/staging/hv/Makefile                       |    2 --
+> >  drivers/staging/hv/TODO                           |    1 -
+> >  11 files changed, 12 insertions(+), 9 deletions(-)  create mode 100644
+> > drivers/net/hyperv/Kconfig  create mode 100644
+> > drivers/net/hyperv/Makefile  rename drivers/{staging/hv =>
+> > net/hyperv}/hyperv_net.h (100%)  rename drivers/{staging/hv =>
+> > net/hyperv}/netvsc.c (100%)  rename drivers/{staging/hv =>
+> > net/hyperv}/netvsc_drv.c (100%)  rename drivers/{staging/hv =>
+> > net/hyperv}/rndis_filter.c (100%)
+> > 
+> 
+> I have rebased the previous patch on the latest staging-next branch,
+> and re-submitting it now.  In another email, the same patch was
+> submitted without using the "-M" flag, in case anyone wants to read
+> the unchanged code in the patch body.
 
-Best,
-Tao
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This one was fine, now applied, thanks.
+
+greg k-h
