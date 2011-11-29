@@ -1,40 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next 1/4] net: introduce skb_flow_dissect()
-Date: Mon, 28 Nov 2011 19:06:04 -0500 (EST)
-Message-ID: <20111128.190604.1713178066845491526.davem@davemloft.net>
-References: <1322493738.2292.69.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<4ED3B603.4010702@chelsio.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH v2 net-next 2/2] netem: add cell concept to simulate
+ special MAC behavior
+Date: Tue, 29 Nov 2011 01:07:40 +0100
+Message-ID: <20111129000740.GI3045@nuttenaction>
+References: <1322156378-23257-1-git-send-email-hagen@jauu.net>
+ <1322187773-27768-1-git-send-email-hagen@jauu.net>
+ <1322187773-27768-2-git-send-email-hagen@jauu.net>
+ <1322521267.2970.43.camel@edumazet-laptop>
+ <20111128233004.GH3045@nuttenaction>
+ <1322524125.2970.48.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
-	john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org,
-	shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, dan-BZ4SNL/Vixll57MIdRCFDg@public.gmane.org
-To: dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <4ED3B603.4010702-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:45626 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752459Ab1K2AHn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 19:07:43 -0500
+Content-Disposition: inline
+In-Reply-To: <1322524125.2970.48.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dimitris Michailidis <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Date: Mon, 28 Nov 2011 08:25:39 -0800
+* Eric Dumazet | 2011-11-29 00:48:45 [+0100]:
 
->> +bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys
->> *flow)
->> +{
->> +	int poff, nhoff = skb_network_offset(skb);
->> +	u8 ip_proto;
->> +	u16 proto = skb->protocol;
-> 
-> __be16 instead of u16 for proto?
+>Is it was is really needed ?
 
-I'll take care of this when I apply these patches.
+argl ... I will repost a final version - thank you Eric!
