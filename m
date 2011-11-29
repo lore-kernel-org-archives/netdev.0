@@ -1,54 +1,35 @@
-From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Subject: Re: [patch] batman-adv: remove extra negation in
-	gw_out_of_range()
-Date: Tue, 29 Nov 2011 14:41:23 +0800
-Message-ID: <201111291441.24078.lindner_marek@yahoo.de>
-References: <20111129060909.GA6098@elgon.mountain>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [bug?] r8169: hangs under heavy load
+Date: Tue, 29 Nov 2011 14:47:24 +0800
+Message-ID: <D95C09DB1A7E493E89FE5A0B3879CEB0@realtek.com.tw>
+References: <20111124044137.GA18262@elie.hsd1.il.comcast.net> <4ECFE7A7.5070300@wolke7.net> <20111125201936.GA26692@elie.hsd1.il.comcast.net> <1322253122.2550.3.camel@edumazet-laptop> <20111125222211.GA13719@electric-eye.fr.zoreil.com> <1322262357.2550.12.camel@edumazet-laptop> <20111126004447.GA14744@electric-eye.fr.zoreil.com> <1322280423.10212.3.camel@edumazet-laptop> <20111127092808.GE21635@elie.hsd1.il.comcast.net> <4ED2A573.1020807@wolke7.net> <20111127231147.GA1784@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20111129060909.GA6098-mgFCXtclrQlZLf2FXnZxJA@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Cc: 'Jonathan Nieder' <jrnieder@gmail.com>,
+	'Eric Dumazet' <eric.dumazet@gmail.com>,
+	<netdev@vger.kernel.org>, 'nic_swsd' <nic_swsd@realtek.com>,
+	<linux-kernel@vger.kernel.org>,
+	'Armin Kazmi' <armin.kazmi@tu-dortmund.de>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>, <booster@wolke7.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111127231147.GA1784@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday, November 29, 2011 14:09:09 Dan Carpenter wrote:
-> There is a typo here where an extra '!' made the check to the opposite
-> of what was intended.
+Francois Romieu [mailto:romieu@fr.zoreil.com] 
+[...]
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Hayes, does the 8168c require something special to recover 
+> from Rx FIFO
+> overflow ?
 > 
-> diff --git a/net/batman-adv/gateway_client.c
-> b/net/batman-adv/gateway_client.c index 9373a14..24403a7 100644
-> --- a/net/batman-adv/gateway_client.c
-> +++ b/net/batman-adv/gateway_client.c
-> @@ -695,7 +695,7 @@ bool gw_out_of_range(struct bat_priv *bat_priv,
->  	}
-> 
->  	neigh_old = find_router(bat_priv, orig_dst_node, NULL);
-> -	if (!!neigh_old)
-> +	if (!neigh_old)
->  		goto out;
-> 
->  	if (curr_tq_avg - neigh_old->tq_avg > GW_THRESHOLD)
 
-
-Wow - you are right! Applied in our tree.
-
-Thanks,
-Marek
+For the 8168c and the later chips, our hardware engineer says that don't enable
+the RxFIFOOver of IntrMask and don't clear the RxFIFOOver of IntrStatus. The
+hardware will automatically escape Rx fifo full situation. Although you try to
+clear the RxFIFOOver of IntrStatus, maybe the bit wouldn't be cleared. Just
+disregard it.
+ 
+Best Regards,
+Hayes
