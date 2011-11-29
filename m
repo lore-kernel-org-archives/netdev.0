@@ -1,59 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4 0/10] bql: Byte Queue Limits
-Date: Tue, 29 Nov 2011 15:57:47 +0100
-Message-ID: <1322578667.2465.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <alpine.DEB.2.00.1111281825200.25622@pokey.mtv.corp.google.com>
-	 <CAA93jw7P=7YMOS_sMQWBJx0UJ6e+xw4e_hw8szNiVTOjGNwukw@mail.gmail.com>
-	 <1322550138.2970.70.camel@edumazet-laptop> <4ED4885F.8060309@intel.com>
-	 <CAA93jw7prPymGuWdn0pgHXL81g19opm2=-T4msy-b_s2MJ9=Jw@mail.gmail.com>
-	 <1322556234.2970.84.camel@edumazet-laptop>
-	 <CAA93jw6bvzASrtvjhKL+haZb0VEPvQQD0guf7aBTPxJbxydEAg@mail.gmail.com>
+From: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] sctp: integer overflow in sctp_auth_create_key()
+Date: Tue, 29 Nov 2011 10:03:04 -0500
+Message-ID: <4ED4F428.9030807@hp.com>
+References: <426D7BA8-ECD0-44D6-A09F-2033F0C825FC@gmail.com> <4ED3AC7D.6090108@hp.com> <147F953A-CC69-41FF-ACD4-64E5E2956411@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	Tom Herbert <therbert@google.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dave Taht <dave.taht@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	security@kernel.org
+To: Xi Wang <xi.wang@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:45476 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754396Ab1K2O5w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 09:57:52 -0500
-Received: by qyk4 with SMTP id 4so1635898qyk.19
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 06:57:52 -0800 (PST)
-In-Reply-To: <CAA93jw6bvzASrtvjhKL+haZb0VEPvQQD0guf7aBTPxJbxydEAg@mail.gmail.com>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:48088 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753466Ab1K2PDK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 10:03:10 -0500
+In-Reply-To: <147F953A-CC69-41FF-ACD4-64E5E2956411@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 29 novembre 2011 =C3=A0 09:51 +0100, Dave Taht a =C3=A9crit :
+On 11/29/2011 02:33 AM, Xi Wang wrote:
+> I agree that this is not a security issue if key_len can never get large.
+> 
+> So how about just removing the overflow check at all?
 
-> Perhaps I don't understand the gross effects of TSO very well, but if=
- you have
-> 100 streams coming from a server, destined to X different destination=
-s,
-> and you FQ to each on a per packet basis, you end up impacting the do=
-wnstream
-> receive buffers throughout much less than if you send each stream as =
-a burst.
+That should be ok as well.  There is an overflow guard in the api
+entry point so that should guard against overflows from user space.
 
-TSO makes packets larger, to lower cpu use in different layers (netfilt=
-er, qdisc, ...).
+On the network end I miscalculated a little.  The key is actually made up
+of user_key (1 short) + 2 * key_vector (3 shorts) for a total of 7*MAX_USHORT;
+however, that still will not overflow 32 bits.
 
-Imagine you could have MSS=3D65000 on your ethernet wire.
+-vlad
 
-If you need to send a high prio packet while a prior big one is
-in-flight on a dumb device (a single TX FIFO), there is nothing you
-can do but wait last bit of big packet hit the wire.
-
-Even with one flow you lose. Hundred flows dont matter
-(as long as you have proper classification in Qdisc layer, of course)
-
-Most setups dont care.
-
-The ones caring dedicate a link for exclusive use, making sure it wont
-cross loaded trunks. (Heartbeats in clusters)
-
-Even disabling TSO wont be enough for them, if a single tcp flow can co=
-mpete with them.
+> 
+> - xi
+> 
+> On Nov 28, 2011, at 10:45 AM, Vladislav Yasevich wrote:
+>>
+>> Hmm.  Yes, this is a more correct check.
+>>
+>> Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+>>
+>>
+>> However, I don't think this is a security issue.  As I've written before, this function is
+>> called from 2 places:
+>>
+>>  1) setsockopt() code path
+>>
+>>  2) sctp_auth_asoc_set_secret() code path
+>>
+>> In case (1), sca_keylength is never going to exceed 65535 since it's
+>> bounded by a u16 from the user api.  As such, The integer promotion will
+>> not impact anything and the malloc() will never overflow.
+>>
+>> In case (2), sca_keylength is computed based on the key the user provided
+>> (MAX_USHORT) and the combination of protocol negotiated data where that
+>> combination has a max size of 3 * MAX_USHORT (see sctp_auth_make_key_vector()).
+>> So, even this case, our maximum key length can be 4* MAX_USHORT which still
+>> will always be below MAX_INT and will not overflow.
+>>
+>> So, I don't think there is big security consideration here, just a bad
+>> check that just happens to always work.
+>>
+>> -vlad
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
