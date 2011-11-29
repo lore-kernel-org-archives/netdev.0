@@ -1,71 +1,82 @@
-From: Marc Aurele La France <tsi-yfeSBMgouQgsA/PxXw9srA@public.gmane.org>
-Subject: Re: RCU'ed dst_get_neighbour()
-Date: Tue, 29 Nov 2011 16:03:42 -0700 (Mountain Standard Time)
-Message-ID: <alpine.WNT.2.00.1111291600220.228@TSI>
-References: <alpine.WNT.2.00.1111291027320.1036@TSI> <1322589661.2596.2.camel@edumazet-laptop> <1322599437.2596.10.camel@edumazet-laptop> <CAG4TOxNJfr3X1p358LBWdNQKdkw8KOSekcKpNu6K5_phPEiR4A@mail.gmail.com> <1322599991.2596.11.camel@edumazet-laptop>
- <alpine.WNT.2.00.1111291359290.1036@TSI> <1322601444.2596.21.camel@edumazet-laptop> <1322602283.2596.25.camel@edumazet-laptop> <alpine.WNT.2.00.1111291527360.228@TSI> <1322606542.2596.43.camel@edumazet-laptop>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: ipv4: broadcast sometimes leaves wrong interface (since commit
+ e066008b38ca9ace1b6de8dbbac8ed460640791d)
+Date: Wed, 30 Nov 2011 01:06:46 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1111300010150.2020@ja.ssi.bg>
+References: <1322585087.25018.115.camel@icts-sp-039>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="2519437-12775-1322607824=:228"
-Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1322606542.2596.43.camel@edumazet-laptop>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Jeroen van Ingen <jeroen@zijndomein.nl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:40458 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753645Ab1K2XGC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Nov 2011 18:06:02 -0500
+In-Reply-To: <1322585087.25018.115.camel@icts-sp-039>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
---2519437-12775-1322607824=:228
-Content-Type: TEXT/PLAIN; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8BIT
+	Hello,
 
-On Tue, 29 Nov 2011, Eric Dumazet wrote:
-> Le mardi 29 novembre 2011 à 15:32 -0700, Marc Aurele La France a écrit :
->> But your audit is incomplete, a grep of 3.1.3 for dst_get_neighbour() and
->> dst_get_neighbour_raw() reveals occurrences in ...
+On Tue, 29 Nov 2011, Jeroen van Ingen wrote:
 
->> include/net/dst.h
->> net/atm/clip.c
->> net/sched/sch_teql.c
->> net/core/neighbour.c
->> net/ipv4/ip_gre.c
->> net/ipv4/ip_output.c
->> net/ipv4/route.c
->> net/xfrm/xfrm_policy.c
->> net/bridge/br_netfilter.c
->> net/decnet/dn_neigh.c
->> net/decnet/dn_route.c
->> net/ipv6/sit.c
->> net/ipv6/addrconf.c
->> net/ipv6/route.c
->> net/ipv6/ndisc.c
->> net/ipv6/ip6_output.c
->> net/ipv6/ip6_fib.c
+> Hi,
+> 
+> We're having an issue on our Linux PPTP servers. After the first PPTP
+> client is connected, locally generated broadcast packets go out the ppp0
+> interface while the routing rules should select eth0.
+> 
+> Some details were already mentioned on the linux-kernel list, see eg
+> http://lkml.indiana.edu/hypermail/linux/kernel/1111.2/00290.html for
+> reference.
+> 
+> Finally we were able to narrow it down to one specific commit:
+> e066008b38ca9ace1b6de8dbbac8ed460640791d ("ipv4: Fix __ip_dev_find() to
+> use ifa_local instead of ifa_address."). With all recent kernels (tested
+> up to 3.2.0rc3) we observe this issue and it's solved by reverting this
+> single patch.
+> 
+> This is the first time we've had to debug a kernel issue. Any advice on
+> how to proceed would be very welcome. If it's not possible to have this
+> patch reverted in the kernel, hopefully someone can explain how to work
+> around this behavior.
 
-> All these are already covered, or else bad things would already
-> happened.
+	__ip_dev_find can cause problem if same IP is added on many
+interfaces because it uses hash table implemented with hlist.
+Old versions used only routing lookup and the routing returns
+the first created local route, i.e. the first device where this
+IP was added is returned.
 
-No, only warnings (splats as you call them) would be produced.  The fact 
-is you added side-effects to dst_get_neighbour(), and I would expect all 
-its invocations to be affected.
+	And now it is risky to use __ip_dev_find in
+ip_route_output_slow when:
 
-Marc.
+- saddr is provided
+- desired oif is 0
+- daddr is multicast/lbcast
 
-+----------------------------------+----------------------------------+
-|  Marc Aurele La France           |  work:   1-780-492-9310          |
-|  Academic Information and        |  fax:    1-780-492-1729          |
-|    Communications Technologies   |  email:  tsi-yfeSBMgouQgsA/PxXw9srA@public.gmane.org         |
-|  352 General Services Building   +----------------------------------+
-|  University of Alberta           |                                  |
-|  Edmonton, Alberta               |    Standard disclaimers apply    |
-|  T6G 2H1                         |                                  |
-|  CANADA                          |                                  |
-+----------------------------------+----------------------------------+
---2519437-12775-1322607824=:228--
+	We select oif by ignoring route ordering. May be some
+ppp device wins here because it has this saddr added last but
+is first in hlist.
+
+	What is the case after first client is connected, can
+you show output from:
+
+ip addr show
+ip route list table local
+
+	If the above is true may be we have to find a
+way to return the first device where the IP is added.
+May be this is the main rule that is used when one adds
+same IP on many interfaces.
+
+	May be the solution is to convert inet_addr_lst
+from hlist to normal list, so that we can append new
+addresses at tail and __ip_dev_find to find the first
+device where IP was added.
+
+Regards
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Julian Anastasov <ja@ssi.bg>
