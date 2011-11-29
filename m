@@ -1,56 +1,38 @@
-From: Dave Taht <dave.taht@gmail.com>
-Subject: Re: [PATCH v4 0/10] bql: Byte Queue Limits
-Date: Tue, 29 Nov 2011 05:23:10 +0100
-Message-ID: <CAA93jw7P=7YMOS_sMQWBJx0UJ6e+xw4e_hw8szNiVTOjGNwukw@mail.gmail.com>
-References: <alpine.DEB.2.00.1111281825200.25622@pokey.mtv.corp.google.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] batman-adv: remove extra negation in gw_out_of_range()
+Date: Tue, 29 Nov 2011 09:09:09 +0300
+Message-ID: <20111129060909.GA6098@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Marek Lindner <lindner_marek@yahoo.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:47101 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752041Ab1K2EXL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 23:23:11 -0500
-Received: by ggnr5 with SMTP id r5so6006576ggn.19
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2011 20:23:11 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.00.1111281825200.25622@pokey.mtv.corp.google.com>
+Received: from acsinet15.oracle.com ([141.146.126.227]:54080 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750809Ab1K2GJo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 01:09:44 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> In this test 100 netperf TCP_STREAMs were started to saturate the lin=
-k.
-> A single instance of a netperf TCP_RR was run with high priority set.
-> Queuing discipline in pfifo_fast, NIC is e1000 with TX ring size set =
-to
-> 1024. =A0tps for the high priority RR is listed.
->
-> No BQL, tso on: 3000-3200K bytes in queue: 36 tps
-> BQL, tso on: 156-194K bytes in queue, 535 tps
+There is a typo here where an extra '!' made the check to the opposite
+of what was intended.
 
-> No BQL, tso off: 453-454K bytes int queue, 234 tps
-> BQL, tso off: 66K bytes in queue, 914 tps
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-
-Jeeze. Under what circumstances is tso a win? I've always
-had great trouble with it, as some e1000 cards do it rather badly.
-
-I assume these are while running at GigE speeds?
-
-What of 100Mbit? 10GigE? (I will duplicate your tests
-at 100Mbit, but as for 10gigE...)
-
-I would suggest TCP_MAERTS as well to saturate the
-link in the other direction.
-
-And then both TCP_STREAM and
-TCP_MAERTS at the same time while doing RR.
-
-
---=20
-Dave T=E4ht
-SKYPE: davetaht
-US Tel: 1-239-829-5608
-=46R Tel: 0638645374
-http://www.bufferbloat.net
+diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
+index 9373a14..24403a7 100644
+--- a/net/batman-adv/gateway_client.c
++++ b/net/batman-adv/gateway_client.c
+@@ -695,7 +695,7 @@ bool gw_out_of_range(struct bat_priv *bat_priv,
+ 	}
+ 
+ 	neigh_old = find_router(bat_priv, orig_dst_node, NULL);
+-	if (!!neigh_old)
++	if (!neigh_old)
+ 		goto out;
+ 
+ 	if (curr_tq_avg - neigh_old->tq_avg > GW_THRESHOLD)
