@@ -1,48 +1,56 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [RFC] sky2: add bql support
-Date: Mon, 28 Nov 2011 20:19:07 -0800
-Message-ID: <20111128201907.6d31d4c3@nehalam.linuxnetplumber.net>
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: [PATCH v4 0/10] bql: Byte Queue Limits
+Date: Tue, 29 Nov 2011 05:23:10 +0100
+Message-ID: <CAA93jw7P=7YMOS_sMQWBJx0UJ6e+xw4e_hw8szNiVTOjGNwukw@mail.gmail.com>
+References: <alpine.DEB.2.00.1111281825200.25622@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:59032 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751827Ab1K2ETK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Nov 2011 23:19:10 -0500
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:47101 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752041Ab1K2EXL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2011 23:23:11 -0500
+Received: by ggnr5 with SMTP id r5so6006576ggn.19
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2011 20:23:11 -0800 (PST)
+In-Reply-To: <alpine.DEB.2.00.1111281825200.25622@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just for testing, here is how to add BQL support to sky2
+> In this test 100 netperf TCP_STREAMs were started to saturate the lin=
+k.
+> A single instance of a netperf TCP_RR was run with high priority set.
+> Queuing discipline in pfifo_fast, NIC is e1000 with TX ring size set =
+to
+> 1024. =A0tps for the high priority RR is listed.
+>
+> No BQL, tso on: 3000-3200K bytes in queue: 36 tps
+> BQL, tso on: 156-194K bytes in queue, 535 tps
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> No BQL, tso off: 453-454K bytes int queue, 234 tps
+> BQL, tso off: 66K bytes in queue, 914 tps
 
---- a/drivers/net/ethernet/marvell/sky2.c	2011-11-23 12:00:14.953964611 -0800
-+++ b/drivers/net/ethernet/marvell/sky2.c	2011-11-23 12:17:40.269120465 -0800
-@@ -1110,6 +1110,7 @@ static void tx_init(struct sky2_port *sk
- 	sky2->tx_prod = sky2->tx_cons = 0;
- 	sky2->tx_tcpsum = 0;
- 	sky2->tx_last_mss = 0;
-+	netdev_reset_queue(sky2->netdev);
- 
- 	le = get_tx_le(sky2, &sky2->tx_prod);
- 	le->addr = 0;
-@@ -1971,6 +1972,7 @@ static netdev_tx_t sky2_xmit_frame(struc
- 	if (tx_avail(sky2) <= MAX_SKB_TX_LE)
- 		netif_stop_queue(dev);
- 
-+	netdev_sent_queue(dev, 1, skb->len);
- 	sky2_put_idx(hw, txqaddr[sky2->port], sky2->tx_prod);
- 
- 	return NETDEV_TX_OK;
-@@ -2022,6 +2024,8 @@ static void sky2_tx_complete(struct sky2
- 			sky2->tx_stats.bytes += skb->len;
- 			u64_stats_update_end(&sky2->tx_stats.syncp);
- 
-+			netdev_completed_queue(dev, 1, skb->len);
-+
- 			re->skb = NULL;
- 			dev_kfree_skb_any(skb);
- 
+
+Jeeze. Under what circumstances is tso a win? I've always
+had great trouble with it, as some e1000 cards do it rather badly.
+
+I assume these are while running at GigE speeds?
+
+What of 100Mbit? 10GigE? (I will duplicate your tests
+at 100Mbit, but as for 10gigE...)
+
+I would suggest TCP_MAERTS as well to saturate the
+link in the other direction.
+
+And then both TCP_STREAM and
+TCP_MAERTS at the same time while doing RR.
+
+
+--=20
+Dave T=E4ht
+SKYPE: davetaht
+US Tel: 1-239-829-5608
+=46R Tel: 0638645374
+http://www.bufferbloat.net
