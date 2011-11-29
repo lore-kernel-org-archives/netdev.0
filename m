@@ -1,50 +1,117 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v4 0/10] bql: Byte Queue Limits
-Date: Tue, 29 Nov 2011 10:31:03 -0800
-Message-ID: <CA+mtBx_-_4zzweT61vYKe-c8ngMO9jF5PoYa4gC1aNKREjbwgQ@mail.gmail.com>
-References: <alpine.DEB.2.00.1111281825200.25622@pokey.mtv.corp.google.com>
-	<1322585184.2465.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20111129.124715.163094087536706067.davem@davemloft.net>
+From: Borislav Petkov <bp@amd64.org>
+Subject: Re: 3.2-rc2+: Reported regressions from 3.0 and 3.1
+Date: Tue, 29 Nov 2011 19:34:28 +0100
+Message-ID: <20111129183428.GE8200@aftab>
+References: <lx6sezwGldO.A.IhF.UBpWOB@chimera>
+ <201111212249.31196.rjw@sisk.pl>
+ <20111122135412.GA29905@phenom.dumpdata.com>
+ <20111129180414.GA11459@phenom.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:48610 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756086Ab1K2SbE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 13:31:04 -0500
-Received: by iage36 with SMTP id e36so10972432iag.19
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 10:31:04 -0800 (PST)
-In-Reply-To: <20111129.124715.163094087536706067.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, tglx@linutronix.de,
+	mingo@redhat.com, hpa@zytor.com, x86@kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>,
+	Florian Mickler <florian@mickler.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	deepthi@linux.vnet.ibm.com
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20111129180414.GA11459@phenom.dumpdata.com>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 29, 2011 at 9:47 AM, David Miller <davem@davemloft.net> wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 29 Nov 2011 17:46:24 +0100
->
->> I did sucessful tests with tg3 (I'll provide the patch for bnx2 shortly)
->>
->> Some details probably can be polished, but I believe your v4 is ready
->> for inclusion.
->>
->> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
->
-> Agreed, all applied to net-next, thanks!
->
-> Tom, please keep an eye out for regression or suggestion reports.
->
+On Tue, Nov 29, 2011 at 01:04:14PM -0500, Konrad Rzeszutek Wilk wrote:
+> This patch:
+> 
+> commit d91ee5863b71e8c90eaf6035bff3078a85e2e7b5
+> Author: Len Brown <len.brown@intel.com>
+> Date:   Fri Apr 1 18:28:35 2011 -0400
+> 
+>     cpuidle: replace xen access to x86 pm_idle and default_idle
+> 
+>     ..scribble on pm_idle and access default_idle,
+>    have it simply disable_cpuidle() so acpi_idle will not load and
+>    architecture default HLT will be used.
+> 
+> idea was to have one call - disable_cpuidle() which would make
+> pm_idle not be molested by other code. It disallows cpuidle_idle_call
+> and acpi_idle_call to not set pm_idle (which is excellent). But the
 
-Will do.  I am well aware of how invasive this is in the data path ;-)
- I'll add a doc describing BQL also.
+what is acpi_idle_call, I can't find it anywhere.
 
-By the way, the way to disable BQL at runtime is the 'echo max >
-/sys/class/net/eth<n>/queues/tx-<m>/byte_queue_limits/limit_min
+> amd_e400_idle and mwait_idle can still setup pm_idle which we really
+> do not want.
 
-> Thanks again.
->
+This is not the case: rather select_idle_routine()/idle_setup() sets
+pm_idle.
 
-Thanks Dave, Eric, Dave Taht, and everyone for reviewing this.
+[..]
 
-Tom
+> +bool set_pm_idle_to_default()
+> +{
+> +	if (!pm_idle) {
+> +		pm_idle = default_idle;
+> +		return true;
+> +	}
+> +	return false;
+> +}
+
+I don't understand what you're trying to achieve here? Do you want
+default_idle to be always the pm_idle for xen or what is the deal here?
+
+If yes, then simply do:
+
+bool set_pm_idle_to_default(void)	// remember to add "void" for no function args
+{
+	bool ret = !!pm_idle;
+
+	pm_idle = default_idle;
+
+	return ret;
+
+}
+
+...
+
+>  void stop_this_cpu(void *dummy)
+>  {
+>  	local_irq_disable();
+> diff --git a/arch/x86/xen/setup.c b/arch/x86/xen/setup.c
+> index 46d6d21..7506181 100644
+> --- a/arch/x86/xen/setup.c
+> +++ b/arch/x86/xen/setup.c
+> @@ -448,6 +448,6 @@ void __init xen_arch_setup(void)
+>  #endif
+>  	disable_cpuidle();
+>  	boot_option_idle_override = IDLE_HALT;
+> -
+> +	WARN_ON(!set_pm_idle_to_default());
+
+and then do
+
+	WARN_ON(set_pm_idle_to_default());
+
+instead of having arbitrary confusing logic. This way you can warn
+whether something else set pm_idle already. Or?
+
+Thanks.
+
+-- 
+Regards/Gruss,
+Boris.
+
+Advanced Micro Devices GmbH
+Einsteinring 24, 85609 Dornach
+GM: Alberto Bozzo
+Reg: Dornach, Landkreis Muenchen
+HRB Nr. 43632 WEEE Registernr: 129 19551
