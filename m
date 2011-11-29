@@ -1,30 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: integer overflow in sctp_auth_create_key()
-Date: Tue, 29 Nov 2011 14:39:50 -0500 (EST)
-Message-ID: <20111129.143950.406285357.davem@davemloft.net>
-References: <028246D6-9024-4E43-93A1-25A87878CBBC@gmail.com>
-	<20111129.011932.1501413448765180498.davem@davemloft.net>
-	<BC344CCF-A50F-4E5E-A9A5-F506D8BD9DB9@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, vladislav.yasevich@hp.com,
-	sri@us.ibm.com, linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	security@kernel.org
-To: xi.wang@gmail.com
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 0/4] nfc: Logging updates
+Date: Tue, 29 Nov 2011 11:37:31 -0800
+Message-ID: <cover.1322595343.git.joe@perches.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-wireless@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BC344CCF-A50F-4E5E-A9A5-F506D8BD9DB9@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Xi Wang <xi.wang@gmail.com>
-Date: Tue, 29 Nov 2011 14:31:30 -0500
+Use the standard logging styles
 
-> a5e5c374 --- it says "No differences found".
-> 
-> Can you please apply the new patch v2?  Thanks.
+Joe Perches (4):
+  nfc: Use standard logging styles
+  nfc: Convert nfc_dbg to pr_debug
+  nfc: Remove unused nfc_printk and nfc_<level> macros
+  nfc: Remove function tracer like entry messages
 
-Sigh, probably a side effect of how your patch was corrupted
-and how I tried to fix it up by hand :-/
+ net/nfc/core.c     |   60 +++++++++++++-----------------------
+ net/nfc/nci/core.c |   84 +++++++++++++++++++++------------------------------
+ net/nfc/nci/data.c |   30 ++++++++++--------
+ net/nfc/nci/ntf.c  |   83 ++++++++++++++++++++++++++-------------------------
+ net/nfc/nci/rsp.c  |   84 ++++++++++++++++++++++++++-------------------------
+ net/nfc/netlink.c  |   32 ++------------------
+ net/nfc/nfc.h      |    7 ----
+ net/nfc/rawsock.c  |   28 +++++++++--------
+ 8 files changed, 176 insertions(+), 232 deletions(-)
 
-Ok, I'll apply v2, thanks.
+-- 
+1.7.6.405.gc1be0
