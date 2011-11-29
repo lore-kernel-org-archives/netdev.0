@@ -1,32 +1,47 @@
-From: Roland Dreier <roland@kernel.org>
-Subject: Re: RCU'ed dst_get_neighbour()
-Date: Tue, 29 Nov 2011 13:35:28 -0800
-Message-ID: <CAL1RGDUcYJKBSCthTL1AFgpRvzjoaEpHjGFhratKP-98ufRKnw@mail.gmail.com>
-References: <alpine.WNT.2.00.1111291027320.1036@TSI> <1322589661.2596.2.camel@edumazet-laptop>
- <1322599437.2596.10.camel@edumazet-laptop> <CAG4TOxNJfr3X1p358LBWdNQKdkw8KOSekcKpNu6K5_phPEiR4A@mail.gmail.com>
- <1322599991.2596.11.camel@edumazet-laptop> <alpine.WNT.2.00.1111291359290.1036@TSI>
- <1322601444.2596.21.camel@edumazet-laptop> <1322602283.2596.25.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: is non-inheritance of congestion control algorithm from the
+ listen socket a bug or a feature?
+Date: Tue, 29 Nov 2011 22:46:15 +0100
+Message-ID: <1322603175.2596.31.camel@edumazet-laptop>
+References: <4ED53AA1.9090800@hp.com>
+	 <1322600212.2596.13.camel@edumazet-laptop>
+	 <CAK6E8=djWDn=ZvD0XLxex3vOfsDjCT64k+DwDSNp6+tLbPen2A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Marc Aurele La France <tsi@ualberta.ca>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-rdma@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog107.obsmtp.com ([74.125.245.82]:33828 "HELO
-	na3sys010aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756795Ab1K2Vfv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 16:35:51 -0500
-In-Reply-To: <1322602283.2596.25.camel@edumazet-laptop>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:44324 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751020Ab1K2VqU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 16:46:20 -0500
+Received: by eaak14 with SMTP id k14so3664580eaa.19
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 13:46:18 -0800 (PST)
+In-Reply-To: <CAK6E8=djWDn=ZvD0XLxex3vOfsDjCT64k+DwDSNp6+tLbPen2A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 29, 2011 at 1:31 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Here is the result of this audit, please double check and test it, I
-> only compiled this.
+Le mardi 29 novembre 2011 =C3=A0 13:20 -0800, Yuchung Cheng a =C3=A9cri=
+t :
+> I actually think it's a feature :)
+>=20
+> I find it awkward to set CC on listening socket. And current document
+> defines the sysctl well
+>=20
+> tcp_congestion_control - STRING
+>         Set the congestion control algorithm to be used for new
+>         connections. The algorithm "reno" is always available, but
+>         additional choices may be available based on kernel configura=
+tion.
+>         Default is set as part of kernel configuration.
 
-Thanks Eric... I'll queue this up and send it on once we get a good
-report from Marc.
+This might be a feature, but contradicts most socket options set on
+listener and inherited by a child socket on accept()
 
-Thanks!
-  Roland
+tcp_congestion_control should be system wide default.
+
+Anyway, "man 7 tcp" doesnt document TCP_CONGESTION, so we are not
+supposed to play with it ;)
+
+Oh well...
