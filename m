@@ -1,69 +1,46 @@
-From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
-Subject: Re: [RFC PATCH 00/18] netfilter: IPv6 NAT
-Date: Tue, 29 Nov 2011 22:38:47 +0100
-Message-ID: <4ED550E7.1090609@ans.pl>
-References: <CAF9AA63.1622%ulrich.weber@sophos.com> <a2407c3b6405bd682cedad6db82cf225@treenet.co.nz> <4ED4A399.6090709@sophos.com> <alpine.LNX.2.01.1111291255200.20965@frira.zrqbmnf.qr>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: is non-inheritance of congestion control algorithm from the
+ listen socket a bug or a feature?
+Date: Tue, 29 Nov 2011 22:56:26 +0100
+Message-ID: <1322603786.2596.36.camel@edumazet-laptop>
+References: <1322600212.2596.13.camel@edumazet-laptop>
+	 <CAK6E8=djWDn=ZvD0XLxex3vOfsDjCT64k+DwDSNp6+tLbPen2A@mail.gmail.com>
+	 <1322603175.2596.31.camel@edumazet-laptop>
+	 <20111129.165205.91103035999089185.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ulrich Weber <ulrich.weber@sophos.com>,
-	Amos Jeffries <squid3@treenet.co.nz>,
-	"sclark46@earthlink.net" <sclark46@earthlink.net>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1111291255200.20965@frira.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ycheng@google.com, rick.jones2@hp.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:55325 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751020Ab1K2V4d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 16:56:33 -0500
+Received: by eaak14 with SMTP id k14so3676001eaa.19
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 13:56:32 -0800 (PST)
+In-Reply-To: <20111129.165205.91103035999089185.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2011-11-29 13:23, Jan Engelhardt wrote:
->
-> On Tuesday 2011-11-29 10:19, Ulrich Weber wrote:
->> On 28.11.2011 23:03, Amos Jeffries wrote:
->>> I'm going to dare to call FUD on those statements...
->>>    * Load Balancing - what is preventing your routing rules or pack=
-et
->>>   marking using the same criteria as the NAT changer? nothing. Load
->>>   balancing works perfectly fine without NAT.
->
-> Source address selection, having to occur on the source, would
-> require that the source has to know all the parameters that a {what
-> would have been your NAT GW} would need to know, which means you have
-> to (a) collect and/or (b) distribute this information. Given two
-> uplinks that only allow a certain source network address (different
-> for each uplink), combined with the desire to balance on utilization,
-> (a) a client is not in the position to easily obtain this data unless
-> it is the router for all participants itself, (b) the clients needs
-> to cooperate, and one cannot always trust client devices, or hope for
-> their technical cooperation (firewalled themselves off).
->
-> Yes, NAT is evil, but if you actually think about it, policies are
-> best applied where [the policy] originates from. After all, we also
-> don't do LSRR, instead, routers do the routing, because they just
-> know much better.
->
->> I fully agree. NAT can not replace your firewall rules.
->>
->> However with NAT you could get some kind of anonymity.
->
-> Same network prefix, some cookies, or a login form. Blam, identified,
-> or at least (Almost-)Uniquely Identified Visitor tagging.
+Le mardi 29 novembre 2011 =C3=A0 16:52 -0500, David Miller a =C3=A9crit=
+ :
 
-But without NAT you have pretty big chance to have the same IPv6=20
-*suffix* everywhere, based on you MAC address. In your Home, your Work,=
-=20
-in a Cafe or in a hotel during your vacations in Portugal. So yes, NAT=20
-is not a perfect solution but it really helps you privacy.
+> There is really no reason to keep the current behavior.
+>=20
+> If an application sets the congestion control algorithm on a listenin=
+g
+> socket to a non-default value, what effect could possibly be intended=
+?
+>=20
+> Congestion control doesn't even come into play at all on a listening
+> socket, therefore the only logical expectation is that it inherits to
+> the child.
+>=20
+> The only other logical behavior would be to forbid this operation on =
+a
+> listening socket, since it has no effect, but that doesn't make any
+> sense now does it? :-)
 
-Best regards,
-
-			Krzysztof Ol=C4=99dzki
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Moreover, an application can use setsockopt(TCP_CONGESTION) before
+calling listen() (while socket is still in CLOSE state)
