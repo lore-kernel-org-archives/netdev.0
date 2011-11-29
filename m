@@ -1,73 +1,68 @@
-From: Amos Jeffries <squid3@treenet.co.nz>
-Subject: Re: [RFC PATCH 00/18] netfilter: IPv6 NAT
-Date: Wed, 30 Nov 2011 02:24:26 +1300
-Message-ID: <4ED4DD0A.7030005@treenet.co.nz>
-References: <CAF9AA63.1622%ulrich.weber@sophos.com> <a2407c3b6405bd682cedad6db82cf225@treenet.co.nz> <4ED4A399.6090709@sophos.com> <alpine.LNX.2.01.1111291255200.20965@frira.zrqbmnf.qr>
+From: "Myklebust, Trond" <Trond.Myklebust@netapp.com>
+Subject: RE: [PATCH 4/5] NFS: remove RPC PipeFS mount point reference from blocklayout routines
+Date: Tue, 29 Nov 2011 05:35:51 -0800
+Message-ID: <2E1EB2CF9ED1CB4AA966F0EB76EAB4430C3CBC23@SACMVEXC2-PRD.hq.netapp.com>
+References: <20111129090754.20730.64567.stgit@localhost6.localdomain6> <20111129091037.20730.59391.stgit@localhost6.localdomain6> <F19688880B763E40B28B2B462677FBF805E3A4AFF2@MX09A.corp.emc.com> <4ED4CDCE.9080804@parallels.com> <F19688880B763E40B28B2B462677FBF805E3A4AFFD@MX09A.corp.emc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ulrich Weber <ulrich.weber@sophos.com>,
-	"sclark46@earthlink.net" <sclark46@earthlink.net>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1111291255200.20965@frira.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <linux-nfs@vger.kernel.org>, <xemul@parallels.com>,
+	<neilb@suse.de>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jbottomley@parallels.com>,
+	<bfields@fieldses.org>, <davem@davemloft.net>, <devel@openvz.org>
+To: <tao.peng@emc.com>, <skinsbursky@parallels.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <F19688880B763E40B28B2B462677FBF805E3A4AFFD@MX09A.corp.emc.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 30/11/2011 1:23 a.m., Jan Engelhardt wrote:
-> On Tuesday 2011-11-29 10:19, Ulrich Weber wrote:
->> On 28.11.2011 23:03, Amos Jeffries wrote:
->>> I'm going to dare to call FUD on those statements...
->>>    * Load Balancing - what is preventing your routing rules or packet
->>>   marking using the same criteria as the NAT changer? nothing. Load
->>>   balancing works perfectly fine without NAT.
-> Source address selection, having to occur on the source, would
-> require that the source has to know all the parameters that a {what
-> would have been your NAT GW} would need to know, which means you have
-> to (a) collect and/or (b) distribute this information. Given two
-> uplinks that only allow a certain source network address (different
-> for each uplink), combined with the desire to balance on utilization,
-> (a) a client is not in the position to easily obtain this data unless
-> it is the router for all participants itself,
-
-There you are adding a straw-man component into the mix. "Given two 
-uplinks that only allow a certain source network address ", yes I agree, 
-NAT is the sugar that makes these uplinks work. Irrelevant of load 
-balancing.
-
-In the same way the security != NAT, so too load balancing != NAT. As 
-I'm sure you are all well aware.
-
-Looking back at Ulrichs' original statement after reading yours it's 
-clear he probably meant that (I hope so at least). The first reading 
-though was that NAT by itself provided easy load balancing and DMZ.  I 
-argue neither for or against validity of NAT. Just the Fuzziness 
-Uncertainty and Doubt created by the particular statement was of a high 
-amount.
-
->   (b) the clients needs
-> to cooperate, and one cannot always trust client devices, or hope for
-> their technical cooperation (firewalled themselves off).
->
->
-
->> I fully agree. NAT can not replace your firewall rules.
->>
->> However with NAT you could get some kind of anonymity.
-> Same network prefix, some cookies, or a login form. Blam, identified,
-> or at least (Almost-)Uniquely Identified Visitor tagging.
->
-> Everybody should come out of their worshipping NAT for anonymity
-> now - at best, that is an Emperor's Clothes' kind of anonymity.
->
->> Think of Tor: If your server/client operates with private IP addresses,
->> your public IP address is still masked after a security breach.
-> If one's tor peer was busted, they would have the address.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiB0YW8ucGVuZ0BlbWMuY29tIFtt
+YWlsdG86dGFvLnBlbmdAZW1jLmNvbV0NCj4gU2VudDogVHVlc2RheSwgTm92ZW1iZXIgMjksIDIw
+MTEgNzo0MCBBTQ0KPiBUbzogc2tpbnNidXJza3lAcGFyYWxsZWxzLmNvbQ0KPiBDYzogTXlrbGVi
+dXN0LCBUcm9uZDsgbGludXgtbmZzQHZnZXIua2VybmVsLm9yZzsgeGVtdWxAcGFyYWxsZWxzLmNv
+bTsNCj4gbmVpbGJAc3VzZS5kZTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVs
+QHZnZXIua2VybmVsLm9yZzsNCj4gamJvdHRvbWxleUBwYXJhbGxlbHMuY29tOyBiZmllbGRzQGZp
+ZWxkc2VzLm9yZzsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsNCj4gZGV2ZWxAb3BlbnZ6Lm9yZw0KPiBT
+dWJqZWN0OiBSRTogW1BBVENIIDQvNV0gTkZTOiByZW1vdmUgUlBDIFBpcGVGUyBtb3VudCBwb2lu
+dCByZWZlcmVuY2UNCj4gZnJvbSBibG9ja2xheW91dCByb3V0aW5lcw0KPiANCj4gPiAtLS0tLU9y
+aWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+IEZyb206IFN0YW5pc2xhdiBLaW5zYnVyc2t5IFttYWls
+dG86c2tpbnNidXJza3lAcGFyYWxsZWxzLmNvbV0NCj4gPiBTZW50OiBUdWVzZGF5LCBOb3ZlbWJl
+ciAyOSwgMjAxMSA4OjE5IFBNDQo+ID4gVG86IFBlbmcsIFRhbw0KPiA+IENjOiBUcm9uZC5NeWts
+ZWJ1c3RAbmV0YXBwLmNvbTsgbGludXgtbmZzQHZnZXIua2VybmVsLm9yZzsgUGF2ZWwNCj4gPiBF
+bWVsaWFub3Y7IG5laWxiQHN1c2UuZGU7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+ID4gbGlu
+dXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsgSmFtZXMgQm90dG9tbGV5OyBiZmllbGRzQGZpZWxk
+c2VzLm9yZzsNCj4gPiBkYXZlbUBkYXZlbWxvZnQubmV0OyBkZXZlbEBvcGVudnoub3JnDQo+ID4g
+U3ViamVjdDogUmU6IFtQQVRDSCA0LzVdIE5GUzogcmVtb3ZlIFJQQyBQaXBlRlMgbW91bnQgcG9p
+bnQgcmVmZXJlbmNlDQo+ID4gZnJvbSBibG9ja2xheW91dCByb3V0aW5lcw0KPiA+DQo+ID4gMjku
+MTEuMjAxMSAxNjowMCwgdGFvLnBlbmdAZW1jLmNvbSDQv9C40YjQtdGCOg0KPiA+ID4+IC0tLS0t
+T3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gPj4gRnJvbTogbGludXgtbmZzLW93bmVyQHZnZXIu
+a2VybmVsLm9yZw0KPiA+ID4+IFttYWlsdG86bGludXgtbmZzLW93bmVyQHZnZXIua2VybmVsLm9y
+Z10gT24gQmVoYWxmIE9mDQo+ID4gU3RhbmlzbGF2DQo+ID4gPj4gS2luc2J1cnNreQ0KPiA+ID4+
+IFNlbnQ6IFR1ZXNkYXksIE5vdmVtYmVyIDI5LCAyMDExIDY6MTEgUE0NCj4gPiA+PiBUbzogVHJv
+bmQuTXlrbGVidXN0QG5ldGFwcC5jb20NCj4gPiA+PiBDYzogbGludXgtbmZzQHZnZXIua2VybmVs
+Lm9yZzsgeGVtdWxAcGFyYWxsZWxzLmNvbTsgbmVpbGJAc3VzZS5kZTsNCj4gPiA+PiBuZXRkZXZA
+dmdlci5rZXJuZWwub3JnOyBsaW51eC0ga2VybmVsQHZnZXIua2VybmVsLm9yZzsNCj4gPiA+PiBq
+Ym90dG9tbGV5QHBhcmFsbGVscy5jb207IGJmaWVsZHNAZmllbGRzZXMub3JnOw0KPiA+ID4+IGRh
+dmVtQGRhdmVtbG9mdC5uZXQ7IGRldmVsQG9wZW52ei5vcmcNCj4gPiA+PiBTdWJqZWN0OiBbUEFU
+Q0ggNC81XSBORlM6IHJlbW92ZSBSUEMgUGlwZUZTIG1vdW50IHBvaW50IHJlZmVyZW5jZQ0KPiA+
+ID4+IGZyb20gYmxvY2tsYXlvdXQgcm91dGluZXMNCj4gPiA+Pg0KPiA+ID4+IFRoaXMgaXMgYSBj
+bGVhbnVwIHBhdGNoLiBXZSBkb24ndCBuZWVkIHRoaXMgcmVmZXJlbmNlIGFueW1vcmUsDQo+ID4g
+Pj4gYmVjYXVzZSBibG9ja2xheW91dCBwaXBlcyBkZW50cmllcyBub3cgY3JlYXRlcyBhbmQgZGVz
+dHJveXMgaW4NCj4gPiA+PiBwZXItbmV0IG9wZXJhdGlvbnMgYW5kIG9uIFBpcGVGUyBtb3VudC91
+bW91bnQgbm90aWZpY2F0aW9uLg0KPiA+ID4+IE5vdGUgdGhhdCBuZnM0YmxvY2tsYXlvdXRfcmVn
+aXN0ZXJfbmV0KCkgbm93IHJldHVybnMgMCBpbnN0ZWFkIG9mDQo+ID4gPj4gLUVOT0VOVCBpbiBj
+YXNlIG9mIFBpcGVGUyBzdXBlcmJsb2NrIGFic2VuY2UuIFRoaXMgaXMgb2ssIGJlY2F1c2UNCj4g
+PiA+PiBibG9ja2xheW91dCBwaXBlIGRlbnRyeSB3aWxsIGJlIGNyZWF0ZWQgb24gUGlwZUZTIG1v
+dW50IGV2ZW50Lg0KPiA+ID4gV2hlbiBpcyB0aGUgInBpcGVmcyBtb3VudCBldmVudCIgZ29pbmcg
+dG8gaGFwcGVuPyBXaGVuIGluc2VydGluZw0KPiA+ID4ga2VybmVsIG1vZHVsZXMgb3Igd2hlbiB1
+c2VyIGlzc3Vlcw0KPiA+IG1vdW50IGNvbW1hbmQ/DQo+ID4gPg0KPiA+DQo+ID4gV2hlbiB1c2Vy
+IGlzc3VlcyBtb3VudCBjb21tYW5kLg0KPiA+IEtlcm5lbCBtb3VudHMgb2YgUGlwZUZTIGhhcyBi
+ZWVuIHJlbW92ZWQgd2l0aCBhbGwgdGhlc2UgcGF0Y2ggc2V0cw0KPiA+IEkndmUgc2VudCBhbHJl
+YWR5Lg0KPiBUaGVuIGl0IGlzIGdvaW5nIHRvIGJyZWFrIGJsb2NrbGF5b3V0IHVzZXIgc3BhY2Ug
+cHJvZ3JhbSBibGttYXBkLCB3aGljaCBpcw0KPiBzdGFyZWQgYmVmb3JlIG1vdW50aW5nIGFueSBm
+aWxlIHN5c3RlbSBhbmQgaXQgdHJpZXMgdG8gb3BlbiB0aGUgcGlwZSBmaWxlDQo+IHdoZW4gc3Rh
+cnRlZC4NCg0KV2h5IG9uIGVhcnRoIGlzIGJsa21hcGQgZG9pbmcgdGhpcyBpbnN0ZWFkIG9mIGxp
+c3RlbmluZyBmb3IgZmlsZSBjcmVhdGlvbiBub3RpZmljYXRpb25zIGxpa2UgdGhlIG90aGVyIHJw
+Y19waXBlZnMgZGFlbW9ucyBkbz8NCg0KVHJvbmQNCg0K
