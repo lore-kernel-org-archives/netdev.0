@@ -1,78 +1,78 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next v4 0/4] can: cc770: add
- support for the Bosch CC770 and Intel AN82527
-Date: Tue, 29 Nov 2011 12:03:24 +0100
-Message-ID: <4ED4BBFC.6010306@grandegger.com>
-References: <1322557890-6363-1-git-send-email-wg@grandegger.com>	<4ED4B838.2060307@pengutronix.de>
-	<4ED4B93B.10709@pengutronix.de>
+From: =?ISO-8859-2?Q?Igor_Maravi=E6?= <igorm@etf.rs>
+Subject: Re: [PATCH] Fix jump_label handling in dev.c
+Date: Tue, 29 Nov 2011 12:07:43 +0100
+Message-ID: <CAFdo_mWQzLQpgN0NjzXJ9HoeKCbzF9TLfC4-RZwp_=DFY25Gsg@mail.gmail.com>
+References: <igorm@etf.rs>
+	<1322562649-20876-1-git-send-email-igorm@etf.rs>
+Reply-To: igorm@etf.rs
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Wolfgang Zarre <info-PyqsHJVlJN8AvxtiuMwx3w@public.gmane.org>,
-	socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4ED4B93B.10709-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
-List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, Igor Maravic <igorm@etf.rs>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.etf.rs ([147.91.14.170]:45342 "EHLO mx2.etf.bg.ac.rs"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753107Ab1K2LHw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 06:07:52 -0500
+Received: from localhost (avs2.etf.rs [147.91.14.173])
+	by mx2.etf.bg.ac.rs (Postfix) with ESMTP id 7FBCE6012E
+	for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 12:07:51 +0100 (CET)
+Received: from mx1.etf.bg.ac.rs ([147.91.14.169])
+	by localhost (avs2.etf.rs [147.91.14.171]) (amavisd-new, port 10026)
+	with ESMTP id gJalxMwm-+xj for <netdev@vger.kernel.org>;
+	Tue, 29 Nov 2011 12:07:46 +0100 (CET)
+Received: from mail-yw0-f46.google.com (mail-yw0-f46.google.com [209.85.213.46])
+	(using TLSv1 with cipher RC4-SHA (128/128 bits))
+	(No client certificate requested)
+	(Authenticated sender: igorm)
+	by mx1.etf.bg.ac.rs (Postfix) with ESMTP id E369112011F
+	for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 12:07:45 +0100 (CET)
+Received: by ywa9 with SMTP id 9so3948511ywa.19
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 03:07:44 -0800 (PST)
+In-Reply-To: <1322562649-20876-1-git-send-email-igorm@etf.rs>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2011 11:51 AM, Marc Kleine-Budde wrote:
-> On 11/29/2011 11:47 AM, Marc Kleine-Budde wrote:
->> On 11/29/2011 10:11 AM, Wolfgang Grandegger wrote:
->>> Already since a while we have support for the Bosch CC770 and Intel
->>> AN82527 CAN controllers in our out-of-tree Socket-CAN repository.
->>>
->>> In the meantime I found a TQM855L board with two AN82527 on it,
->>> which allowed me to provide and test a generic platform driver
->>> as well.
->>>
->>> Changes since v1:
->>>
->>> - remove version.h includes
->>> - some minor corrections in the ISA bus driver
->>> - add platform header file to the driver core
->>> - add generic platform driver
->>> - add and update device tree nodes for tqm8xx and tqm8548
->>>
->>> Changes since v2:
->>>
->>> - correct license text as suggest by Oliver Hartkopp
->>> - use the new module_platform_driver function
->>> - provide get_berr_counter callback for cc770
->>> - improve CAN error state change handling
->>> - more comprehensive cc770_isa driver description
->>>
->>> Changes since v3:
->>>
->>> - pre-define pr_fmt()
->>> - use KBUILD_MODNAME instead of DRV_NAME
->>> - use ARRAY_SIZE() whenever appropriate
->>> - use variable name "o" for message objects consistantly
->>> - use proper error code for cc770_probe_chip
->>> - remove unneeded member priv->open_time
->>> - remove unnecessary masking of u8 variables (with 0xff)
->>> - use "!skb" instead of "skb == NULL"
->>> - CC770_MSG_MAX now limits the number of messages read in the ISR
->>> - use "|" instead of "+" to combine bit masks
->>> - remove return code check of platform_get_resource() in remove function
->>> - remove postal address from GPL copyright text
->>> - fix WARNING: __packed is preferred over __attribute__((packed))
->>> - some more minor fixes (casts, white space, etc.)
->>
->> Feel free to add by Acked-by to patches 1 and 2.
->                    ^^
-> my
+Please ignore this.
+My mistake.
 
-Will do for the next version. You may also want to ack them explicitly.
-
-Thanks,
-
-Wolfgang.
+2011/11/29  <igorm@etf.rs>:
+> From: Igor Maravic <igorm@etf.rs>
+>
+> static_branch instead of atomic_read.
+> Eric forgot to replace that.
+>
+> Signed-off-by: Igor Maravic <igorm@etf.rs>
+>
+> :100644 100644 579ce33... d358088... M =A0net/core/dev.c
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 579ce33..d358088 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1482,12 +1482,12 @@ EXPORT_SYMBOL(net_disable_timestamp);
+> =A0static inline void net_timestamp_set(struct sk_buff *skb)
+> =A0{
+> =A0 =A0 =A0 =A0skb->tstamp.tv64 =3D 0;
+> - =A0 =A0 =A0 if (atomic_read(&netstamp_needed))
+> + =A0 =A0 =A0 if (static_branch(&netstamp_needed))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0__net_timestamp(skb);
+> =A0}
+>
+> =A0#define net_timestamp_check(COND, SKB) =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 \
+> - =A0 =A0 =A0 if (atomic_read(&netstamp_needed)) { =A0 =A0 =A0 =A0 =A0=
+ =A0\
+> + =A0 =A0 =A0 if (static_branch(&netstamp_needed)) { =A0 =A0 =A0 =A0 =
+=A0\
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if ((COND) && !(SKB)->tstamp.tv64) =A0=
+ =A0 =A0\
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0__net_timestamp(SKB); =
+=A0 =A0 =A0 =A0 =A0 \
+> =A0 =A0 =A0 =A0} =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 \
+> --
+> 1.7.5.4
+>
+>
