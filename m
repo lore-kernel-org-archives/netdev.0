@@ -1,52 +1,43 @@
-From: Xi Wang <xi.wang@gmail.com>
-Subject: Re: [PATCH] sctp: integer overflow in sctp_auth_create_key()
-Date: Tue, 29 Nov 2011 02:33:50 -0500
-Message-ID: <147F953A-CC69-41FF-ACD4-64E5E2956411@gmail.com>
-References: <426D7BA8-ECD0-44D6-A09F-2033F0C825FC@gmail.com> <4ED3AC7D.6090108@hp.com>
-Mime-Version: 1.0 (Apple Message framework v1084)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: linux-kernel@vger.kernel.org, Sridhar Samudrala <sri@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	security@kernel.org
-To: Vladislav Yasevich <vladislav.yasevich@hp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4ED3AC7D.6090108@hp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4 0/10] bql: Byte Queue Limits
+Date: Tue, 29 Nov 2011 08:45:33 +0100
+Message-ID: <1322552733.2970.78.camel@edumazet-laptop>
+References: <alpine.DEB.2.00.1111281825200.25622@pokey.mtv.corp.google.com>
+	  <CAA93jw7P=7YMOS_sMQWBJx0UJ6e+xw4e_hw8szNiVTOjGNwukw@mail.gmail.com>
+	 <1322550138.2970.70.camel@edumazet-laptop> <4ED4885F.8060309@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dave Taht <dave.taht@gmail.com>, Tom Herbert <therbert@google.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:43056 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752248Ab1K2Hpm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 02:45:42 -0500
+Received: by bkas6 with SMTP id s6so126848bka.19
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2011 23:45:38 -0800 (PST)
+In-Reply-To: <4ED4885F.8060309@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I agree that this is not a security issue if key_len can never get large.
+Le lundi 28 novembre 2011 =C3=A0 23:23 -0800, John Fastabend a =C3=A9cr=
+it :
 
-So how about just removing the overflow check at all?
+> I wonder if we should consider enabling TSO/GSO per queue or per traf=
+fic
+> class on devices that support this. At least in devices that support
+> multiple traffic classes it seems to be a common usage case to put bu=
+lk
+> storage traffic (iSCSI) on a traffic class and low latency traffic on=
+ a
+> separate traffic class, VoIP for example.
+>=20
 
-- xi
-
-On Nov 28, 2011, at 10:45 AM, Vladislav Yasevich wrote:
-> 
-> Hmm.  Yes, this is a more correct check.
-> 
-> Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-> 
-> 
-> However, I don't think this is a security issue.  As I've written before, this function is
-> called from 2 places:
-> 
->  1) setsockopt() code path
-> 
->  2) sctp_auth_asoc_set_secret() code path
-> 
-> In case (1), sca_keylength is never going to exceed 65535 since it's
-> bounded by a u16 from the user api.  As such, The integer promotion will
-> not impact anything and the malloc() will never overflow.
-> 
-> In case (2), sca_keylength is computed based on the key the user provided
-> (MAX_USHORT) and the combination of protocol negotiated data where that
-> combination has a max size of 3 * MAX_USHORT (see sctp_auth_make_key_vector()).
-> So, even this case, our maximum key length can be 4* MAX_USHORT which still
-> will always be below MAX_INT and will not overflow.
-> 
-> So, I don't think there is big security consideration here, just a bad
-> check that just happens to always work.
-> 
-> -vlad
+It all depends on how device itself is doing its mux from queues to
+ethernet wire. If queue 0 starts transmit of one 64KB 'super packet',
+will queue 1 be able to insert a litle frame between the frames of queu=
+e
+0 ?
