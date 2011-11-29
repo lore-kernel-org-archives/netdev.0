@@ -1,38 +1,36 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] batman-adv: remove extra negation in gw_out_of_range()
-Date: Tue, 29 Nov 2011 09:09:09 +0300
-Message-ID: <20111129060909.GA6098@elgon.mountain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/4] NET: AX.25: Check ioctl arguments to avoid
+ overflows further down the road.
+Date: Tue, 29 Nov 2011 01:17:55 -0500 (EST)
+Message-ID: <20111129.011755.811907405309581515.davem@davemloft.net>
+References: <cover.1322214950.git.ralf@linux-mips.org>
+	<1d2adcd4eadb1f42926734cca5886dfad258aeb6.1322214950.git.ralf@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Marek Lindner <lindner_marek@yahoo.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:54080 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750809Ab1K2GJo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 01:09:44 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org,
+	xi.wang@gmail.com, jreuter@yaina.de, alan@lxorguk.ukuu.org.uk,
+	thomas@osterried.de
+To: ralf@linux-mips.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <1d2adcd4eadb1f42926734cca5886dfad258aeb6.1322214950.git.ralf@linux-mips.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There is a typo here where an extra '!' made the check to the opposite
-of what was intended.
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Thu, 24 Nov 2011 16:12:59 +0000
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Very large, nonsenical arguments or use in very extreme conditions could
+> result in integer overflows.  Check ioctls arguments to avoid such
+> overflows and return -EINVAL for too large arguments.
+> 
+> To allow the use of AX.25 for even the most extreme setup (think packet
+> radio to the Phase 5E mars probe) we make no further attempt to clamp the
+> argument range.
+> 
+> Originally reported by Fan Long <longfancn@gmail.com> and a first patch
+> was sent by Xi Wang <xi.wang@gmail.com>.
+> 
+> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
-index 9373a14..24403a7 100644
---- a/net/batman-adv/gateway_client.c
-+++ b/net/batman-adv/gateway_client.c
-@@ -695,7 +695,7 @@ bool gw_out_of_range(struct bat_priv *bat_priv,
- 	}
- 
- 	neigh_old = find_router(bat_priv, orig_dst_node, NULL);
--	if (!!neigh_old)
-+	if (!neigh_old)
- 		goto out;
- 
- 	if (curr_tq_avg - neigh_old->tq_avg > GW_THRESHOLD)
+Applied.
