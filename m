@@ -1,33 +1,30 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: Bonding fixes for 2.6.33.y
-Date: Wed, 30 Nov 2011 07:49:09 +0900
-Message-ID: <20111129224909.GA27909@kroah.com>
-References: <1322533200.26733.15.camel@bwh-desktop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ipv4: broadcast sometimes leaves wrong interface (since commit
+ e066008b38ca9ace1b6de8dbbac8ed460640791d)
+Date: Tue, 29 Nov 2011 18:23:33 -0500 (EST)
+Message-ID: <20111129.182333.365445684859306013.davem@davemloft.net>
+References: <1322585087.25018.115.camel@icts-sp-039>
+	<alpine.LFD.2.00.1111300010150.2020@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stable@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeroen@zijndomein.nl, netdev@vger.kernel.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2.smtp.messagingengine.com ([66.111.4.26]:49377 "EHLO
-	out2.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755947Ab1K2XNs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 18:13:48 -0500
-Received: from compute6.internal (compute6.nyi.mail.srv.osa [10.202.2.46])
-	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id B55CE2297B
-	for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 18:13:47 -0500 (EST)
-Content-Disposition: inline
-In-Reply-To: <1322533200.26733.15.camel@bwh-desktop>
+Received: from shards.monkeyblade.net ([198.137.202.13]:44437 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753485Ab1K2XXr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 18:23:47 -0500
+In-Reply-To: <alpine.LFD.2.00.1111300010150.2020@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 29, 2011 at 02:19:59AM +0000, Ben Hutchings wrote:
-> These have been applied to 2.6.32.y but are missing from 2.6.33.y:
+From: Julian Anastasov <ja@ssi.bg>
+Date: Wed, 30 Nov 2011 01:06:46 +0200 (EET)
 
-Perhaps because 2.6.33.y is not end-of-life and is not having any more
-releases?
+> 	May be the solution is to convert inet_addr_lst
+> from hlist to normal list, so that we can append new
+> addresses at tail and __ip_dev_find to find the first
+> device where IP was added.
 
-sorry,
-
-greg k-h
+Sure, but do we really want to guarentee this behavior forever?
