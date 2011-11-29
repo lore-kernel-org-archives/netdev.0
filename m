@@ -1,89 +1,55 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH v4 0/10] bql: Byte Queue Limits
-Date: Tue, 29 Nov 2011 09:28:54 -0800
-Message-ID: <4ED51656.3030802@hp.com>
-References: <alpine.DEB.2.00.1111281825200.25622@pokey.mtv.corp.google.com> <CAA93jw7P=7YMOS_sMQWBJx0UJ6e+xw4e_hw8szNiVTOjGNwukw@mail.gmail.com> <1322550138.2970.70.camel@edumazet-laptop>
+From: Peng Tao <bergwolf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 4/5] NFS: remove RPC PipeFS mount point reference from
+ blocklayout routines
+Date: Wed, 30 Nov 2011 01:30:27 +0800
+Message-ID: <CA+a=Yy4bEKaeUihjYLRzXVbjA3fc2EuZ3ToAkf0w-oL3PnZJKQ@mail.gmail.com>
+References: <20111129090754.20730.64567.stgit@localhost6.localdomain6>
+ <20111129091037.20730.59391.stgit@localhost6.localdomain6>
+ <F19688880B763E40B28B2B462677FBF805E3A4AFF2@MX09A.corp.emc.com>
+ <4ED4CDCE.9080804@parallels.com> <F19688880B763E40B28B2B462677FBF805E3A4AFFD@MX09A.corp.emc.com>
+ <2E1EB2CF9ED1CB4AA966F0EB76EAB4430C3CBC23@SACMVEXC2-PRD.hq.netapp.com>
+ <CA+a=Yy5GKMu8rbh8y3fOtK6pmqygPNBr=a+p7LfcmTqtXFH3iA@mail.gmail.com>
+ <1322579906.3619.1.camel@lade.trondhjem.org> <CA+a=Yy6kJe0NemSiRwM+t8gz5-UF5fOdwdS2so+q=nSYjBx--w@mail.gmail.com>
+ <1322584830.4174.16.camel@lade.trondhjem.org> <20111129164252.GA19528@fieldses.org>
+ <1322587165.4174.20.camel@lade.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dave Taht <dave.taht@gmail.com>, Tom Herbert <therbert@google.com>,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:43960 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753691Ab1K2R24 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 12:28:56 -0500
-In-Reply-To: <1322550138.2970.70.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, tao.peng-mb1K0bWo544@public.gmane.org,
+	skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1322587165.4174.20.camel-SyLVLa/KEI9HwK5hSS5vWB2eb7JE58TQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 11/28/2011 11:02 PM, Eric Dumazet wrote:
-> Le mardi 29 novembre 2011 =C3=A0 05:23 +0100, Dave Taht a =C3=A9crit =
-:
->>> In this test 100 netperf TCP_STREAMs were started to saturate the l=
-ink.
->>> A single instance of a netperf TCP_RR was run with high priority se=
-t.
->>> Queuing discipline in pfifo_fast, NIC is e1000 with TX ring size se=
-t to
->>> 1024.  tps for the high priority RR is listed.
->>>
->>> No BQL, tso on: 3000-3200K bytes in queue: 36 tps
->>> BQL, tso on: 156-194K bytes in queue, 535 tps
+On Wed, Nov 30, 2011 at 1:19 AM, Trond Myklebust
+<Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org> wrote:
+> On Tue, 2011-11-29 at 11:42 -0500, J. Bruce Fields wrote:
+>> On Tue, Nov 29, 2011 at 11:40:30AM -0500, Trond Myklebust wrote:
+>> > I mean that I'm perfectly entitled to do
+>> >
+>> > 'modprobe -r blocklayoutdriver'
+>> >
+>> > and when I do that, then I expect blkmapd to close the rpc pipe and wait
+>> > for a new one to be created just like rpc.idmapd and rpc.gssd do when I
+>> > remove the nfs and sunrpc modules.
 >>
->>> No BQL, tso off: 453-454K bytes int queue, 234 tps
->>> BQL, tso off: 66K bytes in queue, 914 tps
->>
->>
->> Jeeze. Under what circumstances is tso a win? I've always
->> had great trouble with it, as some e1000 cards do it rather badly.
-
-It is a win when one is sending bulk(ish) data and wish to avoid the=20
-trips up and down the protocol stack to save CPU cycles.
-
-TSO is sometimes called "poor man's Jumbo Frames"  as it seeks to=20
-achieve the same goal - fewer trips down the protocol stack per KB of=20
-data transferred.
-
->> I assume these are while running at GigE speeds?
->>
->> What of 100Mbit? 10GigE? (I will duplicate your tests
->> at 100Mbit, but as for 10gigE...)
->>
+>> The rpc pipefs mount doesn't hold a reference on the sunrpc module?
 >
-> TSO on means a low priority 65Kbytes packet can be in TX ring right
-> before the high priority packet. If you cant afford the delay, you lo=
-se.
->
-> There is no mystery here.
->
-> If you want low latencies :
-> - TSO must be disabled so that packets are at most one ethernet frame=
-=2E
-> - You adjust BQL limit to small value
-> - You even can lower MTU to get even more better latencies.
->
-> If you want good throughput from your [10]GigE and low cpu cost, TSO
-> should be enabled.
+> I stand corrected: the mount does hold a reference to the sunrpc
+> module.
+> However nothing holds a reference to the blocklayoutdriver module, so
+> the main point that the "blocklayout" pipe can disappear from underneath
+> the blkmapd stands.
+Thanks for the explanation and I agree it can cause problem if user
+reload blocklayout module. I will look into a fix to blkmapd.
 
-Outbound throughput. If you want good inbound throughput you want GRO/L=
-RO.
-
-> If you want to be smart, you could have a dynamic behavior :
->
-> Let TSO on as long as no high priority low latency producer is runnin=
-g
-> (if low latency packets are locally generated)
-
-I'd probably leave that to the administrator rather than try to clutter=
-=20
-things with additional logic.
-
-*If* I were to add additional logic, I might have an interface=20
-communicate its "maximum TSO size" up the stack in a manner to too=20
-dissimilar from MTU.  That way one can control just how much time a=20
-TSO'd segment would consume.
-
-rick jones
+Best,
+Tao
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
