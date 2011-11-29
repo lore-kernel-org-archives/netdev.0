@@ -1,124 +1,39 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH v2] netlabel: Fix build problems when IPv6 is not enabled
-Date: Tue, 29 Nov 2011 14:00:04 -0800
-Message-ID: <4ED555E4.4000006@xenotime.net>
-References: <20111129201054.20141.86401.stgit@sifl>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH v4 06/10] e1000e: Support for byte queue limits
+Date: Tue, 29 Nov 2011 13:01:37 -0800
+Message-ID: <20111129130137.000009ce@unknown>
+References: <alpine.DEB.2.00.1111281819350.24413@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Paul Moore <pmoore@redhat.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20111129201054.20141.86401.stgit@sifl>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:31311 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756694Ab1K2VBi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Nov 2011 16:01:38 -0500
+In-Reply-To: <alpine.DEB.2.00.1111281819350.24413@pokey.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2011 12:10 PM, Paul Moore wrote:
-> A recent fix to the the NetLabel code caused build problem with
-> configurations that did not have IPv6 enabled; see below:
-> 
->  netlabel_kapi.c: In function 'netlbl_cfg_unlbl_map_add':
->  netlabel_kapi.c:165:4:
->   error: implicit declaration of function 'netlbl_af6list_add'
-> 
-> This patch fixes this problem by making the IPv6 specific code conditional
-> on the IPv6 configuration flags as we done in the rest of NetLabel and the
-> network stack as a whole.  We have to move some variable declarations
-> around as a result so things may not be quite as pretty, but at least it
-> builds cleanly now.
-> 
-> Some additional IPv6 conditionals were added to the NetLabel code as well
-> for the sake of consistency.
-> 
-> Reported-by: Randy Dunlap <rdunlap@xenotime.net>
-> Signed-off-by: Paul Moore <pmoore@redhat.com>
+On Mon, 28 Nov 2011 18:33:16 -0800
+Tom Herbert <therbert@google.com> wrote:
 
-Acked-by: Randy Dunlap <rdunlap@xenotime.net>
+> Changes to e1000e to use byte queue limits.
 
-Thanks.
+First:  thanks Tom for looking into e1000e with this work.
 
-> ---
->  net/netlabel/netlabel_kapi.c |   22 ++++++++++++++--------
->  1 files changed, 14 insertions(+), 8 deletions(-)
-> 
-> diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
-> index 3735297..5952237 100644
-> --- a/net/netlabel/netlabel_kapi.c
-> +++ b/net/netlabel/netlabel_kapi.c
-> @@ -111,8 +111,6 @@ int netlbl_cfg_unlbl_map_add(const char *domain,
->  	struct netlbl_domaddr_map *addrmap = NULL;
->  	struct netlbl_domaddr4_map *map4 = NULL;
->  	struct netlbl_domaddr6_map *map6 = NULL;
-> -	const struct in_addr *addr4, *mask4;
-> -	const struct in6_addr *addr6, *mask6;
->  
->  	entry = kzalloc(sizeof(*entry), GFP_ATOMIC);
->  	if (entry == NULL)
-> @@ -133,9 +131,9 @@ int netlbl_cfg_unlbl_map_add(const char *domain,
->  		INIT_LIST_HEAD(&addrmap->list6);
->  
->  		switch (family) {
-> -		case AF_INET:
-> -			addr4 = addr;
-> -			mask4 = mask;
-> +		case AF_INET: {
-> +			const struct in_addr *addr4 = addr;
-> +			const struct in_addr *mask4 = mask;
->  			map4 = kzalloc(sizeof(*map4), GFP_ATOMIC);
->  			if (map4 == NULL)
->  				goto cfg_unlbl_map_add_failure;
-> @@ -148,9 +146,11 @@ int netlbl_cfg_unlbl_map_add(const char *domain,
->  			if (ret_val != 0)
->  				goto cfg_unlbl_map_add_failure;
->  			break;
-> -		case AF_INET6:
-> -			addr6 = addr;
-> -			mask6 = mask;
-> +			}
-> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-> +		case AF_INET6: {
-> +			const struct in6_addr *addr6 = addr;
-> +			const struct in6_addr *mask6 = mask;
->  			map6 = kzalloc(sizeof(*map6), GFP_ATOMIC);
->  			if (map6 == NULL)
->  				goto cfg_unlbl_map_add_failure;
-> @@ -167,6 +167,8 @@ int netlbl_cfg_unlbl_map_add(const char *domain,
->  			if (ret_val != 0)
->  				goto cfg_unlbl_map_add_failure;
->  			break;
-> +			}
-> +#endif /* IPv6 */
->  		default:
->  			goto cfg_unlbl_map_add_failure;
->  			break;
-> @@ -225,9 +227,11 @@ int netlbl_cfg_unlbl_static_add(struct net *net,
->  	case AF_INET:
->  		addr_len = sizeof(struct in_addr);
->  		break;
-> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
->  	case AF_INET6:
->  		addr_len = sizeof(struct in6_addr);
->  		break;
-> +#endif /* IPv6 */
->  	default:
->  		return -EPFNOSUPPORT;
->  	}
-> @@ -266,9 +270,11 @@ int netlbl_cfg_unlbl_static_del(struct net *net,
->  	case AF_INET:
->  		addr_len = sizeof(struct in_addr);
->  		break;
-> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
->  	case AF_INET6:
->  		addr_len = sizeof(struct in6_addr);
->  		break;
-> +#endif /* IPv6 */
->  	default:
->  		return -EPFNOSUPPORT;
->  	}
-> 
+> @@ -1096,6 +1097,10 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter)
+>  			if (cleaned) {
+>  				total_tx_packets += buffer_info->segs;
+>  				total_tx_bytes += buffer_info->bytecount;
+> +				if (buffer_info->skb) {
+> +					bytes_compl += buffer_info->skb->len;
 
+whats wrong with using total_tx_bytes or buffer_info->bytecount?  it
+contains the "bytes on the wire" value which will be slightly larger
+than skb->len, but avoids warming the skb->len cacheline unnecessarily.
 
--- 
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+the rest of the patch to e1000e looks okay.
