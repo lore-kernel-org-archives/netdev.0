@@ -1,332 +1,79 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] can: Update logging style
-Date: Tue, 29 Nov 2011 21:06:31 +0100
-Message-ID: <4ED53B47.1030703@pengutronix.de>
-References: <30551d0a6a0f7f7799a6981c81c770a528f430d2.1322592708.git.joe@perches.com>
+From: Paul Moore <pmoore@redhat.com>
+Subject: [PATCH] netlabel: Fix build problems when IPv6 is not enabled
+Date: Tue, 29 Nov 2011 15:08:18 -0500
+Message-ID: <20111129200818.19875.72359.stgit@sifl>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig0EEC2B802DDCE32A2E224DA0"
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
-	Urs Thuermann <urs.thuermann@volkswagen.de>,
-	"David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <30551d0a6a0f7f7799a6981c81c770a528f430d2.1322592708.git.joe@perches.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org, rdunlap@xenotime.net
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig0EEC2B802DDCE32A2E224DA0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+A recent fix to the the NetLabel code caused build problem with
+configurations that did not have IPv6 enabled; see below:
 
-On 11/29/2011 07:54 PM, Joe Perches wrote:
-> Use pr_fmt, pr_<level> and pr_<level>_ratelimited.
-> Coalesce format strings.
->=20
-> Signed-off-by: Joe Perches <joe@perches.com>
+ netlabel_kapi.c: In function 'netlbl_cfg_unlbl_map_add':
+ netlabel_kapi.c:165:4:
+  error: implicit declaration of function 'netlbl_af6list_add'
 
-The banners will probably looking a bit different, but I think nobody is
-screen scraping that output :)
+This patch fixes this problem by making the IPv6 specific code conditional
+on the IPv6 configuration flags as we done in the rest of NetLabel and the
+network stack as a whole.  We have to move some variable declarations
+around as a result so things may not be quite as pretty, but at least it
+builds cleanly now.
 
-Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
-> ---
->  net/can/af_can.c |   31 ++++++++++++++-----------------
->  net/can/bcm.c    |   14 ++++++++------
->  net/can/gw.c     |    6 ++++--
->  net/can/proc.c   |    8 ++++----
->  net/can/raw.c    |    8 +++++---
->  5 files changed, 35 insertions(+), 32 deletions(-)
->=20
-> diff --git a/net/can/af_can.c b/net/can/af_can.c
-> index 0ce2ad0..c4f0da5 100644
-> --- a/net/can/af_can.c
-> +++ b/net/can/af_can.c
-> @@ -40,6 +40,8 @@
->   *
->   */
-> =20
-> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> +
->  #include <linux/module.h>
->  #include <linux/init.h>
->  #include <linux/kmod.h>
-> @@ -62,8 +64,8 @@
-> =20
->  #include "af_can.h"
-> =20
-> -static __initdata const char banner[] =3D KERN_INFO
-> -	"can: controller area network core (" CAN_VERSION_STRING ")\n";
-> +static __initdata const char banner[] =3D
-> +	"controller area network core (" CAN_VERSION_STRING ")";
-> =20
->  MODULE_DESCRIPTION("Controller Area Network PF_CAN core");
->  MODULE_LICENSE("Dual BSD/GPL");
-> @@ -161,8 +163,8 @@ static int can_create(struct net *net, struct socke=
-t *sock, int protocol,
->  		 * return -EPROTONOSUPPORT
->  		 */
->  		if (err)
-> -			printk_ratelimited(KERN_ERR "can: request_module "
-> -			       "(can-proto-%d) failed.\n", protocol);
-> +			pr_err_ratelimited("request_module (can-proto-%d) failed\n",
-> +					   protocol);
-> =20
->  		cp =3D can_get_proto(protocol);
->  	}
-> @@ -505,8 +507,7 @@ void can_rx_unregister(struct net_device *dev, cani=
-d_t can_id, canid_t mask,
-> =20
->  	d =3D find_dev_rcv_lists(dev);
->  	if (!d) {
-> -		printk(KERN_ERR "BUG: receive list not found for "
-> -		       "dev %s, id %03X, mask %03X\n",
-> +		pr_err("BUG: receive list not found for dev %s, id %03X, mask %03X\n=
-",
->  		       DNAME(dev), can_id, mask);
->  		goto out;
->  	}
-> @@ -532,8 +533,7 @@ void can_rx_unregister(struct net_device *dev, cani=
-d_t can_id, canid_t mask,
->  	 */
-> =20
->  	if (!next) {
-> -		printk(KERN_ERR "BUG: receive list entry not found for "
-> -		       "dev %s, id %03X, mask %03X\n",
-> +		pr_err("BUG: receive list entry not found for dev %s, id %03X, mask =
-%03X\n",
->  		       DNAME(dev), can_id, mask);
->  		r =3D NULL;
->  		goto out;
-> @@ -701,8 +701,7 @@ int can_proto_register(const struct can_proto *cp)
->  	int err =3D 0;
-> =20
->  	if (proto < 0 || proto >=3D CAN_NPROTO) {
-> -		printk(KERN_ERR "can: protocol number %d out of range\n",
-> -		       proto);
-> +		pr_err("protocol number %d out of range\n", proto);
->  		return -EINVAL;
->  	}
-> =20
-> @@ -713,8 +712,7 @@ int can_proto_register(const struct can_proto *cp)
->  	mutex_lock(&proto_tab_lock);
-> =20
->  	if (proto_tab[proto]) {
-> -		printk(KERN_ERR "can: protocol %d already registered\n",
-> -		       proto);
-> +		pr_err("protocol %d already registered\n", proto);
->  		err =3D -EBUSY;
->  	} else
->  		RCU_INIT_POINTER(proto_tab[proto], cp);
-> @@ -769,8 +767,7 @@ static int can_notifier(struct notifier_block *nb, =
-unsigned long msg,
->  		/* create new dev_rcv_lists for this device */
->  		d =3D kzalloc(sizeof(*d), GFP_KERNEL);
->  		if (!d) {
-> -			printk(KERN_ERR
-> -			       "can: allocation of receive list failed\n");
-> +			pr_err("allocation of receive list failed\n");
->  			return NOTIFY_DONE;
->  		}
->  		BUG_ON(dev->ml_priv);
-> @@ -790,8 +787,8 @@ static int can_notifier(struct notifier_block *nb, =
-unsigned long msg,
->  				dev->ml_priv =3D NULL;
->  			}
->  		} else
-> -			printk(KERN_ERR "can: notifier: receive list not "
-> -			       "found for dev %s\n", dev->name);
-> +			pr_err("notifier: receive list not found for dev %s\n",
-> +			       dev->name);
-> =20
->  		spin_unlock(&can_rcvlists_lock);
-> =20
-> @@ -824,7 +821,7 @@ static struct notifier_block can_netdev_notifier __=
-read_mostly =3D {
-> =20
->  static __init int can_init(void)
->  {
-> -	printk(banner);
-> +	pr_info("%s\n", banner);
-> =20
->  	memset(&can_rx_alldev_list, 0, sizeof(can_rx_alldev_list));
-> =20
-> diff --git a/net/can/bcm.c b/net/can/bcm.c
-> index 151b773..540c804 100644
-> --- a/net/can/bcm.c
-> +++ b/net/can/bcm.c
-> @@ -39,6 +39,8 @@
->   *
->   */
-> =20
-> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> +
->  #include <linux/module.h>
->  #include <linux/init.h>
->  #include <linux/interrupt.h>
-> @@ -77,8 +79,8 @@
->  		     (CAN_SFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG))
-> =20
->  #define CAN_BCM_VERSION CAN_VERSION
-> -static __initdata const char banner[] =3D KERN_INFO
-> -	"can: broadcast manager protocol (rev " CAN_BCM_VERSION " t)\n";
-> +static __initdata const char banner[] =3D
-> +	"broadcast manager protocol (rev " CAN_BCM_VERSION " t)";
-> =20
->  MODULE_DESCRIPTION("PF_CAN broadcast manager protocol");
->  MODULE_LICENSE("Dual BSD/GPL");
-> @@ -729,8 +731,8 @@ static void bcm_rx_unreg(struct net_device *dev, st=
-ruct bcm_op *op)
->  		/* mark as removed subscription */
->  		op->rx_reg_dev =3D NULL;
->  	} else
-> -		printk(KERN_ERR "can-bcm: bcm_rx_unreg: registered device "
-> -		       "mismatch %p %p\n", op->rx_reg_dev, dev);
-> +		pr_err("%s: registered device mismatch %p %p\n",
-> +		       __func__, op->rx_reg_dev, dev);
->  }
-> =20
->  /*
-> @@ -1606,11 +1608,11 @@ static int __init bcm_module_init(void)
->  {
->  	int err;
-> =20
-> -	printk(banner);
-> +	pr_info("%s\n", banner);
-> =20
->  	err =3D can_proto_register(&bcm_can_proto);
->  	if (err < 0) {
-> -		printk(KERN_ERR "can: registration of bcm protocol failed\n");
-> +		pr_err("registration of bcm protocol failed\n");
->  		return err;
->  	}
-> =20
-> diff --git a/net/can/gw.c b/net/can/gw.c
-> index 3d79b12..e17253f 100644
-> --- a/net/can/gw.c
-> +++ b/net/can/gw.c
-> @@ -39,6 +39,8 @@
->   *
->   */
-> =20
-> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> +
->  #include <linux/module.h>
->  #include <linux/init.h>
->  #include <linux/types.h>
-> @@ -59,7 +61,7 @@
-> =20
->  #define CAN_GW_VERSION "20101209"
->  static __initdata const char banner[] =3D
-> -	KERN_INFO "can: netlink gateway (rev " CAN_GW_VERSION ")\n";
-> +	"netlink gateway (rev " CAN_GW_VERSION ")";
-> =20
->  MODULE_DESCRIPTION("PF_CAN netlink gateway");
->  MODULE_LICENSE("Dual BSD/GPL");
-> @@ -913,7 +915,7 @@ static int cgw_remove_job(struct sk_buff *skb,  str=
-uct nlmsghdr *nlh, void *arg)
-> =20
->  static __init int cgw_module_init(void)
->  {
-> -	printk(banner);
-> +	pr_info("%s\n", banner);
-> =20
->  	cgw_cache =3D kmem_cache_create("can_gw", sizeof(struct cgw_job),
->  				      0, 0, NULL);
-> diff --git a/net/can/proc.c b/net/can/proc.c
-> index ba873c3..c3aedf5 100644
-> --- a/net/can/proc.c
-> +++ b/net/can/proc.c
-> @@ -39,6 +39,8 @@
->   *
->   */
-> =20
-> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> +
->  #include <linux/module.h>
->  #include <linux/proc_fs.h>
->  #include <linux/list.h>
-> @@ -118,8 +120,7 @@ static unsigned long calc_rate(unsigned long oldjif=
-, unsigned long newjif,
-> =20
->  	/* see can_stat_update() - this should NEVER happen! */
->  	if (count > (ULONG_MAX / HZ)) {
-> -		printk(KERN_ERR "can: calc_rate: count exceeded! %ld\n",
-> -		       count);
-> +		pr_err("%s: count exceeded! %ld\n", __func__, count);
->  		return 99999999;
->  	}
-> =20
-> @@ -475,8 +476,7 @@ void can_init_proc(void)
->  	can_dir =3D proc_mkdir("can", init_net.proc_net);
-> =20
->  	if (!can_dir) {
-> -		printk(KERN_INFO "can: failed to create /proc/net/can . "
-> -		       "CONFIG_PROC_FS missing?\n");
-> +		pr_info("failed to create /proc/net/can . CONFIG_PROC_FS missing?\n"=
-);
->  		return;
->  	}
-> =20
-> diff --git a/net/can/raw.c b/net/can/raw.c
-> index cde1b4a..2875c55 100644
-> --- a/net/can/raw.c
-> +++ b/net/can/raw.c
-> @@ -39,6 +39,8 @@
->   *
->   */
-> =20
-> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> +
->  #include <linux/module.h>
->  #include <linux/init.h>
->  #include <linux/uio.h>
-> @@ -56,7 +58,7 @@
-> =20
->  #define CAN_RAW_VERSION CAN_VERSION
->  static __initdata const char banner[] =3D
-> -	KERN_INFO "can: raw protocol (rev " CAN_RAW_VERSION ")\n";
-> +	"raw protocol (rev " CAN_RAW_VERSION ")";
-> =20
->  MODULE_DESCRIPTION("PF_CAN raw protocol");
->  MODULE_LICENSE("Dual BSD/GPL");
-> @@ -783,11 +785,11 @@ static __init int raw_module_init(void)
->  {
->  	int err;
-> =20
-> -	printk(banner);
-> +	pr_info("%s\n", banner);
-> =20
->  	err =3D can_proto_register(&raw_can_proto);
->  	if (err < 0)
-> -		printk(KERN_ERR "can: registration of raw protocol failed\n");
-> +		pr_err("registration of raw protocol failed\n");
-> =20
->  	return err;
->  }
+Some additional IPv6 conditionals were added to the NetLabel code as well
+for the sake of consistency.
 
+Reported-by: Randy Dunlap <rdunlap@xenotime.net>
+Signed-off-by: Paul Moore <pmoore@redhat.com>
+---
+ net/netlabel/netlabel_kapi.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig0EEC2B802DDCE32A2E224DA0
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk7VO00ACgkQjTAFq1RaXHO9fACfRsS1j2ApsgbQqiBhP6ntgLbG
-WlIAnR1siXn6tKw0Rt0L88P1lsTq/c8E
-=AwtC
------END PGP SIGNATURE-----
-
---------------enig0EEC2B802DDCE32A2E224DA0--
+diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
+index 3735297..e4bbe94 100644
+--- a/net/netlabel/netlabel_kapi.c
++++ b/net/netlabel/netlabel_kapi.c
+@@ -148,6 +148,7 @@ int netlbl_cfg_unlbl_map_add(const char *domain,
+ 			if (ret_val != 0)
+ 				goto cfg_unlbl_map_add_failure;
+ 			break;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 		case AF_INET6:
+ 			addr6 = addr;
+ 			mask6 = mask;
+@@ -167,6 +168,7 @@ int netlbl_cfg_unlbl_map_add(const char *domain,
+ 			if (ret_val != 0)
+ 				goto cfg_unlbl_map_add_failure;
+ 			break;
++#endif /* IPv6 */
+ 		default:
+ 			goto cfg_unlbl_map_add_failure;
+ 			break;
+@@ -225,9 +227,11 @@ int netlbl_cfg_unlbl_static_add(struct net *net,
+ 	case AF_INET:
+ 		addr_len = sizeof(struct in_addr);
+ 		break;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	case AF_INET6:
+ 		addr_len = sizeof(struct in6_addr);
+ 		break;
++#endif /* IPv6 */
+ 	default:
+ 		return -EPFNOSUPPORT;
+ 	}
+@@ -266,9 +270,11 @@ int netlbl_cfg_unlbl_static_del(struct net *net,
+ 	case AF_INET:
+ 		addr_len = sizeof(struct in_addr);
+ 		break;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	case AF_INET6:
+ 		addr_len = sizeof(struct in6_addr);
+ 		break;
++#endif /* IPv6 */
+ 	default:
+ 		return -EPFNOSUPPORT;
+ 	}
