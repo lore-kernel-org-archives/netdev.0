@@ -1,39 +1,51 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH v4 06/10] e1000e: Support for byte queue limits
-Date: Tue, 29 Nov 2011 13:01:37 -0800
-Message-ID: <20111129130137.000009ce@unknown>
-References: <alpine.DEB.2.00.1111281819350.24413@pokey.mtv.corp.google.com>
+From: Marc Aurele La France <tsi@ualberta.ca>
+Subject: Re: RCU'ed dst_get_neighbour()
+Date: Tue, 29 Nov 2011 14:00:44 -0700 (Mountain Standard Time)
+Message-ID: <alpine.WNT.2.00.1111291359290.1036@TSI>
+References: <alpine.WNT.2.00.1111291027320.1036@TSI> <1322589661.2596.2.camel@edumazet-laptop> <1322599437.2596.10.camel@edumazet-laptop> <CAG4TOxNJfr3X1p358LBWdNQKdkw8KOSekcKpNu6K5_phPEiR4A@mail.gmail.com> <1322599991.2596.11.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="17891750-19608-1322600445=:1036"
+Cc: Roland Dreier <roland@kernel.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-rdma@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:31311 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756694Ab1K2VBi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Nov 2011 16:01:38 -0500
-In-Reply-To: <alpine.DEB.2.00.1111281819350.24413@pokey.mtv.corp.google.com>
+Received: from smtp.srv.ualberta.ca ([129.128.5.19]:65235 "EHLO
+	mail2.srv.ualberta.ca" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756758Ab1K2VFr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 16:05:47 -0500
+In-Reply-To: <1322599991.2596.11.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 28 Nov 2011 18:33:16 -0800
-Tom Herbert <therbert@google.com> wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> Changes to e1000e to use byte queue limits.
+--17891750-19608-1322600445=:1036
+Content-Type: TEXT/PLAIN; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8BIT
 
-First:  thanks Tom for looking into e1000e with this work.
+On Tue, 29 Nov 2011, Eric Dumazet wrote:
 
-> @@ -1096,6 +1097,10 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter)
->  			if (cleaned) {
->  				total_tx_packets += buffer_info->segs;
->  				total_tx_bytes += buffer_info->bytecount;
-> +				if (buffer_info->skb) {
-> +					bytes_compl += buffer_info->skb->len;
+> Le mardi 29 novembre 2011 à 12:47 -0800, Roland Dreier a écrit :
+>> Thanks Eric, I'll send this to Linus shortly.
 
-whats wrong with using total_tx_bytes or buffer_info->bytecount?  it
-contains the "bytes on the wire" value which will be slightly larger
-than skb->len, but avoids warming the skb->len cacheline unnecessarily.
+> Oh well, I forgot one rcu_read_unlock(), I'll send a V2...
 
-the rest of the patch to e1000e looks okay.
+This also doesn't address the other dst_get_neighbour() instances 
+introduced by 
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commitdiff;h=69cce1d1404968f78b177a0314f5822d5afdbbfb
+
+Marc.
+
++----------------------------------+----------------------------------+
+|  Marc Aurele La France           |  work:   1-780-492-9310          |
+|  Academic Information and        |  fax:    1-780-492-1729          |
+|    Communications Technologies   |  email:  tsi@ualberta.ca         |
+|  352 General Services Building   +----------------------------------+
+|  University of Alberta           |                                  |
+|  Edmonton, Alberta               |    Standard disclaimers apply    |
+|  T6G 2H1                         |                                  |
+|  CANADA                          |                                  |
++----------------------------------+----------------------------------+
+--17891750-19608-1322600445=:1036--
