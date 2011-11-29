@@ -1,72 +1,180 @@
-From: Markus Feldmann <feldmann_markus@gmx.de>
-Subject: Re: Daughterboard Jetway JAD3RTLANG with three RTL-8110SC/8169SC
- Gigabit Ethernet is curious
-Date: Tue, 29 Nov 2011 15:16:38 +0100
-Message-ID: <4ED4E946.40209@gmx.de>
-References: <jb0d7u$bbb$1@dough.gmane.org> <201111291012.25426.carsten@wolffcarsten.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] sch_choke: use skb_flow_dissect()
+Date: Tue, 29 Nov 2011 15:22:15 +0100
+Message-ID: <1322576535.2465.8.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:57583 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754760Ab1K2OQ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Nov 2011 09:16:58 -0500
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1RVOUQ-0007Ie-Tc
-	for netdev@vger.kernel.org; Tue, 29 Nov 2011 15:16:54 +0100
-Received: from dslb-092-076-227-186.pools.arcor-ip.net ([92.76.227.186])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 15:16:54 +0100
-Received: from feldmann_markus by dslb-092-076-227-186.pools.arcor-ip.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 15:16:54 +0100
-In-Reply-To: <201111291012.25426.carsten@wolffcarsten.de>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:50785 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755343Ab1K2OWS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 09:22:18 -0500
+Received: by qyk4 with SMTP id 4so1599655qyk.19
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 06:22:18 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 29.11.2011 10:12, schrieb Carsten Wolff:
-> Hi Markus,
->
-> On Monday 28 November 2011, Markus Feldmann wrote:
->> Hi All,
->>
->> i have a mini-ITX PC (Motherboard Jetway JNF92-270-LF), whit 3 ethernet
->> devices (RTL-8110SC/8169SC Gigabit Ethernet) on one additional
->> daughterboard (Jetway JAD3RTLANG).
->>
->> Here is my<hwinfo --netcard>  output:
->> http://pastebin.com/raw.php?i=Khy1NX61
->>
->> and dmesg:
->> http://pastebin.com/raw.php?i=Ziq1mizy
->>
->> I am using this mini-ITX PC as server/router with a debian
->> squeeze/stable system.
->>
->> My problem is that only one of this three ethernet devices (from the
->> daughterboard not the internal one from motherboard) at once is working
->> correctly. Sometimes i have only one client to my server connected, but
->> only one specific ehernet port is working (mostly the physically upper
->> one). I didnt found any regularity yet.
-> I guess "not working" means "link detected: no" in ethtool?
->
->> Any hints? is there a specific person whom i schould contact?
-> I had a similar (the same?) problems with this hardware about 2 years ago. My
-> "solution" was to install windows + drivers, then throw windows away and
-> install debian. After that, I had no more problems with those NICs. Since
-> then, there have been some patches to the initialization code for these RTL
-> Linux drivers, but maybe the windows driver installs newer firmware, too,
-> which may be required for that particular product.
->
-> Carsten
-Hi,
+Instead of using a custom flow dissector, use skb_flow_dissect() and
+benefit from tunnelling support.
 
-You mean the latest Linux kernel was patched for a better 
-initialization? At the moment i am using the kernel 3.0.8. As i 
-understood the firmware must be loaded at every power on.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/sched/sch_choke.c |  120 ++++++++++------------------------------
+ 1 file changed, 31 insertions(+), 89 deletions(-)
 
-regards Markus
+diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
+index 061bcb7..205d369 100644
+--- a/net/sched/sch_choke.c
++++ b/net/sched/sch_choke.c
+@@ -19,10 +19,7 @@
+ #include <net/pkt_sched.h>
+ #include <net/inet_ecn.h>
+ #include <net/red.h>
+-#include <linux/ip.h>
+-#include <net/ip.h>
+-#include <linux/ipv6.h>
+-#include <net/ipv6.h>
++#include <net/flow_keys.h>
+ 
+ /*
+    CHOKe stateless AQM for fair bandwidth allocation
+@@ -142,92 +139,10 @@ static void choke_drop_by_idx(struct Qdisc *sch, unsigned int idx)
+ 	--sch->q.qlen;
+ }
+ 
+-/*
+- * Compare flow of two packets
+- *  Returns true only if source and destination address and port match.
+- *          false for special cases
+- */
+-static bool choke_match_flow(struct sk_buff *skb1,
+-			     struct sk_buff *skb2)
+-{
+-	int off1, off2, poff;
+-	const u32 *ports1, *ports2;
+-	u32 _ports1, _ports2;
+-	u8 ip_proto;
+-	__u32 hash1;
+-
+-	if (skb1->protocol != skb2->protocol)
+-		return false;
+-
+-	/* Use rxhash value as quick check */
+-	hash1 = skb_get_rxhash(skb1);
+-	if (!hash1 || hash1 != skb_get_rxhash(skb2))
+-		return false;
+-
+-	/* Probably match, but be sure to avoid hash collisions */
+-	off1 = skb_network_offset(skb1);
+-	off2 = skb_network_offset(skb2);
+-
+-	switch (skb1->protocol) {
+-	case __constant_htons(ETH_P_IP): {
+-		const struct iphdr *ip1, *ip2;
+-		struct iphdr _ip1, _ip2;
+-
+-		ip1 = skb_header_pointer(skb1, off1, sizeof(_ip1), &_ip1);
+-		ip2 = skb_header_pointer(skb2, off2, sizeof(_ip2), &_ip2);
+-		if (!ip1 || !ip2)
+-			return false;
+-		ip_proto = ip1->protocol;
+-		if (ip_proto != ip2->protocol ||
+-		    ip1->saddr != ip2->saddr || ip1->daddr != ip2->daddr)
+-			return false;
+-
+-		if (ip_is_fragment(ip1) | ip_is_fragment(ip2))
+-			ip_proto = 0;
+-		off1 += ip1->ihl * 4;
+-		off2 += ip2->ihl * 4;
+-		break;
+-	}
+-
+-	case __constant_htons(ETH_P_IPV6): {
+-		const struct ipv6hdr *ip1, *ip2;
+-		struct ipv6hdr _ip1, _ip2;
+-
+-		ip1 = skb_header_pointer(skb1, off1, sizeof(_ip1), &_ip1);
+-		ip2 = skb_header_pointer(skb2, off2, sizeof(_ip2), &_ip2);
+-		if (!ip1 || !ip2)
+-			return false;
+-
+-		ip_proto = ip1->nexthdr;
+-		if (ip_proto != ip2->nexthdr ||
+-		    ipv6_addr_cmp(&ip1->saddr, &ip2->saddr) ||
+-		    ipv6_addr_cmp(&ip1->daddr, &ip2->daddr))
+-			return false;
+-		off1 += 40;
+-		off2 += 40;
+-	}
+-
+-	default: /* Maybe compare MAC header here? */
+-		return false;
+-	}
+-
+-	poff = proto_ports_offset(ip_proto);
+-	if (poff < 0)
+-		return true;
+-
+-	off1 += poff;
+-	off2 += poff;
+-
+-	ports1 = skb_header_pointer(skb1, off1, sizeof(_ports1), &_ports1);
+-	ports2 = skb_header_pointer(skb2, off2, sizeof(_ports2), &_ports2);
+-	if (!ports1 || !ports2)
+-		return false;
+-
+-	return *ports1 == *ports2;
+-}
+-
+ struct choke_skb_cb {
+-	u16 classid;
++	u16			classid;
++	u8			keys_valid;
++	struct flow_keys	keys;
+ };
+ 
+ static inline struct choke_skb_cb *choke_skb_cb(const struct sk_buff *skb)
+@@ -248,6 +163,32 @@ static u16 choke_get_classid(const struct sk_buff *skb)
+ }
+ 
+ /*
++ * Compare flow of two packets
++ *  Returns true only if source and destination address and port match.
++ *          false for special cases
++ */
++static bool choke_match_flow(struct sk_buff *skb1,
++			     struct sk_buff *skb2)
++{
++	if (skb1->protocol != skb2->protocol)
++		return false;
++
++	if (!choke_skb_cb(skb1)->keys_valid) {
++		choke_skb_cb(skb1)->keys_valid = 1;
++		skb_flow_dissect(skb1, &choke_skb_cb(skb1)->keys);
++	}
++
++	if (!choke_skb_cb(skb2)->keys_valid) {
++		choke_skb_cb(skb2)->keys_valid = 1;
++		skb_flow_dissect(skb2, &choke_skb_cb(skb2)->keys);
++	}
++
++	return !memcmp(&choke_skb_cb(skb1)->keys,
++		       &choke_skb_cb(skb2)->keys,
++		       sizeof(struct flow_keys));
++}
++
++/*
+  * Classify flow using either:
+  *  1. pre-existing classification result in skb
+  *  2. fast internal classification
+@@ -333,6 +274,7 @@ static int choke_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 			goto other_drop;	/* Packet was eaten by filter */
+ 	}
+ 
++	choke_skb_cb(skb)->keys_valid = 0;
+ 	/* Compute average queue usage (see RED) */
+ 	p->qavg = red_calc_qavg(p, sch->q.qlen);
+ 	if (red_is_idling(p))
