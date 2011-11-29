@@ -1,50 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2 v5] net/smsc911x: Add regulator support
-Date: Tue, 29 Nov 2011 18:37:29 -0500 (EST)
-Message-ID: <20111129.183729.968318782117791817.davem@davemloft.net>
-References: <1322132587-2049-1-git-send-email-robert.marklund@stericsson.com>
+Subject: Re: [PATCH next-next 0/2] can: cc770: add support for the Bosch
+ CC770 and Intel AN82527
+Date: Tue, 29 Nov 2011 18:39:50 -0500 (EST)
+Message-ID: <20111129.183950.1327835803051184146.davem@davemloft.net>
+References: <1322136448-7311-1-git-send-email-wg@grandegger.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steve.glendinning@smsc.com,
-	mathieu.poirier@linaro.org, lethal@linux-sh.org,
-	linux-sh@vger.kernel.org, s.hauer@pengutronix.de, tony@atomide.com,
-	linux-omap@vger.kernel.org, vapier@gentoo.org,
-	uclinux-dist-devel@blackfin.uclinux.org, linus.walleij@linaro.org
-To: robert.marklund@stericsson.com
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1322132587-2049-1-git-send-email-robert.marklund@stericsson.com>
-Sender: linux-omap-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	socketcan-users@lists.berlios.de, boir1@yandex.ru,
+	stanislavelensky@yahoo.com
+To: wg@grandegger.com
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1322136448-7311-1-git-send-email-wg@grandegger.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Robert Marklund <robert.marklund@stericsson.com>
-Date: Thu, 24 Nov 2011 12:03:07 +0100
+From: Wolfgang Grandegger <wg@grandegger.com>
+Date: Thu, 24 Nov 2011 13:07:26 +0100
 
-> Add some basic regulator support for the power pins, as needed
-> by the ST-Ericsson Snowball platform that powers up the SMSC911
-> chip using an external regulator.
+> Already since a while we have support for the Bosch CC770 and Intel
+> AN82527 CAN controllers in our out-of-tree Socket-CAN repository.
+> It would be nice if somebody could test the driver. Unfortunately,
+> I currently do not have hardware at hand. I have not yet ported the
+> OF platform driver as it needs further attaention due to the merge
+> of the platform and OF platform interface.
 > 
-> Platforms that use regulators and the smsc911x and have no defined
-> regulator for the smsc911x and claim complete regulator
-> constraints with no dummy regulators will need to provide it, for
-> example using a fixed voltage regulator. It appears that this may
-> affect (apart from Ux500 Snowball) possibly these archs/machines
-> that from some grep:s appear to define both CONFIG_SMSC911X and
-> CONFIG_REGULATOR:
-> 
-> - ARM Freescale mx3 and OMAP 2 plus, Raumfeld machines
-> - Blackfin
-> - Super-H
-> 
-> Cc: Paul Mundt <lethal@linux-sh.org>
-> Cc: linux-sh@vger.kernel.org
-> Cc: Sascha Hauer <s.hauer@pengutronix.de>
-> Cc: Tony Lindgren <tony@atomide.com>
-> Cc: linux-omap@vger.kernel.org
-> Cc: Mike Frysinger <vapier@gentoo.org>
-> Cc: uclinux-dist-devel@blackfin.uclinux.org
-> Reviewed-by: Mark Brown <broonie@opensource.wolfsonmicro.com>
-> Signed-off-by: Robert Marklund <robert.marklund@stericsson.com>
-> Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
+> Wolfgang Grandegger (2):
+>   can: cc770: add driver core for the Bosch CC770 and Intel AN82527
+>   can: cc770: legacy CC770 ISA bus driver
 
-Applied, thanks.
+All applied, thank you.
