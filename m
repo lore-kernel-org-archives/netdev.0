@@ -1,69 +1,45 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v4 0/10] bql: Byte Queue Limits
-Date: Tue, 29 Nov 2011 16:41:29 +0000
-Message-ID: <1322584889.2684.25.camel@bwh-desktop>
-References: <alpine.DEB.2.00.1111281825200.25622@pokey.mtv.corp.google.com>
-	 <CAA93jw7P=7YMOS_sMQWBJx0UJ6e+xw4e_hw8szNiVTOjGNwukw@mail.gmail.com>
-	 <1322550138.2970.70.camel@edumazet-laptop>
-	 <1322576645.7454.48.camel@deadeye>
-	 <1322576986.2465.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <CAA93jw5UG4=QRN3Wnh82wRg8YCSV7vDqGp0HyeVxsihUwLuioQ@mail.gmail.com>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH 4/5] NFS: remove RPC PipeFS mount point reference from
+ blocklayout routines
+Date: Tue, 29 Nov 2011 11:42:52 -0500
+Message-ID: <20111129164252.GA19528@fieldses.org>
+References: <20111129090754.20730.64567.stgit@localhost6.localdomain6>
+ <20111129091037.20730.59391.stgit@localhost6.localdomain6>
+ <F19688880B763E40B28B2B462677FBF805E3A4AFF2@MX09A.corp.emc.com>
+ <4ED4CDCE.9080804@parallels.com>
+ <F19688880B763E40B28B2B462677FBF805E3A4AFFD@MX09A.corp.emc.com>
+ <2E1EB2CF9ED1CB4AA966F0EB76EAB4430C3CBC23@SACMVEXC2-PRD.hq.netapp.com>
+ <CA+a=Yy5GKMu8rbh8y3fOtK6pmqygPNBr=a+p7LfcmTqtXFH3iA@mail.gmail.com>
+ <1322579906.3619.1.camel@lade.trondhjem.org>
+ <CA+a=Yy6kJe0NemSiRwM+t8gz5-UF5fOdwdS2so+q=nSYjBx--w@mail.gmail.com>
+ <1322584830.4174.16.camel@lade.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: Dave Taht <dave.taht@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:16278 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754793Ab1K2Qld (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 11:41:33 -0500
-In-Reply-To: <CAA93jw5UG4=QRN3Wnh82wRg8YCSV7vDqGp0HyeVxsihUwLuioQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Peng Tao <bergwolf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, tao.peng-mb1K0bWo544@public.gmane.org,
+	skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1322584830.4174.16.camel-SyLVLa/KEI9HwK5hSS5vWB2eb7JE58TQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-11-29 at 17:06 +0100, Dave Taht wrote:
-> On Tue, Nov 29, 2011 at 3:29 PM, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
-> > Le mardi 29 novembre 2011 =C3=A0 14:24 +0000, Ben Hutchings a =C3=A9=
-crit :
-> >
-> >> Not if you separate hardware queues by priority (and your high pri=
-ority
-> >> packets are non-TCP or PuSHed).
-> >
-> > I mostly have tg3 , bnx2 cards, mono queues...
-> >
-> > I presume Dave, working on small Wifi/ADSL routers have same kind o=
-f
-> > hardware.
->=20
-> Nothing but mono queues here on wired - 4 queues on wireless, however=
-=2E
->=20
-> and a focus on trying to make sure the
-> 10Gig guys don't swamp the 128Kbit to 100Mbit guys, and everything in
-> between that bandwidth range is what I care about, mostly against Gig=
-E
-> servers...
+On Tue, Nov 29, 2011 at 11:40:30AM -0500, Trond Myklebust wrote:
+> I mean that I'm perfectly entitled to do
+> 
+> 'modprobe -r blocklayoutdriver'
+> 
+> and when I do that, then I expect blkmapd to close the rpc pipe and wait
+> for a new one to be created just like rpc.idmapd and rpc.gssd do when I
+> remove the nfs and sunrpc modules.
 
-I'm not objecting to that, just the assertion that TSO can be a problem
-even on 10G hardware.  In fact it makes a big improvement to CPU
-efficiency (even if you do it in the driver, it can be better than GSO)
-and almost all 10G hardware has multiple queues which can be used to
-avoid the latency penalty.
+The rpc pipefs mount doesn't hold a reference on the sunrpc module?
 
-> ( I'm still waiting on some 10Gig hw donations to arrive)
-[...]
-
-If you have a proposal to do interesting things with 10G hardware and
-drivers then I can forward it for consideration here.
-
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--b.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
