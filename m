@@ -1,55 +1,45 @@
 From: "Esztermann, Ansgar" <Ansgar.Esztermann@mpi-bpc.mpg.de>
 Subject: Re: TCP fast retransmit
-Date: Tue, 29 Nov 2011 10:00:04 +0100
-Message-ID: <908E481A-0C6A-4FA6-AE10-DC51DAE9E80A@mpi-bpc.mpg.de>
+Date: Tue, 29 Nov 2011 10:00:58 +0100
+Message-ID: <4AA83E89-336E-4A1A-BE12-A0D415A7EC1B@mpi-bpc.mpg.de>
 References: <2D9E1426-D432-4D08-BF28-FD2615AAEDBA@mpi-bpc.mpg.de>
- <1322239016.5793.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <CAK6E8=e9jpK1QY_zO5oSEC6oM+JgCG+bHcauDPdDOUqz7RSumQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="Apple-Mail-1-652621052";
+Content-Type: multipart/signed; boundary="Apple-Mail-2-652675244";
 	protocol="application/pkcs7-signature"; micalg=sha1
 To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tmailer.gwdg.de ([134.76.10.23]:33983 "EHLO tmailer.gwdg.de"
+Received: from tmailer.gwdg.de ([134.76.10.23]:34135 "EHLO tmailer.gwdg.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753967Ab1K2Jey (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Nov 2011 04:34:54 -0500
-Received: from gwdexc-fe12.exc.top.gwdg.de ([134.76.9.232] helo=smtp-exc.gwdg.de)
+	id S1753967Ab1K2JfO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Nov 2011 04:35:14 -0500
+Received: from gwdexc-fe11.exc.top.gwdg.de ([134.76.9.231] helo=smtp-exc.gwdg.de)
 	by mailer.gwdg.de with esmtps (TLSv1:RC4-MD5:128)
 	(Exim 4.72)
 	(envelope-from <Ansgar.Esztermann@mpi-bpc.mpg.de>)
-	id 1RVJTE-00076t-Cx
-	for netdev@vger.kernel.org; Tue, 29 Nov 2011 09:55:20 +0100
-In-Reply-To: <1322239016.5793.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	id 1RVJU5-0007Mr-S5
+	for netdev@vger.kernel.org; Tue, 29 Nov 2011 09:56:14 +0100
+In-Reply-To: <CAK6E8=e9jpK1QY_zO5oSEC6oM+JgCG+bHcauDPdDOUqz7RSumQ@mail.gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Apple-Mail-1-652621052
+--Apple-Mail-2-652675244
 Content-Transfer-Encoding: quoted-printable
 Content-Type: text/plain;
 	charset=iso-8859-1
 
 
-On Nov 25, 2011, at 17:36 , Eric Dumazet wrote:
+On Nov 28, 2011, at 22:17 , Yuchung Cheng wrote:
 
-> Could you send a sample pcap of such problem, but please include full
-> tcp sesssion, from the first SYN packet, up to packets following
-> restransmits.
-
-I will prepare one (these session often run for hours or days, as =
-they're our backup runs). It may take a few days, as I'm on sick leave =
-because of an accident.
-
-> A diff of "netstat -s" taken before your session and after your =
-session
-> on receiver would help too, if receiver is not a loaded machine of
-> course.
+> This 2003 paper has the core algorithms for Linux loss recovery.
+> http://www.cs.helsinki.fi/research/iwtcp/papers/linuxtcp.pdf
 >=20
-> Also, what version of linux kernel are you using in receiver ?
+> We've also detailed latest Linux fast retransmit algorithms in the PRR
+> paper (section 3.2).
+> http://research.google.com/pubs/pub37486.html
 
-2.6.37.6 with openSUSE patches in the sender, some version of AIX in the =
-receiver. The latter seems to be critical: we've never encountered this =
-problem with any other combination of OSs but AIX & Linux.
+Thank you very much, I will be sure to read them!
 
 
 A.
@@ -59,7 +49,7 @@ DV-Systemadministration
 Max-Planck-Institut f=FCr biophysikalische Chemie, Abteilung 105
 
 
---Apple-Mail-1-652621052
+--Apple-Mail-2-652675244
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Type: application/pkcs7-signature; name="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -132,16 +122,16 @@ CdV3OeU/bP5eX9xBeYslYnYZamCKdKoVJ/T2gtIfjfm9W2a5XptYcgJkOIZs9gM3Tl1uOhIKy5J8
 k8QeIHnZIjbLou7pfo4nJY06gUK7X/COyw3wsMOhq4HvgK9A/sU7sJdmBTGCAt4wggLaAgEBMGYw
 XjELMAkGA1UEBhMCREUxIDAeBgNVBAoTF01heC1QbGFuY2stR2VzZWxsc2NoYWZ0MQ8wDQYDVQQD
 EwZNUEcgQ0ExHDAaBgkqhkiG9w0BCQEWDW1wZy1jYUBtcGcuZGUCBBEfNkgwCQYFKw4DAhoFAKCC
-AU0wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTExMTI5MDkwMDA1
-WjAjBgkqhkiG9w0BCQQxFgQUD3zuMtSxpRZ/bItjWEDrkYuJm3kwdQYJKwYBBAGCNxAEMWgwZjBe
+AU0wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTExMTI5MDkwMDU5
+WjAjBgkqhkiG9w0BCQQxFgQUaVLbk/C7932VI0kpp+jZrzFZn74wdQYJKwYBBAGCNxAEMWgwZjBe
 MQswCQYDVQQGEwJERTEgMB4GA1UEChMXTWF4LVBsYW5jay1HZXNlbGxzY2hhZnQxDzANBgNVBAMT
 Bk1QRyBDQTEcMBoGCSqGSIb3DQEJARYNbXBnLWNhQG1wZy5kZQIEER82SDB3BgsqhkiG9w0BCRAC
 CzFooGYwXjELMAkGA1UEBhMCREUxIDAeBgNVBAoTF01heC1QbGFuY2stR2VzZWxsc2NoYWZ0MQ8w
 DQYDVQQDEwZNUEcgQ0ExHDAaBgkqhkiG9w0BCQEWDW1wZy1jYUBtcGcuZGUCBBEfNkgwDQYJKoZI
-hvcNAQEBBQAEggEAokhIvkXWbG1pH8F0g8ekLHWLCLV/kVKxohQOUWsUJvvbmZ/ntkAGWGYN+Lxn
-axaajplosDcDX/9kIfUc8qezdsAmIh/2x2vKyjbIiLpPuRjstck8x2F5NQHsgfaeLvBD+VFWEWHp
-nO0KGVom/Ap/l98MxP7Tiumr+tLk1b8m/vAyPQFRG4LSLL0fCYm0CWsJGTazu+N4jmWGkrZjxKj2
-5o3DkA8BqQ1fcQgc6LyFRHNBnloee39nM1eepVtdRr6NbBtcSDlTRL1ETafmIqSuV+mb2eeBOnr2
-GHxR0r+VAzvOG9xNv+6QgCQa1vzKMfQ4rq2L18yv1Ta/ZxyO3lx1WQAAAAAAAA==
+hvcNAQEBBQAEggEAntUxm/dBo7SkQu2APfTVk1U9eRn+q/4Z0ROaRYkM1M3qBFewgdu6l3huIvDZ
+meXGsPh8rmogMagFUncXwZFdjHTXOG/ZLobO7AYuuycbleHzFcTmWrw0izKkxNGqGiYUzLyv109t
+eLeQqKCvKqINBVnTE0hnZJWZWQwcDHd6JBM6KnldI3cej6Pk2Pr7fYL2tzVVBdeK1JJjAkpBI2UW
+v8KvRYyNvy5OCT7g1npG80h9Kg7MaHZkgdqMLQUTLMNFj+xmwlZsychk6d+IXmAyNv+RbRCUp1yz
+F0HaPtYDGrOCtaaEk6KgEvjQYbW0L8rZ++K3fUMm8+73At8t+KRy1QAAAAAAAA==
 
---Apple-Mail-1-652621052--
+--Apple-Mail-2-652675244--
