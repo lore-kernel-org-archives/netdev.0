@@ -1,50 +1,96 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] bridge: master device stuck in no-carrier
- state forever when in user-stp mode
-Date: Tue, 29 Nov 2011 16:06:56 -0800
-Message-ID: <20111129160656.7a96375e@nehalam.linuxnetplumber.net>
-References: <201111251216.37466.vitas@nppfactor.kiev.ua>
-	<20111129.185433.1527626185550800872.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20111129.185433.1527626185550800872.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Glauber Costa <glommer@parallels.com>
+Subject: [PATCH v7 07/10] Display current tcp memory allocation in kmem cgroup
+Date: Tue, 29 Nov 2011 21:56:58 -0200
+Message-ID: <1322611021-1730-8-git-send-email-glommer@parallels.com>
+References: <1322611021-1730-1-git-send-email-glommer@parallels.com>
+Cc: paul@paulmenage.org, lizf@cn.fujitsu.com, kamezawa.hiroyu@jp.fujitsu.com,
+        ebiederm@xmission.com, davem@davemloft.net, gthelen@google.com,
+        netdev@vger.kernel.org, linux-mm@kvack.org, kirill@shutemov.name,
+        avagin@parallels.com, devel@openvz.org, eric.dumazet@gmail.com,
+        cgroups@vger.kernel.org, Glauber Costa <glommer@parallels.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1322611021-1730-1-git-send-email-glommer@parallels.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 29 Nov 2011 18:54:33 -0500 (EST)
-David Miller <davem@davemloft.net> wrote:
+This patch introduces kmem.tcp.usage_in_bytes file, living in the
+kmem_cgroup filesystem. It is a simple read-only file that displays the
+amount of kernel memory currently consumed by the cgroup.
 
-> From: Vitalii Demianets <vitas@nppfactor.kiev.ua>
-> Date: Fri, 25 Nov 2011 12:16:37 +0200
-> 
-> > When in user-stp mode, bridge master do not follow state of its slaves, so 
-> > after the following sequence of events it can stuck forever in no-carrier 
-> > state:
-> > 1) turn stp off
-> > 2) put all slaves down - master device will follow their state and also go in 
-> > no-carrier state
-> > 3) turn stp on with bridge-stp script returning 0 (go to the user-stp mode)
-> > Now bridge master won't follow slaves' state and will never reach running 
-> > state.
-> > 
-> > This patch solves the problem by making user-stp and kernel-stp behavior 
-> > similar regarding master following slaves' states.
-> > 
-> > Signed-off-by: Vitalii Demianets <vitas@nppfactor.kiev.ua>
-> 
-> Stephen, please review this patch, thanks.
+Signed-off-by: Glauber Costa <glommer@parallels.com>
+CC: David S. Miller <davem@davemloft.net>
+CC: Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>
+CC: Eric W. Biederman <ebiederm@xmission.com>
+---
+ Documentation/cgroups/memory.txt |    1 +
+ net/ipv4/tcp_memcontrol.c        |   21 +++++++++++++++++++++
+ 2 files changed, 22 insertions(+), 0 deletions(-)
 
-Agree that it is a problem, but want to fix the code up. The logic
-can be done slightly cleaner.
+diff --git a/Documentation/cgroups/memory.txt b/Documentation/cgroups/memory.txt
+index 4d9ed1f..09fcc82 100644
+--- a/Documentation/cgroups/memory.txt
++++ b/Documentation/cgroups/memory.txt
+@@ -79,6 +79,7 @@ Brief summary of control files.
+  memory.independent_kmem_limit	 # select whether or not kernel memory limits are
+ 				   independent of user limits
+  memory.kmem.tcp.limit_in_bytes  # set/show hard limit for tcp buf memory
++ memory.kmem.tcp.usage_in_bytes  # show current tcp buf memory allocation
+ 
+ 1. History
+ 
+diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
+index 3edcf5f..bc232fc 100644
+--- a/net/ipv4/tcp_memcontrol.c
++++ b/net/ipv4/tcp_memcontrol.c
+@@ -17,6 +17,11 @@ static struct cftype tcp_files[] = {
+ 		.read_u64 = tcp_cgroup_read,
+ 		.private = RES_LIMIT,
+ 	},
++	{
++		.name = "kmem.tcp.usage_in_bytes",
++		.read_u64 = tcp_cgroup_read,
++		.private = RES_USAGE,
++	},
+ };
+ 
+ static inline struct tcp_memcontrol *tcp_from_cgproto(struct cg_proto *cg_proto)
+@@ -163,6 +168,19 @@ static u64 tcp_read_stat(struct mem_cgroup *memcg, int type, u64 default_val)
+ 	return res_counter_read_u64(&tcp->tcp_memory_allocated, type);
+ }
+ 
++static u64 tcp_read_usage(struct mem_cgroup *memcg)
++{
++	struct tcp_memcontrol *tcp;
++	struct cg_proto *cg_proto;
++
++	cg_proto = tcp_prot.proto_cgroup(memcg);
++	if (!cg_proto)
++		return atomic_long_read(&tcp_memory_allocated) << PAGE_SHIFT;
++
++	tcp = tcp_from_cgproto(cg_proto);
++	return res_counter_read_u64(&tcp->tcp_memory_allocated, RES_USAGE);
++}
++
+ static u64 tcp_cgroup_read(struct cgroup *cont, struct cftype *cft)
+ {
+ 	struct mem_cgroup *memcg = mem_cgroup_from_cont(cont);
+@@ -172,6 +190,9 @@ static u64 tcp_cgroup_read(struct cgroup *cont, struct cftype *cft)
+ 	case RES_LIMIT:
+ 		val = tcp_read_stat(memcg, RES_LIMIT, RESOURCE_MAX);
+ 		break;
++	case RES_USAGE:
++		val = tcp_read_usage(memcg);
++		break;
+ 	default:
+ 		BUG();
+ 	}
+-- 
+1.7.6.4
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
