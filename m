@@ -1,47 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: is non-inheritance of congestion control algorithm from the
- listen socket a bug or a feature?
-Date: Tue, 29 Nov 2011 22:46:15 +0100
-Message-ID: <1322603175.2596.31.camel@edumazet-laptop>
-References: <4ED53AA1.9090800@hp.com>
-	 <1322600212.2596.13.camel@edumazet-laptop>
-	 <CAK6E8=djWDn=ZvD0XLxex3vOfsDjCT64k+DwDSNp6+tLbPen2A@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] netlabel: Fix build problems when IPv6 is not
+ enabled
+Date: Tue, 29 Nov 2011 16:49:41 -0500 (EST)
+Message-ID: <20111129.164941.864264311882171503.davem@davemloft.net>
+References: <20111129201054.20141.86401.stgit@sifl>
+	<4ED555E4.4000006@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org
-To: Yuchung Cheng <ycheng@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pmoore@redhat.com, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: rdunlap@xenotime.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:44324 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751020Ab1K2VqU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 16:46:20 -0500
-Received: by eaak14 with SMTP id k14so3664580eaa.19
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 13:46:18 -0800 (PST)
-In-Reply-To: <CAK6E8=djWDn=ZvD0XLxex3vOfsDjCT64k+DwDSNp6+tLbPen2A@mail.gmail.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:43856 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751020Ab1K2Vtx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 16:49:53 -0500
+In-Reply-To: <4ED555E4.4000006@xenotime.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 29 novembre 2011 =C3=A0 13:20 -0800, Yuchung Cheng a =C3=A9cri=
-t :
-> I actually think it's a feature :)
->=20
-> I find it awkward to set CC on listening socket. And current document
-> defines the sysctl well
->=20
-> tcp_congestion_control - STRING
->         Set the congestion control algorithm to be used for new
->         connections. The algorithm "reno" is always available, but
->         additional choices may be available based on kernel configura=
-tion.
->         Default is set as part of kernel configuration.
+From: Randy Dunlap <rdunlap@xenotime.net>
+Date: Tue, 29 Nov 2011 14:00:04 -0800
 
-This might be a feature, but contradicts most socket options set on
-listener and inherited by a child socket on accept()
+> On 11/29/2011 12:10 PM, Paul Moore wrote:
+>> A recent fix to the the NetLabel code caused build problem with
+>> configurations that did not have IPv6 enabled; see below:
+>> 
+>>  netlabel_kapi.c: In function 'netlbl_cfg_unlbl_map_add':
+>>  netlabel_kapi.c:165:4:
+>>   error: implicit declaration of function 'netlbl_af6list_add'
+>> 
+>> This patch fixes this problem by making the IPv6 specific code conditional
+>> on the IPv6 configuration flags as we done in the rest of NetLabel and the
+>> network stack as a whole.  We have to move some variable declarations
+>> around as a result so things may not be quite as pretty, but at least it
+>> builds cleanly now.
+>> 
+>> Some additional IPv6 conditionals were added to the NetLabel code as well
+>> for the sake of consistency.
+>> 
+>> Reported-by: Randy Dunlap <rdunlap@xenotime.net>
+>> Signed-off-by: Paul Moore <pmoore@redhat.com>
+> 
+> Acked-by: Randy Dunlap <rdunlap@xenotime.net>
 
-tcp_congestion_control should be system wide default.
-
-Anyway, "man 7 tcp" doesnt document TCP_CONGESTION, so we are not
-supposed to play with it ;)
-
-Oh well...
+Applied, thanks everyone.
