@@ -1,58 +1,67 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH next-next 0/2] can: cc770: add support
- for the Bosch CC770 and Intel AN82527
-Date: Wed, 30 Nov 2011 07:37:08 +0100
-Message-ID: <4ED5CF14.4020502@hartkopp.net>
-References: <1322136448-7311-1-git-send-email-wg@grandegger.com>
-	<20111129.183950.1327835803051184146.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Integration of Open vSwitch
+Date: Wed, 30 Nov 2011 15:00:11 +0800
+Message-ID: <20111130070011.GA32630@gondor.apana.org.au>
+References: <CAEP_g=-g5g0Z30gYBDAZ8s7ACCZSy5MLJpPDxQmmc8m1wbk3tg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
-Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20111129.183950.1327835803051184146.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
-List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jhs@mojatatu.com, netdev <netdev@vger.kernel.org>,
+	dev@openvswitch.org, David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Chris Wright <chrisw@redhat.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:41426 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751820Ab1K3HAZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 02:00:25 -0500
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=-g5g0Z30gYBDAZ8s7ACCZSy5MLJpPDxQmmc8m1wbk3tg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 30.11.2011 00:39, David Miller wrote:
-
-> From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-> Date: Thu, 24 Nov 2011 13:07:26 +0100
+On Tue, Nov 29, 2011 at 10:25:34PM -0800, Jesse Gross wrote:
+> Hi Herbert and Jamal (and everyone else),
 > 
->> Already since a while we have support for the Bosch CC770 and Intel
->> AN82527 CAN controllers in our out-of-tree Socket-CAN repository.
->> It would be nice if somebody could test the driver. Unfortunately,
->> I currently do not have hardware at hand. I have not yet ported the
->> OF platform driver as it needs further attaention due to the merge
->> of the platform and OF platform interface.
->>
->> Wolfgang Grandegger (2):
->>   can: cc770: add driver core for the Bosch CC770 and Intel AN82527
->>   can: cc770: legacy CC770 ISA bus driver
-> 
-> All applied, thank you.
+> Sorry about starting yet another thread but the other one went in so
+> many directions that I think a lot of things got lost in it.  As I
+> mentioned before, I'd like to have a bit of a design discussion of
+> what it would look like if Open vSwitch were to use some of the
+> existing components (and really focus on just that).  There were a
+> number of suggestions made about using parts of the bridge, tc,
+> netfilter, etc. and some of them overlap or conflict so I don't quite
+> have a coherent solution in mind.  Would you guys mind walking through
+> what each of you envision it looking like?
 
+Personally I think your patches are fine as is.
 
-Hello Dave,
+It would obviously be nice if we could refactor the code as Jamal
+suggested into classifiers/actions, which would allow us to reuse
+them elsewhere, e.g., the flow cache classifier could be merged
+with the GRO mechanism, or something even grander like the unified
+flow cache, while the using standard actions would make all
+existing actions available and generalise OVS into something
+that allows you to direct traffic at will to any destination
+in a system, without having to have a data-path object at all.
 
-this patchset was superseded for some time.
+But really I don't see immediate gains that are big enough to
+warrant any actions in that direction right now.  If we really
+wanted to do that in future we can always add those classifiers
+and actions and migrate things over.
 
-We're currently in the v4 patchset (dated 2011-11-29).
+The other factor I considered is scalability.  The OVS code as is
+is not really friendly to SMP/NUMA scalability (but as Eric pointed,
+neither is the classifier/action layer).  However, if this were to
+become a problem in future I'm sure we could extend either the
+interface as is (e.g., deploying multiqueue netlink sockets), or
+migrate to something else.
 
-See http://patchwork.ozlabs.org/patch/128244/
+So I don't really have any objections to this going into the tree.
 
-Do you want to revert the commit or should Wolfgang post a diff patch to get
-to v4 ??
-
-Regards,
-Oliver
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
