@@ -1,45 +1,168 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [v4 PATCH 1/2] NETFILTER module xt_hmark, new target 	for HASH
- based fwmark
-Date: Wed, 30 Nov 2011 16:27:26 +0100
-Message-ID: <4ED64B5E.2030705@trash.net>
-References: <hr62jai.42522fc2b4c8846204d05566f5c6b926@obelix.schillstrom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, jengelh@medozas.de,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	hans.schillstrom@ericsson.com
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <hr62jai.42522fc2b4c8846204d05566f5c6b926@obelix.schillstrom.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH 2/2] net/hyperv: Add support for promiscuous mode setting
+Date: Wed, 30 Nov 2011 07:19:08 -0800
+Message-ID: <1322666348-6554-2-git-send-email-haiyangz@microsoft.com>
+References: <1322666348-6554-1-git-send-email-haiyangz@microsoft.com>
+To: haiyangz@microsoft.com, kys@microsoft.com, davem@davemloft.net,
+	gregkh@suse.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, devel@linuxdriverproject.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1322666348-6554-1-git-send-email-haiyangz@microsoft.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/28/2011 10:36 AM, Hans Schillstrom wrote:
->> If you don't want to use conntrack in your setup and you want to handle
->> fragments, then you have to configure HMARK to calculate the hashing
->> based on the network addresses. If you want to fully support fragments,
->> then enable conntrack and you can configure HMARK to calculate the
->> hashing based on network address + transport bits.
->>
->> Fix this by removing the fragmentation handling, then assume that
->> people can select between two hashing configuration for HMARK. One
->> based for network address which is fragment-safe, one that uses the
->> transport layer information, that requires conntrack. Otherwise, I
->> don't see a sane way to handle this situation.
-> Correct me if I'm wrong here,
-> If conntrack is enabled hmark don't see the packet until it is reassembled and
-> in that case the fragmentation header is removed.
->
-> So, with conntrack HMARK will operate on full packets not fragments
-> without conntrack ports will not be used on any fragment
+Add code to accept promiscuous mode setting, and pass it to
+RNDIS filter.
 
-Correct.
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   |   24 +++++++++++++++++++
+ drivers/net/hyperv/netvsc_drv.c   |   46 ++++++++++++++++++++++++++++++++++--
+ drivers/net/hyperv/rndis_filter.c |   23 +-----------------
+ 3 files changed, 68 insertions(+), 25 deletions(-)
 
-You don't necessarily need conntrack for defragmentation though,
-we've moved defragmentation to a seperate module for TPROXY. You
-can depend on that and get defragmentation without full
-connection tracking.
-
-
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index ac1ec84..49b131f 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -87,6 +87,27 @@ struct netvsc_device_info {
+ 	int  ring_size;
+ };
+ 
++enum rndis_device_state {
++	RNDIS_DEV_UNINITIALIZED = 0,
++	RNDIS_DEV_INITIALIZING,
++	RNDIS_DEV_INITIALIZED,
++	RNDIS_DEV_DATAINITIALIZED,
++};
++
++struct rndis_device {
++	struct netvsc_device *net_dev;
++
++	enum rndis_device_state state;
++	bool link_state;
++	atomic_t new_req_id;
++
++	spinlock_t request_lock;
++	struct list_head req_list;
++
++	unsigned char hw_mac_adr[ETH_ALEN];
++};
++
++
+ /* Interface */
+ int netvsc_device_add(struct hv_device *device, void *additional_info);
+ int netvsc_device_remove(struct hv_device *device);
+@@ -109,6 +130,9 @@ int rndis_filter_receive(struct hv_device *dev,
+ int rndis_filter_send(struct hv_device *dev,
+ 			struct hv_netvsc_packet *pkt);
+ 
++int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter);
++
++
+ #define NVSP_INVALID_PROTOCOL_VERSION	((u32)0xFFFFFFFF)
+ 
+ #define NVSP_PROTOCOL_VERSION_1		2
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 93b0e91..b69c3a4 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -56,11 +56,51 @@ static int ring_size = 128;
+ module_param(ring_size, int, S_IRUGO);
+ MODULE_PARM_DESC(ring_size, "Ring buffer size (# of pages)");
+ 
+-/* no-op so the netdev core doesn't return -EINVAL when modifying the the
+- * multicast address list in SIOCADDMULTI. hv is setup to get all multicast
+- * when it calls RndisFilterOnOpen() */
++struct set_multicast_work {
++	struct work_struct work;
++	struct net_device *net;
++};
++
++static void do_set_multicast(struct work_struct *w)
++{
++	struct set_multicast_work *swk =
++		container_of(w, struct set_multicast_work, work);
++	struct net_device *net = swk->net;
++
++	struct net_device_context *ndevctx = netdev_priv(net);
++	struct netvsc_device *nvdev;
++	struct rndis_device *rdev;
++
++	nvdev = hv_get_drvdata(ndevctx->device_ctx);
++	if (nvdev == NULL)
++		return;
++
++	rdev = nvdev->extension;
++	if (rdev == NULL)
++		return;
++
++	if (net->flags & IFF_PROMISC)
++		rndis_filter_set_packet_filter(rdev,
++			NDIS_PACKET_TYPE_PROMISCUOUS);
++	else
++		rndis_filter_set_packet_filter(rdev,
++			NDIS_PACKET_TYPE_BROADCAST |
++			NDIS_PACKET_TYPE_ALL_MULTICAST |
++			NDIS_PACKET_TYPE_DIRECTED);
++
++	kfree(w);
++}
++
+ static void netvsc_set_multicast_list(struct net_device *net)
+ {
++	struct set_multicast_work *swk =
++		kmalloc(sizeof(struct set_multicast_work), GFP_ATOMIC);
++	if (swk == NULL)
++		return;
++
++	swk->net = net;
++	INIT_WORK(&swk->work, do_set_multicast);
++	schedule_work(&swk->work);
+ }
+ 
+ static int netvsc_open(struct net_device *net)
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index bafccb3..418e7aa 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -30,26 +30,6 @@
+ #include "hyperv_net.h"
+ 
+ 
+-enum rndis_device_state {
+-	RNDIS_DEV_UNINITIALIZED = 0,
+-	RNDIS_DEV_INITIALIZING,
+-	RNDIS_DEV_INITIALIZED,
+-	RNDIS_DEV_DATAINITIALIZED,
+-};
+-
+-struct rndis_device {
+-	struct netvsc_device *net_dev;
+-
+-	enum rndis_device_state state;
+-	bool link_state;
+-	atomic_t new_req_id;
+-
+-	spinlock_t request_lock;
+-	struct list_head req_list;
+-
+-	unsigned char hw_mac_adr[ETH_ALEN];
+-};
+-
+ struct rndis_request {
+ 	struct list_head list_ent;
+ 	struct completion  wait_event;
+@@ -522,8 +502,7 @@ static int rndis_filter_query_device_link_status(struct rndis_device *dev)
+ 	return ret;
+ }
+ 
+-static int rndis_filter_set_packet_filter(struct rndis_device *dev,
+-				      u32 new_filter)
++int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter)
+ {
+ 	struct rndis_request *request;
+ 	struct rndis_set_request *set;
+-- 
+1.7.4.1
