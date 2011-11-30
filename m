@@ -1,42 +1,53 @@
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: [PATCH 12/12] [IEEE802154] ieee802154: set default device as wpan
-Date: Wed, 30 Nov 2011 17:28:04 +0300
-Message-ID: <1322663284-4166-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-References: <20111130141827.GA3739@avtobot.cybertron>
-Cc: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	davem@davemloft.net,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-To: dbaryshkov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:58847 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752709Ab1K3N2V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 08:28:21 -0500
-Received: by eaak14 with SMTP id k14so666792eaa.19
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 05:28:20 -0800 (PST)
-In-Reply-To: <20111130141827.GA3739@avtobot.cybertron>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: Integration of Open vSwitch
+Date: Wed, 30 Nov 2011 21:40:28 +0800
+Message-ID: <20111130134028.GA3226@gondor.apana.org.au>
+References: <CAEP_g=-g5g0Z30gYBDAZ8s7ACCZSy5MLJpPDxQmmc8m1wbk3tg@mail.gmail.com>
+	<20111130070011.GA32630@gondor.apana.org.au>
+	<1322658891.2243.15.camel@mojatatu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Chris Wright <chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1322658891.2243.15.camel@mojatatu>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Set default device type to wpan during creating interface.
+On Wed, Nov 30, 2011 at 08:14:51AM -0500, jamal wrote:
+> On Wed, 2011-11-30 at 15:00 +0800, Herbert Xu wrote:
+> 
+> 
+> > The other factor I considered is scalability.  The OVS code as is
+> > is not really friendly to SMP/NUMA scalability (but as Eric pointed,
+> > neither is the classifier/action layer). 
+> 
+> Did you mean the qdisc funnel-to-interface part which Eric is hopefully
+> going to work on now that bql is in? classifier/action happens way
+> before that.
 
-Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
----
- net/ieee802154/nl-phy.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+I actually meant the scalability with adding/deleting flows,
+or in the case with qdiscs, filters.
 
-diff --git a/net/ieee802154/nl-phy.c b/net/ieee802154/nl-phy.c
-index 0c02fcf..ab211d2 100644
---- a/net/ieee802154/nl-phy.c
-+++ b/net/ieee802154/nl-phy.c
-@@ -179,7 +179,7 @@ static int ieee802154_add_iface(struct sk_buff *skb,
- 	const char *devname;
- 	int rc = -ENOBUFS;
- 	struct net_device *dev;
--        int type = -EINVAL;
-+        int type = IEEE802154_DEV_WPAN;
- 
- 	pr_debug("%s\n", __func__);
- 
+OVS is quite scalable on the fast-path, but when it comes to
+new flows, you have a bottleneck.
+
+Cheers,
 -- 
-1.7.2.3
+Email: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
