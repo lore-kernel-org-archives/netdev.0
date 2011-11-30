@@ -1,170 +1,305 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: 3.2-rc2+: Reported regressions from 3.0 and 3.1
-Date: Wed, 30 Nov 2011 12:59:36 -0500
-Message-ID: <20111130175936.GA15168@phenom.dumpdata.com>
-References: <lx6sezwGldO.A.IhF.UBpWOB@chimera> <201111212249.31196.rjw@sisk.pl>
-	<20111122135412.GA29905@phenom.dumpdata.com>
-	<20111129180414.GA11459@phenom.dumpdata.com>
-	<20111129183428.GE8200@aftab>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] can: Update logging style
+Date: Wed, 30 Nov 2011 10:23:58 -0800
+Message-ID: <1322677438.10023.7.camel@Joe-Laptop>
+References: <30551d0a6a0f7f7799a6981c81c770a528f430d2.1322592708.git.joe@perches.com>
+	 <4ED53B47.1030703@pengutronix.de> <4ED6331E.6020005@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Florian Mickler <florian@mickler.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>, x86@kernel.org,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	DRI <dri-devel@lists.freedesktop.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>, mingo@redhat.com,
-	hpa@zytor.com, tglx@linutronix.de,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>
-To: Borislav Petkov <bp@amd64.org>
-Return-path: <linux-pm-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20111129183428.GE8200@aftab>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
-List-Post: <mailto:linux-pm@lists.linux-foundation.org>
-List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.linux-foundation.org
-Errors-To: linux-pm-bounces@lists.linux-foundation.org
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>,
+	"David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4ED6331E.6020005@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 29, 2011 at 07:34:28PM +0100, Borislav Petkov wrote:
-> On Tue, Nov 29, 2011 at 01:04:14PM -0500, Konrad Rzeszutek Wilk wrote:
-> > This patch:
+Use pr_fmt, pr_<level> and pr_<level>_ratelimited.
+Coalesce format strings.
 
+V2: Appease Oliver Hartkopp by adding "can" to the banner output.
 
-Borislav,
+Signed-off-by: Joe Perches <joe@perches.com>
 
-Thanks for your review comments. How does this patch look? I believe
-I touched upon all of the things you mentioned.
-
->From eb6dbd80078312c428dde69e9313606b7513a2e6 Mon Sep 17 00:00:00 2001
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Date: Mon, 21 Nov 2011 18:02:02 -0500
-Subject: [PATCH] xen/pm_idle: Make pm_idle be default_idle under Xen.
-
-This patch:
-
-commit d91ee5863b71e8c90eaf6035bff3078a85e2e7b5
-Author: Len Brown <len.brown@intel.com>
-Date:   Fri Apr 1 18:28:35 2011 -0400
-
-    cpuidle: replace xen access to x86 pm_idle and default_idle
-
-    ..scribble on pm_idle and access default_idle,
-   have it simply disable_cpuidle() so acpi_idle will not load and
-   architecture default HLT will be used.
-
-idea was to have one call - disable_cpuidle() which would make
-pm_idle not be molested by other code. It disallows cpuidle_idle_call
-to be set to pm_idle (which is excellent). But in the select_idle_routine()
-and idle_setup(), the pm_idle can still be set to either:
-amd_e400_idle, mwait_idle or default_idle. This depends on some
-CPU flags (MWAIT) and in AMD case on the type of CPU.
-
-In case of mwait_idle we can hit some instances where the hypervisor
-(Amazon EC2 specifically) sets the MWAIT and we get:
-
-Brought up 2 CPUs
-invalid opcode: 0000 [#1] SMP
-CPU 1
-Modules linked in:
-
-Pid: 0, comm: swapper Not tainted 3.1.0-0.rc6.git0.3.fc16.x86_64 #1
-RIP: e030:[<ffffffff81015d1d>]  [<ffffffff81015d1d>] mwait_idle+0x6f/0xb4
-RSP: e02b:ffff8801d28ddf10  EFLAGS: 00010082
-RAX: ffff8801d28dc010 RBX: ffff8801d28ddfd8 RCX: 0000000000000000
-RDX: 0000000000000000 RSI: 0000000000000001 RDI: 0000000000000001
-RBP: ffff8801d28ddf10 R08: 0000000000000000 R09: 0000000000000001
-R10: 0000000000000001 R11: ffff8801d28ddfd8 R12: ffffffff81b590d0
-R13: 0000000000000000 R14: 0000000000000000 R15: 0000000000000000
-FS:  0000000000000000(0000) GS:ffff8801dff81000(0000) knlGS:0000000000000000
-CS:  e033 DS: 002b ES: 002b CR0: 000000008005003b
-CR2: 0000000000000000 CR3: 0000000001a05000 CR4: 0000000000002660
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000000
-Process swapper (pid: 0, threadinfo ffff8801d28dc000, task ffff8801d28cae60)
-Stack:
- ffff8801d28ddf40 ffffffff8100e2ed ffff8801dff8e390 c136dfe72feab515
- 0000000000000000 0000000000000000 ffff8801d28ddf50 ffffffff8149ee78
- 0000000000000000 0000000000000000 0000000000000000 0000000000000000
-Call Trace:
- [<ffffffff8100e2ed>] cpu_idle+0xae/0xe8
- [<ffffffff8149ee78>] cpu_bringup_and_idle+0xe/0x10
-RIP  [<ffffffff81015d1d>] mwait_idle+0x6f/0xb4
- RSP <ffff8801d28ddf10>
-
-In case of amd_e400_idle we don't get so spectacular crashes, but
-we do end up making an MSR which is trapped in the hypervisor,
-and then follow it up with a yield hypercall. Meaning we end up
-going to hypervisor twice instead of just once.
-
-The previous behavior before v3.0 was that pm_idle was set
-to default_idle irregardless of select_idle_routine/idle_setup.
-
-We want to do that, but only for one specific case: Xen.
-This patch does that.
-
-Fixes RH BZ #739499 and Ubuntu #881076
-Reported-by: Stefan Bader <stefan.bader@canonical.com>
-Signed-off-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 ---
- arch/x86/include/asm/system.h |    1 +
- arch/x86/kernel/process.c     |    8 ++++++++
- arch/x86/xen/setup.c          |    2 +-
- 3 files changed, 10 insertions(+), 1 deletions(-)
 
-diff --git a/arch/x86/include/asm/system.h b/arch/x86/include/asm/system.h
-index c2ff2a1..2d2f01c 100644
---- a/arch/x86/include/asm/system.h
-+++ b/arch/x86/include/asm/system.h
-@@ -401,6 +401,7 @@ extern unsigned long arch_align_stack(unsigned long sp);
- extern void free_init_pages(char *what, unsigned long begin, unsigned long end);
+> IMO if you want to use pr_fmt() it should at least look like this:
+> can: controller area network core (rev 20090105 abi 8)
+> NET: Registered protocol family 29
+> can_raw: can raw protocol (rev 20090105)
+> can_gw: can netlink gateway (rev 20101209)
+> can_bcm: can broadcast manager protocol (rev 20090105 t)
+> 
+> I'm fine with using pr_fmt() for error/warning output but not for the banner
+> in the currently suggested way.
+
+I think it's duplicative, but it's not my code.
+
+ net/can/af_can.c |   31 ++++++++++++++-----------------
+ net/can/bcm.c    |   14 ++++++++------
+ net/can/gw.c     |    6 ++++--
+ net/can/proc.c   |    8 ++++----
+ net/can/raw.c    |    8 +++++---
+ 5 files changed, 35 insertions(+), 32 deletions(-)
+
+diff --git a/net/can/af_can.c b/net/can/af_can.c
+index 0ce2ad0..c4f0da5 100644
+--- a/net/can/af_can.c
++++ b/net/can/af_can.c
+@@ -40,6 +40,8 @@
+  *
+  */
  
- void default_idle(void);
-+bool set_pm_idle_to_default(void);
- 
- void stop_this_cpu(void *dummy);
- 
-diff --git a/arch/x86/kernel/process.c b/arch/x86/kernel/process.c
-index 1f7f8c8..31f47ba 100644
---- a/arch/x86/kernel/process.c
-+++ b/arch/x86/kernel/process.c
-@@ -404,6 +404,14 @@ void default_idle(void)
- EXPORT_SYMBOL(default_idle);
- #endif
- 
-+bool set_pm_idle_to_default(void)
-+{
-+	bool ret = !!pm_idle;
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 +
-+	pm_idle = default_idle;
-+
-+	return ret;
-+}
- void stop_this_cpu(void *dummy)
+ #include <linux/module.h>
+ #include <linux/init.h>
+ #include <linux/kmod.h>
+@@ -62,8 +64,8 @@
+ 
+ #include "af_can.h"
+ 
+-static __initdata const char banner[] = KERN_INFO
+-	"can: controller area network core (" CAN_VERSION_STRING ")\n";
++static __initdata const char banner[] =
++	"controller area network core (" CAN_VERSION_STRING ")";
+ 
+ MODULE_DESCRIPTION("Controller Area Network PF_CAN core");
+ MODULE_LICENSE("Dual BSD/GPL");
+@@ -161,8 +163,8 @@ static int can_create(struct net *net, struct socket *sock, int protocol,
+ 		 * return -EPROTONOSUPPORT
+ 		 */
+ 		if (err)
+-			printk_ratelimited(KERN_ERR "can: request_module "
+-			       "(can-proto-%d) failed.\n", protocol);
++			pr_err_ratelimited("request_module (can-proto-%d) failed\n",
++					   protocol);
+ 
+ 		cp = can_get_proto(protocol);
+ 	}
+@@ -505,8 +507,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+ 
+ 	d = find_dev_rcv_lists(dev);
+ 	if (!d) {
+-		printk(KERN_ERR "BUG: receive list not found for "
+-		       "dev %s, id %03X, mask %03X\n",
++		pr_err("BUG: receive list not found for dev %s, id %03X, mask %03X\n",
+ 		       DNAME(dev), can_id, mask);
+ 		goto out;
+ 	}
+@@ -532,8 +533,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+ 	 */
+ 
+ 	if (!next) {
+-		printk(KERN_ERR "BUG: receive list entry not found for "
+-		       "dev %s, id %03X, mask %03X\n",
++		pr_err("BUG: receive list entry not found for dev %s, id %03X, mask %03X\n",
+ 		       DNAME(dev), can_id, mask);
+ 		r = NULL;
+ 		goto out;
+@@ -701,8 +701,7 @@ int can_proto_register(const struct can_proto *cp)
+ 	int err = 0;
+ 
+ 	if (proto < 0 || proto >= CAN_NPROTO) {
+-		printk(KERN_ERR "can: protocol number %d out of range\n",
+-		       proto);
++		pr_err("protocol number %d out of range\n", proto);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -713,8 +712,7 @@ int can_proto_register(const struct can_proto *cp)
+ 	mutex_lock(&proto_tab_lock);
+ 
+ 	if (proto_tab[proto]) {
+-		printk(KERN_ERR "can: protocol %d already registered\n",
+-		       proto);
++		pr_err("protocol %d already registered\n", proto);
+ 		err = -EBUSY;
+ 	} else
+ 		RCU_INIT_POINTER(proto_tab[proto], cp);
+@@ -769,8 +767,7 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
+ 		/* create new dev_rcv_lists for this device */
+ 		d = kzalloc(sizeof(*d), GFP_KERNEL);
+ 		if (!d) {
+-			printk(KERN_ERR
+-			       "can: allocation of receive list failed\n");
++			pr_err("allocation of receive list failed\n");
+ 			return NOTIFY_DONE;
+ 		}
+ 		BUG_ON(dev->ml_priv);
+@@ -790,8 +787,8 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
+ 				dev->ml_priv = NULL;
+ 			}
+ 		} else
+-			printk(KERN_ERR "can: notifier: receive list not "
+-			       "found for dev %s\n", dev->name);
++			pr_err("notifier: receive list not found for dev %s\n",
++			       dev->name);
+ 
+ 		spin_unlock(&can_rcvlists_lock);
+ 
+@@ -824,7 +821,7 @@ static struct notifier_block can_netdev_notifier __read_mostly = {
+ 
+ static __init int can_init(void)
  {
- 	local_irq_disable();
-diff --git a/arch/x86/xen/setup.c b/arch/x86/xen/setup.c
-index 46d6d21..79dfb57 100644
---- a/arch/x86/xen/setup.c
-+++ b/arch/x86/xen/setup.c
-@@ -448,6 +448,6 @@ void __init xen_arch_setup(void)
- #endif
- 	disable_cpuidle();
- 	boot_option_idle_override = IDLE_HALT;
--
-+	WARN_ON(set_pm_idle_to_default());
- 	fiddle_vdso();
+-	printk(banner);
++	pr_info("%s\n", banner);
+ 
+ 	memset(&can_rx_alldev_list, 0, sizeof(can_rx_alldev_list));
+ 
+diff --git a/net/can/bcm.c b/net/can/bcm.c
+index 151b773..540c804 100644
+--- a/net/can/bcm.c
++++ b/net/can/bcm.c
+@@ -39,6 +39,8 @@
+  *
+  */
+ 
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
+ #include <linux/module.h>
+ #include <linux/init.h>
+ #include <linux/interrupt.h>
+@@ -77,8 +79,8 @@
+ 		     (CAN_SFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG))
+ 
+ #define CAN_BCM_VERSION CAN_VERSION
+-static __initdata const char banner[] = KERN_INFO
+-	"can: broadcast manager protocol (rev " CAN_BCM_VERSION " t)\n";
++static __initdata const char banner[] =
++	"can broadcast manager protocol (rev " CAN_BCM_VERSION " t)";
+ 
+ MODULE_DESCRIPTION("PF_CAN broadcast manager protocol");
+ MODULE_LICENSE("Dual BSD/GPL");
+@@ -729,8 +731,8 @@ static void bcm_rx_unreg(struct net_device *dev, struct bcm_op *op)
+ 		/* mark as removed subscription */
+ 		op->rx_reg_dev = NULL;
+ 	} else
+-		printk(KERN_ERR "can-bcm: bcm_rx_unreg: registered device "
+-		       "mismatch %p %p\n", op->rx_reg_dev, dev);
++		pr_err("%s: registered device mismatch %p %p\n",
++		       __func__, op->rx_reg_dev, dev);
  }
--- 
-1.7.7.3
+ 
+ /*
+@@ -1606,11 +1608,11 @@ static int __init bcm_module_init(void)
+ {
+ 	int err;
+ 
+-	printk(banner);
++	pr_info("%s\n", banner);
+ 
+ 	err = can_proto_register(&bcm_can_proto);
+ 	if (err < 0) {
+-		printk(KERN_ERR "can: registration of bcm protocol failed\n");
++		pr_err("registration of bcm protocol failed\n");
+ 		return err;
+ 	}
+ 
+diff --git a/net/can/gw.c b/net/can/gw.c
+index 3d79b12..e17253f 100644
+--- a/net/can/gw.c
++++ b/net/can/gw.c
+@@ -39,6 +39,8 @@
+  *
+  */
+ 
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
+ #include <linux/module.h>
+ #include <linux/init.h>
+ #include <linux/types.h>
+@@ -59,7 +61,7 @@
+ 
+ #define CAN_GW_VERSION "20101209"
+ static __initdata const char banner[] =
+-	KERN_INFO "can: netlink gateway (rev " CAN_GW_VERSION ")\n";
++	"can netlink gateway (rev " CAN_GW_VERSION ")";
+ 
+ MODULE_DESCRIPTION("PF_CAN netlink gateway");
+ MODULE_LICENSE("Dual BSD/GPL");
+@@ -913,7 +915,7 @@ static int cgw_remove_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
+ 
+ static __init int cgw_module_init(void)
+ {
+-	printk(banner);
++	pr_info("%s\n", banner);
+ 
+ 	cgw_cache = kmem_cache_create("can_gw", sizeof(struct cgw_job),
+ 				      0, 0, NULL);
+diff --git a/net/can/proc.c b/net/can/proc.c
+index ba873c3..c3aedf5 100644
+--- a/net/can/proc.c
++++ b/net/can/proc.c
+@@ -39,6 +39,8 @@
+  *
+  */
+ 
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
+ #include <linux/module.h>
+ #include <linux/proc_fs.h>
+ #include <linux/list.h>
+@@ -118,8 +120,7 @@ static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
+ 
+ 	/* see can_stat_update() - this should NEVER happen! */
+ 	if (count > (ULONG_MAX / HZ)) {
+-		printk(KERN_ERR "can: calc_rate: count exceeded! %ld\n",
+-		       count);
++		pr_err("%s: count exceeded! %ld\n", __func__, count);
+ 		return 99999999;
+ 	}
+ 
+@@ -475,8 +476,7 @@ void can_init_proc(void)
+ 	can_dir = proc_mkdir("can", init_net.proc_net);
+ 
+ 	if (!can_dir) {
+-		printk(KERN_INFO "can: failed to create /proc/net/can . "
+-		       "CONFIG_PROC_FS missing?\n");
++		pr_info("failed to create /proc/net/can . CONFIG_PROC_FS missing?\n");
+ 		return;
+ 	}
+ 
+diff --git a/net/can/raw.c b/net/can/raw.c
+index cde1b4a..2875c55 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -39,6 +39,8 @@
+  *
+  */
+ 
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
+ #include <linux/module.h>
+ #include <linux/init.h>
+ #include <linux/uio.h>
+@@ -56,7 +58,7 @@
+ 
+ #define CAN_RAW_VERSION CAN_VERSION
+ static __initdata const char banner[] =
+-	KERN_INFO "can: raw protocol (rev " CAN_RAW_VERSION ")\n";
++	"can raw protocol (rev " CAN_RAW_VERSION ")";
+ 
+ MODULE_DESCRIPTION("PF_CAN raw protocol");
+ MODULE_LICENSE("Dual BSD/GPL");
+@@ -783,11 +785,11 @@ static __init int raw_module_init(void)
+ {
+ 	int err;
+ 
+-	printk(banner);
++	pr_info("%s\n", banner);
+ 
+ 	err = can_proto_register(&raw_can_proto);
+ 	if (err < 0)
+-		printk(KERN_ERR "can: registration of raw protocol failed\n");
++		pr_err("registration of raw protocol failed\n");
+ 
+ 	return err;
+ }
+
+
+
+
