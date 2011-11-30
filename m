@@ -1,64 +1,60 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH next-next 0/2] can: cc770: add support
- for the Bosch CC770 and Intel AN82527
-Date: Wed, 30 Nov 2011 09:29:03 +0100
-Message-ID: <4ED5E94F.8010403@grandegger.com>
-References: <1322136448-7311-1-git-send-email-wg@grandegger.com>	<20111129.183950.1327835803051184146.davem@davemloft.net>
-	<4ED5CF14.4020502@hartkopp.net>
+From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Subject: [PATCH] bridge: Cannot communicate with brX when its MAC address
+ is changed
+Date: Wed, 30 Nov 2011 17:31:18 +0900
+Message-ID: <4ED5E9D6.3070404@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4ED5CF14.4020502-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
-List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fgwmail6.fujitsu.co.jp ([192.51.44.36]:33159 "EHLO
+	fgwmail6.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756076Ab1K3Ib1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 03:31:27 -0500
+Received: from m1.gw.fujitsu.co.jp (unknown [10.0.50.71])
+	by fgwmail6.fujitsu.co.jp (Postfix) with ESMTP id D01583EE0BD
+	for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 17:31:25 +0900 (JST)
+Received: from smail (m1 [127.0.0.1])
+	by outgoing.m1.gw.fujitsu.co.jp (Postfix) with ESMTP id B63A145DE56
+	for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 17:31:25 +0900 (JST)
+Received: from s1.gw.fujitsu.co.jp (s1.gw.fujitsu.co.jp [10.0.50.91])
+	by m1.gw.fujitsu.co.jp (Postfix) with ESMTP id A02B545DE55
+	for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 17:31:25 +0900 (JST)
+Received: from s1.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id 8DF901DB8051
+	for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 17:31:25 +0900 (JST)
+Received: from ml14.s.css.fujitsu.com (ml14.s.css.fujitsu.com [10.240.81.134])
+	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id 451681DB8048
+	for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 17:31:25 +0900 (JST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/30/2011 07:37 AM, Oliver Hartkopp wrote:
-> On 30.11.2011 00:39, David Miller wrote:
-> 
->> From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
->> Date: Thu, 24 Nov 2011 13:07:26 +0100
->>
->>> Already since a while we have support for the Bosch CC770 and Intel
->>> AN82527 CAN controllers in our out-of-tree Socket-CAN repository.
->>> It would be nice if somebody could test the driver. Unfortunately,
->>> I currently do not have hardware at hand. I have not yet ported the
->>> OF platform driver as it needs further attaention due to the merge
->>> of the platform and OF platform interface.
->>>
->>> Wolfgang Grandegger (2):
->>>   can: cc770: add driver core for the Bosch CC770 and Intel AN82527
->>>   can: cc770: legacy CC770 ISA bus driver
->>
->> All applied, thank you.
-> 
-> 
-> Hello Dave,
-> 
-> this patchset was superseded for some time.
-> 
-> We're currently in the v4 patchset (dated 2011-11-29).
+When the MAC address of a bridge interface is changed, it cannot communicate
+with others. Because Whether or not a packet should be transferred to bridge
+interface depends on whether or not dst of a packet is in fdb and is_local=y.
+If we change MAC address of a bridge interface, it isn't in fdb.
 
-I just sent v5...
+This patch adds an condition that dst of a packet matches MAC address of
+a bridge interface to the conventional condition.
 
-> See http://patchwork.ozlabs.org/patch/128244/
-> 
-> Do you want to revert the commit or should Wolfgang post a diff patch to get
-> to v4 ??
+Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+---
+ net/bridge/br_input.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-Reverting and applying v5 would make sense as there are many changes.
-
-Did I do something wrong?
-
-Wolfgang.
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 5a31731..4e5c862 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -94,7 +94,8 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 			skb2 = skb;
+ 
+ 		br->dev->stats.multicast++;
+-	} else if ((dst = __br_fdb_get(br, dest)) && dst->is_local) {
++	} else if ((dst = __br_fdb_get(br, dest) && dst->is_local) ||
++		   !compare_ether_addr(p->br->dev->dev_addr, dest)) {
+ 		skb2 = skb;
+ 		/* Do not forward the packet since it's local. */
+ 		skb = NULL;
