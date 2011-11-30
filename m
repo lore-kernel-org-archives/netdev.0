@@ -1,175 +1,64 @@
 From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: [PATCH net-next v5 4/4] powerpc: tqm8548/tqm8xx: add and update CAN
- device nodes
-Date: Wed, 30 Nov 2011 09:18:14 +0100
-Message-ID: <1322641094-12175-5-git-send-email-wg@grandegger.com>
-References: <1322641094-12175-1-git-send-email-wg@grandegger.com>
+Subject: Re: [PATCH next-next 0/2] can: cc770: add support
+ for the Bosch CC770 and Intel AN82527
+Date: Wed, 30 Nov 2011 09:29:03 +0100
+Message-ID: <4ED5E94F.8010403@grandegger.com>
+References: <1322136448-7311-1-git-send-email-wg@grandegger.com>	<20111129.183950.1327835803051184146.davem@davemloft.net>
+	<4ED5CF14.4020502@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Stanislav Yelenskiy <stanislavelensky-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>,
- devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linuxppc-dev-mnsaURCQ41sdnm+yROfE0A@public.gmane.org, IreneV <boir1-o+MxOtu4lMCHXe+LvDLADg@public.gmane.org>,
- socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1322641094-12175-1-git-send-email-wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4ED5CF14.4020502-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
+List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch enables or updates support for the CC770 and AN82527
-CAN controller on the TQM8548 and TQM8xx boards.
+On 11/30/2011 07:37 AM, Oliver Hartkopp wrote:
+> On 30.11.2011 00:39, David Miller wrote:
+> 
+>> From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+>> Date: Thu, 24 Nov 2011 13:07:26 +0100
+>>
+>>> Already since a while we have support for the Bosch CC770 and Intel
+>>> AN82527 CAN controllers in our out-of-tree Socket-CAN repository.
+>>> It would be nice if somebody could test the driver. Unfortunately,
+>>> I currently do not have hardware at hand. I have not yet ported the
+>>> OF platform driver as it needs further attaention due to the merge
+>>> of the platform and OF platform interface.
+>>>
+>>> Wolfgang Grandegger (2):
+>>>   can: cc770: add driver core for the Bosch CC770 and Intel AN82527
+>>>   can: cc770: legacy CC770 ISA bus driver
+>>
+>> All applied, thank you.
+> 
+> 
+> Hello Dave,
+> 
+> this patchset was superseded for some time.
+> 
+> We're currently in the v4 patchset (dated 2011-11-29).
 
-CC: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-CC: linuxppc-dev-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
-CC: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
-Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
----
- arch/powerpc/boot/dts/tqm8548-bigflash.dts |   19 ++++++++++++++-----
- arch/powerpc/boot/dts/tqm8548.dts          |   19 ++++++++++++++-----
- arch/powerpc/boot/dts/tqm8xx.dts           |   25 +++++++++++++++++++++++++
- 3 files changed, 53 insertions(+), 10 deletions(-)
+I just sent v5...
 
-diff --git a/arch/powerpc/boot/dts/tqm8548-bigflash.dts b/arch/powerpc/boot/dts/tqm8548-bigflash.dts
-index 9452c3c..d918752 100644
---- a/arch/powerpc/boot/dts/tqm8548-bigflash.dts
-+++ b/arch/powerpc/boot/dts/tqm8548-bigflash.dts
-@@ -352,7 +352,7 @@
- 		ranges = <
- 			0 0x0 0xfc000000 0x04000000	// NOR FLASH bank 1
- 			1 0x0 0xf8000000 0x08000000	// NOR FLASH bank 0
--			2 0x0 0xa3000000 0x00008000	// CAN (2 x i82527)
-+			2 0x0 0xa3000000 0x00008000	// CAN (2 x CC770)
- 			3 0x0 0xa3010000 0x00008000	// NAND FLASH
- 
- 		>;
-@@ -393,18 +393,27 @@
- 		};
- 
- 		/* Note: CAN support needs be enabled in U-Boot */
--		can0@2,0 {
--			compatible = "intel,82527"; // Bosch CC770
-+		can@2,0 {
-+			compatible = "bosch,cc770"; // Bosch CC770
- 			reg = <2 0x0 0x100>;
- 			interrupts = <4 1>;
- 			interrupt-parent = <&mpic>;
-+			bosch,external-clock-frequency = <16000000>;
-+			bosch,disconnect-rx1-input;
-+			bosch,disconnect-tx1-output;
-+			bosch,iso-low-speed-mux;
-+			bosch,clock-out-frequency = <16000000>;
- 		};
- 
--		can1@2,100 {
--			compatible = "intel,82527"; // Bosch CC770
-+		can@2,100 {
-+			compatible = "bosch,cc770"; // Bosch CC770
- 			reg = <2 0x100 0x100>;
- 			interrupts = <4 1>;
- 			interrupt-parent = <&mpic>;
-+			bosch,external-clock-frequency = <16000000>;
-+			bosch,disconnect-rx1-input;
-+			bosch,disconnect-tx1-output;
-+			bosch,iso-low-speed-mux;
- 		};
- 
- 		/* Note: NAND support needs to be enabled in U-Boot */
-diff --git a/arch/powerpc/boot/dts/tqm8548.dts b/arch/powerpc/boot/dts/tqm8548.dts
-index 619776f..988d887 100644
---- a/arch/powerpc/boot/dts/tqm8548.dts
-+++ b/arch/powerpc/boot/dts/tqm8548.dts
-@@ -352,7 +352,7 @@
- 		ranges = <
- 			0 0x0 0xfc000000 0x04000000	// NOR FLASH bank 1
- 			1 0x0 0xf8000000 0x08000000	// NOR FLASH bank 0
--			2 0x0 0xe3000000 0x00008000	// CAN (2 x i82527)
-+			2 0x0 0xe3000000 0x00008000	// CAN (2 x CC770)
- 			3 0x0 0xe3010000 0x00008000	// NAND FLASH
- 
- 		>;
-@@ -393,18 +393,27 @@
- 		};
- 
- 		/* Note: CAN support needs be enabled in U-Boot */
--		can0@2,0 {
--			compatible = "intel,82527"; // Bosch CC770
-+		can@2,0 {
-+			compatible = "bosch,cc770"; // Bosch CC770
- 			reg = <2 0x0 0x100>;
- 			interrupts = <4 1>;
- 			interrupt-parent = <&mpic>;
-+			bosch,external-clock-frequency = <16000000>;
-+			bosch,disconnect-rx1-input;
-+			bosch,disconnect-tx1-output;
-+			bosch,iso-low-speed-mux;
-+			bosch,clock-out-frequency = <16000000>;
- 		};
- 
--		can1@2,100 {
--			compatible = "intel,82527"; // Bosch CC770
-+		can@2,100 {
-+			compatible = "bosch,cc770"; // Bosch CC770
- 			reg = <2 0x100 0x100>;
- 			interrupts = <4 1>;
- 			interrupt-parent = <&mpic>;
-+			bosch,external-clock-frequency = <16000000>;
-+			bosch,disconnect-rx1-input;
-+			bosch,disconnect-tx1-output;
-+			bosch,iso-low-speed-mux;
- 		};
- 
- 		/* Note: NAND support needs to be enabled in U-Boot */
-diff --git a/arch/powerpc/boot/dts/tqm8xx.dts b/arch/powerpc/boot/dts/tqm8xx.dts
-index f6da7ec..c3dba25 100644
---- a/arch/powerpc/boot/dts/tqm8xx.dts
-+++ b/arch/powerpc/boot/dts/tqm8xx.dts
-@@ -57,6 +57,7 @@
- 
- 		ranges = <
- 			0x0 0x0 0x40000000 0x800000
-+			0x3 0x0 0xc0000000 0x200
- 		>;
- 
- 		flash@0,0 {
-@@ -67,6 +68,30 @@
- 			bank-width = <4>;
- 			device-width = <2>;
- 		};
-+
-+		/* Note: CAN support needs be enabled in U-Boot */
-+		can@3,0 {
-+			compatible = "intc,82527";
-+			reg = <3 0x0 0x80>;
-+			interrupts = <8 1>;
-+			interrupt-parent = <&PIC>;
-+			bosch,external-clock-frequency = <16000000>;
-+			bosch,disconnect-rx1-input;
-+			bosch,disconnect-tx1-output;
-+			bosch,iso-low-speed-mux;
-+			bosch,clock-out-frequency = <16000000>;
-+		};
-+
-+		can@3,100 {
-+			compatible = "intc,82527";
-+			reg = <3 0x100 0x80>;
-+			interrupts = <8 1>;
-+			interrupt-parent = <&PIC>;
-+			bosch,external-clock-frequency = <16000000>;
-+			bosch,disconnect-rx1-input;
-+			bosch,disconnect-tx1-output;
-+			bosch,iso-low-speed-mux;
-+		};
- 	};
- 
- 	soc@fff00000 {
--- 
-1.7.4.1
+> See http://patchwork.ozlabs.org/patch/128244/
+> 
+> Do you want to revert the commit or should Wolfgang post a diff patch to get
+> to v4 ??
+
+Reverting and applying v5 would make sense as there are many changes.
+
+Did I do something wrong?
+
+Wolfgang.
