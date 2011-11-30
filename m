@@ -1,168 +1,42 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH 2/2] net/hyperv: Add support for promiscuous mode setting
-Date: Wed, 30 Nov 2011 07:19:08 -0800
-Message-ID: <1322666348-6554-2-git-send-email-haiyangz@microsoft.com>
-References: <1322666348-6554-1-git-send-email-haiyangz@microsoft.com>
-To: haiyangz@microsoft.com, kys@microsoft.com, davem@davemloft.net,
-	gregkh@suse.de, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, devel@linuxdriverproject.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1322666348-6554-1-git-send-email-haiyangz@microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Integration of Open vSwitch
+Date: Wed, 30 Nov 2011 23:47:15 +0800
+Message-ID: <20111130154715.GB4487@gondor.apana.org.au>
+References: <CAEP_g=-g5g0Z30gYBDAZ8s7ACCZSy5MLJpPDxQmmc8m1wbk3tg@mail.gmail.com> <20111130070011.GA32630@gondor.apana.org.au> <1322658891.2243.15.camel@mojatatu> <20111130134028.GA3226@gondor.apana.org.au> <1322661715.2243.33.camel@mojatatu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesse Gross <jesse@nicira.com>, netdev <netdev@vger.kernel.org>,
+	dev@openvswitch.org, David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Chris Wright <chrisw@redhat.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: jhs@mojatatu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:44636 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752433Ab1K3PrZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 10:47:25 -0500
+Content-Disposition: inline
+In-Reply-To: <1322661715.2243.33.camel@mojatatu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add code to accept promiscuous mode setting, and pass it to
-RNDIS filter.
+On Wed, Nov 30, 2011 at 09:01:55AM -0500, jamal wrote:
+>
+> Ah yes, them locks. Unless you start doing per-cpu tables
+> with lazy synchronization i am not sure how to avoid that.
+> Note: last time (time flies) i compared against iptables, the tc flow
+> setup/teardown was pretty consistent regardless of table size
+> relatively speaking.
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h   |   24 +++++++++++++++++++
- drivers/net/hyperv/netvsc_drv.c   |   46 ++++++++++++++++++++++++++++++++++--
- drivers/net/hyperv/rndis_filter.c |   23 +-----------------
- 3 files changed, 68 insertions(+), 25 deletions(-)
+iptables sets a pretty low bar :)
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index ac1ec84..49b131f 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -87,6 +87,27 @@ struct netvsc_device_info {
- 	int  ring_size;
- };
- 
-+enum rndis_device_state {
-+	RNDIS_DEV_UNINITIALIZED = 0,
-+	RNDIS_DEV_INITIALIZING,
-+	RNDIS_DEV_INITIALIZED,
-+	RNDIS_DEV_DATAINITIALIZED,
-+};
-+
-+struct rndis_device {
-+	struct netvsc_device *net_dev;
-+
-+	enum rndis_device_state state;
-+	bool link_state;
-+	atomic_t new_req_id;
-+
-+	spinlock_t request_lock;
-+	struct list_head req_list;
-+
-+	unsigned char hw_mac_adr[ETH_ALEN];
-+};
-+
-+
- /* Interface */
- int netvsc_device_add(struct hv_device *device, void *additional_info);
- int netvsc_device_remove(struct hv_device *device);
-@@ -109,6 +130,9 @@ int rndis_filter_receive(struct hv_device *dev,
- int rndis_filter_send(struct hv_device *dev,
- 			struct hv_netvsc_packet *pkt);
- 
-+int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter);
-+
-+
- #define NVSP_INVALID_PROTOCOL_VERSION	((u32)0xFFFFFFFF)
- 
- #define NVSP_PROTOCOL_VERSION_1		2
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 93b0e91..b69c3a4 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -56,11 +56,51 @@ static int ring_size = 128;
- module_param(ring_size, int, S_IRUGO);
- MODULE_PARM_DESC(ring_size, "Ring buffer size (# of pages)");
- 
--/* no-op so the netdev core doesn't return -EINVAL when modifying the the
-- * multicast address list in SIOCADDMULTI. hv is setup to get all multicast
-- * when it calls RndisFilterOnOpen() */
-+struct set_multicast_work {
-+	struct work_struct work;
-+	struct net_device *net;
-+};
-+
-+static void do_set_multicast(struct work_struct *w)
-+{
-+	struct set_multicast_work *swk =
-+		container_of(w, struct set_multicast_work, work);
-+	struct net_device *net = swk->net;
-+
-+	struct net_device_context *ndevctx = netdev_priv(net);
-+	struct netvsc_device *nvdev;
-+	struct rndis_device *rdev;
-+
-+	nvdev = hv_get_drvdata(ndevctx->device_ctx);
-+	if (nvdev == NULL)
-+		return;
-+
-+	rdev = nvdev->extension;
-+	if (rdev == NULL)
-+		return;
-+
-+	if (net->flags & IFF_PROMISC)
-+		rndis_filter_set_packet_filter(rdev,
-+			NDIS_PACKET_TYPE_PROMISCUOUS);
-+	else
-+		rndis_filter_set_packet_filter(rdev,
-+			NDIS_PACKET_TYPE_BROADCAST |
-+			NDIS_PACKET_TYPE_ALL_MULTICAST |
-+			NDIS_PACKET_TYPE_DIRECTED);
-+
-+	kfree(w);
-+}
-+
- static void netvsc_set_multicast_list(struct net_device *net)
- {
-+	struct set_multicast_work *swk =
-+		kmalloc(sizeof(struct set_multicast_work), GFP_ATOMIC);
-+	if (swk == NULL)
-+		return;
-+
-+	swk->net = net;
-+	INIT_WORK(&swk->work, do_set_multicast);
-+	schedule_work(&swk->work);
- }
- 
- static int netvsc_open(struct net_device *net)
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index bafccb3..418e7aa 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -30,26 +30,6 @@
- #include "hyperv_net.h"
- 
- 
--enum rndis_device_state {
--	RNDIS_DEV_UNINITIALIZED = 0,
--	RNDIS_DEV_INITIALIZING,
--	RNDIS_DEV_INITIALIZED,
--	RNDIS_DEV_DATAINITIALIZED,
--};
--
--struct rndis_device {
--	struct netvsc_device *net_dev;
--
--	enum rndis_device_state state;
--	bool link_state;
--	atomic_t new_req_id;
--
--	spinlock_t request_lock;
--	struct list_head req_list;
--
--	unsigned char hw_mac_adr[ETH_ALEN];
--};
--
- struct rndis_request {
- 	struct list_head list_ent;
- 	struct completion  wait_event;
-@@ -522,8 +502,7 @@ static int rndis_filter_query_device_link_status(struct rndis_device *dev)
- 	return ret;
- }
- 
--static int rndis_filter_set_packet_filter(struct rndis_device *dev,
--				      u32 new_filter)
-+int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter)
- {
- 	struct rndis_request *request;
- 	struct rndis_set_request *set;
+For a flow cache I think going per-cpu or at least per-node will
+be unavoidable.
+
+Cheers,
 -- 
-1.7.4.1
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
