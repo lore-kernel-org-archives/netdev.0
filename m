@@ -1,51 +1,70 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [v4 PATCH 1/2] NETFILTER module xt_hmark, new target for HASH
- based fwmark
-Date: Wed, 30 Nov 2011 19:28:15 +0100
-Message-ID: <20111130182815.GC20336@1984>
-References: <hr62jai.42522fc2b4c8846204d05566f5c6b926@obelix.schillstrom.com>
- <4ED64B5E.2030705@trash.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next-2.6 PATCH 0/6 v4] macvlan: MAC Address filtering
+ support for passthru mode
+Date: Wed, 30 Nov 2011 18:48:10 +0000
+Message-ID: <1322678890.2762.26.camel@bwh-desktop>
+References: <20111109075449.13549.58135.stgit@rhel6.1>
+	 <1321575301.2749.51.camel@bwh-desktop>  <4EC5A785.3060108@intel.com>
+	 <1321577078.2749.58.camel@bwh-desktop>  <4EC68EBB.3080303@intel.com>
+	 <1321638038.2883.28.camel@bwh-desktop>  <4ECA8D50.9080603@intel.com>
+	 <1322584544.2684.20.camel@bwh-desktop>
+	 <1322587170.2684.26.camel@bwh-desktop>  <4ED6691D.9070606@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hans Schillstrom <hans@schillstrom.com>, jengelh@medozas.de,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	hans.schillstrom@ericsson.com
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4ED64B5E.2030705@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Roopa Prabhu <roprabhu@cisco.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"chrisw@redhat.com" <chrisw@redhat.com>,
+	"sri@us.ibm.com" <sri@us.ibm.com>,
+	"dragos.tatulea@gmail.com" <dragos.tatulea@gmail.com>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"arnd@arndb.de" <arnd@arndb.de>, "mst@redhat.com" <mst@redhat.com>,
+	"mchan@broadcom.com" <mchan@broadcom.com>,
+	"dwang2@cisco.com" <dwang2@cisco.com>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"benve@cisco.com" <benve@cisco.com>
+To: Greg Rose <gregory.v.rose@intel.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <4ED6691D.9070606@intel.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 30, 2011 at 04:27:26PM +0100, Patrick McHardy wrote:
-> On 11/28/2011 10:36 AM, Hans Schillstrom wrote:
-> >>If you don't want to use conntrack in your setup and you want to handle
-> >>fragments, then you have to configure HMARK to calculate the hashing
-> >>based on the network addresses. If you want to fully support fragments,
-> >>then enable conntrack and you can configure HMARK to calculate the
-> >>hashing based on network address + transport bits.
+On Wed, 2011-11-30 at 09:34 -0800, Greg Rose wrote:
+> On 11/29/2011 9:19 AM, Ben Hutchings wrote:
+> > On Tue, 2011-11-29 at 16:35 +0000, Ben Hutchings wrote:
 > >>
-> >>Fix this by removing the fragmentation handling, then assume that
-> >>people can select between two hashing configuration for HMARK. One
-> >>based for network address which is fragment-safe, one that uses the
-> >>transport layer information, that requires conntrack. Otherwise, I
-> >>don't see a sane way to handle this situation.
-> >Correct me if I'm wrong here,
-> >If conntrack is enabled hmark don't see the packet until it is reassembled and
-> >in that case the fragmentation header is removed.
-> >
-> >So, with conntrack HMARK will operate on full packets not fragments
-> >without conntrack ports will not be used on any fragment
+> >> Maybe I missed something!
+[...]
+> >> If not, please explain what the new model *is*.
 > 
-> Correct.
+> The new model is to incorporate a VEB into the NIC.  The current model 
+> doesn't address any of the requirements of a VEB in the NIC and this 
+> proposed set of patches allow us to set MAC filters for the *ports* on 
+> the internal NIC VEB.  Consider the PF and each of the VFs as just a 
+> port on the VEB.  We need the ability to set L2 filters (MAC, MC and 
+> VLAN) for each of the ports on that VEB.  There is no currently 
+> supported method for doing this.  So yes, this is a new model although 
+> it's a fairly simple one.
 
-To complete what Patrick said. They are collected but not linearized.
-That's why you have to use skb_header_pointer.
+Explain precisely how the VEB changes the existing model.  Explain how
+the existing MAC filter and VF filter APIs interact with port filters on
+the VEB.  Refer to any relevant standards.
 
-> You don't necessarily need conntrack for defragmentation though,
-> we've moved defragmentation to a seperate module for TPROXY. You
-> can depend on that and get defragmentation without full
-> connection tracking.
+(I have really had enough of net driver API proposals where all the
+difficult questions are punted to the implementation.  Either
+implementations diverge and users and userspace developers are left
+horribly confused, or else the second and subsequent implementations
+have to follow whatever quirks the first implementation had.  It's an
+essential part of the review process that such questions are asked and
+answered.)
 
-Indeed, I missed this. That way you can skip conntrack but solving the
-broken fragments handling.
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
