@@ -1,48 +1,59 @@
-From: Ulrich Weber <ulrich.weber@sophos.com>
-Subject: Re: [PATCH 1/3] xfrm: add incoming interface to selector
-Date: Wed, 30 Nov 2011 18:33:54 +0100
-Message-ID: <4ED66902.7060507@sophos.com>
-References: <1322511292-1413-1-git-send-email-ulrich.weber@sophos.com>	<1322511292-1413-2-git-send-email-ulrich.weber@sophos.com> <20111129.190037.1527680744377783412.davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH net-next] tcp: inherit listener congestion control for
+ passive cnx
+Date: Wed, 30 Nov 2011 09:33:54 -0800
+Message-ID: <4ED66902.3050309@hp.com>
+References: <20111130003112.C04FE29005FE@tardy> <1322630461.2596.61.camel@edumazet-laptop> <1322631613.2596.70.camel@edumazet-laptop> <1322650961.2403.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
+Content-Type: text/plain; charset=UTF-8;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Rick Jones <raj@tardy.cup.hp.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Yuchung Cheng <ycheng@google.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx5.sophos.com ([213.31.172.35]:39763 "EHLO mx5.sophos.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756705Ab1K3Rd5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Nov 2011 12:33:57 -0500
-In-Reply-To: <20111129.190037.1527680744377783412.davem@davemloft.net>
+Received: from g6t0185.atlanta.hp.com ([15.193.32.62]:4929 "EHLO
+	g6t0185.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756404Ab1K3Rd5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 12:33:57 -0500
+In-Reply-To: <1322650961.2403.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30.11.2011 01:00, David Miller wrote:
+On 11/30/2011 03:02 AM, Eric Dumazet wrote:
+> Le mercredi 30 novembre 2011 =C3=A0 06:40 +0100, Eric Dumazet a =C3=A9=
+crit :
+>> Le mercredi 30 novembre 2011 =C3=A0 06:21 +0100, Eric Dumazet a =C3=A9=
+crit :
+>>
+>>> So my suggestion would be to use this two lines patch instead :
+>>>
+>>> diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+>>> index 945efff..6b066e2 100644
+>>> --- a/net/ipv4/tcp_minisocks.c
+>>> +++ b/net/ipv4/tcp_minisocks.c
+>>> @@ -495,8 +495,6 @@ struct sock *tcp_create_openreq_child(struct so=
+ck *sk, struct request_sock *req,
+>>>   		newtp->frto_counter =3D 0;
+>>>   		newtp->frto_highmark =3D 0;
+>>>
+>>> -		newicsk->icsk_ca_ops =3D&tcp_init_congestion_ops;
+>>> -
+>>>   		tcp_set_ca_state(newsk, TCP_CA_Open);
+>>>   		tcp_init_xmit_timers(newsk);
+>>>   		skb_queue_head_init(&newtp->out_of_order_queue);
+>>>
+>>
+>> Please test this change and if its OK, resubmit your patch, with
+>> appropriate Documentation change, as pointed out by Yuchung Cheng
 >
-> This isn't safe, because we have no idea if existing users are puttin=
-g
-> garbage there.  So your change can break things.
->
-> You'll have to add a netlink attribute or similar.
-But a implementation matching xfrm against UID would break
-existing programs too, where sel->user is set to garbage.
+> Hmm, after taking more time on this, we have to take care of module
+> refcounting and proper cleanup. I hope you dont mind I submit my fina=
+l
+> version of this patch.
 
-I checked all common programs, they set sel->user to zero:
+I do not mind at all.
 
-iproute 3.1.0: sel->user is shown if set, but its not possible to set i=
-t
-openswan 2.6.37: xfrm_selector memset to zero
-strongswan 4.6.1: ifindex and user set to zero
-ipsec-tools 0.8.0: PF_KEY only (memset to zero in net/key/af_key.c)
-ike 2.1.7: PF_KEY only
-isakmpd 20041012: PF_KEY only
-
-Cheers
-Ulrich
-
---=20
-Ulrich Weber | ulrich.weber@sophos.com | Senior Software Engineer
-Astaro - a Sophos company | Amalienbadstr 41 | 76227 Karlsruhe | German=
-y
-Phone +49-721-25516-0 | Fax =96200 | www.astaro.com
+rick
