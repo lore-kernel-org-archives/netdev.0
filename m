@@ -1,151 +1,91 @@
-From: raj@tardy.cup.hp.com (Rick Jones)
-Subject: [RFC net-next] Include selection of congestion control algorithm in that which is inherited across an accept() call
-Date: Tue, 29 Nov 2011 16:31:12 -0800 (PST)
-Message-ID: <20111130003112.C04FE29005FE@tardy>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:46754 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757143Ab1K3AbO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 19:31:14 -0500
-Received: from g1t0038.austin.hp.com (g1t0038.austin.hp.com [16.236.32.44])
-	by g1t0028.austin.hp.com (Postfix) with ESMTP id 784E61C168
-	for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 00:31:13 +0000 (UTC)
-Received: from tardy (tardy.cup.hp.com [16.89.64.213])
-	by g1t0038.austin.hp.com (Postfix) with ESMTP id 532BE30078
-	for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 00:31:13 +0000 (UTC)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [PATCH v7 02/10] foundations of per-cgroup memory pressure
+ controlling.
+Date: Wed, 30 Nov 2011 09:43:05 +0900
+Message-ID: <20111130094305.9c69ecd8.kamezawa.hiroyu@jp.fujitsu.com>
+References: <1322611021-1730-1-git-send-email-glommer@parallels.com>
+	<1322611021-1730-3-git-send-email-glommer@parallels.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
+ ebiederm@xmission.com, davem@davemloft.net, gthelen@google.com,
+ netdev@vger.kernel.org, linux-mm@kvack.org, kirill@shutemov.name,
+ avagin@parallels.com, devel@openvz.org, eric.dumazet@gmail.com,
+ cgroups@vger.kernel.org
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1322611021-1730-3-git-send-email-glommer@parallels.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Rick Jones <rick.jones2@hp.com>
+On Tue, 29 Nov 2011 21:56:53 -0200
+Glauber Costa <glommer@parallels.com> wrote:
 
-Include congestion control algorithm in what is inherited across an
-accept() call.
+> This patch replaces all uses of struct sock fields' memory_pressure,
+> memory_allocated, sockets_allocated, and sysctl_mem to acessor
+> macros. Those macros can either receive a socket argument, or a mem_cgroup
+> argument, depending on the context they live in.
+> 
+> Since we're only doing a macro wrapping here, no performance impact at all is
+> expected in the case where we don't have cgroups disabled.
+> 
+> Signed-off-by: Glauber Costa <glommer@parallels.com>
+> CC: David S. Miller <davem@davemloft.net>
+> CC: Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>
+> CC: Eric W. Biederman <ebiederm@xmission.com>
+> CC: Eric Dumazet <eric.dumazet@gmail.com>
+<snip>
 
-Signed-off-by: Rick Jones <rick.jones2@hp.com>
+> +static inline bool
+> +memcg_memory_pressure(struct proto *prot, struct mem_cgroup *memcg)
+> +{
+> +	if (!prot->memory_pressure)
+> +		return false;
+> +	return !!prot->memory_pressure;
+> +}
 
----
+I think you should take a deep breath and write patech relaxedly, and do enough test.
 
-Before patch, with cubic as the default:
-raj@raj-ubuntu-guest:~$ ./tcp_congestion_test  reno
-Will be requesting 'reno' as the congestion control algorithm
-active socket has 'reno' for congestion control
-passive socket has 'reno' for congestion control
-after listen() passive socket has 'reno' for congestion control
-after connect() active has 'reno' for congestion control
-after accept() accepted has 'cubic' for congestion control 
+This should be
 
-After patch, still with cubic as the default:
-raj@raj-ubuntu-guest:~$ ./tcp_congestion_test reno
-Will be requesting 'reno' as the congestion control algorithm
-active socket has 'reno' for congestion control
-passive socket has 'reno' for congestion control
-after listen() passive socket has 'reno' for congestion control
-after connect() active has 'reno' for congestion control
-after accept() accepted has 'reno' for congestion control
+	return !!*prot->memory_pressure;
 
-IPv6 portion compiled only.
+BTW, I don't like to receive tons of everyday-update even if you're in hurry.
 
 
- include/linux/ipv6.h     |    3 +++
- include/net/inet_sock.h  |    3 +++
- net/ipv4/tcp_ipv4.c      |    3 +++
- net/ipv4/tcp_minisocks.c |    2 +-
- net/ipv6/tcp_ipv6.c      |    3 +++
- 5 files changed, 13 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 0c99776..1d0dde3 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -265,11 +265,14 @@ static inline int inet6_iif(const struct sk_buff *skb)
- 	return IP6CB(skb)->iif;
- }
- 
-+struct tcp_congestion_ops;
-+
- struct inet6_request_sock {
- 	struct in6_addr		loc_addr;
- 	struct in6_addr		rmt_addr;
- 	struct sk_buff		*pktopts;
- 	int			iif;
-+	const struct tcp_congestion_ops *cong_ops;
- };
- 
- struct tcp6_request_sock {
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index f941964..9ec68a3 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -69,6 +69,8 @@ struct ip_options_data {
- 	char			data[40];
- };
- 
-+struct tcp_congestion_ops;
-+
- struct inet_request_sock {
- 	struct request_sock	req;
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-@@ -89,6 +91,7 @@ struct inet_request_sock {
- 				no_srccheck: 1;
- 	kmemcheck_bitfield_end(flags);
- 	struct ip_options_rcu	*opt;
-+	const struct tcp_congestion_ops *cong_ops;
- };
- 
- static inline struct inet_request_sock *inet_rsk(const struct request_sock *sk)
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index a9db4b1..79c02e2 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1254,6 +1254,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	const u8 *hash_location;
- 	struct request_sock *req;
- 	struct inet_request_sock *ireq;
-+	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct dst_entry *dst = NULL;
- 	__be32 saddr = ip_hdr(skb)->saddr;
-@@ -1341,6 +1342,8 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	ireq->rmt_addr = saddr;
- 	ireq->no_srccheck = inet_sk(sk)->transparent;
- 	ireq->opt = tcp_v4_save_options(sk, skb);
-+	ireq->cong_ops = (icsk->icsk_ca_ops) ? icsk->icsk_ca_ops :
-+					&tcp_init_congestion_ops;
- 
- 	if (security_inet_conn_request(sk, skb, req))
- 		goto drop_and_free;
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 945efff..be338d7 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -495,7 +495,7 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
- 		newtp->frto_counter = 0;
- 		newtp->frto_highmark = 0;
- 
--		newicsk->icsk_ca_ops = &tcp_init_congestion_ops;
-+		newicsk->icsk_ca_ops = ireq->cong_ops;
- 
- 		tcp_set_ca_state(newsk, TCP_CA_Open);
- 		tcp_init_xmit_timers(newsk);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 9d74eee..c689779 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1164,6 +1164,7 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 	const u8 *hash_location;
- 	struct request_sock *req;
- 	struct inet6_request_sock *treq;
-+	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	__u32 isn = TCP_SKB_CB(skb)->when;
-@@ -1254,6 +1255,8 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 		TCP_ECN_create_request(req, tcp_hdr(skb));
- 
- 	treq->iif = sk->sk_bound_dev_if;
-+	treq->cong_ops = (icsk->icsk_ca_ops) ? icsk->icsk_ca_ops :
-+					&tcp_init_congestion_ops;
- 
- 	/* So that link locals have meaning */
- 	if (!sk->sk_bound_dev_if &&
+
+
+>  static void proto_seq_printf(struct seq_file *seq, struct proto *proto)
+>  {
+> +	struct mem_cgroup *memcg = mem_cgroup_from_task(current);
+> +
+>  	seq_printf(seq, "%-9s %4u %6d  %6ld   %-3s %6u   %-3s  %-10s "
+>  			"%2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c\n",
+>  		   proto->name,
+>  		   proto->obj_size,
+>  		   sock_prot_inuse_get(seq_file_net(seq), proto),
+> -		   proto->memory_allocated != NULL ? atomic_long_read(proto->memory_allocated) : -1L,
+> -		   proto->memory_pressure != NULL ? *proto->memory_pressure ? "yes" : "no" : "NI",
+> +		   sock_prot_memory_allocated(proto, memcg),
+> +		   sock_prot_memory_pressure(proto, memcg),
+
+I wonder I should say NO, here. (Networking guys are ok ??)
+
+IIUC, this means there is no way to see aggregated sockstat of all system.
+And the result depends on the cgroup which the caller is under control.
+
+I think you should show aggregated sockstat(global + per-memcg) here and 
+show per-memcg ones via /cgroup interface or add private_sockstat to show
+per cgroup summary.
+
+Thanks,
+-Kame
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
