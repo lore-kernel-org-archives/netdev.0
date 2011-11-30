@@ -1,26 +1,43 @@
-From: Wen Lee <lee234@yahoo.com>
-Subject: Business Proposal
-Date: Tue, 29 Nov 2011 06:00:02 -0500
-Message-ID: <20111129060002.f5fk897fms4gw8og@webmail.pioneerwireless.in>
-Reply-To: mr.wenl88@yahoo.com.tw
+From: Fabio Estevam <fabio.estevam@freescale.com>
+Subject: [PATCH v2] net: fec: Select the FEC driver by default for i.MX SoCs
+Date: Wed, 30 Nov 2011 09:31:57 -0200
+Message-ID: <1322652717-2685-1-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Content-Type: text/plain
+Cc: <kernel@pengutronix.de>, <shawn.guo@freescale.com>,
+	<u.kleine-koenig@pengutronix.de>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <marek.vasut@gmail.com>,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: <linux-arm-kernel@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [216.151.174.29] ([216.151.174.29]:59050 "EHLO
-	pemail02.365techsupport.com" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753348Ab1K3LJn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 06:09:43 -0500
-Content-Disposition: inline
+Received: from db3ehsobe005.messaging.microsoft.com ([213.199.154.143]:33198
+	"EHLO DB3EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752807Ab1K3LcG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 06:32:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Let the FEC driver be built by default.
 
-I am Mr. Wen Lee director of operations of the Bank Of Taipei Taiwan.  
-I have an
-obscured business proposal for you.Contact me for details if interested
-(mr.wenl88@yahoo.com.tw).
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+---
+Changes since v1: 
+Move the FEC selection into Kconfig instead of .config file
+
+ drivers/net/ethernet/freescale/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
+index c520cfd..ae269ad 100644
+--- a/drivers/net/ethernet/freescale/Kconfig
++++ b/drivers/net/ethernet/freescale/Kconfig
+@@ -22,6 +22,7 @@ if NET_VENDOR_FREESCALE
+ 
+ config FEC
+ 	bool "FEC ethernet controller (of ColdFire and some i.MX CPUs)"
++	default ARCH_MXC || ARCH_MXS if ARM
+ 	depends on (M523x || M527x || M5272 || M528x || M520x || M532x || \
+ 		   ARCH_MXC || ARCH_MXS)
+ 	select PHYLIB
+-- 
+1.7.1
