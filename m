@@ -1,42 +1,42 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Subject: Re: [PATCH v7 08/10] Display current tcp failcnt in kmem cgroup
-Date: Wed, 30 Nov 2011 11:01:31 +0900
-Message-ID: <20111130110131.82ea77f4.kamezawa.hiroyu@jp.fujitsu.com>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Subject: Re: [PATCH v7 09/10] Display maximum tcp memory allocation in kmem
+ cgroup
+Date: Wed, 30 Nov 2011 11:02:20 +0900
+Message-ID: <20111130110220.ab303a1f.kamezawa.hiroyu@jp.fujitsu.com>
 References: <1322611021-1730-1-git-send-email-glommer@parallels.com>
-	<1322611021-1730-9-git-send-email-glommer@parallels.com>
+	<1322611021-1730-10-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
- ebiederm@xmission.com, davem@davemloft.net, gthelen@google.com,
- netdev@vger.kernel.org, linux-mm@kvack.org, kirill@shutemov.name,
- avagin@parallels.com, devel@openvz.org, eric.dumazet@gmail.com,
- cgroups@vger.kernel.org
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1322611021-1730-9-git-send-email-glommer@parallels.com>
-Sender: owner-linux-mm@kvack.org
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org,
+	lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
+	kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org, avagin-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1322611021-1730-10-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 29 Nov 2011 21:56:59 -0200
-Glauber Costa <glommer@parallels.com> wrote:
+On Tue, 29 Nov 2011 21:57:00 -0200
+Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
 
-> This patch introduces kmem.tcp.failcnt file, living in the
-> kmem_cgroup filesystem. Following the pattern in the other
-> memcg resources, this files keeps a counter of how many times
-> allocation failed due to limits being hit in this cgroup.
-> The root cgroup will always show a failcnt of 0.
+> This patch introduces kmem.tcp.max_usage_in_bytes file, living in the
+> kmem_cgroup filesystem. The root cgroup will display a value equal
+> to RESOURCE_MAX. This is to avoid introducing any locking schemes in
+> the network paths when cgroups are not being actively used.
 > 
-> Signed-off-by: Glauber Costa <glommer@parallels.com>
-> CC: David S. Miller <davem@davemloft.net>
-> CC: Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>
-> CC: Eric W. Biederman <ebiederm@xmission.com>
+> All others, will see the maximum memory ever used by this cgroup.
+> 
+> Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> CC: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> CC: Hiroyouki Kamezawa <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+> CC: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 
-Reviewed-by : KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Reviewed-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
 
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe cgroups" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
