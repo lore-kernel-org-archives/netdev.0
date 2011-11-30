@@ -1,39 +1,58 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Integration of Open vSwitch
-Date: Tue, 29 Nov 2011 22:25:34 -0800
-Message-ID: <CAEP_g=-g5g0Z30gYBDAZ8s7ACCZSy5MLJpPDxQmmc8m1wbk3tg@mail.gmail.com>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH next-next 0/2] can: cc770: add support
+ for the Bosch CC770 and Intel AN82527
+Date: Wed, 30 Nov 2011 07:37:08 +0100
+Message-ID: <4ED5CF14.4020502@hartkopp.net>
+References: <1322136448-7311-1-git-send-email-wg@grandegger.com>
+	<20111129.183950.1327835803051184146.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Chris Wright <chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20111129.183950.1327835803051184146.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
+List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Herbert and Jamal (and everyone else),
+On 30.11.2011 00:39, David Miller wrote:
 
-Sorry about starting yet another thread but the other one went in so
-many directions that I think a lot of things got lost in it.  As I
-mentioned before, I'd like to have a bit of a design discussion of
-what it would look like if Open vSwitch were to use some of the
-existing components (and really focus on just that).  There were a
-number of suggestions made about using parts of the bridge, tc,
-netfilter, etc. and some of them overlap or conflict so I don't quite
-have a coherent solution in mind.  Would you guys mind walking through
-what each of you envision it looking like?
+> From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+> Date: Thu, 24 Nov 2011 13:07:26 +0100
+> 
+>> Already since a while we have support for the Bosch CC770 and Intel
+>> AN82527 CAN controllers in our out-of-tree Socket-CAN repository.
+>> It would be nice if somebody could test the driver. Unfortunately,
+>> I currently do not have hardware at hand. I have not yet ported the
+>> OF platform driver as it needs further attaention due to the merge
+>> of the platform and OF platform interface.
+>>
+>> Wolfgang Grandegger (2):
+>>   can: cc770: add driver core for the Bosch CC770 and Intel AN82527
+>>   can: cc770: legacy CC770 ISA bus driver
+> 
+> All applied, thank you.
 
-Thanks,
-Jesse
+
+Hello Dave,
+
+this patchset was superseded for some time.
+
+We're currently in the v4 patchset (dated 2011-11-29).
+
+See http://patchwork.ozlabs.org/patch/128244/
+
+Do you want to revert the commit or should Wolfgang post a diff patch to get
+to v4 ??
+
+Regards,
+Oliver
