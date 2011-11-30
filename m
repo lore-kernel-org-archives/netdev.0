@@ -1,358 +1,44 @@
-From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 08/12] [MAC802154] mac802154: MAC
-	commands support
-Date: Wed, 30 Nov 2011 17:25:57 +0300
-Message-ID: <1322663157-4022-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-References: <20111130141827.GA3739@avtobot.cybertron>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH v2] net: fec: Select the FEC driver by default for i.MX
+ SoCs
+Date: Wed, 30 Nov 2011 14:26:22 +0100
+Message-ID: <20111130132622.GE26618@pengutronix.de>
+References: <1322652717-2685-1-git-send-email-fabio.estevam@freescale.com>
+ <20111130132536.GD26618@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20111130141827.GA3739-AUGNqIMGY+bGcXpsla5Oef8+0UxHXcjY@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-arm-kernel@lists.infradead.org, kernel@pengutronix.de,
+	shawn.guo@freescale.com, davem@davemloft.net,
+	netdev@vger.kernel.org, marek.vasut@gmail.com
+To: Fabio Estevam <fabio.estevam@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:60553 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755012Ab1K3N0a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 08:26:30 -0500
+Content-Disposition: inline
+In-Reply-To: <20111130132536.GD26618@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Support for MAC layer commands. Currently association and
-disassociation are implemented only.
+On Wed, Nov 30, 2011 at 02:25:36PM +0100, Uwe Kleine-K=F6nig wrote:
+> On Wed, Nov 30, 2011 at 09:31:57AM -0200, Fabio Estevam wrote:
+> > Let the FEC driver be built by default.
+> >=20
+> > Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+> Just one small nitpick below. Other than that:
+>=20
+> Suggested-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+> Acked-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
 
-Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- net/mac802154/Makefile  |    2 +-
- net/mac802154/mac_cmd.c |  300 +++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 301 insertions(+), 1 deletions(-)
- create mode 100644 net/mac802154/mac_cmd.c
+ah, and maybe point out the breaking commit in the log.
 
-diff --git a/net/mac802154/Makefile b/net/mac802154/Makefile
-index 875feb2..50e2569 100644
---- a/net/mac802154/Makefile
-+++ b/net/mac802154/Makefile
-@@ -1,2 +1,2 @@
- obj-$(CONFIG_MAC802154)	+= mac802154.o
--mac802154-objs		:= ieee802154_dev.o rx.o tx.o mib.o
-+mac802154-objs		:= ieee802154_dev.o rx.o tx.o mib.o mac_cmd.o
-diff --git a/net/mac802154/mac_cmd.c b/net/mac802154/mac_cmd.c
-new file mode 100644
-index 0000000..0013358
---- /dev/null
-+++ b/net/mac802154/mac_cmd.c
-@@ -0,0 +1,300 @@
-+/*
-+ * MAC commands interface
-+ *
-+ * Copyright 2007, 2008 Siemens AG
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-+ *
-+ * Written by:
-+ * Sergey Lapin <slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org>
-+ * Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/skbuff.h>
-+#include <linux/if_arp.h>
-+#include <net/af_ieee802154.h>
-+#include <net/mac802154.h>
-+#include <net/ieee802154.h>
-+#include <net/ieee802154_netdev.h>
-+#include <net/nl802154.h>
-+
-+#include "mac802154.h"
-+#include "mib.h"
-+
-+static int mac802154_cmd_assoc_req(struct sk_buff *skb)
-+{
-+	u8 cap;
-+
-+	if (skb->len != 2)
-+		return -EINVAL;
-+
-+	if (skb->pkt_type != PACKET_HOST)
-+		return 0;
-+
-+	if (mac_cb(skb)->sa.addr_type != IEEE802154_ADDR_LONG ||
-+	    mac_cb(skb)->sa.pan_id != IEEE802154_PANID_BROADCAST)
-+		return -EINVAL;
-+
-+	/*
-+	 * FIXME: check that we allow incoming ASSOC requests
-+	 * by consulting MIB
-+	 */
-+
-+	cap = skb->data[1];
-+
-+	return ieee802154_nl_assoc_indic(skb->dev, &mac_cb(skb)->sa, cap);
-+}
-+
-+static int mac802154_cmd_assoc_resp(struct sk_buff *skb)
-+{
-+	u8 status;
-+	u16 short_addr;
-+
-+	if (skb->len != 4)
-+		return -EINVAL;
-+
-+	if (skb->pkt_type != PACKET_HOST)
-+		return 0;
-+
-+	if (mac_cb(skb)->sa.addr_type != IEEE802154_ADDR_LONG ||
-+	    mac_cb(skb)->sa.addr_type != IEEE802154_ADDR_LONG ||
-+	    !(mac_cb(skb)->flags & MAC_CB_FLAG_INTRAPAN))
-+		return -EINVAL;
-+
-+	/* FIXME: check that we requested association ? */
-+
-+	status = skb->data[3];
-+	short_addr = skb->data[1] | (skb->data[2] << 8);
-+	pr_info("Received ASSOC-RESP status %x, addr %hx\n", status,
-+			short_addr);
-+	if (status) {
-+		mac802154_dev_set_short_addr(skb->dev,
-+				IEEE802154_ADDR_BROADCAST);
-+		mac802154_dev_set_pan_id(skb->dev,
-+				IEEE802154_PANID_BROADCAST);
-+	} else
-+		mac802154_dev_set_short_addr(skb->dev, short_addr);
-+
-+	return ieee802154_nl_assoc_confirm(skb->dev, short_addr, status);
-+}
-+
-+static int mac802154_cmd_disassoc_notify(struct sk_buff *skb)
-+{
-+	u8 reason;
-+
-+	if (skb->len != 2)
-+		return -EINVAL;
-+
-+	if (skb->pkt_type != PACKET_HOST)
-+		return 0;
-+
-+	if (mac_cb(skb)->sa.addr_type != IEEE802154_ADDR_LONG ||
-+	    (mac_cb(skb)->da.addr_type != IEEE802154_ADDR_LONG &&
-+	     mac_cb(skb)->da.addr_type != IEEE802154_ADDR_SHORT) ||
-+	    mac_cb(skb)->sa.pan_id != mac_cb(skb)->da.pan_id)
-+		return -EINVAL;
-+
-+	reason = skb->data[1];
-+
-+	/* FIXME: checks if this was our coordinator and the disassoc us */
-+	/* FIXME: if we device, one should receive ->da and not ->sa */
-+	/* FIXME: the status should also help */
-+
-+	return ieee802154_nl_disassoc_indic(skb->dev, &mac_cb(skb)->sa,
-+			reason);
-+}
-+
-+int mac802154_process_cmd(struct net_device *dev, struct sk_buff *skb)
-+{
-+	u8 cmd;
-+
-+	if (skb->len < 1) {
-+		pr_warning("Uncomplete command frame!\n");
-+		goto drop;
-+	}
-+
-+	cmd = *(skb->data);
-+	pr_debug("(%s): command %02x on device %s\n",
-+					__func__, cmd, dev->name);
-+
-+	switch (cmd) {
-+	case IEEE802154_CMD_ASSOCIATION_REQ:
-+		mac802154_cmd_assoc_req(skb);
-+		break;
-+	case IEEE802154_CMD_ASSOCIATION_RESP:
-+		mac802154_cmd_assoc_resp(skb);
-+		break;
-+	case IEEE802154_CMD_DISASSOCIATION_NOTIFY:
-+		mac802154_cmd_disassoc_notify(skb);
-+		break;
-+	case IEEE802154_CMD_BEACON_REQ:
-+	default:
-+		pr_debug("(%s): frame type is not supported yet\n", __func__);
-+		goto drop;
-+	}
-+
-+
-+	kfree_skb(skb);
-+	return NET_RX_SUCCESS;
-+
-+drop:
-+	kfree_skb(skb);
-+	return NET_RX_DROP;
-+}
-+
-+static int mac802154_send_cmd(struct net_device *dev,
-+		struct ieee802154_addr *addr, struct ieee802154_addr *saddr,
-+		const u8 *buf, int len)
-+{
-+	struct sk_buff *skb;
-+	int err;
-+	int hlen = LL_RESERVED_SPACE(dev), tlen = dev->needed_tailroom;
-+
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
-+
-+	skb = alloc_skb(hlen + tlen + len, GFP_KERNEL);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	skb_reserve(skb, hlen);
-+
-+	skb_reset_network_header(skb);
-+
-+	mac_cb(skb)->flags = IEEE802154_FC_TYPE_MAC_CMD | MAC_CB_FLAG_ACKREQ;
-+	mac_cb(skb)->seq = ieee802154_mlme_ops(dev)->get_dsn(dev);
-+	err = dev_hard_header(skb, dev, ETH_P_IEEE802154, addr, saddr, len);
-+	if (err < 0) {
-+		kfree_skb(skb);
-+		return err;
-+	}
-+
-+	skb_reset_mac_header(skb);
-+	memcpy(skb_put(skb, len), buf, len);
-+
-+	skb->dev = dev;
-+	skb->protocol = htons(ETH_P_IEEE802154);
-+
-+	return dev_queue_xmit(skb);
-+}
-+
-+static int mac802154_mlme_assoc_req(struct net_device *dev,
-+		struct ieee802154_addr *addr, u8 channel, u8 page, u8 cap)
-+{
-+	struct ieee802154_addr saddr;
-+	u8 buf[2];
-+	int pos = 0;
-+
-+	saddr.addr_type = IEEE802154_ADDR_LONG;
-+	saddr.pan_id = IEEE802154_PANID_BROADCAST;
-+	memcpy(saddr.hwaddr, dev->dev_addr, IEEE802154_ADDR_LEN);
-+
-+
-+	/* FIXME: set PIB/MIB info */
-+	mac802154_dev_set_pan_id(dev, addr->pan_id);
-+	mac802154_dev_set_page_channel(dev, page, channel);
-+	mac802154_dev_set_ieee_addr(dev);
-+
-+	buf[pos++] = IEEE802154_CMD_ASSOCIATION_REQ;
-+	buf[pos++] = cap;
-+
-+	return mac802154_send_cmd(dev, addr, &saddr, buf, pos);
-+}
-+
-+static int mac802154_mlme_assoc_resp(struct net_device *dev,
-+		struct ieee802154_addr *addr, u16 short_addr, u8 status)
-+{
-+	struct ieee802154_addr saddr;
-+	u8 buf[4];
-+	int pos = 0;
-+
-+	saddr.addr_type = IEEE802154_ADDR_LONG;
-+	saddr.pan_id = addr->pan_id;
-+	memcpy(saddr.hwaddr, dev->dev_addr, IEEE802154_ADDR_LEN);
-+
-+	buf[pos++] = IEEE802154_CMD_ASSOCIATION_RESP;
-+	buf[pos++] = short_addr;
-+	buf[pos++] = short_addr >> 8;
-+	buf[pos++] = status;
-+
-+	return mac802154_send_cmd(dev, addr, &saddr, buf, pos);
-+}
-+
-+static int mac802154_mlme_disassoc_req(struct net_device *dev,
-+		struct ieee802154_addr *addr, u8 reason)
-+{
-+	struct ieee802154_addr saddr;
-+	u8 buf[2];
-+	int pos = 0;
-+	int ret;
-+
-+	saddr.addr_type = IEEE802154_ADDR_LONG;
-+	saddr.pan_id = addr->pan_id;
-+	memcpy(saddr.hwaddr, dev->dev_addr, IEEE802154_ADDR_LEN);
-+
-+	buf[pos++] = IEEE802154_CMD_DISASSOCIATION_NOTIFY;
-+	buf[pos++] = reason;
-+
-+	ret = mac802154_send_cmd(dev, addr, &saddr, buf, pos);
-+
-+	/* FIXME: this should be after the ack receved */
-+	mac802154_dev_set_pan_id(dev, 0xffff);
-+	mac802154_dev_set_short_addr(dev, 0xffff);
-+	ieee802154_nl_disassoc_confirm(dev, 0x00);
-+
-+	return ret;
-+}
-+
-+static int mac802154_mlme_start_req(struct net_device *dev,
-+				struct ieee802154_addr *addr,
-+				u8 channel, u8 page,
-+				u8 bcn_ord, u8 sf_ord, u8 pan_coord, u8 blx,
-+				u8 coord_realign)
-+{
-+	BUG_ON(addr->addr_type != IEEE802154_ADDR_SHORT);
-+
-+	mac802154_dev_set_pan_id(dev, addr->pan_id);
-+	mac802154_dev_set_short_addr(dev, addr->short_addr);
-+	mac802154_dev_set_ieee_addr(dev);
-+	mac802154_dev_set_page_channel(dev, page, channel);
-+
-+	/*
-+	 * FIXME: add validation for unused parameters to be sane
-+	 * for SoftMAC
-+	 */
-+
-+	if (pan_coord)
-+		dev->priv_flags |= IFF_IEEE802154_COORD;
-+	else
-+		dev->priv_flags &= ~IFF_IEEE802154_COORD;
-+
-+	mac802154_dev_set_pan_coord(dev);
-+	ieee802154_nl_start_confirm(dev, IEEE802154_SUCCESS);
-+
-+	return 0;
-+}
-+
-+struct ieee802154_mlme_ops mac802154_mlme_wpan = {
-+	.assoc_req = mac802154_mlme_assoc_req,
-+	.assoc_resp = mac802154_mlme_assoc_resp,
-+	.disassoc_req = mac802154_mlme_disassoc_req,
-+	.start_req = mac802154_mlme_start_req,
-+
-+	.wpan_ops.get_phy = mac802154_get_phy,
-+
-+	.get_pan_id = mac802154_dev_get_pan_id,
-+	.get_short_addr = mac802154_dev_get_short_addr,
-+	.get_dsn = mac802154_dev_get_dsn,
-+	.get_bsn = mac802154_dev_get_bsn,
-+};
--- 
-1.7.2.3
+Uwe
 
-
-------------------------------------------------------------------------------
-All the data continuously generated in your IT infrastructure 
-contains a definitive record of customers, application performance, 
-security threats, fraudulent activity, and more. Splunk takes this 
-data and makes sense of it. IT sense. And common sense.
-http://p.sf.net/sfu/splunk-novd2d
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
