@@ -1,52 +1,31 @@
-From: Markus Feldmann <feldmann_markus@gmx.de>
-Subject: Re: Daughterboard Jetway JAD3RTLANG with three RTL-8110SC/8169SC
- Gigabit Ethernet is curious
-Date: Wed, 30 Nov 2011 08:34:09 +0100
-Message-ID: <jb4m9i$j5c$1@dough.gmane.org>
-References: <jb0d7u$bbb$1@dough.gmane.org> <201111291012.25426.carsten@wolffcarsten.de> <4ED4E946.40209@gmx.de> <20111129230404.GB11127@electric-eye.fr.zoreil.com>
+From: Li Wei <lw@cn.fujitsu.com>
+Subject: Is there any necessary to add multicast route for a loopback device?
+Date: Wed, 30 Nov 2011 15:38:37 +0800
+Message-ID: <4ED5DD7D.10908@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:43418 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751873Ab1K3He2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Nov 2011 02:34:28 -0500
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1RVegQ-0000Yg-8G
-	for netdev@vger.kernel.org; Wed, 30 Nov 2011 08:34:22 +0100
-Received: from dslb-092-076-246-128.pools.arcor-ip.net ([92.76.246.128])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 08:34:22 +0100
-Received: from feldmann_markus by dslb-092-076-246-128.pools.arcor-ip.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 08:34:22 +0100
-In-Reply-To: <20111129230404.GB11127@electric-eye.fr.zoreil.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:53506 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753904Ab1K3Hi2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Nov 2011 02:38:28 -0500
+Received: from tang.cn.fujitsu.com (tang.cn.fujitsu.com [10.167.250.3])
+	by song.cn.fujitsu.com (Postfix) with ESMTP id A550C17012D
+	for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 15:38:17 +0800 (CST)
+Received: from mailserver.fnst.cn.fujitsu.com (tang.cn.fujitsu.com [127.0.0.1])
+	by tang.cn.fujitsu.com (8.14.3/8.13.1) with ESMTP id pAU7cG9i008224
+	for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 15:38:16 +0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 30.11.2011 00:04, schrieb Francois Romieu:
-> Markus Feldmann<feldmann_markus@gmx.de>  :
-> [...]
->> You mean the latest Linux kernel was patched for a better
->> initialization? At the moment i am using the kernel 3.0.8. As i
->> understood the firmware must be loaded at every power on.
->
-> What do you mean ? Afaik there is no out-of-driver firmware for the
-> (old) 8169sc.
->
-> Can either of you or Carsten compare and send 'lspci -vv' before and
-> after windows installs ?
->
-Hi,
+Hi all,
 
-i have only Linux (Debian Squeeze/Stable), so i can only post my 
-Linux-output:
-http://pastebin.com/raw.php?i=YeELXqjP
-Further on since yesterday, after my kernel upgrade to 3.1.4 i have no 
-further problems. But i will wait some weeks.
+I found that since Fedora 15, it use systemd as the 'init'. When systemd start 
+it would config the ipv6 address(::1/128) for 'lo' and start it. While adding 
+this address to 'lo', kernel will call addrconf_add_mroute() to set a multicast
+route for 'lo' with rt->dst.error = -ENETUNREACH. After that, when I send multi-
+cast message, the route subsystem return a route with .error set to NETUNREACH.
 
-regards Markus
+Is there any necessary to add multicast route for a loopback device? 
