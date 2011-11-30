@@ -1,53 +1,66 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: Integration of Open vSwitch
-Date: Wed, 30 Nov 2011 21:40:28 +0800
-Message-ID: <20111130134028.GA3226@gondor.apana.org.au>
-References: <CAEP_g=-g5g0Z30gYBDAZ8s7ACCZSy5MLJpPDxQmmc8m1wbk3tg@mail.gmail.com>
-	<20111130070011.GA32630@gondor.apana.org.au>
-	<1322658891.2243.15.camel@mojatatu>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] can: Update logging style
+Date: Wed, 30 Nov 2011 14:43:58 +0100
+Message-ID: <4ED6331E.6020005@hartkopp.net>
+References: <30551d0a6a0f7f7799a6981c81c770a528f430d2.1322592708.git.joe@perches.com> <4ED53B47.1030703@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Chris Wright <chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1322658891.2243.15.camel@mojatatu>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Cc: Joe Perches <joe@perches.com>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>,
+	"David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4ED53B47.1030703@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 30, 2011 at 08:14:51AM -0500, jamal wrote:
-> On Wed, 2011-11-30 at 15:00 +0800, Herbert Xu wrote:
-> 
-> 
-> > The other factor I considered is scalability.  The OVS code as is
-> > is not really friendly to SMP/NUMA scalability (but as Eric pointed,
-> > neither is the classifier/action layer). 
-> 
-> Did you mean the qdisc funnel-to-interface part which Eric is hopefully
-> going to work on now that bql is in? classifier/action happens way
-> before that.
+On 29.11.2011 21:06, Marc Kleine-Budde wrote:
 
-I actually meant the scalability with adding/deleting flows,
-or in the case with qdiscs, filters.
+> On 11/29/2011 07:54 PM, Joe Perches wrote:
+>> Use pr_fmt, pr_<level> and pr_<level>_ratelimited.
+>> Coalesce format strings.
+>>
+>> Signed-off-by: Joe Perches <joe@perches.com>
+> 
+> The banners will probably looking a bit different, but I think nobody is
+> screen scraping that output :)
+> 
+> Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
 
-OVS is quite scalable on the fast-path, but when it comes to
-new flows, you have a bottleneck.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+Nobody but me. Therefore it get's a NACK.
+
+Indeed the banners are pretty broken now ...
+
+Before:
+
+can: controller area network core (rev 20090105 abi 8)
+NET: Registered protocol family 29
+can: raw protocol (rev 20090105)
+can: netlink gateway (rev 20101209)
+can: broadcast manager protocol (rev 20090105 t)
+
+After Joe's patch:
+
+can: controller area network core (rev 20090105 abi 8)
+NET: Registered protocol family 29
+can_raw: raw protocol (rev 20090105)
+can_gw: netlink gateway (rev 20101209)
+can_bcm: broadcast manager protocol (rev 20090105 t)
+
+IMO if you want to use pr_fmt() it should at least look like this:
+
+can: controller area network core (rev 20090105 abi 8)
+NET: Registered protocol family 29
+can_raw: can raw protocol (rev 20090105)
+can_gw: can netlink gateway (rev 20101209)
+can_bcm: can broadcast manager protocol (rev 20090105 t)
+
+I'm fine with using pr_fmt() for error/warning output but not for the banner
+in the currently suggested way.
+
+Regards,
+Oliver
