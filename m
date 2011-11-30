@@ -1,40 +1,51 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: Re: [PATCH] at91_ether: use gpio_is_valid for phy IRQ line
-Date: Wed, 30 Nov 2011 05:44:03 +0100
-Message-ID: <20111130044403.GY15008@game.jcrosoft.org>
-References: <1322128098-17724-1-git-send-email-jamie@jamieiles.com>
- <1322169674-4109-1-git-send-email-nicolas.ferre@atmel.com>
- <20111129.185342.105454076866922618.davem@davemloft.net>
+From: Marc Aurele La France <tsi@ualberta.ca>
+Subject: Re: RCU'ed dst_get_neighbour()
+Date: Tue, 29 Nov 2011 22:15:10 -0700 (Mountain Standard Time)
+Message-ID: <alpine.WNT.2.00.1111292212280.208@TSI>
+References: <alpine.WNT.2.00.1111291027320.1036@TSI> <1322589661.2596.2.camel@edumazet-laptop> <1322599437.2596.10.camel@edumazet-laptop> <CAG4TOxNJfr3X1p358LBWdNQKdkw8KOSekcKpNu6K5_phPEiR4A@mail.gmail.com> <1322599991.2596.11.camel@edumazet-laptop>
+ <alpine.WNT.2.00.1111291359290.1036@TSI> <1322601444.2596.21.camel@edumazet-laptop> <1322602283.2596.25.camel@edumazet-laptop> <CAL1RGDUcYJKBSCthTL1AFgpRvzjoaEpHjGFhratKP-98ufRKnw@mail.gmail.com> <alpine.WNT.2.00.1111291815410.1288@TSI>
+ <CAL1RGDWzVRc4jFtsKUC6FGrdAWn3_OThXpbChCETCR8UCrwDDA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nicolas.ferre@atmel.com, jamie@jamieiles.com,
-	netdev@vger.kernel.org, sfr@canb.auug.org.au,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20111129.185342.105454076866922618.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-rdma@vger.kernel.org
+To: Roland Dreier <roland@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.srv.ualberta.ca ([129.128.5.19]:54042 "EHLO
+	mail2.srv.ualberta.ca" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751718Ab1K3FPM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 00:15:12 -0500
+In-Reply-To: <CAL1RGDWzVRc4jFtsKUC6FGrdAWn3_OThXpbChCETCR8UCrwDDA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 18:53 Tue 29 Nov     , David Miller wrote:
-> From: Nicolas Ferre <nicolas.ferre@atmel.com>
-> Date: Thu, 24 Nov 2011 22:21:14 +0100
-> 
-> > Use the generic gpiolib gpio_is_valid() function to test
-> > if the phy IRQ line GPIO is actually provided.
-> > 
-> > For non-connected or non-existing phy IRQ lines, -EINVAL
-> > value is used for phy_irq_pin field of struct at91_eth_data.
-> > 
-> > Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-> 
-> I'm assuming this goes through the ARM tree, because in both of my networking
-> trees there is no ARM at91 implementation of gpio_is_valid().
-yes the depending patch series is in the arm-soc
+On Tue, 29 Nov 2011, Roland Dreier wrote:
+> On Tue, Nov 29, 2011 at 5:17 PM, Marc Aurele La France <tsi@ualberta.ca> wrote:
+>> On Tue, 29 Nov 2011, Roland Dreier wrote:
+>>> On Tue, Nov 29, 2011 at 1:31 PM, Eric Dumazet <eric.dumazet@gmail.com>
+>>> wrote:
+>>>> Here is the result of this audit, please double check and test it, I
+>>>> only compiled this.
 
-can we have your ack or sob?
+>>> Thanks Eric... I'll queue this up and send it on once we get a good
+>>> report from Marc.
 
-Best Regards,
-J.
+>> I can confirm that Eric's patch, retrofitted to 3.1.3, fixes the problem.
+
+> Oh... the problem was already in 3.1?
+
+Yes, but not in anything earlier.
+
+Marc.
+
++----------------------------------+----------------------------------+
+|  Marc Aurele La France           |  work:   1-780-492-9310          |
+|  Academic Information and        |  fax:    1-780-492-1729          |
+|    Communications Technologies   |  email:  tsi@ualberta.ca         |
+|  352 General Services Building   +----------------------------------+
+|  University of Alberta           |                                  |
+|  Edmonton, Alberta               |    Standard disclaimers apply    |
+|  T6G 2H1                         |                                  |
+|  CANADA                          |                                  |
++----------------------------------+----------------------------------+
