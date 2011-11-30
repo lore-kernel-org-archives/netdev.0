@@ -1,106 +1,89 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH] bonding: only use primary address for ARP
-Date: Wed, 30 Nov 2011 17:07:10 -0500
-Message-ID: <20111130220709.GI25132@gospo.rdu.redhat.com>
-References: <20111124093715.GA25365@as68121.uab.ericsson.se>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH V2] sch_red: fix red_calc_qavg_from_idle_time
+Date: Wed, 30 Nov 2011 23:10:53 +0100
+Message-ID: <1322691053.2602.24.camel@edumazet-laptop>
+References: <1322688891.2602.15.camel@edumazet-laptop>
+	 <1322689213.2602.18.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com
-To: Henrik Saavedra Persson <henrik.e.persson@ericsson.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	David =?ISO-8859-1?Q?T=E4ht?= <dave.taht@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6098 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751628Ab1K3WHP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Nov 2011 17:07:15 -0500
-Content-Disposition: inline
-In-Reply-To: <20111124093715.GA25365@as68121.uab.ericsson.se>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:51176 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751457Ab1K3WK7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 17:10:59 -0500
+Received: by eaak14 with SMTP id k14so1290799eaa.19
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 14:10:58 -0800 (PST)
+In-Reply-To: <1322689213.2602.18.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 24, 2011 at 10:37:15AM +0100, Henrik Saavedra Persson wrote:
-> Only use the primary address of the bond device
-> for master_ip. This will prevent changing the ARP source
-> address in Active-Backup mode whenever a secondry address
-> is added to the bond device.
-> 
-> Signed-off-by: Henrik Saavedra Persson <henrik.e.persson@ericsson.com>
-> ---
->  drivers/net/bonding/bond_main.c |   33 ++++++---------------------------
->  1 files changed, 6 insertions(+), 27 deletions(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 6191e63..ec293b3 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -2551,30 +2551,6 @@ out:
->  	}
->  }
->  
-> -static __be32 bond_glean_dev_ip(struct net_device *dev)
-> -{
-> -	struct in_device *idev;
-> -	struct in_ifaddr *ifa;
-> -	__be32 addr = 0;
-> -
-> -	if (!dev)
-> -		return 0;
-> -
-> -	rcu_read_lock();
-> -	idev = __in_dev_get_rcu(dev);
-> -	if (!idev)
-> -		goto out;
-> -
-> -	ifa = idev->ifa_list;
-> -	if (!ifa)
-> -		goto out;
-> -
-> -	addr = ifa->ifa_local;
-> -out:
-> -	rcu_read_unlock();
-> -	return addr;
-> -}
-> -
->  static int bond_has_this_ip(struct bonding *bond, __be32 ip)
->  {
->  	struct vlan_entry *vlan;
-> @@ -3316,6 +3292,10 @@ static int bond_inetaddr_event(struct notifier_block *this, unsigned long event,
->  	struct bonding *bond;
->  	struct vlan_entry *vlan;
->  
-> +	/* we only care about primary address */
-> +	if(ifa->ifa_flags & IFA_F_SECONDARY)
-> +		return NOTIFY_DONE;
-> +
+Since commit a4a710c4a7490587 (pkt_sched: Change PSCHED_SHIFT from 10 to
+6) it seems RED/GRED are broken.
 
-This change is good.  We need to stop overwriting bond->master_ip when
-secondary addresses are added.
+red_calc_qavg_from_idle_time() computes a delay in us units, but this
+delay is now 16 times bigger than real delay, so the final qavg result
+smaller than expected.
 
->  	list_for_each_entry(bond, &bn->dev_list, bond_list) {
->  		if (bond->dev == event_dev) {
->  			switch (event) {
-> @@ -3323,7 +3303,7 @@ static int bond_inetaddr_event(struct notifier_block *this, unsigned long event,
->  				bond->master_ip = ifa->ifa_local;
->  				return NOTIFY_OK;
->  			case NETDEV_DOWN:
-> -				bond->master_ip = bond_glean_dev_ip(bond->dev);
-> +				bond->master_ip = 0;
->  				return NOTIFY_OK;
->  			default:
->  				return NOTIFY_DONE;
-> @@ -3339,8 +3319,7 @@ static int bond_inetaddr_event(struct notifier_block *this, unsigned long event,
->  					vlan->vlan_ip = ifa->ifa_local;
->  					return NOTIFY_OK;
->  				case NETDEV_DOWN:
-> -					vlan->vlan_ip =
-> -						bond_glean_dev_ip(vlan_dev);
-> +					vlan->vlan_ip = 0;
->  					return NOTIFY_OK;
->  				default:
->  					return NOTIFY_DONE;
+Use standard kernel time services since there is no need to obfuscate
+them.
 
-Inspection indicates this is safe too.  The only code that appears to
-check against master_up and vlan_ip appears to be in ARP monitoring code
-and it does not make much sense to use ARP monitoring when your host does
-not have an IP address.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/net/red.h |   15 ++++++---------
+ 1 file changed, 6 insertions(+), 9 deletions(-)
 
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+diff --git a/include/net/red.h b/include/net/red.h
+index 3319f16..b72a3b8 100644
+--- a/include/net/red.h
++++ b/include/net/red.h
+@@ -116,7 +116,7 @@ struct red_parms {
+ 	u32		qR;		/* Cached random number */
+ 
+ 	unsigned long	qavg;		/* Average queue length: A scaled */
+-	psched_time_t	qidlestart;	/* Start of current idle period */
++	ktime_t		qidlestart;	/* Start of current idle period */
+ };
+ 
+ static inline u32 red_rmask(u8 Plog)
+@@ -148,17 +148,17 @@ static inline void red_set_parms(struct red_parms *p,
+ 
+ static inline int red_is_idling(struct red_parms *p)
+ {
+-	return p->qidlestart != PSCHED_PASTPERFECT;
++	return p->qidlestart.tv64 != 0;
+ }
+ 
+ static inline void red_start_of_idle_period(struct red_parms *p)
+ {
+-	p->qidlestart = psched_get_time();
++	p->qidlestart = ktime_get();
+ }
+ 
+ static inline void red_end_of_idle_period(struct red_parms *p)
+ {
+-	p->qidlestart = PSCHED_PASTPERFECT;
++	p->qidlestart.tv64 = 0;
+ }
+ 
+ static inline void red_restart(struct red_parms *p)
+@@ -170,13 +170,10 @@ static inline void red_restart(struct red_parms *p)
+ 
+ static inline unsigned long red_calc_qavg_from_idle_time(struct red_parms *p)
+ {
+-	psched_time_t now;
+-	long us_idle;
++	s64 delta = ktime_us_delta(ktime_get(), p->qidlestart);
++	long us_idle = min_t(s64, delta, p->Scell_max);
+ 	int  shift;
+ 
+-	now = psched_get_time();
+-	us_idle = psched_tdiff_bounded(now, p->qidlestart, p->Scell_max);
+-
+ 	/*
+ 	 * The problem: ideally, average length queue recalcultion should
+ 	 * be done over constant clock intervals. This is too expensive, so
