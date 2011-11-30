@@ -1,74 +1,54 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: RCU'ed dst_get_neighbour()
-Date: Wed, 30 Nov 2011 06:26:08 +0100
-Message-ID: <1322630768.2596.64.camel@edumazet-laptop>
-References: <alpine.WNT.2.00.1111291027320.1036@TSI>
-	 <1322589661.2596.2.camel@edumazet-laptop>
-	 <1322599437.2596.10.camel@edumazet-laptop>
-	 <CAG4TOxNJfr3X1p358LBWdNQKdkw8KOSekcKpNu6K5_phPEiR4A@mail.gmail.com>
-	 <1322599991.2596.11.camel@edumazet-laptop>
-	 <alpine.WNT.2.00.1111291359290.1036@TSI>
-	 <1322601444.2596.21.camel@edumazet-laptop>
-	 <1322602283.2596.25.camel@edumazet-laptop>
-	 <CAL1RGDUcYJKBSCthTL1AFgpRvzjoaEpHjGFhratKP-98ufRKnw@mail.gmail.com>
-	 <alpine.WNT.2.00.1111291815410.1288@TSI>
-	 <CAL1RGDWzVRc4jFtsKUC6FGrdAWn3_OThXpbChCETCR8UCrwDDA@mail.gmail.com>
-	 <alpine.WNT.2.00.1111292212280.208@TSI>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC net-next] Include selection of congestion control
+ algorithm in that which is inherited across an accept() call
+Date: Wed, 30 Nov 2011 06:40:13 +0100
+Message-ID: <1322631613.2596.70.camel@edumazet-laptop>
+References: <20111130003112.C04FE29005FE@tardy>
+	 <1322630461.2596.61.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marc Aurele La France <tsi-yfeSBMgouQgsA/PxXw9srA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.WNT.2.00.1111292212280.208@TSI>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
+To: Rick Jones <raj@tardy.cup.hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:38965 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750895Ab1K3FkS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 00:40:18 -0500
+Received: by eeuu47 with SMTP id u47so74647eeu.19
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 21:40:17 -0800 (PST)
+In-Reply-To: <1322630461.2596.61.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 29 novembre 2011 =C3=A0 22:15 -0700, Marc Aurele La France a =C3=
-=A9crit :
-> On Tue, 29 Nov 2011, Roland Dreier wrote:
-> > On Tue, Nov 29, 2011 at 5:17 PM, Marc Aurele La France <tsi@ualbert=
-a.ca> wrote:
-> >> On Tue, 29 Nov 2011, Roland Dreier wrote:
-> >>> On Tue, Nov 29, 2011 at 1:31 PM, Eric Dumazet <eric.dumazet@gmail=
-=2Ecom>
-> >>> wrote:
-> >>>> Here is the result of this audit, please double check and test i=
-t, I
-> >>>> only compiled this.
+Le mercredi 30 novembre 2011 =C3=A0 06:21 +0100, Eric Dumazet a =C3=A9c=
+rit :
+
+> So my suggestion would be to use this two lines patch instead :
 >=20
-> >>> Thanks Eric... I'll queue this up and send it on once we get a go=
-od
-> >>> report from Marc.
+> diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+> index 945efff..6b066e2 100644
+> --- a/net/ipv4/tcp_minisocks.c
+> +++ b/net/ipv4/tcp_minisocks.c
+> @@ -495,8 +495,6 @@ struct sock *tcp_create_openreq_child(struct sock=
+ *sk, struct request_sock *req,
+>  		newtp->frto_counter =3D 0;
+>  		newtp->frto_highmark =3D 0;
+> =20
+> -		newicsk->icsk_ca_ops =3D &tcp_init_congestion_ops;
+> -
+>  		tcp_set_ca_state(newsk, TCP_CA_Open);
+>  		tcp_init_xmit_timers(newsk);
+>  		skb_queue_head_init(&newtp->out_of_order_queue);
 >=20
-> >> I can confirm that Eric's patch, retrofitted to 3.1.3, fixes the p=
-roblem.
->=20
-> > Oh... the problem was already in 3.1?
->=20
-> Yes, but not in anything earlier.
->=20
 
-Yes :
+Please test this change and if its OK, resubmit your patch, with
+appropriate Documentation change, as pointed out by Yuchung Cheng=20
 
-# git describe --contains f2c31e32b378a6653f
-v3.1-rc1~24^2~11
+(file to change : Documentation/networking/ip-sysctl.txt )
 
-It all depends if f2c31e32b378a6653f is backported to 3.0 someday, sinc=
-e
-it fixes bug added in commit f39925dbde778 (ipv4: Cache learned redirec=
-t
-information in inetpeer)
+You could clearly state that the congestion control eventually
+chosen by the listener socket takes precedence over the system default
+tcp congestion value.
 
-# git describe --contains  f39925dbde778 =20
-v2.6.39-rc1~468^2~349
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks !
