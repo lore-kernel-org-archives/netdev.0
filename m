@@ -1,168 +1,67 @@
-From: Chris Wright <chrisw@redhat.com>
-Subject: Re: [net-next-2.6 PATCH 0/6 v4] macvlan: MAC Address filtering
- support for passthru mode
-Date: Wed, 30 Nov 2011 15:00:49 -0800
-Message-ID: <20111130230049.GE29071@x200.localdomain>
-References: <1321577078.2749.58.camel@bwh-desktop>
- <4EC68EBB.3080303@intel.com>
- <1321638038.2883.28.camel@bwh-desktop>
- <4ECA8D50.9080603@intel.com>
- <1322584544.2684.20.camel@bwh-desktop>
- <1322587170.2684.26.camel@bwh-desktop>
- <4ED6691D.9070606@intel.com>
- <1322678890.2762.26.camel@bwh-desktop>
- <20111130210454.GC29071@x200.localdomain>
- <1322688843.2762.45.camel@bwh-desktop>
+From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+Subject: [PATCH] caif: Remove unused attributes from struct cflayer
+Date: Thu,  1 Dec 2011 00:02:32 +0100
+Message-ID: <1322694152-5422-1-git-send-email-sjur.brandeland@stericsson.com>
+References: <20111130.170457.1002117290486935116.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Wright <chrisw@redhat.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Roopa Prabhu <roprabhu@cisco.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"sri@us.ibm.com" <sri@us.ibm.com>,
-	"dragos.tatulea@gmail.com" <dragos.tatulea@gmail.com>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"arnd@arndb.de" <arnd@arndb.de>, "mst@redhat.com" <mst@redhat.com>,
-	"mchan@broadcom.com" <mchan@broadcom.com>,
-	"dwang2@cisco.com" <dwang2@cisco.com>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"benve@cisco.com" <benve@cisco.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1322688843.2762.45.camel@bwh-desktop>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:61062 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752107Ab1K3XCs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 18:02:48 -0500
+Received: by eaak14 with SMTP id k14so1346741eaa.19
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 15:02:47 -0800 (PST)
+In-Reply-To: <20111130.170457.1002117290486935116.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Ben Hutchings (bhutchings@solarflare.com) wrote:
-> On Wed, 2011-11-30 at 13:04 -0800, Chris Wright wrote:
-> > I agree that it's confusing.  Couldn't you simplify your ascii art
-> > (hopefully removing hw assumptions about receive processing, and
-> > completely ignoring vlans for the moment) to something like:
-> >
-> >              |RX
-> >              v
-> > +------------+-------------+
-> > |     +------+--------+    |
-> > |     | RX MAC filter |    |
-> > |     |and port select|    |
-> > |     +---------------+    |
-> > |            /|\           |
-> > |           / | \   match 2|
-> > |          /  v  \         |
-> > |         /match  \        |
-> > |        /  1 |    \       |
-> > |       /     |     \      |
-> > |match /      |      \     |
-> > |  0  /       |       \    |
-> > |    v        |        v   |
-> > |    |        |        |   |
-> > +----+--------+--------+---+
-> >      |        |        |
-> >     PF       VF 1     VF 2
-> > 
-> > And there's an unclear number of ways to update "RX MAC filter and port
-> > select" table.
-> > 
-> > 1) PF ndo_set_mac_addr
-> > I expect that to be implicit to match 0.
-> > 
-> > 2) PF ndo_set_rx_mode
-> > Less clear, but I'd still expect these to implicitly match 0
-> > 
-> > 3) PF ndo_set_vf_mac
-> > I expect these to be an explicit match to VF N (given the interface
-> > specifices which VF's MAC is being programmed).
-> 
-> I'm not sure whether this is supposed to implicitly add to the MAC
-> filter or whether that has to be changed too.  That's the main
-> difference between my models (a) and (b).
+Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+---
+Hi Dave,
 
-I see now.  I wasn't entirely clear on the difference before.  It's also
-going to be hw specific.  I think (Intel folks can verify) that the
-Intel SR-IOV devices have a single global unicast exact match table,
-for example.
+>...
+>Looks like this code was always buggy, passing the index in the type p=
+arameter
+>and the type in the instance parameter.
+>
 
-> There's also PF ndo_set_vf_vlan.
+Yes, you're right. The type and prio isn't used anyway,
+so let's just kill it off.
 
-Right, although I had mentioned I was trying to limit just to MAC
-filtering to simplify.
+Regards,
+Sjur
 
-> > 4) VF ndo_set_mac_addr
-> > This one may or may not be allowed (setting MAC+port if the VF is owned
-> > by a guest is likely not allowed), but would expect an implicit VF N.
-> > 
-> > 5) VF ndo_set_rx_mode
-> > Same as 4) above.
-> 
-> So this is where we are today.
+ include/net/caif/caif_layer.h |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
 
-Cool, good that we agree there.
-
-> > 6) PF or VF? ndo_set_rx_filter_addr
-> > The new proposal, which has an explicit VF, although when it's VF_SELF
-> > I'm not clear if this is just the same as 5) above?
-> > 
-> > Have I missed anything?
-> 
-> Any physical port can be bridged to a mixture of guests with and without
-> their own VFs.  Packets sent from a guest with a VF to the address of a
-> guest without a VF need to be forwarded to the PF rather than the
-> physical port, but none of the drivers currently get to know about those
-> addresses.
-
-To clarify, do you mean something like this?
-
-       physical port
-             |
-+------------+------------+
-|         +-----+         |
-|         | VEB |         |
-|         +-----+         |
-|        /   |   \        |
-|       /    |    \       |
-|      /     |     \      |
-+-----+------+------+-----+
-      |      |       |
-     PF    VF 1    VF 2
-     /       |       | 
- +---+---+  VM4  +---+---+
- |  sw   |       |macvtap|
- | switch|       +---+---+
- +-+-+-+-+           |
-   / | \            VM5
-  /  |  \
-VM1 VM2 VM3
-
-This has VMs 1-3 hanging of the PF via a linux bridge (traditional hv
-switching), VM4 directly owning VF1 (pci device assignement), and VM5
-indirectly owning VF2 (macvtap passthrough, that started this whole
-thing).
-
-So, I'm understanding you saying that VM4 or VM4 sending a packet to VM1
-goes in to VEB, out PF, and into linux bridging code, rigth?  At which
-point the PF is in promiscuous mode (btw, same does not work if bridge is
-attached to VF, at least for some VFs, due to lack of promiscuous mode).
-
-> Packets sent from a guest with a VF to the address of another guest with
-> a VF need to be forwarded similarly, but the driver should be able to
-> infer that from (3).
-
-Right, and that works currently for the case where both guests are like
-VM4, they directly own the VF via PCI device assignement.  But for VM4
-to talk to VM5, VF3 is not in promiscuous mode and has a different MAC
-address than VM5's vNIC.  If the embedded bridge does not learn, and
-nobody programmed it to fwd frames for VM5 via VF3...
-
-I believe this is what Roopa's patch will allow.  The question now is
-whether there's a better way to handle this?
-
-In my mind, we'd model the NIC's embedded bridge as, well, a bridge.
-And set anti-spoofing, port mirroring, port mac/vlan filtering, etc via
-that bridge.
-
-thanks,
--chris
+diff --git a/include/net/caif/caif_layer.h b/include/net/caif/caif_laye=
+r.h
+index 35bc788..0f3a391 100644
+--- a/include/net/caif/caif_layer.h
++++ b/include/net/caif/caif_layer.h
+@@ -121,9 +121,7 @@ enum caif_direction {
+  * @transmit:	Packet transmit funciton.
+  * @ctrlcmd:	Used for control signalling upwards in the stack.
+  * @modemcmd:	Used for control signaling downwards in the stack.
+- * @prio:	Priority of this layer.
+  * @id:		The identity of this layer
+- * @type:	The type of this layer
+  * @name:	Name of the layer.
+  *
+  *  This structure defines the layered structure in CAIF.
+@@ -230,9 +228,7 @@ struct cflayer {
+ 	 */
+ 	int (*modemcmd) (struct cflayer *layr, enum caif_modemcmd ctrl);
+=20
+-	unsigned short prio;
+ 	unsigned int id;
+-	unsigned int type;
+ 	char name[CAIF_LAYER_NAME_SZ];
+ };
+=20
+--=20
+1.7.0.4
