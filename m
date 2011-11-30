@@ -1,9 +1,9 @@
 From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: Re: [PATCH 04/12] [MAC802154] mac802154: TX data path
-Date: Wed, 30 Nov 2011 19:56:16 +0400
-Message-ID: <CALT56yNu4qALw5QbwAhVficw8SGun+EpuaAiwP4fbEMJ1O4kNw@mail.gmail.com>
+Subject: Re: [PATCH 06/12] [MAC802154] mac802154: MIB support
+Date: Wed, 30 Nov 2011 20:00:16 +0400
+Message-ID: <CALT56yNyfxs5XEeUgEd77wBbKtaGSKjB9a8U6nK1=3N1Uv+GBA@mail.gmail.com>
 References: <20111130141827.GA3739@avtobot.cybertron>
-	<1322663029-3880-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+	<1322663105-3952-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -11,63 +11,61 @@ Cc: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
 	davem@davemloft.net
 To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:44665 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753286Ab1K3P4R convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 10:56:17 -0500
-Received: by qadc14 with SMTP id c14so3040521qad.19
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 07:56:16 -0800 (PST)
-In-Reply-To: <1322663029-3880-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:50317 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753286Ab1K3QAR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 11:00:17 -0500
+Received: by qyk4 with SMTP id 4so429736qyk.19
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 08:00:17 -0800 (PST)
+In-Reply-To: <1322663105-3952-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hello,
 
-On Wed, Nov 30, 2011 at 6:23 PM, Alexander Smirnov
+On Wed, Nov 30, 2011 at 6:25 PM, Alexander Smirnov
 <alex.bluesman.smirnov@gmail.com> wrote:
-> Main TX data path implementation between upper and physical layers.
+> Support for IEEE 802.15.4 management information base,
+> routine like setting of HW address, PAN id, channel etc...
 >
 > Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 > ---
-> =A0net/mac802154/Makefile =A0 =A0 =A0 =A0 | =A0 =A02 +-
-> =A0net/mac802154/ieee802154_dev.c | =A0 =A03 +-
-> =A0net/mac802154/tx.c =A0 =A0 =A0 =A0 =A0 =A0 | =A0102 ++++++++++++++=
-++++++++++++++++++++++++++
-> =A03 files changed, 105 insertions(+), 2 deletions(-)
-> =A0create mode 100644 net/mac802154/tx.c
+> =A0include/linux/if.h =A0 =A0 =A0 =A0| =A0 =A03 +
+> =A0net/mac802154/Makefile =A0 =A0| =A0 =A02 +-
+> =A0net/mac802154/mac802154.h | =A0 22 ++++
+> =A0net/mac802154/mib.c =A0 =A0 =A0 | =A0247 +++++++++++++++++++++++++=
+++++++++++++++++++++
+> =A0net/mac802154/mib.h =A0 =A0 =A0 | =A0 35 +++++++
+> =A05 files changed, 308 insertions(+), 1 deletions(-)
+> =A0create mode 100644 net/mac802154/mib.c
+> =A0create mode 100644 net/mac802154/mib.h
 >
-> diff --git a/net/mac802154/Makefile b/net/mac802154/Makefile
-> index e00fe47..490beef 100644
-> --- a/net/mac802154/Makefile
-> +++ b/net/mac802154/Makefile
-> @@ -1,2 +1,2 @@
-> =A0obj-$(CONFIG_MAC802154) =A0 =A0 =A0 =A0+=3D mac802154.o
-> -mac802154-objs =A0 =A0 =A0 =A0 :=3D ieee802154_dev.o rx.o
-> +mac802154-objs =A0 =A0 =A0 =A0 :=3D ieee802154_dev.o rx.o tx.o
-> diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee80215=
-4_dev.c
-> index 42f95b2..e90d336 100644
-> --- a/net/mac802154/ieee802154_dev.c
-> +++ b/net/mac802154/ieee802154_dev.c
-> @@ -31,7 +31,8 @@ struct ieee802154_dev *ieee802154_alloc_device(size=
-_t priv_size,
-> =A0 =A0 =A0 =A0struct wpan_phy *phy;
-> =A0 =A0 =A0 =A0struct mac802154_priv *priv;
->
-> - =A0 =A0 =A0 if (!ops || !ops->xmit || !ops->ed || !ops->start || !o=
-ps->stop) {
-> + =A0 =A0 =A0 if (!ops || !ops->xmit || !ops->ed || !ops->start || !o=
-ps->stop ||
-> + =A0 =A0 =A0 =A0 =A0 !ops->set_channel) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0printk(KERN_ERR
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"Undefined IEEE802.15.=
-4 device operations\n");
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return NULL;
+> diff --git a/include/linux/if.h b/include/linux/if.h
+> index 06b6ef6..deaf14c 100644
+> --- a/include/linux/if.h
+> +++ b/include/linux/if.h
+> @@ -76,6 +76,9 @@
+> =A0#define IFF_BRIDGE_PORT =A0 =A0 =A0 =A00x4000 =A0 =A0 =A0 =A0 =A0/=
+* device used as bridge port */
+> =A0#define IFF_OVS_DATAPATH =A0 =A0 =A0 0x8000 =A0/* device used as O=
+pen vSwitch
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 * datapath port */
+> +
+> +#define IFF_IEEE802154_COORD =A0 0x400 =A0 /* IEEE802.15.4 PAN coord=
+inator */
+> +
 
-Shan't this be present in one of the previous patches instead? Because
-it's illogical to include the check here and not before, if you define
-set_channel
-operation in previous patch.
+I remember this define, but I don't remember why we did it this way.
+Is it suitable
+to use this namespace for device-specific flags?
+
+> =A0#define IFF_TX_SKB_SHARING =A0 =A0 0x10000 /* The interface suppor=
+ts sharing
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 * skbs on transmit */
+> =A0#define IFF_UNICAST_FLT =A0 =A0 =A0 =A00x20000 =A0 =A0 =A0 =A0 /* =
+Supports unicast filtering =A0 */
 
 --=20
 With best wishes
