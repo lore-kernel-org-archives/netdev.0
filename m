@@ -1,44 +1,45 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH 1/2] net/hyperv: Fix long lines in netvsc.c
-Date: Wed, 30 Nov 2011 07:19:07 -0800
-Message-ID: <1322666348-6554-1-git-send-email-haiyangz@microsoft.com>
-To: haiyangz@microsoft.com, kys@microsoft.com, davem@davemloft.net,
-	gregkh@suse.de, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, devel@linuxdriverproject.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtps2ded02.prod.phx3.secureserver.net ([208.109.80.59]:41891
-	"HELO p3plsmtps2ded02-01.prod.phx3.secureserver.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754893Ab1K3PTO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Nov 2011 10:19:14 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [v4 PATCH 1/2] NETFILTER module xt_hmark, new target 	for HASH
+ based fwmark
+Date: Wed, 30 Nov 2011 16:27:26 +0100
+Message-ID: <4ED64B5E.2030705@trash.net>
+References: <hr62jai.42522fc2b4c8846204d05566f5c6b926@obelix.schillstrom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, jengelh@medozas.de,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	hans.schillstrom@ericsson.com
+To: Hans Schillstrom <hans@schillstrom.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <hr62jai.42522fc2b4c8846204d05566f5c6b926@obelix.schillstrom.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+On 11/28/2011 10:36 AM, Hans Schillstrom wrote:
+>> If you don't want to use conntrack in your setup and you want to handle
+>> fragments, then you have to configure HMARK to calculate the hashing
+>> based on the network addresses. If you want to fully support fragments,
+>> then enable conntrack and you can configure HMARK to calculate the
+>> hashing based on network address + transport bits.
+>>
+>> Fix this by removing the fragmentation handling, then assume that
+>> people can select between two hashing configuration for HMARK. One
+>> based for network address which is fragment-safe, one that uses the
+>> transport layer information, that requires conntrack. Otherwise, I
+>> don't see a sane way to handle this situation.
+> Correct me if I'm wrong here,
+> If conntrack is enabled hmark don't see the packet until it is reassembled and
+> in that case the fragmentation header is removed.
+>
+> So, with conntrack HMARK will operate on full packets not fragments
+> without conntrack ports will not be used on any fragment
 
----
- drivers/net/hyperv/netvsc.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+Correct.
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 28e69a6..4a807e4 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -230,9 +230,11 @@ static int netvsc_init_recv_buf(struct hv_device *device)
- 	net_device->recv_section_cnt = init_packet->msg.
- 		v1_msg.send_recv_buf_complete.num_sections;
- 
--	net_device->recv_section = kmemdup(init_packet->msg.v1_msg.send_recv_buf_complete.sections,
--					   net_device->recv_section_cnt * sizeof(struct nvsp_1_receive_buffer_section),
--					   GFP_KERNEL);
-+	net_device->recv_section = kmemdup(
-+		init_packet->msg.v1_msg.send_recv_buf_complete.sections,
-+		net_device->recv_section_cnt *
-+		sizeof(struct nvsp_1_receive_buffer_section),
-+		GFP_KERNEL);
- 	if (net_device->recv_section == NULL) {
- 		ret = -EINVAL;
- 		goto cleanup;
--- 
-1.7.4.1
+You don't necessarily need conntrack for defragmentation though,
+we've moved defragmentation to a seperate module for TPROXY. You
+can depend on that and get defragmentation without full
+connection tracking.
+
+
