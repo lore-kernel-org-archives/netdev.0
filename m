@@ -1,108 +1,74 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [v4 PATCH 1/2] NETFILTER module xt_hmark, new target for HASH
- based fwmark
-Date: Wed, 30 Nov 2011 16:51:35 +0100
-Message-ID: <4ED65107.1040309@trash.net>
-References: <1322213787-25796-1-git-send-email-hans@schillstrom.com> <1322213787-25796-2-git-send-email-hans@schillstrom.com>
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Subject: Re: [PATCH 04/12] [MAC802154] mac802154: TX data path
+Date: Wed, 30 Nov 2011 19:56:16 +0400
+Message-ID: <CALT56yNu4qALw5QbwAhVficw8SGun+EpuaAiwP4fbEMJ1O4kNw@mail.gmail.com>
+References: <20111130141827.GA3739@avtobot.cybertron>
+	<1322663029-3880-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, jengelh@medozas.de,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	hans.schillstrom@ericsson.com
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1322213787-25796-2-git-send-email-hans@schillstrom.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:44665 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753286Ab1K3P4R convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 10:56:17 -0500
+Received: by qadc14 with SMTP id c14so3040521qad.19
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 07:56:16 -0800 (PST)
+In-Reply-To: <1322663029-3880-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/25/2011 10:36 AM, Hans Schillstrom wrote:
-> +__u32 hmark_v6(struct sk_buff *skb, const struct xt_action_param *par)
-> +{
-> +	struct xt_hmark_info *info = (struct xt_hmark_info *)par->targinfo;
-> +	int nhoff, poff, hdrlen;
-> +	u32 addr1, addr2, hash;
-> +	struct ipv6hdr *ip6;
-> +	u8 nexthdr;
-> +	int frag = 0, ip6hdrlvl = 0;	/* Header level */
-> +	struct ipv6_opt_hdr _hdr, *hp;
-> +	union {
-> +		u32 v32;
-> +		u16 v16[2];
-> +	} ports;
-> +
-> +	ports.v32 = 0;
-> +	nhoff = skb_network_offset(skb);
-> +
-> +hdr_new:
-> +	/* Get header info */
-> +	ip6 = (struct ipv6hdr *) (skb->data + nhoff);
-> +	nexthdr = ip6->nexthdr;
-> +	hdrlen = sizeof(struct ipv6hdr);
-> +	hp = skb_header_pointer(skb, nhoff + hdrlen, sizeof(_hdr),&_hdr);
-> +
-> +	while (nexthdr) {
-> +		switch (nexthdr) {
-> +		case IPPROTO_ICMPV6:
-> +			/* ICMP Error then move ptr to inner header */
-> +			if (get_inner6_hdr(skb,&nhoff, hdrlen)) {
+Hello,
 
-This doesn't look right. You assume the ICMPv6 header is following
-the IPv6 header with any other headers in between. If there are
-other headers, hdrlen will contain the length of the last header.
+On Wed, Nov 30, 2011 at 6:23 PM, Alexander Smirnov
+<alex.bluesman.smirnov@gmail.com> wrote:
+> Main TX data path implementation between upper and physical layers.
+>
+> Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+> ---
+> =A0net/mac802154/Makefile =A0 =A0 =A0 =A0 | =A0 =A02 +-
+> =A0net/mac802154/ieee802154_dev.c | =A0 =A03 +-
+> =A0net/mac802154/tx.c =A0 =A0 =A0 =A0 =A0 =A0 | =A0102 ++++++++++++++=
+++++++++++++++++++++++++++
+> =A03 files changed, 105 insertions(+), 2 deletions(-)
+> =A0create mode 100644 net/mac802154/tx.c
+>
+> diff --git a/net/mac802154/Makefile b/net/mac802154/Makefile
+> index e00fe47..490beef 100644
+> --- a/net/mac802154/Makefile
+> +++ b/net/mac802154/Makefile
+> @@ -1,2 +1,2 @@
+> =A0obj-$(CONFIG_MAC802154) =A0 =A0 =A0 =A0+=3D mac802154.o
+> -mac802154-objs =A0 =A0 =A0 =A0 :=3D ieee802154_dev.o rx.o
+> +mac802154-objs =A0 =A0 =A0 =A0 :=3D ieee802154_dev.o rx.o tx.o
+> diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee80215=
+4_dev.c
+> index 42f95b2..e90d336 100644
+> --- a/net/mac802154/ieee802154_dev.c
+> +++ b/net/mac802154/ieee802154_dev.c
+> @@ -31,7 +31,8 @@ struct ieee802154_dev *ieee802154_alloc_device(size=
+_t priv_size,
+> =A0 =A0 =A0 =A0struct wpan_phy *phy;
+> =A0 =A0 =A0 =A0struct mac802154_priv *priv;
+>
+> - =A0 =A0 =A0 if (!ops || !ops->xmit || !ops->ed || !ops->start || !o=
+ps->stop) {
+> + =A0 =A0 =A0 if (!ops || !ops->xmit || !ops->ed || !ops->start || !o=
+ps->stop ||
+> + =A0 =A0 =A0 =A0 =A0 !ops->set_channel) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0printk(KERN_ERR
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"Undefined IEEE802.15.=
+4 device operations\n");
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return NULL;
 
-> +				ip6hdrlvl++;
-> +				if (!pskb_may_pull(skb, sizeof(_hdr) + nhoff))
-> +					return XT_CONTINUE;
-> +				goto hdr_new;
-> +			}
-> +			nhoff += hdrlen;
-> +			goto hdr_rdy;
-> +
-> +		case NEXTHDR_FRAGMENT:
-> +			if (!ip6hdrlvl) /* Do not use ports if fragmented */
-> +				frag = 1;
+Shan't this be present in one of the previous patches instead? Because
+it's illogical to include the check here and not before, if you define
+set_channel
+operation in previous patch.
 
-Shouldn't you also check for fragment offset == 0 here?
-The fragment header also doesn't include the length, so
-using ipv6_optlen() below is incorrect.
-> +			break;
-> +
-> +		/* End of hdr traversing cont. with ports and hash calc. */
-> +		case NEXTHDR_IPV6:	/* Do not process tunnels */
-
-That comment looks misleading, you do seem to process them?
-
-> +		case NEXTHDR_TCP:
-> +		case NEXTHDR_UDP:
-> +		case NEXTHDR_ESP:
-> +		case NEXTHDR_AUTH:
-
-Don't you want to use the port numbers if only authentication
-without encryption is used?
-
-> +		case NEXTHDR_SCTP:
-> +		case NEXTHDR_NONE:	/* Last hdr of something unknown */
-> +			nhoff += hdrlen;
-> +			goto hdr_rdy;
-> +		default:
-> +			return XT_CONTINUE;
-> +		}
-> +		if (!hp)
-> +			return XT_CONTINUE;
-> +		nhoff += hdrlen;	/* eat current header */
-> +		nexthdr =  hp->nexthdr;	/* Next header */
-> +		hdrlen = ipv6_optlen(hp);
-> +		hp = skb_header_pointer(skb, nhoff + hdrlen, sizeof(_hdr),
-> +					&_hdr);
-> +
-> +		if (!pskb_may_pull(skb, nhoff))
-> +			return XT_CONTINUE;
-> +	}
-
-And final question, why not simply use ipv6_skip_exthdr()?
-
-> +hdr_rdy:
-> +...
-
-
+--=20
+With best wishes
+Dmitry
