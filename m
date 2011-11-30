@@ -1,92 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] sch_teql: fix lockdep splat
-Date: Wed, 30 Nov 2011 15:08:58 +0100
-Message-ID: <1322662138.2403.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Fabio Estevam <fabio.estevam@freescale.com>
+Subject: [PATCH v3] net: fec: Select the FEC driver by default for i.MX SoCs
+Date: Wed, 30 Nov 2011 12:42:18 -0200
+Message-ID: <1322664138-3245-1-git-send-email-fabio.estevam@freescale.com>
+References: <1322652717-2685-1-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:64004 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751741Ab1K3OJD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 09:09:03 -0500
-Received: by lagw12 with SMTP id w12so110535lag.19
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 06:09:01 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="===============0337180682594616792=="
+Cc: Fabio Estevam <fabio.estevam@freescale.com>, netdev@vger.kernel.org,
+ marek.vasut@gmail.com, kernel@pengutronix.de, u.kleine-koenig@pengutronix.de,
+ davem@davemloft.net, shawn.guo@freescale.com
+To: <linux-arm-kernel@lists.infradead.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1322652717-2685-1-git-send-email-fabio.estevam@freescale.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-We need rcu_read_lock() protection before using dst_get_neighbour(), and
-we must cache its value (pass it to __teql_resolve())
+--===============0337180682594616792==
+Content-Type: text/plain
 
-teql_master_xmit() is called under rcu_read_lock_bh() protection, its
-not enough.
+Since commit 230dec6 (net/fec: add imx6q enet support) the FEC driver is no 
+longer built by default for i.MX SoCs.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Let the FEC driver be built by default again.
+
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+Suggested-by: Uwe Kleine-König <u.kleine-koenig@pengutronix.de>
+Acked-by: Uwe Kleine-König <u.kleine-koenig@pengutronix.de
+Acked-by: Shawn Guo <shawn.guo@linaro.org>
 ---
- net/sched/sch_teql.c |   31 ++++++++++++++++++++-----------
- 1 file changed, 20 insertions(+), 11 deletions(-)
+Changes since v2:
+- Improve commit message
+- Reorder the placement of the "default" line
+Changes since v1: 
+Move the FEC selection into Kconfig instead of .config file
+ drivers/net/ethernet/freescale/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/net/sched/sch_teql.c b/net/sched/sch_teql.c
-index a3b7120..4f4c52c 100644
---- a/net/sched/sch_teql.c
-+++ b/net/sched/sch_teql.c
-@@ -225,11 +225,11 @@ static int teql_qdisc_init(struct Qdisc *sch, struct nlattr *opt)
- 
- 
- static int
--__teql_resolve(struct sk_buff *skb, struct sk_buff *skb_res, struct net_device *dev)
-+__teql_resolve(struct sk_buff *skb, struct sk_buff *skb_res,
-+	       struct net_device *dev, struct netdev_queue *txq,
-+	       struct neighbour *mn)
- {
--	struct netdev_queue *dev_queue = netdev_get_tx_queue(dev, 0);
--	struct teql_sched_data *q = qdisc_priv(dev_queue->qdisc);
--	struct neighbour *mn = dst_get_neighbour(skb_dst(skb));
-+	struct teql_sched_data *q = qdisc_priv(txq->qdisc);
- 	struct neighbour *n = q->ncache;
- 
- 	if (mn->tbl == NULL)
-@@ -262,17 +262,26 @@ __teql_resolve(struct sk_buff *skb, struct sk_buff *skb_res, struct net_device *
- }
- 
- static inline int teql_resolve(struct sk_buff *skb,
--			       struct sk_buff *skb_res, struct net_device *dev)
-+			       struct sk_buff *skb_res,
-+			       struct net_device *dev,
-+			       struct netdev_queue *txq)
- {
--	struct netdev_queue *txq = netdev_get_tx_queue(dev, 0);
-+	struct dst_entry *dst = skb_dst(skb);
-+	struct neighbour *mn;
-+	int res;
-+
- 	if (txq->qdisc == &noop_qdisc)
- 		return -ENODEV;
- 
--	if (dev->header_ops == NULL ||
--	    skb_dst(skb) == NULL ||
--	    dst_get_neighbour(skb_dst(skb)) == NULL)
-+	if (!dev->header_ops || !dst)
- 		return 0;
--	return __teql_resolve(skb, skb_res, dev);
-+
-+	rcu_read_lock();
-+	mn = dst_get_neighbour(dst);
-+	res = mn ? __teql_resolve(skb, skb_res, dev, txq, mn) : 0;
-+	rcu_read_unlock();
-+
-+	return res;
- }
- 
- static netdev_tx_t teql_master_xmit(struct sk_buff *skb, struct net_device *dev)
-@@ -307,7 +316,7 @@ restart:
- 			continue;
- 		}
- 
--		switch (teql_resolve(skb, skb_res, slave)) {
-+		switch (teql_resolve(skb, skb_res, slave, slave_txq)) {
- 		case 0:
- 			if (__netif_tx_trylock(slave_txq)) {
- 				unsigned int length = qdisc_pkt_len(skb);
+diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
+index c520cfd..5272f9d 100644
+--- a/drivers/net/ethernet/freescale/Kconfig
++++ b/drivers/net/ethernet/freescale/Kconfig
+@@ -24,6 +24,7 @@ config FEC
+ 	bool "FEC ethernet controller (of ColdFire and some i.MX CPUs)"
+ 	depends on (M523x || M527x || M5272 || M528x || M520x || M532x || \
+ 		   ARCH_MXC || ARCH_MXS)
++	default ARCH_MXC || ARCH_MXS if ARM
+ 	select PHYLIB
+ 	---help---
+ 	  Say Y here if you want to use the built-in 10/100 Fast ethernet
+-- 
+1.7.1
+
+
+
+
+--===============0337180682594616792==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+linux-arm-kernel mailing list
+linux-arm-kernel@lists.infradead.org
+http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+
+--===============0337180682594616792==--
