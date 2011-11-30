@@ -1,89 +1,151 @@
-From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
-Subject: Re: [RFC PATCH 00/18] netfilter: IPv6 NAT
-Date: Wed, 30 Nov 2011 01:30:54 +0100
-Message-ID: <4ED5793E.1090003@ans.pl>
-References: <CAF9AA63.1622%ulrich.weber@sophos.com>  <a2407c3b6405bd682cedad6db82cf225@treenet.co.nz>  <4ED4A399.6090709@sophos.com>  <alpine.LNX.2.01.1111291255200.20965@frira.zrqbmnf.qr>  <4ED550E7.1090609@ans.pl> <1322611509.2684.52.camel@bwh-desktop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	Ulrich Weber <ulrich.weber@sophos.com>,
-	Amos Jeffries <squid3@treenet.co.nz>,
-	"sclark46@earthlink.net" <sclark46@earthlink.net>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1322611509.2684.52.camel@bwh-desktop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: raj@tardy.cup.hp.com (Rick Jones)
+Subject: [RFC net-next] Include selection of congestion control algorithm in that which is inherited across an accept() call
+Date: Tue, 29 Nov 2011 16:31:12 -0800 (PST)
+Message-ID: <20111130003112.C04FE29005FE@tardy>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:46754 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757143Ab1K3AbO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2011 19:31:14 -0500
+Received: from g1t0038.austin.hp.com (g1t0038.austin.hp.com [16.236.32.44])
+	by g1t0028.austin.hp.com (Postfix) with ESMTP id 784E61C168
+	for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 00:31:13 +0000 (UTC)
+Received: from tardy (tardy.cup.hp.com [16.89.64.213])
+	by g1t0038.austin.hp.com (Postfix) with ESMTP id 532BE30078
+	for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 00:31:13 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2011-11-30 01:05, Ben Hutchings wrote:
-> On Tue, 2011-11-29 at 22:38 +0100, Krzysztof Ol=C4=99dzki wrote:
->> On 2011-11-29 13:23, Jan Engelhardt wrote:
->>>
->>> On Tuesday 2011-11-29 10:19, Ulrich Weber wrote:
->>>> On 28.11.2011 23:03, Amos Jeffries wrote:
->>>>> I'm going to dare to call FUD on those statements...
->>>>>     * Load Balancing - what is preventing your routing rules or p=
-acket
->>>>>    marking using the same criteria as the NAT changer? nothing. L=
-oad
->>>>>    balancing works perfectly fine without NAT.
->>>
->>> Source address selection, having to occur on the source, would
->>> require that the source has to know all the parameters that a {what
->>> would have been your NAT GW} would need to know, which means you ha=
-ve
->>> to (a) collect and/or (b) distribute this information. Given two
->>> uplinks that only allow a certain source network address (different
->>> for each uplink), combined with the desire to balance on utilizatio=
-n,
->>> (a) a client is not in the position to easily obtain this data unle=
-ss
->>> it is the router for all participants itself, (b) the clients needs
->>> to cooperate, and one cannot always trust client devices, or hope f=
-or
->>> their technical cooperation (firewalled themselves off).
->>>
->>> Yes, NAT is evil, but if you actually think about it, policies are
->>> best applied where [the policy] originates from. After all, we also
->>> don't do LSRR, instead, routers do the routing, because they just
->>> know much better.
->>>
->>>> I fully agree. NAT can not replace your firewall rules.
->>>>
->>>> However with NAT you could get some kind of anonymity.
->>>
->>> Same network prefix, some cookies, or a login form. Blam, identifie=
-d,
->>> or at least (Almost-)Uniquely Identified Visitor tagging.
->>
->> But without NAT you have pretty big chance to have the same IPv6
->> *suffix* everywhere, based on you MAC address. In your Home, your Wo=
-rk,
->> in a Cafe or in a hotel during your vacations in Portugal. So yes, N=
-AT
->> is not a perfect solution but it really helps you privacy.
->
-> If you enable NAT on your own network, how does this help when you us=
-e
-> all those other networks that may not use NAT or may have a predictab=
-le
-> mapping from MAC address to public IPv6 address?
+From: Rick Jones <rick.jones2@hp.com>
 
-Oh, I understand your point. But I'm looking at it from the other side=20
-as I'm here to protect my users. ;)
+Include congestion control algorithm in what is inherited across an
+accept() call.
+
+Signed-off-by: Rick Jones <rick.jones2@hp.com>
+
+---
+
+Before patch, with cubic as the default:
+raj@raj-ubuntu-guest:~$ ./tcp_congestion_test  reno
+Will be requesting 'reno' as the congestion control algorithm
+active socket has 'reno' for congestion control
+passive socket has 'reno' for congestion control
+after listen() passive socket has 'reno' for congestion control
+after connect() active has 'reno' for congestion control
+after accept() accepted has 'cubic' for congestion control 
+
+After patch, still with cubic as the default:
+raj@raj-ubuntu-guest:~$ ./tcp_congestion_test reno
+Will be requesting 'reno' as the congestion control algorithm
+active socket has 'reno' for congestion control
+passive socket has 'reno' for congestion control
+after listen() passive socket has 'reno' for congestion control
+after connect() active has 'reno' for congestion control
+after accept() accepted has 'reno' for congestion control
+
+IPv6 portion compiled only.
 
 
-Best regards,
+ include/linux/ipv6.h     |    3 +++
+ include/net/inet_sock.h  |    3 +++
+ net/ipv4/tcp_ipv4.c      |    3 +++
+ net/ipv4/tcp_minisocks.c |    2 +-
+ net/ipv6/tcp_ipv6.c      |    3 +++
+ 5 files changed, 13 insertions(+), 1 deletions(-)
 
-			Krzysztof Ol=C4=99dzki
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 0c99776..1d0dde3 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -265,11 +265,14 @@ static inline int inet6_iif(const struct sk_buff *skb)
+ 	return IP6CB(skb)->iif;
+ }
+ 
++struct tcp_congestion_ops;
++
+ struct inet6_request_sock {
+ 	struct in6_addr		loc_addr;
+ 	struct in6_addr		rmt_addr;
+ 	struct sk_buff		*pktopts;
+ 	int			iif;
++	const struct tcp_congestion_ops *cong_ops;
+ };
+ 
+ struct tcp6_request_sock {
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index f941964..9ec68a3 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -69,6 +69,8 @@ struct ip_options_data {
+ 	char			data[40];
+ };
+ 
++struct tcp_congestion_ops;
++
+ struct inet_request_sock {
+ 	struct request_sock	req;
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+@@ -89,6 +91,7 @@ struct inet_request_sock {
+ 				no_srccheck: 1;
+ 	kmemcheck_bitfield_end(flags);
+ 	struct ip_options_rcu	*opt;
++	const struct tcp_congestion_ops *cong_ops;
+ };
+ 
+ static inline struct inet_request_sock *inet_rsk(const struct request_sock *sk)
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index a9db4b1..79c02e2 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1254,6 +1254,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	const u8 *hash_location;
+ 	struct request_sock *req;
+ 	struct inet_request_sock *ireq;
++	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct dst_entry *dst = NULL;
+ 	__be32 saddr = ip_hdr(skb)->saddr;
+@@ -1341,6 +1342,8 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	ireq->rmt_addr = saddr;
+ 	ireq->no_srccheck = inet_sk(sk)->transparent;
+ 	ireq->opt = tcp_v4_save_options(sk, skb);
++	ireq->cong_ops = (icsk->icsk_ca_ops) ? icsk->icsk_ca_ops :
++					&tcp_init_congestion_ops;
+ 
+ 	if (security_inet_conn_request(sk, skb, req))
+ 		goto drop_and_free;
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 945efff..be338d7 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -495,7 +495,7 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
+ 		newtp->frto_counter = 0;
+ 		newtp->frto_highmark = 0;
+ 
+-		newicsk->icsk_ca_ops = &tcp_init_congestion_ops;
++		newicsk->icsk_ca_ops = ireq->cong_ops;
+ 
+ 		tcp_set_ca_state(newsk, TCP_CA_Open);
+ 		tcp_init_xmit_timers(newsk);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 9d74eee..c689779 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1164,6 +1164,7 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	const u8 *hash_location;
+ 	struct request_sock *req;
+ 	struct inet6_request_sock *treq;
++	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct ipv6_pinfo *np = inet6_sk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	__u32 isn = TCP_SKB_CB(skb)->when;
+@@ -1254,6 +1255,8 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 		TCP_ECN_create_request(req, tcp_hdr(skb));
+ 
+ 	treq->iif = sk->sk_bound_dev_if;
++	treq->cong_ops = (icsk->icsk_ca_ops) ? icsk->icsk_ca_ops :
++					&tcp_init_congestion_ops;
+ 
+ 	/* So that link locals have meaning */
+ 	if (!sk->sk_bound_dev_if &&
