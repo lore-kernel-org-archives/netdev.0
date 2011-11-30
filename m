@@ -1,76 +1,59 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Subject: Re: [PATCH v7 10/10] Disable task moving when using kernel memory
- accounting
-Date: Wed, 30 Nov 2011 11:22:10 +0900
-Message-ID: <20111130112210.1d979512.kamezawa.hiroyu@jp.fujitsu.com>
-References: <1322611021-1730-1-git-send-email-glommer@parallels.com>
-	<1322611021-1730-11-git-send-email-glommer@parallels.com>
+From: Li Wei <lw@cn.fujitsu.com>
+Subject: Problem with the first ICMP_REDIRECT message
+Date: Wed, 30 Nov 2011 11:10:54 +0800
+Message-ID: <4ED59EBE.1030403@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org,
-	lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
-	kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org, avagin-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1322611021-1730-11-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:60924 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751774Ab1K3DKl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Nov 2011 22:10:41 -0500
+Received: from tang.cn.fujitsu.com (tang.cn.fujitsu.com [10.167.250.3])
+	by song.cn.fujitsu.com (Postfix) with ESMTP id 7D090170080
+	for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 11:10:34 +0800 (CST)
+Received: from mailserver.fnst.cn.fujitsu.com (tang.cn.fujitsu.com [127.0.0.1])
+	by tang.cn.fujitsu.com (8.14.3/8.13.1) with ESMTP id pAU3AX9M022817
+	for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 11:10:33 +0800
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 29 Nov 2011 21:57:01 -0200
-Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
+Hi all, 
 
-> Since this code is still experimental, we are leaving the exact
-> details of how to move tasks between cgroups when kernel memory
-> accounting is used as future work.
-> 
-> For now, we simply disallow movement if there are any pending
-> accounted memory.
-> 
-> Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-> CC: Hiroyouki Kamezawa <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-> ---
->  mm/memcontrol.c |   23 ++++++++++++++++++++++-
->  1 files changed, 22 insertions(+), 1 deletions(-)
-> 
-> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-> index a31a278..dd9a6d9 100644
-> --- a/mm/memcontrol.c
-> +++ b/mm/memcontrol.c
-> @@ -5453,10 +5453,19 @@ static int mem_cgroup_can_attach(struct cgroup_subsys *ss,
->  {
->  	int ret = 0;
->  	struct mem_cgroup *memcg = mem_cgroup_from_cont(cgroup);
-> +	struct mem_cgroup *from = mem_cgroup_from_task(p);
-> +
-> +#if defined(CONFIG_CGROUP_MEM_RES_CTLR_KMEM) && defined(CONFIG_INET)
-> +	if (from != memcg && !mem_cgroup_is_root(from) &&
-> +	    res_counter_read_u64(&from->tcp_mem.tcp_memory_allocated, RES_USAGE)) {
-> +		printk(KERN_WARNING "Can't move tasks between cgroups: "
-> +			"Kernel memory held.\n");
-> +		return 1;
-> +	}
-> +#endif
+I am doing some tests on ICMP_REDIRECT messages and found that I never receive
+the first ICMP_REDIRECT message, but the following REDIRECT messages was normal.
 
-I wonder....reading all codes again, this is incorrect check.
+My test environment as follow:
+three pc:
+PC A:
+	IP: 192.168.0.1 MAC: HW:0A
+PC B:
+	IP: 192.168.0.2 MAC: HW:0B
+	module nf_nat loaded and at least one rule in nat table(rule content not concern)
+PC C:
+	IP: 192.168.0.3 MAC: HW:0C
 
-Hm, let me cralify. IIUC, in old code, "prevent moving" is because you hold
-reference count of cgroup, which can cause trouble at rmdir() as leaking refcnt.
+enable ip forwarding on PC B:
+# echo 1 > /proc/sys/net/ipv4/ip_forward
 
-BTW, because socket is a shared resource between cgroup, changes in mm->owner
-may cause task cgroup moving implicitly. So, if you allow leak of resource
-here, I guess... you can take mem_cgroup_get() refcnt which is memcg-local and
-allow rmdir(). Then, this limitation may disappear.
+add a static arp on PC A:
+# arp -s 192.168.0.3 HW:0B
 
-Then, users will be happy but admins will have unseen kernel resource usage in
-not populated(by rmdir) memcg. Hm, big trouble ?
+ping 192.168.0.3 on PC A:
+# ping -c1 192.168.0.3
 
-Thanks,
--Kame
+I expect that PC A will receive a ICMP_REDIRECT message from PC B, but nothing
+received.
 
---
-To unsubscribe from this list: send the line "unsubscribe cgroups" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ping three times 192.168.0.3 on PC A:
+# ping -c3 192.168.0.3 
+
+PC A got two ICMP_REDIRECT messages from PC B, the first one missing.
+
+After some code search, I found in function nf_nat_icmp_reply_translation() the first
+ICMP_REDIRECT message was droped because the ct->status is not IPS_NAT_DONE_MASK.
+
+
+Does anyone has some suggestion?
