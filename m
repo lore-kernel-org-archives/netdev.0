@@ -1,474 +1,295 @@
-From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-Subject: [PATCH net-next 2/3] caif: Restructure how link caif link layer enroll
-Date: Wed, 30 Nov 2011 20:22:47 +0100
-Message-ID: <1322680968-6470-2-git-send-email-sjur.brandeland@stericsson.com>
-References: <1322680968-6470-1-git-send-email-sjur.brandeland@stericsson.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless 2011-11-30
+Date: Wed, 30 Nov 2011 14:39:07 -0500
+Message-ID: <20111130193907.GB2477@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:38508 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751032Ab1K3TXM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 14:23:12 -0500
-Received: by eaak14 with SMTP id k14so1102392eaa.19
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 11:23:11 -0800 (PST)
-In-Reply-To: <1322680968-6470-1-git-send-email-sjur.brandeland@stericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="C7zPtVaVf+AK4Oqc"
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Enrolling CAIF link layers are refactored.
 
-Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+--C7zPtVaVf+AK4Oqc
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+commit 3b95e9c089d932c11f9ec03f7493f02cceff04ba
+
+Dave,
+
+This is a batch of fixes intended for 3.2.
+
+There is an nl80211 fix for validating user input to prevent a buffer
+underrun, a mac80211 race fix to prevent a WARN_ON, a mac80211 fix to
+avoid trying to stop a single aggregation session twice, a mac80211 fix
+for a race condition that could cause a crash when an addBA response
+came late, the partial reversion of an ath9k change that broke wireless
+on Ferrari One laptops, and a fix for an rtlwifi deadlock.
+
+Please let me know if there are problems!
+
+Thanks,
+
+John
+
 ---
- include/net/caif/caif_dev.h |   21 ++++++
- include/net/caif/cfcnfg.h   |    9 ++-
- net/caif/caif_dev.c         |  145 ++++++++++++++++++++++++++---------=
--------
- net/caif/cfcnfg.c           |   47 +++++---------
- 4 files changed, 132 insertions(+), 90 deletions(-)
 
-diff --git a/include/net/caif/caif_dev.h b/include/net/caif/caif_dev.h
-index c011281..ef2dd94 100644
---- a/include/net/caif/caif_dev.h
-+++ b/include/net/caif/caif_dev.h
-@@ -9,6 +9,7 @@
+The following changes since commit 5dc5503f5a400be5a7dc611745a034f04b0679b8:
+
+  isdn: avoid copying too long drvid (2011-11-29 18:39:37 -0500)
+
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-d=
+avem
+
+Eliad Peller (1):
+      nl80211: fix MAC address validation
+
+Emmanuel Grumbach (1):
+      mac80211: fix race between the AGG SM and the Tx data path
+
+Johannes Berg (1):
+      mac80211: don't stop a single aggregation session twice
+
+John W. Linville (1):
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless i=
+nto for-davem
+
+Nikolay Martynov (1):
+      mac80211: fix race condition caused by late addBA response
+
+Rafael J. Wysocki (1):
+      ath9k: Revert change that broke AR928X on Acer Ferrari One
+
+Stanislaw Gruszka (1):
+      rtlwifi: fix lps_lock deadlock
+
+ drivers/net/wireless/ath/ath9k/hw.c |    3 +-
+ drivers/net/wireless/rtlwifi/ps.c   |   17 +++++++------
+ net/mac80211/agg-tx.c               |   42 +++++++++++++++++++++++++++++++=
++--
+ net/wireless/nl80211.c              |    4 +-
+ 4 files changed, 52 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath9k/hw.c b/drivers/net/wireless/ath=
+/ath9k/hw.c
+index 2f91acc..8873c6e 100644
+--- a/drivers/net/wireless/ath/ath9k/hw.c
++++ b/drivers/net/wireless/ath/ath9k/hw.c
+@@ -1827,7 +1827,8 @@ static void ath9k_set_power_sleep(struct ath_hw *ah, =
+int setChip)
+ 	}
 =20
- #include <net/caif/caif_layer.h>
- #include <net/caif/cfcnfg.h>
-+#include <net/caif/caif_device.h>
- #include <linux/caif/caif_socket.h>
- #include <linux/if.h>
- #include <linux/net.h>
-@@ -104,4 +105,24 @@ void caif_client_register_refcnt(struct cflayer *a=
-dapt_layer,
-  */
- void caif_free_client(struct cflayer *adap_layer);
-=20
-+/**
-+ * struct caif_enroll_dev - Enroll a net-device as a CAIF Link layer
-+ * @dev:		Network device to enroll.
-+ * @caifdev:		Configuration information from CAIF Link Layer
-+ * @link_support:	Link layer support layer
-+ * @head_room:		Head room needed by link support layer
-+ * @layer:		Lowest layer in CAIF stack
-+ * @rcv_fun:		Receive function for CAIF stack.
-+ *
-+ * This function enroll a CAIF link layer into CAIF Stack and
-+ * expects the interface to be able to handle CAIF payload.
-+ * The link_support layer is used to add any Link Layer specific
-+ * framing.
-+ */
-+void caif_enroll_dev(struct net_device *dev, struct caif_dev_common *c=
-aifdev,
-+			struct cflayer *link_support, int head_room,
-+			struct cflayer **layer, int (**rcv_func)(
-+				struct sk_buff *, struct net_device *,
-+				struct packet_type *, struct net_device *));
-+
- #endif /* CAIF_DEV_H_ */
-diff --git a/include/net/caif/cfcnfg.h b/include/net/caif/cfcnfg.h
-index 3e93a4a..a421723 100644
---- a/include/net/caif/cfcnfg.h
-+++ b/include/net/caif/cfcnfg.h
-@@ -72,15 +72,16 @@ void cfcnfg_remove(struct cfcnfg *cfg);
-  * @phy_layer:	Specify the physical layer. The transmit function
-  *		MUST be set in the structure.
-  * @pref:	The phy (link layer) preference.
-+ * @link_support: Protocol implementation for link layer specific prot=
-ocol.
-  * @fcs:	Specify if checksum is used in CAIF Framing Layer.
-- * @stx:	Specify if Start Of Frame eXtention is used.
-+ * @head_room:	Head space needed by link specific protocol.
-  */
--
- void
--cfcnfg_add_phy_layer(struct cfcnfg *cnfg, enum cfcnfg_phy_type phy_typ=
-e,
-+cfcnfg_add_phy_layer(struct cfcnfg *cnfg,
- 		     struct net_device *dev, struct cflayer *phy_layer,
- 		     enum cfcnfg_phy_preference pref,
--		     bool fcs, bool stx);
-+		     struct cflayer *link_support,
-+		     bool fcs, int head_room);
-=20
- /**
-  * cfcnfg_del_phy_layer - Deletes an phy layer from the CAIF stack.
-diff --git a/net/caif/caif_dev.c b/net/caif/caif_dev.c
-index f1fa1f6..70034c0 100644
---- a/net/caif/caif_dev.c
-+++ b/net/caif/caif_dev.c
-@@ -24,6 +24,7 @@
- #include <net/caif/caif_layer.h>
- #include <net/caif/cfpkt.h>
- #include <net/caif/cfcnfg.h>
-+#include <net/caif/cfserl.h>
-=20
- MODULE_LICENSE("GPL");
-=20
-@@ -53,7 +54,8 @@ struct cfcnfg *get_cfcnfg(struct net *net)
- 	struct caif_net *caifn;
- 	BUG_ON(!net);
- 	caifn =3D net_generic(net, caif_net_id);
--	BUG_ON(!caifn);
-+	if (!caifn)
-+		return NULL;
- 	return caifn->cfg;
- }
- EXPORT_SYMBOL(get_cfcnfg);
-@@ -63,7 +65,8 @@ static struct caif_device_entry_list *caif_device_lis=
-t(struct net *net)
- 	struct caif_net *caifn;
- 	BUG_ON(!net);
- 	caifn =3D net_generic(net, caif_net_id);
--	BUG_ON(!caifn);
-+	if (!caifn)
-+		return NULL;
- 	return &caifn->caifdevs;
+ 	/* Clear Bit 14 of AR_WA after putting chip into Full Sleep mode. */
+-	REG_WRITE(ah, AR_WA, ah->WARegVal & ~AR_WA_D3_L1_DISABLE);
++	if (AR_SREV_9300_20_OR_LATER(ah))
++		REG_WRITE(ah, AR_WA, ah->WARegVal & ~AR_WA_D3_L1_DISABLE);
  }
 =20
-@@ -92,7 +95,8 @@ static struct caif_device_entry *caif_device_alloc(st=
-ruct net_device *dev)
- 	struct caif_device_entry *caifd;
+ /*
+diff --git a/drivers/net/wireless/rtlwifi/ps.c b/drivers/net/wireless/rtlwi=
+fi/ps.c
+index db52628..55c8e50 100644
+--- a/drivers/net/wireless/rtlwifi/ps.c
++++ b/drivers/net/wireless/rtlwifi/ps.c
+@@ -395,7 +395,7 @@ void rtl_lps_enter(struct ieee80211_hw *hw)
+ 	if (mac->link_state !=3D MAC80211_LINKED)
+ 		return;
 =20
- 	caifdevs =3D caif_device_list(dev_net(dev));
--	BUG_ON(!caifdevs);
-+	if (!caifdevs)
-+		return NULL;
+-	spin_lock(&rtlpriv->locks.lps_lock);
++	spin_lock_irq(&rtlpriv->locks.lps_lock);
 =20
- 	caifd =3D kzalloc(sizeof(*caifd), GFP_KERNEL);
- 	if (!caifd)
-@@ -112,7 +116,9 @@ static struct caif_device_entry *caif_get(struct ne=
-t_device *dev)
- 	struct caif_device_entry_list *caifdevs =3D
- 	    caif_device_list(dev_net(dev));
- 	struct caif_device_entry *caifd;
--	BUG_ON(!caifdevs);
-+	if (!caifdevs)
-+		return NULL;
-+
- 	list_for_each_entry_rcu(caifd, &caifdevs->list, list) {
- 		if (caifd->netdev =3D=3D dev)
- 			return caifd;
-@@ -129,6 +135,8 @@ static int transmit(struct cflayer *layer, struct c=
-fpkt *pkt)
-=20
- 	skb =3D cfpkt_tonative(pkt);
- 	skb->dev =3D caifd->netdev;
-+	skb_reset_network_header(skb);
-+	skb->protocol =3D htons(ETH_P_CAIF);
-=20
- 	err =3D dev_queue_xmit(skb);
- 	if (err > 0)
-@@ -172,7 +180,10 @@ static int receive(struct sk_buff *skb, struct net=
-_device *dev,
-=20
- 	/* Release reference to stack upwards */
- 	caifd_put(caifd);
--	return 0;
-+
-+	if (err !=3D 0)
-+		err =3D NET_RX_DROP;
-+	return err;
- }
-=20
- static struct packet_type caif_packet_type __read_mostly =3D {
-@@ -203,6 +214,55 @@ static void dev_flowctrl(struct net_device *dev, i=
-nt on)
- 	caifd_put(caifd);
- }
-=20
-+void caif_enroll_dev(struct net_device *dev, struct caif_dev_common *c=
-aifdev,
-+			struct cflayer *link_support, int head_room,
-+			struct cflayer **layer, int (**rcv_func)(
-+				struct sk_buff *, struct net_device *,
-+				struct packet_type *, struct net_device *))
-+{
-+	struct caif_device_entry *caifd;
-+	enum cfcnfg_phy_preference pref;
-+	struct cfcnfg *cfg =3D get_cfcnfg(dev_net(dev));
-+	struct caif_device_entry_list *caifdevs;
-+
-+	caifdevs =3D caif_device_list(dev_net(dev));
-+	if (!cfg || !caifdevs)
-+		return;
-+	caifd =3D caif_device_alloc(dev);
-+	if (!caifd)
-+		return;
-+	*layer =3D &caifd->layer;
-+
-+	switch (caifdev->link_select) {
-+	case CAIF_LINK_HIGH_BANDW:
-+		pref =3D CFPHYPREF_HIGH_BW;
-+		break;
-+	case CAIF_LINK_LOW_LATENCY:
-+		pref =3D CFPHYPREF_LOW_LAT;
-+		break;
-+	default:
-+		pref =3D CFPHYPREF_HIGH_BW;
-+		break;
-+	}
-+	mutex_lock(&caifdevs->lock);
-+	list_add_rcu(&caifd->list, &caifdevs->list);
-+
-+	strncpy(caifd->layer.name, dev->name,
-+		sizeof(caifd->layer.name) - 1);
-+	caifd->layer.name[sizeof(caifd->layer.name) - 1] =3D 0;
-+	caifd->layer.transmit =3D transmit;
-+	cfcnfg_add_phy_layer(cfg,
-+				dev,
-+				&caifd->layer,
-+				pref,
-+				link_support,
-+				caifdev->use_fcs,
-+				head_room);
-+	mutex_unlock(&caifdevs->lock);
-+	if (rcv_func)
-+		*rcv_func =3D receive;
-+}
-+
- /* notify Caif of device events */
- static int caif_device_notify(struct notifier_block *me, unsigned long=
- what,
- 			      void *arg)
-@@ -210,62 +270,40 @@ static int caif_device_notify(struct notifier_blo=
-ck *me, unsigned long what,
- 	struct net_device *dev =3D arg;
- 	struct caif_device_entry *caifd =3D NULL;
- 	struct caif_dev_common *caifdev;
--	enum cfcnfg_phy_preference pref;
--	enum cfcnfg_phy_type phy_type;
- 	struct cfcnfg *cfg;
-+	struct cflayer *layer, *link_support;
-+	int head_room =3D 0;
- 	struct caif_device_entry_list *caifdevs;
-=20
--	if (dev->type !=3D ARPHRD_CAIF)
--		return 0;
--
- 	cfg =3D get_cfcnfg(dev_net(dev));
--	if (cfg =3D=3D NULL)
-+	caifdevs =3D caif_device_list(dev_net(dev));
-+	if (!cfg || !caifdevs)
- 		return 0;
-=20
--	caifdevs =3D caif_device_list(dev_net(dev));
-+	caifd =3D caif_get(dev);
-+	if (caifd =3D=3D NULL && dev->type !=3D ARPHRD_CAIF)
-+		return 0;
-=20
- 	switch (what) {
- 	case NETDEV_REGISTER:
--		caifd =3D caif_device_alloc(dev);
--		if (!caifd)
--			return 0;
-+		if (caifd !=3D NULL)
-+			break;
-=20
- 		caifdev =3D netdev_priv(dev);
--		caifdev->flowctrl =3D dev_flowctrl;
-=20
--		caifd->layer.transmit =3D transmit;
--
--		if (caifdev->use_frag)
--			phy_type =3D CFPHYTYPE_FRAG;
--		else
--			phy_type =3D CFPHYTYPE_CAIF;
--
--		switch (caifdev->link_select) {
--		case CAIF_LINK_HIGH_BANDW:
--			pref =3D CFPHYPREF_HIGH_BW;
--			break;
--		case CAIF_LINK_LOW_LATENCY:
--			pref =3D CFPHYPREF_LOW_LAT;
--			break;
--		default:
--			pref =3D CFPHYPREF_HIGH_BW;
--			break;
-+		link_support =3D NULL;
-+		if (caifdev->use_frag) {
-+			head_room =3D 1;
-+			link_support =3D cfserl_create(dev->ifindex,
-+					CFPHYTYPE_FRAG, caifdev->use_stx);
-+			if (!link_support) {
-+				pr_warn("Out of memory\n");
-+				break;
-+			}
+ 	/* Idle for a while if we connect to AP a while ago. */
+ 	if (mac->cnt_after_linked >=3D 2) {
+@@ -407,7 +407,7 @@ void rtl_lps_enter(struct ieee80211_hw *hw)
  		}
--		strncpy(caifd->layer.name, dev->name,
--			sizeof(caifd->layer.name) - 1);
--		caifd->layer.name[sizeof(caifd->layer.name) - 1] =3D 0;
--
--		mutex_lock(&caifdevs->lock);
--		list_add_rcu(&caifd->list, &caifdevs->list);
--
--		cfcnfg_add_phy_layer(cfg,
--				     phy_type,
--				     dev,
--				     &caifd->layer,
--				     pref,
--				     caifdev->use_fcs,
--				     caifdev->use_stx);
--		mutex_unlock(&caifdevs->lock);
-+		caif_enroll_dev(dev, caifdev, link_support, head_room,
-+				&layer, NULL);
-+		caifdev->flowctrl =3D dev_flowctrl;
- 		break;
+ 	}
 =20
- 	case NETDEV_UP:
-@@ -371,17 +409,14 @@ static void caif_exit_net(struct net *net)
- 	struct caif_device_entry *caifd, *tmp;
- 	struct caif_device_entry_list *caifdevs =3D
- 	    caif_device_list(net);
--	struct cfcnfg *cfg;
-+	struct cfcnfg *cfg =3D  get_cfcnfg(net);
+-	spin_unlock(&rtlpriv->locks.lps_lock);
++	spin_unlock_irq(&rtlpriv->locks.lps_lock);
+ }
+=20
+ /*Leave the leisure power save mode.*/
+@@ -416,8 +416,9 @@ void rtl_lps_leave(struct ieee80211_hw *hw)
+ 	struct rtl_priv *rtlpriv =3D rtl_priv(hw);
+ 	struct rtl_ps_ctl *ppsc =3D rtl_psc(rtl_priv(hw));
+ 	struct rtl_hal *rtlhal =3D rtl_hal(rtl_priv(hw));
++	unsigned long flags;
+=20
+-	spin_lock(&rtlpriv->locks.lps_lock);
++	spin_lock_irqsave(&rtlpriv->locks.lps_lock, flags);
+=20
+ 	if (ppsc->fwctrl_lps) {
+ 		if (ppsc->dot11_psmode !=3D EACTIVE) {
+@@ -438,7 +439,7 @@ void rtl_lps_leave(struct ieee80211_hw *hw)
+ 			rtl_lps_set_psmode(hw, EACTIVE);
+ 		}
+ 	}
+-	spin_unlock(&rtlpriv->locks.lps_lock);
++	spin_unlock_irqrestore(&rtlpriv->locks.lps_lock, flags);
+ }
+=20
+ /* For sw LPS*/
+@@ -539,9 +540,9 @@ void rtl_swlps_rf_awake(struct ieee80211_hw *hw)
+ 		RT_CLEAR_PS_LEVEL(ppsc, RT_PS_LEVEL_ASPM);
+ 	}
+=20
+-	spin_lock(&rtlpriv->locks.lps_lock);
++	spin_lock_irq(&rtlpriv->locks.lps_lock);
+ 	rtl_ps_set_rf_state(hw, ERFON, RF_CHANGE_BY_PS);
+-	spin_unlock(&rtlpriv->locks.lps_lock);
++	spin_unlock_irq(&rtlpriv->locks.lps_lock);
+ }
+=20
+ void rtl_swlps_rfon_wq_callback(void *data)
+@@ -574,9 +575,9 @@ void rtl_swlps_rf_sleep(struct ieee80211_hw *hw)
+ 	if (rtlpriv->link_info.busytraffic)
+ 		return;
+=20
+-	spin_lock(&rtlpriv->locks.lps_lock);
++	spin_lock_irq(&rtlpriv->locks.lps_lock);
+ 	rtl_ps_set_rf_state(hw, ERFSLEEP, RF_CHANGE_BY_PS);
+-	spin_unlock(&rtlpriv->locks.lps_lock);
++	spin_unlock_irq(&rtlpriv->locks.lps_lock);
+=20
+ 	if (ppsc->reg_rfps_level & RT_RF_OFF_LEVL_ASPM &&
+ 		!RT_IN_PS_LEVEL(ppsc, RT_PS_LEVEL_ASPM)) {
+diff --git a/net/mac80211/agg-tx.c b/net/mac80211/agg-tx.c
+index b3f6552..b064e4d 100644
+--- a/net/mac80211/agg-tx.c
++++ b/net/mac80211/agg-tx.c
+@@ -161,6 +161,12 @@ int ___ieee80211_stop_tx_ba_session(struct sta_info *s=
+ta, u16 tid,
+ 		return -ENOENT;
+ 	}
+=20
++	/* if we're already stopping ignore any new requests to stop */
++	if (test_bit(HT_AGG_STATE_STOPPING, &tid_tx->state)) {
++		spin_unlock_bh(&sta->lock);
++		return -EALREADY;
++	}
 +
-+	if (!cfg || !caifdevs)
-+		return;
-=20
- 	rtnl_lock();
- 	mutex_lock(&caifdevs->lock);
-=20
--	cfg =3D get_cfcnfg(net);
--	if (cfg =3D=3D NULL) {
--		mutex_unlock(&caifdevs->lock);
--		return;
--	}
--
- 	list_for_each_entry_safe(caifd, tmp, &caifdevs->list, list) {
- 		int i =3D 0;
- 		list_del_rcu(&caifd->list);
-diff --git a/net/caif/cfcnfg.c b/net/caif/cfcnfg.c
-index 00523ec..598aafb 100644
---- a/net/caif/cfcnfg.c
-+++ b/net/caif/cfcnfg.c
-@@ -45,8 +45,8 @@ struct cfcnfg_phyinfo {
- 	/* Interface index */
- 	int ifindex;
-=20
--	/* Use Start of frame extension */
--	bool use_stx;
-+	/* Protocol head room added for CAIF link layer */
-+	int head_room;
-=20
- 	/* Use Start of frame checksum */
- 	bool use_fcs;
-@@ -187,11 +187,11 @@ int caif_disconnect_client(struct net *net, struc=
-t cflayer *adap_layer)
- 	if (channel_id !=3D 0) {
- 		struct cflayer *servl;
- 		servl =3D cfmuxl_remove_uplayer(cfg->mux, channel_id);
-+		cfctrl_linkdown_req(cfg->ctrl, channel_id, adap_layer);
- 		if (servl !=3D NULL)
- 			layer_set_up(servl, NULL);
- 	} else
- 		pr_debug("nothing to disconnect\n");
--	cfctrl_linkdown_req(cfg->ctrl, channel_id, adap_layer);
-=20
- 	/* Do RCU sync before initiating cleanup */
- 	synchronize_rcu();
-@@ -350,9 +350,7 @@ int caif_connect_client(struct net *net, struct cai=
-f_connect_request *conn_req,
-=20
- 	*ifindex =3D phy->ifindex;
- 	*proto_tail =3D 2;
--	*proto_head =3D
--
--	protohead[param.linktype] + (phy->use_stx ? 1 : 0);
-+	*proto_head =3D protohead[param.linktype] + phy->head_room;
-=20
- 	rcu_read_unlock();
-=20
-@@ -460,13 +458,13 @@ unlock:
- }
-=20
- void
--cfcnfg_add_phy_layer(struct cfcnfg *cnfg, enum cfcnfg_phy_type phy_typ=
-e,
-+cfcnfg_add_phy_layer(struct cfcnfg *cnfg,
- 		     struct net_device *dev, struct cflayer *phy_layer,
- 		     enum cfcnfg_phy_preference pref,
--		     bool fcs, bool stx)
-+		     struct cflayer *link_support,
-+		     bool fcs, int head_room)
- {
- 	struct cflayer *frml;
--	struct cflayer *phy_driver =3D NULL;
- 	struct cfcnfg_phyinfo *phyinfo =3D NULL;
- 	int i;
- 	u8 phyid;
-@@ -482,26 +480,13 @@ cfcnfg_add_phy_layer(struct cfcnfg *cnfg, enum cf=
-cnfg_phy_type phy_type,
- 			goto got_phyid;
- 	}
- 	pr_warn("Too many CAIF Link Layers (max 6)\n");
--	goto out_err;
-+	goto out;
-=20
- got_phyid:
- 	phyinfo =3D kzalloc(sizeof(struct cfcnfg_phyinfo), GFP_ATOMIC);
- 	if (!phyinfo)
- 		goto out_err;
-=20
--	switch (phy_type) {
--	case CFPHYTYPE_FRAG:
--		phy_driver =3D
--		    cfserl_create(CFPHYTYPE_FRAG, phyid, stx);
--		if (!phy_driver)
--			goto out_err;
--		break;
--	case CFPHYTYPE_CAIF:
--		phy_driver =3D NULL;
--		break;
--	default:
--		goto out_err;
--	}
- 	phy_layer->id =3D phyid;
- 	phyinfo->pref =3D pref;
- 	phyinfo->id =3D phyid;
-@@ -509,7 +494,7 @@ got_phyid:
- 	phyinfo->dev_info.dev =3D dev;
- 	phyinfo->phy_layer =3D phy_layer;
- 	phyinfo->ifindex =3D dev->ifindex;
--	phyinfo->use_stx =3D stx;
-+	phyinfo->head_room =3D head_room;
- 	phyinfo->use_fcs =3D fcs;
-=20
- 	frml =3D cffrml_create(phyid, fcs);
-@@ -519,23 +504,23 @@ got_phyid:
- 	phyinfo->frm_layer =3D frml;
- 	layer_set_up(frml, cnfg->mux);
-=20
--	if (phy_driver !=3D NULL) {
--		phy_driver->id =3D phyid;
--		layer_set_dn(frml, phy_driver);
--		layer_set_up(phy_driver, frml);
--		layer_set_dn(phy_driver, phy_layer);
--		layer_set_up(phy_layer, phy_driver);
-+	if (link_support !=3D NULL) {
-+		link_support->id =3D phyid;
-+		layer_set_dn(frml, link_support);
-+		layer_set_up(link_support, frml);
-+		layer_set_dn(link_support, phy_layer);
-+		layer_set_up(phy_layer, link_support);
- 	} else {
- 		layer_set_dn(frml, phy_layer);
- 		layer_set_up(phy_layer, frml);
+ 	if (test_bit(HT_AGG_STATE_WANT_START, &tid_tx->state)) {
+ 		/* not even started yet! */
+ 		ieee80211_assign_tid_tx(sta, tid, NULL);
+@@ -169,6 +175,8 @@ int ___ieee80211_stop_tx_ba_session(struct sta_info *st=
+a, u16 tid,
+ 		return 0;
  	}
 =20
- 	list_add_rcu(&phyinfo->node, &cnfg->phys);
-+out:
- 	mutex_unlock(&cnfg->lock);
- 	return;
++	set_bit(HT_AGG_STATE_STOPPING, &tid_tx->state);
++
+ 	spin_unlock_bh(&sta->lock);
 =20
- out_err:
--	kfree(phy_driver);
- 	kfree(phyinfo);
- 	mutex_unlock(&cnfg->lock);
- }
+ #ifdef CONFIG_MAC80211_HT_DEBUG
+@@ -176,8 +184,6 @@ int ___ieee80211_stop_tx_ba_session(struct sta_info *st=
+a, u16 tid,
+ 	       sta->sta.addr, tid);
+ #endif /* CONFIG_MAC80211_HT_DEBUG */
+=20
+-	set_bit(HT_AGG_STATE_STOPPING, &tid_tx->state);
+-
+ 	del_timer_sync(&tid_tx->addba_resp_timer);
+=20
+ 	/*
+@@ -187,6 +193,20 @@ int ___ieee80211_stop_tx_ba_session(struct sta_info *s=
+ta, u16 tid,
+ 	 */
+ 	clear_bit(HT_AGG_STATE_OPERATIONAL, &tid_tx->state);
+=20
++	/*
++	 * There might be a few packets being processed right now (on
++	 * another CPU) that have already gotten past the aggregation
++	 * check when it was still OPERATIONAL and consequently have
++	 * IEEE80211_TX_CTL_AMPDU set. In that case, this code might
++	 * call into the driver at the same time or even before the
++	 * TX paths calls into it, which could confuse the driver.
++	 *
++	 * Wait for all currently running TX paths to finish before
++	 * telling the driver. New packets will not go through since
++	 * the aggregation session is no longer OPERATIONAL.
++	 */
++	synchronize_net();
++
+ 	tid_tx->stop_initiator =3D initiator;
+ 	tid_tx->tx_stop =3D tx;
+=20
+@@ -757,11 +777,27 @@ void ieee80211_process_addba_resp(struct ieee80211_lo=
+cal *local,
+ 		goto out;
+ 	}
+=20
+-	del_timer(&tid_tx->addba_resp_timer);
++	del_timer_sync(&tid_tx->addba_resp_timer);
+=20
+ #ifdef CONFIG_MAC80211_HT_DEBUG
+ 	printk(KERN_DEBUG "switched off addBA timer for tid %d\n", tid);
+ #endif
++
++	/*
++	 * addba_resp_timer may have fired before we got here, and
++	 * caused WANT_STOP to be set. If the stop then was already
++	 * processed further, STOPPING might be set.
++	 */
++	if (test_bit(HT_AGG_STATE_WANT_STOP, &tid_tx->state) ||
++	    test_bit(HT_AGG_STATE_STOPPING, &tid_tx->state)) {
++#ifdef CONFIG_MAC80211_HT_DEBUG
++		printk(KERN_DEBUG
++		       "got addBA resp for tid %d but we already gave up\n",
++		       tid);
++#endif
++		goto out;
++	}
++
+ 	/*
+ 	 * IEEE 802.11-2007 7.3.1.14:
+ 	 * In an ADDBA Response frame, when the Status Code field
+diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+index b3a476f..ffafda5 100644
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@ -89,8 +89,8 @@ static const struct nla_policy nl80211_policy[NL80211_ATT=
+R_MAX+1] =3D {
+ 	[NL80211_ATTR_IFINDEX] =3D { .type =3D NLA_U32 },
+ 	[NL80211_ATTR_IFNAME] =3D { .type =3D NLA_NUL_STRING, .len =3D IFNAMSIZ-1=
+ },
+=20
+-	[NL80211_ATTR_MAC] =3D { .type =3D NLA_BINARY, .len =3D ETH_ALEN },
+-	[NL80211_ATTR_PREV_BSSID] =3D { .type =3D NLA_BINARY, .len =3D ETH_ALEN },
++	[NL80211_ATTR_MAC] =3D { .len =3D ETH_ALEN },
++	[NL80211_ATTR_PREV_BSSID] =3D { .len =3D ETH_ALEN },
+=20
+ 	[NL80211_ATTR_KEY] =3D { .type =3D NLA_NESTED, },
+ 	[NL80211_ATTR_KEY_DATA] =3D { .type =3D NLA_BINARY,
 --=20
-1.7.0.4
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
+
+--C7zPtVaVf+AK4Oqc
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBAgAGBQJO1oZaAAoJEJctW/TcYTgGWQEP/050ZAJ/+A4qUCBhIQanwnBe
+1blCPu12xMD5cgZkk+1ngdRG2v1/sKBleKNxMsuL6HegIJCbhUKibiORI6KFWQPn
+hB3BWtaEJASSsgkODToLgl9Ggvzb4BchZOgPsJ1NhOSr2086NDjqeC58+iN/IaHQ
+Mhb9o2e/F/4lbqriSrA9kFLEh/A5kP/s77fO+oD1/8Kd5uV6c0/Mxw0Xy2CbvvCf
+Uk/5AiX9UrqoeApiadGdtPaexHECNT/bEDoTV9baYUg4P9BlsUOI9CN1j70vR4jL
+aT149DtpOoa5k7RpDEKFFJtaHBolCk2abWfKdCUpecDlIaYVk3vyEPD7r3HsfSsI
+UYBNQMDfDa0xd1xPo9z/EjRFI+AxlTdyIPo2Qe5WEhjFtfRJSQ9gD4jvpLbD71eB
+/uN0zErEI7hyo2+cMaB2dxW5lxIOesnyhMykBU6AFq/nlPIYOFxJUjvCaoxqvO4X
+pNBWt82FSf69JCHucORekhMBAT9Ti2c7b8Yj/1f/Dvys+6Eg0P5JqR8s9VXHP8NS
+Ct9/u5jtTXqvryhNoZHgq5u8iBKHkXoe8ZPmsZOf3e5fdiTPuqRngKyftwBG6HRe
+4FNxyFHfFhhKLFrGGhIpRmq/Ft1enk4tV68hrCPz/bYyUj5hF87lFCVKFHl4dZ+f
+SjwE11rCO/IsInPqS3hP
+=j2EB
+-----END PGP SIGNATURE-----
+
+--C7zPtVaVf+AK4Oqc--
