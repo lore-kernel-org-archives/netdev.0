@@ -1,61 +1,60 @@
-From: Benjamin Poirier <bpoirier@suse.de>
-Subject: [PATCH RESEND net/stable] gro: reset vlan_tci on reuse
-Date: Wed, 30 Nov 2011 07:47:18 -0500
-Message-ID: <1322657238-17159-1-git-send-email-bpoirier@suse.de>
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
-	Jesse Gross <jesse@nicira.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:48628 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750852Ab1K3MtT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 07:49:19 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
+Subject: Re: Integration of Open vSwitch
+Date: Wed, 30 Nov 2011 08:11:56 -0500
+Message-ID: <1322658716.2243.12.camel@mojatatu>
+References: <CAEP_g=-g5g0Z30gYBDAZ8s7ACCZSy5MLJpPDxQmmc8m1wbk3tg@mail.gmail.com>
+Reply-To: jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Chris Wright <chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAEP_g=-g5g0Z30gYBDAZ8s7ACCZSy5MLJpPDxQmmc8m1wbk3tg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-For drivers using the vlan_gro_frags() interface, a packet with an invalid tci
-leads to GRO_DROP and napi_reuse_skb(). The skb has to be sanitized before
-being reused or we may send an skb with an invalid vlan_tci field up the stack
-where it is not expected.
+On Tue, 2011-11-29 at 22:25 -0800, Jesse Gross wrote:
+> Hi Herbert and Jamal (and everyone else),
+> 
+> Sorry about starting yet another thread but the other one went in so
+> many directions that I think a lot of things got lost in it.  
 
-Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
-Cc: Jesse Gross <jesse@nicira.com>
+Good idea ;->
 
----
+> As I
+> mentioned before, I'd like to have a bit of a design discussion of
+> what it would look like if Open vSwitch were to use some of the
+> existing components (and really focus on just that).  There were a
+> number of suggestions made about using parts of the bridge, tc,
+> netfilter, etc. and some of them overlap or conflict so I don't quite
+> have a coherent solution in mind.  Would you guys mind walking through
+> what each of you envision it looking like?
 
-Please apply to the -2.6.32.y stable branch.
+I'll try my TL;DR version:
+My opinion is the classifier action code needs refactoring. I have no
+doubt that it goes in as is it will eventually look like the one
+we already have. From the evolution of that code i can already see 
+that is where it is going. I really dont see need to have two competing
+interfaces in that aspect. If you decide to go that way I will be
+happy to help review and make suggestions.
 
-This one liner is part of upstream
-commit 3701e51382a026cba10c60b03efabe534fba4ca4
-Author: Jesse Gross <jesse@nicira.com>
+My !TL;DR version will include details on other things like:
+- bridging, the scalability of kernel->user packet redirect etc.
+But youve seen some of those views.
 
-    vlan: Centralize handling of hardware acceleration.
-
-The bulk of that commit is a rework of the hardware assisted vlan tagging
-driver interface, and as such doesn't classify for -stable inclusion. The fix
-that is needed is a part of that commit but can work independently of the
-rest.
-
-This patch can avoid panics on the 2.6.32.y -stable kernels and is in the same
-spirit as mainline commits
-66c46d7 gro: Reset dev pointer on reuse
-6d152e2 gro: reset skb_iif on reuse
-which are already in -stable.
----
- net/core/dev.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 64eb849..84a0705 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2614,6 +2614,7 @@ void napi_reuse_skb(struct napi_struct *napi, struct sk_buff *skb)
- {
- 	__skb_pull(skb, skb_headlen(skb));
- 	skb_reserve(skb, NET_IP_ALIGN - skb_headroom(skb));
-+	skb->vlan_tci = 0;
- 	skb->dev = napi->dev;
- 	skb->iif = 0;
- 
--- 
-1.7.7
+cheers,
+jamal
