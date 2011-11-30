@@ -1,91 +1,63 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Subject: Re: [PATCH v7 02/10] foundations of per-cgroup memory pressure
- controlling.
-Date: Wed, 30 Nov 2011 09:43:05 +0900
-Message-ID: <20111130094305.9c69ecd8.kamezawa.hiroyu@jp.fujitsu.com>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Subject: Re: [PATCH v7 01/10] Basic kernel memory functionality for the
+ Memory Controller
+Date: Wed, 30 Nov 2011 09:48:51 +0900
+Message-ID: <20111130094851.ae55f7fa.kamezawa.hiroyu@jp.fujitsu.com>
 References: <1322611021-1730-1-git-send-email-glommer@parallels.com>
-	<1322611021-1730-3-git-send-email-glommer@parallels.com>
+	<1322611021-1730-2-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
- ebiederm@xmission.com, davem@davemloft.net, gthelen@google.com,
- netdev@vger.kernel.org, linux-mm@kvack.org, kirill@shutemov.name,
- avagin@parallels.com, devel@openvz.org, eric.dumazet@gmail.com,
- cgroups@vger.kernel.org
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1322611021-1730-3-git-send-email-glommer@parallels.com>
-Sender: owner-linux-mm@kvack.org
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org,
+	lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
+	kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org, avagin-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org" <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
+	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
+To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1322611021-1730-2-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 29 Nov 2011 21:56:53 -0200
-Glauber Costa <glommer@parallels.com> wrote:
+On Tue, 29 Nov 2011 21:56:52 -0200
+Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
 
-> This patch replaces all uses of struct sock fields' memory_pressure,
-> memory_allocated, sockets_allocated, and sysctl_mem to acessor
-> macros. Those macros can either receive a socket argument, or a mem_cgroup
-> argument, depending on the context they live in.
+> This patch lays down the foundation for the kernel memory component
+> of the Memory Controller.
 > 
-> Since we're only doing a macro wrapping here, no performance impact at all is
-> expected in the case where we don't have cgroups disabled.
+> As of today, I am only laying down the following files:
 > 
-> Signed-off-by: Glauber Costa <glommer@parallels.com>
-> CC: David S. Miller <davem@davemloft.net>
-> CC: Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>
-> CC: Eric W. Biederman <ebiederm@xmission.com>
-> CC: Eric Dumazet <eric.dumazet@gmail.com>
-<snip>
+>  * memory.independent_kmem_limit
+>  * memory.kmem.limit_in_bytes (currently ignored)
+>  * memory.kmem.usage_in_bytes (always zero)
+> 
+> Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> Reviewed-by: Kirill A. Shutemov <kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>
+> CC: Paul Menage <paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org>
+> CC: Greg Thelen <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 
-> +static inline bool
-> +memcg_memory_pressure(struct proto *prot, struct mem_cgroup *memcg)
-> +{
-> +	if (!prot->memory_pressure)
-> +		return false;
-> +	return !!prot->memory_pressure;
-> +}
+Now, there are new memcg maintainers as
 
-I think you should take a deep breath and write patech relaxedly, and do enough test.
+Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
+KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Balbir Singh <bsingharora-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-This should be
+So, please CC them.
+I may not be able to make a quick/good reply.
 
-	return !!*prot->memory_pressure;
+Hmm, my concern is
 
-BTW, I don't like to receive tons of everyday-update even if you're in hurry.
++ memory.independent_kmem_limit	 # select whether or not kernel memory limits are
++				   independent of user limits
 
+I'll be okay with this. other ones ?
 
-
-
-
->  static void proto_seq_printf(struct seq_file *seq, struct proto *proto)
->  {
-> +	struct mem_cgroup *memcg = mem_cgroup_from_task(current);
-> +
->  	seq_printf(seq, "%-9s %4u %6d  %6ld   %-3s %6u   %-3s  %-10s "
->  			"%2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c\n",
->  		   proto->name,
->  		   proto->obj_size,
->  		   sock_prot_inuse_get(seq_file_net(seq), proto),
-> -		   proto->memory_allocated != NULL ? atomic_long_read(proto->memory_allocated) : -1L,
-> -		   proto->memory_pressure != NULL ? *proto->memory_pressure ? "yes" : "no" : "NI",
-> +		   sock_prot_memory_allocated(proto, memcg),
-> +		   sock_prot_memory_pressure(proto, memcg),
-
-I wonder I should say NO, here. (Networking guys are ok ??)
-
-IIUC, this means there is no way to see aggregated sockstat of all system.
-And the result depends on the cgroup which the caller is under control.
-
-I think you should show aggregated sockstat(global + per-memcg) here and 
-show per-memcg ones via /cgroup interface or add private_sockstat to show
-per cgroup summary.
-
-Thanks,
--Kame
+Acked-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
 
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe cgroups" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
