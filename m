@@ -1,18 +1,15 @@
 From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH next-next 0/2] can: cc770: add support
- for the Bosch CC770 and Intel AN82527
-Date: Wed, 30 Nov 2011 13:10:25 +0100
-Message-ID: <4ED61D31.5090305@grandegger.com>
-References: <1322136448-7311-1-git-send-email-wg@grandegger.com>	<20111129.183950.1327835803051184146.davem@davemloft.net>	<4ED5CF14.4020502@hartkopp.net>
-	<4ED5E94F.8010403@grandegger.com>
+Subject: [PATCH net-next v5 0/4] can: cc770: add support
+	for the Bosch CC770 and Intel AN82527
+Date: Wed, 30 Nov 2011 13:10:31 +0100
+Message-ID: <1322655035-18809-1-git-send-email-wg@grandegger.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Cc: socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4ED5E94F.8010403-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
 	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
@@ -24,46 +21,84 @@ Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 11/30/2011 09:29 AM, Wolfgang Grandegger wrote:
-> On 11/30/2011 07:37 AM, Oliver Hartkopp wrote:
->> On 30.11.2011 00:39, David Miller wrote:
->>
->>> From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
->>> Date: Thu, 24 Nov 2011 13:07:26 +0100
->>>
->>>> Already since a while we have support for the Bosch CC770 and Intel
->>>> AN82527 CAN controllers in our out-of-tree Socket-CAN repository.
->>>> It would be nice if somebody could test the driver. Unfortunately,
->>>> I currently do not have hardware at hand. I have not yet ported the
->>>> OF platform driver as it needs further attaention due to the merge
->>>> of the platform and OF platform interface.
->>>>
->>>> Wolfgang Grandegger (2):
->>>>   can: cc770: add driver core for the Bosch CC770 and Intel AN82527
->>>>   can: cc770: legacy CC770 ISA bus driver
->>>
->>> All applied, thank you.
->>
->>
->> Hello Dave,
->>
->> this patchset was superseded for some time.
->>
->> We're currently in the v4 patchset (dated 2011-11-29).
-> 
-> I just sent v5...
-> 
->> See http://patchwork.ozlabs.org/patch/128244/
->>
->> Do you want to revert the commit or should Wolfgang post a diff patch to get
->> to v4 ??
-> 
-> Reverting and applying v5 would make sense as there are many changes.
-> 
-> Did I do something wrong?
+Already since a while we have support for the Bosch CC770 and Intel
+AN82527 CAN controllers in our out-of-tree Socket-CAN repository.
 
-Well, yes, at least I forgot the CC to the devicetree and linuxppc-dev
-list (due to a "signedoffcc = false" in my .gitconfig). Resending v5 in
-a second.
+In the meantime I found a TQM855L board with two AN82527 on it,
+which allowed me to provide and test a generic platform driver
+as well.
+
+Changes since v1:
+
+- remove version.h includes
+- some minor corrections in the ISA bus driver
+- add platform header file to the driver core
+- add generic platform driver
+- add and update device tree nodes for tqm8xx and tqm8548
+
+Changes since v2:
+
+- correct license text as suggest by Oliver Hartkopp
+- use the new module_platform_driver function
+- provide get_berr_counter callback for cc770
+- improve CAN error state change handling
+- more comprehensive cc770_isa driver description
+
+Changes since v3:
+
+- pre-define pr_fmt()
+- use KBUILD_MODNAME instead of DRV_NAME
+- use ARRAY_SIZE() whenever appropriate
+- use variable name "o" for message objects consistantly
+- use proper error code for cc770_probe_chip
+- remove unneeded member priv->open_time
+- remove unnecessary masking of u8 variables (with 0xff)
+- use "!skb" instead of "skb == NULL"
+- CC770_MSG_MAX now limits the number of messages read in the ISR
+- use "|" instead of "+" to combine bit masks
+- remove return code check of platform_get_resource() in remove function
+- remove postal address from GPL copyright text
+- fix WARNING: __packed is preferred over __attribute__((packed))
+- some more minor fixes (casts, white space, etc.)
+
+Changes since v4:
+
+- cc770_isa: add missing cc770 platform include
+- some minor comment fixes
+
+It would be nice if somebody else could test the driver, especially
+the ISA driver (I don't have hardware at hand).
 
 Wolfgang.
+
+Wolfgang Grandegger (4):
+  can: cc770: add driver core for the Bosch CC770 and Intel AN82527
+  can: cc770: add legacy ISA bus driver for the CC770 and AN82527
+  can: cc770: add platform bus driver for the CC770 and AN82527
+  powerpc: tqm8548/tqm8xx: add and update CAN device nodes
+
+ .../devicetree/bindings/net/can/cc770.txt          |   56 ++
+ arch/powerpc/boot/dts/tqm8548-bigflash.dts         |   19 +-
+ arch/powerpc/boot/dts/tqm8548.dts                  |   19 +-
+ arch/powerpc/boot/dts/tqm8xx.dts                   |   25 +
+ drivers/net/can/Kconfig                            |    2 +
+ drivers/net/can/Makefile                           |    1 +
+ drivers/net/can/cc770/Kconfig                      |   21 +
+ drivers/net/can/cc770/Makefile                     |    9 +
+ drivers/net/can/cc770/cc770.c                      |  881 ++++++++++++++++++++
+ drivers/net/can/cc770/cc770.h                      |  203 +++++
+ drivers/net/can/cc770/cc770_isa.c                  |  367 ++++++++
+ drivers/net/can/cc770/cc770_platform.c             |  273 ++++++
+ include/linux/can/platform/cc770.h                 |   33 +
+ 13 files changed, 1899 insertions(+), 10 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/can/cc770.txt
+ create mode 100644 drivers/net/can/cc770/Kconfig
+ create mode 100644 drivers/net/can/cc770/Makefile
+ create mode 100644 drivers/net/can/cc770/cc770.c
+ create mode 100644 drivers/net/can/cc770/cc770.h
+ create mode 100644 drivers/net/can/cc770/cc770_isa.c
+ create mode 100644 drivers/net/can/cc770/cc770_platform.c
+ create mode 100644 include/linux/can/platform/cc770.h
+
+-- 
+1.7.4.1
