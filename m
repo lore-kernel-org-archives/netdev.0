@@ -1,76 +1,97 @@
-From: Marc Aurele La France <tsi-yfeSBMgouQgsA/PxXw9srA@public.gmane.org>
-Subject: Re: RCU'ed dst_get_neighbour()
-Date: Wed, 30 Nov 2011 05:16:48 -0700 (Mountain Standard Time)
-Message-ID: <alpine.WNT.2.00.1111300514180.808@TSI>
-References: <alpine.WNT.2.00.1111291027320.1036@TSI> <1322589661.2596.2.camel@edumazet-laptop> <1322599437.2596.10.camel@edumazet-laptop> <CAG4TOxNJfr3X1p358LBWdNQKdkw8KOSekcKpNu6K5_phPEiR4A@mail.gmail.com> <1322599991.2596.11.camel@edumazet-laptop>
- <alpine.WNT.2.00.1111291359290.1036@TSI> <1322601444.2596.21.camel@edumazet-laptop> <1322602283.2596.25.camel@edumazet-laptop> <CAL1RGDUcYJKBSCthTL1AFgpRvzjoaEpHjGFhratKP-98ufRKnw@mail.gmail.com> <alpine.WNT.2.00.1111291815410.1288@TSI>
- <CAL1RGDWzVRc4jFtsKUC6FGrdAWn3_OThXpbChCETCR8UCrwDDA@mail.gmail.com> <alpine.WNT.2.00.1111292212280.208@TSI> <1322630768.2596.64.camel@edumazet-laptop>
+From: Carsten Wolff <carsten@wolffcarsten.de>
+Subject: Re: Daughterboard Jetway JAD3RTLANG with three RTL-8110SC/8169SC Gigabit Ethernet is curious
+Date: Wed, 30 Nov 2011 12:56:49 +0100
+Message-ID: <201111301256.51123.carsten@wolffcarsten.de>
+References: <jb0d7u$bbb$1@dough.gmane.org> <4ED4E946.40209@gmx.de> <20111129230404.GB11127@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="625875-18501-1322655409=:808"
-Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1322630768.2596.64.camel@edumazet-laptop>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Markus Feldmann <feldmann_markus@gmx.de>, netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from h1346787.stratoserver.net ([85.214.49.182]:42919 "EHLO
+	h1346787.stratoserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754103Ab1K3MSr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 07:18:47 -0500
+In-Reply-To: <20111129230404.GB11127@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hi,
 
---625875-18501-1322655409=:808
-Content-Type: TEXT/PLAIN; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8BIT
+On Wednesday 30 November 2011, Francois Romieu wrote:
+> Markus Feldmann <feldmann_markus@gmx.de> :
+> [...]
+> 
+> > You mean the latest Linux kernel was patched for a better
+> > initialization? At the moment i am using the kernel 3.0.8. As i
+> > understood the firmware must be loaded at every power on.
+> 
+> What do you mean ? Afaik there is no out-of-driver firmware for the
+> (old) 8169sc.
+> 
+> Can either of you or Carsten compare and send 'lspci -vv' before and
+> after windows installs ?
 
-On Wed, 30 Nov 2011, Eric Dumazet wrote:
-> Le mardi 29 novembre 2011 à 22:15 -0700, Marc Aurele La France a écrit :
->> On Tue, 29 Nov 2011, Roland Dreier wrote:
->>> On Tue, Nov 29, 2011 at 5:17 PM, Marc Aurele La France <tsi-yfeSBMgouQgsA/PxXw9srA@public.gmane.org> wrote:
->>>> On Tue, 29 Nov 2011, Roland Dreier wrote:
->>>>> On Tue, Nov 29, 2011 at 1:31 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>>>> wrote:
->>>>>> Here is the result of this audit, please double check and test it, I
->>>>>> only compiled this.
+I'm sorry, I don't have that from before the windows install, the whole thing 
+happened 2 years ago for me and I can not go back, obviously.
 
->>>>> Thanks Eric... I'll queue this up and send it on once we get a good
->>>>> report from Marc.
+Anyway, this is the current lcpci ouput:
 
->>>> I can confirm that Eric's patch, retrofitted to 3.1.3, fixes the problem.
+00:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8110SC/8169SC 
+Gigabit Ethernet (rev 10)
+        Subsystem: Jetway Information Co., Ltd. Device 10ec
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- 
+Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 32 (8000ns min, 16000ns max), Cache Line Size: 32 bytes
+        Interrupt: pin A routed to IRQ 18
+        Region 0: I/O ports at bc00 [size=256]
+        Region 1: Memory at dfaff000 (32-bit, non-prefetchable) [size=256]
+        Expansion ROM at df900000 [disabled] [size=128K]
+        Capabilities: [dc] Power Management version 2
+                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA 
+PME(D0-,D1-,D2-,D3hot-,D3cold-)
+                Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
+        Kernel driver in use: r8169
 
->>> Oh... the problem was already in 3.1?
+00:01.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8110SC/8169SC 
+Gigabit Ethernet (rev 10)
+        Subsystem: Jetway Information Co., Ltd. Device 10ec
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- 
+Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 32 (8000ns min, 16000ns max), Cache Line Size: 32 bytes
+        Interrupt: pin A routed to IRQ 19
+        Region 0: I/O ports at b800 [size=256]
+        Region 1: Memory at dfafe000 (32-bit, non-prefetchable) [size=256]
+        Expansion ROM at df920000 [disabled] [size=128K]
+        Capabilities: [dc] Power Management version 2                                                                                                                       
+                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA 
+PME(D0-,D1-,D2-,D3hot-,D3cold-)                                                                                
+                Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-                                                                                                      
+        Kernel driver in use: r8169                                                                                                                                         
+                                                                                                                                                                            
+00:02.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8110SC/8169SC 
+Gigabit Ethernet (rev 10)                                                                    
+        Subsystem: Jetway Information Co., Ltd. Device 10ec                                                                                                                 
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- 
+Stepping- SERR- FastB2B- DisINTx-                                                               
+        Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
+<TAbort- <MAbort- >SERR- <PERR- INTx-                                                              
+        Latency: 32 (8000ns min, 16000ns max), Cache Line Size: 32 bytes                                                                                                    
+        Interrupt: pin A routed to IRQ 16                                                                                                                                   
+        Region 0: I/O ports at b400 [size=256]                                                                                                                              
+        Region 1: Memory at dfafd000 (32-bit, non-prefetchable) [size=256]                                                                                                  
+        Expansion ROM at df940000 [disabled] [size=128K]                                                                                                                    
+        Capabilities: [dc] Power Management version 2                                                                                                                       
+                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA 
+PME(D0-,D1-,D2-,D3hot-,D3cold-)                                                                                
+                Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-                                                                                                      
+        Kernel driver in use: r8169
 
->> Yes, but not in anything earlier.
-
-> Yes :
-
-> # git describe --contains f2c31e32b378a6653f
-> v3.1-rc1~24^2~11
-
-> It all depends if f2c31e32b378a6653f is backported to 3.0 someday, since
-> it fixes bug added in commit f39925dbde778 (ipv4: Cache learned redirect
-> information in inetpeer)
-
-> # git describe --contains  f39925dbde778
-> v2.6.39-rc1~468^2~349
-
-http://www.spinics.net/lists/netdev/msg179639.html should also be 
-considered for 3.1 stable as well, for the same reason.
-
-Marc.
-
-+----------------------------------+----------------------------------+
-|  Marc Aurele La France           |  work:   1-780-492-9310          |
-|  Academic Information and        |  fax:    1-780-492-1729          |
-|    Communications Technologies   |  email:  tsi-yfeSBMgouQgsA/PxXw9srA@public.gmane.org         |
-|  352 General Services Building   +----------------------------------+
-|  University of Alberta           |                                  |
-|  Edmonton, Alberta               |    Standard disclaimers apply    |
-|  T6G 2H1                         |                                  |
-|  CANADA                          |                                  |
-+----------------------------------+----------------------------------+
---625875-18501-1322655409=:808--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards
+Carsten
