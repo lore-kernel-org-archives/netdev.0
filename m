@@ -1,164 +1,76 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: [PATCH net-next v5 4/4] powerpc: tqm8548/tqm8xx: add and update CAN device nodes
-Date: Wed, 30 Nov 2011 13:10:35 +0100
-Message-ID: <1322655035-18809-5-git-send-email-wg@grandegger.com>
-References: <1322655035-18809-1-git-send-email-wg@grandegger.com>
-Cc: linux-can@vger.kernel.org, socketcan-users@lists.berlios.de,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	devicetree-discuss@lists.ozlabs.org, linuxppc-dev@ozlabs.org,
-	Kumar Gala <galak@kernel.crashing.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1322655035-18809-1-git-send-email-wg@grandegger.com>
-Sender: linux-can-owner@vger.kernel.org
+From: Marc Aurele La France <tsi-yfeSBMgouQgsA/PxXw9srA@public.gmane.org>
+Subject: Re: RCU'ed dst_get_neighbour()
+Date: Wed, 30 Nov 2011 05:16:48 -0700 (Mountain Standard Time)
+Message-ID: <alpine.WNT.2.00.1111300514180.808@TSI>
+References: <alpine.WNT.2.00.1111291027320.1036@TSI> <1322589661.2596.2.camel@edumazet-laptop> <1322599437.2596.10.camel@edumazet-laptop> <CAG4TOxNJfr3X1p358LBWdNQKdkw8KOSekcKpNu6K5_phPEiR4A@mail.gmail.com> <1322599991.2596.11.camel@edumazet-laptop>
+ <alpine.WNT.2.00.1111291359290.1036@TSI> <1322601444.2596.21.camel@edumazet-laptop> <1322602283.2596.25.camel@edumazet-laptop> <CAL1RGDUcYJKBSCthTL1AFgpRvzjoaEpHjGFhratKP-98ufRKnw@mail.gmail.com> <alpine.WNT.2.00.1111291815410.1288@TSI>
+ <CAL1RGDWzVRc4jFtsKUC6FGrdAWn3_OThXpbChCETCR8UCrwDDA@mail.gmail.com> <alpine.WNT.2.00.1111292212280.208@TSI> <1322630768.2596.64.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="625875-18501-1322655409=:808"
+Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1322630768.2596.64.camel@edumazet-laptop>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch enables or updates support for the CC770 and AN82527
-CAN controller on the TQM8548 and TQM8xx boards.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-CC: devicetree-discuss@lists.ozlabs.org
-CC: linuxppc-dev@ozlabs.org
-CC: Kumar Gala <galak@kernel.crashing.org>
-Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
----
- arch/powerpc/boot/dts/tqm8548-bigflash.dts |   19 ++++++++++++++-----
- arch/powerpc/boot/dts/tqm8548.dts          |   19 ++++++++++++++-----
- arch/powerpc/boot/dts/tqm8xx.dts           |   25 +++++++++++++++++++++++++
- 3 files changed, 53 insertions(+), 10 deletions(-)
+--625875-18501-1322655409=:808
+Content-Type: TEXT/PLAIN; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8BIT
 
-diff --git a/arch/powerpc/boot/dts/tqm8548-bigflash.dts b/arch/powerpc/boot/dts/tqm8548-bigflash.dts
-index 9452c3c..d918752 100644
---- a/arch/powerpc/boot/dts/tqm8548-bigflash.dts
-+++ b/arch/powerpc/boot/dts/tqm8548-bigflash.dts
-@@ -352,7 +352,7 @@
- 		ranges = <
- 			0 0x0 0xfc000000 0x04000000	// NOR FLASH bank 1
- 			1 0x0 0xf8000000 0x08000000	// NOR FLASH bank 0
--			2 0x0 0xa3000000 0x00008000	// CAN (2 x i82527)
-+			2 0x0 0xa3000000 0x00008000	// CAN (2 x CC770)
- 			3 0x0 0xa3010000 0x00008000	// NAND FLASH
- 
- 		>;
-@@ -393,18 +393,27 @@
- 		};
- 
- 		/* Note: CAN support needs be enabled in U-Boot */
--		can0@2,0 {
--			compatible = "intel,82527"; // Bosch CC770
-+		can@2,0 {
-+			compatible = "bosch,cc770"; // Bosch CC770
- 			reg = <2 0x0 0x100>;
- 			interrupts = <4 1>;
- 			interrupt-parent = <&mpic>;
-+			bosch,external-clock-frequency = <16000000>;
-+			bosch,disconnect-rx1-input;
-+			bosch,disconnect-tx1-output;
-+			bosch,iso-low-speed-mux;
-+			bosch,clock-out-frequency = <16000000>;
- 		};
- 
--		can1@2,100 {
--			compatible = "intel,82527"; // Bosch CC770
-+		can@2,100 {
-+			compatible = "bosch,cc770"; // Bosch CC770
- 			reg = <2 0x100 0x100>;
- 			interrupts = <4 1>;
- 			interrupt-parent = <&mpic>;
-+			bosch,external-clock-frequency = <16000000>;
-+			bosch,disconnect-rx1-input;
-+			bosch,disconnect-tx1-output;
-+			bosch,iso-low-speed-mux;
- 		};
- 
- 		/* Note: NAND support needs to be enabled in U-Boot */
-diff --git a/arch/powerpc/boot/dts/tqm8548.dts b/arch/powerpc/boot/dts/tqm8548.dts
-index 619776f..988d887 100644
---- a/arch/powerpc/boot/dts/tqm8548.dts
-+++ b/arch/powerpc/boot/dts/tqm8548.dts
-@@ -352,7 +352,7 @@
- 		ranges = <
- 			0 0x0 0xfc000000 0x04000000	// NOR FLASH bank 1
- 			1 0x0 0xf8000000 0x08000000	// NOR FLASH bank 0
--			2 0x0 0xe3000000 0x00008000	// CAN (2 x i82527)
-+			2 0x0 0xe3000000 0x00008000	// CAN (2 x CC770)
- 			3 0x0 0xe3010000 0x00008000	// NAND FLASH
- 
- 		>;
-@@ -393,18 +393,27 @@
- 		};
- 
- 		/* Note: CAN support needs be enabled in U-Boot */
--		can0@2,0 {
--			compatible = "intel,82527"; // Bosch CC770
-+		can@2,0 {
-+			compatible = "bosch,cc770"; // Bosch CC770
- 			reg = <2 0x0 0x100>;
- 			interrupts = <4 1>;
- 			interrupt-parent = <&mpic>;
-+			bosch,external-clock-frequency = <16000000>;
-+			bosch,disconnect-rx1-input;
-+			bosch,disconnect-tx1-output;
-+			bosch,iso-low-speed-mux;
-+			bosch,clock-out-frequency = <16000000>;
- 		};
- 
--		can1@2,100 {
--			compatible = "intel,82527"; // Bosch CC770
-+		can@2,100 {
-+			compatible = "bosch,cc770"; // Bosch CC770
- 			reg = <2 0x100 0x100>;
- 			interrupts = <4 1>;
- 			interrupt-parent = <&mpic>;
-+			bosch,external-clock-frequency = <16000000>;
-+			bosch,disconnect-rx1-input;
-+			bosch,disconnect-tx1-output;
-+			bosch,iso-low-speed-mux;
- 		};
- 
- 		/* Note: NAND support needs to be enabled in U-Boot */
-diff --git a/arch/powerpc/boot/dts/tqm8xx.dts b/arch/powerpc/boot/dts/tqm8xx.dts
-index f6da7ec..c3dba25 100644
---- a/arch/powerpc/boot/dts/tqm8xx.dts
-+++ b/arch/powerpc/boot/dts/tqm8xx.dts
-@@ -57,6 +57,7 @@
- 
- 		ranges = <
- 			0x0 0x0 0x40000000 0x800000
-+			0x3 0x0 0xc0000000 0x200
- 		>;
- 
- 		flash@0,0 {
-@@ -67,6 +68,30 @@
- 			bank-width = <4>;
- 			device-width = <2>;
- 		};
-+
-+		/* Note: CAN support needs be enabled in U-Boot */
-+		can@3,0 {
-+			compatible = "intc,82527";
-+			reg = <3 0x0 0x80>;
-+			interrupts = <8 1>;
-+			interrupt-parent = <&PIC>;
-+			bosch,external-clock-frequency = <16000000>;
-+			bosch,disconnect-rx1-input;
-+			bosch,disconnect-tx1-output;
-+			bosch,iso-low-speed-mux;
-+			bosch,clock-out-frequency = <16000000>;
-+		};
-+
-+		can@3,100 {
-+			compatible = "intc,82527";
-+			reg = <3 0x100 0x80>;
-+			interrupts = <8 1>;
-+			interrupt-parent = <&PIC>;
-+			bosch,external-clock-frequency = <16000000>;
-+			bosch,disconnect-rx1-input;
-+			bosch,disconnect-tx1-output;
-+			bosch,iso-low-speed-mux;
-+		};
- 	};
- 
- 	soc@fff00000 {
--- 
-1.7.4.1
+On Wed, 30 Nov 2011, Eric Dumazet wrote:
+> Le mardi 29 novembre 2011 à 22:15 -0700, Marc Aurele La France a écrit :
+>> On Tue, 29 Nov 2011, Roland Dreier wrote:
+>>> On Tue, Nov 29, 2011 at 5:17 PM, Marc Aurele La France <tsi-yfeSBMgouQgsA/PxXw9srA@public.gmane.org> wrote:
+>>>> On Tue, 29 Nov 2011, Roland Dreier wrote:
+>>>>> On Tue, Nov 29, 2011 at 1:31 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>>>>> wrote:
+>>>>>> Here is the result of this audit, please double check and test it, I
+>>>>>> only compiled this.
 
+>>>>> Thanks Eric... I'll queue this up and send it on once we get a good
+>>>>> report from Marc.
+
+>>>> I can confirm that Eric's patch, retrofitted to 3.1.3, fixes the problem.
+
+>>> Oh... the problem was already in 3.1?
+
+>> Yes, but not in anything earlier.
+
+> Yes :
+
+> # git describe --contains f2c31e32b378a6653f
+> v3.1-rc1~24^2~11
+
+> It all depends if f2c31e32b378a6653f is backported to 3.0 someday, since
+> it fixes bug added in commit f39925dbde778 (ipv4: Cache learned redirect
+> information in inetpeer)
+
+> # git describe --contains  f39925dbde778
+> v2.6.39-rc1~468^2~349
+
+http://www.spinics.net/lists/netdev/msg179639.html should also be 
+considered for 3.1 stable as well, for the same reason.
+
+Marc.
+
++----------------------------------+----------------------------------+
+|  Marc Aurele La France           |  work:   1-780-492-9310          |
+|  Academic Information and        |  fax:    1-780-492-1729          |
+|    Communications Technologies   |  email:  tsi-yfeSBMgouQgsA/PxXw9srA@public.gmane.org         |
+|  352 General Services Building   +----------------------------------+
+|  University of Alberta           |                                  |
+|  Edmonton, Alberta               |    Standard disclaimers apply    |
+|  T6G 2H1                         |                                  |
+|  CANADA                          |                                  |
++----------------------------------+----------------------------------+
+--625875-18501-1322655409=:808--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
