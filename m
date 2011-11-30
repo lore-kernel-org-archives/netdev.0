@@ -1,44 +1,54 @@
-From: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
-Subject: Re: Integration of Open vSwitch
-Date: Wed, 30 Nov 2011 09:01:55 -0500
-Message-ID: <1322661715.2243.33.camel@mojatatu>
-References: <CAEP_g=-g5g0Z30gYBDAZ8s7ACCZSy5MLJpPDxQmmc8m1wbk3tg@mail.gmail.com>
-	<20111130070011.GA32630@gondor.apana.org.au>
-	<1322658891.2243.15.camel@mojatatu>
-	<20111130134028.GA3226@gondor.apana.org.au>
-Reply-To: jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
+From: "Bob Armstrong" <bob@jfcl.com>
+Subject: RE: [Linux-decnet-user] Proposed removal of DECnet support
+Date: Wed, 30 Nov 2011 06:03:12 -0800
+Message-ID: <003401ccaf68$cd652800$682f7800$@com>
+References: <1322490161.2711.26.camel@menhir> <20111129144720.7374B7AD9E@priderock.keep-cool.org>
+Reply-To: <bob@jfcl.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Chris Wright <chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20111130134028.GA3226-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Cc: "'Christoph Lameter'" <cl@linux-foundation.org>,
+        "'Eric Dumazet'" <eric.dumazet@gmail.com>,
+        "'netdev'" <netdev@vger.kernel.org>,
+        "'Linux-DECnet user'" <linux-decnet-user@lists.sourceforge.net>,
+        "'linux-kernel'" <linux-kernel@vger.kernel.org>,
+        "'Pekka Enberg'" <penberg@kernel.org>,
+        "'linux-mm'" <linux-mm@kvack.org>,
+        "'Chrissie Caulfield'" <ccaulfie@redhat.com>,
+        "'Sasha Levin'" <levinsasha928@gmail.com>,
+        "'Matt Mackall'" <mpm@selenic.com>,
+        "'RoarAudio'" <roaraudio@lists.keep-cool.org>,
+        "'David Miller'" <davem@davemloft.net>,
+        "'Steven Whitehouse'" <swhiteho@redhat.com>
+To: "'Philipp Schafft'" <lion@lion.leolix.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20111129144720.7374B7AD9E@priderock.keep-cool.org>
+Content-Language: en-us
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-11-30 at 21:40 +0800, Herbert Xu wrote:
+> Philipp Schafft wrote:
 
-> I actually meant the scalability with adding/deleting flows,
-> or in the case with qdiscs, filters.
+>I'm very interested in the module. 
 
-Ah yes, them locks. Unless you start doing per-cpu tables
-with lazy synchronization i am not sure how to avoid that.
-Note: last time (time flies) i compared against iptables, the tc flow
-setup/teardown was pretty consistent regardless of table size
-relatively speaking.
+  Sorry to butt in - I got this message via Philipp and the
+linux-decnet-user list - but I can also confirm that the linux DECnet
+implementation does work against real DEC hardware and software.  The guys
+over in the HECnet group
 
-cheers,
-jamal
+	http://www.update.uu.se/~bqt/hecnet.html
+
+use it all the time.  If you want access to real hardware and/or real
+software to test it against, contact me and I can set something up.
+
+Bob Armstrong
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
