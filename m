@@ -1,42 +1,108 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Integration of Open vSwitch
-Date: Wed, 30 Nov 2011 23:47:15 +0800
-Message-ID: <20111130154715.GB4487@gondor.apana.org.au>
-References: <CAEP_g=-g5g0Z30gYBDAZ8s7ACCZSy5MLJpPDxQmmc8m1wbk3tg@mail.gmail.com> <20111130070011.GA32630@gondor.apana.org.au> <1322658891.2243.15.camel@mojatatu> <20111130134028.GA3226@gondor.apana.org.au> <1322661715.2243.33.camel@mojatatu>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [v4 PATCH 1/2] NETFILTER module xt_hmark, new target for HASH
+ based fwmark
+Date: Wed, 30 Nov 2011 16:51:35 +0100
+Message-ID: <4ED65107.1040309@trash.net>
+References: <1322213787-25796-1-git-send-email-hans@schillstrom.com> <1322213787-25796-2-git-send-email-hans@schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesse Gross <jesse@nicira.com>, netdev <netdev@vger.kernel.org>,
-	dev@openvswitch.org, David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Chris Wright <chrisw@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: jhs@mojatatu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:44636 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752433Ab1K3PrZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 10:47:25 -0500
-Content-Disposition: inline
-In-Reply-To: <1322661715.2243.33.camel@mojatatu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: pablo@netfilter.org, jengelh@medozas.de,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	hans.schillstrom@ericsson.com
+To: Hans Schillstrom <hans@schillstrom.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1322213787-25796-2-git-send-email-hans@schillstrom.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 30, 2011 at 09:01:55AM -0500, jamal wrote:
->
-> Ah yes, them locks. Unless you start doing per-cpu tables
-> with lazy synchronization i am not sure how to avoid that.
-> Note: last time (time flies) i compared against iptables, the tc flow
-> setup/teardown was pretty consistent regardless of table size
-> relatively speaking.
+On 11/25/2011 10:36 AM, Hans Schillstrom wrote:
+> +__u32 hmark_v6(struct sk_buff *skb, const struct xt_action_param *par)
+> +{
+> +	struct xt_hmark_info *info = (struct xt_hmark_info *)par->targinfo;
+> +	int nhoff, poff, hdrlen;
+> +	u32 addr1, addr2, hash;
+> +	struct ipv6hdr *ip6;
+> +	u8 nexthdr;
+> +	int frag = 0, ip6hdrlvl = 0;	/* Header level */
+> +	struct ipv6_opt_hdr _hdr, *hp;
+> +	union {
+> +		u32 v32;
+> +		u16 v16[2];
+> +	} ports;
+> +
+> +	ports.v32 = 0;
+> +	nhoff = skb_network_offset(skb);
+> +
+> +hdr_new:
+> +	/* Get header info */
+> +	ip6 = (struct ipv6hdr *) (skb->data + nhoff);
+> +	nexthdr = ip6->nexthdr;
+> +	hdrlen = sizeof(struct ipv6hdr);
+> +	hp = skb_header_pointer(skb, nhoff + hdrlen, sizeof(_hdr),&_hdr);
+> +
+> +	while (nexthdr) {
+> +		switch (nexthdr) {
+> +		case IPPROTO_ICMPV6:
+> +			/* ICMP Error then move ptr to inner header */
+> +			if (get_inner6_hdr(skb,&nhoff, hdrlen)) {
 
-iptables sets a pretty low bar :)
+This doesn't look right. You assume the ICMPv6 header is following
+the IPv6 header with any other headers in between. If there are
+other headers, hdrlen will contain the length of the last header.
 
-For a flow cache I think going per-cpu or at least per-node will
-be unavoidable.
+> +				ip6hdrlvl++;
+> +				if (!pskb_may_pull(skb, sizeof(_hdr) + nhoff))
+> +					return XT_CONTINUE;
+> +				goto hdr_new;
+> +			}
+> +			nhoff += hdrlen;
+> +			goto hdr_rdy;
+> +
+> +		case NEXTHDR_FRAGMENT:
+> +			if (!ip6hdrlvl) /* Do not use ports if fragmented */
+> +				frag = 1;
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Shouldn't you also check for fragment offset == 0 here?
+The fragment header also doesn't include the length, so
+using ipv6_optlen() below is incorrect.
+> +			break;
+> +
+> +		/* End of hdr traversing cont. with ports and hash calc. */
+> +		case NEXTHDR_IPV6:	/* Do not process tunnels */
+
+That comment looks misleading, you do seem to process them?
+
+> +		case NEXTHDR_TCP:
+> +		case NEXTHDR_UDP:
+> +		case NEXTHDR_ESP:
+> +		case NEXTHDR_AUTH:
+
+Don't you want to use the port numbers if only authentication
+without encryption is used?
+
+> +		case NEXTHDR_SCTP:
+> +		case NEXTHDR_NONE:	/* Last hdr of something unknown */
+> +			nhoff += hdrlen;
+> +			goto hdr_rdy;
+> +		default:
+> +			return XT_CONTINUE;
+> +		}
+> +		if (!hp)
+> +			return XT_CONTINUE;
+> +		nhoff += hdrlen;	/* eat current header */
+> +		nexthdr =  hp->nexthdr;	/* Next header */
+> +		hdrlen = ipv6_optlen(hp);
+> +		hp = skb_header_pointer(skb, nhoff + hdrlen, sizeof(_hdr),
+> +					&_hdr);
+> +
+> +		if (!pskb_may_pull(skb, nhoff))
+> +			return XT_CONTINUE;
+> +	}
+
+And final question, why not simply use ipv6_skip_exthdr()?
+
+> +hdr_rdy:
+> +...
+
+
