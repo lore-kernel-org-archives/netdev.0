@@ -1,54 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC net-next] Include selection of congestion control
- algorithm in that which is inherited across an accept() call
-Date: Wed, 30 Nov 2011 06:40:13 +0100
-Message-ID: <1322631613.2596.70.camel@edumazet-laptop>
-References: <20111130003112.C04FE29005FE@tardy>
-	 <1322630461.2596.61.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] at91_ether: use gpio_is_valid for phy IRQ line
+Date: Wed, 30 Nov 2011 00:40:44 -0500 (EST)
+Message-ID: <20111130.004044.1357362466737795134.davem@davemloft.net>
+References: <1322169674-4109-1-git-send-email-nicolas.ferre@atmel.com>
+	<20111129.185342.105454076866922618.davem@davemloft.net>
+	<20111130044403.GY15008@game.jcrosoft.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
-To: Rick Jones <raj@tardy.cup.hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:38965 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750895Ab1K3FkS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 00:40:18 -0500
-Received: by eeuu47 with SMTP id u47so74647eeu.19
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2011 21:40:17 -0800 (PST)
-In-Reply-To: <1322630461.2596.61.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nicolas.ferre@atmel.com, jamie@jamieiles.com,
+	netdev@vger.kernel.org, sfr@canb.auug.org.au,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: plagnioj@jcrosoft.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20111130044403.GY15008@game.jcrosoft.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 30 novembre 2011 =C3=A0 06:21 +0100, Eric Dumazet a =C3=A9c=
-rit :
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Date: Wed, 30 Nov 2011 05:44:03 +0100
 
-> So my suggestion would be to use this two lines patch instead :
->=20
-> diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-> index 945efff..6b066e2 100644
-> --- a/net/ipv4/tcp_minisocks.c
-> +++ b/net/ipv4/tcp_minisocks.c
-> @@ -495,8 +495,6 @@ struct sock *tcp_create_openreq_child(struct sock=
- *sk, struct request_sock *req,
->  		newtp->frto_counter =3D 0;
->  		newtp->frto_highmark =3D 0;
-> =20
-> -		newicsk->icsk_ca_ops =3D &tcp_init_congestion_ops;
-> -
->  		tcp_set_ca_state(newsk, TCP_CA_Open);
->  		tcp_init_xmit_timers(newsk);
->  		skb_queue_head_init(&newtp->out_of_order_queue);
->=20
+> On 18:53 Tue 29 Nov     , David Miller wrote:
+>> From: Nicolas Ferre <nicolas.ferre@atmel.com>
+>> Date: Thu, 24 Nov 2011 22:21:14 +0100
+>> 
+>> > Use the generic gpiolib gpio_is_valid() function to test
+>> > if the phy IRQ line GPIO is actually provided.
+>> > 
+>> > For non-connected or non-existing phy IRQ lines, -EINVAL
+>> > value is used for phy_irq_pin field of struct at91_eth_data.
+>> > 
+>> > Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+>> 
+>> I'm assuming this goes through the ARM tree, because in both of my networking
+>> trees there is no ARM at91 implementation of gpio_is_valid().
+> yes the depending patch series is in the arm-soc
+> 
+> can we have your ack or sob?
 
-Please test this change and if its OK, resubmit your patch, with
-appropriate Documentation change, as pointed out by Yuchung Cheng=20
-
-(file to change : Documentation/networking/ip-sysctl.txt )
-
-You could clearly state that the congestion control eventually
-chosen by the listener socket takes precedence over the system default
-tcp congestion value.
-
-Thanks !
+Acked-by: David S. Miller <davem@davemloft.net>
