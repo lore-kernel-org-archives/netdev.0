@@ -1,56 +1,49 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [PATCH] netconsole: implement ipv4 tos support
-Date: Thu, 1 Dec 2011 01:25:30 -0800
-Message-ID: <CAHo-OowBEUmsprEvoZauxBSq8gGWFmZxNieF6kLN6tLPHCTN=A@mail.gmail.com>
-References: <1322702330-31325-1-git-send-email-zenczykowski@gmail.com>
-	<20111130173435.5e63afda@nehalam.linuxnetplumber.net>
-	<CANP3RGfwUr3ho3Tz_cfVz4CBJWMktOb7MDbUYYXz7XfjErw7Zg@mail.gmail.com>
-	<20111130182753.02798425@nehalam.linuxnetplumber.net>
-	<CAHo-OoyQWk5xB7LcdCa+hLWvsiG-eY+Catdsa9zXG+01q3Y+3g@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] netem: fix build error on 32bit arches
+Date: Thu, 01 Dec 2011 10:32:14 +0100
+Message-ID: <1322731934.2335.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1322691627-20551-1-git-send-email-hagen@jauu.net>
+	 <1322691627-20551-2-git-send-email-hagen@jauu.net>
+	 <1322710225.2577.1.camel@edumazet-laptop>
+	 <cfd2e2c26063da002d8afe76991ff0c1@localhost>
+	 <1322730108.2335.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Hagen Paul Pfeifer <hagen@jauu.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:33404 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751226Ab1LAJZb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 04:25:31 -0500
-Received: by yenl6 with SMTP id l6so1469627yen.19
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2011 01:25:30 -0800 (PST)
-In-Reply-To: <CAHo-OoyQWk5xB7LcdCa+hLWvsiG-eY+Catdsa9zXG+01q3Y+3g@mail.gmail.com>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:55205 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751795Ab1LAJcR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 04:32:17 -0500
+Received: by qyk7 with SMTP id 7so133981qyk.19
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2011 01:32:17 -0800 (PST)
+In-Reply-To: <1322730108.2335.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> Although interpretation of TOS is per organization, in practice the
->> values are standardized in places like RFC4594. For example, routing protocols
->> all use IPTOS_PREC_INTERNETCONTROL = 0xc0
+ERROR: "__udivdi3" [net/sched/sch_netem.ko] undefined!
 
-One more thing should probably be mentioned here.
-TOS interpretation is directly influenced by low level hardware
-aspects of an organization's network.
-Things like the number of hw priority queues and their scheduling/drop
-types supported by all hosts, switches and routers across the TOS
-domain.  What sort of prioritization can be done, how to map these
-levels onto older hardware which supports only a subset of features
-(or a smaller number of queues).  Etc.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/sched/sch_netem.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-Furthermore as we well know TOS isn't just a linear priority, from
-lowest to highest.  There are very different aspects one may desire.
-Latency (web pages), Jitter (voip), Packet loss (kernel crash dumps),
-Monetary cost (data copies), Bandwith (video), Failure domains (ie.
-presence of single points of failure), Seperation of loss-tolerant
-from loss-intolerant traffic, etc, are all still very much desirable
-in certain circumstances.
-
-Furthermore it may be desirable to have tos have many unusual
-behaviours - for example tos priority increase post traversal of
-expensive links (for example cross-oceanic links) - since it would be
-a pity to drop traffic close to its destination in favour of traffic
-which is still close to its source.
-
-Different people/orgs are bound to care about different aspects (axes).
-
-Anyway... enough beating a dead horse.
-
-- Maciej
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 9b7af9f..3bfd733 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -301,7 +301,10 @@ static psched_tdiff_t tabledist(psched_tdiff_t mu, psched_tdiff_t sigma,
+ 
+ static psched_time_t packet_len_2_sched_time(unsigned int len, u32 rate)
+ {
+-	return PSCHED_NS2TICKS((u64)len * NSEC_PER_SEC / rate);
++	u64 ticks = (u64)len * NSEC_PER_SEC;
++
++	do_div(ticks, rate);
++	return PSCHED_NS2TICKS(ticks);
+ }
+ 
+ /*
