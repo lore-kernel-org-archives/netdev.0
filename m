@@ -1,113 +1,48 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: Re: Is there any necessary to add multicast route for a loopback
- device?
-Date: Thu, 01 Dec 2011 14:01:27 +0800
-Message-ID: <4ED71837.6010309@cn.fujitsu.com>
-References: <4ED5DD7D.10908@cn.fujitsu.com>		<4ED6E6A8.3080702@cn.fujitsu.com>	 <20111130.223539.675481575068605501.davem@davemloft.net>	 <4ED70332.4000405@cn.fujitsu.com> <1322714206.2577.13.camel@edumazet-laptop>
+From: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: Integration of Open vSwitch
+Date: Wed, 30 Nov 2011 22:41:11 -0800
+Message-ID: <4ED72187.7070502@intel.com>
+References: <CAEP_g=-g5g0Z30gYBDAZ8s7ACCZSy5MLJpPDxQmmc8m1wbk3tg@mail.gmail.com>
+	<20111130070011.GA32630@gondor.apana.org.au>
+	<1322658891.2243.15.camel@mojatatu>
+	<1322659299.2403.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:50918 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751344Ab1LAGBO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 01:01:14 -0500
-In-Reply-To: <1322714206.2577.13.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	Chris Wright <chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org" <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1322659299.2403.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> Le jeudi 01 d=C3=A9cembre 2011 =C3=A0 12:31 +0800, Li Wei a =C3=A9cri=
-t :
->>> From: Li Wei <lw@cn.fujitsu.com>
->>> Date: Thu, 01 Dec 2011 10:30:00 +0800
->>>
->>>> what's your opinion?
->>> I have many higher priority tasks than this issue, so it is a poor
->>> idea to try and force me to look into this.
->>>
->>> If no other developer cares to answer, maybe it isn't all that
->>> important.
->>>
->>>
->> My apologize :(
->=20
-> It would help us if you provide a test program an setup script, becau=
-se
-> we have litle time to figure out what exact problem you hit.
->=20
->=20
->=20
->=20
->=20
-
-Thanks Eric!
-
-The following is the test code:
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D cut =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <errno.h>
-
-#define MADDR	"ff00::00"
-
-int main(int argc, char **argv) {
-	struct ipv6_mreq mreq;
-	struct in6_addr addr;
-	unsigned int mcast_if;
-	int sk;
-
-	if((sk =3D socket(AF_INET6, SOCK_DGRAM, 0)) =3D=3D -1) {
-		printf("socket\n");
-		exit(1);
-	}
-
-	inet_pton(AF_INET6, MADDR, &addr);
-	mreq.ipv6mr_multiaddr =3D addr;
-
-	printf("=3D=3D join a multicast group with the interface index is spec=
-ified as 0 =3D=3D\n");
-	mreq.ipv6mr_interface =3D 0;
-	if (setsockopt(sk, IPPROTO_IPV6, IPV6_JOIN_GROUP,
-		       (char *) &mreq, sizeof(mreq)) =3D=3D -1) {
-		perror("setsockopt IPV6_JOIN_GROUP");
-		exit(1);
-	}
-
-	close(sk);
-
-	printf("OK\n");
-	return 0;
-}
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D cut =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
-My aim is to join a multicast group without the interface index specifi=
-ed, as the RFC 3493
-(5.2 Sending and Receiving Multicast Packets) said "If the interface in=
-dex is specified as 0,
-the kernel chooses the local interface.".
-
-When this test run on Fedora 15(ipv6 enabled), it failed and return err=
-or ENODEV.
-
-This problem can be reproduced by the following steps:
-1. enable ipv6 if you haven't
-# modprobe ipv6
-2. make all network interfaces down
-# ip link set lo down; ip link set eth0 down; ...
-3. set a ipv6 address for lo
-# ip addr add ::1/128 dev lo
-4. make all interfaces up
-# ip link set lo up; ip link set eth0 up; ...
-
-run test and it will return ENODEV
+T24gMTEvMzAvMjAxMSA1OjIxIEFNLCBFcmljIER1bWF6ZXQgd3JvdGU6Cj4gTGUgbWVyY3JlZGkg
+MzAgbm92ZW1icmUgMjAxMSDDoCAwODoxNCAtMDUwMCwgamFtYWwgYSDDqWNyaXQgOgo+PiBPbiBX
+ZWQsIDIwMTEtMTEtMzAgYXQgMTU6MDAgKzA4MDAsIEhlcmJlcnQgWHUgd3JvdGU6Cj4+Cj4+Cj4+
+PiBUaGUgb3RoZXIgZmFjdG9yIEkgY29uc2lkZXJlZCBpcyBzY2FsYWJpbGl0eS4gIFRoZSBPVlMg
+Y29kZSBhcyBpcwo+Pj4gaXMgbm90IHJlYWxseSBmcmllbmRseSB0byBTTVAvTlVNQSBzY2FsYWJp
+bGl0eSAoYnV0IGFzIEVyaWMgcG9pbnRlZCwKPj4+IG5laXRoZXIgaXMgdGhlIGNsYXNzaWZpZXIv
+YWN0aW9uIGxheWVyKS4gCj4+Cj4+IERpZCB5b3UgbWVhbiB0aGUgcWRpc2MgZnVubmVsLXRvLWlu
+dGVyZmFjZSBwYXJ0IHdoaWNoIEVyaWMgaXMgaG9wZWZ1bGx5Cj4+IGdvaW5nIHRvIHdvcmsgb24g
+bm93IHRoYXQgYnFsIGlzIGluPyBjbGFzc2lmaWVyL2FjdGlvbiBoYXBwZW5zIHdheQo+PiBiZWZv
+cmUgdGhhdC4KPiAKPiBBY3R1YWxseSBJIGFtIHdhaXRpbmcgZm9yIEpvaG4gd29yayBvbiB0aGlz
+IGFyZWEsIGJlZm9yZSB3YXN0aW5nIG15Cj4gdGltZSA7KQo+IAoKSSdsbCB0cnkgdG8gZ2V0IHRo
+ZXNlIG91dCBpbiB0aGUgbmV4dCBjb3VwbGUgZGF5cy4gR290IGEgZmV3IHFkaXNjcwpydW5uaW5n
+IHdpdGhvdXQgdGhlIHFkaXNjIGxvY2sgdG9kYXkuIEFmdGVyIEkgZ2V0IHNvbWUgcmVhbCBudW1i
+ZXJzCmFuZCBtYWtlIHRoZW0gYXQgbGVhc3QgYSBiaXQgbW9yZSBwcmVzZW50YWJsZSBJJ2xsIHBv
+c3QgdGhlbSBzbwpmb2xrcyBjYW4gbGV0IG1lIGtub3cgaWYgdGhleSB0aGluayBpdHMgdGhlIHJp
+Z2h0IGFwcHJvYWNoLgoKVGhhbmtzLApKb2huLgoKCgoKCgoKX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0
+Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
