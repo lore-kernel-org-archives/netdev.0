@@ -1,63 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bug in computing data_len in tcp_sendmsg?
-Date: Thu, 01 Dec 2011 23:30:21 +0100
-Message-ID: <1322778621.2750.48.camel@edumazet-laptop>
-References: <CA+mtBx8+sajFaCWqHRr+pY5EAHwN8G61v6cr-HydYhbbdxAgHQ@mail.gmail.com>
-	 <1322710962.2577.3.camel@edumazet-laptop>
-	 <CA+mtBx_CUsuGunKONwBNA8qyVni16+RtrRL8w=THYY0mEDcvaA@mail.gmail.com>
-	 <1322713032.2577.7.camel@edumazet-laptop>
-	 <CAGK4HS8fLWwdPsrag6+Mz93_ZNg2B5JRjx2s=Re8_Qiv4V=T=w@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [bug?] r8169: hangs under heavy load
+Date: Thu, 1 Dec 2011 23:26:12 +0100
+Message-ID: <20111201222612.GA27998@electric-eye.fr.zoreil.com>
+References: <20111126004447.GA14744@electric-eye.fr.zoreil.com> <1322280423.10212.3.camel@edumazet-laptop> <20111127092808.GE21635@elie.hsd1.il.comcast.net> <4ED2A573.1020807@wolke7.net> <20111127231147.GA1784@electric-eye.fr.zoreil.com> <D95C09DB1A7E493E89FE5A0B3879CEB0@realtek.com.tw> <20111129105440.GA2410@electric-eye.fr.zoreil.com> <4ED538EC.4010509@wolke7.net> <20111201102000.GA14013@electric-eye.fr.zoreil.com> <4ED7E6AB.6050308@wolke7.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tom Herbert <therbert@google.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:57687 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754798Ab1LAWa0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 17:30:26 -0500
-Received: by bkas6 with SMTP id s6so3026019bka.19
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2011 14:30:25 -0800 (PST)
-In-Reply-To: <CAGK4HS8fLWwdPsrag6+Mz93_ZNg2B5JRjx2s=Re8_Qiv4V=T=w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: hayeswang <hayeswang@realtek.com>,
+	"'Jonathan Nieder'" <jrnieder@gmail.com>,
+	"'Eric Dumazet'" <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	"'nic_swsd'" <nic_swsd@realtek.com>, linux-kernel@vger.kernel.org,
+	"'Armin Kazmi'" <armin.kazmi@tu-dortmund.de>
+To: booster@wolke7.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4ED7E6AB.6050308@wolke7.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 01 d=C3=A9cembre 2011 =C3=A0 14:18 -0800, Vijay Subramanian a =
-=C3=A9crit :
-> >
-> > Or the "bug" was to assume that skb was headless.
-> > It was true until recently.
-> >
-> > We recently added commit f07d960df33c5aef
-> > (tcp: avoid frag allocation for small frames)
-> >
-> > to avoid page allocation for small frames.
-> >
-> > So now, skb can contain in head part of tcp data.
-> >
-> >
->=20
-> Hi,
-> I am looking at tcp_mtu_probe() and was wondering if this commit also
-> impacts this function. Once the data are copied from skbs in the writ=
-e
-> queue to the probe skb, copied data are cleared from the original skb=
-s
-> in the write queue.
->=20
-> It looks like the code assumes that the original skb will have data
-> either in linear part or in paged part.  The call to
-> __pskb_trim_head(skb, copy) for example does not clear linear part.
->=20
-> Can someone more familiar with the code take a look? Apologies if I
-> have read this wrong.
->=20
+booster@wolke7.net <booster@wolke7.net> :
+[...]
+> it looks OK now - no more "eth0: link up" messages and network hangs any
+> more.
+> I've send and received 60 GB to and from the system and the performance
+> is ~30 MB/s.
+> I'll keep the system up and running and do some more stability tests.
 
-tcp_mtu_probe() builds a linear skb, and populate it using
-skb_copy_bits() [ this is frag aware, and aware of payload in header as
-well ]
+Wonderful. Thanks for testing.
 
-I see no problem in it.
+> The only thing that's missing now is the transfer LED: the yellow link
+> LED is on, but the green transfer LED is off and doesn't blink.
+
+I have never looked too closely at it. You may experiment with the LEDS0 and
+LEDS1 bits of Config1 (no warranty). Your chipset would require it in
+__rtl_hw_start_8168cp - if at all.
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 6f06aa1..d6243a9 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -4602,7 +4620,7 @@ static void rtl_hw_start_8168bef(void __iomem *ioaddr, struct pci_dev *pdev)
+ 
+ static void __rtl_hw_start_8168cp(void __iomem *ioaddr, struct pci_dev *pdev)
+ {
+-	RTL_W8(Config1, RTL_R8(Config1) | Speed_down);
++	RTL_W8(Config1, RTL_R8(Config1) | Speed_down | LEDS1);
+ 
+ 	RTL_W8(Config3, RTL_R8(Config3) & ~Beacon_en);
+ 
+
+-- 
+Ueimor
