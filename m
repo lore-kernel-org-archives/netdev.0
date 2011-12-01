@@ -1,34 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 06/10] e1000e: Support for byte queue limits
-Date: Thu, 01 Dec 2011 12:48:58 -0500 (EST)
-Message-ID: <20111201.124858.1240854874296338456.davem@davemloft.net>
-References: <20111129130137.000009ce@unknown>
-	<CA+mtBx-8AzEyUc3GVD+mEQoqUZeaB9hjSJonRW_SjOQaTx51mQ@mail.gmail.com>
-	<1322734334.2335.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: "Greg Scott" <GregScott@Infrasupport.com>
+Subject: RE: ebtables on a stick
+Date: Thu, 1 Dec 2011 11:51:03 -0600
+Message-ID: <925A849792280C4E80C5461017A4B8A2A048FF@mail733.InfraSupportEtc.com>
+References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com> <20111128143901.GA589422@jupiter.n2.diac24.net> <4ED566A8.2000108@ziu.info> <925A849792280C4E80C5461017A4B8A2A048F6@mail733.InfraSupportEtc.com> <4ED7BCE8.1040307@ziu.info>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "David Lamparter" <equinox@diac24.net>, <netdev@vger.kernel.org>
+To: "Michal Soltys" <soltys@ziu.info>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36345 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755790Ab1LARtD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 12:49:03 -0500
-In-Reply-To: <1322734334.2335.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail.infrasupportetc.com ([216.160.2.132]:30929 "EHLO
+	mail.infrasupport.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755280Ab1LARvF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 12:51:05 -0500
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 01 Dec 2011 11:12:14 +0100
-
-> OK, as stated on your other thread, its obvious this driver (and
-> probably other intel drivers) made assumptions that are now obsolete,
-> since skb head can contain some data payload, not only (MAC+IP+TCP)
-> headers.
-
-They were always wrong assumptions even before your patch Eric.
-
-Any Netfilter or similar module can pull some data into the linear
-area before the driver sees the packet on transmit.
+WWVzLiAgMS4yLjExNS4xNTcgd2lsbCBldmVudHVhbGx5IGJlIGFuIEguMzIzIGNvZGVjIGFuZCB3
+aWxsIG5lZWQgdG8gYWNjZXB0IGluY29taW5nIGNhbGxzLiAgRm9yIHJpZ2h0IG5vdywgaXQncyBq
+dXN0IGEgdGVzdCBXaW5kb3dzIHN5c3RlbSBJIGhhZCBoYW5keS4gIA0KDQpJIHNob3VsZCBoYXZl
+IGNvcGllZCB5b3Ugb24gc29tZSBvZiB0aGUgb3RoZXIgZW1haWxzIHRoaXMgbW9ybmluZy4gIFRo
+ZXkgc2hvdWxkIGJlIGluIHRoZSBuZXRkZXYgbGlzdCBidXQgSSdsbCBmb3J3YXJkIHRoZW0gcHJp
+dmF0ZWx5IHRvby4NCg0KLSBHcmVnDQoNCg0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0K
+RnJvbTogTWljaGFsIFNvbHR5cyBbbWFpbHRvOnNvbHR5c0B6aXUuaW5mb10gDQpTZW50OiBUaHVy
+c2RheSwgRGVjZW1iZXIgMDEsIDIwMTEgMTE6NDQgQU0NClRvOiBHcmVnIFNjb3R0DQpDYzogRGF2
+aWQgTGFtcGFydGVyOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQpTdWJqZWN0OiBSZTogZWJ0YWJs
+ZXMgb24gYSBzdGljaw0KDQpPbiAxMS0xMi0wMSAwNjo0NiwgR3JlZyBTY290dCB3cm90ZToNCj4g
+V2VsbCB0aGlzIGlzIGZydXN0cmF0aW5nLiAgTm93IG15IHB1YmxpYyBob3N0IGNhbiBjb21tdW5p
+Y2F0ZSBhbnl3aGVyZQ0KPiBpdCB3YW50cyBpbnRlcm5hbGx5IGJ1dCBub3RoaW5nIG91dHNpZGUu
+IE1hZGRlbmluZyAtIHRoZSBleGFjdA0KPiBvcHBvc2l0ZSBwcm9ibGVtIEkgaGFkIGJlZm9yZS4N
+Cj4gDQo+IA0KPiAkSVBUQUJMRVMgLUEgRk9SV0FSRCAtcyAxLjIuMTE1LjE1NyAtaiBBQ0NFUFQN
+Cj4gJElQVEFCTEVTIC1BIEZPUldBUkQgLXMgMTkyLjE2OC4xMC4wLzI0IC1kIDEuMi4xMTUuMTU3
+IC1qIEFDQ0VQVA0KPiAkSVBUQUJMRVMgLUEgRk9SV0FSRCAtcCBUQ1AgLS1kcG9ydCAxNzIwIC1k
+ICRBRFIgLWogYWxsb3dlZA0KPiAkSVBUQUJMRVMgLUEgRk9SV0FSRCAtcCBUQ1AgLXMgJE1HTVRf
+SVAgLWQgJEFEUiAtaiBhbGxvd2VkDQo+IA0KDQpBbmQgYWNjZXB0aW5nIHRyYWZmaWMgdG8gMS4y
+LjExNS4xNTcgZnJvbSB0aGUgb3V0c2lkZSA/IEFyZSB0aGVyZSBhbnkgLW0NCnN0YXRlIC8gLW0g
+Y29ubnRyYWNrIC0tY3RzdGF0ZSBlbnRyaWVzIGluIHlvdXIgcnVsZXMgPw0K
