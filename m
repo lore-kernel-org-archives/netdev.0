@@ -1,27 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net/ethernet/tile: use skb_frag_page() API
-Date: Thu, 01 Dec 2011 13:31:14 -0500 (EST)
-Message-ID: <20111201.133114.1983782132846748196.davem@davemloft.net>
-References: <201112011815.pB1IFD2t004910@farm-0002.internal.tilera.com>
+Subject: Re: [PATCH net-next] ipv4: use a 64bit load/store in output path
+Date: Thu, 01 Dec 2011 13:32:40 -0500 (EST)
+Message-ID: <20111201.133240.1139583649097732532.davem@davemloft.net>
+References: <1322715653.2577.25.camel@edumazet-laptop>
+	<20111201.014813.1241057161065435427.davem@davemloft.net>
+	<1322724521.2577.29.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: cmetcalf@tilera.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201112011815.pB1IFD2t004910@farm-0002.internal.tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:36724 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756166Ab1LAScn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 13:32:43 -0500
+In-Reply-To: <1322724521.2577.29.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chris Metcalf <cmetcalf@tilera.com>
-Date: Thu, 1 Dec 2011 12:56:03 -0500
-
-> This replaces raw access to the "page" field of the skb_frag_t.
-> 
-> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
-
-Please merge these changes via your Tile tree, you can add my:
-
-Acked-by: David S. Miller <davem@davemloft.net>
-
-Thanks.
+RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogVGh1LCAw
+MSBEZWMgMjAxMSAwODoyODo0MSArMDEwMA0KDQo+IExlIGpldWRpIDAxIGTDqWNlbWJyZSAyMDEx
+IMOgIDAxOjQ4IC0wNTAwLCBEYXZpZCBNaWxsZXIgYSDDqWNyaXQgOg0KPj4gRnJvbTogRXJpYyBE
+dW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KPj4gRGF0ZTogVGh1LCAwMSBEZWMgMjAx
+MSAwNjowMDo1MyArMDEwMA0KPj4gDQo+PiA+IGdjYyBjb21waWxlciBpcyBzbWFydCBlbm91Z2gg
+dG8gdXNlIGEgc2luZ2xlIGxvYWQvc3RvcmUgaWYgd2UNCj4+ID4gbWVtY3B5KGRwdHIsIHNwdHIs
+IDgpIG9uIHg4Nl82NCwgcmVnYXJkbGVzcyBvZg0KPj4gPiBDT05GSUdfQ0NfT1BUSU1JWkVfRk9S
+X1NJWkUNCj4+ID4gICAgIA0KPj4gPiBJbiBJUCBoZWFkZXIsIGRhZGRyIGltbWVkaWF0ZWx5IGZv
+bGxvd3Mgc2FkZHIsIHRoaXMgd29udCBjaGFuZ2UgaW4gdGhlDQo+PiA+IGZ1dHVyZS4gV2Ugb25s
+eSBuZWVkIHRvIG1ha2Ugc3VyZSBvdXIgZmxvd2k0IChzYWRkcixkYWRkcikgZmllbGRzIHdvbnQN
+Cj4+ID4gYnJlYWsgdGhlIHJ1bGUuDQo+PiA+IA0KPj4gPiBTaWduZWQtb2ZmLWJ5OiBFcmljIER1
+bWF6ZXQgPGVyaWMuZHVtYXpldEBnbWFpbC5jb20+DQo+PiANCj4+IEhtbW0sIHRoaXMgdHJpZ2dl
+cnMgYSBzdHJhbmdlIG5ldyBidWlsZCB3YXJuaW5nOg0KPj4gDQo+PiBuZXQvZGNjcC9pcHY0LmM6
+IEluIGZ1bmN0aW9uIOKAmGRjY3BfdjRfcm91dGVfc2ti4oCZOg0KPj4gbmV0L2RjY3AvaXB2NC5j
+OjQ4MTozOiB3YXJuaW5nOiBpbml0aWFsaXplZCBmaWVsZCB3aXRoIHNpZGUtZWZmZWN0cyBvdmVy
+d3JpdHRlbiBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KPj4gbmV0L2RjY3AvaXB2NC5jOjQ4MTozOiB3
+YXJuaW5nOiAobmVhciBpbml0aWFsaXphdGlvbiBmb3Ig4oCYZmw04oCZKSBbZW5hYmxlZCBieSBk
+ZWZhdWx0XQ0KPiANCj4gSG1tLCBzZWVtcyBhIGNvbXBpbGVyIGJ1Zywgc2luY2UgZm9sbG93aW5n
+IGZpeGVzIHRoZSB3YXJuaW5nID8NCg0KSSBzdGFyZWQgYXQgdGhpcyBmb3Igc29tZSB0aW1lIGFu
+ZCBJIGNvdWxkbid0IGZpZ3VyZSBvdXQgZXZlbiB3aGF0IEdDQyBtaWdodA0KYmUgdGhpbmtpbmcu
+ICBJIHdvbmRlcmVkIGlmLCBmb3IgZXhhbXBsZSwgdGhlIFdBUk5fT04oKSBpbiB0aGUgc2tiX2Rz
+dCgpDQppbXBsZW1lbnRhdGlvbiB3YXMgcGFydCBvZiB0aGUgaXNzdWUuICBTaW5jZSB0aGF0IGVu
+ZHMgdXAgY2FsbGluZyBmdW5jdGlvbnMuDQoNCkFueXdheXMsIEkgYXBwbGllZCB0aGUgImlwaCIg
+dGhpbmcgZmlyc3QsIHRoZW4geW91ciA2NGJpdCBsb2FkL3N0b3JlIGNoYW5nZQ0KYWZ0ZXJ3YXJk
+cy4NCg0KVGhhbmtzLg0K
