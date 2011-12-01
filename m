@@ -1,44 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2] sch_red: fix red_calc_qavg_from_idle_time
-Date: Wed, 30 Nov 2011 23:29:00 -0500 (EST)
-Message-ID: <20111130.232900.500559159038300107.davem@davemloft.net>
-References: <1322688891.2602.15.camel@edumazet-laptop>
-	<1322689213.2602.18.camel@edumazet-laptop>
-	<1322691053.2602.24.camel@edumazet-laptop>
+From: Li Wei <lw@cn.fujitsu.com>
+Subject: Re: Is there any necessary to add multicast route for a loopback
+ device?
+Date: Thu, 01 Dec 2011 12:31:46 +0800
+Message-ID: <4ED70332.4000405@cn.fujitsu.com>
+References: <4ED5DD7D.10908@cn.fujitsu.com>	<4ED6E6A8.3080702@cn.fujitsu.com> <20111130.223539.675481575068605501.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com, dave.taht@gmail.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58341 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753451Ab1LAE3D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 23:29:03 -0500
-In-Reply-To: <1322691053.2602.24.camel@edumazet-laptop>
+Received: from cn.fujitsu.com ([222.73.24.84]:54939 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753451Ab1LAEbc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Nov 2011 23:31:32 -0500
+In-Reply-To: <20111130.223539.675481575068605501.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 30 Nov 2011 23:10:53 +0100
-
-> Since commit a4a710c4a7490587 (pkt_sched: Change PSCHED_SHIFT from 10 to
-> 6) it seems RED/GRED are broken.
+> From: Li Wei <lw@cn.fujitsu.com>
+> Date: Thu, 01 Dec 2011 10:30:00 +0800
 > 
-> red_calc_qavg_from_idle_time() computes a delay in us units, but this
-> delay is now 16 times bigger than real delay, so the final qavg result
-> smaller than expected.
+>> what's your opinion?
 > 
-> Use standard kernel time services since there is no need to obfuscate
-> them.
+> I have many higher priority tasks than this issue, so it is a poor
+> idea to try and force me to look into this.
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> If no other developer cares to answer, maybe it isn't all that
+> important.
+> 
+> 
 
-Applied and queued up for -stable, thanks Eric.
-
-If someone is looking for a fun project, I would like to see
-psched_t obliterated completely and replaced with ktime_t across
-the board.
-
-To be honest, psched_t was created exactly because at the time we
-lacked something like ktime_t.
+My apologize :(
