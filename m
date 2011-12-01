@@ -1,46 +1,117 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv4: use a 64bit load/store in output path
-Date: Thu, 01 Dec 2011 13:32:40 -0500 (EST)
-Message-ID: <20111201.133240.1139583649097732532.davem@davemloft.net>
-References: <1322715653.2577.25.camel@edumazet-laptop>
-	<20111201.014813.1241057161065435427.davem@davemloft.net>
-	<1322724521.2577.29.camel@edumazet-laptop>
+Subject: Re: [PATCH 1/4] ipv4: Fix pmtu propagating
+Date: Thu, 01 Dec 2011 13:40:45 -0500 (EST)
+Message-ID: <20111201.134045.1083297991862286043.davem@davemloft.net>
+References: <20111108.143302.907625740390232791.davem@davemloft.net>
+	<20111109120851.GA10138@secunet.com>
+	<20111121075621.GF20943@secunet.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gaofeng@cn.fujitsu.com, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36724 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:36765 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756166Ab1LAScn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 13:32:43 -0500
-In-Reply-To: <1322724521.2577.29.camel@edumazet-laptop>
+	with ESMTP id S1755709Ab1LASlB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 13:41:01 -0500
+In-Reply-To: <20111121075621.GF20943@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogVGh1LCAw
-MSBEZWMgMjAxMSAwODoyODo0MSArMDEwMA0KDQo+IExlIGpldWRpIDAxIGTDqWNlbWJyZSAyMDEx
-IMOgIDAxOjQ4IC0wNTAwLCBEYXZpZCBNaWxsZXIgYSDDqWNyaXQgOg0KPj4gRnJvbTogRXJpYyBE
-dW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KPj4gRGF0ZTogVGh1LCAwMSBEZWMgMjAx
-MSAwNjowMDo1MyArMDEwMA0KPj4gDQo+PiA+IGdjYyBjb21waWxlciBpcyBzbWFydCBlbm91Z2gg
-dG8gdXNlIGEgc2luZ2xlIGxvYWQvc3RvcmUgaWYgd2UNCj4+ID4gbWVtY3B5KGRwdHIsIHNwdHIs
-IDgpIG9uIHg4Nl82NCwgcmVnYXJkbGVzcyBvZg0KPj4gPiBDT05GSUdfQ0NfT1BUSU1JWkVfRk9S
-X1NJWkUNCj4+ID4gICAgIA0KPj4gPiBJbiBJUCBoZWFkZXIsIGRhZGRyIGltbWVkaWF0ZWx5IGZv
-bGxvd3Mgc2FkZHIsIHRoaXMgd29udCBjaGFuZ2UgaW4gdGhlDQo+PiA+IGZ1dHVyZS4gV2Ugb25s
-eSBuZWVkIHRvIG1ha2Ugc3VyZSBvdXIgZmxvd2k0IChzYWRkcixkYWRkcikgZmllbGRzIHdvbnQN
-Cj4+ID4gYnJlYWsgdGhlIHJ1bGUuDQo+PiA+IA0KPj4gPiBTaWduZWQtb2ZmLWJ5OiBFcmljIER1
-bWF6ZXQgPGVyaWMuZHVtYXpldEBnbWFpbC5jb20+DQo+PiANCj4+IEhtbW0sIHRoaXMgdHJpZ2dl
-cnMgYSBzdHJhbmdlIG5ldyBidWlsZCB3YXJuaW5nOg0KPj4gDQo+PiBuZXQvZGNjcC9pcHY0LmM6
-IEluIGZ1bmN0aW9uIOKAmGRjY3BfdjRfcm91dGVfc2ti4oCZOg0KPj4gbmV0L2RjY3AvaXB2NC5j
-OjQ4MTozOiB3YXJuaW5nOiBpbml0aWFsaXplZCBmaWVsZCB3aXRoIHNpZGUtZWZmZWN0cyBvdmVy
-d3JpdHRlbiBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KPj4gbmV0L2RjY3AvaXB2NC5jOjQ4MTozOiB3
-YXJuaW5nOiAobmVhciBpbml0aWFsaXphdGlvbiBmb3Ig4oCYZmw04oCZKSBbZW5hYmxlZCBieSBk
-ZWZhdWx0XQ0KPiANCj4gSG1tLCBzZWVtcyBhIGNvbXBpbGVyIGJ1Zywgc2luY2UgZm9sbG93aW5n
-IGZpeGVzIHRoZSB3YXJuaW5nID8NCg0KSSBzdGFyZWQgYXQgdGhpcyBmb3Igc29tZSB0aW1lIGFu
-ZCBJIGNvdWxkbid0IGZpZ3VyZSBvdXQgZXZlbiB3aGF0IEdDQyBtaWdodA0KYmUgdGhpbmtpbmcu
-ICBJIHdvbmRlcmVkIGlmLCBmb3IgZXhhbXBsZSwgdGhlIFdBUk5fT04oKSBpbiB0aGUgc2tiX2Rz
-dCgpDQppbXBsZW1lbnRhdGlvbiB3YXMgcGFydCBvZiB0aGUgaXNzdWUuICBTaW5jZSB0aGF0IGVu
-ZHMgdXAgY2FsbGluZyBmdW5jdGlvbnMuDQoNCkFueXdheXMsIEkgYXBwbGllZCB0aGUgImlwaCIg
-dGhpbmcgZmlyc3QsIHRoZW4geW91ciA2NGJpdCBsb2FkL3N0b3JlIGNoYW5nZQ0KYWZ0ZXJ3YXJk
-cy4NCg0KVGhhbmtzLg0K
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Mon, 21 Nov 2011 08:56:21 +0100
+
+> I still don't see any problems with both of the patches.
+> So I assume that both patches would fix the issue. However, 
+> your patch is probaply less fragile as this does not depend
+> on a certain value of dst->obsolete.
+
+Great, thanks for checking it out.
+
+I'll add the following to the net tree and queue it up for -stable
+too.
+
+--------------------
+ipv4: Perform peer validation on cached route lookup.
+
+Otherwise we won't notice the peer GENID change.
+
+Reported-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/route.c |   26 +++++++++++++++++++-------
+ 1 files changed, 19 insertions(+), 7 deletions(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 57e01bc..ca5e237 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1693,12 +1693,8 @@ static void ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu)
+ }
+ 
+ 
+-static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
++static struct rtable *ipv4_validate_peer(struct rtable *rt)
+ {
+-	struct rtable *rt = (struct rtable *) dst;
+-
+-	if (rt_is_expired(rt))
+-		return NULL;
+ 	if (rt->rt_peer_genid != rt_peer_genid()) {
+ 		struct inet_peer *peer;
+ 
+@@ -1707,19 +1703,29 @@ static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
+ 
+ 		peer = rt->peer;
+ 		if (peer) {
+-			check_peer_pmtu(dst, peer);
++			check_peer_pmtu(&rt->dst, peer);
+ 
+ 			if (peer->redirect_genid != redirect_genid)
+ 				peer->redirect_learned.a4 = 0;
+ 			if (peer->redirect_learned.a4 &&
+ 			    peer->redirect_learned.a4 != rt->rt_gateway) {
+-				if (check_peer_redir(dst, peer))
++				if (check_peer_redir(&rt->dst, peer))
+ 					return NULL;
+ 			}
+ 		}
+ 
+ 		rt->rt_peer_genid = rt_peer_genid();
+ 	}
++	return rt;
++}
++
++static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
++{
++	struct rtable *rt = (struct rtable *) dst;
++
++	if (rt_is_expired(rt))
++		return NULL;
++	dst = (struct dst_entry *) ipv4_validate_peer(rt);
+ 	return dst;
+ }
+ 
+@@ -2374,6 +2380,9 @@ int ip_route_input_common(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 		    rth->rt_mark == skb->mark &&
+ 		    net_eq(dev_net(rth->dst.dev), net) &&
+ 		    !rt_is_expired(rth)) {
++			rth = ipv4_validate_peer(rth);
++			if (!rth)
++				continue;
+ 			if (noref) {
+ 				dst_use_noref(&rth->dst, jiffies);
+ 				skb_dst_set_noref(skb, &rth->dst);
+@@ -2749,6 +2758,9 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *flp4)
+ 			    (IPTOS_RT_MASK | RTO_ONLINK)) &&
+ 		    net_eq(dev_net(rth->dst.dev), net) &&
+ 		    !rt_is_expired(rth)) {
++			rth = ipv4_validate_peer(rth);
++			if (!rth)
++				continue;
+ 			dst_use(&rth->dst, jiffies);
+ 			RT_CACHE_STAT_INC(out_hit);
+ 			rcu_read_unlock_bh();
+-- 
+1.7.7.3
