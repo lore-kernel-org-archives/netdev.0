@@ -1,52 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [bug?] r8169: hangs under heavy load
-Date: Thu, 1 Dec 2011 23:26:12 +0100
-Message-ID: <20111201222612.GA27998@electric-eye.fr.zoreil.com>
-References: <20111126004447.GA14744@electric-eye.fr.zoreil.com> <1322280423.10212.3.camel@edumazet-laptop> <20111127092808.GE21635@elie.hsd1.il.comcast.net> <4ED2A573.1020807@wolke7.net> <20111127231147.GA1784@electric-eye.fr.zoreil.com> <D95C09DB1A7E493E89FE5A0B3879CEB0@realtek.com.tw> <20111129105440.GA2410@electric-eye.fr.zoreil.com> <4ED538EC.4010509@wolke7.net> <20111201102000.GA14013@electric-eye.fr.zoreil.com> <4ED7E6AB.6050308@wolke7.net>
+From: Nico Schottelius <nico-linux-20111201@schottelius.org>
+Subject: BCM43224: 00:00:00:00:00:00 address (3.2.0-rc3-00099-g883381d)
+Date: Thu, 1 Dec 2011 23:48:51 +0100
+Message-ID: <20111201224851.GB20536@ethz.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: hayeswang <hayeswang@realtek.com>,
-	"'Jonathan Nieder'" <jrnieder@gmail.com>,
-	"'Eric Dumazet'" <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	"'nic_swsd'" <nic_swsd@realtek.com>, linux-kernel@vger.kernel.org,
-	"'Armin Kazmi'" <armin.kazmi@tu-dortmund.de>
-To: booster@wolke7.net
+Cc: b43-dev@lists.infradead.org, nico-linux-20111201@schottelius.org
+To: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4ED7E6AB.6050308@wolke7.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-booster@wolke7.net <booster@wolke7.net> :
-[...]
-> it looks OK now - no more "eth0: link up" messages and network hangs any
-> more.
-> I've send and received 60 GB to and from the system and the performance
-> is ~30 MB/s.
-> I'll keep the system up and running and do some more stability tests.
+Hello,
 
-Wonderful. Thanks for testing.
+just received another version of the macbook air, which is
+labeled MacBookAir4,2 again.
 
-> The only thing that's missing now is the transfer LED: the yellow link
-> LED is on, but the green transfer LED is off and doesn't blink.
+This time I'm on Linus' 3.2.0-rc3-00099-g883381d and cannot
+use the integrated wifi:
 
-I have never looked too closely at it. You may experiment with the LEDS0 and
-LEDS1 bits of Config1 (no warranty). Your chipset would require it in
-__rtl_hw_start_8168cp - if at all.
+[23:43] brief:drivers# ip l show wlan0 
+2: wlan0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
+    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+[23:43] brief:drivers# ip l s wlan0 up
+RTNETLINK answers: Cannot assign requested address
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 6f06aa1..d6243a9 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -4602,7 +4620,7 @@ static void rtl_hw_start_8168bef(void __iomem *ioaddr, struct pci_dev *pdev)
- 
- static void __rtl_hw_start_8168cp(void __iomem *ioaddr, struct pci_dev *pdev)
- {
--	RTL_W8(Config1, RTL_R8(Config1) | Speed_down);
-+	RTL_W8(Config1, RTL_R8(Config1) | Speed_down | LEDS1);
- 
- 	RTL_W8(Config3, RTL_R8(Config3) & ~Beacon_en);
- 
+It seems this time b43 is responsible for the card, not brcmsmac
+anymore (superseeded it seems).
+
+Is there a working tree out there somewhere? :-)
+
+Cheers,
+
+Nico
 
 -- 
-Ueimor
+PGP key: 7ED9 F7D3 6B10 81D7 0EC5  5C09 D7DC C8E4 3187 7DF0
