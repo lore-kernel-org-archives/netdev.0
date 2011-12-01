@@ -1,44 +1,36 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/4] nfc: Use standard logging styles
-Date: Thu, 01 Dec 2011 10:48:38 -0800
-Message-ID: <1322765318.30801.9.camel@joe2Laptop>
-References: <cover.1322595343.git.joe@perches.com>
-	 <6c89a76ddb76926febe36fe5be514cb186e39a76.1322595343.git.joe@perches.com>
-	 <20111201155951.GF22609@sortiz-mobl>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v2] icplus: mdio_write(), remove unnecessary for loop
+Date: Thu, 1 Dec 2011 19:53:29 +0100
+Message-ID: <20111201185329.GA23475@electric-eye.fr.zoreil.com>
+References: <1322746016-2835-1-git-send-email-patrick.kelle81@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Samuel Ortiz <sameo@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111201155951.GF22609@sortiz-mobl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, sorbica@icplus.com.tw
+To: Patrick Kelle <patrick.kelle81@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:47861 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755789Ab1LATAE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 14:00:04 -0500
+Content-Disposition: inline
+In-Reply-To: <1322746016-2835-1-git-send-email-patrick.kelle81@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-12-01 at 16:59 +0100, Samuel Ortiz wrote:
-> Hi Joe,
+Patrick Kelle <patrick.kelle81@gmail.com> :
+[...]
+> As suggested by David Miller:
+> "You can simply this even further since p[7] is what is used here,
+> and this means len is one, the inner loop therefore executes only
+> once, and the p[7].field value is not used (it's zero in the table)
+> and the write to it is completely thrown away."
 
-Hello Samuel.
+Acked-by: Francois Romieu <romieu@fr.zoreil.com>
 
-> On Tue, Nov 29, 2011 at 11:37:32AM -0800, Joe Perches wrote:
-> > Using the normal logging styles is preferred over
-> > subsystem specific styles when the subsystem does
-> > not take a specific struct.
-> > Convert nfc_<level> specific messages to pr_<level>
-> > Add newlines to uses.
-> I would be fine with moving to pr_debug, but I'd like the pr_fmt() routine to
-> include the function name as well.
+However you can:
+- shorten p[] as p[7] is never used
+- use read_phy_bit() to avoid the last three lines
+- ARRAY_SIZE(p) the first loop (so the first limit - 7 - appears)
 
-If you really want it I can add it back but
-if you are not aware, dynamic debug can add
-this by using:
-
-echo "module nfc +fp" > <debugfs>/dynamic_debug/control
-echo "module nci +fp" > <debugfs>/dynamic_debug/control
-
-If you're getting dmesg logs from customers
-that's a bit harder to track though.
+-- 
+Ueimor
