@@ -1,81 +1,67 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH next-next 0/2] can: cc770: add support for the Bosch CC770
- and Intel AN82527
-Date: Thu, 01 Dec 2011 08:47:35 +0100
-Message-ID: <4ED73117.1020101@hartkopp.net>
-References: <1322136448-7311-1-git-send-email-wg@grandegger.com>	<20111129.183950.1327835803051184146.davem@davemloft.net>	<4ED5CF14.4020502@hartkopp.net> <20111130.160727.1989923062226789802.davem@davemloft.net>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: Re: Integration of Open vSwitch
+Date: Thu, 1 Dec 2011 16:51:38 +0900
+Message-ID: <20111201075134.GB18436@verge.net.au>
+References: <CAEP_g=-g5g0Z30gYBDAZ8s7ACCZSy5MLJpPDxQmmc8m1wbk3tg@mail.gmail.com>
+	<20111130070011.GA32630@gondor.apana.org.au>
+	<1322658891.2243.15.camel@mojatatu>
+	<20111130134028.GA3226@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: wg@grandegger.com, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>,
-	Urs Thuermann <urs@isnogud.escape.de>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20111130.160727.1989923062226789802.davem@davemloft.net>
-Sender: linux-can-owner@vger.kernel.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Chris Wright <chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20111130134028.GA3226-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 30.11.2011 22:07, David Miller wrote:
-
-> From: Oliver Hartkopp <socketcan@hartkopp.net>
-
->>>> Wolfgang Grandegger (2):
->>>>   can: cc770: add driver core for the Bosch CC770 and Intel AN82527
->>>>   can: cc770: legacy CC770 ISA bus driver
->>>
->>> All applied, thank you.
->>
->>
->> Hello Dave,
->>
->> this patchset was superseded for some time.
->>
->> We're currently in the v4 patchset (dated 2011-11-29).
->>
->> See http://patchwork.ozlabs.org/patch/128244/
->>
->> Do you want to revert the commit or should Wolfgang post a diff patch to get
->> to v4 ??
+On Wed, Nov 30, 2011 at 09:40:28PM +0800, Herbert Xu wrote:
+> On Wed, Nov 30, 2011 at 08:14:51AM -0500, jamal wrote:
+> > On Wed, 2011-11-30 at 15:00 +0800, Herbert Xu wrote:
+> > 
+> > 
+> > > The other factor I considered is scalability.  The OVS code as is
+> > > is not really friendly to SMP/NUMA scalability (but as Eric pointed,
+> > > neither is the classifier/action layer). 
+> > 
+> > Did you mean the qdisc funnel-to-interface part which Eric is hopefully
+> > going to work on now that bql is in? classifier/action happens way
+> > before that.
 > 
-> A not very good job was done here communicating to me what is happening.
-> Endless revisions, and not clear indication to me what should or should
-> not be applied as a result.
+> I actually meant the scalability with adding/deleting flows,
+> or in the case with qdiscs, filters.
+> 
+> OVS is quite scalable on the fast-path, but when it comes to
+> new flows, you have a bottleneck.
 
+Having done some testing of OVS in relation to both the
+number of flows I can stuff into the system and how fast I can do so,
+I agree.
 
-Well in this case i was just astonished why you applied a superseded patch set
-- but i must admit that the pile-up of posted versions was a bit confusing.
-Even there were platform and devtree patches that needed to be acked by other
-maintainers - IMO we should post these patches on netdev only when they are
-already acked by the platform/devtree guys.
+As it stands I don't believe that there has been a whole lot
+of work so far on optimising for high rates of new flows. I say
+this based on a low-hang optimisations I have found (and discussed
+on the OVS dev list).
 
-@Wolfgang/Marc: We should return to discuss the CAN relevant patches on
-linux-can@vger.kernel.org before posting them on netdev. Don't know why this
-established & good process has changed over the time ...
+Obviously at some point the low-hanging fruit can all be picked and
+making things faster becomes more difficult. And it seems to me
+that the user-space controller is only single threaded and that
+is a significant bottle-neck to scaling flow creation beyond some point.
 
-> I want you guys to appoint someone to be the defacto CAN driver and
-> subsystem maintainer who collects and merges all the driver and
-> protocol patches into his tree, and acts as the one and only interface
-> for me when changes are ready to be included.
-
-
-I'm also not very happy someone else acking changes of my maintained sources -
-sometimes it feels like Wild West to me, who's acking first :-(
-
-To make it clear:
-
-	Wolfgang Grandegger maintains drivers/net/can
-
-and
-
-	Oliver Hartkopp maintains net/can
-
-As Marc Kleine-Budde is also very active in CAN driver development we should
-probably add him to the drivers/net/can maintainers.
-
-We'll continue the discussion on linux-can ML and give an update to the
-MAINTAINERS file if we sorted out any changes. So far Wolfgang and me remain
-the 'only interface' for you. Sorry for the traffic & confusion on netdev.
-
-Regards,
-Oliver
+But I also suspect there are lot of use-cases for OVS where the
+current code scales sufficiently.
