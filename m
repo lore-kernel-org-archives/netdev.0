@@ -1,67 +1,42 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: Re: Integration of Open vSwitch
-Date: Thu, 1 Dec 2011 16:51:38 +0900
-Message-ID: <20111201075134.GB18436@verge.net.au>
-References: <CAEP_g=-g5g0Z30gYBDAZ8s7ACCZSy5MLJpPDxQmmc8m1wbk3tg@mail.gmail.com>
-	<20111130070011.GA32630@gondor.apana.org.au>
-	<1322658891.2243.15.camel@mojatatu>
-	<20111130134028.GA3226@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [GIT PULL v2] Open vSwitch
+Date: Thu, 1 Dec 2011 15:52:37 +0800
+Message-ID: <20111201075237.GA12799@gondor.apana.org.au>
+References: <20111123075433.GA7928@gondor.apana.org.au> <1322050976.2039.125.camel@mojatatu> <20111128130409.GB16828@gondor.apana.org.au> <0199E0D51A61344794750DC57738F58E7586A74137@GVW1118EXC.americas.hpqcorp.net> <20111128145157.GA17678@gondor.apana.org.au> <CAEP_g=_Mj9az1oSLzUcqT_m05JEJavjcQ1SFeoYtsgk5xvBjBQ@mail.gmail.com> <20111130070219.GB32630@gondor.apana.org.au> <20111201072418.GA18436@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Chris Wright <chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesse Gross <jesse@nicira.com>,
+	"Fischer, Anna" <anna.fischer@hp.com>,
+	"jhs@mojatatu.com" <jhs@mojatatu.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:42182 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753107Ab1LAHw5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 02:52:57 -0500
 Content-Disposition: inline
-In-Reply-To: <20111130134028.GA3226-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20111201072418.GA18436@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 30, 2011 at 09:40:28PM +0800, Herbert Xu wrote:
-> On Wed, Nov 30, 2011 at 08:14:51AM -0500, jamal wrote:
-> > On Wed, 2011-11-30 at 15:00 +0800, Herbert Xu wrote:
-> > 
-> > 
-> > > The other factor I considered is scalability.  The OVS code as is
-> > > is not really friendly to SMP/NUMA scalability (but as Eric pointed,
-> > > neither is the classifier/action layer). 
-> > 
-> > Did you mean the qdisc funnel-to-interface part which Eric is hopefully
-> > going to work on now that bql is in? classifier/action happens way
-> > before that.
-> 
-> I actually meant the scalability with adding/deleting flows,
-> or in the case with qdiscs, filters.
-> 
-> OVS is quite scalable on the fast-path, but when it comes to
-> new flows, you have a bottleneck.
+On Thu, Dec 01, 2011 at 04:24:18PM +0900, Simon Horman wrote:
+>
+> So while I agree that optimizing the hash is a good idea.  I don't believe
+> it is a bottle-neck at this point. Though I could be convinced otherwise if
+> long collision chains could be constructed with relatively few flows.
+> Something I had not considered until I rad your email just now.
 
-Having done some testing of OVS in relation to both the
-number of flows I can stuff into the system and how fast I can do so,
-I agree.
+It's not an optimisation issue, but a security one.  If you leave
+a hash like this with a constant seed, an attacker would have an
+infinite amount of time to find collisions.
 
-As it stands I don't believe that there has been a whole lot
-of work so far on optimising for high rates of new flows. I say
-this based on a low-hang optimisations I have found (and discussed
-on the OVS dev list).
+Rehashing isn't all that difficult.
 
-Obviously at some point the low-hanging fruit can all be picked and
-making things faster becomes more difficult. And it seems to me
-that the user-space controller is only single threaded and that
-is a significant bottle-neck to scaling flow creation beyond some point.
-
-But I also suspect there are lot of use-cases for OVS where the
-current code scales sufficiently.
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
