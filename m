@@ -1,40 +1,49 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: Re: Is there any necessary to add multicast route for a loopback
- device?
-Date: Thu, 01 Dec 2011 10:30:00 +0800
-Message-ID: <4ED6E6A8.3080702@cn.fujitsu.com>
-References: <4ED5DD7D.10908@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+From: roy.qing.li@gmail.com
+Subject: [PATCH] net/core: fix rollback handler in register_netdevice_notifier
+Date: Thu,  1 Dec 2011 10:37:50 +0800
+Message-ID: <1322707070-9514-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:64998 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753289Ab1LAC3l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Nov 2011 21:29:41 -0500
-In-Reply-To: <4ED5DD7D.10908@cn.fujitsu.com>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:63497 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753925Ab1LACiB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 21:38:01 -0500
+Received: by ggnr5 with SMTP id r5so1342464ggn.19
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 18:38:01 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: RongQing.Li <roy.qing.li@gmail.com>
 
-what's your opinion?
+Within nested statements, the break statement terminates only the
+do, for, switch, or while statement that immediately encloses it,
+So replace the break with goto.
 
-> Hi all,
-> 
-> I found that since Fedora 15, it use systemd as the 'init'. When systemd start 
-> it would config the ipv6 address(::1/128) for 'lo' and start it. While adding 
-> this address to 'lo', kernel will call addrconf_add_mroute() to set a multicast
-> route for 'lo' with rt->dst.error = -ENETUNREACH. After that, when I send multi-
-> cast message, the route subsystem return a route with .error set to NETUNREACH.
-> 
-> Is there any necessary to add multicast route for a loopback device? 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
+---
+ net/core/dev.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 278463e..88876fa 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1387,7 +1387,7 @@ rollback:
+ 	for_each_net(net) {
+ 		for_each_netdev(net, dev) {
+ 			if (dev == last)
+-				break;
++				goto outroll;
+ 
+ 			if (dev->flags & IFF_UP) {
+ 				nb->notifier_call(nb, NETDEV_GOING_DOWN, dev);
+@@ -1398,6 +1398,7 @@ rollback:
+ 		}
+ 	}
+ 
++outroll:
+ 	raw_notifier_chain_unregister(&netdev_chain, nb);
+ 	goto unlock;
+ }
+-- 
+1.7.1
