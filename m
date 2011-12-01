@@ -1,60 +1,44 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: net_device flags is an unsigned int
-Date: Thu, 01 Dec 2011 05:34:37 +0100
-Message-ID: <1322714077.2577.12.camel@edumazet-laptop>
+Subject: Re: Is there any necessary to add multicast route for a loopback
+ device?
+Date: Thu, 01 Dec 2011 05:36:46 +0100
+Message-ID: <1322714206.2577.13.camel@edumazet-laptop>
+References: <4ED5DD7D.10908@cn.fujitsu.com>
+		<4ED6E6A8.3080702@cn.fujitsu.com>
+	 <20111130.223539.675481575068605501.davem@davemloft.net>
+	 <4ED70332.4000405@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Li Wei <lw@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:45218 "EHLO
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:59714 "EHLO
 	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754002Ab1LAEem (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 23:34:42 -0500
-Received: by eaak14 with SMTP id k14so1616721eaa.19
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 20:34:40 -0800 (PST)
+	with ESMTP id S1753451Ab1LAEgv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 23:36:51 -0500
+Received: by eaak14 with SMTP id k14so1618086eaa.19
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 20:36:50 -0800 (PST)
+In-Reply-To: <4ED70332.4000405@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit b00055aacdb ([NET] core: add RFC2863 operstate) changed
-net_device flags from unsigned short to unsigned int.
+Le jeudi 01 d=C3=A9cembre 2011 =C3=A0 12:31 +0800, Li Wei a =C3=A9crit =
+:
+> > From: Li Wei <lw@cn.fujitsu.com>
+> > Date: Thu, 01 Dec 2011 10:30:00 +0800
+> >=20
+> >> what's your opinion?
+> >=20
+> > I have many higher priority tasks than this issue, so it is a poor
+> > idea to try and force me to look into this.
+> >=20
+> > If no other developer cares to answer, maybe it isn't all that
+> > important.
+> >=20
+> >=20
+>=20
+> My apologize :(
 
-Some core functions still assume its an unsigned short.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/core/dev.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 1482eea..1c345cf 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4538,7 +4538,7 @@ static void dev_change_rx_flags(struct net_device *dev, int flags)
- 
- static int __dev_set_promiscuity(struct net_device *dev, int inc)
- {
--	unsigned short old_flags = dev->flags;
-+	typeof(dev->flags) old_flags = dev->flags;
- 	uid_t uid;
- 	gid_t gid;
- 
-@@ -4595,7 +4595,7 @@ static int __dev_set_promiscuity(struct net_device *dev, int inc)
-  */
- int dev_set_promiscuity(struct net_device *dev, int inc)
- {
--	unsigned short old_flags = dev->flags;
-+	typeof(dev->flags) old_flags = dev->flags;
- 	int err;
- 
- 	err = __dev_set_promiscuity(dev, inc);
-@@ -4622,7 +4622,7 @@ EXPORT_SYMBOL(dev_set_promiscuity);
- 
- int dev_set_allmulti(struct net_device *dev, int inc)
- {
--	unsigned short old_flags = dev->flags;
-+	typeof(dev->flags) old_flags = dev->flags;
- 
- 	ASSERT_RTNL();
- 
+It would help us if you provide a test program an setup script, because
+we have litle time to figure out what exact problem you hit.
