@@ -1,54 +1,113 @@
-From: "Greg Scott" <GregScott@Infrasupport.com>
-Subject: RE: ebtables on a stick
-Date: Wed, 30 Nov 2011 23:46:02 -0600
-Message-ID: <925A849792280C4E80C5461017A4B8A2A048F6@mail733.InfraSupportEtc.com>
-References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com> <20111128143901.GA589422@jupiter.n2.diac24.net> <4ED566A8.2000108@ziu.info>
+From: Li Wei <lw@cn.fujitsu.com>
+Subject: Re: Is there any necessary to add multicast route for a loopback
+ device?
+Date: Thu, 01 Dec 2011 14:01:27 +0800
+Message-ID: <4ED71837.6010309@cn.fujitsu.com>
+References: <4ED5DD7D.10908@cn.fujitsu.com>		<4ED6E6A8.3080702@cn.fujitsu.com>	 <20111130.223539.675481575068605501.davem@davemloft.net>	 <4ED70332.4000405@cn.fujitsu.com> <1322714206.2577.13.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>
-To: "Michal Soltys" <soltys@ziu.info>,
-	"David Lamparter" <equinox@diac24.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.infrasupportetc.com ([216.160.2.132]:19496 "EHLO
-	mail.infrasupport.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750713Ab1LAFqE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 00:46:04 -0500
-Content-class: urn:content-classes:message
+Received: from cn.fujitsu.com ([222.73.24.84]:50918 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751344Ab1LAGBO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 01:01:14 -0500
+In-Reply-To: <1322714206.2577.13.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-V2VsbCB0aGlzIGlzIGZydXN0cmF0aW5nLiAgTm93IG15IHB1YmxpYyBob3N0IGNhbiBjb21tdW5p
-Y2F0ZSBhbnl3aGVyZSBpdCB3YW50cyBpbnRlcm5hbGx5IGJ1dCBub3RoaW5nIG91dHNpZGUuIE1h
-ZGRlbmluZyAtIHRoZSBleGFjdCBvcHBvc2l0ZSBwcm9ibGVtIEkgaGFkIGJlZm9yZS4gIA0KDQpI
-ZXJlIGlzIHRoZSBjb25maWcgYXMgaXQgc2l0cyByaWdodCBub3c6DQoNClB1YmxpYyBJUCBob3N0
-IChhIFdpbmRvd3MgWFAgc3lzdGVtIHBsYWNlaG9sZGVyIGZvciBub3cpDQpJUCAxLjIuMTE1LjE1
-NywgZGVmYXVsdCBndyAxLjIuMTE1LjE0Ni4NCg0KTXkgdGVzdCBpbnRlcm5hbCBob3N0IC0gMTky
-LjE2OC4xMC4yLiAgVGhpcyBvbmUgaXMgYW4gb3JkaW5hcnkgV2luZG93cyBzZXJ2ZXIuDQoNCkZp
-cmV3YWxsIGV0aDAgLSAxLjIuMTE1LjE0Ni8yOA0KRmlyZXdhbGwgZXRoMSAtIDE5Mi4xNjguMTAu
-MS4gDQoNCi9zYmluL2lwIG5laWdoIGFkZCBwcm94eSAxLjIuMTE1LjE1NyBkZXYgZXRoMA0KL3Ni
-aW4vaXAgcm91dGUgYWRkIDEuMi4xMTUuMTU3LzMyIGRldiBldGgxDQoNCkFzIGEgdHJvdWJsZXNo
-b290aW5nIHN0ZXAsIEkgYWxzbyBwdXQgaW46DQovc2Jpbi9pcCBhZGRyIGFkZCAxLjIuMTE1LjE0
-Ni8yOCBkZXYgZXRoMTsgc28gbm93IGJvdGggZXRoMCBhbmQgZXRoMSBoYXZlIHRoZSBzYW1lIElQ
-IEFkZHJlc3MuICBUaGlzIGZlZWxzIHVnbHkgYW5kIEkgdGhpbmsgSSdsbCB0YWtlIGl0IG91dCBi
-ZWNhdXNlIGl0IG1hZGUgbm8gZGlmZmVyZW5jZS4gIA0KDQpBbGwgZXZpZGVuY2Ugb2YgZWJ0YWJs
-ZXMgcnVsZXMgYW5kIGJybm4gaW50ZXJmYWNlcyBhcmUgZ29uZS4gIA0KDQpBbmQgdGhlIHJlbGV2
-YW50IGlwdGFibGVzIHJ1bGVzOg0KDQokSVBUQUJMRVMgLXQgbmF0IC1BIFBPU1RST1VUSU5HIC1z
-ICQxLjIuMTE1LjE1NyAtaiBBQ0NFUFQNCg0KJElQVEFCTEVTIC1BIEZPUldBUkQgLXMgMS4yLjEx
-NS4xNTcgLWogQUNDRVBUDQokSVBUQUJMRVMgLUEgRk9SV0FSRCAtcyAxOTIuMTY4LjEwLjAvMjQg
-LWQgMS4yLjExNS4xNTcgLWogQUNDRVBUDQokSVBUQUJMRVMgLUEgRk9SV0FSRCAtcCBUQ1AgLS1k
-cG9ydCAxNzIwIC1kICRBRFIgLWogYWxsb3dlZA0KJElQVEFCTEVTIC1BIEZPUldBUkQgLXAgVENQ
-IC1zICRNR01UX0lQIC1kICRBRFIgLWogYWxsb3dlZA0KDQokTUdNVF9JUCBpcyB0aGUgcHVibGlj
-IHNpZGUgb2YgbXkgaG9tZSBvZmZpY2UuICANCg0KQW5kIGZpbmFsbHk6DQoNCiRJUFRBQkxFUyAt
-dCBuYXQgLUEgUFJFUk9VVElORyAtZCAxLjIuMTE1LjE1NyAtaiBBQ0NFUFQNCg0KV2hlbiBteSBw
-dWJsaWMgaG9zdCBwaW5ncywgc2F5LCBnb29nbGUsIHdhdGNoaW5nIG9uIHRoZSBmaXJld2FsbCB3
-aXRoIHRjcGR1bXAsIEkgc2VlIHRoZSBJQ01QIGVjaG8gcmVxdWVzdCBjb21lIGluIG9uIGV0aDEg
-YW5kIGdvIG91dCBldGgwLiAgU28gZmFyIHNvIGdvb2QuIFRoZSBJQ01QIGVjaG8gcmVwbHkgY29t
-ZXMgYmFjayBvbiBldGgwLCBzdGlsbCBnb29kLiAgQnV0IEkgbmV2ZXIgZm9yd2FyZCBpdCBvdmVy
-IHRvIGV0aDEgYW5kIGl0IGRpZXMgcmlnaHQgdGhlcmUuICBUaGUgcHVibGljIGhvc3QgbmV2ZXIg
-c2VlcyB0aGUgcmVwbHkuIA0KDQpOb3RoaW5nIG5hdHMgdG8vZnJvbSB0aGlzIGFkZHJlc3MuICBU
-Y3BkdW1wIHNob3dzIHRoZSBJUCBBZGRyZXNzZXMgSSBleHBlY3QgdG8gc2VlLiAgQW5kIEkgZG9u
-J3QgaGF2ZSBhbnkgIi10IHJhdyAtaiBOT1RSQUNLIiBzdHVmZiBiZWNhdXNlIEkgd2lsbCBldmVu
-dHVhbGx5IHdhbnQgdG8gdXNlIHRoZSBILjMyMyBjb25udHJhY2sgaGVscGVyIHdpdGggdGhpcy4g
-IA0KDQpNYXliZSBhIGdvb2QgbmlnaHQncyBzbGVlcCB3aWxsIGhlbHAuDQoNCi0gR3JlZw0KDQo=
+Eric Dumazet wrote:
+> Le jeudi 01 d=C3=A9cembre 2011 =C3=A0 12:31 +0800, Li Wei a =C3=A9cri=
+t :
+>>> From: Li Wei <lw@cn.fujitsu.com>
+>>> Date: Thu, 01 Dec 2011 10:30:00 +0800
+>>>
+>>>> what's your opinion?
+>>> I have many higher priority tasks than this issue, so it is a poor
+>>> idea to try and force me to look into this.
+>>>
+>>> If no other developer cares to answer, maybe it isn't all that
+>>> important.
+>>>
+>>>
+>> My apologize :(
+>=20
+> It would help us if you provide a test program an setup script, becau=
+se
+> we have litle time to figure out what exact problem you hit.
+>=20
+>=20
+>=20
+>=20
+>=20
+
+Thanks Eric!
+
+The following is the test code:
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D cut =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <errno.h>
+
+#define MADDR	"ff00::00"
+
+int main(int argc, char **argv) {
+	struct ipv6_mreq mreq;
+	struct in6_addr addr;
+	unsigned int mcast_if;
+	int sk;
+
+	if((sk =3D socket(AF_INET6, SOCK_DGRAM, 0)) =3D=3D -1) {
+		printf("socket\n");
+		exit(1);
+	}
+
+	inet_pton(AF_INET6, MADDR, &addr);
+	mreq.ipv6mr_multiaddr =3D addr;
+
+	printf("=3D=3D join a multicast group with the interface index is spec=
+ified as 0 =3D=3D\n");
+	mreq.ipv6mr_interface =3D 0;
+	if (setsockopt(sk, IPPROTO_IPV6, IPV6_JOIN_GROUP,
+		       (char *) &mreq, sizeof(mreq)) =3D=3D -1) {
+		perror("setsockopt IPV6_JOIN_GROUP");
+		exit(1);
+	}
+
+	close(sk);
+
+	printf("OK\n");
+	return 0;
+}
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D cut =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+
+My aim is to join a multicast group without the interface index specifi=
+ed, as the RFC 3493
+(5.2 Sending and Receiving Multicast Packets) said "If the interface in=
+dex is specified as 0,
+the kernel chooses the local interface.".
+
+When this test run on Fedora 15(ipv6 enabled), it failed and return err=
+or ENODEV.
+
+This problem can be reproduced by the following steps:
+1. enable ipv6 if you haven't
+# modprobe ipv6
+2. make all network interfaces down
+# ip link set lo down; ip link set eth0 down; ...
+3. set a ipv6 address for lo
+# ip addr add ::1/128 dev lo
+4. make all interfaces up
+# ip link set lo up; ip link set eth0 up; ...
+
+run test and it will return ENODEV
