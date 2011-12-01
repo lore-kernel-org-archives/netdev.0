@@ -1,39 +1,34 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH 0/2] unix: Introduce /proc/net/unix_peers file
-Date: Thu, 01 Dec 2011 21:41:11 +0400
-Message-ID: <4ED7BC37.2030805@parallels.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] dsa: Include linux/if_ether.h to fix build error
+Date: Thu, 01 Dec 2011 12:41:19 -0500 (EST)
+Message-ID: <20111201.124119.485939880534098580.davem@davemloft.net>
+References: <1322726838.14554.3.camel@phoenix>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:23379 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755746Ab1LARlU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Dec 2011 12:41:20 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: axel.lin@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1322726838.14554.3.camel@phoenix>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi.
+From: Axel Lin <axel.lin@gmail.com>
+Date: Thu, 01 Dec 2011 16:07:18 +0800
 
-There's a common problem with unix sockets -- there's no way to determine
-which tasks are connected to each other with a unix socket. Although the
-/proc/<pid>/fd/<n> symlink shows a socket inode number, the peers do not
-share an inode and thus these numbers give no answer.
+> Include linux/if_ether.h to fix below build errors:
+> 
+>   CC      arch/arm/mach-kirkwood/common.o
+> In file included from arch/arm/mach-kirkwood/common.c:19:
+> include/net/dsa.h: In function 'dsa_uses_dsa_tags':
+> include/net/dsa.h:192: error: 'ETH_P_DSA' undeclared (first use in this function)
+> include/net/dsa.h:192: error: (Each undeclared identifier is reported only once
+> include/net/dsa.h:192: error: for each function it appears in.)
+> include/net/dsa.h: In function 'dsa_uses_trailer_tags':
+> include/net/dsa.h:197: error: 'ETH_P_TRAILER' undeclared (first use in this function)
+> make[1]: *** [arch/arm/mach-kirkwood/common.o] Error 1
+> make: *** [arch/arm/mach-kirkwood] Error 2
+> 
+> Signed-off-by: Axel Lin <axel.lin@gmail.com>
 
-There have been an attempt last year to print the peer=<number> for unbound
-sockets in the existing /proc/net/unix file, but it was left unfinished and
-had problems with bound sockets - for those the peer inode was still unknown
-and the name didn't help at all.
-
-I'd like to have this ability (determining the unix connection endpoints)
-implemented and propose to introduce a /proc/net/unix_peers file with socket
-inode number pairs. For not connected sockets 0 is printed.
-
-Are there strong objections against this approach?
-
-Patches apply to net-next tree.
-
-Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+Applied.
