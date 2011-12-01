@@ -1,58 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: Cannot communicate with brX when its MAC
- address is changed
-Date: Wed, 30 Nov 2011 23:02:18 -0500 (EST)
-Message-ID: <20111130.230218.710206942884045715.davem@davemloft.net>
-References: <4ED5E9D6.3070404@jp.fujitsu.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: Bug in computing data_len in tcp_sendmsg?
+Date: Wed, 30 Nov 2011 20:06:09 -0800
+Message-ID: <CA+mtBx_CUsuGunKONwBNA8qyVni16+RtrRL8w=THYY0mEDcvaA@mail.gmail.com>
+References: <CA+mtBx8+sajFaCWqHRr+pY5EAHwN8G61v6cr-HydYhbbdxAgHQ@mail.gmail.com>
+	<1322710962.2577.3.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-To: sanagi.koki@jp.fujitsu.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58198 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753799Ab1LAECZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 23:02:25 -0500
-In-Reply-To: <4ED5E9D6.3070404@jp.fujitsu.com>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:34436 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753799Ab1LAEGK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 23:06:10 -0500
+Received: by ghrr1 with SMTP id r1so1406979ghr.19
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 20:06:10 -0800 (PST)
+In-Reply-To: <1322710962.2577.3.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Date: Wed, 30 Nov 2011 17:31:18 +0900
+On Wed, Nov 30, 2011 at 7:42 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le mercredi 30 novembre 2011 =E0 17:48 -0800, Tom Herbert a =E9crit :
+>> I believe that skb->data_len might no be computed correctly in
+>> tcp_sendmsg. =A0Specifically, when skb_add_data_nocache (or
+>> skb_add_data) is called skb->data_len is not updated (skb_put only
+>> updates skb->len). =A0This results in the datalen in the head skbuf
+>> being zero so any subsequent uses of the value lead to incorrect
+>> results. =A0For instance, skb_headlen returns the length of the head
+>> skbu data and not just that of the headers. =A0If I'm reading this
+>> correctly, it's a pretty fundamental bug.
+>>
+>> I don't have a fix for this yet.
+>>
+>> Tom
+>
+> On which tree do you see a problem ?
+>
+> For example net-next seems fine to me :
+>
+>
 
-> When the MAC address of a bridge interface is changed, it cannot communicate
-> with others. Because Whether or not a packet should be transferred to bridge
-> interface depends on whether or not dst of a packet is in fdb and is_local=y.
-> If we change MAC address of a bridge interface, it isn't in fdb.
-> 
-> This patch adds an condition that dst of a packet matches MAC address of
-> a bridge interface to the conventional condition.
-> 
-> Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+On net-next.  Look at skb_add_data_nocache.  This doesn't touch
+data_len, and really can't since skb_put wants skb linearized.
 
-This looks like a patch I've seen before, and in any event it makes
-more sense to update the FDB when the MAC changes instead of adding a
-special bypass rule.
+Actually, I think I am misinterpreting the meaning of data_len, looks
+like it is intended to return the number of bytes in the page buffer
+area (comment on the function would be have been nice ;-) ).  It would
+seem that e1000e driver might be misinterpreting it also:
 
-Stephen?
+        segs =3D skb_shinfo(skb)->gso_segs ? : 1;
+        /* multiply data chunks by size of headers */
+        bytecount =3D ((segs - 1) * skb_headlen(skb)) + skb->len;
 
-> ---
->  net/bridge/br_input.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-> index 5a31731..4e5c862 100644
-> --- a/net/bridge/br_input.c
-> +++ b/net/bridge/br_input.c
-> @@ -94,7 +94,8 @@ int br_handle_frame_finish(struct sk_buff *skb)
->  			skb2 = skb;
->  
->  		br->dev->stats.multicast++;
-> -	} else if ((dst = __br_fdb_get(br, dest)) && dst->is_local) {
-> +	} else if ((dst = __br_fdb_get(br, dest) && dst->is_local) ||
-> +		   !compare_ether_addr(p->br->dev->dev_addr, dest)) {
->  		skb2 = skb;
->  		/* Do not forward the packet since it's local. */
->  		skb = NULL;
+So maybe the bug is  that e1000e is misusing the function (and it
+looks like some other drivers would be too)?.
