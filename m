@@ -1,48 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: Cannot communicate with brX when its
- MAC address is changed
-Date: Thu, 01 Dec 2011 13:02:50 -0500 (EST)
-Message-ID: <20111201.130250.796100558647164266.davem@davemloft.net>
-References: <4ED5E9D6.3070404@jp.fujitsu.com>
-	<20111201092106.00473fed@nehalam.linuxnetplumber.net>
+Subject: Re: Bug in computing data_len in tcp_sendmsg?
+Date: Thu, 01 Dec 2011 13:04:03 -0500 (EST)
+Message-ID: <20111201.130403.1392783813860983313.davem@davemloft.net>
+References: <CA+mtBx9fE0qQc-LndM03ykhVMV5n9Z4KHcD6PpTiy=M79GOnKw@mail.gmail.com>
+	<1322730937.2335.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20111201092950.00006ce8@unknown>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sanagi.koki@jp.fujitsu.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, shemminger@linux-foundation.org
-To: shemminger@vyatta.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20111201092106.00473fed@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, therbert@google.com,
+	netdev@vger.kernel.org, alexander.h.duyck@intel.com
+To: jesse.brandeburg@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:36477 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755956Ab1LASEI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 13:04:08 -0500
+In-Reply-To: <20111201092950.00006ce8@unknown>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Thu, 1 Dec 2011 09:21:06 -0800
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Date: Thu, 1 Dec 2011 09:29:50 -0800
 
-> Looked into using fdb to handle this, but then there would be fdb entries
-> where the destination port entry was either NULL (or a dummy), and that
-> would require a bunch of auditing of all usages and could introduce new
-> bugs.
-> 
-> I am testing a patch that does same thing by moving compare_ether up
-> to where broadcast is tested.
+> Tom, thanks very much for finding this subtle bug!  I bet that this
+> commit (which I had missed) broke a lot of other drivers in
+> very subtle ways due to changing a long standing behavior.
 
-Stephen please fix this bug correctly.
+I call bullshit on this.
 
-The bug is that the FDB gets updated with the initial MAC address, but
-doesn't get updated when the MAC address changes.
+It's always been possible, any entity between the TCP stack and your
+driver can pull data from the segmented pages into the linear data
+area.
 
-There is no other valid fix than to update the FDB when the MAC changes,
-and making whatever is necessary for that to work.
+F.e. netfilter, packet scheduler actions, you name it.
 
-I'm not applying a patch that adds a MAC address comparison here, because
-you might was well not add the FDB entry in the first place if you're
-going to add a hack like that.
+This code sequence has always been buggy.
