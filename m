@@ -1,77 +1,111 @@
-From: "Greg Scott" <GregScott@Infrasupport.com>
-Subject: RE: ebtables on a stick
-Date: Thu, 1 Dec 2011 08:10:45 -0600
-Message-ID: <925A849792280C4E80C5461017A4B8A2A048F7@mail733.InfraSupportEtc.com>
-References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com> <20111128143901.GA589422@jupiter.n2.diac24.net> <4ED566A8.2000108@ziu.info> <925A849792280C4E80C5461017A4B8A2A048F6@mail733.InfraSupportEtc.com> <20111201071456.GJ589422@jupiter.n2.diac24.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH iproute2] red: make burst optional
+Date: Thu, 01 Dec 2011 15:25:59 +0100
+Message-ID: <1322749559.2335.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1322688891.2602.15.camel@edumazet-laptop>
+	 <1322689213.2602.18.camel@edumazet-laptop>
+	 <1322691053.2602.24.camel@edumazet-laptop>
+	 <CAA93jw7TZj3Gd-KiVwr3Qwta4RpDKKV9QxGc+fyGc_+-9r1tLw@mail.gmail.com>
+	 <1322693086.2602.28.camel@edumazet-laptop>
+	 <1322737471.2335.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "David Lamparter" <equinox@diac24.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Dave Taht <dave.taht@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.infrasupportetc.com ([216.160.2.132]:26944 "EHLO
-	mail.infrasupport.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754354Ab1LAOKr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 09:10:47 -0500
-Content-class: urn:content-classes:message
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:55986 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754361Ab1LAO0D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 09:26:03 -0500
+Received: by faaq16 with SMTP id q16so1300192faa.19
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2011 06:26:02 -0800 (PST)
+In-Reply-To: <1322737471.2335.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oh - woops:
+Documentation advises to set burst to (min+min+max)/(3*avpkt)
 
->> IP 1.2.115.157, default gw 1.2.115.146.
->
-> Note that since the IP should be 1.2.115.157/_32_, it doesn't make any
-> difference whether you use 1.2.115.146 for the defgw or 192.168.10.1,
-> since both are out-of-subnet.
+Let tc do this automatically if user doesnt provide burst himself.
 
-Right this second, the whole thing really is 1.2.115.157/28, or mask
-255.255.255.240.  So from that host's point of view the default gw makes
-sense.  You really want me to set that up as a /32?  I don't get it.  
-.
-.
-.
->> As a troubleshooting step, I also put in:
->> /sbin/ip addr add 1.2.115.146/28 dev eth1; so now both eth0 and eth1
-have the same IP Address.  This feels >ugly and I think I'll take it out
-because it made no difference.  
->
->I agree, please remove.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ tc/q_choke.c |    2 +-
+ tc/q_gred.c  |   10 +++++++---
+ tc/q_red.c   |   11 +++++++----
+ 3 files changed, 15 insertions(+), 8 deletions(-)
 
-I put it in last night because this was the "trick" I had to do years
-ago when I used proxy ARP and that scary switch turning it on for
-everything.  Btw, there are still write-ups out there advocating that
-approach.
-.
-.
-.
->> $IPTABLES -A FORWARD -s 1.2.115.157 -j ACCEPT
->
-> Where is the reverse rule of this? -d 1.2.115.157 -j ACCEPT
->
->> $IPTABLES -A FORWARD -s 192.168.10.0/24 -d 1.2.115.157 -j ACCEPT
->> $IPTABLES -A FORWARD -p TCP --dport 1720 -d $ADR -j allowed
->> $IPTABLES -A FORWARD -p TCP -s $MGMT_IP -d $ADR -j allowed
->
->(what's $ADR?)
-
-I was having trouble keeping my eyes open last night. $ADR ends up being
-1.2.115.157.  That's the reverse rule you were looking for.  And then
-$MGMT_IP is the rule that lets me in no matter what protocol/port.
-Allowed is a user defined chain that checks for the right TCP handshake.
-I should probably change the $MGMT_IP rule to just ACCEPT.  This won't
-matter though - I did my ping tests last night physically sitting in
-front of that XP host and trying to ping google.  
-
-> Firewall rules?
-
-There are a bunch of 'em to handle a website and a few ftp sites and a
-PPTP VPN and the H.323 stuff I'm trying to hook back up.  I have a
-little script named "allow-all-with-nat" that turns all the filtering
-rules off, leaving all the NAT rules in place.  Running that makes no
-difference.  The last time I posted a whole ruleset I was roundly
-chastised because it was too complicated and we went off into a rathole
-about H.323.  
-
-- Greg
+diff --git a/tc/q_choke.c b/tc/q_choke.c
+index 04a864f..7816f62 100644
+--- a/tc/q_choke.c
++++ b/tc/q_choke.c
+@@ -133,7 +133,7 @@ static int choke_parse_opt(struct qdisc_util *qu, int argc, char **argv,
+ 		return -1;
+ 	}
+ 	if (wlog >= 10)
+-		fprintf(stderr, "CHOKE: WARNING. Burst %d seems to be to large.\n", burst);
++		fprintf(stderr, "CHOKE: WARNING. Burst %d seems to be too large.\n", burst);
+ 	opt.Wlog = wlog;
+ 
+ 	wlog = tc_red_eval_P(opt.qth_min*avpkt, opt.qth_max*avpkt, probability);
+diff --git a/tc/q_gred.c b/tc/q_gred.c
+index 59651d3..5fa0cc7 100644
+--- a/tc/q_gred.c
++++ b/tc/q_gred.c
+@@ -215,19 +215,23 @@ static int gred_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct n
+ 	if (rate == 0)
+ 		get_rate(&rate, "10Mbit");
+ 
+-	if (!opt.qth_min || !opt.qth_max || !burst || !opt.limit || !avpkt ||
++	if (!opt.qth_min || !opt.qth_max || !opt.limit || !avpkt ||
+ 	    (opt.DP<0)) {
+-		fprintf(stderr, "Required parameter (min, max, burst, limit, "
++		fprintf(stderr, "Required parameter (min, max, limit, "
+ 		    "avpkt, DP) is missing\n");
+ 		return -1;
+ 	}
++	if (!burst) {
++		burst = (2 * opt.qth_min + opt.qth_max) / (3 * avpkt);
++		fprintf(stderr, "GRED: set burst to %u\n", burst);
++	}
+ 
+ 	if ((wlog = tc_red_eval_ewma(opt.qth_min, burst, avpkt)) < 0) {
+ 		fprintf(stderr, "GRED: failed to calculate EWMA constant.\n");
+ 		return -1;
+ 	}
+ 	if (wlog >= 10)
+-		fprintf(stderr, "GRED: WARNING. Burst %d seems to be to "
++		fprintf(stderr, "GRED: WARNING. Burst %d seems to be too "
+ 		    "large.\n", burst);
+ 	opt.Wlog = wlog;
+ 	if ((wlog = tc_red_eval_P(opt.qth_min, opt.qth_max, probability)) < 0) {
+diff --git a/tc/q_red.c b/tc/q_red.c
+index 4b1b889..6e58d7a 100644
+--- a/tc/q_red.c
++++ b/tc/q_red.c
+@@ -104,17 +104,20 @@ static int red_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
+ 	if (rate == 0)
+ 		get_rate(&rate, "10Mbit");
+ 
+-	if (!opt.qth_min || !opt.qth_max || !burst || !opt.limit || !avpkt) {
+-		fprintf(stderr, "Required parameter (min, max, burst, limit, avpkt) is missing\n");
++	if (!opt.qth_min || !opt.qth_max || !opt.limit || !avpkt) {
++		fprintf(stderr, "RED: Required parameter (min, max, limit, avpkt) is missing\n");
+ 		return -1;
+ 	}
+-
++	if (!burst) {
++		burst = (2 * opt.qth_min + opt.qth_max) / (3 * avpkt);
++		fprintf(stderr, "RED: set burst to %u\n", burst);
++	}
+ 	if ((wlog = tc_red_eval_ewma(opt.qth_min, burst, avpkt)) < 0) {
+ 		fprintf(stderr, "RED: failed to calculate EWMA constant.\n");
+ 		return -1;
+ 	}
+ 	if (wlog >= 10)
+-		fprintf(stderr, "RED: WARNING. Burst %d seems to be to large.\n", burst);
++		fprintf(stderr, "RED: WARNING. Burst %d seems to be too large.\n", burst);
+ 	opt.Wlog = wlog;
+ 	if ((wlog = tc_red_eval_P(opt.qth_min, opt.qth_max, probability)) < 0) {
+ 		fprintf(stderr, "RED: failed to calculate probability.\n");
