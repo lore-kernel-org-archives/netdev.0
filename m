@@ -1,37 +1,39 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH next-next 0/2] can: cc770: add support for the Bosch CC770
- and Intel AN82527
-Date: Thu, 01 Dec 2011 10:43:07 +0100
-Message-ID: <4ED74C2B.3060305@grandegger.com>
-References: <20111129.183950.1327835803051184146.davem@davemloft.net>	<4ED5CF14.4020502@hartkopp.net>	<20111130.160727.1989923062226789802.davem@davemloft.net> <20111130.161403.1880895089543477140.davem@davemloft.net>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH net-next] netem: fix build error on 32bit arches
+Date: Thu, 01 Dec 2011 10:46:12 +0100
+Message-ID: <dbe5bc9736645f7d4ba06cab15b03512@localhost>
+References: <1322691627-20551-1-git-send-email-hagen@jauu.net>
+ <1322691627-20551-2-git-send-email-hagen@jauu.net>
+ <1322710225.2577.1.camel@edumazet-laptop>
+ <cfd2e2c26063da002d8afe76991ff0c1@localhost>
+ <1322730108.2335.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <1322731934.2335.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+ charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: socketcan@hartkopp.net, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, socketcan-users@lists.berlios.de,
-	boir1@yandex.ru, stanislavelensky@yahoo.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20111130.161403.1880895089543477140.davem@davemloft.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:59720 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751172Ab1LAJqN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 04:46:13 -0500
+In-Reply-To: <1322731934.2335.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/30/2011 10:14 PM, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Wed, 30 Nov 2011 16:07:27 -0500 (EST)
-> 
->> I sorted this out by reverting the older changes and applying V5.
->>
->> But I had to fix things up, when applying patch #3 there are empty
->> trailing lines in some of the new files generated, and that causes
->> git to complain.
-> 
-> Actually, I had to revert, it doesn't even compile.  I'm really pissed
-> off at how this patch set is being handled, this should never happen.
-> 
-> It's not damn secret how I smoke test everyone's changes, I "allmodconfig"
-> and type "make".
 
-To get that right, I just sent v6. Sorry for the pain.
+On Thu, 01 Dec 2011 10:32:14 +0100, Eric Dumazet wrote:
 
-Wolfgang.
+
+
+> ERROR: "__udivdi3" [net/sched/sch_netem.ko] undefined!
+
+> 
+
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+
+
+Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
