@@ -1,98 +1,59 @@
-From: "FBI" <maintenancekt@aol.com>
-Subject: VERY URGENT===========READ ATTACHMENT
-Date: Sat, 3 Dec 2011 08:06:13 -0500
-Message-ID: <201112031304.pB3D4EIS004728@ims-m14.mx.aol.com>
-Reply-To: <fbicrimesdivision@w.cn>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: 3.2-rc2+: Reported regressions from 3.0 and 3.1
+Date: Thu, 1 Dec 2011 09:35:48 -0500
+Message-ID: <20111201143548.GA28114@phenom.dumpdata.com>
+References: <lx6sezwGldO.A.IhF.UBpWOB@chimera> <201111212249.31196.rjw@sisk.pl>
+	<20111122135412.GA29905@phenom.dumpdata.com>
+	<20111129180414.GA11459@phenom.dumpdata.com>
+	<20111129183428.GE8200@aftab>
+	<20111130175936.GA15168@phenom.dumpdata.com>
+	<20111201113919.GC31552@aftab>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_NextPart_000_005B_01C2A9A6.140EBB48"
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ims-m14.mx.aol.com ([64.12.207.147]:1416 "EHLO
-	ims-m14.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755866Ab1LCNEa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2011 08:04:30 -0500
-Received: from oms-ma01.r1000.mx.aol.com (oms-ma01.r1000.mx.aol.com [64.12.140.129])
-	by ims-m14.mx.aol.com (8.14.1/8.14.1) with ESMTP id pB3D4EIS004728
-	for <netdev@vger.kernel.org>; Sat, 3 Dec 2011 08:04:14 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
-
-------=_NextPart_000_005B_01C2A9A6.140EBB48
-Content-Type: text/plain;
-	charset="Windows-1251"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+Cc: Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Florian Mickler <florian@mickler.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>, x86@kernel.org,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>, mingo@redhat.com,
+	hpa@zytor.com, tglx@linutronix.de,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>
+To: Borislav Petkov <bp@amd64.org>
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20111201113919.GC31552@aftab>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-OPEN ATTACTMENT
+> >From what I can see, you get the following callchain:
+> 
+> start_kernel
+> |-> setup_arch
+>     |-> x86_init.oem.arch_setup = xen_arch_setup
+>     ....
+>     |-> check_bugs
+>         |-> identify_boot_cpu
+> 	    |-> identify_cpu
+> 	        |-> select_idle_routine
+> 
+> 
+> so xen_arch_setup will set pm_idle and select_idle_routine will honour
+> it. I'm being told this is run either in the dom0 or the paravirt guest
+> and if so, I don't see any issue with this for baremetal. So you can
+> have my ACK provided this is tested on baremetal too.
 
-------=_NextPart_000_005B_01C2A9A6.140EBB48
-Content-Type: application/octet-stream;
-	name="FBI NOTIFICATION.txt"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
-	filename="FBI NOTIFICATION.txt"
-
-DQpBTlRJLVRFUlJPUklTVCBBTkQgTU9ORVRBUlkgQ1JJTUVTIERJVklTSU9O
-DQpGQkkgSEVBRFFVQVJURVJTIElOIFdBU0hJTkdUT04sIEQuQy4NCkZlZGVy
-YWwgQnVyZWF1IE9mIEludmVzdGlnYXRpb24uDQpGQkktV2FzaGluZ3RvbiBG
-aWVsZCBPZmZpY2UNCjYwMSA0dGggU3RyZWV0LCBOVw0KV2FzaGluZ3Rvbiwg
-REMgMjA1MzUNCldlYnNpdGU6IHd3dy5mYmkuZ292DQogDQpEQVRFOjEyLzAz
-LzIwMTENCiANCkl0IGhhcyBiZWVuIGRpc2NvdmVyZWQgdGhhdCB5b3VyIGNv
-bnRyYWN0L2luaGVyaXRhbmNlL3dpbm5pbmcgRlVORCB3YXMgYWJvdXQgYmVp
-bmcgdHJhbnNmZXJyZWQgdG8gYW4gdW5rbm93biBhY2NvdW50IHVuZGVyIHlv
-dXIgbmFtZS5UaGlzIGF0dGVtcHQgd2FzIHBlcnBldHJhdGVkIGJ5IHNvbWVv
-bmUgd2hvIGNsYWltcyB0byBiZSB3b3JraW5nIGZvciB5b3UsIGFuZCB0aGF0
-IHlvdSBoYXZlIGdpdmVuIGhpbSBkdWUgYXV0aG9yaXR5IHRvIGhhdmUgdGhl
-IEZVTkQgbW92ZWQgdG8gdGhlIGFjY291bnQgc3BlY2lmaWVkIGJlbG93Og0K
-IA0KU09VVEhXRVNURVJOIEZFREVSQUwgQ1JFRElUIFVOSU9ODQpXRVNDT1JQ
-IDkyNCBPVkVSTEFORCBDT1VSVA0KU0FOIERJTUFTLCBDQSA5MTc3Mi4gVVNB
-Lg0KQUNDT1VOVCBOVU1CRVI6IDMyMjY4MjEzMw0KQUJBL1JPVVRJTkcgTlVN
-QkVSOiAxMjExLTcxLTQxLTgNClNIQVJFVFlQRSBOTy46IDM1DQpGSU5BTCBD
-UkVESVQgIEpPSE5TT04gRkVOWkkgQU5EIENPLiAoQmVuZWZpY2lhcnkpLg0K
-IA0KVGhlIEZlZGVyYWwgQnVyZWF1IG9mIEludmVzdGlnYXRpb24gKEYuQi5J
-Likgd2FkZWQgaW4gYWZ0ZXIgYmVpbmcgYWxlcnRlZCBieSB0aGUgc3VwcG9z
-ZWQgYmFuay4gV2UgaW52ZXN0aWdhdGVkIGFuZCBmb3VuZCB0aGF0IHRoZXJl
-IGlzIGEgcG9zc2libGUgbW9uZXkgbGF1bmRlcmluZyBhY3Rpdml0eSBpbiBw
-bGF5LlRoZSBGVU5EIFVTJDEwLDUwMCwwMDAuMDAoVGVuIE1pbGxpb24gRml2
-ZSBIdW5kcmVkIFRob3VzYW5kIFVuaXRlZCBTdGF0ZXMgRG9sbGFycykgd2Fz
-IGZvdW5kIHRvIGJlIGRlcG9zaXRlZCBpbiBCYW5rIG9mIEFtZXJpY2EgaW4g
-eW91ciBuYW1lIHBlbmRpbmcgeW91ciBjb25zZW50IHRvIGhhdmUgaXQgdHJh
-bnNmZXJyZWQgdG8gdGhlIG5ldyBhY2NvdW50IGluZGljYXRlZCBhYm92ZS4g
-SXQgd2FzIGZ1cnRoZXIgcmV2ZWFsZWQgdGhhdCBpbml0aWFsIEZVTkQgdHJh
-bnNmZXIgb3JpZ2luYXRlZCBmcm9tIE5pZ2VyaWEgdG8gRW5nbGFuZCBhbmQg
-bm93IGhlcmUgaW4gQmFuayBvZiBBbWVyaWNhIGluIFVTQS4NCiANClRoZXNl
-IHRyYW5zZmVycyBkaWQgbm90IGZvbGxvdyBkdWUgcHJvY2VzcyBpbiBsaW5l
-IHdpdGggdGhlIEludGVybmF0aW9uYWwgRlVORCB0cmFuc2ZlciBydWxlcyBh
-bmQgcmVndWxhdGlvbi5Db25zZXF1ZW50bHksd2Ugc3VzcGVjdCB0aGlzIGJl
-IGEgdGVycm9yaXNtIGZ1bmRpbmcsIGRydWcgcmVsYXRlZCBmdW5kIGRlcG9z
-aXQgYW5kL29yIG1vbmV5IGxhdW5kZXJpbmcuIEFzIHN0YXRlZCBhYm92ZSwg
-dGhlIEZVTkQgaGFzIHlvdXIgbmFtZSBvbiBpdDsgYW5kIHlvdSBtdXN0IGhh
-dmUgaXQgY2xlYXJlZCBvZiBhbnkgY29ubmVjdGlvbiB3aXRoIGFueSBvZiB0
-aGVzZSBpbGxlZ2FsIGFjdGl2aXRpZXMuQmUgaW5mb3JtZWQgdGhhdCBGQUlM
-VVJFIHRvIGhhdmUgdGhpcyBjbGVhcmVkIG91dCB3aWxsIGF0dHJhY3QgYSBK
-QUlMIFRFUk0uV2Ugd2lsbCBub3QgaGVzaXRhdGUgdG8gdmlzaXQgdGhlIGZ1
-bGwgd2VpZ2h0IG9mIHRoZSBsYXcgdXBvbiB5b3UgaWYgeW91IGRvIG5vdCBj
-bGVhciB0aGlzIGZ1bmQuVGhlcmUgaXMgZXZlcnkgaW5kaWNhdGlvbiB0aGF0
-IHlvdSBhcmUgaW52b2x2ZWQgaW4gdGhpcyBzaGFkeSBkZWFsLg0KIA0KRmlu
-YWxseSwgeW91IGFyZSBleHBlY3RlZCB0byBoYXZlIHRoZSBDTEVBUkFOQ0Ug
-RE9DVU1FTlQgb2J0YWluIGZyb20gd2hlcmUgdGhlIEZVTkQgb3JpZ2luYXRl
-ZCBmcm9tIHRvIGhhdmUgeW91IGFuZCB5b3VyIGZ1bmQgY2xlYXJlZC4gT25s
-eSB0aGVuIHNoYWxsIHdlIHJlbGVhc2UgeW91ciBGVU5EIGFzIGNsZWFuIG1v
-bmV5IGRldm9pZCBvZiBhbnkgaWxsZWdhbGl0eSwgYW5kIHlvdSB3aWxsIGJl
-IGZyZWUgb2YgYW55IGludm9sdmVtZW50LiBUbyB0aGlzIGVuZCwgeW91IGFy
-ZSB0byBjb250YWN0IE1yLiBBbnRob255IE1hcmtzb24gb2YgdGhlIEFudGkg
-R3JhZnQgRGVwYXJ0bWVudCBOb3J0aCBDYXJvbGluYSBSZWdpb25hbCBPZmZp
-Y2UgYW5kIGhhdmUgdGhlIEZVTkQgQkVORUZJQ0lBUlkgU0VBTCBvZiBUUkFO
-U0ZFUiAoRkJTVCkgQ0xFQVJBTkNFIERPQ1VNRU5UIG9idGFpbmVkLiBDb250
-YWN0IGhpbSB0aHJvdWdoIHRoaXMgZGlyZWN0IGVtYWlsOiBhbnRpZ3JhZnRf
-ZGVwYXJ0bWVudEB3LmNuICxOb3RlIHRoYXQgeW91IGhhdmUgNzJocnMgdG8g
-b2J0YWluIHRoaXMgY3J1Y2lhbCBEb2N1bWVudGF0aW9uLg0KDQpUaGlzIGhh
-cyB0byBiZSBjbGVhcmVkIQ0KIA0KRmFpdGhmdWxseSBZb3Vycw0KUm9iZXJ0
-IFMuIE11ZWxsZXIgSUlJDQpGQkkgRGlyZWN0b3INCkZlZGVyYWwgQnVyZWF1
-IE9mIEludmVzdGlnYXRpb24uDQpGQkktV2FzaGluZ3RvbiBGaWVsZCBPZmZp
-Y2UNCjYwMSA0dGggU3RyZWV0LCBOVw0KV2FzaGluZ3RvbiwgREMgMjA1MzUN
-Cnd3dy5mYmkuZ292
-
-------=_NextPart_000_005B_01C2A9A6.140EBB48--
+Tested on baremetal and there were no abnormalities. Thanks!
