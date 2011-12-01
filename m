@@ -1,48 +1,40 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] netconsole: implement ipv4 tos support
-Date: Wed, 30 Nov 2011 18:27:53 -0800
-Message-ID: <20111130182753.02798425@nehalam.linuxnetplumber.net>
-References: <1322702330-31325-1-git-send-email-zenczykowski@gmail.com>
-	<20111130173435.5e63afda@nehalam.linuxnetplumber.net>
-	<CANP3RGfwUr3ho3Tz_cfVz4CBJWMktOb7MDbUYYXz7XfjErw7Zg@mail.gmail.com>
+From: Li Wei <lw@cn.fujitsu.com>
+Subject: Re: Is there any necessary to add multicast route for a loopback
+ device?
+Date: Thu, 01 Dec 2011 10:30:00 +0800
+Message-ID: <4ED6E6A8.3080702@cn.fujitsu.com>
+References: <4ED5DD7D.10908@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Maciej =?UTF-8?B?xbtlbmN6eWtvd3NraQ==?= <zenczykowski@gmail.com>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60524 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752979Ab1LAC14 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 21:27:56 -0500
-In-Reply-To: <CANP3RGfwUr3ho3Tz_cfVz4CBJWMktOb7MDbUYYXz7XfjErw7Zg@mail.gmail.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:64998 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753289Ab1LAC3l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Nov 2011 21:29:41 -0500
+In-Reply-To: <4ED5DD7D.10908@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 30 Nov 2011 18:11:32 -0800
-Maciej =C5=BBenczykowski <zenczykowski@gmail.com> wrote:
+Hi David,
 
-> > Why make it an option? TOS should always be set to interactive
-> > traffic (like telnet and slogin)
->=20
-> Because 'interactive' doesn't mean anything.  You don't know what
-> value of tos defines 'interactive' traffic on my network.
-> I may also consider network console/debug/dump/etc traffic less
-> important then say serving web traffic, and thus not even want it to
-> be considered 'interactive' in the first place.
->=20
-> TOS values are relevant within a LAN/WAN/Organization/AS, but are not
-> relevant internet-wide.
-> Almost all AS-boundary gateways/routers will do TOS remarking to thei=
-r
-> own internal specifications.
->=20
-> - Maciej
+what's your opinion?
 
-Giving the user choice in general is good, but network configuration
-is already confusing enough.
-
-Although interpretation of TOS is per organization, in practice the
-values are standardized in places like RFC4594. For example, routing pr=
-otocols
-all use IPTOS_PREC_INTERNETCONTROL =3D 0xc0
+> Hi all,
+> 
+> I found that since Fedora 15, it use systemd as the 'init'. When systemd start 
+> it would config the ipv6 address(::1/128) for 'lo' and start it. While adding 
+> this address to 'lo', kernel will call addrconf_add_mroute() to set a multicast
+> route for 'lo' with rt->dst.error = -ENETUNREACH. After that, when I send multi-
+> cast message, the route subsystem return a route with .error set to NETUNREACH.
+> 
+> Is there any necessary to add multicast route for a loopback device? 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
