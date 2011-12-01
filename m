@@ -1,48 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] dccp: Fix compile warning in probe code.
-Date: Thu, 01 Dec 2011 14:46:50 -0500 (EST)
-Message-ID: <20111201.144650.173157123252154314.davem@davemloft.net>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH next-next 0/2] can: cc770: add support for the Bosch CC770
+ and Intel AN82527
+Date: Thu, 01 Dec 2011 21:04:10 +0100
+Message-ID: <4ED7DDBA.9090201@pengutronix.de>
+References: <4ED5CF14.4020502@hartkopp.net>	<20111130.160727.1989923062226789802.davem@davemloft.net>	<4ED73117.1020101@hartkopp.net> <20111201.130907.1276930495409347261.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: gerrit@erg.abdn.ac.uk, gerrit@erg.abdn.ac.uk
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigB52C85B9CAE9D423CFECF10B"
+Cc: socketcan@hartkopp.net, wg@grandegger.com, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org, urs@isnogud.escape.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37282 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751142Ab1LATr4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 14:47:56 -0500
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:60788 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752365Ab1LAUEP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 15:04:15 -0500
+In-Reply-To: <20111201.130907.1276930495409347261.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpDb21taXQgMTM4NmJlNTVlMzJhM2M1ZDhlZjRhMmIyNDNjNTMwYTdiNjY0YzAyYyAoImRjY3A6
-IGZpeA0KYXV0by1sb2FkaW5nIG9mIGRjY3AoX3Byb2JlKSIpIGZpeGVkIGEgYnVnIGJ1dCBjcmVh
-dGVkIGEgbmV3DQpjb21waWxlciB3YXJuaW5nOg0KDQpuZXQvZGNjcC9wcm9iZS5jOiBJbiBmdW5j
-dGlvbiChZGNjcHByb2JlX2luaXSiOg0KbmV0L2RjY3AvcHJvYmUuYzoxNjY6Mjogd2FybmluZzog
-dGhlIG9taXR0ZWQgbWlkZGxlIG9wZXJhbmQgaW4gPzogd2lsbCBhbHdheXMgYmUgoXRydWWiLCBz
-dWdnZXN0IGV4cGxpY2l0IG1pZGRsZSBvcGVyYW5kIFstV3BhcmVudGhlc2VzXQ0KDQp0cnlfdGhl
-bl9yZXF1ZXN0X21vZHVsZSgpIGlzIGJ1aWx0IGZvciBzaXR1YXRpb25zIHdoZXJlIHRoZQ0KImV4
-aXN0ZW5jZSIgdGVzdCBpcyBzb21lIGxvb2t1cCBmdW5jdGlvbiB0aGF0IHJldHVybnMgYSBub24t
-TlVMTA0Kb2JqZWN0IG9uIHN1Y2Nlc3MsIGFuZCB3aXRoIGEgcmVmZXJlbmNlIGNvdW50IG9mIHNv
-bWUga2luZCBoZWxkLg0KDQpIZXJlIHdlJ3JlIGxvb2tpbmcgZm9yIGEgc3VjY2VzcyByZXR1cm4g
-b2YgemVybyBmcm9tIHRoZSBqcHJvYmUNCnJlZ2lzdHJ5Lg0KDQpJbnN0ZWFkIG9mIGZpZ2h0aW5n
-IHRoZSB3YXkgdHJ5X3RoZW5fcmVxdWVzdF9tb2R1bGUoKSB3b3Jrcywgc2ltcGx5DQpvcGVuIGNv
-ZGUgd2hhdCB3ZSB3YW50IHRvIGhhcHBlbiBpbiBhIGxvY2FsIGhlbHBlciBmdW5jdGlvbi4NCg0K
-U2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KLS0t
-DQogbmV0L2RjY3AvcHJvYmUuYyB8ICAgMTQgKysrKysrKysrKysrLS0NCiAxIGZpbGVzIGNoYW5n
-ZWQsIDEyIGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pDQoNCmRpZmYgLS1naXQgYS9uZXQv
-ZGNjcC9wcm9iZS5jIGIvbmV0L2RjY3AvcHJvYmUuYw0KaW5kZXggMzNkMGU2Mi4uMGE4ZDZlYiAx
-MDA2NDQNCi0tLSBhL25ldC9kY2NwL3Byb2JlLmMNCisrKyBiL25ldC9kY2NwL3Byb2JlLmMNCkBA
-IC0xNTIsNiArMTUyLDE3IEBAIHN0YXRpYyBjb25zdCBzdHJ1Y3QgZmlsZV9vcGVyYXRpb25zIGRj
-Y3Bwcm9iZV9mb3BzID0gew0KIAkubGxzZWVrICA9IG5vb3BfbGxzZWVrLA0KIH07DQogDQorc3Rh
-dGljIF9faW5pdCBpbnQgc2V0dXBfanByb2JlKHZvaWQpDQorew0KKwlpbnQgcmV0ID0gcmVnaXN0
-ZXJfanByb2JlKCZkY2NwX3NlbmRfcHJvYmUpOw0KKw0KKwlpZiAocmV0KSB7DQorCQlyZXF1ZXN0
-X21vZHVsZSgiZGNjcCIpOw0KKwkJcmV0ID0gcmVnaXN0ZXJfanByb2JlKCZkY2NwX3NlbmRfcHJv
-YmUpOw0KKwl9DQorCXJldHVybiByZXQ7DQorfQ0KKw0KIHN0YXRpYyBfX2luaXQgaW50IGRjY3Bw
-cm9iZV9pbml0KHZvaWQpDQogew0KIAlpbnQgcmV0ID0gLUVOT01FTTsNCkBAIC0xNjMsOCArMTc0
-LDcgQEAgc3RhdGljIF9faW5pdCBpbnQgZGNjcHByb2JlX2luaXQodm9pZCkNCiAJaWYgKCFwcm9j
-X25ldF9mb3BzX2NyZWF0ZSgmaW5pdF9uZXQsIHByb2NuYW1lLCBTX0lSVVNSLCAmZGNjcHByb2Jl
-X2ZvcHMpKQ0KIAkJZ290byBlcnIwOw0KIA0KLQl0cnlfdGhlbl9yZXF1ZXN0X21vZHVsZSgocmV0
-ID0gcmVnaXN0ZXJfanByb2JlKCZkY2NwX3NlbmRfcHJvYmUpKSA9PSAwLA0KLQkJCQkiZGNjcCIp
-Ow0KKwlyZXQgPSBzZXR1cF9qcHJvYmUoKTsNCiAJaWYgKHJldCkNCiAJCWdvdG8gZXJyMTsNCiAN
-Ci0tIA0KMS43LjcuMw0KDQo=
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigB52C85B9CAE9D423CFECF10B
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+On 12/01/2011 07:09 PM, David Miller wrote:
+>> We'll continue the discussion on linux-can ML and give an update to th=
+e
+>> MAINTAINERS file if we sorted out any changes. So far Wolfgang and me =
+remain
+>> the 'only interface' for you. Sorry for the traffic & confusion on net=
+dev.
+>=20
+> I said I want one person.  One person who periodically send me GIT pull=
+ requests
+> or a patch series for "CAN updates" of all kinds.
+
+We're currently discussing the problem and we understood the one person
+contact policy.
+
+> Just like how the wireless stuff is maintained.  They don't send me dri=
+ver vs.
+> protcol layer vs. rfcomm vs. bluetooth changes seperately, John Linvill=
+e collects
+> everything and sends me periodic pull requests.
+>=20
+> And this is what I want from you guys.  One person who explicitly says =
+"Dave, please
+> take in these CAN changes" rather than the confusing manner in which ch=
+anges get
+> submitted currently.
+
+regards, Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enigB52C85B9CAE9D423CFECF10B
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk7X3b0ACgkQjTAFq1RaXHN7gwCeNJd3n0h+yBBY+WWQLv2+NphK
+xRIAn04HCHNsmYJaKDYs3cy0u3punXep
+=Q5q6
+-----END PGP SIGNATURE-----
+
+--------------enigB52C85B9CAE9D423CFECF10B--
