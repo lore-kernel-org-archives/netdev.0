@@ -1,68 +1,61 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: ebtables on a stick
-Date: Thu, 1 Dec 2011 08:14:56 +0100
-Message-ID: <20111201071456.GJ589422@jupiter.n2.diac24.net>
-References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com>
- <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com>
- <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com>
- <20111128143901.GA589422@jupiter.n2.diac24.net>
- <4ED566A8.2000108@ziu.info>
- <925A849792280C4E80C5461017A4B8A2A048F6@mail733.InfraSupportEtc.com>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: Re: [GIT PULL v2] Open vSwitch
+Date: Thu, 1 Dec 2011 16:24:18 +0900
+Message-ID: <20111201072418.GA18436@verge.net.au>
+References: <20111123075433.GA7928@gondor.apana.org.au>
+	<1322050976.2039.125.camel@mojatatu>
+	<20111128130409.GB16828@gondor.apana.org.au>
+	<0199E0D51A61344794750DC57738F58E7586A74137@GVW1118EXC.americas.hpqcorp.net>
+	<20111128145157.GA17678@gondor.apana.org.au>
+	<CAEP_g=_Mj9az1oSLzUcqT_m05JEJavjcQ1SFeoYtsgk5xvBjBQ@mail.gmail.com>
+	<20111130070219.GB32630@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org
-To: Greg Scott <GregScott@Infrasupport.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:54282 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751306Ab1LAHPD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Dec 2011 02:15:03 -0500
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, "Fischer,
+	Anna" <anna.fischer-VXdhtT5mjnY@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org" <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <925A849792280C4E80C5461017A4B8A2A048F6@mail733.InfraSupportEtc.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20111130070219.GB32630-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 30, 2011 at 11:46:02PM -0600, Greg Scott wrote:
-> Well this is frustrating.  Now my public host can communicate anywhere it wants internally but nothing outside. Maddening - the exact opposite problem I had before.  
+On Wed, Nov 30, 2011 at 03:02:19PM +0800, Herbert Xu wrote:
+> On Tue, Nov 29, 2011 at 10:21:32PM -0800, Jesse Gross wrote:
+> >
+> > It's userspace which is managing the entries in the kernel hash table
+> > and it has some intelligence about aging out entries (and specifically
+> > about doing it more aggressively as the number of entries increases),
+> > so it's not really unbounded.  In practice, userspace actually keeps
+> > the number of entries much smaller than the maximum size of the table.
 > 
-> Here is the config as it sits right now:
+> Right, I thought you would have something like this.
 > 
-> Public IP host (a Windows XP system placeholder for now)
-> IP 1.2.115.157, default gw 1.2.115.146.
+> But I think you still need to rehash the table periodically, as
+> otherwise even with a limited number of entries and attacker could
+> construct long chains in a hash bucket, given enough time.
 
-Note that since the IP should be 1.2.115.157/_32_, it doesn't make any
-difference whether you use 1.2.115.146 for the defgw or 192.168.10.1,
-since both are out-of-subnet.
+I have done some work on both testing and improving the performance
+of Open vSwitch with large number of flows (for some definition of large).
 
-> Firewall eth0 - 1.2.115.146/28
-> Firewall eth1 - 192.168.10.1. 
-> 
-> /sbin/ip neigh add proxy 1.2.115.157 dev eth0
-> /sbin/ip route add 1.2.115.157/32 dev eth1
-> 
-> As a troubleshooting step, I also put in:
-> /sbin/ip addr add 1.2.115.146/28 dev eth1; so now both eth0 and eth1 have the same IP Address.  This feels ugly and I think I'll take it out because it made no difference.  
+My current opinion is that expanding the hash table beyond its current
+maximum size does not seem to yield a performance benefit.  This is
+primarily because there are other performance issues that come into play
+first - in particular the rate at which a dump of statistics for all flows
+is made (I intend to fix this, its a user-space problem).
 
-I agree, please remove.
-
-> And the relevant iptables rules:
-> 
-> $IPTABLES -t nat -A POSTROUTING -s $1.2.115.157 -j ACCEPT
-> $IPTABLES -t nat -A PREROUTING -d 1.2.115.157 -j ACCEPT
-> 
-> $IPTABLES -A FORWARD -s 1.2.115.157 -j ACCEPT
-
-Where is the reverse rule of this? -d 1.2.115.157 -j ACCEPT
-
-> $IPTABLES -A FORWARD -s 192.168.10.0/24 -d 1.2.115.157 -j ACCEPT
-> $IPTABLES -A FORWARD -p TCP --dport 1720 -d $ADR -j allowed
-> $IPTABLES -A FORWARD -p TCP -s $MGMT_IP -d $ADR -j allowed
-
-(what's $ADR?)
-[...]
-> The ICMP echo reply comes back on eth0, still good.  But I never forward it over to eth1 and it dies right there.  The public host never sees the reply. 
-
-Firewall rules?
-
-
--David
+So while I agree that optimizing the hash is a good idea.  I don't believe
+it is a bottle-neck at this point. Though I could be convinced otherwise if
+long collision chains could be constructed with relatively few flows.
+Something I had not considered until I rad your email just now.
