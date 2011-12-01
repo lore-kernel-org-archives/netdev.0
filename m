@@ -1,50 +1,45 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: Re: [GIT PULL v2] Open vSwitch
-Date: Thu, 1 Dec 2011 17:06:20 +0900
-Message-ID: <20111201080620.GH18436@verge.net.au>
-References: <20111123075433.GA7928@gondor.apana.org.au>
-	<1322050976.2039.125.camel@mojatatu>
-	<20111128130409.GB16828@gondor.apana.org.au>
-	<0199E0D51A61344794750DC57738F58E7586A74137@GVW1118EXC.americas.hpqcorp.net>
-	<20111128145157.GA17678@gondor.apana.org.au>
-	<CAEP_g=_Mj9az1oSLzUcqT_m05JEJavjcQ1SFeoYtsgk5xvBjBQ@mail.gmail.com>
-	<20111130070219.GB32630@gondor.apana.org.au>
-	<20111201072418.GA18436@verge.net.au>
-	<20111201075237.GA12799@gondor.apana.org.au>
+From: Axel Lin <axel.lin@gmail.com>
+Subject: [PATCH] dsa: Include linux/if_ether.h to fix build error
+Date: Thu, 01 Dec 2011 16:07:18 +0800
+Message-ID: <1322726838.14554.3.camel@phoenix>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, "Fischer,
-	Anna" <anna.fischer-VXdhtT5mjnY@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org" <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20111201075237.GA12799-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 01, 2011 at 03:52:37PM +0800, Herbert Xu wrote:
-> On Thu, Dec 01, 2011 at 04:24:18PM +0900, Simon Horman wrote:
-> >
-> > So while I agree that optimizing the hash is a good idea.  I don't believe
-> > it is a bottle-neck at this point. Though I could be convinced otherwise if
-> > long collision chains could be constructed with relatively few flows.
-> > Something I had not considered until I rad your email just now.
-> 
-> It's not an optimisation issue, but a security one.  If you leave
-> a hash like this with a constant seed, an attacker would have an
-> infinite amount of time to find collisions.
-> 
-> Rehashing isn't all that difficult.
+Include linux/if_ether.h to fix below build errors:
 
-Sorry for missing the point. Yes, I agree that rehashing makes a lot of sense.
+  CC      arch/arm/mach-kirkwood/common.o
+In file included from arch/arm/mach-kirkwood/common.c:19:
+include/net/dsa.h: In function 'dsa_uses_dsa_tags':
+include/net/dsa.h:192: error: 'ETH_P_DSA' undeclared (first use in this function)
+include/net/dsa.h:192: error: (Each undeclared identifier is reported only once
+include/net/dsa.h:192: error: for each function it appears in.)
+include/net/dsa.h: In function 'dsa_uses_trailer_tags':
+include/net/dsa.h:197: error: 'ETH_P_TRAILER' undeclared (first use in this function)
+make[1]: *** [arch/arm/mach-kirkwood/common.o] Error 1
+make: *** [arch/arm/mach-kirkwood] Error 2
+
+Signed-off-by: Axel Lin <axel.lin@gmail.com>
+---
+ include/net/dsa.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index b78db3c..7828ebf 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -11,6 +11,7 @@
+ #ifndef __LINUX_NET_DSA_H
+ #define __LINUX_NET_DSA_H
+ 
++#include <linux/if_ether.h>
+ #include <linux/list.h>
+ #include <linux/timer.h>
+ #include <linux/workqueue.h>
+-- 
+1.7.5.4
