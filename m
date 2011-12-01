@@ -1,68 +1,67 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [bug?] r8169: hangs under heavy load
-Date: Thu, 1 Dec 2011 11:20:00 +0100
-Message-ID: <20111201102000.GA14013@electric-eye.fr.zoreil.com>
-References: <20111125222211.GA13719@electric-eye.fr.zoreil.com> <1322262357.2550.12.camel@edumazet-laptop> <20111126004447.GA14744@electric-eye.fr.zoreil.com> <1322280423.10212.3.camel@edumazet-laptop> <20111127092808.GE21635@elie.hsd1.il.comcast.net> <4ED2A573.1020807@wolke7.net> <20111127231147.GA1784@electric-eye.fr.zoreil.com> <D95C09DB1A7E493E89FE5A0B3879CEB0@realtek.com.tw> <20111129105440.GA2410@electric-eye.fr.zoreil.com> <4ED538EC.4010509@wolke7.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH iproute2] red: give a hint about burst value
+Date: Thu, 01 Dec 2011 12:04:31 +0100
+Message-ID: <1322737471.2335.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1322688891.2602.15.camel@edumazet-laptop>
+	 <1322689213.2602.18.camel@edumazet-laptop>
+	 <1322691053.2602.24.camel@edumazet-laptop>
+	 <CAA93jw7TZj3Gd-KiVwr3Qwta4RpDKKV9QxGc+fyGc_+-9r1tLw@mail.gmail.com>
+	 <1322693086.2602.28.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hayeswang <hayeswang@realtek.com>,
-	"'Jonathan Nieder'" <jrnieder@gmail.com>,
-	"'Eric Dumazet'" <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	"'nic_swsd'" <nic_swsd@realtek.com>, linux-kernel@vger.kernel.org,
-	"'Armin Kazmi'" <armin.kazmi@tu-dortmund.de>
-To: booster@wolke7.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4ED538EC.4010509@wolke7.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Dave Taht <dave.taht@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:50751 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753064Ab1LALEe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 06:04:34 -0500
+Received: by qyk7 with SMTP id 7so165553qyk.19
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2011 03:04:33 -0800 (PST)
+In-Reply-To: <1322693086.2602.28.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-booster@wolke7.net <booster@wolke7.net> :
-[...]
-> Any more ideas ?
+Le mercredi 30 novembre 2011 =C3=A0 23:44 +0100, Eric Dumazet a =C3=A9c=
+rit :
+> Le mercredi 30 novembre 2011 =C3=A0 23:35 +0100, Dave Taht a =C3=A9cr=
+it :
+>=20
+> > One of my other problems is when I try to size red (or choke) appro=
+priately
+> > (or so I think) for GigE bandwidths and queue depths, it would fail
+> > to calculate the ewma value.
+>=20
+> Do you have one example of such failure ?
+>=20
 
-Give me a brain.
+Oh I understand your burst value is really too small.
 
-Fixed patch below.
+Stephen, can we add this helper to iproute2 ?
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 6f06aa1..e776bf2 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -4885,8 +4894,7 @@ static void rtl_hw_start_8168(struct net_device *dev)
- 	RTL_W16(IntrMitigate, 0x5151);
- 
- 	/* Work around for RxFIFO overflow. */
--	if (tp->mac_version == RTL_GIGA_MAC_VER_11 ||
--	    tp->mac_version == RTL_GIGA_MAC_VER_22) {
-+	if (tp->mac_version == RTL_GIGA_MAC_VER_11) {
- 		tp->intr_event |= RxFIFOOver | PCSTimeout;
- 		tp->intr_event &= ~RxOverflow;
- 	}
-@@ -5804,6 +5812,10 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
- 	 */
- 	status = RTL_R16(IntrStatus);
- 	while (status && status != 0xffff) {
-+		status &= tp->intr_event;
-+		if (!status)
-+			break;
-+
- 		handled = 1;
- 
- 		/* Handle all of the error cases first. These will reset
-@@ -5818,7 +5830,6 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
- 			switch (tp->mac_version) {
- 			/* Work around for rx fifo overflow */
- 			case RTL_GIGA_MAC_VER_11:
--			case RTL_GIGA_MAC_VER_22:
- 			case RTL_GIGA_MAC_VER_26:
- 				netif_stop_queue(dev);
- 				rtl8169_tx_timeout(dev);
-@@ -5828,6 +5839,7 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
- 			case RTL_GIGA_MAC_VER_19:
- 			case RTL_GIGA_MAC_VER_20:
- 			case RTL_GIGA_MAC_VER_21:
-+			case RTL_GIGA_MAC_VER_22:
- 			case RTL_GIGA_MAC_VER_23:
- 			case RTL_GIGA_MAC_VER_24:
- 			case RTL_GIGA_MAC_VER_27:
+[PATCH iproute2] red: try to give hint about burst value
+
+Reported-by: Dave Taht <dave.taht@gmail.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/tc/tc_red.c b/tc/tc_red.c
+index 66658ca..a65435e 100644
+--- a/tc/tc_red.c
++++ b/tc/tc_red.c
+@@ -56,8 +56,11 @@ int tc_red_eval_ewma(unsigned qmin, unsigned burst, =
+unsigned avpkt)
+ 	double W =3D 0.5;
+ 	double a =3D (double)burst + 1 - (double)qmin/avpkt;
+=20
+-	if (a < 1.0)
++	if (a < 1.0) {
++		fprintf(stderr, "tc_red_eval_ewma() burst %u is too small ?"
++				" Try burst %u\n", burst, 1 + qmin/avpkt);
+ 		return -1;
++	}
+ 	for (wlog=3D1; wlog<32; wlog++, W /=3D 2) {
+ 		if (a <=3D (1 - pow(1-W, burst))/W)
+ 			return wlog;
