@@ -1,77 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 6/7] neigh: Add device constructor/destructor
- capability.
-Date: Thu, 01 Dec 2011 14:16:52 -0500 (EST)
-Message-ID: <20111201.141652.836407244493251809.davem@davemloft.net>
-References: <20111130.224151.1479303742039627135.davem@davemloft.net>
-	<1322766515.2797.0.camel@bwh-desktop>
+Subject: [PATCH] dccp: Fix compile warning in probe code.
+Date: Thu, 01 Dec 2011 14:46:50 -0500 (EST)
+Message-ID: <20111201.144650.173157123252154314.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: gerrit@erg.abdn.ac.uk, gerrit@erg.abdn.ac.uk
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37088 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:37282 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756171Ab1LATQ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 14:16:57 -0500
-In-Reply-To: <1322766515.2797.0.camel@bwh-desktop>
+	with ESMTP id S1751142Ab1LATr4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 14:47:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 1 Dec 2011 19:08:35 +0000
-
-> On Wed, 2011-11-30 at 22:41 -0500, David Miller wrote:
->> If the neigh entry has device private state, it will need
->> constructor/destructor ops.
->> 
->> Signed-off-by: David S. Miller <davem@davemloft.net>
->> ---
->>  include/linux/netdevice.h |    2 ++
->>  net/core/neighbour.c      |   15 ++++++++++++++-
->>  2 files changed, 16 insertions(+), 1 deletions(-)
->> 
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index 5462c2c..1c4ddb3 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -974,6 +974,8 @@ struct net_device_ops {
->>  						    netdev_features_t features);
->>  	int			(*ndo_set_features)(struct net_device *dev,
->>  						    netdev_features_t features);
->> +	int			(*ndo_neigh_construct)(struct neighbour *n);
->> +	int			(*ndo_neigh_destroy)(struct neighbour *n);
-> 
-> ndo_neigh_destroy should return void, since the return value is not
-> used:
-
-Agreed:
-
---
-net: Make ndo_neigh_destroy return void.
-
-The return value isn't used.
-
-Suggested by Ben Hucthings.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/linux/netdevice.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 1c4ddb3..21440e3 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -975,7 +975,7 @@ struct net_device_ops {
- 	int			(*ndo_set_features)(struct net_device *dev,
- 						    netdev_features_t features);
- 	int			(*ndo_neigh_construct)(struct neighbour *n);
--	int			(*ndo_neigh_destroy)(struct neighbour *n);
-+	void			(*ndo_neigh_destroy)(struct neighbour *n);
- };
- 
- /*
--- 
-1.7.7.3
+DQpDb21taXQgMTM4NmJlNTVlMzJhM2M1ZDhlZjRhMmIyNDNjNTMwYTdiNjY0YzAyYyAoImRjY3A6
+IGZpeA0KYXV0by1sb2FkaW5nIG9mIGRjY3AoX3Byb2JlKSIpIGZpeGVkIGEgYnVnIGJ1dCBjcmVh
+dGVkIGEgbmV3DQpjb21waWxlciB3YXJuaW5nOg0KDQpuZXQvZGNjcC9wcm9iZS5jOiBJbiBmdW5j
+dGlvbiChZGNjcHByb2JlX2luaXSiOg0KbmV0L2RjY3AvcHJvYmUuYzoxNjY6Mjogd2FybmluZzog
+dGhlIG9taXR0ZWQgbWlkZGxlIG9wZXJhbmQgaW4gPzogd2lsbCBhbHdheXMgYmUgoXRydWWiLCBz
+dWdnZXN0IGV4cGxpY2l0IG1pZGRsZSBvcGVyYW5kIFstV3BhcmVudGhlc2VzXQ0KDQp0cnlfdGhl
+bl9yZXF1ZXN0X21vZHVsZSgpIGlzIGJ1aWx0IGZvciBzaXR1YXRpb25zIHdoZXJlIHRoZQ0KImV4
+aXN0ZW5jZSIgdGVzdCBpcyBzb21lIGxvb2t1cCBmdW5jdGlvbiB0aGF0IHJldHVybnMgYSBub24t
+TlVMTA0Kb2JqZWN0IG9uIHN1Y2Nlc3MsIGFuZCB3aXRoIGEgcmVmZXJlbmNlIGNvdW50IG9mIHNv
+bWUga2luZCBoZWxkLg0KDQpIZXJlIHdlJ3JlIGxvb2tpbmcgZm9yIGEgc3VjY2VzcyByZXR1cm4g
+b2YgemVybyBmcm9tIHRoZSBqcHJvYmUNCnJlZ2lzdHJ5Lg0KDQpJbnN0ZWFkIG9mIGZpZ2h0aW5n
+IHRoZSB3YXkgdHJ5X3RoZW5fcmVxdWVzdF9tb2R1bGUoKSB3b3Jrcywgc2ltcGx5DQpvcGVuIGNv
+ZGUgd2hhdCB3ZSB3YW50IHRvIGhhcHBlbiBpbiBhIGxvY2FsIGhlbHBlciBmdW5jdGlvbi4NCg0K
+U2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KLS0t
+DQogbmV0L2RjY3AvcHJvYmUuYyB8ICAgMTQgKysrKysrKysrKysrLS0NCiAxIGZpbGVzIGNoYW5n
+ZWQsIDEyIGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pDQoNCmRpZmYgLS1naXQgYS9uZXQv
+ZGNjcC9wcm9iZS5jIGIvbmV0L2RjY3AvcHJvYmUuYw0KaW5kZXggMzNkMGU2Mi4uMGE4ZDZlYiAx
+MDA2NDQNCi0tLSBhL25ldC9kY2NwL3Byb2JlLmMNCisrKyBiL25ldC9kY2NwL3Byb2JlLmMNCkBA
+IC0xNTIsNiArMTUyLDE3IEBAIHN0YXRpYyBjb25zdCBzdHJ1Y3QgZmlsZV9vcGVyYXRpb25zIGRj
+Y3Bwcm9iZV9mb3BzID0gew0KIAkubGxzZWVrICA9IG5vb3BfbGxzZWVrLA0KIH07DQogDQorc3Rh
+dGljIF9faW5pdCBpbnQgc2V0dXBfanByb2JlKHZvaWQpDQorew0KKwlpbnQgcmV0ID0gcmVnaXN0
+ZXJfanByb2JlKCZkY2NwX3NlbmRfcHJvYmUpOw0KKw0KKwlpZiAocmV0KSB7DQorCQlyZXF1ZXN0
+X21vZHVsZSgiZGNjcCIpOw0KKwkJcmV0ID0gcmVnaXN0ZXJfanByb2JlKCZkY2NwX3NlbmRfcHJv
+YmUpOw0KKwl9DQorCXJldHVybiByZXQ7DQorfQ0KKw0KIHN0YXRpYyBfX2luaXQgaW50IGRjY3Bw
+cm9iZV9pbml0KHZvaWQpDQogew0KIAlpbnQgcmV0ID0gLUVOT01FTTsNCkBAIC0xNjMsOCArMTc0
+LDcgQEAgc3RhdGljIF9faW5pdCBpbnQgZGNjcHByb2JlX2luaXQodm9pZCkNCiAJaWYgKCFwcm9j
+X25ldF9mb3BzX2NyZWF0ZSgmaW5pdF9uZXQsIHByb2NuYW1lLCBTX0lSVVNSLCAmZGNjcHByb2Jl
+X2ZvcHMpKQ0KIAkJZ290byBlcnIwOw0KIA0KLQl0cnlfdGhlbl9yZXF1ZXN0X21vZHVsZSgocmV0
+ID0gcmVnaXN0ZXJfanByb2JlKCZkY2NwX3NlbmRfcHJvYmUpKSA9PSAwLA0KLQkJCQkiZGNjcCIp
+Ow0KKwlyZXQgPSBzZXR1cF9qcHJvYmUoKTsNCiAJaWYgKHJldCkNCiAJCWdvdG8gZXJyMTsNCiAN
+Ci0tIA0KMS43LjcuMw0KDQo=
