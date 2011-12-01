@@ -1,37 +1,54 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: Bug in computing data_len in tcp_sendmsg?
-Date: Wed, 30 Nov 2011 21:09:30 -0800
-Message-ID: <CA+mtBx9fE0qQc-LndM03ykhVMV5n9Z4KHcD6PpTiy=M79GOnKw@mail.gmail.com>
-References: <CA+mtBx8+sajFaCWqHRr+pY5EAHwN8G61v6cr-HydYhbbdxAgHQ@mail.gmail.com>
-	<1322710962.2577.3.camel@edumazet-laptop>
-	<CA+mtBx_CUsuGunKONwBNA8qyVni16+RtrRL8w=THYY0mEDcvaA@mail.gmail.com>
-	<1322713032.2577.7.camel@edumazet-laptop>
+From: "Greg Scott" <GregScott@Infrasupport.com>
+Subject: RE: ebtables on a stick
+Date: Wed, 30 Nov 2011 23:46:02 -0600
+Message-ID: <925A849792280C4E80C5461017A4B8A2A048F6@mail733.InfraSupportEtc.com>
+References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com> <20111128143901.GA589422@jupiter.n2.diac24.net> <4ED566A8.2000108@ziu.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>
+To: "Michal Soltys" <soltys@ziu.info>,
+	"David Lamparter" <equinox@diac24.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:34157 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750703Ab1LAFJb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 00:09:31 -0500
-Received: by iage36 with SMTP id e36so1898710iag.19
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 21:09:31 -0800 (PST)
-In-Reply-To: <1322713032.2577.7.camel@edumazet-laptop>
+Received: from mail.infrasupportetc.com ([216.160.2.132]:19496 "EHLO
+	mail.infrasupport.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750713Ab1LAFqE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 00:46:04 -0500
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Or the "bug" was to assume that skb was headless.
-> It was true until recently.
->
-> We recently added commit f07d960df33c5aef
-> (tcp: avoid frag allocation for small frames)
->
-> to avoid page allocation for small frames.
->
-> So now, skb can contain in head part of tcp data.
-
-Yes, reverting that patch seems to fix the problem.  Eric, do you have
-an idea what should be used to determine length of headers in an skb
-now (mac through transport).
+V2VsbCB0aGlzIGlzIGZydXN0cmF0aW5nLiAgTm93IG15IHB1YmxpYyBob3N0IGNhbiBjb21tdW5p
+Y2F0ZSBhbnl3aGVyZSBpdCB3YW50cyBpbnRlcm5hbGx5IGJ1dCBub3RoaW5nIG91dHNpZGUuIE1h
+ZGRlbmluZyAtIHRoZSBleGFjdCBvcHBvc2l0ZSBwcm9ibGVtIEkgaGFkIGJlZm9yZS4gIA0KDQpI
+ZXJlIGlzIHRoZSBjb25maWcgYXMgaXQgc2l0cyByaWdodCBub3c6DQoNClB1YmxpYyBJUCBob3N0
+IChhIFdpbmRvd3MgWFAgc3lzdGVtIHBsYWNlaG9sZGVyIGZvciBub3cpDQpJUCAxLjIuMTE1LjE1
+NywgZGVmYXVsdCBndyAxLjIuMTE1LjE0Ni4NCg0KTXkgdGVzdCBpbnRlcm5hbCBob3N0IC0gMTky
+LjE2OC4xMC4yLiAgVGhpcyBvbmUgaXMgYW4gb3JkaW5hcnkgV2luZG93cyBzZXJ2ZXIuDQoNCkZp
+cmV3YWxsIGV0aDAgLSAxLjIuMTE1LjE0Ni8yOA0KRmlyZXdhbGwgZXRoMSAtIDE5Mi4xNjguMTAu
+MS4gDQoNCi9zYmluL2lwIG5laWdoIGFkZCBwcm94eSAxLjIuMTE1LjE1NyBkZXYgZXRoMA0KL3Ni
+aW4vaXAgcm91dGUgYWRkIDEuMi4xMTUuMTU3LzMyIGRldiBldGgxDQoNCkFzIGEgdHJvdWJsZXNo
+b290aW5nIHN0ZXAsIEkgYWxzbyBwdXQgaW46DQovc2Jpbi9pcCBhZGRyIGFkZCAxLjIuMTE1LjE0
+Ni8yOCBkZXYgZXRoMTsgc28gbm93IGJvdGggZXRoMCBhbmQgZXRoMSBoYXZlIHRoZSBzYW1lIElQ
+IEFkZHJlc3MuICBUaGlzIGZlZWxzIHVnbHkgYW5kIEkgdGhpbmsgSSdsbCB0YWtlIGl0IG91dCBi
+ZWNhdXNlIGl0IG1hZGUgbm8gZGlmZmVyZW5jZS4gIA0KDQpBbGwgZXZpZGVuY2Ugb2YgZWJ0YWJs
+ZXMgcnVsZXMgYW5kIGJybm4gaW50ZXJmYWNlcyBhcmUgZ29uZS4gIA0KDQpBbmQgdGhlIHJlbGV2
+YW50IGlwdGFibGVzIHJ1bGVzOg0KDQokSVBUQUJMRVMgLXQgbmF0IC1BIFBPU1RST1VUSU5HIC1z
+ICQxLjIuMTE1LjE1NyAtaiBBQ0NFUFQNCg0KJElQVEFCTEVTIC1BIEZPUldBUkQgLXMgMS4yLjEx
+NS4xNTcgLWogQUNDRVBUDQokSVBUQUJMRVMgLUEgRk9SV0FSRCAtcyAxOTIuMTY4LjEwLjAvMjQg
+LWQgMS4yLjExNS4xNTcgLWogQUNDRVBUDQokSVBUQUJMRVMgLUEgRk9SV0FSRCAtcCBUQ1AgLS1k
+cG9ydCAxNzIwIC1kICRBRFIgLWogYWxsb3dlZA0KJElQVEFCTEVTIC1BIEZPUldBUkQgLXAgVENQ
+IC1zICRNR01UX0lQIC1kICRBRFIgLWogYWxsb3dlZA0KDQokTUdNVF9JUCBpcyB0aGUgcHVibGlj
+IHNpZGUgb2YgbXkgaG9tZSBvZmZpY2UuICANCg0KQW5kIGZpbmFsbHk6DQoNCiRJUFRBQkxFUyAt
+dCBuYXQgLUEgUFJFUk9VVElORyAtZCAxLjIuMTE1LjE1NyAtaiBBQ0NFUFQNCg0KV2hlbiBteSBw
+dWJsaWMgaG9zdCBwaW5ncywgc2F5LCBnb29nbGUsIHdhdGNoaW5nIG9uIHRoZSBmaXJld2FsbCB3
+aXRoIHRjcGR1bXAsIEkgc2VlIHRoZSBJQ01QIGVjaG8gcmVxdWVzdCBjb21lIGluIG9uIGV0aDEg
+YW5kIGdvIG91dCBldGgwLiAgU28gZmFyIHNvIGdvb2QuIFRoZSBJQ01QIGVjaG8gcmVwbHkgY29t
+ZXMgYmFjayBvbiBldGgwLCBzdGlsbCBnb29kLiAgQnV0IEkgbmV2ZXIgZm9yd2FyZCBpdCBvdmVy
+IHRvIGV0aDEgYW5kIGl0IGRpZXMgcmlnaHQgdGhlcmUuICBUaGUgcHVibGljIGhvc3QgbmV2ZXIg
+c2VlcyB0aGUgcmVwbHkuIA0KDQpOb3RoaW5nIG5hdHMgdG8vZnJvbSB0aGlzIGFkZHJlc3MuICBU
+Y3BkdW1wIHNob3dzIHRoZSBJUCBBZGRyZXNzZXMgSSBleHBlY3QgdG8gc2VlLiAgQW5kIEkgZG9u
+J3QgaGF2ZSBhbnkgIi10IHJhdyAtaiBOT1RSQUNLIiBzdHVmZiBiZWNhdXNlIEkgd2lsbCBldmVu
+dHVhbGx5IHdhbnQgdG8gdXNlIHRoZSBILjMyMyBjb25udHJhY2sgaGVscGVyIHdpdGggdGhpcy4g
+IA0KDQpNYXliZSBhIGdvb2QgbmlnaHQncyBzbGVlcCB3aWxsIGhlbHAuDQoNCi0gR3JlZw0KDQo=
