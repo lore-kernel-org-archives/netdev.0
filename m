@@ -1,53 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next-next 0/2] can: cc770: add support for the Bosch
- CC770 and Intel AN82527
-Date: Thu, 01 Dec 2011 13:09:07 -0500 (EST)
-Message-ID: <20111201.130907.1276930495409347261.davem@davemloft.net>
-References: <4ED5CF14.4020502@hartkopp.net>
-	<20111130.160727.1989923062226789802.davem@davemloft.net>
-	<4ED73117.1020101@hartkopp.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: wg@grandegger.com, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, mkl@pengutronix.de,
-	urs@isnogud.escape.de
-To: socketcan@hartkopp.net
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4ED73117.1020101@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: [PATCH] drivers/net/ethernet/tile: use skb_frag_page() API
+Date: Thu, 1 Dec 2011 12:56:03 -0500
+Message-ID: <201112011815.pB1IFD2t004910@farm-0002.internal.tilera.com>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Date: Thu, 01 Dec 2011 08:47:35 +0100
+This replaces raw access to the "page" field of the skb_frag_t.
 
-> On 30.11.2011 22:07, David Miller wrote:
-> 
-> To make it clear:
-> 
-> 	Wolfgang Grandegger maintains drivers/net/can
-> 
-> and
-> 
-> 	Oliver Hartkopp maintains net/can
-> 
-> As Marc Kleine-Budde is also very active in CAN driver development we should
-> probably add him to the drivers/net/can maintainers.
-> 
-> We'll continue the discussion on linux-can ML and give an update to the
-> MAINTAINERS file if we sorted out any changes. So far Wolfgang and me remain
-> the 'only interface' for you. Sorry for the traffic & confusion on netdev.
+Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+---
+ drivers/net/ethernet/tile/tilepro.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-I said I want one person.  One person who periodically send me GIT pull requests
-or a patch series for "CAN updates" of all kinds.
-
-Just like how the wireless stuff is maintained.  They don't send me driver vs.
-protcol layer vs. rfcomm vs. bluetooth changes seperately, John Linville collects
-everything and sends me periodic pull requests.
-
-And this is what I want from you guys.  One person who explicitly says "Dave, please
-take in these CAN changes" rather than the confusing manner in which changes get
-submitted currently.
-
-Thanks.
-
+diff --git a/drivers/net/ethernet/tile/tilepro.c b/drivers/net/ethernet/tile/tilepro.c
+index 10826d8..1c0f9fa 100644
+--- a/drivers/net/ethernet/tile/tilepro.c
++++ b/drivers/net/ethernet/tile/tilepro.c
+@@ -1697,7 +1697,7 @@ static unsigned int tile_net_tx_frags(lepp_frag_t *frags,
+ 	for (i = 0; i < sh->nr_frags; i++) {
+ 
+ 		skb_frag_t *f = &sh->frags[i];
+-		unsigned long pfn = page_to_pfn(f->page);
++		unsigned long pfn = page_to_pfn(skb_frag_page(f));
+ 
+ 		/* FIXME: Compute "hash_for_home" properly. */
+ 		/* ISSUE: The hypervisor checks CHIP_HAS_REV1_DMA_PACKETS(). */
+@@ -1706,7 +1706,7 @@ static unsigned int tile_net_tx_frags(lepp_frag_t *frags,
+ 		/* FIXME: Hmmm. */
+ 		if (!hash_default) {
+ 			void *va = pfn_to_kaddr(pfn) + f->page_offset;
+-			BUG_ON(PageHighMem(f->page));
++			BUG_ON(PageHighMem(skb_frag_page(f)));
+ 			finv_buffer_remote(va, f->size, 0);
+ 		}
+ 
+-- 
+1.6.5.2
