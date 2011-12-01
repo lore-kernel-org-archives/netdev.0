@@ -1,34 +1,91 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dsa: Include linux/if_ether.h to fix build error
-Date: Thu, 01 Dec 2011 12:41:19 -0500 (EST)
-Message-ID: <20111201.124119.485939880534098580.davem@davemloft.net>
-References: <1322726838.14554.3.camel@phoenix>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH 1/2] unix: Reformat proc files creation
+Date: Thu, 01 Dec 2011 21:41:43 +0400
+Message-ID: <4ED7BC57.5070903@parallels.com>
+References: <4ED7BC37.2030805@parallels.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: axel.lin@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1322726838.14554.3.camel@phoenix>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:44555 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755739Ab1LARlu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Dec 2011 12:41:50 -0500
+In-Reply-To: <4ED7BC37.2030805@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Axel Lin <axel.lin@gmail.com>
-Date: Thu, 01 Dec 2011 16:07:18 +0800
+This just makes codepaths better prepared for yet another
+proc file creation.
 
-> Include linux/if_ether.h to fix below build errors:
-> 
->   CC      arch/arm/mach-kirkwood/common.o
-> In file included from arch/arm/mach-kirkwood/common.c:19:
-> include/net/dsa.h: In function 'dsa_uses_dsa_tags':
-> include/net/dsa.h:192: error: 'ETH_P_DSA' undeclared (first use in this function)
-> include/net/dsa.h:192: error: (Each undeclared identifier is reported only once
-> include/net/dsa.h:192: error: for each function it appears in.)
-> include/net/dsa.h: In function 'dsa_uses_trailer_tags':
-> include/net/dsa.h:197: error: 'ETH_P_TRAILER' undeclared (first use in this function)
-> make[1]: *** [arch/arm/mach-kirkwood/common.o] Error 1
-> make: *** [arch/arm/mach-kirkwood] Error 2
-> 
-> Signed-off-by: Axel Lin <axel.lin@gmail.com>
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
-Applied.
+---
+ net/unix/af_unix.c |   34 +++++++++++++++++++++++++++-------
+ 1 files changed, 27 insertions(+), 7 deletions(-)
+
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 466fbcc..4b83a9c 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2326,6 +2326,29 @@ static const struct file_operations unix_seq_fops = {
+ 	.release	= seq_release_net,
+ };
+ 
++static int unix_proc_create(struct net *net)
++{
++	if (!proc_net_fops_create(net, "unix", 0, &unix_seq_fops))
++		goto out;
++
++	return 0;
++out:
++	return -ENOMEM;
++}
++
++static void unix_proc_destroy(struct net *net)
++{
++	proc_net_remove(net, "unix");
++}
++#else
++static inline int unix_proc_create(struct net *net)
++{
++	return 0;
++}
++
++static inline void unix_proc_destroy(struct net *net)
++{
++}
+ #endif
+ 
+ static const struct net_proto_family unix_family_ops = {
+@@ -2343,13 +2366,10 @@ static int __net_init unix_net_init(struct net *net)
+ 	if (unix_sysctl_register(net))
+ 		goto out;
+ 
+-#ifdef CONFIG_PROC_FS
+-	if (!proc_net_fops_create(net, "unix", 0, &unix_seq_fops)) {
++	error = unix_proc_create(net);
++	if (error)
+ 		unix_sysctl_unregister(net);
+-		goto out;
+-	}
+-#endif
+-	error = 0;
++
+ out:
+ 	return error;
+ }
+@@ -2357,7 +2377,7 @@ out:
+ static void __net_exit unix_net_exit(struct net *net)
+ {
+ 	unix_sysctl_unregister(net);
+-	proc_net_remove(net, "unix");
++	unix_proc_destroy(net);
+ }
+ 
+ static struct pernet_operations unix_net_ops = {
+-- 
+1.5.5.6
