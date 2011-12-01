@@ -1,34 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] netconsole: implement ipv4 tos support
-Date: Thu, 01 Dec 2011 04:50:07 +0100
-Message-ID: <1322711407.2577.4.camel@edumazet-laptop>
-References: <1322702330-31325-1-git-send-email-zenczykowski@gmail.com>
-	 <20111130173435.5e63afda@nehalam.linuxnetplumber.net>
-	 <CANP3RGfwUr3ho3Tz_cfVz4CBJWMktOb7MDbUYYXz7XfjErw7Zg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bonding: only use primary address for ARP
+Date: Wed, 30 Nov 2011 23:00:15 -0500 (EST)
+Message-ID: <20111130.230015.1895271350696416498.davem@davemloft.net>
+References: <20111124093715.GA25365@as68121.uab.ericsson.se>
+	<20111130220709.GI25132@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: Maciej =?UTF-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: henrik.e.persson@ericsson.com, netdev@vger.kernel.org,
+	fubar@us.ibm.com
+To: andy@greyhouse.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:43121 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753451Ab1LADuL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 22:50:11 -0500
-Received: by eaak14 with SMTP id k14so1587448eaa.19
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 19:50:10 -0800 (PST)
-In-Reply-To: <CANP3RGfwUr3ho3Tz_cfVz4CBJWMktOb7MDbUYYXz7XfjErw7Zg@mail.gmail.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:58183 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753660Ab1LAEA3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 23:00:29 -0500
+In-Reply-To: <20111130220709.GI25132@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 30 novembre 2011 =C3=A0 18:11 -0800, Maciej =C5=BBenczykows=
-ki a
-=C3=A9crit :
+From: Andy Gospodarek <andy@greyhouse.net>
+Date: Wed, 30 Nov 2011 17:07:10 -0500
 
-> TOS values are relevant within a LAN/WAN/Organization/AS, but are not
-> relevant internet-wide.
-> Almost all AS-boundary gateways/routers will do TOS remarking to thei=
-r
-> own internal specifications.
+> On Thu, Nov 24, 2011 at 10:37:15AM +0100, Henrik Saavedra Persson wrote:
+>> Only use the primary address of the bond device
+>> for master_ip. This will prevent changing the ARP source
+>> address in Active-Backup mode whenever a secondry address
+>> is added to the bond device.
+>> 
+>> Signed-off-by: Henrik Saavedra Persson <henrik.e.persson@ericsson.com>
+ ...
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 
-Thats a shame, especially if ECN is screwed up.
+Applied, thanks for reviewing Andy.
