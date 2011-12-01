@@ -1,44 +1,28 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference at
- 000000000000002c
-Date: Thu, 1 Dec 2011 13:23:09 -0500
-Message-ID: <20111201182309.GA10686@infradead.org>
-References: <4ED7C367.3070109@profihost.ag>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v6 0/4] can: cc770: add support for the Bosch
+ CC770 and Intel AN82527
+Date: Thu, 01 Dec 2011 13:24:32 -0500 (EST)
+Message-ID: <20111201.132432.1539033709144831964.davem@davemloft.net>
+References: <1322732481-2255-1-git-send-email-wg@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Dave Chinner <david@fromorbit.com>,
-	stable@vger.kernel.org
-To: Stefan Priebe <s.priebe@profihost.ag>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:43256
-	"EHLO bombadil.infradead.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756016Ab1LASXM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 13:23:12 -0500
-Content-Disposition: inline
-In-Reply-To: <4ED7C367.3070109@profihost.ag>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	socketcan-users@lists.berlios.de
+To: wg@grandegger.com
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1322732481-2255-1-git-send-email-wg@grandegger.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 01, 2011 at 07:11:51PM +0100, Stefan Priebe wrote:
-> Hi,
-> 
-> i'm not quite sure if this is an XFS thing or a tcp thing. As the
-> stacktrace confuses me a little but as it contains
-> xfs_bmap_search_extents and xfs_iunlock. Kernel is 3.0.11 running as
-> 2.6.40.11.
-> 
-> [171464.091567] BUG: unable to handle kernel NULL pointer
-> dereference at 000000000000002c
-> [171464.092073] IP: [<ffffffff815494f6>] ipv4_dst_check+0xb6/0x190
-> [171464.092073] PGD 15344e067 PUD 14c821067 PMD 0
-> [171464.092073] Oops: 0002 [#1] SMP
-> 
-> Full Stacktrace:
-> http://pastebin.com/raw.php?i=QNg6jD2t
+From: Wolfgang Grandegger <wg@grandegger.com>
+Date: Thu,  1 Dec 2011 10:41:17 +0100
 
-The ? entries mean even the backtrace code things they are unreliable,
-and mos of the cases I've seen they are wrong.  In this case it looks
-like the process was doing XFS work before, but the current system call
-indeed is purely in the networking code.
+> Already since a while we have support for the Bosch CC770 and Intel
+> AN82527 CAN controllers in our out-of-tree Socket-CAN repository.
+> 
+> In the meantime I found a TQM855L board with two AN82527 on it,
+> which allowed me to provide and test a generic platform driver
+> as well.
 
-I've changed the cc list to the netdev list which is more appropinquate.
+Applied.
