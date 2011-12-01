@@ -1,49 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: net_device flags is an unsigned int
-Date: Thu, 01 Dec 2011 00:05:28 -0500 (EST)
-Message-ID: <20111201.000528.1901790543147589391.davem@davemloft.net>
-References: <1322714077.2577.12.camel@edumazet-laptop>
-	<20111130.233918.564313369312715101.davem@davemloft.net>
-	<1322714894.2577.19.camel@edumazet-laptop>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: Bug in computing data_len in tcp_sendmsg?
+Date: Wed, 30 Nov 2011 21:09:30 -0800
+Message-ID: <CA+mtBx9fE0qQc-LndM03ykhVMV5n9Z4KHcD6PpTiy=M79GOnKw@mail.gmail.com>
+References: <CA+mtBx8+sajFaCWqHRr+pY5EAHwN8G61v6cr-HydYhbbdxAgHQ@mail.gmail.com>
+	<1322710962.2577.3.camel@edumazet-laptop>
+	<CA+mtBx_CUsuGunKONwBNA8qyVni16+RtrRL8w=THYY0mEDcvaA@mail.gmail.com>
+	<1322713032.2577.7.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58588 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750703Ab1LAFFa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 00:05:30 -0500
-In-Reply-To: <1322714894.2577.19.camel@edumazet-laptop>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:34157 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750703Ab1LAFJb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 00:09:31 -0500
+Received: by iage36 with SMTP id e36so1898710iag.19
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 21:09:31 -0800 (PST)
+In-Reply-To: <1322713032.2577.7.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 01 Dec 2011 05:48:14 +0100
+> Or the "bug" was to assume that skb was headless.
+> It was true until recently.
+>
+> We recently added commit f07d960df33c5aef
+> (tcp: avoid frag allocation for small frames)
+>
+> to avoid page allocation for small frames.
+>
+> So now, skb can contain in head part of tcp data.
 
-> Le mercredi 30 novembre 2011 =E0 23:39 -0500, David Miller a =E9crit =
-:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Thu, 01 Dec 2011 05:34:37 +0100
->>=20
->> > -	unsigned short old_flags =3D dev->flags;
->> > +	typeof(dev->flags) old_flags =3D dev->flags;
->>=20
->> Please, create netdev_flags_t or similar, anything but this :-)
->=20
-> Hmm, I thought Linus hated types like this...
-
-Yes, it is true.  But look at netdev_features_t
-
-> Or how explain we dont have jiffies_t or similar ? ;)
-
-:-)
-
-Like you I just want something that automatically tracks any future
-changes to the type.  However I want something that doesn't look so
-ugly like that typeof() thing.
-
-Sure, use typeof() in macros, you can hide it in such places.
-
-But please not in plain sight in *.c files.
+Yes, reverting that patch seems to fix the problem.  Eric, do you have
+an idea what should be used to determine length of headers in an skb
+now (mac through transport).
