@@ -1,51 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: master device stuck in no-carrier
- state forever when in user-stp mode
-Date: Thu, 01 Dec 2011 14:05:48 -0500 (EST)
-Message-ID: <20111201.140548.1596323918646956109.davem@davemloft.net>
-References: <201111251216.37466.vitas@nppfactor.kiev.ua>
-	<20111201104409.2d04ca06@nehalam.linuxnetplumber.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 6/7] neigh: Add device constructor/destructor
+ capability.
+Date: Thu, 1 Dec 2011 19:08:35 +0000
+Message-ID: <1322766515.2797.0.camel@bwh-desktop>
+References: <20111130.224151.1479303742039627135.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: shemminger@vyatta.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20111201104409.2d04ca06@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:59224 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755974Ab1LATIm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 14:08:42 -0500
+In-Reply-To: <20111130.224151.1479303742039627135.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Thu, 1 Dec 2011 10:44:09 -0800
+On Wed, 2011-11-30 at 22:41 -0500, David Miller wrote:
+> If the neigh entry has device private state, it will need
+> constructor/destructor ops.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  include/linux/netdevice.h |    2 ++
+>  net/core/neighbour.c      |   15 ++++++++++++++-
+>  2 files changed, 16 insertions(+), 1 deletions(-)
+> 
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 5462c2c..1c4ddb3 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -974,6 +974,8 @@ struct net_device_ops {
+>  						    netdev_features_t features);
+>  	int			(*ndo_set_features)(struct net_device *dev,
+>  						    netdev_features_t features);
+> +	int			(*ndo_neigh_construct)(struct neighbour *n);
+> +	int			(*ndo_neigh_destroy)(struct neighbour *n);
 
-> On Fri, 25 Nov 2011 12:16:37 +0200
-> Vitalii Demianets <vitas@nppfactor.kiev.ua> wrote:
-> 
->> When in user-stp mode, bridge master do not follow state of its slaves, so 
->> after the following sequence of events it can stuck forever in no-carrier 
->> state:
->> 1) turn stp off
->> 2) put all slaves down - master device will follow their state and also go in 
->> no-carrier state
->> 3) turn stp on with bridge-stp script returning 0 (go to the user-stp mode)
->> Now bridge master won't follow slaves' state and will never reach running 
->> state.
->> 
->> This patch solves the problem by making user-stp and kernel-stp behavior 
->> similar regarding master following slaves' states.
->> 
->> Signed-off-by: Vitalii Demianets <vitas@nppfactor.kiev.ua>
-> 
-> This method works fine. David please apply to -net.
-> 
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+ndo_neigh_destroy should return void, since the return value is not
+used:
 
-Done.
+[...]
+> @@ -707,7 +717,10 @@ void neigh_destroy(struct neighbour *neigh)
+>  	skb_queue_purge(&neigh->arp_queue);
+>  	neigh->arp_queue_len_bytes = 0;
+>  
+> -	dev_put(neigh->dev);
+> +	if (dev->netdev_ops->ndo_neigh_destroy)
+> +		dev->netdev_ops->ndo_neigh_destroy(neigh);
+> +
+> +	dev_put(dev);
+>  	neigh_parms_put(neigh->parms);
+>  
+>  	NEIGH_PRINTK2("neigh %p is destroyed.\n", neigh);
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
