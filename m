@@ -1,41 +1,68 @@
-From: =?UTF-8?Q?R=C3=A9mi_Denis-Courmont?= <remi@remlab.net>
-Subject: Re: [RFC 2/3] =?UTF-8?Q?if=5Fether=2Eh=3A=20Add=20IEEE=20=38=30=32=2E=31?=
- =?UTF-8?Q?=20Local=20Experimental=20Ethertype=20=31=2E?=
-Date: Thu, 01 Dec 2011 08:13:57 +0100
-Message-ID: <5636a5efd90c56b538569ab019d7be4c@chewa.net>
-References: <1322685846-7790-1-git-send-email-sjur.brandeland@stericsson.com> <1322685846-7790-3-git-send-email-sjur.brandeland@stericsson.com>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: ebtables on a stick
+Date: Thu, 1 Dec 2011 08:14:56 +0100
+Message-ID: <20111201071456.GJ589422@jupiter.n2.diac24.net>
+References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com>
+ <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com>
+ <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com>
+ <20111128143901.GA589422@jupiter.n2.diac24.net>
+ <4ED566A8.2000108@ziu.info>
+ <925A849792280C4E80C5461017A4B8A2A048F6@mail733.InfraSupportEtc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org
+To: Greg Scott <GregScott@Infrasupport.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:38904 "EHLO yop.chewa.net"
+Received: from spaceboyz.net ([87.106.131.203]:54282 "EHLO spaceboyz.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751201Ab1LAHN7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Dec 2011 02:13:59 -0500
-In-Reply-To: <1322685846-7790-3-git-send-email-sjur.brandeland@stericsson.com>
+	id S1751306Ab1LAHPD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Dec 2011 02:15:03 -0500
+Content-Disposition: inline
+In-Reply-To: <925A849792280C4E80C5461017A4B8A2A048F6@mail733.InfraSupportEtc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 30 Nov 2011 21:44:05 +0100, Sjur Br=EF=BF=BD=EF=BF=BDndeland=0D
-<sjur.brandeland@stericsson.com> wrote:=0D
-> From: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>=0D
-> =0D
-> Add EthType 0x88b5.=0D
-> This Ethertype value is available for public use for prototype and=0D
-> vendor-specific protocol development,as defined in Amendment 802a=0D
-> to IEEE Std 802.=0D
-=0D
-I don't think you can just go and steal a reserved EtherType. What if s=
-ome=0D
-user-space (using packet sockets) or out-of-tree kernel driver does act=
-ual=0D
-"experiment" with this type?=0D
-=0D
-Why don't you define your own link-layer, e.g. with a vendor-specific C=
-DC=0D
-profile?=0D
-=0D
--- =0D
-R=C3=A9mi Denis-Courmont=0D
-http://www.remlab.net/
+On Wed, Nov 30, 2011 at 11:46:02PM -0600, Greg Scott wrote:
+> Well this is frustrating.  Now my public host can communicate anywhere it wants internally but nothing outside. Maddening - the exact opposite problem I had before.  
+> 
+> Here is the config as it sits right now:
+> 
+> Public IP host (a Windows XP system placeholder for now)
+> IP 1.2.115.157, default gw 1.2.115.146.
+
+Note that since the IP should be 1.2.115.157/_32_, it doesn't make any
+difference whether you use 1.2.115.146 for the defgw or 192.168.10.1,
+since both are out-of-subnet.
+
+> Firewall eth0 - 1.2.115.146/28
+> Firewall eth1 - 192.168.10.1. 
+> 
+> /sbin/ip neigh add proxy 1.2.115.157 dev eth0
+> /sbin/ip route add 1.2.115.157/32 dev eth1
+> 
+> As a troubleshooting step, I also put in:
+> /sbin/ip addr add 1.2.115.146/28 dev eth1; so now both eth0 and eth1 have the same IP Address.  This feels ugly and I think I'll take it out because it made no difference.  
+
+I agree, please remove.
+
+> And the relevant iptables rules:
+> 
+> $IPTABLES -t nat -A POSTROUTING -s $1.2.115.157 -j ACCEPT
+> $IPTABLES -t nat -A PREROUTING -d 1.2.115.157 -j ACCEPT
+> 
+> $IPTABLES -A FORWARD -s 1.2.115.157 -j ACCEPT
+
+Where is the reverse rule of this? -d 1.2.115.157 -j ACCEPT
+
+> $IPTABLES -A FORWARD -s 192.168.10.0/24 -d 1.2.115.157 -j ACCEPT
+> $IPTABLES -A FORWARD -p TCP --dport 1720 -d $ADR -j allowed
+> $IPTABLES -A FORWARD -p TCP -s $MGMT_IP -d $ADR -j allowed
+
+(what's $ADR?)
+[...]
+> The ICMP echo reply comes back on eth0, still good.  But I never forward it over to eth1 and it dies right there.  The public host never sees the reply. 
+
+Firewall rules?
+
+
+-David
