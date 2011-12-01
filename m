@@ -1,33 +1,29 @@
-From: Michal Soltys <soltys@ziu.info>
-Subject: Re: ebtables on a stick
-Date: Thu, 01 Dec 2011 18:44:08 +0100
-Message-ID: <4ED7BCE8.1040307@ziu.info>
-References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com> <20111128143901.GA589422@jupiter.n2.diac24.net> <4ED566A8.2000108@ziu.info> <925A849792280C4E80C5461017A4B8A2A048F6@mail733.InfraSupportEtc.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] netem: fix build error on 32bit arches
+Date: Thu, 01 Dec 2011 12:46:17 -0500 (EST)
+Message-ID: <20111201.124617.1650707926728373968.davem@davemloft.net>
+References: <cfd2e2c26063da002d8afe76991ff0c1@localhost>
+	<1322730108.2335.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<1322731934.2335.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org
-To: Greg Scott <GregScott@Infrasupport.com>
+Cc: hagen@jauu.net, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from drutsystem.com ([80.72.38.138]:1904 "EHLO drutsystem.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755751Ab1LARoN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Dec 2011 12:44:13 -0500
-In-Reply-To: <925A849792280C4E80C5461017A4B8A2A048F6@mail733.InfraSupportEtc.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:36328 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755280Ab1LARqX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 12:46:23 -0500
+In-Reply-To: <1322731934.2335.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11-12-01 06:46, Greg Scott wrote:
-> Well this is frustrating.  Now my public host can communicate anywhere
-> it wants internally but nothing outside. Maddening - the exact
-> opposite problem I had before.
-> 
-> 
-> $IPTABLES -A FORWARD -s 1.2.115.157 -j ACCEPT
-> $IPTABLES -A FORWARD -s 192.168.10.0/24 -d 1.2.115.157 -j ACCEPT
-> $IPTABLES -A FORWARD -p TCP --dport 1720 -d $ADR -j allowed
-> $IPTABLES -A FORWARD -p TCP -s $MGMT_IP -d $ADR -j allowed
-> 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 01 Dec 2011 10:32:14 +0100
 
-And accepting traffic to 1.2.115.157 from the outside ? Are there any -m
-state / -m conntrack --ctstate entries in your rules ?
+> ERROR: "__udivdi3" [net/sched/sch_netem.ko] undefined!
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+Applied.
