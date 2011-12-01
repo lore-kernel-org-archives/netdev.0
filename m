@@ -1,55 +1,57 @@
-From: Weiping Pan <panweiping3@gmail.com>
-Subject: [PATCH net] ipv4: flush route cache after change accept_local
-Date: Thu,  1 Dec 2011 19:47:56 +0800
-Message-ID: <1e224b52de77dcd5f994c8e4c77c780c6996e4a4.1322740026.git.panweiping3@gmail.com>
-Cc: Weiping Pan <panweiping3@gmail.com>,
-	"David S. Miller" <davem@davemloft.net> (maintainer:NETWORKING
-	[IPv4/...),
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> (maintainer:NETWORKING
-	[IPv4/...),
-	James Morris <jmorris@namei.org> (maintainer:NETWORKING [IPv4/...),
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org> (maintainer:NETWORKING
-	[IPv4/...),
-	Patrick McHardy <kaber@trash.net> (maintainer:NETWORKING [IPv4/...),
-	netdev@vger.kernel.org (open list:NETWORKING [IPv4/...),
-	linux-kernel@vger.kernel.org (open list)
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Patrick Kelle <patrick.kelle81@gmail.com>
+Subject: [PATCH v2] icplus: mdio_write(), remove unnecessary for loop
+Date: Thu,  1 Dec 2011 14:26:56 +0100
+Message-ID: <1322746016-2835-1-git-send-email-patrick.kelle81@gmail.com>
+Cc: davem@davemloft.net, romieu@fr.zoreil.com, sorbica@icplus.com.tw,
+	Patrick Kelle <patrick.kelle81@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:49701 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754086Ab1LAN3f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 08:29:35 -0500
+Received: by eaak14 with SMTP id k14so2128952eaa.19
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2011 05:29:34 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-After reset ipv4_devconf->data[IPV4_DEVCONF_ACCEPT_LOCAL] to 0,
-we should flash route cache, or it will continue receive packets with local
-source address, which should be dropped.
+At this point the variable j is always set to 7 and the code within
+the loop has to run only once anyway.
 
-Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+As suggested by David Miller:
+"You can simply this even further since p[7] is what is used here,
+and this means len is one, the inner loop therefore executes only
+once, and the p[7].field value is not used (it's zero in the table)
+and the write to it is completely thrown away."
+
+Signed-off-by: Patrick Kelle <patrick.kelle81@gmail.com>
 ---
- net/ipv4/devinet.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/icplus/ipg.c |   13 +++----------
+ 1 files changed, 3 insertions(+), 10 deletions(-)
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index c6b5092..de1a772 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1490,7 +1490,9 @@ static int devinet_conf_proc(ctl_table *ctl, int write,
- 			     void __user *buffer,
- 			     size_t *lenp, loff_t *ppos)
- {
-+	int old_value = *(int *)ctl->data;
- 	int ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
-+	int new_value = *(int *)ctl->data;
- 
- 	if (write) {
- 		struct ipv4_devconf *cnf = ctl->extra1;
-@@ -1501,6 +1503,9 @@ static int devinet_conf_proc(ctl_table *ctl, int write,
- 
- 		if (cnf == net->ipv4.devconf_dflt)
- 			devinet_copy_dflt_conf(net, i);
-+		if ((i == IPV4_DEVCONF_ACCEPT_LOCAL - 1))
-+			if ((new_value == 0) && (old_value != 0))
-+				rt_cache_flush(net, 0);
+diff --git a/drivers/net/ethernet/icplus/ipg.c b/drivers/net/ethernet/icplus/ipg.c
+index 8fd80a0..075451d 100644
+--- a/drivers/net/ethernet/icplus/ipg.c
++++ b/drivers/net/ethernet/icplus/ipg.c
+@@ -371,16 +371,9 @@ static void mdio_write(struct net_device *dev, int phy_id, int phy_reg, int val)
  	}
  
- 	return ret;
+ 	/* The last cycle is a tri-state, so read from the PHY. */
+-	for (j = 7; j < 8; j++) {
+-		for (i = 0; i < p[j].len; i++) {
+-			ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_LO | polarity);
+-
+-			p[j].field |= ((ipg_r8(PHY_CTRL) &
+-				IPG_PC_MGMTDATA) >> 1) << (p[j].len - 1 - i);
+-
+-			ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_HI | polarity);
+-		}
+-	}
++	ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_LO | polarity);
++	ipg_r8(PHY_CTRL);
++	ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_HI | polarity);
+ }
+ 
+ static void ipg_set_led_mode(struct net_device *dev)
 -- 
-1.7.4
+1.7.7.1
