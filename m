@@ -1,32 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/core: fix rollback handler in
- register_netdevice_notifier
-Date: Wed, 30 Nov 2011 23:43:29 -0500 (EST)
-Message-ID: <20111130.234329.51988978321225025.davem@davemloft.net>
-References: <1322707070-9514-1-git-send-email-roy.qing.li@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: net_device flags is an unsigned int
+Date: Thu, 01 Dec 2011 05:48:14 +0100
+Message-ID: <1322714894.2577.19.camel@edumazet-laptop>
+References: <1322714077.2577.12.camel@edumazet-laptop>
+	 <20111130.233918.564313369312715101.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58465 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752296Ab1LAEnb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 23:43:31 -0500
-In-Reply-To: <1322707070-9514-1-git-send-email-roy.qing.li@gmail.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:60394 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752296Ab1LAEsT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 23:48:19 -0500
+Received: by eaak14 with SMTP id k14so1624685eaa.19
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 20:48:18 -0800 (PST)
+In-Reply-To: <20111130.233918.564313369312715101.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: roy.qing.li@gmail.com
-Date: Thu,  1 Dec 2011 10:37:50 +0800
+Le mercredi 30 novembre 2011 =C3=A0 23:39 -0500, David Miller a =C3=A9c=
+rit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 01 Dec 2011 05:34:37 +0100
+>=20
+> > -	unsigned short old_flags =3D dev->flags;
+> > +	typeof(dev->flags) old_flags =3D dev->flags;
+>=20
+> Please, create netdev_flags_t or similar, anything but this :-)
 
-> From: RongQing.Li <roy.qing.li@gmail.com>
-> 
-> Within nested statements, the break statement terminates only the
-> do, for, switch, or while statement that immediately encloses it,
-> So replace the break with goto.
-> 
-> Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
+Hmm, I thought Linus hated types like this...
 
-Good catch, applied, thanks.
+Or how explain we dont have jiffies_t or similar ? ;)
+
+Other choice would be a generic macro...
+
+int dev_set_promiscuity(struct net_device *dev, int inc)
+{
+DEFINE_VARIABLE(temp, dev->flags);
+=2E..
+}
+
+Hmm...
