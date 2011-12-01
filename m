@@ -1,47 +1,51 @@
-From: Samuel Ortiz <sameo@linux.intel.com>
-Subject: Re: [PATCH 1/4] nfc: Use standard logging styles
-Date: Thu, 1 Dec 2011 20:09:41 +0100
-Message-ID: <20111201190941.GJ22609@sortiz-mobl>
-References: <cover.1322595343.git.joe@perches.com>
- <6c89a76ddb76926febe36fe5be514cb186e39a76.1322595343.git.joe@perches.com>
- <20111201155951.GF22609@sortiz-mobl>
- <1322765318.30801.9.camel@joe2Laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bridge: master device stuck in no-carrier
+ state forever when in user-stp mode
+Date: Thu, 01 Dec 2011 14:05:48 -0500 (EST)
+Message-ID: <20111201.140548.1596323918646956109.davem@davemloft.net>
+References: <201111251216.37466.vitas@nppfactor.kiev.ua>
+	<20111201104409.2d04ca06@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1322765318.30801.9.camel@joe2Laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: shemminger@vyatta.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20111201104409.2d04ca06@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi Joe,
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Thu, 1 Dec 2011 10:44:09 -0800
 
-On Thu, Dec 01, 2011 at 10:48:38AM -0800, Joe Perches wrote:
-> > I would be fine with moving to pr_debug, but I'd like the pr_fmt() routine to
-> > include the function name as well.
+> On Fri, 25 Nov 2011 12:16:37 +0200
+> Vitalii Demianets <vitas@nppfactor.kiev.ua> wrote:
 > 
-> If you really want it I can add it back but
-> if you are not aware, dynamic debug can add
-> this by using:
+>> When in user-stp mode, bridge master do not follow state of its slaves, so 
+>> after the following sequence of events it can stuck forever in no-carrier 
+>> state:
+>> 1) turn stp off
+>> 2) put all slaves down - master device will follow their state and also go in 
+>> no-carrier state
+>> 3) turn stp on with bridge-stp script returning 0 (go to the user-stp mode)
+>> Now bridge master won't follow slaves' state and will never reach running 
+>> state.
+>> 
+>> This patch solves the problem by making user-stp and kernel-stp behavior 
+>> similar regarding master following slaves' states.
+>> 
+>> Signed-off-by: Vitalii Demianets <vitas@nppfactor.kiev.ua>
 > 
-> echo "module nfc +fp" > <debugfs>/dynamic_debug/control
-> echo "module nci +fp" > <debugfs>/dynamic_debug/control
-Yes, I'm aware of that.
+> This method works fine. David please apply to -net.
+> 
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
- 
-> If you're getting dmesg logs from customers
-> that's a bit harder to track though.
-Exactly. I'd prefer to have the __func__ being part of the pr_fmt().
-
-Cheers,
-Samuel.
-
--- 
-Intel Open Source Technology Centre
-http://oss.intel.com/
+Done.
