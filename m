@@ -1,63 +1,54 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: ipv4: broadcast sometimes leaves wrong interface (since commit
- e066008b38ca9ace1b6de8dbbac8ed460640791d)
-Date: Thu, 1 Dec 2011 23:00:27 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1112012252270.1634@ja.ssi.bg>
-References: <1322585087.25018.115.camel@icts-sp-039>  <alpine.LFD.2.00.1111300010150.2020@ja.ssi.bg>  <20111129.182333.365445684859306013.davem@davemloft.net>  <alpine.LFD.2.00.1111300148400.2328@ja.ssi.bg> <1322756728.12482.52.camel@icts-sp-039>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BUG: unable to handle kernel NULL pointer dereference at
+ 000000000000002c
+Date: Thu, 01 Dec 2011 22:05:27 +0100
+Message-ID: <1322773527.2750.27.camel@edumazet-laptop>
+References: <4ED7C367.3070109@profihost.ag>
+	 <20111201182309.GA10686@infradead.org>
+	 <1322770844.2750.1.camel@edumazet-laptop>
+	 <CA+5PVA6kZkgYus4698Up8Q8uMTetCU2=DnTD0RpgXuHkJj6KKg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jeroen van Ingen <jeroen@zijndomein.nl>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Christoph Hellwig <hch@infradead.org>,
+	Stefan Priebe <s.priebe@profihost.ag>, netdev@vger.kernel.org,
+	Dave Chinner <david@fromorbit.com>, stable@vger.kernel.org
+To: Josh Boyer <jwboyer@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:54150 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753453Ab1LAU7n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Dec 2011 15:59:43 -0500
-In-Reply-To: <1322756728.12482.52.camel@icts-sp-039>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:40599 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753691Ab1LAVFc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 16:05:32 -0500
+In-Reply-To: <CA+5PVA6kZkgYus4698Up8Q8uMTetCU2=DnTD0RpgXuHkJj6KKg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le jeudi 01 d=C3=A9cembre 2011 =C3=A0 15:37 -0500, Josh Boyer a =C3=A9c=
+rit :
 
-	Hello,
+> Did you mean f2c31e32bf2c31e32b378a665 ? =20
 
-On Thu, 1 Dec 2011, Jeroen van Ingen wrote:
+Oh well, yes ;)
 
-> FYI: we successfully tested two scenarios that provide a workaround with
-> the current kernel versions:
-> 
-> 1) Explicitly configuring Radius to use one of the secondary IPs as
-> source for the DHCP broadcast. Since the IP we chose is only bound to
-> eth0, this broadcast goes out the correct interface. Other
-> system-generated broadcast would probably still go out the wrong
-> interface, but at least it allows us to accept more than one PPTP
-> client.
-> 
-> 2) Adding an option to the "pppd" config, so the ppp-devices it creates
-> do not use the primary IP from eth0 but rather one of the secondary
-> addresses. This way we don't have to modify any other software that
-> might generate a broadcast.
-> 
-> 
-> While the second option provides a workable solution for us, we're still
-> under the impression that this change in behavior might cause a problem
-> for other users and/or configurations as well. We'll leave the rest of
-> the considerations to the real experts, while remaining curious about
-> the outcome :)
+> > But this patch needs some followup patches (some of them in David n=
+et
+> > tree, not yet in Linus tree)
+>=20
+> 9de79c127cccecb11ae6a21ab1499e87aa222880 (net: fix potential neighbou=
+r
+> race in dst_ifdown()) is in Linus' tree.  Which others are missing?
 
-	Yes, thanks for confirming that this is the actual
-problem! I hope David will find the best way to restore
-this feature.
+Hmm
 
-> Thanks again for your assistance.
-> 
-> 
-> Regards,
-> 
-> Jeroen van Ingen
-> ICT Service Centre
-> University of Twente, P.O.Box 217, 7500 AE Enschede, The Netherlands
+Linus tree :
 
-Regards
+commit 580da35a31f91a594f3090b7a2c39b85cb051a12
+IB: Fix RCU lockdep splats
 
---
-Julian Anastasov <ja@ssi.bg>
+David tree :
+
+commit 218fa90f072e4aeff9003d57e390857f4f35513e
+ipv4: fix lockdep splat in rt_cache_seq_show
+
+commit f7e57044eeb1841847c24aa06766c8290c202583
+sch_teql: fix lockdep splat
