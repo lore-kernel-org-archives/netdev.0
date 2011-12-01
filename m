@@ -1,71 +1,53 @@
-From: Hans Schillstrom <hans@schillstrom.com>
-Subject: Re: [v4 PATCH 1/2] NETFILTER module xt_hmark, new target for HASH based fwmark
-Date: Thu, 1 Dec 2011 01:52:36 +0100
-Message-ID: <201112010152.36659.hans@schillstrom.com>
-References: <hr62jai.42522fc2b4c8846204d05566f5c6b926@obelix.schillstrom.com> <4ED64B5E.2030705@trash.net> <20111130182815.GC20336@1984>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH v4 06/10] e1000e: Support for byte queue limits
+Date: Wed, 30 Nov 2011 17:04:38 -0800
+Message-ID: <CA+mtBx-8AzEyUc3GVD+mEQoqUZeaB9hjSJonRW_SjOQaTx51mQ@mail.gmail.com>
+References: <alpine.DEB.2.00.1111281819350.24413@pokey.mtv.corp.google.com>
+	<20111129130137.000009ce@unknown>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, jengelh@medozas.de,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	hans.schillstrom@ericsson.com
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-gw21.han.skanova.net ([81.236.55.21]:42701 "EHLO
-	smtp-gw21.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753380Ab1LAAwj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 19:52:39 -0500
-In-Reply-To: <20111130182815.GC20336@1984>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:57561 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753866Ab1LABEj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2011 20:04:39 -0500
+Received: by ggnr5 with SMTP id r5so1270097ggn.19
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 17:04:38 -0800 (PST)
+In-Reply-To: <20111129130137.000009ce@unknown>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> whats wrong with using total_tx_bytes or buffer_info->bytecount? =A0i=
+t
+> contains the "bytes on the wire" value which will be slightly larger
+> than skb->len, but avoids warming the skb->len cacheline unnecessaril=
+y.
+>
 
-On Wednesday, November 30, 2011 19:28:15 Pablo Neira Ayuso wrote:
-> On Wed, Nov 30, 2011 at 04:27:26PM +0100, Patrick McHardy wrote:
-> > On 11/28/2011 10:36 AM, Hans Schillstrom wrote:
-> > >>If you don't want to use conntrack in your setup and you want to handle
-> > >>fragments, then you have to configure HMARK to calculate the hashing
-> > >>based on the network addresses. If you want to fully support fragments,
-> > >>then enable conntrack and you can configure HMARK to calculate the
-> > >>hashing based on network address + transport bits.
-> > >>
-> > >>Fix this by removing the fragmentation handling, then assume that
-> > >>people can select between two hashing configuration for HMARK. One
-> > >>based for network address which is fragment-safe, one that uses the
-> > >>transport layer information, that requires conntrack. Otherwise, I
-> > >>don't see a sane way to handle this situation.
-> > >Correct me if I'm wrong here,
-> > >If conntrack is enabled hmark don't see the packet until it is reassembled and
-> > >in that case the fragmentation header is removed.
-> > >
-> > >So, with conntrack HMARK will operate on full packets not fragments
-> > >without conntrack ports will not be used on any fragment
-> > 
-> > Correct.
-> 
-> To complete what Patrick said. They are collected but not linearized.
-> That's why you have to use skb_header_pointer.
-OK, thanks
-I'll will do that.
+This makes sense.  I made the changes, but the limits computed are
+much higher than with using sbk->len.  I suspect there may be a bug in
+GSO path.
 
-> 
-> > You don't necessarily need conntrack for defragmentation though,
-> > we've moved defragmentation to a seperate module for TPROXY. You
-> > can depend on that and get defragmentation without full
-> > connection tracking.
-> 
-> Indeed, I missed this. That way you can skip conntrack but solving the
-> broken fragments handling.
+=46or instance, in the driver at:
 
-In a cluster with inputs on many different blades (with a Virtual IP address) you can
-receive the fragments on different blades and in that case there should not be any
-defrag in that node. HMARK will just produce the same fw-mark for all fragments.
+  bytecount =3D ((segs - 1) * skb_headlen(skb)) + skb->len;
 
-In our case defrag will happens in next hop i.e. before going into IPVS.
+I see cases like:
 
-As mention earlier, this needs to be documented better.
-I will add this to the man page.
+  segs=3D34, skb_header_len(skb)=3D70, skb->len=3D49298 so bytecount=3D=
+51608
 
-Thanks
-Hans
+Which seems reasonable... but, I also see things like:
+
+  segs=3D45, skb_header_len(skb)=3D1522, skb->len=3D65226, so bytecount=
+=3D 132194
+                                                      ^^^^
+Which doesn't seem right at all.  I am thinking there may be a bug
+setting skb->data_len improperly.
+
+Tom
