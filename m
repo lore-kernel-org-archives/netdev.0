@@ -1,33 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 0/10] bql: Byte Queue Limits
-Date: Thu, 01 Dec 2011 13:00:45 -0500 (EST)
-Message-ID: <20111201.130045.2061330448127491799.davem@davemloft.net>
-References: <20111129.124715.163094087536706067.davem@davemloft.net>
-	<CA+mtBx_-_4zzweT61vYKe-c8ngMO9jF5PoYa4gC1aNKREjbwgQ@mail.gmail.com>
-	<20111201165018.GA19451@tugrik.mns.mnsspb.ru>
+Subject: Re: [PATCH] bridge: Cannot communicate with brX when its
+ MAC address is changed
+Date: Thu, 01 Dec 2011 13:02:50 -0500 (EST)
+Message-ID: <20111201.130250.796100558647164266.davem@davemloft.net>
+References: <4ED5E9D6.3070404@jp.fujitsu.com>
+	<20111201092106.00473fed@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: kirr@mns.spb.ru
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36449 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755813Ab1LASA6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 13:00:58 -0500
-In-Reply-To: <20111201165018.GA19451@tugrik.mns.mnsspb.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sanagi.koki@jp.fujitsu.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, shemminger@linux-foundation.org
+To: shemminger@vyatta.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20111201092106.00473fed@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Kirill Smelkov <kirr@mns.spb.ru>
-Date: Thu, 1 Dec 2011 20:50:18 +0400
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Thu, 1 Dec 2011 09:21:06 -0800
 
-> One "regression" is it is now not possible to disable BQL at compile time,
-> because CONFIG_BQL can't be set to "n" via usual ways.
+> Looked into using fdb to handle this, but then there would be fdb entries
+> where the destination port entry was either NULL (or a dummy), and that
+> would require a bunch of auditing of all usages and could introduce new
+> bugs.
 > 
-> Description and patch below. Thanks.
+> I am testing a patch that does same thing by moving compare_ether up
+> to where broadcast is tested.
 
-It's intentional, and your patch will not be applied.
+Stephen please fix this bug correctly.
 
-The Kconfig entry and option is merely for expressing internal dependencies,
-not for providing a way to disable the code.
+The bug is that the FDB gets updated with the initial MAC address, but
+doesn't get updated when the MAC address changes.
+
+There is no other valid fix than to update the FDB when the MAC changes,
+and making whatever is necessary for that to work.
+
+I'm not applying a patch that adds a MAC address comparison here, because
+you might was well not add the FDB entry in the first place if you're
+going to add a hack like that.
