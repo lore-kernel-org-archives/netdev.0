@@ -1,69 +1,55 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [v4 PATCH 1/2] NETFILTER module xt_hmark, new target 	for HASH
- based fwmark
-Date: Thu, 01 Dec 2011 12:46:08 +0100
-Message-ID: <4ED76900.6000108@trash.net>
-References: <jec613b.2c905808e36d8b8192d285d691c5499b@obelix.schillstrom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, jengelh@medozas.de,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	hans.schillstrom@ericsson.com
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <jec613b.2c905808e36d8b8192d285d691c5499b@obelix.schillstrom.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Weiping Pan <panweiping3@gmail.com>
+Subject: [PATCH net] ipv4: flush route cache after change accept_local
+Date: Thu,  1 Dec 2011 19:47:56 +0800
+Message-ID: <1e224b52de77dcd5f994c8e4c77c780c6996e4a4.1322740026.git.panweiping3@gmail.com>
+Cc: Weiping Pan <panweiping3@gmail.com>,
+	"David S. Miller" <davem@davemloft.net> (maintainer:NETWORKING
+	[IPv4/...),
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> (maintainer:NETWORKING
+	[IPv4/...),
+	James Morris <jmorris@namei.org> (maintainer:NETWORKING [IPv4/...),
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org> (maintainer:NETWORKING
+	[IPv4/...),
+	Patrick McHardy <kaber@trash.net> (maintainer:NETWORKING [IPv4/...),
+	netdev@vger.kernel.org (open list:NETWORKING [IPv4/...),
+	linux-kernel@vger.kernel.org (open list)
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/01/2011 12:39 PM, Hans Schillstrom wrote:
-> t: Re: [v4 PATCH 1/2] NETFILTER module xt_hmark, new target for HASH based fwmark
->> On 12/01/2011 12:05 PM, Hans Schillstrom wrote:
->>>>>> And final question, why not simply use ipv6_skip_exthdr()?
->>>>> problems with fragments...
->>>> So the probem is that it will return the transport layer protocol
->>>> header for fragments with frag_off == 0? We also have ipv6_find_hdr()
->>>> which we could modify to indicate this in the frag_off pointer.
->>> ipv6_find_hdr() will do the trick with a light modification
->>> What about a wrapper like:
->>>
->>> int __ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
->>> 		  int target, unsigned short *fragoff,  int *fragflg)
->>> {
->>> ...
->>> 		if (nexthdr == NEXTHDR_FRAGMENT) {
->>> 			unsigned short _frag_off;
->>> 			__be16 *fp;
->>>
->>> 			if (fragflg)
->>> 			        fragflg = 1;
->>> 			fp = skb_header_pointer(skb,
->>> 						start+offsetof(struct frag_hdr,
->>> 							       frag_off),
->>> 						sizeof(_frag_off),
->>> 						&_frag_off);
->>>
->>> ...
->>> }
->>>
->>> int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
->>> 		  int target, unsigned short *fragoff)
->>> {
->>>           return __ipv6_find_hdr(skb, offset, terget, fragoff, NULL);
->>> }
->> Hmm that would require to change all current callers.
-> Nope, ipv6_find_hdr()  looks the same,
-> __ipv6_find_hdr() have an extra param.
+After reset ipv4_devconf->data[IPV4_DEVCONF_ACCEPT_LOCAL] to 0,
+we should flash route cache, or it will continue receive packets with local
+source address, which should be dropped.
 
-Ah, right, apparently need more coffee :)
+Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+---
+ net/ipv4/devinet.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
->> I was more thinking of unconditionally setting *frag_off in case of
->> fragments, then you can initialize it to some impossible value
->> like 0xffff and determine the presence of a fragment header
->> based on its value after calling ipv6_find_hdr().
-> That's another way  :-)
->
-> Which one do you prefer ?
-
-You way seems cleaner to me, lets do that.
-
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index c6b5092..de1a772 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1490,7 +1490,9 @@ static int devinet_conf_proc(ctl_table *ctl, int write,
+ 			     void __user *buffer,
+ 			     size_t *lenp, loff_t *ppos)
+ {
++	int old_value = *(int *)ctl->data;
+ 	int ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
++	int new_value = *(int *)ctl->data;
+ 
+ 	if (write) {
+ 		struct ipv4_devconf *cnf = ctl->extra1;
+@@ -1501,6 +1503,9 @@ static int devinet_conf_proc(ctl_table *ctl, int write,
+ 
+ 		if (cnf == net->ipv4.devconf_dflt)
+ 			devinet_copy_dflt_conf(net, i);
++		if ((i == IPV4_DEVCONF_ACCEPT_LOCAL - 1))
++			if ((new_value == 0) && (old_value != 0))
++				rt_cache_flush(net, 0);
+ 	}
+ 
+ 	return ret;
+-- 
+1.7.4
