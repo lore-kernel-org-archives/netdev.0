@@ -1,45 +1,64 @@
-From: Axel Lin <axel.lin@gmail.com>
-Subject: [PATCH] dsa: Include linux/if_ether.h to fix build error
-Date: Thu, 01 Dec 2011 16:07:18 +0800
-Message-ID: <1322726838.14554.3.camel@phoenix>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH v3 net-next 2/2] netem: add cell concept to simulate  special MAC behavior
+Date: Thu, 01 Dec 2011 09:25:20 +0100
+Message-ID: <cfd2e2c26063da002d8afe76991ff0c1@localhost>
+References: <1322691627-20551-1-git-send-email-hagen@jauu.net>
+ <1322691627-20551-2-git-send-email-hagen@jauu.net>
+ <1322710225.2577.1.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, Stephen Hemminger <shemminger@vyatta.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:34126 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751676Ab1LAIZY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 03:25:24 -0500
+In-Reply-To: <1322710225.2577.1.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Include linux/if_ether.h to fix below build errors:
 
-  CC      arch/arm/mach-kirkwood/common.o
-In file included from arch/arm/mach-kirkwood/common.c:19:
-include/net/dsa.h: In function 'dsa_uses_dsa_tags':
-include/net/dsa.h:192: error: 'ETH_P_DSA' undeclared (first use in this function)
-include/net/dsa.h:192: error: (Each undeclared identifier is reported only once
-include/net/dsa.h:192: error: for each function it appears in.)
-include/net/dsa.h: In function 'dsa_uses_trailer_tags':
-include/net/dsa.h:197: error: 'ETH_P_TRAILER' undeclared (first use in this function)
-make[1]: *** [arch/arm/mach-kirkwood/common.o] Error 1
-make: *** [arch/arm/mach-kirkwood] Error 2
+On Thu, 01 Dec 2011 04:30:25 +0100, Eric Dumazet wrote:
 
-Signed-off-by: Axel Lin <axel.lin@gmail.com>
----
- include/net/dsa.h |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index b78db3c..7828ebf 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -11,6 +11,7 @@
- #ifndef __LINUX_NET_DSA_H
- #define __LINUX_NET_DSA_H
- 
-+#include <linux/if_ether.h>
- #include <linux/list.h>
- #include <linux/timer.h>
- #include <linux/workqueue.h>
--- 
-1.7.5.4
+
+> Thats a multiply instead of a divide. On many cpus thats a lot faster.
+
+>
+
+> Think about a super packet (TSO) of 65000 bytes and cell_size=64
+
+
+
+I've never imagined that I am going to say the following: you are wrong,
+
+Eric! (ok, maybe you are right ;-)
+
+
+
+TSO and Netem is a no-go. With netem you are strongly advised to disable
+
+offloading. I mean TSO will result in _one_ delay of several minutes,
+
+followed by a burst of packets. Instead of packets spaced by several
+
+seconds (with the rate of 1000byte/s) - which is what you wan't.
+
+
+
+To sum up: skb->len is _never_ larger as the MTU for (normal, correct)
+
+network emulation setups with netem. This was the assumption why I
+
+preferred the iterative solution over the div/mod solution.
+
+
+
+Did I miss something?
+
+
+
+Hagen
