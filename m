@@ -1,84 +1,76 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [v4 PATCH 1/2] NETFILTER module xt_hmark, new target for HASH
- based fwmark
-Date: Thu, 01 Dec 2011 11:05:13 +0100
-Message-ID: <4ED75159.5000604@trash.net>
-References: <1322213787-25796-1-git-send-email-hans@schillstrom.com> <1322213787-25796-2-git-send-email-hans@schillstrom.com> <4ED65107.1040309@trash.net> <201112010125.29627.hans@schillstrom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4 06/10] e1000e: Support for byte queue limits
+Date: Thu, 01 Dec 2011 11:12:14 +0100
+Message-ID: <1322734334.2335.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <alpine.DEB.2.00.1111281819350.24413@pokey.mtv.corp.google.com>
+	 <20111129130137.000009ce@unknown>
+	 <CA+mtBx-8AzEyUc3GVD+mEQoqUZeaB9hjSJonRW_SjOQaTx51mQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, jengelh@medozas.de,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	hans.schillstrom@ericsson.com
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <201112010125.29627.hans@schillstrom.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:64461 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752788Ab1LAKMS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 05:12:18 -0500
+Received: by vcbfk14 with SMTP id fk14so1269879vcb.19
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2011 02:12:18 -0800 (PST)
+In-Reply-To: <CA+mtBx-8AzEyUc3GVD+mEQoqUZeaB9hjSJonRW_SjOQaTx51mQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/01/2011 01:25 AM, Hans Schillstrom wrote:
-> On Wednesday, November 30, 2011 16:51:35 Patrick McHardy wrote:
->> On 11/25/2011 10:36 AM, Hans Schillstrom wrote:
->>> +
->>> +hdr_new:
->>> +	/* Get header info */
->>> +	ip6 = (struct ipv6hdr *) (skb->data + nhoff);
->>> +	nexthdr = ip6->nexthdr;
->>> +	hdrlen = sizeof(struct ipv6hdr);
->>> +	hp = skb_header_pointer(skb, nhoff + hdrlen, sizeof(_hdr),&_hdr);
->>> +
->>> +	while (nexthdr) {
->>> +		switch (nexthdr) {
->>> +		case IPPROTO_ICMPV6:
->>> +			/* ICMP Error then move ptr to inner header */
->>> +			if (get_inner6_hdr(skb,&nhoff, hdrlen)) {
->> This doesn't look right. You assume the ICMPv6 header is following
->> the IPv6 header with any other headers in between. If there are
->> other headers, hdrlen will contain the length of the last header.
->
-> RFC-4443  "Every ICMPv6 message is preceded by an IPv6 header and zero or more IPv6 extension headers."
-> hdrlen is actually previous header length in bytes, to be correct.
-> nhoff is the sum of processed headers.
-> So in case of an icmp the nhoff will be updated, and hdrlen preset to ipv6hdr size
+Le mercredi 30 novembre 2011 =C3=A0 17:04 -0800, Tom Herbert a =C3=A9cr=
+it :
+> > whats wrong with using total_tx_bytes or buffer_info->bytecount?  i=
+t
+> > contains the "bytes on the wire" value which will be slightly large=
+r
+> > than skb->len, but avoids warming the skb->len cacheline unnecessar=
+ily.
+> >
+>=20
+> This makes sense.  I made the changes, but the limits computed are
+> much higher than with using sbk->len.  I suspect there may be a bug i=
+n
+> GSO path.
+>=20
+> For instance, in the driver at:
+>=20
+>   bytecount =3D ((segs - 1) * skb_headlen(skb)) + skb->len;
+>=20
+> I see cases like:
+>=20
+>   segs=3D34, skb_header_len(skb)=3D70, skb->len=3D49298 so bytecount=3D=
+51608
+>=20
+> Which seems reasonable... but, I also see things like:
+>=20
+>   segs=3D45, skb_header_len(skb)=3D1522, skb->len=3D65226, so bytecou=
+nt=3D 132194
+>                                                       ^^^^
+> Which doesn't seem right at all.  I am thinking there may be a bug
+> setting skb->data_len improperly.
+>=20
 
-Right, I missed that you're using nhoff + hdrlen in
-get_inner6_hdr().
+OK, as stated on your other thread, its obvious this driver (and
+probably other intel drivers) made assumptions that are now obsolete,
+since skb head can contain some data payload, not only (MAC+IP+TCP)
+headers.
 
->>> +				ip6hdrlvl++;
->>> +				if (!pskb_may_pull(skb, sizeof(_hdr) + nhoff))
->>> +					return XT_CONTINUE;
->>> +				goto hdr_new;
->>> +			}
->>> +			nhoff += hdrlen;
->>> +			goto hdr_rdy;
->>> +
->>> +		case NEXTHDR_FRAGMENT:
->>> +			if (!ip6hdrlvl) /* Do not use ports if fragmented */
->>> +				frag = 1;
->> Shouldn't you also check for fragment offset == 0 here?
-> According to the RFC "Initialized to zero for transmission; ignored on reception"
+If Intel guys cannot afford approximate the bytecount by skb->len, I
+suggest to use same trick found in=20
+drivers/net/ethernet/intel/igb/igb_main.c
 
-No, what I meant is that for the first fragment, you do
-have the upper layer header available. But as we already
-discussed for a stable identifier you want to ignore it
-anyways.
+static int igb_tso(struct igb_ring *tx_ring,=20
+=2E..
+        /* compute header lengths */
+        l4len =3D tcp_hdrlen(skb);
+        *hdr_len =3D skb_transport_offset(skb) + l4len;
 
->>> +		case NEXTHDR_TCP:
->>> +		case NEXTHDR_UDP:
->>> +		case NEXTHDR_ESP:
->>> +		case NEXTHDR_AUTH:
->> Don't you want to use the port numbers if only authentication
->> without encryption is used?
-> with esp or ah the SPI will be used instead of ports.
-> Useful or not I don't know since they are asymmetric in terms of a flow.
-
-Yes, but with AH you could either use the ESP SPI or if no ESP
-is used the port numbers of the upper layer protocol.
-
->> And final question, why not simply use ipv6_skip_exthdr()?
-> problems with fragments...
-
-So the probem is that it will return the transport layer protocol
-header for fragments with frag_off == 0? We also have ipv6_find_hdr()
-which we could modify to indicate this in the frag_off pointer.
-
+        /* update gso size and bytecount with header size */
+        first->gso_segs =3D skb_shinfo(skb)->gso_segs;
+        first->bytecount +=3D (first->gso_segs - 1) * *hdr_len;
