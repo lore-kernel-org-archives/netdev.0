@@ -1,30 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: net_device flags is an unsigned int
-Date: Thu, 01 Dec 2011 12:39:35 -0500 (EST)
-Message-ID: <20111201.123935.1114224762183791317.davem@davemloft.net>
-References: <1322725346.2577.31.camel@edumazet-laptop>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH 0/2] unix: Introduce /proc/net/unix_peers file
+Date: Thu, 01 Dec 2011 21:41:11 +0400
+Message-ID: <4ED7BC37.2030805@parallels.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36233 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751142Ab1LARjl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 12:39:41 -0500
-In-Reply-To: <1322725346.2577.31.camel@edumazet-laptop>
+Received: from mailhub.sw.ru ([195.214.232.25]:23379 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755746Ab1LARlU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Dec 2011 12:41:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 01 Dec 2011 08:42:26 +0100
+Hi.
 
-> commit b00055aacdb ([NET] core: add RFC2863 operstate) changed
-> net_device flags from unsigned short to unsigned int.
-> 
-> Some core functions still assume its an unsigned short.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+There's a common problem with unix sockets -- there's no way to determine
+which tasks are connected to each other with a unix socket. Although the
+/proc/<pid>/fd/<n> symlink shows a socket inode number, the peers do not
+share an inode and thus these numbers give no answer.
 
-Applied.
+There have been an attempt last year to print the peer=<number> for unbound
+sockets in the existing /proc/net/unix file, but it was left unfinished and
+had problems with bound sockets - for those the peer inode was still unknown
+and the name didn't help at all.
+
+I'd like to have this ability (determining the unix connection endpoints)
+implemented and propose to introduce a /proc/net/unix_peers file with socket
+inode number pairs. For not connected sockets 0 is printed.
+
+Are there strong objections against this approach?
+
+Patches apply to net-next tree.
+
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
