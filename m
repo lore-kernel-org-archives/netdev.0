@@ -1,31 +1,42 @@
-From: "Greg Scott" <GregScott@Infrasupport.com>
-Subject: RE: ebtables on a stick
-Date: Thu, 1 Dec 2011 10:56:52 -0600
-Message-ID: <925A849792280C4E80C5461017A4B8A2A048FA@mail733.InfraSupportEtc.com>
-References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com> <20111128143901.GA589422@jupiter.n2.diac24.net> <4ED566A8.2000108@ziu.info> <925A849792280C4E80C5461017A4B8A2A048F6@mail733.InfraSupportEtc.com> <20111201071456.GJ589422@jupiter.n2.diac24.net> <925A849792280C4E80C5461017A4B8A2A048F8@mail733.InfraSupportEtc.com> <20111201144745.GK589422@jupiter.n2.diac24.net> <925A849792280C4E80C5461017A4B8A2A048F9@mail733.InfraSupportEtc.com> <20111201165040.GL589422@jupiter.n2.diac24.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH v3 net-next 2/2] netem: add cell concept to simulate
+ special MAC behavior
+Date: Thu, 1 Dec 2011 08:57:01 -0800
+Message-ID: <20111201085701.02f885c5@nehalam.linuxnetplumber.net>
+References: <20111201082436.20f21e52@nehalam.linuxnetplumber.net>
+	<AE90C24D6B3A694183C094C60CF0A2F6D8AEFA@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "David Lamparter" <equinox@diac24.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Hagen Paul Pfeifer" <hagen@jauu.net>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>
+To: "David Laight" <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.infrasupportetc.com ([216.160.2.132]:29848 "EHLO
-	mail.infrasupport.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755407Ab1LAQ4x convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 11:56:53 -0500
-Content-class: urn:content-classes:message
+Received: from mail.vyatta.com ([76.74.103.46]:47054 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755407Ab1LAQ5F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Dec 2011 11:57:05 -0500
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6D8AEFA@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> # ip -4 a l eth0; ip r l match 0.0.0.0; ip r l exact 10.255.255.1
-> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-> state UNKNOWN qlen 1000
->     inet 87.106.131.203/32 scope global eth0
-> default via 10.255.255.1 dev eth0
-> 10.255.255.1 dev eth0  scope link
+On Thu, 1 Dec 2011 16:38:51 -0000
+"David Laight" <David.Laight@ACULAB.COM> wrote:
 
-Wow, how does that even work?  Every time I think I know something, I
-get challenged.  I should make that a slogan.
+>  
+> > One idea to do small delays at higher speed is to insert 
+> > dummy pad frames into the device.
+> > It would mean generating garbage, but would allow for
+> > highly accurate fine grain delay.
+> 
+> Not a good idea.
+> They would have to be sent to a known MAC address
+> otherwise all the ethernet switches would forward them
+> on all output ports.
+> 
+> 	David
+> 
+> 
 
-- Greg
+Yes it would have to be a constant destination, not sure if there
+is a discard value in Ethernet protocol spec.
