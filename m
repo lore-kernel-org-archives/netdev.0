@@ -1,83 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2] net: net_device flags is an unsigned int
-Date: Thu, 01 Dec 2011 08:42:26 +0100
-Message-ID: <1322725346.2577.31.camel@edumazet-laptop>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH next-next 0/2] can: cc770: add support for the Bosch CC770
+ and Intel AN82527
+Date: Thu, 01 Dec 2011 08:47:35 +0100
+Message-ID: <4ED73117.1020101@hartkopp.net>
+References: <1322136448-7311-1-git-send-email-wg@grandegger.com>	<20111129.183950.1327835803051184146.davem@davemloft.net>	<4ED5CF14.4020502@hartkopp.net> <20111130.160727.1989923062226789802.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Cc: wg@grandegger.com, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>,
+	Urs Thuermann <urs@isnogud.escape.de>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:43579 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752582Ab1LAHmc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 02:42:32 -0500
-Received: by eeaq14 with SMTP id q14so265943eea.19
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2011 23:42:31 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20111130.160727.1989923062226789802.davem@davemloft.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit b00055aacdb ([NET] core: add RFC2863 operstate) changed
-net_device flags from unsigned short to unsigned int.
+On 30.11.2011 22:07, David Miller wrote:
 
-Some core functions still assume its an unsigned short.
+> From: Oliver Hartkopp <socketcan@hartkopp.net>
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/core/dev.c |   14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+>>>> Wolfgang Grandegger (2):
+>>>>   can: cc770: add driver core for the Bosch CC770 and Intel AN82527
+>>>>   can: cc770: legacy CC770 ISA bus driver
+>>>
+>>> All applied, thank you.
+>>
+>>
+>> Hello Dave,
+>>
+>> this patchset was superseded for some time.
+>>
+>> We're currently in the v4 patchset (dated 2011-11-29).
+>>
+>> See http://patchwork.ozlabs.org/patch/128244/
+>>
+>> Do you want to revert the commit or should Wolfgang post a diff patch to get
+>> to v4 ??
+> 
+> A not very good job was done here communicating to me what is happening.
+> Endless revisions, and not clear indication to me what should or should
+> not be applied as a result.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 5a13edf..2cf02f9 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4539,7 +4539,7 @@ static void dev_change_rx_flags(struct net_device *dev, int flags)
- 
- static int __dev_set_promiscuity(struct net_device *dev, int inc)
- {
--	unsigned short old_flags = dev->flags;
-+	unsigned int old_flags = dev->flags;
- 	uid_t uid;
- 	gid_t gid;
- 
-@@ -4596,7 +4596,7 @@ static int __dev_set_promiscuity(struct net_device *dev, int inc)
-  */
- int dev_set_promiscuity(struct net_device *dev, int inc)
- {
--	unsigned short old_flags = dev->flags;
-+	unsigned int old_flags = dev->flags;
- 	int err;
- 
- 	err = __dev_set_promiscuity(dev, inc);
-@@ -4623,7 +4623,7 @@ EXPORT_SYMBOL(dev_set_promiscuity);
- 
- int dev_set_allmulti(struct net_device *dev, int inc)
- {
--	unsigned short old_flags = dev->flags;
-+	unsigned int old_flags = dev->flags;
- 
- 	ASSERT_RTNL();
- 
-@@ -4726,7 +4726,7 @@ EXPORT_SYMBOL(dev_get_flags);
- 
- int __dev_change_flags(struct net_device *dev, unsigned int flags)
- {
--	int old_flags = dev->flags;
-+	unsigned int old_flags = dev->flags;
- 	int ret;
- 
- 	ASSERT_RTNL();
-@@ -4809,10 +4809,10 @@ void __dev_notify_flags(struct net_device *dev, unsigned int old_flags)
-  *	Change settings on device based state flags. The flags are
-  *	in the userspace exported format.
-  */
--int dev_change_flags(struct net_device *dev, unsigned flags)
-+int dev_change_flags(struct net_device *dev, unsigned int flags)
- {
--	int ret, changes;
--	int old_flags = dev->flags;
-+	int ret;
-+	unsigned int changes, old_flags = dev->flags;
- 
- 	ret = __dev_change_flags(dev, flags);
- 	if (ret < 0)
+
+Well in this case i was just astonished why you applied a superseded patch set
+- but i must admit that the pile-up of posted versions was a bit confusing.
+Even there were platform and devtree patches that needed to be acked by other
+maintainers - IMO we should post these patches on netdev only when they are
+already acked by the platform/devtree guys.
+
+@Wolfgang/Marc: We should return to discuss the CAN relevant patches on
+linux-can@vger.kernel.org before posting them on netdev. Don't know why this
+established & good process has changed over the time ...
+
+> I want you guys to appoint someone to be the defacto CAN driver and
+> subsystem maintainer who collects and merges all the driver and
+> protocol patches into his tree, and acts as the one and only interface
+> for me when changes are ready to be included.
+
+
+I'm also not very happy someone else acking changes of my maintained sources -
+sometimes it feels like Wild West to me, who's acking first :-(
+
+To make it clear:
+
+	Wolfgang Grandegger maintains drivers/net/can
+
+and
+
+	Oliver Hartkopp maintains net/can
+
+As Marc Kleine-Budde is also very active in CAN driver development we should
+probably add him to the drivers/net/can maintainers.
+
+We'll continue the discussion on linux-can ML and give an update to the
+MAINTAINERS file if we sorted out any changes. So far Wolfgang and me remain
+the 'only interface' for you. Sorry for the traffic & confusion on netdev.
+
+Regards,
+Oliver
