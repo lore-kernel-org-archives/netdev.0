@@ -1,76 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4 06/10] e1000e: Support for byte queue limits
-Date: Thu, 01 Dec 2011 11:12:14 +0100
-Message-ID: <1322734334.2335.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <alpine.DEB.2.00.1111281819350.24413@pokey.mtv.corp.google.com>
-	 <20111129130137.000009ce@unknown>
-	 <CA+mtBx-8AzEyUc3GVD+mEQoqUZeaB9hjSJonRW_SjOQaTx51mQ@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [bug?] r8169: hangs under heavy load
+Date: Thu, 1 Dec 2011 11:20:00 +0100
+Message-ID: <20111201102000.GA14013@electric-eye.fr.zoreil.com>
+References: <20111125222211.GA13719@electric-eye.fr.zoreil.com> <1322262357.2550.12.camel@edumazet-laptop> <20111126004447.GA14744@electric-eye.fr.zoreil.com> <1322280423.10212.3.camel@edumazet-laptop> <20111127092808.GE21635@elie.hsd1.il.comcast.net> <4ED2A573.1020807@wolke7.net> <20111127231147.GA1784@electric-eye.fr.zoreil.com> <D95C09DB1A7E493E89FE5A0B3879CEB0@realtek.com.tw> <20111129105440.GA2410@electric-eye.fr.zoreil.com> <4ED538EC.4010509@wolke7.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:64461 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752788Ab1LAKMS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 05:12:18 -0500
-Received: by vcbfk14 with SMTP id fk14so1269879vcb.19
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2011 02:12:18 -0800 (PST)
-In-Reply-To: <CA+mtBx-8AzEyUc3GVD+mEQoqUZeaB9hjSJonRW_SjOQaTx51mQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: hayeswang <hayeswang@realtek.com>,
+	"'Jonathan Nieder'" <jrnieder@gmail.com>,
+	"'Eric Dumazet'" <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	"'nic_swsd'" <nic_swsd@realtek.com>, linux-kernel@vger.kernel.org,
+	"'Armin Kazmi'" <armin.kazmi@tu-dortmund.de>
+To: booster@wolke7.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4ED538EC.4010509@wolke7.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 30 novembre 2011 =C3=A0 17:04 -0800, Tom Herbert a =C3=A9cr=
-it :
-> > whats wrong with using total_tx_bytes or buffer_info->bytecount?  i=
-t
-> > contains the "bytes on the wire" value which will be slightly large=
-r
-> > than skb->len, but avoids warming the skb->len cacheline unnecessar=
-ily.
-> >
->=20
-> This makes sense.  I made the changes, but the limits computed are
-> much higher than with using sbk->len.  I suspect there may be a bug i=
-n
-> GSO path.
->=20
-> For instance, in the driver at:
->=20
->   bytecount =3D ((segs - 1) * skb_headlen(skb)) + skb->len;
->=20
-> I see cases like:
->=20
->   segs=3D34, skb_header_len(skb)=3D70, skb->len=3D49298 so bytecount=3D=
-51608
->=20
-> Which seems reasonable... but, I also see things like:
->=20
->   segs=3D45, skb_header_len(skb)=3D1522, skb->len=3D65226, so bytecou=
-nt=3D 132194
->                                                       ^^^^
-> Which doesn't seem right at all.  I am thinking there may be a bug
-> setting skb->data_len improperly.
->=20
+booster@wolke7.net <booster@wolke7.net> :
+[...]
+> Any more ideas ?
 
-OK, as stated on your other thread, its obvious this driver (and
-probably other intel drivers) made assumptions that are now obsolete,
-since skb head can contain some data payload, not only (MAC+IP+TCP)
-headers.
+Give me a brain.
 
-If Intel guys cannot afford approximate the bytecount by skb->len, I
-suggest to use same trick found in=20
-drivers/net/ethernet/intel/igb/igb_main.c
+Fixed patch below.
 
-static int igb_tso(struct igb_ring *tx_ring,=20
-=2E..
-        /* compute header lengths */
-        l4len =3D tcp_hdrlen(skb);
-        *hdr_len =3D skb_transport_offset(skb) + l4len;
-
-        /* update gso size and bytecount with header size */
-        first->gso_segs =3D skb_shinfo(skb)->gso_segs;
-        first->bytecount +=3D (first->gso_segs - 1) * *hdr_len;
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 6f06aa1..e776bf2 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -4885,8 +4894,7 @@ static void rtl_hw_start_8168(struct net_device *dev)
+ 	RTL_W16(IntrMitigate, 0x5151);
+ 
+ 	/* Work around for RxFIFO overflow. */
+-	if (tp->mac_version == RTL_GIGA_MAC_VER_11 ||
+-	    tp->mac_version == RTL_GIGA_MAC_VER_22) {
++	if (tp->mac_version == RTL_GIGA_MAC_VER_11) {
+ 		tp->intr_event |= RxFIFOOver | PCSTimeout;
+ 		tp->intr_event &= ~RxOverflow;
+ 	}
+@@ -5804,6 +5812,10 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+ 	 */
+ 	status = RTL_R16(IntrStatus);
+ 	while (status && status != 0xffff) {
++		status &= tp->intr_event;
++		if (!status)
++			break;
++
+ 		handled = 1;
+ 
+ 		/* Handle all of the error cases first. These will reset
+@@ -5818,7 +5830,6 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+ 			switch (tp->mac_version) {
+ 			/* Work around for rx fifo overflow */
+ 			case RTL_GIGA_MAC_VER_11:
+-			case RTL_GIGA_MAC_VER_22:
+ 			case RTL_GIGA_MAC_VER_26:
+ 				netif_stop_queue(dev);
+ 				rtl8169_tx_timeout(dev);
+@@ -5828,6 +5839,7 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+ 			case RTL_GIGA_MAC_VER_19:
+ 			case RTL_GIGA_MAC_VER_20:
+ 			case RTL_GIGA_MAC_VER_21:
++			case RTL_GIGA_MAC_VER_22:
+ 			case RTL_GIGA_MAC_VER_23:
+ 			case RTL_GIGA_MAC_VER_24:
+ 			case RTL_GIGA_MAC_VER_27:
