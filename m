@@ -1,72 +1,74 @@
-From: Josh Boyer <jwboyer@gmail.com>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference at 000000000000002c
-Date: Thu, 1 Dec 2011 15:37:01 -0500
-Message-ID: <CA+5PVA6kZkgYus4698Up8Q8uMTetCU2=DnTD0RpgXuHkJj6KKg@mail.gmail.com>
-References: <4ED7C367.3070109@profihost.ag>
-	<20111201182309.GA10686@infradead.org>
-	<1322770844.2750.1.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Bug in computing data_len in tcp_sendmsg?
+Date: Thu, 01 Dec 2011 21:37:55 +0100
+Message-ID: <1322771875.2750.9.camel@edumazet-laptop>
+References: <CA+mtBx8+sajFaCWqHRr+pY5EAHwN8G61v6cr-HydYhbbdxAgHQ@mail.gmail.com>
+	 <1322710962.2577.3.camel@edumazet-laptop>
+	 <CA+mtBx_CUsuGunKONwBNA8qyVni16+RtrRL8w=THYY0mEDcvaA@mail.gmail.com>
+	 <1322713032.2577.7.camel@edumazet-laptop>
+	 <CA+mtBx9fE0qQc-LndM03ykhVMV5n9Z4KHcD6PpTiy=M79GOnKw@mail.gmail.com>
+	 <1322730937.2335.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111201092950.00006ce8@unknown>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Stefan Priebe <s.priebe@profihost.ag>, netdev@vger.kernel.org,
-	Dave Chinner <david@fromorbit.com>, stable@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Tom Herbert <therbert@google.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, alexander.h.duyck@intel.com
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:35937 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753212Ab1LAUhC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 15:37:02 -0500
-In-Reply-To: <1322770844.2750.1.camel@edumazet-laptop>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:60374 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752845Ab1LAUiA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 15:38:00 -0500
+Received: by bkas6 with SMTP id s6so2891033bka.19
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2011 12:37:59 -0800 (PST)
+In-Reply-To: <20111201092950.00006ce8@unknown>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 1, 2011 at 3:20 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> Le jeudi 01 d=E9cembre 2011 =E0 13:23 -0500, Christoph Hellwig a =E9c=
-rit :
->> On Thu, Dec 01, 2011 at 07:11:51PM +0100, Stefan Priebe wrote:
->> > Hi,
->> >
->> > i'm not quite sure if this is an XFS thing or a tcp thing. As the
->> > stacktrace confuses me a little but as it contains
->> > xfs_bmap_search_extents and xfs_iunlock. Kernel is 3.0.11 running =
-as
->> > 2.6.40.11.
->> >
->> > [171464.091567] BUG: unable to handle kernel NULL pointer
->> > dereference at 000000000000002c
->> > [171464.092073] IP: [<ffffffff815494f6>] ipv4_dst_check+0xb6/0x190
->> > [171464.092073] PGD 15344e067 PUD 14c821067 PMD 0
->> > [171464.092073] Oops: 0002 [#1] SMP
->> >
->> > Full Stacktrace:
->> > http://pastebin.com/raw.php?i=3DQNg6jD2t
->>
->> The ? entries mean even the backtrace code things they are unreliabl=
-e,
->> and mos of the cases I've seen they are wrong. =A0In this case it lo=
-oks
->> like the process was doing XFS work before, but the current system c=
-all
->> indeed is purely in the networking code.
->>
->> I've changed the cc list to the netdev list which is more appropinqu=
-ate.
->
-> Probably fixed by commit 81d54ec8479a2c695760da
-> (net: fix NULL dereferences in check_peer_redir())
+Le jeudi 01 d=C3=A9cembre 2011 =C3=A0 09:29 -0800, Jesse Brandeburg a =C3=
+=A9crit :
+> On Thu, 1 Dec 2011 01:15:37 -0800
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Did you mean f2c31e32b378a665 ?  81d54ec84 is:
+> Tom, thanks very much for finding this subtle bug!  I bet that this
+> commit (which I had missed) broke a lot of other drivers in
+> very subtle ways due to changing a long standing behavior.  Auditing
+> every driver's tx path is going to be a lot of work unless a way can =
+be
+> discovered to automate finding incorrect assumptions in drivers.
+>=20
 
-udp: remove redundant variable
+I did a quick check an counted 3 intel drivers.
 
-in Linus' tree.
+Others are fine. I'll redo a check.
 
-> But this patch needs some followup patches (some of them in David net
-> tree, not yet in Linus tree)
+> > I dont know why its even necessary :
+> >=20
+> > TSO enabled NIC all provide hardware counters, so why even bother
+> > computing tx_bytes ourself ?
+>=20
+> because we have runtime logic for adjusting interrupt rate that depen=
+ds
+> on knowing how many bytes and packets were cleaned up in an interrupt
+> and reading MMIO to get latest stats causes CPU stall in hot path.
+> Counting the bytes sent on the wire via a segmented SKB was hard to g=
+et
+> right to begin with, I think we took a different approach in ixgbe
+> (recent versions) and compute the math in hard_start_xmit instead of =
+tx
+> cleanup.
 
-9de79c127cccecb11ae6a21ab1499e87aa222880 (net: fix potential neighbour
-race in dst_ifdown()) is in Linus' tree.  Which others are missing?
 
-josh
+>=20
+> > skb->len is appropriate for BQL, as long as producers/consumer use =
+the
+> > same skb->len. 1 or 2% error is not a problem if not cumulative ?
+>=20
+> if skb->len access doesn't cause a cache miss in hot path (or at
+> least doesn't increase misses) then I say sure.
+
+You still can cache it like now in your bytecount field in start_xmit()=
+,
+but since you call skb_free(), I doubt this matters a lot.
