@@ -1,42 +1,53 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [bug?] r8169: hangs under heavy load
-Date: Fri, 2 Dec 2011 10:21:08 +0800
-Message-ID: <FCF60BC8872E4F1C9C72CE56F0E570C0@realtek.com.tw>
-References: <20111125201936.GA26692@elie.hsd1.il.comcast.net> <1322253122.2550.3.camel@edumazet-laptop> <20111125222211.GA13719@electric-eye.fr.zoreil.com> <1322262357.2550.12.camel@edumazet-laptop> <20111126004447.GA14744@electric-eye.fr.zoreil.com> <1322280423.10212.3.camel@edumazet-laptop> <20111127092808.GE21635@elie.hsd1.il.comcast.net> <4ED2A573.1020807@wolke7.net> <20111127231147.GA1784@electric-eye.fr.zoreil.com> <D95C09DB1A7E493E89FE5A0B3879CEB0@realtek.com.tw> <20111129105440.GA2410@electric-eye.fr.zoreil.com>
+From: Zhi Yong Wu <zwu.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] datapath: Fix build breakage on kernel 2.6.40
+Date: Fri, 2 Dec 2011 10:25:21 +0800
+Message-ID: <CAEH94Li8gdMZnwSHG_xQj761uRxedRX2nUVmhFV4Kt_EDeuzYQ@mail.gmail.com>
+References: <1322042318-4809-1-git-send-email-zwu.kernel@gmail.com>
+	<CAEP_g=9CNRE=-B2V2=-CQA2MyzOsoqXPP_rjjvqGKWw_peNOkg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <booster@wolke7.net>, 'Jonathan Nieder' <jrnieder@gmail.com>,
-	'Eric Dumazet' <eric.dumazet@gmail.com>,
-	<netdev@vger.kernel.org>, 'nic_swsd' <nic_swsd@realtek.com>,
-	<linux-kernel@vger.kernel.org>,
-	'Armin Kazmi' <armin.kazmi@tu-dortmund.de>
-To: 'Francois Romieu' <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111129105440.GA2410@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, aliguori-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
+	stefanha-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAEP_g=9CNRE=-B2V2=-CQA2MyzOsoqXPP_rjjvqGKWw_peNOkg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu [mailto:romieu@fr.zoreil.com] 
-[...]
-> > For the 8168c and the later chips, our hardware engineer 
-> says that don't enable
-> > the RxFIFOOver of IntrMask and don't clear the RxFIFOOver 
-> of IntrStatus. The
-> > hardware will automatically escape Rx fifo full situation. 
-> Although you try to
-> > clear the RxFIFOOver of IntrStatus, maybe the bit wouldn't 
-> be cleared. Just
-> > disregard it.
-> 
-> Should "later" be understood as gigabit PCI-E only or is 
-> there a similar
-> difference of behavior between older fast-ethernet PCI-E and 
-> more recent
-> ones ?
-> 
+On Thu, Dec 1, 2011 at 5:55 AM, Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org> wrote:
+> On Wed, Nov 23, 2011 at 1:58 AM, Zhi Yong Wu <zwu.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> diff --git a/datapath/linux/compat/include/linux/skbuff.h b/datapath/lin=
+ux/compat/include/linux/skbuff.h
+>> index 311bfdb..22ba2e6 100644
+>> --- a/datapath/linux/compat/include/linux/skbuff.h
+>> +++ b/datapath/linux/compat/include/linux/skbuff.h
+>> @@ -239,7 +239,7 @@ static inline struct page *skb_frag_page(const skb_f=
+rag_t *frag)
+>> =A0}
+>> =A0#endif
+>>
+>> -#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
+>> +#ifndef HAVE_SKB_RESET_MAC_LEN
+>
+> 2.6.40 is the early name for 3.0. =A0Does it work if you just replace
+> the check with KERNEL_VERSION(2,6,40)?
+Yeah, it can work now, but i don't know if this issue exist on other
+old kernel version < 2.6.40.
 
-For the fast controller, it should start from rtl8105e. 
+Should we send one updated patch for this based on your suggestion?
 
-Best Regards,
-Hayes
+
+-- =
+
+Regards,
+
+Zhi Yong Wu
