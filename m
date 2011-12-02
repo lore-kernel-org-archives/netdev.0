@@ -1,70 +1,67 @@
-From: Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] ARM: at91/net: add macb ethernet controller in 9g45 DT
-Date: Fri,  2 Dec 2011 18:50:37 +0100
-Message-ID: <1322848237-23154-1-git-send-email-nicolas.ferre@atmel.com>
-References: <1322847782-22650-1-git-send-email-nicolas.ferre@atmel.com>
+From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+Subject: Re: [PATCH net-next V0 19/21] mlx4_core: Modify driver initialization
+ flow to accommodate SRIOV for Ethernet
+Date: Fri, 2 Dec 2011 09:51:06 -0800
+Message-ID: <CAL1RGDV8LzSOei=aQW7VXUP=G+9qdO+Y4eKZu8mBuHJuUp8UuQ@mail.gmail.com>
+References: <4ED8A636.40901@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1322847782-22650-1-git-send-email-nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org,
+	jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
+To: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4ED8A636.40901-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add the Cadence macb ethernet controller in at91sam9g45 .dtsi and
-enable it in at91sam9m10g45ek board device tree file.
+> =A0#ifdef CONFIG_PCI_IOV
+> +
+> +static int sr_iov;
+> +module_param(sr_iov, int, 0444);
+> +MODULE_PARM_DESC(sr_iov, "enable #sr_iov functions if sr_iov > 0");
+> +
+> +static int probe_vf;
+> +module_param(probe_vf, int, 0444);
+> +MODULE_PARM_DESC(probe_vf, "number of vfs to probe by pf driver (sr_=
+iov > 0)");
+> +
+> =A0int mlx4_log_num_mgm_entry_size =3D 10;
+> =A0module_param_named(log_num_mgm_entry_size,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0mlx4_log_num_mgm_entry=
+_size, int, 0444);
+> @@ -85,24 +95,30 @@ MODULE_PARM_DESC(log_num_mgm_entry_size, "log mgm=
+ size, that defines the num"
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 " log_num_mgm_entry_size <=3D 12");
+>
+> =A0#else /* CONFIG_PCI_IOV */
+> +static int sr_iov;
+> +#define probe_vf 0
+> =A0int mlx4_log_num_mgm_entry_size =3D 9;
+> =A0#endif /* CONFIG_PCI_IOV */
 
-Signed-off-by: Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
----
- arch/arm/boot/dts/at91sam9g45.dtsi     |    7 +++++++
- arch/arm/boot/dts/at91sam9m10g45ek.dts |    6 ++++++
- 2 files changed, 13 insertions(+), 0 deletions(-)
+I don't think it's a good idea to put module parameters inside an
+#ifdef.  Then depending on the
+kernel config someone compiles with, their modprobe.conf may or may not=
+ break.
 
-diff --git a/arch/arm/boot/dts/at91sam9g45.dtsi b/arch/arm/boot/dts/at91sam9g45.dtsi
-index e89b1d7..67f94d3 100644
---- a/arch/arm/boot/dts/at91sam9g45.dtsi
-+++ b/arch/arm/boot/dts/at91sam9g45.dtsi
-@@ -101,6 +101,13 @@
- 				atmel,use-dma-tx;
- 				status = "disabled";
- 			};
-+
-+			macb0: ethernet@fffbc000 {
-+				compatible = "cdns,at32ap7000-macb", "cdns,macb";
-+				reg = <0xfffbc000 0x100>;
-+				interrupts = <25 4>;
-+				status = "disabled";
-+			};
- 		};
- 	};
- };
-diff --git a/arch/arm/boot/dts/at91sam9m10g45ek.dts b/arch/arm/boot/dts/at91sam9m10g45ek.dts
-index 85b34f5..17377a2 100644
---- a/arch/arm/boot/dts/at91sam9m10g45ek.dts
-+++ b/arch/arm/boot/dts/at91sam9m10g45ek.dts
-@@ -30,6 +30,12 @@
- 			usart1: serial@fff90000 {
- 				status = "okay";
- 			};
-+
-+			macb0: ethernet@fffbc000 {
-+				local-mac-address = [3a 0e 03 04 05 06];
-+				phy-mode = "rmii";
-+				status = "okay";
-+			};
- 		};
- 	};
- };
--- 
-1.7.5.4
+> +static int port_type_array[2] =3D {1, 1};
+> +static int arr_argc =3D 2;
+> +module_param_array(port_type_array, int, &arr_argc, 0444);
+> +MODULE_PARM_DESC(port_type_array, "Array of port types: IB by defaul=
+t");
+
+Is this really the best way to pass this in?  What if I have two
+adapters, and I want to use
+the first one for IB and the second for ethernet?  (Which doesn't
+sound like a particularly
+obscure config)
+
+ - R.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
