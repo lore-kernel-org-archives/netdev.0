@@ -1,52 +1,44 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 2011-11-26
-Date: Fri, 02 Dec 2011 12:57:25 -0500 (EST)
-Message-ID: <20111202.125725.896787381527077500.davem@davemloft.net>
-References: <1322317612-7770-1-git-send-email-lindner_marek@yahoo.de>
-	<20111126.144122.775553783672941660.davem@davemloft.net>
-	<20111202171216.GA4561@ritirata.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net/macb: add DT support
+Date: Fri, 02 Dec 2011 12:58:32 -0500 (EST)
+Message-ID: <20111202.125832.1208514279272697863.davem@davemloft.net>
+References: <1322846050-4543-1-git-send-email-nicolas.ferre@atmel.com>
+ <1322847782-22650-1-git-send-email-nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
-	lindner_marek-LWAfsSFWpa4@public.gmane.org
-To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20111202171216.GA4561-E/2OGukznS5g9hUCZPvPmw@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+ linux-kernel@vger.kernel.org, grant.likely@secretlab.ca, jamie@jamieiles.com,
+ plagnioj@jcrosoft.com, linux-arm-kernel@lists.infradead.org
+To: nicolas.ferre@atmel.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1322847782-22650-1-git-send-email-nicolas.ferre@atmel.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Date: Fri, 2 Dec 2011 18:12:16 +0100
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Date: Fri,  2 Dec 2011 18:43:02 +0100
 
-> First of all I think you are referring to patch 08/10, in which I moved a
-> skb_linearise() operation.
+> From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
 > 
-> To be sure it is really needed, I backtracked the code flow and noted down any
-> eventual psbk_may_pull() (or any other linearisation operation). The result is:
+> Allow the device tree to provide the mac address and the phy mode.
 > 
-> => in batman_skb_recv()
-> 	- pskb_may_pull(2)
->   => in recv_tt_query()
->   	  - pskb_may_pull(sizeof(header))
-> 	  - skb_linearise()
-> 
-> Actually it seems we haven't any useless linearisation.
-> Would you mind explain us where you actually found the problem, please?
-> 
-> It might also be that I misunderstood your advice.
+> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+> [nicolas.ferre@atmel.com: change "compatible" node property, doc and DT hwaddr]
+> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> Cc: Jamie Iles <jamie@jamieiles.com>
+> ---
+> v2: modify macb_get_hwaddr_dt() parameter
 
-You only need to call pskb_may_pull() on the parts of the packet you want to
-access directly to parse headers etc.
+You'll have to respin these two macb patches, as they don't apply properly
+to the net-next tree which is where they should be targetted.
 
-If you use that interface properly, you never need to linearize, ever.
+Thanks.
