@@ -1,96 +1,134 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] infiniband: addr: Avoid unnecessary neigh lookup.
-Date: Fri, 02 Dec 2011 14:55:25 -0500 (EST)
-Message-ID: <20111202.145525.1679807360238725746.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roland@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48507 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751927Ab1LBTz3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 14:55:29 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH] net/hyperv: Fix the stop/wake queue mechanism
+Date: Fri,  2 Dec 2011 11:56:25 -0800
+Message-ID: <1322855785-22776-1-git-send-email-haiyangz@microsoft.com>
+To: haiyangz@microsoft.com, kys@microsoft.com, davem@davemloft.net,
+	gregkh@suse.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, devel@linuxdriverproject.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+The ring buffer is only used to pass meta data for outbound packets. The
+actual payload is accessed by DMA from the host. So the stop/wake queue
+mechanism based on counting and comparing number of pages sent v.s. number
+of pages in the ring buffer is wrong. Also, there is a race condition in
+the stop/wake queue calls, which can stop xmit queue forever.
 
-The explicit neigh_lookup() in addr4_resolve() is unnecessary because this
-is the exact same calculation the routing code already made to attach the
-neigh to the route.
+The new stop/wake queue mechanism is based on the actual bytes used by
+outbound packets in the ring buffer. The check for number of outstanding
+sends after stop queue prevents the race condition that can cause wake
+queue happening earlier than stop queue.
 
-Therefore, just use dst_get_neighbour().
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Reported-by: Long Li <longli@microsoft.com>
 ---
+ drivers/net/hyperv/netvsc.c     |   14 +++++++++++---
+ drivers/net/hyperv/netvsc_drv.c |   24 +-----------------------
+ 2 files changed, 12 insertions(+), 26 deletions(-)
 
-Roland, I'm auditing all of the uses of dst_get_neighbour() with the
-end result being that a dst_put_neighbour() interface will be added
-and all access will be reduced to quick:
-
-	rcu_read_lock();
-	n = dst_get_neighbour();
-	...
-	dst_put_neighbour();
-	rcu_read_unlock();
-
-sequences.  And then, at the next step, things will be further
-whittled down into a refcount-less variant:
-
-	rcu_read_lock();
-	n = dst_get_neighbour_noref();
-	...
-	rcu_read_unlock();
-
-Another key difference is that we are making the code able to handle
-dst_get_neighbour() returning NULL.
-
-So if it's OK with you I'd like to merge this stuff directly in the
-net-next tree after getting your ACK on each patch.
-
-In the case here, the neigh_lookup() call is spurious and is exactly
-mimicking the neigh lookup that the ipv4 routing code does to attach
-the neighbour to the route.  There is no need to duplicate that
-operation, and we can thus use the route attached neigh directly.
-
- drivers/infiniband/core/addr.c |   21 ++++++++++-----------
- 1 files changed, 10 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/infiniband/core/addr.c b/drivers/infiniband/core/addr.c
-index a20c3c8..83d88e1 100644
---- a/drivers/infiniband/core/addr.c
-+++ b/drivers/infiniband/core/addr.c
-@@ -214,20 +214,19 @@ static int addr4_resolve(struct sockaddr_in *src_in,
- 		goto put;
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 4a807e4..b6ac152 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -435,6 +435,9 @@ static void netvsc_send_completion(struct hv_device *device,
+ 			nvsc_packet->completion.send.send_completion_ctx);
+ 
+ 		atomic_dec(&net_device->num_outstanding_sends);
++
++		if (netif_queue_stopped(ndev))
++			netif_wake_queue(ndev);
+ 	} else {
+ 		netdev_err(ndev, "Unknown send completion packet type- "
+ 			   "%d received!!\n", nvsp_packet->hdr.msg_type);
+@@ -485,11 +488,16 @@ int netvsc_send(struct hv_device *device,
+ 
  	}
  
--	neigh = neigh_lookup(&arp_tbl, &rt->rt_gateway, rt->dst.dev);
--	if (!neigh || !(neigh->nud_state & NUD_VALID)) {
--		rcu_read_lock();
--		neigh_event_send(dst_get_neighbour(&rt->dst), NULL);
--		rcu_read_unlock();
--		ret = -ENODATA;
--		if (neigh)
--			goto release;
--		goto put;
-+	rcu_read_lock();
-+	neigh = dst_get_neighbour(&rt->dst);
-+	ret = -ENODATA;
-+	if (!neigh)
-+		goto unlock_put;
-+	if (!(neigh->nud_state & NUD_VALID)) {
-+		neigh_event_send(neigh, NULL);
-+		goto unlock_put;
- 	}
+-	if (ret != 0)
++	if (ret == 0) {
++		atomic_inc(&net_device->num_outstanding_sends);
++	} else if (ret == -EAGAIN) {
++		netif_stop_queue(ndev);
++		if (atomic_read(&net_device->num_outstanding_sends) < 1)
++			netif_wake_queue(ndev);
++	} else {
+ 		netdev_err(ndev, "Unable to send packet %p ret %d\n",
+ 			   packet, ret);
+-	else
+-		atomic_inc(&net_device->num_outstanding_sends);
++	}
  
- 	ret = rdma_copy_addr(addr, neigh->dev, neigh->ha);
--release:
--	neigh_release(neigh);
-+unlock_put:
-+	rcu_read_unlock();
- put:
- 	ip_rt_put(rt);
- out:
+ 	return ret;
+ }
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index b69c3a4..7da85eb 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -43,15 +43,10 @@
+ struct net_device_context {
+ 	/* point back to our device context */
+ 	struct hv_device *device_ctx;
+-	atomic_t avail;
+ 	struct delayed_work dwork;
+ };
+ 
+ 
+-#define PACKET_PAGES_LOWATER  8
+-/* Need this many pages to handle worst case fragmented packet */
+-#define PACKET_PAGES_HIWATER  (MAX_SKB_FRAGS + 2)
+-
+ static int ring_size = 128;
+ module_param(ring_size, int, S_IRUGO);
+ MODULE_PARM_DESC(ring_size, "Ring buffer size (# of pages)");
+@@ -144,18 +139,8 @@ static void netvsc_xmit_completion(void *context)
+ 
+ 	kfree(packet);
+ 
+-	if (skb) {
+-		struct net_device *net = skb->dev;
+-		struct net_device_context *net_device_ctx = netdev_priv(net);
+-		unsigned int num_pages = skb_shinfo(skb)->nr_frags + 2;
+-
++	if (skb)
+ 		dev_kfree_skb_any(skb);
+-
+-		atomic_add(num_pages, &net_device_ctx->avail);
+-		if (atomic_read(&net_device_ctx->avail) >=
+-				PACKET_PAGES_HIWATER)
+-			netif_wake_queue(net);
+-	}
+ }
+ 
+ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+@@ -167,8 +152,6 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 
+ 	/* Add 1 for skb->data and additional one for RNDIS */
+ 	num_pages = skb_shinfo(skb)->nr_frags + 1 + 1;
+-	if (num_pages > atomic_read(&net_device_ctx->avail))
+-		return NETDEV_TX_BUSY;
+ 
+ 	/* Allocate a netvsc packet based on # of frags. */
+ 	packet = kzalloc(sizeof(struct hv_netvsc_packet) +
+@@ -218,10 +201,6 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	if (ret == 0) {
+ 		net->stats.tx_bytes += skb->len;
+ 		net->stats.tx_packets++;
+-
+-		atomic_sub(num_pages, &net_device_ctx->avail);
+-		if (atomic_read(&net_device_ctx->avail) < PACKET_PAGES_LOWATER)
+-			netif_stop_queue(net);
+ 	} else {
+ 		/* we are shutting down or bus overloaded, just drop packet */
+ 		net->stats.tx_dropped++;
+@@ -391,7 +370,6 @@ static int netvsc_probe(struct hv_device *dev,
+ 
+ 	net_device_ctx = netdev_priv(net);
+ 	net_device_ctx->device_ctx = dev;
+-	atomic_set(&net_device_ctx->avail, ring_size);
+ 	hv_set_drvdata(dev, net);
+ 	INIT_DELAYED_WORK(&net_device_ctx->dwork, netvsc_send_garp);
+ 
 -- 
-1.7.7.3
+1.7.4.1
