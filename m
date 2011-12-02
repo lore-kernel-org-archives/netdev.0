@@ -1,38 +1,49 @@
-From: Michal Soltys <soltys@ziu.info>
-Subject: Re: ebtables on a stick
-Date: Fri, 02 Dec 2011 17:44:03 +0100
-Message-ID: <4ED90053.4020203@ziu.info>
-References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com> <20111128143901.GA589422@jupiter.n2.diac24.net> <4ED566A8.2000108@ziu.info> <925A849792280C4E80C5461017A4B8A2A048F6@mail733.InfraSupportEtc.com> <20111201071456.GJ589422@jupiter.n2.diac24.net> <925A849792280C4E80C5461017A4B8A2A048F8@mail733.InfraSupportEtc.com> <20111201144745.GK589422@jupiter.n2.diac24.net> <925A849792280C4E80C5461017A4B8A2A048F9@mail733.InfraSupportEtc.com> <20111201165040.GL589422@jupiter.n2.diac24.net> <925A849792280C4E80C5461017A4B8A2A048FA@mail733.InfraSupportEtc.com> <4ED8F15D.8020909@ziu.info> <925A849792280C4E80C5461017A4B8A2A0491B@mail733.InfraSupp
- ortEtc.com> <4ED8F9CC.9000308@ziu.info> <925A849792280C4E80C5461017A4B8A2A0491E@mail733.InfraSupportEtc.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] r8169: Support for byte queue limits
+Date: Fri, 02 Dec 2011 17:47:31 +0100
+Message-ID: <1322844451.2762.36.camel@edumazet-laptop>
+References: <igorm@etf.rs> <1322831399-23505-1-git-send-email-igorm@etf.rs>
+	 <1322836191.2762.3.camel@edumazet-laptop>
+	 <CAFdo_mVwRgB3OEBA7=nMcemr1x1WLkXC05UAnDW_n5gyYy9W=A@mail.gmail.com>
+	 <1322838687.2762.18.camel@edumazet-laptop>
+	 <6b84ddc047f72f8a66cc587a1813fbe9.squirrel@kondor.etf.bg.ac.rs>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org
-To: Greg Scott <GregScott@Infrasupport.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Tom Herbert <therbert@google.com>
+To: igorm@etf.rs
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from drutsystem.com ([80.72.38.138]:3237 "EHLO drutsystem.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755788Ab1LBQoD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Dec 2011 11:44:03 -0500
-In-Reply-To: <925A849792280C4E80C5461017A4B8A2A0491E@mail733.InfraSupportEtc.com>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:58061 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755757Ab1LBQrg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 11:47:36 -0500
+Received: by lagp5 with SMTP id p5so263358lag.19
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 08:47:35 -0800 (PST)
+In-Reply-To: <6b84ddc047f72f8a66cc587a1813fbe9.squirrel@kondor.etf.bg.ac.rs>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11-12-02 17:20, Greg Scott wrote:
-> OK.  But I dunno....  I set eth0 on the router with the same address as
-> the real host behind it on eth1.  So something comes in on eth0 for
-> 1.2.115.157.  The router has that as its own address now, plus a route
-> to somebody else with the same address on eth1.  But as far as the
-> router/firewall is concerned, that packet is already delivered - why
-> would it forward it out on eth1?
->
+Le vendredi 02 d=C3=A9cembre 2011 =C3=A0 17:31 +0100, "Igor Maravi=C4=87=
+" a =C3=A9crit :
+> >
+> > Quite frankly, any queued skb is eventually freed, so
+> > netdev_reset_queue() could be avoided.
+> >
+>=20
+> If I didn't add netdev_reset_queue(), how dql would reset its paramet=
+ers to 0?
+>=20
 
-Where the packet gets delivered is decided by the routing - and the very 
-first table traversed is local - which is auto filled by the kernel. But 
-that routing rule still can be forcibly removed, after which the next 
-matching one is the one added manually - after which the packet will end 
-in FORWARD, instead of INPUT.
+They are initted at device setup.
 
-(and keep in mind earlier David's warning about confusing 
-programs/services - it's still doable, but requires more manual labor - 
-proxy is certianly cleaner and just works)
+As I said, if every transmitted skb is correctly freed (and BQL
+accounted), there is no need to netdev_reset_queue()
+
+> I added spin_locks around netdev_completed_queue and netdev_sent_queu=
+e
+>=20
+
+Oh well, no, dont do that. BQL must be lightweight.
