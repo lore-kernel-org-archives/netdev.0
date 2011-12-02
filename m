@@ -1,64 +1,58 @@
-From: =?ISO-8859-2?Q?Igor_Maravi=E6?= <igorm@etf.rs>
-Subject: Re: [PATCH net-next] r8169: Support for byte queue limits
-Date: Fri, 2 Dec 2011 22:54:50 +0100
-Message-ID: <CAFdo_mUZembr4MEGUt9efNtfnuCs4ddHUCDjLE64WnWwytTpzw@mail.gmail.com>
-References: <igorm@etf.rs>
-	<1322831399-23505-1-git-send-email-igorm@etf.rs>
-	<1322836191.2762.3.camel@edumazet-laptop>
-	<CAFdo_mVwRgB3OEBA7=nMcemr1x1WLkXC05UAnDW_n5gyYy9W=A@mail.gmail.com>
-	<1322838687.2762.18.camel@edumazet-laptop>
-	<6b84ddc047f72f8a66cc587a1813fbe9.squirrel@kondor.etf.bg.ac.rs>
-	<1322844451.2762.36.camel@edumazet-laptop>
-	<CAFdo_mWtxexXXCpFZsQKAJ96ZXEnDRiBsb4zFO8oR0hc6gXPMQ@mail.gmail.com>
-	<1322845932.2762.38.camel@edumazet-laptop>
-Reply-To: igorm@etf.rs
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: SYN attack, with FIN flag set
+Date: Sat, 03 Dec 2011 00:29:59 +0200
+Message-ID: <1755dc626dee301261ef4fe4cd66fd47@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Tom Herbert <therbert@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.etf.rs ([147.91.14.170]:52631 "EHLO mx2.etf.bg.ac.rs"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755778Ab1LBV5j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Dec 2011 16:57:39 -0500
-Received: from localhost (avs1.etf.rs [147.91.14.172])
-	by mx2.etf.bg.ac.rs (Postfix) with ESMTP id C102360159
-	for <netdev@vger.kernel.org>; Fri,  2 Dec 2011 22:57:36 +0100 (CET)
-Received: from mx1.etf.bg.ac.rs ([147.91.14.169])
-	by localhost (avs1.etf.rs [147.91.14.171]) (amavisd-new, port 10026)
-	with ESMTP id 0CbGSeoo5kii for <netdev@vger.kernel.org>;
-	Fri,  2 Dec 2011 22:57:36 +0100 (CET)
-Received: from mail-pz0-f46.google.com (mail-pz0-f46.google.com [209.85.210.46])
-	(using TLSv1 with cipher RC4-SHA (128/128 bits))
-	(No client certificate requested)
-	(Authenticated sender: igorm)
-	by mx1.etf.bg.ac.rs (Postfix) with ESMTP id 9CD1F12015C
-	for <netdev@vger.kernel.org>; Fri,  2 Dec 2011 22:54:53 +0100 (CET)
-Received: by dadv6 with SMTP id v6so1836597dad.19
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 13:54:50 -0800 (PST)
-In-Reply-To: <1322845932.2762.38.camel@edumazet-laptop>
+Received: from hosting.visp.net.lb ([194.146.153.11]:45744 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755598Ab1LBWaB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 17:30:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->
-> Reread what I said : "BQL must be lightweight"
->
-> Not : "No lock should be used"
->
-> OK ?
->
+ Hi
 
-I'm out of ideas.
+ Recently i started to get SYN attacks, and managed them.
+ syncookies didn't helped, here is "perf report" info:
+ -     26.89%        swapper  [kernel.kallsyms]     [k] _raw_spin_lock
+    - _raw_spin_lock
+       - 94.97% tcp_v4_rcv
+            ip_local_deliver_finish
+            ip_local_deliver
+            ip_rcv_finish
+            ip_rcv
+            __netif_receive_skb
+            process_backlog
+            net_rx_action
+            __do_softirq
+            call_softirq
+            do_softirq
+          + irq_exit
 
-Do you think, if I remove netdev_reset_queue(tp->dev); from
-rtl8169_init_ring_indexes,
-and spin_locks, of course, that would be a good solution.
+ But then i got attack that made server to choke and bypassed "--syn" 
+ rule, and i was surprised, that stack are handling invalid combination 
+ of flags, SYN+FIN.
+ Is it valid behaviour?
 
-As far as I could see in marvell/sky2.c,  sfc/tx.c and intel/e1000e/netdev.c
-netdev_completed is called with out any lock.
-Please correct me if I'm wrong.
-BR
-Igor
+ in tcp_input.c, tcp_rcv_state_process(), it just does check for rst (to 
+ discard), but maybe packet with fin set should be discarded too?
+
+ From http://www.whitehats.ca/main/members/Seeker/seeker_tcp_header/
+
+ SYN FIN is probably the best known illegal combination. Remember that 
+ SYN is used to start a connection, while FIN is used to end an existing 
+ connection. It is nonsensical to perform both actions at the same time. 
+ Many scanning tools use SYN FIN packets, because many intrusion 
+ detection systems did not catch these in the past, although most do so 
+ now. You can safely assume that any SYN FIN packets you see are 
+ malicious.
+
+ ---
+ System administrator
+ Denys Fedoryshchenko
+ Virtual ISP S.A.L.
