@@ -1,7 +1,7 @@
 From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Subject: [PATCH net-next V0 08/21] mlx4_core: qp modifications for SRIOV
-Date: Fri, 2 Dec 2011 12:17:31 +0200
-Message-ID: <4ED8A5BB.2070306@mellanox.co.il>
+Subject: [PATCH net-next V0 09/21] mlx4_core: cq modifications for SRIOV
+Date: Fri, 2 Dec 2011 12:17:38 +0200
+Message-ID: <4ED8A5C2.5010201@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
@@ -15,7 +15,7 @@ List-Id: netdev.vger.kernel.org
 
 From: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
 
-QPs are resources which are allocated and tracked by the PF driver.
+CQs are resources which are allocated and tracked by the PF driver.
 In multifunction mode, the allocation and icm mapping is done in
 the resource tracker (later patch in this sequence).
 
@@ -31,374 +31,205 @@ immediately.
 
 Signed-off-by: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
 ---
- drivers/net/ethernet/mellanox/mlx4/qp.c |  232 ++++++++++++++++++++++++-------
- 1 files changed, 179 insertions(+), 53 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/cq.c |  115 +++++++++++++++++++++++-------
+ 1 files changed, 88 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
-index 52f8881..3f7b798 100644
---- a/drivers/net/ethernet/mellanox/mlx4/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
-@@ -35,6 +35,8 @@
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cq.c b/drivers/net/ethernet/mellanox/mlx4/cq.c
+index db2efbc..d8b8dd4 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cq.c
+@@ -34,9 +34,9 @@
+  * SOFTWARE.
+  */
  
- #include <linux/gfp.h>
- #include <linux/export.h>
 +#include <linux/init.h>
-+
+ #include <linux/hardirq.h>
+ #include <linux/export.h>
+-#include <linux/gfp.h>
+ 
  #include <linux/mlx4/cmd.h>
- #include <linux/mlx4/qp.h>
- 
-@@ -55,7 +57,7 @@ void mlx4_qp_event(struct mlx4_dev *dev, u32 qpn, int event_type)
- 	spin_unlock(&qp_table->lock);
- 
- 	if (!qp) {
--		mlx4_warn(dev, "Async event for bogus QP %08x\n", qpn);
-+		mlx4_dbg(dev, "Async event for none existent QP %08x\n", qpn);
+ #include <linux/mlx4/cq.h>
+@@ -81,7 +81,7 @@ void mlx4_cq_completion(struct mlx4_dev *dev, u32 cqn)
+ 	cq = radix_tree_lookup(&mlx4_priv(dev)->cq_table.tree,
+ 			       cqn & (dev->caps.num_cqs - 1));
+ 	if (!cq) {
+-		mlx4_warn(dev, "Completion event for bogus CQ %08x\n", cqn);
++		mlx4_dbg(dev, "Completion event for bogus CQ %08x\n", cqn);
  		return;
  	}
  
-@@ -65,10 +67,17 @@ void mlx4_qp_event(struct mlx4_dev *dev, u32 qpn, int event_type)
- 		complete(&qp->free);
+@@ -117,8 +117,8 @@ void mlx4_cq_event(struct mlx4_dev *dev, u32 cqn, int event_type)
+ static int mlx4_SW2HW_CQ(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox,
+ 			 int cq_num)
+ {
+-	return mlx4_cmd(dev, mailbox->dma, cq_num, 0, MLX4_CMD_SW2HW_CQ,
+-			MLX4_CMD_TIME_CLASS_A, 0);
++	return mlx4_cmd(dev, mailbox->dma | dev->caps.function, cq_num, 0,
++			MLX4_CMD_SW2HW_CQ, MLX4_CMD_TIME_CLASS_A, 0);
  }
  
--int mlx4_qp_modify(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
--		   enum mlx4_qp_state cur_state, enum mlx4_qp_state new_state,
--		   struct mlx4_qp_context *context, enum mlx4_qp_optpar optpar,
--		   int sqd_event, struct mlx4_qp *qp)
-+static int is_qp0(struct mlx4_dev *dev, struct mlx4_qp *qp)
-+{
-+	return qp->qpn >= dev->caps.sqp_start &&
-+		qp->qpn <= dev->caps.sqp_start + 1;
-+}
-+
-+static int __mlx4_qp_modify(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
-+		     enum mlx4_qp_state cur_state, enum mlx4_qp_state new_state,
-+		     struct mlx4_qp_context *context,
-+		     enum mlx4_qp_optpar optpar,
-+		     int sqd_event, struct mlx4_qp *qp, int native)
+ static int mlx4_MODIFY_CQ(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox,
+@@ -131,8 +131,8 @@ static int mlx4_MODIFY_CQ(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox
+ static int mlx4_HW2SW_CQ(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox,
+ 			 int cq_num)
  {
- 	static const u16 op[MLX4_QP_NUM_STATE][MLX4_QP_NUM_STATE] = {
- 		[MLX4_QP_STATE_RST] = {
-@@ -110,16 +119,26 @@ int mlx4_qp_modify(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
- 		}
- 	};
+-	return mlx4_cmd_box(dev, 0, mailbox ? mailbox->dma : 0, cq_num,
+-			    mailbox ? 0 : 1, MLX4_CMD_HW2SW_CQ,
++	return mlx4_cmd_box(dev, dev->caps.function, mailbox ? mailbox->dma : 0,
++			    cq_num, mailbox ? 0 : 1, MLX4_CMD_HW2SW_CQ,
+ 			    MLX4_CMD_TIME_CLASS_A, 0);
+ }
  
+@@ -188,6 +188,78 @@ int mlx4_cq_resize(struct mlx4_dev *dev, struct mlx4_cq *cq,
+ }
+ EXPORT_SYMBOL_GPL(mlx4_cq_resize);
+ 
++static int __mlx4_cq_alloc_icm(struct mlx4_dev *dev, int *cqn)
++{
 +	struct mlx4_priv *priv = mlx4_priv(dev);
- 	struct mlx4_cmd_mailbox *mailbox;
- 	int ret = 0;
-+	u8 port;
- 
- 	if (cur_state >= MLX4_QP_NUM_STATE || new_state >= MLX4_QP_NUM_STATE ||
- 	    !op[cur_state][new_state])
- 		return -EINVAL;
- 
--	if (op[cur_state][new_state] == MLX4_CMD_2RST_QP)
--		return mlx4_cmd(dev, 0, qp->qpn, 2,
--				MLX4_CMD_2RST_QP, MLX4_CMD_TIME_CLASS_A, 0);
-+	if (op[cur_state][new_state] == MLX4_CMD_2RST_QP) {
-+		ret = mlx4_cmd(dev, 0, qp->qpn, 2,
-+			       MLX4_CMD_2RST_QP, MLX4_CMD_TIME_CLASS_A, native);
-+		if (mlx4_is_master(dev) && cur_state != MLX4_QP_STATE_ERR &&
-+		    cur_state != MLX4_QP_STATE_RST &&
-+		    is_qp0(dev, qp)) {
-+			port = (qp->qpn & 1) + 1;
-+			priv->mfunc.master.qp0_state[port].qp0_active = 0;
-+		}
-+		return ret;
-+	}
- 
- 	mailbox = mlx4_alloc_cmd_mailbox(dev);
- 	if (IS_ERR(mailbox))
-@@ -132,107 +151,215 @@ int mlx4_qp_modify(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
- 		context->log_page_size   = mtt->page_shift - MLX4_ICM_PAGE_SHIFT;
- 	}
- 
-+	port = ((context->pri_path.sched_queue >> 6) & 1) + 1;
-+	if (dev->caps.port_type[port] == MLX4_PORT_TYPE_ETH)
-+		context->pri_path.sched_queue = (context->pri_path.sched_queue &
-+						0xc3);
++	struct mlx4_cq_table *cq_table = &priv->cq_table;
++	int err;
 +
- 	*(__be32 *) mailbox->buf = cpu_to_be32(optpar);
- 	memcpy(mailbox->buf + 8, context, sizeof *context);
- 
- 	((struct mlx4_qp_context *) (mailbox->buf + 8))->local_qpn =
- 		cpu_to_be32(qp->qpn);
- 
--	ret = mlx4_cmd(dev, mailbox->dma, qp->qpn | (!!sqd_event << 31),
-+	ret = mlx4_cmd(dev, mailbox->dma | dev->caps.function,
-+		       qp->qpn | (!!sqd_event << 31),
- 		       new_state == MLX4_QP_STATE_RST ? 2 : 0,
--		       op[cur_state][new_state], MLX4_CMD_TIME_CLASS_C, 0);
-+		       op[cur_state][new_state], MLX4_CMD_TIME_CLASS_C, native);
- 
- 	mlx4_free_cmd_mailbox(dev, mailbox);
- 	return ret;
- }
++	*cqn = mlx4_bitmap_alloc(&cq_table->bitmap);
++	if (*cqn == -1)
++		return -ENOMEM;
 +
-+int mlx4_qp_modify(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
-+		     enum mlx4_qp_state cur_state, enum mlx4_qp_state new_state,
-+		     struct mlx4_qp_context *context,
-+		     enum mlx4_qp_optpar optpar,
-+		     int sqd_event, struct mlx4_qp *qp)
-+{
-+	return __mlx4_qp_modify(dev, mtt, cur_state, new_state, context,
-+				optpar, sqd_event, qp, 0);
++	err = mlx4_table_get(dev, &cq_table->table, *cqn);
++	if (err)
++		goto err_out;
++
++	err = mlx4_table_get(dev, &cq_table->cmpt_table, *cqn);
++	if (err)
++		goto err_put;
++	return 0;
++
++err_put:
++	mlx4_table_put(dev, &cq_table->table, *cqn);
++
++err_out:
++	mlx4_bitmap_free(&cq_table->bitmap, *cqn);
++	return err;
 +}
- EXPORT_SYMBOL_GPL(mlx4_qp_modify);
- 
--int mlx4_qp_reserve_range(struct mlx4_dev *dev, int cnt, int align, int *base)
-+static int __mlx4_qp_reserve_range(struct mlx4_dev *dev, int cnt, int align,
-+				   int *base)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	struct mlx4_qp_table *qp_table = &priv->qp_table;
--	int qpn;
- 
--	qpn = mlx4_bitmap_alloc_range(&qp_table->bitmap, cnt, align);
--	if (qpn == -1)
-+	*base = mlx4_bitmap_alloc_range(&qp_table->bitmap, cnt, align);
-+	if (*base == -1)
- 		return -ENOMEM;
--
--	*base = qpn;
- 	return 0;
- }
 +
-+int mlx4_qp_reserve_range(struct mlx4_dev *dev, int cnt, int align, int *base)
++static int mlx4_cq_alloc_icm(struct mlx4_dev *dev, int *cqn)
 +{
-+	u64 in_param;
 +	u64 out_param;
 +	int err;
 +
 +	if (mlx4_is_mfunc(dev)) {
-+		set_param_l(&in_param, cnt);
-+		set_param_h(&in_param, align);
-+		err = mlx4_cmd_imm(dev, in_param, &out_param,
-+				   RES_QP, RES_OP_RESERVE,
-+				   MLX4_CMD_ALLOC_RES,
++		err = mlx4_cmd_imm(dev, 0, &out_param, RES_CQ,
++				   RES_OP_RESERVE_AND_MAP, MLX4_CMD_ALLOC_RES,
 +				   MLX4_CMD_TIME_CLASS_A, 0);
 +		if (err)
 +			return err;
-+
-+		*base = get_param_l(&out_param);
-+		return 0;
++		else {
++			*cqn = get_param_l(&out_param);
++			return 0;
++		}
 +	}
-+	return __mlx4_qp_reserve_range(dev, cnt, align, base);
++	return __mlx4_cq_alloc_icm(dev, cqn);
 +}
- EXPORT_SYMBOL_GPL(mlx4_qp_reserve_range);
- 
--void mlx4_qp_release_range(struct mlx4_dev *dev, int base_qpn, int cnt)
-+static void __mlx4_qp_release_range(struct mlx4_dev *dev, int base_qpn, int cnt)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	struct mlx4_qp_table *qp_table = &priv->qp_table;
--	if (base_qpn < dev->caps.sqp_start + 8)
--		return;
- 
-+	if (mlx4_is_qp_reserved(dev, (u32) base_qpn))
-+		return;
- 	mlx4_bitmap_free_range(&qp_table->bitmap, base_qpn, cnt);
- }
 +
-+void mlx4_qp_release_range(struct mlx4_dev *dev, int base_qpn, int cnt)
++static void __mlx4_cq_free_icm(struct mlx4_dev *dev, int cqn)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_cq_table *cq_table = &priv->cq_table;
++
++	mlx4_table_put(dev, &cq_table->cmpt_table, cqn);
++	mlx4_table_put(dev, &cq_table->table, cqn);
++	mlx4_bitmap_free(&cq_table->bitmap, cqn);
++}
++
++static void mlx4_cq_free_icm(struct mlx4_dev *dev, int cqn)
 +{
 +	u64 in_param;
 +	int err;
 +
 +	if (mlx4_is_mfunc(dev)) {
-+		set_param_l(&in_param, base_qpn);
-+		set_param_h(&in_param, cnt);
-+		err = mlx4_cmd(dev, in_param, RES_QP, RES_OP_RESERVE,
++		set_param_l(&in_param, cqn);
++		err = mlx4_cmd(dev, in_param, RES_CQ, RES_OP_RESERVE_AND_MAP,
 +						      MLX4_CMD_FREE_RES,
 +						      MLX4_CMD_TIME_CLASS_A, 0);
-+		if (err) {
-+			mlx4_warn(dev, "Failed to release qp range"
-+				  " base:%d cnt:%d\n", base_qpn, cnt);
-+		}
++		if (err)
++			mlx4_warn(dev, "Failed freeing cq:%d\n", cqn);
 +	} else
-+		__mlx4_qp_release_range(dev, base_qpn, cnt);
++		__mlx4_cq_free_icm(dev, cqn);
 +}
- EXPORT_SYMBOL_GPL(mlx4_qp_release_range);
++
+ int mlx4_cq_alloc(struct mlx4_dev *dev, int nent, struct mlx4_mtt *mtt,
+ 		  struct mlx4_uar *uar, u64 db_rec, struct mlx4_cq *cq,
+ 		  unsigned vector, int collapsed)
+@@ -204,23 +276,15 @@ int mlx4_cq_alloc(struct mlx4_dev *dev, int nent, struct mlx4_mtt *mtt,
  
--int mlx4_qp_alloc(struct mlx4_dev *dev, int qpn, struct mlx4_qp *qp)
-+static int __mlx4_qp_alloc_icm(struct mlx4_dev *dev, int qpn)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	struct mlx4_qp_table *qp_table = &priv->qp_table;
- 	int err;
+ 	cq->vector = vector;
  
--	if (!qpn)
--		return -EINVAL;
+-	cq->cqn = mlx4_bitmap_alloc(&cq_table->bitmap);
+-	if (cq->cqn == -1)
+-		return -ENOMEM;
 -
--	qp->qpn = qpn;
--
--	err = mlx4_table_get(dev, &qp_table->qp_table, qp->qpn);
-+	err = mlx4_table_get(dev, &qp_table->qp_table, qpn);
- 	if (err)
- 		goto err_out;
- 
--	err = mlx4_table_get(dev, &qp_table->auxc_table, qp->qpn);
-+	err = mlx4_table_get(dev, &qp_table->auxc_table, qpn);
- 	if (err)
- 		goto err_put_qp;
- 
--	err = mlx4_table_get(dev, &qp_table->altc_table, qp->qpn);
-+	err = mlx4_table_get(dev, &qp_table->altc_table, qpn);
- 	if (err)
- 		goto err_put_auxc;
- 
--	err = mlx4_table_get(dev, &qp_table->rdmarc_table, qp->qpn);
-+	err = mlx4_table_get(dev, &qp_table->rdmarc_table, qpn);
- 	if (err)
- 		goto err_put_altc;
- 
--	err = mlx4_table_get(dev, &qp_table->cmpt_table, qp->qpn);
-+	err = mlx4_table_get(dev, &qp_table->cmpt_table, qpn);
- 	if (err)
- 		goto err_put_rdmarc;
- 
--	spin_lock_irq(&qp_table->lock);
--	err = radix_tree_insert(&dev->qp_table_tree, qp->qpn & (dev->caps.num_qps - 1), qp);
--	spin_unlock_irq(&qp_table->lock);
+-	err = mlx4_table_get(dev, &cq_table->table, cq->cqn);
 -	if (err)
--		goto err_put_cmpt;
+-		goto err_out;
 -
--	atomic_set(&qp->refcount, 1);
--	init_completion(&qp->free);
+-	err = mlx4_table_get(dev, &cq_table->cmpt_table, cq->cqn);
++	err = mlx4_cq_alloc_icm(dev, &cq->cqn);
+ 	if (err)
+-		goto err_put;
++		return err;
+ 
+ 	spin_lock_irq(&cq_table->lock);
+ 	err = radix_tree_insert(&cq_table->tree, cq->cqn, cq);
+ 	spin_unlock_irq(&cq_table->lock);
+ 	if (err)
+-		goto err_cmpt_put;
++		goto err_icm;
+ 
+ 	mailbox = mlx4_alloc_cmd_mailbox(dev);
+ 	if (IS_ERR(mailbox)) {
+@@ -259,14 +323,8 @@ err_radix:
+ 	radix_tree_delete(&cq_table->tree, cq->cqn);
+ 	spin_unlock_irq(&cq_table->lock);
+ 
+-err_cmpt_put:
+-	mlx4_table_put(dev, &cq_table->cmpt_table, cq->cqn);
 -
- 	return 0;
- 
--err_put_cmpt:
--	mlx4_table_put(dev, &qp_table->cmpt_table, qp->qpn);
+-err_put:
+-	mlx4_table_put(dev, &cq_table->table, cq->cqn);
 -
- err_put_rdmarc:
--	mlx4_table_put(dev, &qp_table->rdmarc_table, qp->qpn);
-+	mlx4_table_put(dev, &qp_table->rdmarc_table, qpn);
+-err_out:
+-	mlx4_bitmap_free(&cq_table->bitmap, cq->cqn);
++err_icm:
++	mlx4_cq_free_icm(dev, cq->cqn);
  
- err_put_altc:
--	mlx4_table_put(dev, &qp_table->altc_table, qp->qpn);
-+	mlx4_table_put(dev, &qp_table->altc_table, qpn);
- 
- err_put_auxc:
--	mlx4_table_put(dev, &qp_table->auxc_table, qp->qpn);
-+	mlx4_table_put(dev, &qp_table->auxc_table, qpn);
- 
- err_put_qp:
--	mlx4_table_put(dev, &qp_table->qp_table, qp->qpn);
-+	mlx4_table_put(dev, &qp_table->qp_table, qpn);
- 
- err_out:
  	return err;
  }
-+
-+static int mlx4_qp_alloc_icm(struct mlx4_dev *dev, int qpn)
-+{
-+	u64 param;
-+
-+	if (mlx4_is_mfunc(dev)) {
-+		set_param_l(&param, qpn);
-+		return mlx4_cmd_imm(dev, param, &param, RES_QP, RES_OP_MAP_ICM,
-+				    MLX4_CMD_ALLOC_RES, MLX4_CMD_TIME_CLASS_A,
-+				    0);
-+	}
-+	return __mlx4_qp_alloc_icm(dev, qpn);
-+}
-+
-+static void __mlx4_qp_free_icm(struct mlx4_dev *dev, int qpn)
-+{
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_qp_table *qp_table = &priv->qp_table;
-+
-+	mlx4_table_put(dev, &qp_table->cmpt_table, qpn);
-+	mlx4_table_put(dev, &qp_table->rdmarc_table, qpn);
-+	mlx4_table_put(dev, &qp_table->altc_table, qpn);
-+	mlx4_table_put(dev, &qp_table->auxc_table, qpn);
-+	mlx4_table_put(dev, &qp_table->qp_table, qpn);
-+}
-+
-+static void mlx4_qp_free_icm(struct mlx4_dev *dev, int qpn)
-+{
-+	u64 in_param;
-+
-+	if (mlx4_is_mfunc(dev)) {
-+		set_param_l(&in_param, qpn);
-+		if (mlx4_cmd(dev, in_param, RES_QP, RES_OP_MAP_ICM,
-+			     MLX4_CMD_FREE_RES, MLX4_CMD_TIME_CLASS_A, 0))
-+			mlx4_warn(dev, "Failed to free icm of qp:%d\n", qpn);
-+	} else
-+		__mlx4_qp_free_icm(dev, qpn);
-+}
-+
-+int mlx4_qp_alloc(struct mlx4_dev *dev, int qpn, struct mlx4_qp *qp)
-+{
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_qp_table *qp_table = &priv->qp_table;
-+	int err;
-+
-+	if (!qpn)
-+		return -EINVAL;
-+
-+	qp->qpn = qpn;
-+
-+	err = mlx4_qp_alloc_icm(dev, qpn);
-+	if (err)
-+		return err;
-+
-+	spin_lock_irq(&qp_table->lock);
-+	err = radix_tree_insert(&dev->qp_table_tree, qp->qpn &
-+				(dev->caps.num_qps - 1), qp);
-+	spin_unlock_irq(&qp_table->lock);
-+	if (err)
-+		goto err_icm;
-+
-+	atomic_set(&qp->refcount, 1);
-+	init_completion(&qp->free);
-+
-+	return 0;
-+
-+err_icm:
-+	mlx4_qp_free_icm(dev, qpn);
-+	return err;
-+}
- EXPORT_SYMBOL_GPL(mlx4_qp_alloc);
+@@ -292,8 +350,7 @@ void mlx4_cq_free(struct mlx4_dev *dev, struct mlx4_cq *cq)
+ 		complete(&cq->free);
+ 	wait_for_completion(&cq->free);
  
- void mlx4_qp_remove(struct mlx4_dev *dev, struct mlx4_qp *qp)
-@@ -248,17 +375,11 @@ EXPORT_SYMBOL_GPL(mlx4_qp_remove);
- 
- void mlx4_qp_free(struct mlx4_dev *dev, struct mlx4_qp *qp)
- {
--	struct mlx4_qp_table *qp_table = &mlx4_priv(dev)->qp_table;
--
- 	if (atomic_dec_and_test(&qp->refcount))
- 		complete(&qp->free);
- 	wait_for_completion(&qp->free);
- 
--	mlx4_table_put(dev, &qp_table->cmpt_table, qp->qpn);
--	mlx4_table_put(dev, &qp_table->rdmarc_table, qp->qpn);
--	mlx4_table_put(dev, &qp_table->altc_table, qp->qpn);
--	mlx4_table_put(dev, &qp_table->auxc_table, qp->qpn);
--	mlx4_table_put(dev, &qp_table->qp_table, qp->qpn);
-+	mlx4_qp_free_icm(dev, qp->qpn);
+-	mlx4_table_put(dev, &cq_table->table, cq->cqn);
+-	mlx4_bitmap_free(&cq_table->bitmap, cq->cqn);
++	mlx4_cq_free_icm(dev, cq->cqn);
  }
- EXPORT_SYMBOL_GPL(mlx4_qp_free);
+ EXPORT_SYMBOL_GPL(mlx4_cq_free);
  
-@@ -276,6 +397,8 @@ int mlx4_init_qp_table(struct mlx4_dev *dev)
+@@ -304,6 +361,8 @@ int mlx4_init_cq_table(struct mlx4_dev *dev)
  
- 	spin_lock_init(&qp_table->lock);
- 	INIT_RADIX_TREE(&dev->qp_table_tree, GFP_ATOMIC);
+ 	spin_lock_init(&cq_table->lock);
+ 	INIT_RADIX_TREE(&cq_table->tree, GFP_ATOMIC);
 +	if (mlx4_is_slave(dev))
 +		return 0;
  
- 	/*
- 	 * We reserve 2 extra QPs per port for the special QPs.  The
-@@ -327,6 +450,9 @@ int mlx4_init_qp_table(struct mlx4_dev *dev)
+ 	err = mlx4_bitmap_init(&cq_table->bitmap, dev->caps.num_cqs,
+ 			       dev->caps.num_cqs - 1, dev->caps.reserved_cqs, 0);
+@@ -315,6 +374,8 @@ int mlx4_init_cq_table(struct mlx4_dev *dev)
  
- void mlx4_cleanup_qp_table(struct mlx4_dev *dev)
+ void mlx4_cleanup_cq_table(struct mlx4_dev *dev)
  {
 +	if (mlx4_is_slave(dev))
 +		return;
-+
- 	mlx4_CONF_SPECIAL_QP(dev, 0);
- 	mlx4_bitmap_cleanup(&mlx4_priv(dev)->qp_table.bitmap);
+ 	/* Nothing to do to clean up radix_tree */
+ 	mlx4_bitmap_cleanup(&mlx4_priv(dev)->cq_table.bitmap);
  }
 -- 
 1.7.7
