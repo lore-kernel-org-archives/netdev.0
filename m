@@ -1,58 +1,87 @@
-From: Mathieu Trudel-Lapierre <mathieu.tl@gmail.com>
-Subject: net.ipv*.conf.all.* sysctls
-Date: Fri, 2 Dec 2011 13:32:26 -0500
-Message-ID: <CACfMzvppwC=-EaH4eQJfnQA51HrEc+3w-SwrohzXOyVhi3AEyA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Bug in computing data_len in tcp_sendmsg?
+Date: Fri, 02 Dec 2011 19:36:29 +0100
+Message-ID: <1322850989.2762.47.camel@edumazet-laptop>
+References: <1322827188.2607.19.camel@edumazet-laptop>
+	 <1322840663.2762.26.camel@edumazet-laptop>
+	 <1322841935.2762.33.camel@edumazet-laptop>
+	 <20111202.131304.981034697414242002.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev <netdev@vger.kernel.org>
+Cc: subramanian.vijay@gmail.com, therbert@google.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:45731 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752694Ab1LBSc1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 13:32:27 -0500
-Received: by eaak14 with SMTP id k14so3175842eaa.19
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 10:32:26 -0800 (PST)
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:60820 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752694Ab1LBSgf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 13:36:35 -0500
+Received: by bkas6 with SMTP id s6so4177022bka.19
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 10:36:34 -0800 (PST)
+In-Reply-To: <20111202.131304.981034697414242002.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Le vendredi 02 d=C3=A9cembre 2011 =C3=A0 13:13 -0500, David Miller a =C3=
+=A9crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 02 Dec 2011 17:05:35 +0100
+>=20
+> > Le vendredi 02 d=C3=A9cembre 2011 =C3=A0 16:44 +0100, Eric Dumazet =
+a =C3=A9crit :
+> >=20
+> >> [PATCH net-next] tcp: fix tcp_trim_head()
+> >>=20
+> >> commit f07d960df3 (tcp: avoid frag allocation for small frames)
+> >> breaked assumption in tcp stack that skb is either linear (data_le=
+n =3D=3D
+> >> 0), either fully fragged (data_len =3D=3D len)
+> >>=20
+> >> Thanks to Vijay for providing a very detailed explanation.
+> >>=20
+> >> Reported-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+> >> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> >> ---
+> >=20
+> > Another problem is the possible misalignement of skb->data if/when =
+we
+> > receive an ACK of an odd (not a 4 multiple) tcp sequence.
+> >=20
+> > So when/if packet is restransmited, tcp header (and IP header as we=
+ll)
+> > could be misaligned.
+> >=20
+> > Hmm, I probably miss something obvious, since this problem could ha=
+ppen
+> > for linear skbs before my patch ?
+>=20
+> Unfortunately, even if netfilter or the packet scheduler pulled data,=
+ this
+> misalignment wouldn't happen before your change.
+>=20
+> Maybe we should revert your frag allocation avoidance change until we=
+ can
+> sort this out.
 
-Rehashing something that's I've found quite a few times in a quick
-search in the archives, but still a little unclear to me.
+The patch I posted should solve the problem Vijay spotted.
+(It really does, I tested it, allowing mtu probing)
 
-As previously discussed here and as I could test on my system (Ubuntu
-3.2.0-2.5-generic 3.2.0-rc3), seems like the net.ipv6.conf.all sysctls
-aren't actually being propagated to all devices. Is this indeed an
-issue and something that needs to be fixed, or are these settings
-really expected to be used as "global" parameters?
+What I ask now is following problem (even prior to my frag allocation
+patch) :
 
-I've done a simple test: after applying
-net.ipv6.conf.all.use_tempaddr=3D2 and
-net.ipv6.conf.default.use_tempaddr=3D2 to sysctl.conf and rebooting, I
-still see the value for
-net.ipv6.conf.eth0.use_tempaddr as 0, while other devices (wlan0) are
-properly set to 2. This is most likely caused by eth0 being
-initialized prior to the sysctl.conf file being read and applied.
+1) We allocate a linear skb (SG being off) to cook a tcp frame of lengt=
+h
+XXX bytes.
 
-Connecting to a wired network still shows the interface eth0 as not
-using temporary addresses, which should be happening if "all" is
-really meant as a global value to override what might be set
-per-interface.
+2) We send it.
 
-Besides fixing up sysctls to be applied early enough to affect eth0 as
-well on my system; isn't there something else that needs to be done to
-clarify and fix the /all/ settings? I believe either the documentation
-and actual functionality needs to be fixed to be a global value and
-override per-interface values, or the functionality needs to be
-corrected to propagate values to the underlying interfaces.
+3) We receive an ACK for first 31 bytes.
 
-Am I missing something here? I'm totally new to kernel development,
-but would be happy to provide simple patches once the expected
-behaviour is clarified.
+4) We trim 31 bytes from the head of skb.  (skb_pull(skb, 31))
+    skb->data is now not anymore aligned to a 4 bytes boundary.
 
-Regards,
-
-Mathieu Trudel-Lapierre <mathieu.tl@gmail.com>
-=46reenode: cyphermox, Jabber: mathieu.tl@gmail.com
-4096R/EE018C93 1967 8F7D 03A1 8F38 732E =C2=A0FF82 C126 33E1 EE01 8C93
+5) Later, we need to retransmit skb (XXX minus 31 bytes already ACKed)
+   We push TCP header, and skb->data is not aligned.
+   TCP header is not aligned anymore. x86 doesnt care, but what about
+other arches with misalign traps ?
