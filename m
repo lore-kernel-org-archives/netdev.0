@@ -1,81 +1,85 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [RFCv2 9/9] caif-xshm: Add CAIF driver for Shared memory for
- M7400
-Date: Fri, 02 Dec 2011 12:50:06 +0100
-Message-ID: <1322826606.2313.14.camel@x61.thuisdomein>
-References: <1322595550-6473-1-git-send-email-sjur.brandeland@stericsson.com>
-	 <1322595550-6473-10-git-send-email-sjur.brandeland@stericsson.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4 0/10] bql: Byte Queue Limits
+Date: Fri, 02 Dec 2011 12:57:51 +0100
+Message-ID: <1322827071.2607.17.camel@edumazet-laptop>
+References: <20111129.124715.163094087536706067.davem@davemloft.net>
+	 <CA+mtBx_-_4zzweT61vYKe-c8ngMO9jF5PoYa4gC1aNKREjbwgQ@mail.gmail.com>
+	 <20111201165018.GA19451@tugrik.mns.mnsspb.ru>
+	 <20111201.130045.2061330448127491799.davem@davemloft.net>
+	 <20111202112228.GB3433@tugrik.mns.mnsspb.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	Linus Walleij <linus.walleij@linaro.org>, sjurbren@gmail.com,
+Cc: David Miller <davem@davemloft.net>, therbert@google.com,
 	netdev@vger.kernel.org
-To: Sjur =?ISO-8859-1?Q?Br=E6ndeland?=
-	<sjur.brandeland@stericsson.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1322595550-6473-10-git-send-email-sjur.brandeland@stericsson.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Kirill Smelkov <kirr@mns.spb.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:35163 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753915Ab1LBL5z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 06:57:55 -0500
+Received: by vcbfk14 with SMTP id fk14so2249722vcb.19
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 03:57:55 -0800 (PST)
+In-Reply-To: <20111202112228.GB3433@tugrik.mns.mnsspb.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A few minor comments follow. They're basically identical to some of my
-comments on v1 of 8/9 ("xshm: Makefile and Kconfig for M7400 Shared
-Memory Drivers"). I guess I just didn't spot these the first time.
-
-On Tue, 2011-11-29 at 20:39 +0100, Sjur Br=C3=A6ndeland wrote:
-> This patch introduces a caif shared memory link layer driver
-> for ST-Ericsson's Thor M7400 LTE modem.
+Le vendredi 02 d=C3=A9cembre 2011 =C3=A0 15:22 +0400, Kirill Smelkov a =
+=C3=A9crit :
+> On Thu, Dec 01, 2011 at 01:00:45PM -0500, David Miller wrote:
+> > From: Kirill Smelkov <kirr@mns.spb.ru>
+> > Date: Thu, 1 Dec 2011 20:50:18 +0400
+> >=20
+> > > One "regression" is it is now not possible to disable BQL at comp=
+ile time,
+> > > because CONFIG_BQL can't be set to "n" via usual ways.
+> > >=20
+> > > Description and patch below. Thanks.
+> >=20
+> > It's intentional, and your patch will not be applied.
+> >=20
+> > The Kconfig entry and option is merely for expressing internal depe=
+ndencies,
+> > not for providing a way to disable the code.
 >=20
-> M7400 uses a ring-buffer in shared memory for transporting data from =
-the modem.
-> Each ring-buffer element contains an array of caif frames. caif_xshm =
-calls
-> napi_schedule() when receiving notification about incoming data.
-> The napi-poll function copies data from the ring-buffer to SKBs until
-> ring-buffer is empty, or quota is exceeded.
+> I'm maybe wrong somewhere - sorry then, but why there is e.g.
 >=20
-> If transmit ring-buffer is full, it also uses napi for scheduling tra=
-nsmission
-> of queued transmit buffer.
+>      static inline void netdev_tx_sent_queue(struct netdev_queue *dev=
+_queue,
+>                                             unsigned int bytes)
+>      {
+>     +#ifdef CONFIG_BQL
+>     +       dql_queued(&dev_queue->dql, bytes);
+>     +       if (unlikely(dql_avail(&dev_queue->dql) < 0)) {
+>     +               set_bit(__QUEUE_STATE_STACK_XOFF, &dev_queue->sta=
+te);
+>     +               if (unlikely(dql_avail(&dev_queue->dql) >=3D 0))
+>     +                       clear_bit(__QUEUE_STATE_STACK_XOFF,
+>     +                           &dev_queue->state);
+>     +       }
+>     +#endif
+>      }
 >=20
-> Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
-> cc: netdev@vger.kernel.org
-> ---
->  drivers/net/caif/Kconfig     |   10 +
->  drivers/net/caif/Makefile    |    1 +
->  drivers/net/caif/caif_xshm.c |  935 ++++++++++++++++++++++++++++++++=
-++++++++++
->  3 files changed, 946 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/net/caif/caif_xshm.c
 >=20
-> diff --git a/drivers/net/caif/Kconfig b/drivers/net/caif/Kconfig
-> index abf4d7a..2861374 100644
-> --- a/drivers/net/caif/Kconfig
-> +++ b/drivers/net/caif/Kconfig
-> @@ -47,3 +47,13 @@ config CAIF_HSI
->         The caif low level driver for CAIF over HSI.
->         Be aware that if you enable this then you also need to
->         enable a low-level HSI driver.
-> +
-> +config CAIF_XSHM
-> +	tristate "CAIF external memory protocol driver"
-> +	depends on XSHM && CAIF
-> +	default n
-> +	---help---
-> +	Say "yes" if you want to support CAIF over External Shared Memory (=
-XSHM)
+> and that netdev_tx_sent_queue() is called on every xmit.
+>=20
+> I wanted to save cycles on my small/slow hardware and compile BQL out=
+ in
+> case I know the system is not going to use it. I'm netdev newcomer, s=
+o
+> sorry if I ask naive questions, but what's wrong it?
+>=20
 
-"Say Y"?
+Its something like 4 or 5 instructions (granted your NIC is BQL
+enabled). Really nothing compared to thousand of instructions per packe=
+t
+spent in the stack and driver.
 
-> +	IPC mechanism (e.g. over Chip to Chip).
-> +	This will normally be built-in, loadable module is used for testing=
-=2E
+And BQL will benefit especially on your small/slow hardware, even if yo=
+u
+dont believe so or know yet.
 
-Perhaps something like: "Only say M here if you want to test CAIF over
-XSHM and need to load and unload its module."?
+BQL is probably the major new netdev functionality of the year.
 
-> +	If unsure say N.
-[...]
-
-
-Paul Bolle
+Of course, you are free to patch your own kernel if you desperatly need
+to save a few cycles per packet.
