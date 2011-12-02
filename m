@@ -1,73 +1,52 @@
-From: Jamie Iles <jamie@jamieiles.com>
-Subject: Re: [PATCH 1/1] net/macb: add DT support
-Date: Fri, 2 Dec 2011 15:38:32 +0000
-Message-ID: <20111202153832.GA4998@totoro>
-References: <1321626565-11261-1-git-send-email-plagnioj@jcrosoft.com>
- <20111118155824.GA9981@totoro>
- <20111120164740.GC21480@game.jcrosoft.org>
- <20111120171123.GA7845@gallagher>
- <4ED8EF1C.80503@atmel.com>
+From: Michal Soltys <soltys@ziu.info>
+Subject: Re: ebtables on a stick
+Date: Fri, 02 Dec 2011 16:40:13 +0100
+Message-ID: <4ED8F15D.8020909@ziu.info>
+References: <925A849792280C4E80C5461017A4B8A2A04879@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487A@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0487F@mail733.InfraSupportEtc.com> <20111128143901.GA589422@jupiter.n2.diac24.net> <4ED566A8.2000108@ziu.info> <925A849792280C4E80C5461017A4B8A2A048F6@mail733.InfraSupportEtc.com> <20111201071456.GJ589422@jupiter.n2.diac24.net> <925A849792280C4E80C5461017A4B8A2A048F8@mail733.InfraSupportEtc.com> <20111201144745.GK589422@jupiter.n2.diac24.net> <925A849792280C4E80C5461017A4B8A2A048F9@mail733.InfraSupportEtc.com> <20111201165040.GL589422@jupiter.n2.diac24.net> <925A849792280C4E80C5461017A4B8A2A048FA@mail733.InfraSupportEtc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamie Iles <jamie@jamieiles.com>,
-	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
-	devicetree-discuss@ozlabs.org, netdev@vger.kernel.org
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org
+To: Greg Scott <GregScott@Infrasupport.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:49261 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756858Ab1LBPif (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 10:38:35 -0500
-Received: by bkas6 with SMTP id s6so3988895bka.19
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 07:38:34 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <4ED8EF1C.80503@atmel.com>
+Received: from drutsystem.com ([80.72.38.138]:1125 "EHLO drutsystem.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754713Ab1LBPkM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Dec 2011 10:40:12 -0500
+In-Reply-To: <925A849792280C4E80C5461017A4B8A2A048FA@mail733.InfraSupportEtc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 02, 2011 at 04:30:36PM +0100, Nicolas Ferre wrote:
-> On 11/20/2011 06:11 PM, Jamie Iles :
-> >On Sun, Nov 20, 2011 at 05:47:40PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> >>On 15:58 Fri 18 Nov     , Jamie Iles wrote:
-[...]
-> >>>>+		compatible = "atmel,macb";
-> >>>
-> >>>This should be "cdns,macb" as it isn't Atmel specific.  I believe cdns
-> >>>is the correct stock ticker symbol for Cadence.
-> >>here I put "atmel,macb" on purpose to specify the difference of the IP between
-> >>the soc, in fact it should have been atmel-at91,macb
-> >
-> >Well if we really can't detect the difference from the revision register
-> >then we should have "cdns,macb" *and* "atmel,at91-macb" at least then
-> >where platforms could claim compatibility as:
-> >
-> >	compatible = "atmel,at91-macb", "cdns,macb";
-> 
-> re-thinking about this I propose that we go for the following
-> compatible string for macb:
-> 
-> - compatible: Should be "cdns,<chip>-macb"
-> 
-> And as the first SoC that have embedded an emacb that is compatible
-> with current 10/100 AT91 usage is AVR32 at32ap7000... We may end up
-> with "cdns,at32ap7000-macb" compatible string. The first ones with
-> different synthesis parameters where at91sam9260/3 so I may also
-> add:
-> "cdns,at91sam9260-macb".
-> Then you will have to add the first SoC that uses the gigabit
-> version of the macb...
-> What do you think about that?
+On 11-12-01 17:56, Greg Scott wrote:
+>>  # ip -4 a l eth0; ip r l match 0.0.0.0; ip r l exact 10.255.255.1
+>>  2: eth0:<BROADCAST,MULTICAST,UP,LOWER_UP>  mtu 1500 qdisc pfifo_fast
+>>  state UNKNOWN qlen 1000
+>>      inet 87.106.131.203/32 scope global eth0
+>>  default via 10.255.255.1 dev eth0
+>>  10.255.255.1 dev eth0  scope link
 
-Sure, that works for me, though I guess this is a much more general 
-thing than this one binding, but that does make sense to me.  I think 
-that keeping a general "cdns,macb" _too_ still makes sense though as 
-lots of it may well be detectable and it will probably be difficult for 
-one SoC vendor to know whether their IP instantiation really is the same 
-as another vendors...  Either way I don't have a strong opinion on that.
+Aside from addresses, same config I had when I was on adsl.
 
-> BTW, "cdns" seems not included in the vendor-prefixes.txt file yet...
+>
+> Wow, how does that even work?  Every time I think I know something, I
+> get challenged.  I should make that a slogan.
+>
+> - Greg
+>
 
-No, that one is missing.  If you want to add it then feel free, if not 
-I'll add it to my list of patches to do!
+BTW:
 
-Jamie
+You should be able to avoid whole proxy thing altogether (on your 
+router), by doing:
+
+ip add add 1.2.115.157/32 dev eth0
+ip ro del table local 192.168.99.5/32 dev eth0
+ip route add 1.2.115.157/32 dev eth1
+
+instead of:
+
+ip neigh add proxy 1.2.115.157 dev eth0
+
+The former will still expose the address, but it will be not routable 
+inside the router, so will get passed to your internal host. (this 
+assumes your kernel is compiled with advanced routing).
