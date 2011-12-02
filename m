@@ -1,85 +1,115 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4 0/10] bql: Byte Queue Limits
-Date: Fri, 02 Dec 2011 12:57:51 +0100
-Message-ID: <1322827071.2607.17.camel@edumazet-laptop>
-References: <20111129.124715.163094087536706067.davem@davemloft.net>
-	 <CA+mtBx_-_4zzweT61vYKe-c8ngMO9jF5PoYa4gC1aNKREjbwgQ@mail.gmail.com>
-	 <20111201165018.GA19451@tugrik.mns.mnsspb.ru>
-	 <20111201.130045.2061330448127491799.davem@davemloft.net>
-	 <20111202112228.GB3433@tugrik.mns.mnsspb.ru>
+Subject: Re: Bug in computing data_len in tcp_sendmsg?
+Date: Fri, 02 Dec 2011 12:59:48 +0100
+Message-ID: <1322827188.2607.19.camel@edumazet-laptop>
+References: <CA+mtBx8+sajFaCWqHRr+pY5EAHwN8G61v6cr-HydYhbbdxAgHQ@mail.gmail.com>
+	 <1322710962.2577.3.camel@edumazet-laptop>
+	 <CA+mtBx_CUsuGunKONwBNA8qyVni16+RtrRL8w=THYY0mEDcvaA@mail.gmail.com>
+	 <1322713032.2577.7.camel@edumazet-laptop>
+	 <CAGK4HS8fLWwdPsrag6+Mz93_ZNg2B5JRjx2s=Re8_Qiv4V=T=w@mail.gmail.com>
+	 <1322778621.2750.48.camel@edumazet-laptop>
+	 <CAGK4HS84vepB-cOnjOASqXy2gLWGwx=RHnQ3PbbMPezxJ5m3QQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, therbert@google.com,
-	netdev@vger.kernel.org
-To: Kirill Smelkov <kirr@mns.spb.ru>
+Cc: Tom Herbert <therbert@google.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:35163 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753915Ab1LBL5z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 06:57:55 -0500
-Received: by vcbfk14 with SMTP id fk14so2249722vcb.19
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 03:57:55 -0800 (PST)
-In-Reply-To: <20111202112228.GB3433@tugrik.mns.mnsspb.ru>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:59694 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753931Ab1LBL7x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 06:59:53 -0500
+Received: by vbbfc26 with SMTP id fc26so2210433vbb.19
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 03:59:52 -0800 (PST)
+In-Reply-To: <CAGK4HS84vepB-cOnjOASqXy2gLWGwx=RHnQ3PbbMPezxJ5m3QQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 02 d=C3=A9cembre 2011 =C3=A0 15:22 +0400, Kirill Smelkov a =
+Le jeudi 01 d=C3=A9cembre 2011 =C3=A0 22:18 -0800, Vijay Subramanian a =
 =C3=A9crit :
-> On Thu, Dec 01, 2011 at 01:00:45PM -0500, David Miller wrote:
-> > From: Kirill Smelkov <kirr@mns.spb.ru>
-> > Date: Thu, 1 Dec 2011 20:50:18 +0400
-> >=20
-> > > One "regression" is it is now not possible to disable BQL at comp=
-ile time,
-> > > because CONFIG_BQL can't be set to "n" via usual ways.
-> > >=20
-> > > Description and patch below. Thanks.
-> >=20
-> > It's intentional, and your patch will not be applied.
-> >=20
-> > The Kconfig entry and option is merely for expressing internal depe=
-ndencies,
-> > not for providing a way to disable the code.
+> >> I am looking at tcp_mtu_probe() and was wondering if this commit a=
+lso
+> >> impacts this function. Once the data are copied from skbs in the w=
+rite
+> >> queue to the probe skb, copied data are cleared from the original =
+skbs
+> >> in the write queue.
+> >>
+> >> It looks like the code assumes that the original skb will have dat=
+a
+> >> either in linear part or in paged part.  The call to
+> >> __pskb_trim_head(skb, copy) for example does not clear linear part=
+=2E
+> >>
+> >> Can someone more familiar with the code take a look? Apologies if =
+I
+> >> have read this wrong.
+> >>
+> >
+> > tcp_mtu_probe() builds a linear skb, and populate it using
+> > skb_copy_bits() [ this is frag aware, and aware of payload in heade=
+r as
+> > well ]
+> >
+> > I see no problem in it.
+> >
 >=20
-> I'm maybe wrong somewhere - sorry then, but why there is e.g.
+> Eric,
+> I think you may have misunderstood me (I think my post was not very
+> clear). Let me try again.
 >=20
->      static inline void netdev_tx_sent_queue(struct netdev_queue *dev=
-_queue,
->                                             unsigned int bytes)
->      {
->     +#ifdef CONFIG_BQL
->     +       dql_queued(&dev_queue->dql, bytes);
->     +       if (unlikely(dql_avail(&dev_queue->dql) < 0)) {
->     +               set_bit(__QUEUE_STATE_STACK_XOFF, &dev_queue->sta=
-te);
->     +               if (unlikely(dql_avail(&dev_queue->dql) >=3D 0))
->     +                       clear_bit(__QUEUE_STATE_STACK_XOFF,
->     +                           &dev_queue->state);
->     +       }
->     +#endif
->      }
+> The MTU probe is built  correctly as a linear skb. As you point out,
+> skb_copy_bits() is frag aware and copies data from both the header an=
+d
+> pages.
+> The issue is with the way the data is cleared from the write queue
+> later in the function tcp_mtu_probe().
 >=20
+> For example, if the MTU probe size was N bytes, then the probe is
+> inserted at the front of the write_queue and N bytes are copied from
+> the original write-queue skbs.
+> As these N bytes are copied, if an skb is completely consumed, it is
+> unlinked from the write_queue and freed. If an skb is only partially
+> consumed, then the pointers are adjusted
+> accordingly to erase the data. For a paged skb, fully consumed pages
+> are unreferenced.
 >=20
-> and that netdev_tx_sent_queue() is called on every xmit.
+> This is done as follows in tcp_mtu_probe()
 >=20
-> I wanted to save cycles on my small/slow hardware and compile BQL out=
- in
-> case I know the system is not going to use it. I'm netdev newcomer, s=
-o
-> sorry if I ask naive questions, but what's wrong it?
+>            if (!skb_shinfo(skb)->nr_frags) {
+>                skb_pull(skb, copy);
+>                if (skb->ip_summed !=3D CHECKSUM_PARTIAL)
+>                    skb->csum =3D csum_partial(skb->data,
+>                                 skb->len, 0);
+>            } else {
+>                __pskb_trim_head(skb, copy);
+>                tcp_set_skb_tso_segs(sk, skb, mss_now);
+>            }
+>=20
+> It appears that the code assumes the data will either be in the linea=
+r
+> part (the if condition) or in the paged part (else condition) but not
+> both. Is this a correct assumption after the
+> recent commit f07d960df33c5aef (tcp: avoid frag allocation for small =
+frames)?
+>=20
+> Since __pskb_trim_head() only only removes data from the non-linear
+> part, the data in the linear part is never removed. Maybe for paged
+> skbs, we need something like
+> headlen =3D skb_headlen(skb);
+> skb_pull(skb, headlen);
+> __pskb_trim_head(skb, copy - headlen);
+>=20
+> Thanks for your patience and hope this makes more sense than my previ=
+ous post.
 >=20
 
-Its something like 4 or 5 instructions (granted your NIC is BQL
-enabled). Really nothing compared to thousand of instructions per packe=
-t
-spent in the stack and driver.
+Thanks for this detailed explanation !
 
-And BQL will benefit especially on your small/slow hardware, even if yo=
-u
-dont believe so or know yet.
+And yes, you're probably right.
 
-BQL is probably the major new netdev functionality of the year.
+Are you willing to submit a patch to fix this ?
 
-Of course, you are free to patch your own kernel if you desperatly need
-to save a few cycles per packet.
+(If not, I can do it myself of course)
