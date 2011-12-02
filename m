@@ -1,85 +1,64 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH] ipv4: make sure RTO_ONLINK is saved in routing cache
-Date: Fri,  2 Dec 2011 23:39:42 +0200
-Message-ID: <1322861982-3780-1-git-send-email-ja@ssi.bg>
-To: netdev@vger.kernel.org
+From: =?ISO-8859-2?Q?Igor_Maravi=E6?= <igorm@etf.rs>
+Subject: Re: [PATCH net-next] r8169: Support for byte queue limits
+Date: Fri, 2 Dec 2011 22:54:50 +0100
+Message-ID: <CAFdo_mUZembr4MEGUt9efNtfnuCs4ddHUCDjLE64WnWwytTpzw@mail.gmail.com>
+References: <igorm@etf.rs>
+	<1322831399-23505-1-git-send-email-igorm@etf.rs>
+	<1322836191.2762.3.camel@edumazet-laptop>
+	<CAFdo_mVwRgB3OEBA7=nMcemr1x1WLkXC05UAnDW_n5gyYy9W=A@mail.gmail.com>
+	<1322838687.2762.18.camel@edumazet-laptop>
+	<6b84ddc047f72f8a66cc587a1813fbe9.squirrel@kondor.etf.bg.ac.rs>
+	<1322844451.2762.36.camel@edumazet-laptop>
+	<CAFdo_mWtxexXXCpFZsQKAJ96ZXEnDRiBsb4zFO8oR0hc6gXPMQ@mail.gmail.com>
+	<1322845932.2762.38.camel@edumazet-laptop>
+Reply-To: igorm@etf.rs
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Tom Herbert <therbert@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:38861 "EHLO ja.ssi.bg"
+Received: from mx2.etf.rs ([147.91.14.170]:52631 "EHLO mx2.etf.bg.ac.rs"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755539Ab1LBVjG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Dec 2011 16:39:06 -0500
-Received: from ja.ssi.bg (localhost.localdomain [127.0.0.1])
-	by ja.ssi.bg (8.14.4/8.14.4) with ESMTP id pB2Ldw5M003808
-	for <netdev@vger.kernel.org>; Fri, 2 Dec 2011 23:39:58 +0200
-Received: (from root@localhost)
-	by ja.ssi.bg (8.14.4/8.14.4/Submit) id pB2Ldw32003806
-	for netdev@vger.kernel.org; Fri, 2 Dec 2011 23:39:58 +0200
+	id S1755778Ab1LBV5j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Dec 2011 16:57:39 -0500
+Received: from localhost (avs1.etf.rs [147.91.14.172])
+	by mx2.etf.bg.ac.rs (Postfix) with ESMTP id C102360159
+	for <netdev@vger.kernel.org>; Fri,  2 Dec 2011 22:57:36 +0100 (CET)
+Received: from mx1.etf.bg.ac.rs ([147.91.14.169])
+	by localhost (avs1.etf.rs [147.91.14.171]) (amavisd-new, port 10026)
+	with ESMTP id 0CbGSeoo5kii for <netdev@vger.kernel.org>;
+	Fri,  2 Dec 2011 22:57:36 +0100 (CET)
+Received: from mail-pz0-f46.google.com (mail-pz0-f46.google.com [209.85.210.46])
+	(using TLSv1 with cipher RC4-SHA (128/128 bits))
+	(No client certificate requested)
+	(Authenticated sender: igorm)
+	by mx1.etf.bg.ac.rs (Postfix) with ESMTP id 9CD1F12015C
+	for <netdev@vger.kernel.org>; Fri,  2 Dec 2011 22:54:53 +0100 (CET)
+Received: by dadv6 with SMTP id v6so1836597dad.19
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 13:54:50 -0800 (PST)
+In-Reply-To: <1322845932.2762.38.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	__mkroute_output fails to work with the original tos
-and uses value with stripped RTO_ONLINK bit. Make sure we put
-the original TOS bits into rt_key_tos because it used to match
-cached route.
+>
+> Reread what I said : "BQL must be lightweight"
+>
+> Not : "No lock should be used"
+>
+> OK ?
+>
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
- net/ipv4/route.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+I'm out of ideas.
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 7047069..c546c4c 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -111,7 +111,7 @@
- #include <net/secure_seq.h>
- 
- #define RT_FL_TOS(oldflp4) \
--    ((u32)(oldflp4->flowi4_tos & (IPTOS_RT_MASK | RTO_ONLINK)))
-+	((oldflp4)->flowi4_tos & (IPTOS_RT_MASK | RTO_ONLINK))
- 
- #define IP_MAX_MTU	0xFFF0
- 
-@@ -2435,11 +2435,11 @@ EXPORT_SYMBOL(ip_route_input_common);
- static struct rtable *__mkroute_output(const struct fib_result *res,
- 				       const struct flowi4 *fl4,
- 				       __be32 orig_daddr, __be32 orig_saddr,
--				       int orig_oif, struct net_device *dev_out,
-+				       int orig_oif, __u8 orig_rtos,
-+				       struct net_device *dev_out,
- 				       unsigned int flags)
- {
- 	struct fib_info *fi = res->fi;
--	u32 tos = RT_FL_TOS(fl4);
- 	struct in_device *in_dev;
- 	u16 type = res->type;
- 	struct rtable *rth;
-@@ -2490,7 +2490,7 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 	rth->rt_genid = rt_genid(dev_net(dev_out));
- 	rth->rt_flags	= flags;
- 	rth->rt_type	= type;
--	rth->rt_key_tos	= tos;
-+	rth->rt_key_tos	= orig_rtos;
- 	rth->rt_dst	= fl4->daddr;
- 	rth->rt_src	= fl4->saddr;
- 	rth->rt_route_iif = 0;
-@@ -2540,7 +2540,7 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- static struct rtable *ip_route_output_slow(struct net *net, struct flowi4 *fl4)
- {
- 	struct net_device *dev_out = NULL;
--	u32 tos	= RT_FL_TOS(fl4);
-+	__u8 tos = RT_FL_TOS(fl4);
- 	unsigned int flags = 0;
- 	struct fib_result res;
- 	struct rtable *rth;
-@@ -2716,7 +2716,7 @@ static struct rtable *ip_route_output_slow(struct net *net, struct flowi4 *fl4)
- 
- make_route:
- 	rth = __mkroute_output(&res, fl4, orig_daddr, orig_saddr, orig_oif,
--			       dev_out, flags);
-+			       tos, dev_out, flags);
- 	if (!IS_ERR(rth)) {
- 		unsigned int hash;
- 
--- 
-1.7.3.4
+Do you think, if I remove netdev_reset_queue(tp->dev); from
+rtl8169_init_ring_indexes,
+and spin_locks, of course, that would be a good solution.
+
+As far as I could see in marvell/sky2.c,  sfc/tx.c and intel/e1000e/netdev.c
+netdev_completed is called with out any lock.
+Please correct me if I'm wrong.
+BR
+Igor
