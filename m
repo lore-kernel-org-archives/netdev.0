@@ -1,57 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] r8169: Support for byte queue limits
-Date: Fri, 02 Dec 2011 18:12:12 +0100
-Message-ID: <1322845932.2762.38.camel@edumazet-laptop>
-References: <igorm@etf.rs> <1322831399-23505-1-git-send-email-igorm@etf.rs>
-	 <1322836191.2762.3.camel@edumazet-laptop>
-	 <CAFdo_mVwRgB3OEBA7=nMcemr1x1WLkXC05UAnDW_n5gyYy9W=A@mail.gmail.com>
-	 <1322838687.2762.18.camel@edumazet-laptop>
-	 <6b84ddc047f72f8a66cc587a1813fbe9.squirrel@kondor.etf.bg.ac.rs>
-	 <1322844451.2762.36.camel@edumazet-laptop>
-	 <CAFdo_mWtxexXXCpFZsQKAJ96ZXEnDRiBsb4zFO8oR0hc6gXPMQ@mail.gmail.com>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: Re: pull request: batman-adv 2011-11-26
+Date: Fri, 2 Dec 2011 18:12:16 +0100
+Message-ID: <20111202171216.GA4561@ritirata.org>
+References: <1322317612-7770-1-git-send-email-lindner_marek@yahoo.de>
+	<20111126.144122.775553783672941660.davem@davemloft.net>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Tom Herbert <therbert@google.com>
-To: igorm@etf.rs
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:49888 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756969Ab1LBRMR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 12:12:17 -0500
-Received: by bkas6 with SMTP id s6so4089602bka.19
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 09:12:16 -0800 (PST)
-In-Reply-To: <CAFdo_mWtxexXXCpFZsQKAJ96ZXEnDRiBsb4zFO8oR0hc6gXPMQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+	lindner_marek-LWAfsSFWpa4@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20111126.144122.775553783672941660.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 02 d=C3=A9cembre 2011 =C3=A0 18:00 +0100, Igor Maravi=C4=87=
- a =C3=A9crit :
-> >
-> > They are initted at device setup.
-> >
->=20
-> What about when device is reseted?
->=20
+Hello David,
 
-What happens to queued skbs ? Are they LOST ?
+On Sat, Nov 26, 2011 at 02:41:22 -0500, David Miller wrote:
+[CUT]
+> Some things to look into:
+> 
+> +			if (unlikely(skb_headlen(skb) <
+> +					sizeof(struct tt_query_packet) +
+> +					tt_len))
+> 
+> This isn't formatted correctly, all the leading edges should line
+> up to the openning parenthesis of the unlikely:
+> 
+> +			if (unlikely(skb_headlen(skb) <
+> +				     sizeof(struct tt_query_packet) +
+> +				     tt_len))
+> 
 
-Think about it.
+Thank you for reporting this issue. We have already prepared a patch which is
+going to be sent within the next batch.
+
+> Next, there is a lot of linearization done by the stack, but really the
+> thing to do is to make sure that the part you want to look at is
+> linear.
+> 
+> You do this using pskb_may_pull() right before you want to look at some
+> headers. It makes sure that, for the length given, that many bytes are
+> linear at the head of the skb.
+> 
+
+For this issue, we had some problem to understand it.
+
+First of all I think you are referring to patch 08/10, in which I moved a
+skb_linearise() operation.
+
+To be sure it is really needed, I backtracked the code flow and noted down any
+eventual psbk_may_pull() (or any other linearisation operation). The result is:
+
+=> in batman_skb_recv()
+	- pskb_may_pull(2)
+  => in recv_tt_query()
+  	  - pskb_may_pull(sizeof(header))
+	  - skb_linearise()
+
+Actually it seems we haven't any useless linearisation.
+Would you mind explain us where you actually found the problem, please?
+
+It might also be that I misunderstood your advice.
+
+Thank you.
 
 
-> >
-> > Oh well, no, dont do that. BQL must be lightweight.
-> >
->=20
-> Forcedeth driver utilizes spin_locks. :)
+Best Regards,
 
-No added spin_locks in BQL patch.
+-- 
+Antonio Quartulli
 
-Reread what I said : "BQL must be lightweight"
-
-Not : "No lock should be used"
-
-OK ?
+..each of us alone is worth nothing..
+Ernesto "Che" Guevara
