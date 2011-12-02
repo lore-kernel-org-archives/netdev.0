@@ -1,67 +1,32 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: [PATCH] e1000e: Fix bug for e1000e interrupt default
-	mode select.
-Date: Fri,  2 Dec 2011 01:11:46 -0600
-Message-ID: <1322809906-6428-1-git-send-email-galak@kernel.crashing.org>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Re: BUG: unable to handle kernel NULL pointer dereference at 000000000000002c
+Date: Fri, 02 Dec 2011 08:19:05 +0100
+Message-ID: <4ED87BE9.20104@profihost.ag>
+References: <CA+5PVA6kZkgYus4698Up8Q8uMTetCU2=DnTD0RpgXuHkJj6KKg@mail.gmail.com>	<1322773527.2750.27.camel@edumazet-laptop>	<4ED86B79.4060506@profihost.ag> <20111202.011739.1018700331407530740.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com, Prabhakar <prabhakar@freescale.com>
-To: jeffrey.t.kirsher@intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, jwboyer@gmail.com, hch@infradead.org,
+	netdev@vger.kernel.org, david@fromorbit.com, stable@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from server655-han.de-nserver.de ([85.158.177.45]:40122 "EHLO
+	server655-han.de-nserver.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751948Ab1LBHTF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 02:19:05 -0500
+In-Reply-To: <20111202.011739.1018700331407530740.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Prabhakar <prabhakar@freescale.com>
+Am 02.12.2011 07:17, schrieb David Miller:
+> From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+> Date: Fri, 02 Dec 2011 07:08:57 +0100
+> 
+>> So can someone please send them to greg => stable@ so we can get them
+>> into 3.0.X longterm stable.
+> 
+> I'll do it, these things just take care and time.
 
-If the kernel config does not have MSI enabled (CONFIG_PCI_MSI) the driver
-should not default to MSI interrupt mode but legacy interrupt mode.
+Thanks! Could you please CC me?
 
-Signed-off-by: Jin Qing <b24347@freescale.com>
-Signed-off-by: Prabhakar <prabhakar@freescale.com>
-Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
----
- drivers/net/ethernet/intel/e1000e/param.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000e/param.c b/drivers/net/ethernet/intel/e1000e/param.c
-index 20e93b0..18c35c6 100644
---- a/drivers/net/ethernet/intel/e1000e/param.c
-+++ b/drivers/net/ethernet/intel/e1000e/param.c
-@@ -388,8 +388,13 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 		static struct e1000_option opt = {
- 			.type = range_option,
- 			.name = "Interrupt Mode",
-+#ifdef CONFIG_PCI_MSI
- 			.err  = "defaulting to 2 (MSI-X)",
- 			.def  = E1000E_INT_MODE_MSIX,
-+#else
-+			.err  = "defaulting to 0 (Legacy)",
-+			.def  = E1000E_INT_MODE_LEGACY,
-+#endif
- 			.arg  = { .r = { .min = MIN_INTMODE,
- 					 .max = MAX_INTMODE } }
- 		};
--- 
-1.7.3.4
-
-
-------------------------------------------------------------------------------
-All the data continuously generated in your IT infrastructure 
-contains a definitive record of customers, application performance, 
-security threats, fraudulent activity, and more. Splunk takes this 
-data and makes sense of it. IT sense. And common sense.
-http://p.sf.net/sfu/splunk-novd2d
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Stefan
