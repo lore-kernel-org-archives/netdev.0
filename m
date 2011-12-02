@@ -1,51 +1,28 @@
-From: Richard Zhao <richard.zhao@linaro.org>
-Subject: Re: [PATCH V4 00/14] add clk_prepare/clk_unprepare to imx drivers
-Date: Fri, 2 Dec 2011 19:40:35 +0800
-Message-ID: <20111202114034.GH8684@b20223-02.ap.freescale.net>
-References: <1321339689-25256-1-git-send-email-richard.zhao@linaro.org>
- <20111117012210.GA23392@b20223-02.ap.freescale.net>
- <20111202110713.GG8684@b20223-02.ap.freescale.net>
+From: "IndependentNon-executiveDirector.." <Kuo_Fung@gmail.com>
+Subject: Re: partner with me.!!!.
+Date: Fri, 02 Dec 2011 12:36:08 +0100
+Message-ID: <201112021137.pB2BUeQq024962__43147.1357857392$1322826357$gmane$org@mail.ucla.edu>
+Reply-To: drraymondd@yahoo.cn
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <amit.kucheria@canonical.com>, <linux@arm.linux.org.uk>,
-	<kernel@pengutronix.de>, <eric.miao@linaro.org>,
-	<ben-linux@fluff.org>, <cjb@laptop.org>, <alan@linux.intel.com>
-To: <linux-arm-kernel@lists.infradead.org>,
-	<linux-i2c@vger.kernel.org>, <linux-mmc@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-serial@vger.kernel.org>
-Return-path: <linux-serial-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20111202110713.GG8684@b20223-02.ap.freescale.net>
-Sender: linux-serial-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Kuo_Fung@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out-58.smtp.ucla.edu ([169.232.46.177]:50128 "EHLO
+	out-58.smtp.ucla.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754090Ab1LBLpj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 06:45:39 -0500
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 02, 2011 at 07:07:14PM +0800, Richard Zhao wrote:
-> Is there any body merged this patch series?
-Thanks, Sascha! Just found it's in your imx-features branch.
+KINDLY VIEW THE ATTACHED PDF FILE AND READ MY BUSINESS PROPOSAL AND GET TO ME
+Dear friend
+I am Dr Raymond Chien Independent Non-executive Director of Hang Seng
+Bank Hong Kong I have a business transaction of $44.5 million USD
+to share with you,If interested contact me for more details via my
 
-Richard
-> 
-> Thanks
-> Richard
-> On Thu, Nov 17, 2011 at 09:22:11AM +0800, Richard Zhao wrote:
-> > Hi Sascha,
-> > 
-> > Would you merge this patch series?
-> > 
-> > Thanks
-> > Richard 
-> > 
-> > 
-> > _______________________________________________
-> > linux-arm-kernel mailing list
-> > linux-arm-kernel@lists.infradead.org
-> > http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-> > 
-> 
-> 
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-> 
-
+personal email:  drhraymondd@yahoo.com.hk
+Full names:Address:Age:Occupation:Phone/Fax
+Regards
+Dr Raymond Chien Kuo Fung
