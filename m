@@ -1,7 +1,8 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH net-next V0  02/21] net/mlx4: Extending port_mask functionality
-Date: Fri, 2 Dec 2011 12:16:40 +0200
-Message-ID: <4ED8A588.3060802@mellanox.co.il>
+Subject: [PATCH net-next V0 04/21] mlx4_core: Reduce number of PD bits to
+ 17
+Date: Fri, 2 Dec 2011 12:16:59 +0200
+Message-ID: <4ED8A59B.5010005@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
@@ -10,90 +11,125 @@ Cc: <netdev@vger.kernel.org>, <linux-rdma@vger.kernel.org>,
 	<liranl@mellanox.co.il>, <jackm@dev.mellanox.co.il>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:43923 "HELO
-	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756084Ab1LBM52 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 07:57:28 -0500
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:53467 "HELO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756487Ab1LBM5l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 07:57:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-Port mask now has additional state.
-Port can be set as "none". In this case neither the mlx4_en or mlx4_ib
-drivers take ownership of the port.
-In multifunction mode there is an option to set the vfs as single ported devices.
-This option will be added on a later stage
-(in single function mode, both physical ports belong to same function)
+When SRIOV is enabled on the chip (at FW burning time),
+the HCA uses only 17 bits for the PD. The remaining 7 high-order bits
+are ignored.
+
+Change the allocator to return only 17 bits for the PD.  The MSB 7
+bits will be used to encode the slave number for consistency
+checking later on in the resource tracker.
 
 Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/infiniband/hw/mlx4/main.c         |    2 +-
- drivers/net/ethernet/mellanox/mlx4/main.c |    4 +---
- include/linux/mlx4/device.h               |   13 ++++++-------
- 3 files changed, 8 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h |    5 ++++-
+ drivers/net/ethernet/mellanox/mlx4/pd.c   |   19 ++++++++++++++-----
+ include/linux/mlx4/device.h               |    1 +
+ 3 files changed, 19 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
-index 77f3dbc..6128b29 100644
---- a/drivers/infiniband/hw/mlx4/main.c
-+++ b/drivers/infiniband/hw/mlx4/main.c
-@@ -177,7 +177,7 @@ mlx4_ib_port_link_layer(struct ib_device *device, u8 port_num)
- {
- 	struct mlx4_dev *dev = to_mdev(device)->dev;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index 6917761..51cba26 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -420,7 +420,7 @@ struct mlx4_mfunc_master_ctx {
+ 	struct work_struct	slave_event_work;
+ 	struct work_struct	slave_flr_event_work;
+ 	spinlock_t		slave_state_lock;
+-	u32			comm_arm_bit_vector[4];
++	__be32			comm_arm_bit_vector[4];
+ 	struct mlx4_eqe		cmd_eqe;
+ 	struct mlx4_slave_event_eq slave_eq;
+ 	struct mutex		gen_eqe_mutex[MLX4_MFUNC_MAX];
+@@ -914,4 +914,7 @@ int mlx4_QUERY_IF_STAT_wrapper(struct mlx4_dev *dev, int slave,
+ 			       struct mlx4_cmd_mailbox *inbox,
+ 			       struct mlx4_cmd_mailbox *outbox,
+ 			       struct mlx4_cmd_info *cmd);
++
++#define NOT_MASKED_PD_BITS 17
++
+ #endif /* MLX4_H */
+diff --git a/drivers/net/ethernet/mellanox/mlx4/pd.c b/drivers/net/ethernet/mellanox/mlx4/pd.c
+index 260ed25..5c9a54d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/pd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/pd.c
+@@ -31,6 +31,7 @@
+  * SOFTWARE.
+  */
  
--	return dev->caps.port_mask & (1 << (port_num - 1)) ?
-+	return dev->caps.port_mask[port_num] == MLX4_PORT_TYPE_IB ?
- 		IB_LINK_LAYER_INFINIBAND : IB_LINK_LAYER_ETHERNET;
++#include <linux/init.h>
+ #include <linux/errno.h>
+ #include <linux/export.h>
+ #include <linux/io-mapping.h>
+@@ -51,7 +52,8 @@ int mlx4_pd_alloc(struct mlx4_dev *dev, u32 *pdn)
+ 	*pdn = mlx4_bitmap_alloc(&priv->pd_bitmap);
+ 	if (*pdn == -1)
+ 		return -ENOMEM;
+-
++	if (mlx4_is_mfunc(dev))
++		*pdn |= (dev->caps.function + 1) << NOT_MASKED_PD_BITS;
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(mlx4_pd_alloc);
+@@ -85,7 +87,8 @@ int mlx4_init_pd_table(struct mlx4_dev *dev)
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 
+ 	return mlx4_bitmap_init(&priv->pd_bitmap, dev->caps.num_pds,
+-				(1 << 24) - 1, dev->caps.reserved_pds, 0);
++				(1 << NOT_MASKED_PD_BITS) - 1,
++				 dev->caps.reserved_pds, 0);
  }
  
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 94bbc85..64d03f8 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -140,10 +140,8 @@ static void mlx4_set_port_mask(struct mlx4_dev *dev)
- {
- 	int i;
+ void mlx4_cleanup_pd_table(struct mlx4_dev *dev)
+@@ -108,13 +111,19 @@ void mlx4_cleanup_xrcd_table(struct mlx4_dev *dev)
  
--	dev->caps.port_mask = 0;
- 	for (i = 1; i <= dev->caps.num_ports; ++i)
--		if (dev->caps.port_type[i] == MLX4_PORT_TYPE_IB)
--			dev->caps.port_mask |= 1 << (i - 1);
-+		dev->caps.port_mask[i] = dev->caps.port_type[i];
+ int mlx4_uar_alloc(struct mlx4_dev *dev, struct mlx4_uar *uar)
+ {
++	int offset;
++
+ 	uar->index = mlx4_bitmap_alloc(&mlx4_priv(dev)->uar_table.bitmap);
+ 	if (uar->index == -1)
+ 		return -ENOMEM;
+ 
+-	uar->pfn = (pci_resource_start(dev->pdev, 2) >> PAGE_SHIFT) + uar->index;
++	if (mlx4_is_slave(dev))
++		offset = uar->index % ((int) pci_resource_len(dev->pdev, 2) /
++				       dev->caps.uar_page_size);
++	else
++		offset = uar->index;
++	uar->pfn = (pci_resource_start(dev->pdev, 2) >> PAGE_SHIFT) + offset;
+ 	uar->map = NULL;
+-
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(mlx4_uar_alloc);
+@@ -232,7 +241,7 @@ int mlx4_init_uar_table(struct mlx4_dev *dev)
+ 
+ 	return mlx4_bitmap_init(&mlx4_priv(dev)->uar_table.bitmap,
+ 				dev->caps.num_uars, dev->caps.num_uars - 1,
+-				max(128, dev->caps.reserved_uars), 0);
++				dev->caps.reserved_uars, 0);
  }
  
- static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ void mlx4_cleanup_uar_table(struct mlx4_dev *dev)
 diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index b9466af..3333018 100644
+index 3333018..e4be34a 100644
 --- a/include/linux/mlx4/device.h
 +++ b/include/linux/mlx4/device.h
-@@ -302,7 +302,7 @@ struct mlx4_caps {
- 	int                     log_num_prios;
- 	enum mlx4_port_type	port_type[MLX4_MAX_PORTS + 1];
- 	u8			supported_type[MLX4_MAX_PORTS + 1];
--	u32			port_mask;
-+	u32			port_mask[MLX4_MAX_PORTS + 1];
- 	enum mlx4_port_type	possible_type[MLX4_MAX_PORTS + 1];
- 	u32			max_counters;
- 	u8			ext_port_cap[MLX4_MAX_PORTS + 1];
-@@ -507,13 +507,12 @@ struct mlx4_init_port_param {
- 
- #define mlx4_foreach_port(port, dev, type)				\
- 	for ((port) = 1; (port) <= (dev)->caps.num_ports; (port)++)	\
--		if (((type) == MLX4_PORT_TYPE_IB ? (dev)->caps.port_mask : \
--		     ~(dev)->caps.port_mask) & 1 << ((port) - 1))
-+		if ((type) == (dev)->caps.port_mask[(port)])
- 
--#define mlx4_foreach_ib_transport_port(port, dev)			\
--	for ((port) = 1; (port) <= (dev)->caps.num_ports; (port)++)	\
--		if (((dev)->caps.port_mask & 1 << ((port) - 1)) ||	\
--		     ((dev)->caps.flags & MLX4_DEV_CAP_FLAG_IBOE))
-+#define mlx4_foreach_ib_transport_port(port, dev)                         \
-+	for ((port) = 1; (port) <= (dev)->caps.num_ports; (port)++)	  \
-+		if (((dev)->caps.port_mask[port] == MLX4_PORT_TYPE_IB) || \
-+			((dev)->caps.flags & MLX4_DEV_CAP_FLAG_IBOE))
- 
- static inline int mlx4_is_master(struct mlx4_dev *dev)
- {
+@@ -248,6 +248,7 @@ struct mlx4_caps {
+ 	u64			trans_code[MLX4_MAX_PORTS + 1];
+ 	int			local_ca_ack_delay;
+ 	int			num_uars;
++	u32			uar_page_size;
+ 	int			bf_reg_size;
+ 	int			bf_regs_per_page;
+ 	int			max_sq_sg;
 -- 
 1.7.7
