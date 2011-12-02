@@ -1,67 +1,58 @@
-From: Andy Fleming <afleming@gmail.com>
-Subject: Re: [PATCH] fsl_pq_mdio: Clean up tbi address configuration
-Date: Thu, 1 Dec 2011 23:16:23 -0600
-Message-ID: <CAKWjMd5+TqZpNPpbQhqf6V2dPVr05tvcHJdN9W3zM5Levn6GkA@mail.gmail.com>
-References: <1321024239-18861-1-git-send-email-afleming@freescale.com>
-	<20111114.002630.2254622894958283155.davem@davemloft.net>
-	<D789ECCE-08DE-4E6D-BCA7-2C54EC5758B7@kernel.crashing.org>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Re: BUG: unable to handle kernel NULL pointer dereference at 000000000000002c
+Date: Fri, 02 Dec 2011 07:08:57 +0100
+Message-ID: <4ED86B79.4060506@profihost.ag>
+References: <4ED7C367.3070109@profihost.ag>	 <20111201182309.GA10686@infradead.org>	 <1322770844.2750.1.camel@edumazet-laptop>	 <CA+5PVA6kZkgYus4698Up8Q8uMTetCU2=DnTD0RpgXuHkJj6KKg@mail.gmail.com> <1322773527.2750.27.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, afleming@freescale.com,
-	netdev@vger.kernel.org
-To: Kumar Gala <galak@kernel.crashing.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Josh Boyer <jwboyer@gmail.com>,
+	Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org,
+	Dave Chinner <david@fromorbit.com>, stable@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:47851 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750937Ab1LBFQY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 00:16:24 -0500
-Received: by ghrr1 with SMTP id r1so2523708ghr.19
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2011 21:16:23 -0800 (PST)
-In-Reply-To: <D789ECCE-08DE-4E6D-BCA7-2C54EC5758B7@kernel.crashing.org>
+Received: from server655-han.de-nserver.de ([85.158.177.45]:38078 "EHLO
+	server655-han.de-nserver.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750926Ab1LBGI5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 01:08:57 -0500
+In-Reply-To: <1322773527.2750.27.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 1, 2011 at 10:38 PM, Kumar Gala <galak@kernel.crashing.org> wrote:
->
-> On Nov 13, 2011, at 11:26 PM, David Miller wrote:
->
->> From: Andy Fleming <afleming@freescale.com>
->> Date: Fri, 11 Nov 2011 09:10:39 -0600
+Am 01.12.2011 22:05, schrieb Eric Dumazet:
+> Le jeudi 01 d=C3=A9cembre 2011 =C3=A0 15:37 -0500, Josh Boyer a =C3=A9=
+crit :
+>=20
+>> Did you mean f2c31e32bf2c31e32b378a665 ? =20
+>=20
+> Oh well, yes ;)
+>=20
+>>> But this patch needs some followup patches (some of them in David n=
+et
+>>> tree, not yet in Linus tree)
 >>
->>> The code for setting the address of the internal TBI PHY was
->>> convoluted enough without a maze of ifdefs. Clean it up a bit
->>> so we allow the logic to fail down to -ENODEV at the end of
->>> the if/else ladder, rather than using ifdefs to repeat the same
->>> failure code over and over.
->>>
->>> Also, remove the support for the auto-configuration. I'm not aware of
->>> anyone using it, and it ends up using the bus mutex before it's been
->>> initialized.
->>>
->>> Signed-off-by: Andy Fleming <afleming@freescale.com>
->>
->> Applied, thanks.
->
-> I believe we need this on mainline otherwise we get something like:
+>> 9de79c127cccecb11ae6a21ab1499e87aa222880 (net: fix potential neighbo=
+ur
+>> race in dst_ifdown()) is in Linus' tree.  Which others are missing?
+>=20
+> Hmm
+>=20
+> Linus tree :
+>=20
+> commit 580da35a31f91a594f3090b7a2c39b85cb051a12
+> IB: Fix RCU lockdep splats
+>=20
+> David tree :
+>=20
+> commit 218fa90f072e4aeff9003d57e390857f4f35513e
+> ipv4: fix lockdep splat in rt_cache_seq_show
+>=20
+> commit f7e57044eeb1841847c24aa06766c8290c202583
+> sch_teql: fix lockdep splat
+>=20
+So can someone please send them to greg =3D> stable@ so we can get them
+into 3.0.X longterm stable.
 
-I concur. I also have a 2 separate patches I will send out tonight,
-which are independent of each other, but related.
+Thanks!
 
-The first will revert c3e072f8a6c5625028531c40ec65f7e301531be2 (net:
-fsl_pq_mdio: fix non tbi phy access), which hides a bug. The second
-will fix the bug in our p1/p2 device trees so that they all have tbi
-nodes.
-
-The first patch only applies to net-next (reverts a commit in that
-tree). The second patch only applies to Kumar's "next" branch (applies
-changes on top of significant device-tree changes). I have no idea how
-you guys want to deal with that. Personally, I think that the patches
-can be applied to their respective trees, and anyone who is working
-off the bleeding edge can go find the appropriate patch in the other
-tree. If we get my first patch into mainline, then I imagine Kumar's
-tree will have all the necessary components...
-
-Anyway, I will leave that to you. I will submit the two patches in the
-next hour or so.
-
-Andy
+Stefan
