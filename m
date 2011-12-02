@@ -1,53 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Bug in computing data_len in tcp_sendmsg?
-Date: Fri, 02 Dec 2011 13:40:40 -0500 (EST)
-Message-ID: <20111202.134040.638198723589712419.davem@davemloft.net>
-References: <1322841935.2762.33.camel@edumazet-laptop>
-	<20111202.131304.981034697414242002.davem@davemloft.net>
-	<1322850989.2762.47.camel@edumazet-laptop>
+From: Greg KH <greg@kroah.com>
+Subject: Re: BUG: unable to handle kernel NULL pointer dereference at
+ 000000000000002c
+Date: Fri, 2 Dec 2011 10:53:12 -0800
+Message-ID: <20111202185312.GA13166@kroah.com>
+References: <4ED86B79.4060506@profihost.ag>
+ <20111202.011739.1018700331407530740.davem@davemloft.net>
+ <4ED87BE9.20104@profihost.ag>
+ <20111202.123435.740930342839308437.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: subramanian.vijay@gmail.com, therbert@google.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	jwboyer@gmail.com, hch@infradead.org, netdev@vger.kernel.org,
+	david@fromorbit.com, stable@vger.kernel.org
+To: s.priebe@profihost.ag
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47763 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752694Ab1LBSkr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 13:40:47 -0500
-In-Reply-To: <1322850989.2762.47.camel@edumazet-laptop>
+Received: from out4.smtp.messagingengine.com ([66.111.4.28]:36756 "EHLO
+	out4.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751459Ab1LBTAf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 14:00:35 -0500
+Received: from compute5.internal (compute5.nyi.mail.srv.osa [10.202.2.45])
+	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id C962C212F0
+	for <netdev@vger.kernel.org>; Fri,  2 Dec 2011 14:00:34 -0500 (EST)
+Content-Disposition: inline
+In-Reply-To: <20111202.123435.740930342839308437.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 02 Dec 2011 19:36:29 +0100
-
-> What I ask now is following problem (even prior to my frag allocation
-> patch) :
+On Fri, Dec 02, 2011 at 12:34:35PM -0500, David Miller wrote:
+> From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+> Date: Fri, 02 Dec 2011 08:19:05 +0100
 > 
-> 1) We allocate a linear skb (SG being off) to cook a tcp frame of length
-> XXX bytes.
+> > Am 02.12.2011 07:17, schrieb David Miller:
+> >> From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+> >> Date: Fri, 02 Dec 2011 07:08:57 +0100
+> >> 
+> >>> So can someone please send them to greg => stable@ so we can get them
+> >>> into 3.0.X longterm stable.
+> >> 
+> >> I'll do it, these things just take care and time.
+> > 
+> > Thanks! Could you please CC me?
 > 
-> 2) We send it.
-> 
-> 3) We receive an ACK for first 31 bytes.
-> 
-> 4) We trim 31 bytes from the head of skb.  (skb_pull(skb, 31))
->     skb->data is now not anymore aligned to a 4 bytes boundary.
-> 
-> 5) Later, we need to retransmit skb (XXX minus 31 bytes already ACKed)
->    We push TCP header, and skb->data is not aligned.
->    TCP header is not aligned anymore. x86 doesnt care, but what about
-> other arches with misalign traps ?
+> Sorry, I'm not going to do that, the I'd have to do it for anyone who asks
+> me to and that's not reasonable.
 
-Yes, for non-SG this always was technically possible.
+Stefan, the stable@vger.kernel.org list is public, you are free to
+subscribe it if you are curious as to when patches are both submitted to
+it, and when they are applied to the trees.
 
-But now you've made it possible for SG too.
-
-Frankly, I think we should:
-
-1) Revert your patch, so it's not possible for SG once more.
-
-2) Add code to reallocate the SKB linear data when this happens in
-   the non-SG case.
+greg k-h
