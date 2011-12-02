@@ -1,32 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sch_red: fix red_change
-Date: Thu, 01 Dec 2011 19:25:17 -0500 (EST)
-Message-ID: <20111201.192517.1865830932968025090.davem@davemloft.net>
-References: <1322684749.2602.3.camel@edumazet-laptop>
-	<20111130143642.7130aa2b@nehalam.linuxnetplumber.net>
-	<1322773594.2750.28.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, tgraf@infradead.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39723 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755551Ab1LBA0b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 19:26:31 -0500
-In-Reply-To: <1322773594.2750.28.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Weiping Pan <panweiping3@gmail.com>
+Subject: [PATCH] ipv4: flush route cache after change accept_local
+Date: Fri,  2 Dec 2011 09:47:06 +0800
+Message-ID: <ea4d82977e7726dccd8e8f8e65c7fb523668100e.1322790334.git.panweiping3@gmail.com>
+References: <20111201.125200.1219939487021672308.davem@davemloft.net>
+Cc: Weiping Pan <panweiping3@gmail.com>,
+	"David S. Miller" <davem@davemloft.net> (maintainer:NETWORKING
+	[IPv4/...),
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> (maintainer:NETWORKING
+	[IPv4/...),
+	James Morris <jmorris@namei.org> (maintainer:NETWORKING [IPv4/...),
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org> (maintainer:NETWORKING
+	[IPv4/...),
+	Patrick McHardy <kaber@trash.net> (maintainer:NETWORKING [IPv4/...),
+	netdev@vger.kernel.org (open list:NETWORKING [IPv4/...),
+	linux-kernel@vger.kernel.org (open list)
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111201.125200.1219939487021672308.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 01 Dec 2011 22:06:34 +0100
+After reset ipv4_devconf->data[IPV4_DEVCONF_ACCEPT_LOCAL] to 0,
+we should flush route cache, or it will continue receive packets with local
+source address, which should be dropped.
 
-> [PATCH] sch_red: fix red_change()
-> 
-> Now RED is classful, we must check q->qdisc->q.qlen, and if queue is empty,
-> we start an idle period, not end it.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+---
+ net/ipv4/devinet.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-Applied and queued up for -stable, thanks Eric.
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index c6b5092..65f01dc 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1490,7 +1490,9 @@ static int devinet_conf_proc(ctl_table *ctl, int write,
+ 			     void __user *buffer,
+ 			     size_t *lenp, loff_t *ppos)
+ {
++	int old_value = *(int *)ctl->data;
+ 	int ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
++	int new_value = *(int *)ctl->data;
+ 
+ 	if (write) {
+ 		struct ipv4_devconf *cnf = ctl->extra1;
+@@ -1501,6 +1503,9 @@ static int devinet_conf_proc(ctl_table *ctl, int write,
+ 
+ 		if (cnf == net->ipv4.devconf_dflt)
+ 			devinet_copy_dflt_conf(net, i);
++		if (i == IPV4_DEVCONF_ACCEPT_LOCAL - 1)
++			if ((new_value == 0) && (old_value != 0))
++				rt_cache_flush(net, 0);
+ 	}
+ 
+ 	return ret;
+-- 
+1.7.4
