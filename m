@@ -1,8 +1,8 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH net-next V0 04/21] mlx4_core: Reduce number of PD bits to
- 17
-Date: Fri, 2 Dec 2011 12:16:59 +0200
-Message-ID: <4ED8A59B.5010005@mellanox.co.il>
+Subject: [PATCH net-next V0 05/21] mlx4_core: Implement the master-slave,
+ communication channel
+Date: Fri, 2 Dec 2011 12:17:05 +0200
+Message-ID: <4ED8A5A1.3070401@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
@@ -11,125 +11,901 @@ Cc: <netdev@vger.kernel.org>, <linux-rdma@vger.kernel.org>,
 	<liranl@mellanox.co.il>, <jackm@dev.mellanox.co.il>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:53467 "HELO
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:43743 "HELO
 	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756487Ab1LBM5l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 07:57:41 -0500
+	by vger.kernel.org with SMTP id S1756487Ab1LBM5s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 07:57:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 
-When SRIOV is enabled on the chip (at FW burning time),
-the HCA uses only 17 bits for the PD. The remaining 7 high-order bits
-are ignored.
+When SRIOV is enabled, pf and vfs communicate via shared comm channel.
+The vf gets its side of the comm channel via a VF BAR.
+Each VF (slave) creates its vHCR (virtual HCA Command Register),
+Its DMA address is passed to the PF (master) using Communication Channel Register.
+The same Register is used to notify the master of commands posted by the
+slaves and for the master to pass events to the slaves, such as command completions
+and ashyncrounus events.
 
-Change the allocator to return only 17 bits for the PD.  The MSB 7
-bits will be used to encode the slave number for consistency
-checking later on in the resource tracker.
+The vHCR format is identical to the HCR format, except for the 'go' and 't' bits,
+which are reserved in the vHCR. Posting commands to the vHCR is identical to
+the way it is done with the HCR, albeit that the function/PF token fields are
+used instead of the HCR go bit.
+Specifically:
+- When the function prepares a new command in the vHCR, it issues the Post_vHCR_cmd
+  communication channel command and toggles the value of the function token;
+  when PF token has an equal value, the command has been accepted and a new command may be posted.
+- When the PF detects a Post_vHCR_cmd command, it concludes that a new command is available in the vHCR;
+  after processing the command, the PF toggles the PF token to match the function token.
+
+When the 'e' bit is not set, the completion of a Post_vHCR_cmd command also indicates
+the completion the vHCR command. If, however, the 'e' bit is set, the completion of a
+Post_vHCR_cmd command only indicates that the vHCR command has been accepted for execution by the PF.
+
+Function commands are processed by the PF as follows:
+-DMA (using the ACCESS_MEM command) the vHCR image into a shadow buffer.
+-Validate that the opcode is non-privileged, and that the opcode- and input-modifiers are legal.
+-DMA the in-box (if required) into a shadow buffer.
+-Validate the command:
+	o Resource ranges (e.g., QP ranges).
+	o Partition key.
+	o Ranges of referenced resources (e.g., CQs within QP contexts).
+-If the 'e' bit is set
+	o complete the Post_vHCR_cmd command
+-Execute the command on the HCR.
+-DMA the results to the vHCR out-box (if required).
+-If the 'e' bit is set
+	o Indicate command completion by generating a completion event using the GEN_EQE command
+-Otherwise
+	o DMA the command status to the vHCR
+	o Complete the Post_vHCR_cmd command
 
 Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: Yevgeny Petrillin <yevgenyp@mellanox.com>
+Signed-off-by: Liran Liss <liranl@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/mlx4.h |    5 ++++-
- drivers/net/ethernet/mellanox/mlx4/pd.c   |   19 ++++++++++++++-----
- include/linux/mlx4/device.h               |    1 +
- 3 files changed, 19 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/cmd.c |  692 ++++++++++++++++++++++++++++--
+ 1 files changed, 665 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 6917761..51cba26 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -420,7 +420,7 @@ struct mlx4_mfunc_master_ctx {
- 	struct work_struct	slave_event_work;
- 	struct work_struct	slave_flr_event_work;
- 	spinlock_t		slave_state_lock;
--	u32			comm_arm_bit_vector[4];
-+	__be32			comm_arm_bit_vector[4];
- 	struct mlx4_eqe		cmd_eqe;
- 	struct mlx4_slave_event_eq slave_eq;
- 	struct mutex		gen_eqe_mutex[MLX4_MFUNC_MAX];
-@@ -914,4 +914,7 @@ int mlx4_QUERY_IF_STAT_wrapper(struct mlx4_dev *dev, int slave,
- 			       struct mlx4_cmd_mailbox *inbox,
- 			       struct mlx4_cmd_mailbox *outbox,
- 			       struct mlx4_cmd_info *cmd);
-+
-+#define NOT_MASKED_PD_BITS 17
-+
- #endif /* MLX4_H */
-diff --git a/drivers/net/ethernet/mellanox/mlx4/pd.c b/drivers/net/ethernet/mellanox/mlx4/pd.c
-index 260ed25..5c9a54d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/pd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/pd.c
-@@ -31,6 +31,7 @@
-  * SOFTWARE.
-  */
- 
-+#include <linux/init.h>
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index b27654e..5dbfc82 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -39,12 +39,18 @@
  #include <linux/errno.h>
- #include <linux/export.h>
- #include <linux/io-mapping.h>
-@@ -51,7 +52,8 @@ int mlx4_pd_alloc(struct mlx4_dev *dev, u32 *pdn)
- 	*pdn = mlx4_bitmap_alloc(&priv->pd_bitmap);
- 	if (*pdn == -1)
- 		return -ENOMEM;
--
-+	if (mlx4_is_mfunc(dev))
-+		*pdn |= (dev->caps.function + 1) << NOT_MASKED_PD_BITS;
- 	return 0;
+ 
+ #include <linux/mlx4/cmd.h>
++#include <linux/semaphore.h>
+ 
+ #include <asm/io.h>
+ 
+ #include "mlx4.h"
++#include "fw.h"
+ 
+ #define CMD_POLL_TOKEN 0xffff
++#define INBOX_MASK	0xffffffffffffff00ULL
++
++#define CMD_CHAN_VER 1
++#define CMD_CHAN_IF_REV 1
+ 
+ enum {
+ 	/* command completed successfully: */
+@@ -110,8 +116,12 @@ struct mlx4_cmd_context {
+ 	int			next;
+ 	u64			out_param;
+ 	u16			token;
++	u8			fw_status;
+ };
+ 
++static int mlx4_master_process_vhcr(struct mlx4_dev *dev, int slave,
++				    struct mlx4_vhcr_cmd *in_vhcr);
++
+ static int mlx4_status_to_errno(u8 status)
+ {
+ 	static const int trans_table[] = {
+@@ -142,6 +152,125 @@ static int mlx4_status_to_errno(u8 status)
+ 	return trans_table[status];
  }
- EXPORT_SYMBOL_GPL(mlx4_pd_alloc);
-@@ -85,7 +87,8 @@ int mlx4_init_pd_table(struct mlx4_dev *dev)
+ 
++static int comm_pending(struct mlx4_dev *dev)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	u32 status = readl(&priv->mfunc.comm->slave_read);
++
++	return (swab32(status) >> 31) != priv->cmd.comm_toggle;
++}
++
++static void mlx4_comm_cmd_post(struct mlx4_dev *dev, u8 cmd, u16 param)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	u32 val;
++
++	priv->cmd.comm_toggle ^= 1;
++	val = param | (cmd << 16) | (priv->cmd.comm_toggle << 31);
++	__raw_writel((__force u32) cpu_to_be32(val),
++		     &priv->mfunc.comm->slave_write);
++	mmiowb();
++}
++
++/* dummy procedure for this patch */
++int mlx4_GEN_EQE(struct mlx4_dev *dev, int slave, struct mlx4_eqe *eqe)
++{
++	return 0;
++}
++
++static int mlx4_comm_cmd_poll(struct mlx4_dev *dev, u8 cmd, u16 param,
++		       unsigned long timeout)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	unsigned long end;
++	int err = 0;
++	int ret_from_pending = 0;
++
++	/* First, verify that the master reports correct status */
++	if (comm_pending(dev)) {
++		mlx4_warn(dev, "Communication channel is not idle."
++			  "my toggle is %d (cmd:0x%x)\n",
++			  priv->cmd.comm_toggle, cmd);
++		return -EAGAIN;
++	}
++
++	/* Write command */
++	down(&priv->cmd.poll_sem);
++	mlx4_comm_cmd_post(dev, cmd, param);
++
++	end = msecs_to_jiffies(timeout) + jiffies;
++	while (comm_pending(dev) && time_before(jiffies, end))
++		cond_resched();
++	ret_from_pending = comm_pending(dev);
++	if (ret_from_pending) {
++		/* check if the slave is trying to boot in the middle of
++		 * FLR process. The only non-zero result in the RESET command
++		 * is MLX4_DELAY_RESET_SLAVE*/
++		if ((MLX4_COMM_CMD_RESET == cmd)) {
++			mlx4_warn(dev, "Got slave FLRed from Communication"
++				  " channel (ret:0x%x)\n", ret_from_pending);
++			err = MLX4_DELAY_RESET_SLAVE;
++		} else {
++			mlx4_warn(dev, "Communication channel timed out\n");
++			err = -ETIMEDOUT;
++		}
++	}
++
++	up(&priv->cmd.poll_sem);
++	return err;
++}
++
++static int mlx4_comm_cmd_wait(struct mlx4_dev *dev, u8 op,
++			      u16 param, unsigned long timeout)
++{
++	struct mlx4_cmd *cmd = &mlx4_priv(dev)->cmd;
++	struct mlx4_cmd_context *context;
++	int err = 0;
++
++	down(&cmd->event_sem);
++
++	spin_lock(&cmd->context_lock);
++	BUG_ON(cmd->free_head < 0);
++	context = &cmd->context[cmd->free_head];
++	context->token += cmd->token_mask + 1;
++	cmd->free_head = context->next;
++	spin_unlock(&cmd->context_lock);
++
++	init_completion(&context->done);
++
++	mlx4_comm_cmd_post(dev, op, param);
++
++	if (!wait_for_completion_timeout(&context->done,
++					 msecs_to_jiffies(timeout))) {
++		err = -EBUSY;
++		goto out;
++	}
++
++	err = context->result;
++	if (err && context->fw_status != CMD_STAT_MULTI_FUNC_REQ) {
++		mlx4_err(dev, "command 0x%x failed: fw status = 0x%x\n",
++			 op, context->fw_status);
++		goto out;
++	}
++
++out:
++	spin_lock(&cmd->context_lock);
++	context->next = cmd->free_head;
++	cmd->free_head = context - cmd->context;
++	spin_unlock(&cmd->context_lock);
++
++	up(&cmd->event_sem);
++	return err;
++}
++
++static int mlx4_comm_cmd(struct mlx4_dev *dev, u8 cmd, u16 param,
++		  unsigned long timeout)
++{
++	if (mlx4_priv(dev)->cmd.use_events)
++		return mlx4_comm_cmd_wait(dev, cmd, param, timeout);
++	return mlx4_comm_cmd_poll(dev, cmd, param, timeout);
++}
++
+ static int cmd_pending(struct mlx4_dev *dev)
+ {
+ 	u32 status = readl(mlx4_priv(dev)->cmd.hcr + HCR_STATUS_OFFSET);
+@@ -167,8 +296,10 @@ static int mlx4_cmd_post(struct mlx4_dev *dev, u64 in_param, u64 out_param,
+ 		end += msecs_to_jiffies(GO_BIT_TIMEOUT_MSECS);
+ 
+ 	while (cmd_pending(dev)) {
+-		if (time_after_eq(jiffies, end))
++		if (time_after_eq(jiffies, end)) {
++			mlx4_err(dev, "%s:cmd_pending failed\n", __func__);
+ 			goto out;
++		}
+ 		cond_resched();
+ 	}
+ 
+@@ -192,7 +323,7 @@ static int mlx4_cmd_post(struct mlx4_dev *dev, u64 in_param, u64 out_param,
+ 					       (cmd->toggle << HCR_T_BIT)	|
+ 					       (event ? (1 << HCR_E_BIT) : 0)	|
+ 					       (op_modifier << HCR_OPMOD_SHIFT) |
+-					       op),			  hcr + 6);
++					       op), hcr + 6);
+ 
+ 	/*
+ 	 * Make sure that our HCR writes don't get mixed in with
+@@ -209,6 +340,62 @@ out:
+ 	return ret;
+ }
+ 
++static int mlx4_slave_cmd(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
++			  int out_is_imm, u32 in_modifier, u8 op_modifier,
++			  u16 op, unsigned long timeout)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_vhcr_cmd *vhcr = priv->mfunc.vhcr;
++	int ret;
++
++	down(&priv->cmd.slave_sem);
++	vhcr->in_param = cpu_to_be64(in_param);
++	vhcr->out_param = out_param ? cpu_to_be64(*out_param) : 0;
++	vhcr->in_modifier = cpu_to_be32(in_modifier);
++	vhcr->opcode = cpu_to_be16((((u16) op_modifier) << 12) | (op & 0xfff));
++	vhcr->token = cpu_to_be16(CMD_POLL_TOKEN);
++	vhcr->status = 0;
++	vhcr->flags = !!(priv->cmd.use_events) << 6;
++	if (mlx4_is_master(dev)) {
++		ret = mlx4_master_process_vhcr(dev, dev->caps.function, vhcr);
++		if (!ret) {
++			if (out_is_imm) {
++				if (out_param)
++					*out_param =
++						be64_to_cpu(vhcr->out_param);
++				else {
++					mlx4_err(dev, "response expected while"
++						 "output mailbox is NULL for "
++						 "command 0x%x\n", op);
++					vhcr->status = -EINVAL;
++				}
++			}
++			ret = vhcr->status;
++		}
++	} else {
++		ret = mlx4_comm_cmd(dev, MLX4_COMM_CMD_VHCR_POST, 0,
++				    MLX4_COMM_TIME + timeout);
++		if (!ret) {
++			if (out_is_imm) {
++				if (out_param)
++					*out_param =
++						be64_to_cpu(vhcr->out_param);
++				else {
++					mlx4_err(dev, "response expected while"
++						 "output mailbox is NULL for "
++						 "command 0x%x\n", op);
++					vhcr->status = -EINVAL;
++				}
++			}
++			ret = vhcr->status;
++		} else
++			mlx4_err(dev, "failed execution of VHCR_POST command"
++				 "opcode 0x%x\n", op);
++	}
++	up(&priv->cmd.slave_sem);
++	return ret;
++}
++
+ static int mlx4_cmd_poll(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 			 int out_is_imm, u32 in_modifier, u8 op_modifier,
+ 			 u16 op, unsigned long timeout)
+@@ -217,6 +404,7 @@ static int mlx4_cmd_poll(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 	void __iomem *hcr = priv->cmd.hcr;
+ 	int err = 0;
+ 	unsigned long end;
++	u32 stat;
+ 
+ 	down(&priv->cmd.poll_sem);
+ 
+@@ -240,9 +428,12 @@ static int mlx4_cmd_poll(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 					  __raw_readl(hcr + HCR_OUT_PARAM_OFFSET)) << 32 |
+ 			(u64) be32_to_cpu((__force __be32)
+ 					  __raw_readl(hcr + HCR_OUT_PARAM_OFFSET + 4));
+-
+-	err = mlx4_status_to_errno(be32_to_cpu((__force __be32)
+-					       __raw_readl(hcr + HCR_STATUS_OFFSET)) >> 24);
++	stat = be32_to_cpu((__force __be32)
++			   __raw_readl(hcr + HCR_STATUS_OFFSET)) >> 24;
++	err = mlx4_status_to_errno(stat);
++	if (err)
++		mlx4_err(dev, "command 0x%x failed: fw status = 0x%x\n",
++			 op, stat);
+ 
+ out:
+ 	up(&priv->cmd.poll_sem);
+@@ -259,6 +450,7 @@ void mlx4_cmd_event(struct mlx4_dev *dev, u16 token, u8 status, u64 out_param)
+ 	if (token != context->token)
+ 		return;
+ 
++	context->fw_status = status;
+ 	context->result    = mlx4_status_to_errno(status);
+ 	context->out_param = out_param;
+ 
+@@ -287,14 +479,18 @@ static int mlx4_cmd_wait(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 	mlx4_cmd_post(dev, in_param, out_param ? *out_param : 0,
+ 		      in_modifier, op_modifier, op, context->token, 1);
+ 
+-	if (!wait_for_completion_timeout(&context->done, msecs_to_jiffies(timeout))) {
++	if (!wait_for_completion_timeout(&context->done,
++					 msecs_to_jiffies(timeout))) {
+ 		err = -EBUSY;
+ 		goto out;
+ 	}
+ 
+ 	err = context->result;
+-	if (err)
++	if (err) {
++		mlx4_err(dev, "command 0x%x failed: fw status = 0x%x\n",
++			 op, context->fw_status);
+ 		goto out;
++	}
+ 
+ 	if (out_is_imm)
+ 		*out_param = context->out_param;
+@@ -313,15 +509,441 @@ int __mlx4_cmd(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 	       int out_is_imm, u32 in_modifier, u8 op_modifier,
+ 	       u16 op, unsigned long timeout, int native)
+ {
+-	if (mlx4_priv(dev)->cmd.use_events)
+-		return mlx4_cmd_wait(dev, in_param, out_param, out_is_imm,
+-				     in_modifier, op_modifier, op, timeout);
+-	else
+-		return mlx4_cmd_poll(dev, in_param, out_param, out_is_imm,
+-				     in_modifier, op_modifier, op, timeout);
++	if (!mlx4_is_mfunc(dev) || (native && mlx4_is_master(dev))) {
++		if (mlx4_priv(dev)->cmd.use_events)
++			return mlx4_cmd_wait(dev, in_param, out_param,
++					     out_is_imm, in_modifier,
++					     op_modifier, op, timeout);
++		else
++			return mlx4_cmd_poll(dev, in_param, out_param,
++					     out_is_imm, in_modifier,
++					     op_modifier, op, timeout);
++	}
++	return mlx4_slave_cmd(dev, in_param, out_param, out_is_imm,
++			      in_modifier, op_modifier, op, timeout);
+ }
+ EXPORT_SYMBOL_GPL(__mlx4_cmd);
+ 
++
++static int mlx4_ARM_COMM_CHANNEL(struct mlx4_dev *dev)
++{
++	return mlx4_cmd(dev, 0, 0, 0, MLX4_CMD_ARM_COMM_CHANNEL,
++			MLX4_CMD_TIME_CLASS_B, 1);
++}
++
++static int mlx4_ACCESS_MEM(struct mlx4_dev *dev, u64 master_addr,
++			   int slave, u64 slave_addr,
++			   int size, int is_read)
++{
++	u64 in_param;
++	u64 out_param;
++
++	if ((slave_addr & 0xfff) | (master_addr & 0xfff) |
++	    (slave & ~0x7f) | (size & 0xff)) {
++		mlx4_err(dev, "Bad access mem params - slave_addr:0x%llx "
++			      "master_addr:0x%llx slave_id:%d size:%d\n",
++			      slave_addr, master_addr, slave, size);
++		return -EINVAL;
++	}
++
++	if (is_read) {
++		in_param = (u64) slave | slave_addr;
++		out_param = (u64) dev->caps.function | master_addr;
++	} else {
++		in_param = (u64) dev->caps.function | master_addr;
++		out_param = (u64) slave | slave_addr;
++	}
++
++	return mlx4_cmd_imm(dev, in_param, &out_param, size, 0,
++					   MLX4_CMD_ACCESS_MEM,
++					   MLX4_CMD_TIME_CLASS_A, 1);
++}
++
++int mlx4_DMA_wrapper(struct mlx4_dev *dev, int slave,
++		     struct mlx4_vhcr *vhcr,
++		     struct mlx4_cmd_mailbox *inbox,
++		     struct mlx4_cmd_mailbox *outbox,
++		     struct mlx4_cmd_info *cmd)
++{
++	u64 in_param;
++	u64 out_param;
++	int err;
++
++	in_param = cmd->has_inbox ? (u64) inbox->dma : vhcr->in_param;
++	out_param = cmd->has_outbox ? (u64) outbox->dma : vhcr->out_param;
++	if (cmd->encode_slave_id) {
++		in_param &= 0xffffffffffffff00ll;
++		in_param |= slave;
++	}
++
++	err = __mlx4_cmd(dev, in_param, &out_param, cmd->out_is_imm,
++			 vhcr->in_modifier, vhcr->op_modifier, vhcr->op,
++			 MLX4_CMD_TIME_CLASS_A, 1);
++
++	if (cmd->out_is_imm)
++		vhcr->out_param = out_param;
++
++	return err;
++}
++
++static struct mlx4_cmd_info cmd_info[] = {
++	{
++		.opcode = MLX4_CMD_QUERY_FW,
++		.has_inbox = false,
++		.has_outbox = true,
++		.out_is_imm = false,
++		.encode_slave_id = false,
++		.verify = NULL,
++		.wrapper = NULL
++	},
++	{
++		.opcode = MLX4_CMD_QUERY_HCA,
++		.has_inbox = false,
++		.has_outbox = true,
++		.out_is_imm = false,
++		.encode_slave_id = false,
++		.verify = NULL,
++		.wrapper = NULL
++	},
++	{
++		.opcode = MLX4_CMD_QUERY_DEV_CAP,
++		.has_inbox = false,
++		.has_outbox = true,
++		.out_is_imm = false,
++		.encode_slave_id = false,
++		.verify = NULL,
++		.wrapper = NULL
++	},
++};
++
++static int mlx4_master_process_vhcr(struct mlx4_dev *dev, int slave,
++				    struct mlx4_vhcr_cmd *in_vhcr)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_cmd_info *cmd = NULL;
++	struct mlx4_vhcr_cmd *vhcr_cmd = in_vhcr ? in_vhcr : priv->mfunc.vhcr;
++	struct mlx4_vhcr *vhcr;
++	struct mlx4_cmd_mailbox *inbox = NULL;
++	struct mlx4_cmd_mailbox *outbox = NULL;
++	u64 in_param;
++	u64 out_param;
++	int ret = 0;
++	int i;
++
++	/* Create sw representation of Virtual HCR */
++	vhcr = kzalloc(sizeof(struct mlx4_vhcr), GFP_KERNEL);
++	if (!vhcr)
++		return -ENOMEM;
++
++	/* DMA in the vHCR */
++	if (!in_vhcr) {
++		ret = mlx4_ACCESS_MEM(dev, priv->mfunc.vhcr_dma, slave,
++				      priv->mfunc.master.slave_state[slave].vhcr_dma,
++				      ALIGN(sizeof(struct mlx4_vhcr_cmd),
++					    MLX4_ACCESS_MEM_ALIGN), 1);
++		if (ret) {
++			mlx4_err(dev, "%s:Failed reading vhcr"
++				 "ret: 0x%x\n", __func__, ret);
++			kfree(vhcr);
++			return ret;
++		}
++	}
++
++	/* Fill SW VHCR fields */
++	vhcr->in_param = be64_to_cpu(vhcr_cmd->in_param);
++	vhcr->out_param = be64_to_cpu(vhcr_cmd->out_param);
++	vhcr->in_modifier = be32_to_cpu(vhcr_cmd->in_modifier);
++	vhcr->token = be16_to_cpu(vhcr_cmd->token);
++	vhcr->op = be16_to_cpu(vhcr_cmd->opcode) & 0xfff;
++	vhcr->op_modifier = (u8) (be16_to_cpu(vhcr_cmd->opcode) >> 12);
++	vhcr->e_bit = vhcr_cmd->flags & (1 << 6);
++
++	/* Lookup command */
++	for (i = 0; i < ARRAY_SIZE(cmd_info); ++i) {
++		if (vhcr->op == cmd_info[i].opcode) {
++			cmd = &cmd_info[i];
++			break;
++		}
++	}
++	if (!cmd) {
++		mlx4_err(dev, "Unknown command:0x%x accepted from slave:%d\n",
++			 vhcr->op, slave);
++		vhcr_cmd->status = -EINVAL;
++		goto out_status;
++	}
++
++	/* Read inbox */
++	if (cmd->has_inbox) {
++		vhcr->in_param &= INBOX_MASK;
++		inbox = mlx4_alloc_cmd_mailbox(dev);
++		if (IS_ERR(inbox)) {
++			ret = PTR_ERR(inbox);
++			inbox = NULL;
++			goto out;
++		}
++
++		ret = mlx4_ACCESS_MEM(dev, inbox->dma, slave,
++				      vhcr->in_param,
++				      MLX4_MAILBOX_SIZE, 1);
++		if (ret) {
++			mlx4_err(dev, "%s: Failed reading inbox (cmd:0x%x)\n",
++				 __func__, cmd->opcode);
++			goto out;
++		}
++	}
++
++	/* Apply permission and bound checks if applicable */
++	if (cmd->verify && cmd->verify(dev, slave, vhcr, inbox)) {
++		mlx4_warn(dev, "Command:0x%x from slave: %d failed protection "
++			  "checks for resource_id:%d\n", vhcr->op, slave,
++			  vhcr->in_modifier);
++		vhcr_cmd->status = -EPERM;
++		goto out_status;
++	}
++
++	/* Allocate outbox */
++	if (cmd->has_outbox) {
++		outbox = mlx4_alloc_cmd_mailbox(dev);
++		if (IS_ERR(outbox)) {
++			ret = PTR_ERR(outbox);
++			outbox = NULL;
++			goto out;
++		}
++	}
++
++	/* Execute the command! */
++	if (cmd->wrapper) {
++		vhcr_cmd->status = cmd->wrapper(dev, slave, vhcr, inbox, outbox,
++					   cmd);
++		if (cmd->out_is_imm)
++			vhcr_cmd->out_param = cpu_to_be64(vhcr->out_param);
++	} else {
++		in_param = cmd->has_inbox ? (u64) inbox->dma :
++			vhcr->in_param;
++		out_param = cmd->has_outbox ? (u64) outbox->dma :
++			vhcr->out_param;
++		vhcr_cmd->status = __mlx4_cmd(dev, in_param, &out_param,
++					 cmd->out_is_imm, vhcr->in_modifier,
++					 vhcr->op_modifier, vhcr->op,
++					 MLX4_CMD_TIME_CLASS_A, 1);
++		if (cmd->out_is_imm) {
++			vhcr->out_param = out_param;
++			vhcr_cmd->out_param = cpu_to_be64(vhcr->out_param);
++		}
++	}
++
++	/* Write outbox if command completed successfully */
++	if (cmd->has_outbox && !vhcr->errno) {
++		ret = mlx4_ACCESS_MEM(dev, outbox->dma, slave,
++				      vhcr->out_param,
++				      MLX4_MAILBOX_SIZE, 0);
++		if (ret) {
++			mlx4_err(dev, "%s:Failed writing outbox\n", __func__);
++			goto out;
++		}
++	}
++
++out_status:
++	/* DMA back vhcr result */
++	if (!in_vhcr) {
++		ret = mlx4_ACCESS_MEM(dev, priv->mfunc.vhcr_dma, slave,
++				      priv->mfunc.master.slave_state[slave].vhcr_dma,
++				      ALIGN(sizeof(struct mlx4_vhcr),
++					    MLX4_ACCESS_MEM_ALIGN), 0);
++		if (ret)
++			mlx4_err(dev, "%s:Failed writing vhcr result\n",
++				 __func__);
++		else if (vhcr->e_bit &&
++			 mlx4_GEN_EQE(dev, slave, &priv->mfunc.master.cmd_eqe))
++			mlx4_warn(dev, "Failed to generate command completion "
++				       "eqe for slave %d\n", slave);
++	}
++
++	if (vhcr_cmd->status)
++		mlx4_warn(dev, "vhcr command:0x%x slave:%d failed with error:%d\n",
++			   vhcr->op, slave, vhcr->errno);
++	/* Fall through... */
++
++out:
++	kfree(vhcr);
++	mlx4_free_cmd_mailbox(dev, inbox);
++	mlx4_free_cmd_mailbox(dev, outbox);
++	return ret;
++}
++
++static void mlx4_master_do_cmd(struct mlx4_dev *dev, int slave, u8 cmd,
++			       u16 param, u8 toggle)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_slave_state *slave_state = priv->mfunc.master.slave_state;
++	u32 reply;
++	u32 slave_status = 0;
++	u8 is_going_down = 0;
++
++	slave_state[slave].comm_toggle ^= 1;
++	reply = (u32) slave_state[slave].comm_toggle << 31;
++	if (toggle != slave_state[slave].comm_toggle) {
++		mlx4_warn(dev, "Incorrect toggle %d from slave %d. *** MASTER"
++			  "STATE COMPROMISIED ***\n", toggle, slave);
++		goto reset_slave;
++	}
++	if (cmd == MLX4_COMM_CMD_RESET) {
++		mlx4_warn(dev, "Received reset from slave:%d\n", slave);
++		slave_state[slave].active = false;
++		/*check if we are in the middle of FLR process,
++		if so return "retry" status to the slave*/
++		if (MLX4_COMM_CMD_FLR == slave_state[slave].last_cmd) {
++			slave_status = MLX4_DELAY_RESET_SLAVE;
++			goto inform_slave_state;
++		}
++
++		/* write the version in the event field */
++		reply |= mlx4_comm_get_version();
++
++		goto reset_slave;
++	}
++	/*command from slave in the middle of FLR*/
++	if (cmd != MLX4_COMM_CMD_RESET &&
++	    MLX4_COMM_CMD_FLR == slave_state[slave].last_cmd) {
++		mlx4_warn(dev, "slave:%d is Trying to run cmd(0x%x) "
++			  "in the middle of FLR\n", slave, cmd);
++		return;
++	}
++
++	switch (cmd) {
++	case MLX4_COMM_CMD_VHCR0:
++		if (slave_state[slave].last_cmd != MLX4_COMM_CMD_RESET)
++			goto reset_slave;
++		slave_state[slave].vhcr_dma = ((u64) param) << 48;
++		priv->mfunc.master.slave_state[slave].cookie = 0;
++		mutex_init(&priv->mfunc.master.gen_eqe_mutex[slave]);
++		break;
++	case MLX4_COMM_CMD_VHCR1:
++		if (slave_state[slave].last_cmd != MLX4_COMM_CMD_VHCR0)
++			goto reset_slave;
++		slave_state[slave].vhcr_dma |= ((u64) param) << 32;
++		break;
++	case MLX4_COMM_CMD_VHCR2:
++		if (slave_state[slave].last_cmd != MLX4_COMM_CMD_VHCR1)
++			goto reset_slave;
++		slave_state[slave].vhcr_dma |= ((u64) param) << 16;
++		break;
++	case MLX4_COMM_CMD_VHCR_EN:
++		if (slave_state[slave].last_cmd != MLX4_COMM_CMD_VHCR2)
++			goto reset_slave;
++		slave_state[slave].vhcr_dma |= param;
++		slave_state[slave].active = true;
++		break;
++	case MLX4_COMM_CMD_VHCR_POST:
++		if ((slave_state[slave].last_cmd != MLX4_COMM_CMD_VHCR_EN) &&
++		    (slave_state[slave].last_cmd != MLX4_COMM_CMD_VHCR_POST))
++			goto reset_slave;
++		down(&priv->cmd.slave_sem);
++		if (mlx4_master_process_vhcr(dev, slave, NULL)) {
++			mlx4_err(dev, "Failed processing vhcr for slave:%d,"
++				 " reseting slave.\n", slave);
++			up(&priv->cmd.slave_sem);
++			goto reset_slave;
++		}
++		up(&priv->cmd.slave_sem);
++		break;
++	default:
++		mlx4_warn(dev, "Bad comm cmd:%d from slave:%d\n", cmd, slave);
++		goto reset_slave;
++	}
++	spin_lock(&priv->mfunc.master.slave_state_lock);
++	if (!slave_state[slave].is_slave_going_down)
++		slave_state[slave].last_cmd = cmd;
++	else
++		is_going_down = 1;
++	spin_unlock(&priv->mfunc.master.slave_state_lock);
++	if (is_going_down) {
++		mlx4_warn(dev, "Slave is going down aborting command(%d)"
++			  " executing from slave:%d\n",
++			  cmd, slave);
++		return;
++	}
++	__raw_writel((__force u32) cpu_to_be32(reply),
++		     &priv->mfunc.comm[slave].slave_read);
++	mmiowb();
++
++	return;
++
++reset_slave:
++	spin_lock(&priv->mfunc.master.slave_state_lock);
++	if (!slave_state[slave].is_slave_going_down)
++		slave_state[slave].last_cmd = MLX4_COMM_CMD_RESET;
++	spin_unlock(&priv->mfunc.master.slave_state_lock);
++	/*with slave in the middle of flr, no need to clean resources again.*/
++inform_slave_state:
++	memset(&slave_state[slave].event_eq, 0,
++	       sizeof(struct mlx4_slave_event_eq_info));
++	__raw_writel((__force u32) cpu_to_be32(reply),
++		     &priv->mfunc.comm[slave].slave_read);
++	wmb();
++}
++
++/* master command processing */
++void mlx4_master_comm_channel(struct work_struct *work)
++{
++	struct mlx4_mfunc_master_ctx *master =
++		container_of(work,
++			     struct mlx4_mfunc_master_ctx,
++			     comm_work);
++	struct mlx4_mfunc *mfunc =
++		container_of(master, struct mlx4_mfunc, master);
++	struct mlx4_priv *priv =
++		container_of(mfunc, struct mlx4_priv, mfunc);
++	struct mlx4_dev *dev = &priv->dev;
++	__be32 *bit_vec;
++	u32 comm_cmd;
++	u32 vec;
++	int i, j, slave;
++	int toggle;
++	int served = 0;
++	int reported = 0;
++	u32 slt;
++
++	bit_vec = master->comm_arm_bit_vector;
++	for (i = 0; i < COMM_CHANNEL_BIT_ARRAY_SIZE; i++) {
++		vec = be32_to_cpu(bit_vec[i]);
++		for (j = 0; j < 32; j++) {
++			if (!(vec & (1 << j)))
++				continue;
++			++reported;
++			slave = (i * 32) + j;
++			comm_cmd = swab32(readl(
++					  &mfunc->comm[slave].slave_write));
++			slt = swab32(readl(&mfunc->comm[slave].slave_read))
++				     >> 31;
++			toggle = comm_cmd >> 31;
++			if (toggle != slt) {
++				if (master->slave_state[slave].comm_toggle
++				    != slt) {
++					printk(KERN_INFO "slave %d out of sync."
++					       " read toggle %d, state toggle %d. "
++					       "Resynching.\n", slave, slt,
++					       master->slave_state[slave].comm_toggle);
++					master->slave_state[slave].comm_toggle =
++						slt;
++				}
++				mlx4_master_do_cmd(dev, slave,
++						   comm_cmd >> 16 & 0xff,
++						   comm_cmd & 0xffff, toggle);
++				++served;
++			}
++		}
++	}
++
++	if (reported && reported != served)
++		mlx4_warn(dev, "Got command event with bitmask from %d slaves"
++			  " but %d were served\n",
++			  reported, served);
++
++	if (mlx4_ARM_COMM_CHANNEL(dev))
++		mlx4_warn(dev, "Failed to arm comm channel events\n");
++}
++
+ int mlx4_cmd_init(struct mlx4_dev *dev)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+@@ -331,22 +953,30 @@ int mlx4_cmd_init(struct mlx4_dev *dev)
+ 	priv->cmd.use_events = 0;
+ 	priv->cmd.toggle     = 1;
+ 
+-	priv->cmd.hcr = ioremap(pci_resource_start(dev->pdev, 0) + MLX4_HCR_BASE,
+-				MLX4_HCR_SIZE);
+-	if (!priv->cmd.hcr) {
+-		mlx4_err(dev, "Couldn't map command register.");
+-		return -ENOMEM;
++	priv->cmd.hcr = NULL;
++	priv->mfunc.vhcr = NULL;
++
++	if (!mlx4_is_slave(dev)) {
++		priv->cmd.hcr = ioremap(pci_resource_start(dev->pdev, 0) +
++					MLX4_HCR_BASE, MLX4_HCR_SIZE);
++		if (!priv->cmd.hcr) {
++			mlx4_err(dev, "Couldn't map command register.\n");
++			return -ENOMEM;
++		}
+ 	}
+ 
+ 	priv->cmd.pool = pci_pool_create("mlx4_cmd", dev->pdev,
+ 					 MLX4_MAILBOX_SIZE,
+ 					 MLX4_MAILBOX_SIZE, 0);
+-	if (!priv->cmd.pool) {
+-		iounmap(priv->cmd.hcr);
+-		return -ENOMEM;
+-	}
++	if (!priv->cmd.pool)
++		goto err_hcr;
+ 
+ 	return 0;
++
++err_hcr:
++	if (!mlx4_is_slave(dev))
++		iounmap(priv->cmd.hcr);
++	return -ENOMEM;
+ }
+ 
+ void mlx4_cmd_cleanup(struct mlx4_dev *dev)
+@@ -354,7 +984,9 @@ void mlx4_cmd_cleanup(struct mlx4_dev *dev)
  	struct mlx4_priv *priv = mlx4_priv(dev);
  
- 	return mlx4_bitmap_init(&priv->pd_bitmap, dev->caps.num_pds,
--				(1 << 24) - 1, dev->caps.reserved_pds, 0);
-+				(1 << NOT_MASKED_PD_BITS) - 1,
-+				 dev->caps.reserved_pds, 0);
- }
- 
- void mlx4_cleanup_pd_table(struct mlx4_dev *dev)
-@@ -108,13 +111,19 @@ void mlx4_cleanup_xrcd_table(struct mlx4_dev *dev)
- 
- int mlx4_uar_alloc(struct mlx4_dev *dev, struct mlx4_uar *uar)
- {
-+	int offset;
+ 	pci_pool_destroy(priv->cmd.pool);
+-	iounmap(priv->cmd.hcr);
 +
- 	uar->index = mlx4_bitmap_alloc(&mlx4_priv(dev)->uar_table.bitmap);
- 	if (uar->index == -1)
- 		return -ENOMEM;
++	if (!mlx4_is_slave(dev))
++		iounmap(priv->cmd.hcr);
+ }
  
--	uar->pfn = (pci_resource_start(dev->pdev, 2) >> PAGE_SHIFT) + uar->index;
-+	if (mlx4_is_slave(dev))
-+		offset = uar->index % ((int) pci_resource_len(dev->pdev, 2) /
-+				       dev->caps.uar_page_size);
-+	else
-+		offset = uar->index;
-+	uar->pfn = (pci_resource_start(dev->pdev, 2) >> PAGE_SHIFT) + offset;
- 	uar->map = NULL;
+ /*
+@@ -365,6 +997,7 @@ int mlx4_cmd_use_events(struct mlx4_dev *dev)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	int i;
++	int err = 0;
+ 
+ 	priv->cmd.context = kmalloc(priv->cmd.max_cmds *
+ 				   sizeof (struct mlx4_cmd_context),
+@@ -389,11 +1022,10 @@ int mlx4_cmd_use_events(struct mlx4_dev *dev)
+ 		; /* nothing */
+ 	--priv->cmd.token_mask;
+ 
+-	priv->cmd.use_events = 1;
 -
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(mlx4_uar_alloc);
-@@ -232,7 +241,7 @@ int mlx4_init_uar_table(struct mlx4_dev *dev)
+ 	down(&priv->cmd.poll_sem);
++	priv->cmd.use_events = 1;
  
- 	return mlx4_bitmap_init(&mlx4_priv(dev)->uar_table.bitmap,
- 				dev->caps.num_uars, dev->caps.num_uars - 1,
--				max(128, dev->caps.reserved_uars), 0);
-+				dev->caps.reserved_uars, 0);
+-	return 0;
++	return err;
  }
  
- void mlx4_cleanup_uar_table(struct mlx4_dev *dev)
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 3333018..e4be34a 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -248,6 +248,7 @@ struct mlx4_caps {
- 	u64			trans_code[MLX4_MAX_PORTS + 1];
- 	int			local_ca_ack_delay;
- 	int			num_uars;
-+	u32			uar_page_size;
- 	int			bf_reg_size;
- 	int			bf_regs_per_page;
- 	int			max_sq_sg;
+ /*
+@@ -433,7 +1065,8 @@ struct mlx4_cmd_mailbox *mlx4_alloc_cmd_mailbox(struct mlx4_dev *dev)
+ }
+ EXPORT_SYMBOL_GPL(mlx4_alloc_cmd_mailbox);
+ 
+-void mlx4_free_cmd_mailbox(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox)
++void mlx4_free_cmd_mailbox(struct mlx4_dev *dev,
++			   struct mlx4_cmd_mailbox *mailbox)
+ {
+ 	if (!mailbox)
+ 		return;
+@@ -442,3 +1075,8 @@ void mlx4_free_cmd_mailbox(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbo
+ 	kfree(mailbox);
+ }
+ EXPORT_SYMBOL_GPL(mlx4_free_cmd_mailbox);
++
++u32 mlx4_comm_get_version(void)
++{
++	 return ((u32) CMD_CHAN_IF_REV << 8) | (u32) CMD_CHAN_VER;
++}
 -- 
 1.7.7
