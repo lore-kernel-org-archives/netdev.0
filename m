@@ -1,75 +1,96 @@
-From: Jerome Glisse <j.glisse@gmail.com>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Fri, 2 Dec 2011 14:43:09 -0500
-Message-ID: <20111202194309.GA12057@homer.localdomain>
-References: <20111121080554.GB1625@x4.trippels.de>
- <20111121082445.GD1625@x4.trippels.de>
- <1321866988.2552.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20111121131531.GA1679@x4.trippels.de>
- <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20111121153621.GA1678@x4.trippels.de>
- <20111123160353.GA1673@x4.trippels.de>
- <alpine.DEB.2.00.1111231004490.17317@router.home>
- <20111124085040.GA1677@x4.trippels.de>
- <20111201084437.GA1529@x4.trippels.de>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] infiniband: addr: Avoid unnecessary neigh lookup.
+Date: Fri, 02 Dec 2011 14:55:25 -0500 (EST)
+Message-ID: <20111202.145525.1679807360238725746.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Lameter <cl@linux.com>, "Alex, Shi" <alex.shi@intel.com>,
-	Dave Airlie <airlied@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	dri-devel@lists.freedesktop.org, Pekka Enberg <penberg@kernel.org>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	Matt Mackall <mpm@selenic.com>, tj@kernel.org,
-	Alex Deucher <alexander.deucher@amd.com>
-To: Markus Trippelsdorf <markus@trippelsdorf.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20111201084437.GA1529@x4.trippels.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: roland@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:48507 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751927Ab1LBTz3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 14:55:29 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 01, 2011 at 09:44:37AM +0100, Markus Trippelsdorf wrote:
-> On 2011.11.24 at 09:50 +0100, Markus Trippelsdorf wrote:
-> > On 2011.11.23 at 10:06 -0600, Christoph Lameter wrote:
-> > > On Wed, 23 Nov 2011, Markus Trippelsdorf wrote:
-> > > 
-> > > > > FIX idr_layer_cache: Marking all objects used
-> > > >
-> > > > Yesterday I couldn't reproduce the issue at all. But today I've hit
-> > > > exactly the same spot again. (CCing the drm list)
-> > > 
-> > > Well this is looks like write after free.
-> > > 
-> > > > =============================================================================
-> > > > BUG idr_layer_cache: Poison overwritten
-> > > > -----------------------------------------------------------------------------
-> > > > Object ffff8802156487c0: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-> > > > Object ffff8802156487d0: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-> > > > Object ffff8802156487e0: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-> > > > Object ffff8802156487f0: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-> > > > Object ffff880215648800: 00 00 00 00 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  ....kkkkkkkkkkkk
-> > > > Object ffff880215648810: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-> > > 
-> > > And its an integer sized write of 0. If you look at the struct definition
-> > > and lookup the offset you should be able to locate the field that
-> > > was modified.
-> 
-> It also happens with CONFIG_SLAB. 
-> (If someone wants to reproduce the issue, just run a kexec boot loop and
-> the bug will occur after a few (~10) iterations.)
-> 
 
-Can you provide the kexec command line you are using and full kernel
-log (mostly interested in kernel option).
+The explicit neigh_lookup() in addr4_resolve() is unnecessary because this
+is the exact same calculation the routing code already made to attach the
+neigh to the route.
 
-Cheers,
-Jerome
+Therefore, just use dst_get_neighbour().
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+Roland, I'm auditing all of the uses of dst_get_neighbour() with the
+end result being that a dst_put_neighbour() interface will be added
+and all access will be reduced to quick:
+
+	rcu_read_lock();
+	n = dst_get_neighbour();
+	...
+	dst_put_neighbour();
+	rcu_read_unlock();
+
+sequences.  And then, at the next step, things will be further
+whittled down into a refcount-less variant:
+
+	rcu_read_lock();
+	n = dst_get_neighbour_noref();
+	...
+	rcu_read_unlock();
+
+Another key difference is that we are making the code able to handle
+dst_get_neighbour() returning NULL.
+
+So if it's OK with you I'd like to merge this stuff directly in the
+net-next tree after getting your ACK on each patch.
+
+In the case here, the neigh_lookup() call is spurious and is exactly
+mimicking the neigh lookup that the ipv4 routing code does to attach
+the neighbour to the route.  There is no need to duplicate that
+operation, and we can thus use the route attached neigh directly.
+
+ drivers/infiniband/core/addr.c |   21 ++++++++++-----------
+ 1 files changed, 10 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/infiniband/core/addr.c b/drivers/infiniband/core/addr.c
+index a20c3c8..83d88e1 100644
+--- a/drivers/infiniband/core/addr.c
++++ b/drivers/infiniband/core/addr.c
+@@ -214,20 +214,19 @@ static int addr4_resolve(struct sockaddr_in *src_in,
+ 		goto put;
+ 	}
+ 
+-	neigh = neigh_lookup(&arp_tbl, &rt->rt_gateway, rt->dst.dev);
+-	if (!neigh || !(neigh->nud_state & NUD_VALID)) {
+-		rcu_read_lock();
+-		neigh_event_send(dst_get_neighbour(&rt->dst), NULL);
+-		rcu_read_unlock();
+-		ret = -ENODATA;
+-		if (neigh)
+-			goto release;
+-		goto put;
++	rcu_read_lock();
++	neigh = dst_get_neighbour(&rt->dst);
++	ret = -ENODATA;
++	if (!neigh)
++		goto unlock_put;
++	if (!(neigh->nud_state & NUD_VALID)) {
++		neigh_event_send(neigh, NULL);
++		goto unlock_put;
+ 	}
+ 
+ 	ret = rdma_copy_addr(addr, neigh->dev, neigh->ha);
+-release:
+-	neigh_release(neigh);
++unlock_put:
++	rcu_read_unlock();
+ put:
+ 	ip_rt_put(rt);
+ out:
+-- 
+1.7.7.3
