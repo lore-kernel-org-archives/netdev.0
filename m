@@ -1,26 +1,67 @@
-From: Roland Dreier <roland@kernel.org>
-Subject: Re: [PATCH] infiniband: addr: Avoid unnecessary neigh lookup.
-Date: Fri, 2 Dec 2011 15:18:00 -0800
-Message-ID: <CAL1RGDU8=G_TKRirxm6pMni3H3a-FbvDz+pzG_oaZo-LYBQ0bg@mail.gmail.com>
-References: <20111202.145525.1679807360238725746.davem@davemloft.net>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: Integration of Open vSwitch
+Date: Fri, 2 Dec 2011 15:30:20 -0800
+Message-ID: <CAEP_g=8UM17Jbv2Y7ag7kO7BuXENDiitKydXMjiNtB+-uyxvKQ@mail.gmail.com>
+References: <CAEP_g=-g5g0Z30gYBDAZ8s7ACCZSy5MLJpPDxQmmc8m1wbk3tg@mail.gmail.com>
+	<1322658716.2243.12.camel@mojatatu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog103.obsmtp.com ([74.125.245.74]:48137 "HELO
-	na3sys010aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752118Ab1LBXSW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 18:18:22 -0500
-Received: by mail-bw0-f52.google.com with SMTP id 17so581062bke.39
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 15:18:21 -0800 (PST)
-In-Reply-To: <20111202.145525.1679807360238725746.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Chris Wright <chrisw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1322658716.2243.12.camel@mojatatu>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> So if it's OK with you I'd like to merge this stuff directly in the
-> net-next tree after getting your ACK on each patch.
-
-Sure, that's fine, and for this particular patch:
-
-Acked-by: Roland Dreier <roland@purestorage.com>
+T24gV2VkLCBOb3YgMzAsIDIwMTEgYXQgNToxMSBBTSwgamFtYWwgPGhhZGlAY3liZXJ1cy5jYT4g
+d3JvdGU6Cj4gT24gVHVlLCAyMDExLTExLTI5IGF0IDIyOjI1IC0wODAwLCBKZXNzZSBHcm9zcyB3
+cm90ZToKPj4gQXMgSQo+PiBtZW50aW9uZWQgYmVmb3JlLCBJJ2QgbGlrZSB0byBoYXZlIGEgYml0
+IG9mIGEgZGVzaWduIGRpc2N1c3Npb24gb2YKPj4gd2hhdCBpdCB3b3VsZCBsb29rIGxpa2UgaWYg
+T3BlbiB2U3dpdGNoIHdlcmUgdG8gdXNlIHNvbWUgb2YgdGhlCj4+IGV4aXN0aW5nIGNvbXBvbmVu
+dHMgKGFuZCByZWFsbHkgZm9jdXMgb24ganVzdCB0aGF0KS4gwqBUaGVyZSB3ZXJlIGEKPj4gbnVt
+YmVyIG9mIHN1Z2dlc3Rpb25zIG1hZGUgYWJvdXQgdXNpbmcgcGFydHMgb2YgdGhlIGJyaWRnZSwg
+dGMsCj4+IG5ldGZpbHRlciwgZXRjLiBhbmQgc29tZSBvZiB0aGVtIG92ZXJsYXAgb3IgY29uZmxp
+Y3Qgc28gSSBkb24ndCBxdWl0ZQo+PiBoYXZlIGEgY29oZXJlbnQgc29sdXRpb24gaW4gbWluZC4g
+wqBXb3VsZCB5b3UgZ3V5cyBtaW5kIHdhbGtpbmcgdGhyb3VnaAo+PiB3aGF0IGVhY2ggb2YgeW91
+IGVudmlzaW9uIGl0IGxvb2tpbmcgbGlrZT8KPgo+IEknbGwgdHJ5IG15IFRMO0RSIHZlcnNpb246
+Cj4gTXkgb3BpbmlvbiBpcyB0aGUgY2xhc3NpZmllciBhY3Rpb24gY29kZSBuZWVkcyByZWZhY3Rv
+cmluZy4gSSBoYXZlIG5vCj4gZG91YnQgdGhhdCBpdCBnb2VzIGluIGFzIGlzIGl0IHdpbGwgZXZl
+bnR1YWxseSBsb29rIGxpa2UgdGhlIG9uZQo+IHdlIGFscmVhZHkgaGF2ZS4gRnJvbSB0aGUgZXZv
+bHV0aW9uIG9mIHRoYXQgY29kZSBpIGNhbiBhbHJlYWR5IHNlZQo+IHRoYXQgaXMgd2hlcmUgaXQg
+aXMgZ29pbmcuIEkgcmVhbGx5IGRvbnQgc2VlIG5lZWQgdG8gaGF2ZSB0d28gY29tcGV0aW5nCj4g
+aW50ZXJmYWNlcyBpbiB0aGF0IGFzcGVjdC4gSWYgeW91IGRlY2lkZSB0byBnbyB0aGF0IHdheSBJ
+IHdpbGwgYmUKPiBoYXBweSB0byBoZWxwIHJldmlldyBhbmQgbWFrZSBzdWdnZXN0aW9ucy4KCkkg
+Y29tcGxldGVseSBhZ3JlZSB3aXRoIHRoZSBkZXNpcmUgdG8gc2hhcmUgY29kZSB3aGVyZSB0aGVy
+ZSdzIG92ZXJsYXAKYW5kIGl0IG1ha2VzIHNlbnNlIChJIHdhcyBhY3R1YWxseSBqdXN0IHdvcmtp
+bmcgb24gc29tZSByZWZhY3RvcmluZyB0bwppbmNyZWFzZSBjb2RlIHJldXNlIGJlZm9yZSB0aGlz
+KS4KCkkgdGhpbmsgb25lIG9mIHRoZSBrZXkgdGhpbmdzIHRvIGZvY3VzIG9uIGlzIHRoZSB1c2Vy
+c3BhY2Uva2VybmVsCmludGVyZmFjZSBzaW5jZSB3ZSdsbCBoYXZlIG11Y2ggbGVzcyBvcHBvcnR1
+bml0eSB0byBzaWduaWZpY2FudGx5CmNoYW5nZSB0aGF0IG92ZXIgdGltZS4gIEdldHRpbmcgYm90
+aCBjb21wYXRpYmlsaXR5IGFuZCBwZXJmb3JtYW5jZSBpcwpzb21ldGhpbmcgdGhhdCB3ZSd2ZSB3
+b3JrZWQgb24gYSBmYWlyIGFtb3VudCBhbmQgaGF2ZSBhcnJpdmVkIGF0IGEKc29sdXRpb24gdGhh
+dCBtZWV0cyB0aGUgbmVlZHMgb2YgT1ZTIChhbmQgcHJvYmFibHkgb25seSBPVlMpIHByZXR0eQp3
+ZWxsLiAgSSB0aGluayBpdCdzIGEgbmljZSBtb2RlbCBidXQga2VlcGluZyB0aGF0IHdoaWxlIHJl
+ZmFjdG9yaW5nIG9uCnRvcCBvZiB0aGUgdGMgbGF5ZXIgc2VlbXMgY2hhbGxlbmdpbmcgdG8gZG8g
+Y2xlYW5seSBiZWNhdXNlIHRoZSBmbG93CmluZm9ybWF0aW9uIGlzIG5lZWRlZCBieSBib3RoIHRo
+ZSBmbG93IGxvb2t1cCBhbmQgdXNlcnNwYWNlCmNvbW11bmljYXRpb24uICBTdHJpbmdpbmcgdGhh
+dCB0aHJvdWdoIGdlbmVyaWMgY29kZSBzZWVtcyBmYWlybHkKdW5hcHBlYWxpbmcuCgpTbyBJIGFn
+cmVlIHdpdGggeW91IGluIHByaW5jaXBsZSBhbmQgaWYgeW91IGFyZSByaWdodCB0aGF0IHRoaW5n
+cyB0ZW5kCnRvIGNvbnZlcmdlIHRoZXJlIHNob3VsZCBiZSBtb3JlIHJvb20gZm9yIGNvZGUgcmV1
+c2Ugb3ZlciB0aW1lLiAgUmlnaHQKbm93IHRob3VnaCBJIHdvdWxkIGp1c3QgZm9jdXMgb24gdGhl
+IGhpZ2ggbGV2ZWwgYml0cy4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVu
+dnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
