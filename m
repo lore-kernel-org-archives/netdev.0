@@ -1,64 +1,67 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: [PATCH] Revert "net: fsl_pq_mdio: fix non tbi phy access"
-Date: Fri, 2 Dec 2011 01:05:48 -0600
-Message-ID: <1322809549-32622-1-git-send-email-afleming@freescale.com>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: [PATCH] e1000e: Fix bug for e1000e interrupt default
+	mode select.
+Date: Fri,  2 Dec 2011 01:11:46 -0600
+Message-ID: <1322809906-6428-1-git-send-email-galak@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linuxppc-dev@lists.ozlabs.org>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Kumar Gala <galak@kernel.crashing.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe005.messaging.microsoft.com ([213.199.154.143]:15340
-	"EHLO DB3EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751894Ab1LBHGC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 02:06:02 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, Prabhakar <prabhakar@freescale.com>
+To: jeffrey.t.kirsher@intel.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-This reverts commit c3e072f8a6c5625028531c40ec65f7e301531be2.
+From: Prabhakar <prabhakar@freescale.com>
 
-The TBI PHY Address must always be set to something sensible.
-If not, the value currently in the register may interfere
-with MDIO transactions to that address. The architected
-solution is to have a TBI node in the device tree, which corresponds
-to the desired address (and which should be chosen so that it does
-not conflict with other PHYs on the bus). If that node is not there,
-it is incorrect to just continue. We must return an error, so that
-developers have a chance to realize they've mis-configured their
-device trees. A separate patch has been submitted to add such
-a node to the device trees for boards which were missing that node.
+If the kernel config does not have MSI enabled (CONFIG_PCI_MSI) the driver
+should not default to MSI interrupt mode but legacy interrupt mode.
 
-Signed-off-by: Andy Fleming <afleming@freescale.com>
+Signed-off-by: Jin Qing <b24347@freescale.com>
+Signed-off-by: Prabhakar <prabhakar@freescale.com>
+Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
 ---
- drivers/net/ethernet/freescale/fsl_pq_mdio.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/e1000e/param.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fsl_pq_mdio.c b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
-index f109602..6ff124c 100644
---- a/drivers/net/ethernet/freescale/fsl_pq_mdio.c
-+++ b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
-@@ -356,16 +356,16 @@ static int fsl_pq_mdio_probe(struct platform_device *ofdev)
- 
- 		if (prop)
- 			tbiaddr = *prop;
-+	}
- 
--		if (tbiaddr == -1) {
--			err = -EBUSY;
-+	if (tbiaddr == -1) {
-+		err = -EBUSY;
- 
--			goto err_free_irqs;
--		} else {
--			out_be32(tbipa, tbiaddr);
--		}
-+		goto err_free_irqs;
- 	}
- 
-+	out_be32(tbipa, tbiaddr);
-+
- 	err = of_mdiobus_register(new_bus, np);
- 	if (err) {
- 		printk (KERN_ERR "%s: Cannot register as MDIO bus\n",
+diff --git a/drivers/net/ethernet/intel/e1000e/param.c b/drivers/net/ethernet/intel/e1000e/param.c
+index 20e93b0..18c35c6 100644
+--- a/drivers/net/ethernet/intel/e1000e/param.c
++++ b/drivers/net/ethernet/intel/e1000e/param.c
+@@ -388,8 +388,13 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
+ 		static struct e1000_option opt = {
+ 			.type = range_option,
+ 			.name = "Interrupt Mode",
++#ifdef CONFIG_PCI_MSI
+ 			.err  = "defaulting to 2 (MSI-X)",
+ 			.def  = E1000E_INT_MODE_MSIX,
++#else
++			.err  = "defaulting to 0 (Legacy)",
++			.def  = E1000E_INT_MODE_LEGACY,
++#endif
+ 			.arg  = { .r = { .min = MIN_INTMODE,
+ 					 .max = MAX_INTMODE } }
+ 		};
 -- 
 1.7.3.4
+
+
+------------------------------------------------------------------------------
+All the data continuously generated in your IT infrastructure 
+contains a definitive record of customers, application performance, 
+security threats, fraudulent activity, and more. Splunk takes this 
+data and makes sense of it. IT sense. And common sense.
+http://p.sf.net/sfu/splunk-novd2d
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
