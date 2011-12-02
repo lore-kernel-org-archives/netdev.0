@@ -1,99 +1,138 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] r8169: Support for byte queue limits
-Date: Fri, 02 Dec 2011 15:29:51 +0100
-Message-ID: <1322836191.2762.3.camel@edumazet-laptop>
-References: <igorm@etf.rs> <1322831399-23505-1-git-send-email-igorm@etf.rs>
+Subject: Re: [PATCH 2/3] caif: Add support for flow-control on device's
+ tx-queue
+Date: Fri, 02 Dec 2011 15:38:02 +0100
+Message-ID: <1322836682.2762.8.camel@edumazet-laptop>
+References: <1322834777-2486-1-git-send-email-sjur.brandeland@stericsson.com>
+	 <1322834777-2486-3-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: igorm@etf.rs
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Alexey Orishko <alexey.orishko@stericsson.com>
+To: Sjur =?ISO-8859-1?Q?Br=E6ndeland?=
+	<sjur.brandeland@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:41753 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754865Ab1LBO3z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 09:29:55 -0500
-Received: by ywa9 with SMTP id 9so2809087ywa.19
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 06:29:55 -0800 (PST)
-In-Reply-To: <1322831399-23505-1-git-send-email-igorm@etf.rs>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:46386 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756751Ab1LBOiF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 09:38:05 -0500
+Received: by vcbfk14 with SMTP id fk14so2361505vcb.19
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 06:38:05 -0800 (PST)
+In-Reply-To: <1322834777-2486-3-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 02 d=C3=A9cembre 2011 =C3=A0 14:09 +0100, igorm@etf.rs a =C3=
-=A9crit :
-> From: Igor Maravic <igorm@etf.rs>
+Le vendredi 02 d=C3=A9cembre 2011 =C3=A0 15:06 +0100, Sjur Br=C3=A6ndel=
+and a =C3=A9crit :
+> Flow control is implemented by inspecting the qdisc queue length
+> in order to detect potential overflow on the TX queue. When a thresho=
+ld
+> is reached flow-off is sent upwards in the CAIF stack. At the same ti=
+me
+> the skb->destructor is hi-jacked in order to detect when the last pac=
+ket
+> put on queue is consumed. When this "hi-jacked" packet is consumed, f=
+low-on
+> is sent upwards in the CAIF stack.
 >=20
-> Changes to r8169 to use byte queue limits.
->=20
-> Signed-off-by: Igor Maravic <igorm@etf.rs>
+> Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
 > ---
->  drivers/net/ethernet/realtek/r8169.c |   12 ++++++++++--
->  1 files changed, 10 insertions(+), 2 deletions(-)
+>  net/caif/caif_dev.c |   48 +++++++++++++++++++++++++++++++++++++++++=
++++++++
+>  1 files changed, 48 insertions(+), 0 deletions(-)
 >=20
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ether=
-net/realtek/r8169.c
-> index e5a6d8e..7ea428c 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -3773,6 +3773,7 @@ static void rtl_init_rxcfg(struct rtl8169_priva=
-te *tp)
->  static void rtl8169_init_ring_indexes(struct rtl8169_private *tp)
+> diff --git a/net/caif/caif_dev.c b/net/caif/caif_dev.c
+> index f7e8c70..415353e 100644
+> --- a/net/caif/caif_dev.c
+> +++ b/net/caif/caif_dev.c
+> @@ -34,6 +34,7 @@ struct caif_device_entry {
+>  	struct list_head list;
+>  	struct net_device *netdev;
+>  	int __percpu *pcpu_refcnt;
+> +	bool xoff;
+>  };
+> =20
+>  struct caif_device_entry_list {
+> @@ -48,6 +49,7 @@ struct caif_net {
+>  };
+> =20
+>  static int caif_net_id;
+> +static int q_high =3D 50; /* Percent */
+> =20
+>  struct cfcnfg *get_cfcnfg(struct net *net)
 >  {
->  	tp->dirty_tx =3D tp->dirty_rx =3D tp->cur_tx =3D tp->cur_rx =3D 0;
-> +	netdev_reset_queue(tp->dev);
-
-
-Hmm... What about rtl8169_tx_clear_range() or rtl8169_tx_clear() ?
-
-Also please CC maintainers of this driver to your submission.
-
-(I did this)
-
+> @@ -126,9 +128,28 @@ static struct caif_device_entry *caif_get(struct=
+ net_device *dev)
+>  	return NULL;
 >  }
 > =20
->  static void rtl_hw_jumbo_enable(struct rtl8169_private *tp)
-> @@ -5458,6 +5459,7 @@ static int rtl8169_xmit_frags(struct rtl8169_pr=
-ivate *tp, struct sk_buff *skb,
->  		tp->tx_skb[entry].skb =3D skb;
->  		txd->opts1 |=3D cpu_to_le32(LastFrag);
->  	}
-> +	netdev_sent_queue(tp->dev, skb->len);
-> =20
->  	return cur_frag;
-> =20
-> @@ -5623,6 +5625,8 @@ static void rtl8169_tx_interrupt(struct net_dev=
-ice *dev,
->  				 void __iomem *ioaddr)
->  {
->  	unsigned int dirty_tx, tx_left;
-> +	unsigned int bytes_compl =3D 0;
-> +	int tx_compl =3D 0;
-> =20
->  	dirty_tx =3D tp->dirty_tx;
->  	smp_rmb();
-> @@ -5641,8 +5645,8 @@ static void rtl8169_tx_interrupt(struct net_dev=
-ice *dev,
->  		rtl8169_unmap_tx_skb(&tp->pci_dev->dev, tx_skb,
->  				     tp->TxDescArray + entry);
->  		if (status & LastFrag) {
-> -			dev->stats.tx_packets++;
-> -			dev->stats.tx_bytes +=3D tx_skb->skb->len;
-> +			bytes_compl +=3D tx_skb->skb->len;
-> +			tx_compl++;
->  			dev_kfree_skb(tx_skb->skb);
->  			tx_skb->skb =3D NULL;
->  		}
-> @@ -5650,6 +5654,10 @@ static void rtl8169_tx_interrupt(struct net_de=
-vice *dev,
->  		tx_left--;
->  	}
-> =20
-> +	dev->stats.tx_packets +=3D tx_compl;
-> +	dev->stats.tx_bytes +=3D bytes_compl;
-> +	netdev_completed_queue(dev, tx_compl, bytes_compl);
+> +void caif_flow_cb(struct sk_buff *skb)
+> +{
+> +	struct caif_device_entry *caifd;
+> +	WARN_ON(skb->dev =3D=3D NULL);
 > +
->  	if (tp->dirty_tx !=3D dirty_tx) {
->  		tp->dirty_tx =3D dirty_tx;
->  		smp_wmb();
+> +	rcu_read_lock();
+> +	caifd =3D caif_get(skb->dev);
+> +	caifd->xoff =3D 0;
+> +	caifd_hold(caifd);
+> +	rcu_read_unlock();
+> +
+> +	caifd->layer.up->
+> +		ctrlcmd(caifd->layer.up,
+> +			_CAIF_CTRLCMD_PHYIF_FLOW_ON_IND,
+> +			caifd->layer.id);
+> +	caifd_put(caifd);
+> +}
+> +
+>  static int transmit(struct cflayer *layer, struct cfpkt *pkt)
+>  {
+>  	int err;
+> +	struct caif_dev_common *caifdev;
+>  	struct caif_device_entry *caifd =3D
+>  	    container_of(layer, struct caif_device_entry, layer);
+>  	struct sk_buff *skb;
+> @@ -137,6 +158,33 @@ static int transmit(struct cflayer *layer, struc=
+t cfpkt *pkt)
+>  	skb->dev =3D caifd->netdev;
+>  	skb_reset_network_header(skb);
+>  	skb->protocol =3D htons(ETH_P_CAIF);
+> +	caifdev =3D netdev_priv(caifd->netdev);
+> +
+> +	if (caifdev->flowctrl =3D=3D NULL && caifd->netdev->tx_queue_len > =
+0 &&
+> +			!caifd->xoff) {
+> +		struct netdev_queue *txq;
+> +		int high;
+> +
+> +		txq =3D netdev_get_tx_queue(skb->dev, 0);
+
+Why queue 0 and not another one ?
+
+> +		high =3D (caifd->netdev->tx_queue_len * q_high) / 100;
+> +
+> +		/* If we run with a TX queue, check if the queue is too long*/
+
+Are you sure only this cpu can run here ? any lock is held ?
+
+> +		if (netif_queue_stopped(caifd->netdev) ||
+> +			qdisc_qlen(txq->qdisc) > high) {
+> +
+> +			pr_debug("queue stop(%d) or full (%d>%d) - XOFF\n",
+> +					netif_queue_stopped(caifd->netdev),
+> +					qdisc_qlen(txq->qdisc), high);
+> +			caifd->xoff =3D 1;
+> +			/* Hijack this skb free callback function. */
+> +			skb_orphan(skb);
+> +			skb->destructor =3D caif_flow_cb;
+> +			caifd->layer.up->
+> +				ctrlcmd(caifd->layer.up,
+> +					_CAIF_CTRLCMD_PHYIF_FLOW_OFF_IND,
+> +					caifd->layer.id);
+> +		}
+> +	}
+> =20
+>  	err =3D dev_queue_xmit(skb);
+>  	if (err > 0)
+
+What prevents dev_queue_xmit() to early orphan skb ?
