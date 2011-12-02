@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-Subject: [PATCH 3/3] caif: Add support for CAIF over CDC NCM USB interface
-Date: Fri,  2 Dec 2011 15:06:17 +0100
-Message-ID: <1322834777-2486-4-git-send-email-sjur.brandeland@stericsson.com>
+Subject: [PATCH 2/3] caif: Add support for flow-control on device's tx-queue
+Date: Fri,  2 Dec 2011 15:06:16 +0100
+Message-ID: <1322834777-2486-3-git-send-email-sjur.brandeland@stericsson.com>
 References: <1322834777-2486-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -11,345 +11,116 @@ Cc: David Miller <davem@davemloft.net>,
 	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:59155 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756695Ab1LBOGf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 09:06:35 -0500
-Received: by wgbdr13 with SMTP id dr13so1270960wgb.1
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 06:06:31 -0800 (PST)
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:43571 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756695Ab1LBOGb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 09:06:31 -0500
+Received: by bkas6 with SMTP id s6so3891539bka.19
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 06:06:30 -0800 (PST)
 In-Reply-To: <1322834777-2486-1-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NCM 1.0 does not support anything but Ethernet framing, hence
-CAIF payload will be put into Ethernet frames.
-
-Discovery is based on fixed USB vendor 0x04cc (ST-Ericsson),
-product-id 0x230f (NCM). In this variant only CAIF payload is sent over
-the NCM interface.
-
-The CAIF stack (cfusbl.c) will when USB registers first check if
-we got a CDC NCM USB interface with the right VID, PID.
-It will then read the device's Ethernet address and create a 'template'
-Ethernet TX header, using a broadcast address as the destination addres=
-s,
-and EthType 0x88b5 (802.1 Local Experimental - vendor specific).
-
-A protocol handler for 0x88b5 is setup for reception of CAIF frames fro=
-m
-the CDC NCM USB interface.
+=46low control is implemented by inspecting the qdisc queue length
+in order to detect potential overflow on the TX queue. When a threshold
+is reached flow-off is sent upwards in the CAIF stack. At the same time
+the skb->destructor is hi-jacked in order to detect when the last packe=
+t
+put on queue is consumed. When this "hi-jacked" packet is consumed, flo=
+w-on
+is sent upwards in the CAIF stack.
 
 Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
 ---
- include/net/caif/cfusbl.h |   13 +++
- net/caif/Kconfig          |   11 +++
- net/caif/Makefile         |    4 +-
- net/caif/caif_dev.c       |    7 ++
- net/caif/cfusbl.c         |  199 +++++++++++++++++++++++++++++++++++++=
-++++++++
- 5 files changed, 233 insertions(+), 1 deletions(-)
- create mode 100644 include/net/caif/cfusbl.h
- create mode 100644 net/caif/cfusbl.c
+ net/caif/caif_dev.c |   48 +++++++++++++++++++++++++++++++++++++++++++=
++++++
+ 1 files changed, 48 insertions(+), 0 deletions(-)
 
-diff --git a/include/net/caif/cfusbl.h b/include/net/caif/cfusbl.h
-new file mode 100644
-index 0000000..7ef2499
---- /dev/null
-+++ b/include/net/caif/cfusbl.h
-@@ -0,0 +1,13 @@
-+/*
-+ * Copyright (C) ST-Ericsson AB 2010
-+ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
-+ * License terms: GNU General Public License (GPL) version 2
-+ */
-+
-+#ifndef CFUSBL_H_
-+#define CFUSBL_H_
-+
-+void cfusbl_init(void);
-+void cfusbl_exit(void);
-+
-+#endif				/* CFUSBL_H_ */
-diff --git a/net/caif/Kconfig b/net/caif/Kconfig
-index 529750d..43cd844 100644
---- a/net/caif/Kconfig
-+++ b/net/caif/Kconfig
-@@ -40,3 +40,14 @@ config CAIF_NETDEV
- 	If you select to build it as a built-in then the main CAIF device mus=
-t
- 	also be a built-in.
- 	If unsure say Y.
-+
-+config CAIF_USB
-+	bool "CAIF USB support"
-+	depends on CAIF
-+	default CAIF
-+	---help---
-+	Say Y if you are using CAIF over USB CDC NCM.
-+	This can be either built-in or a loadable module,
-+	If you select to build it as a built-in then the main CAIF device mus=
-t
-+	also be a built-in.
-+	If unsure say N.
-diff --git a/net/caif/Makefile b/net/caif/Makefile
-index ebcd4e7..3965f73 100644
---- a/net/caif/Makefile
-+++ b/net/caif/Makefile
-@@ -1,4 +1,5 @@
--ccflags-$(CONFIG_CAIF_DEBUG)     :=3D      -DDEBUG
-+ccflags-$(CONFIG_CAIF_DEBUG) +=3D -DDEBUG
-+ccflags-$(CONFIG_CAIF_USB) +=3D -DCAIF_USB
-=20
- caif-y :=3D caif_dev.o \
- 	cfcnfg.o cfmuxl.o cfctrl.o  \
-@@ -6,6 +7,7 @@ caif-y :=3D caif_dev.o \
- 	cfserl.o cfdgml.o  \
- 	cfrfml.o cfvidl.o cfutill.o \
- 	cfsrvl.o cfpkt_skbuff.o
-+caif-$(CONFIG_CAIF_USB) +=3D cfusbl.o
-=20
- obj-$(CONFIG_CAIF) +=3D caif.o
- obj-$(CONFIG_CAIF_NETDEV) +=3D chnl_net.o
 diff --git a/net/caif/caif_dev.c b/net/caif/caif_dev.c
-index 415353e..6ef0e90 100644
+index f7e8c70..415353e 100644
 --- a/net/caif/caif_dev.c
 +++ b/net/caif/caif_dev.c
-@@ -25,6 +25,7 @@
- #include <net/caif/cfpkt.h>
- #include <net/caif/cfcnfg.h>
- #include <net/caif/cfserl.h>
-+#include <net/caif/cfusbl.h>
+@@ -34,6 +34,7 @@ struct caif_device_entry {
+ 	struct list_head list;
+ 	struct net_device *netdev;
+ 	int __percpu *pcpu_refcnt;
++	bool xoff;
+ };
 =20
- MODULE_LICENSE("GPL");
+ struct caif_device_entry_list {
+@@ -48,6 +49,7 @@ struct caif_net {
+ };
 =20
-@@ -506,6 +507,9 @@ static int __init caif_device_init(void)
- 	if (result)
- 		return result;
+ static int caif_net_id;
++static int q_high =3D 50; /* Percent */
 =20
-+#ifdef CAIF_USB
-+	cfusbl_init();
-+#endif
- 	register_netdevice_notifier(&caif_device_notifier);
- 	dev_add_pack(&caif_packet_type);
-=20
-@@ -517,6 +521,9 @@ static void __exit caif_device_exit(void)
- 	unregister_pernet_device(&caif_net_ops);
- 	unregister_netdevice_notifier(&caif_device_notifier);
- 	dev_remove_pack(&caif_packet_type);
-+#ifdef CAIF_USB
-+	cfusbl_exit();
-+#endif
+ struct cfcnfg *get_cfcnfg(struct net *net)
+ {
+@@ -126,9 +128,28 @@ static struct caif_device_entry *caif_get(struct n=
+et_device *dev)
+ 	return NULL;
  }
 =20
- module_init(caif_device_init);
-diff --git a/net/caif/cfusbl.c b/net/caif/cfusbl.c
-new file mode 100644
-index 0000000..8353a55
---- /dev/null
-+++ b/net/caif/cfusbl.c
-@@ -0,0 +1,199 @@
-+/*
-+ * CAIF USB handler
-+ * Copyright (C) ST-Ericsson AB 2011
-+ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
-+ * License terms: GNU General Public License (GPL) version 2
-+ *
-+ */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ":%s(): " fmt, __func__
-+
-+#include <linux/netdevice.h>
-+#include <linux/slab.h>
-+#include <linux/netdevice.h>
-+#include <linux/mii.h>
-+#include <linux/usb.h>
-+#include <linux/usb/usbnet.h>
-+#include <net/netns/generic.h>
-+#include <net/caif/caif_dev.h>
-+#include <net/caif/caif_layer.h>
-+#include <net/caif/cfpkt.h>
-+#include <net/caif/cfcnfg.h>
-+
-+MODULE_LICENSE("GPL");
-+
-+#define CFUSB_PAD_DESCR_SZ 1	/* Alignment descriptor length */
-+#define CFUSB_ALIGNMENT 4	/* Number of bytes to align. */
-+#define CFUSB_MAX_HEADLEN (CFUSB_PAD_DESCR_SZ + CFUSB_ALIGNMENT-1)
-+#define STE_USB_VID 0x04cc	/* USB Product ID for ST-Ericsson */
-+#define STE_USB_PID_CAIF 0x2306	/* Product id for CAIF Modems */
-+
-+struct cfusbl {
-+	struct cflayer layer;
-+	u8 tx_eth_hdr[ETH_HLEN];
-+};
-+
-+static bool pack_added;
-+
-+static int cfusbl_receive(struct cflayer *layr, struct cfpkt *pkt)
++void caif_flow_cb(struct sk_buff *skb)
 +{
-+	u8 hpad;
++	struct caif_device_entry *caifd;
++	WARN_ON(skb->dev =3D=3D NULL);
 +
-+	/* Remove padding. */
-+	cfpkt_extr_head(pkt, &hpad, 1);
-+	cfpkt_extr_head(pkt, NULL, hpad);
-+	return layr->up->receive(layr->up, pkt);
++	rcu_read_lock();
++	caifd =3D caif_get(skb->dev);
++	caifd->xoff =3D 0;
++	caifd_hold(caifd);
++	rcu_read_unlock();
++
++	caifd->layer.up->
++		ctrlcmd(caifd->layer.up,
++			_CAIF_CTRLCMD_PHYIF_FLOW_ON_IND,
++			caifd->layer.id);
++	caifd_put(caifd);
 +}
 +
-+static int cfusbl_transmit(struct cflayer *layr, struct cfpkt *pkt)
-+{
-+	struct caif_payload_info *info;
-+	u8 hpad;
-+	u8 zeros[CFUSB_ALIGNMENT];
-+	struct sk_buff *skb;
-+	struct cfusbl *usbl =3D container_of(layr, struct cfusbl, layer);
+ static int transmit(struct cflayer *layer, struct cfpkt *pkt)
+ {
+ 	int err;
++	struct caif_dev_common *caifdev;
+ 	struct caif_device_entry *caifd =3D
+ 	    container_of(layer, struct caif_device_entry, layer);
+ 	struct sk_buff *skb;
+@@ -137,6 +158,33 @@ static int transmit(struct cflayer *layer, struct =
+cfpkt *pkt)
+ 	skb->dev =3D caifd->netdev;
+ 	skb_reset_network_header(skb);
+ 	skb->protocol =3D htons(ETH_P_CAIF);
++	caifdev =3D netdev_priv(caifd->netdev);
 +
-+	skb =3D cfpkt_tonative(pkt);
++	if (caifdev->flowctrl =3D=3D NULL && caifd->netdev->tx_queue_len > 0 =
+&&
++			!caifd->xoff) {
++		struct netdev_queue *txq;
++		int high;
 +
-+	skb_reset_network_header(skb);
-+	skb->protocol =3D htons(ETH_P_IP);
++		txq =3D netdev_get_tx_queue(skb->dev, 0);
++		high =3D (caifd->netdev->tx_queue_len * q_high) / 100;
 +
-+	info =3D cfpkt_info(pkt);
-+	hpad =3D (info->hdr_len + CFUSB_PAD_DESCR_SZ) & (CFUSB_ALIGNMENT - 1)=
-;
++		/* If we run with a TX queue, check if the queue is too long*/
++		if (netif_queue_stopped(caifd->netdev) ||
++			qdisc_qlen(txq->qdisc) > high) {
 +
-+	if (skb_headroom(skb) < ETH_HLEN + CFUSB_PAD_DESCR_SZ + hpad) {
-+		pr_warn("Headroom to small\n");
-+		kfree_skb(skb);
-+		return -EIO;
++			pr_debug("queue stop(%d) or full (%d>%d) - XOFF\n",
++					netif_queue_stopped(caifd->netdev),
++					qdisc_qlen(txq->qdisc), high);
++			caifd->xoff =3D 1;
++			/* Hijack this skb free callback function. */
++			skb_orphan(skb);
++			skb->destructor =3D caif_flow_cb;
++			caifd->layer.up->
++				ctrlcmd(caifd->layer.up,
++					_CAIF_CTRLCMD_PHYIF_FLOW_OFF_IND,
++					caifd->layer.id);
++		}
 +	}
-+	memset(zeros, 0, hpad);
-+
-+	cfpkt_add_head(pkt, zeros, hpad);
-+	cfpkt_add_head(pkt, &hpad, 1);
-+	cfpkt_add_head(pkt, usbl->tx_eth_hdr, sizeof(usbl->tx_eth_hdr));
-+	return layr->dn->transmit(layr->dn, pkt);
-+}
-+
-+static void cfusbl_ctrlcmd(struct cflayer *layr, enum caif_ctrlcmd ctr=
-l,
-+					int phyid)
-+{
-+	if (layr->up && layr->up->ctrlcmd)
-+		layr->up->ctrlcmd(layr->up, ctrl, layr->id);
-+}
-+
-+struct cflayer *cfusbl_create(int phyid, u8 ethaddr[ETH_ALEN],
-+					u8 braddr[ETH_ALEN])
-+{
-+	struct cfusbl *this =3D kmalloc(sizeof(struct cfusbl), GFP_ATOMIC);
-+
-+	if (!this) {
-+		pr_warn("Out of memory\n");
-+		return NULL;
-+	}
-+	caif_assert(offsetof(struct cfusbl, layer) =3D=3D 0);
-+
-+	memset(this, 0, sizeof(struct cflayer));
-+	this->layer.receive =3D cfusbl_receive;
-+	this->layer.transmit =3D cfusbl_transmit;
-+	this->layer.ctrlcmd =3D cfusbl_ctrlcmd;
-+	snprintf(this->layer.name, CAIF_LAYER_NAME_SZ, "usb%d", phyid);
-+	this->layer.id =3D phyid;
-+
-+	/*
-+	 * Construct TX ethernet header:
-+	 *	0-5	destination address
-+	 *	5-11	source address
-+	 *	12-13	protocol type
-+	 */
-+	memcpy(&this->tx_eth_hdr[ETH_ALEN], braddr, ETH_ALEN);
-+	memcpy(&this->tx_eth_hdr[ETH_ALEN], ethaddr, ETH_ALEN);
-+	this->tx_eth_hdr[12] =3D cpu_to_be16(ETH_P_802_EX1) & 0xff;
-+	this->tx_eth_hdr[13] =3D (cpu_to_be16(ETH_P_802_EX1) >> 8) & 0xff;
-+	pr_debug("caif ethernet TX-header dst:%pM src:%pM type:%02x%02x\n",
-+			this->tx_eth_hdr, this->tx_eth_hdr + ETH_ALEN,
-+			this->tx_eth_hdr[12], this->tx_eth_hdr[13]);
-+
-+	return (struct cflayer *) this;
-+}
-+
-+static struct packet_type caif_usb_type __read_mostly =3D {
-+	.type =3D cpu_to_be16(ETH_P_802_EX1),
-+};
-+
-+static int cfusbl_device_notify(struct notifier_block *me, unsigned lo=
-ng what,
-+			      void *arg)
-+{
-+	struct net_device *dev =3D arg;
-+	struct caif_dev_common common;
-+	struct cflayer *layer, *link_support;
-+	struct usbnet	*usbnet =3D netdev_priv(dev);
-+	struct usb_device	*usbdev =3D usbnet->udev;
-+	struct ethtool_drvinfo drvinfo;
-+
-+	if (what !=3D NETDEV_REGISTER)
-+		return 0;
-+	/*
-+	 * Quirks: High-jack ethtool to find if we have a NCM device,
-+	 * and find it's VID/PID.
-+	 */
-+	if (dev->ethtool_ops =3D=3D NULL || dev->ethtool_ops->get_drvinfo =3D=
-=3D NULL)
-+		return 0;
-+
-+	dev->ethtool_ops->get_drvinfo(dev, &drvinfo);
-+	if (strncmp(drvinfo.driver, "cdc_ncm", 7) !=3D 0)
-+		return 0;
-+
-+	pr_debug("USB CDC NCM device VID:0x%4x PID:0x%4x\n",
-+		le16_to_cpu(usbdev->descriptor.idVendor),
-+		le16_to_cpu(usbdev->descriptor.idProduct));
-+
-+	/* Check for VID/PID that supports CAIF */
-+	if (!(le16_to_cpu(usbdev->descriptor.idVendor) =3D=3D STE_USB_VID &&
-+		le16_to_cpu(usbdev->descriptor.idProduct) =3D=3D STE_USB_PID_CAIF))
-+		return 0;
-+
-+	memset(&common, 0, sizeof(common));
-+	common.use_frag =3D false;
-+	common.use_fcs =3D false;
-+	common.use_stx =3D false;
-+	common.link_select =3D CAIF_LINK_HIGH_BANDW;
-+	common.flowctrl =3D NULL;
-+
-+	link_support =3D cfusbl_create(dev->ifindex, dev->dev_addr,
-+					dev->broadcast);
-+	if (!link_support) {
-+		pr_warn("Out of memory\n");
-+		return -ENOMEM;
-+	}
-+
-+	if (dev->num_tx_queues > 1)
-+		pr_warn("USB device uses more than one tx queue\n");
-+
-+	caif_enroll_dev(dev, &common, link_support, CFUSB_MAX_HEADLEN,
-+			&layer, &caif_usb_type.func);
-+	if (!pack_added)
-+		dev_add_pack(&caif_usb_type);
-+	pack_added =3D 1;
-+
-+	strncpy(layer->name, dev->name,
-+			sizeof(layer->name) - 1);
-+	layer->name[sizeof(layer->name) - 1] =3D 0;
-+
-+	return 0;
-+}
-+
-+static struct notifier_block caif_device_notifier =3D {
-+	.notifier_call =3D cfusbl_device_notify,
-+	.priority =3D 0,
-+};
-+
-+void cfusbl_init(void)
-+{
-+	register_netdevice_notifier(&caif_device_notifier);
-+}
-+
-+void cfusbl_exit(void)
-+{
-+	unregister_netdevice_notifier(&caif_device_notifier);
-+	dev_remove_pack(&caif_usb_type);
-+}
+=20
+ 	err =3D dev_queue_xmit(skb);
+ 	if (err > 0)
 --=20
 1.7.0.4
