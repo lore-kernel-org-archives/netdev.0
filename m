@@ -1,32 +1,78 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: flush route cache after change accept_local
-Date: Thu, 01 Dec 2011 21:46:41 -0500 (EST)
-Message-ID: <20111201.214641.1764261585752810377.davem@davemloft.net>
-References: <20111201.125200.1219939487021672308.davem@davemloft.net>
-	<ea4d82977e7726dccd8e8f8e65c7fb523668100e.1322790334.git.panweiping3@gmail.com>
+Subject: Re: Small glitch in neptune ethernet driver
+Date: Thu, 01 Dec 2011 22:00:03 -0500 (EST)
+Message-ID: <20111201.220003.905428158537118068.davem@davemloft.net>
+References: <4EA845CF.6070401@intra2net.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: panweiping3@gmail.com
+Cc: netdev@vger.kernel.org
+To: thomas.jarosch@intra2net.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40856 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:40903 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756193Ab1LBCt0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 21:49:26 -0500
-In-Reply-To: <ea4d82977e7726dccd8e8f8e65c7fb523668100e.1322790334.git.panweiping3@gmail.com>
+	with ESMTP id S1756485Ab1LBDAL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2011 22:00:11 -0500
+In-Reply-To: <4EA845CF.6070401@intra2net.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Weiping Pan <panweiping3@gmail.com>
-Date: Fri,  2 Dec 2011 09:47:06 +0800
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Date: Wed, 26 Oct 2011 19:39:27 +0200
 
-> After reset ipv4_devconf->data[IPV4_DEVCONF_ACCEPT_LOCAL] to 0,
-> we should flush route cache, or it will continue receive packets with local
-> source address, which should be dropped.
+> 	if (type == PHY_TYPE_PMA_PMD || type == PHY_TYPE_PCS) {
+> 		if (((id & NIU_PHY_ID_MASK) != NIU_PHY_ID_BCM8704) &&
+> 		    ((id & NIU_PHY_ID_MASK) != NIU_PHY_ID_MRVL88X2011) &&
+> 		    ((id & NIU_PHY_ID_MASK) != NIU_PHY_ID_BCM8706))
+> 			return 0;
+> 	}
+> ...
+> }
 > 
-> Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+> Here are the defines from sun/niu.h:
+> 
+> #define NIU_PHY_ID_MASK         0xfffff0f0
+> #define NIU_PHY_ID_BCM8704      0x00206030
+> #define NIU_PHY_ID_BCM8706      0x00206035
+> 
+> There's a zero at the end of the ID_MASK,
+> so the NIU_PHY_ID_BCM8706 will never match (ends on 5).
+> 
+> Report from cppcheck:
+> [sun/niu.c:8594]: (style) Mismatching comparison, the result is always true
+> 
+> The code will probably still work as the id for BCM8706
+> should match on NIU_PHY_ID_BCM8704, too.
 
-Applied, thanks.
+Thanks for pointing this out, I'll remove the extra test but add a
+comment explaining the situation nearby, as follows:
+
+--------------------
+niu: Remove redundant PHY ID test.
+
+Reported-by: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/sun/niu.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
+index 680b107..56d106e 100644
+--- a/drivers/net/ethernet/sun/niu.c
++++ b/drivers/net/ethernet/sun/niu.c
+@@ -8579,9 +8579,11 @@ static int __devinit phy_record(struct niu_parent *parent,
+ 	if (dev_id_1 < 0 || dev_id_2 < 0)
+ 		return 0;
+ 	if (type == PHY_TYPE_PMA_PMD || type == PHY_TYPE_PCS) {
++		/* Becuase of the NIU_PHY_ID_MASK being applied, the 8704
++		 * test covers the 8706 as well.
++		 */
+ 		if (((id & NIU_PHY_ID_MASK) != NIU_PHY_ID_BCM8704) &&
+-		    ((id & NIU_PHY_ID_MASK) != NIU_PHY_ID_MRVL88X2011) &&
+-		    ((id & NIU_PHY_ID_MASK) != NIU_PHY_ID_BCM8706))
++		    ((id & NIU_PHY_ID_MASK) != NIU_PHY_ID_MRVL88X2011))
+ 			return 0;
+ 	} else {
+ 		if ((id & NIU_PHY_ID_MASK) != NIU_PHY_ID_BCM5464R)
+-- 
+1.7.7.3
