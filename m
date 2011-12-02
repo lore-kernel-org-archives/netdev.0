@@ -1,86 +1,204 @@
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: Re: pull request: batman-adv 2011-11-26
-Date: Fri, 2 Dec 2011 18:12:16 +0100
-Message-ID: <20111202171216.GA4561@ritirata.org>
-References: <1322317612-7770-1-git-send-email-lindner_marek@yahoo.de>
-	<20111126.144122.775553783672941660.davem@davemloft.net>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] net/macb: add DT support
+Date: Fri,  2 Dec 2011 18:14:10 +0100
+Message-ID: <1322846050-4543-1-git-send-email-nicolas.ferre@atmel.com>
+References: <20111202153832.GA4998@totoro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
-	lindner_marek-LWAfsSFWpa4@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20111126.144122.775553783672941660.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <20111202153832.GA4998@totoro>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello David,
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>
 
-On Sat, Nov 26, 2011 at 02:41:22 -0500, David Miller wrote:
-[CUT]
-> Some things to look into:
-> 
-> +			if (unlikely(skb_headlen(skb) <
-> +					sizeof(struct tt_query_packet) +
-> +					tt_len))
-> 
-> This isn't formatted correctly, all the leading edges should line
-> up to the openning parenthesis of the unlikely:
-> 
-> +			if (unlikely(skb_headlen(skb) <
-> +				     sizeof(struct tt_query_packet) +
-> +				     tt_len))
-> 
+Allow the device tree to provide the mac address and the phy mode.
 
-Thank you for reporting this issue. We have already prepared a patch which is
-going to be sent within the next batch.
+Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>
+[nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org: change "compatible" node property, doc and DT hwaddr]
+Signed-off-by: Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
+Cc: Jamie Iles <jamie-wmLquQDDieKakBO8gow8eQ@public.gmane.org>
+---
+ Documentation/devicetree/bindings/net/macb.txt |   22 +++++++
+ drivers/net/ethernet/cadence/macb.c            |   71 +++++++++++++++++++++---
+ drivers/net/ethernet/cadence/macb.h            |    2 +
+ 3 files changed, 87 insertions(+), 8 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/macb.txt
 
-> Next, there is a lot of linearization done by the stack, but really the
-> thing to do is to make sure that the part you want to look at is
-> linear.
-> 
-> You do this using pskb_may_pull() right before you want to look at some
-> headers. It makes sure that, for the length given, that many bytes are
-> linear at the head of the skb.
-> 
-
-For this issue, we had some problem to understand it.
-
-First of all I think you are referring to patch 08/10, in which I moved a
-skb_linearise() operation.
-
-To be sure it is really needed, I backtracked the code flow and noted down any
-eventual psbk_may_pull() (or any other linearisation operation). The result is:
-
-=> in batman_skb_recv()
-	- pskb_may_pull(2)
-  => in recv_tt_query()
-  	  - pskb_may_pull(sizeof(header))
-	  - skb_linearise()
-
-Actually it seems we haven't any useless linearisation.
-Would you mind explain us where you actually found the problem, please?
-
-It might also be that I misunderstood your advice.
-
-Thank you.
-
-
-Best Regards,
-
+diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
+new file mode 100644
+index 0000000..7f0b90a
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/macb.txt
+@@ -0,0 +1,22 @@
++* Cadence MACB Ethernet controller
++
++Required properties:
++- compatible: Should be "cdns,[<chip>-]macb"
++  Use "cdns,at91sam9260-macb" Atmel at91sam9260 and at91sam9263 SoCs.
++  Use "cdns,at32ap7000-macb" for other 10/100 usage or use the generic form: "cdns,macb"
++- reg: Address and length of the register set for the device
++- interrupts: Should contain macb interrupt
++- phy-mode: String, operation mode of the PHY interface.
++  Supported values are: "mii", "rmii", "gmii", "rgmii".
++
++Optional properties:
++- local-mac-address: 6 bytes, mac address
++
++Examples:
++
++	macb0: ethernet@fffc4000 {
++		compatible = "cdns,at32ap7000-macb";
++		reg = <0xfffc4000 0x4000>;
++		interrupts = <21>;
++		phy-mode = "rmii";
++	};
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 64d6146..103c6e6 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -23,6 +23,8 @@
+ #include <linux/platform_data/macb.h>
+ #include <linux/platform_device.h>
+ #include <linux/phy.h>
++#include <linux/of_device.h>
++#include <linux/of_net.h>
+ 
+ #include "macb.h"
+ 
+@@ -191,7 +193,6 @@ static int macb_mii_probe(struct net_device *dev)
+ {
+ 	struct macb *bp = netdev_priv(dev);
+ 	struct phy_device *phydev;
+-	struct macb_platform_data *pdata;
+ 	int ret;
+ 
+ 	phydev = phy_find_first(bp->mii_bus);
+@@ -200,14 +201,11 @@ static int macb_mii_probe(struct net_device *dev)
+ 		return -1;
+ 	}
+ 
+-	pdata = bp->pdev->dev.platform_data;
+ 	/* TODO : add pin_irq */
+ 
+ 	/* attach the mac to the phy */
+ 	ret = phy_connect_direct(dev, phydev, &macb_handle_link_change, 0,
+-				 pdata && pdata->is_rmii ?
+-				 PHY_INTERFACE_MODE_RMII :
+-				 PHY_INTERFACE_MODE_MII);
++				 bp->phy_interface);
+ 	if (ret) {
+ 		netdev_err(dev, "Could not attach to PHY\n");
+ 		return ret;
+@@ -1244,6 +1242,50 @@ static const struct net_device_ops macb_netdev_ops = {
+ #endif
+ };
+ 
++#if defined(CONFIG_OF)
++static const struct of_device_id macb_dt_ids[] = {
++	{ .compatible = "cdns,at32ap7000-macb" },
++	{ .compatible = "cdns,at91sam9260-macb" },
++	{ .compatible = "cdns,macb" },
++	{ /* sentinel */ }
++};
++
++MODULE_DEVICE_TABLE(of, macb_dt_ids);
++
++static int __devinit macb_get_phy_mode_dt(struct platform_device *pdev)
++{
++	struct device_node *np = pdev->dev.of_node;
++
++	if (np)
++		return of_get_phy_mode(np);
++
++	return -ENODEV;
++}
++
++static int __devinit macb_get_hwaddr_dt(struct platform_device *pdev)
++{
++	struct device_node *np = pdev->dev.of_node;
++	if (np) {
++		const char *mac = of_get_mac_address(np);
++		if (mac) {
++			memcpy(pdev->dev->dev_addr, mac, ETH_ALEN);
++			return 0;
++		}
++	}
++
++	return -ENODEV;
++}
++#else
++static int __devinit macb_get_phy_mode_dt(struct platform_device *pdev)
++{
++	return -ENODEV;
++}
++static int __devinit macb_get_hwaddr_dt(struct platform_device *pdev)
++{
++	return -ENODEV;
++}
++#endif
++
+ static int __init macb_probe(struct platform_device *pdev)
+ {
+ 	struct macb_platform_data *pdata;
+@@ -1318,10 +1360,22 @@ static int __init macb_probe(struct platform_device *pdev)
+ 	config |= macb_dbw(bp);
+ 	macb_writel(bp, NCFGR, config);
+ 
+-	macb_get_hwaddr(bp);
+-	pdata = pdev->dev.platform_data;
++	err = macb_get_hwaddr_dt(pdev);
++	if (err < 0)
++		macb_get_hwaddr(bp);
++
++	err = macb_get_phy_mode_dt(pdev);
++	if (err < 0) {
++		pdata = pdev->dev.platform_data;
++		if (pdata && pdata->is_rmii)
++			bp->phy_interface = PHY_INTERFACE_MODE_RMII;
++		else
++			bp->phy_interface = PHY_INTERFACE_MODE_MII;
++	} else {
++		bp->phy_interface = err;
++	}
+ 
+-	if (pdata && pdata->is_rmii)
++	if (bp->phy_interface == PHY_INTERFACE_MODE_RMII)
+ #if defined(CONFIG_ARCH_AT91)
+ 		macb_or_gem_writel(bp, USRIO, (MACB_BIT(RMII) |
+ 					       MACB_BIT(CLKEN)));
+@@ -1444,6 +1498,7 @@ static struct platform_driver macb_driver = {
+ 	.driver		= {
+ 		.name		= "macb",
+ 		.owner	= THIS_MODULE,
++		.of_match_table	= of_match_ptr(macb_dt_ids),
+ 	},
+ };
+ 
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index 1931078..335e288 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -532,6 +532,8 @@ struct macb {
+ 	unsigned int 		link;
+ 	unsigned int 		speed;
+ 	unsigned int 		duplex;
++
++	phy_interface_t		phy_interface;
+ };
+ 
+ static inline bool macb_is_gem(struct macb *bp)
 -- 
-Antonio Quartulli
-
-..each of us alone is worth nothing..
-Ernesto "Che" Guevara
+1.7.5.4
