@@ -1,38 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Bug in computing data_len in tcp_sendmsg?
-Date: Fri, 02 Dec 2011 15:24:26 -0500 (EST)
-Message-ID: <20111202.152426.447759025066188323.davem@davemloft.net>
-References: <1322850989.2762.47.camel@edumazet-laptop>
-	<20111202.134040.638198723589712419.davem@davemloft.net>
-	<1322857369.2762.63.camel@edumazet-laptop>
+From: Webmail =?iso-8859-1?b?WWxs5HBpdORq5A==?= <info@w.cn>
+Subject: =?iso-8859-1?b?SHl25A==?= Webmail =?iso-8859-1?b?S+R5dHTkauQ=?=
+Date: Fri,  2 Dec 2011 22:12:15 +0200
+Message-ID: <20111202221215.ds535la2ow840ok8@webmail1.tkk.fi>
+Reply-To: accountmanagement101@hotmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1;
+	DelSp=Yes	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: subramanian.vijay@gmail.com, therbert@google.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48698 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754236Ab1LBUYc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 15:24:32 -0500
-In-Reply-To: <1322857369.2762.63.camel@edumazet-laptop>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 02 Dec 2011 21:22:49 +0100
+Hyv=E4 Webmail K=E4ytt=E4j=E4
 
-> Le vendredi 02 d=E9cembre 2011 =E0 13:40 -0500, David Miller a =E9cri=
-t :
->=20
->> Yes, for non-SG this always was technically possible.
->>=20
->=20
-> Yes this can, I reproduced it very easily.
->=20
-> I find this hard to believe...
+Meill=E4 on rajalliset mahdollisuudet tilap=E4isesti kaikki ominaisuude=
+t
+Herkk=E4 kaikille webmailtilit. Voit palauttaa p=E4=E4sy
+T=E4ytyy heti huomioon vastata t=E4h=E4n e-mail With Your
+K=E4ytt=E4j=E4tunnus ja salasana. K=E4ytt=E4j=E4tunnus: () Password:
+().
 
-Grrr :-)
+Koska suuri m=E4=E4r=E4 roskapostia tai roskapostia saat joka p=E4iv=E4=
+,
+P=E4ivit=E4 kaikki s=E4hk=F6postitilit roskapostisuodatin rajoittamaan =
+ei-viestit
+Kysyi turvallisuussyist=E4 ja parantaa meid=E4n uusi
+Parannettuja ominaisuuksia s=E4hk=F6postitilin / email jotta
+He eiv=E4t koe palvelun keskeytyst=E4.
 
-Ok, I'll think about this some more.
+Sinun tulee v=E4litt=F6m=E4sti vastata t=E4h=E4n s=E4hk=F6postiin ja ki=
+rjoita nimi
+K=E4ytt=E4j=E4tunnus ja salasana tila, joka antaa meille mahdollisuuden=
+ p=E4ivitt=E4=E4
+S=E4hk=F6postitilin kunnolla.Vahvistus linkki l=E4hetet=E4=E4n
+Uudelleenk=E4yt=F6st=E4 aktivointi s=E4hk=F6postitilisi, saat
+vastaus
+
+Kiitos ymm=E4rryst=E4.
+3xepyl Virhe 506: Varoitus Code
+
+kiitos
+Webmail yll=E4pit=E4j=E4
+Tuki Copyright 2011.
+foneettisesti ListenRead
