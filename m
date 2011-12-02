@@ -1,62 +1,99 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] r8169: Support for byte queue limits
-Date: Fri, 02 Dec 2011 16:11:27 +0100
-Message-ID: <1322838687.2762.18.camel@edumazet-laptop>
-References: <igorm@etf.rs> <1322831399-23505-1-git-send-email-igorm@etf.rs>
-	 <1322836191.2762.3.camel@edumazet-laptop>
-	 <CAFdo_mVwRgB3OEBA7=nMcemr1x1WLkXC05UAnDW_n5gyYy9W=A@mail.gmail.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH 1/1] net/macb: add DT support
+Date: Fri, 02 Dec 2011 16:30:36 +0100
+Message-ID: <4ED8EF1C.80503@atmel.com>
+References: <1321626565-11261-1-git-send-email-plagnioj@jcrosoft.com> <20111118155824.GA9981@totoro> <20111120164740.GC21480@game.jcrosoft.org> <20111120171123.GA7845@gallagher>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Tom Herbert <therbert@google.com>
-To: igorm@etf.rs
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+	devicetree-discuss@ozlabs.org, netdev@vger.kernel.org
+To: Jamie Iles <jamie@jamieiles.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:61555 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753651Ab1LBPLb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 10:11:31 -0500
-Received: by vbbfc26 with SMTP id fc26so2351666vbb.19
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 07:11:31 -0800 (PST)
-In-Reply-To: <CAFdo_mVwRgB3OEBA7=nMcemr1x1WLkXC05UAnDW_n5gyYy9W=A@mail.gmail.com>
+Received: from newsmtp5.atmel.com ([204.2.163.5]:11397 "EHLO
+	sjogate2.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754065Ab1LBPau (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 10:30:50 -0500
+In-Reply-To: <20111120171123.GA7845@gallagher>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 02 d=C3=A9cembre 2011 =C3=A0 15:54 +0100, Igor Maravi=C4=87=
- a =C3=A9crit :
-> > Hmm... What about rtl8169_tx_clear_range() or rtl8169_tx_clear() ?
-> >
->=20
-> You mean we should put netdev_reset_queue() in those functions?
->=20
-> I think that we shouldn't put any thing in these functions.
->=20
-> When ever they are called, they are precede/followed by function
-> rtl8169_hw_reset() which calls rtl_hw_reset() which calls
-> rtl8169_init_ring_indexes() in which I've put netdev_reset_queue()
->=20
-> Only time when rtl8169_tx_clear_range() isn't preceded/followed by
-> rtl8169_hw_reset() is in function rtl8169_xmit_frags(). In that
-> function it's
-> called only in case there's an error. In case there was an error in t=
-hat
-> function, netdev_sent_queue() will never be called, so we are going t=
-o have
-> accurate length of queue.
+On 11/20/2011 06:11 PM, Jamie Iles :
+> On Sun, Nov 20, 2011 at 05:47:40PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
+>> On 15:58 Fri 18 Nov     , Jamie Iles wrote:
+>>> Hi Jean-Christophe,
+>>>
+>>> On Fri, Nov 18, 2011 at 03:29:25PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
+>>>> allow the DT to pass the mac address and the phy mode
+>>>>
+>>>> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD<plagnioj@jcrosoft.com>
+>>>> Cc: Jamie Iles<jamie@jamieiles.com>
+>>>> Cc: Nicolas Ferre<nicolas.ferre@atmel.com>
+>>>
+>>> This looks OK to me in principle.  I can't easily test this at the
+>>> moment, but as I don't have a DT platform that has the clk framework up
+>>> and running.  A couple of nits/questions inline, but thanks for doing
+>>> this!
+>>>
+>>> Jamie
+>>>
+>>>> ---
+>>>>   Documentation/devicetree/bindings/net/macb.txt |   22 ++++++++
+>>>>   drivers/net/ethernet/cadence/macb.c            |   65 +++++++++++++++++++++---
+>>>>   drivers/net/ethernet/cadence/macb.h            |    2 +
+>>>>   3 files changed, 81 insertions(+), 8 deletions(-)
+>>>>   create mode 100644 Documentation/devicetree/bindings/net/macb.txt
+>>>>
+>>>> diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
+>>>> new file mode 100644
+>>>> index 0000000..2b727ec
+>>>> --- /dev/null
+>>>> +++ b/Documentation/devicetree/bindings/net/macb.txt
+>>>> @@ -0,0 +1,22 @@
+>>>> +* Cadence EMACB
+>>>> +
+>>>> +Implemeted on Atmel AT91&  AVR32 SoC
+>>>
+>>> I think something along the lines of "Binding for the Cadence MACB
+>>> Ethernet controller" rather than listing specific parts might be
+>>> clearer.
+>> I prefer as we will have implementation detail in the binding
+>
+> I can't see any Atmel specific implementation detail here though so lets
+> keep it generic for now.  There isn't a benefit to keeping a list of
+> SoC's that the device is implemented in here as it'll only become out of
+> date.  We need to make it easy for other vendors to reuse the binding +
+> driver.
+>
+>>>> +		compatible = "atmel,macb";
+>>>
+>>> This should be "cdns,macb" as it isn't Atmel specific.  I believe cdns
+>>> is the correct stock ticker symbol for Cadence.
+>> here I put "atmel,macb" on purpose to specify the difference of the IP between
+>> the soc, in fact it should have been atmel-at91,macb
+>
+> Well if we really can't detect the difference from the revision register
+> then we should have "cdns,macb" *and* "atmel,at91-macb" at least then
+> where platforms could claim compatibility as:
+>
+> 	compatible = "atmel,at91-macb", "cdns,macb";
 
-Quite frankly, any queued skb is eventually freed, so
-netdev_reset_queue() could be avoided.
+re-thinking about this I propose that we go for the following compatible 
+string for macb:
 
-r8169 driver has some problems (see current threads on netdev about it)=
-,
-and its not very clear that BQL locking requirements are going to be
-respected. This can lead to inaccurate BQL counts and a txqueue freeze.
+- compatible: Should be "cdns,<chip>-macb"
 
-(In particular, a chip reset can be triggered by an IRQ, while another
-cpu is currently sending an skb through ndo_start_xmit())
+And as the first SoC that have embedded an emacb that is compatible with 
+current 10/100 AT91 usage is AVR32 at32ap7000... We may end up with 
+"cdns,at32ap7000-macb" compatible string. The first ones with different 
+synthesis parameters where at91sam9260/3 so I may also add:
+"cdns,at91sam9260-macb".
+Then you will have to add the first SoC that uses the gigabit version of 
+the macb...
+What do you think about that?
 
-So I advise not using netdev_reset_queue() in this driver, only
-netdev_completed_queue(), and make sure that their calls are serialized
-under a given lock (see include/linux/dynamic_queue_limits.h comments)
+BTW, "cdns" seems not included in the vendor-prefixes.txt file yet...
+
+Bye,
+-- 
+Nicolas Ferre
