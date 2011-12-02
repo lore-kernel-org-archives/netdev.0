@@ -1,49 +1,55 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: ebtables on a stick
-Date: Fri, 2 Dec 2011 17:04:42 +0100
-Message-ID: <20111202160442.GQ589422@jupiter.n2.diac24.net>
-References: <20111128143901.GA589422@jupiter.n2.diac24.net>
- <4ED566A8.2000108@ziu.info>
- <925A849792280C4E80C5461017A4B8A2A048F6@mail733.InfraSupportEtc.com>
- <20111201071456.GJ589422@jupiter.n2.diac24.net>
- <925A849792280C4E80C5461017A4B8A2A048F8@mail733.InfraSupportEtc.com>
- <20111201144745.GK589422@jupiter.n2.diac24.net>
- <925A849792280C4E80C5461017A4B8A2A048F9@mail733.InfraSupportEtc.com>
- <20111201165040.GL589422@jupiter.n2.diac24.net>
- <925A849792280C4E80C5461017A4B8A2A048FA@mail733.InfraSupportEtc.com>
- <4ED8F15D.8020909@ziu.info>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Bug in computing data_len in tcp_sendmsg?
+Date: Fri, 02 Dec 2011 17:05:35 +0100
+Message-ID: <1322841935.2762.33.camel@edumazet-laptop>
+References: <CA+mtBx8+sajFaCWqHRr+pY5EAHwN8G61v6cr-HydYhbbdxAgHQ@mail.gmail.com>
+	 <1322710962.2577.3.camel@edumazet-laptop>
+	 <CA+mtBx_CUsuGunKONwBNA8qyVni16+RtrRL8w=THYY0mEDcvaA@mail.gmail.com>
+	 <1322713032.2577.7.camel@edumazet-laptop>
+	 <CAGK4HS8fLWwdPsrag6+Mz93_ZNg2B5JRjx2s=Re8_Qiv4V=T=w@mail.gmail.com>
+	 <1322778621.2750.48.camel@edumazet-laptop>
+	 <CAGK4HS84vepB-cOnjOASqXy2gLWGwx=RHnQ3PbbMPezxJ5m3QQ@mail.gmail.com>
+	 <1322827188.2607.19.camel@edumazet-laptop>
+	 <1322840663.2762.26.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Scott <GregScott@Infrasupport.com>,
-	David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org
-To: Michal Soltys <soltys@ziu.info>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tom Herbert <therbert@google.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:44153 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756801Ab1LBQE4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Dec 2011 11:04:56 -0500
-Content-Disposition: inline
-In-Reply-To: <4ED8F15D.8020909@ziu.info>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:61474 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756880Ab1LBQFl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 11:05:41 -0500
+Received: by lagp5 with SMTP id p5so239421lag.19
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 08:05:40 -0800 (PST)
+In-Reply-To: <1322840663.2762.26.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 02, 2011 at 04:40:13PM +0100, Michal Soltys wrote:
-> You should be able to avoid whole proxy thing altogether (on your 
-> router), by doing:
-> 
-> ip add add 1.2.115.157/32 dev eth0
-> ip ro del table local 192.168.99.5/32 dev eth0
-> ip route add 1.2.115.157/32 dev eth1
+Le vendredi 02 d=C3=A9cembre 2011 =C3=A0 16:44 +0100, Eric Dumazet a =C3=
+=A9crit :
 
-... and any application that looks at the local interface addresses
-(e.g. ntpd, bind, etc.) will get thoroughly confused. Oh and worst-case
-(i don't know/didn't check) source address selection as well.
+> [PATCH net-next] tcp: fix tcp_trim_head()
+>=20
+> commit f07d960df3 (tcp: avoid frag allocation for small frames)
+> breaked assumption in tcp stack that skb is either linear (data_len =3D=
+=3D
+> 0), either fully fragged (data_len =3D=3D len)
+>=20
+> Thanks to Vijay for providing a very detailed explanation.
+>=20
+> Reported-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
 
-I'd advise against it.
+Another problem is the possible misalignement of skb->data if/when we
+receive an ACK of an odd (not a 4 multiple) tcp sequence.
 
-> instead of:
-> 
-> ip neigh add proxy 1.2.115.157 dev eth0
+So when/if packet is restransmited, tcp header (and IP header as well)
+could be misaligned.
 
-
--David
+Hmm, I probably miss something obvious, since this problem could happen
+for linear skbs before my patch ?
