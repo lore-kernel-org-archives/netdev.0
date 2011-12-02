@@ -1,58 +1,80 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: SYN attack, with FIN flag set
-Date: Sat, 03 Dec 2011 00:29:59 +0200
-Message-ID: <1755dc626dee301261ef4fe4cd66fd47@visp.net.lb>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: [PATCH] e1000e: Fix bug for e1000e interrupt default mode
+ select.
+Date: Fri, 2 Dec 2011 14:43:37 -0800
+Message-ID: <E0862362F1FF584BBCF7C4EA592A20C413373F47@orsmsx509.amr.corp.intel.com>
+References: <1322809906-6428-1-git-send-email-galak@kernel.crashing.org>
+ <1322848522.2807.3.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Prabhakar <prabhakar@freescale.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	Kumar Gala <galak@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:45744 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755598Ab1LBWaB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 17:30:01 -0500
+Received: from mga01.intel.com ([192.55.52.88]:47993 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750804Ab1LBWnj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Dec 2011 17:43:39 -0500
+In-Reply-To: <1322848522.2807.3.camel@bwh-desktop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- Hi
-
- Recently i started to get SYN attacks, and managed them.
- syncookies didn't helped, here is "perf report" info:
- -     26.89%        swapper  [kernel.kallsyms]     [k] _raw_spin_lock
-    - _raw_spin_lock
-       - 94.97% tcp_v4_rcv
-            ip_local_deliver_finish
-            ip_local_deliver
-            ip_rcv_finish
-            ip_rcv
-            __netif_receive_skb
-            process_backlog
-            net_rx_action
-            __do_softirq
-            call_softirq
-            do_softirq
-          + irq_exit
-
- But then i got attack that made server to choke and bypassed "--syn" 
- rule, and i was surprised, that stack are handling invalid combination 
- of flags, SYN+FIN.
- Is it valid behaviour?
-
- in tcp_input.c, tcp_rcv_state_process(), it just does check for rst (to 
- discard), but maybe packet with fin set should be discarded too?
-
- From http://www.whitehats.ca/main/members/Seeker/seeker_tcp_header/
-
- SYN FIN is probably the best known illegal combination. Remember that 
- SYN is used to start a connection, while FIN is used to end an existing 
- connection. It is nonsensical to perform both actions at the same time. 
- Many scanning tools use SYN FIN packets, because many intrusion 
- detection systems did not catch these in the past, although most do so 
- now. You can safely assume that any SYN FIN packets you see are 
- malicious.
-
- ---
- System administrator
- Denys Fedoryshchenko
- Virtual ISP S.A.L.
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2Vy
+bmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uDQo+QmVoYWxm
+IE9mIEJlbiBIdXRjaGluZ3MNCj5TZW50OiBGcmlkYXksIERlY2VtYmVyIDAyLCAyMDExIDk6NTUg
+QU0NCj5UbzogS3VtYXIgR2FsYQ0KPkNjOiBLaXJzaGVyLCBKZWZmcmV5IFQ7IEJyYW5kZWJ1cmcs
+IEplc3NlOyBlMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQ7DQo+bmV0ZGV2QHZnZXIu
+a2VybmVsLm9yZzsgUHJhYmhha2FyDQo+U3ViamVjdDogUmU6IFtQQVRDSF0gZTEwMDBlOiBGaXgg
+YnVnIGZvciBlMTAwMGUgaW50ZXJydXB0IGRlZmF1bHQgbW9kZSBzZWxlY3QuDQo+DQo+T24gRnJp
+LCAyMDExLTEyLTAyIGF0IDAxOjExIC0wNjAwLCBLdW1hciBHYWxhIHdyb3RlOg0KPj4gRnJvbTog
+UHJhYmhha2FyIDxwcmFiaGFrYXJAZnJlZXNjYWxlLmNvbT4NCj4+DQo+PiBJZiB0aGUga2VybmVs
+IGNvbmZpZyBkb2VzIG5vdCBoYXZlIE1TSSBlbmFibGVkIChDT05GSUdfUENJX01TSSkgdGhlIGRy
+aXZlcg0KPj4gc2hvdWxkIG5vdCBkZWZhdWx0IHRvIE1TSSBpbnRlcnJ1cHQgbW9kZSBidXQgbGVn
+YWN5IGludGVycnVwdCBtb2RlLg0KPg0KPkl0IGlzIHN1cHBvc2VkIHRvIGF1dG9tYXRpY2FsbHkg
+ZmFsbC1iYWNrIHRvIGxlZ2FjeSBpbnRlcnJ1cHQgbW9kZS4NCj5Eb2VzIHRoYXQgbm90IHdvcms/
+DQoNCkl0IHNob3VsZCwgYW5kIHRoYXQgd2FzIG15IGFyZ3VtZW50IChkaXNjdXNzZWQgaW50ZXJu
+YWxseSkgd2hlbiBhIHNpbWlsYXINCnBhdGNoIHdhcyBwcmV2aW91c2x5IHN1Ym1pdHRlZC4gIERp
+ZmZlcmVudCBmcm9tIHRoZSBwcmlvciBwYXRjaCwgdGhpcyBvbmUNCmFsc28gY2hhbmdlcyB0aGUg
+ZGVmYXVsdCBtZXNzYWdlIGdlbmVyYXRlZCB3aGVuIHRoZSBJbnRNb2RlIGlzIHNwZWNpZmllZA0K
+Zm9yIG9uZSBpbnRlcmZhY2UgYnV0IG5vdCBhbGwuICBIb3dldmVyLCBpdCdzIG5vdCBxdWl0ZSBy
+aWdodCBpbiB0aGF0IG9ubHkNCmEgc21hbGwgc3Vic2V0IG9mIHRoZSBkZXZpY2VzIHN1cHBvcnRl
+ZCBieSBlMTAwMGUgaGF2ZSBzdXBwb3J0IGZvciBNU0ktWCBpbg0KdGhlIGhhcmR3YXJlLiAgSSBo
+YXZlIGFub3RoZXIgcGF0Y2ggcXVldWVkIHVwIGludGVybmFsbHkgaGVyZSBhdCBJbnRlbCB0aGF0
+DQpjaGFuZ2VzIHRoZSBkZWZhdWx0IEludE1vZGUgYmFzZWQgb24gbm90IG9ubHkga2VybmVsIHN1
+cHBvcnQgb2YgTVNJL01TSS1YDQpidXQgYWxzbyBvbiBmZWF0dXJlIHN1cHBvcnQgaW4gaGFyZHdh
+cmUgd2l0aCBhZGRpdGlvbmFsIGNvbW1lbnRzIGZvciBtb3JlDQpjbGFyaWZpY2F0aW9uLiAgTXkg
+cGF0Y2ggc2hvdWxkIGJlIHB1c2hlZCB1cHN0cmVhbSBzb29uLg0KDQo+DQo+QWxzbywgYXJlIHRo
+ZXJlIHJlYWxseSBzeXN0ZW1zIHdpdGggUENJIEV4cHJlc3MgYW5kIG5vIE1TSSBzdXBwb3J0Pw0K
+Pg0KPkJlbi4NCj4NCj4+IFNpZ25lZC1vZmYtYnk6IEppbiBRaW5nIDxiMjQzNDdAZnJlZXNjYWxl
+LmNvbT4NCj4+IFNpZ25lZC1vZmYtYnk6IFByYWJoYWthciA8cHJhYmhha2FyQGZyZWVzY2FsZS5j
+b20+DQo+PiBTaWduZWQtb2ZmLWJ5OiBLdW1hciBHYWxhIDxnYWxha0BrZXJuZWwuY3Jhc2hpbmcu
+b3JnPg0KPj4gLS0tDQo+PiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBlL3BhcmFt
+LmMgfCAgICA1ICsrKysrDQo+PiAgMSBmaWxlcyBjaGFuZ2VkLCA1IGluc2VydGlvbnMoKyksIDAg
+ZGVsZXRpb25zKC0pDQo+Pg0KPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2lu
+dGVsL2UxMDAwZS9wYXJhbS5jDQo+Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9lMTAwMGUv
+cGFyYW0uYw0KPj4gaW5kZXggMjBlOTNiMC4uMThjMzVjNiAxMDA2NDQNCj4+IC0tLSBhL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9wYXJhbS5jDQo+PiArKysgYi9kcml2ZXJzL25l
+dC9ldGhlcm5ldC9pbnRlbC9lMTAwMGUvcGFyYW0uYw0KPj4gQEAgLTM4OCw4ICszODgsMTMgQEAg
+dm9pZCBfX2RldmluaXQgZTEwMDBlX2NoZWNrX29wdGlvbnMoc3RydWN0IGUxMDAwX2FkYXB0ZXIN
+Cj4qYWRhcHRlcikNCj4+ICAJCXN0YXRpYyBzdHJ1Y3QgZTEwMDBfb3B0aW9uIG9wdCA9IHsNCj4+
+ICAJCQkudHlwZSA9IHJhbmdlX29wdGlvbiwNCj4+ICAJCQkubmFtZSA9ICJJbnRlcnJ1cHQgTW9k
+ZSIsDQo+PiArI2lmZGVmIENPTkZJR19QQ0lfTVNJDQo+PiAgCQkJLmVyciAgPSAiZGVmYXVsdGlu
+ZyB0byAyIChNU0ktWCkiLA0KPj4gIAkJCS5kZWYgID0gRTEwMDBFX0lOVF9NT0RFX01TSVgsDQo+
+PiArI2Vsc2UNCj4+ICsJCQkuZXJyICA9ICJkZWZhdWx0aW5nIHRvIDAgKExlZ2FjeSkiLA0KPj4g
+KwkJCS5kZWYgID0gRTEwMDBFX0lOVF9NT0RFX0xFR0FDWSwNCj4+ICsjZW5kaWYNCj4+ICAJCQku
+YXJnICA9IHsgLnIgPSB7IC5taW4gPSBNSU5fSU5UTU9ERSwNCj4+ICAJCQkJCSAubWF4ID0gTUFY
+X0lOVE1PREUgfSB9DQo+PiAgCQl9Ow0KPg0KPi0tDQo+QmVuIEh1dGNoaW5ncywgU3RhZmYgRW5n
+aW5lZXIsIFNvbGFyZmxhcmUNCj5Ob3Qgc3BlYWtpbmcgZm9yIG15IGVtcGxveWVyOyB0aGF0J3Mg
+dGhlIG1hcmtldGluZyBkZXBhcnRtZW50J3Mgam9iLg0KPlRoZXkgYXNrZWQgdXMgdG8gbm90ZSB0
+aGF0IFNvbGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQo+DQo+LS0NCj5U
+byB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUg
+bmV0ZGV2IiBpbg0KPnRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJu
+ZWwub3JnDQo+TW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9t
+YWpvcmRvbW8taW5mby5odG1sDQo=
