@@ -1,62 +1,62 @@
-From: Nico Schottelius <nico-linux-20111201@schottelius.org>
-Subject: Re: BCM43224: 00:00:00:00:00:00 address (3.2.0-rc3-00099-g883381d)
-Date: Fri, 2 Dec 2011 16:01:28 +0100
-Message-ID: <20111202150128.GC3096@schottelius.org>
-References: <20111201224851.GB20536@ethz.ch>
- <4ED8B610.2010703@broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] r8169: Support for byte queue limits
+Date: Fri, 02 Dec 2011 16:11:27 +0100
+Message-ID: <1322838687.2762.18.camel@edumazet-laptop>
+References: <igorm@etf.rs> <1322831399-23505-1-git-send-email-igorm@etf.rs>
+	 <1322836191.2762.3.camel@edumazet-laptop>
+	 <CAFdo_mVwRgB3OEBA7=nMcemr1x1WLkXC05UAnDW_n5gyYy9W=A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nico Schottelius <nico-linux-20111201@schottelius.org>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	b43-dev@lists.infradead.org, Greg KH <gregkh@suse.de>
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4ED8B610.2010703@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Tom Herbert <therbert@google.com>
+To: igorm@etf.rs
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:61555 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753651Ab1LBPLb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 10:11:31 -0500
+Received: by vbbfc26 with SMTP id fc26so2351666vbb.19
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 07:11:31 -0800 (PST)
+In-Reply-To: <CAFdo_mVwRgB3OEBA7=nMcemr1x1WLkXC05UAnDW_n5gyYy9W=A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hey Arend,
+Le vendredi 02 d=C3=A9cembre 2011 =C3=A0 15:54 +0100, Igor Maravi=C4=87=
+ a =C3=A9crit :
+> > Hmm... What about rtl8169_tx_clear_range() or rtl8169_tx_clear() ?
+> >
+>=20
+> You mean we should put netdev_reset_queue() in those functions?
+>=20
+> I think that we shouldn't put any thing in these functions.
+>=20
+> When ever they are called, they are precede/followed by function
+> rtl8169_hw_reset() which calls rtl_hw_reset() which calls
+> rtl8169_init_ring_indexes() in which I've put netdev_reset_queue()
+>=20
+> Only time when rtl8169_tx_clear_range() isn't preceded/followed by
+> rtl8169_hw_reset() is in function rtl8169_xmit_frags(). In that
+> function it's
+> called only in case there's an error. In case there was an error in t=
+hat
+> function, netdev_sent_queue() will never be called, so we are going t=
+o have
+> accurate length of queue.
 
-Arend van Spriel [Fri, Dec 02, 2011 at 12:27:12PM +0100]:
-> Have you tried the brcmsmac driver?
+Quite frankly, any queued skb is eventually freed, so
+netdev_reset_queue() could be avoided.
 
+r8169 driver has some problems (see current threads on netdev about it)=
+,
+and its not very clear that BQL locking requirements are going to be
+respected. This can lead to inaccurate BQL counts and a txqueue freeze.
 
-I've been mislead: bcma was enabled and thus brcmsmac
-not shown in menuconfig.
+(In particular, a chip reset can be triggered by an IRQ, while another
+cpu is currently sending an skb through ndo_start_xmit())
 
-Upgrade the kernel to 3.2.0-rc4-00077-g5983fe2, fired
-up wpa_supplicant. Result: wpa_cli can connect to wpa_supplicant,
-but stops working after a few seconds:
-
-wpa_state=ASSOCIATING
-> 'PING' command timed out.
-Connection to wpa_supplicant lost - trying to reconnect
-Warning: Failed to attach to wpa_supplicant.
-> 'PING' command timed out.
-Connection to wpa_supplicant lost - trying to reconnect
-Warning: Failed to attach to wpa_supplicant.
-'PING' command timed out.
-Connection to wpa_supplicant lost - trying to reconnect
-Warning: Failed to attach to wpa_supplicant.
-'PING' command timed out.
-Connection to wpa_supplicant lost - trying to reconnect
-Warning: Failed to attach to wpa_supplicant.
-
-No network connectivity and network processes are hanging.
-I.e. same behaviour as reported on 2011-10-18.
-
-Is it possible the related patch as discussed
-in "BUG: All network processes hang (brcmsmac/wpa_supplicant)"
-has not been merged into 3.2.0-rc4-00077-g5983fe2?
-
-And regarding b43: Wouldn't it be good to remove support for the
-specific pci-ids from it so it does not create a non-functional
-wlan0 device?
-
-Cheers,
-
-Nico
-
--- 
-PGP key: 7ED9 F7D3 6B10 81D7 0EC5  5C09 D7DC C8E4 3187 7DF0
+So I advise not using netdev_reset_queue() in this driver, only
+netdev_completed_queue(), and make sure that their calls are serialized
+under a given lock (see include/linux/dynamic_queue_limits.h comments)
