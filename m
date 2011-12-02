@@ -1,44 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net/macb: add DT support
-Date: Fri, 02 Dec 2011 12:58:32 -0500 (EST)
-Message-ID: <20111202.125832.1208514279272697863.davem@davemloft.net>
-References: <1322846050-4543-1-git-send-email-nicolas.ferre@atmel.com>
- <1322847782-22650-1-git-send-email-nicolas.ferre@atmel.com>
+From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: Re: [PATCH v7 00/10] Request for Inclusion: per-cgroup tcp memory
+ pressure
+Date: Fri, 2 Dec 2011 16:04:08 -0200
+Message-ID: <4ED91318.1030803@parallels.com>
+References: <1322611021-1730-1-git-send-email-glommer@parallels.com> <20111130111152.6b1c7366.kamezawa.hiroyu@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
- linux-kernel@vger.kernel.org, grant.likely@secretlab.ca, jamie@jamieiles.com,
- plagnioj@jcrosoft.com, linux-arm-kernel@lists.infradead.org
-To: nicolas.ferre@atmel.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1322847782-22650-1-git-send-email-nicolas.ferre@atmel.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org>,
+	<lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>, <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
+	<kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>, <avagin-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
+	<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20111130111152.6b1c7366.kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Date: Fri,  2 Dec 2011 18:43:02 +0100
+On 11/30/2011 12:11 AM, KAMEZAWA Hiroyuki wrote:
+> On Tue, 29 Nov 2011 21:56:51 -0200
+> Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>  wrote:
+>
+>> Hi,
+>>
+>> This patchset implements per-cgroup tcp memory pressure controls. It did not change
+>> significantly since last submission: rather, it just merges the comments Kame had.
+>> Most of them are style-related and/or Documentation, but there are two real bugs he
+>> managed to spot (thanks)
+>>
+>> Please let me know if there is anything else I should address.
+>>
+>
+> After reading all codes again, I feel some strange. Could you clarify ?
+>
+> Here.
+> ==
+> +void sock_update_memcg(struct sock *sk)
+> +{
+> +	/* right now a socket spends its whole life in the same cgroup */
+> +	if (sk->sk_cgrp) {
+> +		WARN_ON(1);
+> +		return;
+> +	}
+> +	if (static_branch(&memcg_socket_limit_enabled)) {
+> +		struct mem_cgroup *memcg;
+> +
+> +		BUG_ON(!sk->sk_prot->proto_cgroup);
+> +
+> +		rcu_read_lock();
+> +		memcg = mem_cgroup_from_task(current);
+> +		if (!mem_cgroup_is_root(memcg))
+> +			sk->sk_cgrp = sk->sk_prot->proto_cgroup(memcg);
+> +		rcu_read_unlock();
+> ==
+>
+> sk->sk_cgrp is set to a memcg without any reference count.
+>
+> Then, no check for preventing rmdir() and freeing memcgroup.
+>
+> Is there some css_get() or mem_cgroup_get() somewhere ?
+>
 
-> From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-> 
-> Allow the device tree to provide the mac address and the phy mode.
-> 
-> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-> [nicolas.ferre@atmel.com: change "compatible" node property, doc and DT hwaddr]
-> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-> Cc: Jamie Iles <jamie@jamieiles.com>
-> ---
-> v2: modify macb_get_hwaddr_dt() parameter
-
-You'll have to respin these two macb patches, as they don't apply properly
-to the net-next tree which is where they should be targetted.
-
-Thanks.
+There were a css_get in the first version of this patchset. It was 
+removed, however, because it was deemed anti-intuitive to prevent rmdir, 
+since we can't know which sockets are blocking it, or do anything about 
+it. Or did I misunderstand something ?
+--
+To unsubscribe from this list: send the line "unsubscribe cgroups" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
