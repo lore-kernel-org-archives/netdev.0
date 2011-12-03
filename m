@@ -1,36 +1,56 @@
-From: Thomas Meyer <thomas@m3y3r.de>
-Subject: [PATCH] ll_temac: Use kcalloc instead of kzalloc to allocate array
-Date: Fri, 02 Dec 2011 23:35:43 +0100
-Message-ID: <1322865343.1534.356.camel@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: SYN attack, with FIN flag set
+Date: Sat, 03 Dec 2011 09:53:21 +0100
+Message-ID: <1322902401.2762.85.camel@edumazet-laptop>
+References: <1755dc626dee301261ef4fe4cd66fd47@visp.net.lb>
+	 <1322897233.2762.79.camel@edumazet-laptop>
+	 <1322898902.2762.81.camel@edumazet-laptop>
+	 <b3ae04aef6b0ce233e8e8978782d1ccc@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: grant.likely@secretlab.ca, rob.herring@calxeda.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:51833 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751797Ab1LCIxZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2011 03:53:25 -0500
+Received: by bkbzv3 with SMTP id zv3so49307bkb.19
+        for <netdev@vger.kernel.org>; Sat, 03 Dec 2011 00:53:24 -0800 (PST)
+In-Reply-To: <b3ae04aef6b0ce233e8e8978782d1ccc@visp.net.lb>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The advantage of kcalloc is, that will prevent integer overflows which could
-result from the multiplication of number of elements and size and it is also
-a bit nicer to read.
+Le samedi 03 d=C3=A9cembre 2011 =C3=A0 10:18 +0200, Denys Fedoryshchenk=
+o a =C3=A9crit :
+> On Sat, 03 Dec 2011 08:55:02 +0100, Eric Dumazet wrote:
+> > Le samedi 03 d=C3=A9cembre 2011 =C3=A0 08:27 +0100, Eric Dumazet a =
+=C3=A9crit :
+> >
+> >> I believe netfilter tcp conntrack considers SYN|FIN as INVALID
+> >>
+> >
+> > Or if you cannot afford conntracking, just do
+> >
+> > iptables -A INPUT -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
+>=20
+>  Sure i did,thanks, but i just was curious, why connection with such=20
+>  flags are threated as SYN.
+>=20
 
-The semantic patch that makes this change is available
-in https://lkml.org/lkml/2011/11/25/107
+TCP stack first tries to lookup a socket, given the tuple found in
+incoming packet.
 
-Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
----
+This is where your machine is hit : we find the listener socket and loc=
+k
+it.
 
-diff -u -p a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c 2011-11-28 19:36:47.733440944 +0100
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c 2011-11-28 19:53:34.187365029 +0100
-@@ -237,7 +237,7 @@ static int temac_dma_bd_init(struct net_
- 	struct sk_buff *skb;
- 	int i;
- 
--	lp->rx_skb = kzalloc(sizeof(*lp->rx_skb) * RX_BD_NUM, GFP_KERNEL);
-+	lp->rx_skb = kcalloc(RX_BD_NUM, sizeof(*lp->rx_skb), GFP_KERNEL);
- 	if (!lp->rx_skb) {
- 		dev_err(&ndev->dev,
- 				"can't allocate memory for DMA RX buffer\n");
+Then, once socket was found and locked, state machine handle various
+possible states.
+
+In your case, you want to bypass the lookup, and eventually bypass the
+IP route lookup as well (to keep IP route cache small)
+
+iptables -t raw -I PREROUTING -p tcp --tcp-flags SYN,FIN SYN,FIN -j DRO=
+P
