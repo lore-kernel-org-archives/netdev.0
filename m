@@ -1,7 +1,7 @@
 From: Jerome Glisse <j.glisse@gmail.com>
 Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Sat, 3 Dec 2011 14:31:40 -0500
-Message-ID: <CAH3drwZDOpPuQ_G=LwTiNsR5BNyJTNr+VJU74E6nS5AbKyQH0A@mail.gmail.com>
+Date: Sat, 3 Dec 2011 14:32:38 -0500
+Message-ID: <CAH3drwbOnfAyyjrX1p1zgSdRTT4TO59CHL2qhKb=4ViBtmWPVg@mail.gmail.com>
 References: <1321866988.2552.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 	<20111121131531.GA1679@x4.trippels.de>
 	<1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
@@ -13,6 +13,7 @@ References: <1321866988.2552.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 	<20111203092845.GA1520@x4.trippels.de>
 	<CAPM=9tyjZc9waC_ZBygW9zh+Zq-Wb1X5Y6yfsCCMPYwpFVWOOg@mail.gmail.com>
 	<20111203122900.GA1617@x4.trippels.de>
+	<CAH3drwZDOpPuQ_G=LwTiNsR5BNyJTNr+VJU74E6nS5AbKyQH0A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Cc: Dave Airlie <airlied@gmail.com>, Christoph Lameter <cl@linux.com>, "Alex, Shi" <alex.shi@intel.com>,
@@ -22,30 +23,36 @@ Cc: Dave Airlie <airlied@gmail.com>, Christoph Lameter <cl@linux.com>, "Alex, Sh
 	tj@kernel.org, Alex Deucher <alexander.deucher@amd.com>
 To: Markus Trippelsdorf <markus@trippelsdorf.de>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20111203122900.GA1617@x4.trippels.de>
+In-Reply-To: <CAH3drwZDOpPuQ_G=LwTiNsR5BNyJTNr+VJU74E6nS5AbKyQH0A@mail.gmail.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 3, 2011 at 7:29 AM, Markus Trippelsdorf
-<markus@trippelsdorf.de> wrote:
-> On 2011.12.03 at 12:20 +0000, Dave Airlie wrote:
->> >> > > > > FIX idr_layer_cache: Marking all objects used
->> >> > > >
->> >> > > > Yesterday I couldn't reproduce the issue at all. But today I've hit
->> >> > > > exactly the same spot again. (CCing the drm list)
+On Sat, Dec 3, 2011 at 2:31 PM, Jerome Glisse <j.glisse@gmail.com> wrote:
+> On Sat, Dec 3, 2011 at 7:29 AM, Markus Trippelsdorf
+> <markus@trippelsdorf.de> wrote:
+>> On 2011.12.03 at 12:20 +0000, Dave Airlie wrote:
+>>> >> > > > > FIX idr_layer_cache: Marking all objects used
+>>> >> > > >
+>>> >> > > > Yesterday I couldn't reproduce the issue at all. But today I've hit
+>>> >> > > > exactly the same spot again. (CCing the drm list)
+>>>
+>>> If I had to guess it looks like 0 is getting written back to some
+>>> random page by the GPU maybe, it could be that the GPU is in some half
+>>> setup state at boot or on a reboot does it happen from a cold boot or
+>>> just warm boot or kexec?
 >>
->> If I had to guess it looks like 0 is getting written back to some
->> random page by the GPU maybe, it could be that the GPU is in some half
->> setup state at boot or on a reboot does it happen from a cold boot or
->> just warm boot or kexec?
+>> Only happened with kexec thus far. Cold boot seems to be fine.
+>>
+>> --
+>> Markus
 >
-> Only happened with kexec thus far. Cold boot seems to be fine.
+> Can you add radeon.no_wb=1 to your kexec kernel paramater an see if
+> you can reproduce.
 >
-> --
-> Markus
+> Cheers,
+> Jerome
 
-Can you add radeon.no_wb=1 to your kexec kernel paramater an see if
-you can reproduce.
+Also cold boot with radeon.no_wb=1 :)
 
 Cheers,
 Jerome
