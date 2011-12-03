@@ -1,58 +1,37 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: SYN attack, with FIN flag set
-Date: Sat, 03 Dec 2011 08:27:13 +0100
-Message-ID: <1322897233.2762.79.camel@edumazet-laptop>
-References: <1755dc626dee301261ef4fe4cd66fd47@visp.net.lb>
+Subject: Re: [PATCH 2/9] infiniband: addr: Consolidate code to fetch
+ neighbout hardware address from dst.
+Date: Sat, 03 Dec 2011 08:30:09 +0100
+Message-ID: <1322897409.2762.80.camel@edumazet-laptop>
+References: <20111202.215214.2206154836146990479.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Cc: roland@kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:43028 "EHLO
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:39310 "EHLO
 	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751649Ab1LCH1S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2011 02:27:18 -0500
-Received: by wgbdr13 with SMTP id dr13so2765044wgb.1
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 23:27:16 -0800 (PST)
-In-Reply-To: <1755dc626dee301261ef4fe4cd66fd47@visp.net.lb>
+	with ESMTP id S1751734Ab1LCHaN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2011 02:30:13 -0500
+Received: by wgbdr13 with SMTP id dr13so2768966wgb.1
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2011 23:30:12 -0800 (PST)
+In-Reply-To: <20111202.215214.2206154836146990479.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 03 d=C3=A9cembre 2011 =C3=A0 00:29 +0200, Denys Fedoryshchenk=
-o a =C3=A9crit :
-> Hi
+Le vendredi 02 d=C3=A9cembre 2011 =C3=A0 21:52 -0500, David Miller a =C3=
+=A9crit :
+> IPV4 should do exactly what the IPV6 code does here, which is
+> use the neighbour obtained via the dst entry.
 >=20
->  Recently i started to get SYN attacks, and managed them.
->  syncookies didn't helped, here is "perf report" info:
->  -     26.89%        swapper  [kernel.kallsyms]     [k] _raw_spin_loc=
-k
->     - _raw_spin_lock
->        - 94.97% tcp_v4_rcv
->             ip_local_deliver_finish
->             ip_local_deliver
->             ip_rcv_finish
->             ip_rcv
->             __netif_receive_skb
->             process_backlog
->             net_rx_action
->             __do_softirq
->             call_softirq
->             do_softirq
->           + irq_exit
+> And now that the two code paths do the same thing, use a common
+> helper function to perform the operation.
 >=20
->  But then i got attack that made server to choke and bypassed "--syn"=
-=20
->  rule, and i was surprised, that stack are handling invalid combinati=
-on=20
->  of flags, SYN+FIN.
->  Is it valid behaviour?
->=20
->  in tcp_input.c, tcp_rcv_state_process(), it just does check for rst =
-(to=20
->  discard), but maybe packet with fin set should be discarded too?
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/infiniband/core/addr.c |   47 +++++++++++++++++-------------=
+---------
+>  1 files changed, 21 insertions(+), 26 deletions(-)
 
-I believe netfilter tcp conntrack considers SYN|FIN as INVALID
-
-Yes, we could drop SYN|FIN messages, but what prevents attacker to just
-use SYN messages to attack your machine ?
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
