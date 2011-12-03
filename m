@@ -1,7 +1,8 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v3 2/6] genetlink: Add lockdep_genl_is_held().
-Date: Sat,  3 Dec 2011 10:38:47 -0800
-Message-ID: <1322937531-8071-3-git-send-email-jesse@nicira.com>
+Subject: [PATCH v3 3/6] genetlink: Add rcu_dereference_genl and
+	genl_dereference.
+Date: Sat,  3 Dec 2011 10:38:48 -0800
+Message-ID: <1322937531-8071-4-git-send-email-jesse@nicira.com>
 References: <1322937531-8071-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,54 +22,49 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+This adds rcu_dereference_genl and genl_dereference, which are genl
+variants of the RTNL functions to enforce proper locking with lockdep
+and sparse.
 
-Open vSwitch uses genl_mutex locking to protect datapath
-data-structures like flow-table, flow-actions. Following patch adds
-lockdep_genl_is_held() which is used for rcu annotation to prove
-locking.
-
-Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
-v2/v3: Unchanged.
+v3: Unchanged.
+v2: New patch.
 ---
- include/linux/genetlink.h |    3 +++
- net/netlink/genetlink.c   |    8 ++++++++
- 2 files changed, 11 insertions(+), 0 deletions(-)
+ include/linux/genetlink.h |   21 +++++++++++++++++++++
+ 1 files changed, 21 insertions(+), 0 deletions(-)
 
 diff --git a/include/linux/genetlink.h b/include/linux/genetlink.h
-index 61549b2..59311ad 100644
+index 59311ad..73c28de 100644
 --- a/include/linux/genetlink.h
 +++ b/include/linux/genetlink.h
-@@ -85,6 +85,9 @@ enum {
- /* All generic netlink requests are serialized by a global lock.  */
- extern void genl_lock(void);
- extern void genl_unlock(void);
-+#ifdef CONFIG_PROVE_LOCKING
-+extern int lockdep_genl_is_held(void);
-+#endif
+@@ -89,6 +89,27 @@ extern void genl_unlock(void);
+ extern int lockdep_genl_is_held(void);
+ #endif
  
++/**
++ * rcu_dereference_genl - rcu_dereference with debug checking
++ * @p: The pointer to read, prior to dereferencing
++ *
++ * Do an rcu_dereference(p), but check caller either holds rcu_read_lock()
++ * or genl mutex. Note : Please prefer genl_dereference() or rcu_dereference()
++ */
++#define rcu_dereference_genl(p)					\
++	rcu_dereference_check(p, lockdep_genl_is_held())
++
++/**
++ * genl_dereference - fetch RCU pointer when updates are prevented by genl mutex
++ * @p: The pointer to read, prior to dereferencing
++ *
++ * Return the value of the specified RCU-protected pointer, but omit
++ * both the smp_read_barrier_depends() and the ACCESS_ONCE(), because
++ * caller holds genl mutex.
++ */
++#define genl_dereference(p)					\
++	rcu_dereference_protected(p, lockdep_genl_is_held())
++
  #endif /* __KERNEL__ */
  
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index 8a36599..28453ae 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -33,6 +33,14 @@ void genl_unlock(void)
- }
- EXPORT_SYMBOL(genl_unlock);
- 
-+#ifdef CONFIG_PROVE_LOCKING
-+int lockdep_genl_is_held(void)
-+{
-+	return lockdep_is_held(&genl_mutex);
-+}
-+EXPORT_SYMBOL(lockdep_genl_is_held);
-+#endif
-+
- #define GENL_FAM_TAB_SIZE	16
- #define GENL_FAM_TAB_MASK	(GENL_FAM_TAB_SIZE - 1)
- 
+ #endif	/* __LINUX_GENERIC_NETLINK_H */
 -- 
 1.7.5.4
