@@ -1,52 +1,39 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] datapath: Fix build breakage on kernel 2.6.40
-Date: Fri, 2 Dec 2011 15:38:24 -0800
-Message-ID: <CAEP_g=_B=_zj3HjmBC7xuFFEi4-OwiK8RE7w9UbNdSwSunxf-g@mail.gmail.com>
-References: <1322042318-4809-1-git-send-email-zwu.kernel@gmail.com>
-	<CAEP_g=9CNRE=-B2V2=-CQA2MyzOsoqXPP_rjjvqGKWw_peNOkg@mail.gmail.com>
-	<CAEH94Li8gdMZnwSHG_xQj761uRxedRX2nUVmhFV4Kt_EDeuzYQ@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next] r8169: Support for byte queue limits
+Date: Sat, 3 Dec 2011 01:20:40 +0100
+Message-ID: <20111203002040.GA15709@electric-eye.fr.zoreil.com>
+References: <igorm@etf.rs> <1322831399-23505-1-git-send-email-igorm@etf.rs> <1322836191.2762.3.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, aliguori-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
-	stefanha-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Zhi Yong Wu <zwu.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CAEH94Li8gdMZnwSHG_xQj761uRxedRX2nUVmhFV4Kt_EDeuzYQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: igorm@etf.rs, netdev@vger.kernel.org, davem@davemloft.net,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:38633 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752416Ab1LCA1W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 19:27:22 -0500
+Content-Disposition: inline
+In-Reply-To: <1322836191.2762.3.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCBEZWMgMSwgMjAxMSBhdCA2OjI1IFBNLCBaaGkgWW9uZyBXdSA8end1Lmtlcm5lbEBn
-bWFpbC5jb20+IHdyb3RlOgo+IE9uIFRodSwgRGVjIDEsIDIwMTEgYXQgNTo1NSBBTSwgSmVzc2Ug
-R3Jvc3MgPGplc3NlQG5pY2lyYS5jb20+IHdyb3RlOgo+PiBPbiBXZWQsIE5vdiAyMywgMjAxMSBh
-dCAxOjU4IEFNLCBaaGkgWW9uZyBXdSA8end1Lmtlcm5lbEBnbWFpbC5jb20+IHdyb3RlOgo+Pj4g
-ZGlmZiAtLWdpdCBhL2RhdGFwYXRoL2xpbnV4L2NvbXBhdC9pbmNsdWRlL2xpbnV4L3NrYnVmZi5o
-IGIvZGF0YXBhdGgvbGludXgvY29tcGF0L2luY2x1ZGUvbGludXgvc2tidWZmLmgKPj4+IGluZGV4
-IDMxMWJmZGIuLjIyYmEyZTYgMTAwNjQ0Cj4+PiAtLS0gYS9kYXRhcGF0aC9saW51eC9jb21wYXQv
-aW5jbHVkZS9saW51eC9za2J1ZmYuaAo+Pj4gKysrIGIvZGF0YXBhdGgvbGludXgvY29tcGF0L2lu
-Y2x1ZGUvbGludXgvc2tidWZmLmgKPj4+IEBAIC0yMzksNyArMjM5LDcgQEAgc3RhdGljIGlubGlu
-ZSBzdHJ1Y3QgcGFnZSAqc2tiX2ZyYWdfcGFnZShjb25zdCBza2JfZnJhZ190ICpmcmFnKQo+Pj4g
-wqB9Cj4+PiDCoCNlbmRpZgo+Pj4KPj4+IC0jaWYgTElOVVhfVkVSU0lPTl9DT0RFIDwgS0VSTkVM
-X1ZFUlNJT04oMywwLDApCj4+PiArI2lmbmRlZiBIQVZFX1NLQl9SRVNFVF9NQUNfTEVOCj4+Cj4+
-IDIuNi40MCBpcyB0aGUgZWFybHkgbmFtZSBmb3IgMy4wLiDCoERvZXMgaXQgd29yayBpZiB5b3Ug
-anVzdCByZXBsYWNlCj4+IHRoZSBjaGVjayB3aXRoIEtFUk5FTF9WRVJTSU9OKDIsNiw0MCk/Cj4g
-WWVhaCwgaXQgY2FuIHdvcmsgbm93LCBidXQgaSBkb24ndCBrbm93IGlmIHRoaXMgaXNzdWUgZXhp
-c3Qgb24gb3RoZXIKPiBvbGQga2VybmVsIHZlcnNpb24gPCAyLjYuNDAuCgpVc3VhbGx5IHdlIGp1
-c3QgZG8gdGhlc2UgdHlwZXMgb2YgY2hlY2tzIGFzIHdlIHNlZSBleGFtcGxlcyBvZiBhY3R1YWwK
-YmFja3BvcnRpbmcgdG8gYXZvaWQgaGF2aW5nIGh1bmRyZWRzIG9mIHRlc3RzIGF0IGNvbmZpZ3Vy
-ZSB0aW1lLiAgSW4KdGhpcyBjYXNlLCBJIHRoaW5rIHRoZSBpc3N1ZSBpcyBqdXN0IGEgZGlmZmVy
-ZW5jZSBpbiBob3cgdGhlIHNhbWUKa2VybmVsIGlzIG51bWJlcmVkIG5vdCBiYWNrcG9ydGluZywg
-c28gdGhlcmUgaXNuJ3QgcmVhbGx5IGEgcmVhc29uIHRvCmJlbGlldmUgdGhhdCB0aGlzIGlzIGEg
-YmlnZ2VyIHByb2JsZW0uCgo+IFNob3VsZCB3ZSBzZW5kIG9uZSB1cGRhdGVkIHBhdGNoIGZvciB0
-aGlzIGJhc2VkIG9uIHlvdXIgc3VnZ2VzdGlvbj8KClRoYXQgd291bGQgYmUgZ3JlYXQsIHRoYW5r
-cy4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1h
-aWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFp
-bG1hbi9saXN0aW5mby9kZXYK
+Eric Dumazet <eric.dumazet@gmail.com> :
+[...]
+> Also please CC maintainers of this driver to your submission.
+> 
+> (I did this)
+
+Thanks.
+
+Frankly I would appreciate if people could wait a bit until fixes for
+the current RxFIFOOverflow mess - and a bit more - are submitted. I just
+need the week end for some sanity tested patches with a few different
+nic.
+
+Btw some code may be saved with an adequate ad-hoc {bytes/tx}_compl
+struct and a few helpers acting on it as well as dev/dev->stats and
+skb.
+
+--
+Ueimor
