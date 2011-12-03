@@ -1,54 +1,98 @@
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Sat, 3 Dec 2011 13:29:00 +0100
-Message-ID: <20111203122900.GA1617@x4.trippels.de>
-References: <1321866988.2552.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20111121131531.GA1679@x4.trippels.de>
- <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20111121153621.GA1678@x4.trippels.de>
- <20111123160353.GA1673@x4.trippels.de>
- <alpine.DEB.2.00.1111231004490.17317@router.home>
- <20111124085040.GA1677@x4.trippels.de>
- <20111202230412.GB12057@homer.localdomain>
- <20111203092845.GA1520@x4.trippels.de>
- <CAPM=9tyjZc9waC_ZBygW9zh+Zq-Wb1X5Y6yfsCCMPYwpFVWOOg@mail.gmail.com>
+From: "FBI" <maintenancekt@aol.com>
+Subject: VERY URGENT===========READ ATTACHMENT
+Date: Sat, 3 Dec 2011 08:06:13 -0500
+Message-ID: <201112031304.pB3D4EIS004728@ims-m14.mx.aol.com>
+Reply-To: <fbicrimesdivision@w.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jerome Glisse <j.glisse@gmail.com>, Christoph Lameter <cl@linux.com>,
-	"Alex, Shi" <alex.shi@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	dri-devel@lists.freedesktop.org, Pekka Enberg <penberg@kernel.org>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	Matt Mackall <mpm@selenic.com>, tj@kernel.org,
-	Alex Deucher <alexander.deucher@amd.com>
-To: Dave Airlie <airlied@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <CAPM=9tyjZc9waC_ZBygW9zh+Zq-Wb1X5Y6yfsCCMPYwpFVWOOg@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_005B_01C2A9A6.140EBB48"
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ims-m14.mx.aol.com ([64.12.207.147]:1416 "EHLO
+	ims-m14.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755866Ab1LCNEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2011 08:04:30 -0500
+Received: from oms-ma01.r1000.mx.aol.com (oms-ma01.r1000.mx.aol.com [64.12.140.129])
+	by ims-m14.mx.aol.com (8.14.1/8.14.1) with ESMTP id pB3D4EIS004728
+	for <netdev@vger.kernel.org>; Sat, 3 Dec 2011 08:04:14 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2011.12.03 at 12:20 +0000, Dave Airlie wrote:
-> >> > > > > FIX idr_layer_cache: Marking all objects used
-> >> > > >
-> >> > > > Yesterday I couldn't reproduce the issue at all. But today I've hit
-> >> > > > exactly the same spot again. (CCing the drm list)
-> 
-> If I had to guess it looks like 0 is getting written back to some
-> random page by the GPU maybe, it could be that the GPU is in some half
-> setup state at boot or on a reboot does it happen from a cold boot or
-> just warm boot or kexec?
+This is a multi-part message in MIME format.
 
-Only happened with kexec thus far. Cold boot seems to be fine.
+------=_NextPart_000_005B_01C2A9A6.140EBB48
+Content-Type: text/plain;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
 
--- 
-Markus
+OPEN ATTACTMENT
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+------=_NextPart_000_005B_01C2A9A6.140EBB48
+Content-Type: application/octet-stream;
+	name="FBI NOTIFICATION.txt"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+	filename="FBI NOTIFICATION.txt"
+
+DQpBTlRJLVRFUlJPUklTVCBBTkQgTU9ORVRBUlkgQ1JJTUVTIERJVklTSU9O
+DQpGQkkgSEVBRFFVQVJURVJTIElOIFdBU0hJTkdUT04sIEQuQy4NCkZlZGVy
+YWwgQnVyZWF1IE9mIEludmVzdGlnYXRpb24uDQpGQkktV2FzaGluZ3RvbiBG
+aWVsZCBPZmZpY2UNCjYwMSA0dGggU3RyZWV0LCBOVw0KV2FzaGluZ3Rvbiwg
+REMgMjA1MzUNCldlYnNpdGU6IHd3dy5mYmkuZ292DQogDQpEQVRFOjEyLzAz
+LzIwMTENCiANCkl0IGhhcyBiZWVuIGRpc2NvdmVyZWQgdGhhdCB5b3VyIGNv
+bnRyYWN0L2luaGVyaXRhbmNlL3dpbm5pbmcgRlVORCB3YXMgYWJvdXQgYmVp
+bmcgdHJhbnNmZXJyZWQgdG8gYW4gdW5rbm93biBhY2NvdW50IHVuZGVyIHlv
+dXIgbmFtZS5UaGlzIGF0dGVtcHQgd2FzIHBlcnBldHJhdGVkIGJ5IHNvbWVv
+bmUgd2hvIGNsYWltcyB0byBiZSB3b3JraW5nIGZvciB5b3UsIGFuZCB0aGF0
+IHlvdSBoYXZlIGdpdmVuIGhpbSBkdWUgYXV0aG9yaXR5IHRvIGhhdmUgdGhl
+IEZVTkQgbW92ZWQgdG8gdGhlIGFjY291bnQgc3BlY2lmaWVkIGJlbG93Og0K
+IA0KU09VVEhXRVNURVJOIEZFREVSQUwgQ1JFRElUIFVOSU9ODQpXRVNDT1JQ
+IDkyNCBPVkVSTEFORCBDT1VSVA0KU0FOIERJTUFTLCBDQSA5MTc3Mi4gVVNB
+Lg0KQUNDT1VOVCBOVU1CRVI6IDMyMjY4MjEzMw0KQUJBL1JPVVRJTkcgTlVN
+QkVSOiAxMjExLTcxLTQxLTgNClNIQVJFVFlQRSBOTy46IDM1DQpGSU5BTCBD
+UkVESVQgIEpPSE5TT04gRkVOWkkgQU5EIENPLiAoQmVuZWZpY2lhcnkpLg0K
+IA0KVGhlIEZlZGVyYWwgQnVyZWF1IG9mIEludmVzdGlnYXRpb24gKEYuQi5J
+Likgd2FkZWQgaW4gYWZ0ZXIgYmVpbmcgYWxlcnRlZCBieSB0aGUgc3VwcG9z
+ZWQgYmFuay4gV2UgaW52ZXN0aWdhdGVkIGFuZCBmb3VuZCB0aGF0IHRoZXJl
+IGlzIGEgcG9zc2libGUgbW9uZXkgbGF1bmRlcmluZyBhY3Rpdml0eSBpbiBw
+bGF5LlRoZSBGVU5EIFVTJDEwLDUwMCwwMDAuMDAoVGVuIE1pbGxpb24gRml2
+ZSBIdW5kcmVkIFRob3VzYW5kIFVuaXRlZCBTdGF0ZXMgRG9sbGFycykgd2Fz
+IGZvdW5kIHRvIGJlIGRlcG9zaXRlZCBpbiBCYW5rIG9mIEFtZXJpY2EgaW4g
+eW91ciBuYW1lIHBlbmRpbmcgeW91ciBjb25zZW50IHRvIGhhdmUgaXQgdHJh
+bnNmZXJyZWQgdG8gdGhlIG5ldyBhY2NvdW50IGluZGljYXRlZCBhYm92ZS4g
+SXQgd2FzIGZ1cnRoZXIgcmV2ZWFsZWQgdGhhdCBpbml0aWFsIEZVTkQgdHJh
+bnNmZXIgb3JpZ2luYXRlZCBmcm9tIE5pZ2VyaWEgdG8gRW5nbGFuZCBhbmQg
+bm93IGhlcmUgaW4gQmFuayBvZiBBbWVyaWNhIGluIFVTQS4NCiANClRoZXNl
+IHRyYW5zZmVycyBkaWQgbm90IGZvbGxvdyBkdWUgcHJvY2VzcyBpbiBsaW5l
+IHdpdGggdGhlIEludGVybmF0aW9uYWwgRlVORCB0cmFuc2ZlciBydWxlcyBh
+bmQgcmVndWxhdGlvbi5Db25zZXF1ZW50bHksd2Ugc3VzcGVjdCB0aGlzIGJl
+IGEgdGVycm9yaXNtIGZ1bmRpbmcsIGRydWcgcmVsYXRlZCBmdW5kIGRlcG9z
+aXQgYW5kL29yIG1vbmV5IGxhdW5kZXJpbmcuIEFzIHN0YXRlZCBhYm92ZSwg
+dGhlIEZVTkQgaGFzIHlvdXIgbmFtZSBvbiBpdDsgYW5kIHlvdSBtdXN0IGhh
+dmUgaXQgY2xlYXJlZCBvZiBhbnkgY29ubmVjdGlvbiB3aXRoIGFueSBvZiB0
+aGVzZSBpbGxlZ2FsIGFjdGl2aXRpZXMuQmUgaW5mb3JtZWQgdGhhdCBGQUlM
+VVJFIHRvIGhhdmUgdGhpcyBjbGVhcmVkIG91dCB3aWxsIGF0dHJhY3QgYSBK
+QUlMIFRFUk0uV2Ugd2lsbCBub3QgaGVzaXRhdGUgdG8gdmlzaXQgdGhlIGZ1
+bGwgd2VpZ2h0IG9mIHRoZSBsYXcgdXBvbiB5b3UgaWYgeW91IGRvIG5vdCBj
+bGVhciB0aGlzIGZ1bmQuVGhlcmUgaXMgZXZlcnkgaW5kaWNhdGlvbiB0aGF0
+IHlvdSBhcmUgaW52b2x2ZWQgaW4gdGhpcyBzaGFkeSBkZWFsLg0KIA0KRmlu
+YWxseSwgeW91IGFyZSBleHBlY3RlZCB0byBoYXZlIHRoZSBDTEVBUkFOQ0Ug
+RE9DVU1FTlQgb2J0YWluIGZyb20gd2hlcmUgdGhlIEZVTkQgb3JpZ2luYXRl
+ZCBmcm9tIHRvIGhhdmUgeW91IGFuZCB5b3VyIGZ1bmQgY2xlYXJlZC4gT25s
+eSB0aGVuIHNoYWxsIHdlIHJlbGVhc2UgeW91ciBGVU5EIGFzIGNsZWFuIG1v
+bmV5IGRldm9pZCBvZiBhbnkgaWxsZWdhbGl0eSwgYW5kIHlvdSB3aWxsIGJl
+IGZyZWUgb2YgYW55IGludm9sdmVtZW50LiBUbyB0aGlzIGVuZCwgeW91IGFy
+ZSB0byBjb250YWN0IE1yLiBBbnRob255IE1hcmtzb24gb2YgdGhlIEFudGkg
+R3JhZnQgRGVwYXJ0bWVudCBOb3J0aCBDYXJvbGluYSBSZWdpb25hbCBPZmZp
+Y2UgYW5kIGhhdmUgdGhlIEZVTkQgQkVORUZJQ0lBUlkgU0VBTCBvZiBUUkFO
+U0ZFUiAoRkJTVCkgQ0xFQVJBTkNFIERPQ1VNRU5UIG9idGFpbmVkLiBDb250
+YWN0IGhpbSB0aHJvdWdoIHRoaXMgZGlyZWN0IGVtYWlsOiBhbnRpZ3JhZnRf
+ZGVwYXJ0bWVudEB3LmNuICxOb3RlIHRoYXQgeW91IGhhdmUgNzJocnMgdG8g
+b2J0YWluIHRoaXMgY3J1Y2lhbCBEb2N1bWVudGF0aW9uLg0KDQpUaGlzIGhh
+cyB0byBiZSBjbGVhcmVkIQ0KIA0KRmFpdGhmdWxseSBZb3Vycw0KUm9iZXJ0
+IFMuIE11ZWxsZXIgSUlJDQpGQkkgRGlyZWN0b3INCkZlZGVyYWwgQnVyZWF1
+IE9mIEludmVzdGlnYXRpb24uDQpGQkktV2FzaGluZ3RvbiBGaWVsZCBPZmZp
+Y2UNCjYwMSA0dGggU3RyZWV0LCBOVw0KV2FzaGluZ3RvbiwgREMgMjA1MzUN
+Cnd3dy5mYmkuZ292
+
+------=_NextPart_000_005B_01C2A9A6.140EBB48--
