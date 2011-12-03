@@ -1,8 +1,8 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v3 4/6] vlan: Move vlan_set_encap_proto() to vlan
-	header file
-Date: Sat,  3 Dec 2011 10:38:49 -0800
-Message-ID: <1322937531-8071-5-git-send-email-jesse@nicira.com>
+Subject: [PATCH v3 5/6] ipv6: Add fragment reporting to
+	ipv6_skip_exthdr().
+Date: Sat,  3 Dec 2011 10:38:50 -0800
+Message-ID: <1322937531-8071-6-git-send-email-jesse@nicira.com>
 References: <1322937531-8071-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,107 +22,396 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+While parsing through IPv6 extension headers, fragment headers are
+skipped making them invisible to the caller.  This reports the
+fragment offset of the last header in order to make it possible to
+determine whether the packet is fragmented and, if so whether it is
+a first or last fragment.
 
-Open vSwitch needs this function for vlan handling.
-
-Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
-v2/v3: Unchanged.
+v3: New patch.
 ---
- include/linux/if_vlan.h |   34 ++++++++++++++++++++++++++++++++++
- net/8021q/vlan_core.c   |   33 ---------------------------------
- 2 files changed, 34 insertions(+), 33 deletions(-)
+ include/net/ipv6.h                   |    2 +-
+ net/bridge/br_multicast.c            |    3 ++-
+ net/bridge/netfilter/ebt_ip6.c       |    3 ++-
+ net/bridge/netfilter/ebt_log.c       |    3 ++-
+ net/ipv6/exthdrs_core.c              |   11 +++++++++--
+ net/ipv6/icmp.c                      |    7 +++++--
+ net/ipv6/ip6_input.c                 |    3 ++-
+ net/ipv6/ip6_output.c                |    3 ++-
+ net/ipv6/netfilter/ip6t_REJECT.c     |    3 ++-
+ net/netfilter/ipset/ip_set_getport.c |    4 +++-
+ net/netfilter/xt_AUDIT.c             |    3 ++-
+ net/netfilter/xt_TCPMSS.c            |    3 ++-
+ net/netfilter/xt_TCPOPTSTRIP.c       |    3 ++-
+ net/netfilter/xt_hashlimit.c         |    3 ++-
+ net/netfilter/xt_socket.c            |    4 +++-
+ security/lsm_audit.c                 |    3 ++-
+ security/selinux/hooks.c             |    3 ++-
+ 17 files changed, 45 insertions(+), 19 deletions(-)
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 12d5543..070ac50 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -310,6 +310,40 @@ static inline __be16 vlan_get_protocol(const struct sk_buff *skb)
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index f35188e..e4170a2 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -558,7 +558,7 @@ extern void			ipv6_push_frag_opts(struct sk_buff *skb,
+ 						    u8 *proto);
  
- 	return protocol;
- }
-+
-+static inline void vlan_set_encap_proto(struct sk_buff *skb,
-+					struct vlan_hdr *vhdr)
-+{
-+	__be16 proto;
-+	unsigned char *rawp;
-+
-+	/*
-+	 * Was a VLAN packet, grab the encapsulated protocol, which the layer
-+	 * three protocols care about.
-+	 */
-+
-+	proto = vhdr->h_vlan_encapsulated_proto;
-+	if (ntohs(proto) >= 1536) {
-+		skb->protocol = proto;
-+		return;
-+	}
-+
-+	rawp = skb->data;
-+	if (*(unsigned short *) rawp == 0xFFFF)
-+		/*
-+		 * This is a magic hack to spot IPX packets. Older Novell
-+		 * breaks the protocol design and runs IPX over 802.3 without
-+		 * an 802.2 LLC layer. We look for FFFF which isn't a used
-+		 * 802.2 SSAP/DSAP. This won't work for fault tolerant netware
-+		 * but does for the rest.
-+		 */
-+		skb->protocol = htons(ETH_P_802_3);
-+	else
-+		/*
-+		 * Real 802.2 LLC
-+		 */
-+		skb->protocol = htons(ETH_P_802_2);
-+}
- #endif /* __KERNEL__ */
+ extern int			ipv6_skip_exthdr(const struct sk_buff *, int start,
+-					         u8 *nexthdrp);
++					         u8 *nexthdrp, __be16 *frag_offp);
  
- /* VLAN IOCTLs are found in sockios.h */
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index f5ffc02..9c95e8e 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -110,39 +110,6 @@ static struct sk_buff *vlan_reorder_header(struct sk_buff *skb)
- 	return skb;
- }
+ extern int 			ipv6_ext_hdr(u8 nexthdr);
  
--static void vlan_set_encap_proto(struct sk_buff *skb, struct vlan_hdr *vhdr)
--{
--	__be16 proto;
--	unsigned char *rawp;
--
--	/*
--	 * Was a VLAN packet, grab the encapsulated protocol, which the layer
--	 * three protocols care about.
--	 */
--
--	proto = vhdr->h_vlan_encapsulated_proto;
--	if (ntohs(proto) >= 1536) {
--		skb->protocol = proto;
--		return;
--	}
--
--	rawp = skb->data;
--	if (*(unsigned short *) rawp == 0xFFFF)
--		/*
--		 * This is a magic hack to spot IPX packets. Older Novell
--		 * breaks the protocol design and runs IPX over 802.3 without
--		 * an 802.2 LLC layer. We look for FFFF which isn't a used
--		 * 802.2 SSAP/DSAP. This won't work for fault tolerant netware
--		 * but does for the rest.
--		 */
--		skb->protocol = htons(ETH_P_802_3);
--	else
--		/*
--		 * Real 802.2 LLC
--		 */
--		skb->protocol = htons(ETH_P_802_2);
--}
--
- struct sk_buff *vlan_untag(struct sk_buff *skb)
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 7743e0d..375417e 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1458,6 +1458,7 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
+ 	const struct ipv6hdr *ip6h;
+ 	u8 icmp6_type;
+ 	u8 nexthdr;
++	__be16 frag_off;
+ 	unsigned len;
+ 	int offset;
+ 	int err;
+@@ -1483,7 +1484,7 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
+ 		return -EINVAL;
+ 
+ 	nexthdr = ip6h->nexthdr;
+-	offset = ipv6_skip_exthdr(skb, sizeof(*ip6h), &nexthdr);
++	offset = ipv6_skip_exthdr(skb, sizeof(*ip6h), &nexthdr, &frag_off);
+ 
+ 	if (offset < 0 || nexthdr != IPPROTO_ICMPV6)
+ 		return 0;
+diff --git a/net/bridge/netfilter/ebt_ip6.c b/net/bridge/netfilter/ebt_ip6.c
+index 2ed0056..99c8566 100644
+--- a/net/bridge/netfilter/ebt_ip6.c
++++ b/net/bridge/netfilter/ebt_ip6.c
+@@ -55,9 +55,10 @@ ebt_ip6_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 		return false;
+ 	if (info->bitmask & EBT_IP6_PROTO) {
+ 		uint8_t nexthdr = ih6->nexthdr;
++		__be16 frag_off;
+ 		int offset_ph;
+ 
+-		offset_ph = ipv6_skip_exthdr(skb, sizeof(_ip6h), &nexthdr);
++		offset_ph = ipv6_skip_exthdr(skb, sizeof(_ip6h), &nexthdr, &frag_off);
+ 		if (offset_ph == -1)
+ 			return false;
+ 		if (FWINV(info->protocol != nexthdr, EBT_IP6_PROTO))
+diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
+index 6e5a8bb..88d7d1d 100644
+--- a/net/bridge/netfilter/ebt_log.c
++++ b/net/bridge/netfilter/ebt_log.c
+@@ -113,6 +113,7 @@ ebt_log_packet(u_int8_t pf, unsigned int hooknum,
+ 		const struct ipv6hdr *ih;
+ 		struct ipv6hdr _iph;
+ 		uint8_t nexthdr;
++		__be16 frag_off;
+ 		int offset_ph;
+ 
+ 		ih = skb_header_pointer(skb, 0, sizeof(_iph), &_iph);
+@@ -123,7 +124,7 @@ ebt_log_packet(u_int8_t pf, unsigned int hooknum,
+ 		printk(" IPv6 SRC=%pI6 IPv6 DST=%pI6, IPv6 priority=0x%01X, Next Header=%d",
+ 		       &ih->saddr, &ih->daddr, ih->priority, ih->nexthdr);
+ 		nexthdr = ih->nexthdr;
+-		offset_ph = ipv6_skip_exthdr(skb, sizeof(_iph), &nexthdr);
++		offset_ph = ipv6_skip_exthdr(skb, sizeof(_iph), &nexthdr, &frag_off);
+ 		if (offset_ph == -1)
+ 			goto out;
+ 		print_ports(skb, nexthdr, offset_ph);
+diff --git a/net/ipv6/exthdrs_core.c b/net/ipv6/exthdrs_core.c
+index 37f548b..72957f4 100644
+--- a/net/ipv6/exthdrs_core.c
++++ b/net/ipv6/exthdrs_core.c
+@@ -57,6 +57,9 @@ int ipv6_ext_hdr(u8 nexthdr)
+  *	    it returns NULL.
+  *	  - First fragment header is skipped, not-first ones
+  *	    are considered as unparsable.
++ *	  - Reports the offset field of the final fragment header so it is
++ *	    possible to tell whether this is a first fragment, later fragment,
++ *	    or not fragmented.
+  *	  - ESP is unparsable for now and considered like
+  *	    normal payload protocol.
+  *	  - Note also special handling of AUTH header. Thanks to IPsec wizards.
+@@ -64,10 +67,13 @@ int ipv6_ext_hdr(u8 nexthdr)
+  * --ANK (980726)
+  */
+ 
+-int ipv6_skip_exthdr(const struct sk_buff *skb, int start, u8 *nexthdrp)
++int ipv6_skip_exthdr(const struct sk_buff *skb, int start, u8 *nexthdrp,
++		     __be16 *frag_offp)
  {
- 	struct vlan_hdr *vhdr;
+ 	u8 nexthdr = *nexthdrp;
+ 
++	*frag_offp = 0;
++
+ 	while (ipv6_ext_hdr(nexthdr)) {
+ 		struct ipv6_opt_hdr _hdr, *hp;
+ 		int hdrlen;
+@@ -87,7 +93,8 @@ int ipv6_skip_exthdr(const struct sk_buff *skb, int start, u8 *nexthdrp)
+ 			if (fp == NULL)
+ 				return -1;
+ 
+-			if (ntohs(*fp) & ~0x7)
++			*frag_offp = *fp;
++			if (ntohs(*frag_offp) & ~0x7)
+ 				break;
+ 			hdrlen = 8;
+ 		} else if (nexthdr == NEXTHDR_AUTH)
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 9e2bdcc..01d46bf 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -135,11 +135,12 @@ static int is_ineligible(struct sk_buff *skb)
+ 	int ptr = (u8 *)(ipv6_hdr(skb) + 1) - skb->data;
+ 	int len = skb->len - ptr;
+ 	__u8 nexthdr = ipv6_hdr(skb)->nexthdr;
++	__be16 frag_off;
+ 
+ 	if (len < 0)
+ 		return 1;
+ 
+-	ptr = ipv6_skip_exthdr(skb, ptr, &nexthdr);
++	ptr = ipv6_skip_exthdr(skb, ptr, &nexthdr, &frag_off);
+ 	if (ptr < 0)
+ 		return 0;
+ 	if (nexthdr == IPPROTO_ICMPV6) {
+@@ -596,6 +597,7 @@ static void icmpv6_notify(struct sk_buff *skb, u8 type, u8 code, __be32 info)
+ 	int inner_offset;
+ 	int hash;
+ 	u8 nexthdr;
++	__be16 frag_off;
+ 
+ 	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
+ 		return;
+@@ -603,7 +605,8 @@ static void icmpv6_notify(struct sk_buff *skb, u8 type, u8 code, __be32 info)
+ 	nexthdr = ((struct ipv6hdr *)skb->data)->nexthdr;
+ 	if (ipv6_ext_hdr(nexthdr)) {
+ 		/* now skip over extension headers */
+-		inner_offset = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr), &nexthdr);
++		inner_offset = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr),
++						&nexthdr, &frag_off);
+ 		if (inner_offset<0)
+ 			return;
+ 	} else {
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index a46c64e..1ca5d45 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -280,6 +280,7 @@ int ip6_mc_input(struct sk_buff *skb)
+ 			u8 *ptr = skb_network_header(skb) + opt->ra;
+ 			struct icmp6hdr *icmp6;
+ 			u8 nexthdr = hdr->nexthdr;
++			__be16 frag_off;
+ 			int offset;
+ 
+ 			/* Check if the value of Router Alert
+@@ -293,7 +294,7 @@ int ip6_mc_input(struct sk_buff *skb)
+ 					goto out;
+ 				}
+ 				offset = ipv6_skip_exthdr(skb, sizeof(*hdr),
+-							  &nexthdr);
++							  &nexthdr, &frag_off);
+ 				if (offset < 0)
+ 					goto out;
+ 
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index a24e155..3221bc6 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -329,10 +329,11 @@ static int ip6_forward_proxy_check(struct sk_buff *skb)
+ {
+ 	struct ipv6hdr *hdr = ipv6_hdr(skb);
+ 	u8 nexthdr = hdr->nexthdr;
++	__be16 frag_off;
+ 	int offset;
+ 
+ 	if (ipv6_ext_hdr(nexthdr)) {
+-		offset = ipv6_skip_exthdr(skb, sizeof(*hdr), &nexthdr);
++		offset = ipv6_skip_exthdr(skb, sizeof(*hdr), &nexthdr, &frag_off);
+ 		if (offset < 0)
+ 			return 0;
+ 	} else
+diff --git a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
+index b5a2aa5..aad2fa4 100644
+--- a/net/ipv6/netfilter/ip6t_REJECT.c
++++ b/net/ipv6/netfilter/ip6t_REJECT.c
+@@ -49,6 +49,7 @@ static void send_reset(struct net *net, struct sk_buff *oldskb)
+ 	const __u8 tclass = DEFAULT_TOS_VALUE;
+ 	struct dst_entry *dst = NULL;
+ 	u8 proto;
++	__be16 frag_off;
+ 	struct flowi6 fl6;
+ 
+ 	if ((!(ipv6_addr_type(&oip6h->saddr) & IPV6_ADDR_UNICAST)) ||
+@@ -58,7 +59,7 @@ static void send_reset(struct net *net, struct sk_buff *oldskb)
+ 	}
+ 
+ 	proto = oip6h->nexthdr;
+-	tcphoff = ipv6_skip_exthdr(oldskb, ((u8*)(oip6h+1) - oldskb->data), &proto);
++	tcphoff = ipv6_skip_exthdr(oldskb, ((u8*)(oip6h+1) - oldskb->data), &proto, &frag_off);
+ 
+ 	if ((tcphoff < 0) || (tcphoff > oldskb->len)) {
+ 		pr_debug("Cannot get TCP header.\n");
+diff --git a/net/netfilter/ipset/ip_set_getport.c b/net/netfilter/ipset/ip_set_getport.c
+index 052579f..b71a6e7 100644
+--- a/net/netfilter/ipset/ip_set_getport.c
++++ b/net/netfilter/ipset/ip_set_getport.c
+@@ -116,9 +116,11 @@ ip_set_get_ip6_port(const struct sk_buff *skb, bool src,
+ {
+ 	int protoff;
+ 	u8 nexthdr;
++	__be16 frag_off;
+ 
+ 	nexthdr = ipv6_hdr(skb)->nexthdr;
+-	protoff = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr), &nexthdr);
++	protoff = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr), &nexthdr,
++				   &frag_off);
+ 	if (protoff < 0)
+ 		return false;
+ 
+diff --git a/net/netfilter/xt_AUDIT.c b/net/netfilter/xt_AUDIT.c
+index 4bca15a..ba92824 100644
+--- a/net/netfilter/xt_AUDIT.c
++++ b/net/netfilter/xt_AUDIT.c
+@@ -98,6 +98,7 @@ static void audit_ip6(struct audit_buffer *ab, struct sk_buff *skb)
+ 	struct ipv6hdr _ip6h;
+ 	const struct ipv6hdr *ih;
+ 	u8 nexthdr;
++	__be16 frag_off;
+ 	int offset;
+ 
+ 	ih = skb_header_pointer(skb, skb_network_offset(skb), sizeof(_ip6h), &_ip6h);
+@@ -108,7 +109,7 @@ static void audit_ip6(struct audit_buffer *ab, struct sk_buff *skb)
+ 
+ 	nexthdr = ih->nexthdr;
+ 	offset = ipv6_skip_exthdr(skb, skb_network_offset(skb) + sizeof(_ip6h),
+-				  &nexthdr);
++				  &nexthdr, &frag_off);
+ 
+ 	audit_log_format(ab, " saddr=%pI6c daddr=%pI6c proto=%hhu",
+ 			 &ih->saddr, &ih->daddr, nexthdr);
+diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
+index 3ecade3..ba72262 100644
+--- a/net/netfilter/xt_TCPMSS.c
++++ b/net/netfilter/xt_TCPMSS.c
+@@ -204,11 +204,12 @@ tcpmss_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+ 	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
+ 	u8 nexthdr;
++	__be16 frag_off;
+ 	int tcphoff;
+ 	int ret;
+ 
+ 	nexthdr = ipv6h->nexthdr;
+-	tcphoff = ipv6_skip_exthdr(skb, sizeof(*ipv6h), &nexthdr);
++	tcphoff = ipv6_skip_exthdr(skb, sizeof(*ipv6h), &nexthdr, &frag_off);
+ 	if (tcphoff < 0)
+ 		return NF_DROP;
+ 	ret = tcpmss_mangle_packet(skb, par->targinfo,
+diff --git a/net/netfilter/xt_TCPOPTSTRIP.c b/net/netfilter/xt_TCPOPTSTRIP.c
+index 9dc9ecf..3a295cc 100644
+--- a/net/netfilter/xt_TCPOPTSTRIP.c
++++ b/net/netfilter/xt_TCPOPTSTRIP.c
+@@ -87,9 +87,10 @@ tcpoptstrip_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+ 	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
+ 	int tcphoff;
+ 	u_int8_t nexthdr;
++	__be16 frag_off;
+ 
+ 	nexthdr = ipv6h->nexthdr;
+-	tcphoff = ipv6_skip_exthdr(skb, sizeof(*ipv6h), &nexthdr);
++	tcphoff = ipv6_skip_exthdr(skb, sizeof(*ipv6h), &nexthdr, &frag_off);
+ 	if (tcphoff < 0)
+ 		return NF_DROP;
+ 
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index dfd52ba..068698f 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -445,6 +445,7 @@ hashlimit_init_dst(const struct xt_hashlimit_htable *hinfo,
+ {
+ 	__be16 _ports[2], *ports;
+ 	u8 nexthdr;
++	__be16 frag_off;
+ 	int poff;
+ 
+ 	memset(dst, 0, sizeof(*dst));
+@@ -480,7 +481,7 @@ hashlimit_init_dst(const struct xt_hashlimit_htable *hinfo,
+ 		      (XT_HASHLIMIT_HASH_DPT | XT_HASHLIMIT_HASH_SPT)))
+ 			return 0;
+ 		nexthdr = ipv6_hdr(skb)->nexthdr;
+-		protoff = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr), &nexthdr);
++		protoff = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr), &nexthdr, &frag_off);
+ 		if ((int)protoff < 0)
+ 			return -1;
+ 		break;
+diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
+index fe39f7e..c302e30 100644
+--- a/net/netfilter/xt_socket.c
++++ b/net/netfilter/xt_socket.c
+@@ -214,6 +214,7 @@ extract_icmp6_fields(const struct sk_buff *skb,
+ 	struct icmp6hdr *icmph, _icmph;
+ 	__be16 *ports, _ports[2];
+ 	u8 inside_nexthdr;
++	__be16 inside_fragoff;
+ 	int inside_hdrlen;
+ 
+ 	icmph = skb_header_pointer(skb, outside_hdrlen,
+@@ -229,7 +230,8 @@ extract_icmp6_fields(const struct sk_buff *skb,
+ 		return 1;
+ 	inside_nexthdr = inside_iph->nexthdr;
+ 
+-	inside_hdrlen = ipv6_skip_exthdr(skb, outside_hdrlen + sizeof(_icmph) + sizeof(_inside_iph), &inside_nexthdr);
++	inside_hdrlen = ipv6_skip_exthdr(skb, outside_hdrlen + sizeof(_icmph) + sizeof(_inside_iph),
++					 &inside_nexthdr, &inside_fragoff);
+ 	if (inside_hdrlen < 0)
+ 		return 1; /* hjm: Packet has no/incomplete transport layer headers. */
+ 
+diff --git a/security/lsm_audit.c b/security/lsm_audit.c
+index 199616b..7bd6f13 100644
+--- a/security/lsm_audit.c
++++ b/security/lsm_audit.c
+@@ -114,6 +114,7 @@ int ipv6_skb_to_auditdata(struct sk_buff *skb,
+ 	int offset, ret = 0;
+ 	struct ipv6hdr *ip6;
+ 	u8 nexthdr;
++	__be16 frag_off;
+ 
+ 	ip6 = ipv6_hdr(skb);
+ 	if (ip6 == NULL)
+@@ -126,7 +127,7 @@ int ipv6_skb_to_auditdata(struct sk_buff *skb,
+ 	offset = skb_network_offset(skb);
+ 	offset += sizeof(*ip6);
+ 	nexthdr = ip6->nexthdr;
+-	offset = ipv6_skip_exthdr(skb, offset, &nexthdr);
++	offset = ipv6_skip_exthdr(skb, offset, &nexthdr, &frag_off);
+ 	if (offset < 0)
+ 		return 0;
+ 	if (proto)
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 7e6c256..cca09bb 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -3561,6 +3561,7 @@ static int selinux_parse_skb_ipv6(struct sk_buff *skb,
+ 	u8 nexthdr;
+ 	int ret = -EINVAL, offset;
+ 	struct ipv6hdr _ipv6h, *ip6;
++	__be16 frag_off;
+ 
+ 	offset = skb_network_offset(skb);
+ 	ip6 = skb_header_pointer(skb, offset, sizeof(_ipv6h), &_ipv6h);
+@@ -3573,7 +3574,7 @@ static int selinux_parse_skb_ipv6(struct sk_buff *skb,
+ 
+ 	nexthdr = ip6->nexthdr;
+ 	offset += sizeof(_ipv6h);
+-	offset = ipv6_skip_exthdr(skb, offset, &nexthdr);
++	offset = ipv6_skip_exthdr(skb, offset, &nexthdr, &frag_off);
+ 	if (offset < 0)
+ 		goto out;
+ 
 -- 
 1.7.5.4
