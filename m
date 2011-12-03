@@ -1,30 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Udp packets received with improper length
-Date: Fri, 02 Dec 2011 21:54:01 -0500 (EST)
-Message-ID: <20111202.215401.1831715862615853922.davem@davemloft.net>
-References: <4ED3FBE8.2010006@conspiracy.net>
-	<20111201.141136.1615370877653045134.davem@davemloft.net>
-	<20111203023256.GA4259@gerrit.erg.abdn.ac.uk>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: Re: [PATCH] ARM: at91/net: add macb ethernet controller in 9g45 DT
+Date: Sat, 3 Dec 2011 06:56:59 +0100
+Message-ID: <20111203055659.GL18533@game.jcrosoft.org>
+References: <1322847782-22650-1-git-send-email-nicolas.ferre@atmel.com>
+ <1322848237-23154-1-git-send-email-nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: fsmail@conspiracy.net, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52119 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754087Ab1LCCzI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 21:55:08 -0500
-In-Reply-To: <20111203023256.GA4259@gerrit.erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+ linux-kernel@vger.kernel.org, grant.likely@secretlab.ca, jamie@jamieiles.com,
+ linux-arm-kernel@lists.infradead.org
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1322848237-23154-1-git-send-email-nicolas.ferre@atmel.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Fri, 2 Dec 2011 19:32:57 -0700
+On 18:50 Fri 02 Dec     , Nicolas Ferre wrote:
+> Add the Cadence macb ethernet controller in at91sam9g45 .dtsi and
+> enable it in at91sam9m10g45ek board device tree file.
+> 
+> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> ---
+>  arch/arm/boot/dts/at91sam9g45.dtsi     |    7 +++++++
+>  arch/arm/boot/dts/at91sam9m10g45ek.dts |    6 ++++++
+>  2 files changed, 13 insertions(+), 0 deletions(-)
+> 
+> diff --git a/arch/arm/boot/dts/at91sam9g45.dtsi b/arch/arm/boot/dts/at91sam9g45.dtsi
+> index e89b1d7..67f94d3 100644
+> --- a/arch/arm/boot/dts/at91sam9g45.dtsi
+> +++ b/arch/arm/boot/dts/at91sam9g45.dtsi
+> @@ -101,6 +101,13 @@
+>  				atmel,use-dma-tx;
+>  				status = "disabled";
+>  			};
+> +
+> +			macb0: ethernet@fffbc000 {
+> +				compatible = "cdns,at32ap7000-macb", "cdns,macb";
+> +				reg = <0xfffbc000 0x100>;
+> +				interrupts = <25 4>;
+why?
+> +				status = "disabled";
+> +			};
+>  		};
+>  	};
+>  };
+> diff --git a/arch/arm/boot/dts/at91sam9m10g45ek.dts b/arch/arm/boot/dts/at91sam9m10g45ek.dts
+> index 85b34f5..17377a2 100644
+> --- a/arch/arm/boot/dts/at91sam9m10g45ek.dts
+> +++ b/arch/arm/boot/dts/at91sam9m10g45ek.dts
+> @@ -30,6 +30,12 @@
+>  			usart1: serial@fff90000 {
+>  				status = "okay";
+>  			};
+> +
+> +			macb0: ethernet@fffbc000 {
+> +				local-mac-address = [3a 0e 03 04 05 06];
+please drop this is not supposed to be in the dts but updated for each board
 
-> You are correct. What I had failed to see is the try_again case with
-> multiple corruped datagrams. In this case the code is not correct,
-> len could already have been modified in the previous
-> iteration. Reverting the commit is the sanest option. Thank you.
-
-Thanks for confirming my analysis.
+Best Regards,
+J.
