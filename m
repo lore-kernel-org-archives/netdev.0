@@ -1,58 +1,50 @@
-From: Ivo Van Doorn <ivdoorn@gmail.com>
-Subject: Re: [PATCH] rt2x00: Use kcalloc instead of kzalloc to allocate array
-Date: Sat, 3 Dec 2011 12:46:15 +0100
-Message-ID: <CAOZOX0UU7Jcd1XbV-bM4OBCwwySNyVOwQ_u2yhwyigfUgx=eBA@mail.gmail.com>
-References: <1322600880.1534.325.camel@localhost.localdomain>
+From: Dave Airlie <airlied@gmail.com>
+Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+Date: Sat, 3 Dec 2011 12:20:22 +0000
+Message-ID: <CAPM=9tyjZc9waC_ZBygW9zh+Zq-Wb1X5Y6yfsCCMPYwpFVWOOg@mail.gmail.com>
+References: <20111121080554.GB1625@x4.trippels.de>
+	<20111121082445.GD1625@x4.trippels.de>
+	<1321866988.2552.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20111121131531.GA1679@x4.trippels.de>
+	<1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20111121153621.GA1678@x4.trippels.de>
+	<20111123160353.GA1673@x4.trippels.de>
+	<alpine.DEB.2.00.1111231004490.17317@router.home>
+	<20111124085040.GA1677@x4.trippels.de>
+	<20111202230412.GB12057@homer.localdomain>
+	<20111203092845.GA1520@x4.trippels.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: gwingerde@gmail.com, helmut.schaa@googlemail.com,
-	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	users@rt2x00.serialmonkey.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Thomas Meyer <thomas@m3y3r.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1322600880.1534.325.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Jerome Glisse <j.glisse@gmail.com>, Christoph Lameter <cl@linux.com>, "Alex, Shi" <alex.shi@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, dri-devel@lists.freedesktop.org,
+	Pekka Enberg <penberg@kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>, Matt Mackall <mpm@selenic.com>,
+	tj@kernel.org, Alex Deucher <alexander.deucher@amd.com>
+To: Markus Trippelsdorf <markus@trippelsdorf.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20111203092845.GA1520@x4.trippels.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 29, 2011 at 10:08 PM, Thomas Meyer <thomas@m3y3r.de> wrote:
-> The advantage of kcalloc is, that will prevent integer overflows whic=
-h could
-> result from the multiplication of number of elements and size and it =
-is also
-> a bit nicer to read.
->
-> The semantic patch that makes this change is available
-> in https://lkml.org/lkml/2011/11/25/107
->
-> Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
+>> > > > > FIX idr_layer_cache: Marking all objects used
+>> > > >
+>> > > > Yesterday I couldn't reproduce the issue at all. But today I've hit
+>> > > > exactly the same spot again. (CCing the drm list)
 
-Acked-by: Ivo van Doorn <IvDoorn@gmail.com>
+If I had to guess it looks like 0 is getting written back to some
+random page by the GPU maybe, it could be that the GPU is in some half
+setup state at boot or on a reboot does it happen from a cold boot or
+just warm boot or kexec?
 
-> ---
->
-> diff -u -p a/drivers/net/wireless/rt2x00/rt2x00dev.c b/drivers/net/wi=
-reless/rt2x00/rt2x00dev.c
-> --- a/drivers/net/wireless/rt2x00/rt2x00dev.c 2011-11-28 19:36:47.770=
-108588 +0100
-> +++ b/drivers/net/wireless/rt2x00/rt2x00dev.c 2011-11-28 19:54:53.495=
-525543 +0100
-> @@ -831,11 +831,11 @@ static int rt2x00lib_probe_hw_modes(stru
-> =A0 =A0 =A0 =A0if (spec->supported_rates & SUPPORT_RATE_OFDM)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0num_rates +=3D 8;
->
-> - =A0 =A0 =A0 channels =3D kzalloc(sizeof(*channels) * spec->num_chan=
-nels, GFP_KERNEL);
-> + =A0 =A0 =A0 channels =3D kcalloc(spec->num_channels, sizeof(*channe=
-ls), GFP_KERNEL);
-> =A0 =A0 =A0 =A0if (!channels)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -ENOMEM;
->
-> - =A0 =A0 =A0 rates =3D kzalloc(sizeof(*rates) * num_rates, GFP_KERNE=
-L);
-> + =A0 =A0 =A0 rates =3D kcalloc(num_rates, sizeof(*rates), GFP_KERNEL=
-);
-> =A0 =A0 =A0 =A0if (!rates)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto exit_free_channels;
->
+Jerome, might be worth checking the ordering for when bus master gets
+enabled or if we turn off the writeback producers before writeback is
+enabled.
+
+Dave.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
