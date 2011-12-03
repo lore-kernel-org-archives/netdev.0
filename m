@@ -1,39 +1,75 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next] r8169: Support for byte queue limits
-Date: Sat, 3 Dec 2011 01:20:40 +0100
-Message-ID: <20111203002040.GA15709@electric-eye.fr.zoreil.com>
-References: <igorm@etf.rs> <1322831399-23505-1-git-send-email-igorm@etf.rs> <1322836191.2762.3.camel@edumazet-laptop>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: Re: pull request: batman-adv 2011-11-26
+Date: Sat, 3 Dec 2011 02:55:29 +0100
+Message-ID: <20111203015528.GB3148@ritirata.org>
+References: <1322317612-7770-1-git-send-email-lindner_marek@yahoo.de>
+	<20111126.144122.775553783672941660.davem@davemloft.net>
+	<20111202171216.GA4561@ritirata.org>
+	<20111202.125725.896787381527077500.davem@davemloft.net>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: igorm@etf.rs, netdev@vger.kernel.org, davem@davemloft.net,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:38633 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752416Ab1LCA1W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2011 19:27:22 -0500
+Content-Type: text/plain; charset=utf-8
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+	lindner_marek-LWAfsSFWpa4@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1322836191.2762.3.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20111202.125725.896787381527077500.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> :
-[...]
-> Also please CC maintainers of this driver to your submission.
+On Fri, Dec 02, 2011 at 12:57:25 -0500, David Miller wrote:
+> From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+> Date: Fri, 2 Dec 2011 18:12:16 +0100
 > 
-> (I did this)
+> > First of all I think you are referring to patch 08/10, in which I moved a
+> > skb_linearise() operation.
+> > 
+> > To be sure it is really needed, I backtracked the code flow and noted down any
+> > eventual psbk_may_pull() (or any other linearisation operation). The result is:
+> > 
+> > => in batman_skb_recv()
+> > 	- pskb_may_pull(2)
+> >   => in recv_tt_query()
+> >   	  - pskb_may_pull(sizeof(header))
+> > 	  - skb_linearise()
+> > 
+> > Actually it seems we haven't any useless linearisation.
+> > Would you mind explain us where you actually found the problem, please?
+> > 
+> > It might also be that I misunderstood your advice.
+> 
+> You only need to call pskb_may_pull() on the parts of the packet you want to
+> access directly to parse headers etc.
+> 
+> If you use that interface properly, you never need to linearize, ever.
 
-Thanks.
+Sorry for being too generic: we actually invoke skb_linearise() because
+we want to access the whole skb.
 
-Frankly I would appreciate if people could wait a bit until fixes for
-the current RxFIFOOverflow mess - and a bit more - are submitted. I just
-need the week end for some sanity tested patches with a few different
-nic.
+We first call pskb_may_pull() to pull the header only and then, under certain
+conditions, we linearise the whole skb to access it all. Should I use
+pskb_may_pull() even in this case?
 
-Btw some code may be saved with an adequate ad-hoc {bytes/tx}_compl
-struct and a few helpers acting on it as well as dev/dev->stats and
-skb.
+Sorry for stealing you so much time on this issue, but I would like to fully
+understand it in order to avoid any further mistake.
 
---
-Ueimor
+
+Thank you again.
+
+Best Regards,
+
+-- 
+Antonio Quartulli
+
+..each of us alone is worth nothing..
+Ernesto "Che" Guevara
