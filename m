@@ -1,112 +1,84 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 5/6] ixgbe: DCB: IEEE transitions may fail to reprogram hardware.
-Date: Sat,  3 Dec 2011 03:44:30 -0800
-Message-ID: <1322912671-6903-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/6] e1000e: hitting BUG_ON() from napi_enable
+Date: Sat,  3 Dec 2011 03:44:27 -0800
+Message-ID: <1322912671-6903-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1322912671-6903-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Mike McElroy <mike.mcelroy@stratus.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:2643 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:23508 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754731Ab1LCLoh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Dec 2011 06:44:37 -0500
+	id S1754731Ab1LCLof (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Dec 2011 06:44:35 -0500
 In-Reply-To: <1322912671-6903-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Transitioning through an IEEE DCBX version from a CEE DCBX
-and back (CEE->IEEE->CEE) may leave IEEE attributes programmed
-in the hardware. DCB uses a bit field in the set routines to
-determine which attributes PG, PFC, APP need to be reprogrammed.
-This is needed because user flow allows queueing a series
-of changes and then reprogramming the hardware with the
-entire set in one operation.
+Based on a patch from Mike McElroy created against the out-of-tree e1000e
+driver:
 
-When transitioning from IEEE DCBX mode back into CEE DCBX
-mode the PG and PFC bits need to be set so the possibly
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Hitting the BUG_ON in napi_enable(). Code inspection shows that this can
+only be triggered by calling napi_enable() twice without an intervening
+napi_disable().
 
-different CEE attributes get programmed into the device.
+I saw the following sequence of events in the stack trace:
 
-This patch fixes broken logic that was evaluating to 0
-and never setting any bits. Further this removes some
-checks for num_tc in set routines. This logic only worked
-when the number of traffic classes and user priorities
-were equal. This is no longer the case for X540 devices.
-Besides we can trust user input in this case if the
-device is incorrectly configured the DCB bandwidths will
-be incorrectly mapped but no OOPs, BUG, or hardware
-failure will occur.
+1) We simulated a cable pull using an Extreme switch.
+2) e1000_tx_timeout() was entered.
+3) e1000_reset_task() was called. Saw the message from e_err() in the
+console log.
+4) e1000_reinit_locked was called. This function calls e1000_down() and
+e1000_up(). These functions call napi_disable() and napi_enable()
+respectively.
+5) Then on another thread, a monitor task saw carrier was down and executed
+'ip set link down' and 'ip set link up' commands.
+6) Saw the '_E1000_RESETTING'warning fron the e1000_close function.
+7) Either the e1000_open() executed between the e1000_down() and e1000_up()
+calls in step 4 or the e1000_open() call executed after the e1000_up()
+call.  In either case, napi_enable() is called twice which triggers the
+BUG_ON.
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Cc: Mike McElroy <mike.mcelroy@stratus.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |   21 ++++++++++-----------
- 1 files changed, 10 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-index 8c056c0..da31735 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-@@ -158,10 +158,6 @@ static void ixgbe_dcbnl_set_pg_tc_cfg_tx(struct net_device *netdev, int tc,
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 3c12e6a..ef6546f 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -3516,7 +3516,6 @@ int e1000e_up(struct e1000_adapter *adapter)
  
--	/* Abort a bad configuration */
--	if (ffs(up_map) > adapter->dcb_cfg.num_tcs.pg_tcs)
--		return;
--
- 	if (prio != DCB_ATTR_VALUE_UNDEFINED)
- 		adapter->temp_dcb_cfg.tc_config[tc].path[0].prio_type = prio;
- 	if (bwg_id != DCB_ATTR_VALUE_UNDEFINED)
-@@ -185,7 +181,7 @@ static void ixgbe_dcbnl_set_pg_tc_cfg_tx(struct net_device *netdev, int tc,
+ 	clear_bit(__E1000_DOWN, &adapter->state);
  
- 	if (adapter->temp_dcb_cfg.tc_config[tc].path[0].up_to_tc_bitmap !=
- 	     adapter->dcb_cfg.tc_config[tc].path[0].up_to_tc_bitmap)
--		adapter->dcb_set_bitmap |= BIT_PFC;
-+		adapter->dcb_set_bitmap |= BIT_PFC | BIT_APP_UPCHG;
- }
+-	napi_enable(&adapter->napi);
+ 	if (adapter->msix_entries)
+ 		e1000_configure_msix(adapter);
+ 	e1000_irq_enable(adapter);
+@@ -3578,7 +3577,6 @@ void e1000e_down(struct e1000_adapter *adapter)
+ 	e1e_flush();
+ 	usleep_range(10000, 20000);
  
- static void ixgbe_dcbnl_set_pg_bwg_cfg_tx(struct net_device *netdev, int bwg_id,
-@@ -206,10 +202,6 @@ static void ixgbe_dcbnl_set_pg_tc_cfg_rx(struct net_device *netdev, int tc,
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+-	napi_disable(&adapter->napi);
+ 	e1000_irq_disable(adapter);
  
--	/* Abort bad configurations */
--	if (ffs(up_map) > adapter->dcb_cfg.num_tcs.pg_tcs)
--		return;
--
- 	if (prio != DCB_ATTR_VALUE_UNDEFINED)
- 		adapter->temp_dcb_cfg.tc_config[tc].path[1].prio_type = prio;
- 	if (bwg_id != DCB_ATTR_VALUE_UNDEFINED)
-@@ -434,7 +426,12 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- 		adapter->hw.fc.current_mode = ixgbe_fc_pfc;
+ 	del_timer_sync(&adapter->watchdog_timer);
+@@ -3901,6 +3899,8 @@ static int e1000_close(struct net_device *netdev)
  
- #ifdef IXGBE_FCOE
--	if (up && !(up & (1 << adapter->fcoe.up))) {
-+	/* Reprogam FCoE hardware offloads when the traffic class
-+	 * FCoE is using changes. This happens if the APP info
-+	 * changes or the up2tc mapping is updated.
-+	 */
-+	if ((up && !(up & (1 << adapter->fcoe.up))) ||
-+	    (adapter->dcb_set_bitmap & BIT_APP_UPCHG)) {
- 		adapter->fcoe.up = ffs(up) - 1;
- 		ixgbe_dcbnl_devreset(netdev);
- 		ret = DCB_HW_CHG_RST;
-@@ -742,7 +739,9 @@ static u8 ixgbe_dcbnl_setdcbx(struct net_device *dev, u8 mode)
- 		ixgbe_dcbnl_ieee_setets(dev, &ets);
- 		ixgbe_dcbnl_ieee_setpfc(dev, &pfc);
- 	} else if (mode & DCB_CAP_DCBX_VER_CEE) {
--		adapter->dcb_set_bitmap |= (BIT_PFC & BIT_PG_TX & BIT_PG_RX);
-+		u8 mask = BIT_PFC | BIT_PG_TX | BIT_PG_RX | BIT_APP_UPCHG;
+ 	pm_runtime_get_sync(&pdev->dev);
+ 
++	napi_disable(&adapter->napi);
 +
-+		adapter->dcb_set_bitmap |= mask;
- 		ixgbe_dcbnl_set_all(dev);
- 	} else {
- 		/* Drop into single TC mode strict priority as this
+ 	if (!test_bit(__E1000_DOWN, &adapter->state)) {
+ 		e1000e_down(adapter);
+ 		e1000_free_irq(adapter);
 -- 
 1.7.6.4
