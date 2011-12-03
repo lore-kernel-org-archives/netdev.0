@@ -1,59 +1,69 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: 3.2-rc2+: Reported regressions from 3.0 and 3.1
-Date: Thu, 1 Dec 2011 09:35:48 -0500
-Message-ID: <20111201143548.GA28114@phenom.dumpdata.com>
-References: <lx6sezwGldO.A.IhF.UBpWOB@chimera> <201111212249.31196.rjw@sisk.pl>
-	<20111122135412.GA29905@phenom.dumpdata.com>
-	<20111129180414.GA11459@phenom.dumpdata.com>
-	<20111129183428.GE8200@aftab>
-	<20111130175936.GA15168@phenom.dumpdata.com>
-	<20111201113919.GC31552@aftab>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Bug in computing data_len in tcp_sendmsg?
+Date: Sat, 03 Dec 2011 16:09:52 +0100
+Message-ID: <1322924992.2762.117.camel@edumazet-laptop>
+References: <1322857369.2762.63.camel@edumazet-laptop>
+	 <20111202.152426.447759025066188323.davem@davemloft.net>
+	 <1322858756.2762.68.camel@edumazet-laptop>
+	 <20111202.163024.1294014889349291295.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Florian Mickler <florian@mickler.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>, x86@kernel.org,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	DRI <dri-devel@lists.freedesktop.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>, mingo@redhat.com,
-	hpa@zytor.com, tglx@linutronix.de,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>
-To: Borislav Petkov <bp@amd64.org>
-Return-path: <linux-pm-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20111201113919.GC31552@aftab>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
-List-Post: <mailto:linux-pm@lists.linux-foundation.org>
-List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.linux-foundation.org
-Errors-To: linux-pm-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: subramanian.vijay@gmail.com, therbert@google.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:43444 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751820Ab1LCPKA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2011 10:10:00 -0500
+Received: by bkbzv3 with SMTP id zv3so266533bkb.19
+        for <netdev@vger.kernel.org>; Sat, 03 Dec 2011 07:09:59 -0800 (PST)
+In-Reply-To: <20111202.163024.1294014889349291295.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> >From what I can see, you get the following callchain:
-> 
-> start_kernel
-> |-> setup_arch
->     |-> x86_init.oem.arch_setup = xen_arch_setup
->     ....
->     |-> check_bugs
->         |-> identify_boot_cpu
-> 	    |-> identify_cpu
-> 	        |-> select_idle_routine
-> 
-> 
-> so xen_arch_setup will set pm_idle and select_idle_routine will honour
-> it. I'm being told this is run either in the dom0 or the paravirt guest
-> and if so, I don't see any issue with this for baremetal. So you can
-> have my ACK provided this is tested on baremetal too.
+Le vendredi 02 d=C3=A9cembre 2011 =C3=A0 16:30 -0500, David Miller a =C3=
+=A9crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 02 Dec 2011 21:45:56 +0100
+>=20
+> > Retransmits could transmits 3 bytes already ACKed, is it a big deal=
+ ?
+>=20
+> Unfortunately this kind of adjustment doesn't work.
+>=20
+> When we trim the head in response to ACK'd data, the stack assumes th=
+at
+> the first byte sitting at the front of the retransmit queue is ->snd_=
+una.
+>=20
+> So if you just back align the pull, and don't make amends for the set=
+ting
+> of ->snd_una, we'll retransmit the wrong bytes.  The send queue will =
+be
+> out of sync with the sequence number state of the socket.
+>=20
+> This has implications for SACK tagging state bit in the transmit queu=
+e
+> as well.
+>=20
+> In fact, this is a real dangerous road to go down, I think :-)
 
-Tested on baremetal and there were no abnormalities. Thanks!
+
+Yeah, it was not a good idea :)
+
+My plan is to add a third parameter to pskb_copy(struct sk_buff *skb,
+gfp_t gfp_mask, int reserve)
+
+and use pskb_copy() in tcp_retransmit_skb() if it appears we need
+between 1 and 3 bytes to re-align skb head before calling
+tcp_transmit_skb(), (if NET_IP_ALIGN is not null)
+
+[ In the unlikely case we had to allocate a new skb with pskb_copy(), w=
+e
+will pass clone_it=3D0 to tcp_transmit_skb() ]
+
+I'll send a fully tested patch before the end of week end.
+
+Thanks !
