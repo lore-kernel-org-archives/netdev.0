@@ -1,21 +1,20 @@
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Subject: Re: pull request: batman-adv 2011-11-26
-Date: Sat, 3 Dec 2011 02:55:29 +0100
-Message-ID: <20111203015528.GB3148@ritirata.org>
-References: <1322317612-7770-1-git-send-email-lindner_marek@yahoo.de>
-	<20111126.144122.775553783672941660.davem@davemloft.net>
-	<20111202171216.GA4561@ritirata.org>
+Date: Fri, 02 Dec 2011 20:59:55 -0500 (EST)
+Message-ID: <20111202.205955.840690319685535229.davem@davemloft.net>
+References: <20111202171216.GA4561@ritirata.org>
 	<20111202.125725.896787381527077500.davem@davemloft.net>
+	<20111203015528.GB3148@ritirata.org>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
 	lindner_marek-LWAfsSFWpa4@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
 Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20111202.125725.896787381527077500.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+In-Reply-To: <20111203015528.GB3148-E/2OGukznS5g9hUCZPvPmw@public.gmane.org>
 List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
 	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
@@ -27,49 +26,23 @@ Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 02, 2011 at 12:57:25 -0500, David Miller wrote:
-> From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-> Date: Fri, 2 Dec 2011 18:12:16 +0100
-> 
-> > First of all I think you are referring to patch 08/10, in which I moved a
-> > skb_linearise() operation.
-> > 
-> > To be sure it is really needed, I backtracked the code flow and noted down any
-> > eventual psbk_may_pull() (or any other linearisation operation). The result is:
-> > 
-> > => in batman_skb_recv()
-> > 	- pskb_may_pull(2)
-> >   => in recv_tt_query()
-> >   	  - pskb_may_pull(sizeof(header))
-> > 	  - skb_linearise()
-> > 
-> > Actually it seems we haven't any useless linearisation.
-> > Would you mind explain us where you actually found the problem, please?
-> > 
-> > It might also be that I misunderstood your advice.
-> 
-> You only need to call pskb_may_pull() on the parts of the packet you want to
-> access directly to parse headers etc.
-> 
-> If you use that interface properly, you never need to linearize, ever.
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Date: Sat, 3 Dec 2011 02:55:29 +0100
 
-Sorry for being too generic: we actually invoke skb_linearise() because
-we want to access the whole skb.
+> We first call pskb_may_pull() to pull the header only and then, under certain
+> conditions, we linearise the whole skb to access it all. Should I use
+> pskb_may_pull() even in this case?
 
-We first call pskb_may_pull() to pull the header only and then, under certain
-conditions, we linearise the whole skb to access it all. Should I use
-pskb_may_pull() even in this case?
+Why would you need to access the whole thing?
 
-Sorry for stealing you so much time on this issue, but I would like to fully
-understand it in order to avoid any further mistake.
+There are only two types of possible accesses:
 
+1) Header parsing --> use pskb_may_pull() as needed.
 
-Thank you again.
+2) Copying the data to some other location, such as a user
+   buffer.  Use skb_copy_datagram_iovec or similar which handle
+   fragmented SKBs just fine.
 
-Best Regards,
-
--- 
-Antonio Quartulli
-
-..each of us alone is worth nothing..
-Ernesto "Che" Guevara
+You should handle fragmented SKBs as much as possible, because
+linearization is expensive and often amounts to a memory allocation
+plus a copy if you linearize the whole thing.
