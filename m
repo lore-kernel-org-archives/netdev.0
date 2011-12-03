@@ -1,8 +1,8 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v3 3/6] genetlink: Add rcu_dereference_genl and
-	genl_dereference.
-Date: Sat,  3 Dec 2011 10:38:48 -0800
-Message-ID: <1322937531-8071-4-git-send-email-jesse@nicira.com>
+Subject: [PATCH v3 4/6] vlan: Move vlan_set_encap_proto() to vlan
+	header file
+Date: Sat,  3 Dec 2011 10:38:49 -0800
+Message-ID: <1322937531-8071-5-git-send-email-jesse@nicira.com>
 References: <1322937531-8071-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,49 +22,107 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This adds rcu_dereference_genl and genl_dereference, which are genl
-variants of the RTNL functions to enforce proper locking with lockdep
-and sparse.
+From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
+Open vSwitch needs this function for vlan handling.
+
+Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
-v3: Unchanged.
-v2: New patch.
+v2/v3: Unchanged.
 ---
- include/linux/genetlink.h |   21 +++++++++++++++++++++
- 1 files changed, 21 insertions(+), 0 deletions(-)
+ include/linux/if_vlan.h |   34 ++++++++++++++++++++++++++++++++++
+ net/8021q/vlan_core.c   |   33 ---------------------------------
+ 2 files changed, 34 insertions(+), 33 deletions(-)
 
-diff --git a/include/linux/genetlink.h b/include/linux/genetlink.h
-index 59311ad..73c28de 100644
---- a/include/linux/genetlink.h
-+++ b/include/linux/genetlink.h
-@@ -89,6 +89,27 @@ extern void genl_unlock(void);
- extern int lockdep_genl_is_held(void);
- #endif
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 12d5543..070ac50 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -310,6 +310,40 @@ static inline __be16 vlan_get_protocol(const struct sk_buff *skb)
  
-+/**
-+ * rcu_dereference_genl - rcu_dereference with debug checking
-+ * @p: The pointer to read, prior to dereferencing
-+ *
-+ * Do an rcu_dereference(p), but check caller either holds rcu_read_lock()
-+ * or genl mutex. Note : Please prefer genl_dereference() or rcu_dereference()
-+ */
-+#define rcu_dereference_genl(p)					\
-+	rcu_dereference_check(p, lockdep_genl_is_held())
+ 	return protocol;
+ }
 +
-+/**
-+ * genl_dereference - fetch RCU pointer when updates are prevented by genl mutex
-+ * @p: The pointer to read, prior to dereferencing
-+ *
-+ * Return the value of the specified RCU-protected pointer, but omit
-+ * both the smp_read_barrier_depends() and the ACCESS_ONCE(), because
-+ * caller holds genl mutex.
-+ */
-+#define genl_dereference(p)					\
-+	rcu_dereference_protected(p, lockdep_genl_is_held())
++static inline void vlan_set_encap_proto(struct sk_buff *skb,
++					struct vlan_hdr *vhdr)
++{
++	__be16 proto;
++	unsigned char *rawp;
 +
++	/*
++	 * Was a VLAN packet, grab the encapsulated protocol, which the layer
++	 * three protocols care about.
++	 */
++
++	proto = vhdr->h_vlan_encapsulated_proto;
++	if (ntohs(proto) >= 1536) {
++		skb->protocol = proto;
++		return;
++	}
++
++	rawp = skb->data;
++	if (*(unsigned short *) rawp == 0xFFFF)
++		/*
++		 * This is a magic hack to spot IPX packets. Older Novell
++		 * breaks the protocol design and runs IPX over 802.3 without
++		 * an 802.2 LLC layer. We look for FFFF which isn't a used
++		 * 802.2 SSAP/DSAP. This won't work for fault tolerant netware
++		 * but does for the rest.
++		 */
++		skb->protocol = htons(ETH_P_802_3);
++	else
++		/*
++		 * Real 802.2 LLC
++		 */
++		skb->protocol = htons(ETH_P_802_2);
++}
  #endif /* __KERNEL__ */
  
- #endif	/* __LINUX_GENERIC_NETLINK_H */
+ /* VLAN IOCTLs are found in sockios.h */
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index f5ffc02..9c95e8e 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -110,39 +110,6 @@ static struct sk_buff *vlan_reorder_header(struct sk_buff *skb)
+ 	return skb;
+ }
+ 
+-static void vlan_set_encap_proto(struct sk_buff *skb, struct vlan_hdr *vhdr)
+-{
+-	__be16 proto;
+-	unsigned char *rawp;
+-
+-	/*
+-	 * Was a VLAN packet, grab the encapsulated protocol, which the layer
+-	 * three protocols care about.
+-	 */
+-
+-	proto = vhdr->h_vlan_encapsulated_proto;
+-	if (ntohs(proto) >= 1536) {
+-		skb->protocol = proto;
+-		return;
+-	}
+-
+-	rawp = skb->data;
+-	if (*(unsigned short *) rawp == 0xFFFF)
+-		/*
+-		 * This is a magic hack to spot IPX packets. Older Novell
+-		 * breaks the protocol design and runs IPX over 802.3 without
+-		 * an 802.2 LLC layer. We look for FFFF which isn't a used
+-		 * 802.2 SSAP/DSAP. This won't work for fault tolerant netware
+-		 * but does for the rest.
+-		 */
+-		skb->protocol = htons(ETH_P_802_3);
+-	else
+-		/*
+-		 * Real 802.2 LLC
+-		 */
+-		skb->protocol = htons(ETH_P_802_2);
+-}
+-
+ struct sk_buff *vlan_untag(struct sk_buff *skb)
+ {
+ 	struct vlan_hdr *vhdr;
 -- 
 1.7.5.4
