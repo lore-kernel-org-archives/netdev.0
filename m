@@ -1,48 +1,51 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 2011-11-26
-Date: Fri, 02 Dec 2011 20:59:55 -0500 (EST)
-Message-ID: <20111202.205955.840690319685535229.davem@davemloft.net>
-References: <20111202171216.GA4561@ritirata.org>
-	<20111202.125725.896787381527077500.davem@davemloft.net>
-	<20111203015528.GB3148@ritirata.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: Udp packets received with improper length
+Date: Fri, 2 Dec 2011 19:32:57 -0700
+Message-ID: <20111203023256.GA4259@gerrit.erg.abdn.ac.uk>
+References: <4ECD540C.60108@conspiracy.net>
+ <4ED3FBE8.2010006@conspiracy.net>
+ <20111201.141136.1615370877653045134.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
-	lindner_marek-LWAfsSFWpa4@public.gmane.org
-To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20111203015528.GB3148-E/2OGukznS5g9hUCZPvPmw@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: fsmail@conspiracy.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:33760 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754989Ab1LCCdS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Dec 2011 21:33:18 -0500
+Content-Disposition: inline
+In-Reply-To: <20111201.141136.1615370877653045134.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Date: Sat, 3 Dec 2011 02:55:29 +0100
+Dave, -
 
-> We first call pskb_may_pull() to pull the header only and then, under certain
-> conditions, we linearise the whole skb to access it all. Should I use
-> pskb_may_pull() even in this case?
+| From: paul bilke <fsmail@conspiracy.net>
+| Date: Mon, 28 Nov 2011 15:23:52 -0600
+| 
+| > On 11/23/2011 2:14 PM, paul bilke wrote:
+| >> We recently updated an embedded powerpc platform from 2.6.32 to 2.6.37.  When deployed in the field devices with the new kernel have started receiving truncated UDP packets from their mates across noisy links.  To test we wrote a simple client and
+| >> server.  The client sends 512 byte packets with a sequence number to the server listening on a UDP socket.  On the client box we use netem to corrupt 100% of the packets sent(after transferring some data so arp cache is populated).  The server then
+| >> dumps the length received and the serial number from any packets that are received.   Netem sometimes corrupts bits in the source MAC address so these packets arrive with valid UDP checksums and are delivered to the user application.   With the
+| >> server running on the 2.6.32 box we send a few million packets to it and only receive packets that are exactly 512 bytes long.  When we do the same on the box running 2.6.37 we receive hundred of short packets, zero length and also 504 byte packets.
+| >> When I use TCPdump on the box running 2.6.37 the truncate packets have valid checksums (Source MAC was corrupted by NETEM) and are of proper length (554 byte ethernet frame, 540 Byte IP portion and 520 byte UDP length) but the userland receives 504
+| >> or 0 length in recvfrom. To see if this was just a powerpc related issue I repeated the test on x86 virtual machines.  A vm running 2.6.18 (Centos 5) receives only 512 byte packets.  On a vm running 2.6.40 (Fedora 15) I receive 512, 504 and 0 length
+| >> packets.
+| > <clip>
+| > 
+| > Reverting commit 81d54ec8479a2c695760da81f05b5a9fb2dbe40a makes this problem disappear. The patch looks sane, the results are problematic.
+| 
+| I think that commit is buggy.  If we do a goto to "try_again", the length has already been
+| truncated the first time around, so the calculation is not the same as what the original code
+| calculates
+| 
+| And indeed, checksum errors are how we can end up taking this code path.
+| 
+| I'm reverting.
+| 
+You are correct. What I had failed to see is the try_again case with multiple corruped datagrams. In this case the
+code is not correct, len could already have been modified in the previous iteration. Reverting the commit is the
+sanest option. Thank you.
 
-Why would you need to access the whole thing?
-
-There are only two types of possible accesses:
-
-1) Header parsing --> use pskb_may_pull() as needed.
-
-2) Copying the data to some other location, such as a user
-   buffer.  Use skb_copy_datagram_iovec or similar which handle
-   fragmented SKBs just fine.
-
-You should handle fragmented SKBs as much as possible, because
-linearization is expensive and often amounts to a memory allocation
-plus a copy if you linearize the whole thing.
+Gerrit
