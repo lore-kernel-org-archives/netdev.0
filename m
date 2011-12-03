@@ -1,84 +1,58 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/6] e1000e: hitting BUG_ON() from napi_enable
-Date: Sat,  3 Dec 2011 03:44:27 -0800
-Message-ID: <1322912671-6903-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1322912671-6903-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Mike McElroy <mike.mcelroy@stratus.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:23508 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754731Ab1LCLof (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Dec 2011 06:44:35 -0500
-In-Reply-To: <1322912671-6903-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ivo Van Doorn <ivdoorn@gmail.com>
+Subject: Re: [PATCH] rt2x00: Use kcalloc instead of kzalloc to allocate array
+Date: Sat, 3 Dec 2011 12:46:15 +0100
+Message-ID: <CAOZOX0UU7Jcd1XbV-bM4OBCwwySNyVOwQ_u2yhwyigfUgx=eBA@mail.gmail.com>
+References: <1322600880.1534.325.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: gwingerde@gmail.com, helmut.schaa@googlemail.com,
+	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	users@rt2x00.serialmonkey.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Thomas Meyer <thomas@m3y3r.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1322600880.1534.325.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+On Tue, Nov 29, 2011 at 10:08 PM, Thomas Meyer <thomas@m3y3r.de> wrote:
+> The advantage of kcalloc is, that will prevent integer overflows whic=
+h could
+> result from the multiplication of number of elements and size and it =
+is also
+> a bit nicer to read.
+>
+> The semantic patch that makes this change is available
+> in https://lkml.org/lkml/2011/11/25/107
+>
+> Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
 
-Based on a patch from Mike McElroy created against the out-of-tree e1000e
-driver:
+Acked-by: Ivo van Doorn <IvDoorn@gmail.com>
 
-Hitting the BUG_ON in napi_enable(). Code inspection shows that this can
-only be triggered by calling napi_enable() twice without an intervening
-napi_disable().
-
-I saw the following sequence of events in the stack trace:
-
-1) We simulated a cable pull using an Extreme switch.
-2) e1000_tx_timeout() was entered.
-3) e1000_reset_task() was called. Saw the message from e_err() in the
-console log.
-4) e1000_reinit_locked was called. This function calls e1000_down() and
-e1000_up(). These functions call napi_disable() and napi_enable()
-respectively.
-5) Then on another thread, a monitor task saw carrier was down and executed
-'ip set link down' and 'ip set link up' commands.
-6) Saw the '_E1000_RESETTING'warning fron the e1000_close function.
-7) Either the e1000_open() executed between the e1000_down() and e1000_up()
-calls in step 4 or the e1000_open() call executed after the e1000_up()
-call.  In either case, napi_enable() is called twice which triggers the
-BUG_ON.
-
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Cc: Mike McElroy <mike.mcelroy@stratus.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/netdev.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 3c12e6a..ef6546f 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -3516,7 +3516,6 @@ int e1000e_up(struct e1000_adapter *adapter)
- 
- 	clear_bit(__E1000_DOWN, &adapter->state);
- 
--	napi_enable(&adapter->napi);
- 	if (adapter->msix_entries)
- 		e1000_configure_msix(adapter);
- 	e1000_irq_enable(adapter);
-@@ -3578,7 +3577,6 @@ void e1000e_down(struct e1000_adapter *adapter)
- 	e1e_flush();
- 	usleep_range(10000, 20000);
- 
--	napi_disable(&adapter->napi);
- 	e1000_irq_disable(adapter);
- 
- 	del_timer_sync(&adapter->watchdog_timer);
-@@ -3901,6 +3899,8 @@ static int e1000_close(struct net_device *netdev)
- 
- 	pm_runtime_get_sync(&pdev->dev);
- 
-+	napi_disable(&adapter->napi);
-+
- 	if (!test_bit(__E1000_DOWN, &adapter->state)) {
- 		e1000e_down(adapter);
- 		e1000_free_irq(adapter);
--- 
-1.7.6.4
+> ---
+>
+> diff -u -p a/drivers/net/wireless/rt2x00/rt2x00dev.c b/drivers/net/wi=
+reless/rt2x00/rt2x00dev.c
+> --- a/drivers/net/wireless/rt2x00/rt2x00dev.c 2011-11-28 19:36:47.770=
+108588 +0100
+> +++ b/drivers/net/wireless/rt2x00/rt2x00dev.c 2011-11-28 19:54:53.495=
+525543 +0100
+> @@ -831,11 +831,11 @@ static int rt2x00lib_probe_hw_modes(stru
+> =A0 =A0 =A0 =A0if (spec->supported_rates & SUPPORT_RATE_OFDM)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0num_rates +=3D 8;
+>
+> - =A0 =A0 =A0 channels =3D kzalloc(sizeof(*channels) * spec->num_chan=
+nels, GFP_KERNEL);
+> + =A0 =A0 =A0 channels =3D kcalloc(spec->num_channels, sizeof(*channe=
+ls), GFP_KERNEL);
+> =A0 =A0 =A0 =A0if (!channels)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -ENOMEM;
+>
+> - =A0 =A0 =A0 rates =3D kzalloc(sizeof(*rates) * num_rates, GFP_KERNE=
+L);
+> + =A0 =A0 =A0 rates =3D kcalloc(num_rates, sizeof(*rates), GFP_KERNEL=
+);
+> =A0 =A0 =A0 =A0if (!rates)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto exit_free_channels;
+>
