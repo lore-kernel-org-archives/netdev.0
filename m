@@ -1,69 +1,46 @@
-From: Philipp Schafft <lion@lion.leolix.org>
-Subject: Re: [Linux-decnet-user] Proposed removal of DECnet support
-	(was:Re: [BUG] 3.2-rc2:BUG kmalloc-8: Redzone overwritten)
-Date: Sun, 04 Dec 2011 20:54:56 +0100
-Message-ID: <20111204195458.65F1C7AD9C@priderock.keep-cool.org>
-References: <OF6A1EB29A.D9A6FBAC-ON8025795A.00311C05-8025795A.0032A610@LocalDomain>
+From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+Subject: [PATCHv3 net-next 1/4] if_ether.h: Add IEEE 802.1 Local Experimental Ethertype 1.
+Date: Sun,  4 Dec 2011 22:22:52 +0100
+Message-ID: <1323033775-3496-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-6gyiy/Yf0KLaz6yRmUEU"
-Cc: Steven Whitehouse <swhiteho@redhat.com>, Chrissie Caulfield <ccaulfie@redhat.com>, Christoph Lameter <cl@linux-foundation.org>, David Miller <davem@davemloft.net>, Eric Dumazet <eric.dumazet@gmail.com>, Sasha Levin <levinsasha928@gmail.com>, Linux-DECnet user <linux-decnet-user@lists.sourceforge.net>, linux-kernel <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Matt Mackall <mpm@selenic.com>, netdev <netdev@vger.kernel.org>, Pekka Enberg <penberg@kernel.org>, RoarAudio <roaraudio@lists.keep-cool.org>
-To: mike.gair@tatasteel.com
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <OF6A1EB29A.D9A6FBAC-ON8025795A.00311C05-8025795A.0032A610@LocalDomain>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexey Orishko <alexey.orishko@stericsson.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:64245 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751753Ab1LDVX0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2011 16:23:26 -0500
+Received: by eeaq14 with SMTP id q14so1589448eea.19
+        for <netdev@vger.kernel.org>; Sun, 04 Dec 2011 13:23:25 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Add EthType 0x88b5.
+This Ethertype value is available for public use for prototype and
+vendor-specific protocol development,as defined in Amendment 802a
+to IEEE Std 802.
 
---=-6gyiy/Yf0KLaz6yRmUEU
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+---
+ include/linux/if_ether.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-reflum,
-
-On Fri, 2011-12-02 at 09:14 +0000, mike.gair@tatasteel.com wrote:
-> I suspect I'm not up to the job,
->=20
-> - definitely not got an in-depth knowledge of the core Linux
-> networking stack
-> or the DECnet specs,
-> Have limited, but growing experience of C, (mainly work in coral66)
-
-I'm willing to offer you help with C and the protocol stuff. I'm the
-current most active developer of the userland part.
-
-
-> But I'll have a look at code/documentation
-> & see if I understand any of it.=20
-
-Ok. If you are still interested let me know if I can help you with the
-above. Maybe Steven can give you some pointers for the kernel stuff.
-
->=20
+diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
+index e473003..56d907a 100644
+--- a/include/linux/if_ether.h
++++ b/include/linux/if_ether.h
+@@ -79,6 +79,7 @@
+ #define ETH_P_PAE	0x888E		/* Port Access Entity (IEEE 802.1X) */
+ #define ETH_P_AOE	0x88A2		/* ATA over Ethernet		*/
+ #define ETH_P_8021AD	0x88A8          /* 802.1ad Service VLAN		*/
++#define ETH_P_802_EX1	0x88B5		/* 802.1 Local Experimental 1.  */
+ #define ETH_P_TIPC	0x88CA		/* TIPC 			*/
+ #define ETH_P_8021AH	0x88E7          /* 802.1ah Backbone Service Tag *=
+/
+ #define ETH_P_1588	0x88F7		/* IEEE 1588 Timesync */
 --=20
-Philipp.
- (Rah of PH2)
-
---=-6gyiy/Yf0KLaz6yRmUEU
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Because it's your freedom
-
-iQEVAwUATtvQD2CSpmW8W5B8AQKRWggAgW/ZdtN0m1kcTGTb9agioN8aBibc2xbi
-5LOxT4IYWWoTWi+U1gEYu6a3eMCMGD3q78dEmLSXJUy0QLpU8dhfDSjGrBVDyfzF
-AjFYBZyRxtOgcuESCltl4GFihCM/rJTuuyJ4rXVlAH4DWc7O7u3EvqdBgo3LS6cm
-LA+8d/5UxQMeEQV6obqz7soCWg+B+sEekFkHOGxTqOOdKt30+8N2Cp/r8rm2wrPY
-7Cl75M2YOtrXTTUU3BUas1tWuYIRanyI6UMZJUeQEfEvdMn7cI2pE/gAlyiN43Jv
-XcCal2lbDw4P61rodIz6bJ1oun2zXnnTmNzlreouVh8ZOxX7lUaSLw==
-=VQjb
------END PGP SIGNATURE-----
-
---=-6gyiy/Yf0KLaz6yRmUEU--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+1.7.0.4
