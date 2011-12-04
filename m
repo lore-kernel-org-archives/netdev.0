@@ -1,91 +1,123 @@
-From: Michal Soltys <soltys@ziu.info>
-Subject: Re: Understanding HFSC
-Date: Sun, 04 Dec 2011 13:38:31 +0100
-Message-ID: <4EDB69C7.6080209@ziu.info>
-References: <1322974639.3347.72.camel@denise.theartistscloset.com>
+From: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [PATCH net-next V0 19/21] mlx4_core: Modify driver initialization flow to accommodate SRIOV for Ethernet
+Date: Sun, 4 Dec 2011 16:29:41 +0200
+Message-ID: <201112041629.41466.jackm@dev.mellanox.co.il>
+References: <4ED8A636.40901@mellanox.co.il> <CAL1RGDV8LzSOei=aQW7VXUP=G+9qdO+Y4eKZu8mBuHJuUp8UuQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from drutsystem.com ([80.72.38.138]:3648 "EHLO drutsystem.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751756Ab1LDMie (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Dec 2011 07:38:34 -0500
-In-Reply-To: <1322974639.3347.72.camel@denise.theartistscloset.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
+To: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAL1RGDV8LzSOei=aQW7VXUP=G+9qdO+Y4eKZu8mBuHJuUp8UuQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 11-12-04 05:57, John A. Sullivan III wrote:
-> Hello, all.  I hope I am in the right place as this seems to be the
-> place to ask questions formerly asked on lartc.  For the last three
-> days, I've been banging my head against the wall trying to understand
-> HFSC and it's finally starting to crack (the wall, not my head
-> although that's close, too!).  It seems to be wonderful, powerful,
-> mysterious, and poorly understood.
-> 
-> I'm not sure I understand it either but it also seems much of what is
-> written about it is written by people who don't fully grasp it, e.g.,
-> mostly focusing on guaranteed bandwidth and hierarchical sharing but
-> not spending much time explaining the important concept of decoupling
-> latency requirements and bandwidth - the part most interesting to us.
-> So I'm hoping you'll indulge my questions and my attempt to articulate
-> my understanding to see if I get it or if I've completely missed the
-> plot!
-> 
-> One of the most confusing bits to me is, does the m1 rate apply to
-> each flow handled by the class or only to the entire class once it
-> becomes active?
+On Friday 02 December 2011 19:51, Roland Dreier wrote:
+> > =A0#else /* CONFIG_PCI_IOV */
+> > +static int sr_iov;
+> > +#define probe_vf 0
+> > =A0int mlx4_log_num_mgm_entry_size =3D 9;
+> > =A0#endif /* CONFIG_PCI_IOV */
+>=20
+> I don't think it's a good idea to put module parameters inside an
+> #ifdef. =A0Then depending on the
+> kernel config someone compiles with, their modprobe.conf may or may n=
+ot break.
+>=20
+I agree.  I will change this so that the module parameters are always t=
+here.
 
-Where a packet lands is (generally) determined by tc filters and/or
-iptables' mark/classify targets. All the packets that end in some leaf
-node, are governed by that node's realtime service curve, and at times
-when that criterion is not used - at the ratio of virtual times (coming
-from linkshare service curves) between that node and its siblings.
-Regardless of curve used - smallest vt (linkshare criterion) or smallest
-dt from all eligible (realtime criterion) wins, and the leaf with one
-will fulfill the dequeue call.
+If the kernel is not configured to support IOV, pci_enable_sriov will f=
+ail.
+Currently, we abort the device startup.  I can change this to simply co=
+ntinue
+without sriov enabled:
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D
 
-If you need more fine grained control "below" such leaf node - you need
-to either use deeper hierarchy with presumably "simpler" qdiscs attached
-(but more complex marking setup), or shallower hierarchy with more
-elaborate qdiscs attached. Think of work conserving qdiscs such as: sfq,
-drr - paired with appropriate tc filters (tc-flow perhaps ?) as needed.
+mlx4_core: fix sriov module parameters
 
-Btw - check out the very latest iproute2 tree - there're fresh
-tc-hfsc(7) and tc-stab(8) manuals added. I tried to make them as
-detailed as possible, but I might have overshot a bit - so opinion of
-someone getting into hfsc territory is invaluable. You can read them (if
-installing fresh iproute2 is out of question) with simple:
+Always have the sr_iov module parameters (even if the kernel
+is not compiled with sriov support).  Change device startup logic
+so that if pci_enable_sriov() fails, the PF-driver continues to bring u=
+p
+the device, but in non-sriov mode.
 
-nroff -mandoc -rLL=<width>n <page> | less
+Signed-off-by: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
 
-http://git.kernel.org/?p=linux/kernel/git/shemminger/iproute2.git;a=blob_plain;f=man/man7/tc-hfsc.7;hb=HEAD
-http://git.kernel.org/?p=linux/kernel/git/shemminger/iproute2.git;a=blob_plain;f=man/man8/tc-stab.8;hb=HEAD
+---
+Roland,
+I will roll this change into the original patch set, so that V1 will co=
+ntain
+this code.
 
-> Second, what must go into the umax size? Let's assume we want umax to
-> be a single maximum sized packet on a non-jumbo frame Ethernet
-> network.
-> Should umax be:
-> 1500
-> 1514 (add Ethernet)
-> 1518 (add CRC)
-> 1526 (add preamble)
-> 1538 (add interframe gap)?
-> 
-> To keep this email from growing any longer, I'll put the rest in a
-> separate email? Thanks - John
-> 
 
-Note: umax/dmax/rate and m1/d/m2 are just alternative ways to specify
-the very same thing.
+Index: net-next/drivers/net/ethernet/mellanox/mlx4/main.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+--- net-next.orig/drivers/net/ethernet/mellanox/mlx4/main.c	2011-12-04 =
+10:38:52.000000000 +0200
++++ net-next/drivers/net/ethernet/mellanox/mlx4/main.c	2011-12-04 16:23=
+:33.000000000 +0200
+@@ -76,8 +76,6 @@ MODULE_PARM_DESC(msi_x, "attempt to use=20
+=20
+ #endif /* CONFIG_PCI_MSI */
+=20
+-#ifdef CONFIG_PCI_IOV
+-
+ static int sr_iov;
+ module_param(sr_iov, int, 0444);
+ MODULE_PARM_DESC(sr_iov, "enable #sr_iov functions if sr_iov > 0");
+@@ -94,12 +92,6 @@ MODULE_PARM_DESC(log_num_mgm_entry_size,
+ 					 " 10 gives 248.range: 9<=3D"
+ 					 " log_num_mgm_entry_size <=3D 12");
+=20
+-#else /* CONFIG_PCI_IOV */
+-static int sr_iov;
+-#define probe_vf 0
+-int mlx4_log_num_mgm_entry_size =3D 9;
+-#endif /* CONFIG_PCI_IOV */
+-
+ #define MLX4_VF					(1 << 0)
+=20
+ #define HCA_GLOBAL_CAP_MASK	0
+@@ -1732,13 +1724,19 @@ static int __mlx4_init_one(struct pci_de
+=20
+ 		if (sr_iov) {
+ 			mlx4_warn(dev, "Enabling sriov with:%d vfs\n", sr_iov);
+-			if (pci_enable_sriov(pdev, sr_iov)) {
+-				mlx4_err(dev, "Failed to enable sriov, aborting.\n");
+-				goto err_rel_own;
++			err =3D pci_enable_sriov(pdev, sr_iov);
++			if (err) {
++				mlx4_err(dev, "Failed to enable sriov,"
++					 "continuing without sriov enabled"
++					 " (err =3D %d).\n", err);
++				sr_iov =3D 0;
++				err =3D 0;
++			} else {
++				mlx4_warn(dev, "Running in master mode\n");
++				dev->flags |=3D MLX4_FLAG_SRIOV |
++					MLX4_FLAG_MASTER;
++				dev->sr_iov =3D sr_iov;
+ 			}
+-			mlx4_warn(dev, "Running in master mode\n");
+-			dev->flags |=3D MLX4_FLAG_SRIOV | MLX4_FLAG_MASTER;
+-			dev->sr_iov =3D sr_iov;
+ 		}
+=20
+ 		/*
 
-As for your question - in that particular case, assuming no vlan tags
-either, that would be 1514, afaik. You can cover for the rest though
-with tc-stab (and also for other layers, such as atm). Keep in mind,
-that if you don't disable send offloading (usually enabled by default
-these days), qdiscs might be dealing with e.g. massive tcp segments with
-typical side effects.
 
-I'll go through your other questions a bit later.
+- Jack
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
