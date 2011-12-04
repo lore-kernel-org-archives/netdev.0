@@ -1,52 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: tcp_sendmsg() page recycling
-Date: Sun, 04 Dec 2011 18:05:17 +0100
-Message-ID: <1323018317.2762.143.camel@edumazet-laptop>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] tcp: tcp_sendmsg() page recycling
+Date: Sun, 04 Dec 2011 09:20:53 -0800
+Message-ID: <1323019253.1785.7.camel@joe2Laptop>
+References: <1323018317.2762.143.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:61852 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753235Ab1LDRFX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2011 12:05:23 -0500
-Received: by eeaq14 with SMTP id q14so1535634eea.19
-        for <netdev@vger.kernel.org>; Sun, 04 Dec 2011 09:05:22 -0800 (PST)
+Received: from perches-mx.perches.com ([206.117.179.246]:41337 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752155Ab1LDRUz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 Dec 2011 12:20:55 -0500
+In-Reply-To: <1323018317.2762.143.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If our TCP_PAGE(sk) is not shared (page_count() == 1), we can set page
-offset to 0.
+On Sun, 2011-12-04 at 18:05 +0100, Eric Dumazet wrote:
+> If our TCP_PAGE(sk) is not shared (page_count() == 1), we can set page
+> offset to 0.
+[]
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+[]
+> @@ -1009,7 +1009,12 @@ new_segment:
+>  				int merge = 0;
+>  				int i = skb_shinfo(skb)->nr_frags;
+>  				struct page *page = TCP_PAGE(sk);
+> -				int off = TCP_OFF(sk);
+> +				int off;
+> +
+> +				if (page && page_count(page) == 1)
+> +					TCP_OFF(sk) = 0;
+> +
+> +				off = TCP_OFF(sk);
 
-This permits better filling of the pages on small to medium tcp writes.
+This might be clearer and take one less indirection as
 
-"tbench 16" results on my dev server (2x4x2 machine) :
+				if (page && page_count(page) == 1) {
+					TCP_OFF(sk) = 0;
+					off = 0;
+				} else {
+					off = 0;
+				}
 
-Before : 3072 MB/s
-After  : 3146 MB/s  (2.4 % gain)
+or maybe
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/tcp.c |    7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+				if (page && page_count(page) == 1)
+					off = TCP_OFF(sk) = 0;
+				else
+					off = 0;
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 45156be..a09fe25 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1009,7 +1009,12 @@ new_segment:
- 				int merge = 0;
- 				int i = skb_shinfo(skb)->nr_frags;
- 				struct page *page = TCP_PAGE(sk);
--				int off = TCP_OFF(sk);
-+				int off;
-+
-+				if (page && page_count(page) == 1)
-+					TCP_OFF(sk) = 0;
-+
-+				off = TCP_OFF(sk);
- 
- 				if (skb_can_coalesce(skb, i, page, off) &&
- 				    off != PAGE_SIZE) {
+And maybe the TCP_OFF and TCP_PAGE macros should be removed.
