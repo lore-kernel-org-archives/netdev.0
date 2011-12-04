@@ -1,54 +1,52 @@
-From: Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: RE: [PATCH net-next V0 18/21] mlx4_core: adjust catas operation for
- SRIOV mode
-Date: Sun, 4 Dec 2011 15:45:40 +0000
-Message-ID: <D554B471892C914E90E136467281724D235C0A1C@MTLDAG01.mtl.com>
-References: <4ED8A62D.8080008@mellanox.co.il>
- <CAL1RGDWp2fysTgVgSi30X+nf=66fArPRdXUXedbKxKjyHQqidQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: tcp_sendmsg() page recycling
+Date: Sun, 04 Dec 2011 18:05:17 +0100
+Message-ID: <1323018317.2762.143.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org" <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-To: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>,
-	Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAL1RGDWp2fysTgVgSi30X+nf=66fArPRdXUXedbKxKjyHQqidQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:61852 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753235Ab1LDRFX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2011 12:05:23 -0500
+Received: by eeaq14 with SMTP id q14so1535634eea.19
+        for <netdev@vger.kernel.org>; Sun, 04 Dec 2011 09:05:22 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Fri, Dec 2, 2011 at 2:19 AM, Yevgeny Petrilin
-> <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org> wrote:
-> > When running in SRIOV mode, driver should not automatically
-> start/stop
-> > the mlx4_core upon sensing an HCA internal error -- doing this
-> disables/enables
-> > sriov, which will cause the hypervisor to hang if there are running
-> VMs with
-> > attached VFs.
-> 
-> Not sure I understand this -- what happens if the driver doesn't reset
-> the device
-> after a catastrophic error?  Surely all the VFs are pretty screwed at
-> that point?
-> 
-> Which hypervisor are we talking about here anyway?
-> 
->  - R.
+If our TCP_PAGE(sk) is not shared (page_count() == 1), we can set page
+offset to 0.
 
-Indeed, if you don't reset the device after an internal error, the PF/VF might not work properly unless you reload the PF driver.
+This permits better filling of the pages on small to medium tcp writes.
 
-However, invoking the SW reset by the PF (upon detecting an internal error) currently affects the SRIOV capability on the PCI so we cannot do it before disabling SRIOV first.
-Since the driver is not in charge of passing-through VFs to VMs, it cannot disable SRIOV either so we cannot reset the device while using SRIOV.
-Note that the single-function behavior is not modified.
+"tbench 16" results on my dev server (2x4x2 machine) :
 
-We intend to post a fix for this in a different patch-set.
---Liran
+Before : 3072 MB/s
+After  : 3146 MB/s  (2.4 % gain)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/tcp.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 45156be..a09fe25 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1009,7 +1009,12 @@ new_segment:
+ 				int merge = 0;
+ 				int i = skb_shinfo(skb)->nr_frags;
+ 				struct page *page = TCP_PAGE(sk);
+-				int off = TCP_OFF(sk);
++				int off;
++
++				if (page && page_count(page) == 1)
++					TCP_OFF(sk) = 0;
++
++				off = TCP_OFF(sk);
+ 
+ 				if (skb_can_coalesce(skb, i, page, off) &&
+ 				    off != PAGE_SIZE) {
