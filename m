@@ -1,46 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: take care of misalignments
-Date: Sun, 04 Dec 2011 13:21:26 -0500 (EST)
-Message-ID: <20111204.132126.654109006321344175.davem@davemloft.net>
-References: <20111202.163024.1294014889349291295.davem@davemloft.net>
-	<1322924992.2762.117.camel@edumazet-laptop>
-	<1322984393.2762.134.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next] tcp: tcp_sendmsg() page recycling
+Date: Sun, 04 Dec 2011 13:21:34 -0500 (EST)
+Message-ID: <20111204.132134.2286148075037261295.davem@davemloft.net>
+References: <1323018317.2762.143.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: subramanian.vijay@gmail.com, therbert@google.com,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38068 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:38072 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753247Ab1LDSVa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2011 13:21:30 -0500
-In-Reply-To: <1322984393.2762.134.camel@edumazet-laptop>
+	with ESMTP id S1753247Ab1LDSVg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2011 13:21:36 -0500
+In-Reply-To: <1323018317.2762.143.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 04 Dec 2011 08:39:53 +0100
+Date: Sun, 04 Dec 2011 18:05:17 +0100
 
-> [PATCH] tcp: take care of misalignments
+> If our TCP_PAGE(sk) is not shared (page_count() == 1), we can set page
+> offset to 0.
 > 
-> We discovered that TCP stack could retransmit misaligned skbs if a
-> malicious peer acknowledged sub MSS frame. This currently can happen
-> only if output interface is non SG enabled : If SG is enabled, tcp
-> builds headless skbs (all payload is included in fragments), so the tcp
-> trimming process only removes parts of skb fragments, header stay
-> aligned.
+> This permits better filling of the pages on small to medium tcp writes.
 > 
-> Some arches cant handle misalignments, so force a head reallocation and
-> shrink headroom to MAX_TCP_HEADER.
+> "tbench 16" results on my dev server (2x4x2 machine) :
 > 
-> Dont care about misaligments on x86 and PPC (or other arches setting
-> NET_IP_ALIGN to 0)
-> 
-> This patch introduces __pskb_copy() which can specify the headroom of
-> new head, and pskb_copy() becomes a wrapper on top of __pskb_copy()
+> Before : 3072 MB/s
+> After  : 3146 MB/s  (2.4 % gain)
 > 
 > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Looks good, applied.
+Applied.
