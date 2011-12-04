@@ -1,67 +1,41 @@
-From: Jerome Glisse <j.glisse@gmail.com>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Sun, 4 Dec 2011 12:32:00 -0500
-Message-ID: <CAH3drwaZDGSmA=iZzqKzo32QDcdYiUv5A+eM5x+MeKH3uxLt7g@mail.gmail.com>
-References: <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20111121153621.GA1678@x4.trippels.de>
-	<20111123160353.GA1673@x4.trippels.de>
-	<alpine.DEB.2.00.1111231004490.17317@router.home>
-	<20111124085040.GA1677@x4.trippels.de>
-	<20111202230412.GB12057@homer.localdomain>
-	<20111203092845.GA1520@x4.trippels.de>
-	<CAPM=9tyjZc9waC_ZBygW9zh+Zq-Wb1X5Y6yfsCCMPYwpFVWOOg@mail.gmail.com>
-	<20111203122900.GA1617@x4.trippels.de>
-	<CAH3drwZDOpPuQ_G=LwTiNsR5BNyJTNr+VJU74E6nS5AbKyQH0A@mail.gmail.com>
-	<20111204010200.GA1530@x4.trippels.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: tcp_sendmsg() page recycling
+Date: Sun, 04 Dec 2011 18:36:52 +0100
+Message-ID: <1323020212.2762.147.camel@edumazet-laptop>
+References: <1323018317.2762.143.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Dave Airlie <airlied@gmail.com>, Christoph Lameter <cl@linux.com>, "Alex, Shi" <alex.shi@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, dri-devel@lists.freedesktop.org,
-	Pekka Enberg <penberg@kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>, Matt Mackall <mpm@selenic.com>,
-	tj@kernel.org, Alex Deucher <alexander.deucher@amd.com>
-To: Markus Trippelsdorf <markus@trippelsdorf.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20111204010200.GA1530@x4.trippels.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:57918 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755017Ab1LDRg6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2011 12:36:58 -0500
+Received: by eaak14 with SMTP id k14so3646949eaa.19
+        for <netdev@vger.kernel.org>; Sun, 04 Dec 2011 09:36:57 -0800 (PST)
+In-Reply-To: <1323018317.2762.143.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 3, 2011 at 8:02 PM, Markus Trippelsdorf
-<markus@trippelsdorf.de> wrote:
-> On 2011.12.03 at 14:31 -0500, Jerome Glisse wrote:
->> On Sat, Dec 3, 2011 at 7:29 AM, Markus Trippelsdorf
->> <markus@trippelsdorf.de> wrote:
->> > On 2011.12.03 at 12:20 +0000, Dave Airlie wrote:
->> >> >> > > > > FIX idr_layer_cache: Marking all objects used
->> >> >> > > >
->> >> >> > > > Yesterday I couldn't reproduce the issue at all. But today I've hit
->> >> >> > > > exactly the same spot again. (CCing the drm list)
->> >>
->> >> If I had to guess it looks like 0 is getting written back to some
->> >> random page by the GPU maybe, it could be that the GPU is in some half
->> >> setup state at boot or on a reboot does it happen from a cold boot or
->> >> just warm boot or kexec?
->> >
->> > Only happened with kexec thus far. Cold boot seems to be fine.
->> >
->> > --
->> > Markus
->>
->> Can you add radeon.no_wb=1 to your kexec kernel paramater an see if
->> you can reproduce.
->
-> No, I cannot reproduce the issue with radeon.no_wb=1. (I write this
-> after 700 successful kexec iterations...)
->
+Le dimanche 04 d=C3=A9cembre 2011 =C3=A0 18:05 +0100, Eric Dumazet a =C3=
+=A9crit :
+> If our TCP_PAGE(sk) is not shared (page_count() =3D=3D 1), we can set=
+ page
+> offset to 0.
+>=20
+> This permits better filling of the pages on small to medium tcp write=
+s.
+>=20
+> "tbench 16" results on my dev server (2x4x2 machine) :
+>=20
+> Before : 3072 MB/s
+> After  : 3146 MB/s  (2.4 % gain)
 
-Ok so it's GPU writeback will do a patch on monday.
+By the way current linux tree on the same machine gets 2957 MB/s
 
-Cheers,
-Jerome
+So the combination of select_size() patch and this one gives
+a 6.4 % gain.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Definitely worth the pain, isnt it ?
