@@ -1,40 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: r8169 performance?
-Date: Sun, 04 Dec 2011 22:50:02 +0100
-Message-ID: <1323035402.2762.189.camel@edumazet-laptop>
-References: <20111204211007.GA32098@hiwaay.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH -next 0/4] netfilter reverse path filter matches
+Date: Sun, 4 Dec 2011 22:51:50 +0100
+Message-ID: <20111204215150.GA28125@1984>
+References: <1320877188-1972-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Chris Adams <cmadams@hiwaay.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:49076 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754269Ab1LDVuH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2011 16:50:07 -0500
-Received: by eaak14 with SMTP id k14so3707787eaa.19
-        for <netdev@vger.kernel.org>; Sun, 04 Dec 2011 13:50:06 -0800 (PST)
-In-Reply-To: <20111204211007.GA32098@hiwaay.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	laforge@netfilter.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1320877188-1972-1-git-send-email-fw@strlen.de>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le dimanche 04 d=C3=A9cembre 2011 =C3=A0 15:10 -0600, Chris Adams a =C3=
-=A9crit :
-> I have a system with an on-board RealTek gigabit network interface th=
-at
-> is giving me poor performance.  I'm using a simple test, running "nc =
--l"
-> on one system and "dd if=3D/dev/zero | nc" on another.  I see about 2=
-80
-> Mbps transmit and 511 Mbps receive.
+Hi Florian,
 
+On Wed, Nov 09, 2011 at 11:19:44PM +0100, Florian Westphal wrote:
+> Userspace part is stored in my iptables repository on
+> http://git.breakpoint.cc/cgi-bin/gitweb.cgi?p=fw/iptables.git (branch 'xt_rpfilter_9').
 
-Do you mean that if this problematic NIC is the receiver, it receives
-280Mbps, and if it is the sender, speed is 511 Mbps ?
+I have taken this into iptables, now it is available in the rpfilter
+branch.
 
-Could you check counters ? =20
+One inquiry, I need to know copyright / license details for this
+extensions/libxt_rpfilter.c
 
-netstat -s
-ethtool -S ethX
-cat /proc/net/softnet_stat
+I remember that Harald insisted that having one copyright notice per
+.c file is a good practise (even if this doesn't seem to happen in
+other iptables extensions files).
+
+No need to resend the patch, I can ammend the patch with the copyright
+/ licensing header.
+
+See extensions/libxt_cluster.c for reference.
+
+> Kernel patches are located in the 'xt_rpfilter_9' branch on
+> http://git.breakpoint.cc/cgi-bin/gitweb.cgi?p=fw/nf-next.git.
+
+Applied to my nf-next tree.
+
+http://1984.lsi.us.es/git/net-next/
+
+thanks Florian.
