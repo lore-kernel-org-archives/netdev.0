@@ -1,54 +1,67 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] tcp: tcp_sendmsg() page recycling
-Date: Sun, 04 Dec 2011 09:20:53 -0800
-Message-ID: <1323019253.1785.7.camel@joe2Laptop>
-References: <1323018317.2762.143.camel@edumazet-laptop>
+From: Jerome Glisse <j.glisse@gmail.com>
+Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+Date: Sun, 4 Dec 2011 12:32:00 -0500
+Message-ID: <CAH3drwaZDGSmA=iZzqKzo32QDcdYiUv5A+eM5x+MeKH3uxLt7g@mail.gmail.com>
+References: <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20111121153621.GA1678@x4.trippels.de>
+	<20111123160353.GA1673@x4.trippels.de>
+	<alpine.DEB.2.00.1111231004490.17317@router.home>
+	<20111124085040.GA1677@x4.trippels.de>
+	<20111202230412.GB12057@homer.localdomain>
+	<20111203092845.GA1520@x4.trippels.de>
+	<CAPM=9tyjZc9waC_ZBygW9zh+Zq-Wb1X5Y6yfsCCMPYwpFVWOOg@mail.gmail.com>
+	<20111203122900.GA1617@x4.trippels.de>
+	<CAH3drwZDOpPuQ_G=LwTiNsR5BNyJTNr+VJU74E6nS5AbKyQH0A@mail.gmail.com>
+	<20111204010200.GA1530@x4.trippels.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:41337 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752155Ab1LDRUz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Dec 2011 12:20:55 -0500
-In-Reply-To: <1323018317.2762.143.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Dave Airlie <airlied@gmail.com>, Christoph Lameter <cl@linux.com>, "Alex, Shi" <alex.shi@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, dri-devel@lists.freedesktop.org,
+	Pekka Enberg <penberg@kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>, Matt Mackall <mpm@selenic.com>,
+	tj@kernel.org, Alex Deucher <alexander.deucher@amd.com>
+To: Markus Trippelsdorf <markus@trippelsdorf.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20111204010200.GA1530@x4.trippels.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2011-12-04 at 18:05 +0100, Eric Dumazet wrote:
-> If our TCP_PAGE(sk) is not shared (page_count() == 1), we can set page
-> offset to 0.
-[]
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-[]
-> @@ -1009,7 +1009,12 @@ new_segment:
->  				int merge = 0;
->  				int i = skb_shinfo(skb)->nr_frags;
->  				struct page *page = TCP_PAGE(sk);
-> -				int off = TCP_OFF(sk);
-> +				int off;
-> +
-> +				if (page && page_count(page) == 1)
-> +					TCP_OFF(sk) = 0;
-> +
-> +				off = TCP_OFF(sk);
+On Sat, Dec 3, 2011 at 8:02 PM, Markus Trippelsdorf
+<markus@trippelsdorf.de> wrote:
+> On 2011.12.03 at 14:31 -0500, Jerome Glisse wrote:
+>> On Sat, Dec 3, 2011 at 7:29 AM, Markus Trippelsdorf
+>> <markus@trippelsdorf.de> wrote:
+>> > On 2011.12.03 at 12:20 +0000, Dave Airlie wrote:
+>> >> >> > > > > FIX idr_layer_cache: Marking all objects used
+>> >> >> > > >
+>> >> >> > > > Yesterday I couldn't reproduce the issue at all. But today I've hit
+>> >> >> > > > exactly the same spot again. (CCing the drm list)
+>> >>
+>> >> If I had to guess it looks like 0 is getting written back to some
+>> >> random page by the GPU maybe, it could be that the GPU is in some half
+>> >> setup state at boot or on a reboot does it happen from a cold boot or
+>> >> just warm boot or kexec?
+>> >
+>> > Only happened with kexec thus far. Cold boot seems to be fine.
+>> >
+>> > --
+>> > Markus
+>>
+>> Can you add radeon.no_wb=1 to your kexec kernel paramater an see if
+>> you can reproduce.
+>
+> No, I cannot reproduce the issue with radeon.no_wb=1. (I write this
+> after 700 successful kexec iterations...)
+>
 
-This might be clearer and take one less indirection as
+Ok so it's GPU writeback will do a patch on monday.
 
-				if (page && page_count(page) == 1) {
-					TCP_OFF(sk) = 0;
-					off = 0;
-				} else {
-					off = 0;
-				}
+Cheers,
+Jerome
 
-or maybe
-
-				if (page && page_count(page) == 1)
-					off = TCP_OFF(sk) = 0;
-				else
-					off = 0;
-
-And maybe the TCP_OFF and TCP_PAGE macros should be removed.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
