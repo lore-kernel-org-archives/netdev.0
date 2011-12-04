@@ -1,55 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next 2/4] caif: Add support for CAIF over CDC NCM
- USB interface
-Date: Sun, 04 Dec 2011 13:18:36 -0500 (EST)
-Message-ID: <20111204.131836.231887333540568891.davem@davemloft.net>
-References: <1322993450-8802-1-git-send-email-sjur.brandeland@stericsson.com>
-	<1322993450-8802-3-git-send-email-sjur.brandeland@stericsson.com>
+Subject: Re: [PATCH] tcp: take care of misalignments
+Date: Sun, 04 Dec 2011 13:21:26 -0500 (EST)
+Message-ID: <20111204.132126.654109006321344175.davem@davemloft.net>
+References: <20111202.163024.1294014889349291295.davem@davemloft.net>
+	<1322924992.2762.117.camel@edumazet-laptop>
+	<1322984393.2762.134.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, alexey.orishko@stericsson.com,
-	eric.dumazet@gmail.com
-To: sjur.brandeland@stericsson.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: subramanian.vijay@gmail.com, therbert@google.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38056 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:38068 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754614Ab1LDSSn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2011 13:18:43 -0500
-In-Reply-To: <1322993450-8802-3-git-send-email-sjur.brandeland@stericsson.com>
+	with ESMTP id S1753247Ab1LDSVa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2011 13:21:30 -0500
+In-Reply-To: <1322984393.2762.134.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
-Date: Sun,  4 Dec 2011 11:10:48 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 04 Dec 2011 08:39:53 +0100
 
-> NCM 1.0 does not support anything but Ethernet framing, hence
-> CAIF payload will be put into Ethernet frames.
->=20
-> Discovery is based on fixed USB vendor 0x04cc (ST-Ericsson),
-> product-id 0x230f (NCM). In this variant only CAIF payload is sent ov=
-er
-> the NCM interface.
->=20
-> The CAIF stack (cfusbl.c) will when USB interface register first chec=
-k if
-> we got a CDC NCM USB interface with the right VID, PID.
-> It will then read the device's Ethernet address and create a 'templat=
-e'
-> Ethernet TX header, using a broadcast address as the destination addr=
-ess,
-> and EthType 0x88b5 (802.1 Local Experimental - vendor specific).
->=20
-> A protocol handler for 0x88b5 is setup for reception of CAIF frames f=
-rom
-> the CDC NCM USB interface.
->=20
-> Signed-off-by: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
+> [PATCH] tcp: take care of misalignments
+> 
+> We discovered that TCP stack could retransmit misaligned skbs if a
+> malicious peer acknowledged sub MSS frame. This currently can happen
+> only if output interface is non SG enabled : If SG is enabled, tcp
+> builds headless skbs (all payload is included in fragments), so the tcp
+> trimming process only removes parts of skb fragments, header stay
+> aligned.
+> 
+> Some arches cant handle misalignments, so force a head reallocation and
+> shrink headroom to MAX_TCP_HEADER.
+> 
+> Dont care about misaligments on x86 and PPC (or other arches setting
+> NET_IP_ALIGN to 0)
+> 
+> This patch introduces __pskb_copy() which can specify the headroom of
+> new head, and pskb_copy() becomes a wrapper on top of __pskb_copy()
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Please make this feature a tristate and make the init and exit
-routines executed via the normal modula_init()/module_exit()
-mechanisms.
-
-That way you don't need that dopey header file to export the
-init and exit routines, and you don't need to ifdef crap up the
-code CAIF code to invoke them.
+Looks good, applied.
