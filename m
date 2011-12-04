@@ -1,46 +1,46 @@
-From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-Subject: [PATCHv2 net-next 0/4] caif: CAIF for CDC NCM USB
-Date: Sun,  4 Dec 2011 11:10:46 +0100
-Message-ID: <1322993450-8802-1-git-send-email-sjur.brandeland@stericsson.com>
+From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: RE: [PATCH net-next V0 03/21] mlx4_core: Add "native" argument to
+ mlx4_cmd and its callers (where needed)
+Date: Sun, 4 Dec 2011 10:43:51 +0000
+Message-ID: <953B660C027164448AE903364AC447D22362736D@MTLDAG01.mtl.com>
+References: <4ED8A591.2070705@mellanox.co.il>
+ <CAL1RGDXh0-v075fdxvoA=sL0vOq1ncouNNH5v3y7QFHJmnnQEA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey Orishko <alexey.orishko@stericsson.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:57725 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752128Ab1LDKLI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2011 05:11:08 -0500
-Received: by eeaq14 with SMTP id q14so1458926eea.19
-        for <netdev@vger.kernel.org>; Sun, 04 Dec 2011 02:11:06 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org" <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+To: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAL1RGDXh0-v075fdxvoA=sL0vOq1ncouNNH5v3y7QFHJmnnQEA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
-
-Here's a new version of CAIF NCM patches. Patch 1-2 make sense to apply
-even without patch 3-4. I reworked locking in patch-3 and added patch-4
-based on review comments from Eric.
-
-Thanks,
-Sjur Br=C3=A6ndeland
-
-Sjur Br=C3=A6ndeland (4):
-  if_ether.h: Add IEEE 802.1 Local Experimental Ethertype 1.
-  caif: Add support for CAIF over CDC NCM USB interface
-  caif: Add support for flow-control on device's tx-queue
-  caif: Stash away hijacked skb destructor and call it later
-
- include/linux/if_ether.h  |    1 +
- include/net/caif/cfusbl.h |   13 +++
- net/caif/Kconfig          |   11 +++
- net/caif/Makefile         |    4 +-
- net/caif/caif_dev.c       |  124 ++++++++++++++++++++++++++++-
- net/caif/cfusbl.c         |  199 +++++++++++++++++++++++++++++++++++++=
-++++++++
- 6 files changed, 350 insertions(+), 2 deletions(-)
- create mode 100644 include/net/caif/cfusbl.h
- create mode 100644 net/caif/cfusbl.c
+> > =A0 =A0 =A0 =A0return mlx4_cmd(dev, limit_watermark, srq_num, 0, ML=
+X4_CMD_ARM_SRQ,
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 MLX4_CMD_TIME_CLASS_B=
+);
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 MLX4_CMD_TIME_CLASS_B=
+, 0);
+>=20
+> Instead of a 0 or 1 for the native parameter, can we define something=
+ like
+>=20
+> enum {
+>            MLX4_CMD_NATIVE,
+>            MLX4_CMD_WRAPPED
+> };
+>=20
+> so that all these calls become easier to read?
+=20
+Agree,
+We will change this for next round.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
