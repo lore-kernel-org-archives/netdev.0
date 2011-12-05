@@ -1,57 +1,37 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] drivers/net/usb/asix:  resync from vendor's copy
-Date: Mon, 5 Dec 2011 15:18:55 +0000
-Message-ID: <1323098335.7454.214.camel@deadeye>
-References: <4EA89972.5060101@teksavvy.com>
-	  <20111026.194045.2019668159403582571.davem@davemloft.net>
-	  <4EA8B283.3010105@teksavvy.com>
-	  <20111026.221719.2216112919297458522.davem@davemloft.net>
-	  <4EB19BBE.5050602@teksavvy.com> <1320266549.2782.21.camel@bwh-desktop>
-	  <4EBAA967.10403@teksavvy.com> <1320856444.18929.78.camel@deadeye>
-	  <4EBAAEA5.1060408@teksavvy.com> <4EBAB0EA.1050102@teksavvy.com>
-	  <4EBAB643.8020603@teksavvy.com> <1320859911.2781.1.camel@bwh-desktop>
-	  <4EBABAFD.6050604@teksavvy.com> <1320860895.2781.6.camel@bwh-desktop>
-	 <4EDCD828.2090904@teksavvy.com>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: Re: [PATCH v3 2/2] ARM: at91/net: add macb ethernet controller in
+ 9g45 DT
+Date: Mon, 5 Dec 2011 16:25:16 +0100
+Message-ID: <20111205152516.GD9192@game.jcrosoft.org>
+References: <714ca7492d8d45b50eab34448c4b70933ce5701c.1323086095.git.nicolas.ferre@atmel.com>
+ <1ec7a786c94564a9b15a61239f41a2a3fba8578a.1323086095.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Mark Lord <kernel@teksavvy.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4EDCD828.2090904@teksavvy.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+ linux-kernel@vger.kernel.org, grant.likely@secretlab.ca, jamie@jamieiles.com,
+ linux-arm-kernel@lists.infradead.org
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1ec7a786c94564a9b15a61239f41a2a3fba8578a.1323086095.git.nicolas.ferre@atmel.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-12-05 at 09:41 -0500, Mark Lord wrote:
-[...]
-> static int ax88772b_bind(struct usbnet *dev, struct usb_interface *intf)
-> {
-> ...
->         /* register support for hardware checksums */
->         dev->net->hw_features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
+On 12:59 Mon 05 Dec     , Nicolas Ferre wrote:
+> Add the Cadence macb ethernet controller in at91sam9g45 .dtsi and
+> enable it in at91sam9m10g45ek board device tree file.
 > 
->         /* enable hardware checksums */
->         dev->net->features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
->         ax88772b_set_features(dev->net, dev->net->features);
-> ...
-> }
-> -------------------------------snip-----------------------------------
-> 
-> Does this look correct -- any improvements/fixes to suggest?
-[...]
+> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+Acked-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
 
-NETIF_F_HW_CSUM means the hardware implements generic IP-style
-checksumming: the stack specifies the offset at which to start
-checksumming and the offset at which to store the checksum, and the
-hardware does not attempt to parse the headers.
-
-If this hardware recognises specific protocols and works out the offsets
-itself, then you must claim NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM instead.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Best Regards,
+J.
