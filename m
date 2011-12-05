@@ -1,153 +1,108 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/6] ixgbe: DCBnl set_all, order of operations fix
-Date: Mon,  5 Dec 2011 00:20:39 -0800
-Message-ID: <1323073241-21144-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/6] e1000e: Avoid wrong check on TX hang
+Date: Mon,  5 Dec 2011 00:20:36 -0800
+Message-ID: <1323073241-21144-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1323073241-21144-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Michael Wang <wangyun@linux.vnet.ibm.com>,
+	Flavio Leitner <fbl@redhat.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:55396 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753424Ab1LEIUs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Dec 2011 03:20:48 -0500
+	id S1752396Ab1LEIUp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Dec 2011 03:20:45 -0500
 In-Reply-To: <1323073241-21144-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+Based on the original patch submitted my Michael Wang
+<wangyun@linux.vnet.ibm.com>.
+Descriptors may not be write-back while checking TX hang with flag
+FLAG2_DMA_BURST on.
+So when we detect hang, we just flush the descriptor and detect
+again for once.
 
-The order of operations is important in DCBnl set_all(). When FCoE
-is configured it uses the up2tc map to learn which queues to configure
-the hardware offloads on. Therefore we need to setup the map before
-configuring FCoE.
+-v2 change 1 to true and 0 to false and remove extra ()
 
-This is only seen when the both up2tc mappings and APP info are
-configured simultaneously.
-
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+CC: Michael Wang <wangyun@linux.vnet.ibm.com>
+CC: Flavio Leitner <fbl@redhat.com>
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |   77 +++++++++--------------
- 1 files changed, 29 insertions(+), 48 deletions(-)
+ drivers/net/ethernet/intel/e1000e/e1000.h  |    1 +
+ drivers/net/ethernet/intel/e1000e/netdev.c |   23 ++++++++++++++++++++---
+ 2 files changed, 21 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-index 33b93ff..8c056c0 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-@@ -309,6 +309,27 @@ static void ixgbe_dcbnl_get_pfc_cfg(struct net_device *netdev, int priority,
- 	*setting = adapter->dcb_cfg.tc_config[priority].dcb_pfc;
- }
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index 9fe18d1..f478a22 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -309,6 +309,7 @@ struct e1000_adapter {
+ 	u32 txd_cmd;
  
-+#ifdef IXGBE_FCOE
-+static void ixgbe_dcbnl_devreset(struct net_device *dev)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(dev);
-+
-+	while (test_and_set_bit(__IXGBE_RESETTING, &adapter->state))
-+		usleep_range(1000, 2000);
-+
-+	if (netif_running(dev))
-+		dev->netdev_ops->ndo_stop(dev);
-+
-+	ixgbe_clear_interrupt_scheme(adapter);
-+	ixgbe_init_interrupt_scheme(adapter);
-+
-+	if (netif_running(dev))
-+		dev->netdev_ops->ndo_open(dev);
-+
-+	clear_bit(__IXGBE_RESETTING, &adapter->state);
-+}
-+#endif
-+
- static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-@@ -338,27 +359,6 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- 	if (ret)
- 		return DCB_NO_HW_CHG;
+ 	bool detect_tx_hung;
++	bool tx_hang_recheck;
+ 	u8 tx_timeout_factor;
  
--#ifdef IXGBE_FCOE
--	if (up && !(up & (1 << adapter->fcoe.up)))
--		adapter->dcb_set_bitmap |= BIT_APP_UPCHG;
--
--	/*
--	 * Only take down the adapter if an app change occurred. FCoE
--	 * may shuffle tx rings in this case and this can not be done
--	 * without a reset currently.
--	 */
--	if (adapter->dcb_set_bitmap & BIT_APP_UPCHG) {
--		while (test_and_set_bit(__IXGBE_RESETTING, &adapter->state))
--			usleep_range(1000, 2000);
--
--		adapter->fcoe.up = ffs(up) - 1;
--
--		if (netif_running(netdev))
--			netdev->netdev_ops->ndo_stop(netdev);
--		ixgbe_clear_interrupt_scheme(adapter);
--	}
--#endif
--
- 	if (adapter->dcb_cfg.pfc_mode_enable) {
- 		switch (adapter->hw.mac.type) {
- 		case ixgbe_mac_82599EB:
-@@ -385,15 +385,6 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- 		}
- 	}
+ 	u32 tx_int_delay;
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index c6e9763..c12df69 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1014,6 +1014,7 @@ static void e1000_print_hw_hang(struct work_struct *work)
+ 	struct e1000_adapter *adapter = container_of(work,
+ 	                                             struct e1000_adapter,
+ 	                                             print_hang_task);
++	struct net_device *netdev = adapter->netdev;
+ 	struct e1000_ring *tx_ring = adapter->tx_ring;
+ 	unsigned int i = tx_ring->next_to_clean;
+ 	unsigned int eop = tx_ring->buffer_info[i].next_to_watch;
+@@ -1025,6 +1026,21 @@ static void e1000_print_hw_hang(struct work_struct *work)
+ 	if (test_bit(__E1000_DOWN, &adapter->state))
+ 		return;
  
--#ifdef IXGBE_FCOE
--	if (adapter->dcb_set_bitmap & BIT_APP_UPCHG) {
--		ixgbe_init_interrupt_scheme(adapter);
--		if (netif_running(netdev))
--			netdev->netdev_ops->ndo_open(netdev);
--		ret = DCB_HW_CHG_RST;
--	}
--#endif
--
- 	if (adapter->dcb_set_bitmap & (BIT_PG_TX|BIT_PG_RX)) {
- 		u16 refill[MAX_TRAFFIC_CLASS], max[MAX_TRAFFIC_CLASS];
- 		u8 bwg_id[MAX_TRAFFIC_CLASS], prio_type[MAX_TRAFFIC_CLASS];
-@@ -442,8 +433,14 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- 	if (adapter->dcb_cfg.pfc_mode_enable)
- 		adapter->hw.fc.current_mode = ixgbe_fc_pfc;
- 
--	if (adapter->dcb_set_bitmap & BIT_APP_UPCHG)
--		clear_bit(__IXGBE_RESETTING, &adapter->state);
-+#ifdef IXGBE_FCOE
-+	if (up && !(up & (1 << adapter->fcoe.up))) {
-+		adapter->fcoe.up = ffs(up) - 1;
-+		ixgbe_dcbnl_devreset(netdev);
-+		ret = DCB_HW_CHG_RST;
++	if (!adapter->tx_hang_recheck &&
++	    (adapter->flags2 & FLAG2_DMA_BURST)) {
++		/* May be block on write-back, flush and detect again
++		 * flush pending descriptor writebacks to memory
++		 */
++		ew32(TIDV, adapter->tx_int_delay | E1000_TIDV_FPD);
++		/* execute the writes immediately */
++		e1e_flush();
++		adapter->tx_hang_recheck = true;
++		return;
 +	}
-+#endif
++	/* Real hang detected */
++	adapter->tx_hang_recheck = false;
++	netif_stop_queue(netdev);
 +
- 	adapter->dcb_set_bitmap = 0x00;
- 	return ret;
- }
-@@ -661,22 +658,6 @@ static int ixgbe_dcbnl_ieee_setpfc(struct net_device *dev,
- 	return ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc->pfc_en, prio_tc);
- }
+ 	e1e_rphy(hw, PHY_STATUS, &phy_status);
+ 	e1e_rphy(hw, PHY_1000T_STATUS, &phy_1000t_status);
+ 	e1e_rphy(hw, PHY_EXT_STATUS, &phy_ext_status);
+@@ -1145,10 +1161,10 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter)
+ 		if (tx_ring->buffer_info[i].time_stamp &&
+ 		    time_after(jiffies, tx_ring->buffer_info[i].time_stamp
+ 			       + (adapter->tx_timeout_factor * HZ)) &&
+-		    !(er32(STATUS) & E1000_STATUS_TXOFF)) {
++		    !(er32(STATUS) & E1000_STATUS_TXOFF))
+ 			schedule_work(&adapter->print_hang_task);
+-			netif_stop_queue(netdev);
+-		}
++		else
++			adapter->tx_hang_recheck = false;
+ 	}
+ 	adapter->total_tx_bytes += total_tx_bytes;
+ 	adapter->total_tx_packets += total_tx_packets;
+@@ -3838,6 +3854,7 @@ static int e1000_open(struct net_device *netdev)
  
--#ifdef IXGBE_FCOE
--static void ixgbe_dcbnl_devreset(struct net_device *dev)
--{
--	struct ixgbe_adapter *adapter = netdev_priv(dev);
--
--	if (netif_running(dev))
--		dev->netdev_ops->ndo_stop(dev);
--
--	ixgbe_clear_interrupt_scheme(adapter);
--	ixgbe_init_interrupt_scheme(adapter);
--
--	if (netif_running(dev))
--		dev->netdev_ops->ndo_open(dev);
--}
--#endif
--
- static int ixgbe_dcbnl_ieee_setapp(struct net_device *dev,
- 				   struct dcb_app *app)
- {
+ 	e1000_irq_enable(adapter);
+ 
++	adapter->tx_hang_recheck = false;
+ 	netif_start_queue(netdev);
+ 
+ 	adapter->idle_check = true;
 -- 
 1.7.6.4
