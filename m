@@ -1,37 +1,40 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: Re: [PATCH v3 2/2] ARM: at91/net: add macb ethernet controller in
- 9g45 DT
-Date: Mon, 5 Dec 2011 16:25:16 +0100
-Message-ID: <20111205152516.GD9192@game.jcrosoft.org>
-References: <714ca7492d8d45b50eab34448c4b70933ce5701c.1323086095.git.nicolas.ferre@atmel.com>
- <1ec7a786c94564a9b15a61239f41a2a3fba8578a.1323086095.git.nicolas.ferre@atmel.com>
+From: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont" <remi@remlab.net>
+Subject: Re: [RFC 2/3] if_ether.h: Add IEEE 802.1 Local Experimental Ethertype 1.
+Date: Mon, 5 Dec 2011 17:46:14 +0200
+Message-ID: <201112051746.18180.remi@remlab.net>
+References: <1322685846-7790-1-git-send-email-sjur.brandeland@stericsson.com> <ff290c739be323dec89d19ed905feb94@chewa.net> <CAJK669ZhM_KSOd0MS7jTVvJ16KqNzPCj-Ns1ytN5NPg5PxgoOQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
- linux-kernel@vger.kernel.org, grant.likely@secretlab.ca, jamie@jamieiles.com,
- linux-arm-kernel@lists.infradead.org
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1ec7a786c94564a9b15a61239f41a2a3fba8578a.1323086095.git.nicolas.ferre@atmel.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Alexey Orishko <alexey.orishko@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Sjur =?utf-8?q?Br=C3=A6ndeland?= <sjurbren@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yop.chewa.net ([91.121.105.214]:38725 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932348Ab1LEPqW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2011 10:46:22 -0500
+In-Reply-To: <CAJK669ZhM_KSOd0MS7jTVvJ16KqNzPCj-Ns1ytN5NPg5PxgoOQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12:59 Mon 05 Dec     , Nicolas Ferre wrote:
-> Add the Cadence macb ethernet controller in at91sam9g45 .dtsi and
-> enable it in at91sam9m10g45ek board device tree file.
-> 
-> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-Acked-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Le lundi 5 d=C3=A9cembre 2011 16:33:50 Sjur Br=C3=A6ndeland, vous avez =
+=C3=A9crit :
+> Hi R=C3=A9mi,
+>=20
+> > It's even weirder then. If you have control over both ends and the =
+NCM
+> > 1.0 interface is not adequate, then you really should use your own =
+CDC
+> > class for the purpose.
+>=20
+> The reason we use NCM is performance: CDC normally gives less than 10=
+0Mbps,
+> while NCM can give you up to 200Mbps.
 
-Best Regards,
-J.
+NCM is a sub-profile of CDC, so that statement makes no sense to me.
+
+--=20
+R=C3=A9mi Denis-Courmont
+http://www.remlab.net/
+http://fi.linkedin.com/in/remidenis
