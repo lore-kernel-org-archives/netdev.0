@@ -1,140 +1,63 @@
-From: Zhi Yong Wu <zwu.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [GIT PULL v3] Open vSwitch
-Date: Mon, 5 Dec 2011 11:32:21 +0800
-Message-ID: <CAEH94LiXLAKFWkDG5VBo80rFTfXMnxn1=2aEb5qOieBUnoYRyA@mail.gmail.com>
-References: <1322937531-8071-1-git-send-email-jesse@nicira.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the net-next tree with the  tree
+Date: Mon, 5 Dec 2011 15:34:16 +1100
+Message-ID: <20111205153416.e1dd01e5368ce7c016d99a59@canb.auug.org.au>
+References: <20111205123428.47213da24624d85aa84711f3@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1322937531-8071-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Mon__5_Dec_2011_15_34_16_+1100_/ssrxf6Sk90=A5NQ"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Wey-Yi Guy" <wey-yi.w.guy@intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes.berg@intel.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20111205123428.47213da24624d85aa84711f3@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Although this series of patchset is a bit large, therefore their codes
-aren't directly pasted here, but if anyone find some issues in the
-codes, how will we point out them?
+--Signature=_Mon__5_Dec_2011_15_34_16_+1100_/ssrxf6Sk90=A5NQ
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On Sun, Dec 4, 2011 at 2:38 AM, Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org> wrote:
-> This series of patches proposes the Open vSwitch kernel components for
-> upstream. =A0Open vSwitch has existed as a separate project for several
-> years and we now believe it to be mature enough for inclusion. =A0The
-> actual functionality is described more fully in the commit that adds
-> the kernel code.
+On Mon, 5 Dec 2011 12:34:28 +1100 Stephen Rothwell <sfr@canb.auug.org.au> w=
+rote:
 >
-> The following changes since commit 340e8dc1fb4032b6c8334c9bff20b2aec42ecf=
-d8:
->
-> =A0atm: clip: Remove code commented out since eternity. (2011-12-02 14:27=
-:11 -0500)
->
-> are available in the git repository at:
-> =A0git://git.kernel.org/pub/scm/linux/kernel/git/jesse/openvswitch.git fo=
-r-upstream
->
-> Jesse Gross (3):
-> =A0 =A0 =A0genetlink: Add rcu_dereference_genl and genl_dereference.
-> =A0 =A0 =A0ipv6: Add fragment reporting to ipv6_skip_exthdr().
-> =A0 =A0 =A0net: Add Open vSwitch kernel components.
->
-> Pravin B Shelar (3):
-> =A0 =A0 =A0genetlink: Add genl_notify()
-> =A0 =A0 =A0genetlink: Add lockdep_genl_is_held().
-> =A0 =A0 =A0vlan: Move vlan_set_encap_proto() to vlan header file
->
-> =A0Documentation/networking/00-INDEX =A0 =A0 =A0 =A0| =A0 =A02 +
-> =A0Documentation/networking/openvswitch.txt | =A0195 +++
-> =A0MAINTAINERS =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0| =A0 =A08 +
-> =A0include/linux/genetlink.h =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 24 +
-> =A0include/linux/if_vlan.h =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 34 +
-> =A0include/linux/openvswitch.h =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0452 +++++++
-> =A0include/net/genetlink.h =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 =A02 +
-> =A0include/net/ipv6.h =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =
-=A02 +-
-> =A0net/8021q/vlan_core.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 33 -
-> =A0net/Kconfig =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0| =A0 =A01 +
-> =A0net/Makefile =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 |=
- =A0 =A01 +
-> =A0net/bridge/br_multicast.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 =A03 +-
-> =A0net/bridge/netfilter/ebt_ip6.c =A0 =A0 =A0 =A0 =A0 | =A0 =A03 +-
-> =A0net/bridge/netfilter/ebt_log.c =A0 =A0 =A0 =A0 =A0 | =A0 =A03 +-
-> =A0net/ipv6/exthdrs_core.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 11 +-
-> =A0net/ipv6/icmp.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =
-=A0 =A07 +-
-> =A0net/ipv6/ip6_input.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A0=
-3 +-
-> =A0net/ipv6/ip6_output.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 =A0=
-3 +-
-> =A0net/ipv6/netfilter/ip6t_REJECT.c =A0 =A0 =A0 =A0 | =A0 =A03 +-
-> =A0net/netfilter/ipset/ip_set_getport.c =A0 =A0 | =A0 =A04 +-
-> =A0net/netfilter/xt_AUDIT.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A03 +-
-> =A0net/netfilter/xt_TCPMSS.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 =A03 +-
-> =A0net/netfilter/xt_TCPOPTSTRIP.c =A0 =A0 =A0 =A0 =A0 | =A0 =A03 +-
-> =A0net/netfilter/xt_hashlimit.c =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A03 +-
-> =A0net/netfilter/xt_socket.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 =A04 +-
-> =A0net/netlink/genetlink.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 21 +
-> =A0net/openvswitch/Kconfig =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 28 +
-> =A0net/openvswitch/Makefile =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 14 +
-> =A0net/openvswitch/actions.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0415 ++++=
-+++
-> =A0net/openvswitch/datapath.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 | 1912 ++++++++=
-++++++++++++++++++++++
-> =A0net/openvswitch/datapath.h =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0125 ++
-> =A0net/openvswitch/dp_notify.c =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 66 +
-> =A0net/openvswitch/flow.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | 1346 ++++=
-+++++++++++++++++
-> =A0net/openvswitch/flow.h =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0199 ++=
-++
-> =A0net/openvswitch/vport-internal_dev.c =A0 =A0 | =A0241 ++++
-> =A0net/openvswitch/vport-internal_dev.h =A0 =A0 | =A0 28 +
-> =A0net/openvswitch/vport-netdev.c =A0 =A0 =A0 =A0 =A0 | =A0198 +++
-> =A0net/openvswitch/vport-netdev.h =A0 =A0 =A0 =A0 =A0 | =A0 42 +
-> =A0net/openvswitch/vport.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0396 ++=
-++++
-> =A0net/openvswitch/vport.h =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0205 ++=
-++
-> =A0security/lsm_audit.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A0=
-3 +-
-> =A0security/selinux/hooks.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A03 +-
-> =A042 files changed, 6000 insertions(+), 52 deletions(-)
-> =A0create mode 100644 Documentation/networking/openvswitch.txt
-> =A0create mode 100644 include/linux/openvswitch.h
-> =A0create mode 100644 net/openvswitch/Kconfig
-> =A0create mode 100644 net/openvswitch/Makefile
-> =A0create mode 100644 net/openvswitch/actions.c
-> =A0create mode 100644 net/openvswitch/datapath.c
-> =A0create mode 100644 net/openvswitch/datapath.h
-> =A0create mode 100644 net/openvswitch/dp_notify.c
-> =A0create mode 100644 net/openvswitch/flow.c
-> =A0create mode 100644 net/openvswitch/flow.h
-> =A0create mode 100644 net/openvswitch/vport-internal_dev.c
-> =A0create mode 100644 net/openvswitch/vport-internal_dev.h
-> =A0create mode 100644 net/openvswitch/vport-netdev.c
-> =A0create mode 100644 net/openvswitch/vport-netdev.h
-> =A0create mode 100644 net/openvswitch/vport.c
-> =A0create mode 100644 net/openvswitch/vport.h
-> _______________________________________________
-> dev mailing list
-> dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-> http://openvswitch.org/mailman/listinfo/dev
+> Today's linux-next merge of the net-next tree got a conflict in
+> drivers/net/wireless/iwlwifi/iwl-agn.c between commits from the
 
+wireless (sorry)
 
+> tree and commit 7335613ae27a ("iwlwifi: move all mac80211 related
+> functions to one place") from the net-next tree.
+>=20
+> I just used the net-next version (which may require some fixes).
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
--- =
+--Signature=_Mon__5_Dec_2011_15_34_16_+1100_/ssrxf6Sk90=A5NQ
+Content-Type: application/pgp-signature
 
-Regards,
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-Zhi Yong Wu
+iQIcBAEBCAAGBQJO3EnIAAoJEECxmPOUX5FEjYEQAJHa2ESHSmXpnrfwmJqEco0O
+pk2qM80T3xYeQfNIG15c+/iqJy1vLELesLpIckODM38/8FpQjBtd4orDB13VvCkQ
+kAlXDTm6JHA5YG9DQI6FkpckkfQaUQ42uzr1NAUcGOLTGSZdbEkZoLqtnt2HAorc
+ppVz+EbL8/WK5SevtwVP2qbspq/GFnIPw8129Dnpz1gBr/TKslGYz0obDTxm3B3e
+eMyz+jjkF8vg6dKJ674zpdzHek5v1tPaLmfl8azgY8k6V5yfpyEsr5bin7XjrzD+
+d9zQJpGU/mFx4gF2hnsmDW7zCM/cJD0hSelnWMRdlO4TYO0T2WA0WI5KuHXlUPmj
+f+HJmBZQlkFkpC5PAUxfY/BqlXbFnKR+0PyqJ4k9s29I+hwjouV/dYjw57PRfkEr
+j8MoofE5/FSQzpfYllj2SwNauK5HU+pS+87oFZXecz/wU83uT2T8mHSpn/bM7j6g
+lhdexl2fwNh50y8v+8mfB7Vp9ZkveVvMkQGpdxQyiTs/tvdLsmBCzB6hiLe5gaIz
+6unsmljaQt7J7h6RqZcsDMaNnuTKP3K1u733aYyWXaYVixdEtqenutssOyYJedys
+evDLa0IftEZPuwJWlOJdT7x52mst0duRRpn/Rxz3PDKLn1nx49777AZxSoys/zTM
+JR8n3yB+ynTgDE8SkmbC
+=Tpql
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__5_Dec_2011_15_34_16_+1100_/ssrxf6Sk90=A5NQ--
