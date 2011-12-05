@@ -1,74 +1,99 @@
-From: Michael Wang <wangyun@linux.vnet.ibm.com>
-Subject: Re: [net-next 1/6] e1000e: Avoid wrong check on TX hang
-Date: Mon, 05 Dec 2011 09:05:23 +0800
-Message-ID: <4EDC18D3.4060900@linux.vnet.ibm.com>
-References: <1322912671-6903-1-git-send-email-jeffrey.t.kirsher@intel.com> <1322912671-6903-2-git-send-email-jeffrey.t.kirsher@intel.com> <20111203.222659.277419094309941060.davem@davemloft.net> <1322983717.24828.8.camel@jtkirshe-mobl>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [Linux-decnet-user] Proposed removal of DECnet support (was:Re:
+ [BUG] 3.2-rc2:BUG kmalloc-8: Redzone overwritten)
+Date: Mon, 05 Dec 2011 01:23:52 +0000
+Message-ID: <1323048232.7454.161.camel@deadeye>
+References: <OF7785CDCC.246C1F8F-ON80257958.004A9A89-80257958.004C103D@LocalDomain>
+	 <1322664737.2755.17.camel@menhir>
+	 <20111204195055.A36077AD9C@priderock.keep-cool.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Flavio Leitner <fbl@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp05.in.ibm.com ([122.248.162.5]:41732 "EHLO
-	e28smtp05.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755881Ab1LEBFc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2011 20:05:32 -0500
-Received: from /spool/local
-	by e28smtp05.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <wangyun@linux.vnet.ibm.com>;
-	Mon, 5 Dec 2011 06:35:30 +0530
-Received: from d28av03.in.ibm.com (d28av03.in.ibm.com [9.184.220.65])
-	by d28relay03.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id pB515Q9k3690708
-	for <netdev@vger.kernel.org>; Mon, 5 Dec 2011 06:35:26 +0530
-Received: from d28av03.in.ibm.com (loopback [127.0.0.1])
-	by d28av03.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id pB515PsV015677
-	for <netdev@vger.kernel.org>; Mon, 5 Dec 2011 12:05:26 +1100
-In-Reply-To: <1322983717.24828.8.camel@jtkirshe-mobl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-rIZv2lxU9UN8BoTIhMpY"
+Cc: Steven Whitehouse <swhiteho@redhat.com>, mike.gair@tatasteel.com,
+ Chrissie Caulfield <ccaulfie@redhat.com>, Christoph Lameter
+ <cl@linux-foundation.org>, David Miller <davem@davemloft.net>, Eric Dumazet
+ <eric.dumazet@gmail.com>, Sasha Levin <levinsasha928@gmail.com>,
+ Linux-DECnet user <linux-decnet-user@lists.sourceforge.net>, linux-kernel
+ <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Matt Mackall
+ <mpm@selenic.com>, netdev <netdev@vger.kernel.org>, Pekka Enberg
+ <penberg@kernel.org>, RoarAudio <roaraudio@lists.keep-cool.org>
+To: Philipp Schafft <lion@lion.leolix.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20111204195055.A36077AD9C@priderock.keep-cool.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 12/04/2011 03:28 PM, Jeff Kirsher wrote:
 
-> On Sat, 2011-12-03 at 19:26 -0800, David Miller wrote:
->> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> Date: Sat,  3 Dec 2011 03:44:26 -0800
->>
->>> +	if ((!adapter->tx_hang_recheck) &&
->>
->> Excessive parenthesis, please remove.
->>
->>> +		adapter->tx_hang_recheck = 1;
->>
->> This variable is a bool, set it to true or false.
->>
->>> +			adapter->tx_hang_recheck = 0;
->>
->> Likewise.
->>
->>> +	adapter->tx_hang_recheck = 0;
->>
->> Likewise.
-> 
-> Michael/Flavio -
-> 
-> To expedite this patch, I can make the changes that Dave is requesting
-> and re-submit v2 of the patch, if that is ok with you.
-> 
+--=-rIZv2lxU9UN8BoTIhMpY
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Hi, Jeff
+On Sun, 2011-12-04 at 20:50 +0100, Philipp Schafft wrote:
+> reflum,
+>=20
+> On Wed, 2011-11-30 at 14:52 +0000, Steven Whitehouse wrote:
+[...]
+> > It is good to know that people are still using the Linux DECnet code
+> > too. It has lived far beyond the time when I'd envisioned it still bein=
+g
+> > useful :-)
+>=20
+> There are still some people interested in it. Btw. on Debian popcon
+> counts 5356 users.
 
-That's ok for me, I think it's good if you can work with Dave and make
-out a final version for us, if you want my help, please mail me at any
-time, I'm glad to work with you.
+This is grossly misleading.  Here's the historical graph showing <100
+installations of libdnet until early 2011:
+http://qa.debian.org/popcon-graph.php?packages=3Dlibdnet
 
-Flavio:
-What's your opinion?
+The increase in 2011 is not a sudden resurgence of interest; it comes
+from roaraudio[1] users.  For some reason (a joke?) roaraudio has DECnet
+support and its packages depend on libdnet.  You can see that the above
+graph is precisely correlated with this:
+http://qa.debian.org/popcon-graph.php?packages=3Dlibroar1
 
-Thanks,
-Michael Wang
+(And so far as I can work out, libroar1 is mostly being installed as a
+dependency of an unofficial package of Xine.)
 
-> -Jeff
+The only reason I know this is because there was a sudden spate of bug
+reports on the kernel due to people getting dnet-common installed as a
+recommendation of libdnet and then having their Ethernet MAC addresses
+reconfigured for DECnet.
+
+[1] Yet another audio mixing daemon
+
+Ben.
+
+--=20
+Ben Hutchings
+Absolutum obsoletum. (If it works, it's out of date.) - Stafford Beer
+
+--=-rIZv2lxU9UN8BoTIhMpY
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIVAwUATtwdKOe/yOyVhhEJAQpOsQ//WOlBFMMy7cINXPzERExzfEr4s9IPGTck
+uxNv6JFcqPXfq0E9kBToR6GQx/RgPG568/RIunHZbZ7GWUm62ORez2LlJhW5wLlv
+o+kZEcTN3aC5+C7ubWAlbKAboMC0UPQp2CGm0lq6wKjk340BWM8wkiX5OkSjoMGs
+Wkdn+XXU6dmfwWE+p4D3hD5Gp7G3jZ6EGb+uVs7Sijk3uF8CHVwMxkXBvzjhttyW
+1rLW8/NOCTZFdL03xF8SZGI6jnfXYp8Y3iHVpeySh6IgoGQjGpydvjzwpsW7U+um
+ZFA28NaO5LF/lrp7y2IaX1jOBowiKZB0FqybcSOYMeZoKPEf+F0SWs2dNsXSpPZG
+B6aJl4EvFJxGenQ5Dd2S5zvnx3zsKapD8aGNbzTsFTwldbP2TIIEs/T7xJlYGYHc
+tAR2LuhMVrhAwAO1yT1ZDnDw/GfvXEx8pUyqfYeqlvNJeNA67H4I7UzryzVzRbm2
+r1lc9YeT97eLWel+dVLg0oTBUuEZTkxK+ioAKMRf13t/0RjHEbPi2doEeSCvtJ/y
+T6SIKWAmiRLHit6igR8C+ofjHjQ275+ueqA8mOAZj64w1GUVOuc3NB3R5CNFLO4K
+3QMwtmSaSWo6hRfdcBsU1/eCu3PNLHEToH6HjZPkkYm1GxzxnN2puYjzeGP6yY5J
+ZRMsDe/FEss=
+=D2v5
+-----END PGP SIGNATURE-----
+
+--=-rIZv2lxU9UN8BoTIhMpY--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
