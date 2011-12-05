@@ -1,83 +1,27 @@
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Mon, 5 Dec 2011 20:27:01 +0100
-Message-ID: <20111205192701.GA1531@x4.trippels.de>
-References: <20111124085040.GA1677@x4.trippels.de>
- <20111202230412.GB12057@homer.localdomain>
- <20111203092845.GA1520@x4.trippels.de>
- <CAPM=9tyjZc9waC_ZBygW9zh+Zq-Wb1X5Y6yfsCCMPYwpFVWOOg@mail.gmail.com>
- <20111203122900.GA1617@x4.trippels.de>
- <CAH3drwZDOpPuQ_G=LwTiNsR5BNyJTNr+VJU74E6nS5AbKyQH0A@mail.gmail.com>
- <20111204010200.GA1530@x4.trippels.de>
- <20111205171046.GA4342@homer.localdomain>
- <20111205181549.GA1612@x4.trippels.de>
- <20111205191116.GB4342@homer.localdomain>
+From: "Barb Burnell" <bburnell@wooster.edu>
+Subject: VERY IMPORTANT!!!
+Date: Mon, 05 Dec 2011 10:37:54 -0500
+Message-ID: <4EDCC5B1020000C2000A568F@gwiaclients.wooster.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dave Airlie <airlied@gmail.com>, Christoph Lameter <cl@linux.com>,
-	"Alex, Shi" <alex.shi@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	dri-devel@lists.freedesktop.org, Pekka Enberg <penberg@kernel.org>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	Matt Mackall <mpm@selenic.com>, tj@kernel.org,
-	Alex Deucher <alexander.deucher@amd.com>
-To: Jerome Glisse <j.glisse@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from messagescreen02.wooster.edu ([140.103.29.42]:36048 "EHLO
+	messagescreen02.wooster.edu" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932126Ab1LETla convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Dec 2011 14:41:30 -0500
+Received: from messagescreen02.wooster.edu (localhost [127.0.0.1])
+	by messagescreen02.wooster.edu (8.14.3/8.14.3) with ESMTP id pB5IQ2KP002973
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 5 Dec 2011 12:26:02 -0600
+Received: from localhost (localhost [[UNIX: localhost]])
+	by messagescreen02.wooster.edu (8.14.3/8.14.3/Submit) with SMTP id pB5IPa4l002807
+	for <netdev@vger.kernel.org>; Mon, 5 Dec 2011 12:25:36 -0600
 Content-Disposition: inline
-In-Reply-To: <20111205191116.GB4342@homer.localdomain>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2011.12.05 at 14:11 -0500, Jerome Glisse wrote:
-> On Mon, Dec 05, 2011 at 07:15:49PM +0100, Markus Trippelsdorf wrote:
-> > On 2011.12.05 at 12:10 -0500, Jerome Glisse wrote:
-> > > On Sun, Dec 04, 2011 at 02:02:00AM +0100, Markus Trippelsdorf wrote:
-> > > > On 2011.12.03 at 14:31 -0500, Jerome Glisse wrote:
-> > > > > On Sat, Dec 3, 2011 at 7:29 AM, Markus Trippelsdorf
-> > > > > <markus@trippelsdorf.de> wrote:
-> > > > > > On 2011.12.03 at 12:20 +0000, Dave Airlie wrote:
-> > > > > >> >> > > > > FIX idr_layer_cache: Marking all objects used
-> > > > > >> >> > > >
-> > > > > >> >> > > > Yesterday I couldn't reproduce the issue at all. But today I've hit
-> > > > > >> >> > > > exactly the same spot again. (CCing the drm list)
-> > > > > >>
-> > > > > >> If I had to guess it looks like 0 is getting written back to some
-> > > > > >> random page by the GPU maybe, it could be that the GPU is in some half
-> > > > > >> setup state at boot or on a reboot does it happen from a cold boot or
-> > > > > >> just warm boot or kexec?
-> > > > > >
-> > > > > > Only happened with kexec thus far. Cold boot seems to be fine.
-> > > > > >
-> > > > > 
-> > > > > Can you add radeon.no_wb=1 to your kexec kernel paramater an see if
-> > > > > you can reproduce.
-> > > > 
-> > > > No, I cannot reproduce the issue with radeon.no_wb=1. (I write this
-> > > > after 700 successful kexec iterations...)
-> > > > 
-> > > 
-> > > Can you try if attached patch fix the issue when you don't pass the
-> > > radeon.no_wb=1 option ?
-> > 
-> > Yes the patch finally fixes the issue for me (tested with 120 kexec
-> > iterations).
-> > Thanks Jerome!
-> > 
-> > -- 
-> > Markus
-> 
-> Can you do a kick run on the modified patch ?
-
-This one is also OK after ~60 iterations.
-
--- 
-Markus
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I am a personal assistant to Mrs E Simon, this is the third time we are contacting you. 
+Mrs. Simon has picked your email for an inheritance of $18,000,000.00 for full details contact her via email on : ruth_27@rogers.com
