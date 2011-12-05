@@ -1,62 +1,74 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Subject: Re: CIFS mount: 3.2.0-rc3 suspend crash
-Date: Mon, 05 Dec 2011 23:39:20 +0530
-Message-ID: <4EDD08D0.9030401@linux.vnet.ibm.com>
-References: <4ED56C12.1040708@gmail.com> <4ED5C047.6040500@linux.vnet.ibm.com> <20111130062502.68d9db59@tlielax.poochiereds.net> <4ED81077.2080305@gmail.com> <4ED8C940.20509@linux.vnet.ibm.com> <20111205174126.GF627@google.com>
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
+Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+Date: Mon, 5 Dec 2011 19:15:49 +0100
+Message-ID: <20111205181549.GA1612@x4.trippels.de>
+References: <20111123160353.GA1673@x4.trippels.de>
+ <alpine.DEB.2.00.1111231004490.17317@router.home>
+ <20111124085040.GA1677@x4.trippels.de>
+ <20111202230412.GB12057@homer.localdomain>
+ <20111203092845.GA1520@x4.trippels.de>
+ <CAPM=9tyjZc9waC_ZBygW9zh+Zq-Wb1X5Y6yfsCCMPYwpFVWOOg@mail.gmail.com>
+ <20111203122900.GA1617@x4.trippels.de>
+ <CAH3drwZDOpPuQ_G=LwTiNsR5BNyJTNr+VJU74E6nS5AbKyQH0A@mail.gmail.com>
+ <20111204010200.GA1530@x4.trippels.de>
+ <20111205171046.GA4342@homer.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Woody Suwalski <terraluna977-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Linux PM mailing list <linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Belisko Marek <marek.belisko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20111205174126.GF627-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Sender: linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Dave Airlie <airlied@gmail.com>, Christoph Lameter <cl@linux.com>,
+	"Alex, Shi" <alex.shi@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	dri-devel@lists.freedesktop.org, Pekka Enberg <penberg@kernel.org>,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>,
+	Matt Mackall <mpm@selenic.com>, tj@kernel.org,
+	Alex Deucher <alexander.deucher@amd.com>
+To: Jerome Glisse <j.glisse@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20111205171046.GA4342@homer.localdomain>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 12/05/2011 11:11 PM, Tejun Heo wrote:
-
-> Hello, Srivatsa.
+On 2011.12.05 at 12:10 -0500, Jerome Glisse wrote:
+> On Sun, Dec 04, 2011 at 02:02:00AM +0100, Markus Trippelsdorf wrote:
+> > On 2011.12.03 at 14:31 -0500, Jerome Glisse wrote:
+> > > On Sat, Dec 3, 2011 at 7:29 AM, Markus Trippelsdorf
+> > > <markus@trippelsdorf.de> wrote:
+> > > > On 2011.12.03 at 12:20 +0000, Dave Airlie wrote:
+> > > >> >> > > > > FIX idr_layer_cache: Marking all objects used
+> > > >> >> > > >
+> > > >> >> > > > Yesterday I couldn't reproduce the issue at all. But today I've hit
+> > > >> >> > > > exactly the same spot again. (CCing the drm list)
+> > > >>
+> > > >> If I had to guess it looks like 0 is getting written back to some
+> > > >> random page by the GPU maybe, it could be that the GPU is in some half
+> > > >> setup state at boot or on a reboot does it happen from a cold boot or
+> > > >> just warm boot or kexec?
+> > > >
+> > > > Only happened with kexec thus far. Cold boot seems to be fine.
+> > > >
+> > > 
+> > > Can you add radeon.no_wb=1 to your kexec kernel paramater an see if
+> > > you can reproduce.
+> > 
+> > No, I cannot reproduce the issue with radeon.no_wb=1. (I write this
+> > after 700 successful kexec iterations...)
+> > 
 > 
-> On Fri, Dec 02, 2011 at 06:19:04PM +0530, Srivatsa S. Bhat wrote:
->> So how about solving this problem more fundamentally, such as defining a
->> freezable wrapper over kernel_recvmsg like:
->>
->> #define kernel_recvmsg_freezable(sock, msg, vec, num, size, flags)      \
->> ({                                                                      \
->>         kernel_recvmsg(sock, msg, vec, num, size, flags)                \
->> 	try_to_freeze();                                                \
->> })
->>
->> and using it instead of kernel_recvmsg(), throughout the kernel?
->>
->> But kernel_recvmsg is an exported symbol. So if we are very very unwilling
->> to change the kernel ABI, we could probably think about adding try_to_freeze()
->> inside kernel_recvmsg itself,like this (but see below about my thoughts about
->> which one is better):
-> 
-> I don't necessarily object to introducing the wrapper but I don't
-> really think we should be doing s//g over the source tree without
-> understanding where it's actually necessary.  For kernel threads and
-> user threads out of the signal delivery path, try_to_freeze() is an
-> exceptional event which introduces behavior which can be difficult to
-> reproduce track down and spreading it without actually knowing what
-> the surrounding code is doing doesn't sound like a good idea to me.
-> 
+> Can you try if attached patch fix the issue when you don't pass the
+> radeon.no_wb=1 option ?
 
+Yes the patch finally fixes the issue for me (tested with 120 kexec
+iterations).
+Thanks Jerome!
 
-Yeah, I agree. But I remember seeing almost _exactly_ the same code
-as CIFS loop in some other place. I'll see if I can track it down and
-also understand if it might cause problems. If I find it to be worth it
-to use the same solution as above, I'll try adding the wrapper and using
-it there. Else, better to keep it as it is, as you mentioned. Thank you.
+-- 
+Markus
 
-Regards,
-Srivatsa S. Bhat
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
