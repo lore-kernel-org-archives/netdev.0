@@ -1,131 +1,81 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Subject: Re: [PATCH v7 00/10] Request for Inclusion: per-cgroup tcp memory
- pressure
-Date: Mon, 5 Dec 2011 18:51:08 +0900
-Message-ID: <20111205185108.099f393e.kamezawa.hiroyu@jp.fujitsu.com>
-References: <1322611021-1730-1-git-send-email-glommer@parallels.com>
-	<20111130111152.6b1c7366.kamezawa.hiroyu@jp.fujitsu.com>
-	<4ED91318.1030803@parallels.com>
-	<20111205110619.ecc538a0.kamezawa.hiroyu@jp.fujitsu.com>
-	<4EDC8A5F.8040402@parallels.com>
+From: Philipp Schafft <lion@lion.leolix.org>
+Subject: Re: [Linux-decnet-user] Proposed removal of DECnet support
+	(was:Re: [BUG] 3.2-rc2:BUG kmalloc-8: Redzone overwritten)
+Date: Mon, 05 Dec 2011 11:14:58 +0100
+Message-ID: <20111205101503.1DE687AD9C@priderock.keep-cool.org>
+References: <OF7785CDCC.246C1F8F-ON80257958.004A9A89-80257958.004C103D@LocalDomain>
+	 <1322664737.2755.17.camel@menhir>
+	 <20111204195055.A36077AD9C@priderock.keep-cool.org>
+	 <1323048232.7454.161.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org>,
-	<lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>, <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	<kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>, <avagin-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
-	<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4EDC8A5F.8040402-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-4m5XleMXEcnGSo0Wc4LW"
+Cc: Steven Whitehouse <swhiteho@redhat.com>, mike.gair@tatasteel.com,  Chrissie Caulfield <ccaulfie@redhat.com>, Christoph Lameter <cl@linux-foundation.org>, David Miller <davem@davemloft.net>, Eric Dumazet <eric.dumazet@gmail.com>, Sasha Levin <levinsasha928@gmail.com>, Linux-DECnet user <linux-decnet-user@lists.sourceforge.net>, linux-kernel <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Matt Mackall <mpm@selenic.com>, netdev <netdev@vger.kernel.org>, Pekka Enberg <penberg@kernel.org>, RoarAudio <roaraudio@lists.keep-cool.org>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1323048232.7454.161.camel@deadeye>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 5 Dec 2011 07:09:51 -0200
-Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
 
-> On 12/05/2011 12:06 AM, KAMEZAWA Hiroyuki wrote:
-> > On Fri, 2 Dec 2011 16:04:08 -0200
-> > Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>  wrote:
-> >
-> >> On 11/30/2011 12:11 AM, KAMEZAWA Hiroyuki wrote:
-> >>> On Tue, 29 Nov 2011 21:56:51 -0200
-> >>> Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>   wrote:
-> >>>
-> >>>> Hi,
-> >>>>
-> >>>> This patchset implements per-cgroup tcp memory pressure controls. It did not change
-> >>>> significantly since last submission: rather, it just merges the comments Kame had.
-> >>>> Most of them are style-related and/or Documentation, but there are two real bugs he
-> >>>> managed to spot (thanks)
-> >>>>
-> >>>> Please let me know if there is anything else I should address.
-> >>>>
-> >>>
-> >>> After reading all codes again, I feel some strange. Could you clarify ?
-> >>>
-> >>> Here.
-> >>> ==
-> >>> +void sock_update_memcg(struct sock *sk)
-> >>> +{
-> >>> +	/* right now a socket spends its whole life in the same cgroup */
-> >>> +	if (sk->sk_cgrp) {
-> >>> +		WARN_ON(1);
-> >>> +		return;
-> >>> +	}
-> >>> +	if (static_branch(&memcg_socket_limit_enabled)) {
-> >>> +		struct mem_cgroup *memcg;
-> >>> +
-> >>> +		BUG_ON(!sk->sk_prot->proto_cgroup);
-> >>> +
-> >>> +		rcu_read_lock();
-> >>> +		memcg = mem_cgroup_from_task(current);
-> >>> +		if (!mem_cgroup_is_root(memcg))
-> >>> +			sk->sk_cgrp = sk->sk_prot->proto_cgroup(memcg);
-> >>> +		rcu_read_unlock();
-> >>> ==
-> >>>
-> >>> sk->sk_cgrp is set to a memcg without any reference count.
-> >>>
-> >>> Then, no check for preventing rmdir() and freeing memcgroup.
-> >>>
-> >>> Is there some css_get() or mem_cgroup_get() somewhere ?
-> >>>
-> >>
-> >> There were a css_get in the first version of this patchset. It was
-> >> removed, however, because it was deemed anti-intuitive to prevent rmdir,
-> >> since we can't know which sockets are blocking it, or do anything about
-> >> it. Or did I misunderstand something ?
-> >>
-> >
-> > Maybe I misuderstood. Thank you. Ok, there is no css_get/put and
-> > rmdir() is allowed. But, hmm....what's guarding threads from stale
-> > pointer access ?
-> >
-> > Does a memory cgroup which is pointed by sk->sk_cgrp always exist ?
-> >
-> If I am not mistaken, yes, it will. (Ok, right now it won't)
-> 
-> Reason is a cgroup can't be removed if it is empty.
-> To make it empty, you need to move the tasks away.
-> 
-> So the sockets will be moved away as well when you do it. So right now 
-> they are not, so it would then probably be better to increase a 
-> reference count with a comment saying that it is temporary.
-> 
+--=-4m5XleMXEcnGSo0Wc4LW
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-I'm sorry if I misunderstand.
+reflum,
 
-At task exit, __fput() will be called against file descriptors, yes.
-__fput() calles f_op->release() => inet_release() => tcp_close().
+On Mon, 2011-12-05 at 01:23 +0000, Ben Hutchings wrote:
+> On Sun, 2011-12-04 at 20:50 +0100, Philipp Schafft wrote:
+> > On Wed, 2011-11-30 at 14:52 +0000, Steven Whitehouse wrote:
+> [...]
+> > > It is good to know that people are still using the Linux DECnet code
+> > > too. It has lived far beyond the time when I'd envisioned it still be=
+ing
+> > > useful :-)
+> >=20
+> > There are still some people interested in it. Btw. on Debian popcon
+> > counts 5356 users.
+>=20
+> This is grossly misleading.  Here's the historical graph showing <100
+> installations of libdnet until early 2011:
+> http://qa.debian.org/popcon-graph.php?packages=3Dlibdnet
 
-But TCP socket may be alive after task exit until it gets down to 
-protocol close. For example, until the all message in send buffer
-is acked, socket and tcp connection will not be disappear.
-
-In short, socket's lifetime is different from it's task's. 
-So, there may be sockets which are not belongs to any task.
+Maybe my statement was missleading. popcon shows 5356 installs. This
+includes real users and non-real users. Both groups *may* be affected by
+droping the kernel module (in diffrent ways).
 
 
+> For some reason (a joke?) roaraudio has DECnet
+> support and its packages depend on libdnet.
 
-Thanks,
--Kame
+Maybe just because it is usefull for the RoarAudio project.
 
+Anyway, don't take the number too important. It was just a minor note.
 
+--=20
+Philipp.
+ (Rah of PH2)
 
+--=-4m5XleMXEcnGSo0Wc4LW
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
+-----BEGIN PGP SIGNATURE-----
+Comment: Because it's your freedom
 
+iQEVAwUATtyZomCSpmW8W5B8AQJbVgf9H9bZV2nL4Rai9Umjezw58apQQVEDJtoE
+IH2Kn4GJ0ZCJgr23rtuf98e000wLcIIOJ052Ugydla/4vBp1aJF3vqd4y1ydPpnL
+OF2hLDdECHmOWwVXI3ZOfnOEzhToROjvaspr0DjAC0EhopZm5jnnTpGPk5DTex0p
+vW0lx/EmE6S966aROZHCjxIMBbVQM79I8ted9x5cWiFnf0N0AopLAMfXDfVDkBCn
+X04FYzqv8kuAIocLKMp1HelzmN9IHa8EuJ45K4+9Rl8gAd7RaAfNWZi6iIakmjgj
+KjVil1ME21LNcjhQnLMy4mOcqGBbDkASCefcuycWVpBJalvRbsaJ5g==
+=3tG3
+-----END PGP SIGNATURE-----
 
-
-
-
-
-
-
+--=-4m5XleMXEcnGSo0Wc4LW--
 
 --
-To unsubscribe from this list: send the line "unsubscribe cgroups" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
