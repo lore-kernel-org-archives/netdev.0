@@ -1,7 +1,8 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [net-next RFC PATCH 3/5] macvtap: flow director support
-Date: Mon, 05 Dec 2011 16:59:06 +0800
-Message-ID: <20111205085906.6116.84426.stgit@dhcp-8-146.nay.redhat.com>
+Subject: [net-next RFC PATCH 4/5] virtio: introduce a method to get the irq of
+	a specific virtqueue
+Date: Mon, 05 Dec 2011 16:59:16 +0800
+Message-ID: <20111205085916.6116.23553.stgit@dhcp-8-146.nay.redhat.com>
 References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,126 +24,144 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
+Device specific irq configuration may be need in order to do some
+optimization. So a new configuration is needed to get the irq of a
+virtqueue.
+
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/macvlan.c      |    4 ++++
- drivers/net/macvtap.c      |   36 ++++++++++++++++++++++++++++++++++--
- include/linux/if_macvlan.h |    1 +
- 3 files changed, 39 insertions(+), 2 deletions(-)
+ drivers/lguest/lguest_device.c |    8 ++++++++
+ drivers/s390/kvm/kvm_virtio.c  |    6 ++++++
+ drivers/virtio/virtio_mmio.c   |    8 ++++++++
+ drivers/virtio/virtio_pci.c    |   12 ++++++++++++
+ include/linux/virtio_config.h  |    4 ++++
+ 5 files changed, 38 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 7413497..b0cb7ce 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -706,6 +706,7 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 	vlan->port     = port;
- 	vlan->receive  = receive;
- 	vlan->forward  = forward;
-+	vlan->fd_page[0] = NULL;
- 
- 	vlan->mode     = MACVLAN_MODE_VEPA;
- 	if (data && data[IFLA_MACVLAN_MODE])
-@@ -749,6 +750,9 @@ void macvlan_dellink(struct net_device *dev, struct list_head *head)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
- 
-+	if (vlan->fd_page[0])
-+		put_page(vlan->fd_page[0]);
-+
- 	list_del(&vlan->list);
- 	unregister_netdevice_queue(dev, head);
+diff --git a/drivers/lguest/lguest_device.c b/drivers/lguest/lguest_device.c
+index 595d731..6483bff 100644
+--- a/drivers/lguest/lguest_device.c
++++ b/drivers/lguest/lguest_device.c
+@@ -386,6 +386,13 @@ static const char *lg_bus_name(struct virtio_device *vdev)
+ 	return "";
  }
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 504c745..a34eb84 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -14,6 +14,7 @@
- #include <linux/wait.h>
- #include <linux/cdev.h>
- #include <linux/fs.h>
-+#include <linux/highmem.h>
  
- #include <net/net_namespace.h>
- #include <net/rtnetlink.h>
-@@ -62,6 +63,8 @@ static DEFINE_IDR(minor_idr);
- static struct class *macvtap_class;
- static struct cdev macvtap_cdev;
- 
-+#define TAP_HASH_MASK 0xFF
++static int lg_get_vq_irq(struct virtio_device *vdev, struct virtqueue *vq)
++{
++	struct lguest_vq_info *lvq = vq->priv;
 +
- static const struct proto_ops macvtap_socket_ops;
- 
- /*
-@@ -189,6 +192,11 @@ static struct macvtap_queue *macvtap_get_queue(struct net_device *dev,
- 	/* Check if we can use flow to select a queue */
- 	rxq = skb_get_rxhash(skb);
- 	if (rxq) {
-+		if (vlan->fd_page[0]) {
-+			u16 *table = kmap_atomic(vlan->fd_page[0]);
-+			rxq = table[rxq & TAP_HASH_MASK];
-+			kunmap_atomic(table);
-+		}
- 		tap = rcu_dereference(vlan->taps[rxq % numvtaps]);
- 		if (tap)
- 			goto out;
-@@ -851,6 +859,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
- {
- 	struct macvtap_queue *q = file->private_data;
- 	struct macvlan_dev *vlan;
-+	struct tun_fd tfd;
- 	void __user *argp = (void __user *)arg;
- 	struct ifreq __user *ifr = argp;
- 	unsigned int __user *up = argp;
-@@ -891,8 +900,8 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
- 		return ret;
- 
- 	case TUNGETFEATURES:
--		if (put_user(IFF_TAP | IFF_NO_PI | IFF_VNET_HDR | IFF_RXHASH,
--			     up))
-+		if (put_user(IFF_TAP | IFF_NO_PI | IFF_VNET_HDR | IFF_RXHASH |
-+			     IFF_FD, up))
- 			return -EFAULT;
- 		return 0;
- 
-@@ -918,6 +927,29 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
- 		q->vnet_hdr_sz = s;
- 		return 0;
- 
-+	case TUNSETFD:
-+		rcu_read_lock_bh();
-+		vlan = rcu_dereference(q->vlan);
-+		if (!vlan)
-+			ret = -ENOLINK;
-+		else {
-+			if (copy_from_user(&tfd, argp, sizeof(tfd)))
-+				ret = -EFAULT;
-+			if (vlan->fd_page[0]) {
-+				put_page(vlan->fd_page[0]);
-+				vlan->fd_page[0] = NULL;
-+			}
++	return lvq->config.irq;
++}
 +
-+			/* put_page() in macvlan_dellink() */
-+			if (get_user_pages_fast(tfd.addr, 1, 0,
-+						&vlan->fd_page[0]) != 1)
-+				ret = -EFAULT;
-+			else
-+				ret = 0;
-+		}
-+		rcu_read_unlock_bh();
-+		return ret;
-+
- 	case TUNSETOFFLOAD:
- 		/* let the user check for future flags */
- 		if (arg & ~(TUN_F_CSUM | TUN_F_TSO4 | TUN_F_TSO6 |
-diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
-index d103dca..69a87a1 100644
---- a/include/linux/if_macvlan.h
-+++ b/include/linux/if_macvlan.h
-@@ -65,6 +65,7 @@ struct macvlan_dev {
- 	struct macvtap_queue	*taps[MAX_MACVTAP_QUEUES];
- 	int			numvtaps;
- 	int			minor;
-+	struct page             *fd_page[1];
+ /* The ops structure which hooks everything together. */
+ static struct virtio_config_ops lguest_config_ops = {
+ 	.get_features = lg_get_features,
+@@ -398,6 +405,7 @@ static struct virtio_config_ops lguest_config_ops = {
+ 	.find_vqs = lg_find_vqs,
+ 	.del_vqs = lg_del_vqs,
+ 	.bus_name = lg_bus_name,
++	.get_vq_irq = lg_get_vq_irq,
  };
  
- static inline void macvlan_count_rx(const struct macvlan_dev *vlan,
+ /*
+diff --git a/drivers/s390/kvm/kvm_virtio.c b/drivers/s390/kvm/kvm_virtio.c
+index 8af868b..a8d5ca1 100644
+--- a/drivers/s390/kvm/kvm_virtio.c
++++ b/drivers/s390/kvm/kvm_virtio.c
+@@ -268,6 +268,11 @@ static const char *kvm_bus_name(struct virtio_device *vdev)
+ 	return "";
+ }
+ 
++static int kvm_get_vq_irq(struct virtio_device *vdev, struct virtqueue *vq)
++{
++	return 0x2603;
++}
++
+ /*
+  * The config ops structure as defined by virtio config
+  */
+@@ -282,6 +287,7 @@ static struct virtio_config_ops kvm_vq_configspace_ops = {
+ 	.find_vqs = kvm_find_vqs,
+ 	.del_vqs = kvm_del_vqs,
+ 	.bus_name = kvm_bus_name,
++	.get_vq_irq = kvm_get_vq_irq,
+ };
+ 
+ /*
+diff --git a/drivers/virtio/virtio_mmio.c b/drivers/virtio/virtio_mmio.c
+index 2f57380..309d471 100644
+--- a/drivers/virtio/virtio_mmio.c
++++ b/drivers/virtio/virtio_mmio.c
+@@ -368,6 +368,13 @@ static const char *vm_bus_name(struct virtio_device *vdev)
+ 	return vm_dev->pdev->name;
+ }
+ 
++static int vm_get_vq_irq(struct virtio_device *vdev, struct virtqueue *vq)
++{
++	struct virtio_mmio_device *vm_dev = to_virtio_mmio_device(vdev);
++
++	return platform_get_irq(vm_dev->pdev, 0);
++}
++
+ static struct virtio_config_ops virtio_mmio_config_ops = {
+ 	.get		= vm_get,
+ 	.set		= vm_set,
+@@ -379,6 +386,7 @@ static struct virtio_config_ops virtio_mmio_config_ops = {
+ 	.get_features	= vm_get_features,
+ 	.finalize_features = vm_finalize_features,
+ 	.bus_name	= vm_bus_name,
++	.get_vq_irq     = vm_get_vq_irq,
+ };
+ 
+ 
+diff --git a/drivers/virtio/virtio_pci.c b/drivers/virtio/virtio_pci.c
+index 229ea56..4f99164 100644
+--- a/drivers/virtio/virtio_pci.c
++++ b/drivers/virtio/virtio_pci.c
+@@ -583,6 +583,17 @@ static const char *vp_bus_name(struct virtio_device *vdev)
+ 	return pci_name(vp_dev->pci_dev);
+ }
+ 
++static int vp_get_vq_irq(struct virtio_device *vdev, struct virtqueue *vq)
++{
++	struct virtio_pci_device *vp_dev = to_vp_device(vdev);
++	struct virtio_pci_vq_info *info = vq->priv;
++
++	if (vp_dev->intx_enabled)
++		return vp_dev->pci_dev->irq;
++	else
++		return vp_dev->msix_entries[info->msix_vector].vector;
++}
++
+ static struct virtio_config_ops virtio_pci_config_ops = {
+ 	.get		= vp_get,
+ 	.set		= vp_set,
+@@ -594,6 +605,7 @@ static struct virtio_config_ops virtio_pci_config_ops = {
+ 	.get_features	= vp_get_features,
+ 	.finalize_features = vp_finalize_features,
+ 	.bus_name	= vp_bus_name,
++	.get_vq_irq     = vp_get_vq_irq,
+ };
+ 
+ static void virtio_pci_release_dev(struct device *_d)
+diff --git a/include/linux/virtio_config.h b/include/linux/virtio_config.h
+index 63f98d0..7b783a6 100644
+--- a/include/linux/virtio_config.h
++++ b/include/linux/virtio_config.h
+@@ -104,6 +104,9 @@
+  *	vdev: the virtio_device
+  *      This returns a pointer to the bus name a la pci_name from which
+  *      the caller can then copy.
++ * @get_vq_irq: get the irq numer of the specific virt queue.
++ *      vdev: the virtio_device
++ *      vq: the virtqueue
+  */
+ typedef void vq_callback_t(struct virtqueue *);
+ struct virtio_config_ops {
+@@ -122,6 +125,7 @@ struct virtio_config_ops {
+ 	u32 (*get_features)(struct virtio_device *vdev);
+ 	void (*finalize_features)(struct virtio_device *vdev);
+ 	const char *(*bus_name)(struct virtio_device *vdev);
++	int (*get_vq_irq)(struct virtio_device *vdev, struct virtqueue *vq);
+ };
+ 
+ /* If driver didn't advertise the feature, it will never appear. */
