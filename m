@@ -1,94 +1,103 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Subject: Re: [PATCH v7 02/10] foundations of per-cgroup memory pressure
- controlling.
-Date: Mon, 5 Dec 2011 10:59:16 +0900
-Message-ID: <20111205105916.eeb55989.kamezawa.hiroyu@jp.fujitsu.com>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Subject: Re: [PATCH v7 04/10] tcp memory pressure controls
+Date: Mon, 5 Dec 2011 11:01:58 +0900
+Message-ID: <20111205110158.8a2e270f.kamezawa.hiroyu@jp.fujitsu.com>
 References: <1322611021-1730-1-git-send-email-glommer@parallels.com>
-	<1322611021-1730-3-git-send-email-glommer@parallels.com>
-	<20111130094305.9c69ecd8.kamezawa.hiroyu@jp.fujitsu.com>
-	<4ED90F06.102@parallels.com>
+	<1322611021-1730-5-git-send-email-glommer@parallels.com>
+	<20111130104943.d9b210ee.kamezawa.hiroyu@jp.fujitsu.com>
+	<4ED91188.6030503@parallels.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <paul@paulmenage.org>,
- <lizf@cn.fujitsu.com>, <ebiederm@xmission.com>, <davem@davemloft.net>,
- <gthelen@google.com>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
- <kirill@shutemov.name>, <avagin@parallels.com>, <devel@openvz.org>,
- <eric.dumazet@gmail.com>, <cgroups@vger.kernel.org>
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4ED90F06.102@parallels.com>
-Sender: owner-linux-mm@kvack.org
+Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org>,
+	<lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>, <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
+	<kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>, <avagin-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
+	<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	KAMEZAWA Hiroyuki <kamezawa.hiroyu-LdfC7J4mv27QFUHtdCDX3A@public.gmane.org>
+To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4ED91188.6030503-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2 Dec 2011 15:46:46 -0200
-Glauber Costa <glommer@parallels.com> wrote:
+On Fri, 2 Dec 2011 15:57:28 -0200
+Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
 
-> 
-> >>   static void proto_seq_printf(struct seq_file *seq, struct proto *proto)
+> On 11/29/2011 11:49 PM, KAMEZAWA Hiroyuki wrote:
+> >
+> >> -static struct mem_cgroup *mem_cgroup_from_cont(struct cgroup *cont)
+> >> +struct mem_cgroup *mem_cgroup_from_cont(struct cgroup *cont)
 > >>   {
-> >> +	struct mem_cgroup *memcg = mem_cgroup_from_task(current);
+> >>   	return container_of(cgroup_subsys_state(cont,
+> >>   				mem_cgroup_subsys_id), struct mem_cgroup,
+> >> @@ -4717,14 +4732,27 @@ static int register_kmem_files(struct cgroup *cont, struct cgroup_subsys *ss)
+> >>
+> >>   	ret = cgroup_add_files(cont, ss, kmem_cgroup_files,
+> >>   			       ARRAY_SIZE(kmem_cgroup_files));
 > >> +
-> >>   	seq_printf(seq, "%-9s %4u %6d  %6ld   %-3s %6u   %-3s  %-10s "
-> >>   			"%2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c\n",
-> >>   		   proto->name,
-> >>   		   proto->obj_size,
-> >>   		   sock_prot_inuse_get(seq_file_net(seq), proto),
-> >> -		   proto->memory_allocated != NULL ? atomic_long_read(proto->memory_allocated) : -1L,
-> >> -		   proto->memory_pressure != NULL ? *proto->memory_pressure ? "yes" : "no" : "NI",
-> >> +		   sock_prot_memory_allocated(proto, memcg),
-> >> +		   sock_prot_memory_pressure(proto, memcg),
+> >> +	if (!ret)
+> >> +		ret = mem_cgroup_sockets_init(cont, ss);
+> >>   	return ret;
+> >>   };
 > >
-> > I wonder I should say NO, here. (Networking guys are ok ??)
+> > You does initizalication here. The reason what I think is
+> > 1. 'proto_list' is not available at createion of root cgroup and
+> >      you need to delay set up until mounting.
 > >
-> > IIUC, this means there is no way to see aggregated sockstat of all system.
-> > And the result depends on the cgroup which the caller is under control.
+> > If so, please add comment or find another way.
+> > This seems not very clean to me.
+> 
+> Yes, we do can run into some ordering issues. A part of the 
+> initialization can be done earlier. But I preferred to move it all later
+> instead of creating two functions for it. But I can change that if you 
+> want, no big deal.
+> 
+
+Hmm. please add comments about the 'issue'. It will help readers.
+
+
+> >> +	tcp->tcp_prot_mem[0] = sysctl_tcp_mem[0];
+> >> +	tcp->tcp_prot_mem[1] = sysctl_tcp_mem[1];
+> >> +	tcp->tcp_prot_mem[2] = sysctl_tcp_mem[2];
+> >> +	tcp->tcp_memory_pressure = 0;
 > >
-> > I think you should show aggregated sockstat(global + per-memcg) here and
-> > show per-memcg ones via /cgroup interface or add private_sockstat to show
-> > per cgroup summary.
+> > Question:
 > >
+> > Is this value will be updated when an admin chages sysctl ?
 > 
-> Hi Kame,
+> yes.
 > 
-> Yes, the statistics displayed depends on which cgroup you live.
-> Also, note that the parent cgroup here is always updated (even when 
-> use_hierarchy is set to 0). So it is always possible to grab global 
-> statistics, by being in the root cgroup.
+> > I guess, this value is set at system init script or some which may
+> > happen later than mounting cgroup.
+> > I don't like to write a guideline 'please set sysctl val before
+> > mounting cgroup'
 > 
-> For the others, I believe it to be a question of naturalization. Any 
-> tool that is fetching these values is likely interested in the amount of 
-> resources available/used. When you are on a cgroup, the amount of 
-> resources available/used changes, so that's what you should see.
+> Agreed.
 > 
-> Also brings the point of resource isolation: if you shouldn't interfere 
-> with other set of process' resources, there is no reason for you to see 
-> them in the first place.
+> This code is in patch 6 (together with the limiting):
 > 
-> So given all that, I believe that whenever we talk about resources in a 
-> cgroup, we should talk about cgroup-local ones.
-
-But you changes /proc/ information without any arguments with other guys.
-If you go this way, you should move this patch as independent add-on patch
-and discuss what this should be. For example, /proc/meminfo doesn't reflect
-memcg's information (for now). And scheduler statiscits in /proc/stat doesn't
-reflect cgroup's information.
-
-So, please discuss the problem in open way. This issue is not only related to
-this patch but also to other cgroups. Sneaking this kind of _big_ change in
-a middle of complicated patch series isn't good.
-
-In short, could you divide this patch into a independent patch and discuss
-again ? If we agree the general diection should go this way, other guys will
-post patches for cpu, memory, blkio, etc.
+> +#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+> +       rcu_read_lock();
+> +       memcg = mem_cgroup_from_task(current);
+> +
+> +       tcp_prot_mem(memcg, vec[0], 0);
+> +       tcp_prot_mem(memcg, vec[1], 1);
+> +       tcp_prot_mem(memcg, vec[2], 2);
+> +       rcu_read_unlock();
+> +#endif
+> 
+> tcp_prot_mem is just a wrapper around the assignment so we can access 
+> memcg's inner fields.
+> 
 
 
-Thanks,
+Ok. sysctl and cgroup are updated at the same time.
+thank you.
 -Kame
 
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe cgroups" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
