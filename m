@@ -1,200 +1,125 @@
-From: Michal Soltys <soltys@ziu.info>
-Subject: Re: More understanding HFSC
-Date: Mon, 05 Dec 2011 23:18:26 +0100
-Message-ID: <4EDD4332.7090109@ziu.info>
-References: <1322979139.3347.147.camel@denise.theartistscloset.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: WARNING: at net/core/dev.c:1904
+	skb_gso_segment+0x146/0x298()
+Date: Mon, 5 Dec 2011 15:02:54 -0800
+Message-ID: <20111205150254.00004b9b@unknown>
+References: <4ECD902A.8080206@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from drutsystem.com ([80.72.38.138]:2614 "EHLO drutsystem.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932377Ab1LEWSa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Dec 2011 17:18:30 -0500
-In-Reply-To: <1322979139.3347.147.camel@denise.theartistscloset.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-2"
+Content-Transfer-Encoding: quoted-printable
+Cc: e1000-devel@lists.sourceforge.net,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: =?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <4ECD902A.8080206@itcare.pl>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On 11-12-04 07:12, John A. Sullivan III wrote:
-> To try to understand more about HFSC, I've tried to map out a real
-> world scenario and how we'd handle it.  My apologies in advance for a
-> consequently long email :(
-> 
-> As others have pointed out, we immediately noticed that
-> http://trash.net/~kaber/hfsc/SIGCOM97.pdf 
+cc: e1000-devel
 
-For the paper, use: http://www.cs.cmu.edu/~istoica/hfsc-tr.ps.gz
-or
-http://www.cs.cmu.edu/~istoica/hfsc_extended.ps.gz
+On Wed, 23 Nov 2011 16:30:34 -0800
+Pawe=B3 Staszewski <pstaszewski@itcare.pl> wrote:
+> After upgrade from 2.6.38.2 to 3.1.2 i have this im dmesg:
+> [  600.266497] WARNING: at net/core/dev.c:1904 skb_gso_segment+0x146/0x29=
+8()
+> [  600.266500] Hardware name: X8DTU-6+
+> [  600.266503] 802.1Q VLAN Support: caps=3D(0x20115833, 0x0) len=3D2816 =
 
-More detailed, with correct sub/superscripts. You might need to treat
-it first with:
+> data_len=3D2776 ip_summed=3D1
 
-sed "s|\[FontBBox\]|/FontBBox load |"
+it seems no-one ever replied, can you give us more details about the
+traffic and network configuration that reproduces the panic?
 
-as it was generated with a little bit old (ancient) idraw version.
+what does the output of 'ip address' show? vconfig?
 
-> seems to speak of sc and ul whereas the Linux implementation adds rt
-> and ls.  Is it correct to assume that this is because the Linux
-> implementation foresaw instances where one might not want the sharing
-> ratio of available bandwidth to be the same as the ratio of guaranteed
-> bandwidth?
+it seems as if GRO is pushing a packet into the stack to be forwarded
+that gso is mad about due to checksum !=3D CHECKSUM_PARTIAL, esp when
+stacked upon macvlan and/or vlan:
 
-The paper talks only about LS and RT curves, which (in context of the
-example implementation) were assumed to be the same (meaning, not
-literally 1 curve - two separate ones, but defined in identical way).
+see dev.c:1904 in 3.1 kernel
 
-The actual altq implementation (initially ported to Linux ~2003) allows
-them to be specified separately, and adds an UL curve which is used to
-limit LS. It also allows specifying leaf classes with only one kind of
-the curve.
 
-In a nutshell, RT's role is to guarantee certain bandwidth and latency
-(within limits of what the cpu and whole network path can deliver), LS's
-role is to distribute remaining bandwidth, and UL's role is to make sure
-LS doesn't send too fast (or in more exotic case, to make sure that some
-subtrees never get more bandwidth than some predetermined value due to
-some policies). UL is ... ugly thing working a bit against LS, but it's
-necessary to shape properly for speeds other than interface's native
-speed (which is almost always the case).
+> [  600.266506] Modules linked in: macvlan
+> [  600.266511] Pid: 0, comm: kworker/0:1 Not tainted 3.1.2 #1
+> [  600.266513] Call Trace:
+> [  600.266515] <IRQ>  [<ffffffff8103449c>] warn_slowpath_common+0x80/0x98
+> [  600.266527]  [<ffffffff81034548>] warn_slowpath_fmt+0x41/0x43
+> [  600.266530]  [<ffffffff813c838f>] skb_gso_segment+0x146/0x298
+> [  600.266535]  [<ffffffff8103994e>] ? local_bh_enable+0xd/0xf
+> [  600.266540]  [<ffffffff813cc646>] dev_hard_start_xmit+0x35a/0x57d
+> [  600.266544]  [<ffffffff8103994e>] ? local_bh_enable+0xd/0xf
+> [  600.266548]  [<ffffffff813cccb2>] dev_queue_xmit+0x449/0x4ef
+> [  600.266554]  [<ffffffff813ffc4d>] ip_finish_output2+0x1c4/0x201
+> [  600.266560]  [<ffffffff813ffd1c>] ip_finish_output+0x92/0x97
+> [  600.266562]  [<ffffffff813ffe7c>] T.1037+0x4f/0x56
+> [  600.266565]  [<ffffffff81400005>] ip_output+0x58/0x5b
+> [  600.266567]  [<ffffffff813fc4f0>] ip_forward_finish+0x44/0x48
+> [  600.266569]  [<ffffffff813fc7f4>] ip_forward+0x300/0x36c
+> [  600.266572]  [<ffffffff813fb144>] ip_rcv_finish+0x2a4/0x2ce
+> [  600.266575]  [<ffffffff813faea0>] ? inet_del_protocol+0x37/0x37
+> [  600.266577]  [<ffffffff813fb431>] T.935+0x4c/0x53
+> [  600.266579]  [<ffffffff813fb6bc>] ip_rcv+0x237/0x263
+> [  600.266582]  [<ffffffff813cb76b>] __netif_receive_skb+0x41d/0x44f
+> [  600.266584]  [<ffffffff813cb891>] process_backlog+0xf4/0x1d3
+> [  600.266587]  [<ffffffff813cbfee>] net_rx_action+0x74/0x1cb
+> [  600.266589]  [<ffffffff81039a74>] __do_softirq+0xc8/0x1a4
+> [  600.266591]  [<ffffffff81039b31>] ? __do_softirq+0x185/0x1a4
+> [  600.266595]  [<ffffffff814a8bec>] call_softirq+0x1c/0x30
+> [  600.266599]  [<ffffffff8100385d>] do_softirq+0x41/0x7e
+> [  600.266601]  [<ffffffff8103987b>] irq_exit+0x44/0x74
+> [  600.266603]  [<ffffffff81003182>] do_IRQ+0x98/0xaf
+> [  600.266606]  [<ffffffff814a0f2e>] common_interrupt+0x6e/0x6e
+> [  600.266608] <EOI>  [<ffffffff8100887e>] ? mwait_idle+0x7e/0xa4
+> [  600.266613]  [<ffffffff81008836>] ? mwait_idle+0x36/0xa4
+> [  600.266615]  [<ffffffff81001da7>] cpu_idle+0x5f/0x91
+> [  600.266620]  [<ffffffff81acca55>] start_secondary+0x192/0x196
+> [  600.266622] ---[ end trace 15512840060b2da9 ]---
+> =
 
-> I'm guessing a practical illustration would be a bulk class where I
-> have low rt just to keep the class from being starved but want it to
-> obtain available bandwidth more aggressively.  Is that correct?
+> Network controller: Intel Corporation 82598EB 10-Gigabit AT CX4 Network =
 
-Hmmmm ... The class will never be starved in HFSC (if things are setup
-correctly). It's more about non-linearity and using real clock for RT
-case. LS is just simple arbitrator - go down the tree, selecting
-smallest virtual times. RT ignores tree hierarchy completely, and
-chooses a set of all eligible leaf classes, and from those the one with
-smallest deadline time. Due to non-linearity, it has to use two curves
-(eligible and deadline) to achieve its endes. It's all detailed in the
-paper and man pages, though not necessarily an easy chunk to read.
+> Connection (rev 01)
+> ethtool -i eth4
+> driver: ixgbe
+> version: 3.4.8-k
+> firmware-version: 1.12-2
+> bus-info: 0000:04:00.0
+> =
 
-> So trying to put the four possible parameters together,
+> ethtool -k eth4
+> Offload parameters for eth4:
+> rx-checksumming: on
+> tx-checksumming: on
+> scatter-gather: on
+> tcp-segmentation-offload: on
+> udp-fragmentation-offload: off
+> generic-segmentation-offload: on
+> generic-receive-offload: on
+> large-receive-offload: off
+> ntuple-filters: off
+> receive-hashing: on
 
-Four ? LS, RT, UL. Unless you also mean RT's split in to eligible and
-deadline parts.
 
-> it sounds like ul is normally used to specify the maximum link speed
-> and can be specified at the root, no, next child from root class and
-> then flow down to all descendants without being explicitly specified?
+---------------------------------------------------------------------------=
+---
+All the data continuously generated in your IT infrastructure =
 
-UL set for some node is only applicable to that node. It prohibits that
-node (and implicitly, its whole subtree - so in this context you can
-think of it as "flowing down") from participating in LS. But only LS.
+contains a definitive record of customers, application performance, =
 
-> But one can also give a class an explicit ul if one wants to limit the
-> amount of bandwidth a leaf or branch can consume when sharing
-> available bandwidth?
+security threats, fraudulent activity, and more. Splunk takes this =
 
-+/- yes. Keep in mind, that RT is independent from LS (and UL will not
-block it in any way), but it still updates cumulative total amount of
-service a class received, so it implicitly influences virtual times used
-by LS.
-
-> sc would be used where rt=ls?
-
-yes (2 identical curves used for 2 different things)
-
-> ls is used solely to determine ratios of sharing available bandwidth
-> between peers, does not need to aggregate to<= ul but normally does by
-> convention?
-
-Only ratio, yes. Actual values are irrelevant for LS (only). 2 linear
-curves with 10kbit slopes will have the same effect like 100kbit ones.
-
-But, like mentioned above, UL so-to-speak decides whenever a class (and
-its subtree, implicitly) is "eligible" to participate in LS, so its
-subtree will never push more than UL using LS criterion.
-
-> rt only applies to leaves and is the guaranteed bandwidth and must
-> aggregate to<= ul if all guarantees are to be honored?
-
-Only leafs, yes.
-
-RT completely ignores LS[+UL] though.
-
-> Very important for my understanding, specifying rt and ls in the same
-> class is NOT the mechanism used for decoupling latency guarantees from
-> bandwidth allocations.  That is simply specifying that available
-> bandwidth will be obtained in a different proportion than the
-> guaranteed bandwidth.
-
-yes
-
-> The decoupling of latency from bandwidth happens by having a dilinear
-> service curve, i.e., specifying either m1, d, and m2 or specifying
-> umax, dmax, and rate where umax/dmax != rate.  Is that correct?
-
-yes
-
-> So, it then seems like: virtual time is dependent upon ls
-
-yes
-
-> eligible time is dependent upon available bandwidth as determined by
-> ul and ls
-
-no, eligible curve is derived from RT curve. For linear and concave
-curves it's the same as RT curve. For convex RT - eligible curve is
-linear using RT's second slope. The time calculated from it is relative
-to packets' heads - essentially answering question: which packets should
-be in transit already by current time (and for convex - which should be
-sent earlier, so when the curve is violated later by some other
-class(es), everything remains fine with reference to the amount of
-service received by some time). RT ignores LS/UL.
-
-> deadline time is dependent on the curve which is why a dilinear curve
-> can be used to "jump the queue" so to speak or to drop back in the
-> queue.
-
-deadline curve is also derived from RT curve, and it's always of the
-same parameters. But packets tails are used here - essentialy answering
-question: what packet should go first (as only 1 can be send at a time
-after all). No relevance to LS/UL in any way or form either.
-
-So more correct way to say is: RT *is* deadline and eligible.
-
-> This raises an interesting question about dilinear curves and ul. If
-> m1 is being used to "jump the queue" and not to determine guaranteed
-> bandwidth, do we need to take into account the resultant bandwidth
-> calculation of m1 when ensuring rt<= ul? To illustrate, let's say we
-> have a 100kbits link.  We give interactive traffic 40kbits, VoIP
-> 20kbits, and bulk 40kbits so rt = ul.  However, we specify interactive
-> as rt 1534b 10ms 40kbits and VoiP as rt 254b 10ms 20kbits.  puts us
-> way over ul (~= 400kbits + 200kbits + 40kbits). Is this OK since it
-> is not actually the guaranteed bandwidth but just the data used to
-> calculate deadline? I am guessing that if we are in the situation
-> where packets simply cannot be transmitted fast enough to meet the
-> requested deadline that this implies we do not have sufficient
-> eligible time and so deadline becomes moot.
-
-1534b/10ms is roughly 1.2mbit rate. So you effectively defined (~1.2mbit
-for 10ms, then 40kbit) and (~200kbit for 10ms, then 20kbit). HFSC will
-of course schedule this - and such approach to keep certain class
-favored on fresh backlog pariod is ok, but keep in mind the side effects
-(there're example in man pages mentioned in previous reply):
-
-- any excess like that contributes to total service => influences
-  virtual times. the class will have to pay for that during LS
-- LS main point is to keep all virtual times as equal as possible; if
-  they drift apart that means something is wrong. It's not a big deal
-  (or not a deal at all, if user knows what he wants and what he's
-  doing) during m1, but might have disastrous effects during m2 (on
-  other sibling classes in particular)
-- in your example, LS is unusable, as there's always something eligible
-  by RT; even if your interface's native speed is 10gbit, RT will cover
-  100kbit of the real uplink, and UL will block any LS attempts.
-
-Interesting point is, that some other OSes (BSDs using pf) try to pamper
-the user, and won't even let you specify RT going beyond LS, or sum(RTs)
-going beyond 80% of interface's speed (iirc). It's bad approach
-(limiting legitimate tricks/uses), but certainly a way to avoid misuse
-... 
-
-> [cut]
-
-later, though you might want to update the questions first by now :)
+data and makes sense of it. IT sense. And common sense.
+http://p.sf.net/sfu/splunk-novd2d
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.co=
+m/community/wired
