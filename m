@@ -1,43 +1,44 @@
-From: wwguy <wey-yi.w.guy@intel.com>
-Subject: Re: linux-next: manual merge of the net-next tree with the  tree
-Date: Mon, 05 Dec 2011 07:42:56 -0800
-Message-ID: <1323099776.5536.0.camel@wwguy-ubuntu>
-References: <20111205123428.47213da24624d85aa84711f3@canb.auug.org.au>
-	 <20111205153416.e1dd01e5368ce7c016d99a59@canb.auug.org.au>
-	 <20111205145320.GA2531@tuxdriver.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: sky2 tx watchdog timeout with 1Gb speed
+Date: Mon, 5 Dec 2011 08:16:11 -0800
+Message-ID: <20111205081611.52ec0664@nehalam.linuxnetplumber.net>
+References: <20111120232118.GA29748@ntm.wq.cz>
+	<20111121160543.2ae9c04c@nehalam.linuxnetplumber.net>
+	<20111122094234.GA28500@ntm.wq.cz>
+	<20111126161513.GA5299@ntm.wq.cz>
+	<20111126170331.744025f1@s6510.linuxnetplumber.net>
+	<20111205124725.GA19385@ntm.wq.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Berg, Johannes" <johannes.berg@intel.com>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20111205145320.GA2531@tuxdriver.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Milan Kocian <milon@wq.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:37842 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932447Ab1LEQQO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Dec 2011 11:16:14 -0500
+In-Reply-To: <20111205124725.GA19385@ntm.wq.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-12-05 at 06:53 -0800, John W. Linville wrote:
-> On Mon, Dec 05, 2011 at 03:34:16PM +1100, Stephen Rothwell wrote:
-> > On Mon, 5 Dec 2011 12:34:28 +1100 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> > >
-> > > Today's linux-next merge of the net-next tree got a conflict in
-> > > drivers/net/wireless/iwlwifi/iwl-agn.c between commits from the
-> > 
-> > wireless (sorry)
-> > 
-> > > tree and commit 7335613ae27a ("iwlwifi: move all mac80211 related
-> > > functions to one place") from the net-next tree.
-> > > 
-> > > I just used the net-next version (which may require some fixes).
-> 
-> Yeah, I'll try to get that straightened-out over the next day or two.
-> 
-John, anything I can help?
+On Mon, 5 Dec 2011 13:47:25 +0100
+Milan Kocian <milon@wq.cz> wrote:
 
-Thanks
-Wey
- 
+> On Sat, Nov 26, 2011 at 05:03:31PM -0800, Stephen Hemminger wrote:
+> > 
+> > I think the problem might be that the board doesn't really have all the DMA pins
+> > wired. You might try enabling iommu, or limiting to <4G of memory.
+> 
+> hello stephen,
+> 
+> you are probably right. I found that with this mb (Gigabyte GA-965GM-S2) was
+> more problems with linux. So I replaced this old crap with new one :-).
+> Many thanks for your time.
+> 
+> Best regards,
+
+There was a similar glitch with some skge users.
+
+I have a patch to limit driver to 32bit only. If you send the DMI information,
+it can be made automatic.
