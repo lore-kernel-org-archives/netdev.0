@@ -1,136 +1,58 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Subject: Re: [PATCH v7 10/10] Disable task moving when using kernel memory
- accounting
-Date: Mon, 5 Dec 2011 11:18:35 +0900
-Message-ID: <20111205111835.b1432603.kamezawa.hiroyu@jp.fujitsu.com>
-References: <1322611021-1730-1-git-send-email-glommer@parallels.com>
-	<1322611021-1730-11-git-send-email-glommer@parallels.com>
-	<20111130112210.1d979512.kamezawa.hiroyu@jp.fujitsu.com>
-	<4ED914EC.6020500@parallels.com>
+From: Zhi Yong Wu <zwu.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: =?utf-8?q?=5BPATCH=5D_datapath=3A_Fix_build_breakage_on?=
+	=?utf-8?q?_kernel_2=2E6=2E40?=
+Date: Mon,  5 Dec 2011 10:33:14 +0800
+Message-ID: <1323052394-12711-1-git-send-email-zwu.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org>,
-	<lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>, <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	<kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>, <avagin-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
-	<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4ED914EC.6020500-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: aliguori-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, stefanha-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ryanh-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2 Dec 2011 16:11:56 -0200
-Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
-
-> On 11/30/2011 12:22 AM, KAMEZAWA Hiroyuki wrote:
-> > On Tue, 29 Nov 2011 21:57:01 -0200
-> > Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>  wrote:
-> >
-> >> Since this code is still experimental, we are leaving the exact
-> >> details of how to move tasks between cgroups when kernel memory
-> >> accounting is used as future work.
-> >>
-> >> For now, we simply disallow movement if there are any pending
-> >> accounted memory.
-> >>
-> >> Signed-off-by: Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-> >> CC: Hiroyouki Kamezawa<kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-> >> ---
-> >>   mm/memcontrol.c |   23 ++++++++++++++++++++++-
-> >>   1 files changed, 22 insertions(+), 1 deletions(-)
-> >>
-> >> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-> >> index a31a278..dd9a6d9 100644
-> >> --- a/mm/memcontrol.c
-> >> +++ b/mm/memcontrol.c
-> >> @@ -5453,10 +5453,19 @@ static int mem_cgroup_can_attach(struct cgroup_subsys *ss,
-> >>   {
-> >>   	int ret = 0;
-> >>   	struct mem_cgroup *memcg = mem_cgroup_from_cont(cgroup);
-> >> +	struct mem_cgroup *from = mem_cgroup_from_task(p);
-> >> +
-> >> +#if defined(CONFIG_CGROUP_MEM_RES_CTLR_KMEM)&&  defined(CONFIG_INET)
-> >> +	if (from != memcg&&  !mem_cgroup_is_root(from)&&
-> >> +	    res_counter_read_u64(&from->tcp_mem.tcp_memory_allocated, RES_USAGE)) {
-> >> +		printk(KERN_WARNING "Can't move tasks between cgroups: "
-> >> +			"Kernel memory held.\n");
-> >> +		return 1;
-> >> +	}
-> >> +#endif
-> >
-> > I wonder....reading all codes again, this is incorrect check.
-> >
-> > Hm, let me cralify. IIUC, in old code, "prevent moving" is because you hold
-> > reference count of cgroup, which can cause trouble at rmdir() as leaking refcnt.
-> right.
-> 
-> > BTW, because socket is a shared resource between cgroup, changes in mm->owner
-> > may cause task cgroup moving implicitly. So, if you allow leak of resource
-> > here, I guess... you can take mem_cgroup_get() refcnt which is memcg-local and
-> > allow rmdir(). Then, this limitation may disappear.
-> 
-> Sorry, I didn't fully understand. Can you clarify further?
-> If the task is implicitly moved, it will end up calling can_attach as 
-> well, right?
-> 
-I'm sorry that my explanation is bad.
-
-You can take memory cgroup itself's reference count by mem_cgroup_put/get.
-By getting this, memory cgroup object will continue to exist even after
-its struct cgroup* is freed by rmdir().
-
-So, assume you do mem_cgroup_get()/put at socket attaching/detatching.
-
-0) A task has a tcp socekts in memcg0.
-
-task(memcg0)
- +- socket0 --> memcg0,usage=4096
-
-1) move this task to memcg1
-
-task(memcg1)
- +- socket0 --> memcg0,usage=4096
-
-2) The task create a new socket.
-
-task(memcg1)
- +- socekt0 --> memcg0,usage=4096 
- +- socket1 --> memcg1,usage=xxxx
-
-Here, the task will hold 4096bytes of usage in memcg0 implicitly.
-
-3) an admin removes memcg0
-task(memcg1)
- +- socket0 -->memcg0, usage=4096 <-----(*)
- +- socket1 -->memcg1, usage=xxxx
-
-(*) is invisible to users....but this will not be very big problem.
-
-Thanks,
--Kame
-
-
-
-
-
-
-
-
-
-
-
-Thanks,
--Kame
-
-
-
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe cgroups" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+VG9kYXkgaSBwbGF5ZWQgd2l0aCBvcGVudnN3aXRjaCBvbiBteSB3b3Jrc3RhdGlvbiB3aXRoIGtl
+cm5lbCAyLjYuNDAgYW5kIGZvdW5kIHRoYXQgaXQgYnJlYWsgd2hlbiBpIGJ1aWx0LiBUaGUKK2lz
+c3VlIGlzIGludHJvZHVjZWQgYnkgY29tbWl0IGNlYjE3NmZkYjcyYmI3Y2U5MGRlYmM2NmUxZWVi
+MWQyNTgyM2QzMGEKCkJlbG93IGlzIHRoZSBlcnJvciBsb2c6Cgpmcm9tIC9ob21lL3p3dS93b3Jr
+L3ZpcnQvb3BlbnZzd2l0Y2gvZGF0YXBhdGgvbGludXgvZ2VuZXRsaW5rLWJyY29tcGF0LmM6MTA6
+Ci9ob21lL3p3dS93b3JrL3ZpcnQvb3BlbnZzd2l0Y2gvZGF0YXBhdGgvbGludXgvY29tcGF0L2lu
+Y2x1ZGUvbGludXgvc2tidWZmLmg6MjQzOjIwOiBlcnJvcjogcmVkZWZpbml0aW9uIG9mCivigJhz
+a2JfcmVzZXRfbWFjX2xlbuKAmQppbmNsdWRlL2xpbnV4L3NrYnVmZi5oOjEyNTk6MjA6IG5vdGU6
+IHByZXZpb3VzIGRlZmluaXRpb24gb2Yg4oCYc2tiX3Jlc2V0X21hY19sZW7igJkgd2FzIGhlcmUK
+bWFrZVs1XTogKioqIFsvaG9tZS96d3Uvd29yay92aXJ0L29wZW52c3dpdGNoL2RhdGFwYXRoL2xp
+bnV4L2dlbmV0bGluay1icmNvbXBhdC5vXSBFcnJvciAxCm1ha2VbNF06ICoqKiBbX21vZHVsZV8v
+aG9tZS96d3Uvd29yay92aXJ0L29wZW52c3dpdGNoL2RhdGFwYXRoL2xpbnV4XSBFcnJvciAyCm1h
+a2VbNF06IExlYXZpbmcgZGlyZWN0b3J5IGAvdXNyL3NyYy9rZXJuZWxzLzIuNi40MC42LTAuZmMx
+NS54ODZfNjQnCm1ha2VbM106ICoqKiBbZGVmYXVsdF0gRXJyb3IgMgptYWtlWzNdOiBMZWF2aW5n
+IGRpcmVjdG9yeSBgL2hvbWUvend1L3dvcmsvdmlydC9vcGVudnN3aXRjaC9kYXRhcGF0aC9saW51
+eCcKbWFrZVsyXTogKioqIFthbGwtcmVjdXJzaXZlXSBFcnJvciAxCm1ha2VbMl06IExlYXZpbmcg
+ZGlyZWN0b3J5IGAvaG9tZS96d3Uvd29yay92aXJ0L29wZW52c3dpdGNoL2RhdGFwYXRoJwptYWtl
+WzFdOiAqKiogW2FsbC1yZWN1cnNpdmVdIEVycm9yIDEKbWFrZVsxXTogTGVhdmluZyBkaXJlY3Rv
+cnkgYC9ob21lL3p3dS93b3JrL3ZpcnQvb3BlbnZzd2l0Y2gnCm1ha2U6ICoqKiBbYWxsXSBFcnJv
+ciAyCgoKU2lnbmVkLW9mZi1ieTogWmhpIFlvbmcgV3UgPHp3dS5rZXJuZWxAZ21haWwuY29tPgot
+LS0KIGRhdGFwYXRoL2xpbnV4L2NvbXBhdC9pbmNsdWRlL2xpbnV4L3NrYnVmZi5oIHwgICAgMiAr
+LQogMSBmaWxlcyBjaGFuZ2VkLCAxIGluc2VydGlvbnMoKyksIDEgZGVsZXRpb25zKC0pCgpkaWZm
+IC0tZ2l0IGEvZGF0YXBhdGgvbGludXgvY29tcGF0L2luY2x1ZGUvbGludXgvc2tidWZmLmggYi9k
+YXRhcGF0aC9saW51eC9jb21wYXQvaW5jbHVkZS9saW51eC9za2J1ZmYuaAppbmRleCAzMTFiZmRi
+Li45NmQ4MDEyIDEwMDY0NAotLS0gYS9kYXRhcGF0aC9saW51eC9jb21wYXQvaW5jbHVkZS9saW51
+eC9za2J1ZmYuaAorKysgYi9kYXRhcGF0aC9saW51eC9jb21wYXQvaW5jbHVkZS9saW51eC9za2J1
+ZmYuaApAQCAtMjM5LDcgKzIzOSw3IEBAIHN0YXRpYyBpbmxpbmUgc3RydWN0IHBhZ2UgKnNrYl9m
+cmFnX3BhZ2UoY29uc3Qgc2tiX2ZyYWdfdCAqZnJhZykKIH0KICNlbmRpZgogCi0jaWYgTElOVVhf
+VkVSU0lPTl9DT0RFIDwgS0VSTkVMX1ZFUlNJT04oMywwLDApCisjaWYgTElOVVhfVkVSU0lPTl9D
+T0RFIDwgS0VSTkVMX1ZFUlNJT04oMiw2LDQwKQogc3RhdGljIGlubGluZSB2b2lkIHNrYl9yZXNl
+dF9tYWNfbGVuKHN0cnVjdCBza19idWZmICpza2IpCiB7CiAJc2tiLT5tYWNfbGVuID0gc2tiLT5u
+ZXR3b3JrX2hlYWRlciAtIHNrYi0+bWFjX2hlYWRlcjsKLS0gCjEuNy42CgpfX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBv
+cGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rl
+dgo=
