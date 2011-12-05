@@ -1,58 +1,94 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the  tree
-Date: Mon, 5 Dec 2011 12:34:28 +1100
-Message-ID: <20111205123428.47213da24624d85aa84711f3@canb.auug.org.au>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [PATCH v7 02/10] foundations of per-cgroup memory pressure
+ controlling.
+Date: Mon, 5 Dec 2011 10:59:16 +0900
+Message-ID: <20111205105916.eeb55989.kamezawa.hiroyu@jp.fujitsu.com>
+References: <1322611021-1730-1-git-send-email-glommer@parallels.com>
+	<1322611021-1730-3-git-send-email-glommer@parallels.com>
+	<20111130094305.9c69ecd8.kamezawa.hiroyu@jp.fujitsu.com>
+	<4ED90F06.102@parallels.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Mon__5_Dec_2011_12_34_28_+1100_ncL=u0oM=6_Q0Cd1"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Wey-Yi Guy" <wey-yi.w.guy@intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes.berg@intel.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <paul@paulmenage.org>,
+ <lizf@cn.fujitsu.com>, <ebiederm@xmission.com>, <davem@davemloft.net>,
+ <gthelen@google.com>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
+ <kirill@shutemov.name>, <avagin@parallels.com>, <devel@openvz.org>,
+ <eric.dumazet@gmail.com>, <cgroups@vger.kernel.org>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <4ED90F06.102@parallels.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Mon__5_Dec_2011_12_34_28_+1100_ncL=u0oM=6_Q0Cd1
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Fri, 2 Dec 2011 15:46:46 -0200
+Glauber Costa <glommer@parallels.com> wrote:
 
-Hi all,
+> 
+> >>   static void proto_seq_printf(struct seq_file *seq, struct proto *proto)
+> >>   {
+> >> +	struct mem_cgroup *memcg = mem_cgroup_from_task(current);
+> >> +
+> >>   	seq_printf(seq, "%-9s %4u %6d  %6ld   %-3s %6u   %-3s  %-10s "
+> >>   			"%2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c\n",
+> >>   		   proto->name,
+> >>   		   proto->obj_size,
+> >>   		   sock_prot_inuse_get(seq_file_net(seq), proto),
+> >> -		   proto->memory_allocated != NULL ? atomic_long_read(proto->memory_allocated) : -1L,
+> >> -		   proto->memory_pressure != NULL ? *proto->memory_pressure ? "yes" : "no" : "NI",
+> >> +		   sock_prot_memory_allocated(proto, memcg),
+> >> +		   sock_prot_memory_pressure(proto, memcg),
+> >
+> > I wonder I should say NO, here. (Networking guys are ok ??)
+> >
+> > IIUC, this means there is no way to see aggregated sockstat of all system.
+> > And the result depends on the cgroup which the caller is under control.
+> >
+> > I think you should show aggregated sockstat(global + per-memcg) here and
+> > show per-memcg ones via /cgroup interface or add private_sockstat to show
+> > per cgroup summary.
+> >
+> 
+> Hi Kame,
+> 
+> Yes, the statistics displayed depends on which cgroup you live.
+> Also, note that the parent cgroup here is always updated (even when 
+> use_hierarchy is set to 0). So it is always possible to grab global 
+> statistics, by being in the root cgroup.
+> 
+> For the others, I believe it to be a question of naturalization. Any 
+> tool that is fetching these values is likely interested in the amount of 
+> resources available/used. When you are on a cgroup, the amount of 
+> resources available/used changes, so that's what you should see.
+> 
+> Also brings the point of resource isolation: if you shouldn't interfere 
+> with other set of process' resources, there is no reason for you to see 
+> them in the first place.
+> 
+> So given all that, I believe that whenever we talk about resources in a 
+> cgroup, we should talk about cgroup-local ones.
 
-Today's linux-next merge of the net-next tree got a conflict in
-drivers/net/wireless/iwlwifi/iwl-agn.c between commits from the
-tree and commit 7335613ae27a ("iwlwifi: move all mac80211 related
-functions to one place") from the net-next tree.
+But you changes /proc/ information without any arguments with other guys.
+If you go this way, you should move this patch as independent add-on patch
+and discuss what this should be. For example, /proc/meminfo doesn't reflect
+memcg's information (for now). And scheduler statiscits in /proc/stat doesn't
+reflect cgroup's information.
 
-I just used the net-next version (which may require some fixes).
+So, please discuss the problem in open way. This issue is not only related to
+this patch but also to other cgroups. Sneaking this kind of _big_ change in
+a middle of complicated patch series isn't good.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+In short, could you divide this patch into a independent patch and discuss
+again ? If we agree the general diection should go this way, other guys will
+post patches for cpu, memory, blkio, etc.
 
---Signature=_Mon__5_Dec_2011_12_34_28_+1100_ncL=u0oM=6_Q0Cd1
-Content-Type: application/pgp-signature
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+Thanks,
+-Kame
 
-iQIcBAEBCAAGBQJO3B+kAAoJEECxmPOUX5FEBBEP/22HNpjAxOb5Vt6tCcMoqeXS
-ZNHzv3D5Wgx/DcihPcyxnN9nQIqu/h3AwQStPYw//5dcEUBL/8p5JNZ/hzUZhasT
-nRxad4c472ox/4Y9qSf5CRw60tkynDfho1d8uKyBu4Rvhu7AWzemEXn7La9fnOAA
-ceqCmNLW0hLbGDWlNIGUW36vUA3G/R0lVJ/sYJd5SyF6vBfSSEdwGw1FcnmbZeCN
-pQiAUfrJjB3stnFRk7OZ1cDwLqqVnN4TnM4wDKVL79bt6Ofd/Up8W4Rq/0s6Y9ka
-91NDQgMPLSu319evvqXXc02buDPSOjtH8/oXWO/XtY0HL6SNWgSueYvtot+gnGNq
-3+QNoHSNp7hzPmLe9VnFly+BZYzFEnIvmf7Dh8gLS1uLx6QyrQgNnhZ519hasqmE
-yVOie4VQYkiBoMf5Izbj0eijsa+UNAlLplTS0cFO21vM01SnYZEaLTnqj7Zh78mX
-0LateKKbdxG2Q+xRbW8QpwGAM5530rOYd5hMUKD5Sd52fkFpP54E4xw97r8J5L9k
-JY1+3imjcFYloC4sTpVIYNEWrx5eJdgJ21QSa4BO6Z2zrB/dTGXXy2y2yeCy+XeG
-UplvWfThDHw0gD/3GUwTL568FlQBtiQAWz23qDpRYds5R7EPY829jVmrU4cN2qkG
-iY/a6Cx77eC8M9t3aKYm
-=Tc7x
------END PGP SIGNATURE-----
-
---Signature=_Mon__5_Dec_2011_12_34_28_+1100_ncL=u0oM=6_Q0Cd1--
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
