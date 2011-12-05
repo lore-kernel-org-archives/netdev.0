@@ -1,43 +1,68 @@
-From: Stefan Hajnoczi <stefanha@gmail.com>
-Subject: Re: [net-next RFC PATCH 5/5] virtio-net: flow director support
-Date: Mon, 5 Dec 2011 10:55:13 +0000
-Message-ID: <CAJSP0QXfHC8j2Kk9x6wyBMubo2=YvpaLAShJtwMWA2mtro6UhA@mail.gmail.com>
-References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
-	<20111205085925.6116.94352.stgit@dhcp-8-146.nay.redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Time in Queue, bufferbloat, and... our accidentally
+ interplanetary network
+Date: Mon, 05 Dec 2011 11:59:34 +0100
+Message-ID: <1323082774.2670.40.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <CAA93jw7kQYONQiAozatRmdRRJeK0GB9eNDWtRZ3AL+OVKn0OpA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	levinsasha928@gmail.com, bhutchings@solarflare.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20111205085925.6116.94352.stgit@dhcp-8-146.nay.redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bloat <bloat@lists.bufferbloat.net>,
+	bloat-devel <bloat-devel@lists.bufferbloat.net>,
+	netdev@vger.kernel.org,
+	linux-wireless <linux-wireless@vger.kernel.org>
+To: Dave Taht <dave.taht@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:40138 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755825Ab1LEK7i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2011 05:59:38 -0500
+In-Reply-To: <CAA93jw7kQYONQiAozatRmdRRJeK0GB9eNDWtRZ3AL+OVKn0OpA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 5, 2011 at 8:59 AM, Jason Wang <jasowang@redhat.com> wrote:
-> +static int virtnet_set_fd(struct net_device *dev, u32 pfn)
-> +{
-> + =A0 =A0 =A0 struct virtnet_info *vi =3D netdev_priv(dev);
-> + =A0 =A0 =A0 struct virtio_device *vdev =3D vi->vdev;
-> +
-> + =A0 =A0 =A0 if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_FD)) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 vdev->config->set(vdev,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 offseto=
-f(struct virtio_net_config_fd, addr),
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 &pfn, s=
-izeof(u32));
+Le lundi 05 d=C3=A9cembre 2011 =C3=A0 10:05 +0100, Dave Taht a =C3=A9cr=
+it :
 
-Please use the virtio model (i.e. virtqueues) instead of shared
-memory.  Mapping a page breaks the virtio abstraction.
+> And Eric dumazet also produced a preliminary patch a few weeks back
+> that tied timestamping to before the head of a queue, but that tried =
+to use a
+> reserved field in the skb that appears from points A to Z is not guar=
+anteed
+> to be preserved.
 
-Stefan
+It is guaranteed to be preserved, as it is part of skb->cb[], and
+skb->cb[] content is private to each layer.
+
+Here, Qdisc layer.
+
+Adding a time limit is possible, all we need is a proper design and
+implementation :)
+
+Here is my suggestion :
+
+Design a new tfifo/tred qdisc, with following properties :
+
+Adaptative RED, (ECN enabled + head drop), but instead of using
+bytes/packet qlen average, use time_in_queue average.
+
+A single mandatory parameter to specify the tmin value
+tmax default value would be tmin*3  (so that target avg is 2*tmin)
+tlimit default value would be tmax*8
+
+Adaptative RED dynamically adjusts maxp between 1% and 50%
+[Using a timer, every 500ms, and AIMD]
+
+tc qdisc add dev eth0 root tfifo tmin 1ms [tmax val] [tlimit val]
+
+
+I volunteer to work on this new tfifo experimental qdisc :)
+
+This can be used in replacement of pfifo/bfifo in a complex qdisc setup=
+=2E
+As it has RED included, it also can replace RED.
+
+Please note that once skb leaves Qdisc and is delivered to device, any
+time limit feature must be handled in the driver itself (if it can queu=
+e
+packet for a long time period)
