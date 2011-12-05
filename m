@@ -1,98 +1,98 @@
-From: Mark Lord <kernel@teksavvy.com>
-Subject: Re: [PATCH] drivers/net/usb/asix:  resync from vendor's copy
-Date: Mon, 05 Dec 2011 09:41:44 -0500
-Message-ID: <4EDCD828.2090904@teksavvy.com>
-References: <4EA89972.5060101@teksavvy.com>  <20111026.194045.2019668159403582571.davem@davemloft.net>  <4EA8B283.3010105@teksavvy.com>  <20111026.221719.2216112919297458522.davem@davemloft.net>  <4EB19BBE.5050602@teksavvy.com> <1320266549.2782.21.camel@bwh-desktop>  <4EBAA967.10403@teksavvy.com> <1320856444.18929.78.camel@deadeye>  <4EBAAEA5.1060408@teksavvy.com> <4EBAB0EA.1050102@teksavvy.com>  <4EBAB643.8020603@teksavvy.com> <1320859911.2781.1.camel@bwh-desktop>  <4EBABAFD.6050604@teksavvy.com> <1320860895.2781.6.camel@bwh-desktop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1320860895.2781.6.camel@bwh-desktop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: [PATCH] net/fec: fix the use of pdev->id
+Date: Mon,  5 Dec 2011 23:01:15 +0800
+Message-ID: <1323097275-7846-1-git-send-email-shawn.guo@linaro.org>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Shawn Guo <shawn.guo@linaro.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:53939 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932319Ab1LEOxa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2011 09:53:30 -0500
+Received: by iakc1 with SMTP id c1so2197521iak.19
+        for <netdev@vger.kernel.org>; Mon, 05 Dec 2011 06:53:29 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David / Ben / anyone..
+The pdev->id is used in several places for different purpose.  All
+these uses assume it's always the id of fec device which is >= 0.
+However this is only true for non-DT case.  When DT plays, pdev->id
+is always -1, which will break these pdev->id users.
 
-I'm trying to puzzle out the rx/tx checksum feature flags,
-and there does seem to be a lot of variance among drivers
-as to how these are used.
+Instead of fixing all these users one by one, this patch introduces
+a new member 'dev_id' to 'struct fec_enet_private' for holding the
+correct fec device id, and replaces all the existing uses of pdev->id
+with this dev_id.
 
-The ASIX chips have hardware support for IP and TCP checksumming
-for both IPv4 and IPv6.  So I'm thinking this code (below) is the
-most appropriate method for use in asix.c:
+Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+---
+ drivers/net/ethernet/freescale/fec.c |   11 +++++++----
+ 1 files changed, 7 insertions(+), 4 deletions(-)
 
-------------------------------- asix.h -----------------------------------
-...
-#define AX_RXCOE_IPCE                   0x0001
-#define AX_RXCOE_IPVE                   0x0002
-#define AX_RXCOE_V6VE                   0x0004
-#define AX_RXCOE_TCPE                   0x0008
-#define AX_RXCOE_UDPE                   0x0010
-#define AX_RXCOE_ICMP                   0x0020
-#define AX_RXCOE_IGMP                   0x0040
-#define AX_RXCOE_ICV6                   0x0080
-#define AX_RXCOE_TCPV6                  0x0100
-#define AX_RXCOE_UDPV6                  0x0200
-#define AX_RXCOE_ICMV6                  0x0400
-#define AX_RXCOE_IGMV6                  0x0800
-#define AX_RXCOE_ICV6V6                 0x1000
-#define AX_RXCOE_FOPC                   0x8000
-#define AX_RXCOE_DEF_CSUM               (AX_RXCOE_IPCE  | AX_RXCOE_IPVE  | \
-                                         AX_RXCOE_V6VE  | AX_RXCOE_TCPE  | \
-                                         AX_RXCOE_UDPE  | AX_RXCOE_ICV6  | \
-                                         AX_RXCOE_TCPV6 | AX_RXCOE_UDPV6)
-
-#define AX_RXCOE_64TE                   0x0100
-#define AX_RXCOE_PPPOE                  0x0200
-#define AX_RXCOE_RPCE                   0x8000
-
-#define AX_TXCOE_IP                     0x0001
-#define AX_TXCOE_TCP                    0x0002
-#define AX_TXCOE_UDP                    0x0004
-#define AX_TXCOE_ICMP                   0x0008
-#define AX_TXCOE_IGMP                   0x0010
-#define AX_TXCOE_ICV6                   0x0020
-#define AX_TXCOE_TCPV6                  0x0100
-#define AX_TXCOE_UDPV6                  0x0200
-#define AX_TXCOE_ICMV6                  0x0400
-#define AX_TXCOE_IGMV6                  0x0800
-#define AX_TXCOE_ICV6V6                 0x1000
-#define AX_TXCOE_DEF_CSUM               (AX_TXCOE_TCP   | AX_TXCOE_UDP | \
-                                         AX_TXCOE_TCPV6 | AX_TXCOE_UDPV6)
-...
-------------------------------- asix.c -----------------------------------
-
-static int ax88772b_set_features(struct net_device *netdev, u32 features)
-{
-        struct usbnet *dev = netdev_priv(netdev);
-        u16 tx_csum = (features & NETIF_F_HW_CSUM) ? AX_TXCOE_DEF_CSUM : 0;
-        u16 rx_csum = (features & NETIF_F_RXCSUM ) ? AX_RXCOE_DEF_CSUM : 0;
-
-        ax8817x_write_cmd(dev, AX_CMD_WRITE_TXCOE_CTL, tx_csum, 0, 0, NULL);
-        ax8817x_write_cmd(dev, AX_CMD_WRITE_RXCOE_CTL, rx_csum, 0, 0, NULL);
-        return 0;
-}
-...
-
-static int ax88772b_bind(struct usbnet *dev, struct usb_interface *intf)
-{
-...
-        /* register support for hardware checksums */
-        dev->net->hw_features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
-
-        /* enable hardware checksums */
-        dev->net->features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
-        ax88772b_set_features(dev->net, dev->net->features);
-...
-}
--------------------------------snip-----------------------------------
-
-Does this look correct -- any improvements/fixes to suggest?
-I am still trying to find out about all of the other possible hardware bits,
-but the AX_TXCOE_DEF_CSUM and AX_RXCOE_DEF_CSUM patterns are the ones
-that Asix themselves were using in the vendor driver.
-
-Thanks.
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index 1124ce0..c136230 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -232,6 +232,7 @@ struct fec_enet_private {
+ 	struct	platform_device *pdev;
+ 
+ 	int	opened;
++	int	dev_id;
+ 
+ 	/* Phylib and MDIO interface */
+ 	struct	mii_bus *mii_bus;
+@@ -837,7 +838,7 @@ static void __inline__ fec_get_mac(struct net_device *ndev)
+ 
+ 	/* Adjust MAC if using macaddr */
+ 	if (iap == macaddr)
+-		 ndev->dev_addr[ETH_ALEN-1] = macaddr[ETH_ALEN-1] + fep->pdev->id;
++		 ndev->dev_addr[ETH_ALEN-1] = macaddr[ETH_ALEN-1] + fep->dev_id;
+ }
+ 
+ /* ------------------------------------------------------------------------- */
+@@ -953,7 +954,7 @@ static int fec_enet_mii_probe(struct net_device *ndev)
+ 	char mdio_bus_id[MII_BUS_ID_SIZE];
+ 	char phy_name[MII_BUS_ID_SIZE + 3];
+ 	int phy_id;
+-	int dev_id = fep->pdev->id;
++	int dev_id = fep->dev_id;
+ 
+ 	fep->phy_dev = NULL;
+ 
+@@ -1031,7 +1032,7 @@ static int fec_enet_mii_init(struct platform_device *pdev)
+ 	 * mdio interface in board design, and need to be configured by
+ 	 * fec0 mii_bus.
+ 	 */
+-	if ((id_entry->driver_data & FEC_QUIRK_ENET_MAC) && pdev->id > 0) {
++	if ((id_entry->driver_data & FEC_QUIRK_ENET_MAC) && fep->dev_id > 0) {
+ 		/* fec1 uses fec0 mii_bus */
+ 		fep->mii_bus = fec0_mii_bus;
+ 		return 0;
+@@ -1063,7 +1064,7 @@ static int fec_enet_mii_init(struct platform_device *pdev)
+ 	fep->mii_bus->read = fec_enet_mdio_read;
+ 	fep->mii_bus->write = fec_enet_mdio_write;
+ 	fep->mii_bus->reset = fec_enet_mdio_reset;
+-	snprintf(fep->mii_bus->id, MII_BUS_ID_SIZE, "%x", pdev->id + 1);
++	snprintf(fep->mii_bus->id, MII_BUS_ID_SIZE, "%x", fep->dev_id + 1);
+ 	fep->mii_bus->priv = fep;
+ 	fep->mii_bus->parent = &pdev->dev;
+ 
+@@ -1521,6 +1522,7 @@ fec_probe(struct platform_device *pdev)
+ 	int i, irq, ret = 0;
+ 	struct resource *r;
+ 	const struct of_device_id *of_id;
++	static int dev_id;
+ 
+ 	of_id = of_match_device(fec_dt_ids, &pdev->dev);
+ 	if (of_id)
+@@ -1548,6 +1550,7 @@ fec_probe(struct platform_device *pdev)
+ 
+ 	fep->hwp = ioremap(r->start, resource_size(r));
+ 	fep->pdev = pdev;
++	fep->dev_id = dev_id++;
+ 
+ 	if (!fep->hwp) {
+ 		ret = -ENOMEM;
+-- 
+1.7.4.1
