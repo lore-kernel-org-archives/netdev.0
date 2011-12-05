@@ -1,58 +1,36 @@
-From: Zhi Yong Wu <zwu.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: =?utf-8?q?=5BPATCH=5D_datapath=3A_Fix_build_breakage_on?=
-	=?utf-8?q?_kernel_2=2E6=2E40?=
-Date: Mon,  5 Dec 2011 10:33:14 +0800
-Message-ID: <1323052394-12711-1-git-send-email-zwu.kernel@gmail.com>
+From: Li Wei <lw@cn.fujitsu.com>
+Subject: ipv6: addrconf_add_mroute() problem with loopback interface.
+Date: Mon, 05 Dec 2011 10:57:45 +0800
+Message-ID: <4EDC3329.1040801@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: aliguori-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, stefanha-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ryanh-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:49219 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753401Ab1LEC5j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 Dec 2011 21:57:39 -0500
+Received: from tang.cn.fujitsu.com (tang.cn.fujitsu.com [10.167.250.3])
+	by song.cn.fujitsu.com (Postfix) with ESMTP id 8C736170091
+	for <netdev@vger.kernel.org>; Mon,  5 Dec 2011 10:57:27 +0800 (CST)
+Received: from mailserver.fnst.cn.fujitsu.com (tang.cn.fujitsu.com [127.0.0.1])
+	by tang.cn.fujitsu.com (8.14.3/8.13.1) with ESMTP id pB52vQ7f005071
+	for <netdev@vger.kernel.org>; Mon, 5 Dec 2011 10:57:27 +0800
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VG9kYXkgaSBwbGF5ZWQgd2l0aCBvcGVudnN3aXRjaCBvbiBteSB3b3Jrc3RhdGlvbiB3aXRoIGtl
-cm5lbCAyLjYuNDAgYW5kIGZvdW5kIHRoYXQgaXQgYnJlYWsgd2hlbiBpIGJ1aWx0LiBUaGUKK2lz
-c3VlIGlzIGludHJvZHVjZWQgYnkgY29tbWl0IGNlYjE3NmZkYjcyYmI3Y2U5MGRlYmM2NmUxZWVi
-MWQyNTgyM2QzMGEKCkJlbG93IGlzIHRoZSBlcnJvciBsb2c6Cgpmcm9tIC9ob21lL3p3dS93b3Jr
-L3ZpcnQvb3BlbnZzd2l0Y2gvZGF0YXBhdGgvbGludXgvZ2VuZXRsaW5rLWJyY29tcGF0LmM6MTA6
-Ci9ob21lL3p3dS93b3JrL3ZpcnQvb3BlbnZzd2l0Y2gvZGF0YXBhdGgvbGludXgvY29tcGF0L2lu
-Y2x1ZGUvbGludXgvc2tidWZmLmg6MjQzOjIwOiBlcnJvcjogcmVkZWZpbml0aW9uIG9mCivigJhz
-a2JfcmVzZXRfbWFjX2xlbuKAmQppbmNsdWRlL2xpbnV4L3NrYnVmZi5oOjEyNTk6MjA6IG5vdGU6
-IHByZXZpb3VzIGRlZmluaXRpb24gb2Yg4oCYc2tiX3Jlc2V0X21hY19sZW7igJkgd2FzIGhlcmUK
-bWFrZVs1XTogKioqIFsvaG9tZS96d3Uvd29yay92aXJ0L29wZW52c3dpdGNoL2RhdGFwYXRoL2xp
-bnV4L2dlbmV0bGluay1icmNvbXBhdC5vXSBFcnJvciAxCm1ha2VbNF06ICoqKiBbX21vZHVsZV8v
-aG9tZS96d3Uvd29yay92aXJ0L29wZW52c3dpdGNoL2RhdGFwYXRoL2xpbnV4XSBFcnJvciAyCm1h
-a2VbNF06IExlYXZpbmcgZGlyZWN0b3J5IGAvdXNyL3NyYy9rZXJuZWxzLzIuNi40MC42LTAuZmMx
-NS54ODZfNjQnCm1ha2VbM106ICoqKiBbZGVmYXVsdF0gRXJyb3IgMgptYWtlWzNdOiBMZWF2aW5n
-IGRpcmVjdG9yeSBgL2hvbWUvend1L3dvcmsvdmlydC9vcGVudnN3aXRjaC9kYXRhcGF0aC9saW51
-eCcKbWFrZVsyXTogKioqIFthbGwtcmVjdXJzaXZlXSBFcnJvciAxCm1ha2VbMl06IExlYXZpbmcg
-ZGlyZWN0b3J5IGAvaG9tZS96d3Uvd29yay92aXJ0L29wZW52c3dpdGNoL2RhdGFwYXRoJwptYWtl
-WzFdOiAqKiogW2FsbC1yZWN1cnNpdmVdIEVycm9yIDEKbWFrZVsxXTogTGVhdmluZyBkaXJlY3Rv
-cnkgYC9ob21lL3p3dS93b3JrL3ZpcnQvb3BlbnZzd2l0Y2gnCm1ha2U6ICoqKiBbYWxsXSBFcnJv
-ciAyCgoKU2lnbmVkLW9mZi1ieTogWmhpIFlvbmcgV3UgPHp3dS5rZXJuZWxAZ21haWwuY29tPgot
-LS0KIGRhdGFwYXRoL2xpbnV4L2NvbXBhdC9pbmNsdWRlL2xpbnV4L3NrYnVmZi5oIHwgICAgMiAr
-LQogMSBmaWxlcyBjaGFuZ2VkLCAxIGluc2VydGlvbnMoKyksIDEgZGVsZXRpb25zKC0pCgpkaWZm
-IC0tZ2l0IGEvZGF0YXBhdGgvbGludXgvY29tcGF0L2luY2x1ZGUvbGludXgvc2tidWZmLmggYi9k
-YXRhcGF0aC9saW51eC9jb21wYXQvaW5jbHVkZS9saW51eC9za2J1ZmYuaAppbmRleCAzMTFiZmRi
-Li45NmQ4MDEyIDEwMDY0NAotLS0gYS9kYXRhcGF0aC9saW51eC9jb21wYXQvaW5jbHVkZS9saW51
-eC9za2J1ZmYuaAorKysgYi9kYXRhcGF0aC9saW51eC9jb21wYXQvaW5jbHVkZS9saW51eC9za2J1
-ZmYuaApAQCAtMjM5LDcgKzIzOSw3IEBAIHN0YXRpYyBpbmxpbmUgc3RydWN0IHBhZ2UgKnNrYl9m
-cmFnX3BhZ2UoY29uc3Qgc2tiX2ZyYWdfdCAqZnJhZykKIH0KICNlbmRpZgogCi0jaWYgTElOVVhf
-VkVSU0lPTl9DT0RFIDwgS0VSTkVMX1ZFUlNJT04oMywwLDApCisjaWYgTElOVVhfVkVSU0lPTl9D
-T0RFIDwgS0VSTkVMX1ZFUlNJT04oMiw2LDQwKQogc3RhdGljIGlubGluZSB2b2lkIHNrYl9yZXNl
-dF9tYWNfbGVuKHN0cnVjdCBza19idWZmICpza2IpCiB7CiAJc2tiLT5tYWNfbGVuID0gc2tiLT5u
-ZXR3b3JrX2hlYWRlciAtIHNrYi0+bWFjX2hlYWRlcjsKLS0gCjEuNy42CgpfX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBv
-cGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rl
-dgo=
+Hi All,
+
+addrconf_add_mroute() create "default" multicast route for the interface, 
+but with loopback interface, there would be some problem:
+
+If we set ipv6 address for the "lo" interface *before* other interfaces, the
+function addrconf_add_mroute() will create a "default" multicast route with
+error set to ENETUNREACH for "lo" interface.
+
+Later, when we send multicast packet, route subsystem will return this *error*
+route, so no multicast packets can go out.
+
+Does somebody can give me some advice that if it's necessary to add default
+multicast route for loopback interface?
