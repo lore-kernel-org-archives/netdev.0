@@ -1,40 +1,51 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next RFC PATCH 2/5] tuntap: simple flow director support
-Date: Mon, 5 Dec 2011 20:09:23 +0000
-Message-ID: <1323115763.2887.12.camel@bwh-desktop>
-References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
-	 <20111205085857.6116.99252.stgit@dhcp-8-146.nay.redhat.com>
+From: Pekka Enberg <penberg@kernel.org>
+Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+Date: Mon, 5 Dec 2011 22:10:34 +0200
+Message-ID: <CAOJsxLGCrNZnxZ70vpRGZ35GMK4MPDc4r6S=KTngQuL0eED94w@mail.gmail.com>
+References: <20111124085040.GA1677@x4.trippels.de>
+	<20111202230412.GB12057@homer.localdomain>
+	<20111203092845.GA1520@x4.trippels.de>
+	<CAPM=9tyjZc9waC_ZBygW9zh+Zq-Wb1X5Y6yfsCCMPYwpFVWOOg@mail.gmail.com>
+	<20111203122900.GA1617@x4.trippels.de>
+	<CAH3drwZDOpPuQ_G=LwTiNsR5BNyJTNr+VJU74E6nS5AbKyQH0A@mail.gmail.com>
+	<20111204010200.GA1530@x4.trippels.de>
+	<20111205171046.GA4342@homer.localdomain>
+	<20111205181549.GA1612@x4.trippels.de>
+	<20111205191116.GB4342@homer.localdomain>
+	<20111205192701.GA1531@x4.trippels.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <krkumar2@in.ibm.com>, <kvm@vger.kernel.org>, <mst@redhat.com>,
-	<netdev@vger.kernel.org>, <rusty@rustcorp.com.au>,
-	<virtualization@lists.linux-foundation.org>,
-	<levinsasha928@gmail.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20111205085857.6116.99252.stgit@dhcp-8-146.nay.redhat.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jerome Glisse <j.glisse@gmail.com>, Dave Airlie <airlied@gmail.com>,
+	Christoph Lameter <cl@linux.com>, "Alex, Shi" <alex.shi@intel.com>, Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, dri-devel@lists.freedesktop.org,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>, Matt Mackall <mpm@selenic.com>, tj@kernel.org,
+	Alex Deucher <alexander.deucher@amd.com>
+To: Markus Trippelsdorf <markus@trippelsdorf.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20111205192701.GA1531@x4.trippels.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-12-05 at 16:58 +0800, Jason Wang wrote:
-> This patch adds a simple flow director to tun/tap device. It is just a
-> page that contains the hash to queue mapping which could be changed by
-> user-space. The backend (tap/macvtap) would query this table to get
-> the desired queue of a packets when it send packets to userspace.
+On Mon, Dec 5, 2011 at 9:27 PM, Markus Trippelsdorf
+<markus@trippelsdorf.de> wrote:
+>> > Yes the patch finally fixes the issue for me (tested with 120 kexec
+>> > iterations).
+>> > Thanks Jerome!
+>>
+>> Can you do a kick run on the modified patch ?
+>
+> This one is also OK after ~60 iterations.
 
-This is just flow hashing (RSS), not flow steering.
+Jerome, could you please include a reference to this LKML thread for
+context and attribution for Markus for reporting and following up to
+get the issue fixed in the changelog?
 
-> The page address were set through a new kind of ioctl - TUNSETFD and
-> were pinned until device exit or another new page were specified.
-[...]
+                              Pekka
 
-You should implement ethtool ETHTOOL_{G,S}RXFHINDIR instead.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
