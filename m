@@ -1,81 +1,51 @@
-From: Philipp Schafft <lion@lion.leolix.org>
-Subject: Re: [Linux-decnet-user] Proposed removal of DECnet support
-	(was:Re: [BUG] 3.2-rc2:BUG kmalloc-8: Redzone overwritten)
-Date: Mon, 05 Dec 2011 11:14:58 +0100
-Message-ID: <20111205101503.1DE687AD9C@priderock.keep-cool.org>
-References: <OF7785CDCC.246C1F8F-ON80257958.004A9A89-80257958.004C103D@LocalDomain>
-	 <1322664737.2755.17.camel@menhir>
-	 <20111204195055.A36077AD9C@priderock.keep-cool.org>
-	 <1323048232.7454.161.camel@deadeye>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: Re: [PATCH 2/2] unix: Add /proc/net/unix_peers file
+Date: Mon, 05 Dec 2011 14:25:11 +0400
+Message-ID: <4EDC9C07.6070904@parallels.com>
+References: <4ED7BC37.2030805@parallels.com>	<4ED7BC6E.3040600@parallels.com> <20111204.132510.1708510157080644595.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-4m5XleMXEcnGSo0Wc4LW"
-Cc: Steven Whitehouse <swhiteho@redhat.com>, mike.gair@tatasteel.com,  Chrissie Caulfield <ccaulfie@redhat.com>, Christoph Lameter <cl@linux-foundation.org>, David Miller <davem@davemloft.net>, Eric Dumazet <eric.dumazet@gmail.com>, Sasha Levin <levinsasha928@gmail.com>, Linux-DECnet user <linux-decnet-user@lists.sourceforge.net>, linux-kernel <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Matt Mackall <mpm@selenic.com>, netdev <netdev@vger.kernel.org>, Pekka Enberg <penberg@kernel.org>, RoarAudio <roaraudio@lists.keep-cool.org>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1323048232.7454.161.camel@deadeye>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:32695 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754519Ab1LEKZU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Dec 2011 05:25:20 -0500
+In-Reply-To: <20111204.132510.1708510157080644595.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 12/04/2011 10:25 PM, David Miller wrote:
+> From: Pavel Emelyanov <xemul@parallels.com>
+> Date: Thu, 01 Dec 2011 21:42:06 +0400
+> 
+>> Currently it's not possible to find out what processes are connected
+>> to each other via a unix socket. In the proposed proc file a socket
+>> inode number and its peer inode number are shown. With these two at
+>> hands it's possible to determine the unix connections endpoints.
+>>
+>> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+> 
+> I'm basically against new networking procfs based information
+> retrieval mechanisms.
 
---=-4m5XleMXEcnGSo0Wc4LW
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+So am I, just wanted to bring this topic up again.
 
-reflum,
+> Please extend the netlink socket dumping so that it works with
+> AF_UNIX sockets and subsequently added the necessary netlink
+> attribute to provide the peer value.
 
-On Mon, 2011-12-05 at 01:23 +0000, Ben Hutchings wrote:
-> On Sun, 2011-12-04 at 20:50 +0100, Philipp Schafft wrote:
-> > On Wed, 2011-11-30 at 14:52 +0000, Steven Whitehouse wrote:
-> [...]
-> > > It is good to know that people are still using the Linux DECnet code
-> > > too. It has lived far beyond the time when I'd envisioned it still be=
-ing
-> > > useful :-)
-> >=20
-> > There are still some people interested in it. Btw. on Debian popcon
-> > counts 5356 users.
->=20
-> This is grossly misleading.  Here's the historical graph showing <100
-> installations of libdnet until early 2011:
-> http://qa.debian.org/popcon-graph.php?packages=3Dlibdnet
+OK, will do it this way. AFAIU you're talking about the NETLINK_INET_DIAG, right?
 
-Maybe my statement was missleading. popcon shows 5356 installs. This
-includes real users and non-real users. Both groups *may* be affected by
-droping the kernel module (in diffrent ways).
+> I plan to stand pretty firm on this, so you may want to save your
+> effort and use said effort to implement this properly.
+> 
+> Thanks.
+> .
+> 
 
-
-> For some reason (a joke?) roaraudio has DECnet
-> support and its packages depend on libdnet.
-
-Maybe just because it is usefull for the RoarAudio project.
-
-Anyway, don't take the number too important. It was just a minor note.
-
---=20
-Philipp.
- (Rah of PH2)
-
---=-4m5XleMXEcnGSo0Wc4LW
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Because it's your freedom
-
-iQEVAwUATtyZomCSpmW8W5B8AQJbVgf9H9bZV2nL4Rai9Umjezw58apQQVEDJtoE
-IH2Kn4GJ0ZCJgr23rtuf98e000wLcIIOJ052Ugydla/4vBp1aJF3vqd4y1ydPpnL
-OF2hLDdECHmOWwVXI3ZOfnOEzhToROjvaspr0DjAC0EhopZm5jnnTpGPk5DTex0p
-vW0lx/EmE6S966aROZHCjxIMBbVQM79I8ted9x5cWiFnf0N0AopLAMfXDfVDkBCn
-X04FYzqv8kuAIocLKMp1HelzmN9IHa8EuJ45K4+9Rl8gAd7RaAfNWZi6iIakmjgj
-KjVil1ME21LNcjhQnLMy4mOcqGBbDkASCefcuycWVpBJalvRbsaJ5g==
-=3tG3
------END PGP SIGNATURE-----
-
---=-4m5XleMXEcnGSo0Wc4LW--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks,
+Pavel
