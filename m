@@ -1,27 +1,40 @@
-From: "Barb Burnell" <bburnell@wooster.edu>
-Subject: VERY IMPORTANT!!!
-Date: Mon, 05 Dec 2011 10:37:54 -0500
-Message-ID: <4EDCC5B1020000C2000A568F@gwiaclients.wooster.edu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next RFC PATCH 2/5] tuntap: simple flow director support
+Date: Mon, 5 Dec 2011 20:09:23 +0000
+Message-ID: <1323115763.2887.12.camel@bwh-desktop>
+References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
+	 <20111205085857.6116.99252.stgit@dhcp-8-146.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from messagescreen02.wooster.edu ([140.103.29.42]:36048 "EHLO
-	messagescreen02.wooster.edu" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932126Ab1LETla convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Dec 2011 14:41:30 -0500
-Received: from messagescreen02.wooster.edu (localhost [127.0.0.1])
-	by messagescreen02.wooster.edu (8.14.3/8.14.3) with ESMTP id pB5IQ2KP002973
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 5 Dec 2011 12:26:02 -0600
-Received: from localhost (localhost [[UNIX: localhost]])
-	by messagescreen02.wooster.edu (8.14.3/8.14.3/Submit) with SMTP id pB5IPa4l002807
-	for <netdev@vger.kernel.org>; Mon, 5 Dec 2011 12:25:36 -0600
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <krkumar2@in.ibm.com>, <kvm@vger.kernel.org>, <mst@redhat.com>,
+	<netdev@vger.kernel.org>, <rusty@rustcorp.com.au>,
+	<virtualization@lists.linux-foundation.org>,
+	<levinsasha928@gmail.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20111205085857.6116.99252.stgit@dhcp-8-146.nay.redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I am a personal assistant to Mrs E Simon, this is the third time we are contacting you. 
-Mrs. Simon has picked your email for an inheritance of $18,000,000.00 for full details contact her via email on : ruth_27@rogers.com
+On Mon, 2011-12-05 at 16:58 +0800, Jason Wang wrote:
+> This patch adds a simple flow director to tun/tap device. It is just a
+> page that contains the hash to queue mapping which could be changed by
+> user-space. The backend (tap/macvtap) would query this table to get
+> the desired queue of a packets when it send packets to userspace.
+
+This is just flow hashing (RSS), not flow steering.
+
+> The page address were set through a new kind of ioctl - TUNSETFD and
+> were pinned until device exit or another new page were specified.
+[...]
+
+You should implement ethtool ETHTOOL_{G,S}RXFHINDIR instead.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
