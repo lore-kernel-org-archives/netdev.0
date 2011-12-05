@@ -1,84 +1,104 @@
-From: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Time in Queue, bufferbloat, and... our accidentally interplanetary network
-Date: Mon, 5 Dec 2011 10:05:27 +0100
-Message-ID: <CAA93jw7kQYONQiAozatRmdRRJeK0GB9eNDWtRZ3AL+OVKn0OpA@mail.gmail.com>
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [PATCH v7 02/10] foundations of per-cgroup memory pressure controlling.
+Date: Mon, 5 Dec 2011 07:06:20 -0200
+Message-ID: <4EDC898C.5080404@parallels.com>
+References: <1322611021-1730-1-git-send-email-glommer@parallels.com> <1322611021-1730-3-git-send-email-glommer@parallels.com> <20111130094305.9c69ecd8.kamezawa.hiroyu@jp.fujitsu.com> <4ED90F06.102@parallels.com> <20111205105916.eeb55989.kamezawa.hiroyu@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: bloat <bloat-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>,
-	bloat-devel <bloat-devel-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <paul@paulmenage.org>,
+	<lizf@cn.fujitsu.com>, <ebiederm@xmission.com>,
+	<davem@davemloft.net>, <gthelen@google.com>,
+	<netdev@vger.kernel.org>, <linux-mm@kvack.org>,
+	<kirill@shutemov.name>, <avagin@parallels.com>, <devel@openvz.org>,
+	<eric.dumazet@gmail.com>, <cgroups@vger.kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Paul Turner <pjt@google.com>,
+	Johannes Weiner <hannes@cmpxchg.org>,
+	Michal Hocko <mhocko@suse.cz>, <vgoyal@redhat.com>
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111205105916.eeb55989.kamezawa.hiroyu@jp.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I was tickled to see that expiring packets based on 'time in queue'
-was already a
-key design feature of the IPN,
+On 12/04/2011 11:59 PM, KAMEZAWA Hiroyuki wrote:
+> On Fri, 2 Dec 2011 15:46:46 -0200
+> Glauber Costa<glommer@parallels.com>  wrote:
+>
+>>
+>>>>    static void proto_seq_printf(struct seq_file *seq, struct proto *proto)
+>>>>    {
+>>>> +	struct mem_cgroup *memcg = mem_cgroup_from_task(current);
+>>>> +
+>>>>    	seq_printf(seq, "%-9s %4u %6d  %6ld   %-3s %6u   %-3s  %-10s "
+>>>>    			"%2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c %2c\n",
+>>>>    		   proto->name,
+>>>>    		   proto->obj_size,
+>>>>    		   sock_prot_inuse_get(seq_file_net(seq), proto),
+>>>> -		   proto->memory_allocated != NULL ? atomic_long_read(proto->memory_allocated) : -1L,
+>>>> -		   proto->memory_pressure != NULL ? *proto->memory_pressure ? "yes" : "no" : "NI",
+>>>> +		   sock_prot_memory_allocated(proto, memcg),
+>>>> +		   sock_prot_memory_pressure(proto, memcg),
+>>>
+>>> I wonder I should say NO, here. (Networking guys are ok ??)
+>>>
+>>> IIUC, this means there is no way to see aggregated sockstat of all system.
+>>> And the result depends on the cgroup which the caller is under control.
+>>>
+>>> I think you should show aggregated sockstat(global + per-memcg) here and
+>>> show per-memcg ones via /cgroup interface or add private_sockstat to show
+>>> per cgroup summary.
+>>>
+>>
+>> Hi Kame,
+>>
+>> Yes, the statistics displayed depends on which cgroup you live.
+>> Also, note that the parent cgroup here is always updated (even when
+>> use_hierarchy is set to 0). So it is always possible to grab global
+>> statistics, by being in the root cgroup.
+>>
+>> For the others, I believe it to be a question of naturalization. Any
+>> tool that is fetching these values is likely interested in the amount of
+>> resources available/used. When you are on a cgroup, the amount of
+>> resources available/used changes, so that's what you should see.
+>>
+>> Also brings the point of resource isolation: if you shouldn't interfere
+>> with other set of process' resources, there is no reason for you to see
+>> them in the first place.
+>>
+>> So given all that, I believe that whenever we talk about resources in a
+>> cgroup, we should talk about cgroup-local ones.
+>
+> But you changes /proc/ information without any arguments with other guys.
+> If you go this way, you should move this patch as independent add-on patch
+> and discuss what this should be. For example, /proc/meminfo doesn't reflect
+> memcg's information (for now). And scheduler statiscits in /proc/stat doesn't
+> reflect cgroup's information.
 
-http://www.science20.com/interwebometry/lessons_nasa_can_learn_internet=
--84861
+No, I do not.
+I may not have discussed it with everybody, but I did send some mails 
+about it a while ago:
 
-and the idea was suggested also independently in saturday's CACM
-article's comments...
+https://lkml.org/lkml/2011/10/3/60 (I sent it to containers as well 
+once, but I now realize it was during the time the ML was down).
 
-http://queue.acm.org/detail.cfm?id=3D2071893
+At the time, *I* was probably the only one, arguing not to do it. I've 
+changed my mind since then.
 
+> So, please discuss the problem in open way. This issue is not only related to
+> this patch but also to other cgroups. Sneaking this kind of _big_ change in
+> a middle of complicated patch series isn't good.
 
-Making decisions based on time in queue (TiQ), rather than length of
-queue, would
-seem to be a win, especially for wireless, but also for  that does
-'soft' traffic
-shaping with HTB-like qdiscs and sub qdiscs. Anything that is not runni=
-ng
-at GigE plus speeds would benefit.
+Absolutely. I can even remove this entirely and queue it for a following 
+patchset if you prefer.
 
-=2E.. since basically what's been happening with bufferbloat is a too e=
-arly
-implementation of the IPN, with detours between here and the moon!
+> In short, could you divide this patch into a independent patch and discuss
+> again ? If we agree the general diection should go this way, other guys will
+> post patches for cpu, memory, blkio, etc.
 
-=2E.. and so far I haven't seen any major theoretical holes in with TiQ=
-, except
-for deciding as to how long is too long as to consider a packet as 'exp=
-ired',
-(which can be measured in ms or 10s of ms), and having reasonably
-monotonic time.
+Yes I can.
 
-I just wish I (or someone) could come up with a way to implement it in =
-Linux
-without multiple layer violations. skb->queuestamp has a nice ring to i=
-t, but
-when I look at this portion of the stack I freely admit quivering in ig=
-norance
-and fear.
-
-I did a bit of work on a set of timestamping fifos, but realized that
-it was the
-entire queue's duration from entrance to exit (through multiple schedul=
-ing
-qdiscs) was what needed to be  measured, and the drop/no drop decision
-needs to be made as late as possible - and preferably, the queue being
-pulled from needs the next packet pulled forward so as to inform the
-receiver that congestion is happening...
-
-And Eric dumazet also produced a preliminary patch a few weeks back
-that tied timestamping to before the head of a queue, but that tried to=
- use a
-reserved field in the skb that appears from points A to Z is not guaran=
-teed
-to be preserved.
-
-Thoughts?
-
---=20
-Dave T=E4ht
-SKYPE: davetaht
-US Tel: 1-239-829-5608
-=46R Tel: 0638645374
-http://www.bufferbloat.net
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I am expanding the CC list here so other people that cares for other 
+controllers can chime in. You are welcome to give your opinion as the 
+memcg maintainer as well.
