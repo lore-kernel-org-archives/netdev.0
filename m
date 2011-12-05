@@ -1,34 +1,58 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [GIT PULL v3] Open vSwitch
-Date: Mon, 5 Dec 2011 09:37:45 -0800
-Message-ID: <CAEP_g=-SAdXf33qP9Y=wS0QkG1OKBVXFBHTYgqD+8HgZznbLuQ@mail.gmail.com>
-References: <1322937531-8071-1-git-send-email-jesse@nicira.com>
-	<CAEH94LiXLAKFWkDG5VBo80rFTfXMnxn1=2aEb5qOieBUnoYRyA@mail.gmail.com>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: CIFS mount: 3.2.0-rc3 suspend crash
+Date: Mon, 5 Dec 2011 09:41:26 -0800
+Message-ID: <20111205174126.GF627@google.com>
+References: <4ED56C12.1040708@gmail.com>
+ <4ED5C047.6040500@linux.vnet.ibm.com>
+ <20111130062502.68d9db59@tlielax.poochiereds.net>
+ <4ED81077.2080305@gmail.com>
+ <4ED8C940.20509@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Zhi Yong Wu <zwu.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CAEH94LiXLAKFWkDG5VBo80rFTfXMnxn1=2aEb5qOieBUnoYRyA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Woody Suwalski <terraluna977-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Linux PM mailing list <linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Belisko Marek <marek.belisko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: "Srivatsa S. Bhat" <srivatsa.bhat-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4ED8C940.20509-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Sender: linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Dec 4, 2011 at 7:32 PM, Zhi Yong Wu <zwu.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> Although this series of patchset is a bit large, therefore their codes
-> aren't directly pasted here, but if anyone find some issues in the
-> codes, how will we point out them?
+Hello, Srivatsa.
 
-I also sent out the actual patches that are referenced in this pull
-request to the mailing list, so that would be the best place to
-provide comments.  For example, this is the first patch in the series:
-http://marc.info/?l=linux-netdev&m=132293763127660&w=2
+On Fri, Dec 02, 2011 at 06:19:04PM +0530, Srivatsa S. Bhat wrote:
+> So how about solving this problem more fundamentally, such as defining a
+> freezable wrapper over kernel_recvmsg like:
+> 
+> #define kernel_recvmsg_freezable(sock, msg, vec, num, size, flags)      \
+> ({                                                                      \
+>         kernel_recvmsg(sock, msg, vec, num, size, flags)                \
+> 	try_to_freeze();                                                \
+> })
+> 
+> and using it instead of kernel_recvmsg(), throughout the kernel?
+> 
+> But kernel_recvmsg is an exported symbol. So if we are very very unwilling
+> to change the kernel ABI, we could probably think about adding try_to_freeze()
+> inside kernel_recvmsg itself,like this (but see below about my thoughts about
+> which one is better):
+
+I don't necessarily object to introducing the wrapper but I don't
+really think we should be doing s//g over the source tree without
+understanding where it's actually necessary.  For kernel threads and
+user threads out of the signal delivery path, try_to_freeze() is an
+exceptional event which introduces behavior which can be difficult to
+reproduce track down and spreading it without actually knowing what
+the surrounding code is doing doesn't sound like a good idea to me.
+
+Thank you.
+
+-- 
+tejun
