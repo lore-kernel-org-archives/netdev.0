@@ -1,65 +1,70 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: [BUG] net: WARNING: at fs/sysfs/dir.c:481 sysfs_add_one+0xb7/0xe0()
-Date: Mon, 05 Dec 2011 15:01:37 +0200
-Message-ID: <1323090097.9154.0.camel@lappy>
+From: =?UTF-8?Q?Sjur_Br=C3=A6ndeland?= <sjurbren@gmail.com>
+Subject: Re: [RFC 2/3] if_ether.h: Add IEEE 802.1 Local Experimental Ethertype 1.
+Date: Mon, 5 Dec 2011 14:14:30 +0100
+Message-ID: <CAJK669bK8kBXfc=j1q5NWEDCgSZwO0O=LsZ8z5GzB0S07gwBEQ@mail.gmail.com>
+References: <1322685846-7790-1-git-send-email-sjur.brandeland@stericsson.com>
+	<1322685846-7790-3-git-send-email-sjur.brandeland@stericsson.com>
+	<5636a5efd90c56b538569ab019d7be4c@chewa.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Dave Jones <davej@redhat.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: marcel@holtmann.org, padovan@profusion.mobi, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Alexey Orishko <alexey.orishko@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: =?UTF-8?Q?R=C3=A9mi_Denis=2DCourmont?= <remi@remlab.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:47287 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756226Ab1LENOa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2011 08:14:30 -0500
+Received: by qcqz2 with SMTP id z2so1413937qcq.19
+        for <netdev@vger.kernel.org>; Mon, 05 Dec 2011 05:14:30 -0800 (PST)
+In-Reply-To: <5636a5efd90c56b538569ab019d7be4c@chewa.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi R=C3=A9mi,
 
-When closing and opening a HCI device, a device id may be assigned
-before the previous one was fully released. It manifests itself for
-example in a warning when the new sysfs entry is being added before the
-previous one was deleted:
+>> Add EthType 0x88b5.
+>> This Ethertype value is available for public use for prototype and
+>> vendor-specific protocol development,as defined in Amendment 802a
+>> to IEEE Std 802.
+>
+> I don't think you can just go and steal a reserved EtherType. What if=
+ some
+> user-space (using packet sockets) or out-of-tree kernel driver does a=
+ctual
+> "experiment" with this type?
 
-[ 5711.916643] ------------[ cut here ]------------
-[ 5711.918640] WARNING: at fs/sysfs/dir.c:481 sysfs_add_one+0xb7/0xe0()
-[ 5711.920203] sysfs: cannot create duplicate filename '/devices/virtual/bluetooth/hci0'
-[ 5711.921866] Pid: 20596, comm: trinity Not tainted 3.2.0-rc4-next-20111205-sasha-00003-gd1b8117 #48
-[ 5711.923256] Call Trace:
-[ 5711.923651]  [<ffffffff810aec45>] warn_slowpath_common+0x75/0xb0
-[ 5711.924600]  [<ffffffff810aece1>] warn_slowpath_fmt+0x41/0x50
-[ 5711.925503]  [<ffffffff812196d7>] sysfs_add_one+0xb7/0xe0
-[ 5711.926357]  [<ffffffff81219785>] create_dir+0x85/0xe0
-[ 5711.927267]  [<ffffffff812198fb>] sysfs_create_dir+0x7b/0xc0
-[ 5711.928555]  [<ffffffff817a7201>] kobject_add_internal+0x121/0x200
-[ 5711.929947]  [<ffffffff817a73dd>] kobject_add+0x6d/0xb0
-[ 5711.931170]  [<ffffffff819f8e1b>] device_add+0xcb/0x700
-[ 5711.932073]  [<ffffffff819f8c8c>] ? dev_set_name+0x3c/0x40
-[ 5711.932911]  [<ffffffff821d166c>] ? hci_register_dev+0x56c/0x690
-[ 5711.933859]  [<ffffffff821e23e2>] hci_add_sysfs+0x52/0x150
-[ 5711.934733]  [<ffffffff821d16a6>] hci_register_dev+0x5a6/0x690
-[ 5711.935678]  [<ffffffff81d423fb>] vhci_open+0xfb/0x190
-[ 5711.936777]  [<ffffffff818a5cd1>] misc_open+0x81/0x110
-[ 5711.937951]  [<ffffffff811a4f9f>] chrdev_open+0x7f/0x150
-[ 5711.939152]  [<ffffffff811a4f20>] ? cdev_put+0x10/0x10
-[ 5711.940410]  [<ffffffff8119e122>] __dentry_open+0x282/0x3b0
-[ 5711.941513]  [<ffffffff8119f274>] nameidata_to_filp+0x74/0x80
-[ 5711.942448]  [<ffffffff811aed2c>] do_last+0x1bc/0x940
-[ 5711.943268]  [<ffffffff811af586>] path_openat+0xd6/0x440
-[ 5711.944124]  [<ffffffff8104a1f3>] ? sched_clock+0x13/0x20
-[ 5711.945104]  [<ffffffff810d6605>] ? sched_clock_local+0x25/0x90
-[ 5711.946065]  [<ffffffff811af934>] do_filp_open+0x44/0xa0
-[ 5711.947261]  [<ffffffff810a3a1d>] ? sub_preempt_count+0x9d/0xd0
-[ 5711.948614]  [<ffffffff823db830>] ? _raw_spin_unlock+0x30/0x60
-[ 5711.949917]  [<ffffffff811be6d5>] ? alloc_fd+0x185/0x1f0
-[ 5711.951126]  [<ffffffff8119f79c>] do_sys_open+0xfc/0x1d0
-[ 5711.951949]  [<ffffffff8119f88b>] sys_open+0x1b/0x20
-[ 5711.952742]  [<ffffffff823dcf52>] system_call_fastpath+0x16/0x1b
-[ 5711.953739] ---[ end trace 6eef4878a8c24f09 ]---
+I don't think defining this type in if_ether.h would harm anyone ;-)
 
-But it may also cause more things which are not as visible.
+I think your comments are applicable for the patch:
+"caif: Add support for CAIF over CDC NCM USB interface".
 
-Please let me know if I can help with debugging this issue.
+Currently CAIF over CDC NCM USB is only deployed for the Ethernet link
+between Host and Modem internally in a Smart Phone, and not out of the
+Smart Phone (Tethering). The modem's Ethernet interface is connected to
+the CAIF stack and not to the modem's IP stack.On the Linux Host,
+CAIF takes this EthType into use *only* for a Ethernet interface with
+the VID/PID of a ST-E CAIF modem.
 
--- 
+With this setup I have a hard time seeing the big risk of interference =
+with
+others using this Ethernet Type.
 
-Sasha.
+We use Ethernet for this point-to-point link because  NCM 1.0 only
+defines Ethernet as the only bearer. The long term solution for CAIF ov=
+er
+NCM should be based on MBIM 1.0 specification, where vendor specific
+services can be define. We could then transmit CAIF frames directly
+in a vendor specific service without the use of a Ethernet header.
+
+> Why don't you define your own link-layer, e.g. with a vendor-specific=
+ CDC
+> profile?
+I look into this...
+
+BTW: Could you please do "reply-all" next time, so I get your mail in m=
+y inbox.
+
+Regards,
+Sjur
