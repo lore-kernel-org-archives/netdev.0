@@ -1,171 +1,131 @@
-From: Thomas De Schampheleire <patrickdepinguin@gmail.com>
-Subject: Re: [Bonding-devel] ethernet bonding + VLAN: additional VLAN tag in tcpdump
-Date: Mon, 5 Dec 2011 10:50:27 +0100
-Message-ID: <CAAXf6LXOEpDNf-abqZ_FCJ4G85s-domOHLzH0ur+F77gOvO8EA@mail.gmail.com>
-References: <CAAXf6LXiONe5Kb8tdQbQs3SWg8cc6SK_md7-vOV8qN4vYmL8qw@mail.gmail.com>
-	<4ED541F4.4080601@gmail.com>
-	<20111130075237.GA2109@minipsycho>
-	<CAAXf6LXDYmjaQK6g0q6vZLeDCH1yb5MT03c21Ehqv6TgUB_R3w@mail.gmail.com>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Subject: Re: [PATCH v7 00/10] Request for Inclusion: per-cgroup tcp memory
+ pressure
+Date: Mon, 5 Dec 2011 18:51:08 +0900
+Message-ID: <20111205185108.099f393e.kamezawa.hiroyu@jp.fujitsu.com>
+References: <1322611021-1730-1-git-send-email-glommer@parallels.com>
+	<20111130111152.6b1c7366.kamezawa.hiroyu@jp.fujitsu.com>
+	<4ED91318.1030803@parallels.com>
+	<20111205110619.ecc538a0.kamezawa.hiroyu@jp.fujitsu.com>
+	<4EDC8A5F.8040402@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>, bonding-devel@lists.sourceforge.net,
-	tcpdump-workers@lists.tcpdump.org,
-	Ronny Meeus <ronny.meeus@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:62259 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754250Ab1LEJu2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2011 04:50:28 -0500
-Received: by vcbfk14 with SMTP id fk14so3755222vcb.19
-        for <netdev@vger.kernel.org>; Mon, 05 Dec 2011 01:50:27 -0800 (PST)
-In-Reply-To: <CAAXf6LXDYmjaQK6g0q6vZLeDCH1yb5MT03c21Ehqv6TgUB_R3w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org>,
+	<lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>, <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
+	<kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>, <avagin-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
+	<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4EDC8A5F.8040402-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Mon, 5 Dec 2011 07:09:51 -0200
+Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
 
-On Wed, Nov 30, 2011 at 10:06 AM, Thomas De Schampheleire
-<patrickdepinguin@gmail.com> wrote:
-> On Wed, Nov 30, 2011 at 8:52 AM, Jiri Pirko <jpirko@redhat.com> wrote=
-:
->> Tue, Nov 29, 2011 at 09:35:00PM CET, nicolas.2p.debian@gmail.com wro=
-te:
->>>Le 29/11/2011 14:38, Thomas De Schampheleire a =E9crit :
->>>>Hi,
->>>>
->>>>I'm seeing incorrect tcpdump output in the following scenario:
->>>>
->>>>* ethernet bonding enabled in the kernel, and a single network
->>>>interface (eth0) added as slave
->>>>* bonding mode was set to broadcast, but I don't think this matters
->>>>* VLAN added to the bond0 network interface
->>>>* ip address set on the vlan interface (bond0.1234)
->>>>* tcpdump capturing full packets (-xx or even -x) on the eth0 inter=
-face
->>>>
->>>>Then, when pinging from another machine to this ip address, the pin=
-g
->>>>reply packets shown by tcpdump incorrectly have a double VLAN tag.
->>>>However, what really appears on the wire is correct: a single VLAN
->>>>tag.
->>>
->>>Copied netdev, because bonding and vlan developers are there.
->>>
->>>Jiri, don't you think this might be related to the work you have don=
-e
->>>to make non-hw-accel rx path similar to hw-accel?
->>
->> I do not think so. The changes you are reffering to are unrelated to=
- tx
->> path (where this issue has most probably roots in)
->>
->>>
->>> =A0 =A0 =A0 Nicolas.
->>>
->>>>
->>>>Here is the output from tcpdump:
->>>># /tmp/tcpdump =A0-i eth0 -xx
->>
->> What hw is this?
->
-> This is on a Freescale P4080 DPA mac (fsl,p4080-fman-1g-mac).
->
->>
->>>>tcpdump: verbose output suppressed, use -v or -vv for full protocol=
- decode
->>>>listening on eth0, link-type EN10MB (Ethernet), capture size 65535 =
-bytes
->>>>01:04:04.607880 IP 192.168.1.2> =A0192.168.1.1: ICMP echo request, =
-id 26933, seq 4
->>>>16, length 64
->>>> =A0 =A0 =A0 =A0 0x0000: =A00600 0000 0020 0600 0000 0020 8100 0ffe
->>>> =A0 =A0 =A0 =A0 0x0010: =A00800 4500 0054 0000 4000 4001 b755 c0a8
->>>> =A0 =A0 =A0 =A0 0x0020: =A00102 c0a8 0101 0800 98d7 6935 01a0 e528
->>>> =A0 =A0 =A0 =A0 0x0030: =A00f2a 0000 0000 0000 0000 0000 0000 0000
->>>> =A0 =A0 =A0 =A0 0x0040: =A00000 0000 0000 0000 0000 0000 0000 0000
->>>> =A0 =A0 =A0 =A0 0x0050: =A00000 0000 0000 0000 0000 0000 0000 0000
->>>> =A0 =A0 =A0 =A0 0x0060: =A00000 0000 0000
->>>>01:04:04.607889 IP 192.168.1.1> =A0192.168.1.2: ICMP echo reply, id=
- 26933, seq 416
->>>>, length 64
->>>> =A0 =A0 =A0 =A0 0x0000: =A00600 0000 0020 0600 0000 0020 8100 0ffe
->>>> =A0 =A0 =A0 =A0 0x0010: =A08100 0ffe 0800 4500 0054 cc07 0000 4001=
-<--------
->>>>extra VLAN header at 0x10
->>>> =A0 =A0 =A0 =A0 0x0020: =A02b4e c0a8 0101 c0a8 0102 0000 a0d7 6935
->>>> =A0 =A0 =A0 =A0 0x0030: =A001a0 e528 0f2a 0000 0000 0000 0000 0000
->>>> =A0 =A0 =A0 =A0 0x0040: =A00000 0000 0000 0000 0000 0000 0000 0000
->>>> =A0 =A0 =A0 =A0 0x0050: =A00000 0000 0000 0000 0000 0000 0000 0000
->>>> =A0 =A0 =A0 =A0 0x0060: =A00000 0000 0000 0000 0000
->>>>
->>>>
->>>>Initial debugging showed that the addition of the extra VLAN header
->>>>takes place in function pcap_read_linux_mmap() of libpcap, in the
->>>>following snippet:
->>>>
->>>>#ifdef HAVE_TPACKET2
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (handle->md.tp_version =3D=3D T=
-PACKET_V2&& =A0h.h2->tp_vlan_tci&&
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 tp_snaplen>=3D 2 * ETH_ALE=
-N) {
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct vlan_tag *t=
-ag;
->>>>
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bp -=3D VLAN_TAG_L=
-EN;
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 memmove(bp, bp + V=
-LAN_TAG_LEN, 2 * ETH_ALEN);
->>>>
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 tag =3D (struct vl=
-an_tag *)(bp + 2 * ETH_ALEN);
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 tag->vlan_tpid =3D=
- htons(ETH_P_8021Q);
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 tag->vlan_tci =3D =
-htons(h.h2->tp_vlan_tci);
->>>>
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 pcaphdr.caplen +=3D=
- VLAN_TAG_LEN;
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 pcaphdr.len +=3D V=
-LAN_TAG_LEN;
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
->>>>#endif
->>
->> I haven't look into this code yet, but where's the code which does t=
-he
->> first header inclusion?
->
-> I would assume this is done by the VLAN layer. This is a ping reply
-> originating from the icmp code, passing down to the vlan layer, then
-> to the ethernet bonding layer, and then to the hardware. But before
-> this is passed to hardware, libpcap captures the packet.
->
-> I haven't debugged that part, though, so I can't give you a direct
-> pointer to the code that does it.
->
->>
->>
->>>>
->>>>Upon entry of this code, the packet in bp already contains a VLAN h=
-eader.
->>>>
->>>>It's unclear to me where the problem lies exactly. I suspect it has
->>>>something to do with the ethernet bonding layer indicating it has
->>>>hardware vlan tagging support, while it does already fill in the vl=
-an
->>>>header, and libpcap being confused by this.
->>>>
->>>>As mentioned previously, the packets on the wire are correct, and t=
-his
->>>>is purely a capturing problem.
->>>>
->
+> On 12/05/2011 12:06 AM, KAMEZAWA Hiroyuki wrote:
+> > On Fri, 2 Dec 2011 16:04:08 -0200
+> > Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>  wrote:
+> >
+> >> On 11/30/2011 12:11 AM, KAMEZAWA Hiroyuki wrote:
+> >>> On Tue, 29 Nov 2011 21:56:51 -0200
+> >>> Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>   wrote:
+> >>>
+> >>>> Hi,
+> >>>>
+> >>>> This patchset implements per-cgroup tcp memory pressure controls. It did not change
+> >>>> significantly since last submission: rather, it just merges the comments Kame had.
+> >>>> Most of them are style-related and/or Documentation, but there are two real bugs he
+> >>>> managed to spot (thanks)
+> >>>>
+> >>>> Please let me know if there is anything else I should address.
+> >>>>
+> >>>
+> >>> After reading all codes again, I feel some strange. Could you clarify ?
+> >>>
+> >>> Here.
+> >>> ==
+> >>> +void sock_update_memcg(struct sock *sk)
+> >>> +{
+> >>> +	/* right now a socket spends its whole life in the same cgroup */
+> >>> +	if (sk->sk_cgrp) {
+> >>> +		WARN_ON(1);
+> >>> +		return;
+> >>> +	}
+> >>> +	if (static_branch(&memcg_socket_limit_enabled)) {
+> >>> +		struct mem_cgroup *memcg;
+> >>> +
+> >>> +		BUG_ON(!sk->sk_prot->proto_cgroup);
+> >>> +
+> >>> +		rcu_read_lock();
+> >>> +		memcg = mem_cgroup_from_task(current);
+> >>> +		if (!mem_cgroup_is_root(memcg))
+> >>> +			sk->sk_cgrp = sk->sk_prot->proto_cgroup(memcg);
+> >>> +		rcu_read_unlock();
+> >>> ==
+> >>>
+> >>> sk->sk_cgrp is set to a memcg without any reference count.
+> >>>
+> >>> Then, no check for preventing rmdir() and freeing memcgroup.
+> >>>
+> >>> Is there some css_get() or mem_cgroup_get() somewhere ?
+> >>>
+> >>
+> >> There were a css_get in the first version of this patchset. It was
+> >> removed, however, because it was deemed anti-intuitive to prevent rmdir,
+> >> since we can't know which sockets are blocking it, or do anything about
+> >> it. Or did I misunderstand something ?
+> >>
+> >
+> > Maybe I misuderstood. Thank you. Ok, there is no css_get/put and
+> > rmdir() is allowed. But, hmm....what's guarding threads from stale
+> > pointer access ?
+> >
+> > Does a memory cgroup which is pointed by sk->sk_cgrp always exist ?
+> >
+> If I am not mistaken, yes, it will. (Ok, right now it won't)
+> 
+> Reason is a cgroup can't be removed if it is empty.
+> To make it empty, you need to move the tasks away.
+> 
+> So the sockets will be moved away as well when you do it. So right now 
+> they are not, so it would then probably be better to increase a 
+> reference count with a comment saying that it is temporary.
+> 
 
-Does anyone have an idea on how this is supposed to work and why the
-extra header gets inserted?
+I'm sorry if I misunderstand.
+
+At task exit, __fput() will be called against file descriptors, yes.
+__fput() calles f_op->release() => inet_release() => tcp_close().
+
+But TCP socket may be alive after task exit until it gets down to 
+protocol close. For example, until the all message in send buffer
+is acked, socket and tcp connection will not be disappear.
+
+In short, socket's lifetime is different from it's task's. 
+So, there may be sockets which are not belongs to any task.
+
+
 
 Thanks,
-Thomas
+-Kame
+
+
+
+
+
+
+
+
+
+
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe cgroups" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
