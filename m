@@ -1,135 +1,86 @@
-From: Michael Wang <wangyun@linux.vnet.ibm.com>
-Subject: Re: [net-next 1/6] e1000e: Avoid wrong check on TX hang
-Date: Mon, 05 Dec 2011 16:37:02 +0800
-Message-ID: <4EDC82AE.40806@linux.vnet.ibm.com>
-References: <1323073241-21144-1-git-send-email-jeffrey.t.kirsher@intel.com> <1323073241-21144-2-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [net-next RFC PATCH 0/5] Series short description
+Date: Mon, 05 Dec 2011 16:58:37 +0800
+Message-ID: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com, Flavio Leitner <fbl@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp04.in.ibm.com ([122.248.162.4]:52352 "EHLO
-	e28smtp04.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752337Ab1LEIhQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2011 03:37:16 -0500
-Received: from /spool/local
-	by e28smtp04.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <wangyun@linux.vnet.ibm.com>;
-	Mon, 5 Dec 2011 14:07:11 +0530
-Received: from d28av02.in.ibm.com (d28av02.in.ibm.com [9.184.220.64])
-	by d28relay02.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id pB58b5aW2490572
-	for <netdev@vger.kernel.org>; Mon, 5 Dec 2011 14:07:06 +0530
-Received: from d28av02.in.ibm.com (loopback [127.0.0.1])
-	by d28av02.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id pB58b45B008305
-	for <netdev@vger.kernel.org>; Mon, 5 Dec 2011 19:37:05 +1100
-In-Reply-To: <1323073241-21144-2-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au,
+	virtualization@lists.linux-foundation.org, levinsasha928@gmail.com,
+	bhutchings@solarflare.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi, Jeff
+multiple queue virtio-net: flow steering through host/guest cooperation
 
-Please reserve "From: Michael Wang <wangyun@linux.vnet.ibm.com>" in content.
-And because Flavio not respond these days, I add his name for him.
+Hello all:
 
-Thanks,
-Michael Wang
+This is a rough series adds the guest/host cooperation of flow
+steering support based on Krish Kumar's multiple queue virtio-net
+driver patch 3/3 (http://lwn.net/Articles/467283/).
 
-On 12/05/2011 04:20 PM, Jeff Kirsher wrote:
+This idea is simple, the backend pass the rxhash to the guest and
+guest would tell the backend the hash to queue mapping when necessary
+then backend can choose the queue based on the hash value of the
+packet.  The table is just a page shared bettwen userspace and the
+backend.
 
-> Based on the original patch submitted my Michael Wang
-> <wangyun@linux.vnet.ibm.com>.
+Patch 1 enable the ability to pass the rxhash through vnet_hdr to
+guest.
+Patch 2,3 implement a very simple flow director for tap and
+mavtap. tap part is based on the multiqueue tap patches posted by me
+(http://lwn.net/Articles/459270/).
+Patch 4 implement a method for virtio device to find the irq of a
+specific virtqueue, in order to do device specific interrupt
+optimization
+Patch 5 is the part of the guest driver that using accelerate rfs to
+program the flow director and with some optimizations on irq affinity
+and tx queue selection.
 
-From: Michael Wang <wangyun@linux.vnet.ibm.com>
+This is just a prototype that demonstrates the idea, there are still
+things need to be discussed:
 
-> Descriptors may not be write-back while checking TX hang with flag
-> FLAG2_DMA_BURST on.
-> So when we detect hang, we just flush the descriptor and detect
-> again for once.
-> 
-> -v2 change 1 to true and 0 to false and remove extra ()
-> 
-> CC: Michael Wang <wangyun@linux.vnet.ibm.com>
-> CC: Flavio Leitner <fbl@redhat.com>
+- An alternative idea instead of shared page is ctrl vq, the reason
+  that a shared table is preferable is the delay of ctrl vq itself.
+- Optimization on irq affinity and tx queue selection
 
-Signed-off-by: Michael Wang <wangyun@linux.vnet.ibm.com>
-Signed-off-by: Flavio Leitner <fbl@redhat.com>
+Comments are welcomed, thanks!
 
-> Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+---
 
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/e1000e/e1000.h  |    1 +
->  drivers/net/ethernet/intel/e1000e/netdev.c |   23 ++++++++++++++++++++---
->  2 files changed, 21 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-> index 9fe18d1..f478a22 100644
-> --- a/drivers/net/ethernet/intel/e1000e/e1000.h
-> +++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-> @@ -309,6 +309,7 @@ struct e1000_adapter {
->  	u32 txd_cmd;
-> 
->  	bool detect_tx_hung;
-> +	bool tx_hang_recheck;
->  	u8 tx_timeout_factor;
-> 
->  	u32 tx_int_delay;
-> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-> index c6e9763..c12df69 100644
-> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
-> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-> @@ -1014,6 +1014,7 @@ static void e1000_print_hw_hang(struct work_struct *work)
->  	struct e1000_adapter *adapter = container_of(work,
->  	                                             struct e1000_adapter,
->  	                                             print_hang_task);
-> +	struct net_device *netdev = adapter->netdev;
->  	struct e1000_ring *tx_ring = adapter->tx_ring;
->  	unsigned int i = tx_ring->next_to_clean;
->  	unsigned int eop = tx_ring->buffer_info[i].next_to_watch;
-> @@ -1025,6 +1026,21 @@ static void e1000_print_hw_hang(struct work_struct *work)
->  	if (test_bit(__E1000_DOWN, &adapter->state))
->  		return;
-> 
-> +	if (!adapter->tx_hang_recheck &&
-> +	    (adapter->flags2 & FLAG2_DMA_BURST)) {
-> +		/* May be block on write-back, flush and detect again
-> +		 * flush pending descriptor writebacks to memory
-> +		 */
-> +		ew32(TIDV, adapter->tx_int_delay | E1000_TIDV_FPD);
-> +		/* execute the writes immediately */
-> +		e1e_flush();
-> +		adapter->tx_hang_recheck = true;
-> +		return;
-> +	}
-> +	/* Real hang detected */
-> +	adapter->tx_hang_recheck = false;
-> +	netif_stop_queue(netdev);
-> +
->  	e1e_rphy(hw, PHY_STATUS, &phy_status);
->  	e1e_rphy(hw, PHY_1000T_STATUS, &phy_1000t_status);
->  	e1e_rphy(hw, PHY_EXT_STATUS, &phy_ext_status);
-> @@ -1145,10 +1161,10 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter)
->  		if (tx_ring->buffer_info[i].time_stamp &&
->  		    time_after(jiffies, tx_ring->buffer_info[i].time_stamp
->  			       + (adapter->tx_timeout_factor * HZ)) &&
-> -		    !(er32(STATUS) & E1000_STATUS_TXOFF)) {
-> +		    !(er32(STATUS) & E1000_STATUS_TXOFF))
->  			schedule_work(&adapter->print_hang_task);
-> -			netif_stop_queue(netdev);
-> -		}
-> +		else
-> +			adapter->tx_hang_recheck = false;
->  	}
->  	adapter->total_tx_bytes += total_tx_bytes;
->  	adapter->total_tx_packets += total_tx_packets;
-> @@ -3838,6 +3854,7 @@ static int e1000_open(struct net_device *netdev)
-> 
->  	e1000_irq_enable(adapter);
-> 
-> +	adapter->tx_hang_recheck = false;
->  	netif_start_queue(netdev);
-> 
->  	adapter->idle_check = true;
+Jason Wang (5):
+      virtio_net: passing rxhash through vnet_hdr
+      tuntap: simple flow director support
+      macvtap: flow director support
+      virtio: introduce a method to get the irq of a specific virtqueue
+      virtio-net: flow director support
+
+
+ drivers/lguest/lguest_device.c |    8 ++
+ drivers/net/macvlan.c          |    4 +
+ drivers/net/macvtap.c          |   42 ++++++++-
+ drivers/net/tun.c              |  105 ++++++++++++++++------
+ drivers/net/virtio_net.c       |  189 +++++++++++++++++++++++++++++++++++++++-
+ drivers/s390/kvm/kvm_virtio.c  |    6 +
+ drivers/vhost/net.c            |   10 +-
+ drivers/vhost/vhost.h          |    5 +
+ drivers/virtio/virtio_mmio.c   |    8 ++
+ drivers/virtio/virtio_pci.c    |   12 +++
+ include/linux/if_macvlan.h     |    1 
+ include/linux/if_tun.h         |   11 ++
+ include/linux/virtio_config.h  |    4 +
+ include/linux/virtio_net.h     |   16 +++
+ 14 files changed, 377 insertions(+), 44 deletions(-)
+
+-- 
+Signature
