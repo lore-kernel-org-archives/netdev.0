@@ -1,56 +1,74 @@
-From: Chris Adams <cmadams@hiwaay.net>
-Subject: Re: r8169 performance?
-Date: Sun, 4 Dec 2011 18:46:50 -0600
-Message-ID: <20111205004650.GA5948@hiwaay.net>
-References: <20111204211007.GA32098@hiwaay.net> <20111204234004.GA32515@electric-eye.fr.zoreil.com>
+From: Michael Wang <wangyun@linux.vnet.ibm.com>
+Subject: Re: [net-next 1/6] e1000e: Avoid wrong check on TX hang
+Date: Mon, 05 Dec 2011 09:05:23 +0800
+Message-ID: <4EDC18D3.4060900@linux.vnet.ibm.com>
+References: <1322912671-6903-1-git-send-email-jeffrey.t.kirsher@intel.com> <1322912671-6903-2-git-send-email-jeffrey.t.kirsher@intel.com> <20111203.222659.277419094309941060.davem@davemloft.net> <1322983717.24828.8.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, hayeswang <hayeswang@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Flavio Leitner <fbl@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fly.hiwaay.net ([216.180.54.1]:55208 "EHLO fly.hiwaay.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755881Ab1LEAq7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Dec 2011 19:46:59 -0500
-Content-Disposition: inline
-In-Reply-To: <20111204234004.GA32515@electric-eye.fr.zoreil.com>
+Received: from e28smtp05.in.ibm.com ([122.248.162.5]:41732 "EHLO
+	e28smtp05.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755881Ab1LEBFc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2011 20:05:32 -0500
+Received: from /spool/local
+	by e28smtp05.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <wangyun@linux.vnet.ibm.com>;
+	Mon, 5 Dec 2011 06:35:30 +0530
+Received: from d28av03.in.ibm.com (d28av03.in.ibm.com [9.184.220.65])
+	by d28relay03.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id pB515Q9k3690708
+	for <netdev@vger.kernel.org>; Mon, 5 Dec 2011 06:35:26 +0530
+Received: from d28av03.in.ibm.com (loopback [127.0.0.1])
+	by d28av03.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id pB515PsV015677
+	for <netdev@vger.kernel.org>; Mon, 5 Dec 2011 12:05:26 +1100
+In-Reply-To: <1322983717.24828.8.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Once upon a time, Francois Romieu <romieu@fr.zoreil.com> said:
-> Chris Adams <cmadams@hiwaay.net> :
-> [...]
-> > Are there any suggestions for what I might be able to do to improve
-> > throughput?  Is there a driver issue, or is it in how the motherboard
-> > implemented the NIC ?
+On 12/04/2011 03:28 PM, Jeff Kirsher wrote:
+
+> On Sat, 2011-12-03 at 19:26 -0800, David Miller wrote:
+>> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> Date: Sat,  3 Dec 2011 03:44:26 -0800
+>>
+>>> +	if ((!adapter->tx_hang_recheck) &&
+>>
+>> Excessive parenthesis, please remove.
+>>
+>>> +		adapter->tx_hang_recheck = 1;
+>>
+>> This variable is a bool, set it to true or false.
+>>
+>>> +			adapter->tx_hang_recheck = 0;
+>>
+>> Likewise.
+>>
+>>> +	adapter->tx_hang_recheck = 0;
+>>
+>> Likewise.
 > 
-> Can you grep for the r8169 lines in the dmesg of both computers and
-> send the XID lines ?
+> Michael/Flavio -
 > 
-> It should show if the nics are the same or not.
+> To expedite this patch, I can make the changes that Dave is requesting
+> and re-submit v2 of the patch, if that is ok with you.
+> 
 
-On the "problem" computer (on Fedora 16, kernel 3.1.2):
+Hi, Jeff
 
-[    7.101106] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-[    7.102665] r8169 0000:02:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 17
-[    7.107308] r8169 0000:02:00.0: setting latency timer to 64
-[    7.107370] r8169 0000:02:00.0: irq 42 for MSI/MSI-X
-[    7.107703] r8169 0000:02:00.0: eth0: RTL8168d/8111d at 0xffffc900112fc000, 00:19:66:f2:dc:0b, XID 081000c0 IRQ 42
+That's ok for me, I think it's good if you can work with Dave and make
+out a final version for us, if you want my help, please mail me at any
+time, I'm glad to work with you.
 
-On the "okay" computer (on Fedora 14, kernel 2.6.35.14):
+Flavio:
+What's your opinion?
 
-[    9.053574] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-[    9.053594] r8169 0000:06:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 17
-[    9.053689] r8169 0000:06:00.0: setting latency timer to 64
-[    9.053740] r8169 0000:06:00.0: irq 47 for MSI/MSI-X
-[    9.053830] r8169 0000:06:00.0: eth0: RTL8168d/8111d at 0xffffc90012998000, 6c:f0:49:b7:67:91, XID 083000c0 IRQ 47
+Thanks,
+Michael Wang
 
-Both are configured with static IPv4/v6 addresses (no NetworkManager).
-The only other config difference I can think of is that the "okay"
-computer is using bridging (eth0 in br0, IP config on br0) so I can
-bridge virtual machines to the LAN.
-
--- 
-Chris Adams <cmadams@hiwaay.net>
-Systems and Network Administrator - HiWAAY Internet Services
-I don't speak for anybody but myself - that's enough trouble.
+> -Jeff
