@@ -1,58 +1,34 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next RFC PATCH 2/5] tuntap: simple flow director support
-Date: Tue, 6 Dec 2011 17:31:44 +0000
-Message-ID: <1323192704.2772.0.camel@bwh-desktop>
-References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
-	<20111205085857.6116.99252.stgit@dhcp-8-146.nay.redhat.com>
-	<1323115763.2887.12.camel@bwh-desktop>  <4EDDC27D.9050608@redhat.com>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [patch] openvswitch: small potential memory leak in
+	ovs_vport_alloc()
+Date: Tue, 6 Dec 2011 09:32:13 -0800
+Message-ID: <CAEP_g=_McLiPzKMM-9PGqddsYe7q6jYkCyAJcE1MU=Q4_Fou4g@mail.gmail.com>
+References: <20111206062707.GA8433@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	levinsasha928@gmail.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <4EDDC27D.9050608@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20111206062707.GA8433-mgFCXtclrQlZLf2FXnZxJA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-12-06 at 15:21 +0800, Jason Wang wrote:
-> On 12/06/2011 04:09 AM, Ben Hutchings wrote:
-> > On Mon, 2011-12-05 at 16:58 +0800, Jason Wang wrote:
-> >> This patch adds a simple flow director to tun/tap device. It is just a
-> >> page that contains the hash to queue mapping which could be changed by
-> >> user-space. The backend (tap/macvtap) would query this table to get
-> >> the desired queue of a packets when it send packets to userspace.
-> > This is just flow hashing (RSS), not flow steering.
-> >
-> >> The page address were set through a new kind of ioctl - TUNSETFD and
-> >> were pinned until device exit or another new page were specified.
-> > [...]
-> >
-> > You should implement ethtool ETHTOOL_{G,S}RXFHINDIR instead.
-> >
-> > Ben.
-> >
-> 
-> I'm not fully understanding this. The page belongs to guest, and the 
-> idea is to let guest driver can easily change any entry. Looks like if 
-> ethtool_set_rxfh_indir() is used, this kind of change is not easy as it 
-> needs one copy and can only accept the whole table as its parameters.
+On Mon, Dec 5, 2011 at 10:27 PM, Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org> wrote:
+> We're unlikely to hit this leak, but the static checkers complain if we
+> don't take care of it.
+>
+> Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 
-Sorry, yes, I was misreading this.
+Acked-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks Dan.
