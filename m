@@ -1,49 +1,55 @@
-From: Feng King <kinwin2008@gmail.com>
-Subject: [PATCH] conntrack: avoid unnecessary lock in tcp_packet
-Date: Tue,  6 Dec 2011 20:35:07 +0800
-Message-ID: <1323174907-2670-1-git-send-email-kinwin2008@gmail.com>
-Cc: kaber@trash.net, netdev@vger.kernel.org, davem@davemloft.net,
-	Feng King <kinwin2008@gmail.com>,
-	Feng Jin <ronyjin@tencent.com>
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:45810 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933327Ab1LFMfQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 07:35:16 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mark Lord <kernel@teksavvy.com>
+Subject: Re: [PATCH] drivers/net/usb/asix:  resync from vendor's copy
+Date: Tue, 06 Dec 2011 07:44:25 -0500
+Message-ID: <4EDE0E29.9070809@teksavvy.com>
+References: <4EA89972.5060101@teksavvy.com>   <20111026.194045.2019668159403582571.davem@davemloft.net>   <4EA8B283.3010105@teksavvy.com>   <20111026.221719.2216112919297458522.davem@davemloft.net>   <4EB19BBE.5050602@teksavvy.com> <1320266549.2782.21.camel@bwh-desktop>   <4EBAA967.10403@teksavvy.com> <1320856444.18929.78.camel@deadeye>   <4EBAAEA5.1060408@teksavvy.com> <4EBAB0EA.1050102@teksavvy.com>   <4EBAB643.8020603@teksavvy.com> <1320859911.2781.1.camel@bwh-desktop>   <4EBABAFD.6050604@teksavvy.com> <1320860895.2781.6.camel@bwh-desktop>  <4EDCD828.2090904@teksavvy.com> <1323098335.7454.214.camel@deadeye>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1323098335.7454.214.camel@deadeye>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-    when IPS_SEQ_ADJUST_BIT is not set, there are no need to obtain
-net_offset in tcp_in_window from tcp_packet.
-    nat_offset will acquire global nf_nat_seqofs_lock spinlock,
-and on heavy load, there will be big contention. After 30 secs webbench
-stress testing, we can see from lockstat:
-                    nf_nat_seqofs_lock:        798200         798213
-		    1.01          57.37      216229.42        9943722
-		    10055712           0.61          60.70
-		    1909636.49
- and from perf report, nf_nat_get_offset contributes 18.49% of our
- overall spin_lock_bh cost, It's unnecessary.
+On 11-12-05 10:18 AM, Ben Hutchings wrote:
+> On Mon, 2011-12-05 at 09:41 -0500, Mark Lord wrote:
+> [...]
+>> static int ax88772b_bind(struct usbnet *dev, struct usb_interface *intf)
+>> {
+>> ...
+>>         /* register support for hardware checksums */
+>>         dev->net->hw_features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
+>>
+>>         /* enable hardware checksums */
+>>         dev->net->features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
+>>         ax88772b_set_features(dev->net, dev->net->features);
+>> ...
+>> }
+>> -------------------------------snip-----------------------------------
+>>
+>> Does this look correct -- any improvements/fixes to suggest?
+> [...]
+> 
+> NETIF_F_HW_CSUM means the hardware implements generic IP-style
+> checksumming: the stack specifies the offset at which to start
+> checksumming and the offset at which to store the checksum, and the
+> hardware does not attempt to parse the headers.
+> 
+> If this hardware recognises specific protocols and works out the offsets
+> itself, then you must claim NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM instead.
 
-Signed-off-by: Feng Jin <ronyjin@tencent.com>
----
- net/netfilter/nf_conntrack_proto_tcp.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+Yeah, the hardware seems to understand quite a few protocol formats.
+Okay, so I'll claim the protocol-specific flags in net->hw_features.
 
-diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index 8235b86..88c70f1 100644
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -502,7 +502,8 @@ static inline s16 nat_offset(const struct nf_conn *ct,
- 	return get_offset != NULL ? get_offset(ct, dir, seq) : 0;
- }
- #define NAT_OFFSET(pf, ct, dir, seq) \
--	(pf == NFPROTO_IPV4 ? nat_offset(ct, dir, seq) : 0)
-+	((pf == NFPROTO_IPV4) && test_bit(IPS_SEQ_ADJUST_BIT, &ct->status) \
-+	    ? nat_offset(ct, dir, seq) : 0)
- #else
- #define NAT_OFFSET(pf, ct, dir, seq)	0
- #endif
--- 
-1.7.7.3
+But what do I use in net->features?
+The exact same protocol flags,
+or the generic NETIF_F_HW_CSUM | NETIF_F_RXCSUM ones?
+
+The set_features() function also has to test for flags
+to know what to do.  Should it test specific protocol flags,
+or just the generic two ?
+
+Thanks!
