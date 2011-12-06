@@ -1,36 +1,34 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH net-next] remove an outdated reference to T/TCP
-Date: Tue, 06 Dec 2011 13:39:23 -0800
-Message-ID: <4EDE8B8B.2000907@hp.com>
-References: <20111206200005.836D529006DD@tardy> <20111206.151920.696192671128392379.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] r8169: Support for byte queue limits
+Date: Tue, 06 Dec 2011 16:41:50 -0500 (EST)
+Message-ID: <20111206.164150.759295841542482888.davem@davemloft.net>
+References: <1323162824-3196-1-git-send-email-igorm@etf.rs>
+	<20111206.131319.2237133596554595319.davem@davemloft.net>
+	<CAFdo_mUrtFqJnP=3bkWEAogVAqJKpEqFcCX9sgveoqA9DfOHAA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: igorm@etf.rs
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:1862 "EHLO
-	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754352Ab1LFVjZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 16:39:25 -0500
-In-Reply-To: <20111206.151920.696192671128392379.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34148 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754740Ab1LFVlz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 16:41:55 -0500
+In-Reply-To: <CAFdo_mUrtFqJnP=3bkWEAogVAqJKpEqFcCX9sgveoqA9DfOHAA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/06/2011 12:19 PM, David Miller wrote:
-> From: Rick Jones<rick.jones2@hp.com>
-> Date: Tue,  6 Dec 2011 12:00:05 -0800 (PST)
->
->>
->> Remove a particularly out of date bit of comment referring to T/TCP.
->>
->> Signed-off-by: Rick Jones<rick.jones2@hp.com>
->
-> I think it should stay because it discusses the potential bad side
-> effects of queueing any data that might be in the SYN.
+=46rom: Igor Maravi=E6 <igorm@etf.rs>
+Date: Tue, 6 Dec 2011 22:36:21 +0100
 
-How about just the sentence that mentioned T/TCP explicitly since T/TCP 
-is most definitely no longer starting to be used?-)  The rest of it can 
-be discussed when/if TCP Fast Open arrives :)
+>> Well, you're targetting this change to the net-next tree, are Franco=
+is's
+>> fixes there?
+>=20
+> I thought when You say "Applied" in reply, you push patches to net-ne=
+xt tree.
 
-rick
+They were bug fixes, so they went to the 'net' tree.  So you have to wa=
+it
+until I merge the net tree into net-next.
