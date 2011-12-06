@@ -1,33 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next 4/4] caif: Replace BUG_ON with WARN_ON.
-Date: Tue, 06 Dec 2011 17:22:31 -0500 (EST)
-Message-ID: <20111206.172231.1814031149924141501.davem@davemloft.net>
-References: <1323209744-9718-1-git-send-email-sjur.brandeland@stericsson.com>
-	<1323209744-9718-4-git-send-email-sjur.brandeland@stericsson.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, roar.forde@stericsson.com
-To: sjur.brandeland@stericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34621 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755293Ab1LFWWg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 17:22:36 -0500
-In-Reply-To: <1323209744-9718-4-git-send-email-sjur.brandeland@stericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Seth Jennings <sjenning@linux.vnet.ibm.com>
+Subject: [PATCH 0/3] crypto: Add per-cpu transform helpers
+Date: Tue,  6 Dec 2011 16:45:57 -0600
+Message-ID: <1323211560-18181-1-git-send-email-sjenning@linux.vnet.ibm.com>
+Cc: Seth Jennings <sjenning@linux.vnet.ibm.com>,
+	linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	Brian King <brking@linux.vnet.ibm.com>,
+	Robert Jennings <rcj@linux.vnet.ibm.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
-Date: Tue,  6 Dec 2011 23:15:44 +0100
+This patchset includes two new functions for the cryptographic library,
+crypto_alloc_percpu_tfms() and crypto_free_percpu_tfms(), which assist users
+in allocating and freeing per-cpu transforms.
 
-> From: Roar F=F8rde <roar.forde@stericsson.com>
->=20
-> BUG_ON is too strict in a number of circumstances,
-> use WARN_ON instead. Protocol errors should not halt the system.
->=20
-> Signed-off-by: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
-> ---
-> Since v1: removed and changed some OOM related printouts.
+It also includes typing wrappers for the compression algorithm class.
 
-Applied.
+The reason for this patch is that during my work to enable page compression
+via the cryptographic API in the zcache staging driver, and realized that I
+had rewritten some per-cpu transform code that already exists in the
+xfrm_ipcomp code.
+
+In an effort to avoid duplication, this patchset moves the per-cpu code into
+helper functions in the cryptographic library and makes the necessary
+modifications to the xfrm_ipcomp code.
+
+After this change is (hopefully) merged, I will submit the zcache driver
+changes, which will be the second user of these helpers.
+
+Seth Jennings (3):
+  crypto: Add per-cpu transform alloc() and free()
+  crypto: Add inline per-cpu wrappers for compression
+  xfrm: Modify xfrm_ipcomp code to use new per-cpu helpers
+
+ crypto/api.c           |   62 ++++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/crypto.h |   28 +++++++++++++++++++++
+ net/xfrm/xfrm_ipcomp.c |   34 ++++++--------------------
+ 3 files changed, 98 insertions(+), 26 deletions(-)
+
+-- 
+1.7.5.4
