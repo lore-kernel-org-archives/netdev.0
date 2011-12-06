@@ -1,62 +1,745 @@
-From: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [PATCH net-next V0 19/21] mlx4_core: Modify driver initialization flow to accommodate SRIOV for Ethernet
-Date: Tue, 6 Dec 2011 10:35:53 +0200
-Message-ID: <201112061035.54093.jackm@dev.mellanox.co.il>
-References: <4ED8A636.40901@mellanox.co.il> <1323120413.2887.50.camel@bwh-desktop>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-next 4/4 v3] bnx2x, cnic: support DRV_INFO upon FW
+ request
+Date: Tue, 6 Dec 2011 00:41:50 -0800
+Message-ID: <1323160910-28446-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
-To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1323120413.2887.50.camel@bwh-desktop>
-Content-Disposition: inline
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, barak@broadcom.com, eilong@broadcom.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3471 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932984Ab1LFIgP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Dec 2011 03:36:15 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 05 December 2011 23:26, Ben Hutchings wrote:
-> The 'probe_vf' parameter is very odd. =C2=A0Why do you think it is ne=
-cessary
-> to make this a module parameter? =C2=A0It should be possible to bind =
-and
-> unbind the driver from each VF dynamically via sysfs but this paramet=
-er
-> appears to restrict that.
->=20
-The host which sees the PF will also see all the VFs once they come up.
-As each VF appears (as seen by 'lspci'), the O/S will invoke the "probe=
-"
-method for that VF.  Without the "probe_vf" parameter, this probe would
-result in all the VFs being bound to the PF host (and thus unavailable =
-for
-guests).
+From: Barak Witkowski <barak@broadcom.com>
 
+Add support to send driver capabilities, settings and statistics to
+management firmware.
 
-The small section of code which makes use of the probe_vf parameter
-(file net/ethernet/mellanox/mlx4_main.c):
+[ Redone using many local variables, removed many unnecessary inlines,
+  and put #defines at the left margin suggested by Joe Perches ]
 
-	/* Detect if this device is a virtual function */
-	if (id && id->driver_data & MLX4_VF) {
-		/* When acting as pf, we normally skip vfs unless explicitly
-		 * requested to probe them. */
-		if (sr_iov && extended_func_num(pdev) > probe_vf) {
-			mlx4_warn(dev, "Skipping virtual function:%d\n",
-						extended_func_num(pdev));
-			err =3D -ENODEV;
-			goto err_free_dev;
-		}
+Signed-off-by: Barak Witkowski <barak@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |    4 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h   |  152 +++++++++++++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  235 ++++++++++++++++++++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c |   20 ++-
+ drivers/net/ethernet/broadcom/cnic.c              |   47 ++++
+ drivers/net/ethernet/broadcom/cnic_if.h           |    9 +
+ 6 files changed, 459 insertions(+), 8 deletions(-)
 
-If you invoke "dmesg" on the PF host, you will see a series of the
-"Skipping... " messages, one per VF.  If probe_vf > 0, the PF-host will
-reserve some VFs for its own use, and not issue the "Skipping..." messa=
-ge
-for those VFs.
-
--Jack
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 40cfce0..8c73d34 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -887,6 +887,8 @@ struct bnx2x_common {
+ #define CHIP_PORT_MODE_NONE			0x2
+ #define CHIP_MODE(bp)			(bp->common.chip_port_mode)
+ #define CHIP_MODE_IS_4_PORT(bp) (CHIP_MODE(bp) == CHIP_4_PORT_MODE)
++
++	u32			boot_mode;
+ };
+ 
+ /* IGU MSIX STATISTICS on 57712: 64 for VFs; 4 for PFs; 4 for Attentions */
+@@ -1048,6 +1050,8 @@ struct bnx2x_slowpath {
+ 
+ 	u32				wb_comp;
+ 	u32				wb_data[4];
++
++	union drv_info_to_mcp		drv_info_to_mcp;
+ };
+ 
+ #define bnx2x_sp(bp, var)		(&bp->slowpath->var)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+index d9f07cb..0b34526 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+@@ -1253,6 +1253,8 @@ struct drv_func_mb {
+ 	#define DRV_MSG_CODE_DCBX_PMF_DRV_OK            0xb2000000
+ 
+ 	#define DRV_MSG_CODE_VF_DISABLED_DONE           0xc0000000
++	#define DRV_MSG_CODE_DRV_INFO_ACK               0xd8000000
++	#define DRV_MSG_CODE_DRV_INFO_NACK              0xd9000000
+ 
+ 	#define DRV_MSG_CODE_SET_MF_BW                  0xe0000000
+ 	#define REQ_BC_VER_4_SET_MF_BW                  0x00060202
+@@ -1305,6 +1307,8 @@ struct drv_func_mb {
+ 	#define FW_MSG_CODE_VRFY_OPT_MDL_INVLD_IMG      0xa0200000
+ 	#define FW_MSG_CODE_VRFY_OPT_MDL_UNAPPROVED     0xa0300000
+ 	#define FW_MSG_CODE_VF_DISABLED_DONE            0xb0000000
++	#define FW_MSG_CODE_DRV_INFO_ACK                0xd8100000
++	#define FW_MSG_CODE_DRV_INFO_NACK               0xd9100000
+ 
+ 	#define FW_MSG_CODE_SET_MF_BW_SENT              0xe0000000
+ 	#define FW_MSG_CODE_SET_MF_BW_DONE              0xe1000000
+@@ -1361,6 +1365,7 @@ struct drv_func_mb {
+ 
+ 	#define DRV_STATUS_DCBX_EVENT_MASK              0x000f0000
+ 	#define DRV_STATUS_DCBX_NEGOTIATION_RESULTS     0x00010000
++	#define DRV_STATUS_DRV_INFO_REQ                 0x04000000
+ 
+ 	u32 virt_mac_upper;
+ 	#define VIRT_MAC_SIGN_MASK                      0xffff0000
+@@ -1965,9 +1970,38 @@ struct shmem2_region {
+ 	u32 extended_dev_info_shared_addr;
+ 	u32 ncsi_oem_data_addr;
+ 
+-	u32 ocsd_host_addr;
+-	u32 ocbb_host_addr;
+-	u32 ocsd_req_update_interval;
++	u32 ocsd_host_addr; /* initialized by option ROM */
++	u32 ocbb_host_addr; /* initialized by option ROM */
++	u32 ocsd_req_update_interval; /* initialized by option ROM */
++	u32 temperature_in_half_celsius;
++	u32 glob_struct_in_host;
++
++	u32 dcbx_neg_res_ext_offset;
++#define SHMEM_DCBX_NEG_RES_EXT_NONE			0x00000000
++
++	u32 drv_capabilities_flag[E2_FUNC_MAX];
++#define DRV_FLAGS_CAPABILITIES_LOADED_SUPPORTED 0x00000001
++#define DRV_FLAGS_CAPABILITIES_LOADED_L2        0x00000002
++#define DRV_FLAGS_CAPABILITIES_LOADED_FCOE      0x00000004
++#define DRV_FLAGS_CAPABILITIES_LOADED_ISCSI     0x00000008
++
++	u32 extended_dev_info_shared_cfg_size;
++
++	u32 dcbx_en[PORT_MAX];
++
++	/* The offset points to the multi threaded meta structure */
++	u32 multi_thread_data_offset;
++
++	/* address of DMAable host address holding values from the drivers */
++	u32 drv_info_host_addr_lo;
++	u32 drv_info_host_addr_hi;
++
++	/* general values written by the MFW (such as current version) */
++	u32 drv_info_control;
++#define DRV_INFO_CONTROL_VER_MASK          0x000000ff
++#define DRV_INFO_CONTROL_VER_SHIFT         0
++#define DRV_INFO_CONTROL_OP_CODE_MASK      0x0000ff00
++#define DRV_INFO_CONTROL_OP_CODE_SHIFT     8
+ };
+ 
+ 
+@@ -2553,6 +2587,118 @@ struct host_func_stats {
+ /* VIC definitions */
+ #define VICSTATST_UIF_INDEX 2
+ 
++/* current drv_info version */
++#define DRV_INFO_CUR_VER 1
++
++/* drv_info op codes supported */
++enum drv_info_opcode {
++	ETH_STATS_OPCODE,
++	FCOE_STATS_OPCODE,
++	ISCSI_STATS_OPCODE
++};
++
++#define ETH_STAT_INFO_VERSION_LEN	12
++/*  Per PCI Function Ethernet Statistics required from the driver */
++struct eth_stats_info {
++	/* Function's Driver Version. padded to 12 */
++	u8 version[ETH_STAT_INFO_VERSION_LEN];
++	/* Locally Admin Addr. BigEndian EIU48. Actual size is 6 bytes */
++	u8 mac_local[8];
++	u8 mac_add1[8];		/* Additional Programmed MAC Addr 1. */
++	u8 mac_add2[8];		/* Additional Programmed MAC Addr 2. */
++	u32 mtu_size;		/* MTU Size. Note   : Negotiated MTU */
++	u32 feature_flags;	/* Feature_Flags. */
++#define FEATURE_ETH_CHKSUM_OFFLOAD_MASK		0x01
++#define FEATURE_ETH_LSO_MASK			0x02
++#define FEATURE_ETH_BOOTMODE_MASK		0x1C
++#define FEATURE_ETH_BOOTMODE_SHIFT		2
++#define FEATURE_ETH_BOOTMODE_NONE		(0x0 << 2)
++#define FEATURE_ETH_BOOTMODE_PXE		(0x1 << 2)
++#define FEATURE_ETH_BOOTMODE_ISCSI		(0x2 << 2)
++#define FEATURE_ETH_BOOTMODE_FCOE		(0x3 << 2)
++#define FEATURE_ETH_TOE_MASK			0x20
++	u32 lso_max_size;	/* LSO MaxOffloadSize. */
++	u32 lso_min_seg_cnt;	/* LSO MinSegmentCount. */
++	/* Num Offloaded Connections TCP_IPv4. */
++	u32 ipv4_ofld_cnt;
++	/* Num Offloaded Connections TCP_IPv6. */
++	u32 ipv6_ofld_cnt;
++	u32 promiscuous_mode;	/* Promiscuous Mode. non-zero true */
++	u32 txq_size;		/* TX Descriptors Queue Size */
++	u32 rxq_size;		/* RX Descriptors Queue Size */
++	/* TX Descriptor Queue Avg Depth. % Avg Queue Depth since last poll */
++	u32 txq_avg_depth;
++	/* RX Descriptors Queue Avg Depth. % Avg Queue Depth since last poll */
++	u32 rxq_avg_depth;
++	/* IOV_Offload. 0=none; 1=MultiQueue, 2=VEB 3= VEPA*/
++	u32 iov_offload;
++	/* Number of NetQueue/VMQ Config'd. */
++	u32 netq_cnt;
++	u32 vf_cnt;		/* Num VF assigned to this PF. */
++};
++
++/*  Per PCI Function FCOE Statistics required from the driver */
++struct fcoe_stats_info {
++	u8 version[12];		/* Function's Driver Version. */
++	u8 mac_local[8];	/* Locally Admin Addr. */
++	u8 mac_add1[8];		/* Additional Programmed MAC Addr 1. */
++	u8 mac_add2[8];		/* Additional Programmed MAC Addr 2. */
++	/* QoS Priority (per 802.1p). 0-7255 */
++	u32 qos_priority;
++	u32 txq_size;		/* FCoE TX Descriptors Queue Size. */
++	u32 rxq_size;		/* FCoE RX Descriptors Queue Size. */
++	/* FCoE TX Descriptor Queue Avg Depth. */
++	u32 txq_avg_depth;
++	/* FCoE RX Descriptors Queue Avg Depth. */
++	u32 rxq_avg_depth;
++	u32 rx_frames_lo;	/* FCoE RX Frames received. */
++	u32 rx_frames_hi;	/* FCoE RX Frames received. */
++	u32 rx_bytes_lo;	/* FCoE RX Bytes received. */
++	u32 rx_bytes_hi;	/* FCoE RX Bytes received. */
++	u32 tx_frames_lo;	/* FCoE TX Frames sent. */
++	u32 tx_frames_hi;	/* FCoE TX Frames sent. */
++	u32 tx_bytes_lo;	/* FCoE TX Bytes sent. */
++	u32 tx_bytes_hi;	/* FCoE TX Bytes sent. */
++};
++
++/* Per PCI  Function iSCSI Statistics required from the driver*/
++struct iscsi_stats_info {
++	u8 version[12];		/* Function's Driver Version. */
++	u8 mac_local[8];	/* Locally Admin iSCSI MAC Addr. */
++	u8 mac_add1[8];		/* Additional Programmed MAC Addr 1. */
++	/* QoS Priority (per 802.1p). 0-7255 */
++	u32 qos_priority;
++	u8 initiator_name[64];	/* iSCSI Boot Initiator Node name. */
++	u8 ww_port_name[64];	/* iSCSI World wide port name */
++	u8 boot_target_name[64];/* iSCSI Boot Target Name. */
++	u8 boot_target_ip[16];	/* iSCSI Boot Target IP. */
++	u32 boot_target_portal;	/* iSCSI Boot Target Portal. */
++	u8 boot_init_ip[16];	/* iSCSI Boot Initiator IP Address. */
++	u32 max_frame_size;	/* Max Frame Size. bytes */
++	u32 txq_size;		/* PDU TX Descriptors Queue Size. */
++	u32 rxq_size;		/* PDU RX Descriptors Queue Size. */
++	u32 txq_avg_depth;	/* PDU TX Descriptor Queue Avg Depth. */
++	u32 rxq_avg_depth;	/* PDU RX Descriptors Queue Avg Depth. */
++	u32 rx_pdus_lo;		/* iSCSI PDUs received. */
++	u32 rx_pdus_hi;		/* iSCSI PDUs received. */
++	u32 rx_bytes_lo;	/* iSCSI RX Bytes received. */
++	u32 rx_bytes_hi;	/* iSCSI RX Bytes received. */
++	u32 tx_pdus_lo;		/* iSCSI PDUs sent. */
++	u32 tx_pdus_hi;		/* iSCSI PDUs sent. */
++	u32 tx_bytes_lo;	/* iSCSI PDU TX Bytes sent. */
++	u32 tx_bytes_hi;	/* iSCSI PDU TX Bytes sent. */
++	u32 pcp_prior_map_tbl;	/* C-PCP to S-PCP Priority MapTable.
++				 * 9 nibbles, the position of each nibble
++				 * represents the C-PCP value, the value
++				 * of the nibble = S-PCP value.
++				 */
++};
++
++union drv_info_to_mcp {
++	struct eth_stats_info	ether_stat;
++	struct fcoe_stats_info	fcoe_stat;
++	struct iscsi_stats_info	iscsi_stat;
++};
+ #define BCM_5710_FW_MAJOR_VERSION			7
+ #define BCM_5710_FW_MINOR_VERSION			0
+ #define BCM_5710_FW_REVISION_VERSION		29
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 552c564..de60946 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -2912,6 +2912,143 @@ static void bnx2x_e1h_enable(struct bnx2x *bp)
+ 	 */
+ }
+ 
++#define DRV_INFO_ETH_STAT_NUM_MACS_REQUIRED 3
++
++static void bnx2x_drv_info_ether_stat(struct bnx2x *bp)
++{
++	struct eth_stats_info *ether_stat =
++		&bp->slowpath->drv_info_to_mcp.ether_stat;
++
++	/* leave last char as NULL */
++	memcpy(ether_stat->version, DRV_MODULE_VERSION,
++	       ETH_STAT_INFO_VERSION_LEN - 1);
++
++	bp->fp[0].mac_obj.get_n_elements(bp, &bp->fp[0].mac_obj,
++					 DRV_INFO_ETH_STAT_NUM_MACS_REQUIRED,
++					 ether_stat->mac_local);
++
++	ether_stat->mtu_size = bp->dev->mtu;
++
++	if (bp->dev->features & NETIF_F_RXCSUM)
++		ether_stat->feature_flags |= FEATURE_ETH_CHKSUM_OFFLOAD_MASK;
++	if (bp->dev->features & NETIF_F_TSO)
++		ether_stat->feature_flags |= FEATURE_ETH_LSO_MASK;
++	ether_stat->feature_flags |= bp->common.boot_mode;
++
++	ether_stat->promiscuous_mode = (bp->dev->flags & IFF_PROMISC) ? 1 : 0;
++
++	ether_stat->txq_size = bp->tx_ring_size;
++	ether_stat->rxq_size = bp->rx_ring_size;
++}
++
++static void bnx2x_drv_info_fcoe_stat(struct bnx2x *bp)
++{
++	struct bnx2x_dcbx_app_params *app = &bp->dcbx_port_params.app;
++	struct fcoe_stats_info *fcoe_stat =
++		&bp->slowpath->drv_info_to_mcp.fcoe_stat;
++
++	memcpy(fcoe_stat->mac_local, bp->fip_mac, ETH_ALEN);
++
++	fcoe_stat->qos_priority =
++		app->traffic_type_priority[LLFC_TRAFFIC_TYPE_FCOE];
++
++	/* insert FCoE stats from ramrod response */
++	if (!NO_FCOE(bp)) {
++		struct tstorm_per_queue_stats *fcoe_q_tstorm_stats =
++			&bp->fw_stats_data->queue_stats[FCOE_IDX].
++			tstorm_queue_statistics;
++
++		struct xstorm_per_queue_stats *fcoe_q_xstorm_stats =
++			&bp->fw_stats_data->queue_stats[FCOE_IDX].
++			xstorm_queue_statistics;
++
++		struct fcoe_statistics_params *fw_fcoe_stat =
++			&bp->fw_stats_data->fcoe;
++
++		ADD_64(fcoe_stat->rx_bytes_hi, 0, fcoe_stat->rx_bytes_lo,
++		       fw_fcoe_stat->rx_stat0.fcoe_rx_byte_cnt);
++
++		ADD_64(fcoe_stat->rx_bytes_hi,
++		       fcoe_q_tstorm_stats->rcv_ucast_bytes.hi,
++		       fcoe_stat->rx_bytes_lo,
++		       fcoe_q_tstorm_stats->rcv_ucast_bytes.lo);
++
++		ADD_64(fcoe_stat->rx_bytes_hi,
++		       fcoe_q_tstorm_stats->rcv_bcast_bytes.hi,
++		       fcoe_stat->rx_bytes_lo,
++		       fcoe_q_tstorm_stats->rcv_bcast_bytes.lo);
++
++		ADD_64(fcoe_stat->rx_bytes_hi,
++		       fcoe_q_tstorm_stats->rcv_mcast_bytes.hi,
++		       fcoe_stat->rx_bytes_lo,
++		       fcoe_q_tstorm_stats->rcv_mcast_bytes.lo);
++
++		ADD_64(fcoe_stat->rx_frames_hi, 0, fcoe_stat->rx_frames_lo,
++		       fw_fcoe_stat->rx_stat0.fcoe_rx_pkt_cnt);
++
++		ADD_64(fcoe_stat->rx_frames_hi, 0, fcoe_stat->rx_frames_lo,
++		       fcoe_q_tstorm_stats->rcv_ucast_pkts);
++
++		ADD_64(fcoe_stat->rx_frames_hi, 0, fcoe_stat->rx_frames_lo,
++		       fcoe_q_tstorm_stats->rcv_bcast_pkts);
++
++		ADD_64(fcoe_stat->rx_frames_hi, 0, fcoe_stat->rx_frames_lo,
++		       fcoe_q_tstorm_stats->rcv_ucast_pkts);
++
++		ADD_64(fcoe_stat->tx_bytes_hi, 0, fcoe_stat->tx_bytes_lo,
++		       fw_fcoe_stat->tx_stat.fcoe_tx_byte_cnt);
++
++		ADD_64(fcoe_stat->tx_bytes_hi,
++		       fcoe_q_xstorm_stats->ucast_bytes_sent.hi,
++		       fcoe_stat->tx_bytes_lo,
++		       fcoe_q_xstorm_stats->ucast_bytes_sent.lo);
++
++		ADD_64(fcoe_stat->tx_bytes_hi,
++		       fcoe_q_xstorm_stats->bcast_bytes_sent.hi,
++		       fcoe_stat->tx_bytes_lo,
++		       fcoe_q_xstorm_stats->bcast_bytes_sent.lo);
++
++		ADD_64(fcoe_stat->tx_bytes_hi,
++		       fcoe_q_xstorm_stats->mcast_bytes_sent.hi,
++		       fcoe_stat->tx_bytes_lo,
++		       fcoe_q_xstorm_stats->mcast_bytes_sent.lo);
++
++		ADD_64(fcoe_stat->tx_frames_hi, 0, fcoe_stat->tx_frames_lo,
++		       fw_fcoe_stat->tx_stat.fcoe_tx_pkt_cnt);
++
++		ADD_64(fcoe_stat->tx_frames_hi, 0, fcoe_stat->tx_frames_lo,
++		       fcoe_q_xstorm_stats->ucast_pkts_sent);
++
++		ADD_64(fcoe_stat->tx_frames_hi, 0, fcoe_stat->tx_frames_lo,
++		       fcoe_q_xstorm_stats->bcast_pkts_sent);
++
++		ADD_64(fcoe_stat->tx_frames_hi, 0, fcoe_stat->tx_frames_lo,
++		       fcoe_q_xstorm_stats->mcast_pkts_sent);
++	}
++
++#ifdef BCM_CNIC
++	/* ask L5 driver to add data to the struct */
++	bnx2x_cnic_notify(bp, CNIC_CTL_FCOE_STATS_GET_CMD);
++#endif
++}
++
++static void bnx2x_drv_info_iscsi_stat(struct bnx2x *bp)
++{
++	struct bnx2x_dcbx_app_params *app = &bp->dcbx_port_params.app;
++	struct iscsi_stats_info *iscsi_stat =
++		&bp->slowpath->drv_info_to_mcp.iscsi_stat;
++
++	memcpy(iscsi_stat->mac_local, bp->cnic_eth_dev.iscsi_mac, ETH_ALEN);
++
++	iscsi_stat->qos_priority =
++		app->traffic_type_priority[LLFC_TRAFFIC_TYPE_ISCSI];
++
++#ifdef BCM_CNIC
++	/* ask L5 driver to add data to the struct */
++	bnx2x_cnic_notify(bp, CNIC_CTL_ISCSI_STATS_GET_CMD);
++#endif
++}
++
+ /* called due to MCP event (on pmf):
+  *	reread new bandwidth configuration
+  *	configure FW
+@@ -2932,6 +3069,50 @@ static inline void bnx2x_set_mf_bw(struct bnx2x *bp)
+ 	bnx2x_fw_command(bp, DRV_MSG_CODE_SET_MF_BW_ACK, 0);
+ }
+ 
++static void bnx2x_handle_drv_info_req(struct bnx2x *bp)
++{
++	enum drv_info_opcode op_code;
++	u32 drv_info_ctl = SHMEM2_RD(bp, drv_info_control);
++
++	/* if drv_info version supported by MFW doesn't match - send NACK */
++	if ((drv_info_ctl & DRV_INFO_CONTROL_VER_MASK) != DRV_INFO_CUR_VER) {
++		bnx2x_fw_command(bp, DRV_MSG_CODE_DRV_INFO_NACK, 0);
++		return;
++	}
++
++	op_code = (drv_info_ctl & DRV_INFO_CONTROL_OP_CODE_MASK) >>
++		  DRV_INFO_CONTROL_OP_CODE_SHIFT;
++
++	memset(&bp->slowpath->drv_info_to_mcp, 0,
++	       sizeof(union drv_info_to_mcp));
++
++	switch (op_code) {
++	case ETH_STATS_OPCODE:
++		bnx2x_drv_info_ether_stat(bp);
++		break;
++	case FCOE_STATS_OPCODE:
++		bnx2x_drv_info_fcoe_stat(bp);
++		break;
++	case ISCSI_STATS_OPCODE:
++		bnx2x_drv_info_iscsi_stat(bp);
++		break;
++	default:
++		/* if op code isn't supported - send NACK */
++		bnx2x_fw_command(bp, DRV_MSG_CODE_DRV_INFO_NACK, 0);
++		return;
++	}
++
++	/* if we got drv_info attn from MFW then these fields are defined in
++	 * shmem2 for sure
++	 */
++	SHMEM2_WR(bp, drv_info_host_addr_lo,
++		U64_LO(bnx2x_sp_mapping(bp, drv_info_to_mcp)));
++	SHMEM2_WR(bp, drv_info_host_addr_hi,
++		U64_HI(bnx2x_sp_mapping(bp, drv_info_to_mcp)));
++
++	bnx2x_fw_command(bp, DRV_MSG_CODE_DRV_INFO_ACK, 0);
++}
++
+ static void bnx2x_dcc_event(struct bnx2x *bp, u32 dcc_event)
+ {
+ 	DP(BNX2X_MSG_MCP, "dcc_event 0x%x\n", dcc_event);
+@@ -3439,6 +3620,8 @@ static inline void bnx2x_attn_int_deasserted3(struct bnx2x *bp, u32 attn)
+ 			if (val & DRV_STATUS_SET_MF_BW)
+ 				bnx2x_set_mf_bw(bp);
+ 
++			if (val & DRV_STATUS_DRV_INFO_REQ)
++				bnx2x_handle_drv_info_req(bp);
+ 			if ((bp->port.pmf == 0) && (val & DRV_STATUS_PMF))
+ 				bnx2x_pmf_update(bp);
+ 
+@@ -8716,7 +8899,7 @@ static void __devinit bnx2x_undi_unload(struct bnx2x *bp)
+ 
+ static void __devinit bnx2x_get_common_hwinfo(struct bnx2x *bp)
+ {
+-	u32 val, val2, val3, val4, id;
++	u32 val, val2, val3, val4, id, boot_mode;
+ 	u16 pmc;
+ 
+ 	/* Get the chip revision id and number. */
+@@ -8828,6 +9011,24 @@ static void __devinit bnx2x_get_common_hwinfo(struct bnx2x *bp)
+ 	bp->flags |= (val >= REQ_BC_VER_4_PFC_STATS_SUPPORTED) ?
+ 			BC_SUPPORTS_PFC_STATS : 0;
+ 
++	boot_mode = SHMEM_RD(bp,
++			dev_info.port_feature_config[BP_PORT(bp)].mba_config) &
++			PORT_FEATURE_MBA_BOOT_AGENT_TYPE_MASK;
++	switch (boot_mode) {
++	case PORT_FEATURE_MBA_BOOT_AGENT_TYPE_PXE:
++		bp->common.boot_mode = FEATURE_ETH_BOOTMODE_PXE;
++		break;
++	case PORT_FEATURE_MBA_BOOT_AGENT_TYPE_ISCSIB:
++		bp->common.boot_mode = FEATURE_ETH_BOOTMODE_ISCSI;
++		break;
++	case PORT_FEATURE_MBA_BOOT_AGENT_TYPE_FCOE_BOOT:
++		bp->common.boot_mode = FEATURE_ETH_BOOTMODE_FCOE;
++		break;
++	case PORT_FEATURE_MBA_BOOT_AGENT_TYPE_NONE:
++		bp->common.boot_mode = FEATURE_ETH_BOOTMODE_NONE;
++		break;
++	}
++
+ 	pci_read_config_word(bp->pdev, bp->pm_cap + PCI_PM_PMC, &pmc);
+ 	bp->flags |= (pmc & PCI_PM_CAP_PME_D3cold) ? 0 : NO_WOL_FLAG;
+ 
+@@ -11550,6 +11751,38 @@ static int bnx2x_drv_ctl(struct net_device *dev, struct drv_ctl_info *ctl)
+ 		smp_mb__after_atomic_inc();
+ 		break;
+ 	}
++	case DRV_CTL_ULP_REGISTER_CMD: {
++		int ulp_type = ctl->data.ulp_type;
++
++		if (CHIP_IS_E3(bp)) {
++			int idx = BP_FW_MB_IDX(bp);
++			u32 cap;
++
++			cap = SHMEM2_RD(bp, drv_capabilities_flag[idx]);
++			if (ulp_type == CNIC_ULP_ISCSI)
++				cap |= DRV_FLAGS_CAPABILITIES_LOADED_ISCSI;
++			else if (ulp_type == CNIC_ULP_FCOE)
++				cap |= DRV_FLAGS_CAPABILITIES_LOADED_FCOE;
++			SHMEM2_WR(bp, drv_capabilities_flag[idx], cap);
++		}
++		break;
++	}
++	case DRV_CTL_ULP_UNREGISTER_CMD: {
++		int ulp_type = ctl->data.ulp_type;
++
++		if (CHIP_IS_E3(bp)) {
++			int idx = BP_FW_MB_IDX(bp);
++			u32 cap;
++
++			cap = SHMEM2_RD(bp, drv_capabilities_flag[idx]);
++			if (ulp_type == CNIC_ULP_ISCSI)
++				cap &= ~DRV_FLAGS_CAPABILITIES_LOADED_ISCSI;
++			else if (ulp_type == CNIC_ULP_FCOE)
++				cap &= ~DRV_FLAGS_CAPABILITIES_LOADED_FCOE;
++			SHMEM2_WR(bp, drv_capabilities_flag[idx], cap);
++		}
++		break;
++	}
+ 
+ 	default:
+ 		BNX2X_ERR("unknown command %x\n", ctl->cmd);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+index 41a33ce..c40e6b3 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+@@ -39,6 +39,17 @@ static inline long bnx2x_hilo(u32 *hiref)
+ #endif
+ }
+ 
++static u16 bnx2x_get_port_stats_dma_len(struct bnx2x *bp)
++{
++	u16 res = sizeof(struct host_port_stats) >> 2;
++
++	/* if PFC stats are not supported by the MFW, don't DMA them */
++	if (!(bp->flags &  BC_SUPPORTS_PFC_STATS))
++		res -= (sizeof(u32)*4) >> 2;
++
++	return res;
++}
++
+ /*
+  * Init service functions
+  */
+@@ -178,7 +189,8 @@ static void bnx2x_stats_pmf_update(struct bnx2x *bp)
+ 				   DMAE_LEN32_RD_MAX * 4);
+ 	dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, port_stats) +
+ 				   DMAE_LEN32_RD_MAX * 4);
+-	dmae->len = (sizeof(struct host_port_stats) >> 2) - DMAE_LEN32_RD_MAX;
++	dmae->len = bnx2x_get_port_stats_dma_len(bp) - DMAE_LEN32_RD_MAX;
++
+ 	dmae->comp_addr_lo = U64_LO(bnx2x_sp_mapping(bp, stats_comp));
+ 	dmae->comp_addr_hi = U64_HI(bnx2x_sp_mapping(bp, stats_comp));
+ 	dmae->comp_val = DMAE_COMP_VAL;
+@@ -217,7 +229,7 @@ static void bnx2x_port_stats_init(struct bnx2x *bp)
+ 		dmae->src_addr_hi = U64_HI(bnx2x_sp_mapping(bp, port_stats));
+ 		dmae->dst_addr_lo = bp->port.port_stx >> 2;
+ 		dmae->dst_addr_hi = 0;
+-		dmae->len = sizeof(struct host_port_stats) >> 2;
++		dmae->len = bnx2x_get_port_stats_dma_len(bp);
+ 		dmae->comp_addr_lo = dmae_reg_go_c[loader_idx] >> 2;
+ 		dmae->comp_addr_hi = 0;
+ 		dmae->comp_val = 1;
+@@ -1307,7 +1319,7 @@ static void bnx2x_port_stats_stop(struct bnx2x *bp)
+ 		dmae->src_addr_hi = U64_HI(bnx2x_sp_mapping(bp, port_stats));
+ 		dmae->dst_addr_lo = bp->port.port_stx >> 2;
+ 		dmae->dst_addr_hi = 0;
+-		dmae->len = sizeof(struct host_port_stats) >> 2;
++		dmae->len = bnx2x_get_port_stats_dma_len(bp);
+ 		if (bp->func_stx) {
+ 			dmae->comp_addr_lo = dmae_reg_go_c[loader_idx] >> 2;
+ 			dmae->comp_addr_hi = 0;
+@@ -1424,7 +1436,7 @@ static void bnx2x_port_stats_base_init(struct bnx2x *bp)
+ 	dmae->src_addr_hi = U64_HI(bnx2x_sp_mapping(bp, port_stats));
+ 	dmae->dst_addr_lo = bp->port.port_stx >> 2;
+ 	dmae->dst_addr_hi = 0;
+-	dmae->len = sizeof(struct host_port_stats) >> 2;
++	dmae->len = bnx2x_get_port_stats_dma_len(bp);
+ 	dmae->comp_addr_lo = U64_LO(bnx2x_sp_mapping(bp, stats_comp));
+ 	dmae->comp_addr_hi = U64_HI(bnx2x_sp_mapping(bp, stats_comp));
+ 	dmae->comp_val = DMAE_COMP_VAL;
+diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+index b336e55..4bcb67e 100644
+--- a/drivers/net/ethernet/broadcom/cnic.c
++++ b/drivers/net/ethernet/broadcom/cnic.c
+@@ -250,6 +250,21 @@ static u32 cnic_reg_rd_ind(struct cnic_dev *dev, u32 off)
+ 	return io->data;
+ }
+ 
++static void cnic_ulp_ctl(struct cnic_dev *dev, int ulp_type, bool reg)
++{
++	struct cnic_local *cp = dev->cnic_priv;
++	struct cnic_eth_dev *ethdev = cp->ethdev;
++	struct drv_ctl_info info;
++
++	if (reg)
++		info.cmd = DRV_CTL_ULP_REGISTER_CMD;
++	else
++		info.cmd = DRV_CTL_ULP_UNREGISTER_CMD;
++
++	info.data.ulp_type = ulp_type;
++	ethdev->drv_ctl(dev->netdev, &info);
++}
++
+ static int cnic_in_use(struct cnic_sock *csk)
+ {
+ 	return test_bit(SK_F_INUSE, &csk->flags);
+@@ -563,6 +578,8 @@ static int cnic_register_device(struct cnic_dev *dev, int ulp_type,
+ 
+ 	mutex_unlock(&cnic_lock);
+ 
++	cnic_ulp_ctl(dev, ulp_type, true);
++
+ 	return 0;
+ 
+ }
+@@ -602,6 +619,8 @@ static int cnic_unregister_device(struct cnic_dev *dev, int ulp_type)
+ 	if (test_bit(ULP_F_CALL_PENDING, &cp->ulp_flags[ulp_type]))
+ 		netdev_warn(dev->netdev, "Failed waiting for ULP up call to complete\n");
+ 
++	cnic_ulp_ctl(dev, ulp_type, false);
++
+ 	return 0;
+ }
+ EXPORT_SYMBOL(cnic_unregister_driver);
+@@ -3052,9 +3071,26 @@ static void cnic_ulp_start(struct cnic_dev *dev)
+ 	}
+ }
+ 
++static int cnic_copy_ulp_stats(struct cnic_dev *dev, int ulp_type)
++{
++	struct cnic_local *cp = dev->cnic_priv;
++	struct cnic_ulp_ops *ulp_ops;
++	int rc;
++
++	mutex_lock(&cnic_lock);
++	ulp_ops = cnic_ulp_tbl_prot(ulp_type);
++	if (ulp_ops && ulp_ops->cnic_get_stats)
++		rc = ulp_ops->cnic_get_stats(cp->ulp_handle[ulp_type]);
++	else
++		rc = -ENODEV;
++	mutex_unlock(&cnic_lock);
++	return rc;
++}
++
+ static int cnic_ctl(void *data, struct cnic_ctl_info *info)
+ {
+ 	struct cnic_dev *dev = data;
++	int ulp_type = CNIC_ULP_ISCSI;
+ 
+ 	switch (info->cmd) {
+ 	case CNIC_CTL_STOP_CMD:
+@@ -3100,6 +3136,15 @@ static int cnic_ctl(void *data, struct cnic_ctl_info *info)
+ 		}
+ 		break;
+ 	}
++	case CNIC_CTL_FCOE_STATS_GET_CMD:
++		ulp_type = CNIC_ULP_FCOE;
++		/* fall through */
++	case CNIC_CTL_ISCSI_STATS_GET_CMD:
++		cnic_hold(dev);
++		cnic_copy_ulp_stats(dev, ulp_type);
++		cnic_put(dev);
++		break;
++
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -5288,6 +5333,8 @@ static struct cnic_dev *init_bnx2x_cnic(struct net_device *dev)
+ 	cdev->pcidev = pdev;
+ 	cp->chip_id = ethdev->chip_id;
+ 
++	cdev->stats_addr = ethdev->addr_drv_info_to_mcp;
++
+ 	if (!(ethdev->drv_state & CNIC_DRV_STATE_NO_ISCSI))
+ 		cdev->max_iscsi_conn = ethdev->max_iscsi_conn;
+ 	if (BNX2X_CHIP_IS_E2_PLUS(cp->chip_id) &&
+diff --git a/drivers/net/ethernet/broadcom/cnic_if.h b/drivers/net/ethernet/broadcom/cnic_if.h
+index 79443e0..d1f6456 100644
+--- a/drivers/net/ethernet/broadcom/cnic_if.h
++++ b/drivers/net/ethernet/broadcom/cnic_if.h
+@@ -86,6 +86,8 @@ struct kcqe {
+ #define CNIC_CTL_START_CMD		2
+ #define CNIC_CTL_COMPLETION_CMD		3
+ #define CNIC_CTL_STOP_ISCSI_CMD		4
++#define CNIC_CTL_FCOE_STATS_GET_CMD	5
++#define CNIC_CTL_ISCSI_STATS_GET_CMD	6
+ 
+ #define DRV_CTL_IO_WR_CMD		0x101
+ #define DRV_CTL_IO_RD_CMD		0x102
+@@ -96,6 +98,8 @@ struct kcqe {
+ #define DRV_CTL_STOP_L2_CMD		0x107
+ #define DRV_CTL_RET_L2_SPQ_CREDIT_CMD	0x10c
+ #define DRV_CTL_ISCSI_STOPPED_CMD	0x10d
++#define DRV_CTL_ULP_REGISTER_CMD	0x10e
++#define DRV_CTL_ULP_UNREGISTER_CMD	0x10f
+ 
+ struct cnic_ctl_completion {
+ 	u32	cid;
+@@ -133,6 +137,7 @@ struct drv_ctl_info {
+ 		struct drv_ctl_spq_credit credit;
+ 		struct drv_ctl_io io;
+ 		struct drv_ctl_l2_ring ring;
++		int ulp_type;
+ 		char bytes[MAX_DRV_CTL_DATA];
+ 	} data;
+ };
+@@ -201,6 +206,7 @@ struct cnic_eth_dev {
+ 					       struct kwqe_16 *[], u32);
+ 	int		(*drv_ctl)(struct net_device *, struct drv_ctl_info *);
+ 	unsigned long	reserved1[2];
++	union drv_info_to_mcp	*addr_drv_info_to_mcp;
+ };
+ 
+ struct cnic_sockaddr {
+@@ -297,6 +303,8 @@ struct cnic_dev {
+ 	int		max_fcoe_conn;
+ 	int		max_rdma_conn;
+ 
++	union drv_info_to_mcp	*stats_addr;
++
+ 	void		*cnic_priv;
+ };
+ 
+@@ -326,6 +334,7 @@ struct cnic_ulp_ops {
+ 	void (*cm_remote_abort)(struct cnic_sock *);
+ 	int (*iscsi_nl_send_msg)(void *ulp_ctx, u32 msg_type,
+ 				  char *data, u16 data_size);
++	int (*cnic_get_stats)(void *ulp_ctx);
+ 	struct module *owner;
+ 	atomic_t ref_count;
+ };
+-- 
+1.7.1
