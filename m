@@ -1,54 +1,110 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] netback: remove redundant assignment
-Date: Tue, 6 Dec 2011 10:21:22 +0000
-Message-ID: <1323166882.23681.46.camel@zakaz.uk.xensource.com>
-References: <1323166100-7059-1-git-send-email-wei.liu2@citrix.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH] SUNRPC: create svc_xprt in proper network namespace
+Date: Tue, 06 Dec 2011 14:19:10 +0300
+Message-ID: <20111206101910.1878.21798.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:15722 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933052Ab1LFKVX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 05:21:23 -0500
-In-Reply-To: <1323166100-7059-1-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
+	davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-12-06 at 10:08 +0000, Wei Liu wrote:
-> New value for netbk->mmap_pages[pending_idx] is assigned in
-> xen_netbk_alloc_page(), no need for a second assignment which
-> exposes internal to the outside world.
-> 
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
+This patch makes svc_xprt inherit network namespace link from it's socket.
 
-> ---
->  drivers/net/xen-netback/netback.c |    4 ----
->  1 files changed, 0 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index 15e332d..3ecb5aa 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -940,8 +940,6 @@ static struct gnttab_copy *xen_netbk_get_requests(struct xen_netbk *netbk,
->  		if (!page)
->  			return NULL;
->  
-> -		netbk->mmap_pages[pending_idx] = page;
-> -
->  		gop->source.u.ref = txp->gref;
->  		gop->source.domid = vif->domid;
->  		gop->source.offset = txp->offset;
-> @@ -1336,8 +1334,6 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
->  			continue;
->  		}
->  
-> -		netbk->mmap_pages[pending_idx] = page;
-> -
->  		gop->source.u.ref = txreq.gref;
->  		gop->source.domid = vif->domid;
->  		gop->source.offset = txreq.offset;
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+
+---
+ include/linux/sunrpc/svc_xprt.h          |    2 +-
+ net/sunrpc/svc_xprt.c                    |    6 +++---
+ net/sunrpc/svcsock.c                     |    8 +++++---
+ net/sunrpc/xprtrdma/svc_rdma_transport.c |    2 +-
+ 4 files changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/include/linux/sunrpc/svc_xprt.h b/include/linux/sunrpc/svc_xprt.h
+index 8620f79..18df516 100644
+--- a/include/linux/sunrpc/svc_xprt.h
++++ b/include/linux/sunrpc/svc_xprt.h
+@@ -109,7 +109,7 @@ static inline int register_xpt_user(struct svc_xprt *xpt, struct svc_xpt_user *u
+ 
+ int	svc_reg_xprt_class(struct svc_xprt_class *);
+ void	svc_unreg_xprt_class(struct svc_xprt_class *);
+-void	svc_xprt_init(struct svc_xprt_class *, struct svc_xprt *,
++void	svc_xprt_init(struct net *, struct svc_xprt_class *, struct svc_xprt *,
+ 		      struct svc_serv *);
+ int	svc_create_xprt(struct svc_serv *, const char *, struct net *,
+ 			const int, const unsigned short, int);
+diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
+index 447cd0e..f8f0627 100644
+--- a/net/sunrpc/svc_xprt.c
++++ b/net/sunrpc/svc_xprt.c
+@@ -147,8 +147,8 @@ EXPORT_SYMBOL_GPL(svc_xprt_put);
+  * Called by transport drivers to initialize the transport independent
+  * portion of the transport instance.
+  */
+-void svc_xprt_init(struct svc_xprt_class *xcl, struct svc_xprt *xprt,
+-		   struct svc_serv *serv)
++void svc_xprt_init(struct net *net, struct svc_xprt_class *xcl,
++		   struct svc_xprt *xprt, struct svc_serv *serv)
+ {
+ 	memset(xprt, 0, sizeof(*xprt));
+ 	xprt->xpt_class = xcl;
+@@ -163,7 +163,7 @@ void svc_xprt_init(struct svc_xprt_class *xcl, struct svc_xprt *xprt,
+ 	spin_lock_init(&xprt->xpt_lock);
+ 	set_bit(XPT_BUSY, &xprt->xpt_flags);
+ 	rpc_init_wait_queue(&xprt->xpt_bc_pending, "xpt_bc_pending");
+-	xprt->xpt_net = get_net(&init_net);
++	xprt->xpt_net = get_net(net);
+ }
+ EXPORT_SYMBOL_GPL(svc_xprt_init);
+ 
+diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+index 71bed1c..277909e 100644
+--- a/net/sunrpc/svcsock.c
++++ b/net/sunrpc/svcsock.c
+@@ -739,7 +739,8 @@ static void svc_udp_init(struct svc_sock *svsk, struct svc_serv *serv)
+ {
+ 	int err, level, optname, one = 1;
+ 
+-	svc_xprt_init(&svc_udp_class, &svsk->sk_xprt, serv);
++	svc_xprt_init(sock_net(svsk->sk_sock->sk), &svc_udp_class,
++		      &svsk->sk_xprt, serv);
+ 	clear_bit(XPT_CACHE_AUTH, &svsk->sk_xprt.xpt_flags);
+ 	svsk->sk_sk->sk_data_ready = svc_udp_data_ready;
+ 	svsk->sk_sk->sk_write_space = svc_write_space;
+@@ -1343,7 +1344,8 @@ static void svc_tcp_init(struct svc_sock *svsk, struct svc_serv *serv)
+ {
+ 	struct sock	*sk = svsk->sk_sk;
+ 
+-	svc_xprt_init(&svc_tcp_class, &svsk->sk_xprt, serv);
++	svc_xprt_init(sock_net(svsk->sk_sock->sk), &svc_tcp_class,
++		      &svsk->sk_xprt, serv);
+ 	set_bit(XPT_CACHE_AUTH, &svsk->sk_xprt.xpt_flags);
+ 	if (sk->sk_state == TCP_LISTEN) {
+ 		dprintk("setting up TCP socket for listening\n");
+@@ -1659,7 +1661,7 @@ static struct svc_xprt *svc_bc_create_socket(struct svc_serv *serv,
+ 		return ERR_PTR(-ENOMEM);
+ 
+ 	xprt = &svsk->sk_xprt;
+-	svc_xprt_init(&svc_tcp_bc_class, xprt, serv);
++	svc_xprt_init(net, &svc_tcp_bc_class, xprt, serv);
+ 
+ 	serv->sv_bc_xprt = xprt;
+ 
+diff --git a/net/sunrpc/xprtrdma/svc_rdma_transport.c b/net/sunrpc/xprtrdma/svc_rdma_transport.c
+index ba1296d..894cb42 100644
+--- a/net/sunrpc/xprtrdma/svc_rdma_transport.c
++++ b/net/sunrpc/xprtrdma/svc_rdma_transport.c
+@@ -453,7 +453,7 @@ static struct svcxprt_rdma *rdma_create_xprt(struct svc_serv *serv,
+ 
+ 	if (!cma_xprt)
+ 		return NULL;
+-	svc_xprt_init(&svc_rdma_class, &cma_xprt->sc_xprt, serv);
++	svc_xprt_init(&init_net, &svc_rdma_class, &cma_xprt->sc_xprt, serv);
+ 	INIT_LIST_HEAD(&cma_xprt->sc_accept_q);
+ 	INIT_LIST_HEAD(&cma_xprt->sc_dto_q);
+ 	INIT_LIST_HEAD(&cma_xprt->sc_rq_dto_q);
