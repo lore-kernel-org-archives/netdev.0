@@ -1,103 +1,81 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 9/13 net-3.1-stable] route: fix ICMP redirect validation
-Date: Tue, 06 Dec 2011 16:33:39 -0500 (EST)
-Message-ID: <20111206.163339.676278798295465327.davem@davemloft.net>
+Subject: [PATCH 6/13 net-3.1-stable] qeth: l3 fix rcu splat in xmit
+Date: Tue, 06 Dec 2011 16:33:26 -0500 (EST)
+Message-ID: <20111206.163326.2285528514364780297.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33979 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:33962 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754487Ab1LFVdl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 16:33:41 -0500
+	with ESMTP id S1754565Ab1LFVd2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 16:33:28 -0500
 Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
 	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id pB6LXd8Y024230
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id pB6LXQuW024161
 	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 6 Dec 2011 13:33:40 -0800
+	for <netdev@vger.kernel.org>; Tue, 6 Dec 2011 13:33:27 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-From: Flavio Leitner <fbl@redhat.com>
+From: Frank Blaschka <frank.blaschka@de.ibm.com>
 
-[ Upstream commit 7cc9150ebe8ec06cafea9f1c10d92ddacf88d8ae ]
+[ Upstream commit 1d36cb479f204a0fedc1a3e7ce7b32c0a2c48769 ]
 
-The commit f39925dbde7788cfb96419c0f092b086aa325c0f
-(ipv4: Cache learned redirect information in inetpeer.)
-removed some ICMP packet validations which are required by
-RFC 1122, section 3.2.2.2:
-...
-  A Redirect message SHOULD be silently discarded if the new
-  gateway address it specifies is not on the same connected
-  (sub-) net through which the Redirect arrived [INTRO:2,
-  Appendix A], or if the source of the Redirect is not the
-  current first-hop gateway for the specified destination (see
-  Section 3.3.1).
+when use dst_get_neighbour to get neighbour, we need
+rcu_read_lock to protect, since dst_get_neighbour uses
+rcu_dereference.
 
-Signed-off-by: Flavio Leitner <fbl@redhat.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/ipv4/route.c |   36 +++++++++++++++++++++++++++++++-----
- 1 files changed, 31 insertions(+), 5 deletions(-)
+ drivers/s390/net/qeth_l3_main.c |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index c3fcdb4..e9b273b 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1313,7 +1313,12 @@ static void rt_del(unsigned hash, struct rtable *rt)
- void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
- 		    __be32 saddr, struct net_device *dev)
- {
-+	int s, i;
- 	struct in_device *in_dev = __in_dev_get_rcu(dev);
-+	struct rtable *rt;
-+	__be32 skeys[2] = { saddr, 0 };
-+	int    ikeys[2] = { dev->ifindex, 0 };
-+	struct flowi4 fl4;
- 	struct inet_peer *peer;
- 	struct net *net;
+diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
+index fafb8c2..c74e867 100644
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -2740,11 +2740,13 @@ int inline qeth_l3_get_cast_type(struct qeth_card *card, struct sk_buff *skb)
+ 	struct neighbour *n = NULL;
+ 	struct dst_entry *dst;
  
-@@ -1336,13 +1341,34 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
- 			goto reject_redirect;
++	rcu_read_lock();
+ 	dst = skb_dst(skb);
+ 	if (dst)
+ 		n = dst_get_neighbour(dst);
+ 	if (n) {
+ 		cast_type = n->type;
++		rcu_read_unlock();
+ 		if ((cast_type == RTN_BROADCAST) ||
+ 		    (cast_type == RTN_MULTICAST) ||
+ 		    (cast_type == RTN_ANYCAST))
+@@ -2752,6 +2754,8 @@ int inline qeth_l3_get_cast_type(struct qeth_card *card, struct sk_buff *skb)
+ 		else
+ 			return RTN_UNSPEC;
+ 	}
++	rcu_read_unlock();
++
+ 	/* try something else */
+ 	if (skb->protocol == ETH_P_IPV6)
+ 		return (skb_network_header(skb)[24] == 0xff) ?
+@@ -2807,6 +2811,8 @@ static void qeth_l3_fill_header(struct qeth_card *card, struct qeth_hdr *hdr,
  	}
  
--	peer = inet_getpeer_v4(daddr, 1);
--	if (peer) {
--		peer->redirect_learned.a4 = new_gw;
-+	memset(&fl4, 0, sizeof(fl4));
-+	fl4.daddr = daddr;
-+	for (s = 0; s < 2; s++) {
-+		for (i = 0; i < 2; i++) {
-+			fl4.flowi4_oif = ikeys[i];
-+			fl4.saddr = skeys[s];
-+			rt = __ip_route_output_key(net, &fl4);
-+			if (IS_ERR(rt))
-+				continue;
- 
--		inet_putpeer(peer);
-+			if (rt->dst.error || rt->dst.dev != dev ||
-+			    rt->rt_gateway != old_gw) {
-+				ip_rt_put(rt);
-+				continue;
-+			}
+ 	hdr->hdr.l3.length = skb->len - sizeof(struct qeth_hdr);
 +
-+			if (!rt->peer)
-+				rt_bind_peer(rt, rt->rt_dst, 1);
-+
-+			peer = rt->peer;
-+			if (peer) {
-+				peer->redirect_learned.a4 = new_gw;
-+				atomic_inc(&__rt_peer_genid);
-+			}
- 
--		atomic_inc(&__rt_peer_genid);
-+			ip_rt_put(rt);
-+			return;
-+		}
++	rcu_read_lock();
+ 	dst = skb_dst(skb);
+ 	if (dst)
+ 		n = dst_get_neighbour(dst);
+@@ -2853,6 +2859,7 @@ static void qeth_l3_fill_header(struct qeth_card *card, struct qeth_hdr *hdr,
+ 				QETH_CAST_UNICAST | QETH_HDR_PASSTHRU;
+ 		}
  	}
- 	return;
++	rcu_read_unlock();
+ }
  
+ static inline void qeth_l3_hdr_csum(struct qeth_card *card,
 -- 
 1.7.7.3
