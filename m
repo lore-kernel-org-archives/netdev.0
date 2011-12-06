@@ -1,50 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/11] inet_diag: Partly rename inet_ to sock_
-Date: Tue, 06 Dec 2011 13:42:02 -0500 (EST)
-Message-ID: <20111206.134202.1463574805110883510.davem@davemloft.net>
-References: <4EDE573A.6040607@parallels.com>
-	<4EDE575B.3010507@parallels.com>
-	<20111206102447.25cc60f4@nehalam.linuxnetplumber.net>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: v6: faster tree-based sysctl implementation
+Date: Tue, 6 Dec 2011 13:42:29 -0500
+Message-ID: <20111206184229.GD22987@kvack.org>
+References: <CAPLs8y9omncDbLE_KNoKOLLbfwHjWYUJX_i7cC4bLiJsyPbtZQ@mail.gmail.com> <CAJL_dMtgP+BqFn3aGVBbGDJ+kMyGiEC_NmDURzh4mU=Jo=qZVA@mail.gmail.com> <CAPLs8y8vhioqc3CPrD7ugmVkR2DjKWNm8+T5j9QQnrxi=BgvdA@mail.gmail.com> <4EDE470D.3070808@6wind.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xemul@parallels.com, netdev@vger.kernel.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60459 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751553Ab1LFSmG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 13:42:06 -0500
-In-Reply-To: <20111206102447.25cc60f4@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	"Eric W . Biederman" <ebiederm@xmission.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Octavian Purdila <tavi@cs.pub.ro>,
+	"David S . Miller" <davem@davemloft.net>,
+	Alexey Dobriyan <adobriyan@gmail.com>
+To: Damien Millescamps <damien.millescamps@6wind.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4EDE470D.3070808@6wind.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 6 Dec 2011 10:24:47 -0800
+On Tue, Dec 06, 2011 at 05:47:09PM +0100, Damien Millescamps wrote:
+> A use-case for wanting to be able to create several interfaces is to 
+> have a "tunnel" server handling several dynamic point to point connections.
 
-> On Tue, 06 Dec 2011 21:56:43 +0400
-> Pavel Emelyanov <xemul@parallels.com> wrote:
-> 
->> diff --git a/include/linux/netlink.h b/include/linux/netlink.h
->> index 8374d29..9827ebf 100644
->> --- a/include/linux/netlink.h
->> +++ b/include/linux/netlink.h
->> @@ -8,7 +8,7 @@
->>  #define NETLINK_UNUSED		1	/* Unused number				*/
->>  #define NETLINK_USERSOCK	2	/* Reserved for user mode socket protocols 	*/
->>  #define NETLINK_FIREWALL	3	/* Firewalling hook				*/
->> -#define NETLINK_INET_DIAG	4	/* INET socket monitoring			*/
->> +#define NETLINK_SOCK_DIAG	4	/* socket monitoring				*/
->>  #define NETLINK_NFLOG		5	/* netfilter/iptables ULOG */
->>  #define NETLINK_XFRM		6	/* ipsec */
->>  #define NETLINK_SELINUX		7	/* SELinux event notifications */
-> 
-> This is a header file that is stripped and exported by other
-> tools. You can add new entries but need to keep existing define's
-> to avoid breaking source compatibility.
+I can chime in that this is also an issue for edge routers terminating 
+lots of PPPoE, L2TP or even DHCP sessions.  Interfaces numbering in the 
+thousands or tens of thousands are common for 1G or 10G worth of bandwidth 
+aggregation.
 
-Indeed, NETLINK_INET_DIAG must be kept around forever because that's what userland
-source code references.
-
-I'll fix this up when applying Pavel's patches, by simply adding a new alias that
-userland can start being coverted over to use.
+		-ben
+-- 
+"Thought is the essence of where you are now."
