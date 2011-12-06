@@ -1,36 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [RFC] socket sk_sndmsg_page waste
-Date: Tue, 06 Dec 2011 07:53:36 +0100
-Message-ID: <1323154416.2467.27.camel@edumazet-laptop>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net-next RFC PATCH 2/5] tuntap: simple flow director support
+Date: Tue, 06 Dec 2011 15:21:33 +0800
+Message-ID: <4EDDC27D.9050608@redhat.com>
+References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
+	<20111205085857.6116.99252.stgit@dhcp-8-146.nay.redhat.com>
+	<1323115763.2887.12.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:45147 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753080Ab1LFGxk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 01:53:40 -0500
-Received: by eaak14 with SMTP id k14so4776071eaa.19
-        for <netdev@vger.kernel.org>; Mon, 05 Dec 2011 22:53:39 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	levinsasha928@gmail.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1323115763.2887.12.camel@bwh-desktop>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-TCP can steer one page of memory per socket to cook outgoing frames.
+On 12/06/2011 04:09 AM, Ben Hutchings wrote:
+> On Mon, 2011-12-05 at 16:58 +0800, Jason Wang wrote:
+>> This patch adds a simple flow director to tun/tap device. It is just a
+>> page that contains the hash to queue mapping which could be changed by
+>> user-space. The backend (tap/macvtap) would query this table to get
+>> the desired queue of a packets when it send packets to userspace.
+> This is just flow hashing (RSS), not flow steering.
+>
+>> The page address were set through a new kind of ioctl - TUNSETFD and
+>> were pinned until device exit or another new page were specified.
+> [...]
+>
+> You should implement ethtool ETHTOOL_{G,S}RXFHINDIR instead.
+>
+> Ben.
+>
 
-This means a machine handling long living sockets can consume a lot of
-ram.
-
-1.000.000 tcp sockets : up to 4GB of allocated memory, if some writes
-had been done on these sockets.
-
-It would make sense to use a per thread page as a pool, instead of a per
-socket pool, and remove sk_sndmsg_page/off fields.
-
-Problem with this strategy is impact outside of net tree, and a cost at
-thread creation/destruction.
-
-[ But this could be used in fs/pipe.c or fs/splice.c code..., so that
-small writes() dont allocate a full page but try to reuse the "per
-task_struct" page ]
+I'm not fully understanding this. The page belongs to guest, and the 
+idea is to let guest driver can easily change any entry. Looks like if 
+ethtool_set_rxfh_indir() is used, this kind of change is not easy as it 
+needs one copy and can only accept the whole table as its parameters.
