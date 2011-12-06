@@ -1,98 +1,81 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net-next RFC PATCH 5/5] virtio-net: flow director support
-Date: Tue, 06 Dec 2011 15:25:16 +0800
-Message-ID: <4EDDC35C.2070100@redhat.com>
-References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
-	<20111205085925.6116.94352.stgit@dhcp-8-146.nay.redhat.com>
-	<1323117745.2887.31.camel@bwh-desktop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	levinsasha928@gmail.com
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1323117745.2887.31.camel@bwh-desktop>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+From: Weiping Pan <panweiping3@gmail.com>
+Subject: [PATCH V2 net] ipv4:correct description for tcp_max_syn_backlog
+Date: Tue,  6 Dec 2011 15:39:41 +0800
+Message-ID: <ed04712f4f61e291ac784a8a77e2831981cfb9c1.1323156956.git.panweiping3@gmail.com>
+References: <4EDDC1D6.6000708@gmail.com>
+Cc: Weiping Pan <panweiping3@gmail.com>,
+	Randy Dunlap <rdunlap@xenotime.net> (maintainer:DOCUMENTATION),
+	"David S. Miller" <davem@davemloft.net> (maintainer:NETWORKING
+	[GENERAL],commit_signer:11/16=69%),
+	Eric Dumazet <eric.dumazet@gmail.com> (commit_signer:3/16=19%),
+	Shan Wei <shanwei@cn.fujitsu.com> (commit_signer:3/16=19%),
+	Neil Horman <nhorman@tuxdriver.com> (commit_signer:2/16=12%),
+	Max Matveev <makc@redhat.com> (commit_signer:2/16=12%),
+	linux-doc@vger.kernel.org (open list:DOCUMENTATION),
+	linux-kernel@vger.kernel.org (open list),
+	netdev@vger.kernel.org (open list:NETWORKING [GENERAL])
+To: shanwei88@gmail.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <4EDDC1D6.6000708@gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/06/2011 04:42 AM, Ben Hutchings wrote:
-> On Mon, 2011-12-05 at 16:59 +0800, Jason Wang wrote:
->> In order to let the packets of a flow to be passed to the desired
->> guest cpu, we can co-operate with devices through programming the flow
->> director which was just a hash to queue table.
->>
->> This kinds of co-operation is done through the accelerate RFS support,
->> a device specific flow sterring method virtnet_fd() is used to modify
->> the flow director based on rfs mapping. The desired queue were
->> calculated through reverse mapping of the irq affinity table. In order
->> to parallelize the ingress path, irq affinity of rx queue were also
->> provides by the driver.
->>
->> In addition to accelerate RFS, we can also use the guest scheduler to
->> balance the load of TX and reduce the lock contention on egress path,
->> so the processor_id() were used to tx queue selection.
-> [...]
->> +#ifdef CONFIG_RFS_ACCEL
->> +
->> +int virtnet_fd(struct net_device *net_dev, const struct sk_buff *skb,
->> +	       u16 rxq_index, u32 flow_id)
->> +{
->> +	struct virtnet_info *vi = netdev_priv(net_dev);
->> +	u16 *table = NULL;
->> +
->> +	if (skb->protocol != htons(ETH_P_IP) || !skb->rxhash)
->> +		return -EPROTONOSUPPORT;
-> Why only IPv4?
+Since commit c5ed63d66f24(tcp: fix three tcp sysctls tuning),
+sysctl_max_syn_backlog is determined by tcp_hashinfo->ehash_mask,
+and the minimal value is 128, and it will increase in proportion to the
+memory of machine.
+The original description for tcp_max_syn_backlog and sysctl_max_syn_backlog
+are out of date.
 
-Oops, IPv6 should work also.
->> +	table = kmap_atomic(vi->fd_page);
->> +	table[skb->rxhash&  TAP_HASH_MASK] = rxq_index;
->> +	kunmap_atomic(table);
->> +
->> +	return 0;
->> +}
->> +#endif
-> This is not a proper implementation of ndo_rx_flow_steer.  If you steer
-> a flow by changing the RSS table this can easily cause packet reordering
-> in other flows.  The filtering should be more precise, ideally matching
-> exactly a single flow by e.g. VID and IP 5-tuple.
->
-> I think you need to add a second hash table which records exactly which
-> flow is supposed to be steered.  Also, you must call
-> rps_may_expire_flow() to check whether an entry in this table may be
-> replaced; otherwise you can cause packet reordering in the flow that was
-> previously being steered.
->
-> Finally, this function must return the table index it assigned, so that
-> rps_may_expire_flow() works.
+Changelog:
+V2: update description for sysctl_max_syn_backlog
 
-Thanks for the explanation, how about document this briefly in scaling.txt?
->> +static u16 virtnet_select_queue(struct net_device *dev, struct sk_buff *skb)
->> +{
->> +	int txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) :
->> +					       smp_processor_id();
->> +
->> +	/* As we make use of the accelerate rfs which let the scheduler to
->> +	 * balance the load, it make sense to choose the tx queue also based on
->> +	 * theprocessor id?
->> +	 */
->> +	while (unlikely(txq>= dev->real_num_tx_queues))
->> +		txq -= dev->real_num_tx_queues;
->> +	return txq;
->> +}
-> [...]
->
-> Don't do this, let XPS handle it.
->
-> Ben.
->
+Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+---
+ Documentation/networking/ip-sysctl.txt |   10 +++++-----
+ net/core/request_sock.c                |    7 ++++---
+ 2 files changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index f049a1c..589f2da 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -282,11 +282,11 @@ tcp_max_ssthresh - INTEGER
+ 	Default: 0 (off)
+ 
+ tcp_max_syn_backlog - INTEGER
+-	Maximal number of remembered connection requests, which are
+-	still did not receive an acknowledgment from connecting client.
+-	Default value is 1024 for systems with more than 128Mb of memory,
+-	and 128 for low memory machines. If server suffers of overload,
+-	try to increase this number.
++	Maximal number of remembered connection requests, which have not
++	received an acknowledgment from connecting client.
++	The minimal value is 128 for low memory machines, and it will
++	increase in proportion to the memory of machine.
++	If server suffers from overload, try increasing this number.
+ 
+ tcp_max_tw_buckets - INTEGER
+ 	Maximal number of timewait sockets held by system simultaneously.
+diff --git a/net/core/request_sock.c b/net/core/request_sock.c
+index 182236b..9b570a6 100644
+--- a/net/core/request_sock.c
++++ b/net/core/request_sock.c
+@@ -26,10 +26,11 @@
+  * but then some measure against one socket starving all other sockets
+  * would be needed.
+  *
+- * It was 128 by default. Experiments with real servers show, that
++ * The minimum value of it is 128. Experiments with real servers show that
+  * it is absolutely not enough even at 100conn/sec. 256 cures most
+- * of problems. This value is adjusted to 128 for very small machines
+- * (<=32Mb of memory) and to 1024 on normal or better ones (>=256Mb).
++ * of problems.
++ * This value is adjusted to 128 for low memory machines,
++ * and it will increase in proportion to the memory of machine.
+  * Note : Dont forget somaxconn that may limit backlog too.
+  */
+ int sysctl_max_syn_backlog = 256;
+-- 
+1.7.4.4
+
