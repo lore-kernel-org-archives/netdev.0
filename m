@@ -1,70 +1,30 @@
-From: =?utf-8?Q?Lothar_Wa=C3=9Fmann?= <LW@KARO-electronics.de>
-Subject: Re: [PATCH][NET] several cleanups and bugfixes for fec.c: don't
- munge MAC address from platform data
-Date: Tue, 6 Dec 2011 14:44:44 +0100
-Message-ID: <20190.7244.156557.313315@ipc1.ka-ro>
-References: <cover.1323163127.git.LW@KARO-electronics.de>
-	<55b78c1766da5b0d0d679f5eae3fb9fc74a6ceef.1323163127.git.LW@KARO-electronics.de>
-	<20111206124857.GB14048@sapphire.tkos.co.il>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: `ip addr show' shows maximum of 56 addresses?
+Date: Tue, 06 Dec 2011 14:47:24 +0100
+Message-ID: <1323179244.2448.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1323129923.2887.51.camel@bwh-desktop>
+	 <1323143336.7454.225.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Shawn Guo <shawn.guo@linaro.org>,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Baruch Siach <baruch@tkos.co.il>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111206124857.GB14048@sapphire.tkos.co.il>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Ben Jencks <ben@bjencks.net>, netdev@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:55844 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751310Ab1LFNr1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 08:47:27 -0500
+Received: by vcbfk14 with SMTP id fk14so4870276vcb.19
+        for <netdev@vger.kernel.org>; Tue, 06 Dec 2011 05:47:27 -0800 (PST)
+In-Reply-To: <1323143336.7454.225.camel@deadeye>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Le mardi 06 d=C3=A9cembre 2011 =C3=A0 03:48 +0000, Ben Hutchings a =C3=A9=
+crit :
 
-Baruch Siach writes:
-> Hi Lothar,
->=20
-> On Tue, Dec 06, 2011 at 11:27:13AM +0100, Lothar Wa=C3=9Fmann wrote:
-> > When the MAC address is supplied via platform_data it should be OK =
-as
-> > it is and should not be modified in case of a dual FEC setup.
-> > Also copying the MAC from platform_data to the single 'macaddr'
-> > variable will overwrite the MAC for the first interface in case of =
-a
-> > dual FEC setup.
-> >=20
-> > Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
-> > ---
-> >  drivers/net/ethernet/freescale/fec.c |    2 +-
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
-> >=20
-> > diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/eth=
-ernet/freescale/fec.c
-> > index e2b5ce6..11534b9 100644
-> > --- a/drivers/net/ethernet/freescale/fec.c
-> > +++ b/drivers/net/ethernet/freescale/fec.c
-> > @@ -818,7 +818,7 @@ static void __inline__ fec_get_mac(struct net_d=
-evice *ndev)
-> >  			iap =3D (unsigned char *)FEC_FLASHMAC;
-> >  #else
-> >  		if (pdata)
-> > -			memcpy(iap, pdata->mac, ETH_ALEN);
-> > +			iap =3D (unsigned char *)&pdata->mac;
->=20
-> Since pdata might point to __initdata struct, you must hold a copy of=
- its=20
-> content.
->=20
-No. platform_data must be present during the life time of a driver
-using it and thus must never be __initdata!
+> Seems like a candidate for 2.6.32.y.  I don't think it depends on any=
+ of
+> your other changes for 2.6.33, does it?
 
-
-Lothar Wa=C3=9Fmann
---=20
-___________________________________________________________
-
-Ka-Ro electronics GmbH | Pascalstra=C3=9Fe 22 | D - 52076 Aachen
-Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
-Gesch=C3=A4ftsf=C3=BChrer: Matthias Kaussen
-Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
-
-www.karo-electronics.de | info@karo-electronics.de
-___________________________________________________________
+Yes, this is a candidate for 2.6.32.y, I see no dependencies.
