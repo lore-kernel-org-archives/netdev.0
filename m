@@ -1,128 +1,63 @@
-From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-Subject: [PATCH net-next 4/4] caif: Replace BUG_ON with WARN_ON.
-Date: Tue,  6 Dec 2011 13:49:00 +0100
-Message-ID: <1323175740-1952-4-git-send-email-sjur.brandeland@stericsson.com>
-References: <1323175740-1952-1-git-send-email-sjur.brandeland@stericsson.com>
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: Re: [PATCH][NET] several cleanups and bugfixes for fec.c: don't
+ munge MAC address from platform data
+Date: Tue, 6 Dec 2011 14:48:58 +0200
+Message-ID: <20111206124857.GB14048@sapphire.tkos.co.il>
+References: <cover.1323163127.git.LW@KARO-electronics.de>
+ <55b78c1766da5b0d0d679f5eae3fb9fc74a6ceef.1323163127.git.LW@KARO-electronics.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Roar=20F=C3=B8rde?= <roar.forde@stericsson.com>,
-	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:45699 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933195Ab1LFMti (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 07:49:38 -0500
-Received: by mail-lpp01m010-f46.google.com with SMTP id p5so1549849lag.19
-        for <netdev@vger.kernel.org>; Tue, 06 Dec 2011 04:49:37 -0800 (PST)
-In-Reply-To: <1323175740-1952-1-git-send-email-sjur.brandeland@stericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Shawn Guo <shawn.guo@linaro.org>,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <55b78c1766da5b0d0d679f5eae3fb9fc74a6ceef.1323163127.git.LW@KARO-electronics.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Roar F=C3=B8rde <roar.forde@stericsson.com>
+Hi Lothar,
 
-BUG_ON is too strict in a number of circumstances,
-use WARN_ON instead. Protocol errors should not halt the system.
+On Tue, Dec 06, 2011 at 11:27:13AM +0100, Lothar Wa=DFmann wrote:
+> When the MAC address is supplied via platform_data it should be OK as
+> it is and should not be modified in case of a dual FEC setup.
+> Also copying the MAC from platform_data to the single 'macaddr'
+> variable will overwrite the MAC for the first interface in case of a
+> dual FEC setup.
+>=20
+> Signed-off-by: Lothar Wa=DFmann <LW@KARO-electronics.de>
+> ---
+>  drivers/net/ethernet/freescale/fec.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ether=
+net/freescale/fec.c
+> index e2b5ce6..11534b9 100644
+> --- a/drivers/net/ethernet/freescale/fec.c
+> +++ b/drivers/net/ethernet/freescale/fec.c
+> @@ -818,7 +818,7 @@ static void __inline__ fec_get_mac(struct net_dev=
+ice *ndev)
+>  			iap =3D (unsigned char *)FEC_FLASHMAC;
+>  #else
+>  		if (pdata)
+> -			memcpy(iap, pdata->mac, ETH_ALEN);
+> +			iap =3D (unsigned char *)&pdata->mac;
 
-Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
----
- drivers/net/caif/caif_hsi.c     |    2 +-
- drivers/net/caif/caif_serial.c  |    4 ++--
- drivers/net/caif/caif_shmcore.c |    8 +++++++-
- net/caif/caif_dev.c             |    6 +++---
- 4 files changed, 13 insertions(+), 7 deletions(-)
+Since pdata might point to __initdata struct, you must hold a copy of i=
+ts=20
+content.
 
-diff --git a/drivers/net/caif/caif_hsi.c b/drivers/net/caif/caif_hsi.c
-index a85b29e..0a4fc62 100644
---- a/drivers/net/caif/caif_hsi.c
-+++ b/drivers/net/caif/caif_hsi.c
-@@ -933,7 +933,7 @@ static int cfhsi_xmit(struct sk_buff *skb, struct n=
-et_device *dev)
-=20
- 		/* Create HSI frame. */
- 		len =3D cfhsi_tx_frm(desc, cfhsi);
--		BUG_ON(!len);
-+		WARN_ON(!len);
-=20
- 		/* Set up new transfer. */
- 		res =3D cfhsi->dev->cfhsi_tx(cfhsi->tx_buf, len, cfhsi->dev);
-diff --git a/drivers/net/caif/caif_serial.c b/drivers/net/caif/caif_ser=
-ial.c
-index 23406e6..9341a2d 100644
---- a/drivers/net/caif/caif_serial.c
-+++ b/drivers/net/caif/caif_serial.c
-@@ -261,7 +261,7 @@ static int handle_tx(struct ser_device *ser)
- 		skb_pull(skb, tty_wr);
- 		if (skb->len =3D=3D 0) {
- 			struct sk_buff *tmp =3D skb_dequeue(&ser->head);
--			BUG_ON(tmp !=3D skb);
-+			WARN_ON(tmp !=3D skb);
- 			if (in_interrupt())
- 				dev_kfree_skb_irq(skb);
- 			else
-@@ -305,7 +305,7 @@ static void ldisc_tx_wakeup(struct tty_struct *tty)
-=20
- 	ser =3D tty->disc_data;
- 	BUG_ON(ser =3D=3D NULL);
--	BUG_ON(ser->tty !=3D tty);
-+	WARN_ON(ser->tty !=3D tty);
- 	handle_tx(ser);
- }
-=20
-diff --git a/drivers/net/caif/caif_shmcore.c b/drivers/net/caif/caif_sh=
-mcore.c
-index a0b8acd..da8310e 100644
---- a/drivers/net/caif/caif_shmcore.c
-+++ b/drivers/net/caif/caif_shmcore.c
-@@ -337,7 +337,13 @@ static void shm_rx_work_func(struct work_struct *r=
-x_work)
- 			/* Get a suitable CAIF packet and copy in data. */
- 			skb =3D netdev_alloc_skb(pshm_drv->pshm_dev->pshm_netdev,
- 							frm_pck_len + 1);
--			BUG_ON(skb =3D=3D NULL);
-+			/*
-+			 * If OOM try next packet.
-+			 */
-+			if (skb =3D=3D NULL) {
-+				pr_warn("OOM: Try next packet\n");
-+				break;
-+			}
-=20
- 			p =3D skb_put(skb, frm_pck_len);
- 			memcpy(p, pbuf->desc_vptr + frm_pck_ofs, frm_pck_len);
-diff --git a/net/caif/caif_dev.c b/net/caif/caif_dev.c
-index 9b298c1..29742d1 100644
---- a/net/caif/caif_dev.c
-+++ b/net/caif/caif_dev.c
-@@ -58,7 +58,6 @@ static int q_high =3D 50; /* Percent */
- struct cfcnfg *get_cfcnfg(struct net *net)
- {
- 	struct caif_net *caifn;
--	BUG_ON(!net);
- 	caifn =3D net_generic(net, caif_net_id);
- 	if (!caifn)
- 		return NULL;
-@@ -69,7 +68,6 @@ EXPORT_SYMBOL(get_cfcnfg);
- static struct caif_device_entry_list *caif_device_list(struct net *net=
-)
- {
- 	struct caif_net *caifn;
--	BUG_ON(!net);
- 	caifn =3D net_generic(net, caif_net_id);
- 	if (!caifn)
- 		return NULL;
-@@ -507,7 +505,9 @@ static struct notifier_block caif_device_notifier =3D=
- {
- static int caif_init_net(struct net *net)
- {
- 	struct caif_net *caifn =3D net_generic(net, caif_net_id);
--	BUG_ON(!caifn);
-+	if (WARN_ON(!caifn))
-+		return -EINVAL;
-+
- 	INIT_LIST_HEAD(&caifn->caifdevs.list);
- 	mutex_init(&caifn->caifdevs.lock);
-=20
+baruch
+
+>  #endif
+>  	}
+> =20
+> --=20
+
 --=20
-1.7.0.4
+                                                     ~. .~   Tk Open Sy=
+stems
+=3D}------------------------------------------------ooO--U--Ooo--------=
+----{=3D
+   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
