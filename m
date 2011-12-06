@@ -1,140 +1,22 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Subject: Re: [PATCH v7 10/10] Disable task moving when using kernel memory
- accounting
-Date: Tue, 6 Dec 2011 09:07:26 +0900
-Message-ID: <20111206090726.21037cb9.kamezawa.hiroyu@jp.fujitsu.com>
-References: <1322611021-1730-1-git-send-email-glommer@parallels.com>
-	<1322611021-1730-11-git-send-email-glommer@parallels.com>
-	<20111130112210.1d979512.kamezawa.hiroyu@jp.fujitsu.com>
-	<4ED914EC.6020500@parallels.com>
-	<20111205111835.b1432603.kamezawa.hiroyu@jp.fujitsu.com>
-	<4EDC8C6D.2070001@parallels.com>
+From: =?iso-8859-1?Q?=22=A9Simon_Cole=22?= <simonnok@bitscn.net>
+Subject: =?iso-8859-1?Q?=A9Call_Tel_:_+44-701-004-8163?=
+Date: Tue, 6 Dec 2011 04:58:52 +0300
+Message-ID: <ddf7ee69fdfae2972c0b227a31b73f44.squirrel@webmail.my-itech.com>
+Reply-To: simonnok@bitscn.net
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org>,
-	<lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>, <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	<kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>, <avagin-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
-	<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4EDC8C6D.2070001-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-On Mon, 5 Dec 2011 07:18:37 -0200
-Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
-
-> On 12/05/2011 12:18 AM, KAMEZAWA Hiroyuki wrote:
-> > On Fri, 2 Dec 2011 16:11:56 -0200
-> > Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>  wrote:
-> >
-> >> On 11/30/2011 12:22 AM, KAMEZAWA Hiroyuki wrote:
-> >>> On Tue, 29 Nov 2011 21:57:01 -0200
-> >>> Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>   wrote:
-> >>>
-> >>>> Since this code is still experimental, we are leaving the exact
-> >>>> details of how to move tasks between cgroups when kernel memory
-> >>>> accounting is used as future work.
-> >>>>
-> >>>> For now, we simply disallow movement if there are any pending
-> >>>> accounted memory.
-> >>>>
-> >>>> Signed-off-by: Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-> >>>> CC: Hiroyouki Kamezawa<kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-> >>>> ---
-> >>>>    mm/memcontrol.c |   23 ++++++++++++++++++++++-
-> >>>>    1 files changed, 22 insertions(+), 1 deletions(-)
-> >>>>
-> >>>> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-> >>>> index a31a278..dd9a6d9 100644
-> >>>> --- a/mm/memcontrol.c
-> >>>> +++ b/mm/memcontrol.c
-> >>>> @@ -5453,10 +5453,19 @@ static int mem_cgroup_can_attach(struct cgroup_subsys *ss,
-> >>>>    {
-> >>>>    	int ret = 0;
-> >>>>    	struct mem_cgroup *memcg = mem_cgroup_from_cont(cgroup);
-> >>>> +	struct mem_cgroup *from = mem_cgroup_from_task(p);
-> >>>> +
-> >>>> +#if defined(CONFIG_CGROUP_MEM_RES_CTLR_KMEM)&&   defined(CONFIG_INET)
-> >>>> +	if (from != memcg&&   !mem_cgroup_is_root(from)&&
-> >>>> +	    res_counter_read_u64(&from->tcp_mem.tcp_memory_allocated, RES_USAGE)) {
-> >>>> +		printk(KERN_WARNING "Can't move tasks between cgroups: "
-> >>>> +			"Kernel memory held.\n");
-> >>>> +		return 1;
-> >>>> +	}
-> >>>> +#endif
-> >>>
-> >>> I wonder....reading all codes again, this is incorrect check.
-> >>>
-> >>> Hm, let me cralify. IIUC, in old code, "prevent moving" is because you hold
-> >>> reference count of cgroup, which can cause trouble at rmdir() as leaking refcnt.
-> >> right.
-> >>
-> >>> BTW, because socket is a shared resource between cgroup, changes in mm->owner
-> >>> may cause task cgroup moving implicitly. So, if you allow leak of resource
-> >>> here, I guess... you can take mem_cgroup_get() refcnt which is memcg-local and
-> >>> allow rmdir(). Then, this limitation may disappear.
-> >>
-> >> Sorry, I didn't fully understand. Can you clarify further?
-> >> If the task is implicitly moved, it will end up calling can_attach as
-> >> well, right?
-> >>
-> > I'm sorry that my explanation is bad.
-> >
-> > You can take memory cgroup itself's reference count by mem_cgroup_put/get.
-> > By getting this, memory cgroup object will continue to exist even after
-> > its struct cgroup* is freed by rmdir().
-> >
-> > So, assume you do mem_cgroup_get()/put at socket attaching/detatching.
-> >
-> > 0) A task has a tcp socekts in memcg0.
-> >
-> > task(memcg0)
-> >   +- socket0 -->  memcg0,usage=4096
-> >
-> > 1) move this task to memcg1
-> >
-> > task(memcg1)
-> >   +- socket0 -->  memcg0,usage=4096
-> >
-> > 2) The task create a new socket.
-> >
-> > task(memcg1)
-> >   +- socekt0 -->  memcg0,usage=4096
-> >   +- socket1 -->  memcg1,usage=xxxx
-> >
-> > Here, the task will hold 4096bytes of usage in memcg0 implicitly.
-> >
-> > 3) an admin removes memcg0
-> > task(memcg1)
-> >   +- socket0 -->memcg0, usage=4096<-----(*)
-> >   +- socket1 -->memcg1, usage=xxxx
-> >
-> > (*) is invisible to users....but this will not be very big problem.
-> >
-> Hi Kame,
-> 
-> Thanks for the explanation.
-> 
-> Hummm, Do you think that by doing it, we get rid of the need of moving 
-> sockets to another memcg when the task is moved? So in my original 
-> patchset, if you recall, I wanted to keep a socket forever in the same 
-> cgroup. I didn't, because then rmdir would be blocked.
-> 
-> By using this memcg reference trick, both can be achieved. What do you 
-> think ?
-
-I think so. Using mem_cgroup_put/get is a way. Could you try ?
-
-Thanks,
--Kame
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate9.dnshostmaster.net ([202.75.53.16]:52825 "EHLO
+	server.my-itech.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932811Ab1LFCCu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2011 21:02:50 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 
---
-To unsubscribe from this list: send the line "unsubscribe cgroups" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Nokia awarded you the sum of  1,000,000.00 Pounds Send Names,address,Sex,
+Age, Tel.Mr Simon Cole. Email :simonnok@bitscn.net. Tel : +44-701-004-8163
