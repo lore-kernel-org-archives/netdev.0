@@ -1,61 +1,77 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.com>
-Subject: RE: [PATCH net-next V0 19/21] mlx4_core: Modify driver
- initialization flow to accommodate SRIOV for Ethernet
-Date: Tue, 6 Dec 2011 08:09:14 +0000
-Message-ID: <953B660C027164448AE903364AC447D223628F69@MTLDAG01.mtl.com>
-References: <4ED8A636.40901@mellanox.co.il>
- <1323120413.2887.50.camel@bwh-desktop>
+From: Michael Wang <wangyun@linux.vnet.ibm.com>
+Subject: Re: Patch is wrong
+Date: Tue, 06 Dec 2011 16:19:48 +0800
+Message-ID: <4EDDD024.5000102@linux.vnet.ibm.com>
+References: <4EDD8B8C.7000905@linux.vnet.ibm.com> <20111205.233937.1669740069700653317.davem@davemloft.net> <4EDDA413.1080106@linux.vnet.ibm.com> <20111206.002543.601828580754067320.davem@davemloft.net> <CAFeW=pZXgfNAy_f_HkgUjt+Rh7VwTXpkwiog1ki=fnDJ6_by4g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	"roland@purestorage.com" <roland@purestorage.com>,
-	Liran Liss <liranl@mellanox.com>,
-	"jackm@dev.mellanox.co.il" <jackm@dev.mellanox.co.il>,
-	Marcel Apfelbaum <marcela@mellanox.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linuxram@us.ibm.com, fbl@redhat.com, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com
+To: Amos Kong <kongjianjun@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:41447 "HELO
-	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S932880Ab1LFIPg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 03:15:36 -0500
-In-Reply-To: <1323120413.2887.50.camel@bwh-desktop>
-Content-Language: en-US
+Received: from e28smtp07.in.ibm.com ([122.248.162.7]:41449 "EHLO
+	e28smtp07.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932984Ab1LFIT6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 03:19:58 -0500
+Received: from /spool/local
+	by e28smtp07.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <wangyun@linux.vnet.ibm.com>;
+	Tue, 6 Dec 2011 13:49:55 +0530
+Received: from d28av05.in.ibm.com (d28av05.in.ibm.com [9.184.220.67])
+	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id pB68JpDV3989622
+	for <netdev@vger.kernel.org>; Tue, 6 Dec 2011 13:49:51 +0530
+Received: from d28av05.in.ibm.com (loopback [127.0.0.1])
+	by d28av05.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id pB68JoQu019079
+	for <netdev@vger.kernel.org>; Tue, 6 Dec 2011 19:19:51 +1100
+In-Reply-To: <CAFeW=pZXgfNAy_f_HkgUjt+Rh7VwTXpkwiog1ki=fnDJ6_by4g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+IDEuIEFkZGVkIG1vZHVsZSBwYXJhbWV0ZXJzIHNyX2lvdiBhbmQgcHJvYmVfdmYgZm9yIGNv
-bnRyb2xsaW5nIGVuYWJsZW1lbnQgb2YNCj4gPiAgICBTUklPViBtb2RlLg0KPiANCj4gVGhpcyBz
-b3J0IG9mIG9wdGlvbiBpcyB1c2VmdWwgaW4gbWFueSBkcml2ZXJzLCBhbmQgaWRlYWxseSB3b3Vs
-ZCBiZQ0KPiBzcGVjaWZpZWQgaW4gc29tZSBnZW5lcmljIHdheSByYXRoZXIgdGhhbiBhIG1vZHVs
-ZSBwYXJhbWV0ZXJzLiAgSG93ZXZlcg0KPiBJIGNhbid0IHNlZSBhIGdvb2Qgd2F5IHRvIG1ha2Ug
-aXQgY29uZmlndXJhYmxlIGFmdGVyIHRoZSBuZXQgZGV2aWNlIGlzDQo+IHJlZ2lzdGVyZWQuDQo+
-IA0KPiBDdXJyZW50bHkgdGhlIGluLXRyZWUgZHJpdmVycyBoYXZlOg0KPiANCj4gYmUybmV0OiBu
-dW1fdmZzDQo+IGN4Z2I0OiAgbnVtX3ZmcyBbYXJyYXldDQo+IGlnYjogICAgbWF4X3Zmcw0KPiBp
-eGdiZTogIG1heF92ZnMNCj4gDQo+IENvbnNpZGVyIHJlbmFtaW5nICdzcl9pb3YnIHRvIG9uZSBv
-ZiB0aGUgYWJvdmUgcmF0aGVyIHRoYW4gYWRkaW5nIHRvIHRoZSB2YXJpYXRpb24uDQoNCkdvb2Qg
-cG9pbnQsIHdlIHByb2JhYmx5IHNob3VsZCByZW5hbWUgaXQuDQoNCj4gDQo+IFRoZSAncHJvYmVf
-dmYnIHBhcmFtZXRlciBpcyB2ZXJ5IG9kZC4gIFdoeSBkbyB5b3UgdGhpbmsgaXQgaXMgbmVjZXNz
-YXJ5DQo+IHRvIG1ha2UgdGhpcyBhIG1vZHVsZSBwYXJhbWV0ZXI/ICBJdCBzaG91bGQgYmUgcG9z
-c2libGUgdG8gYmluZCBhbmQNCj4gdW5iaW5kIHRoZSBkcml2ZXIgZnJvbSBlYWNoIFZGIGR5bmFt
-aWNhbGx5IHZpYSBzeXNmcyBidXQgdGhpcyBwYXJhbWV0ZXINCj4gYXBwZWFycyB0byByZXN0cmlj
-dCB0aGF0Lg0KPg0KIA0KV2UgaGF2ZSBzYW1lIGRyaXZlciBhY3RpbmcgYm90aCBhcyBWRiBhbmQg
-UEYsIHNvIG9uY2UgdGhlIFZGcyBhcmUgYmVpbmcgY3JlYXRlZCAocGNpX2VuYWJsZV9zcmlvdiks
-DQpUaGUgcHJvYmUgZnVuY3Rpb24gaXMgYmVpbmcgY2FsbGVkIGZvciBhbGwgb2YgdGhlbS4NCklu
-IG1hbnkgY2FzZXMgdGhpcyBpcyBub3Qgd2hhdCB3ZSB3YW50LCBidXQgcmF0aGVyIHBhc3MgdGhl
-IHZmcyB0byBndWVzdCBPUy4NClRoZSBtb2R1bGUgcGFyYW1ldGVyIGlzIG1lYW50IHRvIGVhc2Ug
-dGhlIGxpZmUgb2YgdGhlIGFkbWluaXN0cmF0b3IuDQogDQo+IFsuLi5dDQo+ID4gMy4gQWRkZWQg
-cG9ydF90eXBlX2FycmF5IGFzIGEgbW9kdWxlIHBhcmFtZXRlciB0byBhbGxvdyBkcml2ZXIgc3Rh
-cnR1cCB3aXRoDQo+ID4gICAgcG9ydHMgY29uZmlndXJlZCBhcyBkZXNpcmVkLg0KPiA+ICAgIElu
-IFNSSU9WIG1vZGUsIG9ubHkgRVRIIGlzIHN1cHBvcnRlZCwgYW5kIHRoaXMgYXJyYXkgaXMgaWdu
-b3JlZDsgb3RoZXJ3aXNlLA0KPiA+ICAgIGZvciB0aGUgY2FzZSB3aGVyZSB0aGUgRlcgc3VwcG9y
-dHMgYm90aCBwb3J0IHR5cGVzIChFVEggYW5kIElCKSwgdGhlDQo+ID4gICAgcG9ydF90eXBlX2Fy
-cmF5IHBhcmFtZXRlciBpcyB1c2VkLg0KPiA+ICAgIEJ5IGRlZmF1bHQsIHRoZSBwb3J0X3R5cGVf
-YXJyYXkgaXMgc2V0IHRvIGNvbmZpZ3VyZSBib3RoIHBvcnRzIGFzIElCLg0KPiBbLi4uXQ0KPiAN
-Cj4gWW91IHNlZW0gdG8gYmUgc2F5aW5nIHRoYXQgdGhpcyBjYW4gYmUgcmVjb25maWd1cmVkIGFm
-dGVyIHN0YXJ0dXAgLSBpbg0KPiB3aGljaCBjYXNlIGlzIHRoZSBtb2R1bGUgcGFyYW1ldGVyIHJl
-YWxseSBuZWNlc3Nhcnk/ICBNYXliZSBJIG1pc3VuZGVyc3RhbmQuDQoNCkluIFNSSU9WIG1vZGUg
-d2UgZG9uJ3QgYWxsb3cgZHluYW1pYyBsaW5rIGxheWVyIHR5cGUgY2hhbmdlcywgc28gdGhlIHR5
-cGUgaXMgc2V0IGJ5IG1vZHVsZSBwYXJhbWV0ZXIuDQogDQoNClRoYW5rcywNCllldmdlbnkNCg==
+On 12/06/2011 04:11 PM, Amos Kong wrote:
+
+> On Tue, Dec 6, 2011 at 1:25 PM, David Miller <davem@davemloft.net
+> <mailto:davem@davemloft.net>> wrote:
+> 
+>     From: Michael Wang <wangyun@linux.vnet.ibm.com
+>     <mailto:wangyun@linux.vnet.ibm.com>>
+>     Date: Tue, 06 Dec 2011 13:11:47 +0800
+> 
+>     > I know it will cost you many works, but I still have to ask you to
+>     > replace this patch, because this will become a mistake in Linux, which
+>     > will make me sad each time I saw it on git log.
+> 
+>     It is simply not possible without screwing over every single person
+>     who follows my tree.
+> 
+>     If I go in and pull out the change, then everyone who follows my
+>     tree will have a corrupt tree.
+> 
+>     Sorry, mistakes happen, and once they are pushed out to GIT trees
+>     used by lots of people we have to live with it.
+> 
+> 
+> Send a patch to revert it and re-send a new one with right Author??
+> Do you think it's meaningless ;-)
+> 
+
+Hi, Amos
+
+Thanks for your suggestion, but I don't want to focus on it any more,
+that will cause other's trouble.
+
+So I will try to forgot it as soon as possible :)
+
+Regards,
+Michael Wang
+
+>  
+> 
+>     --
+>     To unsubscribe from this list: send the line "unsubscribe netdev" in
+>     the body of a message to majordomo@vger.kernel.org
+>     <mailto:majordomo@vger.kernel.org>
+>     More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
