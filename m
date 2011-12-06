@@ -1,63 +1,35 @@
-From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: Re: v6: faster tree-based sysctl implementation
-Date: Tue, 6 Dec 2011 16:33:10 +0200
-Message-ID: <CAPLs8y8vhioqc3CPrD7ugmVkR2DjKWNm8+T5j9QQnrxi=BgvdA@mail.gmail.com>
-References: <CAPLs8y9omncDbLE_KNoKOLLbfwHjWYUJX_i7cC4bLiJsyPbtZQ@mail.gmail.com>
- <CAJL_dMtgP+BqFn3aGVBbGDJ+kMyGiEC_NmDURzh4mU=Jo=qZVA@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH][NET] several cleanups and bugfixes for fec.c: prevent
+ dobule restart of interface on FDX/HDX change
+Date: Tue, 6 Dec 2011 15:24:29 +0000
+Message-ID: <1323185069.7454.263.camel@deadeye>
+References: <cover.1323163127.git.LW@KARO-electronics.de>
+	 <0b92136d69e509a6ce49b526e1834f0ec90b04a4.1323163127.git.LW@KARO-electronics.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Eric W . Biederman" <ebiederm@xmission.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Octavian Purdila <tavi@cs.pub.ro>,
-	"David S . Miller" <davem@davemloft.net>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Damien Millescamps <damien.millescamps@6wind.com>
-To: Anca Emanuel <anca.emanuel@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAJL_dMtgP+BqFn3aGVBbGDJ+kMyGiEC_NmDURzh4mU=Jo=qZVA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Lothar =?ISO-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:22813 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753702Ab1LFPYh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 10:24:37 -0500
+In-Reply-To: <0b92136d69e509a6ce49b526e1834f0ec90b04a4.1323163127.git.LW@KARO-electronics.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 6, 2011 at 4:11 PM, Anca Emanuel <anca.emanuel@gmail.com> w=
-rote:
-> time modprobe dummy numdummies=3D1000FATAL: Error inserting dummy
-> (/lib/modules/3.2.0-3-generic/kernel/drivers/net/dummy.ko): Operation
-> not permitted
+You shouldn't repeat the subject of the whole series in the subject of
+each patch.  Just put the name of the component you're changing (in this
+case, 'fec: prevent dobule restart of interface on FDX/HDX change').
 
-Generally when you get "Operation not permitted" you should try with su=
-do.
-This is the man-page: http://xkcd.com/149/ :)
+(Nitpick: typo in 'double'.)
 
+Ben.
 
-> What are the practical problems you solve with this ?
-> Name one or more.
-
-
-Sysctl uses a slow algorithm: O(N^2) for insertions, O(N) for lookup,
-with a relatively big constant.
-The performance is acceptable when N is small, but sometimes it can
-grow to bigger values.
-One case where N can grow to very large values is when you add network
-interfaces.
-
-Some companies (like IXIACOM which sponsored this work at the
-beginning of this year) have use-cases in which they need 10^3..10^6
-network interfaces. The current sysctl implementation is unacceptable
-for them.
-
-@Damien Millescamps might have some input on where he needs better
-sysctl performance as he prompted me to re-send this patch series.
-
-This algorithm is O(N * logN) for insert and O(logN) for lookup.
-
-
-> You add more code. This is not good. If you reduce the code, then it
-> will be interesting.
-
-Thank you. I know that, but it's easier said than done. I'd welcome
-some feedback in what could be simplified in my patches :)
-
---=20
-=C2=A0.
-=2E.: Lucian
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
