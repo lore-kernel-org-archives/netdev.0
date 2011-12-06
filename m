@@ -1,52 +1,62 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 performance?
-Date: Tue, 6 Dec 2011 09:22:47 +0100
-Message-ID: <20111206082247.GA29089@electric-eye.fr.zoreil.com>
-References: <20111204211007.GA32098@hiwaay.net> <20111204234004.GA32515@electric-eye.fr.zoreil.com> <20111205004650.GA5948@hiwaay.net> <20111205064403.GA3426@electric-eye.fr.zoreil.com> <20111205145454.GA26078@hiwaay.net>
+From: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [PATCH net-next V0 19/21] mlx4_core: Modify driver initialization flow to accommodate SRIOV for Ethernet
+Date: Tue, 6 Dec 2011 10:35:53 +0200
+Message-ID: <201112061035.54093.jackm@dev.mellanox.co.il>
+References: <4ED8A636.40901@mellanox.co.il> <1323120413.2887.50.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Chris Adams <cmadams@hiwaay.net>, netdev@vger.kernel.org,
-	hayeswang <hayeswang@realtek.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:56284 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932984Ab1LFI3i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 03:29:38 -0500
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
+To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1323120413.2887.50.camel@bwh-desktop>
 Content-Disposition: inline
-In-Reply-To: <20111205145454.GA26078@hiwaay.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Chris Adams <cmadams@hiwaay.net> :
-> Once upon a time, Francois Romieu <romieu@fr.zoreil.com> said:
-[...]
-> > Almost the same: RTL_GIGA_MAC_VER_25 versus RTL_GIGA_MAC_VER_26 (faster).
-> 
-> Ahh, my eyes didn't see that one bit difference.
-> 
-> > The only difference in the driver is the hw_phy_config part.
-> 
-> There's also a difference in the interrupt handling (looks like only in
-> the receive FIFO overflow case).
+On Monday 05 December 2011 23:26, Ben Hutchings wrote:
+> The 'probe_vf' parameter is very odd. =C2=A0Why do you think it is ne=
+cessary
+> to make this a module parameter? =C2=A0It should be possible to bind =
+and
+> unbind the driver from each VF dynamically via sysfs but this paramet=
+er
+> appears to restrict that.
+>=20
+The host which sees the PF will also see all the VFs once they come up.
+As each VF appears (as seen by 'lspci'), the O/S will invoke the "probe=
+"
+method for that VF.  Without the "probe_vf" parameter, this probe would
+result in all the VFs being bound to the PF host (and thus unavailable =
+for
+guests).
 
-Ahh, I looked at the patched driver.
 
-It will disappear once http://marc.info/?l=linux-netdev&m=132306718323579
-is applied. You may apply http://marc.info/?l=linux-netdev&m=132306715823570
-too but I doubt it will make much difference for you.
+The small section of code which makes use of the probe_vf parameter
+(file net/ethernet/mellanox/mlx4_main.c):
 
-> Also, they load different firmware (so I guess my problem could be firmware
-> related, which I guess only RealTek could find/fix).
->
-> I guess my question is this: is there a chance this can be solved with
-> driver changes, or should I just accept that the on-board NIC has poor
-> performance and install an add-in NIC?
+	/* Detect if this device is a virtual function */
+	if (id && id->driver_data & MLX4_VF) {
+		/* When acting as pf, we normally skip vfs unless explicitly
+		 * requested to probe them. */
+		if (sr_iov && extended_func_num(pdev) > probe_vf) {
+			mlx4_warn(dev, "Skipping virtual function:%d\n",
+						extended_func_num(pdev));
+			err =3D -ENODEV;
+			goto err_free_dev;
+		}
 
-(I understand that the systems (CPU, bus...) are not necessary the same.)
+If you invoke "dmesg" on the PF host, you will see a series of the
+"Skipping... " messages, one per VF.  If probe_vf > 0, the PF-host will
+reserve some VFs for its own use, and not issue the "Skipping..." messa=
+ge
+for those VFs.
 
-Did you check if Tx checksumming is enabled ?
-
-It could make a noticeable difference.
-
--- 
-Ueimor
+-Jack
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
