@@ -1,39 +1,62 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH] SUNRPC: create svc_xprt in proper network namespace
-Date: Tue, 06 Dec 2011 16:44:25 +0400
-Message-ID: <4EDE0E29.9030804@parallels.com>
-References: <20111206101910.1878.21798.stgit@localhost6.localdomain6> <20111206124427.GA12890@umich.edu>
+From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+Subject: [PATCH net-next 1/4] caif-hsi: Remove wake line modification when flushing FIFO
+Date: Tue,  6 Dec 2011 13:48:57 +0100
+Message-ID: <1323175740-1952-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	James Bottomley <jbottomley@parallels.com>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: Jim Rees <rees@umich.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111206124427.GA12890@umich.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Christian Auby <christian.auby@stericsson.com>,
+	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:43147 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933120Ab1LFMte (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 07:49:34 -0500
+Received: by lagp5 with SMTP id p5so1549837lag.19
+        for <netdev@vger.kernel.org>; Tue, 06 Dec 2011 04:49:32 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-06.12.2011 16:44, Jim Rees =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> Stanislav Kinsbursky wrote:
->
->    This patch makes svc_xprt inherit network namespace link from it's=
- socket.
->
-> Should be "its socket."
+=46rom: Christian Auby <christian.auby@stericsson.com>
 
-Yep, sure. Silly mistake.
-Thanks.
+Raising wake before flushing FIFO and lowering it after caused a
+spike on AC wake that were sometimes detected and acted upon by the
+modem. Fixed this by remove wake line modification when flushing FIFO.
 
+Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+---
+ drivers/net/caif/caif_hsi.c |   11 -----------
+ 1 files changed, 0 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/caif/caif_hsi.c b/drivers/net/caif/caif_hsi.c
+index 0733525..a85b29e 100644
+--- a/drivers/net/caif/caif_hsi.c
++++ b/drivers/net/caif/caif_hsi.c
+@@ -117,15 +117,6 @@ static int cfhsi_flush_fifo(struct cfhsi *cfhsi)
+ 	dev_dbg(&cfhsi->ndev->dev, "%s.\n",
+ 		__func__);
+=20
+-
+-	ret =3D cfhsi->dev->cfhsi_wake_up(cfhsi->dev);
+-	if (ret) {
+-		dev_warn(&cfhsi->ndev->dev,
+-			"%s: can't wake up HSI interface: %d.\n",
+-			__func__, ret);
+-		return ret;
+-	}
+-
+ 	do {
+ 		ret =3D cfhsi->dev->cfhsi_fifo_occupancy(cfhsi->dev,
+ 				&fifo_occupancy);
+@@ -168,8 +159,6 @@ static int cfhsi_flush_fifo(struct cfhsi *cfhsi)
+ 		}
+ 	} while (1);
+=20
+-	cfhsi->dev->cfhsi_wake_down(cfhsi->dev);
+-
+ 	return ret;
+ }
+=20
 --=20
-Best regards,
-Stanislav Kinsbursky
+1.7.0.4
