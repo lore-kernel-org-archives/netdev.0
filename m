@@ -1,68 +1,149 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 5/13 net-3.1-stable] ipv4: fix lockdep splat in
- rt_cache_seq_show
-Date: Tue, 06 Dec 2011 16:33:21 -0500 (EST)
-Message-ID: <20111206.163321.1118302066607130320.davem@davemloft.net>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH 1/2] SUNRPC: register RPC stats /proc entries in passed
+ network namespace context
+Date: Tue, 6 Dec 2011 16:33:22 -0500
+Message-ID: <20111206213322.GE12640@fieldses.org>
+References: <20111206123748.15702.93290.stgit@localhost6.localdomain6>
+ <20111206124240.15702.61866.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33958 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754429Ab1LFVdX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 16:33:23 -0500
-Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id pB6LXMlL024145
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 6 Dec 2011 13:33:22 -0800
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20111206124240.15702.61866.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, Dec 06, 2011 at 04:42:40PM +0300, Stanislav Kinsbursky wrote:
+> This patch makes it possible to create NFS program entry ("/proc/net/rpc/nfs")
+> in passed network namespace context instead of hard-coded "init_net".
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
+Looks straightforward to me.
 
-[ Upstream commit 218fa90f072e4aeff9003d57e390857f4f35513e ]
+	Acked-by: J. Bruce Fields <bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-After commit f2c31e32b378 (fix NULL dereferences in check_peer_redir()),
-dst_get_neighbour() should be guarded by rcu_read_lock() /
-rcu_read_unlock() section.
+--b.
 
-Reported-by: Miles Lane <miles.lane@gmail.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv4/route.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 075212e..8b3661b 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -417,9 +417,13 @@ static int rt_cache_seq_show(struct seq_file *seq, void *v)
- 	else {
- 		struct rtable *r = v;
- 		struct neighbour *n;
--		int len;
-+		int len, HHUptod;
- 
-+		rcu_read_lock();
- 		n = dst_get_neighbour(&r->dst);
-+		HHUptod = (n && (n->nud_state & NUD_CONNECTED)) ? 1 : 0;
-+		rcu_read_unlock();
-+
- 		seq_printf(seq, "%s\t%08X\t%08X\t%8X\t%d\t%u\t%d\t"
- 			      "%08X\t%d\t%u\t%u\t%02X\t%d\t%1d\t%08X%n",
- 			r->dst.dev ? r->dst.dev->name : "*",
-@@ -433,7 +437,7 @@ static int rt_cache_seq_show(struct seq_file *seq, void *v)
- 			      dst_metric(&r->dst, RTAX_RTTVAR)),
- 			r->rt_key_tos,
- 			-1,
--			(n && (n->nud_state & NUD_CONNECTED)) ? 1 : 0,
-+			HHUptod,
- 			r->rt_spec_dst, &len);
- 
- 		seq_printf(seq, "%*s\n", 127 - len, "");
--- 
-1.7.7.3
+> 
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> 
+> ---
+>  fs/nfs/inode.c               |    6 +++---
+>  include/linux/sunrpc/stats.h |    8 ++++----
+>  net/sunrpc/stats.c           |   15 ++++++++-------
+>  3 files changed, 15 insertions(+), 14 deletions(-)
+> 
+> diff --git a/fs/nfs/inode.c b/fs/nfs/inode.c
+> index 98b2508..5cad6c5 100644
+> --- a/fs/nfs/inode.c
+> +++ b/fs/nfs/inode.c
+> @@ -1623,14 +1623,14 @@ static int __init init_nfs_fs(void)
+>  		goto out0;
+>  
+>  #ifdef CONFIG_PROC_FS
+> -	rpc_proc_register(&nfs_rpcstat);
+> +	rpc_proc_register(&init_net, &nfs_rpcstat);
+>  #endif
+>  	if ((err = register_nfs_fs()) != 0)
+>  		goto out;
+>  	return 0;
+>  out:
+>  #ifdef CONFIG_PROC_FS
+> -	rpc_proc_unregister("nfs");
+> +	rpc_proc_unregister(&init_net, "nfs");
+>  #endif
+>  	nfs_destroy_directcache();
+>  out0:
+> @@ -1669,7 +1669,7 @@ static void __exit exit_nfs_fs(void)
+>  	nfs_dns_resolver_destroy();
+>  	nfs_idmap_quit();
+>  #ifdef CONFIG_PROC_FS
+> -	rpc_proc_unregister("nfs");
+> +	rpc_proc_unregister(&init_net, "nfs");
+>  #endif
+>  	nfs_cleanup_cb_ident_idr();
+>  	unregister_nfs_fs();
+> diff --git a/include/linux/sunrpc/stats.h b/include/linux/sunrpc/stats.h
+> index 680471d..f625b57 100644
+> --- a/include/linux/sunrpc/stats.h
+> +++ b/include/linux/sunrpc/stats.h
+> @@ -58,8 +58,8 @@ void			rpc_modcount(struct inode *, int);
+>  #endif
+>  
+>  #ifdef CONFIG_PROC_FS
+> -struct proc_dir_entry *	rpc_proc_register(struct rpc_stat *);
+> -void			rpc_proc_unregister(const char *);
+> +struct proc_dir_entry *	rpc_proc_register(struct net *,struct rpc_stat *);
+> +void			rpc_proc_unregister(struct net *,const char *);
+>  void			rpc_proc_zero(struct rpc_program *);
+>  struct proc_dir_entry *	svc_proc_register(struct svc_stat *,
+>  					  const struct file_operations *);
+> @@ -69,8 +69,8 @@ void			svc_seq_show(struct seq_file *,
+>  				     const struct svc_stat *);
+>  #else
+>  
+> -static inline struct proc_dir_entry *rpc_proc_register(struct rpc_stat *s) { return NULL; }
+> -static inline void rpc_proc_unregister(const char *p) {}
+> +static inline struct proc_dir_entry *rpc_proc_register(struct net *, struct rpc_stat *s) { return NULL; }
+> +static inline void rpc_proc_unregisterstruct net *, (const char *p) {}
+>  static inline void rpc_proc_zero(struct rpc_program *p) {}
+>  
+>  static inline struct proc_dir_entry *svc_proc_register(struct svc_stat *s,
+> diff --git a/net/sunrpc/stats.c b/net/sunrpc/stats.c
+> index 80df89d..f0f6e7c 100644
+> --- a/net/sunrpc/stats.c
+> +++ b/net/sunrpc/stats.c
+> @@ -213,28 +213,29 @@ EXPORT_SYMBOL_GPL(rpc_print_iostats);
+>   * Register/unregister RPC proc files
+>   */
+>  static inline struct proc_dir_entry *
+> -do_register(const char *name, void *data, const struct file_operations *fops)
+> +do_register(struct net *net, const char *name, void *data,
+> +	    const struct file_operations *fops)
+>  {
+>  	struct sunrpc_net *sn;
+>  
+>  	dprintk("RPC:       registering /proc/net/rpc/%s\n", name);
+> -	sn = net_generic(&init_net, sunrpc_net_id);
+> +	sn = net_generic(net, sunrpc_net_id);
+>  	return proc_create_data(name, 0, sn->proc_net_rpc, fops, data);
+>  }
+>  
+>  struct proc_dir_entry *
+> -rpc_proc_register(struct rpc_stat *statp)
+> +rpc_proc_register(struct net *net, struct rpc_stat *statp)
+>  {
+> -	return do_register(statp->program->name, statp, &rpc_proc_fops);
+> +	return do_register(net, statp->program->name, statp, &rpc_proc_fops);
+>  }
+>  EXPORT_SYMBOL_GPL(rpc_proc_register);
+>  
+>  void
+> -rpc_proc_unregister(const char *name)
+> +rpc_proc_unregister(struct net *net, const char *name)
+>  {
+>  	struct sunrpc_net *sn;
+>  
+> -	sn = net_generic(&init_net, sunrpc_net_id);
+> +	sn = net_generic(net, sunrpc_net_id);
+>  	remove_proc_entry(name, sn->proc_net_rpc);
+>  }
+>  EXPORT_SYMBOL_GPL(rpc_proc_unregister);
+> @@ -242,7 +243,7 @@ EXPORT_SYMBOL_GPL(rpc_proc_unregister);
+>  struct proc_dir_entry *
+>  svc_proc_register(struct svc_stat *statp, const struct file_operations *fops)
+>  {
+> -	return do_register(statp->program->pg_name, statp, fops);
+> +	return do_register(&init_net, statp->program->pg_name, statp, fops);
+>  }
+>  EXPORT_SYMBOL_GPL(svc_proc_register);
+>  
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
