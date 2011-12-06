@@ -1,31 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Latency difference between fifo and pfifo_fast
-Date: Tue, 06 Dec 2011 07:02:57 +0100
-Message-ID: <1323151377.2467.13.camel@edumazet-laptop>
-References: <30c2e9e0-4208-4c19-9e43-31f95e13575d@jasiiieee>
+From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [patch] openvswitch: small potential memory leak in
+	ovs_vport_alloc()
+Date: Tue, 6 Dec 2011 09:27:07 +0300
+Message-ID: <20111206062707.GA8433@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:63994 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752603Ab1LFGDB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 01:03:01 -0500
-Received: by eeaq14 with SMTP id q14so2546617eea.19
-        for <netdev@vger.kernel.org>; Mon, 05 Dec 2011 22:03:00 -0800 (PST)
-In-Reply-To: <30c2e9e0-4208-4c19-9e43-31f95e13575d@jasiiieee>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 05 d=C3=A9cembre 2011 =C3=A0 23:10 -0500, John A. Sullivan III=
- a =C3=A9crit :
-> Hello, all.  We are trying to minimize latency on our iSCSI SAN.  The
-> network is entirely dedicated to the iSCSI traffic.  Since all the
-> traffic is the same, would it make sense to change the qdisc for that
-> interface to fifo from the default pfifo_fast or is the latency
-> difference between the two completely negligible? Thanks - John
+We're unlikely to hit this leak, but the static checkers complain if we
+don't take care of it.
 
-A very small difference indeed. How many packets per second are
-expected ? What kind of NIC are you using ?
+Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index 6cd7601..7f0ef37 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -127,8 +127,10 @@ struct vport *ovs_vport_alloc(int priv_size, const struct vport_ops *ops,
+ 	vport->ops = ops;
+ 
+ 	vport->percpu_stats = alloc_percpu(struct vport_percpu_stats);
+-	if (!vport->percpu_stats)
++	if (!vport->percpu_stats) {
++		kfree(vport);
+ 		return ERR_PTR(-ENOMEM);
++	}
+ 
+ 	spin_lock_init(&vport->stats_lock);
+ 
