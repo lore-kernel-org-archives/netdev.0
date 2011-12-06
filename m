@@ -1,102 +1,141 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 7/13 net-3.1-stable] sch_teql: fix lockdep splat
-Date: Tue, 06 Dec 2011 16:33:30 -0500 (EST)
-Message-ID: <20111206.163330.336716281635144016.davem@davemloft.net>
+Subject: [PATCH 12/13 net-3.1-stable] ipv4: Perform peer validation on
+ cached route lookup.
+Date: Tue, 06 Dec 2011 16:33:55 -0500 (EST)
+Message-ID: <20111206.163355.2051008820794564225.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33967 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:34008 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754487Ab1LFVdb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 16:33:31 -0500
+	with ESMTP id S1754431Ab1LFVd5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 16:33:57 -0500
 Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
 	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id pB6LXUr0024185
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id pB6LXtTm024327
 	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 6 Dec 2011 13:33:31 -0800
+	for <netdev@vger.kernel.org>; Tue, 6 Dec 2011 13:33:56 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: "David S. Miller" <davem@davemloft.net>
 
-[ Upstream commit f7e57044eeb1841847c24aa06766c8290c202583 ]
+[ Upstream commit efbc368dcc6426d5430b9b8eeda944cf2cb74b8c,
+  incorporating a follow-on change to prevent an OOPS ]
 
-We need rcu_read_lock() protection before using dst_get_neighbour(), and
-we must cache its value (pass it to __teql_resolve())
+Otherwise we won't notice the peer GENID change.
 
-teql_master_xmit() is called under rcu_read_lock_bh() protection, its
-not enough.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Reported-by: Steffen Klassert <steffen.klassert@secunet.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/sched/sch_teql.c |   31 ++++++++++++++++++++-----------
- 1 files changed, 20 insertions(+), 11 deletions(-)
+ net/ipv4/route.c |   41 ++++++++++++++++++++++-------------------
+ 1 files changed, 22 insertions(+), 19 deletions(-)
 
-diff --git a/net/sched/sch_teql.c b/net/sched/sch_teql.c
-index a3b7120..4f4c52c 100644
---- a/net/sched/sch_teql.c
-+++ b/net/sched/sch_teql.c
-@@ -225,11 +225,11 @@ static int teql_qdisc_init(struct Qdisc *sch, struct nlattr *opt)
- 
- 
- static int
--__teql_resolve(struct sk_buff *skb, struct sk_buff *skb_res, struct net_device *dev)
-+__teql_resolve(struct sk_buff *skb, struct sk_buff *skb_res,
-+	       struct net_device *dev, struct netdev_queue *txq,
-+	       struct neighbour *mn)
- {
--	struct netdev_queue *dev_queue = netdev_get_tx_queue(dev, 0);
--	struct teql_sched_data *q = qdisc_priv(dev_queue->qdisc);
--	struct neighbour *mn = dst_get_neighbour(skb_dst(skb));
-+	struct teql_sched_data *q = qdisc_priv(txq->qdisc);
- 	struct neighbour *n = q->ncache;
- 
- 	if (mn->tbl == NULL)
-@@ -262,17 +262,26 @@ __teql_resolve(struct sk_buff *skb, struct sk_buff *skb_res, struct net_device *
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 65d2572..5c9b20f 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1311,7 +1311,7 @@ static void rt_del(unsigned hash, struct rtable *rt)
+ 	spin_unlock_bh(rt_hash_lock_addr(hash));
  }
  
- static inline int teql_resolve(struct sk_buff *skb,
--			       struct sk_buff *skb_res, struct net_device *dev)
-+			       struct sk_buff *skb_res,
-+			       struct net_device *dev,
-+			       struct netdev_queue *txq)
+-static int check_peer_redir(struct dst_entry *dst, struct inet_peer *peer)
++static void check_peer_redir(struct dst_entry *dst, struct inet_peer *peer)
  {
--	struct netdev_queue *txq = netdev_get_tx_queue(dev, 0);
-+	struct dst_entry *dst = skb_dst(skb);
-+	struct neighbour *mn;
-+	int res;
-+
- 	if (txq->qdisc == &noop_qdisc)
- 		return -ENODEV;
+ 	struct rtable *rt = (struct rtable *) dst;
+ 	__be32 orig_gw = rt->rt_gateway;
+@@ -1322,21 +1322,19 @@ static int check_peer_redir(struct dst_entry *dst, struct inet_peer *peer)
+ 	rt->rt_gateway = peer->redirect_learned.a4;
  
--	if (dev->header_ops == NULL ||
--	    skb_dst(skb) == NULL ||
--	    dst_get_neighbour(skb_dst(skb)) == NULL)
-+	if (!dev->header_ops || !dst)
- 		return 0;
--	return __teql_resolve(skb, skb_res, dev);
-+
-+	rcu_read_lock();
-+	mn = dst_get_neighbour(dst);
-+	res = mn ? __teql_resolve(skb, skb_res, dev, txq, mn) : 0;
-+	rcu_read_unlock();
-+
-+	return res;
+ 	n = ipv4_neigh_lookup(&rt->dst, &rt->rt_gateway);
+-	if (IS_ERR(n))
+-		return PTR_ERR(n);
++	if (IS_ERR(n)) {
++		rt->rt_gateway = orig_gw;
++		return;
++	}
+ 	old_n = xchg(&rt->dst._neighbour, n);
+ 	if (old_n)
+ 		neigh_release(old_n);
+-	if (!n || !(n->nud_state & NUD_VALID)) {
+-		if (n)
+-			neigh_event_send(n, NULL);
+-		rt->rt_gateway = orig_gw;
+-		return -EAGAIN;
++	if (!(n->nud_state & NUD_VALID)) {
++		neigh_event_send(n, NULL);
+ 	} else {
+ 		rt->rt_flags |= RTCF_REDIRECTED;
+ 		call_netevent_notifiers(NETEVENT_NEIGH_UPDATE, n);
+ 	}
+-	return 0;
  }
  
- static netdev_tx_t teql_master_xmit(struct sk_buff *skb, struct net_device *dev)
-@@ -307,7 +316,7 @@ restart:
- 			continue;
+ /* called in rcu_read_lock() section */
+@@ -1694,12 +1692,8 @@ static void ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu)
+ }
+ 
+ 
+-static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
++static void ipv4_validate_peer(struct rtable *rt)
+ {
+-	struct rtable *rt = (struct rtable *) dst;
+-
+-	if (rt_is_expired(rt))
+-		return NULL;
+ 	if (rt->rt_peer_genid != rt_peer_genid()) {
+ 		struct inet_peer *peer;
+ 
+@@ -1708,19 +1702,26 @@ static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
+ 
+ 		peer = rt->peer;
+ 		if (peer) {
+-			check_peer_pmtu(dst, peer);
++			check_peer_pmtu(&rt->dst, peer);
+ 
+ 			if (peer->redirect_genid != redirect_genid)
+ 				peer->redirect_learned.a4 = 0;
+ 			if (peer->redirect_learned.a4 &&
+-			    peer->redirect_learned.a4 != rt->rt_gateway) {
+-				if (check_peer_redir(dst, peer))
+-					return NULL;
+-			}
++			    peer->redirect_learned.a4 != rt->rt_gateway)
++				check_peer_redir(&rt->dst, peer);
  		}
  
--		switch (teql_resolve(skb, skb_res, slave)) {
-+		switch (teql_resolve(skb, skb_res, slave, slave_txq)) {
- 		case 0:
- 			if (__netif_tx_trylock(slave_txq)) {
- 				unsigned int length = qdisc_pkt_len(skb);
+ 		rt->rt_peer_genid = rt_peer_genid();
+ 	}
++}
++
++static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
++{
++	struct rtable *rt = (struct rtable *) dst;
++
++	if (rt_is_expired(rt))
++		return NULL;
++	ipv4_validate_peer(rt);
+ 	return dst;
+ }
+ 
+@@ -2370,6 +2371,7 @@ int ip_route_input_common(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 		    rth->rt_mark == skb->mark &&
+ 		    net_eq(dev_net(rth->dst.dev), net) &&
+ 		    !rt_is_expired(rth)) {
++			ipv4_validate_peer(rth);
+ 			if (noref) {
+ 				dst_use_noref(&rth->dst, jiffies);
+ 				skb_dst_set_noref(skb, &rth->dst);
+@@ -2745,6 +2747,7 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *flp4)
+ 			    (IPTOS_RT_MASK | RTO_ONLINK)) &&
+ 		    net_eq(dev_net(rth->dst.dev), net) &&
+ 		    !rt_is_expired(rth)) {
++			ipv4_validate_peer(rth);
+ 			dst_use(&rth->dst, jiffies);
+ 			RT_CACHE_STAT_INC(out_hit);
+ 			rcu_read_unlock_bh();
 -- 
 1.7.7.3
