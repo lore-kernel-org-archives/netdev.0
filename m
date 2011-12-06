@@ -1,34 +1,47 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [patch] openvswitch: small potential memory leak in
-	ovs_vport_alloc()
-Date: Tue, 6 Dec 2011 09:32:13 -0800
-Message-ID: <CAEP_g=_McLiPzKMM-9PGqddsYe7q6jYkCyAJcE1MU=Q4_Fou4g@mail.gmail.com>
-References: <20111206062707.GA8433@elgon.mountain>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] ipip, sit: copy parms.name after register_netdevice
+Date: Tue, 6 Dec 2011 09:32:20 -0800
+Message-ID: <20111206173220.GA28763@kroah.com>
+References: <CAM7b5hzt8D6hn3=XEcm9E3_BwJxj-YABpkufCpuhjiPLDxCsMQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20111206062707.GA8433-mgFCXtclrQlZLf2FXnZxJA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jpirko@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Josh Boyer <jwboyer@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org
+To: Ted Feng <artisdom@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAM7b5hzt8D6hn3=XEcm9E3_BwJxj-YABpkufCpuhjiPLDxCsMQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 5, 2011 at 10:27 PM, Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org> wrote:
-> We're unlikely to hit this leak, but the static checkers complain if we
-> don't take care of it.
->
-> Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+On Tue, Dec 06, 2011 at 05:25:24PM +0800, Ted Feng wrote:
+> Same fix as 731abb9cb2 for ipip and sit tunnel.
+> Commit 1c5cae815d removed an explicit call to dev_alloc_name in
+> ipip_tunnel_locate
+> and ipip6_tunnel_locate, because register_netdevice will now create a
+> valid name.
+> However the tunnel keeps a copy of the name in the private parms structure.
+> 
+> This shows up if you do a simple tunnel add, followed by a tunnel show:
+> 
+> $ sudo ip tunnel add mode ipip remote 10.2.20.211
+> $ ip tunnel
+> tunl0: ip/ip  remote any  local any  ttl inherit  nopmtudisc
+> tunl%d: ip/ip  remote 10.2.20.211  local any  ttl inherit
+> $ sudo ip tunnel add mode sit remote 10.2.20.212
+> $ ip tunnel
+> sit0: ipv6/ip  remote any  local any  ttl 64  nopmtudisc 6rd-prefix 2002::/16
+> sit%d: ioctl 89f8 failed: No such device
+> sit%d: ipv6/ip  remote 10.2.20.212  local any  ttl inherit
+> 
+> Signed-off-by: Ted Feng <artisdom@gmail.com>
 
-Acked-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+<formletter>
 
-Thanks Dan.
+This is not the correct way to submit patches for inclusion in the
+stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
+for how to do this properly.
+
+</formletter>
