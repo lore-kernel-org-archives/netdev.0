@@ -1,43 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] remove an outdated reference to T/TCP
-Date: Tue, 06 Dec 2011 16:42:43 -0500 (EST)
-Message-ID: <20111206.164243.402402261622724566.davem@davemloft.net>
-References: <20111206200005.836D529006DD@tardy>
-	<20111206.151920.696192671128392379.davem@davemloft.net>
-	<4EDE8B8B.2000907@hp.com>
+Subject: Re: [PATCH net-next] bnx2x: Fix compile errors if CONFIG_CNIC is
+ not set
+Date: Tue, 06 Dec 2011 16:43:17 -0500 (EST)
+Message-ID: <20111206.164317.1552410915949798281.davem@davemloft.net>
+References: <1323205088-29693-1-git-send-email-mchan@broadcom.com>
+	<1323205383.2690.25.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: rick.jones2@hp.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mchan@broadcom.com, netdev@vger.kernel.org, barak@broadcom.com,
+	eilong@broadcom.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34156 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:34161 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752853Ab1LFVm6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 16:42:58 -0500
-In-Reply-To: <4EDE8B8B.2000907@hp.com>
+	with ESMTP id S1753066Ab1LFVnV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 16:43:21 -0500
+In-Reply-To: <1323205383.2690.25.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Tue, 06 Dec 2011 13:39:23 -0800
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 06 Dec 2011 22:03:03 +0100
 
-> On 12/06/2011 12:19 PM, David Miller wrote:
->> From: Rick Jones<rick.jones2@hp.com>
->> Date: Tue,  6 Dec 2011 12:00:05 -0800 (PST)
->>
->>>
->>> Remove a particularly out of date bit of comment referring to T/TCP.
->>>
->>> Signed-off-by: Rick Jones<rick.jones2@hp.com>
->>
->> I think it should stay because it discusses the potential bad side
->> effects of queueing any data that might be in the SYN.
-> 
-> How about just the sentence that mentioned T/TCP explicitly since
-> T/TCP is most definitely no longer starting to be used?-) The rest of
-> it can be discussed when/if TCP Fast Open arrives :)
+> Le mardi 06 d=E9cembre 2011 =E0 12:58 -0800, Michael Chan a =E9crit :
+>> Don't provide FCoE and iSCSI statistics to management firmware if
+>> CONFIG_CNIC is not set.  Some needed structure fields are not define=
+d
+>> without CONFIG_CNIC.
+>>=20
+>> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> Signed-off-by: Michael Chan <mchan@broadcom.com>
+>> ---
+>>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    4 ++--
+>>  1 files changed, 2 insertions(+), 2 deletions(-)
+>>=20
+>=20
+> Thanks for the fast answer, and yes, no more build error :)
 
-T/TCP gives the statement context, as in referencing something that
-might make us want to at least theoretically consider handling the
-data.
+Applied, thanks.
