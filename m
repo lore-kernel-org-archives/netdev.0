@@ -1,85 +1,84 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH net-next] bnx2x: Fix compile errors if CONFIG_CNIC
- is not set
-Date: Wed, 7 Dec 2011 00:16:51 +0200
-Message-ID: <1323209811.11998.3.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1323205088-29693-1-git-send-email-mchan@broadcom.com>
- <1323205383.2690.25.camel@edumazet-laptop>
- <1323206734.1762.8.camel@joe2Laptop> <1323207770.7517.7.camel@HP1>
-Reply-To: eilong@broadcom.com
+From: David Miller <davem@davemloft.net>
+Subject: ipv6: Make third arg to anycast_dst_alloc() bool.
+Date: Tue, 06 Dec 2011 17:20:34 -0500 (EST)
+Message-ID: <20111206.172034.888997660594430083.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Barak Witkowski" <barak@broadcom.com>
-To: "Michael Chan" <mchan@broadcom.com>,
-	"Joe Perches" <joe@perches.com>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4219 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754369Ab1LFWRD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 17:17:03 -0500
-In-Reply-To: <1323207770.7517.7.camel@HP1>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34589 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752806Ab1LFWUj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 17:20:39 -0500
+Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
+	(authenticated bits=0)
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id pB6MKZLi027378
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 6 Dec 2011 14:20:38 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-12-06 at 13:42 -0800, Michael Chan wrote:
-> On Tue, 2011-12-06 at 13:25 -0800, Joe Perches wrote:
-> > On Tue, 2011-12-06 at 22:03 +0100, Eric Dumazet wrote:
-> > > Le mardi 06 d=C3=A9cembre 2011 =C3=A0 12:58 -0800, Michael Chan a=
- =C3=A9crit :
-> > > > Don't provide FCoE and iSCSI statistics to management firmware =
-if
-> > > > CONFIG_CNIC is not set.  Some needed structure fields are not d=
-efined
-> > > > without CONFIG_CNIC.
-> > > Thanks for the fast answer, and yes, no more build error :)
-> >=20
-> > That works, but is that the best solution?
-> >=20
-> > Another option is for bnx2x_handle_drv_info_req
-> > to return DRV_MSG_CODE_DRV_INFO_NACK
-> >=20
->=20
-> Eilon (bnx2x lead maintainer) will need to decide which is the most
-> appropriate solution as he is most familiar with the firmware.  I don=
-'t
-> know if sending NACK to the firmware will have other negative effects=
- or
-> not.  Eilon should be online in about 8 hours and he can send a
-> follow-up patch if necessary.
->=20
-> > Maybe like:
-> >=20
-> > 	switch (op_code) {
-> > 	case ETH_STATS_OPCODE:
-> > 		bnx2x_drv_info_ether_stat(bp);
-> > 		break;
-> > #ifdef BCM_CNIC
-> > 	case FCOE_STATS_OPCODE:
-> > 		bnx2x_drv_info_fcoe_stat(bp);
-> > 		break;
-> > 	case ISCSI_STATS_OPCODE:
-> > 		bnx2x_drv_info_iscsi_stat(bp);
-> > 		break;
-> > #endif
-> > 	default:
-> > 		/* if op code isn't supported - send NACK */
-> > 		bnx2x_fw_command(bp, DRV_MSG_CODE_DRV_INFO_NACK, 0);
-> > 		return;
-> > 	}
-> >=20
-> >=20
-> >=20
->=20
 
-Joe is right. This latest patch breaks the FW assumption, but at least
-everything compiles now, so it is not as urgent. We will send a patch i=
-n
-that spirit in the morning.
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/ip6_route.h |    2 +-
+ net/ipv6/addrconf.c     |    2 +-
+ net/ipv6/anycast.c      |    2 +-
+ net/ipv6/route.c        |    2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
 
-Thanks,
-Eilon
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index 5e91b72..f9dbf47 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -102,7 +102,7 @@ extern void fib6_force_start_gc(struct net *net);
+ 
+ extern struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 					   const struct in6_addr *addr,
+-					   int anycast);
++					   bool anycast);
+ 
+ extern int			ip6_dst_hoplimit(struct dst_entry *dst);
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 058cc22..94f3fd9 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -630,7 +630,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr, int pfxlen,
+ 		goto out;
+ 	}
+ 
+-	rt = addrconf_dst_alloc(idev, addr, 0);
++	rt = addrconf_dst_alloc(idev, addr, false);
+ 	if (IS_ERR(rt)) {
+ 		err = PTR_ERR(rt);
+ 		goto out;
+diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
+index fc1cdcd..cc540f9 100644
+--- a/net/ipv6/anycast.c
++++ b/net/ipv6/anycast.c
+@@ -289,7 +289,7 @@ int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr)
+ 		goto out;
+ 	}
+ 
+-	rt = addrconf_dst_alloc(idev, addr, 1);
++	rt = addrconf_dst_alloc(idev, addr, true);
+ 	if (IS_ERR(rt)) {
+ 		kfree(aca);
+ 		err = PTR_ERR(rt);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 09412ba..f0b582b 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2056,7 +2056,7 @@ static int ip6_pkt_prohibit_out(struct sk_buff *skb)
+ 
+ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 				    const struct in6_addr *addr,
+-				    int anycast)
++				    bool anycast)
+ {
+ 	struct net *net = dev_net(idev->dev);
+ 	struct rt6_info *rt = ip6_dst_alloc(&net->ipv6.ip6_dst_ops,
+-- 
+1.7.7.3
