@@ -1,65 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] socket sk_sndmsg_page waste
-Date: Tue, 06 Dec 2011 14:01:19 -0500 (EST)
-Message-ID: <20111206.140119.1263464283287684389.davem@davemloft.net>
-References: <1323154416.2467.27.camel@edumazet-laptop>
-	<1323188117.2448.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 4/4 v3] bnx2x, cnic: support DRV_INFO upon FW
+ request
+Date: Tue, 06 Dec 2011 20:45:21 +0100
+Message-ID: <1323200721.2690.22.camel@edumazet-laptop>
+References: <1323160910-28446-1-git-send-email-mchan@broadcom.com>
+	 <20111206.130654.1235461360535098349.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: mchan@broadcom.com, netdev@vger.kernel.org, barak@broadcom.com,
+	eilong@broadcom.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60646 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752600Ab1LFTBW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 14:01:22 -0500
-In-Reply-To: <1323188117.2448.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:33432 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752289Ab1LFTyV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 14:54:21 -0500
+Received: by eeaq14 with SMTP id q14so3294008eea.19
+        for <netdev@vger.kernel.org>; Tue, 06 Dec 2011 11:54:20 -0800 (PST)
+In-Reply-To: <20111206.130654.1235461360535098349.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 06 Dec 2011 17:15:17 +0100
-
-> Le mardi 06 d=E9cembre 2011 =E0 07:53 +0100, Eric Dumazet a =E9crit :
->> TCP can steer one page of memory per socket to cook outgoing frames.
->>=20
->> This means a machine handling long living sockets can consume a lot =
-of
->> ram.
->>=20
->> 1.000.000 tcp sockets : up to 4GB of allocated memory, if some write=
-s
->> had been done on these sockets.
->>=20
->> It would make sense to use a per thread page as a pool, instead of a=
- per
->> socket pool, and remove sk_sndmsg_page/off fields.
->>=20
->> Problem with this strategy is impact outside of net tree, and a cost=
- at
->> thread creation/destruction.
->>=20
->> [ But this could be used in fs/pipe.c or fs/splice.c code..., so tha=
-t
->> small writes() dont allocate a full page but try to reuse the "per
->> task_struct" page ]
->>=20
->>=20
+Le mardi 06 d=C3=A9cembre 2011 =C3=A0 13:06 -0500, David Miller a =C3=A9=
+crit :
+> From: "Michael Chan" <mchan@broadcom.com>
+> Date: Tue, 6 Dec 2011 00:41:50 -0800
 >=20
-> Another idea would be to use a percpu variable, to get proper NUMA
-> affinity as well, and no extra cost at thread create/delete time.
+> > From: Barak Witkowski <barak@broadcom.com>
+> >=20
+> > Add support to send driver capabilities, settings and statistics to
+> > management firmware.
+> >=20
+> > [ Redone using many local variables, removed many unnecessary inlin=
+es,
+> >   and put #defines at the left margin suggested by Joe Perches ]
+> >=20
+> > Signed-off-by: Barak Witkowski <barak@broadcom.com>
+> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> > Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
+> > Signed-off-by: Michael Chan <mchan@broadcom.com>
 >=20
-> Only 'problem' is we can sleep (pagefault) in
-> skb_copy_to_page_nocache(), so special care must be taken (disabling
-> preemption wont prevent another thread on same cpu can use the same
-> page)
+> Applied.
 
-I think you're going to end up adding overhead to implement this proper=
-ly,
-first you'll make it per-thread but then you'll want a per-cpu array
-per-thread to get NUMA affinities et al. right.
+Build error here if :
 
-Also, keeping the page per-socket gives a certain piece of mind, that
-leaking socket data from one connection to another accidently is that
-much less likely.
+# grep CNIC .config
+# CONFIG_CNIC is not set
+# CONFIG_QLCNIC is not set
+
+
+  CC [M]  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.o
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c: In function
+=E2=80=98bnx2x_drv_info_fcoe_stat=E2=80=99:
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c:2950:33: erreur:
+=E2=80=98struct bnx2x=E2=80=99 has no member named =E2=80=98fip_mac=E2=80=
+=99
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c: In function
+=E2=80=98bnx2x_drv_info_iscsi_stat=E2=80=99:
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c:3041:34: erreur:
+=E2=80=98struct bnx2x=E2=80=99 has no member named =E2=80=98cnic_eth_de=
+v=E2=80=99
