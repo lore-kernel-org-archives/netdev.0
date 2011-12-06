@@ -1,31 +1,24 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Patch is wrong
-Date: Mon, 05 Dec 2011 23:39:37 -0500 (EST)
-Message-ID: <20111205.233937.1669740069700653317.davem@davemloft.net>
-References: <4EDD8B8C.7000905@linux.vnet.ibm.com>
+From: Luz Romero <LRomero@santacruz.k12.az.us>
+Subject: WebCT Administrator
+Date: Mon, 5 Dec 2011 22:03:29 -0700
+Message-ID: <D002CC3CE57B7549810C7CC2FC0765044E391C390F__21113.429478328$1323148141$gmane$org@SC-EXCHMB.santacruz.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxram@us.ibm.com, fbl@redhat.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com
-To: wangyun@linux.vnet.ibm.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53378 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932702Ab1LFEjv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2011 23:39:51 -0500
-In-Reply-To: <4EDD8B8C.7000905@linux.vnet.ibm.com>
+Received: from mail.santacruz.k12.az.us ([67.212.206.114]:36296 "EHLO
+	outlook.santacruz.k12.az.us" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750739Ab1LFFIh convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Dec 2011 00:08:37 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Wang <wangyun@linux.vnet.ibm.com>
-Date: Tue, 06 Dec 2011 11:27:08 +0800
 
-> I am the author of this patch, and Jeff only change 0, 1 to false and
-> true, now he become the author.
+Your mailbox has exceeded the storage limit which is 20GB as set by your administrator, you are currently running on 20.9GB, you may not be able to send or receive new mail until you re-validate your mailbox.To re-validate your mailbox please <http://kbjomss.tk/> CLICK HERE<http://kbjomss.tk/>
 
-Take it up with Jeff, I pulled the change from his GIT tree and that's
-where the authorship information came from.
-
-Unfortunately, it cannot be fixed as it's already pushed out to my
-tree.
+Thanks
+System Administrator.
+WebCT Administrator
