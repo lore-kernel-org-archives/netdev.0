@@ -1,83 +1,47 @@
-From: David Miller <davem@redhat.com>
-Subject: [GIT] Networking
-Date: Tue, 06 Dec 2011 14:59:43 -0500 (EST)
-Message-ID: <20111206.145943.888247369587722446.davem@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+From: Rick Jones <rick.jones2@hp.com>
+Subject: [PATCH net-next] remove an outdated reference to T/TCP
+Date: Tue,  6 Dec 2011 12:00:05 -0800 (PST)
+Message-ID: <20111206200005.836D529006DD@tardy>
+Reply-To: Rick Jones <rick.jones2@hp.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1025 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753320Ab1LFT7q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Dec 2011 14:59:46 -0500
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:36041 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752946Ab1LFUAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 15:00:07 -0500
+Received: from g1t0038.austin.hp.com (g1t0038.austin.hp.com [16.236.32.44])
+	by g1t0027.austin.hp.com (Postfix) with ESMTP id 2C28B38354
+	for <netdev@vger.kernel.org>; Tue,  6 Dec 2011 20:00:06 +0000 (UTC)
+Received: from tardy (tardy.cup.hp.com [16.89.64.213])
+	by g1t0038.austin.hp.com (Postfix) with ESMTP id ED5303005A
+	for <netdev@vger.kernel.org>; Tue,  6 Dec 2011 20:00:05 +0000 (UTC)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoxKSBSVE9fT05MSU5LIHN0YXRlIGJpdCBjYW4gYmUgbG9zdCBpbiByb3V0aW5nIGNhY2hlIGVu
-dHJpZXMsIGZpeCBmcm9tDQogICBKdWxpYW4gQW5hc3Rhc292Lg0KDQoyKSBJTkVUIHBlZXIgdmFs
-aWRhdGlvbiBmaXggY291bGQgcmVzdWx0IGluIGFuIE9PUFMgaWYgdGhlIGNhbGwgZmFpbHMsDQog
-ICBidXQgYWxsb3dpbmcgdGhpcyBvcGVyYXRpb24gdG8gZmFpbCBpbiB0aGUgZmlyc3QgcGxhY2Ug
-aXMgdGhlIHJlYWwNCiAgIGlzc3VlLiAgSWYgd2UgY2FuJ3QgbG9va3VwIHRoZSBuZWlnaGJvdXIg
-Zm9yIHRoZSBuZXcgZ2F0ZXdheSwgc2ltcGx5DQogICByZXZlcnQgYmFjayB0byB0aGUgb2xkIG9u
-ZS4gIFdlJ2xsIGVuZCB1cCB3aXRoIGFub3RoZXIgSUNNUCByZWRpcmVjdA0KICAgYnV0IHRoYXQn
-cyBmaW5lIGFuZCBiZXR0ZXIgdGhhbiBmYWlsaW5nIGFuZCBoYXZpbmcgdG8gYWRkIHVnbHkgcmVj
-b3ZlcnkNCiAgIGNvZGUgYWxsIG92ZXIgdGhlIHBsYWNlLg0KDQozKSBGSUZPIG92ZXJmbG93IGFu
-ZCBwYWNrZXQgcHJvY2Vzc2luZyByYWNlIGZpeGVzIGluIHI4MTY5IGZyb20NCiAgIEZyYW7Dp29p
-cyBSZW9taWV1Lg0KDQo0KSBwYXNlbWlfbWFjIGJ1aWxkIHdhcyBicm9rZW4gYWNjaWRlbnRseSwg
-Zml4IGZyb20gQmVuIEh1dGNoaW5ncy4NCg0KNSkgY2ZnODAyMTEgd2lyZWxlc3MgcmFjZSBmaXhl
-cyBmcm9tIEx1aXMgUi4gUm9kcmlndWV6Lg0KDQo2KSBSZWNvbmZpZ3VyaW5nIEhUNDAgYWZ0ZXIg
-YXNzb3NjaWF0aW9uIGluIGl3bHdpZmkgcmVzdWx0cyBpbiBhIGZpcm13YXJlDQogICBhYm9ydCwg
-c28gZG9uJ3QgZG8gaXQuICBGcm9tIFdleS1ZaSBHdXkuDQoNClBsZWFzZSBwdWxsLCB0aGFua3Mg
-YSBsb3QuDQoNClRoZSBmb2xsb3dpbmcgY2hhbmdlcyBzaW5jZSBjb21taXQgNDVlNzEzZWZlMmZh
-NTc0YjY2NjJlN2ZiNjNmYWU5NDk3YzVlMDNkNDoNCg0KICBNZXJnZSBicmFuY2ggJ3g4Ni11cmdl
-bnQtZm9yLWxpbnVzJyBvZiBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5l
-bC9naXQvdGlwL3RpcCAoMjAxMS0xMi0wNSAxNjo1NDoxNSAtMDgwMCkNCg0KYXJlIGF2YWlsYWJs
-ZSBpbiB0aGUgZ2l0IHJlcG9zaXRvcnkgYXQ6DQoNCiAgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvcHVi
-L3NjbS9saW51eC9rZXJuZWwvZ2l0L2RhdmVtL25ldC5naXQgbWFzdGVyDQoNCkJlbiBIdXRjaGlu
-Z3MgKDEpOg0KICAgICAgcGFzZW1pX21hYzogRml4IGJ1aWxkaW5nIGFzIG1vZHVsZQ0KDQpEYXZp
-ZCBTLiBNaWxsZXIgKDIpOg0KICAgICAgaXB2NDogRml4IHBlZXIgdmFsaWRhdGlvbiBvbiBjYWNo
-ZWQgbG9va3VwLg0KICAgICAgTWVyZ2UgYnJhbmNoICdmb3ItZGF2ZW0nIG9mIGdpdDovL2dpdC5r
-ZXJuZWwub3JnLy4uLi9saW52aWxsZS93aXJlbGVzcw0KDQpKb2hhbm5lcyBCZXJnICgxKToNCiAg
-ICAgIGl3bGFnbjogZml4IEhXIGNyeXB0byBmb3IgVFgtb25seSBrZXlzDQoNCkpvaG4gVy4gTGlu
-dmlsbGUgKDIpOg0KICAgICAgUmV2ZXJ0ICJtYWM4MDIxMTogY2xlYXIgc3RhLmRydl9wcml2IG9u
-IHJlY29uZmlndXJhdGlvbiINCiAgICAgIE1lcmdlIGJyYW5jaCAnbWFzdGVyJyBvZiBnaXQ6Ly9n
-aXQua2VybmVsLm9yZy8uLi4vbGludmlsbGUvd2lyZWxlc3MgaW50byBmb3ItZGF2ZW0NCg0KSnVs
-aWFuIEFuYXN0YXNvdiAoMSk6DQogICAgICBpcHY0OiBtYWtlIHN1cmUgUlRPX09OTElOSyBpcyBz
-YXZlZCBpbiByb3V0aW5nIGNhY2hlDQoNCkx1aXMgUi4gUm9kcmlndWV6ICgyKToNCiAgICAgIGNm
-ZzgwMjExOiBmaXggcmFjZSBvbiBpbml0IGFuZCBkcml2ZXIgcmVnaXN0cmF0aW9uDQogICAgICBj
-Zmc4MDIxMTogYW1lbmQgcmVndWxhdG9yeSBOVUxMIGRlcmVmZXJlbmNlIGZpeA0KDQpQZXRlciBQ
-YW4o5r2Y5Y2r5bmzKSAoMSk6DQogICAgICBpcHY0OmNvcnJlY3QgZGVzY3JpcHRpb24gZm9yIHRj
-cF9tYXhfc3luX2JhY2tsb2cNCg0KU2ltb24gV3VuZGVybGljaCAoMSk6DQogICAgICBtYWM4MDIx
-MTogZmlsbCByYXRlIGZpbHRlciBmb3IgaW50ZXJuYWwgc2NhbiByZXF1ZXN0cw0KDQpTdGVwaGVu
-IEJveWQgKDEpOg0KICAgICAgbmV0OiBTaWxlbmNlIHNlcV9zY2FsZSgpIHVudXNlZCB3YXJuaW5n
-DQoNCldlaSBMaXUgKDEpOg0KICAgICAgbmV0YmFjazogRml4IGFsZXJ0IG1lc3NhZ2UuDQoNCldl
-eS1ZaSBHdXkgKDIpOg0KICAgICAgaXdsd2lmaTogZG8gbm90IHJlLWNvbmZpZ3VyZSBIVDQwIGFm
-dGVyIGFzc29jaWF0ZWQNCiAgICAgIGl3bHdpZmk6IGNoYW5nZSB0aGUgZGVmYXVsdCBiZWhhdmlv
-ciBvZiB3YXRjaGRvZyB0aW1lcg0KDQpmcmFuw6dvaXMgcm9taWV1ICgyKToNCiAgICAgIHI4MTY5
-OiBSeCBGSUZPIG92ZXJmbG93IGZpeGVzLg0KICAgICAgcjgxNjk6IGZpeCBSeCBpbmRleCByYWNl
-IGJldHdlZW4gRklGTyBvdmVyZmxvdyByZWNvdmVyeSBhbmQgTkFQSSBoYW5kbGVyLg0KDQogRG9j
-dW1lbnRhdGlvbi9uZXR3b3JraW5nL2lwLXN5c2N0bC50eHQgICAgICB8ICAgMTAgKysrLS0tDQog
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvcGFzZW1pL01ha2VmaWxlICAgICAgICB8ICAgIDMgKy0NCiBk
-cml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVrL3I4MTY5LmMgICAgICAgIHwgICA1MyArKysrKysr
-KysrLS0tLS0tLS0tLS0tLS0tLS0NCiBkcml2ZXJzL25ldC93aXJlbGVzcy9pd2x3aWZpL2l3bC0x
-MDAwLmMgICAgIHwgICAgMSArDQogZHJpdmVycy9uZXQvd2lyZWxlc3MvaXdsd2lmaS9pd2wtNTAw
-MC5jICAgICB8ICAgIDEgKw0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2l3bHdpZmkvaXdsLWFnbi1y
-eG9uLmMgfCAgIDM2ICsrKysrKysrKysrKy0tLS0tLS0NCiBkcml2ZXJzL25ldC93aXJlbGVzcy9p
-d2x3aWZpL2l3bC1hZ24tc3RhLmMgIHwgICAgNSAtLS0NCiBkcml2ZXJzL25ldC93aXJlbGVzcy9p
-d2x3aWZpL2l3bC1hZ24uYyAgICAgIHwgICAzNCArKysrKysrKystLS0tLS0tLS0NCiBkcml2ZXJz
-L25ldC93aXJlbGVzcy9pd2x3aWZpL2l3bC1hZ24uaCAgICAgIHwgICAgMiArDQogZHJpdmVycy9u
-ZXQvd2lyZWxlc3MvaXdsd2lmaS9pd2wtY29yZS5jICAgICB8ICAgMjIgKysrKysrKysrLS0tDQog
-ZHJpdmVycy9uZXQvd2lyZWxlc3MvaXdsd2lmaS9pd2wtY29yZS5oICAgICB8ICAgIDIgKw0KIGRy
-aXZlcnMvbmV0L3dpcmVsZXNzL2l3bHdpZmkvaXdsLXNoYXJlZC5oICAgfCAgICA0ICstDQogZHJp
-dmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jICAgICAgICAgICB8ICAgIDIgKy0NCiBuZXQv
-Y29yZS9yZXF1ZXN0X3NvY2suYyAgICAgICAgICAgICAgICAgICAgIHwgICAgNyArKy0tDQogbmV0
-L2NvcmUvc2VjdXJlX3NlcS5jICAgICAgICAgICAgICAgICAgICAgICB8ICAgIDIgKw0KIG5ldC9p
-cHY0L3JvdXRlLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgIDQ3ICsrKysrKysrKyst
-LS0tLS0tLS0tLS0tLQ0KIG5ldC9tYWM4MDIxMS9tYWluLmMgICAgICAgICAgICAgICAgICAgICAg
-ICAgfCAgICA2ICsrKw0KIG5ldC9tYWM4MDIxMS91dGlsLmMgICAgICAgICAgICAgICAgICAgICAg
-ICAgfCAgICAxIC0NCiBuZXQvd2lyZWxlc3MvcmVnLmMgICAgICAgICAgICAgICAgICAgICAgICAg
-IHwgICA0OSArKysrKysrKysrKysrKysrLS0tLS0tLS0tDQogMTkgZmlsZXMgY2hhbmdlZCwgMTU1
-IGluc2VydGlvbnMoKyksIDEzMiBkZWxldGlvbnMoLSkNCg==
+
+Remove a particularly out of date bit of comment referring to T/TCP.
+
+Signed-off-by: Rick Jones <rick.jones2@hp.com>
+
+---
+
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 0cbb440..123e1be 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5824,14 +5824,6 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 			 * we just ignore it, that fits the spec precisely
+ 			 * and avoids incompatibilities. It would be nice in
+ 			 * future to drop through and process the data.
+-			 *
+-			 * Now that TTCP is starting to be used we ought to
+-			 * queue this data.
+-			 * But, this leaves one open to an easy denial of
+-			 * service attack, and SYN cookies can't defend
+-			 * against this problem. So, we drop the data
+-			 * in the interest of security over speed unless
+-			 * it's still in use.
+ 			 */
+ 			kfree_skb(skb);
+ 			return 0;
