@@ -1,44 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Latency difference between fifo and pfifo_fast
-Date: Tue, 06 Dec 2011 07:29:02 +0100
-Message-ID: <1323152942.2467.16.camel@edumazet-laptop>
-References: <30c2e9e0-4208-4c19-9e43-31f95e13575d@jasiiieee>
-	 <1323151377.2467.13.camel@edumazet-laptop>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net-next RFC PATCH 5/5] virtio-net: flow director support
+Date: Tue, 06 Dec 2011 14:33:03 +0800
+Message-ID: <4EDDB71F.9080908@redhat.com>
+References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
+	<20111205085925.6116.94352.stgit@dhcp-8-146.nay.redhat.com>
+	<CAJSP0QXfHC8j2Kk9x6wyBMubo2=YvpaLAShJtwMWA2mtro6UhA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:56790 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932822Ab1LFG3H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 01:29:07 -0500
-Received: by eeaq14 with SMTP id q14so2557822eea.19
-        for <netdev@vger.kernel.org>; Mon, 05 Dec 2011 22:29:06 -0800 (PST)
-In-Reply-To: <1323151377.2467.13.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	levinsasha928@gmail.com, bhutchings@solarflare.com
+To: Stefan Hajnoczi <stefanha@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAJSP0QXfHC8j2Kk9x6wyBMubo2=YvpaLAShJtwMWA2mtro6UhA@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 06 d=C3=A9cembre 2011 =C3=A0 07:02 +0100, Eric Dumazet a =C3=A9=
-crit :
-> Le lundi 05 d=C3=A9cembre 2011 =C3=A0 23:10 -0500, John A. Sullivan I=
-II a =C3=A9crit :
-> > Hello, all.  We are trying to minimize latency on our iSCSI SAN.  T=
-he
-> > network is entirely dedicated to the iSCSI traffic.  Since all the
-> > traffic is the same, would it make sense to change the qdisc for th=
-at
-> > interface to fifo from the default pfifo_fast or is the latency
-> > difference between the two completely negligible? Thanks - John
->=20
-> A very small difference indeed. How many packets per second are
-> expected ? What kind of NIC are you using ?
->=20
+On 12/05/2011 06:55 PM, Stefan Hajnoczi wrote:
+> On Mon, Dec 5, 2011 at 8:59 AM, Jason Wang<jasowang@redhat.com>  wrote:
+>> +static int virtnet_set_fd(struct net_device *dev, u32 pfn)
+>> +{
+>> +       struct virtnet_info *vi = netdev_priv(dev);
+>> +       struct virtio_device *vdev = vi->vdev;
+>> +
+>> +       if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_FD)) {
+>> +               vdev->config->set(vdev,
+>> +                                 offsetof(struct virtio_net_config_fd, addr),
+>> +&pfn, sizeof(u32));
+> Please use the virtio model (i.e. virtqueues) instead of shared
+> memory.  Mapping a page breaks the virtio abstraction.
 
-To really remove a possible source of latency, you could remove qdisc
-layer...
+Using control virtqueue is more suitable but there's are also some problems:
 
-ifconfig eth2 txqueuelen 0
-tc qdisc add dev eth2 root pfifo
-tc qdisc del dev eth2 root
+One problem is the interface,  if we use control virtqueue, we need a 
+interface between the backend and tap/macvtap to change the flow 
+mapping. But qemu and vhost_net only know about the file descriptor, 
+more informations or interfaces need to be exposed in order to let 
+ethtool or ioctl work.
+
+Another problem is the delay introduced by ctrl vq, as the ctrl vq would 
+be used in the critical path in guest and it use busy wait to get the 
+response, the delay is not neglectable.
+
+> Stefan
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
