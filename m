@@ -1,37 +1,34 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH net-next 3/4] bnx2x: support classification config
- query
-Date: Tue, 6 Dec 2011 05:57:55 +0000
-Message-ID: <0E685F8B314BFB42AE2422915B7BDCC3066152@IRVEXCHMB07.corp.ad.broadcom.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 3/4] bnx2x: support classification config query
+Date: Mon, 05 Dec 2011 21:59:19 -0800
+Message-ID: <1323151159.19483.14.camel@joe2Laptop>
 References: <1323150288-28153-1-git-send-email-mchan@broadcom.com>
- <1323150288-28153-2-git-send-email-mchan@broadcom.com>
- <1323150288-28153-3-git-send-email-mchan@broadcom.com>
- <20111206.004629.1477080329086805790.davem@davemloft.net>
+	 <1323150288-28153-2-git-send-email-mchan@broadcom.com>
+	 <1323150288-28153-3-git-send-email-mchan@broadcom.com>
+	 <20111206.004629.1477080329086805790.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"Barak Witkowski" <barak@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "'David Miller'" <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: mchan@broadcom.com, netdev@vger.kernel.org, barak@broadcom.com,
+	eilong@broadcom.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2451 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751308Ab1LFF6B convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 00:58:01 -0500
+Received: from perches-mx.perches.com ([206.117.179.246]:51579 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751308Ab1LFF7U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Dec 2011 00:59:20 -0500
 In-Reply-To: <20111206.004629.1477080329086805790.davem@davemloft.net>
-Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-
+On Tue, 2011-12-06 at 00:46 -0500, David Miller wrote:
+> > +			DP(BNX2X_MSG_SP, "copied element number "
+> > +				   "%d to address %p element was "
+> > +				   "%pM\n", counter, next, pos->u.mac.mac);
 > 
-> Sigh.
-> 
-> Definitely a new-comer wrote this code, but I know more experienced
-> hands
-> reviewed it, therefore I am disappointed.
+> Likewise.
 
-Sorry, I'll fix everything up and re-send.
+Ideally, the format should be coalesced as well.
+
+			DP(BNX2X_MSG_SP, "copied element number %d to address %p - element was %pM\n",
+			   counter, next, pos->u.mac.mac);
