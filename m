@@ -1,47 +1,63 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net] pasemi_mac: Fix building as module
-Date: Tue, 06 Dec 2011 05:44:22 +0000
-Message-ID: <1323150262.7454.247.camel@deadeye>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 3/4] bnx2x: support classification config query
+Date: Tue, 06 Dec 2011 00:46:29 -0500 (EST)
+Message-ID: <20111206.004629.1477080329086805790.davem@davemloft.net>
+References: <1323150288-28153-1-git-send-email-mchan@broadcom.com>
+	<1323150288-28153-2-git-send-email-mchan@broadcom.com>
+	<1323150288-28153-3-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Olof Johansson <olof@lixom.net>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, barak@broadcom.com, eilong@broadcom.com
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:46157 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751014Ab1LFFoe convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Dec 2011 00:44:34 -0500
+Received: from shards.monkeyblade.net ([198.137.202.13]:53826 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751183Ab1LFFqc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 00:46:32 -0500
+In-Reply-To: <1323150288-28153-3-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit ded19addf9c937d83b9bfb4d73a836732569041b ('pasemic_mac*: Move
-the PA Semi driver') inadvertently split pasemi_mac into two separate
-modules with unresolved symbols.  Change it back into a single module.
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Mon, 5 Dec 2011 21:44:47 -0800
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
-The build failure can currently be seen at
-<https://buildd.debian.org/status/package.php?p=linux-2.6&suite=experimental>.
+> +	/* traverse list */
+> +	list_for_each_entry(pos, &o->head, link)
+> +	{
 
-Ben.
+Put openning "{" at end of list_for_each_entry(), rather than
+on a new line.
 
- drivers/net/ethernet/pasemi/Makefile |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+> +		if ((counter < n)) {
 
-diff --git a/drivers/net/ethernet/pasemi/Makefile b/drivers/net/ethernet/pasemi/Makefile
-index 05db543..90497ff 100644
---- a/drivers/net/ethernet/pasemi/Makefile
-+++ b/drivers/net/ethernet/pasemi/Makefile
-@@ -2,4 +2,5 @@
- # Makefile for the A Semi network device drivers.
- #
- 
--obj-$(CONFIG_PASEMI_MAC) += pasemi_mac.o pasemi_mac_ethtool.o
-+obj-$(CONFIG_PASEMI_MAC) += pasemi_mac_driver.o
-+pasemi_mac_driver-objs := pasemi_mac.o pasemi_mac_ethtool.o
--- 
-1.7.7.3
+Excessive parenthesis, remove.
+
+> +			memcpy(next + MAC_LEADING_ZERO_CNT,
+> +				  pos->u.mac.mac, ETH_ALEN);
+
+Paremeters on subsequent lines don't line up properly.
+
+> +			next = buf + counter * ALIGN(ETH_ALEN,
+> +							   sizeof(u32));
+
+Likewise.
+
+> +			DP(BNX2X_MSG_SP, "copied element number "
+> +				   "%d to address %p element was "
+> +				   "%pM\n", counter, next, pos->u.mac.mac);
+
+Likewise.
+
+> +	int (*get_n_elements)(struct bnx2x *bp,
+> +			 struct bnx2x_vlan_mac_obj *o,
+> +			 int n,
+> +			 u8 *buf);
+> +
+
+Likewise.
+
+Sigh.
+
+Definitely a new-comer wrote this code, but I know more experienced hands
+reviewed it, therefore I am disappointed.
