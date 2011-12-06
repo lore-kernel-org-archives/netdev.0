@@ -1,57 +1,36 @@
-From: Weiping Pan <panweiping3@gmail.com>
-Subject: [PATCH net] ipv6:export nd_tbl
-Date: Tue,  6 Dec 2011 14:52:41 +0800
-Message-ID: <a46bd31bb9a4876e97f96e82d399a26506646d04.1323154266.git.panweiping3@gmail.com>
-Cc: Weiping Pan <panweiping3@gmail.com>,
-	"David S. Miller" <davem@davemloft.net> (maintainer:NETWORKING
-	[IPv4/...),
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> (maintainer:NETWORKING
-	[IPv4/...),
-	James Morris <jmorris@namei.org> (maintainer:NETWORKING [IPv4/...),
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org> (maintainer:NETWORKING
-	[IPv4/...),
-	Patrick McHardy <kaber@trash.net> (maintainer:NETWORKING [IPv4/...),
-	netdev@vger.kernel.org (open list:NETWORKING [IPv4/...),
-	linux-kernel@vger.kernel.org (open list)
-To: unlisted-recipients:; (no To-header on input)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC] socket sk_sndmsg_page waste
+Date: Tue, 06 Dec 2011 07:53:36 +0100
+Message-ID: <1323154416.2467.27.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f53.google.com ([209.85.216.53]:48490 "EHLO
-	mail-qw0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751867Ab1LFGuQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 01:50:16 -0500
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:45147 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753080Ab1LFGxk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 01:53:40 -0500
+Received: by eaak14 with SMTP id k14so4776071eaa.19
+        for <netdev@vger.kernel.org>; Mon, 05 Dec 2011 22:53:39 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A customer wants to use nd_tbl in his kernel module,
-the easiest way is to export nd_tbl, just as arp_tbl.
+TCP can steer one page of memory per socket to cook outgoing frames.
 
-There were some requests to export nd_tbl, like:
-http://marc.info/?l=netfilter-devel&m=111416950824614&w=2
-http://marc.info/?l=linux-netdev&m=110715893206991&w=2
+This means a machine handling long living sockets can consume a lot of
+ram.
 
-But they were all rejected.
-I want to know the reason why can't nd_tbl be exported just as arp_tbl,
-and how can we look up nd_tbl without exporting it.
+1.000.000 tcp sockets : up to 4GB of allocated memory, if some writes
+had been done on these sockets.
 
-thanks
-Weiping Pan
+It would make sense to use a per thread page as a pool, instead of a per
+socket pool, and remove sk_sndmsg_page/off fields.
 
-Signed-off-by: Weiping Pan <panweiping3@gmail.com>
----
- net/ipv6/ndisc.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Problem with this strategy is impact outside of net tree, and a cost at
+thread creation/destruction.
 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 0cb78d7..1ab98b5 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -153,6 +153,7 @@ struct neigh_table nd_tbl = {
- 	.gc_thresh2 =	 512,
- 	.gc_thresh3 =	1024,
- };
-+EXPORT_SYMBOL(nd_tbl);
- 
- /* ND options */
- struct ndisc_options {
--- 
-1.7.4.4
+[ But this could be used in fs/pipe.c or fs/splice.c code..., so that
+small writes() dont allocate a full page but try to reuse the "per
+task_struct" page ]
