@@ -1,52 +1,49 @@
-From: Milan Kocian <milon@wq.cz>
-Subject: Re: sky2 tx watchdog timeout with 1Gb speed
-Date: Tue, 6 Dec 2011 10:59:19 +0100
-Message-ID: <20111206095919.GA6726@ntm.wq.cz>
-References: <20111120232118.GA29748@ntm.wq.cz>
- <20111121160543.2ae9c04c@nehalam.linuxnetplumber.net>
- <20111122094234.GA28500@ntm.wq.cz>
- <20111126161513.GA5299@ntm.wq.cz>
- <20111126170331.744025f1@s6510.linuxnetplumber.net>
- <20111205124725.GA19385@ntm.wq.cz>
- <20111205081611.52ec0664@nehalam.linuxnetplumber.net>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: [PATCH] netback: remove redundant assignment
+Date: Tue, 6 Dec 2011 10:08:20 +0000
+Message-ID: <1323166100-7059-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain
+Cc: ian.campbell@citrix.com, Wei Liu <wei.liu2@citrix.com>
+To: xen-devel@lists.xensource.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srw1.wq.cz ([80.92.240.72]:54094 "EHLO srw1.wq.cz"
+Received: from smtp.citrix.com ([66.165.176.89]:60643 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933018Ab1LFJ7Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Dec 2011 04:59:25 -0500
-Content-Disposition: inline
-In-Reply-To: <20111205081611.52ec0664@nehalam.linuxnetplumber.net>
+	id S933037Ab1LFKIT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Dec 2011 05:08:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 05, 2011 at 08:16:11AM -0800, Stephen Hemminger wrote:
-> On Mon, 5 Dec 2011 13:47:25 +0100
-> Milan Kocian <milon@wq.cz> wrote:
-> 
-> > On Sat, Nov 26, 2011 at 05:03:31PM -0800, Stephen Hemminger wrote:
-> > > 
-> > > I think the problem might be that the board doesn't really have all the DMA pins
-> > > wired. You might try enabling iommu, or limiting to <4G of memory.
-> > 
-> > hello stephen,
-> > 
-> > you are probably right. I found that with this mb (Gigabyte GA-965GM-S2) was
-> > more problems with linux. So I replaced this old crap with new one :-).
-> > Many thanks for your time.
-> > 
-> > Best regards,
-> 
-> There was a similar glitch with some skge users.
-> 
-> I have a patch to limit driver to 32bit only. If you send the DMI information,
-> it can be made automatic.
-> 
+New value for netbk->mmap_pages[pending_idx] is assigned in
+xen_netbk_alloc_page(), no need for a second assignment which
+exposes internal to the outside world.
 
-ok, I can connect old mb again. Is the output of dmidecode enough ?
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+---
+ drivers/net/xen-netback/netback.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
 
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 15e332d..3ecb5aa 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -940,8 +940,6 @@ static struct gnttab_copy *xen_netbk_get_requests(struct xen_netbk *netbk,
+ 		if (!page)
+ 			return NULL;
+ 
+-		netbk->mmap_pages[pending_idx] = page;
+-
+ 		gop->source.u.ref = txp->gref;
+ 		gop->source.domid = vif->domid;
+ 		gop->source.offset = txp->offset;
+@@ -1336,8 +1334,6 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
+ 			continue;
+ 		}
+ 
+-		netbk->mmap_pages[pending_idx] = page;
+-
+ 		gop->source.u.ref = txreq.gref;
+ 		gop->source.domid = vif->domid;
+ 		gop->source.offset = txreq.offset;
 -- 
-Milan Kocian
+1.7.2.5
