@@ -1,208 +1,120 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 1/4 v2] bnx2x: add PFC statistics
-Date: Mon, 5 Dec 2011 23:52:22 -0800
-Message-ID: <1323157945-28333-1-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net-next 3/4 v2] bnx2x: support classification config
+ query
+Date: Mon, 5 Dec 2011 23:52:24 -0800
+Message-ID: <1323157945-28333-3-git-send-email-mchan@broadcom.com>
+References: <1323157945-28333-1-git-send-email-mchan@broadcom.com>
+ <1323157945-28333-2-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, barak@broadcom.com, eilong@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3015 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3014 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932769Ab1LFHq6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932822Ab1LFHq6 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 6 Dec 2011 02:46:58 -0500
+In-Reply-To: <1323157945-28333-2-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Barak Witkowski <barak@broadcom.com>
+From: Ariel Elior <ariele@broadcom.com>
 
-Add Priority flow control counters for ethtool -S.
+To support copying MAC addresses to firmware query structure.
 
+[ Fixed up style and formatting errors noted by DaveM and Joe Perches ]
+
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Barak Witkowski <barak@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |    1 +
- .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |    4 ++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h    |    9 +++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |    2 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c  |   44 +++++++++++++++++++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h  |    6 +++
- 6 files changed, 63 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c |   33 ++++++++++++++++++++++++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h |   13 +++++++++
+ 2 files changed, 46 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 6c7bd63..32af052 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1266,6 +1266,7 @@ struct bnx2x {
- #define NO_ISCSI_OOO_FLAG		(1 << 13)
- #define NO_ISCSI_FLAG			(1 << 14)
- #define NO_FCOE_FLAG			(1 << 15)
-+#define BC_SUPPORTS_PFC_STATS		(1 << 17)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+index a34362e..5ac6160 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+@@ -30,6 +30,8 @@
  
- #define NO_ISCSI(bp)		((bp)->flags & NO_ISCSI_FLAG)
- #define NO_ISCSI_OOO(bp)	((bp)->flags & NO_ISCSI_OOO_FLAG)
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index c679ed9..e64bdf6 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -107,6 +107,10 @@ static const struct {
- 				4, STATS_FLAGS_PORT, "rx_filtered_packets" },
- 	{ STATS_OFFSET32(mf_tag_discard),
- 				4, STATS_FLAGS_PORT, "rx_mf_tag_discard" },
-+	{ STATS_OFFSET32(pfc_frames_received_hi),
-+				8, STATS_FLAGS_PORT, "pfc_frames_received" },
-+	{ STATS_OFFSET32(pfc_frames_sent_hi),
-+				8, STATS_FLAGS_PORT, "pfc_frames_sent" },
- 	{ STATS_OFFSET32(brb_drop_hi),
- 				8, STATS_FLAGS_PORT, "rx_brb_discard" },
- 	{ STATS_OFFSET32(brb_truncate_hi),
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-index fc754cb..79b6e43 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-@@ -1247,6 +1247,7 @@ struct drv_func_mb {
- 	#define DRV_MSG_CODE_VRFY_SPECIFIC_PHY_OPT_MDL  0xa1000000
- 	#define REQ_BC_VER_4_VRFY_SPECIFIC_PHY_OPT_MDL  0x00050234
- 	#define REQ_BC_VER_4_SFP_TX_DISABLE_SUPPORTED   0x00070014
-+	#define REQ_BC_VER_4_PFC_STATS_SUPPORTED        0x00070201
+ #define BNX2X_MAX_EMUL_MULTI		16
  
- 	#define DRV_MSG_CODE_DCBX_ADMIN_PMF_MSG         0xb0000000
- 	#define DRV_MSG_CODE_DCBX_PMF_DRV_OK            0xb2000000
-@@ -2501,14 +2502,18 @@ struct mac_stx {
- #define MAC_STX_IDX_MAX                     2
- 
- struct host_port_stats {
--	u32            host_port_stats_start;
-+	u32            host_port_stats_counter;
- 
- 	struct mac_stx mac_stx[MAC_STX_IDX_MAX];
- 
- 	u32            brb_drop_hi;
- 	u32            brb_drop_lo;
- 
--	u32            host_port_stats_end;
-+	u32            not_used; /* obsolete */
-+	u32            pfc_frames_tx_hi;
-+	u32            pfc_frames_tx_lo;
-+	u32            pfc_frames_rx_hi;
-+	u32            pfc_frames_rx_lo;
- };
- 
- 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 2213e0b..052ab99 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -8827,6 +8827,8 @@ static void __devinit bnx2x_get_common_hwinfo(struct bnx2x *bp)
- 	bp->link_params.feature_config_flags |=
- 		(val >= REQ_BC_VER_4_SFP_TX_DISABLE_SUPPORTED) ?
- 		FEATURE_CONFIG_BC_SUPPORTS_SFP_TX_DISABLED : 0;
-+	bp->flags |= (val >= REQ_BC_VER_4_PFC_STATS_SUPPORTED) ?
-+			BC_SUPPORTS_PFC_STATS : 0;
- 
- 	pci_read_config_word(bp->pdev, bp->pm_cap + PCI_PM_PMC, &pmc);
- 	bp->flags |= (pmc & PCI_PM_CAP_PME_D3cold) ? 0 : NO_WOL_FLAG;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-index 3034f0e..c943545 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-@@ -540,6 +540,25 @@ static void bnx2x_bmac_stats_update(struct bnx2x *bp)
- 		UPDATE_STAT64(tx_stat_gterr,
- 				tx_stat_dot3statsinternalmactransmiterrors);
- 		UPDATE_STAT64(tx_stat_gtufl, tx_stat_mac_ufl);
++#define MAC_LEADING_ZERO_CNT (ALIGN(ETH_ALEN, sizeof(u32)) - ETH_ALEN)
 +
-+		/* collect PFC stats */
-+		DIFF_64(diff.hi, new->tx_stat_gtpp_hi,
-+			pstats->pfc_frames_tx_hi,
-+			diff.lo, new->tx_stat_gtpp_lo,
-+			pstats->pfc_frames_tx_lo);
-+		pstats->pfc_frames_tx_hi = new->tx_stat_gtpp_hi;
-+		pstats->pfc_frames_tx_lo = new->tx_stat_gtpp_lo;
-+		ADD_64(pstats->pfc_frames_tx_hi, diff.hi,
-+			pstats->pfc_frames_tx_lo, diff.lo);
-+
-+		DIFF_64(diff.hi, new->rx_stat_grpp_hi,
-+			pstats->pfc_frames_rx_hi,
-+			diff.lo, new->rx_stat_grpp_lo,
-+			pstats->pfc_frames_rx_lo);
-+		pstats->pfc_frames_rx_hi = new->rx_stat_grpp_hi;
-+		pstats->pfc_frames_rx_lo = new->rx_stat_grpp_lo;
-+		ADD_64(pstats->pfc_frames_rx_hi, diff.hi,
-+			pstats->pfc_frames_rx_lo, diff.lo);
- 	}
+ /**** Exe Queue interfaces ****/
  
- 	estats->pause_frames_received_hi =
-@@ -551,6 +570,15 @@ static void bnx2x_bmac_stats_update(struct bnx2x *bp)
- 				pstats->mac_stx[1].tx_stat_outxoffsent_hi;
- 	estats->pause_frames_sent_lo =
- 				pstats->mac_stx[1].tx_stat_outxoffsent_lo;
-+
-+	estats->pfc_frames_received_hi =
-+				pstats->pfc_frames_rx_hi;
-+	estats->pfc_frames_received_lo =
-+				pstats->pfc_frames_rx_lo;
-+	estats->pfc_frames_sent_hi =
-+				pstats->pfc_frames_tx_hi;
-+	estats->pfc_frames_sent_lo =
-+				pstats->pfc_frames_tx_lo;
+ /**
+@@ -441,6 +443,36 @@ static bool bnx2x_put_credit_vlan_mac(struct bnx2x_vlan_mac_obj *o)
+ 	return true;
  }
  
- static void bnx2x_mstat_stats_update(struct bnx2x *bp)
-@@ -571,6 +599,11 @@ static void bnx2x_mstat_stats_update(struct bnx2x *bp)
- 	ADD_STAT64(stats_tx.tx_gtxpf, tx_stat_outxoffsent);
- 	ADD_STAT64(stats_tx.tx_gtxpf, tx_stat_flowcontroldone);
- 
-+	/* collect pfc stats */
-+	ADD_64(pstats->pfc_frames_tx_hi, new->stats_tx.tx_gtxpp_hi,
-+		pstats->pfc_frames_tx_lo, new->stats_tx.tx_gtxpp_lo);
-+	ADD_64(pstats->pfc_frames_rx_hi, new->stats_rx.rx_grxpp_hi,
-+		pstats->pfc_frames_rx_lo, new->stats_rx.rx_grxpp_lo);
- 
- 	ADD_STAT64(stats_tx.tx_gt64, tx_stat_etherstatspkts64octets);
- 	ADD_STAT64(stats_tx.tx_gt127,
-@@ -628,6 +661,15 @@ static void bnx2x_mstat_stats_update(struct bnx2x *bp)
- 				pstats->mac_stx[1].tx_stat_outxoffsent_hi;
- 	estats->pause_frames_sent_lo =
- 				pstats->mac_stx[1].tx_stat_outxoffsent_lo;
++static int bnx2x_get_n_elements(struct bnx2x *bp, struct bnx2x_vlan_mac_obj *o,
++				int n, u8 *buf)
++{
++	struct bnx2x_vlan_mac_registry_elem *pos;
++	u8 *next = buf;
++	int counter = 0;
 +
-+	estats->pfc_frames_received_hi =
-+				pstats->pfc_frames_rx_hi;
-+	estats->pfc_frames_received_lo =
-+				pstats->pfc_frames_rx_lo;
-+	estats->pfc_frames_sent_hi =
-+				pstats->pfc_frames_tx_hi;
-+	estats->pfc_frames_sent_lo =
-+				pstats->pfc_frames_tx_lo;
- }
- 
- static void bnx2x_emac_stats_update(struct bnx2x *bp)
-@@ -740,7 +782,7 @@ static int bnx2x_hw_stats_update(struct bnx2x *bp)
- 	estats->brb_drop_hi = pstats->brb_drop_hi;
- 	estats->brb_drop_lo = pstats->brb_drop_lo;
- 
--	pstats->host_port_stats_start = ++pstats->host_port_stats_end;
-+	pstats->host_port_stats_counter++;
- 
- 	if (!BP_NOMCP(bp)) {
- 		u32 nig_timer_max =
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
-index 5d8ce2f..683deb0 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
-@@ -193,6 +193,12 @@ struct bnx2x_eth_stats {
- 	u32 total_tpa_aggregated_frames_lo;
- 	u32 total_tpa_bytes_hi;
- 	u32 total_tpa_bytes_lo;
++	/* traverse list */
++	list_for_each_entry(pos, &o->head, link) {
++		if (counter < n) {
++			/* place leading zeroes in buffer */
++			memset(next, 0, MAC_LEADING_ZERO_CNT);
 +
-+	/* PFC */
-+	u32 pfc_frames_received_hi;
-+	u32 pfc_frames_received_lo;
-+	u32 pfc_frames_sent_hi;
-+	u32 pfc_frames_sent_lo;
- };
++			/* place mac after leading zeroes*/
++			memcpy(next + MAC_LEADING_ZERO_CNT, pos->u.mac.mac,
++			       ETH_ALEN);
++
++			/* calculate address of next element and
++			 * advance counter
++			 */
++			counter++;
++			next = buf + counter * ALIGN(ETH_ALEN, sizeof(u32));
++
++			DP(BNX2X_MSG_SP, "copied element number %d to address %p element was %pM\n",
++			   counter, next, pos->u.mac.mac);
++		}
++	}
++	return counter * ETH_ALEN;
++}
++
+ /* check_add() callbacks */
+ static int bnx2x_check_mac_add(struct bnx2x_vlan_mac_obj *o,
+ 			       union bnx2x_classification_ramrod_data *data)
+@@ -1886,6 +1918,7 @@ void bnx2x_init_mac_obj(struct bnx2x *bp,
+ 		mac_obj->check_move        = bnx2x_check_move;
+ 		mac_obj->ramrod_cmd        =
+ 			RAMROD_CMD_ID_ETH_CLASSIFICATION_RULES;
++		mac_obj->get_n_elements    = bnx2x_get_n_elements;
  
+ 		/* Exe Queue */
+ 		bnx2x_exe_queue_init(bp,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+index 9a517c2..992308f 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+@@ -285,6 +285,19 @@ struct bnx2x_vlan_mac_obj {
+ 	/* RAMROD command to be used */
+ 	int				ramrod_cmd;
  
++	/* copy first n elements onto preallocated buffer
++	 *
++	 * @param n number of elements to get
++	 * @param buf buffer preallocated by caller into which elements
++	 *            will be copied. Note elements are 4-byte aligned
++	 *            so buffer size must be able to accomodate the
++	 *            aligned elements.
++	 *
++	 * @return number of copied bytes
++	 */
++	int (*get_n_elements)(struct bnx2x *bp, struct bnx2x_vlan_mac_obj *o,
++			      int n, u8 *buf);
++
+ 	/**
+ 	 * Checks if ADD-ramrod with the given params may be performed.
+ 	 *
 -- 
 1.7.1
