@@ -1,39 +1,61 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH net-next 4/4 v2] bnx2x, cnic: support DRV_INFO upon
- FW request
-Date: Tue, 6 Dec 2011 08:12:06 +0000
-Message-ID: <0E685F8B314BFB42AE2422915B7BDCC306626E@IRVEXCHMB07.corp.ad.broadcom.com>
-References: <1323157945-28333-1-git-send-email-mchan@broadcom.com>
- <1323157945-28333-2-git-send-email-mchan@broadcom.com>
- <1323157945-28333-3-git-send-email-mchan@broadcom.com>
- <1323157945-28333-4-git-send-email-mchan@broadcom.com>
- <1323158294.1762.4.camel@joe2Laptop>
+From: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Subject: RE: [PATCH net-next V0 19/21] mlx4_core: Modify driver
+ initialization flow to accommodate SRIOV for Ethernet
+Date: Tue, 6 Dec 2011 08:09:14 +0000
+Message-ID: <953B660C027164448AE903364AC447D223628F69@MTLDAG01.mtl.com>
+References: <4ED8A636.40901@mellanox.co.il>
+ <1323120413.2887.50.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: "'davem@davemloft.net'" <davem@davemloft.net>,
-	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"Barak Witkowski" <barak@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "'Joe Perches'" <joe@perches.com>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+	"roland@purestorage.com" <roland@purestorage.com>,
+	Liran Liss <liranl@mellanox.com>,
+	"jackm@dev.mellanox.co.il" <jackm@dev.mellanox.co.il>,
+	Marcel Apfelbaum <marcela@mellanox.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3644 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932984Ab1LFIML (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Dec 2011 03:12:11 -0500
-In-Reply-To: <1323158294.1762.4.camel@joe2Laptop>
+Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:41447 "HELO
+	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932880Ab1LFIPg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 03:15:36 -0500
+In-Reply-To: <1323120413.2887.50.camel@bwh-desktop>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sm9lIFBlcmNoZXMgd3JvdGU6DQo+ID4gKy8qICBQZXIgUENJIEZ1bmN0aW9uIEZDT0UgU3RhdGlz
-dGljcyByZXF1aXJlZCBmcm9tIHRoZSBkcml2ZXIgKi8NCj4gPiArc3RydWN0IGZjb2Vfc3RhdHNf
-aW5mbyB7DQo+ID4gKwl1OCB2ZXJzaW9uWzEyXTsJCS8qIEZ1bmN0aW9uJ3MgRHJpdmVyIFZlcnNp
-b24uICovDQo+ID4gKwl1OCBtYWNfbG9jYWxbOF07CS8qIExvY2FsbHkgQWRtaW4gQWRkci4gKi8N
-Cj4gPiArCXU4IG1hY19hZGQxWzhdOwkJLyogQWRkaXRpb25hbCBQcm9ncmFtbWVkIE1BQyBBZGRy
-IDEuICovDQo+ID4gKwl1OCBtYWNfYWRkMls4XTsJCS8qIEFkZGl0aW9uYWwgUHJvZ3JhbW1lZCBN
-QUMgQWRkciAyLiAqLw0KPiANCj4gU2hvdWxkIHRoZXNlIGFkZHJlc3NlcyBiZSB1OCBuYW1lWzZd
-Pw0KPiANCj4gDQoNCkkgd2FzIHRvbGQgdGhhdCB0aGlzIHN0cnVjdHVyZSBmb3IgbWFuYWdlbWVu
-dCBmaXJtd2FyZSB3YXMgZGVmaW5lZCBieQ0KYW4gT0VNIHBhcnRuZXIgYW5kIHRoZXkgdXNlZCAy
-IGJ5dGVzIG9mIHBhZGRpbmcgZm9yIHRoZXNlIE1BQyBhZGRyZXNzZXMuDQo=
+PiA+IDEuIEFkZGVkIG1vZHVsZSBwYXJhbWV0ZXJzIHNyX2lvdiBhbmQgcHJvYmVfdmYgZm9yIGNv
+bnRyb2xsaW5nIGVuYWJsZW1lbnQgb2YNCj4gPiAgICBTUklPViBtb2RlLg0KPiANCj4gVGhpcyBz
+b3J0IG9mIG9wdGlvbiBpcyB1c2VmdWwgaW4gbWFueSBkcml2ZXJzLCBhbmQgaWRlYWxseSB3b3Vs
+ZCBiZQ0KPiBzcGVjaWZpZWQgaW4gc29tZSBnZW5lcmljIHdheSByYXRoZXIgdGhhbiBhIG1vZHVs
+ZSBwYXJhbWV0ZXJzLiAgSG93ZXZlcg0KPiBJIGNhbid0IHNlZSBhIGdvb2Qgd2F5IHRvIG1ha2Ug
+aXQgY29uZmlndXJhYmxlIGFmdGVyIHRoZSBuZXQgZGV2aWNlIGlzDQo+IHJlZ2lzdGVyZWQuDQo+
+IA0KPiBDdXJyZW50bHkgdGhlIGluLXRyZWUgZHJpdmVycyBoYXZlOg0KPiANCj4gYmUybmV0OiBu
+dW1fdmZzDQo+IGN4Z2I0OiAgbnVtX3ZmcyBbYXJyYXldDQo+IGlnYjogICAgbWF4X3Zmcw0KPiBp
+eGdiZTogIG1heF92ZnMNCj4gDQo+IENvbnNpZGVyIHJlbmFtaW5nICdzcl9pb3YnIHRvIG9uZSBv
+ZiB0aGUgYWJvdmUgcmF0aGVyIHRoYW4gYWRkaW5nIHRvIHRoZSB2YXJpYXRpb24uDQoNCkdvb2Qg
+cG9pbnQsIHdlIHByb2JhYmx5IHNob3VsZCByZW5hbWUgaXQuDQoNCj4gDQo+IFRoZSAncHJvYmVf
+dmYnIHBhcmFtZXRlciBpcyB2ZXJ5IG9kZC4gIFdoeSBkbyB5b3UgdGhpbmsgaXQgaXMgbmVjZXNz
+YXJ5DQo+IHRvIG1ha2UgdGhpcyBhIG1vZHVsZSBwYXJhbWV0ZXI/ICBJdCBzaG91bGQgYmUgcG9z
+c2libGUgdG8gYmluZCBhbmQNCj4gdW5iaW5kIHRoZSBkcml2ZXIgZnJvbSBlYWNoIFZGIGR5bmFt
+aWNhbGx5IHZpYSBzeXNmcyBidXQgdGhpcyBwYXJhbWV0ZXINCj4gYXBwZWFycyB0byByZXN0cmlj
+dCB0aGF0Lg0KPg0KIA0KV2UgaGF2ZSBzYW1lIGRyaXZlciBhY3RpbmcgYm90aCBhcyBWRiBhbmQg
+UEYsIHNvIG9uY2UgdGhlIFZGcyBhcmUgYmVpbmcgY3JlYXRlZCAocGNpX2VuYWJsZV9zcmlvdiks
+DQpUaGUgcHJvYmUgZnVuY3Rpb24gaXMgYmVpbmcgY2FsbGVkIGZvciBhbGwgb2YgdGhlbS4NCklu
+IG1hbnkgY2FzZXMgdGhpcyBpcyBub3Qgd2hhdCB3ZSB3YW50LCBidXQgcmF0aGVyIHBhc3MgdGhl
+IHZmcyB0byBndWVzdCBPUy4NClRoZSBtb2R1bGUgcGFyYW1ldGVyIGlzIG1lYW50IHRvIGVhc2Ug
+dGhlIGxpZmUgb2YgdGhlIGFkbWluaXN0cmF0b3IuDQogDQo+IFsuLi5dDQo+ID4gMy4gQWRkZWQg
+cG9ydF90eXBlX2FycmF5IGFzIGEgbW9kdWxlIHBhcmFtZXRlciB0byBhbGxvdyBkcml2ZXIgc3Rh
+cnR1cCB3aXRoDQo+ID4gICAgcG9ydHMgY29uZmlndXJlZCBhcyBkZXNpcmVkLg0KPiA+ICAgIElu
+IFNSSU9WIG1vZGUsIG9ubHkgRVRIIGlzIHN1cHBvcnRlZCwgYW5kIHRoaXMgYXJyYXkgaXMgaWdu
+b3JlZDsgb3RoZXJ3aXNlLA0KPiA+ICAgIGZvciB0aGUgY2FzZSB3aGVyZSB0aGUgRlcgc3VwcG9y
+dHMgYm90aCBwb3J0IHR5cGVzIChFVEggYW5kIElCKSwgdGhlDQo+ID4gICAgcG9ydF90eXBlX2Fy
+cmF5IHBhcmFtZXRlciBpcyB1c2VkLg0KPiA+ICAgIEJ5IGRlZmF1bHQsIHRoZSBwb3J0X3R5cGVf
+YXJyYXkgaXMgc2V0IHRvIGNvbmZpZ3VyZSBib3RoIHBvcnRzIGFzIElCLg0KPiBbLi4uXQ0KPiAN
+Cj4gWW91IHNlZW0gdG8gYmUgc2F5aW5nIHRoYXQgdGhpcyBjYW4gYmUgcmVjb25maWd1cmVkIGFm
+dGVyIHN0YXJ0dXAgLSBpbg0KPiB3aGljaCBjYXNlIGlzIHRoZSBtb2R1bGUgcGFyYW1ldGVyIHJl
+YWxseSBuZWNlc3Nhcnk/ICBNYXliZSBJIG1pc3VuZGVyc3RhbmQuDQoNCkluIFNSSU9WIG1vZGUg
+d2UgZG9uJ3QgYWxsb3cgZHluYW1pYyBsaW5rIGxheWVyIHR5cGUgY2hhbmdlcywgc28gdGhlIHR5
+cGUgaXMgc2V0IGJ5IG1vZHVsZSBwYXJhbWV0ZXIuDQogDQoNClRoYW5rcywNCllldmdlbnkNCg==
