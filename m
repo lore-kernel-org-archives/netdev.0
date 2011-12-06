@@ -1,10 +1,10 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net-next RFC PATCH 2/5] tuntap: simple flow director support
-Date: Tue, 06 Dec 2011 15:21:33 +0800
-Message-ID: <4EDDC27D.9050608@redhat.com>
+Subject: Re: [net-next RFC PATCH 5/5] virtio-net: flow director support
+Date: Tue, 06 Dec 2011 15:25:16 +0800
+Message-ID: <4EDDC35C.2070100@redhat.com>
 References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
-	<20111205085857.6116.99252.stgit@dhcp-8-146.nay.redhat.com>
-	<1323115763.2887.12.camel@bwh-desktop>
+	<20111205085925.6116.94352.stgit@dhcp-8-146.nay.redhat.com>
+	<1323117745.2887.31.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
@@ -13,7 +13,7 @@ Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
 	levinsasha928@gmail.com
 To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1323115763.2887.12.camel@bwh-desktop>
+In-Reply-To: <1323117745.2887.31.camel@bwh-desktop>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -25,24 +25,74 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 12/06/2011 04:09 AM, Ben Hutchings wrote:
-> On Mon, 2011-12-05 at 16:58 +0800, Jason Wang wrote:
->> This patch adds a simple flow director to tun/tap device. It is just a
->> page that contains the hash to queue mapping which could be changed by
->> user-space. The backend (tap/macvtap) would query this table to get
->> the desired queue of a packets when it send packets to userspace.
-> This is just flow hashing (RSS), not flow steering.
+On 12/06/2011 04:42 AM, Ben Hutchings wrote:
+> On Mon, 2011-12-05 at 16:59 +0800, Jason Wang wrote:
+>> In order to let the packets of a flow to be passed to the desired
+>> guest cpu, we can co-operate with devices through programming the flow
+>> director which was just a hash to queue table.
+>>
+>> This kinds of co-operation is done through the accelerate RFS support,
+>> a device specific flow sterring method virtnet_fd() is used to modify
+>> the flow director based on rfs mapping. The desired queue were
+>> calculated through reverse mapping of the irq affinity table. In order
+>> to parallelize the ingress path, irq affinity of rx queue were also
+>> provides by the driver.
+>>
+>> In addition to accelerate RFS, we can also use the guest scheduler to
+>> balance the load of TX and reduce the lock contention on egress path,
+>> so the processor_id() were used to tx queue selection.
+> [...]
+>> +#ifdef CONFIG_RFS_ACCEL
+>> +
+>> +int virtnet_fd(struct net_device *net_dev, const struct sk_buff *skb,
+>> +	       u16 rxq_index, u32 flow_id)
+>> +{
+>> +	struct virtnet_info *vi = netdev_priv(net_dev);
+>> +	u16 *table = NULL;
+>> +
+>> +	if (skb->protocol != htons(ETH_P_IP) || !skb->rxhash)
+>> +		return -EPROTONOSUPPORT;
+> Why only IPv4?
+
+Oops, IPv6 should work also.
+>> +	table = kmap_atomic(vi->fd_page);
+>> +	table[skb->rxhash&  TAP_HASH_MASK] = rxq_index;
+>> +	kunmap_atomic(table);
+>> +
+>> +	return 0;
+>> +}
+>> +#endif
+> This is not a proper implementation of ndo_rx_flow_steer.  If you steer
+> a flow by changing the RSS table this can easily cause packet reordering
+> in other flows.  The filtering should be more precise, ideally matching
+> exactly a single flow by e.g. VID and IP 5-tuple.
 >
->> The page address were set through a new kind of ioctl - TUNSETFD and
->> were pinned until device exit or another new page were specified.
+> I think you need to add a second hash table which records exactly which
+> flow is supposed to be steered.  Also, you must call
+> rps_may_expire_flow() to check whether an entry in this table may be
+> replaced; otherwise you can cause packet reordering in the flow that was
+> previously being steered.
+>
+> Finally, this function must return the table index it assigned, so that
+> rps_may_expire_flow() works.
+
+Thanks for the explanation, how about document this briefly in scaling.txt?
+>> +static u16 virtnet_select_queue(struct net_device *dev, struct sk_buff *skb)
+>> +{
+>> +	int txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) :
+>> +					       smp_processor_id();
+>> +
+>> +	/* As we make use of the accelerate rfs which let the scheduler to
+>> +	 * balance the load, it make sense to choose the tx queue also based on
+>> +	 * theprocessor id?
+>> +	 */
+>> +	while (unlikely(txq>= dev->real_num_tx_queues))
+>> +		txq -= dev->real_num_tx_queues;
+>> +	return txq;
+>> +}
 > [...]
 >
-> You should implement ethtool ETHTOOL_{G,S}RXFHINDIR instead.
+> Don't do this, let XPS handle it.
 >
 > Ben.
 >
-
-I'm not fully understanding this. The page belongs to guest, and the 
-idea is to let guest driver can easily change any entry. Looks like if 
-ethtool_set_rxfh_indir() is used, this kind of change is not easy as it 
-needs one copy and can only accept the whole table as its parameters.
