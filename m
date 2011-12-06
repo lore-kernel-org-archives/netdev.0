@@ -1,35 +1,142 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6:export nd_tbl
-Date: Tue, 06 Dec 2011 12:57:43 -0500 (EST)
-Message-ID: <20111206.125743.160144181036493070.davem@davemloft.net>
-References: <a46bd31bb9a4876e97f96e82d399a26506646d04.1323154266.git.panweiping3@gmail.com>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH] iproute: Use SOCK_DIAG_BY_FAMILY messages
+Date: Tue, 06 Dec 2011 22:02:00 +0400
+Message-ID: <4EDE5898.5090809@parallels.com>
+References: <4EDE573A.6040607@parallels.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: panweiping3@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <a46bd31bb9a4876e97f96e82d399a26506646d04.1323154266.git.panweiping3@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:34610 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751778Ab1LFSCF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Dec 2011 13:02:05 -0500
+In-Reply-To: <4EDE573A.6040607@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Weiping Pan <panweiping3@gmail.com>
-Date: Tue,  6 Dec 2011 14:52:41 +0800
+Applies to cd72dcf13c8a4948ee5706794714287eeff62c90 commit of the
+git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git tree
 
-> A customer wants to use nd_tbl in his kernel module,
-> the easiest way is to export nd_tbl, just as arp_tbl.
-> 
-> There were some requests to export nd_tbl, like:
-> http://marc.info/?l=netfilter-devel&m=111416950824614&w=2
-> http://marc.info/?l=linux-netdev&m=110715893206991&w=2
-> 
-> But they were all rejected.
-> I want to know the reason why can't nd_tbl be exported just as arp_tbl,
-> and how can we look up nd_tbl without exporting it.
-> 
-> Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
-We do not accomodate out-of-tree code, arp_tbl is exported because
-modules (such as ATM clip) in the upstream tree use that symbol.
+---
+
+diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
+index de6f1fc..7b6113a 100644
+--- a/include/linux/inet_diag.h
++++ b/include/linux/inet_diag.h
+@@ -6,6 +6,7 @@
+ /* Just some random number */
+ #define TCPDIAG_GETSOCK 18
+ #define DCCPDIAG_GETSOCK 19
++#define SOCK_DIAG_BY_FAMILY 20
+ 
+ #define INET_DIAG_GETSOCK_MAX 24
+ 
+@@ -22,7 +23,7 @@ struct inet_diag_sockid {
+ 
+ /* Request structure */
+ 
+-struct inet_diag_req {
++struct inet_diag_req_compat {
+ 	__u8	idiag_family;		/* Family of addresses. */
+ 	__u8	idiag_src_len;
+ 	__u8	idiag_dst_len;
+@@ -34,6 +35,15 @@ struct inet_diag_req {
+ 	__u32	idiag_dbs;		/* Tables to dump (NI) */
+ };
+ 
++struct inet_diag_req {
++	__u8	sdiag_family;
++	__u8	sdiag_protocol;
++	__u8	idiag_ext;
++	__u8	pad;
++	__u32	idiag_states;
++	struct inet_diag_sockid id;
++};
++
+ enum {
+ 	INET_DIAG_REQ_NONE,
+ 	INET_DIAG_REQ_BYTECODE,
+diff --git a/misc/ss.c b/misc/ss.c
+index 5ce40c0..49afd4a 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1474,7 +1474,7 @@ static int tcp_show_sock(struct nlmsghdr *nlh, struct filter *f)
+ 	return 0;
+ }
+ 
+-static int tcp_show_netlink(struct filter *f, FILE *dump_fp, int socktype)
++static int __tcp_show_netlink(struct filter *f, FILE *dump_fp, int family, int socktype)
+ {
+ 	int fd;
+ 	struct sockaddr_nl nladdr;
+@@ -1496,12 +1496,13 @@ static int tcp_show_netlink(struct filter *f, FILE *dump_fp, int socktype)
+ 	nladdr.nl_family = AF_NETLINK;
+ 
+ 	req.nlh.nlmsg_len = sizeof(req);
+-	req.nlh.nlmsg_type = socktype;
++	req.nlh.nlmsg_type = SOCK_DIAG_BY_FAMILY;
+ 	req.nlh.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
+ 	req.nlh.nlmsg_pid = 0;
+ 	req.nlh.nlmsg_seq = 123456;
+ 	memset(&req.r, 0, sizeof(req.r));
+-	req.r.idiag_family = AF_INET;
++	req.r.sdiag_family = family;
++	req.r.sdiag_protocol = socktype;
+ 	req.r.idiag_states = f->states;
+ 	if (show_mem)
+ 		req.r.idiag_ext |= (1<<(INET_DIAG_MEMINFO-1));
+@@ -1589,10 +1590,6 @@ static int tcp_show_netlink(struct filter *f, FILE *dump_fp, int socktype)
+ 				return 0;
+ 			}
+ 			if (!dump_fp) {
+-				if (!(f->families & (1<<r->idiag_family))) {
+-					h = NLMSG_NEXT(h, status);
+-					continue;
+-				}
+ 				err = tcp_show_sock(h, NULL);
+ 				if (err < 0)
+ 					return err;
+@@ -1613,6 +1610,18 @@ skip_it:
+ 	return 0;
+ }
+ 
++static int tcp_show_netlink(struct filter *f, FILE *dump_fp, int socktype)
++{
++	int err = 0;
++
++	if (f->families & (1 << AF_INET))
++		err |= __tcp_show_netlink(f, dump_fp, AF_INET, socktype);
++	if (f->families & (1 << AF_INET6))
++		err |= __tcp_show_netlink(f, dump_fp, AF_INET6, socktype);
++
++	return err;
++}
++
+ static int tcp_show_netlink_file(struct filter *f)
+ {
+ 	FILE	*fp;
+@@ -2789,7 +2798,7 @@ int main(int argc, char *argv[])
+ 				exit(-1);
+ 			}
+ 		}
+-		tcp_show_netlink(&current_filter, dump_fp, TCPDIAG_GETSOCK);
++		tcp_show_netlink(&current_filter, dump_fp, IPPROTO_TCP);
+ 		fflush(dump_fp);
+ 		exit(0);
+ 	}
+@@ -2857,8 +2866,8 @@ int main(int argc, char *argv[])
+ 	if (current_filter.dbs & (1<<UDP_DB))
+ 		udp_show(&current_filter);
+ 	if (current_filter.dbs & (1<<TCP_DB))
+-		tcp_show(&current_filter, TCPDIAG_GETSOCK);
++		tcp_show(&current_filter, IPPROTO_TCP);
+ 	if (current_filter.dbs & (1<<DCCP_DB))
+-		tcp_show(&current_filter, DCCPDIAG_GETSOCK);
++		tcp_show(&current_filter, IPPROTO_DCCP);
+ 	return 0;
+ }
