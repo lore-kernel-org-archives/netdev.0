@@ -1,110 +1,89 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH] SUNRPC: create svc_xprt in proper network namespace
-Date: Tue, 06 Dec 2011 14:19:10 +0300
-Message-ID: <20111206101910.1878.21798.stgit@localhost6.localdomain6>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net-next RFC PATCH 5/5] virtio-net: flow director support
+Date: Tue, 06 Dec 2011 18:21:29 +0800
+Message-ID: <4EDDECA9.8060808@redhat.com>
+References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
+	<20111205085925.6116.94352.stgit@dhcp-8-146.nay.redhat.com>
+	<CAJSP0QXfHC8j2Kk9x6wyBMubo2=YvpaLAShJtwMWA2mtro6UhA@mail.gmail.com>
+	<4EDDB71F.9080908@redhat.com>
+	<CAJSP0QX5dDkpX+cRcQut2mb6K91zeqGLRrZBGAWT_r2p685gaQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbottomley@parallels.com, bfields@fieldses.org,
-	davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	levinsasha928@gmail.com, bhutchings@solarflare.com
+To: Stefan Hajnoczi <stefanha@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAJSP0QX5dDkpX+cRcQut2mb6K91zeqGLRrZBGAWT_r2p685gaQ@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes svc_xprt inherit network namespace link from it's socket.
+On 12/06/2011 05:18 PM, Stefan Hajnoczi wrote:
+> On Tue, Dec 6, 2011 at 6:33 AM, Jason Wang<jasowang@redhat.com>  wrote:
+>> On 12/05/2011 06:55 PM, Stefan Hajnoczi wrote:
+>>> On Mon, Dec 5, 2011 at 8:59 AM, Jason Wang<jasowang@redhat.com>    wrote:
+>>>> +static int virtnet_set_fd(struct net_device *dev, u32 pfn)
+>>>> +{
+>>>> +       struct virtnet_info *vi = netdev_priv(dev);
+>>>> +       struct virtio_device *vdev = vi->vdev;
+>>>> +
+>>>> +       if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_FD)) {
+>>>> +               vdev->config->set(vdev,
+>>>> +                                 offsetof(struct virtio_net_config_fd,
+>>>> addr),
+>>>> +&pfn, sizeof(u32));
+>>> Please use the virtio model (i.e. virtqueues) instead of shared
+>>> memory.  Mapping a page breaks the virtio abstraction.
+>>
+>> Using control virtqueue is more suitable but there's are also some problems:
+>>
+>> One problem is the interface,  if we use control virtqueue, we need a
+>> interface between the backend and tap/macvtap to change the flow mapping.
+>> But qemu and vhost_net only know about the file descriptor, more
+>> informations or interfaces need to be exposed in order to let ethtool or
+>> ioctl work.
+> QEMU could provide map a shared page with tap/macvtap.  The difference
+> would be that the guest<->host interface is still virtio and QEMU
+> pokes values into the shared page on behalf of the guest.
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+This makes sense.
 
----
- include/linux/sunrpc/svc_xprt.h          |    2 +-
- net/sunrpc/svc_xprt.c                    |    6 +++---
- net/sunrpc/svcsock.c                     |    8 +++++---
- net/sunrpc/xprtrdma/svc_rdma_transport.c |    2 +-
- 4 files changed, 10 insertions(+), 8 deletions(-)
+>> Another problem is the delay introduced by ctrl vq, as the ctrl vq would be
+>> used in the critical path in guest and it use busy wait to get the response,
+>> the delay is not neglectable.
+> Then you need to find a better way of doing this.  Can the host
+> automatically associate the flow from the tx virtqueue packets are
+> transmitted on?  Does it make sense to add a virtio_net_hdr field that
+> updates the queue mapping?
 
-diff --git a/include/linux/sunrpc/svc_xprt.h b/include/linux/sunrpc/svc_xprt.h
-index 8620f79..18df516 100644
---- a/include/linux/sunrpc/svc_xprt.h
-+++ b/include/linux/sunrpc/svc_xprt.h
-@@ -109,7 +109,7 @@ static inline int register_xpt_user(struct svc_xprt *xpt, struct svc_xpt_user *u
- 
- int	svc_reg_xprt_class(struct svc_xprt_class *);
- void	svc_unreg_xprt_class(struct svc_xprt_class *);
--void	svc_xprt_init(struct svc_xprt_class *, struct svc_xprt *,
-+void	svc_xprt_init(struct net *, struct svc_xprt_class *, struct svc_xprt *,
- 		      struct svc_serv *);
- int	svc_create_xprt(struct svc_serv *, const char *, struct net *,
- 			const int, const unsigned short, int);
-diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
-index 447cd0e..f8f0627 100644
---- a/net/sunrpc/svc_xprt.c
-+++ b/net/sunrpc/svc_xprt.c
-@@ -147,8 +147,8 @@ EXPORT_SYMBOL_GPL(svc_xprt_put);
-  * Called by transport drivers to initialize the transport independent
-  * portion of the transport instance.
-  */
--void svc_xprt_init(struct svc_xprt_class *xcl, struct svc_xprt *xprt,
--		   struct svc_serv *serv)
-+void svc_xprt_init(struct net *net, struct svc_xprt_class *xcl,
-+		   struct svc_xprt *xprt, struct svc_serv *serv)
- {
- 	memset(xprt, 0, sizeof(*xprt));
- 	xprt->xpt_class = xcl;
-@@ -163,7 +163,7 @@ void svc_xprt_init(struct svc_xprt_class *xcl, struct svc_xprt *xprt,
- 	spin_lock_init(&xprt->xpt_lock);
- 	set_bit(XPT_BUSY, &xprt->xpt_flags);
- 	rpc_init_wait_queue(&xprt->xpt_bc_pending, "xpt_bc_pending");
--	xprt->xpt_net = get_net(&init_net);
-+	xprt->xpt_net = get_net(net);
- }
- EXPORT_SYMBOL_GPL(svc_xprt_init);
- 
-diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-index 71bed1c..277909e 100644
---- a/net/sunrpc/svcsock.c
-+++ b/net/sunrpc/svcsock.c
-@@ -739,7 +739,8 @@ static void svc_udp_init(struct svc_sock *svsk, struct svc_serv *serv)
- {
- 	int err, level, optname, one = 1;
- 
--	svc_xprt_init(&svc_udp_class, &svsk->sk_xprt, serv);
-+	svc_xprt_init(sock_net(svsk->sk_sock->sk), &svc_udp_class,
-+		      &svsk->sk_xprt, serv);
- 	clear_bit(XPT_CACHE_AUTH, &svsk->sk_xprt.xpt_flags);
- 	svsk->sk_sk->sk_data_ready = svc_udp_data_ready;
- 	svsk->sk_sk->sk_write_space = svc_write_space;
-@@ -1343,7 +1344,8 @@ static void svc_tcp_init(struct svc_sock *svsk, struct svc_serv *serv)
- {
- 	struct sock	*sk = svsk->sk_sk;
- 
--	svc_xprt_init(&svc_tcp_class, &svsk->sk_xprt, serv);
-+	svc_xprt_init(sock_net(svsk->sk_sock->sk), &svc_tcp_class,
-+		      &svsk->sk_xprt, serv);
- 	set_bit(XPT_CACHE_AUTH, &svsk->sk_xprt.xpt_flags);
- 	if (sk->sk_state == TCP_LISTEN) {
- 		dprintk("setting up TCP socket for listening\n");
-@@ -1659,7 +1661,7 @@ static struct svc_xprt *svc_bc_create_socket(struct svc_serv *serv,
- 		return ERR_PTR(-ENOMEM);
- 
- 	xprt = &svsk->sk_xprt;
--	svc_xprt_init(&svc_tcp_bc_class, xprt, serv);
-+	svc_xprt_init(net, &svc_tcp_bc_class, xprt, serv);
- 
- 	serv->sv_bc_xprt = xprt;
- 
-diff --git a/net/sunrpc/xprtrdma/svc_rdma_transport.c b/net/sunrpc/xprtrdma/svc_rdma_transport.c
-index ba1296d..894cb42 100644
---- a/net/sunrpc/xprtrdma/svc_rdma_transport.c
-+++ b/net/sunrpc/xprtrdma/svc_rdma_transport.c
-@@ -453,7 +453,7 @@ static struct svcxprt_rdma *rdma_create_xprt(struct svc_serv *serv,
- 
- 	if (!cma_xprt)
- 		return NULL;
--	svc_xprt_init(&svc_rdma_class, &cma_xprt->sc_xprt, serv);
-+	svc_xprt_init(&init_net, &svc_rdma_class, &cma_xprt->sc_xprt, serv);
- 	INIT_LIST_HEAD(&cma_xprt->sc_accept_q);
- 	INIT_LIST_HEAD(&cma_xprt->sc_dto_q);
- 	INIT_LIST_HEAD(&cma_xprt->sc_rq_dto_q);
+It can but it can not properly handling the the packet re-ordering 
+caused by the moving of guest applications among guest cpus. One more 
+problem for virtio_net_hdr is we need to build a empty packet when there 
+no other packet to send.
+
+One solution is to introduce unblock cmd for ctrl vq.
+> The vcpus are just threads and may not be bound to physical CPUs, so
+> what is the big picture here?  Is the guest even in the position to
+> set the best queue mappings today?
+
+Not sure it could publish the best mapping but the idea is to make sure 
+the packets of a flow were handled by the same guest vcpu and may be the 
+same vhost thread in order to eliminate the packet reordering and lock 
+contention. But this assumption does not take the bouncing of vhost or 
+vcpu threads which would also affect the result.
+
+Anyway, the mapping from guest was an important reference.
+> Stefan
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
