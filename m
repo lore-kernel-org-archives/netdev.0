@@ -1,31 +1,100 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netback: fix typo in comment
-Date: Tue, 06 Dec 2011 13:21:15 -0500 (EST)
-Message-ID: <20111206.132115.2018027889218830384.davem@davemloft.net>
-References: <1323173090-7867-1-git-send-email-wei.liu2@citrix.com>
-	<1323178854.23681.75.camel@zakaz.uk.xensource.com>
+From: "May  Aphradee" <gjabaay771@aol.com>
+Subject: Highly Important Read and Reply.
+Date: Tue, 6 Dec 2011 10:13:33 -0800
+Message-ID: <201112061813.pB6IDk2F021621@ims-m12.mx.aol.com>
+Reply-To: <wanchaiwanchai1@w.cn>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: wei.liu2@citrix.com, xen-devel@lists.xensource.com,
-	netdev@vger.kernel.org
-To: Ian.Campbell@citrix.com
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0052_01C2A9A6.756C97C4"
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60200 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752876Ab1LFSVX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 13:21:23 -0500
-In-Reply-To: <1323178854.23681.75.camel@zakaz.uk.xensource.com>
+Received: from ims-m12.mx.aol.com ([64.12.207.145]:59516 "EHLO
+	ims-m12.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752509Ab1LFSVu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 13:21:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Date: Tue, 6 Dec 2011 13:40:54 +0000
+This is a multi-part message in MIME format.
 
-> On Tue, 2011-12-06 at 12:04 +0000, Wei Liu wrote:
->> "variables a used" should be "variables are used".
->> 
->> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> Acked-by: Ian Campbell <ian.campbell@citrix.com>
+------=_NextPart_000_0052_01C2A9A6.756C97C4
+Content-Type: text/plain;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
 
-Applied.
+I hereby write you regarding some vital fund issue.   Read the attached message and reply ASAP. 
+
+------=_NextPart_000_0052_01C2A9A6.756C97C4
+Content-Type: application/octet-stream;
+	name="from may.rtf"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+	filename="from may.rtf"
+
+RnJvbSB0aGUgZGVzayBvZiB0aGUgRGlyZWN0b3IgR2VuZXJhbCANCg0KQXNz
+b2NpYXRpb24gb2YgU291dGggRWFzdCBBc2lhbiBOYXRpb25zIChBU0VBTikg
+DQoNCkFudGkgRnJhdWQgJiBDcmltZXMgQ29tbWlzc2lvbi4gDQoNCiAgDQoN
+CkhlbGxvLA0KDQogIA0KDQpJbiB0aGUgZm91cnRlZW50aCBzdW1taXQgb2Yg
+dGhlIEFzc29jaWF0aW9uIG9mIFNvdXRoIEVhc3QgQXNpYW4gTmF0aW9uIHdo
+aWNoIHdhcyBoZWxkIGluIHRoZSByZXNvcnQgY2l0eSBvZiBQYXR0YXlhIFRo
+YWlsYW5kICwgb25lIG9mIHRoZSBpc3N1ZXMgcmFpc2VkIGluIHRoZSBzdW1t
+aXQgd2FzIHRoZSBlZmZlY3Qgb2YgZnJhdWQgYW5kIGNyaW1lcyBvbiB0aGUg
+Y2l0aXplbnJ5IG9mIHRoaXMgZ3JlYXQgYXNzb2NpYXRpb24gYW5kIHRoZSB3
+b3JsZCBpbiBnZW5lcmFsLiBUaGVyZSB3YXMgYW4gb3V0Y3J5IHdpdGggYSBs
+b3Qgb2YgcGVvcGxlIGhhdmluZyBiZWVuIHN3aW5kbGVkIG9mIHRoZWlyIGxp
+ZmUgZWFybmluZ3MgYW5kIGFyZSBsZWZ0IHRvIHdhbGxvcCBpbiBhYmplY3Qg
+cG92ZXJ0eSBhcyB0aGUgZWZmZWN0IG9mIGZyYXVkIGFuZCBjcmltZXMgcmFn
+ZXMgaW4gdGhlIHNvY2lldHkuIFRvIHRoaXMsIGVmZm9ydHMgaGFzIGJlZW4g
+bWFkZSB3aXRoIHRoZSBoZWxwIG9mIHRoZSByZWdpb25hbCBicmFuY2ggb2Yg
+dGhlIFVuaXRlZCBOYXRpb25zIChVTikgYW5kIFdvcmxkIEJhbmsgd2hpY2gg
+Ym90aCBhZ3JlZWQgdG8gY29tZSB0byB0aGUgYWlkIG9mIGFsbCB2aWN0aW1z
+LiBJdCB3YXMgYWdyZWVkIGJ5IGFsbCB0aGUgcGFydGllcyBhbmQgYSBzZXR0
+bGVtZW50IGNvbW1pdHRlZSB3YXMgc2V0IHVwIHdpdGggaXRzIHNlY3JldGFy
+aWF0IGluIHRoZSByZXNvcnQgY2l0eSBvZiBQYXR0YXlhIGFzIHdlbGwuIEEg
+aHVnZSBhbW91bnQgb2YgaGFsZiBhIGJpbGxpb24gZG9sbGFycyAoVVMkNTAw
+LDAwMCwwMDAuMDApIHdhcyBlYXJtYXJrZWQgZm9yIHRoaXMgcHJvamVjdCB3
+aGlsZSB0aGV5IHNldCBvdXQgZmlzaGluZyBvdXQgdmljdGltcyBvZiB0aGlz
+IGJhcmJhcmljIGFjdC4gU2luY2UgdGhlIGluYXVndXJhdGlvbiBvZiB0aGlz
+IGNvbW1pdHRlZSBmcmFudGljIGVmZm9ydHMgaGFzIGJlZW4gbWFkZSBpbiBj
+b250YWN0aW5nIHZpY3RpbXMgYnkgd2F5IG9mIGFubm91bmNlbWVudHMgYW5k
+IG90aGVyIG1hc3MgbWVkaWEgYW5kIHZpY3RpbXMgaGFzIGJlZW4gY29taW5n
+IGZvcndhcmQgZm9yIGNsYWltLCBhIGxhcmdlIHN1bSBoYXMgYmVlbiBwYWlk
+IG91dCBpcnJlc3BlY3RpdmUgb2YgdGhlaXIgY291bnRyaWVzIGFuZCBnZW8t
+cG9saXRpY2FsIHJlZ2lvbnMuIA0KDQogIA0KDQpSZWNlbnRseSB5b3VyIG5h
+bWUgaGFzIGNvbWUgdXAgYXMgYSB2aWN0aW0gYW5kIHdlIGFyZSBoYXBweSB0
+byBjb250YWN0IHlvdS4gRmlyc3QgeW91IGhhdmUgdG8gZGVzaXN0IGZyb20g
+Y29udGFjdGluZyBhbnlib2R5IGFuZCBmb2N1cyBvbiByZWdhaW5pbmcgYWxs
+IHlvdSBoYXZlIGxvc3QsIGFuZCBoZXJlIGlzIGEgY2hhbmNlIGZvciB0aGlz
+IGFzc29jaWF0aW9uIGhlbHBpbmcgeW91ICBpbiByZWNvdmVyaW5nIHBhcnQg
+b2Ygd2hhdCB5b3UgaGF2ZSBsb3N0LCB5b3VyIG5hbWVzIGFyZSBpbiB0aGUg
+cXVvdGEgZm9yIGZvdXJ0aCBxdWFydGVybHkgcGF5bWVudCBmb3IgdGhpcyB5
+ZWFyIHdoaWNoIHJlc3VtZXMgaW4gdGhlIG1vbnRoIG9mICBOb3ZlbWJlciAg
+YW5kIHdpbGwgbGFzdCB1bnRpbCB0aGUgZW5kIG9mIHRoZSB5ZWFyIDIwMTEg
+KHdlIHdpbGwgZS1tYWlsIHlvdSBuYW1lcyBvZiBwZXJzb25zIGFuZCB0aGVp
+ciBjb21wZW5zYXRpb24gYW1vdW50cyBhcyBhcHByb3ZlZCBieSB0aGUgYXNz
+b2NpYXRpb24gYW5kIHRoZSBwYXlpbmcgYmFuaykuIFlvdSBoYXZlIGJlZW4g
+YXBwcm92ZWQgZm9yIGEgY29tcGVuc2F0aW9uYWwgYW1vdW50IG9mIE9uZSBN
+aWxsaW9uIFR3byBIdW5kcmVkIEFuZCBGaWZ0eSB0aG91c2FuZCBkb2xsYXJz
+IChVUyQxLDI1MCwwMDAuMDApIGluIGNhc2ggb3IgQVRNIHRocm91Z2ggIG91
+ciBwYXlpbmcgYmFuay4gQWxsIHlvdSBoYXZlIHRvIGRvIHJpZ2h0IG5vdyBp
+cyB0byBjb250YWN0IHRoZSB1bmRlcnNpZ25lZCBwZXJzb24gYXQgdGhlIGUt
+bWFpbCBwcm92aWRlZCBiZWxvdy4NCg0KTXIuIFdhbmNoYWkgICBQcmFjaGEN
+CkVtYWlsLiAgIHdhbmNoYWlwcmFjaGFAZ21haWwuY29tICANCg0KYW5kIGZ1
+cm5pc2ggdGhpcyBvZmZpY2Ugd2l0aCB0aGUgZm9sbG93aW5nIGRhdGEgb2Yg
+eW91cnMgaW1tZWRpYXRlbHkgZm9yIGNyb3NzIGNoZWNraW5nIGFzIHdlIGlu
+dGVuZCBmaW5hbGl6aW5nIHRoaXMgcGF5bWVudCBpbiBhIGZldyBkYXlzLXRp
+bWUuDQogDQogMS4gWW91ciBGdWxsIE5hbWUuDQogMi5Zb3VyIEFkZHJlc3MN
+CiAzLllvdXIgZGlyZWN0IFRlbGVwaG9uZSBudW1iZXINCg0KDQoNCk5PVEU6
+IFlvdSBhcmUgYWR2aWNlIHRvIHN0b3AgZnVydGhlciBjb21tdW5pY2F0aW9u
+IHdpdGggYW55Ym9keSBpbiBvdGhlciBub3QgdG8gY29tcG91bmQgeW91ciBw
+cm9ibGVtcyBhcyB3ZSBhcmUgZ29pbmcgdG8gcHJvdGVjdCB5b3UgYW5kIGd1
+aWRlIHlvdSBvbiBob3cgeW91IGFyZSBnb2luZyB0byByZWNlaXZlIHlvdXIg
+Y29tcGVuc2F0aW9uYWwgZnVuZCB3aGlsZSBhdm9pZGluZyB5b3UgZ2V0dGlu
+ZyBpbnRvIHRoZSBoYW5kcyBvZiB0aGVzZSBmcmF1ZHN0ZXJzIHNvIHdlIHNo
+YWxsIGRpcmVjdCB5b3Ugb24gaG93IHRvIHJlY2VpdmUgeW91ciBjb21wZW5z
+YXRpb24gaW1tZWRpYXRlbHkuIA0KDQogIA0KDQpXZSBhc3N1cmUgeW91IG9m
+IG91ciB1bmFsbG95ZWQgYW5kIG1vc3Qgc2luY2VyZSBjb29wZXJhdGlvbi4g
+DQoNCiAgDQoNCllvdXJzIHRydWx5IA0KDQpNcy4gTWF5ICBBcGhyYWRlZQ0K
+DQpTZWNyZXRhcnkgQVNFQU4gVGhhaWxhbmQgDQo=
+
+------=_NextPart_000_0052_01C2A9A6.756C97C4--
