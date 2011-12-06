@@ -1,22 +1,41 @@
-From: =?iso-8859-1?Q?=22=A9Simon_Cole=22?= <simonnok@bitscn.net>
-Subject: =?iso-8859-1?Q?=A9Call_Tel_:_+44-701-004-8163?=
-Date: Tue, 6 Dec 2011 04:58:52 +0300
-Message-ID: <ddf7ee69fdfae2972c0b227a31b73f44.squirrel@webmail.my-itech.com>
-Reply-To: simonnok@bitscn.net
+From: Adrian Chadd <adrian-h+KGxgPPiopAfugRpC6u6w@public.gmane.org>
+Subject: Re: Time in Queue, bufferbloat, and... our accidentally
+ interplanetary network
+Date: Tue, 6 Dec 2011 10:03:05 +0800
+Message-ID: <CAJ-VmomuA7u5=zRGMK2Jd3WG+HWTRTZNST4JDVWU9kUEcfE91Q@mail.gmail.com>
+References: <CAA93jw7kQYONQiAozatRmdRRJeK0GB9eNDWtRZ3AL+OVKn0OpA@mail.gmail.com>
+	<1323082774.2670.40.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate9.dnshostmaster.net ([202.75.53.16]:52825 "EHLO
-	server.my-itech.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932811Ab1LFCCu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2011 21:02:50 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	bloat <bloat-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>,
+	bloat-devel <bloat-devel-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1323082774.2670.40.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+Hi,
+
+For what it's worth, I've also been tinkering with time-in-queue for
+the wifi queue management in FreeBSD. I don't have anything public
+yet. What I have done actually seems to work quite well, when doing TX
+queue time-in-queue management. (I'm ignoring RX queue management for
+now.)
+
+Yes, I think a weighted random drop with both time-in-queue and queue
+depth would work well. I haven't sat down to model what it'd look like
+given some traffic profiles.
+
+I'll be sure to post some patches and results when I have them. :)
 
 
 
-
-Nokia awarded you the sum of  1,000,000.00 Pounds Send Names,address,Sex,
-Age, Tel.Mr Simon Cole. Email :simonnok@bitscn.net. Tel : +44-701-004-8163
+Adrian
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
