@@ -1,120 +1,67 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH] SUNRPC: create svc_xprt in proper network namespace
-Date: Tue, 6 Dec 2011 15:48:51 -0500
-Message-ID: <20111206204851.GB12640@fieldses.org>
-References: <20111206101910.1878.21798.stgit@localhost6.localdomain6>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-next] bnx2x: Fix compile errors if CONFIG_CNIC is
+ not set
+Date: Tue, 6 Dec 2011 12:58:08 -0800
+Message-ID: <1323205088-29693-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond.Myklebust@netapp.com, linux-nfs@vger.kernel.org,
-	xemul@parallels.com, neilb@suse.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jbottomley@parallels.com,
-	davem@davemloft.net, devel@openvz.org
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20111206101910.1878.21798.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, barak@broadcom.com, eilong@broadcom.com,
+	eric.dumazet@gmail.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:4469 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753382Ab1LFUwk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Dec 2011 15:52:40 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 06, 2011 at 02:19:10PM +0300, Stanislav Kinsbursky wrote:
-> This patch makes svc_xprt inherit network namespace link from it's socket.
+Don't provide FCoE and iSCSI statistics to management firmware if
+CONFIG_CNIC is not set.  Some needed structure fields are not defined
+without CONFIG_CNIC.
 
-And poor rdma gets left out.  OK.  Applying for 3.3 (with changelog typo
-fixed).
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
---b.
-
-> 
-> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
-> 
-> ---
->  include/linux/sunrpc/svc_xprt.h          |    2 +-
->  net/sunrpc/svc_xprt.c                    |    6 +++---
->  net/sunrpc/svcsock.c                     |    8 +++++---
->  net/sunrpc/xprtrdma/svc_rdma_transport.c |    2 +-
->  4 files changed, 10 insertions(+), 8 deletions(-)
-> 
-> diff --git a/include/linux/sunrpc/svc_xprt.h b/include/linux/sunrpc/svc_xprt.h
-> index 8620f79..18df516 100644
-> --- a/include/linux/sunrpc/svc_xprt.h
-> +++ b/include/linux/sunrpc/svc_xprt.h
-> @@ -109,7 +109,7 @@ static inline int register_xpt_user(struct svc_xprt *xpt, struct svc_xpt_user *u
->  
->  int	svc_reg_xprt_class(struct svc_xprt_class *);
->  void	svc_unreg_xprt_class(struct svc_xprt_class *);
-> -void	svc_xprt_init(struct svc_xprt_class *, struct svc_xprt *,
-> +void	svc_xprt_init(struct net *, struct svc_xprt_class *, struct svc_xprt *,
->  		      struct svc_serv *);
->  int	svc_create_xprt(struct svc_serv *, const char *, struct net *,
->  			const int, const unsigned short, int);
-> diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
-> index 447cd0e..f8f0627 100644
-> --- a/net/sunrpc/svc_xprt.c
-> +++ b/net/sunrpc/svc_xprt.c
-> @@ -147,8 +147,8 @@ EXPORT_SYMBOL_GPL(svc_xprt_put);
->   * Called by transport drivers to initialize the transport independent
->   * portion of the transport instance.
->   */
-> -void svc_xprt_init(struct svc_xprt_class *xcl, struct svc_xprt *xprt,
-> -		   struct svc_serv *serv)
-> +void svc_xprt_init(struct net *net, struct svc_xprt_class *xcl,
-> +		   struct svc_xprt *xprt, struct svc_serv *serv)
->  {
->  	memset(xprt, 0, sizeof(*xprt));
->  	xprt->xpt_class = xcl;
-> @@ -163,7 +163,7 @@ void svc_xprt_init(struct svc_xprt_class *xcl, struct svc_xprt *xprt,
->  	spin_lock_init(&xprt->xpt_lock);
->  	set_bit(XPT_BUSY, &xprt->xpt_flags);
->  	rpc_init_wait_queue(&xprt->xpt_bc_pending, "xpt_bc_pending");
-> -	xprt->xpt_net = get_net(&init_net);
-> +	xprt->xpt_net = get_net(net);
->  }
->  EXPORT_SYMBOL_GPL(svc_xprt_init);
->  
-> diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-> index 71bed1c..277909e 100644
-> --- a/net/sunrpc/svcsock.c
-> +++ b/net/sunrpc/svcsock.c
-> @@ -739,7 +739,8 @@ static void svc_udp_init(struct svc_sock *svsk, struct svc_serv *serv)
->  {
->  	int err, level, optname, one = 1;
->  
-> -	svc_xprt_init(&svc_udp_class, &svsk->sk_xprt, serv);
-> +	svc_xprt_init(sock_net(svsk->sk_sock->sk), &svc_udp_class,
-> +		      &svsk->sk_xprt, serv);
->  	clear_bit(XPT_CACHE_AUTH, &svsk->sk_xprt.xpt_flags);
->  	svsk->sk_sk->sk_data_ready = svc_udp_data_ready;
->  	svsk->sk_sk->sk_write_space = svc_write_space;
-> @@ -1343,7 +1344,8 @@ static void svc_tcp_init(struct svc_sock *svsk, struct svc_serv *serv)
->  {
->  	struct sock	*sk = svsk->sk_sk;
->  
-> -	svc_xprt_init(&svc_tcp_class, &svsk->sk_xprt, serv);
-> +	svc_xprt_init(sock_net(svsk->sk_sock->sk), &svc_tcp_class,
-> +		      &svsk->sk_xprt, serv);
->  	set_bit(XPT_CACHE_AUTH, &svsk->sk_xprt.xpt_flags);
->  	if (sk->sk_state == TCP_LISTEN) {
->  		dprintk("setting up TCP socket for listening\n");
-> @@ -1659,7 +1661,7 @@ static struct svc_xprt *svc_bc_create_socket(struct svc_serv *serv,
->  		return ERR_PTR(-ENOMEM);
->  
->  	xprt = &svsk->sk_xprt;
-> -	svc_xprt_init(&svc_tcp_bc_class, xprt, serv);
-> +	svc_xprt_init(net, &svc_tcp_bc_class, xprt, serv);
->  
->  	serv->sv_bc_xprt = xprt;
->  
-> diff --git a/net/sunrpc/xprtrdma/svc_rdma_transport.c b/net/sunrpc/xprtrdma/svc_rdma_transport.c
-> index ba1296d..894cb42 100644
-> --- a/net/sunrpc/xprtrdma/svc_rdma_transport.c
-> +++ b/net/sunrpc/xprtrdma/svc_rdma_transport.c
-> @@ -453,7 +453,7 @@ static struct svcxprt_rdma *rdma_create_xprt(struct svc_serv *serv,
->  
->  	if (!cma_xprt)
->  		return NULL;
-> -	svc_xprt_init(&svc_rdma_class, &cma_xprt->sc_xprt, serv);
-> +	svc_xprt_init(&init_net, &svc_rdma_class, &cma_xprt->sc_xprt, serv);
->  	INIT_LIST_HEAD(&cma_xprt->sc_accept_q);
->  	INIT_LIST_HEAD(&cma_xprt->sc_dto_q);
->  	INIT_LIST_HEAD(&cma_xprt->sc_rq_dto_q);
-> 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 86d36f8..418e7d3 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -2943,6 +2943,7 @@ static void bnx2x_drv_info_ether_stat(struct bnx2x *bp)
+ 
+ static void bnx2x_drv_info_fcoe_stat(struct bnx2x *bp)
+ {
++#ifdef BCM_CNIC
+ 	struct bnx2x_dcbx_app_params *app = &bp->dcbx_port_params.app;
+ 	struct fcoe_stats_info *fcoe_stat =
+ 		&bp->slowpath->drv_info_to_mcp.fcoe_stat;
+@@ -3026,7 +3027,6 @@ static void bnx2x_drv_info_fcoe_stat(struct bnx2x *bp)
+ 		       fcoe_q_xstorm_stats->mcast_pkts_sent);
+ 	}
+ 
+-#ifdef BCM_CNIC
+ 	/* ask L5 driver to add data to the struct */
+ 	bnx2x_cnic_notify(bp, CNIC_CTL_FCOE_STATS_GET_CMD);
+ #endif
+@@ -3034,6 +3034,7 @@ static void bnx2x_drv_info_fcoe_stat(struct bnx2x *bp)
+ 
+ static void bnx2x_drv_info_iscsi_stat(struct bnx2x *bp)
+ {
++#ifdef BCM_CNIC
+ 	struct bnx2x_dcbx_app_params *app = &bp->dcbx_port_params.app;
+ 	struct iscsi_stats_info *iscsi_stat =
+ 		&bp->slowpath->drv_info_to_mcp.iscsi_stat;
+@@ -3043,7 +3044,6 @@ static void bnx2x_drv_info_iscsi_stat(struct bnx2x *bp)
+ 	iscsi_stat->qos_priority =
+ 		app->traffic_type_priority[LLFC_TRAFFIC_TYPE_ISCSI];
+ 
+-#ifdef BCM_CNIC
+ 	/* ask L5 driver to add data to the struct */
+ 	bnx2x_cnic_notify(bp, CNIC_CTL_ISCSI_STATS_GET_CMD);
+ #endif
+-- 
+1.7.1
