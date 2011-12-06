@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] r8169: Support for byte queue limits
-Date: Tue, 06 Dec 2011 13:13:19 -0500 (EST)
-Message-ID: <20111206.131319.2237133596554595319.davem@davemloft.net>
-References: <igorm@etf.rs>
-	<1323162824-3196-1-git-send-email-igorm@etf.rs>
+Subject: Re: [PATCH] netback: remove redundant assignment
+Date: Tue, 06 Dec 2011 13:14:49 -0500 (EST)
+Message-ID: <20111206.131449.1351676944529284449.davem@davemloft.net>
+References: <1323166100-7059-1-git-send-email-wei.liu2@citrix.com>
+	<1323166882.23681.46.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com, romieu@fr.zoreil.com
-To: igorm@etf.rs
+Cc: wei.liu2@citrix.com, xen-devel@lists.xensource.com,
+	netdev@vger.kernel.org
+To: Ian.Campbell@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60095 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:60103 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752118Ab1LFSOb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 13:14:31 -0500
-In-Reply-To: <1323162824-3196-1-git-send-email-igorm@etf.rs>
+	with ESMTP id S1752650Ab1LFSO4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 13:14:56 -0500
+In-Reply-To: <1323166882.23681.46.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: igorm@etf.rs
-Date: Tue,  6 Dec 2011 10:13:44 +0100
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Date: Tue, 6 Dec 2011 10:21:22 +0000
 
-> From: Igor Maravic <igorm@etf.rs>
-> 
-> Changes to r8169 to use byte queue limits.
-> 
-> Signed-off-by: Igor Maravic <igorm@etf.rs>
+> On Tue, 2011-12-06 at 10:08 +0000, Wei Liu wrote:
+>> New value for netbk->mmap_pages[pending_idx] is assigned in
+>> xen_netbk_alloc_page(), no need for a second assignment which
+>> exposes internal to the outside world.
+>> 
+>> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> Acked-by: Ian Campbell <ian.campbell@citrix.com>
 
-Your change is only valid after Francois's fixes right?  That's what you
-say in another email.
-
-Well, you're targetting this change to the net-next tree, are Francois's
-fixes there?
-
-They aren't, so you need to be patient and not be so eager like a rabbit
-to keep mindlessly pumping this patch to the list.
+Applied to net-next, thanks.
