@@ -1,41 +1,44 @@
-From: Adrian Chadd <adrian-h+KGxgPPiopAfugRpC6u6w@public.gmane.org>
-Subject: Re: Time in Queue, bufferbloat, and... our accidentally
- interplanetary network
-Date: Tue, 6 Dec 2011 10:03:05 +0800
-Message-ID: <CAJ-VmomuA7u5=zRGMK2Jd3WG+HWTRTZNST4JDVWU9kUEcfE91Q@mail.gmail.com>
-References: <CAA93jw7kQYONQiAozatRmdRRJeK0GB9eNDWtRZ3AL+OVKn0OpA@mail.gmail.com>
-	<1323082774.2670.40.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Zhi Yong Wu <zwu.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [GIT PULL v3] Open vSwitch
+Date: Tue, 6 Dec 2011 10:12:41 +0800
+Message-ID: <CAEH94LhNxxD=q_y_5G5adCAw2YCA986KjzmSJimbF85ZKsrpGA@mail.gmail.com>
+References: <1322937531-8071-1-git-send-email-jesse@nicira.com>
+	<CAEH94LiXLAKFWkDG5VBo80rFTfXMnxn1=2aEb5qOieBUnoYRyA@mail.gmail.com>
+	<CAEP_g=-SAdXf33qP9Y=wS0QkG1OKBVXFBHTYgqD+8HgZznbLuQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	bloat <bloat-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>,
-	bloat-devel <bloat-devel-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1323082774.2670.40.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAEP_g=-SAdXf33qP9Y=wS0QkG1OKBVXFBHTYgqD+8HgZznbLuQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-For what it's worth, I've also been tinkering with time-in-queue for
-the wifi queue management in FreeBSD. I don't have anything public
-yet. What I have done actually seems to work quite well, when doing TX
-queue time-in-queue management. (I'm ignoring RX queue management for
-now.)
-
-Yes, I think a weighted random drop with both time-in-queue and queue
-depth would work well. I haven't sat down to model what it'd look like
-given some traffic profiles.
-
-I'll be sure to post some patches and results when I have them. :)
+On Tue, Dec 6, 2011 at 1:37 AM, Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org> wrote:
+> On Sun, Dec 4, 2011 at 7:32 PM, Zhi Yong Wu <zwu.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> Although this series of patchset is a bit large, therefore their codes
+>> aren't directly pasted here, but if anyone find some issues in the
+>> codes, how will we point out them?
+>
+> I also sent out the actual patches that are referenced in this pull
+> request to the mailing list, so that would be the best place to
+> provide comments. =A0For example, this is the first patch in the series:
+> http://marc.info/?l=3Dlinux-netdev&m=3D132293763127660&w=3D2
+Got it, thanks.
 
 
+-- =
 
-Adrian
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+
+Zhi Yong Wu
