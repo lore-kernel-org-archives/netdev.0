@@ -1,126 +1,69 @@
-From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH 2/2] SUNRPC: register service stats /proc entries in
- passed network namespace context
-Date: Tue, 6 Dec 2011 16:49:28 -0500
-Message-ID: <20111206214928.GF12640@fieldses.org>
-References: <20111206123748.15702.93290.stgit@localhost6.localdomain6>
- <20111206124249.15702.211.stgit@localhost6.localdomain6>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH net-next] bnx2x: Fix compile errors if CONFIG_CNIC
+ is not set
+Date: Tue, 6 Dec 2011 13:42:50 -0800
+Message-ID: <1323207770.7517.7.camel@HP1>
+References: <1323205088-29693-1-git-send-email-mchan@broadcom.com>
+ <1323205383.2690.25.camel@edumazet-laptop>
+ <1323206734.1762.8.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20111206124249.15702.211.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Eric Dumazet" <eric.dumazet@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, barak@broadcom.com, eilong@broadcom.com
+To: "Joe Perches" <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:2992 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752836Ab1LFVyB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 16:54:01 -0500
+In-Reply-To: <1323206734.1762.8.camel@joe2Laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 06, 2011 at 04:42:49PM +0300, Stanislav Kinsbursky wrote:
-> This patch makes it possible to create NFSd program entry ("/proc/net/rpc/nfsd")
-> in passed network namespace context instead of hard-coded "init_net".
 
-	Acked-by: J. Bruce Fields <bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+On Tue, 2011-12-06 at 13:25 -0800, Joe Perches wrote:
+> On Tue, 2011-12-06 at 22:03 +0100, Eric Dumazet wrote:
+> > Le mardi 06 d=C3=A9cembre 2011 =C3=A0 12:58 -0800, Michael Chan a =C3=
+=A9crit :
+> > > Don't provide FCoE and iSCSI statistics to management firmware if
+> > > CONFIG_CNIC is not set.  Some needed structure fields are not def=
+ined
+> > > without CONFIG_CNIC.
+> > Thanks for the fast answer, and yes, no more build error :)
+>=20
+> That works, but is that the best solution?
+>=20
+> Another option is for bnx2x_handle_drv_info_req
+> to return DRV_MSG_CODE_DRV_INFO_NACK
+>=20
 
-Or I can just apply it.  I'll assume it's going through Trond's tree
-unless I hear otherwise.
+Eilon (bnx2x lead maintainer) will need to decide which is the most
+appropriate solution as he is most familiar with the firmware.  I don't
+know if sending NACK to the firmware will have other negative effects o=
+r
+not.  Eilon should be online in about 8 hours and he can send a
+follow-up patch if necessary.
 
---b.
-
-> 
-> Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-> 
-> ---
->  fs/nfsd/stats.c              |    5 +++--
->  include/linux/sunrpc/stats.h |    8 ++++----
->  net/sunrpc/stats.c           |    8 ++++----
->  3 files changed, 11 insertions(+), 10 deletions(-)
-> 
-> diff --git a/fs/nfsd/stats.c b/fs/nfsd/stats.c
-> index a2e2402..6d4521f 100644
-> --- a/fs/nfsd/stats.c
-> +++ b/fs/nfsd/stats.c
-> @@ -25,6 +25,7 @@
->  #include <linux/module.h>
->  #include <linux/sunrpc/stats.h>
->  #include <linux/nfsd/stats.h>
-> +#include <net/net_namespace.h>
->  
->  #include "nfsd.h"
->  
-> @@ -94,11 +95,11 @@ static const struct file_operations nfsd_proc_fops = {
->  void
->  nfsd_stat_init(void)
->  {
-> -	svc_proc_register(&nfsd_svcstats, &nfsd_proc_fops);
-> +	svc_proc_register(&init_net, &nfsd_svcstats, &nfsd_proc_fops);
->  }
->  
->  void
->  nfsd_stat_shutdown(void)
->  {
-> -	svc_proc_unregister("nfsd");
-> +	svc_proc_unregister(&init_net, "nfsd");
->  }
-> diff --git a/include/linux/sunrpc/stats.h b/include/linux/sunrpc/stats.h
-> index f625b57..4720b12 100644
-> --- a/include/linux/sunrpc/stats.h
-> +++ b/include/linux/sunrpc/stats.h
-> @@ -61,9 +61,9 @@ void			rpc_modcount(struct inode *, int);
->  struct proc_dir_entry *	rpc_proc_register(struct net *,struct rpc_stat *);
->  void			rpc_proc_unregister(struct net *,const char *);
->  void			rpc_proc_zero(struct rpc_program *);
-> -struct proc_dir_entry *	svc_proc_register(struct svc_stat *,
-> +struct proc_dir_entry *	svc_proc_register(struct net *, struct svc_stat *,
->  					  const struct file_operations *);
-> -void			svc_proc_unregister(const char *);
-> +void			svc_proc_unregister(struct net *, const char *);
->  
->  void			svc_seq_show(struct seq_file *,
->  				     const struct svc_stat *);
-> @@ -73,9 +73,9 @@ static inline struct proc_dir_entry *rpc_proc_register(struct net *, struct rpc_
->  static inline void rpc_proc_unregisterstruct net *, (const char *p) {}
->  static inline void rpc_proc_zero(struct rpc_program *p) {}
->  
-> -static inline struct proc_dir_entry *svc_proc_register(struct svc_stat *s,
-> +static inline struct proc_dir_entry *svc_proc_register(struct net *net, struct svc_stat *s,
->  						       const struct file_operations *f) { return NULL; }
-> -static inline void svc_proc_unregister(const char *p) {}
-> +static inline void svc_proc_unregister(struct net *net, const char *p) {}
->  
->  static inline void svc_seq_show(struct seq_file *seq,
->  				const struct svc_stat *st) {}
-> diff --git a/net/sunrpc/stats.c b/net/sunrpc/stats.c
-> index f0f6e7c..3c4f688 100644
-> --- a/net/sunrpc/stats.c
-> +++ b/net/sunrpc/stats.c
-> @@ -241,18 +241,18 @@ rpc_proc_unregister(struct net *net, const char *name)
->  EXPORT_SYMBOL_GPL(rpc_proc_unregister);
->  
->  struct proc_dir_entry *
-> -svc_proc_register(struct svc_stat *statp, const struct file_operations *fops)
-> +svc_proc_register(struct net *net, struct svc_stat *statp, const struct file_operations *fops)
->  {
-> -	return do_register(&init_net, statp->program->pg_name, statp, fops);
-> +	return do_register(net, statp->program->pg_name, statp, fops);
->  }
->  EXPORT_SYMBOL_GPL(svc_proc_register);
->  
->  void
-> -svc_proc_unregister(const char *name)
-> +svc_proc_unregister(struct net *net, const char *name)
->  {
->  	struct sunrpc_net *sn;
->  
-> -	sn = net_generic(&init_net, sunrpc_net_id);
-> +	sn = net_generic(net, sunrpc_net_id);
->  	remove_proc_entry(name, sn->proc_net_rpc);
->  }
->  EXPORT_SYMBOL_GPL(svc_proc_unregister);
-> 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Maybe like:
+>=20
+> 	switch (op_code) {
+> 	case ETH_STATS_OPCODE:
+> 		bnx2x_drv_info_ether_stat(bp);
+> 		break;
+> #ifdef BCM_CNIC
+> 	case FCOE_STATS_OPCODE:
+> 		bnx2x_drv_info_fcoe_stat(bp);
+> 		break;
+> 	case ISCSI_STATS_OPCODE:
+> 		bnx2x_drv_info_iscsi_stat(bp);
+> 		break;
+> #endif
+> 	default:
+> 		/* if op code isn't supported - send NACK */
+> 		bnx2x_fw_command(bp, DRV_MSG_CODE_DRV_INFO_NACK, 0);
+> 		return;
+> 	}
+>=20
+>=20
+>=20
