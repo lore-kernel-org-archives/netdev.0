@@ -1,38 +1,56 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH] netback: fix typo in comment
-Date: Tue, 6 Dec 2011 12:04:50 +0000
-Message-ID: <1323173090-7867-1-git-send-email-wei.liu2@citrix.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH net-next] bnx2x: fix crash while ethtool -t
+Date: Tue, 6 Dec 2011 14:05:12 +0200
+Message-ID: <1323173112-30577-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: ian.campbell@citrix.com, Wei Liu <wei.liu2@citrix.com>
-To: xen-devel@lists.xensource.com, netdev@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:14838 "EHLO SMTP.CITRIX.COM"
+Received: from mms3.broadcom.com ([216.31.210.19]:2139 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933238Ab1LFMEt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Dec 2011 07:04:49 -0500
+	id S933238Ab1LFMFV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Dec 2011 07:05:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"variables a used" should be "variables are used".
+commit 2df1a70aaf70e8dff11b89b938a5f317556ee640  "bnx2x: Support
+for byte queue limits" has introduced an asymmetry in usage of
+netdev_tx_completed_queue and netdev_tx_sent_queue. Missing
+call to netdev_tx_sent_queue causes the crash during ethtool -t.
 
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+The patch adds the missing call.
+
+
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+
 ---
- drivers/net/xen-netback/netback.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 3ecb5aa..639cf8a 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -395,7 +395,7 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
- 	struct gnttab_copy *copy_gop;
- 	struct netbk_rx_meta *meta;
- 	/*
--	 * These variables a used iff get_page_ext returns true,
-+	 * These variables are used iff get_page_ext returns true,
- 	 * in which case they are guaranteed to be initialized.
- 	 */
- 	unsigned int uninitialized_var(group), uninitialized_var(idx);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index c679ed9..0b4b1d3 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -1741,6 +1741,7 @@ static int bnx2x_run_loopback(struct bnx2x *bp, int loopback_mode)
+ 	u16 len;
+ 	int rc = -ENODEV;
+ 	u8 *data;
++	struct netdev_queue *txq = netdev_get_tx_queue(bp->dev, txdata->txq_index);
+ 
+ 	/* check the loopback mode */
+ 	switch (loopback_mode) {
+@@ -1795,6 +1796,8 @@ static int bnx2x_run_loopback(struct bnx2x *bp, int loopback_mode)
+ 	tx_start_idx = le16_to_cpu(*txdata->tx_cons_sb);
+ 	rx_start_idx = le16_to_cpu(*fp_rx->rx_cons_sb);
+ 
++	netdev_tx_sent_queue(txq, skb->len);
++
+ 	pkt_prod = txdata->tx_pkt_prod++;
+ 	tx_buf = &txdata->tx_buf_ring[TX_BD(pkt_prod)];
+ 	tx_buf->first_bd = txdata->tx_bd_prod;
 -- 
-1.7.2.5
+1.7.1
