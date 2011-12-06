@@ -1,47 +1,40 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: [PATCH net-next] remove an outdated reference to T/TCP
-Date: Tue,  6 Dec 2011 12:00:05 -0800 (PST)
-Message-ID: <20111206200005.836D529006DD@tardy>
-Reply-To: Rick Jones <rick.jones2@hp.com>
-To: <netdev@vger.kernel.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH net-next 4/4 v3] bnx2x, cnic: support DRV_INFO upon
+ FW request
+Date: Tue, 6 Dec 2011 20:15:45 +0000
+Message-ID: <0E685F8B314BFB42AE2422915B7BDCC3067367@IRVEXCHMB07.corp.ad.broadcom.com>
+References: <1323160910-28446-1-git-send-email-mchan@broadcom.com>
+ <20111206.130654.1235461360535098349.davem@davemloft.net>
+ <1323200721.2690.22.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+	"Barak Witkowski" <barak@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "'Eric Dumazet'" <eric.dumazet@gmail.com>,
+	"'David Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:36041 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752946Ab1LFUAH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 15:00:07 -0500
-Received: from g1t0038.austin.hp.com (g1t0038.austin.hp.com [16.236.32.44])
-	by g1t0027.austin.hp.com (Postfix) with ESMTP id 2C28B38354
-	for <netdev@vger.kernel.org>; Tue,  6 Dec 2011 20:00:06 +0000 (UTC)
-Received: from tardy (tardy.cup.hp.com [16.89.64.213])
-	by g1t0038.austin.hp.com (Postfix) with ESMTP id ED5303005A
-	for <netdev@vger.kernel.org>; Tue,  6 Dec 2011 20:00:05 +0000 (UTC)
+Received: from mms1.broadcom.com ([216.31.210.17]:2910 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753200Ab1LFUP5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Dec 2011 15:15:57 -0500
+In-Reply-To: <1323200721.2690.22.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Remove a particularly out of date bit of comment referring to T/TCP.
-
-Signed-off-by: Rick Jones <rick.jones2@hp.com>
-
----
-
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 0cbb440..123e1be 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5824,14 +5824,6 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
- 			 * we just ignore it, that fits the spec precisely
- 			 * and avoids incompatibilities. It would be nice in
- 			 * future to drop through and process the data.
--			 *
--			 * Now that TTCP is starting to be used we ought to
--			 * queue this data.
--			 * But, this leaves one open to an easy denial of
--			 * service attack, and SYN cookies can't defend
--			 * against this problem. So, we drop the data
--			 * in the interest of security over speed unless
--			 * it's still in use.
- 			 */
- 			kfree_skb(skb);
- 			return 0;
+RXJpYyBEdW1hemV0IHdyb3RlOg0KDQo+IEJ1aWxkIGVycm9yIGhlcmUgaWYgOg0KPiANCj4gIyBn
+cmVwIENOSUMgLmNvbmZpZw0KPiAjIENPTkZJR19DTklDIGlzIG5vdCBzZXQNCj4gIyBDT05GSUdf
+UUxDTklDIGlzIG5vdCBzZXQNCj4gDQo+IA0KPiAgIENDIFtNXSAgZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvYnJvYWRjb20vYm54MngvYm54MnhfbWFpbi5vDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2Jy
+b2FkY29tL2JueDJ4L2JueDJ4X21haW4uYzogSW4gZnVuY3Rpb24NCj4g4oCYYm54MnhfZHJ2X2lu
+Zm9fZmNvZV9zdGF04oCZOg0KPiBkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9i
+bngyeF9tYWluLmM6Mjk1MDozMzogZXJyZXVyOg0KPiDigJhzdHJ1Y3QgYm54MnjigJkgaGFzIG5v
+IG1lbWJlciBuYW1lZCDigJhmaXBfbWFj4oCZDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2Fk
+Y29tL2JueDJ4L2JueDJ4X21haW4uYzogSW4gZnVuY3Rpb24NCj4g4oCYYm54MnhfZHJ2X2luZm9f
+aXNjc2lfc3RhdOKAmToNCj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54MngvYm54
+MnhfbWFpbi5jOjMwNDE6MzQ6IGVycmV1cjoNCj4g4oCYc3RydWN0IGJueDJ44oCZIGhhcyBubyBt
+ZW1iZXIgbmFtZWQg4oCYY25pY19ldGhfZGV24oCZDQo+ICANCg0KVGhhbmtzIGZvciByZXBvcnRp
+bmcgdGhpcy4gIEknbGwgc2VuZCBhIHBhdGNoIHRvIGZpeCB0aGlzIHNob3J0bHkuDQo=
