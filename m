@@ -1,208 +1,36 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 1/4] bnx2x: add PFC statistics
-Date: Mon, 5 Dec 2011 21:44:45 -0800
-Message-ID: <1323150288-28153-1-git-send-email-mchan@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] fsl_pq_mdio: Clean up tbi address configuration
+Date: Tue, 06 Dec 2011 00:41:21 -0500 (EST)
+Message-ID: <20111206.004121.1820319056329214972.davem@davemloft.net>
+References: <20111114.002630.2254622894958283155.davem@davemloft.net>
+	<D789ECCE-08DE-4E6D-BCA7-2C54EC5758B7@kernel.crashing.org>
+	<436A94C3-8F5B-4A8F-A46B-B66B503B98A0@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, barak@broadcom.com, eilong@broadcom.com
-To: davem@davemloft.net
+Cc: afleming@freescale.com, netdev@vger.kernel.org
+To: galak@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1802 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751069Ab1LFFj2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Dec 2011 00:39:28 -0500
+Received: from shards.monkeyblade.net ([198.137.202.13]:53785 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750976Ab1LFFl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 00:41:27 -0500
+In-Reply-To: <436A94C3-8F5B-4A8F-A46B-B66B503B98A0@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Barak Witkowski <barak@broadcom.com>
+From: Kumar Gala <galak@kernel.crashing.org>
+Date: Mon, 5 Dec 2011 23:38:14 -0600
 
-Add Priority flow control counters for ethtool -S.
+> Any comment on getting this patch pulled into net.git?
 
-Signed-off-by: Barak Witkowski <barak@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |    1 +
- .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |    4 ++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h    |    9 +++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |    2 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c  |   44 +++++++++++++++++++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h  |    6 +++
- 6 files changed, 63 insertions(+), 3 deletions(-)
+It requires a DT patch or related set of changes which have need
+to be done differently as per feedback.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 6c7bd63..32af052 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1266,6 +1266,7 @@ struct bnx2x {
- #define NO_ISCSI_OOO_FLAG		(1 << 13)
- #define NO_ISCSI_FLAG			(1 << 14)
- #define NO_FCOE_FLAG			(1 << 15)
-+#define BC_SUPPORTS_PFC_STATS		(1 << 17)
- 
- #define NO_ISCSI(bp)		((bp)->flags & NO_ISCSI_FLAG)
- #define NO_ISCSI_OOO(bp)	((bp)->flags & NO_ISCSI_OOO_FLAG)
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index c679ed9..e64bdf6 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -107,6 +107,10 @@ static const struct {
- 				4, STATS_FLAGS_PORT, "rx_filtered_packets" },
- 	{ STATS_OFFSET32(mf_tag_discard),
- 				4, STATS_FLAGS_PORT, "rx_mf_tag_discard" },
-+	{ STATS_OFFSET32(pfc_frames_received_hi),
-+				8, STATS_FLAGS_PORT, "pfc_frames_received" },
-+	{ STATS_OFFSET32(pfc_frames_sent_hi),
-+				8, STATS_FLAGS_PORT, "pfc_frames_sent" },
- 	{ STATS_OFFSET32(brb_drop_hi),
- 				8, STATS_FLAGS_PORT, "rx_brb_discard" },
- 	{ STATS_OFFSET32(brb_truncate_hi),
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-index fc754cb..79b6e43 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-@@ -1247,6 +1247,7 @@ struct drv_func_mb {
- 	#define DRV_MSG_CODE_VRFY_SPECIFIC_PHY_OPT_MDL  0xa1000000
- 	#define REQ_BC_VER_4_VRFY_SPECIFIC_PHY_OPT_MDL  0x00050234
- 	#define REQ_BC_VER_4_SFP_TX_DISABLE_SUPPORTED   0x00070014
-+	#define REQ_BC_VER_4_PFC_STATS_SUPPORTED        0x00070201
- 
- 	#define DRV_MSG_CODE_DCBX_ADMIN_PMF_MSG         0xb0000000
- 	#define DRV_MSG_CODE_DCBX_PMF_DRV_OK            0xb2000000
-@@ -2501,14 +2502,18 @@ struct mac_stx {
- #define MAC_STX_IDX_MAX                     2
- 
- struct host_port_stats {
--	u32            host_port_stats_start;
-+	u32            host_port_stats_counter;
- 
- 	struct mac_stx mac_stx[MAC_STX_IDX_MAX];
- 
- 	u32            brb_drop_hi;
- 	u32            brb_drop_lo;
- 
--	u32            host_port_stats_end;
-+	u32            not_used; /* obsolete */
-+	u32            pfc_frames_tx_hi;
-+	u32            pfc_frames_tx_lo;
-+	u32            pfc_frames_rx_hi;
-+	u32            pfc_frames_rx_lo;
- };
- 
- 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 2213e0b..052ab99 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -8827,6 +8827,8 @@ static void __devinit bnx2x_get_common_hwinfo(struct bnx2x *bp)
- 	bp->link_params.feature_config_flags |=
- 		(val >= REQ_BC_VER_4_SFP_TX_DISABLE_SUPPORTED) ?
- 		FEATURE_CONFIG_BC_SUPPORTS_SFP_TX_DISABLED : 0;
-+	bp->flags |= (val >= REQ_BC_VER_4_PFC_STATS_SUPPORTED) ?
-+			BC_SUPPORTS_PFC_STATS : 0;
- 
- 	pci_read_config_word(bp->pdev, bp->pm_cap + PCI_PM_PMC, &pmc);
- 	bp->flags |= (pmc & PCI_PM_CAP_PME_D3cold) ? 0 : NO_WOL_FLAG;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-index 3034f0e..c943545 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-@@ -540,6 +540,25 @@ static void bnx2x_bmac_stats_update(struct bnx2x *bp)
- 		UPDATE_STAT64(tx_stat_gterr,
- 				tx_stat_dot3statsinternalmactransmiterrors);
- 		UPDATE_STAT64(tx_stat_gtufl, tx_stat_mac_ufl);
-+
-+		/* collect PFC stats */
-+		DIFF_64(diff.hi, new->tx_stat_gtpp_hi,
-+			pstats->pfc_frames_tx_hi,
-+			diff.lo, new->tx_stat_gtpp_lo,
-+			pstats->pfc_frames_tx_lo);
-+		pstats->pfc_frames_tx_hi = new->tx_stat_gtpp_hi;
-+		pstats->pfc_frames_tx_lo = new->tx_stat_gtpp_lo;
-+		ADD_64(pstats->pfc_frames_tx_hi, diff.hi,
-+			pstats->pfc_frames_tx_lo, diff.lo);
-+
-+		DIFF_64(diff.hi, new->rx_stat_grpp_hi,
-+			pstats->pfc_frames_rx_hi,
-+			diff.lo, new->rx_stat_grpp_lo,
-+			pstats->pfc_frames_rx_lo);
-+		pstats->pfc_frames_rx_hi = new->rx_stat_grpp_hi;
-+		pstats->pfc_frames_rx_lo = new->rx_stat_grpp_lo;
-+		ADD_64(pstats->pfc_frames_rx_hi, diff.hi,
-+			pstats->pfc_frames_rx_lo, diff.lo);
- 	}
- 
- 	estats->pause_frames_received_hi =
-@@ -551,6 +570,15 @@ static void bnx2x_bmac_stats_update(struct bnx2x *bp)
- 				pstats->mac_stx[1].tx_stat_outxoffsent_hi;
- 	estats->pause_frames_sent_lo =
- 				pstats->mac_stx[1].tx_stat_outxoffsent_lo;
-+
-+	estats->pfc_frames_received_hi =
-+				pstats->pfc_frames_rx_hi;
-+	estats->pfc_frames_received_lo =
-+				pstats->pfc_frames_rx_lo;
-+	estats->pfc_frames_sent_hi =
-+				pstats->pfc_frames_tx_hi;
-+	estats->pfc_frames_sent_lo =
-+				pstats->pfc_frames_tx_lo;
- }
- 
- static void bnx2x_mstat_stats_update(struct bnx2x *bp)
-@@ -571,6 +599,11 @@ static void bnx2x_mstat_stats_update(struct bnx2x *bp)
- 	ADD_STAT64(stats_tx.tx_gtxpf, tx_stat_outxoffsent);
- 	ADD_STAT64(stats_tx.tx_gtxpf, tx_stat_flowcontroldone);
- 
-+	/* collect pfc stats */
-+	ADD_64(pstats->pfc_frames_tx_hi, new->stats_tx.tx_gtxpp_hi,
-+		pstats->pfc_frames_tx_lo, new->stats_tx.tx_gtxpp_lo);
-+	ADD_64(pstats->pfc_frames_rx_hi, new->stats_rx.rx_grxpp_hi,
-+		pstats->pfc_frames_rx_lo, new->stats_rx.rx_grxpp_lo);
- 
- 	ADD_STAT64(stats_tx.tx_gt64, tx_stat_etherstatspkts64octets);
- 	ADD_STAT64(stats_tx.tx_gt127,
-@@ -628,6 +661,15 @@ static void bnx2x_mstat_stats_update(struct bnx2x *bp)
- 				pstats->mac_stx[1].tx_stat_outxoffsent_hi;
- 	estats->pause_frames_sent_lo =
- 				pstats->mac_stx[1].tx_stat_outxoffsent_lo;
-+
-+	estats->pfc_frames_received_hi =
-+				pstats->pfc_frames_rx_hi;
-+	estats->pfc_frames_received_lo =
-+				pstats->pfc_frames_rx_lo;
-+	estats->pfc_frames_sent_hi =
-+				pstats->pfc_frames_tx_hi;
-+	estats->pfc_frames_sent_lo =
-+				pstats->pfc_frames_tx_lo;
- }
- 
- static void bnx2x_emac_stats_update(struct bnx2x *bp)
-@@ -740,7 +782,7 @@ static int bnx2x_hw_stats_update(struct bnx2x *bp)
- 	estats->brb_drop_hi = pstats->brb_drop_hi;
- 	estats->brb_drop_lo = pstats->brb_drop_lo;
- 
--	pstats->host_port_stats_start = ++pstats->host_port_stats_end;
-+	pstats->host_port_stats_counter++;
- 
- 	if (!BP_NOMCP(bp)) {
- 		u32 nig_timer_max =
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
-index 5d8ce2f..683deb0 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
-@@ -193,6 +193,12 @@ struct bnx2x_eth_stats {
- 	u32 total_tpa_aggregated_frames_lo;
- 	u32 total_tpa_bytes_hi;
- 	u32 total_tpa_bytes_lo;
-+
-+	/* PFC */
-+	u32 pfc_frames_received_hi;
-+	u32 pfc_frames_received_lo;
-+	u32 pfc_frames_sent_hi;
-+	u32 pfc_frames_sent_lo;
- };
- 
- 
--- 
-1.7.1
+My understanding is there are two patches required, this revert plus
+the changes to add the tbi property to the DT which are missing it.
+
+That's why these tbi changes went in to begin with, to handle DT
+which lack the property, or something like that.  So you can't
+just revert this thing without also fixing the DT that lack the
+tbi property, or else you break those systems.
