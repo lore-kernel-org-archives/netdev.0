@@ -1,37 +1,52 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH net-next 4/4 v2] bnx2x, cnic: support DRV_INFO upon
- FW request
-Date: Tue, 6 Dec 2011 08:24:00 +0000
-Message-ID: <0E685F8B314BFB42AE2422915B7BDCC3066290@IRVEXCHMB07.corp.ad.broadcom.com>
-References: <1323157945-28333-1-git-send-email-mchan@broadcom.com>
- <1323157945-28333-2-git-send-email-mchan@broadcom.com>
- <1323157945-28333-3-git-send-email-mchan@broadcom.com>
- <1323157945-28333-4-git-send-email-mchan@broadcom.com>
- <1323158294.1762.4.camel@joe2Laptop>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 performance?
+Date: Tue, 6 Dec 2011 09:22:47 +0100
+Message-ID: <20111206082247.GA29089@electric-eye.fr.zoreil.com>
+References: <20111204211007.GA32098@hiwaay.net> <20111204234004.GA32515@electric-eye.fr.zoreil.com> <20111205004650.GA5948@hiwaay.net> <20111205064403.GA3426@electric-eye.fr.zoreil.com> <20111205145454.GA26078@hiwaay.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "'davem@davemloft.net'" <davem@davemloft.net>,
-	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"Barak Witkowski" <barak@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "'Joe Perches'" <joe@perches.com>
+Content-Type: text/plain; charset=us-ascii
+To: Chris Adams <cmadams@hiwaay.net>, netdev@vger.kernel.org,
+	hayeswang <hayeswang@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2355 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932984Ab1LFIYI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Dec 2011 03:24:08 -0500
-In-Reply-To: <1323158294.1762.4.camel@joe2Laptop>
-Content-Language: en-US
+Received: from violet.fr.zoreil.com ([92.243.8.30]:56284 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932984Ab1LFI3i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 03:29:38 -0500
+Content-Disposition: inline
+In-Reply-To: <20111205145454.GA26078@hiwaay.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sm9lIFBlcmNoZXMgd3JvdGU6DQo+IA0KPiA+ICsJI2RlZmluZSBEUlZfRkxBR1NfQ0FQQUJJTElU
-SUVTX0xPQURFRF9MMiAgICAgICAgMHgwMDAwMDAwMg0KPiA+ICsJI2RlZmluZSBEUlZfRkxBR1Nf
-Q0FQQUJJTElUSUVTX0xPQURFRF9GQ09FICAgICAgMHgwMDAwMDAwNA0KPiA+ICsJI2RlZmluZSBE
-UlZfRkxBR1NfQ0FQQUJJTElUSUVTX0xPQURFRF9JU0NTSSAgICAgMHgwMDAwMDAwOA0KPiANCj4g
-SSB0aGluayB0aGUgI2RlZmluZXMgc2hvdWxkIGJlIGxlZnQgYWxpZ25lZC4NCj4gDQoNCkknbGwg
-Zml4IHVwIHNvbWUgb2YgdGhlc2UsIGJ1dCBtYW55ICNkZWZpbmVzIGluIHRoaXMgZmlsZSBhcmUg
-bm90DQpzdGFydGluZyBhdCB0aGUgbGVmdCBtYXJnaW4uICAgRWlsb24gd2lsbCBmaXggdGhvc2Ug
-dXAgd2l0aCBhIHNlcGFyYXRlDQpwYXRjaCBsYXRlci4NCg==
+Chris Adams <cmadams@hiwaay.net> :
+> Once upon a time, Francois Romieu <romieu@fr.zoreil.com> said:
+[...]
+> > Almost the same: RTL_GIGA_MAC_VER_25 versus RTL_GIGA_MAC_VER_26 (faster).
+> 
+> Ahh, my eyes didn't see that one bit difference.
+> 
+> > The only difference in the driver is the hw_phy_config part.
+> 
+> There's also a difference in the interrupt handling (looks like only in
+> the receive FIFO overflow case).
+
+Ahh, I looked at the patched driver.
+
+It will disappear once http://marc.info/?l=linux-netdev&m=132306718323579
+is applied. You may apply http://marc.info/?l=linux-netdev&m=132306715823570
+too but I doubt it will make much difference for you.
+
+> Also, they load different firmware (so I guess my problem could be firmware
+> related, which I guess only RealTek could find/fix).
+>
+> I guess my question is this: is there a chance this can be solved with
+> driver changes, or should I just accept that the on-board NIC has poor
+> performance and install an add-in NIC?
+
+(I understand that the systems (CPU, bus...) are not necessary the same.)
+
+Did you check if Tx checksumming is enabled ?
+
+It could make a noticeable difference.
+
+-- 
+Ueimor
