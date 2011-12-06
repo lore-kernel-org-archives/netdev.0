@@ -1,33 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netback: remove redundant assignment
-Date: Tue, 06 Dec 2011 13:14:49 -0500 (EST)
-Message-ID: <20111206.131449.1351676944529284449.davem@davemloft.net>
-References: <1323166100-7059-1-git-send-email-wei.liu2@citrix.com>
-	<1323166882.23681.46.camel@zakaz.uk.xensource.com>
+Subject: Re: [PATCH][NET] several cleanups and bugfixes for fec.c
+Date: Tue, 06 Dec 2011 13:17:10 -0500 (EST)
+Message-ID: <20111206.131710.2181211652306186928.davem@davemloft.net>
+References: <cover.1323163127.git.LW@KARO-electronics.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wei.liu2@citrix.com, xen-devel@lists.xensource.com,
-	netdev@vger.kernel.org
-To: Ian.Campbell@citrix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60103 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752650Ab1LFSO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 13:14:56 -0500
-In-Reply-To: <1323166882.23681.46.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	shawn.guo@linaro.org, linux-arm-kernel@lists.infradead.org
+To: LW@KARO-electronics.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1323163127.git.LW@KARO-electronics.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Date: Tue, 6 Dec 2011 10:21:22 +0000
 
-> On Tue, 2011-12-06 at 10:08 +0000, Wei Liu wrote:
->> New value for netbk->mmap_pages[pending_idx] is assigned in
->> xen_netbk_alloc_page(), no need for a second assignment which
->> exposes internal to the outside world.
->> 
->> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> Acked-by: Ian Campbell <ian.campbell@citrix.com>
+Please use a more reasonable Subject line for your patches.
 
-Applied to net-next, thanks.
+Saying "several cleanups and bugfixes for fec.c:" in every subject
+line of a whole series of patches isn't very helpful.
+
+Just "fec: set con_id in clk_get() call to NULL", as one example, would be fine.
+
+You will need to resubmit this entire patch series, afresh, with this fixup.
+Do not try to fix it up by replying to the individual patch postings.
