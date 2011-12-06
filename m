@@ -1,75 +1,118 @@
-From: Stefan Hajnoczi <stefanha@gmail.com>
-Subject: Re: [net-next RFC PATCH 5/5] virtio-net: flow director support
-Date: Tue, 6 Dec 2011 09:18:48 +0000
-Message-ID: <CAJSP0QX5dDkpX+cRcQut2mb6K91zeqGLRrZBGAWT_r2p685gaQ@mail.gmail.com>
-References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
-	<20111205085925.6116.94352.stgit@dhcp-8-146.nay.redhat.com>
-	<CAJSP0QXfHC8j2Kk9x6wyBMubo2=YvpaLAShJtwMWA2mtro6UhA@mail.gmail.com>
-	<4EDDB71F.9080908@redhat.com>
+From: Ted Feng <artisdom@gmail.com>
+Subject: [PATCH] ipip, sit: copy parms.name after register_netdevice
+Date: Tue, 6 Dec 2011 17:25:24 +0800
+Message-ID: <CAM7b5hzt8D6hn3=XEcm9E3_BwJxj-YABpkufCpuhjiPLDxCsMQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au,
-	virtualization@lists.linux-foundation.org, levinsasha928@gmail.com,
-	bhutchings@solarflare.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4EDDB71F.9080908@redhat.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stable@vger.kernel.org
+To: Jiri Pirko <jpirko@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Josh Boyer <jwboyer@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 6, 2011 at 6:33 AM, Jason Wang <jasowang@redhat.com> wrote:
-> On 12/05/2011 06:55 PM, Stefan Hajnoczi wrote:
->>
->> On Mon, Dec 5, 2011 at 8:59 AM, Jason Wang<jasowang@redhat.com> =A0w=
-rote:
->>>
->>> +static int virtnet_set_fd(struct net_device *dev, u32 pfn)
->>> +{
->>> + =A0 =A0 =A0 struct virtnet_info *vi =3D netdev_priv(dev);
->>> + =A0 =A0 =A0 struct virtio_device *vdev =3D vi->vdev;
->>> +
->>> + =A0 =A0 =A0 if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_FD)) {
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 vdev->config->set(vdev,
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 o=
-ffsetof(struct virtio_net_config_fd,
->>> addr),
->>> +&pfn, sizeof(u32));
->>
->> Please use the virtio model (i.e. virtqueues) instead of shared
->> memory. =A0Mapping a page breaks the virtio abstraction.
->
->
-> Using control virtqueue is more suitable but there's are also some pr=
-oblems:
->
-> One problem is the interface, =A0if we use control virtqueue, we need=
- a
-> interface between the backend and tap/macvtap to change the flow mapp=
-ing.
-> But qemu and vhost_net only know about the file descriptor, more
-> informations or interfaces need to be exposed in order to let ethtool=
- or
-> ioctl work.
+Same fix as 731abb9cb2 for ipip and sit tunnel.
+Commit 1c5cae815d removed an explicit call to dev_alloc_name in
+ipip_tunnel_locate
+and ipip6_tunnel_locate, because register_netdevice will now create a
+valid name.
+However the tunnel keeps a copy of the name in the private parms structure.
 
-QEMU could provide map a shared page with tap/macvtap.  The difference
-would be that the guest<->host interface is still virtio and QEMU
-pokes values into the shared page on behalf of the guest.
+This shows up if you do a simple tunnel add, followed by a tunnel show:
 
-> Another problem is the delay introduced by ctrl vq, as the ctrl vq wo=
-uld be
-> used in the critical path in guest and it use busy wait to get the re=
-sponse,
-> the delay is not neglectable.
+$ sudo ip tunnel add mode ipip remote 10.2.20.211
+$ ip tunnel
+tunl0: ip/ip  remote any  local any  ttl inherit  nopmtudisc
+tunl%d: ip/ip  remote 10.2.20.211  local any  ttl inherit
+$ sudo ip tunnel add mode sit remote 10.2.20.212
+$ ip tunnel
+sit0: ipv6/ip  remote any  local any  ttl 64  nopmtudisc 6rd-prefix 2002::/16
+sit%d: ioctl 89f8 failed: No such device
+sit%d: ipv6/ip  remote 10.2.20.212  local any  ttl inherit
 
-Then you need to find a better way of doing this.  Can the host
-automatically associate the flow from the tx virtqueue packets are
-transmitted on?  Does it make sense to add a virtio_net_hdr field that
-updates the queue mapping?
+Signed-off-by: Ted Feng <artisdom@gmail.com>
 
-The vcpus are just threads and may not be bound to physical CPUs, so
-what is the big picture here?  Is the guest even in the position to
-set the best queue mappings today?
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 065effd..0b2e732 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -285,6 +285,8 @@ static struct ip_tunnel *
+ipip_tunnel_locate(struct net *net,
+ 	if (register_netdevice(dev) < 0)
+ 		goto failed_free;
 
-Stefan
++	strcpy(nt->parms.name, dev->name);
++
+ 	dev_hold(dev);
+ 	ipip_tunnel_link(ipn, nt);
+ 	return nt;
+@@ -759,7 +761,6 @@ static int ipip_tunnel_init(struct net_device *dev)
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+
+ 	tunnel->dev = dev;
+-	strcpy(tunnel->parms.name, dev->name);
+
+ 	memcpy(dev->dev_addr, &tunnel->parms.iph.saddr, 4);
+ 	memcpy(dev->broadcast, &tunnel->parms.iph.daddr, 4);
+@@ -825,6 +826,7 @@ static void ipip_destroy_tunnels(struct ipip_net
+*ipn, struct list_head *head)
+ static int __net_init ipip_init_net(struct net *net)
+ {
+ 	struct ipip_net *ipn = net_generic(net, ipip_net_id);
++	struct ip_tunnel *t;
+ 	int err;
+
+ 	ipn->tunnels[0] = ipn->tunnels_wc;
+@@ -848,6 +850,9 @@ static int __net_init ipip_init_net(struct net *net)
+ 	if ((err = register_netdev(ipn->fb_tunnel_dev)))
+ 		goto err_reg_dev;
+
++	t = netdev_priv(ipn->fb_tunnel_dev);
++
++	strcpy(t->parms.name, ipn->fb_tunnel_dev->name);
+ 	return 0;
+
+ err_reg_dev:
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index a7a1860..96f3623 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -263,6 +263,8 @@ static struct ip_tunnel
+*ipip6_tunnel_locate(struct net *net,
+ 	if (register_netdevice(dev) < 0)
+ 		goto failed_free;
+
++	strcpy(nt->parms.name, dev->name);
++
+ 	dev_hold(dev);
+
+ 	ipip6_tunnel_link(sitn, nt);
+@@ -1144,7 +1146,6 @@ static int ipip6_tunnel_init(struct net_device *dev)
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+
+ 	tunnel->dev = dev;
+-	strcpy(tunnel->parms.name, dev->name);
+
+ 	memcpy(dev->dev_addr, &tunnel->parms.iph.saddr, 4);
+ 	memcpy(dev->broadcast, &tunnel->parms.iph.daddr, 4);
+@@ -1207,6 +1208,7 @@ static void __net_exit
+sit_destroy_tunnels(struct sit_net *sitn, struct list_hea
+ static int __net_init sit_init_net(struct net *net)
+ {
+ 	struct sit_net *sitn = net_generic(net, sit_net_id);
++	struct ip_tunnel *t;
+ 	int err;
+
+ 	sitn->tunnels[0] = sitn->tunnels_wc;
+@@ -1231,6 +1233,9 @@ static int __net_init sit_init_net(struct net *net)
+ 	if ((err = register_netdev(sitn->fb_tunnel_dev)))
+ 		goto err_reg_dev;
+
++	t = netdev_priv(sitn->fb_tunnel_dev);
++
++	strcpy(t->parms.name, sitn->fb_tunnel_dev->name);
+ 	return 0;
+
+ err_reg_dev:
