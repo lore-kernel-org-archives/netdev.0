@@ -1,55 +1,59 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH net-next v6 4/4] powerpc: tqm8548/tqm8xx: add and update
- CAN device nodes
-Date: Wed, 07 Dec 2011 09:25:03 +0100
-Message-ID: <4EDF22DF.5020001@grandegger.com>
-References: <1322732481-2255-1-git-send-email-wg@grandegger.com>	 <1322732481-2255-5-git-send-email-wg@grandegger.com> <1323243268.660.71.camel@pasglop>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: [PATCH][NET] several cleanups and bugfixes for fec.c: don't
+ munge MAC address from platform data
+Date: Wed, 7 Dec 2011 16:49:54 +0800
+Message-ID: <20111207084953.GD5550@S2100-06.ap.freescale.net>
+References: <cover.1323163127.git.LW@KARO-electronics.de>
+ <55b78c1766da5b0d0d679f5eae3fb9fc74a6ceef.1323163127.git.LW@KARO-electronics.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	linux-can@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	socketcan-users@lists.berlios.de
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1323243268.660.71.camel@pasglop>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, Shawn Guo <shawn.guo@linaro.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <55b78c1766da5b0d0d679f5eae3fb9fc74a6ceef.1323163127.git.LW@KARO-electronics.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/07/2011 08:34 AM, Benjamin Herrenschmidt wrote:
-> On Thu, 2011-12-01 at 10:41 +0100, Wolfgang Grandegger wrote:
->> This patch enables or updates support for the CC770 and AN82527
->> CAN controller on the TQM8548 and TQM8xx boards.
-> 
-> I'm a bit confused by the net-next prefix here. Those patches seem to
-> be only touching arch/powerpc and seem to be sent primarily toward
-> netdev with a net-next prefix.
+On Tue, Dec 06, 2011 at 11:27:13AM +0100, Lothar Wa=DFmann wrote:
+> When the MAC address is supplied via platform_data it should be OK as
+> it is and should not be modified in case of a dual FEC setup.
+> Also copying the MAC from platform_data to the single 'macaddr'
+> variable will overwrite the MAC for the first interface in case of a
+> dual FEC setup.
 
-These patches are part of a series implementing a new netdev CAN driver
-with device-tree support for CC770/i82527 CAN controllers. The
-device-tree support and bindings are properly documented and some DTS
-files have been updated accordingly. The relevant maintainers and
-mailing list have been addressed.
+Hmm, I do not follow that.  If 'macaddr' holds a valid mac address,
+the code path has no chance to be hit at all.  Otherwise, 'macaddr'
+is just a place holder for copying mac address from pdata, in which
+case the mac address will be fixed up at the end of the function for
+dual FEC setup.
 
-> Also there have been at least 3 versions in a couple of days already
-> without comments nor indication of what was changed...
+Regards,
+Shawn
 
-Unfortunately, no response from those sub-system guys.
-
-> Can you clarify things a bit please ? It looks like they really should
-> go to linuxppc-dev (and you can probably drop a bunch of other lists) or
-> am I missing an important piece of the puzzle ? (Such as patch 1/4 and
-> 2/4 ...)
-
-I have not sent the  whole series. The changes are documented in the
-cover-letter, which I have not sent for those patches. Well, I think
-it's better to sent the whole series to all parties instead?
-
-> Let me know if I should just remove them from powerpc patchwork.
-
-Dave has already applied all patches.
-
-Sorry for the confusion. Any advice on how to handle multi subsystem
-series of patches properly is welcome.
-
-Wolfgang.
+>=20
+> Signed-off-by: Lothar Wa=DFmann <LW@KARO-electronics.de>
+> ---
+>  drivers/net/ethernet/freescale/fec.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ether=
+net/freescale/fec.c
+> index e2b5ce6..11534b9 100644
+> --- a/drivers/net/ethernet/freescale/fec.c
+> +++ b/drivers/net/ethernet/freescale/fec.c
+> @@ -818,7 +818,7 @@ static void __inline__ fec_get_mac(struct net_dev=
+ice *ndev)
+>  			iap =3D (unsigned char *)FEC_FLASHMAC;
+>  #else
+>  		if (pdata)
+> -			memcpy(iap, pdata->mac, ETH_ALEN);
+> +			iap =3D (unsigned char *)&pdata->mac;
+>  #endif
+>  	}
+> =20
+> --=20
+> 1.5.6.5
