@@ -1,38 +1,57 @@
-From: Florian Fainelli <ffainelli@freebox.fr>
-Subject: [PATCH 1/2] e1000: unmap ce4100_gbe_mdio_base_virt in e1000_remove
-Date: Wed,  7 Dec 2011 17:41:01 +0100
-Message-ID: <1323276062-10906-1-git-send-email-ffainelli@freebox.fr>
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Florian Fainelli <ffainelli@freebox.fr>
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zmc.proxad.net ([212.27.53.206]:33740 "EHLO zmc.proxad.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752294Ab1LGQvb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Dec 2011 11:51:31 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mark Lord <kernel@teksavvy.com>
+Subject: Re: [PATCH] drivers/net/usb/asix:  resync from vendor's copy
+Date: Wed, 07 Dec 2011 11:59:11 -0500
+Message-ID: <4EDF9B5F.6050500@teksavvy.com>
+References: <4EA89972.5060101@teksavvy.com>  <20111026.194045.2019668159403582571.davem@davemloft.net>  <4EA8B283.3010105@teksavvy.com>  <20111026.221719.2216112919297458522.davem@davemloft.net>  <4EB19BBE.5050602@teksavvy.com> <1320266549.2782.21.camel@bwh-desktop>  <4EBAA967.10403@teksavvy.com> <1320856444.18929.78.camel@deadeye>  <4EBAAEA5.1060408@teksavvy.com> <4EBAB0EA.1050102@teksavvy.com>  <4EBAB643.8020603@teksavvy.com> <1320859911.2781.1.camel@bwh-desktop>  <4EBABAFD.6050604@teksavvy.com> <1320860895.2781.6.camel@bwh-desktop>  <4EDCD828.2090904@teksavvy.com> <1323098335.7454.214.camel@deadeye>  <4EDE0E29.9070809@teksavvy.com> <1323193537.2772.9.camel@bwh-desktop>  <4EDF9293.8070809@teksavvy.com> <1323275233.2728.3.camel@bwh-desktop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1323275233.2728.3.camel@bwh-desktop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We are not unmapping ce4100_gbe_mdio_base_virt in exit path in case
-we are running on a CE4100 adapter, fix that.
+On 11-12-07 11:27 AM, Ben Hutchings wrote:
+> On Wed, 2011-12-07 at 11:21 -0500, Mark Lord wrote:
+..
+>> Heh.. my thinking side says to use the exact same protocol-specific flags
+>> in both "hw_features" and "features", and therefore check for those flags
+>> inside the "set_features()" function.
+> 
+> Right.
 
-Signed-off-by: Florian Fainelli <ffainelli@freebox.fr>
----
- drivers/net/ethernet/intel/e1000/e1000_main.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 82f4ef1..7bb3337 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -1286,6 +1286,8 @@ static void __devexit e1000_remove(struct pci_dev *pdev)
- 	kfree(adapter->tx_ring);
- 	kfree(adapter->rx_ring);
- 
-+	if (hw->mac_type == e1000_ce4100)
-+		iounmap(ce4100_gbe_mdio_base_virt);
- 	iounmap(hw->hw_addr);
- 	if (hw->flash_address)
- 		iounmap(hw->flash_address);
--- 
-1.7.5.4
+Thanks.
+Now now we have:
+
+static int ax88772b_set_features(struct net_device *netdev, u32 features)
+{
+        struct usbnet *dev = netdev_priv(netdev);
+        u16 tx_csum = 0, rx_csum = 0;
+
+        if (features & NETIF_F_IP_CSUM)
+                tx_csum |= AX_TXCOE_TCP | AX_TXCOE_UDP;
+        if (features & NETIF_F_IPV6_CSUM)
+                tx_csum |= AX_TXCOE_TCPV6 | AX_TXCOE_UDPV6;
+        if (features & NETIF_F_RXCSUM)
+                rx_csum = AX_RXCOE_DEF_CSUM;
+        ax8817x_write_cmd(dev, AX_CMD_WRITE_TXCOE_CTL, tx_csum, 0, 0, NULL);
+        ax8817x_write_cmd(dev, AX_CMD_WRITE_RXCOE_CTL, rx_csum, 0, 0, NULL);
+        return 0;
+}
+
+static int ax88772b_bind(struct usbnet *dev, struct usb_interface *intf)
+{
+	...
+
+        /* enable hardware checksums */
+        dev->net->hw_features |=
+                NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_RXCSUM;
+        dev->net->features |=
+                NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_RXCSUM;
+        ax88772b_set_features(dev->net, dev->net->features);
+	...
+}
