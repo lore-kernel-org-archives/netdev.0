@@ -1,65 +1,76 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net-next RFC PATCH 5/5] virtio-net: flow director support
-Date: Wed, 07 Dec 2011 11:03:33 +0800
-Message-ID: <4EDED785.80804@redhat.com>
-References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
-	<20111205085925.6116.94352.stgit@dhcp-8-146.nay.redhat.com>
-	<CAJSP0QXfHC8j2Kk9x6wyBMubo2=YvpaLAShJtwMWA2mtro6UhA@mail.gmail.com>
-	<4EDDB71F.9080908@redhat.com>
-	<CAJSP0QX5dDkpX+cRcQut2mb6K91zeqGLRrZBGAWT_r2p685gaQ@mail.gmail.com>
-	<4EDDECA9.8060808@redhat.com>
-	<CAJSP0QXsLwvH5xYj6h0E_V4VLg6DuUc-GKXu9esEYzL2MFcFGw@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v2] e1000e: Assign true and false to bool type variable
+ instead of 1 and 0
+Date: Tue, 06 Dec 2011 19:43:59 -0800
+Message-ID: <1323229439.2415.23.camel@jtkirshe-mobl>
+References: <4EDED071.40900@linux.vnet.ibm.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-ShIW54JysF8Dkqd2bcQ3"
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"wangyunlinux@gmail.com" <wangyunlinux@gmail.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: Michael Wang <wangyun@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:26601 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754964Ab1LGDoB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Dec 2011 22:44:01 -0500
+In-Reply-To: <4EDED071.40900@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-ShIW54JysF8Dkqd2bcQ3
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 2011-12-06 at 18:33 -0800, Michael Wang wrote:
+> From: Michael Wang <wangyun@linux.vnet.ibm.com>
+>=20
+> Use true and false instead of 1 and 0 when assign value to a bool type
+> variable.
+>=20
+> This patch is try to keep the style of driver, and according to
+> David's
+> suggestion on patch "e1000e: Avoid wrong check on TX hang":
+>=20
+> http://marc.info/?l=3Dlinux-netdev&m=3D132296931201839&w=3D2
+>=20
+> v2: add more description
+>=20
+> Signed-off-by: Michael Wang <wangyun@linux.vnet.ibm.com>
+> ---
+>  drivers/net/ethernet/intel/e1000e/netdev.c |   34
+> ++++++++++++++--------------
+>  1 files changed, 17 insertions(+), 17 deletions(-)=20
+
+Thanks Michael, I have added your patch to my queue of e1000e patches.
+
+--=-ShIW54JysF8Dkqd2bcQ3
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	levinsasha928@gmail.com, bhutchings@solarflare.com
-To: Stefan Hajnoczi <stefanha@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAJSP0QXsLwvH5xYj6h0E_V4VLg6DuUc-GKXu9esEYzL2MFcFGw@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
 
-On 12/06/2011 09:15 PM, Stefan Hajnoczi wrote:
-> On Tue, Dec 6, 2011 at 10:21 AM, Jason Wang<jasowang@redhat.com>  wrote:
->> On 12/06/2011 05:18 PM, Stefan Hajnoczi wrote:
->>> On Tue, Dec 6, 2011 at 6:33 AM, Jason Wang<jasowang@redhat.com>    wrote:
->>>> On 12/05/2011 06:55 PM, Stefan Hajnoczi wrote:
->>>>> On Mon, Dec 5, 2011 at 8:59 AM, Jason Wang<jasowang@redhat.com>
->>>>>   wrote:
->>> The vcpus are just threads and may not be bound to physical CPUs, so
->>> what is the big picture here?  Is the guest even in the position to
->>> set the best queue mappings today?
->>
->> Not sure it could publish the best mapping but the idea is to make sure the
->> packets of a flow were handled by the same guest vcpu and may be the same
->> vhost thread in order to eliminate the packet reordering and lock
->> contention. But this assumption does not take the bouncing of vhost or vcpu
->> threads which would also affect the result.
-> Okay, this is why I'd like to know what the big picture here is.  What
-> solution are you proposing?  How are we going to have everything from
-> guest application, guest kernel, host threads, and host NIC driver
-> play along so we get the right steering up the entire stack.  I think
-> there needs to be an answer to that before changing virtio-net to add
-> any steering mechanism.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-Consider the complexity of the host nic each with their own steering 
-features,  this series make the first step with minimal effort to try to 
-let guest driver and host tap/macvtap co-operate like what physical nic 
-does. There may be other method, but performance numbers is also needed 
-to give the answer.
->
-> Stefan
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+iQIcBAABCgAGBQJO3uD/AAoJEOVv75VaS+3OsDEQAJ6Acy8afrVMU9AbyZJ3ILcd
+FJOX0QB3WrXIwkBAnxSHhhZZue00subodISvQCb1/uW5xGlDBh1KPqOua8Ngdpqj
+M8+bAQKE4K/7n+KbPyqCW+Rv4CVUC0d1sZajYcMKeglEKGR5VtNTqw2ELTXh9Scp
+Ira3qygr6wemS87N/d5dJsiTem13FGsHUUlR/Z3g2THLlnk6bXAQtRijFThMhLBb
+UOWN9+o6QSJ56LBnz9aMiFG0FdfjHaBnyPuNDsL0UkR2LE7N3FgFRpQ8lh6DPqIl
+0bl3gCZQ2vi+YhK44dR2HK/ZCfANL3EDwPYwOxQ6ixU1lIZZHFdzh2jqsVcsbWqt
+NuY5rRRnHIB46b/gPv0bmMCzIs78tLJRRGRK1AX7boh+ar1FfBodzX3ZlE1miPBn
+sReVpzyoIE/lP2Syknld0ugVfoKpnl2LVYvtxKAYHFHGdODy9cNlVHcgexUXQtos
+EtIfa/FbTl2wz6QY+e9PDqfU0F+7Z82xet6NOfwGmihR20ApUXWwUiSIL3PIFMg3
+KT8G64dydwmZWKyFWH8S9Lf6E+0/kkXE0Vqo5VE1K2TtbUDNxKmVmr3GGetSf69O
+81NKxWwyhHAfZ5zzoXTJOtbJ5ie+CPIP+2XJuiKs1gKJFDdxDGYcY+8BHrKRWBJY
+w56v4+G0nkRSFCMJZF/C
+=NV/j
+-----END PGP SIGNATURE-----
+
+--=-ShIW54JysF8Dkqd2bcQ3--
