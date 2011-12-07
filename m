@@ -1,39 +1,34 @@
-From: Timur Irmatov <irmatov@gmail.com>
-Subject: Re: atl1c: WARNING: at net/sched/sch_generic.c:255 dev_watchdog
-Date: Wed, 7 Dec 2011 15:25:59 +0500
-Message-ID: <CACV5A19cwzAfzY3iXD6uN8A79LTTsPUaVJQqiazLqAACpEfYmQ@mail.gmail.com>
-References: <20111206232741.GA5368@x1.osrc.amd.com>
-	<CA+5PVA7bM8ZGaCiyZdHcMVccJYh2=bk-gsHLo9ZmBP_SYT208w@mail.gmail.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [net-next RFC PATCH 0/5] Series short description
+Date: Wed, 07 Dec 2011 18:00:55 +1030
+Message-ID: <87ty5cj0sw.fsf@rustcorp.com.au>
+References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: Jason Wang <jasowang@redhat.com>, krkumar2@in.ibm.com,
+	kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, levinsasha928@gmail.com,
+	bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:62098 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753825Ab1LGK0A convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 05:26:00 -0500
-Received: by qadb40 with SMTP id b40so3145981qad.19
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2011 02:26:00 -0800 (PST)
-In-Reply-To: <CA+5PVA7bM8ZGaCiyZdHcMVccJYh2=bk-gsHLo9ZmBP_SYT208w@mail.gmail.com>
+Received: from ozlabs.org ([203.10.76.45]:47255 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754960Ab1LGKfm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Dec 2011 05:35:42 -0500
+In-Reply-To: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 7, 2011 at 5:12 AM, Josh Boyer <jwboyer@gmail.com> wrote:
-> Matthew Garrett has a patch to the atl1c driver that changed it's ASP=
-M
-> behavior that seemed to help. =C2=A0Dave Miller applied it, but I don=
-'t see
-> it in linux-next for some reason.
->
-> http://comments.gmane.org/gmane.linux.kernel/1214694
+On Mon, 05 Dec 2011 16:58:37 +0800, Jason Wang <jasowang@redhat.com> wrote:
+> multiple queue virtio-net: flow steering through host/guest cooperation
+> 
+> Hello all:
+> 
+> This is a rough series adds the guest/host cooperation of flow
+> steering support based on Krish Kumar's multiple queue virtio-net
+> driver patch 3/3 (http://lwn.net/Articles/467283/).
 
-May be this is the reason?
+Is there a real (physical) device which does this kind of thing?  How do
+they do it?  Can we copy them?
 
-http://article.gmane.org/gmane.linux.kernel/1215132/
-
-I'm also having this issue and can test patches.
-
-
---=20
-Timur Irmatov, xmpp:irmatov@jabber.ru
+Cheers,
+Rusty.
