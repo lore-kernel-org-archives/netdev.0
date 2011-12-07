@@ -1,51 +1,124 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Latency difference between fifo and pfifo_fast
-Date: Wed, 07 Dec 2011 14:04:39 +0100
-Message-ID: <1323263079.2312.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <9bf91034-a860-4144-858b-c9000964ea1d@jasiiieee>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: [PATCH][NET] several cleanups and bugfixes for fec.c: fix the
+ .remove code
+Date: Wed, 7 Dec 2011 21:28:29 +0800
+Message-ID: <20111207132828.GQ5550@S2100-06.ap.freescale.net>
+References: <cover.1323163127.git.LW@KARO-electronics.de>
+ <04c11563fee748562d7b53d5e5b3c5cf37fef200.1323163127.git.LW@KARO-electronics.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dave Taht <dave.taht@gmail.com>, netdev@vger.kernel.org,
-	Rick Jones <rick.jones2@hp.com>
-To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:33612 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755060Ab1LGNEp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 08:04:45 -0500
-Received: by lagp5 with SMTP id p5so194905lag.19
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2011 05:04:43 -0800 (PST)
-In-Reply-To: <9bf91034-a860-4144-858b-c9000964ea1d@jasiiieee>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, Shawn Guo <shawn.guo@linaro.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <04c11563fee748562d7b53d5e5b3c5cf37fef200.1323163127.git.LW@KARO-electronics.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 06 d=C3=A9cembre 2011 =C3=A0 14:44 -0500, John A. Sullivan III=
- a =C3=A9crit :
-> Interesting.  Would that still be true if all the traffic is the same=
-,
-> i.e., nothing but iSCSI packets on the network? Or would just dumping
-> packets with minimal processing be fastest? Thanks - John
+On Tue, Dec 06, 2011 at 11:27:15AM +0100, Lothar Wa=DFmann wrote:
+> The .remove code is broken in several ways.
+>  - mdiobus_unregister() is called twice for the same object in case o=
+f dual FEC
+>  - phy_disconnect() is being called when the PHY is already disconnec=
+ted
+>  - the requested IRQ(s) are not freed
+>  - fec_stop() is being called with the inteface already stopped
+>=20
+>  All of those lead to kernel crashes if the remove function is actual=
+ly used.
+>=20
+> Signed-off-by: Lothar Wa=DFmann <LW@KARO-electronics.de>
+> ---
+>  drivers/net/ethernet/freescale/fec.c |   30 +++++++++++++++++++++---=
+------
+>  1 files changed, 21 insertions(+), 9 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ether=
+net/freescale/fec.c
+> index ab0afb5..70ec7ec 100644
+> --- a/drivers/net/ethernet/freescale/fec.c
+> +++ b/drivers/net/ethernet/freescale/fec.c
+> @@ -235,6 +235,7 @@ struct fec_enet_private {
+> =20
+>  	/* Phylib and MDIO interface */
+>  	struct	mii_bus *mii_bus;
+> +	int	mii_cnt;
+>  	struct	phy_device *phy_dev;
+>  	int	mii_timeout;
+>  	uint	phy_speed;
+> @@ -1040,8 +1041,12 @@ static int fec_enet_mii_init(struct platform_d=
+evice *pdev)
+>  	 */
+>  	if ((id_entry->driver_data & FEC_QUIRK_ENET_MAC) && pdev->id > 0) {
+>  		/* fec1 uses fec0 mii_bus */
+> -		fep->mii_bus =3D fec0_mii_bus;
+> -		return 0;
+> +		if (fep->mii_cnt && fec0_mii_bus) {
 
-Dave focuses on fairness and latencies under ~20 ms (a typical (under)
-provisioned ADSL (up)link shared by many (hostile) flows, with various
-type of services)
+This seems broken.  The second fec has its own fep and fep->mii_cnt is
+always 0 here.
 
-I doubt this is your concern ? You want high throughput more than low
-latencies ...
+Regards,
+Shawn
 
-Your workload is probably under _one_ ms latencies, and dedicated link
-to address few targets.
-
-If you have to use a Qdisc (and expensive packet classification), then
-something is wrong in your iSCSI network connectivity :)
-
-Please note that with BQL, the NIC TX ring size doesn=E2=80=99t matter,=
- and you
-could get "Virtual device ethX asks to queue packet!" warnings in your
-message log.
-
-So before removing Qdisc, you also want to make sure BQL is disabled fo=
-r
-your NIC device/queues.
-(BQL is scheduled for linux-3.3)
+> +			fep->mii_bus =3D fec0_mii_bus;
+> +			fep->mii_cnt++;
+> +			return 0;
+> +		}
+> +		return -ENOENT;
+>  	}
+> =20
+>  	fep->mii_timeout =3D 0;
+> @@ -1086,6 +1091,8 @@ static int fec_enet_mii_init(struct platform_de=
+vice *pdev)
+>  	if (mdiobus_register(fep->mii_bus))
+>  		goto err_out_free_mdio_irq;
+> =20
+> +	fep->mii_cnt++;
+> +
+>  	/* save fec0 mii_bus */
+>  	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC)
+>  		fec0_mii_bus =3D fep->mii_bus;
+> @@ -1102,11 +1109,11 @@ err_out:
+> =20
+>  static void fec_enet_mii_remove(struct fec_enet_private *fep)
+>  {
+> -	if (fep->phy_dev)
+> -		phy_disconnect(fep->phy_dev);
+> -	mdiobus_unregister(fep->mii_bus);
+> -	kfree(fep->mii_bus->irq);
+> -	mdiobus_free(fep->mii_bus);
+> +	if (--fep->mii_cnt =3D=3D 0) {
+> +		mdiobus_unregister(fep->mii_bus);
+> +		kfree(fep->mii_bus->irq);
+> +		mdiobus_free(fep->mii_bus);
+> +	}
+>  }
+> =20
+>  static int fec_enet_get_settings(struct net_device *ndev,
+> @@ -1646,13 +1653,18 @@ fec_drv_remove(struct platform_device *pdev)
+>  	struct net_device *ndev =3D platform_get_drvdata(pdev);
+>  	struct fec_enet_private *fep =3D netdev_priv(ndev);
+>  	struct resource *r;
+> +	int i;
+> =20
+> -	fec_stop(ndev);
+> +	unregister_netdev(ndev);
+>  	fec_enet_mii_remove(fep);
+> +	for (i =3D 0; i < FEC_IRQ_NUM; i++) {
+> +		int irq =3D platform_get_irq(pdev, i);
+> +		if (irq > 0)
+> +			free_irq(irq, ndev);
+> +	}
+>  	clk_disable(fep->clk);
+>  	clk_put(fep->clk);
+>  	iounmap(fep->hwp);
+> -	unregister_netdev(ndev);
+>  	free_netdev(ndev);
+> =20
+>  	r =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> --=20
+> 1.5.6.5
