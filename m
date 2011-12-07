@@ -1,43 +1,104 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH] fsl_pq_mdio: Clean up tbi address configuration
-Date: Tue, 6 Dec 2011 23:35:31 -0600
-Message-ID: <3FAC1EB0-2606-40BF-9BDF-8D2BCEB003E9@kernel.crashing.org>
-References: <20111114.002630.2254622894958283155.davem@davemloft.net> <D789ECCE-08DE-4E6D-BCA7-2C54EC5758B7@kernel.crashing.org> <436A94C3-8F5B-4A8F-A46B-B66B503B98A0@kernel.crashing.org> <20111206.004121.1820319056329214972.davem@davemloft.net>
-Mime-Version: 1.0 (Apple Message framework v1251.1)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: afleming@freescale.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:58924 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750721Ab1LGFfb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 00:35:31 -0500
-In-Reply-To: <20111206.004121.1820319056329214972.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Subject: pull request: batman-adv 2011-12-07
+Date: Wed,  7 Dec 2011 13:36:40 +0800
+Message-ID: <1323236203-24711-1-git-send-email-lindner_marek@yahoo.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+David,
 
-On Dec 5, 2011, at 11:41 PM, David Miller wrote:
+we have to more fixes that we would like to get pulled into net-next/linux-3.2.
+Both patches address TT protocol misbehavior. Upon merging these patches into
+net-next you'll run into merge conflicts.
 
-> From: Kumar Gala <galak@kernel.crashing.org>
-> Date: Mon, 5 Dec 2011 23:38:14 -0600
-> 
->> Any comment on getting this patch pulled into net.git?
-> 
-> It requires a DT patch or related set of changes which have need
-> to be done differently as per feedback.
-> 
-> My understanding is there are two patches required, this revert plus
-> the changes to add the tbi property to the DT which are missing it.
-> 
-> That's why these tbi changes went in to begin with, to handle DT
-> which lack the property, or something like that.  So you can't
-> just revert this thing without also fixing the DT that lack the
-> tbi property, or else you break those systems.
+Patch1:
+++<<<<<<< 
+ +              tt_global_entry->common.flags |= TT_CLIENT_PENDING;
+ +              send_roam_adv(bat_priv, tt_global_entry->common.addr,
+++=======
++               tt_global_entry->flags |= TT_CLIENT_ROAM;
++               tt_global_entry->roam_at = jiffies;
++ 
++               send_roam_adv(bat_priv, tt_global_entry->addr,
+++>>>>>>> 
 
-We need this patch in 3.2 regardless of DT.  Currently we get the oops on 3.2 on ALL systems.  Andy should be working up a device tree patch to fix the subset of .dts that are missing the tbi property.
+Resolution1:
++======
+		tt_global_entry->common.flags |= TT_CLIENT_ROAM;
+		tt_global_entry->roam_at = jiffies;
+		send_roam_adv(bat_priv, tt_global_entry->common.addr,
++======
 
-What happens in 'next' is slightly different issue.
+Patch2:
+++<<<<<<< 
+ +                      tt_global_entry->common.flags |= TT_CLIENT_ROAM;
+ +                      tt_global_entry->roam_at = jiffies;
+ +                      goto out;
+++=======
++                       /* if we are deleting a global entry due to a roam
++                        * event, there are two possibilities:
++                        * 1) the client roamed from node A to node B => we mark
++                        *    it with TT_CLIENT_ROAM, we start a timer and we
++                        *    wait for node B to claim it. In case of timeout
++                        *    the entry is purged.
++                        * 2) the client roamed to us => we can directly delete
++                        *    the global entry, since it is useless now. */
++                       tt_local_entry = tt_local_hash_find(bat_priv,
++                                                       tt_global_entry->addr);
++                       if (!tt_local_entry) {
++                               tt_global_entry->flags |= TT_CLIENT_ROAM;
++                               tt_global_entry->roam_at = jiffies;
++                               goto out;
++                       }
+++>>>>>>>
 
-- k
+Resolution2:
++======
+			 /* if we are deleting a global entry due to a roam
+			 * event, there are two possibilities:
+			 * 1) the client roamed from node A to node B => we mark
+			 *    it with TT_CLIENT_ROAM, we start a timer and we
+			 *    wait for node B to claim it. In case of timeout
+			 *    the entry is purged.
+			 * 2) the client roamed to us => we can directly delete
+			 *    the global entry, since it is useless now. */
+			tt_local_entry = tt_local_hash_find(bat_priv,
+						tt_global_entry->common.addr);
+			if (!tt_local_entry) {
+				tt_global_entry->common.flags |= TT_CLIENT_ROAM;
+				tt_global_entry->roam_at = jiffies;
+				goto out;
+			}
++======
+
+Let me know if you have any further question.
+
+Thanks,
+Marek
+
+The following changes since commit 1ea6b8f48918282bdca0b32a34095504ee65bab5:
+
+  Linux 3.2-rc1 (2011-11-07 16:16:02 -0800)
+
+are available in the git repository at:
+  git://git.open-mesh.org/linux-merge.git batman-adv/maint
+
+Antonio Quartulli (2):
+      batman-adv: in case of roaming mark the client with TT_CLIENT_ROAM
+      batman-adv: delete global entry in case of roaming
+
+ net/batman-adv/translation-table.c |   27 ++++++++++++++++++++++-----
+ 1 files changed, 22 insertions(+), 5 deletions(-)
