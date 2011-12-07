@@ -1,73 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bloat] Time in Queue, bufferbloat, and... our accidentally
- interplanetary network
-Date: Wed, 07 Dec 2011 12:53:19 +0100
-Message-ID: <1323258799.2312.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <CAA93jw7kQYONQiAozatRmdRRJeK0GB9eNDWtRZ3AL+OVKn0OpA@mail.gmail.com>
-	 <1323082774.2670.40.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <9dfc3c5eb811f2774b378fce0158b3e7@localhost>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net-next RFC PATCH 5/5] virtio-net: flow director support
+Date: Wed, 07 Dec 2011 20:10:47 +0800
+Message-ID: <4EDF57C7.90406@redhat.com>
+References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
+	<20111205085925.6116.94352.stgit@dhcp-8-146.nay.redhat.com>
+	<CAJSP0QXfHC8j2Kk9x6wyBMubo2=YvpaLAShJtwMWA2mtro6UhA@mail.gmail.com>
+	<4EDDB71F.9080908@redhat.com>
+	<CAJSP0QX5dDkpX+cRcQut2mb6K91zeqGLRrZBGAWT_r2p685gaQ@mail.gmail.com>
+	<4EDDECA9.8060808@redhat.com>
+	<CAJSP0QXsLwvH5xYj6h0E_V4VLg6DuUc-GKXu9esEYzL2MFcFGw@mail.gmail.com>
+	<4EDED785.80804@redhat.com>
+	<CAJSP0QUGWCf5WHEeCXzqZeF2CvpycxrGo-uPSfpWD1rWD3zeSg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dave Taht <dave.taht@gmail.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	bloat-devel <bloat-devel@lists.bufferbloat.net>,
-	bloat <bloat@lists.bufferbloat.net>
-To: Hagen Paul Pfeifer <hagen@jauu.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:63392 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754513Ab1LGLxY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 06:53:24 -0500
-In-Reply-To: <9dfc3c5eb811f2774b378fce0158b3e7@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	levinsasha928@gmail.com, bhutchings@solarflare.com
+To: Stefan Hajnoczi <stefanha@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAJSP0QUGWCf5WHEeCXzqZeF2CvpycxrGo-uPSfpWD1rWD3zeSg@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 07 d=C3=A9cembre 2011 =C3=A0 11:15 +0100, Hagen Paul Pfeife=
-r a =C3=A9crit :
-> On Mon, 05 Dec 2011 11:59:34 +0100, Eric Dumazet wrote:
->=20
->=20
-> > Adding a time limit is possible, all we need is a proper design and
-> > implementation :)
-> >=20
-> > Here is my suggestion :
-> >=20
-> > Design a new tfifo/tred qdisc, with following properties :
-> >=20
-> > Adaptative RED, (ECN enabled + head drop), but instead of using
-> > bytes/packet qlen average, use time_in_queue average.
->=20
-> Question one: is anything wrong with sfb or choke as the basis, inste=
-ad of
-> RED?
->=20
+On 12/07/2011 05:08 PM, Stefan Hajnoczi wrote:
+[...]
+>> >  Consider the complexity of the host nic each with their own steering
+>> >  features,  this series make the first step with minimal effort to try to let
+>> >  guest driver and host tap/macvtap co-operate like what physical nic does.
+>> >  There may be other method, but performance numbers is also needed to give
+>> >  the answer.
+> I agree that performance results for this need to be shown.
+>
+> My original point is really that it's not a good idea to take
+> individual steps without a good big picture because this will change
+> the virtio-net device specification.  If this turns out to be a dead
+> end then hosts will need to continue to support the interface forever
+> (legacy guests could still try to use it).  So please first explain
+> what the full stack picture is going to look like and how you think it
+> will lead to better performance.  You don't need to have all the code
+> or evidence, but just enough explanation so we see where this is all
+> going.
+I think I mention too little in the cover message.
 
-RED is the module to bring EWMA stuff, it seems natural to start with
-it. Please note that choke has a RED module too.
+There's no much changes with Krishna's series except the method that 
+choosing a rx virtqueue. Since original series use different hash 
+methods in host (rxhash) and guest (txhash), a different virtqueue were 
+chose for a flow which could lead packets of a flow to be handled by 
+different vhost thread and vcpu. This may damage the performance.
 
-Then later, we can add time limit stuff to other Qdisc if needed, its a
-plug anyway. But is there any meaning to compute a global EWMA after
-SFB/SFQ packet classification ?
+This series tries to let one vhost thread to process the packets of a 
+flow and also let the packets to be sent directly to a vcpu local to the 
+thread process the data. This is done by letting guest tell the desired 
+queue form which it want to receive the pakcet of a dedicated flow.
 
-> Question two: I submitted pfast_head_drop to drop more outdated data
-> instead of new data. Back in time I thought TCP _may_ experience bene=
-fits
-> because more up-to-date SACK data packets are saved. Are there any ot=
-her
-> TCP advantages with head drop policy?
->=20
-
-Note that head drop is a consequence of time limit idea on top of FIFO,
-since only at dequeue time, we compute the delta between current time
-and enqueue time, and we drop/mark the (head) packet if time exceeds ou=
-r
-current limit.
-
-In general, being able to drop/mark firsts packets in queue instead of
-last ones can let TCP sender be notified of congestion much earlier tha=
-n
-a tail drop. (We gain the time to transmit whole packets in queue befor=
-e
-receiver can report in its ACK the congestion back to sender)
+So passing the hash from host to guest is needed to get the same hash in 
+the two sides. Then a guest programmable hash to queue table were 
+introduced and guest co-operate with the host through accelerate RFS in 
+guest.
