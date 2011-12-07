@@ -1,34 +1,97 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [net-next RFC PATCH 0/5] Series short description
-Date: Wed, 07 Dec 2011 18:00:55 +1030
-Message-ID: <87ty5cj0sw.fsf@rustcorp.com.au>
-References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
+From: =?utf-8?Q?Lothar_Wa=C3=9Fmann?= <LW@KARO-electronics.de>
+Subject: Re: [PATCH][NET] several cleanups and bugfixes for fec.c: preserve
+ MII/RMII setting in fec_stop()
+Date: Wed, 7 Dec 2011 11:42:28 +0100
+Message-ID: <20191.17172.493079.722098@ipc1.ka-ro>
+References: <cover.1323163127.git.LW@KARO-electronics.de>
+	<d6f4de9e4cfb393754b42815a2ef1a59c96eab83.1323163127.git.LW@KARO-electronics.de>
+	<20111207094146.GG5550@S2100-06.ap.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Jason Wang <jasowang@redhat.com>, krkumar2@in.ibm.com,
-	kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, levinsasha928@gmail.com,
-	bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:47255 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754960Ab1LGKfm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Dec 2011 05:35:42 -0500
-In-Reply-To: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, Shawn Guo <shawn.guo@linaro.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Shawn Guo <shawn.guo@freescale.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111207094146.GG5550@S2100-06.ap.freescale.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 05 Dec 2011 16:58:37 +0800, Jason Wang <jasowang@redhat.com> wrote:
-> multiple queue virtio-net: flow steering through host/guest cooperation
-> 
-> Hello all:
-> 
-> This is a rough series adds the guest/host cooperation of flow
-> steering support based on Krish Kumar's multiple queue virtio-net
-> driver patch 3/3 (http://lwn.net/Articles/467283/).
+Hi,
 
-Is there a real (physical) device which does this kind of thing?  How do
-they do it?  Can we copy them?
+Shawn Guo writes:
+> On Tue, Dec 06, 2011 at 11:27:14AM +0100, Lothar Wa=C3=9Fmann wrote:
+> > Additionally to setting the ETHER_EN bit in FEC_ECNTRL the MII/RMII
+> > setting in FEC_R_CNTRL needs to be preserved to keep the MII interf=
+ace
+>=20
+> s/MII/RMII?  From what I see from imx28 and imx6q RM, the reset state
+> for this setting is MII mode.
+>=20
+> > functional.
+> >=20
+> > Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
+> > ---
+> >  drivers/net/ethernet/freescale/fec.c |    5 ++++-
+> >  1 files changed, 4 insertions(+), 1 deletions(-)
+>=20
+> I assume this is fixing a problem you are seeing on imx28 only.
+> Do you see the problem on imx53/51?
+>=20
+No. i.MX53 uses the RMII gasket which is not affected by resetting the
+controller. And imMX51 does not support RMII at all.
 
-Cheers,
-Rusty.
+> >=20
+> > diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/eth=
+ernet/freescale/fec.c
+> > index 11534b9..ab0afb5 100644
+> > --- a/drivers/net/ethernet/freescale/fec.c
+> > +++ b/drivers/net/ethernet/freescale/fec.c
+> > @@ -515,6 +515,7 @@ fec_stop(struct net_device *ndev)
+> >  	struct fec_enet_private *fep =3D netdev_priv(ndev);
+> >  	const struct platform_device_id *id_entry =3D
+> >  				platform_get_device_id(fep->pdev);
+> > +	u32 rmii_mode =3D readl(fep->hwp + FEC_R_CNTRL) & (1 << 8);
+>=20
+> This bit is only available on ENET (imx28 and imx6q).  Do we want to
+> do the same thing for FEC (imx25/27/35/51/53)?
+>=20
+No. AFAICT that's not necessary there.
+
+> >  	/* We cannot expect a graceful transmit stop without link !!! */
+> >  	if (fep->link) {
+> > @@ -531,8 +532,10 @@ fec_stop(struct net_device *ndev)
+> >  	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+> > =20
+> >  	/* We have to keep ENET enabled to have MII interrupt stay workin=
+g */
+> > -	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC)
+> > +	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC) {
+> >  		writel(2, fep->hwp + FEC_ECNTRL);
+> > +		writel(rmii_mode, fep->hwp + FEC_R_CNTRL);
+> > +	}
+> >  }
+>=20
+> On imx6q, we have two bits, bit 6 and 8 of FEC_R_CNTRL, to select MII
+> interface among MII, RMII and RGMII modes.  I'm not sure if we will
+> run into the same problem for RGMII mode.  What's your test setup?
+> I would try to reproduce it here.
+>=20
+I'm using a TX28 which has the Ethernet PHY connected in RMII
+mode. You should see the problem, if you unplug the ethernet cable on
+a configured link. Without this patch the kernel will not detect when
+the cable is plugged back in.
+
+
+Lothar Wa=C3=9Fmann
+--=20
+___________________________________________________________
+
+Ka-Ro electronics GmbH | Pascalstra=C3=9Fe 22 | D - 52076 Aachen
+Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
+Gesch=C3=A4ftsf=C3=BChrer: Matthias Kaussen
+Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
+
+www.karo-electronics.de | info@karo-electronics.de
+___________________________________________________________
