@@ -1,38 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] remove an outdated reference to T/TCP
-Date: Wed, 07 Dec 2011 09:58:07 +0100
-Message-ID: <1323248287.2690.41.camel@edumazet-laptop>
-References: <20111206200005.836D529006DD@tardy>
-	 <20111206.151920.696192671128392379.davem@davemloft.net>
-	 <4EDE8B8B.2000907@hp.com>
-	 <20111206.164243.402402261622724566.davem@davemloft.net>
-	 <CAK6E8=cne1UbOEcZ6ZfsJw-=qwUsO=yMEi3LNNsTpM_5crv0fg@mail.gmail.com>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: [PATCH][NET] several cleanups and bugfixes for fec.c: don't
+ munge MAC address from platform data
+Date: Wed, 7 Dec 2011 17:14:42 +0800
+Message-ID: <20111207091441.GF5550@S2100-06.ap.freescale.net>
+References: <cover.1323163127.git.LW@KARO-electronics.de>
+ <55b78c1766da5b0d0d679f5eae3fb9fc74a6ceef.1323163127.git.LW@KARO-electronics.de>
+ <20111207084953.GD5550@S2100-06.ap.freescale.net>
+ <20191.10281.826050.193987@ipc1.ka-ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
-	netdev@vger.kernel.org
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:48973 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753931Ab1LGI6M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 03:58:12 -0500
-Received: by eekd41 with SMTP id d41so234285eek.19
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2011 00:58:11 -0800 (PST)
-In-Reply-To: <CAK6E8=cne1UbOEcZ6ZfsJw-=qwUsO=yMEi3LNNsTpM_5crv0fg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, Shawn Guo <shawn.guo@linaro.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20191.10281.826050.193987@ipc1.ka-ro>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 06 d=C3=A9cembre 2011 =C3=A0 15:00 -0800, Yuchung Cheng a =C3=A9=
-crit :
+On Wed, Dec 07, 2011 at 09:47:37AM +0100, Lothar Wa=DFmann wrote:
+> Hi,
+>=20
+> Shawn Guo writes:
+> > On Tue, Dec 06, 2011 at 11:27:13AM +0100, Lothar Wa=DFmann wrote:
+> > > When the MAC address is supplied via platform_data it should be O=
+K as
+> > > it is and should not be modified in case of a dual FEC setup.
+> > > Also copying the MAC from platform_data to the single 'macaddr'
+> > > variable will overwrite the MAC for the first interface in case o=
+f a
+> > > dual FEC setup.
+> >=20
+> > Hmm, I do not follow that.  If 'macaddr' holds a valid mac address,
+> > the code path has no chance to be hit at all.  Otherwise, 'macaddr'
+> > is just a place holder for copying mac address from pdata, in which
+> > case the mac address will be fixed up at the end of the function fo=
+r
+> > dual FEC setup.
+> >=20
+> In case of dual FEC and MAC address provided by platform_data the
+> first mac address will be copied to the 'macaddr' variable with no
+> chance for the second interface to get its mac address assigned from
+> platform_data too.
+>=20
+Indeed.  So again other than subject,
 
-> I am fine keeping the comment as is.  This does remind me to put more
-> comments on this part of the code in our upcoming Fast Open patch :)
+Acked-by: Shawn Guo <shawn.guo@linaro.org>
 
-This sounds great.
-
-Is TFO patch using inetpeer cache to store cookies ?
-
-(I ask this because TFO paper I read mentions linux-2.6.34, I presume
-you couldnt use inetpeer at that time since it was IPv4 only)
+--=20
+Regards,
+Shawn
