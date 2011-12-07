@@ -1,66 +1,43 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH v2] e1000e: Assign true and false to bool type variable
- instead of 1 and 0
-Date: Wed, 7 Dec 2011 07:20:50 +0000
-Message-ID: <20111207072050.GC2203@ZenIV.linux.org.uk>
-References: <4EDED071.40900@linux.vnet.ibm.com>
- <1323229439.2415.23.camel@jtkirshe-mobl>
- <1323231268.1762.19.camel@joe2Laptop>
- <4EDEF05F.4020901@linux.vnet.ibm.com>
- <1323237700.1762.24.camel@joe2Laptop>
- <4EDF02CC.4010407@linux.vnet.ibm.com>
- <1323238749.1762.27.camel@joe2Laptop>
- <4EDF0964.3080509@linux.vnet.ibm.com>
+From: Li Wei <lw@cn.fujitsu.com>
+Subject: [PATCH] ipv6: Fix for adding multicast route for loopback device
+ automatically.
+Date: Wed, 07 Dec 2011 15:23:45 +0800
+Message-ID: <4EDF1481.1080106@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>, jeffrey.t.kirsher@intel.com,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"wangyunlinux@gmail.com" <wangyunlinux@gmail.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: Michael Wang <wangyun@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, yoshfuji@linux-ipv6.org
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:57500 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752270Ab1LGHVB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 02:21:01 -0500
-Content-Disposition: inline
-In-Reply-To: <4EDF0964.3080509@linux.vnet.ibm.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:63022 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751799Ab1LGHXe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Dec 2011 02:23:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 07, 2011 at 02:36:20PM +0800, Michael Wang wrote:
-> On 12/07/2011 02:19 PM, Joe Perches wrote:
+There is no obvious reason to add a default multicast route for loopback
+devices, otherwise there would be a route entry whose dst.error set to
+-ENETUNREACH that would blocking all multicast packets.
 
-[snip]
-> >  	if (*i2cctl & IXGBE_I2C_DATA_IN)
-> > -		data = 1;
-> > +		data = true;
-> >  	else
-> > -		data = 0;
-> > +		data = false;
-> > 
-> >  	return data;
+Signed-off-by: Li Wei <lw@cn.fujitsu.com>
+---
+ net/ipv6/addrconf.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-Yuck...
-
-bool f(whatever)
-{
-	bool data;
-	if (expression)
-		data = true;
-	else
-		data = false;
-	return data;
-}
-
-is amazingly unidiomatic.  Hell, if nothing else it's
-	bool data = expression;
-	return data;
-if not an outright
-	return expression;
-or
-	return (bool)expression;
-if you want to underline that it's treated as boolean...  What tool
-has produced that patch?
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index cf88df8..36806de 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1805,7 +1805,8 @@ static struct inet6_dev *addrconf_add_dev(struct net_device *dev)
+ 		return ERR_PTR(-EACCES);
+ 
+ 	/* Add default multicast route */
+-	addrconf_add_mroute(dev);
++	if (!(dev->flags & IFF_LOOPBACK))
++		addrconf_add_mroute(dev);
+ 
+ 	/* Add link local route */
+ 	addrconf_add_lroute(dev);
+-- 
+1.7.3.2
