@@ -1,107 +1,118 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 4/4] SUNRPC: use passed network namespace context in
- rpc_uaddr2sockaddr()
-Date: Wed, 07 Dec 2011 15:20:40 +0300
-Message-ID: <20111207112039.17273.45973.stgit@localhost6.localdomain6>
-References: <20111207111716.17273.63010.stgit@localhost6.localdomain6>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] IPVS: Modify the SH scheduler to use weights
+Date: Wed, 7 Dec 2011 12:30:38 +0100
+Message-ID: <20111207113038.GA18166@1984>
+References: <1323245223-13646-1-git-send-email-horms@verge.net.au>
+ <1323245223-13646-2-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbottomley@parallels.com, bfields@fieldses.org,
-	davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:25632 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755610Ab1LGLU5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Dec 2011 06:20:57 -0500
-In-Reply-To: <20111207111716.17273.63010.stgit@localhost6.localdomain6>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Michael Maxim <mike@okcupid.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1323245223-13646-2-git-send-email-horms@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use incomming network context in rpc_uaddr2sockaddr() instead of hard-coded
-"init_net".
+On Wed, Dec 07, 2011 at 05:07:03PM +0900, Simon Horman wrote:
+> From: Michael Maxim <mike@okcupid.com>
+> 
+> Modify the algorithm to build the source hashing hash table to add
+> extra slots for destinations with higher weight. This has the effect
+> of allowing an IPVS SH user to give more connections to hosts that
+> have been configured to have a higher weight.
+> 
+> Signed-off-by: Michael Maxim <mike@okcupid.com>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> ---
+>  net/netfilter/ipvs/Kconfig    |   15 +++++++++++++++
+>  net/netfilter/ipvs/ip_vs_sh.c |   20 ++++++++++++++++++--
+>  2 files changed, 33 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
+> index 70bd1d0..af4c0b8 100644
+> --- a/net/netfilter/ipvs/Kconfig
+> +++ b/net/netfilter/ipvs/Kconfig
+> @@ -232,6 +232,21 @@ config	IP_VS_NQ
+>  	  If you want to compile it in kernel, say Y. To compile it as a
+>  	  module, choose M here. If unsure, say N.
+>  
+> +comment 'IPVS SH scheduler'
+> +
+> +config IP_VS_SH_TAB_BITS
+> +	int "IPVS source hashing table size (the Nth power of 2)"
+> +	range 4 20
+> +	default 8
+> +	---help---
+> +	  The source hashing scheduler maps source IPs to destinations
+> +	  stored in a hash table. This table is tiled by each destination
+> +	  until all slots in the table are filled. When using weights to
+> +	  allow destinations to receive more connections, the table is
+> +	  tiled an amount proportional to the weights specified. The table
+> +	  needs to be large enough to effectively fit all the destinations
+> +	  multiplied by their respective weights.
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Hm, does this really belong to this patch?
 
----
- fs/nfsd/nfs4state.c         |    2 +-
- include/linux/sunrpc/clnt.h |    2 +-
- net/sunrpc/addr.c           |    8 +++++---
- net/sunrpc/rpcb_clnt.c      |    2 +-
- 4 files changed, 8 insertions(+), 6 deletions(-)
+> +
+>  comment 'IPVS application helper'
+>  
+>  config	IP_VS_FTP
+> diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
+> index 33815f4..e0ca520 100644
+> --- a/net/netfilter/ipvs/ip_vs_sh.c
+> +++ b/net/netfilter/ipvs/ip_vs_sh.c
+> @@ -30,6 +30,11 @@
+>   * server is dead or overloaded, the load balancer can bypass the cache
+>   * server and send requests to the original server directly.
+>   *
+> + * The weight destination attribute can be used to control the
+> + * distribution of connections to the destinations in servernode. The
+> + * greater the weight, the more connections the destination
+> + * will receive.
+> + *
+>   */
+>  
+>  #define KMSG_COMPONENT "IPVS"
+> @@ -99,9 +104,11 @@ ip_vs_sh_assign(struct ip_vs_sh_bucket *tbl, struct ip_vs_service *svc)
+>  	struct ip_vs_sh_bucket *b;
+>  	struct list_head *p;
+>  	struct ip_vs_dest *dest;
+> +	int d_count;
+>  
+>  	b = tbl;
+>  	p = &svc->destinations;
+> +	d_count = 0;
+>  	for (i=0; i<IP_VS_SH_TAB_SIZE; i++) {
+>  		if (list_empty(p)) {
+>  			b->dest = NULL;
+> @@ -113,14 +120,23 @@ ip_vs_sh_assign(struct ip_vs_sh_bucket *tbl, struct ip_vs_service *svc)
+>  			atomic_inc(&dest->refcnt);
+>  			b->dest = dest;
+>  
+> -			p = p->next;
+> +			IP_VS_DBG_BUF(6, "assigned i: %d dest: %s weight: %d\n",
+> +				      i, IP_VS_DBG_ADDR(svc->af, &dest->addr),
+> +				      atomic_read(&dest->weight));
+> +
+> +			/* Don't move to next dest until filling weight */
+> +			if (++d_count >= atomic_read(&dest->weight)) {
+> +				p = p->next;
+> +				d_count = 0;
+> +			}
+> +
+>  		}
+>  		b++;
+>  	}
+> +
+>  	return 0;
+>  }
+>  
+> -
 
-diff --git a/fs/nfsd/nfs4state.c b/fs/nfsd/nfs4state.c
-index 47e94e3..e18f46f 100644
---- a/fs/nfsd/nfs4state.c
-+++ b/fs/nfsd/nfs4state.c
-@@ -1301,7 +1301,7 @@ gen_callback(struct nfs4_client *clp, struct nfsd4_setclientid *se, struct svc_r
- 	else
- 		goto out_err;
- 
--	conn->cb_addrlen = rpc_uaddr2sockaddr(se->se_callback_addr_val,
-+	conn->cb_addrlen = rpc_uaddr2sockaddr(&init_net, se->se_callback_addr_val,
- 					    se->se_callback_addr_len,
- 					    (struct sockaddr *)&conn->cb_addr,
- 					    sizeof(conn->cb_addr));
-diff --git a/include/linux/sunrpc/clnt.h b/include/linux/sunrpc/clnt.h
-index 877a466..029fb48 100644
---- a/include/linux/sunrpc/clnt.h
-+++ b/include/linux/sunrpc/clnt.h
-@@ -165,7 +165,7 @@ size_t		rpc_ntop(const struct sockaddr *, char *, const size_t);
- size_t		rpc_pton(struct net *, const char *, const size_t,
- 			 struct sockaddr *, const size_t);
- char *		rpc_sockaddr2uaddr(const struct sockaddr *, gfp_t);
--size_t		rpc_uaddr2sockaddr(const char *, const size_t,
-+size_t		rpc_uaddr2sockaddr(struct net *, const char *, const size_t,
- 				   struct sockaddr *, const size_t);
- 
- static inline unsigned short rpc_get_port(const struct sockaddr *sap)
-diff --git a/net/sunrpc/addr.c b/net/sunrpc/addr.c
-index 982fac7..bad31da 100644
---- a/net/sunrpc/addr.c
-+++ b/net/sunrpc/addr.c
-@@ -297,6 +297,7 @@ char *rpc_sockaddr2uaddr(const struct sockaddr *sap, gfp_t gfp_flags)
- 
- /**
-  * rpc_uaddr2sockaddr - convert a universal address to a socket address.
-+ * @net: applicable network namespace
-  * @uaddr: C string containing universal address to convert
-  * @uaddr_len: length of universal address string
-  * @sap: buffer into which to plant socket address
-@@ -308,8 +309,9 @@ char *rpc_sockaddr2uaddr(const struct sockaddr *sap, gfp_t gfp_flags)
-  * Returns the size of the socket address if successful; otherwise
-  * zero is returned.
-  */
--size_t rpc_uaddr2sockaddr(const char *uaddr, const size_t uaddr_len,
--			  struct sockaddr *sap, const size_t salen)
-+size_t rpc_uaddr2sockaddr(struct net *net, const char *uaddr,
-+			  const size_t uaddr_len, struct sockaddr *sap,
-+			  const size_t salen)
- {
- 	char *c, buf[RPCBIND_MAXUADDRLEN + sizeof('\0')];
- 	unsigned long portlo, porthi;
-@@ -341,7 +343,7 @@ size_t rpc_uaddr2sockaddr(const char *uaddr, const size_t uaddr_len,
- 	port = (unsigned short)((porthi << 8) | portlo);
- 
- 	*c = '\0';
--	if (rpc_pton(&init_net, buf, strlen(buf), sap, salen) == 0)
-+	if (rpc_pton(net, buf, strlen(buf), sap, salen) == 0)
- 		return 0;
- 
- 	switch (sap->sa_family) {
-diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
-index 8761bf8..42e1b2e 100644
---- a/net/sunrpc/rpcb_clnt.c
-+++ b/net/sunrpc/rpcb_clnt.c
-@@ -925,7 +925,7 @@ static int rpcb_dec_getaddr(struct rpc_rqst *req, struct xdr_stream *xdr,
- 	dprintk("RPC: %5u RPCB_%s reply: %s\n", task->tk_pid,
- 			task->tk_msg.rpc_proc->p_name, (char *)p);
- 
--	if (rpc_uaddr2sockaddr((char *)p, len, sap, sizeof(address)) == 0)
-+	if (rpc_uaddr2sockaddr(&init_net, (char *)p, len, sap, sizeof(address)) == 0)
- 		goto out_fail;
- 	rpcb->r_port = rpc_get_port(sap);
- 
+While at it, would you remove this unnecessary deletions/additions.
+
+Thanks!
