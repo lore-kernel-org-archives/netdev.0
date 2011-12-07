@@ -1,91 +1,63 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH net-next] bnx2x: Fix compile errors if CONFIG_CNIC
- is not set
-Date: Wed, 7 Dec 2011 15:53:22 +0200
-Message-ID: <1323266002.11998.6.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1323205088-29693-1-git-send-email-mchan@broadcom.com>
- <1323205383.2690.25.camel@edumazet-laptop>
- <1323206734.1762.8.camel@joe2Laptop> <1323207770.7517.7.camel@HP1>
- <1323209811.11998.3.camel@lb-tlvb-eilong.il.broadcom.com>
-Reply-To: eilong@broadcom.com
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: Latency difference between fifo and pfifo_fast
+Date: Wed, 7 Dec 2011 14:08:24 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AF07@saturn3.aculab.com>
+References: <CAA93jw58s4DG7Ow+j-cCgtD4UsWRUPZ-pbmeF1J1cZcaxCDRsw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Barak Witkowski" <barak@broadcom.com>
-To: "Michael Chan" <mchan@broadcom.com>,
-	"Joe Perches" <joe@perches.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "John A. Sullivan III" <jsullivan@opensourcedevel.com>,
+	<netdev@vger.kernel.org>, "Rick Jones" <rick.jones2@hp.com>
+To: "Dave Taht" <dave.taht@gmail.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4618 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755810Ab1LGNxg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 08:53:36 -0500
-In-Reply-To: <1323209811.11998.3.camel@lb-tlvb-eilong.il.broadcom.com>
+Received: from mx0.aculab.com ([213.249.233.131]:46314 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1755803Ab1LGOIh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 09:08:37 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 10570-02 for <netdev@vger.kernel.org>;
+ Wed,  7 Dec 2011 14:08:34 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <CAA93jw58s4DG7Ow+j-cCgtD4UsWRUPZ-pbmeF1J1cZcaxCDRsw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-12-07 at 00:16 +0200, Eilon Greenstein wrote:
-> On Tue, 2011-12-06 at 13:42 -0800, Michael Chan wrote:
-> > On Tue, 2011-12-06 at 13:25 -0800, Joe Perches wrote:
-> > > On Tue, 2011-12-06 at 22:03 +0100, Eric Dumazet wrote:
-> > > > Le mardi 06 d=C3=A9cembre 2011 =C3=A0 12:58 -0800, Michael Chan=
- a =C3=A9crit :
-> > > > > Don't provide FCoE and iSCSI statistics to management firmwar=
-e if
-> > > > > CONFIG_CNIC is not set.  Some needed structure fields are not=
- defined
-> > > > > without CONFIG_CNIC.
-> > > > Thanks for the fast answer, and yes, no more build error :)
-> > >=20
-> > > That works, but is that the best solution?
-> > >=20
-> > > Another option is for bnx2x_handle_drv_info_req
-> > > to return DRV_MSG_CODE_DRV_INFO_NACK
-> > >=20
-> >=20
-> > Eilon (bnx2x lead maintainer) will need to decide which is the most
-> > appropriate solution as he is most familiar with the firmware.  I d=
-on't
-> > know if sending NACK to the firmware will have other negative effec=
-ts or
-> > not.  Eilon should be online in about 8 hours and he can send a
-> > follow-up patch if necessary.
-> >=20
-> > > Maybe like:
-> > >=20
-> > > 	switch (op_code) {
-> > > 	case ETH_STATS_OPCODE:
-> > > 		bnx2x_drv_info_ether_stat(bp);
-> > > 		break;
-> > > #ifdef BCM_CNIC
-> > > 	case FCOE_STATS_OPCODE:
-> > > 		bnx2x_drv_info_fcoe_stat(bp);
-> > > 		break;
-> > > 	case ISCSI_STATS_OPCODE:
-> > > 		bnx2x_drv_info_iscsi_stat(bp);
-> > > 		break;
-> > > #endif
-> > > 	default:
-> > > 		/* if op code isn't supported - send NACK */
-> > > 		bnx2x_fw_command(bp, DRV_MSG_CODE_DRV_INFO_NACK, 0);
-> > > 		return;
-> > > 	}
-> > >=20
-> > >=20
-> > >=20
-> >=20
->=20
-> Joe is right. This latest patch breaks the FW assumption, but at leas=
-t
-> everything compiles now, so it is not as urgent. We will send a patch=
- in
-> that spirit in the morning.
+ 
+...
+> If he's hovering at close to line rate (wow), and yet experiencing
+> serious delays on short traffic, perhaps what I describe 
+> below may apply.
+...
+> 1) TCP grabs all the bandwidth it can. If you have no packet loss,
+> it will eat more bandwidth, as rapidly as it can ramp up. 
+> Until it eventually has packet loss.
 
-As you probably saw in the patch Barak just sent, after thinking about
-it some more and testing the FW flows, it is best to return ACK without
-updating the counters.
+The 'ramp up' may be part of the problem!
+At a guess iSCSI is using the TCP connection to carry
+many, separate, commands and responses. As such Nagle
+will cause serious grief and is likely to be disabled.
 
-Eilon
+TCP 'slow start' will apply whenever there is no unacked
+data - which might be after any slight lull in the traffic.
+IIRC (from looking at traces) Linux TCP will only send 4 data
+packets following 'slow start' until it has received an ack.
+Linux (at least some versions) will also delay sending an
+ack until the next clock tick - rather than the traditional
+scheme of always acking every other packet.
+
+So if there are no responses, the requests can be delayed.
+This will increase latency.
+
+My suspicions (as I've said before) is that slow start
+is broken for very low latency local networks.
+Might be worth disabling it - but that is a massive system-wide
+switch.
+
+Very high packet rates can cause packet loss, but buying better
+network infrastructure should mitigate that. In any case, 'slow
+start' doesn't limit packet rate.
+
+	David
