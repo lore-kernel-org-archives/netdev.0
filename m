@@ -1,84 +1,100 @@
-From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Subject: [PATCH 2/2] batman-adv: delete global entry in case
-	of roaming
-Date: Wed,  7 Dec 2011 13:42:41 +0800
-Message-ID: <1323236561-25262-1-git-send-email-lindner_marek@yahoo.de>
-References: <1323236203-24711-1-git-send-email-lindner_marek@yahoo.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1323236203-24711-1-git-send-email-lindner_marek-LWAfsSFWpa4@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2] e1000e: Assign true and false to bool type variable
+ instead of 1 and 0
+Date: Tue, 06 Dec 2011 22:01:40 -0800
+Message-ID: <1323237700.1762.24.camel@joe2Laptop>
+References: <4EDED071.40900@linux.vnet.ibm.com>
+	 <1323229439.2415.23.camel@jtkirshe-mobl>
+	 <1323231268.1762.19.camel@joe2Laptop> <4EDEF05F.4020901@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"wangyunlinux@gmail.com" <wangyunlinux@gmail.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: Michael Wang <wangyun@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:36996 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751054Ab1LGGBm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Dec 2011 01:01:42 -0500
+In-Reply-To: <4EDEF05F.4020901@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+On Wed, 2011-12-07 at 12:49 +0800, Michael Wang wrote:
+> On 12/07/2011 12:14 PM, Joe Perches wrote:
+> 
+> > On Tue, 2011-12-06 at 19:43 -0800, Jeff Kirsher wrote:
+> >> On Tue, 2011-12-06 at 18:33 -0800, Michael Wang wrote:
+> >>> From: Michael Wang <wangyun@linux.vnet.ibm.com>
+> >>> Use true and false instead of 1 and 0 when assign value to a bool type
+> >>> variable.
+> >> Thanks Michael, I have added your patch to my queue of e1000e patches.
+> > 
+> > There are more of these uses in intel drivers.
+> > 
+> > Perhaps you could run this cocci/spatch
+> > on drivers/net/ethernet/intel/...
+> > 
+> > $ cat bool.cocci
+> > @@
+> > bool b;
+> > @@
+> > 
+> > -b = 0;
+> > +b = false;
+> > 
+> > @@
+> > bool b;
+> > @@
+> > 
+> > -b = 1;
+> > +b = true;
+> > 
+> > $ git ls-files drivers/net/ethernet/intel/ | grep "\.c$" | while read file ; do spatch -in_place -sp_file bool.cocci $file ; done
+> > 
+> > 
+> 
+> Hi, Joe
+> 
+> I think there are lots of such cases in kernel, and I think it is a
+> legacy issue with some story in it.
 
-When receiving a DEL change for a client due to a roaming event (change is
-marked with TT_CLIENT_ROAM), each node  has to check if the client roamed
-to itself or somewhere else.
+Actually, there are relatively few bool = 0|1; uses.
 
-In the latter case the global entry is kept to avoid having no route at all
-otherwise we can safely delete the global entry
+> The reason I only change the e1000e is that the patch I send before will
+> broken the style of e1000e, because it's using true and false, not 1 and 0.
 
-Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
----
- net/batman-adv/translation-table.c |   21 ++++++++++++++++++---
- 1 files changed, 18 insertions(+), 3 deletions(-)
+Scriptable fixes are easy.
 
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index c46b140..5f09a57 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -696,6 +696,7 @@ void tt_global_del(struct bat_priv *bat_priv,
- 		   const char *message, bool roaming)
- {
- 	struct tt_global_entry *tt_global_entry = NULL;
-+	struct tt_local_entry *tt_local_entry = NULL;
- 
- 	tt_global_entry = tt_global_hash_find(bat_priv, addr);
- 	if (!tt_global_entry)
-@@ -703,15 +704,29 @@ void tt_global_del(struct bat_priv *bat_priv,
- 
- 	if (tt_global_entry->orig_node == orig_node) {
- 		if (roaming) {
--			tt_global_entry->flags |= TT_CLIENT_ROAM;
--			tt_global_entry->roam_at = jiffies;
--			goto out;
-+			/* if we are deleting a global entry due to a roam
-+			 * event, there are two possibilities:
-+			 * 1) the client roamed from node A to node B => we mark
-+			 *    it with TT_CLIENT_ROAM, we start a timer and we
-+			 *    wait for node B to claim it. In case of timeout
-+			 *    the entry is purged.
-+			 * 2) the client roamed to us => we can directly delete
-+			 *    the global entry, since it is useless now. */
-+			tt_local_entry = tt_local_hash_find(bat_priv,
-+							tt_global_entry->addr);
-+			if (!tt_local_entry) {
-+				tt_global_entry->flags |= TT_CLIENT_ROAM;
-+				tt_global_entry->roam_at = jiffies;
-+				goto out;
-+			}
- 		}
- 		_tt_global_del(bat_priv, tt_global_entry, message);
- 	}
- out:
- 	if (tt_global_entry)
- 		tt_global_entry_free_ref(tt_global_entry);
-+	if (tt_local_entry)
-+		tt_local_entry_free_ref(tt_local_entry);
- }
- 
- void tt_global_del_orig(struct bat_priv *bat_priv,
--- 
-1.7.5.4
+> I think this will be a huge work if we want to correct all these cases,
+
+Perhaps you're thinking of int uses that could be
+converted to bool? There are a lot of those.
+
+This is the diffstat I get for drivers/net/ethernet
+for the current uses of bool foo = 0|1;
+
+$ git diff --stat drivers/net
+ drivers/net/ethernet/broadcom/tg3.c           |    8 ++++----
+ drivers/net/ethernet/brocade/bna/bnad.c       |    4 ++--
+ drivers/net/ethernet/dec/tulip/de4x5.c        |    4 ++--
+ drivers/net/ethernet/intel/e1000/e1000_main.c |   10 +++++-----
+ drivers/net/ethernet/intel/e1000e/netdev.c    |   16 ++++++++--------
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c   |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c  |    4 ++--
+ drivers/net/ethernet/sfc/falcon.c             |    2 +-
+ drivers/net/ethernet/sfc/mtd.c                |    6 +++---
+ drivers/net/ethernet/tile/tilepro.c           |    4 ++--
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c |    4 ++--
+ 12 files changed, 33 insertions(+), 33 deletions(-)
+
+> and I think the good way is to separate the work to small pieces and
+> finish them slowly.
+
+I think that's true for the int->bool conversions.
