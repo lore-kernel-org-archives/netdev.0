@@ -1,59 +1,86 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH] sch_red: fix red_change
-Date: Wed, 7 Dec 2011 23:57:48 +0100
-Message-ID: <20111207225747.GA4758@nuttenaction>
-References: <1322684749.2602.3.camel@edumazet-laptop>
- <20111130143642.7130aa2b@nehalam.linuxnetplumber.net>
- <1322773594.2750.28.camel@edumazet-laptop>
- <CAA93jw7wAL75pVrB-q+xGAcpQtiZz4iVW0Z2W9E8VGSyUFOo-w@mail.gmail.com>
- <1322776643.2750.45.camel@edumazet-laptop>
- <alpine.DEB.2.00.1112051221510.31705@wel-95.cs.helsinki.fi>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [RFT] sky2: 32 bit DMA quirk
+Date: Wed, 7 Dec 2011 15:02:05 -0800
+Message-ID: <20111207150205.3fad9290@nehalam.linuxnetplumber.net>
+References: <20111120232118.GA29748@ntm.wq.cz>
+	<20111121160543.2ae9c04c@nehalam.linuxnetplumber.net>
+	<20111122094234.GA28500@ntm.wq.cz>
+	<20111126161513.GA5299@ntm.wq.cz>
+	<20111126170331.744025f1@s6510.linuxnetplumber.net>
+	<20111205124725.GA19385@ntm.wq.cz>
+	<20111205081611.52ec0664@nehalam.linuxnetplumber.net>
+	<20111206095919.GA6726@ntm.wq.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Dave Taht <dave.taht@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Thomas Graf <tgraf@infradead.org>,
-	netdev <netdev@vger.kernel.org>, Jim Gettys <jg@freedesktop.org>
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Milan Kocian <milon@wq.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:44454 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755730Ab1LGW5u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 17:57:50 -0500
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.1112051221510.31705@wel-95.cs.helsinki.fi>
+Received: from mail.vyatta.com ([76.74.103.46]:35553 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757674Ab1LGXCI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Dec 2011 18:02:08 -0500
+In-Reply-To: <20111206095919.GA6726@ntm.wq.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Ilpo J=E4rvinen | 2011-12-05 13:42:44 [+0200]:
+This a patch to force 32 bit DMA. Not sure if the DMI values
+are right for the Gigabyte motherboard with the problem.
 
->I disagree. If there's any slow starting flow that alone can fill the=20
->bottleneck, anything significantly larger than RTT just harms. RED is=20
->just "too slow" if you follow the recommended parametrization..
->
->In a core router you can probably get away with multiple RTTs, but nea=
-r=20
->edge that is a grave mistake due to how slow-start behaves. With avera=
-ge=20
->based on many RTTs, RED still estimates that the link has low load whi=
-le=20
->congestion has escalated to higher dimensions due to slow start. As a=20
->result, RED graciously falls back to tail-drop once the physical queue=
-=20
->runs out and the flows respond allowing the load to decrease. However,=
-=20
->finally RED reaches a state where it starts to "pro-actively" react to=
- an=20
->"incipient congestion"?!? :-/ =3D> Problem is made worse by those extr=
-a=20
->drops/marks happening too late.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-But then one question Ilpo: drive IW10 or IW14 the behavior even worse?
-Especially if n connections start almost simultanously? You did some an=
-alysis
-on this topic.
-
-
-HGN
+--- a/drivers/net/ethernet/marvell/sky2.c	2011-12-07 10:54:18.816279159 -0800
++++ b/drivers/net/ethernet/marvell/sky2.c	2011-12-07 14:59:47.737381388 -0800
+@@ -41,6 +41,7 @@
+ #include <linux/delay.h>
+ #include <linux/workqueue.h>
+ #include <linux/if_vlan.h>
++#include <linux/dmi.h>
+ #include <linux/prefetch.h>
+ #include <linux/debugfs.h>
+ #include <linux/mii.h>
+@@ -95,6 +96,10 @@ static int disable_msi = 0;
+ module_param(disable_msi, int, 0);
+ MODULE_PARM_DESC(disable_msi, "Disable Message Signaled Interrupt (MSI)");
+ 
++static int only_32bit_dma;
++module_param(only_32bit_dma, int, 0);
++MODULE_PARM_DESC(only_32bit_dma, "Limit device to 32 bit DMA access");
++
+ static DEFINE_PCI_DEVICE_TABLE(sky2_id_table) = {
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, 0x9000) }, /* SK-9Sxx */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, 0x9E00) }, /* SK-9Exx */
+@@ -4889,7 +4894,7 @@ static int __devinit sky2_probe(struct p
+ 
+ 	pci_set_master(pdev);
+ 
+-	if (sizeof(dma_addr_t) > sizeof(u32) &&
++	if (sizeof(dma_addr_t) > sizeof(u32) && !only_32bit_dma &&
+ 	    !(err = pci_set_dma_mask(pdev, DMA_BIT_MASK(64)))) {
+ 		using_dac = 1;
+ 		err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
+@@ -5163,10 +5168,24 @@ static struct pci_driver sky2_driver = {
+ 	.driver.pm = SKY2_PM_OPS,
+ };
+ 
++static struct dmi_system_id sky2_32bit_dma_boards[] = {
++	{
++		.ident = "Gigabyte GA-965GM-S2 boards",
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "Gigabyte Technology Co"),
++			DMI_MATCH(DMI_BOARD_NAME, "GA-965GM-S2"),
++		},
++	},
++	{}
++};
++
+ static int __init sky2_init_module(void)
+ {
+ 	pr_info("driver version " DRV_VERSION "\n");
+ 
++	if (dmi_check_system(sky2_32bit_dma_boards))
++		only_32bit_dma = 1;
++
+ 	sky2_debug_init();
+ 	return pci_register_driver(&sky2_driver);
+ }
