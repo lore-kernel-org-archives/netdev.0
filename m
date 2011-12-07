@@ -1,80 +1,60 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next RFC PATCH 0/5] Series short description
-Date: Wed, 7 Dec 2011 17:02:04 +0000
-Message-ID: <1323277324.2728.34.camel@bwh-desktop>
-References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
-	<87ty5cj0sw.fsf@rustcorp.com.au>  <4EDF4E82.7050201@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	levinsasha928@gmail.com
-To: Jason Wang <jasowang@redhat.com>, Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <4EDF4E82.7050201@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+From: Greg KH <gregkh@suse.de>
+Subject: [11/27] gro: reset vlan_tci on reuse
+Date: Wed, 07 Dec 2011 08:54:44 -0800
+Message-ID: <20111207165601.339899873@clark.kroah.org>
+References: <20111207165611.GA19872@kroah.com>
+Cc: <torvalds@linux-foundation.org>, <akpm@linux-foundation.org>,
+	<alan@lxorguk.ukuu.org.uk>, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>,
+	Benjamin Poirier <bpoirier@suse.de>
+To: <linux-kernel@vger.kernel.org>, <stable@vger.kernel.org>,
+	davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111207165611.GA19872@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-12-07 at 19:31 +0800, Jason Wang wrote:
-> On 12/07/2011 03:30 PM, Rusty Russell wrote:
-> > On Mon, 05 Dec 2011 16:58:37 +0800, Jason Wang<jasowang@redhat.com>  wrote:
-> >> multiple queue virtio-net: flow steering through host/guest cooperation
-> >>
-> >> Hello all:
-> >>
-> >> This is a rough series adds the guest/host cooperation of flow
-> >> steering support based on Krish Kumar's multiple queue virtio-net
-> >> driver patch 3/3 (http://lwn.net/Articles/467283/).
-> > Is there a real (physical) device which does this kind of thing?  How do
-> > they do it?  Can we copy them?
-> >
-> > Cheers,
-> > Rusty.
-> As far as I see, ixgbe and sfc have similar but much more sophisticated 
-> mechanism.
-> 
-> The idea was originally suggested by Ben and it was just borrowed form 
-> those real physical nic cards who can dispatch packets based on their 
-> hash. All of theses cards can filter the flow based on the hash of 
-> L2/L3/L4 header and the stack would tell the card which queue should 
-> this flow goes.
+2.6.32-longterm review patch.  If anyone has any objections, please let me know.
 
-Solarflare controllers (sfc driver) have 8192 perfect filters for
-TCP/IPv4 and UDP/IPv4 which can be used for flow steering.  (The filters
-are organised as a hash table, but matched based on 5-tuples.)  I
-implemented the 'accelerated RFS' interface in this driver.
+------------------
 
-I believe the Intel 82599 controllers (ixgbe driver) have both
-hash-based and perfect filter modes and the driver can be configured to
-use one or the other.  The driver has its own independent mechanism for
-steering RX and TX flows which predates RFS; I don't know whether it
-uses hash-based or perfect filters.
+This one liner is part of upstream
+commit 3701e51382a026cba10c60b03efabe534fba4ca4
+Author: Jesse Gross <jesse@nicira.com>
 
-Most multi-queue controllers could support a kind of hash-based
-filtering for TCP/IP by adjusting the RSS indirection table.  However,
-this table is usually quite small (64-256 entries).  This means that
-hash collisions will be quite common and this can result in reordering.
-The same applies to the small table Jason has proposed for virtio-net.
+    vlan: Centralize handling of hardware acceleration.
 
-> So in host, a simple hash to queue table were introduced in tap/macvtap 
-> and in guest, the guest driver would tell the desired queue of a flow 
-> through changing this table.
+The bulk of that commit is a rework of the hardware assisted vlan tagging
+driver interface, and as such doesn't classify for -stable inclusion. The fix
+that is needed is a part of that commit but can work independently of the
+rest.
 
-I don't think accelerated RFS can work well without the use of perfect
-filtering or hash-based filtering with a very low rate of collisions.
+This patch can avoid panics on the 2.6.32.y -stable kernels and is in the same
+spirit as mainline commits
+66c46d7 gro: Reset dev pointer on reuse
+6d152e2 gro: reset skb_iif on reuse
+which are already in -stable.
 
-Ben.
+For drivers using the vlan_gro_frags() interface, a packet with an invalid tci
+leads to GRO_DROP and napi_reuse_skb(). The skb has to be sanitized before
+being reused or we may send an skb with an invalid vlan_tci field up the stack
+where it is not expected.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
+Cc: Jesse Gross <jesse@nicira.com>
+Acked-by: David S. Miller <davem@davemloft.net>
+
+---
+ net/core/dev.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2614,6 +2614,7 @@ void napi_reuse_skb(struct napi_struct *
+ {
+ 	__skb_pull(skb, skb_headlen(skb));
+ 	skb_reserve(skb, NET_IP_ALIGN - skb_headroom(skb));
++	skb->vlan_tci = 0;
+ 	skb->dev = napi->dev;
+ 	skb->iif = 0;
+ 
