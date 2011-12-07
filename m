@@ -1,60 +1,79 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [11/27] gro: reset vlan_tci on reuse
-Date: Wed, 07 Dec 2011 08:54:44 -0800
-Message-ID: <20111207165601.339899873@clark.kroah.org>
-References: <20111207165611.GA19872@kroah.com>
-Cc: <torvalds@linux-foundation.org>, <akpm@linux-foundation.org>,
-	<alan@lxorguk.ukuu.org.uk>, netdev@vger.kernel.org,
-	Jesse Gross <jesse@nicira.com>,
-	Benjamin Poirier <bpoirier@suse.de>
-To: <linux-kernel@vger.kernel.org>, <stable@vger.kernel.org>,
-	davem@davemloft.net
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] drivers/net/usb/asix:  resync from vendor's copy
+Date: Wed, 7 Dec 2011 17:03:38 +0000
+Message-ID: <1323277418.2728.35.camel@bwh-desktop>
+References: <4EA89972.5060101@teksavvy.com>
+	 <20111026.194045.2019668159403582571.davem@davemloft.net>
+	 <4EA8B283.3010105@teksavvy.com>
+	 <20111026.221719.2216112919297458522.davem@davemloft.net>
+	 <4EB19BBE.5050602@teksavvy.com> <1320266549.2782.21.camel@bwh-desktop>
+	 <4EBAA967.10403@teksavvy.com> <1320856444.18929.78.camel@deadeye>
+	 <4EBAAEA5.1060408@teksavvy.com> <4EBAB0EA.1050102@teksavvy.com>
+	 <4EBAB643.8020603@teksavvy.com> <1320859911.2781.1.camel@bwh-desktop>
+	 <4EBABAFD.6050604@teksavvy.com> <1320860895.2781.6.camel@bwh-desktop>
+	 <4EDCD828.2090904@teksavvy.com> <1323098335.7454.214.camel@deadeye>
+	 <4EDE0E29.9070809@teksavvy.com> <1323193537.2772.9.camel@bwh-desktop>
+	 <4EDF9293.8070809@teksavvy.com> <1323275233.2728.3.camel@bwh-desktop>
+	 <4EDF9B5F.6050500@teksavvy.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Mark Lord <kernel@teksavvy.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111207165611.GA19872@kroah.com>
+In-Reply-To: <4EDF9B5F.6050500@teksavvy.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2.6.32-longterm review patch.  If anyone has any objections, please let me know.
+On Wed, 2011-12-07 at 11:59 -0500, Mark Lord wrote:
+> On 11-12-07 11:27 AM, Ben Hutchings wrote:
+> > On Wed, 2011-12-07 at 11:21 -0500, Mark Lord wrote:
+> ..
+> >> Heh.. my thinking side says to use the exact same protocol-specific flags
+> >> in both "hw_features" and "features", and therefore check for those flags
+> >> inside the "set_features()" function.
+> > 
+> > Right.
+> 
+> 
+> Thanks.
+> Now now we have:
+> 
+> static int ax88772b_set_features(struct net_device *netdev, u32 features)
+> {
+>         struct usbnet *dev = netdev_priv(netdev);
+>         u16 tx_csum = 0, rx_csum = 0;
+> 
+>         if (features & NETIF_F_IP_CSUM)
+>                 tx_csum |= AX_TXCOE_TCP | AX_TXCOE_UDP;
+>         if (features & NETIF_F_IPV6_CSUM)
+>                 tx_csum |= AX_TXCOE_TCPV6 | AX_TXCOE_UDPV6;
+>         if (features & NETIF_F_RXCSUM)
+>                 rx_csum = AX_RXCOE_DEF_CSUM;
+>         ax8817x_write_cmd(dev, AX_CMD_WRITE_TXCOE_CTL, tx_csum, 0, 0, NULL);
+>         ax8817x_write_cmd(dev, AX_CMD_WRITE_RXCOE_CTL, rx_csum, 0, 0, NULL);
+>         return 0;
+> }
+> 
+> static int ax88772b_bind(struct usbnet *dev, struct usb_interface *intf)
+> {
+> 	...
+> 
+>         /* enable hardware checksums */
+>         dev->net->hw_features |=
+>                 NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_RXCSUM;
+>         dev->net->features |=
+>                 NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_RXCSUM;
+>         ax88772b_set_features(dev->net, dev->net->features);
+> 	...
+> }
 
-------------------
+Not knowing the hardware, that looks plausible...
 
-This one liner is part of upstream
-commit 3701e51382a026cba10c60b03efabe534fba4ca4
-Author: Jesse Gross <jesse@nicira.com>
+Ben.
 
-    vlan: Centralize handling of hardware acceleration.
-
-The bulk of that commit is a rework of the hardware assisted vlan tagging
-driver interface, and as such doesn't classify for -stable inclusion. The fix
-that is needed is a part of that commit but can work independently of the
-rest.
-
-This patch can avoid panics on the 2.6.32.y -stable kernels and is in the same
-spirit as mainline commits
-66c46d7 gro: Reset dev pointer on reuse
-6d152e2 gro: reset skb_iif on reuse
-which are already in -stable.
-
-For drivers using the vlan_gro_frags() interface, a packet with an invalid tci
-leads to GRO_DROP and napi_reuse_skb(). The skb has to be sanitized before
-being reused or we may send an skb with an invalid vlan_tci field up the stack
-where it is not expected.
-
-Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
-Cc: Jesse Gross <jesse@nicira.com>
-Acked-by: David S. Miller <davem@davemloft.net>
-
----
- net/core/dev.c |    1 +
- 1 file changed, 1 insertion(+)
-
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2614,6 +2614,7 @@ void napi_reuse_skb(struct napi_struct *
- {
- 	__skb_pull(skb, skb_headlen(skb));
- 	skb_reserve(skb, NET_IP_ALIGN - skb_headroom(skb));
-+	skb->vlan_tci = 0;
- 	skb->dev = napi->dev;
- 	skb->iif = 0;
- 
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
