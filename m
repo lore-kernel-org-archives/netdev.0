@@ -1,125 +1,76 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH v2] e1000e: Assign true and false to bool type variable
- instead of 1 and 0
-Date: Wed, 07 Dec 2011 01:19:59 -0800
-Message-ID: <1323249599.2415.32.camel@jtkirshe-mobl>
-References: <4EDED071.40900@linux.vnet.ibm.com>
-	 <1323229439.2415.23.camel@jtkirshe-mobl>
-	 <1323231268.1762.19.camel@joe2Laptop> <4EDEF05F.4020901@linux.vnet.ibm.com>
-	 <1323237700.1762.24.camel@joe2Laptop> <4EDF02CC.4010407@linux.vnet.ibm.com>
-	 <1323238749.1762.27.camel@joe2Laptop> <4EDF0964.3080509@linux.vnet.ibm.com>
-	 <1323248664.2415.28.camel@jtkirshe-mobl>
-	 <4EDF2EBE.2060708@linux.vnet.ibm.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: [PATCH][NET] several cleanups and bugfixes for fec.c: preserve
+ MII/RMII setting in fec_stop()
+Date: Wed, 7 Dec 2011 17:41:48 +0800
+Message-ID: <20111207094146.GG5550@S2100-06.ap.freescale.net>
+References: <cover.1323163127.git.LW@KARO-electronics.de>
+ <d6f4de9e4cfb393754b42815a2ef1a59c96eab83.1323163127.git.LW@KARO-electronics.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-2NxrZ+LfgbCzwNWlq0vT"
-Cc: Joe Perches <joe@perches.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"wangyunlinux@gmail.com" <wangyunlinux@gmail.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: Michael Wang <wangyun@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:28079 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751714Ab1LGJUB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Dec 2011 04:20:01 -0500
-In-Reply-To: <4EDF2EBE.2060708@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, Shawn Guo <shawn.guo@linaro.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <d6f4de9e4cfb393754b42815a2ef1a59c96eab83.1323163127.git.LW@KARO-electronics.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---=-2NxrZ+LfgbCzwNWlq0vT
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2011-12-07 at 01:15 -0800, Michael Wang wrote:
-> On 12/07/2011 05:04 PM, Jeff Kirsher wrote:
->=20
-> > On Tue, 2011-12-06 at 22:36 -0800, Michael Wang wrote:
-> >> On 12/07/2011 02:19 PM, Joe Perches wrote:
-> >>
-> >>> On Wed, 2011-12-07 at 14:08 +0800, Michael Wang wrote:
-> >>>> I'm not good at script, if you are interested, we can work together
-> >> to
-> >>>> fix all the remain cases, and send out some patches.
-> >>>
-> >>> You should try coccinelle and spatch.
-> >>>
-> >>
-> >> Hi, Joe
-> >>
-> >> I have not used coccinelle and spatch before, I will study on them
-> >> later.
-> >>
-> >>> If you run the script, this is the intel output.
-> >>>
-> >>>  drivers/net/ethernet/intel/e1000/e1000_main.c |   10 +++++-----
-> >>>  drivers/net/ethernet/intel/ixgb/ixgb_main.c   |    2 +-
-> >>>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
-> >>>  drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c  |    4 ++--
-> >>>  4 files changed, 9 insertions(+), 9 deletions(-)
-> >>
-> >>
-> >> We can try to fix them, thanks for the suggestion.
-> >>
-> >> Regards,
-> >> Michael Wang=20
-> >=20
-> > So should I expect a v3 of this patch?
-> >=20
->=20
-> Hi, Jeff
->=20
-> Please use the v2 first, because what Joe described will have a
-> different meaning and edit different files.
-
-Ok sounds fine to me.
-
->=20
-> > Also I am fine with lumping all the changes for all our drivers in one
-> > patch as long as the changes for each driver are somewhat small.  If th=
+On Tue, Dec 06, 2011 at 11:27:14AM +0100, Lothar Wa=DFmann wrote:
+> Additionally to setting the ETHER_EN bit in FEC_ECNTRL the MII/RMII
+> setting in FEC_R_CNTRL needs to be preserved to keep the MII interfac=
 e
-> > changes for a particular driver gets too extensive, please create a
-> > separate patch.
->=20
->=20
-> I think separate such patch according to files will be better.
->=20
-> Thanks,
-> Michael Wang
->=20
-> >=20
-> > Cheers,
-> > Jeff
->=20
->=20
 
+s/MII/RMII?  From what I see from imx28 and imx6q RM, the reset state
+for this setting is MII mode.
 
+> functional.
+>=20
+> Signed-off-by: Lothar Wa=DFmann <LW@KARO-electronics.de>
+> ---
+>  drivers/net/ethernet/freescale/fec.c |    5 ++++-
+>  1 files changed, 4 insertions(+), 1 deletions(-)
 
---=-2NxrZ+LfgbCzwNWlq0vT
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+I assume this is fixing a problem you are seeing on imx28 only.
+Do you see the problem on imx53/51?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+>=20
+> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ether=
+net/freescale/fec.c
+> index 11534b9..ab0afb5 100644
+> --- a/drivers/net/ethernet/freescale/fec.c
+> +++ b/drivers/net/ethernet/freescale/fec.c
+> @@ -515,6 +515,7 @@ fec_stop(struct net_device *ndev)
+>  	struct fec_enet_private *fep =3D netdev_priv(ndev);
+>  	const struct platform_device_id *id_entry =3D
+>  				platform_get_device_id(fep->pdev);
+> +	u32 rmii_mode =3D readl(fep->hwp + FEC_R_CNTRL) & (1 << 8);
 
-iQIcBAABCgAGBQJO3y+/AAoJEOVv75VaS+3O4aAP/00MI8kGpq8vqRf9TSyBFR/2
-3sGiRv7SGA79m0Dqh1zu++XdF200ehpnrwXYGOrEm2bXYxOcpLNwb8DebbD8bKZR
-8QNvAPxCYGNX/kklWTYGP2IK1lLVCS7jgGydUmaSfMBUHe3EGWLvg/s0zJuYS4am
-sEEAXjU0UJn/S8NZMPBLo1LZqXMnSGtk8ko8VkkKZoTAUsh8SjDzj+YK2oF5O6cK
-NJBtRrfq/kKxsRQnP43Djpro8xat0J8vSInADv7GtRwO4e43iY62S4fkLK9F1aZF
-MILajaXUnqDWV0Sk8L0LZE49OftHzPxH+NjLGEsasMU8xPv3d373AqtPcmex/eX+
-spxtKDmxGoH+rPRS2LTbY1EXiCq91eCHKd6M9AvilHslil5dWxQRzKfi9jMDMU4x
-Vzj2BaRFSA9q4c3WFtN6lFjnkkaTuk/xSue2BdZ+VHGu4ipGw85YZF1rSUAD9+e1
-AF350oAimlh52XTIXvIFP++QkDGMjBSuwqkgDK4MKfTr0QYq+B2A05HAZ6TgB7T+
-s21CC/o6La5As0AIiSnrlYWBfAOHqkM249eBjA8wnIm/8NPlYywzqSxeYlJDf218
-/s3lgDAF8hti74UR7Wjra9zG8ASfyYZv4POq9yhTVNp1EqT8+YfKz1FCycwmyiiI
-pqoautNn2wCLdPgpaAos
-=hyie
------END PGP SIGNATURE-----
+This bit is only available on ENET (imx28 and imx6q).  Do we want to
+do the same thing for FEC (imx25/27/35/51/53)?
 
---=-2NxrZ+LfgbCzwNWlq0vT--
+> =20
+>  	/* We cannot expect a graceful transmit stop without link !!! */
+>  	if (fep->link) {
+> @@ -531,8 +532,10 @@ fec_stop(struct net_device *ndev)
+>  	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+> =20
+>  	/* We have to keep ENET enabled to have MII interrupt stay working =
+*/
+> -	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC)
+> +	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC) {
+>  		writel(2, fep->hwp + FEC_ECNTRL);
+> +		writel(rmii_mode, fep->hwp + FEC_R_CNTRL);
+> +	}
+>  }
+
+On imx6q, we have two bits, bit 6 and 8 of FEC_R_CNTRL, to select MII
+interface among MII, RMII and RGMII modes.  I'm not sure if we will
+run into the same problem for RGMII mode.  What's your test setup?
+I would try to reproduce it here.
+
+--=20
+Regards,
+Shawn
