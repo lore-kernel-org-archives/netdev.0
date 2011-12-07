@@ -1,42 +1,39 @@
-From: Hagen Paul Pfeifer <hagen-GvnIQ6b/HdU@public.gmane.org>
-Subject: Re: Time in Queue, bufferbloat,
-	and... our accidentally  interplanetary network
-Date: Wed, 07 Dec 2011 11:19:29 +0100
-Message-ID: <11877422e38eade300dd1cdb9e423d47@localhost>
-References: <CAA93jw7kQYONQiAozatRmdRRJeK0GB9eNDWtRZ3AL+OVKn0OpA@mail.gmail.com>
-	<1323082774.2670.40.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<9dfc3c5eb811f2774b378fce0158b3e7@localhost>
+From: Timur Irmatov <irmatov@gmail.com>
+Subject: Re: atl1c: WARNING: at net/sched/sch_generic.c:255 dev_watchdog
+Date: Wed, 7 Dec 2011 15:25:59 +0500
+Message-ID: <CACV5A19cwzAfzY3iXD6uN8A79LTTsPUaVJQqiazLqAACpEfYmQ@mail.gmail.com>
+References: <20111206232741.GA5368@x1.osrc.amd.com>
+	<CA+5PVA7bM8ZGaCiyZdHcMVccJYh2=bk-gsHLo9ZmBP_SYT208w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	bloat-devel <bloat-devel-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>,
-	bloat <bloat-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>
-To: Hagen Paul Pfeifer <hagen-GvnIQ6b/HdU@public.gmane.org>
-Return-path: <bloat-bounces-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>
-In-Reply-To: <9dfc3c5eb811f2774b378fce0158b3e7@localhost>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/bloat>,
-	<mailto:bloat-request-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/bloat>
-List-Post: <mailto:bloat-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>
-List-Help: <mailto:bloat-request-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/bloat>,
-	<mailto:bloat-request-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org?subject=subscribe>
-Sender: bloat-bounces-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org
-Errors-To: bloat-bounces-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:62098 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753825Ab1LGK0A convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 05:26:00 -0500
+Received: by qadb40 with SMTP id b40so3145981qad.19
+        for <netdev@vger.kernel.org>; Wed, 07 Dec 2011 02:26:00 -0800 (PST)
+In-Reply-To: <CA+5PVA7bM8ZGaCiyZdHcMVccJYh2=bk-gsHLo9ZmBP_SYT208w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Wed, Dec 7, 2011 at 5:12 AM, Josh Boyer <jwboyer@gmail.com> wrote:
+> Matthew Garrett has a patch to the atl1c driver that changed it's ASP=
+M
+> behavior that seemed to help. =C2=A0Dave Miller applied it, but I don=
+'t see
+> it in linux-next for some reason.
+>
+> http://comments.gmane.org/gmane.linux.kernel/1214694
+
+May be this is the reason?
+
+http://article.gmane.org/gmane.linux.kernel/1215132/
+
+I'm also having this issue and can test patches.
 
 
-On Wed, 07 Dec 2011 11:15:38 +0100, Hagen Paul Pfeifer <hagen-GvnIQ6b/HdU@public.gmane.org>
-wrote:
- 
-> Question two: I submitted pfast_head_drop to drop more outdated data
-> instead of new data. Back in time I thought TCP _may_ experience
-benefits
-> because more up-to-date SACK data packets are saved. Are there any other
-> TCP advantages with head drop policy?
-
-Small comment: pfast_head_drop was intended for UDP. E.g. OLSR messages,
-regular GPS reporting and the like. TCP was not the focus at that time.
-
-HGN
+--=20
+Timur Irmatov, xmpp:irmatov@jabber.ru
