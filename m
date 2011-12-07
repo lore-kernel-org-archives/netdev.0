@@ -1,54 +1,99 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: Re: [PATCH][NET] several cleanups and bugfixes for fec.c: don't
- munge MAC address from platform data
-Date: Wed, 7 Dec 2011 17:14:42 +0800
-Message-ID: <20111207091441.GF5550@S2100-06.ap.freescale.net>
-References: <cover.1323163127.git.LW@KARO-electronics.de>
- <55b78c1766da5b0d0d679f5eae3fb9fc74a6ceef.1323163127.git.LW@KARO-electronics.de>
- <20111207084953.GD5550@S2100-06.ap.freescale.net>
- <20191.10281.826050.193987@ipc1.ka-ro>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v2] e1000e: Assign true and false to bool type variable
+ instead of 1 and 0
+Date: Wed, 07 Dec 2011 01:04:24 -0800
+Message-ID: <1323248664.2415.28.camel@jtkirshe-mobl>
+References: <4EDED071.40900@linux.vnet.ibm.com>
+	 <1323229439.2415.23.camel@jtkirshe-mobl>
+	 <1323231268.1762.19.camel@joe2Laptop> <4EDEF05F.4020901@linux.vnet.ibm.com>
+	 <1323237700.1762.24.camel@joe2Laptop> <4EDF02CC.4010407@linux.vnet.ibm.com>
+	 <1323238749.1762.27.camel@joe2Laptop> <4EDF0964.3080509@linux.vnet.ibm.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, Shawn Guo <shawn.guo@linaro.org>,
-	<linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20191.10281.826050.193987@ipc1.ka-ro>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Fk48C76roeukqdzlXl5w"
+Cc: Joe Perches <joe@perches.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"wangyunlinux@gmail.com" <wangyunlinux@gmail.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: Michael Wang <wangyun@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:57019 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751777Ab1LGJFC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Dec 2011 04:05:02 -0500
+In-Reply-To: <4EDF0964.3080509@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 07, 2011 at 09:47:37AM +0100, Lothar Wa=DFmann wrote:
-> Hi,
+
+--=-Fk48C76roeukqdzlXl5w
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 2011-12-06 at 22:36 -0800, Michael Wang wrote:
+> On 12/07/2011 02:19 PM, Joe Perches wrote:
 >=20
-> Shawn Guo writes:
-> > On Tue, Dec 06, 2011 at 11:27:13AM +0100, Lothar Wa=DFmann wrote:
-> > > When the MAC address is supplied via platform_data it should be O=
-K as
-> > > it is and should not be modified in case of a dual FEC setup.
-> > > Also copying the MAC from platform_data to the single 'macaddr'
-> > > variable will overwrite the MAC for the first interface in case o=
-f a
-> > > dual FEC setup.
+> > On Wed, 2011-12-07 at 14:08 +0800, Michael Wang wrote:
+> >> I'm not good at script, if you are interested, we can work together
+> to
+> >> fix all the remain cases, and send out some patches.
 > >=20
-> > Hmm, I do not follow that.  If 'macaddr' holds a valid mac address,
-> > the code path has no chance to be hit at all.  Otherwise, 'macaddr'
-> > is just a place holder for copying mac address from pdata, in which
-> > case the mac address will be fixed up at the end of the function fo=
-r
-> > dual FEC setup.
+> > You should try coccinelle and spatch.
 > >=20
-> In case of dual FEC and MAC address provided by platform_data the
-> first mac address will be copied to the 'macaddr' variable with no
-> chance for the second interface to get its mac address assigned from
-> platform_data too.
 >=20
-Indeed.  So again other than subject,
+> Hi, Joe
+>=20
+> I have not used coccinelle and spatch before, I will study on them
+> later.
+>=20
+> > If you run the script, this is the intel output.
+> >=20
+> >  drivers/net/ethernet/intel/e1000/e1000_main.c |   10 +++++-----
+> >  drivers/net/ethernet/intel/ixgb/ixgb_main.c   |    2 +-
+> >  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
+> >  drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c  |    4 ++--
+> >  4 files changed, 9 insertions(+), 9 deletions(-)
+>=20
+>=20
+> We can try to fix them, thanks for the suggestion.
+>=20
+> Regards,
+> Michael Wang=20
 
-Acked-by: Shawn Guo <shawn.guo@linaro.org>
+So should I expect a v3 of this patch?
 
---=20
-Regards,
-Shawn
+Also I am fine with lumping all the changes for all our drivers in one
+patch as long as the changes for each driver are somewhat small.  If the
+changes for a particular driver gets too extensive, please create a
+separate patch.
+
+Cheers,
+Jeff
+
+--=-Fk48C76roeukqdzlXl5w
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAABCgAGBQJO3ywYAAoJEOVv75VaS+3OGE8P/R/Z3fup/W/ZCSMrY47SwFVJ
+4O3shq9TrD4z6A5SCDz4CxwDS6sTc7KW7Qc6z5TH8hAG47A/DJKGFiHa99WVfxaL
+iGdvfZ5XT5lnDOZyeCpH5KTCKrQofIB9qcBRlBzhoKegbrU9gPq+iCve4fwpPs3W
+32MDaISQ2BleqGDcDjYVHrZodPbiqC6jlZOtYsqJ4wXcOjqXqb4Pgn4N+rvkPd9l
+97zNr0NYViycFdJC19nPZKuJuetM2kHtmXXU7GyCvDvwbjFGERckVmyAF563XuGJ
+uwRRrn67dDQaWQh8DnJZzApy1cXvxgfQ+Mvz9eneNEL0/ActKK6JTmnz4GytvXYo
+BlNqwR4YTQ9uEYMHrUOkNqI3L/sLcJeZo96qH2JOWzojPgftsz+hehcN5ubydyD4
+EnD/1MJ9Z8eyvHEii5aIbyhqLQ+IFtlpOi5zhC+PtZMZ6BiTlrLfzx7XWibqkjc1
+lmU7dE9HjfkS7sxiVwZDarcj3fwh3hSlYByfuAijft6PRkEXT2n68TSPJb4UR2KC
+4JqFhwY5cF9pXS2DG8bt9z++7KTsZ+uS1uTfC62YMbTxnF8wV0XUfgziQ1w4e8lQ
+iUhTy+4Pjd7C0v043qKIO/AF1gtaF/3l/9rd+PhyP2x1/MPtQ+NrrWBNQCiaj9Uo
+0wgPFiW0AnihUaGNvcpk
+=hRx7
+-----END PGP SIGNATURE-----
+
+--=-Fk48C76roeukqdzlXl5w--
