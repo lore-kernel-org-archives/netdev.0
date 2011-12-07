@@ -1,61 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] macvtap: Fix macvtap_get_queue to use rxhash first
-Date: Wed, 07 Dec 2011 13:52:35 -0500 (EST)
-Message-ID: <20111207.135235.557498530764890254.davem@davemloft.net>
-References: <OF835A6FF5.7D752AD1-ON65257953.0016350C-65257953.00169AF4@in.ibm.com>
-	<20111125.013552.1613051198566054931.davem@davemloft.net>
-	<20111207161001.GD23845@redhat.com>
+Subject: Re: [PATCH] fsl_pq_mdio: Clean up tbi address configuration
+Date: Wed, 07 Dec 2011 13:55:31 -0500 (EST)
+Message-ID: <20111207.135531.374464329249721077.davem@davemloft.net>
+References: <436A94C3-8F5B-4A8F-A46B-B66B503B98A0@kernel.crashing.org>
+	<20111206.004121.1820319056329214972.davem@davemloft.net>
+	<3FAC1EB0-2606-40BF-9BDF-8D2BCEB003E9@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, arnd@arndb.de, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, levinsasha928@gmail.com
-To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20111207161001.GD23845@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: afleming@freescale.com, netdev@vger.kernel.org
+To: galak@kernel.crashing.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:46644 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757925Ab1LGSzh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 13:55:37 -0500
+In-Reply-To: <3FAC1EB0-2606-40BF-9BDF-8D2BCEB003E9@kernel.crashing.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Wed, 7 Dec 2011 18:10:02 +0200
+From: Kumar Gala <galak@kernel.crashing.org>
+Date: Tue, 6 Dec 2011 23:35:31 -0600
 
-> On Fri, Nov 25, 2011 at 01:35:52AM -0500, David Miller wrote:
->> From: Krishna Kumar2 <krkumar2@in.ibm.com>
->> Date: Fri, 25 Nov 2011 09:39:11 +0530
->> 
->> > Jason Wang <jasowang@redhat.com> wrote on 11/25/2011 08:51:57 AM:
->> >>
->> >> My description is not clear again :(
->> >> I mean the same vhost thead:
->> >>
->> >> vhost thread #0 transmits packets of flow A on processor M
->> >> ...
->> >> vhost thread #0 move to another process N and start to transmit packets
->> >> of flow A
->> > 
->> > Thanks for clarifying. Yes, binding vhosts to CPU's
->> > makes the incoming packet go to the same vhost each
->> > time. BTW, are you doing any binding and/or irqbalance
->> > when you run your tests? I am not running either at
->> > this time, but thought both might be useful.
->> 
->> So are we going with this patch or are we saying that vhost binding
->> is a requirement?
-> 
-> OK we didn't come to a conclusion so I would be inclined
-> to merge this patch as is for 3.2, and revisit later.
-> One question though: do these changes affect userspace
-> in any way? For example, will this commit us to
-> ensure that a single flow gets a unique hash even
-> for strange configurations that transmit the same flow
-> from multiple cpus?
+> We need this patch in 3.2 regardless of DT.  Currently we get the
+> oops on 3.2 on ALL systems.  Andy should be working up a device tree
+> patch to fix the subset of .dts that are missing the tbi property.
 
-Once you sort this out, reply with an Acked-by: for me, thanks.
+Ok, applied to 'net'.
