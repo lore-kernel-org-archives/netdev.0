@@ -1,35 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] bridge forwarding database patches
-Date: Wed, 07 Dec 2011 13:50:15 -0500 (EST)
-Message-ID: <20111207.135015.789061435692305493.davem@davemloft.net>
-References: <20111206230223.191544130@vyatta.com>
+Subject: Re: [PATCH] macvtap: Fix macvtap_get_queue to use rxhash first
+Date: Wed, 07 Dec 2011 13:52:35 -0500 (EST)
+Message-ID: <20111207.135235.557498530764890254.davem@davemloft.net>
+References: <OF835A6FF5.7D752AD1-ON65257953.0016350C-65257953.00169AF4@in.ibm.com>
+	<20111125.013552.1613051198566054931.davem@davemloft.net>
+	<20111207161001.GD23845@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46602 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756500Ab1LGSuR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 13:50:17 -0500
-In-Reply-To: <20111206230223.191544130@vyatta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: krkumar2@in.ibm.com, arnd@arndb.de, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, levinsasha928@gmail.com
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20111207161001.GD23845@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogU3RlcGhlbiBIZW1taW5nZXIgPHNoZW1taW5nZXJAdnlhdHRhLmNvbT4NCkRhdGU6IFR1
-ZSwgMDYgRGVjIDIwMTEgMTU6MDI6MjMgLTA4MDANCg0KPiBUaGVzZSB0aHJlZSBwYXRjaGVzIGFk
-ZHJlc3MgaXNzdWUgb2YgcmVjZWl2aW5nIHBhY2tldHMgd2hlbg0KPiBicmlkZ2UgbWFjIGFkZHJl
-c3MgaXMgbW9kaWZpZWQuDQoNCkRvZXNuJ3QgY29tcGlsZToNCg0KbmV0L2JyaWRnZS9icl9mZGIu
-YzogSW4gZnVuY3Rpb24goWJyX2ZkYl91cGRhdGWiOg0KbmV0L2JyaWRnZS9icl9mZGIuYzo0NDc6
-NTogd2FybmluZzogcGFzc2luZyBhcmd1bWVudCAxIG9mIKFmZGJfbm90aWZ5oiBmcm9tIGluY29t
-cGF0aWJsZSBwb2ludGVyIHR5cGUgW2VuYWJsZWQgYnkgZGVmYXVsdF0NCm5ldC9icmlkZ2UvYnJf
-ZmRiLmM6MzE6MTM6IG5vdGU6IGV4cGVjdGVkIKFzdHJ1Y3QgbmV0X2JyaWRnZSAqoiBidXQgYXJn
-dW1lbnQgaXMgb2YgdHlwZSChc3RydWN0IG5ldF9icmlkZ2VfZmRiX2VudHJ5ICqiDQpuZXQvYnJp
-ZGdlL2JyX2ZkYi5jOjQ0Nzo1OiB3YXJuaW5nOiBwYXNzaW5nIGFyZ3VtZW50IDIgb2YgoWZkYl9u
-b3RpZnmiIG1ha2VzIHBvaW50ZXIgZnJvbSBpbnRlZ2VyIHdpdGhvdXQgYSBjYXN0IFtlbmFibGVk
-IGJ5IGRlZmF1bHRdDQpuZXQvYnJpZGdlL2JyX2ZkYi5jOjMxOjEzOiBub3RlOiBleHBlY3RlZCCh
-Y29uc3Qgc3RydWN0IG5ldF9icmlkZ2VfZmRiX2VudHJ5ICqiIGJ1dCBhcmd1bWVudCBpcyBvZiB0
-eXBlIKFpbnSiDQpuZXQvYnJpZGdlL2JyX2ZkYi5jOjQ0Nzo1OiBlcnJvcjogdG9vIGZldyBhcmd1
-bWVudHMgdG8gZnVuY3Rpb24goWZkYl9ub3RpZnmiDQpuZXQvYnJpZGdlL2JyX2ZkYi5jOjMxOjEz
-OiBub3RlOiBkZWNsYXJlZCBoZXJlDQo=
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Wed, 7 Dec 2011 18:10:02 +0200
+
+> On Fri, Nov 25, 2011 at 01:35:52AM -0500, David Miller wrote:
+>> From: Krishna Kumar2 <krkumar2@in.ibm.com>
+>> Date: Fri, 25 Nov 2011 09:39:11 +0530
+>> 
+>> > Jason Wang <jasowang@redhat.com> wrote on 11/25/2011 08:51:57 AM:
+>> >>
+>> >> My description is not clear again :(
+>> >> I mean the same vhost thead:
+>> >>
+>> >> vhost thread #0 transmits packets of flow A on processor M
+>> >> ...
+>> >> vhost thread #0 move to another process N and start to transmit packets
+>> >> of flow A
+>> > 
+>> > Thanks for clarifying. Yes, binding vhosts to CPU's
+>> > makes the incoming packet go to the same vhost each
+>> > time. BTW, are you doing any binding and/or irqbalance
+>> > when you run your tests? I am not running either at
+>> > this time, but thought both might be useful.
+>> 
+>> So are we going with this patch or are we saying that vhost binding
+>> is a requirement?
+> 
+> OK we didn't come to a conclusion so I would be inclined
+> to merge this patch as is for 3.2, and revisit later.
+> One question though: do these changes affect userspace
+> in any way? For example, will this commit us to
+> ensure that a single flow gets a unique hash even
+> for strange configurations that transmit the same flow
+> from multiple cpus?
+
+Once you sort this out, reply with an Acked-by: for me, thanks.
