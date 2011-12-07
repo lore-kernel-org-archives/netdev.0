@@ -1,29 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fsl_pq_mdio: Clean up tbi address configuration
-Date: Wed, 07 Dec 2011 13:55:31 -0500 (EST)
-Message-ID: <20111207.135531.374464329249721077.davem@davemloft.net>
-References: <436A94C3-8F5B-4A8F-A46B-B66B503B98A0@kernel.crashing.org>
-	<20111206.004121.1820319056329214972.davem@davemloft.net>
-	<3FAC1EB0-2606-40BF-9BDF-8D2BCEB003E9@kernel.crashing.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: afleming@freescale.com, netdev@vger.kernel.org
-To: galak@kernel.crashing.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46644 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757925Ab1LGSzh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 13:55:37 -0500
-In-Reply-To: <3FAC1EB0-2606-40BF-9BDF-8D2BCEB003E9@kernel.crashing.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Seth Jennings <sjenning@linux.vnet.ibm.com>
+Subject: [PATCH 0/3] crypto: Add per-cpu transform helpers
+Date: Wed,  7 Dec 2011 12:59:07 -0600
+Message-ID: <1323284350-13784-1-git-send-email-sjenning@linux.vnet.ibm.com>
+Cc: Seth Jennings <sjenning@linux.vnet.ibm.com>,
+	linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	Brian King <brking@linux.vnet.ibm.com>,
+	Robert Jennings <rcj@linux.vnet.ibm.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kumar Gala <galak@kernel.crashing.org>
-Date: Tue, 6 Dec 2011 23:35:31 -0600
+This patchset includes two new functions for the cryptographic library,
+crypto_alloc_percpu_tfms() and crypto_free_percpu_tfms(), which assist users
+in allocating and freeing per-cpu transforms.
 
-> We need this patch in 3.2 regardless of DT.  Currently we get the
-> oops on 3.2 on ALL systems.  Andy should be working up a device tree
-> patch to fix the subset of .dts that are missing the tbi property.
+It also includes typing wrappers for the compression algorithm class.
 
-Ok, applied to 'net'.
+The reason for this patch is that during my work to enable page compression
+via the cryptographic API in the zcache staging driver, and realized that I
+had rewritten some per-cpu transform code that already exists in the
+xfrm_ipcomp code.
+
+In an effort to avoid duplication, this patchset moves the per-cpu code into
+helper functions in the cryptographic library and makes the necessary
+modifications to the xfrm_ipcomp code.
+
+After this change is (hopefully) merged, I will submit the zcache driver
+changes, which will be the second user of these helpers.
+
+Seth Jennings (3):
+  crypto: Add per-cpu transform alloc() and free()
+  crypto: Add inline per-cpu wrappers for compression
+  xfrm: Modify xfrm_ipcomp code to use new per-cpu helpers
+
+ crypto/api.c           |   62 ++++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/crypto.h |   28 +++++++++++++++++++++
+ net/xfrm/xfrm_ipcomp.c |   34 ++++++--------------------
+ 3 files changed, 98 insertions(+), 26 deletions(-)
+
+-- 
+1.7.5.4
