@@ -1,36 +1,22 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Latency difference between fifo and pfifo_fast
-Date: Wed, 7 Dec 2011 15:49:07 -0800
-Message-ID: <20111207154907.462846cb@nehalam.linuxnetplumber.net>
-References: <20111207152709.37b5798d@nehalam.linuxnetplumber.net>
-	<88e4825e-4efe-4163-bb24-299a20aab66d@jasiiieee>
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Subject: [PATCH net-next 0/2] be2net: Patch series
+Date: Wed, 7 Dec 2011 17:44:02 -0600
+Message-ID: <20111207234402.GA2298@akhaparde-VBox>
+Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>, netdev@vger.kernel.org,
-	Rick Jones <rick.jones2@hp.com>,
-	Dave Taht <dave.taht@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Content-Type: text/plain; charset="us-ascii"
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34450 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751470Ab1LGXtK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Dec 2011 18:49:10 -0500
-In-Reply-To: <88e4825e-4efe-4163-bb24-299a20aab66d@jasiiieee>
+Received: from exht1.emulex.com ([138.239.113.183]:28577 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757294Ab1LGXtq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 18:49:46 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=
-> > Is this a shared network? TOS won't matter if it is only your
-> > traffic.
-> > 
-> > There are number of route metrics that you can tweak to that can
-> > reduce TCP slow
-> > start effects, like increasing the initial cwnd, etc.
-> > 
-> It is a private network dedicated only to SAN traffic - a couple of SAN devices and some virtualization hosts - John
+Patch series against net-next
+Please apply
 
-Therefore unless your switch is shared, playing with queueing and TOS
-won't help reduce absolute latency.
-You maybe able to prioritize one host or SAN over another though.
+[1/2]: update some counters to display via ethtool
+[2/2]: workaround to fix a BE bug
