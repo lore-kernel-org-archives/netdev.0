@@ -1,93 +1,38 @@
-From: =?utf-8?Q?Lothar_Wa=C3=9Fmann?= <LW@KARO-electronics.de>
-Subject: Re: [PATCH][NET] several cleanups and bugfixes for fec.c: don't
- munge MAC address from platform data
-Date: Wed, 7 Dec 2011 09:47:38 +0100
-Message-ID: <20191.10282.826634.821906@ipc1.ka-ro>
-References: <cover.1323163127.git.LW@KARO-electronics.de>
-	<55b78c1766da5b0d0d679f5eae3fb9fc74a6ceef.1323163127.git.LW@KARO-electronics.de>
-	<20111206124857.GB14048@sapphire.tkos.co.il>
-	<20190.7244.156557.313315@ipc1.ka-ro>
-	<20111207085702.GE5550@S2100-06.ap.freescale.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] remove an outdated reference to T/TCP
+Date: Wed, 07 Dec 2011 09:58:07 +0100
+Message-ID: <1323248287.2690.41.camel@edumazet-laptop>
+References: <20111206200005.836D529006DD@tardy>
+	 <20111206.151920.696192671128392379.davem@davemloft.net>
+	 <4EDE8B8B.2000907@hp.com>
+	 <20111206.164243.402402261622724566.davem@davemloft.net>
+	 <CAK6E8=cne1UbOEcZ6ZfsJw-=qwUsO=yMEi3LNNsTpM_5crv0fg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Baruch Siach <baruch@tkos.co.il>, <netdev@vger.kernel.org>,
-	Shawn Guo <shawn.guo@linaro.org>,
-	<linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Shawn Guo <shawn.guo@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111207085702.GE5550@S2100-06.ap.freescale.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	netdev@vger.kernel.org
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:48973 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753931Ab1LGI6M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 03:58:12 -0500
+Received: by eekd41 with SMTP id d41so234285eek.19
+        for <netdev@vger.kernel.org>; Wed, 07 Dec 2011 00:58:11 -0800 (PST)
+In-Reply-To: <CAK6E8=cne1UbOEcZ6ZfsJw-=qwUsO=yMEi3LNNsTpM_5crv0fg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Le mardi 06 d=C3=A9cembre 2011 =C3=A0 15:00 -0800, Yuchung Cheng a =C3=A9=
+crit :
 
-Shawn Guo writes:
-> On Tue, Dec 06, 2011 at 02:44:44PM +0100, Lothar Wa=C3=9Fmann wrote:
-> > Hi,
-> >=20
-> > Baruch Siach writes:
-> > > Hi Lothar,
-> > >=20
-> > > On Tue, Dec 06, 2011 at 11:27:13AM +0100, Lothar Wa=C3=9Fmann wro=
-te:
-> > > > When the MAC address is supplied via platform_data it should be=
- OK as
-> > > > it is and should not be modified in case of a dual FEC setup.
-> > > > Also copying the MAC from platform_data to the single 'macaddr'
-> > > > variable will overwrite the MAC for the first interface in case=
- of a
-> > > > dual FEC setup.
-> > > >=20
-> > > > Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
-> > > > ---
-> > > >  drivers/net/ethernet/freescale/fec.c |    2 +-
-> > > >  1 files changed, 1 insertions(+), 1 deletions(-)
-> > > >=20
-> > > > diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net=
-/ethernet/freescale/fec.c
-> > > > index e2b5ce6..11534b9 100644
-> > > > --- a/drivers/net/ethernet/freescale/fec.c
-> > > > +++ b/drivers/net/ethernet/freescale/fec.c
-> > > > @@ -818,7 +818,7 @@ static void __inline__ fec_get_mac(struct n=
-et_device *ndev)
-> > > >  			iap =3D (unsigned char *)FEC_FLASHMAC;
-> > > >  #else
-> > > >  		if (pdata)
-> > > > -			memcpy(iap, pdata->mac, ETH_ALEN);
-> > > > +			iap =3D (unsigned char *)&pdata->mac;
-> > >=20
-> > > Since pdata might point to __initdata struct, you must hold a cop=
-y of its=20
-> > > content.
-> > >=20
->=20
-> As iap will anyway be copied to ndev->dev_addr after that, it may sti=
-ll
-> be fine to take this patch, for obviously for different reason.
->=20
-> > No. platform_data must be present during the life time of a driver
-> > using it and thus must never be __initdata!
-> >=20
-> Then we need to fix a lot of imx/mxc platform codes, mach-mx28evk.c
-> is the one for this case.
->=20
-Nope. The platform_data provided there is only a template that is
-copied to kmalloc'ed memory by the mxs_add...() functions.
+> I am fine keeping the comment as is.  This does remind me to put more
+> comments on this part of the code in our upcoming Fast Open patch :)
 
-With actual platform_data in init memory no driver built as module
-would work.
+This sounds great.
 
+Is TFO patch using inetpeer cache to store cookies ?
 
-Lothar Wa=C3=9Fmann
---=20
-___________________________________________________________
-
-Ka-Ro electronics GmbH | Pascalstra=C3=9Fe 22 | D - 52076 Aachen
-Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
-Gesch=C3=A4ftsf=C3=BChrer: Matthias Kaussen
-Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
-
-www.karo-electronics.de | info@karo-electronics.de
-___________________________________________________________
+(I ask this because TFO paper I read mentions linux-2.6.34, I presume
+you couldnt use inetpeer at that time since it was IPv4 only)
