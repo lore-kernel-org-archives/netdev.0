@@ -1,90 +1,186 @@
-From: Stefan Hajnoczi <stefanha@gmail.com>
-Subject: Re: [net-next RFC PATCH 5/5] virtio-net: flow director support
-Date: Wed, 7 Dec 2011 15:04:56 +0000
-Message-ID: <CAJSP0QUyx8tGxXG4ZFLHVTAout0zU4N9JaxSLucuD39P=5X6=w@mail.gmail.com>
-References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
-	<20111205085925.6116.94352.stgit@dhcp-8-146.nay.redhat.com>
-	<CAJSP0QXfHC8j2Kk9x6wyBMubo2=YvpaLAShJtwMWA2mtro6UhA@mail.gmail.com>
-	<4EDDB71F.9080908@redhat.com>
-	<CAJSP0QX5dDkpX+cRcQut2mb6K91zeqGLRrZBGAWT_r2p685gaQ@mail.gmail.com>
-	<4EDDECA9.8060808@redhat.com>
-	<CAJSP0QXsLwvH5xYj6h0E_V4VLg6DuUc-GKXu9esEYzL2MFcFGw@mail.gmail.com>
-	<4EDED785.80804@redhat.com>
-	<CAJSP0QUGWCf5WHEeCXzqZeF2CvpycxrGo-uPSfpWD1rWD3zeSg@mail.gmail.com>
-	<4EDF57C7.90406@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH RFC] virtio_net: fix refill related races
+Date: Wed, 7 Dec 2011 17:21:22 +0200
+Message-ID: <20111207152120.GA23417@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au,
-	virtualization@lists.linux-foundation.org, levinsasha928@gmail.com,
-	bhutchings@solarflare.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4EDF57C7.90406@redhat.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
+To: Amit Shah <amit.shah@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 7, 2011 at 12:10 PM, Jason Wang <jasowang@redhat.com> wrote=
-:
-> On 12/07/2011 05:08 PM, Stefan Hajnoczi wrote:
-> [...]
->
->>> > =A0Consider the complexity of the host nic each with their own st=
-eering
->>> > =A0features, =A0this series make the first step with minimal effo=
-rt to try
->>> > to let
->>> > =A0guest driver and host tap/macvtap co-operate like what physica=
-l nic
->>> > does.
->>> > =A0There may be other method, but performance numbers is also nee=
-ded to
->>> > give
->>> > =A0the answer.
->>
->> I agree that performance results for this need to be shown.
->>
->> My original point is really that it's not a good idea to take
->> individual steps without a good big picture because this will change
->> the virtio-net device specification. =A0If this turns out to be a de=
-ad
->> end then hosts will need to continue to support the interface foreve=
-r
->> (legacy guests could still try to use it). =A0So please first explai=
-n
->> what the full stack picture is going to look like and how you think =
-it
->> will lead to better performance. =A0You don't need to have all the c=
-ode
->> or evidence, but just enough explanation so we see where this is all
->> going.
->
-> I think I mention too little in the cover message.
->
-> There's no much changes with Krishna's series except the method that
-> choosing a rx virtqueue. Since original series use different hash met=
-hods in
-> host (rxhash) and guest (txhash), a different virtqueue were chose fo=
-r a
-> flow which could lead packets of a flow to be handled by different vh=
-ost
-> thread and vcpu. This may damage the performance.
->
-> This series tries to let one vhost thread to process the packets of a=
- flow
-> and also let the packets to be sent directly to a vcpu local to the t=
-hread
-> process the data. This is done by letting guest tell the desired queu=
-e form
-> which it want to receive the pakcet of a dedicated flow.
->
-> So passing the hash from host to guest is needed to get the same hash=
- in the
-> two sides. Then a guest programmable hash to queue table were introdu=
-ced and
-> guest co-operate with the host through accelerate RFS in guest.
+Fix theoretical races related to refill work:
+1. After napi is disabled by ndo_stop, refill work
+   can run and re-enable it.
+2. Refill can reschedule itself, if this happens
+   it can run after cancel_delayed_work_sync,
+   and will access device after it is destroyed.
 
-Thanks for the context, that helps me understand it a little better.
+As a solution, add flags to track napi state and
+to disable refill, and toggle them on start, stop
+and remove; check these flags on refill.
 
-Stefan
+refill work structure and new fields aren't used
+on data path, so put them together near the end of
+struct virtnet_info.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+
+RFC only since it's untested at this point.
+A bugfix so 3.2 material?
+Comments?
+
+
+ drivers/net/virtio_net.c |   57 +++++++++++++++++++++++++++++++++++++---------
+ 1 files changed, 46 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index f5b3f19..39eb24c 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -21,6 +21,7 @@
+ #include <linux/etherdevice.h>
+ #include <linux/ethtool.h>
+ #include <linux/module.h>
++#include <linux/mutex.h>
+ #include <linux/virtio.h>
+ #include <linux/virtio_net.h>
+ #include <linux/scatterlist.h>
+@@ -68,15 +69,24 @@ struct virtnet_info {
+ 	/* Active statistics */
+ 	struct virtnet_stats __percpu *stats;
+ 
+-	/* Work struct for refilling if we run low on memory. */
+-	struct delayed_work refill;
+-
+ 	/* Chain pages by the private ptr. */
+ 	struct page *pages;
+ 
+ 	/* fragments + linear part + virtio header */
+ 	struct scatterlist rx_sg[MAX_SKB_FRAGS + 2];
+ 	struct scatterlist tx_sg[MAX_SKB_FRAGS + 2];
++
++	/* Work struct for refilling if we run low on memory. */
++	struct delayed_work refill;
++
++	/* Set flag to allow delayed refill work, protected by a refill_lock. */
++	bool refill_enable;
++
++	/* Whether napi is enabled, protected by a refill_lock. */
++	bool napi_enable;
++
++	/* Lock to protect refill and napi enable/disable operations. */
++	struct mutex refill_lock;
+ };
+ 
+ struct skb_vnet_hdr {
+@@ -477,20 +487,35 @@ static void virtnet_napi_enable(struct virtnet_info *vi)
+ 	}
+ }
+ 
++static void virtnet_refill_enable(struct virtnet_info *vi, bool enable)
++{
++	mutex_lock(&vi->refill_lock);
++	vi->refill_enable = enable;
++	mutex_unlock(&vi->refill_lock);
++}
++
+ static void refill_work(struct work_struct *work)
+ {
+ 	struct virtnet_info *vi;
+ 	bool still_empty;
+ 
+ 	vi = container_of(work, struct virtnet_info, refill.work);
+-	napi_disable(&vi->napi);
+-	still_empty = !try_fill_recv(vi, GFP_KERNEL);
+-	virtnet_napi_enable(vi);
+ 
+-	/* In theory, this can happen: if we don't get any buffers in
+-	 * we will *never* try to fill again. */
+-	if (still_empty)
+-		schedule_delayed_work(&vi->refill, HZ/2);
++	mutex_lock(&vi->refill_lock);
++	if (vi->refill_enable) {
++		if (vi->napi_enable)
++			napi_disable(&vi->napi);
++		still_empty = !try_fill_recv(vi, GFP_KERNEL);
++		if (vi->napi_enable)
++			virtnet_napi_enable(vi);
++
++		/* In theory, this can happen: if we don't get any buffers in
++		 * we will *never* try to fill again. */
++		if (still_empty)
++			schedule_delayed_work(&vi->refill, HZ/2);
++
++	}
++	mutex_unlock(&vi->refill_lock);
+ }
+ 
+ static int virtnet_poll(struct napi_struct *napi, int budget)
+@@ -708,7 +733,10 @@ static int virtnet_open(struct net_device *dev)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 
++	mutex_lock(&vi->refill_lock);
++	vi->napi_enable = true;
+ 	virtnet_napi_enable(vi);
++	mutex_unlock(&vi->refill_lock);
+ 	return 0;
+ }
+ 
+@@ -761,7 +789,10 @@ static int virtnet_close(struct net_device *dev)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 
++	mutex_lock(&vi->refill_lock);
++	vi->napi_enable = false;
+ 	napi_disable(&vi->napi);
++	mutex_unlock(&vi->refill_lock);
+ 
+ 	return 0;
+ }
+@@ -1010,6 +1041,7 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	if (vi->stats == NULL)
+ 		goto free;
+ 
++	mutex_init(&vi->refill_lock);
+ 	INIT_DELAYED_WORK(&vi->refill, refill_work);
+ 	sg_init_table(vi->rx_sg, ARRAY_SIZE(vi->rx_sg));
+ 	sg_init_table(vi->tx_sg, ARRAY_SIZE(vi->tx_sg));
+@@ -1047,6 +1079,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 		goto free_vqs;
+ 	}
+ 
++	virtnet_refill_enable(vi, true);
++
+ 	/* Last of all, set up some receive buffers. */
+ 	try_fill_recv(vi, GFP_KERNEL);
+ 
+@@ -1107,10 +1141,11 @@ static void __devexit virtnet_remove(struct virtio_device *vdev)
+ {
+ 	struct virtnet_info *vi = vdev->priv;
+ 
++	virtnet_refill_enable(vi, false);
++
+ 	/* Stop all the virtqueues. */
+ 	vdev->config->reset(vdev);
+ 
+-
+ 	unregister_netdev(vi->dev);
+ 	cancel_delayed_work_sync(&vi->refill);
+ 
+-- 
+1.7.5.53.gc233e
