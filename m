@@ -1,82 +1,44 @@
-From: Michael Wang <wangyun@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2] e1000e: Assign true and false to bool type variable
- instead of 1 and 0
-Date: Wed, 07 Dec 2011 12:49:35 +0800
-Message-ID: <4EDEF05F.4020901@linux.vnet.ibm.com>
-References: <4EDED071.40900@linux.vnet.ibm.com> <1323229439.2415.23.camel@jtkirshe-mobl> <1323231268.1762.19.camel@joe2Laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ppp: fix pptp double release_sock in pptp_bind()
+Date: Wed, 07 Dec 2011 05:59:54 +0100
+Message-ID: <1323233994.2690.29.camel@edumazet-laptop>
+References: <20111207014712.GB25869@dztty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"wangyunlinux@gmail.com" <wangyunlinux@gmail.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp03.in.ibm.com ([122.248.162.3]:56313 "EHLO
-	e28smtp03.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755702Ab1LGEtp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 23:49:45 -0500
-Received: from /spool/local
-	by e28smtp03.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <wangyun@linux.vnet.ibm.com>;
-	Wed, 7 Dec 2011 10:19:42 +0530
-Received: from d28av03.in.ibm.com (d28av03.in.ibm.com [9.184.220.65])
-	by d28relay04.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id pB74nclJ3739858
-	for <netdev@vger.kernel.org>; Wed, 7 Dec 2011 10:19:39 +0530
-Received: from d28av03.in.ibm.com (loopback [127.0.0.1])
-	by d28av03.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id pB74nbfr018605
-	for <netdev@vger.kernel.org>; Wed, 7 Dec 2011 15:49:38 +1100
-In-Reply-To: <1323231268.1762.19.camel@joe2Laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dmitry Kozlov <xeb@mail.ru>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Djalal Harouni <tixxdz@opendz.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111207014712.GB25869@dztty>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/07/2011 12:14 PM, Joe Perches wrote:
+Le mercredi 07 d=C3=A9cembre 2011 =C3=A0 02:47 +0100, Djalal Harouni a =
+=C3=A9crit :
+> Signed-off-by: Djalal Harouni <tixxdz@opendz.org>
+> ---
+>  drivers/net/ppp/pptp.c |    4 +---
+>  1 files changed, 1 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
+> index 89f829f..f8a6853 100644
+> --- a/drivers/net/ppp/pptp.c
+> +++ b/drivers/net/ppp/pptp.c
+> @@ -423,10 +423,8 @@ static int pptp_bind(struct socket *sock, struct=
+ sockaddr *uservaddr,
+>  	lock_sock(sk);
+> =20
+>  	opt->src_addr =3D sp->sa_addr.pptp;
+> -	if (add_chan(po)) {
+> -		release_sock(sk);
+> +	if (add_chan(po))
+>  		error =3D -EBUSY;
+> -	}
+> =20
+>  	release_sock(sk);
+>  	return error;
 
-> On Tue, 2011-12-06 at 19:43 -0800, Jeff Kirsher wrote:
->> On Tue, 2011-12-06 at 18:33 -0800, Michael Wang wrote:
->>> From: Michael Wang <wangyun@linux.vnet.ibm.com>
->>> Use true and false instead of 1 and 0 when assign value to a bool type
->>> variable.
->> Thanks Michael, I have added your patch to my queue of e1000e patches.
-> 
-> There are more of these uses in intel drivers.
-> 
-> Perhaps you could run this cocci/spatch
-> on drivers/net/ethernet/intel/...
-> 
-> $ cat bool.cocci
-> @@
-> bool b;
-> @@
-> 
-> -b = 0;
-> +b = false;
-> 
-> @@
-> bool b;
-> @@
-> 
-> -b = 1;
-> +b = true;
-> 
-> $ git ls-files drivers/net/ethernet/intel/ | grep "\.c$" | while read file ; do spatch -in_place -sp_file bool.cocci $file ; done
-> 
-> 
+Nice catch !
 
-Hi, Joe
-
-I think there are lots of such cases in kernel, and I think it is a
-legacy issue with some story in it.
-
-The reason I only change the e1000e is that the patch I send before will
-broken the style of e1000e, because it's using true and false, not 1 and 0.
-
-I think this will be a huge work if we want to correct all these cases,
-and I think the good way is to separate the work to small pieces and
-finish them slowly.
-
-Thanks,
-Michael Wang
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
