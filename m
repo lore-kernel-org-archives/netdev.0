@@ -1,99 +1,90 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH v2] e1000e: Assign true and false to bool type variable
- instead of 1 and 0
-Date: Wed, 07 Dec 2011 01:04:24 -0800
-Message-ID: <1323248664.2415.28.camel@jtkirshe-mobl>
-References: <4EDED071.40900@linux.vnet.ibm.com>
-	 <1323229439.2415.23.camel@jtkirshe-mobl>
-	 <1323231268.1762.19.camel@joe2Laptop> <4EDEF05F.4020901@linux.vnet.ibm.com>
-	 <1323237700.1762.24.camel@joe2Laptop> <4EDF02CC.4010407@linux.vnet.ibm.com>
-	 <1323238749.1762.27.camel@joe2Laptop> <4EDF0964.3080509@linux.vnet.ibm.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Stefan Hajnoczi <stefanha@gmail.com>
+Subject: Re: [net-next RFC PATCH 5/5] virtio-net: flow director support
+Date: Wed, 7 Dec 2011 09:08:57 +0000
+Message-ID: <CAJSP0QUGWCf5WHEeCXzqZeF2CvpycxrGo-uPSfpWD1rWD3zeSg@mail.gmail.com>
+References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
+	<20111205085925.6116.94352.stgit@dhcp-8-146.nay.redhat.com>
+	<CAJSP0QXfHC8j2Kk9x6wyBMubo2=YvpaLAShJtwMWA2mtro6UhA@mail.gmail.com>
+	<4EDDB71F.9080908@redhat.com>
+	<CAJSP0QX5dDkpX+cRcQut2mb6K91zeqGLRrZBGAWT_r2p685gaQ@mail.gmail.com>
+	<4EDDECA9.8060808@redhat.com>
+	<CAJSP0QXsLwvH5xYj6h0E_V4VLg6DuUc-GKXu9esEYzL2MFcFGw@mail.gmail.com>
+	<4EDED785.80804@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Fk48C76roeukqdzlXl5w"
-Cc: Joe Perches <joe@perches.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"wangyunlinux@gmail.com" <wangyunlinux@gmail.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: Michael Wang <wangyun@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:57019 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751777Ab1LGJFC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Dec 2011 04:05:02 -0500
-In-Reply-To: <4EDF0964.3080509@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-Fk48C76roeukqdzlXl5w
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
+Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	levinsasha928@gmail.com, bhutchings@solarflare.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <4EDED785.80804@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-12-06 at 22:36 -0800, Michael Wang wrote:
-> On 12/07/2011 02:19 PM, Joe Perches wrote:
->=20
-> > On Wed, 2011-12-07 at 14:08 +0800, Michael Wang wrote:
-> >> I'm not good at script, if you are interested, we can work together
-> to
-> >> fix all the remain cases, and send out some patches.
-> >=20
-> > You should try coccinelle and spatch.
-> >=20
->=20
-> Hi, Joe
->=20
-> I have not used coccinelle and spatch before, I will study on them
-> later.
->=20
-> > If you run the script, this is the intel output.
-> >=20
-> >  drivers/net/ethernet/intel/e1000/e1000_main.c |   10 +++++-----
-> >  drivers/net/ethernet/intel/ixgb/ixgb_main.c   |    2 +-
-> >  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
-> >  drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c  |    4 ++--
-> >  4 files changed, 9 insertions(+), 9 deletions(-)
->=20
->=20
-> We can try to fix them, thanks for the suggestion.
->=20
-> Regards,
-> Michael Wang=20
+On Wed, Dec 7, 2011 at 3:03 AM, Jason Wang <jasowang@redhat.com> wrote:
+> On 12/06/2011 09:15 PM, Stefan Hajnoczi wrote:
+>>
+>> On Tue, Dec 6, 2011 at 10:21 AM, Jason Wang<jasowang@redhat.com> =A0wrot=
+e:
+>>>
+>>> On 12/06/2011 05:18 PM, Stefan Hajnoczi wrote:
+>>>>
+>>>> On Tue, Dec 6, 2011 at 6:33 AM, Jason Wang<jasowang@redhat.com>
+>>>> =A0wrote:
+>>>>>
+>>>>> On 12/05/2011 06:55 PM, Stefan Hajnoczi wrote:
+>>>>>>
+>>>>>> On Mon, Dec 5, 2011 at 8:59 AM, Jason Wang<jasowang@redhat.com>
+>>>>>> =A0wrote:
+>>>>
+>>>> The vcpus are just threads and may not be bound to physical CPUs, so
+>>>> what is the big picture here? =A0Is the guest even in the position to
+>>>> set the best queue mappings today?
+>>>
+>>>
+>>> Not sure it could publish the best mapping but the idea is to make sure
+>>> the
+>>> packets of a flow were handled by the same guest vcpu and may be the sa=
+me
+>>> vhost thread in order to eliminate the packet reordering and lock
+>>> contention. But this assumption does not take the bouncing of vhost or
+>>> vcpu
+>>> threads which would also affect the result.
+>>
+>> Okay, this is why I'd like to know what the big picture here is. =A0What
+>> solution are you proposing? =A0How are we going to have everything from
+>> guest application, guest kernel, host threads, and host NIC driver
+>> play along so we get the right steering up the entire stack. =A0I think
+>> there needs to be an answer to that before changing virtio-net to add
+>> any steering mechanism.
+>
+>
+> Consider the complexity of the host nic each with their own steering
+> features, =A0this series make the first step with minimal effort to try t=
+o let
+> guest driver and host tap/macvtap co-operate like what physical nic does.
+> There may be other method, but performance numbers is also needed to give
+> the answer.
 
-So should I expect a v3 of this patch?
+I agree that performance results for this need to be shown.
 
-Also I am fine with lumping all the changes for all our drivers in one
-patch as long as the changes for each driver are somewhat small.  If the
-changes for a particular driver gets too extensive, please create a
-separate patch.
+My original point is really that it's not a good idea to take
+individual steps without a good big picture because this will change
+the virtio-net device specification.  If this turns out to be a dead
+end then hosts will need to continue to support the interface forever
+(legacy guests could still try to use it).  So please first explain
+what the full stack picture is going to look like and how you think it
+will lead to better performance.  You don't need to have all the code
+or evidence, but just enough explanation so we see where this is all
+going.
 
-Cheers,
-Jeff
-
---=-Fk48C76roeukqdzlXl5w
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAABCgAGBQJO3ywYAAoJEOVv75VaS+3OGE8P/R/Z3fup/W/ZCSMrY47SwFVJ
-4O3shq9TrD4z6A5SCDz4CxwDS6sTc7KW7Qc6z5TH8hAG47A/DJKGFiHa99WVfxaL
-iGdvfZ5XT5lnDOZyeCpH5KTCKrQofIB9qcBRlBzhoKegbrU9gPq+iCve4fwpPs3W
-32MDaISQ2BleqGDcDjYVHrZodPbiqC6jlZOtYsqJ4wXcOjqXqb4Pgn4N+rvkPd9l
-97zNr0NYViycFdJC19nPZKuJuetM2kHtmXXU7GyCvDvwbjFGERckVmyAF563XuGJ
-uwRRrn67dDQaWQh8DnJZzApy1cXvxgfQ+Mvz9eneNEL0/ActKK6JTmnz4GytvXYo
-BlNqwR4YTQ9uEYMHrUOkNqI3L/sLcJeZo96qH2JOWzojPgftsz+hehcN5ubydyD4
-EnD/1MJ9Z8eyvHEii5aIbyhqLQ+IFtlpOi5zhC+PtZMZ6BiTlrLfzx7XWibqkjc1
-lmU7dE9HjfkS7sxiVwZDarcj3fwh3hSlYByfuAijft6PRkEXT2n68TSPJb4UR2KC
-4JqFhwY5cF9pXS2DG8bt9z++7KTsZ+uS1uTfC62YMbTxnF8wV0XUfgziQ1w4e8lQ
-iUhTy+4Pjd7C0v043qKIO/AF1gtaF/3l/9rd+PhyP2x1/MPtQ+NrrWBNQCiaj9Uo
-0wgPFiW0AnihUaGNvcpk
-=hRx7
------END PGP SIGNATURE-----
-
---=-Fk48C76roeukqdzlXl5w--
+Stefan
