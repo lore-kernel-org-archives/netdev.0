@@ -1,39 +1,68 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [RFC] iproute2: split up ip man page?
-Date: Wed, 7 Dec 2011 13:15:14 -0800
-Message-ID: <20111207131514.6815f813@nehalam.linuxnetplumber.net>
+From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Subject: TTL=0 multicast packets leaving host
+Date: Wed, 7 Dec 2011 15:31:58 -0600
+Message-ID: <20111207213158.GA2444@BohrerMBP.rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54554 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757907Ab1LGVPQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Dec 2011 16:15:16 -0500
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.vyatta.com (Postfix) with ESMTP id 3304E141005B
-	for <netdev@vger.kernel.org>; Wed,  7 Dec 2011 13:15:16 -0800 (PST)
-Received: from mail.vyatta.com ([127.0.0.1])
-	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id 3UJ-A56ZFtAs for <netdev@vger.kernel.org>;
-	Wed,  7 Dec 2011 13:15:15 -0800 (PST)
-Received: from nehalam.linuxnetplumber.net (static-50-53-80-93.bvtn.or.frontiernet.net [50.53.80.93])
-	by mail.vyatta.com (Postfix) with ESMTPSA id 81B7C1410042
-	for <netdev@vger.kernel.org>; Wed,  7 Dec 2011 13:15:15 -0800 (PST)
+Received: from na3sys009aog115.obsmtp.com ([74.125.149.238]:33241 "EHLO
+	na3sys009aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757892Ab1LGVcG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 16:32:06 -0500
+Received: by mail-gy0-f173.google.com with SMTP id z10so1008834ghb.32
+        for <netdev@vger.kernel.org>; Wed, 07 Dec 2011 13:32:05 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current ip man page is both incomplete and so big that
-the actual functions get lost easily.
+We've got some machines where we've noticed that in some cases TTL=0
+multicast traffic was leaving the host.  It appear that ip_mc_output()
+does the correct check with:
 
-I propose splitting the the pages for the subfunction
-into sub pages. The man command appears
-to be smart enough to handle:
-  man tc htb
+                ...
+                /* Multicasts with ttl 0 must not go beyond the host */
 
-and pickup the manpage for /usr/share/man/man1/tc-htb.8.gz
-Why not do the same thing for ip command?
+                if (ip_hdr(skb)->ttl == 0) {
+                        kfree_skb(skb);
+                        return 0;
+                }
+                ...
 
-The base ip page would just be a place holder that covered the
-generic arguments.
+The problem is that in __mkroute_output() it checks if the local
+computer is a member of the multicast group, and if not clears
+RTCF_LOCAL
+
+                ...
+                if (!ip_check_mc_rcu(in_dev, fl4->daddr, fl4->saddr,
+                                     fl4->flowi4_proto))
+                        flags &= ~RTCF_LOCAL;
+                ...
+
+And if RTCF_LOCAL is _not_ set then ip_output() is used instead of
+ip_mc_output()
+
+        ...
+        if (flags & (RTCF_BROADCAST | RTCF_MULTICAST)) {
+                rth->rt_spec_dst = fl4->saddr;
+                if (flags & RTCF_LOCAL &&
+                    !(dev_out->flags & IFF_LOOPBACK)) {
+                        rth->dst.output = ip_mc_output;
+                        RT_CACHE_STAT_INC(out_slow_mc);
+                }
+        ...
+
+This looks like a bug to me.  I'd assume that if the local computer
+has not joined the multicast group and I send a TTL=0 packet that it
+would simply get discarded.
+
+--
+Shawn
+
+
+
+---------------------------------------------------------------
+This email, along with any attachments, is confidential. If you 
+believe you received this message in error, please contact the 
+sender immediately and delete all copies of the message.  
+Thank you.
