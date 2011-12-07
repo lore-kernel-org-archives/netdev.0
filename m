@@ -1,35 +1,33 @@
-From: Josh Boyer <jwboyer@gmail.com>
-Subject: Re: atl1c: WARNING: at net/sched/sch_generic.c:255 dev_watchdog
-Date: Tue, 6 Dec 2011 19:12:21 -0500
-Message-ID: <CA+5PVA7bM8ZGaCiyZdHcMVccJYh2=bk-gsHLo9ZmBP_SYT208w@mail.gmail.com>
-References: <20111206232741.GA5368@x1.osrc.amd.com>
+From: "Mr.Vincent Cheng" <pdiego@der.uned.es>
+Subject: (unknown)
+Date: Wed, 7 Dec 2011 01:24:31 +0100
+Message-ID: <a14ef40a0616697b156abec9d348ab72.squirrel@correo.uned.es>
+Reply-To: vincentcheng048@yahoo.co.jp
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Borislav Petkov <bp@alien8.de>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111206232741.GA5368@x1.osrc.amd.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Tue, Dec 6, 2011 at 6:27 PM, Borislav Petkov <bp@alien8.de> wrote:
-> Hi,
->
-> this seems like a pretty old issue judging by a quick net search. It
-> still triggers on latest -rc4 here, below the whole trace. I'm willing
-> to test patches :).
->
-> [14622.820555] atl1c 0000:02:00.0: atl1c: eth0 NIC Link is Up<100 Mbps Full Duplex>
-> [14632.816280] ------------[ cut here ]------------
-> [14632.816314] WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x237/0x240()
-> [14632.816323] Hardware name: 30515QG
-> [14632.816332] NETDEV WATCHDOG: eth0 (atl1c): transmit queue 0 timed out
-
-Matthew Garrett has a patch to the atl1c driver that changed it's ASPM
-behavior that seemed to help.  Dave Miller applied it, but I don't see
-it in linux-next for some reason.
-
-http://comments.gmane.org/gmane.linux.kernel/1214694
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hermes-tres.uned.es ([62.204.192.103]:41177 "EHLO
+	hermes-tres.uned.es" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753606Ab1LGAYk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2011 19:24:40 -0500
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-josh
+
+
+I am Mr.Vincent Cheng, GBS, JP Chairman of the Hong Kong and Shanghai
+BankingCorporation Limited. I have a business proposal of USD
+$10,500,000.00. Your
+earliest response to this letter will be appreciated, upon the confirmation
+of your response all further details and document will be issued to you.
+
+Endeavour to let me know your decision rather than keep me waiting
+
+Email:vincentcheng048@yahoo.co.jp
+
+Best Regards,
+Mr.Vincent Cheng
