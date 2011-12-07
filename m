@@ -1,186 +1,149 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH RFC] virtio_net: fix refill related races
-Date: Wed, 7 Dec 2011 17:21:22 +0200
-Message-ID: <20111207152120.GA23417@redhat.com>
+From: Mike Maxim <mike@okcupid.com>
+Subject: Re: [PATCH] IPVS: Modify the SH scheduler to use weights
+Date: Wed, 7 Dec 2011 10:24:09 -0500
+Message-ID: <CAOgH2dsHepr7Dyx7pNOutFNRh5SoO-oC9mx1MLm6Ncai8Ma3rQ@mail.gmail.com>
+References: <1323245223-13646-1-git-send-email-horms@verge.net.au>
+	<1323245223-13646-2-git-send-email-horms@verge.net.au>
+	<20111207113038.GA18166@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Amit Shah <amit.shah@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Simon Horman <horms@verge.net.au>,
+	Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20111207113038.GA18166@1984>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix theoretical races related to refill work:
-1. After napi is disabled by ndo_stop, refill work
-   can run and re-enable it.
-2. Refill can reschedule itself, if this happens
-   it can run after cancel_delayed_work_sync,
-   and will access device after it is destroyed.
+The reason I put that in is because the size of that table becomes
+more relevant/important if you decide to use the weights in the manner
+the patch lets you. It would be conceivable that someone might need to
+increase the size of that table to accommodate their configuration, so
+I thought it would be handy to be able to do that through the regular
+configuration system instead of editing the source.
 
-As a solution, add flags to track napi state and
-to disable refill, and toggle them on start, stop
-and remove; check these flags on refill.
-
-refill work structure and new fields aren't used
-on data path, so put them together near the end of
-struct virtnet_info.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
-
-RFC only since it's untested at this point.
-A bugfix so 3.2 material?
-Comments?
-
-
- drivers/net/virtio_net.c |   57 +++++++++++++++++++++++++++++++++++++---------
- 1 files changed, 46 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index f5b3f19..39eb24c 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -21,6 +21,7 @@
- #include <linux/etherdevice.h>
- #include <linux/ethtool.h>
- #include <linux/module.h>
-+#include <linux/mutex.h>
- #include <linux/virtio.h>
- #include <linux/virtio_net.h>
- #include <linux/scatterlist.h>
-@@ -68,15 +69,24 @@ struct virtnet_info {
- 	/* Active statistics */
- 	struct virtnet_stats __percpu *stats;
- 
--	/* Work struct for refilling if we run low on memory. */
--	struct delayed_work refill;
--
- 	/* Chain pages by the private ptr. */
- 	struct page *pages;
- 
- 	/* fragments + linear part + virtio header */
- 	struct scatterlist rx_sg[MAX_SKB_FRAGS + 2];
- 	struct scatterlist tx_sg[MAX_SKB_FRAGS + 2];
-+
-+	/* Work struct for refilling if we run low on memory. */
-+	struct delayed_work refill;
-+
-+	/* Set flag to allow delayed refill work, protected by a refill_lock. */
-+	bool refill_enable;
-+
-+	/* Whether napi is enabled, protected by a refill_lock. */
-+	bool napi_enable;
-+
-+	/* Lock to protect refill and napi enable/disable operations. */
-+	struct mutex refill_lock;
- };
- 
- struct skb_vnet_hdr {
-@@ -477,20 +487,35 @@ static void virtnet_napi_enable(struct virtnet_info *vi)
- 	}
- }
- 
-+static void virtnet_refill_enable(struct virtnet_info *vi, bool enable)
-+{
-+	mutex_lock(&vi->refill_lock);
-+	vi->refill_enable = enable;
-+	mutex_unlock(&vi->refill_lock);
-+}
-+
- static void refill_work(struct work_struct *work)
- {
- 	struct virtnet_info *vi;
- 	bool still_empty;
- 
- 	vi = container_of(work, struct virtnet_info, refill.work);
--	napi_disable(&vi->napi);
--	still_empty = !try_fill_recv(vi, GFP_KERNEL);
--	virtnet_napi_enable(vi);
- 
--	/* In theory, this can happen: if we don't get any buffers in
--	 * we will *never* try to fill again. */
--	if (still_empty)
--		schedule_delayed_work(&vi->refill, HZ/2);
-+	mutex_lock(&vi->refill_lock);
-+	if (vi->refill_enable) {
-+		if (vi->napi_enable)
-+			napi_disable(&vi->napi);
-+		still_empty = !try_fill_recv(vi, GFP_KERNEL);
-+		if (vi->napi_enable)
-+			virtnet_napi_enable(vi);
-+
-+		/* In theory, this can happen: if we don't get any buffers in
-+		 * we will *never* try to fill again. */
-+		if (still_empty)
-+			schedule_delayed_work(&vi->refill, HZ/2);
-+
-+	}
-+	mutex_unlock(&vi->refill_lock);
- }
- 
- static int virtnet_poll(struct napi_struct *napi, int budget)
-@@ -708,7 +733,10 @@ static int virtnet_open(struct net_device *dev)
- {
- 	struct virtnet_info *vi = netdev_priv(dev);
- 
-+	mutex_lock(&vi->refill_lock);
-+	vi->napi_enable = true;
- 	virtnet_napi_enable(vi);
-+	mutex_unlock(&vi->refill_lock);
- 	return 0;
- }
- 
-@@ -761,7 +789,10 @@ static int virtnet_close(struct net_device *dev)
- {
- 	struct virtnet_info *vi = netdev_priv(dev);
- 
-+	mutex_lock(&vi->refill_lock);
-+	vi->napi_enable = false;
- 	napi_disable(&vi->napi);
-+	mutex_unlock(&vi->refill_lock);
- 
- 	return 0;
- }
-@@ -1010,6 +1041,7 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (vi->stats == NULL)
- 		goto free;
- 
-+	mutex_init(&vi->refill_lock);
- 	INIT_DELAYED_WORK(&vi->refill, refill_work);
- 	sg_init_table(vi->rx_sg, ARRAY_SIZE(vi->rx_sg));
- 	sg_init_table(vi->tx_sg, ARRAY_SIZE(vi->tx_sg));
-@@ -1047,6 +1079,8 @@ static int virtnet_probe(struct virtio_device *vdev)
- 		goto free_vqs;
- 	}
- 
-+	virtnet_refill_enable(vi, true);
-+
- 	/* Last of all, set up some receive buffers. */
- 	try_fill_recv(vi, GFP_KERNEL);
- 
-@@ -1107,10 +1141,11 @@ static void __devexit virtnet_remove(struct virtio_device *vdev)
- {
- 	struct virtnet_info *vi = vdev->priv;
- 
-+	virtnet_refill_enable(vi, false);
-+
- 	/* Stop all the virtqueues. */
- 	vdev->config->reset(vdev);
- 
--
- 	unregister_netdev(vi->dev);
- 	cancel_delayed_work_sync(&vi->refill);
- 
--- 
-1.7.5.53.gc233e
+On Wed, Dec 7, 2011 at 6:30 AM, Pablo Neira Ayuso <pablo@netfilter.org>=
+ wrote:
+> On Wed, Dec 07, 2011 at 05:07:03PM +0900, Simon Horman wrote:
+>> From: Michael Maxim <mike@okcupid.com>
+>>
+>> Modify the algorithm to build the source hashing hash table to add
+>> extra slots for destinations with higher weight. This has the effect
+>> of allowing an IPVS SH user to give more connections to hosts that
+>> have been configured to have a higher weight.
+>>
+>> Signed-off-by: Michael Maxim <mike@okcupid.com>
+>> Signed-off-by: Simon Horman <horms@verge.net.au>
+>> ---
+>> =A0net/netfilter/ipvs/Kconfig =A0 =A0| =A0 15 +++++++++++++++
+>> =A0net/netfilter/ipvs/ip_vs_sh.c | =A0 20 ++++++++++++++++++--
+>> =A02 files changed, 33 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
+>> index 70bd1d0..af4c0b8 100644
+>> --- a/net/netfilter/ipvs/Kconfig
+>> +++ b/net/netfilter/ipvs/Kconfig
+>> @@ -232,6 +232,21 @@ config =A0 IP_VS_NQ
+>> =A0 =A0 =A0 =A0 If you want to compile it in kernel, say Y. To compi=
+le it as a
+>> =A0 =A0 =A0 =A0 module, choose M here. If unsure, say N.
+>>
+>> +comment 'IPVS SH scheduler'
+>> +
+>> +config IP_VS_SH_TAB_BITS
+>> + =A0 =A0 int "IPVS source hashing table size (the Nth power of 2)"
+>> + =A0 =A0 range 4 20
+>> + =A0 =A0 default 8
+>> + =A0 =A0 ---help---
+>> + =A0 =A0 =A0 The source hashing scheduler maps source IPs to destin=
+ations
+>> + =A0 =A0 =A0 stored in a hash table. This table is tiled by each de=
+stination
+>> + =A0 =A0 =A0 until all slots in the table are filled. When using we=
+ights to
+>> + =A0 =A0 =A0 allow destinations to receive more connections, the ta=
+ble is
+>> + =A0 =A0 =A0 tiled an amount proportional to the weights specified.=
+ The table
+>> + =A0 =A0 =A0 needs to be large enough to effectively fit all the de=
+stinations
+>> + =A0 =A0 =A0 multiplied by their respective weights.
+>
+> Hm, does this really belong to this patch?
+>
+>> +
+>> =A0comment 'IPVS application helper'
+>>
+>> =A0config =A0 =A0 =A0 IP_VS_FTP
+>> diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_v=
+s_sh.c
+>> index 33815f4..e0ca520 100644
+>> --- a/net/netfilter/ipvs/ip_vs_sh.c
+>> +++ b/net/netfilter/ipvs/ip_vs_sh.c
+>> @@ -30,6 +30,11 @@
+>> =A0 * server is dead or overloaded, the load balancer can bypass the=
+ cache
+>> =A0 * server and send requests to the original server directly.
+>> =A0 *
+>> + * The weight destination attribute can be used to control the
+>> + * distribution of connections to the destinations in servernode. T=
+he
+>> + * greater the weight, the more connections the destination
+>> + * will receive.
+>> + *
+>> =A0 */
+>>
+>> =A0#define KMSG_COMPONENT "IPVS"
+>> @@ -99,9 +104,11 @@ ip_vs_sh_assign(struct ip_vs_sh_bucket *tbl, str=
+uct ip_vs_service *svc)
+>> =A0 =A0 =A0 struct ip_vs_sh_bucket *b;
+>> =A0 =A0 =A0 struct list_head *p;
+>> =A0 =A0 =A0 struct ip_vs_dest *dest;
+>> + =A0 =A0 int d_count;
+>>
+>> =A0 =A0 =A0 b =3D tbl;
+>> =A0 =A0 =A0 p =3D &svc->destinations;
+>> + =A0 =A0 d_count =3D 0;
+>> =A0 =A0 =A0 for (i=3D0; i<IP_VS_SH_TAB_SIZE; i++) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (list_empty(p)) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 b->dest =3D NULL;
+>> @@ -113,14 +120,23 @@ ip_vs_sh_assign(struct ip_vs_sh_bucket *tbl, s=
+truct ip_vs_service *svc)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 atomic_inc(&dest->refcnt=
+);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 b->dest =3D dest;
+>>
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 p =3D p->next;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 IP_VS_DBG_BUF(6, "assigned=
+ i: %d dest: %s weight: %d\n",
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ i, IP_VS_DBG_ADDR(svc->af, &dest->addr),
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ atomic_read(&dest->weight));
+>> +
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* Don't move to next dest=
+ until filling weight */
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (++d_count >=3D atomic_=
+read(&dest->weight)) {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 p =3D p->n=
+ext;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 d_count =3D=
+ 0;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>> +
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 b++;
+>> =A0 =A0 =A0 }
+>> +
+>> =A0 =A0 =A0 return 0;
+>> =A0}
+>>
+>> -
+>
+> While at it, would you remove this unnecessary deletions/additions.
+>
+> Thanks!
