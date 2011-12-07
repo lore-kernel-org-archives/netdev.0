@@ -1,45 +1,83 @@
 From: =?utf-8?Q?Lothar_Wa=C3=9Fmann?= <LW@KARO-electronics.de>
 Subject: Re: [PATCH][NET] several cleanups and bugfixes for fec.c: don't
  munge MAC address from platform data
-Date: Wed, 7 Dec 2011 09:47:37 +0100
-Message-ID: <20191.10281.826050.193987@ipc1.ka-ro>
+Date: Wed, 7 Dec 2011 09:47:38 +0100
+Message-ID: <20191.10282.826634.821906@ipc1.ka-ro>
 References: <cover.1323163127.git.LW@KARO-electronics.de>
 	<55b78c1766da5b0d0d679f5eae3fb9fc74a6ceef.1323163127.git.LW@KARO-electronics.de>
-	<20111207084953.GD5550@S2100-06.ap.freescale.net>
+	<20111206124857.GB14048@sapphire.tkos.co.il>
+	<20190.7244.156557.313315@ipc1.ka-ro>
+	<20111207085702.GE5550@S2100-06.ap.freescale.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, Shawn Guo <shawn.guo@linaro.org>,
+Cc: Baruch Siach <baruch@tkos.co.il>, <netdev@vger.kernel.org>,
+	Shawn Guo <shawn.guo@linaro.org>,
 	<linux-kernel@vger.kernel.org>,
 	<linux-arm-kernel@lists.infradead.org>
 To: Shawn Guo <shawn.guo@freescale.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111207084953.GD5550@S2100-06.ap.freescale.net>
+In-Reply-To: <20111207085702.GE5550@S2100-06.ap.freescale.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi,
 
 Shawn Guo writes:
-> On Tue, Dec 06, 2011 at 11:27:13AM +0100, Lothar Wa=C3=9Fmann wrote:
-> > When the MAC address is supplied via platform_data it should be OK =
-as
-> > it is and should not be modified in case of a dual FEC setup.
-> > Also copying the MAC from platform_data to the single 'macaddr'
-> > variable will overwrite the MAC for the first interface in case of =
-a
-> > dual FEC setup.
+> On Tue, Dec 06, 2011 at 02:44:44PM +0100, Lothar Wa=C3=9Fmann wrote:
+> > Hi,
+> >=20
+> > Baruch Siach writes:
+> > > Hi Lothar,
+> > >=20
+> > > On Tue, Dec 06, 2011 at 11:27:13AM +0100, Lothar Wa=C3=9Fmann wro=
+te:
+> > > > When the MAC address is supplied via platform_data it should be=
+ OK as
+> > > > it is and should not be modified in case of a dual FEC setup.
+> > > > Also copying the MAC from platform_data to the single 'macaddr'
+> > > > variable will overwrite the MAC for the first interface in case=
+ of a
+> > > > dual FEC setup.
+> > > >=20
+> > > > Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
+> > > > ---
+> > > >  drivers/net/ethernet/freescale/fec.c |    2 +-
+> > > >  1 files changed, 1 insertions(+), 1 deletions(-)
+> > > >=20
+> > > > diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net=
+/ethernet/freescale/fec.c
+> > > > index e2b5ce6..11534b9 100644
+> > > > --- a/drivers/net/ethernet/freescale/fec.c
+> > > > +++ b/drivers/net/ethernet/freescale/fec.c
+> > > > @@ -818,7 +818,7 @@ static void __inline__ fec_get_mac(struct n=
+et_device *ndev)
+> > > >  			iap =3D (unsigned char *)FEC_FLASHMAC;
+> > > >  #else
+> > > >  		if (pdata)
+> > > > -			memcpy(iap, pdata->mac, ETH_ALEN);
+> > > > +			iap =3D (unsigned char *)&pdata->mac;
+> > >=20
+> > > Since pdata might point to __initdata struct, you must hold a cop=
+y of its=20
+> > > content.
+> > >=20
 >=20
-> Hmm, I do not follow that.  If 'macaddr' holds a valid mac address,
-> the code path has no chance to be hit at all.  Otherwise, 'macaddr'
-> is just a place holder for copying mac address from pdata, in which
-> case the mac address will be fixed up at the end of the function for
-> dual FEC setup.
+> As iap will anyway be copied to ndev->dev_addr after that, it may sti=
+ll
+> be fine to take this patch, for obviously for different reason.
 >=20
-In case of dual FEC and MAC address provided by platform_data the
-first mac address will be copied to the 'macaddr' variable with no
-chance for the second interface to get its mac address assigned from
-platform_data too.
+> > No. platform_data must be present during the life time of a driver
+> > using it and thus must never be __initdata!
+> >=20
+> Then we need to fix a lot of imx/mxc platform codes, mach-mx28evk.c
+> is the one for this case.
+>=20
+Nope. The platform_data provided there is only a template that is
+copied to kmalloc'ed memory by the mxs_add...() functions.
+
+With actual platform_data in init memory no driver built as module
+would work.
 
 
 Lothar Wa=C3=9Fmann
