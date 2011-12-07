@@ -1,42 +1,55 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH] SUNRPC: create svc_xprt in proper network namespace
-Date: Wed, 07 Dec 2011 12:45:16 +0400
-Message-ID: <4EDF279C.1060501@parallels.com>
-References: <20111206101910.1878.21798.stgit@localhost6.localdomain6> <20111206204851.GB12640@fieldses.org>
+From: =?utf-8?Q?Lothar_Wa=C3=9Fmann?= <LW@KARO-electronics.de>
+Subject: Re: [PATCH][NET] several cleanups and bugfixes for fec.c: don't
+ munge MAC address from platform data
+Date: Wed, 7 Dec 2011 09:47:37 +0100
+Message-ID: <20191.10281.826050.193987@ipc1.ka-ro>
+References: <cover.1323163127.git.LW@KARO-electronics.de>
+	<55b78c1766da5b0d0d679f5eae3fb9fc74a6ceef.1323163127.git.LW@KARO-electronics.de>
+	<20111207084953.GD5550@S2100-06.ap.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	James Bottomley <jbottomley@parallels.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: "J. Bruce Fields" <bfields@fieldses.org>
+Cc: <netdev@vger.kernel.org>, Shawn Guo <shawn.guo@linaro.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Shawn Guo <shawn.guo@freescale.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111206204851.GB12640@fieldses.org>
+In-Reply-To: <20111207084953.GD5550@S2100-06.ap.freescale.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-07.12.2011 00:48, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Tue, Dec 06, 2011 at 02:19:10PM +0300, Stanislav Kinsbursky wrote:
->> This patch makes svc_xprt inherit network namespace link from it's s=
-ocket.
->
-> And poor rdma gets left out.
+Hi,
 
-Sorry, but this is not a part of my interest.
+Shawn Guo writes:
+> On Tue, Dec 06, 2011 at 11:27:13AM +0100, Lothar Wa=C3=9Fmann wrote:
+> > When the MAC address is supplied via platform_data it should be OK =
+as
+> > it is and should not be modified in case of a dual FEC setup.
+> > Also copying the MAC from platform_data to the single 'macaddr'
+> > variable will overwrite the MAC for the first interface in case of =
+a
+> > dual FEC setup.
+>=20
+> Hmm, I do not follow that.  If 'macaddr' holds a valid mac address,
+> the code path has no chance to be hit at all.  Otherwise, 'macaddr'
+> is just a place holder for copying mac address from pdata, in which
+> case the mac address will be fixed up at the end of the function for
+> dual FEC setup.
+>=20
+In case of dual FEC and MAC address provided by platform_data the
+first mac address will be copied to the 'macaddr' variable with no
+chance for the second interface to get its mac address assigned from
+platform_data too.
 
-> OK.  Applying for 3.3 (with changelog typo
-> fixed).
->
 
-Good, thanks.
-
+Lothar Wa=C3=9Fmann
 --=20
-Best regards,
-Stanislav Kinsbursky
+___________________________________________________________
+
+Ka-Ro electronics GmbH | Pascalstra=C3=9Fe 22 | D - 52076 Aachen
+Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
+Gesch=C3=A4ftsf=C3=BChrer: Matthias Kaussen
+Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
+
+www.karo-electronics.de | info@karo-electronics.de
+___________________________________________________________
