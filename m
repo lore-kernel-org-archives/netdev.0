@@ -1,7 +1,7 @@
 From: Seth Jennings <sjenning@linux.vnet.ibm.com>
-Subject: [PATCH 1/3] crypto: Add per-cpu transform alloc() and free()
-Date: Wed,  7 Dec 2011 12:59:08 -0600
-Message-ID: <1323284350-13784-2-git-send-email-sjenning@linux.vnet.ibm.com>
+Subject: [PATCH 3/3] xfrm: Modify xfrm_ipcomp code to use new per-cpu helpers
+Date: Wed,  7 Dec 2011 12:59:10 -0600
+Message-ID: <1323284350-13784-4-git-send-email-sjenning@linux.vnet.ibm.com>
 References: <1323284350-13784-1-git-send-email-sjenning@linux.vnet.ibm.com>
 Cc: Seth Jennings <sjenning@linux.vnet.ibm.com>,
 	linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -9,90 +9,83 @@ Cc: Seth Jennings <sjenning@linux.vnet.ibm.com>,
 	Brian King <brking@linux.vnet.ibm.com>,
 	Robert Jennings <rcj@linux.vnet.ibm.com>
 To: "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-crypto-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1323284350-13784-1-git-send-email-sjenning@linux.vnet.ibm.com>
-Sender: linux-crypto-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch add two functions for allocating a freeing
-dynamically allocated per-cpu transform structures.
+This patch exchanges the per-cpu transform allocation/free
+code in xfrm_ipcomp for a call to the new helper in the
+cryptographic API
 
 Signed-off-by: Seth Jennings <sjenning@linux.vnet.ibm.com>
 ---
- crypto/api.c |   62 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 62 insertions(+), 0 deletions(-)
+ net/xfrm/xfrm_ipcomp.c |   34 ++++++++--------------------------
+ 1 files changed, 8 insertions(+), 26 deletions(-)
 
-diff --git a/crypto/api.c b/crypto/api.c
-index 033a714..f95b3f9 100644
---- a/crypto/api.c
-+++ b/crypto/api.c
-@@ -602,5 +602,67 @@ int crypto_has_alg(const char *name, u32 type, u32 mask)
- }
- EXPORT_SYMBOL_GPL(crypto_has_alg);
+diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
+index e5246fb..d681fbd 100644
+--- a/net/xfrm/xfrm_ipcomp.c
++++ b/net/xfrm/xfrm_ipcomp.c
+@@ -245,7 +245,6 @@ static void * __percpu *ipcomp_alloc_scratches(void)
+ static void ipcomp_free_tfms(struct crypto_comp * __percpu *tfms)
+ {
+ 	struct ipcomp_tfms *pos;
+-	int cpu;
  
-+/*
-+ * Per-cpu crypto helpers
-+ *
-+ * crypto_alloc_percpu_tfms() and crypto_free_percpu_tfms() are used for
-+ * allocating tfms on a per-cpu basis. The set of cpus the tfms are
-+ * allocated/freed on is determined by the cpumask (see linux/cpumask.h).
-+ * If the cpu_possible_mask is used, then the user has a tfm for every cpu
-+ * that could ever possibly enabled. However, if the user calls with cpumask
-+ * cpu_online_mask or cpu_present_mask with HOTPLUG enabled, the user
-+ * must register a cpu notifier to allocate/free the tfm for dynamically
-+ * added/removed cpus.
-+*/
-+void crypto_free_percpu_tfms(struct crypto_tfm * __percpu *tfms,
-+				const struct cpumask *cpumask)
-+{
-+	int cpu;
-+	struct crypto_tfm *tfm;
-+
-+	if (!tfms)
-+		return;
-+
-+	for_each_cpu(cpu, cpumask) {
-+		tfm = *per_cpu_ptr(tfms, cpu);
-+		if (!tfm)
-+			continue;
-+		crypto_free_tfm(tfm);
-+		*per_cpu_ptr(tfms, cpu) = NULL;
+ 	list_for_each_entry(pos, &ipcomp_tfms_list, list) {
+ 		if (pos->tfms == tfms)
+@@ -259,15 +258,7 @@ static void ipcomp_free_tfms(struct crypto_comp * __percpu *tfms)
+ 
+ 	list_del(&pos->list);
+ 	kfree(pos);
+-
+-	if (!tfms)
+-		return;
+-
+-	for_each_possible_cpu(cpu) {
+-		struct crypto_comp *tfm = *per_cpu_ptr(tfms, cpu);
+-		crypto_free_comp(tfm);
+-	}
+-	free_percpu(tfms);
++	crypto_free_percpu_comp(tfms, cpu_possible_mask);
+ }
+ 
+ static struct crypto_comp * __percpu *ipcomp_alloc_tfms(const char *alg_name)
+@@ -295,27 +286,18 @@ static struct crypto_comp * __percpu *ipcomp_alloc_tfms(const char *alg_name)
+ 	if (!pos)
+ 		return NULL;
+ 
++	tfms = crypto_alloc_percpu_comp(alg_name, 0, CRYPTO_ALG_ASYNC,
++					cpu_possible_mask);
++	if (IS_ERR_VALUE((unsigned long)tfms)) {
++		kfree(pos);
++		return NULL;
 +	}
 +
-+	free_percpu(tfms);
-+}
-+EXPORT_SYMBOL_GPL(crypto_free_percpu_tfms);
-+
-+struct crypto_tfm * __percpu *crypto_alloc_percpu_tfms(const char *alg_name,
-+			u32 type, u32 mask, const struct cpumask *cpumask)
-+{
-+	int cpu, err;
-+	struct crypto_tfm * __percpu *tfms, *tfm;
-+
-+	tfms = alloc_percpu(struct crypto_tfm *);
-+	if (!tfms) {
-+		err = -ENOMEM;
-+		goto error;
-+	}
-+
-+	for_each_cpu(cpu, cpumask) {
-+		tfm = crypto_alloc_base(alg_name, type, mask);
-+		if (IS_ERR(tfm)) {
-+			err = PTR_ERR(tfm);
-+			goto error;
-+		}
-+		*per_cpu_ptr(tfms, cpu) = tfm;
-+	}
-+	return tfms;
-+
-+error:
-+	if (tfms)
-+		crypto_free_percpu_tfms(tfms, cpumask);
-+	return (struct crypto_tfm * __percpu *)(ERR_PTR(err));
-+}
-+EXPORT_SYMBOL_GPL(crypto_alloc_percpu_tfms);
-+
- MODULE_DESCRIPTION("Cryptographic core API");
- MODULE_LICENSE("GPL");
+ 	pos->users = 1;
+ 	INIT_LIST_HEAD(&pos->list);
+ 	list_add(&pos->list, &ipcomp_tfms_list);
+ 
+-	pos->tfms = tfms = alloc_percpu(struct crypto_comp *);
+-	if (!tfms)
+-		goto error;
+-
+-	for_each_possible_cpu(cpu) {
+-		struct crypto_comp *tfm = crypto_alloc_comp(alg_name, 0,
+-							    CRYPTO_ALG_ASYNC);
+-		if (IS_ERR(tfm))
+-			goto error;
+-		*per_cpu_ptr(tfms, cpu) = tfm;
+-	}
+-
+ 	return tfms;
+-
+-error:
+-	ipcomp_free_tfms(tfms);
+-	return NULL;
+ }
+ 
+ static void ipcomp_free_data(struct ipcomp_data *ipcd)
 -- 
 1.7.5.4
