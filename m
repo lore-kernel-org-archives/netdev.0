@@ -1,168 +1,153 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: [PATCH] powerpc: Add TBI PHY node to first MDIO bus
-Date: Wed, 7 Dec 2011 13:50:57 -0600
-Message-ID: <1323287457-6085-1-git-send-email-afleming@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>
-To: Kumar Gala <galak@kernel.crashing.org>,
-	David Miller <davem@davemloft.net>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: bridge: HSR support
+Date: Wed, 07 Dec 2011 11:59:49 -0800
+Message-ID: <14653.1323287989@death>
+References: <4E948A04.8060400@enea.com> <20111011112821.28cd3e51@nehalam.linuxnetplumber.net> <4E94D67A.9060207@enea.com> <4EA5738B.8080008@enea.com> <4EAACB7A.4090207@enea.com> <20111028175421.339b7c49@s6510.linuxnetplumber.net> <4EDEA3E9.3070004@enea.com> <20111206152745.7dd6bc1c@nehalam.linuxnetplumber.net> <4EDFB0BD.60701@enea.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+To: Arvid Brodin <arvid.brodin@enea.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe005.messaging.microsoft.com ([213.199.154.143]:28424
-	"EHLO DB3EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756604Ab1LGTvI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 14:51:08 -0500
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:35728 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757528Ab1LGUAI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Dec 2011 15:00:08 -0500
+Received: from /spool/local
+	by e1.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Wed, 7 Dec 2011 15:00:01 -0500
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id pB7JxsKa231744
+	for <netdev@vger.kernel.org>; Wed, 7 Dec 2011 14:59:54 -0500
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id pB7Jxs4g006004
+	for <netdev@vger.kernel.org>; Wed, 7 Dec 2011 17:59:54 -0200
+In-reply-to: <4EDFB0BD.60701@enea.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Systems which use the fsl_pq_mdio driver need to specify an
-address for TBI PHY transactions such that the address does
-not conflict with any PHYs on the bus (all transactions to
-that address are directed to the onboard TBI PHY). The driver
-used to scan for a free address if no address was specified,
-however this ran into issues when the PHY Lib was fixed so
-that all MDIO transactions were protected by a mutex. As it
-is, the code was meant to serve as a transitional tool until
-the device trees were all updated to specify the TBI address.
+Arvid Brodin <arvid.brodin@enea.com> wrote:
 
-The best fix for the mutex issue was to remove the scanning code,
-but it turns out some of the newer SoCs have started to omit
-the tbi-phy node when SGMII is not being used. As such, these
-devices will now fail unless we add a tbi-phy node to the first
-mdio controller.
+>Stephen Hemminger wrote:
+>> On Wed, 7 Dec 2011 00:23:21 +0100
+>> Arvid Brodin <arvid.brodin@enea.com> wrote:
+>> 
+>>> Stephen Hemminger wrote:
+>>>> On Fri, 28 Oct 2011 17:34:18 +0200
+>>>> Arvid Brodin <arvid.brodin@enea.com> wrote:
+>>>>
+>>>>> Ok, so after a lot of reading and looking through code I have this idea of a
+>>>>> standalone solution:
+>>>>>
+>>>>> 1) Add ioctls to create (and remove) "hsr" netdevs which encapsulates two
+>>>>>    physical Ethernet interfaces each (somewhat like the bridge code does, but
+>>>>>    with precisely 2 interfaces slaved).
+>>>> Please use the newer netlink interface and the master attribute for this
+>>>> rather than inventing yet another ioctl.
+>>>
+>>> Is the rtnl interface documented anywhere (the usage of the different IFLA_
+>>> flags etc.)? Specifically: how do I use the IFLA_MASTER flag (what's the
+>>> meaning of the 32-bit data it wants, and how is it used by the kernel)? I 
+>>> haven't been very successful figuring this out by looking at the kernel code.
+>> 
+>> 
+>> Look at bridging or bonding.
+>
+>Believe me, I have! :) Turns out IFLA_MASTER is actually handled in net/core/rtnetlink.c.
+>Although the message is sent to the slave device, the functions called are the
+>master device's ndo_{add,del}_slave(). Looking at the bridging and bonding
+>implementations br_add_slave() and bond_enslave() and the functions they call,
+>it all boils down mostly to 
+>
+>* netdev_set_master() which assigns slave_dev->master = master_dev.
+>* bonding also set IFF_SLAVE on the slave.
+>* netdev_rx_handler_register(slave_dev, ). "This handler will then be called
+>  from __netif_receive_skb."
+>
+>So far so good, but:
+>
+>* I don't know the meaning of the IFF_SLAVE flag. It's referenced all over the place
+>  (core, vlan, bonding, ipv6, eql). Do I need to/want to set this?
 
-Signed-off-by: Andy Fleming <afleming@freescale.com>
+	Only if you actually need to for some reason.  There are a few
+tests that make actual use of IFF_SLAVE, e.g., IPv6 won't run addrconf
+on an interface with IFF_SLAVE set (which prevents bonding slaves from
+having an IPv6 address distinct from the master).  Netpoll also treats
+interfaces with IFF_SLAVE in a special way.  Bonding uses it internally
+for various tests.
+
+>* I don't know the effects of setting dev->master. Do I need/want this?
+
+	Maybe.  One effect of netdev_set_master is that a reference is
+acquired on the master, on behalf of the slave, so the master cannot
+simply vanish until the slave releases that reference.  This predates
+the notifier facility, and careful use of notifiers (handling
+NETDEV_UNREGISTER) can get around the need for dev->master, but, e.g.,
+vlan still acquires a reference to the real_dev without using
+dev->master.
+
+	It used to be that dev->master was used in netif_receive_skb for
+packet handling purposes (for bonding, mostly; bridge and I think
+macvlan had separate hooks).  That special sauce is now done by the
+rx_handler, so there's really no requirement to use dev->master if you
+have no need.
+
+>* I don't want to forward all ingress frames on the slave devices to my master
+>  device; I only want the ones with protocol 0x88FB to be forwarded (other
+>  frames should be received by the slaves as normal). I think I already have this
+>  covered by registering a protocol handler (using dev_add_pack(packet_type)).
+>  So perhaps calling netdev_rx_handler_register() is not necessary in my case?
+
+	You may want to use the rx_handler, and have it set skb->dev
+appropriately for the frames that should forward to the master, and
+leave skb->dev alone for the ones that should stick with the slave.
+Both of those need the appropriate return from the rx_handler, which is
+documented in netdevice.h.
+
+	I'm not sure that you need a dev_add_pack at all; bonding
+doesn't use one anymore, since everything it needs can now be done via
+rx_handler.  The dev_add_pack approach may work, but rx_handler is
+probably more efficient.
+
+>* As far as I can see, neither bridging nor bonding is handled by the ip program
+>  (iproute2 suite)? I.e. no examples of binding more than one interface to a
+>  virtual interface when it comes to which messages to send, etc. VLAN uses
+>  IFLA_IFNAME (name of the vlan link), IFLA_LINK (physical link behind the vlan
+>  link), and some IFLA_VLAN-specific messages.
+
+	In current versions of iproute, something like "ip link set
+device eth0 master bond0" would add a slave to a bond.  You are correct,
+though, that ip does not permit changing the bonding options, and I
+don't believe it will create new master devices, either, so the bonding
+support is limited.
+
+	-J
+
+>  What I want to do is to atomically (from a user space perspective) create the
+>  HSR bonding, i.e.:
+>
+>  	# ip link add name hsr0 type hsr slave1 slave2
+>
+>  I have written a hsr "plugin" to iproute2 that accepts these parameters, I'm
+>  just not sure how to tell the kernel about them. Perhaps then I should define
+>  my own IFLA_HSR_UNSPEC, IFLA_HSR_SLAVE1, IFLA_HSR_SLAVE2 messages?
+>
+>>> Also, how do I best tell the kernel which my slave devices are when creating
+>>> the hsr device? Should I create my own IFLA_HSR_UNSPEC, etc, or can I use some
+>>> of the generic flags?
+>> 
+>> Look at macvlan, vlan, or bridging. There this is done by processing a newlink
+>> message.
+>
+>macvlan and vlan both use IFLA_LINK to tell the kernel about their single
+>underlying "real" device. None of these use more than one underlying device.
+>Bridging does not implement newlink at all (uses ioctls, I think).
+>
+>
+>>> Oh, and the kernel (struct rtnl_link_ops).newlink method has two (struct
+>>> nlattr *[]) params: tb and data. What are their roles?
+>>>
+>
+>Heh, I just realised that the difference is that "tb" contains generic (IFLA_)
+>message data and "data" contains specific (e.g. IFLA_VLAN_) message data. 
+
 ---
-
-This requires fsl_pq_mdio: Clean up tbi address configuration from
-the net tree in order to achieve its full effect.
-
-This needs to go into 3.2.
-
- arch/powerpc/boot/dts/p1010rdb.dts            |    5 +++++
- arch/powerpc/boot/dts/p1020rdb.dts            |    5 +++++
- arch/powerpc/boot/dts/p1020rdb_camp_core0.dts |    5 +++++
- arch/powerpc/boot/dts/p1021mds.dts            |    4 ++++
- arch/powerpc/boot/dts/p1022ds.dts             |    4 ++++
- arch/powerpc/boot/dts/p2020rdb.dts            |    8 ++++++--
- arch/powerpc/boot/dts/p2020rdb_camp_core0.dts |    4 ++++
- 7 files changed, 33 insertions(+), 2 deletions(-)
-
-diff --git a/arch/powerpc/boot/dts/p1010rdb.dts b/arch/powerpc/boot/dts/p1010rdb.dts
-index d6c669c..e1f9683 100644
---- a/arch/powerpc/boot/dts/p1010rdb.dts
-+++ b/arch/powerpc/boot/dts/p1010rdb.dts
-@@ -193,6 +193,11 @@
- 				interrupts = <2 1>;
- 				reg = <0x2>;
- 			};
-+
-+			tbi-phy@3 {
-+				device-type = "tbi-phy";
-+				reg = <0x3>;
-+			};
- 		};
- 
- 		enet0: ethernet@b0000 {
-diff --git a/arch/powerpc/boot/dts/p1020rdb.dts b/arch/powerpc/boot/dts/p1020rdb.dts
-index d6a8ae4..72e4fc4 100644
---- a/arch/powerpc/boot/dts/p1020rdb.dts
-+++ b/arch/powerpc/boot/dts/p1020rdb.dts
-@@ -209,6 +209,11 @@
- 				interrupts = <2 1>;
- 				reg = <0x1>;
- 			};
-+
-+			tbi-phy@2 {
-+				device_type = "tbi-phy";
-+				reg = <0x2>;
-+			};
- 		};
- 
- 		mdio@25000 {
-diff --git a/arch/powerpc/boot/dts/p1020rdb_camp_core0.dts b/arch/powerpc/boot/dts/p1020rdb_camp_core0.dts
-index f0bf7f4..ad805a1 100644
---- a/arch/powerpc/boot/dts/p1020rdb_camp_core0.dts
-+++ b/arch/powerpc/boot/dts/p1020rdb_camp_core0.dts
-@@ -112,6 +112,11 @@
- 				interrupts = <2 1>;
- 				reg = <0x1>;
- 			};
-+
-+			tbi-phy@2 {
-+				device-type = "tbi-phy";
-+				reg = <0x2>;
-+			};
- 		};
- 
- 		mdio@25000 {
-diff --git a/arch/powerpc/boot/dts/p1021mds.dts b/arch/powerpc/boot/dts/p1021mds.dts
-index ad5b852..ba53b4b 100644
---- a/arch/powerpc/boot/dts/p1021mds.dts
-+++ b/arch/powerpc/boot/dts/p1021mds.dts
-@@ -338,6 +338,10 @@
- 				interrupt-parent = <&mpic>;
- 				reg = <0x4>;
- 			};
-+			tbi-phy@5 {
-+				device_type = "tbi-phy";
-+				reg = <0x5>;
-+			};
- 		};
- 
- 		mdio@25000 {
-diff --git a/arch/powerpc/boot/dts/p1022ds.dts b/arch/powerpc/boot/dts/p1022ds.dts
-index 89ca93e..4bf382d 100644
---- a/arch/powerpc/boot/dts/p1022ds.dts
-+++ b/arch/powerpc/boot/dts/p1022ds.dts
-@@ -391,6 +391,10 @@
- 				interrupts = <9 1 0 0>;
- 				reg = <0x2>;
- 			};
-+			tbi-phy@2 {
-+				device_type = "tbi-phy";
-+				reg = <0x2>;
-+			};
- 		};
- 
- 		mdio@25000 {
-diff --git a/arch/powerpc/boot/dts/p2020rdb.dts b/arch/powerpc/boot/dts/p2020rdb.dts
-index 1d7a05f..9e4ae85 100644
---- a/arch/powerpc/boot/dts/p2020rdb.dts
-+++ b/arch/powerpc/boot/dts/p2020rdb.dts
-@@ -205,12 +205,16 @@
- 				interrupt-parent = <&mpic>;
- 				interrupts = <3 1>;
- 				reg = <0x0>;
--				};
-+			};
- 			phy1: ethernet-phy@1 {
- 				interrupt-parent = <&mpic>;
- 				interrupts = <3 1>;
- 				reg = <0x1>;
--				};
-+			};
-+			tbi-phy@2 {
-+				device_type = "tbi-phy";
-+				reg = <0x2>;
-+			};
- 		};
- 
- 		mdio@25520 {
-diff --git a/arch/powerpc/boot/dts/p2020rdb_camp_core0.dts b/arch/powerpc/boot/dts/p2020rdb_camp_core0.dts
-index fc8dddd..8e5bda1 100644
---- a/arch/powerpc/boot/dts/p2020rdb_camp_core0.dts
-+++ b/arch/powerpc/boot/dts/p2020rdb_camp_core0.dts
-@@ -122,6 +122,10 @@
- 				interrupts = <3 1>;
- 				reg = <0x1>;
- 			};
-+			tbi-phy@2 {
-+				device_type = "tbi-phy";
-+				reg = <0x2>;
-+			};
- 		};
- 
- 		mdio@25520 {
--- 
-1.7.3.4
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
