@@ -1,50 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] powerpc: Add TBI PHY node to first MDIO bus
-Date: Wed, 07 Dec 2011 15:02:08 -0500 (EST)
-Message-ID: <20111207.150208.588206951117780997.davem@davemloft.net>
-References: <1323287457-6085-1-git-send-email-afleming@freescale.com>
+Subject: Re: [PATCH] ipv6: Fix for adding multicast route for loopback
+ device automatically.
+Date: Wed, 07 Dec 2011 15:06:15 -0500 (EST)
+Message-ID: <20111207.150615.181825066035193136.davem@davemloft.net>
+References: <4EDF1481.1080106@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: galak@kernel.crashing.org, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org
-To: afleming@freescale.com
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: lw@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47349 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:47389 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756620Ab1LGUEV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 15:04:21 -0500
-In-Reply-To: <1323287457-6085-1-git-send-email-afleming@freescale.com>
+	with ESMTP id S1757117Ab1LGUHY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 15:07:24 -0500
+In-Reply-To: <4EDF1481.1080106@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Fleming <afleming@freescale.com>
-Date: Wed, 7 Dec 2011 13:50:57 -0600
+From: Li Wei <lw@cn.fujitsu.com>
+Date: Wed, 07 Dec 2011 15:23:45 +0800
 
-> Systems which use the fsl_pq_mdio driver need to specify an
-> address for TBI PHY transactions such that the address does
-> not conflict with any PHYs on the bus (all transactions to
-> that address are directed to the onboard TBI PHY). The driver
-> used to scan for a free address if no address was specified,
-> however this ran into issues when the PHY Lib was fixed so
-> that all MDIO transactions were protected by a mutex. As it
-> is, the code was meant to serve as a transitional tool until
-> the device trees were all updated to specify the TBI address.
+> There is no obvious reason to add a default multicast route for loopback
+> devices, otherwise there would be a route entry whose dst.error set to
+> -ENETUNREACH that would blocking all multicast packets.
 > 
-> The best fix for the mutex issue was to remove the scanning code,
-> but it turns out some of the newer SoCs have started to omit
-> the tbi-phy node when SGMII is not being used. As such, these
-> devices will now fail unless we add a tbi-phy node to the first
-> mdio controller.
-> 
-> Signed-off-by: Andy Fleming <afleming@freescale.com>
-> ---
-> 
-> This requires fsl_pq_mdio: Clean up tbi address configuration from
-> the net tree in order to achieve its full effect.
-> 
-> This needs to go into 3.2.
+> Signed-off-by: Li Wei <lw@cn.fujitsu.com>
 
-I'm fine if the powerpc tree takes this one:
+I still do not understand the purpose of this change, what problems
+does the current behavior cause?
 
-Acked-by: David S. Miller <davem@davemloft.net>
+And can you be sure that by making this change, you are not breaking
+something, somewhere, that depends upon the current behavior?
