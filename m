@@ -1,66 +1,90 @@
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Wed, 7 Dec 2011 15:39:13 +0100
-Message-ID: <20111207143913.GB1600@x4.trippels.de>
-References: <1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20111121153621.GA1678@x4.trippels.de>
- <20111123160353.GA1673@x4.trippels.de>
- <alpine.DEB.2.00.1111231004490.17317@router.home>
- <20111124085040.GA1677@x4.trippels.de>
- <20111201084437.GA1529@x4.trippels.de>
- <20111202194309.GA12057@homer.localdomain>
- <20111202200649.GA1603@x4.trippels.de>
- <20111202204820.GB1603@x4.trippels.de>
- <20111207143223.GX15738@erda.amd.com>
+From: Stefan Hajnoczi <stefanha@gmail.com>
+Subject: Re: [net-next RFC PATCH 5/5] virtio-net: flow director support
+Date: Wed, 7 Dec 2011 15:04:56 +0000
+Message-ID: <CAJSP0QUyx8tGxXG4ZFLHVTAout0zU4N9JaxSLucuD39P=5X6=w@mail.gmail.com>
+References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
+	<20111205085925.6116.94352.stgit@dhcp-8-146.nay.redhat.com>
+	<CAJSP0QXfHC8j2Kk9x6wyBMubo2=YvpaLAShJtwMWA2mtro6UhA@mail.gmail.com>
+	<4EDDB71F.9080908@redhat.com>
+	<CAJSP0QX5dDkpX+cRcQut2mb6K91zeqGLRrZBGAWT_r2p685gaQ@mail.gmail.com>
+	<4EDDECA9.8060808@redhat.com>
+	<CAJSP0QXsLwvH5xYj6h0E_V4VLg6DuUc-GKXu9esEYzL2MFcFGw@mail.gmail.com>
+	<4EDED785.80804@redhat.com>
+	<CAJSP0QUGWCf5WHEeCXzqZeF2CvpycxrGo-uPSfpWD1rWD3zeSg@mail.gmail.com>
+	<4EDF57C7.90406@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jerome Glisse <j.glisse@gmail.com>, Christoph Lameter <cl@linux.com>,
-	"Alex, Shi" <alex.shi@intel.com>, Dave Airlie <airlied@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	dri-devel@lists.freedesktop.org, Pekka Enberg <penberg@kernel.org>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	Matt Mackall <mpm@selenic.com>, tj@kernel.org,
-	Alex Deucher <alexander.deucher@amd.com>
-To: Robert Richter <robert.richter@amd.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20111207143223.GX15738@erda.amd.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au,
+	virtualization@lists.linux-foundation.org, levinsasha928@gmail.com,
+	bhutchings@solarflare.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <4EDF57C7.90406@redhat.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2011.12.07 at 15:32 +0100, Robert Richter wrote:
-> On 02.12.11 21:48:20, Markus Trippelsdorf wrote:
-> > BTW I always see (mostly only on screen, sometimes in the logs):
-> > 
-> > [Firmware Bug]: cpu 2, try to use APIC500 (LVT offset 0) for vector 0x10400, but the register is already in use for vector 0xf9 on another cpu
-> > [Firmware Bug]: cpu 2, IBS interrupt offset 0 not available (MSRC001103A=0x0000000000000100)
-> > [Firmware Bug]: using offset 1 for IBS interrupts
-> > [Firmware Bug]: workaround enabled for IBS LVT offset
-> > perf: AMD IBS detected (0x0000001f) 
-> > 
-> > But I hope that it is only a harmless warning. 
-> > (perf Instruction-Based Sampling)
-> 
-> Yes, the message always apears on AMD family 10h. Nothing to worry
-> about.
-> 
-> A patch is on the way to soften the message to not scare the people:
-> 
->  http://git.kernel.org/?p=linux/kernel/git/tip/tip.git;a=commit;h=16e5294e5f8303756a179cf218e37dfb9ed34417
+On Wed, Dec 7, 2011 at 12:10 PM, Jason Wang <jasowang@redhat.com> wrote=
+:
+> On 12/07/2011 05:08 PM, Stefan Hajnoczi wrote:
+> [...]
+>
+>>> > =A0Consider the complexity of the host nic each with their own st=
+eering
+>>> > =A0features, =A0this series make the first step with minimal effo=
+rt to try
+>>> > to let
+>>> > =A0guest driver and host tap/macvtap co-operate like what physica=
+l nic
+>>> > does.
+>>> > =A0There may be other method, but performance numbers is also nee=
+ded to
+>>> > give
+>>> > =A0the answer.
+>>
+>> I agree that performance results for this need to be shown.
+>>
+>> My original point is really that it's not a good idea to take
+>> individual steps without a good big picture because this will change
+>> the virtio-net device specification. =A0If this turns out to be a de=
+ad
+>> end then hosts will need to continue to support the interface foreve=
+r
+>> (legacy guests could still try to use it). =A0So please first explai=
+n
+>> what the full stack picture is going to look like and how you think =
+it
+>> will lead to better performance. =A0You don't need to have all the c=
+ode
+>> or evidence, but just enough explanation so we see where this is all
+>> going.
+>
+> I think I mention too little in the cover message.
+>
+> There's no much changes with Krishna's series except the method that
+> choosing a rx virtqueue. Since original series use different hash met=
+hods in
+> host (rxhash) and guest (txhash), a different virtqueue were chose fo=
+r a
+> flow which could lead packets of a flow to be handled by different vh=
+ost
+> thread and vcpu. This may damage the performance.
+>
+> This series tries to let one vhost thread to process the packets of a=
+ flow
+> and also let the packets to be sent directly to a vcpu local to the t=
+hread
+> process the data. This is done by letting guest tell the desired queu=
+e form
+> which it want to receive the pakcet of a dedicated flow.
+>
+> So passing the hash from host to guest is needed to get the same hash=
+ in the
+> two sides. Then a guest programmable hash to queue table were introdu=
+ced and
+> guest co-operate with the host through accelerate RFS in guest.
 
-Thanks.
-It's already in mainline and the message is gone now.
+Thanks for the context, that helps me understand it a little better.
 
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commit;h=16e5294e5f8303756a179cf218e37dfb9ed34417
-
--- 
-Markus
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Stefan
