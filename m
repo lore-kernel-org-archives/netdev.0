@@ -1,51 +1,73 @@
-From: m.montel2011@homecall.co.uk
-Subject: =?utf-8?B?KioqKipIRUxMTz09UC9U?= 2011***OFFER ****
-Date: Wed, 07 Dec 2011 11:24:13 +0000
-Message-ID: <E1RYFbh-000Nwp-GF@mk-webmail-2.b2b.uk.tiscali.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bloat] Time in Queue, bufferbloat, and... our accidentally
+ interplanetary network
+Date: Wed, 07 Dec 2011 12:53:19 +0100
+Message-ID: <1323258799.2312.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <CAA93jw7kQYONQiAozatRmdRRJeK0GB9eNDWtRZ3AL+OVKn0OpA@mail.gmail.com>
+	 <1323082774.2670.40.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <9dfc3c5eb811f2774b378fce0158b3e7@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+Cc: Dave Taht <dave.taht@gmail.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	bloat-devel <bloat-devel@lists.bufferbloat.net>,
+	bloat <bloat@lists.bufferbloat.net>
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mk-filter-2-a-2.mail.tiscali.co.uk ([212.74.100.49]:11935 "EHLO
-	mk-filter-2-a-2.mail.uk.tiscali.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754732Ab1LGLeK convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Dec 2011 06:34:10 -0500
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:63392 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754513Ab1LGLxY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 06:53:24 -0500
+In-Reply-To: <9dfc3c5eb811f2774b378fce0158b3e7@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You have been selected for an assignment as a M.y.s.tery S.h.o.pper
-SURVEY.You will be earning $200 as a secret shopper for on each assignm=
-ent
-you carry out.=20
+Le mercredi 07 d=C3=A9cembre 2011 =C3=A0 11:15 +0100, Hagen Paul Pfeife=
+r a =C3=A9crit :
+> On Mon, 05 Dec 2011 11:59:34 +0100, Eric Dumazet wrote:
+>=20
+>=20
+> > Adding a time limit is possible, all we need is a proper design and
+> > implementation :)
+> >=20
+> > Here is my suggestion :
+> >=20
+> > Design a new tfifo/tred qdisc, with following properties :
+> >=20
+> > Adaptative RED, (ECN enabled + head drop), but instead of using
+> > bytes/packet qlen average, use time_in_queue average.
+>=20
+> Question one: is anything wrong with sfb or choke as the basis, inste=
+ad of
+> RED?
+>=20
 
-You would be given stores to evaluates.e.g.Victoria Secret, Amazon, E
-bay,Rogers, Macy's, Gap, Lego, Wal Mart , Western Union outlet while yo=
-u
-conduct a simple survey=20
+RED is the module to bring EWMA stuff, it seems natural to start with
+it. Please note that choke has a RED module too.
 
-Your employment packet will include funds for the shopping and a traini=
-ng
-assignment which will be sent to you after you receive payment for the
-assignment. We will be responsible for all the finance required for
-this survey as you are not required to drop and upfront money.=20
+Then later, we can add time limit stuff to other Qdisc if needed, its a
+plug anyway. But is there any meaning to compute a global EWMA after
+SFB/SFQ packet classification ?
 
-Note: You are to follow all instructions given to you to the fullest.
-KINDLY SEND YOUR INFORMATION BELOW TO [ M.montel@blumail.org ].=20
+> Question two: I submitted pfast_head_drop to drop more outdated data
+> instead of new data. Back in time I thought TCP _may_ experience bene=
+fits
+> because more up-to-date SACK data packets are saved. Are there any ot=
+her
+> TCP advantages with head drop policy?
+>=20
 
-ON FIRST ASSIGNMENT TO
-Your Full Name:
-Your Address (NOT P.O Box):
-City, State, Zip:
-Phone Number(s):  Age:
-Have you been to a wal-Mart=C2=AE store before?=20
+Note that head drop is a consequence of time limit idea on top of FIFO,
+since only at dequeue time, we compute the delta between current time
+and enqueue time, and we drop/mark the (head) packet if time exceeds ou=
+r
+current limit.
 
-Email me back with the above details via the below email address;=20
-
-Email: M.montel@blumail.org=20
-
-Inc Copyright (c) 2011
-All Rights Reserved.
-Copyright 2011=C2=AE
+In general, being able to drop/mark firsts packets in queue instead of
+last ones can let TCP sender be notified of congestion much earlier tha=
+n
+a tail drop. (We gain the time to transmit whole packets in queue befor=
+e
+receiver can report in its ACK the congestion back to sender)
