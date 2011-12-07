@@ -1,68 +1,47 @@
-From: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Subject: TTL=0 multicast packets leaving host
-Date: Wed, 7 Dec 2011 15:31:58 -0600
-Message-ID: <20111207213158.GA2444@BohrerMBP.rgmadvisors.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC] iproute2: split up ip man page?
+Date: Wed, 7 Dec 2011 21:46:38 +0000
+Message-ID: <1323294398.2728.38.camel@bwh-desktop>
+References: <20111207131514.6815f813@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog115.obsmtp.com ([74.125.149.238]:33241 "EHLO
-	na3sys009aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757892Ab1LGVcG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 16:32:06 -0500
-Received: by mail-gy0-f173.google.com with SMTP id z10so1008834ghb.32
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2011 13:32:05 -0800 (PST)
-Content-Disposition: inline
+Received: from exchange.solarflare.com ([216.237.3.220]:52726 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1758042Ab1LGVqm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 16:46:42 -0500
+In-Reply-To: <20111207131514.6815f813@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We've got some machines where we've noticed that in some cases TTL=0
-multicast traffic was leaving the host.  It appear that ip_mc_output()
-does the correct check with:
+On Wed, 2011-12-07 at 13:15 -0800, Stephen Hemminger wrote:
+> The current ip man page is both incomplete and so big that
+> the actual functions get lost easily.
+> 
+> I propose splitting the the pages for the subfunction
+> into sub pages. The man command appears
+> to be smart enough to handle:
+>   man tc htb
 
-                ...
-                /* Multicasts with ttl 0 must not go beyond the host */
+Or, for another familiar example, 'man git diff'.
 
-                if (ip_hdr(skb)->ttl == 0) {
-                        kfree_skb(skb);
-                        return 0;
-                }
-                ...
+Oddly enough, man(1) only describes this under the '--no-subpages'
+option which turns off the behaviour.
 
-The problem is that in __mkroute_output() it checks if the local
-computer is a member of the multicast group, and if not clears
-RTCF_LOCAL
+> and pickup the manpage for /usr/share/man/man1/tc-htb.8.gz
+> Why not do the same thing for ip command?
+> 
+> The base ip page would just be a place holder that covered the
+> generic arguments.
 
-                ...
-                if (!ip_check_mc_rcu(in_dev, fl4->daddr, fl4->saddr,
-                                     fl4->flowi4_proto))
-                        flags &= ~RTCF_LOCAL;
-                ...
+Sounds like a very sensible change.
 
-And if RTCF_LOCAL is _not_ set then ip_output() is used instead of
-ip_mc_output()
+Ben.
 
-        ...
-        if (flags & (RTCF_BROADCAST | RTCF_MULTICAST)) {
-                rth->rt_spec_dst = fl4->saddr;
-                if (flags & RTCF_LOCAL &&
-                    !(dev_out->flags & IFF_LOOPBACK)) {
-                        rth->dst.output = ip_mc_output;
-                        RT_CACHE_STAT_INC(out_slow_mc);
-                }
-        ...
-
-This looks like a bug to me.  I'd assume that if the local computer
-has not joined the multicast group and I send a TTL=0 packet that it
-would simply get discarded.
-
---
-Shawn
-
-
-
----------------------------------------------------------------
-This email, along with any attachments, is confidential. If you 
-believe you received this message in error, please contact the 
-sender immediately and delete all copies of the message.  
-Thank you.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
