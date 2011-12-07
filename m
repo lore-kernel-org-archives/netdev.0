@@ -1,7 +1,7 @@
 From: Seth Jennings <sjenning@linux.vnet.ibm.com>
-Subject: [PATCH 3/3] xfrm: Modify xfrm_ipcomp code to use new per-cpu helpers
-Date: Wed,  7 Dec 2011 12:59:10 -0600
-Message-ID: <1323284350-13784-4-git-send-email-sjenning@linux.vnet.ibm.com>
+Subject: [PATCH 2/3] crypto: Add inline per-cpu wrappers for compression
+Date: Wed,  7 Dec 2011 12:59:09 -0600
+Message-ID: <1323284350-13784-3-git-send-email-sjenning@linux.vnet.ibm.com>
 References: <1323284350-13784-1-git-send-email-sjenning@linux.vnet.ibm.com>
 Cc: Seth Jennings <sjenning@linux.vnet.ibm.com>,
 	linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -9,83 +9,78 @@ Cc: Seth Jennings <sjenning@linux.vnet.ibm.com>,
 	Brian King <brking@linux.vnet.ibm.com>,
 	Robert Jennings <rcj@linux.vnet.ibm.com>
 To: "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-crypto-owner@vger.kernel.org>
 In-Reply-To: <1323284350-13784-1-git-send-email-sjenning@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch exchanges the per-cpu transform allocation/free
-code in xfrm_ipcomp for a call to the new helper in the
-cryptographic API
+This patch adds wrapper functions for compression users
+that allocate and free per-cpu compression transforms
 
 Signed-off-by: Seth Jennings <sjenning@linux.vnet.ibm.com>
 ---
- net/xfrm/xfrm_ipcomp.c |   34 ++++++++--------------------------
- 1 files changed, 8 insertions(+), 26 deletions(-)
+ include/linux/crypto.h |   28 ++++++++++++++++++++++++++++
+ 1 files changed, 28 insertions(+), 0 deletions(-)
 
-diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
-index e5246fb..d681fbd 100644
---- a/net/xfrm/xfrm_ipcomp.c
-+++ b/net/xfrm/xfrm_ipcomp.c
-@@ -245,7 +245,6 @@ static void * __percpu *ipcomp_alloc_scratches(void)
- static void ipcomp_free_tfms(struct crypto_comp * __percpu *tfms)
+diff --git a/include/linux/crypto.h b/include/linux/crypto.h
+index 8a94217..5ed19c1 100644
+--- a/include/linux/crypto.h
++++ b/include/linux/crypto.h
+@@ -483,6 +483,10 @@ struct crypto_attr_u32 {
+  
+ struct crypto_tfm *crypto_alloc_base(const char *alg_name, u32 type, u32 mask);
+ void crypto_destroy_tfm(void *mem, struct crypto_tfm *tfm);
++struct crypto_tfm * __percpu *crypto_alloc_percpu_tfms(const char *alg_name,
++			u32 type, u32 mask, const struct cpumask *cpumask);
++void crypto_free_percpu_tfms(struct crypto_tfm * __percpu *tfms,
++				const struct cpumask *cpumask);
+ 
+ static inline void crypto_free_tfm(struct crypto_tfm *tfm)
  {
- 	struct ipcomp_tfms *pos;
--	int cpu;
- 
- 	list_for_each_entry(pos, &ipcomp_tfms_list, list) {
- 		if (pos->tfms == tfms)
-@@ -259,15 +258,7 @@ static void ipcomp_free_tfms(struct crypto_comp * __percpu *tfms)
- 
- 	list_del(&pos->list);
- 	kfree(pos);
--
--	if (!tfms)
--		return;
--
--	for_each_possible_cpu(cpu) {
--		struct crypto_comp *tfm = *per_cpu_ptr(tfms, cpu);
--		crypto_free_comp(tfm);
--	}
--	free_percpu(tfms);
-+	crypto_free_percpu_comp(tfms, cpu_possible_mask);
+@@ -1213,6 +1217,12 @@ static inline struct crypto_comp *__crypto_comp_cast(struct crypto_tfm *tfm)
+ 	return (struct crypto_comp *)tfm;
  }
  
- static struct crypto_comp * __percpu *ipcomp_alloc_tfms(const char *alg_name)
-@@ -295,27 +286,18 @@ static struct crypto_comp * __percpu *ipcomp_alloc_tfms(const char *alg_name)
- 	if (!pos)
- 		return NULL;
- 
-+	tfms = crypto_alloc_percpu_comp(alg_name, 0, CRYPTO_ALG_ASYNC,
-+					cpu_possible_mask);
-+	if (IS_ERR_VALUE((unsigned long)tfms)) {
-+		kfree(pos);
-+		return NULL;
-+	}
++static inline struct crypto_comp * __percpu *__crypto_comp_percpu_cast(
++	struct crypto_tfm * __percpu *tfms)
++{
++	return (struct crypto_comp * __percpu *)tfms;
++}
 +
- 	pos->users = 1;
- 	INIT_LIST_HEAD(&pos->list);
- 	list_add(&pos->list, &ipcomp_tfms_list);
- 
--	pos->tfms = tfms = alloc_percpu(struct crypto_comp *);
--	if (!tfms)
--		goto error;
--
--	for_each_possible_cpu(cpu) {
--		struct crypto_comp *tfm = crypto_alloc_comp(alg_name, 0,
--							    CRYPTO_ALG_ASYNC);
--		if (IS_ERR(tfm))
--			goto error;
--		*per_cpu_ptr(tfms, cpu) = tfm;
--	}
--
- 	return tfms;
--
--error:
--	ipcomp_free_tfms(tfms);
--	return NULL;
+ static inline struct crypto_comp *crypto_comp_cast(struct crypto_tfm *tfm)
+ {
+ 	BUG_ON((crypto_tfm_alg_type(tfm) ^ CRYPTO_ALG_TYPE_COMPRESS) &
+@@ -1230,6 +1240,17 @@ static inline struct crypto_comp *crypto_alloc_comp(const char *alg_name,
+ 	return __crypto_comp_cast(crypto_alloc_base(alg_name, type, mask));
  }
  
- static void ipcomp_free_data(struct ipcomp_data *ipcd)
++static inline struct crypto_comp * __percpu *crypto_alloc_percpu_comp(
++	const char *alg_name, u32 type, u32 mask, const struct cpumask *cpumask)
++{
++	type &= ~CRYPTO_ALG_TYPE_MASK;
++	type |= CRYPTO_ALG_TYPE_COMPRESS;
++	mask |= CRYPTO_ALG_TYPE_MASK;
++
++	return __crypto_comp_percpu_cast(crypto_alloc_percpu_tfms(alg_name,
++							type, mask, cpumask));
++}
++
+ static inline struct crypto_tfm *crypto_comp_tfm(struct crypto_comp *tfm)
+ {
+ 	return &tfm->base;
+@@ -1240,6 +1261,13 @@ static inline void crypto_free_comp(struct crypto_comp *tfm)
+ 	crypto_free_tfm(crypto_comp_tfm(tfm));
+ }
+ 
++static inline void crypto_free_percpu_comp(struct crypto_comp * __percpu *tfms,
++				const struct cpumask *cpumask)
++{
++	crypto_free_percpu_tfms((struct crypto_tfm * __percpu *)(tfms),
++		cpumask);
++}
++
+ static inline int crypto_has_comp(const char *alg_name, u32 type, u32 mask)
+ {
+ 	type &= ~CRYPTO_ALG_TYPE_MASK;
 -- 
 1.7.5.4
