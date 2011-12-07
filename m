@@ -1,52 +1,51 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net-next RFC PATCH 0/5] Series short description
-Date: Wed, 07 Dec 2011 19:31:14 +0800
-Message-ID: <4EDF4E82.7050201@redhat.com>
-References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
-	<87ty5cj0sw.fsf@rustcorp.com.au>
+From: m.montel2011@homecall.co.uk
+Subject: =?utf-8?B?KioqKipIRUxMTz09UC9U?= 2011***OFFER ****
+Date: Wed, 07 Dec 2011 11:24:13 +0000
+Message-ID: <E1RYFbh-000Nwp-GF@mk-webmail-2.b2b.uk.tiscali.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	levinsasha928@gmail.com, bhutchings@solarflare.com
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <87ty5cj0sw.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mk-filter-2-a-2.mail.tiscali.co.uk ([212.74.100.49]:11935 "EHLO
+	mk-filter-2-a-2.mail.uk.tiscali.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754732Ab1LGLeK convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Dec 2011 06:34:10 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/07/2011 03:30 PM, Rusty Russell wrote:
-> On Mon, 05 Dec 2011 16:58:37 +0800, Jason Wang<jasowang@redhat.com>  wrote:
->> multiple queue virtio-net: flow steering through host/guest cooperation
->>
->> Hello all:
->>
->> This is a rough series adds the guest/host cooperation of flow
->> steering support based on Krish Kumar's multiple queue virtio-net
->> driver patch 3/3 (http://lwn.net/Articles/467283/).
-> Is there a real (physical) device which does this kind of thing?  How do
-> they do it?  Can we copy them?
->
-> Cheers,
-> Rusty.
-As far as I see, ixgbe and sfc have similar but much more sophisticated 
-mechanism.
+You have been selected for an assignment as a M.y.s.tery S.h.o.pper
+SURVEY.You will be earning $200 as a secret shopper for on each assignm=
+ent
+you carry out.=20
 
-The idea was originally suggested by Ben and it was just borrowed form 
-those real physical nic cards who can dispatch packets based on their 
-hash. All of theses cards can filter the flow based on the hash of 
-L2/L3/L4 header and the stack would tell the card which queue should 
-this flow goes.
+You would be given stores to evaluates.e.g.Victoria Secret, Amazon, E
+bay,Rogers, Macy's, Gap, Lego, Wal Mart , Western Union outlet while yo=
+u
+conduct a simple survey=20
 
-So in host, a simple hash to queue table were introduced in tap/macvtap 
-and in guest, the guest driver would tell the desired queue of a flow 
-through changing this table.
+Your employment packet will include funds for the shopping and a traini=
+ng
+assignment which will be sent to you after you receive payment for the
+assignment. We will be responsible for all the finance required for
+this survey as you are not required to drop and upfront money.=20
+
+Note: You are to follow all instructions given to you to the fullest.
+KINDLY SEND YOUR INFORMATION BELOW TO [ M.montel@blumail.org ].=20
+
+ON FIRST ASSIGNMENT TO
+Your Full Name:
+Your Address (NOT P.O Box):
+City, State, Zip:
+Phone Number(s):  Age:
+Have you been to a wal-Mart=C2=AE store before?=20
+
+Email me back with the above details via the below email address;=20
+
+Email: M.montel@blumail.org=20
+
+Inc Copyright (c) 2011
+All Rights Reserved.
+Copyright 2011=C2=AE
