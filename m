@@ -1,16 +1,16 @@
 From: Shan Wei <shanwei88@gmail.com>
-Subject: [Patch ] net: doc: cleanup Documentation/networking/scaling.txt
-Date: Wed, 07 Dec 2011 22:22:07 +0800
-Message-ID: <4EDF768F.1000500@gmail.com>
+Subject: [Patch V2 ] net: doc: cleanup Documentation/networking/scaling.txt
+Date: Wed, 07 Dec 2011 22:26:49 +0800
+Message-ID: <4EDF77A9.4040808@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-doc@vger.kernel.org,
+	Network Developer Mailing List <netdev@vger.kernel.org>
 To: "Randy Dunlap (maintainer:DOCUMENTATION)" <rdunlap@xenotime.net>,
 	David Miller <davem@davemloft.net>, willemb@google.com,
-	benjamin.poirier@gmail.com, jkosina@suse.cz,
-	linux-doc@vger.kernel.org,
-	Network Developer Mailing List <netdev@vger.kernel.org>,
-	therbert@google.com
+	benjamin.poirier@gmail.com,
+	=?GB2312?B?taXOwA==?= <shanwei88@gmail.com>, therbert@google.com
 Return-path: <linux-doc-owner@vger.kernel.org>
 Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -22,10 +22,11 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Shan Wei<shanwei88@gmail.com>
 ---
+v2: fix the broken in patchwork.
+
 I feel uncertain when reading following contents that no variable
-in rps_dev_flow_table or softnet_data records the length of=20
-the current backlog. Just last_qtail variable pointers the tail of the =
-backlog.
+in rps_dev_flow_table or softnet_data records the length of the current
+backlog. Just last_qtail variable pointers the tail of the backlog.
 
 "The counter in rps_dev_flow_table values records the length of the cur=
 rent
@@ -36,13 +37,13 @@ If missing something, please correct me.
  Documentation/networking/scaling.txt |   26 +++++++++++++-------------
  1 files changed, 13 insertions(+), 13 deletions(-)
 
-diff --git a/Documentation/networking/scaling.txt b/Documentation/netwo=
-rking/scaling.txt
+diff --git a/Documentation/networking/scaling.txt
+b/Documentation/networking/scaling.txt
 index a177de2..1215fcc 100644
 --- a/Documentation/networking/scaling.txt
 +++ b/Documentation/networking/scaling.txt
-@@ -26,7 +26,7 @@ queues to distribute processing among CPUs. The NIC d=
-istributes packets by
+@@ -26,7 +26,7 @@ queues to distribute processing among CPUs. The NIC
+distributes packets by
  applying a filter to each packet that assigns it to one of a small num=
 ber
  of logical flows. Packets for each flow are steered to a separate rece=
@@ -65,8 +66,8 @@ ilters can
 +can be directed to their own receive queue. Such "n-tuple" filters can
  be configured from ethtool (--config-ntuple).
   =3D=3D=3D=3D RSS Configuration
-@@ -104,7 +104,7 @@ RSS. Being in software, it is necessarily called la=
-ter in the datapath.
+@@ -104,7 +104,7 @@ RSS. Being in software, it is necessarily called
+later in the datapath.
  Whereas RSS selects the queue and hence CPU that will run the hardware
  interrupt handler, RPS selects the CPU to perform protocol processing
  above the interrupt handler. This is accomplished by placing the packe=
@@ -79,8 +80,8 @@ g.
  2) software filters can easily be added to hash over new protocols,
  3) it does not increase hardware device interrupt rate (although it do=
 es
-@@ -116,20 +116,20 @@ netif_receive_skb(). These call the get_rps_cpu()=
- function, which
+@@ -116,20 +116,20 @@ netif_receive_skb(). These call the get_rps_cpu()
+function, which
  selects the queue that should process a packet.
   The first step in determining the target CPU for RPS is to calculate =
 a
@@ -110,7 +111,8 @@ h
  processing on the remote CPU, and any queued packets are then processe=
 d
 @@ -208,7 +208,7 @@ The counter in rps_dev_flow_table values records th=
-e length of the current
+e
+length of the current
  CPU's backlog when a packet in this flow was last enqueued. Each backl=
 og
  queue has a head counter that is incremented on dequeue. A tail counte=
@@ -124,7 +126,8 @@ r
 e
  same entry i).
 @@ -218,13 +218,13 @@ CPU for packet processing (from get_rps_cpu()) th=
-e rps_sock_flow table
+e
+rps_sock_flow table
  and the rps_dev_flow table of the queue that the packet was received o=
 n
  are compared. If the desired CPU for the flow (found in the
@@ -151,7 +154,7 @@ t
 ly
  configured. The number of entries in the global flow table is set thro=
 ugh:
- @@ -258,7 +258,7 @@ For a single queue device, the rps_flow_cnt value =
+ @@ -258,7 +258,7 @@ For a single queue device, the rps_flow_cnt value
 for the single queue
  would normally be configured to the same value as rps_sock_flow_entrie=
 s.
@@ -162,8 +165,8 @@ s.
 there
  are 16 configured receive queues, rps_flow_cnt for each queue might be
  configured as 2048.
- @@ -272,7 +272,7 @@ the application thread consuming the packets of ea=
-ch flow is running.
+ @@ -272,7 +272,7 @@ the application thread consuming the packets of
+each flow is running.
  Accelerated RFS should perform better than RFS since packets are sent
  directly to a CPU local to the thread consuming the data. The target C=
 PU
@@ -174,8 +177,8 @@ rchy.
 +which is local to the application thread's CPU in the cache hierarchy.
   To enable accelerated RFS, the networking stack calls the
  ndo_rx_flow_steer driver function to communicate the desired hardware
-@@ -285,7 +285,7 @@ The hardware queue for a flow is derived from the C=
-PU recorded in
+@@ -285,7 +285,7 @@ The hardware queue for a flow is derived from the
+CPU recorded in
  rps_dev_flow_table. The stack consults a CPU to hardware queue map whi=
 ch
  is maintained by the NIC driver. This is an auto-generated reverse map=
@@ -187,5 +190,4 @@ l library
  to populate the map. For each CPU, the corresponding queue in the map =
 is
  set to be one whose processing CPU is closest in cache locality.
- -- 1.7.1
 
