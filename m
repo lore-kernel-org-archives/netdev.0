@@ -1,185 +1,79 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH net-next v6 4/4] powerpc: tqm8548/tqm8xx: add and update
- CAN device nodes
-Date: Wed, 07 Dec 2011 18:34:28 +1100
-Message-ID: <1323243268.660.71.camel@pasglop>
-References: <1322732481-2255-1-git-send-email-wg@grandegger.com>
-	 <1322732481-2255-5-git-send-email-wg@grandegger.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2] e1000e: Assign true and false to bool type variable
+ instead of 1 and 0
+Date: Tue, 06 Dec 2011 23:39:23 -0800
+Message-ID: <1323243563.1762.42.camel@joe2Laptop>
+References: <4EDED071.40900@linux.vnet.ibm.com>
+	 <1323229439.2415.23.camel@jtkirshe-mobl>
+	 <1323231268.1762.19.camel@joe2Laptop> <4EDEF05F.4020901@linux.vnet.ibm.com>
+	 <1323237700.1762.24.camel@joe2Laptop> <4EDF02CC.4010407@linux.vnet.ibm.com>
+	 <1323238749.1762.27.camel@joe2Laptop> <4EDF0964.3080509@linux.vnet.ibm.com>
+	 <20111207072050.GC2203@ZenIV.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	linux-can@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	socketcan-users@lists.berlios.de
-To: Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1322732481-2255-5-git-send-email-wg@grandegger.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Michael Wang <wangyun@linux.vnet.ibm.com>,
+	jeffrey.t.kirsher@intel.com,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"wangyunlinux@gmail.com" <wangyunlinux@gmail.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:51255 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752703Ab1LGHjY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Dec 2011 02:39:24 -0500
+In-Reply-To: <20111207072050.GC2203@ZenIV.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-12-01 at 10:41 +0100, Wolfgang Grandegger wrote:
-> This patch enables or updates support for the CC770 and AN82527
-> CAN controller on the TQM8548 and TQM8xx boards.
-
-I'm a bit confused by the net-next prefix here. Those patches seem to
-be only touching arch/powerpc and seem to be sent primarily toward
-netdev with a net-next prefix.
-
-Also there have been at least 3 versions in a couple of days already
-without comments nor indication of what was changed...
-
-Can you clarify things a bit please ? It looks like they really should
-go to linuxppc-dev (and you can probably drop a bunch of other lists) or
-am I missing an important piece of the puzzle ? (Such as patch 1/4 and
-2/4 ...)
-
-Let me know if I should just remove them from powerpc patchwork.
-
-Cheers,
-Ben.
-
-> CC: devicetree-discuss@lists.ozlabs.org
-> CC: linuxppc-dev@ozlabs.org
-> CC: Kumar Gala <galak@kernel.crashing.org>
-> Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
-> ---
->  arch/powerpc/boot/dts/tqm8548-bigflash.dts |   19 ++++++++++++++-----
->  arch/powerpc/boot/dts/tqm8548.dts          |   19 ++++++++++++++-----
->  arch/powerpc/boot/dts/tqm8xx.dts           |   25 +++++++++++++++++++++++++
->  3 files changed, 53 insertions(+), 10 deletions(-)
+On Wed, 2011-12-07 at 07:20 +0000, Al Viro wrote:
+> On Wed, Dec 07, 2011 at 02:36:20PM +0800, Michael Wang wrote:
+> > On 12/07/2011 02:19 PM, Joe Perches wrote:
 > 
-> diff --git a/arch/powerpc/boot/dts/tqm8548-bigflash.dts b/arch/powerpc/boot/dts/tqm8548-bigflash.dts
-> index 9452c3c..d918752 100644
-> --- a/arch/powerpc/boot/dts/tqm8548-bigflash.dts
-> +++ b/arch/powerpc/boot/dts/tqm8548-bigflash.dts
-> @@ -352,7 +352,7 @@
->  		ranges = <
->  			0 0x0 0xfc000000 0x04000000	// NOR FLASH bank 1
->  			1 0x0 0xf8000000 0x08000000	// NOR FLASH bank 0
-> -			2 0x0 0xa3000000 0x00008000	// CAN (2 x i82527)
-> +			2 0x0 0xa3000000 0x00008000	// CAN (2 x CC770)
->  			3 0x0 0xa3010000 0x00008000	// NAND FLASH
->  
->  		>;
-> @@ -393,18 +393,27 @@
->  		};
->  
->  		/* Note: CAN support needs be enabled in U-Boot */
-> -		can0@2,0 {
-> -			compatible = "intel,82527"; // Bosch CC770
-> +		can@2,0 {
-> +			compatible = "bosch,cc770"; // Bosch CC770
->  			reg = <2 0x0 0x100>;
->  			interrupts = <4 1>;
->  			interrupt-parent = <&mpic>;
-> +			bosch,external-clock-frequency = <16000000>;
-> +			bosch,disconnect-rx1-input;
-> +			bosch,disconnect-tx1-output;
-> +			bosch,iso-low-speed-mux;
-> +			bosch,clock-out-frequency = <16000000>;
->  		};
->  
-> -		can1@2,100 {
-> -			compatible = "intel,82527"; // Bosch CC770
-> +		can@2,100 {
-> +			compatible = "bosch,cc770"; // Bosch CC770
->  			reg = <2 0x100 0x100>;
->  			interrupts = <4 1>;
->  			interrupt-parent = <&mpic>;
-> +			bosch,external-clock-frequency = <16000000>;
-> +			bosch,disconnect-rx1-input;
-> +			bosch,disconnect-tx1-output;
-> +			bosch,iso-low-speed-mux;
->  		};
->  
->  		/* Note: NAND support needs to be enabled in U-Boot */
-> diff --git a/arch/powerpc/boot/dts/tqm8548.dts b/arch/powerpc/boot/dts/tqm8548.dts
-> index 619776f..988d887 100644
-> --- a/arch/powerpc/boot/dts/tqm8548.dts
-> +++ b/arch/powerpc/boot/dts/tqm8548.dts
-> @@ -352,7 +352,7 @@
->  		ranges = <
->  			0 0x0 0xfc000000 0x04000000	// NOR FLASH bank 1
->  			1 0x0 0xf8000000 0x08000000	// NOR FLASH bank 0
-> -			2 0x0 0xe3000000 0x00008000	// CAN (2 x i82527)
-> +			2 0x0 0xe3000000 0x00008000	// CAN (2 x CC770)
->  			3 0x0 0xe3010000 0x00008000	// NAND FLASH
->  
->  		>;
-> @@ -393,18 +393,27 @@
->  		};
->  
->  		/* Note: CAN support needs be enabled in U-Boot */
-> -		can0@2,0 {
-> -			compatible = "intel,82527"; // Bosch CC770
-> +		can@2,0 {
-> +			compatible = "bosch,cc770"; // Bosch CC770
->  			reg = <2 0x0 0x100>;
->  			interrupts = <4 1>;
->  			interrupt-parent = <&mpic>;
-> +			bosch,external-clock-frequency = <16000000>;
-> +			bosch,disconnect-rx1-input;
-> +			bosch,disconnect-tx1-output;
-> +			bosch,iso-low-speed-mux;
-> +			bosch,clock-out-frequency = <16000000>;
->  		};
->  
-> -		can1@2,100 {
-> -			compatible = "intel,82527"; // Bosch CC770
-> +		can@2,100 {
-> +			compatible = "bosch,cc770"; // Bosch CC770
->  			reg = <2 0x100 0x100>;
->  			interrupts = <4 1>;
->  			interrupt-parent = <&mpic>;
-> +			bosch,external-clock-frequency = <16000000>;
-> +			bosch,disconnect-rx1-input;
-> +			bosch,disconnect-tx1-output;
-> +			bosch,iso-low-speed-mux;
->  		};
->  
->  		/* Note: NAND support needs to be enabled in U-Boot */
-> diff --git a/arch/powerpc/boot/dts/tqm8xx.dts b/arch/powerpc/boot/dts/tqm8xx.dts
-> index f6da7ec..c3dba25 100644
-> --- a/arch/powerpc/boot/dts/tqm8xx.dts
-> +++ b/arch/powerpc/boot/dts/tqm8xx.dts
-> @@ -57,6 +57,7 @@
->  
->  		ranges = <
->  			0x0 0x0 0x40000000 0x800000
-> +			0x3 0x0 0xc0000000 0x200
->  		>;
->  
->  		flash@0,0 {
-> @@ -67,6 +68,30 @@
->  			bank-width = <4>;
->  			device-width = <2>;
->  		};
-> +
-> +		/* Note: CAN support needs be enabled in U-Boot */
-> +		can@3,0 {
-> +			compatible = "intc,82527";
-> +			reg = <3 0x0 0x80>;
-> +			interrupts = <8 1>;
-> +			interrupt-parent = <&PIC>;
-> +			bosch,external-clock-frequency = <16000000>;
-> +			bosch,disconnect-rx1-input;
-> +			bosch,disconnect-tx1-output;
-> +			bosch,iso-low-speed-mux;
-> +			bosch,clock-out-frequency = <16000000>;
-> +		};
-> +
-> +		can@3,100 {
-> +			compatible = "intc,82527";
-> +			reg = <3 0x100 0x80>;
-> +			interrupts = <8 1>;
-> +			interrupt-parent = <&PIC>;
-> +			bosch,external-clock-frequency = <16000000>;
-> +			bosch,disconnect-rx1-input;
-> +			bosch,disconnect-tx1-output;
-> +			bosch,iso-low-speed-mux;
-> +		};
->  	};
->  
->  	soc@fff00000 {
+> [snip]
+> > >  	if (*i2cctl & IXGBE_I2C_DATA_IN)
+> > > -		data = 1;
+> > > +		data = true;
+> > >  	else
+> > > -		data = 0;
+> > > +		data = false;
+> > > 
+> > >  	return data;
+> 
+> Yuck...
+> 
+> bool f(whatever)
+> {
+> 	bool data;
+> 	if (expression)
+> 		data = true;
+> 	else
+> 		data = false;
+> 	return data;
+> }
+> 
+> is amazingly unidiomatic.  Hell, if nothing else it's
+> 	bool data = expression;
+> 	return data;
+> if not an outright
+> 	return expression;
+> or
+> 	return (bool)expression;
+> if you want to underline that it's treated as boolean...  What tool
+> has produced that patch?
 
+tool has multiple meanings... :)
 
+In this case though it's spatch (coccinelle)
+
+I looked at it and thought the same thing as you.
+
+The point though was not to do the idiomatic
+transform that you correctly describe, but to
+get Michael Wang to look at spatch as a tool
+to do those transforms.
+
+cheers, Joe
