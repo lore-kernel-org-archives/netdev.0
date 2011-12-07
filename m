@@ -1,37 +1,26 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH net-next v6 4/4] powerpc: tqm8548/tqm8xx: add and update
- CAN device nodes
-Date: Wed, 07 Dec 2011 18:42:30 +1100
-Message-ID: <1323243750.660.72.camel@pasglop>
-References: <1322732481-2255-1-git-send-email-wg@grandegger.com>
-	 <1322732481-2255-5-git-send-email-wg@grandegger.com>
-	 <1323243268.660.71.camel@pasglop>
-	 <20111207.023916.980093028693181777.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: wg@grandegger.com, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org, linux-can@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, socketcan-users@lists.berlios.de
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20111207.023916.980093028693181777.davem@davemloft.net>
-Sender: linux-can-owner@vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL nf-next] IPVS
+Date: Wed,  7 Dec 2011 17:07:02 +0900
+Message-ID: <1323245223-13646-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Patrick McHardy <kaber@trash.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-12-07 at 02:39 -0500, David Miller wrote:
-> From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> Date: Wed, 07 Dec 2011 18:34:28 +1100
-> 
-> > Let me know if I should just remove them from powerpc patchwork.
-> 
-> These are DT entries for CAN devices for which drivers only exist in
-> the net-next tree, I already included this patch into the net-next
-> tree so you do not have to.
+Hi Pablo,
 
-Thanks.
+please consider pulling
+git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git master
+to obtain and enhancement to the SH scheduelr from Michael Maixim.
 
-Cheers,
-Ben.
+Michael Maxim (1):
+      IPVS: Modify the SH scheduler to use weights
 
-
+ net/netfilter/ipvs/Kconfig    |   15 +++++++++++++++
+ net/netfilter/ipvs/ip_vs_sh.c |   20 ++++++++++++++++++--
+ 2 files changed, 33 insertions(+), 2 deletions(-)
