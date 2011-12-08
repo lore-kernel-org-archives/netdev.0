@@ -1,48 +1,44 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: Re: Latency difference between fifo and pfifo_fast
-Date: Wed, 07 Dec 2011 22:20:57 -0500 (EST)
-Message-ID: <2f3f4d56-405e-4369-9a8d-b4940ea5d240@jasiiieee>
-References: <20111207154907.462846cb@nehalam.linuxnetplumber.net>
+From: "Master Card E-mail Promotion" <karlamendes@inpa.gov.br>
+Subject: (unknown)
+Date: Wed, 7 Dec 2011 21:55:36 -0400 (AMT)
+Message-ID: <57249.41.204.224.13.1323309336.squirrel@webmail.inpa.gov.br>
+Reply-To: leonard.jjr02@hotmail.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>, netdev@vger.kernel.org,
-	Rick Jones <rick.jones2@hp.com>,
-	Dave Taht <dave.taht@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.194]:56794 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756542Ab1LHCUk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Dec 2011 21:20:40 -0500
-In-Reply-To: <20111207154907.462846cb@nehalam.linuxnetplumber.net>
+Received: from mailserver.inpa.gov.br ([200.17.53.9]:45472 "EHLO
+	mailserver.inpa.gov.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753823Ab1LHCeZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 21:34:25 -0500
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
------ Original Message -----
-> From: "Stephen Hemminger" <shemminger@vyatta.com>
-> To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-> Cc: "David Laight" <David.Laight@ACULAB.COM>, netdev@vger.kernel.org, "Rick Jones" <rick.jones2@hp.com>, "Dave Taht"
-> <dave.taht@gmail.com>, "Eric Dumazet" <eric.dumazet@gmail.com>
-> Sent: Wednesday, December 7, 2011 6:49:07 PM
-> Subject: Re: Latency difference between fifo and pfifo_fast
-> 
-> =
-> > > Is this a shared network? TOS won't matter if it is only your
-> > > traffic.
-> > > 
-> > > There are number of route metrics that you can tweak to that can
-> > > reduce TCP slow
-> > > start effects, like increasing the initial cwnd, etc.
-> > > 
-> > It is a private network dedicated only to SAN traffic - a couple of
-> > SAN devices and some virtualization hosts - John
-> 
-> Therefore unless your switch is shared, playing with queueing and TOS
-> won't help reduce absolute latency.
-> You maybe able to prioritize one host or SAN over another though.
-> 
-That's why I was wondering if we should switch to fifo from pfifo_fast since there is no prioritization of one host or SAN over another.  Thanks - John
+
+Master card No: 5148 6547 8940 6543
+REGISTRATION NO: 9027640
+INSURANCE NO: MSTC006
+TAX CLEARANCE NO: 28456
+
+Your company or your personal e-mail address, has brought you an
+unexpected luck,a lump sums pay out of =C2=A36,000,600.00, SIX MILLION,=
+ SIX
+HUNDRED THOUSAND POUNDS. Equivalent to,($10,464,000 USD),Ten Million, f=
+our
+hundred and sixty four thousand US Dollars.Do email the above Claims
+Administrator,at once with all the claims requirements,below.To avoid
+unnecessary delay.
+
+
+1.Full Name:2.Address:3. Nationality:4. Age:5.Occupation:6.Phone:7.Stat=
+e
+of Origin:.Country:
+
+
+Claims Administrator
+Name: Mr.Leonard Jesse Jr
+E-mail;leonard.jjr02@hotmail.com
