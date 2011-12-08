@@ -1,124 +1,131 @@
-From: =?utf-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>
-Subject: [PATCH v3 7/8] net/fec: fix the .remove code
-Date: Thu,  8 Dec 2011 08:59:31 +0100
-Message-ID: <04c11563fee748562d7b53d5e5b3c5cf37fef200.1323326019.git.LW@KARO-electronics.de>
-References: <cover.1323326019.git.LW@KARO-electronics.de>
- <bd4415514fa0b40ece04d56b3ac4f549e79d87d7.1323326019.git.LW@KARO-electronics.de>
- <6c28f25c5c6d2f88d0985ce361c5e16f19db27d0.1323326019.git.LW@KARO-electronics.de>
- <0b92136d69e509a6ce49b526e1834f0ec90b04a4.1323326019.git.LW@KARO-electronics.de>
- <6d1e5cdcbfc48df864ec9e0939645c0e95389d2a.1323326019.git.LW@KARO-electronics.de>
- <55b78c1766da5b0d0d679f5eae3fb9fc74a6ceef.1323326019.git.LW@KARO-electronics.de>
- <d6f4de9e4cfb393754b42815a2ef1a59c96eab83.1323326019.git.LW@KARO-electronics.de>
+From: Cedric Lagneau <cedric.lagneau@openwide.fr>
+Subject: Fwd: ICMP-REDIRECT paquet & Host ARP TABLE corruption. verified on fedora kernel 3.1.0-7 and ubuntu 11.10 3.0.0
+Date: Thu, 08 Dec 2011 09:20:22 +0100 (CET)
+Message-ID: <976b21f4-59b8-4ca3-99c0-5f22d25efa02@zimbra2.corp.accelance.fr>
+References: <7ff1ebee-b784-4e01-97fa-d8f2dab8de34@zimbra2.corp.accelance.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	Shawn Guo <shawn.guo@linaro.org>,
-	=?utf-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>
+Cc: Dan Carpenter <dan.carpenter@oracle.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d6f4de9e4cfb393754b42815a2ef1a59c96eab83.1323326019.git.LW@KARO-electronics.de>
-In-Reply-To: <cover.1323326019.git.LW@KARO-electronics.de>
-References: <cover.1323326019.git.LW@KARO-electronics.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra3.corp.accelance.fr ([213.162.49.233]:46751 "EHLO
+	zimbra3.corp.accelance.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752445Ab1LHI0O convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2011 03:26:14 -0500
+In-Reply-To: <7ff1ebee-b784-4e01-97fa-d8f2dab8de34@zimbra2.corp.accelance.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The .remove code is broken in several ways.
- - mdiobus_unregister() is called twice for the same object in case of =
-dual FEC
- - phy_disconnect() is being called when the PHY is already disconnecte=
-d
- - the requested IRQ(s) are not freed
- - fec_stop() is being called with the inteface already stopped
+original mail:
 
- All of those lead to kernel crashes if the remove function is actually=
- used.
+> hi all,
+>=20
+> Since kernel =3D> 3.0 we've found some strange behavior with kernel >=
+=3D3.0 on our architecture. Some host cannot acces some network anymore=
+ after using this Kernel. Verified on ubuntu 11.10 and fedora fc16.
+>=20
+>=20
+> Explaination:
+>=20
+> Host with simple ip
+> default install
+> default sysctl.conf :
+> net.ipv4.conf.all.accept_redirects=3D1
+> net.ipv4.conf.default.accept_redirects=3D1
+> no netfilter=20
+>=20
+> A forged icmp type 5 redirect code 0 or 1 to this host from another h=
+ost on the same network corrupt the ARP table with entry for non-local =
+network=20
+>=20
+> sample:
+> hostA ip 192.168.2.192/24
+> gw 192.168.2.254
+>=20
+> arp -an=20
+> 192.168.2.254 at 00:00:5e:00:01:60
+>=20
+>=20
+> then from a B host , i forge an icmp-redirect paquet like this:
+> 192.168.2.254 > 192.168.2.192: ICMP redirect 87.106.170.240 to net 19=
+2.168.10.10
+>=20
+> after that on hostA i do a simple icmp ping to 87.106.170.240 , sent =
+arp from hostB and ARP table of hostA is corrupted:
+>=20
+> arp -an
+> 192.168.2.254 at 00:00:5e:00:01:60
+> 192.168.10.10 at <incomplete>=20
+>=20
+>=20
+> if i put hostB ip as icmp-redirect gw, hostB receive paquet.=20
+>=20
+>=20
+> Best regards,
+>=20
+>
+> C=C3=A9dric Lagneau
 
-Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
-Tested-by: Shawn Guo <shawn.guo@linaro.org>
-Acked-by: Shawn Guo <shawn.guo@linaro.org>
----
- drivers/net/ethernet/freescale/fec.c |   31 ++++++++++++++++++++++----=
------
- 1 file changed, 22 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/etherne=
-t/freescale/fec.c
-index ab0afb5..01ee9cc 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -259,6 +259,8 @@ struct fec_enet_private {
- /* Transmitter timeout */
- #define TX_TIMEOUT (2 * HZ)
-=20
-+static int mii_cnt;
-+
- static void *swap_buffer(void *bufaddr, int len)
- {
- 	int i;
-@@ -1040,8 +1042,12 @@ static int fec_enet_mii_init(struct platform_dev=
-ice *pdev)
- 	 */
- 	if ((id_entry->driver_data & FEC_QUIRK_ENET_MAC) && pdev->id > 0) {
- 		/* fec1 uses fec0 mii_bus */
--		fep->mii_bus =3D fec0_mii_bus;
--		return 0;
-+		if (mii_cnt && fec0_mii_bus) {
-+			fep->mii_bus =3D fec0_mii_bus;
-+			mii_cnt++;
-+			return 0;
-+		}
-+		return -ENOENT;
- 	}
-=20
- 	fep->mii_timeout =3D 0;
-@@ -1086,6 +1092,8 @@ static int fec_enet_mii_init(struct platform_devi=
-ce *pdev)
- 	if (mdiobus_register(fep->mii_bus))
- 		goto err_out_free_mdio_irq;
-=20
-+	mii_cnt++;
-+
- 	/* save fec0 mii_bus */
- 	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC)
- 		fec0_mii_bus =3D fep->mii_bus;
-@@ -1102,11 +1110,11 @@ err_out:
-=20
- static void fec_enet_mii_remove(struct fec_enet_private *fep)
- {
--	if (fep->phy_dev)
--		phy_disconnect(fep->phy_dev);
--	mdiobus_unregister(fep->mii_bus);
--	kfree(fep->mii_bus->irq);
--	mdiobus_free(fep->mii_bus);
-+	if (--mii_cnt =3D=3D 0) {
-+		mdiobus_unregister(fep->mii_bus);
-+		kfree(fep->mii_bus->irq);
-+		mdiobus_free(fep->mii_bus);
-+	}
- }
-=20
- static int fec_enet_get_settings(struct net_device *ndev,
-@@ -1646,13 +1654,18 @@ fec_drv_remove(struct platform_device *pdev)
- 	struct net_device *ndev =3D platform_get_drvdata(pdev);
- 	struct fec_enet_private *fep =3D netdev_priv(ndev);
- 	struct resource *r;
-+	int i;
-=20
--	fec_stop(ndev);
-+	unregister_netdev(ndev);
- 	fec_enet_mii_remove(fep);
-+	for (i =3D 0; i < FEC_IRQ_NUM; i++) {
-+		int irq =3D platform_get_irq(pdev, i);
-+		if (irq > 0)
-+			free_irq(irq, ndev);
-+	}
- 	clk_disable(fep->clk);
- 	clk_put(fep->clk);
- 	iounmap(fep->hwp);
--	unregister_netdev(ndev);
- 	free_netdev(ndev);
-=20
- 	r =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
---=20
-1.5.6.5
+Then :
+> So I downloaded an arp forger from:
+> http://insecure.org/sploits/arp.games.html
+>
+> ./icmp_redir 192.168.1.1 192.168.1.101 153.104.63.227 192.168.4.8
+>                 (gw)     (3.0 system)   (random ip)   (not on my lan)
+>
+> I was able to make 153.104.63.227 unroutable on 2.6.39 and higher
+> but not on 2.6.38.  The new ip 192.168.4.8 does show up in arp -n
+> but it gets cleaned out much faster.
+>
+>regards,
+>dan carpenter
+
+thanks, don't know this tools, i was using python-scarpy to forge icmp =
+paquet.
+
+for me bad arp entry is never cleaned and i need to reboot host. arp -d=
+ "ip" say this:
+SIOCDARP(priv): Network is unreachable
+
+This can cause problems on some architecture like this simplified versi=
+on:
+
+----backbone--- "Public network"  with multiple gateways to reach multi=
+ple networks. Icmp-redirect allowed.
+      |
+ Firewall with outgoing NAT 192.168.2.0/24 -> IP from "public network".=
+ icmp-redirect blocked on fw to protect internal LAN.
+      |
+-----LAN------ 192.168.2.0/24  gateway : Firewall
+
+When a lan host want to reach non-local networks  , its ip is natted th=
+rough firewall,then session putted inside a state table.
+
+On some firewall like OpenBSD with PF (http://openbsd.org/faq/pf/filter=
+=2Ehtml) ICMP-REDIRECT paquet pass through state table nat session.(thi=
+s is a feature on openbsd, i've not tested for moment with linux). No w=
+ay to block icmp paquet on the firewall because the state table is befo=
+re PF...In this case no other choice to use sysctl on all internal host=
+ because host insert bad gateway from "public network" provided by icmp=
+-redirect.
+
+"
+Another advantage of keeping state is that corresponding ICMP traffic w=
+ill be passed through the firewall. For example, if a TCP connection pa=
+ssing through the firewall is being tracked statefully and an ICMP sour=
+ce-quench message referring to this TCP connection arrives, it will be =
+matched to the appropriate state entry and passed through the firewall.
+"
+
+I know it's a bad idea to use a backbone ip for nat and allow icmp-redi=
+rect on a simple host (man in middle inside own network from others hos=
+t like you say) but this can happend and this is an example.
+
+
+regards,
+
+--
+
+C=C3=A9dric Lagneau
