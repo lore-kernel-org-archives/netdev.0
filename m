@@ -1,29 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipip, sit: copy parms.name after register_netdevice
-Date: Wed, 07 Dec 2011 23:56:02 -0500 (EST)
-Message-ID: <20111207.235602.1465915988125994516.davem@davemloft.net>
-References: <CAM7b5hzt8D6hn3=XEcm9E3_BwJxj-YABpkufCpuhjiPLDxCsMQ@mail.gmail.com>
-	<20111206173220.GA28763@kroah.com>
-	<CAM7b5hyXkRTUwnE-NwXEff-34WjRfMSBDf2itMVhdJGi4XoA=g@mail.gmail.com>
+Subject: Re: [net-next PATCH 2/2] be2net: workaround to fix a BE bug
+Date: Thu, 08 Dec 2011 00:00:44 -0500 (EST)
+Message-ID: <20111208.000044.1859009201427703594.davem@davemloft.net>
+References: <20111207234424.GA2385@akhaparde-VBox>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jpirko@redhat.com, jwboyer@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: artisdom@gmail.com
+Cc: netdev@vger.kernel.org
+To: ajit.khaparde@Emulex.Com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52184 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:52212 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751579Ab1LHE4M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 23:56:12 -0500
-In-Reply-To: <CAM7b5hyXkRTUwnE-NwXEff-34WjRfMSBDf2itMVhdJGi4XoA=g@mail.gmail.com>
+	with ESMTP id S1750699Ab1LHFAq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2011 00:00:46 -0500
+In-Reply-To: <20111207234424.GA2385@akhaparde-VBox>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ted Feng <artisdom@gmail.com>
-Date: Thu, 8 Dec 2011 11:35:15 +0800
+From: Ajit Khaparde <ajit.khaparde@Emulex.Com>
+Date: Wed, 7 Dec 2011 17:44:24 -0600
 
-> @@ -285,6 +285,8 @@ static struct ip_tunnel *
-> ipip_tunnel_locate(struct net *net,
+> For vlan tagged pkts, BE
+> 1) calculates checksum even when CSO is not requested
+> 2) calculates checksum wrongly for padded pkt less than 60 bytes long.
+> As a workaround disable TX vlan offloading in such cases.
+ ...
+> +	/* For vlan tagged pkts, BE
+> +	 * 1) calculates checksum even when CSO is not requested
+> +	 * 2) calculates checksum wrongly for padded pkt less than
+> +	 * 60 bytes long.
+> +	 * As a workaround disable TX vlan offloading in such cases.
+> +	 */
 
-Your patches are corrupted by your email client and unusable.
+This description either belongs in the commit message, or this
+comment, but not both.
+
+> +	if (unlikely(vlan_tx_tag_present(skb) &&
+> +		(skb->ip_summed != CHECKSUM_PARTIAL || skb->len <= 60))) {
+
+Poorly formatted, the second line openning first non-space character
+needs to line up precisely after the first column after the if() statements
+openning parenthesis.
+
+If you cannot do this yourself by hand, use something like emacs's
+C-mode to do it automatically for you when you hit TAB on that
+second line.
