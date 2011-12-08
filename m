@@ -1,67 +1,43 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: Re: [PATCH] ipv6: Fix for adding multicast route for loopback device
- automatically.
-Date: Thu, 08 Dec 2011 08:58:21 +0800
-Message-ID: <4EE00BAD.3010409@cn.fujitsu.com>
-References: <4EDF1481.1080106@cn.fujitsu.com> <20111207.150615.181825066035193136.davem@davemloft.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] IPVS: Modify the SH scheduler to use weights
+Date: Thu, 8 Dec 2011 10:11:09 +0900
+Message-ID: <20111208011108.GL4586@verge.net.au>
+References: <1323245223-13646-1-git-send-email-horms@verge.net.au>
+ <1323245223-13646-2-git-send-email-horms@verge.net.au>
+ <20111207113038.GA18166@1984>
+ <CAOgH2dsHepr7Dyx7pNOutFNRh5SoO-oC9mx1MLm6Ncai8Ma3rQ@mail.gmail.com>
+ <20111208004008.GD4586@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:63279 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754287Ab1LHA6L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Dec 2011 19:58:11 -0500
-In-Reply-To: <20111207.150615.181825066035193136.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Mike Maxim <mike@okcupid.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20111208004008.GD4586@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Li Wei <lw@cn.fujitsu.com>
-> Date: Wed, 07 Dec 2011 15:23:45 +0800
+On Thu, Dec 08, 2011 at 09:40:09AM +0900, Simon Horman wrote:
+> On Wed, Dec 07, 2011 at 10:24:09AM -0500, Mike Maxim wrote:
+> > The reason I put that in is because the size of that table becomes
+> > more relevant/important if you decide to use the weights in the manner
+> > the patch lets you. It would be conceivable that someone might need to
+> > increase the size of that table to accommodate their configuration, so
+> > I thought it would be handy to be able to do that through the regular
+> > configuration system instead of editing the source.
 > 
->> There is no obvious reason to add a default multicast route for loopback
->> devices, otherwise there would be a route entry whose dst.error set to
->> -ENETUNREACH that would blocking all multicast packets.
->>
->> Signed-off-by: Li Wei <lw@cn.fujitsu.com>
+> Hi Mike,
 > 
-> I still do not understand the purpose of this change, what problems
-> does the current behavior cause?
-
-Hi, David, thank you for your comment.
-
-The problem is that the resulting routing table depends on the sequence
-of interface's initialization and in some situation, that would block all
-muticast packets. Suppose there are two interfaces on my computer
-(lo and eth0), if we initailize 'lo' before 'eth0', the resuting routing
-table(for multicast) would be
-
-# ip -6 route show | grep ff00::
-unreachable ff00::/8 dev lo metric 256 error -101
-ff00::/8 dev eth0 metric 256
-
-When sending multicasting packets, routing subsystem will return the first
-route entry which with a error set to -101(ENETUNREACH).
-
-I know the kernel will set the default ipv6 address for 'lo' when it is up
-and won't set the default multicast route for it, but there is no reason to
-stop 'init' program from setting address for 'lo', and that is exactly what
-systemd did.
-
-I am sure there is something wrong with kernel or systemd, currently I preferred
-kernel caused this problem.
-
+> I agree, but I think its also reasonable to consider IP_VS_SH_TAB_BITS as
+> a separate change.
 > 
-> And can you be sure that by making this change, you are not breaking
-> something, somewhere, that depends upon the current behavior?
+> Could you
 > 
-> 
+> 1. Split the patch into a Kconfig patch and a ip_vs_sh.c patch
+> 2. Remove spurious line additions from the resulting patches?
 
-I can't see there is any reason to set a default multicast route for loopback device
-*automatically*. 
-
-Thanks, 
-Wei
+Scratch that, please follow Pablo's request.
