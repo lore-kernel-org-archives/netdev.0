@@ -1,192 +1,121 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next 2/3] bridge: rearrange fdb notifications (v2)
-Date: Thu, 8 Dec 2011 09:17:41 -0800
-Message-ID: <20111208091741.559d4057@nehalam.linuxnetplumber.net>
+Subject: [PATCH net-next 3/3] bridge: add local MAC address to forwarding
+ table (v2)
+Date: Thu, 8 Dec 2011 09:17:49 -0800
+Message-ID: <20111208091749.121a7bc9@nehalam.linuxnetplumber.net>
 References: <20111206230223.191544130@vyatta.com>
- <20111206230316.026471682@vyatta.com>
+ <20111206230316.149318632@vyatta.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49589 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:49613 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750912Ab1LHRRo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Dec 2011 12:17:44 -0500
-In-Reply-To: <20111206230316.026471682@vyatta.com>
+	id S1752270Ab1LHRRw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Dec 2011 12:17:52 -0500
+In-Reply-To: <20111206230316.149318632@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pass bridge to fdb_notify so it can determine correct namespace based
-on namespace of bridge rather than namespace of destination port.
-Also makes next patch easier.
+If user has configured a MAC address that is not one of the existing
+ports of the bridge, then we need to add a special entry in the forwarding
+table. This forwarding table entry has no outgoing port so it has to be
+treated a little differently. The special entry is reported by the netlink
+interface with ifindex of bridge, but ignored by the old interface since there
+is no usable way to put it in the ABI.
 
+Reported-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 ---
-v2 - fix compile also pass bridge to fill_info (for next patch)
+v2 - set ifindex in NEWNEIGH to bridge instead of zero
 
---- a/net/bridge/br_fdb.c	2011-12-07 11:24:42.048686670 -0800
-+++ b/net/bridge/br_fdb.c	2011-12-07 11:27:05.233784054 -0800
-@@ -28,7 +28,8 @@
- static struct kmem_cache *br_fdb_cache __read_mostly;
- static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
- 		      const unsigned char *addr);
--static void fdb_notify(const struct net_bridge_fdb_entry *, int);
-+static void fdb_notify(struct net_bridge *br,
-+		       const struct net_bridge_fdb_entry *, int);
+--- a/net/bridge/br_device.c	2011-12-07 10:54:21.616301619 -0800
++++ b/net/bridge/br_device.c	2011-12-07 11:28:14.490336392 -0800
+@@ -170,8 +170,11 @@ static int br_set_mac_address(struct net
+ 		return -EINVAL;
  
- static u32 fdb_salt __read_mostly;
+ 	spin_lock_bh(&br->lock);
+-	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
+-	br_stp_change_bridge_id(br, addr->sa_data);
++	if (compare_ether_addr(dev->dev_addr, addr->sa_data)) {
++		memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
++		br_fdb_change_mac_address(br, addr->sa_data);
++		br_stp_change_bridge_id(br, addr->sa_data);
++	}
+ 	br->flags |= BR_SET_MAC_ADDR;
+ 	spin_unlock_bh(&br->lock);
  
-@@ -80,10 +81,10 @@ static void fdb_rcu_free(struct rcu_head
- 	kmem_cache_free(br_fdb_cache, ent);
- }
- 
--static inline void fdb_delete(struct net_bridge_fdb_entry *f)
-+static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
- {
--	fdb_notify(f, RTM_DELNEIGH);
- 	hlist_del_rcu(&f->hlist);
-+	fdb_notify(br, f, RTM_DELNEIGH);
- 	call_rcu(&f->rcu, fdb_rcu_free);
- }
- 
-@@ -114,7 +115,7 @@ void br_fdb_changeaddr(struct net_bridge
- 				}
- 
- 				/* delete old one */
--				fdb_delete(f);
-+				fdb_delete(br, f);
- 				goto insert;
- 			}
- 		}
-@@ -144,7 +145,7 @@ void br_fdb_cleanup(unsigned long _data)
- 				continue;
- 			this_timer = f->updated + delay;
- 			if (time_before_eq(this_timer, jiffies))
--				fdb_delete(f);
-+				fdb_delete(br, f);
- 			else if (time_before(this_timer, next_timer))
- 				next_timer = this_timer;
- 		}
-@@ -165,7 +166,7 @@ void br_fdb_flush(struct net_bridge *br)
- 		struct hlist_node *h, *n;
- 		hlist_for_each_entry_safe(f, h, n, &br->hash[i], hlist) {
- 			if (!f->is_static)
--				fdb_delete(f);
-+				fdb_delete(br, f);
- 		}
- 	}
+--- a/net/bridge/br_fdb.c	2011-12-07 11:27:05.233784054 -0800
++++ b/net/bridge/br_fdb.c	2011-12-07 11:28:44.782581738 -0800
+@@ -127,6 +127,18 @@ void br_fdb_changeaddr(struct net_bridge
  	spin_unlock_bh(&br->hash_lock);
-@@ -209,7 +210,7 @@ void br_fdb_delete_by_port(struct net_br
- 				}
- 			}
- 
--			fdb_delete(f);
-+			fdb_delete(br, f);
- 		skip_delete: ;
- 		}
- 	}
-@@ -370,7 +371,7 @@ static int fdb_insert(struct net_bridge
- 		br_warn(br, "adding interface %s with same address "
- 		       "as a received packet\n",
- 		       source->dev->name);
--		fdb_delete(fdb);
-+		fdb_delete(br, fdb);
- 	}
- 
- 	fdb = fdb_create(head, source, addr);
-@@ -378,7 +379,7 @@ static int fdb_insert(struct net_bridge
- 		return -ENOMEM;
- 
- 	fdb->is_local = fdb->is_static = 1;
--	fdb_notify(fdb, RTM_NEWNEIGH);
-+	fdb_notify(br, fdb, RTM_NEWNEIGH);
- 	return 0;
  }
  
-@@ -427,7 +428,7 @@ void br_fdb_update(struct net_bridge *br
- 		if (likely(!fdb_find(head, addr))) {
- 			fdb = fdb_create(head, source, addr);
- 			if (fdb)
--				fdb_notify(fdb, RTM_NEWNEIGH);
-+				fdb_notify(br, fdb, RTM_NEWNEIGH);
- 		}
- 		/* else  we lose race and someone else inserts
- 		 * it first, don't bother updating
-@@ -448,7 +449,7 @@ static int fdb_to_nud(const struct net_b
- 		return NUD_REACHABLE;
- }
- 
--static int fdb_fill_info(struct sk_buff *skb,
-+static int fdb_fill_info(struct sk_buff *skb, const struct net_bridge *br,
- 			 const struct net_bridge_fdb_entry *fdb,
- 			 u32 pid, u32 seq, int type, unsigned int flags)
++void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
++{
++	struct net_bridge_fdb_entry *f;
++
++	/* If old entry was unassociated with any port, then delete it. */
++	f = __br_fdb_get(br, br->dev->dev_addr);
++	if (f && f->is_local && !f->dst)
++		fdb_delete(br, f);
++
++	fdb_insert(br, NULL, newaddr);
++}
++
+ void br_fdb_cleanup(unsigned long _data)
  {
-@@ -461,7 +462,6 @@ static int fdb_fill_info(struct sk_buff
- 	if (nlh == NULL)
- 		return -EMSGSIZE;
- 
--
- 	ndm = nlmsg_data(nlh);
- 	ndm->ndm_family	 = AF_BRIDGE;
- 	ndm->ndm_pad1    = 0;
-@@ -493,9 +493,10 @@ static inline size_t fdb_nlmsg_size(void
- 		+ nla_total_size(sizeof(struct nda_cacheinfo));
- }
- 
--static void fdb_notify(const struct net_bridge_fdb_entry *fdb, int type)
-+static void fdb_notify(struct net_bridge *br,
-+		       const struct net_bridge_fdb_entry *fdb, int type)
- {
--	struct net *net = dev_net(fdb->dst->dev);
-+	struct net *net = dev_net(br->dev);
- 	struct sk_buff *skb;
- 	int err = -ENOBUFS;
- 
-@@ -503,7 +504,7 @@ static void fdb_notify(const struct net_
- 	if (skb == NULL)
- 		goto errout;
- 
--	err = fdb_fill_info(skb, fdb, 0, 0, type, 0);
-+	err = fdb_fill_info(skb, br, fdb, 0, 0, type, 0);
- 	if (err < 0) {
- 		/* -EMSGSIZE implies BUG in fdb_nlmsg_size() */
- 		WARN_ON(err == -EMSGSIZE);
-@@ -540,7 +541,7 @@ int br_fdb_dump(struct sk_buff *skb, str
- 				if (idx < cb->args[0])
- 					goto skip;
- 
--				if (fdb_fill_info(skb, f,
-+				if (fdb_fill_info(skb, br, f,
- 						  NETLINK_CB(cb->skb).pid,
- 						  cb->nlh->nlmsg_seq,
- 						  RTM_NEWNEIGH,
-@@ -574,7 +575,7 @@ static int fdb_add_entry(struct net_brid
- 		fdb = fdb_create(head, source, addr);
- 		if (!fdb)
- 			return -ENOMEM;
--		fdb_notify(fdb, RTM_NEWNEIGH);
-+		fdb_notify(br, fdb, RTM_NEWNEIGH);
- 	} else {
- 		if (flags & NLM_F_EXCL)
- 			return -EEXIST;
-@@ -590,7 +591,7 @@ static int fdb_add_entry(struct net_brid
- 			fdb->is_local = fdb->is_static = 0;
- 
- 		fdb->updated = fdb->used = jiffies;
--		fdb_notify(fdb, RTM_NEWNEIGH);
-+		fdb_notify(br, fdb, RTM_NEWNEIGH);
+ 	struct net_bridge *br = (struct net_bridge *)_data;
+@@ -250,7 +262,7 @@ int br_fdb_test_addr(struct net_device *
+ 		ret = 0;
+ 	else {
+ 		fdb = __br_fdb_get(port->br, addr);
+-		ret = fdb && fdb->dst->dev != dev &&
++		ret = fdb && fdb->dst && fdb->dst->dev != dev &&
+ 			fdb->dst->state == BR_STATE_FORWARDING;
  	}
+ 	rcu_read_unlock();
+@@ -282,6 +294,10 @@ int br_fdb_fillbuf(struct net_bridge *br
+ 			if (has_expired(br, f))
+ 				continue;
  
- 	return 0;
-@@ -670,7 +671,7 @@ static int fdb_delete_by_addr(struct net
- 	if (!fdb)
- 		return -ENOENT;
++			/* ignore pseudo entry for local MAC address */
++			if (!f->dst)
++				continue;
++
+ 			if (skip) {
+ 				--skip;
+ 				continue;
+@@ -468,7 +484,7 @@ static int fdb_fill_info(struct sk_buff
+ 	ndm->ndm_pad2    = 0;
+ 	ndm->ndm_flags	 = 0;
+ 	ndm->ndm_type	 = 0;
+-	ndm->ndm_ifindex = fdb->dst->dev->ifindex;
++	ndm->ndm_ifindex = fdb->dst ? fdb->dst->dev->ifindex : br->dev->ifindex;
+ 	ndm->ndm_state   = fdb_to_nud(fdb);
  
--	fdb_delete(fdb);
-+	fdb_delete(p->br, fdb);
- 	return 0;
- }
- 
+ 	NLA_PUT(skb, NDA_LLADDR, ETH_ALEN, &fdb->addr);
+--- a/net/bridge/br_forward.c	2011-12-07 10:54:21.616301619 -0800
++++ b/net/bridge/br_forward.c	2011-12-07 11:28:14.490336392 -0800
+@@ -98,7 +98,7 @@ static void __br_forward(const struct ne
+ /* called with rcu_read_lock */
+ void br_deliver(const struct net_bridge_port *to, struct sk_buff *skb)
+ {
+-	if (should_deliver(to, skb)) {
++	if (to && should_deliver(to, skb)) {
+ 		__br_deliver(to, skb);
+ 		return;
+ 	}
+--- a/net/bridge/br_private.h	2011-12-07 10:54:21.616301619 -0800
++++ b/net/bridge/br_private.h	2011-12-07 11:28:14.490336392 -0800
+@@ -348,6 +348,7 @@ extern void br_fdb_fini(void);
+ extern void br_fdb_flush(struct net_bridge *br);
+ extern void br_fdb_changeaddr(struct net_bridge_port *p,
+ 			      const unsigned char *newaddr);
++extern void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr);
+ extern void br_fdb_cleanup(unsigned long arg);
+ extern void br_fdb_delete_by_port(struct net_bridge *br,
+ 				  const struct net_bridge_port *p, int do_all);
