@@ -1,54 +1,40 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [patch] sock_diag: off by one checks
-Date: Thu, 08 Dec 2011 13:07:55 +0400
-Message-ID: <4EE07E6B.5050608@parallels.com>
-References: <20111208064938.GB16735@elgon.mountain>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH RFC] virtio_net: fix refill related races
+Date: Thu, 08 Dec 2011 15:07:29 +1030
+Message-ID: <8739cvisqe.fsf@rustcorp.com.au>
+References: <20111207152120.GA23417@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:22497 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751400Ab1LHJIK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Dec 2011 04:08:10 -0500
-In-Reply-To: <20111208064938.GB16735@elgon.mountain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>, Amit Shah <amit.shah@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20111207152120.GA23417@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 12/08/2011 10:49 AM, Dan Carpenter wrote:
-> These tests are off by one because sock_diag_handlers[] only has AF_MAX
-> elements.
-
-Oops :(
-
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-Acked-by: Pavel Emelyanov <xemul@parallels.com>
-
-> diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
-> index fbaf01c..9c27bcd 100644
-> --- a/net/core/sock_diag.c
-> +++ b/net/core/sock_diag.c
-> @@ -32,7 +32,7 @@ int sock_diag_register(struct sock_diag_handler *hndl)
->  {
->  	int err = 0;
->  
-> -	if (hndl->family > AF_MAX)
-> +	if (hndl->family >= AF_MAX)
->  		return -EINVAL;
->  
->  	mutex_lock(&sock_diag_table_mutex);
-> @@ -50,7 +50,7 @@ void sock_diag_unregister(struct sock_diag_handler *hnld)
->  {
->  	int family = hnld->family;
->  
-> -	if (family > AF_MAX)
-> +	if (family >= AF_MAX)
->  		return;
->  
->  	mutex_lock(&sock_diag_table_mutex);
+On Wed, 7 Dec 2011 17:21:22 +0200, "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> Fix theoretical races related to refill work:
+> 1. After napi is disabled by ndo_stop, refill work
+>    can run and re-enable it.
+> 2. Refill can reschedule itself, if this happens
+>    it can run after cancel_delayed_work_sync,
+>    and will access device after it is destroyed.
 > 
+> As a solution, add flags to track napi state and
+> to disable refill, and toggle them on start, stop
+> and remove; check these flags on refill.
+
+Why isn't a "dont-readd" flag sufficient?
+
+Cheers,
+Rusty.
