@@ -1,53 +1,37 @@
-From: "Arend van Spriel" <arend@broadcom.com>
-Subject: Re: BCM43224 hanging [3.2.0-rc4-00248-gb835c0f]
-Date: Thu, 8 Dec 2011 18:34:03 +0100
-Message-ID: <4EE0F50B.5040407@broadcom.com>
-References: <20111201224851.GB20536@ethz.ch>
- <4ED8B610.2010703@broadcom.com> <20111202150128.GC3096@schottelius.org>
- <20111207190821.GA1775@schottelius.org>
+From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: 3.0.8 kernel : NULL ptr deref in skb_queue_purge()
+Date: Thu, 8 Dec 2011 10:02:08 -0800
+Message-ID: <20111208180208.GA16883@kroah.com>
+References: <CANEJEGtJ3UmFNyui_SaZ6NF5FFVjZ+_UBg1RC2eif5Lu1YKDsQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
-To: "Nico Schottelius" <nico-linux-20111201@schottelius.org>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	b43-dev@lists.infradead.org, "Greg KH" <gregkh@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111207190821.GA1775@schottelius.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Grant Grundler <grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CANEJEGtJ3UmFNyui_SaZ6NF5FFVjZ+_UBg1RC2eif5Lu1YKDsQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 12/07/2011 08:08 PM, Nico Schottelius wrote:
-> Update:
+On Wed, Dec 07, 2011 at 02:40:49PM -0800, Grant Grundler wrote:
+> Hi,
+> I'm testing asix (USB 100BT ethernet adapter with AX88772) driver
+> initialization (and shut down) paths and reproduced a
+> "skb_queue_purge" panic 3 times after a few hundred/thousand
+> iterations of rmmod/modprobe. I'm inclined to believe
+> skb_queue_purge() is a victim and not a culprit here.
 > 
-> The hang situation always happens, when the nic does *not* have
-> a connection. And it still covers all network processes (i.e.
-> including sudo, wpa_supplicant, postfix, etc.).
-> 
-> Starting up the computer, having wpa_supplicant connect successfully,
-> everything works fine.
-> 
-> Until the connection is lost or I issue "select_network 4", which
-> changes to another network.
-> 
-> The problem also exists, if I startup wpa_supplicant and there
-> is no network connection available.
-> 
-> Verified that this bug exists in my pathced 3.1.0-rc6-g443452b
-> as well as in 3.2.0-rc4-00248-gb835c0f.
-> 
-> This is rather nasty, because it forces me to reboot as soon as
-> I've started up wlan by accident.
-> 
-> Is there a workaround available somewhere (besides using USB-LAN)?
-> 
-> Attached are output of 3.1.0-rc6-g443452b, which is the same for
-> all failing versions.
-> 
-> Cheers,
-> 
-> Nico
+>  I don't know if all 3 "spontaneous reboots" I've seen have the same
+> stack trace as the one I have a record for:
 
-Could you try and see what happens when you kill wpa_supplicant.
+Have you tried this on 3.1, and especially, 3.2-rc?  A number of asix
+patches have gone into the 3.2-rc series, perhaps they might have
+resolved this problem already?
 
-Gr. AvS
+thanks,
+
+greg k-h
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
