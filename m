@@ -1,38 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 2/2] be2net: workaround to fix a BE bug
-Date: Thu, 08 Dec 2011 00:09:47 -0500 (EST)
-Message-ID: <20111208.000947.193581253177810925.davem@davemloft.net>
-References: <20111207234424.GA2385@akhaparde-VBox>
-	<20111208.000044.1859009201427703594.davem@davemloft.net>
-	<1323320840.1762.61.camel@joe2Laptop>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [net-next PATCH] net: netprio_cgroup: make net_prio_subsys static
+Date: Wed, 07 Dec 2011 21:17:17 -0800
+Message-ID: <20111208051717.20236.41881.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: ajit.khaparde@Emulex.Com, netdev@vger.kernel.org
-To: joe@perches.com
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52443 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750715Ab1LHFJz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2011 00:09:55 -0500
-In-Reply-To: <1323320840.1762.61.camel@joe2Laptop>
+Received: from mga02.intel.com ([134.134.136.20]:24262 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750781Ab1LHF13 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Dec 2011 00:27:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Wed, 07 Dec 2011 21:07:20 -0800
+net_prio_subsys can be made static this removes the sparse
+warning it was throwing.
 
-> On Thu, 2011-12-08 at 00:00 -0500, David Miller wrote:
->> From: Ajit Khaparde <ajit.khaparde@Emulex.Com>
->> > +	if (unlikely(vlan_tx_tag_present(skb) &&
->> > +		(skb->ip_summed != CHECKSUM_PARTIAL || skb->len <= 60))) {
->> Poorly formatted, the second line opening first non-space character
->> needs to line up precisely after the first column after the if() statements
->> opening parenthesis.
-> 
-> In this case I believe you mean after the unlikely(
-> 
-> 	if (unlikely(vlan_tx_tag_present(skb) &&
-> 		     (skb->ip_summed != CHECKSUM_PARTIAL || skb->len <= 60))) {
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
 
-Right.
+ net/core/netprio_cgroup.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+index 3a9fd48..ea16c8f 100644
+--- a/net/core/netprio_cgroup.c
++++ b/net/core/netprio_cgroup.c
+@@ -28,7 +28,7 @@ static struct cgroup_subsys_state *cgrp_create(struct cgroup_subsys *ss,
+ static void cgrp_destroy(struct cgroup_subsys *ss, struct cgroup *cgrp);
+ static int cgrp_populate(struct cgroup_subsys *ss, struct cgroup *cgrp);
+ 
+-struct cgroup_subsys net_prio_subsys = {
++static struct cgroup_subsys net_prio_subsys = {
+ 	.name		= "net_prio",
+ 	.create		= cgrp_create,
+ 	.destroy	= cgrp_destroy,
