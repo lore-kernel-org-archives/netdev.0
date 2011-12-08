@@ -1,31 +1,61 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next 0/3] bridge forwarding database patches
-Date: Thu, 8 Dec 2011 09:18:16 -0800
-Message-ID: <20111208091816.6ba5a0e9@nehalam.linuxnetplumber.net>
-References: <20111206230223.191544130@vyatta.com>
-	<20111207.135015.789061435692305493.davem@davemloft.net>
+From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next] sch_red: Adaptative RED AQM
+Date: Thu, 8 Dec 2011 09:21:30 -0800
+Message-ID: <20111208092130.656c39ff@nehalam.linuxnetplumber.net>
+References: <CAA93jw7kQYONQiAozatRmdRRJeK0GB9eNDWtRZ3AL+OVKn0OpA@mail.gmail.com>
+	<1323082774.2670.40.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<1323360363.2521.30.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49659 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751502Ab1LHRST (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Dec 2011 12:18:19 -0500
-In-Reply-To: <20111207.135015.789061435692305493.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Hagen Paul Pfeifer <hagen-GvnIQ6b/HdU@public.gmane.org>,
+	bloat-devel <bloat-devel-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>,
+	bloat <bloat-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1323360363.2521.30.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 07 Dec 2011 13:50:15 -0500 (EST)
-David Miller <davem@davemloft.net> wrote:
+On Thu, 08 Dec 2011 17:06:03 +0100
+Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
 
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Tue, 06 Dec 2011 15:02:23 -0800
+> Changes against our RED implementation are :
 > 
-> > These three patches address issue of receiving packets when
-> > bridge mac address is modified.
+> max_p is no longer a negative power of two (1/(2^Plog)), but a Q0.32
+> fixed point number, to allow full range described in Adatative paper.
 > 
+> To deliver a random number, we now use a reciprocal divide (thats really
+> a multiply), but this operation is done once per marked/droped packet
+> when in RED_BETWEEN_TRESH window, so added cost (compared to previous
+> AND operation) is near zero.
+> 
+> dump operation gives current max_p value in a new TCA_RED_MAX_P
+> attribute.
+> 
+> Example on a 10Mbit link :
+> 
+> tc qdisc add dev $DEV parent 1:1 handle 10: est 1sec 8sec red \
+>    limit 400000 min 30000 max 90000 avpkt 1000 \
+>    burst 55 ecn adaptative bandwidth 10Mbit
+> 
+> # tc -s -d qdisc show dev eth3
+> ...
+> qdisc red 10: parent 1:1 limit 400000b min 30000b max 90000b ecn
+> adaptative ewma 5 max_p=0.113335 Scell_log 15
+>  Sent 50414282 bytes 34504 pkt (dropped 35, overlimits 1392 requeues 0) 
+>  rate 9749Kbit 831pps backlog 72056b 16p requeues 0 
+>   marked 1357 early 35 pdrop 0 other 0
+> 
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Resent 2 and 3, patch 1 is unchanged.
+Is this backward compatible for users that don't specify
+an adaptive parameter.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
