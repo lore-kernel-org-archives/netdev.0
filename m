@@ -1,45 +1,52 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] sock_diag: off by one checks
-Date: Thu, 8 Dec 2011 09:49:38 +0300
-Message-ID: <20111208064938.GB16735@elgon.mountain>
+From: =?utf-8?Q?Lothar_Wa=C3=9Fmann?= <LW@KARO-electronics.de>
+Subject: Re: [PATCH v2 0/8][NET] fec.c: several cleanups and bugfixes
+Date: Thu, 8 Dec 2011 08:01:01 +0100
+Message-ID: <20192.24749.652755.425707@ipc1.ka-ro>
+References: <cover.1323256319.git.LW@KARO-electronics.de>
+	<20111207.133800.1403774147364781100.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Emelyanov <xemul@parallels.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:38058 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750983Ab1LHGt4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2011 01:49:56 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	shawn.guo@linaro.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111207.133800.1403774147364781100.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-These tests are off by one because sock_diag_handlers[] only has AF_MAX
-elements.
+Hi,
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+David Miller writes:
+> From: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
+> Date: Wed,  7 Dec 2011 14:37:12 +0100
+>=20
+> > The following set of patches provides some cleanup and bugfixes for
+> > drivers/net/ethernet/freescale/fec.c and makes the driver buildable=
+ as
+> > a module.
+>=20
+> 1) I said to use a subject prefix of "fec: " not "fec.c: "
+>=20
+OK.
 
-diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
-index fbaf01c..9c27bcd 100644
---- a/net/core/sock_diag.c
-+++ b/net/core/sock_diag.c
-@@ -32,7 +32,7 @@ int sock_diag_register(struct sock_diag_handler *hndl)
- {
- 	int err = 0;
- 
--	if (hndl->family > AF_MAX)
-+	if (hndl->family >= AF_MAX)
- 		return -EINVAL;
- 
- 	mutex_lock(&sock_diag_table_mutex);
-@@ -50,7 +50,7 @@ void sock_diag_unregister(struct sock_diag_handler *hnld)
- {
- 	int family = hnld->family;
- 
--	if (family > AF_MAX)
-+	if (family >= AF_MAX)
- 		return;
- 
- 	mutex_lock(&sock_diag_table_mutex);
+> 2) You did not integrate Shawn's "Acked-by: " tags, I'm not going to
+>    go sifting through the previous patch postings to collect them up,
+>    that's your job.
+>
+I still got no Ack from Shawn for patches 3 and 5 and only Tested-by
+for patches 6 thru 8. Should I wait for Shawn's Ack for those patches
+too, or should I resent now?
+
+
+Lothar Wa=C3=9Fmann
+--=20
+___________________________________________________________
+
+Ka-Ro electronics GmbH | Pascalstra=C3=9Fe 22 | D - 52076 Aachen
+Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
+Gesch=C3=A4ftsf=C3=BChrer: Matthias Kaussen
+Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
+
+www.karo-electronics.de | info@karo-electronics.de
+___________________________________________________________
