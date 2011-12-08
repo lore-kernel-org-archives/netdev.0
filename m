@@ -1,56 +1,59 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: Re: [PATCH v2 0/8][NET] fec.c: several cleanups and bugfixes
-Date: Thu, 8 Dec 2011 15:05:36 +0800
-Message-ID: <CAAQ0ZWRXu+2h2Qu6pe12e=SsSrt-UxvdtfF7httbAdw8sOUY_A@mail.gmail.com>
-References: <cover.1323256319.git.LW@KARO-electronics.de>
-	<20111207.133800.1403774147364781100.davem@davemloft.net>
-	<20192.24749.652755.425707@ipc1.ka-ro>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: =?ISO-8859-1?Q?Lothar_Wa=DFmann?= <LW@karo-electronics.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20192.24749.652755.425707@ipc1.ka-ro>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH] powerpc: Add TBI PHY node to first MDIO bus
+Date: Thu, 8 Dec 2011 01:23:36 -0600
+Message-ID: <D23C5FF8-F960-486D-9F11-5BCE61D0A9BC@kernel.crashing.org>
+References: <1323287457-6085-1-git-send-email-afleming@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v1251.1)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linuxppc-dev@lists.ozlabs.org>
+To: Andy Fleming <afleming@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:59274 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751410Ab1LHHXe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Dec 2011 02:23:34 -0500
+In-Reply-To: <1323287457-6085-1-git-send-email-afleming@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 8 December 2011 15:01, Lothar Wa=DFmann <LW@karo-electronics.de> wro=
-te:
-> Hi,
->
-> David Miller writes:
->> From: Lothar Wa=DFmann <LW@KARO-electronics.de>
->> Date: Wed, =A07 Dec 2011 14:37:12 +0100
->>
->> > The following set of patches provides some cleanup and bugfixes fo=
-r
->> > drivers/net/ethernet/freescale/fec.c and makes the driver buildabl=
-e as
->> > a module.
->>
->> 1) I said to use a subject prefix of "fec: " not "fec.c: "
->>
-> OK.
 
-To be consistent with existing commits, I would suggest use "net/fec:
-" as the subject prefix.
+On Dec 7, 2011, at 1:50 PM, Andy Fleming wrote:
 
->
->> 2) You did not integrate Shawn's "Acked-by: " tags, I'm not going to
->> =A0 =A0go sifting through the previous patch postings to collect the=
-m up,
->> =A0 =A0that's your job.
->>
-> I still got no Ack from Shawn for patches 3 and 5 and only Tested-by
-> for patches 6 thru 8. Should I wait for Shawn's Ack for those patches
-> too, or should I resent now?
->
-=46or the whole series,
+> Systems which use the fsl_pq_mdio driver need to specify an
+> address for TBI PHY transactions such that the address does
+> not conflict with any PHYs on the bus (all transactions to
+> that address are directed to the onboard TBI PHY). The driver
+> used to scan for a free address if no address was specified,
+> however this ran into issues when the PHY Lib was fixed so
+> that all MDIO transactions were protected by a mutex. As it
+> is, the code was meant to serve as a transitional tool until
+> the device trees were all updated to specify the TBI address.
+> 
+> The best fix for the mutex issue was to remove the scanning code,
+> but it turns out some of the newer SoCs have started to omit
+> the tbi-phy node when SGMII is not being used. As such, these
+> devices will now fail unless we add a tbi-phy node to the first
+> mdio controller.
+> 
+> Signed-off-by: Andy Fleming <afleming@freescale.com>
+> ---
+> 
+> This requires fsl_pq_mdio: Clean up tbi address configuration from
+> the net tree in order to achieve its full effect.
+> 
+> This needs to go into 3.2.
+> 
+> arch/powerpc/boot/dts/p1010rdb.dts            |    5 +++++
+> arch/powerpc/boot/dts/p1020rdb.dts            |    5 +++++
+> arch/powerpc/boot/dts/p1020rdb_camp_core0.dts |    5 +++++
+> arch/powerpc/boot/dts/p1021mds.dts            |    4 ++++
+> arch/powerpc/boot/dts/p1022ds.dts             |    4 ++++
+> arch/powerpc/boot/dts/p2020rdb.dts            |    8 ++++++--
+> arch/powerpc/boot/dts/p2020rdb_camp_core0.dts |    4 ++++
+> 7 files changed, 33 insertions(+), 2 deletions(-)
 
-Acked-by: Shawn Guo <shawn.guo@linaro.org>
+applied to merge
 
---=20
-Regards,
-Shawn
+- k
