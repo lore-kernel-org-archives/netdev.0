@@ -1,61 +1,53 @@
-From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next] sch_red: Adaptative RED AQM
-Date: Thu, 8 Dec 2011 09:21:30 -0800
-Message-ID: <20111208092130.656c39ff@nehalam.linuxnetplumber.net>
-References: <CAA93jw7kQYONQiAozatRmdRRJeK0GB9eNDWtRZ3AL+OVKn0OpA@mail.gmail.com>
-	<1323082774.2670.40.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1323360363.2521.30.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: BCM43224 hanging [3.2.0-rc4-00248-gb835c0f]
+Date: Thu, 8 Dec 2011 18:34:03 +0100
+Message-ID: <4EE0F50B.5040407@broadcom.com>
+References: <20111201224851.GB20536@ethz.ch>
+ <4ED8B610.2010703@broadcom.com> <20111202150128.GC3096@schottelius.org>
+ <20111207190821.GA1775@schottelius.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+ charset=iso-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Hagen Paul Pfeifer <hagen-GvnIQ6b/HdU@public.gmane.org>,
-	bloat-devel <bloat-devel-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>,
-	bloat <bloat-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1323360363.2521.30.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Nico Schottelius" <nico-linux-20111201@schottelius.org>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	b43-dev@lists.infradead.org, "Greg KH" <gregkh@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111207190821.GA1775@schottelius.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 08 Dec 2011 17:06:03 +0100
-Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+On 12/07/2011 08:08 PM, Nico Schottelius wrote:
+> Update:
+> 
+> The hang situation always happens, when the nic does *not* have
+> a connection. And it still covers all network processes (i.e.
+> including sudo, wpa_supplicant, postfix, etc.).
+> 
+> Starting up the computer, having wpa_supplicant connect successfully,
+> everything works fine.
+> 
+> Until the connection is lost or I issue "select_network 4", which
+> changes to another network.
+> 
+> The problem also exists, if I startup wpa_supplicant and there
+> is no network connection available.
+> 
+> Verified that this bug exists in my pathced 3.1.0-rc6-g443452b
+> as well as in 3.2.0-rc4-00248-gb835c0f.
+> 
+> This is rather nasty, because it forces me to reboot as soon as
+> I've started up wlan by accident.
+> 
+> Is there a workaround available somewhere (besides using USB-LAN)?
+> 
+> Attached are output of 3.1.0-rc6-g443452b, which is the same for
+> all failing versions.
+> 
+> Cheers,
+> 
+> Nico
 
-> Changes against our RED implementation are :
-> 
-> max_p is no longer a negative power of two (1/(2^Plog)), but a Q0.32
-> fixed point number, to allow full range described in Adatative paper.
-> 
-> To deliver a random number, we now use a reciprocal divide (thats really
-> a multiply), but this operation is done once per marked/droped packet
-> when in RED_BETWEEN_TRESH window, so added cost (compared to previous
-> AND operation) is near zero.
-> 
-> dump operation gives current max_p value in a new TCA_RED_MAX_P
-> attribute.
-> 
-> Example on a 10Mbit link :
-> 
-> tc qdisc add dev $DEV parent 1:1 handle 10: est 1sec 8sec red \
->    limit 400000 min 30000 max 90000 avpkt 1000 \
->    burst 55 ecn adaptative bandwidth 10Mbit
-> 
-> # tc -s -d qdisc show dev eth3
-> ...
-> qdisc red 10: parent 1:1 limit 400000b min 30000b max 90000b ecn
-> adaptative ewma 5 max_p=0.113335 Scell_log 15
->  Sent 50414282 bytes 34504 pkt (dropped 35, overlimits 1392 requeues 0) 
->  rate 9749Kbit 831pps backlog 72056b 16p requeues 0 
->   marked 1357 early 35 pdrop 0 other 0
-> 
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Could you try and see what happens when you kill wpa_supplicant.
 
-Is this backward compatible for users that don't specify
-an adaptive parameter.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Gr. AvS
