@@ -1,52 +1,92 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] add netpoll support for 802.1q vlans
-Date: Thu, 08 Dec 2011 11:50:55 -0500 (EST)
-Message-ID: <20111208.115055.193423469660678623.davem@davemloft.net>
-References: <20111207010424.GA16496@kvack.org>
-	<20111208.000730.63159506168958262.davem@davemloft.net>
-	<20111208153558.GE30652@kvack.org>
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Subject: Re: More understanding HFSC
+Date: Thu, 08 Dec 2011 13:08:25 -0500 (EST)
+Message-ID: <14087bf5-cf58-4c28-a8ad-f35f59810cc5@jasiiieee>
+References: <1322979139.3347.147.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: bcrl@kvack.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60084 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751158Ab1LHQu7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2011 11:50:59 -0500
-In-Reply-To: <20111208153558.GE30652@kvack.org>
+Received: from mout.perfora.net ([74.208.4.194]:60592 "EHLO mout.perfora.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751340Ab1LHRIC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Dec 2011 12:08:02 -0500
+In-Reply-To: <1322979139.3347.147.camel@denise.theartistscloset.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin LaHaise <bcrl@kvack.org>
-Date: Thu, 8 Dec 2011 10:35:58 -0500
 
-> On Thu, Dec 08, 2011 at 12:07:30AM -0500, David Miller wrote:
->> From: Benjamin LaHaise <bcrl@kvack.org>
->> Date: Tue, 6 Dec 2011 20:04:24 -0500
->> 
->> > Add netpoll support to 802.1q vlan devices.  Based on the netpoll support 
->> > in the bridging code.  Tested on a forced_eth device with netconsole.
->> > 
->> > Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
->> 
->> Bridging doesn't try to invoke a downstream netpoll operation at all,
->> and neither should you.
-> 
-> Please have a look at net/bridge/br_device.c:br_netpoll_setup() which is 
-> where the approach came from.
 
-I did and I'm not talking about that part, I'm talking about the
-part where you invoke the downstream device's netpoll operation.
+----- Original Message -----
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+To: netdev@vger.kernel.org
+Sent: Sunday, December 4, 2011 1:12:19 AM
+Subject: More understanding HFSC
 
-Did you even read my entire sentence, or did you just let the
-knee jerk reaction set in before you got to the end?
+<snip>
 
-> Getting netconsole over vlans working is a requirement for those of us 
+A great thanks to all those who took a great deal of time to help me understand HFSC.  It was particularly helpful to gain a better understanding of the relationship between fit time, virtual time, eligible time, and deadline time.  I would still like to make sure I've got it in a practical way.  If any one does have the time to see if the below illustration is valid, I'd appreciate it.  And I also appreciate that no one may have that time :)  Thanks again - John
 
-What does this have to do with anything?  I never made any even remote
-argument that this change wasn't useful.  I said only that you
-implemented it incorrectly.
+If I've got that right, does the following illustration hold:
+Let's assume we have a T1 at 1.544 Mbps (if I've remembered that
+correctly).  So we create the highest level child class with a ul of 1.5
+Mbps to keep it slightly under the link speed to ensure we do not trip
+QoS on the upstream router.  Hmm . . . I suppose that principle would
+not hold true in a shared environment like cable or DSL.  In any event,
+I think that means 1536kbits in tc-speak.
 
-Take a deep breath and just implement the patch correctly.
+We then create five child classes named Interactive, VoIP, Video, Web,
+and Bulk with the following characteristics and settings:
+
+Bulk is basically everything that has no latency sensitivity and can
+tolerate dropped packets.  We assign it rt=100kbits just to keep it from
+being starved when other classes are highly active but we'd like it to
+access excess bandwidth a little more aggressively so we set
+ls=300kbits.  Does this seem reasonable?
+
+Interactive must nowadays include VDI so it is no longer small ssh or
+telnet packets.  It needs to accommodate full sized Ethernet packets in
+order to transfer screens with a minimum of latency.  It is moderately
+latency sensitive and cannot tolerate dropped packets.  We want
+this router to add no more than 30ms to any interactive session.  Thus
+we define it with:
+rt umax 1514b dmax 30ms rate 300kbits ls rate 500kbits
+We defined ls because we want this type of traffic to aggressively
+acquire excess bandwidth if we need more than we have guaranteed.
+1514b/30ms~=400kbits so we have a concave service curve.
+
+VoIP is very latency sensitive and cannot tolerate drops.  We want to
+add no more than 10ms latency to the traffic flow.  We are figuring that
+ulaw/alaw will produce the largest packets at 234b so we define it as:
+rt umax 234b dmax 10ms rate 200kbits ls rate 500kbits
+234b/10ms~=203kbits so we have a slightly concave service curve.  This
+raises an interesting question.  What if we had set dmax to 20 ms? This
+would have given us a convex service curve where m1 != 0.  Is that
+illegal? I thought the specification said any convex curves must have m1
+= 0.  If it is illegal and we did this by accident, what would happen?
+
+Video is always a problem :) We need to guarantee a large amount of
+bandwidth but we also do not want to be eaten alive by video.  We
+characterize it as very latency sensitive but we would rather tolerate
+drops than queueing and unwanted latency.  Hmm . . . is queue depth
+induced latency even an issue with HFSC?
+In any event, we want to introduce no more than 10ms latency.  The
+typical frame size is 16Kb and there is no difference between the rt and
+ls rate so we define the class with:
+sc umax 16kbits dmax 10ms rate 400kbits
+Interestingly, m1 (1.6Mbps) exceeds ul.  As asked previously, is this a
+problem?
+
+Web follows the example cited in my previous email.  We want the text
+and css of the served web pages to load quickly.  Larger, non-text data
+can take a back seat.  We will guess that the average text is 10KB and
+we want to introduce no more than 200ms to start loading the page text.
+We thus define it as:
+rt umax 80kbits dmax 200ms rate 200kbits ls 400 kbits
+
+Is this setup reasonable, practical, and reflecting a proper
+understanding of HFSC or have I missed the boat entirely and need to go
+to the back of the class? Thanks to anyone who has taken the time to
+read this novel :) - John
+
