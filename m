@@ -1,35 +1,45 @@
-From: Shan Wei <shanwei88@gmail.com>
-Subject: Re: [Patch V2 ] net: doc: cleanup Documentation/networking/scaling.txt
-Date: Thu, 08 Dec 2011 13:32:29 +0800
-Message-ID: <4EE04BED.3000103@gmail.com>
-References: <4EDF77A9.4040808@gmail.com>  <20111207.134055.2237590951177376531.davem@davemloft.net>  <4EE01B0B.2050900@gmail.com> <1323316878.18450.60.camel@deadeye>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] sock_diag: off by one checks
+Date: Thu, 8 Dec 2011 09:49:38 +0300
+Message-ID: <20111208064938.GB16735@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, rdunlap@xenotime.net,
-	willemb@google.com, benjamin.poirier@gmail.com,
-	therbert@google.com, linux-doc@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1323316878.18450.60.camel@deadeye>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Pavel Emelyanov <xemul@parallels.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet15.oracle.com ([148.87.113.117]:38058 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750983Ab1LHGt4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2011 01:49:56 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings said, at 2011/12/8 12:01:
+These tests are off by one because sock_diag_handlers[] only has AF_MAX
+elements.
 
-> UTF-8 is the standard character encoding under Linux and those quotes
-> will be displayed correctly on most Linux terminals today.  If you must
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-> set your terminal to some other encoding you can use e.g.:
-
-> 
->     recode UTF-8 < Documentation/networking/scaling.txt | less
-
-
-Thanks for your suggestion, i will set terminal with UTF-8.
-And resubmit new version patch that only fixes typos.
-
---
-Best Regards
-Shan Wei
+diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
+index fbaf01c..9c27bcd 100644
+--- a/net/core/sock_diag.c
++++ b/net/core/sock_diag.c
+@@ -32,7 +32,7 @@ int sock_diag_register(struct sock_diag_handler *hndl)
+ {
+ 	int err = 0;
+ 
+-	if (hndl->family > AF_MAX)
++	if (hndl->family >= AF_MAX)
+ 		return -EINVAL;
+ 
+ 	mutex_lock(&sock_diag_table_mutex);
+@@ -50,7 +50,7 @@ void sock_diag_unregister(struct sock_diag_handler *hnld)
+ {
+ 	int family = hnld->family;
+ 
+-	if (family > AF_MAX)
++	if (family >= AF_MAX)
+ 		return;
+ 
+ 	mutex_lock(&sock_diag_table_mutex);
