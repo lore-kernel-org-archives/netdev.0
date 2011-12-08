@@ -1,87 +1,52 @@
-From: Arvid Brodin <arvid.brodin@enea.com>
-Subject: Re: bridge: HSR support
-Date: Thu, 8 Dec 2011 15:45:37 +0100
-Message-ID: <4EE0CD91.2070804@enea.com>
-References: <4E948A04.8060400@enea.com> <20111011112821.28cd3e51@nehalam.linuxnetplumber.net> <4E94D67A.9060207@enea.com> <4EA5738B.8080008@enea.com> <4EAACB7A.4090207@enea.com> <20111028175421.339b7c49@s6510.linuxnetplumber.net> <4EDEA3E9.3070004@enea.com> <20111206152745.7dd6bc1c@nehalam.linuxnetplumber.net> <4EDFB0BD.60701@enea.com> <14653.1323287989@death>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: [PATCH] add netpoll support for 802.1q vlans
+Date: Thu, 8 Dec 2011 10:35:58 -0500
+Message-ID: <20111208153558.GE30652@kvack.org>
+References: <20111207010424.GA16496@kvack.org> <20111208.000730.63159506168958262.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sestofw01.enea.se ([192.36.1.252]:13144 "HELO mx-3.enea.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751551Ab1LHOpr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Dec 2011 09:45:47 -0500
-In-Reply-To: <14653.1323287989@death>
+Received: from kanga.kvack.org ([205.233.56.17]:40550 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750972Ab1LHPf7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Dec 2011 10:35:59 -0500
+Content-Disposition: inline
+In-Reply-To: <20111208.000730.63159506168958262.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay Vosburgh wrote:
-> Arvid Brodin <arvid.brodin@enea.com> wrote:
->> * I don't know the meaning of the IFF_SLAVE flag. It's referenced all over the place
->>  (core, vlan, bonding, ipv6, eql). Do I need to/want to set this?
+On Thu, Dec 08, 2011 at 12:07:30AM -0500, David Miller wrote:
+> From: Benjamin LaHaise <bcrl@kvack.org>
+> Date: Tue, 6 Dec 2011 20:04:24 -0500
 > 
-> 	Only if you actually need to for some reason.  There are a few
-> tests that make actual use of IFF_SLAVE, e.g., IPv6 won't run addrconf
-> on an interface with IFF_SLAVE set (which prevents bonding slaves from
-> having an IPv6 address distinct from the master).  Netpoll also treats
-> interfaces with IFF_SLAVE in a special way.  Bonding uses it internally
-> for various tests.
+> > Add netpoll support to 802.1q vlan devices.  Based on the netpoll support 
+> > in the bridging code.  Tested on a forced_eth device with netconsole.
+> > 
+> > Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
 > 
->> * I don't know the effects of setting dev->master. Do I need/want this?
-> 
-> 	Maybe.  One effect of netdev_set_master is that a reference is
-> acquired on the master, on behalf of the slave, so the master cannot
-> simply vanish until the slave releases that reference.  This predates
-> the notifier facility, and careful use of notifiers (handling
-> NETDEV_UNREGISTER) can get around the need for dev->master, but, e.g.,
-> vlan still acquires a reference to the real_dev without using
-> dev->master.
-> 
-> 	It used to be that dev->master was used in netif_receive_skb for
-> packet handling purposes (for bonding, mostly; bridge and I think
-> macvlan had separate hooks).  That special sauce is now done by the
-> rx_handler, so there's really no requirement to use dev->master if you
-> have no need.
-> 
->> * I don't want to forward all ingress frames on the slave devices to my master
->>  device; I only want the ones with protocol 0x88FB to be forwarded (other
->>  frames should be received by the slaves as normal). I think I already have this
->>  covered by registering a protocol handler (using dev_add_pack(packet_type)).
->>  So perhaps calling netdev_rx_handler_register() is not necessary in my case?
-> 
-> 	You may want to use the rx_handler, and have it set skb->dev
-> appropriately for the frames that should forward to the master, and
-> leave skb->dev alone for the ones that should stick with the slave.
-> Both of those need the appropriate return from the rx_handler, which is
-> documented in netdevice.h.
-> 
-> 	I'm not sure that you need a dev_add_pack at all; bonding
-> doesn't use one anymore, since everything it needs can now be done via
-> rx_handler.  The dev_add_pack approach may work, but rx_handler is
-> probably more efficient.
-> 
->> * As far as I can see, neither bridging nor bonding is handled by the ip program
->>  (iproute2 suite)? I.e. no examples of binding more than one interface to a
->>  virtual interface when it comes to which messages to send, etc. VLAN uses
->>  IFLA_IFNAME (name of the vlan link), IFLA_LINK (physical link behind the vlan
->>  link), and some IFLA_VLAN-specific messages.
-> 
-> 	In current versions of iproute, something like "ip link set
-> device eth0 master bond0" would add a slave to a bond.  You are correct,
-> though, that ip does not permit changing the bonding options, and I
-> don't believe it will create new master devices, either, so the bonding
-> support is limited.
-> 
-> 	-J
-> 
-> ---
-> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-> 
+> Bridging doesn't try to invoke a downstream netpoll operation at all,
+> and neither should you.
 
-Lots of great info there, many thanks!
+Please have a look at net/bridge/br_device.c:br_netpoll_setup() which is 
+where the approach came from.
 
+Getting netconsole over vlans working is a requirement for those of us 
+with machines plugged into ethernet switches that can't mix tagged and 
+untagged packets on their ethernet ports.  I bumped into this while 
+trying to capture a kernel crash on such a machine which doesn't have any 
+external serial ports to use either.
+
+> Also, please format your subject line correctly so I don't have to edit
+> it when applying your patch.  You need to add an appropriate, lowercase,
+> subsystem prefix after the [PATCH] tag otherwise people scanning the
+> shortlog in GIT can't figure out what area your patch is in.
+> 
+> In this situation "vlan: " might be appropriate.
+
+Sorry about that oversight, I'll try to remember for the future.
+
+		-ben
 -- 
-Arvid Brodin
-Enea Services Stockholm AB
+"Thought is the essence of where you are now."
