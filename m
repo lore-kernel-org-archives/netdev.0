@@ -1,60 +1,48 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH] be2net: netpoll support
-Date: Thu,  8 Dec 2011 12:31:21 +0100
-Message-ID: <1323343881-7864-1-git-send-email-ivecera@redhat.com>
-Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
-	ajit.khaparde@emulex.com
-To: netdev@vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [net-next PATCH] net: netprio_cgroup: make net_prio_subsys static
+Date: Thu, 8 Dec 2011 06:45:55 -0500
+Message-ID: <20111208114555.GA1246@hmsreliant.think-freely.org>
+References: <20111208051717.20236.41881.stgit@jf-dev1-dcblab>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39884 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750715Ab1LHLbZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Dec 2011 06:31:25 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42739 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750798Ab1LHLqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2011 06:46:16 -0500
+Content-Disposition: inline
+In-Reply-To: <20111208051717.20236.41881.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add missing netpoll support.
+On Wed, Dec 07, 2011 at 09:17:17PM -0800, John Fastabend wrote:
+> net_prio_subsys can be made static this removes the sparse
+> warning it was throwing.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+> 
+>  net/core/netprio_cgroup.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+> index 3a9fd48..ea16c8f 100644
+> --- a/net/core/netprio_cgroup.c
+> +++ b/net/core/netprio_cgroup.c
+> @@ -28,7 +28,7 @@ static struct cgroup_subsys_state *cgrp_create(struct cgroup_subsys *ss,
+>  static void cgrp_destroy(struct cgroup_subsys *ss, struct cgroup *cgrp);
+>  static int cgrp_populate(struct cgroup_subsys *ss, struct cgroup *cgrp);
+>  
+> -struct cgroup_subsys net_prio_subsys = {
+> +static struct cgroup_subsys net_prio_subsys = {
+>  	.name		= "net_prio",
+>  	.create		= cgrp_create,
+>  	.destroy	= cgrp_destroy,
+> 
+> 
 
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c |   18 +++++++++++++++++-
- 1 files changed, 17 insertions(+), 1 deletions(-)
+Thanks John.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 7236280..3854fb0 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2666,6 +2666,19 @@ err:
- 	return status;
- }
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+static void be_netpoll(struct net_device *netdev)
-+{
-+	struct be_adapter *adapter = netdev_priv(netdev);
-+	struct be_rx_obj *rxo;
-+	int i;
-+
-+	event_handle(adapter, &adapter->tx_eq, false);
-+	for_all_rx_queues(adapter, rxo, i)
-+		event_handle(adapter, &rxo->rx_eq, true);
-+}
-+#endif
-+
- #define FW_FILE_HDR_SIGN 	"ServerEngines Corp. "
- static bool be_flash_redboot(struct be_adapter *adapter,
- 			const u8 *p, u32 img_start, int image_size,
-@@ -3014,7 +3027,10 @@ static struct net_device_ops be_netdev_ops = {
- 	.ndo_set_vf_mac		= be_set_vf_mac,
- 	.ndo_set_vf_vlan	= be_set_vf_vlan,
- 	.ndo_set_vf_tx_rate	= be_set_vf_tx_rate,
--	.ndo_get_vf_config	= be_get_vf_config
-+	.ndo_get_vf_config	= be_get_vf_config,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller	= be_netpoll,
-+#endif
- };
- 
- static void be_netdev_init(struct net_device *netdev)
--- 
-1.7.3.4
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
