@@ -1,76 +1,76 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH 1/4] SUNRPC: use passed network namespace context in
- rpc_parse_scope_id()
-Date: Thu, 8 Dec 2011 15:47:49 -0500
-Message-ID: <20111208204749.GC32505@fieldses.org>
-References: <20111207111716.17273.63010.stgit@localhost6.localdomain6>
- <20111207112016.17273.44510.stgit@localhost6.localdomain6>
+From: Greg KH <greg@kroah.com>
+Subject: Re: 3.0.8 kernel : NULL ptr deref in skb_queue_purge()
+Date: Thu, 8 Dec 2011 13:35:27 -0800
+Message-ID: <20111208213527.GA20721@kroah.com>
+References: <CANEJEGtJ3UmFNyui_SaZ6NF5FFVjZ+_UBg1RC2eif5Lu1YKDsQ@mail.gmail.com>
+ <20111208180208.GA16883@kroah.com>
+ <CANEJEGvNePLb9KcMO-sGSN81y6mb_zaHHQVujSbJXcCwh3Xcmw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond.Myklebust@netapp.com, linux-nfs@vger.kernel.org,
-	xemul@parallels.com, neilb@suse.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jbottomley@parallels.com,
-	davem@davemloft.net, devel@openvz.org
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: Grant Grundler <grundler@chromium.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fieldses.org ([174.143.236.118]:45134 "EHLO fieldses.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751636Ab1LHUrx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Dec 2011 15:47:53 -0500
+Received: from out2.smtp.messagingengine.com ([66.111.4.26]:36107 "EHLO
+	out2.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752103Ab1LHVny (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2011 16:43:54 -0500
+Received: from compute1.internal (compute1.nyi.mail.srv.osa [10.202.2.41])
+	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id 35E0D209CB
+	for <netdev@vger.kernel.org>; Thu,  8 Dec 2011 16:43:54 -0500 (EST)
 Content-Disposition: inline
-In-Reply-To: <20111207112016.17273.44510.stgit@localhost6.localdomain6>
+In-Reply-To: <CANEJEGvNePLb9KcMO-sGSN81y6mb_zaHHQVujSbJXcCwh3Xcmw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 07, 2011 at 03:20:16PM +0300, Stanislav Kinsbursky wrote:
-> Use incomming network context in rpc_parse_scope_id() instead of hard-coded
+On Thu, Dec 08, 2011 at 11:04:48AM -0800, Grant Grundler wrote:
+> On Thu, Dec 8, 2011 at 10:02 AM, Greg KH <greg@kroah.com> wrote:
+> > On Wed, Dec 07, 2011 at 02:40:49PM -0800, Grant Grundler wrote:
+> >> Hi,
+> >> I'm testing asix (USB 100BT ethernet adapter with AX88772) driver
+> >> initialization (and shut down) paths and reproduced a
+> >> "skb_queue_purge" panic 3 times after a few hundred/thousand
+> >> iterations of rmmod/modprobe. I'm inclined to believe
+> >> skb_queue_purge() is a victim and not a culprit here.
+> >>
+> >> =A0I don't know if all 3 "spontaneous reboots" I've seen have the =
+same
+> >> stack trace as the one I have a record for:
+> >
+> > Have you tried this on 3.1, and especially, 3.2-rc?
+>=20
+> Hi Greg,
+> I haven't tried any thing later yet.  I would consider it if someone
+> could point at a change(s) that might be relevant to the symptom.
+>=20
+>=20
+> > =A0A number of asix
+> > patches have gone into the 3.2-rc series, perhaps they might have
+> > resolved this problem already?
+>=20
+> I'm the one who submitted those changes. :)
 
-Changelogs are a little confusing; I might have said "allow
-rpc_parse_cope_id() caller to pass in network context instead of using
-hard-code "init_net"."
+Heh, oops, sorry about that :)
 
---b.
+> asix.c driver I'm testing was pulled directly from davem's net-next
+> tree and I believe that's what is in 3.2-rc series now.
+>=20
+> Those changes only relate to AX88772 and AX88178 bind and reset code.
+> suspend/resume support is unchanged  - though I suspect ax*_reset
+> functions get called in resume.
+>=20
+> It's possible this code path in asix.c has *always* been broken. I se=
+e
+> two drivesr/net/usbnet USB drivers that do this:
+>=20
+> drivers/net/usb/cdc_ether.c  614 .reset_resume =3D usbnet_resume,
+> drivers/net/usb/cdc_ncm.c  1193 .reset_resume =3D usbnet_resume,
+>=20
+> Even though most usbnet drivers don't,  I'm tempted to add this code
+> and "just try it":
 
-> "init_net".
-> 
-> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
-> 
-> ---
->  net/sunrpc/addr.c |    9 +++++----
->  1 files changed, 5 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/sunrpc/addr.c b/net/sunrpc/addr.c
-> index 67a655e..35eb188 100644
-> --- a/net/sunrpc/addr.c
-> +++ b/net/sunrpc/addr.c
-> @@ -156,8 +156,9 @@ static size_t rpc_pton4(const char *buf, const size_t buflen,
->  }
->  
->  #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-> -static int rpc_parse_scope_id(const char *buf, const size_t buflen,
-> -			      const char *delim, struct sockaddr_in6 *sin6)
-> +static int rpc_parse_scope_id(struct net *net, const char *buf,
-> +			      const size_t buflen, const char *delim,
-> +			      struct sockaddr_in6 *sin6)
->  {
->  	char *p;
->  	size_t len;
-> @@ -177,7 +178,7 @@ static int rpc_parse_scope_id(const char *buf, const size_t buflen,
->  		unsigned long scope_id = 0;
->  		struct net_device *dev;
->  
-> -		dev = dev_get_by_name(&init_net, p);
-> +		dev = dev_get_by_name(net, p);
->  		if (dev != NULL) {
->  			scope_id = dev->ifindex;
->  			dev_put(dev);
-> @@ -213,7 +214,7 @@ static size_t rpc_pton6(const char *buf, const size_t buflen,
->  	if (in6_pton(buf, buflen, addr, IPV6_SCOPE_DELIMITER, &delim) == 0)
->  		return 0;
->  
-> -	if (!rpc_parse_scope_id(buf, buflen, delim, sin6))
-> +	if (!rpc_parse_scope_id(&init_net, buf, buflen, delim, sin6))
->  		return 0;
->  
->  	sin6->sin6_family = AF_INET6;
-> 
+Let us know if that works or not.
+
+thanks,
+
+greg k-h
