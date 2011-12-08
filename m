@@ -1,43 +1,42 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] IPVS: Modify the SH scheduler to use weights
-Date: Thu, 8 Dec 2011 10:11:09 +0900
-Message-ID: <20111208011108.GL4586@verge.net.au>
-References: <1323245223-13646-1-git-send-email-horms@verge.net.au>
- <1323245223-13646-2-git-send-email-horms@verge.net.au>
- <20111207113038.GA18166@1984>
- <CAOgH2dsHepr7Dyx7pNOutFNRh5SoO-oC9mx1MLm6Ncai8Ma3rQ@mail.gmail.com>
- <20111208004008.GD4586@verge.net.au>
+From: "China Steel Corporation (CSC)" <nonreply@chinasteel.com>
+Subject: Urgent Part-Time Workers Needed (Position: FINANACIAL COORDINATOR  IN CANADA FOR CHINA STEEL COMPANY)
+Date: Wed, 07 Dec 2011 17:13:43 -0800
+Message-ID: <bc1b49d5760ae5553f2bde24dfbf26c5@pszczyna.edu.pl>
+Reply-To: <chinasteelcorporationfirm@w.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Mike Maxim <mike@okcupid.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20111208004008.GD4586@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dys117.internetdsl.tpnet.pl ([83.14.70.117]:35500 "EHLO
+	zsshosting.pszczyna.edu.pl" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757149Ab1LHBST (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2011 20:18:19 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 08, 2011 at 09:40:09AM +0900, Simon Horman wrote:
-> On Wed, Dec 07, 2011 at 10:24:09AM -0500, Mike Maxim wrote:
-> > The reason I put that in is because the size of that table becomes
-> > more relevant/important if you decide to use the weights in the manner
-> > the patch lets you. It would be conceivable that someone might need to
-> > increase the size of that table to accommodate their configuration, so
-> > I thought it would be handy to be able to do that through the regular
-> > configuration system instead of editing the source.
-> 
-> Hi Mike,
-> 
-> I agree, but I think its also reasonable to consider IP_VS_SH_TAB_BITS as
-> a separate change.
-> 
-> Could you
-> 
-> 1. Split the patch into a Kconfig patch and a ip_vs_sh.c patch
-> 2. Remove spurious line additions from the resulting patches?
 
-Scratch that, please follow Pablo's request.
+
+-- 
+Hello:
+
+This is to inform you that our company China Steel Corporation (CSC) 
+are
+in urgent need for a financial coordinator in your region and this is a
+part time job and it pays very well.
+
+If you are interested kindly get back to us on :
+chinasteelcorporationfirm@w.cn with the details below for more 
+information
+to resume with us.
+
+1. Full Names:
+2. Full Address: (Including city, state and zip code)
+3. Telephone:
+4. Occupation:
+
+Thanks for your interest.
+Thank You,
+Sincerely Yours,
+Chang
