@@ -1,18 +1,71 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: policing actions pipe and ok
-Date: Thu, 08 Dec 2011 17:14:56 -0500
-Message-ID: <1323382496.3159.1.camel@denise.theartistscloset.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 4/6] tg3: Track LP advertising
+Date: Thu, 8 Dec 2011 23:06:05 +0000
+Message-ID: <1323385565.3094.3.camel@bwh-desktop>
+References: <1323381002-31565-5-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Matt Carlson <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.194]:61380 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751490Ab1LHWPL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Dec 2011 17:15:11 -0500
+Received: from exchange.solarflare.com ([216.237.3.220]:30835 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751818Ab1LHXGM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2011 18:06:12 -0500
+In-Reply-To: <1323381002-31565-5-git-send-email-mcarlson@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, all.  I'm having trouble finding documentation on the tc filter
-policing actions pipe and ok.  What exactly do they do? Thanks - John
+On Thu, 2011-12-08 at 13:50 -0800, Matt Carlson wrote:
+> This patch adds code to track the autonegotiation advertisements of the
+> link partner and report them through ethtool.
+> 
+> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> Reviewed-by: Michael Chan <mchan@broadcom.com>
+> ---
+>  drivers/net/ethernet/broadcom/tg3.c |   41 ++++++++++++++++++++++++++++++++--
+>  drivers/net/ethernet/broadcom/tg3.h |    1 +
+>  2 files changed, 39 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> index d1681db..ae1e838 100644
+> --- a/drivers/net/ethernet/broadcom/tg3.c
+> +++ b/drivers/net/ethernet/broadcom/tg3.c
+> @@ -3803,6 +3803,29 @@ static bool tg3_phy_copper_an_config_ok(struct tg3 *tp, u32 *lcladv)
+>  	return true;
+>  }
+>  
+> +static bool tg3_phy_copper_fetch_rmtadv(struct tg3 *tp, u32 *rmtadv)
+> +{
+> +	u32 val, lpeth = 0;
+> +
+> +	if (!(tp->phy_flags & TG3_PHYFLG_10_100_ONLY)) {
+> +		if (tg3_readphy(tp, MII_STAT1000, &val))
+> +			return false;
+> +
+> +		lpeth = mii_stat1000_to_ethtool_lpa_t(val);
+> +	}
+> +
+> +	if (tg3_readphy(tp, MII_LPA, &val))
+> +		return false;
+> +
+> +	lpeth |= mii_lpa_to_ethtool_lpa_t(val);
+> +	tp->link_config.rmt_adv = lpeth;
+> +
+> +	if (tg3_flag(tp, PAUSE_AUTONEG))
+> +		*rmtadv = val;
+
+I assume that the caller only needs this information if pause autoneg is
+enabled, but it's still very strange to put the condition here.
+
+Ben.
+
+> +	return true;
+> +}
+[...]
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
