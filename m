@@ -1,56 +1,61 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: kernel 3.1.1 message:  <IRQ> warn_alloc_failed
-Date: Fri, 9 Dec 2011 09:50:14 -0800
-Message-ID: <20111209095014.14a647cd@nehalam.linuxnetplumber.net>
-References: <6.2.5.6.2.20111208210303.03a06228@flumedata.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: pulling net-netx git tree
+Date: Fri, 09 Dec 2011 18:55:27 +0100
+Message-ID: <1323453327.4016.0.camel@edumazet-laptop>
+References: <CAGXs5wXc-dFs8uJXUpNpYUMs_rSwXV_r4zfWPSzkLPf0qxV-rw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: starlight@binnacle.cx, Sony Chacko <sony.chacko@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6.2.5.6.2.20111208210303.03a06228@flumedata.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Kevin Wilson <wkevils@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:48242 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751156Ab1LIRzb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2011 12:55:31 -0500
+Received: by bkbzv3 with SMTP id zv3so3151540bkb.19
+        for <netdev@vger.kernel.org>; Fri, 09 Dec 2011 09:55:30 -0800 (PST)
+In-Reply-To: <CAGXs5wXc-dFs8uJXUpNpYUMs_rSwXV_r4zfWPSzkLPf0qxV-rw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 08 Dec 2011 21:10:02 -0500
-starlight@binnacle.cx wrote:
+Le vendredi 09 d=C3=A9cembre 2011 =C3=A0 19:42 +0200, Kevin Wilson a =C3=
+=A9crit :
+> Hi,
+>   I am trying to update my net-next tree, and I get
+> git pull
+>=20
+> Already up-to-date.
+>=20
+> git log
+> shows:
+>=20
+> commit 88c5100c28b02c4b2b2c6f6fafbbd76d90f698b9
+> Merge: 8083f0f 3ee72ca
+> Author: David S. Miller <davem@davemloft.net>
+> Date:   Fri Oct 7 13:38:43 2011 -0400
+>=20
+>     Merge branch 'master' of github.com:davem330/net
+>=20
+> ...
+> ...
+>=20
+> commit 8083f0fc969d9b5353061a7a6f963405057e26b1
+> Author: Johannes Berg <johannes.berg@intel.com>
+> Date:   Fri Oct 7 03:30:20 2011 +0000
+>=20
+> ...
+> ...
+>=20
+>=20
+> more .git/config
+> shows
+> url =3D https://github.com/davem330/net-next.git
+>=20
+>=20
+> should I change this url ?  and if so - to what ?
+>=20
 
-> Hello.
-> 
-> FYI saw several of these when running
-> multiple 'rcp' commands copying multi-gigabyte
-> files to/from system.
-> 
-> 'rcp' target files were all on an encrypted
-> mirrored USB3-attached pair of 3TB hard
-> drives.
-> 
-> One outgoing 'rcp' was to a system with
-> a much slower disk (due to a USB2 attachment)
-> and that transfer was putting back-pressure
-> on the connection.
-> 
-> Kernel is running on a CentOS 6.0
-> distribution.
-> 
-> Not subscribing to the lists, so please
-> CC me with any queries.  Please note that
-> email originating from most non-US MTAs
-> will bounce, but I will check the list
-> archives if I see any.
-> 
-> Can't spend a lot of time on this but am
-> willing to answer a few questions.  Hopefully
-> the call stack will tell the story well
-> enough.
+David went back to :=20
 
-You are seeing memory allocation failures because device
-is allocating a 16K (order 2) size socket buffer. You are using
-netxen device, and it looks like the problem.
-
->From reading the netxen driver source. The LRO buffers in this device
-are very large (8060+skb overhead).
-Until the driver is fixed to use fragmented page size memory,
-I recommend turning off LRO.
+http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-next.git
