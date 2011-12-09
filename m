@@ -1,50 +1,77 @@
 From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Subject: Re: [PATCH v8 0/9] per-cgroup tcp memory pressure controls
-Date: Fri, 9 Dec 2011 10:04:20 +0900
-Message-ID: <20111209100420.feaef96a.kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [PATCH v8 1/9] Basic kernel memory functionality for the Memory
+ Controller
+Date: Fri, 9 Dec 2011 10:21:13 +0900
+Message-ID: <20111209102113.cdb85da8.kamezawa.hiroyu@jp.fujitsu.com>
 References: <1323120903-2831-1-git-send-email-glommer@parallels.com>
-	<4EDF48A9.6090306@parallels.com>
+	<1323120903-2831-2-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <lizf@cn.fujitsu.com>,
- <ebiederm@xmission.com>, <davem@davemloft.net>, <gthelen@google.com>,
- <netdev@vger.kernel.org>, <linux-mm@kvack.org>, <kirill@shutemov.name>,
- <avagin@parallels.com>, <devel@openvz.org>, <eric.dumazet@gmail.com>,
- <cgroups@vger.kernel.org>, <hannes@cmpxchg.org>, <mhocko@suse.cz>
+Cc: linux-kernel@vger.kernel.org, lizf@cn.fujitsu.com,
+ ebiederm@xmission.com, davem@davemloft.net, gthelen@google.com,
+ netdev@vger.kernel.org, linux-mm@kvack.org, kirill@shutemov.name,
+ avagin@parallels.com, devel@openvz.org, eric.dumazet@gmail.com,
+ cgroups@vger.kernel.org, hannes@cmpxchg.org, mhocko@suse.cz, Paul Menage
+ <paul@paulmenage.org>
 To: Glauber Costa <glommer@parallels.com>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4EDF48A9.6090306@parallels.com>
+In-Reply-To: <1323120903-2831-2-git-send-email-glommer@parallels.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 7 Dec 2011 09:06:17 -0200
+On Mon,  5 Dec 2011 19:34:55 -0200
 Glauber Costa <glommer@parallels.com> wrote:
 
-> On 12/05/2011 07:34 PM, Glauber Costa wrote:
-> > Hi,
-> >
-> > This is my new attempt to fix all the concerns that were raised during
-> > the last iteration.
-> >
-> > I should highlight:
-> > 1) proc information is kept intact. (although I kept the wrapper functions)
-> >     it will be submitted as a follow up patch so it can get the attention it
-> >     deserves
-> > 2) sockets now hold a reference to memcg. sockets can be alive even after the
-> >     task is gone, so we don't bother with between cgroups movements.
-> >     To be able to release resources more easily in this cenario, the parent
-> >     pointer in struct cg_proto was replaced by a memcg object. We then iterate
-> >     through its pointer (which is cleaner anyway)
-> >
-> > The rest should be mostly the same except for small fixes and style changes.
-> >
+> This patch lays down the foundation for the kernel memory component
+> of the Memory Controller.
 > 
-> Kame,
+> As of today, I am only laying down the following files:
 > 
-> Does this one address your previous concerns?
+>  * memory.independent_kmem_limit
+>  * memory.kmem.limit_in_bytes (currently ignored)
+>  * memory.kmem.usage_in_bytes (always zero)
 > 
-Your highlight seems good. I'll look into details.
+> Signed-off-by: Glauber Costa <glommer@parallels.com>
+> Reviewed-by: Kirill A. Shutemov <kirill@shutemov.name>
+> CC: Paul Menage <paul@paulmenage.org>
+> CC: Greg Thelen <gthelen@google.com>
+
+As I wrote, please CC Johannes and  Michal Hocko for memcg related parts.
+
+A few questions.
+==
+> +	val = !!val;
+> +
+> +	if (parent && parent->use_hierarchy &&
+> +	   (val != parent->kmem_independent_accounting))
+> +		return -EINVAL;
+==
+Hm, why you check val != parent->kmem_independent_accounting ?
+
+	if (parent && parent->use_hierarchy)
+		return -EINVAL;
+?
+
+BTW, you didn't check this cgroup has children or not.
+I think
+
+	if (this_cgroup->use_hierarchy &&
+             !list_empty(this_cgroup->childlen))
+		return -EINVAL;
+
+
+==
+> +	/*
+> +	 * TODO: We need to handle the case in which we are doing
+> +	 * independent kmem accounting as authorized by our parent,
+> +	 * but then our parent changes its parameter.
+> +	 */
+> +	cgroup_lock();
+> +	memcg->kmem_independent_accounting = val;
+> +	cgroup_unlock();
+
+Do we need cgroup_lock() here ?
 
 Thanks,
 -Kame
