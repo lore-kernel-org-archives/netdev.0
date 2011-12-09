@@ -1,53 +1,60 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH] flexcan: Acknowledge all interrupt sources in the IRQ
- handler
-Date: Fri, 09 Dec 2011 15:35:02 +0100
-Message-ID: <4EE21C96.5010604@grandegger.com>
-References: <1323438454-6816-1-git-send-email-LW@KARO-electronics.de>	<4EE212AE.40005@pengutronix.de> <20194.5210.650914.867608@ipc1.ka-ro>
+From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: Re: [PATCH v8 1/9] Basic kernel memory functionality for the Memory
+ Controller
+Date: Fri, 9 Dec 2011 12:37:23 -0200
+Message-ID: <4EE21D23.4000309@parallels.com>
+References: <1323120903-2831-1-git-send-email-glommer@parallels.com> <1323120903-2831-2-git-send-email-glommer@parallels.com> <20111209102113.cdb85da8.kamezawa.hiroyu@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: =?ISO-8859-1?Q?Lothar_Wa=DFmann?= <LW@KARO-electronics.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20194.5210.650914.867608@ipc1.ka-ro>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	<ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>, <kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>,
+	<avagin-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
+	<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>, <mhocko-AlSwsSmVLrQ@public.gmane.org>,
+	Paul Menage <paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org>
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20111209102113.cdb85da8.kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 12/09/2011 02:59 PM, Lothar Wa=DFmann wrote:
-> Hi,
->=20
-> Marc Kleine-Budde writes:
->> On 12/09/2011 02:47 PM, Lothar Wa=DFmann wrote:
->>> Otherwise the handler will get stuck in an endless IRQ loop when an
->>> interrupt condition occurs that is not being acked (e.g. TWRN)
->>
->> On which CPU do you have this problem?
->>
-> on i.MX28.
+On 12/08/2011 11:21 PM, KAMEZAWA Hiroyuki wrote:
+> Hm, why you check val != parent->kmem_independent_accounting ?
+>
+> 	if (parent&&  parent->use_hierarchy)
+> 		return -EINVAL;
+> ?
+>
+> BTW, you didn't check this cgroup has children or not.
+> I think
+>
+> 	if (this_cgroup->use_hierarchy&&
+>               !list_empty(this_cgroup->childlen))
+> 		return -EINVAL;
 
-Yes, it is definitely needed on i.MX28 and I already have it in my
-series. See:
+How about this?
 
-https://gitorious.org/~wgrandegger/linux-can/wg-linux-can-next/commit/8=
-ad94fa0dd7f7728824fa8fd4479390ac3f189c7
+         val = !!val;
 
-BTW: at similar patch was already sent by Reuben Dowle.
+         /*
+          * This follows the same hierarchy restrictions than
+          * mem_cgroup_hierarchy_write()
+          */
+         if (!parent || !parent->use_hierarchy) {
+                 if (list_empty(&cgroup->children))
+                         memcg->kmem_independent_accounting = val;
+                 else
+                         return -EBUSY;
+         }
+         else
+                 return -EINVAL;
 
->> Seems that mx25/35 behave a bit different than mx28. But I had no ti=
-me
->> to dig into this, yet. BTW Wolfgang is just reworking error handling=
-,
->> can you please test his patches he recently posted on linux-can.
->>
-> The ESR of i.MX25 is completely identical to the i.MX28.
-> You should be able to reproduce the problem when trying to send a
-> message to a CAN interface with the transceiver disabled.
-> You will get a BIT0_ERR and the TWRN bit will be asserted and never
-> cleared leading to an endless interrupt loop.
+         return 0;
 
-If you are right, the code was never working on i.MX25/35... which I do=
-ubt.
-
-Wolfgang.
+--
+To unsubscribe from this list: send the line "unsubscribe cgroups" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
