@@ -1,45 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sch_red: generalize accurate MAX_P support to
- RED/GRED/CHOKE
-Date: Fri, 09 Dec 2011 13:46:45 -0500 (EST)
-Message-ID: <20111209.134645.470426835770901939.davem@davemloft.net>
-References: <20111208092130.656c39ff@nehalam.linuxnetplumber.net>
-	<1323368188.2529.4.camel@edumazet-laptop>
-	<1323434805.2336.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: [PATCH v3 REPOST] xen-netfront: delay gARP until backend
+ switches to Connected
+Date: Fri, 09 Dec 2011 13:45:14 -0500 (EST)
+Message-ID: <20111209.134514.2071890208094978847.davem@davemloft.net>
+References: <1323430738-3798-1-git-send-email-lersek@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, dave.taht@gmail.com, netdev@vger.kernel.org,
-	hagen@jauu.net
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44408 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752518Ab1LISqv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2011 13:46:51 -0500
-In-Reply-To: <1323434805.2336.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ian.campbell@citrix.com, konrad.wilk@oracle.com, jeremy@goop.org,
+	xen-devel@lists.xensource.com,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: lersek@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1323430738-3798-1-git-send-email-lersek@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 09 Dec 2011 13:46:45 +0100
+From: Laszlo Ersek <lersek@redhat.com>
+Date: Fri,  9 Dec 2011 12:38:58 +0100
 
-> Now RED uses a Q0.32 number to store max_p (max probability), allow
-> RED/GRED/CHOKE to use/report full resolution at config/dump time.
-> 
-> Old tc binaries are non aware of new attributes, and still set/get Plog.
-> 
-> New tc binary set/get both Plog and max_p for backward compatibility,
-> they display "probability value" if they get max_p from new kernels.
-> 
-> # tc -d  qdisc show dev ...
-> ...
-> qdisc red 10: parent 1:1 limit 360Kb min 30Kb max 90Kb ecn ewma 5
-> probability 0.09 Scell_log 15
-> 
-> Make sure we avoid potential divides by 0 in reciprocal_value(), if
-> (max_th - min_th) is big.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> These two together provide complete ordering. Sub-condition (1) is
+> satisfied by pvops commit 43223efd9bfd.
 
-Applied, thanks.
+I don't see this commit in Linus's tree, so I doubt it's valid for
+me to apply this as a bug fix to my 'net' tree since the precondition
+pvops commit isn't upstream as far as I can tell.
+
+Where did you intend me to apply this patch, and how did you expect
+the dependent commit to make it's way into the tree so that this
+fix is complete?
+
+BTW, you should always explicitly specificy the answers to all the
+questions in the previous paragraph, otherwise (like right now) we
+go back and forth wasting time establishing these facts.
+
+The way to say which tree the patch is intended for is to specify
+it in the Subject like, f.e. "[PATCH net-next v3 REPOST] ..."
