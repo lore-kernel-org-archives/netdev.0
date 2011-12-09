@@ -1,77 +1,72 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next 2/6] net: make vlan ndo_vlan_rx_[add/kill]_vid
- return error value
-Date: Fri, 9 Dec 2011 11:41:40 +0100
-Message-ID: <20111209104139.GA2193@minipsycho.brq.redhat.com>
-References: <1323353480-1900-1-git-send-email-jpirko@redhat.com>
- <1323353480-1900-3-git-send-email-jpirko@redhat.com>
- <87iplqfgcz.fsf@rustcorp.com.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55103 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750874Ab1LIKlo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Dec 2011 05:41:44 -0500
-Content-Disposition: inline
-In-Reply-To: <87iplqfgcz.fsf@rustcorp.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Laszlo Ersek <lersek@redhat.com>
+Subject: [PATCH v3 REPOST] xen-netfront: delay gARP until backend switches to Connected
+Date: Fri,  9 Dec 2011 12:38:58 +0100
+Message-ID: <1323430738-3798-1-git-send-email-lersek@redhat.com>
+To: ian.campbell@citrix.com, konrad.wilk@oracle.com, jeremy@goop.org,
+	xen-devel@lists.xensource.com,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fri, Dec 09, 2011 at 06:45:16AM CET, rusty@rustcorp.com.au wrote:
->On Thu,  8 Dec 2011 15:11:16 +0100, Jiri Pirko <jpirko@redhat.com> wrote:
->> Let caller know the result of adding/removing vlan id to/from vlan
->> filter.
->> 
->> In some drivers I make those functions to just return 0. But in those
->> where there is able to see if hw setup went correctly, return value is
->> set appropriately.
->...
->> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->> index 5a96172..609c51f 100644
->> --- a/drivers/net/virtio_net.c
->> +++ b/drivers/net/virtio_net.c
->> @@ -855,7 +855,7 @@ static void virtnet_set_rx_mode(struct net_device *dev)
->>  	kfree(buf);
->>  }
->>  
->> -static void virtnet_vlan_rx_add_vid(struct net_device *dev, u16 vid)
->> +static int virtnet_vlan_rx_add_vid(struct net_device *dev, u16 vid)
->>  {
->>  	struct virtnet_info *vi = netdev_priv(dev);
->>  	struct scatterlist sg;
->> @@ -865,9 +865,10 @@ static void virtnet_vlan_rx_add_vid(struct net_device *dev, u16 vid)
->>  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
->>  				  VIRTIO_NET_CTRL_VLAN_ADD, &sg, 1, 0))
->>  		dev_warn(&dev->dev, "Failed to add VLAN ID %d.\n", vid);
->> +	return 0;
->>  }
->>  
->> -static void virtnet_vlan_rx_kill_vid(struct net_device *dev, u16 vid)
->> +static int virtnet_vlan_rx_kill_vid(struct net_device *dev, u16 vid)
->>  {
->>  	struct virtnet_info *vi = netdev_priv(dev);
->>  	struct scatterlist sg;
->> @@ -877,6 +878,7 @@ static void virtnet_vlan_rx_kill_vid(struct net_device *dev, u16 vid)
->>  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
->>  				  VIRTIO_NET_CTRL_VLAN_DEL, &sg, 1, 0))
->>  		dev_warn(&dev->dev, "Failed to kill VLAN ID %d.\n", vid);
->> +	return 0;
->>  }
->
->Hmm, see that virtnet_send_command?  That's what you're after.  You
->could even replace the dev_warn(), if you're doing something more useful
->with the result.
+After a guest is live migrated, the xen-netfront driver emits a gratuitous
+ARP message, so that networking hardware on the target host's subnet can
+take notice, and public routing to the guest is re-established. However,
+if the packet appears on the backend interface before the backend is added
+to the target host's bridge, the packet is lost, and the migrated guest's
+peers become unable to talk to the guest.
 
-I was not sure what value to return here so I let that be as it was.
-Feel free to post follow-up.
+A sufficient two-parts condition to prevent the above is:
 
-Thanks
+(1) ensure that the backend only moves to Connected xenbus state after its
+hotplug scripts completed, ie. the netback interface got added to the
+bridge; and
 
-Jirka
+(2) ensure the frontend only queues the gARP when it sees the backend move
+to Connected.
 
->
->Thanks,
->Rusty.
+These two together provide complete ordering. Sub-condition (1) is
+satisfied by pvops commit 43223efd9bfd.
+
+In general, the full condition is sufficient, not necessary, because,
+according to [1], live migration has been working for a long time without
+satisfying sub-condition (2). However, after 43223efd9bfd was backported
+to the RHEL-5 host to ensure (1), (2) still proved necessary in the RHEL-6
+guest. This patch intends to provide (2) for upstream.
+
+The Reviewed-by line comes from [2].
+
+[1] http://old-list-archives.xen.org/xen-devel/2011-06/msg01969.html
+[2] http://old-list-archives.xen.org/xen-devel/2011-07/msg00484.html
+
+Signed-off-by: Laszlo Ersek <lersek@redhat.com>
+Reviewed-by: Ian Campbell <ian.campbell@citrix.com>
+---
+ drivers/net/xen-netfront.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index d29365a..f033656 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -1646,7 +1646,6 @@ static void netback_changed(struct xenbus_device *dev,
+ 	case XenbusStateInitialised:
+ 	case XenbusStateReconfiguring:
+ 	case XenbusStateReconfigured:
+-	case XenbusStateConnected:
+ 	case XenbusStateUnknown:
+ 	case XenbusStateClosed:
+ 		break;
+@@ -1657,6 +1656,9 @@ static void netback_changed(struct xenbus_device *dev,
+ 		if (xennet_connect(netdev) != 0)
+ 			break;
+ 		xenbus_switch_state(dev, XenbusStateConnected);
++		break;
++
++	case XenbusStateConnected:
+ 		netif_notify_peers(netdev);
+ 		break;
+ 
+-- 
+1.7.4.4
