@@ -1,59 +1,53 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [PATCH] net/hyperv: Fix the stop/wake queue mechanism
-Date: Fri, 9 Dec 2011 08:35:08 -0800
-Message-ID: <20111209163508.GA19001@suse.de>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH] net/hyperv: Fix the stop/wake queue mechanism
+Date: Fri, 9 Dec 2011 16:49:17 +0000
+Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0CCD461C@TK5EX14MBXC227.redmond.corp.microsoft.com>
 References: <1322855785-22776-1-git-send-email-haiyangz@microsoft.com>
  <A1F3067C9B68744AA19F6802BAB8FFDC0CCD457B@TK5EX14MBXC227.redmond.corp.microsoft.com>
+ <20111209163508.GA19001@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 Cc: KY Srinivasan <kys@microsoft.com>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <A1F3067C9B68744AA19F6802BAB8FFDC0CCD457B@TK5EX14MBXC227.redmond.corp.microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Greg KH <gregkh@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from am1ehsobe006.messaging.microsoft.com ([213.199.154.209]:4114
+	"EHLO AM1EHSOBE006.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750780Ab1LIQt3 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Dec 2011 11:49:29 -0500
+In-Reply-To: <20111209163508.GA19001@suse.de>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 09, 2011 at 04:00:59PM +0000, Haiyang Zhang wrote:
-> > -----Original Message-----
-> > From: Haiyang Zhang [mailto:haiyangz@microsoft.com]
-> > Sent: Friday, December 02, 2011 2:56 PM
-> > To: Haiyang Zhang; KY Srinivasan; davem@davemloft.net; gregkh@suse.de;
-> > linux-kernel@vger.kernel.org; netdev@vger.kernel.org;
-> > devel@linuxdriverproject.org
-> > Subject: [PATCH] net/hyperv: Fix the stop/wake queue mechanism
-> > 
-> > The ring buffer is only used to pass meta data for outbound packets. The
-> > actual payload is accessed by DMA from the host. So the stop/wake queue
-> > mechanism based on counting and comparing number of pages sent v.s.
-> > number
-> > of pages in the ring buffer is wrong. Also, there is a race condition in
-> > the stop/wake queue calls, which can stop xmit queue forever.
-> > 
-> > The new stop/wake queue mechanism is based on the actual bytes used by
-> > outbound packets in the ring buffer. The check for number of outstanding
-> > sends after stop queue prevents the race condition that can cause wake
-> > queue happening earlier than stop queue.
-> > 
-> > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> > Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-> > Reported-by: Long Li <longli@microsoft.com>
-> > ---
-> >  drivers/net/hyperv/netvsc.c     |   14 +++++++++++---
-> >  drivers/net/hyperv/netvsc_drv.c |   24 +-----------------------
-> >  2 files changed, 12 insertions(+), 26 deletions(-)
+> -----Original Message-----
+> From: Greg KH [mailto:gregkh@suse.de]
+> Sent: Friday, December 09, 2011 11:35 AM
+> To: Haiyang Zhang
+> Cc: KY Srinivasan; davem@davemloft.net; linux-kernel@vger.kernel.org;
+> netdev@vger.kernel.org; devel@linuxdriverproject.org
+> Subject: Re: [PATCH] net/hyperv: Fix the stop/wake queue mechanism
 > 
-> Hi Greg,
+> On Fri, Dec 09, 2011 at 04:00:59PM +0000, Haiyang Zhang wrote:
+> > > -----Original Message-----
+> > > From: Haiyang Zhang [mailto:haiyangz@microsoft.com]
+> > >  drivers/net/hyperv/netvsc.c     |   14 +++++++++++---
+> > >  drivers/net/hyperv/netvsc_drv.c |   24 +-----------------------
+> > >  2 files changed, 12 insertions(+), 26 deletions(-)
+> >
+> > Hi Greg,
+> >
+> > Since the netvsc haven't been merged into Dave's tree yet after out of
+> staging,
+> > could you consider this patch for your tree?
 > 
-> Since the netvsc haven't been merged into Dave's tree yet after out of staging,
-> could you consider this patch for your tree?
+> It's in my "to-apply" queue already.
 
-It's in my "to-apply" queue already.
+Thank you!
 
-thanks,
-
-greg k-h
+- Haiyang
