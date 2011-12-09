@@ -1,30 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sch_red: Adaptative RED AQM
-Date: Thu, 08 Dec 2011 19:55:11 -0500 (EST)
-Message-ID: <20111208.195511.1598354035363640359.davem@davemloft.net>
-References: <CAA93jw7kQYONQiAozatRmdRRJeK0GB9eNDWtRZ3AL+OVKn0OpA@mail.gmail.com>
-	<1323082774.2670.40.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1323360363.2521.30.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [PATCH v8 0/9] per-cgroup tcp memory pressure controls
+Date: Fri, 9 Dec 2011 10:04:20 +0900
+Message-ID: <20111209100420.feaef96a.kamezawa.hiroyu@jp.fujitsu.com>
+References: <1323120903-2831-1-git-send-email-glommer@parallels.com>
+	<4EDF48A9.6090306@parallels.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: dave.taht@gmail.com, bloat@lists.bufferbloat.net,
-	bloat-devel@lists.bufferbloat.net, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, hagen@jauu.net
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35723 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753704Ab1LIA5T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2011 19:57:19 -0500
-In-Reply-To: <1323360363.2521.30.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>, <lizf@cn.fujitsu.com>,
+ <ebiederm@xmission.com>, <davem@davemloft.net>, <gthelen@google.com>,
+ <netdev@vger.kernel.org>, <linux-mm@kvack.org>, <kirill@shutemov.name>,
+ <avagin@parallels.com>, <devel@openvz.org>, <eric.dumazet@gmail.com>,
+ <cgroups@vger.kernel.org>, <hannes@cmpxchg.org>, <mhocko@suse.cz>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <4EDF48A9.6090306@parallels.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 08 Dec 2011 17:06:03 +0100
+On Wed, 7 Dec 2011 09:06:17 -0200
+Glauber Costa <glommer@parallels.com> wrote:
 
-> Adaptative RED AQM for linux, based on paper from Sally FLoyd,
-> Ramakrishna Gummadi, and Scott Shenker, August 2001 :
+> On 12/05/2011 07:34 PM, Glauber Costa wrote:
+> > Hi,
+> >
+> > This is my new attempt to fix all the concerns that were raised during
+> > the last iteration.
+> >
+> > I should highlight:
+> > 1) proc information is kept intact. (although I kept the wrapper functions)
+> >     it will be submitted as a follow up patch so it can get the attention it
+> >     deserves
+> > 2) sockets now hold a reference to memcg. sockets can be alive even after the
+> >     task is gone, so we don't bother with between cgroups movements.
+> >     To be able to release resources more easily in this cenario, the parent
+> >     pointer in struct cg_proto was replaced by a memcg object. We then iterate
+> >     through its pointer (which is cleaner anyway)
+> >
+> > The rest should be mostly the same except for small fixes and style changes.
+> >
+> 
+> Kame,
+> 
+> Does this one address your previous concerns?
+> 
+Your highlight seems good. I'll look into details.
 
-Applied.
+Thanks,
+-Kame
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
