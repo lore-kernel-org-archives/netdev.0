@@ -1,89 +1,43 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH v8 1/9] Basic kernel memory functionality for the Memory
- Controller
-Date: Fri, 9 Dec 2011 12:48:16 -0200
-Message-ID: <4EE21FB0.5090006@parallels.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF0D@saturn3.aculab.com>
+From: "Cloutier, Joseph (Joseph)" <joseph.cloutier@alcatel-lucent.com>
+Subject: RE: flood ping option in iputils has "-w deadline" bug.  I have
+ fixed in my copy, I offer to fix the latest code for you.
+Date: Fri, 9 Dec 2011 08:53:04 -0600
+Message-ID: <7D3B6706FA74174B8C1AC24710890745136F28A605@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
+References: <7D3B6706FA74174B8C1AC24710890745136F1A0B8C@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
-	<linux-kernel@vger.kernel.org>, <lizf@cn.fujitsu.com>,
-	<ebiederm@xmission.com>, <davem@davemloft.net>, <gthelen@google.com>,
-	<netdev@vger.kernel.org>, <linux-mm@kvack.org>, <kirill@shutemov.name>,
-	<avagin@parallels.com>, <devel@openvz.org>, <eric.dumazet@gmail.com>,
-	<cgroups@vger.kernel.org>, <hannes@cmpxchg.org>, <mhocko@suse.cz>, Paul
- Menage <paul@paulmenage.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6D8AF0D@saturn3.aculab.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ihemail2.lucent.com ([135.245.0.35]:50061 "EHLO
+	ihemail2.lucent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754009Ab1LIOxK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2011 09:53:10 -0500
+Received: from usnavsmail1.ndc.alcatel-lucent.com (usnavsmail1.ndc.alcatel-lucent.com [135.3.39.9])
+	by ihemail2.lucent.com (8.13.8/IER-o) with ESMTP id pB9Er9ic016121
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Fri, 9 Dec 2011 08:53:09 -0600 (CST)
+Received: from USNAVSXCHHUB03.ndc.alcatel-lucent.com (usnavsxchhub03.ndc.alcatel-lucent.com [135.3.39.112])
+	by usnavsmail1.ndc.alcatel-lucent.com (8.14.3/8.14.3/GMO) with ESMTP id pB9Er9XX022544
+	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 9 Dec 2011 08:53:09 -0600
+In-Reply-To: <7D3B6706FA74174B8C1AC24710890745136F1A0B8C@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/09/2011 12:44 PM, David Laight wrote:
->
->> How about this?
->>
->>           val = !!val;
->>
->>           /*
->>            * This follows the same hierarchy restrictions than
->>            * mem_cgroup_hierarchy_write()
->>            */
->>           if (!parent || !parent->use_hierarchy) {
->>                   if (list_empty(&cgroup->children))
->>                           memcg->kmem_independent_accounting = val;
->>                   else
->>                           return -EBUSY;
->>           }
->>           else
->>                   return -EINVAL;
->>
->>           return 0;
->
-> Inverting the tests gives easier to read code:
->
-> 	if (parent&&  parent->user_hierarchy)
-> 		return -EINVAL;
-> 	if (!list_empty(&cgroup->children))
-> 		return -EBUSY;
-> 	memcg->kmem_independent_accounting = val != 0;
-> 	return 0;
 
-On the other hand, inconsistent with mem_cgroup_hierarchy_write(), which 
-applies the logic in the same way I did here.
 
-> NFI about the logic...
-> On the face of it the tests don't seem related to each other
-> or to the assignment!
+-----Original Message-----
+From: Cloutier, Joseph (Joseph)
+Sent: Friday, December 09, 2011 9:50 AM
+To: 'netdev@vger.kernel.org'
+Subject: flood ping option in iputils has "-w deadline" bug. I have
+fixed in my copy, I offer to fix the latest code for you.
 
-How so?
 
-If parent's use_hierarchy is set, we can't set this value (we need to 
-have a parent for that to even matter).
+Joe Cloutier, Alcatel-Lucent, Murray Hill, NJ USA.
 
-We also can't set it if we already have any children - otherwise all the 
-on-the-fly adjustments become hell-on-earth.
+Cell Phone USA-973-902-3261.
 
-As for = val != 0, sorry, but I completely disagree this is easier than 
-!!val. Not to mention the !!val notation is already pretty widespread in 
-the kernel.
-
-> 	David
->
-> 	
->
->
-> --
-> To unsubscribe, send a message with 'unsubscribe linux-mm' in
-> the body to majordomo@kvack.org.  For more info on Linux MM,
-> see: http://www.linux-mm.org/ .
-> Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-> Don't email:<a href=ilto:"dont@kvack.org">  email@kvack.org</a>
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks, Joe
