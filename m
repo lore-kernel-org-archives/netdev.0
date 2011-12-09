@@ -1,140 +1,57 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH net-next v2 2/4] can: cc770: add legacy ISA bus driver
- for the CC770 and AN82527
-Date: Fri, 09 Dec 2011 11:26:51 +0100
-Message-ID: <4EE1E26B.6090308@grandegger.com>
-References: <1322214204-1121-1-git-send-email-wg@grandegger.com> <1322214204-1121-3-git-send-email-wg@grandegger.com> <4ED0FEC5.3070108@hartkopp.net> <4ED34CAD.7040000@essax.com> <4ED351A8.8000102@grandegger.com> <4ED37885.8080909@essax.com> <4ED3B198.2040308@hartkopp.net> <4ED4A2EC.40103@grandegger.com> <4EDBC05D.8070109@essax.com> <4EDBC25D.50405@grandegger.com> <4EDE8435.5080100@essax.com> <4EDF6D54.2060503@grandegger.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [net-next RFC PATCH 0/5] Series short description
+Date: Fri, 09 Dec 2011 16:01:53 +1030
+Message-ID: <87r50efgza.fsf@rustcorp.com.au>
+References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
+	<87ty5cj0sw.fsf@rustcorp.com.au> <4EDF4E82.7050201@redhat.com>
+	<1323277324.2728.34.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, socketcan-users@lists.berlios.de,
-	IreneV <boir1@yandex.ru>,
-	Stanislav Yelenskiy <stanislavelensky@yahoo.com>
-To: info@essax.com
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4EDF6D54.2060503@grandegger.com>
-Sender: linux-can-owner@vger.kernel.org
+Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	levinsasha928@gmail.com
+To: Ben Hutchings <bhutchings@solarflare.com>, Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1323277324.2728.34.camel@bwh-desktop>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 12/07/2011 02:42 PM, Wolfgang Grandegger wrote:
-> Hi Wolfgang,
+On Wed, 7 Dec 2011 17:02:04 +0000, Ben Hutchings <bhutchings@solarflare.com> wrote:
+> Solarflare controllers (sfc driver) have 8192 perfect filters for
+> TCP/IPv4 and UDP/IPv4 which can be used for flow steering.  (The filters
+> are organised as a hash table, but matched based on 5-tuples.)  I
+> implemented the 'accelerated RFS' interface in this driver.
 > 
-> On 12/06/2011 10:08 PM, Wolfgang Zarre wrote:
->> Hello Wolfgang,
->>
->>> Hi Wolfgang,
->>>
->>> On 12/04/2011 07:47 PM, Wolfgang Zarre wrote:
-> ...
->>>>
->>>> Should be not a problem at all.
->>>
->>> Great, thanks.
->>
->> Ok, here we go:
->>
->> uname -r: 3.2.0-rc4
->>
->> modprobe cc770_isa irq=0xa port=0x384 indirect=1 cir=0x61 bcr=0x4A
->> ip link set can0 up type can bitrate 500000;
->>
->> kern.log
->> Dec  6 20:42:19 svserv01 kernel: [ 2111.900735] CAN device driver interface
->> Dec  6 20:42:19 svserv01 kernel: [ 2111.903072] cc770: CAN netdevice driver
->> Dec  6 20:42:19 svserv01 kernel: [ 2111.904692] cc770_isa: platform
->> device 0: port=0x384, mem=0x0, irq=10
->> Dec  6 20:42:19 svserv01 kernel: [ 2111.904726] cc770_isa cc770_isa.0:
->> probing idx=0: port=0x384, mem=0x0, irq=10
->> Dec  6 20:42:19 svserv01 kernel: [ 2111.904779] cc770_isa cc770_isa.0:
->> (unregistered net_device): i82527 mode with additional functions
->> Dec  6 20:42:19 svserv01 kernel: [ 2111.906407] cc770_isa cc770_isa.0:
->> device registered (reg_base=0x00000384, irq=10)
->> Dec  6 20:42:19 svserv01 kernel: [ 2111.906457] cc770_isa: driver for
->> max. 8 devices registered
->>   6 20:44:17 svserv01 kernel: [ 2229.886845] cc770_isa cc770_isa.0:
->> can0: setting BTR0=0x00 BTR1=0x1c
->> Dec  6 20:44:17 svserv01 kernel: [ 2229.886920] cc770_isa cc770_isa.0:
->> can0: Message object 15 for RX data, RTR, SFF and EFF
->> Dec  6 20:44:17 svserv01 kernel: [ 2229.886937] cc770_isa cc770_isa.0:
->> can0: Message object 11 for TX data, RTR, SFF and EFF
->> Dec  6 20:52:40 svserv01 kernel: [ 2733.172845] can: controller area
->> network core (rev 20090105 abi 8)
->> Dec  6 20:52:40 svserv01 kernel: [ 2733.172967] NET: Registered protocol
->> family 29
->> Dec  6 20:52:40 svserv01 kernel: [ 2733.178187] can: raw protocol (rev
->> 20090105)
->>
->>
->> ip -d -s link show
->> 4: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UNKNOWN
->> qlen 10
->>     link/can
->>     can state ERROR-ACTIVE (berr-counter tx 0 rx 0) restart-ms 0
->>     bitrate 500000 sample-point 0.875
->>     tq 125 prop-seg 6 phase-seg1 7 phase-seg2 2 sjw 1
->>     cc770: tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
->>     clock 8000000
->>     re-started bus-errors arbit-lost error-warn error-pass bus-off
->>     0          0          0          0          0          0
->>     RX: bytes  packets  errors  dropped overrun mcast
->>     0          0        0       0       0       0
->>     TX: bytes  packets  errors  dropped carrier collsns
->>     0          0        0       0       0       0
->>
->>
->> After rebooting the PLC with proprietary buggy kernel:
->> 4: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UNKNOWN
->> qlen 10
->>     link/can
->>     can state ERROR-ACTIVE (berr-counter tx 0 rx 0) restart-ms 0
->>     bitrate 500000 sample-point 0.875
->>     tq 125 prop-seg 6 phase-seg1 7 phase-seg2 2 sjw 1
->>     cc770: tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
->>     clock 8000000
->>     re-started bus-errors arbit-lost error-warn error-pass bus-off
->>     0          0          0          0          0          0
->>     RX: bytes  packets  errors  dropped overrun mcast
->>     414        267      0       267     0       0
->>     TX: bytes  packets  errors  dropped carrier collsns
->>     0          0        0       0       0       0
->>
->>
->>
->> After sending 100,000 PDO's with 13ms displacement:
->> 4: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UNKNOWN
->> qlen 10
->>     link/can
->>     can state ERROR-ACTIVE (berr-counter tx 0 rx 0) restart-ms 0
->>     bitrate 500000 sample-point 0.875
->>     tq 125 prop-seg 6 phase-seg1 7 phase-seg2 2 sjw 1
->>     cc770: tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
->>     clock 8000000
->>     re-started bus-errors arbit-lost error-warn error-pass bus-off
->>     0          0          0          0          0          0
->>     RX: bytes  packets  errors  dropped overrun mcast
->>     4544       4284     0       331     0       0
->>     TX: bytes  packets  errors  dropped carrier collsns
->>     802660     202653   0       0       0       0
->>
->>
->> The dropped ones of RX may be the not processed input packages and
->> therefore ok.
->>
->> Let me know if You need more or some other tests.
-> 
-> You could provoke some state changes or bus-off conditions to see if the
-> berr-counter shows reasonable results. I'm currently consolidating and
-> unifying error state and bus-off handling. Would be nice if you could do
-> some further tests when I have the patches ready...
+> I believe the Intel 82599 controllers (ixgbe driver) have both
+> hash-based and perfect filter modes and the driver can be configured to
+> use one or the other.  The driver has its own independent mechanism for
+> steering RX and TX flows which predates RFS; I don't know whether it
+> uses hash-based or perfect filters.
 
-I just pushed the mentioned modifications to the "devel" branch of my
-"wg-linux-can-next" [1] repository. You can get it as shown below:
+Thanks for this summary (and Jason, too).  I've fallen a long way behind
+NIC state-of-the-art.
+ 
+> Most multi-queue controllers could support a kind of hash-based
+> filtering for TCP/IP by adjusting the RSS indirection table.  However,
+> this table is usually quite small (64-256 entries).  This means that
+> hash collisions will be quite common and this can result in reordering.
+> The same applies to the small table Jason has proposed for virtio-net.
 
-  $ git clone --reference=<some-recent-net-next-tree> \
-      git://gitorious.org/~wgrandegger/linux-can/wg-linux-can-next.git
-  $ git checkout -b devel devel
+But this happens on real hardware today.  Better that real hardware is
+nice, but is it overkill?
 
-[1] https://gitorious.org/~wgrandegger/linux-can/wg-linux-can-next
+And can't you reorder even with perfect matching, since prior packets
+will be on the old queue and more recent ones on the new queue?  Does it
+discard or requeue old ones?  Or am I missing a trick?
 
-Wolfgang.
+Thanks,
+Rusty.
