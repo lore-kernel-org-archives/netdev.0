@@ -1,28 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] be2net: netpoll support
-Date: Thu, 08 Dec 2011 19:53:46 -0500 (EST)
-Message-ID: <20111208.195346.1368648767827539252.davem@davemloft.net>
-References: <1323343881-7864-1-git-send-email-ivecera@redhat.com>
+Subject: Re: [patch] sock_diag: off by one checks
+Date: Thu, 08 Dec 2011 19:54:30 -0500 (EST)
+Message-ID: <20111208.195430.857245382290814411.davem@davemloft.net>
+References: <20111208064938.GB16735@elgon.mountain>
+	<4EE07E6B.5050608@parallels.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sathya.perla@emulex.com,
-	subbu.seetharaman@emulex.com, ajit.khaparde@emulex.com
-To: ivecera@redhat.com
+Cc: dan.carpenter@oracle.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: xemul@parallels.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35653 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:35660 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752123Ab1LIAxv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2011 19:53:51 -0500
-In-Reply-To: <1323343881-7864-1-git-send-email-ivecera@redhat.com>
+	with ESMTP id S1752792Ab1LIAyh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2011 19:54:37 -0500
+In-Reply-To: <4EE07E6B.5050608@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ivan Vecera <ivecera@redhat.com>
-Date: Thu,  8 Dec 2011 12:31:21 +0100
+From: Pavel Emelyanov <xemul@parallels.com>
+Date: Thu, 08 Dec 2011 13:07:55 +0400
 
-> Add missing netpoll support.
+> On 12/08/2011 10:49 AM, Dan Carpenter wrote:
+>> These tests are off by one because sock_diag_handlers[] only has AF_MAX
+>> elements.
 > 
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+> Oops :(
+> 
+>> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> Acked-by: Pavel Emelyanov <xemul@parallels.com>
 
 Applied.
