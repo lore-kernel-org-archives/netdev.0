@@ -1,32 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] vlan: add 802.1q netpoll support
-Date: Thu, 08 Dec 2011 19:55:22 -0500 (EST)
-Message-ID: <20111208.195522.760822966632745223.davem@davemloft.net>
-References: <20111208.000730.63159506168958262.davem@davemloft.net>
-	<20111208153558.GE30652@kvack.org>
-	<20111208162049.GF30652@kvack.org>
+Subject: Re: [PATCH net-next 0/3] bridge forwarding database patches
+Date: Thu, 08 Dec 2011 19:56:06 -0500 (EST)
+Message-ID: <20111208.195606.778412478670213240.davem@davemloft.net>
+References: <20111206230223.191544130@vyatta.com>
+	<20111207.135015.789061435692305493.davem@davemloft.net>
+	<20111208091816.6ba5a0e9@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: bcrl@kvack.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35691 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:35698 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753539Ab1LIAzZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2011 19:55:25 -0500
-In-Reply-To: <20111208162049.GF30652@kvack.org>
+	with ESMTP id S1752792Ab1LIA4I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2011 19:56:08 -0500
+In-Reply-To: <20111208091816.6ba5a0e9@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin LaHaise <bcrl@kvack.org>
-Date: Thu, 8 Dec 2011 11:20:49 -0500
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Thu, 8 Dec 2011 09:18:16 -0800
 
-> [PATCH net-next v2] vlan: add 802.1q netpoll support
+> On Wed, 07 Dec 2011 13:50:15 -0500 (EST)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> Add netpoll support to 802.1q vlan devices.  Based on the netpoll support
-> in the bridging code.  Tested on a forced_eth device with netconsole.
+>> From: Stephen Hemminger <shemminger@vyatta.com>
+>> Date: Tue, 06 Dec 2011 15:02:23 -0800
+>> 
+>> > These three patches address issue of receiving packets when
+>> > bridge mac address is modified.
+>> 
 > 
-> Signed-off-by: Benjamin LaHaise <bcrl@kvack.org> 
+> Resent 2 and 3, patch 1 is unchanged.
 
-Applied.
+Applied but please repost the entire series again next time,
+even the patches that haven't changed.
+
+Updating individual patches makes the process a real pain in
+the butt for me, and reposting everything takes a minimal
+amount of effort on your part.
