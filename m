@@ -1,52 +1,85 @@
-From: Milan Kocian <milon@wq.cz>
-Subject: Re: [RFT] sky2: 32 bit DMA quirk
-Date: Fri, 9 Dec 2011 01:11:44 +0100
-Message-ID: <20111209001144.GB13613@ntm.wq.cz>
-References: <20111121160543.2ae9c04c@nehalam.linuxnetplumber.net>
- <20111122094234.GA28500@ntm.wq.cz>
- <20111126161513.GA5299@ntm.wq.cz>
- <20111126170331.744025f1@s6510.linuxnetplumber.net>
- <20111205124725.GA19385@ntm.wq.cz>
- <20111205081611.52ec0664@nehalam.linuxnetplumber.net>
- <20111206095919.GA6726@ntm.wq.cz>
- <20111207150205.3fad9290@nehalam.linuxnetplumber.net>
- <20111208195833.GA13613@ntm.wq.cz>
- <20111208152614.37a8379b@s6510.linuxnetplumber.net>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [PATCH net-next 4/6] tg3: Track LP advertising
+Date: Thu, 8 Dec 2011 16:14:53 -0800
+Message-ID: <20111209001453.GA31557@mcarlson.broadcom.com>
+References: <1323381002-31565-5-git-send-email-mcarlson@broadcom.com>
+ <1323385565.3094.3.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Ben Hutchings" <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wq.cz ([82.202.95.52]:34014 "EHLO rd.wq.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751156Ab1LIALy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Dec 2011 19:11:54 -0500
+Received: from mms1.broadcom.com ([216.31.210.17]:1511 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751227Ab1LIAOU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Dec 2011 19:14:20 -0500
+In-Reply-To: <1323385565.3094.3.camel@bwh-desktop>
 Content-Disposition: inline
-In-Reply-To: <20111208152614.37a8379b@s6510.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 08, 2011 at 03:26:14PM -0800, Stephen Hemminger wrote:
-> On Thu, 8 Dec 2011 20:58:33 +0100
-> Milan Kocian <milon@wq.cz> wrote:
-> 
-> > Hello Stephen,
+On Thu, Dec 08, 2011 at 03:06:05PM -0800, Ben Hutchings wrote:
+> On Thu, 2011-12-08 at 13:50 -0800, Matt Carlson wrote:
+> > This patch adds code to track the autonegotiation advertisements of the
+> > link partner and report them through ethtool.
 > > 
-> > On Wed, Dec 07, 2011 at 03:02:05PM -0800, Stephen Hemminger wrote:
-> > > This a patch to force 32 bit DMA. Not sure if the DMI values
-> > > are right for the Gigabyte motherboard with the problem.
-> > > 
-> > > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> > > 
+> > Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> > Reviewed-by: Michael Chan <mchan@broadcom.com>
+> > ---
+> >  drivers/net/ethernet/broadcom/tg3.c |   41 ++++++++++++++++++++++++++++++++--
+> >  drivers/net/ethernet/broadcom/tg3.h |    1 +
+> >  2 files changed, 39 insertions(+), 3 deletions(-)
 > > 
-> > Unfortunately it didn't help. I tried parameter
-> > only_32bit_dma=1 alone and then with parameter disable_msi=1
-> > with the same result.
+> > diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> > index d1681db..ae1e838 100644
+> > --- a/drivers/net/ethernet/broadcom/tg3.c
+> > +++ b/drivers/net/ethernet/broadcom/tg3.c
+> > @@ -3803,6 +3803,29 @@ static bool tg3_phy_copper_an_config_ok(struct tg3 *tp, u32 *lcladv)
+> >  	return true;
+> >  }
+> >  
+> > +static bool tg3_phy_copper_fetch_rmtadv(struct tg3 *tp, u32 *rmtadv)
+> > +{
+> > +	u32 val, lpeth = 0;
+> > +
+> > +	if (!(tp->phy_flags & TG3_PHYFLG_10_100_ONLY)) {
+> > +		if (tg3_readphy(tp, MII_STAT1000, &val))
+> > +			return false;
+> > +
+> > +		lpeth = mii_stat1000_to_ethtool_lpa_t(val);
+> > +	}
+> > +
+> > +	if (tg3_readphy(tp, MII_LPA, &val))
+> > +		return false;
+> > +
+> > +	lpeth |= mii_lpa_to_ethtool_lpa_t(val);
+> > +	tp->link_config.rmt_adv = lpeth;
+> > +
+> > +	if (tg3_flag(tp, PAUSE_AUTONEG))
+> > +		*rmtadv = val;
 > 
-> Thanks for trying. Looks like not worth bothering investigating further.
-> 
- 
-Yes, I agree. Many thanks for your time Stephen.
+> I assume that the caller only needs this information if pause autoneg is
+> enabled, but it's still very strange to put the condition here.
 
--- 
-Milan Kocian
+I see your point.  I'm being overly cautious.  I'll respin this patch.
+
+> Ben.
+> 
+> > +	return true;
+> > +}
+> [...]
+> 
+> -- 
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
