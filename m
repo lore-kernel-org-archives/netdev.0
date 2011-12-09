@@ -1,40 +1,54 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH v3 REPOST] xen-netfront: delay gARP until backend
- switches to Connected
-Date: Fri, 9 Dec 2011 21:23:00 +0000
-Message-ID: <1323465781.20936.49.camel@dagon.hellion.org.uk>
-References: <1323430738-3798-1-git-send-email-lersek@redhat.com>
-	 <20111209.134514.2071890208094978847.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 11/13] udp_diag: Implement the get_exact dumping
+ functionality
+Date: Fri, 09 Dec 2011 22:48:17 +0100
+Message-ID: <1323467297.4016.10.camel@edumazet-laptop>
+References: <4EE23561.5020804@parallels.com>
+	 <4EE23626.6000104@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "lersek@redhat.com" <lersek@redhat.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"jeremy@goop.org" <jeremy@goop.org>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111209.134514.2071890208094978847.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:49412 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750761Ab1LIVsX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2011 16:48:23 -0500
+Received: by eekc4 with SMTP id c4so593803eek.19
+        for <netdev@vger.kernel.org>; Fri, 09 Dec 2011 13:48:22 -0800 (PST)
+In-Reply-To: <4EE23626.6000104@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-12-09 at 18:45 +0000, David Miller wrote:
-> From: Laszlo Ersek <lersek@redhat.com>
-> Date: Fri,  9 Dec 2011 12:38:58 +0100
-> 
-> > These two together provide complete ordering. Sub-condition (1) is
-> > satisfied by pvops commit 43223efd9bfd.
-> 
-> I don't see this commit in Linus's tree,
+Le vendredi 09 d=C3=A9cembre 2011 =C3=A0 20:24 +0400, Pavel Emelyanov a=
+ =C3=A9crit :
+> Do the same as TCP does -- lookup a socket in the given udp_table,
+> check cookie, fill the reply message with existing inet socket dumpin=
+g
+> helper and send one back.
+>=20
+> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
-The referenced commit is in
-git://git.kernel.org/pub/scm/linux/kernel/git/jeremy/xen.git#xen/next-2.6.32  some people call the "pvops tree" but there's no reason to expect someone outside the Xen world to know that...
+> +
+> +	if (req->sdiag_family =3D=3D AF_INET)
+> +		sk =3D __udp4_lib_lookup(&init_net,
+> +				req->id.idiag_src[0], req->id.idiag_sport,
+> +				req->id.idiag_dst[0], req->id.idiag_dport,
+> +				req->id.idiag_if, tbl);
+> +	else if (req->sdiag_family =3D=3D AF_INET6)
+> +		sk =3D __udp6_lib_lookup(&init_net,
+> +				(struct in6_addr *)req->id.idiag_src,
+> +				req->id.idiag_sport,
+> +				(struct in6_addr *)req->id.idiag_dst,
+> +				req->id.idiag_dport,
+> +				req->id.idiag_if, tbl);
+> +	else
 
-A better reference would have been 6b0b80ca7165 in
-git://xenbits.xen.org/people/ianc/linux-2.6.git#upstream/dom0/backend/netback-history which is the precise branch that was flattened to make f942dc2552b8, which is the upstream commit that added netback, so this change is already in upstream.
+OK, but what happens if IPv6 is a module ?
 
-Ian.
+  LD      .tmp_vmlinux1
+net/built-in.o: In function `udp_dump_one':
+udp_diag.c:(.text+0xa2b40): undefined reference to `__udp6_lib_lookup'
+make: *** [.tmp_vmlinux1] Erreur 1
