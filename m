@@ -1,57 +1,39 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Testing server performance
-Date: Fri, 09 Dec 2011 09:18:23 -0800
-Message-ID: <4EE242DF.2000609@candelatech.com>
-References: <CAFdo_mW0sKSZp3L75BOPBN1Sa+ZQ8WiBRC98eFLM5BaxCVrpJQ@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH iproute2] red: harddrop support and cleanups
+Date: Fri, 9 Dec 2011 09:33:09 -0800
+Message-ID: <20111209093309.04b32e27@nehalam.linuxnetplumber.net>
+References: <1323385900.2529.12.camel@edumazet-laptop>
+	<20111208164426.03248ca8@nehalam.linuxnetplumber.net>
+	<1323403837.2529.14.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: igorm@etf.rs
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:56897 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751561Ab1LIRS3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2011 12:18:29 -0500
-In-Reply-To: <CAFdo_mW0sKSZp3L75BOPBN1Sa+ZQ8WiBRC98eFLM5BaxCVrpJQ@mail.gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:46764 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752304Ab1LIRdL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2011 12:33:11 -0500
+In-Reply-To: <1323403837.2529.14.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/09/2011 07:26 AM, Igor Maravi=C4=87 wrote:
-> Hi all,
-> I'm currently testing how much traffic can I push through my server.
-> I'm running on Ubuntu 11.10 server with net-next kernel.
-> I'm using 2 Gbps NICs, Netgear GA311 and D-Link DGE-528T, that use r8=
-169 driver.
-> I'm generating UDP packets from a router with constant speed.
->
-> After I push traffic to my server with max speed, it saturates.
-> It receives packets at 77MBps and it sends packet with 14MBps.
-> When there are no incoming traffic, but there are remaining packets i=
-n
-> tx fifo queue, it sends them with 40MBps.
->
-> That all wouldn't be strange because my machine isn't any thing speci=
-al
-> (AMD Athlon(tm) II X2 240 on 2,8GHz, motherboard ASUS M2N68 PLUS and
-> 2x2GB DDR2 RAM memory on 1066MHz),
-> but the dstat shows that CPUs are maximally using 6% of their
-> resources for interrupt handling.
-> Beside that, nothing else is using CPU time.
-> Why does it saturate on this values then? Am I doing something wrong?
-> Any help is appreciated.
+On Fri, 09 Dec 2011 05:10:37 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Check the bus speed and width on your NICs.  dmesg usually shows this
-info when the interfaces are first detected.
+> Le jeudi 08 d=E9cembre 2011 =E0 16:44 -0800, Stephen Hemminger a =E9c=
+rit :
+>=20
+> > Applied (minor whitespace cleanup).
+>=20
+> Thanks Stephen !
+>=20
+> Could you push the final patch so that I add the adaptative part on t=
+op
+> of it ?
+>=20
+>=20
+>=20
 
-If you can, try some Intel NICs..they will usually run wire speed
-if the motherboard is reasonably fast.
-
-Thanks,
-Ben
-
-
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+done
