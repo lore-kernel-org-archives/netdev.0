@@ -1,56 +1,55 @@
-From: =?ISO-8859-2?Q?Igor_Maravi=E6?= <igorm@etf.rs>
-Subject: Testing server performance
-Date: Fri, 9 Dec 2011 16:26:32 +0100
-Message-ID: <CAFdo_mW0sKSZp3L75BOPBN1Sa+ZQ8WiBRC98eFLM5BaxCVrpJQ@mail.gmail.com>
-Reply-To: igorm@etf.rs
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH] net/hyperv: Fix the stop/wake queue mechanism
+Date: Fri, 9 Dec 2011 16:00:59 +0000
+Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0CCD457B@TK5EX14MBXC227.redmond.corp.microsoft.com>
+References: <1322855785-22776-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.etf.rs ([147.91.14.170]:37774 "EHLO mx2.etf.bg.ac.rs"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752353Ab1LIP0i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Dec 2011 10:26:38 -0500
-Received: from localhost (avs2.etf.rs [147.91.14.173])
-	by mx2.etf.bg.ac.rs (Postfix) with ESMTP id 99B2F60144
-	for <netdev@vger.kernel.org>; Fri,  9 Dec 2011 16:26:36 +0100 (CET)
-Received: from mx2.etf.bg.ac.rs ([147.91.14.170])
-	by localhost (avs2.etf.rs [147.91.14.171]) (amavisd-new, port 10026)
-	with ESMTP id 8HU2TPjlbONg for <netdev@vger.kernel.org>;
-	Fri,  9 Dec 2011 16:26:35 +0100 (CET)
-Received: from mail-pz0-f46.google.com (mail-pz0-f46.google.com [209.85.210.46])
-	(using TLSv1 with cipher RC4-SHA (128/128 bits))
-	(No client certificate requested)
-	(Authenticated sender: igorm)
-	by mx2.etf.bg.ac.rs (Postfix) with ESMTP id 0931F6013A
-	for <netdev@vger.kernel.org>; Fri,  9 Dec 2011 16:26:34 +0100 (CET)
-Received: by dadw7 with SMTP id w7so548902dad.19
-        for <netdev@vger.kernel.org>; Fri, 09 Dec 2011 07:26:32 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: KY Srinivasan <kys@microsoft.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"gregkh@suse.de" <gregkh@suse.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1322855785-22776-1-git-send-email-haiyangz@microsoft.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
-I'm currently testing how much traffic can I push through my server.
-I'm running on Ubuntu 11.10 server with net-next kernel.
-I'm using 2 Gbps NICs, Netgear GA311 and D-Link DGE-528T, that use r8169 driver.
-I'm generating UDP packets from a router with constant speed.
+> -----Original Message-----
+> From: Haiyang Zhang [mailto:haiyangz@microsoft.com]
+> Sent: Friday, December 02, 2011 2:56 PM
+> To: Haiyang Zhang; KY Srinivasan; davem@davemloft.net; gregkh@suse.de;
+> linux-kernel@vger.kernel.org; netdev@vger.kernel.org;
+> devel@linuxdriverproject.org
+> Subject: [PATCH] net/hyperv: Fix the stop/wake queue mechanism
+> 
+> The ring buffer is only used to pass meta data for outbound packets. The
+> actual payload is accessed by DMA from the host. So the stop/wake queue
+> mechanism based on counting and comparing number of pages sent v.s.
+> number
+> of pages in the ring buffer is wrong. Also, there is a race condition in
+> the stop/wake queue calls, which can stop xmit queue forever.
+> 
+> The new stop/wake queue mechanism is based on the actual bytes used by
+> outbound packets in the ring buffer. The check for number of outstanding
+> sends after stop queue prevents the race condition that can cause wake
+> queue happening earlier than stop queue.
+> 
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+> Reported-by: Long Li <longli@microsoft.com>
+> ---
+>  drivers/net/hyperv/netvsc.c     |   14 +++++++++++---
+>  drivers/net/hyperv/netvsc_drv.c |   24 +-----------------------
+>  2 files changed, 12 insertions(+), 26 deletions(-)
 
-After I push traffic to my server with max speed, it saturates.
-It receives packets at 77MBps and it sends packet with 14MBps.
-When there are no incoming traffic, but there are remaining packets in
-tx fifo queue, it sends them with 40MBps.
+Hi Greg,
 
-That all wouldn't be strange because my machine isn't any thing special
-(AMD Athlon(tm) II X2 240 on 2,8GHz, motherboard ASUS M2N68 PLUS and
-2x2GB DDR2 RAM memory on 1066MHz),
-but the dstat shows that CPUs are maximally using 6% of their
-resources for interrupt handling.
-Beside that, nothing else is using CPU time.
-Why does it saturate on this values then? Am I doing something wrong?
-Any help is appreciated.
+Since the netvsc haven't been merged into Dave's tree yet after out of staging,
+could you consider this patch for your tree?
 
-BR
-Igor
-
-PS. Kernel is SMP enabled and I tried different bit masks for
-smp_affinity for my interfaces, but I still got the same result.
+Thanks,
+-  Haiyang
