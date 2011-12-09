@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] sock_diag: off by one checks
-Date: Thu, 08 Dec 2011 19:54:52 -0500 (EST)
-Message-ID: <20111208.195452.1335073462061460670.davem@davemloft.net>
-References: <20111208064938.GB16735@elgon.mountain>
+Subject: Re: [PATCH net-next v2] vlan: add 802.1q netpoll support
+Date: Thu, 08 Dec 2011 19:55:22 -0500 (EST)
+Message-ID: <20111208.195522.760822966632745223.davem@davemloft.net>
+References: <20111208.000730.63159506168958262.davem@davemloft.net>
+	<20111208153558.GE30652@kvack.org>
+	<20111208162049.GF30652@kvack.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xemul@parallels.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev@vger.kernel.org
+To: bcrl@kvack.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35678 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:35691 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752792Ab1LIAy6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2011 19:54:58 -0500
-In-Reply-To: <20111208064938.GB16735@elgon.mountain>
+	with ESMTP id S1753539Ab1LIAzZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2011 19:55:25 -0500
+In-Reply-To: <20111208162049.GF30652@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Thu, 8 Dec 2011 09:49:38 +0300
+From: Benjamin LaHaise <bcrl@kvack.org>
+Date: Thu, 8 Dec 2011 11:20:49 -0500
 
-> These tests are off by one because sock_diag_handlers[] only has AF_MAX
-> elements.
+> [PATCH net-next v2] vlan: add 802.1q netpoll support
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Add netpoll support to 802.1q vlan devices.  Based on the netpoll support
+> in the bridging code.  Tested on a forced_eth device with netconsole.
+> 
+> Signed-off-by: Benjamin LaHaise <bcrl@kvack.org> 
 
 Applied.
