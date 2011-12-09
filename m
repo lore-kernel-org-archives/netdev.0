@@ -1,82 +1,30 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [net-next RFC PATCH 5/5] virtio-net: flow director support
-Date: Thu, 08 Dec 2011 18:00:39 -0800
-Message-ID: <4EE16BC7.1030808@us.ibm.com>
-References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
-	<20111205085925.6116.94352.stgit@dhcp-8-146.nay.redhat.com>
-	<CAJSP0QXfHC8j2Kk9x6wyBMubo2=YvpaLAShJtwMWA2mtro6UhA@mail.gmail.com>
-	<4EDDB71F.9080908@redhat.com>
-	<CAJSP0QX5dDkpX+cRcQut2mb6K91zeqGLRrZBGAWT_r2p685gaQ@mail.gmail.com>
-	<4EDDECA9.8060808@redhat.com>
-	<CAJSP0QXsLwvH5xYj6h0E_V4VLg6DuUc-GKXu9esEYzL2MFcFGw@mail.gmail.com>
-	<4EDE37FE.5090409@us.ibm.com> <4EDF47D9.1090501@redhat.com>
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Subject: Re: policing actions pipe and ok
+Date: Thu, 08 Dec 2011 21:02:24 -0500
+Message-ID: <1323396144.3159.19.camel@denise.theartistscloset.com>
+References: <1323382496.3159.1.camel@denise.theartistscloset.com>
+	 <1323391328.1850.1.camel@mojatatu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
-	virtualization@lists.linux-foundation.org,
-	levinsasha928@gmail.com, netdev@vger.kernel.org, bhutchings@solarflare.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <4EDF47D9.1090501@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: jhs@mojatatu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.perfora.net ([74.208.4.195]:55299 "EHLO mout.perfora.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754149Ab1LICC3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Dec 2011 21:02:29 -0500
+In-Reply-To: <1323391328.1850.1.camel@mojatatu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/7/2011 3:02 AM, Jason Wang wrote:
-> On 12/06/2011 11:42 PM, Sridhar Samudrala wrote:
->> On 12/6/2011 5:15 AM, Stefan Hajnoczi wrote:
->>> On Tue, Dec 6, 2011 at 10:21 AM, Jason Wang<jasowang@redhat.com>  
->>> wrote:
->>>> On 12/06/2011 05:18 PM, Stefan Hajnoczi wrote:
->>>>> On Tue, Dec 6, 2011 at 6:33 AM, Jason Wang<jasowang@redhat.com>    
->>>>> wrote:
->>>>>> On 12/05/2011 06:55 PM, Stefan Hajnoczi wrote:
->>>>>>> On Mon, Dec 5, 2011 at 8:59 AM, Jason Wang<jasowang@redhat.com>
->>>>>>>   wrote:
->>>>> The vcpus are just threads and may not be bound to physical CPUs, so
->>>>> what is the big picture here?  Is the guest even in the position to
->>>>> set the best queue mappings today?
->>>>
->>>> Not sure it could publish the best mapping but the idea is to make 
->>>> sure the
->>>> packets of a flow were handled by the same guest vcpu and may be 
->>>> the same
->>>> vhost thread in order to eliminate the packet reordering and lock
->>>> contention. But this assumption does not take the bouncing of vhost 
->>>> or vcpu
->>>> threads which would also affect the result.
->>> Okay, this is why I'd like to know what the big picture here is.  What
->>> solution are you proposing?  How are we going to have everything from
->>> guest application, guest kernel, host threads, and host NIC driver
->>> play along so we get the right steering up the entire stack.  I think
->>> there needs to be an answer to that before changing virtio-net to add
->>> any steering mechanism.
->>>
->>>
->> Yes. Also the current model of  a vhost thread per VM's interface 
->> doesn't help with packet steering
->> all the way from the guest to the host physical NIC.
->>
->> I think we need to have vhost thread(s) per-CPU that can handle 
->> packets to/from physical NIC's
->> TX/RX queues. Currently we have a single vhost thread for a VM's i/f 
->> that handles all the packets from
->> various flows coming from a multi-queue physical NIC.
->
-> Even if we have per-cpu workthread, only one socket is used to queue 
-> the packet then, so a multiple queue(sockets) tap/macvtap is still 
-> needed.
-I think so.  We need per-cpu tap/macvtap sockets along with per-cpu 
-vhost threads.
-This will parallelize all the way from physical NIC to vhost.
-
-Thanks
-Sridhar
+On Thu, 2011-12-08 at 19:42 -0500, jamal wrote:
+> On Thu, 2011-12-08 at 17:14 -0500, John A. Sullivan III wrote:
+> > Hello, all.  I'm having trouble finding documentation on the tc filter
+> > policing actions pipe and ok. 
+> 
+> Look at the iproute2 docs and enjoy:
+> doc/actions/actions-general 
+<snip>
+Thanks.  Was nowhere to be found on my system but, with that
+information, I was able to find it on the Internet - John
