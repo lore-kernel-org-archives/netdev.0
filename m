@@ -1,84 +1,46 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Subject: Re: [PATCH v8 1/9] Basic kernel memory functionality for the Memory
- Controller
-Date: Fri, 9 Dec 2011 10:21:13 +0900
-Message-ID: <20111209102113.cdb85da8.kamezawa.hiroyu@jp.fujitsu.com>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Subject: Re: [PATCH v8 2/9] foundations of per-cgroup memory pressure
+ controlling.
+Date: Fri, 9 Dec 2011 10:24:38 +0900
+Message-ID: <20111209102438.2db705d0.kamezawa.hiroyu@jp.fujitsu.com>
 References: <1323120903-2831-1-git-send-email-glommer@parallels.com>
-	<1323120903-2831-2-git-send-email-glommer@parallels.com>
+	<1323120903-2831-3-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, lizf@cn.fujitsu.com,
- ebiederm@xmission.com, davem@davemloft.net, gthelen@google.com,
- netdev@vger.kernel.org, linux-mm@kvack.org, kirill@shutemov.name,
- avagin@parallels.com, devel@openvz.org, eric.dumazet@gmail.com,
- cgroups@vger.kernel.org, hannes@cmpxchg.org, mhocko@suse.cz, Paul Menage
- <paul@paulmenage.org>
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1323120903-2831-2-git-send-email-glommer@parallels.com>
-Sender: owner-linux-mm@kvack.org
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org,
+	avagin-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org, mhocko-AlSwsSmVLrQ@public.gmane.org
+To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1323120903-2831-3-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon,  5 Dec 2011 19:34:55 -0200
-Glauber Costa <glommer@parallels.com> wrote:
+On Mon,  5 Dec 2011 19:34:56 -0200
+Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
 
-> This patch lays down the foundation for the kernel memory component
-> of the Memory Controller.
+> This patch replaces all uses of struct sock fields' memory_pressure,
+> memory_allocated, sockets_allocated, and sysctl_mem to acessor
+> macros. Those macros can either receive a socket argument, or a mem_cgroup
+> argument, depending on the context they live in.
 > 
-> As of today, I am only laying down the following files:
+> Since we're only doing a macro wrapping here, no performance impact at all is
+> expected in the case where we don't have cgroups disabled.
 > 
->  * memory.independent_kmem_limit
->  * memory.kmem.limit_in_bytes (currently ignored)
->  * memory.kmem.usage_in_bytes (always zero)
-> 
-> Signed-off-by: Glauber Costa <glommer@parallels.com>
-> Reviewed-by: Kirill A. Shutemov <kirill@shutemov.name>
-> CC: Paul Menage <paul@paulmenage.org>
-> CC: Greg Thelen <gthelen@google.com>
+> Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> CC: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> CC: Hiroyouki Kamezawa <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+> CC: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+> CC: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-As I wrote, please CC Johannes and  Michal Hocko for memcg related parts.
-
-A few questions.
-==
-> +	val = !!val;
-> +
-> +	if (parent && parent->use_hierarchy &&
-> +	   (val != parent->kmem_independent_accounting))
-> +		return -EINVAL;
-==
-Hm, why you check val != parent->kmem_independent_accounting ?
-
-	if (parent && parent->use_hierarchy)
-		return -EINVAL;
-?
-
-BTW, you didn't check this cgroup has children or not.
-I think
-
-	if (this_cgroup->use_hierarchy &&
-             !list_empty(this_cgroup->childlen))
-		return -EINVAL;
-
-
-==
-> +	/*
-> +	 * TODO: We need to handle the case in which we are doing
-> +	 * independent kmem accounting as authorized by our parent,
-> +	 * but then our parent changes its parameter.
-> +	 */
-> +	cgroup_lock();
-> +	memcg->kmem_independent_accounting = val;
-> +	cgroup_unlock();
-
-Do we need cgroup_lock() here ?
-
-Thanks,
--Kame
+please get ack from network guys. 
+from me.
+Reviewed-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
 
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe cgroups" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
