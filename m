@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/8] net/fec: several cleanups and bugfixes
-Date: Thu, 08 Dec 2011 19:54:39 -0500 (EST)
-Message-ID: <20111208.195439.1316777589309191623.davem@davemloft.net>
-References: <cover.1323326019.git.LW@KARO-electronics.de>
+Subject: Re: [PATCH net-next] sch_red: Adaptative RED AQM
+Date: Thu, 08 Dec 2011 19:55:11 -0500 (EST)
+Message-ID: <20111208.195511.1598354035363640359.davem@davemloft.net>
+References: <CAA93jw7kQYONQiAozatRmdRRJeK0GB9eNDWtRZ3AL+OVKn0OpA@mail.gmail.com>
+	<1323082774.2670.40.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<1323360363.2521.30.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	shawn.guo@linaro.org
-To: LW@KARO-electronics.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1323326019.git.LW@KARO-electronics.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dave.taht@gmail.com, bloat@lists.bufferbloat.net,
+	bloat-devel@lists.bufferbloat.net, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, hagen@jauu.net
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:35723 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753704Ab1LIA5T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2011 19:57:19 -0500
+In-Reply-To: <1323360363.2521.30.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Lothar Wa=DFmann <LW@KARO-electronics.de>
-Date: Thu,  8 Dec 2011 08:59:24 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 08 Dec 2011 17:06:03 +0100
 
-> The following set of patches provides some cleanup and bugfixes for
-> drivers/net/ethernet/freescale/fec.c and makes the driver buildable a=
-s
-> a module.
->=20
-> Changes wrt v2:
->  - subject prefix changed to be in sync with existing commits
->  - added Acked-by:
+> Adaptative RED AQM for linux, based on paper from Sally FLoyd,
+> Ramakrishna Gummadi, and Scott Shenker, August 2001 :
 
-All applied.
+Applied.
