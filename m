@@ -1,40 +1,38 @@
-From: Nico Schottelius <nico-linux-20111201@schottelius.org>
-Subject: Re: BCM43224 hanging [3.2.0-rc4-00248-gb835c0f]
-Date: Fri, 9 Dec 2011 19:00:05 +0100
-Message-ID: <20111209180005.GA5055@ethz.ch>
-References: <20111201224851.GB20536@ethz.ch>
- <4ED8B610.2010703@broadcom.com>
- <20111202150128.GC3096@schottelius.org>
- <20111207190821.GA1775@schottelius.org>
- <4EE0F50B.5040407@broadcom.com>
-Mime-Version: 1.0
+From: Xi Wang <xi.wang@gmail.com>
+Subject: Re: [PATCH RESEND] sctp: fix incorrect overflow check on autoclose
+Date: Fri, 9 Dec 2011 13:04:34 -0500
+Message-ID: <8EEC521A-CA38-4CE9-BCFD-BA6FC9A85D18@gmail.com>
+References: <1323393883-3759-1-git-send-email-xi.wang@gmail.com> <4EE2478B.5010409@hp.com>
+Mime-Version: 1.0 (Apple Message framework v1084)
 Content-Type: text/plain; charset=us-ascii
-Cc: Nico Schottelius <nico-linux-20111201@schottelius.org>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	b43-dev@lists.infradead.org, Greg KH <gregkh@suse.de>
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4EE0F50B.5040407@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Andrei Pelinescu-Onciul <andrei@iptel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:41261 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752009Ab1LISEi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2011 13:04:38 -0500
+In-Reply-To: <4EE2478B.5010409@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hey Arend,
+On Dec 9, 2011, at 12:38 PM, Vladislav Yasevich wrote:
+> I think this should be u32 since that's what sp->autoclose is.
 
-Arend van Spriel [Thu, Dec 08, 2011 at 06:34:03PM +0100]:
-> On 12/07/2011 08:08 PM, Nico Schottelius wrote:
-> Could you try and see what happens when you kill wpa_supplicant.
+Do you mean something like this?
 
-I can't kill it, it's in D state :-/
+	min_t(u32, sp->autoclose, MAX_SCHEDULE_TIMEOUT / HZ)
 
-I was just browsing through
-drivers/net/wireless/brcm80211/brcmsmac/main.c and it seems that
-your patch from my last problem has already been applied.
+On 64-bit platform this would limit autoclose for no good
+reason to
 
-What may be different this time that the network being used
-is *not* on 5Ghz, but 2.4 Ghz (I'm not in the same environment anymore).
+	(u32)(MAX_SCHEDULE_TIMEOUT / HZ),
 
-Nico
+which is basically 0x978d4fdf (assuming HZ is 250).  I guess the
+intention was to allow autoclose to be any u32 on 64-bit platform.
 
--- 
-PGP key: 7ED9 F7D3 6B10 81D7 0EC5  5C09 D7DC C8E4 3187 7DF0
+- xi
