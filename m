@@ -1,151 +1,178 @@
-From: "Esztermann, Ansgar" <Ansgar.Esztermann@mpi-bpc.mpg.de>
-Subject: Re: TCP fast retransmit
-Date: Fri, 9 Dec 2011 14:34:17 +0100
-Message-ID: <C2C333F1-98FD-41FB-9CFA-EDE9F363CABF@mpi-bpc.mpg.de>
-References: <2D9E1426-D432-4D08-BF28-FD2615AAEDBA@mpi-bpc.mpg.de>
- <1322239016.5793.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH 0/4] skb paged fragment destructors
+Date: Fri, 9 Dec 2011 13:47:07 +0000
+Message-ID: <1323438427.20077.57.camel@zakaz.uk.xensource.com>
+References: <1320850895.955.172.camel@zakaz.uk.xensource.com>
+	 <1323172634.23681.73.camel@zakaz.uk.xensource.com>
+	 <1323177878.2448.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1323264929.23681.178.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_002_C2C333F198FD41FB9CFAEDE9F363CABFmpibpcmpgde_"
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tmailer.gwdg.de ([134.76.10.23]:51994 "EHLO tmailer.gwdg.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753741Ab1LINeU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Dec 2011 08:34:20 -0500
-Received: from gwdexc-fe12.exc.top.gwdg.de ([134.76.9.232] helo=smtp-exc.gwdg.de)
-	by mailer.gwdg.de with esmtps (TLSv1:RC4-MD5:128)
-	(Exim 4.72)
-	(envelope-from <Ansgar.Esztermann@mpi-bpc.mpg.de>)
-	id 1RZ0aA-0006f1-TP
-	for netdev@vger.kernel.org; Fri, 09 Dec 2011 14:33:47 +0100
-In-Reply-To: <1322239016.5793.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Content-Language: en-US
+Received: from smtp.eu.citrix.com ([62.200.22.115]:23807 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751829Ab1LINrJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2011 08:47:09 -0500
+In-Reply-To: <1323264929.23681.178.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---_002_C2C333F198FD41FB9CFAEDE9F363CABFmpibpcmpgde_
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+On Wed, 2011-12-07 at 13:35 +0000, Ian Campbell wrote:
+> On Tue, 2011-12-06 at 13:24 +0000, Eric Dumazet wrote:
+> > Le mardi 06 d=C3=A9cembre 2011 =C3=A0 11:57 +0000, Ian Campbell a =C3=
+=A9crit :
+> > > On Wed, 2011-11-09 at 15:01 +0000, Ian Campbell wrote:
+> > > >       * split linear data allocation and shinfo allocation into=
+ two. I
+> > > >         suspect this will have its own performance implications=
+? On the
+> > > >         positive side skb_shared_info could come from its own f=
+ixed size
+> > > >         pool/cache which might have some benefits
+> > >=20
+> > > I played with this to see how it would look. Illustrative patch b=
+elow.=20
+> > >=20
+> > > I figure that lots of small frames is the interesting workload fo=
+r a
+> > > change such as this but I don't know if iperf is necessarily the =
+best
+> > > benchmark for measuring that.
+> > > Before changing things I got:
+> > >         iperf -c qarun -m -t 60 -u -b 10000M -l 64
+> > >         ---------------------------------------------------------=
+---
+> > >         Client connecting to qarun, UDP port 5001
+> > >         Sending 64 byte datagrams
+> > >         UDP buffer size:   224 KByte (default)
+> > >         ---------------------------------------------------------=
+---
+> > >         [  3] local 10.80.225.63 port 45857 connected with 10.80.=
+224.22 port 5001
+> > >         [ ID] Interval       Transfer     Bandwidth
+> > >         [  3]  0.0-60.0 sec    844 MBytes    118 Mbits/sec
+> > >         [  3] Sent 13820376 datagrams
+> > >         [  3] Server Report:
+> > >         [  3]  0.0-60.0 sec    844 MBytes    118 Mbits/sec  0.005=
+ ms    0/13820375 (0%)
+> > >         [  3]  0.0-60.0 sec  1 datagrams received out-of-order
+> > > whereas with the patch:
+> > >         # iperf -c qarun -m -t 60 -u -b 10000M -l 64
+> > >         ---------------------------------------------------------=
+---
+> > >         Client connecting to qarun, UDP port 5001
+> > >         Sending 64 byte datagrams
+> > >         UDP buffer size:   224 KByte (default)
+> > >         ---------------------------------------------------------=
+---
+> > >         [  3] local 10.80.225.63 port 42504 connected with 10.80.=
+224.22 port 5001
+> > >         [ ID] Interval       Transfer     Bandwidth
+> > >         [  3]  0.0-60.0 sec    833 MBytes    116 Mbits/sec
+> > >         [  3] Sent 13645857 datagrams
+> > >         [  3] Server Report:
+> > >         [  3]  0.0-60.0 sec    833 MBytes    116 Mbits/sec  0.005=
+ ms    0/13645856 (0%)
+> > >         [  3]  0.0-60.0 sec  1 datagrams received out-of-order
+> > >=20
+> > > With 1200 byte datagrams I get basically identical throughput.
+> > >=20
+> > > (nb: none of the skb destructor stuff was present in either case)
+> >=20
+> > Sorry, but the real problem is that if skb producer and consumer ar=
+e not
+> > on same CPU, each skb will now hit SLUB slowpath three times instea=
+d of
+> > two.
+> >=20
+> > Some workloads are : One cpu fully handling IRQ from device, dispat=
+ching
+> > skbs to consumers on other cpus.
+>=20
+> So something like a multithreaded apache benchmark would be interesti=
+ng?
+>=20
+> > Plus skb->truesize is wrong after your patch.
+> > Not sure if cloning is correct either...
+>=20
+> Me neither, the patch was just one which happened to run well enough =
+to
+> run some numbers on. I'll be sure to double-check/correct that stuff =
+if
+> I persist with the approach.
+>=20
+> > Anyway, do we _really_ need 16 frags per skb, I dont know....
+>=20
+> MAX_SKB_FRAGS is:
+>         /* To allow 64K frame to be packed as single skb without frag=
+_list. Since
+>          * GRO uses frags we allocate at least 16 regardless of page =
+size.
+>          */
+>         #if (65536/PAGE_SIZE + 2) < 16
+>         #define MAX_SKB_FRAGS 16UL
+>         #else
+>         #define MAX_SKB_FRAGS (65536/PAGE_SIZE + 2)
+>         #endif
+>        =20
+> So I think actually it turns out to be 18 on systems with 4k pages. I=
+f
+> we reduced that to be 16 that would save 48 bytes on amd64 which pull=
+s
+> the shinfo size down to 440 and then
+>=20
+>         NET_SKB_PAD (64) + 1500 + 14 + 440 =3D 2018
+>=20
+> which does fit in half a page.
+>=20
+> Using 16 still means that a 64k frame fits precisely in frags on a 40=
+96
+> page size system. I don't know what the extra 2 was for (it predates
+> git), perhaps just to allow for some slop due to misalignment in the
+> first page of data?
 
+Tracked it down in TGLX's historic tree as:
+http://git.kernel.org/?p=3Dlinux/kernel/git/tglx/history.git;a=3Dcommit=
+diff;h=3D80223d5186f73bf42a7e260c66c9cb9f7d8ec9cf
 
-On Nov 25, 2011, at 17:36 , Eric Dumazet wrote:
+Having found the title I did a bit of searching around for discussion
+but all I could find was other folks not having any idea where the + 2
+comes from either...
 
-> Could you send a sample pcap of such problem, but please include full
-> tcp sesssion, from the first SYN packet, up to packets following
-> restransmits.
+http://kerneltrap.org/mailarchive/linux-netdev/2008/4/21/1529914 sort o=
+f
+wonders if the + 2 might be including a head which crosses a page
+boundary. I'm not sure it is sane/useful to account for that in
+MAX_SKB_FRAGS. If we had a concept like MAX_SKB_PAGES then it would
+perhaps make sense to have + 2 there, but AFAICT drivers etc are alread=
+y
+accounting for this appropriately by adding a further + 2 (or sometimes
++ 1) to MAX_SKB_FRAGS.
 
-OK, I've got a dump now. It is rather large (>300MB), so it's probably not =
-a good idea to send it to the list. Instead, you can find it here:
-http://wwwuser.gwdg.de/~aeszter/tcpstream.pcap
+Ian.
 
-The capture has been taken in the sender, 10.208.9.87, with a capture filte=
-r on the receiver's IP address. OS is:
-% uname -a
-Linux mwolf 2.6.37.6-0.9-default #1 SMP 2011-10-19 22:33:27 +0200 x86_64 x8=
-6_64 x86_64 GNU/Linux
-
-The first "strange" retransmission is in frame 166859, following ACKs in fr=
-ames 166849 .. 166858.=20
-
-If I can do anything to reduce the amount of data, I will of course do so.
-
-> A diff of "netstat -s" taken before your session and after your session
-> on receiver would help too, if receiver is not a loaded machine of
-> course.
-
-Attached.
-
-Thanks a lot,
-
-A.
-
---=20
-Ansgar Esztermann
-DV-Systemadministration
-Max-Planck-Institut f=FCr biophysikalische Chemie, Abteilung 105
-
---_002_C2C333F198FD41FB9CFAEDE9F363CABFmpibpcmpgde_
-Content-Type: application/octet-stream; name="netstat.diff"
-Content-Description: netstat.diff
-Content-Disposition: attachment; filename="netstat.diff"; size=4185;
-	creation-date="Fri, 09 Dec 2011 14:34:17 GMT";
-	modification-date="Fri, 09 Dec 2011 14:34:17 GMT"
-Content-Transfer-Encoding: base64
-
-LS0tIC90bXAvYmVmb3JlCTIwMTEtMTItMDkgMTI6MTY6NDYuMDAwMDAwMDAwICswMTAwDQorKysg
-L3RtcC9hZnRlcgkyMDExLTEyLTA5IDEyOjI0OjMzLjAwMDAwMDAwMCArMDEwMA0KQEAgLTEsMTAg
-KzEsMTAgQEANCiBJcDoNCi0gICAgMTA3MjU4Nzc0NSB0b3RhbCBwYWNrZXRzIHJlY2VpdmVkDQor
-ICAgIDEwNzI4NTkwNTggdG90YWwgcGFja2V0cyByZWNlaXZlZA0KICAgICAxNTEgd2l0aCBpbnZh
-bGlkIGFkZHJlc3Nlcw0KICAgICAwIGZvcndhcmRlZA0KICAgICAwIGluY29taW5nIHBhY2tldHMg
-ZGlzY2FyZGVkDQotICAgIDEwNzI1Nzk4NTUgaW5jb21pbmcgcGFja2V0cyBkZWxpdmVyZWQNCi0g
-ICAgNjM4ODg0NjM5IHJlcXVlc3RzIHNlbnQgb3V0DQorICAgIDEwNzI4NTAzNjIgaW5jb21pbmcg
-cGFja2V0cyBkZWxpdmVyZWQNCisgICAgNjM5MDYwNzgwIHJlcXVlc3RzIHNlbnQgb3V0DQogSWNt
-cDoNCiAgICAgNzggSUNNUCBtZXNzYWdlcyByZWNlaXZlZA0KICAgICAxIGlucHV0IElDTVAgbWVz
-c2FnZSBmYWlsZWQuDQpAQCAtMjQsMjEgKzI0LDIxIEBADQogICAgICAgICBPdXRUeXBlMzogMTE3
-DQogICAgICAgICBPdXRUeXBlODogMjg3DQogVGNwOg0KLSAgICA0ODc4OSBhY3RpdmUgY29ubmVj
-dGlvbnMgb3BlbmluZ3MNCi0gICAgMjY4MTEgcGFzc2l2ZSBjb25uZWN0aW9uIG9wZW5pbmdzDQor
-ICAgIDQ4ODAxIGFjdGl2ZSBjb25uZWN0aW9ucyBvcGVuaW5ncw0KKyAgICAyNjgxNCBwYXNzaXZl
-IGNvbm5lY3Rpb24gb3BlbmluZ3MNCiAgICAgMTMyIGZhaWxlZCBjb25uZWN0aW9uIGF0dGVtcHRz
-DQogICAgIDExNTMgY29ubmVjdGlvbiByZXNldHMgcmVjZWl2ZWQNCi0gICAgMjAgY29ubmVjdGlv
-bnMgZXN0YWJsaXNoZWQNCi0gICAgMTA2MTcyNjY3MSBzZWdtZW50cyByZWNlaXZlZA0KLSAgICAz
-MTY0OTk0Mzk5IHNlZ21lbnRzIHNlbmQgb3V0DQotICAgIDQwNDAwNjU5IHNlZ21lbnRzIHJldHJh
-bnNtaXRlZA0KKyAgICAyMyBjb25uZWN0aW9ucyBlc3RhYmxpc2hlZA0KKyAgICAxMDYxOTk0Njgy
-IHNlZ21lbnRzIHJlY2VpdmVkDQorICAgIDMxNjU2MDEzMTYgc2VnbWVudHMgc2VuZCBvdXQNCisg
-ICAgNDA0MDc5OTkgc2VnbWVudHMgcmV0cmFuc21pdGVkDQogICAgIDAgYmFkIHNlZ21lbnRzIHJl
-Y2VpdmVkLg0KICAgICAyMjcyIHJlc2V0cyBzZW50DQogVWRwOg0KLSAgICA5ODY4MjI1IHBhY2tl
-dHMgcmVjZWl2ZWQNCisgICAgOTg3MDQ5OSBwYWNrZXRzIHJlY2VpdmVkDQogICAgIDQ0IHBhY2tl
-dHMgdG8gdW5rbm93biBwb3J0IHJlY2VpdmVkLg0KICAgICAwIHBhY2tldCByZWNlaXZlIGVycm9y
-cw0KLSAgICA0NDQ2MDMgcGFja2V0cyBzZW50DQorICAgIDQ0NDY4OSBwYWNrZXRzIHNlbnQNCiAg
-ICAgUmN2YnVmRXJyb3JzOiAwDQogICAgIFNuZGJ1ZkVycm9yczogMA0KIFVkcExpdGU6DQpAQCAt
-NTMsMTggKzUzLDE4IEBADQogICAgIDEzIHBhY2tldHMgcHJ1bmVkIGZyb20gcmVjZWl2ZSBxdWV1
-ZSBiZWNhdXNlIG9mIHNvY2tldCBidWZmZXIgb3ZlcnJ1bg0KICAgICAzMyBJQ01QIHBhY2tldHMg
-ZHJvcHBlZCBiZWNhdXNlIHRoZXkgd2VyZSBvdXQtb2Ytd2luZG93DQogICAgIEFycEZpbHRlcjog
-MA0KLSAgICAyOTE2NCBUQ1Agc29ja2V0cyBmaW5pc2hlZCB0aW1lIHdhaXQgaW4gZmFzdCB0aW1l
-cg0KKyAgICAyOTE3NyBUQ1Agc29ja2V0cyBmaW5pc2hlZCB0aW1lIHdhaXQgaW4gZmFzdCB0aW1l
-cg0KICAgICA0MyBwYWNrZXRzIHJlamVjdHMgaW4gZXN0YWJsaXNoZWQgY29ubmVjdGlvbnMgYmVj
-YXVzZSBvZiB0aW1lc3RhbXANCi0gICAgMjg3MTc3IGRlbGF5ZWQgYWNrcyBzZW50DQotICAgIDUy
-NyBkZWxheWVkIGFja3MgZnVydGhlciBkZWxheWVkIGJlY2F1c2Ugb2YgbG9ja2VkIHNvY2tldA0K
-LSAgICBRdWljayBhY2sgbW9kZSB3YXMgYWN0aXZhdGVkIDE1MzQwIHRpbWVzDQorICAgIDI4Nzg4
-NCBkZWxheWVkIGFja3Mgc2VudA0KKyAgICA1MjggZGVsYXllZCBhY2tzIGZ1cnRoZXIgZGVsYXll
-ZCBiZWNhdXNlIG9mIGxvY2tlZCBzb2NrZXQNCisgICAgUXVpY2sgYWNrIG1vZGUgd2FzIGFjdGl2
-YXRlZCAxNTU5MCB0aW1lcw0KICAgICA0OTI3OCBwYWNrZXRzIGRpcmVjdGx5IHF1ZXVlZCB0byBy
-ZWN2bXNnIHByZXF1ZXVlLg0KLSAgICAxODAzMDg0IHBhY2tldHMgZGlyZWN0bHkgcmVjZWl2ZWQg
-ZnJvbSBiYWNrbG9nDQorICAgIDE4MDQxODggcGFja2V0cyBkaXJlY3RseSByZWNlaXZlZCBmcm9t
-IGJhY2tsb2cNCiAgICAgMTc2MjgxNzI5IHBhY2tldHMgZGlyZWN0bHkgcmVjZWl2ZWQgZnJvbSBw
-cmVxdWV1ZQ0KLSAgICAxMjEyNjM0NTIgcGFja2V0cyBoZWFkZXIgcHJlZGljdGVkDQotICAgIDUw
-MzUwIHBhY2tldHMgaGVhZGVyIHByZWRpY3RlZCBhbmQgZGlyZWN0bHkgcXVldWVkIHRvIHVzZXIN
-Ci0gICAgVENQUHVyZUFja3M6IDI4NzQ4NzAwNQ0KLSAgICBUQ1BIUEFja3M6IDYyNzY5NDMzMg0K
-KyAgICAxMjEzNzUxMDcgcGFja2V0cyBoZWFkZXIgcHJlZGljdGVkDQorICAgIDUwMzUxIHBhY2tl
-dHMgaGVhZGVyIHByZWRpY3RlZCBhbmQgZGlyZWN0bHkgcXVldWVkIHRvIHVzZXINCisgICAgVENQ
-UHVyZUFja3M6IDI4NzUzNDkwOA0KKyAgICBUQ1BIUEFja3M6IDYyNzgwMTA2Nw0KICAgICBUQ1BS
-ZW5vUmVjb3Zlcnk6IDANCiAgICAgVENQU2Fja1JlY292ZXJ5OiAyODYNCiAgICAgVENQU0FDS1Jl
-bmVnaW5nOiAwDQpAQCAtNzksMTcgKzc5LDE3IEBADQogICAgIFRDUExvc3M6IDEwNA0KICAgICBU
-Q1BMb3N0UmV0cmFuc21pdDogMA0KICAgICBUQ1BSZW5vRmFpbHVyZXM6IDANCi0gICAgVENQU2Fj
-a0ZhaWx1cmVzOiAxMTI0MzENCi0gICAgVENQTG9zc0ZhaWx1cmVzOiA3NzA0Ng0KKyAgICBUQ1BT
-YWNrRmFpbHVyZXM6IDExMjQ1OA0KKyAgICBUQ1BMb3NzRmFpbHVyZXM6IDc3MDYxDQogICAgIFRD
-UEZhc3RSZXRyYW5zOiAzNjU0DQogICAgIFRDUEZvcndhcmRSZXRyYW5zOiAxDQotICAgIFRDUFNs
-b3dTdGFydFJldHJhbnM6IDM0NTcxMDg1DQotICAgIFRDUFRpbWVvdXRzOiA1NTg2NzM0DQorICAg
-IFRDUFNsb3dTdGFydFJldHJhbnM6IDM0NTc3NDk3DQorICAgIFRDUFRpbWVvdXRzOiA1NTg3NjAz
-DQogICAgIFRDUFJlbm9SZWNvdmVyeUZhaWw6IDANCiAgICAgVENQU2Fja1JlY292ZXJ5RmFpbDog
-NjQNCiAgICAgVENQU2NoZWR1bGVyRmFpbGVkOiAwDQogICAgIFRDUFJjdkNvbGxhcHNlZDogMTg3
-NQ0KLSAgICBUQ1BEU0FDS09sZFNlbnQ6IDEyMjI5DQorICAgIFRDUERTQUNLT2xkU2VudDogMTI0
-NzkNCiAgICAgVENQRFNBQ0tPZm9TZW50OiA0MjgNCiAgICAgVENQRFNBQ0tSZWN2OiA5MjgyMDU0
-MA0KICAgICBUQ1BEU0FDS09mb1JlY3Y6IDANCkBAIC0xMDEsNyArMTAxLDcgQEANCiAgICAgVENQ
-QWJvcnRPbkxpbmdlcjogMA0KICAgICBUQ1BBYm9ydEZhaWxlZDogMA0KICAgICBUQ1BNZW1vcnlQ
-cmVzc3VyZXM6IDANCi0gICAgVENQU0FDS0Rpc2NhcmQ6IDIwMDU5MjY4DQorICAgIFRDUFNBQ0tE
-aXNjYXJkOiAyMDA3NDkwMA0KICAgICBUQ1BEU0FDS0lnbm9yZWRPbGQ6IDI0NjM3MTgyDQogICAg
-IFRDUERTQUNLSWdub3JlZE5vVW5kbzogNjgxNzg4MDcNCiAgICAgVENQU3B1cmlvdXNSVE9zOiAy
-NQ0KQEAgLTExOCwxMyArMTE4LDEzIEBADQogSXBFeHQ6DQogICAgIEluTm9Sb3V0ZXM6IDANCiAg
-ICAgSW5UcnVuY2F0ZWRQa3RzOiAwDQotICAgIEluTWNhc3RQa3RzOiA5NTY0OTYyDQotICAgIE91
-dE1jYXN0UGt0czogMTMwNDY0DQotICAgIEluQmNhc3RQa3RzOiA5ODM4NDINCisgICAgSW5NY2Fz
-dFBrdHM6IDk1NjcxOTMNCisgICAgT3V0TWNhc3RQa3RzOiAxMzA0OTkNCisgICAgSW5CY2FzdFBr
-dHM6IDk4NDA2NA0KICAgICBPdXRCY2FzdFBrdHM6IDANCi0gICAgSW5PY3RldHM6IDcxODg5NzEy
-NDkwMw0KLSAgICBPdXRPY3RldHM6IDQyNjA4MTc0Mjk2MjQNCi0gICAgSW5NY2FzdE9jdGV0czog
-MTY5NzU5MTY3Ng0KLSAgICBPdXRNY2FzdE9jdGV0czogMTkzNDA1MDQNCi0gICAgSW5CY2FzdE9j
-dGV0czogMTM4NjEwODU3DQorICAgIEluT2N0ZXRzOiA3MTkyNDcyOTkyODANCisgICAgT3V0T2N0
-ZXRzOiA0MjYxNTU3NTkzNDMzDQorICAgIEluTWNhc3RPY3RldHM6IDE2OTc5NDU3NzgNCisgICAg
-T3V0TWNhc3RPY3RldHM6IDE5MzQ0ODQxDQorICAgIEluQmNhc3RPY3RldHM6IDEzODYzNzQ4Ng0K
-ICAgICBPdXRCY2FzdE9jdGV0czogMA0K
-
---_002_C2C333F198FD41FB9CFAEDE9F363CABFmpibpcmpgde_--
+>=20
+> > This gives problems when/if skb must be linearized and we hit
+> > PAGE_ALLOC_COSTLY_ORDER
+> >=20
+> > Alternatively, we could use order-1 or order-2 pages on x86 to get
+> > 8192/16384 bytes frags. (fallback to order-0 pages in case of alloc=
+ation
+> > failures)
+>=20
+> Or fallback to separate allocation of shinfo?
+>=20
+> Ian.
+>=20
+>=20
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
