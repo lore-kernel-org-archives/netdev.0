@@ -1,31 +1,35 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: policing actions pipe and ok
-Date: Thu, 08 Dec 2011 19:42:08 -0500
-Message-ID: <1323391328.1850.1.camel@mojatatu>
-References: <1323382496.3159.1.camel@denise.theartistscloset.com>
-Reply-To: jhs@mojatatu.com
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH iproute2] red: harddrop support and cleanups
+Date: Thu, 8 Dec 2011 16:44:26 -0800
+Message-ID: <20111208164426.03248ca8@nehalam.linuxnetplumber.net>
+References: <1323385900.2529.12.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:61749 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751094Ab1LIAmM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2011 19:42:12 -0500
-Received: by vcbfk14 with SMTP id fk14so1918205vcb.19
-        for <netdev@vger.kernel.org>; Thu, 08 Dec 2011 16:42:11 -0800 (PST)
-In-Reply-To: <1323382496.3159.1.camel@denise.theartistscloset.com>
+Received: from mail.vyatta.com ([76.74.103.46]:48549 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751094Ab1LIAo2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Dec 2011 19:44:28 -0500
+In-Reply-To: <1323385900.2529.12.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-12-08 at 17:14 -0500, John A. Sullivan III wrote:
-> Hello, all.  I'm having trouble finding documentation on the tc filter
-> policing actions pipe and ok. 
+On Fri, 09 Dec 2011 00:11:40 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Look at the iproute2 docs and enjoy:
-doc/actions/actions-general 
+> Add harddrop support (kernel support added a long time ago), and various
+> cleanups.
+> 
+> min BYTES, max BYTES are now optional and follow Sally Floyd's
+> recommendations.
+> 
+> By the way, our default 2% probability is a bit low, Sally recommends
+> 10%.
+> Not a big deal if upcoming adaptative algo is deployed.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-cheers,
-jamal
+Applied (minor whitespace cleanup).
