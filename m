@@ -1,36 +1,60 @@
-From: Stefan Priebe <s.priebe@profihost.ag>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference at 000000000000002c
-Date: Sat, 10 Dec 2011 10:03:50 +0100
-Message-ID: <4EE32076.2020706@profihost.ag>
-References: <1322773527.2750.27.camel@edumazet-laptop> <4ED86B79.4060506@profihost.ag> <4EE25B06.7010907@profihost.ag> <20111209.142117.357254752872525966.davem@davemloft.net>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: Re: [PATCH 11/13] udp_diag: Implement the get_exact dumping functionality
+Date: Sat, 10 Dec 2011 13:07:51 +0400
+Message-ID: <4EE32167.2080202@parallels.com>
+References: <4EE23561.5020804@parallels.com>	 <4EE23626.6000104@parallels.com> <1323467297.4016.10.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, jwboyer@gmail.com, hch@infradead.org,
-	netdev@vger.kernel.org, david@fromorbit.com,
-	stable@vger.kernel.org, gregkh@suse.de
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server655-han.de-nserver.de ([85.158.177.45]:54515 "EHLO
-	server655-han.de-nserver.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751895Ab1LJJDt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2011 04:03:49 -0500
-In-Reply-To: <20111209.142117.357254752872525966.davem@davemloft.net>
+Received: from mailhub.sw.ru ([195.214.232.25]:44751 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752089Ab1LJJIA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Dec 2011 04:08:00 -0500
+In-Reply-To: <1323467297.4016.10.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 09.12.2011 20:21, schrieb David Miller:
-> From: Stefan Priebe<s.priebe@profihost.ag>
-> Date: Fri, 09 Dec 2011 20:01:26 +0100
->
->> any news on that? Systems still crashing every now and then. 3.0.13
->> was released today but i haven't seen any of them.
->
-> I only had time to submit these fixes for 3.1.x-stable, you'll just
-> have to be incredibly patient.
-is it this whole set of 13 patches? 
-http://www.spinics.net/lists/netdev/msg182508.html
+On 12/10/2011 01:48 AM, Eric Dumazet wrote:
+> Le vendredi 09 d=C3=A9cembre 2011 =C3=A0 20:24 +0400, Pavel Emelyanov=
+ a =C3=A9crit :
+>> Do the same as TCP does -- lookup a socket in the given udp_table,
+>> check cookie, fill the reply message with existing inet socket dumpi=
+ng
+>> helper and send one back.
+>>
+>> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+>=20
+>> +
+>> +	if (req->sdiag_family =3D=3D AF_INET)
+>> +		sk =3D __udp4_lib_lookup(&init_net,
+>> +				req->id.idiag_src[0], req->id.idiag_sport,
+>> +				req->id.idiag_dst[0], req->id.idiag_dport,
+>> +				req->id.idiag_if, tbl);
+>> +	else if (req->sdiag_family =3D=3D AF_INET6)
+>> +		sk =3D __udp6_lib_lookup(&init_net,
+>> +				(struct in6_addr *)req->id.idiag_src,
+>> +				req->id.idiag_sport,
+>> +				(struct in6_addr *)req->id.idiag_dst,
+>> +				req->id.idiag_dport,
+>> +				req->id.idiag_if, tbl);
+>> +	else
+>=20
+> OK, but what happens if IPv6 is a module ?
 
-i will then try to backport them.
+And the udp_diag is built-in, right?
 
-Stefan
+>   LD      .tmp_vmlinux1
+> net/built-in.o: In function `udp_dump_one':
+> udp_diag.c:(.text+0xa2b40): undefined reference to `__udp6_lib_lookup=
+'
+> make: *** [.tmp_vmlinux1] Erreur 1
+
+Crap :( I suppose the Kconfig rule should be fixed, I will try to provi=
+de a fix...
+
+Thanks,
+Pavel
