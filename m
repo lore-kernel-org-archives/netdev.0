@@ -1,94 +1,49 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: Re: Latency guarantees in HFSC rt service curves
-Date: Sat, 10 Dec 2011 13:35:03 -0500
-Message-ID: <1323542103.3159.148.camel@denise.theartistscloset.com>
-References: <1323467512.3159.93.camel@denise.theartistscloset.com>
-	 <4EE358A4.7060302@ziu.info>
-	 <1323531352.3159.106.camel@denise.theartistscloset.com>
-	 <4EE39D88.9010002@ziu.info>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Optimizing tc filters
+Date: Sat, 10 Dec 2011 20:41:04 +0100
+Message-ID: <1323546064.4016.27.camel@edumazet-laptop>
+References: <1323540988.3159.133.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Michal Soltys <soltys@ziu.info>
+To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.194]:59481 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751178Ab1LJSfK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Dec 2011 13:35:10 -0500
-In-Reply-To: <4EE39D88.9010002@ziu.info>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:40471 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751134Ab1LJTlJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2011 14:41:09 -0500
+Received: by eekc4 with SMTP id c4so909828eek.19
+        for <netdev@vger.kernel.org>; Sat, 10 Dec 2011 11:41:07 -0800 (PST)
+In-Reply-To: <1323540988.3159.133.camel@denise.theartistscloset.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2011-12-10 at 18:57 +0100, Michal Soltys wrote:
-> On 11-12-10 16:35, John A. Sullivan III wrote:
-> > Makes perfect sense but seems to confirm what I was thinking.  There
-> > seems to be little practical use for the m1 curve.  Assuming the
-> > queues are often backlogged (or we would not be using traffic
-> > shaping), m1 only applies for a typically very short period of time,
-> > perhaps one packet, after that, the latency is determined exclusively
-> > by m2.  So, unless I've missed something (which is not unlikely), m1
-> > is very interesting in theory but not very useful in the real world.
-> > Am I missing something?
-> 
-> You forgot about how curves get updated on fresh backlog periods.
+Le samedi 10 d=C3=A9cembre 2011 =C3=A0 13:16 -0500, John A. Sullivan II=
+I a =C3=A9crit :
+> Hello, all.  Given that there are several ways to direct packets into
+> the appropriate queue, I was wondering which ways are generally more
+> efficient.  There seem to be a number of email discussions but nothin=
+g
+> authoritative.  From those discussions, it would seem that for most
+> corporate usage (as in more traffic than a home user) we would have f=
+rom
+> most efficient to least efficient:
+>=20
+> 1) Mark the connection with CONNMARK and us --restore-mark to mark al=
+l
+> packets in the connection for classification via an fw filter
+>=20
+> 2) Use the iptables CLASSIFY target
+>=20
+> 3) u32 filter
+>=20
+> 4) Mark individual packets and use an fw filter - one email thread sa=
+ys
+> this is more efficient than #3
+>=20
+> Is this correct?
 
-I was wondering if that was the key!
-> 
-> If your important traffic designated to some leaf is not permanently
-> backlogged, it will be constantly switching between active/inactive
-> states. Any switch to active state will update its curves (minimum of
-> previous one vs. fresh one anchored at current (time,service)), during
-> which it will regain some/all of the m1 time.
-> 
-> For simplicity, say you have uplink 10mbit, divided into two chunks
-> chunks (A and B) with convex/concave curves. On A there's 24/7 torrent
-> daemon, on B there's some low bandwidth latency sensitive voip/game/etc.
-> The B will send 1 packet, maybe a few and go inactive - possibly for
-> tens/hundreds of miliseconds. Next time the class becomes backlogged,
-> the curves will be updated, and almost for sure the whole new one will
-> be chosen as the minimum one - and m1 will be used. In a sort of way -
-> m1 will be (for the most part) responsible for "activation"
-> latency-sensitive bandwidth, and m2 will be more responsbile for the
-> bursts. Difference between m1 and m2 and 'd' duration of m1 will skew
-> the role.
-> 
-> Perhaps easier example: setup as above, but put a ping on B with 100ms
-> delay between sends. Every single one of those will go at m1 speed
-> (crazy curve setups aside).
-> 
-> Similary, if you consider A's RT set to say 5mbit, and B to 4mbit/2mbit
-> (and LS fifty/fifty). And some video in B now, that doesn't push itself
-> more than 2mbit. Each packet of B will use m1.
-<snip>
-So, again, trying to wear the eminently practical hat of a sys admin,
-for periodic traffic, i.e., protocols like VoiP and video that are
-sending packets are regular intervals and thus likely to reset the curve
-after each packet, m1 helps reduce latency while m2 is a way of reducing
-the chance of overrunning the circuit under heavy load, i.e., where the
-concave queue is backlogged.
+Unfortunately CONNTRACK is a bit expensive...
 
-When we start multiplexing streams of periodic traffic, we are still
-fine as long as we are not backlogged.  Once we are backlogged, we drop
-down to the m2 curve which prevents us from overrunning the circuit
-(assuming the sum of our rt m2 curves <= circuit size) and hopefully
-still provides adequate latency.  If we are badly backlogged, we have a
-problem with which HFSC can't help us :) (and I suppose where short
-queues are helpful).
-
-Thus concave curves seem very helpful for periodic traffic (probably the
-type of traffic in mind when it was created) but less so for bursting
-traffic.  Specifically, I'm thinking of the use case someone proposed to
-accelerate text delivery from web sites.  As long as each web site
-connection is isolated, it will work fine but, for a web server with any
-kind of continuous load, they will be living on the m2 curve.  Then
-again, maybe the queues empty more often than I expect :)
-
-Thanks again.  A week ago, I didn't even know HFSC existed until I was
-working on integrating Endian products (http://www.endian.com) with
-Firepipes (http://iscs.sf.net) and noticed they were using hfsc.
-
-If you have a chance, could you look at the email I sent entitled "An
-error in my HFSC sysadmin documentation".  That's the last piece I need
-to fall in place before I can share my documentation of this week's
-research.  Thanks - John
+If you control applications, you also can use SO_MARK from them.
