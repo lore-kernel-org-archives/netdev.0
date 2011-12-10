@@ -1,37 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipip, sit: copy parms.name after register_netdevice
-Date: Sat, 10 Dec 2011 13:12:28 -0500 (EST)
-Message-ID: <20111210.131228.456749220758392202.davem@davemloft.net>
-References: <20111207.235602.1465915988125994516.davem@davemloft.net>
-	<20111208104619.GA20150@ted-OptiPlex-380>
-	<20111210142920.GA3988@gmail.com>
+Subject: Re: [PATCH 1/2] udp_diag: Make it module when ipv6 is a module
+Date: Sat, 10 Dec 2011 13:15:43 -0500 (EST)
+Message-ID: <20111210.131543.1548975355099228502.davem@davemloft.net>
+References: <4EE32167.2080202@parallels.com>
+	<4EE32777.2030003@parallels.com>
+	<1323514820.4016.15.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: artisdom@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111210142920.GA3988@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: xemul@parallels.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:51773 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750785Ab1LJSPs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2011 13:15:48 -0500
+In-Reply-To: <1323514820.4016.15.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ted Feng <artisdom@gmail.com>
-Date: Sat, 10 Dec 2011 22:29:24 +0800
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 10 Dec 2011 12:00:20 +0100
 
-> On Thu, Dec 08, 2011 at 06:46:21PM +0800, Ted Feng wrote:
->> From: Ted Feng <artisdom@gmail.com>
->> 
->> Same fix as 731abb9cb2 for ipip and sit tunnel.
->> Commit 1c5cae815d removed an explicit call to dev_alloc_name in
->> ipip_tunnel_locate and ipip6_tunnel_locate, because register_netdevice
->> will now create a valid name, however the tunnel keeps a copy of the
->> name in the private parms structure. Fix this by copying the name back
->> after register_netdevice has successfully returned.
->> 
-> Just a reminder. The previous resubmited patch got no response.
+> Le samedi 10 d=E9cembre 2011 =E0 13:33 +0400, Pavel Emelyanov a =E9cr=
+it :
+>> Eric Dumazet reported, that when inet_diag is built-in the udp_diag =
+also goes
+>> built-in and when ipv6 is a module the udp6 lookup symbol is not fou=
+nd.
+>>=20
+>>   LD      .tmp_vmlinux1
+>> net/built-in.o: In function `udp_dump_one':
+>> udp_diag.c:(.text+0xa2b40): undefined reference to `__udp6_lib_looku=
+p'
+>> make: *** [.tmp_vmlinux1] Erreur 1
+>>=20
+>> Fix this by making udp diag build mode depend on both -- inet diag a=
+nd ipv6.
+>>=20
+>> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+=2E..
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
 
-So?  It's queued up in patchwork:
-
-http://patchwork.ozlabs.org/project/netdev/list/
-
-and therefore will get looked at when someone finds the time.
+Applied.
