@@ -1,150 +1,99 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: [PATCH net-next] netem: add cell concept to simulate special MAC behavior
-Date: Sat, 10 Dec 2011 16:15:44 +0100
-Message-ID: <1323530144-20014-1-git-send-email-hagen@jauu.net>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, shemminger@vyatta.com,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Subject: Re: Latency guarantees in HFSC rt service curves
+Date: Sat, 10 Dec 2011 10:35:52 -0500
+Message-ID: <1323531352.3159.106.camel@denise.theartistscloset.com>
+References: <1323467512.3159.93.camel@denise.theartistscloset.com>
+	 <4EE358A4.7060302@ziu.info>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Michal Soltys <soltys@ziu.info>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:33499 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751452Ab1LJPP4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2011 10:15:56 -0500
+Received: from mout.perfora.net ([74.208.4.195]:63157 "EHLO mout.perfora.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751673Ab1LJPgL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Dec 2011 10:36:11 -0500
+In-Reply-To: <4EE358A4.7060302@ziu.info>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So I hope Eric's div/mod concerns are addressed with this version!? ;-)
-No "hot-path" div/mod operation anymore. tc_netem_rate was introduced in
-current net-next tree so there are no API f*ckups.
+Thanks again for your help, Michal.  I'll answer in line - John
 
+On Sat, 2011-12-10 at 14:03 +0100, Michal Soltys wrote:
+> On 11-12-09 22:51, John A. Sullivan III wrote:
+> > 
+> > Let's work through the math to make that more understandable. HFSC is
+> > committed to deliver 2 Mbps to video and each packet is 8KB long.
+> > Thus, HFSC's commitment to deliver that packet is within (8000 *
+> > 8)bits / 2,000,000(b/s) = 32ms.  I'm not quite sure why I come up with
+> > 32 and they say 33 but we'll use 33.  In other words, to meet the
+> > deadline based solely upon the rate, the bandwidth part of the rt
+> > service curve, the packet needs to be finished dequeueing at 33ms.
+> > Since it only takes 6.5ms to send the packet, HFSC can sit on the
+> > packet it received for 33 - 6.5 = 26.5ms.  This adds unnecessary
+> > latency to the video stream.
+> 
+> For the record, HFSC will only sit on anything if respective classes
+> (subtrees) are limited by UL. And RT curves ignore those. If you have
+> one leaf active, then it will just dequeue asap (modulo UL). If you
+> have more, then RT and afterwards LS will arbitrate the packets
+> w.r.t. to the curves you set (and if applicable - UL will stall LS
+> to match specified speeds).
+Yes, that's what I thought.  I think the example given is that the FTP
+queue is constantly backlogged at which point, as you point out, rt will
+arbitrate.
+> 
+> > That's our documentation so I think I get it but here's my problem.
+> > Practically speaking, as long as it's not extreme, latency at the
+> > beginning of a video stream (I'm using video because that is the
+> > example given) is not an issue. 
+> 
+> > The problem is if I introduce latency in the video stream once it has
+> > started.  So what is the advantage of starting the stream in 3.5ms
+> > versus 26.5ms?
+> 
+> > The subsequent packets where latency really matters are all governed
+> > by the m2 curve at 2 Mbps in this example.
+> 
+> That 2mbit is worst-case scenario (congested link). Remember
+> about LS which will govern the remaining bandwidth as soon as all RT
+> requirements are fulfilled.
+Yes, with your help I think I've got that.
+> 
+> If you do need a bigger /guarantee/ no matter what, you need steeper m2.
+> Or different approach. HFSC won't give more that it's asked to do for -
+> if the RT curve's m2 is set to 2mbit, then packets enqueued in the leaf
+> with such curve will get 2mbit (modulo cpu/network/uplink
+> capability/etc.).
+Yes, makes perfect sense.  But I suppose I'm focusing on m1 and its
+practical purpose.
+> 
+> > Moreover, let's say I have three video streams which start
+> > simultaneously.  Only the first packet of the first stream receives
+> > the 6.6Mbps bandwidth guarantee of the first 10ms so the other videos
+> > receive no practical benefit whatsoever from this m1 curve.
+> 
+> If you want guarantees per flow, you have to setup for that (same
+> applies to other classful qdiscs). Rough simplistic scheme would be:
+> 
+> For N flows, you need N classes (+ appropriate filter setup to direct
+> them to respective leafs) - or - more elaborate qdisc at the leaf that
+> will go over packets (by quantity or their length) in e.g. round robin
+> fashion from different flows it can distinguish (and longer period of m1
+> that will be sufficient to cover more packets). Or something in between.
+<snip>
+Makes perfect sense but seems to confirm what I was thinking.  There
+seems to be little practical use for the m1 curve.  Assuming the queues
+are often backlogged (or we would not be using traffic shaping), m1 only
+applies for a typically very short period of time, perhaps one packet,
+after that, the latency is determined exclusively by m2.  So, unless
+I've missed something (which is not unlikely), m1 is very interesting in
+theory but not very useful in the real world.  Am I missing something?
 
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-
-This extension can be used to simulate special link layer
-characteristics. Simulate because packet data is not modified, only the
-calculation base is changed to delay a packet based on the original
-packet size and artificial cell information.
-
-packet_overhead can be used to simulate a link layer header compression
-scheme (e.g. set packet_overhead to -20) or with a positive
-packet_overhead value an additional MAC header can be simulated. It is
-also possible to "replace" the 14 byte Ethernet header with something
-else.
-
-cell_size and cell_overhead can be used to simulate link layer schemes,
-based on cells, like some TDMA schemes. Another application area are MAC
-schemes using a link layer fragmentation with a (small) header each.
-Cell size is the maximum amount of data bytes within one cell. Cell
-overhead is an additional variable to change the per-cell-overhead
-(e.g.  5 byte header per fragment).
-
-Example (5 kbit/s, 20 byte per packet overhead, cell-size 100 byte, per
-cell overhead 5 byte):
-
-  tc qdisc add dev eth0 root netem rate 5kbit 20 100 5
-
-Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- include/linux/pkt_sched.h |    3 +++
- net/sched/sch_netem.c     |   33 +++++++++++++++++++++++++++++----
- 2 files changed, 32 insertions(+), 4 deletions(-)
-
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index 8786ea7..8daced3 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -502,6 +502,9 @@ struct tc_netem_corrupt {
- 
- struct tc_netem_rate {
- 	__u32	rate;	/* byte/s */
-+	__s32	packet_overhead;
-+	__u32	cell_size;
-+	__s32	cell_overhead;
- };
- 
- enum {
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index 3bfd733..31ab06e 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -22,6 +22,7 @@
- #include <linux/skbuff.h>
- #include <linux/vmalloc.h>
- #include <linux/rtnetlink.h>
-+#include <linux/reciprocal_div.h>
- 
- #include <net/netlink.h>
- #include <net/pkt_sched.h>
-@@ -80,6 +81,10 @@ struct netem_sched_data {
- 	u32 reorder;
- 	u32 corrupt;
- 	u32 rate;
-+	s32 packet_overhead;
-+	u32 cell_size;
-+	u32 cell_size_reciprocal;
-+	s32 cell_overhead;
- 
- 	struct crndstate {
- 		u32 last;
-@@ -299,11 +304,23 @@ static psched_tdiff_t tabledist(psched_tdiff_t mu, psched_tdiff_t sigma,
- 	return  x / NETEM_DIST_SCALE + (sigma / NETEM_DIST_SCALE) * t + mu;
- }
- 
--static psched_time_t packet_len_2_sched_time(unsigned int len, u32 rate)
-+static psched_time_t packet_len_2_sched_time(unsigned int len, struct netem_sched_data *q)
- {
--	u64 ticks = (u64)len * NSEC_PER_SEC;
-+	u64 ticks;
- 
--	do_div(ticks, rate);
-+	len += q->packet_overhead;
-+
-+	if (q->cell_size) {
-+		u32 cells = reciprocal_divide(len, q->cell_size_reciprocal);
-+
-+		if (len > cells * q->cell_size)	/* extra cell needed for remainder */
-+			cells++;
-+		len = cells * (q->cell_size + q->cell_overhead);
-+	}
-+
-+	ticks = (u64)len * NSEC_PER_SEC;
-+
-+	do_div(ticks, q->rate);
- 	return PSCHED_NS2TICKS(ticks);
- }
- 
-@@ -384,7 +401,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		if (q->rate) {
- 			struct sk_buff_head *list = &q->qdisc->q;
- 
--			delay += packet_len_2_sched_time(skb->len, q->rate);
-+			delay += packet_len_2_sched_time(skb->len, q);
- 
- 			if (!skb_queue_empty(list)) {
- 				/*
-@@ -568,6 +585,11 @@ static void get_rate(struct Qdisc *sch, const struct nlattr *attr)
- 	const struct tc_netem_rate *r = nla_data(attr);
- 
- 	q->rate = r->rate;
-+	q->packet_overhead = r->packet_overhead;
-+	q->cell_size = r->cell_size;
-+	q->cell_size_reciprocal = reciprocal_value(q->cell_size);
-+	q->cell_size = q->cell_size;
-+	q->cell_overhead = r->cell_overhead;
- }
- 
- static int get_loss_clg(struct Qdisc *sch, const struct nlattr *attr)
-@@ -909,6 +931,9 @@ static int netem_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	NLA_PUT(skb, TCA_NETEM_CORRUPT, sizeof(corrupt), &corrupt);
- 
- 	rate.rate = q->rate;
-+	rate.packet_overhead = q->packet_overhead;
-+	rate.cell_size = q->cell_size;
-+	rate.cell_overhead = q->cell_overhead;
- 	NLA_PUT(skb, TCA_NETEM_RATE, sizeof(rate), &rate);
- 
- 	if (dump_loss_model(q, skb) != 0)
--- 
-1.7.7.3
+Thus, the biggest advantage of HFSC over something like HTB is that we
+have separate controls for the bandwidth guarantees and the ratio for
+sharing available excess bandwidth.  The decoupling of latency and
+bandwidth guarantees, which is a remarkable accomplishment, seems to
+fall into the category of technical fact but not practically useful.
+I'd very much like to be wrong :) Thanks - John
