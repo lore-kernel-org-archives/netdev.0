@@ -1,37 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Optimizing tc filters
-Date: Sat, 10 Dec 2011 21:10:01 +0100
-Message-ID: <1323547801.4016.34.camel@edumazet-laptop>
-References: <1323540988.3159.133.camel@denise.theartistscloset.com>
-	 <1323546064.4016.27.camel@edumazet-laptop>
-	 <1323547080.3159.153.camel@denise.theartistscloset.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH] flexcan: Acknowledge all interrupt sources in the IRQ
+ handler
+Date: Sat, 10 Dec 2011 21:10:28 +0100
+Message-ID: <4EE3BCB4.7060401@grandegger.com>
+References: <1323438454-6816-1-git-send-email-LW@KARO-electronics.de>	<4EE212AE.40005@pengutronix.de> <20194.5210.650914.867608@ipc1.ka-ro> <4EE21C96.5010604@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:42973 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751091Ab1LJUKK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2011 15:10:10 -0500
-Received: by eaak14 with SMTP id k14so2255923eaa.19
-        for <netdev@vger.kernel.org>; Sat, 10 Dec 2011 12:10:09 -0800 (PST)
-In-Reply-To: <1323547080.3159.153.camel@denise.theartistscloset.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: =?ISO-8859-1?Q?Lothar_Wa=DFmann?= <LW@KARO-electronics.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4EE21C96.5010604@grandegger.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le samedi 10 d=C3=A9cembre 2011 =C3=A0 14:58 -0500, John A. Sullivan II=
-I a =C3=A9crit :
-
-> If we are using connection tracking in general to produce a "stateful=
-"
-> firewall (let's just say we are - I certainly don't want to set off a
-> debate :) ), does that put #1 back on top as the most efficient since=
- we
-> are incurring the conntrack overhead anyway or does the CONNMARK targ=
-et
-> itself add considerable overhead? Thanks - John
+On 12/09/2011 03:35 PM, Wolfgang Grandegger wrote:
+> On 12/09/2011 02:59 PM, Lothar Wa=DFmann wrote:
+>> Hi,
+>>
+>> Marc Kleine-Budde writes:
+>>> On 12/09/2011 02:47 PM, Lothar Wa=DFmann wrote:
+>>>> Otherwise the handler will get stuck in an endless IRQ loop when a=
+n
+>>>> interrupt condition occurs that is not being acked (e.g. TWRN)
+>>>
+>>> On which CPU do you have this problem?
+>>>
+>> on i.MX28.
 >=20
+> Yes, it is definitely needed on i.MX28 and I already have it in my
+> series. See:
+>=20
+> https://gitorious.org/~wgrandegger/linux-can/wg-linux-can-next/commit=
+/8ad94fa0dd7f7728824fa8fd4479390ac3f189c7
+>=20
+> BTW: at similar patch was already sent by Reuben Dowle.
+>=20
+>>> Seems that mx25/35 behave a bit different than mx28. But I had no t=
+ime
+>>> to dig into this, yet. BTW Wolfgang is just reworking error handlin=
+g,
+>>> can you please test his patches he recently posted on linux-can.
+>>>
+>> The ESR of i.MX25 is completely identical to the i.MX28.
+>> You should be able to reproduce the problem when trying to send a
+>> message to a CAN interface with the transceiver disabled.
+>> You will get a BIT0_ERR and the TWRN bit will be asserted and never
+>> cleared leading to an endless interrupt loop.
+>=20
+> If you are right, the code was never working on i.MX25/35... which I =
+doubt.
 
-CONNMARK is very cheap, no extra overhead.
+I know remember that the old code was working on a MX35PDK board.
+Actually I did the porting some time ago. That means that we have to
+deal with two variants of the Flexcan controller, unfortunately:
+
+mx25/35: State changes *and* bus errors are both signalled via ESR ERR
+	bit. The TWRN, RWRN and BOFF bits seem not to be used. Therefore
+	bus error reporting cannot be enabled/disabled individually.
+
+mx28/mx53?: Bus error are signalled via ESR ERR bit and state changes
+	via TWRN, RWRN and BOFF bit. Therefore bus error reporting
+	*can* be enabled/disabled individually as implemented by this
+	patch:
+
+	https://gitorious.org/~wgrandegger/linux-can/wg-linux-can-next/commit/=
+f0829d269a451c8abb99435d5a1a63cb18566668
+
+I will try to get a MX35PDK board for further evaluation and developmen=
+t.
+
+Wolfgang.
+
