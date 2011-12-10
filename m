@@ -1,40 +1,48 @@
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH net-next 1/2] be2net: update some counters to display via
- ethtool
-Date: Fri, 9 Dec 2011 17:53:09 -0600
-Message-ID: <20111209235309.GA21943@akhaparde-VBox>
-Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 REPOST] xen-netfront: delay gARP until backend
+	switches to Connected
+Date: Fri, 09 Dec 2011 19:24:39 -0500 (EST)
+Message-ID: <20111209.192439.275865894437319638.davem@davemloft.net>
+References: <1323430738-3798-1-git-send-email-lersek@redhat.com>
+	<20111209.134514.2071890208094978847.davem@davemloft.net>
+	<1323465781.20936.49.camel@dagon.hellion.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:54813 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754970Ab1LIXyI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2011 18:54:08 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: jeremy@goop.org, xen-devel@lists.xensource.com, konrad.wilk@oracle.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, lersek@redhat.com
+To: Ian.Campbell@citrix.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1323465781.20936.49.camel@dagon.hellion.org.uk>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-update pmem_fifo_overflow_drop, rx_priority_pause_frames counters.
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Date: Fri, 9 Dec 2011 21:23:00 +0000
 
-Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+> On Fri, 2011-12-09 at 18:45 +0000, David Miller wrote:
+>> From: Laszlo Ersek <lersek@redhat.com>
+>> Date: Fri,  9 Dec 2011 12:38:58 +0100
+>> 
+>> > These two together provide complete ordering. Sub-condition (1) is
+>> > satisfied by pvops commit 43223efd9bfd.
+>> 
+>> I don't see this commit in Linus's tree,
+> 
+> The referenced commit is in
+> git://git.kernel.org/pub/scm/linux/kernel/git/jeremy/xen.git#xen/next-2.6.32  some people call the "pvops tree" but there's no reason to expect someone outside the Xen world to know that...
+> 
+> A better reference would have been 6b0b80ca7165 in
+> git://xenbits.xen.org/people/ianc/linux-2.6.git#upstream/dom0/backend/netback-history which is the precise branch that was flattened to make f942dc2552b8, which is the upstream commit that added netback, so this change is already in upstream.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index b8a526f..73fe389 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -316,6 +316,8 @@ static void populate_be3_stats(struct be_adapter *adapter)
- 	struct be_drv_stats *drvs = &adapter->drv_stats;
- 
- 	be_dws_le_to_cpu(hw_stats, sizeof(*hw_stats));
-+	drvs->pmem_fifo_overflow_drop = port_stats->pmem_fifo_overflow_drop;
-+	drvs->rx_priority_pause_frames = port_stats->rx_priority_pause_frames;
- 	drvs->rx_pause_frames = port_stats->rx_pause_frames;
- 	drvs->rx_crc_errors = port_stats->rx_crc_errors;
- 	drvs->rx_control_frames = port_stats->rx_control_frames;
--- 
-1.7.5.4
+I want the commit message fixed so someone seeing the commit ID can
+figure out what it actually refers to.
