@@ -1,141 +1,64 @@
-From: wwguy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: iwlagn regression in v3.1.5
-Date: Sun, 11 Dec 2011 17:35:37 -0800
-Message-ID: <1323653737.1806.21.camel@wwguy-ubuntu>
-References: <4EE4AEF4.2080702@udo.edu> <4EE4DB55.4090804@udo.edu>
-	 <20111211174138.79e51fe8@x220.fritz.box>  <4EE4E152.2070204@udo.edu>
-	 <1323627815.1806.19.camel@wwguy-ubuntu>  <4EE50266.4050208@udo.edu>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH RFC] virtio_net: fix refill related races
+Date: Mon, 12 Dec 2011 09:25:07 +1030
+Message-ID: <878vmioh10.fsf@rustcorp.com.au>
+References: <20111207152120.GA23417@redhat.com>
+	<8739cvisqe.fsf@rustcorp.com.au>
+	<20111211144428.GB14381@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Udo Steinberg <udo-VarzJz7m+TuRpAAqCnN02g@public.gmane.org>,
-	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andrej Gelenberg <andrej.gelenberg-KJIyc1CJxjQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4EE50266.4050208-KJIyc1CJxjQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Amit Shah <amit.shah@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20111211144428.GB14381@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andjej,
+On Sun, 11 Dec 2011 16:44:29 +0200, "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> On Thu, Dec 08, 2011 at 03:07:29PM +1030, Rusty Russell wrote:
+> > On Wed, 7 Dec 2011 17:21:22 +0200, "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> > > Fix theoretical races related to refill work:
+> > > 1. After napi is disabled by ndo_stop, refill work
+> > >    can run and re-enable it.
+> > > 2. Refill can reschedule itself, if this happens
+> > >    it can run after cancel_delayed_work_sync,
+> > >    and will access device after it is destroyed.
+> > > 
+> > > As a solution, add flags to track napi state and
+> > > to disable refill, and toggle them on start, stop
+> > > and remove; check these flags on refill.
+> > 
+> > Why isn't a "dont-readd" flag sufficient?
+> > 
+> > Cheers,
+> > Rusty.
+> 
+> I started with that, but here's the problem I wanted to
+> address:
+> 
+> - we run out of descriptors and schedule refill work
+> - ndo_close runs
+> - refill work runs
+> - ndo_open runs
 
+(s/ndo_close/ndo_stop/)
 
-Could you please load the module with debug=0x1082 and send me the log.
+You don't think we should do any refills on a closed device?  If so, we
+simply move the refill-stop code into ndo_stop (aka virtnet_close), and
+the refill-start code into ndo_open (aka. virtnet_open).  Right?
 
-$sudo modprobe iwlagn debug=0x1082
+Orthogonally, the refill-stop code is still buggy, as you noted.  And
+for self-rearming timers the pattern I've always used is a flag.
 
-Thanks
-Wey
-
-On Sun, 2011-12-11 at 11:20 -0800, Andrej Gelenberg wrote:
-> Hi,
-> 
-> some info to the AP i use:
-> 
-> Technaxx Router-150 Wifi-N based on ranik soc
-> 
-> $ iw dev wlan0 station dump
-> Station xx:xx..xx:xx (on wlan0)
->          inactive time:  6603 ms
->          rx bytes:       377786468
->          rx packets:     443535
->          tx bytes:       15677515
->          tx packets:     155009
->          tx retries:     2723757
->          tx failed:      51495
->          signal:         -72 dBm
->          signal avg:     -71 dBm
->          tx bitrate:     135.0 MBit/s MCS 6 40Mhz short GI
->          authorized:     yes
->          authenticated:  yes
->          preamble:       long
->          WMM/WME:        yes
->          MFP:            no
-> 
-> $ iwconfig wlan0
-> wlan0     IEEE 802.11abgn  ESSID:"xxx"
->            Mode:Managed  Frequency:2.437 GHz  Access Point: xx:xx..xx:xx
->            Bit Rate=121.5 Mb/s   Tx-Power=15 dBm
->            Retry  long limit:7   RTS thr:off   Fragment thr:off
->            Power Management:off
->            Link Quality=42/70  Signal level=-68 dBm
->            Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
->            Tx excessive retries:51520  Invalid misc:3567 Missed beacon:0
-> 
-> some dmesg output:
-> 
-> [  903.748514] wlan0: authenticate with xx:xx..xx:xx (try 1)
-> [  903.750991] wlan0: authenticated
-> [  903.753357] wlan0: associate with xx:xx..xx:xx (try 1)
-> [  903.759482] wlan0: RX AssocResp from xx:xx..xx:xx (capab=0xc31 
-> status=0 aid=1)
-> [  903.759487] wlan0: associated
-> 
-> $ iwlist wlan0 scan
-> 
->            Cell 06 - Address: xx:xx..xx:xx
->                      Channel:6
->                      Frequency:2.437 GHz (Channel 6)
->                      Quality=45/70  Signal level=-65 dBm
->                      Encryption key:on
->                      ESSID:"xxx"
->                      Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 9 Mb/s
->                                18 Mb/s; 36 Mb/s; 54 Mb/s
->                      Bit Rates:6 Mb/s; 12 Mb/s; 24 Mb/s; 48 Mb/s
->                      Mode:Master
->                      Extra:tsf=0000005666eac197
->                      Extra: Last beacon: 33ms ago
->                      IE: Unknown: 000873757065726B7568
->                      IE: Unknown: 010882848B961224486C
->                      IE: Unknown: 030106
->                      IE: Unknown: 2A0100
->                      IE: Unknown: 32040C183060
->                      IE: Unknown: 
-> 2D1A7E1117FF000000010000000000000000000000000C0000000000
->                      IE: Unknown: 
-> 3D1606070500000000000000000000000000000000000000
->                      IE: Unknown: 3E0100
->                      IE: IEEE 802.11i/WPA2 Version 1
->                          Group Cipher : CCMP
->                          Pairwise Ciphers (1) : CCMP
->                          Authentication Suites (1) : PSK
->                      IE: Unknown: 
-> DD180050F2020101800003A4000027A4000042435E0062322F00
->                      IE: Unknown: 0B05020012127A
->                      IE: Unknown: 4A0E14000A002C01C800140005001900
->                      IE: Unknown: 7F0101
->                      IE: Unknown: DD07000C4307000000
->                      IE: Unknown: 0706465220010D10
->                      IE: Unknown: 
-> DD1E00904C337E1117FF000000010000000000000000000000000C0000000000
->                      IE: Unknown: 
-> DD1A00904C3406070500000000000000000000000000000000000000
-> 
-> Regards,
-> Andrej Gelenberg
-> 
-> On 12/11/2011 07:23 PM, wwguy wrote:
-> > On Sun, 2011-12-11 at 08:58 -0800, Andrej Gelenberg wrote:
-> >> Hi,
-> >>
-> >> this is pretty mean regression for the stable kernel. You may the fix
-> >> only for cards, which need it and not for all of them.
-> >
-> > Could you elaborate more on the failure case and setup. this patch is to
-> > address HT40 related problem which cause the iwlwifi firmware crash.
-> >
-> > Thanks
-> > Wey
-> >>>
-> >
-> >
-> 
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Or am I being obtuse again? :)
+Rusty.
