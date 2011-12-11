@@ -1,37 +1,26 @@
-From: Eugene <elubarsky@gmail.com>
-Subject: drivers/net/usb/asix: bug in asix_get_wol
-Date: Sun, 11 Dec 2011 12:02:21 +1100
-Message-ID: <CAKbEaOBODRW1pL4OiwZTKOfqtPEhEOHBBwXQNWVoBh9zzLX9kQ@mail.gmail.com>
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Subject: IFB and bridges
+Date: Sat, 10 Dec 2011 20:15:46 -0500
+Message-ID: <1323566146.3159.186.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org, grundler@chromium.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:52357 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751084Ab1LKBCX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2011 20:02:23 -0500
-Received: by bkcjm19 with SMTP id jm19so312972bkc.19
-        for <netdev@vger.kernel.org>; Sat, 10 Dec 2011 17:02:21 -0800 (PST)
+Received: from mout.perfora.net ([74.208.4.195]:62473 "EHLO mout.perfora.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751084Ab1LKBPt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Dec 2011 20:15:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear kernel devs,
+Hello, all.  This is more an "out of curiosity" question.  I'm starting
+to build a test environment for all I've learned about Linux traffic
+shaping over the last week.  One of the devices happens to be configured
+as a bridge.  It quickly became apparent that I needed to do shaping on
+the individual ports and not the bridge port.
 
-Thanks for the commit at
-http://git.kernel.org/?p=linux/kernel/git/next/linux-next.git;a=commitdiff;h=4ad1438f025ed8d1e4e95a796ca7f0ad5a22c378,
-It successfully stops my adapter from dying when wake-on-lan gets
-enabled. However, I've noticed that it has broken asix_get_wol - the
-lines
-
-       if (opt & AX_MONITOR_LINK)
-               wolinfo->wolopts |= WAKE_PHY;
-       if (opt & AX_MONITOR_MAGIC)
-               wolinfo->wolopts |= WAKE_MAGIC;
-
-have been accidentally removed. The vendor driver has them, and I've
-successfully tested a kernel with these lines included. The change is
-too small for me to bother sending in a properly formatted patch...
-
-
-Cheers,
-Eugene
+This would be a real pain if I have lots of ports - 8 or 10 or 20
+identical configurations.  Would this be an ideal use for IFB? That is,
+to redirect all ports to IFB and apply one set qdiscs/classes? Thanks -
+John
