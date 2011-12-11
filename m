@@ -1,40 +1,256 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: IFB and bridges
-Date: Sun, 11 Dec 2011 23:00:59 +0100
-Message-ID: <1323640859.2576.5.camel@edumazet-laptop>
-References: <20a26951-0f6c-46f4-9acd-85d0e60cd114@jasiiieee>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH iproute2] tc: man: add man page for stochastic fair blue
+Date: Sun, 11 Dec 2011 23:31:58 +0100
+Message-ID: <1323642718-1342-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:62461 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752439Ab1LKWBE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Dec 2011 17:01:04 -0500
-Received: by bkcjm19 with SMTP id jm19so794506bkc.19
-        for <netdev@vger.kernel.org>; Sun, 11 Dec 2011 14:01:02 -0800 (PST)
-In-Reply-To: <20a26951-0f6c-46f4-9acd-85d0e60cd114@jasiiieee>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:60877 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752304Ab1LKWfO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Dec 2011 17:35:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 11 d=C3=A9cembre 2011 =C3=A0 17:38 -0500, John A. Sullivan =
-III a >=20
-> I know IFB is often used for ingress but I wasn't really thinking of
-> ingress filtering.  Let's say I have a 12 port Linux switch.  If any
-> of the ports become backlogged, I want them to prioritize time
-> sensitive traffic so I implement traffic shaping but I don't want to
-> have to define my qdiscs, classes, and filters 12 times over if they
-> are all the same.  So I would direct each port to an IFB (not sure if
-> that's intolerable overhead), have a single set of qdiscs, classes,
-> and filters, and, once those are applied, the packet arrives back on
-> the same interface and proceeds assuming if has not been dropped or
-> delayed. - John
+With help from Eric Dumazet.
+Man page is derived in parts from README file contained in
+Juliusz Chroboczeks original sfb kernel patch.
+---
+ man/man8/tc-sfb.8 |  213 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ man/man8/tc.8     |    1 +
+ 2 files changed, 214 insertions(+), 0 deletions(-)
+ create mode 100644 man/man8/tc-sfb.8
 
-Really ? How are you going to shape a single IFB device, if you really
-have independant 12 ports. (Its a switch, not a hub after all)
-
-A script can define your qdiscs/classes/filters hundred times, or one
-thousand times, and writing such a script is far more easier than setup
-IFB.
+diff --git a/man/man8/tc-sfb.8 b/man/man8/tc-sfb.8
+new file mode 100644
+index 0000000..e7634d2
+--- /dev/null
++++ b/man/man8/tc-sfb.8
+@@ -0,0 +1,213 @@
++.TH SFB 8 "August 2011" "iproute2" "Linux"
++.SH NAME
++sfb \- Stochastic Fair Blue
++.SH SYNOPSIS
++.B tc qdisc ... blue
++.B rehash
++milliseconds
++.B db
++milliseconds
++.B limit
++packets
++.B max
++packets
++.B target
++packets
++.B increment
++float
++.B decrement
++float
++.B penalty_rate
++packets per second
++.B penalty_burst
++packets
++
++.SH DESCRIPTION
++Stochastic Fair Blue is a classless qdisc to manage congestion based on
++packet loss and link utilization history while trying to prevent
++non-responsive flows (i.e. flows that do not react to congestion marking
++or dropped packets) from impacting performance of responsive flows.
++Unlike RED, where the marking probability has to be configured, BLUE
++tries to determine the ideal marking probability automatically.
++
++.SH ALGORITHM
++
++The
++.B BLUE
++algorithm maintains a probability which is used to mark or drop packets
++that are to be queued.  If the queue overflows, the mark/drop probability
++is increased. If the queue becomes empty, the probability is decreased. The
++.B Stochastic Fair Blue
++(SFB) algorithm is designed to protect TCP flows against non-responsive flows.
++
++This SFB implementation maintains 8 levels of 16 bins each for accounting.
++Each flow is mapped into a bin of each level using a per-level hash value.
++
++Every bin maintains a marking probability, which gets increased or decreased
++based on bin occupancy.  If the number of packets exceeds the size of that
++bin, the marking probability is increased.  If the number drops to zero, it
++is decreased.
++
++The marking probability is based on the minimum value of all bins a flow is
++mapped into, thus, when a flow does not respond to marking or gradual packet
++drops, the marking probability quickly reaches one.
++
++In this case, the flow is rate-limited to
++.B penalty_rate
++packets per second.
++
++.SH LIMITATIONS
++
++Due to SFBs nature, it is possible for responsive flows to share all of its bins
++with a non-responsive flow, causing the responsive flow to be misidentified as
++being non-responsive.
++
++The probability of a responsive flow to be misidentified is dependent on
++the number of non-responsive flows, M.  It is (1 - (1 - (1 / 16.0)) ** M) **8,
++so for example with 10 non-responsive flows approximately 0.2% of responsive flows
++will be misidentified.
++
++To mitigate this, SFB performs performs periodic re-hashing to avoid
++misclassification for prolonged periods of time.
++
++The default hashing method will use source and destination ip addresses and port numbers
++if possible, and also supports tunneling protocols.
++Alternatively, an external classifier can be configured, too.
++
++.SH PARAMETERS
++.TP
++rehash
++Time interval in milliseconds when queue perturbation occurs to avoid erroneously
++detecting unrelated, responsive flows as being part of a non-responsive flow for
++prolonged periods of time.
++Defaults to 10 minutes.
++.TP
++db
++Double buffering warmup wait time, in milliseconds.
++To avoid destroying the probability history when rehashing is performed, this
++implementation maintains a second set of levels/bins as described in section
++4.4 of the SFB reference.
++While one set is used to manage the queue, a second set is warmed up:
++Whenever a flow is then determined to be non-responsive, the marking
++probabilities in the second set are updated.  When the rehashing
++happens, these bins will be used to manage the queue and all non-responsive
++flows can be rate-limited immediately.
++This value determines how much time has to pass before the 2nd set
++will start to be warmed up.
++Defaults to one minute, should be lower than
++.B
++rehash.
++.TP
++limit
++Hard limit on the real (not average) total queue size in packets.
++Further packets are dropped.  Defaults to the transmit queue length of the
++device the qdisc is attached to.
++.TP
++max
++Maximum length of a buckets queue, in packets, before packets start being
++dropped.  Should be sightly larger than
++.B target
++, but should not be set to values exceeding 1.5 times that of
++.B target .
++Defaults to 25.
++.TP
++target
++The desired average bin length.  If the bin queue length reaches this value,
++the marking probability is increased by
++.B increment.
++The default value depends on the
++.B max
++setting, with max set to 25
++.B target
++will default to 20.
++.TP
++increment
++A value used to increase the marking probability when the queue appears
++to be over-used.  Must be between 0 and 1.0.  Defaults to 0.00050.
++.TP
++decrement
++Value used to decrease the marking probability when the queue is found
++to be empty.  Must be between 0 and 1.0.
++Defaults to 0.00005.
++.TP
++penalty_rate
++The maximum number of packets belonging to flows identified as being
++non-responsive that can be enqueued per second. Once this number has been
++reached, further packets of such non-responsive flows are dropped.
++Set this to a reasonable fraction of your uplink throughput; the
++default value of 10 packets is probably too small.
++.TP
++penalty_burst
++The number of packets a flow is permitted to exceed the penalty rate before packets
++start being dropped.
++Defaults to 20 packets.
++
++.SH STATISTICS
++
++This qdisc exposes additional statistics via 'tc -s qdisc' output.
++These are:
++.TP
++earlydrop
++The number of packets dropped before a per-flow queue was full.
++.TP
++ratedrop
++The number of packets dropped because of rate-limiting.
++If this value is high, there are many non-reactive flows being
++sent through sfb.  In such cases, it might be better to
++embed sfb within a classful qdisc to better control such
++flows using a different, shaping qdisc.
++.TP
++bucketdrop
++The number of packets dropped because a per-flow queue was full.
++High bucketdrop may point to a high number of aggressive, short-lived
++flows.
++.TP
++queuedrop
++The number of packets dropped due to reaching limit.  This should normally be 0.
++.TP
++marked
++The number of packets marked with ECN.
++.TP
++maxqlen
++The length of the current longest per-flow (virtual) queue.
++.TP
++maxprob
++The maximum per-flow drop probability.  1 means that some
++flows have been detected as non-reactive.
++
++.SH NOTES
++
++SFB automatically enables use of Explicit Congestion Notification (ECN).
++Also, this SFB implementation does not queue packets itself.
++Rather, packets are enqueued to the inner qdisc (defaults to pfifo).
++Because sfb maintains virtual queue states, the inner qdisc must not
++drop a packet previously queued.
++Furthermore, if a buckets queue has a very high marking rate,
++this implementation will start dropping packets instead of
++marking them, as such a situation points to either bad congestion, or an
++unresponsive flow.
++
++.SH EXAMPLE & USAGE
++
++To attach to interface $DEV, using default options:
++.P
++# tc qdisc add dev $DEV handle 1: root sfb
++
++Only use destination ip addresses for assigning packets to bins, perturbing
++hash results every 10 minutes:
++.P
++# tc filter add dev $DEV parent 1: handle 1 flow hash keys dst perturb 600
++
++.SH SEE ALSO
++.BR tc (8),
++.BR tc-red (8),
++.BR tc-sfq (8)
++.SH SOURCES
++.TP
++o
++W. Feng, D. Kandlur, D. Saha, K. Shin, BLUE: A New Class of Active Queue Management Algorithms,
++U. Michigan CSE-TR-387-99, April 1999.
++
++.SH AUTHORS
++
++This SFB implementation was contributed by Juliusz Chroboczek and Eric Dumazet.
+diff --git a/man/man8/tc.8 b/man/man8/tc.8
+index 49df2d7..fc8095e 100644
+--- a/man/man8/tc.8
++++ b/man/man8/tc.8
+@@ -372,6 +372,7 @@ was written by Alexey N. Kuznetsov and added in Linux 2.2.
+ .BR tc-htb (8),
+ .BR tc-hfsc (8),
+ .BR tc-hfsc (7),
++.BR tc-sfb (8),
+ .BR tc-sfq (8),
+ .BR tc-red (8),
+ .BR tc-tbf (8),
+-- 
+1.7.3.4
