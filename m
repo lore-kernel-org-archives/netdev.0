@@ -1,18 +1,18 @@
 From: Hagen Paul Pfeifer <hagen@jauu.net>
 Subject: [PATCH] netem: add cell concept to simulate special MAC behavior
-Date: Sun, 11 Dec 2011 01:08:30 +0100
-Message-ID: <1323562110-13865-1-git-send-email-hagen@jauu.net>
-References: <20111211000228.GA2767@hell>
+Date: Sun, 11 Dec 2011 01:11:54 +0100
+Message-ID: <1323562314-14033-1-git-send-email-hagen@jauu.net>
+References: <1323562110-13865-1-git-send-email-hagen@jauu.net>
 Cc: eric.dumazet@gmail.com, shemminger@vyatta.com,
 	Hagen Paul Pfeifer <hagen@jauu.net>,
 	Florian Westphal <fw@strlen.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:52922 "EHLO
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:33217 "EHLO
 	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750949Ab1LKAIf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2011 19:08:35 -0500
-In-Reply-To: <20111211000228.GA2767@hell>
+	by vger.kernel.org with ESMTP id S1750949Ab1LKAL6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2011 19:11:58 -0500
+In-Reply-To: <1323562110-13865-1-git-send-email-hagen@jauu.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -134,7 +134,6 @@ index 3bfd733..b6a16bd 100644
 +	q->cell_size = r->cell_size;
 +	if (q->cell_size)
 +		q->cell_size_reciprocal = reciprocal_value(q->cell_size);
-+	q->cell_size = q->cell_size;
 +	q->cell_overhead = r->cell_overhead;
  }
  
