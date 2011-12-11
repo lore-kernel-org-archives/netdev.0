@@ -1,47 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: IFB and bridges
-Date: Sun, 11 Dec 2011 09:58:26 +0100
-Message-ID: <1323593906.4016.42.camel@edumazet-laptop>
-References: <1323566146.3159.186.camel@denise.theartistscloset.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH/resend] m68k/net: Remove obsolete IRQ_FLG_* users
+Date: Sun, 11 Dec 2011 10:04:05 +0100
+Message-ID: <1323594245-25269-1-git-send-email-geert@linux-m68k.org>
+Cc: linux-m68k@kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:44425 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750929Ab1LKI6b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Dec 2011 03:58:31 -0500
-Received: by eekc4 with SMTP id c4so1105115eek.19
-        for <netdev@vger.kernel.org>; Sun, 11 Dec 2011 00:58:29 -0800 (PST)
-In-Reply-To: <1323566146.3159.186.camel@denise.theartistscloset.com>
+Received: from georges.telenet-ops.be ([195.130.137.68]:43985 "EHLO
+	georges.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751088Ab1LKJEW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Dec 2011 04:04:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 10 d=C3=A9cembre 2011 =C3=A0 20:15 -0500, John A. Sullivan II=
-I a =C3=A9crit :
-> Hello, all.  This is more an "out of curiosity" question.  I'm starti=
-ng
-> to build a test environment for all I've learned about Linux traffic
-> shaping over the last week.  One of the devices happens to be configu=
-red
-> as a bridge.  It quickly became apparent that I needed to do shaping =
-on
-> the individual ports and not the bridge port.
->=20
-> This would be a real pain if I have lots of ports - 8 or 10 or 20
-> identical configurations.  Would this be an ideal use for IFB? That i=
-s,
-> to redirect all ports to IFB and apply one set qdiscs/classes? Thanks=
- -
+The m68k core irq code stopped honoring these flags during the irq
+restructuring in 2006.
 
-I have no idea what your problem is.
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+---
+Please take or ack, so I can remove the definition for IRQ_FLG_FAST in
+the m68k code
 
-You want to shape either egress or ingress, for different reasons (most
-people shape egress), but on proxies an ingress and egress combination
-is welcomed.
+ drivers/net/ethernet/natsemi/macsonic.c |    7 +++----
+ 1 files changed, 3 insertions(+), 4 deletions(-)
 
-But having to use ingress on the same machine in place of egress, I don=
-t
-see why.
+diff --git a/drivers/net/ethernet/natsemi/macsonic.c b/drivers/net/ethernet/natsemi/macsonic.c
+index a2eacbf..5987d17 100644
+--- a/drivers/net/ethernet/natsemi/macsonic.c
++++ b/drivers/net/ethernet/natsemi/macsonic.c
+@@ -142,8 +142,7 @@ static int macsonic_open(struct net_device* dev)
+ {
+ 	int retval;
+ 
+-	retval = request_irq(dev->irq, sonic_interrupt, IRQ_FLG_FAST,
+-				"sonic", dev);
++	retval = request_irq(dev->irq, sonic_interrupt, 0, "sonic", dev);
+ 	if (retval) {
+ 		printk(KERN_ERR "%s: unable to get IRQ %d.\n",
+ 				dev->name, dev->irq);
+@@ -154,8 +153,8 @@ static int macsonic_open(struct net_device* dev)
+ 	 * rupt as well, which must prevent re-entrance of the sonic handler.
+ 	 */
+ 	if (dev->irq == IRQ_AUTO_3) {
+-		retval = request_irq(IRQ_NUBUS_9, macsonic_interrupt,
+-					IRQ_FLG_FAST, "sonic", dev);
++		retval = request_irq(IRQ_NUBUS_9, macsonic_interrupt, 0,
++				     "sonic", dev);
+ 		if (retval) {
+ 			printk(KERN_ERR "%s: unable to get IRQ %d.\n",
+ 					dev->name, IRQ_NUBUS_9);
+-- 
+1.7.0.4
