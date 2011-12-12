@@ -1,86 +1,80 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference at 000000000000002c
-Date: Mon, 12 Dec 2011 13:57:21 +0100
-Message-ID: <4EE5FA31.1080005@profihost.ag>
-References: <4ED7C367.3070109@profihost.ag>	 <20111201182309.GA10686@infradead.org>	 <1322770844.2750.1.camel@edumazet-laptop>	 <CA+5PVA6kZkgYus4698Up8Q8uMTetCU2=DnTD0RpgXuHkJj6KKg@mail.gmail.com> <1322773527.2750.27.camel@edumazet-laptop> <4ED86B79.4060506@profihost.ag> <4EE5CD26.40806@profihost.ag>
+From: igorm@etf.rs
+Subject: [PATCH 1/4 net-next] net:core: use IS_ENABLED
+Date: Mon, 12 Dec 2011 04:58:22 -0800
+Message-ID: <1323694705-2793-1-git-send-email-igorm@etf.rs>
+References: <igorm@etf.rs>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Josh Boyer <jwboyer@gmail.com>,
-	Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org,
-	Dave Chinner <david@fromorbit.com>, stable@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: davem@davemloft.net, =?UTF-8?q?Igor=20Maravi=C4=87?= <igorm@etf.rs>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server655-han.de-nserver.de ([85.158.177.45]:41414 "EHLO
-	server655-han.de-nserver.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752804Ab1LLM5Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 07:57:25 -0500
-In-Reply-To: <4EE5CD26.40806@profihost.ag>
+Received: from mx1.etf.rs ([147.91.14.169]:47683 "EHLO mx1.etf.bg.ac.rs"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753012Ab1LLM6z convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 07:58:55 -0500
+In-Reply-To: <igorm@etf.rs>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+=46rom: Igor Maravi=C4=87 <igorm@etf.rs>
 
->> Am 01.12.2011 22:05, schrieb Eric Dumazet:
->>> Le jeudi 01 d=C3=A9cembre 2011 =C3=A0 15:37 -0500, Josh Boyer a =C3=
-=A9crit :
->>>
->>>> Did you mean f2c31e32bf2c31e32b378a665 ?
->>>
->>> Oh well, yes ;)
->>>
->>>>> But this patch needs some followup patches (some of them in David=
- net
->>>>> tree, not yet in Linus tree)
->>>>
->>>> 9de79c127cccecb11ae6a21ab1499e87aa222880 (net: fix potential neigh=
-bour
->>>> race in dst_ifdown()) is in Linus' tree.  Which others are missing=
-?
->>>
->>> Hmm
->>>
->>> Linus tree :
->>>
->>> commit 580da35a31f91a594f3090b7a2c39b85cb051a12
->>> IB: Fix RCU lockdep splats
->>>
->>> David tree :
->>>
->>> commit 218fa90f072e4aeff9003d57e390857f4f35513e
->>> ipv4: fix lockdep splat in rt_cache_seq_show
->>>
->>> commit f7e57044eeb1841847c24aa06766c8290c202583
->>> sch_teql: fix lockdep splat
->
+Use IS_ENABLED(CONFIG_FOO)
+instead of defined(CONFIG_FOO) || defined (CONFIG_FOO_MODULE)
 
-I made a backport while using these commits from v3.1.5:
+Signed-off-by: Igor Maravi=C4=87 <igorm@etf.rs>
+---
+ net/core/secure_seq.c |    2 +-
+ net/core/skbuff.c     |    7 +++----
+ 2 files changed, 4 insertions(+), 5 deletions(-)
 
-5eb027bb82d1f9d4af0df73a3ce08945ffc1b481 =3D> sch_teql: fix lockdep spl=
-at
-de5f8dc38303f9a1fc58349f0d1c6f46a8034a00 =3D> > IB: Fix RCU lockdep spl=
-ats
-f667de2e66ea9b8f99353ff01221bb355faf3f3c =3D> > ipv4: fix lockdep splat=
- in
-rt_cache_seq_show
-
-9de79c127cccecb11ae6a21ab1499e87aa222880 (fix for f2c31e32b378a)
-f2c31e32b378a6653f8de606149d963baf11d7d3 =3D> Fri Jul 29 19:00:53 2011
-lock dep splat
-
-d3aaeb38c40e5a6c08dd31a1b64da65c4352be36 =3D> net: Add ->neigh_lookup()
-operation to dst_op
-
-3769cffb1c48f64640ffab7ce3bffe867342c0f0 =3D> ip4 neigh lookup
-f610b74b14d74a069f61583131e689550fd5bab3 =3D> arp hash func
-cd0893369ca85fd11bc517081b2d9079d2ef2f90 =3D> store hash shift instread=
-of mask
-
-e049f28883126c689cf95859480d9ee4ab23b7fa =3D> fix helpers
-69cce1d1404968f78b177a0314f5822d5afdbbfb =3D> introduce helper
-9cbb7ecbcff85077bb12301aaf4c9b5a56c5993d =3D> ipv6: Get rid of
-rt6i_nexthop macro.
-
-Anybody interested? And if how to send my commits / diffs?
-
-Stefan
+diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
+index 9fbca46..6fd4460 100644
+--- a/net/core/secure_seq.c
++++ b/net/core/secure_seq.c
+@@ -134,7 +134,7 @@ u32 secure_ipv4_port_ephemeral(__be32 saddr, __be32=
+ daddr, __be16 dport)
+ EXPORT_SYMBOL_GPL(secure_ipv4_port_ephemeral);
+ #endif
+=20
+-#if defined(CONFIG_IP_DCCP) || defined(CONFIG_IP_DCCP_MODULE)
++#if IS_ENABLED(CONFIG_IP_DCCP)
+ u64 secure_dccp_sequence_number(__be32 saddr, __be32 daddr,
+ 				__be16 sport, __be16 dport)
+ {
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index fd36462..da0c97f 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -452,7 +452,7 @@ static void skb_release_head_state(struct sk_buff *=
+skb)
+ 		WARN_ON(in_irq());
+ 		skb->destructor(skb);
+ 	}
+-#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE=
+)
++#if IS_ENABLED(CONFIG_NF_CONNTRACK)
+ 	nf_conntrack_put(skb->nfct);
+ #endif
+ #ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
+@@ -602,15 +602,14 @@ static void __copy_skb_header(struct sk_buff *new=
+, const struct sk_buff *old)
+ 	new->ip_summed		=3D old->ip_summed;
+ 	skb_copy_queue_mapping(new, old);
+ 	new->priority		=3D old->priority;
+-#if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
++#if IS_ENABLED(CONFIG_IP_VS)
+ 	new->ipvs_property	=3D old->ipvs_property;
+ #endif
+ 	new->protocol		=3D old->protocol;
+ 	new->mark		=3D old->mark;
+ 	new->skb_iif		=3D old->skb_iif;
+ 	__nf_copy(new, old);
+-#if defined(CONFIG_NETFILTER_XT_TARGET_TRACE) || \
+-    defined(CONFIG_NETFILTER_XT_TARGET_TRACE_MODULE)
++#if IS_ENABLED(CONFIG_NETFILTER_XT_TARGET_TRACE)
+ 	new->nf_trace		=3D old->nf_trace;
+ #endif
+ #ifdef CONFIG_NET_SCHED
+--=20
+1.7.5.4
