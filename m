@@ -1,257 +1,75 @@
-From: Wolfgang Zarre <info-PyqsHJVlJN8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v2 2/4] can: cc770: add
- legacy ISA bus driver for the CC770 and AN82527
-Date: Mon, 12 Dec 2011 12:18:57 +0100
-Message-ID: <4EE5E321.8050104@essax.com>
-References: <1322214204-1121-1-git-send-email-wg@grandegger.com>
-	<1322214204-1121-3-git-send-email-wg@grandegger.com>
-	<4ED0FEC5.3070108@hartkopp.net> <4ED34CAD.7040000@essax.com>
-	<4ED351A8.8000102@grandegger.com> <4ED37885.8080909@essax.com>
-	<4ED3B198.2040308@hartkopp.net> <4ED4A2EC.40103@grandegger.com>
-	<4EDBC05D.8070109@essax.com> <4EDBC25D.50405@grandegger.com>
-	<4EDE8435.5080100@essax.com> <4EDF6D54.2060503@grandegger.com>
-	<4EE1E26B.6090308@grandegger.com> <4EE4F76E.3000506@essax.com>
-	<4EE5C824.2050704@grandegger.com>
-Reply-To: info-PyqsHJVlJN8AvxtiuMwx3w@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4EE5C824.2050704-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
-List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Subject: pull request: batman-adv 2011-12-12
+Date: Mon, 12 Dec 2011 19:31:44 +0800
+Message-ID: <1323689516-24427-1-git-send-email-lindner_marek@yahoo.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello Wolfgang,
-> Hi Wolfgang,
->
-> On 12/11/2011 07:33 PM, Wolfgang Zarre wrote:
->> Hello Wolfgang,
->>> On 12/07/2011 02:42 PM, Wolfgang Grandegger wrote:
->>>> Hi Wolfgang,
->>>>
->>>> On 12/06/2011 10:08 PM, Wolfgang Zarre wrote:
-> ...
->>>>> Let me know if You need more or some other tests.
->>>>
->>>> You could provoke some state changes or bus-off conditions to see if the
->>>> berr-counter shows reasonable results. I'm currently consolidating and
->>>> unifying error state and bus-off handling. Would be nice if you could do
->>>> some further tests when I have the patches ready...
->>>
->>> I just pushed the mentioned modifications to the "devel" branch of my
->>> "wg-linux-can-next" [1] repository. You can get it as shown below:
->>>
->>>     $ git clone --reference=<some-recent-net-next-tree>   \
->>>         git://gitorious.org/~wgrandegger/linux-can/wg-linux-can-next.git
->>>     $ git checkout -b devel devel
->>>
->>> [1] https://gitorious.org/~wgrandegger/linux-can/wg-linux-can-next
->>>
->>> Wolfgang.
->>
->> OK, I was trying so far and You will find below the results.
->> Just FYI the states on the PLC side couldn't be verified because the
->> function
->> provided by the manufacturer is not working at all and CAN analyser was not
->> available.
->>
->> We are running CANopen and therefore the PLC will send automatically a
->> heartbeat.
->>
->> I produced the bus-off state through a short circuit between L/H which was
->> working as expected.
->>
->> A bit odd was that on the second try I had to reload the module
->> because a ip down/up was not enough.
->
-> Oops, not good.
->
+Hi David,
 
-But might be in connection with the strange behaviour of the PLC.
+here comes the next batch I'd like to get the pulled into net-next-2.6/3.3.
+We have a couple of minor fixes for unregister_netdevice(), compat flags,
+return value checks and a readme update. Plus the regression fix from Dan
+that addresses a bug introduced with the previous batch. Security 
+researcher Paul Kot checked our kernelland / user space communication and
+found a subtle bug which would make batman-adv write to memory locations
+it should not write to. However, he did not find a way to exploit this
+bug, therefore we classified it as "non-critical". Please let us know if
+that is not ok with you.
 
->> Let me know if You would need further tests or different procedure.
->
-> The state changes are reported via error messages, which you can list
-> with "candump -td -e any,0:0,#FFFFFFFF" with the attached patch.
->
+Thanks,
+Marek
 
-Thanks, I'll try this with the next series of tests.
 
->> Producing L/H short circuit for 2 seconds
->> dmesg:
->> [  885.409058] cc770_isa cc770_isa.0: can0: status interrupt (0x5b)
->> [  885.420475] cc770_isa cc770_isa.0: can0: status interrupt (0xc5)
->> [  885.420496] cc770_isa cc770_isa.0: can0: bus-off
->>
->> ip -d -s link show can0
->> 4: can0:<NO-CARRIER,NOARP,UP,ECHO>  mtu 16 qdisc pfifo_fast state DOWN
->> qlen 10
->>      link/can
->>      can state BUS-OFF (berr-counter tx 92 rx 103) restart-ms 0
->>      bitrate 500000 sample-point 0.875
->>      tq 125 prop-seg 6 phase-seg1 7 phase-seg2 2 sjw 1
->>      cc770: tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
->>      clock 8000000
->>      re-started bus-errors arbit-lost error-warn error-pass bus-off
->>      0          0          0          1          0          1
->>      RX: bytes  packets  errors  dropped overrun mcast
->>      544        382      0       0       0       0
->>      TX: bytes  packets  errors  dropped carrier collsns
->>      30         29       0       0       0       0
->>
->> Sending and receiving stops.
->>
->> Trying to recover on PC:
->> ip link set can0 down;
->> ip -d -s link show can0
->> 4: can0:<NOARP,ECHO>  mtu 16 qdisc pfifo_fast state DOWN qlen 10
->>      link/can
->>      can state STOPPED (berr-counter tx 92 rx 103) restart-ms 0
->>      bitrate 500000 sample-point 0.875
->>      tq 125 prop-seg 6 phase-seg1 7 phase-seg2 2 sjw 1
->>      cc770: tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
->>      clock 8000000
->>      re-started bus-errors arbit-lost error-warn error-pass bus-off
->>      0          0          0          1          0          1
->>      RX: bytes  packets  errors  dropped overrun mcast
->>      544        382      0       0       0       0
->>      TX: bytes  packets  errors  dropped carrier collsns
->>      30         29       0       1       0       0
->>
->> ip link set can0 up type can bitrate 500000;
->> dmesg:
->> [ 1090.937778] cc770_isa cc770_isa.0: can0: setting BTR0=0x00 BTR1=0x1c
->> [ 1090.937869] cc770_isa cc770_isa.0: can0: Message object 15 for RX
->> data, RTR, SFF and EFF
->> [ 1090.937885] cc770_isa cc770_isa.0: can0: Message object 11 for TX
->> data, RTR, SFF and EFF
->> [ 1090.938050] ADDRCONF(NETDEV_CHANGE): can0: link becomes ready
->> [ 1090.940769] cc770_isa cc770_isa.0: can0: status interrupt (0x5)
->>
->> ip -d -s link show can0
->> 4: can0:<NOARP,UP,LOWER_UP,ECHO>  mtu 16 qdisc pfifo_fast state UP qlen 10
->>      link/can
->>      can state ERROR-ACTIVE (berr-counter tx 0 rx 0) restart-ms 0
->>      bitrate 500000 sample-point 0.875
->>      tq 125 prop-seg 6 phase-seg1 7 phase-seg2 2 sjw 1
->>      cc770: tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
->>      clock 8000000
->>      re-started bus-errors arbit-lost error-warn error-pass bus-off
->>      0          0          0          1          0          1
->>      RX: bytes  packets  errors  dropped overrun mcast
->>      552        383      0       0       0       0
->>      TX: bytes  packets  errors  dropped carrier collsns
->>      30         29       0       1       0       0
->>
->> PLC in unknown state but not sending heartbeat,
->> Rebooting PLC
->
-> Hm, does it work if you do the bus-off recovery manually with?
->
->    # ip link set can0 up type can restart
->
-> ... or automatically with?
->
->    # ip link set can0 up type can restart-ms 5000
+The following changes since commit 76e8d7b0d1b0091929e8cd18551a87b6bb6ef2c1:
 
-Ah, ok, good point, will try out as well with the next series of tests
+  batman-adv: Fix range check for expected packets (2011-11-20 13:08:35 +0100)
 
->
-> Anyway, rebooting/reloading should never be necessary. I will check on
-> my i82572.
->
->> -----------------------------------------
->> Disconnecting cable for around 4 seconds:
->>
->> dmesg:
->> [ 2339.660283] cc770_isa cc770_isa.0: can0: status interrupt (0x5b)
->>
->> ip -d -s link show can0
->> 6: can0:<NOARP,UP,LOWER_UP,ECHO>  mtu 16 qdisc pfifo_fast state UNKNOWN
->> qlen 10
->>      link/can
->>      can state ERROR-WARNING (berr-counter tx 128 rx 128) restart-ms 0
->>      bitrate 500000 sample-point 0.875
->>      tq 125 prop-seg 6 phase-seg1 7 phase-seg2 2 sjw 1
->>      cc770: tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
->>      clock 8000000
->>      re-started bus-errors arbit-lost error-warn error-pass bus-off
->>      0          0          0          1          0          0
->>      RX: bytes  packets  errors  dropped overrun mcast
->>      459        298      0       0       0       0
->>      TX: bytes  packets  errors  dropped carrier collsns
->>      193        192      0       0       0       0
->
-> TX and RX berr-counter are>= 128. I wonder why error passive was not
-> reached.
+are available in the git repository at:
+  git://git.open-mesh.org/linux-merge.git batman-adv/next
 
-Hmmm, that is a good question and You are right > 127 should be error-passive,
-anyway, just realised now, what means then 'error-warning' because I just
-know error-active, error-passive and bus-off.
+Antonio Quartulli (3):
+      batman-adv: create a common substructure for tt_global/local_entry
+      batman-adv: generalise tt_local_reset_flags()
+      batman-adv: format multi-line if in the correct way
 
->
->> Connecting again:
->> ip -d -s link show can0
->> 6: can0:<NOARP,UP,LOWER_UP,ECHO>  mtu 16 qdisc pfifo_fast state UNKNOWN
->> qlen 10
->>      link/can
->>      can state ERROR-WARNING (berr-counter tx 120 rx 0) restart-ms 0
->>      bitrate 500000 sample-point 0.875
->>      tq 125 prop-seg 6 phase-seg1 7 phase-seg2 2 sjw 1
->>      cc770: tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
->>      clock 8000000
->>      re-started bus-errors arbit-lost error-warn error-pass bus-off
->>      0          0          0          1          0          0
->>      RX: bytes  packets  errors  dropped overrun mcast
->>      473        311      0       0       0       0
->>      TX: bytes  packets  errors  dropped carrier collsns
->>      200        200      0       0       0       0
->>
->> After some time (around 125 seconds):
->> dmesg:
->> [ 2387.172008] cc770_isa cc770_isa.0: can0: status interrupt (0x18)
->> ip -d -s link show can0
->> 6: can0:<NOARP,UP,LOWER_UP,ECHO>  mtu 16 qdisc pfifo_fast state UNKNOWN
->> qlen 10
->>      link/can
->>      can state ERROR-ACTIVE (berr-counter tx 29 rx 0) restart-ms 0
->>      bitrate 500000 sample-point 0.875
->>      tq 125 prop-seg 6 phase-seg1 7 phase-seg2 2 sjw 1
->>      cc770: tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
->>      clock 8000000
->>      re-started bus-errors arbit-lost error-warn error-pass bus-off
->>      0          0          0          1          0          0
->>      RX: bytes  packets  errors  dropped overrun mcast
->>      616        447      0       0       0       0
->>      TX: bytes  packets  errors  dropped carrier collsns
->>      291        291      0       0       0       0
->
-> OK, the state is back to error active (counter<  96).
->
-> Thanks for testing...
+Dan Carpenter (1):
+      batman-adv: remove extra negation in gw_out_of_range()
 
-You are welcome, however, I have to thank You for Your work done.
+Marek Lindner (2):
+      batman-adv: report compat_version in version field in case of version mismatch
+      batman-adv: readme update (mention ap isolation and new log level)
 
-So, I'll try as soon as I can another series of tests and may be
-You let me know if You have patches I should include as well.
+Paul Kot (1):
+      batman-adv: bat_socket_read missing checks
 
->
-> Wolfgang.
->
->
->
+Simon Wunderlich (2):
+      batman-adv: check return value for hash_add()
+      batman-adv: use unregister_netdevice() when softif_create fails
 
-Thanks
+Sven Eckelmann (2):
+      batman-adv: Directly check read of icmp packet in copy_from_user
+      batman-adv: Only write requested number of byte to user buffer
 
-Wolfgang
+ Documentation/networking/batman-adv.txt |    7 +-
+ net/batman-adv/gateway_client.c         |    2 +-
+ net/batman-adv/icmp_socket.c            |   14 +-
+ net/batman-adv/routing.c                |    3 +-
+ net/batman-adv/soft-interface.c         |    2 +-
+ net/batman-adv/translation-table.c      |  336 ++++++++++++++++++-------------
+ net/batman-adv/types.h                  |   14 +-
+ net/batman-adv/vis.c                    |    6 +-
+ 8 files changed, 216 insertions(+), 168 deletions(-)
