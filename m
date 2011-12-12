@@ -1,62 +1,57 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Testing server performance
-Date: Mon, 12 Dec 2011 09:32:22 -0800
-Message-ID: <4EE63AA6.2090402@candelatech.com>
-References: <CAFdo_mW0sKSZp3L75BOPBN1Sa+ZQ8WiBRC98eFLM5BaxCVrpJQ@mail.gmail.com> <4EE242DF.2000609@candelatech.com> <CAFdo_mU-CHP0tyScF_ZmZJHeSuC6MEgASTZ+h2JWyumTn=sqqw@mail.gmail.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] kref: add function for reading kref value
+Date: Mon, 12 Dec 2011 09:33:44 -0800
+Message-ID: <20111212173344.GA10162@kroah.com>
+References: <1323693892-11570-1-git-send-email-dbaluta@ixiacom.com>
+ <20111212150255.GA7506@kroah.com>
+ <CAEnQRZBiVDAHH+uZ=Ugk=UP5qSvvMViGTM-bRWr+E27zivOUug@mail.gmail.com>
+ <1323703934.1765.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <CAEnQRZCZdPw9eWVmdvhtF7KCQkYpLMrkhv5qd5xYckxWksN+0w@mail.gmail.com>
+ <1323704494.1765.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <CAEnQRZAt0X6cxGLgLUVTB9rzLKVYLEnh=azS9WOyKAkUZEpj4g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: igorm@etf.rs
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:35539 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753520Ab1LLRc2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 12:32:28 -0500
-In-Reply-To: <CAFdo_mU-CHP0tyScF_ZmZJHeSuC6MEgASTZ+h2JWyumTn=sqqw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	adobriyan@gmail.com
+To: Daniel Baluta <dbaluta@ixiacom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAEnQRZAt0X6cxGLgLUVTB9rzLKVYLEnh=azS9WOyKAkUZEpj4g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/12/2011 01:24 AM, Igor Maravi=C4=87 wrote:
->> Check the bus speed and width on your NICs.  dmesg usually shows thi=
-s
->> info when the interfaces are first detected.
->>
->> If you can, try some Intel NICs..they will usually run wire speed
->> if the motherboard is reasonably fast.
->>
->> Thanks,
->> Ben
->
-> Thanks for the advice.
-> I' ll see if I can find some Intel NICs.
->
-> NIC's specs says that they support 32-bit 33/66MHz clock speed PCI Bu=
-s
-> Master operation.
-> Should that be enough?
+On Mon, Dec 12, 2011 at 06:42:59PM +0200, Daniel Baluta wrote:
+> On Mon, Dec 12, 2011 at 5:41 PM, Eric Dumazet <eric.dumazet@gmail.com=
+> wrote:
+> > Le lundi 12 d=E9cembre 2011 =E0 17:39 +0200, Daniel Baluta a =E9cri=
+t :
+> >
+> >> Ok, for the moment it seems to be a bad idea. But my intention is
+> >> to integrate kref to networking code, and then to write a general
+> >> debugging tool for refs.
+> >>
+> >> Tracking down reference count problems is hard, and this tool can
+> >> really help everyone.
+> >
+> > I dont think kref will help you that much, because its used everywh=
+ere.
+> >
+> > Adding a general debugging tool will provide too much noise.
+> >
+> > Instead, we (network dev) add debugging points where we want.
+>=20
+> Yes, but you have to do this each time you start debugging, for a
+> particular referenced counted object.
+>=20
+> We must find a clever solution to avoid the noise. (e.g use
+> /proc, /sysfs, /debugfs options to trigger dumping info for
+> some/all objects with a certain state).
 
-No, probably not.  Your motherboard may only be 32/32mhz as well?
+Then use the dynamic debug infrastructure, which is there to help you
+try to handle this type of debugging on-the-fly.
 
-You really need pci-e (or high-end pci-x) for good 1Gbps performance.
+But again, it's not a kref issue, sorry.
 
-On any modern system, use pci-e nics if you can.
-
-Thanks,
-Ben
-
->
-> I'll see what dmesg showed tomorow, because I'm not at my computer cu=
-rrently.
-> BR
-> Igor
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+greg k-h
