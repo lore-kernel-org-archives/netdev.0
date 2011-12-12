@@ -1,101 +1,55 @@
-From: Vincent Bernat <bernat@luffy.cx>
-Subject: [PATCH] net: add ip_nonlocal_bind sysctl for IPv6
-Date: Mon, 12 Dec 2011 14:18:43 +0100
-Message-ID: <1323695923-23849-2-git-send-email-bernat@luffy.cx>
-References: <1323695923-23849-1-git-send-email-bernat@luffy.cx>
-Cc: davem@davemloft.net, Vincent Bernat <bernat@luffy.cx>
+From: Hadmut Danisch <hadmut@danisch.de>
+Subject: Privacy extension for unique local networks?
+Date: Mon, 12 Dec 2011 14:23:14 +0100
+Message-ID: <4EE60042.5010704@msgid.danisch.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftmxout01ba.infra.b2.fti.net ([193.252.121.124]:44151 "EHLO
-	ftmxout01ba.infra.b2.fti.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753019Ab1LLN1q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 08:27:46 -0500
-In-Reply-To: <1323695923-23849-1-git-send-email-bernat@luffy.cx>
+Received: from mail.rackland.de ([212.86.200.188]:39155 "EHLO mail.rackland.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753159Ab1LLNbd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Dec 2011 08:31:33 -0500
+Received: from [192.168.160.10] (178-26-43-170-dynip.superkabel.de [178.26.43.170])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client did not present a certificate)
+	by mail.rackland.de (Postfix) with ESMTPSA id BA67B259A4
+	for <netdev@vger.kernel.org>; Mon, 12 Dec 2011 14:23:12 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-net.ipv4.ip_nonlocal_bind sysctl allows applications to bind to non
-local IPv4 addresses (for example, dynamic addresses that do not exist
-yet). This modification introduces net.ipv6.ip_nonlocal_bind which has
-the same effect for IPv6.
+Hi,
 
-Signed-off-by: Vincent Bernat <bernat@luffy.cx>
----
- Documentation/networking/ip-sysctl.txt |    5 +++++
- include/net/ipv6.h                     |    1 +
- net/ipv6/af_inet6.c                    |    6 +++++-
- net/ipv6/sysctl_net_ipv6.c             |    7 +++++++
- 4 files changed, 18 insertions(+), 1 deletions(-)
+I have a particular problem with my IPv6 home network:
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index ad3e80e..be8a80e 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1007,6 +1007,11 @@ bindv6only - BOOLEAN
- 
- 	Default: FALSE (as specified in RFC3493)
- 
-+ip_nonlocal_bind - BOOLEAN
-+	If set, allows processes to bind() to non-local IP addresses,
-+	which can be quite useful - but may break some applications.
-+	Default: FALSE
-+
- IPv6 Fragmentation:
- 
- ip6frag_high_thresh - INTEGER
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index e4170a2..393ea35 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -113,6 +113,7 @@ struct frag_hdr {
- 
- /* sysctls */
- extern int sysctl_mld_max_msf;
-+extern int sysctl_ip6_nonlocal_bind;
- extern struct ctl_path net_ipv6_ctl_path[];
- 
- #define _DEVINC(net, statname, modifier, idev, field)			\
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 7694c82..1d1ab9b 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -252,6 +252,9 @@ out_rcu_unlock:
- 	goto out;
- }
- 
-+/* It is off by default, see below. */
-+int sysctl_ip6_nonlocal_bind __read_mostly;
-+EXPORT_SYMBOL(sysctl_ip6_nonlocal_bind);
- 
- /* bind for INET6 API */
- int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
-@@ -347,7 +350,8 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 			 */
- 			v4addr = LOOPBACK4_IPV6;
- 			if (!(addr_type & IPV6_ADDR_MULTICAST))	{
--				if (!(inet->freebind || inet->transparent) &&
-+				if (!sysctl_ip6_nonlocal_bind &&
-+				    !(inet->freebind || inet->transparent) &&
- 				    !ipv6_chk_addr(net, &addr->sin6_addr,
- 						   dev, 0)) {
- 					err = -EADDRNOTAVAIL;
-diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
-index 166a57c..e88e09e 100644
---- a/net/ipv6/sysctl_net_ipv6.c
-+++ b/net/ipv6/sysctl_net_ipv6.c
-@@ -48,6 +48,13 @@ static ctl_table ipv6_table_template[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+	{
-+		.procname	= "ip_nonlocal_bind",
-+		.data		= &sysctl_ip6_nonlocal_bind,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
- 	{ }
- };
- 
--- 
-1.7.7.3
+I need to enable auto configuration since my Router has dynamic IPv4
+addresses and uses 6to4 tunneling, thus the IPv6 prefix also changes and
+is announced by the Router (2002:...). Works.
+
+Since several programs (including e.g. Samba) refuse to use the link
+local addresses (FE80:..), and I do not want to open my server ports
+just for any 2002:... address, I let my router announce an additional
+unique address (FD00:...). Works as well.
+
+I enabled the privacy extension on the interfaces because I want to
+avoid beeing tracked by Webservers in the Internet, since the
+2002:-Adresses are derived from the MAC address. Works also.
+
+
+The problem: The Linux kernel's privacy mechanism assigns dynamic
+changing to the FD00: address range also, which does not make sense and
+makes my machines to use changing local addresses. Makes it difficult to
+assign local permissions based on IP addresses.
+
+
+The privacy mechanism should be restricted to public addresses (or at
+least there should be a separate switch to turn it on and off for unique
+local addresses).
+
+
+
+regards
+Hadmut
+
+(Please reply directly, I am not on your mailing list)
