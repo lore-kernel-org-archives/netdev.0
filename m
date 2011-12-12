@@ -1,52 +1,57 @@
-From: Vasu Dev <vasu.dev@intel.com>
-Subject: [PATCH] net: do not pass vlan pkts to real dev pkt handler also
-Date: Mon, 12 Dec 2011 14:19:23 -0800
-Message-ID: <20111212221923.5356.43629.stgit@vifc.jf.intel.com>
+From: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH RESEND] sctp: fix incorrect overflow check on autoclose
+Date: Mon, 12 Dec 2011 17:18:46 -0500
+Message-ID: <4EE67DC6.3000500@hp.com>
+References: <1323393883-3759-1-git-send-email-xi.wang@gmail.com> <4EE2478B.5010409@hp.com> <8EEC521A-CA38-4CE9-BCFD-BA6FC9A85D18@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jpirko@redhat.com, devel@open-fcoe.org
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Andrei Pelinescu-Onciul <andrei@iptel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Xi Wang <xi.wang@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:39255 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754185Ab1LLWSq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Dec 2011 17:18:46 -0500
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:23905 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754287Ab1LLWSy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 17:18:54 -0500
+In-Reply-To: <8EEC521A-CA38-4CE9-BCFD-BA6FC9A85D18@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The orig_dev has to be updated before going another round
-for vlan pkts, otherwise currently unmodified real orig_dev
-causes vlan pkt delivered to real orig_dev also.
+On 12/09/2011 01:04 PM, Xi Wang wrote:
+> On Dec 9, 2011, at 12:38 PM, Vladislav Yasevich wrote:
+>> I think this should be u32 since that's what sp->autoclose is.
+> 
+> Do you mean something like this?
+> 
+> 	min_t(u32, sp->autoclose, MAX_SCHEDULE_TIMEOUT / HZ)
+> 
+> On 64-bit platform this would limit autoclose for no good
+> reason to
+> 
+> 	(u32)(MAX_SCHEDULE_TIMEOUT / HZ),
+> 
+> which is basically 0x978d4fdf (assuming HZ is 250).  I guess the
+> intention was to allow autoclose to be any u32 on 64-bit platform.
+> 
 
-The fcoe stack doesn't expects its vlan pkts on real dev
-and it causes crash in fcoe stack.
+Hm..  this is a bit strange.  This makes it so that on 32 bit platforms
+we have one upper bound for autoclose and on 64 we have another even though
+the type is platform dependent.  This could be considered a regression by
+applications.
 
-This wasn't issue untill __netif_receive_skb recursive calling
-was removed with this commit 0dfe178, so this patch restores
-orig_dev uses as it was prior to that commit but still w/o
-recursive calling to __netif_receive_skb.
+In addition this would result in confusion to user since the values
+between setsockopt() and getsockopt() for autoclose would be different.
 
-Signed-off-by: Vasu Dev <vasu.dev@intel.com>
----
+Looking at the latest spec, it actually looks like we are completely
+mis-interpreting autoclose.  It's supposed to be in seconds.
 
- net/core/dev.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+For now, I'd suggest to make this consistent between 32 and 64 bits.
+Having inconsistent values seems strange.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f494675..adbcd7a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3222,9 +3222,10 @@ ncls:
- 			ret = deliver_skb(skb, pt_prev, orig_dev);
- 			pt_prev = NULL;
- 		}
--		if (vlan_do_receive(&skb, !rx_handler))
-+		if (vlan_do_receive(&skb, !rx_handler)) {
-+			orig_dev = skb->dev;
- 			goto another_round;
--		else if (unlikely(!skb))
-+		} else if (unlikely(!skb))
- 			goto out;
- 	}
- 
+As a next set the api needs to be fixed to accept seconds as
+argument.
+
+-vlad
