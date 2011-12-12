@@ -1,35 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] kref: add function for reading kref value
-Date: Mon, 12 Dec 2011 16:41:34 +0100
-Message-ID: <1323704494.1765.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1323693892-11570-1-git-send-email-dbaluta@ixiacom.com>
-	 <20111212150255.GA7506@kroah.com>
-	 <CAEnQRZBiVDAHH+uZ=Ugk=UP5qSvvMViGTM-bRWr+E27zivOUug@mail.gmail.com>
-	 <1323703934.1765.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <CAEnQRZCZdPw9eWVmdvhtF7KCQkYpLMrkhv5qd5xYckxWksN+0w@mail.gmail.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH] can: flexcan: fix irq flooding by clearing all interrupt
+ sources
+Date: Mon, 12 Dec 2011 16:44:01 +0100
+Message-ID: <4EE62141.8010305@grandegger.com>
+References: <4EE61928.10608@grandegger.com> <4EE61E3D.2090303@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Greg KH <greg@kroah.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, adobriyan@gmail.com
-To: Daniel Baluta <daniel.baluta@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEnQRZCZdPw9eWVmdvhtF7KCQkYpLMrkhv5qd5xYckxWksN+0w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	Reuben Dowle <Reuben.Dowle@navico.com>,
+	=?ISO-8859-1?Q?Lothar_Wa=DFmann?= <LW@KARO-electronics.de>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4EE61E3D.2090303@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le lundi 12 d=C3=A9cembre 2011 =C3=A0 17:39 +0200, Daniel Baluta a =C3=A9=
-crit :
-
-> Ok, for the moment it seems to be a bad idea. But my intention is
-> to integrate kref to networking code, and then to write a general
-> debugging tool for refs.
+On 12/12/2011 04:31 PM, Marc Kleine-Budde wrote:
+> On 12/12/2011 04:09 PM, Wolfgang Grandegger wrote:
+>> As pointed out by Reuben Dowle and Lothar Wa=DFmann, the TWRN_INT,
+>> RWRN_INT, BOFF_INT interrupt sources need to be cleared as well
+>> to avoid interrupt flooding, at least for the Flexcan on i.MX28
+>> SOCs. Furthermore, the interrupts are only cleared, if really one
+>> of those interrupt sources are pending (which is not the case for
+>> rx and tx done).
+>>
+>> CC: Reuben Dowle <Reuben.Dowle@navico.com>
+>> CC: Lothar Wa=DFmann <LW@KARO-electronics.de>
+>> Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
 >=20
-> Tracking down reference count problems is hard, and this tool can
-> really help everyone.
+> Have you tested on mx25/mx35, does it have any negative side effects?
+> My schedule is full until Friday, sorry cannot test here.
 
-I dont think kref will help you that much, because its used everywhere.
+Not yet. But it's not critical. Only the pending interrupt flags are
+cleared. Maybe somebody else out there could do some testing... before =
+I
+get hold of a MX35PDK board.
 
-Adding a general debugging tool will provide too much noise.
-
-Instead, we (network dev) add debugging points where we want.
+Wolfgang.
