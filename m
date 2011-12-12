@@ -1,106 +1,55 @@
 From: Marek Lindner <lindner_marek@yahoo.de>
-Subject: [PATCH 03/11] batman-adv: generalise tt_local_reset_flags()
-Date: Mon, 12 Dec 2011 19:31:47 +0800
-Message-ID: <1323689516-24427-4-git-send-email-lindner_marek@yahoo.de>
+Subject: [PATCH 05/11] batman-adv: use unregister_netdevice() when softif_create fails
+Date: Mon, 12 Dec 2011 19:31:49 +0800
+Message-ID: <1323689516-24427-6-git-send-email-lindner_marek@yahoo.de>
 References: <1323689516-24427-1-git-send-email-lindner_marek@yahoo.de>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <ordex@autistici.org>,
+	Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>,
+	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
 	Sven Eckelmann <sven@narfation.org>,
 	Marek Lindner <lindner_marek@yahoo.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm9-vm0.bullet.mail.ukl.yahoo.com ([217.146.183.240]:25851 "HELO
-	nm9-vm0.bullet.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752692Ab1LLLc1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 06:32:27 -0500
+Received: from nm24-vm5.bullet.mail.ukl.yahoo.com ([217.146.176.179]:42264
+	"HELO nm24-vm5.bullet.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752131Ab1LLLck (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 06:32:40 -0500
 In-Reply-To: <1323689516-24427-1-git-send-email-lindner_marek@yahoo.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <ordex@autistici.org>
+From: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>
 
-The tt_local_reset_flags() is actually used for one use case only. It is not
-generalised enough to be used indifferent situations. This patch make it general
-enough in order to let other code use it whenever a flag set is requested over
-the whole hash table (passed as parameter). The function is now called
-tt_set_flags()
+When entering softif_create(), the rtnl lock has already been acquired
+by store_mesh_iface().
+(store_mesh_iface() -> hardif_enable_interface() -> softif_create)
 
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+In case of an error, we should therefore call unregister_netdevice()
+instead of unregister_netdev().
+
+unregister_netdev() tries to acquire the rtnl lock itself and deadlocks
+in this situation. unregister_netdevice() assumes that the rtnl lock
+is already been held.
+
+Signed-off-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
 Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 ---
- net/batman-adv/translation-table.c |   35 +++++++++++++++++++++++------------
- 1 files changed, 23 insertions(+), 12 deletions(-)
+ net/batman-adv/soft-interface.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 76134bc..f6bbd64 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -1695,19 +1695,19 @@ void tt_free(struct bat_priv *bat_priv)
- 	kfree(bat_priv->tt_buff);
- }
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index 45297c8..987c75a 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -874,7 +874,7 @@ unreg_debugfs:
+ unreg_sysfs:
+ 	sysfs_del_meshif(soft_iface);
+ unreg_soft_iface:
+-	unregister_netdev(soft_iface);
++	unregister_netdevice(soft_iface);
+ 	return NULL;
  
--/* This function will reset the specified flags from all the entries in
-- * the given hash table and will increment num_local_tt for each involved
-- * entry */
--static void tt_local_reset_flags(struct bat_priv *bat_priv, uint16_t flags)
-+/* This function will enable or disable the specified flags for all the entries
-+ * in the given hash table and returns the number of modified entries */
-+static uint16_t tt_set_flags(struct hashtable_t *hash, uint16_t flags,
-+			     bool enable)
- {
- 	uint32_t i;
--	struct hashtable_t *hash = bat_priv->tt_local_hash;
-+	uint16_t changed_num = 0;
- 	struct hlist_head *head;
- 	struct hlist_node *node;
- 	struct tt_common_entry *tt_common_entry;
- 
- 	if (!hash)
--		return;
-+		goto out;
- 
- 	for (i = 0; i < hash->size; i++) {
- 		head = &hash->table[i];
-@@ -1715,14 +1715,21 @@ static void tt_local_reset_flags(struct bat_priv *bat_priv, uint16_t flags)
- 		rcu_read_lock();
- 		hlist_for_each_entry_rcu(tt_common_entry, node,
- 					 head, hash_entry) {
--			if (!(tt_common_entry->flags & flags))
--				continue;
--			tt_common_entry->flags &= ~flags;
--			atomic_inc(&bat_priv->num_local_tt);
-+			if (enable) {
-+				if ((tt_common_entry->flags & flags) == flags)
-+					continue;
-+				tt_common_entry->flags |= flags;
-+			} else {
-+				if (!(tt_common_entry->flags & flags))
-+					continue;
-+				tt_common_entry->flags &= ~flags;
-+			}
-+			changed_num++;
- 		}
- 		rcu_read_unlock();
- 	}
--
-+out:
-+	return changed_num;
- }
- 
- /* Purge out all the tt local entries marked with TT_CLIENT_PENDING */
-@@ -1766,7 +1773,11 @@ static void tt_local_purge_pending_clients(struct bat_priv *bat_priv)
- 
- void tt_commit_changes(struct bat_priv *bat_priv)
- {
--	tt_local_reset_flags(bat_priv, TT_CLIENT_NEW);
-+	uint16_t changed_num = tt_set_flags(bat_priv->tt_local_hash,
-+					    TT_CLIENT_NEW, false);
-+	/* all the reset entries have now to be effectively counted as local
-+	 * entries */
-+	atomic_add(changed_num, &bat_priv->num_local_tt);
- 	tt_local_purge_pending_clients(bat_priv);
- 
- 	/* Increment the TTVN only once per OGM interval */
+ free_soft_iface:
 -- 
 1.7.5.4
