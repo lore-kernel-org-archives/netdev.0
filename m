@@ -1,7 +1,7 @@
 From: igorm@etf.rs
-Subject: [PATCH 4/4 net-next] net:bridge: use IS_ENABLED
-Date: Mon, 12 Dec 2011 04:58:25 -0800
-Message-ID: <1323694705-2793-4-git-send-email-igorm@etf.rs>
+Subject: [PATCH 2/4 net-next] net:x25: use IS_ENABLED
+Date: Mon, 12 Dec 2011 04:58:23 -0800
+Message-ID: <1323694705-2793-2-git-send-email-igorm@etf.rs>
 References: <igorm@etf.rs>
  <1323694705-2793-1-git-send-email-igorm@etf.rs>
 Mime-Version: 1.0
@@ -10,9 +10,9 @@ Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: davem@davemloft.net, =?UTF-8?q?Igor=20Maravi=C4=87?= <igorm@etf.rs>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.etf.rs ([147.91.14.169]:47699 "EHLO mx1.etf.bg.ac.rs"
+Received: from mx2.etf.rs ([147.91.14.170]:55192 "EHLO mx2.etf.bg.ac.rs"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753032Ab1LLM7D convert rfc822-to-8bit (ORCPT
+	id S1753157Ab1LLM7D convert rfc822-to-8bit (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 07:59:03 -0500
 In-Reply-To: <1323694705-2793-1-git-send-email-igorm@etf.rs>
 Sender: netdev-owner@vger.kernel.org
@@ -25,93 +25,69 @@ instead of defined(CONFIG_FOO) || defined (CONFIG_FOO_MODULE)
 
 Signed-off-by: Igor Maravi=C4=87 <igorm@etf.rs>
 ---
- net/bridge/br.c                |    4 ++--
- net/bridge/br_fdb.c            |    2 +-
- net/bridge/br_netfilter.c      |    2 +-
- net/bridge/br_private.h        |    2 +-
- net/bridge/netfilter/ebt_log.c |    2 +-
- 5 files changed, 6 insertions(+), 6 deletions(-)
+ net/x25/af_x25.c    |    2 +-
+ net/x25/x25_dev.c   |    6 +++---
+ net/x25/x25_route.c |    2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/net/bridge/br.c b/net/bridge/br.c
-index f20c4fd..ba780cc 100644
---- a/net/bridge/br.c
-+++ b/net/bridge/br.c
-@@ -62,7 +62,7 @@ static int __init br_init(void)
+diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+index 3e16c6a..a306bc6 100644
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -232,7 +232,7 @@ static int x25_device_event(struct notifier_block *=
+this, unsigned long event,
+ 		return NOTIFY_DONE;
 =20
- 	brioctl_set(br_ioctl_deviceless_stub);
-=20
--#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
-+#if IS_ENABLED(CONFIG_ATM_LANE)
- 	br_fdb_test_addr_hook =3D br_fdb_test_addr;
+ 	if (dev->type =3D=3D ARPHRD_X25
+-#if defined(CONFIG_LLC) || defined(CONFIG_LLC_MODULE)
++#if IS_ENABLED(CONFIG_LLC)
+ 	 || dev->type =3D=3D ARPHRD_ETHER
  #endif
+ 	 ) {
+diff --git a/net/x25/x25_dev.c b/net/x25/x25_dev.c
+index fa2b418..f0ce862 100644
+--- a/net/x25/x25_dev.c
++++ b/net/x25/x25_dev.c
+@@ -161,7 +161,7 @@ void x25_establish_link(struct x25_neigh *nb)
+ 		*ptr =3D X25_IFACE_CONNECT;
+ 		break;
 =20
-@@ -93,7 +93,7 @@ static void __exit br_deinit(void)
- 	rcu_barrier(); /* Wait for completion of call_rcu()'s */
-=20
- 	br_netfilter_fini();
--#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
-+#if IS_ENABLED(CONFIG_ATM_LANE)
- 	br_fdb_test_addr_hook =3D NULL;
+-#if defined(CONFIG_LLC) || defined(CONFIG_LLC_MODULE)
++#if IS_ENABLED(CONFIG_LLC)
+ 	case ARPHRD_ETHER:
+ 		return;
  #endif
+@@ -180,7 +180,7 @@ void x25_terminate_link(struct x25_neigh *nb)
+ 	struct sk_buff *skb;
+ 	unsigned char *ptr;
 =20
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index a1429af..f963f6b 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -247,7 +247,7 @@ struct net_bridge_fdb_entry *__br_fdb_get(struct ne=
-t_bridge *br,
- 	return NULL;
- }
-=20
--#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
-+#if IS_ENABLED(CONFIG_ATM_LANE)
- /* Interface used by ATM LANE hook to test
-  * if an addr is on some other bridge port */
- int br_fdb_test_addr(struct net_device *dev, unsigned char *addr)
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 834dfab..52e4460 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -807,7 +807,7 @@ static unsigned int br_nf_forward_arp(unsigned int =
-hook, struct sk_buff *skb,
- 	return NF_STOLEN;
- }
-=20
--#if defined(CONFIG_NF_CONNTRACK_IPV4) || defined(CONFIG_NF_CONNTRACK_I=
-PV4_MODULE)
-+#if IS_ENABLED(CONFIG_NF_CONNTRACK_IPV4)
- static int br_nf_dev_queue_xmit(struct sk_buff *skb)
- {
- 	int ret;
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 57dcd14..0b67a63 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -537,7 +537,7 @@ extern void br_stp_port_timer_init(struct net_bridg=
-e_port *p);
- extern unsigned long br_timer_value(const struct timer_list *timer);
-=20
- /* br.c */
--#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
-+#if IS_ENABLED(CONFIG_ATM_LANE)
- extern int (*br_fdb_test_addr_hook)(struct net_device *dev, unsigned c=
-har *addr);
+-#if defined(CONFIG_LLC) || defined(CONFIG_LLC_MODULE)
++#if IS_ENABLED(CONFIG_LLC)
+ 	if (nb->dev->type =3D=3D ARPHRD_ETHER)
+ 		return;
  #endif
+@@ -213,7 +213,7 @@ void x25_send_frame(struct sk_buff *skb, struct x25=
+_neigh *nb)
+ 		*dptr =3D X25_IFACE_DATA;
+ 		break;
 =20
-diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_=
-log.c
-index 88d7d1d..f88ee53 100644
---- a/net/bridge/netfilter/ebt_log.c
-+++ b/net/bridge/netfilter/ebt_log.c
-@@ -107,7 +107,7 @@ ebt_log_packet(u_int8_t pf, unsigned int hooknum,
- 		goto out;
- 	}
+-#if defined(CONFIG_LLC) || defined(CONFIG_LLC_MODULE)
++#if IS_ENABLED(CONFIG_LLC)
+ 	case ARPHRD_ETHER:
+ 		kfree_skb(skb);
+ 		return;
+diff --git a/net/x25/x25_route.c b/net/x25/x25_route.c
+index 97d77c5..cf63662 100644
+--- a/net/x25/x25_route.c
++++ b/net/x25/x25_route.c
+@@ -134,7 +134,7 @@ struct net_device *x25_dev_get(char *devname)
 =20
--#if defined(CONFIG_BRIDGE_EBT_IP6) || defined(CONFIG_BRIDGE_EBT_IP6_MO=
-DULE)
-+#if IS_ENABLED(CONFIG_BRIDGE_EBT_IP6)
- 	if ((bitmask & EBT_LOG_IP6) && eth_hdr(skb)->h_proto =3D=3D
- 	   htons(ETH_P_IPV6)) {
- 		const struct ipv6hdr *ih;
+ 	if (dev &&
+ 	    (!(dev->flags & IFF_UP) || (dev->type !=3D ARPHRD_X25
+-#if defined(CONFIG_LLC) || defined(CONFIG_LLC_MODULE)
++#if IS_ENABLED(CONFIG_LLC)
+ 					&& dev->type !=3D ARPHRD_ETHER
+ #endif
+ 					))){
 --=20
 1.7.5.4
