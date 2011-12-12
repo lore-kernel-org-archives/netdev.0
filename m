@@ -1,71 +1,141 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Subject: Re: [PATCH v8 1/9] Basic kernel memory functionality for the Memory
- Controller
-Date: Mon, 12 Dec 2011 09:34:48 +0900
-Message-ID: <20111212093448.91c96f77.kamezawa.hiroyu@jp.fujitsu.com>
-References: <1323120903-2831-1-git-send-email-glommer@parallels.com>
-	<1323120903-2831-2-git-send-email-glommer@parallels.com>
-	<20111209102113.cdb85da8.kamezawa.hiroyu@jp.fujitsu.com>
-	<4EE21D23.4000309@parallels.com>
+From: wwguy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: iwlagn regression in v3.1.5
+Date: Sun, 11 Dec 2011 17:35:37 -0800
+Message-ID: <1323653737.1806.21.camel@wwguy-ubuntu>
+References: <4EE4AEF4.2080702@udo.edu> <4EE4DB55.4090804@udo.edu>
+	 <20111211174138.79e51fe8@x220.fritz.box>  <4EE4E152.2070204@udo.edu>
+	 <1323627815.1806.19.camel@wwguy-ubuntu>  <4EE50266.4050208@udo.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <lizf@cn.fujitsu.com>,
- <ebiederm@xmission.com>, <davem@davemloft.net>, <gthelen@google.com>,
- <netdev@vger.kernel.org>, <linux-mm@kvack.org>, <kirill@shutemov.name>,
- <avagin@parallels.com>, <devel@openvz.org>, <eric.dumazet@gmail.com>,
- <cgroups@vger.kernel.org>, <hannes@cmpxchg.org>, <mhocko@suse.cz>, Paul
- Menage <paul@paulmenage.org>
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4EE21D23.4000309@parallels.com>
-Sender: owner-linux-mm@kvack.org
+Cc: Udo Steinberg <udo-VarzJz7m+TuRpAAqCnN02g@public.gmane.org>,
+	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andrej Gelenberg <andrej.gelenberg-KJIyc1CJxjQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4EE50266.4050208-KJIyc1CJxjQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 9 Dec 2011 12:37:23 -0200
-Glauber Costa <glommer@parallels.com> wrote:
+Hi Andjej,
 
-> On 12/08/2011 11:21 PM, KAMEZAWA Hiroyuki wrote:
-> > Hm, why you check val != parent->kmem_independent_accounting ?
-> >
-> > 	if (parent&&  parent->use_hierarchy)
-> > 		return -EINVAL;
-> > ?
-> >
-> > BTW, you didn't check this cgroup has children or not.
-> > I think
-> >
-> > 	if (this_cgroup->use_hierarchy&&
-> >               !list_empty(this_cgroup->childlen))
-> > 		return -EINVAL;
-> 
-> How about this?
-> 
->          val = !!val;
-> 
->          /*
->           * This follows the same hierarchy restrictions than
->           * mem_cgroup_hierarchy_write()
->           */
->          if (!parent || !parent->use_hierarchy) {
->                  if (list_empty(&cgroup->children))
->                          memcg->kmem_independent_accounting = val;
->                  else
->                          return -EBUSY;
->          }
->          else
->                  return -EINVAL;
-> 
->          return 0;
-> 
-seems good to me.
 
-Thanks,
--Kame
+Could you please load the module with debug=0x1082 and send me the log.
+
+$sudo modprobe iwlagn debug=0x1082
+
+Thanks
+Wey
+
+On Sun, 2011-12-11 at 11:20 -0800, Andrej Gelenberg wrote:
+> Hi,
+> 
+> some info to the AP i use:
+> 
+> Technaxx Router-150 Wifi-N based on ranik soc
+> 
+> $ iw dev wlan0 station dump
+> Station xx:xx..xx:xx (on wlan0)
+>          inactive time:  6603 ms
+>          rx bytes:       377786468
+>          rx packets:     443535
+>          tx bytes:       15677515
+>          tx packets:     155009
+>          tx retries:     2723757
+>          tx failed:      51495
+>          signal:         -72 dBm
+>          signal avg:     -71 dBm
+>          tx bitrate:     135.0 MBit/s MCS 6 40Mhz short GI
+>          authorized:     yes
+>          authenticated:  yes
+>          preamble:       long
+>          WMM/WME:        yes
+>          MFP:            no
+> 
+> $ iwconfig wlan0
+> wlan0     IEEE 802.11abgn  ESSID:"xxx"
+>            Mode:Managed  Frequency:2.437 GHz  Access Point: xx:xx..xx:xx
+>            Bit Rate=121.5 Mb/s   Tx-Power=15 dBm
+>            Retry  long limit:7   RTS thr:off   Fragment thr:off
+>            Power Management:off
+>            Link Quality=42/70  Signal level=-68 dBm
+>            Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+>            Tx excessive retries:51520  Invalid misc:3567 Missed beacon:0
+> 
+> some dmesg output:
+> 
+> [  903.748514] wlan0: authenticate with xx:xx..xx:xx (try 1)
+> [  903.750991] wlan0: authenticated
+> [  903.753357] wlan0: associate with xx:xx..xx:xx (try 1)
+> [  903.759482] wlan0: RX AssocResp from xx:xx..xx:xx (capab=0xc31 
+> status=0 aid=1)
+> [  903.759487] wlan0: associated
+> 
+> $ iwlist wlan0 scan
+> 
+>            Cell 06 - Address: xx:xx..xx:xx
+>                      Channel:6
+>                      Frequency:2.437 GHz (Channel 6)
+>                      Quality=45/70  Signal level=-65 dBm
+>                      Encryption key:on
+>                      ESSID:"xxx"
+>                      Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 9 Mb/s
+>                                18 Mb/s; 36 Mb/s; 54 Mb/s
+>                      Bit Rates:6 Mb/s; 12 Mb/s; 24 Mb/s; 48 Mb/s
+>                      Mode:Master
+>                      Extra:tsf=0000005666eac197
+>                      Extra: Last beacon: 33ms ago
+>                      IE: Unknown: 000873757065726B7568
+>                      IE: Unknown: 010882848B961224486C
+>                      IE: Unknown: 030106
+>                      IE: Unknown: 2A0100
+>                      IE: Unknown: 32040C183060
+>                      IE: Unknown: 
+> 2D1A7E1117FF000000010000000000000000000000000C0000000000
+>                      IE: Unknown: 
+> 3D1606070500000000000000000000000000000000000000
+>                      IE: Unknown: 3E0100
+>                      IE: IEEE 802.11i/WPA2 Version 1
+>                          Group Cipher : CCMP
+>                          Pairwise Ciphers (1) : CCMP
+>                          Authentication Suites (1) : PSK
+>                      IE: Unknown: 
+> DD180050F2020101800003A4000027A4000042435E0062322F00
+>                      IE: Unknown: 0B05020012127A
+>                      IE: Unknown: 4A0E14000A002C01C800140005001900
+>                      IE: Unknown: 7F0101
+>                      IE: Unknown: DD07000C4307000000
+>                      IE: Unknown: 0706465220010D10
+>                      IE: Unknown: 
+> DD1E00904C337E1117FF000000010000000000000000000000000C0000000000
+>                      IE: Unknown: 
+> DD1A00904C3406070500000000000000000000000000000000000000
+> 
+> Regards,
+> Andrej Gelenberg
+> 
+> On 12/11/2011 07:23 PM, wwguy wrote:
+> > On Sun, 2011-12-11 at 08:58 -0800, Andrej Gelenberg wrote:
+> >> Hi,
+> >>
+> >> this is pretty mean regression for the stable kernel. You may the fix
+> >> only for cards, which need it and not for all of them.
+> >
+> > Could you elaborate more on the failure case and setup. this patch is to
+> > address HT40 related problem which cause the iwlwifi firmware crash.
+> >
+> > Thanks
+> > Wey
+> >>>
+> >
+> >
+> 
+
 
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
