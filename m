@@ -1,74 +1,62 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH 0/4] SUNRPC: pass network namespace context to sockaddr
- construction routines
-Date: Mon, 12 Dec 2011 20:27:36 +0400
-Message-ID: <4EE62B78.9030000@parallels.com>
-References: <20111207111716.17273.63010.stgit@localhost6.localdomain6> <20111208204648.GB32505@fieldses.org> <4EE62824.9090807@parallels.com> <20111212161542.GH18185@fieldses.org>
+From: Daniel Baluta <dbaluta@ixiacom.com>
+Subject: Re: [PATCH] kref: add function for reading kref value
+Date: Mon, 12 Dec 2011 18:42:59 +0200
+Message-ID: <CAEnQRZAt0X6cxGLgLUVTB9rzLKVYLEnh=azS9WOyKAkUZEpj4g@mail.gmail.com>
+References: <1323693892-11570-1-git-send-email-dbaluta@ixiacom.com>
+	<20111212150255.GA7506@kroah.com>
+	<CAEnQRZBiVDAHH+uZ=Ugk=UP5qSvvMViGTM-bRWr+E27zivOUug@mail.gmail.com>
+	<1323703934.1765.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<CAEnQRZCZdPw9eWVmdvhtF7KCQkYpLMrkhv5qd5xYckxWksN+0w@mail.gmail.com>
+	<1323704494.1765.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	James Bottomley <jbottomley@parallels.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: "J. Bruce Fields" <bfields@fieldses.org>
+Cc: Greg KH <greg@kroah.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, adobriyan@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111212161542.GH18185@fieldses.org>
+In-Reply-To: <1323704494.1765.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-12.12.2011 20:15, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Mon, Dec 12, 2011 at 08:13:24PM +0400, Stanislav Kinsbursky wrote:
->> 09.12.2011 00:46, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>> On Wed, Dec 07, 2011 at 03:20:07PM +0300, Stanislav Kinsbursky wrot=
-e:
->>>> This is another precursor patch set aimed to remove hard-coded "in=
-it_net"
->>>> reference from SUNRPC sockaddr convertion and construction routine=
-s.
->>>
->>> ACK--all look straightforward.  (Only complaint would be that this =
-isn't
->>> terribly interesting till we see how these are used.)
->>>
+On Mon, Dec 12, 2011 at 5:41 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le lundi 12 d=E9cembre 2011 =E0 17:39 +0200, Daniel Baluta a =E9crit =
+:
+>
+>> Ok, for the moment it seems to be a bad idea. But my intention is
+>> to integrate kref to networking code, and then to write a general
+>> debugging tool for refs.
 >>
->> Actually, all is simple. These init_net pointers will be replaced
->> later by "transports, clients and others" network namespace
->> contexts.
->> I have some more patches for NFS layer. But I don't see any sense to
->> sent them now since no "virtualization" patches were commited yet.
->> So, currently, I'm trying to finalize "SUNRPC per network namespace"
->> task, and soon I'll send a patch set making SUNRPC sysctl's
->> network-namespace-aware. It is a little bit tricky and ugly from my
->> pow, so any ideas are welcome.
+>> Tracking down reference count problems is hard, and this tool can
+>> really help everyone.
 >
-> No ideas.... What's the ugly part?
+> I dont think kref will help you that much, because its used everywher=
+e.
 >
-> --b.
+> Adding a general debugging tool will provide too much noise.
+>
+> Instead, we (network dev) add debugging points where we want.
 
-I have some "id=C3=A9e fixe", that all this file system parts of SUNRPC=
- (and NFS)=20
-layers have to made per network namespace context in the same manner as=
- sysfs=20
-done. I.e. it's content should depends on mount point creator network n=
-amespace=20
-context instead of "current" one.
-But proc (and sysctl's as well) doesn't allow to make it so simple like=
- sysfs does.
-So, currently sysctl's code is about 30 lines. With my patches in will =
-be=20
-approximately 3-4 times longer.
-But this "dependence on mount point creator network namespace" goal is =
-achieved.
-Anyway, I'll cleanup this code and send path set soon.
+Yes, but you have to do this each time you start debugging, for a
+particular referenced counted object.
 
+We must find a clever solution to avoid the noise. (e.g use
+/proc, /sysfs, /debugfs options to trigger dumping info for
+some/all objects with a certain state).
 
---=20
-Best regards,
-Stanislav Kinsbursky
+Usecase:
+
+At some point we need to know all objects with refcount X,
+and their history of get/put operations.
+
+=46or us it would have been very useful when debugging dev
+refcnts problems. With the current implementation kernel
+only dumped info at dev.c:5429:
+
+printk(KERN_EMERG "unregister_netdevice: "
+       waiting for %s to become free. Usage "
+       count =3D %d\n",
+       dev->name, atomic_read(&dev->refcnt));
+
+Daniel.
