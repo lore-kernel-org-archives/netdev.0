@@ -1,53 +1,62 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] netem: add cell concept to simulate special MAC
- behavior
-Date: Mon, 12 Dec 2011 09:19:57 -0800
-Message-ID: <20111212091957.18660e19@nehalam.linuxnetplumber.net>
-References: <1323562110-13865-1-git-send-email-hagen@jauu.net>
-	<1323562314-14033-1-git-send-email-hagen@jauu.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Testing server performance
+Date: Mon, 12 Dec 2011 09:32:22 -0800
+Message-ID: <4EE63AA6.2090402@candelatech.com>
+References: <CAFdo_mW0sKSZp3L75BOPBN1Sa+ZQ8WiBRC98eFLM5BaxCVrpJQ@mail.gmail.com> <4EE242DF.2000609@candelatech.com> <CAFdo_mU-CHP0tyScF_ZmZJHeSuC6MEgASTZ+h2JWyumTn=sqqw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	Florian Westphal <fw@strlen.de>
-To: Hagen Paul Pfeifer <hagen@jauu.net>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: igorm@etf.rs
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36991 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753227Ab1LLRUA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Dec 2011 12:20:00 -0500
-In-Reply-To: <1323562314-14033-1-git-send-email-hagen@jauu.net>
+Received: from mail.candelatech.com ([208.74.158.172]:35539 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753520Ab1LLRc2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 12:32:28 -0500
+In-Reply-To: <CAFdo_mU-CHP0tyScF_ZmZJHeSuC6MEgASTZ+h2JWyumTn=sqqw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 11 Dec 2011 01:11:54 +0100
-Hagen Paul Pfeifer <hagen@jauu.net> wrote:
+On 12/12/2011 01:24 AM, Igor Maravi=C4=87 wrote:
+>> Check the bus speed and width on your NICs.  dmesg usually shows thi=
+s
+>> info when the interfaces are first detected.
+>>
+>> If you can, try some Intel NICs..they will usually run wire speed
+>> if the motherboard is reasonably fast.
+>>
+>> Thanks,
+>> Ben
+>
+> Thanks for the advice.
+> I' ll see if I can find some Intel NICs.
+>
+> NIC's specs says that they support 32-bit 33/66MHz clock speed PCI Bu=
+s
+> Master operation.
+> Should that be enough?
 
-> This extension can be used to simulate special link layer
-> characteristics. Simulate because packet data is not modified, only the
-> calculation base is changed to delay a packet based on the original
-> packet size and artificial cell information.
-> 
-> packet_overhead can be used to simulate a link layer header compression
-> scheme (e.g. set packet_overhead to -20) or with a positive
-> packet_overhead value an additional MAC header can be simulated. It is
-> also possible to "replace" the 14 byte Ethernet header with something
-> else.
-> 
-> cell_size and cell_overhead can be used to simulate link layer schemes,
-> based on cells, like some TDMA schemes. Another application area are MAC
-> schemes using a link layer fragmentation with a (small) header each.
-> Cell size is the maximum amount of data bytes within one cell. Cell
-> overhead is an additional variable to change the per-cell-overhead
-> (e.g.  5 byte header per fragment).
-> 
-> Example (5 kbit/s, 20 byte per packet overhead, cell-size 100 byte, per
-> cell overhead 5 byte):
-> 
->   tc qdisc add dev eth0 root netem rate 5kbit 20 100 5
-> 
-> Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+No, probably not.  Your motherboard may only be 32/32mhz as well?
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+You really need pci-e (or high-end pci-x) for good 1Gbps performance.
+
+On any modern system, use pci-e nics if you can.
+
+Thanks,
+Ben
+
+>
+> I'll see what dmesg showed tomorow, because I'm not at my computer cu=
+rrently.
+> BR
+> Igor
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+--=20
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
