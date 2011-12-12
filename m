@@ -1,43 +1,52 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: the linux-can-next tree (was: Re: [PATCH next-next 0/2] can: cc770:
- add support for the Bosch CC770 and Intel AN82527)
-Date: Mon, 12 Dec 2011 10:13:52 +0100
-Message-ID: <4EE5C5D0.5030805@pengutronix.de>
-References: <4ED5CF14.4020502@hartkopp.net>	<20111130.160727.1989923062226789802.davem@davemloft.net>	<4ED73117.1020101@hartkopp.net> <20111201.130907.1276930495409347261.davem@davemloft.net> <4ED7DDBA.9090201@pengutronix.de>
+Subject: Re: [PATCH] pch_can: fix error passive level test
+Date: Mon, 12 Dec 2011 10:17:27 +0100
+Message-ID: <4EE5C6A7.1070506@pengutronix.de>
+References: <1323674180-16916-1-git-send-email-xi.wang@gmail.com> <4EE5B5D9.3030702@grandegger.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
  protocol="application/pgp-signature";
- boundary="------------enigD3A707FC2884257BB2791722"
-Cc: socketcan@hartkopp.net, wg@grandegger.com, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, urs@isnogud.escape.de
-To: David Miller <davem@davemloft.net>
+ boundary="------------enig4ABE6ACD97868749FD56CDBB"
+Cc: Xi Wang <xi.wang@gmail.com>,
+	Masayuki Ohtake <masa-korg@dsn.okisemi.com>,
+	Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4ED7DDBA.9090201@pengutronix.de>
+In-Reply-To: <4EE5B5D9.3030702@grandegger.com>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigD3A707FC2884257BB2791722
+--------------enig4ABE6ACD97868749FD56CDBB
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: quoted-printable
 
-Hello David,
+On 12/12/2011 09:05 AM, Wolfgang Grandegger wrote:
+> On 12/12/2011 08:16 AM, Xi Wang wrote:
+>> The test (((errc & PCH_REC) >> 8) > 127) would always be false because=
 
-On 12/01/2011 09:04 PM, Marc Kleine-Budde wrote:
->> I said I want one person.  One person who periodically send me GIT pul=
-l requests
->> or a patch series for "CAN updates" of all kinds.
+>> the receive error counter ((errc & PCH_REC) >> 8) is at most 127, wher=
+e
+>> PCH_REC is defined as 0x7f00.  To test whether the receive error count=
+er
+>> has reached the error passive level, the RP bit (15) should be used.
+>>
+>> Signed-off-by: Xi Wang <xi.wang@gmail.com>
 >=20
-> We're currently discussing the problem and we understood the one person=
+> Acked-by: Wolfgang Grandegger <wg@grandegger.com>
 
-> contact policy.
+Is this patch a candidate for stable?
 
-We decided that I should be this person. Our can tree is located on
-gitorious:
+> The C_CAN driver, which supports the same CAN controller, does handle
+> the error passive state correctly. This reminds me to get rid of pch_ca=
+n
+> in favor of C_CAN sooner than later.
 
-https://gitorious.org/linux-can/linux-can-next
++1
 
-regards, Marc
+Marc
 
 --=20
 Pengutronix e.K.                  | Marc Kleine-Budde           |
@@ -46,7 +55,7 @@ Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
 Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
---------------enigD3A707FC2884257BB2791722
+--------------enig4ABE6ACD97868749FD56CDBB
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -55,9 +64,9 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG v1.4.10 (GNU/Linux)
 Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
 
-iEYEARECAAYFAk7lxdMACgkQjTAFq1RaXHPjIgCeI4WdCMzv2W9MCs2YmTJ34wB/
-P5sAn1pu631k+JVTTS4xkXGtdfof6B6w
-=dEG2
+iEYEARECAAYFAk7lxqcACgkQjTAFq1RaXHMVWACfSsOlMmEfIcZUB1/ljKP7sFyc
+3jIAoIr6uttnT654ACfV7T8WXGo7HaWw
+=/nPs
 -----END PGP SIGNATURE-----
 
---------------enigD3A707FC2884257BB2791722--
+--------------enig4ABE6ACD97868749FD56CDBB--
