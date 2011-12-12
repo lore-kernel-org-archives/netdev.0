@@ -1,72 +1,45 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] pch_can: fix error passive level test
-Date: Mon, 12 Dec 2011 10:39:09 +0100
-Message-ID: <4EE5CBBD.4050206@pengutronix.de>
-References: <1323674180-16916-1-git-send-email-xi.wang@gmail.com> <4EE5B5D9.3030702@grandegger.com> <4EE5C6A7.1070506@pengutronix.de> <4EE5C9F2.7050502@grandegger.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] sch_gred: should not use GFP_KERNEL while holding a spinlock
+Date: Mon, 12 Dec 2011 10:42:53 +0100
+Message-ID: <1323682973.2948.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig504F1BA76259E1D8B930D673"
-Cc: Xi Wang <xi.wang@gmail.com>,
-	Masayuki Ohtake <masa-korg@dsn.okisemi.com>,
-	Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4EE5C9F2.7050502@grandegger.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:50474 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752165Ab1LLJm4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 04:42:56 -0500
+Received: by vbbfc26 with SMTP id fc26so3578182vbb.19
+        for <netdev@vger.kernel.org>; Mon, 12 Dec 2011 01:42:55 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig504F1BA76259E1D8B930D673
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+gred_change_vq() is called under sch_tree_lock(sch).
 
-On 12/12/2011 10:31 AM, Wolfgang Grandegger wrote:
-> On 12/12/2011 10:17 AM, Marc Kleine-Budde wrote:
->> On 12/12/2011 09:05 AM, Wolfgang Grandegger wrote:
->>> On 12/12/2011 08:16 AM, Xi Wang wrote:
->>>> The test (((errc & PCH_REC) >> 8) > 127) would always be false becau=
-se
->>>> the receive error counter ((errc & PCH_REC) >> 8) is at most 127, wh=
-ere
->>>> PCH_REC is defined as 0x7f00.  To test whether the receive error cou=
-nter
->>>> has reached the error passive level, the RP bit (15) should be used.=
+This means a spinlock is held, and we are not allowed to sleep in this
+context.
 
->>>>
->>>> Signed-off-by: Xi Wang <xi.wang@gmail.com>
->>>
->>> Acked-by: Wolfgang Grandegger <wg@grandegger.com>
->>
->> Is this patch a candidate for stable?
->=20
-> You mean for the "net" branch? Yes, I think so.
+We might pre-allocate memory using GFP_KERNEL before taking spinlock,
+but this is not suitable for stable material.
 
-Even for all trees which contain this driver (in a working version),
-which is v2.6.38 and newer.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/sched/sch_gred.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig504F1BA76259E1D8B930D673
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk7ly78ACgkQjTAFq1RaXHMz7ACaA/hax1zzxlUuoqgwaKsEec1f
-AgEAnins0chcvMWLjA/QOrqfXJMLj6WB
-=t8mV
------END PGP SIGNATURE-----
-
---------------enig504F1BA76259E1D8B930D673--
+diff --git a/net/sched/sch_gred.c b/net/sched/sch_gred.c
+index b9493a0..6cd8ddf 100644
+--- a/net/sched/sch_gred.c
++++ b/net/sched/sch_gred.c
+@@ -385,7 +385,7 @@ static inline int gred_change_vq(struct Qdisc *sch, int dp,
+ 	struct gred_sched_data *q;
+ 
+ 	if (table->tab[dp] == NULL) {
+-		table->tab[dp] = kzalloc(sizeof(*q), GFP_KERNEL);
++		table->tab[dp] = kzalloc(sizeof(*q), GFP_ATOMIC);
+ 		if (table->tab[dp] == NULL)
+ 			return -ENOMEM;
+ 	}
