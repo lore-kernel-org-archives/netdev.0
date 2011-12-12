@@ -1,58 +1,40 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: [PATCH] can: flexcan: fix irq flooding by clearing all interrupt
- sources
-Date: Mon, 12 Dec 2011 16:09:28 +0100
-Message-ID: <4EE61928.10608@grandegger.com>
+From: Daniel Baluta <dbaluta@ixiacom.com>
+Subject: Re: [PATCH] kref: add function for reading kref value
+Date: Mon, 12 Dec 2011 17:21:37 +0200
+Message-ID: <CAEnQRZBiVDAHH+uZ=Ugk=UP5qSvvMViGTM-bRWr+E27zivOUug@mail.gmail.com>
+References: <1323693892-11570-1-git-send-email-dbaluta@ixiacom.com>
+	<20111212150255.GA7506@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-can@vger.kernel.org, Reuben Dowle <Reuben.Dowle@navico.com>,
-	=?ISO-8859-1?Q?Lothar_Wa=DFmann?= <LW@KARO-electronics.de>
-To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	adobriyan@gmail.com
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111212150255.GA7506@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As pointed out by Reuben Dowle and Lothar Wa=DFmann, the TWRN_INT,
-RWRN_INT, BOFF_INT interrupt sources need to be cleared as well
-to avoid interrupt flooding, at least for the Flexcan on i.MX28
-SOCs. Furthermore, the interrupts are only cleared, if really one
-of those interrupt sources are pending (which is not the case for
-rx and tx done).
+On Mon, Dec 12, 2011 at 5:02 PM, Greg KH <greg@kroah.com> wrote:
+> On Mon, Dec 12, 2011 at 02:44:52PM +0200, Daniel Baluta wrote:
+>> We can easily get kref refcount value by accesing
+>> kref->refcount but it is better to have a function
+>> for this.
+>
+> No, you should NEVER need the value of the kref, if you do, you are
+> doing something wrong.
+>
+> What code needs this patch?
 
-CC: Reuben Dowle <Reuben.Dowle@navico.com>
-CC: Lothar Wa=DFmann <LW@KARO-electronics.de>
-Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
----
- drivers/net/can/flexcan.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+I plan to replace raw refcount patterns from net/ with kref, and
+I have noticed that there are some parts of code who need access
+to kref->refcount value.
 
-diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-index 165a4c7..111f154 100644
---- a/drivers/net/can/flexcan.c
-+++ b/drivers/net/can/flexcan.c
-@@ -118,6 +118,9 @@
- 	(FLEXCAN_ESR_TWRN_INT | FLEXCAN_ESR_RWRN_INT | FLEXCAN_ESR_BOFF_INT)
- #define FLEXCAN_ESR_ERR_ALL \
- 	(FLEXCAN_ESR_ERR_BUS | FLEXCAN_ESR_ERR_STATE)
-+#define FLEXCAN_ESR_ALL_INT \
-+	(FLEXCAN_ESR_TWRN_INT | FLEXCAN_ESR_RWRN_INT | \
-+	 FLEXCAN_ESR_BOFF_INT | FLEXCAN_ESR_ERR_INT)
-=20
- /* FLEXCAN interrupt flag register (IFLAG) bits */
- #define FLEXCAN_TX_BUF_ID		8
-@@ -577,7 +580,9 @@ static irqreturn_t flexcan_irq(int irq, void *dev_i=
-d)
-=20
- 	reg_iflag1 =3D flexcan_read(&regs->iflag1);
- 	reg_esr =3D flexcan_read(&regs->esr);
--	flexcan_write(FLEXCAN_ESR_ERR_INT, &regs->esr);	/* ACK err IRQ */
-+	/* ACK all bus error and state change IRQ sources */
-+	if (reg_esr & FLEXCAN_ESR_ALL_INT)
-+		flexcan_write(reg_esr & FLEXCAN_ESR_ALL_INT, &regs->esr);
-=20
- 	/*
- 	 * schedule NAPI in case of:
---=20
-1.7.4.1
+e.g:
 
+core/neighbour.c:152:			if (atomic_read(&n->refcnt) == 1 &&
+core/neighbour.c:801:			if (atomic_read(&n->refcnt) == 1 &&
+sched/cls_u32.c:459:	if (ht->refcnt == 1) {
+
+
+thanks,
+Daniel.
