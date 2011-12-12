@@ -1,55 +1,91 @@
-From: Hadmut Danisch <hadmut@danisch.de>
-Subject: Privacy extension for unique local networks?
-Date: Mon, 12 Dec 2011 14:23:14 +0100
-Message-ID: <4EE60042.5010704@msgid.danisch.de>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH net-next] can: plx_pci: add support for IXXAT PCI cards
+Date: Mon, 12 Dec 2011 14:40:12 +0100
+Message-ID: <4EE6043C.8070501@pengutronix.de>
+References: <166589D0B9DD2547A1319599B9BADA1FC62431@vsv-exchange.ixxat.intranet.priv>
+	<4EE5DF4A.80301@grandegger.com>
+	<166589D0B9DD2547A1319599B9BADA1FC62485@vsv-exchange.ixxat.intranet.priv>
+	<4EE6001F.3010304@grandegger.com>
 Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============3980454086633035087=="
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4EE6001F.3010304-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--===============3980454086633035087==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigFA456BD1C4FD062E6C4F5A11"
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigFA456BD1C4FD062E6C4F5A11
 Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+On 12/12/2011 02:22 PM, Wolfgang Grandegger wrote:
+> On 12/12/2011 01:45 PM, kime-Z4QKGCRq86k@public.gmane.org wrote:
+>> This patch adds support for IXXAT passive CAN controllers
+>>
+>> Signed-off-by: James Kime <kime-Z4QKGCRq86k@public.gmane.org>
+>=20
+> Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+>=20
+> Looks good now. Next time, please do not send a revised patch as "Re: "=
+
+> but as "[PATCH net-next v2]", also to make "git am" happy.
+
+Thanks, the patch is in the linux-can-next repo now.
+I've fixed up the author.
+
+https://gitorious.org/linux-can/linux-can-next
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enigFA456BD1C4FD062E6C4F5A11
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk7mBD8ACgkQjTAFq1RaXHPXcwCePGY9w4TrTQMViOK6k5c0qmtH
+VFEAn2SloVml5pw8J4xMAHZpHRfHFxdP
+=rpz8
+-----END PGP SIGNATURE-----
+
+--------------enigFA456BD1C4FD062E6C4F5A11--
+
+--===============3980454086633035087==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.rackland.de ([212.86.200.188]:39155 "EHLO mail.rackland.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753159Ab1LLNbd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Dec 2011 08:31:33 -0500
-Received: from [192.168.160.10] (178-26-43-170-dynip.superkabel.de [178.26.43.170])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(Client did not present a certificate)
-	by mail.rackland.de (Postfix) with ESMTPSA id BA67B259A4
-	for <netdev@vger.kernel.org>; Mon, 12 Dec 2011 14:23:12 +0100 (CET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
 
-Hi,
+_______________________________________________
+Socketcan-core mailing list
+Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-core
 
-I have a particular problem with my IPv6 home network:
-
-I need to enable auto configuration since my Router has dynamic IPv4
-addresses and uses 6to4 tunneling, thus the IPv6 prefix also changes and
-is announced by the Router (2002:...). Works.
-
-Since several programs (including e.g. Samba) refuse to use the link
-local addresses (FE80:..), and I do not want to open my server ports
-just for any 2002:... address, I let my router announce an additional
-unique address (FD00:...). Works as well.
-
-I enabled the privacy extension on the interfaces because I want to
-avoid beeing tracked by Webservers in the Internet, since the
-2002:-Adresses are derived from the MAC address. Works also.
-
-
-The problem: The Linux kernel's privacy mechanism assigns dynamic
-changing to the FD00: address range also, which does not make sense and
-makes my machines to use changing local addresses. Makes it difficult to
-assign local permissions based on IP addresses.
-
-
-The privacy mechanism should be restricted to public addresses (or at
-least there should be a separate switch to turn it on and off for unique
-local addresses).
-
-
-
-regards
-Hadmut
-
-(Please reply directly, I am not on your mailing list)
+--===============3980454086633035087==--
