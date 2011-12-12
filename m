@@ -1,95 +1,49 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] can: flexcan: fix irq flooding by clearing all interrupt
- sources
-Date: Mon, 12 Dec 2011 16:31:09 +0100
-Message-ID: <4EE61E3D.2090303@pengutronix.de>
-References: <4EE61928.10608@grandegger.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] kref: add function for reading kref value
+Date: Mon, 12 Dec 2011 16:32:14 +0100
+Message-ID: <1323703934.1765.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1323693892-11570-1-git-send-email-dbaluta@ixiacom.com>
+	 <20111212150255.GA7506@kroah.com>
+	 <CAEnQRZBiVDAHH+uZ=Ugk=UP5qSvvMViGTM-bRWr+E27zivOUug@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigE0EEA662F0C4CC718B2F1371"
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	Reuben Dowle <Reuben.Dowle@navico.com>,
-	=?ISO-8859-1?Q?Lothar_Wa=DFmann?= <LW@KARO-electronics.de>
-To: Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4EE61928.10608@grandegger.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg KH <greg@kroah.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, adobriyan@gmail.com
+To: Daniel Baluta <dbaluta@ixiacom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:46614 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751026Ab1LLPcU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 10:32:20 -0500
+In-Reply-To: <CAEnQRZBiVDAHH+uZ=Ugk=UP5qSvvMViGTM-bRWr+E27zivOUug@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigE0EEA662F0C4CC718B2F1371
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-On 12/12/2011 04:09 PM, Wolfgang Grandegger wrote:
-> As pointed out by Reuben Dowle and Lothar Wa=DFmann, the TWRN_INT,
-> RWRN_INT, BOFF_INT interrupt sources need to be cleared as well
-> to avoid interrupt flooding, at least for the Flexcan on i.MX28
-> SOCs. Furthermore, the interrupts are only cleared, if really one
-> of those interrupt sources are pending (which is not the case for
-> rx and tx done).
+Le lundi 12 d=C3=A9cembre 2011 =C3=A0 17:21 +0200, Daniel Baluta a =C3=A9=
+crit :
+> On Mon, Dec 12, 2011 at 5:02 PM, Greg KH <greg@kroah.com> wrote:
+> > On Mon, Dec 12, 2011 at 02:44:52PM +0200, Daniel Baluta wrote:
+> >> We can easily get kref refcount value by accesing
+> >> kref->refcount but it is better to have a function
+> >> for this.
+> >
+> > No, you should NEVER need the value of the kref, if you do, you are
+> > doing something wrong.
+> >
+> > What code needs this patch?
 >=20
-> CC: Reuben Dowle <Reuben.Dowle@navico.com>
-> CC: Lothar Wa=DFmann <LW@KARO-electronics.de>
-> Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
-
-Have you tested on mx25/mx35, does it have any negative side effects?
-My schedule is full until Friday, sorry cannot test here.
-
-Marc
-
-> ---
->  drivers/net/can/flexcan.c |    7 ++++++-
->  1 files changed, 6 insertions(+), 1 deletions(-)
+> I plan to replace raw refcount patterns from net/ with kref, and
+> I have noticed that there are some parts of code who need access
+> to kref->refcount value.
 >=20
-> diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-> index 165a4c7..111f154 100644
-> --- a/drivers/net/can/flexcan.c
-> +++ b/drivers/net/can/flexcan.c
-> @@ -118,6 +118,9 @@
->  	(FLEXCAN_ESR_TWRN_INT | FLEXCAN_ESR_RWRN_INT | FLEXCAN_ESR_BOFF_INT)
->  #define FLEXCAN_ESR_ERR_ALL \
->  	(FLEXCAN_ESR_ERR_BUS | FLEXCAN_ESR_ERR_STATE)
-> +#define FLEXCAN_ESR_ALL_INT \
-> +	(FLEXCAN_ESR_TWRN_INT | FLEXCAN_ESR_RWRN_INT | \
-> +	 FLEXCAN_ESR_BOFF_INT | FLEXCAN_ESR_ERR_INT)
-> =20
->  /* FLEXCAN interrupt flag register (IFLAG) bits */
->  #define FLEXCAN_TX_BUF_ID		8
-> @@ -577,7 +580,9 @@ static irqreturn_t flexcan_irq(int irq, void *dev_i=
-d)
-> =20
->  	reg_iflag1 =3D flexcan_read(&regs->iflag1);
->  	reg_esr =3D flexcan_read(&regs->esr);
-> -	flexcan_write(FLEXCAN_ESR_ERR_INT, &regs->esr);	/* ACK err IRQ */
-> +	/* ACK all bus error and state change IRQ sources */
-> +	if (reg_esr & FLEXCAN_ESR_ALL_INT)
-> +		flexcan_write(reg_esr & FLEXCAN_ESR_ALL_INT, &regs->esr);
-> =20
->  	/*
->  	 * schedule NAPI in case of:
+> e.g:
+>=20
+> core/neighbour.c:152:			if (atomic_read(&n->refcnt) =3D=3D 1 &&
+> core/neighbour.c:801:			if (atomic_read(&n->refcnt) =3D=3D 1 &&
+> sched/cls_u32.c:459:	if (ht->refcnt =3D=3D 1) {
+>=20
 
+Well, its not a good idea.
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enigE0EEA662F0C4CC718B2F1371
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk7mHkIACgkQjTAFq1RaXHN3YQCeIKLHit+MXDOrZU7J0hZIN6ha
-ANkAoJk8FkJEFliJEJ2yf2QN++PXM2uW
-=UBQ9
------END PGP SIGNATURE-----
-
---------------enigE0EEA662F0C4CC718B2F1371--
+kref adds nothing here.
