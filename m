@@ -1,48 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: Fix for adding multicast route for loopback
- device automatically.
-Date: Mon, 12 Dec 2011 18:49:29 -0500 (EST)
-Message-ID: <20111212.184929.1998244574424635802.davem@davemloft.net>
-References: <4EDF1481.1080106@cn.fujitsu.com>
-	<20111207.150615.181825066035193136.davem@davemloft.net>
-	<4EE00BAD.3010409@cn.fujitsu.com>
+Subject: Re: [PATCH] ipip, sit: copy parms.name after register_netdevice
+Date: Mon, 12 Dec 2011 18:51:13 -0500 (EST)
+Message-ID: <20111212.185113.1211685406728953774.davem@davemloft.net>
+References: <CAM7b5hyXkRTUwnE-NwXEff-34WjRfMSBDf2itMVhdJGi4XoA=g@mail.gmail.com>
+	<20111207.235602.1465915988125994516.davem@davemloft.net>
+	<20111208104619.GA20150@ted-OptiPlex-380>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: lw@cn.fujitsu.com
+Cc: jpirko@redhat.com, jwboyer@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: artisdom@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41337 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:41353 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753840Ab1LLXuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 18:50:40 -0500
-In-Reply-To: <4EE00BAD.3010409@cn.fujitsu.com>
+	with ESMTP id S1753391Ab1LLXvS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 18:51:18 -0500
+In-Reply-To: <20111208104619.GA20150@ted-OptiPlex-380>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li Wei <lw@cn.fujitsu.com>
-Date: Thu, 08 Dec 2011 08:58:21 +0800
+From: Ted Feng <artisdom@gmail.com>
+Date: Thu, 8 Dec 2011 18:46:21 +0800
 
-> The problem is that the resulting routing table depends on the sequence
-> of interface's initialization and in some situation, that would block all
-> muticast packets. Suppose there are two interfaces on my computer
-> (lo and eth0), if we initailize 'lo' before 'eth0', the resuting routing
-> table(for multicast) would be
+> From: Ted Feng <artisdom@gmail.com>
 > 
-> # ip -6 route show | grep ff00::
-> unreachable ff00::/8 dev lo metric 256 error -101
-> ff00::/8 dev eth0 metric 256
+> Same fix as 731abb9cb2 for ipip and sit tunnel.
+> Commit 1c5cae815d removed an explicit call to dev_alloc_name in
+> ipip_tunnel_locate and ipip6_tunnel_locate, because register_netdevice
+> will now create a valid name, however the tunnel keeps a copy of the
+> name in the private parms structure. Fix this by copying the name back
+> after register_netdevice has successfully returned.
 > 
-> When sending multicasting packets, routing subsystem will return the first
-> route entry which with a error set to -101(ENETUNREACH).
+> This shows up if you do a simple tunnel add, followed by a tunnel show:
 > 
-> I know the kernel will set the default ipv6 address for 'lo' when it is up
-> and won't set the default multicast route for it, but there is no reason to
-> stop 'init' program from setting address for 'lo', and that is exactly what
-> systemd did.
+> $ sudo ip tunnel add mode ipip remote 10.2.20.211
+> $ ip tunnel
+> tunl0: ip/ip  remote any  local any  ttl inherit  nopmtudisc
+> tunl%d: ip/ip  remote 10.2.20.211  local any  ttl inherit
+> $ sudo ip tunnel add mode sit remote 10.2.20.212
+> $ ip tunnel
+> sit0: ipv6/ip  remote any  local any  ttl 64  nopmtudisc 6rd-prefix 2002::/16
+> sit%d: ioctl 89f8 failed: No such device
+> sit%d: ipv6/ip  remote 10.2.20.212  local any  ttl inherit
+> 
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Ted Feng <artisdom@gmail.com>
 
-Ok, I added this more detailed explanation to the commit message and
-applied your patch.
-
-Probably it is a good idea to explain things completely, with all details
-and examples, in the commit message from the beginning :-)
+Applied.
