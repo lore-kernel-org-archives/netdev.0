@@ -1,312 +1,432 @@
 From: Glauber Costa <glommer@parallels.com>
-Subject: [PATCH v9 1/9] Basic kernel memory functionality for the Memory Controller
-Date: Mon, 12 Dec 2011 11:47:01 +0400
-Message-ID: <1323676029-5890-2-git-send-email-glommer@parallels.com>
+Subject: [PATCH v9 4/9] tcp memory pressure controls
+Date: Mon, 12 Dec 2011 11:47:04 +0400
+Message-ID: <1323676029-5890-5-git-send-email-glommer@parallels.com>
 References: <1323676029-5890-1-git-send-email-glommer@parallels.com>
 Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
         kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com,
         gthelen@google.com, netdev@vger.kernel.org, linux-mm@kvack.org,
         kirill@shutemov.name, avagin@parallels.com, devel@openvz.org,
         eric.dumazet@gmail.com, cgroups@vger.kernel.org,
-        Glauber Costa <glommer@parallels.com>,
-        Johannes Weiner <jweiner@redhat.com>, Michal Hocko <mhocko@suse.cz>
+        Glauber Costa <glommer@parallels.com>
 To: davem@davemloft.net
 Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <1323676029-5890-1-git-send-email-glommer@parallels.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This patch lays down the foundation for the kernel memory component
-of the Memory Controller.
-
-As of today, I am only laying down the following files:
-
- * memory.independent_kmem_limit
- * memory.kmem.limit_in_bytes (currently ignored)
- * memory.kmem.usage_in_bytes (always zero)
+This patch introduces memory pressure controls for the tcp
+protocol. It uses the generic socket memory pressure code
+introduced in earlier patches, and fills in the
+necessary data in cg_proto struct.
 
 Signed-off-by: Glauber Costa <glommer@parallels.com>
-CC: Kirill A. Shutemov <kirill@shutemov.name>
-CC: Paul Menage <paul@paulmenage.org>
-CC: Greg Thelen <gthelen@google.com>
-CC: Johannes Weiner <jweiner@redhat.com>
-CC: Michal Hocko <mhocko@suse.cz>
+Reviewed-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujtisu.com>
+CC: Eric W. Biederman <ebiederm@xmission.com>
 ---
- Documentation/cgroups/memory.txt |   40 ++++++++++++++-
- init/Kconfig                     |   11 ++++
- mm/memcontrol.c                  |  105 ++++++++++++++++++++++++++++++++++++--
- 3 files changed, 149 insertions(+), 7 deletions(-)
+ Documentation/cgroups/memory.txt |    2 +
+ include/linux/memcontrol.h       |    1 +
+ include/net/sock.h               |    2 +
+ include/net/tcp_memcontrol.h     |   17 +++++++++
+ mm/memcontrol.c                  |   40 ++++++++++++++++++++-
+ net/core/sock.c                  |   43 ++++++++++++++++++++--
+ net/ipv4/Makefile                |    1 +
+ net/ipv4/tcp_ipv4.c              |    9 ++++-
+ net/ipv4/tcp_memcontrol.c        |   74 ++++++++++++++++++++++++++++++++++++++
+ net/ipv6/tcp_ipv6.c              |    5 +++
+ 10 files changed, 189 insertions(+), 5 deletions(-)
+ create mode 100644 include/net/tcp_memcontrol.h
+ create mode 100644 net/ipv4/tcp_memcontrol.c
 
 diff --git a/Documentation/cgroups/memory.txt b/Documentation/cgroups/memory.txt
-index cc0ebc5..f245324 100644
+index 23a8dc5..687dea5 100644
 --- a/Documentation/cgroups/memory.txt
 +++ b/Documentation/cgroups/memory.txt
-@@ -44,8 +44,9 @@ Features:
-  - oom-killer disable knob and oom-notifier
-  - Root cgroup has no limit controls.
+@@ -293,6 +293,8 @@ to trigger slab reclaim when those limits are reached.
+ thresholds. The Memory Controller allows them to be controlled individually
+ per cgroup, instead of globally.
  
-- Kernel memory and Hugepages are not under control yet. We just manage
-- pages on LRU. To add more controls, we have to take care of performance.
-+ Hugepages is not under control yet. We just manage pages on LRU. To add more
-+ controls, we have to take care of performance. Kernel memory support is work
-+ in progress, and the current version provides basically functionality.
- 
- Brief summary of control files.
- 
-@@ -56,8 +57,11 @@ Brief summary of control files.
- 				 (See 5.5 for details)
-  memory.memsw.usage_in_bytes	 # show current res_counter usage for memory+Swap
- 				 (See 5.5 for details)
-+ memory.kmem.usage_in_bytes	 # show current res_counter usage for kmem only.
-+				 (See 2.7 for details)
-  memory.limit_in_bytes		 # set/show limit of memory usage
-  memory.memsw.limit_in_bytes	 # set/show limit of memory+Swap usage
-+ memory.kmem.limit_in_bytes	 # if allowed, set/show limit of kernel memory
-  memory.failcnt			 # show the number of memory usage hits limits
-  memory.memsw.failcnt		 # show the number of memory+Swap hits limits
-  memory.max_usage_in_bytes	 # show max memory usage recorded
-@@ -72,6 +76,9 @@ Brief summary of control files.
-  memory.oom_control		 # set/show oom controls.
-  memory.numa_stat		 # show the number of memory usage per numa node
- 
-+ memory.independent_kmem_limit	 # select whether or not kernel memory limits are
-+				   independent of user limits
-+
- 1. History
- 
- The memory controller has a long history. A request for comments for the memory
-@@ -255,6 +262,35 @@ When oom event notifier is registered, event will be delivered.
-   per-zone-per-cgroup LRU (cgroup's private LRU) is just guarded by
-   zone->lru_lock, it has no lock of its own.
- 
-+2.7 Kernel Memory Extension (CONFIG_CGROUP_MEM_RES_CTLR_KMEM)
-+
-+With the Kernel memory extension, the Memory Controller is able to limit
-+the amount of kernel memory used by the system. Kernel memory is fundamentally
-+different than user memory, since it can't be swapped out, which makes it
-+possible to DoS the system by consuming too much of this precious resource.
-+
-+Some kernel memory resources may be accounted and limited separately from the
-+main "kmem" resource. For instance, a slab cache that is considered important
-+enough to be limited separately may have its own knobs.
-+
-+Kernel memory limits are not imposed for the root cgroup. Usage for the root
-+cgroup may or may not be accounted.
-+
-+Memory limits as specified by the standard Memory Controller may or may not
-+take kernel memory into consideration. This is achieved through the file
-+memory.independent_kmem_limit. A Value different than 0 will allow for kernel
-+memory to be controlled separately.
-+
-+When kernel memory limits are not independent, the limit values set in
-+memory.kmem files are ignored.
-+
-+Currently no soft limit is implemented for kernel memory. It is future work
-+to trigger slab reclaim when those limits are reached.
-+
-+2.7.1 Current Kernel Memory resources accounted
-+
-+None
++* tcp memory pressure: sockets memory pressure for the tcp protocol.
 +
  3. User Interface
  
  0. Configuration
-diff --git a/init/Kconfig b/init/Kconfig
-index 43298f9..b8930d5 100644
---- a/init/Kconfig
-+++ b/init/Kconfig
-@@ -689,6 +689,17 @@ config CGROUP_MEM_RES_CTLR_SWAP_ENABLED
- 	  For those who want to have the feature enabled by default should
- 	  select this option (if, for some reason, they need to disable it
- 	  then swapaccount=0 does the trick).
-+config CGROUP_MEM_RES_CTLR_KMEM
-+	bool "Memory Resource Controller Kernel Memory accounting (EXPERIMENTAL)"
-+	depends on CGROUP_MEM_RES_CTLR && EXPERIMENTAL
-+	default n
-+	help
-+	  The Kernel Memory extension for Memory Resource Controller can limit
-+	  the amount of memory used by kernel objects in the system. Those are
-+	  fundamentally different from the entities handled by the standard
-+	  Memory Controller, which are page-based, and can be swapped. Users of
-+	  the kmem extension can use it to guarantee that no group of processes
-+	  will ever exhaust kernel resources alone.
+diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+index f15021b..1513994 100644
+--- a/include/linux/memcontrol.h
++++ b/include/linux/memcontrol.h
+@@ -86,6 +86,7 @@ extern struct mem_cgroup *mem_cgroup_from_task(struct task_struct *p);
+ extern struct mem_cgroup *try_get_mem_cgroup_from_mm(struct mm_struct *mm);
  
- config CGROUP_PERF
- 	bool "Enable perf_event per-cpu per-container group (cgroup) monitoring"
+ extern struct mem_cgroup *parent_mem_cgroup(struct mem_cgroup *memcg);
++extern struct mem_cgroup *mem_cgroup_from_cont(struct cgroup *cont);
+ 
+ static inline
+ int mm_match_cgroup(const struct mm_struct *mm, const struct mem_cgroup *cgroup)
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 6cbee80..1df44e2 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -64,6 +64,8 @@
+ #include <net/dst.h>
+ #include <net/checksum.h>
+ 
++int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss);
++void mem_cgroup_sockets_destroy(struct cgroup *cgrp, struct cgroup_subsys *ss);
+ /*
+  * This structure really needs to be cleaned up.
+  * Most of it is for TCP, and not used by any of
+diff --git a/include/net/tcp_memcontrol.h b/include/net/tcp_memcontrol.h
+new file mode 100644
+index 0000000..5f5e158
+--- /dev/null
++++ b/include/net/tcp_memcontrol.h
+@@ -0,0 +1,17 @@
++#ifndef _TCP_MEMCG_H
++#define _TCP_MEMCG_H
++
++struct tcp_memcontrol {
++	struct cg_proto cg_proto;
++	/* per-cgroup tcp memory pressure knobs */
++	struct res_counter tcp_memory_allocated;
++	struct percpu_counter tcp_sockets_allocated;
++	/* those two are read-mostly, leave them at the end */
++	long tcp_prot_mem[3];
++	int tcp_memory_pressure;
++};
++
++struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg);
++int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss);
++void tcp_destroy_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss);
++#endif /* _TCP_MEMCG_H */
 diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index 6aff93c..9fbcff7 100644
+index 3de3901..7266202 100644
 --- a/mm/memcontrol.c
 +++ b/mm/memcontrol.c
-@@ -227,6 +227,10 @@ struct mem_cgroup {
+@@ -50,6 +50,8 @@
+ #include <linux/cpu.h>
+ #include <linux/oom.h>
+ #include "internal.h"
++#include <net/sock.h>
++#include <net/tcp_memcontrol.h>
+ 
+ #include <asm/uaccess.h>
+ 
+@@ -295,6 +297,10 @@ struct mem_cgroup {
  	 */
- 	struct res_counter memsw;
- 	/*
-+	 * the counter to account for kmem usage.
-+	 */
-+	struct res_counter kmem;
-+	/*
- 	 * Per cgroup active and inactive list, similar to the
- 	 * per zone LRU lists.
- 	 */
-@@ -277,6 +281,11 @@ struct mem_cgroup {
- 	 */
- 	unsigned long 	move_charge_at_immigrate;
- 	/*
-+	 * Should kernel memory limits be stabilished independently
-+	 * from user memory ?
-+	 */
-+	int		kmem_independent_accounting;
-+	/*
- 	 * percpu counter.
- 	 */
- 	struct mem_cgroup_stat_cpu *stat;
-@@ -344,9 +353,14 @@ enum charge_type {
+ 	struct mem_cgroup_stat_cpu nocpu_base;
+ 	spinlock_t pcp_counter_lock;
++
++#ifdef CONFIG_INET
++	struct tcp_memcontrol tcp_mem;
++#endif
  };
  
- /* for encoding cft->private value on file */
--#define _MEM			(0)
--#define _MEMSWAP		(1)
--#define _OOM_TYPE		(2)
-+
-+enum mem_type {
-+	_MEM = 0,
-+	_MEMSWAP,
-+	_OOM_TYPE,
-+	_KMEM,
-+};
-+
- #define MEMFILE_PRIVATE(x, val)	(((x) << 16) | (val))
- #define MEMFILE_TYPE(val)	(((val) >> 16) & 0xffff)
- #define MEMFILE_ATTR(val)	((val) & 0xffff)
-@@ -3848,10 +3862,17 @@ static inline u64 mem_cgroup_usage(struct mem_cgroup *memcg, bool swap)
- 	u64 val;
+ /* Stuffs for move charges at task migration. */
+@@ -384,6 +390,7 @@ static void mem_cgroup_put(struct mem_cgroup *memcg);
+ #ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+ #ifdef CONFIG_INET
+ #include <net/sock.h>
++#include <net/ip.h>
  
- 	if (!mem_cgroup_is_root(memcg)) {
-+		val = 0;
-+#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
-+		if (!memcg->kmem_independent_accounting)
-+			val = res_counter_read_u64(&memcg->kmem, RES_USAGE);
-+#endif
- 		if (!swap)
--			return res_counter_read_u64(&memcg->res, RES_USAGE);
-+			val += res_counter_read_u64(&memcg->res, RES_USAGE);
- 		else
--			return res_counter_read_u64(&memcg->memsw, RES_USAGE);
-+			val += res_counter_read_u64(&memcg->memsw, RES_USAGE);
-+
-+		return val;
+ static bool mem_cgroup_is_root(struct mem_cgroup *memcg);
+ void sock_update_memcg(struct sock *sk)
+@@ -418,6 +425,15 @@ void sock_release_memcg(struct sock *sk)
+ 		mem_cgroup_put(memcg);
  	}
- 
- 	val = mem_cgroup_recursive_stat(memcg, MEM_CGROUP_STAT_CACHE);
-@@ -3884,6 +3905,11 @@ static u64 mem_cgroup_read(struct cgroup *cont, struct cftype *cft)
- 		else
- 			val = res_counter_read_u64(&memcg->memsw, name);
- 		break;
-+#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
-+	case _KMEM:
-+		val = res_counter_read_u64(&memcg->kmem, name);
-+		break;
-+#endif
- 	default:
- 		BUG();
- 		break;
-@@ -4612,6 +4638,69 @@ static int mem_control_numa_stat_open(struct inode *unused, struct file *file)
  }
- #endif /* CONFIG_NUMA */
- 
-+#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
-+static u64 kmem_limit_independent_read(struct cgroup *cgroup, struct cftype *cft)
++
++struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg)
 +{
-+	return mem_cgroup_from_cont(cgroup)->kmem_independent_accounting;
++	if (!memcg || mem_cgroup_is_root(memcg))
++		return NULL;
++
++	return &memcg->tcp_mem.cg_proto;
 +}
-+
-+static int kmem_limit_independent_write(struct cgroup *cgroup, struct cftype *cft,
-+					u64 val)
-+{
-+	struct mem_cgroup *memcg = mem_cgroup_from_cont(cgroup);
-+	struct mem_cgroup *parent = parent_mem_cgroup(memcg);
-+
-+	val = !!val;
++EXPORT_SYMBOL(tcp_proto_cgroup);
+ #endif /* CONFIG_INET */
+ #endif /* CONFIG_CGROUP_MEM_RES_CTLR_KMEM */
+ 
+@@ -800,7 +816,7 @@ static void memcg_check_events(struct mem_cgroup *memcg, struct page *page)
+ 	preempt_enable();
+ }
+ 
+-static struct mem_cgroup *mem_cgroup_from_cont(struct cgroup *cont)
++struct mem_cgroup *mem_cgroup_from_cont(struct cgroup *cont)
+ {
+ 	return container_of(cgroup_subsys_state(cont,
+ 				mem_cgroup_subsys_id), struct mem_cgroup,
+@@ -4732,14 +4748,34 @@ static int register_kmem_files(struct cgroup *cont, struct cgroup_subsys *ss)
+ 
+ 	ret = cgroup_add_files(cont, ss, kmem_cgroup_files,
+ 			       ARRAY_SIZE(kmem_cgroup_files));
 +
 +	/*
-+	 * This follows the same hierarchy restrictions than
-+	 * mem_cgroup_hierarchy_write()
++	 * Part of this would be better living in a separate allocation
++	 * function, leaving us with just the cgroup tree population work.
++	 * We, however, depend on state such as network's proto_list that
++	 * is only initialized after cgroup creation. I found the less
++	 * cumbersome way to deal with it to defer it all to populate time
 +	 */
-+	if (!parent || !parent->use_hierarchy) {
-+		if (list_empty(&cgroup->children))
-+			memcg->kmem_independent_accounting = val;
-+		else
-+			return -EBUSY;
-+	}
-+	else
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+static struct cftype kmem_cgroup_files[] = {
-+	{
-+		.name = "independent_kmem_limit",
-+		.read_u64 = kmem_limit_independent_read,
-+		.write_u64 = kmem_limit_independent_write,
-+	},
-+	{
-+		.name = "kmem.usage_in_bytes",
-+		.private = MEMFILE_PRIVATE(_KMEM, RES_USAGE),
-+		.read_u64 = mem_cgroup_read,
-+	},
-+	{
-+		.name = "kmem.limit_in_bytes",
-+		.private = MEMFILE_PRIVATE(_KMEM, RES_LIMIT),
-+		.read_u64 = mem_cgroup_read,
-+	},
-+};
-+
-+static int register_kmem_files(struct cgroup *cont, struct cgroup_subsys *ss)
++	if (!ret)
++		ret = mem_cgroup_sockets_init(cont, ss);
+ 	return ret;
+ };
+ 
++static void kmem_cgroup_destroy(struct cgroup_subsys *ss,
++				struct cgroup *cont)
 +{
++	mem_cgroup_sockets_destroy(cont, ss);
++}
+ #else
+ static int register_kmem_files(struct cgroup *cont, struct cgroup_subsys *ss)
+ {
+ 	return 0;
+ }
++
++static void kmem_cgroup_destroy(struct cgroup_subsys *ss,
++				struct cgroup *cont)
++{
++}
+ #endif
+ 
+ static struct cftype mem_cgroup_files[] = {
+@@ -5098,6 +5134,8 @@ static void mem_cgroup_destroy(struct cgroup_subsys *ss,
+ {
+ 	struct mem_cgroup *memcg = mem_cgroup_from_cont(cont);
+ 
++	kmem_cgroup_destroy(ss, cont);
++
+ 	mem_cgroup_put(memcg);
+ }
+ 
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 02f32be..5de62d3 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -135,6 +135,46 @@
+ #include <net/tcp.h>
+ #endif
+ 
++static DEFINE_RWLOCK(proto_list_lock);
++static LIST_HEAD(proto_list);
++
++#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
++int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss)
++{
++	struct proto *proto;
 +	int ret = 0;
 +
-+	ret = cgroup_add_files(cont, ss, kmem_cgroup_files,
-+			       ARRAY_SIZE(kmem_cgroup_files));
-+	return ret;
-+};
++	read_lock(&proto_list_lock);
++	list_for_each_entry(proto, &proto_list, node) {
++		if (proto->init_cgroup) {
++			ret = proto->init_cgroup(cgrp, ss);
++			if (ret)
++				goto out;
++		}
++	}
 +
-+#else
-+static int register_kmem_files(struct cgroup *cont, struct cgroup_subsys *ss)
++	read_unlock(&proto_list_lock);
++	return ret;
++out:
++	list_for_each_entry_continue_reverse(proto, &proto_list, node)
++		if (proto->destroy_cgroup)
++			proto->destroy_cgroup(cgrp, ss);
++	read_unlock(&proto_list_lock);
++	return ret;
++}
++
++void mem_cgroup_sockets_destroy(struct cgroup *cgrp, struct cgroup_subsys *ss)
 +{
-+	return 0;
++	struct proto *proto;
++
++	read_lock(&proto_list_lock);
++	list_for_each_entry_reverse(proto, &proto_list, node)
++		if (proto->destroy_cgroup)
++			proto->destroy_cgroup(cgrp, ss);
++	read_unlock(&proto_list_lock);
 +}
 +#endif
 +
- static struct cftype mem_cgroup_files[] = {
- 	{
- 		.name = "usage_in_bytes",
-@@ -4925,6 +5014,7 @@ mem_cgroup_create(struct cgroup_subsys *ss, struct cgroup *cont)
- 	if (parent && parent->use_hierarchy) {
- 		res_counter_init(&memcg->res, &parent->res);
- 		res_counter_init(&memcg->memsw, &parent->memsw);
-+		res_counter_init(&memcg->kmem, &parent->kmem);
- 		/*
- 		 * We increment refcnt of the parent to ensure that we can
- 		 * safely access it on res_counter_charge/uncharge.
-@@ -4935,6 +5025,7 @@ mem_cgroup_create(struct cgroup_subsys *ss, struct cgroup *cont)
- 	} else {
- 		res_counter_init(&memcg->res, NULL);
- 		res_counter_init(&memcg->memsw, NULL);
-+		res_counter_init(&memcg->kmem, NULL);
- 	}
- 	memcg->last_scanned_child = 0;
- 	memcg->last_scanned_node = MAX_NUMNODES;
-@@ -4978,6 +5069,10 @@ static int mem_cgroup_populate(struct cgroup_subsys *ss,
- 
- 	if (!ret)
- 		ret = register_memsw_files(cont, ss);
-+
-+	if (!ret)
-+		ret = register_kmem_files(cont, ss);
-+
- 	return ret;
+ /*
+  * Each address family might have different locking rules, so we have
+  * one slock key per address family:
+@@ -2258,9 +2298,6 @@ void sk_common_release(struct sock *sk)
  }
+ EXPORT_SYMBOL(sk_common_release);
  
+-static DEFINE_RWLOCK(proto_list_lock);
+-static LIST_HEAD(proto_list);
+-
+ #ifdef CONFIG_PROC_FS
+ #define PROTO_INUSE_NR	64	/* should be enough for the first time */
+ struct prot_inuse {
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index f2dc69c..dc67a99 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -47,6 +47,7 @@ obj-$(CONFIG_TCP_CONG_SCALABLE) += tcp_scalable.o
+ obj-$(CONFIG_TCP_CONG_LP) += tcp_lp.o
+ obj-$(CONFIG_TCP_CONG_YEAH) += tcp_yeah.o
+ obj-$(CONFIG_TCP_CONG_ILLINOIS) += tcp_illinois.o
++obj-$(CONFIG_CGROUP_MEM_RES_CTLR_KMEM) += tcp_memcontrol.o
+ obj-$(CONFIG_NETLABEL) += cipso_ipv4.o
+ 
+ obj-$(CONFIG_XFRM) += xfrm4_policy.o xfrm4_state.o xfrm4_input.o \
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index d1f4bf8..f70923e 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -73,6 +73,7 @@
+ #include <net/xfrm.h>
+ #include <net/netdma.h>
+ #include <net/secure_seq.h>
++#include <net/tcp_memcontrol.h>
+ 
+ #include <linux/inet.h>
+ #include <linux/ipv6.h>
+@@ -1915,6 +1916,7 @@ static int tcp_v4_init_sock(struct sock *sk)
+ 	sk->sk_rcvbuf = sysctl_tcp_rmem[1];
+ 
+ 	local_bh_disable();
++	sock_update_memcg(sk);
+ 	sk_sockets_allocated_inc(sk);
+ 	local_bh_enable();
+ 
+@@ -1972,6 +1974,7 @@ void tcp_v4_destroy_sock(struct sock *sk)
+ 	}
+ 
+ 	sk_sockets_allocated_dec(sk);
++	sock_release_memcg(sk);
+ }
+ EXPORT_SYMBOL(tcp_v4_destroy_sock);
+ 
+@@ -2632,10 +2635,14 @@ struct proto tcp_prot = {
+ 	.compat_setsockopt	= compat_tcp_setsockopt,
+ 	.compat_getsockopt	= compat_tcp_getsockopt,
+ #endif
++#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
++	.init_cgroup		= tcp_init_cgroup,
++	.destroy_cgroup		= tcp_destroy_cgroup,
++	.proto_cgroup		= tcp_proto_cgroup,
++#endif
+ };
+ EXPORT_SYMBOL(tcp_prot);
+ 
+-
+ static int __net_init tcp_sk_init(struct net *net)
+ {
+ 	return inet_ctl_sock_create(&net->ipv4.tcp_sock,
+diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
+new file mode 100644
+index 0000000..4a68d2c
+--- /dev/null
++++ b/net/ipv4/tcp_memcontrol.c
+@@ -0,0 +1,74 @@
++#include <net/tcp.h>
++#include <net/tcp_memcontrol.h>
++#include <net/sock.h>
++#include <linux/memcontrol.h>
++#include <linux/module.h>
++
++static inline struct tcp_memcontrol *tcp_from_cgproto(struct cg_proto *cg_proto)
++{
++	return container_of(cg_proto, struct tcp_memcontrol, cg_proto);
++}
++
++static void memcg_tcp_enter_memory_pressure(struct sock *sk)
++{
++	if (!sk->sk_cgrp->memory_pressure)
++		*sk->sk_cgrp->memory_pressure = 1;
++}
++EXPORT_SYMBOL(memcg_tcp_enter_memory_pressure);
++
++int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss)
++{
++	/*
++	 * The root cgroup does not use res_counters, but rather,
++	 * rely on the data already collected by the network
++	 * subsystem
++	 */
++	struct res_counter *res_parent = NULL;
++	struct cg_proto *cg_proto, *parent_cg;
++	struct tcp_memcontrol *tcp;
++	struct mem_cgroup *memcg = mem_cgroup_from_cont(cgrp);
++	struct mem_cgroup *parent = parent_mem_cgroup(memcg);
++
++	cg_proto = tcp_prot.proto_cgroup(memcg);
++	if (!cg_proto)
++		return 0;
++
++	tcp = tcp_from_cgproto(cg_proto);
++
++	tcp->tcp_prot_mem[0] = sysctl_tcp_mem[0];
++	tcp->tcp_prot_mem[1] = sysctl_tcp_mem[1];
++	tcp->tcp_prot_mem[2] = sysctl_tcp_mem[2];
++	tcp->tcp_memory_pressure = 0;
++
++	parent_cg = tcp_prot.proto_cgroup(parent);
++	if (parent_cg)
++		res_parent = parent_cg->memory_allocated;
++
++	res_counter_init(&tcp->tcp_memory_allocated, res_parent);
++	percpu_counter_init(&tcp->tcp_sockets_allocated, 0);
++
++	cg_proto->enter_memory_pressure = memcg_tcp_enter_memory_pressure;
++	cg_proto->memory_pressure = &tcp->tcp_memory_pressure;
++	cg_proto->sysctl_mem = tcp->tcp_prot_mem;
++	cg_proto->memory_allocated = &tcp->tcp_memory_allocated;
++	cg_proto->sockets_allocated = &tcp->tcp_sockets_allocated;
++	cg_proto->memcg = memcg;
++
++	return 0;
++}
++EXPORT_SYMBOL(tcp_init_cgroup);
++
++void tcp_destroy_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss)
++{
++	struct mem_cgroup *memcg = mem_cgroup_from_cont(cgrp);
++	struct cg_proto *cg_proto;
++	struct tcp_memcontrol *tcp;
++
++	cg_proto = tcp_prot.proto_cgroup(memcg);
++	if (!cg_proto)
++		return;
++
++	tcp = tcp_from_cgproto(cg_proto);
++	percpu_counter_destroy(&tcp->tcp_sockets_allocated);
++}
++EXPORT_SYMBOL(tcp_destroy_cgroup);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index e666768..820ae82 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -62,6 +62,7 @@
+ #include <net/netdma.h>
+ #include <net/inet_common.h>
+ #include <net/secure_seq.h>
++#include <net/tcp_memcontrol.h>
+ 
+ #include <asm/uaccess.h>
+ 
+@@ -1995,6 +1996,7 @@ static int tcp_v6_init_sock(struct sock *sk)
+ 	sk->sk_rcvbuf = sysctl_tcp_rmem[1];
+ 
+ 	local_bh_disable();
++	sock_update_memcg(sk);
+ 	sk_sockets_allocated_inc(sk);
+ 	local_bh_enable();
+ 
+@@ -2228,6 +2230,9 @@ struct proto tcpv6_prot = {
+ 	.compat_setsockopt	= compat_tcp_setsockopt,
+ 	.compat_getsockopt	= compat_tcp_getsockopt,
+ #endif
++#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
++	.proto_cgroup		= tcp_proto_cgroup,
++#endif
+ };
+ 
+ static const struct inet6_protocol tcpv6_protocol = {
 -- 
 1.7.6.4
 
