@@ -1,64 +1,48 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH RFC] virtio_net: fix refill related races
-Date: Mon, 12 Dec 2011 09:25:07 +1030
-Message-ID: <878vmioh10.fsf@rustcorp.com.au>
-References: <20111207152120.GA23417@redhat.com>
-	<8739cvisqe.fsf@rustcorp.com.au>
-	<20111211144428.GB14381@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Amit Shah <amit.shah@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20111211144428.GB14381@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+From: Xi Wang <xi.wang@gmail.com>
+Subject: [PATCH] pch_can: fix error passive level test
+Date: Mon, 12 Dec 2011 02:16:20 -0500
+Message-ID: <1323674180-16916-1-git-send-email-xi.wang@gmail.com>
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Xi Wang <xi.wang@gmail.com>
+To: Masayuki Ohtake <masa-korg@dsn.okisemi.com>,
+	Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>,
+	Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 11 Dec 2011 16:44:29 +0200, "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> On Thu, Dec 08, 2011 at 03:07:29PM +1030, Rusty Russell wrote:
-> > On Wed, 7 Dec 2011 17:21:22 +0200, "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> > > Fix theoretical races related to refill work:
-> > > 1. After napi is disabled by ndo_stop, refill work
-> > >    can run and re-enable it.
-> > > 2. Refill can reschedule itself, if this happens
-> > >    it can run after cancel_delayed_work_sync,
-> > >    and will access device after it is destroyed.
-> > > 
-> > > As a solution, add flags to track napi state and
-> > > to disable refill, and toggle them on start, stop
-> > > and remove; check these flags on refill.
-> > 
-> > Why isn't a "dont-readd" flag sufficient?
-> > 
-> > Cheers,
-> > Rusty.
-> 
-> I started with that, but here's the problem I wanted to
-> address:
-> 
-> - we run out of descriptors and schedule refill work
-> - ndo_close runs
-> - refill work runs
-> - ndo_open runs
+The test (((errc & PCH_REC) >> 8) > 127) would always be false because
+the receive error counter ((errc & PCH_REC) >> 8) is at most 127, where
+PCH_REC is defined as 0x7f00.  To test whether the receive error counter
+has reached the error passive level, the RP bit (15) should be used.
 
-(s/ndo_close/ndo_stop/)
+Signed-off-by: Xi Wang <xi.wang@gmail.com>
+---
+ drivers/net/can/pch_can.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-You don't think we should do any refills on a closed device?  If so, we
-simply move the refill-stop code into ndo_stop (aka virtnet_close), and
-the refill-start code into ndo_open (aka. virtnet_open).  Right?
+diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
+index d11fbb2..6edc25e 100644
+--- a/drivers/net/can/pch_can.c
++++ b/drivers/net/can/pch_can.c
+@@ -66,6 +66,7 @@
+ #define PCH_IF_CREQ_BUSY	BIT(15)
+ 
+ #define PCH_STATUS_INT		0x8000
++#define PCH_RP			0x00008000
+ #define PCH_REC			0x00007f00
+ #define PCH_TEC			0x000000ff
+ 
+@@ -527,7 +528,7 @@ static void pch_can_error(struct net_device *ndev, u32 status)
+ 		priv->can.can_stats.error_passive++;
+ 		state = CAN_STATE_ERROR_PASSIVE;
+ 		cf->can_id |= CAN_ERR_CRTL;
+-		if (((errc & PCH_REC) >> 8) > 127)
++		if (errc & PCH_RP)
+ 			cf->data[1] |= CAN_ERR_CRTL_RX_PASSIVE;
+ 		if ((errc & PCH_TEC) > 127)
+ 			cf->data[1] |= CAN_ERR_CRTL_TX_PASSIVE;
+-- 
+1.7.5.4
 
-Orthogonally, the refill-stop code is still buggy, as you noted.  And
-for self-rearming timers the pattern I've always used is a flag.
-
-Or am I being obtuse again? :)
-Rusty.
