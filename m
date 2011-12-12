@@ -1,62 +1,105 @@
-From: Daniel Baluta <dbaluta@ixiacom.com>
-Subject: Re: [PATCH] kref: add function for reading kref value
-Date: Mon, 12 Dec 2011 18:42:59 +0200
-Message-ID: <CAEnQRZAt0X6cxGLgLUVTB9rzLKVYLEnh=azS9WOyKAkUZEpj4g@mail.gmail.com>
-References: <1323693892-11570-1-git-send-email-dbaluta@ixiacom.com>
-	<20111212150255.GA7506@kroah.com>
-	<CAEnQRZBiVDAHH+uZ=Ugk=UP5qSvvMViGTM-bRWr+E27zivOUug@mail.gmail.com>
-	<1323703934.1765.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<CAEnQRZCZdPw9eWVmdvhtF7KCQkYpLMrkhv5qd5xYckxWksN+0w@mail.gmail.com>
-	<1323704494.1765.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Subject: [PATCH net-next V1 00/21] net/mlx4: SRIOV support
+Date: Mon, 12 Dec 2011 16:42:28 +0200
+Message-ID: <4EE612D4.6040502@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Greg KH <greg@kroah.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, adobriyan@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1323704494.1765.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>, <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
+	<liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>, <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 12, 2011 at 5:41 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le lundi 12 d=E9cembre 2011 =E0 17:39 +0200, Daniel Baluta a =E9crit =
-:
->
->> Ok, for the moment it seems to be a bad idea. But my intention is
->> to integrate kref to networking code, and then to write a general
->> debugging tool for refs.
->>
->> Tracking down reference count problems is hard, and this tool can
->> really help everyone.
->
-> I dont think kref will help you that much, because its used everywher=
-e.
->
-> Adding a general debugging tool will provide too much noise.
->
-> Instead, we (network dev) add debugging points where we want.
+Hello David,
 
-Yes, but you have to do this each time you start debugging, for a
-particular referenced counted object.
+This is V1 of a patch set that adds SRIOV support for ConnectX2 and ConnectX3 HW for Ethernet Link layer.
+Infiniband and RoCE SRIOV support will be added at later stage
 
-We must find a clever solution to avoid the noise. (e.g use
-/proc, /sysfs, /debugfs options to trigger dumping info for
-some/all objects with a certain state).
+In ConnectX, nearly all device resources can be associated with any function.
+Once allocated, these resources can be manipulated exclusively by their
+associated functions in the same manner as in the single-function case.
+The same driver acts both as pf and vf driver.
+mlx4_en module (Ethernet specific code) remains virtualization unaware and all the multifunction logic is
+implemented in mlx4_core module.
+To keep that separation, some code (mainly port management) moved from mlx4_en to mlx4_core module.
 
-Usecase:
+The device continues to use a single HCA Command Register (HCR), which is owned by the pf.
+Thus, the pf is given the role of allocating resources to vfs, and controlling shared resource (such as ports).
 
-At some point we need to know all objects with refcount X,
-and their history of get/put operations.
+A dedicated HW communication channel is used to transfer resource allocation and
+modification requests from vfs to the pf, and events from the pf to the vfs.
+Consequently, no hypervisor-specific services are required for pf-vf communication.
+All vfs resources are tracked by the pf and cleaned up in case the vf doesn't close gracefully.
+The resource tracker also prevents untrusted vfs to manipulate resources that belong to other functions.
 
-=46or us it would have been very useful when debugging dev
-refcnts problems. With the current implementation kernel
-only dumped info at dev.c:5429:
+---
+Change from V0:
+- Use enum {MLX4_CMD_NATIVE, MLX4_CMD_WRAPPED} instead of 1/0 when calling mlx4_cmd
+- Added pf context behavior to mlx4_func_cap and query func cap
+- Removed ifdef CONFIG_PCI_IOV, all modules parameters do not depend on this define anymore
+- sr_iov module parameter changed to num_vfs
+- made probe_vf parameter writable, allows binding of VF back to hypervisor
 
-printk(KERN_EMERG "unregister_netdevice: "
-       waiting for %s to become free. Usage "
-       count =3D %d\n",
-       dev->name, atomic_read(&dev->refcnt));
+mlx4_en: updated driver version to 2.0
+mlx4_core: updated driver version to 1.1
+mlx4_core: Modify driver initialization flow to accommodate SRIOV for Ethernet.
+mlx4_core: adjust catas operation for SRIOV mode.
+mlx4_core: mtts resources units changed to offset
+mlx4_en: Allow communication between functions on same host
+mlx4: Ethernet port management modifications
+mlx4: Traffic steering management support for SRIOV
+mlx4_ib: disable SRIOV mode for IB ports (not yet supported).
+mlx4_core:  resource tracking for HCA resources used by guests.
+mlx4_core: Add wrapper functions and comm channel and slave event support to EQs
+mlx4_core: mtt modifications for SRIOV
+mlx4_core: cq modifications for SRIOV
+mlx4_core: qp modifications for SRIOV
+mlx4_core: srq modifications for SRIOV
+mlx4_core: Added FW commands and their wrappers for supporting SRIOV.
+mlx4_core: Implement the master-slave communication channel.
+mlx4_core: Reduce number of PD bits to 17.
+mlx4_core:  Add "native" argument to mlx4_cmd and its callers (where needed)
+mlx4: Extanding port_mask functionality
+mlx4_core:  initial header-file changes for SRIOV support.
 
-Daniel.
+ drivers/infiniband/hw/mlx4/mad.c                      |    6
+ drivers/infiniband/hw/mlx4/main.c                     |   14
+ drivers/net/ethernet/mellanox/mlx4/Makefile           |    2
+ drivers/net/ethernet/mellanox/mlx4/catas.c            |    7
+ drivers/net/ethernet/mellanox/mlx4/cmd.c              | 1308 +++++++
+ drivers/net/ethernet/mellanox/mlx4/cq.c               |  141
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c        |   32
+ drivers/net/ethernet/mellanox/mlx4/en_port.c          |   84
+ drivers/net/ethernet/mellanox/mlx4/en_port.h          |   43
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c            |   15
+ drivers/net/ethernet/mellanox/mlx4/en_selftest.c      |    2
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c            |   20
+ drivers/net/ethernet/mellanox/mlx4/eq.c               |  430 +-
+ drivers/net/ethernet/mellanox/mlx4/fw.c               |  404 ++
+ drivers/net/ethernet/mellanox/mlx4/fw.h               |   26
+ drivers/net/ethernet/mellanox/mlx4/icm.c              |    5
+ drivers/net/ethernet/mellanox/mlx4/intf.c             |    6
+ drivers/net/ethernet/mellanox/mlx4/main.c             |  868 ++++
+ drivers/net/ethernet/mellanox/mlx4/mcg.c              |  228 -
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h             |  670 +++
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h          |    4
+ drivers/net/ethernet/mellanox/mlx4/mr.c               |  486 ++
+ drivers/net/ethernet/mellanox/mlx4/pd.c               |   19
+ drivers/net/ethernet/mellanox/mlx4/port.c             |  616 ++-
+ drivers/net/ethernet/mellanox/mlx4/profile.c          |    9
+ drivers/net/ethernet/mellanox/mlx4/qp.c               |  238 +
+ drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 3134 ++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/sense.c            |    3
+ drivers/net/ethernet/mellanox/mlx4/srq.c              |  132
+ include/linux/mlx4/cmd.h                              |   51
+ include/linux/mlx4/device.h                           |   72
+ 31 files changed, 8150 insertions(+), 925 deletions(-)
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
