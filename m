@@ -1,43 +1,43 @@
-From: =?ISO-8859-2?Q?Igor_Maravi=E6?= <igorm@etf.rs>
-Subject: Re: Testing server performance
-Date: Mon, 12 Dec 2011 10:45:39 +0100
-Message-ID: <CAFdo_mVhSHz0zhX4o7jxxCVrim7cw4vB3S70eddfbPWVXRYv_Q@mail.gmail.com>
-References: <CAFdo_mW0sKSZp3L75BOPBN1Sa+ZQ8WiBRC98eFLM5BaxCVrpJQ@mail.gmail.com>
-	<1323682612.2948.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Reply-To: igorm@etf.rs
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH] pch_can: fix error passive level test
+Date: Mon, 12 Dec 2011 10:50:41 +0100
+Message-ID: <4EE5CE71.5050004@grandegger.com>
+References: <1323674180-16916-1-git-send-email-xi.wang@gmail.com> <4EE5B5D9.3030702@grandegger.com> <4EE5C6A7.1070506@pengutronix.de> <4EE5C9F2.7050502@grandegger.com> <4EE5CBBD.4050206@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.etf.rs ([147.91.14.170]:38581 "EHLO mx2.etf.bg.ac.rs"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752116Ab1LLJpo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Dec 2011 04:45:44 -0500
-Received: from localhost (avs2.etf.rs [147.91.14.173])
-	by mx2.etf.bg.ac.rs (Postfix) with ESMTP id 89AA360139
-	for <netdev@vger.kernel.org>; Mon, 12 Dec 2011 10:45:42 +0100 (CET)
-Received: from mx2.etf.bg.ac.rs ([147.91.14.170])
-	by localhost (avs2.etf.rs [147.91.14.171]) (amavisd-new, port 10026)
-	with ESMTP id MLycA8KX5vaP for <netdev@vger.kernel.org>;
-	Mon, 12 Dec 2011 10:45:41 +0100 (CET)
-Received: from mail-gx0-f174.google.com (mail-gx0-f174.google.com [209.85.161.174])
-	(using TLSv1 with cipher RC4-SHA (128/128 bits))
-	(No client certificate requested)
-	(Authenticated sender: igorm)
-	by mx2.etf.bg.ac.rs (Postfix) with ESMTP id 4E97C60137
-	for <netdev@vger.kernel.org>; Mon, 12 Dec 2011 10:45:41 +0100 (CET)
-Received: by ggdk6 with SMTP id k6so849167ggd.19
-        for <netdev@vger.kernel.org>; Mon, 12 Dec 2011 01:45:39 -0800 (PST)
-In-Reply-To: <1323682612.2948.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Xi Wang <xi.wang@gmail.com>,
+	Masayuki Ohtake <masa-korg@dsn.okisemi.com>,
+	Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4EE5CBBD.4050206@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> I have doubts you get such poor performance from your machine.
->
-> 77Mbps, thats how many packets per second ???
->
+On 12/12/2011 10:39 AM, Marc Kleine-Budde wrote:
+> On 12/12/2011 10:31 AM, Wolfgang Grandegger wrote:
+>> On 12/12/2011 10:17 AM, Marc Kleine-Budde wrote:
+>>> On 12/12/2011 09:05 AM, Wolfgang Grandegger wrote:
+>>>> On 12/12/2011 08:16 AM, Xi Wang wrote:
+>>>>> The test (((errc & PCH_REC) >> 8) > 127) would always be false because
+>>>>> the receive error counter ((errc & PCH_REC) >> 8) is at most 127, where
+>>>>> PCH_REC is defined as 0x7f00.  To test whether the receive error counter
+>>>>> has reached the error passive level, the RP bit (15) should be used.
+>>>>>
+>>>>> Signed-off-by: Xi Wang <xi.wang@gmail.com>
+>>>>
+>>>> Acked-by: Wolfgang Grandegger <wg@grandegger.com>
+>>>
+>>> Is this patch a candidate for stable?
+>>
+>> You mean for the "net" branch? Yes, I think so.
+> 
+> Even for all trees which contain this driver (in a working version),
+> which is v2.6.38 and newer.
 
-I've got 77MBps not 77Mbps. :)
-I was testing with packets of length 1024B
-That's about 80000 packets/s
+OK, Well, it's not a serious fix, at least.
+
+Wolfgang.
