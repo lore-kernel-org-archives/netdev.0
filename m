@@ -1,74 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] igb: offer a PTP Hardware Clock instead of
- the timecompare method
-Date: Tue, 13 Dec 2011 04:28:52 +0100
-Message-ID: <1323746932.2583.33.camel@edumazet-laptop>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next 2/2] igb: offer a PTP Hardware
+ Clock instead of the timecompare method
+Date: Tue, 13 Dec 2011 04:41:33 +0100
+Message-ID: <20111213034132.GC9604@netboy.at.omicron.at>
 References: <cover.1323744724.git.richardcochran@gmail.com>
-	 <388385c50909f63bff239894c60dbb00abc65c93.1323744725.git.richardcochran@gmail.com>
+	<388385c50909f63bff239894c60dbb00abc65c93.1323744725.git.richardcochran@gmail.com>
+	<1323746932.2583.33.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
 	John Ronciak <john.ronciak@intel.com>,
 	John Stultz <john.stultz@linaro.org>,
+	Jacob Keller <jacob.e.keller@intel.com>,
 	Thomas Gleixner <tglx@linutronix.de>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:59356 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751203Ab1LMD25 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 22:28:57 -0500
-Received: by wgbdr13 with SMTP id dr13so12731499wgb.1
-        for <netdev@vger.kernel.org>; Mon, 12 Dec 2011 19:28:56 -0800 (PST)
-In-Reply-To: <388385c50909f63bff239894c60dbb00abc65c93.1323744725.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <1323746932.2583.33.camel@edumazet-laptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Le mardi 13 d=C3=A9cembre 2011 =C3=A0 04:00 +0100, Richard Cochran a =C3=
-=A9crit :
-> This commit removes the legacy timecompare code from the igb driver a=
-nd
-> offers a tunable PHC instead.
->=20
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
-> ---
+On Tue, Dec 13, 2011 at 04:28:52AM +0100, Eric Dumazet wrote:
+> 
+> Adding a (shared) spinlock on a multiqueue device is source of extra
+> delay (because of extra cache line trafic), I guess.
+> 
+> It seems current code doesnt need a spinlock, maybe it was a bug ?
 
-> +void igb_systim_to_hwtstamp(struct igb_adapter *adapter,
-> +			    struct skb_shared_hwtstamps *hwtstamps,
-> +			    u64 systim)
-> +{
-> +	u64 ns;
-> +	unsigned long flags;
-> +	unsigned int shift;
-> +	int msb_set;
-> +
-> +	switch (adapter->hw.mac.type) {
-> +	case e1000_i350:
-> +	case e1000_82580:
-> +		shift =3D OFL_SHIFT_82580;
-> +		msb_set =3D (systim >> 32) & SYSTIMH_MSB_82580;
-> +		break;
-> +	case e1000_82576:
-> +		shift =3D OFL_SHIFT_82576;
-> +		msb_set =3D (systim >> 32) & SYSTIMH_MSB_82576;
-> +		break;
-> +	default:
-> +		return;
-> +	}
-> +
-> +	spin_lock_irqsave(&adapter->tmreg_lock, flags);
-> +
-> +	ns =3D igb_overflow_get(adapter, systim, msb_set, shift);
-> +
-> +	spin_unlock_irqrestore(&adapter->tmreg_lock, flags);
-> +
-> +	memset(hwtstamps, 0, sizeof(*hwtstamps));
-> +	hwtstamps->hwtstamp =3D ns_to_ktime(ns);
-> +}
+(I didn't think about the old code. I only deleted it. ;)
 
-Adding a (shared) spinlock on a multiqueue device is source of extra
-delay (because of extra cache line trafic), I guess.
+The spinlock is needed because reading the 64 bit time value involves
+reading two 32 registers. The first read latches the value. Ditto for
+writing.
 
-It seems current code doesnt need a spinlock, maybe it was a bug ?
+In addition, here we have to watch the most significant bit for
+one-to-zero transistion, in order to keep count of the overflow.
+
+It is too bad that we have to take the spinlock for every time stamped
+packet, but it is the hardware's fault for not providing a 64 bit wide
+nanosecond time register.
+
+Richard
+
+------------------------------------------------------------------------------
+Systems Optimization Self Assessment
+Improve efficiency and utilization of IT resources. Drive out cost and 
+improve service delivery. Take 5 minutes to use this Systems Optimization 
+Self Assessment. http://www.accelacomm.com/jaw/sdnl/114/51450054/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
