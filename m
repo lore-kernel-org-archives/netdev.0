@@ -1,67 +1,59 @@
-From: Udo Steinberg <udo@hypervisor.org>
-Subject: Re: iwlagn regression in v3.1.5
-Date: Tue, 13 Dec 2011 23:04:43 +0100
-Message-ID: <20111213230443.2c12caeb@x220.fritz.box>
-References: <4EE4AEF4.2080702@udo.edu>
-	<4EE4DB55.4090804@udo.edu>
-	<20111211174138.79e51fe8@x220.fritz.box>
-	<4EE4E152.2070204@udo.edu>
-	<1323627815.1806.19.camel@wwguy-ubuntu>
-	<4EE50266.4050208@udo.edu>
-	<1323653737.1806.21.camel@wwguy-ubuntu>
-	<4EE636B9.1020305@udo.edu>
-	<1323807327.7144.6.camel@wwguy-ubuntu>
-	<4EE7BEC1.1060506@udo.edu>
+From: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH RESEND] sctp: fix incorrect overflow check on autoclose
+Date: Tue, 13 Dec 2011 17:15:28 -0500
+Message-ID: <4EE7CE80.9050307@hp.com>
+References: <1323393883-3759-1-git-send-email-xi.wang@gmail.com> <4EE2478B.5010409@hp.com> <8EEC521A-CA38-4CE9-BCFD-BA6FC9A85D18@gmail.com> <4EE67DC6.3000500@hp.com> <702540E4-9FD3-4B71-B53A-FE5D4323A898@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: wwguy <wey-yi.w.guy@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andrej Gelenberg <andrej.gelenberg@udo.edu>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Andrei Pelinescu-Onciul <andrei@iptel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Xi Wang <xi.wang@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from os.inf.tu-dresden.de ([141.76.48.99]:34395 "EHLO
-	os.inf.tu-dresden.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751945Ab1LMWFS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2011 17:05:18 -0500
-In-Reply-To: <4EE7BEC1.1060506@udo.edu>
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:9936 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752789Ab1LMWPg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2011 17:15:36 -0500
+In-Reply-To: <702540E4-9FD3-4B71-B53A-FE5D4323A898@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 12/13/2011 05:00 PM, Xi Wang wrote:
+> On Dec 12, 2011, at 5:18 PM, Vladislav Yasevich wrote:
+>> Hm..  this is a bit strange.  This makes it so that on 32 bit platforms
+>> we have one upper bound for autoclose and on 64 we have another even though
+>> the type is platform dependent.  This could be considered a regression by
+>> applications.
+> 
+> Either looks good to me.  Timeout limit is essentially different on 32/64
+> platforms.
 
-Glad to hear it works for you now. In the patch, the following piece of code
+I don't think it really should be different.  Notice that our rto values
+remain consistent.  I really thing that this should be consistent from
+the user's point of view.
 
-+				if ((iwl_is_associated_ctx(ctx) &&
-+						!ctx->ht.is_40mhz) ||
-+						!iwl_is_associated_ctx(ctx))
+> 
+> Another (probably uglier) option is to limit the value on 32-bit platform
+> only, like sock_setsockopt() in net/core/sock.c.
+> 
+> #if (BITS_PER_LONG == 32)
+> 	if (sp->autoclose > MAX_SCHEDULE_TIMEOUT / HZ)
+> 		sp->autoclose = MAX_SCHEDULE_TIMEOUT / HZ;
+> #endif
 
-can be simplified to:
+I agree, this is ugly.  It might make more sense to define a max autoclose
+value and expose it through /sys.  That way the values remains consistent.
 
-	if (!iwl_is_associated_ctx(ctx) || !ctx->ht.is_40mhz)
+-vlad
 
-Cheers,
-
-	- Udo
-
-On Tue, 13 Dec 2011 22:08:17 +0100 Andrej Gelenberg (AG) wrote:
-
-AG> Hi,
-AG> 
-AG> work now for me.
-AG> 
-AG> Regards,
-AG> Andrej Gelenberg
-AG> 
-AG> On 12/13/2011 09:15 PM, wwguy wrote:
-AG> > Hi Andrej,
-AG> >
-AG> > Could you try this patch and see any differences.
-AG> >
-AG> > please still use the same debug flag I ask you last time.
-AG> >
-AG> > Thanks
-AG> > Wey
+> 
+>> In addition this would result in confusion to user since the values
+>> between setsockopt() and getsockopt() for autoclose would be different.
+> 
+> Are you suggesting to reject the value and return -EINVAL, rather than
+> silently limiting the autoclose value?
+> 
+> - xi
+> 
