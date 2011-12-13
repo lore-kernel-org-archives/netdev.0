@@ -1,34 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sch_gred: should not use GFP_KERNEL while holding a
- spinlock
-Date: Mon, 12 Dec 2011 19:09:50 -0500 (EST)
-Message-ID: <20111212.190950.2203832047174673834.davem@davemloft.net>
-References: <1323682973.2948.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: pull request: batman-adv 2011-12-12
+Date: Mon, 12 Dec 2011 19:28:21 -0500 (EST)
+Message-ID: <20111212.192821.886469661461010981.davem@davemloft.net>
+References: <1323689516-24427-1-git-send-email-lindner_marek@yahoo.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: lindner_marek@yahoo.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41504 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:41634 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753311Ab1LMAJw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 19:09:52 -0500
-In-Reply-To: <1323682973.2948.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	with ESMTP id S1753690Ab1LMA30 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 19:29:26 -0500
+In-Reply-To: <1323689516-24427-1-git-send-email-lindner_marek@yahoo.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 12 Dec 2011 10:42:53 +0100
+From: Marek Lindner <lindner_marek@yahoo.de>
+Date: Mon, 12 Dec 2011 19:31:44 +0800
 
-> gred_change_vq() is called under sch_tree_lock(sch).
-> 
-> This means a spinlock is held, and we are not allowed to sleep in this
-> context.
-> 
-> We might pre-allocate memory using GFP_KERNEL before taking spinlock,
-> but this is not suitable for stable material.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> here comes the next batch I'd like to get the pulled into net-next-2.6/3.3.
+> We have a couple of minor fixes for unregister_netdevice(), compat flags,
+> return value checks and a readme update. Plus the regression fix from Dan
+> that addresses a bug introduced with the previous batch. Security 
+> researcher Paul Kot checked our kernelland / user space communication and
+> found a subtle bug which would make batman-adv write to memory locations
+> it should not write to. However, he did not find a way to exploit this
+> bug, therefore we classified it as "non-critical". Please let us know if
+> that is not ok with you.
 
-Applied, thanks Eric.
+All pulled into net-next, thanks.
