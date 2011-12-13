@@ -1,73 +1,74 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] can: flexcan: fix irq flooding by clearing all interrupt
- sources
-Date: Tue, 13 Dec 2011 13:59:22 +0100
-Message-ID: <4EE74C2A.9040908@pengutronix.de>
-References: <4EE61928.10608@grandegger.com> <4EE61E3D.2090303@pengutronix.de> <4EE62141.8010305@grandegger.com> <4EE7416E.8070203@grandegger.com> <4EE74AC5.9050404@grandegger.com>
+From: Eugene <elubarsky@gmail.com>
+Subject: Re: drivers/net/usb/asix: bug in asix_get_wol
+Date: Wed, 14 Dec 2011 00:03:43 +1100
+Message-ID: <CAKbEaOBnGAJuZiM5BRaR3RD6EzgB-mCVrC0v2AbnniFpx22m8A@mail.gmail.com>
+References: <CAKbEaOBODRW1pL4OiwZTKOfqtPEhEOHBBwXQNWVoBh9zzLX9kQ@mail.gmail.com>
+	<CANEJEGud6++PGHRZGt1xMonX1XvxeU19Wd3YNsbgLQG+uQi47g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig61C0AC5C43E5B9EDB5EF269A"
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	Reuben Dowle <Reuben.Dowle@navico.com>,
-	=?ISO-8859-1?Q?Lothar_Wa=DFmann?= <LW@KARO-electronics.de>
-To: Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4EE74AC5.9050404@grandegger.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig61C0AC5C43E5B9EDB5EF269A
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Freddy Xin <freddy@asix.com.tw>,
+	Allan Chou <allan@asix.com.tw>
+To: Grant Grundler <grundler@chromium.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:38043 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751037Ab1LMNDo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2011 08:03:44 -0500
+Received: by bkcjm19 with SMTP id jm19so2749247bkc.19
+        for <netdev@vger.kernel.org>; Tue, 13 Dec 2011 05:03:43 -0800 (PST)
+In-Reply-To: <CANEJEGud6++PGHRZGt1xMonX1XvxeU19Wd3YNsbgLQG+uQi47g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/13/2011 01:53 PM, Wolfgang Grandegger wrote:
->> I got my MX35PDK board working and can confirm, that the patch works o=
-n
->> a i.mx35 as well. My testing also confirms, that the ESR TWRN_INT,
->> RWRN_INT, FLEXCAN_ESR_BOFF_INT do not function as documented. These
->> flags do show up once, together with ERR_INT, and then, after clearing=
-,
->> never again. Obviously a bug in the Flexcan logic. From the feedback w=
-e
->> can say, that only the i.MX28 does behave differently (=3D=3Dcorrectly=
-). All
->> other seem to work with the current code:
+Hi Grant,
+
+
+The problem is that, as it's currently written, asix_get_wol always
+returns that wake-on-lan is disabled.
+
+
+Cheers,
+Eugene
+
+On 12 December 2011 10:29, Grant Grundler <grundler@chromium.org> wrote=
+:
+> [+freddy/allan @ ASIX]
+>
+> On Sat, Dec 10, 2011 at 5:02 PM, Eugene <elubarsky@gmail.com> wrote:
+>> Dear kernel devs,
 >>
->>  Flexcan on
->>  - i.mx25
->>  - i.mx35
->>  - i.mx53
->>  - P1010/P1020
->=20
-> But unfortunately, state change reporting looks different with this pat=
-ch :)
-
-Hmm - so not schedule for stable. What about your buf-off-handling, will
-this change the reporting again?
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig61C0AC5C43E5B9EDB5EF269A
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk7nTCoACgkQjTAFq1RaXHM00ACfVvBYEoSlzU5Genm+F7zFlTk5
-t0kAnAtaQ636SCdFoi5B7MomPMirsGdm
-=AosD
------END PGP SIGNATURE-----
-
---------------enig61C0AC5C43E5B9EDB5EF269A--
+>> Thanks for the commit at
+>> http://git.kernel.org/?p=3Dlinux/kernel/git/next/linux-next.git;a=3D=
+commitdiff;h=3D4ad1438f025ed8d1e4e95a796ca7f0ad5a22c378,
+>> It successfully stops my adapter from dying when wake-on-lan gets
+>> enabled.
+>
+> Hi Eugene!
+> thanks for the "it works!" report.
+>
+>> However, I've noticed that it has broken asix_get_wol - the
+>> lines
+>>
+>> =A0 =A0 =A0 if (opt & AX_MONITOR_LINK)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 wolinfo->wolopts |=3D WAKE_PHY;
+>> =A0 =A0 =A0 if (opt & AX_MONITOR_MAGIC)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 wolinfo->wolopts |=3D WAKE_MAGIC;
+>>
+>> have been accidentally removed.
+>
+> This wasn't by accident. This comment in the commit log perhaps
+> doesn't explain sufficiently:
+> | =A0 =A0Remove MONITOR_MODE. In this mode, Received packets are not =
+buffered when
+> | the remote wakeup is enabled.
+>
+>> The vendor driver has them, and I've
+>> successfully tested a kernel with these lines included. The change i=
+s
+>> too small for me to bother sending in a properly formatted patch...
+>
+> "Too small"? No such thing. :)
+>
+> cheers,
+> grant
