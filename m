@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v9 0/9] Request for inclusion: per-cgroup tcp memory
- pressure controls
-Date: Mon, 12 Dec 2011 19:07:34 -0500 (EST)
-Message-ID: <20111212.190734.1967808916779299221.davem@davemloft.net>
-References: <1323676029-5890-1-git-send-email-glommer@parallels.com>
+Subject: Re: [PATCH] sch_gred: should not use GFP_KERNEL while holding a
+ spinlock
+Date: Mon, 12 Dec 2011 19:09:50 -0500 (EST)
+Message-ID: <20111212.190950.2203832047174673834.davem@davemloft.net>
+References: <1323682973.2948.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
-        kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com,
-        gthelen@google.com, netdev@vger.kernel.org, linux-mm@kvack.org,
-        kirill@shutemov.name, avagin@parallels.com, devel@openvz.org,
-        eric.dumazet@gmail.com, cgroups@vger.kernel.org
-To: glommer@parallels.com
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1323676029-5890-1-git-send-email-glommer@parallels.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:41504 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753311Ab1LMAJw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 19:09:52 -0500
+In-Reply-To: <1323682973.2948.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Glauber Costa <glommer@parallels.com>
-Date: Mon, 12 Dec 2011 11:47:00 +0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 12 Dec 2011 10:42:53 +0100
 
-> This series fixes all the few comments raised in the last round,
-> and seem to have acquired consensus from the memcg side.
+> gred_change_vq() is called under sch_tree_lock(sch).
 > 
-> Dave, do you think it is acceptable now from the networking PoV?
-> In case positive, would you prefer merging this trough your tree,
-> or acking this so a cgroup maintainer can do it?
+> This means a spinlock is held, and we are not allowed to sleep in this
+> context.
+> 
+> We might pre-allocate memory using GFP_KERNEL before taking spinlock,
+> but this is not suitable for stable material.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-All applied to net-next, thanks.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Applied, thanks Eric.
