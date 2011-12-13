@@ -1,51 +1,65 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 1/3] option: Removing one bogus and adding some new
- Huawei combinations
-Date: Tue, 13 Dec 2011 09:16:00 -0800
-Message-ID: <20111213171600.GB17096@kroah.com>
-References: <1323750784-32608-1-git-send-email-bjorn@mork.no>
- <1323750784-32608-2-git-send-email-bjorn@mork.no>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: RE: kernel 3.1.1 message:  <IRQ> warn_alloc_failed
+Date: Tue, 13 Dec 2011 11:42:13 -0600
+Message-ID: <13A253B3F9BEFE43B93C09CF75F63CAA8162593365@MNEXMB1.qlogic.org>
+References: <6.2.5.6.2.20111208210303.03a06228@flumedata.com>
+ <20111209095014.14a647cd@nehalam.linuxnetplumber.net>,<6.2.5.6.2.20111209130007.039b3078@binnacle.cx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Bjorn Mork <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3.smtp.messagingengine.com ([66.111.4.27]:34549 "EHLO
-	out3.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754053Ab1LMRdD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2011 12:33:03 -0500
-Received: from compute4.internal (compute4.nyi.mail.srv.osa [10.202.2.44])
-	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id F0E282143E
-	for <netdev@vger.kernel.org>; Tue, 13 Dec 2011 12:33:02 -0500 (EST)
-Content-Disposition: inline
-In-Reply-To: <1323750784-32608-2-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: "starlight@binnacle.cx" <starlight@binnacle.cx>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Sony Chacko <sony.chacko@qlogic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6.2.5.6.2.20111209130007.039b3078@binnacle.cx>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 13, 2011 at 05:33:02AM +0100, Bjorn Mork wrote:
-> From: Bj=F8rn Mork <bjorn@mork.no>
->=20
-> Huawei use the product code HUAWEI_PRODUCT_E353 (0x1506) for a
-> number of different devices, which each can appear with a number
-> of different descriptor sets.  Different types of interfaces
-> can be identified by looking at the subclass and protocol fields
->=20
-> Subclass 1 protocol 8 is actually the data interface of a CDC
-> ECM set, with subclass 1 protocol 9 as the control interface.
-> Neither support serial data communcation, and cannot therefore
-> be supported by this driver.
->=20
-> At the same time, add a few other sets which appear if the
-> device is configured in "Windows mode" using this modeswitch
-> message:
-> 55534243000000000000000000000011060000000100000000000000000000
->=20
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
-> ---
->  drivers/usb/serial/option.c |    4 +++-
->  1 files changed, 3 insertions(+), 1 deletions(-)
+Hi All,
 
-I'll take this one now through the usb tree as it's relevant there.
+Sorry for late reply.
 
-greg k-h
+Stephan,
+Thanks for analyzing.
+
+Yes, the netxen adapter does not support fragmented page memory.
+They are not harmful messages. At that instant of time it may fail allocating
+memory for some buffers in the ring but after enough memory is available
+it will try to allocate memory for unallocated buffers in ring.
+
+Or the other option could be to turn LRO off.
+
+Rajesh  
+
+________________________________________
+From: starlight@binnacle.cx [starlight@binnacle.cx]
+Sent: Friday, December 09, 2011 11:33 PM
+To: Stephen Hemminger; Sony Chacko; Rajesh Borundia
+Cc: linux-kernel; netdev
+Subject: Re: kernel 3.1.1 message:  <IRQ> warn_alloc_failed
+
+At 09:50 AM 12/9/2011 -0800, Stephen Hemminger wrote:
+>On Thu, 08 Dec 2011 21:10:02 -0500 starlight@binnacle.cx wrote:
+>
+>You are seeing memory allocation failures because device
+>is allocating a 16K (order 2) size socket buffer. You are using
+>netxen device, and it looks like the problem.
+>
+>From reading the netxen driver source. The LRO buffers
+>in this device are very large (8060+skb overhead).
+>Until the driver is fixed to use fragmented page size memory,
+>I recommend turning off LRO.
+
+Thank you for the analysis.  As an alternative
+would it make sense to double or quadruple
+
+    /proc/sys/vm/min_free_kbytes
+
+or perhaps do the same for
+
+    /proc/slabinfo(size-16384)
+
+or both?
