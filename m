@@ -1,52 +1,67 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: Re: [WARNING - VERY LONG] A sysadmin's understanding of HFSC and
- IFB
-Date: Tue, 13 Dec 2011 18:42:17 -0500
-Message-ID: <1323819737.8451.12.camel@denise.theartistscloset.com>
-References: <1323415051.3159.25.camel@denise.theartistscloset.com>
-	 <1323417599.2529.18.camel@edumazet-laptop>
-	 <1323817279.8451.7.camel@denise.theartistscloset.com>
-	 <5f2da864419b2bd2a28c57128df418a6@njm.linuxwall.info>
-	 <1323819331.8451.9.camel@denise.theartistscloset.com>
+From: Michal Soltys <soltys@ziu.info>
+Subject: Re: Latency guarantees in HFSC rt service curves
+Date: Wed, 14 Dec 2011 00:46:44 +0100
+Message-ID: <4EE7E3E4.6070409@ziu.info>
+References: <1323467512.3159.93.camel@denise.theartistscloset.com>  <4EE358A4.7060302@ziu.info>  <1323531352.3159.106.camel@denise.theartistscloset.com>  <4EE39D88.9010002@ziu.info> <1323542103.3159.148.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Julien Vehent <julien@linuxwall.info>
+To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.194]:61155 "EHLO mout.perfora.net"
+Received: from drutsystem.com ([80.72.38.138]:1814 "EHLO drutsystem.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753356Ab1LMXmV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Dec 2011 18:42:21 -0500
-In-Reply-To: <1323819331.8451.9.camel@denise.theartistscloset.com>
+	id S1751909Ab1LMXqg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Dec 2011 18:46:36 -0500
+In-Reply-To: <1323542103.3159.148.camel@denise.theartistscloset.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-12-13 at 18:35 -0500, John A. Sullivan III wrote:
-> On Tue, 2011-12-13 at 18:10 -0500, Julien Vehent wrote:
-> > This is an amazing email and I will definitely sit down and read it 
-> > carefully.
-> > I've been (silently) following your discussions about HFSC because I've been 
-> > wanting to add a section on HFSC in the TC doc I wrote here:
-> > http://wiki.linuxwall.info/doku.php/en:ressources:dossiers:networking:traffic_control
-> > 
-> > The doc I've read so far left me staring at the wall with more questions 
-> > than answers. I'm hoping your text will finally bring a clear view of the 
-> > problem :)
-> > 
-> > Cheers,
-> > Julien
-> > 
-> <snip>
-> LOL - guess whose web site I have open in my browser as I walk through
-> experimenting with tc to build a test WAN environment in our lab:
-> 
-> http://wiki.linuxwall.info/doku.php/en:ressources:dossiers:networking:traffic_control
-> 
-> It's wonderfully well done and I've recommended it to several of my
-> peers.  Thanks for putting it together - John
-<snip>
-I should mention this is our internal, copyrighted documentation but I
-do have the authority to share it freely and, as avid consumers and
-contributors to the OSS world, we will want to make it as available as
-possible assuming it is accurate - John
+On 10.12.2011 19:35, John A. Sullivan III wrote:
+> On Sat, 2011-12-10 at 18:57 +0100, Michal Soltys wrote: <snip> So,
+> again, trying to wear the eminently practical hat of a sys admin, for
+> periodic traffic, i.e., protocols like VoiP and video that are sending
+> packets are regular intervals and thus likely to reset the curve after
+> each packet, m1 helps reduce latency while m2 is a way of reducing the
+> chance of overrunning the circuit under heavy load, i.e., where the
+> concave queue is backlogged.
+>
+
+Well, updated, - not "reset". The latter [kind of] implies the return to
+original form, and just so we're on the same page - the curve would have
+to be completely under the old one for that to happen. There's also no
+chance of overloading anything - except if a machine is shaping on
+behalf of something upstream with smaller uplink, and doing so without
+UL keeping LS in check.
+
+> When we start multiplexing streams of periodic traffic, we are still
+> fine as long as we are not backlogged.  Once we are backlogged, we
+> drop down to the m2 curve which prevents us from overrunning the
+> circuit (assuming the sum of our rt m2 curves<= circuit size) and
+> hopefully still provides adequate latency.  If we are badly
+> backlogged, we have a problem with which HFSC can't help us :) (and I
+> suppose where short queues are helpful).
+>
+
+Keep in mind that not backlogged classes are not hurt by backlogged
+ones. And you can't overrun - be it m1 or m2, or at which point any
+class activates (providing curves make sense). If everything is
+backlogged, you still get nicely multiplexed traffic as defined by
+your hierarchy.
+
+If anything briefly stops being backlogged, it will get bonus on next
+backlog period - while making sure, it wouldn't go with new curve above
+previous backlog period's one (and assuming its actual rate is not above
+the defined RT curve, as in such case it will get bonus from excess
+bandwidth available as specified by LS (or will get none, if LS is not
+defined)).
+
+> If you have a chance, could you look at the email I sent entitled "An
+> error in my HFSC sysadmin documentation".  That's the last piece I
+> need to fall in place before I can share my documentation of this
+> week's research.  Thanks - John
+
+Yes, will do.
+
+Btw, have you check the manpages of recent iproute2 w.r.t. hfsc ?
+Lots of this should be explained, or at least mentioned there.
