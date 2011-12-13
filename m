@@ -1,37 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2x: properly update skb when mtu > 1500
-Date: Tue, 13 Dec 2011 13:31:18 -0500 (EST)
-Message-ID: <20111213.133118.198800923714432490.davem@davemloft.net>
-References: <1323769253-8760-1-git-send-email-dmitry@broadcom.com>
-	<1323770177.2307.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Frederic LAMBERT <frdrc66@gmail.com>
+Subject: Driver for embedded switch Micrel KS8995MA
+Date: Tue, 13 Dec 2011 19:33:25 +0100
+Message-ID: <CAMVnO+nbtJjyjKXVnQz__A+91cUb6P7VSpkd=f67L1G=rP-dag@mail.gmail.com>
+References: <CAMVnO+n1g1rV_xLhqHONFcSBxJJ6wU3a8vzQ623jZKv0wYnh+A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dmitry@broadcom.com, netdev@vger.kernel.org, eilong@broadcom.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:49580 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752330Ab1LMSb1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2011 13:31:27 -0500
-In-Reply-To: <1323770177.2307.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:40375 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752330Ab1LMSd0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2011 13:33:26 -0500
+Received: by yenm11 with SMTP id m11so5015278yen.19
+        for <netdev@vger.kernel.org>; Tue, 13 Dec 2011 10:33:25 -0800 (PST)
+In-Reply-To: <CAMVnO+n1g1rV_xLhqHONFcSBxJJ6wU3a8vzQ623jZKv0wYnh+A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 13 Dec 2011 10:56:17 +0100
+I found an quite old driver on the net for the 5-ports 10/100 embedded
+switch Micrel KS8995MA.
+It had to be updated a little bit because a parameter was missing to
+the ks8995_registers_read() & write() functions.
 
-> Le mardi 13 d=E9cembre 2011 =E0 11:40 +0200, Dmitry Kravkov a =E9crit=
- :
->> Since commit e52fcb2462ac484e6dd6e68869536609f0216938 newly allocate=
-d
->> skb for small packets are not updated properly and dropped by stack.
->>=20
->> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
->> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
- ...
-> Ah, sorry for this, thanks for fixing it !
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+I haven't been able to contact its original author, Gabor Juhos, who
+wrote it in 2008 under GPL v2.
 
-Applied.
+Is it possible to submit this driver as a patch to be included in the
+distribution?
+If yes, what would be the best place? driver/net/phy? driver/net/ethernet?
+
+Thanks for advices,
+--
+Frederic
