@@ -1,51 +1,55 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: Re: [PATCH 1/1] net/fec: add KSZ9021RN phy fixup
-Date: Tue, 13 Dec 2011 10:47:33 +0800
-Message-ID: <20111213024733.GB10866@S2100-06.ap.freescale.net>
-References: <1323684558-16796-1-git-send-email-richard.zhao@linaro.org>
- <CAOMZO5DNRrt7ULuBkh9y8bz2_fpCHOcSWxAbJOqTHA2Nrv1V_w@mail.gmail.com>
- <20111212135119.GE16835@b20223-02.ap.freescale.net>
- <4EE612BF.9050907@bluegiga.com>
- <20111213021008.GE28768@b20223-02.ap.freescale.net>
- <20111213023626.GA10866@S2100-06.ap.freescale.net>
- <CAB4PhKfSegpwrZbedN7KtJd+xFk1JAOCWuSFq2you5dWn9bqwA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Richard Zhao <richard.zhao@freescale.com>, <patches@linaro.org>,
-	<netdev@vger.kernel.org>, <s.hauer@pengutronix.de>,
-	<jgq516@gmail.com>, <eric.miao@linaro.org>,
-	Richard Zhao <richard.zhao@linaro.org>,
-	Veli-Pekka Peltola <veli-pekka.peltola@bluegiga.com>,
-	<shawn.guo@linaro.org>, Fabio Estevam <festevam@gmail.com>,
-	<davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>
-To: Jason Liu <liu.h.jason@gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH net-next 0/2] [RFC] igb: ptp hardware clock
+Date: Tue, 13 Dec 2011 04:00:33 +0100
+Message-ID: <cover.1323744724.git.richardcochran@gmail.com>
+Cc: e1000-devel@lists.sourceforge.net,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe005.messaging.microsoft.com ([216.32.181.185]:52146
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751106Ab1LMCeh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 21:34:37 -0500
-Content-Disposition: inline
-In-Reply-To: <CAB4PhKfSegpwrZbedN7KtJd+xFk1JAOCWuSFq2you5dWn9bqwA@mail.gmail.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:59737 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753468Ab1LMDAl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 22:00:41 -0500
+Received: by eekc4 with SMTP id c4so1908953eek.19
+        for <netdev@vger.kernel.org>; Mon, 12 Dec 2011 19:00:40 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 13, 2011 at 10:29:53AM +0800, Jason Liu wrote:
-> 2011/12/13 Shawn Guo <shawn.guo@freescale.com>:
-> > On Tue, Dec 13, 2011 at 10:10:08AM +0800, Richard Zhao wrote:
-> >> By converting to DT, machine code's becoming common too. I feel hard to
-> >> find a place. Put it in imx6q_init_machine?
-> >>
-> >> Sascha & Shawn, Could you give comments here?
-> >>
-> > I see no problem to do that by checking board compatible string and
-> > do the setup for particular board.
-> 
-> Then, you may end up having more and more fix up in the fec driver
-> when all the platforms converted to DT,
-> which will put the fec driver into mess.
-> 
-I meant we do this in imx6q_init_machine().
+This patch series implements a PHC driver for the Intel 82576 and
+82580 devices, as part of the igb driver.
+
+The first patch adds the PHC driver code as a new source module but
+does not link it into the main igb driver. Because the system time
+counter is not so very wide, the code implements an overflow counter
+in software. Every read operation maintains the overflow counter, as
+does a "delayed work" watchdog. Only the base clock operations are
+implemented. The hardware does have some ancillary features, but these
+can be easily added later.
+
+The second patch removes the timecompare code and links in the new
+functions.
+
+I have tested the 82580 with good results. However, I don't have the
+82576 and so would appreciate testing and feedback.
+
+Thanks,
+Richard
+
+
+Richard Cochran (2):
+  igb: add PTP Hardware Clock code
+  igb: offer a PTP Hardware Clock instead of the timecompare method
+
+ drivers/net/ethernet/intel/igb/Makefile   |    2 +-
+ drivers/net/ethernet/intel/igb/igb.h      |   21 +-
+ drivers/net/ethernet/intel/igb/igb_main.c |  167 +-----------
+ drivers/net/ethernet/intel/igb/igb_ptp.c  |  450 +++++++++++++++++++++++++++++
+ 4 files changed, 469 insertions(+), 171 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/igb/igb_ptp.c
 
 -- 
-Regards,
-Shawn
+1.7.2.5
