@@ -1,49 +1,38 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] drivers/net: use IS_ENABLED(CONFIG_IPV6)
-Date: Mon, 12 Dec 2011 16:06:41 -0800
-Message-ID: <1323734801.3837.10.camel@joe2Laptop>
-References: <4EE32777.2030003@parallels.com>
-	 <4EE327CB.4040505@parallels.com> <1323514931.4016.17.camel@edumazet-laptop>
-	 <20111210.131555.2025649575447940902.davem@davemloft.net>
-	 <1323546511.4016.32.camel@edumazet-laptop>
-	 <1323554422.29470.4.camel@joe2Laptop>
-	 <1323556174.4016.35.camel@edumazet-laptop>
-	 <1323564696.29470.6.camel@joe2Laptop>
-	 <1323593575.4016.38.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v9 0/9] Request for inclusion: per-cgroup tcp memory
+ pressure controls
+Date: Mon, 12 Dec 2011 19:07:34 -0500 (EST)
+Message-ID: <20111212.190734.1967808916779299221.davem@davemloft.net>
+References: <1323676029-5890-1-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:32790 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753554Ab1LMAGn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Dec 2011 19:06:43 -0500
-In-Reply-To: <1323593575.4016.38.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
+        kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com,
+        gthelen@google.com, netdev@vger.kernel.org, linux-mm@kvack.org,
+        kirill@shutemov.name, avagin@parallels.com, devel@openvz.org,
+        eric.dumazet@gmail.com, cgroups@vger.kernel.org
+To: glommer@parallels.com
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1323676029-5890-1-git-send-email-glommer@parallels.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2011-12-11 at 09:52 +0100, Eric Dumazet wrote:
-> Le samedi 10 d=C3=A9cembre 2011 =C3=A0 16:51 -0800, Joe Perches a =C3=
-=A9crit :
-> > On Sat, 2011-12-10 at 23:29 +0100, Eric Dumazet wrote:
-> > > Le samedi 10 d=C3=A9cembre 2011 =C3=A0 14:00 -0800, Joe Perches a=
- =C3=A9crit :
-> > > Are you sure this is equivalent ?
-> > I believe so.
-> You didnt answer my question or you dont understand your change.
-> I wonder why.
+From: Glauber Costa <glommer@parallels.com>
+Date: Mon, 12 Dec 2011 11:47:00 +0400
 
-I believe "I believe so" is an answer.
-Perhaps not a good or in this case perhaps
-even an answer with an incorrect result,
-but still an answer...
+> This series fixes all the few comments raised in the last round,
+> and seem to have acquired consensus from the memcg side.
+> 
+> Dave, do you think it is acceptable now from the networking PoV?
+> In case positive, would you prefer merging this trough your tree,
+> or acking this so a cgroup maintainer can do it?
 
-> Point was : IPV6 compiled as a module, and _this_ driver compiled
-> staticaly.
-> Did you tried this combination ?
+All applied to net-next, thanks.
 
-No, though I will try it this week.
-
-cheers, Joe
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
