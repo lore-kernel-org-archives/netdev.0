@@ -1,48 +1,33 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next 2/2] igb: offer a PTP Hardware Clock instead
- of the timecompare method
-Date: Tue, 13 Dec 2011 05:40:20 +0100
-Message-ID: <20111213044020.GA14322@netboy.at.omicron.at>
-References: <cover.1323744724.git.richardcochran@gmail.com>
- <388385c50909f63bff239894c60dbb00abc65c93.1323744725.git.richardcochran@gmail.com>
- <1323746932.2583.33.camel@edumazet-laptop>
- <20111213034132.GC9604@netboy.at.omicron.at>
- <1323748349.2583.38.camel@edumazet-laptop>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH 2/3] cdc_ether: allow vendor specific data interface if
+ control interface is vendor specific
+Date: Mon, 12 Dec 2011 20:54:13 -0800
+Message-ID: <1323752053.3837.17.camel@joe2Laptop>
+References: <1323750784-32608-1-git-send-email-bjorn@mork.no>
+	 <1323750784-32608-3-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:37407 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753016Ab1LMEkZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 23:40:25 -0500
-Received: by eaaj10 with SMTP id j10so951091eaa.19
-        for <netdev@vger.kernel.org>; Mon, 12 Dec 2011 20:40:24 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1323748349.2583.38.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Bjorn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1323750784-32608-3-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 13, 2011 at 04:52:29AM +0100, Eric Dumazet wrote:
-> > It is too bad that we have to take the spinlock for every time stamped
-> > packet, but it is the hardware's fault for not providing a 64 bit wide
-> > nanosecond time register.
-> > 
-> 
-> Yes, probably. Are you sure a workaround is not possible, using a
-> seqlock for synchronization of threads, and two hardware reads ?
+On Tue, 2011-12-13 at 05:33 +0100, Bjorn Mork wrote:
+> diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+[]
+> @@ -211,8 +211,12 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+[]
+> -				dev_dbg(&intf->dev, "slave class %u\n",
+[]
+> +				dev_dbg(&intf->dev, "xslave class %u\n",
 
-Many things are possible...
- 
-> Or maybe it doesnt matter at all :)
+Why change the output from slave to xslave?
 
-Yes, I think it not worth the effort.  In general, the whole time
-stamping thing is at odds with network throughput.
 
-Richard
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
