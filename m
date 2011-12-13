@@ -1,53 +1,93 @@
-From: Western Union Company <online1337110@telkomsa.net>
-Subject: Payment Update
-Date: Tue, 13 Dec 2011 14:21:31 +0200 (SAST)
-Message-ID: <259677063.3296279.1323778891729.JavaMail.root__36725.7291022272$1323778911$gmane$org@zimbra6-vm1.telkomsa.net>
-Reply-To: Western Union Company <western-money@hotmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] can: flexcan: fix irq flooding by clearing all interrupt
+ sources
+Date: Tue, 13 Dec 2011 13:53:04 +0100
+Message-ID: <4EE74AB0.1080106@pengutronix.de>
+References: <4EE61928.10608@grandegger.com> <4EE61E3D.2090303@pengutronix.de> <4EE62141.8010305@grandegger.com> <4EE7416E.8070203@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sargas.telkomsa.net ([196.25.211.69]:41261 "EHLO
-	sargas.telkomsa.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752372Ab1LMMVj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2011 07:21:39 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig96058EE6412D136C2D476784"
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	Reuben Dowle <Reuben.Dowle@navico.com>,
+	=?ISO-8859-1?Q?Lothar_Wa=DFmann?= <LW@KARO-electronics.de>
+To: Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4EE7416E.8070203@grandegger.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Beneficiary,
-=20
-We are here to notify you that the sum of  $250,000 U.S.Dollars was gen=
-erated and awarded to you by the Western Union Foundation in conjunctio=
-n with the African Union Foundation.This award was been selected throug=
-h the internet, where your e-mail address was indicated and notified.Th=
-e Western Union  Foundation, All the email addresses of the people that=
- are active online,among the millions of our customers who use Western =
-Union in their business transactions.Four people are selected Every yea=
-r  to benefit from this promotion and you are one of the Selected Winne=
-rs.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig96058EE6412D136C2D476784
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-To avoid misappropriation of funds, proper verifications must be carrie=
-d out before the fund is transferred. We require the details below for =
-verification so that the transfer can be carried out.
+On 12/13/2011 01:13 PM, Wolfgang Grandegger wrote:
+> On 12/12/2011 04:44 PM, Wolfgang Grandegger wrote:
+>> On 12/12/2011 04:31 PM, Marc Kleine-Budde wrote:
+>>> On 12/12/2011 04:09 PM, Wolfgang Grandegger wrote:
+>>>> As pointed out by Reuben Dowle and Lothar Wa=DFmann, the TWRN_INT,
+>>>> RWRN_INT, BOFF_INT interrupt sources need to be cleared as well
+>>>> to avoid interrupt flooding, at least for the Flexcan on i.MX28
+>>>> SOCs. Furthermore, the interrupts are only cleared, if really one
+>>>> of those interrupt sources are pending (which is not the case for
+>>>> rx and tx done).
+>>>>
+>>>> CC: Reuben Dowle <Reuben.Dowle@navico.com>
+>>>> CC: Lothar Wa=DFmann <LW@KARO-electronics.de>
+>>>> Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+>>>
+>>> Have you tested on mx25/mx35, does it have any negative side effects?=
 
-1. Receiver's Full Name:
-2. Receiver's Address:
-3. Receiver's Country:
-4. Receiver's Telephone Number:
-5. Receiver's Occupation:
+>>> My schedule is full until Friday, sorry cannot test here.
+>>
+>> Not yet. But it's not critical. Only the pending interrupt flags are
+>> cleared. Maybe somebody else out there could do some testing... before=
+ I
+>> get hold of a MX35PDK board.
+>=20
+> I got my MX35PDK board working and can confirm, that the patch works on=
 
-  Send the above details to us via the email addresses stated below:
-=20
-Western Union District Manager (Mr.Peter Parker)
-Website: www.westernunion.com
-E-mail: western-money@hotmail.com
-Tel: +2347031908911
+> a i.mx35 as well. My testing also confirms, that the ESR TWRN_INT,
+> RWRN_INT, FLEXCAN_ESR_BOFF_INT do not function as documented. These
+> flags do show up once, together with ERR_INT, and then, after clearing,=
+
+> never again. Obviously a bug in the Flexcan logic. From the feedback we=
+
+> can say, that only the i.MX28 does behave differently (=3D=3Dcorrectly)=
+=2E All
+> other seem to work with the current code:
+>=20
+>  Flexcan on
+>  - i.mx25
+>  - i.mx35
+>  - i.mx53
+>  - P1010/P1020
+
+I'm adding the patch to linux-can. I think this is a stable candidate
+for v2.6.39 and newer (mx28 suport was added in 2.6.39).
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
-Note: You were selected as a winner on this promotion and I personally =
-advise that you use the funds wisely. However, we need your information=
- as stated above to commence the transaction due process:
+--------------enig96058EE6412D136C2D476784
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Copyright =C2=A9 2001-2011 The Western Union Company , All Rights Reser=
-ved.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk7nSrUACgkQjTAFq1RaXHPW5QCghM4MMLJzgNtVWe6TTzKz1X1c
+AQIAn0qBNnQced8uawYvjV9o8b7vLpeu
+=yzHp
+-----END PGP SIGNATURE-----
+
+--------------enig96058EE6412D136C2D476784--
