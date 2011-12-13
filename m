@@ -1,479 +1,373 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next 1/2] igb: add PTP Hardware Clock code
-Date: Tue, 13 Dec 2011 04:00:34 +0100
-Message-ID: <382db16df224b31b126f26f0671cb5f67904e834.1323744725.git.richardcochran@gmail.com>
+Subject: [PATCH net-next 2/2] igb: offer a PTP Hardware Clock
+	instead of the timecompare method
+Date: Tue, 13 Dec 2011 04:00:35 +0100
+Message-ID: <388385c50909f63bff239894c60dbb00abc65c93.1323744725.git.richardcochran@gmail.com>
 References: <cover.1323744724.git.richardcochran@gmail.com>
-Cc: e1000-devel@lists.sourceforge.net,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, John Ronciak <john.ronciak@intel.com>,
 	John Stultz <john.stultz@linaro.org>,
+	Jacob Keller <jacob.e.keller@intel.com>,
 	Thomas Gleixner <tglx@linutronix.de>
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:46590 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754101Ab1LMDAs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 22:00:48 -0500
-Received: by eaaj10 with SMTP id j10so933152eaa.19
-        for <netdev@vger.kernel.org>; Mon, 12 Dec 2011 19:00:46 -0800 (PST)
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 In-Reply-To: <cover.1323744724.git.richardcochran@gmail.com>
 In-Reply-To: <cover.1323744724.git.richardcochran@gmail.com>
 References: <cover.1323744724.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-This patch adds a source file implementing a PHC. Only the basic
-clock operations have been implemented, although the hardware
-would offer some ancillary functions. The code is fairly self
-contained and is not yet used in the main igb driver.
+This commit removes the legacy timecompare code from the igb driver and
+offers a tunable PHC instead.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h     |    8 +
- drivers/net/ethernet/intel/igb/igb_ptp.c |  408 ++++++++++++++++++++++++++++++
- 2 files changed, 416 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/igb/igb_ptp.c
+ drivers/net/ethernet/intel/igb/Makefile   |    2 +-
+ drivers/net/ethernet/intel/igb/igb.h      |   13 ++-
+ drivers/net/ethernet/intel/igb/igb_main.c |  167 +----------------------------
+ drivers/net/ethernet/intel/igb/igb_ptp.c  |   42 +++++++
+ 4 files changed, 53 insertions(+), 171 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/igb/Makefile b/drivers/net/ethernet/intel/igb/Makefile
+index c6e4621..42f0868 100644
+--- a/drivers/net/ethernet/intel/igb/Makefile
++++ b/drivers/net/ethernet/intel/igb/Makefile
+@@ -32,6 +32,6 @@
+ 
+ obj-$(CONFIG_IGB) += igb.o
+ 
+-igb-objs := igb_main.o igb_ethtool.o e1000_82575.o \
++igb-objs := igb_main.o igb_ethtool.o igb_ptp.o e1000_82575.o \
+ 	    e1000_mac.o e1000_nvm.o e1000_phy.o e1000_mbx.o
+ 
 diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index c69feeb..001f95d 100644
+index 001f95d..2ea5e91 100644
 --- a/drivers/net/ethernet/intel/igb/igb.h
 +++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -37,6 +37,7 @@
- #include <linux/clocksource.h>
- #include <linux/timecompare.h>
+@@ -34,8 +34,6 @@
+ #include "e1000_mac.h"
+ #include "e1000_82575.h"
+ 
+-#include <linux/clocksource.h>
+-#include <linux/timecompare.h>
  #include <linux/net_tstamp.h>
-+#include <linux/ptp_clock_kernel.h>
+ #include <linux/ptp_clock_kernel.h>
  #include <linux/bitops.h>
- #include <linux/if_vlan.h>
+@@ -329,9 +327,6 @@ struct igb_adapter {
  
-@@ -364,6 +365,13 @@ struct igb_adapter {
- 	u32 wvbr;
- 	int node;
- 	u32 *shadow_vfta;
+ 	/* OS defined structs */
+ 	struct pci_dev *pdev;
+-	struct cyclecounter cycles;
+-	struct timecounter clock;
+-	struct timecompare compare;
+ 	struct hwtstamp_config hwtstamp_config;
+ 
+ 	spinlock_t stats64_lock;
+@@ -386,7 +381,6 @@ struct igb_adapter {
+ #define IGB_DMCTLX_DCFLUSH_DIS     0x80000000  /* Disable DMA Coal Flush */
+ 
+ #define IGB_82576_TSYNC_SHIFT 19
+-#define IGB_82580_TSYNC_SHIFT 24
+ #define IGB_TS_HDR_LEN        16
+ enum e1000_state_t {
+ 	__IGB_TESTING,
+@@ -423,6 +417,13 @@ extern bool igb_has_link(struct igb_adapter *adapter);
+ extern void igb_set_ethtool_ops(struct net_device *);
+ extern void igb_power_up_link(struct igb_adapter *);
+ 
++extern void igb_ptp_init(struct igb_adapter *adapter);
++extern void igb_ptp_remove(struct igb_adapter *adapter);
 +
-+	struct ptp_clock *ptp_clock;
-+	struct ptp_clock_info caps;
-+	struct delayed_work overflow_work;
-+	spinlock_t tmreg_lock;
-+	u32 overflow_counter;
-+	int last_msb;
- };
++extern void igb_systim_to_hwtstamp(struct igb_adapter *adapter,
++				   struct skb_shared_hwtstamps *hwtstamps,
++				   u64 systim);
++
+ static inline s32 igb_reset_phy(struct e1000_hw *hw)
+ {
+ 	if (hw->phy.ops.reset)
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 89d576c..0ee04b9 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -113,7 +113,6 @@ static void igb_free_all_rx_resources(struct igb_adapter *);
+ static void igb_setup_mrqc(struct igb_adapter *);
+ static int igb_probe(struct pci_dev *, const struct pci_device_id *);
+ static void __devexit igb_remove(struct pci_dev *pdev);
+-static void igb_init_hw_timer(struct igb_adapter *adapter);
+ static int igb_sw_init(struct igb_adapter *);
+ static int igb_open(struct net_device *);
+ static int igb_close(struct net_device *);
+@@ -549,33 +548,6 @@ exit:
+ 	return;
+ }
  
- #define IGB_FLAG_HAS_MSI           (1 << 0)
+-
+-/**
+- * igb_read_clock - read raw cycle counter (to be used by time counter)
+- */
+-static cycle_t igb_read_clock(const struct cyclecounter *tc)
+-{
+-	struct igb_adapter *adapter =
+-		container_of(tc, struct igb_adapter, cycles);
+-	struct e1000_hw *hw = &adapter->hw;
+-	u64 stamp = 0;
+-	int shift = 0;
+-
+-	/*
+-	 * The timestamp latches on lowest register read. For the 82580
+-	 * the lowest register is SYSTIMR instead of SYSTIML.  However we never
+-	 * adjusted TIMINCA so SYSTIMR will just read as all 0s so ignore it.
+-	 */
+-	if (hw->mac.type >= e1000_82580) {
+-		stamp = rd32(E1000_SYSTIMR) >> 8;
+-		shift = IGB_82580_TSYNC_SHIFT;
+-	}
+-
+-	stamp |= (u64)rd32(E1000_SYSTIML) << shift;
+-	stamp |= (u64)rd32(E1000_SYSTIMH) << (shift + 32);
+-	return stamp;
+-}
+-
+ /**
+  * igb_get_hw_dev - return device
+  * used by hardware layer to print debugging information
+@@ -2080,7 +2052,7 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 
+ #endif
+ 	/* do hw tstamp init after resetting */
+-	igb_init_hw_timer(adapter);
++	igb_ptp_init(adapter);
+ 
+ 	dev_info(&pdev->dev, "Intel(R) Gigabit Ethernet Network Connection\n");
+ 	/* print bus type/speed/width info */
+@@ -2150,6 +2122,8 @@ static void __devexit igb_remove(struct pci_dev *pdev)
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
+ 
++	igb_ptp_remove(adapter);
++
+ 	/*
+ 	 * The watchdog timer may be rescheduled, so explicitly
+ 	 * disable watchdog from being rescheduled.
+@@ -2269,112 +2243,6 @@ out:
+ }
+ 
+ /**
+- * igb_init_hw_timer - Initialize hardware timer used with IEEE 1588 timestamp
+- * @adapter: board private structure to initialize
+- *
+- * igb_init_hw_timer initializes the function pointer and values for the hw
+- * timer found in hardware.
+- **/
+-static void igb_init_hw_timer(struct igb_adapter *adapter)
+-{
+-	struct e1000_hw *hw = &adapter->hw;
+-
+-	switch (hw->mac.type) {
+-	case e1000_i350:
+-	case e1000_82580:
+-		memset(&adapter->cycles, 0, sizeof(adapter->cycles));
+-		adapter->cycles.read = igb_read_clock;
+-		adapter->cycles.mask = CLOCKSOURCE_MASK(64);
+-		adapter->cycles.mult = 1;
+-		/*
+-		 * The 82580 timesync updates the system timer every 8ns by 8ns
+-		 * and the value cannot be shifted.  Instead we need to shift
+-		 * the registers to generate a 64bit timer value.  As a result
+-		 * SYSTIMR/L/H, TXSTMPL/H, RXSTMPL/H all have to be shifted by
+-		 * 24 in order to generate a larger value for synchronization.
+-		 */
+-		adapter->cycles.shift = IGB_82580_TSYNC_SHIFT;
+-		/* disable system timer temporarily by setting bit 31 */
+-		wr32(E1000_TSAUXC, 0x80000000);
+-		wrfl();
+-
+-		/* Set registers so that rollover occurs soon to test this. */
+-		wr32(E1000_SYSTIMR, 0x00000000);
+-		wr32(E1000_SYSTIML, 0x80000000);
+-		wr32(E1000_SYSTIMH, 0x000000FF);
+-		wrfl();
+-
+-		/* enable system timer by clearing bit 31 */
+-		wr32(E1000_TSAUXC, 0x0);
+-		wrfl();
+-
+-		timecounter_init(&adapter->clock,
+-				 &adapter->cycles,
+-				 ktime_to_ns(ktime_get_real()));
+-		/*
+-		 * Synchronize our NIC clock against system wall clock. NIC
+-		 * time stamp reading requires ~3us per sample, each sample
+-		 * was pretty stable even under load => only require 10
+-		 * samples for each offset comparison.
+-		 */
+-		memset(&adapter->compare, 0, sizeof(adapter->compare));
+-		adapter->compare.source = &adapter->clock;
+-		adapter->compare.target = ktime_get_real;
+-		adapter->compare.num_samples = 10;
+-		timecompare_update(&adapter->compare, 0);
+-		break;
+-	case e1000_82576:
+-		/*
+-		 * Initialize hardware timer: we keep it running just in case
+-		 * that some program needs it later on.
+-		 */
+-		memset(&adapter->cycles, 0, sizeof(adapter->cycles));
+-		adapter->cycles.read = igb_read_clock;
+-		adapter->cycles.mask = CLOCKSOURCE_MASK(64);
+-		adapter->cycles.mult = 1;
+-		/**
+-		 * Scale the NIC clock cycle by a large factor so that
+-		 * relatively small clock corrections can be added or
+-		 * subtracted at each clock tick. The drawbacks of a large
+-		 * factor are a) that the clock register overflows more quickly
+-		 * (not such a big deal) and b) that the increment per tick has
+-		 * to fit into 24 bits.  As a result we need to use a shift of
+-		 * 19 so we can fit a value of 16 into the TIMINCA register.
+-		 */
+-		adapter->cycles.shift = IGB_82576_TSYNC_SHIFT;
+-		wr32(E1000_TIMINCA,
+-		                (1 << E1000_TIMINCA_16NS_SHIFT) |
+-		                (16 << IGB_82576_TSYNC_SHIFT));
+-
+-		/* Set registers so that rollover occurs soon to test this. */
+-		wr32(E1000_SYSTIML, 0x00000000);
+-		wr32(E1000_SYSTIMH, 0xFF800000);
+-		wrfl();
+-
+-		timecounter_init(&adapter->clock,
+-				 &adapter->cycles,
+-				 ktime_to_ns(ktime_get_real()));
+-		/*
+-		 * Synchronize our NIC clock against system wall clock. NIC
+-		 * time stamp reading requires ~3us per sample, each sample
+-		 * was pretty stable even under load => only require 10
+-		 * samples for each offset comparison.
+-		 */
+-		memset(&adapter->compare, 0, sizeof(adapter->compare));
+-		adapter->compare.source = &adapter->clock;
+-		adapter->compare.target = ktime_get_real;
+-		adapter->compare.num_samples = 10;
+-		timecompare_update(&adapter->compare, 0);
+-		break;
+-	case e1000_82575:
+-		/* 82575 does not support timesync */
+-	default:
+-		break;
+-	}
+-
+-}
+-
+-/**
+  * igb_sw_init - Initialize general software structures (struct igb_adapter)
+  * @adapter: board private structure to initialize
+  *
+@@ -5628,35 +5496,6 @@ static int igb_poll(struct napi_struct *napi, int budget)
+ }
+ 
+ /**
+- * igb_systim_to_hwtstamp - convert system time value to hw timestamp
+- * @adapter: board private structure
+- * @shhwtstamps: timestamp structure to update
+- * @regval: unsigned 64bit system time value.
+- *
+- * We need to convert the system time value stored in the RX/TXSTMP registers
+- * into a hwtstamp which can be used by the upper level timestamping functions
+- */
+-static void igb_systim_to_hwtstamp(struct igb_adapter *adapter,
+-                                   struct skb_shared_hwtstamps *shhwtstamps,
+-                                   u64 regval)
+-{
+-	u64 ns;
+-
+-	/*
+-	 * The 82580 starts with 1ns at bit 0 in RX/TXSTMPL, shift this up to
+-	 * 24 to match clock shift we setup earlier.
+-	 */
+-	if (adapter->hw.mac.type >= e1000_82580)
+-		regval <<= IGB_82580_TSYNC_SHIFT;
+-
+-	ns = timecounter_cyc2time(&adapter->clock, regval);
+-	timecompare_update(&adapter->compare, ns);
+-	memset(shhwtstamps, 0, sizeof(struct skb_shared_hwtstamps));
+-	shhwtstamps->hwtstamp = ns_to_ktime(ns);
+-	shhwtstamps->syststamp = timecompare_transform(&adapter->compare, ns);
+-}
+-
+-/**
+  * igb_tx_hwtstamp - utility function which checks for TX time stamp
+  * @q_vector: pointer to q_vector containing needed info
+  * @buffer: pointer to igb_tx_buffer structure
 diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
-new file mode 100644
-index 0000000..7a9f6bc
---- /dev/null
+index 7a9f6bc..7a62980 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ptp.c
 +++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-@@ -0,0 +1,408 @@
-+/*
-+ * PTP Hardware Clock (PHC) driver for the Intel 82576 and 82580
+@@ -406,3 +406,45 @@ void igb_ptp_remove(struct igb_adapter *adapter)
+ 			 adapter->netdev->name);
+ 	}
+ }
++
++/**
++ * igb_systim_to_hwtstamp - convert system time value to hw timestamp
++ * @adapter: board private structure
++ * @shhwtstamps: timestamp structure to update
++ * @systim: unsigned 64bit system time value.
 + *
-+ * Copyright (C) 2011 Richard Cochran <richardcochran@gmail.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ * We need to convert the system time value stored in the RX/TXSTMP registers
++ * into a hwtstamp which can be used by the upper level timestamping functions
 + */
-+#include <linux/device.h>
-+#include <linux/pci.h>
-+
-+#include "igb.h"
-+
-+#define INCVALUE_MASK		0x7fffffff
-+#define ISGN			0x80000000
-+#define SYSTIMH_MSB_82576	0x80000000
-+#define SYSTIMH_MSB_82580	0x00000080
-+
-+/*
-+ * Neither the 82576 nor the 82580 offer registers wide enough to hold
-+ * nanoseconds time values for very long. For the 82580, SYSTIM always
-+ * counts nanoseconds, but the upper 24 bits are not availible. The
-+ * frequency is adjusted by changing the 32 bit fractional nanoseconds
-+ * register, TIMINCA.
-+ *
-+ * For the 82576, the SYSTIM register time unit is affect by the
-+ * choice of the 24 bit TININCA:IV (incvalue) field. Five bits of this
-+ * field are needed to provide the nominal 16 nanosecond period,
-+ * leaving 19 bits for fractional nanoseconds.
-+ *
-+ *
-+ *             SYSTIMH            SYSTIML
-+ *        +--------------+   +---+---+------+
-+ *  82576 |      32      |   | 8 | 5 |  19  |
-+ *        +--------------+   +---+---+------+
-+ *         \________ 45 bits _______/  fract
-+ *
-+ *        +----------+---+   +--------------+
-+ *  82580 |    24    | 8 |   |      32      |
-+ *        +----------+---+   +--------------+
-+ *          reserved  \______ 40 bits _____/
-+ *
-+ *
-+ * The 45 bit 82576 SYSTIM overflows every
-+ *   2^45 * 10^-9 / 3600 = 9.77 hours.
-+ *
-+ * The 40 bit 82580 SYSTIM overflows every
-+ *   2^40 * 10^-9 /  60  = 18.3 minutes.
-+ *
-+ * We implement a 32 bit overflow counter in software to hold the
-+ * missing 19 or 24 bits, for a combined virtual nanosecond time
-+ * register of 64 bits.
-+ */
-+
-+#define IGB_OVERFLOW_PERIOD	(HZ * 60 * 5)
-+#define INCPERIOD_82576		(1 << E1000_TIMINCA_16NS_SHIFT)
-+#define INCVALUE_82576_MASK	((1 << E1000_TIMINCA_16NS_SHIFT) - 1)
-+#define INCVALUE_82576		(16 << IGB_82576_TSYNC_SHIFT)
-+#define OFL_SHIFT_82580		40
-+#define OFL_SHIFT_82576		45
-+#define NS_SHIFT_82576		IGB_82576_TSYNC_SHIFT
-+
-+/*
-+ * Overflow counter for the SYSTIM register.
-+ */
-+
-+static u64 igb_overflow_get(struct igb_adapter *igb, u64 low, int msb_set,
-+			    unsigned int shift)
-+{
-+	if (igb->last_msb && !msb_set)
-+		igb->overflow_counter++;
-+
-+	igb->last_msb = msb_set;
-+
-+	low |= ((u64) igb->overflow_counter) << shift;
-+
-+	return low;
-+}
-+
-+static void igb_overflow_set(struct igb_adapter *igb, u64 ns, int msb_set,
-+			     unsigned int shift)
-+{
-+	igb->overflow_counter = ns >> shift;
-+	igb->last_msb = msb_set;
-+}
-+
-+/*
-+ * SYSTIM / overflow access functions for the 82576
-+ */
-+
-+static u64 igb_82576_systim_read(struct igb_adapter *igb)
-+{
-+	u64 ns;
-+	u32 lo, hi;
-+	struct e1000_hw *hw = &igb->hw;
-+
-+	lo = rd32(E1000_SYSTIML);
-+	hi = rd32(E1000_SYSTIMH);
-+
-+	ns = ((u64) hi) << 32;
-+	ns |= lo;
-+	ns >>= NS_SHIFT_82576;
-+
-+	ns = igb_overflow_get(igb, ns, hi & SYSTIMH_MSB_82576, OFL_SHIFT_82576);
-+
-+	return ns;
-+}
-+
-+static void igb_82576_systim_write(struct igb_adapter *igb, u64 ns)
-+{
-+	u32 hi, lo;
-+	struct e1000_hw *hw = &igb->hw;
-+
-+	hi = (ns >> 8) & 0xffffffff;
-+	lo = (ns & 0xff) << NS_SHIFT_82576;
-+
-+	wr32(E1000_SYSTIML, lo);
-+	wr32(E1000_SYSTIMH, hi);
-+
-+	igb_overflow_set(igb, ns, hi & SYSTIMH_MSB_82576, OFL_SHIFT_82576);
-+}
-+
-+/*
-+ * SYSTIM / overflow access functions for the 82580
-+ */
-+
-+static u64 igb_82580_systim_read(struct igb_adapter *igb)
-+{
-+	u64 ns;
-+	u32 lo, hi, jk;
-+	struct e1000_hw *hw = &igb->hw;
-+
-+	jk = rd32(E1000_SYSTIMR);
-+	lo = rd32(E1000_SYSTIML);
-+	hi = rd32(E1000_SYSTIMH);
-+
-+	ns = ((u64) hi) << 32;
-+	ns |= lo;
-+
-+	ns = igb_overflow_get(igb, ns, hi & SYSTIMH_MSB_82580, OFL_SHIFT_82580);
-+
-+	return ns;
-+}
-+
-+static void igb_82580_systim_write(struct igb_adapter *igb, u64 ns)
-+{
-+	u32 hi, lo;
-+	struct e1000_hw *hw = &igb->hw;
-+
-+	hi = ns >> 32;
-+	lo = ns & 0xffffffff;
-+
-+	wr32(E1000_SYSTIMR, 0);
-+	wr32(E1000_SYSTIML, lo);
-+	wr32(E1000_SYSTIMH, hi & 0xff);
-+
-+	igb_overflow_set(igb, ns, hi & SYSTIMH_MSB_82580, OFL_SHIFT_82580);
-+}
-+
-+/*
-+ * SYSTIM / overflow register access functions
-+ * Callers must hold tmreg_lock.
-+ */
-+
-+static u64 igb_systim_read(struct igb_adapter *igb)
-+{
-+	switch (igb->hw.mac.type) {
-+	case e1000_i350:
-+	case e1000_82580:
-+		return igb_82580_systim_read(igb);
-+	case e1000_82576:
-+		return igb_82576_systim_read(igb);
-+	default:
-+		return 0;
-+	}
-+}
-+
-+static void igb_systim_write(struct igb_adapter *igb, u64 ns)
-+{
-+	switch (igb->hw.mac.type) {
-+	case e1000_i350:
-+	case e1000_82580:
-+		igb_82580_systim_write(igb, ns);
-+		break;
-+	case e1000_82576:
-+		igb_82576_systim_write(igb, ns);
-+		break;
-+	default:
-+		break;
-+	}
-+}
-+
-+/*
-+ * PTP clock operations
-+ */
-+
-+static int ptp_82576_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
-+{
-+	u64 rate;
-+	u32 incvalue;
-+	int neg_adj = 0;
-+	struct igb_adapter *igb = container_of(ptp, struct igb_adapter, caps);
-+	struct e1000_hw *hw = &igb->hw;
-+
-+	if (ppb < 0) {
-+		neg_adj = 1;
-+		ppb = -ppb;
-+	}
-+	rate = ppb;
-+	rate <<= 14;
-+	rate = div_u64(rate, 1953125);
-+
-+	incvalue = 16 << IGB_82576_TSYNC_SHIFT;
-+
-+	if (neg_adj)
-+		incvalue -= rate;
-+	else
-+		incvalue += rate;
-+
-+	wr32(E1000_TIMINCA, INCPERIOD_82576 | (incvalue & INCVALUE_82576_MASK));
-+
-+	return 0;
-+}
-+
-+static int ptp_82580_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
-+{
-+	u64 rate;
-+	u32 inca;
-+	int neg_adj = 0;
-+	struct igb_adapter *igb = container_of(ptp, struct igb_adapter, caps);
-+	struct e1000_hw *hw = &igb->hw;
-+
-+	if (ppb < 0) {
-+		neg_adj = 1;
-+		ppb = -ppb;
-+	}
-+	rate = ppb;
-+	rate <<= 26;
-+	rate = div_u64(rate, 1953125);
-+
-+	inca = rate & INCVALUE_MASK;
-+	if (neg_adj)
-+		inca |= ISGN;
-+
-+	wr32(E1000_TIMINCA, inca);
-+
-+	return 0;
-+}
-+
-+static int igb_adjtime(struct ptp_clock_info *ptp, s64 delta)
-+{
-+	s64 now;
-+	unsigned long flags;
-+	struct igb_adapter *igb = container_of(ptp, struct igb_adapter, caps);
-+
-+	spin_lock_irqsave(&igb->tmreg_lock, flags);
-+
-+	now = igb_systim_read(igb);
-+	now += delta;
-+	igb_systim_write(igb, now);
-+
-+	spin_unlock_irqrestore(&igb->tmreg_lock, flags);
-+
-+	return 0;
-+}
-+
-+static int igb_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-+{
-+	u64 ns;
-+	u32 remainder;
-+	unsigned long flags;
-+	struct igb_adapter *igb = container_of(ptp, struct igb_adapter, caps);
-+
-+	spin_lock_irqsave(&igb->tmreg_lock, flags);
-+
-+	ns = igb_systim_read(igb);
-+
-+	spin_unlock_irqrestore(&igb->tmreg_lock, flags);
-+
-+	ts->tv_sec = div_u64_rem(ns, 1000000000, &remainder);
-+	ts->tv_nsec = remainder;
-+
-+	return 0;
-+}
-+
-+static int igb_settime(struct ptp_clock_info *ptp, const struct timespec *ts)
++void igb_systim_to_hwtstamp(struct igb_adapter *adapter,
++			    struct skb_shared_hwtstamps *hwtstamps,
++			    u64 systim)
 +{
 +	u64 ns;
 +	unsigned long flags;
-+	struct igb_adapter *igb = container_of(ptp, struct igb_adapter, caps);
++	unsigned int shift;
++	int msb_set;
 +
-+	ns = ts->tv_sec * 1000000000ULL;
-+	ns += ts->tv_nsec;
-+
-+	spin_lock_irqsave(&igb->tmreg_lock, flags);
-+
-+	igb_systim_write(igb, ns);
-+
-+	spin_unlock_irqrestore(&igb->tmreg_lock, flags);
-+
-+	return 0;
-+}
-+
-+static int ptp_82576_enable(struct ptp_clock_info *ptp,
-+			    struct ptp_clock_request *rq, int on)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static int ptp_82580_enable(struct ptp_clock_info *ptp,
-+			    struct ptp_clock_request *rq, int on)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static void igb_overflow_check(struct work_struct *work)
-+{
-+	struct timespec ts;
-+	struct igb_adapter *igb =
-+		container_of(work, struct igb_adapter, overflow_work.work);
-+
-+	igb_gettime(&igb->caps, &ts);
-+
-+	pr_debug("igb overflow check at %ld.%09lu\n", ts.tv_sec, ts.tv_nsec);
-+
-+	schedule_delayed_work(&igb->overflow_work, IGB_OVERFLOW_PERIOD);
-+}
-+
-+void igb_ptp_init(struct igb_adapter *adapter)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+
-+	switch (hw->mac.type) {
++	switch (adapter->hw.mac.type) {
 +	case e1000_i350:
 +	case e1000_82580:
-+		adapter->caps.owner	= THIS_MODULE;
-+		strcpy(adapter->caps.name, "igb-82580");
-+		adapter->caps.max_adj	= 62499999;
-+		adapter->caps.n_ext_ts	= 0;
-+		adapter->caps.pps	= 0;
-+		adapter->caps.adjfreq	= ptp_82580_adjfreq;
-+		adapter->caps.adjtime	= igb_adjtime;
-+		adapter->caps.gettime	= igb_gettime;
-+		adapter->caps.settime	= igb_settime;
-+		adapter->caps.enable	= ptp_82580_enable;
-+		/* Enable the timer functions. */
-+		wr32(E1000_TSAUXC, 0x0);
++		shift = OFL_SHIFT_82580;
++		msb_set = (systim >> 32) & SYSTIMH_MSB_82580;
 +		break;
-+
 +	case e1000_82576:
-+		adapter->caps.owner	= THIS_MODULE;
-+		strcpy(adapter->caps.name, "igb-82576");
-+		adapter->caps.max_adj	= 1000000000;
-+		adapter->caps.n_ext_ts	= 0;
-+		adapter->caps.pps	= 0;
-+		adapter->caps.adjfreq	= ptp_82576_adjfreq;
-+		adapter->caps.adjtime	= igb_adjtime;
-+		adapter->caps.gettime	= igb_gettime;
-+		adapter->caps.settime	= igb_settime;
-+		adapter->caps.enable	= ptp_82576_enable;
-+		/* Dial the nominal frequency. */
-+		wr32(E1000_TIMINCA, INCPERIOD_82576 | INCVALUE_82576);
++		shift = OFL_SHIFT_82576;
++		msb_set = (systim >> 32) & SYSTIMH_MSB_82576;
 +		break;
-+
 +	default:
-+		adapter->ptp_clock = NULL;
 +		return;
 +	}
 +
-+	wrfl();
++	spin_lock_irqsave(&adapter->tmreg_lock, flags);
 +
-+	INIT_DELAYED_WORK(&adapter->overflow_work, igb_overflow_check);
++	ns = igb_overflow_get(adapter, systim, msb_set, shift);
 +
-+	spin_lock_init(&adapter->tmreg_lock);
++	spin_unlock_irqrestore(&adapter->tmreg_lock, flags);
 +
-+	adapter->ptp_clock = ptp_clock_register(&adapter->caps);
-+	if (IS_ERR(adapter->ptp_clock)) {
-+		adapter->ptp_clock = NULL;
-+		dev_err(&adapter->pdev->dev, "ptp_clock_register failed\n");
-+		return;
-+	}
-+
-+	schedule_delayed_work(&adapter->overflow_work, IGB_OVERFLOW_PERIOD);
-+
-+	dev_info(&adapter->pdev->dev, "added PHC on %s\n",
-+		 adapter->netdev->name);
-+}
-+
-+void igb_ptp_remove(struct igb_adapter *adapter)
-+{
-+	if (adapter->ptp_clock) {
-+		cancel_delayed_work_sync(&adapter->overflow_work);
-+		ptp_clock_unregister(adapter->ptp_clock);
-+		dev_info(&adapter->pdev->dev, "removed PHC on %s\n",
-+			 adapter->netdev->name);
-+	}
++	memset(hwtstamps, 0, sizeof(*hwtstamps));
++	hwtstamps->hwtstamp = ns_to_ktime(ns);
 +}
 -- 
 1.7.2.5
+
+
+------------------------------------------------------------------------------
+Systems Optimization Self Assessment
+Improve efficiency and utilization of IT resources. Drive out cost and 
+improve service delivery. Take 5 minutes to use this Systems Optimization 
+Self Assessment. http://www.accelacomm.com/jaw/sdnl/114/51450054/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
