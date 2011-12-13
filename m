@@ -1,75 +1,39 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: kernel 3.1.1 message:  <IRQ> warn_alloc_failed
-Date: Tue, 13 Dec 2011 10:41:52 -0800
-Message-ID: <20111213104152.14c01911@nehalam.linuxnetplumber.net>
-References: <6.2.5.6.2.20111208210303.03a06228@flumedata.com>
-	<20111209095014.14a647cd@nehalam.linuxnetplumber.net>
-	<6.2.5.6.2.20111209130007.039b3078@binnacle.cx>
-	<13A253B3F9BEFE43B93C09CF75F63CAA8162593365@MNEXMB1.qlogic.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v9 0/9] Request for inclusion: per-cgroup tcp memory
+ pressure controls
+Date: Tue, 13 Dec 2011 13:45:44 -0500 (EST)
+Message-ID: <20111213.134544.897666694310425225.davem@davemloft.net>
+References: <20111212.190734.1967808916779299221.davem@davemloft.net>
+	<4EE757D7.6060006@uclouvain.be>
+	<1323784748.2950.4.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "starlight@binnacle.cx" <starlight@binnacle.cx>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <13A253B3F9BEFE43B93C09CF75F63CAA8162593365@MNEXMB1.qlogic.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: christoph.paasch@uclouvain.be, glommer@parallels.com,
+        linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
+        kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com,
+        gthelen@google.com, netdev@vger.kernel.org, linux-mm@kvack.org,
+        kirill@shutemov.name, avagin@parallels.com, devel@openvz.org,
+        cgroups@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1323784748.2950.4.camel@edumazet-laptop>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Dec 2011 11:42:13 -0600
-Rajesh Borundia <rajesh.borundia@qlogic.com> wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 13 Dec 2011 14:59:08 +0100
 
-> Hi All,
+> [PATCH net-next] net: fix build error if CONFIG_CGROUPS=n
 > 
-> Sorry for late reply.
-> 
-> Stephan,
-> Thanks for analyzing.
-> 
-> Yes, the netxen adapter does not support fragmented page memory.
-> They are not harmful messages. At that instant of time it may fail allocating
-> memory for some buffers in the ring but after enough memory is available
-> it will try to allocate memory for unallocated buffers in ring.
-> 
-> Or the other option could be to turn LRO off.
-> 
-> Rajesh  
-> 
-> ________________________________________
-> From: starlight@binnacle.cx [starlight@binnacle.cx]
-> Sent: Friday, December 09, 2011 11:33 PM
-> To: Stephen Hemminger; Sony Chacko; Rajesh Borundia
-> Cc: linux-kernel; netdev
-> Subject: Re: kernel 3.1.1 message:  <IRQ> warn_alloc_failed
-> 
-> At 09:50 AM 12/9/2011 -0800, Stephen Hemminger wrote:
-> >On Thu, 08 Dec 2011 21:10:02 -0500 starlight@binnacle.cx wrote:
-> >
-> >You are seeing memory allocation failures because device
-> >is allocating a 16K (order 2) size socket buffer. You are using
-> >netxen device, and it looks like the problem.
-> >
-> >From reading the netxen driver source. The LRO buffers
-> >in this device are very large (8060+skb overhead).
-> >Until the driver is fixed to use fragmented page size memory,
-> >I recommend turning off LRO.
-> 
-> Thank you for the analysis.  As an alternative
-> would it make sense to double or quadruple
-> 
->     /proc/sys/vm/min_free_kbytes
-> 
-> or perhaps do the same for
-> 
->     /proc/slabinfo(size-16384)
-> 
+> Reported-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-The driver should be changed to call allocation with __GFP_NOWARN.
-Change dev_alloc_skb(size) to
-  __dev_alloc_skb(size, GFP_ATOMIC|__GFP_NOWARN)
+Applied, thanks.
 
-Or better yet, switch to using netdev_alloc variant like
-  __netdev_alloc_skb_ip_align(dev, length, GFP_ATOMIC|__GFP_NOWARN)
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
