@@ -1,623 +1,84 @@
 From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Subject: [PATCH net-next V2 17/21] mlx4_core: mtts resources units changed
- to offset
-Date: Tue, 13 Dec 2011 16:16:56 +0200
-Message-ID: <4EE75E58.4040605@mellanox.co.il>
+Subject: [PATCH net-next V2 18/21] mlx4_core: adjust catas operation for SRIOV
+ mode
+Date: Tue, 13 Dec 2011 16:17:16 +0200
+Message-ID: <4EE75E6C.6090900@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	<roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>, <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
-	<liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>, <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-	<marcela-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+	<liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>, <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
 To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Marcel Apfelbaum <marcela-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+From: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
 
-In the previous implementation mtts are managed by:
-1. order     - log(mtt segments), 'mtt segment' groups several mtts together.
-2. first_seg - segment location relative to mtt table.
-In the current implementation:
-1. order     - log(mtts) rather than segments
-2. offset    - mtt index in mtt table
+When running in SRIOV mode, driver should not automatically start/stop
+the mlx4_core upon sensing an HCA internal error -- doing this disables/enables
+sriov, which will cause the hypervisor to hang if there are running VMs with
+attached VFs.
 
-Note: The actual mtt allocation is made in segments but it is
-      transparent to callers.
+In addition, on VMs the catas process should not run at all, since the HCA
+error buffer is not available to VMs in the BARs.
 
-Rational: The mtt resource holders are not interested on how the allocation
-          of mtt is done, but rather on how they will use it.
-
-Signed-off-by: Marcel Apfelbaum <marcela-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Reviewed-by: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Signed-off-by: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
 ---
- drivers/net/ethernet/mellanox/mlx4/fw.c            |    2 +-
- drivers/net/ethernet/mellanox/mlx4/main.c          |   11 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    3 +-
- drivers/net/ethernet/mellanox/mlx4/mr.c            |  107 ++++++++++---------
- drivers/net/ethernet/mellanox/mlx4/profile.c       |    4 +-
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   59 +++++-------
- include/linux/mlx4/device.h                        |    5 +-
- 7 files changed, 92 insertions(+), 99 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/catas.c |    7 ++++++-
+ drivers/net/ethernet/mellanox/mlx4/intf.c  |    6 ++++--
+ 2 files changed, 10 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 49bb2ea..99415fe 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -209,7 +209,7 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
- 		size = dev->caps.num_mpts;
- 		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_MPT_QUOTA_OFFSET);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/catas.c b/drivers/net/ethernet/mellanox/mlx4/catas.c
+index 45aea9c..915e947 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/catas.c
++++ b/drivers/net/ethernet/mellanox/mlx4/catas.c
+@@ -48,7 +48,8 @@ static struct work_struct catas_work;
+ static int internal_err_reset = 1;
+ module_param(internal_err_reset, int, 0644);
+ MODULE_PARM_DESC(internal_err_reset,
+-		 "Reset device on internal errors if non-zero (default 1)");
++		 "Reset device on internal errors if non-zero"
++		 " (default 1, in SRIOV mode default is 0)");
  
--		size = dev->caps.num_mtt_segs * dev->caps.mtts_per_seg;
-+		size = dev->caps.num_mtts;
- 		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_MTT_QUOTA_OFFSET);
- 
- 		size = dev->caps.num_mgms + dev->caps.num_amgms;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 8be5632..19363b6 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -112,7 +112,7 @@ module_param_named(use_prio, use_prio, bool, 0444);
- MODULE_PARM_DESC(use_prio, "Enable steering by VLAN priority on ETH ports "
- 		  "(0/1, default 0)");
- 
--static int log_mtts_per_seg = ilog2(MLX4_MTT_ENTRY_PER_SEG);
-+int log_mtts_per_seg = ilog2(MLX4_MTT_ENTRY_PER_SEG);
- module_param_named(log_mtts_per_seg, log_mtts_per_seg, int, 0444);
- MODULE_PARM_DESC(log_mtts_per_seg, "Log2 number of MTT entries per segment (1-7)");
- 
-@@ -222,9 +222,7 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 	dev->caps.max_cqes	     = dev_cap->max_cq_sz - 1;
- 	dev->caps.reserved_cqs	     = dev_cap->reserved_cqs;
- 	dev->caps.reserved_eqs	     = dev_cap->reserved_eqs;
--	dev->caps.mtts_per_seg	     = 1 << log_mtts_per_seg;
--	dev->caps.reserved_mtts	     = DIV_ROUND_UP(dev_cap->reserved_mtts,
--						    dev->caps.mtts_per_seg);
-+	dev->caps.reserved_mtts      = dev_cap->reserved_mtts;
- 	dev->caps.reserved_mrws	     = dev_cap->reserved_mrws;
- 	dev->caps.reserved_uars	     = dev_cap->reserved_uars;
- 	dev->caps.reserved_pds	     = dev_cap->reserved_pds;
-@@ -232,7 +230,8 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 					dev_cap->reserved_xrcds : 0;
- 	dev->caps.max_xrcds          = (dev->caps.flags & MLX4_DEV_CAP_FLAG_XRC) ?
- 					dev_cap->max_xrcds : 0;
--	dev->caps.mtt_entry_sz	     = dev->caps.mtts_per_seg * dev_cap->mtt_entry_sz;
-+	dev->caps.mtt_entry_sz       = dev_cap->mtt_entry_sz;
-+
- 	dev->caps.max_msg_sz         = dev_cap->max_msg_sz;
- 	dev->caps.page_size_cap	     = ~(u32) (dev_cap->min_page_sz - 1);
- 	dev->caps.flags		     = dev_cap->flags;
-@@ -569,7 +568,7 @@ static int mlx4_init_icm(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap,
- 	err = mlx4_init_icm_table(dev, &priv->mr_table.mtt_table,
- 				  init_hca->mtt_base,
- 				  dev->caps.mtt_entry_sz,
--				  dev->caps.num_mtt_segs,
-+				  dev->caps.num_mtts,
- 				  dev->caps.reserved_mtts, 1, 0);
- 	if (err) {
- 		mlx4_err(dev, "Failed to map MTT context memory, aborting.\n");
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index abf65d8..879f825 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -191,6 +191,7 @@ do {									\
- 	dev_warn(&mdev->pdev->dev, format, ##arg)
- 
- extern int mlx4_log_num_mgm_entry_size;
-+extern int log_mtts_per_seg;
- 
- #define MLX4_MAX_NUM_SLAVES	(MLX4_MAX_NUM_PF + MLX4_MAX_NUM_VF)
- #define ALL_SLAVES 0xff
-@@ -240,7 +241,7 @@ struct mlx4_mpt_entry {
- 	__be32 win_cnt;
- 	u8	reserved1[3];
- 	u8	mtt_rep;
--	__be64 mtt_seg;
-+	__be64 mtt_addr;
- 	__be32 mtt_sz;
- 	__be32 entity_size;
- 	__be32 first_byte_offset;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
-index f8fd0a1..f7243b2 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mr.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
-@@ -166,18 +166,24 @@ u32 __mlx4_alloc_mtt_range(struct mlx4_dev *dev, int order)
+ static void dump_err_buf(struct mlx4_dev *dev)
  {
- 	struct mlx4_mr_table *mr_table = &mlx4_priv(dev)->mr_table;
- 	u32 seg;
-+	int seg_order;
-+	u32 offset;
- 
--	seg = mlx4_buddy_alloc(&mr_table->mtt_buddy, order);
-+	seg_order = max_t(int, order - log_mtts_per_seg, 0);
-+
-+	seg = mlx4_buddy_alloc(&mr_table->mtt_buddy, seg_order);
- 	if (seg == -1)
- 		return -1;
- 
--	if (mlx4_table_get_range(dev, &mr_table->mtt_table, seg,
--				 seg + (1 << order) - 1)) {
--		mlx4_buddy_free(&mr_table->mtt_buddy, seg, order);
-+	offset = seg * (1 << log_mtts_per_seg);
-+
-+	if (mlx4_table_get_range(dev, &mr_table->mtt_table, offset,
-+				 offset + (1 << order) - 1)) {
-+		mlx4_buddy_free(&mr_table->mtt_buddy, seg, seg_order);
- 		return -1;
- 	}
- 
--	return seg;
-+	return offset;
- }
- 
- static u32 mlx4_alloc_mtt_range(struct mlx4_dev *dev, int order)
-@@ -212,45 +218,49 @@ int mlx4_mtt_init(struct mlx4_dev *dev, int npages, int page_shift,
- 	} else
- 		mtt->page_shift = page_shift;
- 
--	for (mtt->order = 0, i = dev->caps.mtts_per_seg; i < npages; i <<= 1)
-+	for (mtt->order = 0, i = 1; i < npages; i <<= 1)
- 		++mtt->order;
- 
--	mtt->first_seg = mlx4_alloc_mtt_range(dev, mtt->order);
--	if (mtt->first_seg == -1)
-+	mtt->offset = mlx4_alloc_mtt_range(dev, mtt->order);
-+	if (mtt->offset == -1)
- 		return -ENOMEM;
- 
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(mlx4_mtt_init);
- 
--void __mlx4_free_mtt_range(struct mlx4_dev *dev, u32 first_seg,
--				  int order)
-+void __mlx4_free_mtt_range(struct mlx4_dev *dev, u32 offset, int order)
- {
-+	u32 first_seg;
-+	int seg_order;
- 	struct mlx4_mr_table *mr_table = &mlx4_priv(dev)->mr_table;
- 
--	mlx4_buddy_free(&mr_table->mtt_buddy, first_seg, order);
-+	seg_order = max_t(int, order - log_mtts_per_seg, 0);
-+	first_seg = offset / (1 << log_mtts_per_seg);
-+
-+	mlx4_buddy_free(&mr_table->mtt_buddy, first_seg, seg_order);
- 	mlx4_table_put_range(dev, &mr_table->mtt_table, first_seg,
--				     first_seg + (1 << order) - 1);
-+			     first_seg + (1 << seg_order) - 1);
- }
- 
--static void mlx4_free_mtt_range(struct mlx4_dev *dev, u32 first_seg, int order)
-+static void mlx4_free_mtt_range(struct mlx4_dev *dev, u32 offset, int order)
- {
- 	u64 in_param;
- 	int err;
- 
- 	if (mlx4_is_mfunc(dev)) {
--		set_param_l(&in_param, first_seg);
-+		set_param_l(&in_param, offset);
- 		set_param_h(&in_param, order);
- 		err = mlx4_cmd(dev, in_param, RES_MTT, RES_OP_RESERVE_AND_MAP,
- 						       MLX4_CMD_FREE_RES,
- 						       MLX4_CMD_TIME_CLASS_A,
- 						       MLX4_CMD_WRAPPED);
- 		if (err)
--			mlx4_warn(dev, "Failed to free mtt range at:%d"
--				  " order:%d\n", first_seg, order);
-+			mlx4_warn(dev, "Failed to free mtt range at:"
-+				  "%d order:%d\n", offset, order);
- 		return;
- 	}
--	__mlx4_free_mtt_range(dev, first_seg, order);
-+	 __mlx4_free_mtt_range(dev, offset, order);
- }
- 
- void mlx4_mtt_cleanup(struct mlx4_dev *dev, struct mlx4_mtt *mtt)
-@@ -258,13 +268,13 @@ void mlx4_mtt_cleanup(struct mlx4_dev *dev, struct mlx4_mtt *mtt)
- 	if (mtt->order < 0)
- 		return;
- 
--	mlx4_free_mtt_range(dev, mtt->first_seg, mtt->order);
-+	mlx4_free_mtt_range(dev, mtt->offset, mtt->order);
- }
- EXPORT_SYMBOL_GPL(mlx4_mtt_cleanup);
- 
- u64 mlx4_mtt_addr(struct mlx4_dev *dev, struct mlx4_mtt *mtt)
- {
--	return (u64) mtt->first_seg * dev->caps.mtt_entry_sz;
-+	return (u64) mtt->offset * dev->caps.mtt_entry_sz;
- }
- EXPORT_SYMBOL_GPL(mlx4_mtt_addr);
- 
-@@ -504,9 +514,10 @@ int mlx4_mr_enable(struct mlx4_dev *dev, struct mlx4_mr *mr)
- 
- 	if (mr->mtt.order < 0) {
- 		mpt_entry->flags |= cpu_to_be32(MLX4_MPT_FLAG_PHYSICAL);
--		mpt_entry->mtt_seg = 0;
-+		mpt_entry->mtt_addr = 0;
- 	} else {
--		mpt_entry->mtt_seg = cpu_to_be64(mlx4_mtt_addr(dev, &mr->mtt));
-+		mpt_entry->mtt_addr = cpu_to_be64(mlx4_mtt_addr(dev,
-+						  &mr->mtt));
- 	}
- 
- 	if (mr->mtt.order >= 0 && mr->mtt.page_shift == 0) {
-@@ -514,8 +525,7 @@ int mlx4_mr_enable(struct mlx4_dev *dev, struct mlx4_mr *mr)
- 		mpt_entry->flags    |= cpu_to_be32(MLX4_MPT_FLAG_FREE);
- 		mpt_entry->pd_flags |= cpu_to_be32(MLX4_MPT_PD_FLAG_FAST_REG |
- 						   MLX4_MPT_PD_FLAG_RAE);
--		mpt_entry->mtt_sz    = cpu_to_be32((1 << mr->mtt.order) *
--						   dev->caps.mtts_per_seg);
-+		mpt_entry->mtt_sz    = cpu_to_be32(1 << mr->mtt.order);
- 	} else {
- 		mpt_entry->flags    |= cpu_to_be32(MLX4_MPT_FLAG_SW_OWNS);
- 	}
-@@ -548,18 +558,10 @@ static int mlx4_write_mtt_chunk(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
- 	__be64 *mtts;
- 	dma_addr_t dma_handle;
- 	int i;
--	int s = start_index * sizeof (u64);
- 
--	/* All MTTs must fit in the same page */
--	if (start_index / (PAGE_SIZE / sizeof (u64)) !=
--	    (start_index + npages - 1) / (PAGE_SIZE / sizeof (u64)))
--		return -EINVAL;
-+	mtts = mlx4_table_find(&priv->mr_table.mtt_table, mtt->offset +
-+			       start_index, &dma_handle);
- 
--	if (start_index & (dev->caps.mtts_per_seg - 1))
--		return -EINVAL;
--
--	mtts = mlx4_table_find(&priv->mr_table.mtt_table, mtt->first_seg +
--				s / dev->caps.mtt_entry_sz, &dma_handle);
- 	if (!mtts)
- 		return -ENOMEM;
- 
-@@ -580,15 +582,25 @@ int __mlx4_write_mtt(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
- {
- 	int err = 0;
- 	int chunk;
-+	int mtts_per_page;
-+	int max_mtts_first_page;
-+
-+	/* compute how may mtts fit in the first page */
-+	mtts_per_page = PAGE_SIZE / sizeof(u64);
-+	max_mtts_first_page = mtts_per_page - (mtt->offset + start_index)
-+			      % mtts_per_page;
-+
-+	chunk = min_t(int, max_mtts_first_page, npages);
- 
- 	while (npages > 0) {
--		chunk = min_t(int, PAGE_SIZE / sizeof(u64), npages);
- 		err = mlx4_write_mtt_chunk(dev, mtt, start_index, chunk, page_list);
- 		if (err)
- 			return err;
- 		npages      -= chunk;
- 		start_index += chunk;
- 		page_list   += chunk;
-+
-+		chunk = min_t(int, mtts_per_page, npages);
- 	}
- 	return err;
- }
-@@ -612,18 +624,9 @@ int mlx4_write_mtt(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
- 		inbox = mailbox->buf;
- 
- 		while (npages > 0) {
--			int s = mtt->first_seg * dev->caps.mtts_per_seg +
--				start_index;
--			chunk = min_t(int, MLX4_MAILBOX_SIZE / sizeof(u64) -
--				      dev->caps.mtts_per_seg, npages);
--			if (s / (PAGE_SIZE / sizeof(u64)) !=
--			    (s + chunk - 1) / (PAGE_SIZE / sizeof(u64)))
--				chunk = PAGE_SIZE / sizeof(u64) -
--					(s % (PAGE_SIZE / sizeof(u64)));
--
--			inbox[0] = cpu_to_be64(mtt->first_seg *
--					       dev->caps.mtts_per_seg +
--					       start_index);
-+			chunk = min_t(int, MLX4_MAILBOX_SIZE / sizeof(u64) - 2,
-+				      npages);
-+			inbox[0] = cpu_to_be64(mtt->offset + start_index);
- 			inbox[1] = 0;
- 			for (i = 0; i < chunk; ++i)
- 				inbox[i + 2] = cpu_to_be64(page_list[i] |
-@@ -690,7 +693,8 @@ int mlx4_init_mr_table(struct mlx4_dev *dev)
- 		return err;
- 
- 	err = mlx4_buddy_init(&mr_table->mtt_buddy,
--			      ilog2(dev->caps.num_mtt_segs));
-+			      ilog2(dev->caps.num_mtts /
-+			      (1 << log_mtts_per_seg)));
- 	if (err)
- 		goto err_buddy;
- 
-@@ -809,7 +813,7 @@ int mlx4_fmr_alloc(struct mlx4_dev *dev, u32 pd, u32 access, int max_pages,
- 		   int max_maps, u8 page_shift, struct mlx4_fmr *fmr)
- {
+@@ -116,6 +117,10 @@ void mlx4_start_catas_poll(struct mlx4_dev *dev)
  	struct mlx4_priv *priv = mlx4_priv(dev);
--	u64 mtt_seg;
-+	u64 mtt_offset;
- 	int err = -ENOMEM;
+ 	phys_addr_t addr;
  
- 	if (page_shift < (ffs(dev->caps.page_size_cap) - 1) || page_shift >= 32)
-@@ -829,11 +833,12 @@ int mlx4_fmr_alloc(struct mlx4_dev *dev, u32 pd, u32 access, int max_pages,
- 	if (err)
- 		return err;
- 
--	mtt_seg = fmr->mr.mtt.first_seg * dev->caps.mtt_entry_sz;
-+	mtt_offset = fmr->mr.mtt.offset * dev->caps.mtt_entry_sz;
- 
- 	fmr->mtts = mlx4_table_find(&priv->mr_table.mtt_table,
--				    fmr->mr.mtt.first_seg,
-+				    fmr->mr.mtt.offset,
- 				    &fmr->dma_handle);
++	/*If we are in SRIOV the default of the module param must be 0*/
++	if (mlx4_is_mfunc(dev))
++		internal_err_reset = 0;
 +
- 	if (!fmr->mtts) {
- 		err = -ENOMEM;
- 		goto err_free;
-@@ -872,7 +877,7 @@ static int mlx4_fmr_alloc_reserved(struct mlx4_dev *dev, u32 mridx,
- 		return err;
+ 	INIT_LIST_HEAD(&priv->catas_err.list);
+ 	init_timer(&priv->catas_err.timer);
+ 	priv->catas_err.map = NULL;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/intf.c b/drivers/net/ethernet/mellanox/mlx4/intf.c
+index ca6feb5..b4e9f6f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/intf.c
++++ b/drivers/net/ethernet/mellanox/mlx4/intf.c
+@@ -142,7 +142,8 @@ int mlx4_register_device(struct mlx4_dev *dev)
+ 		mlx4_add_device(intf, priv);
  
- 	fmr->mtts = mlx4_table_find(&priv->mr_table.mtt_table,
--				    fmr->mr.mtt.first_seg,
-+				    fmr->mr.mtt.offset,
- 				    &fmr->dma_handle);
- 	if (!fmr->mtts) {
- 		err = -ENOMEM;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/profile.c b/drivers/net/ethernet/mellanox/mlx4/profile.c
-index 771c460..66f91ca 100644
---- a/drivers/net/ethernet/mellanox/mlx4/profile.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/profile.c
-@@ -98,7 +98,7 @@ u64 mlx4_make_profile(struct mlx4_dev *dev,
- 	profile[MLX4_RES_EQ].size     = dev_cap->eqc_entry_sz;
- 	profile[MLX4_RES_DMPT].size   = dev_cap->dmpt_entry_sz;
- 	profile[MLX4_RES_CMPT].size   = dev_cap->cmpt_entry_sz;
--	profile[MLX4_RES_MTT].size    = dev->caps.mtts_per_seg * dev_cap->mtt_entry_sz;
-+	profile[MLX4_RES_MTT].size    = dev_cap->mtt_entry_sz;
- 	profile[MLX4_RES_MCG].size    = mlx4_get_mgm_entry_size(dev);
- 
- 	profile[MLX4_RES_QP].num      = request->num_qp;
-@@ -210,7 +210,7 @@ u64 mlx4_make_profile(struct mlx4_dev *dev,
- 			init_hca->cmpt_base	 = profile[i].start;
- 			break;
- 		case MLX4_RES_MTT:
--			dev->caps.num_mtt_segs	 = profile[i].num;
-+			dev->caps.num_mtts	 = profile[i].num;
- 			priv->mr_table.mtt_base	 = profile[i].start;
- 			init_hca->mtt_base	 = profile[i].start;
- 			break;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 243231a..03f5239 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -1581,9 +1581,9 @@ static int mr_phys_mpt(struct mlx4_mpt_entry *mpt)
- 	return (be32_to_cpu(mpt->flags) >> 9) & 1;
- }
- 
--static int mr_get_mtt_seg(struct mlx4_mpt_entry *mpt)
-+static int mr_get_mtt_addr(struct mlx4_mpt_entry *mpt)
- {
--	return (int)be64_to_cpu(mpt->mtt_seg) & 0xfffffff8;
-+	return (int)be64_to_cpu(mpt->mtt_addr) & 0xfffffff8;
- }
- 
- static int mr_get_mtt_size(struct mlx4_mpt_entry *mpt)
-@@ -1596,12 +1596,12 @@ static int mr_get_pdn(struct mlx4_mpt_entry *mpt)
- 	return be32_to_cpu(mpt->pd_flags) & 0xffffff;
- }
- 
--static int qp_get_mtt_seg(struct mlx4_qp_context *qpc)
-+static int qp_get_mtt_addr(struct mlx4_qp_context *qpc)
- {
- 	return be32_to_cpu(qpc->mtt_base_addr_l) & 0xfffffff8;
- }
- 
--static int srq_get_mtt_seg(struct mlx4_srq_context *srqc)
-+static int srq_get_mtt_addr(struct mlx4_srq_context *srqc)
- {
- 	return be32_to_cpu(srqc->mtt_base_addr_l) & 0xfffffff8;
- }
-@@ -1645,8 +1645,8 @@ static int pdn2slave(int pdn)
- static int check_mtt_range(struct mlx4_dev *dev, int slave, int start,
- 			   int size, struct res_mtt *mtt)
- {
--	int res_start = mtt->com.res_id * dev->caps.mtts_per_seg;
--	int res_size = (1 << mtt->order) * dev->caps.mtts_per_seg;
-+	int res_start = mtt->com.res_id;
-+	int res_size = (1 << mtt->order);
- 
- 	if (start < res_start || start + size > res_start + res_size)
- 		return -EPERM;
-@@ -1663,8 +1663,7 @@ int mlx4_SW2HW_MPT_wrapper(struct mlx4_dev *dev, int slave,
- 	int index = vhcr->in_modifier;
- 	struct res_mtt *mtt;
- 	struct res_mpt *mpt;
--	int mtt_base = (mr_get_mtt_seg(inbox->buf) / dev->caps.mtt_entry_sz) *
--		dev->caps.mtts_per_seg;
-+	int mtt_base = mr_get_mtt_addr(inbox->buf) / dev->caps.mtt_entry_sz;
- 	int phys;
- 	int id;
- 
-@@ -1675,8 +1674,7 @@ int mlx4_SW2HW_MPT_wrapper(struct mlx4_dev *dev, int slave,
- 
- 	phys = mr_phys_mpt(inbox->buf);
- 	if (!phys) {
--		err = get_res(dev, slave, mtt_base / dev->caps.mtts_per_seg,
--			      RES_MTT, &mtt);
-+		err = get_res(dev, slave, mtt_base, RES_MTT, &mtt);
- 		if (err)
- 			goto ex_abort;
- 
-@@ -1800,8 +1798,7 @@ int mlx4_RST2INIT_QP_wrapper(struct mlx4_dev *dev, int slave,
- 	struct res_mtt *mtt;
- 	struct res_qp *qp;
- 	struct mlx4_qp_context *qpc = inbox->buf + 8;
--	int mtt_base = (qp_get_mtt_seg(qpc) / dev->caps.mtt_entry_sz) *
--		dev->caps.mtts_per_seg;
-+	int mtt_base = qp_get_mtt_addr(qpc) / dev->caps.mtt_entry_sz;
- 	int mtt_size = qp_get_mtt_size(qpc);
- 	struct res_cq *rcq;
- 	struct res_cq *scq;
-@@ -1817,8 +1814,7 @@ int mlx4_RST2INIT_QP_wrapper(struct mlx4_dev *dev, int slave,
- 		return err;
- 	qp->local_qpn = local_qpn;
- 
--	err = get_res(dev, slave, mtt_base / dev->caps.mtts_per_seg, RES_MTT,
--		      &mtt);
-+	err = get_res(dev, slave, mtt_base, RES_MTT, &mtt);
- 	if (err)
- 		goto ex_abort;
- 
-@@ -1867,7 +1863,7 @@ int mlx4_RST2INIT_QP_wrapper(struct mlx4_dev *dev, int slave,
- 		qp->srq = srq;
- 	}
- 	put_res(dev, slave, rcqn, RES_CQ);
--	put_res(dev, slave, mtt_base  / dev->caps.mtts_per_seg, RES_MTT);
-+	put_res(dev, slave, mtt_base, RES_MTT);
- 	res_end_move(dev, slave, RES_QP, qpn);
+ 	mutex_unlock(&intf_mutex);
+-	mlx4_start_catas_poll(dev);
++	if (!mlx4_is_slave(dev))
++		mlx4_start_catas_poll(dev);
  
  	return 0;
-@@ -1881,14 +1877,14 @@ ex_put_scq:
- ex_put_rcq:
- 	put_res(dev, slave, rcqn, RES_CQ);
- ex_put_mtt:
--	put_res(dev, slave, mtt_base / dev->caps.mtts_per_seg, RES_MTT);
-+	put_res(dev, slave, mtt_base, RES_MTT);
- ex_abort:
- 	res_abort_move(dev, slave, RES_QP, qpn);
- 
- 	return err;
  }
+@@ -152,7 +153,8 @@ void mlx4_unregister_device(struct mlx4_dev *dev)
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	struct mlx4_interface *intf;
  
--static int eq_get_mtt_seg(struct mlx4_eq_context *eqc)
-+static int eq_get_mtt_addr(struct mlx4_eq_context *eqc)
- {
- 	return be32_to_cpu(eqc->mtt_base_addr_l) & 0xfffffff8;
- }
-@@ -1904,7 +1900,7 @@ static int eq_get_mtt_size(struct mlx4_eq_context *eqc)
- 	return 1 << (log_eq_size + 5 - page_shift);
- }
+-	mlx4_stop_catas_poll(dev);
++	if (!mlx4_is_slave(dev))
++		mlx4_stop_catas_poll(dev);
+ 	mutex_lock(&intf_mutex);
  
--static int cq_get_mtt_seg(struct mlx4_cq_context *cqc)
-+static int cq_get_mtt_addr(struct mlx4_cq_context *cqc)
- {
- 	return be32_to_cpu(cqc->mtt_base_addr_l) & 0xfffffff8;
- }
-@@ -1930,8 +1926,7 @@ int mlx4_SW2HW_EQ_wrapper(struct mlx4_dev *dev, int slave,
- 	int eqn = vhcr->in_modifier;
- 	int res_id = (slave << 8) | eqn;
- 	struct mlx4_eq_context *eqc = inbox->buf;
--	int mtt_base = (eq_get_mtt_seg(eqc) / dev->caps.mtt_entry_sz) *
--		dev->caps.mtts_per_seg;
-+	int mtt_base = eq_get_mtt_addr(eqc) / dev->caps.mtt_entry_sz;
- 	int mtt_size = eq_get_mtt_size(eqc);
- 	struct res_eq *eq;
- 	struct res_mtt *mtt;
-@@ -1943,8 +1938,7 @@ int mlx4_SW2HW_EQ_wrapper(struct mlx4_dev *dev, int slave,
- 	if (err)
- 		goto out_add;
- 
--	err = get_res(dev, slave, mtt_base / dev->caps.mtts_per_seg, RES_MTT,
--		      &mtt);
-+	err = get_res(dev, slave, mtt_base, RES_MTT, &mtt);
- 	if (err)
- 		goto out_move;
- 
-@@ -2017,7 +2011,8 @@ int mlx4_WRITE_MTT_wrapper(struct mlx4_dev *dev, int slave,
- 	/* Call the SW implementation of write_mtt:
- 	 * - Prepare a dummy mtt struct
- 	 * - Translate inbox contents to simple addresses in host endianess */
--	mtt.first_seg = 0;
-+	mtt.offset = 0;  /* TBD this is broken but I don't handle it since
-+			    we don't really use it */
- 	mtt.order = 0;
- 	mtt.page_shift = 0;
- 	for (i = 0; i < npages; ++i)
-@@ -2168,16 +2163,14 @@ int mlx4_SW2HW_CQ_wrapper(struct mlx4_dev *dev, int slave,
- 	int err;
- 	int cqn = vhcr->in_modifier;
- 	struct mlx4_cq_context *cqc = inbox->buf;
--	int mtt_base = (cq_get_mtt_seg(cqc) / dev->caps.mtt_entry_sz) *
--		dev->caps.mtts_per_seg;
-+	int mtt_base = cq_get_mtt_addr(cqc) / dev->caps.mtt_entry_sz;
- 	struct res_cq *cq;
- 	struct res_mtt *mtt;
- 
- 	err = cq_res_start_move_to(dev, slave, cqn, RES_CQ_HW, &cq);
- 	if (err)
- 		return err;
--	err = get_res(dev, slave, mtt_base / dev->caps.mtts_per_seg, RES_MTT,
--		      &mtt);
-+	err = get_res(dev, slave, mtt_base, RES_MTT, &mtt);
- 	if (err)
- 		goto out_move;
- 	err = check_mtt_range(dev, slave, mtt_base, cq_get_mtt_size(cqc), mtt);
-@@ -2259,8 +2252,7 @@ static int handle_resize(struct mlx4_dev *dev, int slave,
- 	struct res_mtt *orig_mtt;
- 	struct res_mtt *mtt;
- 	struct mlx4_cq_context *cqc = inbox->buf;
--	int mtt_base = (cq_get_mtt_seg(cqc) / dev->caps.mtt_entry_sz) *
--		dev->caps.mtts_per_seg;
-+	int mtt_base = cq_get_mtt_addr(cqc) / dev->caps.mtt_entry_sz;
- 
- 	err = get_res(dev, slave, cq->mtt->com.res_id, RES_MTT, &orig_mtt);
- 	if (err)
-@@ -2271,8 +2263,7 @@ static int handle_resize(struct mlx4_dev *dev, int slave,
- 		goto ex_put;
- 	}
- 
--	err = get_res(dev, slave, mtt_base / dev->caps.mtts_per_seg, RES_MTT,
--		      &mtt);
-+	err = get_res(dev, slave, mtt_base, RES_MTT, &mtt);
- 	if (err)
- 		goto ex_put;
- 
-@@ -2356,8 +2347,7 @@ int mlx4_SW2HW_SRQ_wrapper(struct mlx4_dev *dev, int slave,
- 	struct res_mtt *mtt;
- 	struct res_srq *srq;
- 	struct mlx4_srq_context *srqc = inbox->buf;
--	int mtt_base = (srq_get_mtt_seg(srqc) / dev->caps.mtt_entry_sz) *
--		dev->caps.mtts_per_seg;
-+	int mtt_base = srq_get_mtt_addr(srqc) / dev->caps.mtt_entry_sz;
- 
- 	if (srqn != (be32_to_cpu(srqc->state_logsize_srqn) & 0xffffff))
- 		return -EINVAL;
-@@ -2365,8 +2355,7 @@ int mlx4_SW2HW_SRQ_wrapper(struct mlx4_dev *dev, int slave,
- 	err = srq_res_start_move_to(dev, slave, srqn, RES_SRQ_HW, &srq);
- 	if (err)
- 		return err;
--	err = get_res(dev, slave, mtt_base / dev->caps.mtts_per_seg,
--		      RES_MTT, &mtt);
-+	err = get_res(dev, slave, mtt_base, RES_MTT, &mtt);
- 	if (err)
- 		goto ex_abort;
- 	err = check_mtt_range(dev, slave, mtt_base, srq_get_mtt_size(srqc),
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 3ef73b0..65bb466 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -272,8 +272,7 @@ struct mlx4_caps {
- 	int			num_comp_vectors;
- 	int			comp_pool;
- 	int			num_mpts;
--	int			num_mtt_segs;
--	int			mtts_per_seg;
-+	int			num_mtts;
- 	int			fmr_reserved_mtts;
- 	int			reserved_mtts;
- 	int			reserved_mrws;
-@@ -323,7 +322,7 @@ struct mlx4_buf {
- };
- 
- struct mlx4_mtt {
--	u32			first_seg;
-+	u32			offset;
- 	int			order;
- 	int			page_shift;
- };
+ 	list_for_each_entry(intf, &intf_list, list)
 -- 
 1.7.7
 
