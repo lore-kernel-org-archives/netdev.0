@@ -1,34 +1,31 @@
-From: Frederic LAMBERT <frdrc66@gmail.com>
-Subject: Driver for embedded switch Micrel KS8995MA
-Date: Tue, 13 Dec 2011 19:33:25 +0100
-Message-ID: <CAMVnO+nbtJjyjKXVnQz__A+91cUb6P7VSpkd=f67L1G=rP-dag@mail.gmail.com>
-References: <CAMVnO+n1g1rV_xLhqHONFcSBxJJ6wU3a8vzQ623jZKv0wYnh+A@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/2] be2net: fix ethtool ringparam reporting
+Date: Tue, 13 Dec 2011 13:34:44 -0500 (EST)
+Message-ID: <20111213.133444.1070704928888560046.davem@davemloft.net>
+References: <1323773930-6617-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:40375 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752330Ab1LMSd0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2011 13:33:26 -0500
-Received: by yenm11 with SMTP id m11so5015278yen.19
-        for <netdev@vger.kernel.org>; Tue, 13 Dec 2011 10:33:25 -0800 (PST)
-In-Reply-To: <CAMVnO+n1g1rV_xLhqHONFcSBxJJ6wU3a8vzQ623jZKv0wYnh+A@mail.gmail.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:49631 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753077Ab1LMSes (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2011 13:34:48 -0500
+In-Reply-To: <1323773930-6617-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I found an quite old driver on the net for the 5-ports 10/100 embedded
-switch Micrel KS8995MA.
-It had to be updated a little bit because a parameter was missing to
-the ks8995_registers_read() & write() functions.
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Tue, 13 Dec 2011 16:28:49 +0530
 
-I haven't been able to contact its original author, Gabor Juhos, who
-wrote it in 2008 under GPL v2.
+> The ethtool "-g" option is supposed to report the max queue length and
+> user modified queue length for RX and TX queues.  be2net doesn't support
+> user modification of queue lengths. So, the correct values for these
+> would be the max numbers.
+> be2net incorrectly reports the queue used values for these fields.
+> 
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 
-Is it possible to submit this driver as a patch to be included in the
-distribution?
-If yes, what would be the best place? driver/net/phy? driver/net/ethernet?
-
-Thanks for advices,
---
-Frederic
+Applied.
