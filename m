@@ -1,147 +1,167 @@
-From: "Esztermann, Ansgar" <Ansgar.Esztermann@mpi-bpc.mpg.de>
-Subject: Re: TCP fast retransmit
-Date: Tue, 13 Dec 2011 15:05:16 +0100
-Message-ID: <53E23320-FE3E-4B9C-95FA-132F75E89E83@mpi-bpc.mpg.de>
-References: <2D9E1426-D432-4D08-BF28-FD2615AAEDBA@mpi-bpc.mpg.de>
- <1322239016.5793.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <C2C333F1-98FD-41FB-9CFA-EDE9F363CABF@mpi-bpc.mpg.de>
- <1323441811.2336.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <6DA1FA31-8983-4338-A1B8-5697A876E2B6@mpi-bpc.mpg.de>
- <1323448264.5661.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH] net: do not pass vlan pkts to real dev pkt handler also
+Date: Tue, 13 Dec 2011 15:21:15 +0100
+Message-ID: <20111213142114.GB2702@minipsycho>
+References: <20111212221923.5356.43629.stgit@vifc.jf.intel.com>
+ <20111212225622.GA7083@minipsycho>
+ <1323738532.8333.7.camel@vi>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="Apple-Mail-7--266950783";
-	protocol="application/pkcs7-signature"; micalg=sha1
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vasu Dev <vasu.dev@intel.com>, netdev@vger.kernel.org,
+	devel@open-fcoe.org, eric.dumazet@gmail.com
+To: Vasu Dev <vasu.dev@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tmailer.gwdg.de ([134.76.10.23]:42768 "EHLO tmailer.gwdg.de"
+Received: from mx1.redhat.com ([209.132.183.28]:59531 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751380Ab1LMOFT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Dec 2011 09:05:19 -0500
-Received: from gwdexc-fe12.exc.top.gwdg.de ([134.76.9.232] helo=smtp-exc.gwdg.de)
-	by mailer.gwdg.de with esmtps (TLSv1:RC4-MD5:128)
-	(Exim 4.72)
-	(envelope-from <Ansgar.Esztermann@mpi-bpc.mpg.de>)
-	id 1RaSxO-0003LO-No
-	for netdev@vger.kernel.org; Tue, 13 Dec 2011 15:03:47 +0100
-In-Reply-To: <1323448264.5661.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Content-Language: en-US
+	id S1754795Ab1LMOVZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Dec 2011 09:21:25 -0500
+Content-Disposition: inline
+In-Reply-To: <1323738532.8333.7.camel@vi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Apple-Mail-7--266950783
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=iso-8859-1
+Tue, Dec 13, 2011 at 02:08:52AM CET, vasu.dev@linux.intel.com wrote:
+>On Mon, 2011-12-12 at 23:56 +0100, Jiri Pirko wrote: 
+>> Mon, Dec 12, 2011 at 11:19:23PM CET, vasu.dev@intel.com wrote:
+>> >The orig_dev has to be updated before going another round
+>> >for vlan pkts, otherwise currently unmodified real orig_dev
+>> >causes vlan pkt delivered to real orig_dev also.
+>> >
+>> >The fcoe stack doesn't expects its vlan pkts on real dev
+>> >and it causes crash in fcoe stack.
+>> 
+>> Could you please provide more info on where exactly it would crash and
+>> why?
+>
+>Its in fcoe stack due to its fip rx skb list getting corrupt as same skb
+>instance getting queued twice without being cloned, though list was well
+>protected by its spin lock, it was queued on its two fcoe instances, one
+>on real dev and other on its vlan.
+>
+>I could also handle this gracefully in fcoe stack by cloning but any
+>case netdev should not forward vlan pkt to its read dev pkt handler also
+>and that is getting fixed with this patch, so patch will restore
+>orig_dev uses for *only* vlan pkts as it was with recursive
+>__netif_receive_skb calling prior to commit 0dfe178.
 
 
-On Dec 9, 2011, at 17:31 , Eric Dumazet wrote:
-
->>> It seems you have a lot of packet reorders.
->>>=20
->>> Are you using multipath or some channel bonding ?
->>=20
->> Not that I am aware of (i.e. not on our end). However, the connection
->> will probably routed through a firewall. I will have to check if it =
-is
->> configured to avoid reordering.
->>=20
->=20
-> Is it a linux based firewall ?
-
-No, it's Cisco.
+I do not see into fcoe code, but wouldn't it be good to do skb
+skb_share_check in fcoe_ctlr_recv? I suppose that would solve your
+problem and looks legal to me.
 
 
-A.
-
---=20
-Ansgar Esztermann
-DV-Systemadministration
-Max-Planck-Institut f=FCr biophysikalische Chemie, Abteilung 105
-
-
---Apple-Mail-7--266950783
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIOcDCCBCEw
-ggMJoAMCAQICAgDHMA0GCSqGSIb3DQEBBQUAMHExCzAJBgNVBAYTAkRFMRwwGgYDVQQKExNEZXV0
-c2NoZSBUZWxla29tIEFHMR8wHQYDVQQLExZULVRlbGVTZWMgVHJ1c3QgQ2VudGVyMSMwIQYDVQQD
-ExpEZXV0c2NoZSBUZWxla29tIFJvb3QgQ0EgMjAeFw0wNjEyMTkxMDI5MDBaFw0xOTA2MzAyMzU5
-MDBaMFoxCzAJBgNVBAYTAkRFMRMwEQYDVQQKEwpERk4tVmVyZWluMRAwDgYDVQQLEwdERk4tUEtJ
-MSQwIgYDVQQDExtERk4tVmVyZWluIFBDQSBHbG9iYWwgLSBHMDEwggEiMA0GCSqGSIb3DQEBAQUA
-A4IBDwAwggEKAoIBAQDpm8NnhfkNrvWNVMOWUDU9YuluTO2U1wBblSJ01CDrNI/W7MAxBAuZgeKm
-FNJSoCgjhIt0iQReW+DieMF4yxbLKDU5ey2QRdDtoAB6fL9KDhsAw4bpXCsxEXsM84IkQ4wcOItq
-aACa7txPeKvSxhObdq3u3ibo7wGvdA/BCaL2a869080UME/15eOkyGKbghoDJzANAmVgTe3RCSMq
-ljVYJ9N2xnG2kB3E7f81hn1vM7PbD8URwoqDoZRdQWvY0hD1TP3KUazZve+Sg7va64sWVlZDz+HV
-Ez2mHycwzUlU28kTNJpxdcVs6qcLmPkhnSevPqM5OUhqjK3JmfvDEvK9AgMBAAGjgdkwgdYwcAYD
-VR0fBGkwZzBloGOgYYZfaHR0cDovL3BraS50ZWxlc2VjLmRlL2NnaS1iaW4vc2VydmljZS9hZl9E
-b3dubG9hZEFSTC5jcmw/LWNybF9mb3JtYXQ9WF81MDkmLWlzc3Vlcj1EVF9ST09UX0NBXzIwHQYD
-VR0OBBYEFEm3xs/oPR9/6kR7Eyn38QpwPt5kMB8GA1UdIwQYMBaAFDHDeRu69VPXF+CJei0XbAqz
-K50zMA4GA1UdDwEB/wQEAwIBBjASBgNVHRMBAf8ECDAGAQH/AgECMA0GCSqGSIb3DQEBBQUAA4IB
-AQA74Vp3wEgX3KkY7IGvWonwvSiSpspZGBJw7Cjy565/lizn8l0ZMfYTK3S9vYCyufdnyTmieTvh
-ERHua3iRM347XyYndVNljjNj7s9zw7CSI0khUHUjoR8Y4pSFPT8z6XcgjaK95qGFKUD2P3MyWA0J
-a6bahWzAP7uNZmRWJE6uDT8yNQFb6YyC2XJZT7GGhfF0hVblw/hc843uR7NTBXDn5U2KaYMo4RMJ
-hp5eyOpYHgwf+aTUWgRo/Sg+iwK2WLX2oSw3VwBnqyNojWOl75lrXP1LVvarQIc01BGSbOyHxQoL
-BzNytG8MHVQs2FHHzL8w00Ny8TK/jM5JY6gA9/IcMIIE5zCCA8+gAwIBAgIECs6x2DANBgkqhkiG
-9w0BAQUFADBaMQswCQYDVQQGEwJERTETMBEGA1UEChMKREZOLVZlcmVpbjEQMA4GA1UECxMHREZO
-LVBLSTEkMCIGA1UEAxMbREZOLVZlcmVpbiBQQ0EgR2xvYmFsIC0gRzAxMB4XDTA3MDczMTEzMDgy
-NVoXDTE5MDYzMDAwMDAwMFowXjELMAkGA1UEBhMCREUxIDAeBgNVBAoTF01heC1QbGFuY2stR2Vz
-ZWxsc2NoYWZ0MQ8wDQYDVQQDEwZNUEcgQ0ExHDAaBgkqhkiG9w0BCQEWDW1wZy1jYUBtcGcuZGUw
-ggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDYUXKeoNTLgkGwbani4rlua5jzlzISfHna
-j/5qS+mojQqA/eYa0bGucylV5hyQuyJz7d4gRckdhMDV8DZIxERUIsFlXFj6HGHjaZjlhIHbo4S1
-2GjLhTH5YZ37O7MHVw0L/JhhzUIxESM1ZfRT/xLqhz2idJYjT98W9OFvzPgT0yrdieMzkLUz5X/f
-pY8MuyYBgxnddBJRw6ZtlhdCml4F8Q35pSb8J2qANiwuJVu3WCTgL/ydo3eA8vDieMMZ7O+L1wAn
-CzBbHAjJ5H6xU1B7mlwmu7V3pToKPgcWmlO0HcTpa68McNTGGiY8pO0/Rn1fXkqDYf8z0lPdWUWx
-bM1RAgMBAAGjggGvMIIBqzASBgNVHRMBAf8ECDAGAQH/AgEBMAsGA1UdDwQEAwIBBjAdBgNVHQ4E
-FgQUAtYebgmrv1hlpwo8SDNh0c59w1swHwYDVR0jBBgwFoAUSbfGz+g9H3/qRHsTKffxCnA+3mQw
-GAYDVR0RBBEwD4ENbXBnLWNhQG1wZy5kZTCBiAYDVR0fBIGAMH4wPaA7oDmGN2h0dHA6Ly9jZHAx
-LnBjYS5kZm4uZGUvZ2xvYmFsLXJvb3QtY2EvcHViL2NybC9jYWNybC5jcmwwPaA7oDmGN2h0dHA6
-Ly9jZHAyLnBjYS5kZm4uZGUvZ2xvYmFsLXJvb3QtY2EvcHViL2NybC9jYWNybC5jcmwwgaIGCCsG
-AQUFBwEBBIGVMIGSMEcGCCsGAQUFBzAChjtodHRwOi8vY2RwMS5wY2EuZGZuLmRlL2dsb2JhbC1y
-b290LWNhL3B1Yi9jYWNlcnQvY2FjZXJ0LmNydDBHBggrBgEFBQcwAoY7aHR0cDovL2NkcDIucGNh
-LmRmbi5kZS9nbG9iYWwtcm9vdC1jYS9wdWIvY2FjZXJ0L2NhY2VydC5jcnQwDQYJKoZIhvcNAQEF
-BQADggEBABtJz5i/SGqQOficdRUN6myFVmVelCYgkGT+zX7frnBRJFoVVafXolstZdVB7ZpH9FAc
-qj8O6FTZyhAANwh3+Y1D6xYBWTB7mQGy0lUoUL+j0msZjaMvyj/2LCQp7cKB5vA4h6Ntq5BN5MPc
-aRhunzjJey/i+J/3jMdG7KpufV47Gl0E8ky9lDegaM7SToG4IOQKwv1wsnuHoxoGLRewxO7FmYd9
-uq9f4L2mHtqgq+vibT1DeehT0HGPnrjjd8NK6g2TvZwirwjydbGs7szB5oxDm/pfWoJxYzO68HKT
-iVBlmaWMLpGw4/UsLE+5xJHpvNXfkYCQ3T+k99KBUZuIpKwwggVcMIIERKADAgECAgQRHzZIMA0G
-CSqGSIb3DQEBBQUAMF4xCzAJBgNVBAYTAkRFMSAwHgYDVQQKExdNYXgtUGxhbmNrLUdlc2VsbHNj
-aGFmdDEPMA0GA1UEAxMGTVBHIENBMRwwGgYJKoZIhvcNAQkBFg1tcGctY2FAbXBnLmRlMB4XDTEw
-MTIwODE2NTYyNFoXDTEzMTIwNzE2NTYyNFowgY8xCzAJBgNVBAYTAkRFMSAwHgYDVQQKExdNYXgt
-UGxhbmNrLUdlc2VsbHNjaGFmdDE5MDcGA1UECxMwTWF4LVBsYW5jay1JbnN0aXR1dCBmdWVyIGJp
-b3BoeXNpa2FsaXNjaGUgQ2hlbWllMSMwIQYDVQQDExpBbnNnYXIgRXN6dGVybWFubi1LaXJjaG5l
-cjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKYjxwFTzyWFVOWVWqCrGgLO1IOjfUwZ
-rCYmWPbCEqBUe8j3VVhzRpygrDMQuPHRNEDyElaQnF+RxJqTT8jHI6IFhI2+geicgCYRne1Hdv75
-Bd7Gx8ytwDICk5kGUGzkXhEbSfjY0hCT4zAaDLkkbAayB/cf2ymQgrwaa6gfpeYagIph5nvkvLHO
-KuAZ1YY7yUuU7UmpPPeut2aWObBFP+n0C7E6ZnZVTL+nHX4HAPtgbToxif8IjS8Dq699iqv/td80
-uZU8AKDhYCt/TVZHyvAm7NfQANwiUxVcBOx1CcD8cTWscVzOH29kRFomLRld4zFUUVCwvpQJX3N7
-p1uKV0UCAwEAAaOCAe4wggHqMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgXgMB0GA1UdJQQWMBQGCCsG
-AQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQUbrwY+89Tw5RQrRlpos37frX58x8wHwYDVR0jBBgw
-FoAUAtYebgmrv1hlpwo8SDNh0c59w1swYwYDVR0RBFwwWoEfYW5zZ2FyLmVzenRlcm1hbm5AbXBp
-YnBjLm1wZy5kZYEVYWVzenRlckBtcGlicGMubXBnLmRlgSBBbnNnYXIuRXN6dGVybWFubkBtcGkt
-YnBjLm1wZy5kZTB3BgNVHR8EcDBuMDWgM6Axhi9odHRwOi8vY2RwMS5wY2EuZGZuLmRlL21wZy1j
-YS9wdWIvY3JsL2NhY3JsLmNybDA1oDOgMYYvaHR0cDovL2NkcDIucGNhLmRmbi5kZS9tcGctY2Ev
-cHViL2NybC9jYWNybC5jcmwwgZIGCCsGAQUFBwEBBIGFMIGCMD8GCCsGAQUFBzAChjNodHRwOi8v
-Y2RwMS5wY2EuZGZuLmRlL21wZy1jYS9wdWIvY2FjZXJ0L2NhY2VydC5jcnQwPwYIKwYBBQUHMAKG
-M2h0dHA6Ly9jZHAyLnBjYS5kZm4uZGUvbXBnLWNhL3B1Yi9jYWNlcnQvY2FjZXJ0LmNydDANBgkq
-hkiG9w0BAQUFAAOCAQEABO7mDo6jeYLlkASWpEL6Z05yKLOEi/CeDeFr8+orDv+xpVD7N5UyDp46
-O1zT74sf/BYchf1DQnp3wh91Jl7rF4RRP5zkSuudTDP0W6AnWI7PoudWqqWQPPGsBRDYOxs/LNc5
-CdV3OeU/bP5eX9xBeYslYnYZamCKdKoVJ/T2gtIfjfm9W2a5XptYcgJkOIZs9gM3Tl1uOhIKy5J8
-9A9PrrSRlRgWhjg58wfoE3mNg5Q22HTKmppNNryRXSd+ZFMHcVet3sKMMOqhIm2+Lf8C6Mu1aqw8
-k8QeIHnZIjbLou7pfo4nJY06gUK7X/COyw3wsMOhq4HvgK9A/sU7sJdmBTGCAt4wggLaAgEBMGYw
-XjELMAkGA1UEBhMCREUxIDAeBgNVBAoTF01heC1QbGFuY2stR2VzZWxsc2NoYWZ0MQ8wDQYDVQQD
-EwZNUEcgQ0ExHDAaBgkqhkiG9w0BCQEWDW1wZy1jYUBtcGcuZGUCBBEfNkgwCQYFKw4DAhoFAKCC
-AU0wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTExMjEzMTQwNTE2
-WjAjBgkqhkiG9w0BCQQxFgQURlmGwquPc0Ps9N/zJ9fh//y5HzMwdQYJKwYBBAGCNxAEMWgwZjBe
-MQswCQYDVQQGEwJERTEgMB4GA1UEChMXTWF4LVBsYW5jay1HZXNlbGxzY2hhZnQxDzANBgNVBAMT
-Bk1QRyBDQTEcMBoGCSqGSIb3DQEJARYNbXBnLWNhQG1wZy5kZQIEER82SDB3BgsqhkiG9w0BCRAC
-CzFooGYwXjELMAkGA1UEBhMCREUxIDAeBgNVBAoTF01heC1QbGFuY2stR2VzZWxsc2NoYWZ0MQ8w
-DQYDVQQDEwZNUEcgQ0ExHDAaBgkqhkiG9w0BCQEWDW1wZy1jYUBtcGcuZGUCBBEfNkgwDQYJKoZI
-hvcNAQEBBQAEggEAdWsJoQ1sMgtTdzsS/CEeq2QPCavlIabjq+k4pxIYWGKrZxYLC0qp9ve4CptT
-l424PEywYO4cWyahhQwQwBy4cd4l5t1cPeO6PNwx83Q7zSmH3X5bjT2NWhcxh9zNokNkiI9g1auW
-UUj9oiZ/Ozfd5Oy1knMNfjKuyvFtGE9P2sSbU08OTUhJGSECgawgUiOzyKdzGC/HPRSJpMYlEO2v
-hy9yOhpAzw8aHro3YMzun25H5MAoKQ7C+iBs0jb6nG/EjWeDFRW+IvUoES54l7Y6uG3DzEIGto4j
-QdLw2wEMfBvVJY+73aufcdTRF7HpeTRs1PM2vRbBxD/Vd0Ld9fmnowAAAAAAAA==
-
---Apple-Mail-7--266950783--
+>
+>Here is the detailed crash log:
+>
+>[  340.679591] BUG: unable to handle kernel NULL pointer dereference at
+>0000000000000008
+>[  340.680112] IP: [<ffffffff815088a5>] skb_dequeue+0x55/0x90
+>[  340.680112] PGD 0
+>[  340.680112] Oops: 0002 [#1] SMP
+>[  340.680112] CPU 3
+>[  340.680112] Modules linked in: fcoe libfcoe libfc scsi_transport_fc
+>8021q e1000 virtio_balloon ixgbe mdio virtio_blk virtio_pci virtio_ring
+>virtio [last unloaded: scsi_wait_scan]
+>[  340.680112]
+>[  340.680112] Pid: 442, comm: kworker/3:1 Not tainted 3.2.0-rc4+ #53
+>Bochs Bochs
+>[  340.680112] RIP: 0010:[<ffffffff815088a5>]  [<ffffffff815088a5>]
+>skb_dequeue+0x55/0x90
+>[  340.680112] RSP: 0018:ffff88007c963c80  EFLAGS: 00010097
+>[  340.680112] RAX: 0000000000000282 RBX: ffff88007baee9b4 RCX:
+>0000000000000000
+>[  340.680112] RDX: 0000000000000000 RSI: 0000000000000286 RDI:
+>ffff88007baee9b4
+>[  340.680112] RBP: ffff88007c963ca0 R08: ffff88007c35ddc0 R09:
+>0000000000000001
+>[  340.680112] R10: 0000000000000006 R11: 0000000000000001 R12:
+>ffff88007bedca00
+>[  340.680112] R13: ffff88007baee9a0 R14: ffff88007c963d80 R15:
+>ffff88007baeea00
+>[  340.680112] FS:  0000000000000000(0000) GS:ffff88007fd80000(0000)
+>knlGS:0000000000000000
+>[  340.680112] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+>[  340.680112] CR2: 0000000000000008 CR3: 0000000001c05000 CR4:
+>00000000000006e0
+>[  340.680112] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
+>0000000000000000
+>[  340.680112] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
+>0000000000000400
+>[  340.680112] Process kworker/3:1 (pid: 442, threadinfo
+>ffff88007c962000, task ffff88007c9f60b0)
+>[  340.680112] Stack:
+>[  340.680112]  ffff88007baee9a0 ffff88007baee8c0 ffff88007baee9a0
+>ffff88007bedca00
+>[  340.680112]  ffff88007c963df0 ffffffffa00af7a7 ffff88007baad4d4
+>ffffffff81060dee
+>[  340.680112]  0000000000000001 ffff88007c35ddc0 ffff88007c963fd8
+>0000000000000000
+>[  340.680112] Call Trace:
+>[  340.680112]  [<ffffffffa00af7a7>] fcoe_ctlr_recv_work+0x147/0x1870
+>[libfcoe]
+>[  340.680112]  [<ffffffff81060dee>] ? queue_delayed_work_on+0x9e/0x170
+>[  340.680112]  [<ffffffffa00af660>] ? fcoe_ctlr_vn_recv+0x9a0/0x9a0
+>[libfcoe]
+>[  340.680112]  [<ffffffff810612de>] process_one_work+0x11e/0x460
+>[  340.680112]  [<ffffffff81063af8>] worker_thread+0x178/0x400
+>[  340.680112]  [<ffffffff81063980>] ? manage_workers+0x210/0x210
+>[  340.680112]  [<ffffffff81068576>] kthread+0x96/0xa0
+>[  340.680112]  [<ffffffff81663c74>] kernel_thread_helper+0x4/0x10
+>[  340.680112]  [<ffffffff810684e0>] ? kthread_worker_fn+0x1a0/0x1a0
+>[  340.680112]  [<ffffffff81663c70>] ? gs_change+0xb/0xb
+>[  340.680112] Code: 65 00 4d 39 e5 74 4f 4d 85 e4 74 26 41 83 6d 10 01
+>49 8b 0c 24 49 8b 54 24 08 49 c7 04 24 00 00 00 00 49 c7 44 24 08 00 00
+>00 00
+>[  340.680112]  89 51 08 48 89 0a 48 89 c6 48 89 df e8 39 1b 15 00 4c 89
+>e0
+>[  340.680112] RIP  [<ffffffff815088a5>] skb_dequeue+0x55/0x90
+>[  340.680112]  RSP <ffff88007c963c80>
+>[  340.680112] CR2: 0000000000000008
+>
+>
+>
+>Thanks
+>Vasu
+>
+>> 
+>> Thanks.
+>> 
+>> Jirka
+>> 
+>> >
+>> >This wasn't issue untill __netif_receive_skb recursive calling
+>> >was removed with this commit 0dfe178, so this patch restores
+>> >orig_dev uses as it was prior to that commit but still w/o
+>> >recursive calling to __netif_receive_skb.
+>> >
+>> >Signed-off-by: Vasu Dev <vasu.dev@intel.com>
+>> >---
+>> >
+>> > net/core/dev.c |    5 +++--
+>> > 1 files changed, 3 insertions(+), 2 deletions(-)
+>> >
+>> >diff --git a/net/core/dev.c b/net/core/dev.c
+>> >index f494675..adbcd7a 100644
+>> >--- a/net/core/dev.c
+>> >+++ b/net/core/dev.c
+>> >@@ -3222,9 +3222,10 @@ ncls:
+>> > 			ret = deliver_skb(skb, pt_prev, orig_dev);
+>> > 			pt_prev = NULL;
+>> > 		}
+>> >-		if (vlan_do_receive(&skb, !rx_handler))
+>> >+		if (vlan_do_receive(&skb, !rx_handler)) {
+>> >+			orig_dev = skb->dev;
+>> > 			goto another_round;
+>> >-		else if (unlikely(!skb))
+>> >+		} else if (unlikely(!skb))
+>> > 			goto out;
+>> > 	}
+>> > 
+>> >
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
+>
