@@ -1,47 +1,75 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: Driver for embedded switch Micrel KS8995MA
-Date: Tue, 13 Dec 2011 19:37:44 +0100
-Message-ID: <4EE79B78.1040807@openwrt.org>
-References: <CAMVnO+n1g1rV_xLhqHONFcSBxJJ6wU3a8vzQ623jZKv0wYnh+A@mail.gmail.com> <CAMVnO+nbtJjyjKXVnQz__A+91cUb6P7VSpkd=f67L1G=rP-dag@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: kernel 3.1.1 message:  <IRQ> warn_alloc_failed
+Date: Tue, 13 Dec 2011 10:41:52 -0800
+Message-ID: <20111213104152.14c01911@nehalam.linuxnetplumber.net>
+References: <6.2.5.6.2.20111208210303.03a06228@flumedata.com>
+	<20111209095014.14a647cd@nehalam.linuxnetplumber.net>
+	<6.2.5.6.2.20111209130007.039b3078@binnacle.cx>
+	<13A253B3F9BEFE43B93C09CF75F63CAA8162593365@MNEXMB1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, juhosg@openwrt.org
-To: Frederic LAMBERT <frdrc66@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:55971 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751548Ab1LMSid (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2011 13:38:33 -0500
-Received: by eaaj10 with SMTP id j10so1377170eaa.19
-        for <netdev@vger.kernel.org>; Tue, 13 Dec 2011 10:38:32 -0800 (PST)
-In-Reply-To: <CAMVnO+nbtJjyjKXVnQz__A+91cUb6P7VSpkd=f67L1G=rP-dag@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "starlight@binnacle.cx" <starlight@binnacle.cx>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <13A253B3F9BEFE43B93C09CF75F63CAA8162593365@MNEXMB1.qlogic.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On Tue, 13 Dec 2011 11:42:13 -0600
+Rajesh Borundia <rajesh.borundia@qlogic.com> wrote:
 
-On 12/13/11 19:33, Frederic LAMBERT wrote:
-> I found an quite old driver on the net for the 5-ports 10/100 embedded
-> switch Micrel KS8995MA.
-> It had to be updated a little bit because a parameter was missing to
-> the ks8995_registers_read()&  write() functions.
->
-> I haven't been able to contact its original author, Gabor Juhos, who
-> wrote it in 2008 under GPL v2.
+> Hi All,
+> 
+> Sorry for late reply.
+> 
+> Stephan,
+> Thanks for analyzing.
+> 
+> Yes, the netxen adapter does not support fragmented page memory.
+> They are not harmful messages. At that instant of time it may fail allocating
+> memory for some buffers in the ring but after enough memory is available
+> it will try to allocate memory for unallocated buffers in ring.
+> 
+> Or the other option could be to turn LRO off.
+> 
+> Rajesh  
+> 
+> ________________________________________
+> From: starlight@binnacle.cx [starlight@binnacle.cx]
+> Sent: Friday, December 09, 2011 11:33 PM
+> To: Stephen Hemminger; Sony Chacko; Rajesh Borundia
+> Cc: linux-kernel; netdev
+> Subject: Re: kernel 3.1.1 message:  <IRQ> warn_alloc_failed
+> 
+> At 09:50 AM 12/9/2011 -0800, Stephen Hemminger wrote:
+> >On Thu, 08 Dec 2011 21:10:02 -0500 starlight@binnacle.cx wrote:
+> >
+> >You are seeing memory allocation failures because device
+> >is allocating a 16K (order 2) size socket buffer. You are using
+> >netxen device, and it looks like the problem.
+> >
+> >From reading the netxen driver source. The LRO buffers
+> >in this device are very large (8060+skb overhead).
+> >Until the driver is fixed to use fragmented page size memory,
+> >I recommend turning off LRO.
+> 
+> Thank you for the analysis.  As an alternative
+> would it make sense to double or quadruple
+> 
+>     /proc/sys/vm/min_free_kbytes
+> 
+> or perhaps do the same for
+> 
+>     /proc/slabinfo(size-16384)
+> 
 
-Gabor is responding pretty quickly in general. You are talking about 
-this particular driver?
+The driver should be changed to call allocation with __GFP_NOWARN.
+Change dev_alloc_skb(size) to
+  __dev_alloc_skb(size, GFP_ATOMIC|__GFP_NOWARN)
 
-https://dev.openwrt.org/browser/trunk/package/spi-ks8995/src/spi_ks8995.c
-
->
-> Is it possible to submit this driver as a patch to be included in the
-> distribution?
-> If yes, what would be the best place? driver/net/phy? driver/net/ethernet?
-
-drivers/net/phy is the most appropriate place since it's a switch driver 
-but you certainly want to get in touch with Gabor to deal with this 
-driver inclusion first.
---
-Florian
+Or better yet, switch to using netdev_alloc variant like
+  __netdev_alloc_skb_ip_align(dev, length, GFP_ATOMIC|__GFP_NOWARN)
