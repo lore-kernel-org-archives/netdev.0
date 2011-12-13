@@ -1,46 +1,19 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH 2/3] cdc_ether: allow vendor specific data interface if control interface is vendor specific
-Date: Tue, 13 Dec 2011 05:59:12 +0100
-Message-ID: <87vcplcbj3.fsf@nemi.mork.no>
-References: <1323750784-32608-1-git-send-email-bjorn@mork.no>
-	<1323750784-32608-3-git-send-email-bjorn@mork.no>
-	<1323752053.3837.17.camel@joe2Laptop>
+From: Song Li <info@mail.com>
+Subject: RE: Thanks
+Date: Tue, 13 Dec 2011 15:47:34 -0800
+Message-ID: <20111213074953.5D43546A97B@mx1.sedalib.com.pe>
+Reply-To: mrsong.lile@yahoo.cn
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1323752053.3837.17.camel@joe2Laptop> (Joe Perches's message of
-	"Mon, 12 Dec 2011 20:54:13 -0800")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <info@mail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.sedalib.com.pe ([200.48.200.84]:58251 "EHLO
+	mx1.sedalib.com.pe" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751441Ab1LMH7K convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2011 02:59:10 -0500
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> writes:
-
-> On Tue, 2011-12-13 at 05:33 +0100, Bjorn Mork wrote:
->> diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether=
-=2Ec
-> []
->> @@ -211,8 +211,12 @@ int usbnet_generic_cdc_bind(struct usbnet *dev,=
- struct usb_interface *intf)
-> []
->> -				dev_dbg(&intf->dev, "slave class %u\n",
-> []
->> +				dev_dbg(&intf->dev, "xslave class %u\n",
->
-> Why change the output from slave to xslave?
-
-That was unintentional.  Sorry.  Don't understand how checkpatch could
-have missed that :-)
-
-Will fix and submit again, unless there are objections to the actual
-code change.
-
-
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+l am a Staff of Hang Seng Bank HongKong, I do not know if we can work together in transferring $19,500,000.USD from my bank. Finally if you are interested I shall provide you with more details. my private Email: mrsong.lile@yahoo.cn
