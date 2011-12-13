@@ -1,60 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] igb: offer a PTP Hardware Clock instead of
- the timecompare method
-Date: Tue, 13 Dec 2011 04:52:29 +0100
-Message-ID: <1323748349.2583.38.camel@edumazet-laptop>
-References: <cover.1323744724.git.richardcochran@gmail.com>
-	 <388385c50909f63bff239894c60dbb00abc65c93.1323744725.git.richardcochran@gmail.com>
-	 <1323746932.2583.33.camel@edumazet-laptop>
-	 <20111213034132.GC9604@netboy.at.omicron.at>
+From: Bjorn Mork <bjorn@mork.no>
+Subject: [PATCH 0/3] Adding a new driver for Huawei E392 WWAN modem
+Date: Tue, 13 Dec 2011 05:33:01 +0100
+Message-ID: <1323750784-32608-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Richard Cochran <richardcochran@gmail.com>
+Cc: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org, linux-usb@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:57784 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753696Ab1LMDwe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2011 22:52:34 -0500
-Received: by wgbdr13 with SMTP id dr13so12781462wgb.1
-        for <netdev@vger.kernel.org>; Mon, 12 Dec 2011 19:52:32 -0800 (PST)
-In-Reply-To: <20111213034132.GC9604@netboy.at.omicron.at>
+Received: from canardo.mork.no ([148.122.252.1]:57647 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752768Ab1LMEdO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Dec 2011 23:33:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 13 d=C3=A9cembre 2011 =C3=A0 04:41 +0100, Richard Cochran a =C3=
-=A9crit :
-> On Tue, Dec 13, 2011 at 04:28:52AM +0100, Eric Dumazet wrote:
-> >=20
-> > Adding a (shared) spinlock on a multiqueue device is source of extr=
-a
-> > delay (because of extra cache line trafic), I guess.
-> >=20
-> > It seems current code doesnt need a spinlock, maybe it was a bug ?
->=20
-> (I didn't think about the old code. I only deleted it. ;)
->=20
-> The spinlock is needed because reading the 64 bit time value involves
-> reading two 32 registers. The first read latches the value. Ditto for
-> writing.
->=20
-> In addition, here we have to watch the most significant bit for
-> one-to-zero transistion, in order to keep count of the overflow.
->=20
-> It is too bad that we have to take the spinlock for every time stampe=
-d
-> packet, but it is the hardware's fault for not providing a 64 bit wid=
-e
-> nanosecond time register.
->=20
+=46rom: Bj=C3=B8rn Mork <bjorn@mork.no>
 
-Yes, probably. Are you sure a workaround is not possible, using a
-seqlock for synchronization of threads, and two hardware reads ?
+This can probably support many more devices based on modern Qualcomm
+chipsets, but has only been tested with a Huawei E392 LTE modem based
+on Qualcomm MDM9200.
 
-Or maybe it doesnt matter at all :)
+These chips require using the QMI protocol to enable anything but
+serial mode.  They can, and should, still be configured using=20
+AT commands on one of the serial interfaces.  In particular, this
+driver does not support entering SIM PIN code or APN, which may be
+required before opening a connection. PIN can be set by using the
+standard AT+CPIN=3D"xxxx" command.  APN can most likely be set by
+storing it in the default profile.
+
+patch 1 releases one of the interfaces used by this protocol from
+the option driver. Note that this interface does not support serial
+data anyway, so the option driver binding is completely bogus.
+
+patch 2 relaxes the cdc_ether CDC descriptor parsing in such a way
+that it will allow a vendor specific data interface if and only if
+the control interface also is vendor specific.  This allows us to
+reuse the bind() function from cdc_ether for one of the possible
+device configurations we support
+
+patch 3 adds the new driver.  Most of it is QMI protocol handling.
+The network device is a minimalistic usbnet minidriver.
+
+
+
+Bj=C3=B8rn Mork (3):
+  option: Removing one bogus and adding some new Huawei combinations
+  cdc_ether: allow vendor specific data interface if control interface
+    is vendor specific
+  qmi_wwan: Driver for WWAN devices requiring use of the QMI protocol
+
+ drivers/net/usb/Kconfig         |   13 +
+ drivers/net/usb/Makefile        |    2 +
+ drivers/net/usb/cdc_ether.c     |    8 +-
+ drivers/net/usb/qmi.c           |  730 +++++++++++++++++++++++++++++++=
+++++++++
+ drivers/net/usb/qmi.h           |  101 ++++++
+ drivers/net/usb/qmi_wwan_core.c |  206 +++++++++++
+ drivers/usb/serial/option.c     |    4 +-
+ 7 files changed, 1061 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/net/usb/qmi.c
+ create mode 100644 drivers/net/usb/qmi.h
+ create mode 100644 drivers/net/usb/qmi_wwan_core.c
+
+--=20
+1.7.7.3
