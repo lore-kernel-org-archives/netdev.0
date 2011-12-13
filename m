@@ -1,53 +1,50 @@
-From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Subject: [PATCH net-next V2 13/21] mlx4_ib: disable SRIOV mode for IB ports
- (not yet supported)
-Date: Tue, 13 Dec 2011 16:15:46 +0200
-Message-ID: <4EE75E12.2070500@mellanox.co.il>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH] can: flexcan: fix irq flooding by clearing all interrupt
+ sources
+Date: Tue, 13 Dec 2011 17:22:06 +0100
+Message-ID: <4EE77BAE.5040702@grandegger.com>
+References: <4EE61928.10608@grandegger.com> <4EE61E3D.2090303@pengutronix.de> <4EE62141.8010305@grandegger.com> <4EE7416E.8070203@grandegger.com> <4EE74AC5.9050404@grandegger.com> <4EE74C2A.9040908@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>, <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
-	<liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>, <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	Reuben Dowle <Reuben.Dowle@navico.com>,
+	=?ISO-8859-1?Q?Lothar_Wa=DFmann?= <LW@KARO-electronics.de>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4EE74C2A.9040908@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+On 12/13/2011 01:59 PM, Marc Kleine-Budde wrote:
+> On 12/13/2011 01:53 PM, Wolfgang Grandegger wrote:
+>>> I got my MX35PDK board working and can confirm, that the patch works on
+>>> a i.mx35 as well. My testing also confirms, that the ESR TWRN_INT,
+>>> RWRN_INT, FLEXCAN_ESR_BOFF_INT do not function as documented. These
+>>> flags do show up once, together with ERR_INT, and then, after clearing,
+>>> never again. Obviously a bug in the Flexcan logic. From the feedback we
+>>> can say, that only the i.MX28 does behave differently (==correctly). All
+>>> other seem to work with the current code:
+>>>
+>>>  Flexcan on
+>>>  - i.mx25
+>>>  - i.mx35
+>>>  - i.mx53
+>>>  - P1010/P1020
+>>
+>> But unfortunately, state change reporting looks different with this patch :)
+> 
+> Hmm - so not schedule for stable. What about your buf-off-handling, will
+> this change the reporting again?
 
-Signed-off-by: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
----
- drivers/infiniband/hw/mlx4/main.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+Well, as it is a serious problem on i.MX28, I would schedule this patch
+for stable as well. The error and state change reporting is bogus on the
+Flexcan anyhow. Without this patch, I get "active->warning->passive" if
+I send a message with cable disconnect (no ack). With patch just
+"active->warning". That's the same behaviour
+as on the i.MX28, also with my new state and bus-off handling. See:
 
-diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
-index 34f8a5d..b8279de 100644
---- a/drivers/infiniband/hw/mlx4/main.c
-+++ b/drivers/infiniband/hw/mlx4/main.c
-@@ -1075,6 +1075,11 @@ static void *mlx4_ib_add(struct mlx4_dev *dev)
- 
- 	printk_once(KERN_INFO "%s", mlx4_ib_version);
- 
-+	if (mlx4_is_mfunc(dev)) {
-+		printk(KERN_WARNING "IB not yet supported in SRIOV\n");
-+		return NULL;
-+	}
-+
- 	mlx4_foreach_ib_transport_port(i, dev)
- 		num_ports++;
- 
--- 
-1.7.7
+https://gitorious.org/~wgrandegger/linux-can/wg-linux-can-next/commit/bd3acb12dbb9551541d28ae8766c154d3cf6ed57
 
+Wolfgang.
 
-
-
-
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
