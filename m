@@ -1,87 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 1/2] net: Remove unused neighbour layer ops.
-Date: Tue, 13 Dec 2011 17:38:44 -0500 (EST)
-Message-ID: <20111213.173844.2152705529788577968.davem@davemloft.net>
+Subject: [PATCH 2/2] ipv6: If neigh lookup fails during icmp6 dst
+ allocation, propagate error.
+Date: Tue, 13 Dec 2011 17:38:48 -0500 (EST)
+Message-ID: <20111213.173848.752183482333371118.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51342 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:51345 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751593Ab1LMWiq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2011 17:38:46 -0500
+	with ESMTP id S1751593Ab1LMWiu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2011 17:38:50 -0500
 Received: from localhost (cpe-66-65-61-233.nyc.res.rr.com [66.65.61.233])
 	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id pBDMcioA023089
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id pBDMcmIU023093
 	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 13 Dec 2011 14:38:45 -0800
+	for <netdev@vger.kernel.org>; Tue, 13 Dec 2011 14:38:49 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-It's simpler to just keep these things out until there is a real user
-of them, so we can see what the needs actually are, rather than keep
-these things around as useless overhead.
+Don't just succeed with a route that has a NULL neighbour attached.
+This follows the behavior of addrconf_dst_alloc().
+
+Allowing this kind of route to end up with a NULL neigh attached will
+result in packet drops on output until the route is somehow
+invalidated, since nothing will meanwhile try to lookup the neigh
+again.
+
+A statistic is bumped for the case where we see a neigh-less route on
+output, but the resulting packet drop is otherwise silent in nature,
+and frankly it's a hard error for this to happen and ipv6 should do
+what ipv4 does which is say something in the kernel logs.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/linux/netdevice.h |    1 -
- include/net/neighbour.h   |    1 -
- net/core/neighbour.c      |   10 ----------
- 3 files changed, 0 insertions(+), 12 deletions(-)
+ net/ipv6/route.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 6037308..6b9d4ed 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -974,7 +974,6 @@ struct net_device_ops {
- 	int			(*ndo_set_features)(struct net_device *dev,
- 						    netdev_features_t features);
- 	int			(*ndo_neigh_construct)(struct neighbour *n);
--	void			(*ndo_neigh_destroy)(struct neighbour *n);
- };
- 
- /*
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index e31f0a8..6814c4d 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -43,7 +43,6 @@ struct neigh_parms {
- #endif
- 	struct net_device *dev;
- 	struct neigh_parms *next;
--	int	(*neigh_setup)(struct neighbour *);
- 	void	(*neigh_cleanup)(struct neighbour *);
- 	struct neigh_table *tbl;
- 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 4af151e..d57a40a 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -497,13 +497,6 @@ struct neighbour *neigh_create(struct neigh_table *tbl, const void *pkey,
- 		}
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index d98cf41..4bf362b 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1089,8 +1089,10 @@ struct dst_entry *icmp6_dst_alloc(struct net_device *dev,
+ 		neigh_hold(neigh);
+ 	else {
+ 		neigh = __neigh_lookup_errno(&nd_tbl, &fl6->daddr, dev);
+-		if (IS_ERR(neigh))
+-			neigh = NULL;
++		if (IS_ERR(neigh)) {
++			dst_free(&rt->dst);
++			return ERR_CAST(neigh);
++		}
  	}
  
--	/* Device specific setup. */
--	if (n->parms->neigh_setup &&
--	    (error = n->parms->neigh_setup(n)) < 0) {
--		rc = ERR_PTR(error);
--		goto out_neigh_release;
--	}
--
- 	n->confirmed = jiffies - (n->parms->base_reachable_time << 1);
- 
- 	write_lock_bh(&tbl->lock);
-@@ -717,9 +710,6 @@ void neigh_destroy(struct neighbour *neigh)
- 	skb_queue_purge(&neigh->arp_queue);
- 	neigh->arp_queue_len_bytes = 0;
- 
--	if (dev->netdev_ops->ndo_neigh_destroy)
--		dev->netdev_ops->ndo_neigh_destroy(neigh);
--
- 	dev_put(dev);
- 	neigh_parms_put(neigh->parms);
- 
+ 	rt->dst.flags |= DST_HOST;
 -- 
 1.7.7.4
