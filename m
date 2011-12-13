@@ -1,78 +1,68 @@
-From: Vitalii Demianets <vitas@nppfactor.kiev.ua>
-Subject: [PATCH] bridge: push blocking slaves to forwarding when
-	turning stp off
-Date: Tue, 13 Dec 2011 11:36:25 +0200
-Message-ID: <201112131136.25919.vitas@nppfactor.kiev.ua>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH net-next] bnx2x: properly update skb when mtu > 1500
+Date: Tue, 13 Dec 2011 11:40:53 +0200
+Message-ID: <1323769253-8760-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	bridge@lists.linux-foundation.org
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:3239 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751606Ab1LMJk6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Dec 2011 04:40:58 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If there is a slave in blocking state when stp is turned off, that slave will 
-remain in blocking state for indefinitely long time until interface state 
-changed. We should push all blocking slaves into forwarding state after 
-turning stp off.
+Since commit e52fcb2462ac484e6dd6e68869536609f0216938 newly allocated
+skb for small packets are not updated properly and dropped by stack.
 
-Signed-off-by: Vitalii Demianets <vitas@nppfactor.kiev.ua>
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
 ---
- net/bridge/br_stp.c    |    5 ++++-
- net/bridge/br_stp_if.c |   10 +++++-----
- 2 files changed, 9 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   22 +++++++++++-----------
+ 1 files changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-index dd147d7..aed7e21 100644
---- a/net/bridge/br_stp.c
-+++ b/net/bridge/br_stp.c
-@@ -415,7 +415,10 @@ void br_port_state_selection(struct net_bridge *br)
- 			} else {
- 				p->config_pending = 0;
- 				p->topology_change_ack = 0;
--				br_make_blocking(p);
-+				if(br->stp_enabled == BR_NO_STP)
-+					br_make_forwarding(p);
-+				else
-+					br_make_blocking(p);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 477bc97..64f5cf5 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -731,22 +731,22 @@ reuse_rx:
+ 				bnx2x_reuse_rx_data(fp, bd_cons, bd_prod);
+ 				goto next_rx;
  			}
++		}
+ 
+-			skb_put(skb, len);
+-			skb->protocol = eth_type_trans(skb, bp->dev);
++		skb_put(skb, len);
++		skb->protocol = eth_type_trans(skb, bp->dev);
+ 
+-			/* Set Toeplitz hash for a none-LRO skb */
+-			skb->rxhash = bnx2x_get_rxhash(bp, cqe_fp);
++		/* Set Toeplitz hash for a none-LRO skb */
++		skb->rxhash = bnx2x_get_rxhash(bp, cqe_fp);
+ 
+-			skb_checksum_none_assert(skb);
++		skb_checksum_none_assert(skb);
+ 
+-			if (bp->dev->features & NETIF_F_RXCSUM) {
++		if (bp->dev->features & NETIF_F_RXCSUM) {
+ 
+-				if (likely(BNX2X_RX_CSUM_OK(cqe)))
+-					skb->ip_summed = CHECKSUM_UNNECESSARY;
+-				else
+-					fp->eth_q_stats.hw_csum_err++;
+-			}
++			if (likely(BNX2X_RX_CSUM_OK(cqe)))
++				skb->ip_summed = CHECKSUM_UNNECESSARY;
++			else
++				fp->eth_q_stats.hw_csum_err++;
  		}
  
-diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index 19308e3..38d8dd7 100644
---- a/net/bridge/br_stp_if.c
-+++ b/net/bridge/br_stp_if.c
-@@ -153,14 +153,14 @@ static void br_stp_stop(struct net_bridge *br)
- 	if (br->stp_enabled == BR_USER_STP) {
- 		r = call_usermodehelper(BR_STP_PROG, argv, envp, UMH_WAIT_PROC);
- 		br_info(br, "userspace STP stopped, return code %d\n", r);
--
--		/* To start timers on any ports left in blocking */
--		spin_lock_bh(&br->lock);
--		br_port_state_selection(br);
--		spin_unlock_bh(&br->lock);
- 	}
- 
- 	br->stp_enabled = BR_NO_STP;
-+
-+	/* To push in forwarding state any ports left in blocking */
-+	spin_lock_bh(&br->lock);
-+	br_port_state_selection(br);
-+	spin_unlock_bh(&br->lock);
- }
- 
- void br_stp_set_enabled(struct net_bridge *br, unsigned long val)
+ 		skb_record_rx_queue(skb, fp->rx_queue);
 -- 
-1.7.3.4
+1.7.7.2
