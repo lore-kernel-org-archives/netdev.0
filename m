@@ -1,46 +1,53 @@
-From: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2/3] cdc_ether: allow vendor specific data interface if
- control interface is vendor specific
-Date: Tue, 13 Dec 2011 14:39:08 +0400
-Message-ID: <4EE72B4C.9060602@mvista.com>
-References: <1323750784-32608-1-git-send-email-bjorn@mork.no> <1323750784-32608-3-git-send-email-bjorn@mork.no> <1323752053.3837.17.camel@joe2Laptop> <87vcplcbj3.fsf@nemi.mork.no>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH net-next 1/2] be2net: fix ethtool ringparam reporting
+Date: Tue, 13 Dec 2011 16:28:49 +0530
+Message-ID: <1323773930-6617-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87vcplcbj3.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exht1.emulex.com ([138.239.113.183]:27578 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751571Ab1LMLHX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2011 06:07:23 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+The ethtool "-g" option is supposed to report the max queue length and
+user modified queue length for RX and TX queues.  be2net doesn't support
+user modification of queue lengths. So, the correct values for these
+would be the max numbers.
+be2net incorrectly reports the queue used values for these fields.
 
-On 13-12-2011 8:59, Bj=C3=B8rn Mork wrote:
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |   11 ++++-------
+ 1 files changed, 4 insertions(+), 7 deletions(-)
 
->> On Tue, 2011-12-13 at 05:33 +0100, Bjorn Mork wrote:
->>> diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ethe=
-r.c
->> []
->>> @@ -211,8 +211,12 @@ int usbnet_generic_cdc_bind(struct usbnet *dev=
-, struct usb_interface *intf)
->> []
->>> -				dev_dbg(&intf->dev, "slave class %u\n",
->> []
->>> +				dev_dbg(&intf->dev, "xslave class %u\n",
->>
->> Why change the output from slave to xslave?
->
-> That was unintentional.  Sorry.  Don't understand how checkpatch coul=
-d
-> have missed that :-)
-
-    Don't understand what checkpatch.pl would have to do with that. :-)
-
-WBR, Sergei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index 575c783..6ba2dc6 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -520,16 +520,13 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 	return 0;
+ }
+ 
+-static void
+-be_get_ringparam(struct net_device *netdev, struct ethtool_ringparam *ring)
++static void be_get_ringparam(struct net_device *netdev,
++			     struct ethtool_ringparam *ring)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+ 
+-	ring->rx_max_pending = adapter->rx_obj[0].q.len;
+-	ring->tx_max_pending = adapter->tx_obj[0].q.len;
+-
+-	ring->rx_pending = atomic_read(&adapter->rx_obj[0].q.used);
+-	ring->tx_pending = atomic_read(&adapter->tx_obj[0].q.used);
++	ring->rx_max_pending = ring->rx_pending = adapter->rx_obj[0].q.len;
++	ring->tx_max_pending = ring->tx_pending = adapter->tx_obj[0].q.len;
+ }
+ 
+ static void
+-- 
+1.7.4
