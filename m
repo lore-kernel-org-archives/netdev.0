@@ -1,81 +1,56 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] vlan: add rtnl_dereference() annotations
-Date: Wed, 14 Dec 2011 09:29:43 +0300
-Message-ID: <20111214062943.GD7499@elgon.mountain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] vlan: static functions
+Date: Wed, 14 Dec 2011 07:57:54 +0100
+Message-ID: <1323845874.2846.22.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, Jiri Pirko <jpirko@redhat.com>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Benjamin LaHaise <bcrl@kvack.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:16423 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751119Ab1LNGaH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2011 01:30:07 -0500
-Content-Disposition: inline
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:42938 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752726Ab1LNG6A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2011 01:58:00 -0500
+Received: by wgbds13 with SMTP id ds13so834372wgb.1
+        for <netdev@vger.kernel.org>; Tue, 13 Dec 2011 22:57:59 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The original code generates a Sparse warning:
-net/8021q/vlan_core.c:336:9:
-	error: incompatible types in comparison expression (different address spaces)
+commit 6d4cdf47d2 (vlan: add 802.1q netpoll support) forgot to declare
+as static some private functions.
 
-It's ok to dereference __rcu pointers here because we are holding the
-RTNL lock.  I've added some calls to rtnl_dereference() to silence the
-warning.
-
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Benjamin LaHaise <bcrl@kvack.org> 
 ---
-I haven't tested this, and I'm not super familiar with this code.
-Please review it carefully.
+ net/8021q/vlan_dev.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index 1414c93..4d39d80 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -326,14 +326,16 @@ int vlan_vids_add_by_dev(struct net_device *dev,
- 			 const struct net_device *by_dev)
- {
- 	struct vlan_vid_info *vid_info;
-+	struct vlan_info *vlan_info;
- 	int err;
- 
- 	ASSERT_RTNL();
- 
--	if (!by_dev->vlan_info)
-+	vlan_info = rtnl_dereference(by_dev->vlan_info);
-+	if (!vlan_info)
- 		return 0;
- 
--	list_for_each_entry(vid_info, &by_dev->vlan_info->vid_list, list) {
-+	list_for_each_entry(vid_info, &vlan_info->vid_list, list) {
- 		err = vlan_vid_add(dev, vid_info->vid);
- 		if (err)
- 			goto unwind;
-@@ -342,7 +344,7 @@ int vlan_vids_add_by_dev(struct net_device *dev,
- 
- unwind:
- 	list_for_each_entry_continue_reverse(vid_info,
--					     &by_dev->vlan_info->vid_list,
-+					     &vlan_info->vid_list,
- 					     list) {
- 		vlan_vid_del(dev, vid_info->vid);
- 	}
-@@ -355,13 +357,15 @@ void vlan_vids_del_by_dev(struct net_device *dev,
- 			  const struct net_device *by_dev)
- {
- 	struct vlan_vid_info *vid_info;
-+	struct vlan_info *vlan_info;
- 
- 	ASSERT_RTNL();
- 
--	if (!by_dev->vlan_info)
-+	vlan_info = rtnl_dereference(by_dev->vlan_info);
-+	if (!vlan_info)
- 		return;
- 
--	list_for_each_entry(vid_info, &by_dev->vlan_info->vid_list, list)
-+	list_for_each_entry(vid_info, &vlan_info->vid_list, list)
- 		vlan_vid_del(dev, vid_info->vid);
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 0390139..9988d4a 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -664,12 +664,12 @@ static struct rtnl_link_stats64 *vlan_dev_get_stats64(struct net_device *dev, st
  }
- EXPORT_SYMBOL(vlan_vids_del_by_dev);
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+-void vlan_dev_poll_controller(struct net_device *dev)
++static void vlan_dev_poll_controller(struct net_device *dev)
+ {
+ 	return;
+ }
+ 
+-int vlan_dev_netpoll_setup(struct net_device *dev, struct netpoll_info *npinfo)
++static int vlan_dev_netpoll_setup(struct net_device *dev, struct netpoll_info *npinfo)
+ {
+ 	struct vlan_dev_priv *info = vlan_dev_priv(dev);
+ 	struct net_device *real_dev = info->real_dev;
+@@ -696,7 +696,7 @@ out:
+ 	return err;
+ }
+ 
+-void vlan_dev_netpoll_cleanup(struct net_device *dev)
++static void vlan_dev_netpoll_cleanup(struct net_device *dev)
+ {
+ 	struct vlan_dev_priv *info = vlan_dev_priv(dev);
+ 	struct netpoll *netpoll = info->netpoll;
