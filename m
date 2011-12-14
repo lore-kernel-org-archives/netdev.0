@@ -1,89 +1,102 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kenel level packet capturing
-Date: Wed, 14 Dec 2011 10:56:56 +0100
-Message-ID: <1323856616.2334.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <CAKj1SsOnYsOXjRBKm+=hTnEiesXrC3h0Q-KN2b61nPSQud9wMA@mail.gmail.com>
-	 <20111019123733.GA21324@synalogic.ca>
-	 <CAKj1SsOra7u21u8Zq9rDLzv_Bhx8sPsah+SHByMYQbVc_j6LQA@mail.gmail.com>
-	 <20111213.133629.1213042365300662857.davem@davemloft.net>
-	 <4EE86DB6.5050303@fox-it.com>
+From: "Barak Witkowski" <barak@broadcom.com>
+Subject: [PATCH net-next 1/1] bnx2x: handle vpd data longer than 128
+ bytes
+Date: Wed, 14 Dec 2011 12:14:53 +0200
+Message-ID: <1323857693-24527-1-git-send-email-barak@broadcom.com>
+References: <Barak Witkowski <barak@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"raviraj.j1991@gmail.com" <raviraj.j1991@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jasper Spaans <spaans@fox-it.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Barak Witkowski" <barak@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:52279 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753673Ab1LNJ5D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2011 04:57:03 -0500
-Received: by wgbdr13 with SMTP id dr13so1497571wgb.1
-        for <netdev@vger.kernel.org>; Wed, 14 Dec 2011 01:57:02 -0800 (PST)
-In-Reply-To: <4EE86DB6.5050303@fox-it.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:3557 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755106Ab1LNKPF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Dec 2011 05:15:05 -0500
+In-Reply-To: <Barak Witkowski <barak@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 14 d=C3=A9cembre 2011 =C3=A0 10:34 +0100, Jasper Spaans a =C3=
-=A9crit :
-> On 13/12/11 19:36, David Miller wrote:
-> > We have decided to use PF_RING(a kernel module to capture packets) =
-for
-> > the same due to the number of advantages.
-> > What "advantages"?  The AF_PACKET socket layer already upstream in =
-the
-> > kernel supports every relevant performance feature PF_RING does, an=
-d
-> > then some.
-> Some documentation for fanout is one feature that would be nice. (How=
- to
-> use it from userspace - after 5 minutes of googling, the first place
-> where I could find an example is in the suricata source code[1]).
->=20
-> Having not tested it in practice, so my assumptions about rxhash migh=
-t
-> be untrue: is there an option to override the NIC rxhash
-> implementations? if you are doing packet capturing, you will probably
-> see traffic in both directions, so hashing on the address-tuples of b=
-oth
-> directions makes sense (or else both half-streams of tcp packets migh=
-t
-> end up being sent to different sockets.
->=20
+Signed-off-by: Barak Witkowski <barak@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   35 +++++++++++++++++----
+ 1 files changed, 28 insertions(+), 7 deletions(-)
 
-Disabling NIC rxhash is possible :
-
-# ethtool -k eth2 | grep receive-hashing
-receive-hashing: on
-# ethtool -K eth2 rxhash off
-# ethtool -k eth2 | grep receive-hashing
-receive-hashing: off
-
-> It seems hardware vendors are focussed on only hashing the senders
-> address, which does make sense if you're building a
-> fileserver/webserver/whatever.
->=20
-> We ended up using atrocious bpfs like "((tcp[0:2] & 1) =3D=3D (tcp[2:=
-2] &
-> 1)) and tcp" to distribute packets over multiple sockets, and now our
-> bottleneck has shifted away from the capturing side of our applicatio=
-n.
-
-If you want to distribute load on tcp sockets, you can take a look at
-various tricks documented in Documentation/networking/scaling.txt
-
-(RPS, RFS, ...)
-
-
-> (Note to Raviraj: we're not using PF_RING because of stability issues=
- -
-> it crashed our testing system one too many times.)
->=20
-> Cheers,
-> Jasper
->=20
-> [1]
-> https://redmine.openinfosecfoundation.org/embedded/suricata/source-af=
--packet_8c-source.html#l00516
->=20
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index b45baf9..ffeaaa9 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -9931,30 +9931,49 @@ static int __devinit bnx2x_get_hwinfo(struct bnx2x *bp)
+ static void __devinit bnx2x_read_fwinfo(struct bnx2x *bp)
+ {
+ 	int cnt, i, block_end, rodi;
+-	char vpd_data[BNX2X_VPD_LEN+1];
++	char vpd_start[BNX2X_VPD_LEN+1];
+ 	char str_id_reg[VENDOR_ID_LEN+1];
+ 	char str_id_cap[VENDOR_ID_LEN+1];
++	char *vpd_data;
++	char *vpd_extended_data = NULL;
+ 	u8 len;
+ 
+-	cnt = pci_read_vpd(bp->pdev, 0, BNX2X_VPD_LEN, vpd_data);
++	cnt = pci_read_vpd(bp->pdev, 0, BNX2X_VPD_LEN, vpd_start);
+ 	memset(bp->fw_ver, 0, sizeof(bp->fw_ver));
+ 
+ 	if (cnt < BNX2X_VPD_LEN)
+ 		goto out_not_found;
+ 
+-	i = pci_vpd_find_tag(vpd_data, 0, BNX2X_VPD_LEN,
++	/* VPD RO tag should be first tag after identifier string, hence
++	 * we should be able to find it in first BNX2X_VPD_LEN chars
++	 */
++	i = pci_vpd_find_tag(vpd_start, 0, BNX2X_VPD_LEN,
+ 			     PCI_VPD_LRDT_RO_DATA);
+ 	if (i < 0)
+ 		goto out_not_found;
+ 
+-
+ 	block_end = i + PCI_VPD_LRDT_TAG_SIZE +
+-		    pci_vpd_lrdt_size(&vpd_data[i]);
++		    pci_vpd_lrdt_size(&vpd_start[i]);
+ 
+ 	i += PCI_VPD_LRDT_TAG_SIZE;
+ 
+-	if (block_end > BNX2X_VPD_LEN)
+-		goto out_not_found;
++	if (block_end > BNX2X_VPD_LEN) {
++		vpd_extended_data = kmalloc(block_end, GFP_KERNEL);
++		if (vpd_extended_data  == NULL)
++			goto out_not_found;
++
++		/* read rest of vpd image into vpd_extended_data */
++		memcpy(vpd_extended_data, vpd_start, BNX2X_VPD_LEN);
++		cnt = pci_read_vpd(bp->pdev, BNX2X_VPD_LEN,
++				   block_end - BNX2X_VPD_LEN,
++				   vpd_extended_data + BNX2X_VPD_LEN);
++		if (cnt < (block_end - BNX2X_VPD_LEN))
++			goto out_not_found;
++		vpd_data = vpd_extended_data;
++	} else
++		vpd_data = vpd_start;
++
++	/* now vpd_data holds full vpd content in both cases */
+ 
+ 	rodi = pci_vpd_find_info_keyword(vpd_data, i, block_end,
+ 				   PCI_VPD_RO_KEYWORD_MFR_ID);
+@@ -9986,9 +10005,11 @@ static void __devinit bnx2x_read_fwinfo(struct bnx2x *bp)
+ 				bp->fw_ver[len] = ' ';
+ 			}
+ 		}
++		kfree(vpd_extended_data);
+ 		return;
+ 	}
+ out_not_found:
++	kfree(vpd_extended_data);
+ 	return;
+ }
+ 
+-- 
+1.7.7.4
