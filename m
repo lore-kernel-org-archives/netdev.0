@@ -1,7 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 00/11] SUNRPC: make sysctl per network namespcase context
-Date: Wed, 14 Dec 2011 14:44:39 +0300
-Message-ID: <20111214103602.3991.20990.stgit@localhost6.localdomain6>
+Subject: [PATCH 02/11] SUNRPC: use syctl path instead of dummy parent table
+Date: Wed, 14 Dec 2011 14:44:57 +0300
+Message-ID: <20111214104457.3991.64507.stgit@localhost6.localdomain6>
+References: <20111214103602.3991.20990.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,45 +12,140 @@ Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
 	davem@davemloft.net, devel@openvz.org
 To: Trond.Myklebust@netapp.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111214103602.3991.20990.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch set make SUNRPC sysctl created per network namspace context.
-It provides the following functionality:
-1) Debug sysctl's ( {rpc,nfs,nlm,nfsd}_debug ) content is modifyable only from
-init_net network context.
-2) Write to rpc_debug prints active RPC tasks in sysctl's creator networks
-context.
-3) xs tunables are per-net now and modified through per-net sysctl's. IOW,
-sysctl creator context is used to get tunable during sysctl read/write access
-(not current tone).
+This is a cleanup patch. Parent sunrpc table is redundant. Syctl path can be
+used instead.
 
-The following series consists of:
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
+ include/linux/sunrpc/debug.h    |    4 ++++
+ net/sunrpc/sysctl.c             |   25 ++++++++++++++-----------
+ net/sunrpc/xprtrdma/transport.c |   11 +----------
+ net/sunrpc/xprtsock.c           |   11 +----------
+ 4 files changed, 20 insertions(+), 31 deletions(-)
 
-Stanislav Kinsbursky (11):
-      SYSCTL: export root ans set handling routines
-      SUNRPC: use syctl path instead of dummy parent table
-      SUNRPC: sysctl root for debug table introduced
-      SUNRPC: per-net sysctl's set introduced
-      SUNRPC: register debug sysctl table per network namespace
-      SUNRPC: register xs_tunables sysctl table per network namespace
-      SUNRPC: xs tunables per network namespace introduced
-      SUNRPC: use per-net xs tunables instead of static ones
-      SUNRPC: remove xs_tcp_fin_timeout variable
-      SUNRPC: allow debug flags modifications only from init_net
-      SUNRPC: sysctl table for rpc_debug introduced
-
-
- include/linux/sunrpc/debug.h    |    9 ++
- include/linux/sunrpc/sched.h    |    1 
- include/linux/sunrpc/xprtsock.h |    3 +
- include/linux/sysctl.h          |    1 
- kernel/sysctl.c                 |   11 +++
- net/sunrpc/netns.h              |   12 +++
- net/sunrpc/sunrpc_syms.c        |   27 ++++++-
- net/sunrpc/sysctl.c             |  160 ++++++++++++++++++++++++++++++++-------
- net/sunrpc/xprtrdma/transport.c |   11 ---
- net/sunrpc/xprtsock.c           |  147 ++++++++++++++++++++++++------------
- 10 files changed, 293 insertions(+), 89 deletions(-)
+diff --git a/include/linux/sunrpc/debug.h b/include/linux/sunrpc/debug.h
+index c2786f2..b5e0c46 100644
+--- a/include/linux/sunrpc/debug.h
++++ b/include/linux/sunrpc/debug.h
+@@ -63,8 +63,12 @@ extern unsigned int		nlm_debug;
+  * Sysctl interface for RPC debugging
+  */
+ #ifdef RPC_DEBUG
++
+ void		rpc_register_sysctl(void);
+ void		rpc_unregister_sysctl(void);
++
++struct ctl_table_header *register_sunrpc_sysctl(struct ctl_table *);
++
+ #endif
+ 
+ #endif /* __KERNEL__ */
+diff --git a/net/sunrpc/sysctl.c b/net/sunrpc/sysctl.c
+index af7d339..64c0034 100644
+--- a/net/sunrpc/sysctl.c
++++ b/net/sunrpc/sysctl.c
+@@ -40,13 +40,25 @@ EXPORT_SYMBOL_GPL(nlm_debug);
+ #ifdef RPC_DEBUG
+ 
+ static struct ctl_table_header *sunrpc_table_header;
+-static ctl_table		sunrpc_table[];
++static ctl_table		debug_table[];
++
++struct ctl_path sunrpc_path[] = {
++	{ .procname = "sunrpc", },
++	{ },
++};
++
++struct ctl_table_header *register_sunrpc_sysctl(struct ctl_table *table)
++{
++	return register_sysctl_paths(sunrpc_path, table);
++
++}
++EXPORT_SYMBOL_GPL(register_sunrpc_sysctl);
+ 
+ void
+ rpc_register_sysctl(void)
+ {
+ 	if (!sunrpc_table_header)
+-		sunrpc_table_header = register_sysctl_table(sunrpc_table);
++		sunrpc_table_header = register_sunrpc_sysctl(debug_table);
+ }
+ 
+ void
+@@ -173,13 +185,4 @@ static ctl_table debug_table[] = {
+ 	{ }
+ };
+ 
+-static ctl_table sunrpc_table[] = {
+-	{
+-		.procname	= "sunrpc",
+-		.mode		= 0555,
+-		.child		= debug_table
+-	},
+-	{ }
+-};
+-
+ #endif
+diff --git a/net/sunrpc/xprtrdma/transport.c b/net/sunrpc/xprtrdma/transport.c
+index b446e10..53a8622 100644
+--- a/net/sunrpc/xprtrdma/transport.c
++++ b/net/sunrpc/xprtrdma/transport.c
+@@ -137,15 +137,6 @@ static ctl_table xr_tunables_table[] = {
+ 	{ },
+ };
+ 
+-static ctl_table sunrpc_table[] = {
+-	{
+-		.procname	= "sunrpc",
+-		.mode		= 0555,
+-		.child		= xr_tunables_table
+-	},
+-	{ },
+-};
+-
+ #endif
+ 
+ static struct rpc_xprt_ops xprt_rdma_procs;	/* forward reference */
+@@ -771,7 +762,7 @@ static int __init xprt_rdma_init(void)
+ 
+ #ifdef RPC_DEBUG
+ 	if (!sunrpc_table_header)
+-		sunrpc_table_header = register_sysctl_table(sunrpc_table);
++		sunrpc_table_header = register_sunrpc_sysctl(xr_tunables_table);
+ #endif
+ 	return 0;
+ }
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index 55472c4..6f1be96 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -142,15 +142,6 @@ static ctl_table xs_tunables_table[] = {
+ 	{ },
+ };
+ 
+-static ctl_table sunrpc_table[] = {
+-	{
+-		.procname	= "sunrpc",
+-		.mode		= 0555,
+-		.child		= xs_tunables_table
+-	},
+-	{ },
+-};
+-
+ #endif
+ 
+ /*
+@@ -2887,7 +2878,7 @@ int init_socket_xprt(void)
+ {
+ #ifdef RPC_DEBUG
+ 	if (!sunrpc_table_header)
+-		sunrpc_table_header = register_sysctl_table(sunrpc_table);
++		sunrpc_table_header = register_sunrpc_sysctl(xs_tunables_table);
+ #endif
+ 
+ 	xprt_register_transport(&xs_local_transport);
