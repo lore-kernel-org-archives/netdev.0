@@ -1,85 +1,126 @@
-From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: [PATCH 03/11] SUNRPC: sysctl root for debug table introduced
-Date: Wed, 14 Dec 2011 14:45:05 +0300
-Message-ID: <20111214104505.3991.45390.stgit@localhost6.localdomain6>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH 05/11] SUNRPC: register debug sysctl table per network
+ namespace
+Date: Wed, 14 Dec 2011 14:45:21 +0300
+Message-ID: <20111214104521.3991.38848.stgit@localhost6.localdomain6>
 References: <20111214103602.3991.20990.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20111214103602.3991.20990.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
+	davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111214103602.3991.20990.stgit@localhost6.localdomain6>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sysctl root is required for handliong sysctl dentries per network namespace
-context. IOW, it's "lookup" method will be used to find per-net sysctl's set in
-further patches.
-Also this patch modifies sysctl registering helpers to make them use new sysctl
-root.
+This patch introduces per-net sysctl header for debug table and moves debug
+table registration to per-net opreations.
+Also, this patch moves SUNRPC sysctl root registration prior to per-net
+operations, since now they depends on it.
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- net/sunrpc/sysctl.c |   16 +++++++++++++---
- 1 files changed, 13 insertions(+), 3 deletions(-)
+ net/sunrpc/netns.h       |    1 +
+ net/sunrpc/sunrpc_syms.c |    9 ++++++---
+ net/sunrpc/sysctl.c      |   17 +++++++----------
+ 3 files changed, 14 insertions(+), 13 deletions(-)
 
-diff --git a/net/sunrpc/sysctl.c b/net/sunrpc/sysctl.c
-index 64c0034..f6e7da2 100644
---- a/net/sunrpc/sysctl.c
-+++ b/net/sunrpc/sysctl.c
-@@ -39,6 +39,9 @@ EXPORT_SYMBOL_GPL(nlm_debug);
- 
+diff --git a/net/sunrpc/netns.h b/net/sunrpc/netns.h
+index a949ddb..05ce3b8 100644
+--- a/net/sunrpc/netns.h
++++ b/net/sunrpc/netns.h
+@@ -14,6 +14,7 @@ struct sunrpc_net {
+ 	spinlock_t rpc_client_lock;
  #ifdef RPC_DEBUG
- 
-+#include <linux/nsproxy.h>
-+#include <net/net_namespace.h>
-+
- static struct ctl_table_header *sunrpc_table_header;
- static ctl_table		debug_table[];
- 
-@@ -47,18 +50,24 @@ struct ctl_path sunrpc_path[] = {
- 	{ },
+ 	struct ctl_table_set sysctls;
++	struct ctl_table_header *debug_ctl_header;
+ #endif
  };
  
-+static struct ctl_table_root sunrpc_debug_root = {
-+};
-+
- struct ctl_table_header *register_sunrpc_sysctl(struct ctl_table *table)
- {
--	return register_sysctl_paths(sunrpc_path, table);
--
-+	return __register_sysctl_paths(&sunrpc_debug_root, current->nsproxy,
-+				       sunrpc_path, table);
+diff --git a/net/sunrpc/sunrpc_syms.c b/net/sunrpc/sunrpc_syms.c
+index 44759e9..0fd156a 100644
+--- a/net/sunrpc/sunrpc_syms.c
++++ b/net/sunrpc/sunrpc_syms.c
+@@ -90,18 +90,21 @@ init_sunrpc(void)
+ 
+ 	cache_initialize();
+ 
+-	err = register_pernet_subsys(&sunrpc_net_ops);
+-	if (err)
+-		goto out4;
+ #ifdef RPC_DEBUG
+ 	rpc_register_sysctl();
+ #endif
++	err = register_pernet_subsys(&sunrpc_net_ops);
++	if (err)
++		goto out4;
+ 	cache_register(&unix_gid_cache);
+ 	svc_init_xprt_sock();	/* svc sock transport */
+ 	init_socket_xprt();	/* clnt sock transport */
+ 	return 0;
+ 
+ out4:
++#ifdef RPC_DEBUG
++	rpc_unregister_sysctl();
++#endif
+ 	rpcauth_remove_module();
+ out3:
+ 	rpc_destroy_mempool();
+diff --git a/net/sunrpc/sysctl.c b/net/sunrpc/sysctl.c
+index adebf0a..eda80cf 100644
+--- a/net/sunrpc/sysctl.c
++++ b/net/sunrpc/sysctl.c
+@@ -42,7 +42,6 @@ EXPORT_SYMBOL_GPL(nlm_debug);
+ #include <linux/nsproxy.h>
+ #include "netns.h"
+ 
+-static struct ctl_table_header *sunrpc_table_header;
+ static ctl_table		debug_table[];
+ 
+ struct ctl_path sunrpc_path[] = {
+@@ -79,6 +78,9 @@ int debug_sysctl_init(struct net *net)
+ 	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
+ 
+ 	setup_sysctl_set(&sn->sysctls, NULL, NULL);
++	sn->debug_ctl_header = register_sunrpc_sysctl(net, debug_table);
++	if (sn->debug_ctl_header == NULL)
++		return -ENOMEM;
+ 	return 0;
  }
- EXPORT_SYMBOL_GPL(register_sunrpc_sysctl);
+ 
+@@ -86,26 +88,21 @@ void debug_sysctl_exit(struct net *net)
+ {
+ 	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
+ 
++	unregister_sysctl_table(sn->debug_ctl_header);
++	sn->debug_ctl_header = NULL;
+ 	WARN_ON(!list_empty(&sn->sysctls.list));
+ }
  
  void
  rpc_register_sysctl(void)
  {
--	if (!sunrpc_table_header)
-+	if (!sunrpc_table_header) {
-+		setup_sysctl_set(&sunrpc_debug_root.default_set, NULL, NULL);
-+		register_sysctl_root(&sunrpc_debug_root);
- 		sunrpc_table_header = register_sunrpc_sysctl(debug_table);
-+	}
+-	if (!sunrpc_table_header) {
+-		register_sysctl_root(&sunrpc_debug_root);
+-		sunrpc_table_header = register_sunrpc_sysctl(&init_net, debug_table);
+-	}
++	register_sysctl_root(&sunrpc_debug_root);
  }
  
  void
-@@ -66,6 +75,7 @@ rpc_unregister_sysctl(void)
+ rpc_unregister_sysctl(void)
  {
- 	if (sunrpc_table_header) {
- 		unregister_sysctl_table(sunrpc_table_header);
-+		unregister_sysctl_root(&sunrpc_debug_root);
- 		sunrpc_table_header = NULL;
- 	}
+-	if (sunrpc_table_header) {
+-		unregister_sysctl_table(sunrpc_table_header);
+-		unregister_sysctl_root(&sunrpc_debug_root);
+-		sunrpc_table_header = NULL;
+-	}
++	unregister_sysctl_root(&sunrpc_debug_root);
  }
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 
+ static int proc_do_xprt(ctl_table *table, int write,
