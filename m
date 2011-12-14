@@ -1,38 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: kenel level packet capturing
-Date: Wed, 14 Dec 2011 16:07:13 +0100
-Message-ID: <1323875233.2334.35.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <CAAsGZS4k8EASbB+1Edc=9VSzZ2sUXgZLFzt9f=egh1BLat+ZZg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: spaans@fox-it.com, David Miller <davem@davemloft.net>,
-	raviraj.j1991@gmail.com, netdev@vger.kernel.org
-To: chetan loke <loke.chetan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:33030 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756952Ab1LNPHR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2011 10:07:17 -0500
-Received: by qcqz2 with SMTP id z2so548604qcq.19
-        for <netdev@vger.kernel.org>; Wed, 14 Dec 2011 07:07:16 -0800 (PST)
-In-Reply-To: <CAAsGZS4k8EASbB+1Edc=9VSzZ2sUXgZLFzt9f=egh1BLat+ZZg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: [PATCH] libcxgbi: do not print a message when memory allocation fails
+Date: Wed, 14 Dec 2011 13:46:23 -0200
+Message-ID: <1323877583-6844-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, kxie@chelsio.com, michaelc@cs.wisc.edu,
+	davem@davemloft.net, JBottomley@parallels.com,
+	linux-kernel@vger.kernel.org,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+To: linux-scsi@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 14 d=C3=A9cembre 2011 =C3=A0 09:55 -0500, chetan loke a =C3=
-=A9crit :
-> > Some documentation for fanout is one feature that would be nice. (H=
-ow
-> > to
-> > use it from userspace - after 5 minutes of googling, the first plac=
-e
-> > where I could find an example is in the suricata source code[1]).
->=20
-> How about netdev's email archives ;) ? You would have noticed Dave's
-> sample fanout code. you can take that email and easily churn it into
-> 20-50 lines of doc.
+In alloc_pdu, libcxgbi tries to allocate a skb with GFP_ATOMIC, which
+may potentially fail. When it happens, the current code prints a warning
+message.
 
-Contributions to Documentation/network are higly welcomed.
+When the system is under IO stress, this failure may happen lots of
+times and it usually scares users.
 
-Thanks !
+Instead of printing the warning message, the code now increases the
+tx_dropped statistics for the ethernet interface wich is doing the iscsi
+task.
+
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+---
+ drivers/scsi/cxgbi/libcxgbi.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
+index c10f74a..3422bc2 100644
+--- a/drivers/scsi/cxgbi/libcxgbi.c
++++ b/drivers/scsi/cxgbi/libcxgbi.c
+@@ -1862,8 +1862,9 @@ int cxgbi_conn_alloc_pdu(struct iscsi_task *task, u8 opcode)
+ 
+ 	tdata->skb = alloc_skb(cdev->skb_tx_rsvd + headroom, GFP_ATOMIC);
+ 	if (!tdata->skb) {
+-		pr_warn("alloc skb %u+%u, opcode 0x%x failed.\n",
+-			cdev->skb_tx_rsvd, headroom, opcode);
++		struct cxgbi_sock *csk = cconn->cep->csk;
++		struct net_device *ndev = cdev->ports[csk->port_id];
++		ndev->stats.tx_dropped++;
+ 		return -ENOMEM;
+ 	}
+ 
+-- 
+1.7.4.4
