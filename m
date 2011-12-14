@@ -1,57 +1,41 @@
-From: "Yan, Zheng" <zheng.z.yan@intel.com>
-Subject: Re: [PATCH] ipv6: Check dest prefix length on original route not
- copied one in rt6_alloc_cow().
-Date: Wed, 14 Dec 2011 08:16:02 +0800
-Message-ID: <4EE7EAC2.2030600@intel.com>
-References: <20111213.173551.163815101446083653.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] bridge: push blocking slaves to forwarding
+ when turning stp off
+Date: Tue, 13 Dec 2011 16:16:13 -0800
+Message-ID: <20111213161613.0c59ab36@nehalam.linuxnetplumber.net>
+References: <201112131136.25919.vitas@nppfactor.kiev.ua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:30669 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753329Ab1LNAQE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Dec 2011 19:16:04 -0500
-In-Reply-To: <20111213.173551.163815101446083653.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: Vitalii Demianets <vitas@nppfactor.kiev.ua>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <201112131136.25919.vitas@nppfactor.kiev.ua>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 12/14/2011 06:35 AM, David Miller wrote:
-> 
-> After commit 8e2ec639173f325977818c45011ee176ef2b11f6 ("ipv6: don't
-> use inetpeer to store metrics for routes.") the test in rt6_alloc_cow()
-> for setting the ANYCAST flag is now wrong.
-> 
-> 'rt' will always now have a plen of 128, because it is set explicitly
-> to 128 by ip6_rt_copy.
-> 
-> So to restore the semantics of the test, check the destination prefix
-> length of 'ort'.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
-> 
-> Committed to 'net'.
-> 
->  net/ipv6/route.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 3399dd3..b582a0a 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -728,7 +728,7 @@ static struct rt6_info *rt6_alloc_cow(const struct rt6_info *ort,
->  		int attempts = !in_softirq();
->  
->  		if (!(rt->rt6i_flags&RTF_GATEWAY)) {
-> -			if (rt->rt6i_dst.plen != 128 &&
-> +			if (ort->rt6i_dst.plen != 128 &&
->  			    ipv6_addr_equal(&ort->rt6i_dst.addr, daddr))
->  				rt->rt6i_flags |= RTF_ANYCAST;
->  			ipv6_addr_copy(&rt->rt6i_gateway, daddr);
+On Tue, 13 Dec 2011 11:36:25 +0200
+Vitalii Demianets <vitas@nppfactor.kiev.ua> wrote:
 
-My fault, sorry!
+> If there is a slave in blocking state when stp is turned off, that slave will 
+> remain in blocking state for indefinitely long time until interface state 
+> changed. We should push all blocking slaves into forwarding state after 
+> turning stp off.
+> 
+> Signed-off-by: Vitalii Demianets <vitas@nppfactor.kiev.ua>
 
-Yan, Zheng
+Maybe. But if the port was in the blocking state then STP must have
+decided there was a loop in the network if that port was used.
+Therefore blindly putting the port into forwarding state could cause
+disastrous network flood.
+
+
+The user can force the port back out of blocking state (via sysfs).
