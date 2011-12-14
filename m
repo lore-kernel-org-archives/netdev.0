@@ -1,51 +1,91 @@
-From: Su Kang Yin <cantona@cantona.net>
-Subject: [PATCH 1/1] r8169.c correct MSIEnable register offset
-Date: Wed, 14 Dec 2011 15:13:57 +0800
-Message-ID: <CABJLtPHWfRLcbzDFR0ZXe4da3jv04eDZL2CabF1FTcaadoy0xQ@mail.gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch] vlan: add rtnl_dereference() annotations
+Date: Wed, 14 Dec 2011 08:34:47 +0100
+Message-ID: <20111214073446.GA2092@minipsycho>
+References: <20111214062943.GD7499@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: linux-kernel@vger.kernel.org, nic_swsd@realtek.com,
-	romieu@fr.zoreil.com, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:31653 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753469Ab1LNHe4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Dec 2011 02:34:56 -0500
+Content-Disposition: inline
+In-Reply-To: <20111214062943.GD7499@elgon.mountain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-correct MSIEnable (bit 5) register to Config1 (offset 0x52) instead of
-Config2 (offset 0x53)
+Wed, Dec 14, 2011 at 07:29:43AM CET, dan.carpenter@oracle.com wrote:
+>The original code generates a Sparse warning:
+>net/8021q/vlan_core.c:336:9:
+>	error: incompatible types in comparison expression (different address spaces)
+>
+>It's ok to dereference __rcu pointers here because we are holding the
+>RTNL lock.  I've added some calls to rtnl_dereference() to silence the
+>warning.
+>
+>Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>---
+>I haven't tested this, and I'm not super familiar with this code.
+>Please review it carefully.
+>
+>diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+>index 1414c93..4d39d80 100644
+>--- a/net/8021q/vlan_core.c
+>+++ b/net/8021q/vlan_core.c
+>@@ -326,14 +326,16 @@ int vlan_vids_add_by_dev(struct net_device *dev,
+> 			 const struct net_device *by_dev)
+> {
+> 	struct vlan_vid_info *vid_info;
+>+	struct vlan_info *vlan_info;
+> 	int err;
+> 
+> 	ASSERT_RTNL();
+> 
+>-	if (!by_dev->vlan_info)
+>+	vlan_info = rtnl_dereference(by_dev->vlan_info);
+>+	if (!vlan_info)
+> 		return 0;
+> 
+>-	list_for_each_entry(vid_info, &by_dev->vlan_info->vid_list, list) {
+>+	list_for_each_entry(vid_info, &vlan_info->vid_list, list) {
+> 		err = vlan_vid_add(dev, vid_info->vid);
+> 		if (err)
+> 			goto unwind;
+>@@ -342,7 +344,7 @@ int vlan_vids_add_by_dev(struct net_device *dev,
+> 
+> unwind:
+> 	list_for_each_entry_continue_reverse(vid_info,
+>-					     &by_dev->vlan_info->vid_list,
+>+					     &vlan_info->vid_list,
+> 					     list) {
+> 		vlan_vid_del(dev, vid_info->vid);
+> 	}
+>@@ -355,13 +357,15 @@ void vlan_vids_del_by_dev(struct net_device *dev,
+> 			  const struct net_device *by_dev)
+> {
+> 	struct vlan_vid_info *vid_info;
+>+	struct vlan_info *vlan_info;
+> 
+> 	ASSERT_RTNL();
+> 
+>-	if (!by_dev->vlan_info)
+>+	vlan_info = rtnl_dereference(by_dev->vlan_info);
+>+	if (!vlan_info)
+> 		return;
+> 
+>-	list_for_each_entry(vid_info, &by_dev->vlan_info->vid_list, list)
+>+	list_for_each_entry(vid_info, &vlan_info->vid_list, list)
+> 		vlan_vid_del(dev, vid_info->vid);
+> }
+> EXPORT_SYMBOL(vlan_vids_del_by_dev);
 
-Signed-off-by: Su Kang Yin <cantona@cantona.net>
----
- drivers/net/ethernet/realtek/r8169.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c
-b/drivers/net/ethernet/realtek/r8169.c
-index 67bf078..451835c 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -3430,18 +3430,18 @@ static unsigned rtl_try_msi(struct pci_dev
-*pdev, void __iomem *ioaddr,
- 			    const struct rtl_cfg_info *cfg)
- {
- 	unsigned msi = 0;
--	u8 cfg2;
-+	u8 cfg1;
+Acked-by: Jiri Pirko <jpirko@redhat.com>
 
--	cfg2 = RTL_R8(Config2) & ~MSIEnable;
-+	cfg1 = RTL_R8(Config1) & ~MSIEnable;
- 	if (cfg->features & RTL_FEATURE_MSI) {
- 		if (pci_enable_msi(pdev)) {
- 			dev_info(&pdev->dev, "no MSI. Back to INTx.\n");
- 		} else {
--			cfg2 |= MSIEnable;
-+			cfg1 |= MSIEnable;
- 			msi = RTL_FEATURE_MSI;
- 		}
- 	}
--	RTL_W8(Config2, cfg2);
-+	RTL_W8(Config1, cfg1);
- 	return msi;
- }
 
--- 
-1.7.0.4
+Thanks Dan!
