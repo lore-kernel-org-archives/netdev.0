@@ -1,91 +1,33 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch] vlan: add rtnl_dereference() annotations
-Date: Wed, 14 Dec 2011 08:34:47 +0100
-Message-ID: <20111214073446.GA2092@minipsycho>
-References: <20111214062943.GD7499@elgon.mountain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] rtnetlink: rtnl_link_register() sanity test
+Date: Wed, 14 Dec 2011 02:47:05 -0500 (EST)
+Message-ID: <20111214.024705.1350239353552946938.davem@davemloft.net>
+References: <1323808281-9967-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+	<20111213.160810.785264274549847462.davem@davemloft.net>
+	<1323812280.2846.9.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alex.bluesman.smirnov@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31653 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753469Ab1LNHe4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Dec 2011 02:34:56 -0500
-Content-Disposition: inline
-In-Reply-To: <20111214062943.GD7499@elgon.mountain>
+Received: from shards.monkeyblade.net ([198.137.202.13]:54522 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753323Ab1LNHrN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2011 02:47:13 -0500
+In-Reply-To: <1323812280.2846.9.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Dec 14, 2011 at 07:29:43AM CET, dan.carpenter@oracle.com wrote:
->The original code generates a Sparse warning:
->net/8021q/vlan_core.c:336:9:
->	error: incompatible types in comparison expression (different address spaces)
->
->It's ok to dereference __rcu pointers here because we are holding the
->RTNL lock.  I've added some calls to rtnl_dereference() to silence the
->warning.
->
->Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->---
->I haven't tested this, and I'm not super familiar with this code.
->Please review it carefully.
->
->diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
->index 1414c93..4d39d80 100644
->--- a/net/8021q/vlan_core.c
->+++ b/net/8021q/vlan_core.c
->@@ -326,14 +326,16 @@ int vlan_vids_add_by_dev(struct net_device *dev,
-> 			 const struct net_device *by_dev)
-> {
-> 	struct vlan_vid_info *vid_info;
->+	struct vlan_info *vlan_info;
-> 	int err;
-> 
-> 	ASSERT_RTNL();
-> 
->-	if (!by_dev->vlan_info)
->+	vlan_info = rtnl_dereference(by_dev->vlan_info);
->+	if (!vlan_info)
-> 		return 0;
-> 
->-	list_for_each_entry(vid_info, &by_dev->vlan_info->vid_list, list) {
->+	list_for_each_entry(vid_info, &vlan_info->vid_list, list) {
-> 		err = vlan_vid_add(dev, vid_info->vid);
-> 		if (err)
-> 			goto unwind;
->@@ -342,7 +344,7 @@ int vlan_vids_add_by_dev(struct net_device *dev,
-> 
-> unwind:
-> 	list_for_each_entry_continue_reverse(vid_info,
->-					     &by_dev->vlan_info->vid_list,
->+					     &vlan_info->vid_list,
-> 					     list) {
-> 		vlan_vid_del(dev, vid_info->vid);
-> 	}
->@@ -355,13 +357,15 @@ void vlan_vids_del_by_dev(struct net_device *dev,
-> 			  const struct net_device *by_dev)
-> {
-> 	struct vlan_vid_info *vid_info;
->+	struct vlan_info *vlan_info;
-> 
-> 	ASSERT_RTNL();
-> 
->-	if (!by_dev->vlan_info)
->+	vlan_info = rtnl_dereference(by_dev->vlan_info);
->+	if (!vlan_info)
-> 		return;
-> 
->-	list_for_each_entry(vid_info, &by_dev->vlan_info->vid_list, list)
->+	list_for_each_entry(vid_info, &vlan_info->vid_list, list)
-> 		vlan_vid_del(dev, vid_info->vid);
-> }
-> EXPORT_SYMBOL(vlan_vids_del_by_dev);
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 13 Dec 2011 22:38:00 +0100
 
+> Before adding a struct rtnl_link_ops into link_ops list, check it doesnt
+> clash with a prior one.
+> 
+> Based on a previous patch from Alexander Smirnov
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 
-Acked-by: Jiri Pirko <jpirko@redhat.com>
-
-
-Thanks Dan!
+Applied.
