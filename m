@@ -1,7 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 07/11] SUNRPC: xs tunables per network namespace introduced
-Date: Wed, 14 Dec 2011 14:45:38 +0300
-Message-ID: <20111214104538.3991.54408.stgit@localhost6.localdomain6>
+Subject: [PATCH 08/11] SUNRPC: use per-net xs tunables instead of static ones
+Date: Wed, 14 Dec 2011 14:45:46 +0300
+Message-ID: <20111214104546.3991.92233.stgit@localhost6.localdomain6>
 References: <20111214103602.3991.20990.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,156 +11,146 @@ Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
 	jbottomley@parallels.com, bfields@fieldses.org,
 	davem@davemloft.net, devel@openvz.org
 To: Trond.Myklebust@netapp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:28808 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756850Ab1LNKpz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Dec 2011 05:45:55 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20111214103602.3991.20990.stgit@localhost6.localdomain6>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch introduces independent sets of xs tunables for every network
-namespace context. Their value is accessible via per-net sysctls.
-Static tunables left as a storage for module params and now used for
-initialization of new network namespace tunables set.
+This patch replaces references to static tunables with per-net ones.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- net/sunrpc/netns.h    |    6 ++++++
- net/sunrpc/xprtsock.c |   47 ++++++++++++++++++++++++++++++++++++++---------
- 2 files changed, 44 insertions(+), 9 deletions(-)
+ net/sunrpc/xprtsock.c |   42 ++++++++++++++++++++++++++----------------
+ 1 files changed, 26 insertions(+), 16 deletions(-)
 
-diff --git a/net/sunrpc/netns.h b/net/sunrpc/netns.h
-index da825e5..23d110d 100644
---- a/net/sunrpc/netns.h
-+++ b/net/sunrpc/netns.h
-@@ -17,6 +17,12 @@ struct sunrpc_net {
- 	struct ctl_table_header *debug_ctl_header;
- 	struct ctl_table_header *xs_tunables_header;
- #endif
-+	unsigned int xprt_udp_slot_table_entries;
-+	unsigned int xprt_tcp_slot_table_entries;
-+	unsigned int xprt_max_tcp_slot_table_entries;
-+	unsigned int xprt_min_resvport;
-+	unsigned int xprt_max_resvport;
-+	unsigned int xs_tcp_fin_timeout;
- };
- 
- extern int sunrpc_net_id;
 diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index 9e42db6..fe4b04b 100644
+index fe4b04b..49219d2 100644
 --- a/net/sunrpc/xprtsock.c
 +++ b/net/sunrpc/xprtsock.c
-@@ -89,7 +89,6 @@ static unsigned int xprt_max_resvport_limit = RPC_MAX_RESVPORT;
- static ctl_table xs_tunables_table[] = {
- 	{
- 		.procname	= "udp_slot_table_entries",
--		.data		= &xprt_udp_slot_table_entries,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_minmax,
-@@ -98,7 +97,6 @@ static ctl_table xs_tunables_table[] = {
- 	},
- 	{
- 		.procname	= "tcp_slot_table_entries",
--		.data		= &xprt_tcp_slot_table_entries,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_minmax,
-@@ -107,7 +105,6 @@ static ctl_table xs_tunables_table[] = {
- 	},
- 	{
- 		.procname	= "tcp_max_slot_table_entries",
--		.data		= &xprt_max_tcp_slot_table_entries,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_minmax,
-@@ -116,7 +113,6 @@ static ctl_table xs_tunables_table[] = {
- 	},
- 	{
- 		.procname	= "min_resvport",
--		.data		= &xprt_min_resvport,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_minmax,
-@@ -125,7 +121,6 @@ static ctl_table xs_tunables_table[] = {
- 	},
- 	{
- 		.procname	= "max_resvport",
--		.data		= &xprt_max_resvport,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_minmax,
-@@ -134,7 +129,6 @@ static ctl_table xs_tunables_table[] = {
- 	},
- 	{
- 		.procname	= "tcp_fin_timeout",
--		.data		= &xs_tcp_fin_timeout,
- 		.maxlen		= sizeof(xs_tcp_fin_timeout),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -2874,24 +2868,59 @@ static struct xprt_class	xs_bc_tcp_transport = {
- int create_xs_tunables_table(struct net *net)
+@@ -1458,6 +1458,7 @@ static void xs_sock_mark_closed(struct rpc_xprt *xprt)
+ static void xs_tcp_state_change(struct sock *sk)
  {
- 	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
-+	struct ctl_table *table;
-+
-+	table = xs_tunables_table;
-+	if (!net_eq(net, &init_net)) {
-+		table = kmemdup(xs_tunables_table, sizeof(xs_tunables_table),
-+				GFP_KERNEL);
-+		if (table == NULL)
-+			goto err_alloc;
-+	}
-+
-+	table[0].data = &sn->xprt_udp_slot_table_entries;
-+	table[1].data = &sn->xprt_tcp_slot_table_entries;
-+	table[2].data = &sn->xprt_max_tcp_slot_table_entries;
-+	table[3].data = &sn->xprt_min_resvport;
-+	table[4].data = &sn->xprt_max_resvport;
-+	table[5].data = &sn->xs_tcp_fin_timeout;
+ 	struct rpc_xprt *xprt;
++	struct sunrpc_net *sn = net_generic(sk->sk_net, sunrpc_net_id);
  
--	sn->xs_tunables_header = register_sunrpc_sysctl(net, xs_tunables_table);
-+	sn->xs_tunables_header = register_sunrpc_sysctl(net, table);
- 	if (sn->xs_tunables_header == NULL)
--		return -ENOMEM;
-+		goto err_reg;
-+
- 	return 0;
- 
-+err_reg:
-+	if (!net_eq(net, &init_net))
-+		kfree(table);
-+err_alloc:
-+	return -ENOMEM;
+ 	read_lock_bh(&sk->sk_callback_lock);
+ 	if (!(xprt = xprt_from_sock(sk)))
+@@ -1496,7 +1497,7 @@ static void xs_tcp_state_change(struct sock *sk)
+ 		clear_bit(XPRT_CONNECTED, &xprt->state);
+ 		clear_bit(XPRT_CLOSE_WAIT, &xprt->state);
+ 		smp_mb__after_clear_bit();
+-		xs_tcp_schedule_linger_timeout(xprt, xs_tcp_fin_timeout);
++		xs_tcp_schedule_linger_timeout(xprt, sn->xs_tcp_fin_timeout);
+ 		break;
+ 	case TCP_CLOSE_WAIT:
+ 		/* The server initiated a shutdown of the socket */
+@@ -1512,7 +1513,7 @@ static void xs_tcp_state_change(struct sock *sk)
+ 		break;
+ 	case TCP_LAST_ACK:
+ 		set_bit(XPRT_CLOSING, &xprt->state);
+-		xs_tcp_schedule_linger_timeout(xprt, xs_tcp_fin_timeout);
++		xs_tcp_schedule_linger_timeout(xprt, sn->xs_tcp_fin_timeout);
+ 		smp_mb__before_clear_bit();
+ 		clear_bit(XPRT_CONNECTED, &xprt->state);
+ 		smp_mb__after_clear_bit();
+@@ -1652,11 +1653,13 @@ static void xs_udp_timer(struct rpc_task *task)
+ 	xprt_adjust_cwnd(task, -ETIMEDOUT);
  }
-+
- void destroy_xs_tunables_table(struct net *net)
- {
- 	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
-+	struct ctl_table *table;
-+
-+	table = sn->xs_tunables_header->ctl_table_arg;
- 	unregister_sysctl_table(sn->xs_tunables_header);
- 	sn->xs_tunables_header = NULL;
-+	if (!net_eq(net, &init_net))
-+		kfree(table);
- }
- #endif
  
--
- int socket_sysctl_init(struct net *net)
+-static unsigned short xs_get_random_port(void)
++static unsigned short xs_get_random_port(struct net *net)
  {
+-	unsigned short range = xprt_max_resvport - xprt_min_resvport;
 +	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
 +
-+	sn->xprt_udp_slot_table_entries = xprt_udp_slot_table_entries;
-+	sn->xprt_tcp_slot_table_entries = xprt_tcp_slot_table_entries;
-+	sn->xprt_max_tcp_slot_table_entries = xprt_max_tcp_slot_table_entries;
-+	sn->xprt_min_resvport = xprt_min_resvport;
-+	sn->xprt_max_resvport = xprt_max_resvport;
-+	sn->xs_tcp_fin_timeout = xs_tcp_fin_timeout;
- #ifdef RPC_DEBUG
- 	return create_xs_tunables_table(net);
- #else
++	unsigned short range = sn->xprt_max_resvport - sn->xprt_min_resvport;
+ 	unsigned short rand = (unsigned short) net_random() % range;
+-	return rand + xprt_min_resvport;
++	return rand + sn->xprt_min_resvport;
+ }
+ 
+ /**
+@@ -1678,18 +1681,21 @@ static unsigned short xs_get_srcport(struct sock_xprt *transport)
+ 	unsigned short port = transport->srcport;
+ 
+ 	if (port == 0 && transport->xprt.resvport)
+-		port = xs_get_random_port();
++		port = xs_get_random_port(transport->xprt.xprt_net);
+ 	return port;
+ }
+ 
+ static unsigned short xs_next_srcport(struct sock_xprt *transport, unsigned short port)
+ {
++	struct sunrpc_net *sn = net_generic(transport->xprt.xprt_net,
++					    sunrpc_net_id);
++
+ 	if (transport->srcport != 0)
+ 		transport->srcport = 0;
+ 	if (!transport->xprt.resvport)
+ 		return 0;
+-	if (port <= xprt_min_resvport || port > xprt_max_resvport)
+-		return xprt_max_resvport;
++	if (port <= sn->xprt_min_resvport || port > sn->xprt_max_resvport)
++		return sn->xprt_max_resvport;
+ 	return --port;
+ }
+ static int xs_bind(struct sock_xprt *transport, struct socket *sock)
+@@ -2541,9 +2547,10 @@ static struct rpc_xprt *xs_setup_local(struct xprt_create *args)
+ 	struct sock_xprt *transport;
+ 	struct rpc_xprt *xprt;
+ 	struct rpc_xprt *ret;
++	struct sunrpc_net *sn = net_generic(args->net, sunrpc_net_id);
+ 
+-	xprt = xs_setup_xprt(args, xprt_tcp_slot_table_entries,
+-			xprt_max_tcp_slot_table_entries);
++	xprt = xs_setup_xprt(args, sn->xprt_tcp_slot_table_entries,
++			sn->xprt_max_tcp_slot_table_entries);
+ 	if (IS_ERR(xprt))
+ 		return xprt;
+ 	transport = container_of(xprt, struct sock_xprt, xprt);
+@@ -2606,9 +2613,10 @@ static struct rpc_xprt *xs_setup_udp(struct xprt_create *args)
+ 	struct rpc_xprt *xprt;
+ 	struct sock_xprt *transport;
+ 	struct rpc_xprt *ret;
++	struct sunrpc_net *sn = net_generic(args->net, sunrpc_net_id);
+ 
+-	xprt = xs_setup_xprt(args, xprt_udp_slot_table_entries,
+-			xprt_udp_slot_table_entries);
++	xprt = xs_setup_xprt(args, sn->xprt_udp_slot_table_entries,
++			sn->xprt_udp_slot_table_entries);
+ 	if (IS_ERR(xprt))
+ 		return xprt;
+ 	transport = container_of(xprt, struct sock_xprt, xprt);
+@@ -2683,9 +2691,10 @@ static struct rpc_xprt *xs_setup_tcp(struct xprt_create *args)
+ 	struct rpc_xprt *xprt;
+ 	struct sock_xprt *transport;
+ 	struct rpc_xprt *ret;
++	struct sunrpc_net *sn = net_generic(args->net, sunrpc_net_id);
+ 
+-	xprt = xs_setup_xprt(args, xprt_tcp_slot_table_entries,
+-			xprt_max_tcp_slot_table_entries);
++	xprt = xs_setup_xprt(args, sn->xprt_tcp_slot_table_entries,
++			sn->xprt_max_tcp_slot_table_entries);
+ 	if (IS_ERR(xprt))
+ 		return xprt;
+ 	transport = container_of(xprt, struct sock_xprt, xprt);
+@@ -2754,6 +2763,7 @@ static struct rpc_xprt *xs_setup_bc_tcp(struct xprt_create *args)
+ 	struct sock_xprt *transport;
+ 	struct svc_sock *bc_sock;
+ 	struct rpc_xprt *ret;
++	struct sunrpc_net *sn = net_generic(args->net, sunrpc_net_id);
+ 
+ 	if (args->bc_xprt->xpt_bc_xprt) {
+ 		/*
+@@ -2764,8 +2774,8 @@ static struct rpc_xprt *xs_setup_bc_tcp(struct xprt_create *args)
+ 		 */
+ 		 return args->bc_xprt->xpt_bc_xprt;
+ 	}
+-	xprt = xs_setup_xprt(args, xprt_tcp_slot_table_entries,
+-			xprt_tcp_slot_table_entries);
++	xprt = xs_setup_xprt(args, sn->xprt_tcp_slot_table_entries,
++			sn->xprt_tcp_slot_table_entries);
+ 	if (IS_ERR(xprt))
+ 		return xprt;
+ 	transport = container_of(xprt, struct sock_xprt, xprt);
