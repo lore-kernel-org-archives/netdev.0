@@ -1,149 +1,197 @@
-From: Vincent Bernat <bernat@luffy.cx>
-Subject: [PATCH 2/2] net/ipv4: bind ip_nonlocal_bind to current netns
-Date: Wed, 14 Dec 2011 17:20:48 +0100
-Message-ID: <1323879648-419-3-git-send-email-bernat@luffy.cx>
-References: <1323879648-419-1-git-send-email-bernat@luffy.cx>
-Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org,
-	Vincent Bernat <bernat@luffy.cx>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftmxout01ba.infra.b2.fti.net ([193.252.121.124]:39852 "EHLO
-	ftmxout01ba.infra.b2.fti.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755177Ab1LNQVF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2011 11:21:05 -0500
-In-Reply-To: <1323879648-419-1-git-send-email-bernat@luffy.cx>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
+Subject: Re: [PATCH v6 01/10] Basic kernel memory functionality for the
+ Memory Controller
+Date: Wed, 14 Dec 2011 17:38:44 +0100
+Message-ID: <20111214163844.GA4856@tiehlicka.suse.cz>
+References: <1322242696-27682-1-git-send-email-glommer@parallels.com>
+ <1322242696-27682-2-git-send-email-glommer@parallels.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org,
+	kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org, gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org,
+	avagin-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1322242696-27682-2-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-net.ipv4.ip_nonlocal_bind sysctl was global to all network
-namespaces. This patch allows to set a different value for each
-network namespace.
+Sorry for jumping in that late but I was busy recently...
 
-Signed-off-by: Vincent Bernat <bernat@luffy.cx>
----
- include/net/netns/ipv4.h   |    1 +
- net/ipv4/af_inet.c         |    6 +-----
- net/ipv4/ping.c            |    2 +-
- net/ipv4/sysctl_net_ipv4.c |   16 +++++++++-------
- net/ipv6/af_inet6.c        |    2 +-
- net/sctp/protocol.c        |    2 +-
- 6 files changed, 14 insertions(+), 15 deletions(-)
+On Fri 25-11-11 15:38:07, Glauber Costa wrote:
+> This patch lays down the foundation for the kernel memory component
+> of the Memory Controller.
+> 
+> As of today, I am only laying down the following files:
+> 
+>  * memory.independent_kmem_limit
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index bbd023a..ad8587c 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -51,6 +51,7 @@ struct netns_ipv4 {
- 	int sysctl_icmp_ratelimit;
- 	int sysctl_icmp_ratemask;
- 	int sysctl_icmp_errors_use_inbound_ifaddr;
-+	int sysctl_ip_nonlocal_bind;
- 	int sysctl_rt_cache_rebuild_count;
- 	int current_rt_cache_rebuild_count;
- 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index f7b5670..4fe4a7b 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -443,10 +443,6 @@ int inet_release(struct socket *sock)
- }
- EXPORT_SYMBOL(inet_release);
- 
--/* It is off by default, see below. */
--int sysctl_ip_nonlocal_bind __read_mostly;
--EXPORT_SYMBOL(sysctl_ip_nonlocal_bind);
--
- int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- {
- 	struct sockaddr_in *addr = (struct sockaddr_in *)uaddr;
-@@ -485,7 +481,7 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 	 *  is temporarily down)
- 	 */
- 	err = -EADDRNOTAVAIL;
--	if (!sysctl_ip_nonlocal_bind &&
-+	if (!sock_net(sk)->ipv4.sysctl_ip_nonlocal_bind &&
- 	    !(inet->freebind || inet->transparent) &&
- 	    addr->sin_addr.s_addr != htonl(INADDR_ANY) &&
- 	    chk_addr_ret != RTN_LOCAL &&
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 43d4c3b..01cf59d 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -257,7 +257,7 @@ static int ping_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	if (addr->sin_addr.s_addr == INADDR_ANY)
- 		chk_addr_ret = RTN_LOCAL;
- 
--	if ((sysctl_ip_nonlocal_bind == 0 &&
-+	if ((sock_net(sk)->ipv4.sysctl_ip_nonlocal_bind == 0 &&
- 	    isk->freebind == 0 && isk->transparent == 0 &&
- 	     chk_addr_ret != RTN_LOCAL) ||
- 	    chk_addr_ret == RTN_MULTICAST ||
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index fe9bf91..15e4534 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -265,13 +265,6 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= proc_dointvec
- 	},
- 	{
--		.procname	= "ip_nonlocal_bind",
--		.data		= &sysctl_ip_nonlocal_bind,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec
--	},
--	{
- 		.procname	= "tcp_syn_retries",
- 		.data		= &sysctl_tcp_syn_retries,
- 		.maxlen		= sizeof(int),
-@@ -765,6 +758,13 @@ static struct ctl_table ipv4_net_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= ipv4_tcp_mem,
- 	},
-+	{
-+		.procname	= "ip_nonlocal_bind",
-+		.data		= &init_net.ipv4.sysctl_ip_nonlocal_bind,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
- 	{ }
- };
- 
-@@ -802,6 +802,8 @@ static __net_init int ipv4_sysctl_init_net(struct net *net)
- 			&net->ipv4.sysctl_rt_cache_rebuild_count;
- 		table[7].data =
- 			&net->ipv4.sysctl_ping_group_range;
-+		table[9].data =
-+			&net->ipv4.sysctl_ip_nonlocal_bind;
- 
- 	}
- 
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 27c32f387..76b970d 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -307,7 +307,7 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 		/* Reproduce AF_INET checks to make the bindings consistent */
- 		v4addr = addr->sin6_addr.s6_addr32[3];
- 		chk_addr_ret = inet_addr_type(net, v4addr);
--		if (!sysctl_ip_nonlocal_bind &&
-+		if (!net->ipv4.sysctl_ip_nonlocal_bind &&
- 		    !(inet->freebind || inet->transparent) &&
- 		    v4addr != htonl(INADDR_ANY) &&
- 		    chk_addr_ret != RTN_LOCAL &&
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 544a9b6..8c9c6bf 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -403,7 +403,7 @@ static int sctp_v4_available(union sctp_addr *addr, struct sctp_sock *sp)
- 	if (addr->v4.sin_addr.s_addr != htonl(INADDR_ANY) &&
- 	   ret != RTN_LOCAL &&
- 	   !sp->inet.freebind &&
--	   !sysctl_ip_nonlocal_bind)
-+	    !sock_net(sctp_opt2sk(sp))->ipv4.sysctl_ip_nonlocal_bind)
- 		return 0;
- 
- 	if (ipv6_only_sock(sctp_opt2sk(sp)))
+Maybe has been already discussed but the name is rather awkward and it
+would deserve more clarification. It is independent in the way that it
+doesn't add up to the standard (user) allocations or it enables/disables
+accounting?
+
+>  * memory.kmem.limit_in_bytes (currently ignored)
+
+What happens if we reach the limit? Are all kernel allocations
+considered or only selected caches? How do I find out which are those?
+
+AFAIU you have implemented it for network buffers at this stage but I
+guess that dentries will follow...
+
+>  * memory.kmem.usage_in_bytes (always zero)
+> 
+> Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> Reviewed-by: Kirill A. Shutemov <kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>
+> CC: Paul Menage <paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org>
+> CC: Greg Thelen <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+> ---
+>  Documentation/cgroups/memory.txt |   36 ++++++++++++-
+>  init/Kconfig                     |   14 +++++
+>  mm/memcontrol.c                  |  107 ++++++++++++++++++++++++++++++++++++--
+>  3 files changed, 150 insertions(+), 7 deletions(-)
+> 
+> diff --git a/Documentation/cgroups/memory.txt b/Documentation/cgroups/memory.txt
+> index 06eb6d9..bf00cd2 100644
+> --- a/Documentation/cgroups/memory.txt
+> +++ b/Documentation/cgroups/memory.txt
+> @@ -44,8 +44,9 @@ Features:
+>   - oom-killer disable knob and oom-notifier
+>   - Root cgroup has no limit controls.
+>  
+> - Kernel memory and Hugepages are not under control yet. We just manage
+> - pages on LRU. To add more controls, we have to take care of performance.
+> + Hugepages is not under control yet. We just manage pages on LRU. To add more
+
+Hugepages are not
+Anyway this sounds outdated as we track both THP and hugetlb, right?
+
+> + controls, we have to take care of performance. Kernel memory support is work
+> + in progress, and the current version provides basically functionality.
+
+s/basically/basic/
+
+>  
+>  Brief summary of control files.
+>  
+> @@ -56,8 +57,11 @@ Brief summary of control files.
+>  				 (See 5.5 for details)
+>   memory.memsw.usage_in_bytes	 # show current res_counter usage for memory+Swap
+>  				 (See 5.5 for details)
+> + memory.kmem.usage_in_bytes	 # show current res_counter usage for kmem only.
+> +				 (See 2.7 for details)
+>   memory.limit_in_bytes		 # set/show limit of memory usage
+>   memory.memsw.limit_in_bytes	 # set/show limit of memory+Swap usage
+> + memory.kmem.limit_in_bytes	 # if allowed, set/show limit of kernel memory
+>   memory.failcnt			 # show the number of memory usage hits limits
+>   memory.memsw.failcnt		 # show the number of memory+Swap hits limits
+>   memory.max_usage_in_bytes	 # show max memory usage recorded
+> @@ -72,6 +76,9 @@ Brief summary of control files.
+>   memory.oom_control		 # set/show oom controls.
+>   memory.numa_stat		 # show the number of memory usage per numa node
+>  
+> + memory.independent_kmem_limit	 # select whether or not kernel memory limits are
+> +				   independent of user limits
+
+It is not clear to me what happens in enabled/disabled cases. Let's say
+they are not independent. Do they form a single limit or it toggles kmem
+charging on/off.
+
+> +
+>  1. History
+>  
+>  The memory controller has a long history. A request for comments for the memory
+> @@ -255,6 +262,31 @@ When oom event notifier is registered, event will be delivered.
+>    per-zone-per-cgroup LRU (cgroup's private LRU) is just guarded by
+>    zone->lru_lock, it has no lock of its own.
+>  
+> +2.7 Kernel Memory Extension (CONFIG_CGROUP_MEM_RES_CTLR_KMEM)
+> +
+> + With the Kernel memory extension, the Memory Controller is able to limit
+> +the amount of kernel memory used by the system. 
+
+Per kmem cache? Or what is the granularity?
+
+> Kernel memory is fundamentally
+> +different than user memory, since it can't be swapped out, which makes it
+> +possible to DoS the system by consuming too much of this precious resource.
+> +Kernel memory limits are not imposed for the root cgroup.
+> +
+> +Memory limits as specified by the standard Memory Controller may or may not
+> +take kernel memory into consideration. This is achieved through the file
+> +memory.independent_kmem_limit. A Value different than 0 will allow for kernel
+> +memory to be controlled separately.
+> +
+> +When kernel memory limits are not independent, the limit values set in
+> +memory.kmem files are ignored.
+
+This suggests that the independent_kmem_limit is toggle to
+enable/disable accounting. Wouldn't kmem_limit_enabled (0/1 or on/off)
+be more obvious in that case?
+
+Also a description what happens when the limit is reached (in both
+cases) would be helpful.
+
+[...]
+> @@ -343,9 +352,14 @@ enum charge_type {
+>  };
+>  
+>  /* for encoding cft->private value on file */
+> -#define _MEM			(0)
+> -#define _MEMSWAP		(1)
+> -#define _OOM_TYPE		(2)
+> +
+> +enum mem_type {
+> +	_MEM = 0,
+> +	_MEMSWAP,
+> +	_OOM_TYPE,
+> +	_KMEM,
+> +};
+
+Probably a separate (cleanup) patch?
+
+> +
+>  #define MEMFILE_PRIVATE(x, val)	(((x) << 16) | (val))
+>  #define MEMFILE_TYPE(val)	(((val) >> 16) & 0xffff)
+>  #define MEMFILE_ATTR(val)	((val) & 0xffff)
+> @@ -3838,10 +3852,17 @@ static inline u64 mem_cgroup_usage(struct mem_cgroup *mem, bool swap)
+>  	u64 val;
+>  
+>  	if (!mem_cgroup_is_root(mem)) {
+> +		val = 0;
+> +#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+> +		if (!mem->kmem_independent_accounting)
+> +			val = res_counter_read_u64(&mem->kmem, RES_USAGE);
+> +#endif
+
+OK so this suggests that independent accounting really means
+kmem+user_usage.
+
+
+>  		if (!swap)
+> -			return res_counter_read_u64(&mem->res, RES_USAGE);
+> +			val += res_counter_read_u64(&mem->res, RES_USAGE);
+>  		else
+> -			return res_counter_read_u64(&mem->memsw, RES_USAGE);
+> +			val += res_counter_read_u64(&mem->memsw, RES_USAGE);
+> +
+> +		return val;
+>  	}
+>  
+>  	val = mem_cgroup_recursive_stat(mem, MEM_CGROUP_STAT_CACHE);
+[...]
 -- 
-1.7.7.3
+Michal Hocko
+SUSE Labs
+SUSE LINUX s.r.o.
+Lihovarska 1060/12
+190 00 Praha 9    
+Czech Republic
+--
+To unsubscribe from this list: send the line "unsubscribe cgroups" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
