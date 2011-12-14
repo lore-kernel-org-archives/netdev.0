@@ -1,28 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vlan: static functions
-Date: Wed, 14 Dec 2011 02:47:26 -0500 (EST)
-Message-ID: <20111214.024726.1951159044503679507.davem@davemloft.net>
-References: <1323845874.2846.22.camel@edumazet-laptop>
+Subject: Re: [patch] vlan: add rtnl_dereference() annotations
+Date: Wed, 14 Dec 2011 02:47:19 -0500 (EST)
+Message-ID: <20111214.024719.723458248077070552.davem@davemloft.net>
+References: <20111214062943.GD7499@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bcrl@kvack.org
-To: eric.dumazet@gmail.com
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, jpirko@redhat.com
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:54530 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:54539 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753726Ab1LNHrb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2011 02:47:31 -0500
-In-Reply-To: <1323845874.2846.22.camel@edumazet-laptop>
+	with ESMTP id S1753365Ab1LNHs3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2011 02:48:29 -0500
+In-Reply-To: <20111214062943.GD7499@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 14 Dec 2011 07:57:54 +0100
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 14 Dec 2011 09:29:43 +0300
 
-> commit 6d4cdf47d2 (vlan: add 802.1q netpoll support) forgot to declare
-> as static some private functions.
+> The original code generates a Sparse warning:
+> net/8021q/vlan_core.c:336:9:
+> 	error: incompatible types in comparison expression (different address spaces)
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> It's ok to dereference __rcu pointers here because we are holding the
+> RTNL lock.  I've added some calls to rtnl_dereference() to silence the
+> warning.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 Applied.
