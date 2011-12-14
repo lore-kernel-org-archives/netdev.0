@@ -1,74 +1,58 @@
-From: Jiang Wang <Jiang.Wang@riverbed.com>
-Subject: [PATCH 2/2] e100: power off PHY after reset when
-	interface is down
-Date: Tue, 13 Dec 2011 18:49:56 -0800
-Message-ID: <1323830996-16388-2-git-send-email-Jiang.Wang@riverbed.com>
-References: <1323830996-16388-1-git-send-email-Jiang.Wang@riverbed.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: twice past the taps, thence out to net?
+Date: Wed, 14 Dec 2011 11:27:00 -0800
+Message-ID: <4EE8F884.1010304@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Francis.St.Amant@riverbed.com, miles.ito@intel.com, clala@riverbed.com,
-	ppanchamukhi@riverbed.com, Jiang Wang <Jiang.Wang@riverbed.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1323830996-16388-1-git-send-email-Jiang.Wang@riverbed.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+To: tcpdump-workers@lists.tcpdump.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:49096 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755459Ab1LNT1D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2011 14:27:03 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PHYs supported by e100 re-starts auto-negotiation after writing to
-BMCR_RESET bit. This patch powers down PHY when the interface is down
-and reset is issued.
+While looking at "something else" with tcpdump/tcptrace, tcptrace 
+emitted lots of notices about hardware duplicated packets being detected 
+(same TCP sequence number and IP datagram ID).  Sure enough, if I go 
+into the tcpdump trace (taken on the sender) I can find instances of 
+what it was talking about, separated in time by rather less than I would 
+expect to be the RTO, and often as not with few if any intervening 
+arriving ACKs to trigger anything like fast retransmit.  And besides, 
+those would have a different IP datagram ID no?
 
-Signed-off-by: Jiang Wang <Jiang.Wang@riverbed.com>
----
- drivers/net/ethernet/intel/e100.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+I did manage to reproduce the issue with plain netperf tcp_stream tests. 
+I had one sending system with 30 concurrent netperf tcp_stream tests to 
+30 other receiving systems.  There are "hardware duplicates" in the 
+sending trace, but no duplicate segments (that I can find thus far) in 
+the two receiver side traces I took.  Of course that doesn't mean 
+"conclusively" there were two actual sends but it suggests there werent.
 
-diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
-index 9824e0a..b8e4910 100644
---- a/drivers/net/ethernet/intel/e100.c
-+++ b/drivers/net/ethernet/intel/e100.c
-@@ -2386,6 +2386,13 @@ static int e100_set_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
- 	err = mii_ethtool_sset(&nic->mii, cmd);
- 	e100_exec_cb(nic, NULL, e100_configure);
- 
-+	if (!netif_running(netdev) && !(nic->flags & wol_magic)) {
-+		uint16_t phy_data;
-+		phy_data = mdio_read(nic->netdev, nic->mii.phy_id, MII_BMCR);
-+		phy_data |= BMCR_PDOWN;
-+		mdio_write(nic->netdev, nic->mii.phy_id, MII_BMCR, phy_data);
-+	}
-+
- 	return err;
- }
- 
--- 
-1.7.1
+While I work through the "obtain permission" path to post the packet 
+traces (don't ask...) I thought I would ask if anyone else has seen 
+something similar.
 
+In this case, all the systems are running a 2.6.38-8 Ubuntu kernel (the 
+same sorts of issues which delay my just putting the traces up on 
+netperf.org preclude a later kernel, and I've no other test systems :( 
+), with Intel 82576 interfaces being driven by:
 
-------------------------------------------------------------------------------
-Cloud Computing - Latest Buzzword or a Glimpse of the Future?
-This paper surveys cloud computing today: What are the benefits? 
-Why are businesses embracing it? What are its payoffs and pitfalls?
-http://www.accelacomm.com/jaw/sdnl/114/51425149/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+$ sudo ethtool -i eth0
+driver: igb
+version: 2.1.0-k2
+firmware-version: 1.8-2
+bus-info: 0000:05:00.0
+
+All the systems were connected to the same switch.
+
+It is projecting, but given that the interface was fully saturated, and 
+there were 30 concurrent streams making 64K TSO sends, it "feels" like 
+some sort of "go past the packet tap and be captured, find a 
+queue/resource past the tap unavailable, get re-queued above the tap, 
+get captured again when resent" sort of thing.
+
+Where in the Linux stack does the tap used by libpcap 1.1.1 reside?
+
+rick jones
