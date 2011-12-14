@@ -1,46 +1,54 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: kenel level packet capturing
-Date: Wed, 14 Dec 2011 14:31:25 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1112141426450.16886@frira.zrqbmnf.qr>
-References: <CAKj1SsOnYsOXjRBKm+=hTnEiesXrC3h0Q-KN2b61nPSQud9wMA@mail.gmail.com> <20111019123733.GA21324@synalogic.ca> <CAKj1SsOra7u21u8Zq9rDLzv_Bhx8sPsah+SHByMYQbVc_j6LQA@mail.gmail.com> <20111213.133629.1213042365300662857.davem@davemloft.net>
- <CAKj1SsNO_uJuVtKs_-tygcd=QDesKkYa=9DVeajhK73LFV-opA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: ping: remove some sparse errors
+Date: Wed, 14 Dec 2011 14:51:28 +0100
+Message-ID: <1323870688.2334.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org
-To: raviraj joshi <raviraj.j1991@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CAKj1SsNO_uJuVtKs_-tygcd=QDesKkYa=9DVeajhK73LFV-opA@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:50720 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755203Ab1LNNvc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2011 08:51:32 -0500
+Received: by mail-ee0-f46.google.com with SMTP id c4so804521eek.19
+        for <netdev@vger.kernel.org>; Wed, 14 Dec 2011 05:51:31 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+net/ipv4/sysctl_net_ipv4.c:78:6: warning: symbol 'inet_get_ping_group_range_table'
+was not declared. Should it be static?
 
-On Wednesday 2011-12-14 11:46, raviraj joshi wrote:
->On Wed, Dec 14, 2011 at 12:06 AM, David Miller wrote:
->>
->>>We have decided to use PF_RING(a kernel module to capture packets)
->>>for the same due to the number of advantages.
->>
->>What "advantages"? =C2=A0The AF_PACKET socket layer already upstream =
-in
->>the kernel supports every relevant performance feature PF_RING
->>does, and then some.
->
->I refered to the document on "A Measurement Study of Packet
->Reception using Linux"[1] which said pf_ring maintains a ring
->buffer, so we dont have to issue a receive system call for each
->packet in contrast to AF_PACKET which issues a system call for each
->packet(pls correct me if i am wrong).
+net/ipv4/sysctl_net_ipv4.c:119:31: warning: incorrect type in argument 2
+(different signedness)
+net/ipv4/sysctl_net_ipv4.c:119:31: expected int *range
+net/ipv4/sysctl_net_ipv4.c:119:31: got unsigned int *<noident>
 
-AF_PACKET has had mmap support for a loooong time. The initial code
-traces back to 2.3.15pre3 (1999-Aug-23).
-So much for $academia.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/sysctl_net_ipv4.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
->[1]
->http://www.cs.wustl.edu/~jain/cse567-11/ftp/pkt_recp/index.html
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index fe9bf91..4aa7e9d 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -75,7 +75,7 @@ static int ipv4_local_port_range(ctl_table *table, int write,
+ }
+ 
+ 
+-void inet_get_ping_group_range_table(struct ctl_table *table, gid_t *low, gid_t *high)
++static void inet_get_ping_group_range_table(struct ctl_table *table, gid_t *low, gid_t *high)
+ {
+ 	gid_t *data = table->data;
+ 	unsigned seq;
+@@ -88,7 +88,7 @@ void inet_get_ping_group_range_table(struct ctl_table *table, gid_t *low, gid_t
+ }
+ 
+ /* Update system visible IP port range */
+-static void set_ping_group_range(struct ctl_table *table, int range[2])
++static void set_ping_group_range(struct ctl_table *table, gid_t range[2])
+ {
+ 	gid_t *data = table->data;
+ 	write_seqlock(&sysctl_local_ports.lock);
