@@ -1,53 +1,56 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH RFC] virtio_net: fix refill related races
-Date: Wed, 14 Dec 2011 15:54:12 -0800
-Message-ID: <20111214235412.GA29835@google.com>
-References: <20111207152120.GA23417@redhat.com>
-	<8739cvisqe.fsf@rustcorp.com.au>
-	<20111211144428.GB14381@redhat.com>
-	<878vmioh10.fsf@rustcorp.com.au> <20111212115405.GB7946@redhat.com>
-	<87iplltd0g.fsf@rustcorp.com.au>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Fwd: Weird linux kernel behavior - ARP - V2.6.16
+Date: Wed, 14 Dec 2011 15:57:36 -0800
+Message-ID: <CA+55aFzZHMd=pCUum3dr+Lz+i1KJfooqNT2fi8Fumq3c8BexkA@mail.gmail.com>
+References: <CAGeZV=TeKwzhpxsEV_rNa0=R-RYZfy6qi0iLoZ5Y4tSA8Ti5qA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Amit Shah <amit.shah@redhat.com>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <87iplltd0g.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:39870 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755595Ab1LNX57 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2011 18:57:59 -0500
+Received: by wgbdr13 with SMTP id dr13so2684894wgb.1
+        for <netdev@vger.kernel.org>; Wed, 14 Dec 2011 15:57:57 -0800 (PST)
+In-Reply-To: <CAGeZV=TeKwzhpxsEV_rNa0=R-RYZfy6qi0iLoZ5Y4tSA8Ti5qA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello, Rusty.
+Sent to some wrong people. Is anybody interested in this particular
+misconfiguration? Is it intentional/wanted, or just a "don't do that
+then"?
 
-On Tue, Dec 13, 2011 at 01:05:11PM +1030, Rusty Russell wrote:
-> Both places where we call:
-> 
-> 	cancel_delayed_work_sync(&vi->refill);
-> 
-> Do not actually guarantee that vi->refill isn't running, because it
-> can requeue itself.  A 'bool no_more_refill' field seems like the
-> simplest fix for this, but I don't think it's sufficient.
-> 
-> Tejun, is this correct?  What's the correct way to synchronously stop a
-> delayed_work which can "schedule_delayed_work(&vi->refill, HZ/2);" on
-> itself?
+                      Linus
 
-cancel_delayed_work_sync() itself should be good enough.  It first
-steals the pending state and then waits for it to finish if in-flight.
-Queueing itself afterwards becomes noop.
 
-Thanks.
+---------- Forwarded message ----------
+From: Isaac Theogaraj <isaactheogaraj@gmail.com>
+Date: Wed, Dec 14, 2011 at 1:59 AM
+Subject: Weird linux kernel behavior - ARP - V2.6.16
+To: torvalds@osdl.org
+Cc: mtosatti@redhat.com, alan@lxorguk.ukuu.org.uk, tao@acc.umu.se
 
--- 
-tejun
+
+Dear Kernel experts,
+I just encountered a kernel behavior wherein if the default gateway is
+set as an interface IP itself,
+kernel starts ARPing for every internet address.
+Would like to what is the intention behind this behavior?
+
+Of course this is an inadvertent configuration(wrong config. too), but
+when kernel ARPs for
+all internet addresses, that bloats up network tables in the
+routing/bridging devices.
+
+Logically speaking, if I say "My default gateway is me", then it's
+like saying that I have all routes
+and ARP resolutions. If I don't have a connected network for a
+destination, I drop it.
+
+Can you please let me know, why is the behavior set as "ARPing for
+every internet address" when
+"Default gateway is me"?
+thanks in advance,
+Isaac.
