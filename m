@@ -1,67 +1,57 @@
-From: Michal Soltys <soltys@ziu.info>
-Subject: Re: Latency guarantees in HFSC rt service curves
-Date: Wed, 14 Dec 2011 00:46:44 +0100
-Message-ID: <4EE7E3E4.6070409@ziu.info>
-References: <1323467512.3159.93.camel@denise.theartistscloset.com>  <4EE358A4.7060302@ziu.info>  <1323531352.3159.106.camel@denise.theartistscloset.com>  <4EE39D88.9010002@ziu.info> <1323542103.3159.148.camel@denise.theartistscloset.com>
+From: "Yan, Zheng" <zheng.z.yan@intel.com>
+Subject: Re: [PATCH] ipv6: Check dest prefix length on original route not
+ copied one in rt6_alloc_cow().
+Date: Wed, 14 Dec 2011 08:16:02 +0800
+Message-ID: <4EE7EAC2.2030600@intel.com>
+References: <20111213.173551.163815101446083653.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from drutsystem.com ([80.72.38.138]:1814 "EHLO drutsystem.com"
+Received: from mga11.intel.com ([192.55.52.93]:30669 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751909Ab1LMXqg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Dec 2011 18:46:36 -0500
-In-Reply-To: <1323542103.3159.148.camel@denise.theartistscloset.com>
+	id S1753329Ab1LNAQE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Dec 2011 19:16:04 -0500
+In-Reply-To: <20111213.173551.163815101446083653.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10.12.2011 19:35, John A. Sullivan III wrote:
-> On Sat, 2011-12-10 at 18:57 +0100, Michal Soltys wrote: <snip> So,
-> again, trying to wear the eminently practical hat of a sys admin, for
-> periodic traffic, i.e., protocols like VoiP and video that are sending
-> packets are regular intervals and thus likely to reset the curve after
-> each packet, m1 helps reduce latency while m2 is a way of reducing the
-> chance of overrunning the circuit under heavy load, i.e., where the
-> concave queue is backlogged.
->
+On 12/14/2011 06:35 AM, David Miller wrote:
+> 
+> After commit 8e2ec639173f325977818c45011ee176ef2b11f6 ("ipv6: don't
+> use inetpeer to store metrics for routes.") the test in rt6_alloc_cow()
+> for setting the ANYCAST flag is now wrong.
+> 
+> 'rt' will always now have a plen of 128, because it is set explicitly
+> to 128 by ip6_rt_copy.
+> 
+> So to restore the semantics of the test, check the destination prefix
+> length of 'ort'.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+> 
+> Committed to 'net'.
+> 
+>  net/ipv6/route.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 3399dd3..b582a0a 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -728,7 +728,7 @@ static struct rt6_info *rt6_alloc_cow(const struct rt6_info *ort,
+>  		int attempts = !in_softirq();
+>  
+>  		if (!(rt->rt6i_flags&RTF_GATEWAY)) {
+> -			if (rt->rt6i_dst.plen != 128 &&
+> +			if (ort->rt6i_dst.plen != 128 &&
+>  			    ipv6_addr_equal(&ort->rt6i_dst.addr, daddr))
+>  				rt->rt6i_flags |= RTF_ANYCAST;
+>  			ipv6_addr_copy(&rt->rt6i_gateway, daddr);
 
-Well, updated, - not "reset". The latter [kind of] implies the return to
-original form, and just so we're on the same page - the curve would have
-to be completely under the old one for that to happen. There's also no
-chance of overloading anything - except if a machine is shaping on
-behalf of something upstream with smaller uplink, and doing so without
-UL keeping LS in check.
+My fault, sorry!
 
-> When we start multiplexing streams of periodic traffic, we are still
-> fine as long as we are not backlogged.  Once we are backlogged, we
-> drop down to the m2 curve which prevents us from overrunning the
-> circuit (assuming the sum of our rt m2 curves<= circuit size) and
-> hopefully still provides adequate latency.  If we are badly
-> backlogged, we have a problem with which HFSC can't help us :) (and I
-> suppose where short queues are helpful).
->
-
-Keep in mind that not backlogged classes are not hurt by backlogged
-ones. And you can't overrun - be it m1 or m2, or at which point any
-class activates (providing curves make sense). If everything is
-backlogged, you still get nicely multiplexed traffic as defined by
-your hierarchy.
-
-If anything briefly stops being backlogged, it will get bonus on next
-backlog period - while making sure, it wouldn't go with new curve above
-previous backlog period's one (and assuming its actual rate is not above
-the defined RT curve, as in such case it will get bonus from excess
-bandwidth available as specified by LS (or will get none, if LS is not
-defined)).
-
-> If you have a chance, could you look at the email I sent entitled "An
-> error in my HFSC sysadmin documentation".  That's the last piece I
-> need to fall in place before I can share my documentation of this
-> week's research.  Thanks - John
-
-Yes, will do.
-
-Btw, have you check the manpages of recent iproute2 w.r.t. hfsc ?
-Lots of this should be explained, or at least mentioned there.
+Yan, Zheng
