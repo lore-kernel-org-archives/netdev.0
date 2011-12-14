@@ -1,59 +1,83 @@
-From: Yinghai Lu <yinghai-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net-next V2 00/21] net/mlx4: SRIOV support
-Date: Wed, 14 Dec 2011 12:42:13 -0800
-Message-ID: <CAE9FiQU1EwcGBhn2bFksB30nb8p3FEo=vvOJYXq3hAA1ArhqWg@mail.gmail.com>
-References: <4EE75CD1.7070900@mellanox.co.il>
-	<20111213.141413.1872427395829102426.davem@davemloft.net>
-	<953B660C027164448AE903364AC447D2485F0A86@MTLDAG02.mtl.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH net-next 4/6] tg3: Use mii_advertise_flowctrl
+Date: Wed, 14 Dec 2011 13:10:00 -0800
+Message-ID: <1323897002-17295-5-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org" <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>,
-	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org" <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-To: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <953B660C027164448AE903364AC447D2485F0A86-LSMZvP3E4uyuSA5JZHE7gA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:4926 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758127Ab1LNVJm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Dec 2011 16:09:42 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 13, 2011 at 11:16 AM, Yevgeny Petrilin
-<yevgenyp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
->> > This is V2 of a patch set that adds SRIOV support for ConnectX2 an=
-d
->> > ConnectX3 HW for Ethernet Link layer. =A0Infiniband and RoCE SRIOV
->> > support will be added at later stage
->>
+This patch replaces tg3's internal tg3_advert_flowctrl_1000T function
+with mii_advertise_flowctrl provided by the kernel headers.
 
-got following warning:
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Reviewed-by: Michael Chan <mchan@broadcom.com>
+Reviewed-by: Benjamin Li <benli@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c |   22 +++-------------------
+ 1 files changed, 3 insertions(+), 19 deletions(-)
 
-drivers/built-in.o: In function `mlx4_en_set_pauseparam':
-/home/yhlu/xx/xx/kernel/tip/linux-2.6/drivers/net/ethernet/mellanox/mlx=
-4/en_ethtool.c:387:
-undefined reference to `mlx4_SET_PORT_general'
-drivers/built-in.o: In function `mlx4_en_do_set_multicast':
-/home/yhlu/xx/xx/kernel/tip/linux-2.6/drivers/net/ethernet/mellanox/mlx=
-4/en_netdev.c:233:
-undefined reference to `mlx4_SET_PORT_qpn_calc'
-/home/yhlu/xx/xx/kernel/tip/linux-2.6/drivers/net/ethernet/mellanox/mlx=
-4/en_netdev.c:277:
-undefined reference to `mlx4_SET_PORT_qpn_calc'
-drivers/built-in.o: In function `mlx4_en_start_port':
-/home/yhlu/xx/xx/kernel/tip/linux-2.6/drivers/net/ethernet/mellanox/mlx=
-4/en_netdev.c:664:
-undefined reference to `mlx4_SET_PORT_general'
-/home/yhlu/xx/xx/kernel/tip/linux-2.6/drivers/net/ethernet/mellanox/mlx=
-4/en_netdev.c:676:
-undefined reference to `mlx4_SET_PORT_qpn_calc'
-drivers/built-in.o: In function `mlx4_en_init_netdev':
-/home/yhlu/xx/xx/kernel/tip/linux-2.6/drivers/net/ethernet/mellanox/mlx=
-4/en_netdev.c:1138:
-undefined reference to `mlx4_SET_PORT_general'
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 90ef942..0766d03 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -1671,22 +1671,6 @@ static void tg3_link_report(struct tg3 *tp)
+ 	}
+ }
+ 
+-static u16 tg3_advert_flowctrl_1000T(u8 flow_ctrl)
+-{
+-	u16 miireg;
+-
+-	if ((flow_ctrl & FLOW_CTRL_TX) && (flow_ctrl & FLOW_CTRL_RX))
+-		miireg = ADVERTISE_PAUSE_CAP;
+-	else if (flow_ctrl & FLOW_CTRL_TX)
+-		miireg = ADVERTISE_PAUSE_ASYM;
+-	else if (flow_ctrl & FLOW_CTRL_RX)
+-		miireg = ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM;
+-	else
+-		miireg = 0;
+-
+-	return miireg;
+-}
+-
+ static u16 tg3_advert_flowctrl_1000X(u8 flow_ctrl)
+ {
+ 	u16 miireg;
+@@ -1787,7 +1771,7 @@ static void tg3_adjust_link(struct net_device *dev)
+ 		if (phydev->duplex == DUPLEX_HALF)
+ 			mac_mode |= MAC_MODE_HALF_DUPLEX;
+ 		else {
+-			lcl_adv = tg3_advert_flowctrl_1000T(
++			lcl_adv = mii_advertise_flowctrl(
+ 				  tp->link_config.flowctrl);
+ 
+ 			if (phydev->pause)
+@@ -3589,7 +3573,7 @@ static int tg3_phy_autoneg_cfg(struct tg3 *tp, u32 advertise, u32 flowctrl)
+ 
+ 	new_adv = ADVERTISE_CSMA;
+ 	new_adv |= ethtool_adv_to_mii_adv_t(advertise) & ADVERTISE_ALL;
+-	new_adv |= tg3_advert_flowctrl_1000T(flowctrl);
++	new_adv |= mii_advertise_flowctrl(flowctrl);
+ 
+ 	err = tg3_writephy(tp, MII_ADVERTISE, new_adv);
+ 	if (err)
+@@ -3777,7 +3761,7 @@ static bool tg3_phy_copper_an_config_ok(struct tg3 *tp, u32 *lcladv)
+ 
+ 	advmsk = ADVERTISE_ALL;
+ 	if (tp->link_config.active_duplex == DUPLEX_FULL) {
+-		tgtadv |= tg3_advert_flowctrl_1000T(tp->link_config.flowctrl);
++		tgtadv |= mii_advertise_flowctrl(tp->link_config.flowctrl);
+ 		advmsk |= ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM;
+ 	}
+ 
+-- 
+1.7.3.4
