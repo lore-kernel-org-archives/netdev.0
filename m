@@ -1,43 +1,54 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: linux-3.0.x regression with ipv4 routes having mtu
-Date: Wed, 14 Dec 2011 17:54:16 +0200
-Message-ID: <4EE8C6A8.3060308@iki.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: kenel level packet capturing
+Date: Wed, 14 Dec 2011 11:09:19 -0500 (EST)
+Message-ID: <20111214.110919.1286184647888114902.davem@davemloft.net>
+References: <CAKj1SsOra7u21u8Zq9rDLzv_Bhx8sPsah+SHByMYQbVc_j6LQA@mail.gmail.com>
+	<20111213.133629.1213042365300662857.davem@davemloft.net>
+	<CAKj1SsNO_uJuVtKs_-tygcd=QDesKkYa=9DVeajhK73LFV-opA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:52578 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755771Ab1LNPyV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2011 10:54:21 -0500
-Received: by lagp5 with SMTP id p5so440274lag.19
-        for <netdev@vger.kernel.org>; Wed, 14 Dec 2011 07:54:19 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org
+To: raviraj.j1991@gmail.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <CAKj1SsNO_uJuVtKs_-tygcd=QDesKkYa=9DVeajhK73LFV-opA@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+=46rom: raviraj joshi <raviraj.j1991@gmail.com>
+Date: Wed, 14 Dec 2011 16:16:01 +0530
 
-I'm testing linux-3.0.10 and it appears to have a mtu bug with ipv4.
-There was recent funniness in ipv6 side as well [1,2], but this seems
-quite different.
+> On Wed, Dec 14, 2011 at 12:06 AM, David Miller <davem@davemloft.net> =
+wrote:
+>> From: raviraj joshi <raviraj.j1991@gmail.com>
+>> Date: Tue, 13 Dec 2011 17:34:22 +0530
+>>
+>>> We have decided to use PF_RING(a kernel module to capture packets) =
+for
+>>> the same due to the number of advantages.
+>>
+>> What "advantages"? =A0The AF_PACKET socket layer already upstream in=
+ the
+>> kernel supports every relevant performance feature PF_RING does, and
+>> then some.
+> I refered to the document on "A Measurement Study of Packet Reception
+> using Linux"[1]  which said pf_ring maintains
+> a ring buffer, so we dont have to issue a receive system call for eac=
+h
+> packet in contrast to AF_PACKET which issues a system call for each
+> packet(pls correct me if i am wrong).
 
-Basically, doing something like (ipA being the IPv4 host):
- 1. do a tcp session to ipA (telnet to open ipv4 port, chat, close)
- 2. "ip route get ipA" to see the route cache entry
- 3. "ip route add ipA via (whatever was the router) mtu 1400"
- 4. "ip route flush cache"
- 5. "ip route get ipA" and you still get the old same info as in step 2:
-    the mtu was not updated
-    (btw. how long the tcp info from step 1 gets cached? is it tunable?)
+AF_PACKET supports mmap()'d packet rings, and even supports variable
+packet lengths within those rings.
 
-So something is does not get updated here. This used to work though.
-The current production boxes where I know this work is 2.6.38.8.
+AF_PACKET supports all the worthwhile performance features of PR_RING
+and it's upstream, stop kidding yourself.
 
-Sounds like the TCP info is used if it exists. But it never gets updated
-after it's gone, and the new MTU is not being updated.
-
-- Timo
-
-[1] http://www.spinics.net/lists/netdev/msg174468.html
-[2] http://marc.info/?l=linux-netdev&m=131529445904858
+I'm really sick and tired of people saying PF_RING is better than
+what we have upstream, it really isn't.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
