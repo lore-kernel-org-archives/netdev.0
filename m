@@ -1,82 +1,59 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/2] e100: power down PHY if WOL is not enabled
-Date: Wed, 14 Dec 2011 20:30:36 +0000
-Message-ID: <1323894636.2753.2.camel@bwh-desktop>
-References: <1323830996-16388-1-git-send-email-Jiang.Wang@riverbed.com>
+From: Yinghai Lu <yinghai-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH net-next V2 00/21] net/mlx4: SRIOV support
+Date: Wed, 14 Dec 2011 12:42:13 -0800
+Message-ID: <CAE9FiQU1EwcGBhn2bFksB30nb8p3FEo=vvOJYXq3hAA1ArhqWg@mail.gmail.com>
+References: <4EE75CD1.7070900@mellanox.co.il>
+	<20111213.141413.1872427395829102426.davem@davemloft.net>
+	<953B660C027164448AE903364AC447D2485F0A86@MTLDAG02.mtl.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	<e1000-devel@lists.sourceforge.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <ppanchamukhi@riverbed.com>,
-	<clala@riverbed.com>, <Francis.St.Amant@riverbed.com>,
-	<miles.ito@intel.com>
-To: Jiang Wang <Jiang.Wang@riverbed.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1323830996-16388-1-git-send-email-Jiang.Wang@riverbed.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org" <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org" <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+To: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <953B660C027164448AE903364AC447D2485F0A86-LSMZvP3E4uyuSA5JZHE7gA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-12-13 at 18:49 -0800, Jiang Wang wrote:
-> Since the interface will not be used after being put down and WOL is disabled,
-> just power it off.
-> When bring up the interface, power on the PHY.
+On Tue, Dec 13, 2011 at 11:16 AM, Yevgeny Petrilin
+<yevgenyp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
+>> > This is V2 of a patch set that adds SRIOV support for ConnectX2 an=
+d
+>> > ConnectX3 HW for Ethernet Link layer. =A0Infiniband and RoCE SRIOV
+>> > support will be added at later stage
+>>
 
-Don't you need to cover the case where WOL is enabled while the
-interface is down?
+got following warning:
 
-Ben.
-
-> Signed-off-by: Jiang Wang <Jiang.Wang@riverbed.com>
-> ---
->  drivers/net/ethernet/intel/e100.c |   17 +++++++++++++++++
->  1 files changed, 17 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
-> index 5a2fdf7..9824e0a 100644
-> --- a/drivers/net/ethernet/intel/e100.c
-> +++ b/drivers/net/ethernet/intel/e100.c
-> @@ -1449,6 +1449,14 @@ static int e100_phy_init(struct nic *nic)
->  		netif_printk(nic, hw, KERN_DEBUG, nic->netdev,
->  			     "phy_addr = %d\n", nic->mii.phy_id);
->  
-> +	/* Make sure power to the PHY is enabled */
-> +	if (!(nic->flags & wol_magic)) {
-> +		uint16_t phy_data;
-> +		phy_data = mdio_read(nic->netdev, nic->mii.phy_id, MII_BMCR);
-> +		phy_data &= ~BMCR_PDOWN;
-> +		mdio_write(nic->netdev, nic->mii.phy_id, MII_BMCR, phy_data);
-> +	}
-> +
->  	/* Get phy ID */
->  	id_lo = mdio_read(netdev, nic->mii.phy_id, MII_PHYSID1);
->  	id_hi = mdio_read(netdev, nic->mii.phy_id, MII_PHYSID2);
-> @@ -2261,6 +2269,15 @@ static void e100_down(struct nic *nic)
->  	napi_disable(&nic->napi);
->  	netif_stop_queue(nic->netdev);
->  	e100_hw_reset(nic);
-> +
-> +	/* If wake on LAN is not enabled, power down the PHY */
-> +	if (!(nic->flags & wol_magic)) {
-> +		uint16_t phy_data;
-> +		phy_data = mdio_read(nic->netdev, nic->mii.phy_id, MII_BMCR);
-> +		phy_data |= BMCR_PDOWN;
-> +		mdio_write(nic->netdev, nic->mii.phy_id, MII_BMCR, phy_data);
-> +	}
-> +
->  	free_irq(nic->pdev->irq, nic->netdev);
->  	del_timer_sync(&nic->watchdog);
->  	netif_carrier_off(nic->netdev);
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+drivers/built-in.o: In function `mlx4_en_set_pauseparam':
+/home/yhlu/xx/xx/kernel/tip/linux-2.6/drivers/net/ethernet/mellanox/mlx=
+4/en_ethtool.c:387:
+undefined reference to `mlx4_SET_PORT_general'
+drivers/built-in.o: In function `mlx4_en_do_set_multicast':
+/home/yhlu/xx/xx/kernel/tip/linux-2.6/drivers/net/ethernet/mellanox/mlx=
+4/en_netdev.c:233:
+undefined reference to `mlx4_SET_PORT_qpn_calc'
+/home/yhlu/xx/xx/kernel/tip/linux-2.6/drivers/net/ethernet/mellanox/mlx=
+4/en_netdev.c:277:
+undefined reference to `mlx4_SET_PORT_qpn_calc'
+drivers/built-in.o: In function `mlx4_en_start_port':
+/home/yhlu/xx/xx/kernel/tip/linux-2.6/drivers/net/ethernet/mellanox/mlx=
+4/en_netdev.c:664:
+undefined reference to `mlx4_SET_PORT_general'
+/home/yhlu/xx/xx/kernel/tip/linux-2.6/drivers/net/ethernet/mellanox/mlx=
+4/en_netdev.c:676:
+undefined reference to `mlx4_SET_PORT_qpn_calc'
+drivers/built-in.o: In function `mlx4_en_init_netdev':
+/home/yhlu/xx/xx/kernel/tip/linux-2.6/drivers/net/ethernet/mellanox/mlx=
+4/en_netdev.c:1138:
+undefined reference to `mlx4_SET_PORT_general'
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
