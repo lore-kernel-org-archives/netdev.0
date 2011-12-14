@@ -1,7 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 02/11] SUNRPC: use syctl path instead of dummy parent table
-Date: Wed, 14 Dec 2011 14:44:57 +0300
-Message-ID: <20111214104457.3991.64507.stgit@localhost6.localdomain6>
+Subject: [PATCH 01/11] SYSCTL: export root and set handling routines
+Date: Wed, 14 Dec 2011 14:44:49 +0300
+Message-ID: <20111214104449.3991.61989.stgit@localhost6.localdomain6>
 References: <20111214103602.3991.20990.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -16,136 +16,61 @@ In-Reply-To: <20111214103602.3991.20990.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a cleanup patch. Parent sunrpc table is redundant. Syctl path can be
-used instead.
+These routines are required for making SUNRPC sysctl's per network namespace
+context.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- include/linux/sunrpc/debug.h    |    4 ++++
- net/sunrpc/sysctl.c             |   25 ++++++++++++++-----------
- net/sunrpc/xprtrdma/transport.c |   11 +----------
- net/sunrpc/xprtsock.c           |   11 +----------
- 4 files changed, 20 insertions(+), 31 deletions(-)
+ include/linux/sysctl.h |    1 +
+ kernel/sysctl.c        |   11 +++++++++++
+ 2 files changed, 12 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/sunrpc/debug.h b/include/linux/sunrpc/debug.h
-index c2786f2..b5e0c46 100644
---- a/include/linux/sunrpc/debug.h
-+++ b/include/linux/sunrpc/debug.h
-@@ -63,8 +63,12 @@ extern unsigned int		nlm_debug;
-  * Sysctl interface for RPC debugging
-  */
- #ifdef RPC_DEBUG
-+
- void		rpc_register_sysctl(void);
- void		rpc_unregister_sysctl(void);
-+
-+struct ctl_table_header *register_sunrpc_sysctl(struct ctl_table *);
-+
- #endif
+diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+index 703cfa3..be586a9 100644
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
+@@ -1084,6 +1084,7 @@ struct ctl_path {
+ };
  
- #endif /* __KERNEL__ */
-diff --git a/net/sunrpc/sysctl.c b/net/sunrpc/sysctl.c
-index af7d339..64c0034 100644
---- a/net/sunrpc/sysctl.c
-+++ b/net/sunrpc/sysctl.c
-@@ -40,13 +40,25 @@ EXPORT_SYMBOL_GPL(nlm_debug);
- #ifdef RPC_DEBUG
- 
- static struct ctl_table_header *sunrpc_table_header;
--static ctl_table		sunrpc_table[];
-+static ctl_table		debug_table[];
+ void register_sysctl_root(struct ctl_table_root *root);
++void unregister_sysctl_root(struct ctl_table_root *root);
+ struct ctl_table_header *__register_sysctl_paths(
+ 	struct ctl_table_root *root, struct nsproxy *namespaces,
+ 	const struct ctl_path *path, struct ctl_table *table);
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index ae27196..fb016a9 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -1700,6 +1700,15 @@ void register_sysctl_root(struct ctl_table_root *root)
+ 	list_add_tail(&root->root_list, &sysctl_table_root.root_list);
+ 	spin_unlock(&sysctl_lock);
+ }
++EXPORT_SYMBOL_GPL(register_sysctl_root);
 +
-+struct ctl_path sunrpc_path[] = {
-+	{ .procname = "sunrpc", },
-+	{ },
-+};
-+
-+struct ctl_table_header *register_sunrpc_sysctl(struct ctl_table *table)
++void unregister_sysctl_root(struct ctl_table_root *root)
 +{
-+	return register_sysctl_paths(sunrpc_path, table);
-+
++	spin_lock(&sysctl_lock);
++	list_del(&root->root_list);
++	spin_unlock(&sysctl_lock);
 +}
-+EXPORT_SYMBOL_GPL(register_sunrpc_sysctl);
- 
- void
- rpc_register_sysctl(void)
- {
- 	if (!sunrpc_table_header)
--		sunrpc_table_header = register_sysctl_table(sunrpc_table);
-+		sunrpc_table_header = register_sunrpc_sysctl(debug_table);
- }
- 
- void
-@@ -173,13 +185,4 @@ static ctl_table debug_table[] = {
- 	{ }
- };
- 
--static ctl_table sunrpc_table[] = {
--	{
--		.procname	= "sunrpc",
--		.mode		= 0555,
--		.child		= debug_table
--	},
--	{ }
--};
--
- #endif
-diff --git a/net/sunrpc/xprtrdma/transport.c b/net/sunrpc/xprtrdma/transport.c
-index b446e10..53a8622 100644
---- a/net/sunrpc/xprtrdma/transport.c
-+++ b/net/sunrpc/xprtrdma/transport.c
-@@ -137,15 +137,6 @@ static ctl_table xr_tunables_table[] = {
- 	{ },
- };
- 
--static ctl_table sunrpc_table[] = {
--	{
--		.procname	= "sunrpc",
--		.mode		= 0555,
--		.child		= xr_tunables_table
--	},
--	{ },
--};
--
- #endif
- 
- static struct rpc_xprt_ops xprt_rdma_procs;	/* forward reference */
-@@ -771,7 +762,7 @@ static int __init xprt_rdma_init(void)
- 
- #ifdef RPC_DEBUG
- 	if (!sunrpc_table_header)
--		sunrpc_table_header = register_sysctl_table(sunrpc_table);
-+		sunrpc_table_header = register_sunrpc_sysctl(xr_tunables_table);
- #endif
- 	return 0;
- }
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index 55472c4..6f1be96 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -142,15 +142,6 @@ static ctl_table xs_tunables_table[] = {
- 	{ },
- };
- 
--static ctl_table sunrpc_table[] = {
--	{
--		.procname	= "sunrpc",
--		.mode		= 0555,
--		.child		= xs_tunables_table
--	},
--	{ },
--};
--
- #endif
++EXPORT_SYMBOL_GPL(unregister_sysctl_root);
  
  /*
-@@ -2887,7 +2878,7 @@ int init_socket_xprt(void)
- {
- #ifdef RPC_DEBUG
- 	if (!sunrpc_table_header)
--		sunrpc_table_header = register_sysctl_table(sunrpc_table);
-+		sunrpc_table_header = register_sunrpc_sysctl(xs_tunables_table);
- #endif
+  * sysctl_perm does NOT grant the superuser all rights automatically, because
+@@ -1925,6 +1934,7 @@ struct ctl_table_header *__register_sysctl_paths(
  
- 	xprt_register_transport(&xs_local_transport);
+ 	return header;
+ }
++EXPORT_SYMBOL_GPL(__register_sysctl_paths);
+ 
+ /**
+  * register_sysctl_table_path - register a sysctl table hierarchy
+@@ -2007,6 +2017,7 @@ void setup_sysctl_set(struct ctl_table_set *p,
+ 	p->parent = parent ? parent : &sysctl_table_root.default_set;
+ 	p->is_seen = is_seen;
+ }
++EXPORT_SYMBOL_GPL(setup_sysctl_set);
+ 
+ #else /* !CONFIG_SYSCTL */
+ struct ctl_table_header *register_sysctl_table(struct ctl_table * table)
