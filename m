@@ -1,80 +1,60 @@
-From: Vitalii Demianets <vitas@nppfactor.kiev.ua>
-Subject: Re: [PATCH] bridge: push blocking slaves to forwarding
-	when turning stp off
-Date: Wed, 14 Dec 2011 11:32:51 +0200
-Message-ID: <201112141132.51867.vitas@nppfactor.kiev.ua>
-References: <201112131136.25919.vitas@nppfactor.kiev.ua>
-	<20111213161613.0c59ab36@nehalam.linuxnetplumber.net>
+From: Jasper Spaans <spaans@fox-it.com>
+Subject: Re: kenel level packet capturing
+Date: Wed, 14 Dec 2011 10:34:46 +0100
+Message-ID: <4EE86DB6.5050303@fox-it.com>
+References: <CAKj1SsOnYsOXjRBKm+=hTnEiesXrC3h0Q-KN2b61nPSQud9wMA@mail.gmail.com> <20111019123733.GA21324@synalogic.ca> <CAKj1SsOra7u21u8Zq9rDLzv_Bhx8sPsah+SHByMYQbVc_j6LQA@mail.gmail.com> <20111213.133629.1213042365300662857.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20111213161613.0c59ab36@nehalam.linuxnetplumber.net>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "raviraj.j1991@gmail.com" <raviraj.j1991@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns2.fox-it.com ([178.250.144.131]:17087 "EHLO ns2.fox-it.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753919Ab1LNJoS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2011 04:44:18 -0500
+In-Reply-To: <20111213.133629.1213042365300662857.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 14 December 2011 02:16:13 Stephen Hemminger wrote:
-> On Tue, 13 Dec 2011 11:36:25 +0200
->
-> Vitalii Demianets <vitas@nppfactor.kiev.ua> wrote:
-> > If there is a slave in blocking state when stp is turned off, that slave
-> > will remain in blocking state for indefinitely long time until interface
-> > state changed. We should push all blocking slaves into forwarding state
-> > after turning stp off.
-> >
-> > Signed-off-by: Vitalii Demianets <vitas@nppfactor.kiev.ua>
->
-> Maybe. But if the port was in the blocking state then STP must have
-> decided there was a loop in the network if that port was used.
-> Therefore blindly putting the port into forwarding state could cause
-> disastrous network flood.
->
->
-> The user can force the port back out of blocking state (via sysfs).
->
+On 13/12/11 19:36, David Miller wrote:
+> We have decided to use PF_RING(a kernel module to capture packets) for
+> the same due to the number of advantages.
+> What "advantages"?  The AF_PACKET socket layer already upstream in the
+> kernel supports every relevant performance feature PF_RING does, and
+> then some.
+Some documentation for fanout is one feature that would be nice. (How to
+use it from userspace - after 5 minutes of googling, the first place
+where I could find an example is in the suricata source code[1]).
 
-1) That blocking state in the absence of STP is not stable. It will eventually 
-flip to forwarding sooner or later on the first call of 
-br_port_state_selection(). For example, when user changes MAC address on 
-another slave. Or even worse - when any other slave of the bridge changes its 
-carrier state. Don't think user wants such unpredictable state changes.
+Having not tested it in practice, so my assumptions about rxhash might
+be untrue: is there an option to override the NIC rxhash
+implementations? if you are doing packet capturing, you will probably
+see traffic in both directions, so hashing on the address-tuples of both
+directions makes sense (or else both half-streams of tcp packets might
+end up being sent to different sockets.
 
-2) There is also another drawback of not pushing ports into forwarding state 
-after turning off USER_STP mode. Possible scenario is:
-  a) bridge in USER_STP mode, all ports are in non-forwarding state (blocking, 
-learning)
-  b) user turns off STP. Without the patch ports are not advanced to the 
-forwarding state and are left in the states they are (the timers do not work 
-because of USER_STP mode)
-  c) The bridge stays in no-carrier state until something happens (carrier 
-state transition on one of the slaves, MAC address change etc)
+It seems hardware vendors are focussed on only hashing the senders
+address, which does make sense if you're building a
+fileserver/webserver/whatever.
 
-You can say again that in the above two cases user can manually set the state 
-of the slaves to forwarding.  But to account all possible cases one should 
-always unconditionally do it for all the slaves each time when stp is being 
-turned off. So why not to automate the task?
+We ended up using atrocious bpfs like "((tcp[0:2] & 1) == (tcp[2:2] &
+1)) and tcp" to distribute packets over multiple sockets, and now our
+bottleneck has shifted away from the capturing side of our application.
 
-3) The initial intention of the code in br_stp_stop() was to get ports out of 
-blocking state when stp is being turned off. It fails to achieve the goal, 
-and patch just fixes it.
+(Note to Raviraj: we're not using PF_RING because of stability issues -
+it crashed our testing system one too many times.)
 
-4) If user turns stp off he clearly indicates that she wants all ports to work 
-in stateless mode and that he will deal with possible network loops on 
-himself. Should we in that case guess network topology basing on loose 
-assumptions and leave ports in unstable blocking state (and they will flip 
-eventually to the forwarding state in unpredictable times as mentioned 
-above)?
+Cheers,
+Jasper
+
+[1]
+https://redmine.openinfosecfoundation.org/embedded/suricata/source-af-packet_8c-source.html#l00516
 
 -- 
-Vitalii Demianets
+ /\____/\   Ir. Jasper Spaans      
+ \   (_)/   Fox-IT Experts in IT Security!
+  \    X    T: +31-15-2847999
+   \  / \   M: +31-6-41588725   
+    \/      KvK Haaglanden 27301624
