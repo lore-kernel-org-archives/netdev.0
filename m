@@ -1,89 +1,205 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 2/6] tg3: Make the TX BD DMA limit configurable
-Date: Wed, 14 Dec 2011 13:09:58 -0800
-Message-ID: <1323897002-17295-3-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 6/6] tg3: Make the RSS indir tbl admin
+ configurable
+Date: Wed, 14 Dec 2011 13:10:02 -0800
+Message-ID: <1323897002-17295-7-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
+Cc: netdev@vger.kernel.org, mcarlson@broadcom.com,
+	"Michael Chan" <mchan@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2478 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2491 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758169Ab1LNVJu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1758170Ab1LNVJu (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 14 Dec 2011 16:09:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The 57766 ASIC rev will impose a new TX BD DMA limit on the driver.
-This patch prepares for 57766 support by making the tx BD DMA limit
-tunable.
+This patch adds the ethtool callbacks necessary to change the rss
+indirection table from userspace.  When setting the indirection table
+through set_rxfh_indir, an indirection table size of zero is
+interpreted to mean that the admin wants to relinquish control of the
+table to the driver.  Should the number of interrupts change (e.g.
+across a close / open call, or through a reset), any indirection table
+values that exceed the number of RSS queues or interrupt vectors will
+be automatically scaled back to values within range.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Reviewed-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |   16 ++++++++--------
+ drivers/net/ethernet/broadcom/tg3.c |  128 ++++++++++++++++++++++++++++++++++-
  drivers/net/ethernet/broadcom/tg3.h |    1 +
- 2 files changed, 9 insertions(+), 8 deletions(-)
+ 2 files changed, 128 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 8a6ea19..9c9a4b4 100644
+index 8bf11ca..f684be9 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -199,7 +199,7 @@ static inline void _tg3_flag_clear(enum TG3_FLAGS flag, unsigned long *bits)
+@@ -8229,9 +8229,18 @@ void tg3_rss_init_indir_tbl(struct tg3 *tp)
  
- /* minimum number of free TX descriptors required to wake up TX process */
- #define TG3_TX_WAKEUP_THRESH(tnapi)		((tnapi)->tx_pending / 4)
--#define TG3_TX_BD_DMA_MAX		4096
-+#define TG3_TX_BD_DMA_MAX_4K		4096
+ 	if (tp->irq_cnt <= 2)
+ 		memset(&tp->rss_ind_tbl[0], 0, sizeof(tp->rss_ind_tbl));
+-	else
++	else if (tg3_flag(tp, USER_INDIR_TBL)) {
++		/* Validate table against current IRQ count */
++		for (i = 0; i < TG3_RSS_INDIR_TBL_SIZE; i++) {
++			if (tp->rss_ind_tbl[i] >= tp->irq_cnt - 1) {
++				/* Cap the vector index */
++				tp->rss_ind_tbl[i] = tp->irq_cnt - 2;
++			}
++		}
++	} else {
+ 		for (i = 0; i < TG3_RSS_INDIR_TBL_SIZE; i++)
+ 			tp->rss_ind_tbl[i] = i % (tp->irq_cnt - 1);
++	}
+ }
  
- #define TG3_RAW_IP_ALIGN 2
+ void tg3_rss_write_indir_tbl(struct tg3 *tp)
+@@ -10719,6 +10728,120 @@ static int tg3_get_sset_count(struct net_device *dev, int sset)
+ 	}
+ }
  
-@@ -6449,17 +6449,17 @@ static bool tg3_tx_frag_set(struct tg3_napi *tnapi, u32 *entry, u32 *budget,
- 	if (tg3_40bit_overflow_test(tp, map, len))
- 		hwbug = 1;
++static int tg3_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
++			 u32 *rules __always_unused)
++{
++	struct tg3 *tp = netdev_priv(dev);
++
++	if (!tg3_flag(tp, SUPPORT_MSIX))
++		return -EINVAL;
++
++	if (!netif_running(tp->dev))
++		return -EAGAIN;
++
++	switch (info->cmd) {
++	case ETHTOOL_GRXRINGS:
++		if (netif_running(tp->dev))
++			info->data = tp->irq_cnt;
++		else {
++			info->data = num_online_cpus();
++			if (info->data > TG3_IRQ_MAX_VECS_RSS)
++				info->data = TG3_IRQ_MAX_VECS_RSS;
++		}
++
++		/* The first interrupt vector only
++		 * handles link interrupts.
++		 */
++		info->data -= 1;
++		return 0;
++
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static int tg3_get_rxfh_indir(struct net_device *dev,
++			      struct ethtool_rxfh_indir *indir)
++{
++	struct tg3 *tp = netdev_priv(dev);
++	int i;
++
++	if (!tg3_flag(tp, SUPPORT_MSIX))
++		return -EINVAL;
++
++	if (!indir->size) {
++		indir->size = TG3_RSS_INDIR_TBL_SIZE;
++		return 0;
++	}
++
++	if (indir->size != TG3_RSS_INDIR_TBL_SIZE)
++		return -EINVAL;
++
++	for (i = 0; i < TG3_RSS_INDIR_TBL_SIZE; i++)
++		indir->ring_index[i] = tp->rss_ind_tbl[i];
++
++	return 0;
++}
++
++static int tg3_set_rxfh_indir(struct net_device *dev,
++			      const struct ethtool_rxfh_indir *indir)
++{
++	struct tg3 *tp = netdev_priv(dev);
++	size_t i;
++
++	if (!tg3_flag(tp, SUPPORT_MSIX))
++		return -EINVAL;
++
++	if (!indir->size) {
++		tg3_flag_clear(tp, USER_INDIR_TBL);
++		tg3_rss_init_indir_tbl(tp);
++	} else {
++		int limit;
++
++		/* Validate size and indices */
++		if (indir->size != TG3_RSS_INDIR_TBL_SIZE)
++			return -EINVAL;
++
++		if (netif_running(dev))
++			limit = tp->irq_cnt;
++		else {
++			limit = num_online_cpus();
++			if (limit > TG3_IRQ_MAX_VECS_RSS)
++				limit = TG3_IRQ_MAX_VECS_RSS;
++		}
++
++		/* The first interrupt vector only
++		 * handles link interrupts.
++		 */
++		limit -= 1;
++
++		/* Check the indices in the table.
++		 * Leave the existing table unmodified
++		 * if an error is detected.
++		 */
++		for (i = 0; i < TG3_RSS_INDIR_TBL_SIZE; i++)
++			if (indir->ring_index[i] >= limit)
++				return -EINVAL;
++
++		tg3_flag_set(tp, USER_INDIR_TBL);
++
++		for (i = 0; i < TG3_RSS_INDIR_TBL_SIZE; i++)
++			tp->rss_ind_tbl[i] = indir->ring_index[i];
++	}
++
++	if (!netif_running(dev) || !tg3_flag(tp, ENABLE_RSS))
++		return 0;
++
++	/* It is legal to write the indirection
++	 * table while the device is running.
++	 */
++	tg3_full_lock(tp, 0);
++	tg3_rss_write_indir_tbl(tp);
++	tg3_full_unlock(tp);
++
++	return 0;
++}
++
+ static void tg3_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
+ {
+ 	switch (stringset) {
+@@ -11949,6 +12072,9 @@ static const struct ethtool_ops tg3_ethtool_ops = {
+ 	.get_coalesce		= tg3_get_coalesce,
+ 	.set_coalesce		= tg3_set_coalesce,
+ 	.get_sset_count		= tg3_get_sset_count,
++	.get_rxnfc		= tg3_get_rxnfc,
++	.get_rxfh_indir		= tg3_get_rxfh_indir,
++	.set_rxfh_indir		= tg3_set_rxfh_indir,
+ };
  
--	if (tg3_flag(tp, 4K_FIFO_LIMIT)) {
-+	if (tp->dma_limit) {
- 		u32 prvidx = *entry;
- 		u32 tmp_flag = flags & ~TXD_FLAG_END;
--		while (len > TG3_TX_BD_DMA_MAX && *budget) {
--			u32 frag_len = TG3_TX_BD_DMA_MAX;
--			len -= TG3_TX_BD_DMA_MAX;
-+		while (len > tp->dma_limit && *budget) {
-+			u32 frag_len = tp->dma_limit;
-+			len -= tp->dma_limit;
- 
- 			/* Avoid the 8byte DMA problem */
- 			if (len <= 8) {
--				len += TG3_TX_BD_DMA_MAX / 2;
--				frag_len = TG3_TX_BD_DMA_MAX / 2;
-+				len += tp->dma_limit / 2;
-+				frag_len = tp->dma_limit / 2;
- 			}
- 
- 			tnapi->tx_buffers[*entry].fragmented = true;
-@@ -14041,7 +14041,7 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 		tg3_flag_set(tp, SHORT_DMA_BUG);
- 
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719)
--		tg3_flag_set(tp, 4K_FIFO_LIMIT);
-+		tp->dma_limit = TG3_TX_BD_DMA_MAX_4K;
- 
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
- 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
+ static void __devinit tg3_get_eeprom_size(struct tg3 *tp)
 diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-index 9d9f634..2ba5be1 100644
+index aea8f72..4800595 100644
 --- a/drivers/net/ethernet/broadcom/tg3.h
 +++ b/drivers/net/ethernet/broadcom/tg3.h
-@@ -2994,6 +2994,7 @@ struct tg3 {
- 	/* begin "tx thread" cacheline section */
- 	void				(*write32_tx_mbox) (struct tg3 *, u32,
- 							    u32);
-+	u32				dma_limit;
- 
- 	/* begin "rx thread" cacheline section */
- 	struct tg3_napi			napi[TG3_IRQ_MAX_VECS];
+@@ -2932,6 +2932,7 @@ enum TG3_FLAGS {
+ 	TG3_FLAG_APE_HAS_NCSI,
+ 	TG3_FLAG_4K_FIFO_LIMIT,
+ 	TG3_FLAG_RESET_TASK_PENDING,
++	TG3_FLAG_USER_INDIR_TBL,
+ 	TG3_FLAG_5705_PLUS,
+ 	TG3_FLAG_IS_5788,
+ 	TG3_FLAG_5750_PLUS,
 -- 
 1.7.3.4
