@@ -1,46 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch -next] tcp_memcontrol: fix reversed if condition
-Date: Thu, 15 Dec 2011 12:01:08 -0500 (EST)
-Message-ID: <20111215.120108.663752764643957547.davem@davemloft.net>
-References: <20111215110510.GA2674@elgon.mountain>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: glommer@parallels.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [PATCH] phylib: update mdiobus_alloc() to allocate extra private space
+Date: Thu, 15 Dec 2011 12:06:01 -0500
+Message-ID: <8ABCAC4C-1D11-41AD-AE46-96EB9D40588D@freescale.com>
+References: <1323967895-5205-1-git-send-email-timur@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v1251.1)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linuxppc-dev@ozlabs.org>
+To: Timur Tabi <timur@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42369 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759192Ab1LOREJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2011 12:04:09 -0500
-In-Reply-To: <20111215110510.GA2674@elgon.mountain>
+Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:47644 "EHLO
+	TX2EHSOBE006.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759098Ab1LOROz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2011 12:14:55 -0500
+In-Reply-To: <1323967895-5205-1-git-send-email-timur@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Thu, 15 Dec 2011 14:05:10 +0300
 
-> We should only dereference the pointer if it's valid, not the other way
-> round.
+On Dec 15, 2011, at 11:51 AM, Timur Tabi wrote:
+
+> Augment mdiobus_alloc() to take a parameter indicating the number of extra
+> bytes to allocate for private data.  Almost all callers of mdiobus_alloc()
+> separately allocate a private data structure.  By allowing mdiobus_alloc()
+> to allocate extra memory, the two allocations can be merged into one.
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> This patch does not change any of the callers to actually take advantage
+> of this feature, however.  That change can be made by the individual
+> maintainers at their leisure.  For now, all callers ask for zero additional
+> bytes, which mimics the previous behavior.
 
-It's nice to see how thoroughly this code has been tested, sigh...
 
-Applied, thanks a lot Dan.
+Why? Doesn't this just obfuscate things a little, while providing no immediate benefit?
 
-> diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
-> index 171d7b6..7fed04f 100644
-> --- a/net/ipv4/tcp_memcontrol.c
-> +++ b/net/ipv4/tcp_memcontrol.c
-> @@ -44,7 +44,7 @@ static inline struct tcp_memcontrol *tcp_from_cgproto(struct cg_proto *cg_proto)
->  
->  static void memcg_tcp_enter_memory_pressure(struct sock *sk)
->  {
-> -	if (!sk->sk_cgrp->memory_pressure)
-> +	if (sk->sk_cgrp->memory_pressure)
->  		*sk->sk_cgrp->memory_pressure = 1;
->  }
->  EXPORT_SYMBOL(memcg_tcp_enter_memory_pressure);
+Andy
