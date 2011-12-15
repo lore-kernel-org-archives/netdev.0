@@ -1,121 +1,278 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH v2] sctp: fix incorrect overflow check on autoclose
-Date: Thu, 15 Dec 2011 16:07:02 -0500
-Message-ID: <4EEA6176.9020704@hp.com>
-References: <1323393883-3759-1-git-send-email-xi.wang@gmail.com> <4EE919B5.3090901@gmail.com>
+From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: Re: [PATCH 2/2] Explicitly call tcp creation and init from memcontrol.c
+Date: Fri, 16 Dec 2011 01:11:36 +0400
+Message-ID: <4EEA6288.1080405@parallels.com>
+References: <1323941672-14324-1-git-send-email-glommer@parallels.com> <1323941672-14324-3-git-send-email-glommer@parallels.com> <20111215.120028.532844419499092747.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: multipart/mixed;
+	boundary="------------090403050008060201020709"
+Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20111215.120028.532844419499092747.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+--------------090403050008060201020709
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Andrei Pelinescu-Onciul <andrei@iptel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Xi Wang <xi.wang@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:33323 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756404Ab1LOVHF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2011 16:07:05 -0500
-In-Reply-To: <4EE919B5.3090901@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-
-
-On 12/14/2011 04:48 PM, Xi Wang wrote:
-> Commit 8ffd3208 voids the previous patches f6778aab and 810c0719 for
-> limiting the maximum autoclose value.  If userspace passes in -1 on
-> 32-bit platform, the overflow check didn't work and autoclose would be
-> set to 0xffffffff.
-> 
-> This patch defines a max_autoclose for limiting the value and exposes
-> it through sysctl.
-> 
-> Suggested-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-> Signed-off-by: Xi Wang <xi.wang@gmail.com>
-> ---
->  include/net/sctp/structs.h |    4 ++++
->  net/sctp/protocol.c        |    3 +++
->  net/sctp/socket.c          |    4 ++--
->  net/sctp/sysctl.c          |    7 +++++++
->  4 files changed, 16 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index e90e7a9..781f16d 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -241,6 +241,9 @@ extern struct sctp_globals {
->  	 * bits is an indicator of when to send and window update SACK.
->  	 */
->  	int rwnd_update_shift;
-> +
-> +	/* Threshold for autoclose timeout. */
-> +	unsigned int max_autoclose;
->  } sctp_globals;
->  
->  #define sctp_rto_initial		(sctp_globals.rto_initial)
-> @@ -281,6 +284,7 @@ extern struct sctp_globals {
->  #define sctp_auth_enable		(sctp_globals.auth_enable)
->  #define sctp_checksum_disable		(sctp_globals.checksum_disable)
->  #define sctp_rwnd_upd_shift		(sctp_globals.rwnd_update_shift)
-> +#define sctp_max_autoclose		(sctp_globals.max_autoclose)
->  
->  /* SCTP Socket type: UDP or TCP style. */
->  typedef enum {
-> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-> index 61b9fca..4e07b18 100644
-> --- a/net/sctp/protocol.c
-> +++ b/net/sctp/protocol.c
-> @@ -1285,6 +1285,9 @@ SCTP_STATIC __init int sctp_init(void)
->  	sctp_max_instreams    		= SCTP_DEFAULT_INSTREAMS;
->  	sctp_max_outstreams   		= SCTP_DEFAULT_OUTSTREAMS;
->  
-> +	/* Initialize maximum autoclose timeout. */
-> +	sctp_max_autoclose		= INT_MAX;
-> +
->  	/* Initialize handle used for association ids. */
->  	idr_init(&sctp_assocs_id);
->  
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 13bf5fc..f8c8e66 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -2200,8 +2200,8 @@ static int sctp_setsockopt_autoclose(struct sock *sk, char __user *optval,
->  		return -EINVAL;
->  	if (copy_from_user(&sp->autoclose, optval, optlen))
->  		return -EFAULT;
-> -	/* make sure it won't exceed MAX_SCHEDULE_TIMEOUT */
-> -	sp->autoclose = min_t(long, sp->autoclose, MAX_SCHEDULE_TIMEOUT / HZ);
-> +	/* make sure it won't exceed sctp_max_autoclose / HZ */
-> +	sp->autoclose = min(sp->autoclose, sctp_max_autoclose / HZ);
->  
->  	return 0;
->  }
-> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-> index 6b39529..b74686e 100644
-> --- a/net/sctp/sysctl.c
-> +++ b/net/sctp/sysctl.c
-> @@ -258,6 +258,13 @@ static ctl_table sctp_table[] = {
->  		.extra1		= &one,
->  		.extra2		= &rwnd_scale_max,
->  	},
-> +	{
-> +		.procname	= "max_autoclose",
-> +		.data		= &sctp_max_autoclose,
-> +		.maxlen		= sizeof(unsigned int),
-> +		.mode		= 0644,
-> +		.proc_handler	= &proc_dointvec_jiffies,
-> +	},
+On 12/15/2011 09:00 PM, David Miller wrote:
+> From: Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> Date: Thu, 15 Dec 2011 13:34:32 +0400
 >
+>> Walking the proto_list holds a read_lock, which prevents us from doing
+>> allocations. Splitting the tcp create function into create + init is
+>> good, but it is not enough since create_files will do allocations as well
+>> (dentry ones, mostly).
+>>
+>> Since this does not involve any protocol state, I propose we call the tcp
+>> functions explicitly from memcontrol.c
+>>
+>> With this, we lose by now the ability of doing cgroup memcontrol for
+>> protocols that are loaded as modules. But at least the ones I have in mind
+>> won't really need it (tcp_ipv6 being the only one, but it uses the same data
+>> structures as tcp_ipv4). So I believe this to be the simpler solution to this
+>> problem.
+>>
+>> Signed-off-by: Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+>
+> This is an unnecessary limitation, please fix this properly otherwise
+> DCCP, SCTP, etc. won't be supportable with this stuff.
 
-I think it would be better to keep this value in seconds and get rid
-of division in the setsockopt code.  We could then have a min and max
-values where max value could be something like 2 days.  I really don't
-see an autoclose value that is bigger then that being very useful.  In
-fact, most of the time these values are very small as one wants to close
-out idle associations.
+How about the following patch then ? I am keeping protocols that has the 
+cgroup stuff on in a separate list, that can be protected by a mutex. 
+Therefore we can allocate without going into troubles.
 
--vlad
+Let me know if you still have objections, I'll be happy to address them.
 
->  	{ /* sentinel */ }
->  };
+--------------090403050008060201020709
+Content-Type: text/plain;
+	name="0001-fix-sleeping-while-atomic-problem-in-sock-mem_cgroup.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename*0="0001-fix-sleeping-while-atomic-problem-in-sock-mem_cgroup.pa";
+	filename*1="tch"
+
+>From c8fe669a9cbc7c7cbd87ce48d7eb91ed6c96cbde Mon Sep 17 00:00:00 2001
+From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Date: Thu, 15 Dec 2011 23:47:06 +0300
+Subject: [PATCH] fix sleeping while atomic problem in sock mem_cgroup.
+
+Since we can't scan the proto_list to initialize sock cgroups, as it
+holds a rwlock, and we also want to keep the code generic enough to
+avoid calling the initialization functions of protocols directly,
+I propose we keep the interested parties in a separate list. This list
+is protected by a mutex so we can sleep and do the necessary allocations.
+
+Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+CC: Hiroyouki Kamezawa <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+CC: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+CC: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+CC: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
+---
+ include/linux/memcontrol.h   |    4 +++
+ include/net/sock.h           |    5 +---
+ include/net/tcp_memcontrol.h |    2 +
+ mm/memcontrol.c              |   52 ++++++++++++++++++++++++++++++++++++++++++
+ net/core/sock.c              |   48 +++++++++-----------------------------
+ 5 files changed, 70 insertions(+), 41 deletions(-)
+
+diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+index 9b296ea..1edd0e3 100644
+--- a/include/linux/memcontrol.h
++++ b/include/linux/memcontrol.h
+@@ -390,6 +390,10 @@ enum {
+ 	OVER_LIMIT,
+ };
+ 
++struct proto;
++void register_sock_cgroup(struct proto *prot);
++void unregister_sock_cgroup(struct proto *prot);
++
+ #ifdef CONFIG_INET
+ struct sock;
+ #ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 6fe0dae..f8237a3 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -64,10 +64,6 @@
+ #include <net/dst.h>
+ #include <net/checksum.h>
+ 
+-struct cgroup;
+-struct cgroup_subsys;
+-int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss);
+-void mem_cgroup_sockets_destroy(struct cgroup *cgrp, struct cgroup_subsys *ss);
+ /*
+  * This structure really needs to be cleaned up.
+  * Most of it is for TCP, and not used by any of
+@@ -858,6 +854,7 @@ struct proto {
+ 	void			(*destroy_cgroup)(struct cgroup *cgrp,
+ 						  struct cgroup_subsys *ss);
+ 	struct cg_proto		*(*proto_cgroup)(struct mem_cgroup *memcg);
++	struct list_head	cgroup_node;
+ #endif
+ };
+ 
+diff --git a/include/net/tcp_memcontrol.h b/include/net/tcp_memcontrol.h
+index 3512082..5aa7c4b 100644
+--- a/include/net/tcp_memcontrol.h
++++ b/include/net/tcp_memcontrol.h
+@@ -11,6 +11,8 @@ struct tcp_memcontrol {
+ 	int tcp_memory_pressure;
+ };
+ 
++struct cgroup;
++struct cgroup_subsys;
+ struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg);
+ int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss);
+ void tcp_destroy_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss);
+diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+index 7266202..6ee250d 100644
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -4742,6 +4742,58 @@ static struct cftype kmem_cgroup_files[] = {
+ 	},
+ };
+ 
++static DEFINE_MUTEX(cgroup_proto_list_lock);
++static LIST_HEAD(cgroup_proto_list);
++
++static int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss)
++{
++	struct proto *proto;
++	int ret = 0;
++
++	mutex_lock(&cgroup_proto_list_lock);
++	list_for_each_entry(proto, &cgroup_proto_list, cgroup_node) {
++		if (proto->init_cgroup) {
++			ret = proto->init_cgroup(cgrp, ss);
++			if (ret)
++				goto out;
++		}
++	}
++
++	mutex_unlock(&cgroup_proto_list_lock);
++	return ret;
++out:
++	list_for_each_entry_continue_reverse(proto, &cgroup_proto_list, cgroup_node)
++		if (proto->destroy_cgroup)
++			proto->destroy_cgroup(cgrp, ss);
++	mutex_unlock(&cgroup_proto_list_lock);
++	return ret;
++}
++
++static void mem_cgroup_sockets_destroy(struct cgroup *cgrp, struct cgroup_subsys *ss)
++{
++	struct proto *proto;
++
++	mutex_lock(&cgroup_proto_list_lock);
++	list_for_each_entry_reverse(proto, &cgroup_proto_list, cgroup_node)
++		if (proto->destroy_cgroup)
++			proto->destroy_cgroup(cgrp, ss);
++	mutex_unlock(&cgroup_proto_list_lock);
++}
++
++void register_sock_cgroup(struct proto *prot)
++{
++	mutex_lock(&cgroup_proto_list_lock);
++	list_add(&prot->cgroup_node, &cgroup_proto_list);
++	mutex_unlock(&cgroup_proto_list_lock);
++}
++
++void unregister_sock_cgroup(struct proto *prot)
++{
++	mutex_lock(&cgroup_proto_list_lock);
++	list_del(&prot->cgroup_node);
++	mutex_unlock(&cgroup_proto_list_lock);
++}
++
+ static int register_kmem_files(struct cgroup *cont, struct cgroup_subsys *ss)
+ {
+ 	int ret = 0;
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 5a6a906..3728b50 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -139,43 +139,6 @@
+ static DEFINE_RWLOCK(proto_list_lock);
+ static LIST_HEAD(proto_list);
+ 
+-#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+-int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss)
+-{
+-	struct proto *proto;
+-	int ret = 0;
+-
+-	read_lock(&proto_list_lock);
+-	list_for_each_entry(proto, &proto_list, node) {
+-		if (proto->init_cgroup) {
+-			ret = proto->init_cgroup(cgrp, ss);
+-			if (ret)
+-				goto out;
+-		}
+-	}
+-
+-	read_unlock(&proto_list_lock);
+-	return ret;
+-out:
+-	list_for_each_entry_continue_reverse(proto, &proto_list, node)
+-		if (proto->destroy_cgroup)
+-			proto->destroy_cgroup(cgrp, ss);
+-	read_unlock(&proto_list_lock);
+-	return ret;
+-}
+-
+-void mem_cgroup_sockets_destroy(struct cgroup *cgrp, struct cgroup_subsys *ss)
+-{
+-	struct proto *proto;
+-
+-	read_lock(&proto_list_lock);
+-	list_for_each_entry_reverse(proto, &proto_list, node)
+-		if (proto->destroy_cgroup)
+-			proto->destroy_cgroup(cgrp, ss);
+-	read_unlock(&proto_list_lock);
+-}
+-#endif
+-
+ /*
+  * Each address family might have different locking rules, so we have
+  * one slock key per address family:
+@@ -2483,6 +2446,12 @@ int proto_register(struct proto *prot, int alloc_slab)
+ 	list_add(&prot->node, &proto_list);
+ 	assign_proto_idx(prot);
+ 	write_unlock(&proto_list_lock);
++
++#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
++	if (prot->proto_cgroup)
++		register_sock_cgroup(prot);
++#endif
++
+ 	return 0;
+ 
+ out_free_timewait_sock_slab_name:
+@@ -2510,6 +2479,11 @@ void proto_unregister(struct proto *prot)
+ 	list_del(&prot->node);
+ 	write_unlock(&proto_list_lock);
+ 
++#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
++	if (prot->proto_cgroup != NULL)
++		unregister_sock_cgroup(prot);
++#endif
++
+ 	if (prot->slab != NULL) {
+ 		kmem_cache_destroy(prot->slab);
+ 		prot->slab = NULL;
+-- 
+1.7.6.4
+
+
+--------------090403050008060201020709--
+--
+To unsubscribe from this list: send the line "unsubscribe cgroups" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
