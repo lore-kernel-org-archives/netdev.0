@@ -1,121 +1,78 @@
-From: Michal Soltys <soltys@ziu.info>
-Subject: Re: Latency guarantees in HFSC rt service curves
-Date: Thu, 15 Dec 2011 02:48:22 +0100
-Message-ID: <4EE951E6.4020708@ziu.info>
-References: <1323467512.3159.93.camel@denise.theartistscloset.com>  <4EE358A4.7060302@ziu.info>  <1323531352.3159.106.camel@denise.theartistscloset.com>  <4EE39D88.9010002@ziu.info>  <1323542103.3159.148.camel@denise.theartistscloset.com>  <4EE7E3E4.6070409@ziu.info> <1323839798.8451.172.camel@denise.theartistscloset.com>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: twice past the taps, thence out to net?
+Date: Wed, 14 Dec 2011 18:12:53 -0800
+Message-ID: <CAGK4HS-+jj9cvvirDm96oRvRJdwC+2kjE_LnSOXBuQy0pfnQjg@mail.gmail.com>
+References: <4EE8F884.1010304@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: tcpdump-workers@lists.tcpdump.org, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from drutsystem.com ([80.72.38.138]:3267 "EHLO drutsystem.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755804Ab1LOBs3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Dec 2011 20:48:29 -0500
-In-Reply-To: <1323839798.8451.172.camel@denise.theartistscloset.com>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:49446 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755804Ab1LOCMy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2011 21:12:54 -0500
+Received: by vcbfk14 with SMTP id fk14so1156423vcb.19
+        for <netdev@vger.kernel.org>; Wed, 14 Dec 2011 18:12:53 -0800 (PST)
+In-Reply-To: <4EE8F884.1010304@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11-12-14 06:16, John A. Sullivan III wrote:
-> I think I understand the technology (although I confess I did not take
-> the time to fully digest how the curves are updated) but I'm grappling
-> more with the practical application and I may be making a false
-> assumption here.
-
-Hmm, imho you can't really skip that part - or part about "why split RT
-into eligible/deadline" to see the mechanics behind RT curves.
-
+On 14 December 2011 11:27, Rick Jones <rick.jones2@hp.com> wrote:
+> While looking at "something else" with tcpdump/tcptrace, tcptrace emi=
+tted
+> lots of notices about hardware duplicated packets being detected (sam=
+e TCP
+> sequence number and IP datagram ID). =A0Sure enough, if I go into the=
+ tcpdump
+> trace (taken on the sender) I can find instances of what it was talki=
+ng
+> about, separated in time by rather less than I would expect to be the=
+ RTO,
+> and often as not with few if any intervening arriving ACKs to trigger
+> anything like fast retransmit. =A0And besides, those would have a dif=
+ferent IP
+> datagram ID no?
 >
-> Once again, with my practical, "how do I use this" hat on, my
-> instinctive thought is that I would ensure that the sum of the rt m2
-> curves do not exceed ul, well, not ul literally as rt disregards ul
-> but, more accurately, circuit capacity so that my circuit is not
-> oversubscribed and my guarantees are sustainable.
+> I did manage to reproduce the issue with plain netperf tcp_stream tes=
+ts. I
+> had one sending system with 30 concurrent netperf tcp_stream tests to=
+ 30
+> other receiving systems. =A0There are "hardware duplicates" in the se=
+nding
+> trace, but no duplicate segments (that I can find thus far) in the tw=
+o
+> receiver side traces I took. =A0Of course that doesn't mean "conclusi=
+vely"
+> there were two actual sends but it suggests there werent.
+>
+> While I work through the "obtain permission" path to post the packet =
+traces
+> (don't ask...) I thought I would ask if anyone else has seen somethin=
+g
+> similar.
+>
+> In this case, all the systems are running a 2.6.38-8 Ubuntu kernel (t=
+he same
+> sorts of issues which delay my just putting the traces up on netperf.=
+org
+> preclude a later kernel, and I've no other test systems :( ), with In=
+tel
+> 82576 interfaces being driven by:
+>
+> $ sudo ethtool -i eth0
+> driver: igb
+> version: 2.1.0-k2
+> firmware-version: 1.8-2
+> bus-info: 0000:05:00.0
+>
+> All the systems were connected to the same switch.
+>
 
-> But, since m1 on a concave curve is a momentary "super charge", I
-> don't need to worry about oversubscribing since the rate is not
-> sustained.
+Rick,
+This may be of help.
+http://www.tcptrace.org/faq_ans.html#FAQ%2021
 
-It's just a slope, from which you derive the time(s) used in deciding
-"what to send next":
-
-> Thus, if all the traffic were to be backlogged at m1 rates, we would
-> overrun the circuit.
-
-Curves don't really change that in any way.
-
-If you did the above for m1 (or m2) for RT curves, the eligiblity would
-lose the point (leafs would always be eligible), and the whole thing
-would kind-of degenerate into more complex version of LS. There's a
-reason why BSDs won't even let you define RT curves that sum at any
-point to more than 80% (aside keeping LS useful, perhaps also related to
-thier timer resolution [years ago]). Unless they changed it in recent
-versions - I didn't really have any modern BSD under my hands for a
-while.
-
-> and the sum of their m1 curves > circuit capacity because, operating
-> under my false assumption, this is only for that temporary boost. If
-> all five classes receive their first packet at the identical moment,
-> we will fail to meet the guarantees.
-
-I'd say more aggressive eliglibility and earlier deadline - than any
-boost. Which will briefly (if enough leafs are backlogged) turn whole
-carefully designed RT mechanics into dimensionless LS-like thingy. So -
-while that is possible - why do it ? Setup RT that fits the achievable
-speed, and leave the excess bandwidth to LS.
-
-Whole RT design - with eligible/deadline split - is to allow convex
-curves to send "earlier", pushing the deadlines to the "right" - which
-in turn allows newly backlogged class to have brief priority. But it all
-remains under interface limit and over-time fulfills guarantees (even if
-locally they are violated).
-
-> I realize I am babbling in my own context so let me state in another
-> way in case I'm not being clear.  My concern was that, if the four
-> classes are continuously backlogged and the fifth class with a concave
-> rt service curve constantly goes idle and then immediately receives a
-> packet, it will always be transmitting at the m1 rate and thus exceed
-> the capacity of the circuit (since the sum of the five m2 curves =
-> capacity and the m1 of the fifth class is greater than the m2 of the
-> fifth class).
-
-Actually it won't. See what I wrote about the eligible/deadline above.
-The 4 classes (suppose they are under convex RT) will be eligible
-earlier than they would normally be (and send more). When the 5th class
-becomes active with its steeper m1, it literally "has a green light" to
-send whenever it's eligible, as the deadlines of the 4 classes are
-further to the right. If all classes remain backlogged from now on, it
-all evens out properly. If the 5th goes idle, other classes will
-"buffer up" again (from a lack of better term).
-
-> So now I'll put my practical hat back on where practice will violate
-> theory but with no practical deleterious effect except in the most
-> extreme cases.  I propose that, from a practical, system administrator
-> perspective, it is feasible and probably ideal to define rt service
-> curves so that the sum of all m2 curves<= circuit
-
-Going above would really make LS pointless, and turn RT into LS-like
-thing (see above).
-
-> curves should be specified to meet latency requirements REGARDLESS OF
-> EXCEEDING CIRCUIT CAPACITY.
-
-Again (see above) - that will not get you anywhere. m1 or m2 (look at
-the curve as a whole, not just its parts) - it just makes RT lose its
-properties and actual meaning behind numbers. Briefly, but still.
-
-I can think of scenarios where such setups would work fine (aside if it
-would be really needed), but let's leave that for different occasion :)
-
->>
->>  If anything briefly stops being backlogged, it will get bonus on next
->>  backlog period
-> I am assuming this assumes a concave curve and has to do with the
-> recalculation of the curve and that this would not be true if m1=m2?
-
-yes
-
-
-ps.
-Going through other mails will take me far more time I think.
+Regards,
+Vijay Subramanian
