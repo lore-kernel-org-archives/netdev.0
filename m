@@ -1,78 +1,121 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next RFC PATCH 0/5] Series short description
-Date: Thu, 15 Dec 2011 01:36:44 +0000
-Message-ID: <1323913005.2753.47.camel@bwh-desktop>
-References: <20111205085603.6116.65101.stgit@dhcp-8-146.nay.redhat.com>
-	<87ty5cj0sw.fsf@rustcorp.com.au>  <4EDF4E82.7050201@redhat.com>
-	<1323277324.2728.34.camel@bwh-desktop> <87r50efgza.fsf@rustcorp.com.au>
+From: Michal Soltys <soltys@ziu.info>
+Subject: Re: Latency guarantees in HFSC rt service curves
+Date: Thu, 15 Dec 2011 02:48:22 +0100
+Message-ID: <4EE951E6.4020708@ziu.info>
+References: <1323467512.3159.93.camel@denise.theartistscloset.com>  <4EE358A4.7060302@ziu.info>  <1323531352.3159.106.camel@denise.theartistscloset.com>  <4EE39D88.9010002@ziu.info>  <1323542103.3159.148.camel@denise.theartistscloset.com>  <4EE7E3E4.6070409@ziu.info> <1323839798.8451.172.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	levinsasha928@gmail.com
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <87r50efgza.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from drutsystem.com ([80.72.38.138]:3267 "EHLO drutsystem.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755804Ab1LOBs3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Dec 2011 20:48:29 -0500
+In-Reply-To: <1323839798.8451.172.camel@denise.theartistscloset.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-12-09 at 16:01 +1030, Rusty Russell wrote:
-> On Wed, 7 Dec 2011 17:02:04 +0000, Ben Hutchings <bhutchings@solarflare.com> wrote:
-> > Solarflare controllers (sfc driver) have 8192 perfect filters for
-> > TCP/IPv4 and UDP/IPv4 which can be used for flow steering.  (The filters
-> > are organised as a hash table, but matched based on 5-tuples.)  I
-> > implemented the 'accelerated RFS' interface in this driver.
-> > 
-> > I believe the Intel 82599 controllers (ixgbe driver) have both
-> > hash-based and perfect filter modes and the driver can be configured to
-> > use one or the other.  The driver has its own independent mechanism for
-> > steering RX and TX flows which predates RFS; I don't know whether it
-> > uses hash-based or perfect filters.
-> 
-> Thanks for this summary (and Jason, too).  I've fallen a long way behind
-> NIC state-of-the-art.
->  
-> > Most multi-queue controllers could support a kind of hash-based
-> > filtering for TCP/IP by adjusting the RSS indirection table.  However,
-> > this table is usually quite small (64-256 entries).  This means that
-> > hash collisions will be quite common and this can result in reordering.
-> > The same applies to the small table Jason has proposed for virtio-net.
-> 
-> But this happens on real hardware today.  Better that real hardware is
-> nice, but is it overkill?
+On 11-12-14 06:16, John A. Sullivan III wrote:
+> I think I understand the technology (although I confess I did not take
+> the time to fully digest how the curves are updated) but I'm grappling
+> more with the practical application and I may be making a false
+> assumption here.
 
-What do you mean, it happens on real hardware today?  So far as I know,
-the only cases where we have dynamic adjustment of flow steering are in
-ixgbe (big table of hash filters, I think) and sfc (perfect filters).
-I don't think that anyone's currently doing flow steering with the RSS
-indirection table.  (At least, not on Linux.  I think that Microsoft was
-intending to do so on Windows, but I don't know whether they ever did.)
+Hmm, imho you can't really skip that part - or part about "why split RT
+into eligible/deadline" to see the mechanics behind RT curves.
 
-> And can't you reorder even with perfect matching, since prior packets
-> will be on the old queue and more recent ones on the new queue?  Does it
-> discard or requeue old ones?  Or am I missing a trick?
+>
+> Once again, with my practical, "how do I use this" hat on, my
+> instinctive thought is that I would ensure that the sum of the rt m2
+> curves do not exceed ul, well, not ul literally as rt disregards ul
+> but, more accurately, circuit capacity so that my circuit is not
+> oversubscribed and my guarantees are sustainable.
 
-Yes, that is possible.  RFS is careful to avoid such reordering by only
-changing the steering of a flow when none of its packets can be in a
-software receive queue.  It is not generally possible to do the same for
-hardware receive queues.  However, when the first condition is met it is
-likely that there won't be a whole lot of packets for that flow in the
-hardware receive queue either.  (But if there are, then I think as a
-side-effect of commit 09994d1 RFS will repeatedly ask the driver to
-steer the flow.  Which isn't ideal.)
+> But, since m1 on a concave curve is a momentary "super charge", I
+> don't need to worry about oversubscribing since the rate is not
+> sustained.
 
-Ben.
+It's just a slope, from which you derive the time(s) used in deciding
+"what to send next":
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> Thus, if all the traffic were to be backlogged at m1 rates, we would
+> overrun the circuit.
+
+Curves don't really change that in any way.
+
+If you did the above for m1 (or m2) for RT curves, the eligiblity would
+lose the point (leafs would always be eligible), and the whole thing
+would kind-of degenerate into more complex version of LS. There's a
+reason why BSDs won't even let you define RT curves that sum at any
+point to more than 80% (aside keeping LS useful, perhaps also related to
+thier timer resolution [years ago]). Unless they changed it in recent
+versions - I didn't really have any modern BSD under my hands for a
+while.
+
+> and the sum of their m1 curves > circuit capacity because, operating
+> under my false assumption, this is only for that temporary boost. If
+> all five classes receive their first packet at the identical moment,
+> we will fail to meet the guarantees.
+
+I'd say more aggressive eliglibility and earlier deadline - than any
+boost. Which will briefly (if enough leafs are backlogged) turn whole
+carefully designed RT mechanics into dimensionless LS-like thingy. So -
+while that is possible - why do it ? Setup RT that fits the achievable
+speed, and leave the excess bandwidth to LS.
+
+Whole RT design - with eligible/deadline split - is to allow convex
+curves to send "earlier", pushing the deadlines to the "right" - which
+in turn allows newly backlogged class to have brief priority. But it all
+remains under interface limit and over-time fulfills guarantees (even if
+locally they are violated).
+
+> I realize I am babbling in my own context so let me state in another
+> way in case I'm not being clear.  My concern was that, if the four
+> classes are continuously backlogged and the fifth class with a concave
+> rt service curve constantly goes idle and then immediately receives a
+> packet, it will always be transmitting at the m1 rate and thus exceed
+> the capacity of the circuit (since the sum of the five m2 curves =
+> capacity and the m1 of the fifth class is greater than the m2 of the
+> fifth class).
+
+Actually it won't. See what I wrote about the eligible/deadline above.
+The 4 classes (suppose they are under convex RT) will be eligible
+earlier than they would normally be (and send more). When the 5th class
+becomes active with its steeper m1, it literally "has a green light" to
+send whenever it's eligible, as the deadlines of the 4 classes are
+further to the right. If all classes remain backlogged from now on, it
+all evens out properly. If the 5th goes idle, other classes will
+"buffer up" again (from a lack of better term).
+
+> So now I'll put my practical hat back on where practice will violate
+> theory but with no practical deleterious effect except in the most
+> extreme cases.  I propose that, from a practical, system administrator
+> perspective, it is feasible and probably ideal to define rt service
+> curves so that the sum of all m2 curves<= circuit
+
+Going above would really make LS pointless, and turn RT into LS-like
+thing (see above).
+
+> curves should be specified to meet latency requirements REGARDLESS OF
+> EXCEEDING CIRCUIT CAPACITY.
+
+Again (see above) - that will not get you anywhere. m1 or m2 (look at
+the curve as a whole, not just its parts) - it just makes RT lose its
+properties and actual meaning behind numbers. Briefly, but still.
+
+I can think of scenarios where such setups would work fine (aside if it
+would be really needed), but let's leave that for different occasion :)
+
+>>
+>>  If anything briefly stops being backlogged, it will get bonus on next
+>>  backlog period
+> I am assuming this assumes a concave curve and has to do with the
+> recalculation of the curve and that this would not be true if m1=m2?
+
+yes
+
+
+ps.
+Going through other mails will take me far more time I think.
