@@ -1,229 +1,520 @@
-From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: [PATCH 2/2] Explicitly call tcp creation and init from memcontrol.c
-Date: Thu, 15 Dec 2011 13:34:32 +0400
-Message-ID: <1323941672-14324-3-git-send-email-glommer@parallels.com>
-References: <1323941672-14324-1-git-send-email-glommer@parallels.com>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Hiroyouki Kamezawa <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1323941672-14324-1-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH 3/3] qmi_wwan: Driver for WWAN devices requiring use of the QMI protocol
+Date: Thu, 15 Dec 2011 11:02:22 +0100
+Message-ID: <87r506b1ap.fsf@nemi.mork.no>
+References: <1323750784-32608-1-git-send-email-bjorn@mork.no>
+	<1323750784-32608-4-git-send-email-bjorn@mork.no>
+	<1323882501.2077.3.camel@dcbw.foobar.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1323882501.2077.3.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org> (Dan Williams's message
+	of "Wed, 14 Dec 2011 11:08:21 -0600")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Walking the proto_list holds a read_lock, which prevents us from doing
-allocations. Splitting the tcp create function into create + init is
-good, but it is not enough since create_files will do allocations as well
-(dentry ones, mostly).
+Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> writes:
 
-Since this does not involve any protocol state, I propose we call the tcp
-functions explicitly from memcontrol.c
+> So I thought the protocol acronym stood for "Qualcomm MSM/Modem
+> Interface"  (see
+> https://www.codeaurora.org/gitweb/quic/le/?p=3Dkernel/msm.git;a=3Dcom=
+mitdiff;h=3D5f6f87b51184e13b6c493012de787895d5d18765)
 
-With this, we lose by now the ability of doing cgroup memcontrol for
-protocols that are loaded as modules. But at least the ones I have in mind
-won't really need it (tcp_ipv6 being the only one, but it uses the same data
-structures as tcp_ipv4). So I believe this to be the simpler solution to this
-problem.
+That's probably correct.  Don't know where I got the messaging part
+from.  Should be corrected....
 
-Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-CC: Hiroyouki Kamezawa <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-CC: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-CC: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-CC: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
----
- include/net/sock.h           |    2 --
- include/net/tcp_memcontrol.h |   19 ++++++++++++++++++-
- mm/memcontrol.c              |   13 ++++---------
- net/core/sock.c              |   37 -------------------------------------
- net/ipv4/tcp_memcontrol.c    |   11 ++++++-----
- 5 files changed, 28 insertions(+), 54 deletions(-)
+> In any case, great work here.  But I'm a bit concerned about how all
+> this should fit together.  QMI is a huge protocol that does everythin=
+g a
+> modem would ever want to do, and we'd likely want to be able to speak
+> QMI from userspace to the modem too so that modem managers can expose
+> the full functionality of the modems.  For example Gobi modems have a
+> very minimal AT command set and most of the functionality is exposed
+> over QMI or DM.  That's why the Qualcomm GobiNet driver also
+> exposed /dev/qmi for userspace access.
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 1df44e2..6cbee80 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -64,8 +64,6 @@
- #include <net/dst.h>
- #include <net/checksum.h>
- 
--int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss);
--void mem_cgroup_sockets_destroy(struct cgroup *cgrp, struct cgroup_subsys *ss);
- /*
-  * This structure really needs to be cleaned up.
-  * Most of it is for TCP, and not used by any of
-diff --git a/include/net/tcp_memcontrol.h b/include/net/tcp_memcontrol.h
-index 3512082..f1ff94a 100644
---- a/include/net/tcp_memcontrol.h
-+++ b/include/net/tcp_memcontrol.h
-@@ -11,9 +11,26 @@ struct tcp_memcontrol {
- 	int tcp_memory_pressure;
- };
- 
--struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg);
-+struct cgroup;
-+struct cgroup_subsys;
-+#if defined(CONFIG_INET) && defined(CONFIG_CGROUP_MEM_RES_CTLR_KMEM)
- int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss);
- void tcp_destroy_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss);
-+void tcp_create_cgroup(struct mem_cgroup *memcg, struct mem_cgroup *parent);
-+#else
-+static inline int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss)
-+{
-+	return 0;
-+}
-+static inline void tcp_destroy_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss)
-+{
-+}
-+static inline void
-+tcp_create_cgroup(struct mem_cgroup *memcg, struct mem_cgroup *parent)
-+{
-+}
-+#endif
-+struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg);
- unsigned long long tcp_max_memory(const struct mem_cgroup *memcg);
- void tcp_prot_mem(struct mem_cgroup *memcg, long val, int idx);
- #endif /* _TCP_MEMCG_H */
-diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index 7266202..e3d8886 100644
---- a/mm/memcontrol.c
-+++ b/mm/memcontrol.c
-@@ -4749,22 +4749,15 @@ static int register_kmem_files(struct cgroup *cont, struct cgroup_subsys *ss)
- 	ret = cgroup_add_files(cont, ss, kmem_cgroup_files,
- 			       ARRAY_SIZE(kmem_cgroup_files));
- 
--	/*
--	 * Part of this would be better living in a separate allocation
--	 * function, leaving us with just the cgroup tree population work.
--	 * We, however, depend on state such as network's proto_list that
--	 * is only initialized after cgroup creation. I found the less
--	 * cumbersome way to deal with it to defer it all to populate time
--	 */
- 	if (!ret)
--		ret = mem_cgroup_sockets_init(cont, ss);
-+		tcp_init_cgroup(cont, ss);
- 	return ret;
- };
- 
- static void kmem_cgroup_destroy(struct cgroup_subsys *ss,
- 				struct cgroup *cont)
- {
--	mem_cgroup_sockets_destroy(cont, ss);
-+	tcp_destroy_cgroup(cont, ss);
- }
- #else
- static int register_kmem_files(struct cgroup *cont, struct cgroup_subsys *ss)
-@@ -5093,6 +5086,7 @@ mem_cgroup_create(struct cgroup_subsys *ss, struct cgroup *cont)
- 		res_counter_init(&memcg->res, &parent->res);
- 		res_counter_init(&memcg->memsw, &parent->memsw);
- 		res_counter_init(&memcg->kmem, &parent->kmem);
-+		tcp_create_cgroup(memcg, parent);
- 		/*
- 		 * We increment refcnt of the parent to ensure that we can
- 		 * safely access it on res_counter_charge/uncharge.
-@@ -5104,6 +5098,7 @@ mem_cgroup_create(struct cgroup_subsys *ss, struct cgroup *cont)
- 		res_counter_init(&memcg->res, NULL);
- 		res_counter_init(&memcg->memsw, NULL);
- 		res_counter_init(&memcg->kmem, NULL);
-+		tcp_create_cgroup(memcg, NULL);
- 	}
- 	memcg->last_scanned_child = 0;
- 	memcg->last_scanned_node = MAX_NUMNODES;
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 5de62d3..103f246 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -138,43 +138,6 @@
- static DEFINE_RWLOCK(proto_list_lock);
- static LIST_HEAD(proto_list);
- 
--#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
--int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss)
--{
--	struct proto *proto;
--	int ret = 0;
--
--	read_lock(&proto_list_lock);
--	list_for_each_entry(proto, &proto_list, node) {
--		if (proto->init_cgroup) {
--			ret = proto->init_cgroup(cgrp, ss);
--			if (ret)
--				goto out;
--		}
--	}
--
--	read_unlock(&proto_list_lock);
--	return ret;
--out:
--	list_for_each_entry_continue_reverse(proto, &proto_list, node)
--		if (proto->destroy_cgroup)
--			proto->destroy_cgroup(cgrp, ss);
--	read_unlock(&proto_list_lock);
--	return ret;
--}
--
--void mem_cgroup_sockets_destroy(struct cgroup *cgrp, struct cgroup_subsys *ss)
--{
--	struct proto *proto;
--
--	read_lock(&proto_list_lock);
--	list_for_each_entry_reverse(proto, &proto_list, node)
--		if (proto->destroy_cgroup)
--			proto->destroy_cgroup(cgrp, ss);
--	read_unlock(&proto_list_lock);
--}
--#endif
--
- /*
-  * Each address family might have different locking rules, so we have
-  * one slock key per address family:
-diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
-index 171d7b6..1433505 100644
---- a/net/ipv4/tcp_memcontrol.c
-+++ b/net/ipv4/tcp_memcontrol.c
-@@ -49,7 +49,7 @@ static void memcg_tcp_enter_memory_pressure(struct sock *sk)
- }
- EXPORT_SYMBOL(memcg_tcp_enter_memory_pressure);
- 
--int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss)
-+void tcp_create_cgroup(struct mem_cgroup *memcg, struct mem_cgroup *parent)
- {
- 	/*
- 	 * The root cgroup does not use res_counters, but rather,
-@@ -59,13 +59,11 @@ int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss)
- 	struct res_counter *res_parent = NULL;
- 	struct cg_proto *cg_proto, *parent_cg;
- 	struct tcp_memcontrol *tcp;
--	struct mem_cgroup *memcg = mem_cgroup_from_cont(cgrp);
--	struct mem_cgroup *parent = parent_mem_cgroup(memcg);
- 	struct net *net = current->nsproxy->net_ns;
- 
- 	cg_proto = tcp_prot.proto_cgroup(memcg);
- 	if (!cg_proto)
--		goto create_files;
-+		return;
- 
- 	tcp = tcp_from_cgproto(cg_proto);
- 
-@@ -87,8 +85,11 @@ int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss)
- 	cg_proto->memory_allocated = &tcp->tcp_memory_allocated;
- 	cg_proto->sockets_allocated = &tcp->tcp_sockets_allocated;
- 	cg_proto->memcg = memcg;
-+}
-+EXPORT_SYMBOL(tcp_create_cgroup);
- 
--create_files:
-+int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss)
-+{
- 	return cgroup_add_files(cgrp, ss, tcp_files,
- 				ARRAY_SIZE(tcp_files));
- }
--- 
-1.7.6.4
+Yes, I believe some interface should be exported.  But my primary goal
+was to make something that would just work as an ethernet device with a
+minimum of external userspace dependencies.  And this modem seems to
+have a fairly complete set of AT commands anyway.  Ideally I would want
+to stick
 
+ auto wwan0
+ iface wwan0 inet dhcp
+
+in my /etc/network/interface and not need any application for that to
+work.  But I realize that I must enter a SIM PIN1 code first (unless
+disabled), and that most users will want to configure a specific APN
+(although the null APN "" most likely will work just fine).
+
+But I agree that eventually the full QMI protocol should be made
+available to userspace for other uses.  That should be fairly easy to d=
+o
+if you just proxy the commands.  But I'm worring about the interface.
+Is the /dev/qmi from GobiNet acceptable?  Why isn't it merged yet?
+Wouldn't something like netlink have been more suitable?  How about
+security and the ability to control privileges on a command to command
+basis?  And are there users?  Note that even the Windows application
+supplied with the modem uses AT commands for SMS sending/receiving etc.
+The snoop I did showed a very minimal set of QMI commands.  These were
+all Windows used for startup of the network interface (partly decoded b=
+y
+me):
+
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000f
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x01
+=2Emsgid =3D 0x0021
+=2Elen =3D 0x0004
+[0x01] (1)  ff	.
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000f
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x02
+=2Emsgid =3D 0x0021
+=2Elen =3D 0x0004
+[0x01] (1)  ff	.
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000f
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x03
+=2Emsgid =3D 0x0021
+=2Elen =3D 0x0004
+[0x01] (1)  ff	.
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000f
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x04
+=2Emsgid =3D 0x0021
+=2Elen =3D 0x0004
+[0x01] (1)  ff	.
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000f
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x05
+=2Emsgid =3D 0x0021
+=2Elen =3D 0x0004
+[0x01] (1)  ff	.
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000f
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x06
+=2Emsgid =3D 0x0021
+=2Elen =3D 0x0004
+[0x01] (1)  ff	.
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000f
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x07
+=2Emsgid =3D 0x0021
+=2Elen =3D 0x0004
+[0x01] (1)  ff	.
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000f
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x08
+=2Emsgid =3D 0x0021
+=2Elen =3D 0x0004
+[0x01] (1)  ff	.
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000f
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x09
+=2Emsgid =3D 0x0021
+=2Elen =3D 0x0004
+[0x01] (1)  ff	.
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000b
+=2Ectrl =3D 0x80 service
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x02 response
+=2Etid =3D 0x00
+=2Emsgid =3D 0x0027
+=2Elen =3D 000000
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000f
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x0a
+=2Emsgid =3D 0x0021
+=2Elen =3D 0x0004
+[0x01] (1)  ff	.
+
+=2Etf =3D 0x01
+=2Elen =3D 0x0057
+=2Ectrl =3D 0x80 service
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x01 invalid
+=2Etid =3D 0x0a
+=2Emsgid =3D 0x0021
+=2Elen =3D 0x004c
+[0x02] (4) SUCCESS (0x0000) QMI_ERR_NONE
+[0x01] (66)  0d 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 0=
+0 00 00 00 00 d1 0e 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 =
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00	..=
+=2E...............................................................
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000f
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x0b
+=2Emsgid =3D 0x0022
+=2Elen =3D 0x0004
+[0x01] (1)  02	.
+
+=2Etf =3D 0x01
+=2Elen =3D 0x0017
+=2Ectrl =3D 0x80 service
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x01 invalid
+=2Etid =3D 0x0b
+=2Emsgid =3D 0x0022
+=2Elen =3D 0x000c
+[0x02] (4) SUCCESS (0x0000) QMI_ERR_NONE
+[0x01] (2)  02 01	..
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000c
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x02
+=2Eqmicid =3D 0x01
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x0001
+=2Emsgid =3D 0x0021
+=2Elen =3D 000000
+
+=2Etf =3D 0x01
+=2Elen =3D 0x002b
+=2Ectrl =3D 0x80 service
+=2Eservice =3D 0x02
+=2Eqmicid =3D 0x01
+=2Eflags =3D 0x02 response
+=2Etid =3D 0x0001
+=2Emsgid =3D 0x0021
+=2Elen =3D 0x001f
+[0x02] (4) SUCCESS (0x0000) QMI_ERR_NONE
+[0x01] (21)  51 55 41 4c 43 4f 4d 4d 20 49 4e 43 4f 52 50 4f 52 41 54 4=
+5 44	QUALCOMM INCORPORATED
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000c
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x02
+=2Eqmicid =3D 0x01
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x0002
+=2Emsgid =3D 0x0024
+=2Elen =3D 000000
+
+=2Etf =3D 0x01
+=2Elen =3D 0x0013
+=2Ectrl =3D 0x80 service
+=2Eservice =3D 0x02
+=2Eqmicid =3D 0x01
+=2Eflags =3D 0x02 response
+=2Etid =3D 0x0002
+=2Emsgid =3D 0x0024
+=2Elen =3D 0x0007
+[0x02] (4) FAILED (0x0025) QMI_ERR_UIM_NOT_INITIALIZED
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000c
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x02
+=2Eqmicid =3D 0x01
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x0003
+=2Emsgid =3D 0x0025
+=2Elen =3D 000000
+
+=2Etf =3D 0x01
+=2Elen =3D 0x0029
+=2Ectrl =3D 0x80 service
+=2Eservice =3D 0x02
+=2Eqmicid =3D 0x01
+=2Eflags =3D 0x02 response
+=2Etid =3D 0x0003
+=2Emsgid =3D 0x0025
+=2Elen =3D 0x001d
+[0x02] (4) SUCCESS (0x0000) QMI_ERR_NONE
+[0x10] (1)  30	0
+[0x11] (15)  38 36 30 39 39 39 30 30 30 30 32 33 37 30 37	8609990000237=
+07
+
+=2Etf =3D 0x01
+=2Elen =3D 0x0010
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x0c
+=2Emsgid =3D 0x0023
+=2Elen =3D 0x0005
+[0x01] (2)  02 01	..
+
+=2Etf =3D 0x01
+=2Elen =3D 0x0017
+=2Ectrl =3D 0x80 service
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x01 invalid
+=2Etid =3D 0x0c
+=2Emsgid =3D 0x0023
+=2Elen =3D 0x000c
+[0x02] (4) SUCCESS (0x0000) QMI_ERR_NONE
+[0x01] (2)  02 01	..
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000f
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x0d
+=2Emsgid =3D 0x0022
+=2Elen =3D 0x0004
+[0x01] (1)  01	.
+
+=2Etf =3D 0x01
+=2Elen =3D 0x0017
+=2Ectrl =3D 0x80 service
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x01 invalid
+=2Etid =3D 0x0d
+=2Emsgid =3D 0x0022
+=2Elen =3D 0x000c
+[0x02] (4) SUCCESS (0x0000) QMI_ERR_NONE
+[0x01] (2)  01 01	..
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000f
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x0e
+=2Emsgid =3D 0x0020
+=2Elen =3D 0x0004
+[0x01] (1)  00	.
+
+=2Etf =3D 0x01
+=2Elen =3D 0x0017
+=2Ectrl =3D 0x80 service
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x01 invalid
+=2Etid =3D 0x0e
+=2Emsgid =3D 0x0020
+=2Elen =3D 0x000c
+[0x02] (4) SUCCESS (0x0000) QMI_ERR_NONE
+[0x01] (2)  00 00	..
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000b
+=2Ectrl =3D 0x80 service
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x02 response
+=2Etid =3D 0x00
+=2Emsgid =3D 0x0027
+=2Elen =3D 000000
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000b
+=2Ectrl =3D 0x80 service
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x02 response
+=2Etid =3D 0x00
+=2Emsgid =3D 0x0027
+=2Elen =3D 000000
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000b
+=2Ectrl =3D 0x80 service
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x02 response
+=2Etid =3D 0x00
+=2Emsgid =3D 0x0027
+=2Elen =3D 000000
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000f
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x0f
+=2Emsgid =3D 0x0022
+=2Elen =3D 0x0004
+[0x01] (1)  02	.
+
+=2Etf =3D 0x01
+=2Elen =3D 0x0017
+=2Ectrl =3D 0x80 service
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x01 invalid
+=2Etid =3D 0x0f
+=2Emsgid =3D 0x0022
+=2Elen =3D 0x000c
+[0x02] (4) SUCCESS (0x0000) QMI_ERR_NONE
+[0x01] (2)  02 02	..
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000c
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x02
+=2Eqmicid =3D 0x02
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x0001
+=2Emsgid =3D 0x0022
+=2Elen =3D 000000
+
+=2Etf =3D 0x01
+=2Elen =3D 0x0017
+=2Ectrl =3D 0x80 service
+=2Eservice =3D 0x02
+=2Eqmicid =3D 0x02
+=2Eflags =3D 0x02 response
+=2Etid =3D 0x0001
+=2Emsgid =3D 0x0022
+=2Elen =3D 0x000b
+[0x02] (4) SUCCESS (0x0000) QMI_ERR_NONE
+[0x01] (1)  30	0
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000f
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x10
+=2Emsgid =3D 0x0022
+=2Elen =3D 0x0004
+[0x01] (1)  01	.
+
+=2Etf =3D 0x01
+=2Elen =3D 0x0017
+=2Ectrl =3D 0x80 service
+=2Eservice =3D 0x00
+=2Eqmicid =3D 0x00
+=2Eflags =3D 0x01 invalid
+=2Etid =3D 0x10
+=2Emsgid =3D 0x0022
+=2Elen =3D 0x000c
+[0x02] (4) SUCCESS (0x0000) QMI_ERR_NONE
+[0x01] (2)  01 02	..
+
+=2Etf =3D 0x01
+=2Elen =3D 0x000c
+=2Ectrl =3D 0x00 control point
+=2Eservice =3D 0x01
+=2Eqmicid =3D 0x02
+=2Eflags =3D 0x00 request
+=2Etid =3D 0x0002
+=2Emsgid =3D 0x0022
+=2Elen =3D 000000
+
+=2Etf =3D 0x01
+=2Elen =3D 0x0017
+=2Ectrl =3D 0x80 service
+=2Eservice =3D 0x01
+=2Eqmicid =3D 0x02
+=2Eflags =3D 0x02 response
+=2Etid =3D 0x0002
+=2Emsgid =3D 0x0022
+=2Elen =3D 0x000b
+[0x02] (4) SUCCESS (0x0000) QMI_ERR_NONE
+[0x01] (1)  01	.
+
+
+
+> Second, does the modem actually respond to DHCP over the ECM interfac=
+e?
+
+Yes.  And IMHO that's the only sensible thing to do.  Cannot be very
+difficult to implement that feature in the firmware.  It's not like you
+need to write a dhcp server.  You know you have only a single client on
+the other end of a point-to-point link, and the address configuration i=
+s
+given.  And all broadcast/multicast requires special treatment anyway.
+I actually thought about implementing the DHCP functionality in the
+driver before I knew that the firmware already provided this.
+
+=46WIW, the Windows driver implementation also depends on DHCP for addr=
+ess
+configuration .
+
+> If you take a look at the Android rmnet code (which is similar to you=
+r
+> driver) you'll see they extract the IP address and DNS details from t=
+he
+> QMI response.  Do we need to do that here too?
+
+Based on the above, I don't think so. =20
+
+And if you still want to extract address details without using DHCP,
+then that information is available via the AT^DHCP? command anyway.  Yo=
+u
+don't need QMI for that part.
+
+
+
+Bj=C3=B8rn
 --
-To unsubscribe from this list: send the line "unsubscribe cgroups" in
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
