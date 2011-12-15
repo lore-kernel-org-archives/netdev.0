@@ -1,55 +1,224 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 6/6] tg3: Make the RSS indir tbl admin
- configurable
-Date: Thu, 15 Dec 2011 21:13:47 +0000
-Message-ID: <1323983627.2773.18.camel@bwh-desktop>
-References: <1323897002-17295-7-git-send-email-mcarlson@broadcom.com>
-	 <1323899459.2753.19.camel@bwh-desktop>
-	 <20111215210308.GA7025@mcarlson.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>
-To: Matt Carlson <mcarlson@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:59169 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751811Ab1LOVNw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2011 16:13:52 -0500
-In-Reply-To: <20111215210308.GA7025@mcarlson.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH 1/3] net/hyperv: Remove unnecessary kmap_atomic in netvsc driver
+Date: Thu, 15 Dec 2011 13:45:15 -0800
+Message-ID: <1323985517-1156-1-git-send-email-haiyangz@microsoft.com>
+To: haiyangz@microsoft.com, kys@microsoft.com, davem@davemloft.net,
+	gregkh@suse.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, devel@linuxdriverproject.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-12-15 at 13:03 -0800, Matt Carlson wrote:
-> On Wed, Dec 14, 2011 at 01:50:59PM -0800, Ben Hutchings wrote:
-> > On Wed, 2011-12-14 at 13:10 -0800, Matt Carlson wrote:
-[...]
-> > > +	if (!indir->size) {
-> > > +		indir->size = TG3_RSS_INDIR_TBL_SIZE;
-> > > +		return 0;
-> > > +	}
-> > > +
-> > > +	if (indir->size != TG3_RSS_INDIR_TBL_SIZE)
-> > > +		return -EINVAL;
-> > 
-> > This is enough to make the ethtool command work, but you're really
-> > supposed to copy min(indir->size, TG3_RSS_INDIR_TBL_SIZE) entries.
-> 
-> Could you elaborate on this?  I'm confused because I can't figure out
-> how returning half of an indirection table could be useful.
+__get_free_pages() doesn't return HI memory, so the memory is always mapped.
+kmap_atomic() is not necessary here. This patch removes the kmap_atomic()
+calls and related code for locking and page manipulation.
 
-It's a generalisation of the zero-length and full-length cases.  But no,
-it isn't very useful, nor did I actually specify that anywhere!
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Maybe there should be a driver operation to get the table size, and then
-the core can make sure that drivers only ever deal with full-table
-buffers.  Though that wouldn't cover your reset-to-default case.
+---
+ drivers/net/hyperv/hyperv_net.h   |    6 +---
+ drivers/net/hyperv/netvsc.c       |   53 +++----------------------------------
+ drivers/net/hyperv/netvsc_drv.c   |   22 +--------------
+ drivers/net/hyperv/rndis_filter.c |   21 +-------------
+ 4 files changed, 10 insertions(+), 92 deletions(-)
 
-Ben.
-
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 49b131f..ff1b520 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -39,9 +39,6 @@ struct xferpage_packet {
+ 	u32 count;
+ };
+ 
+-/* The number of pages which are enough to cover jumbo frame buffer. */
+-#define NETVSC_PACKET_MAXPAGE		4
+-
+ /*
+  * Represent netvsc packet which contains 1 RNDIS and 1 ethernet frame
+  * within the RNDIS
+@@ -77,8 +74,9 @@ struct hv_netvsc_packet {
+ 
+ 	u32 total_data_buflen;
+ 	/* Points to the send/receive buffer where the ethernet frame is */
++	void *data;
+ 	u32 page_buf_cnt;
+-	struct hv_page_buffer page_buf[NETVSC_PACKET_MAXPAGE];
++	struct hv_page_buffer page_buf[0];
+ };
+ 
+ struct netvsc_device_info {
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index b6ac152..bab627f 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -603,12 +603,10 @@ static void netvsc_receive(struct hv_device *device,
+ 	struct vmtransfer_page_packet_header *vmxferpage_packet;
+ 	struct nvsp_message *nvsp_packet;
+ 	struct hv_netvsc_packet *netvsc_packet = NULL;
+-	unsigned long start;
+-	unsigned long end, end_virtual;
+ 	/* struct netvsc_driver *netvscDriver; */
+ 	struct xferpage_packet *xferpage_packet = NULL;
+-	int i, j;
+-	int count = 0, bytes_remain = 0;
++	int i;
++	int count = 0;
+ 	unsigned long flags;
+ 	struct net_device *ndev;
+ 
+@@ -717,53 +715,10 @@ static void netvsc_receive(struct hv_device *device,
+ 		netvsc_packet->completion.recv.recv_completion_tid =
+ 					vmxferpage_packet->d.trans_id;
+ 
++		netvsc_packet->data = (void *)((unsigned long)net_device->
++			recv_buf + vmxferpage_packet->ranges[i].byte_offset);
+ 		netvsc_packet->total_data_buflen =
+ 					vmxferpage_packet->ranges[i].byte_count;
+-		netvsc_packet->page_buf_cnt = 1;
+-
+-		netvsc_packet->page_buf[0].len =
+-					vmxferpage_packet->ranges[i].byte_count;
+-
+-		start = virt_to_phys((void *)((unsigned long)net_device->
+-		recv_buf + vmxferpage_packet->ranges[i].byte_offset));
+-
+-		netvsc_packet->page_buf[0].pfn = start >> PAGE_SHIFT;
+-		end_virtual = (unsigned long)net_device->recv_buf
+-		    + vmxferpage_packet->ranges[i].byte_offset
+-		    + vmxferpage_packet->ranges[i].byte_count - 1;
+-		end = virt_to_phys((void *)end_virtual);
+-
+-		/* Calculate the page relative offset */
+-		netvsc_packet->page_buf[0].offset =
+-			vmxferpage_packet->ranges[i].byte_offset &
+-			(PAGE_SIZE - 1);
+-		if ((end >> PAGE_SHIFT) != (start >> PAGE_SHIFT)) {
+-			/* Handle frame across multiple pages: */
+-			netvsc_packet->page_buf[0].len =
+-				(netvsc_packet->page_buf[0].pfn <<
+-				 PAGE_SHIFT)
+-				+ PAGE_SIZE - start;
+-			bytes_remain = netvsc_packet->total_data_buflen -
+-					netvsc_packet->page_buf[0].len;
+-			for (j = 1; j < NETVSC_PACKET_MAXPAGE; j++) {
+-				netvsc_packet->page_buf[j].offset = 0;
+-				if (bytes_remain <= PAGE_SIZE) {
+-					netvsc_packet->page_buf[j].len =
+-						bytes_remain;
+-					bytes_remain = 0;
+-				} else {
+-					netvsc_packet->page_buf[j].len =
+-						PAGE_SIZE;
+-					bytes_remain -= PAGE_SIZE;
+-				}
+-				netvsc_packet->page_buf[j].pfn =
+-				    virt_to_phys((void *)(end_virtual -
+-						bytes_remain)) >> PAGE_SHIFT;
+-				netvsc_packet->page_buf_cnt++;
+-				if (bytes_remain == 0)
+-					break;
+-			}
+-		}
+ 
+ 		/* Pass it to the upper layer */
+ 		rndis_filter_receive(device, netvsc_packet);
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 7da85eb..b7cbd12 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -251,9 +251,6 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ {
+ 	struct net_device *net = dev_get_drvdata(&device_obj->device);
+ 	struct sk_buff *skb;
+-	void *data;
+-	int i;
+-	unsigned long flags;
+ 	struct netvsc_device *net_device;
+ 
+ 	net_device = hv_get_drvdata(device_obj);
+@@ -272,27 +269,12 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 		return 0;
+ 	}
+ 
+-	/* for kmap_atomic */
+-	local_irq_save(flags);
+-
+ 	/*
+ 	 * Copy to skb. This copy is needed here since the memory pointed by
+ 	 * hv_netvsc_packet cannot be deallocated
+ 	 */
+-	for (i = 0; i < packet->page_buf_cnt; i++) {
+-		data = kmap_atomic(pfn_to_page(packet->page_buf[i].pfn),
+-					       KM_IRQ1);
+-		data = (void *)(unsigned long)data +
+-				packet->page_buf[i].offset;
+-
+-		memcpy(skb_put(skb, packet->page_buf[i].len), data,
+-		       packet->page_buf[i].len);
+-
+-		kunmap_atomic((void *)((unsigned long)data -
+-				       packet->page_buf[i].offset), KM_IRQ1);
+-	}
+-
+-	local_irq_restore(flags);
++	memcpy(skb_put(skb, packet->total_data_buflen), packet->data,
++		packet->total_data_buflen);
+ 
+ 	skb->protocol = eth_type_trans(skb, net);
+ 	skb->ip_summed = CHECKSUM_NONE;
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 418e7aa..da181f9 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -309,7 +309,6 @@ static void rndis_filter_receive_data(struct rndis_device *dev,
+ {
+ 	struct rndis_packet *rndis_pkt;
+ 	u32 data_offset;
+-	int i;
+ 
+ 	rndis_pkt = &msg->msg.pkt;
+ 
+@@ -322,17 +321,7 @@ static void rndis_filter_receive_data(struct rndis_device *dev,
+ 	data_offset = RNDIS_HEADER_SIZE + rndis_pkt->data_offset;
+ 
+ 	pkt->total_data_buflen -= data_offset;
+-	pkt->page_buf[0].offset += data_offset;
+-	pkt->page_buf[0].len -= data_offset;
+-
+-	/* Drop the 0th page, if rndis data go beyond page boundary */
+-	if (pkt->page_buf[0].offset >= PAGE_SIZE) {
+-		pkt->page_buf[1].offset = pkt->page_buf[0].offset - PAGE_SIZE;
+-		pkt->page_buf[1].len -= pkt->page_buf[1].offset;
+-		pkt->page_buf_cnt--;
+-		for (i = 0; i < pkt->page_buf_cnt; i++)
+-			pkt->page_buf[i] = pkt->page_buf[i+1];
+-	}
++	pkt->data = (void *)((unsigned long)pkt->data + data_offset);
+ 
+ 	pkt->is_data_pkt = true;
+ 
+@@ -367,11 +356,7 @@ int rndis_filter_receive(struct hv_device *dev,
+ 		return -ENODEV;
+ 	}
+ 
+-	rndis_hdr = (struct rndis_message *)kmap_atomic(
+-			pfn_to_page(pkt->page_buf[0].pfn), KM_IRQ0);
+-
+-	rndis_hdr = (void *)((unsigned long)rndis_hdr +
+-			pkt->page_buf[0].offset);
++	rndis_hdr = pkt->data;
+ 
+ 	/* Make sure we got a valid rndis message */
+ 	if ((rndis_hdr->ndis_msg_type != REMOTE_NDIS_PACKET_MSG) &&
+@@ -387,8 +372,6 @@ int rndis_filter_receive(struct hv_device *dev,
+ 			sizeof(struct rndis_message) :
+ 			rndis_hdr->msg_len);
+ 
+-	kunmap_atomic(rndis_hdr - pkt->page_buf[0].offset, KM_IRQ0);
+-
+ 	dump_rndis_message(dev, &rndis_msg);
+ 
+ 	switch (rndis_msg.ndis_msg_type) {
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.4.1
