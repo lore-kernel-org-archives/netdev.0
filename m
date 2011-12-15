@@ -1,88 +1,85 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: Re: [PATCH net-next 2/2] igb: offer a PTP Hardware
- Clock instead of the timecompare method
-Date: Thu, 15 Dec 2011 08:46:55 -0800
-Message-ID: <EDC0E76513226749BFBC9C3FB031318F018669B7BB@orsmsx508.amr.corp.intel.com>
-References: <cover.1323744724.git.richardcochran@gmail.com>
-	<388385c50909f63bff239894c60dbb00abc65c93.1323744725.git.richardcochran@gmail.com>
-	<1323901989.19702.12.camel@jbrandeb-mobl2>
-	<20111215161256.GA5176@cherladcori01>
+From: Grant Grundler <grundler@chromium.org>
+Subject: Re: drivers/net/usb/asix: bug in asix_get_wol
+Date: Thu, 15 Dec 2011 08:48:20 -0800
+Message-ID: <CANEJEGvz2ZHD_ZNJm_WeKCdVE9pmSQJY5dCe8hNayAS0MFN=-Q@mail.gmail.com>
+References: <CAKbEaOBODRW1pL4OiwZTKOfqtPEhEOHBBwXQNWVoBh9zzLX9kQ@mail.gmail.com>
+	<CANEJEGud6++PGHRZGt1xMonX1XvxeU19Wd3YNsbgLQG+uQi47g@mail.gmail.com>
+	<CAKbEaOBnGAJuZiM5BRaR3RD6EzgB-mCVrC0v2AbnniFpx22m8A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Ronciak,
-	John" <john.ronciak@intel.com>, Stultz <john.stultz@linaro.org>,
-	"Keller, Jacob E" <jacob.e.keller@intel.com>,
-	Thomas Gleixner <tglx@linutronix.de>, John
-To: Richard Cochran <richardcochran@gmail.com>, "Brandeburg, Jesse"
-	<jesse.brandeburg@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20111215161256.GA5176@cherladcori01>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Freddy Xin <freddy@asix.com.tw>
+To: Eugene <elubarsky@gmail.com>, Allan Chou <allan@asix.com.tw>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:42617 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932635Ab1LOQsV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2011 11:48:21 -0500
+Received: by ggdk6 with SMTP id k6so1953022ggd.19
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2011 08:48:20 -0800 (PST)
+In-Reply-To: <CAKbEaOBnGAJuZiM5BRaR3RD6EzgB-mCVrC0v2AbnniFpx22m8A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
->-----Original Message-----
->From: Richard Cochran [mailto:richardcochran@gmail.com]
->Sent: Thursday, December 15, 2011 8:13 AM
->To: Brandeburg, Jesse
->Cc: netdev@vger.kernel.org; e1000-devel@lists.sourceforge.net; Keller,
->Jacob E; Kirsher, Jeffrey T; Ronciak, John; John Stultz; Thomas
->Gleixner; Wyborny, Carolyn
->Subject: Re: [PATCH net-next 2/2] igb: offer a PTP Hardware Clock
->instead of the timecompare method
+On Tue, Dec 13, 2011 at 5:03 AM, Eugene <elubarsky@gmail.com> wrote:
+> Hi Grant,
 >
->On Wed, Dec 14, 2011 at 02:33:09PM -0800, Jesse Brandeburg wrote:
->> On Mon, 2011-12-12 at 19:00 -0800, Richard Cochran wrote:
->> > This commit removes the legacy timecompare code from the igb driver
->and
->> > offers a tunable PHC instead.
->> >
->> > Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+>
+> The problem is that, as it's currently written, asix_get_wol always
+> returns that wake-on-lan is disabled.
+
+I think that was the intent.
+
+Allan, can you please confirm?
+
+thanks,
+grant
+
+>
+>
+> Cheers,
+> Eugene
+>
+> On 12 December 2011 10:29, Grant Grundler <grundler@chromium.org> wro=
+te:
+>> [+freddy/allan @ ASIX]
 >>
->> Richard, first, thanks for this work, I have some feedback and request
->> you make a V2.
->
->Thanks for your feedback, I'll will work your comments in.
->
->Any chance of getting the driver tested on a 82576?
->
->Thanks,
->
->Richard
-
-I will request this testing and let you know.
-
-Thanks,
-
-Carolyn
-
-Carolyn Wyborny
-Linux Development
-LAN Access Division
-Intel Corporation
-
-
-
-
-------------------------------------------------------------------------------
-10 Tips for Better Server Consolidation
-Server virtualization is being driven by many needs.  
-But none more important than the need to reduce IT complexity 
-while improving strategic productivity.  Learn More! 
-http://www.accelacomm.com/jaw/sdnl/114/51507609/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+>> On Sat, Dec 10, 2011 at 5:02 PM, Eugene <elubarsky@gmail.com> wrote:
+>>> Dear kernel devs,
+>>>
+>>> Thanks for the commit at
+>>> http://git.kernel.org/?p=3Dlinux/kernel/git/next/linux-next.git;a=3D=
+commitdiff;h=3D4ad1438f025ed8d1e4e95a796ca7f0ad5a22c378,
+>>> It successfully stops my adapter from dying when wake-on-lan gets
+>>> enabled.
+>>
+>> Hi Eugene!
+>> thanks for the "it works!" report.
+>>
+>>> However, I've noticed that it has broken asix_get_wol - the
+>>> lines
+>>>
+>>> =C2=A0 =C2=A0 =C2=A0 if (opt & AX_MONITOR_LINK)
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 wolinfo->wolopts |=
+=3D WAKE_PHY;
+>>> =C2=A0 =C2=A0 =C2=A0 if (opt & AX_MONITOR_MAGIC)
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 wolinfo->wolopts |=
+=3D WAKE_MAGIC;
+>>>
+>>> have been accidentally removed.
+>>
+>> This wasn't by accident. This comment in the commit log perhaps
+>> doesn't explain sufficiently:
+>> | =C2=A0 =C2=A0Remove MONITOR_MODE. In this mode, Received packets a=
+re not buffered when
+>> | the remote wakeup is enabled.
+>>
+>>> The vendor driver has them, and I've
+>>> successfully tested a kernel with these lines included. The change =
+is
+>>> too small for me to bother sending in a properly formatted patch...
+>>
+>> "Too small"? No such thing. :)
+>>
+>> cheers,
+>> grant
