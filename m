@@ -1,223 +1,48 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH 3/3] net/hyperv: Add support for jumbo frame up to 64KB
-Date: Thu, 15 Dec 2011 13:45:17 -0800
-Message-ID: <1323985517-1156-3-git-send-email-haiyangz@microsoft.com>
-References: <1323985517-1156-1-git-send-email-haiyangz@microsoft.com>
-To: haiyangz@microsoft.com, kys@microsoft.com, davem@davemloft.net,
-	gregkh@suse.de, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, devel@linuxdriverproject.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtps2ded02.prod.phx3.secureserver.net ([208.109.80.59]:39441
-	"HELO p3plsmtps2ded02-02.prod.phx3.secureserver.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1759573Ab1LOVox (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Dec 2011 16:44:53 -0500
-In-Reply-To: <1323985517-1156-1-git-send-email-haiyangz@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: pull request: wireless 2011-12-15
+Date: Thu, 15 Dec 2011 16:38:22 -0500
+Message-ID: <20111215213822.GB2561@tuxdriver.com>
+References: <20111215191523.GA2561@tuxdriver.com>
+ <CACna6rw736JdkoM8zKxorCFd5oy08QTwWZ6PutoJPSr3ZN8hTg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACna6rw736JdkoM8zKxorCFd5oy08QTwWZ6PutoJPSr3ZN8hTg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Allow the user set the MTU up to 65536 for Linux guests running on
-Hyper-V 2008 R2 or later.
+On Thu, Dec 15, 2011 at 09:04:29PM +0100, Rafa=C5=82 Mi=C5=82ecki wrote=
+:
+> 2011/12/15 John W. Linville <linville@tuxdriver.com>:
+> > commit 42a3b63bb2ca4996a3d1210a004eae2333f1119e
+> >
+> > Dave,
+> >
+> > Here are a few more fixes intended for the 3.2 release. =C2=A0They =
+are
+> > all small and narrowly focused.
+>=20
+> John, I've made a mistake and didn't use [PATCH 3.2] header to make i=
+t
+> clean my patch is fix. Could you take a look at
+> [PATCH] bcma: support for suspend and resume
+> please?
+>=20
+> It's not one-liner, but fixes lock ups, which I believe - we really
+> want to avoid.
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h |    8 ++---
- drivers/net/hyperv/netvsc.c     |    6 ++--
- drivers/net/hyperv/netvsc_drv.c |   70 ++++++++++++++++++++++++++++++++++-----
- include/linux/hyperv.h          |    2 +-
- 4 files changed, 68 insertions(+), 18 deletions(-)
+It's late in the release cycle, and Dave specifically asked me to slow =
+down.
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 2877670..dec5836 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -456,12 +456,9 @@ struct nvsp_message {
- } __packed;
- 
- 
-+#define NETVSC_MTU 65536
- 
--
--/* #define NVSC_MIN_PROTOCOL_VERSION		1 */
--/* #define NVSC_MAX_PROTOCOL_VERSION		1 */
--
--#define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024)	/* 1MB */
-+#define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024*2)	/* 2MB */
- 
- #define NETVSC_RECEIVE_BUFFER_ID		0xcafe
- 
-@@ -479,6 +476,7 @@ struct netvsc_device {
- 	u32 nvsp_version;
- 
- 	atomic_t num_outstanding_sends;
-+	bool start_remove;
- 	bool destroy;
- 	/*
- 	 * List of free preallocated hv_netvsc_packet to represent receive
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 46828b4..8965b45 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -42,7 +42,7 @@ static struct netvsc_device *alloc_net_device(struct hv_device *device)
- 	if (!net_device)
- 		return NULL;
- 
--
-+	net_device->start_remove = false;
- 	net_device->destroy = false;
- 	net_device->dev = device;
- 	net_device->ndev = ndev;
-@@ -299,7 +299,7 @@ static int negotiate_nvsp_ver(struct hv_device *device,
- 	/* NVSPv2 only: Send NDIS config */
- 	memset(init_packet, 0, sizeof(struct nvsp_message));
- 	init_packet->hdr.msg_type = NVSP_MSG2_TYPE_SEND_NDIS_CONFIG;
--	init_packet->msg.v2_msg.send_ndis_config.mtu = ETH_DATA_LEN;
-+	init_packet->msg.v2_msg.send_ndis_config.mtu = net_device->ndev->mtu;
- 
- 	ret = vmbus_sendpacket(device->channel, init_packet,
- 				sizeof(struct nvsp_message),
-@@ -464,7 +464,7 @@ static void netvsc_send_completion(struct hv_device *device,
- 
- 		atomic_dec(&net_device->num_outstanding_sends);
- 
--		if (netif_queue_stopped(ndev))
-+		if (netif_queue_stopped(ndev) && !net_device->start_remove)
- 			netif_wake_queue(ndev);
- 	} else {
- 		netdev_err(ndev, "Unknown send completion packet type- "
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index b7cbd12..462d05f 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -148,10 +148,12 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	struct net_device_context *net_device_ctx = netdev_priv(net);
- 	struct hv_netvsc_packet *packet;
- 	int ret;
--	unsigned int i, num_pages;
-+	unsigned int i, num_pages, npg_data;
- 
--	/* Add 1 for skb->data and additional one for RNDIS */
--	num_pages = skb_shinfo(skb)->nr_frags + 1 + 1;
-+	/* Add multipage for skb->data and additional one for RNDIS */
-+	npg_data = (((unsigned long)skb->data + skb_headlen(skb) - 1)
-+		>> PAGE_SHIFT) - ((unsigned long)skb->data >> PAGE_SHIFT) + 1;
-+	num_pages = skb_shinfo(skb)->nr_frags + npg_data + 1;
- 
- 	/* Allocate a netvsc packet based on # of frags. */
- 	packet = kzalloc(sizeof(struct hv_netvsc_packet) +
-@@ -174,21 +176,36 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	packet->page_buf_cnt = num_pages;
- 
- 	/* Initialize it from the skb */
--	packet->total_data_buflen	= skb->len;
-+	packet->total_data_buflen = skb->len;
- 
- 	/* Start filling in the page buffers starting after RNDIS buffer. */
- 	packet->page_buf[1].pfn = virt_to_phys(skb->data) >> PAGE_SHIFT;
- 	packet->page_buf[1].offset
- 		= (unsigned long)skb->data & (PAGE_SIZE - 1);
--	packet->page_buf[1].len = skb_headlen(skb);
-+	if (npg_data == 1)
-+		packet->page_buf[1].len = skb_headlen(skb);
-+	else
-+		packet->page_buf[1].len = PAGE_SIZE
-+			- packet->page_buf[1].offset;
-+
-+	for (i = 2; i <= npg_data; i++) {
-+		packet->page_buf[i].pfn = virt_to_phys(skb->data
-+			+ PAGE_SIZE * (i-1)) >> PAGE_SHIFT;
-+		packet->page_buf[i].offset = 0;
-+		packet->page_buf[i].len = PAGE_SIZE;
-+	}
-+	if (npg_data > 1)
-+		packet->page_buf[npg_data].len = (((unsigned long)skb->data
-+			+ skb_headlen(skb) - 1) & (PAGE_SIZE - 1)) + 1;
- 
- 	/* Additional fragments are after SKB data */
- 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
- 		const skb_frag_t *f = &skb_shinfo(skb)->frags[i];
- 
--		packet->page_buf[i+2].pfn = page_to_pfn(skb_frag_page(f));
--		packet->page_buf[i+2].offset = f->page_offset;
--		packet->page_buf[i+2].len = skb_frag_size(f);
-+		packet->page_buf[i+npg_data+1].pfn =
-+			page_to_pfn(skb_frag_page(f));
-+		packet->page_buf[i+npg_data+1].offset = f->page_offset;
-+		packet->page_buf[i+npg_data+1].len = skb_frag_size(f);
- 	}
- 
- 	/* Set the completion routine */
-@@ -300,6 +317,39 @@ static void netvsc_get_drvinfo(struct net_device *net,
- 	strcpy(info->fw_version, "N/A");
- }
- 
-+static int netvsc_change_mtu(struct net_device *ndev, int mtu)
-+{
-+	struct net_device_context *ndevctx = netdev_priv(ndev);
-+	struct hv_device *hdev =  ndevctx->device_ctx;
-+	struct netvsc_device *nvdev = hv_get_drvdata(hdev);
-+	struct netvsc_device_info device_info;
-+	int limit = ETH_DATA_LEN;
-+
-+	if (nvdev == NULL || nvdev->destroy)
-+		return -ENODEV;
-+
-+	if (nvdev->nvsp_version == NVSP_PROTOCOL_VERSION_2)
-+		limit = NETVSC_MTU;
-+
-+	if (mtu < 68 || mtu > limit)
-+		return -EINVAL;
-+
-+	nvdev->start_remove = true;
-+	cancel_delayed_work_sync(&ndevctx->dwork);
-+	netif_stop_queue(ndev);
-+	rndis_filter_device_remove(hdev);
-+
-+	ndev->mtu = mtu;
-+
-+	ndevctx->device_ctx = hdev;
-+	hv_set_drvdata(hdev, ndev);
-+	device_info.ring_size = ring_size;
-+	rndis_filter_device_add(hdev, &device_info);
-+	netif_wake_queue(ndev);
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops ethtool_ops = {
- 	.get_drvinfo	= netvsc_get_drvinfo,
- 	.get_link	= ethtool_op_get_link,
-@@ -310,7 +360,7 @@ static const struct net_device_ops device_ops = {
- 	.ndo_stop =			netvsc_close,
- 	.ndo_start_xmit =		netvsc_start_xmit,
- 	.ndo_set_rx_mode =		netvsc_set_multicast_list,
--	.ndo_change_mtu =		eth_change_mtu,
-+	.ndo_change_mtu =		netvsc_change_mtu,
- 	.ndo_validate_addr =		eth_validate_addr,
- 	.ndo_set_mac_address =		eth_mac_addr,
- };
-@@ -403,6 +453,8 @@ static int netvsc_remove(struct hv_device *dev)
- 		return 0;
- 	}
- 
-+	net_device->start_remove = true;
-+
- 	ndev_ctx = netdev_priv(net);
- 	cancel_delayed_work_sync(&ndev_ctx->dwork);
- 
-diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-index 12ec328..62b908e 100644
---- a/include/linux/hyperv.h
-+++ b/include/linux/hyperv.h
-@@ -35,7 +35,7 @@
- #include <linux/mod_devicetable.h>
- 
- 
--#define MAX_PAGE_BUFFER_COUNT				16
-+#define MAX_PAGE_BUFFER_COUNT				18
- #define MAX_MULTIPAGE_BUFFER_COUNT			32 /* 128K */
- 
- #pragma pack(push, 1)
--- 
-1.7.4.1
+Are these suspend/resume lockups a regression?  Or have they always
+been there?  Do they happen to everyone?
+
+John
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
