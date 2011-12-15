@@ -1,48 +1,45 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: pull request: wireless 2011-12-15
-Date: Thu, 15 Dec 2011 16:38:22 -0500
-Message-ID: <20111215213822.GB2561@tuxdriver.com>
-References: <20111215191523.GA2561@tuxdriver.com>
- <CACna6rw736JdkoM8zKxorCFd5oy08QTwWZ6PutoJPSr3ZN8hTg@mail.gmail.com>
+From: "G.O. Sars" <G.O.Sars@imr.no>
+Subject: UPGRADE uw webmail
+Date: Thu, 15 Dec 2011 22:08:24 +0100
+Message-ID: <88F4CF342351F142B1B20E937579EA373F261A71A8@exmbx1.imr.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CACna6rw736JdkoM8zKxorCFd5oy08QTwWZ6PutoJPSr3ZN8hTg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.imr.no ([82.134.28.194]:33022 "EHLO ns.imr.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756377Ab1LOWMR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2011 17:12:17 -0500
+Content-Language: nb-NO
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 15, 2011 at 09:04:29PM +0100, Rafa=C5=82 Mi=C5=82ecki wrote=
-:
-> 2011/12/15 John W. Linville <linville@tuxdriver.com>:
-> > commit 42a3b63bb2ca4996a3d1210a004eae2333f1119e
-> >
-> > Dave,
-> >
-> > Here are a few more fixes intended for the 3.2 release. =C2=A0They =
-are
-> > all small and narrowly focused.
->=20
-> John, I've made a mistake and didn't use [PATCH 3.2] header to make i=
-t
-> clean my patch is fix. Could you take a look at
-> [PATCH] bcma: support for suspend and resume
-> please?
->=20
-> It's not one-liner, but fixes lock ups, which I believe - we really
-> want to avoid.
 
-It's late in the release cycle, and Dave specifically asked me to slow =
-down.
 
-Are these suspend/resume lockups a regression?  Or have they always
-been there?  Do they happen to everyone?
 
-John
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+UPGRADE uw webmail
+
+Uw e-mail box is bijna vol.
+23 GB 20 GB
+
+De mailbox is overschreden de limiet van de
+20GB, zoals gedefinieerd door uw beheerder, U bent nu
+Werken bij 20.9GB,
+
+Dat is misschien niet kunt verzenden of ontvangen van berichten zijn tot je upgrade van uw account.
+
+Klik op de link hieronder om uw account bij te werken.
+Bijj de link geeft je probleem, kopieer het en het verleden
+het op uw nieuwe browser om uw account te upgraden.
+
+===> http://sertecautomacao.com.br/contatos/use/finson/form1.html
+
+Een bevestiging link naar u worden verzonden zodra
+Wij ontvangen uw reactie.
+
+OPMERKING: Als u niet in staat zijn opnieuw te valideren uw mailbox,Rekening zal worden uitgeschakeld!
+
+Webmail Support Team
+@ 2011
+192.168.0.1
