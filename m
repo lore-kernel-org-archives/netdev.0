@@ -1,50 +1,75 @@
-From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: Re: [PATCH 2/2] Explicitly call tcp creation and init from memcontrol.c
-Date: Thu, 15 Dec 2011 20:18:19 +0400
-Message-ID: <4EEA1DCB.7040402@parallels.com>
-References: <1323941672-14324-1-git-send-email-glommer@parallels.com> <1323941672-14324-3-git-send-email-glommer@parallels.com> <20111216011316.8d58bc8f.kamezawa.hiroyu@jp.fujitsu.com>
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Subject: [PATCH net-next] be2net: Add support for Skyhawk cards
+Date: Thu, 15 Dec 2011 10:31:38 -0600
+Message-ID: <20111215163138.GA5786@akhaparde-VBox>
+Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20111216011316.8d58bc8f.kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exht1.emulex.com ([138.239.113.183]:48337 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756267Ab1LOQcB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2011 11:32:01 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/15/2011 08:13 PM, KAMEZAWA Hiroyuki wrote:
-> On Thu, 15 Dec 2011 13:34:32 +0400
-> Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>  wrote:
->
->> Walking the proto_list holds a read_lock, which prevents us from doing
->> allocations. Splitting the tcp create function into create + init is
->> good, but it is not enough since create_files will do allocations as well
->> (dentry ones, mostly).
->>
->> Since this does not involve any protocol state, I propose we call the tcp
->> functions explicitly from memcontrol.c
->>
->> With this, we lose by now the ability of doing cgroup memcontrol for
->> protocols that are loaded as modules. But at least the ones I have in mind
->> won't really need it (tcp_ipv6 being the only one, but it uses the same data
->> structures as tcp_ipv4). So I believe this to be the simpler solution to this
->> problem.
->>
->> Signed-off-by: Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
->> CC: Hiroyouki Kamezawa<kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
->> CC: David S. Miller<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
->> CC: Eric Dumazet<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> CC: Stephen Rothwell<sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
->
-> Could you remake the patch onto the 'latest' linux-next ?
-> As Dave mentioned, some bandaids are already applied and this patch hunks.
+Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be.h      |    4 ++++
+ drivers/net/ethernet/emulex/benet/be_main.c |    2 ++
+ 2 files changed, 6 insertions(+), 0 deletions(-)
 
-Sure thing.
---
-To unsubscribe from this list: send the line "unsubscribe cgroups" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index a3588fb..995198d 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -40,6 +40,7 @@
+ #define OC_NAME			"Emulex OneConnect 10Gbps NIC"
+ #define OC_NAME_BE		OC_NAME	"(be3)"
+ #define OC_NAME_LANCER		OC_NAME "(Lancer)"
++#define OC_NAME_SH		OC_NAME "(Skyhawk)"
+ #define DRV_DESC		"ServerEngines BladeEngine 10Gbps NIC Driver"
+ 
+ #define BE_VENDOR_ID 		0x19a2
+@@ -50,6 +51,7 @@
+ #define OC_DEVICE_ID2		0x710	/* Device Id for BE3 cards */
+ #define OC_DEVICE_ID3		0xe220	/* Device id for Lancer cards */
+ #define OC_DEVICE_ID4           0xe228   /* Device id for VF in Lancer */
++#define OC_DEVICE_ID5		0x720	/* Device Id for Skyhawk cards */
+ 
+ static inline char *nic_name(struct pci_dev *pdev)
+ {
+@@ -63,6 +65,8 @@ static inline char *nic_name(struct pci_dev *pdev)
+ 		return OC_NAME_LANCER;
+ 	case BE_DEVICE_ID2:
+ 		return BE3_NAME;
++	case OC_DEVICE_ID5:
++		return OC_NAME_SH;
+ 	default:
+ 		return BE_NAME;
+ 	}
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 9b5304a..b145a49 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -42,6 +42,7 @@ static DEFINE_PCI_DEVICE_TABLE(be_dev_ids) = {
+ 	{ PCI_DEVICE(BE_VENDOR_ID, OC_DEVICE_ID2) },
+ 	{ PCI_DEVICE(EMULEX_VENDOR_ID, OC_DEVICE_ID3)},
+ 	{ PCI_DEVICE(EMULEX_VENDOR_ID, OC_DEVICE_ID4)},
++	{ PCI_DEVICE(EMULEX_VENDOR_ID, OC_DEVICE_ID5)},
+ 	{ 0 }
+ };
+ MODULE_DEVICE_TABLE(pci, be_dev_ids);
+@@ -3312,6 +3313,7 @@ static int be_dev_family_check(struct be_adapter *adapter)
+ 		break;
+ 	case BE_DEVICE_ID2:
+ 	case OC_DEVICE_ID2:
++	case OC_DEVICE_ID5:
+ 		adapter->generation = BE_GEN3;
+ 		break;
+ 	case OC_DEVICE_ID3:
+-- 
+1.7.5.4
