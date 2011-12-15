@@ -1,43 +1,49 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: linux-3.0.x regression with ipv4 routes having mtu
-Date: Thu, 15 Dec 2011 14:49:58 +0100
-Message-ID: <20111215134957.GI6348@secunet.com>
-References: <4EE8C6A8.3060308@iki.fi>
- <20111214.125010.82857701285437834.davem@davemloft.net>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: [Linux-zigbee-devel] ieee802154: WARNING: at
+ mm/page_alloc.c:2095
+Date: Thu, 15 Dec 2011 16:13:28 +0200
+Message-ID: <1323958408.3992.20.camel@lappy>
+References: <1321948410.3787.3.camel@lappy>
+	 <CAJmB2rCa-tODD9vFBRRY+Qp3DKDJN6VBLurE=TEqPatGFJEH4g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: timo.teras@iki.fi, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dbaryshkov@gmail.com, slapin@ossfans.org,
+	davem <davem@davemloft.net>, netdev <netdev@vger.kernel.org>,
+	linux-zigbee-devel@lists.sourceforge.net
+To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:60139 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758795Ab1LONuI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Dec 2011 08:50:08 -0500
-Content-Disposition: inline
-In-Reply-To: <20111214.125010.82857701285437834.davem@davemloft.net>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:42217 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751282Ab1LOONe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2011 09:13:34 -0500
+Received: by wgbdr13 with SMTP id dr13so4140415wgb.1
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2011 06:13:33 -0800 (PST)
+In-Reply-To: <CAJmB2rCa-tODD9vFBRRY+Qp3DKDJN6VBLurE=TEqPatGFJEH4g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 14, 2011 at 12:50:10PM -0500, David Miller wrote:
-> From: Timo Ter=E4s <timo.teras@iki.fi>
-> Date: Wed, 14 Dec 2011 17:54:16 +0200
->=20
-> > So something is does not get updated here. This used to work though=
-=2E
-> > The current production boxes where I know this work is 2.6.38.8.
->=20
-> We store the PMTU externally in inetpeer entries, Eric Dumazet
-> fixed recently but that fix hasn't been submitted to -stable
-> yet.
->=20
+On Thu, 2011-12-15 at 15:21 +0300, Alexander Smirnov wrote:
+> first of all could you please specify:
+> 1. What's the kernel do you use?
 
-I think we still have at least two problems with pmtu handling.
-One is that "ip route flush cache" flushes the routing cache
-but not the cached metrics on the inetpeer.
+linux-next.
 
-Another problem might be that we ignore the user configured
-fib_metrics in rt_init_metrics() if we have a cached metric
-on the inetpeer.
+> 2. What's the config options are enabled in your kernel?
 
-I'll try to look at this a bit closer tomorrow.
+It's a testing kernel which is pretty close to being 'make
+allyesconfig'. So if you're thinking about a specific feature - it's
+probably '=y'.
+
+> 3. What the HW do you use and what is the use case?
+
+I actually don't have any special HW, this was part of a fuzzer test.
+
+> 4. What you do to represent this error? 
+
+According to the fuzzer it's the result of calling sys_sendto() with a
+pretty large numbrt in the length field.
+
+-- 
+
+Sasha.
