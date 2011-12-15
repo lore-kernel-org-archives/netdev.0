@@ -1,45 +1,50 @@
 From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: [PATCH 0/2] Proposed fixes for tcp memory pressure
-Date: Thu, 15 Dec 2011 13:34:30 +0400
-Message-ID: <1323941672-14324-1-git-send-email-glommer@parallels.com>
+Subject: [PATCH 1/2] Move limit definitions outside CONFIG_INET
+Date: Thu, 15 Dec 2011 13:34:31 +0400
+Message-ID: <1323941672-14324-2-git-send-email-glommer@parallels.com>
+References: <1323941672-14324-1-git-send-email-glommer@parallels.com>
 Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Hiroyouki Kamezawa <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1323941672-14324-1-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
 Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+They need to be available for other protocols as well, since
+they are used in sock.c openly
 
-I propose the following two fixes for the issues we're having in
-linux-next.
+Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+CC: Hiroyouki Kamezawa <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+CC: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+CC: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+CC: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
+---
+ include/linux/memcontrol.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-The first one just moves the definition out of the CONFIG_INET,
-and should fix the compile problems with allnoconfig.
-
-The second one is a bit bigger, and takes away the socket
-registration functions. As I've explained in the Changelog,
-I believe this to be the saner way to do it. We need to do allocations
-in both create and init time. 
-
-This was compile tested with 4 different randconfigs, CGROUPS off,
-KMEM cgroup off, INET off, all them on, and boot tested with
-everything on.
-
-Thanks.
-
-Glauber Costa (2):
-  Move limit definitions outside CONFIG_INET
-  Explicitly call tcp creation and init from memcontrol.c
-
- include/linux/memcontrol.h   |    2 +-
- include/net/sock.h           |    2 --
- include/net/tcp_memcontrol.h |   19 ++++++++++++++++++-
- mm/memcontrol.c              |   13 ++++---------
- net/core/sock.c              |   37 -------------------------------------
- net/ipv4/tcp_memcontrol.c    |   11 ++++++-----
- 6 files changed, 29 insertions(+), 55 deletions(-)
-
+diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+index 1513994..9b296ea 100644
+--- a/include/linux/memcontrol.h
++++ b/include/linux/memcontrol.h
+@@ -384,13 +384,13 @@ mem_cgroup_print_bad_page(struct page *page)
+ }
+ #endif
+ 
+-#ifdef CONFIG_INET
+ enum {
+ 	UNDER_LIMIT,
+ 	SOFT_LIMIT,
+ 	OVER_LIMIT,
+ };
+ 
++#ifdef CONFIG_INET
+ struct sock;
+ #ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+ void sock_update_memcg(struct sock *sk);
 -- 
 1.7.6.4
 
