@@ -1,35 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] r8169.c correct MSIEnable register offset
-Date: Thu, 15 Dec 2011 01:43:59 -0500 (EST)
-Message-ID: <20111215.014359.1153990753442293322.davem@davemloft.net>
-References: <CABJLtPHWfRLcbzDFR0ZXe4da3jv04eDZL2CabF1FTcaadoy0xQ@mail.gmail.com>
-	<20111214213713.GA2907@electric-eye.fr.zoreil.com>
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [PATCH v9 0/9] Request for inclusion: per-cgroup tcp memory pressure
+ controls
+Date: Thu, 15 Dec 2011 10:48:26 +0400
+Message-ID: <4EE9983A.3060101@parallels.com>
+References: <1323676029-5890-1-git-send-email-glommer@parallels.com> <20111215144019.03706ff7.kamezawa.hiroyu@jp.fujitsu.com> <20111215.004836.402973956281143052.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: cantona@cantona.no-ip.org, hayeswang@realtek.com,
-	linux-kernel@vger.kernel.org, nic_swsd@realtek.com,
-	netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111214213713.GA2907@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <kamezawa.hiroyu@jp.fujitsu.com>, <linux-kernel@vger.kernel.org>,
+	<paul@paulmenage.org>, <lizf@cn.fujitsu.com>, <ebiederm@xmission.com>,
+	<gthelen@google.com>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
+	<kirill@shutemov.name>, <avagin@parallels.com>, <devel@openvz.org>,
+	<eric.dumazet@gmail.com>, <cgroups@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20111215.004836.402973956281143052.davem@davemloft.net>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Wed, 14 Dec 2011 22:37:13 +0100
+On 12/15/2011 09:48 AM, David Miller wrote:
+> From: KAMEZAWA Hiroyuki<kamezawa.hiroyu@jp.fujitsu.com>
+> Date: Thu, 15 Dec 2011 14:40:19 +0900
+>
+>> I met this bug at _1st_ run. Please enable _all_ debug options!.
+>
+> Plus the CONFIG_NET=n and other build failures.
+>
+> This patch series was seriously rushed, and very poorly handled.
+>
+> Yet I kept getting so much pressure to review, comment upon, and
+> ultimately apply these patches.  Never, ever, do this to me ever
+> again.
+>
+> If I don't feel your patches are high priority enough or ready enough
+> for me to review, then TOO BAD.  Don't ask people to pressure me or
+> get my attention.  Instead, ask others for help and do testing before
+> wasting MY time and crapping up MY tree.
+>
+> I should have noticed a red flag when I have James Bottomly asking me
+> to look at these patches, I should have pushed back.  Instead, I
+> relented, and now I'm very seriously regretting it.
+>
+> All the regressions in the net-next tree over the past several days
+> have been due to this patch set, and this patch set alone.
+>
+> This code wasn't ready and needed, at a minimum, several more weeks of
+> work before being put in.
+>
+> Instead, we're going to bandaid patch it up after the fact, rather
+> than just letting these changes mature naturally during the review
+> process.
+Hi Dave,
 
-> Su Kang Yin <cantona@cantona.no-ip.org> :
->> correct MSIEnable (bit 5) register to Config1 (offset 0x52) instead of
->> Config2 (offset 0x53)
-> 
-> I wonder where the inspiration for the MSIEnable bit came from.
-> It looks like something was confused with the Message Control word
-> in PCI space.
-> 
-> Imho you can simply remove it altogether.
+You are right about all points. I will admit to it, face it, and 
+apologize it.
+I guess the best I can do right now is fix whatever you guys point me to 
+and not repeat it in the future.
 
-Someone should find out what the real situation is with this.
+Thanks
 
-Maybe it mirrors the PCI config space setting and is read-only, maybe
-not.  But it should be determined for sure before changing this. :-)
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
