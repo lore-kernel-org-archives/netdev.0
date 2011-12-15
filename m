@@ -1,62 +1,54 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: twice past the taps, thence out to net?
-Date: Thu, 15 Dec 2011 14:22:06 -0800
-Message-ID: <4EEA730E.5010405@hp.com>
-References: <4EE8F884.1010304@hp.com> <CAGK4HS-+jj9cvvirDm96oRvRJdwC+2kjE_LnSOXBuQy0pfnQjg@mail.gmail.com> <1323970998.2769.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <4EEA3D58.5010101@hp.com> <20111215104440.1eef9e47@s6510.linuxnetplumber.net> <1323975606.2769.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [PATCH 2/2] Explicitly call tcp creation and init from
+ memcontrol.c
+Date: Fri, 16 Dec 2011 07:20:50 +0900
+Message-ID: <20111216072050.4f49ac66.kamezawa.hiroyu@jp.fujitsu.com>
+References: <1323941672-14324-1-git-send-email-glommer@parallels.com>
+	<1323941672-14324-3-git-send-email-glommer@parallels.com>
+	<20111216011316.8d58bc8f.kamezawa.hiroyu@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Vijay Subramanian <subramanian.vijay@gmail.com>,
-	tcpdump-workers@lists.tcpdump.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:3191 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932652Ab1LOWWJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2011 17:22:09 -0500
-In-Reply-To: <1323975606.2769.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Glauber Costa <glommer@parallels.com>, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	cgroups@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111216011316.8d58bc8f.kamezawa.hiroyu@jp.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/15/2011 11:00 AM, Eric Dumazet wrote:
->> Device's work better if the driver proactively manages stop_queue/wake_queue.
->> Old devices used TX_BUSY, but newer devices tend to manage the queue
->> themselves.
->>
->
-> Some 'new' drivers like igb can be fooled in case skb is gso segmented ?
->
-> Because igb_xmit_frame_ring() needs skb_shinfo(skb)->nr_frags + 4
-> descriptors, igb should stop its queue not at MAX_SKB_FRAGS + 4, but
-> MAX_SKB_FRAGS*4
->
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-> index 89d576c..989da36 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -4370,7 +4370,7 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
->   	igb_tx_map(tx_ring, first, hdr_len);
->
->   	/* Make sure there is space in the ring for the next send. */
-> -	igb_maybe_stop_tx(tx_ring, MAX_SKB_FRAGS + 4);
-> +	igb_maybe_stop_tx(tx_ring, MAX_SKB_FRAGS * 4);
->
->   	return NETDEV_TX_OK;
+On Fri, 16 Dec 2011 01:13:16 +0900
+KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com> wrote:
 
+> On Thu, 15 Dec 2011 13:34:32 +0400
+> Glauber Costa <glommer@parallels.com> wrote:
+> 
+> > Walking the proto_list holds a read_lock, which prevents us from doing
+> > allocations. Splitting the tcp create function into create + init is
+> > good, but it is not enough since create_files will do allocations as well
+> > (dentry ones, mostly).
+> > 
+> > Since this does not involve any protocol state, I propose we call the tcp
+> > functions explicitly from memcontrol.c
+> > 
+> > With this, we lose by now the ability of doing cgroup memcontrol for
+> > protocols that are loaded as modules. But at least the ones I have in mind
+> > won't really need it (tcp_ipv6 being the only one, but it uses the same data
+> > structures as tcp_ipv4). So I believe this to be the simpler solution to this
+> > problem.
+> > 
+> > Signed-off-by: Glauber Costa <glommer@parallels.com>
+> > CC: Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>
+> > CC: David S. Miller <davem@davemloft.net>
+> > CC: Eric Dumazet <eric.dumazet@gmail.com>
+> > CC: Stephen Rothwell <sfr@canb.auug.org.au>
+> 
+> Could you remake the patch onto the 'latest' linux-next ?
+> As Dave mentioned, some bandaids are already applied and this patch hunks.
 
-Is there a minimum transmit queue length here?  I get the impression 
-that MAX_SKB_FRAGS is at least 16 and is 18 on a system with 4096 byte 
-pages.  The previous addition then would be OK so long as the TX queue 
-was always at least 22 entries in size, but now it would have to always 
-be at least 72?
+Applied patches by hand and did small test for hours.
+seems good.
 
-I guess things are "OK" at the moment:
-
-raj@tardy:~/net-next/drivers/net/ethernet/intel/igb$ grep IGB_MIN_TXD *.[ch]
-igb_ethtool.c:	new_tx_count = max_t(u16, new_tx_count, IGB_MIN_TXD);
-igb.h:#define IGB_MIN_TXD                       80
-
-but is that getting a little close?
-
-rick jones
+Reviewed-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
