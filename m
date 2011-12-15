@@ -1,30 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] Explicitly call tcp creation and init from
- memcontrol.c
-Date: Thu, 15 Dec 2011 11:57:10 -0500 (EST)
-Message-ID: <20111215.115710.19471540928319216.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/2] Move limit definitions outside CONFIG_INET
+Date: Thu, 15 Dec 2011 11:59:56 -0500 (EST)
+Message-ID: <20111215.115956.1226008158424194374.davem@davemloft.net>
 References: <1323941672-14324-1-git-send-email-glommer@parallels.com>
-	<1323941672-14324-3-git-send-email-glommer@parallels.com>
-	<20111216011316.8d58bc8f.kamezawa.hiroyu@jp.fujitsu.com>
+	<1323941672-14324-2-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: glommer@parallels.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, cgroups@vger.kernel.org,
-	eric.dumazet@gmail.com, sfr@canb.auug.org.au
-To: kamezawa.hiroyu@jp.fujitsu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111216011316.8d58bc8f.kamezawa.hiroyu@jp.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
+To: glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1323941672-14324-2-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Fri, 16 Dec 2011 01:13:16 +0900
+From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Date: Thu, 15 Dec 2011 13:34:31 +0400
 
-> Could you remake the patch onto the 'latest' linux-next ?
-> As Dave mentioned, some bandaids are already applied and this patch hunks.
+> They need to be available for other protocols as well, since
+> they are used in sock.c openly
+> 
+> Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
 
-He was correct to submit this against net-next.
-
-The bandaid in linux-next is temporary and Stephen will remove it
-once we fix things properly in net-next.
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe cgroups" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
