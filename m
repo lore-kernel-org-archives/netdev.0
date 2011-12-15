@@ -1,46 +1,48 @@
-From: =?ISO-8859-2?Q?Arkadiusz_Mi=B6kiewicz?= <a.miskiewicz@gmail.com>
-Subject: Re: iwlagn regression in v3.1.5
-Date: Thu, 15 Dec 2011 23:12:40 +0100
-Message-ID: <CA+MtwOFhaKWzF2abx-b-5grP5vMgDm_LvoBx1yDHUiz-OrP4jA@mail.gmail.com>
-References: <4EE4AEF4.2080702@udo.edu>
-	<4EE4DB55.4090804@udo.edu>
-	<20111211174138.79e51fe8@x220.fritz.box>
-	<4EE4E152.2070204@udo.edu>
-	<1323627815.1806.19.camel@wwguy-ubuntu>
-	<4EE50266.4050208@udo.edu>
-	<1323653737.1806.21.camel@wwguy-ubuntu>
-	<4EE636B9.1020305@udo.edu>
-	<1323807327.7144.6.camel@wwguy-ubuntu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrej Gelenberg <andrej.gelenberg@udo.edu>,
-	Udo Steinberg <udo@hypervisor.org>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: wwguy <wey-yi.w.guy@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1323807327.7144.6.camel@wwguy-ubuntu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xi Wang <xi.wang@gmail.com>
+Subject: Re: [PATCH v2] sctp: fix incorrect overflow check on autoclose
+Date: Thu, 15 Dec 2011 17:13:28 -0500
+Message-ID: <0BF79838-C86F-4C3F-8D51-4223D579764C@gmail.com>
+References: <1323393883-3759-1-git-send-email-xi.wang@gmail.com> <4EE919B5.3090901@gmail.com> <4EEA6176.9020704@hp.com>
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Andrei Pelinescu-Onciul <andrei@iptel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:48120 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756377Ab1LOWNd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2011 17:13:33 -0500
+In-Reply-To: <4EEA6176.9020704@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 13, 2011 at 9:15 PM, wwguy <wey-yi.w.guy@intel.com> wrote:
-> Hi Andrej,
->
-> Could you try this patch and see any differences.
+On Dec 15, 2011, at 4:07 PM, Vlad Yasevich wrote:
+> I think it would be better to keep this value in seconds and get rid
+> of division in the setsockopt code.  We could then have a min and max
+> values where max value could be something like 2 days.  I really don't
+> see an autoclose value that is bigger then that being very useful.  In
+> fact, most of the time these values are very small as one wants to close
+> out idle associations.
 
-I had a problem with 3.1.5 (3.1.4 was fine) and current Linus git
-where I was able to associate with my AP (5GHz) but only icmp was
-working and while trying to ssh then all packets (including icmp ones)
-started to be dropped.
+Now I start to think exposing a new sysctl option might be a little
+overkill since autoclose is often small.
 
-My card is 5350 AGN [Echo Peak] and this patch makes things working
-for me on top of current Linus git, too.
+How about this?
 
---=20
-Arkadiusz Mi=C5=9Bkiewicz =C2=A0 =C2=A0 =C2=A0 =C2=A0PLD/Linux Team
-arekm / maven.pl =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0http://ftp.pl=
-d-linux.org/
+1) Simply store autoclose in seconds in setsockopt.
+
+2) Avoid overflow in associola.c.
+
+	asoc->timeouts[SCTP_EVENT_TIMEOUT_AUTOCLOSE] =
+		(sp->autoclose > MAX_SCHEDULE_TIMEOUT / HZ)
+		? MAX_SCHEDULE_TIMEOUT
+		: (unsigned long)sp->autoclose * HZ;
+
+Or we could use INT_MAX instead of MAX_SCHEDULE_TIMEOUT if you want to
+keep that value consistent across 32/64 bits.
+
+- xi
