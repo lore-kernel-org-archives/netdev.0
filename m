@@ -1,49 +1,53 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next 2/2] igb: offer a PTP Hardware Clock instead of
- the timecompare method
-Date: Thu, 15 Dec 2011 17:12:56 +0100
-Message-ID: <20111215161256.GA5176@cherladcori01>
-References: <cover.1323744724.git.richardcochran@gmail.com>
- <388385c50909f63bff239894c60dbb00abc65c93.1323744725.git.richardcochran@gmail.com>
- <1323901989.19702.12.camel@jbrandeb-mobl2>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Subject: Re: [PATCH 2/2] Explicitly call tcp creation and init from
+ memcontrol.c
+Date: Fri, 16 Dec 2011 01:13:16 +0900
+Message-ID: <20111216011316.8d58bc8f.kamezawa.hiroyu@jp.fujitsu.com>
+References: <1323941672-14324-1-git-send-email-glommer@parallels.com>
+	<1323941672-14324-3-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Keller, Jacob E" <jacob.e.keller@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:41551 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758987Ab1LOQNJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2011 11:13:09 -0500
-Received: by eaaj10 with SMTP id j10so2065521eaa.19
-        for <netdev@vger.kernel.org>; Thu, 15 Dec 2011 08:13:08 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1323901989.19702.12.camel@jbrandeb-mobl2>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
+To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1323941672-14324-3-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 14, 2011 at 02:33:09PM -0800, Jesse Brandeburg wrote:
-> On Mon, 2011-12-12 at 19:00 -0800, Richard Cochran wrote:
-> > This commit removes the legacy timecompare code from the igb driver and
-> > offers a tunable PHC instead.
-> > 
-> > Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+On Thu, 15 Dec 2011 13:34:32 +0400
+Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
+
+> Walking the proto_list holds a read_lock, which prevents us from doing
+> allocations. Splitting the tcp create function into create + init is
+> good, but it is not enough since create_files will do allocations as well
+> (dentry ones, mostly).
 > 
-> Richard, first, thanks for this work, I have some feedback and request
-> you make a V2.
+> Since this does not involve any protocol state, I propose we call the tcp
+> functions explicitly from memcontrol.c
+> 
+> With this, we lose by now the ability of doing cgroup memcontrol for
+> protocols that are loaded as modules. But at least the ones I have in mind
+> won't really need it (tcp_ipv6 being the only one, but it uses the same data
+> structures as tcp_ipv4). So I believe this to be the simpler solution to this
+> problem.
+> 
+> Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> CC: Hiroyouki Kamezawa <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+> CC: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> CC: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> CC: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
 
-Thanks for your feedback, I'll will work your comments in.
-
-Any chance of getting the driver tested on a 82576?
+Could you remake the patch onto the 'latest' linux-next ?
+As Dave mentioned, some bandaids are already applied and this patch hunks.
 
 Thanks,
+-Kame
 
-Richard
+--
+To unsubscribe from this list: send the line "unsubscribe cgroups" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
