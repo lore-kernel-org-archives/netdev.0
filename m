@@ -1,70 +1,31 @@
-From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: Re: [PATCH v2] net: fix sleeping while atomic problem in sock mem_cgroup.
-Date: Fri, 16 Dec 2011 14:05:59 +0400
-Message-ID: <4EEB1807.1000308@parallels.com>
-References: <1324026582-5214-1-git-send-email-glommer@parallels.com>  <1324027869.2273.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <4EEB1508.3080405@parallels.com> <1324029886.2273.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] net: fix sleeping while atomic problem in sock
+ mem_cgroup.
+Date: Fri, 16 Dec 2011 11:10:09 +0100
+Message-ID: <1324030209.2273.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1324026582-5214-1-git-send-email-glommer@parallels.com>
+	  <1324027869.2273.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	  <4EEB1508.3080405@parallels.com>
+	 <1324029886.2273.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4EEB1807.1000308@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>,
-	Randy Dunlap <rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1324029886.2273.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	kamezawa.hiroyu@jp.fujitsu.com, netdev@vger.kernel.org,
+	cgroups@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>,
+	Randy Dunlap <rdunlap@xenotime.net>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4EEB1807.1000308@parallels.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/16/2011 02:04 PM, Eric Dumazet wrote:
-> Le vendredi 16 d=C3=A9cembre 2011 =C3=A0 13:53 +0400, Glauber Costa a=
- =C3=A9crit :
->> On 12/16/2011 01:31 PM, Eric Dumazet wrote:
->>> Le vendredi 16 d=C3=A9cembre 2011 =C3=A0 13:09 +0400, Glauber Costa=
- a =C3=A9crit :
->>>> Since we can't scan the proto_list to initialize sock cgroups, as =
-it
->>>> holds a rwlock, and we also want to keep the code generic enough t=
-o
->>>> avoid calling the initialization functions of protocols directly,
->>>> I propose we keep the interested parties in a separate list. This =
-list
->>>> is protected by a mutex so we can sleep and do the necessary alloc=
-ations.
->>>>
->>>> Also fixes a reference problem found by Randy Dunlap's randconfig.
->>>>
->>>> Signed-off-by: Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
->>>> CC: Hiroyouki Kamezawa<kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
->>>> CC: David S. Miller<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
->>>> CC: Eric Dumazet<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>>> CC: Stephen Rothwell<sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
->>>> CC: Randy Dunlap<rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>
->>>> ---
->>>
->>> Sorry to come late, but why dont we convert proto_list_lock to a mu=
-tex ?
->>
->> I didn't suggest this, as I imagined there could be some performance
->> implications to be drawn from it that may not be obvious to me.
->>
->> But if it is okay with you net guys, it is certainly okay with me as=
- well.
->
-> This 'lock' is not performance sensitive, its very seldom taken.
->
-> If we really wanted to be fast, it would not be a rwlock anymore ;)
->
-> "cat /proc/net/protocols" could eventually use RCU locking if we want
-> parallelism. (I dont think its needed)
->
+Le vendredi 16 d=C3=A9cembre 2011 =C3=A0 14:05 +0400, Glauber Costa a =C3=
+=A9crit :
 
-Well, in this case, I myself think this is a better solution. Do you=20
-want to push the patch yourself, or should I do it ?
+> Well, in this case, I myself think this is a better solution. Do you=20
+> want to push the patch yourself, or should I do it ?
+>=20
 
-
---
-To unsubscribe from this list: send the line "unsubscribe cgroups" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please do it, I'll add my SOB after yours, thanks !
