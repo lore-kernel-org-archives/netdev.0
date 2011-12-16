@@ -1,37 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v1 0/6] tg3: adaptive interrupt coalescing,
- non-napi mode
-Date: Fri, 16 Dec 2011 13:42:47 -0500 (EST)
-Message-ID: <20111216.134247.1388025459559232416.davem@davemloft.net>
-References: <cover.1324059527.git.decot@googlers.com>
+Subject: Re: [PATCH 0/13] Dumping AF_UNIX sockets via netlink
+Date: Fri, 16 Dec 2011 13:50:24 -0500 (EST)
+Message-ID: <20111216.135024.262929657289610510.davem@davemloft.net>
+References: <4EE9EB2A.4040909@parallels.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mcarlson@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, martinez.javier@gmail.com,
-	rgetz@blackfin.uclinux.org, mpm@selenic.com
-To: decot@googlers.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1324059527.git.decot@googlers.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: xemul@parallels.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57019 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932072Ab1LPSu1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 13:50:27 -0500
+In-Reply-To: <4EE9EB2A.4040909@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Decotigny <decot@googlers.com>
-Date: Fri, 16 Dec 2011 10:19:43 -0800
+From: Pavel Emelyanov <xemul@parallels.com>
+Date: Thu, 15 Dec 2011 16:42:18 +0400
 
-> This series implements adaptive interrupt coalescing for tg3 NIC,
-> improving performance substancially. It also implements non-NAPI mode
-> for specific system loads.
+> Make the unix_diag.ko module, which is the AF_UNIX client for the sock_diag.
+> 
+> Use the sock_i_ino() as the primary ID key for sockets. This is currently the
+> only unique (except for the sk address itself) ID of a unix socket and is de
+> facto used in the ss tool to identify sockets. Thus the basic nlk request and
+> response structures operate on this ID. Other socket info (sun_name, peer, etc.)
+> are reported in the respective NLA-s (patches 8 through 12).
+> 
+> There's a locking trickery in patch #11. I've tried to study it carefully and
+> checked with lockdep, but anyway, please, pay special attention to it.
+> 
+> The patch for ss tool is also included.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
-I specifically removed the dynamic IRQ coalescing from this driver years
-ago.
+Looks good, applied.
 
-It's too susceptible to state changes.
+I'm slightly confused by the module alias strings these diag modules
+are using, can you explain it to me?
 
-I am sure that you have some nice benchmark for which one scheme helps,
-but more generally it is not possible to make it such that you will avoid
-the case where the network flow pattern changes by the time you change
-the chip configuration and thus the result is suboptimal.
+On one side it looks like it wants to see a suffix of "-${AF_INET}-${IPPROTO_TCP}"
+but in the macros you pass in one numerical value, which is AF_INET minus the
+protocol value.
 
-I highly recommend these changes are not applied, because they will hurt
-someone.
+How does that work?
+
+Thanks.
