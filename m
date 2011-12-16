@@ -1,65 +1,59 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] tg3: Make the RSS indir tbl admin configurable
-Date: Fri, 16 Dec 2011 19:43:39 +0000
-Message-ID: <1324064619.2798.17.camel@bwh-desktop>
-References: <1323996466-8139-1-git-send-email-mcarlson@broadcom.com>
-	 <1324004674.2825.226.camel@deadeye>
-	 <20111216191927.GA9054@mcarlson.broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: twice past the taps, thence out to net?
+Date: Fri, 16 Dec 2011 20:44:49 +0100
+Message-ID: <1324064689.2621.24.camel@edumazet-laptop>
+References: <4EE8F884.1010304@hp.com>
+	 <CAGK4HS-+jj9cvvirDm96oRvRJdwC+2kjE_LnSOXBuQy0pfnQjg@mail.gmail.com>
+	 <1323970998.2769.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4EEA3D58.5010101@hp.com>
+	 <20111215104440.1eef9e47@s6510.linuxnetplumber.net>
+	 <1323975606.2769.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4EEA730E.5010405@hp.com> <1324009676.2562.9.camel@edumazet-laptop>
+	 <4EEB9D64.5080901@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>
-To: Matt Carlson <mcarlson@broadcom.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Vijay Subramanian <subramanian.vijay@gmail.com>,
+	tcpdump-workers@lists.tcpdump.org, netdev@vger.kernel.org,
+	Matthew Vick <matthew.vick@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:51923 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1760537Ab1LPTnn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 14:43:43 -0500
-In-Reply-To: <20111216191927.GA9054@mcarlson.broadcom.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:47297 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751952Ab1LPTox (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 14:44:53 -0500
+Received: by werm1 with SMTP id m1so574730wer.19
+        for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 11:44:52 -0800 (PST)
+In-Reply-To: <4EEB9D64.5080901@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-12-16 at 11:19 -0800, Matt Carlson wrote:
-> On Thu, Dec 15, 2011 at 07:04:34PM -0800, Ben Hutchings wrote:
-> > On Thu, 2011-12-15 at 16:47 -0800, Matt Carlson wrote:
-> > > This patch adds the ethtool callbacks necessary to change the rss
-> > > indirection table from userspace.  When setting the indirection table
-> > > through set_rxfh_indir, an indirection table size of zero is
-> > > interpreted to mean that the admin wants to relinquish control of the
-> > > table to the driver.  Should the number of interrupts change (e.g.
-> > > across a close / open call, or through a reset), any indirection table
-> > > values that exceed the number of RSS queues or interrupt vectors will
-> > > be automatically scaled back to values within range.
-> > > 
-> > > Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-> > > Signed-off-by: Michael Chan <mchan@broadcom.com>
-> > > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> > 
-> > No I didn't!
-> > 
-> > Ben.
-> 
-> Sorry.  This part of procedure I'm unsure about.  I didn't want to lose
-> the ack of your contributions to this patch.  The SOB does imply that
-> you are O.K. with it as-is though, which you may or may not be aligned
-> with.  I apologize if I was putting words in your mouth.
-> 
-> What should I have done instead?  Would Dave put the SOB on your behalf
-> as he accepts it?
-[...]
+Le vendredi 16 d=C3=A9cembre 2011 =C3=A0 11:35 -0800, Rick Jones a =C3=A9=
+crit :
 
-If you really want to credit me for the tiny change I suggested, just
-put that in free-form.  But I'm afraid you'll have to respin this
-completely, as David applied my changes to centralise validation and the
-default policy.  I think instead of adding the USER_INDIR_TBL flag you
-could reasonably reset the table to default whenever the interface is
-brought up and you fail to get the wanted number of IRQs.
+> I would *love* to.  All my accessible igb-driven hardware is in an=20
+> environment locked to the kernels already there :(  Not that it makes=
+ it=20
+> more possible for me to do it, but I suspect it does not require 30=20
+> receivers to reproduce the dups with netperf TCP_STREAM.  Particularl=
+y=20
+> if the tx queue len is at 256 it may only take 6 or 8. In fact let me=
+=20
+> try that now...
+>=20
+> Yep, with just 8 destinations/concurrent TCP_STREAM tests from the on=
+e=20
+> system one can still see the duplicates in the packet trace taken on =
+the=20
+> sender.
+>=20
+> Perhaps we can trouble the Intel guys to try to reproduce what I've s=
+een?
+>=20
 
-Ben.
+I do have an igb card somewhere (in fact two dual ports), I'll do the
+test myself !
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks
