@@ -1,93 +1,65 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: RE: [linux-firmware v6 2/4] rtl_nic: add new firmware for RTL8111F
-Date: Fri, 16 Dec 2011 05:18:10 +0000
-Message-ID: <1324012690.2825.271.camel@deadeye>
-References: <1319634425-1529-1-git-send-email-hayeswang@realtek.com>
-	 <1319634425-1529-2-git-send-email-hayeswang@realtek.com>
-	 <81662BFCE8FC4C70A9260DE3A1A52B78@realtek.com.tw>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: tc filter show not displaying anything
+Date: Fri, 16 Dec 2011 06:17:07 +0100
+Message-ID: <1324012627.2562.26.camel@edumazet-laptop>
+References: <1324010915.8451.319.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-e1Xfqi1bMaH9T1GuGN7k"
-Cc: dwmw2@infradead.org, romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: hayeswang <hayeswang@realtek.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:56598 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750900Ab1LPFS1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 00:18:27 -0500
-In-Reply-To: <81662BFCE8FC4C70A9260DE3A1A52B78@realtek.com.tw>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:39524 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750900Ab1LPFYx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 00:24:53 -0500
+Received: by wgbds13 with SMTP id ds13so2403423wgb.1
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2011 21:24:51 -0800 (PST)
+In-Reply-To: <1324010915.8451.319.camel@denise.theartistscloset.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-e1Xfqi1bMaH9T1GuGN7k
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2011-11-17 at 20:16 +0800, hayeswang wrote:
+Le jeudi 15 d=C3=A9cembre 2011 =C3=A0 23:48 -0500, John A. Sullivan III=
+ a =C3=A9crit :
+> Hello, all.  I'm starting to feel really stupid and showing my newbid=
+ity
+> to tc.  I do a:
+> tc filter show dev eth1
+> and nothing is displayed but I suspect the filter is there because if=
+ I
+> try to add it again, the kernel complains with:
+> RTNETLINK answers: File exists
+> We have an error talking to the kernel
 >=20
-> > -----Original Message-----
-> > From: Hayeswang [mailto:hayeswang@realtek.com]=20
-> > Sent: Wednesday, October 26, 2011 9:07 PM
-> > To: dwmw2@infradead.org; ben@decadent.org.uk
-> > Cc: romieu@fr.zoreil.com; netdev@vger.kernel.org; Hayeswang
-> > Subject: [linux-firmware v6 2/4] rtl_nic: add new firmware=20
-> > for RTL8111F
-> >=20
-> > Add new firmware:
-> > 1. rtl_nic/rtl8168f-1.fw
-> >    version: 0.0.3
-> > 2. rtl_nic/rtl8168f-2.fw
-> >    version: 0.0.3
-> >=20
-> > Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> > ---
-> >  WHENCE                |    6 ++++++
-> >  rtl_nic/rtl8168f-1.fw |  Bin 0 -> 3136 bytes
-> >  rtl_nic/rtl8168f-2.fw |  Bin 0 -> 992 bytes
-> >  3 files changed, 6 insertions(+), 0 deletions(-)
-> >  create mode 100644 rtl_nic/rtl8168f-1.fw
-> >  create mode 100644 rtl_nic/rtl8168f-2.fw
-> >=20
+> Here is what I have put together so far (disregard the silly ports - =
+it
+> is just for netcat testing):
 >=20
-> Hi sirs,
+> tc qdisc add dev eth1 root handle 1: hfsc default 20
+> tc class add dev eth1 parent 1: classid 1:1 hfsc sc rate 1490kbit ul =
+rate 1490kbit
+> tc class add dev eth1 parent 1:1 classid 1:20 hfsc rt rate 800kbit ls=
+ rate 200kbit
+> tc qdisc add dev eth1 parent 1:20 handle 1201 sfq perturb 10
+> tc class add dev eth1 parent 1:1 classid 1:10 hfsc rt umax 16000kbit =
+dmax 13ms rate 400kbit ls rate 1000kbit
+> tc qdisc add dev eth1 parent 1:10 handle 1101 sfq perturb 10
+> iptables -t mangle -A POSTROUTING  -p 6 --syn --dport 443 -j CONNMARK=
+ --set-mark 0x10
+> iptables -t mangle -A POSTROUTING  -p 6 -j CONNMARK --restore-mark
 >=20
-> Excuse me. Someone asks me these firmwares. Are these pending? Any respon=
-se?
+> I then did:
+>=20
+> root@testswitch01:~# tc filter add dev eth1 parent 1:1 protocol ip pr=
+io 1 handle 0x10 fw flowid 1:10
+> root@testswitch01:~# tc filter show dev eth1
+> root@testswitch01:~# tc filter show parent 1:1
+>=20
+> What simple, practical thing did I mangle? Thanks - John
 
-Sorry Hayes, these were held up due to the rebuiling of kernel.org
-services.
+Minor point (since John already replied) :  "sfq perturb 10" means you
+risk out or order packets perturbation every 10 seconds. This can reall=
+y
+hurt TCP sessions.
 
-I already applied your earlier changes (v0.0.2 of the 8186E and 8186F
-firmware) locally.  I have rebased this series of 4 patches on top of
-that, and pushed the result out.  Please check that I got it right.
-
-Ben.
-
---=20
-Ben Hutchings
-Computers are not intelligent.	They only think they are.
-
---=-e1Xfqi1bMaH9T1GuGN7k
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIVAwUATurUkue/yOyVhhEJAQra3w/8DNxy9pxWISfvKdp3dpfBKRsURcEhZyo5
-v+/1zQMk+QRbOCEMTwMahf8fPpvhUWe3CpB7AESakb66lmAPzvwT91dNLML2KySg
-FTxPraK7XNmGkjEaC9K1gHPjvlIrgnYIL7F2C4+ZToITqo9q+/jVW0OJZwsjDV/U
-uuc2adgSOSeU7Hl7E9n+BjL3o76Hm4ZREdVXEDDLMQxvwmKoI6OtkZLwgIgchdsW
-Kg6u7GKAbJPaLjbZnyApImLwDJUl3Qm3Ad8hxQ4tyW17ubYb4CuGCgLPLBTik0JJ
-rnhsfnDcVSCNAp/O1SZ6prCftHWuHWa7XDJWJxp1N2Z82zPwxwV3xnvVYfVlZWY+
-zFWWmU3qNN8cGFhYJxOvfjhQcI+BrhJfGMjK7Er53idmGfKf5jbBi9xw6GgggMI4
-tYBxgG0uMbLtnFyxtiDBO5Z+zutqO9ofU4ZZI/MxHQbNdDea0kFxIc2Mo+W/duvG
-uljhHcLyOSNFiatNuKNK+tItPlWxXc9duuwjNw2d7eGz6S8R+a3W9VSXydRH5DsM
-0h+whDC0ifwz3FVHdxOrl3ma6ruMFgGInzCTdwNBvixE9ToGUVxjkF2unQl/kYPZ
-3Dw5RTgQg43k8wlXYWr6/XebJokLmSXlMbk5xEhMKMLumRJ3JnKZiB1izaoH4F4q
-INZFilnWH7c=
-=4iKW
------END PGP SIGNATURE-----
-
---=-e1Xfqi1bMaH9T1GuGN7k--
+Maybe we should "fix" this problem for good in SFQ.
