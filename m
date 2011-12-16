@@ -1,49 +1,42 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next v1 5/6] tg3: implementation of a non-NAPI mode
-Date: Fri, 16 Dec 2011 19:30:26 +0000
-Message-ID: <1324063826.2798.8.camel@bwh-desktop>
-References: <cover.1324059527.git.decot@googlers.com>
-	 <6d55ce25f5f237a4538f6a2fcd2609b877669297.1324059527.git.decot@googlers.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] sch_sfq: store flow_keys in skb->cb[]
+Date: Fri, 16 Dec 2011 20:31:27 +0100
+Message-ID: <1324063887.2621.19.camel@edumazet-laptop>
+References: <1324013979.2562.31.camel@edumazet-laptop>
+	 <20111216.135420.664062202208615256.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	Javier Martinez Canillas <martinez.javier@gmail.com>,
-	Robin Getz <rgetz@blackfin.uclinux.org>,
-	Matt Mackall <mpm@selenic.com>,
-	Tom Herbert <therbert@google.com>
-To: David Decotigny <decot@googlers.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:48807 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752264Ab1LPTae (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 14:30:34 -0500
-In-Reply-To: <6d55ce25f5f237a4538f6a2fcd2609b877669297.1324059527.git.decot@googlers.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:60428 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752264Ab1LPTbb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 14:31:31 -0500
+Received: by faar15 with SMTP id r15so3207527faa.19
+        for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 11:31:29 -0800 (PST)
+In-Reply-To: <20111216.135420.664062202208615256.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-12-16 at 10:19 -0800, David Decotigny wrote:
-> From: Tom Herbert <therbert@google.com>
-> 
-> The tg3 NIC has a hard limit of 511 descriptors for the receive ring.
-> Under heavy load of small packets, this device receive queue may not
-> be serviced fast enough to prevent packets drops.  This could be due
-> to a variety of reasons such as lengthy processing delays of packets
-> in the stack, softirqs being disabled too long, etc.
-[...]
+Le vendredi 16 d=C3=A9cembre 2011 =C3=A0 13:54 -0500, David Miller a =C3=
+=A9crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 16 Dec 2011 06:39:39 +0100
+>=20
+> > Instead of using automatic flow_keys variable in sfq_hash(), use st=
+orage
+> > from skb->cb[] so that we can reuse it later if we want to rehash q=
+ueues
+> > when perturbation timer fires.
+> >=20
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> Where is "2/2"?
 
-I think those are bugs to be fixed, not worked around.
+I got distracted by other stuff today, will finish later.
 
-Various drivers had NAPI as a compile-time option for a while, and
-pretty much all of those have now been made to use NAPI unconditionally
-(I think tulip is the only one left).  Adding such an option back is
-unlikely to be accepted now.
+You can delete this one, I'll submit a proper serie when done.
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks !
