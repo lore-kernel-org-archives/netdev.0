@@ -1,41 +1,67 @@
-From: Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Subject: skb->priority usage in wireless frame classification
-Date: Fri, 16 Dec 2011 09:45:33 +0100
-Message-ID: <CAGXE3d_ouo4KzQA0-ysLz_RwcqoTc5Sg4V6BZZJP0TJewzNOxw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Alexandru Juncu <ajuncu@ixiacom.com>
+Subject: [PATCH] llc_cmsg_rcv was getting called after sk_eat_skb.
+Date: Fri, 16 Dec 2011 11:01:25 +0200
+Message-ID: <1324026085-11812-1-git-send-email-ajuncu@ixiacom.com>
+Cc: alex.juncu@rosedu.org, Alexandru Juncu <ajuncu@ixiacom.com>,
+	Kunjan Naik <knaik@ixiacom.com>
+To: acme@ghostprotocols.net, davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:55703 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751924Ab1LPJBq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 04:01:46 -0500
+Received: by eekc4 with SMTP id c4so2984510eek.19
+        for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 01:01:45 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[Adding netdev]
+Received non stream protocol packets were calling llc_cmsg_rcv that used a
+skb after that skb was released by sk_eat_skb. This caused received STP
+packets to generate kernel panics.
 
-Maybe someone from the netdev people can shed some light on this.
-We've got the following code in net/wireless/util.c for frame classific=
-ation
-(cfg80211_classify8021d):
+Signed-off-by: Alexandru Juncu <ajuncu@ixiacom.com>
+Signed-off-by: Kunjan Naik <knaik@ixiacom.com>
+---
+ net/llc/af_llc.c |   14 ++++++++++----
+ 1 files changed, 10 insertions(+), 4 deletions(-)
 
-/* skb->priority values from 256->263 are magic values to
-* directly indicate a specific 802.1d priority. =A0This is used
-* to allow 802.1d priority to be passed directly in from VLAN
-* tags, etc.
-*/
-if (skb->priority >=3D 256 && skb->priority <=3D 263)
- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return skb->priority - 256;
-
-I was just thinking about making use of this for some internal mac80211
-QoS handling. But is this code still valid? At least I haven't found an=
-ything
-in the 802.1q code :(
-
-Thanks,
-Helmut
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
+index dfd3a64..a18e6c3 100644
+--- a/net/llc/af_llc.c
++++ b/net/llc/af_llc.c
+@@ -833,15 +833,15 @@ static int llc_ui_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		copied += used;
+ 		len -= used;
+ 
++		/* For non stream protcols we get one packet per recvmsg call */
++		if (sk->sk_type != SOCK_STREAM)
++			goto copy_uaddr;
++
+ 		if (!(flags & MSG_PEEK)) {
+ 			sk_eat_skb(sk, skb, 0);
+ 			*seq = 0;
+ 		}
+ 
+-		/* For non stream protcols we get one packet per recvmsg call */
+-		if (sk->sk_type != SOCK_STREAM)
+-			goto copy_uaddr;
+-
+ 		/* Partial read */
+ 		if (used + offset < skb->len)
+ 			continue;
+@@ -857,6 +857,12 @@ copy_uaddr:
+ 	}
+ 	if (llc_sk(sk)->cmsg_flags)
+ 		llc_cmsg_rcv(msg, skb);
++
++	if (!(flags & MSG_PEEK)) {
++			sk_eat_skb(sk, skb, 0);
++			*seq = 0;
++	}
++
+ 	goto out;
+ }
+ 
+-- 
+1.7.4.1
