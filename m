@@ -1,54 +1,51 @@
-From: "Esztermann, Ansgar" <Ansgar.Esztermann@mpi-bpc.mpg.de>
-Subject: Re: TCP fast retransmit
-Date: Fri, 16 Dec 2011 16:53:45 +0100
-Message-ID: <C0707EB4-E233-491E-8B05-7D0DACDE1C72@mpi-bpc.mpg.de>
-References: <2D9E1426-D432-4D08-BF28-FD2615AAEDBA@mpi-bpc.mpg.de>
- <CAK6E8=dcG3mw8r4FXt62G-0uoRNa9tcyQL3DS62MYe8F=9R6Nw@mail.gmail.com>
- <1323901909.2631.17.camel@edumazet-laptop>
- <201112150841.08087.carsten@wolffcarsten.de>
- <1323937469.2631.31.camel@edumazet-laptop>
+From: =?ISO-8859-2?Q?Igor_Maravi=E6?= <igorm@etf.rs>
+Subject: Re: [PATCH 00/10 net-next] Introduce per interface ipv4 statistics
+Date: Fri, 16 Dec 2011 16:58:21 +0100
+Message-ID: <CAFdo_mWY3030_WsL_awXFMaviMA5MGJP_gMs0cM=6KeGQft6-Q@mail.gmail.com>
+References: <igorm@etf.rs>
+	<1324049163-11207-1-git-send-email-igorm@etf.rs>
+	<1324050080.25554.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Reply-To: igorm@etf.rs
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tmailer.gwdg.de ([134.76.10.23]:42792 "EHLO tmailer.gwdg.de"
+Received: from mx2.etf.rs ([147.91.14.170]:52883 "EHLO mx2.etf.bg.ac.rs"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759643Ab1LPPxs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 10:53:48 -0500
-Received: from gwdexc-fe12.exc.top.gwdg.de ([134.76.9.232] helo=smtp-exc.gwdg.de)
-	by mailer.gwdg.de with esmtps (TLSv1:RC4-MD5:128)
-	(Exim 4.72)
-	(envelope-from <Ansgar.Esztermann@mpi-bpc.mpg.de>)
-	id 1Rba4J-0001yN-Fq
-	for netdev@vger.kernel.org; Fri, 16 Dec 2011 16:51:31 +0100
-In-Reply-To: <1323937469.2631.31.camel@edumazet-laptop>
-Content-Language: en-US
+	id S1759627Ab1LPP6Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Dec 2011 10:58:25 -0500
+Received: from localhost (avs1.etf.rs [147.91.14.172])
+	by mx2.etf.bg.ac.rs (Postfix) with ESMTP id 40B0860160
+	for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 16:58:24 +0100 (CET)
+Received: from mx2.etf.bg.ac.rs ([147.91.14.170])
+	by localhost (avs1.etf.rs [147.91.14.171]) (amavisd-new, port 10026)
+	with ESMTP id NqukN5qtGelG for <netdev@vger.kernel.org>;
+	Fri, 16 Dec 2011 16:58:23 +0100 (CET)
+Received: from mail-gx0-f174.google.com (mail-gx0-f174.google.com [209.85.161.174])
+	(using TLSv1 with cipher RC4-SHA (128/128 bits))
+	(No client certificate requested)
+	(Authenticated sender: igorm)
+	by mx2.etf.bg.ac.rs (Postfix) with ESMTP id 55E7F6015F
+	for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 16:58:23 +0100 (CET)
+Received: by ggdk6 with SMTP id k6so2837306ggd.19
+        for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 07:58:21 -0800 (PST)
+In-Reply-To: <1324050080.25554.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> 1) Why is it needed ? Any RFC requires this bloat ?
+>
 
-On Dec 15, 2011, at 9:24 , Eric Dumazet wrote:
+RFC4293 defines ipIfStatsTable.
+Also I did it because ipv6 has per interface stats.
 
-> Really, my feeling is this trace is taken on receiver, and maybe LRO/=
-GRO
-> is buggy ?
+> 2) Every patch in a patch serie must be compilable. Think about
+> bisection. This is mandatory.
+>
 
-Oh dear. I'm sorry, my mistake: in the beginning of a backup session, t=
-he server transmits to the client, so this is indeed taken on the recei=
-ver. I should have waited until the client begins to push data to the s=
-erver, as that is where we've noticed the original problem of frequent =
-RTOs.
-
-I'll get a new trace extending all the way to the interesting part of t=
-he session...
-
-
-Sorry for the confusion,
-
-A.
-
---=20
-Ansgar Esztermann
-DV-Systemadministration
-Max-Planck-Institut f=FCr biophysikalische Chemie, Abteilung 105
+OK, I didn't know about that...
+Do I need to resubmit it? If I do, I'l do that in monday.
+Would it be acceptable to send it as one big patch?
+BR
+Igor
