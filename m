@@ -1,161 +1,93 @@
-From: "ASIX Allan Email [office]" <allan@asix.com.tw>
-Subject: RE: drivers/net/usb/asix: bug in asix_get_wol
-Date: Fri, 16 Dec 2011 13:15:56 +0800
-Message-ID: <005201ccbbb1$cb242190$616c64b0$@com.tw>
-References: <CAKbEaOBODRW1pL4OiwZTKOfqtPEhEOHBBwXQNWVoBh9zzLX9kQ@mail.gmail.com>	<CANEJEGud6++PGHRZGt1xMonX1XvxeU19Wd3YNsbgLQG+uQi47g@mail.gmail.com>	<CAKbEaOBnGAJuZiM5BRaR3RD6EzgB-mCVrC0v2AbnniFpx22m8A@mail.gmail.com> <CANEJEGvz2ZHD_ZNJm_WeKCdVE9pmSQJY5dCe8hNayAS0MFN=-Q@mail.gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: RE: [linux-firmware v6 2/4] rtl_nic: add new firmware for RTL8111F
+Date: Fri, 16 Dec 2011 05:18:10 +0000
+Message-ID: <1324012690.2825.271.camel@deadeye>
+References: <1319634425-1529-1-git-send-email-hayeswang@realtek.com>
+	 <1319634425-1529-2-git-send-email-hayeswang@realtek.com>
+	 <81662BFCE8FC4C70A9260DE3A1A52B78@realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, "'Freddy Xin'" <freddy@asix.com.tw>,
-	=?utf-8?B?QVNJWCBMb3VpcyBb6JiH5aiB6Zm4XQ==?= <louis@asix.com.tw>
-To: "'Grant Grundler'" <grundler@chromium.org>,
-	"'Eugene'" <elubarsky@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-e1Xfqi1bMaH9T1GuGN7k"
+Cc: dwmw2@infradead.org, romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: hayeswang <hayeswang@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from asix.com.tw ([113.196.140.82]:56536 "EHLO asix.com.tw"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750921Ab1LPFQU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 00:16:20 -0500
-In-Reply-To: 
-Content-Language: zh-tw
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:56598 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750900Ab1LPFS1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 00:18:27 -0500
+In-Reply-To: <81662BFCE8FC4C70A9260DE3A1A52B78@realtek.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Resend without attachment due to below email server error.=20
 
-=3D=3D=3D=3D=3D=3D=3D=3D
-   ----- The following addresses had permanent fatal errors -----
-<grundler@chromium.org>
-    (reason: 552-5.7.0 Our system detected an illegal attachment on you=
-r message. Please)
-<elubarsky@gmail.com>
-    (reason: 552-5.7.0 Our system detected an illegal attachment on you=
-r message. Please)
+--=-e1Xfqi1bMaH9T1GuGN7k
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
+On Thu, 2011-11-17 at 20:16 +0800, hayeswang wrote:
+>=20
+> > -----Original Message-----
+> > From: Hayeswang [mailto:hayeswang@realtek.com]=20
+> > Sent: Wednesday, October 26, 2011 9:07 PM
+> > To: dwmw2@infradead.org; ben@decadent.org.uk
+> > Cc: romieu@fr.zoreil.com; netdev@vger.kernel.org; Hayeswang
+> > Subject: [linux-firmware v6 2/4] rtl_nic: add new firmware=20
+> > for RTL8111F
+> >=20
+> > Add new firmware:
+> > 1. rtl_nic/rtl8168f-1.fw
+> >    version: 0.0.3
+> > 2. rtl_nic/rtl8168f-2.fw
+> >    version: 0.0.3
+> >=20
+> > Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> > ---
+> >  WHENCE                |    6 ++++++
+> >  rtl_nic/rtl8168f-1.fw |  Bin 0 -> 3136 bytes
+> >  rtl_nic/rtl8168f-2.fw |  Bin 0 -> 992 bytes
+> >  3 files changed, 6 insertions(+), 0 deletions(-)
+> >  create mode 100644 rtl_nic/rtl8168f-1.fw
+> >  create mode 100644 rtl_nic/rtl8168f-2.fw
+> >=20
+>=20
+> Hi sirs,
+>=20
+> Excuse me. Someone asks me these firmwares. Are these pending? Any respon=
+se?
 
+Sorry Hayes, these were held up due to the rebuiling of kernel.org
+services.
 
----
-Best regards,
-Allan Chou
-Technical Support Division
-ASIX Electronics Corporation
-TEL: 886-3-5799500 ext.228
-=46AX: 886-3-5799558
-E-mail: allan@asix.com.tw=20
-http://www.asix.com.tw/=20
+I already applied your earlier changes (v0.0.2 of the 8186E and 8186F
+firmware) locally.  I have rebased this series of 4 patches on top of
+that, and pushed the result out.  Please check that I got it right.
 
+Ben.
 
------Original Message-----
-=46rom: ASIX Allan Email [office] [mailto:allan@asix.com.tw]=20
-Sent: Friday, December 16, 2011 11:38 AM
-To: 'Grant Grundler'; 'Eugene'
-Cc: 'netdev@vger.kernel.org'; 'Freddy Xin'; ASIX Louis [=E8=98=87=E5=A8=
-=81=E9=99=B8]
-Subject: RE: drivers/net/usb/asix: bug in asix_get_wol
-Importance: High
+--=20
+Ben Hutchings
+Computers are not intelligent.	They only think they are.
 
-Dear Grant and Eugene,
+--=-e1Xfqi1bMaH9T1GuGN7k
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-Please refer to the attached file and below statements to modify the as=
-ix_get_wol() routine and let us know if this suggestion can solve your =
-issues or not? Thanks a lot.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-static void
-asix_get_wol(struct net_device *net, struct ethtool_wolinfo *wolinfo)
-{
-	struct usbnet *dev =3D netdev_priv(net);
-	u8 opt;
+iQIVAwUATurUkue/yOyVhhEJAQra3w/8DNxy9pxWISfvKdp3dpfBKRsURcEhZyo5
+v+/1zQMk+QRbOCEMTwMahf8fPpvhUWe3CpB7AESakb66lmAPzvwT91dNLML2KySg
+FTxPraK7XNmGkjEaC9K1gHPjvlIrgnYIL7F2C4+ZToITqo9q+/jVW0OJZwsjDV/U
+uuc2adgSOSeU7Hl7E9n+BjL3o76Hm4ZREdVXEDDLMQxvwmKoI6OtkZLwgIgchdsW
+Kg6u7GKAbJPaLjbZnyApImLwDJUl3Qm3Ad8hxQ4tyW17ubYb4CuGCgLPLBTik0JJ
+rnhsfnDcVSCNAp/O1SZ6prCftHWuHWa7XDJWJxp1N2Z82zPwxwV3xnvVYfVlZWY+
+zFWWmU3qNN8cGFhYJxOvfjhQcI+BrhJfGMjK7Er53idmGfKf5jbBi9xw6GgggMI4
+tYBxgG0uMbLtnFyxtiDBO5Z+zutqO9ofU4ZZI/MxHQbNdDea0kFxIc2Mo+W/duvG
+uljhHcLyOSNFiatNuKNK+tItPlWxXc9duuwjNw2d7eGz6S8R+a3W9VSXydRH5DsM
+0h+whDC0ifwz3FVHdxOrl3ma6ruMFgGInzCTdwNBvixE9ToGUVxjkF2unQl/kYPZ
+3Dw5RTgQg43k8wlXYWr6/XebJokLmSXlMbk5xEhMKMLumRJ3JnKZiB1izaoH4F4q
+INZFilnWH7c=
+=4iKW
+-----END PGP SIGNATURE-----
 
-	if (asix_read_cmd(dev, AX_CMD_READ_MONITOR_MODE, 0, 0, 1, &opt) < 0) {
-		wolinfo->supported =3D 0;
-		wolinfo->wolopts =3D 0;
-		return;
-	}
-	wolinfo->supported =3D WAKE_PHY | WAKE_MAGIC;
-	wolinfo->wolopts =3D 0;
-	if (opt & AX_MONITOR_LINK)
-		wolinfo->wolopts |=3D WAKE_PHY;
-	if (opt & AX_MONITOR_MAGIC)
-		wolinfo->wolopts |=3D WAKE_MAGIC;
-}
-
-
----
-Best regards,
-Allan Chou
-Technical Support Division
-ASIX Electronics Corporation
-TEL: 886-3-5799500 ext.228
-=46AX: 886-3-5799558
-E-mail: allan@asix.com.tw=20
-http://www.asix.com.tw/=20
-
-
------Original Message-----
-=46rom: grundler@google.com [mailto:grundler@google.com] On Behalf Of G=
-rant Grundler
-Sent: Friday, December 16, 2011 12:48 AM
-To: Eugene; Allan Chou
-Cc: netdev@vger.kernel.org; Freddy Xin
-Subject: Re: drivers/net/usb/asix: bug in asix_get_wol
-
-On Tue, Dec 13, 2011 at 5:03 AM, Eugene <elubarsky@gmail.com> wrote:
-> Hi Grant,
->
->
-> The problem is that, as it's currently written, asix_get_wol always
-> returns that wake-on-lan is disabled.
-
-I think that was the intent.
-
-Allan, can you please confirm?
-
-thanks,
-grant
-
->
->
-> Cheers,
-> Eugene
->
-> On 12 December 2011 10:29, Grant Grundler <grundler@chromium.org> wro=
-te:
->> [+freddy/allan @ ASIX]
->>
->> On Sat, Dec 10, 2011 at 5:02 PM, Eugene <elubarsky@gmail.com> wrote:
->>> Dear kernel devs,
->>>
->>> Thanks for the commit at
->>> http://git.kernel.org/?p=3Dlinux/kernel/git/next/linux-next.git;a=3D=
-commitdiff;h=3D4ad1438f025ed8d1e4e95a796ca7f0ad5a22c378,
->>> It successfully stops my adapter from dying when wake-on-lan gets
->>> enabled.
->>
->> Hi Eugene!
->> thanks for the "it works!" report.
->>
->>> However, I've noticed that it has broken asix_get_wol - the
->>> lines
->>>
->>>       if (opt & AX_MONITOR_LINK)
->>>               wolinfo->wolopts |=3D WAKE_PHY;
->>>       if (opt & AX_MONITOR_MAGIC)
->>>               wolinfo->wolopts |=3D WAKE_MAGIC;
->>>
->>> have been accidentally removed.
->>
->> This wasn't by accident. This comment in the commit log perhaps
->> doesn't explain sufficiently:
->> |    Remove MONITOR_MODE. In this mode, Received packets are not buf=
-fered when
->> | the remote wakeup is enabled.
->>
->>> The vendor driver has them, and I've
->>> successfully tested a kernel with these lines included. The change =
-is
->>> too small for me to bother sending in a properly formatted patch...
->>
->> "Too small"? No such thing. :)
->>
->> cheers,
->> grant
+--=-e1Xfqi1bMaH9T1GuGN7k--
