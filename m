@@ -1,29 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: fix compilation with !CONFIG_NET
-Date: Fri, 16 Dec 2011 15:35:34 -0500 (EST)
-Message-ID: <20111216.153534.1737903298375474554.davem@davemloft.net>
-References: <1324032720-13752-1-git-send-email-glommer@parallels.com>
-	<1324032720-13752-2-git-send-email-glommer@parallels.com>
+Subject: Re: [PATCH net-next] sch_gred: prefer GFP_KERNEL allocations
+Date: Fri, 16 Dec 2011 15:41:17 -0500 (EST)
+Message-ID: <20111216.154117.606081273063232714.davem@davemloft.net>
+References: <1324022985.2562.39.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kamezawa.hiroyu@jp.fujitsu.com,
-	netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	cgroups@vger.kernel.org, sfr@canb.auug.org.au
-To: glommer@parallels.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58472 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:58514 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760191Ab1LPUhm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 15:37:42 -0500
-In-Reply-To: <1324032720-13752-2-git-send-email-glommer@parallels.com>
+	with ESMTP id S1752332Ab1LPUlU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 15:41:20 -0500
+In-Reply-To: <1324022985.2562.39.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Glauber Costa <glommer@parallels.com>
-Date: Fri, 16 Dec 2011 14:52:00 +0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 16 Dec 2011 09:09:45 +0100
 
-> Reported-by: Randy Dunlap <rdunlap@xenotime.net>
-> Signed-off-by: Glauber Costa <glommer@parallels.com>
+> In control path, its better to use GFP_KERNEL allocations where
+> possible.
+> 
+> Before taking qdisc spinlock, we preallocate memory just in case we'll
+> need it in gred_change_vq()
+> 
+> This is a followup to commit 3f1e6d3fd37b (sch_gred: should not use
+> GFP_KERNEL while holding a spinlock)
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied.
+Applied, thanks.
