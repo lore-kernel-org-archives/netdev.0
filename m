@@ -1,120 +1,95 @@
-From: igorm@etf.rs
-Subject: [PATCH 05/10 net-next] include:net:ip: Tuned up IP_*_STATS macros for per device statistics and added functions for (un)registering per device proc entries
-Date: Fri, 16 Dec 2011 16:25:58 +0100
-Message-ID: <1324049163-11207-6-git-send-email-igorm@etf.rs>
-References: <igorm@etf.rs>
- <1324049163-11207-1-git-send-email-igorm@etf.rs>
-Cc: davem@davemloft.net, Igor Maravic <igorm@etf.rs>
-To: netdev@vger.kernel.org
+From: Daniel Baluta <dbaluta@ixiacom.com>
+Subject: Re: [PATCH] llc_cmsg_rcv was getting called after sk_eat_skb.
+Date: Fri, 16 Dec 2011 17:29:24 +0200
+Message-ID: <CAEnQRZAWpjZ2gm9wgoqdyHmKQ=geoXNC0kdVL4fT0Vrk54E1Ew@mail.gmail.com>
+References: <1324026085-11812-1-git-send-email-ajuncu@ixiacom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: acme@ghostprotocols.net, davem@davemloft.net,
+	netdev@vger.kernel.org, alex.juncu@rosedu.org,
+	Kunjan Naik <knaik@ixiacom.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Alexandru Juncu <ajuncu@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.etf.rs ([147.91.14.170]:35808 "EHLO mx2.etf.bg.ac.rs"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759882Ab1LPP0V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Dec 2011 10:26:21 -0500
-In-Reply-To: <1324049163-11207-1-git-send-email-igorm@etf.rs>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:56394 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759955Ab1LPP3Z convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 10:29:25 -0500
+Received: by qcqz2 with SMTP id z2so1896536qcq.19
+        for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 07:29:24 -0800 (PST)
+In-Reply-To: <1324026085-11812-1-git-send-email-ajuncu@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Igor Maravic <igorm@etf.rs>
+Hello Alex,
 
-Changed IP_*_STATS so now they call _DEV* macros.
-They call _DEV* macros under rcu_read_lock,
-so we could get in_device* from net_device* with function
-__in_dev_get_rcu_safely. This function is safe if dev==NULL.
+Please add a llc: prefix to the Subject. Also the title
+should suggest what is the patch supposed to do.
 
-Included <linux/inetdevice.h> so we could call __in_dev_get_rcu_safely.
+e.g:
 
-Added prototypes for snmp_(un)register_dev.
+llc: Don't call llc_cmsg_rcv after sk_eat_skb
 
-Signed-off-by: Igor Maravic <igorm@etf.rs>
----
- include/net/ip.h |   60 ++++++++++++++++++++++++++++++++++++++++++++++++-----
- 1 files changed, 54 insertions(+), 6 deletions(-)
+On Fri, Dec 16, 2011 at 11:01 AM, Alexandru Juncu <ajuncu@ixiacom.com> =
+wrote:
+> Received non stream protocol packets were calling llc_cmsg_rcv that u=
+sed a
+> skb after that skb was released by sk_eat_skb. This caused received S=
+TP
+> packets to generate kernel panics.
+>
+> Signed-off-by: Alexandru Juncu <ajuncu@ixiacom.com>
+> Signed-off-by: Kunjan Naik <knaik@ixiacom.com>
+> ---
+> =A0net/llc/af_llc.c | =A0 14 ++++++++++----
+> =A01 files changed, 10 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
+> index dfd3a64..a18e6c3 100644
+> --- a/net/llc/af_llc.c
+> +++ b/net/llc/af_llc.c
+> @@ -833,15 +833,15 @@ static int llc_ui_recvmsg(struct kiocb *iocb, s=
+truct socket *sock,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0copied +=3D used;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0len -=3D used;
+>
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* For non stream protcols we get one p=
+acket per recvmsg call */
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (sk->sk_type !=3D SOCK_STREAM)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto copy_uaddr;
+> +
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (!(flags & MSG_PEEK)) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0sk_eat_skb(sk, skb, 0)=
+;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*seq =3D 0;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+>
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* For non stream protcols we get one p=
+acket per recvmsg call */
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (sk->sk_type !=3D SOCK_STREAM)
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto copy_uaddr;
+> -
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* Partial read */
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (used + offset < skb->len)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0continue;
+> @@ -857,6 +857,12 @@ copy_uaddr:
+> =A0 =A0 =A0 =A0}
+> =A0 =A0 =A0 =A0if (llc_sk(sk)->cmsg_flags)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0llc_cmsg_rcv(msg, skb);
+> +
+> + =A0 =A0 =A0 if (!(flags & MSG_PEEK)) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 sk_eat_skb(sk, skb, 0);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 *seq =3D 0;
+> + =A0 =A0 =A0 }
+> +
+> =A0 =A0 =A0 =A0goto out;
+> =A0}
+>
+> --
+> 1.7.4.1
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 775009f..9895b1f 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -26,6 +26,7 @@
- #include <linux/ip.h>
- #include <linux/in.h>
- #include <linux/skbuff.h>
-+#include <linux/inetdevice.h>
- 
- #include <net/inet_sock.h>
- #include <net/snmp.h>
-@@ -184,12 +185,54 @@ struct ipv4_config {
- };
- 
- extern struct ipv4_config ipv4_config;
--#define IP_INC_STATS(net, field)	SNMP_INC_STATS64((net)->mib.ip_statistics, field)
--#define IP_INC_STATS_BH(net, field)	SNMP_INC_STATS64_BH((net)->mib.ip_statistics, field)
--#define IP_ADD_STATS(net, field, val)	SNMP_ADD_STATS64((net)->mib.ip_statistics, field, val)
--#define IP_ADD_STATS_BH(net, field, val) SNMP_ADD_STATS64_BH((net)->mib.ip_statistics, field, val)
--#define IP_UPD_PO_STATS(net, field, val) SNMP_UPD_PO_STATS64((net)->mib.ip_statistics, field, val)
--#define IP_UPD_PO_STATS_BH(net, field, val) SNMP_UPD_PO_STATS64_BH((net)->mib.ip_statistics, field, val)
-+#define IP_INC_STATS(net, dev, field)	\
-+	({	\
-+		rcu_read_lock();	\
-+		_DEVINC(net, ip, 64, struct in_device,	\
-+			__in_dev_get_rcu_safely(dev), field);	\
-+		rcu_read_unlock();	\
-+	})
-+
-+#define IP_INC_STATS_BH(net, dev, field)	\
-+	({	\
-+		rcu_read_lock();	\
-+		_DEVINC(net, ip, 64_BH, struct in_device,	\
-+			__in_dev_get_rcu_safely(dev), field);	\
-+		rcu_read_unlock();	\
-+	})
-+
-+#define IP_ADD_STATS(net, dev, field, val)	\
-+	({	\
-+		rcu_read_lock();	\
-+		_DEVADD(net, ip, 64, struct in_device,	\
-+			__in_dev_get_rcu_safely(dev), field, val);	\
-+		rcu_read_unlock();	\
-+	})
-+
-+#define IP_ADD_STATS_BH(net, dev, field, val)	\
-+	({	\
-+		rcu_read_lock();	\
-+		_DEVADD(net, ip, 64_BH, struct in_device,	\
-+			__in_dev_get_rcu_safely(dev), field, val);	\
-+		rcu_read_unlock();	\
-+	})
-+
-+#define IP_UPD_PO_STATS(net, dev, field, val)	\
-+	({	\
-+		rcu_read_lock();	\
-+		_DEVUPD(net, ip, 64, struct in_device,	\
-+			__in_dev_get_rcu_safely(dev), field, val);	\
-+		rcu_read_unlock();	\
-+	})
-+
-+#define IP_UPD_PO_STATS_BH(net, dev, field, val)	\
-+	({	\
-+		rcu_read_lock();	\
-+		_DEVUPD(net, ip, 64_BH, struct in_device,	\
-+			__in_dev_get_rcu_safely(dev), field, val);	\
-+		rcu_read_unlock();	\
-+	})
-+
- #define NET_INC_STATS(net, field)	SNMP_INC_STATS((net)->mib.net_statistics, field)
- #define NET_INC_STATS_BH(net, field)	SNMP_INC_STATS_BH((net)->mib.net_statistics, field)
- #define NET_INC_STATS_USER(net, field) 	SNMP_INC_STATS_USER((net)->mib.net_statistics, field)
-@@ -470,6 +513,11 @@ extern void	ip_local_error(struct sock *sk, int err, __be32 daddr, __be16 dport,
- 
- #ifdef CONFIG_PROC_FS
- extern int ip_misc_proc_init(void);
-+extern int snmp_register_dev(struct in_device *idev);
-+extern int snmp_unregister_dev(struct in_device *idev);
-+#else
-+extern int snmp_register_dev(struct in_device *idev) { return 0;}
-+extern int snmp_unregister_dev(struct in_device *idev) { return 0;}
- #endif
- 
- #endif	/* _IP_H */
--- 
-1.7.5.4
+David, Eric could you please review this?
+
+thanks,
+Daniel.
