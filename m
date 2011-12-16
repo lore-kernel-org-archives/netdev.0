@@ -1,13 +1,14 @@
 From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: [PATCH 4/6] sunhme/PCI: use list_for_each_entry() for bus->devices
+Subject: [PATCH 5/6] de4x5/PCI: use list_for_each_entry() for bus->devices
 	traversal
-Date: Fri, 16 Dec 2011 15:31:49 -0700
-Message-ID: <20111216223149.5963.61942.stgit@bhelgaas.mtv.corp.google.com>
+Date: Fri, 16 Dec 2011 15:31:54 -0700
+Message-ID: <20111216223154.5963.39965.stgit@bhelgaas.mtv.corp.google.com>
 References: <20111216223043.5963.87534.stgit@bhelgaas.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-pci@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+Cc: linux-pci@vger.kernel.org,
+	Grant Grundler <grundler@parisc-linux.org>,
 	netdev@vger.kernel.org
 To: Jesse Barnes <jbarnes@virtuousgeek.org>
 Return-path: <linux-pci-owner@vger.kernel.org>
@@ -17,40 +18,31 @@ List-Id: netdev.vger.kernel.org
 
 Replace open-coded list traversal with list_for_each_entry().
 
-CC: David S. Miller <davem@davemloft.net>
+CC: Grant Grundler <grundler@parisc-linux.org>
 CC: netdev@vger.kernel.org
 Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
 ---
- drivers/net/ethernet/sun/sunhme.c |    9 ++-------
+ drivers/net/ethernet/dec/tulip/de4x5.c |    9 ++-------
  1 files changed, 2 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/sunhme.c b/drivers/net/ethernet/sun/sunhme.c
-index cf14ab9..1d00a4c 100644
---- a/drivers/net/ethernet/sun/sunhme.c
-+++ b/drivers/net/ethernet/sun/sunhme.c
-@@ -2849,7 +2849,7 @@ err_out:
- static int is_quattro_p(struct pci_dev *pdev)
- {
- 	struct pci_dev *busdev = pdev->bus->self;
--	struct list_head *tmp;
-+	struct pci_dev *this_pdev;
- 	int n_hmes;
- 
- 	if (busdev == NULL ||
-@@ -2858,15 +2858,10 @@ static int is_quattro_p(struct pci_dev *pdev)
- 		return 0;
- 
- 	n_hmes = 0;
--	tmp = pdev->bus->devices.next;
--	while (tmp != &pdev->bus->devices) {
--		struct pci_dev *this_pdev = pci_dev_b(tmp);
+diff --git a/drivers/net/ethernet/dec/tulip/de4x5.c b/drivers/net/ethernet/dec/tulip/de4x5.c
+index 871bcaa..3f5d3b9 100644
+--- a/drivers/net/ethernet/dec/tulip/de4x5.c
++++ b/drivers/net/ethernet/dec/tulip/de4x5.c
+@@ -2127,14 +2127,9 @@ srom_search(struct net_device *dev, struct pci_dev *pdev)
+     u_long iobase = 0;                     /* Clear upper 32 bits in Alphas */
+     int i, j;
+     struct de4x5_private *lp = netdev_priv(dev);
+-    struct list_head *walk;
 -
-+	list_for_each_entry(this_pdev, &pdev->bus->devices, bus_list) {
- 		if (this_pdev->vendor == PCI_VENDOR_ID_SUN &&
- 		    this_pdev->device == PCI_DEVICE_ID_SUN_HAPPYMEAL)
- 			n_hmes++;
+-    list_for_each(walk, &pdev->bus_list) {
+-	struct pci_dev *this_dev = pci_dev_b(walk);
 -
--		tmp = tmp->next;
- 	}
+-	/* Skip the pci_bus list entry */
+-	if (list_entry(walk, struct pci_bus, devices) == pdev->bus) continue;
++    struct pci_dev *this_dev;
  
- 	if (n_hmes != 4)
++    list_for_each_entry(this_dev, &pdev->bus->devices, bus_list) {
+ 	vendor = this_dev->vendor;
+ 	device = this_dev->device << 8;
+ 	if (!(is_DC21040 || is_DC21041 || is_DC21140 || is_DC2114x)) continue;
