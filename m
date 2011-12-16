@@ -1,41 +1,55 @@
-From: Aurelien Jacobs <aurel@gnuage.org>
-Subject: [PATCH] asix: new device id
-Date: Fri, 16 Dec 2011 21:49:22 +0100
-Message-ID: <1324068562-3761-1-git-send-email-aurel@gnuage.org>
-References: <20111216.133227.782560339712731597.davem@davemloft.net>
-Cc: Aurelien Jacobs <aurel@gnuage.org>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: two vzalloc() cleanups
+Date: Fri, 16 Dec 2011 22:17:35 +0100
+Message-ID: <1324070255.2621.29.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gnuage.org ([82.234.153.242]:59823 "EHLO gnuage.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760696Ab1LPVQj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Dec 2011 16:16:39 -0500
-In-Reply-To: <20111216.133227.782560339712731597.davem@davemloft.net>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:41922 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760696Ab1LPVRm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 16:17:42 -0500
+Received: by werm1 with SMTP id m1so611998wer.19
+        for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 13:17:41 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds the device id needed for the USB Ethernet Adapter delivered by
-ASUS with their Zenbook.
+We can use vzalloc() helper now instead of __vmalloc() trick
 
-Signed-off-by: Aurelien Jacobs <aurel@gnuage.org>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- drivers/net/usb/asix.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ net/netfilter/nf_conntrack_core.c |    3 +--
+ net/tipc/ref.c                    |    3 +--
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
-index e6fed4d..e95f0e6 100644
---- a/drivers/net/usb/asix.c
-+++ b/drivers/net/usb/asix.c
-@@ -1655,6 +1655,10 @@ static const struct usb_device_id	products [] = {
- 	// ASIX 88772a
- 	USB_DEVICE(0x0db0, 0xa877),
- 	.driver_info = (unsigned long) &ax88772_info,
-+}, {
-+	// Asus USB Ethernet Adapter
-+	USB_DEVICE (0x0b95, 0x7e2b),
-+	.driver_info = (unsigned long) &ax88772_info,
- },
- 	{ },		// END
- };
--- 
-1.7.7.3
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 7202b06..80bfb7c 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1342,8 +1342,7 @@ void *nf_ct_alloc_hashtable(unsigned int *sizep, int nulls)
+ 					get_order(sz));
+ 	if (!hash) {
+ 		printk(KERN_WARNING "nf_conntrack: falling back to vmalloc.\n");
+-		hash = __vmalloc(sz, GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO,
+-				 PAGE_KERNEL);
++		hash = vzalloc(sz);
+ 	}
+ 
+ 	if (hash && nulls)
+diff --git a/net/tipc/ref.c b/net/tipc/ref.c
+index 8311689..9e37b78 100644
+--- a/net/tipc/ref.c
++++ b/net/tipc/ref.c
+@@ -110,8 +110,7 @@ int tipc_ref_table_init(u32 requested_size, u32 start)
+ 
+ 	/* allocate table & mark all entries as uninitialized */
+ 
+-	table = __vmalloc(actual_size * sizeof(struct reference),
+-			  GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO, PAGE_KERNEL);
++	table = vzalloc(actual_size * sizeof(struct reference));
+ 	if (table == NULL)
+ 		return -ENOMEM;
+ 
