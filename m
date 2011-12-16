@@ -1,112 +1,154 @@
 From: igorm@etf.rs
-Subject: [PATCH 02/10 net-next] include: net: snmp: Create icmp per device counters and add macros for per device stats
-Date: Fri, 16 Dec 2011 16:25:55 +0100
-Message-ID: <1324049163-11207-3-git-send-email-igorm@etf.rs>
+Subject: [PATCH 07/10 net-next] net:ipv4:devinet: Add support for alloc/free of per device stats and (un)register of per device proc files
+Date: Fri, 16 Dec 2011 16:26:00 +0100
+Message-ID: <1324049163-11207-8-git-send-email-igorm@etf.rs>
 References: <igorm@etf.rs>
  <1324049163-11207-1-git-send-email-igorm@etf.rs>
 Cc: davem@davemloft.net, Igor Maravic <igorm@etf.rs>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.etf.rs ([147.91.14.170]:35805 "EHLO mx2.etf.bg.ac.rs"
+Received: from mx2.etf.rs ([147.91.14.170]:35838 "EHLO mx2.etf.bg.ac.rs"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759977Ab1LPP0T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Dec 2011 10:26:19 -0500
+	id S1760025Ab1LPP00 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Dec 2011 10:26:26 -0500
 In-Reply-To: <1324049163-11207-1-git-send-email-igorm@etf.rs>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Igor Maravic <igorm@etf.rs>
 
-Added per device counters for ipv4 icmp statistics.
+Added function snmp_alloc_dev and snmp_free_dev for
+allocing/freeing per device statistics.
 
-Moved _DEV* macros here, from include/net/ipv6.h.
-Also, made them more generic, by adding new argument - type.
-Because of that, they can be used for in_device stats accounting
-in the same way as for inet6_dev.
+snmp_alloc_dev is only called when in_device is created. If it failes,
+in_device can't be created.
+snmp_free_dev is only called when in_device is destroyed.
+
+Added calls for snmp_(un)register_dev functions.
+
+snmp_unregister_dev is called when in_device is destroyed and when it changes name.
+snmp_register_dev is called when in_device is created. If it failes in_device
+can be created. snmp_register_dev is also called when in_device change name.
 
 Signed-off-by: Igor Maravic <igorm@etf.rs>
 ---
- include/net/snmp.h |   55 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 55 insertions(+), 0 deletions(-)
+ net/ipv4/devinet.c |   75 +++++++++++++++++++++++++++++++++++++++++++++------
+ 1 files changed, 66 insertions(+), 9 deletions(-)
 
-diff --git a/include/net/snmp.h b/include/net/snmp.h
-index 2f65e16..65f4052 100644
---- a/include/net/snmp.h
-+++ b/include/net/snmp.h
-@@ -61,14 +61,24 @@ struct ipstats_mib {
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 65f01dc..c18564f 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -211,6 +211,38 @@ static inline void inet_free_ifa(struct in_ifaddr *ifa)
+ 	call_rcu(&ifa->rcu_head, inet_rcu_free_ifa);
+ }
  
- /* ICMP */
- #define ICMP_MIB_MAX	__ICMP_MIB_MAX
-+/* per network ns counters */
- struct icmp_mib {
- 	unsigned long	mibs[ICMP_MIB_MAX];
- };
-+/*per device counters, (shared on all cpus) */
-+struct icmp_mib_dev {
-+	atomic_long_t	mibs[ICMP_MIB_MAX];
-+};
++static int snmp_alloc_dev(struct in_device *idev)
++{
++	if (snmp_mib_init((void __percpu **)idev->stats.ip,
++			sizeof(struct ipstats_mib),
++			__alignof__(struct ipstats_mib)) < 0)
++		goto err_ip;
++	idev->stats.icmpdev = kzalloc(sizeof(struct icmp_mib_dev),
++						GFP_KERNEL);
++	if (!idev->stats.icmpdev)
++		goto err_icmp;
++	idev->stats.icmpmsgdev = kzalloc(sizeof(struct icmpmsg_mib_dev),
++						GFP_KERNEL);
++	if (!idev->stats.icmpmsgdev)
++		goto err_icmpmsg;
++
++	return 0;
++
++err_icmpmsg:
++	kfree(idev->stats.icmpdev);
++err_icmp:
++	snmp_mib_free((void __percpu **)idev->stats.ip);
++err_ip:
++	return -ENOMEM;
++}
++
++static void snmp_free_dev(struct in_device *idev)
++{
++	kfree(idev->stats.icmpmsgdev);
++	kfree(idev->stats.icmpdev);
++	snmp_mib_free((void __percpu **)idev->stats.ip);
++}
++
+ void in_dev_finish_destroy(struct in_device *idev)
+ {
+ 	struct net_device *dev = idev->dev;
+@@ -224,8 +256,10 @@ void in_dev_finish_destroy(struct in_device *idev)
+ 	dev_put(dev);
+ 	if (!idev->dead)
+ 		pr_err("Freeing alive in_device %p\n", idev);
+-	else
++	else {
++		snmp_free_dev(idev);
+ 		kfree(idev);
++	}
+ }
+ EXPORT_SYMBOL(in_dev_finish_destroy);
  
- #define ICMPMSG_MIB_MAX	__ICMPMSG_MIB_MAX
-+/* per network ns counters */
- struct icmpmsg_mib {
- 	atomic_long_t	mibs[ICMPMSG_MIB_MAX];
- };
-+/* per device counters, (shared on all cpus) */
-+struct icmpmsg_mib_dev {
-+	atomic_long_t	mibs[ICMPMSG_MIB_MAX];
-+};
+@@ -249,6 +283,22 @@ static struct in_device *inetdev_init(struct net_device *dev)
+ 		dev_disable_lro(dev);
+ 	/* Reference in_dev->dev */
+ 	dev_hold(dev);
++
++	if (snmp_alloc_dev(in_dev) < 0) {
++		printk(KERN_CRIT
++			"%s(): cannot allocate memory for statistics; dev=%s.\n",
++			__func__, dev->name);
++		neigh_parms_release(&arp_tbl, in_dev->arp_parms);
++		dev_put(dev);
++		kfree(in_dev);
++		return NULL;
++	}
++
++	if (snmp_register_dev(in_dev) < 0)
++		printk(KERN_WARNING
++			"%s(): cannot create /proc/net/dev_snmp/%s\n",
++			__func__, dev->name);
++
+ 	/* Account for reference dev->ip_ptr (below) */
+ 	in_dev_hold(in_dev);
  
- /* ICMP6 (IPv6-ICMP) */
- #define ICMP6_MIB_MAX	__ICMP6_MIB_MAX
-@@ -214,4 +224,49 @@ struct linux_xfrm_mib {
- #define SNMP_UPD_PO_STATS64_BH(mib, basefield, addend) SNMP_UPD_PO_STATS_BH(mib, basefield, addend)
- #endif
+@@ -292,6 +342,7 @@ static void inetdev_destroy(struct in_device *in_dev)
+ 	}
  
-+/* Macros for enabling per device statistics */
+ 	RCU_INIT_POINTER(dev->ip_ptr, NULL);
++	snmp_unregister_dev(in_dev);
+ 
+ 	devinet_sysctl_unregister(in_dev);
+ 	neigh_parms_release(&arp_tbl, in_dev->arp_parms);
+@@ -1222,14 +1273,20 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
+ 	case NETDEV_UNREGISTER:
+ 		inetdev_destroy(in_dev);
+ 		break;
+-	case NETDEV_CHANGENAME:
+-		/* Do not notify about label change, this event is
+-		 * not interesting to applications using netlink.
+-		 */
+-		inetdev_changename(dev, in_dev);
+-
+-		devinet_sysctl_unregister(in_dev);
+-		devinet_sysctl_register(in_dev);
++	case NETDEV_CHANGENAME: {
++			int err;
++			/* Do not notify about label change, this event is
++			 * not interesting to applications using netlink.
++			 */
++			inetdev_changename(dev, in_dev);
 +
-+#define _DEVINC(net, statname, modifier, type, idev, field)			\
-+({	\
-+	__typeof__(type) *_idev = (idev);	\
-+	if (likely(_idev))	\
-+		SNMP_INC_STATS##modifier((_idev)->stats.statname, (field));	\
-+	SNMP_INC_STATS##modifier((net)->mib.statname##_statistics, (field));	\
-+})
-+
-+/* per device counters are atomic_long_t */
-+#define _DEVINCATOMIC(net, statname, modifier, type, idev, field)	\
-+({	\
-+	__typeof__(type) *_idev = (idev);	\
-+	if (likely(_idev))	\
-+		SNMP_INC_STATS_ATOMIC_LONG((_idev)->stats.statname##dev, (field));	\
-+	SNMP_INC_STATS##modifier((net)->mib.statname##_statistics, (field));	\
-+})
-+
-+/* per device and per net counters are atomic_long_t */
-+
-+#define _DEVINC_ATOMIC_ATOMIC(net, statname, type, idev, field)	\
-+({	\
-+	__typeof__(type) *_idev = (idev);	\
-+	if (likely(_idev))	\
-+		SNMP_INC_STATS_ATOMIC_LONG((_idev)->stats.statname##dev, (field));	\
-+	SNMP_INC_STATS_ATOMIC_LONG((net)->mib.statname##_statistics, (field));	\
-+})
-+
-+#define _DEVADD(net, statname, modifier, type, idev, field, val)		\
-+({	\
-+	__typeof__(type) *_idev = (idev);	\
-+	if (likely(_idev))	\
-+		SNMP_ADD_STATS##modifier((_idev)->stats.statname, (field), (val));	\
-+	SNMP_ADD_STATS##modifier((net)->mib.statname##_statistics, (field), (val));	\
-+})
-+
-+#define _DEVUPD(net, statname, modifier, type, idev, field, val)		\
-+({	\
-+	__typeof__(type) *_idev = (idev);	\
-+	if (likely(_idev))	\
-+		SNMP_UPD_PO_STATS##modifier((_idev)->stats.statname, field, (val));	\
-+	SNMP_UPD_PO_STATS##modifier((net)->mib.statname##_statistics, field, (val));	\
-+})
-+
- #endif
++			snmp_unregister_dev(in_dev);
++			devinet_sysctl_unregister(in_dev);
++			devinet_sysctl_register(in_dev);
++			err = snmp_register_dev(in_dev);
++			if (err)
++				return notifier_from_errno(err);
++		}
+ 		break;
+ 	}
+ out:
 -- 
 1.7.5.4
