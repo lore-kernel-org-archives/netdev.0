@@ -1,33 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] r8169: Support for byte queue limits
-Date: Fri, 16 Dec 2011 16:15:29 -0500 (EST)
-Message-ID: <20111216.161529.1194226831603844509.davem@davemloft.net>
-References: <igorm@etf.rs>
-	<1323694834-2844-1-git-send-email-igorm@etf.rs>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: igorm@etf.rs
+From: Aurelien Jacobs <aurel@gnuage.org>
+Subject: [PATCH] asix: new device id
+Date: Fri, 16 Dec 2011 21:49:22 +0100
+Message-ID: <1324068562-3761-1-git-send-email-aurel@gnuage.org>
+References: <20111216.133227.782560339712731597.davem@davemloft.net>
+Cc: Aurelien Jacobs <aurel@gnuage.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58904 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755967Ab1LPVPf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 16:15:35 -0500
-In-Reply-To: <1323694834-2844-1-git-send-email-igorm@etf.rs>
+Received: from gnuage.org ([82.234.153.242]:59823 "EHLO gnuage.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760696Ab1LPVQj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Dec 2011 16:16:39 -0500
+In-Reply-To: <20111216.133227.782560339712731597.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: igorm@etf.rs
-Date: Mon, 12 Dec 2011 05:00:34 -0800
+Adds the device id needed for the USB Ethernet Adapter delivered by
+ASUS with their Zenbook.
 
-> From: Igor Maravic <igorm@etf.rs>
->=20
-> Changes to r8169 to use byte queue limits.
->=20
-> Signed-off-by: Igor Maravic <igorm@etf.rs>
-> Signed-off-by: Igor Maravi=E6 <igorm@etf.rs>
+Signed-off-by: Aurelien Jacobs <aurel@gnuage.org>
+---
+ drivers/net/usb/asix.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-Duplicate signoffs?
-
-Someone please review this patch, thanks.
+diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
+index e6fed4d..e95f0e6 100644
+--- a/drivers/net/usb/asix.c
++++ b/drivers/net/usb/asix.c
+@@ -1655,6 +1655,10 @@ static const struct usb_device_id	products [] = {
+ 	// ASIX 88772a
+ 	USB_DEVICE(0x0db0, 0xa877),
+ 	.driver_info = (unsigned long) &ax88772_info,
++}, {
++	// Asus USB Ethernet Adapter
++	USB_DEVICE (0x0b95, 0x7e2b),
++	.driver_info = (unsigned long) &ax88772_info,
+ },
+ 	{ },		// END
+ };
+-- 
+1.7.7.3
