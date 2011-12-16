@@ -1,63 +1,61 @@
-From: Zang Hongyong <zanghongyong@huawei.com>
-Subject: Re: [PATCH 0/2] vhot-net: Use kvm_memslots instead of vhost_memory to
- translate GPA to HVA
-Date: Fri, 16 Dec 2011 16:18:45 +0800
-Message-ID: <4EEAFEE5.3000406@huawei.com>
-References: <1324013528-3663-1-git-send-email-zanghongyong@huawei.com>
- <1324019151.4496.9.camel@lappy> <4EEAF5D1.2080805@huawei.com>
- <1324022358.4496.25.camel@lappy>
+From: "Western Union Company" <info@wester.com>
+Subject: Payment Update
+Date: Fri, 16 Dec 2011 13:14:43 +0530 (IST)
+Message-ID: <22666.41.203.64.128.1324021483.squirrel@mail.gkbhitech.com>
+Reply-To: western-money@hotmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7BIT
-Cc: linux-kernel@vger.kernel.org, mst@redhat.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	xiaowei.yang@huawei.com, hanweidong@huawei.com,
-	wusongwei@huawei.com
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <1324022358.4496.25.camel@lappy>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from NS2.GKBHITECH.COM ([121.242.11.81]:41533 "EHLO
+	ns2.gkbhitech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751215Ab1LPITg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 03:19:36 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-于 2011/12/16,星期五 15:59, Sasha Levin 写道:
-> On Fri, 2011-12-16 at 15:40 +0800, Zang Hongyong wrote:
->> 于 2011/12/16,星期五 15:05, Sasha Levin 写道:
->>> On Fri, 2011-12-16 at 13:32 +0800, zanghongyong@huawei.com wrote:
->>>> From: Hongyong Zang<zanghongyong@huawei.com>
->>>>
->>>> Vhost-net uses its own vhost_memory, which results from user space (qemu) info,
->>>> to translate GPA to HVA. Since kernel's kvm structure already maintains the
->>>> address relationship in its member *kvm_memslots*, these patches use kernel's
->>>> kvm_memslots directly without the need of initialization and maintenance of
->>>> vhost_memory.
->>> Conceptually, vhost isn't aware of KVM - it's just a driver which moves
->>> data from vq to a tap device and back. You can't simply add KVM specific
->>> code into vhost.
->>>
->>> Whats the performance benefit?
->>>
->> But vhost-net is only used in virtualization situation. vhost_memory is 
->> maintained
->> by user space qemu.
->> In this way, the memory relationship can be accquired from kernel 
->> without the
->> need of maintainence of vhost_memory from qemu.
-> You can't assume that vhost-* is used only along with qemu/kvm. Just as
-> virtio has more uses than just virtualization (heres one:
-> https://lkml.org/lkml/2011/10/25/139 ), there are more uses for vhost as
-> well.
->
-> There has been a great deal of effort to keep vhost and kvm untangled.
-> One example is the memory translation it has to do, another one is the
-> eventfd/irqfd thing it does just so it could signal an IRQ in the guest
-> instead of accessing the guest directly.
->
-> If you do see a great performance increase when tying vhost and KVM
-> together, it may be worth it to create some sort of an in-kernel
-> vhost-kvm bridging thing, but if the performance isn't noticeable we're
-> better off just leaving it as is and keeping the vhost code general.
->
-Thanks for your explanation.
-Since memory layout is seldom changed after guest boots, the situation
-manily occurs during initialization. There's no need for vhost-kvm
-bridge now.
+
+
+
+Dear Beneficiary,
+
+We are here to notify you that the sum of  $250,000 U.S.Dollars was
+generated and awarded to you by the Western Union Foundation in
+conjunction with the African Union Foundation.This award was been selec=
+ted
+through the internet, where your e-mail address was indicated and
+notified.The Western Union  Foundation, All the email addresses of the
+people that are active online,among the millions of our customers who u=
+se
+Western Union in their business transactions.Four people are selected
+Every year  to benefit from this promotion and you are one of the Selec=
+ted
+Winners.
+
+To avoid misappropriation of funds, proper verifications must be carrie=
+d
+out before the fund is transferred. We require the details below for
+verification so that the transfer can be carried out.
+
+1. Receiver's Full Name:
+2. Receiver's Address:
+3. Receiver's Country:
+4. Receiver's Telephone Number:
+5. Receiver's Occupation:
+
+  Send the above details to us via the email addresses stated below:
+
+Western Union District Manager (Mr.Peter Parker)
+Website: www.westernunion.com
+E-mail: western-money@hotmail.com
+Tel: +2347031908911
+
+
+Note: You were selected as a winner on this promotion and I personally
+advise that you use the funds wisely. However, we need your information=
+ as
+stated above to commence the transaction due process:
+
+Copyright =A9 2001-2011 The Western Union Company , All Rights Reserved=
+=2E
