@@ -1,95 +1,50 @@
-From: Daniel Baluta <dbaluta@ixiacom.com>
-Subject: Re: [PATCH] llc_cmsg_rcv was getting called after sk_eat_skb.
-Date: Fri, 16 Dec 2011 17:29:24 +0200
-Message-ID: <CAEnQRZAWpjZ2gm9wgoqdyHmKQ=geoXNC0kdVL4fT0Vrk54E1Ew@mail.gmail.com>
-References: <1324026085-11812-1-git-send-email-ajuncu@ixiacom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 00/10 net-next] Introduce per interface ipv4 statistics
+Date: Fri, 16 Dec 2011 16:41:20 +0100
+Message-ID: <1324050080.25554.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <igorm@etf.rs> <1324049163-11207-1-git-send-email-igorm@etf.rs>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: acme@ghostprotocols.net, davem@davemloft.net,
-	netdev@vger.kernel.org, alex.juncu@rosedu.org,
-	Kunjan Naik <knaik@ixiacom.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Alexandru Juncu <ajuncu@ixiacom.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: igorm@etf.rs
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:56394 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759955Ab1LPP3Z convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 10:29:25 -0500
-Received: by qcqz2 with SMTP id z2so1896536qcq.19
-        for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 07:29:24 -0800 (PST)
-In-Reply-To: <1324026085-11812-1-git-send-email-ajuncu@ixiacom.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:61631 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752043Ab1LPPlY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 10:41:24 -0500
+Received: by wgbdr13 with SMTP id dr13so6423755wgb.1
+        for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 07:41:23 -0800 (PST)
+In-Reply-To: <1324049163-11207-1-git-send-email-igorm@etf.rs>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Alex,
+Le vendredi 16 d=C3=A9cembre 2011 =C3=A0 16:25 +0100, igorm@etf.rs a =C3=
+=A9crit :
+> From: Igor Maravic <igorm@etf.rs>
+>=20
+> Hi all,
+> in this patch series I introduced per interface statistics for ipv4.
+>=20
+> I referenced how it was done for ipv6 per interface statistics.
+> BR
+> Igor
 
-Please add a llc: prefix to the Subject. Also the title
-should suggest what is the patch supposed to do.
+Questions/Comments are :
 
-e.g:
+1) Why is it needed ? Any RFC requires this bloat ?
 
-llc: Don't call llc_cmsg_rcv after sk_eat_skb
+2) Every patch in a patch serie must be compilable. Think about
+bisection. This is mandatory.
 
-On Fri, Dec 16, 2011 at 11:01 AM, Alexandru Juncu <ajuncu@ixiacom.com> =
-wrote:
-> Received non stream protocol packets were calling llc_cmsg_rcv that u=
-sed a
-> skb after that skb was released by sk_eat_skb. This caused received S=
-TP
-> packets to generate kernel panics.
->
-> Signed-off-by: Alexandru Juncu <ajuncu@ixiacom.com>
-> Signed-off-by: Kunjan Naik <knaik@ixiacom.com>
-> ---
-> =A0net/llc/af_llc.c | =A0 14 ++++++++++----
-> =A01 files changed, 10 insertions(+), 4 deletions(-)
->
-> diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
-> index dfd3a64..a18e6c3 100644
-> --- a/net/llc/af_llc.c
-> +++ b/net/llc/af_llc.c
-> @@ -833,15 +833,15 @@ static int llc_ui_recvmsg(struct kiocb *iocb, s=
-truct socket *sock,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0copied +=3D used;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0len -=3D used;
->
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* For non stream protcols we get one p=
-acket per recvmsg call */
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (sk->sk_type !=3D SOCK_STREAM)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto copy_uaddr;
-> +
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (!(flags & MSG_PEEK)) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0sk_eat_skb(sk, skb, 0)=
-;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*seq =3D 0;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
->
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* For non stream protcols we get one p=
-acket per recvmsg call */
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (sk->sk_type !=3D SOCK_STREAM)
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto copy_uaddr;
-> -
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* Partial read */
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (used + offset < skb->len)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0continue;
-> @@ -857,6 +857,12 @@ copy_uaddr:
-> =A0 =A0 =A0 =A0}
-> =A0 =A0 =A0 =A0if (llc_sk(sk)->cmsg_flags)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0llc_cmsg_rcv(msg, skb);
-> +
-> + =A0 =A0 =A0 if (!(flags & MSG_PEEK)) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 sk_eat_skb(sk, skb, 0);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 *seq =3D 0;
-> + =A0 =A0 =A0 }
-> +
-> =A0 =A0 =A0 =A0goto out;
-> =A0}
->
-> --
-> 1.7.4.1
+  You cannot have a patch that change prototypes, like your 06/10=20
+-#define ICMP_INC_STATS(net, field)     SNMP_INC_STATS((net)->mib.icmp_=
+statistics, field)
++#define ICMP_INC_STATS(net, dev, field)        \
 
-David, Eric could you please review this?
+ Then, in another patch, 'fix' callers, like your 10/10
 
-thanks,
-Daniel.
+-               IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INTRUNCATEDPK=
+TS);
++               IP_INC_STATS_BH(dev_net(dev), dev, IPSTATS_MIB_INTRUNCA=
+TEDPKTS);
