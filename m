@@ -1,70 +1,57 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [PATCH net-next 1/3] ethtool: Clarify use of size field for
- ETHTOOL_GRXFHINDIR
-Date: Thu, 15 Dec 2011 17:14:03 -0800
-Message-ID: <20111216011403.GA8197@mcarlson.broadcom.com>
-References: <1323993076.2773.23.camel@bwh-desktop>
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [PATCH 2/2] Explicitly call tcp creation and init from memcontrol.c
+Date: Fri, 16 Dec 2011 06:06:34 +0400
+Message-ID: <4EEAA7AA.3030209@parallels.com>
+References: <1323941672-14324-1-git-send-email-glommer@parallels.com> <1323941672-14324-3-git-send-email-glommer@parallels.com> <20111216011316.8d58bc8f.kamezawa.hiroyu@jp.fujitsu.com> <20111216072050.4f49ac66.kamezawa.hiroyu@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
-	"Matthew Carlson" <mcarlson@broadcom.com>
-To: "Ben Hutchings" <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4712 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753699Ab1LPBNj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Dec 2011 20:13:39 -0500
-In-Reply-To: <1323993076.2773.23.camel@bwh-desktop>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <cgroups@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111216072050.4f49ac66.kamezawa.hiroyu@jp.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 15, 2011 at 03:51:16PM -0800, Ben Hutchings wrote:
-> In order to find out the device's RX flow hash table size, ethtool
-> initially uses ETHTOOL_GRXFHINDIR with a buffer size of zero.  This
-> must be supported, but it is not necessary to support any other user
-> buffer size less than the device table size.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
->  include/linux/ethtool.h |    5 +++--
->  1 files changed, 3 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-> index 20db5b27..0ec2fd4 100644
-> --- a/include/linux/ethtool.h
-> +++ b/include/linux/ethtool.h
-> @@ -543,8 +543,9 @@ struct compat_ethtool_rxnfc {
->  /**
->   * struct ethtool_rxfh_indir - command to get or set RX flow hash indirection
->   * @cmd: Specific command number - %ETHTOOL_GRXFHINDIR or %ETHTOOL_SRXFHINDIR
-> - * @size: On entry, the array size of the user buffer.  On return from
-> - *	%ETHTOOL_GRXFHINDIR, the array size of the hardware indirection table.
-> + * @size: On entry, the array size of the user buffer, which may be zero
-> + *	for %ETHTOOL_GRXFHINDIR.  On return from %ETHTOOL_GRXFHINDIR, the
-> + *	array size of the hardware indirection table.
+On 12/16/2011 02:20 AM, KAMEZAWA Hiroyuki wrote:
+> On Fri, 16 Dec 2011 01:13:16 +0900
+> KAMEZAWA Hiroyuki<kamezawa.hiroyu@jp.fujitsu.com>  wrote:
+>
+>> On Thu, 15 Dec 2011 13:34:32 +0400
+>> Glauber Costa<glommer@parallels.com>  wrote:
+>>
+>>> Walking the proto_list holds a read_lock, which prevents us from doing
+>>> allocations. Splitting the tcp create function into create + init is
+>>> good, but it is not enough since create_files will do allocations as well
+>>> (dentry ones, mostly).
+>>>
+>>> Since this does not involve any protocol state, I propose we call the tcp
+>>> functions explicitly from memcontrol.c
+>>>
+>>> With this, we lose by now the ability of doing cgroup memcontrol for
+>>> protocols that are loaded as modules. But at least the ones I have in mind
+>>> won't really need it (tcp_ipv6 being the only one, but it uses the same data
+>>> structures as tcp_ipv4). So I believe this to be the simpler solution to this
+>>> problem.
+>>>
+>>> Signed-off-by: Glauber Costa<glommer@parallels.com>
+>>> CC: Hiroyouki Kamezawa<kamezawa.hiroyu@jp.fujitsu.com>
+>>> CC: David S. Miller<davem@davemloft.net>
+>>> CC: Eric Dumazet<eric.dumazet@gmail.com>
+>>> CC: Stephen Rothwell<sfr@canb.auug.org.au>
+>>
+>> Could you remake the patch onto the 'latest' linux-next ?
+>> As Dave mentioned, some bandaids are already applied and this patch hunks.
+>
+> Applied patches by hand and did small test for hours.
+> seems good.
+>
+> Reviewed-by: KAMEZAWA Hiroyuki<kamezawa.hiroyu@jp.fujitsu.com>
+>
+Kame,
 
-Can we roll in the documentation request you gave me earlier?  Something
-to the effect of:
-
-"A zero size with %ETHTOOL_SRXFHINDIR means userspace relinquishes
-control of the indirection table."
-
->   * @ring_index: RX ring/queue index for each hash value
->   */
->  struct ethtool_rxfh_indir {
-> -- 
-> 1.7.4.4
-> 
-> 
-> 
-> -- 
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
-> 
-> 
+Thanks. But see Dave's answer to this: He'd like me to follow a slightly 
+different approach (I've attached a patch earlier)
