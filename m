@@ -1,43 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tc filter show not displaying anything
-Date: Fri, 16 Dec 2011 06:42:58 +0100
-Message-ID: <1324014178.2562.33.camel@edumazet-laptop>
-References: <1324010915.8451.319.camel@denise.theartistscloset.com>
-	 <1324012627.2562.26.camel@edumazet-laptop>
-	 <1324013969.8451.326.camel@denise.theartistscloset.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tg3: Make the RSS indir tbl admin configurable
+Date: Fri, 16 Dec 2011 01:12:11 -0500 (EST)
+Message-ID: <20111216.011211.448655043846843883.davem@davemloft.net>
+References: <1323996466-8139-1-git-send-email-mcarlson@broadcom.com>
+	<1324004674.2825.226.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mcarlson@broadcom.com, netdev@vger.kernel.org, mchan@broadcom.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:44836 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751159Ab1LPFoW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 00:44:22 -0500
-Received: by wgbdr13 with SMTP id dr13so5502651wgb.1
-        for <netdev@vger.kernel.org>; Thu, 15 Dec 2011 21:44:21 -0800 (PST)
-In-Reply-To: <1324013969.8451.326.camel@denise.theartistscloset.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:47649 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751189Ab1LPGMP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 01:12:15 -0500
+In-Reply-To: <1324004674.2825.226.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 16 d=C3=A9cembre 2011 =C3=A0 00:39 -0500, John A. Sullivan =
-III a
-=C3=A9crit :
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 16 Dec 2011 03:04:34 +0000
 
-> Ouch! That was right out of the book so to speak.  Thanks for pointin=
-g
-> it out - now I see it is right in the man page.  Is best practice to =
-not
-> perturb and live with the potentially unbalanced queues or just to se=
-t
-> it even higher? Thanks - John
->=20
+> On Thu, 2011-12-15 at 16:47 -0800, Matt Carlson wrote:
+>> This patch adds the ethtool callbacks necessary to change the rss
+>> indirection table from userspace.  When setting the indirection table
+>> through set_rxfh_indir, an indirection table size of zero is
+>> interpreted to mean that the admin wants to relinquish control of the
+>> table to the driver.  Should the number of interrupts change (e.g.
+>> across a close / open call, or through a reset), any indirection table
+>> values that exceed the number of RSS queues or interrupt vectors will
+>> be automatically scaled back to values within range.
+>> 
+>> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+>> Signed-off-by: Michael Chan <mchan@broadcom.com>
+>> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> 
+> No I didn't!
 
-I'll fix this today, because rehashing up to 128 packets is not that
-expensive.
-
-In the meantime, just use a higher timer (say 60 seconds), and if your
-kernel is recent enough, use a higher 'divisor' value (default 1024, ca=
-n
-be up to 65536) to lower risk of hash collisions.
+Matt, really, don't do crap like this.  It's extremely rude and
+completely unprofessional.
