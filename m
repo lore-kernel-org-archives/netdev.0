@@ -1,33 +1,37 @@
-From: zanghongyong@huawei.com
-Subject: [PATCH 0/2] vhot-net: Use kvm_memslots instead of vhost_memory to
- translate GPA to HVA
-Date: Fri, 16 Dec 2011 13:32:06 +0800
-Message-ID: <1324013528-3663-1-git-send-email-zanghongyong@huawei.com>
+From: Vincent Bernat <bernat@luffy.cx>
+Subject: Re: nonlocal_bind and IPv6
+Date: Fri, 16 Dec 2011 07:24:04 +0100
+Message-ID: <m3zket9gqj.fsf@neo.luffy.cx>
+References: <1323879648-419-1-git-send-email-bernat@luffy.cx>
+	<CAHo-OoxrYpFMBVfriB7HhL-BpMXJgCe1-mL4L8UpsDQJifMZvQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7BIT
-Cc: mst@redhat.com, levinsasha928@gmail.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	xiaowei.yang@huawei.com, hanweidong@huawei.com,
-	wusongwei@huawei.com, Hongyong Zang <zanghongyong@huawei.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	yoshfuji@linux-ipv6.org
+To: Maciej =?utf-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bart.luffy.cx ([78.47.78.131]:33322 "EHLO bart.luffy.cx"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751868Ab1LPGbN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 01:31:13 -0500
+In-Reply-To: <CAHo-OoxrYpFMBVfriB7HhL-BpMXJgCe1-mL4L8UpsDQJifMZvQ@mail.gmail.com>
+	("Maciej =?utf-8?Q?=C5=BBenczykowski=22's?= message of "Thu, 15 Dec 2011
+ 19:58:01 -0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hongyong Zang <zanghongyong@huawei.com>
+OoO En  ce milieu  de nuit  =C3=A9toil=C3=A9e du vendredi  16 d=C3=A9ce=
+mbre  2011, vers
+04:58, Maciej =C5=BBenczykowski <zenczykowski@gmail.com> disait=C2=A0:
 
-Vhost-net uses its own vhost_memory, which results from user space (qemu) info,
-to translate GPA to HVA. Since kernel's kvm structure already maintains the 
-address relationship in its member *kvm_memslots*, these patches use kernel's 
-kvm_memslots directly without the need of initialization and maintenance of 
-vhost_memory.
+> why not simply use the IP_TRANSPARENT or IP_FREEBIND socket options?
 
-Hongyong Zang (2):
-  kvm: Introduce get_kvm_from_task
-  vhost-net: Use kvm_memslots for address translation
+Because  this requires  modifying each  affected software.  This  can b=
+e
+difficult if you don't have the source code available.
+--=20
+Vincent Bernat =E2=98=AF http://vincent.bernat.im
 
- drivers/vhost/vhost.c    |   53 +++++++++++++++++----------------------------
- include/linux/kvm_host.h |    2 +-
- virt/kvm/kvm_main.c      |   13 +++++++++++
- 3 files changed, 34 insertions(+), 34 deletions(-)
+panic("Detected a card I can't drive - whoops\n");
+	2.2.16 /usr/src/linux/drivers/net/daynaport.c
