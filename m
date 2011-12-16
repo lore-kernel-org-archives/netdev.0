@@ -1,65 +1,68 @@
-From: zanghongyong@huawei.com
-Subject: [PATCH 1/2] kvm: Introduce get_kvm_from_task
-Date: Fri, 16 Dec 2011 13:32:07 +0800
-Message-ID: <1324013528-3663-2-git-send-email-zanghongyong@huawei.com>
-References: <1324013528-3663-1-git-send-email-zanghongyong@huawei.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: pull request: wireless 2011-12-15
+Date: Fri, 16 Dec 2011 07:40:16 +0100
+Message-ID: <CACna6rz3qDpw4eJOoCXx7=z1719v7kS-Ou-WUseR9_vB-O2dag@mail.gmail.com>
+References: <20111215191523.GA2561@tuxdriver.com>
+	<CACna6rw736JdkoM8zKxorCFd5oy08QTwWZ6PutoJPSr3ZN8hTg@mail.gmail.com>
+	<20111215213822.GB2561@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7BIT
-Cc: mst@redhat.com, levinsasha928@gmail.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	xiaowei.yang@huawei.com, hanweidong@huawei.com,
-	wusongwei@huawei.com, Hongyong Zang <zanghongyong@huawei.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <1324013528-3663-1-git-send-email-zanghongyong@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Arend Van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20111215213822.GB2561-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Hongyong Zang <zanghongyong@huawei.com>
+W dniu 15 grudnia 2011 22:38 u=C5=BCytkownik John W. Linville
+<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> napisa=C5=82:
+> On Thu, Dec 15, 2011 at 09:04:29PM +0100, Rafa=C5=82 Mi=C5=82ecki wro=
+te:
+>> 2011/12/15 John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>:
+>> > commit 42a3b63bb2ca4996a3d1210a004eae2333f1119e
+>> >
+>> > Dave,
+>> >
+>> > Here are a few more fixes intended for the 3.2 release. =C2=A0They=
+ are
+>> > all small and narrowly focused.
+>>
+>> John, I've made a mistake and didn't use [PATCH 3.2] header to make =
+it
+>> clean my patch is fix. Could you take a look at
+>> [PATCH] bcma: support for suspend and resume
+>> please?
+>>
+>> It's not one-liner, but fixes lock ups, which I believe - we really
+>> want to avoid.
+>
+> It's late in the release cycle, and Dave specifically asked me to slo=
+w down.
+>
+> Are these suspend/resume lockups a regression? =C2=A0Or have they alw=
+ays
+> been there? =C2=A0Do they happen to everyone?
 
-This function finds the kvm structure from its corresponding user
-space process, such as qemu process.
+The bug is present since first days of bcma. That's why I even decided
+to add stable to CC.
 
-Signed-off-by: Hongyong Zang <zanghongyong@huawei.com>
----
- include/linux/kvm_host.h |    2 +-
- virt/kvm/kvm_main.c      |   13 +++++++++++++
- 2 files changed, 14 insertions(+), 1 deletions(-)
+Personally I've tested that only on 1 machine (I don't have more
+suspendable machines with mini PCIe slot). However all Macbook 8.1/8.2
+users have to remove b43 & bcma before suspending [0], they complain
+about that since ever.
 
-diff --git a/include/linux/kvm_host.h b/include/linux/kvm_host.h
-index 8c5c303..1b2f027 100644
---- a/include/linux/kvm_host.h
-+++ b/include/linux/kvm_host.h
-@@ -801,4 +801,4 @@ static inline bool kvm_check_request(int req, struct kvm_vcpu *vcpu)
- }
- 
- #endif
--
-+struct kvm *get_kvm_from_task(struct task_struct *task);
-diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
-index e289486..458fe29 100644
---- a/virt/kvm/kvm_main.c
-+++ b/virt/kvm/kvm_main.c
-@@ -2664,6 +2664,19 @@ static const struct file_operations *stat_fops[] = {
- 	[KVM_STAT_VM]   = &vm_stat_fops,
- };
- 
-+struct kvm* get_kvm_from_task(struct task_struct *task)
-+{
-+        struct kvm *kvm;
-+
-+        list_for_each_entry(kvm, &vm_list, vm_list) {
-+                if(kvm->mm == task->mm)
-+                    return kvm;
-+        }
-+
-+        return NULL;
-+}
-+EXPORT_SYMBOL_GPL(get_kvm_from_task);
-+
- static void kvm_init_debug(void)
- {
- 	struct kvm_stats_debugfs_item *p;
--- 
-1.7.1
+Arend: I know you're also complaining for suspend in bcma. Can you
+comment on this?
+
+[0] http://ubuntuforums.org/showthread.php?t=3D1695746
+
+--=20
+Rafa=C5=82
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
