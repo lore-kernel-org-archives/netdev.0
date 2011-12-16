@@ -1,140 +1,98 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: linux-3.0.x regression with ipv4 routes having mtu
-Date: Fri, 16 Dec 2011 13:21:47 +0100
-Message-ID: <20111216122147.GJ6348@secunet.com>
-References: <4EE8C6A8.3060308@iki.fi>
- <20111214.125010.82857701285437834.davem@davemloft.net>
- <20111215134957.GI6348@secunet.com>
+From: Michal Hocko <mhocko@suse.cz>
+Subject: Re: [PATCH v9 1/9] Basic kernel memory functionality for the Memory
+ Controller
+Date: Fri, 16 Dec 2011 13:32:33 +0100
+Message-ID: <20111216123233.GF3122@tiehlicka.suse.cz>
+References: <1323676029-5890-1-git-send-email-glommer@parallels.com>
+ <1323676029-5890-2-git-send-email-glommer@parallels.com>
+ <20111214170447.GB4856@tiehlicka.suse.cz>
+ <4EE9E81E.2090700@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: timo.teras@iki.fi, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:41278 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751989Ab1LPMVv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Dec 2011 07:21:51 -0500
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	paul@paulmenage.org, lizf@cn.fujitsu.com,
+	kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com,
+	gthelen@google.com, netdev@vger.kernel.org, linux-mm@kvack.org,
+	kirill@shutemov.name, avagin@parallels.com, devel@openvz.org,
+	eric.dumazet@gmail.com, cgroups@vger.kernel.org,
+	Johannes Weiner <jweiner@redhat.com>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <20111215134957.GI6348@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4EE9E81E.2090700@parallels.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 15, 2011 at 02:49:57PM +0100, Steffen Klassert wrote:
-> On Wed, Dec 14, 2011 at 12:50:10PM -0500, David Miller wrote:
-> > From: Timo Ter=E4s <timo.teras@iki.fi>
-> > Date: Wed, 14 Dec 2011 17:54:16 +0200
-> >=20
-> > > So something is does not get updated here. This used to work thou=
-gh.
-> > > The current production boxes where I know this work is 2.6.38.8.
-> >=20
-> > We store the PMTU externally in inetpeer entries, Eric Dumazet
-> > fixed recently but that fix hasn't been submitted to -stable
-> > yet.
-> >=20
->=20
-> I think we still have at least two problems with pmtu handling.
-> One is that "ip route flush cache" flushes the routing cache
-> but not the cached metrics on the inetpeer.
+On Thu 15-12-11 16:29:18, Glauber Costa wrote:
+> On 12/14/2011 09:04 PM, Michal Hocko wrote:
+> >[Now with the current patch version, I hope]
+> >On Mon 12-12-11 11:47:01, Glauber Costa wrote:
+[...]
+> >>@@ -3848,10 +3862,17 @@ static inline u64 mem_cgroup_usage(struct mem_cgroup *memcg, bool swap)
+> >>  	u64 val;
+> >>
+> >>  	if (!mem_cgroup_is_root(memcg)) {
+> >>+		val = 0;
+> >>+#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+> >>+		if (!memcg->kmem_independent_accounting)
+> >>+			val = res_counter_read_u64(&memcg->kmem, RES_USAGE);
+> >>+#endif
+> >>  		if (!swap)
+> >>-			return res_counter_read_u64(&memcg->res, RES_USAGE);
+> >>+			val += res_counter_read_u64(&memcg->res, RES_USAGE);
+> >>  		else
+> >>-			return res_counter_read_u64(&memcg->memsw, RES_USAGE);
+> >>+			val += res_counter_read_u64(&memcg->memsw, RES_USAGE);
+> >>+
+> >>+		return val;
+> >>  	}
+> >
+> >So you report kmem+user but we do not consider kmem during charge so one
+> >can easily end up with usage_in_bytes over limit but no reclaim is going
+> >on. Not good, I would say.
 
-"ip route flush cache" does not even flush the routing cache,
-it just markes the routing cache as invalid by changing the
-rt_genid which make the old routes invisible. And since we don't
-have rt_check_expire() anymore, we have to wait until we have
-collected gc_thresh (1024) useless routes before rt_garbage_collect()
-starts to remove some of them (btw. is this intentional).
+I find this a problem and one of the reason I do not like !independent
+accounting.
 
-I think we need a trigger in rt_cache_invalidate() that expires
-all cached pmtu values similar to the routing cache entries.
-=46or a moment I thought we could just reset the __rt_peer_genid
-value back to zero to mark all cached pmtu values as expired,
-but that's apparently not save to do. So I came to no conclusion
-how to fix this today. Any ideas?
+> >
+> >OK, so to sum it up. The biggest problem I see is the (non)independent
+> >accounting. We simply cannot mix user+kernel limits otherwise we would
+> >see issues (like kernel resource hog would force memcg-oom and innocent
+> >members would die because their rss is much bigger).
+> >It is also not clear to me what should happen when we hit the kmem
+> >limit. I guess it will be kmem cache dependent.
+> 
+> So right now, tcp is completely independent, since it is not
+> accounted to kmem. 
 
->=20
-> Another problem might be that we ignore the user configured
-> fib_metrics in rt_init_metrics() if we have a cached metric
-> on the inetpeer.
->=20
+So why do we need kmem accounting when tcp (the only user at the moment)
+doesn't use it? 
 
-I think this could be fixed with something like the patch
-below. With this it should be possible to overwrite cached
-values from userspace. It has not much testing, so it's
-just for review at the monent.
+> In summary, we still never do non-independent accounting. When we
+> start doing it for the other caches, We will have to add a test at
+> charge time as well.
 
----------
-Subject: [PATCH] route: Initialize with the fib_metrics in the non defa=
-ult case
+So we shouldn't do it as a part of this patchset because the further
+usage is not clear and I think there will be some real issues with
+user+kmem accounting (e.g. a proper memcg-oom implementation).
+Can you just drop this patch?
 
-We initialize the routing metrics with the cached values in
-rt_init_metrics(). So if we have the metrics cached on the
-inetpeer, we ignore the user configured fib_metrics. So
-initialize the routing metrics with the fib_metrics if they
-are different from dst_default_metrics.
+> We still need to keep it separate though, in case the independent
+> flag is turned on/off
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv4/route.c |   28 ++++++++++++++++++++--------
- 1 files changed, 20 insertions(+), 8 deletions(-)
+I don't mind to have kmem.tcp.* knobs.
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index f30112f..26a6249 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1841,6 +1841,22 @@ static unsigned int ipv4_mtu(const struct dst_en=
-try *dst)
- 	return mtu;
- }
-=20
-+static void __rt_init_metrics(struct rtable *rt, struct fib_info *fi,
-+			      struct inet_peer *peer)
-+{
-+	if (peer && fi->fib_metrics =3D=3D (u32 *) dst_default_metrics) {
-+		dst_init_metrics(&rt->dst, peer->metrics, false);
-+		return;
-+	}
-+
-+	if (fi->fib_metrics !=3D (u32 *) dst_default_metrics) {
-+		rt->fi =3D fi;
-+		atomic_inc(&fi->fib_clntref);
-+	}
-+
-+	dst_init_metrics(&rt->dst, fi->fib_metrics, true);
-+}
-+
- static void rt_init_metrics(struct rtable *rt, const struct flowi4 *fl=
-4,
- 			    struct fib_info *fi)
- {
-@@ -1859,7 +1875,8 @@ static void rt_init_metrics(struct rtable *rt, co=
-nst struct flowi4 *fl4,
- 		if (inet_metrics_new(peer))
- 			memcpy(peer->metrics, fi->fib_metrics,
- 			       sizeof(u32) * RTAX_MAX);
--		dst_init_metrics(&rt->dst, peer->metrics, false);
-+
-+		__rt_init_metrics(rt, fi, peer);
-=20
- 		check_peer_pmtu(&rt->dst, peer);
- 		if (peer->redirect_genid !=3D redirect_genid)
-@@ -1869,13 +1886,8 @@ static void rt_init_metrics(struct rtable *rt, c=
-onst struct flowi4 *fl4,
- 			rt->rt_gateway =3D peer->redirect_learned.a4;
- 			rt->rt_flags |=3D RTCF_REDIRECTED;
- 		}
--	} else {
--		if (fi->fib_metrics !=3D (u32 *) dst_default_metrics) {
--			rt->fi =3D fi;
--			atomic_inc(&fi->fib_clntref);
--		}
--		dst_init_metrics(&rt->dst, fi->fib_metrics, true);
--	}
-+	} else
-+		__rt_init_metrics(rt, fi, NULL);
- }
-=20
- static void rt_set_nexthop(struct rtable *rt, const struct flowi4 *fl4=
-,
---=20
-1.7.0.4
+-- 
+Michal Hocko
+SUSE Labs
+SUSE LINUX s.r.o.
+Lihovarska 1060/12
+190 00 Praha 9    
+Czech Republic
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
