@@ -1,55 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: two vzalloc() cleanups
-Date: Fri, 16 Dec 2011 22:17:35 +0100
-Message-ID: <1324070255.2621.29.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: the linux-can-next tree
+Date: Fri, 16 Dec 2011 16:14:16 -0500 (EST)
+Message-ID: <20111216.161416.1158979823905609381.davem@davemloft.net>
+References: <20111201.130907.1276930495409347261.davem@davemloft.net>
+	<4ED7DDBA.9090201@pengutronix.de>
+	<4EE5C5D0.5030805@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:41922 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760696Ab1LPVRm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 16:17:42 -0500
-Received: by werm1 with SMTP id m1so611998wer.19
-        for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 13:17:41 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan@hartkopp.net, wg@grandegger.com, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org, urs@isnogud.escape.de
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4EE5C5D0.5030805@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We can use vzalloc() helper now instead of __vmalloc() trick
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Mon, 12 Dec 2011 10:13:52 +0100
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/netfilter/nf_conntrack_core.c |    3 +--
- net/tipc/ref.c                    |    3 +--
- 2 files changed, 2 insertions(+), 4 deletions(-)
+> Hello David,
+> 
+> On 12/01/2011 09:04 PM, Marc Kleine-Budde wrote:
+>>> I said I want one person.  One person who periodically send me GIT pull requests
+>>> or a patch series for "CAN updates" of all kinds.
+>> 
+>> We're currently discussing the problem and we understood the one person
+>> contact policy.
+> 
+> We decided that I should be this person. Our can tree is located on
+> gitorious:
+> 
+> https://gitorious.org/linux-can/linux-can-next
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 7202b06..80bfb7c 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1342,8 +1342,7 @@ void *nf_ct_alloc_hashtable(unsigned int *sizep, int nulls)
- 					get_order(sz));
- 	if (!hash) {
- 		printk(KERN_WARNING "nf_conntrack: falling back to vmalloc.\n");
--		hash = __vmalloc(sz, GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO,
--				 PAGE_KERNEL);
-+		hash = vzalloc(sz);
- 	}
- 
- 	if (hash && nulls)
-diff --git a/net/tipc/ref.c b/net/tipc/ref.c
-index 8311689..9e37b78 100644
---- a/net/tipc/ref.c
-+++ b/net/tipc/ref.c
-@@ -110,8 +110,7 @@ int tipc_ref_table_init(u32 requested_size, u32 start)
- 
- 	/* allocate table & mark all entries as uninitialized */
- 
--	table = __vmalloc(actual_size * sizeof(struct reference),
--			  GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO, PAGE_KERNEL);
-+	table = vzalloc(actual_size * sizeof(struct reference));
- 	if (table == NULL)
- 		return -ENOMEM;
- 
+Let me know when you formally want me to pull from this.  Typically this is
+done by posting a "N patch" series to netdev, one for each change, CC:'d
+to me.
+
+The first posting should be with a subject like "[PATCH 0/N] CAN updates"
+and contain the pull request as well as the top-level diffstate et al.
+of the pull, usually generated using "git request-pull"
