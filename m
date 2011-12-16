@@ -1,31 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] net: fix sleeping while atomic problem in sock
- mem_cgroup.
-Date: Fri, 16 Dec 2011 11:10:09 +0100
-Message-ID: <1324030209.2273.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1324026582-5214-1-git-send-email-glommer@parallels.com>
-	  <1324027869.2273.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	  <4EEB1508.3080405@parallels.com>
-	 <1324029886.2273.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4EEB1807.1000308@parallels.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] wimax/i2400m: remove an unused variable
+Date: Fri, 16 Dec 2011 13:22:42 +0300
+Message-ID: <20111216102242.GC4287@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	kamezawa.hiroyu@jp.fujitsu.com, netdev@vger.kernel.org,
-	cgroups@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>,
-	Randy Dunlap <rdunlap@xenotime.net>
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4EEB1807.1000308@parallels.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wimax@intel.com, wimax@linuxwimax.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet15.oracle.com ([148.87.113.117]:59538 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751051Ab1LPKXI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 05:23:08 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 16 d=C3=A9cembre 2011 =C3=A0 14:05 +0400, Glauber Costa a =C3=
-=A9crit :
+"result" isn't used.  We ignore errors here because there is not much we
+can do about them.
 
-> Well, in this case, I myself think this is a better solution. Do you=20
-> want to push the patch yourself, or should I do it ?
->=20
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Please do it, I'll add my SOB after yours, thanks !
+diff --git a/drivers/net/wimax/i2400m/usb-tx.c b/drivers/net/wimax/i2400m/usb-tx.c
+index ac357ac..99ef81b 100644
+--- a/drivers/net/wimax/i2400m/usb-tx.c
++++ b/drivers/net/wimax/i2400m/usb-tx.c
+@@ -177,7 +177,6 @@ retry:
+ static
+ int i2400mu_txd(void *_i2400mu)
+ {
+-	int result = 0;
+ 	struct i2400mu *i2400mu = _i2400mu;
+ 	struct i2400m *i2400m = &i2400mu->i2400m;
+ 	struct device *dev = &i2400mu->usb_iface->dev;
+@@ -208,16 +207,14 @@ int i2400mu_txd(void *_i2400mu)
+ 		/* Yeah, we ignore errors ... not much we can do */
+ 		i2400mu_tx(i2400mu, tx_msg, tx_msg_size);
+ 		i2400m_tx_msg_sent(i2400m);	/* ack it, advance the FIFO */
+-		if (result < 0)
+-			break;
+ 	}
+ 
+ 	spin_lock_irqsave(&i2400m->tx_lock, flags);
+ 	i2400mu->tx_kthread = NULL;
+ 	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
+ 
+-	d_fnend(4, dev, "(i2400mu %p) = %d\n", i2400mu, result);
+-	return result;
++	d_fnend(4, dev, "(i2400mu %p)\n", i2400mu);
++	return 0;
+ }
+ 
+ 
