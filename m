@@ -1,54 +1,57 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] wimax/i2400m: remove an unused variable
-Date: Fri, 16 Dec 2011 13:22:42 +0300
-Message-ID: <20111216102242.GC4287@elgon.mountain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wimax@intel.com, wimax@linuxwimax.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:59538 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751051Ab1LPKXI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 05:23:08 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: [PATCH 2/2] net: fix compilation with !CONFIG_NET
+Date: Fri, 16 Dec 2011 14:52:00 +0400
+Message-ID: <1324032720-13752-2-git-send-email-glommer@parallels.com>
+References: <1324032720-13752-1-git-send-email-glommer@parallels.com>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1324032720-13752-1-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-"result" isn't used.  We ignore errors here because there is not much we
-can do about them.
+Reported-by: Randy Dunlap <rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>
+Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+CC: Hiroyouki Kamezawa <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+CC: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+CC: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+CC: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
+---
+ include/net/sock.h |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-diff --git a/drivers/net/wimax/i2400m/usb-tx.c b/drivers/net/wimax/i2400m/usb-tx.c
-index ac357ac..99ef81b 100644
---- a/drivers/net/wimax/i2400m/usb-tx.c
-+++ b/drivers/net/wimax/i2400m/usb-tx.c
-@@ -177,7 +177,6 @@ retry:
- static
- int i2400mu_txd(void *_i2400mu)
- {
--	int result = 0;
- 	struct i2400mu *i2400mu = _i2400mu;
- 	struct i2400m *i2400m = &i2400mu->i2400m;
- 	struct device *dev = &i2400mu->usb_iface->dev;
-@@ -208,16 +207,14 @@ int i2400mu_txd(void *_i2400mu)
- 		/* Yeah, we ignore errors ... not much we can do */
- 		i2400mu_tx(i2400mu, tx_msg, tx_msg_size);
- 		i2400m_tx_msg_sent(i2400m);	/* ack it, advance the FIFO */
--		if (result < 0)
--			break;
- 	}
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 6fe0dae..3144c79 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -66,8 +66,20 @@
  
- 	spin_lock_irqsave(&i2400m->tx_lock, flags);
- 	i2400mu->tx_kthread = NULL;
- 	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
- 
--	d_fnend(4, dev, "(i2400mu %p) = %d\n", i2400mu, result);
--	return result;
-+	d_fnend(4, dev, "(i2400mu %p)\n", i2400mu);
+ struct cgroup;
+ struct cgroup_subsys;
++#ifdef CONFIG_NET
+ int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss);
+ void mem_cgroup_sockets_destroy(struct cgroup *cgrp, struct cgroup_subsys *ss);
++#else
++static inline
++int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss)
++{
 +	return 0;
- }
- 
- 
++}
++static inline
++void mem_cgroup_sockets_destroy(struct cgroup *cgrp, struct cgroup_subsys *ss)
++{
++}
++#endif
+ /*
+  * This structure really needs to be cleaned up.
+  * Most of it is for TCP, and not used by any of
+-- 
+1.7.6.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe cgroups" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
