@@ -1,79 +1,56 @@
-From: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: skb->priority usage in wireless frame classification
-Date: Fri, 16 Dec 2011 10:53:43 +0100
-Message-ID: <CAA93jw7pBA3fxJg6KpFAFXCJZ=A63LCbJTjv2UpDmQH9-fyPSQ@mail.gmail.com>
-References: <CAGXE3d_ouo4KzQA0-ysLz_RwcqoTc5Sg4V6BZZJP0TJewzNOxw@mail.gmail.com>
-	<CAA93jw4-OEbiSpQM+SJn7R0uAe0o-nw0kwgvjVkL4w4AeWQtjQ@mail.gmail.com>
-	<CAGXE3d_=OA+EvX8Q=gELDHSESAQpgt_EavTWGTNLYMnjURLJWw@mail.gmail.com>
+From: Vincent Bernat <bernat@luffy.cx>
+Subject: Re: =?UTF-8?Q?nonlocal=5Fbind=20and=20IPv=36?=
+Date: Fri, 16 Dec 2011 10:53:48 +0100
+Message-ID: <e21a2d9682b5d83fefe3f09a07316033@luffy.cx>
+References: <1323879648-419-1-git-send-email-bernat@luffy.cx>
+ <CAHo-OoxrYpFMBVfriB7HhL-BpMXJgCe1-mL4L8UpsDQJifMZvQ@mail.gmail.com>
+ <m3zket9gqj.fsf@neo.luffy.cx>
+ <20111216.020600.1695776769736304587.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-To: Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAGXE3d_=OA+EvX8Q=gELDHSESAQpgt_EavTWGTNLYMnjURLJWw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <zenczykowski@gmail.com>, <netdev@vger.kernel.org>,
+	<yoshfuji@linux-ipv6.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bart.luffy.cx ([78.47.78.131]:35377 "EHLO bart.luffy.cx"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750900Ab1LPJxv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Dec 2011 04:53:51 -0500
+In-Reply-To: <20111216.020600.1695776769736304587.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 16, 2011 at 10:42 AM, Helmut Schaa
-<helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org> wrote:
-> On Fri, Dec 16, 2011 at 10:35 AM, Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wro=
-te:
->> On Fri, Dec 16, 2011 at 9:45 AM, Helmut Schaa
->> <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org> wrote:
->>> [Adding netdev]
->>>
->>> Maybe someone from the netdev people can shed some light on this.
->>> We've got the following code in net/wireless/util.c for frame class=
-ification
->>> (cfg80211_classify8021d):
->>>
->>> /* skb->priority values from 256->263 are magic values to
->>> * directly indicate a specific 802.1d priority. =A0This is used
->>> * to allow 802.1d priority to be passed directly in from VLAN
->>> * tags, etc.
->>> */
->>> if (skb->priority >=3D 256 && skb->priority <=3D 263)
->>> =A0=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return skb->priority - 256;
->>>
->>> I was just thinking about making use of this for some internal mac8=
-0211
->>> QoS handling. But is this code still valid? At least I haven't foun=
-d anything
->>> in the 802.1q code :(
+On Fri, 16 Dec 2011 02:06:00 -0500 (EST), David Miller wrote:
+
+>> OoO En  ce milieu  de nuit  =C3=A9toil=C3=A9e du vendredi  16 d=C3=A9=
+cembre  2011,=20
+>> vers
+>> 04:58, Maciej =C5=BBenczykowski <zenczykowski@gmail.com> disait=C2=A0=
+:
 >>
->> I made use of the above 'feature' while prototyping some Diffserv wo=
-rk
->> with iptables. I have no idea if there are users of this obscure
->> overloading of priority in userspace....
+>>> why not simply use the IP_TRANSPARENT or IP_FREEBIND socket=20
+>>> options?
 >>
->> The vlan code at least used to do something like this:
->>
->> net/8021q/vlan.h: * =A0 =A0 @vlan_qos: vlan priority: (skb->priority=
- << 13) & 0xE000
+>> Because  this requires  modifying each  affected software.  This =20
+>> can be
+>> difficult if you don't have the source code available.
 >
-> Yeah, I saw that too but +256 would be << 8 and not << 13.
+> But it means that it would work on every single kernel verion out
+> there.
 
-Exactly. It's why I used the word 'overload'. Someone in the distant
-past saw >> 8 was 'reserved', and figured >> 13 was a safe place to
-stick some valuable bits...
+Sure. But... The typical scenario for this setting is when you are=20
+using something like VRRP. You have your web server running on several=20
+nodes and only one of them has the appropriate IP address at the given=20
+moment. Moreover, you have to bind to specific IP and not 0.0.0.0 for=20
+other reasons (for example, when using several SSL virtualhosts).=20
+Starting the web server only when a node gets the appropriate IP is not=
+=20
+possible because it increases downtime. Since this VRRP stuff is relate=
+d=20
+to system configuration, it seems sensible to have a system setting=20
+equivalent to IP_FREEBIND socket options. This is ip_nonlocal_bind.
 
-or vice versa.
-
-> Helmut
-
-
-
---=20
-Dave T=E4ht
-SKYPE: davetaht
-US Tel: 1-239-829-5608
-=46R Tel: 0638645374
-http://www.bufferbloat.net
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Moreover, I am just adding the IPv6 version of this setting. The IPv4=20
+version already exists.
