@@ -1,40 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] wimax/i2400m: remove an unused variable
-Date: Fri, 16 Dec 2011 19:07:09 -0500 (EST)
-Message-ID: <20111216.190709.1669440818860495373.davem@davemloft.net>
-References: <20111216102242.GC4287@elgon.mountain>
-	<3A78FAA0EC814D4B8ECC99B3AB32B332012E56@ORSMSX105.amr.corp.intel.com>
+From: Satoru Moriya <satoru.moriya@hds.com>
+Subject: [PATCH 0/2] Tracepoint for tcp retransmission
+Date: Fri, 16 Dec 2011 17:14:53 -0500
+Message-ID: <65795E11DBF1E645A09CEC7EAEE94B9CB5AFA64F@USINDEVS02.corp.hds.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	wimax@linuxwimax.org, dan.carpenter@oracle.com, linux-wimax@intel.com
-To: inaky.perez-gonzalez@intel.com
-Return-path: <wimax-bounces@linuxwimax.org>
-In-Reply-To: <3A78FAA0EC814D4B8ECC99B3AB32B332012E56@ORSMSX105.amr.corp.intel.com>
-List-Unsubscribe: <http://lists.linuxwimax.org/options/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxwimax.org/pipermail/wimax>
-List-Post: <mailto:wimax@linuxwimax.org>
-List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
-List-Subscribe: <http://lists.linuxwimax.org/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
-Sender: wimax-bounces@linuxwimax.org
-Errors-To: wimax-bounces@linuxwimax.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: "nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"tgraf@infradead.org" <tgraf@infradead.org>,
+	Seiji Aguchi <seiji.aguchi@hds.com>,
+	"dle-develop@lists.sourceforge.net"
+	<dle-develop@lists.sourceforge.net>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from usindpps03.hds.com ([207.126.252.16]:59779 "EHLO
+	usindpps03.hds.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756636Ab1LQAHf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 19:07:35 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Perez-Gonzalez, Inaky" <inaky.perez-gonzalez@intel.com>
-Date: Fri, 16 Dec 2011 22:09:29 +0000
+Sometimes network packets are dropped for some reason. In enterprise
+systems which require strict RAS functionality, we must know the
+reason why it happened and explain it to our customers even if using
+TCP. When we investigate the incidents, at first we try to find out
+whether the problem is in the server(kernel, application) or else
+(router, hub etc). And next we try to find out which layer
+(application/middleware/kernel(IP/TCP/UDP/..)etc.) the problem
+occurs.
 
->> Subject: [patch] wimax/i2400m: remove an unused variable
->> 
->> "result" isn't used.  We ignore errors here because there is not much
->> we can do about them.
->> 
->> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> This is an ACK or a NAK depending on if you want to keep the reporting
-> with debug enabled or not. It is not so difficult to add back if needed, 
-> so I tend to ACK.
+In application layer, user applications and/or middlewares usually
+save logs if they dropped packets. In kernel layer, with this
+tracepoint, we are able to know whether the kernel(TCP layer) send
+packets successfully or not.
 
-And FWIW I applied this to net-next already.
+With a combination of them, we can find out whether the problem is
+in the server or not.
+
+
+Satoru Moriya (2):
+  tcp: refactor tcp_retransmit_skb() for a single return point
+  tcp: add tracepoint for tcp retransmission
+
+ include/trace/events/tcp.h |   35 +++++++++++++++++++++++++++++++++++
+ net/core/net-traces.c      |    1 +
+ net/ipv4/tcp_output.c      |   34 ++++++++++++++++++++++++----------
+ 3 files changed, 60 insertions(+), 10 deletions(-)
+ create mode 100644 include/trace/events/tcp.h
+
+-- 
+1.7.6.4
