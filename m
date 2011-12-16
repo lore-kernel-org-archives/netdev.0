@@ -1,70 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v1 5/6] tg3: implementation of a non-NAPI mode
-Date: Fri, 16 Dec 2011 20:50:42 +0100
-Message-ID: <1324065042.2621.27.camel@edumazet-laptop>
-References: <cover.1324059527.git.decot@googlers.com>
-	 <6d55ce25f5f237a4538f6a2fcd2609b877669297.1324059527.git.decot@googlers.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] batman-adv: Fix merge error.
+Date: Fri, 16 Dec 2011 15:09:06 -0500 (EST)
+Message-ID: <20111216.150906.1619202587161062277.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Javier Martinez Canillas <martinez.javier@gmail.com>,
-	Robin Getz <rgetz@blackfin.uclinux.org>,
-	Matt Mackall <mpm@selenic.com>,
-	Tom Herbert <therbert@google.com>
-To: David Decotigny <decot@googlers.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:41503 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932724Ab1LPTur (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 14:50:47 -0500
-In-Reply-To: <6d55ce25f5f237a4538f6a2fcd2609b877669297.1324059527.git.decot@googlers.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:58139 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752376Ab1LPUJL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 15:09:11 -0500
+Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
+	(authenticated bits=0)
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id pBGK97qh030789
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 12:09:10 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 16 d=C3=A9cembre 2011 =C3=A0 10:19 -0800, David Decotigny a=
- =C3=A9crit :
-> From: Tom Herbert <therbert@google.com>
->=20
-> The tg3 NIC has a hard limit of 511 descriptors for the receive ring.
-> Under heavy load of small packets, this device receive queue may not
-> be serviced fast enough to prevent packets drops.  This could be due
-> to a variety of reasons such as lengthy processing delays of packets
-> in the stack, softirqs being disabled too long, etc. If the driver is
-> run in non-NAPI mode, the RX queue is serviced in the device
-> interrupt, which is much less likely to be deferred for a substantial
-> period of time.
->=20
-> There are some effects in not using NAPI that need to be considered.
-> It does increase the chance of live-lock in interrupt handler,
-> although since the tg3 does interrupt coalescing this is very unlikel=
-y
-> to occur.  Also, more code is being run with interrupts disabled
-> potentially deferring other hardware interrupts.  The amount of time
-> spent in the interrupt handler should be minimized by dequeuing
-> packets of the device queue and queuing them to a host queue as
-> quickly as possible.
->=20
-> The default mode of operation remains NAPI and its performances are
-> kept unchanged (code unchanged). Non-NAPI mode is enabled by
-> commenting-out CONFIG_TIGON3_NAPI Kconfig parameter.
->=20
->=20
 
-Oh well, thats ugly :(
+I didn't resolve the merge properly during the last pull of the net
+tree into net-next.
 
-I suspect this was only used with RPS/RFS ?
+The code in the final resolution should set flags to TT_CLIENT_ROAM
+not TT_CLIENT_PENDING.
 
-Or interrupts stick on a given cpu ?
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/batman-adv/translation-table.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Because with a default setup, and IRQ serviced by multiple cpus, you
-endup with possible packet reorderings.
-
-Packet1,2,3,4 handled by CPU0 : queued on netif_rx() queue.
-EndOfInterrupt
-Packet4,5,6,7 handled by CPU1 : queued on netif_rx() queue.
-EndOfInterrupt
-
-CPU0/CPU1 happily merge packets...
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index 46a2b37..ab8dea8 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -244,7 +244,7 @@ void tt_local_add(struct net_device *soft_iface, const uint8_t *addr,
+ 		tt_global_entry->orig_node->tt_poss_change = true;
+ 		/* The global entry has to be marked as ROAMING and has to be
+ 		 * kept for consistency purpose */
+-		tt_global_entry->common.flags |= TT_CLIENT_PENDING;
++		tt_global_entry->common.flags |= TT_CLIENT_ROAM;
+ 		tt_global_entry->roam_at = jiffies;
+ 		send_roam_adv(bat_priv, tt_global_entry->common.addr,
+ 			      tt_global_entry->orig_node);
+-- 
+1.7.7.4
