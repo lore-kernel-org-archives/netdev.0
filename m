@@ -1,100 +1,71 @@
-From: Satoru Moriya <satoru.moriya@hds.com>
-Subject: [PATCH 1/2] tcp: refactor tcp_retransmit_skb() for a single return
- point
-Date: Fri, 16 Dec 2011 17:16:26 -0500
-Message-ID: <65795E11DBF1E645A09CEC7EAEE94B9CB5AFA650@USINDEVS02.corp.hds.com>
-References: <65795E11DBF1E645A09CEC7EAEE94B9CB5AFA64F@USINDEVS02.corp.hds.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v3] tg3: Make the RSS indir tbl admin configurable
+Date: Fri, 16 Dec 2011 22:58:38 +0000
+Message-ID: <1324076318.2798.27.camel@bwh-desktop>
+References: <1324074791-10463-1-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"tgraf@infradead.org" <tgraf@infradead.org>,
-	Seiji Aguchi <seiji.aguchi@hds.com>,
-	"dle-develop@lists.sourceforge.net"
-	<dle-develop@lists.sourceforge.net>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>
+To: Matt Carlson <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usindpps03.hds.com ([207.126.252.16]:52113 "EHLO
-	usindpps03.hds.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756696Ab1LPWxL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 17:53:11 -0500
-In-Reply-To: <65795E11DBF1E645A09CEC7EAEE94B9CB5AFA64F@USINDEVS02.corp.hds.com>
-Content-Language: en-US
+Received: from mail.solarflare.com ([216.237.3.220]:23641 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752634Ab1LPW6m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 17:58:42 -0500
+In-Reply-To: <1324074791-10463-1-git-send-email-mcarlson@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is just a cleanup patch for making easy to hook return value
-with a tracepoint.
+On Fri, 2011-12-16 at 14:33 -0800, Matt Carlson wrote:
+> This patch adds the ethtool callbacks necessary to change the rss
+> indirection table from userspace.  Should the number of interrupts
+> change (e.g.  across a close / open call, or through a reset) and
+> any one of the indirection table values fall out-of-range, the driver
+> will reset the indirection table to a default layout.
+> 
+> [Integrated many suggestions made by Ben Hutchings.]
+> 
+> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Reviewed-by: Benjamin Li <benli@broadcom.com>
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Signed-off-by: Satoru Moriya <satoru.moriya@hds.com>
----
- net/ipv4/tcp_output.c |   31 +++++++++++++++++++++----------
- 1 files changed, 21 insertions(+), 10 deletions(-)
+Just a nitpick:
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 63170e2..13d3a79 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2089,18 +2089,24 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
- 	 * copying overhead: fragmentation, tunneling, mangling etc.
- 	 */
- 	if (atomic_read(&sk->sk_wmem_alloc) >
--	    min(sk->sk_wmem_queued + (sk->sk_wmem_queued >> 2), sk->sk_sndbuf))
--		return -EAGAIN;
-+	    min(sk->sk_wmem_queued + (sk->sk_wmem_queued >> 2), sk->sk_sndbuf)) {
-+		err = -EAGAIN;
-+		goto out;
-+	}
- 
- 	if (before(TCP_SKB_CB(skb)->seq, tp->snd_una)) {
- 		if (before(TCP_SKB_CB(skb)->end_seq, tp->snd_una))
- 			BUG();
--		if (tcp_trim_head(sk, skb, tp->snd_una - TCP_SKB_CB(skb)->seq))
--			return -ENOMEM;
-+		if (tcp_trim_head(sk, skb, tp->snd_una - TCP_SKB_CB(skb)->seq)) {
-+			err = -ENOMEM;
-+			goto out;
-+		}
- 	}
- 
--	if (inet_csk(sk)->icsk_af_ops->rebuild_header(sk))
--		return -EHOSTUNREACH; /* Routing failure or similar. */
-+	if (inet_csk(sk)->icsk_af_ops->rebuild_header(sk)) {
-+		err = -EHOSTUNREACH; /* Routing failure or similar. */
-+		goto out;
-+	}
- 
- 	cur_mss = tcp_current_mss(sk);
- 
-@@ -2110,12 +2116,16 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
- 	 * our retransmit serves as a zero window probe.
- 	 */
- 	if (!before(TCP_SKB_CB(skb)->seq, tcp_wnd_end(tp)) &&
--	    TCP_SKB_CB(skb)->seq != tp->snd_una)
--		return -EAGAIN;
-+	    TCP_SKB_CB(skb)->seq != tp->snd_una) {
-+		err = -EAGAIN;
-+		goto out;
-+	}
- 
- 	if (skb->len > cur_mss) {
--		if (tcp_fragment(sk, skb, cur_mss, cur_mss))
--			return -ENOMEM; /* We'll try again later. */
-+		if (tcp_fragment(sk, skb, cur_mss, cur_mss)) {
-+			err = -ENOMEM; /* We'll try again later. */
-+			goto out;
-+		}
- 	} else {
- 		int oldpcount = tcp_skb_pcount(skb);
- 
-@@ -2177,6 +2187,7 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
- 		 */
- 		TCP_SKB_CB(skb)->ack_seq = tp->snd_nxt;
- 	}
-+out:
- 	return err;
- }
- 
+[...]
+> +static int tg3_get_rxfh_indir(struct net_device *dev, u32 *indir)
+> +{
+> +	struct tg3 *tp = netdev_priv(dev);
+> +	int i;
+> +
+> +	if (!tg3_flag(tp, SUPPORT_MSIX))
+> +		return -EOPNOTSUPP;
+
+The above check is not needed, because we promise not to to call
+get_rxfh_indir() if get_rxfh_indir_size() returns 0.
+
+> +	for (i = 0; i < TG3_RSS_INDIR_TBL_SIZE; i++)
+> +		indir[i] = tp->rss_ind_tbl[i];
+> +
+> +	return 0;
+> +}
+> +
+> +static int tg3_set_rxfh_indir(struct net_device *dev, const u32 *indir)
+> +{
+> +	struct tg3 *tp = netdev_priv(dev);
+> +	size_t i;
+> +
+> +	if (!tg3_flag(tp, SUPPORT_MSIX))
+> +		return -EOPNOTSUPP;
+[...]
+
+Same for this one.
+
+Ben.
+
 -- 
-1.7.6.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
