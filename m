@@ -1,41 +1,48 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [PATCH 0/2] vhot-net: Use kvm_memslots instead of vhost_memory
-	to translate GPA to HVA
-Date: Fri, 16 Dec 2011 10:07:28 +0200
-Message-ID: <1324022848.4496.27.camel@lappy>
-References: <1324013528-3663-1-git-send-email-zanghongyong@huawei.com>
-	<1324019151.4496.9.camel@lappy> <4EEAF5D1.2080805@huawei.com>
-	<1324022358.4496.25.camel@lappy>
+From: Abdul Rahim Coulibaly <abdulrahimcoulibaly1@gmail.com>
+Subject: Mr. Abdul Rahim Coulibay Assalamu Alaikum
+Date: Fri, 16 Dec 2011 02:08:32 -0600
+Message-ID: <CAGLdFkpz-75J9Pz6giz5DLxX6PMUpyNPt2mOqaZVKjHfyxYhDA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: wusongwei@huawei.com, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, hanweidong@huawei.com,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	xiaowei.yang@huawei.com
-To: Zang Hongyong <zanghongyong@huawei.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1324022358.4496.25.camel@lappy>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:45310 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753389Ab1LPIId (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 03:08:33 -0500
+Received: by qadc12 with SMTP id c12so798149qad.19
+        for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 00:08:33 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-12-16 at 09:59 +0200, Sasha Levin wrote:
-> There has been a great deal of effort to keep vhost and kvm untangled.
-> One example is the memory translation it has to do, another one is the
-> eventfd/irqfd thing it does just so it could signal an IRQ in the guest
-> instead of accessing the guest directly.
+Mr. Abdul Rahim Coulibay Assalamu Alaikum
+My Dear Good Friend.
+How are you and your family? Hope All is well. I am Mr. Abdul Rahim Coulibay
+, the Regional Branch Manager with Islamic Development Bank Burkina
+(ISDB-BF) Ouagadougou Burkina Faso. I got your contact from the
+Burkina Faso chambers of commerce have some fund to claim in my bank
+Which will be of benefit to both of us.
 
-Actually, CONFIG_VHOST_NET doesn't even depend on CONFIG_KVM, so your
-patch will break build when (CONFIG_VHOST_NET=y && CONFIG_KVM=n).
+I want you to be an inheritor of this fund, the said fund is in a
+Doormat account and with your bank information and my Documentation
+certifies you as the inheritor/beneficiary Since I am an insider and
+working in the same bank, the Transfer will be processed legally and
+successfully and I will Be coming down to your country for
+disbursement.
 
--- 
+ The amount of money involved is ($4.5m) which I want you to Claim for
+further transfer out of the Country to your bank Account, all to our
+financial benefit. This is very great opportunity as it will take a
+maximum of 14 banking Working days to be concluded. I as an insider
+will do my duties perfectly well concerning this transaction for
+security reasons.
 
-Sasha.
+This is confidential for successful conclusion and hitch-free
+transaction. Contact me immediately for further details and mutual
+Relationship and we will decide together on how to disburse the funds
+Yours truly.
+
+Mr. Abdul Rahim Coulibay
+Regional Branch Manager
+Islamic Development Bank (ISDB)
+Burkina Faso
