@@ -1,89 +1,30 @@
-From: Grant Grundler <grundler@chromium.org>
-Subject: Re: drivers/net/usb/asix: bug in asix_get_wol
-Date: Fri, 16 Dec 2011 14:15:59 -0800
-Message-ID: <CANEJEGvPqWVa+i9yfACU1Aoe1wdKCiO+dMtSgzcjiDqxM2ddRA@mail.gmail.com>
-References: <CAKbEaOBODRW1pL4OiwZTKOfqtPEhEOHBBwXQNWVoBh9zzLX9kQ@mail.gmail.com>
-	<CANEJEGud6++PGHRZGt1xMonX1XvxeU19Wd3YNsbgLQG+uQi47g@mail.gmail.com>
-	<CAKbEaOBnGAJuZiM5BRaR3RD6EzgB-mCVrC0v2AbnniFpx22m8A@mail.gmail.com>
-	<CANEJEGvz2ZHD_ZNJm_WeKCdVE9pmSQJY5dCe8hNayAS0MFN=-Q@mail.gmail.com>
-	<005201ccbbb1$cb242190$616c64b0$@com.tw>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eugene <elubarsky@gmail.com>, netdev@vger.kernel.org,
-	Freddy Xin <freddy@asix.com.tw>,
-	=?UTF-8?B?QVNJWCBMb3VpcyBb6JiH5aiB6Zm4XQ==?= <louis@asix.com.tw>
-To: "ASIX Allan Email [office]" <allan@asix.com.tw>
+From: Xi Wang <xi.wang@gmail.com>
+Subject: Re: [PATCH v2] sctp: fix incorrect overflow check on autoclose
+Date: Fri, 16 Dec 2011 17:25:37 -0500
+Message-ID: <D216BA11-0779-45C8-85DB-3E553069215C@gmail.com>
+References: <1323393883-3759-1-git-send-email-xi.wang@gmail.com> <4EE919B5.3090901@gmail.com> <4EEA6176.9020704@hp.com> <0BF79838-C86F-4C3F-8D51-4223D579764C@gmail.com> <4EEB40D5.7030906@hp.com>
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Andrei Pelinescu-Onciul <andrei@iptel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:41738 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756644Ab1LPWQA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 17:16:00 -0500
-Received: by ggdk6 with SMTP id k6so3142383ggd.19
-        for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 14:16:00 -0800 (PST)
-In-Reply-To: <005201ccbbb1$cb242190$616c64b0$@com.tw>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:63440 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752591Ab1LPWZn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 17:25:43 -0500
+In-Reply-To: <4EEB40D5.7030906@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 15, 2011 at 9:15 PM, ASIX Allan Email [office]
-<allan@asix.com.tw> wrote:
-> Resend without attachment due to below email server error.
-=2E..
-> -----Original Message-----
-> From: ASIX Allan Email [office] [mailto:allan@asix.com.tw]
-> Sent: Friday, December 16, 2011 11:38 AM
-> To: 'Grant Grundler'; 'Eugene'
-> Cc: 'netdev@vger.kernel.org'; 'Freddy Xin'; ASIX Louis [=E8=98=87=E5=A8=
-=81=E9=99=B8]
-> Subject: RE: drivers/net/usb/asix: bug in asix_get_wol
-> Importance: High
->
-> Dear Grant and Eugene,
->
-> Please refer to the attached file and below statements to modify the
-> asix_get_wol() routine and let us know if this suggestion can solve
-> your issues or not? Thanks a lot.
+On Dec 16, 2011, at 8:00 AM, Vlad Yasevich wrote:
+> This would work as well.  I do like the max configurable though as it
+> might be a nice feature, but the above code is exactly what I was
+> thinking about too.
 
-Allan,
-Thanks for the response but it doesn't answer my previous question.
-Let me ask the same question differently.
+Okay I will do a v3 based on that with the max autoclose. ;-)
 
-Does WOL support in asix driver need more than the four lines of code?
-Ie does MONITOR_MODE need to be enabled or anything like that?
-
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> static void
-> asix_get_wol(struct net_device *net, struct ethtool_wolinfo *wolinfo)
-> {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct usbnet *dev =3D netdev_priv(net);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0u8 opt;
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (asix_read_cmd(dev, AX_CMD_READ_MONITOR=
-_MODE, 0, 0, 1, &opt) < 0) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0wolinfo->suppo=
-rted =3D 0;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0wolinfo->wolop=
-ts =3D 0;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0wolinfo->supported =3D WAKE_PHY | WAKE_MAG=
-IC;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0wolinfo->wolopts =3D 0;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (opt & AX_MONITOR_LINK)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0wolinfo->wolop=
-ts |=3D WAKE_PHY;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (opt & AX_MONITOR_MAGIC)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0wolinfo->wolop=
-ts |=3D WAKE_MAGIC;
-> }
-
-This looks remarkably similar to the code Eugene said enables WOL for
-him (and it works). I not able to find any difference.
-
-If you believe it was a mistake to remove these four lines of code,
-please submit a patch (See Documentation/SubmittingPatches)  to add
-them back. You can add a "Tested-by: Eugene <elubarsky@gmail.com>"
-line after your own "Signed-off-by:" in the patch.
-
-thanks!
-grant
+- xi
