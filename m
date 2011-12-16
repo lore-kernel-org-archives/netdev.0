@@ -1,70 +1,43 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next 1/2] sch_sfq: store flow_keys in skb->cb[]
-Date: Fri, 16 Dec 2011 06:39:39 +0100
-Message-ID: <1324013979.2562.31.camel@edumazet-laptop>
+Subject: Re: tc filter show not displaying anything
+Date: Fri, 16 Dec 2011 06:42:58 +0100
+Message-ID: <1324014178.2562.33.camel@edumazet-laptop>
+References: <1324010915.8451.319.camel@denise.theartistscloset.com>
+	 <1324012627.2562.26.camel@edumazet-laptop>
+	 <1324013969.8451.326.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:41511 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751198Ab1LPFjn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 00:39:43 -0500
-Received: by werm1 with SMTP id m1so286053wer.19
-        for <netdev@vger.kernel.org>; Thu, 15 Dec 2011 21:39:42 -0800 (PST)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:44836 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751159Ab1LPFoW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 00:44:22 -0500
+Received: by wgbdr13 with SMTP id dr13so5502651wgb.1
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2011 21:44:21 -0800 (PST)
+In-Reply-To: <1324013969.8451.326.camel@denise.theartistscloset.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of using automatic flow_keys variable in sfq_hash(), use storage
-from skb->cb[] so that we can reuse it later if we want to rehash queues
-when perturbation timer fires.
+Le vendredi 16 d=C3=A9cembre 2011 =C3=A0 00:39 -0500, John A. Sullivan =
+III a
+=C3=A9crit :
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/sched/sch_sfq.c |   27 +++++++++++++++++++++------
- 1 file changed, 21 insertions(+), 6 deletions(-)
+> Ouch! That was right out of the book so to speak.  Thanks for pointin=
+g
+> it out - now I see it is right in the man page.  Is best practice to =
+not
+> perturb and live with the potentially unbalanced queues or just to se=
+t
+> it even higher? Thanks - John
+>=20
 
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index 46d0d77..72bccd0 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -136,16 +136,31 @@ static inline struct sfq_head *sfq_dep_head(struct sfq_sched_data *q, sfq_index
- 	return &q->dep[val - SFQ_SLOTS];
- }
- 
-+/*
-+ * In order to be able to quickly rehash our queue when timer changes
-+ * q->perturbation, we store flow_keys in skb->cb[]
-+ */
-+struct sfq_skb_cb {
-+	struct flow_keys	keys;
-+};
-+
-+static inline struct sfq_skb_cb *sfq_skb_cb(const struct sk_buff *skb)
-+{
-+	BUILD_BUG_ON(sizeof(skb->cb) <
-+		sizeof(struct qdisc_skb_cb) + sizeof(struct sfq_skb_cb));
-+	return (struct sfq_skb_cb *)qdisc_skb_cb(skb)->data;
-+}
-+
- static unsigned int sfq_hash(const struct sfq_sched_data *q,
--			     const struct sk_buff *skb)
-+			     struct sk_buff *skb)
- {
--	struct flow_keys keys;
-+	struct flow_keys *keys = &sfq_skb_cb(skb)->keys;
- 	unsigned int hash;
- 
--	skb_flow_dissect(skb, &keys);
--	hash = jhash_3words((__force u32)keys.dst,
--			    (__force u32)keys.src ^ keys.ip_proto,
--			    (__force u32)keys.ports, q->perturbation);
-+	skb_flow_dissect(skb, keys);
-+	hash = jhash_3words((__force u32)keys->dst,
-+			    (__force u32)keys->src ^ keys->ip_proto,
-+			    (__force u32)keys->ports, q->perturbation);
- 	return hash & (q->divisor - 1);
- }
- 
+I'll fix this today, because rehashing up to 128 packets is not that
+expensive.
+
+In the meantime, just use a higher timer (say 60 seconds), and if your
+kernel is recent enough, use a higher 'divisor' value (default 1024, ca=
+n
+be up to 65536) to lower risk of hash collisions.
