@@ -1,59 +1,70 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: twice past the taps, thence out to net?
-Date: Fri, 16 Dec 2011 20:44:49 +0100
-Message-ID: <1324064689.2621.24.camel@edumazet-laptop>
-References: <4EE8F884.1010304@hp.com>
-	 <CAGK4HS-+jj9cvvirDm96oRvRJdwC+2kjE_LnSOXBuQy0pfnQjg@mail.gmail.com>
-	 <1323970998.2769.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4EEA3D58.5010101@hp.com>
-	 <20111215104440.1eef9e47@s6510.linuxnetplumber.net>
-	 <1323975606.2769.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4EEA730E.5010405@hp.com> <1324009676.2562.9.camel@edumazet-laptop>
-	 <4EEB9D64.5080901@hp.com>
+Subject: Re: [PATCH net-next v1 5/6] tg3: implementation of a non-NAPI mode
+Date: Fri, 16 Dec 2011 20:50:42 +0100
+Message-ID: <1324065042.2621.27.camel@edumazet-laptop>
+References: <cover.1324059527.git.decot@googlers.com>
+	 <6d55ce25f5f237a4538f6a2fcd2609b877669297.1324059527.git.decot@googlers.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Vijay Subramanian <subramanian.vijay@gmail.com>,
-	tcpdump-workers@lists.tcpdump.org, netdev@vger.kernel.org,
-	Matthew Vick <matthew.vick@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Rick Jones <rick.jones2@hp.com>
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Javier Martinez Canillas <martinez.javier@gmail.com>,
+	Robin Getz <rgetz@blackfin.uclinux.org>,
+	Matt Mackall <mpm@selenic.com>,
+	Tom Herbert <therbert@google.com>
+To: David Decotigny <decot@googlers.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:47297 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751952Ab1LPTox (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 14:44:53 -0500
-Received: by werm1 with SMTP id m1so574730wer.19
-        for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 11:44:52 -0800 (PST)
-In-Reply-To: <4EEB9D64.5080901@hp.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:41503 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932724Ab1LPTur (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 14:50:47 -0500
+In-Reply-To: <6d55ce25f5f237a4538f6a2fcd2609b877669297.1324059527.git.decot@googlers.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 16 d=C3=A9cembre 2011 =C3=A0 11:35 -0800, Rick Jones a =C3=A9=
-crit :
-
-> I would *love* to.  All my accessible igb-driven hardware is in an=20
-> environment locked to the kernels already there :(  Not that it makes=
- it=20
-> more possible for me to do it, but I suspect it does not require 30=20
-> receivers to reproduce the dups with netperf TCP_STREAM.  Particularl=
-y=20
-> if the tx queue len is at 256 it may only take 6 or 8. In fact let me=
-=20
-> try that now...
+Le vendredi 16 d=C3=A9cembre 2011 =C3=A0 10:19 -0800, David Decotigny a=
+ =C3=A9crit :
+> From: Tom Herbert <therbert@google.com>
 >=20
-> Yep, with just 8 destinations/concurrent TCP_STREAM tests from the on=
-e=20
-> system one can still see the duplicates in the packet trace taken on =
-the=20
-> sender.
+> The tg3 NIC has a hard limit of 511 descriptors for the receive ring.
+> Under heavy load of small packets, this device receive queue may not
+> be serviced fast enough to prevent packets drops.  This could be due
+> to a variety of reasons such as lengthy processing delays of packets
+> in the stack, softirqs being disabled too long, etc. If the driver is
+> run in non-NAPI mode, the RX queue is serviced in the device
+> interrupt, which is much less likely to be deferred for a substantial
+> period of time.
 >=20
-> Perhaps we can trouble the Intel guys to try to reproduce what I've s=
-een?
+> There are some effects in not using NAPI that need to be considered.
+> It does increase the chance of live-lock in interrupt handler,
+> although since the tg3 does interrupt coalescing this is very unlikel=
+y
+> to occur.  Also, more code is being run with interrupts disabled
+> potentially deferring other hardware interrupts.  The amount of time
+> spent in the interrupt handler should be minimized by dequeuing
+> packets of the device queue and queuing them to a host queue as
+> quickly as possible.
+>=20
+> The default mode of operation remains NAPI and its performances are
+> kept unchanged (code unchanged). Non-NAPI mode is enabled by
+> commenting-out CONFIG_TIGON3_NAPI Kconfig parameter.
+>=20
 >=20
 
-I do have an igb card somewhere (in fact two dual ports), I'll do the
-test myself !
+Oh well, thats ugly :(
 
-Thanks
+I suspect this was only used with RPS/RFS ?
+
+Or interrupts stick on a given cpu ?
+
+Because with a default setup, and IRQ serviced by multiple cpus, you
+endup with possible packet reorderings.
+
+Packet1,2,3,4 handled by CPU0 : queued on netif_rx() queue.
+EndOfInterrupt
+Packet4,5,6,7 handled by CPU1 : queued on netif_rx() queue.
+EndOfInterrupt
+
+CPU0/CPU1 happily merge packets...
