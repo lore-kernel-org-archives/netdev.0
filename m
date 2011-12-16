@@ -1,30 +1,56 @@
-From: Xi Wang <xi.wang@gmail.com>
-Subject: Re: [PATCH v2] sctp: fix incorrect overflow check on autoclose
-Date: Fri, 16 Dec 2011 17:25:37 -0500
-Message-ID: <D216BA11-0779-45C8-85DB-3E553069215C@gmail.com>
-References: <1323393883-3759-1-git-send-email-xi.wang@gmail.com> <4EE919B5.3090901@gmail.com> <4EEA6176.9020704@hp.com> <0BF79838-C86F-4C3F-8D51-4223D579764C@gmail.com> <4EEB40D5.7030906@hp.com>
-Mime-Version: 1.0 (Apple Message framework v1084)
-Content-Type: text/plain; charset=us-ascii
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: [PATCH 4/6] sunhme/PCI: use list_for_each_entry() for bus->devices
+	traversal
+Date: Fri, 16 Dec 2011 15:31:49 -0700
+Message-ID: <20111216223149.5963.61942.stgit@bhelgaas.mtv.corp.google.com>
+References: <20111216223043.5963.87534.stgit@bhelgaas.mtv.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Andrei Pelinescu-Onciul <andrei@iptel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:63440 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752591Ab1LPWZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 17:25:43 -0500
-In-Reply-To: <4EEB40D5.7030906@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-pci@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Jesse Barnes <jbarnes@virtuousgeek.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20111216223043.5963.87534.stgit@bhelgaas.mtv.corp.google.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Dec 16, 2011, at 8:00 AM, Vlad Yasevich wrote:
-> This would work as well.  I do like the max configurable though as it
-> might be a nice feature, but the above code is exactly what I was
-> thinking about too.
+Replace open-coded list traversal with list_for_each_entry().
 
-Okay I will do a v3 based on that with the max autoclose. ;-)
+CC: David S. Miller <davem@davemloft.net>
+CC: netdev@vger.kernel.org
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+---
+ drivers/net/ethernet/sun/sunhme.c |    9 ++-------
+ 1 files changed, 2 insertions(+), 7 deletions(-)
 
-- xi
+diff --git a/drivers/net/ethernet/sun/sunhme.c b/drivers/net/ethernet/sun/sunhme.c
+index cf14ab9..1d00a4c 100644
+--- a/drivers/net/ethernet/sun/sunhme.c
++++ b/drivers/net/ethernet/sun/sunhme.c
+@@ -2849,7 +2849,7 @@ err_out:
+ static int is_quattro_p(struct pci_dev *pdev)
+ {
+ 	struct pci_dev *busdev = pdev->bus->self;
+-	struct list_head *tmp;
++	struct pci_dev *this_pdev;
+ 	int n_hmes;
+ 
+ 	if (busdev == NULL ||
+@@ -2858,15 +2858,10 @@ static int is_quattro_p(struct pci_dev *pdev)
+ 		return 0;
+ 
+ 	n_hmes = 0;
+-	tmp = pdev->bus->devices.next;
+-	while (tmp != &pdev->bus->devices) {
+-		struct pci_dev *this_pdev = pci_dev_b(tmp);
+-
++	list_for_each_entry(this_pdev, &pdev->bus->devices, bus_list) {
+ 		if (this_pdev->vendor == PCI_VENDOR_ID_SUN &&
+ 		    this_pdev->device == PCI_DEVICE_ID_SUN_HAPPYMEAL)
+ 			n_hmes++;
+-
+-		tmp = tmp->next;
+ 	}
+ 
+ 	if (n_hmes != 4)
