@@ -1,37 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: sfc-next 2011-12-16
-Date: Fri, 16 Dec 2011 15:24:20 -0500 (EST)
-Message-ID: <20111216.152420.1813211365191165952.davem@davemloft.net>
-References: <1324066213.2798.19.camel@bwh-desktop>
+From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: re: NFC: Initial LLCP support
+Date: Fri, 16 Dec 2011 23:26:59 +0300
+Message-ID: <20111216202659.GD18570@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58313 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752422Ab1LPUY3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 15:24:29 -0500
-In-Reply-To: <1324066213.2798.19.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 16 Dec 2011 20:10:13 +0000
+Hello Samuel Ortiz,
 
-> The following changes since commit de93cb2eaffd6d3e44bc738babfac35769d79720:
-> 
->   vlan: static functions (2011-12-14 02:39:30 -0500)
-> 
-> are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
-> 
-> (commit 70350b0685a370164ed8912835bd7109927c8781)
-> 
-> Ben Hutchings (3):
->       MAINTAINERS: Update sfc maintainers
->       sfc: Remove device ID macros only used once
->       sfc: Use skb_fill_page_desc() to simplify passing of page buffers to GRO
+This is a semi-automatic email about new static checker warnings.
 
-Pulled, thanks!
+The patch d646960f7986: "NFC: Initial LLCP support" from Dec 14, 
+2011, leads to the following Smatch complaint:
+
+net/nfc/llcp/sock.c +47 llcp_sock_bind()
+	 warn: variable dereferenced before check 'addr' (see line 45)
+
+net/nfc/llcp/sock.c
+    44	
+    45		pr_debug("sk %p addr %p family %d\n", sk, addr, addr->sa_family);
+                                                                ^^^^^^^^^^^^^^^
+New dereference.
+
+    46	
+    47		if (!addr || addr->sa_family != AF_NFC)
+                     ^^^^
+New check.
+
+    48			return -EINVAL;
+    49	
+
+regards,
+dan carpenter
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
