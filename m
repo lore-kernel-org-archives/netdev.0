@@ -1,41 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlx4: Fix compile error when driver is comiled-in
-Date: Fri, 16 Dec 2011 15:27:26 -0500 (EST)
-Message-ID: <20111216.152726.1312007167282874878.davem@davemloft.net>
-References: <20111215164837.GE2112@amd.com>
+Subject: Re: [PATCH] phylib: update mdiobus_alloc() to allocate extra
+ private space
+Date: Fri, 16 Dec 2011 15:31:37 -0500 (EST)
+Message-ID: <20111216.153137.729586714371685980.davem@davemloft.net>
+References: <1323967895-5205-1-git-send-email-timur@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yevgenyp@mellanox.co.il, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sfr@canb.auug.org.au
-To: joerg.roedel@amd.com
+Cc: afleming@freescale.com, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: timur@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58363 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:58399 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760558Ab1LPU3k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 15:29:40 -0500
-In-Reply-To: <20111215164837.GE2112@amd.com>
+	with ESMTP id S932590Ab1LPUcp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 15:32:45 -0500
+In-Reply-To: <1323967895-5205-1-git-send-email-timur@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joerg Roedel <joerg.roedel@amd.com>
-Date: Thu, 15 Dec 2011 17:48:37 +0100
+From: Timur Tabi <timur@freescale.com>
+Date: Thu, 15 Dec 2011 10:51:35 -0600
 
-> Testing my iommu-configs against linux-next found a compile error for
-> allyesconfig. It only happens when the mlx4 driver is compiled into the
-> kernel and not as a module because these two static functions are also
-> used in another file. The attached patch fixes it.
+> Augment mdiobus_alloc() to take a parameter indicating the number of extra
+> bytes to allocate for private data.  Almost all callers of mdiobus_alloc()
+> separately allocate a private data structure.  By allowing mdiobus_alloc()
+> to allocate extra memory, the two allocations can be merged into one.
 > 
->>From b993c4448c2ce5447fd24e7d4fce02e633d3222e Mon Sep 17 00:00:00 2001
-> From: Joerg Roedel <joerg.roedel@amd.com>
-> Date: Thu, 15 Dec 2011 17:30:33 +0100
-> Subject: [PATCH 1/2] mlx4: Fix compile error when driver is comiled-in
+> This patch does not change any of the callers to actually take advantage
+> of this feature, however.  That change can be made by the individual
+> maintainers at their leisure.  For now, all callers ask for zero additional
+> bytes, which mimics the previous behavior.
 > 
-> This patch fixes a compile error that occurs when the driver
-> is compile into the kernel and not as a module.
-> 
-> Signed-off-by: Joerg Roedel <joerg.roedel@amd.com>
+> Signed-off-by: Timur Tabi <timur@freescale.com>
 
-I wish we detected "exporting symbol marked static" properly.
+Come on...
 
-I'll apply this, thanks!
+Not one driver even uses the new facility, and on top of it you edit
+all of these drivers for no reason at all.
+
+You could edit only two source files instead of more than 30 by simply
+doing:
+
+struct mii_bus *mdiobus_alloc_size(size_t size);
+
+static inline struct mii_bus *mdiobus_alloc(void)
+{
+	return mdiobus_alloc_size(0):
+}
