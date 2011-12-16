@@ -1,66 +1,113 @@
-From: Grant Grundler <grantgrundler@gmail.com>
-Subject: Re: [PATCH 5/6] de4x5/PCI: use list_for_each_entry() for bus->devices traversal
-Date: Fri, 16 Dec 2011 14:34:24 -0800
-Message-ID: <CANEJEGsm-vz767_98uaDT48mYwG_dJnUOmhqkgGPRqJpHhiFDA@mail.gmail.com>
-References: <20111216223043.5963.87534.stgit@bhelgaas.mtv.corp.google.com>
-	<20111216223154.5963.39965.stgit@bhelgaas.mtv.corp.google.com>
+From: Satoru Moriya <satoru.moriya@hds.com>
+Subject: [PATCH 2/2] tcp: add tracepoint for tcp retransmission
+Date: Fri, 16 Dec 2011 17:17:23 -0500
+Message-ID: <65795E11DBF1E645A09CEC7EAEE94B9CB5AFA652@USINDEVS02.corp.hds.com>
+References: <65795E11DBF1E645A09CEC7EAEE94B9CB5AFA64F@USINDEVS02.corp.hds.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesse Barnes <jbarnes@virtuousgeek.org>, linux-pci@vger.kernel.org,
-	Grant Grundler <grundler@parisc-linux.org>,
-	netdev@vger.kernel.org
-To: Bjorn Helgaas <bhelgaas@google.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20111216223154.5963.39965.stgit@bhelgaas.mtv.corp.google.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"tgraf@infradead.org" <tgraf@infradead.org>,
+	Seiji Aguchi <seiji.aguchi@hds.com>,
+	"dle-develop@lists.sourceforge.net"
+	<dle-develop@lists.sourceforge.net>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from usindpps06.hds.com ([207.126.252.19]:55830 "EHLO
+	usindpps06.hds.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760925Ab1LPWmx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 17:42:53 -0500
+In-Reply-To: <65795E11DBF1E645A09CEC7EAEE94B9CB5AFA64F@USINDEVS02.corp.hds.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 16, 2011 at 2:31 PM, Bjorn Helgaas <bhelgaas@google.com> wr=
-ote:
-> Replace open-coded list traversal with list_for_each_entry().
+This patch adds a tracepoint to tcp_retransmit_skb() to get the
+sk, skb and return value. This helps one understand whether problems
+are in a server or not.
 
-Hi Bjorn,
+Signed-off-by: Satoru Moriya <satoru.moriya@hds.com>
+---
+ include/trace/events/tcp.h |   35 +++++++++++++++++++++++++++++++++++
+ net/core/net-traces.c      |    1 +
+ net/ipv4/tcp_output.c      |    3 +++
+ 3 files changed, 39 insertions(+), 0 deletions(-)
+ create mode 100644 include/trace/events/tcp.h
 
-I don't have any de4x5 devices to test this but it looks correct to me.
-
-Thanks!
-grant
-
->
-> CC: Grant Grundler <grundler@parisc-linux.org>
-> CC: netdev@vger.kernel.org
-> Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
-> ---
-> =C2=A0drivers/net/ethernet/dec/tulip/de4x5.c | =C2=A0 =C2=A09 ++-----=
---
-> =C2=A01 files changed, 2 insertions(+), 7 deletions(-)
->
-> diff --git a/drivers/net/ethernet/dec/tulip/de4x5.c b/drivers/net/eth=
-ernet/dec/tulip/de4x5.c
-> index 871bcaa..3f5d3b9 100644
-> --- a/drivers/net/ethernet/dec/tulip/de4x5.c
-> +++ b/drivers/net/ethernet/dec/tulip/de4x5.c
-> @@ -2127,14 +2127,9 @@ srom_search(struct net_device *dev, struct pci=
-_dev *pdev)
-> =C2=A0 =C2=A0 u_long iobase =3D 0; =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* Clear upper 32 bits in Alphas */
-> =C2=A0 =C2=A0 int i, j;
-> =C2=A0 =C2=A0 struct de4x5_private *lp =3D netdev_priv(dev);
-> - =C2=A0 =C2=A0struct list_head *walk;
-> -
-> - =C2=A0 =C2=A0list_for_each(walk, &pdev->bus_list) {
-> - =C2=A0 =C2=A0 =C2=A0 struct pci_dev *this_dev =3D pci_dev_b(walk);
-> -
-> - =C2=A0 =C2=A0 =C2=A0 /* Skip the pci_bus list entry */
-> - =C2=A0 =C2=A0 =C2=A0 if (list_entry(walk, struct pci_bus, devices) =
-=3D=3D pdev->bus) continue;
-> + =C2=A0 =C2=A0struct pci_dev *this_dev;
->
-> + =C2=A0 =C2=A0list_for_each_entry(this_dev, &pdev->bus->devices, bus=
-_list) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0vendor =3D this_dev->vendor;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0device =3D this_dev->device << 8;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!(is_DC21040 || is_DC21041 || is_DC211=
-40 || is_DC2114x)) continue;
->
+diff --git a/include/trace/events/tcp.h b/include/trace/events/tcp.h
+new file mode 100644
+index 0000000..821cdb7
+--- /dev/null
++++ b/include/trace/events/tcp.h
+@@ -0,0 +1,35 @@
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM tcp
++
++#if !defined(_TRACE_TCP_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_TCP_H
++
++#include <linux/skbuff.h>
++#include <linux/tracepoint.h>
++
++TRACE_EVENT(tcp_retransmit_skb,
++
++	TP_PROTO(struct sock *sk, struct sk_buff *skb, int err),
++
++	TP_ARGS(sk, skb, err),
++
++	TP_STRUCT__entry(
++		__field(void *, skaddr)
++		__field(void *, skbaddr)
++		__field(int, err)
++	),
++
++	TP_fast_assign(
++		__entry->skaddr = sk;
++		__entry->skbaddr = skb;
++		__entry->err = err;
++	),
++
++	TP_printk("sk=%p skb=%p err=%d",
++		__entry->skaddr, __entry->skbaddr, __entry->err)
++);
++
++#endif /* _TRACE_TCP_H */
++
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+diff --git a/net/core/net-traces.c b/net/core/net-traces.c
+index ba3c012..63f966b 100644
+--- a/net/core/net-traces.c
++++ b/net/core/net-traces.c
+@@ -31,6 +31,7 @@
+ #include <trace/events/napi.h>
+ #include <trace/events/sock.h>
+ #include <trace/events/udp.h>
++#include <trace/events/tcp.h>
+ 
+ EXPORT_TRACEPOINT_SYMBOL_GPL(kfree_skb);
+ 
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 13d3a79..a6db789 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -40,6 +40,8 @@
+ #include <linux/gfp.h>
+ #include <linux/module.h>
+ 
++#include <trace/events/tcp.h>
++
+ /* People can turn this off for buggy TCP's found in printers etc. */
+ int sysctl_tcp_retrans_collapse __read_mostly = 1;
+ 
+@@ -2188,6 +2190,7 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+ 		TCP_SKB_CB(skb)->ack_seq = tp->snd_nxt;
+ 	}
+ out:
++	trace_tcp_retransmit_skb(sk, skb, err);
+ 	return err;
+ }
+ 
+-- 
+1.7.6.4
