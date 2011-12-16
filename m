@@ -1,31 +1,36 @@
-From: Timur Tabi <timur@freescale.com>
-Subject: Re: [PATCH] phylib: update mdiobus_alloc() to allocate extra private
- space
-Date: Fri, 16 Dec 2011 14:37:32 -0600
-Message-ID: <4EEBAC0C.4020104@freescale.com>
-References: <1323967895-5205-1-git-send-email-timur@freescale.com> <8ABCAC4C-1D11-41AD-AE46-96EB9D40588D@freescale.com> <4EEA2A61.8050302@freescale.com> <20111216.153254.1998330487051662169.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/2] net: fix sleeping while atomic problem in sock
+ mem_cgroup.
+Date: Fri, 16 Dec 2011 15:35:27 -0500 (EST)
+Message-ID: <20111216.153527.844718089764883031.davem@davemloft.net>
+References: <1324032720-13752-1-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <afleming@freescale.com>, <netdev@vger.kernel.org>,
-	<linuxppc-dev@ozlabs.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe006.messaging.microsoft.com ([216.32.180.16]:38544
-	"EHLO VA3EHSOBE009.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1759766Ab1LPUhk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 15:37:40 -0500
-In-Reply-To: <20111216.153254.1998330487051662169.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org, rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org
+To: glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1324032720-13752-1-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> Make the change how I suggested, where mdiobus_alloc() retains it's current
-> function signature and semantics.  Then you can edit drivers as needed rather
-> than from the beginning.
+From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Date: Fri, 16 Dec 2011 14:51:59 +0400
 
-Yes, your approach makes much more sense.  I should have thought of it.
+> We can't scan the proto_list to initialize sock cgroups, as it
+> holds a rwlock, and we also want to keep the code generic enough to
+> avoid calling the initialization functions of protocols directly,
+> 
+> Convert proto_list_lock into a mutex, so we can sleep and do the
+> necessary allocations. This lock is seldom taken, so there shouldn't
+> be any performance penalties associated with that
+> 
+> Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
 
--- 
-Timur Tabi
-Linux kernel developer at Freescale
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe cgroups" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
