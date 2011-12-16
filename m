@@ -1,31 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net-next tree with the net tree
-Date: Fri, 16 Dec 2011 02:34:54 -0500 (EST)
-Message-ID: <20111216.023454.1487467569404744896.davem@davemloft.net>
-References: <20111216120758.60f967a88c934890e77fa7bd@canb.auug.org.au>
+From: Zang Hongyong <zanghongyong@huawei.com>
+Subject: Re: [PATCH 0/2] vhot-net: Use kvm_memslots instead of vhost_memory to
+ translate GPA to HVA
+Date: Fri, 16 Dec 2011 15:40:01 +0800
+Message-ID: <4EEAF5D1.2080805@huawei.com>
+References: <1324013528-3663-1-git-send-email-zanghongyong@huawei.com>
+ <1324019151.4496.9.camel@lappy>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20111216120758.60f967a88c934890e77fa7bd@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, mst@redhat.com, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	xiaowei.yang@huawei.com, hanweidong@huawei.com,
+	wusongwei@huawei.com
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <1324019151.4496.9.camel@lappy>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Fri, 16 Dec 2011 12:07:58 +1100
-
-> Hi all,
-> 
-> Today's linux-next merge of the net-next tree got a conflict in
-> net/ipv6/route.c between commit bb3c36863e80 ("ipv6: Check dest prefix
-> length on original route not copied one in rt6_alloc_cow()") from the net
-> tree and commit 3830847396fa ("ipv6: Various cleanups in route.c") from
-> the net-next tree.
-> 
-> Just context changes.  I fixed it up (see below) and can carry the fix as
-> necessary.
-
-Yep, thanks, I just resolved this by merging net into net-next.
+=E4=BA=8E 2011/12/16,=E6=98=9F=E6=9C=9F=E4=BA=94 15:05, Sasha Levin =E5=
+=86=99=E9=81=93:
+> On Fri, 2011-12-16 at 13:32 +0800, zanghongyong@huawei.com wrote:
+>> From: Hongyong Zang<zanghongyong@huawei.com>
+>>
+>> Vhost-net uses its own vhost_memory, which results from user space (=
+qemu) info,
+>> to translate GPA to HVA. Since kernel's kvm structure already mainta=
+ins the
+>> address relationship in its member *kvm_memslots*, these patches use=
+ kernel's
+>> kvm_memslots directly without the need of initialization and mainten=
+ance of
+>> vhost_memory.
+> Conceptually, vhost isn't aware of KVM - it's just a driver which mov=
+es
+> data from vq to a tap device and back. You can't simply add KVM speci=
+fic
+> code into vhost.
+>
+> Whats the performance benefit?
+>
+But vhost-net is only used in virtualization situation. vhost_memory is=
+=20
+maintained
+by user space qemu.
+In this way, the memory relationship can be accquired from kernel=20
+without the
+need of maintainence of vhost_memory from qemu.
