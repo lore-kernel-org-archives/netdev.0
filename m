@@ -1,41 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: Make the RSS indir tbl admin configurable
-Date: Fri, 16 Dec 2011 01:12:11 -0500 (EST)
-Message-ID: <20111216.011211.448655043846843883.davem@davemloft.net>
-References: <1323996466-8139-1-git-send-email-mcarlson@broadcom.com>
-	<1324004674.2825.226.camel@deadeye>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] fix sleeping while atomic problem in sock mem_cgroup.
+Date: Fri, 16 Dec 2011 01:09:59 -0500 (EST)
+Message-ID: <20111216.010959.917434953281175910.davem@davemloft.net>
+References: <1324003070-6573-1-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mcarlson@broadcom.com, netdev@vger.kernel.org, mchan@broadcom.com
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47649 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751189Ab1LPGMP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 01:12:15 -0500
-In-Reply-To: <1324004674.2825.226.camel@deadeye>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
+To: glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1324003070-6573-1-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 16 Dec 2011 03:04:34 +0000
+From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Date: Fri, 16 Dec 2011 06:37:50 +0400
 
-> On Thu, 2011-12-15 at 16:47 -0800, Matt Carlson wrote:
->> This patch adds the ethtool callbacks necessary to change the rss
->> indirection table from userspace.  When setting the indirection table
->> through set_rxfh_indir, an indirection table size of zero is
->> interpreted to mean that the admin wants to relinquish control of the
->> table to the driver.  Should the number of interrupts change (e.g.
->> across a close / open call, or through a reset), any indirection table
->> values that exceed the number of RSS queues or interrupt vectors will
->> be automatically scaled back to values within range.
->> 
->> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
->> Signed-off-by: Michael Chan <mchan@broadcom.com>
->> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> Since we can't scan the proto_list to initialize sock cgroups, as it
+> holds a rwlock, and we also want to keep the code generic enough to
+> avoid calling the initialization functions of protocols directly,
+> I propose we keep the interested parties in a separate list. This list
+> is protected by a mutex so we can sleep and do the necessary allocations.
 > 
-> No I didn't!
+> Also fixes a reference problem found by Randy Dunlap's randconfig.
+> 
+> Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
 
-Matt, really, don't do crap like this.  It's extremely rude and
-completely unprofessional.
+Two small changes please:
+
+1) Add an appropriate prefix to your subject line indicating the subsystem
+   being changed by this patch, "net: fix sleeping ..." would be appropriate
+   in this case.
+
+2) Put the ifdef'ery into the memcontrol.h header file, rather than sock.c,
+   f.e. rename register_sock_cgroup to __register_sock_cgroup(), and
+   unregister_sock_cgroup to __unregister_sock_cgroup.  Then create two
+   helper inlines in memcontrolh:
+
+	#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+	static inline void register_sock_cgroup(struct proto *prot)
+	{
+		if (prot->proto_cgroup != NULL)
+			register_sock_cgroup(prot);
+	}
+	static inline void unregister_sock_cgroup(struct proto *prot)
+	{
+		if (prot->proto_cgroup != NULL)
+			unregister_sock_cgroup(prot);
+	}
+	#else
+	static inline void register_sock_cgroup(struct proto *prot)
+	{
+	}
+	static inline void unregister_sock_cgroup(struct proto *prot)
+	{
+	}
+	#endif
+
+   Then call these helpers unconditionally in net/core/sock.c
+
+   That way you don't need any ifdefs in that file at all.
+--
+To unsubscribe from this list: send the line "unsubscribe cgroups" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
