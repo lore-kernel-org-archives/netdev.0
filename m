@@ -1,74 +1,70 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: Re: tc filter show not displaying anything
-Date: Fri, 16 Dec 2011 00:39:29 -0500
-Message-ID: <1324013969.8451.326.camel@denise.theartistscloset.com>
-References: <1324010915.8451.319.camel@denise.theartistscloset.com>
-	 <1324012627.2562.26.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next 1/2] sch_sfq: store flow_keys in skb->cb[]
+Date: Fri, 16 Dec 2011 06:39:39 +0100
+Message-ID: <1324013979.2562.31.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.195]:58440 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750821Ab1LPFje convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 00:39:34 -0500
-In-Reply-To: <1324012627.2562.26.camel@edumazet-laptop>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:41511 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751198Ab1LPFjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 00:39:43 -0500
+Received: by werm1 with SMTP id m1so286053wer.19
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2011 21:39:42 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-12-16 at 06:17 +0100, Eric Dumazet wrote:
-> Le jeudi 15 d=C3=A9cembre 2011 =C3=A0 23:48 -0500, John A. Sullivan I=
-II a =C3=A9crit :
-> > Hello, all.  I'm starting to feel really stupid and showing my newb=
-idity
-> > to tc.  I do a:
-> > tc filter show dev eth1
-> > and nothing is displayed but I suspect the filter is there because =
-if I
-> > try to add it again, the kernel complains with:
-> > RTNETLINK answers: File exists
-> > We have an error talking to the kernel
-> >=20
-> > Here is what I have put together so far (disregard the silly ports =
-- it
-> > is just for netcat testing):
-> >=20
-> > tc qdisc add dev eth1 root handle 1: hfsc default 20
-> > tc class add dev eth1 parent 1: classid 1:1 hfsc sc rate 1490kbit u=
-l rate 1490kbit
-> > tc class add dev eth1 parent 1:1 classid 1:20 hfsc rt rate 800kbit =
-ls rate 200kbit
-> > tc qdisc add dev eth1 parent 1:20 handle 1201 sfq perturb 10
-> > tc class add dev eth1 parent 1:1 classid 1:10 hfsc rt umax 16000kbi=
-t dmax 13ms rate 400kbit ls rate 1000kbit
-> > tc qdisc add dev eth1 parent 1:10 handle 1101 sfq perturb 10
-> > iptables -t mangle -A POSTROUTING  -p 6 --syn --dport 443 -j CONNMA=
-RK --set-mark 0x10
-> > iptables -t mangle -A POSTROUTING  -p 6 -j CONNMARK --restore-mark
-> >=20
-> > I then did:
-> >=20
-> > root@testswitch01:~# tc filter add dev eth1 parent 1:1 protocol ip =
-prio 1 handle 0x10 fw flowid 1:10
-> > root@testswitch01:~# tc filter show dev eth1
-> > root@testswitch01:~# tc filter show parent 1:1
-> >=20
-> > What simple, practical thing did I mangle? Thanks - John
->=20
-> Minor point (since John already replied) :  "sfq perturb 10" means yo=
-u
-> risk out or order packets perturbation every 10 seconds. This can rea=
-lly
-> hurt TCP sessions.
->=20
-> Maybe we should "fix" this problem for good in SFQ.
->=20
->=20
->=20
-Ouch! That was right out of the book so to speak.  Thanks for pointing
-it out - now I see it is right in the man page.  Is best practice to no=
-t
-perturb and live with the potentially unbalanced queues or just to set
-it even higher? Thanks - John
+Instead of using automatic flow_keys variable in sfq_hash(), use storage
+from skb->cb[] so that we can reuse it later if we want to rehash queues
+when perturbation timer fires.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/sched/sch_sfq.c |   27 +++++++++++++++++++++------
+ 1 file changed, 21 insertions(+), 6 deletions(-)
+
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index 46d0d77..72bccd0 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -136,16 +136,31 @@ static inline struct sfq_head *sfq_dep_head(struct sfq_sched_data *q, sfq_index
+ 	return &q->dep[val - SFQ_SLOTS];
+ }
+ 
++/*
++ * In order to be able to quickly rehash our queue when timer changes
++ * q->perturbation, we store flow_keys in skb->cb[]
++ */
++struct sfq_skb_cb {
++	struct flow_keys	keys;
++};
++
++static inline struct sfq_skb_cb *sfq_skb_cb(const struct sk_buff *skb)
++{
++	BUILD_BUG_ON(sizeof(skb->cb) <
++		sizeof(struct qdisc_skb_cb) + sizeof(struct sfq_skb_cb));
++	return (struct sfq_skb_cb *)qdisc_skb_cb(skb)->data;
++}
++
+ static unsigned int sfq_hash(const struct sfq_sched_data *q,
+-			     const struct sk_buff *skb)
++			     struct sk_buff *skb)
+ {
+-	struct flow_keys keys;
++	struct flow_keys *keys = &sfq_skb_cb(skb)->keys;
+ 	unsigned int hash;
+ 
+-	skb_flow_dissect(skb, &keys);
+-	hash = jhash_3words((__force u32)keys.dst,
+-			    (__force u32)keys.src ^ keys.ip_proto,
+-			    (__force u32)keys.ports, q->perturbation);
++	skb_flow_dissect(skb, keys);
++	hash = jhash_3words((__force u32)keys->dst,
++			    (__force u32)keys->src ^ keys->ip_proto,
++			    (__force u32)keys->ports, q->perturbation);
+ 	return hash & (q->divisor - 1);
+ }
+ 
