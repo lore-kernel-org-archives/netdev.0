@@ -1,76 +1,74 @@
-From: Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
-Subject: Re: [PATCH v9 1/9] Basic kernel memory functionality for the Memory
- Controller
-Date: Fri, 16 Dec 2011 14:30:49 +0100
-Message-ID: <20111216133049.GI3122@tiehlicka.suse.cz>
-References: <1323676029-5890-1-git-send-email-glommer@parallels.com>
- <1323676029-5890-2-git-send-email-glommer@parallels.com>
- <20111214170447.GB4856@tiehlicka.suse.cz>
- <4EE9E81E.2090700@parallels.com>
- <20111216123233.GF3122@tiehlicka.suse.cz>
- <4EEB417B.8000508@parallels.com>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: linux-3.0.x regression with ipv4 routes having mtu
+Date: Fri, 16 Dec 2011 16:30:26 +0200
+Message-ID: <4EEB5602.2060806@iki.fi>
+References: <4EE8C6A8.3060308@iki.fi> <20111214.125010.82857701285437834.davem@davemloft.net> <20111215134957.GI6348@secunet.com> <20111216122147.GJ6348@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org, lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org,
-	kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
-	gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
-	kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org, avagin-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Johannes Weiner <jweiner-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4EEB417B.8000508-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:50809 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759429Ab1LPOa3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 09:30:29 -0500
+Received: by lagp5 with SMTP id p5so1461369lag.19
+        for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 06:30:27 -0800 (PST)
+In-Reply-To: <20111216122147.GJ6348@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri 16-12-11 17:02:51, Glauber Costa wrote:
-> On 12/16/2011 04:32 PM, Michal Hocko wrote:
-[...]
-> >So why do we need kmem accounting when tcp (the only user at the moment)
-> >doesn't use it?
-> 
-> Well, a bit historical. I needed a basic placeholder for it, since
-> it tcp is officially kmem. As the time passed, I took most of the
-> stuff out of this patch to leave just the basics I would need for
-> tcp.
-> Turns out I ended up focusing on the rest, and some of the stuff was
-> left here.
-> 
-> At one point I merged tcp data into kmem, but then reverted this
-> behavior. the kmem counter stayed.
-> 
-> I agree deferring the whole behavior would be better.
-> 
-> >>In summary, we still never do non-independent accounting. When we
-> >>start doing it for the other caches, We will have to add a test at
-> >>charge time as well.
-> >
-> >So we shouldn't do it as a part of this patchset because the further
-> >usage is not clear and I think there will be some real issues with
-> >user+kmem accounting (e.g. a proper memcg-oom implementation).
-> >Can you just drop this patch?
-> 
-> Yes, but the whole set is in the net tree already. 
+On 12/16/2011 02:21 PM, Steffen Klassert wrote:
+> On Thu, Dec 15, 2011 at 02:49:57PM +0100, Steffen Klassert wrote:
+>> On Wed, Dec 14, 2011 at 12:50:10PM -0500, David Miller wrote:
+>>> From: Timo Ter=E4s <timo.teras@iki.fi>
+>>> Date: Wed, 14 Dec 2011 17:54:16 +0200
+>>>
+>>>> So something is does not get updated here. This used to work thoug=
+h.
+>>>> The current production boxes where I know this work is 2.6.38.8.
+>>>
+>>> We store the PMTU externally in inetpeer entries, Eric Dumazet
+>>> fixed recently but that fix hasn't been submitted to -stable
+>>> yet.
+>>>
+>>
+>> I think we still have at least two problems with pmtu handling.
+>> One is that "ip route flush cache" flushes the routing cache
+>> but not the cached metrics on the inetpeer.
+>=20
+> "ip route flush cache" does not even flush the routing cache,
+> it just markes the routing cache as invalid by changing the
+> rt_genid which make the old routes invisible. And since we don't
+> have rt_check_expire() anymore, we have to wait until we have
+> collected gc_thresh (1024) useless routes before rt_garbage_collect()
+> starts to remove some of them (btw. is this intentional).
+>=20
+> I think we need a trigger in rt_cache_invalidate() that expires
+> all cached pmtu values similar to the routing cache entries.
+> For a moment I thought we could just reset the __rt_peer_genid
+> value back to zero to mark all cached pmtu values as expired,
+> but that's apparently not save to do. So I came to no conclusion
+> how to fix this today. Any ideas?
 
-Isn't it only in some for-next branch? Can that one be updated?
+Oh, right. This problem is secondary. As long as the mtu value is
+reflected properly, I'll be happy :)
 
-> (All other patches are tcp-related but this) Would you mind if I'd
-> send a follow up patch removing the kmem files, and leaving just the
-> registration functions and basic documentation? (And sorry for that as
-> well in advance)
+>> Another problem might be that we ignore the user configured
+>> fib_metrics in rt_init_metrics() if we have a cached metric
+>> on the inetpeer.
+>>
+>=20
+> I think this could be fixed with something like the patch
+> below. With this it should be possible to overwrite cached
+> values from userspace. It has not much testing, so it's
+> just for review at the monent.
+>=20
+> ---------
+> Subject: [PATCH] route: Initialize with the fib_metrics in the non de=
+fault case
+>[snip]
 
-Yes a followup patch would work as well.
-
--- 
-Michal Hocko
-SUSE Labs
-SUSE LINUX s.r.o.
-Lihovarska 1060/12
-190 00 Praha 9    
-Czech Republic
---
-To unsubscribe from this list: send the line "unsubscribe cgroups" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks! After a very quick test spin, it would appear to fix the bug.
+Will continue testing.
