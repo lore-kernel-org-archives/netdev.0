@@ -1,42 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: the linux-can-next tree
-Date: Fri, 16 Dec 2011 16:14:16 -0500 (EST)
-Message-ID: <20111216.161416.1158979823905609381.davem@davemloft.net>
-References: <20111201.130907.1276930495409347261.davem@davemloft.net>
-	<4ED7DDBA.9090201@pengutronix.de>
-	<4EE5C5D0.5030805@pengutronix.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] r8169: Support for byte queue limits
+Date: Fri, 16 Dec 2011 22:30:03 +0100
+Message-ID: <1324071003.2621.33.camel@edumazet-laptop>
+References: <igorm@etf.rs> <1323694834-2844-1-git-send-email-igorm@etf.rs>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: socketcan@hartkopp.net, wg@grandegger.com, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, urs@isnogud.escape.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4EE5C5D0.5030805@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: igorm@etf.rs
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:49494 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760770Ab1LPVaJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 16:30:09 -0500
+Received: by wgbdr13 with SMTP id dr13so6883464wgb.1
+        for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 13:30:07 -0800 (PST)
+In-Reply-To: <1323694834-2844-1-git-send-email-igorm@etf.rs>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Mon, 12 Dec 2011 10:13:52 +0100
+Le lundi 12 d=C3=A9cembre 2011 =C3=A0 05:00 -0800, igorm@etf.rs a =C3=A9=
+crit :
+> From: Igor Maravic <igorm@etf.rs>
+>=20
+> Changes to r8169 to use byte queue limits.
+>=20
+> Signed-off-by: Igor Maravic <igorm@etf.rs>
+> Signed-off-by: Igor Maravi=C4=87 <igorm@etf.rs>
 
-> Hello David,
-> 
-> On 12/01/2011 09:04 PM, Marc Kleine-Budde wrote:
->>> I said I want one person.  One person who periodically send me GIT pull requests
->>> or a patch series for "CAN updates" of all kinds.
->> 
->> We're currently discussing the problem and we understood the one person
->> contact policy.
-> 
-> We decided that I should be this person. Our can tree is located on
-> gitorious:
-> 
-> https://gitorious.org/linux-can/linux-can-next
+Dont forget to CC maintainer of this driver.
 
-Let me know when you formally want me to pull from this.  Typically this is
-done by posting a "N patch" series to netdev, one for each change, CC:'d
-to me.
+> ---
+>  drivers/net/ethernet/realtek/r8169.c |   13 +++++++++++--
+>  1 files changed, 11 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ether=
+net/realtek/r8169.c
+> index 36b2a4b..bfdb5fd 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -5326,6 +5326,7 @@ static void rtl8169_tx_clear(struct rtl8169_pri=
+vate *tp)
+>  {
+>  	rtl8169_tx_clear_range(tp, tp->dirty_tx, NUM_TX_DESC);
+>  	tp->cur_tx =3D tp->dirty_tx =3D 0;
+> +	netdev_reset_queue(tp->dev);
+>  }
+> =20
+>  static void rtl8169_schedule_work(struct net_device *dev, work_func_=
+t task)
+> @@ -5460,6 +5461,8 @@ static int rtl8169_xmit_frags(struct rtl8169_pr=
+ivate *tp, struct sk_buff *skb,
+>  		txd->opts1 |=3D cpu_to_le32(LastFrag);
+>  	}
+> =20
+> +	netdev_sent_queue(tp->dev, skb->len);
+> +
 
-The first posting should be with a subject like "[PATCH 0/N] CAN updates"
-and contain the pull request as well as the top-level diffstate et al.
-of the pull, usually generated using "git request-pull"
+Why here in rtl8169_xmit_frags() ?
+
+If done from rtl8169_start_xmit(), you already have "dev" pointer.
+
+	netdev_sent_queue(dev, skb->len);
