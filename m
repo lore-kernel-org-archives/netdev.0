@@ -1,48 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] batman-adv: Fix merge error.
-Date: Fri, 16 Dec 2011 15:09:06 -0500 (EST)
-Message-ID: <20111216.150906.1619202587161062277.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: pull request: sfc-next 2011-12-16
+Date: Fri, 16 Dec 2011 20:10:13 +0000
+Message-ID: <1324066213.2798.19.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="=-vwAkvhUF+YgfoDAL4PyH"
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58139 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752376Ab1LPUJL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 15:09:11 -0500
-Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id pBGK97qh030789
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 12:09:10 -0800
+Received: from exchange.solarflare.com ([216.237.3.220]:26342 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1759793Ab1LPUKR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 15:10:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+--=-vwAkvhUF+YgfoDAL4PyH
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-I didn't resolve the merge properly during the last pull of the net
-tree into net-next.
+The following changes since commit de93cb2eaffd6d3e44bc738babfac35769d79720=
+:
 
-The code in the final resolution should set flags to TT_CLIENT_ROAM
-not TT_CLIENT_PENDING.
+  vlan: static functions (2011-12-14 02:39:30 -0500)
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/batman-adv/translation-table.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
 
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 46a2b37..ab8dea8 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -244,7 +244,7 @@ void tt_local_add(struct net_device *soft_iface, const uint8_t *addr,
- 		tt_global_entry->orig_node->tt_poss_change = true;
- 		/* The global entry has to be marked as ROAMING and has to be
- 		 * kept for consistency purpose */
--		tt_global_entry->common.flags |= TT_CLIENT_PENDING;
-+		tt_global_entry->common.flags |= TT_CLIENT_ROAM;
- 		tt_global_entry->roam_at = jiffies;
- 		send_roam_adv(bat_priv, tt_global_entry->common.addr,
- 			      tt_global_entry->orig_node);
--- 
-1.7.7.4
+(commit 70350b0685a370164ed8912835bd7109927c8781)
+
+Ben Hutchings (3):
+      MAINTAINERS: Update sfc maintainers
+      sfc: Remove device ID macros only used once
+      sfc: Use skb_fill_page_desc() to simplify passing of page buffers to =
+GRO
+
+ MAINTAINERS                    |    1 -
+ drivers/net/ethernet/sfc/efx.c |    4 ++--
+ drivers/net/ethernet/sfc/efx.h |    4 ----
+ drivers/net/ethernet/sfc/rx.c  |    7 ++-----
+ 4 files changed, 4 insertions(+), 12 deletions(-)
+
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
+--=-vwAkvhUF+YgfoDAL4PyH
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAABCAAGBQJO66WiAAoJEGkILBsOca60sA4H/2iaWlep53DRgWOmQxkVaPfD
+URifiHZsWj5IE4SsAHU3pyNCcbxu+rsMVGx6ssNgpkWJ6YPx98Va9CDpNZ4uG0wc
+PnFkqZdM0dQMgwk2aJC7QxAZCLH2/ZgvqK7pumiK4OaayttvwCtLcxqb/h1wyJej
+HoETHNO3vG2v7WsrtAsKAhKVYtNAxGG5+EPKw76LUvhw2jgfBjSyGAtQBPybbKn+
+Zi87bEZQSx5SQGUvc5XFYxYo0QmIiK9feSJc5mfxafIbo6uPaVW4Go9CmNLp8nr4
+C1QZv0WK5suqYtTbgBfGdXVLFmgTyRl12twGHdc/eivbBk8sq5tmIXIL4vSfOZw=
+=om7m
+-----END PGP SIGNATURE-----
+
+--=-vwAkvhUF+YgfoDAL4PyH--
