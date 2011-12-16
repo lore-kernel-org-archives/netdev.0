@@ -1,39 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/10 net-next] Introduce per interface ipv4 statistics
-Date: Fri, 16 Dec 2011 13:39:27 -0500 (EST)
-Message-ID: <20111216.133927.505152575269693232.davem@davemloft.net>
-References: <alpine.DEB.2.00.1112161053030.26765@router.home>
-	<1324055686.25554.66.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<alpine.DEB.2.00.1112161128060.26765@router.home>
+Subject: Re: [PATCH net-next v1 0/6] tg3: adaptive interrupt coalescing,
+ non-napi mode
+Date: Fri, 16 Dec 2011 13:42:47 -0500 (EST)
+Message-ID: <20111216.134247.1388025459559232416.davem@davemloft.net>
+References: <cover.1324059527.git.decot@googlers.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, igorm@etf.rs, netdev@vger.kernel.org
-To: cl@linux.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56946 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752040Ab1LPSjf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 13:39:35 -0500
-In-Reply-To: <alpine.DEB.2.00.1112161128060.26765@router.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mcarlson@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, martinez.javier@gmail.com,
+	rgetz@blackfin.uclinux.org, mpm@selenic.com
+To: decot@googlers.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1324059527.git.decot@googlers.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Christoph Lameter <cl@linux.com>
-Date: Fri, 16 Dec 2011 11:29:57 -0600 (CST)
+From: David Decotigny <decot@googlers.com>
+Date: Fri, 16 Dec 2011 10:19:43 -0800
 
-> I have some latency critical processes here and I wish I could get
+> This series implements adaptive interrupt coalescing for tg3 NIC,
+> improving performance substancially. It also implements non-NAPI mode
+> for specific system loads.
 
-I hear there's FPGAs for that.... what drives me nuts about these
-discussions is that custom silicon for trading platforms is all but
-inevitable, and will save tons of space and power utilization to boot.
+I specifically removed the dynamic IRQ coalescing from this driver years
+ago.
 
-Madly trying to focus on lowering latency in a general purpose OS so
-much just to compare two numbers and execute a trade is silly when in
-the end it'll be implemented in a discrete circuit.
+It's too susceptible to state changes.
 
-This stuff is special purpose, so let's treat it as such.
+I am sure that you have some nice benchmark for which one scheme helps,
+but more generally it is not possible to make it such that you will avoid
+the case where the network flow pattern changes by the time you change
+the chip configuration and thus the result is suboptimal.
 
-Lowering latency is a good goal, don't get me wrong, but the extreme
-goals set out in these cases is for a very specific small group of
-users.
+I highly recommend these changes are not applied, because they will hurt
+someone.
