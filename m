@@ -1,63 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 00/10 net-next] Introduce per interface ipv4 statistics
-Date: Fri, 16 Dec 2011 19:08:31 +0100
-Message-ID: <1324058911.25554.82.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <igorm@etf.rs> <1324049163-11207-1-git-send-email-igorm@etf.rs>
-	    <1324050080.25554.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	    <CAFdo_mWY3030_WsL_awXFMaviMA5MGJP_gMs0cM=6KeGQft6-Q@mail.gmail.com>
-	   <1324053184.25554.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <alpine.DEB.2.00.1112161043080.26765@router.home>
-	  <1324054244.25554.56.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	  <alpine.DEB.2.00.1112161053030.26765@router.home>
-	 <1324055686.25554.66.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <alpine.DEB.2.00.1112161128060.26765@router.home>
+From: David Decotigny <decot@googlers.com>
+Subject: [PATCH net-next v1 0/6] tg3: adaptive interrupt coalescing, non-napi mode
+Date: Fri, 16 Dec 2011 10:19:43 -0800
+Message-ID: <cover.1324059527.git.decot@googlers.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: igorm@etf.rs, netdev@vger.kernel.org, davem@davemloft.net
-To: Christoph Lameter <cl@linux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:35710 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753655Ab1LPSIf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 13:08:35 -0500
-Received: by faar15 with SMTP id r15so3165389faa.19
-        for <netdev@vger.kernel.org>; Fri, 16 Dec 2011 10:08:33 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.00.1112161128060.26765@router.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Javier Martinez Canillas <martinez.javier@gmail.com>,
+	Robin Getz <rgetz@blackfin.uclinux.org>,
+	Matt Mackall <mpm@selenic.com>,
+	David Decotigny <decot@googlers.com>
+To: Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 16 d=C3=A9cembre 2011 =C3=A0 11:29 -0600, Christoph Lameter=
- a =C3=A9crit :
+This series implements adaptive interrupt coalescing for tg3 NIC,
+improving performance substancially. It also implements non-NAPI mode
+for specific system loads.
 
-> I have some latency critical processes here and I wish I could get
-> networking in general off the processor where the latency sensitive s=
-tuff
-> is running should that process decide to do some calls that cause net=
-work
-> I/O.
->=20
-> Traditional networking is a slow process these days.
+############################################
+# Patch Set Summary:
 
+David Decotigny (2):
+  tg3: fix possible infinite loop
+  tg3: move functions related to reset_task together
 
-Most of the slow process is in the process scheduler actually and cache
-line misses in large TCP structures, but also in many layers (Qdisc...)=
-,
-not counting icache footprint.
+Maciej =C5=BBenczykowski (1):
+  tg3: Remove IRQF_SAMPLE_RANDOM flag from internal tests
 
-We slowly improve things, but its always a tradeoff (did I said code
-bloat ?)
+Tom Herbert (1):
+  tg3: implementation of a non-NAPI mode
 
-If you have dedicated network thread(s) in your application, bound to
-the right cpu(s), then all network stack can be run on the cpus you
-decide [ Also needs using correct irq affinities for the NIC interrupts=
-]
+Ying Cai (2):
+  tg3: Implement adaptive interrupt coalescing
+  tg3: use netif_tx_start_queue instead of wake_queue when no
+    reschedule needed
 
-This means your latency critical threads should delegate their network
-IO (like disk IO) to other threads, _and_ avoid being blocked in
-scheduler land.
+ drivers/net/ethernet/broadcom/Kconfig |    8 +
+ drivers/net/ethernet/broadcom/tg3.c   |  379 +++++++++++++++++++++++++=
++++++---
+ drivers/net/ethernet/broadcom/tg3.h   |   42 ++++
+ 3 files changed, 397 insertions(+), 32 deletions(-)
 
-Given the nature of socket api, I am not sure adding a layer to
-transparently delegate network IO to a pool of dedicated cpus would be =
-a
-win.
+--=20
+1.7.3.1
