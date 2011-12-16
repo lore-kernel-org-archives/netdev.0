@@ -1,228 +1,214 @@
-From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: [PATCH] fix sleeping while atomic problem in sock mem_cgroup.
-Date: Fri, 16 Dec 2011 06:37:50 +0400
-Message-ID: <1324003070-6573-1-git-send-email-glommer@parallels.com>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] tg3: Make the RSS indir tbl admin configurable
+Date: Fri, 16 Dec 2011 03:04:34 +0000
+Message-ID: <1324004674.2825.226.camel@deadeye>
+References: <1323996466-8139-1-git-send-email-mcarlson@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>
+To: Matt Carlson <mcarlson@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:16269 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756436Ab1LPDEn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2011 22:04:43 -0500
+In-Reply-To: <1323996466-8139-1-git-send-email-mcarlson@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since we can't scan the proto_list to initialize sock cgroups, as it
-holds a rwlock, and we also want to keep the code generic enough to
-avoid calling the initialization functions of protocols directly,
-I propose we keep the interested parties in a separate list. This list
-is protected by a mutex so we can sleep and do the necessary allocations.
+On Thu, 2011-12-15 at 16:47 -0800, Matt Carlson wrote:
+> This patch adds the ethtool callbacks necessary to change the rss
+> indirection table from userspace.  When setting the indirection table
+> through set_rxfh_indir, an indirection table size of zero is
+> interpreted to mean that the admin wants to relinquish control of the
+> table to the driver.  Should the number of interrupts change (e.g.
+> across a close / open call, or through a reset), any indirection table
+> values that exceed the number of RSS queues or interrupt vectors will
+> be automatically scaled back to values within range.
+> 
+> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Also fixes a reference problem found by Randy Dunlap's randconfig.
+No I didn't!
 
-Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-CC: Hiroyouki Kamezawa <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-CC: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-CC: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-CC: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
----
- include/linux/memcontrol.h   |    4 +++
- include/net/sock.h           |    5 +---
- include/net/tcp_memcontrol.h |    2 +
- mm/memcontrol.c              |   52 ++++++++++++++++++++++++++++++++++++++++++
- net/core/sock.c              |   48 +++++++++-----------------------------
- 5 files changed, 70 insertions(+), 41 deletions(-)
+Ben.
 
-diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
-index 9b296ea..1edd0e3 100644
---- a/include/linux/memcontrol.h
-+++ b/include/linux/memcontrol.h
-@@ -390,6 +390,10 @@ enum {
- 	OVER_LIMIT,
- };
- 
-+struct proto;
-+void register_sock_cgroup(struct proto *prot);
-+void unregister_sock_cgroup(struct proto *prot);
-+
- #ifdef CONFIG_INET
- struct sock;
- #ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 6fe0dae..f8237a3 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -64,10 +64,6 @@
- #include <net/dst.h>
- #include <net/checksum.h>
- 
--struct cgroup;
--struct cgroup_subsys;
--int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss);
--void mem_cgroup_sockets_destroy(struct cgroup *cgrp, struct cgroup_subsys *ss);
- /*
-  * This structure really needs to be cleaned up.
-  * Most of it is for TCP, and not used by any of
-@@ -858,6 +854,7 @@ struct proto {
- 	void			(*destroy_cgroup)(struct cgroup *cgrp,
- 						  struct cgroup_subsys *ss);
- 	struct cg_proto		*(*proto_cgroup)(struct mem_cgroup *memcg);
-+	struct list_head	cgroup_node;
- #endif
- };
- 
-diff --git a/include/net/tcp_memcontrol.h b/include/net/tcp_memcontrol.h
-index 3512082..5aa7c4b 100644
---- a/include/net/tcp_memcontrol.h
-+++ b/include/net/tcp_memcontrol.h
-@@ -11,6 +11,8 @@ struct tcp_memcontrol {
- 	int tcp_memory_pressure;
- };
- 
-+struct cgroup;
-+struct cgroup_subsys;
- struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg);
- int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss);
- void tcp_destroy_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss);
-diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index 7266202..6ee250d 100644
---- a/mm/memcontrol.c
-+++ b/mm/memcontrol.c
-@@ -4742,6 +4742,58 @@ static struct cftype kmem_cgroup_files[] = {
- 	},
- };
- 
-+static DEFINE_MUTEX(cgroup_proto_list_lock);
-+static LIST_HEAD(cgroup_proto_list);
-+
-+static int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss)
-+{
-+	struct proto *proto;
-+	int ret = 0;
-+
-+	mutex_lock(&cgroup_proto_list_lock);
-+	list_for_each_entry(proto, &cgroup_proto_list, cgroup_node) {
-+		if (proto->init_cgroup) {
-+			ret = proto->init_cgroup(cgrp, ss);
-+			if (ret)
-+				goto out;
-+		}
-+	}
-+
-+	mutex_unlock(&cgroup_proto_list_lock);
-+	return ret;
-+out:
-+	list_for_each_entry_continue_reverse(proto, &cgroup_proto_list, cgroup_node)
-+		if (proto->destroy_cgroup)
-+			proto->destroy_cgroup(cgrp, ss);
-+	mutex_unlock(&cgroup_proto_list_lock);
-+	return ret;
-+}
-+
-+static void mem_cgroup_sockets_destroy(struct cgroup *cgrp, struct cgroup_subsys *ss)
-+{
-+	struct proto *proto;
-+
-+	mutex_lock(&cgroup_proto_list_lock);
-+	list_for_each_entry_reverse(proto, &cgroup_proto_list, cgroup_node)
-+		if (proto->destroy_cgroup)
-+			proto->destroy_cgroup(cgrp, ss);
-+	mutex_unlock(&cgroup_proto_list_lock);
-+}
-+
-+void register_sock_cgroup(struct proto *prot)
-+{
-+	mutex_lock(&cgroup_proto_list_lock);
-+	list_add(&prot->cgroup_node, &cgroup_proto_list);
-+	mutex_unlock(&cgroup_proto_list_lock);
-+}
-+
-+void unregister_sock_cgroup(struct proto *prot)
-+{
-+	mutex_lock(&cgroup_proto_list_lock);
-+	list_del(&prot->cgroup_node);
-+	mutex_unlock(&cgroup_proto_list_lock);
-+}
-+
- static int register_kmem_files(struct cgroup *cont, struct cgroup_subsys *ss)
- {
- 	int ret = 0;
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 5a6a906..3728b50 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -139,43 +139,6 @@
- static DEFINE_RWLOCK(proto_list_lock);
- static LIST_HEAD(proto_list);
- 
--#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
--int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss)
--{
--	struct proto *proto;
--	int ret = 0;
--
--	read_lock(&proto_list_lock);
--	list_for_each_entry(proto, &proto_list, node) {
--		if (proto->init_cgroup) {
--			ret = proto->init_cgroup(cgrp, ss);
--			if (ret)
--				goto out;
--		}
--	}
--
--	read_unlock(&proto_list_lock);
--	return ret;
--out:
--	list_for_each_entry_continue_reverse(proto, &proto_list, node)
--		if (proto->destroy_cgroup)
--			proto->destroy_cgroup(cgrp, ss);
--	read_unlock(&proto_list_lock);
--	return ret;
--}
--
--void mem_cgroup_sockets_destroy(struct cgroup *cgrp, struct cgroup_subsys *ss)
--{
--	struct proto *proto;
--
--	read_lock(&proto_list_lock);
--	list_for_each_entry_reverse(proto, &proto_list, node)
--		if (proto->destroy_cgroup)
--			proto->destroy_cgroup(cgrp, ss);
--	read_unlock(&proto_list_lock);
--}
--#endif
--
- /*
-  * Each address family might have different locking rules, so we have
-  * one slock key per address family:
-@@ -2483,6 +2446,12 @@ int proto_register(struct proto *prot, int alloc_slab)
- 	list_add(&prot->node, &proto_list);
- 	assign_proto_idx(prot);
- 	write_unlock(&proto_list_lock);
-+
-+#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
-+	if (prot->proto_cgroup)
-+		register_sock_cgroup(prot);
-+#endif
-+
- 	return 0;
- 
- out_free_timewait_sock_slab_name:
-@@ -2510,6 +2479,11 @@ void proto_unregister(struct proto *prot)
- 	list_del(&prot->node);
- 	write_unlock(&proto_list_lock);
- 
-+#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
-+	if (prot->proto_cgroup != NULL)
-+		unregister_sock_cgroup(prot);
-+#endif
-+
- 	if (prot->slab != NULL) {
- 		kmem_cache_destroy(prot->slab);
- 		prot->slab = NULL;
+> Reviewed-by: Benjamin Li <benli@broadcom.com>
+> ---
+>  drivers/net/ethernet/broadcom/tg3.c |  126 ++++++++++++++++++++++++++++++++++-
+>  drivers/net/ethernet/broadcom/tg3.h |    1 +
+>  2 files changed, 126 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> index 8bf11ca..87f70f6 100644
+> --- a/drivers/net/ethernet/broadcom/tg3.c
+> +++ b/drivers/net/ethernet/broadcom/tg3.c
+> @@ -8229,9 +8229,19 @@ void tg3_rss_init_indir_tbl(struct tg3 *tp)
+>  
+>  	if (tp->irq_cnt <= 2)
+>  		memset(&tp->rss_ind_tbl[0], 0, sizeof(tp->rss_ind_tbl));
+> -	else
+> +	else if (tg3_flag(tp, USER_INDIR_TBL)) {
+> +		/* Validate table against current IRQ count */
+> +		for (i = 0; i < TG3_RSS_INDIR_TBL_SIZE; i++) {
+> +			if (tp->rss_ind_tbl[i] >= tp->irq_cnt - 1) {
+> +				/* Bring the index within range */
+> +				tp->rss_ind_tbl[i] = tp->rss_ind_tbl[i] %
+> +						     (tp->irq_cnt - 1);
+> +			}
+> +		}
+> +	} else {
+>  		for (i = 0; i < TG3_RSS_INDIR_TBL_SIZE; i++)
+>  			tp->rss_ind_tbl[i] = i % (tp->irq_cnt - 1);
+> +	}
+>  }
+>  
+>  void tg3_rss_write_indir_tbl(struct tg3 *tp)
+> @@ -10719,6 +10729,117 @@ static int tg3_get_sset_count(struct net_device *dev, int sset)
+>  	}
+>  }
+>  
+> +static int tg3_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
+> +			 u32 *rules __always_unused)
+> +{
+> +	struct tg3 *tp = netdev_priv(dev);
+> +
+> +	if (!tg3_flag(tp, SUPPORT_MSIX))
+> +		return -EOPNOTSUPP;
+> +
+> +	switch (info->cmd) {
+> +	case ETHTOOL_GRXRINGS:
+> +		if (netif_running(tp->dev))
+> +			info->data = tp->irq_cnt;
+> +		else {
+> +			info->data = num_online_cpus();
+> +			if (info->data > TG3_IRQ_MAX_VECS_RSS)
+> +				info->data = TG3_IRQ_MAX_VECS_RSS;
+> +		}
+> +
+> +		/* The first interrupt vector only
+> +		 * handles link interrupts.
+> +		 */
+> +		info->data -= 1;
+> +		return 0;
+> +
+> +	default:
+> +		return -EOPNOTSUPP;
+> +	}
+> +}
+> +
+> +static int tg3_get_rxfh_indir(struct net_device *dev,
+> +			      struct ethtool_rxfh_indir *indir)
+> +{
+> +	struct tg3 *tp = netdev_priv(dev);
+> +	int i;
+> +
+> +	if (!tg3_flag(tp, SUPPORT_MSIX))
+> +		return -EOPNOTSUPP;
+> +
+> +	if (!indir->size) {
+> +		indir->size = TG3_RSS_INDIR_TBL_SIZE;
+> +		return 0;
+> +	}
+> +
+> +	if (indir->size != TG3_RSS_INDIR_TBL_SIZE)
+> +		return -EINVAL;
+> +
+> +	for (i = 0; i < TG3_RSS_INDIR_TBL_SIZE; i++)
+> +		indir->ring_index[i] = tp->rss_ind_tbl[i];
+> +
+> +	return 0;
+> +}
+> +
+> +static int tg3_set_rxfh_indir(struct net_device *dev,
+> +			      const struct ethtool_rxfh_indir *indir)
+> +{
+> +	struct tg3 *tp = netdev_priv(dev);
+> +	size_t i;
+> +
+> +	if (!tg3_flag(tp, SUPPORT_MSIX))
+> +		return -EOPNOTSUPP;
+> +
+> +	if (!indir->size) {
+> +		tg3_flag_clear(tp, USER_INDIR_TBL);
+> +		tg3_rss_init_indir_tbl(tp);
+> +	} else {
+> +		int limit;
+> +
+> +		/* Validate size and indices */
+> +		if (indir->size != TG3_RSS_INDIR_TBL_SIZE)
+> +			return -EINVAL;
+> +
+> +		if (netif_running(dev))
+> +			limit = tp->irq_cnt;
+> +		else {
+> +			limit = num_online_cpus();
+> +			if (limit > TG3_IRQ_MAX_VECS_RSS)
+> +				limit = TG3_IRQ_MAX_VECS_RSS;
+> +		}
+> +
+> +		/* The first interrupt vector only
+> +		 * handles link interrupts.
+> +		 */
+> +		limit -= 1;
+> +
+> +		/* Check the indices in the table.
+> +		 * Leave the existing table unmodified
+> +		 * if an error is detected.
+> +		 */
+> +		for (i = 0; i < TG3_RSS_INDIR_TBL_SIZE; i++)
+> +			if (indir->ring_index[i] >= limit)
+> +				return -EINVAL;
+> +
+> +		tg3_flag_set(tp, USER_INDIR_TBL);
+> +
+> +		for (i = 0; i < TG3_RSS_INDIR_TBL_SIZE; i++)
+> +			tp->rss_ind_tbl[i] = indir->ring_index[i];
+> +	}
+> +
+> +	if (!netif_running(dev) || !tg3_flag(tp, ENABLE_RSS))
+> +		return 0;
+> +
+> +	/* It is legal to write the indirection
+> +	 * table while the device is running.
+> +	 */
+> +	tg3_full_lock(tp, 0);
+> +	tg3_rss_write_indir_tbl(tp);
+> +	tg3_full_unlock(tp);
+> +
+> +	return 0;
+> +}
+> +
+>  static void tg3_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
+>  {
+>  	switch (stringset) {
+> @@ -11949,6 +12070,9 @@ static const struct ethtool_ops tg3_ethtool_ops = {
+>  	.get_coalesce		= tg3_get_coalesce,
+>  	.set_coalesce		= tg3_set_coalesce,
+>  	.get_sset_count		= tg3_get_sset_count,
+> +	.get_rxnfc		= tg3_get_rxnfc,
+> +	.get_rxfh_indir		= tg3_get_rxfh_indir,
+> +	.set_rxfh_indir		= tg3_set_rxfh_indir,
+>  };
+>  
+>  static void __devinit tg3_get_eeprom_size(struct tg3 *tp)
+> diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
+> index aea8f72..4800595 100644
+> --- a/drivers/net/ethernet/broadcom/tg3.h
+> +++ b/drivers/net/ethernet/broadcom/tg3.h
+> @@ -2932,6 +2932,7 @@ enum TG3_FLAGS {
+>  	TG3_FLAG_APE_HAS_NCSI,
+>  	TG3_FLAG_4K_FIFO_LIMIT,
+>  	TG3_FLAG_RESET_TASK_PENDING,
+> +	TG3_FLAG_USER_INDIR_TBL,
+>  	TG3_FLAG_5705_PLUS,
+>  	TG3_FLAG_IS_5788,
+>  	TG3_FLAG_5750_PLUS,
+
 -- 
-1.7.6.4
-
---
-To unsubscribe from this list: send the line "unsubscribe cgroups" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
