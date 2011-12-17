@@ -1,32 +1,19 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: macvtap rxhash patch
-Date: Tue, 20 Dec 2011 13:23:26 +0200
-Message-ID: <20111220112326.GD3913@redhat.com>
-References: <20111219.163732.1743893510814385117.davem@davemloft.net>
+From: "Liu Wang" <liu@bank.tw>
+Subject: business proposal.
+Date: Sat, 17 Dec 2011 09:41:41 +0800
+Message-ID: <20111217014141.M953@bank.tw>
+Reply-To: li.uwang@shqiptar.eu
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: krkumar2@in.ibm.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset=iso-8859-1
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40737 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751819Ab1LTLVr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Dec 2011 06:21:47 -0500
-Content-Disposition: inline
-In-Reply-To: <20111219.163732.1743893510814385117.davem@davemloft.net>
+Received: from 113-28-71-149.static.imsbiz.com ([113.28.71.149]:42046 "EHLO
+	elearning.qcobass.edu.hk" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751224Ab1LTLlE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 06:41:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 19, 2011 at 04:37:32PM -0500, David Miller wrote:
-> 
-> Reference:
-> 
-> http://patchwork.ozlabs.org/patch/127456/
-> 
-> This is just rotting for a long time, I want to just do something
-> with this patch, and I don't care if that's "apply it now" or
-> "defer indefinitely".
-> 
-> Thanks.
-
-Ack, sorry about the delay.
+I am Mr. Liu Wang, an official with the International bank of Taipei,Taiwan. 
+I ask for your partnership in re-profiling funds.
