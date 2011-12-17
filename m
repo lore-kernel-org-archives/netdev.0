@@ -1,74 +1,120 @@
-From: richard -rw- weinberger <richard.weinberger@gmail.com>
-Subject: =?windows-1252?Q?Re=3A_Kernel=2DDOS_error_in_arp_mechanism_=96_no_delete_?=
-	=?windows-1252?Q?off_incomplete_arp_adresses?=
-Date: Sat, 17 Dec 2011 14:26:01 +0100
-Message-ID: <CAFLxGvxjLCyMCPXtpm7a7RaOL4A4=bhCLPKD=FVAc8xOdx_CsQ@mail.gmail.com>
-References: <4EEC5286.3070408@gmx.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Robert Gladewitz <gladewitz@gmx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4EEC5286.3070408@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: [PATCH] 9p: Don't use ATTR_* values from fs.h in userspace facing  structs
+Date: Sat, 17 Dec 2011 17:07:02 +0200
+Message-ID: <1324134422-16642-1-git-send-email-levinsasha928@gmail.com>
+Cc: v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Sasha Levin <levinsasha928@gmail.com>
+To: ericvh@gmail.com, rminnich@sandia.gov, lucho@ionkov.net,
+	davem@davemloft.net, aneesh.kumar@linux.vnet.ibm.com,
+	jvrao@linux.vnet.ibm.com, viro@ZenIV.linux.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:52457 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752443Ab1LQPIC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2011 10:08:02 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 17, 2011 at 9:27 AM, Robert Gladewitz <gladewitz@gmx.de> wr=
-ote:
-> Hello,
->
-> first i have to say sorry for m y bad english. I try my best to descr=
-ipe the
-> error.
->
-> I Use Linux-Routers for internal and external firewall components. Fo=
-r this
-> I Use own kernel configurations und use only the drivers an modules w=
-hat I
-> need. Other features and modules I deactivated in my kernel versions
->
-> Since the kernel version 2.6.36 there is some mistake in the ipv4 arp
-> implementation. The the System try to find an unknown system, the sen=
-d an
-> =93who is=94 and marked the ip address as =93incomplete=94 (German: u=
-nvollst=E4ndig).
-> The thing is, usually linux delete all incomplete and complete entrie=
-s in
-> some time, but in all kernel versions since 2.6.36 he doas not delete=
- any
-> addresses.
->
-> In my case, I scan my network-segmens for new devices (Kaspersky, Lan=
-desk)
-> and on this process, the router learned a lot of incomplete addresses=
-=2E I
-> have some class b networks (from the history), and this means the rou=
-ter
-> will be learned mor then 2^16 adresses.
->
-> Now the kerlen learn a maximum addresses =96 I know this is defined o=
-n
-> gc_thresh1 , gc_thresh2 and gc_thresh3 in the proc system under
-> sys.net.ipv4.neight.default. If the table have the maximum addresses =
-in the
-> table (default=3D1024), no new host can send traffic packet over this=
- router.
-> This means, we have a classical risk of DOS. In my case, I have only =
-an
-> internal risk, but some providers may have also external risc.
->
-> I hope, my description help you to find this error. I send also my ke=
-rnel
-> config, may there is some relation to small configurations in kernel
->
-> Viele Gr=FC=DFe
->
-> Robert Gladewitz
->
+struct p9_iattr_dotl is userspace facing, but the 'valid' field is documented
+as follows:
 
-CC'ing netdev.
+	 * @valid: bitfield specifying which fields are valid
+	 *         same as in struct iattr
 
---=20
-Thanks,
-//richard
+Which means that the user has to know about kernel internal ATTR_* values.
+
+On Fri, 2011-12-16 at 23:30 +0000, Al Viro wrote:
+> They *are* kernel internal values and 9P is asking for trouble exposing
+> them.  Translation: tomorrow we might reassign those as we bloody wish
+> and any userland code that happens to rely on their values will break.
+> At which point we'll handle complaints by pointing and laughing.
+>
+> It's a 9P bug; fix it there.  Turning random internal constants into a part
+> of ABI is not going to work.
+
+Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+---
+ fs/9p/vfs_inode_dotl.c |   31 ++++++++++++++++++++++++++++++-
+ include/net/9p/9p.h    |   18 ++++++++++++++++++
+ 2 files changed, 48 insertions(+), 1 deletions(-)
+
+diff --git a/fs/9p/vfs_inode_dotl.c b/fs/9p/vfs_inode_dotl.c
+index 0b5745e..a948214 100644
+--- a/fs/9p/vfs_inode_dotl.c
++++ b/fs/9p/vfs_inode_dotl.c
+@@ -523,6 +523,35 @@ v9fs_vfs_getattr_dotl(struct vfsmount *mnt, struct dentry *dentry,
+ 	return 0;
+ }
+ 
++int v9fs_vfs_iattr_to_9p_valid(u32 ia_valid)
++{
++	u32 valid = 0, i;
++	static u32 attr_map[][2] = {
++		{ATTR_MODE,		P9_ATTR_MODE},
++		{ATTR_UID,		P9_ATTR_UID},
++		{ATTR_SIZE,		P9_ATTR_SIZE},
++		{ATTR_ATIME,		P9_ATTR_ATIME},
++		{ATTR_MTIME,		P9_ATTR_MTIME},
++		{ATTR_CTIME,		P9_ATTR_CTIME},
++		{ATTR_ATIME_SET,	P9_ATTR_ATIME_SET},
++		{ATTR_MTIME_SET,	P9_ATTR_MTIME_SET},
++		{ATTR_FORCE,		P9_ATTR_FORCE},
++		{ATTR_ATTR_FLAG,	P9_ATTR_ATTR_FLAG},
++		{ATTR_KILL_SUID,	P9_ATTR_KILL_SUID},
++		{ATTR_KILL_SGID,	P9_ATTR_KILL_SGID},
++		{ATTR_FILE,		P9_ATTR_FILE},
++		{ATTR_KILL_PRIV,	P9_ATTR_KILL_PRIV},
++		{ATTR_OPEN,		P9_ATTR_OPEN},
++		{ATTR_TIMES_SET,	P9_ATTR_TIMES_SET},
++	};
++
++	for (i = 0; i < ARRAY_SIZE(attr_map); i++)
++		if (ia_valid & attr_map[i][0])
++			valid |= attr_map[i][1];
++
++	return valid;
++}
++
+ /**
+  * v9fs_vfs_setattr_dotl - set file metadata
+  * @dentry: file whose metadata to set
+@@ -543,7 +572,7 @@ int v9fs_vfs_setattr_dotl(struct dentry *dentry, struct iattr *iattr)
+ 	if (retval)
+ 		return retval;
+ 
+-	p9attr.valid = iattr->ia_valid;
++	p9attr.valid = v9fs_vfs_iattr_to_9p_valid(iattr->ia_valid);
+ 	p9attr.mode = iattr->ia_mode;
+ 	p9attr.uid = iattr->ia_uid;
+ 	p9attr.gid = iattr->ia_gid;
+diff --git a/include/net/9p/9p.h b/include/net/9p/9p.h
+index 2d70b95..98b3f71 100644
+--- a/include/net/9p/9p.h
++++ b/include/net/9p/9p.h
+@@ -468,6 +468,24 @@ struct p9_stat_dotl {
+ #define P9_STATS_BASIC		0x000007ffULL /* Mask for fields up to BLOCKS */
+ #define P9_STATS_ALL		0x00003fffULL /* Mask for All fields above */
+ 
++#define P9_ATTR_MODE		(1 << 0)
++#define P9_ATTR_UID		(1 << 1)
++#define P9_ATTR_GID		(1 << 2)
++#define P9_ATTR_SIZE		(1 << 3)
++#define P9_ATTR_ATIME		(1 << 4)
++#define P9_ATTR_MTIME		(1 << 5)
++#define P9_ATTR_CTIME		(1 << 6)
++#define P9_ATTR_ATIME_SET	(1 << 7)
++#define P9_ATTR_MTIME_SET	(1 << 8)
++#define P9_ATTR_FORCE		(1 << 9) /* Not a change, but a change it */
++#define P9_ATTR_ATTR_FLAG	(1 << 10)
++#define P9_ATTR_KILL_SUID	(1 << 11)
++#define P9_ATTR_KILL_SGID	(1 << 12)
++#define P9_ATTR_FILE		(1 << 13)
++#define P9_ATTR_KILL_PRIV	(1 << 14)
++#define P9_ATTR_OPEN		(1 << 15) /* Truncating from open(O_TRUNC) */
++#define P9_ATTR_TIMES_SET	(1 << 16)
++
+ /**
+  * struct p9_iattr_dotl - P9 inode attribute for setattr
+  * @valid: bitfield specifying which fields are valid
+-- 
+1.7.8
