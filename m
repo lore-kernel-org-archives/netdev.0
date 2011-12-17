@@ -1,90 +1,55 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: bnx2x firmware version 6.x.y
-Date: Sat, 17 Dec 2011 16:52:26 +0000
-Message-ID: <1324140746.2825.335.camel@deadeye>
+From: =?ISO-8859-2?Q?Igor_Maravi=E6?= <igorm@etf.rs>
+Subject: Re: [PATCH net-next] r8169: Support for byte queue limits
+Date: Sat, 17 Dec 2011 18:28:30 +0100
+Message-ID: <CAFdo_mUcUXhZK20t92NJCetcPV=tst9EYTUhHdbhFU0=FjY2dA@mail.gmail.com>
+References: <igorm@etf.rs>
+	<1323694834-2844-1-git-send-email-igorm@etf.rs>
+	<1324071003.2621.33.camel@edumazet-laptop>
+Reply-To: igorm@etf.rs
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-BRW11N11I0lwHUfZjHFt"
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	David Woodhouse <dwmw2@infradead.org>
-To: Eilon Greenstein <eilong@broadcom.com>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	Vladislav Zolotarov <vladz@broadcom.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:42355 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752359Ab1LQQwl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2011 11:52:41 -0500
+Received: from mx1.etf.rs ([147.91.14.169]:38006 "EHLO mx1.etf.bg.ac.rs"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751936Ab1LQR2f convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2011 12:28:35 -0500
+Received: from localhost (avs1.etf.rs [147.91.14.172])
+	by mx1.etf.bg.ac.rs (Postfix) with ESMTP id 7C4D5120132
+	for <netdev@vger.kernel.org>; Sat, 17 Dec 2011 18:28:33 +0100 (CET)
+Received: from mx1.etf.bg.ac.rs ([147.91.14.169])
+	by localhost (avs1.etf.rs [147.91.14.171]) (amavisd-new, port 10026)
+	with ESMTP id Rvm0JwsaeOeD for <netdev@vger.kernel.org>;
+	Sat, 17 Dec 2011 18:28:33 +0100 (CET)
+Received: from mail-tul01m020-f174.google.com (mail-tul01m020-f174.google.com [209.85.214.174])
+	(using TLSv1 with cipher RC4-SHA (128/128 bits))
+	(No client certificate requested)
+	(Authenticated sender: igorm)
+	by mx1.etf.bg.ac.rs (Postfix) with ESMTP id A9BB7120133
+	for <netdev@vger.kernel.org>; Sat, 17 Dec 2011 18:28:32 +0100 (CET)
+Received: by obcwo16 with SMTP id wo16so901212obc.19
+        for <netdev@vger.kernel.org>; Sat, 17 Dec 2011 09:28:30 -0800 (PST)
+In-Reply-To: <1324071003.2621.33.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> Why here in rtl8169_xmit_frags() ?
+>
+> If done from rtl8169_start_xmit(), you already have "dev" pointer.
+>
+> =A0 =A0 =A0 =A0netdev_sent_queue(dev, skb->len);
+>
 
---=-BRW11N11I0lwHUfZjHFt
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I put it there because actual dma maping is occurring in that function.
+Logically there is no difference if I put it after calling of function
+rtl8169_xmit_frags() in rtl8169_start_xmit().
 
-In general, linux-firmware includes all blobs that any released version
-of a driver may need.
+If You think it would be better to be in function rtl8169_start_xmit,
+for performance reasons I'l put it there.
 
-Therefore, I'm about to add the bnx2x firmware versions 6.0.34.0,
-6.2.5.0 and 6.2.9.0 (taken from kernel versions 2.6.37, 2.6.38 and 3.0
-respectively) into linux-firmware.
-
-The full lists of bnx2x firmware blobs that will be included after this
-is:
-
-bnx2x-e1-4.8.53.0.fw
-bnx2x-e1-5.2.13.0.fw
-bnx2x-e1-5.2.7.0.fw
-bnx2x-e1h-4.8.53.0.fw
-bnx2x-e1h-5.2.13.0.fw
-bnx2x-e1h-5.2.7.0.fw
-bnx2x/bnx2x-e1-6.0.34.0.fw
-bnx2x/bnx2x-e1-6.2.5.0.fw
-bnx2x/bnx2x-e1-6.2.9.0.fw
-bnx2x/bnx2x-e1-7.0.20.0.fw
-bnx2x/bnx2x-e1-7.0.23.0.fw
-bnx2x/bnx2x-e1-7.0.29.0.fw
-bnx2x/bnx2x-e1h-6.0.34.0.fw
-bnx2x/bnx2x-e1h-6.2.5.0.fw
-bnx2x/bnx2x-e1h-6.2.9.0.fw
-bnx2x/bnx2x-e1h-7.0.20.0.fw
-bnx2x/bnx2x-e1h-7.0.23.0.fw
-bnx2x/bnx2x-e1h-7.0.29.0.fw
-bnx2x/bnx2x-e2-6.0.34.0.fw
-bnx2x/bnx2x-e2-6.2.5.0.fw
-bnx2x/bnx2x-e2-6.2.9.0.fw
-bnx2x/bnx2x-e2-7.0.20.0.fw
-bnx2x/bnx2x-e2-7.0.23.0.fw
-bnx2x/bnx2x-e2-7.0.29.0.fw
-
-Ben.
-
---=20
-Ben Hutchings
-Computers are not intelligent.	They only think they are.
-
---=-BRW11N11I0lwHUfZjHFt
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIVAwUATuzIy+e/yOyVhhEJAQpc3w/+OtbqGI5ySzbR4wrBSXmglmpr59RV4i9v
-bRt/ro5mbbL+qSpNzG5wy0btjzvFSsbDUtKpmdFtmNaLDS6mwHvSg2CmkvWV1Lto
-Oxh8NV1aAyeMCH1yfokDw11QDsBVOFFhJUUNoR5Ye/fDP2+HcqbBmt8Pm+4Cy48S
-NdueOkAkGKut2X6xVEUerR3pNaNkig13hCR71JQxM5D+jB78ajyt9861kHelEWYC
-AUxluzzOydqOPdb0rrvsgsJqHB2Oo8SrfSk/zIzQ7mmTNy0QLfTysTUYWIjL9OYE
-Gx3X9zKo5e1fdplfIyRIqJXjMS9xpaOPH4yw+SNnAlcC6ozOJ3sWT0KfJD1gO41R
-mwJG0lP9cUlupk5HhvYQEV+2AZFsjWW3AoEjaPPdUMF6ki6j1I93gg5b06EucIpw
-61vRmzCkTiXNmwSCi69wJEV6aHrZUudjdNhv4kwZ9oEiiBnCkhgvQR1dhpk3CTCt
-OX7sP5qY+xACP3qIAiQWpRNMVd4tP964rFbxk6hT56nGcqOmnxJHDr3BqqMtgvjn
-wOVoTd/1T+hYcJ/T0Et6eEs22ARxIaFKSzLzGficEchKB71HflPTB7d7bO6HRxvh
-wi2a0SLVl+06jOrUt6VE3soadyVRm6Sx0Q1yG1l5YEm8e4vONJSAD0ZQOEsviQqZ
-+zXnIW51lcU=
-=w6lh
------END PGP SIGNATURE-----
-
---=-BRW11N11I0lwHUfZjHFt--
+In any case I'l resubmit this patch in Monday. After all it's Saturday =
+:)
+BR
+Igor
