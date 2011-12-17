@@ -1,34 +1,60 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: [PATCH 0/2] Tracepoint for tcp retransmission
-Date: Fri, 16 Dec 2011 16:17:17 -0800 (PST)
-Message-ID: <5f654c7d-f18e-4d70-8830-a3e31b8f5f4a@tahiti.vyatta.com>
-References: <65795E11DBF1E645A09CEC7EAEE94B9CB5AFA64F@USINDEVS02.corp.hds.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net] gianfar: Reject out-of-range RX NFC locations
+Date: Sat, 17 Dec 2011 00:56:18 +0000
+Message-ID: <1324083378.2798.31.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, davem@davemloft.net, tgraf@infradead.org,
-	Seiji Aguchi <seiji.aguchi@hds.com>,
-	dle-develop@lists.sourceforge.net, netdev@vger.kernel.org
-To: Satoru Moriya <satoru.moriya@hds.com>
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Sebastian Poehn <sebastian.poehn@belden.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45098 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752591Ab1LQARS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Dec 2011 19:17:18 -0500
-In-Reply-To: <65795E11DBF1E645A09CEC7EAEE94B9CB5AFA64F@USINDEVS02.corp.hds.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:41233 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751625Ab1LQA4X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 19:56:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Currently the driver only uses location values to maintain an ordered
+list of filters.  There is nothing to stop the list becoming longer
+than the filer hardware can support - the driver will report an error,
+but will not roll back the change!
 
-> Sometimes network packets are dropped for some reason. In enterprise
-> systems which require strict RAS functionality, we must know the
-> reason why it happened and explain it to our customers even if using
-> TCP. When we investigate the incidents, at first we try to find out
-> whether the problem is in the server(kernel, application) or else
-> (router, hub etc). And next we try to find out which layer
-> (application/middleware/kernel(IP/TCP/UDP/..)etc.) the problem
-> occurs.
+Make it reject location values >= MAX_FILER_IDX, consistent with the
+range that gfar_get_cls_all() reports.
 
-I feel sorry for you, your users don't understand TCP. TCP intentionally induces loss
-to measure capacity. This is one of the fundamental principles of
-loss based congestion control.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+This has not been tested in any way, as I don't have a suitable compiler
+installed.  Sebastian, please could you review this?
+
+Ben.
+
+ drivers/net/ethernet/freescale/gianfar_ethtool.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+index 5890f4b..5a3b2e5 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
++++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+@@ -1692,8 +1692,9 @@ static int gfar_set_nfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
+ 		ret = gfar_set_hash_opts(priv, cmd);
+ 		break;
+ 	case ETHTOOL_SRXCLSRLINS:
+-		if (cmd->fs.ring_cookie != RX_CLS_FLOW_DISC &&
+-			cmd->fs.ring_cookie >= priv->num_rx_queues) {
++		if ((cmd->fs.ring_cookie != RX_CLS_FLOW_DISC &&
++		     cmd->fs.ring_cookie >= priv->num_rx_queues) ||
++		    cmd->fs.location >= MAX_FILER_IDX) {
+ 			ret = -EINVAL;
+ 			break;
+ 		}
+-- 
+1.7.4.4
+
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
