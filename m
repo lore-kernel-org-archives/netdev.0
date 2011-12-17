@@ -1,54 +1,99 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: bpf_jit: fix an off-one bug in x86_64 cond jump target
-Date: Sat, 17 Dec 2011 22:39:08 +0100
-Message-ID: <1324157948.3323.36.camel@edumazet-laptop>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [PATCH 01/11] SYSCTL: export root and set handling routines
+Date: Sat, 17 Dec 2011 14:25:14 -0800
+Message-ID: <m1bor6rg39.fsf@fess.ebiederm.org>
+References: <20111214103602.3991.20990.stgit@localhost6.localdomain6>
+	<20111214104449.3991.61989.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>, Markus <nepenthesdev@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:61653 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752423Ab1LQVjN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2011 16:39:13 -0500
-Received: by wgbdr13 with SMTP id dr13so8421463wgb.1
-        for <netdev@vger.kernel.org>; Sat, 17 Dec 2011 13:39:12 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org,
+	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20111214104449.3991.61989.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+	(Stanislav Kinsbursky's message of "Wed, 14 Dec 2011 14:44:49 +0300")
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Markus K=C3=B6tter <nepenthesdev@gmail.com>
+Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> writes:
 
-x86 jump instruction size is 2 or 5 bytes (near/long jump), not 2 or 6
-bytes.
+> These routines are required for making SUNRPC sysctl's per network namespace
+> context.
 
-In case a conditional jump is followed by a long jump, conditional jump
-target is one byte past the start of target instruction.
+Why does sunrpc require it's own sysctl root?  You should be able to use
+the generic per network namespace root and call it good.
 
-Signed-off-by: Markus K=C3=B6tter <nepenthesdev@gmail.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
+What makes register_net_sysctl_table and register_net_sysctl_ro_table
+unsuitable for sunrpc.  I skimmed through your patches and I haven't
+seen anything obvious.
 
-libpcap expression to reproduce the bug :
+Eric
 
-"(tcp and portrange 0-1024) or (udp and portrange 1025-2048)"
 
- arch/x86/net/bpf_jit_comp.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index bfab3fa..7b65f75 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -568,8 +568,8 @@ cond_branch:			f_offset =3D addrs[i + filter[i].jf]=
- - addrs[i];
- 					break;
- 				}
- 				if (filter[i].jt !=3D 0) {
--					if (filter[i].jf)
--						t_offset +=3D is_near(f_offset) ? 2 : 6;
-+					if (filter[i].jf && f_offset)
-+						t_offset +=3D is_near(f_offset) ? 2 : 5;
- 					EMIT_COND_JMP(t_op, t_offset);
- 					if (filter[i].jf)
- 						EMIT_JMP(f_offset);
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+>
+> ---
+>  include/linux/sysctl.h |    1 +
+>  kernel/sysctl.c        |   11 +++++++++++
+>  2 files changed, 12 insertions(+), 0 deletions(-)
+>
+> diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+> index 703cfa3..be586a9 100644
+> --- a/include/linux/sysctl.h
+> +++ b/include/linux/sysctl.h
+> @@ -1084,6 +1084,7 @@ struct ctl_path {
+>  };
+>  
+>  void register_sysctl_root(struct ctl_table_root *root);
+> +void unregister_sysctl_root(struct ctl_table_root *root);
+>  struct ctl_table_header *__register_sysctl_paths(
+>  	struct ctl_table_root *root, struct nsproxy *namespaces,
+>  	const struct ctl_path *path, struct ctl_table *table);
+> diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+> index ae27196..fb016a9 100644
+> --- a/kernel/sysctl.c
+> +++ b/kernel/sysctl.c
+> @@ -1700,6 +1700,15 @@ void register_sysctl_root(struct ctl_table_root *root)
+>  	list_add_tail(&root->root_list, &sysctl_table_root.root_list);
+>  	spin_unlock(&sysctl_lock);
+>  }
+> +EXPORT_SYMBOL_GPL(register_sysctl_root);
+> +
+> +void unregister_sysctl_root(struct ctl_table_root *root)
+> +{
+> +	spin_lock(&sysctl_lock);
+> +	list_del(&root->root_list);
+> +	spin_unlock(&sysctl_lock);
+> +}
+> +EXPORT_SYMBOL_GPL(unregister_sysctl_root);
+>  
+>  /*
+>   * sysctl_perm does NOT grant the superuser all rights automatically, because
+> @@ -1925,6 +1934,7 @@ struct ctl_table_header *__register_sysctl_paths(
+>  
+>  	return header;
+>  }
+> +EXPORT_SYMBOL_GPL(__register_sysctl_paths);
+>  
+>  /**
+>   * register_sysctl_table_path - register a sysctl table hierarchy
+> @@ -2007,6 +2017,7 @@ void setup_sysctl_set(struct ctl_table_set *p,
+>  	p->parent = parent ? parent : &sysctl_table_root.default_set;
+>  	p->is_seen = is_seen;
+>  }
+> +EXPORT_SYMBOL_GPL(setup_sysctl_set);
+>  
+>  #else /* !CONFIG_SYSCTL */
+>  struct ctl_table_header *register_sysctl_table(struct ctl_table * table)
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
