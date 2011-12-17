@@ -1,41 +1,94 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [PATCH] 9p: Don't use ATTR_* values from fs.h in userspace
- facing  structs
-Date: Sat, 17 Dec 2011 20:04:27 +0200
-Message-ID: <1324145067.4496.44.camel@lappy>
-References: <1324134422-16642-1-git-send-email-levinsasha928@gmail.com>
-	 <20111217174725.GW2203@ZenIV.linux.org.uk>
+From: Michal Soltys <soltys@ziu.info>
+Subject: Re: Latency guarantees in HFSC rt service curves
+Date: Sat, 17 Dec 2011 19:40:36 +0100
+Message-ID: <4EECE224.90800@ziu.info>
+References: <1323467512.3159.93.camel@denise.theartistscloset.com>  <4EE358A4.7060302@ziu.info>  <1323531352.3159.106.camel@denise.theartistscloset.com>  <4EE39D88.9010002@ziu.info>  <1323542103.3159.148.camel@denise.theartistscloset.com>  <4EE7E3E4.6070409@ziu.info>  <1323839798.8451.172.camel@denise.theartistscloset.com>  <4EE951E6.4020708@ziu.info> <1323934716.8451.272.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: ericvh@gmail.com, rminnich@sandia.gov, lucho@ionkov.net,
-	davem@davemloft.net, aneesh.kumar@linux.vnet.ibm.com,
-	jvrao@linux.vnet.ibm.com, v9fs-developer@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111217174725.GW2203@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from drutsystem.com ([80.72.38.138]:3962 "EHLO drutsystem.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751398Ab1LQSkf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Dec 2011 13:40:35 -0500
+In-Reply-To: <1323934716.8451.272.camel@denise.theartistscloset.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2011-12-17 at 17:47 +0000, Al Viro wrote:
-> Look, that's the problem with exposing this stuff to protocol; you don't
-> get clear semantics and are you seriously asking for trouble on kernel
-> changes.  Suppose tomorrow we get rid of e.g. ATTR_KILL_PRIV; what are you
-> guys going to do?  Hope that no 9p server has behaviour dependent on that
-> flag being set or cleared?
-> 
-> Don't turn the kernel internals into a part of ABI.  And blind bulk remapping
-> of constants is exactly that... 
+Sorry for late reply.
 
-I went with Aneesh's suggestion and did something similar to something
-9p already has done before.
+On 15.12.2011 08:38, John A. Sullivan III wrote:
 
-This is probably a good opportunity to open it up for discussion, since
-I currently have a block of code containing those ATTR_* defines
-copy-pasted from linux/fs.h in my userspace code, and thats obviously a
-serious wtf.
+> Yes, granted.  What I'm trying to do in the documentation is translate
+> the model's mathematical concepts into concepts more germane to
+> system > administrators.  A sys admin is not very likely to think in
+> terms of > deadline times but will think, "I've got a momentary
+> boost in > bandwidth to allow me to ensure proper latency for time
+> sensitive > traffic."  Of course, that could be where I'm getting in
+> trouble :)
 
--- 
+Tough to say. I'd say you can't completely avoid math here (I'm not
+saying not to trim it a bit though). In the same way one can't really go
+through TBF without understanding what token bucket is. Well, the
+complexity of both is on different level, but you see my point.
 
-Sasha.
+>> Whole RT design - with eligible/deadline split - is to allow convex
+>> curves to send "earlier", pushing the deadlines to the "right" -
+>> which in turn allows newly backlogged class to have brief priority.
+>> But it all remains under interface limit and over-time fulfills
+>> guarantees (even if locally they are violated).
+> To the right? I would have thought to the left on the x axis, i.e.,
+> the deadline time becomes sooner? Ah, unless you are referring to the
+> other queue's deadline times and mean not literally changing the
+> deadline time but jumping in front of the ones on the right of the new
+> queue's deadline time.
+
+I mean - for convex curves - deadlines are further to the right, as such
+class is eligible earlier (for convex curves, eligible is just linear m2
+without m1 part), thus => receive more service => deadline projection is
+shifted to the right. When some other concave curve becomes active, its
+deadlines will be naturally preferred if both curves are eligible.
+
+> The thought behind oversubscribing m1 . . . well . . . not
+> intentionally oversubscribing - just not being very careful about
+> setting m1 to make sure it is not oversubscribed (perhaps I wasn't
+> clear that the oversubscription is not intentional) - is that it is
+> not likely that all queues are continually backlogged thus I can get
+> away with an accidental over-allocation in most cases as it will
+> quickly sort itself out as soon as a queue goes idle.  As a result, I
+> can calculate m1 solely based upon the latency requirements of the
+> traffic not accounting for the impact of the bandwidth momentarily
+> required to do that, i.e., not being too concerned if I have
+> accidentally oversubscribed m1.
+
+Well, that's one way to do it. If your aim is that say certain n% of
+leaves are used at the same time (with rare exceptions), you could set
+RT curves (m1 parts) as if you had less leaves. If you leave m2 alone
+and don't care about mentioned exceptions, it should work.
+
+But IMHO that's more like a corner case (with alternative solutions
+available), than a "cookbook" recommendation.
+
+> The advantages of doing it via the m1 portion of the rt curve rather
+> than the ls curve are:
+>
+> 1) It is guaranteed whereas the ls will only work when there is
+> available bandwidth.  Granted, my assumption that it is rare for all
+> classes to be continually backlogged implies there is always some
+> extra bandwidth available.  And granted that it is not guaranteed if
+> too many oversubscribed m1's kick in at the same time.
+>
+> 2) It seems less complicated than trying to figure out what my
+> possibly available ls ratios should be to meet my latency requirements
+> (which then also recouples bandwidth and latency).  m1 is much more
+> direct and reliable.
+
+Like mentioned above - it's one way to do things and you're right.  But
+I think you might be underestimating LS a bit. By its nature, it
+schedules at speed normalized to the interface's capacity after all (or
+UL limits, if applicable) - so the less of the classes are acutally
+active, the more they get from LS. You mentioned earlier that you saw LS
+being more aggressive in allocating bandwidth - maybe that was the
+effect you were seeing ?
