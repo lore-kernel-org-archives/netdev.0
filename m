@@ -1,18 +1,19 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: [PATCH net] gianfar: Reject out-of-range RX NFC locations
-Date: Sat, 17 Dec 2011 00:56:18 +0000
-Message-ID: <1324083378.2798.31.camel@bwh-desktop>
+Date: Sat, 17 Dec 2011 01:05:27 +0000
+Message-ID: <1324083927.2798.34.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>,
-	Sebastian Poehn <sebastian.poehn@belden.com>
+	Sebastian =?ISO-8859-1?Q?P=F6hn?=
+	<sebastian.belden@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:41233 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751625Ab1LQA4X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 19:56:23 -0500
+Received: from mail.solarflare.com ([216.237.3.220]:6079 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752496Ab1LQBFb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 20:05:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -26,6 +27,8 @@ range that gfar_get_cls_all() reports.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
+[Re-sent to what I hope is a current address for Sebastian.]
+
 This has not been tested in any way, as I don't have a suitable compiler
 installed.  Sebastian, please could you review this?
 
