@@ -1,7 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH ethtool 1/2] ethtool-copy.h: sync with net-next
-Date: Sat, 17 Dec 2011 01:27:08 +0000
-Message-ID: <1324085228.2798.47.camel@bwh-desktop>
+Subject: [PATCH ethtool 2/2] ethtool: Allow driver to select RX NFC rule
+ location
+Date: Sat, 17 Dec 2011 01:29:12 +0000
+Message-ID: <1324085352.2798.49.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -11,102 +12,120 @@ Cc: <linux-net-drivers@solarflare.com>,
 	Vladislav Zolotarov <vladz@broadcom.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:15907 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:55874 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752745Ab1LQB1M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 20:27:12 -0500
+	by vger.kernel.org with ESMTP id S1752745Ab1LQB3Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 20:29:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This covers kernel changes up to:
+If the user does not specify a location for an RX NFC rule to be
+added, pass in a location of RX_CLS_FLOW_LOC_ANY.  This will only be
+supported by some drivers, so if the driver returns EINVAL then use
+the rule manager functions to select a location as we have done
+previously.
 
-commit XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-Author: Ben Hutchings <bhutchings@solarflare.com>
-Date:   Mon Sep 5 21:53:10 2011 +0100
-
-    ethtool: Allow drivers to select RX NFC rule locations
+Remove use of RX_CLS_LOC_UNSPEC and allow for later generalisation to
+other special rule locations.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- ethtool-copy.h |   33 ++++++++++++++++++++++++++++++---
- 1 files changed, 30 insertions(+), 3 deletions(-)
+ ethtool.c  |    2 +-
+ internal.h |    2 --
+ rxclass.c  |   29 +++++++++++++++--------------
+ 3 files changed, 16 insertions(+), 17 deletions(-)
 
-diff --git a/ethtool-copy.h b/ethtool-copy.h
-index 8342ade..7fb0c3b 100644
---- a/ethtool-copy.h
-+++ b/ethtool-copy.h
-@@ -498,10 +498,23 @@ struct ethtool_rx_flow_spec {
-  * must use the second parameter to get_rxnfc() instead of @rule_locs.
-  *
-  * For %ETHTOOL_SRXCLSRLINS, @fs specifies the rule to add or update.
-- * @fs.@location specifies the location to use and must not be ignored.
-+ * @fs.@location either specifies the location to use or is a special
-+ * location value with %RX_CLS_LOC_SPECIAL flag set.  Drivers do not
-+ * have to support special location values but must report an error
-+ * for an unsupported value.  On return, @fs.@location is the actual
-+ * rule location.
-  *
-  * For %ETHTOOL_SRXCLSRLDEL, @fs.@location specifies the location of an
-  * existing rule on entry.
-+ *
-+ * A driver supporting the special location values for
-+ * %ETHTOOL_SRXCLSRLINS may add the rule at any suitable unused
-+ * location, and may remove a rule at a later location (lower
-+ * priority) that matches exactly the same set of flows.  The special
-+ * values are: %RX_CLS_LOC_ANY, selecting any location;
-+ * %RX_CLS_LOC_FIRST, selecting the first suitable location (maximum
-+ * priority); and %RX_CLS_LOC_LAST, selecting the last suitable
-+ * location (minimum priority).
-  */
- struct ethtool_rxnfc {
- 	__u32				cmd;
-@@ -516,9 +529,15 @@ struct ethtool_rxnfc {
- /**
-  * struct ethtool_rxfh_indir - command to get or set RX flow hash indirection
-  * @cmd: Specific command number - %ETHTOOL_GRXFHINDIR or %ETHTOOL_SRXFHINDIR
-- * @size: On entry, the array size of the user buffer.  On return from
-- *	%ETHTOOL_GRXFHINDIR, the array size of the hardware indirection table.
-+ * @size: On entry, the array size of the user buffer, which may be zero.
-+ *	On return from %ETHTOOL_GRXFHINDIR, the array size of the hardware
-+ *	indirection table.
-  * @ring_index: RX ring/queue index for each hash value
-+ *
-+ * For %ETHTOOL_GRXFHINDIR, a @size of zero means that only the size
-+ * should be returned.  For %ETHTOOL_SRXFHINDIR, a @size of zero means
-+ * the table should be reset to default values.  This last feature
-+ * is not supported by the original implementations.
-  */
- struct ethtool_rxfh_indir {
- 	__u32	cmd;
-@@ -831,10 +850,12 @@ enum ethtool_sfeatures_retval_bits {
- #define SPEED_1000		1000
- #define SPEED_2500		2500
- #define SPEED_10000		10000
-+#define SPEED_UNKNOWN		-1
+diff --git a/ethtool.c b/ethtool.c
+index d21eaea..d0cc7d4 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -2719,7 +2719,7 @@ static int flow_spec_to_ntuple(struct ethtool_rx_flow_spec *fsp,
+ 	size_t i;
  
- /* Duplex, half or full. */
- #define DUPLEX_HALF		0x00
- #define DUPLEX_FULL		0x01
-+#define DUPLEX_UNKNOWN		0xff
+ 	/* verify location is not specified */
+-	if (fsp->location != RX_CLS_LOC_UNSPEC)
++	if (fsp->location != RX_CLS_LOC_ANY)
+ 		return -1;
  
- /* Which connector port. */
- #define PORT_TP			0x00
-@@ -905,6 +926,12 @@ enum ethtool_sfeatures_retval_bits {
+ 	/* verify ring cookie can transfer to action */
+diff --git a/internal.h b/internal.h
+index cb126b3..867c0ea 100644
+--- a/internal.h
++++ b/internal.h
+@@ -86,8 +86,6 @@ static inline int test_bit(unsigned int nr, const unsigned long *addr)
+ #define SIOCETHTOOL     0x8946
+ #endif
  
- #define	RX_CLS_FLOW_DISC	0xffffffffffffffffULL
+-#define	RX_CLS_LOC_UNSPEC	0xffffffffUL
+-
+ /* Context for sub-commands */
+ struct cmd_context {
+ 	const char *devname;	/* net device name */
+diff --git a/rxclass.c b/rxclass.c
+index 1980d0e..f0794ed 100644
+--- a/rxclass.c
++++ b/rxclass.c
+@@ -68,10 +68,7 @@ static void rxclass_print_nfc_rule(struct ethtool_rx_flow_spec *fsp)
+ 	unsigned char	*smac, *smacm, *dmac, *dmacm;
+ 	__u32		flow_type;
  
-+/* Special RX classification rule insert location values */
-+#define RX_CLS_LOC_SPECIAL	0x80000000	/* flag */
-+#define RX_CLS_LOC_ANY		0xffffffff
-+#define RX_CLS_LOC_FIRST	0xfffffffe
-+#define RX_CLS_LOC_LAST		0xfffffffd
+-	if (fsp->location != RX_CLS_LOC_UNSPEC)
+-		fprintf(stdout,	"Filter: %d\n", fsp->location);
+-	else
+-		fprintf(stdout,	"Filter: Unspecified\n");
++	fprintf(stdout,	"Filter: %d\n", fsp->location);
+ 
+ 	flow_type = fsp->flow_type & ~FLOW_EXT;
+ 
+@@ -461,24 +458,28 @@ int rxclass_rule_ins(struct cmd_context *ctx,
+ 	__u32 loc = fsp->location;
+ 	int err;
+ 
++	/* notify netdev of new rule */
++	nfccmd.cmd = ETHTOOL_SRXCLSRLINS;
++	nfccmd.fs = *fsp;
++	err = send_ioctl(ctx, &nfccmd);
 +
- /* Reset flags */
- /* The reset() operation must clear the flags for the components which
-  * were actually reset.  On successful return, the flags indicate the
+ 	/*
+-	 * if location is unspecified pull rules from device
+-	 * and allocate a free rule for our use
++	 * If location is 'special' and not supported, pull rules from
++	 * device and allocate a free rule for our use, then try
++	 * again.
+ 	 */
+-	if (loc == RX_CLS_LOC_UNSPEC) {
++	if (err < 0 && errno == EINVAL && (loc & RX_CLS_LOC_SPECIAL)) {
+ 		err = rmgr_set_location(ctx, fsp);
+ 		if (err < 0)
+ 			return err;
++		nfccmd.fs = *fsp;
++		err = send_ioctl(ctx, &nfccmd);
+ 	}
+ 
+-	/* notify netdev of new rule */
+-	nfccmd.cmd = ETHTOOL_SRXCLSRLINS;
+-	nfccmd.fs = *fsp;
+-	err = send_ioctl(ctx, &nfccmd);
+ 	if (err < 0)
+ 		perror("rmgr: Cannot insert RX class rule");
+-	else if (loc == RX_CLS_LOC_UNSPEC)
+-		printf("Added rule with ID %d\n", fsp->location);
++	else if (loc & RX_CLS_LOC_SPECIAL)
++		printf("Added rule with ID %d\n", nfccmd.fs.location);
+ 
+ 	return 0;
+ }
+@@ -998,7 +999,7 @@ int rxclass_parse_ruleopts(struct cmd_context *ctx,
+ 
+ 	memset(p, 0, sizeof(*fsp));
+ 	fsp->flow_type = flow_type;
+-	fsp->location = RX_CLS_LOC_UNSPEC;
++	fsp->location = RX_CLS_LOC_ANY;
+ 
+ 	for (i = 1; i < argc;) {
+ 		const struct rule_opts *opt;
 -- 
 1.7.4.4
-
 
 
 -- 
