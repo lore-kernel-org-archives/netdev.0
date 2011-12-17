@@ -1,134 +1,105 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH ethtool 2/2] ethtool: Allow driver to select RX NFC rule
- location
-Date: Sat, 17 Dec 2011 01:29:12 +0000
-Message-ID: <1324085352.2798.49.camel@bwh-desktop>
+From: "allan" <allan@asix.com.tw>
+Subject: RE: drivers/net/usb/asix: bug in asix_get_wol
+Date: Sat, 17 Dec 2011 10:35:42 +0800
+Message-ID: <001c01ccbc64$95f5d7d0$c1e18770$@com.tw>
+References: <CAKbEaOBODRW1pL4OiwZTKOfqtPEhEOHBBwXQNWVoBh9zzLX9kQ@mail.gmail.com>	<CANEJEGud6++PGHRZGt1xMonX1XvxeU19Wd3YNsbgLQG+uQi47g@mail.gmail.com>	<CAKbEaOBnGAJuZiM5BRaR3RD6EzgB-mCVrC0v2AbnniFpx22m8A@mail.gmail.com>	<CANEJEGvz2ZHD_ZNJm_WeKCdVE9pmSQJY5dCe8hNayAS0MFN=-Q@mail.gmail.com>	<005201ccbbb1$cb242190$616c64b0$@com.tw> <CANEJEGvPqWVa+i9yfACU1Aoe1wdKCiO+dMtSgzcjiDqxM2ddRA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-net-drivers@solarflare.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Dimitrios Michailidis <dm@chelsio.com>,
-	Vladislav Zolotarov <vladz@broadcom.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "'Eugene'" <elubarsky@gmail.com>, <netdev@vger.kernel.org>,
+	"'Freddy Xin'" <freddy@asix.com.tw>,
+	"=?utf-8?Q?'ASIX_Louis_=5B=E8=98=87=E5=A8=81=E9=99=B8=5D'?="
+	<louis@asix.com.tw>
+To: "'Grant Grundler'" <grundler@chromium.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:55874 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752745Ab1LQB3Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 20:29:16 -0500
+Received: from asix.com.tw ([113.196.140.82]:65448 "EHLO asix.com.tw"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756001Ab1LQCgA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2011 21:36:00 -0500
+In-Reply-To: <CANEJEGvPqWVa+i9yfACU1Aoe1wdKCiO+dMtSgzcjiDqxM2ddRA@mail.gmail.com>
+Content-Language: zh-tw
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the user does not specify a location for an RX NFC rule to be
-added, pass in a location of RX_CLS_FLOW_LOC_ANY.  This will only be
-supported by some drivers, so if the driver returns EINVAL then use
-the rule manager functions to select a location as we have done
-previously.
+Dear Grant,
 
-Remove use of RX_CLS_LOC_UNSPEC and allow for later generalisation to
-other special rule locations.
+I will double check this issue and submit the revised patch to Linux ke=
+rnel mainline source next week. Thanks a lot for your great helps.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+
 ---
- ethtool.c  |    2 +-
- internal.h |    2 --
- rxclass.c  |   29 +++++++++++++++--------------
- 3 files changed, 16 insertions(+), 17 deletions(-)
+Best regards,
+Allan Chou
+Technical Support Division
+ASIX Electronics Corporation
+TEL: 886-3-5799500 ext.228
+=46AX: 886-3-5799558
+E-mail: allan@asix.com.tw=20
+http://www.asix.com.tw/=20
 
-diff --git a/ethtool.c b/ethtool.c
-index d21eaea..d0cc7d4 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -2719,7 +2719,7 @@ static int flow_spec_to_ntuple(struct ethtool_rx_flow_spec *fsp,
- 	size_t i;
- 
- 	/* verify location is not specified */
--	if (fsp->location != RX_CLS_LOC_UNSPEC)
-+	if (fsp->location != RX_CLS_LOC_ANY)
- 		return -1;
- 
- 	/* verify ring cookie can transfer to action */
-diff --git a/internal.h b/internal.h
-index cb126b3..867c0ea 100644
---- a/internal.h
-+++ b/internal.h
-@@ -86,8 +86,6 @@ static inline int test_bit(unsigned int nr, const unsigned long *addr)
- #define SIOCETHTOOL     0x8946
- #endif
- 
--#define	RX_CLS_LOC_UNSPEC	0xffffffffUL
--
- /* Context for sub-commands */
- struct cmd_context {
- 	const char *devname;	/* net device name */
-diff --git a/rxclass.c b/rxclass.c
-index 1980d0e..f0794ed 100644
---- a/rxclass.c
-+++ b/rxclass.c
-@@ -68,10 +68,7 @@ static void rxclass_print_nfc_rule(struct ethtool_rx_flow_spec *fsp)
- 	unsigned char	*smac, *smacm, *dmac, *dmacm;
- 	__u32		flow_type;
- 
--	if (fsp->location != RX_CLS_LOC_UNSPEC)
--		fprintf(stdout,	"Filter: %d\n", fsp->location);
--	else
--		fprintf(stdout,	"Filter: Unspecified\n");
-+	fprintf(stdout,	"Filter: %d\n", fsp->location);
- 
- 	flow_type = fsp->flow_type & ~FLOW_EXT;
- 
-@@ -461,24 +458,28 @@ int rxclass_rule_ins(struct cmd_context *ctx,
- 	__u32 loc = fsp->location;
- 	int err;
- 
-+	/* notify netdev of new rule */
-+	nfccmd.cmd = ETHTOOL_SRXCLSRLINS;
-+	nfccmd.fs = *fsp;
-+	err = send_ioctl(ctx, &nfccmd);
-+
- 	/*
--	 * if location is unspecified pull rules from device
--	 * and allocate a free rule for our use
-+	 * If location is 'special' and not supported, pull rules from
-+	 * device and allocate a free rule for our use, then try
-+	 * again.
- 	 */
--	if (loc == RX_CLS_LOC_UNSPEC) {
-+	if (err < 0 && errno == EINVAL && (loc & RX_CLS_LOC_SPECIAL)) {
- 		err = rmgr_set_location(ctx, fsp);
- 		if (err < 0)
- 			return err;
-+		nfccmd.fs = *fsp;
-+		err = send_ioctl(ctx, &nfccmd);
- 	}
- 
--	/* notify netdev of new rule */
--	nfccmd.cmd = ETHTOOL_SRXCLSRLINS;
--	nfccmd.fs = *fsp;
--	err = send_ioctl(ctx, &nfccmd);
- 	if (err < 0)
- 		perror("rmgr: Cannot insert RX class rule");
--	else if (loc == RX_CLS_LOC_UNSPEC)
--		printf("Added rule with ID %d\n", fsp->location);
-+	else if (loc & RX_CLS_LOC_SPECIAL)
-+		printf("Added rule with ID %d\n", nfccmd.fs.location);
- 
- 	return 0;
- }
-@@ -998,7 +999,7 @@ int rxclass_parse_ruleopts(struct cmd_context *ctx,
- 
- 	memset(p, 0, sizeof(*fsp));
- 	fsp->flow_type = flow_type;
--	fsp->location = RX_CLS_LOC_UNSPEC;
-+	fsp->location = RX_CLS_LOC_ANY;
- 
- 	for (i = 1; i < argc;) {
- 		const struct rule_opts *opt;
--- 
-1.7.4.4
+-----Original Message-----
+=46rom: grundler@google.com [mailto:grundler@google.com] On Behalf Of G=
+rant Grundler
+Sent: Saturday, December 17, 2011 6:16 AM
+To: ASIX Allan Email [office]
+Cc: Eugene; netdev@vger.kernel.org; Freddy Xin; ASIX Louis [=E8=98=87=E5=
+=A8=81=E9=99=B8]
+Subject: Re: drivers/net/usb/asix: bug in asix_get_wol
 
+On Thu, Dec 15, 2011 at 9:15 PM, ASIX Allan Email [office]
+<allan@asix.com.tw> wrote:
+> Resend without attachment due to below email server error.
+=2E..
+> -----Original Message-----
+> From: ASIX Allan Email [office] [mailto:allan@asix.com.tw]
+> Sent: Friday, December 16, 2011 11:38 AM
+> To: 'Grant Grundler'; 'Eugene'
+> Cc: 'netdev@vger.kernel.org'; 'Freddy Xin'; ASIX Louis [=E8=98=87=E5=A8=
+=81=E9=99=B8]
+> Subject: RE: drivers/net/usb/asix: bug in asix_get_wol
+> Importance: High
+>
+> Dear Grant and Eugene,
+>
+> Please refer to the attached file and below statements to modify the
+> asix_get_wol() routine and let us know if this suggestion can solve
+> your issues or not? Thanks a lot.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Allan,
+Thanks for the response but it doesn't answer my previous question.
+Let me ask the same question differently.
+
+Does WOL support in asix driver need more than the four lines of code?
+Ie does MONITOR_MODE need to be enabled or anything like that?
+
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> static void
+> asix_get_wol(struct net_device *net, struct ethtool_wolinfo *wolinfo)
+> {
+>        struct usbnet *dev =3D netdev_priv(net);
+>        u8 opt;
+>
+>        if (asix_read_cmd(dev, AX_CMD_READ_MONITOR_MODE, 0, 0, 1, &opt=
+) < 0) {
+>                wolinfo->supported =3D 0;
+>                wolinfo->wolopts =3D 0;
+>                return;
+>        }
+>        wolinfo->supported =3D WAKE_PHY | WAKE_MAGIC;
+>        wolinfo->wolopts =3D 0;
+>        if (opt & AX_MONITOR_LINK)
+>                wolinfo->wolopts |=3D WAKE_PHY;
+>        if (opt & AX_MONITOR_MAGIC)
+>                wolinfo->wolopts |=3D WAKE_MAGIC;
+> }
+
+This looks remarkably similar to the code Eugene said enables WOL for
+him (and it works). I not able to find any difference.
+
+If you believe it was a mistake to remove these four lines of code,
+please submit a patch (See Documentation/SubmittingPatches)  to add
+them back. You can add a "Tested-by: Eugene <elubarsky@gmail.com>"
+line after your own "Signed-off-by:" in the patch.
+
+thanks!
+grant
