@@ -1,32 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: meth: Add set_rx_mode hook to fix ICMPv6 neighbor
- discovery
-Date: Sun, 18 Dec 2011 00:19:25 -0500 (EST)
-Message-ID: <20111218.001925.2108645748994734084.davem@davemloft.net>
-References: <4EED3A3D.9080503@gentoo.org>
-	<20111217.215630.640392276998191183.davem@davemloft.net>
-	<4EED6DED.50308@gentoo.org>
+From: E F C C <efccofnigeria1@gmail.com>
+Subject: Darlehen
+Date: Sun, 18 Dec 2011 07:38:04 +0000
+Message-ID: <CANNvLemtVAZwKA3uMdrRtROYa19AjakrfbSPXG_oYRD=WAv_Fw@mail.gmail.com>
+Reply-To: harryfinancialfirm1@gmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org
-To: kumba@gentoo.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42103 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751137Ab1LRFTd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2011 00:19:33 -0500
-In-Reply-To: <4EED6DED.50308@gentoo.org>
+Received: from mail-ww0-f66.google.com ([74.125.82.66]:43506 "EHLO
+	mail-ww0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750814Ab1LRHiI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2011 02:38:08 -0500
+Received: by wgbdr13 with SMTP id dr13so2061483wgb.1
+        for <netdev@vger.kernel.org>; Sat, 17 Dec 2011 23:38:07 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joshua Kinard <kumba@gentoo.org>
-Date: Sat, 17 Dec 2011 23:37:01 -0500
+--=20
+Hallo,
 
-> MACE Ethernet only ever appears on the SGI O2 systems.
+Sie suchen einen Business-Darlehen, pers=F6nliche Darlehen, Haus,
+Auto-Darlehen, Darlehen, Schuldenkonsolidierung Darlehen, unbesicherte
+Darlehen, Risikokapital, etc. .. Oder haben Sie schon ein Darlehen von
+einer Bank oder ein Finanzinstitut Konfiguration eines oder mehrerer
+reasons.You eher ihre Kredit-L=F6sungen verweigert! Ich bin ein Pastor,
+ein privater Kreditgeber, die Kreditvergabe an Unternehmen und
+Privatpersonen in einer niedrigen und erschwinglichen Zinssatz von 2%.
+Interessiert? Kontakt zur Behandlung des Darlehens zu folgen
+  Transfer innerhalb von 48 Stunden. KONTAKT: harryfinancialfirm1@gmail=
+=2Ecom
 
-That has no bearing on my feedback, we simply do not put non-portable
-code like this into the tree at this point.
+         Anwendungsdetails
 
-Just because this driver has been maintained in an non-portable manner
-up to this point, doesn't mean we continue doing that.
+Name:
+Geburtstag:
+Geschlecht:
+=46amilienstand:
+Anschrift:
+Lage
+Status:
+Postleitzahl:
+Land:
+Telefon:
+E-mail:
+Staatliche Zweck des Darlehens:
+Darlehensbetrag:
+Dauer der Ausleihe:
+Monatliches Nettoeinkommen.
+
+Zur=FCck zu mir so bald wie m=F6glich mit den oben genannten Informatio=
+nen
+f=FCr weitere Informationen.
+Hoffnung, von Ihnen zu h=F6ren.
+Vielen Dank und Gott segne Sie,
+Pastor James Harry
