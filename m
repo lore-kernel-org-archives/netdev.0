@@ -1,130 +1,129 @@
-From: Marek Vasut <marek.vasut@gmail.com>
-Subject: Re: ipv6/addrconf_dad_failure printk() in interrupt context
-Date: Sun, 18 Dec 2011 14:09:49 +0100
-Message-ID: <201112181409.49299.marek.vasut@gmail.com>
-References: <201112180328.00422.marek.vasut@gmail.com> <1324199708.3323.71.camel@edumazet-laptop>
+From: Sergei Shtylyov <sshtylyov@mvista.com>
+Subject: Re: [PATCH] net: meth: Add set_rx_mode hook to fix ICMPv6 neighbor
+ discovery
+Date: Sun, 18 Dec 2011 17:26:47 +0400
+Message-ID: <4EEDEA17.4040006@mvista.com>
+References: <4EED3A3D.9080503@gentoo.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Wolfgang Denk <wd@denx.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, linux@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Linux MIPS List <linux-mips@linux-mips.org>
+To: Joshua Kinard <kumba@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:42287 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751538Ab1LRNJx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2011 08:09:53 -0500
-In-Reply-To: <1324199708.3323.71.camel@edumazet-laptop>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:64762 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751672Ab1LRN1t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2011 08:27:49 -0500
+Received: by werm1 with SMTP id m1so857957wer.19
+        for <netdev@vger.kernel.org>; Sun, 18 Dec 2011 05:27:48 -0800 (PST)
+In-Reply-To: <4EED3A3D.9080503@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Le dimanche 18 d=E9cembre 2011 =E0 03:28 +0100, Marek Vasut a =E9crit=
- :
-> > Hi,
-> >=20
-> > I just recently hit the following issue. I might actually be wrong =
-with
-> > my conclusions so bear with me. The events that led to the issue:
-> >=20
-> > 1) Duplicate IPv6 address on the network
-> > 2) console driver that locks a mutex when printk() is called
->=20
-> This seems buggy : printk() might be called from irq, so muext_lock()=
- is
-> not allowed.
+Hello.
 
-I could have guessed so ... mutex_lock() is called in clk_enable() in m=
-xs clock=20
-driver. So that needs to be fixed.
->=20
-> > The problem is the following backtrace:
-> >=20
-> > [    4.870000] eth0: IPv6 duplicate address XXXX::YYYY:ZZZZ:WWWW:0
-> > detected! [    4.870000] ------------[ cut here ]------------
-> > [    4.870000] WARNING: at kernel/mutex.c:198
-> > mutex_lock_nested+0x284/0x2c0() [    4.870000] Modules linked in:
-> > [    4.870000] [<c0013ab8>] (unwind_backtrace+0x0/0xf0) from [<c001=
-d934>]
-> > (warn_slowpath_common+0x4c/0x64)
-> > [    4.870000] [<c001d934>] (warn_slowpath_common+0x4c/0x64) from
-> > [<c001d968>] (warn_slowpath_null+0x1c/0x24)
-> > [    4.870000] [<c001d968>] (warn_slowpath_null+0x1c/0x24) from
-> > [<c033a4f4>] (mutex_lock_nested+0x284/0x2c0)
-> > [    4.870000] [<c033a4f4>] (mutex_lock_nested+0x284/0x2c0) from
-> > [<c0017d88>] (clk_enable+0x20/0x48)
-> > [    4.870000] [<c0017d88>] (clk_enable+0x20/0x48) from [<c01dfbf0>=
-]
-> > (pl011_console_write+0x20/0x74)
-> > [    4.870000] [<c01dfbf0>] (pl011_console_write+0x20/0x74) from
-> > [<c001da98>] (__call_console_drivers+0x7c/0x94)
-> > [    4.870000] [<c001da98>] (__call_console_drivers+0x7c/0x94) from
-> > [<c001df20>] (console_unlock+0xf8/0x244)
-> > [    4.870000] [<c001df20>] (console_unlock+0xf8/0x244) from [<c001=
-e308>]
-> > (vprintk+0x29c/0x484)
-> > [    4.870000] [<c001e308>] (vprintk+0x29c/0x484) from [<c03355a8>]
-> > (printk+0x20/0x30)
-> > [    4.870000] [<c03355a8>] (printk+0x20/0x30) from [<c02df600>]
-> > (addrconf_dad_failure+0x148/0x158)
-> > [    4.870000] [<c02df600>] (addrconf_dad_failure+0x148/0x158) from
-> > [<c02ebde0>] (ndisc_rcv+0xb38/0xdb0)
-> > [    4.870000] [<c02ebde0>] (ndisc_rcv+0xb38/0xdb0) from [<c02f1b28=
->]
-> > (icmpv6_rcv+0x6ec/0x9c4)
-> > [    4.870000] [<c02f1b28>] (icmpv6_rcv+0x6ec/0x9c4) from [<c02da9a=
-4>]
-> > (ip6_input_finish+0x144/0x4e0)
-> > [    4.870000] [<c02da9a4>] (ip6_input_finish+0x144/0x4e0) from
-> > [<c02db424>] (ip6_mc_input+0xb8/0x154)
-> > [    4.870000] [<c02db424>] (ip6_mc_input+0xb8/0x154) from [<c02db1=
-2c>]
-> > (ipv6_rcv+0x300/0x53c)
-> > [    4.870000] [<c02db12c>] (ipv6_rcv+0x300/0x53c) from [<c0267b78>=
-]
-> > (__netif_receive_skb+0x240/0x420)
-> > [    4.870000] [<c0267b78>] (__netif_receive_skb+0x240/0x420) from
-> > [<c0267de8>] (process_backlog+0x90/0x150)
-> > [    4.870000] [<c0267de8>] (process_backlog+0x90/0x150) from
-> > [<c026a5f8>] (net_rx_action+0xc0/0x264)
-> > [    4.870000] [<c026a5f8>] (net_rx_action+0xc0/0x264) from [<c0023=
-cfc>]
-> > (__do_softirq+0xa8/0x214)
-> > [    4.870000] [<c0023cfc>] (__do_softirq+0xa8/0x214) from [<c00242=
-c0>]
-> > (irq_exit+0x8c/0x94)
-> > [    4.870000] [<c00242c0>] (irq_exit+0x8c/0x94) from [<c000f6d0>]
-> > (handle_IRQ+0x34/0x84)
-> > [    4.870000] [<c000f6d0>] (handle_IRQ+0x34/0x84) from [<c000e5d8>=
-]
-> > (__irq_usr+0x38/0x80)
-> > [    4.870000] ---[ end trace 32eab6a8dcdca9c0 ]---
-> >=20
-> > So basically what I see here is the following order of events:
-> >=20
-> > Packet received -> IRQ generated -> ipv6 packet received (still in
-> > interrupt context ... why not in tasklet ... or am I wrong here ?) =
-->
-> > icmpv6 packet processing -> addrconf_dad_failure() called -> printk=
-()
-> > called in there -> mutex_lock() called in printk(), causing the war=
-ning.
-> >=20
-> > Can printk() be actually called in interrupt context?
->=20
-> Yes, it can be.
->=20
-> > What direction of solving this shall I take?
->=20
-> Send this to lkml, since its not a netdev issue, but a kernel one.
+On 18-12-2011 4:56, Joshua Kinard wrote:
 
-I already know the direction (where to squash the improper mutex) so I'=
-ll poke=20
-into that and send to LKML incl. patch.
+> SGI IP32 (O2)'s ethernet driver (meth) lacks a set_rx_mode function, which
+> prevents IPv6 from working completely because any ICMPv6 neighbor
+> solicitation requests aren't picked up by the driver.  So the machine can
+> ping out and connect to other systems, but other systems will have a very
+> hard time connecting to the O2.
 
-Thanks for your reply!
+> Signed-off-by: Joshua Kinard<kumba@gentoo.org>
+> ---
 
-M
+    Some minor nits below...
+
+>   drivers/net/ethernet/sgi/meth.c |   60 +++++++++++++++++++++++++++++++++++-----
+>   1 file changed, 53 insertions(+), 7 deletions(-)
+
+> --- a/drivers/net/ethernet/sgi/meth.c	2011-12-17 15:51:44.569166824 -0500
+> +++ b/drivers/net/ethernet/sgi/meth.c	2011-12-17 15:51:20.259167050 -0500
+[...]
+> @@ -57,6 +58,12 @@ static const char *meth_str="SGI O2 Fast
+>   static int timeout = TX_TIMEOUT;
+>   module_param(timeout, int, 0);
+>
+> +/* Maximum number of multicast addresses to filter (vs. Rx-all-multicast).
+> + * MACE Ethernet uses a 64 element hash table based on the Ethernet CRC.
+> + */
+> +static int multicast_filter_limit = 32;
+> +
+> +
+
+    On empty oine would be enough...
+
+>   /*
+>    * This structure is private to each device. It is used to pass
+>    * packets in and out, so there is place for a packet
+> @@ -765,15 +775,51 @@ static int meth_ioctl(struct net_device
+>   	}
+>   }
+>
+> +static void meth_set_rx_mode(struct net_device *dev)
+> +{
+> +	struct meth_private *priv = netdev_priv(dev);
+> +	unsigned long flags;
+> +
+> +	netif_stop_queue(dev);
+> +	spin_lock_irqsave(&priv->meth_lock, flags);
+> +	priv->mac_ctrl&= ~(METH_PROMISC);
+
+    Parens not needed here.
+
+> +
+> +	if (dev->flags & IFF_PROMISC) {
+> +		priv->mac_ctrl |= METH_PROMISC;
+> +		priv->mcast_filter = 0xffffffffffffffffUL;
+> +		mace->eth.mac_ctrl = priv->mac_ctrl;
+> +		mace->eth.mcast_filter = priv->mcast_filter;
+> +	} else if ((netdev_mc_count(dev) > multicast_filter_limit) ||
+> +			   (dev->flags & IFF_ALLMULTI)) {
+> +			priv->mac_ctrl |= METH_ACCEPT_AMCAST;
+> +			priv->mcast_filter = 0xffffffffffffffffUL;
+> +			mace->eth.mac_ctrl = priv->mac_ctrl;
+> +			mace->eth.mcast_filter = priv->mcast_filter;
+
+     This block is over-indented.
+
+> +	} else {
+> +		struct netdev_hw_addr *ha;
+> +		priv->mac_ctrl |= METH_ACCEPT_MCAST;
+> +
+> +		netdev_for_each_mc_addr(ha, dev)
+> +			set_bit((ether_crc(ETH_ALEN, ha->addr) >> 26),
+> +				    (volatile long unsigned int *)&priv->mcast_filter);
+> +
+> +		mace->eth.mcast_filter = priv->mcast_filter;
+
+    This last statement is common between all branches, so could be moved out 
+of *if*...
+
+> +	}
+> +
+> +	spin_unlock_irqrestore(&priv->meth_lock, flags);
+> +	netif_wake_queue(dev);
+> +}
+> +
+>   static const struct net_device_ops meth_netdev_ops = {
+> -	.ndo_open		= meth_open,
+> -	.ndo_stop		= meth_release,
+> -	.ndo_start_xmit		= meth_tx,
+> -	.ndo_do_ioctl		= meth_ioctl,
+> -	.ndo_tx_timeout		= meth_tx_timeout,
+> -	.ndo_change_mtu		= eth_change_mtu,
+> -	.ndo_validate_addr	= eth_validate_addr,
+> +	.ndo_open				= meth_open,
+> +	.ndo_stop				= meth_release,
+> +	.ndo_start_xmit			= meth_tx,
+> +	.ndo_do_ioctl			= meth_ioctl,
+> +	.ndo_tx_timeout			= meth_tx_timeout,
+> +	.ndo_change_mtu			= eth_change_mtu,
+> +	.ndo_validate_addr		= eth_validate_addr,
+>   	.ndo_set_mac_address	= eth_mac_addr,
+> +	.ndo_set_rx_mode    	= meth_set_rx_mode,
+
+    The intializer values are not aligned now, and they were before the patch.
+
+WBR, Sergei
