@@ -1,432 +1,216 @@
-From: Frederic LAMBERT <frdrc66@gmail.com>
-Subject: [PATCH] Micrel KS8995MA 5-ports 10/100 managed Ethernet switch support added
-Date: Sun, 18 Dec 2011 18:33:41 +0100
-Message-ID: <1324229621-2054-1-git-send-email-frdrc66@gmail.com>
-Cc: Frederic LAMBERT <frdrc66@gmail.com>,
-	Gabor Juhos <juhosg@openwrt.org>
-To: netdev@vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH 1/1] tcp: fix spurious undos in CA_Open
+Date: Sun, 18 Dec 2011 13:23:00 -0500
+Message-ID: <CADVnQykHUn8GKF9xp8ACh+pNHVJstvkmDi2Nax2_oFJaz3rc_Q@mail.gmail.com>
+References: <alpine.DEB.2.00.1111170715060.23028@melkinpaasi.cs.helsinki.fi>
+	<CADVnQykNffEvpr5bnLiLyNGZiuhxx=5wxqFaZjC+Dk4mxe1Okw@mail.gmail.com>
+	<alpine.DEB.2.00.1111221347290.31705@wel-95.cs.helsinki.fi>
+	<20111127.185857.475440859115872225.davem@davemloft.net>
+	<CADVnQykS7w_OzQBa=Lqw=EU=qkXxsXeWSwfVrRj+_Yx4NgxHGw@mail.gmail.com>
+	<alpine.DEB.2.00.1112121359470.15137@wel-95.cs.helsinki.fi>
+	<CADVnQy=kw6MgySY+xF7WcB+0fXyDYk66Phc1R+dBK8=emu6kXQ@mail.gmail.com>
+	<alpine.DEB.2.00.1112141034010.7753@melkinpaasi.cs.helsinki.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, nanditad@google.com,
+	Yuchung Cheng <ycheng@google.com>, therbert@google.com
+To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:60727 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751977Ab1LRReA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2011 12:34:00 -0500
-Received: by eekc4 with SMTP id c4so4740421eek.19
-        for <netdev@vger.kernel.org>; Sun, 18 Dec 2011 09:33:58 -0800 (PST)
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:56722 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751841Ab1LRSXB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2011 13:23:01 -0500
+Received: by qcqz2 with SMTP id z2so2709955qcq.19
+        for <netdev@vger.kernel.org>; Sun, 18 Dec 2011 10:23:00 -0800 (PST)
+In-Reply-To: <alpine.DEB.2.00.1112141034010.7753@melkinpaasi.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
-Signed-off-by: Frederic Lambert <frdrc66@gmail.com>
----
- drivers/net/phy/Kconfig      |    5 +
- drivers/net/phy/Makefile     |    1 +
- drivers/net/phy/spi_ks8995.c |  376 ++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 382 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/phy/spi_ks8995.c
+On Wed, Dec 14, 2011 at 3:57 AM, Ilpo J=E4rvinen
+<ilpo.jarvinen@helsinki.fi> wrote:
+> On Mon, 12 Dec 2011, Neal Cardwell wrote:
+>
+>> On Mon, Dec 12, 2011 at 7:05 AM, Ilpo J=E4rvinen
+>> <ilpo.jarvinen@helsinki.fi> wrote:
+>> > On Mon, 28 Nov 2011, Neal Cardwell wrote:
+>> >
+>> >> On Sun, Nov 27, 2011 at 6:58 PM, David Miller <davem@davemloft.ne=
+t> wrote:
+>> >>
+>> >> >> Also, one (serious) word of caution! This change, by its exten=
+ding of
+>> >> >> CA_Open state, is somewhat similar to what I made FRTO years a=
+go, and
+>> >> >> managed to introduces subtle breaking to the state machine. Pl=
+ease check
+>> >> >> that the problem similar to what was fixed by
+>> >> >> a1c1f281b84a751fdb5ff919da3b09df7297619f does not reappear (po=
+ssibly in
+>> >> >> some other form causing spurious undos). ...To me it seems tha=
+t
+>> >> >> tcp_packet_delayed might be similarly confused after the given=
+ patch.
+>> >> >
+>> >> > Neil, please look into this so we can have any such issues fixe=
+d
+>> >> > in time for the next merge window.
+>> >>
+>> >> Absolutely. I will look into the areas that Ilpo mentioned.
+>> >
+>> > Unfortunately nothing has happened? So I finally had to come up so=
+mething
+>> > myself. ...Compile tested only.
+>>
+>> Sorry for the radio silence, but I have been looking at this. So far
+>> it's been a time-consuming process, as we've uncovered a number of
+>> pre-existing issues in tcp_packet_delayed that seem like quite serio=
+us
+>> bugs:
+>>
+>> 1) tcp_packet_delayed implicitly assumes, but does not verify, that
+>> the ACK in question (whose ECR field precedes retrans_stamp) covers
+>> all retransmitted segments. So if we retransmit segments 1 and 2, an=
+d
+>> then get an ACK for 1 that has an ECR indicating it was for the
+>> original copy of segment 1, then we undo, =A0even in cases where seg=
+ment
+>> 2 really was lost and needed to be retransmitted.
+>
+> I think this might be an mis-implementation in tcp_try_undo_partial.
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index a702443..050f069 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -131,3 +131,8 @@ config MDIO_OCTEON
- 	  If in doubt, say Y.
- 
- endif # PHYLIB
-+
-+config MICREL_KS8995MA
-+	tristate "Micrel KS8995MA 5-ports 10/100 managed Ethernet switch"
-+	depends on SPI
-+
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 2333215..e15c83f 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -23,3 +23,4 @@ obj-$(CONFIG_DP83640_PHY)	+= dp83640.o
- obj-$(CONFIG_STE10XP)		+= ste10Xp.o
- obj-$(CONFIG_MICREL_PHY)	+= micrel.o
- obj-$(CONFIG_MDIO_OCTEON)	+= mdio-octeon.o
-+obj-$(CONFIG_MICREL_KS8995MA)	+= spi_ks8995.o
-diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
-new file mode 100644
-index 0000000..e9ce085
---- /dev/null
-+++ b/drivers/net/phy/spi_ks8995.c
-@@ -0,0 +1,376 @@
-+/*
-+ * SPI driver for Micrel/Kendin KS8995M ethernet switch
-+ *
-+ * Copyright (C) 2008 Gabor Juhos <juhosg at openwrt.org>
-+ *
-+ * This file was based on: drivers/spi/at25.c
-+ *     Copyright (C) 2006 David Brownell
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License version 2 as published
-+ * by the Free Software Foundation.
-+ */
-+
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <linux/delay.h>
-+#include <linux/device.h>
-+
-+#include <linux/spi/spi.h>
-+
-+#define DRV_VERSION		"0.1.1"
-+#define DRV_DESC		"Micrel KS8995 Ethernet switch SPI driver"
-+
-+/* ------------------------------------------------------------------------ */
-+
-+#define KS8995_REG_ID0		0x00    /* Chip ID0 */
-+#define KS8995_REG_ID1		0x01    /* Chip ID1 */
-+
-+#define KS8995_REG_GC0		0x02    /* Global Control 0 */
-+#define KS8995_REG_GC1		0x03    /* Global Control 1 */
-+#define KS8995_REG_GC2		0x04    /* Global Control 2 */
-+#define KS8995_REG_GC3		0x05    /* Global Control 3 */
-+#define KS8995_REG_GC4		0x06    /* Global Control 4 */
-+#define KS8995_REG_GC5		0x07    /* Global Control 5 */
-+#define KS8995_REG_GC6		0x08    /* Global Control 6 */
-+#define KS8995_REG_GC7		0x09    /* Global Control 7 */
-+#define KS8995_REG_GC8		0x0a    /* Global Control 8 */
-+#define KS8995_REG_GC9		0x0b    /* Global Control 9 */
-+
-+#define KS8995_REG_PC(p, r)	((0x10 * p) + r)	 /* Port Control */
-+#define KS8995_REG_PS(p, r)	((0x10 * p) + r + 0xe)  /* Port Status */
-+
-+#define KS8995_REG_TPC0		0x60    /* TOS Priority Control 0 */
-+#define KS8995_REG_TPC1		0x61    /* TOS Priority Control 1 */
-+#define KS8995_REG_TPC2		0x62    /* TOS Priority Control 2 */
-+#define KS8995_REG_TPC3		0x63    /* TOS Priority Control 3 */
-+#define KS8995_REG_TPC4		0x64    /* TOS Priority Control 4 */
-+#define KS8995_REG_TPC5		0x65    /* TOS Priority Control 5 */
-+#define KS8995_REG_TPC6		0x66    /* TOS Priority Control 6 */
-+#define KS8995_REG_TPC7		0x67    /* TOS Priority Control 7 */
-+
-+#define KS8995_REG_MAC0		0x68    /* MAC address 0 */
-+#define KS8995_REG_MAC1		0x69    /* MAC address 1 */
-+#define KS8995_REG_MAC2		0x6a    /* MAC address 2 */
-+#define KS8995_REG_MAC3		0x6b    /* MAC address 3 */
-+#define KS8995_REG_MAC4		0x6c    /* MAC address 4 */
-+#define KS8995_REG_MAC5		0x6d    /* MAC address 5 */
-+
-+#define KS8995_REG_IAC0		0x6e    /* Indirect Access Control 0 */
-+#define KS8995_REG_IAC1		0x6f    /* Indirect Access Control 0 */
-+#define KS8995_REG_IAD7		0x70    /* Indirect Access Data 7 */
-+#define KS8995_REG_IAD6		0x71    /* Indirect Access Data 6 */
-+#define KS8995_REG_IAD5		0x72    /* Indirect Access Data 5 */
-+#define KS8995_REG_IAD4		0x73    /* Indirect Access Data 4 */
-+#define KS8995_REG_IAD3		0x74    /* Indirect Access Data 3 */
-+#define KS8995_REG_IAD2		0x75    /* Indirect Access Data 2 */
-+#define KS8995_REG_IAD1		0x76    /* Indirect Access Data 1 */
-+#define KS8995_REG_IAD0		0x77    /* Indirect Access Data 0 */
-+
-+#define KS8995_REGS_SIZE	0x80
-+
-+#define ID1_CHIPID_M		0xf
-+#define ID1_CHIPID_S		4
-+#define ID1_REVISION_M		0x7
-+#define ID1_REVISION_S		1
-+#define ID1_START_SW		1	/* start the switch */
-+
-+#define FAMILY_KS8995		0x95
-+#define CHIPID_M		0
-+
-+#define KS8995_CMD_WRITE	0x02U
-+#define KS8995_CMD_READ		0x03U
-+
-+#define KS8995_RESET_DELAY	10 /* usec */
-+
-+struct ks8995_pdata {
-+	/* not yet implemented */
-+};
-+
-+struct ks8995_switch {
-+	struct spi_device	*spi;
-+	struct mutex		lock;
-+	struct ks8995_pdata	*pdata;
-+};
-+
-+static inline u8 get_chip_id(u8 val)
-+{
-+	return (val >> ID1_CHIPID_S) & ID1_CHIPID_M;
-+}
-+
-+static inline u8 get_chip_rev(u8 val)
-+{
-+	return (val >> ID1_REVISION_S) & ID1_REVISION_M;
-+}
-+
-+/* ------------------------------------------------------------------------ */
-+static int ks8995_read(struct ks8995_switch *ks, char *buf,
-+		 unsigned offset, size_t count)
-+{
-+	u8 cmd[2];
-+	struct spi_transfer t[2];
-+	struct spi_message m;
-+	int err;
-+
-+	spi_message_init(&m);
-+
-+	memset(&t, 0, sizeof(t));
-+
-+	t[0].tx_buf = cmd;
-+	t[0].len = sizeof(cmd);
-+	spi_message_add_tail(&t[0], &m);
-+
-+	t[1].rx_buf = buf;
-+	t[1].len = count;
-+	spi_message_add_tail(&t[1], &m);
-+
-+	cmd[0] = KS8995_CMD_READ;
-+	cmd[1] = offset;
-+
-+	mutex_lock(&ks->lock);
-+	err = spi_sync(ks->spi, &m);
-+	mutex_unlock(&ks->lock);
-+
-+	return err ? err : count;
-+}
-+
-+
-+static int ks8995_write(struct ks8995_switch *ks, char *buf,
-+		 unsigned offset, size_t count)
-+{
-+	u8 cmd[2];
-+	struct spi_transfer t[2];
-+	struct spi_message m;
-+	int err;
-+
-+	spi_message_init(&m);
-+
-+	memset(&t, 0, sizeof(t));
-+
-+	t[0].tx_buf = cmd;
-+	t[0].len = sizeof(cmd);
-+	spi_message_add_tail(&t[0], &m);
-+
-+	t[1].tx_buf = buf;
-+	t[1].len = count;
-+	spi_message_add_tail(&t[1], &m);
-+
-+	cmd[0] = KS8995_CMD_WRITE;
-+	cmd[1] = offset;
-+
-+	mutex_lock(&ks->lock);
-+	err = spi_sync(ks->spi, &m);
-+	mutex_unlock(&ks->lock);
-+
-+	return err ? err : count;
-+}
-+
-+static inline int ks8995_read_reg(struct ks8995_switch *ks, u8 addr, u8 *buf)
-+{
-+	return (ks8995_read(ks, buf, addr, 1) != 1);
-+}
-+
-+static inline int ks8995_write_reg(struct ks8995_switch *ks, u8 addr, u8 val)
-+{
-+	char buf = val;
-+
-+	return (ks8995_write(ks, &buf, addr, 1) != 1);
-+}
-+
-+/* ------------------------------------------------------------------------ */
-+
-+static int ks8995_stop(struct ks8995_switch *ks)
-+{
-+	return ks8995_write_reg(ks, KS8995_REG_ID1, 0);
-+}
-+
-+static int ks8995_start(struct ks8995_switch *ks)
-+{
-+	return ks8995_write_reg(ks, KS8995_REG_ID1, 1);
-+}
-+
-+static int ks8995_reset(struct ks8995_switch *ks)
-+{
-+	int err;
-+
-+	err = ks8995_stop(ks);
-+	if (err)
-+		return err;
-+
-+	udelay(KS8995_RESET_DELAY);
-+
-+	return ks8995_start(ks);
-+}
-+
-+/* ------------------------------------------------------------------------ */
-+
-+static ssize_t ks8995_registers_read(struct file *filp, struct kobject *kobj,
-+	struct bin_attribute *bin_attr, char *buf, loff_t off, size_t count)
-+{
-+	struct device *dev;
-+	struct ks8995_switch *ks8995;
-+
-+	dev = container_of(kobj, struct device, kobj);
-+	ks8995 = dev_get_drvdata(dev);
-+
-+	if (unlikely(off > KS8995_REGS_SIZE))
-+		return 0;
-+
-+	if ((off + count) > KS8995_REGS_SIZE)
-+		count = KS8995_REGS_SIZE - off;
-+
-+	if (unlikely(!count))
-+		return count;
-+
-+	return ks8995_read(ks8995, buf, off, count);
-+}
-+
-+
-+static ssize_t ks8995_registers_write(struct file *filp, struct kobject *kobj,
-+	struct bin_attribute *bin_attr, char *buf, loff_t off, size_t count)
-+{
-+	struct device *dev;
-+	struct ks8995_switch *ks8995;
-+
-+	dev = container_of(kobj, struct device, kobj);
-+	ks8995 = dev_get_drvdata(dev);
-+
-+	if (unlikely(off >= KS8995_REGS_SIZE))
-+		return -EFBIG;
-+
-+	if ((off + count) > KS8995_REGS_SIZE)
-+		count = KS8995_REGS_SIZE - off;
-+
-+	if (unlikely(!count))
-+		return count;
-+
-+	return ks8995_write(ks8995, buf, off, count);
-+}
-+
-+
-+static struct bin_attribute ks8995_registers_attr = {
-+	.attr = {
-+		.name   = "registers",
-+		.mode   = S_IRUSR | S_IWUSR,
-+	},
-+	.size   = KS8995_REGS_SIZE,
-+	.read   = ks8995_registers_read,
-+	.write  = ks8995_registers_write,
-+};
-+
-+/* ------------------------------------------------------------------------ */
-+
-+static int __devinit ks8995_probe(struct spi_device *spi)
-+{
-+	struct ks8995_switch    *ks;
-+	struct ks8995_pdata     *pdata;
-+	u8      ids[2];
-+	int     err;
-+
-+	/* Chip description */
-+	pdata = spi->dev.platform_data;
-+
-+	ks = kzalloc(sizeof(*ks), GFP_KERNEL);
-+	if (!ks) {
-+		dev_err(&spi->dev, "no memory for private data\n");
-+		return -ENOMEM;
-+	}
-+
-+	mutex_init(&ks->lock);
-+	ks->pdata = pdata;
-+	ks->spi = spi_dev_get(spi);
-+	dev_set_drvdata(&spi->dev, ks);
-+
-+	spi->mode = SPI_MODE_0;
-+	spi->bits_per_word = 8;
-+	err = spi_setup(spi);
-+	if (err) {
-+		dev_err(&spi->dev, "spi_setup failed, err=%d\n", err);
-+		goto err_drvdata;
-+	}
-+
-+	err = ks8995_read(ks, ids, KS8995_REG_ID0, sizeof(ids));
-+	if (err < 0) {
-+		dev_err(&spi->dev, "unable to read id registers, err=%d\n",
-+				err);
-+		goto err_drvdata;
-+	}
-+
-+	switch (ids[0]) {
-+	case FAMILY_KS8995:
-+		break;
-+	default:
-+		dev_err(&spi->dev, "unknown family id:%02x\n", ids[0]);
-+		err = -ENODEV;
-+		goto err_drvdata;
-+	}
-+
-+	err = ks8995_reset(ks);
-+	if (err)
-+		goto err_drvdata;
-+
-+	err = sysfs_create_bin_file(&spi->dev.kobj, &ks8995_registers_attr);
-+	if (err) {
-+		dev_err(&spi->dev, "unable to create sysfs file, err=%d\n",
-+				    err);
-+		goto err_drvdata;
-+	}
-+
-+	dev_info(&spi->dev, "KS89%02X device found, Chip ID:%01x, "
-+			"Revision:%01x\n", ids[0],
-+			get_chip_id(ids[1]), get_chip_rev(ids[1]));
-+
-+	return 0;
-+
-+err_drvdata:
-+	dev_set_drvdata(&spi->dev, NULL);
-+	kfree(ks);
-+	return err;
-+}
-+
-+static int __devexit ks8995_remove(struct spi_device *spi)
-+{
-+	struct ks8995_data      *ks8995;
-+
-+	ks8995 = dev_get_drvdata(&spi->dev);
-+	sysfs_remove_bin_file(&spi->dev.kobj, &ks8995_registers_attr);
-+
-+	dev_set_drvdata(&spi->dev, NULL);
-+	kfree(ks8995);
-+
-+	return 0;
-+}
-+
-+/* ------------------------------------------------------------------------ */
-+
-+static struct spi_driver ks8995_driver = {
-+	.driver = {
-+		.name	    = "spi-ks8995",
-+		.bus	     = &spi_bus_type,
-+		.owner	   = THIS_MODULE,
-+	},
-+	.probe	  = ks8995_probe,
-+	.remove	  = __devexit_p(ks8995_remove),
-+};
-+
-+static int __init ks8995_init(void)
-+{
-+	printk(KERN_INFO DRV_DESC " version " DRV_VERSION"\n");
-+
-+	return spi_register_driver(&ks8995_driver);
-+}
-+module_init(ks8995_init);
-+
-+static void __exit ks8995_exit(void)
-+{
-+	spi_unregister_driver(&ks8995_driver);
-+}
-+module_exit(ks8995_exit);
-+
-+MODULE_DESCRIPTION(DRV_DESC);
-+MODULE_VERSION(DRV_VERSION);
-+MODULE_AUTHOR("Gabor Juhos <juhosg at openwrt.org>");
-+MODULE_LICENSE("GPL v2");
-+
--- 
-1.7.4.1
+Yeah, I'm pretty sure this is a bug. There needs to be some additional
+logic, whether in tcp_try_undo_partial or tcp_packet_delayed, or
+somewhere else, to fix this bug.
+
+
+>> 2) tcp_packet_delayed implicitly assumes that if we retransmit a
+>> packet that was truly lost then any ACK for the retransmitted instan=
+ce
+>> of that packet will echo the timestamp field in the retransmitted
+>> packet. But if the receiver is implementing delayed ACKs and correct=
+ly
+>> implements timestamps per RFC 1323, then the receiver will be obeyin=
+g
+>> this clause: "Thus, when delayed ACKs are in use, the receiver shoul=
+d
+>> reply with the TSval field from the earliest unacknowledged segment.=
+"
+>> Thus tcp_packet_delayed can cause spurious undos in the following
+>> circumstances:
+>>
+>> - send segment 1 with tsval 10
+>> - receiver is doing delayed ACKs and does not ACK 1 but sets TS.Rece=
+nt to 10
+>> - send segment 2 with tsval 20
+>> - segment 2 is lost in transit
+>> - RTO, retransmit segment 2 with tsval 30
+>> - receiver sends delayed ACK for packets 1 and 2 with TS.Recent of 1=
+0
+>> - sender receives ACK for packet 2 with tsecho of 10, lower than 30,
+>> and thinks RTO was spurious
+>
+> About this I'm actually aware of, I have even some long email postpon=
+ed
+> related to this to discuss in context of 1323bis (as 1323bis seems pr=
+etty
+> much standstill I'm not in a big hurry :-)). I think 1323 algo is fla=
+wed
+> anyway and it was fixed/clarified/better in the bis (which doesn't
+> address this well enough though).
+>
+> I discovered this while I setup a network with ACK losses to figure o=
+ut
+> other issue. I discovered that the RTT measurements occassionally too=
+k
+> "the wrong TS" bloating the RTT estimate. As RTT samples included RTO
+> delays, with enough ACK losses the RTO eventually hits the max value.
+> ...As a result, not very nice performance was acquired for that such =
+a
+> flow.
+>
+> I think there are two possible solutions:
+> =A01) Echo latest timestamp for below window packets (I'm not sure if
+> =A0there's can of worms w.r.t. security in this approach). A good thi=
+ng
+> =A0in this would be that it would really solve the rexmit ambiguity p=
+roblem
+> =A0which the current approach does not do.
+> =A02) Ignore packets with DSACK in RTT measurement.
+>
+> 1323bis is not of much help in this which TS to echo (which is why I
+> intented to mention it on tcpm). IIRC, it depended on which takes
+> precedence: RFC793 in-window check or the given TS algorithm, which i=
+s
+> not discussed anywhere.
+
+Interesting. I hope the standards get improved in this area.
+
+
+>> For better or worse, both of these bugs appear to be inherited from
+>> the Eifel Detection Algorithm RFC (RFC 3522).
+>
+> RFC3522 does not have the issue 1) as it's working after RTO+first AC=
+K
+> only. The second issue is valid for it though.
+
+Actually RFC 3522 does have issue 1) because it is also in effect for
+fast retransmit / fast recovery; RFC 3522 says "If the Eifel detection
+algorithm is used, the following steps MUST be taken by a TCP sender,
+but only upon initiation of loss recovery, i.e., when either the
+timeout-based retransmit or the fast retransmit is sent."
+
+In addition, RFC 3517 allows senders to send out multiple
+retransmissions upon the first ACK that initiates fast recovery:
+Section 5., Algorithm Details, says "(5) In order to take advantage of
+potential additional available cwnd, proceed to step (C) below. ...
+(C) If cwnd - pipe >=3D 1 SMSS the sender SHOULD transmit one or more
+segments." As a consequence, senders can have multiple retransmissions
+in flight at the point they get the first ACK during fast recovery, at
+which point they run the Eifel detection algorithm.
+
+So I'm pretty sure 1) is an issue both in the RFCs and in Linux.
+
+
+>> In any case, we've been working on coming up with a solution for the=
+se issues.
+>>
+>> > --
+>> > [PATCH 1/1] tcp: fix spurious undos in CA_Open
+>> >
+>> > There's a landmine in tcp_packet_delayed. In CA_Open the
+>> > retrans_stamp is very eagerly cleared which falsely triggers
+>> > packet-delayed detection. Therefore this code cannot be used
+>> > in CA_Open if the retrans_stamp was already cleared.
+>> >
+>> > This became issue once DSACK detection was extended to happen
+>> > in CA_Open state too (f698204bd0b, tcp: allow undo from
+>> > reordered DSACKs). Essentially the whole congestion control
+>> > is disabled because the undos now always restore the previous
+>> > window. I wonder if this was already in production... ...at
+>> > least the Internet didn't melt ;-).
+>>
+>> I'm pretty sure this commit is unnecessary. It seems like a NOP. Not=
+e
+>> that tcp_may_undo and tcp_packet_delayed are never called in state
+>> TCP_CA_Open. tcp_may_undo is only called from tcp_try_undo_recovery,
+>> tcp_try_undo_partial, and tcp_try_undo_loss, and to call any of thes=
+e
+>> functions you must be in either TCP_CA_Loss or TCP_CA_Recovery. Only
+>> tcp_try_undo_dsack is called from TCP_CA_Open, but it makes no
+>> reference to retrans_stamp.
+>
+> It seems that I've missed this difference in tcp_try_undo_dsack (well=
+,
+> seen it but never thought it that much). I think you're right. Thanks=
+ for
+> taking a look.
+>
+> Some WARN_ON to enforce this !CA_Open condition there might not hurt
+> though.
+
+Sounds reasonable. I'll think about this as I work on coming up with a
+fix for the 1) and 2) bugs discussed above.
+
+neal
