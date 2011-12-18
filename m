@@ -1,116 +1,40 @@
-From: Joshua Kinard <kumba@gentoo.org>
-Subject: Re: [PATCH] net: meth: Some code cleanups for meth
-Date: Sat, 17 Dec 2011 23:42:33 -0500
-Message-ID: <4EED6F39.2030601@gentoo.org>
-References: <4EED418E.40501@gentoo.org> <20111217.220032.683061606470374131.davem@davemloft.net>
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Subject: netem and multiple parameters
+Date: Sun, 18 Dec 2011 00:03:02 -0500
+Message-ID: <1324184582.8451.430.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <20111217.220032.683061606470374131.davem@davemloft.net>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.perfora.net ([74.208.4.194]:63359 "EHLO mout.perfora.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750695Ab1LRFDH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Dec 2011 00:03:07 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/17/2011 22:00, David Miller wrote:
+Hello, all.  When using netem and desiring multiple characteristics such
+as delay and packet loss, is it appropriate to place them on one line?
+I've seen examples of doing that while researching but it doesn't seem
+to be working for me.  I have a netem qdisc on both egress and ingress
+(for a specific reason) each with 25ms delay and 0.1% packet loss:
 
-> From: Joshua Kinard <kumba@gentoo.org>
-> Date: Sat, 17 Dec 2011 20:27:42 -0500
-> 
->> -#define WAIT_FOR_PHY(___rval)					\
->> -	while ((___rval = mace->eth.phy_data) & MDIO_BUSY) {	\
->> -		udelay(25);					\
->> +#define WAIT_FOR_PHY(___rval)                               \
->> +	while ((___rval = mace->eth.phy_data) & MDIO_BUSY) {    \
->> +		udelay(25);                                         \
-> 
-> I think using tabs at the end of the line to line up the "\" is much
-> better than what you're changing it to, that being spaces.
+tc qdisc add dev ifb1 root handle 2 netem delay 25ms 5ms distribution normal loss 0.1% 30%
+tc filter add dev eth1 parent 1:0 protocol ip prio 1 u32 match u32 0 0 action mirred egress redirect dev ifb1
+tc qdisc add dev ifb0 root handle 1: hfsc default 20
+tc class add dev ifb0 parent 1: classid 1:1 hfsc sc rate 1490kbit ul rate 1490kbit
+tc class add dev ifb0 parent 1:1 classid 1:20 hfsc rt rate 400kbit ls rate 200kbit
+tc qdisc add dev ifb0 parent 1:20 handle 1201 netem delay 25ms 5ms distribution normal loss 0.1% 30%
 
+I see the 50ms delay but, after two runs of 6000 pings, I see no packet
+loss whatsoever.  I would have expected about 12 dropped packets:
 
-Mistake from when I still had my editor switched to spaces mode.  I set it
-to tab mode a little bit later and didn't think to go back and correct this.
+6570 packets transmitted, 6570 received, 0% packet loss, time 1975920ms
+rtt min/avg/max/mdev = 23.983/50.830/75.255/7.101 ms
 
-
->> -		priv->phy_addr=i;
->> -		p2=mdio_read(priv,2);
->> -		p3=mdio_read(priv,3);
->> +
->> +	for (i = 0; i < 32; i++){
->> +		priv->phy_addr = i;
->> +		p2 = mdio_read(priv,2);
->> +		p3 = mdio_read(priv,3);
-> 
-> If you're going to put forth the effort to put spaces around the
-> "=" characters, fix up the arguments to mdio_read() as well, there
-> needs to be a space after the "," and right before the second
-> argument.
-> 
+6536 packets transmitted, 6536 received, 0% packet loss, time 1965211ms
+rtt min/avg/max/mdev = 23.298/50.877/74.216/7.064 ms
 
 
-It's not that it took a lot of effort, I just simply missed the space after
-the comma.  It still looks better :)
-
-
->> +		if ((p2 != 0xffff) && (p2 != 0x0000)) {
-> 
-> There is no need for the new parenthesis you are adding here.  It
-> doesn't change things semantically, and it does not improve
-> readability, it just makes for more characters a human has to parse in
-> his mind.
-> 
-
-
-It's a habit -- I blame math from grade school years ago.  I'll remove them
-in the next version.
-
-
->> - * Copyright (C) 2001 Alessandro Rubini and Jonathan Corbet
->> - * Copyright (C) 2001 O'Reilly & Associates
->> + * Copyright (C) 2001-2003 Ilya Volynets
->> + * Copyright (C) 2011 Joshua Kinard
->>   *
->> - * The source code in this file can be freely used, adapted,
->> - * and redistributed in source or binary form, so long as an
->> - * acknowledgment appears in derived source files.  The citation
->> - * should list that the code comes from the book "Linux Device
->> - * Drivers" by Alessandro Rubini and Jonathan Corbet, published
->> - * by O'Reilly & Associates.   No warranty is attached;
->> - * we cannot take responsibility for errors or fitness for use.
->> + *	This program is free software; you can redistribute it and/or
->> + *	modify it under the terms of the GNU General Public License
->> + *	as published by the Free Software Foundation; either version
->> + *	2 of the License, or (at your option) any later version.
->>   */
-> 
-> I'm not sure at all that you have the ability to make this kind of
-> change to the copyright and attributions here.
-
-
-Looking at the header file, I really cannot find anything that would bear in
-common with sample code from a book.  If it was an actual driver file,
-maybe.  But a header file containing specific definitions for hardware bits?
- I tracked down the first commit back in 2001 and put in the guy who
-initially submitted it.  Is there a better way to handle this?  I doubt that
-book had SGI O2 MACE Ethernet-specific defines in it.
-
-
-> There are probably a lot more problems with this patch, but I'm
-> exhausted look at this stuff as-is.
-
-
-Probably :)
-
-
--- 
-Joshua Kinard
-Gentoo/MIPS
-kumba@gentoo.org
-4096R/D25D95E3 2011-03-28
-
-"The past tempts us, the present confuses us, the future frightens us.  And
-our lives slip away, moment by moment, lost in that vast, terrible in-between."
-
---Emperor Turhan, Centauri Republic
+What have I mangled? Thanks - John
