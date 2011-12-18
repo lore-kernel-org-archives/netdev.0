@@ -1,30 +1,39 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: netem and hierarchical ingress traffic shaping
-Date: Sun, 18 Dec 2011 11:55:49 -0800
-Message-ID: <20111218115549.0d9e1259@nehalam.linuxnetplumber.net>
-References: <1324185132.8451.439.camel@denise.theartistscloset.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37015 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751776Ab1LRTzx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 Dec 2011 14:55:53 -0500
-In-Reply-To: <1324185132.8451.439.camel@denise.theartistscloset.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ilya Yanok <yanok@emcraft.com>
+Subject: [PATCH] davinci-cpdma: fix locking issue in cpdma_chan_stop
+Date: Sun, 18 Dec 2011 21:02:04 +0100
+Message-ID: <1324238524-21330-1-git-send-email-yanok@emcraft.com>
+Cc: Ilya Yanok <yanok@emcraft.com>
+To: netdev@vger.kernel.org, linux-omap@vger.kernel.org
+Return-path: <linux-omap-owner@vger.kernel.org>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 18 Dec 2011 00:12:12 -0500
-"John A. Sullivan III" <jsullivan@opensourcedevel.com> wrote:
+Free the channel lock before calling __cpdma_chan_process to prevent
+dead lock.
 
-> Since netem appears to be classless, we realized we would need to
-> replace the SFQ on each leaf with netem which we really didn't want to
-> do - not only to not lose SFQ but because we didn't want to maintain the
-> netem parameters on each leaf.  So, we activated our ifb1 interface,
-> placed netem on it and redirected all the egress traffic to ifb1.  Taht
-> worked fine.
+Signed-off-by: Ilya Yanok <yanok@emcraft.com>
+---
+ drivers/net/ethernet/ti/davinci_cpdma.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Current versions of netem can take one class.
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+index dca9d33..c97d2f5 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.c
++++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+@@ -836,11 +836,13 @@ int cpdma_chan_stop(struct cpdma_chan *chan)
+ 	chan_write(chan, cp, CPDMA_TEARDOWN_VALUE);
+ 
+ 	/* handle completed packets */
++	spin_unlock_irqrestore(&chan->lock, flags);
+ 	do {
+ 		ret = __cpdma_chan_process(chan);
+ 		if (ret < 0)
+ 			break;
+ 	} while ((ret & CPDMA_DESC_TD_COMPLETE) == 0);
++	spin_lock_irqsave(&chan->lock, flags);
+ 
+ 	/* remaining packets haven't been tx/rx'ed, clean them up */
+ 	while (chan->head) {
+-- 
+1.7.6.4
+
