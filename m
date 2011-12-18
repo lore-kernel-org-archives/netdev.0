@@ -1,16 +1,16 @@
 From: Mircea Gherzan <mgherzan@gmail.com>
 Subject: [PATCH] ARM: net: JIT compiler for packet filters
-Date: Mon, 19 Dec 2011 00:48:35 +0100
-Message-ID: <1324252115-15774-1-git-send-email-mgherzan@gmail.com>
+Date: Mon, 19 Dec 2011 00:49:45 +0100
+Message-ID: <1324252185-15894-1-git-send-email-mgherzan@gmail.com>
 Cc: mgherzan@gmail.com, netdev@vger.kernel.org
-To: linux-arm-kernel@infradead.org
+To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:59104 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751990Ab1LRXsq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2011 18:48:46 -0500
-Received: by eaaj10 with SMTP id j10so4317924eaa.19
-        for <netdev@vger.kernel.org>; Sun, 18 Dec 2011 15:48:45 -0800 (PST)
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:33131 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751990Ab1LRXtw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2011 18:49:52 -0500
+Received: by eekc4 with SMTP id c4so4964641eek.19
+        for <netdev@vger.kernel.org>; Sun, 18 Dec 2011 15:49:51 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
