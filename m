@@ -1,198 +1,133 @@
-From: "Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>
-Subject: Re: [PATCH] 9p: Don't use ATTR_* values from fs.h in userspace facing structs
-Date: Sun, 18 Dec 2011 14:13:02 +0530
-Message-ID: <87mxaqgtih.fsf@linux.vnet.ibm.com>
-References: <1324134422-16642-1-git-send-email-levinsasha928@gmail.com> <20111217174725.GW2203@ZenIV.linux.org.uk> <87pqfmgtph.fsf@linux.vnet.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: ipv6/addrconf_dad_failure printk() in interrupt context
+Date: Sun, 18 Dec 2011 10:15:08 +0100
+Message-ID: <1324199708.3323.71.camel@edumazet-laptop>
+References: <201112180328.00422.marek.vasut@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ericvh@gmail.com, rminnich@sandia.gov, lucho@ionkov.net,
-	davem@davemloft.net, jvrao@linux.vnet.ibm.com,
-	v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>,
-	Sasha Levin <levinsasha928@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87pqfmgtph.fsf@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Wolfgang Denk <wd@denx.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Marek Vasut <marek.vasut@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:38010 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750979Ab1LRJPO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2011 04:15:14 -0500
+Received: by werm1 with SMTP id m1so805167wer.19
+        for <netdev@vger.kernel.org>; Sun, 18 Dec 2011 01:15:13 -0800 (PST)
+In-Reply-To: <201112180328.00422.marek.vasut@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 18 Dec 2011 14:08:50 +0530, "Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com> wrote:
-> On Sat, 17 Dec 2011 17:47:25 +0000, Al Viro <viro@ZenIV.linux.org.uk> wrote:
-> > On Sat, Dec 17, 2011 at 05:07:02PM +0200, Sasha Levin wrote:
-> > > struct p9_iattr_dotl is userspace facing, but the 'valid' field is documented
-> > > as follows:
-> > > 
-> > > 	 * @valid: bitfield specifying which fields are valid
-> > > 	 *         same as in struct iattr
-> > > 
-> > > Which means that the user has to know about kernel internal ATTR_* values.
-> > > 
-> > > On Fri, 2011-12-16 at 23:30 +0000, Al Viro wrote:
-> > > > They *are* kernel internal values and 9P is asking for trouble exposing
-> > > > them.  Translation: tomorrow we might reassign those as we bloody wish
-> > > > and any userland code that happens to rely on their values will break.
-> > > > At which point we'll handle complaints by pointing and laughing.
-> > > >
-> > > > It's a 9P bug; fix it there.  Turning random internal constants into a part
-> > > > of ABI is not going to work.
-> > > 
-> > > Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
-> > > ---
-> > >  fs/9p/vfs_inode_dotl.c |   31 ++++++++++++++++++++++++++++++-
-> > >  include/net/9p/9p.h    |   18 ++++++++++++++++++
-> > >  2 files changed, 48 insertions(+), 1 deletions(-)
-> > > 
-> > > diff --git a/fs/9p/vfs_inode_dotl.c b/fs/9p/vfs_inode_dotl.c
-> > > index 0b5745e..a948214 100644
-> > > --- a/fs/9p/vfs_inode_dotl.c
-> > > +++ b/fs/9p/vfs_inode_dotl.c
-> > > @@ -523,6 +523,35 @@ v9fs_vfs_getattr_dotl(struct vfsmount *mnt, struct dentry *dentry,
-> > >  	return 0;
-> > >  }
-> > >  
-> > > +int v9fs_vfs_iattr_to_9p_valid(u32 ia_valid)
-> > > +{
-> > > +	u32 valid = 0, i;
-> > > +	static u32 attr_map[][2] = {
-> > > +		{ATTR_MODE,		P9_ATTR_MODE},
-> > > +		{ATTR_UID,		P9_ATTR_UID},
-> > > +		{ATTR_SIZE,		P9_ATTR_SIZE},
-> > > +		{ATTR_ATIME,		P9_ATTR_ATIME},
-> > > +		{ATTR_MTIME,		P9_ATTR_MTIME},
-> > > +		{ATTR_CTIME,		P9_ATTR_CTIME},
-> > > +		{ATTR_ATIME_SET,	P9_ATTR_ATIME_SET},
-> > > +		{ATTR_MTIME_SET,	P9_ATTR_MTIME_SET},
-> > > +		{ATTR_FORCE,		P9_ATTR_FORCE},
-> > > +		{ATTR_ATTR_FLAG,	P9_ATTR_ATTR_FLAG},
-> > > +		{ATTR_KILL_SUID,	P9_ATTR_KILL_SUID},
-> > > +		{ATTR_KILL_SGID,	P9_ATTR_KILL_SGID},
-> > > +		{ATTR_FILE,		P9_ATTR_FILE},
-> > > +		{ATTR_KILL_PRIV,	P9_ATTR_KILL_PRIV},
-> > > +		{ATTR_OPEN,		P9_ATTR_OPEN},
-> > > +		{ATTR_TIMES_SET,	P9_ATTR_TIMES_SET},
-> > > +	};
-> > 
-> > a) ATTR_GID is lost
-> > b) passing ATTR_FILE is bloody pointless; look at what it does and
-> > realize that 9p doesn't as much as look at ia_file.
-> > c) ATTR_KILL_PRIV is very dubious; what's the legitimate use of that
-> > puppy in fs code?
-> > 
-> > Look, that's the problem with exposing this stuff to protocol; you don't
-> > get clear semantics and are you seriously asking for trouble on kernel
-> > changes.  Suppose tomorrow we get rid of e.g. ATTR_KILL_PRIV; what are you
-> > guys going to do?  Hope that no 9p server has behaviour dependent on that
-> > flag being set or cleared?
-> > 
-> > Don't turn the kernel internals into a part of ABI.  And blind bulk remapping
-> > of constants is exactly that...
-> > 
-> 
+Le dimanche 18 d=C3=A9cembre 2011 =C3=A0 03:28 +0100, Marek Vasut a =C3=
+=A9crit :
+> Hi,
+>=20
+> I just recently hit the following issue. I might actually be wrong wi=
+th my=20
+> conclusions so bear with me. The events that led to the issue:
+>=20
+> 1) Duplicate IPv6 address on the network
+> 2) console driver that locks a mutex when printk() is called
 
-qemu part if you are interested.
+This seems buggy : printk() might be called from irq, so muext_lock() i=
+s
+not allowed.
 
-commit 9a45b894ab6d5e4480e721a40e8e8c160344c9fe
-Author: Aneesh Kumar K.V <aneesh.kumar@linux.vnet.ibm.com>
-Date:   Sat Dec 17 21:02:57 2011 +0530
+>=20
+> The problem is the following backtrace:
+>=20
+> [    4.870000] eth0: IPv6 duplicate address XXXX::YYYY:ZZZZ:WWWW:0 de=
+tected!
+> [    4.870000] ------------[ cut here ]------------
+> [    4.870000] WARNING: at kernel/mutex.c:198 mutex_lock_nested+0x284=
+/0x2c0()
+> [    4.870000] Modules linked in:
+> [    4.870000] [<c0013ab8>] (unwind_backtrace+0x0/0xf0) from [<c001d9=
+34>]=20
+> (warn_slowpath_common+0x4c/0x64)
+> [    4.870000] [<c001d934>] (warn_slowpath_common+0x4c/0x64) from [<c=
+001d968>]=20
+> (warn_slowpath_null+0x1c/0x24)
+> [    4.870000] [<c001d968>] (warn_slowpath_null+0x1c/0x24) from [<c03=
+3a4f4>]=20
+> (mutex_lock_nested+0x284/0x2c0)
+> [    4.870000] [<c033a4f4>] (mutex_lock_nested+0x284/0x2c0) from [<c0=
+017d88>]=20
+> (clk_enable+0x20/0x48)
+> [    4.870000] [<c0017d88>] (clk_enable+0x20/0x48) from [<c01dfbf0>]=20
+> (pl011_console_write+0x20/0x74)
+> [    4.870000] [<c01dfbf0>] (pl011_console_write+0x20/0x74) from [<c0=
+01da98>]=20
+> (__call_console_drivers+0x7c/0x94)
+> [    4.870000] [<c001da98>] (__call_console_drivers+0x7c/0x94) from [=
+<c001df20>]=20
+> (console_unlock+0xf8/0x244)
+> [    4.870000] [<c001df20>] (console_unlock+0xf8/0x244) from [<c001e3=
+08>]=20
+> (vprintk+0x29c/0x484)
+> [    4.870000] [<c001e308>] (vprintk+0x29c/0x484) from [<c03355a8>]=20
+> (printk+0x20/0x30)
+> [    4.870000] [<c03355a8>] (printk+0x20/0x30) from [<c02df600>]=20
+> (addrconf_dad_failure+0x148/0x158)
+> [    4.870000] [<c02df600>] (addrconf_dad_failure+0x148/0x158) from [=
+<c02ebde0>]=20
+> (ndisc_rcv+0xb38/0xdb0)
+> [    4.870000] [<c02ebde0>] (ndisc_rcv+0xb38/0xdb0) from [<c02f1b28>]=
+=20
+> (icmpv6_rcv+0x6ec/0x9c4)
+> [    4.870000] [<c02f1b28>] (icmpv6_rcv+0x6ec/0x9c4) from [<c02da9a4>=
+]=20
+> (ip6_input_finish+0x144/0x4e0)
+> [    4.870000] [<c02da9a4>] (ip6_input_finish+0x144/0x4e0) from [<c02=
+db424>]=20
+> (ip6_mc_input+0xb8/0x154)
+> [    4.870000] [<c02db424>] (ip6_mc_input+0xb8/0x154) from [<c02db12c=
+>]=20
+> (ipv6_rcv+0x300/0x53c)
+> [    4.870000] [<c02db12c>] (ipv6_rcv+0x300/0x53c) from [<c0267b78>]=20
+> (__netif_receive_skb+0x240/0x420)
+> [    4.870000] [<c0267b78>] (__netif_receive_skb+0x240/0x420) from [<=
+c0267de8>]=20
+> (process_backlog+0x90/0x150)
+> [    4.870000] [<c0267de8>] (process_backlog+0x90/0x150) from [<c026a=
+5f8>]=20
+> (net_rx_action+0xc0/0x264)
+> [    4.870000] [<c026a5f8>] (net_rx_action+0xc0/0x264) from [<c0023cf=
+c>]=20
+> (__do_softirq+0xa8/0x214)
+> [    4.870000] [<c0023cfc>] (__do_softirq+0xa8/0x214) from [<c00242c0=
+>]=20
+> (irq_exit+0x8c/0x94)
+> [    4.870000] [<c00242c0>] (irq_exit+0x8c/0x94) from [<c000f6d0>]=20
+> (handle_IRQ+0x34/0x84)
+> [    4.870000] [<c000f6d0>] (handle_IRQ+0x34/0x84) from [<c000e5d8>]=20
+> (__irq_usr+0x38/0x80)
+> [    4.870000] ---[ end trace 32eab6a8dcdca9c0 ]---
+>=20
+> So basically what I see here is the following order of events:
+>=20
+> Packet received -> IRQ generated -> ipv6 packet received (still in in=
+terrupt=20
+> context ... why not in tasklet ... or am I wrong here ?) -> icmpv6 pa=
+cket=20
+> processing -> addrconf_dad_failure() called -> printk() called in the=
+re ->=20
+> mutex_lock() called in printk(), causing the warning.
+>=20
+> Can printk() be actually called in interrupt context?
+>=20
 
-    hw/9pfs: iattr_valid flags are kernel internal flags map them to 9p values.
-    
-    Kernel internal values can change, add protocol values for these constant and
-    use them.
-    
-    Signed-off-by: Aneesh Kumar K.V <aneesh.kumar@linux.vnet.ibm.com>
+Yes, it can be.
 
-diff --git a/hw/9pfs/virtio-9p.c b/hw/9pfs/virtio-9p.c
-index b3fc3d0..567f6cb 100644
---- a/hw/9pfs/virtio-9p.c
-+++ b/hw/9pfs/virtio-9p.c
-@@ -1293,17 +1293,18 @@ out_nofid:
-     complete_pdu(s, pdu, retval);
- }
- 
--/* From Linux kernel code */
--#define ATTR_MODE    (1 << 0)
--#define ATTR_UID     (1 << 1)
--#define ATTR_GID     (1 << 2)
--#define ATTR_SIZE    (1 << 3)
--#define ATTR_ATIME   (1 << 4)
--#define ATTR_MTIME   (1 << 5)
--#define ATTR_CTIME   (1 << 6)
--#define ATTR_MASK    127
--#define ATTR_ATIME_SET  (1 << 7)
--#define ATTR_MTIME_SET  (1 << 8)
-+/* Attribute flags */
-+#define P9_ATTR_MODE       (1 << 0)
-+#define P9_ATTR_UID        (1 << 1)
-+#define P9_ATTR_GID        (1 << 2)
-+#define P9_ATTR_SIZE       (1 << 3)
-+#define P9_ATTR_ATIME      (1 << 4)
-+#define P9_ATTR_MTIME      (1 << 5)
-+#define P9_ATTR_CTIME      (1 << 6)
-+#define P9_ATTR_ATIME_SET  (1 << 7)
-+#define P9_ATTR_MTIME_SET  (1 << 8)
-+
-+#define P9_ATTR_MASK    127
- 
- static void v9fs_setattr(void *opaque)
- {
-@@ -1322,16 +1323,16 @@ static void v9fs_setattr(void *opaque)
-         err = -EINVAL;
-         goto out_nofid;
-     }
--    if (v9iattr.valid & ATTR_MODE) {
-+    if (v9iattr.valid & P9_ATTR_MODE) {
-         err = v9fs_co_chmod(pdu, &fidp->path, v9iattr.mode);
-         if (err < 0) {
-             goto out;
-         }
-     }
--    if (v9iattr.valid & (ATTR_ATIME | ATTR_MTIME)) {
-+    if (v9iattr.valid & (P9_ATTR_ATIME | P9_ATTR_MTIME)) {
-         struct timespec times[2];
--        if (v9iattr.valid & ATTR_ATIME) {
--            if (v9iattr.valid & ATTR_ATIME_SET) {
-+        if (v9iattr.valid & P9_ATTR_ATIME) {
-+            if (v9iattr.valid & P9_ATTR_ATIME_SET) {
-                 times[0].tv_sec = v9iattr.atime_sec;
-                 times[0].tv_nsec = v9iattr.atime_nsec;
-             } else {
-@@ -1340,8 +1341,8 @@ static void v9fs_setattr(void *opaque)
-         } else {
-             times[0].tv_nsec = UTIME_OMIT;
-         }
--        if (v9iattr.valid & ATTR_MTIME) {
--            if (v9iattr.valid & ATTR_MTIME_SET) {
-+        if (v9iattr.valid & P9_ATTR_MTIME) {
-+            if (v9iattr.valid & P9_ATTR_MTIME_SET) {
-                 times[1].tv_sec = v9iattr.mtime_sec;
-                 times[1].tv_nsec = v9iattr.mtime_nsec;
-             } else {
-@@ -1359,13 +1360,13 @@ static void v9fs_setattr(void *opaque)
-      * If the only valid entry in iattr is ctime we can call
-      * chown(-1,-1) to update the ctime of the file
-      */
--    if ((v9iattr.valid & (ATTR_UID | ATTR_GID)) ||
--        ((v9iattr.valid & ATTR_CTIME)
--         && !((v9iattr.valid & ATTR_MASK) & ~ATTR_CTIME))) {
--        if (!(v9iattr.valid & ATTR_UID)) {
-+    if ((v9iattr.valid & (P9_ATTR_UID | P9_ATTR_GID)) ||
-+        ((v9iattr.valid & P9_ATTR_CTIME)
-+         && !((v9iattr.valid & P9_ATTR_MASK) & ~P9_ATTR_CTIME))) {
-+        if (!(v9iattr.valid & P9_ATTR_UID)) {
-             v9iattr.uid = -1;
-         }
--        if (!(v9iattr.valid & ATTR_GID)) {
-+        if (!(v9iattr.valid & P9_ATTR_GID)) {
-             v9iattr.gid = -1;
-         }
-         err = v9fs_co_chown(pdu, &fidp->path, v9iattr.uid,
-@@ -1374,7 +1375,7 @@ static void v9fs_setattr(void *opaque)
-             goto out;
-         }
-     }
--    if (v9iattr.valid & (ATTR_SIZE)) {
-+    if (v9iattr.valid & (P9_ATTR_SIZE)) {
-         err = v9fs_co_truncate(pdu, &fidp->path, v9iattr.size);
-         if (err < 0) {
-             goto out;
+> What direction of solving this shall I take?
+>=20
+
+Send this to lkml, since its not a netdev issue, but a kernel one.
+
+> Thanks in advance!
