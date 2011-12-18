@@ -1,67 +1,38 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: bnx2x firmware version 6.x.y
-Date: Sun, 18 Dec 2011 11:21:17 +0200
-Message-ID: <1324200077.26549.2.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1324140746.2825.335.camel@deadeye>
-Reply-To: eilong@broadcom.com
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Vladislav Zolotarov" <vladz@broadcom.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"David Woodhouse" <dwmw2@infradead.org>
-To: "Ben Hutchings" <ben@decadent.org.uk>
+From: Matt Ginzton <matt@ginzton.net>
+Subject: Re: reproducible kernel freeze using r8169 in Linux 3.0
+Date: Sun, 18 Dec 2011 01:40:55 -0800
+Message-ID: <1484924F-90E7-40FE-B066-3955842F2B71@ginzton.net>
+References: <63CE35CA-7DD6-41EC-A745-6BA776D8C5E3@ginzton.net> <20111218083212.GA28286@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0 (Apple Message framework v1251.1)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: nic_swsd@realtek.com, netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3008 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750979Ab1LRJVh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 Dec 2011 04:21:37 -0500
-In-Reply-To: <1324140746.2825.335.camel@deadeye>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:40697 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751379Ab1LRJk7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2011 04:40:59 -0500
+Received: by iaeh11 with SMTP id h11so6851045iae.19
+        for <netdev@vger.kernel.org>; Sun, 18 Dec 2011 01:40:58 -0800 (PST)
+In-Reply-To: <20111218083212.GA28286@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2011-12-17 at 08:52 -0800, Ben Hutchings wrote:
-> In general, linux-firmware includes all blobs that any released version
-> of a driver may need.
-> 
-> Therefore, I'm about to add the bnx2x firmware versions 6.0.34.0,
-> 6.2.5.0 and 6.2.9.0 (taken from kernel versions 2.6.37, 2.6.38 and 3.0
-> respectively) into linux-firmware.
+On Dec 18, 2011, at 12:32 AM, Francois Romieu wrote:
 
-Ben - Thanks for doing that.
-Acked-by: Eilon Greenstein <eilong@broadcom.com>
+> Please grep for a XID line in dmesg and send it so we can figure the
+> specific revision of your chipset (lspci can not figure it).
+> 
+> If it says something like "blah blah XID 1c4...", you should give current
+> -rc a try (who shouldn't ?).
 
-> 
-> The full lists of bnx2x firmware blobs that will be included after this
-> is:
-> 
-> bnx2x-e1-4.8.53.0.fw
-> bnx2x-e1-5.2.13.0.fw
-> bnx2x-e1-5.2.7.0.fw
-> bnx2x-e1h-4.8.53.0.fw
-> bnx2x-e1h-5.2.13.0.fw
-> bnx2x-e1h-5.2.7.0.fw
-> bnx2x/bnx2x-e1-6.0.34.0.fw
-> bnx2x/bnx2x-e1-6.2.5.0.fw
-> bnx2x/bnx2x-e1-6.2.9.0.fw
-> bnx2x/bnx2x-e1-7.0.20.0.fw
-> bnx2x/bnx2x-e1-7.0.23.0.fw
-> bnx2x/bnx2x-e1-7.0.29.0.fw
-> bnx2x/bnx2x-e1h-6.0.34.0.fw
-> bnx2x/bnx2x-e1h-6.2.5.0.fw
-> bnx2x/bnx2x-e1h-6.2.9.0.fw
-> bnx2x/bnx2x-e1h-7.0.20.0.fw
-> bnx2x/bnx2x-e1h-7.0.23.0.fw
-> bnx2x/bnx2x-e1h-7.0.29.0.fw
-> bnx2x/bnx2x-e2-6.0.34.0.fw
-> bnx2x/bnx2x-e2-6.2.5.0.fw
-> bnx2x/bnx2x-e2-6.2.9.0.fw
-> bnx2x/bnx2x-e2-7.0.20.0.fw
-> bnx2x/bnx2x-e2-7.0.23.0.fw
-> bnx2x/bnx2x-e2-7.0.29.0.fw
-> 
-> Ben.
-> 
+Hey, thanks for getting back so fast.
+
+XID 1c4000c0. (And it says "RTL8168c/8111c" in this line, not the 8168B that lspci claimed).
+
+I just found https://lkml.org/lkml/2011/12/1/399. It looks like you've had a handle on this problem since the beginning of December? http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=811fd3010cf512f2e23e6c4c912aad54516dc706 looks promising.
+
+thanks,
+
+Matt
