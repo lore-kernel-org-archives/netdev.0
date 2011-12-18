@@ -1,38 +1,130 @@
-From: Matt Ginzton <matt@ginzton.net>
-Subject: Re: reproducible kernel freeze using r8169 in Linux 3.0
-Date: Sun, 18 Dec 2011 01:40:55 -0800
-Message-ID: <1484924F-90E7-40FE-B066-3955842F2B71@ginzton.net>
-References: <63CE35CA-7DD6-41EC-A745-6BA776D8C5E3@ginzton.net> <20111218083212.GA28286@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0 (Apple Message framework v1251.1)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: nic_swsd@realtek.com, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+From: Marek Vasut <marek.vasut@gmail.com>
+Subject: Re: ipv6/addrconf_dad_failure printk() in interrupt context
+Date: Sun, 18 Dec 2011 14:09:49 +0100
+Message-ID: <201112181409.49299.marek.vasut@gmail.com>
+References: <201112180328.00422.marek.vasut@gmail.com> <1324199708.3323.71.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Wolfgang Denk <wd@denx.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, linux@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:40697 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751379Ab1LRJk7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2011 04:40:59 -0500
-Received: by iaeh11 with SMTP id h11so6851045iae.19
-        for <netdev@vger.kernel.org>; Sun, 18 Dec 2011 01:40:58 -0800 (PST)
-In-Reply-To: <20111218083212.GA28286@electric-eye.fr.zoreil.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:42287 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751538Ab1LRNJx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2011 08:09:53 -0500
+In-Reply-To: <1324199708.3323.71.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Dec 18, 2011, at 12:32 AM, Francois Romieu wrote:
+> Le dimanche 18 d=E9cembre 2011 =E0 03:28 +0100, Marek Vasut a =E9crit=
+ :
+> > Hi,
+> >=20
+> > I just recently hit the following issue. I might actually be wrong =
+with
+> > my conclusions so bear with me. The events that led to the issue:
+> >=20
+> > 1) Duplicate IPv6 address on the network
+> > 2) console driver that locks a mutex when printk() is called
+>=20
+> This seems buggy : printk() might be called from irq, so muext_lock()=
+ is
+> not allowed.
 
-> Please grep for a XID line in dmesg and send it so we can figure the
-> specific revision of your chipset (lspci can not figure it).
-> 
-> If it says something like "blah blah XID 1c4...", you should give current
-> -rc a try (who shouldn't ?).
+I could have guessed so ... mutex_lock() is called in clk_enable() in m=
+xs clock=20
+driver. So that needs to be fixed.
+>=20
+> > The problem is the following backtrace:
+> >=20
+> > [    4.870000] eth0: IPv6 duplicate address XXXX::YYYY:ZZZZ:WWWW:0
+> > detected! [    4.870000] ------------[ cut here ]------------
+> > [    4.870000] WARNING: at kernel/mutex.c:198
+> > mutex_lock_nested+0x284/0x2c0() [    4.870000] Modules linked in:
+> > [    4.870000] [<c0013ab8>] (unwind_backtrace+0x0/0xf0) from [<c001=
+d934>]
+> > (warn_slowpath_common+0x4c/0x64)
+> > [    4.870000] [<c001d934>] (warn_slowpath_common+0x4c/0x64) from
+> > [<c001d968>] (warn_slowpath_null+0x1c/0x24)
+> > [    4.870000] [<c001d968>] (warn_slowpath_null+0x1c/0x24) from
+> > [<c033a4f4>] (mutex_lock_nested+0x284/0x2c0)
+> > [    4.870000] [<c033a4f4>] (mutex_lock_nested+0x284/0x2c0) from
+> > [<c0017d88>] (clk_enable+0x20/0x48)
+> > [    4.870000] [<c0017d88>] (clk_enable+0x20/0x48) from [<c01dfbf0>=
+]
+> > (pl011_console_write+0x20/0x74)
+> > [    4.870000] [<c01dfbf0>] (pl011_console_write+0x20/0x74) from
+> > [<c001da98>] (__call_console_drivers+0x7c/0x94)
+> > [    4.870000] [<c001da98>] (__call_console_drivers+0x7c/0x94) from
+> > [<c001df20>] (console_unlock+0xf8/0x244)
+> > [    4.870000] [<c001df20>] (console_unlock+0xf8/0x244) from [<c001=
+e308>]
+> > (vprintk+0x29c/0x484)
+> > [    4.870000] [<c001e308>] (vprintk+0x29c/0x484) from [<c03355a8>]
+> > (printk+0x20/0x30)
+> > [    4.870000] [<c03355a8>] (printk+0x20/0x30) from [<c02df600>]
+> > (addrconf_dad_failure+0x148/0x158)
+> > [    4.870000] [<c02df600>] (addrconf_dad_failure+0x148/0x158) from
+> > [<c02ebde0>] (ndisc_rcv+0xb38/0xdb0)
+> > [    4.870000] [<c02ebde0>] (ndisc_rcv+0xb38/0xdb0) from [<c02f1b28=
+>]
+> > (icmpv6_rcv+0x6ec/0x9c4)
+> > [    4.870000] [<c02f1b28>] (icmpv6_rcv+0x6ec/0x9c4) from [<c02da9a=
+4>]
+> > (ip6_input_finish+0x144/0x4e0)
+> > [    4.870000] [<c02da9a4>] (ip6_input_finish+0x144/0x4e0) from
+> > [<c02db424>] (ip6_mc_input+0xb8/0x154)
+> > [    4.870000] [<c02db424>] (ip6_mc_input+0xb8/0x154) from [<c02db1=
+2c>]
+> > (ipv6_rcv+0x300/0x53c)
+> > [    4.870000] [<c02db12c>] (ipv6_rcv+0x300/0x53c) from [<c0267b78>=
+]
+> > (__netif_receive_skb+0x240/0x420)
+> > [    4.870000] [<c0267b78>] (__netif_receive_skb+0x240/0x420) from
+> > [<c0267de8>] (process_backlog+0x90/0x150)
+> > [    4.870000] [<c0267de8>] (process_backlog+0x90/0x150) from
+> > [<c026a5f8>] (net_rx_action+0xc0/0x264)
+> > [    4.870000] [<c026a5f8>] (net_rx_action+0xc0/0x264) from [<c0023=
+cfc>]
+> > (__do_softirq+0xa8/0x214)
+> > [    4.870000] [<c0023cfc>] (__do_softirq+0xa8/0x214) from [<c00242=
+c0>]
+> > (irq_exit+0x8c/0x94)
+> > [    4.870000] [<c00242c0>] (irq_exit+0x8c/0x94) from [<c000f6d0>]
+> > (handle_IRQ+0x34/0x84)
+> > [    4.870000] [<c000f6d0>] (handle_IRQ+0x34/0x84) from [<c000e5d8>=
+]
+> > (__irq_usr+0x38/0x80)
+> > [    4.870000] ---[ end trace 32eab6a8dcdca9c0 ]---
+> >=20
+> > So basically what I see here is the following order of events:
+> >=20
+> > Packet received -> IRQ generated -> ipv6 packet received (still in
+> > interrupt context ... why not in tasklet ... or am I wrong here ?) =
+->
+> > icmpv6 packet processing -> addrconf_dad_failure() called -> printk=
+()
+> > called in there -> mutex_lock() called in printk(), causing the war=
+ning.
+> >=20
+> > Can printk() be actually called in interrupt context?
+>=20
+> Yes, it can be.
+>=20
+> > What direction of solving this shall I take?
+>=20
+> Send this to lkml, since its not a netdev issue, but a kernel one.
 
-Hey, thanks for getting back so fast.
+I already know the direction (where to squash the improper mutex) so I'=
+ll poke=20
+into that and send to LKML incl. patch.
 
-XID 1c4000c0. (And it says "RTL8168c/8111c" in this line, not the 8168B that lspci claimed).
+Thanks for your reply!
 
-I just found https://lkml.org/lkml/2011/12/1/399. It looks like you've had a handle on this problem since the beginning of December? http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=811fd3010cf512f2e23e6c4c912aad54516dc706 looks promising.
-
-thanks,
-
-Matt
+M
