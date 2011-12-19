@@ -1,34 +1,38 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Allocation of small packets on Rx
-Date: Tue, 20 Dec 2011 10:30:26 +1100
-Message-ID: <1324337426.30454.23.camel@pasglop>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 14/15] module_param: make bool parameters really bool (net & drivers/net)
+Date: Tue, 20 Dec 2011 10:24:43 +1030
+Message-ID: <87liq8m81o.fsf@rustcorp.com.au>
+References: <87k45xqvfs.fsf@rustcorp.com.au> <20111215.231517.185391590658983405.davem@davemloft.net> <87ehw1nm9r.fsf@rustcorp.com.au> <20111219.162210.1739976094495078504.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:54169 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751126Ab1LSXa3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Dec 2011 18:30:29 -0500
-Received: from [IPv6:::1] (localhost.localdomain [127.0.0.1])
-	by gate.crashing.org (8.14.1/8.13.8) with ESMTP id pBJNURUJ013658
-	for <netdev@vger.kernel.org>; Mon, 19 Dec 2011 17:30:28 -0600
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: joe@perches.com, linux-kernel@vger.kernel.org, pawel.moll@arm.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111219.162210.1739976094495078504.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi folks !
+On Mon, 19 Dec 2011 16:22:10 -0500 (EST), David Miller <davem@davemloft.net> wrote:
+> From: Rusty Russell <rusty@rustcorp.com.au>
+> Date: Mon, 19 Dec 2011 16:19:52 +1030
+> 
+> > On Thu, 15 Dec 2011 23:15:17 -0500 (EST), David Miller <davem@davemloft.net> wrote:
+> >> From: Rusty Russell <rusty@rustcorp.com.au>
+> >> Date: Fri, 16 Dec 2011 09:44:31 +1030
+> >> 
+> >> > Dave, did you want a true/false cleanup too?
+> >> 
+> >> Please, this kind of stuff rots forever and not using bool properly
+> >> drives me crazy.
+> > 
+> > And here's the updated patch:
+> 
+> Neither of your two patches comes close to applying cleanly to net-next,
+> even when I try to apply it by hand there are rejects and references to
+> files that don't even exist in net-next any more.
 
-For a driver that gets small packets "inline" in the rx descriptors, I
-allocate the skb in the rx poll and copy the data to it.
-
-Should I allocate an skb of the just the right size for the packet (+
-eventual alignment) or is there any benefit to allocating all skb's the
-same size ?
-
-The max size of those "inline" packets is 256 bytes and the driver today
-always allocate that. Does that "help" the allocator some way or should
-I just allocate what is needed for each packet ?
+Yeah, no surprise there.  Resending.
 
 Cheers,
-Ben.
+Rusty.
