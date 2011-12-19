@@ -1,26 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 1/1] qla3xxx: Adding Maintainer.
-Date: Mon, 19 Dec 2011 16:12:46 -0500 (EST)
-Message-ID: <20111219.161246.229335904663885800.davem@davemloft.net>
-References: <1324071697-23414-1-git-send-email-jitendra.kalsaria@qlogic.com>
+Subject: Re: [PATCH 4/6] sunhme/PCI: use list_for_each_entry() for
+ bus->devices traversal
+Date: Mon, 19 Dec 2011 16:13:49 -0500 (EST)
+Message-ID: <20111219.161349.1101987855765407439.davem@davemloft.net>
+References: <20111216223043.5963.87534.stgit@bhelgaas.mtv.corp.google.com>
+	<20111216223149.5963.61942.stgit@bhelgaas.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com,
-	Dept_NX_Linux_NIC_Driver@qlogic.com
-To: jitendra.kalsaria@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59023 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752280Ab1LSVMt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 16:12:49 -0500
-In-Reply-To: <1324071697-23414-1-git-send-email-jitendra.kalsaria@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jbarnes@virtuousgeek.org, linux-pci@vger.kernel.org,
+	netdev@vger.kernel.org
+To: bhelgaas@google.com
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20111216223149.5963.61942.stgit@bhelgaas.mtv.corp.google.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Date: Fri, 16 Dec 2011 13:41:37 -0800
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Fri, 16 Dec 2011 15:31:49 -0700
 
-> Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+> Replace open-coded list traversal with list_for_each_entry().
+> 
+> CC: David S. Miller <davem@davemloft.net>
+> CC: netdev@vger.kernel.org
+> Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
 
 Applied.
