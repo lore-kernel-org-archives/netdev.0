@@ -1,132 +1,70 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 01/11] SYSCTL: export root and set handling routines
-Date: Mon, 19 Dec 2011 02:15:22 -0800
-Message-ID: <m18vm8g951.fsf@fess.ebiederm.org>
-References: <20111214103602.3991.20990.stgit@localhost6.localdomain6>
-	<20111214104449.3991.61989.stgit@localhost6.localdomain6>
-	<m1bor6rg39.fsf@fess.ebiederm.org> <4EEEFC54.10700@parallels.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] r8169: Support for byte queue limits
+Date: Mon, 19 Dec 2011 11:19:55 +0100
+Message-ID: <1324289995.3323.110.camel@edumazet-laptop>
+References: <igorm@etf.rs> <1324289373-4909-1-git-send-email-igorm@etf.rs>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust\@netapp.com" <Trond.Myklebust@netapp.com>,
-	"linux-nfs\@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb\@suse.de" <neilb@suse.de>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	James Bottomley <jbottomley@parallels.com>,
-	"bfields\@fieldses.org" <bfields@fieldses.org>,
-	"davem\@davemloft.net" <davem@davemloft.net>,
-	"devel\@openvz.org" <devel@openvz.org>
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nic_swsd@realtek.com,
+	romieu@fr.zoreil.com, therbert@google.com
+To: igorm@etf.rs
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:58427 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751095Ab1LSKNr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 05:13:47 -0500
-In-Reply-To: <4EEEFC54.10700@parallels.com> (Stanislav Kinsbursky's message of
-	"Mon, 19 Dec 2011 12:56:52 +0400")
+Received: from mail-we0-f174.google.com ([74.125.82.174]:36402 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751678Ab1LSKUA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 05:20:00 -0500
+Received: by werm1 with SMTP id m1so1162680wer.19
+        for <netdev@vger.kernel.org>; Mon, 19 Dec 2011 02:19:59 -0800 (PST)
+In-Reply-To: <1324289373-4909-1-git-send-email-igorm@etf.rs>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stanislav Kinsbursky <skinsbursky@parallels.com> writes:
+Le lundi 19 d=C3=A9cembre 2011 =C3=A0 11:09 +0100, igorm@etf.rs a =C3=A9=
+crit :
+> From: Igor Maravic <igorm@etf.rs>
+>=20
+> Changes to r8169 to use byte queue limits.
+>=20
+> Signed-off-by: Igor Maravic <igorm@etf.rs>
+> ---
+>  drivers/net/ethernet/realtek/r8169.c |   13 +++++++++++--
+>  1 files changed, 11 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ether=
+net/realtek/r8169.c
+> index 36b2a4b..1a6a12a 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -5326,6 +5326,7 @@ static void rtl8169_tx_clear(struct rtl8169_pri=
+vate *tp)
+>  {
+>  	rtl8169_tx_clear_range(tp, tp->dirty_tx, NUM_TX_DESC);
+>  	tp->cur_tx =3D tp->dirty_tx =3D 0;
+> +	netdev_reset_queue(tp->dev);
+>  }
+> =20
+>  static void rtl8169_schedule_work(struct net_device *dev, work_func_=
+t task)
+> @@ -5546,6 +5547,8 @@ static netdev_tx_t rtl8169_start_xmit(struct sk=
+_buff *skb,
+> =20
+>  	tp->cur_tx +=3D frags + 1;
+> =20
+> +	netdev_sent_queue(dev, skb->len);
+> +
 
-> 18.12.2011 02:25, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->> Stanislav Kinsbursky<skinsbursky@parallels.com>  writes:
->>
->>> These routines are required for making SUNRPC sysctl's per network =
-namespace
->>> context.
->>
->> Why does sunrpc require it's own sysctl root?  You should be able to=
- use
->> the generic per network namespace root and call it good.
->>
->> What makes register_net_sysctl_table and register_net_sysctl_ro_tabl=
-e
->> unsuitable for sunrpc.  I skimmed through your patches and I haven't
->> seen anything obvious.
->>
->> Eric
->>
->
-> Hello, Eric. Sorry for the lack of information.
-> I was considering two ways how to make these sysctl per net ns:
->
-> 1) Use register_net_sysctl_table and register_net_sysctl_ro_table as =
-you
-> mentioned. This was easy and cheap, but also means, than all user-spa=
-ce
-> programs, tuning SUNRPC will be broken (since all sysctl currently lo=
-cated
-> in"/proc/sys/sunprc/").
-
-Nope.  That is a misunderstanding.  register_net_sysctl_table works for
-anything under /proc/sys.
-
-> 2) Export sysctl root creation routines and make per-net SUNRPC sysct=
-l
-> root. This approach allows to make any part of sysctl tree per namesp=
-ace context
-> and thus leave user-space stuff unchanged.
->
-> BTW, NFS and LockD also have it's sysctls ("/proc/sys/fs/nfs/").
-> And also because of them I've decided, that it would be better to exp=
-ort SYSCTL
-> root creation routines instead of breaking compatibility for all NFS =
-layers by
-> moving all sysctl under /proc/sys/net/ directory.
->
-> Do you feel that it was a bad decision?
-
-I think it was a misinformed decision.
-
-I fully support not breaking userspace by moving where the sysctls file=
-s
-are.  If something sounds like I am suggesting moving sysctl files ther=
-e
-is a miscommunication somewhere.
-
-The concept of a sysctl root as I had envisioned it and essentially as =
-it
-is implemented was a per namespace sysctl tree.  Those sysctl trees are
-then unioned together when presented to user space.  There should only
-be one root per namespace.
-
-In practice what this means is that register_net_sysctl_table should
-work for any sysctl file anywhere under /proc/sys.  I think
-register_net_sysctl_table is the right solution for your problem.  The
-only possible caveat I can think of is you might hit Al's performance
-optimizations and need to create a common empty directory first with
-register_sysctl_paths.
+Hmm, thats a bit too late here. An interrupt could theorically free skb
+right before your deref.
 
 
-=2E...
-That said since I am in the process of rewriting things some of this
-may change a little bit, but hopefully not in ways that immediately
-effect the users of register_sysctl_table.
+>  	wmb();
+> =20
+>  	RTL_W8(TxPoll, NPQ);
+> @@ -5624,6 +5627,8 @@ static void rtl8169_tx_interrupt(struct net_dev=
+ice *dev,
 
-Don't use register_net_sysctl_ro_table.   I think what the implementors
-actually wanted was register_net_sysctl_table(&init_net, ...) and didn'=
-t
-know it.
+I believe its better to access skb _before_ the
 
-Don't put subdirectories in your sysctl tables.  Use a ctl_path to
-specify the entire directory where the files should show up.  Generally
-the code is easier to read in that form, and the code is simpler to dea=
-l
-with if we don't have to worry about directories.
-
-Don't play with the sysctl roots.  It is my intention to completely kil=
-l
-them off and replace them by moving the per net sysctl tree under
-/proc/<pid>/sys/.   Leaving behind symlinks in /proc/sys/net and I gues=
-s
-ultimately in /proc/sys/sunrpc/ and /proc/sys/fs/nfs...  Which actually
-seems to better describe your mental model.
-
-Thank you for mentioning /proc/sys/fs/nfs.  That is a case I hadn't
-thought about.  In thinking about it I see some deficiencies in my
-rewrite that I need to correct before I push that code.
-
-Eric
+txd->opts2 =3D cpu_to_le32(opts[1]);
+wmb();
