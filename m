@@ -1,27 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: macvtap rxhash patch
-Date: Mon, 19 Dec 2011 16:37:32 -0500 (EST)
-Message-ID: <20111219.163732.1743893510814385117.davem@davemloft.net>
+Subject: Re: [PATCH] asix: new device id
+Date: Mon, 19 Dec 2011 16:38:26 -0500 (EST)
+Message-ID: <20111219.163826.9665750422142555.davem@davemloft.net>
+References: <CANEJEGswxaxgD9eet9uDZm6Ezf67ibG0XOTggSBONZ6M1KMErA@mail.gmail.com>
+	<20111219.162516.1008359598690049381.davem@davemloft.net>
+	<CANEJEGtiHZRzQgGnBDZnuGvuZOfXxwcDdB9XdxYgO1zY7O_GVw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org
-To: krkumar2@in.ibm.com
+Cc: aurel@gnuage.org, netdev@vger.kernel.org, allan@asix.com.tw,
+	freddy@asix.com.tw
+To: grundler@chromium.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59331 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:59343 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752325Ab1LSVhl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 16:37:41 -0500
+	with ESMTP id S1752287Ab1LSVig (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 16:38:36 -0500
+In-Reply-To: <CANEJEGtiHZRzQgGnBDZnuGvuZOfXxwcDdB9XdxYgO1zY7O_GVw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Grant Grundler <grundler@chromium.org>
+Date: Mon, 19 Dec 2011 13:34:24 -0800
 
-Reference:
+> On Mon, Dec 19, 2011 at 1:25 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Grant Grundler <grundler@google.com>
+>> Date: Mon, 19 Dec 2011 13:22:35 -0800
+>>
+>>> I'm really the wrong guy to ask though. I don't have the device
+>>> and I'm not associated with the mfg.
+>>
+>> Strongly disagree.
+>>
+>> When you make changes to a driver, in fact you've made the most
+>> recent 5 or 6, it's like "tag, you're it" :-)
+> 
+> Fair enough. :)   But I'm trying to change that. :) (Have ASIX to
+> participate in asix.c devel/support).
+> 
+> 
+> Acked-by: Grant Grundler <grundler@chromium.org>
 
-http://patchwork.ozlabs.org/patch/127456/
+That's the spirit :-)
 
-This is just rotting for a long time, I want to just do something
-with this patch, and I don't care if that's "apply it now" or
-"defer indefinitely".
-
-Thanks.
+Aplied, thanks.
