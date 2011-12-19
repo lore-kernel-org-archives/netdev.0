@@ -1,16 +1,17 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 04/14] mac802154: TX data path
-Date: Mon, 19 Dec 2011 14:38:05 -0500 (EST)
-Message-ID: <20111219.143805.830165510696607381.davem@davemloft.net>
+Subject: Re: [PATCH 06/14] mac802154: slave interfaces
+	definition
+Date: Mon, 19 Dec 2011 14:38:43 -0500 (EST)
+Message-ID: <20111219.143843.2128524810466542190.davem@davemloft.net>
 References: <20111219163117.GA13123@avtobot.cybertron>
-	<1324312434-13151-4-git-send-email-alex.bluesman.smirnov@gmail.com>
+	<1324312434-13151-6-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1324312434-13151-4-git-send-email-alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <1324312434-13151-6-git-send-email-alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
 	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
@@ -22,30 +23,12 @@ Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gm
 List-Id: netdev.vger.kernel.org
 
 From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Mon, 19 Dec 2011 19:33:44 +0300
+Date: Mon, 19 Dec 2011 19:33:46 +0300
 
-> +netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
-> +							u8 page, u8 chan);
+> +	u16 pan_id;
+> +	u16 short_addr;
 
-Line up these arguments on the second line correctly!
-
-If you can't do it properly by hand, use something like emacs's "C
-mode" to do it for you automatically.
-
-> +		res = xw->priv->ops->set_channel(&xw->priv->hw,
-> +				xw->page,
-> +				xw->chan);
-
-Line up the arguments properly.
-
-> +			pr_debug("(%s): set_channel failed\n", __func__);
-
-Putting __func__ into the debugging printk's is excessive, take these out.
-
-> +	if (WARN_ON(!(priv->phy->channels_supported[page] &
-> +					(1 << chan))))
-
-More poor formatting.
+Again, endianness of these values, use the proper types and accessors etc.
 
 ------------------------------------------------------------------------------
 Learn Windows Azure Live!  Tuesday, Dec 13, 2011
