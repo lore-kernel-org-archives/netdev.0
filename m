@@ -1,51 +1,34 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: [PATCH] sctp: Do not account for sizeof(struct sk_buff) in
- estimated rwnd
-Date: Mon, 19 Dec 2011 18:19:36 -0500
-Message-ID: <20111219231936.GA21801@canuck.infradead.org>
-References: <1324303900-8360-1-git-send-email-tgraf@redhat.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Allocation of small packets on Rx
+Date: Tue, 20 Dec 2011 10:30:26 +1100
+Message-ID: <1324337426.30454.23.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-sctp@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:38491 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752718Ab1LSXTj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 18:19:39 -0500
-Content-Disposition: inline
-In-Reply-To: <1324303900-8360-1-git-send-email-tgraf@redhat.com>
+Received: from gate.crashing.org ([63.228.1.57]:54169 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751126Ab1LSXa3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Dec 2011 18:30:29 -0500
+Received: from [IPv6:::1] (localhost.localdomain [127.0.0.1])
+	by gate.crashing.org (8.14.1/8.13.8) with ESMTP id pBJNURUJ013658
+	for <netdev@vger.kernel.org>; Mon, 19 Dec 2011 17:30:28 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 19, 2011 at 03:11:40PM +0100, Thomas Graf wrote:
-> Trying to reproduce this I found that with the sk_buff overhead removed,
-> the performance would improve significantly unless socket buffer limits
-> are increased.
+Hi folks !
 
-I believe this is likely to be misunderstood. What I meant is that by
-removing the sk_buff overhead and while using default socket buffer limits
-the performance increases as shown below. If socket buffers are enlarged
-performance differences fade until there is no longer any difference.
+For a driver that gets small packets "inline" in the rx descriptors, I
+allocate the skb in the rx poll and copy the data to it.
 
-Sorry for poor wording.
+Should I allocate an skb of the just the right size for the packet (+
+eventual alignment) or is there any benefit to allocating all skb's the
+same size ?
 
-> The following numbers have been gathered using a patched iperf
-> supporting SCTP over a live 1 Gbit ethernet network. The -l option
-> was used to limit DATA chunk sizes. The numbers listed are based on
-> the average of 3 test runs each. Default values have been used for
-> sk_(r|w)mem.
-> 
-> Chunk
-> Size    Unpatched     No Overhead
-> -------------------------------------
->    4    15.2 Kbit [!]   12.2 Mbit [!]
->    8    35.8 Kbit [!]   26.0 Mbit [!]
->   16    95.5 Kbit [!]   54.4 Mbit [!]
->   32   106.7 Mbit      102.3 Mbit
->   64   189.2 Mbit      188.3 Mbit
->  128   331.2 Mbit      334.8 Mbit
->  256   537.7 Mbit      536.0 Mbit
->  512   766.9 Mbit      766.6 Mbit
-> 1024   810.1 Mbit      808.6 Mbit
+The max size of those "inline" packets is 256 bytes and the driver today
+always allocate that. Does that "help" the allocator some way or should
+I just allocate what is needed for each packet ?
+
+Cheers,
+Ben.
