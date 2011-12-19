@@ -1,94 +1,159 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [PATCH 01/11] SYSCTL: export root and set handling routines
-Date: Mon, 19 Dec 2011 08:37:19 -0800
-Message-ID: <m1pqfkecw0.fsf@fess.ebiederm.org>
-References: <20111214103602.3991.20990.stgit@localhost6.localdomain6>
-	<20111214104449.3991.61989.stgit@localhost6.localdomain6>
-	<m1bor6rg39.fsf@fess.ebiederm.org> <4EEEFC54.10700@parallels.com>
-	<m18vm8g951.fsf@fess.ebiederm.org> <4EEF2C9A.8000403@parallels.com>
+From: Mircea Gherzan <mgherzan@gmail.com>
+Subject: Re: [PATCH v2] ARM: net: JIT compiler for packet filters
+Date: Mon, 19 Dec 2011 18:45:13 +0200
+Message-ID: <20111219164513.GA25105@swarm.cs.pub.ro>
+References: <1324284030-25540-1-git-send-email-mgherzan@gmail.com>
+ <20111219125021.GA2031@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Trond.Myklebust\@netapp.com" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"linux-nfs\@vger.kernel.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"neilb\@suse.de" <neilb-l3A5Bk7waGM@public.gmane.org>,
-	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	James Bottomley <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"bfields\@fieldses.org" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"davem\@davemloft.net" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"devel\@openvz.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4EEF2C9A.8000403-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> (Stanislav Kinsbursky's message
-	of "Mon, 19 Dec 2011 16:22:50 +0400")
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: Dave Martin <dave.martin@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:36571 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750910Ab1LSQpX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 11:45:23 -0500
+Received: by eekc4 with SMTP id c4so5618700eek.19
+        for <netdev@vger.kernel.org>; Mon, 19 Dec 2011 08:45:22 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20111219125021.GA2031@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> writes:
+Hi,
 
->> In practice what this means is that register_net_sysctl_table should
->> work for any sysctl file anywhere under /proc/sys.  I think
->> register_net_sysctl_table is the right solution for your problem.  The
->> only possible caveat I can think of is you might hit Al's performance
->> optimizations and need to create a common empty directory first with
->> register_sysctl_paths.
->
-> Sorry, but I forgot to mention one more important goal I would like to achieve:
-> I want to manage sysctl's variables in context of mount owner, but not viewer one.
-> IOW imagine, that we have one two network namespaces: "A" and "B". Both of them
-> have it's own net sysctl's root. And we have per-net sysctl "/proc/sys/var".
-> And for ns "A" variable was set to 0, and for "B" - to 1.
-> And B's "/proc/sys/var" is accessible from "A" namespace
-> ("/chroot_path/proc/sys/var" for example).
-> With this configuration I want to read "1" from both namespaces:
-> owner "B" (/proc/sys/var) and "A" ("/chroot_path/proc/sys/var").
-> Looks like simple using of register_net_sysctl_table doesn't allow me this,
-> because current net ns is used. And to achieve this goal I need my own sysctl
-> set for SUNRPC like it was done for network namespaces.
+On Mon, Dec 19, 2011 at 12:50:21PM +0000, Dave Martin wrote:
+> On Mon, Dec 19, 2011 at 09:40:30AM +0100, Mircea Gherzan wrote:
+> > Based of Matt Evans's PPC64 implementation.
+> > 
+> > Supports only ARM mode with EABI.
+> > 
+> > Supports both little and big endian. Depends on the support for
+> > unaligned loads on ARMv7. Does not support all the BPF opcodes
+> > that deal with ancillary data. The scratch memory of the filter
+> > lives on the stack.
+> > 
+> > Enabled in the same way as for x86-64 and PPC64:
+> > 
+> > 	echo 1 > /proc/sys/net/core/bpf_jit_enable
+> > 
+> > A value greater than 1 enables opcode output.
+> > 
+> > Signed-off-by: Mircea Gherzan <mgherzan@gmail.com>
+> > ---
+> 
+> Interesting patch... I haven't reviewed in detail, but I have a few
+> quick comments.
+> 
+> > 
+> > Changes in v2:
+> >  * enable the compiler ony for ARMv5+ because of the BLX instruction
+> >  * use the same comparison for the ARM version checks
+> >  * use misaligned accesses on ARMv6
+> 
+> You probably want to change the commit message now to reflect this.
 
-Doing that independently of the rest of the sysctls is pretty horrible
-and confusing to users.   What I am planning might suit your needs and
-if not we need to talk some more about how to get the vfs to do
-something reasonable.
+Will do in the next version.
 
->> That said since I am in the process of rewriting things some of this
->> may change a little bit, but hopefully not in ways that immediately
->> effect the users of register_sysctl_table.
->>
->> Don't use register_net_sysctl_ro_table.   I think what the implementors
->> actually wanted was register_net_sysctl_table(&init_net, ...) and didn't
->> know it.
->>
->> Don't put subdirectories in your sysctl tables.  Use a ctl_path to
->> specify the entire directory where the files should show up.  Generally
->> the code is easier to read in that form, and the code is simpler to deal
->> with if we don't have to worry about directories.
->>
->> Don't play with the sysctl roots.  It is my intention to completely kill
->> them off and replace them by moving the per net sysctl tree under
->> /proc/<pid>/sys/.   Leaving behind symlinks in /proc/sys/net and I guess
->> ultimately in /proc/sys/sunrpc/ and /proc/sys/fs/nfs...  Which actually
->> seems to better describe your mental model.
->>
->
->
-> I'm afraid, that this approach this not allow me to achieve the goal, mentioned
-> above, because current->nsproxy->net_ns will be used during lookup.
-> Or maybe I misunderstanding here?
+> 
+> >  * fix the SEEN_MEM
+> >  * fix the mem_words_used()
+> > 
+> >  arch/arm/Kconfig          |    1 +
+> >  arch/arm/Makefile         |    1 +
+> >  arch/arm/net/Makefile     |    3 +
+> >  arch/arm/net/bpf_jit_32.c |  838 +++++++++++++++++++++++++++++++++++++++++++++
+> >  arch/arm/net/bpf_jit_32.h |  174 ++++++++++
+> >  5 files changed, 1017 insertions(+), 0 deletions(-)
+> >  create mode 100644 arch/arm/net/Makefile
+> >  create mode 100644 arch/arm/net/bpf_jit_32.c
+> >  create mode 100644 arch/arm/net/bpf_jit_32.h
+> > 
+> > diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+> > index abba5b8..ea65c41 100644
+> > --- a/arch/arm/Kconfig
+> > +++ b/arch/arm/Kconfig
+> > @@ -30,6 +30,7 @@ config ARM
+> >  	select HAVE_SPARSE_IRQ
+> >  	select GENERIC_IRQ_SHOW
+> >  	select CPU_PM if (SUSPEND || CPU_IDLE)
+> > +	select HAVE_BPF_JIT if (!THUMB2_KERNEL && AEABI)
+> 
+> Have to tried your code with a Thumb-2 kernel?
 
-What I hope to do is to stop using current, and to behave like
-/proc/net.  Aka a per process view under /proc/<pid>/sys that matches
-the namespaces of the specified process.  
+Not yet.
 
-The VFS really hates my use of current in the sysctl case, and I intend
-to stop.
+> Quickly skimming though your patch, I don't see an obvious reason why we
+> can't have that working, though I haven't tried it yet.
+> 
+> Note that it's fine to have the JIT generating ARM code, even if the rest
+> if the kernel is Thumb-2.  This would only start to cause problems if we
+> want to do things like set kprobes in the JITted code, or unwind out of
+> the JITted code.
+> 
+> It's just necessary to make sure that calls/returns into/out of the
+> JITted code are handled correctly.  You don't seem to do any scary
+> arithmetic or mov to or from pc or lr, and it doesn't look like you ever
+> call back into the kernel from JITted code, so the implementation is
+> probably safe for ARM/Thumb interworking already (if I've understood
+> correctly).
 
-I need to run and catch my plane.  It doesn't look like I will have
-access to this email address for the next two weeks :(  
+The JITed code calls back to the kernel for the load helpers. So setting
+bit 0 is required.
 
-Eric
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> It doesn't look hard to port the JIT to generate Thumb-2 code directly
+> either -- but I suggest not to worry about that initially.  So long as
+> the ARM-based JIT works in a Thumb-2 kernel, it will be useful.
+> 
+> [...]
+> 
+> > diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
+> > new file mode 100644
+> > index 0000000..d2b86fa
+> > --- /dev/null
+> > +++ b/arch/arm/net/bpf_jit_32.c
+> 
+> [...]
+> 
+> > +static int build_body(struct jit_ctx *ctx)
+> > +{
+> 
+> [...]
+> 
+> > +		case BPF_S_ALU_DIV_K:
+> > +			/* K is not zero, it was previously checked */
+> > +			emit_mov_i(ARM_R1, k, ctx);
+> > +			goto div;
+> > +		case BPF_S_ALU_DIV_X:
+> > +			ctx->seen |= SEEN_X;
+> > +			emit(ARM_CMP_I(r_X, 0), ctx);
+> > +			emit_err_ret(ARM_COND_EQ, ctx);
+> > +			emit(ARM_MOV_R(ARM_R1, r_X), ctx);
+> > +div:
+> > +			ctx->seen |= SEEN_CALL;
+> > +
+> > +			emit(ARM_MOV_R(ARM_R0, r_A), ctx);
+> > +			emit_mov_i(r_scratch, (u32)__aeabi_uidiv, ctx);
+> > +			emit(ARM_BLX_R(r_scratch), ctx);
+> > +			emit(ARM_MOV_R(r_A, ARM_R0), ctx);
+> > +			break;
+> 
+> I don't know how much division is used by the packet filter JIT.  If
+> it gets used a significant amount, you might want to support hardware
+> divide for CPUs that have it:
+
+Division rarely appears in "normal" BPF filters: it must be an explicit
+part of the human-readable filter expression (the BPF compiler does not
+generate division opcodes in other cases, AFAICT). Nonetheless, support
+for hardware division would spare a bit of stack space for filters like
+"len / 100 == 1".
+
+> Cortex-A15 and later processors may have hardware integer divide
+> support.  You can check for its availability at runtime using by testing
+> the HWCAP_IDIVA (for ARM) or HWCAP_IDIVT (for Thumb) bits in elf_hwcap
+> (see arch/arm/include/asm/hwcap.h).
+
+I will include this in the next version of the patch.
+
+Cheers,
+Mircea
