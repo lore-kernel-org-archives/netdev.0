@@ -1,40 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: Make the RSS indir tbl admin configurable
-Date: Mon, 19 Dec 2011 15:51:14 -0500 (EST)
-Message-ID: <20111219.155114.282504808309776049.davem@davemloft.net>
-References: <1324078403-10617-1-git-send-email-mcarlson@broadcom.com>
+From: =?ISO-8859-1?Q?Niccol=F2_Belli?= <darkbasic@linuxsystems.it>
+Subject: Re: LARTC mailing list
+Date: Mon, 19 Dec 2011 21:59:54 +0100
+Message-ID: <4EEFA5CA.7000602@linuxsystems.it>
+References: <1324288402.15020.7.camel@steve-pc> <4EEF1F16.7070306@linuxsystems.it> <1324314712.9582.80.camel@steve-pc> <20111219.145940.2030642788874548046.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mchan@broadcom.com
-To: mcarlson@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58728 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752218Ab1LSUvQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 15:51:16 -0500
-In-Reply-To: <1324078403-10617-1-git-send-email-mcarlson@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: andy@andybev.com, postmaster@vger.kernel.org,
+	netfilter@vger.kernel.org, lartc@lists.linuxsystems.it,
+	andyqos@ukfsn.org, jsullivan@opensourcedevel.com,
+	lloyd@crnatural.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <20111219.145940.2030642788874548046.davem@davemloft.net>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Fri, 16 Dec 2011 15:33:23 -0800
+Il 19/12/2011 20:59, David Miller ha scritto:
+> From: Andrew Beverley<andy@andybev.com>
+> Date: Mon, 19 Dec 2011 17:11:52 +0000
+>
+>> VGER postmasters: can we try a new LARTC list at VGER please?
+>
+> I've created lartc@vger.kernel.org, enjoy.
 
-> This patch adds the ethtool callbacks necessary to change the rss
-> indirection table from userspace.  Should the number of interrupts
-> change (e.g.  across a close / open call, or through a reset) and
-> any one of the indirection table values fall out-of-range, the driver
-> will reset the indirection table to a default layout.
-> 
-> [Integrated many suggestions made by Ben Hutchings.]
-> 
-> Changes since v3
-> 
-> * Removed TG3_FLAG_SUPPORT_MSIX checks at the start of
->   tg3_get_rxfh_indir() and tg3_set_rxfh_indir().
-> 
-> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-> Reviewed-by: Benjamin Li <benli@broadcom.com>
+A-W-E-S-O-M-E, thank you so much!
 
-Applied.
+We really need to find a place for the wiki now :)
+
+Niccol=F2
