@@ -1,95 +1,107 @@
-From: Dave Martin <dave.martin@linaro.org>
-Subject: Re: [PATCH v2] ARM: net: JIT compiler for packet filters
-Date: Mon, 19 Dec 2011 15:24:18 +0000
-Message-ID: <20111219152418.GF2031@linaro.org>
-References: <1324284030-25540-1-git-send-email-mgherzan@gmail.com>
- <20111219125021.GA2031@linaro.org>
- <20111219151958.GU24496@pengutronix.de>
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH series v1] IEEE 802.15.4 MAC layer basic implementation
+Date: Mon, 19 Dec 2011 19:31:17 +0300
+Message-ID: <20111219163117.GA13123@avtobot.cybertron>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Mircea Gherzan <mgherzan@gmail.com>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Uwe Kleine-K?nig <u.kleine-koenig@pengutronix.de>
+Cc: netdev@vger.kernel.org, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net,
+	alex.bluesman.smirnov@gmail.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:58918 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751858Ab1LSPYW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 10:24:22 -0500
-Received: by faar15 with SMTP id r15so3292308faa.19
-        for <netdev@vger.kernel.org>; Mon, 19 Dec 2011 07:24:21 -0800 (PST)
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:49874 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752607Ab1LSPbr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 10:31:47 -0500
+Received: by eekc4 with SMTP id c4so5548595eek.19
+        for <netdev@vger.kernel.org>; Mon, 19 Dec 2011 07:31:46 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20111219151958.GU24496@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 19, 2011 at 04:19:58PM +0100, Uwe Kleine-K?nig wrote:
-> On Mon, Dec 19, 2011 at 12:50:21PM +0000, Dave Martin wrote:
-> > On Mon, Dec 19, 2011 at 09:40:30AM +0100, Mircea Gherzan wrote:
-> > > Based of Matt Evans's PPC64 implementation.
-> > > 
-> > > Supports only ARM mode with EABI.
-> > > 
-> > > Supports both little and big endian. Depends on the support for
-> > > unaligned loads on ARMv7. Does not support all the BPF opcodes
-> > > that deal with ancillary data. The scratch memory of the filter
-> > > lives on the stack.
-> > > 
-> > > Enabled in the same way as for x86-64 and PPC64:
-> > > 
-> > > 	echo 1 > /proc/sys/net/core/bpf_jit_enable
-> > > 
-> > > A value greater than 1 enables opcode output.
-> > > 
-> > > Signed-off-by: Mircea Gherzan <mgherzan@gmail.com>
-> > > ---
-> > 
-> > Interesting patch... I haven't reviewed in detail, but I have a few
-> > quick comments.
-> > 
-> > > 
-> > > Changes in v2:
-> > >  * enable the compiler ony for ARMv5+ because of the BLX instruction
-> > >  * use the same comparison for the ARM version checks
-> > >  * use misaligned accesses on ARMv6
-> > 
-> > You probably want to change the commit message now to reflect this.
-> > 
-> > >  * fix the SEEN_MEM
-> > >  * fix the mem_words_used()
-> > > 
-> > >  arch/arm/Kconfig          |    1 +
-> > >  arch/arm/Makefile         |    1 +
-> > >  arch/arm/net/Makefile     |    3 +
-> > >  arch/arm/net/bpf_jit_32.c |  838 +++++++++++++++++++++++++++++++++++++++++++++
-> > >  arch/arm/net/bpf_jit_32.h |  174 ++++++++++
-> > >  5 files changed, 1017 insertions(+), 0 deletions(-)
-> > >  create mode 100644 arch/arm/net/Makefile
-> > >  create mode 100644 arch/arm/net/bpf_jit_32.c
-> > >  create mode 100644 arch/arm/net/bpf_jit_32.h
-> > > 
-> > > diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-> > > index abba5b8..ea65c41 100644
-> > > --- a/arch/arm/Kconfig
-> > > +++ b/arch/arm/Kconfig
-> > > @@ -30,6 +30,7 @@ config ARM
-> > >  	select HAVE_SPARSE_IRQ
-> > >  	select GENERIC_IRQ_SHOW
-> > >  	select CPU_PM if (SUSPEND || CPU_IDLE)
-> > > +	select HAVE_BPF_JIT if (!THUMB2_KERNEL && AEABI)
-> > 
-> > Have to tried your code with a Thumb-2 kernel?
-> > 
-> > Quickly skimming though your patch, I don't see an obvious reason why we
-> > can't have that working, though I haven't tried it yet.
-> > 
-> > Note that it's fine to have the JIT generating ARM code, even if the rest
-> > if the kernel is Thumb-2.  This would only start to cause problems if we
-> > want to do things like set kprobes in the JITted code, or unwind out of
-> > the JITted code.
-> or use a CPU that doesn't speak ARM (e.g. v7M)
+Hi all,
 
-Indeed... I was assuming though that that would be out of scope for the
-first iteration of this code.
+the following patch series add basic support for IEEE 802.15.4 Medium Access
+Control layer.
 
-Cheers
----Dave
+The IEEE 802.15.4 Working Group focuses on the standardization of the
+bottom two layers of ISO/OSI protocol stack: Physical (PHY) and MAC.
+The MAC layer provides access control to a shared channel and reliable
+data delivery.
+
+This series provide only basic features:
+ - interface for drivers registration
+ - RX/TX datapaths
+ - reduced mlme operations
+ - monitor device type support (used by network sniffers, e.g. Wireshark)
+ - IEEE 802.15.4 loopback driver
+ - documentation update
+
+
+--
+Since last post, series has been reworked to provide support for monitor device
+and loopback driver only.
+
+
+--
+The following changes since commit d1d182e00d72300e05b18e28372fab003d8d4a58:
+
+  wimax/i2400m: remove an unused variable (2011-12-16 15:57:03 -0500)
+
+are available in the git repository at:
+  git://linux-zigbee.git.sourceforge.net/gitroot/linux-zigbee/kernel to_upstream
+
+Alexander Smirnov (14):
+      mac802154: basic ieee802.15.4 device structures
+      mac802154: allocation of ieee802154 device
+      mac802154: RX data path
+      mac802154: TX data path
+      mac802154: define reduced mlme operations
+      mac802154: slave interfaces definition
+      mac802154: reduced mlme operations
+      mac802154: basic mib support
+      ieee802154: remove ieee802154 policy from globals
+      ieee802154: interface type to be added
+      mac802154: slaves manipulation routine
+      mac802154: monitor device support 
+      drivers/ieee802154: IEEE 802.15.4 loopback driver
+      Documentation/networking/ieee802154: update MAC chapter
+
+ Documentation/networking/ieee802154.txt |   57 ++++++-
+ drivers/ieee802154/Kconfig              |    8 +
+ drivers/ieee802154/Makefile             |    1 +
+ drivers/ieee802154/fakelb.c             |  287 +++++++++++++++++++++++++++++++
+ include/linux/if_arp.h                  |    1 +
+ include/linux/nl802154.h                |    8 +-
+ include/net/ieee802154_netdev.h         |   22 ++-
+ include/net/mac802154.h                 |  153 ++++++++++++++++
+ include/net/wpan-phy.h                  |    4 +-
+ net/Kconfig                             |    1 +
+ net/Makefile                            |    1 +
+ net/ieee802154/ieee802154.h             |    2 +
+ net/ieee802154/nl-phy.c                 |   10 +-
+ net/ieee802154/wpan-class.c             |    1 +
+ net/mac802154/Kconfig                   |   16 ++
+ net/mac802154/Makefile                  |    2 +
+ net/mac802154/ieee802154_dev.c          |  265 ++++++++++++++++++++++++++++
+ net/mac802154/mac802154.h               |  102 +++++++++++
+ net/mac802154/mac_cmd.c                 |   43 +++++
+ net/mac802154/mib.c                     |   96 ++++++++++
+ net/mac802154/monitor.c                 |  115 ++++++++++++
+ net/mac802154/rx.c                      |  107 ++++++++++++
+ net/mac802154/tx.c                      |  113 ++++++++++++
+ 23 files changed, 1402 insertions(+), 13 deletions(-)
+ create mode 100644 drivers/ieee802154/fakelb.c
+ create mode 100644 include/net/mac802154.h
+ create mode 100644 net/mac802154/Kconfig
+ create mode 100644 net/mac802154/Makefile
+ create mode 100644 net/mac802154/ieee802154_dev.c
+ create mode 100644 net/mac802154/mac802154.h
+ create mode 100644 net/mac802154/mac_cmd.c
+ create mode 100644 net/mac802154/mib.c
+ create mode 100644 net/mac802154/monitor.c
+ create mode 100644 net/mac802154/rx.c
+ create mode 100644 net/mac802154/tx.c
+
+With best regards,
+Alexander Smirnov
