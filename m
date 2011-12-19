@@ -1,42 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] llc_cmsg_rcv was getting called after sk_eat_skb.
-Date: Mon, 19 Dec 2011 15:59:02 -0500 (EST)
-Message-ID: <20111219.155902.868162865948757576.davem@davemloft.net>
-References: <1324026085-11812-1-git-send-email-ajuncu@ixiacom.com>
+Subject: Re: [PATCH] asix: new device id
+Date: Mon, 19 Dec 2011 16:00:59 -0500 (EST)
+Message-ID: <20111219.160059.783127741333326755.davem@davemloft.net>
+References: <20111216.133227.782560339712731597.davem@davemloft.net>
+	<1324068562-3761-1-git-send-email-aurel@gnuage.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: acme@ghostprotocols.net, netdev@vger.kernel.org,
-	alex.juncu@rosedu.org, knaik@ixiacom.com, shemminger@vyatta.com
-To: ajuncu@ixiacom.com
+Cc: netdev@vger.kernel.org, grundler@google.com
+To: aurel@gnuage.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58850 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:58892 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752505Ab1LSU7K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 15:59:10 -0500
-In-Reply-To: <1324026085-11812-1-git-send-email-ajuncu@ixiacom.com>
+	with ESMTP id S1752218Ab1LSVBH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 16:01:07 -0500
+In-Reply-To: <1324068562-3761-1-git-send-email-aurel@gnuage.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexandru Juncu <ajuncu@ixiacom.com>
-Date: Fri, 16 Dec 2011 11:01:25 +0200
+From: Aurelien Jacobs <aurel@gnuage.org>
+Date: Fri, 16 Dec 2011 21:49:22 +0100
 
-> Received non stream protocol packets were calling llc_cmsg_rcv that used a
-> skb after that skb was released by sk_eat_skb. This caused received STP
-> packets to generate kernel panics.
+> Adds the device id needed for the USB Ethernet Adapter delivered by
+> ASUS with their Zenbook.
 > 
-> Signed-off-by: Alexandru Juncu <ajuncu@ixiacom.com>
-> Signed-off-by: Kunjan Naik <knaik@ixiacom.com>
+> Signed-off-by: Aurelien Jacobs <aurel@gnuage.org>
 
-This bug was introduced by commit 30a584d944fbd599d4a8f470f75bf7af1a15b466:
-
-commit 30a584d944fbd599d4a8f470f75bf7af1a15b466
-Author: Stephen Hemminger <shemminger@osdl.org>
-Date:   Thu Aug 3 16:38:49 2006 -0700
-
-    [LLX]: SOCK_DGRAM interface fixes
-
-The new logic added by this fix is slightly clumsy, but seems correct
-and I can't suggest a better fix at this time.
-
-I'll apply this, thanks.
+Grant, ACK/NACK?
