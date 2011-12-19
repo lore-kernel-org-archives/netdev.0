@@ -1,37 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: bpf_jit: fix an off-one bug in x86_64 cond jump
- target
-Date: Mon, 19 Dec 2011 15:48:58 -0500 (EST)
-Message-ID: <20111219.154858.115846786393903637.davem@davemloft.net>
-References: <1324157948.3323.36.camel@edumazet-laptop>
+Subject: Re: [PATCH] tg3: Make the RSS indir tbl admin configurable
+Date: Mon, 19 Dec 2011 15:51:14 -0500 (EST)
+Message-ID: <20111219.155114.282504808309776049.davem@davemloft.net>
+References: <1324078403-10617-1-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, nepenthesdev@gmail.com
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mchan@broadcom.com
+To: mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58703 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:58728 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751924Ab1LSUtC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 15:49:02 -0500
-In-Reply-To: <1324157948.3323.36.camel@edumazet-laptop>
+	with ESMTP id S1752218Ab1LSUvQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 15:51:16 -0500
+In-Reply-To: <1324078403-10617-1-git-send-email-mcarlson@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 17 Dec 2011 22:39:08 +0100
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Fri, 16 Dec 2011 15:33:23 -0800
 
-> From: Markus K=F6tter <nepenthesdev@gmail.com>
->=20
-> x86 jump instruction size is 2 or 5 bytes (near/long jump), not 2 or =
-6
-> bytes.
->=20
-> In case a conditional jump is followed by a long jump, conditional ju=
-mp
-> target is one byte past the start of target instruction.
->=20
-> Signed-off-by: Markus K=F6tter <nepenthesdev@gmail.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> This patch adds the ethtool callbacks necessary to change the rss
+> indirection table from userspace.  Should the number of interrupts
+> change (e.g.  across a close / open call, or through a reset) and
+> any one of the indirection table values fall out-of-range, the driver
+> will reset the indirection table to a default layout.
+> 
+> [Integrated many suggestions made by Ben Hutchings.]
+> 
+> Changes since v3
+> 
+> * Removed TG3_FLAG_SUPPORT_MSIX checks at the start of
+>   tg3_get_rxfh_indir() and tg3_set_rxfh_indir().
+> 
+> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Reviewed-by: Benjamin Li <benli@broadcom.com>
 
-Applied and queued up for -stable, thanks!
+Applied.
