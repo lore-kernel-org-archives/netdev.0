@@ -1,27 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] myri10ge: Fix typo of 'VMware' in comment.
-Date: Mon, 19 Dec 2011 15:45:06 -0500 (EST)
-Message-ID: <20111219.154506.2139565455097091607.davem@davemloft.net>
-References: <1324325875-30907-1-git-send-email-vlee@vmware.com>
-	<4EEF9CDC.1040100@myri.com>
+Subject: Re: [PATCH net-next] bnx2: Update driver to use new mips firmware.
+Date: Mon, 19 Dec 2011 15:48:04 -0500 (EST)
+Message-ID: <20111219.154804.255413353396711289.davem@davemloft.net>
+References: <1324268109-27740-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vlee@vmware.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, trivial@kernel.org
-To: gallatin@myri.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4EEF9CDC.1040100@myri.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:58691 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752430Ab1LSUsI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 15:48:08 -0500
+In-Reply-To: <1324268109-27740-1-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Gallatin <gallatin@myri.com>
-Date: Mon, 19 Dec 2011 15:21:48 -0500
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Sun, 18 Dec 2011 20:15:09 -0800
 
-> On 12/19/11 15:17, Vinson Lee wrote:
->> Signed-off-by: Vinson Lee<vlee@vmware.com>
+> bnx2-mips-06-6.2.3 and bnx2-mips-09-6.2.1.b
 > 
+> New firmware fixes iSCSI problems with some LeftHand targets that don't
+> set TTT=0xffffffff for Data-In according to spec.  Firmware generates
+> exception warnings for this condition and becomes very slow.  This is
+> fixed by suppressing these warnings when using default error mask.
 > 
-> Acked by: Andrew Gallatin <gallatin@myri.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Applied to net-next.
+Applied.
