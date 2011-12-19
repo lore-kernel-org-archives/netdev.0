@@ -1,61 +1,35 @@
-From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next] be2net: Fix INTx processing for Lancer
-Date: Mon, 19 Dec 2011 17:23:35 +0530
-Message-ID: <607e9a88-8d23-4cca-8aff-07578855b0e8@exht1.ad.emulex.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 1/2] tcp: refactor tcp_retransmit_skb() for a single return point
+Date: Mon, 19 Dec 2011 12:10:14 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AF19@saturn3.aculab.com>
+References: <65795E11DBF1E645A09CEC7EAEE94B9CB5AFA650@USINDEVS02.corp.hds.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <nhorman@tuxdriver.com>, <davem@davemloft.net>,
+	<tgraf@infradead.org>, "Seiji Aguchi" <seiji.aguchi@hds.com>,
+	<dle-develop@lists.sourceforge.net>
+To: "Satoru Moriya" <satoru.moriya@hds.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:20366 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752891Ab1LSMAD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 07:00:03 -0500
+Received: from mx0.aculab.com ([213.249.233.131]:58673 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752528Ab1LSMLo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 07:11:44 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 18811-09 for <netdev@vger.kernel.org>;
+ Mon, 19 Dec 2011 12:11:40 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <65795E11DBF1E645A09CEC7EAEE94B9CB5AFA650@USINDEVS02.corp.hds.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lancer does not have HW registers to indicate the EQ causing the INTx
-interrupt. As a result EQE entries of one EQ may be consumed when interrupt
-is caused by another EQ. Fix this by arming CQs at the end of NAPI poll
-routine to regenerate the EQEs.
+ 
+> This is just a cleanup patch for making easy to hook return value
+> with a tracepoint.
 
-Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c |   10 +++++++++-
- 1 files changed, 9 insertions(+), 1 deletions(-)
+Another way to temporarily add such a trace, is to temporarily
+add a wrapper function.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index b145a49..76f3a98 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1970,6 +1970,7 @@ static int be_poll_tx_mcc(struct napi_struct *napi, int budget)
- 	struct be_eq_obj *tx_eq = container_of(napi, struct be_eq_obj, napi);
- 	struct be_adapter *adapter =
- 		container_of(tx_eq, struct be_adapter, tx_eq);
-+	struct be_mcc_obj *mcc_obj = &adapter->mcc_obj;
- 	struct be_tx_obj *txo;
- 	struct be_eth_tx_compl *txcp;
- 	int tx_compl, mcc_compl, status = 0;
-@@ -2006,12 +2007,19 @@ static int be_poll_tx_mcc(struct napi_struct *napi, int budget)
- 	mcc_compl = be_process_mcc(adapter, &status);
- 
- 	if (mcc_compl) {
--		struct be_mcc_obj *mcc_obj = &adapter->mcc_obj;
- 		be_cq_notify(adapter, mcc_obj->cq.id, true, mcc_compl);
- 	}
- 
- 	napi_complete(napi);
- 
-+	/* Arm CQ again to regenerate EQEs for Lancer in INTx mode */
-+	if (lancer_chip(adapter) && !msix_enabled(adapter)) {
-+		for_all_tx_queues(adapter, txo, i)
-+			be_cq_notify(adapter, txo->cq.id, true, 0);
-+
-+		be_cq_notify(adapter, mcc_obj->cq.id, true, 0);
-+	}
-+
- 	be_eq_notify(adapter, tx_eq->q.id, true, false, 0);
- 	adapter->drv_stats.tx_events++;
- 	return 1;
--- 
-1.6.0.2
+	David
