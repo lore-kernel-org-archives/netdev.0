@@ -1,36 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next 2011-12-19
-Date: Mon, 19 Dec 2011 14:30:34 -0500 (EST)
-Message-ID: <20111219.143034.1320612609652976723.davem@davemloft.net>
-References: <20111219191110.GB31462@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 01/14] mac802154: basic ieee802.15.4 device structures
+Date: Mon, 19 Dec 2011 14:32:48 -0500 (EST)
+Message-ID: <20111219.143248.1789452356925299625.davem@davemloft.net>
+References: <20111219163117.GA13123@avtobot.cybertron>
+	<1324312434-13151-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20111219191110.GB31462-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: alex.bluesman.smirnov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57792 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751606Ab1LSTdA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 14:33:00 -0500
+In-Reply-To: <1324312434-13151-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Mon, 19 Dec 2011 14:11:11 -0500
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Date: Mon, 19 Dec 2011 19:33:41 +0300
 
-> Here is another (and probably still not the last) big pull request
-> with updates intended for 3.3.  There is the usual high activity
-> in the iwlwifi and ath9k camps.  Johannes favors us with some
-> mac80211 refactoring.  Rafa=A9=A9 gives us some more b43 N-phy update=
-s.
-> Samuel gives us another batch of NFC goodness.  The Broadcom folks
-> give us another big batch of updates to their drivers.  The wl12xx
-> guys make a good showing.  And as usual, there are a variety of other
-> contributions as well.
->=20
-> Please let me know if there are problems!
+> +struct ieee802154_hw_addr_filt {
+> +	u16 pan_id;
+> +	u16 short_addr;
+> +	u8 ieee_addr[IEEE802154_ADDR_LEN];
+> +	u8 pan_coord;
+> +};
 
-Pulled, thanks John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+What is the endianness of pan_id and short_addr objects?  You should use
+the appropriate endianness types "__be16, __le16" and accessors to
+represent this.
+
+If you're storing them in cpu byte order, why?
