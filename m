@@ -1,153 +1,80 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-Date: Mon, 19 Dec 2011 01:06:45 -0800
-Message-ID: <m1fwghj5ga.fsf@fess.ebiederm.org>
-References: <20111121082445.GD1625@x4.trippels.de>
-	<1321866988.2552.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20111121131531.GA1679@x4.trippels.de>
-	<1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20111121153621.GA1678@x4.trippels.de>
-	<1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20111121161036.GA1679@x4.trippels.de>
-	<20111121163459.GA1679@x4.trippels.de>
-	<20111122083630.GA1672@x4.trippels.de>
-	<m1liq9l009.fsf@fess.ebiederm.org> <20111219091909.GA1614@x4>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,  "Alex\,Shi" <alex.shi@intel.com>,  "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,  "linux-mm\@kvack.org" <linux-mm@kvack.org>,  Christoph Lameter <cl@linux-foundation.org>,  Pekka Enberg <penberg@kernel.org>,  Matt Mackall <mpm@selenic.com>,  "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,  tj@kernel.org
-To: Markus Trippelsdorf <markus@trippelsdorf.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20111219091909.GA1614@x4> (Markus Trippelsdorf's message of
-	"Mon, 19 Dec 2011 10:19:09 +0100")
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: igorm@etf.rs
+Subject: [PATCH net-next] r8169: Support for byte queue limits
+Date: Mon, 19 Dec 2011 10:27:58 +0100
+Message-ID: <1324286878-3950-1-git-send-email-igorm@etf.rs>
+References: <igorm@etf.rs>
+Cc: davem@davemloft.net, nic_swsd@realtek.com, romieu@fr.zoreil.com,
+	therbert@google.com, eric.dumazet@gmail.com,
+	Igor Maravic <igorm@etf.rs>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.etf.rs ([147.91.14.170]:50132 "EHLO mx2.etf.bg.ac.rs"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751539Ab1LSJ2D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Dec 2011 04:28:03 -0500
+In-Reply-To: <igorm@etf.rs>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Markus Trippelsdorf <markus@trippelsdorf.de> writes:
+From: Igor Maravic <igorm@etf.rs>
 
-> On 2011.12.18 at 19:21 -0800, Eric W. Biederman wrote:
->> Markus Trippelsdorf <markus@trippelsdorf.de> writes:
->>=20
->> > On 2011.11.21 at 17:34 +0100, Markus Trippelsdorf wrote:
->> >> On 2011.11.21 at 17:10 +0100, Markus Trippelsdorf wrote:
->> >> > On 2011.11.21 at 16:48 +0100, Eric Dumazet wrote:
->> >> > > Le lundi 21 novembre 2011 =C3=A0 16:36 +0100, Markus Trippelsdorf=
- a =C3=A9crit :
->> >> > > > On 2011.11.21 at 15:16 +0100, Eric Dumazet wrote:
->> >> > > > > Le lundi 21 novembre 2011 =C3=A0 14:15 +0100, Markus Trippels=
-dorf a =C3=A9crit :
->> >> > > > >=20
->> >> > > > > > I've enabled CONFIG_SLUB_DEBUG_ON and this is what happend:
->> >> > > > > >=20
->> >> > > > >=20
->> >> > > > > Thanks
->> >> > > > >=20
->> >> > > > > Please continue to provide more samples.
->> >> > > > >=20
->> >> > > > > There is something wrong somewhere, but where exactly, its ha=
-rd to say.
->> >> > > >=20
->> >> > > > New sample. This one points to lib/idr.c:
->> >> > > >=20
->> >> > > > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D
->> >> > > > BUG idr_layer_cache: Poison overwritten
->> >> > > > ---------------------------------------------------------------=
---------------
->> >> > >=20
->> >> > > Thanks, could you now add "CONFIG_DEBUG_PAGEALLOC=3Dy" in your co=
-nfig as
->> >> > > well ?
->> >> >=20
->> >> > Sure. This one happend with CONFIG_DEBUG_PAGEALLOC=3Dy:
->> >> >=20
->> >> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D
->> >> > BUG task_struct: Poison overwritten
->> >> > -------------------------------------------------------------------=
-----------
->> >>=20
->> >> And sometimes this one that I've reported earlier already:
->> >>=20
->> >> (see: http://thread.gmane.org/gmane.linux.kernel/1215023 )
->> >>=20
->> >>  ------------[ cut here ]------------
->> >>  WARNING: at fs/sysfs/sysfs.h:195 sysfs_get_inode+0x136/0x140()
->> >>  Hardware name: System Product Name
->> >>  Pid: 1876, comm: slabinfo Not tainted 3.2.0-rc2-00274-g6fe4c6d #72
->> >>  Call Trace:
->> >>  [<ffffffff8106cac5>] warn_slowpath_common+0x75/0xb0
->> >>  [<ffffffff8106cbc5>] warn_slowpath_null+0x15/0x20
->> >>  [<ffffffff81163236>] sysfs_get_inode+0x136/0x140
->> >>  [<ffffffff81164cef>] sysfs_lookup+0x6f/0x110
->> >>  [<ffffffff811173f9>] d_alloc_and_lookup+0x39/0x80
->> >>  [<ffffffff81118774>] do_lookup+0x294/0x3a0
->> >>  [<ffffffff8111798a>] ? inode_permission+0x7a/0xb0
->> >>  [<ffffffff8111a3f7>] do_last.isra.46+0x137/0x7f0
->> >>  [<ffffffff8111ab76>] path_openat+0xc6/0x370
->> >>  [<ffffffff81117606>] ? getname_flags+0x36/0x230
->> >>  [<ffffffff810ec852>] ? handle_mm_fault+0x192/0x290
->> >>  [<ffffffff8111ae5c>] do_filp_open+0x3c/0x90
->> >>  [<ffffffff81127c8c>] ? alloc_fd+0xdc/0x120
->> >>  [<ffffffff8110ce77>] do_sys_open+0xe7/0x1c0
->> >>  [<ffffffff8110cf6b>] sys_open+0x1b/0x20
->> >>  [<ffffffff814ccb7b>] system_call_fastpath+0x16/0x1b
->> >>  ---[ end trace b1377eb8b131d37d ]---
->> >
->> > Hm, the "sysfs: use rb-tree" thing hit again during boot. Could this be
->> > the root cause of this all?
->> >
->> > I wrote down the following:
->> >
->> > RIP : rb_next
->> >
->> > Trace:
->> >  sysfs_dir_pos
->> >  sysfs_readdir
->> >  ? sys_ioctl
->> >  vfs_readdir
->> >  sys_getdents
->>=20
->> Thanks for reporting this.
->>=20
->> Has this by any chance been resolved or stopped happening?
->
-> Yes.
->
->> This looks for all of the world like something is stomping your sysfs
->> dirents.   I haven't seen anyone else complaining so this seems like the
->> problem is unique to your configuration.  Which suggests that it is not
->> sysfs itself that is wrong.
->>=20
->> I have been through the code a time or two and I haven't seen anything
->> obviously wrong.  Everything that sysfs does is protected by the
->> sysfs_mutex so the locking is very very simple.
->>=20
->> My best guess of why now is that the rbtree code make a sysfs dirent
->> 48 bytes larger.  And so it is much more exposed to these kinds of
->> problems.
->
-> Sorry, but your subsystem was just accidentally hit by a bug in the
-> Radeon driver, that sometimes randomly writes 0 dwords somewhere to
-> memory after a kexec boot (see the rest of this huge thread).
-> It's still not fixed in mainline, because Linus refused to take the fix
-> this late in the series.
+Changes to r8169 to use byte queue limits.
 
-Awesome.=20=20
+Signed-off-by: Igor Maravic <igorm@etf.rs>
+---
+ drivers/net/ethernet/realtek/r8169.c |   13 +++++++++++--
+ 1 files changed, 11 insertions(+), 2 deletions(-)
 
-I guess that means I am only responsible for the Radeon driver having
-the opportunity to take that code path. It is nice to see kexec being
-used and being well known enough I didn't have to get involved.
-
-Eric
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 36b2a4b..bfdb5fd 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -5326,6 +5326,7 @@ static void rtl8169_tx_clear(struct rtl8169_private *tp)
+ {
+ 	rtl8169_tx_clear_range(tp, tp->dirty_tx, NUM_TX_DESC);
+ 	tp->cur_tx = tp->dirty_tx = 0;
++	netdev_reset_queue(tp->dev);
+ }
+ 
+ static void rtl8169_schedule_work(struct net_device *dev, work_func_t task)
+@@ -5460,6 +5461,8 @@ static int rtl8169_xmit_frags(struct rtl8169_private *tp, struct sk_buff *skb,
+ 		txd->opts1 |= cpu_to_le32(LastFrag);
+ 	}
+ 
++	netdev_sent_queue(tp->dev, skb->len);
++
+ 	return cur_frag;
+ 
+ err_out:
+@@ -5624,6 +5627,8 @@ static void rtl8169_tx_interrupt(struct net_device *dev,
+ 				 void __iomem *ioaddr)
+ {
+ 	unsigned int dirty_tx, tx_left;
++	unsigned int bytes_compl = 0;
++	int tx_compl = 0;
+ 
+ 	dirty_tx = tp->dirty_tx;
+ 	smp_rmb();
+@@ -5642,14 +5647,18 @@ static void rtl8169_tx_interrupt(struct net_device *dev,
+ 		rtl8169_unmap_tx_skb(&tp->pci_dev->dev, tx_skb,
+ 				     tp->TxDescArray + entry);
+ 		if (status & LastFrag) {
+-			dev->stats.tx_packets++;
+-			dev->stats.tx_bytes += tx_skb->skb->len;
++			tx_compl++;
++			bytes_compl += tx_skb->skb->len;
+ 			dev_kfree_skb(tx_skb->skb);
+ 			tx_skb->skb = NULL;
+ 		}
+ 		dirty_tx++;
+ 		tx_left--;
+ 	}
++	dev->stats.tx_packets += tx_compl;
++	dev->stats.tx_bytes += bytes_compl;
++
++	netdev_completed_queue(dev, tx_compl, bytes_compl);
+ 
+ 	if (tp->dirty_tx != dirty_tx) {
+ 		tp->dirty_tx = dirty_tx;
+-- 
+1.7.5.4
