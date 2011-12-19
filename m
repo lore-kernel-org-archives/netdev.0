@@ -1,107 +1,116 @@
-From: Thomas Graf <tgraf@redhat.com>
-Subject: [PATCH] sctp: Do not account for sizeof(struct sk_buff) in estimated rwnd
-Date: Mon, 19 Dec 2011 15:11:40 +0100
-Message-ID: <1324303900-8360-1-git-send-email-tgraf@redhat.com>
-Cc: linux-sctp@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Thomas Graf <tgraf@redhat.com>
-To: Vladislav Yasevich <vladislav.yasevich@hp.com>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH v2] ARM: net: JIT compiler for packet filters
+Date: Mon, 19 Dec 2011 16:19:58 +0100
+Message-ID: <20111219151958.GU24496@pengutronix.de>
+References: <1324284030-25540-1-git-send-email-mgherzan@gmail.com>
+ <20111219125021.GA2031@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Mircea Gherzan <mgherzan@gmail.com>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Dave Martin <dave.martin@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20736 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751606Ab1LSONF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Dec 2011 09:13:05 -0500
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:40225 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752860Ab1LSPUJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 10:20:09 -0500
+Content-Disposition: inline
+In-Reply-To: <20111219125021.GA2031@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When checking whether a DATA chunk fits into the estimated rwnd a
-full sizeof(struct sk_buff) is added to the needed chunk size. This
-quickly exhausts the available rwnd space and leads to packets being
-sent which are much below the PMTU limit. This can lead to much worse
-performance.
+On Mon, Dec 19, 2011 at 12:50:21PM +0000, Dave Martin wrote:
+> On Mon, Dec 19, 2011 at 09:40:30AM +0100, Mircea Gherzan wrote:
+> > Based of Matt Evans's PPC64 implementation.
+> >=20
+> > Supports only ARM mode with EABI.
+> >=20
+> > Supports both little and big endian. Depends on the support for
+> > unaligned loads on ARMv7. Does not support all the BPF opcodes
+> > that deal with ancillary data. The scratch memory of the filter
+> > lives on the stack.
+> >=20
+> > Enabled in the same way as for x86-64 and PPC64:
+> >=20
+> > 	echo 1 > /proc/sys/net/core/bpf_jit_enable
+> >=20
+> > A value greater than 1 enables opcode output.
+> >=20
+> > Signed-off-by: Mircea Gherzan <mgherzan@gmail.com>
+> > ---
+>=20
+> Interesting patch... I haven't reviewed in detail, but I have a few
+> quick comments.
+>=20
+> >=20
+> > Changes in v2:
+> >  * enable the compiler ony for ARMv5+ because of the BLX instructio=
+n
+> >  * use the same comparison for the ARM version checks
+> >  * use misaligned accesses on ARMv6
+>=20
+> You probably want to change the commit message now to reflect this.
+>=20
+> >  * fix the SEEN_MEM
+> >  * fix the mem_words_used()
+> >=20
+> >  arch/arm/Kconfig          |    1 +
+> >  arch/arm/Makefile         |    1 +
+> >  arch/arm/net/Makefile     |    3 +
+> >  arch/arm/net/bpf_jit_32.c |  838 +++++++++++++++++++++++++++++++++=
+++++++++++++
+> >  arch/arm/net/bpf_jit_32.h |  174 ++++++++++
+> >  5 files changed, 1017 insertions(+), 0 deletions(-)
+> >  create mode 100644 arch/arm/net/Makefile
+> >  create mode 100644 arch/arm/net/bpf_jit_32.c
+> >  create mode 100644 arch/arm/net/bpf_jit_32.h
+> >=20
+> > diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+> > index abba5b8..ea65c41 100644
+> > --- a/arch/arm/Kconfig
+> > +++ b/arch/arm/Kconfig
+> > @@ -30,6 +30,7 @@ config ARM
+> >  	select HAVE_SPARSE_IRQ
+> >  	select GENERIC_IRQ_SHOW
+> >  	select CPU_PM if (SUSPEND || CPU_IDLE)
+> > +	select HAVE_BPF_JIT if (!THUMB2_KERNEL && AEABI)
+>=20
+> Have to tried your code with a Thumb-2 kernel?
+>=20
+> Quickly skimming though your patch, I don't see an obvious reason why=
+ we
+> can't have that working, though I haven't tried it yet.
+>=20
+> Note that it's fine to have the JIT generating ARM code, even if the =
+rest
+> if the kernel is Thumb-2.  This would only start to cause problems if=
+ we
+> want to do things like set kprobes in the JITted code, or unwind out =
+of
+> the JITted code.
+or use a CPU that doesn't speak ARM (e.g. v7M)
 
-The reason for this behaviour was to avoid putting too much memory
-pressure on the receiver. The concept is not completely irational
-because a Linux receiver does in fact clone an skb for each DATA chunk
-delivered. However, Linux also reserves half the available socket
-buffer space for data structures therefore usage of it is already
-accounted for.
+> It's just necessary to make sure that calls/returns into/out of the
+> JITted code are handled correctly.  You don't seem to do any scary
+> arithmetic or mov to or from pc or lr, and it doesn't look like you e=
+ver
+> call back into the kernel from JITted code, so the implementation is
+> probably safe for ARM/Thumb interworking already (if I've understood
+> correctly).
+>=20
+> It doesn't look hard to port the JIT to generate Thumb-2 code directl=
+y
+> either -- but I suggest not to worry about that initially.  So long a=
+s
+> the ARM-based JIT works in a Thumb-2 kernel, it will be useful.
 
-When proposing to change this the last time it was noted that this
-behaviour was introduced to solve a performance issue caused by rwnd
-overusage in combination with small DATA chunks.
+Best regards
+Uwe
 
-Trying to reproduce this I found that with the sk_buff overhead removed,
-the performance would improve significantly unless socket buffer limits
-are increased.
-
-The following numbers have been gathered using a patched iperf
-supporting SCTP over a live 1 Gbit ethernet network. The -l option
-was used to limit DATA chunk sizes. The numbers listed are based on
-the average of 3 test runs each. Default values have been used for
-sk_(r|w)mem.
-
-Chunk
-Size    Unpatched     No Overhead
--------------------------------------
-   4    15.2 Kbit [!]   12.2 Mbit [!]
-   8    35.8 Kbit [!]   26.0 Mbit [!]
-  16    95.5 Kbit [!]   54.4 Mbit [!]
-  32   106.7 Mbit      102.3 Mbit
-  64   189.2 Mbit      188.3 Mbit
- 128   331.2 Mbit      334.8 Mbit
- 256   537.7 Mbit      536.0 Mbit
- 512   766.9 Mbit      766.6 Mbit
-1024   810.1 Mbit      808.6 Mbit
-
-Signed-off-by: Thomas Graf <tgraf@redhat.com>
----
- net/sctp/output.c   |    8 +-------
- net/sctp/outqueue.c |    6 ++----
- 2 files changed, 3 insertions(+), 11 deletions(-)
-
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 08b3cea..817174e 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -697,13 +697,7 @@ static void sctp_packet_append_data(struct sctp_packet *packet,
- 	/* Keep track of how many bytes are in flight to the receiver. */
- 	asoc->outqueue.outstanding_bytes += datasize;
- 
--	/* Update our view of the receiver's rwnd. Include sk_buff overhead
--	 * while updating peer.rwnd so that it reduces the chances of a
--	 * receiver running out of receive buffer space even when receive
--	 * window is still open. This can happen when a sender is sending
--	 * sending small messages.
--	 */
--	datasize += sizeof(struct sk_buff);
-+	/* Update our view of the receiver's rwnd. */
- 	if (datasize < rwnd)
- 		rwnd -= datasize;
- 	else
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 14c2b06..cfeb1d4 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -411,8 +411,7 @@ void sctp_retransmit_mark(struct sctp_outq *q,
- 					chunk->transport->flight_size -=
- 							sctp_data_size(chunk);
- 				q->outstanding_bytes -= sctp_data_size(chunk);
--				q->asoc->peer.rwnd += (sctp_data_size(chunk) +
--							sizeof(struct sk_buff));
-+				q->asoc->peer.rwnd += sctp_data_size(chunk);
- 			}
- 			continue;
- 		}
-@@ -432,8 +431,7 @@ void sctp_retransmit_mark(struct sctp_outq *q,
- 			 * (Section 7.2.4)), add the data size of those
- 			 * chunks to the rwnd.
- 			 */
--			q->asoc->peer.rwnd += (sctp_data_size(chunk) +
--						sizeof(struct sk_buff));
-+			q->asoc->peer.rwnd += sctp_data_size(chunk);
- 			q->outstanding_bytes -= sctp_data_size(chunk);
- 			if (chunk->transport)
- 				transport->flight_size -= sctp_data_size(chunk);
--- 
-1.7.7.4
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
