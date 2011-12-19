@@ -1,139 +1,63 @@
-From: Dave Martin <dave.martin@linaro.org>
-Subject: Re: [PATCH v2] ARM: net: JIT compiler for packet filters
-Date: Mon, 19 Dec 2011 12:50:21 +0000
-Message-ID: <20111219125021.GA2031@linaro.org>
-References: <1324284030-25540-1-git-send-email-mgherzan@gmail.com>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: tcp_close - why no WARN_ON ?
+Date: Mon, 19 Dec 2011 13:57:35 +0100
+Message-ID: <4EEF34BF.7050302@uclouvain.be>
+Reply-To: christoph.paasch@uclouvain.be
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Mircea Gherzan <mgherzan@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:36312 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752322Ab1LSMua (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 07:50:30 -0500
-Received: by mail-ww0-f44.google.com with SMTP id dr13so10657475wgb.1
-        for <netdev@vger.kernel.org>; Mon, 19 Dec 2011 04:50:30 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1324284030-25540-1-git-send-email-mgherzan@gmail.com>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:32831 "EHLO
+	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751568Ab1LSM5l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 07:57:41 -0500
+Received: from [130.104.228.43] (cpaasch-mac.dhcp.info.ucl.ac.be [130.104.228.43])
+	(using TLSv1 with cipher DHE-RSA-CAMELLIA256-SHA (256/256 bits))
+	(No client certificate requested)
+	(Authenticated sender: cpaasch@smtp6.sgsi.ucl.ac.be)
+	by smtp6.sgsi.ucl.ac.be (Postfix) with ESMTPSA id BC4291C52D5
+	for <netdev@vger.kernel.org>; Mon, 19 Dec 2011 13:57:35 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 19, 2011 at 09:40:30AM +0100, Mircea Gherzan wrote:
-> Based of Matt Evans's PPC64 implementation.
-> 
-> Supports only ARM mode with EABI.
-> 
-> Supports both little and big endian. Depends on the support for
-> unaligned loads on ARMv7. Does not support all the BPF opcodes
-> that deal with ancillary data. The scratch memory of the filter
-> lives on the stack.
-> 
-> Enabled in the same way as for x86-64 and PPC64:
-> 
-> 	echo 1 > /proc/sys/net/core/bpf_jit_enable
-> 
-> A value greater than 1 enables opcode output.
-> 
-> Signed-off-by: Mircea Gherzan <mgherzan@gmail.com>
-> ---
+Hi all,
 
-Interesting patch... I haven't reviewed in detail, but I have a few
-quick comments.
+I am trying to understand the following code in tcp_close:
 
-> 
-> Changes in v2:
->  * enable the compiler ony for ARMv5+ because of the BLX instruction
->  * use the same comparison for the ARM version checks
->  * use misaligned accesses on ARMv6
+  sock_orphan(sk);
 
-You probably want to change the commit message now to reflect this.
+  /* It is the last release_sock in its life. It will remove backlog. *=
+/
+  release_sock(sk);
 
->  * fix the SEEN_MEM
->  * fix the mem_words_used()
-> 
->  arch/arm/Kconfig          |    1 +
->  arch/arm/Makefile         |    1 +
->  arch/arm/net/Makefile     |    3 +
->  arch/arm/net/bpf_jit_32.c |  838 +++++++++++++++++++++++++++++++++++++++++++++
->  arch/arm/net/bpf_jit_32.h |  174 ++++++++++
->  5 files changed, 1017 insertions(+), 0 deletions(-)
->  create mode 100644 arch/arm/net/Makefile
->  create mode 100644 arch/arm/net/bpf_jit_32.c
->  create mode 100644 arch/arm/net/bpf_jit_32.h
-> 
-> diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-> index abba5b8..ea65c41 100644
-> --- a/arch/arm/Kconfig
-> +++ b/arch/arm/Kconfig
-> @@ -30,6 +30,7 @@ config ARM
->  	select HAVE_SPARSE_IRQ
->  	select GENERIC_IRQ_SHOW
->  	select CPU_PM if (SUSPEND || CPU_IDLE)
-> +	select HAVE_BPF_JIT if (!THUMB2_KERNEL && AEABI)
+  /* Now socket is owned by kernel and we acquire BH lock
+     to finish close. No need to check for user refs.
+   */
+  local_bh_disable();
+  bh_lock_sock(sk);
+  WARN_ON(sock_owned_by_user(sk));
 
-Have to tried your code with a Thumb-2 kernel?
 
-Quickly skimming though your patch, I don't see an obvious reason why we
-can't have that working, though I haven't tried it yet.
+How is it possible that between release_sock(sk) and local_bh_disable()=
+,
+no other thread gets scheduled and calls lock_sock() and thus the
+WARN_ON would be triggered ?
 
-Note that it's fine to have the JIT generating ARM code, even if the rest
-if the kernel is Thumb-2.  This would only start to cause problems if we
-want to do things like set kprobes in the JITted code, or unwind out of
-the JITted code.
 
-It's just necessary to make sure that calls/returns into/out of the
-JITted code are handled correctly.  You don't seem to do any scary
-arithmetic or mov to or from pc or lr, and it doesn't look like you ever
-call back into the kernel from JITted code, so the implementation is
-probably safe for ARM/Thumb interworking already (if I've understood
-correctly).
+Can someone please point me to the lines of code that handle this ?
 
-It doesn't look hard to port the JIT to generate Thumb-2 code directly
-either -- but I suggest not to worry about that initially.  So long as
-the ARM-based JIT works in a Thumb-2 kernel, it will be useful.
 
-[...]
+Thanks a lot,
+Christoph
 
-> diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
-> new file mode 100644
-> index 0000000..d2b86fa
-> --- /dev/null
-> +++ b/arch/arm/net/bpf_jit_32.c
 
-[...]
 
-> +static int build_body(struct jit_ctx *ctx)
-> +{
+--=20
+Christoph Paasch
+PhD Student
 
-[...]
-
-> +		case BPF_S_ALU_DIV_K:
-> +			/* K is not zero, it was previously checked */
-> +			emit_mov_i(ARM_R1, k, ctx);
-> +			goto div;
-> +		case BPF_S_ALU_DIV_X:
-> +			ctx->seen |= SEEN_X;
-> +			emit(ARM_CMP_I(r_X, 0), ctx);
-> +			emit_err_ret(ARM_COND_EQ, ctx);
-> +			emit(ARM_MOV_R(ARM_R1, r_X), ctx);
-> +div:
-> +			ctx->seen |= SEEN_CALL;
-> +
-> +			emit(ARM_MOV_R(ARM_R0, r_A), ctx);
-> +			emit_mov_i(r_scratch, (u32)__aeabi_uidiv, ctx);
-> +			emit(ARM_BLX_R(r_scratch), ctx);
-> +			emit(ARM_MOV_R(r_A, ARM_R0), ctx);
-> +			break;
-
-I don't know how much division is used by the packet filter JIT.  If
-it gets used a significant amount, you might want to support hardware
-divide for CPUs that have it:
-
-Cortex-A15 and later processors may have hardware integer divide
-support.  You can check for its availability at runtime using by testing
-the HWCAP_IDIVA (for ARM) or HWCAP_IDIVT (for Thumb) bits in elf_hwcap
-(see arch/arm/include/asm/hwcap.h).
-
-Cheers
----Dave
+IP Networking Lab --- http://inl.info.ucl.ac.be
+MultiPath TCP in the Linux Kernel --- http://mptcp.info.ucl.ac.be
+Universit=E9 Catholique de Louvain
+--=20
