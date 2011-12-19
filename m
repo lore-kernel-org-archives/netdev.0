@@ -1,40 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 14/15] module_param: make bool parameters really bool
- (net & drivers/net)
-Date: Mon, 19 Dec 2011 16:22:10 -0500 (EST)
-Message-ID: <20111219.162210.1739976094495078504.davem@davemloft.net>
-References: <87k45xqvfs.fsf@rustcorp.com.au>
-	<20111215.231517.185391590658983405.davem@davemloft.net>
-	<87ehw1nm9r.fsf@rustcorp.com.au>
+From: Grant Grundler <grundler@google.com>
+Subject: Re: [PATCH] asix: new device id
+Date: Mon, 19 Dec 2011 13:22:35 -0800
+Message-ID: <CANEJEGswxaxgD9eet9uDZm6Ezf67ibG0XOTggSBONZ6M1KMErA@mail.gmail.com>
+References: <20111216.133227.782560339712731597.davem@davemloft.net>
+	<1324068562-3761-1-git-send-email-aurel@gnuage.org>
+	<20111219.160059.783127741333326755.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, linux-kernel@vger.kernel.org, pawel.moll@arm.com,
-	netdev@vger.kernel.org
-To: rusty@rustcorp.com.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87ehw1nm9r.fsf@rustcorp.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: aurel@gnuage.org, netdev@vger.kernel.org,
+	Allan Chou <allan@asix.com.tw>, Freddy Xin <freddy@asix.com.tw>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:65186 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752287Ab1LSVWg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 16:22:36 -0500
+Received: by ggdk6 with SMTP id k6so4328333ggd.19
+        for <netdev@vger.kernel.org>; Mon, 19 Dec 2011 13:22:35 -0800 (PST)
+In-Reply-To: <20111219.160059.783127741333326755.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Mon, 19 Dec 2011 16:19:52 +1030
+On Mon, Dec 19, 2011 at 1:00 PM, David Miller <davem@davemloft.net> wrote:
+> From: Aurelien Jacobs <aurel@gnuage.org>
+> Date: Fri, 16 Dec 2011 21:49:22 +0100
+>
+>> Adds the device id needed for the USB Ethernet Adapter delivered by
+>> ASUS with their Zenbook.
+>>
+>> Signed-off-by: Aurelien Jacobs <aurel@gnuage.org>
+>
+> Grant, ACK/NACK?
 
-> On Thu, 15 Dec 2011 23:15:17 -0500 (EST), David Miller <davem@davemloft.net> wrote:
->> From: Rusty Russell <rusty@rustcorp.com.au>
->> Date: Fri, 16 Dec 2011 09:44:31 +1030
->> 
->> > Dave, did you want a true/false cleanup too?
->> 
->> Please, this kind of stuff rots forever and not using bool properly
->> drives me crazy.
-> 
-> And here's the updated patch:
+Dave,
+I'm totally ok with it if Aurelien is confident it "works" (well enough).
 
-Neither of your two patches comes close to applying cleanly to net-next,
-even when I try to apply it by hand there are rejects and references to
-files that don't even exist in net-next any more.
+I'm really the wrong guy to ask though. I don't have the device
+and I'm not associated with the mfg.
 
-Please respin them.
+The right people to ask (CC'd) are Allan Chou and Freddy Xin (both from ASIX).
 
-Thanks!
+cheers!
+grant
