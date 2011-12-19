@@ -1,150 +1,153 @@
-From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: Re: [PATCH 01/11] SYSCTL: export root and set handling routines
-Date: Mon, 19 Dec 2011 12:56:52 +0400
-Message-ID: <4EEEFC54.10700@parallels.com>
-References: <20111214103602.3991.20990.stgit@localhost6.localdomain6>	<20111214104449.3991.61989.stgit@localhost6.localdomain6> <m1bor6rg39.fsf@fess.ebiederm.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+Date: Mon, 19 Dec 2011 01:06:45 -0800
+Message-ID: <m1fwghj5ga.fsf@fess.ebiederm.org>
+References: <20111121082445.GD1625@x4.trippels.de>
+	<1321866988.2552.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20111121131531.GA1679@x4.trippels.de>
+	<1321884966.10470.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20111121153621.GA1678@x4.trippels.de>
+	<1321890510.10470.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20111121161036.GA1679@x4.trippels.de>
+	<20111121163459.GA1679@x4.trippels.de>
+	<20111122083630.GA1672@x4.trippels.de>
+	<m1liq9l009.fsf@fess.ebiederm.org> <20111219091909.GA1614@x4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"neilb-l3A5Bk7waGM@public.gmane.org" <neilb-l3A5Bk7waGM@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	James Bottomley <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <m1bor6rg39.fsf-+imSwln9KH6u2/kzUuoCbdi2O/JbrIOy@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,  "Alex\,Shi" <alex.shi@intel.com>,  "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,  "linux-mm\@kvack.org" <linux-mm@kvack.org>,  Christoph Lameter <cl@linux-foundation.org>,  Pekka Enberg <penberg@kernel.org>,  Matt Mackall <mpm@selenic.com>,  "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,  tj@kernel.org
+To: Markus Trippelsdorf <markus@trippelsdorf.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20111219091909.GA1614@x4> (Markus Trippelsdorf's message of
+	"Mon, 19 Dec 2011 10:19:09 +0100")
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-18.12.2011 02:25, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> Stanislav Kinsbursky<skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>  writes:
+Markus Trippelsdorf <markus@trippelsdorf.de> writes:
+
+> On 2011.12.18 at 19:21 -0800, Eric W. Biederman wrote:
+>> Markus Trippelsdorf <markus@trippelsdorf.de> writes:
+>>=20
+>> > On 2011.11.21 at 17:34 +0100, Markus Trippelsdorf wrote:
+>> >> On 2011.11.21 at 17:10 +0100, Markus Trippelsdorf wrote:
+>> >> > On 2011.11.21 at 16:48 +0100, Eric Dumazet wrote:
+>> >> > > Le lundi 21 novembre 2011 =C3=A0 16:36 +0100, Markus Trippelsdorf=
+ a =C3=A9crit :
+>> >> > > > On 2011.11.21 at 15:16 +0100, Eric Dumazet wrote:
+>> >> > > > > Le lundi 21 novembre 2011 =C3=A0 14:15 +0100, Markus Trippels=
+dorf a =C3=A9crit :
+>> >> > > > >=20
+>> >> > > > > > I've enabled CONFIG_SLUB_DEBUG_ON and this is what happend:
+>> >> > > > > >=20
+>> >> > > > >=20
+>> >> > > > > Thanks
+>> >> > > > >=20
+>> >> > > > > Please continue to provide more samples.
+>> >> > > > >=20
+>> >> > > > > There is something wrong somewhere, but where exactly, its ha=
+rd to say.
+>> >> > > >=20
+>> >> > > > New sample. This one points to lib/idr.c:
+>> >> > > >=20
+>> >> > > > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D
+>> >> > > > BUG idr_layer_cache: Poison overwritten
+>> >> > > > ---------------------------------------------------------------=
+--------------
+>> >> > >=20
+>> >> > > Thanks, could you now add "CONFIG_DEBUG_PAGEALLOC=3Dy" in your co=
+nfig as
+>> >> > > well ?
+>> >> >=20
+>> >> > Sure. This one happend with CONFIG_DEBUG_PAGEALLOC=3Dy:
+>> >> >=20
+>> >> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D
+>> >> > BUG task_struct: Poison overwritten
+>> >> > -------------------------------------------------------------------=
+----------
+>> >>=20
+>> >> And sometimes this one that I've reported earlier already:
+>> >>=20
+>> >> (see: http://thread.gmane.org/gmane.linux.kernel/1215023 )
+>> >>=20
+>> >>  ------------[ cut here ]------------
+>> >>  WARNING: at fs/sysfs/sysfs.h:195 sysfs_get_inode+0x136/0x140()
+>> >>  Hardware name: System Product Name
+>> >>  Pid: 1876, comm: slabinfo Not tainted 3.2.0-rc2-00274-g6fe4c6d #72
+>> >>  Call Trace:
+>> >>  [<ffffffff8106cac5>] warn_slowpath_common+0x75/0xb0
+>> >>  [<ffffffff8106cbc5>] warn_slowpath_null+0x15/0x20
+>> >>  [<ffffffff81163236>] sysfs_get_inode+0x136/0x140
+>> >>  [<ffffffff81164cef>] sysfs_lookup+0x6f/0x110
+>> >>  [<ffffffff811173f9>] d_alloc_and_lookup+0x39/0x80
+>> >>  [<ffffffff81118774>] do_lookup+0x294/0x3a0
+>> >>  [<ffffffff8111798a>] ? inode_permission+0x7a/0xb0
+>> >>  [<ffffffff8111a3f7>] do_last.isra.46+0x137/0x7f0
+>> >>  [<ffffffff8111ab76>] path_openat+0xc6/0x370
+>> >>  [<ffffffff81117606>] ? getname_flags+0x36/0x230
+>> >>  [<ffffffff810ec852>] ? handle_mm_fault+0x192/0x290
+>> >>  [<ffffffff8111ae5c>] do_filp_open+0x3c/0x90
+>> >>  [<ffffffff81127c8c>] ? alloc_fd+0xdc/0x120
+>> >>  [<ffffffff8110ce77>] do_sys_open+0xe7/0x1c0
+>> >>  [<ffffffff8110cf6b>] sys_open+0x1b/0x20
+>> >>  [<ffffffff814ccb7b>] system_call_fastpath+0x16/0x1b
+>> >>  ---[ end trace b1377eb8b131d37d ]---
+>> >
+>> > Hm, the "sysfs: use rb-tree" thing hit again during boot. Could this be
+>> > the root cause of this all?
+>> >
+>> > I wrote down the following:
+>> >
+>> > RIP : rb_next
+>> >
+>> > Trace:
+>> >  sysfs_dir_pos
+>> >  sysfs_readdir
+>> >  ? sys_ioctl
+>> >  vfs_readdir
+>> >  sys_getdents
+>>=20
+>> Thanks for reporting this.
+>>=20
+>> Has this by any chance been resolved or stopped happening?
 >
->> These routines are required for making SUNRPC sysctl's per network n=
-amespace
->> context.
+> Yes.
 >
-> Why does sunrpc require it's own sysctl root?  You should be able to =
-use
-> the generic per network namespace root and call it good.
+>> This looks for all of the world like something is stomping your sysfs
+>> dirents.   I haven't seen anyone else complaining so this seems like the
+>> problem is unique to your configuration.  Which suggests that it is not
+>> sysfs itself that is wrong.
+>>=20
+>> I have been through the code a time or two and I haven't seen anything
+>> obviously wrong.  Everything that sysfs does is protected by the
+>> sysfs_mutex so the locking is very very simple.
+>>=20
+>> My best guess of why now is that the rbtree code make a sysfs dirent
+>> 48 bytes larger.  And so it is much more exposed to these kinds of
+>> problems.
 >
-> What makes register_net_sysctl_table and register_net_sysctl_ro_table
-> unsuitable for sunrpc.  I skimmed through your patches and I haven't
-> seen anything obvious.
->
-> Eric
->
+> Sorry, but your subsystem was just accidentally hit by a bug in the
+> Radeon driver, that sometimes randomly writes 0 dwords somewhere to
+> memory after a kexec boot (see the rest of this huge thread).
+> It's still not fixed in mainline, because Linus refused to take the fix
+> this late in the series.
 
-Hello, Eric. Sorry for the lack of information.
-I was considering two ways how to make these sysctl per net ns:
+Awesome.=20=20
 
-1) Use register_net_sysctl_table and register_net_sysctl_ro_table as yo=
-u=20
-mentioned. This was easy and cheap, but also means, than all user-space=
-=20
-programs, tuning SUNRPC will be broken (since all sysctl currently loca=
-ted=20
-in"/proc/sys/sunprc/").
+I guess that means I am only responsible for the Radeon driver having
+the opportunity to take that code path. It is nice to see kexec being
+used and being well known enough I didn't have to get involved.
 
-2) Export sysctl root creation routines and make per-net SUNRPC sysctl =
-root.=20
-This approach allows to make any part of sysctl tree per namespace cont=
-ext and=20
-thus leave user-space stuff unchanged.
+Eric
 
-BTW, NFS and LockD also have it's sysctls ("/proc/sys/fs/nfs/").
-And also because of them I've decided, that it would be better to expor=
-t SYSCTL=20
-root creation routines instead of breaking compatibility for all NFS la=
-yers by=20
-moving all sysctl under /proc/sys/net/ directory.
-
-Do you feel that it was a bad decision?
-
->
->> Signed-off-by: Stanislav Kinsbursky<skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
->>
->> ---
->>   include/linux/sysctl.h |    1 +
->>   kernel/sysctl.c        |   11 +++++++++++
->>   2 files changed, 12 insertions(+), 0 deletions(-)
->>
->> diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
->> index 703cfa3..be586a9 100644
->> --- a/include/linux/sysctl.h
->> +++ b/include/linux/sysctl.h
->> @@ -1084,6 +1084,7 @@ struct ctl_path {
->>   };
->>
->>   void register_sysctl_root(struct ctl_table_root *root);
->> +void unregister_sysctl_root(struct ctl_table_root *root);
->>   struct ctl_table_header *__register_sysctl_paths(
->>   	struct ctl_table_root *root, struct nsproxy *namespaces,
->>   	const struct ctl_path *path, struct ctl_table *table);
->> diff --git a/kernel/sysctl.c b/kernel/sysctl.c
->> index ae27196..fb016a9 100644
->> --- a/kernel/sysctl.c
->> +++ b/kernel/sysctl.c
->> @@ -1700,6 +1700,15 @@ void register_sysctl_root(struct ctl_table_ro=
-ot *root)
->>   	list_add_tail(&root->root_list,&sysctl_table_root.root_list);
->>   	spin_unlock(&sysctl_lock);
->>   }
->> +EXPORT_SYMBOL_GPL(register_sysctl_root);
->> +
->> +void unregister_sysctl_root(struct ctl_table_root *root)
->> +{
->> +	spin_lock(&sysctl_lock);
->> +	list_del(&root->root_list);
->> +	spin_unlock(&sysctl_lock);
->> +}
->> +EXPORT_SYMBOL_GPL(unregister_sysctl_root);
->>
->>   /*
->>    * sysctl_perm does NOT grant the superuser all rights automatical=
-ly, because
->> @@ -1925,6 +1934,7 @@ struct ctl_table_header *__register_sysctl_pat=
-hs(
->>
->>   	return header;
->>   }
->> +EXPORT_SYMBOL_GPL(__register_sysctl_paths);
->>
->>   /**
->>    * register_sysctl_table_path - register a sysctl table hierarchy
->> @@ -2007,6 +2017,7 @@ void setup_sysctl_set(struct ctl_table_set *p,
->>   	p->parent =3D parent ? parent :&sysctl_table_root.default_set;
->>   	p->is_seen =3D is_seen;
->>   }
->> +EXPORT_SYMBOL_GPL(setup_sysctl_set);
->>
->>   #else /* !CONFIG_SYSCTL */
->>   struct ctl_table_header *register_sysctl_table(struct ctl_table * =
-table)
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-kern=
-el" in
->> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> Please read the FAQ at  http://www.tux.org/lkml/
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-nfs" =
-in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
---=20
-Best regards,
-Stanislav Kinsbursky
 --
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
