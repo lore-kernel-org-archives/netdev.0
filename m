@@ -1,79 +1,61 @@
-From: igorm@etf.rs
-Subject: [PATCH net-next] r8169: Support for byte queue limits
-Date: Mon, 19 Dec 2011 11:28:35 +0100
-Message-ID: <1324290515-5207-1-git-send-email-igorm@etf.rs>
-References: <igorm@etf.rs>
-Cc: davem@davemloft.net, nic_swsd@realtek.com, romieu@fr.zoreil.com,
-	therbert@google.com, eric.dumazet@gmail.com,
-	Igor Maravic <igorm@etf.rs>
-To: netdev@vger.kernel.org
+From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+Subject: [PATCH net-next] be2net: Fix INTx processing for Lancer
+Date: Mon, 19 Dec 2011 17:23:35 +0530
+Message-ID: <607e9a88-8d23-4cca-8aff-07578855b0e8@exht1.ad.emulex.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.etf.rs ([147.91.14.170]:34312 "EHLO mx2.etf.bg.ac.rs"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751629Ab1LSK2q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Dec 2011 05:28:46 -0500
-In-Reply-To: <igorm@etf.rs>
+Received: from exht1.emulex.com ([138.239.113.183]:20366 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752891Ab1LSMAD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 07:00:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Igor Maravic <igorm@etf.rs>
+Lancer does not have HW registers to indicate the EQ causing the INTx
+interrupt. As a result EQE entries of one EQ may be consumed when interrupt
+is caused by another EQ. Fix this by arming CQs at the end of NAPI poll
+routine to regenerate the EQEs.
 
-Changes to r8169 to use byte queue limits.
-
-Signed-off-by: Igor Maravic <igorm@etf.rs>
+Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 ---
- drivers/net/ethernet/realtek/r8169.c |   12 ++++++++++--
- 1 files changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |   10 +++++++++-
+ 1 files changed, 9 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 36b2a4b..5fefcc3 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -5326,6 +5326,7 @@ static void rtl8169_tx_clear(struct rtl8169_private *tp)
- {
- 	rtl8169_tx_clear_range(tp, tp->dirty_tx, NUM_TX_DESC);
- 	tp->cur_tx = tp->dirty_tx = 0;
-+	netdev_reset_queue(tp->dev);
- }
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index b145a49..76f3a98 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1970,6 +1970,7 @@ static int be_poll_tx_mcc(struct napi_struct *napi, int budget)
+ 	struct be_eq_obj *tx_eq = container_of(napi, struct be_eq_obj, napi);
+ 	struct be_adapter *adapter =
+ 		container_of(tx_eq, struct be_adapter, tx_eq);
++	struct be_mcc_obj *mcc_obj = &adapter->mcc_obj;
+ 	struct be_tx_obj *txo;
+ 	struct be_eth_tx_compl *txcp;
+ 	int tx_compl, mcc_compl, status = 0;
+@@ -2006,12 +2007,19 @@ static int be_poll_tx_mcc(struct napi_struct *napi, int budget)
+ 	mcc_compl = be_process_mcc(adapter, &status);
  
- static void rtl8169_schedule_work(struct net_device *dev, work_func_t task)
-@@ -5535,6 +5536,7 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
- 		opts[0] |= FirstFrag | LastFrag;
- 		tp->tx_skb[entry].skb = skb;
+ 	if (mcc_compl) {
+-		struct be_mcc_obj *mcc_obj = &adapter->mcc_obj;
+ 		be_cq_notify(adapter, mcc_obj->cq.id, true, mcc_compl);
  	}
-+	netdev_sent_queue(dev, skb->len);
  
- 	txd->opts2 = cpu_to_le32(opts[1]);
+ 	napi_complete(napi);
  
-@@ -5624,6 +5626,8 @@ static void rtl8169_tx_interrupt(struct net_device *dev,
- 				 void __iomem *ioaddr)
- {
- 	unsigned int dirty_tx, tx_left;
-+	unsigned int bytes_compl = 0;
-+	int tx_compl = 0;
- 
- 	dirty_tx = tp->dirty_tx;
- 	smp_rmb();
-@@ -5642,14 +5646,18 @@ static void rtl8169_tx_interrupt(struct net_device *dev,
- 		rtl8169_unmap_tx_skb(&tp->pci_dev->dev, tx_skb,
- 				     tp->TxDescArray + entry);
- 		if (status & LastFrag) {
--			dev->stats.tx_packets++;
--			dev->stats.tx_bytes += tx_skb->skb->len;
-+			tx_compl++;
-+			bytes_compl += tx_skb->skb->len;
- 			dev_kfree_skb(tx_skb->skb);
- 			tx_skb->skb = NULL;
- 		}
- 		dirty_tx++;
- 		tx_left--;
- 	}
-+	dev->stats.tx_packets += tx_compl;
-+	dev->stats.tx_bytes += bytes_compl;
++	/* Arm CQ again to regenerate EQEs for Lancer in INTx mode */
++	if (lancer_chip(adapter) && !msix_enabled(adapter)) {
++		for_all_tx_queues(adapter, txo, i)
++			be_cq_notify(adapter, txo->cq.id, true, 0);
 +
-+	netdev_completed_queue(dev, tx_compl, bytes_compl);
- 
- 	if (tp->dirty_tx != dirty_tx) {
- 		tp->dirty_tx = dirty_tx;
++		be_cq_notify(adapter, mcc_obj->cq.id, true, 0);
++	}
++
+ 	be_eq_notify(adapter, tx_eq->q.id, true, false, 0);
+ 	adapter->drv_stats.tx_events++;
+ 	return 1;
 -- 
-1.7.5.4
+1.6.0.2
