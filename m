@@ -1,111 +1,94 @@
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: [PATCH 14/14] Documentation/networking/ieee802154: update MAC chapter
-Date: Mon, 19 Dec 2011 19:33:54 +0300
-Message-ID: <1324312434-13151-14-git-send-email-alex.bluesman.smirnov@gmail.com>
-References: <20111219163117.GA13123@avtobot.cybertron>
-Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-To: davem@davemloft.net
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net] gianfar: Reject out-of-range RX NFC locations
+Date: Mon, 19 Dec 2011 15:51:38 +0000
+Message-ID: <1324309898.2797.15.camel@bwh-desktop>
+References: <1324083927.2798.34.camel@bwh-desktop>
+	 <1324111180.1813.8.camel@vostro>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Sebastian =?ISO-8859-1?Q?P=F6hn?= <sebastian.poehn@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:42862 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752145Ab1LSPg5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 10:36:57 -0500
-Received: by eekc4 with SMTP id c4so5553711eek.19
-        for <netdev@vger.kernel.org>; Mon, 19 Dec 2011 07:36:56 -0800 (PST)
-In-Reply-To: <20111219163117.GA13123@avtobot.cybertron>
+Received: from exchange.solarflare.com ([216.237.3.220]:54721 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750713Ab1LSPvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 10:51:41 -0500
+In-Reply-To: <1324111180.1813.8.camel@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update the documentation according to latest changes.
+On Sat, 2011-12-17 at 09:39 +0100, Sebastian P=C3=B6hn wrote:
+> On Sat, 2011-12-17 at 01:05 +0000, Ben Hutchings wrote:
+> > Currently the driver only uses location values to maintain an order=
+ed
+> > list of filters.  There is nothing to stop the list becoming longer
+> > than the filer hardware can support - the driver will report an err=
+or,
+> > but will not roll back the change!
+> Sure that it does not do the rollback?
+> In case of to much filters it should work this way:
+> # Convert all in temp table
+> # Compress temp table
+> # Write out temp table =3D> not enough space =3D> discard temp table =
+&
+> remove filter from list=20
 
-Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
----
- Documentation/networking/ieee802154.txt |   57 +++++++++++++++++++++++++++----
- 1 files changed, 50 insertions(+), 7 deletions(-)
+You're right, I must have misread the code previously.  Therefore, I
+withdraw this patch for the time being.
 
-diff --git a/Documentation/networking/ieee802154.txt b/Documentation/networking/ieee802154.txt
-index 1dc1c24..df41468 100644
---- a/Documentation/networking/ieee802154.txt
-+++ b/Documentation/networking/ieee802154.txt
-@@ -4,15 +4,22 @@
- 
- Introduction
- ============
-+The IEEE 802.15.4 working group focuses on standartization of bottom
-+two layers: Medium Accsess Control (MAC) and Physical (PHY). And there
-+are mainly two options available for upper layers:
-+ - ZigBee - proprietary protocol from ZigBee Alliance
-+ - 6LowPAN - IPv6 networking over low rate personal area networks
- 
- The Linux-ZigBee project goal is to provide complete implementation
--of IEEE 802.15.4 / ZigBee / 6LoWPAN protocols. IEEE 802.15.4 is a stack
-+of IEEE 802.15.4 and 6LoWPAN protocols. IEEE 802.15.4 is a stack
- of protocols for organizing Low-Rate Wireless Personal Area Networks.
- 
--Currently only IEEE 802.15.4 layer is implemented. We have chosen
--to use plain Berkeley socket API, the generic Linux networking stack
--to transfer IEEE 802.15.4 messages and a special protocol over genetlink
--for configuration/management
-+The stack is composed of three main parts:
-+ - IEEE 802.15.4 layer;  We have chosen to use plain Berkeley socket API,
-+   the generic Linux networking stack to transfer IEEE 802.15.4 messages
-+   and a special protocol over genetlink for configuration/management
-+ - MAC - provides access to shared channel and reliable data delivery
-+ - PHY - represents device drivers
- 
- 
- Socket API
-@@ -73,11 +80,47 @@ We provide an example of simple HardMAC driver at drivers/ieee802154/fakehard.c
- SoftMAC
- =======
- 
--We are going to provide intermediate layer implementing IEEE 802.15.4 MAC
--in software. This is currently WIP.
-+The MAC is the middle layer in the IEEE 802.15.4 Linux stack. This moment it
-+provides interface for drivers registration and management of slave interfaces.
-+
-+NOTE: Currently the only monitor device type is supported - it's IEEE 802.15.4
-+stack interface for network sniffers (e.g. WireShark).
-+
-+This layer is going to be extended soon.
- 
- See header include/net/mac802154.h and several drivers in drivers/ieee802154/.
- 
-+
-+Device drivers API
-+==================
-+
-+The include/net/mac802154.h defines following functions:
-+ - struct ieee802154_dev *ieee802154_alloc_device
-+   (size_t priv_size, struct ieee802154_ops *ops):
-+   allocation of IEEE 802.15.4 compatible device
-+
-+ - void ieee802154_free_device(struct ieee802154_dev *dev):
-+   freeing allocated device
-+
-+ - int ieee802154_register_device(struct ieee802154_dev *dev):
-+   register PHY in the system
-+
-+ - void ieee802154_unregister_device(struct ieee802154_dev *dev):
-+   freeing registered PHY
-+
-+Moreover IEEE 802.15.4 device operations structure should be filled.
-+
-+Fake drivers
-+============
-+
-+In addition there are two drivers available which simulate real devices with
-+HardMAC (fakehard) and SoftMAC (fakelb - IEEE 802.15.4 loopback driver)
-+interfaces. This option provides possibility to test and debug stack without
-+usage of real hardware.
-+
-+See sources in drivers/ieee802154 folder for more details.
-+
-+
- 6LoWPAN Linux implementation
- ============================
- 
--- 
-1.7.2.3
+> > Make it reject location values >=3D MAX_FILER_IDX, consistent with =
+the
+> > range that gfar_get_cls_all() reports.
+
+I do however think that this should be consistent, and I would like to
+reserve some 'special' location values.  But, for compatibility, it may
+be necessary to use some other method to distinguish them (e.g. another
+flow_type flag.)
+
+Ben.
+
+> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> Reviewed-by: Sebastian P=C3=B6hn <sebastian.poehn@googlemail.com>
+> > ---
+> > [Re-sent to what I hope is a current address for Sebastian.]
+> >=20
+> > This has not been tested in any way, as I don't have a suitable com=
+piler
+> > installed.  Sebastian, please could you review this?
+> Unfortunately I haven't too ...
+> >=20
+> > Ben.
+> >=20
+> >  drivers/net/ethernet/freescale/gianfar_ethtool.c |    5 +++--
+> >  1 files changed, 3 insertions(+), 2 deletions(-)
+> >=20
+> > diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/dri=
+vers/net/ethernet/freescale/gianfar_ethtool.c
+> > index 5890f4b..5a3b2e5 100644
+> > --- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
+> > +++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+> > @@ -1692,8 +1692,9 @@ static int gfar_set_nfc(struct net_device *de=
+v, struct ethtool_rxnfc *cmd)
+> >  		ret =3D gfar_set_hash_opts(priv, cmd);
+> >  		break;
+> >  	case ETHTOOL_SRXCLSRLINS:
+> > -		if (cmd->fs.ring_cookie !=3D RX_CLS_FLOW_DISC &&
+> > -			cmd->fs.ring_cookie >=3D priv->num_rx_queues) {
+> > +		if ((cmd->fs.ring_cookie !=3D RX_CLS_FLOW_DISC &&
+> > +		     cmd->fs.ring_cookie >=3D priv->num_rx_queues) ||
+> > +		    cmd->fs.location >=3D MAX_FILER_IDX) {
+> >  			ret =3D -EINVAL;
+> >  			break;
+> >  		}
+> > --=20
+> > 1.7.4.4
+> >=20
+> >=20
+>=20
+>=20
+
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
