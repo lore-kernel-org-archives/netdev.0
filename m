@@ -1,61 +1,51 @@
-From: Marek Vasut <marek.vasut-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH V3 10/14] ARM: mxs: add clk_prepare/clk_unprepare
-Date: Mon, 19 Dec 2011 23:21:41 +0100
-Message-ID: <201112192321.41560.marek.vasut@gmail.com>
-References: <1321008637-19999-1-git-send-email-richard.zhao@linaro.org> <1321008637-19999-11-git-send-email-richard.zhao@linaro.org>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: Re: [PATCH] sctp: Do not account for sizeof(struct sk_buff) in
+ estimated rwnd
+Date: Mon, 19 Dec 2011 18:19:36 -0500
+Message-ID: <20111219231936.GA21801@canuck.infradead.org>
+References: <1324303900-8360-1-git-send-email-tgraf@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Richard Zhao <richard.zhao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, amit.kucheria-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org,
-	linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org, kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
-	eric.miao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org, cjb-2X9k7bc8m7Mdnm+yROfE0A@public.gmane.org,
-	alan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, Fabio Estevam <festevam-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1321008637-19999-11-git-send-email-richard.zhao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from merlin.infradead.org ([205.233.59.134]:38491 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752718Ab1LSXTj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 18:19:39 -0500
+Content-Disposition: inline
+In-Reply-To: <1324303900-8360-1-git-send-email-tgraf@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Signed-off-by: Richard Zhao <richard.zhao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-> ---
->  arch/arm/mach-mxs/system.c |    2 +-
->  arch/arm/mach-mxs/timer.c  |    2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/arch/arm/mach-mxs/system.c b/arch/arm/mach-mxs/system.c
-> index 20ec3bd..9760a12 100644
-> --- a/arch/arm/mach-mxs/system.c
-> +++ b/arch/arm/mach-mxs/system.c
-> @@ -66,7 +66,7 @@ static int __init mxs_arch_reset_init(void)
-> 
->  	clk = clk_get_sys("rtc", NULL);
->  	if (!IS_ERR(clk))
-> -		clk_enable(clk);
-> +		clk_prepare_enable(clk);
-> 
->  	return 0;
->  }
-> diff --git a/arch/arm/mach-mxs/timer.c b/arch/arm/mach-mxs/timer.c
-> index cace0d2..564a632 100644
-> --- a/arch/arm/mach-mxs/timer.c
-> +++ b/arch/arm/mach-mxs/timer.c
-> @@ -245,7 +245,7 @@ static int __init mxs_clocksource_init(struct clk
-> *timer_clk)
-> 
->  void __init mxs_timer_init(struct clk *timer_clk, int irq)
->  {
-> -	clk_enable(timer_clk);
-> +	clk_prepare_enable(timer_clk);
-> 
->  	/*
->  	 * Initialize timers to a known state
+On Mon, Dec 19, 2011 at 03:11:40PM +0100, Thomas Graf wrote:
+> Trying to reproduce this I found that with the sk_buff overhead removed,
+> the performance would improve significantly unless socket buffer limits
+> are increased.
 
-Hi Richard,
+I believe this is likely to be misunderstood. What I meant is that by
+removing the sk_buff overhead and while using default socket buffer limits
+the performance increases as shown below. If socket buffers are enlarged
+performance differences fade until there is no longer any difference.
 
-I just came across this, will this also help solve the mxs problem with mutex 
-lock begin done in atomic context in clk_enable/disable()?
+Sorry for poor wording.
 
-M
+> The following numbers have been gathered using a patched iperf
+> supporting SCTP over a live 1 Gbit ethernet network. The -l option
+> was used to limit DATA chunk sizes. The numbers listed are based on
+> the average of 3 test runs each. Default values have been used for
+> sk_(r|w)mem.
+> 
+> Chunk
+> Size    Unpatched     No Overhead
+> -------------------------------------
+>    4    15.2 Kbit [!]   12.2 Mbit [!]
+>    8    35.8 Kbit [!]   26.0 Mbit [!]
+>   16    95.5 Kbit [!]   54.4 Mbit [!]
+>   32   106.7 Mbit      102.3 Mbit
+>   64   189.2 Mbit      188.3 Mbit
+>  128   331.2 Mbit      334.8 Mbit
+>  256   537.7 Mbit      536.0 Mbit
+>  512   766.9 Mbit      766.6 Mbit
+> 1024   810.1 Mbit      808.6 Mbit
