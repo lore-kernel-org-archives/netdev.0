@@ -1,45 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: TTL=0 multicast packets leaving host
-Date: Mon, 19 Dec 2011 16:06:01 -0500 (EST)
-Message-ID: <20111219.160601.947997861151242331.davem@davemloft.net>
-References: <20111207213158.GA2444@BohrerMBP.rgmadvisors.com>
+Subject: Re: linux-3.0.x regression with ipv4 routes having mtu
+Date: Mon, 19 Dec 2011 16:10:53 -0500 (EST)
+Message-ID: <20111219.161053.148816799233666803.davem@davemloft.net>
+References: <20111214.125010.82857701285437834.davem@davemloft.net>
+	<20111215134957.GI6348@secunet.com>
+	<20111216122147.GJ6348@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sbohrer@rgmadvisors.com
+Cc: timo.teras@iki.fi, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58943 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:59010 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752361Ab1LSVGI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 16:06:08 -0500
-In-Reply-To: <20111207213158.GA2444@BohrerMBP.rgmadvisors.com>
+	with ESMTP id S1752361Ab1LSVLC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 16:11:02 -0500
+In-Reply-To: <20111216122147.GJ6348@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Date: Wed, 7 Dec 2011 15:31:58 -0600
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Fri, 16 Dec 2011 13:21:47 +0100
 
-> This looks like a bug to me.  I'd assume that if the local computer
-> has not joined the multicast group and I send a TTL=0 packet that it
-> would simply get discarded.
+> Subject: [PATCH] route: Initialize with the fib_metrics in the non default case
+> 
+> We initialize the routing metrics with the cached values in
+> rt_init_metrics(). So if we have the metrics cached on the
+> inetpeer, we ignore the user configured fib_metrics. So
+> initialize the routing metrics with the fib_metrics if they
+> are different from dst_default_metrics.
+> 
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 
-This behavior is intentional, several multicast applications set TTL
-to zero and expect it to reach the local network.
+The current behavior is intentional.
 
-See the comment elsewhere in route.c:
+Learned metrics should be used on all routes for which a inetpeer
+peer exists and the destination matches.
 
-			/* Special hack: user can direct multicasts
-			   and limited broadcast via necessary interface
-			   without fiddling with IP_MULTICAST_IF or IP_PKTINFO.
-			   This hack is not just for fun, it allows
-			   vic,vat and friends to work.
-			   They bind socket to loopback, set ttl to zero
-			   and expect that it will work.
-			   From the viewpoint of routing cache they are broken,
-			   because we are not allowed to build multicast path
-			   with loopback source addr (look, routing cache
-			   cannot know, that ttl is zero, so that packet
-			   will not leave this host and route is valid).
-			   Luckily, this hack is good workaround.
-			 */
+There is no sane way to allow overrides.
+
+I'm pretty sure all of Timo's bugs will be fixed when you add the
+generation count for PMTU stuff.
