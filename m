@@ -1,17 +1,16 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 02/14] mac802154: allocation of
-	ieee802154 device
-Date: Mon, 19 Dec 2011 14:34:04 -0500 (EST)
-Message-ID: <20111219.143404.706657080241404654.davem@davemloft.net>
+Subject: Re: [PATCH 03/14] mac802154: RX data path
+Date: Mon, 19 Dec 2011 14:36:08 -0500 (EST)
+Message-ID: <20111219.143608.1409188332664691009.davem@davemloft.net>
 References: <20111219163117.GA13123@avtobot.cybertron>
-	<1324312434-13151-2-git-send-email-alex.bluesman.smirnov@gmail.com>
+	<1324312434-13151-3-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1324312434-13151-2-git-send-email-alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <1324312434-13151-3-git-send-email-alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
 	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
@@ -23,15 +22,26 @@ Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gm
 List-Id: netdev.vger.kernel.org
 
 From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Mon, 19 Dec 2011 19:33:42 +0300
+Date: Mon, 19 Dec 2011 19:33:43 +0300
 
-> +	phy = wpan_phy_alloc(ALIGN(sizeof(*priv), NETDEV_ALIGN) + priv_size);
+> +void ieee802154_rx(struct ieee802154_dev *dev, struct sk_buff *skb, u8 lqi);
+> +void ieee802154_rx_irqsafe(struct ieee802154_dev *dev, struct sk_buff *skb,
+> +		u8 lqi);
 
-WHy make the call sites have to be cognizant of all of these crazy
-alignment calculations?
+Line up the "u8 lqi" argument with the openning parenthesis on the previous line.
 
-Make wpan_phy_alloc() take care of it, and just pass the minimum amount of
-information necessary for it to calculate the right size.
+> +static void
+> +mac802154_subif_rx(struct ieee802154_dev *hw, struct sk_buff *skb, u8 lqi)
+> +{
+> +	struct mac802154_priv *priv = mac802154_to_priv(hw);
+> +
+> +	BUG_ON(!skb);
+
+This assertion is excessive.
+
+You are adding all of the call sites, therefore you can see if the SKB
+argument is NULL or not.
+
 
 ------------------------------------------------------------------------------
 Learn Windows Azure Live!  Tuesday, Dec 13, 2011
