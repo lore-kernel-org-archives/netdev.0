@@ -1,69 +1,44 @@
-From: Shan Wei <shanwei88@gmail.com>
-Subject: [PATCH net-next ] net: doc: fix many typos in scaling.txt
-Date: Tue, 20 Dec 2011 10:34:15 +0800
-Message-ID: <4EEFF427.1090801@gmail.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: macvtap rxhash patch
+Date: Tue, 20 Dec 2011 08:51:05 +0530
+Message-ID: <OF7DCC4D0D.E909B609-ON6525796C.0011F75F-6525796C.00122AAB@in.ibm.com>
+References: <20111219.163732.1743893510814385117.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?5Y2V5Y2r?= <shanwei88@gmail.com>,
-	NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: mst@redhat.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:46359 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751159Ab1LTCb5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 21:31:57 -0500
-Received: by iaeh11 with SMTP id h11so9483448iae.19
-        for <netdev@vger.kernel.org>; Mon, 19 Dec 2011 18:31:57 -0800 (PST)
+Received: from e28smtp08.in.ibm.com ([122.248.162.8]:56935 "EHLO
+	e28smtp08.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751935Ab1LTDSd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 22:18:33 -0500
+Received: from /spool/local
+	by e28smtp08.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <krkumar2@in.ibm.com>;
+	Tue, 20 Dec 2011 08:48:30 +0530
+Received: from d28av04.in.ibm.com (d28av04.in.ibm.com [9.184.220.66])
+	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id pBK3IRen4005888
+	for <netdev@vger.kernel.org>; Tue, 20 Dec 2011 08:48:27 +0530
+Received: from d28av04.in.ibm.com (loopback [127.0.0.1])
+	by d28av04.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id pBK3IQ70008867
+	for <netdev@vger.kernel.org>; Tue, 20 Dec 2011 14:18:26 +1100
+In-Reply-To: <20111219.163732.1743893510814385117.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix some trivial typos.
+David Miller <davem@davemloft.net> wrote on 12/20/2011 03:07:32 AM:
 
-Signed-off-by: Shan Wei <shanwei88@gmail.com>
----
- Documentation/networking/scaling.txt |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+> Reference:
+>
+> http://patchwork.ozlabs.org/patch/127456/
+>
+> This is just rotting for a long time, I want to just do something
+> with this patch, and I don't care if that's "apply it now" or
+> "defer indefinitely".
 
-diff --git a/Documentation/networking/scaling.txt b/Documentation/networking/scaling.txt
-index a177de2..579994a 100644
---- a/Documentation/networking/scaling.txt
-+++ b/Documentation/networking/scaling.txt
-@@ -208,7 +208,7 @@ The counter in rps_dev_flow_table values records the length of the current
- CPU's backlog when a packet in this flow was last enqueued. Each backlog
- queue has a head counter that is incremented on dequeue. A tail counter
- is computed as head counter + queue length. In other words, the counter
--in rps_dev_flow_table[i] records the last element in flow i that has
-+in rps_dev_flow[i] records the last element in flow i that has
- been enqueued onto the currently designated CPU for flow i (of course,
- entry i is actually selected by hash and multiple flows may hash to the
- same entry i).
-@@ -224,7 +224,7 @@ following is true:
+Michael, what do you suggest? I expect this should work
+as expected for all NIC's, though I have tested only
+with ixgbe.
 
- - The current CPU's queue head counter >= the recorded tail counter
-   value in rps_dev_flow[i]
--- The current CPU is unset (equal to NR_CPUS)
-+- The current CPU is unset (equal to RPS_NO_CPU)
- - The current CPU is offline
-
- After this check, the packet is sent to the (possibly updated) current
-@@ -235,7 +235,7 @@ CPU.
-
- ==== RFS Configuration
-
--RFS is only available if the kconfig symbol CONFIG_RFS is enabled (on
-+RFS is only available if the kconfig symbol CONFIG_RPS is enabled (on
- by default for SMP). The functionality remains disabled until explicitly
- configured. The number of entries in the global flow table is set through:
-
-@@ -258,7 +258,7 @@ For a single queue device, the rps_flow_cnt value for the single queue
- would normally be configured to the same value as rps_sock_flow_entries.
- For a multi-queue device, the rps_flow_cnt for each queue might be
- configured as rps_sock_flow_entries / N, where N is the number of
--queues. So for instance, if rps_flow_entries is set to 32768 and there
-+queues. So for instance, if rps_sock_flow_entries is set to 32768 and there
- are 16 configured receive queues, rps_flow_cnt for each queue might be
- configured as 2048.
-
--- 
-1.7.1
+thanks,
+- KK
