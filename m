@@ -1,69 +1,82 @@
-From: "allan" <allan@asix.com.tw>
-Subject: RE: [PATCH] asix: new device id
-Date: Tue, 20 Dec 2011 08:41:32 +0800
-Message-ID: <003d01ccbeb0$22f14320$68d3c960$@com.tw>
-References: <20111216.133227.782560339712731597.davem@davemloft.net>	<1324068562-3761-1-git-send-email-aurel@gnuage.org>	<20111219.160059.783127741333326755.davem@davemloft.net> <CANEJEGswxaxgD9eet9uDZm6Ezf67ibG0XOTggSBONZ6M1KMErA@mail.gmail.com>
+From: Richard Zhao <richard.zhao@freescale.com>
+Subject: Re: [PATCH V3 10/14] ARM: mxs: add clk_prepare/clk_unprepare
+Date: Tue, 20 Dec 2011 08:56:34 +0800
+Message-ID: <20111220005633.GC15863@b20223-02.ap.freescale.net>
+References: <1321008637-19999-1-git-send-email-richard.zhao@linaro.org>
+ <1321008637-19999-11-git-send-email-richard.zhao@linaro.org>
+ <201112192321.41560.marek.vasut@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: <aurel@gnuage.org>, <netdev@vger.kernel.org>,
-	"'Freddy Xin'" <freddy@asix.com.tw>,
-	=?utf-8?B?QVNJWCBMb3VpcyBb6JiH5aiB6Zm4XQ==?= <louis@asix.com.tw>
-To: "'Grant Grundler'" <grundler@google.com>,
-	"'David Miller'" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from asix.com.tw ([113.196.140.82]:64633 "EHLO asix.com.tw"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752335Ab1LTAl7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 19:41:59 -0500
-In-Reply-To: <CANEJEGswxaxgD9eet9uDZm6Ezf67ibG0XOTggSBONZ6M1KMErA@mail.gmail.com>
-Content-Language: zh-tw
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <linux-arm-kernel@lists.infradead.org>,
+	<amit.kucheria@canonical.com>, <linux@arm.linux.org.uk>,
+	<kernel@pengutronix.de>, <netdev@vger.kernel.org>,
+	<linux-mmc@vger.kernel.org>, <eric.miao@linaro.org>,
+	<linux-i2c@vger.kernel.org>, <linux-serial@vger.kernel.org>,
+	<cjb@laptop.org>, Fabio Estevam <festevam@gmail.com>,
+	Richard Zhao <richard.zhao@linaro.org>, <ben-linux@fluff.org>,
+	<alan@linux.intel.com>
+To: Marek Vasut <marek.vasut@gmail.com>
+Return-path: <linux-serial-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201112192321.41560.marek.vasut@gmail.com>
+Sender: linux-serial-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear David,
+On Mon, Dec 19, 2011 at 11:21:41PM +0100, Marek Vasut wrote:
+> > Signed-off-by: Richard Zhao <richard.zhao@linaro.org>
+> > ---
+> >  arch/arm/mach-mxs/system.c |    2 +-
+> >  arch/arm/mach-mxs/timer.c  |    2 +-
+> >  2 files changed, 2 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/arch/arm/mach-mxs/system.c b/arch/arm/mach-mxs/system.c
+> > index 20ec3bd..9760a12 100644
+> > --- a/arch/arm/mach-mxs/system.c
+> > +++ b/arch/arm/mach-mxs/system.c
+> > @@ -66,7 +66,7 @@ static int __init mxs_arch_reset_init(void)
+> > 
+> >  	clk = clk_get_sys("rtc", NULL);
+> >  	if (!IS_ERR(clk))
+> > -		clk_enable(clk);
+> > +		clk_prepare_enable(clk);
+> > 
+> >  	return 0;
+> >  }
+> > diff --git a/arch/arm/mach-mxs/timer.c b/arch/arm/mach-mxs/timer.c
+> > index cace0d2..564a632 100644
+> > --- a/arch/arm/mach-mxs/timer.c
+> > +++ b/arch/arm/mach-mxs/timer.c
+> > @@ -245,7 +245,7 @@ static int __init mxs_clocksource_init(struct clk
+> > *timer_clk)
+> > 
+> >  void __init mxs_timer_init(struct clk *timer_clk, int irq)
+> >  {
+> > -	clk_enable(timer_clk);
+> > +	clk_prepare_enable(timer_clk);
+> > 
+> >  	/*
+> >  	 * Initialize timers to a known state
+> 
+> Hi Richard,
+> 
+> I just came across this, will this also help solve the mxs problem with mutex 
+> lock begin done in atomic context in clk_enable/disable()?
+No, It's for converting to generic clock framwork.
+You can look at Mike's generic clock patches. clk_hw_ops.enable/disable
+definitely can not sleep.
+On register side, there' two way to protect register:
+ - use a global spin lock
+ - only use spin lock wherever gate register share the same one with
+   other non-gate register.
 
-ASUS's USB to Ethernet adapter (delivered with Zenbook) implemented ASIX's latest USB 2.0 to Fast Ethernet solution, AX88772B inside. ASUS hopes to enable the WOL function on Windows system by default so we assigned a new VID/PID (0B95h/7E2Bh) to meet their requirement. 
+Thanks
+Richard
+> 
+> M
+> 
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+> 
 
-For Linux native driver, you can easily add the new VID/PID (0B95h/7E2Bh) to work as the AX88772B (with default VID/PID, 0B95h/772Bh). Please feel free to let us know if you have any problems or need more information. Thanks a lot for your great helps.
-
-
----
-Best regards,
-Allan Chou
-Technical Support Division
-ASIX Electronics Corporation
-TEL: 886-3-5799500 ext.228
-FAX: 886-3-5799558
-E-mail: allan@asix.com.tw 
-http://www.asix.com.tw/ 
-
------Original Message-----
-From: Grant Grundler [mailto:grundler@google.com] 
-Sent: Tuesday, December 20, 2011 5:23 AM
-To: David Miller
-Cc: aurel@gnuage.org; netdev@vger.kernel.org; Allan Chou; Freddy Xin
-Subject: Re: [PATCH] asix: new device id
-
-On Mon, Dec 19, 2011 at 1:00 PM, David Miller <davem@davemloft.net> wrote:
-> From: Aurelien Jacobs <aurel@gnuage.org>
-> Date: Fri, 16 Dec 2011 21:49:22 +0100
->
->> Adds the device id needed for the USB Ethernet Adapter delivered by
->> ASUS with their Zenbook.
->>
->> Signed-off-by: Aurelien Jacobs <aurel@gnuage.org>
->
-> Grant, ACK/NACK?
-
-Dave,
-I'm totally ok with it if Aurelien is confident it "works" (well enough).
-
-I'm really the wrong guy to ask though. I don't have the device
-and I'm not associated with the mfg.
-
-The right people to ask (CC'd) are Allan Chou and Freddy Xin (both from ASIX).
-
-cheers!
-grant
