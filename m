@@ -1,43 +1,34 @@
-From: "Anatoly Sivov" <mm05@mail.ru>
-Subject: tcp_mtu_probe implementation details
-Date: Wed, 21 Dec 2011 01:49:04 +0400
-Message-ID: <op.v6s5j2i0fzo5me@stalin>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: tcp_mtu_probe implementation details
+Date: Tue, 20 Dec 2011 14:33:01 -0800
+Message-ID: <CAGK4HS93u=3muZu_rkqK7FSacTHUytK5H6_dMNo_uOQY738R_g@mail.gmail.com>
+References: <op.v6s5j2i0fzo5me@stalin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Anatoly Sivov <mm05@mail.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback6.mail.ru ([94.100.176.134]:35614 "EHLO
-	fallback6.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751991Ab1LTVta (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 16:49:30 -0500
-Received: from smtp21.mail.ru (smtp21.mail.ru [94.100.176.174])
-	by fallback6.mail.ru (mPOP.Fallback_MX) with ESMTP id 161336DD4D0E
-	for <netdev@vger.kernel.org>; Wed, 21 Dec 2011 01:49:28 +0400 (MSK)
-Received: from [95.175.225.47] (port=52042 helo=stalin)
-	by smtp21.mail.ru with esmtpa (envelope-from <mm05@mail.ru>)
-	id 1Rd7YY-0001wl-L5
-	for netdev@vger.kernel.org; Wed, 21 Dec 2011 01:49:06 +0400
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:40815 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752230Ab1LTWdC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 17:33:02 -0500
+Received: by vcbfk14 with SMTP id fk14so5293805vcb.19
+        for <netdev@vger.kernel.org>; Tue, 20 Dec 2011 14:33:01 -0800 (PST)
+In-Reply-To: <op.v6s5j2i0fzo5me@stalin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+> The other question is about size_needed variable.
+> It is assigned to value probe_size + (tp->reordering + 1) * tp->mss_cache
+> And that is not clear for me.
+> What is this "(tp->reordering + 1) * tp->mss_cache" addition?
+>
 
-Looking on TCP implementation in Linux I see that there are some things
-that I don't understand in tcp_mtu_probe() implementation.
-Could someone clear them for me or share the link to Linux PMTUD
-documentation, please?
-The first thing I don't understand is tp->snd_cwnd < 11 in
-if (!icsk->icsk_mtup.enabled ||
-             icsk->icsk_mtup.probe_size ||
-             inet_csk(sk)->icsk_ca_state != TCP_CA_Open ||
-             tp->snd_cwnd < 11 ||
-             tp->rx_opt.num_sacks || tp->rx_opt.dsack)
-                 return -1;
-What is magic number "11" here?
-The other question is about size_needed variable.
-It is assigned to value probe_size + (tp->reordering + 1) * tp->mss_cache
-And that is not clear for me.
-What is this "(tp->reordering + 1) * tp->mss_cache" addition?
+I think the idea is that you want enough bytes in the write_queue so
+that even if the probe is lost, the sender will get an ack even if
+there is reordering in the network. Without sufficient bytes, the
+probe will not be sent. This is what I make of the code but I could be
+wrong.
 
-Thanks.
+Regards,
+Vijay
