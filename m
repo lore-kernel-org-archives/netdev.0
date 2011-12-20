@@ -1,79 +1,89 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 06/10] [PATCH] qeth: suspicious rcu_dereference_check in recovery
-Date: Tue, 20 Dec 2011 09:56:32 +0100
-Message-ID: <20111220085736.122805720@de.ibm.com>
+Subject: [patch 04/10] [PATCH] af_iucv: remove unused timer infrastructure
+Date: Tue, 20 Dec 2011 09:56:30 +0100
+Message-ID: <20111220085735.905728353@de.ibm.com>
 References: <20111220085626.924756639@de.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
 	Ursula Braun <ursula.braun@de.ibm.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:48963 "EHLO
+Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:48972 "EHLO
 	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752724Ab1LTI6D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 03:58:03 -0500
+	with ESMTP id S1752684Ab1LTI6A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 03:58:00 -0500
 Received: from /spool/local
 	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
 	Tue, 20 Dec 2011 08:57:58 -0000
-Content-Disposition: inline; filename=606-qeth-rtnl-lock.diff
+Content-Disposition: inline; filename=604-af_iucv-rm-timer.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ursula Braun <ursula.braun@de.ibm.com>
 
-qeth layer3 recovery invokes its set_multicast_list function, which
-invokes function __vlan_find_dev_deep requiring rcu_read_lock or
-rtnl lock. This causes kernel messages:
-
-kernel: [ INFO: suspicious rcu_dereference_check() usage. ]
-kernel: ---------------------------------------------------
-kernel: net/8021q/vlan_core.c:70 invoked rcu_dereference_check() without protection!
-
-kernel: stack backtrace:
-kernel: CPU: 0 Not tainted 3.1.0 #9
-kernel: Process qeth_recover (pid: 2078, task: 000000007e584680, ksp: 000000007e3e3930)
-kernel: 000000007e3e3d08 000000007e3e3c88 0000000000000002 0000000000000000 
-kernel:       000000007e3e3d28 000000007e3e3ca0 000000007e3e3ca0 00000000005e77ce 
-kernel:       0000000000000000 0000000000000001 ffffffffffffffff 0000000000000001 
-kernel:       000000000000000d 000000000000000c 000000007e3e3cf0 0000000000000000 
-kernel:       0000000000000000 0000000000100a18 000000007e3e3c88 000000007e3e3cc8 
-kernel: Call Trace:
-kernel: ([<0000000000100926>] show_trace+0xee/0x144)
-kernel: [<00000000005d395c>] __vlan_find_dev_deep+0xb0/0x108
-kernel: [<00000000004acd3a>] qeth_l3_set_multicast_list+0x976/0xe38
-kernel: [<00000000004ae0f4>] __qeth_l3_set_online+0x75c/0x1498
-kernel: [<00000000004aefec>] qeth_l3_recover+0xc4/0x1d0
-kernel: [<0000000000185372>] kthread+0xa6/0xb0
-kernel: [<00000000005ed4c6>] kernel_thread_starter+0x6/0xc
-kernel: [<00000000005ed4c0>] kernel_thread_starter+0x0/0xc
-
-The patch makes sure the rtnl lock is held once qeth recovery invokes
-its set_multicast_list function.
+af_iucv contains timer infrastructure which is not exploited.
+This patch removes the timer related code parts.
 
 Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
 Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 ---
 
- drivers/s390/net/qeth_l3_main.c |    7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ include/net/iucv/af_iucv.h |    1 -
+ net/iucv/af_iucv.c         |   22 ----------------------
+ 2 files changed, 23 deletions(-)
 
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -3492,14 +3492,13 @@ contin:
- 	else
- 		netif_carrier_off(card->dev);
- 	if (recover_flag == CARD_STATE_RECOVER) {
-+		rtnl_lock();
- 		if (recovery_mode)
- 			__qeth_l3_open(card->dev);
--		else {
--			rtnl_lock();
-+		else
- 			dev_open(card->dev);
--			rtnl_unlock();
--		}
- 		qeth_l3_set_multicast_list(card->dev);
-+		rtnl_unlock();
- 	}
- 	/* let user_space know that device is online */
- 	kobject_uevent(&gdev->dev.kobj, KOBJ_CHANGE);
+--- a/include/net/iucv/af_iucv.h
++++ b/include/net/iucv/af_iucv.h
+@@ -146,7 +146,6 @@ unsigned int iucv_sock_poll(struct file
+ 			    poll_table *wait);
+ void iucv_sock_link(struct iucv_sock_list *l, struct sock *s);
+ void iucv_sock_unlink(struct iucv_sock_list *l, struct sock *s);
+-int  iucv_sock_wait_cnt(struct sock *sk, unsigned long timeo);
+ void iucv_accept_enqueue(struct sock *parent, struct sock *sk);
+ void iucv_accept_unlink(struct sock *sk);
+ struct sock *iucv_accept_dequeue(struct sock *parent, struct socket *newsock);
+--- a/net/iucv/af_iucv.c
++++ b/net/iucv/af_iucv.c
+@@ -406,25 +406,6 @@ static int afiucv_hs_send(struct iucv_me
+ 	return err;
+ }
+ 
+-/* Timers */
+-static void iucv_sock_timeout(unsigned long arg)
+-{
+-	struct sock *sk = (struct sock *)arg;
+-
+-	bh_lock_sock(sk);
+-	sk->sk_err = ETIMEDOUT;
+-	sk->sk_state_change(sk);
+-	bh_unlock_sock(sk);
+-
+-	iucv_sock_kill(sk);
+-	sock_put(sk);
+-}
+-
+-static void iucv_sock_clear_timer(struct sock *sk)
+-{
+-	sk_stop_timer(sk, &sk->sk_timer);
+-}
+-
+ static struct sock *__iucv_get_sock_by_name(char *nm)
+ {
+ 	struct sock *sk;
+@@ -477,7 +458,6 @@ static void iucv_sock_close(struct sock
+ 	int err, blen;
+ 	struct sk_buff *skb;
+ 
+-	iucv_sock_clear_timer(sk);
+ 	lock_sock(sk);
+ 
+ 	switch (sk->sk_state) {
+@@ -589,8 +569,6 @@ static struct sock *iucv_sock_alloc(stru
+ 	sk->sk_protocol = proto;
+ 	sk->sk_state	= IUCV_OPEN;
+ 
+-	setup_timer(&sk->sk_timer, iucv_sock_timeout, (unsigned long)sk);
+-
+ 	iucv_sock_link(&iucv_sk_list, sk);
+ 	return sk;
+ }
