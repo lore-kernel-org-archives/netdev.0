@@ -1,46 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] tcp: Replace constants with #define macros
-Date: Tue, 20 Dec 2011 15:18:09 -0500 (EST)
-Message-ID: <20111220.151809.1704705119739851376.davem@davemloft.net>
-References: <1324351929-2588-1-git-send-email-subramanian.vijay@gmail.com>
-	<AE90C24D6B3A694183C094C60CF0A2F6D8AF1C@saturn3.aculab.com>
-	<CAGK4HS9LuvgOoY+cSXq-Vjbx7x5gsQ03wj6Tb1UDsO=89Wkrpw@mail.gmail.com>
+Subject: Re: [RFC][PATCH] net-tcp: TCP/IP stack bypass for loopback
+ connections.
+Date: Tue, 20 Dec 2011 15:19:30 -0500 (EST)
+Message-ID: <20111220.151930.911300602237271546.davem@davemloft.net>
+References: <20111220193614.0733F160AA8@brutus.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David.Laight@aculab.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, ilpo.jarvinen@helsinki.fi, hkchu@google.com
-To: subramanian.vijay@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: brutus@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42939 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:42957 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750755Ab1LTUSa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 15:18:30 -0500
-In-Reply-To: <CAGK4HS9LuvgOoY+cSXq-Vjbx7x5gsQ03wj6Tb1UDsO=89Wkrpw@mail.gmail.com>
+	with ESMTP id S1750755Ab1LTUTd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 15:19:33 -0500
+In-Reply-To: <20111220193614.0733F160AA8@brutus.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Vijay Subramanian <subramanian.vijay@gmail.com>
-Date: Tue, 20 Dec 2011 12:02:52 -0800
+From: Bruce "Brutus" Curtis <brutus@google.com>
+Date: Tue, 22 Nov 2011 16:09:33 -0800
 
-> I assume you are talking about collision with userspace.  These
-> definitions are already protected by #ifdef  __KERNEL__.
-> That should be enough to protect against collisions with userspace I =
-think.
+> TCP/IP loopback socket pair stack bypass, based on an idea by, and
+> rough upstream patch from, David Miller <davem@davemloft.net> called
+> "friends", the data structure modifcations and connection scheme are
+> reused with new dedicated code for the data path.
 
-Within the kernel he means, please put a TCP_* prefix onto these
-values.
+Thanks for doing this work.
 
->>
->>> - =A0 =A0 tcp_opt->sack_ok =3D (options >> 4) & 0x1;
->>> + =A0 =A0 tcp_opt->sack_ok =3D (options >> 4) & SACK_SEEN;
->>
->> Looks to me like that 0x1 isn't SAC_SEEK! So this is now misleading.
->=20
-> Can you please elaborate? Are you saying this is wrong or that it
-> could be done better?
+It's very disappoing that the whole of the data sending system
+calls need to be duplicated into this new tcp_friends.c file.
 
-I think he's saying it could be done better.  Probably something
-like:
+My entire hope was that we could integrate the logic into the
+existing sendmsg/recvmsg implementations.
 
-	tcp_opt->sack_ok =3D (options & (1 << 4)) ? SACK_SEEN : 0;
+Please reimplement things this way.  With so much code duplication
+I really cannot justify putting this feature in as-is.
