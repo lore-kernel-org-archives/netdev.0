@@ -1,35 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] macvtap: Fix macvtap_get_queue to use rxhash first
-Date: Tue, 20 Dec 2011 13:46:20 -0500 (EST)
-Message-ID: <20111220.134620.2202516303434868216.davem@davemloft.net>
-References: <20111207161001.GD23845@redhat.com>
-	<20111207.135235.557498530764890254.davem@davemloft.net>
-	<20111220111512.GA3913@redhat.com>
+Subject: Re: [PATCH net-next] net: unix -- Add missing module.h inclusion
+Date: Tue, 20 Dec 2011 13:47:57 -0500 (EST)
+Message-ID: <20111220.134757.1593269836046350887.davem@davemloft.net>
+References: <20111220143303.GA12782@moon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, arnd@arndb.de, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, levinsasha928@gmail.com
-To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20111220111512.GA3913@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, xemul@parallels.com
+To: gorcunov@openvz.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:42029 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752252Ab1LTSsB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 13:48:01 -0500
+In-Reply-To: <20111220143303.GA12782@moon>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Tue, 20 Dec 2011 13:15:12 +0200
-
-> On Wed, Dec 07, 2011 at 01:52:35PM -0500, David Miller wrote:
->> Once you sort this out, reply with an Acked-by: for me, thanks.
-> 
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
-
-Applied.
+RnJvbTogQ3lyaWxsIEdvcmN1bm92IDxnb3JjdW5vdkBvcGVudnoub3JnPg0KRGF0ZTogVHVlLCAy
+MCBEZWMgMjAxMSAxODozMzowMyArMDQwMA0KDQo+IE90aGVyd2lzZSBnZXR0aW5nDQo+IA0KPiAg
+fCBuZXQvdW5peC9kaWFnLmM6MzEyOjE2OiBlcnJvcjogZXhwZWN0ZWQgZGVjbGFyYXRpb24gc3Bl
+Y2lmaWVycyBvciChLi4uoiBiZWZvcmUgc3RyaW5nIGNvbnN0YW50DQo+ICB8IG5ldC91bml4L2Rp
+YWcuYzozMTM6MTogZXJyb3I6IGV4cGVjdGVkIGRlY2xhcmF0aW9uIHNwZWNpZmllcnMgb3IgoS4u
+LqIgYmVmb3JlIHN0cmluZyBjb25zdGFudA0KPiANCj4gU2lnbmVkLW9mZi1ieTogQ3lyaWxsIEdv
+cmN1bm92IDxnb3JjdW5vdkBvcGVudnoub3JnPg0KDQpBcHBsaWVkLg0K
