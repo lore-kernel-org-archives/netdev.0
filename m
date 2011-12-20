@@ -1,49 +1,35 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH] net: macb: fix build break with !CONFIG_OF
-Date: Tue, 20 Dec 2011 13:20:29 -0800
-Message-ID: <1324416029-28198-1-git-send-email-olof@lixom.net>
-Cc: netdev@vger.kernel.org,
-	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
-	Jamie Iles <jamie@jamieiles.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Olof Johansson <olof@lixom.net>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: [PATCH iproute2 0/3] netem iproute2 userspace parts
+Date: Tue, 20 Dec 2011 22:28:45 +0100
+Message-ID: <1324416528-3845-1-git-send-email-hagen@jauu.net>
+Cc: shemminger@vyatta.com, Hagen Paul Pfeifer <hagen@jauu.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:45605 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752295Ab1LTVZF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 16:25:05 -0500
-Received: by iaeh11 with SMTP id h11so10790167iae.19
-        for <netdev@vger.kernel.org>; Tue, 20 Dec 2011 13:25:04 -0800 (PST)
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:42969 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752230Ab1LTV3A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 16:29:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes the build of the macb driver that was broken by the DT changes:
+Hello Stephen,
 
-drivers/net/ethernet/cadence/macb.c:1503: error: implicit declaration of function 'of_match_ptr'
-drivers/net/ethernet/cadence/macb.c:1503: error: 'macb_dt_ids' undeclared here (not in a function)
-drivers/net/ethernet/cadence/macb.c:1503: error: initializer element is not constant
-drivers/net/ethernet/cadence/macb.c:1503: error: (near initialization for 'macb_driver.driver.of_match_table')
+the follow serie provides support for netem rate extension. The s32 parser was
+already discussed. I extend the man page to describe the extension.
 
-Signed-off-by: Olof Johansson <olof@lixom.net>
----
+Hagen
 
-Nicolas, care to ack this so I can apply it on top of the macb DT branch in arm-soc?
+Hagen Paul Pfeifer (3):
+  utils: add s32 parser
+  tc: netem rate shaping and cell extension
+  netem: extend man page for rate extension
 
- drivers/net/ethernet/cadence/macb.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ include/linux/pkt_sched.h |    8 +++++
+ include/utils.h           |    1 +
+ lib/utils.c               |   19 +++++++++++++
+ man/man8/tc-netem.8       |   66 +++++++++++++++++++++++++++++++++++---------
+ tc/q_netem.c              |   53 +++++++++++++++++++++++++++++++++++-
+ 5 files changed, 132 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index baf1a0d..f3d5c65 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -23,6 +23,7 @@
- #include <linux/platform_data/macb.h>
- #include <linux/platform_device.h>
- #include <linux/phy.h>
-+#include <linux/of.h>
- #include <linux/of_device.h>
- #include <linux/of_net.h>
- 
 -- 
-1.7.5.4
+1.7.7.3
