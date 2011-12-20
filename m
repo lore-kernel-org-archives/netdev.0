@@ -1,169 +1,63 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] virtio_net: fix refill related races
-Date: Tue, 20 Dec 2011 23:01:06 +0200
-Message-ID: <20111220210105.GA28790@redhat.com>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: twice past the taps, thence out to net?
+Date: Tue, 20 Dec 2011 21:21:58 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B626010E8B@ORSMSX102.amr.corp.intel.com>
+References: <4EE8F884.1010304@hp.com>
+	 <CAGK4HS-+jj9cvvirDm96oRvRJdwC+2kjE_LnSOXBuQy0pfnQjg@mail.gmail.com>
+	 <1323970998.2769.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4EEA3D58.5010101@hp.com>
+	 <20111215104440.1eef9e47@s6510.linuxnetplumber.net>
+	 <1323975606.2769.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4EEA730E.5010405@hp.com> <1324009676.2562.9.camel@edumazet-laptop>
+	 <4EEB9D64.5080901@hp.com> <1324064689.2621.24.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Amit Shah <amit.shah@redhat.com>, Tejun Heo <tj@kernel.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Vijay Subramanian <subramanian.vijay@gmail.com>,
+	"tcpdump-workers@lists.tcpdump.org"
+	<tcpdump-workers@lists.tcpdump.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:16914 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751742Ab1LTVWB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Dec 2011 16:22:01 -0500
+In-Reply-To: <1324064689.2621.24.camel@edumazet-laptop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix theoretical races related to refill work:
-1. After napi is disabled by ndo_stop, refill work
-   can run and re-enable it.
-2. Refill can get scheduled on many cpus in parallel.
-   if this happens it will corrupt the vq linked list
-   as there's no locking
-3. refill work is cancelled after unregister netdev
-   For small bufs this means it can alloc an skb
-   for a device which is unregistered which is
-   not a good idea.
-
-As a solution, add flag to track napi state
-and toggle it on start/stop
-check on refill. Add a mutex to pretect the flag,
-as well as serial refills.
-
-Move refill cancellation to after unregister.
-
-refill work structure and new fields aren't used
-on data path, so put them together near the end of
-struct virtnet_info.
-
-TODO: consider using system_nrq_wq as suggested by
-Tejun Heo. Probably be a good idea but not  a must for
-correctness.
-
-Lightly tested.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/net/virtio_net.c |   34 +++++++++++++++++++++++++++-------
- 1 files changed, 27 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 6ee8410..452f186 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -21,6 +21,7 @@
- #include <linux/etherdevice.h>
- #include <linux/ethtool.h>
- #include <linux/module.h>
-+#include <linux/mutex.h>
- #include <linux/virtio.h>
- #include <linux/virtio_net.h>
- #include <linux/scatterlist.h>
-@@ -68,15 +69,21 @@ struct virtnet_info {
- 	/* Active statistics */
- 	struct virtnet_stats __percpu *stats;
- 
--	/* Work struct for refilling if we run low on memory. */
--	struct delayed_work refill;
--
- 	/* Chain pages by the private ptr. */
- 	struct page *pages;
- 
- 	/* fragments + linear part + virtio header */
- 	struct scatterlist rx_sg[MAX_SKB_FRAGS + 2];
- 	struct scatterlist tx_sg[MAX_SKB_FRAGS + 2];
-+
-+	/* Work struct for refilling if we run low on memory. */
-+	struct delayed_work refill;
-+
-+	/* Whether napi is enabled, protected by a refill_lock. */
-+	bool napi_enable;
-+
-+	/* Lock to protect refill and napi enable/disable operations. */
-+	struct mutex refill_lock;
- };
- 
- struct skb_vnet_hdr {
-@@ -494,14 +501,20 @@ static void refill_work(struct work_struct *work)
- 	bool still_empty;
- 
- 	vi = container_of(work, struct virtnet_info, refill.work);
--	napi_disable(&vi->napi);
-+
-+	mutex_lock(&vi->refill_lock);
-+	if (vi->napi_enable)
-+		napi_disable(&vi->napi);
- 	still_empty = !try_fill_recv(vi, GFP_KERNEL);
--	virtnet_napi_enable(vi);
-+	if (vi->napi_enable)
-+		virtnet_napi_enable(vi);
- 
- 	/* In theory, this can happen: if we don't get any buffers in
- 	 * we will *never* try to fill again. */
- 	if (still_empty)
- 		schedule_delayed_work(&vi->refill, HZ/2);
-+
-+	mutex_unlock(&vi->refill_lock);
- }
- 
- static int virtnet_poll(struct napi_struct *napi, int budget)
-@@ -719,7 +732,10 @@ static int virtnet_open(struct net_device *dev)
- {
- 	struct virtnet_info *vi = netdev_priv(dev);
- 
-+	mutex_lock(&vi->refill_lock);
-+	vi->napi_enable = true;
- 	virtnet_napi_enable(vi);
-+	mutex_unlock(&vi->refill_lock);
- 	return 0;
- }
- 
-@@ -772,7 +788,10 @@ static int virtnet_close(struct net_device *dev)
- {
- 	struct virtnet_info *vi = netdev_priv(dev);
- 
-+	mutex_lock(&vi->refill_lock);
-+	vi->napi_enable = false;
- 	napi_disable(&vi->napi);
-+	mutex_unlock(&vi->refill_lock);
- 
- 	return 0;
- }
-@@ -1021,6 +1040,7 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (vi->stats == NULL)
- 		goto free;
- 
-+	mutex_init(&vi->refill_lock);
- 	INIT_DELAYED_WORK(&vi->refill, refill_work);
- 	sg_init_table(vi->rx_sg, ARRAY_SIZE(vi->rx_sg));
- 	sg_init_table(vi->tx_sg, ARRAY_SIZE(vi->tx_sg));
-@@ -1081,8 +1101,8 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	return 0;
- 
- unregister:
--	unregister_netdev(dev);
- 	cancel_delayed_work_sync(&vi->refill);
-+	unregister_netdev(dev);
- free_vqs:
- 	vdev->config->del_vqs(vdev);
- free_stats:
-@@ -1121,9 +1141,9 @@ static void __devexit virtnet_remove(struct virtio_device *vdev)
- 	/* Stop all the virtqueues. */
- 	vdev->config->reset(vdev);
- 
-+	cancel_delayed_work_sync(&vi->refill);
- 
- 	unregister_netdev(vi->dev);
--	cancel_delayed_work_sync(&vi->refill);
- 
- 	/* Free unused buffers in both send and recv, if any. */
- 	free_unused_bufs(vi);
--- 
-1.7.5.53.gc233e
+DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IG5ldGRldi1vd25lckB2Z2Vy
+Lmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnXQ0KPk9uIEJl
+aGFsZiBPZiBFcmljIER1bWF6ZXQNCj5TZW50OiBGcmlkYXksIERlY2VtYmVyIDE2LCAyMDExIDEx
+OjQ1IEFNDQo+VG86IFJpY2sgSm9uZXMNCj5DYzogU3RlcGhlbiBIZW1taW5nZXI7IFZpamF5IFN1
+YnJhbWFuaWFuOyB0Y3BkdW1wLQ0KPndvcmtlcnNAbGlzdHMudGNwZHVtcC5vcmc7IG5ldGRldkB2
+Z2VyLmtlcm5lbC5vcmc7IFZpY2ssIE1hdHRoZXc7DQo+S2lyc2hlciwgSmVmZnJleSBUDQo+U3Vi
+amVjdDogUmU6IHR3aWNlIHBhc3QgdGhlIHRhcHMsIHRoZW5jZSBvdXQgdG8gbmV0Pw0KPg0KPkxl
+IHZlbmRyZWRpIDE2IGTDqWNlbWJyZSAyMDExIMOgIDExOjM1IC0wODAwLCBSaWNrIEpvbmVzIGEg
+w6ljcml0IDoNCj4NCj4+IEkgd291bGQgKmxvdmUqIHRvLiAgQWxsIG15IGFjY2Vzc2libGUgaWdi
+LWRyaXZlbiBoYXJkd2FyZSBpcyBpbiBhbg0KPj4gZW52aXJvbm1lbnQgbG9ja2VkIHRvIHRoZSBr
+ZXJuZWxzIGFscmVhZHkgdGhlcmUgOiggIE5vdCB0aGF0IGl0IG1ha2VzDQo+aXQNCj4+IG1vcmUg
+cG9zc2libGUgZm9yIG1lIHRvIGRvIGl0LCBidXQgSSBzdXNwZWN0IGl0IGRvZXMgbm90IHJlcXVp
+cmUgMzANCj4+IHJlY2VpdmVycyB0byByZXByb2R1Y2UgdGhlIGR1cHMgd2l0aCBuZXRwZXJmIFRD
+UF9TVFJFQU0uICBQYXJ0aWN1bGFybHkNCj4+IGlmIHRoZSB0eCBxdWV1ZSBsZW4gaXMgYXQgMjU2
+IGl0IG1heSBvbmx5IHRha2UgNiBvciA4LiBJbiBmYWN0IGxldCBtZQ0KPj4gdHJ5IHRoYXQgbm93
+Li4uDQo+Pg0KPj4gWWVwLCB3aXRoIGp1c3QgOCBkZXN0aW5hdGlvbnMvY29uY3VycmVudCBUQ1Bf
+U1RSRUFNIHRlc3RzIGZyb20gdGhlIG9uZQ0KPj4gc3lzdGVtIG9uZSBjYW4gc3RpbGwgc2VlIHRo
+ZSBkdXBsaWNhdGVzIGluIHRoZSBwYWNrZXQgdHJhY2UgdGFrZW4gb24NCj50aGUNCj4+IHNlbmRl
+ci4NCj4+DQo+PiBQZXJoYXBzIHdlIGNhbiB0cm91YmxlIHRoZSBJbnRlbCBndXlzIHRvIHRyeSB0
+byByZXByb2R1Y2Ugd2hhdCBJJ3ZlDQo+c2Vlbj8NCj4+DQo+DQo+SSBkbyBoYXZlIGFuIGlnYiBj
+YXJkIHNvbWV3aGVyZSAoaW4gZmFjdCB0d28gZHVhbCBwb3J0cyksIEknbGwgZG8gdGhlDQo+dGVz
+dCBteXNlbGYgIQ0KPg0KPlRoYW5rcw0KPg0KPg0KPi0tDQo+VG8gdW5zdWJzY3JpYmUgZnJvbSB0
+aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRldiIgaW4NCj50aGUgYm9k
+eSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPk1vcmUgbWFqb3Jk
+b21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0K
+DQpMZXQgbWUga25vdyBpZiBJIGNhbiBkbyBhbnl0aGluZyB0byBhc3Npc3QuICBTb3JyeSB0byBo
+YXZlIG92ZXJsb29rZWQgdGhpcyB0aHJlYWQgZm9yIGEgYml0Lg0KDQpUaGFua3MsDQoNCkNhcm9s
+eW4NCg0KQ2Fyb2x5biBXeWJvcm55DQpMaW51eCBEZXZlbG9wbWVudA0KTEFOIEFjY2VzcyBEaXZp
+c2lvbg0KSW50ZWwgQ29ycG9yYXRpb24NCg0KDQo=
