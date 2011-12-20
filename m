@@ -1,75 +1,72 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the wireless
- tree
-Date: Tue, 20 Dec 2011 13:02:31 +1100
-Message-ID: <20111220130231.b819d888246ce08a4660eaa4@canb.auug.org.au>
+From: Mathieu Trudel-Lapierre <mathieu-tl@ubuntu.com>
+Subject: Re: [PATCH] ipv6: make the net.ipv6.conf.all.use_tempaddr sysctl
+ propagate to interface settings
+Date: Mon, 19 Dec 2011 21:04:15 -0500
+Message-ID: <CACfMzvqtRTeFy0Q8yt-e9B5ndrBsNmhQ4q12LBndTrdyMfYnLg@mail.gmail.com>
+References: <1324071933-2961-1-git-send-email-mathieu.trudel-lapierre@canonical.com>
+	<20111219.161624.488823593081231376.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Tue__20_Dec_2011_13_02_31_+1100_74=Gb_Gk/nTJvZ4."
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mat Martineau <mathewm@codeaurora.org>,
-	"Gustavo F. Padovan" <padovan@profusion.mobi>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Andrei Emeltchenko <andrei.emeltchenko@intel.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mathieu.trudel-lapierre@canonical.com, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:33120 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754179Ab1LTCER convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 21:04:17 -0500
+Received: by iaeh11 with SMTP id h11so9449851iae.19
+        for <netdev@vger.kernel.org>; Mon, 19 Dec 2011 18:04:16 -0800 (PST)
+In-Reply-To: <20111219.161624.488823593081231376.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Tue__20_Dec_2011_13_02_31_+1100_74=Gb_Gk/nTJvZ4.
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Mon, Dec 19, 2011 at 4:16 PM, David Miller <davem@davemloft.net> wro=
+te:
+> "all" settings must be in place before the device is created and come=
+s up.
+>
+> You can't just "propagate" to the existing devices when the "all"
+> setting is changed, because an individual device might have had it's
+> independent sysctl setting modified by the administrator and you'll b=
+e
+> smashing that.
+>
+> I'm not applying this patch.
 
-Hi all,
+Would it be possible in this case to update the documentation to make
+this clear? I'm certainly not the only one who has come up with the
+question. What seems to come up often is confusion between the purpose
+of "default" and that of "all". My understanding really was that
+*default* is meant to be set before the devices are created and come
+up.
 
-Today's linux-next merge of the net-next tree got a conflict in
-net/bluetooth/l2cap_core.c between commit 36e999a83a4a ("Bluetooth:
-Prevent uninitialized data access in L2CAP configuration") from the
-wireless tree and commit 66af7aaf9edf ("Bluetooth: EFS: parse L2CAP
-config response") from the net-next tree.
+I believe use_tempaddr is a special case in which if you want to
+enable it, you'll likely want to have it set globally; at least that
+seems the case for mobile systems where this appears to me as making
+the most sense. Distributions may want to set a defaut for
+installations being that temporary addresses are enabled by default,
+which tends to be very impractical to do any other way (interfaces
+don't all come up at the same time; on my system at least eth0 comes
+up very early, before sysctls can be applied in userland). Dealing
+with this particular issue at the distribution level, you can't know
+in advance what interfaces are on the system. It seems as though
+setting:
 
-Just context changes.  I fixed it up (see below) and can carry the fix as
-necessary.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+net.ipv6.conf.all.use_tempaddr=3D2
+net.ipv6.conf.default.use_tempaddr=3D2
 
-diff --cc net/bluetooth/l2cap_core.c
-index 17b5b1c,014fdec..0000000
---- a/net/bluetooth/l2cap_core.c
-+++ b/net/bluetooth/l2cap_core.c
-@@@ -2152,7 -2372,8 +2372,8 @@@ static int l2cap_parse_conf_rsp(struct=20
-  	void *ptr =3D req->data;
-  	int type, olen;
-  	unsigned long val;
- -	struct l2cap_conf_rfc rfc;
- +	struct l2cap_conf_rfc rfc =3D { .mode =3D L2CAP_MODE_BASIC };
-+ 	struct l2cap_conf_efs efs;
- =20
-  	BT_DBG("chan %p, rsp %p, len %d, req %p", chan, rsp, len, data);
- =20
+Should be sufficient to enable privacy addresses everywhere, at boot.
+This wouldn't be particularly different from disabling ipv6 with the
+sysctls, I think.
 
---Signature=_Tue__20_Dec_2011_13_02_31_+1100_74=Gb_Gk/nTJvZ4.
-Content-Type: application/pgp-signature
+Besides the issue of smashing settings applied by administrators, is
+there something else I'm missing?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+Kind regards,
 
-iQIcBAEBCAAGBQJO7+y3AAoJEECxmPOUX5FEcSoQAJmavzbTzWSd3+KheF98Jj+6
-qS72mwQHAYM3Qy1hUNV8GcGhwtFZoax3qdyhhZvpIkA3IXFsbhJKPChOPeqtumBe
-5Mcz3k6PnXyHHUnrpGWO4ZW3HPYxy0llXiNs7jl3L5l8+zhQd8jyjXV424SFTrn4
-/dnPh/O210cpg865enRqJYc7h+WOShyZGSa6h5iGITgXdRQb16YIblEvkIKUh9qt
-1t27scwdBPHHP7eE8Hbjwj+18l7NTJoFjpxEb2lsQgB4YWeozeBoprN5qayRi/Cd
-Fmbppi3jWoeXGfQKz74G7JOzHbWDkGDbXfatB4M0RaqT9+bQnbiSEWDLe5bDY/Xc
-0cF2AA9BNbnZCFYkIjQBXPKA6p4SjtKy9yp4Uo1r/we+YPf0lO+j3p016s/GUB2+
-k8UPXDtzw7mkYgQz0//Z35tEd09A1cLJ98MkLUsOMeZDHEmmiC8ueouYDH2H7Flb
-LnHHkLvnxMjG7PmoZge9B5E9XQfKRXh7TlVhoO1jzSJpbqhT6POmoOUB6/cBXL9X
-65QFd/ufp5v+wdJKpjZnn+P5RI+nzPDn/XsSVVfxztkGXLS/lINWRh6OtnkDRsuA
-mMKUD0lnTigAoy2U9OnEK6dMbvG0tdOj2i5EZXDRGxZ/w72smquP54ky5DkJY084
-6MESSrs8tAXOGY9Tj3VH
-=TXoJ
------END PGP SIGNATURE-----
-
---Signature=_Tue__20_Dec_2011_13_02_31_+1100_74=Gb_Gk/nTJvZ4.--
+Mathieu Trudel-Lapierre <mathieu-tl@ubuntu.com>
+=46reenode: cyphermox, Jabber: mathieu.tl@gmail.com
+4096R/EE018C93 1967 8F7D 03A1 8F38 732E =C2=A0FF82 C126 33E1 EE01 8C93
