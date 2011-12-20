@@ -1,63 +1,163 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH] net/flow: remove sleeping and deferral mechanism from
- flow_cache_flush
-Date: Tue, 20 Dec 2011 10:41:40 +0200
-Message-ID: <4EF04A44.6060400@iki.fi>
-References: <1317056956-23644-1-git-send-email-madalin.bucur@freescale.com> <20110927.152836.1747700807304689813.davem@davemloft.net> <20110927.153132.900366550174236643.davem@davemloft.net> <20111220082332.GN6348@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, madalin.bucur@freescale.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+From: frank.blaschka@de.ibm.com
+Subject: [patch 03/10] [PATCH] af_iucv: release reference to HS device
+Date: Tue, 20 Dec 2011 09:56:29 +0100
+Message-ID: <20111220085735.796970311@de.ibm.com>
+References: <20111220085626.924756639@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Ursula Braun <ursula.braun@de.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:42954 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751234Ab1LTIlo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 03:41:44 -0500
-Received: by lahd3 with SMTP id d3so92992lah.19
-        for <netdev@vger.kernel.org>; Tue, 20 Dec 2011 00:41:43 -0800 (PST)
-In-Reply-To: <20111220082332.GN6348@secunet.com>
+Received: from e06smtp11.uk.ibm.com ([195.75.94.107]:59932 "EHLO
+	e06smtp11.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750865Ab1LTI5j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 03:57:39 -0500
+Received: from /spool/local
+	by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
+	Tue, 20 Dec 2011 08:57:37 -0000
+Content-Disposition: inline; filename=602-af_iucv-release-skb-hs.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/20/2011 10:23 AM, Steffen Klassert wrote:
-> On Tue, Sep 27, 2011 at 03:31:32PM -0400, David Miller wrote:
->> From: David Miller <davem@davemloft.net>
->> Date: Tue, 27 Sep 2011 15:28:36 -0400 (EDT)
->>
->>> afinfo->garbage_collect is the only other place __xfrm_garbage_coll=
-ect
->>> is referenced, and that is completely unused and should thus be del=
-eted
->>> (I'll take care of that in net-next).
->>
->> Nevermind I see how these are referenced directly via xfrm4_policy.c
->> and xfrm6_policy.c, sigh...
->=20
-> Is there any progress in fixing this issue? I've seen this occasional=
-ly
-> on some of our production systems, so I fixed it for us in the meanti=
-me
-> with the patch below. I could submit this for inclusion if noone else
-> wants to fix it in a different manner.
->=20
-> ------
-> net: Add a flow_cache_flush_deferred function
->=20
-> flow_cach_flush() might sleep but can be called from
-> atomic context via the xfrm garbage collector. So add
-> a flow_cache_flush_deferred() function and use this if
-> the xfrm garbage colector is invoked from within the
-> packet path.
->=20
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+From: Ursula Braun <ursula.braun@de.ibm.com>
 
-Acked-by: Timo Ter=E4s <timo.teras@iki.fi>
+For HiperSockets transport skbs sent are bound to one of the
+available HiperSockets devices. Add missing release of reference to
+a HiperSockets device before freeing an skb.
 
-I was first thinking if it made sense to run the local CPUs task
-immediately on gc. But since all it does is queue the removed nodes to
-the second gc that actually frees the dst's, it doesn't really make a
-difference.
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+---
 
-So this is probably as good as it gets.
+ net/iucv/af_iucv.c |   37 ++++++++++++++++++++++++-------------
+ 1 file changed, 24 insertions(+), 13 deletions(-)
+
+--- a/net/iucv/af_iucv.c
++++ b/net/iucv/af_iucv.c
+@@ -130,6 +130,17 @@ static inline void low_nmcpy(unsigned ch
+        memcpy(&dst[8], src, 8);
+ }
+ 
++static void iucv_skb_queue_purge(struct sk_buff_head *list)
++{
++	struct sk_buff *skb;
++
++	while ((skb = skb_dequeue(list)) != NULL) {
++		if (skb->dev)
++			dev_put(skb->dev);
++		kfree_skb(skb);
++	}
++}
++
+ static int afiucv_pm_prepare(struct device *dev)
+ {
+ #ifdef CONFIG_PM_DEBUG
+@@ -164,7 +175,7 @@ static int afiucv_pm_freeze(struct devic
+ 	read_lock(&iucv_sk_list.lock);
+ 	sk_for_each(sk, node, &iucv_sk_list.head) {
+ 		iucv = iucv_sk(sk);
+-		skb_queue_purge(&iucv->send_skb_q);
++		iucv_skb_queue_purge(&iucv->send_skb_q);
+ 		skb_queue_purge(&iucv->backlog_skb_q);
+ 		switch (sk->sk_state) {
+ 		case IUCV_SEVERED:
+@@ -366,9 +377,7 @@ static int afiucv_hs_send(struct iucv_me
+ 	if (imsg)
+ 		memcpy(&phs_hdr->iucv_hdr, imsg, sizeof(struct iucv_message));
+ 
+-	rcu_read_lock();
+-	skb->dev = dev_get_by_index_rcu(net, sock->sk_bound_dev_if);
+-	rcu_read_unlock();
++	skb->dev = dev_get_by_index(net, sock->sk_bound_dev_if);
+ 	if (!skb->dev)
+ 		return -ENODEV;
+ 	if (!(skb->dev->flags & IFF_UP))
+@@ -388,6 +397,7 @@ static int afiucv_hs_send(struct iucv_me
+ 	err = dev_queue_xmit(skb);
+ 	if (err) {
+ 		skb_unlink(nskb, &iucv->send_skb_q);
++		dev_put(nskb->dev);
+ 		kfree_skb(nskb);
+ 	} else {
+ 		atomic_sub(confirm_recv, &iucv->msg_recv);
+@@ -481,16 +491,14 @@ static void iucv_sock_close(struct sock
+ 			blen = sizeof(struct af_iucv_trans_hdr) + ETH_HLEN;
+ 			skb = sock_alloc_send_skb(sk, blen, 1, &err);
+ 			if (skb) {
+-				skb_reserve(skb,
+-					sizeof(struct af_iucv_trans_hdr) +
+-					ETH_HLEN);
++				skb_reserve(skb, blen);
+ 				err = afiucv_hs_send(NULL, sk, skb,
+ 						     AF_IUCV_FLAG_FIN);
+ 			}
+ 			sk->sk_state = IUCV_DISCONN;
+ 			sk->sk_state_change(sk);
+ 		}
+-	case IUCV_DISCONN:
++	case IUCV_DISCONN:   /* fall through */
+ 		sk->sk_state = IUCV_CLOSING;
+ 		sk->sk_state_change(sk);
+ 
+@@ -520,7 +528,7 @@ static void iucv_sock_close(struct sock
+ 		sk->sk_err = ECONNRESET;
+ 		sk->sk_state_change(sk);
+ 
+-		skb_queue_purge(&iucv->send_skb_q);
++		iucv_skb_queue_purge(&iucv->send_skb_q);
+ 		skb_queue_purge(&iucv->backlog_skb_q);
+ 		break;
+ 
+@@ -739,7 +747,7 @@ static int iucv_sock_bind(struct socket
+ 		if (!memcmp(dev->perm_addr, uid, 8)) {
+ 			memcpy(iucv->src_name, sa->siucv_name, 8);
+ 			memcpy(iucv->src_user_id, sa->siucv_user_id, 8);
+-			sock->sk->sk_bound_dev_if = dev->ifindex;
++			sk->sk_bound_dev_if = dev->ifindex;
+ 			sk->sk_state = IUCV_BOUND;
+ 			iucv->transport = AF_IUCV_TRANS_HIPER;
+ 			if (!iucv->msglimit)
+@@ -1225,6 +1233,8 @@ release:
+ 	return len;
+ 
+ fail:
++	if (skb->dev)
++		dev_put(skb->dev);
+ 	kfree_skb(skb);
+ out:
+ 	release_sock(sk);
+@@ -1441,9 +1451,7 @@ static int iucv_sock_recvmsg(struct kioc
+ 					ETH_HLEN;
+ 				sskb = sock_alloc_send_skb(sk, blen, 1, &err);
+ 				if (sskb) {
+-					skb_reserve(sskb,
+-						sizeof(struct af_iucv_trans_hdr)
+-						+ ETH_HLEN);
++					skb_reserve(sskb, blen);
+ 					err = afiucv_hs_send(NULL, sk, sskb,
+ 							     AF_IUCV_FLAG_WIN);
+ 				}
+@@ -2261,6 +2269,7 @@ static void afiucv_hs_callback_txnotify(
+ 			case TX_NOTIFY_OK:
+ 				__skb_unlink(this, list);
+ 				iucv_sock_wake_msglim(sk);
++				dev_put(this->dev);
+ 				kfree_skb(this);
+ 				break;
+ 			case TX_NOTIFY_PENDING:
+@@ -2271,6 +2280,7 @@ static void afiucv_hs_callback_txnotify(
+ 				atomic_dec(&iucv->pendings);
+ 				if (atomic_read(&iucv->pendings) <= 0)
+ 					iucv_sock_wake_msglim(sk);
++				dev_put(this->dev);
+ 				kfree_skb(this);
+ 				break;
+ 			case TX_NOTIFY_UNREACHABLE:
+@@ -2279,6 +2289,7 @@ static void afiucv_hs_callback_txnotify(
+ 			case TX_NOTIFY_GENERALERROR:
+ 			case TX_NOTIFY_DELAYED_GENERALERROR:
+ 				__skb_unlink(this, list);
++				dev_put(this->dev);
+ 				kfree_skb(this);
+ 				if (!list_empty(&iucv->accept_q))
+ 					sk->sk_state = IUCV_SEVERED;
