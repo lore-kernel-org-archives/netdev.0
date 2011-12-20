@@ -1,93 +1,163 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 07/10] [PATCH] qeth: forbid recovery during shutdown
-Date: Tue, 20 Dec 2011 09:56:33 +0100
-Message-ID: <20111220085736.230808699@de.ibm.com>
+Subject: [patch 05/10] [PATCH] af_iucv: get rid of state IUCV_SEVERED
+Date: Tue, 20 Dec 2011 09:56:31 +0100
+Message-ID: <20111220085736.014121083@de.ibm.com>
 References: <20111220085626.924756639@de.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
 	Ursula Braun <ursula.braun@de.ibm.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp18.uk.ibm.com ([195.75.94.114]:36021 "EHLO
-	e06smtp18.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752900Ab1LTI6Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 03:58:24 -0500
+Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:48942 "EHLO
+	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752658Ab1LTI6B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 03:58:01 -0500
 Received: from /spool/local
-	by e06smtp18.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
-	Tue, 20 Dec 2011 08:58:18 -0000
-Content-Disposition: inline; filename=607-qeth-recovery-shutdown.diff
+	Tue, 20 Dec 2011 08:57:58 -0000
+Content-Disposition: inline; filename=605-af_iucv-rm-iucv-severed.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ursula Braun <ursula.braun@de.ibm.com>
 
-A recovery does not make sense during shutdown and may even cause an
-error like this:
-
-qeth 0.0.f503: A recovery process has been started for the device
-Badness at drivers/s390/cio/qdio_main.c:1156
-Modules linked in: autofs4 sunrpc dm_multipath scsi_dh scsi_mod qeth_l3 ipv6 vmu
-r qeth qdio ccwgroup ext3 jbd mbcache dasd_eckd_mod dasd_mod dm_mirror dm_region
-_hash dm_log dm_mod [last unloaded: scsi_wait_scan]
-CPU: 3 Not tainted 2.6.32-202.el6.s390x #1
-Process qeth_recover (pid: 1498, task: 000000003efe2040, ksp: 000000003d5e3b80)
-Krnl PSW : 0404200180000000 000003c000be6da8 (qdio_int_handler+0x88/0x43c [qdio]
-)
-           R:0 T:1 IO:0 EX:0 Key:0 M:1 W:0 P:0 AS:0 CC:2 PM:0 EA:3
-Krnl GPRS: ffffffffffff3bac 0000000000000005 0000000000000000 fffffffffffffff4
-           0000000000000000 000000000000000c 0000000000000000 000000003ca97000
-           0000000000000380 fffffffffffffff4 000000003f22d800 000000003f22c478
-           000003c000bdf000 000003c000bea270 000000003f447e10 000000003f447db0
-Krnl Code: 000003c000be6d9a: c21f00000004       clfi    %r1,4
-           000003c000be6da0: a7c40021           brc     12,3c000be6de2
-           000003c000be6da4: a7f40001           brc     15,3c000be6da6
-          >000003c000be6da8: e320a0080004       lg      %r2,8(%r10)
-           000003c000be6dae: a7390003           lghi    %r3,3
-           000003c000be6db2: a72b0178           aghi    %r2,376
-           000003c000be6db6: a7490001           lghi    %r4,1
-           000003c000be6dba: a7590000           lghi    %r5,0
-Call Trace:
-([<000000000080ee80>] __per_cpu_offset+0x0/0x200)
-[<00000000003d90e8>] ccw_device_call_handler+0x70/0xcc
-[<00000000003d83a2>] ccw_device_irq+0x82/0x180
-[<00000000003cc6a8>] do_IRQ+0x16c/0x1ec
-[<0000000000118abe>] io_return+0x0/0x8
-[<000003c000d04c74>] qeth_determine_capabilities+0x208/0x5cc [qeth]
-([<000003c000d04c4a>] qeth_determine_capabilities+0x1de/0x5cc [qeth])
-[<000003c000d0a6e0>] qeth_core_hardsetup_card+0x160/0x1258 [qeth]
-[<000003c000f49f56>] __qeth_l3_set_online+0x132/0xb14 [qeth_l3]
-[<000003c000f4ac70>] qeth_l3_recover+0x168/0x224 [qeth_l3]
-[<000000000016e210>] kthread+0xa4/0xac
-[<0000000000109c6e>] kernel_thread_starter+0x6/0xc
-[<0000000000109c68>] kernel_thread_starter+0x0/0xc
-
-The patch forbids start of a recovery once qeth shutdown is running.
+af_iucv differs unnecessarily between state IUCV_SEVERED and
+IUCV_DISCONN. This patch removes state IUCV_SEVERED.
+While simplifying af_iucv, this patch removes the 2nd invocation of
+cpcmd as well.
 
 Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
 Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 ---
 
- drivers/s390/net/qeth_l2_main.c |    1 +
- drivers/s390/net/qeth_l3_main.c |    1 +
- 2 files changed, 2 insertions(+)
+ include/net/iucv/af_iucv.h |    1 -
+ net/iucv/af_iucv.c         |   35 ++++++++---------------------------
+ 2 files changed, 8 insertions(+), 28 deletions(-)
 
---- a/drivers/s390/net/qeth_l2_main.c
-+++ b/drivers/s390/net/qeth_l2_main.c
-@@ -1173,6 +1173,7 @@ static void __exit qeth_l2_exit(void)
- static void qeth_l2_shutdown(struct ccwgroup_device *gdev)
+--- a/include/net/iucv/af_iucv.h
++++ b/include/net/iucv/af_iucv.h
+@@ -27,7 +27,6 @@ enum {
+ 	IUCV_OPEN,
+ 	IUCV_BOUND,
+ 	IUCV_LISTEN,
+-	IUCV_SEVERED,
+ 	IUCV_DISCONN,
+ 	IUCV_CLOSING,
+ 	IUCV_CLOSED
+--- a/net/iucv/af_iucv.c
++++ b/net/iucv/af_iucv.c
+@@ -178,7 +178,6 @@ static int afiucv_pm_freeze(struct devic
+ 		iucv_skb_queue_purge(&iucv->send_skb_q);
+ 		skb_queue_purge(&iucv->backlog_skb_q);
+ 		switch (sk->sk_state) {
+-		case IUCV_SEVERED:
+ 		case IUCV_DISCONN:
+ 		case IUCV_CLOSING:
+ 		case IUCV_CONNECTED:
+@@ -223,7 +222,6 @@ static int afiucv_pm_restore_thaw(struct
+ 			sk->sk_state_change(sk);
+ 			break;
+ 		case IUCV_DISCONN:
+-		case IUCV_SEVERED:
+ 		case IUCV_CLOSING:
+ 		case IUCV_LISTEN:
+ 		case IUCV_BOUND:
+@@ -661,16 +659,12 @@ struct sock *iucv_accept_dequeue(struct
+ 		}
+ 
+ 		if (sk->sk_state == IUCV_CONNECTED ||
+-		    sk->sk_state == IUCV_SEVERED ||
+-		    sk->sk_state == IUCV_DISCONN ||	/* due to PM restore */
++		    sk->sk_state == IUCV_DISCONN ||
+ 		    !newsock) {
+ 			iucv_accept_unlink(sk);
+ 			if (newsock)
+ 				sock_graft(sk, newsock);
+ 
+-			if (sk->sk_state == IUCV_SEVERED)
+-				sk->sk_state = IUCV_DISCONN;
+-
+ 			release_sock(sk);
+ 			return sk;
+ 		}
+@@ -760,16 +754,13 @@ done:
+ static int iucv_sock_autobind(struct sock *sk)
  {
- 	struct qeth_card *card = dev_get_drvdata(&gdev->dev);
-+	qeth_set_allowed_threads(card, 0, 1);
- 	if ((gdev->state == CCWGROUP_ONLINE) && card->info.hwtrap)
- 		qeth_hw_trap(card, QETH_DIAGS_TRAP_DISARM);
- 	qeth_qdio_clear_card(card, 0);
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -3598,6 +3598,7 @@ static int qeth_l3_recover(void *ptr)
- static void qeth_l3_shutdown(struct ccwgroup_device *gdev)
+ 	struct iucv_sock *iucv = iucv_sk(sk);
+-	char query_buffer[80];
+ 	char name[12];
+ 	int err = 0;
+ 
+-	/* Set the userid and name */
+-	cpcmd("QUERY USERID", query_buffer, sizeof(query_buffer), &err);
+-	if (unlikely(err))
++	if (unlikely(!pr_iucv))
+ 		return -EPROTO;
+ 
+-	memcpy(iucv->src_user_id, query_buffer, 8);
++	memcpy(iucv->src_user_id, iucv_userid, 8);
+ 
+ 	write_lock_bh(&iucv_sk_list.lock);
+ 
+@@ -1345,7 +1336,7 @@ static int iucv_sock_recvmsg(struct kioc
+ 	int blen;
+ 	int err = 0;
+ 
+-	if ((sk->sk_state == IUCV_DISCONN || sk->sk_state == IUCV_SEVERED) &&
++	if ((sk->sk_state == IUCV_DISCONN) &&
+ 	    skb_queue_empty(&iucv->backlog_skb_q) &&
+ 	    skb_queue_empty(&sk->sk_receive_queue) &&
+ 	    list_empty(&iucv->message_q.list))
+@@ -1492,7 +1483,7 @@ unsigned int iucv_sock_poll(struct file
+ 	if (sk->sk_state == IUCV_CLOSED)
+ 		mask |= POLLHUP;
+ 
+-	if (sk->sk_state == IUCV_DISCONN || sk->sk_state == IUCV_SEVERED)
++	if (sk->sk_state == IUCV_DISCONN)
+ 		mask |= POLLIN;
+ 
+ 	if (sock_writeable(sk))
+@@ -1519,7 +1510,6 @@ static int iucv_sock_shutdown(struct soc
+ 	switch (sk->sk_state) {
+ 	case IUCV_DISCONN:
+ 	case IUCV_CLOSING:
+-	case IUCV_SEVERED:
+ 	case IUCV_CLOSED:
+ 		err = -ENOTCONN;
+ 		goto fail;
+@@ -1874,10 +1864,7 @@ static void iucv_callback_connrej(struct
  {
- 	struct qeth_card *card = dev_get_drvdata(&gdev->dev);
-+	qeth_set_allowed_threads(card, 0, 1);
- 	if ((gdev->state == CCWGROUP_ONLINE) && card->info.hwtrap)
- 		qeth_hw_trap(card, QETH_DIAGS_TRAP_DISARM);
- 	qeth_qdio_clear_card(card, 0);
+ 	struct sock *sk = path->private;
+ 
+-	if (!list_empty(&iucv_sk(sk)->accept_q))
+-		sk->sk_state = IUCV_SEVERED;
+-	else
+-		sk->sk_state = IUCV_DISCONN;
++	sk->sk_state = IUCV_DISCONN;
+ 
+ 	sk->sk_state_change(sk);
+ }
+@@ -2037,10 +2024,7 @@ static int afiucv_hs_callback_fin(struct
+ 	/* other end of connection closed */
+ 	if (iucv) {
+ 		bh_lock_sock(sk);
+-		if (!list_empty(&iucv->accept_q))
+-			sk->sk_state = IUCV_SEVERED;
+-		else
+-			sk->sk_state = IUCV_DISCONN;
++		sk->sk_state = IUCV_DISCONN;
+ 		sk->sk_state_change(sk);
+ 		bh_unlock_sock(sk);
+ 	}
+@@ -2269,10 +2253,7 @@ static void afiucv_hs_callback_txnotify(
+ 				__skb_unlink(this, list);
+ 				dev_put(this->dev);
+ 				kfree_skb(this);
+-				if (!list_empty(&iucv->accept_q))
+-					sk->sk_state = IUCV_SEVERED;
+-				else
+-					sk->sk_state = IUCV_DISCONN;
++				sk->sk_state = IUCV_DISCONN;
+ 				sk->sk_state_change(sk);
+ 				break;
+ 			}
