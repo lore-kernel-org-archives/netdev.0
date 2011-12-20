@@ -1,27 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next ] net: doc: fix many typos in scaling.txt
-Date: Tue, 20 Dec 2011 14:12:07 -0500 (EST)
-Message-ID: <20111220.141207.221676999625267301.davem@davemloft.net>
-References: <4EEFF427.1090801@gmail.com>
+Subject: Re: [PATCH] net: have ipconfig not wait if no dev is available
+Date: Tue, 20 Dec 2011 14:09:42 -0500 (EST)
+Message-ID: <20111220.140942.650965480515835433.davem@davemloft.net>
+References: <1324371484-24082-1-git-send-email-gerlando.falauto@keymile.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shanwei88@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42321 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752429Ab1LTTMK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 14:12:10 -0500
-In-Reply-To: <4EEFF427.1090801@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: micha@neli.hopto.org, holger.brunck@keymile.com,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: gerlando.falauto@keymile.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1324371484-24082-1-git-send-email-gerlando.falauto@keymile.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shan Wei <shanwei88@gmail.com>
-Date: Tue, 20 Dec 2011 10:34:15 +0800
+From: Gerlando Falauto <gerlando.falauto@keymile.com>
+Date: Tue, 20 Dec 2011 09:58:04 +0100
 
-> Fix some trivial typos.
+> previous commit 3fb72f1e6e6165c5f495e8dc11c5bbd14c73385c
+> makes IP-Config wait for carrier on at least one network device.
 > 
-> Signed-off-by: Shan Wei <shanwei88@gmail.com>
+> Before waiting (predefined value 120s), check that at least one device
+> was successfully brought up. Otherwise (e.g. buggy bootloader
+> which does not set the MAC address) there is no point in waiting
+> for carrier.
+> 
+> Cc: Micha Nelissen <micha@neli.hopto.org>
+> Cc: Holger Brunck <holger.brunck@keymile.com>
+> Signed-off-by: Gerlando Falauto <gerlando.falauto@keymile.com>
 
-Applied.
+Applied, thanks.
