@@ -1,53 +1,69 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 1/1] tcp: Replace constants with #define macros
-Date: Tue, 20 Dec 2011 10:27:21 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AF1C@saturn3.aculab.com>
-References: <1324351929-2588-1-git-send-email-subramanian.vijay@gmail.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [Devel] [PATCH] SUNRPC: search for service transports in network
+ namespace context
+Date: Tue, 20 Dec 2011 14:31:07 +0400
+Message-ID: <4EF063EB.6030104@parallels.com>
+References: <20111220101419.5673.21926.stgit@localhost6.localdomain6> <4EF062B1.3030401@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
-	<ilpo.jarvinen@helsinki.fi>, "H.K. Jerry Chu" <hkchu@google.com>
-To: "Vijay Subramanian" <subramanian.vijay@gmail.com>,
-	<netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:45770 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750734Ab1LTK27 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 05:28:59 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 18387-05 for <netdev@vger.kernel.org>;
- Tue, 20 Dec 2011 10:28:49 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1324351929-2588-1-git-send-email-subramanian.vijay@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4EF062B1.3030401@parallels.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- 
-> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-> index 7f59ee9..874b043 100644
-> --- a/include/linux/tcp.h
-> +++ b/include/linux/tcp.h
-> @@ -238,6 +238,11 @@ struct tcp_sack_block {
->  	u32	end_seq;
->  };
->  
-> +/*These are used to set the sack_ok field in struct 
-> tcp_options_received */
-> +#define SACK_SEEN     (1 << 0)   /*1 = peer is SACK capable, */
-> +#define FACK_ENABLED  (1 << 1)   /*1 = FACK is enabled locally*/
-> +#define DSACK_SEEN    (1 << 2)   /*1 = DSACK was received from peer*/
-> +
+20.12.2011 14:25, Glauber Costa =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On 12/20/2011 03:14 PM, Stanislav Kinsbursky wrote:
+>> Service transports are parametrized by network namespace. And thus l=
+ookup of
+>> transport instance have to take network namespace into account.
+>>
+>> Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
+>>
+>> ---
+>>    fs/lockd/svc.c                  |    2 +-
+>>    fs/nfsd/nfsctl.c                |    4 ++--
+>>    include/linux/sunrpc/svc_xprt.h |    3 ++-
+>>    net/sunrpc/svc_xprt.c           |    6 +++++-
+>>    4 files changed, 10 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/fs/lockd/svc.c b/fs/lockd/svc.c
+>> index c061b9a..ff379ff 100644
+>> --- a/fs/lockd/svc.c
+>> +++ b/fs/lockd/svc.c
+>> @@ -193,7 +193,7 @@ static int create_lockd_listener(struct svc_serv=
+ *serv, const char *name,
+>>    {
+>>    	struct svc_xprt *xprt;
+>>
+>> -	xprt =3D svc_find_xprt(serv, name, family, 0);
+>> +	xprt =3D svc_find_xprt(serv, name,&init_net, family, 0);
+>>    	if (xprt =3D=3D NULL)
+>>    		return svc_create_xprt(serv, name,&init_net, family, port,
+>>    						SVC_SOCK_DEFAULTS);
+>
+> I might be missing something, but isn't it (at least part of it) alre=
+ady
+> merged in commit fc5d00b04a3a58cac8620403dfe9f43f72578ec1 ?
+>
 
-Since that is a fairly public header, some namespace protection
-might be sensible.
+Nope, those one was parameterizing transport creation by network namesp=
+ace.
+This one is parameterizing search in poll of existent service transport=
+s by=20
+network namespace.
 
-> -	tcp_opt->sack_ok = (options >> 4) & 0x1;
-> +	tcp_opt->sack_ok = (options >> 4) & SACK_SEEN;
-
-Looks to me like that 0x1 isn't SAC_SEEK! So this is now misleading.
-
-	David
+--=20
+Best regards,
+Stanislav Kinsbursky
