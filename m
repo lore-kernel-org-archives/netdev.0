@@ -1,38 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: macvtap rxhash patch
-Date: Tue, 20 Dec 2011 13:45:42 -0500 (EST)
-Message-ID: <20111220.134542.714624705250823389.davem@davemloft.net>
-References: <20111219.163732.1743893510814385117.davem@davemloft.net>
-	<20111220112326.GD3913@redhat.com>
+Subject: Re: [PATCH] macvtap: Fix macvtap_get_queue to use rxhash first
+Date: Tue, 20 Dec 2011 13:46:20 -0500 (EST)
+Message-ID: <20111220.134620.2202516303434868216.davem@davemloft.net>
+References: <20111207161001.GD23845@redhat.com>
+	<20111207.135235.557498530764890254.davem@davemloft.net>
+	<20111220111512.GA3913@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, netdev@vger.kernel.org
+Cc: krkumar2@in.ibm.com, arnd@arndb.de, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, levinsasha928@gmail.com
 To: mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41997 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752002Ab1LTSpu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 13:45:50 -0500
-In-Reply-To: <20111220112326.GD3913@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20111220111512.GA3913@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Tue, 20 Dec 2011 13:23:26 +0200
+Date: Tue, 20 Dec 2011 13:15:12 +0200
 
-> On Mon, Dec 19, 2011 at 04:37:32PM -0500, David Miller wrote:
->> 
->> Reference:
->> 
->> http://patchwork.ozlabs.org/patch/127456/
->> 
->> This is just rotting for a long time, I want to just do something
->> with this patch, and I don't care if that's "apply it now" or
->> "defer indefinitely".
->> 
->> Thanks.
+> On Wed, Dec 07, 2011 at 01:52:35PM -0500, David Miller wrote:
+>> Once you sort this out, reply with an Acked-by: for me, thanks.
 > 
-> Ack, sorry about the delay.
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-No problem.
+Applied.
