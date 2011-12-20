@@ -1,40 +1,32 @@
-From: Vitalii Demianets <vitas@nppfactor.kiev.ua>
-Subject: Re: [PATCH] bridge: push blocking slaves to forwarding
-	when turning stp off
-Date: Tue, 20 Dec 2011 12:59:11 +0200
-Message-ID: <201112201259.12086.vitas@nppfactor.kiev.ua>
-References: <201112131136.25919.vitas@nppfactor.kiev.ua>
-	<20111213161613.0c59ab36@nehalam.linuxnetplumber.net>
-	<201112141132.51867.vitas@nppfactor.kiev.ua>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: macvtap rxhash patch
+Date: Tue, 20 Dec 2011 13:23:26 +0200
+Message-ID: <20111220112326.GD3913@redhat.com>
+References: <20111219.163732.1743893510814385117.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <201112141132.51867.vitas@nppfactor.kiev.ua>
+Content-Type: text/plain; charset=us-ascii
+Cc: krkumar2@in.ibm.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:40737 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751819Ab1LTLVr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Dec 2011 06:21:47 -0500
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20111219.163732.1743893510814385117.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello, Stephen!
-I can not understand your silence.
-There are issues fixed by the patch in question. For example, if the interface 
-is left in blocking state after stp was turned off, that state is not 
-stable - it can flip to forwarding state in unpredictable times, e.g. when 
-_any other_ slave of the bridge goes up or down. Do you think user wants 
-exactly that unpredictable state change?
-Also, the code in question in function br_stp_stop(), namely 
-br_port_state_selection(br) call, does exactly nothing except wasting cpu 
-cycles. Isn't it worth fixing?
+On Mon, Dec 19, 2011 at 04:37:32PM -0500, David Miller wrote:
+> 
+> Reference:
+> 
+> http://patchwork.ozlabs.org/patch/127456/
+> 
+> This is just rotting for a long time, I want to just do something
+> with this patch, and I don't care if that's "apply it now" or
+> "defer indefinitely".
+> 
+> Thanks.
 
--- 
-Vitalii Demianets
+Ack, sorry about the delay.
