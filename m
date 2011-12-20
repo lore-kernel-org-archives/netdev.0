@@ -1,77 +1,66 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH V2] IPv6 : add multicast routing verify which net_device is lo
-Date: Tue, 20 Dec 2011 19:10:24 +0800
-Message-ID: <1324379424-18055-1-git-send-email-gaofeng@cn.fujitsu.com>
-References: <4EF059B3.1020705@cn.fujitsu.com>
-Cc: davem@davemloft.net, Wang xingtong <wangxingtong@cn.fujitsu.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:53793 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751696Ab1LTLJi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Dec 2011 06:09:38 -0500
-In-Reply-To: <4EF059B3.1020705@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] macvtap: Fix macvtap_get_queue to use rxhash first
+Date: Tue, 20 Dec 2011 13:15:12 +0200
+Message-ID: <20111220111512.GA3913@redhat.com>
+References: <OF835A6FF5.7D752AD1-ON65257953.0016350C-65257953.00169AF4@in.ibm.com>
+	<20111125.013552.1613051198566054931.davem@davemloft.net>
+	<20111207161001.GD23845@redhat.com>
+	<20111207.135235.557498530764890254.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: krkumar2@in.ibm.com, arnd@arndb.de, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, levinsasha928@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20111207.135235.557498530764890254.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-In currently routing subsystem, when we lookup a multicast routing
-to send muticast packets to outside, rt6_device_match will return
-the rt6_info which it's match first. If we add a multicast route on
-loopback devices beforce the others interface, rt6_device_match will
-retrun the rt6_info which rt6i_dev->name is "lo". But, obviously,
-we can't send a muticast packet to outside using loopback devices.
-It case all multicast packets blocking.
+On Wed, Dec 07, 2011 at 01:52:35PM -0500, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Wed, 7 Dec 2011 18:10:02 +0200
+> 
+> > On Fri, Nov 25, 2011 at 01:35:52AM -0500, David Miller wrote:
+> >> From: Krishna Kumar2 <krkumar2@in.ibm.com>
+> >> Date: Fri, 25 Nov 2011 09:39:11 +0530
+> >> 
+> >> > Jason Wang <jasowang@redhat.com> wrote on 11/25/2011 08:51:57 AM:
+> >> >>
+> >> >> My description is not clear again :(
+> >> >> I mean the same vhost thead:
+> >> >>
+> >> >> vhost thread #0 transmits packets of flow A on processor M
+> >> >> ...
+> >> >> vhost thread #0 move to another process N and start to transmit packets
+> >> >> of flow A
+> >> > 
+> >> > Thanks for clarifying. Yes, binding vhosts to CPU's
+> >> > makes the incoming packet go to the same vhost each
+> >> > time. BTW, are you doing any binding and/or irqbalance
+> >> > when you run your tests? I am not running either at
+> >> > this time, but thought both might be useful.
+> >> 
+> >> So are we going with this patch or are we saying that vhost binding
+> >> is a requirement?
+> > 
+> > OK we didn't come to a conclusion so I would be inclined
+> > to merge this patch as is for 3.2, and revisit later.
+> > One question though: do these changes affect userspace
+> > in any way? For example, will this commit us to
+> > ensure that a single flow gets a unique hash even
+> > for strange configurations that transmit the same flow
+> > from multiple cpus?
+> 
+> Once you sort this out, reply with an Acked-by: for me, thanks.
 
-Commit 4af04aba93f47699e disabled kernel add multicast route on lo
-automatically. However,  we can't surmise the routing-add order or
-interdict add multicast routing on loopback devices in user space.
-The bug still exist. So, i think, more stronger routing subsystem is
-necessary.
-
-Signed-off-by: Wang xingtong <wangxingtong@cn.fujitsu.com>
----
- net/ipv6/route.c |   19 ++++++++++++++++---
- 1 files changed, 16 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index b582a0a..d6663ca 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -334,9 +334,16 @@ static inline struct rt6_info *rt6_device_match(struct net *net,
- 	struct rt6_info *local = NULL;
- 	struct rt6_info *sprt;
- 
--	if (!oif && ipv6_addr_any(saddr))
-+	if (!oif && ipv6_addr_any(saddr)){
-+		if (unlikely(rt->rt6i_dev->flags & IFF_LOOPBACK &&
-+			ipv6_addr_is_multicast(&rt->rt6i_dst.addr))){
-+			rt=rt->dst.rt6_next;
-+			goto match;
-+		}
- 		goto out;
-+	}
- 
-+match:
- 	for (sprt = rt; sprt; sprt = sprt->dst.rt6_next) {
- 		struct net_device *dev = sprt->rt6i_dev;
- 
-@@ -355,9 +362,15 @@ static inline struct rt6_info *rt6_device_match(struct net *net,
- 				local = sprt;
- 			}
- 		} else {
--			if (ipv6_chk_addr(net, saddr, dev,
--					  flags & RT6_LOOKUP_F_IFACE))
-+			if (ipv6_addr_any(saddr)){
-+				if (unlikely(rt->rt6i_dev->flags & IFF_LOOPBACK &&
-+					ipv6_addr_is_multicast(&rt->rt6i_dst.addr)))
-+					continue;
- 				return sprt;
-+			}
-+			else if (ipv6_chk_addr(net, saddr, dev,
-+					  flags & RT6_LOOKUP_F_IFACE))
-+					return sprt;
- 		}
- 	}
- 
--- 
-1.7.1
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
