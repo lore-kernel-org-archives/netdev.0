@@ -1,25 +1,55 @@
-From: "Luis R. Rodriguez" <mcgrof@frijolero.org>
-Subject: Re: [ANN] compat-wireless for 3.2-rc6
-Date: Mon, 19 Dec 2011 19:58:40 -0800
-Message-ID: <CAB=NE6VKYDoPzQV+HpaM1tDM_=whZV1hgUxPeS6twzgiz1WtEA@mail.gmail.com>
-References: <CAB=NE6WfBDqQzqxNaZm5mMhjyP2t7M-5t=+RA-A2JAKUKjmJzw@mail.gmail.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: Re: [PATCH] sctp: Do not account for sizeof(struct sk_buff) in
+ estimated rwnd
+Date: Tue, 20 Dec 2011 13:00:48 +0800
+Message-ID: <CAPgLHd-JL8cjMBSqO5Lc5nEt42zqj8qAn+qHaM35HTmnhOHg7w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	linux-bluetooth <linux-bluetooth@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAB=NE6WfBDqQzqxNaZm5mMhjyP2t7M-5t=+RA-A2JAKUKjmJzw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: vladislav.yasevich@hp.com, linux-sctp@vger.kernel.org,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: tgraf@infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:51013 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751104Ab1LTFAt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 00:00:49 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 19, 2011 at 7:55 PM, Luis R. Rodriguez <mcgrof@frijolero.org> wrote:
-> [1] http://www.orbit-lab.org/kernel/compat-wireless-3-stable/v3.2/compat-wireless-3.2-rc6-3-s.tar.bz2
-> [2] http://www.orbit-lab.org/kernel/compat-wireless-3-stable/v3.2/compat-wireless-3.2-rc1-1.tar.bz2
+Hi Thomas,
 
-I messed up on the URL to the vanilla release [2] but here is the right one:
+> On Mon, Dec 19, 2011 at 03:11:40PM +0100, Thomas Graf wrote:
+>> Trying to reproduce this I found that with the sk_buff overhead removed,
+>> the performance would improve significantly unless socket buffer limits
+>> are increased.
+> I believe this is likely to be misunderstood. What I meant is that by
+> removing the sk_buff overhead and while using default socket buffer limits
+> the performance increases as shown below. If socket buffers are enlarged
+> performance differences fade until there is no longer any difference.
+>
+> Sorry for poor wording.
+>
+>> The following numbers have been gathered using a patched iperf
+>> supporting SCTP over a live 1 Gbit ethernet network. The -l option
+>> was used to limit DATA chunk sizes. The numbers listed are based on
+>> the average of 3 test runs each. Default values have been used for
+>> sk_(r|w)mem.
+>>
+>> Chunk
+>> Size    Unpatched     No Overhead
+>> -------------------------------------
+>>    4    15.2 Kbit [!]   12.2 Mbit [!]
+>>    8    35.8 Kbit [!]   26.0 Mbit [!]
+>>   16    95.5 Kbit [!]   54.4 Mbit [!]
+>>   32   106.7 Mbit      102.3 Mbit
+>>   64   189.2 Mbit      188.3 Mbit
+>>  128   331.2 Mbit      334.8 Mbit
+>>  256   537.7 Mbit      536.0 Mbit
+>>  512   766.9 Mbit      766.6 Mbit
+>> 1024   810.1 Mbit      808.6 Mbit
 
-http://www.orbit-lab.org/kernel/compat-wireless-3-stable/v3.2/compat-wireless-3.2-rc6-3.tar.bz2
+I saw you discussed this with Vlad in old mail:
+    http://www.spinics.net/lists/linux-sctp/msg01365.html
 
-  Luis
+You said you will update patch to include a per packet overhead,
+but it does not include in this patch, what's wrong with in?
