@@ -1,26 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: (unknown)
-Date: Tue, 20 Dec 2011 14:10:38 -0500 (EST)
-Message-ID: <20111220.141038.1475170779591462703.davem@davemloft.net>
-References: <1324397163-302-1-git-send-email-madalin.bucur@freescale.com>
+Subject: Re: [PATCH net-next ] net: doc: fix many typos in scaling.txt
+Date: Tue, 20 Dec 2011 14:12:07 -0500 (EST)
+Message-ID: <20111220.141207.221676999625267301.davem@davemloft.net>
+References: <4EEFF427.1090801@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, eric.dumazet@gmail.com,
-	timo.teras@iki.fi, netdev@vger.kernel.org
-To: madalin.bucur@freescale.com
+Cc: netdev@vger.kernel.org
+To: shanwei88@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42315 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:42321 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751782Ab1LTTL6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 14:11:58 -0500
-In-Reply-To: <1324397163-302-1-git-send-email-madalin.bucur@freescale.com>
+	with ESMTP id S1752429Ab1LTTMK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 14:12:10 -0500
+In-Reply-To: <4EEFF427.1090801@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Shan Wei <shanwei88@gmail.com>
+Date: Tue, 20 Dec 2011 10:34:15 +0800
 
-Please do not mangle, and in this case completely empty, the subject
-line when replying to people.
+> Fix some trivial typos.
+> 
+> Signed-off-by: Shan Wei <shanwei88@gmail.com>
 
-It makes the thread impossible to follow, and people might miss your
-posting entirely as I nearly did in this case.
+Applied.
