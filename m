@@ -1,68 +1,69 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: Re: [PATCH V3 10/14] ARM: mxs: add clk_prepare/clk_unprepare
-Date: Tue, 20 Dec 2011 10:15:33 +0800
-Message-ID: <20111220021532.GA2995@S2101-09.ap.freescale.net>
-References: <1321008637-19999-1-git-send-email-richard.zhao@linaro.org>
- <1321008637-19999-11-git-send-email-richard.zhao@linaro.org>
+From: Shan Wei <shanwei88@gmail.com>
+Subject: [PATCH net-next ] net: doc: fix many typos in scaling.txt
+Date: Tue, 20 Dec 2011 10:34:15 +0800
+Message-ID: <4EEFF427.1090801@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <linux-arm-kernel@lists.infradead.org>,
-	<linux-i2c@vger.kernel.org>, <linux-mmc@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-serial@vger.kernel.org>,
-	<linux@arm.linux.org.uk>, <amit.kucheria@canonical.com>,
-	<kernel@pengutronix.de>, <ben-linux@fluff.org>, <cjb@laptop.org>,
-	<alan@linux.intel.com>, <eric.miao@linaro.org>
-To: Richard Zhao <richard.zhao@linaro.org>,
-	Sascha Hauer <s.hauer@pengutronix.de>
-Return-path: <linux-serial-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1321008637-19999-11-git-send-email-richard.zhao@linaro.org>
-Sender: linux-serial-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?B?5Y2V5Y2r?= <shanwei88@gmail.com>,
+	NetDev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:46359 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751159Ab1LTCb5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2011 21:31:57 -0500
+Received: by iaeh11 with SMTP id h11so9483448iae.19
+        for <netdev@vger.kernel.org>; Mon, 19 Dec 2011 18:31:57 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sascha,
+Fix some trivial typos.
 
-Can you drop this patch from your tree?  This patch is not complete
-even for mxs platform/arch code, and will conflict with my mxs
-clk-prepare series.
+Signed-off-by: Shan Wei <shanwei88@gmail.com>
+---
+ Documentation/networking/scaling.txt |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/Documentation/networking/scaling.txt b/Documentation/networking/scaling.txt
+index a177de2..579994a 100644
+--- a/Documentation/networking/scaling.txt
++++ b/Documentation/networking/scaling.txt
+@@ -208,7 +208,7 @@ The counter in rps_dev_flow_table values records the length of the current
+ CPU's backlog when a packet in this flow was last enqueued. Each backlog
+ queue has a head counter that is incremented on dequeue. A tail counter
+ is computed as head counter + queue length. In other words, the counter
+-in rps_dev_flow_table[i] records the last element in flow i that has
++in rps_dev_flow[i] records the last element in flow i that has
+ been enqueued onto the currently designated CPU for flow i (of course,
+ entry i is actually selected by hash and multiple flows may hash to the
+ same entry i).
+@@ -224,7 +224,7 @@ following is true:
+
+ - The current CPU's queue head counter >= the recorded tail counter
+   value in rps_dev_flow[i]
+-- The current CPU is unset (equal to NR_CPUS)
++- The current CPU is unset (equal to RPS_NO_CPU)
+ - The current CPU is offline
+
+ After this check, the packet is sent to the (possibly updated) current
+@@ -235,7 +235,7 @@ CPU.
+
+ ==== RFS Configuration
+
+-RFS is only available if the kconfig symbol CONFIG_RFS is enabled (on
++RFS is only available if the kconfig symbol CONFIG_RPS is enabled (on
+ by default for SMP). The functionality remains disabled until explicitly
+ configured. The number of entries in the global flow table is set through:
+
+@@ -258,7 +258,7 @@ For a single queue device, the rps_flow_cnt value for the single queue
+ would normally be configured to the same value as rps_sock_flow_entries.
+ For a multi-queue device, the rps_flow_cnt for each queue might be
+ configured as rps_sock_flow_entries / N, where N is the number of
+-queues. So for instance, if rps_flow_entries is set to 32768 and there
++queues. So for instance, if rps_sock_flow_entries is set to 32768 and there
+ are 16 configured receive queues, rps_flow_cnt for each queue might be
+ configured as 2048.
 
 -- 
-Regards,
-Shawn
-
-On Fri, Nov 11, 2011 at 06:50:33PM +0800, Richard Zhao wrote:
-> Signed-off-by: Richard Zhao <richard.zhao@linaro.org>
-> ---
->  arch/arm/mach-mxs/system.c |    2 +-
->  arch/arm/mach-mxs/timer.c  |    2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/arch/arm/mach-mxs/system.c b/arch/arm/mach-mxs/system.c
-> index 20ec3bd..9760a12 100644
-> --- a/arch/arm/mach-mxs/system.c
-> +++ b/arch/arm/mach-mxs/system.c
-> @@ -66,7 +66,7 @@ static int __init mxs_arch_reset_init(void)
->  
->  	clk = clk_get_sys("rtc", NULL);
->  	if (!IS_ERR(clk))
-> -		clk_enable(clk);
-> +		clk_prepare_enable(clk);
->  
->  	return 0;
->  }
-> diff --git a/arch/arm/mach-mxs/timer.c b/arch/arm/mach-mxs/timer.c
-> index cace0d2..564a632 100644
-> --- a/arch/arm/mach-mxs/timer.c
-> +++ b/arch/arm/mach-mxs/timer.c
-> @@ -245,7 +245,7 @@ static int __init mxs_clocksource_init(struct clk *timer_clk)
->  
->  void __init mxs_timer_init(struct clk *timer_clk, int irq)
->  {
-> -	clk_enable(timer_clk);
-> +	clk_prepare_enable(timer_clk);
->  
->  	/*
->  	 * Initialize timers to a known state
-> -- 
-> 1.7.5.4
-
+1.7.1
