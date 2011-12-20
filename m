@@ -1,149 +1,93 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 10/10] [PATCH] qeth: recovery through asynchronous delivery
-Date: Tue, 20 Dec 2011 09:56:36 +0100
-Message-ID: <20111220085736.554049167@de.ibm.com>
+Subject: [patch 07/10] [PATCH] qeth: forbid recovery during shutdown
+Date: Tue, 20 Dec 2011 09:56:33 +0100
+Message-ID: <20111220085736.230808699@de.ibm.com>
 References: <20111220085626.924756639@de.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Einar Lueck <elelueck@de.ibm.com>,
 	Ursula Braun <ursula.braun@de.ibm.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp15.uk.ibm.com ([195.75.94.111]:38231 "EHLO
-	e06smtp15.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752690Ab1LTI6B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 03:58:01 -0500
+Received: from e06smtp18.uk.ibm.com ([195.75.94.114]:36021 "EHLO
+	e06smtp18.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752900Ab1LTI6Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 03:58:24 -0500
 Received: from /spool/local
-	by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e06smtp18.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
-	Tue, 20 Dec 2011 08:57:59 -0000
-Content-Disposition: inline; filename=611-qeth-async-recovery.diff
+	Tue, 20 Dec 2011 08:58:18 -0000
+Content-Disposition: inline; filename=607-qeth-recovery-shutdown.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Einar Lueck <elelueck@de.ibm.com>
+From: Ursula Braun <ursula.braun@de.ibm.com>
 
-If recovery is triggered in presence of pending asynchronous
-deliveries of storage blocks we do a forced cleanup after
-the corresponding tasklets are completely stopped and trigger
-appropriate notifications for the correspondingerror state.
+A recovery does not make sense during shutdown and may even cause an
+error like this:
 
-Signed-off-by: Einar Lueck <elelueck@de.ibm.com>
+qeth 0.0.f503: A recovery process has been started for the device
+Badness at drivers/s390/cio/qdio_main.c:1156
+Modules linked in: autofs4 sunrpc dm_multipath scsi_dh scsi_mod qeth_l3 ipv6 vmu
+r qeth qdio ccwgroup ext3 jbd mbcache dasd_eckd_mod dasd_mod dm_mirror dm_region
+_hash dm_log dm_mod [last unloaded: scsi_wait_scan]
+CPU: 3 Not tainted 2.6.32-202.el6.s390x #1
+Process qeth_recover (pid: 1498, task: 000000003efe2040, ksp: 000000003d5e3b80)
+Krnl PSW : 0404200180000000 000003c000be6da8 (qdio_int_handler+0x88/0x43c [qdio]
+)
+           R:0 T:1 IO:0 EX:0 Key:0 M:1 W:0 P:0 AS:0 CC:2 PM:0 EA:3
+Krnl GPRS: ffffffffffff3bac 0000000000000005 0000000000000000 fffffffffffffff4
+           0000000000000000 000000000000000c 0000000000000000 000000003ca97000
+           0000000000000380 fffffffffffffff4 000000003f22d800 000000003f22c478
+           000003c000bdf000 000003c000bea270 000000003f447e10 000000003f447db0
+Krnl Code: 000003c000be6d9a: c21f00000004       clfi    %r1,4
+           000003c000be6da0: a7c40021           brc     12,3c000be6de2
+           000003c000be6da4: a7f40001           brc     15,3c000be6da6
+          >000003c000be6da8: e320a0080004       lg      %r2,8(%r10)
+           000003c000be6dae: a7390003           lghi    %r3,3
+           000003c000be6db2: a72b0178           aghi    %r2,376
+           000003c000be6db6: a7490001           lghi    %r4,1
+           000003c000be6dba: a7590000           lghi    %r5,0
+Call Trace:
+([<000000000080ee80>] __per_cpu_offset+0x0/0x200)
+[<00000000003d90e8>] ccw_device_call_handler+0x70/0xcc
+[<00000000003d83a2>] ccw_device_irq+0x82/0x180
+[<00000000003cc6a8>] do_IRQ+0x16c/0x1ec
+[<0000000000118abe>] io_return+0x0/0x8
+[<000003c000d04c74>] qeth_determine_capabilities+0x208/0x5cc [qeth]
+([<000003c000d04c4a>] qeth_determine_capabilities+0x1de/0x5cc [qeth])
+[<000003c000d0a6e0>] qeth_core_hardsetup_card+0x160/0x1258 [qeth]
+[<000003c000f49f56>] __qeth_l3_set_online+0x132/0xb14 [qeth_l3]
+[<000003c000f4ac70>] qeth_l3_recover+0x168/0x224 [qeth_l3]
+[<000000000016e210>] kthread+0xa4/0xac
+[<0000000000109c6e>] kernel_thread_starter+0x6/0xc
+[<0000000000109c68>] kernel_thread_starter+0x0/0xc
+
+The patch forbids start of a recovery once qeth shutdown is running.
+
 Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
 Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 ---
 
- drivers/s390/net/qeth_core_main.c |   34 +++++++++++++++++++++++++++++-----
- drivers/s390/net/qeth_l3_main.c   |    5 +++++
- 2 files changed, 34 insertions(+), 5 deletions(-)
+ drivers/s390/net/qeth_l2_main.c |    1 +
+ drivers/s390/net/qeth_l3_main.c |    1 +
+ 2 files changed, 2 insertions(+)
 
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -66,7 +66,7 @@ static void qeth_release_skbs(struct qet
- static void qeth_clear_output_buffer(struct qeth_qdio_out_q *queue,
- 		struct qeth_qdio_out_buffer *buf,
- 		enum qeth_qdio_buffer_states newbufstate);
--
-+static int qeth_init_qdio_out_buf(struct qeth_qdio_out_q *, int);
- 
- static inline const char *qeth_get_cardname(struct qeth_card *card)
+--- a/drivers/s390/net/qeth_l2_main.c
++++ b/drivers/s390/net/qeth_l2_main.c
+@@ -1173,6 +1173,7 @@ static void __exit qeth_l2_exit(void)
+ static void qeth_l2_shutdown(struct ccwgroup_device *gdev)
  {
-@@ -363,6 +363,9 @@ static inline enum iucv_tx_notify qeth_c
- static inline void qeth_cleanup_handled_pending(struct qeth_qdio_out_q *q,
- 	int bidx, int forced_cleanup)
- {
-+	if (q->card->options.cq != QETH_CQ_ENABLED)
-+		return;
-+
- 	if (q->bufs[bidx]->next_pending != NULL) {
- 		struct qeth_qdio_out_buffer *head = q->bufs[bidx];
- 		struct qeth_qdio_out_buffer *c = q->bufs[bidx]->next_pending;
-@@ -390,6 +393,13 @@ static inline void qeth_cleanup_handled_
- 
- 		}
- 	}
-+	if (forced_cleanup && (atomic_read(&(q->bufs[bidx]->state)) ==
-+					QETH_QDIO_BUF_HANDLED_DELAYED)) {
-+		/* for recovery situations */
-+		q->bufs[bidx]->aob = q->bufstates[bidx].aob;
-+		qeth_init_qdio_out_buf(q, bidx);
-+		QETH_CARD_TEXT(q->card, 2, "clprecov");
-+	}
- }
- 
- 
-@@ -412,7 +422,6 @@ static inline void qeth_qdio_handle_aob(
- 		notification = TX_NOTIFY_OK;
- 	} else {
- 		BUG_ON(atomic_read(&buffer->state) != QETH_QDIO_BUF_PENDING);
--
- 		atomic_set(&buffer->state, QETH_QDIO_BUF_IN_CQ);
- 		notification = TX_NOTIFY_DELAYED_OK;
- 	}
-@@ -425,7 +434,8 @@ static inline void qeth_qdio_handle_aob(
- 
- 	buffer->aob = NULL;
- 	qeth_clear_output_buffer(buffer->q, buffer,
--				QETH_QDIO_BUF_HANDLED_DELAYED);
-+				 QETH_QDIO_BUF_HANDLED_DELAYED);
-+
- 	/* from here on: do not touch buffer anymore */
- 	qdio_release_aob(aob);
- }
-@@ -1113,11 +1123,25 @@ out:
- static void qeth_release_skbs(struct qeth_qdio_out_buffer *buf)
- {
- 	struct sk_buff *skb;
-+	struct iucv_sock *iucv;
-+	int notify_general_error = 0;
-+
-+	if (atomic_read(&buf->state) == QETH_QDIO_BUF_PENDING)
-+		notify_general_error = 1;
-+
-+	/* release may never happen from within CQ tasklet scope */
-+	BUG_ON(atomic_read(&buf->state) == QETH_QDIO_BUF_IN_CQ);
- 
- 	skb = skb_dequeue(&buf->skb_list);
- 	while (skb) {
- 		QETH_CARD_TEXT(buf->q->card, 5, "skbr");
- 		QETH_CARD_TEXT_(buf->q->card, 5, "%lx", (long) skb);
-+		if (notify_general_error && skb->protocol == ETH_P_AF_IUCV) {
-+			if (skb->sk) {
-+				iucv = iucv_sk(skb->sk);
-+				iucv->sk_txnotify(skb, TX_NOTIFY_GENERALERROR);
-+			}
-+		}
- 		atomic_dec(&skb->users);
- 		dev_kfree_skb_any(skb);
- 		skb = skb_dequeue(&buf->skb_list);
-@@ -1160,7 +1184,7 @@ static void qeth_clear_outq_buffers(stru
- 	for (j = 0; j < QDIO_MAX_BUFFERS_PER_Q; ++j) {
- 		if (!q->bufs[j])
- 			continue;
--		qeth_cleanup_handled_pending(q, j, free);
-+		qeth_cleanup_handled_pending(q, j, 1);
- 		qeth_clear_output_buffer(q, q->bufs[j], QETH_QDIO_BUF_EMPTY);
- 		if (free) {
- 			kmem_cache_free(qeth_qdio_outbuf_cache, q->bufs[j]);
-@@ -1207,7 +1231,7 @@ static void qeth_free_qdio_buffers(struc
- 	qeth_free_cq(card);
- 	cancel_delayed_work_sync(&card->buffer_reclaim_work);
- 	for (j = 0; j < QDIO_MAX_BUFFERS_PER_Q; ++j)
--		kfree_skb(card->qdio.in_q->bufs[j].rx_skb);
-+		dev_kfree_skb_any(card->qdio.in_q->bufs[j].rx_skb);
- 	kfree(card->qdio.in_q);
- 	card->qdio.in_q = NULL;
- 	/* inbound buffer pool */
+ 	struct qeth_card *card = dev_get_drvdata(&gdev->dev);
++	qeth_set_allowed_threads(card, 0, 1);
+ 	if ((gdev->state == CCWGROUP_ONLINE) && card->info.hwtrap)
+ 		qeth_hw_trap(card, QETH_DIAGS_TRAP_DISARM);
+ 	qeth_qdio_clear_card(card, 0);
 --- a/drivers/s390/net/qeth_l3_main.c
 +++ b/drivers/s390/net/qeth_l3_main.c
-@@ -3544,6 +3544,11 @@ static int __qeth_l3_set_offline(struct
- 		card->info.hwtrap = 1;
- 	}
- 	qeth_l3_stop_card(card, recovery_mode);
-+	if ((card->options.cq == QETH_CQ_ENABLED) && card->dev) {
-+		rtnl_lock();
-+		call_netdevice_notifiers(NETDEV_REBOOT, card->dev);
-+		rtnl_unlock();
-+	}
- 	rc  = ccw_device_set_offline(CARD_DDEV(card));
- 	rc2 = ccw_device_set_offline(CARD_WDEV(card));
- 	rc3 = ccw_device_set_offline(CARD_RDEV(card));
+@@ -3598,6 +3598,7 @@ static int qeth_l3_recover(void *ptr)
+ static void qeth_l3_shutdown(struct ccwgroup_device *gdev)
+ {
+ 	struct qeth_card *card = dev_get_drvdata(&gdev->dev);
++	qeth_set_allowed_threads(card, 0, 1);
+ 	if ((gdev->state == CCWGROUP_ONLINE) && card->info.hwtrap)
+ 		qeth_hw_trap(card, QETH_DIAGS_TRAP_DISARM);
+ 	qeth_qdio_clear_card(card, 0);
