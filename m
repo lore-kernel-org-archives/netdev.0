@@ -1,51 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-3.0.x regression with ipv4 routes having mtu
-Date: Tue, 20 Dec 2011 13:35:42 -0500 (EST)
-Message-ID: <20111220.133542.2144336048061483258.davem@davemloft.net>
-References: <4EF030D5.6040603@iki.fi>
-	<20111220.020355.942849877817117461.davem@davemloft.net>
-	<20111220071843.GL6348@secunet.com>
+Subject: Re: [PATCH] stmmac: reduce queue lengths if MTU is very large
+Date: Tue, 20 Dec 2011 13:41:20 -0500 (EST)
+Message-ID: <20111220.134120.1764634344589128309.davem@davemloft.net>
+References: <20111219.163337.1185514300243434827.davem@davemloft.net>
+	<1324273530-18499-1-git-send-email-peppe.cavallaro@st.com>
+	<20111220073050.GA2817@mail.gnudd.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: timo.teras@iki.fi, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	giancarlo.asnaghi@st.com
+To: rubini@gnudd.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41900 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:41950 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751782Ab1LTSf5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 13:35:57 -0500
-In-Reply-To: <20111220071843.GL6348@secunet.com>
+	with ESMTP id S1752002Ab1LTSl3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 13:41:29 -0500
+In-Reply-To: <20111220073050.GA2817@mail.gnudd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Tue, 20 Dec 2011 08:18:43 +0100
+From: Alessandro Rubini <rubini@gnudd.com>
+Date: Tue, 20 Dec 2011 08:30:50 +0100
 
-> On Tue, Dec 20, 2011 at 02:03:55AM -0500, David Miller wrote:
->> From: Timo Ter=E4s <timo.teras@iki.fi>
->> Date: Tue, 20 Dec 2011 08:53:09 +0200
->>=20
->> > Or maybe I missed the place where that updated would happen?
->>=20
->> It should happen on every routing cache lookup hit just like we
->> validate the peer for redirect information.
->=20
-> The problem is that we need to do a route cache lookup to
-> validate the peer informations. This does not happen if
-> somebody adds a new route. I tried already to add a pmtu specific
-> generation id and it appears to not solve the problem. We would
-> still need to overwrite the cached value if we add a route with mtu.
+> Allocation of the queues is based on a parameter. If the parameter was
+> a size, instead of a lenght, all would be fine, wouldn't it? If you
+> agree, then this patch is turning the lenght into a size, in a way.
 
-Why?
+That doesn't make any sense either, queues are sized by TX descriptor
+slots not bytes.
 
-Every use of a routing cache entry does a dst_check() or a routing
-cache lookup.
+> Now, how could we deal with the fact that the size explodes if the MTU
+> is increased?
 
-You can check the generation ID in both locations, and if the
-comparison fails then you force the routing cache entry to be killed
-and the caller performs a lookup.  At that time the refreshing of the
-new FIB entry will be realized.
+Maybe... set the initial parameter appropriately?  This is enormously
+better than fixing it up after the fact.
 
-The critical bit is invalidating the routing cache entry, I can only
-guess that you're not doing that.
+Maybe I set the number of TX entries based upon my expected packet
+load of small packets.  If I happen to set my MTU to 9000 that's
+irrelevant to the setting.
