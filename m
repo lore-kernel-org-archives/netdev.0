@@ -1,42 +1,55 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] bridge: push blocking slaves to forwarding when turning
- stp off
-Date: Tue, 20 Dec 2011 10:11:17 -0800
-Message-ID: <20111220101117.2a3eb12f@nehalam.linuxnetplumber.net>
-References: <201112131136.25919.vitas@nppfactor.kiev.ua>
-	<20111213161613.0c59ab36@nehalam.linuxnetplumber.net>
-	<201112141132.51867.vitas@nppfactor.kiev.ua>
-	<201112201259.12086.vitas@nppfactor.kiev.ua>
+From: Satoru Moriya <satoru.moriya@hds.com>
+Subject: RE: [PATCH 0/2] Tracepoint for tcp retransmission
+Date: Tue, 20 Dec 2011 13:13:01 -0500
+Message-ID: <65795E11DBF1E645A09CEC7EAEE94B9CB5AFAF34@USINDEVS02.corp.hds.com>
+References: <65795E11DBF1E645A09CEC7EAEE94B9CB5AFA64F@USINDEVS02.corp.hds.com>
+ <5f654c7d-f18e-4d70-8830-a3e31b8f5f4a@tahiti.vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Michael Tremer <michael.tremer@ipfire.org>
-To: Vitalii Demianets <vitas@nppfactor.kiev.ua>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"tgraf@infradead.org" <tgraf@infradead.org>,
+	Seiji Aguchi <seiji.aguchi@hds.com>,
+	"dle-develop@lists.sourceforge.net"
+	<dle-develop@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen.hemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51713 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751772Ab1LTSLU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Dec 2011 13:11:20 -0500
-In-Reply-To: <201112201259.12086.vitas@nppfactor.kiev.ua>
+Received: from usindpps03.hds.com ([207.126.252.16]:60016 "EHLO
+	usindpps03.hds.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752129Ab1LTSNc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 13:13:32 -0500
+In-Reply-To: <5f654c7d-f18e-4d70-8830-a3e31b8f5f4a@tahiti.vyatta.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 20 Dec 2011 12:59:11 +0200
-Vitalii Demianets <vitas@nppfactor.kiev.ua> wrote:
-
-> Hello, Stephen!
-> I can not understand your silence.
-> There are issues fixed by the patch in question. For example, if the interface 
-> is left in blocking state after stp was turned off, that state is not 
-> stable - it can flip to forwarding state in unpredictable times, e.g. when 
-> _any other_ slave of the bridge goes up or down. Do you think user wants 
-> exactly that unpredictable state change?
-> Also, the code in question in function br_stp_stop(), namely 
-> br_port_state_selection(br) call, does exactly nothing except wasting cpu 
-> cycles. Isn't it worth fixing?
-> 
-
-I had to go do real work last week.
-Let me test and look at it more detail.
-There is no urgency, the problem has existed for many years.
+T24gMTIvMTYvMjAxMSAwNzoxNyBQTSwgU3RlcGhlbiBIZW1taW5nZXIgd3JvdGU6DQo+IA0KPj4g
+U29tZXRpbWVzIG5ldHdvcmsgcGFja2V0cyBhcmUgZHJvcHBlZCBmb3Igc29tZSByZWFzb24uIElu
+IGVudGVycHJpc2UgDQo+PiBzeXN0ZW1zIHdoaWNoIHJlcXVpcmUgc3RyaWN0IFJBUyBmdW5jdGlv
+bmFsaXR5LCB3ZSBtdXN0IGtub3cgdGhlIA0KPj4gcmVhc29uIHdoeSBpdCBoYXBwZW5lZCBhbmQg
+ZXhwbGFpbiBpdCB0byBvdXIgY3VzdG9tZXJzIGV2ZW4gaWYgdXNpbmcgDQo+PiBUQ1AuIFdoZW4g
+d2UgaW52ZXN0aWdhdGUgdGhlIGluY2lkZW50cywgYXQgZmlyc3Qgd2UgdHJ5IHRvIGZpbmQgb3V0
+IA0KPj4gd2hldGhlciB0aGUgcHJvYmxlbSBpcyBpbiB0aGUgc2VydmVyKGtlcm5lbCwgYXBwbGlj
+YXRpb24pIG9yIGVsc2UgDQo+PiAocm91dGVyLCBodWIgZXRjKS4gQW5kIG5leHQgd2UgdHJ5IHRv
+IGZpbmQgb3V0IHdoaWNoIGxheWVyDQo+PiAoYXBwbGljYXRpb24vbWlkZGxld2FyZS9rZXJuZWwo
+SVAvVENQL1VEUC8uLilldGMuKSB0aGUgcHJvYmxlbSANCj4+IG9jY3Vycy4NCj4gDQo+IEkgZmVl
+bCBzb3JyeSBmb3IgeW91LCB5b3VyIHVzZXJzIGRvbid0IHVuZGVyc3RhbmQgVENQLiBUQ1AgDQo+
+IGludGVudGlvbmFsbHkgaW5kdWNlcyBsb3NzIHRvIG1lYXN1cmUgY2FwYWNpdHkuIFRoaXMgaXMg
+b25lIG9mIHRoZSANCj4gZnVuZGFtZW50YWwgcHJpbmNpcGxlcyBvZiBsb3NzIGJhc2VkIGNvbmdl
+c3Rpb24gY29udHJvbC4NCg0KTWF5YmUgbXkgZXhwbGFuYXRpb24gd2FzIG5vdCBlbm91Z2gsIEkg
+dGhpbmsuLi4NCg0KWWVzLCBhcyB5b3Ugc2FpZCBhYm92ZSwgVENQIGluZHVjZXMgbG9zcyBpbiBw
+cmluY2lwbGUuIEFjdHVhbGx5LA0KY3VzdG9tZXJzIGRvZXNuJ3QgdGhpbmsgdGhhdCBpcyBhIHBy
+b2JsZW0uIEJ1dCwgYXQgdGhlIHNhbWUgdGltZQ0KcGFja2V0IGRyb3Agb2NjdXJzIGV2ZXJ5d2hl
+cmUgaW4gbmV0d29yayBkdWUgdG8gQlVHLCB3cm9uZw0KY29uZmlndXJhdGlvbiwgYnJva2VuIGhh
+cmR3YXJlIGFuZC9vciBldGMuIGFuZCBzb21ldGltZXMgaXQNCmNhdXNlcyBzZXJpb3VzIHByb2Js
+ZW1zIHRvIGN1c3RvbWVycycgc3lzdGVtLg0KDQpXZSBwcm92aWRlIExpbnV4IHN1cHBvcnQgc2Vy
+dmljZSBpbiBvdXIgYnVzaW5lc3MgYW5kIHdoZW4gYQ0Kc2VyaW91cyBwcm9ibGVtIG9jY3Vycywg
+d2UgY29sbGVjdCBhbmQgYW5hbHl6ZSBsb2dzIGFuZCBmaW5kDQp3aGVyZSB0aGUgcHJvYmxlbSBp
+cy4NCg0KV2l0aCB0aGlzIHRyYWNlcG9pbnQsIHdlJ3JlIGFibGUgdG8ga25vdyB3aGV0aGVyIHRo
+ZSBwcm9ibGVtDQppcyBpbiBPUyBvciBzb21ld2hlcmUgZWxzZS4gKE5lZ2F0aXZlIHJldHVybiB2
+YWx1ZSBtZWFucyBwYWNrZXQNCmRyb3AgaGFwcGVuZWQgaW5zaWRlIE9TLikNClRoYXQncyBhIGdy
+ZWF0IGhlbHAgZm9yIHVzIG5hcnJvdyBkb3duIHRoZSByb290IGNhdXNlIG9mDQp0aGUgcHJvYmxl
+bS4NCg0KSSdsbCByZXdyaXRlIHRoZSBjb3ZlciBsZXR0ZXIgd2hlbiBJIHBvc3QgdjIuDQoNClJl
+Z2FyZHMsDQpTYXRvcnUNCg==
