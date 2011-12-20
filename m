@@ -1,81 +1,76 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH] net/sched: sch_plug - Queue traffic until an explicit
- release command
-Date: Tue, 20 Dec 2011 09:38:22 -0500
-Message-ID: <1324391902.17751.227.camel@mojatatu>
-References: <1324329752-28459-1-git-send-email-rshriram@cs.ubc.ca>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [PATCH net-next v2] igb: reset PHY after recovering from PHY
+ power down
+Date: Tue, 20 Dec 2011 16:05:53 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B626010891@ORSMSX102.amr.corp.intel.com>
+References: <4EEE9248.8020009@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Brendan Cully <brendan@cs.ubc.ca>
-To: rshriram@cs.ubc.ca
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: Koki Sanagi <sanagi.koki@jp.fujitsu.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:41136 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751900Ab1LTOi1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 09:38:27 -0500
-Received: by vbbfc26 with SMTP id fc26so4935734vbb.19
-        for <netdev@vger.kernel.org>; Tue, 20 Dec 2011 06:38:26 -0800 (PST)
-In-Reply-To: <1324329752-28459-1-git-send-email-rshriram@cs.ubc.ca>
+Received: from mga09.intel.com ([134.134.136.24]:21220 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751611Ab1LTQF5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 11:05:57 -0500
+In-Reply-To: <4EEE9248.8020009@jp.fujitsu.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Sorry - I didnt see your earlier CC. Cyberus.ca is probably the
-worst service provider in Canada (maybe the world; i am sure there
-are better ISPs in the middle of an ocean somewhere, deep underwater
-probably).
 
-On Mon, 2011-12-19 at 13:22 -0800, rshriram@cs.ubc.ca wrote:
-> This qdisc can be used to implement output buffering, an essential
-> functionality required for consistent recovery in checkpoint based
-> fault tolerance systems. 
+>-----Original Message-----
+>From: Koki Sanagi [mailto:sanagi.koki@jp.fujitsu.com]
+>Sent: Sunday, December 18, 2011 5:24 PM
+>To: netdev@vger.kernel.org
+>Cc: davem@davemloft.net; e1000-devel@lists.sourceforge.net; Wyborny,
+>Carolyn; Kirsher, Jeffrey T; Brandeburg, Jesse; Allan, Bruce W;
+>Skidmore, Donald C; Rose, Gregory V; Waskiewicz Jr, Peter P; Duyck,
+>Alexander H; Ronciak, John
+>Subject: [PATCH net-next v2] igb: reset PHY after recovering from PHY
+>power down
+>
+>According to 82576_Datasheet.pdf, PHY setting is lost after PHY power
+>down.
+>So resetting PHY is needed when recovering from PHY power down to set a
+>default
+>setting to PHY register.
+>Owing to this lack, NIC doesn't link up in some rare situation.
+>
+>Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+>---
+>diff --git a/drivers/net/ethernet/intel/igb/igb_main.c
+>b/drivers/net/ethernet/intel/igb/igb_main.c
+>index 89d576c..9b923b0 100644
+>--- a/drivers/net/ethernet/intel/igb/igb_main.c
+>+++ b/drivers/net/ethernet/intel/igb/igb_main.c
+>@@ -1498,6 +1498,7 @@ void igb_power_up_link(struct igb_adapter
+>*adapter)
+> 		igb_power_up_phy_copper(&adapter->hw);
+> 	else
+> 		igb_power_up_serdes_link_82575(&adapter->hw);
+>+	igb_reset_phy(&adapter->hw);
+> }
+>
+> /**
 
-I am trying to figure where this qdisc runs - is it in the hypervisor?
+ACK
 
-> The qdisc supports two operations - plug and
-> unplug. When the qdisc receives a plug command via netlink request,
-> packets arriving henceforth are buffered until a corresponding unplug
-> command is received.
 
-Ok, so plug indicates "start of checkpoint" and unplug the end.
-Seems all you want is at a certain point to throttle the qdisc and
-later on unplug/unthrottle, correct?
-Sounds to me like a generic problem that applies to all qdiscs?
-
-> Its intention is to support speculative execution by allowing generated
-> network traffic to be rolled back. It is used to provide network
-> protection for domUs in the Remus high availability project, available as
-> part of Xen. This module is generic enough to be used by any other
-> system that wishes to add speculative execution and output buffering to
-> its applications.
-
-Should get a nice demo effect of showing a simple ping working with
-zero drops, but: what is the effect of not even having this qdisc?
-If you just switch the qdisc to a sleeping state from user space, all
-packets arriving at that qdisc will be dropped during the checkpoint
-phase (and the kernel code will be tiny or none). 
-If you do nothing some packets will be buffered and a watchdog 
-will recover them when conditions become right.
-So does this qdisc add anything different?
-
-[Note: In your case when arriving packets find the queue filled up 
-you will drop lotsa packets - depending on traffic patterns; so
-not much different than above]
-
-> +
-> +#define FIFO_BUF    (10*1024*1024)
-
-Aha.
-Technically - use tc to do this. Conceptually:
-This is probably what makes you look good in a demo if you have one; 
-huge freaking buffer. If you are doing a simple ping (or a simple
-interactive session like ssh) and you can failover in 5 minutes you
-still wont be able to fill that buffer!
-
-Look at the other feedback given to you (Stephen and Dave responded).
-
-If a qdisc is needed, should it not be a classful qdisc?
-
-cheers,
-jamal
+Carolyn Wyborny
+Linux Development
+LAN Access Division
+Intel Corporation
