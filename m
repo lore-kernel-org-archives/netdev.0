@@ -1,43 +1,43 @@
-From: Alessandro Rubini <rubini@gnudd.com>
-Subject: Re: [PATCH] stmmac: reduce queue lengths if MTU is very large
-Date: Tue, 20 Dec 2011 08:30:50 +0100
-Message-ID: <20111220073050.GA2817@mail.gnudd.com>
-References: <20111219.163337.1185514300243434827.davem@davemloft.net>
-  <1324273530-18499-1-git-send-email-peppe.cavallaro@st.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: linux-3.0.x regression with ipv4 routes having mtu
+Date: Tue, 20 Dec 2011 09:03:41 +0100
+Message-ID: <20111220080341.GM6348@secunet.com>
+References: <20111216122147.GJ6348@secunet.com>
+ <4EEB5602.2060806@iki.fi>
+ <20111219135259.GK6348@secunet.com>
+ <20111219.150903.108164273331779302.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	giancarlo.asnaghi@st.com
-To: davem@davemloft.net
+Cc: timo.teras@iki.fi, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.gnudd.com ([213.203.150.91]:61339 "EHLO mail.gnudd.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:37329 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753036Ab1LTHbD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Dec 2011 02:31:03 -0500
+	id S1751610Ab1LTIDn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Dec 2011 03:03:43 -0500
 Content-Disposition: inline
-In-Reply-To: <20111219.163337.1185514300243434827.davem@davemloft.net>
+In-Reply-To: <20111219.150903.108164273331779302.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> This change doesn't make sense.
+On Mon, Dec 19, 2011 at 03:09:03PM -0500, David Miller wrote:
+> 
+> Actually, adding yet another ID is pointless.
+> 
+> Just get rid of redirect_genid, and use net->ipv4.rt_genid for all of
+> the necessary purposes.  
 
-I disagree, but you are the boss here, so I accept that.
+I already thought about such a solution, but is this really save?
 
-> I'm not applying this, it just points out that the amount of reserved
-> space in your SWIOMMU setup might be insufficient for this situation
-> rather than something that should be tweaked in this driver.
+What if somebody adds/deletes/flushes routes? rt_cache_invalidate()
+is invoked and we increment net->ipv4.rt_genid. Then an icmp redirect
+may appear and we call ip_rt_redirect() which sets the id on the
+inetpeer to the new value of net->ipv4.rt_genid. After that,
+ipv4_validate_peer() will find the generation id in proper state
+and does not invalidate the learned pmtu value.
 
-Allocation of the queues is based on a parameter. If the parameter was
-a size, instead of a lenght, all would be fine, wouldn't it? If you
-agree, then this patch is turning the lenght into a size, in a way.
-
-Now, how could we deal with the fact that the size explodes if the MTU
-is increased?  I don't want to reserve and waste 16MB of RAM for a
-single device: the device won't even use them for non-jumbo setups.  I
-can use the parameter to shorten the queue in all cases, but this is
-not good either.
-
-What's your suggestion?
-
-thanks
-/alessandro
+I think we could either have two separate generation ids for
+pmtu and redirect handling, or we could handle both cases together
+by accumulating check_peer_redir() and check_peer_pmtu() into a
+check_peer() function. But the latter seems to be a bit too extensive
+for a simple bug fix.
