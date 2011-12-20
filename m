@@ -1,39 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] module_param: make bool parameters really bool
- (net & drivers/net)
-Date: Tue, 20 Dec 2011 01:56:36 -0500 (EST)
-Message-ID: <20111220.015636.1219874929301115567.davem@davemloft.net>
-References: <87ehw1nm9r.fsf@rustcorp.com.au>
-	<20111219.162210.1739976094495078504.davem@davemloft.net>
-	<87fwggm7fi.fsf@rustcorp.com.au>
+Subject: Re: linux-3.0.x regression with ipv4 routes having mtu
+Date: Tue, 20 Dec 2011 02:03:55 -0500 (EST)
+Message-ID: <20111220.020355.942849877817117461.davem@davemloft.net>
+References: <20111216122147.GJ6348@secunet.com>
+	<20111219.161053.148816799233666803.davem@davemloft.net>
+	<4EF030D5.6040603@iki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org
-To: rusty@rustcorp.com.au
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35927 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:35966 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751097Ab1LTG6l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 01:58:41 -0500
-In-Reply-To: <87fwggm7fi.fsf@rustcorp.com.au>
+	with ESMTP id S1751601Ab1LTHEJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 02:04:09 -0500
+In-Reply-To: <4EF030D5.6040603@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Tue, 20 Dec 2011 10:38:01 +1030
+=46rom: Timo Ter=E4s <timo.teras@iki.fi>
+Date: Tue, 20 Dec 2011 08:53:09 +0200
 
-> module_param(bool) used to counter-intuitively take an int.  In
-> fddd5201 (mid-2009) we allowed bool or int/unsigned int using a messy
-> trick.
-> 
-> It's time to remove the int/unsigned int option.  For this version
-> it'll simply give a warning, but it'll break next kernel version.
-> 
-> (Thanks to Joe Perches for suggesting coccinelle for 0/1 -> true/false).
-> 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> Or maybe I missed the place where that updated would happen?
 
-Applied.
+It should happen on every routing cache lookup hit just like we
+validate the peer for redirect information.
