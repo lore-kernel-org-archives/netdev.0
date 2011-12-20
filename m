@@ -1,50 +1,58 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC] virtio_net: fix refill related races
-Date: Tue, 20 Dec 2011 21:45:19 +0200
-Message-ID: <20111220194518.GB26692@redhat.com>
-References: <20111207152120.GA23417@redhat.com>
-	<8739cvisqe.fsf@rustcorp.com.au>
-	<20111211144428.GB14381@redhat.com>
-	<878vmioh10.fsf@rustcorp.com.au> <20111212115405.GB7946@redhat.com>
-	<87iplltd0g.fsf@rustcorp.com.au>
-	<20111220190908.GC25689@redhat.com>
-	<20111220190946.GD10752@google.com>
-	<20111220193055.GA26392@redhat.com>
-	<20111220193154.GG10752@google.com>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: [PATCH 1/1] tcp: Replace constants with #define macros
+Date: Tue, 20 Dec 2011 12:02:52 -0800
+Message-ID: <CAGK4HS9LuvgOoY+cSXq-Vjbx7x5gsQ03wj6Tb1UDsO=89Wkrpw@mail.gmail.com>
+References: <1324351929-2588-1-git-send-email-subramanian.vijay@gmail.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6D8AF1C@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Amit Shah <amit.shah@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Tejun Heo <tj@kernel.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20111220193154.GG10752@google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	ilpo.jarvinen@helsinki.fi, "H.K. Jerry Chu" <hkchu@google.com>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:38222 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751388Ab1LTUCx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 15:02:53 -0500
+Received: by vcbfk14 with SMTP id fk14so5198445vcb.19
+        for <netdev@vger.kernel.org>; Tue, 20 Dec 2011 12:02:52 -0800 (PST)
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6D8AF1C@saturn3.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 20, 2011 at 11:31:54AM -0800, Tejun Heo wrote:
-> On Tue, Dec 20, 2011 at 09:30:55PM +0200, Michael S. Tsirkin wrote:
-> > Hmm, in that case it looks like a nasty race could get
-> > triggered, with try_fill_recv run on multiple CPUs in parallel,
-> > corrupting the linked list within the vq.
-> > 
-> > Using the mutex as my patch did will fix that naturally, as well.
-> 
-> Don't know the code but just use nrt wq.  There's even a system one
-> called system_nrq_wq.
-> 
-> Thanks.
+Thanks a lot for reviewing the patch. Please see responses below.
 
-We can, but we need the mutex for other reasons, anyway.
+On 20 December 2011 02:27, David Laight <David.Laight@aculab.com> wrote=
+:
+>
+>> +/*These are used to set the sack_ok field in struct
+>> tcp_options_received */
+>> +#define SACK_SEEN =A0 =A0 (1 << 0) =A0 /*1 =3D peer is SACK capable=
+, */
+>> +#define FACK_ENABLED =A0(1 << 1) =A0 /*1 =3D FACK is enabled locall=
+y*/
+>> +#define DSACK_SEEN =A0 =A0(1 << 2) =A0 /*1 =3D DSACK was received f=
+rom peer*/
+>> +
+>
+> Since that is a fairly public header, some namespace protection
+> might be sensible.
 
-> -- 
-> tejun
+I assume you are talking about collision with userspace.  These
+definitions are already protected by #ifdef  __KERNEL__.
+That should be enough to protect against collisions with userspace I th=
+ink.
+
+>
+>> - =A0 =A0 tcp_opt->sack_ok =3D (options >> 4) & 0x1;
+>> + =A0 =A0 tcp_opt->sack_ok =3D (options >> 4) & SACK_SEEN;
+>
+> Looks to me like that 0x1 isn't SAC_SEEK! So this is now misleading.
+
+Can you please elaborate? Are you saying this is wrong or that it
+could be done better?
+
+Thanks for your time!
+Vijay
