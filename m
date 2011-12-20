@@ -1,47 +1,41 @@
-From: Madalin Bucur <madalin.bucur@freescale.com>
-Subject: (unknown)
-Date: Tue, 20 Dec 2011 18:06:03 +0200
-Message-ID: <1324397163-302-1-git-send-email-madalin.bucur@freescale.com>
+From: Satoru Moriya <satoru.moriya@hds.com>
+Subject: RE: [PATCH 1/2] tcp: refactor tcp_retransmit_skb() for a single
+ return point
+Date: Tue, 20 Dec 2011 11:55:37 -0500
+Message-ID: <65795E11DBF1E645A09CEC7EAEE94B9CB5AFAEB9@USINDEVS02.corp.hds.com>
+References: <65795E11DBF1E645A09CEC7EAEE94B9CB5AFA650@USINDEVS02.corp.hds.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6D8AF19@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <eric.dumazet@gmail.com>,
-	<timo.teras@iki.fi>, <netdev@vger.kernel.org>
-To: <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"tgraf@infradead.org" <tgraf@infradead.org>,
+	Seiji Aguchi <seiji.aguchi@hds.com>,
+	"dle-develop@lists.sourceforge.net"
+	<dle-develop@lists.sourceforge.net>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe006.messaging.microsoft.com ([216.32.181.186]:37413
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751611Ab1LTQGp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 11:06:45 -0500
-Subject: 
+Received: from usindpps06.hds.com ([207.126.252.19]:38944 "EHLO
+	usindpps06.hds.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751097Ab1LTQ43 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 11:56:29 -0500
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6D8AF19@saturn3.aculab.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Steffen,
-
-I did not have the time to test and send a v2 for my patch to remove the leftover local_bh_disable()/local_bh_enable() Ben has spotted.
-I've also tried to use your approach but in my tests, under high load, the defered work was defered forever...
-
-I'll try to test again with your patch and confirm it does not suffer from this issue or send a patch with those local_bh removed.
-
-Madalin
-
------Original Message-----
-From: Steffen Klassert [mailto:steffen.klassert@secunet.com] 
-Sent: Tuesday, December 20, 2011 10:24 AM
-To: David Miller
-Cc: Bucur Madalin-Cristian-B32716; eric.dumazet@gmail.com; netdev@vger.kernel.org; timo.teras@iki.fi
-Subject: Re: [PATCH] net/flow: remove sleeping and deferral mechanism from flow_cache_flush
-
-On Tue, Sep 27, 2011 at 03:31:32PM -0400, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Tue, 27 Sep 2011 15:28:36 -0400 (EDT)
+On 12/19/2011 07:10 AM, David Laight wrote:
+>  
+>> This is just a cleanup patch for making easy to hook return value 
+>> with a tracepoint.
 > 
-> > afinfo->garbage_collect is the only other place 
-> > afinfo->__xfrm_garbage_collect
-> > is referenced, and that is completely unused and should thus be 
-> > deleted (I'll take care of that in net-next).
-> 
-> Nevermind I see how these are referenced directly via xfrm4_policy.c 
-> and xfrm6_policy.c, sigh...
+> Another way to temporarily add such a trace, is to temporarily
+> add a wrapper function.
 
-Is there any progress in fixing this issue? I've seen this occasionally on some of our production systems, so I fixed it for us in the meantime with the patch below. I could submit this for inclusion if noone else wants to fix it in a different manner.
+I'm afraid that I don't know how to add a wrapper function temporarily.
+Could you please tell me how to do that? Jprobe?
+
+Regards,
+Satoru
