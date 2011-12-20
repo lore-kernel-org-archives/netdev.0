@@ -1,69 +1,44 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [Devel] [PATCH] SUNRPC: search for service transports in network
- namespace context
-Date: Tue, 20 Dec 2011 14:31:07 +0400
-Message-ID: <4EF063EB.6030104@parallels.com>
-References: <20111220101419.5673.21926.stgit@localhost6.localdomain6> <4EF062B1.3030401@parallels.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4EF062B1.3030401@parallels.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Subject: [PATCH] batman-adv: checkpatch cleanup - remove
+	lines longer than 80 chars
+Date: Tue, 20 Dec 2011 18:38:24 +0800
+Message-ID: <1324377504-20983-1-git-send-email-lindner_marek@yahoo.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+	Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-20.12.2011 14:25, Glauber Costa =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On 12/20/2011 03:14 PM, Stanislav Kinsbursky wrote:
->> Service transports are parametrized by network namespace. And thus l=
-ookup of
->> transport instance have to take network namespace into account.
->>
->> Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
->>
->> ---
->>    fs/lockd/svc.c                  |    2 +-
->>    fs/nfsd/nfsctl.c                |    4 ++--
->>    include/linux/sunrpc/svc_xprt.h |    3 ++-
->>    net/sunrpc/svc_xprt.c           |    6 +++++-
->>    4 files changed, 10 insertions(+), 5 deletions(-)
->>
->> diff --git a/fs/lockd/svc.c b/fs/lockd/svc.c
->> index c061b9a..ff379ff 100644
->> --- a/fs/lockd/svc.c
->> +++ b/fs/lockd/svc.c
->> @@ -193,7 +193,7 @@ static int create_lockd_listener(struct svc_serv=
- *serv, const char *name,
->>    {
->>    	struct svc_xprt *xprt;
->>
->> -	xprt =3D svc_find_xprt(serv, name, family, 0);
->> +	xprt =3D svc_find_xprt(serv, name,&init_net, family, 0);
->>    	if (xprt =3D=3D NULL)
->>    		return svc_create_xprt(serv, name,&init_net, family, port,
->>    						SVC_SOCK_DEFAULTS);
->
-> I might be missing something, but isn't it (at least part of it) alre=
-ady
-> merged in commit fc5d00b04a3a58cac8620403dfe9f43f72578ec1 ?
->
+The long line was introduced with b26e478f8f.
 
-Nope, those one was parameterizing transport creation by network namesp=
-ace.
-This one is parameterizing search in poll of existent service transport=
-s by=20
-network namespace.
+Signed-off-by: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+---
+ net/batman-adv/translation-table.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
---=20
-Best regards,
-Stanislav Kinsbursky
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index ab8dea8..58361ed 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -679,7 +679,7 @@ void tt_global_del(struct bat_priv *bat_priv,
+ 			 * 2) the client roamed to us => we can directly delete
+ 			 *    the global entry, since it is useless now. */
+ 			tt_local_entry = tt_local_hash_find(bat_priv,
+-							    tt_global_entry->common.addr);
++						tt_global_entry->common.addr);
+ 			if (!tt_local_entry) {
+ 				tt_global_entry->common.flags |= TT_CLIENT_ROAM;
+ 				tt_global_entry->roam_at = jiffies;
+-- 
+1.7.5.4
