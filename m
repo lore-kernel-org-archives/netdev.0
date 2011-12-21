@@ -1,50 +1,56 @@
-From: Mircea Gherzan <mgherzan@gmail.com>
-Subject: Re: [PATCH] ARM: net: JIT compiler for packet filters
-Date: Wed, 21 Dec 2011 16:36:03 +0200
-Message-ID: <20111221143602.GA3229@swarm.cs.pub.ro>
-References: <1324252185-15894-1-git-send-email-mgherzan@gmail.com>
- <4EEEA644.5010008@gmail.com>
- <alpine.LFD.2.02.1112191226160.2907@xanadu.home>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <robherring2@gmail.com>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux@arm.linux.org.uk
-To: Nicolas Pitre <nico@fluxnic.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH 0/4] net: Improve socket sharing between multiple cgroups
+Date: Wed, 21 Dec 2011 09:39:46 -0500
+Message-ID: <1324478390-22036-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@infradead.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:55932 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751621Ab1LUOgM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 09:36:12 -0500
-Received: by eekc4 with SMTP id c4so7587250eek.19
-        for <netdev@vger.kernel.org>; Wed, 21 Dec 2011 06:36:10 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.02.1112191226160.2907@xanadu.home>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:34852 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751516Ab1LUOkT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 09:40:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 19, 2011 at 12:31:19PM -0500, Nicolas Pitre wrote:
-> On Sun, 18 Dec 2011, Rob Herring wrote:
-> 
-> > On 12/18/2011 05:49 PM, Mircea Gherzan wrote:
-> > > +	select HAVE_BPF_JIT if (!THUMB2_KERNEL && AEABI)
-> > 
-> > No thumb2. That's a shame...
-> 
-> I think this would be more sensible to make a Thumb2 kernel properly 
-> interoperate with this and keep the JIT code simple rather than having 
-> to duplicate all this for Thumb2.
+Currently, the network centric cgroups for priority and classification don't 
+share resources properly.  Since socket priority and classification are
+assigned based on the socket through which the data was sent, an anomaly arises
+when multiple processes share a given socket.  As the priority index and class-id
+are updated when a skb is sent at the top of the stack, but interrogated and
+used at the bottom of the stack, multiple process living in separate cgroups but
+sharing a socket can result in skbs being sent at multiple separate priorities
+and classifications.  Aside from the user confusion this may cause, additional
+problems can arise if the socket is tcp, and the fluctuation in class or
+priority causes network re-ordering that results in serious performance
+degradation.
 
-The JITed code interoperates properly with a Thumb2 kernel as of v3 of
-the patch.
+The problem is further compounded by processes that use network resources
+unknowingly.  For instance,the CIFS file system creates a network socket to a
+cifs server in the context of whatever process is writing to that mount point,
+and the same socket will subsequently be used by any other processes writing to
+that mount.  This socket sharing will almost certainly lead to classification
+and priority changes on a single data stream that will degrade file system
+throughput.
 
-> > BLX is v5+ only. It probably fine to make the JIT v5+ only. There's
-> > probably not much v4 h/w that would use this.
-> 
-> While you might be right, I don't think it is that big a cost to make 
-> this support ARMv4 too.  In fact, if slow ARMv4 systems are still 
-> routing packets out there, they are likely to see a huge benefit from 
-> this.
+This patch series is meant to solve the first of these two problems.  It changes
+the way in which the priority and net_cls cgroup implementations migrate the
+priority and class-id of the sockets each task owns.  specifically this series:
 
-This has also been addressed in v3.
+1) adds an cgroup owner pid field to the sock structure
+2) assigns the pid of the creating process at the time of sock allocation
+3) zeros the owning pid at the time of sk_common_release (to prevent future pid
+aliasing
+4) adds a cgroup_attach method to each cgroup subsystem which identifies sockets
+owned by that task (based on matching the task pid and the pid provided in (2)
+to update the priority and class-id appropriately.
 
-Mircea
+This does not solve the anonymous socket use problem (I plan to address that in
+a future patch series), but it does allow for a sockets priority and
+classification to be controlled by a single pid for the purposes of cgroup
+assignment.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Thomas Graf <tgraf@infradead.org>
+CC: "David S. Miller" <davem@davemloft.net>
