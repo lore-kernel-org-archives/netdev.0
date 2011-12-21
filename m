@@ -1,46 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2] IPv6 : add multicast routing verify which
- net_device is lo
-Date: Wed, 21 Dec 2011 01:15:06 -0500 (EST)
-Message-ID: <20111221.011506.1770356582907889299.davem@davemloft.net>
-References: <4EF059B3.1020705@cn.fujitsu.com>
-	<1324379424-18055-1-git-send-email-gaofeng@cn.fujitsu.com>
+From: Markus Trippelsdorf <markus-xp2qqqlHh3xzoYq+O6RWwA@public.gmane.org>
+Subject: Re: 3.2-rc6+: Reported regressions from 3.0 and 3.1
+Date: Wed, 21 Dec 2011 07:45:37 +0100
+Message-ID: <20111221064537.GD1629@x4>
+References: <lx6sezwGldO.A.IhF.UBpWOB@chimera>
+ <201112210039.14100.linux-pm-bounces@lists.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wangxingtong@cn.fujitsu.com
-To: gaofeng@cn.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47296 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752537Ab1LUGPM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 01:15:12 -0500
-In-Reply-To: <1324379424-18055-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM list <linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <201112210039.14100.linux-pm-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Date: Tue, 20 Dec 2011 19:10:24 +0800
-
-> In currently routing subsystem, when we lookup a multicast routing
-> to send muticast packets to outside, rt6_device_match will return
-> the rt6_info which it's match first. If we add a multicast route on
-> loopback devices beforce the others interface, rt6_device_match will
-> retrun the rt6_info which rt6i_dev->name is "lo". But, obviously,
-> we can't send a muticast packet to outside using loopback devices.
-> It case all multicast packets blocking.
+On 2011.12.21 at 00:54 +0100, Rafael J. Wysocki wrote:
+> Subject    : WARNING: at fs/sysfs/sysfs.h:195 (during boot)
+> Submitter  : Markus Trippelsdorf <markus-xp2qqqlHh3xzoYq+O6RWwA-XMD5yJDbdMReXY1tMh2IBg@public.gmane.org>
+> Date       : 2011-11-13 19:24
+> Message-ID : 20111113192417.GA1659-tLCgZGx+iJ+kxVt8IV0GqQ-XMD5yJDbdMReXY1tMh2IBg@public.gmane.org
+> References : http://marc.info/?l=linux-kernel&m=132121231921932&w=2
 > 
-> Commit 4af04aba93f47699e disabled kernel add multicast route on lo
-> automatically. However,  we can't surmise the routing-add order or
-> interdict add multicast routing on loopback devices in user space.
-> The bug still exist. So, i think, more stronger routing subsystem is
-> necessary.
-> 
-> Signed-off-by: Wang xingtong <wangxingtong@cn.fujitsu.com>
+> Subject    : WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
+> Submitter  : Markus Trippelsdorf <markus-xp2qqqlHh3xzoYq+O6RWwA-XMD5yJDbdMReXY1tMh2IBg@public.gmane.org>
+> Date       : 2011-11-18 7:25
+> Message-ID : 20111118072519.GA1615-tLCgZGx+iJ+kxVt8IV0GqQ-XMD5yJDbdMReXY1tMh2IBg@public.gmane.org
+> References : http://marc.info/?l=linux-kernel&m=132160119031794&w=2
 
-Ok, this is getting rediculious.  I want to revert all of this
-stuff.
+Both entries were caused by the same Radeon kexec writeback bug. This issue
+will hopefully be fixed in the next release.
 
-How about, instead, we stop userland adding explicit addresses to the
-loopback device since that's what started behaving differently
-recently and causes these problems in the first place?
+> Subject    : Impossible high cpu-time values for migration threads
+> Submitter  : Markus Trippelsdorf <markus-xp2qqqlHh3xzoYq+O6RWwA-XMD5yJDbdMReXY1tMh2IBg@public.gmane.org>
+> Date       : 2011-11-17 22:17
+> Message-ID : 20111117221731.GA9229-tLCgZGx+iJ+kxVt8IV0GqQ-XMD5yJDbdMReXY1tMh2IBg@public.gmane.org
+> References : http://marc.info/?l=linux-kernel&m=132156832124314&w=2
+
+This is a cosmetic issue, but I'm still seeing this after bursts of high
+CPU usage:
+
+ % ps afx -F
+UID        PID  PPID  C    SZ   RSS PSR STIME TTY      STAT   TIME CMD
+root         2     0  0     0     0   1 Dec20 ?        S      0:00 [kthreadd]
+root         3     2  0     0     0   0 Dec20 ?        S      0:01  \_ [ksoftirqd/0]
+root         6     2  0     0     0   0 Dec20 ?        S      0:00  \_ [migration/0]
+root         7     2  0     0     0   1 Dec20 ?        S      0:00  \_ [migration/1]
+root         8     2  0     0     0   1 Dec20 ?        S      0:05  \_ [kworker/1:0]
+root         9     2  0     0     0   1 Dec20 ?        S      0:01  \_ [ksoftirqd/1]
+root        11     2  0     0     0   2 Dec20 ?        S      0:00  \_ [migration/2]
+root        13     2  0     0     0   2 Dec20 ?        S      0:01  \_ [ksoftirqd/2]
+root        14     2 22     0     0   3 Dec20 ?        S    192:21  \_ [migration/3]
+root        16     2  0     0     0   3 Dec20 ?        S      0:01  \_ [ksoftirqd/3]
+root        17     2  0     0     0   2 Dec20 ?        S<     0:00  \_ [khelper]
+...
+
+-- 
+Markus
