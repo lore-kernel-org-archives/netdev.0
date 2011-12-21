@@ -1,102 +1,82 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: ICMP packets - ll_temac with Microblaze
-Date: Wed, 21 Dec 2011 15:24:40 +0100
-Message-ID: <4EF1EC28.90008@monstr.eu>
-References: <4EF1B0D9.2010007@monstr.eu>				 <1324463334.2728.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>				 <1324463452.2728.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>				 <4EF1B5BC.5020103@monstr.eu>				 <1324463838.2728.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>				 <4EF1B7E4.4010602@monstr.eu>				 <1324464308.2728.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>			 <1324465386.2728.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>			 <4EF1BEA4.7080005@monstr.eu>		 <1324466023.2728.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>		 <4EF1C80B.4060701@monstr.eu>	 <1324471194.2728.44.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>	 <4EF1DF00.1090309@monstr.eu> <1324474811.2728.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Reply-To: monstr@monstr.eu
+From: Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>
+Subject: [PATCH 1/4] block: xsysace: Don't use NO_IRQ
+Date: Wed, 21 Dec 2011 15:32:09 +0100
+Message-ID: <1324477932-19262-1-git-send-email-monstr@monstr.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	John Williams <john.williams@petalogix.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:46355 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751516Ab1LUOYn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 09:24:43 -0500
-Received: by eekc4 with SMTP id c4so7577492eek.19
-        for <netdev@vger.kernel.org>; Wed, 21 Dec 2011 06:24:42 -0800 (PST)
-In-Reply-To: <1324474811.2728.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Ryan Mallon <rmallon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> Le mercredi 21 d=C3=A9cembre 2011 =C3=A0 14:28 +0100, Michal Simek a =
-=C3=A9crit :
->=20
->> ok. Can you provide me any background why size should be setup by
->> size =3D SKB_WITH_OVERHEAD(ksize(data));
->> and not to use size which is passed to kmalloc in __alloc_skb.
->=20
-> Its all about memory accounting (based on skb->truesize)
->=20
-> Prior to the patch, we could fool memory accounting because skbs clai=
-med
-> to use less memory than what they really used.
->=20
-> And crash machines eventually.
->=20
-> Now memory accouting is fixed, we probably need to change some points=
- in
-> the kernel, where we previously accepted a small skb, but not a very
-> large one.
->=20
-> Since "ping" probably uses SOCK_RAW sockets, I'll try this one :
->=20
-> (We dont care of _this_ skb truesize, only on the count of previously
-> queued packets)
->=20
->=20
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 0da505c..a809a48 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -1631,8 +1631,7 @@ static int packet_rcv(struct sk_buff *skb, stru=
-ct net_device *dev,
->  	if (snaplen > res)
->  		snaplen =3D res;
-> =20
-> -	if (atomic_read(&sk->sk_rmem_alloc) + skb->truesize >=3D
-> -	    (unsigned)sk->sk_rcvbuf)
-> +	if (atomic_read(&sk->sk_rmem_alloc) >=3D (unsigned)sk->sk_rcvbuf)
->  		goto drop_n_acct;
-> =20
->  	if (skb_shared(skb)) {
-> @@ -1763,7 +1762,7 @@ static int tpacket_rcv(struct sk_buff *skb, str=
-uct net_device *dev,
->  	if (po->tp_version <=3D TPACKET_V2) {
->  		if (macoff + snaplen > po->rx_ring.frame_size) {
->  			if (po->copy_thresh &&
-> -				atomic_read(&sk->sk_rmem_alloc) + skb->truesize
-> +				atomic_read(&sk->sk_rmem_alloc)
->  				< (unsigned)sk->sk_rcvbuf) {
->  				if (skb_shared(skb)) {
->  					copy_skb =3D skb_clone(skb, GFP_ATOMIC);
->=20
->=20
->=20
->=20
+Drivers shouldn't use NO_IRQ. Microblaze and PPC
+define NO_IRQ as 0 and this reference will be removed
+in near future.
 
-It doesn't work too.
-It is possible to see this behavior on qemu. What about if I prepare yo=
-u package with cross toolchain, rootfs
-and you can add debug message where you want?
+Signed-off-by: Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>
+CC: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+CC: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
+CC: Ryan Mallon <rmallon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ drivers/block/xsysace.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-I have also tried ll_temac driver with ppc440 and behavior is the same.
-
-Max FRAME_SIZE pass to netdev_alloc_skb_ip_align is 7966. For this valu=
-e ping works.
-(For ll_temac driver it is #define XTE_JUMBO_MTU 7948 from ll_temac.h)
-
-Thanks,
-Michal
-
---=20
-Michal Simek, Ing. (M.Eng)
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel 2.6 Microblaze Linux - http://www.monstr.eu/=
-fdt/
-Microblaze U-BOOT custodian
+diff --git a/drivers/block/xsysace.c b/drivers/block/xsysace.c
+index fb1975d..1a17e33 100644
+--- a/drivers/block/xsysace.c
++++ b/drivers/block/xsysace.c
+@@ -456,7 +456,7 @@ static inline void ace_fsm_yieldirq(struct ace_device *ace)
+ {
+ 	dev_dbg(ace->dev, "ace_fsm_yieldirq()\n");
+ 
+-	if (ace->irq == NO_IRQ)
++	if (!ace->irq)
+ 		/* No IRQ assigned, so need to poll */
+ 		tasklet_schedule(&ace->fsm_tasklet);
+ 	ace->fsm_continue_flag = 0;
+@@ -1034,12 +1034,12 @@ static int __devinit ace_setup(struct ace_device *ace)
+ 		ACE_CTRL_DATABUFRDYIRQ | ACE_CTRL_ERRORIRQ);
+ 
+ 	/* Now we can hook up the irq handler */
+-	if (ace->irq != NO_IRQ) {
++	if (ace->irq) {
+ 		rc = request_irq(ace->irq, ace_interrupt, 0, "systemace", ace);
+ 		if (rc) {
+ 			/* Failure - fall back to polled mode */
+ 			dev_err(ace->dev, "request_irq failed\n");
+-			ace->irq = NO_IRQ;
++			ace->irq = 0;
+ 		}
+ 	}
+ 
+@@ -1086,7 +1086,7 @@ static void __devexit ace_teardown(struct ace_device *ace)
+ 
+ 	tasklet_kill(&ace->fsm_tasklet);
+ 
+-	if (ace->irq != NO_IRQ)
++	if (ace->irq)
+ 		free_irq(ace->irq, ace);
+ 
+ 	iounmap(ace->baseaddr);
+@@ -1156,7 +1156,7 @@ static int __devinit ace_probe(struct platform_device *dev)
+ 	resource_size_t physaddr = 0;
+ 	int bus_width = ACE_BUS_WIDTH_16; /* FIXME: should not be hard coded */
+ 	u32 id = dev->id;
+-	int irq = NO_IRQ;
++	int irq = 0;
+ 	int i;
+ 
+ 	dev_dbg(&dev->dev, "ace_probe(%p)\n", dev);
+-- 
+1.7.5.4
