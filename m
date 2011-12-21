@@ -1,63 +1,61 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: [PATCH net-next] igb: Add support for byte queue limits.
-Date: Wed, 21 Dec 2011 21:17:58 +0000
-Message-ID: <9BBC4E0CF881AA4299206E2E1412B626011AB6@ORSMSX102.amr.corp.intel.com>
-References: <1324480695.2301.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20111221.144207.1402252938319338463.davem@davemloft.net>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH] net: macb: fix build break with !CONFIG_OF
+Date: Wed, 21 Dec 2011 22:34:55 +0100
+Message-ID: <4EF250FF.7090302@atmel.com>
+References: <1324416029-28198-1-git-send-email-olof@lixom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
-To: David Miller <davem@davemloft.net>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+	Jamie Iles <jamie@jamieiles.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Olof Johansson <olof@lixom.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:5988 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753885Ab1LUVSA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 16:18:00 -0500
-In-Reply-To: <20111221.144207.1402252938319338463.davem@davemloft.net>
-Content-Language: en-US
+Received: from newsmtp5.atmel.com ([204.2.163.5]:16804 "EHLO
+	sjogate2.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751214Ab1LUVfL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 16:35:11 -0500
+In-Reply-To: <1324416029-28198-1-git-send-email-olof@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 12/20/2011 10:20 PM, Olof Johansson :
+> This fixes the build of the macb driver that was broken by the DT changes:
+> 
+> drivers/net/ethernet/cadence/macb.c:1503: error: implicit declaration of function 'of_match_ptr'
+> drivers/net/ethernet/cadence/macb.c:1503: error: 'macb_dt_ids' undeclared here (not in a function)
+> drivers/net/ethernet/cadence/macb.c:1503: error: initializer element is not constant
+> drivers/net/ethernet/cadence/macb.c:1503: error: (near initialization for 'macb_driver.driver.of_match_table')
+> 
+> Signed-off-by: Olof Johansson <olof@lixom.net>
+
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+
+Olof, thanks for this patch.
+
+Best regards,
+
+> ---
+> 
+> Nicolas, care to ack this so I can apply it on top of the macb DT branch in arm-soc?
+> 
+>  drivers/net/ethernet/cadence/macb.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> index baf1a0d..f3d5c65 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -23,6 +23,7 @@
+>  #include <linux/platform_data/macb.h>
+>  #include <linux/platform_device.h>
+>  #include <linux/phy.h>
+> +#include <linux/of.h>
+>  #include <linux/of_device.h>
+>  #include <linux/of_net.h>
+>  
 
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
->On Behalf Of David Miller
->Sent: Wednesday, December 21, 2011 11:42 AM
->To: eric.dumazet@gmail.com
->Cc: netdev@vger.kernel.org; Kirsher, Jeffrey T; Duyck, Alexander H
->Subject: Re: [PATCH net-next] igb: Add support for byte queue limits.
->
->From: Eric Dumazet <eric.dumazet@gmail.com>
->Date: Wed, 21 Dec 2011 16:18:15 +0100
->
->> This adds support for byte queue limits (BQL)
->>
->> Since this driver collects bytes count in 'bytecount' field, use it
->also
->> in igb_tx_map()
->>
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> CC: Alexander Duyck <alexander.h.duyck@intel.com>
->
->Intel folks, you got this?
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-Yes, although many are out for the holidays. 
-
-ACK.  We'll get it into our queue for testing.
-
-Thanks,
-
-Carolyn Wyborny
-Linux Development
-LAN Access Division
-Intel Corporation
+-- 
+Nicolas Ferre
