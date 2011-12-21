@@ -1,52 +1,86 @@
-From: Djalal Harouni <tixxdz-Umm1ozX2/EEdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] drivers/iwlwifi: use dma_zalloc_coherent() for DMA
- allocation
-Date: Wed, 21 Dec 2011 20:48:52 +0100
-Message-ID: <20111221194852.GA19795@dztty>
-References: <20111221002147.GA4996@dztty>
- <1324486330.13074.322.camel@wwguy-huron>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH ethtool] sfc: Omit zero values in register tables
+Date: Wed, 21 Dec 2011 19:48:44 +0000
+Message-ID: <1324496924.2764.13.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: "Guy, Wey-Yi" <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1324486330.13074.322.camel@wwguy-huron>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-net-drivers@solarflare.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:21739 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751118Ab1LUTss (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 14:48:48 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 21, 2011 at 08:52:10AM -0800, Guy, Wey-Yi wrote:
-> Hi Djalal,
-> 
-> 
-> On Tue, 2011-12-20 at 16:21 -0800, Djalal Harouni wrote:
-> > Replace dma_alloc_coherent()+memset() with the new dma_zalloc_coherent()
-> > 
-> > Signed-off-by: Djalal Harouni <tixxdz-Umm1ozX2/EEdnm+yROfE0A@public.gmane.org>
-> > ---
-> 
-> iwl-trans-pcie.c is one of the source files in iwlwifi driver hold
-> dual-license (GPL + BSD), are you ok to release your code for the BSD
-> license and relinquish the copyright?
-Yes, It's ok.
+I just pushed this change out.
 
-> btw, we are in the process of rewrite and re-architect major portion of
-> iwlwifi driver, and we also plan to make most of the code dual-license
-> (GPL + BSD).
->
-> Thanks you in advance
-> 
-> Wey
-Thanks Wey.
+Ben.
+---
+Some register tables on Solarflare controllers are very large and may
+have only a few rows in use.  Make register dumps more readable by
+omitting rows where all bits read as zero.
+
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ sfc.c |   29 ++++++++++++++++++++---------
+ 1 files changed, 20 insertions(+), 9 deletions(-)
+
+diff --git a/sfc.c b/sfc.c
+index 46a617b..3ba3da8 100644
+--- a/sfc.c
++++ b/sfc.c
+@@ -3777,6 +3777,15 @@ print_simple_table(unsigned revision, const struct efx_nic_reg_table *table,
+ 	return buf;
+ }
+ 
++static int buf_is_zero(const u8 *buf, size_t size)
++{
++	size_t i;
++	for (i = 0; i < size; i++)
++		if (buf[i])
++			return 0;
++	return 1;
++}
++
+ static const void *
+ print_complex_table(unsigned revision, const struct efx_nic_reg_table *table,
+ 		    const void *buf)
+@@ -3808,16 +3817,18 @@ print_complex_table(unsigned revision, const struct efx_nic_reg_table *table,
+ 	fputc('\n', stdout);
+ 
+ 	for (j = 0; j < table->rows; j++) {
+-		printf("%4zu", j);
+-		for (i = 0; i < table->field_count; i++) {
+-			field = &table->fields[i];
+-			if (!(revision >= field->min_revision &&
+-			      revision <= field->max_revision))
+-				continue;
+-			printf(" %*s", (int)column_padding(field), "");
+-			print_field_value(field, buf);
++		if (!buf_is_zero(buf, size)) {
++			printf("%4zu", j);
++			for (i = 0; i < table->field_count; i++) {
++				field = &table->fields[i];
++				if (!(revision >= field->min_revision &&
++				      revision <= field->max_revision))
++					continue;
++				printf(" %*s", (int)column_padding(field), "");
++				print_field_value(field, buf);
++			}
++			fputc('\n', stdout);
+ 		}
+-		fputc('\n', stdout);
+ 		buf = (const u8 *)buf + size;
+ 	}
+ 
+-- 
+1.7.4.4
+
 
 -- 
-tixxdz
-http://opendz.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
