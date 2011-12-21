@@ -1,125 +1,63 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH 2/8] farsync: Fix confusion about DMA address and buffer
+Subject: Re: [PATCH 2/8] farsync: Fix confusion about DMA address and buffer
  offset types
-Date: Wed, 21 Dec 2011 01:32:52 +0000
-Message-ID: <1324431172.2844.147.camel@deadeye>
+Date: Wed, 21 Dec 2011 01:42:26 +0000
+Message-ID: <1324431746.2844.161.camel@deadeye>
 References: <1324430940.2844.144.camel@deadeye>
+	 <1324431172.2844.147.camel@deadeye>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ea7sVFMPsswuSiiPROlZ"
-Cc: LKML <linux-kernel@vger.kernel.org>
-To: Kevin Curtis <kevin.curtis@farsite.co.uk>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1324430940.2844.144.camel@deadeye>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	protocol="application/pgp-signature"; boundary="=-qj717OCSo56JuF8KSAuP"
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:45622 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753279Ab1LUBmh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 20:42:37 -0500
+In-Reply-To: <1324431172.2844.147.camel@deadeye>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---=-ea7sVFMPsswuSiiPROlZ
+--=-qj717OCSo56JuF8KSAuP
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-Consistently use dma_addr_t for DMA addresses, except in
-fst_{rx,tx}_dma where we truncate them to 32 bits.  (We know this is
-OK because that's the default DMA mask for PCI devices.)
+I accidentally left signing enabled for this one, which I had intended
+to disable since you've said that patchwork doesn't deal with
+signatures.  Except this looks OK on patchwork:
+<http://patchwork.ozlabs.org/patch/132548/>.
 
-Consistently use u32 for buffer offsets within shared memory.
+If that also looks OK to you, is there any reason to avoid signing
+networking patches?
 
-Compile-tested only.
+Ben.
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
- drivers/net/wan/farsync.c |   19 +++++++------------
- 1 files changed, 7 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/wan/farsync.c b/drivers/net/wan/farsync.c
-index ebb9f24..98c04c6 100644
---- a/drivers/net/wan/farsync.c
-+++ b/drivers/net/wan/farsync.c
-@@ -886,15 +886,13 @@ fst_rx_dma_complete(struct fst_card_info *card, struc=
-t fst_port_info *port,
-  *      Receive a frame through the DMA
-  */
- static inline void
--fst_rx_dma(struct fst_card_info *card, dma_addr_t skb,
--	   dma_addr_t mem, int len)
-+fst_rx_dma(struct fst_card_info *card, dma_addr_t skb, u32 mem, int len)
- {
- 	/*
- 	 * This routine will setup the DMA and start it
- 	 */
-=20
--	dbg(DBG_RX, "In fst_rx_dma %lx %lx %d\n",
--	    (unsigned long) skb, (unsigned long) mem, len);
-+	dbg(DBG_RX, "In fst_rx_dma %x %x %d\n", (u32)skb, mem, len);
- 	if (card->dmarx_in_progress) {
- 		dbg(DBG_ASS, "In fst_rx_dma while dma in progress\n");
- 	}
-@@ -915,20 +913,19 @@ fst_rx_dma(struct fst_card_info *card, dma_addr_t skb=
-,
-  *      Send a frame through the DMA
-  */
- static inline void
--fst_tx_dma(struct fst_card_info *card, unsigned char *skb,
--	   unsigned char *mem, int len)
-+fst_tx_dma(struct fst_card_info *card, dma_addr_t skb, u32 mem, int len)
- {
- 	/*
- 	 * This routine will setup the DMA and start it.
- 	 */
-=20
--	dbg(DBG_TX, "In fst_tx_dma %p %p %d\n", skb, mem, len);
-+	dbg(DBG_TX, "In fst_tx_dma %x %x %d\n", (u32)skb, mem, len);
- 	if (card->dmatx_in_progress) {
- 		dbg(DBG_ASS, "In fst_tx_dma while dma in progress\n");
- 	}
-=20
--	outl((unsigned long) skb, card->pci_conf + DMAPADR1);	/* Copy from here *=
-/
--	outl((unsigned long) mem, card->pci_conf + DMALADR1);	/* to here */
-+	outl(skb, card->pci_conf + DMAPADR1);	/* Copy from here */
-+	outl(mem, card->pci_conf + DMALADR1);	/* to here */
- 	outl(len, card->pci_conf + DMASIZ1);	/* for this length */
- 	outl(0x000000004, card->pci_conf + DMADPR1);	/* In this direction */
-=20
-@@ -1405,9 +1402,7 @@ do_bottom_half_tx(struct fst_card_info *card)
- 					card->dma_len_tx =3D skb->len;
- 					card->dma_txpos =3D port->txpos;
- 					fst_tx_dma(card,
--						   (char *) card->
--						   tx_dma_handle_card,
--						   (char *)
-+						   card->tx_dma_handle_card,
- 						   BUF_OFFSET(txBuffer[pi]
- 							      [port->txpos][0]),
- 						   skb->len);
 --=20
-1.7.7.3
+Ben Hutchings
+Humans are not rational beings; they are rationalising beings.
 
-
-
-
---=-ea7sVFMPsswuSiiPROlZ
+--=-qj717OCSo56JuF8KSAuP
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQIVAwUATvE3ROe/yOyVhhEJAQq5UBAApGAMHnAosLKRWvXAKg1lgnzYWxTLrAgj
-XlAbV2820p796oa6PEZo/7JNQ1SAEYwF6VihzMIYV06oRyqoJ1bYvHg0iOQioSwM
-nFFpq63T8Zmvm8TU7VPOoPRRPXGyCC8sLDa9Wg0cBF6x+WB7NZesbnb2nJ92cEm0
-oiabEIQMdzamHxLcZ5hCDPC+iUSErfTOSO/xpWcRTLH7TN9e2bBexnggdIRuwJht
-zraoU+Y+86tA7Ljp7yB0vdxmilcemon12l4rGoGvGIWQuw90W//Iu1C0vxqefxp0
-cL4HwroiYDCo/6oaDtEoVWOAJyQyZOMxUD+i01/k0WLxcdf6x7BYeVZsJrODYFnI
-+Xq9mc9dDb1kZMWKxtj6e/iCisKEVr8SxNdyAlrpiZGDNRf/40KLlGIMlRSq2OI1
-bAA/tHiDLxV473aEwitFcHn2aWOcxfp4r5l3NZkzKmV6BZUxfWVZW6g0Memv39rc
-kvCQbUA4z5j4Ke070C/7qgdU/BK9+aYu7dfGPw5VhCfFBNgRaF41zXTzEWA0MFJC
-avQIcT0UEfxyVtv/0i5TZ61ZaPOO87fZI+zsjv6nlfGjH4dnrG0GDVLTyPVC5VWU
-Q3YoGLnuvv0Zekz/0wOVi4isGFlfrN/H2yJVgLpPQl/0NbfUxF3rkY5Pp/rFWdnV
-WAMZYJLAOyo=
-=E8g0
+iQIVAwUATvE5gue/yOyVhhEJAQp5ZQ/+PGNPHDwt0lnwPFQ+hO82W1oQ1F0hdX/N
+UsUJBVAVKBzd+wbjXA9l7bM9UX2MS0vBYoaMqlm6heYQuoGF9za7zEdl45R2c8QK
+P3LnYCi8d27FWTxhje/DUaA1aIvBFJxH7HEbMXQEcaVs4eqMviKdnh27auZ27J1R
+kWWyz0FOgPTHTxb6MaAk6Et4GpcWbDA9xIufJ2QlUDdljz6zP9yJHIWwGZLhsIWc
+7/4NK+e44rwFG8DMSHRaZb7EvbVPvXeAfuwk1XGtmqtYzi3ezGzK7HjDw+sZQ70o
+fYJqVcDJO59NlfGnxMI6Qvmy873Ddl0vk0C7o6cJKMKgg1Yee5H800p5LOF6Mc1Q
+sEUiDh96rL3Q9QU2z+0v6i/fq/ePYnYeBAL9JJVQcokPpNUVrP5rcqGmKMY6Gcqu
+pWuvLfu4l64IHu2MOQ9NdFdptk8gvnf5YwE45GFmFSUiMawB6wWx8Fuutz7gqn2j
+vArq/3CbHImDWmSMflRhUISbFZfMXVmKt8u8isMi1ljOMNmdv1pGGYynrsyi9cdl
+zuLytS+lAmATnSDlKxkNWe1puqLLgIAMSZWW5vVC8hU4W4oqBE3qHbLXx0bQVSez
+mTU1hNhBk7AlyCmtshbkdDwTTP+yq8o4RZygpS4WIR2xFTq2daq3kM5VjXGo0L/W
+phHuz7OtbfU=
+=yg4e
 -----END PGP SIGNATURE-----
 
---=-ea7sVFMPsswuSiiPROlZ--
+--=-qj717OCSo56JuF8KSAuP--
