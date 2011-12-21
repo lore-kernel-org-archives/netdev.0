@@ -1,75 +1,65 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 2/8] farsync: Fix confusion about DMA address and buffer
- offset types
-Date: Wed, 21 Dec 2011 05:41:39 +0000
-Message-ID: <1324446099.2844.191.camel@deadeye>
-References: <1324430940.2844.144.camel@deadeye>
-	 <1324431172.2844.147.camel@deadeye> <1324431746.2844.161.camel@deadeye>
-	 <20111220.234834.1265302793309771407.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] Avoid extra calculation in ip_route_input_common
+Date: Tue, 20 Dec 2011 21:50:32 -0800
+Message-ID: <1324446632.21340.4.camel@joe2Laptop>
+References: <4EF16AA3.2070303@linux.vnet.ibm.com>
+	 <1324445033.20505.2.camel@joe2Laptop> <4EF170F5.5040900@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-bfzBngK6IaUJNVD5lKu+"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Michael Wang <wangyun@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:47257 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751348Ab1LUFlp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 00:41:45 -0500
-In-Reply-To: <20111220.234834.1265302793309771407.davem@davemloft.net>
+Received: from perches-mx.perches.com ([206.117.179.246]:49410 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750958Ab1LUFud (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Dec 2011 00:50:33 -0500
+In-Reply-To: <4EF170F5.5040900@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2011-12-21 at 13:39 +0800, Michael Wang wrote:
+> On 12/21/2011 01:23 PM, Joe Perches wrote:
+> > On Wed, 2011-12-21 at 13:12 +0800, Michael Wang wrote:
+> >> From: Michael Wang <wangyun@linux.vnet.ibm.com>
+> >>
+> >> If previous condition doesn't meet, the later check will be cancelled.
+> >> So we don't need to do all the calculation.
+[]
+> > commit c0b8c32b1c96afc9b32b717927330025cc1c501e
+> > Author: Stephen Hemminger <shemminger@vyatta.com>
+> > Date:   Thu Apr 10 04:00:28 2008 -0700
+> > 
+> >     IPV4: use xor rather than multiple ands for route compare
+> >     
+> >     The comparison in ip_route_input is a hot path, by recoding the C
+> >     "and" as bit operations, fewer conditional branches get generated
+> >     so the code should be faster. Maybe someday Gcc will be smart
+> >     enough to do this?
+> This is what confused me, why "fewer conditional branches get generated"
+> will make code faster?
+> In this example, I think the best condition when daddr is different, we
+> only need to go to one branch do compare then quit, won't this be faster?
 
---=-bfzBngK6IaUJNVD5lKu+
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+	if (a && b)
+		...
+pseudo-codes to:
+	if (!a)
+		goto fail;
+	if (!b)
+		goto fail;
+	...
+fail:
 
-On Tue, 2011-12-20 at 23:48 -0500, David Miller wrote:
-> From: Ben Hutchings <ben@decadent.org.uk>
-> Date: Wed, 21 Dec 2011 01:42:26 +0000
->=20
-> > I accidentally left signing enabled for this one, which I had intended
-> > to disable since you've said that patchwork doesn't deal with
-> > signatures.  Except this looks OK on patchwork:
-> > <http://patchwork.ozlabs.org/patch/132548/>.
-> >=20
-> > If that also looks OK to you, is there any reason to avoid signing
-> > networking patches?
->=20
-> What do you mean exactly by "signing".
->=20
-> Do you mean simply the "Signed-off-by: " tag, which you should always
-> add to your own patches, or something else?
+Each of those conditional branches has a cost.
+Combining tests of variables in the same cache lines
+has relatively little cost compared to the conditional
+branches.
 
-GPG signing.
+That's the theory anyway.
 
-Ben.
+If you have tests that demonstrate otherwise, please
+provide them.
 
---=20
-Ben Hutchings
-Humans are not rational beings; they are rationalising beings.
-
---=-bfzBngK6IaUJNVD5lKu+
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIVAwUATvFxk+e/yOyVhhEJAQqY5g/8DsapaJJtxg651o+Em+HcrTV+EatW9PMe
-Y6E46u5cENvuBaiXrQK7NxGcQAolAcOXslUCItqLsbamQU5FAAAlAuxILCkw07Ki
-n7BsxBUAoTrdOxMsKMVsTfoGONihbIFG2Pxc7JqzRgXU1euBj2xx+pAqXtEDf5Bu
-zq46gqi/qLDAPQYUPZX4Mnai0ztLi7bCUWNfjc9n1cSkDO4Jos573+WZx+VcFfGR
-sykquoqaYFLVQFB8pnfOz1XSSg7XCpvuvBmq/uS0YjMbdKQebzO93XovELD90f/e
-f/S6U9kaKe/RqMUbD/9NYGfFKuRWyb21MKSWi1/EqJKVxlfeCeMn2fVAwpf5KvJC
-b6RfFmPW4iP40EqHKpQHJCcjHezyK+wEZpwOjZOklCxmuanhLdFPugtvA1QQ808Q
-ztm/hIElUeLc1fG73HCyWYzDCtm2UVW5orbcVAsDrTRmik4DIJXHPrSYvqOlLoX6
-qvxRC88mo3QyBZ7+8j2+r+v9XRDyN4wP6saRkaulFKi63CSXIbbZSahc4B0YshqL
-Ll8vzJutCv4kg82BaNtnqRUY6Yjni2tmUaEcQu806WnWA3LSKnYD6nONNuugNWdF
-U38wmk4IYaoC+qFMqqAMd086H7ByI6QZKI/Qb2xOEHQzsu+1lZ8zC21GTCE2bgSH
-REiE9m2Dslo=
-=TPEW
------END PGP SIGNATURE-----
-
---=-bfzBngK6IaUJNVD5lKu+--
+cheers, Joe
