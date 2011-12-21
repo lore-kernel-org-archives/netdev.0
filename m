@@ -1,89 +1,87 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the wireless-next tree with the  tree
-Date: Wed, 21 Dec 2011 12:49:31 +1100
-Message-ID: <20111221124931.992e4e4265f2c3cd1d2e75b4@canb.auug.org.au>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] igb: add basic runtime PM support
+Date: Tue, 20 Dec 2011 18:02:23 -0800
+Message-ID: <1324432943.2327.11.camel@jtkirshe-mobl>
+References: <4EEEC688.2010601@intel.com> <4EF0F32F.4040603@intel.com>
+	 <4EF13B27.5050809@intel.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Wed__21_Dec_2011_12_49_31_+1100_dTnpmGLCfTatxGKm"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Franky Lin <frankyl@broadcom.com>
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-KQxJ4+rByWDrdVtpJ+8c"
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	e1000-devel@lists.sourceforge.net,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	gregory.v.rose@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com, rjw@sisk.pl
+To: "Yan, Zheng" <zheng.z.yan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from calzone.tip.net.au ([203.10.76.15]:34764 "EHLO
-	calzone.tip.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754047Ab1LUBtl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2011 20:49:41 -0500
+Received: from mga09.intel.com ([134.134.136.24]:27780 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750924Ab1LUCCY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Dec 2011 21:02:24 -0500
+In-Reply-To: <4EF13B27.5050809@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Signature=_Wed__21_Dec_2011_12_49_31_+1100_dTnpmGLCfTatxGKm
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
+
+--=-KQxJ4+rByWDrdVtpJ+8c
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-Hi John,
+On Wed, 2011-12-21 at 09:49 +0800, Yan, Zheng wrote:
+> On 12/21/2011 04:42 AM, Alexander Duyck wrote:
+> > I am curious on if you have done any testing on an actual igb device
+> with this code enabled?  My main concern is that the PHY is integrated
+> into these parts, thus putting the MAC into D3 will result in
+> behaviour changes in the PHY.  Specifically in the case of D3 the PHY
+> on many of the igb parts will go into a low power link up mode, and
+> may exclude a 1Gb/s link.  If this occurs I would expect to see a
+> number of link issues on the device.
+> >=20
+> I tested the code on a 82576 dual ports adapter, didn't noticed any
+> issue.
+>=20
+> > From what I can tell it looks like if you were to perform any
+> ethtool operations while the link is down and this code is enabled it
+> would likely result in multiple errors.  I am not sure what would
+> happen if you were to run an "ethtool -t" test while the device was in
+> a powered down state.
+> >=20
+> This is not big problem because netif_device_detach() is called when
+> suspending a device. "ethtool -t" reports "No such device" if the
+> device is suspended. (There is a bug my patch, it doesn't calls
+> netif_device_detach() if the device is down. Will send a new patch
+> later)=20
 
-Today's linux-next merge of the wireless-next tree got a conflict in
-drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c between commit
-3db1cd5c05f3 ("net: fix assignment of 0/1 to bool variables") from the
-tree and commit 3fb1d8d2dad3 ("brcm80211: fmac: move driver up status to
-struct brcmf_bus") from the wireless-next tree.
+I will hold off on adding this patch to my queue of patches since you
+intend to send a v2 of the patch.
 
-I fixed it up (see below) and can carry the fix as necessary.
+Thanks Zheng!
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c
-index 2c3a99d,72bee2c..0000000
---- a/drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c
-@@@ -805,7 -784,7 +784,7 @@@ static int brcmf_netdev_stop(struct net
-  		return 0;
- =20
-  	/* Set state and stop OS transmissions */
-- 	drvr->up =3D false;
- -	drvr->bus_if->drvr_up =3D 0;
-++	drvr->bus_if->drvr_up =3D false;
-  	netif_stop_queue(ndev);
- =20
-  	return 0;
-@@@ -842,8 -821,8 +821,8 @@@ static int brcmf_netdev_open(struct net
-  	}
-  	/* Allow transmit calls */
-  	netif_start_queue(ndev);
-- 	drvr_priv->pub.up =3D true;
-- 	if (brcmf_cfg80211_up(drvr_priv->pub.config)) {
- -	drvr->bus_if->drvr_up =3D 1;
-++	drvr->bus_if->drvr_up =3D true;
-+ 	if (brcmf_cfg80211_up(drvr->config)) {
-  		brcmf_dbg(ERROR, "failed to bring up cfg80211\n");
-  		return -1;
-  	}
-
---Signature=_Wed__21_Dec_2011_12_49_31_+1100_dTnpmGLCfTatxGKm
-Content-Type: application/pgp-signature
+--=-KQxJ4+rByWDrdVtpJ+8c
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQIcBAEBCAAGBQJO8TsrAAoJEECxmPOUX5FESNkP/2ns12RFGl7HEov//PQkFrHZ
-1Go9JvHlvZERDosFgsOx2ZMrj/HSwLE+bePpYi+TVQh3quUFk25JAGMZITjdqNRy
-RaI2v5S8LtLtUnaNxSSOtqSzuFqCh6fMWuy+hBTJbC+f4CY+z66KUbiVZlqIGH7g
-mlrYdg6hUw6PFgTzL/kbd8xgwvzDyj/pYUm3y5IDs0bSNFB9V2LD9aHaGCPXoTlj
-/X7X1PAblhWhjJeyTnHA18Qrg8Qgz7EUGnF2NgIc1fmkUrGnmXatdIhILaOq4JhR
-+2RC43sXS4jjZKIMCasRy/TN4kUOUpZ/50fUWs/KtEhAcCqyfa1FyLO8FFybASPx
-FTCnZhX/1B8M/1gWwBXEYCto+gzvGQzQN6OiBj77IV1YE2LGsrSa4H1uk4etJZjl
-G3s3HsbJrKzTIn8aYHo8POQFW8U+i5J92FAWGiW/XI+wde6I9DA/lKfyO/2tR7wV
-o/DR6zajzstqX9E7N/QUc65Ydrzvq9XAi3efO2nlaXL6aLXPWCa6lHJ50rqJJTCI
-sbJ8u3RZD5BiSPuvKB2gsvmuEnsI0Ka+K0Hjks3AkFiIHyplKLH1GJ7OL+ir3kXD
-2xG7Zc+U5OOVhjSlX+SdyOph5JpWLyXyYs+J8zd5zwL7DXBzm6zUlWGPznb73D+M
-QEQEpffpU0C0ZoYLaQVR
-=fK20
+iQIcBAABCgAGBQJO8T4vAAoJEOVv75VaS+3OJHoP+QE1AgXUfe+ibOQBaaGt5BTw
+fM7iop/JECE5RupFB5Ek8qlcM2zTRRnY/1L8Jx7xW5Y3hYsNJROEEhhVjOBLfzKd
+6+aXWnWB/JJvZ9TWSs40MT5QLezalx//g1uIZvqlQtvWaLqoH70iy7As+qZbZTaG
+dI8PQm3WLmPWD6UY4mAIJ9bn/AHnjOU4G862MkGeG7AFx8Z5XST7zzSvkLXiKXAw
+D03k+CtRY9fEJzqqMx7rXsLyg41kOnghm2IoqJoqgPRcEXcAPbMtRFkH+XttsGu+
+uKErhTnFwGRVIVb6zTIltSxWaU349VkCLqo5XwTN84ePZ2htx3l7xyGWuDOMA1KR
+sqjtOKMkKLIZC+jzsMasV/hsqjWg9ZGzWHfZzHYmOLfZP0J3wRIL4YgN22LmZOhW
+rHfdoLOSOUsZ3UX+Ca+j6tUrWWd4X1HG3jgck5iIAXOvnhx00SjHzBvn3d9hSDLA
+JH/U1zOb0OdlmQ90zXoyQl8P3qmfeE1dgUkXXWCFBfcy5lLJofezfiMA1xbzheQM
+MP5AV1cZWcew4mtePGaAmJ56TcYRnaq3Les90Wvf6ELL3Tj0rwRYshws1F57pBXC
+y7jbKkxh0zaqv4cvzTqPdareiRTbNNd1zkrx1XYtObar+IblUYr7ccSWyu20ipT6
+vr28IKO0yPROM4vy6D9g
+=9Zsp
 -----END PGP SIGNATURE-----
 
---Signature=_Wed__21_Dec_2011_12_49_31_+1100_dTnpmGLCfTatxGKm--
+--=-KQxJ4+rByWDrdVtpJ+8c--
