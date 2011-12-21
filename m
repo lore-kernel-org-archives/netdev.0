@@ -1,36 +1,45 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless 2011-12-21
-Date: Wed, 21 Dec 2011 14:38:57 -0500 (EST)
-Message-ID: <20111221.143857.1290958187108678143.davem@davemloft.net>
-References: <20111221185914.GD11842@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] rps: fix insufficient bounds checking in
+ store_rps_dev_flow_table_cnt()
+Date: Wed, 21 Dec 2011 14:41:26 -0500 (EST)
+Message-ID: <20111221.144126.2213051521357190879.davem@davemloft.net>
+References: <1324493459-19764-1-git-send-email-xi.wang@gmail.com>
+	<1324495344.2621.5.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20111221185914.GD11842-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: xi.wang@gmail.com, therbert@google.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:54517 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752615Ab1LUTla convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 14:41:30 -0500
+In-Reply-To: <1324495344.2621.5.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Wed, 21 Dec 2011 13:59:14 -0500
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 21 Dec 2011 20:22:24 +0100
 
-> A few last(?) fixes intended for 3.2...
-> 
-> The biggest portion are from Gustavo:
-> 
-> "3 fixes for 3.2! There one revert that was causing connection issues,
-> a RFCOMM fix to a potential kernel panic, and the last on L2CAP to
-> a possible access to uninitialized data due to broken remote devices."
-> 
-> Also, an iwlwifi fix for a problem causing firmware asserts.
-> 
-> Please let me know if there are problems!
+> Le mercredi 21 d=E9cembre 2011 =E0 13:50 -0500, Xi Wang a =E9crit :
+>> @@ -665,7 +665,7 @@ static ssize_t store_rps_dev_flow_table_cnt(stru=
+ct netdev_rx_queue *queue,
+>>  	if (count) {
+>>  		int i;
+>> =20
+>> -		if (count > 1<<30) {
+>> +		if (count > 1<<28) {
+>>  			/* Enforce a limit to prevent overflow */
+>>  			return -EINVAL;
+>>  		}
+>=20
+>=20
+> Really, you should remove this magic number and use instead
+>=20
+> (INT_MAX - RPS_DEV_FLOW_TABLE_SIZE(0)) / sizeof(struct rps_dev_flow)
+>=20
+> Or something like that, because next time we add a field in
+> rps_dev_flow, test will be obsolete.
 
-Pulled, thanks John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Agreed.
