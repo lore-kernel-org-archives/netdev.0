@@ -1,163 +1,86 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] sch_sfq: rehash queues in perturb timer
-Date: Wed, 21 Dec 2011 14:30:11 +0100
-Message-ID: <1324474211.2728.56.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: ICMP packets - ll_temac with Microblaze
+Date: Wed, 21 Dec 2011 14:40:11 +0100
+Message-ID: <1324474811.2728.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <4EF1B0D9.2010007@monstr.eu>
+				 <1324463334.2728.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+				 <1324463452.2728.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+				 <4EF1B5BC.5020103@monstr.eu>
+				 <1324463838.2728.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+				 <4EF1B7E4.4010602@monstr.eu>
+				 <1324464308.2728.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+			 <1324465386.2728.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+			 <4EF1BEA4.7080005@monstr.eu>
+		 <1324466023.2728.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+		 <4EF1C80B.4060701@monstr.eu>
+	 <1324471194.2728.44.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4EF1DF00.1090309@monstr.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	John Williams <john.williams@petalogix.com>,
+	netdev@vger.kernel.org
+To: monstr@monstr.eu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:63681 "EHLO
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:36316 "EHLO
 	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751671Ab1LUNaQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 08:30:16 -0500
-Received: by lahd3 with SMTP id d3so540111lah.19
-        for <netdev@vger.kernel.org>; Wed, 21 Dec 2011 05:30:14 -0800 (PST)
+	by vger.kernel.org with ESMTP id S1752265Ab1LUNkR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 08:40:17 -0500
+Received: by lahd3 with SMTP id d3so543903lah.19
+        for <netdev@vger.kernel.org>; Wed, 21 Dec 2011 05:40:15 -0800 (PST)
+In-Reply-To: <4EF1DF00.1090309@monstr.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A known Out Of Order (OOO) problem hurts SFQ when timer changes
-perturbation value, since all new packets delivered to SFQ enqueue might
-end on different slots than previous in-flight packets.
+Le mercredi 21 d=C3=A9cembre 2011 =C3=A0 14:28 +0100, Michal Simek a =C3=
+=A9crit :
 
-With round robin delivery, we can thus deliver packets in a different
-order.
+> ok. Can you provide me any background why size should be setup by
+> size =3D SKB_WITH_OVERHEAD(ksize(data));
+> and not to use size which is passed to kmalloc in __alloc_skb.
 
-Since SFQ is limited to small amount of in-flight packets, we can rehash
-packets so that this OOO problem is fixed.
+Its all about memory accounting (based on skb->truesize)
 
-This rehashing is performed only if internal flow classifier is in use.
+Prior to the patch, we could fool memory accounting because skbs claime=
+d
+to use less memory than what they really used.
 
-We now store in skb->cb[] the "struct flow_keys" so that we dont call
-skb_flow_dissect() again while rehashing.
+And crash machines eventually.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/sched/sch_sfq.c |   87 +++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 81 insertions(+), 6 deletions(-)
+Now memory accouting is fixed, we probably need to change some points i=
+n
+the kernel, where we previously accepted a small skb, but not a very
+large one.
 
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index 30cda70..d329a8a 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -136,16 +136,30 @@ static inline struct sfq_head *sfq_dep_head(struct sfq_sched_data *q, sfq_index
- 	return &q->dep[val - SFQ_SLOTS];
- }
- 
-+/*
-+ * In order to be able to quickly rehash our queue when timer changes
-+ * q->perturbation, we store flow_keys in skb->cb[]
-+ */
-+struct sfq_skb_cb {
-+       struct flow_keys        keys;
-+};
-+
-+static inline struct sfq_skb_cb *sfq_skb_cb(const struct sk_buff *skb)
-+{
-+       BUILD_BUG_ON(sizeof(skb->cb) <
-+               sizeof(struct qdisc_skb_cb) + sizeof(struct sfq_skb_cb));
-+       return (struct sfq_skb_cb *)qdisc_skb_cb(skb)->data;
-+}
-+
- static unsigned int sfq_hash(const struct sfq_sched_data *q,
- 			     const struct sk_buff *skb)
- {
--	struct flow_keys keys;
-+	const struct flow_keys *keys = &sfq_skb_cb(skb)->keys;
- 	unsigned int hash;
- 
--	skb_flow_dissect(skb, &keys);
--	hash = jhash_3words((__force u32)keys.dst,
--			    (__force u32)keys.src ^ keys.ip_proto,
--			    (__force u32)keys.ports, q->perturbation);
-+	hash = jhash_3words((__force u32)keys->dst,
-+			    (__force u32)keys->src ^ keys->ip_proto,
-+			    (__force u32)keys->ports, q->perturbation);
- 	return hash & (q->divisor - 1);
- }
- 
-@@ -161,8 +175,10 @@ static unsigned int sfq_classify(struct sk_buff *skb, struct Qdisc *sch,
- 	    TC_H_MIN(skb->priority) <= q->divisor)
- 		return TC_H_MIN(skb->priority);
- 
--	if (!q->filter_list)
-+	if (!q->filter_list) {
-+		skb_flow_dissect(skb, &sfq_skb_cb(skb)->keys);
- 		return sfq_hash(q, skb) + 1;
-+	}
- 
- 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
- 	result = tc_classify(skb, q->filter_list, &res);
-@@ -423,12 +439,71 @@ sfq_reset(struct Qdisc *sch)
- 		kfree_skb(skb);
- }
- 
-+/*
-+ * When q->perturbation is changed, we rehash all queued skbs
-+ * to avoid OOO (Out Of Order) effects.
-+ * We dont use sfq_dequeue()/sfq_enqueue() because we dont want to change
-+ * counters.
-+ */
-+static void sfq_rehash(struct sfq_sched_data *q)
-+{
-+	struct sk_buff *skb;
-+	int i;
-+	struct sfq_slot *slot;
-+	struct sk_buff_head list;
-+
-+	__skb_queue_head_init(&list);
-+
-+	for (i = 0; i < SFQ_SLOTS; i++) {
-+		slot = &q->slots[i];
-+		if (!slot->qlen)
-+			continue;
-+		while (slot->qlen) {
-+			skb = slot_dequeue_head(slot);
-+			sfq_dec(q, i);
-+			__skb_queue_tail(&list, skb);
-+		}
-+		q->ht[slot->hash] = SFQ_EMPTY_SLOT;
-+	}
-+	q->tail = NULL;
-+
-+	while ((skb = __skb_dequeue(&list)) != NULL) {
-+		unsigned int hash = sfq_hash(q, skb);
-+		sfq_index x = q->ht[hash];
-+
-+		slot = &q->slots[x];
-+		if (x == SFQ_EMPTY_SLOT) {
-+			x = q->dep[0].next; /* get a free slot */
-+			q->ht[hash] = x;
-+			slot = &q->slots[x];
-+			slot->hash = hash;
-+		}
-+		slot_queue_add(slot, skb);
-+		sfq_inc(q, x);
-+		if (slot->qlen == 1) {		/* The flow is new */
-+			if (q->tail == NULL) {	/* It is the first flow */
-+				slot->next = x;
-+			} else {
-+				slot->next = q->tail->next;
-+				q->tail->next = x;
-+			}
-+			q->tail = slot;
-+			slot->allot = q->scaled_quantum;
-+		}
-+	}
-+}
-+
- static void sfq_perturbation(unsigned long arg)
- {
- 	struct Qdisc *sch = (struct Qdisc *)arg;
- 	struct sfq_sched_data *q = qdisc_priv(sch);
-+	spinlock_t *root_lock = qdisc_lock(qdisc_root_sleeping(sch));
- 
-+	spin_lock(root_lock);
- 	q->perturbation = net_random();
-+	if (!q->filter_list && q->tail)
-+		sfq_rehash(q);
-+	spin_unlock(root_lock);
- 
- 	if (q->perturb_period)
- 		mod_timer(&q->perturb_timer, jiffies + q->perturb_period);
+Since "ping" probably uses SOCK_RAW sockets, I'll try this one :
+
+(We dont care of _this_ skb truesize, only on the count of previously
+queued packets)
+
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 0da505c..a809a48 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1631,8 +1631,7 @@ static int packet_rcv(struct sk_buff *skb, struct=
+ net_device *dev,
+ 	if (snaplen > res)
+ 		snaplen =3D res;
+=20
+-	if (atomic_read(&sk->sk_rmem_alloc) + skb->truesize >=3D
+-	    (unsigned)sk->sk_rcvbuf)
++	if (atomic_read(&sk->sk_rmem_alloc) >=3D (unsigned)sk->sk_rcvbuf)
+ 		goto drop_n_acct;
+=20
+ 	if (skb_shared(skb)) {
+@@ -1763,7 +1762,7 @@ static int tpacket_rcv(struct sk_buff *skb, struc=
+t net_device *dev,
+ 	if (po->tp_version <=3D TPACKET_V2) {
+ 		if (macoff + snaplen > po->rx_ring.frame_size) {
+ 			if (po->copy_thresh &&
+-				atomic_read(&sk->sk_rmem_alloc) + skb->truesize
++				atomic_read(&sk->sk_rmem_alloc)
+ 				< (unsigned)sk->sk_rcvbuf) {
+ 				if (skb_shared(skb)) {
+ 					copy_skb =3D skb_clone(skb, GFP_ATOMIC);
