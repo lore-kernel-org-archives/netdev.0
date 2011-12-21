@@ -1,78 +1,120 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] igb: Add support for byte queue limits.
-Date: Wed, 21 Dec 2011 16:18:15 +0100
-Message-ID: <1324480695.2301.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: ICMP packets - ll_temac with Microblaze
+Date: Wed, 21 Dec 2011 16:30:39 +0100
+Message-ID: <1324481439.2301.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <4EF1B0D9.2010007@monstr.eu>
+					 <1324463334.2728.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+					 <1324463452.2728.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+					 <4EF1B5BC.5020103@monstr.eu>
+					 <1324463838.2728.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+					 <4EF1B7E4.4010602@monstr.eu>
+					 <1324464308.2728.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+				 <1324465386.2728.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+				 <4EF1BEA4.7080005@monstr.eu>
+			 <1324466023.2728.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+			 <4EF1C80B.4060701@monstr.eu>
+		 <1324471194.2728.44.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+		 <4EF1DF00.1090309@monstr.eu>
+	 <1324474811.2728.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4EF1EC28.90008@monstr.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	John Williams <john.williams@petalogix.com>,
+	netdev@vger.kernel.org
+To: monstr@monstr.eu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:45574 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753226Ab1LUPST (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 10:18:19 -0500
-Received: by werm1 with SMTP id m1so2736815wer.19
-        for <netdev@vger.kernel.org>; Wed, 21 Dec 2011 07:18:18 -0800 (PST)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:41876 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750914Ab1LUPan (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 10:30:43 -0500
+Received: by wgbdr13 with SMTP id dr13so14409626wgb.1
+        for <netdev@vger.kernel.org>; Wed, 21 Dec 2011 07:30:42 -0800 (PST)
+In-Reply-To: <4EF1EC28.90008@monstr.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds support for byte queue limits (BQL)
+Le mercredi 21 d=C3=A9cembre 2011 =C3=A0 15:24 +0100, Michal Simek a =C3=
+=A9crit :
+> Eric Dumazet wrote:
+> > Le mercredi 21 d=C3=A9cembre 2011 =C3=A0 14:28 +0100, Michal Simek =
+a =C3=A9crit :
+> >=20
+> >> ok. Can you provide me any background why size should be setup by
+> >> size =3D SKB_WITH_OVERHEAD(ksize(data));
+> >> and not to use size which is passed to kmalloc in __alloc_skb.
+> >=20
+> > Its all about memory accounting (based on skb->truesize)
+> >=20
+> > Prior to the patch, we could fool memory accounting because skbs cl=
+aimed
+> > to use less memory than what they really used.
+> >=20
+> > And crash machines eventually.
+> >=20
+> > Now memory accouting is fixed, we probably need to change some poin=
+ts in
+> > the kernel, where we previously accepted a small skb, but not a ver=
+y
+> > large one.
+> >=20
+> > Since "ping" probably uses SOCK_RAW sockets, I'll try this one :
+> >=20
+> > (We dont care of _this_ skb truesize, only on the count of previous=
+ly
+> > queued packets)
+> >=20
+> >=20
+> > diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> > index 0da505c..a809a48 100644
+> > --- a/net/packet/af_packet.c
+> > +++ b/net/packet/af_packet.c
+> > @@ -1631,8 +1631,7 @@ static int packet_rcv(struct sk_buff *skb, st=
+ruct net_device *dev,
+> >  	if (snaplen > res)
+> >  		snaplen =3D res;
+> > =20
+> > -	if (atomic_read(&sk->sk_rmem_alloc) + skb->truesize >=3D
+> > -	    (unsigned)sk->sk_rcvbuf)
+> > +	if (atomic_read(&sk->sk_rmem_alloc) >=3D (unsigned)sk->sk_rcvbuf)
+> >  		goto drop_n_acct;
+> > =20
+> >  	if (skb_shared(skb)) {
+> > @@ -1763,7 +1762,7 @@ static int tpacket_rcv(struct sk_buff *skb, s=
+truct net_device *dev,
+> >  	if (po->tp_version <=3D TPACKET_V2) {
+> >  		if (macoff + snaplen > po->rx_ring.frame_size) {
+> >  			if (po->copy_thresh &&
+> > -				atomic_read(&sk->sk_rmem_alloc) + skb->truesize
+> > +				atomic_read(&sk->sk_rmem_alloc)
+> >  				< (unsigned)sk->sk_rcvbuf) {
+> >  				if (skb_shared(skb)) {
+> >  					copy_skb =3D skb_clone(skb, GFP_ATOMIC);
+> >=20
+> >=20
+> >=20
+> >=20
+>=20
+> It doesn't work too.
+> It is possible to see this behavior on qemu. What about if I prepare =
+you package with cross toolchain, rootfs
+> and you can add debug message where you want?
+>=20
+> I have also tried ll_temac driver with ppc440 and behavior is the sam=
+e.
+>=20
+> Max FRAME_SIZE pass to netdev_alloc_skb_ip_align is 7966. For this va=
+lue ping works.
+> (For ll_temac driver it is #define XTE_JUMBO_MTU 7948 from ll_temac.h=
+)
 
-Since this driver collects bytes count in 'bytecount' field, use it also
-in igb_tx_map()
+I did several tests with MTU 9000 on my machines and it works well.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
----
- drivers/net/ethernet/intel/igb/igb.h      |    5 +++++
- drivers/net/ethernet/intel/igb/igb_main.c |    5 +++++
- 2 files changed, 10 insertions(+)
+It seems my pings (iputils-sss20071127 or iputils-sss20101006) uses a
+big enough RCVBUF
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index c69feeb..3d12e67 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -447,4 +447,9 @@ static inline s32 igb_get_phy_info(struct e1000_hw *hw)
- 	return 0;
- }
- 
-+static inline struct netdev_queue *txring_txq(const struct igb_ring *tx_ring)
-+{
-+	return netdev_get_tx_queue(tx_ring->netdev, tx_ring->queue_index);
-+}
-+
- #endif /* _IGB_H_ */
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 89d576c..dcc68cc 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -3201,6 +3201,7 @@ static void igb_clean_tx_ring(struct igb_ring *tx_ring)
- 		buffer_info = &tx_ring->tx_buffer_info[i];
- 		igb_unmap_and_free_tx_resource(tx_ring, buffer_info);
- 	}
-+	netdev_tx_reset_queue(txring_txq(tx_ring));
- 
- 	size = sizeof(struct igb_tx_buffer) * tx_ring->count;
- 	memset(tx_ring->tx_buffer_info, 0, size);
-@@ -4238,6 +4239,8 @@ static void igb_tx_map(struct igb_ring *tx_ring,
- 		frag++;
- 	}
- 
-+	netdev_tx_sent_queue(txring_txq(tx_ring), first->bytecount);
-+
- 	/* write last descriptor with RS and EOP bits */
- 	cmd_type |= cpu_to_le32(size) | cpu_to_le32(IGB_TXD_DCMD);
- 	tx_desc->read.cmd_type_len = cmd_type;
-@@ -5777,6 +5780,8 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
- 		}
- 	}
- 
-+	netdev_tx_completed_queue(txring_txq(tx_ring),
-+				  total_packets, total_bytes);
- 	i += tx_ring->count;
- 	tx_ring->next_to_clean = i;
- 	u64_stats_update_begin(&tx_ring->tx_syncp);
+setsockopt(3, SOL_SOCKET, SO_RCVBUF, [65536], 4) =3D 0
+getsockopt(3, SOL_SOCKET, SO_RCVBUF, [131072], [4]) =3D 0
+
+Could you check with "strace ping..." what is doing busybox ?
