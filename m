@@ -1,31 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Kernel-DOS error in arp mechanism
- =?iso-2022-jp-3?B?GyQoUSN8GyhC?= no delete off incomplete arp adresses
-Date: Wed, 21 Dec 2011 03:07:27 -0500 (EST)
-Message-ID: <20111221.030727.1528369698756365464.davem@davemloft.net>
-References: <4EEC5286.3070408@gmx.de>
-	<CAFLxGvxjLCyMCPXtpm7a7RaOL4A4=bhCLPKD=FVAc8xOdx_CsQ@mail.gmail.com>
-	<1324453467.2610.20.camel@edumazet-laptop>
+From: "Kevin Curtis" <kevin.curtis@farsite.com>
+Subject: RE: [PATCH 2/8] farsync: Fix confusion about DMA address and buffer offset types
+Date: Wed, 21 Dec 2011 08:33:33 -0000
+Message-ID: <F0A3125A154C5B46B8540D5E65D671050153356A@captain.hq.farsitecommunications.com>
+References: <1324430940.2844.144.camel@deadeye> <1324431172.2844.147.camel@deadeye> <20111220.234656.658595607282312696.davem@davemloft.net> <1324446073.2844.190.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: richard.weinberger@gmail.com, gladewitz@gmx.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1324453467.2610.20.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: "Ben Hutchings" <ben@decadent.org.uk>,
+	"David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outm2.farsite.co.uk ([82.108.209.243]:11513 "EHLO
+	outm2.farsite.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753139Ab1LUIsu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 03:48:50 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <1324446073.2844.190.camel@deadeye>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 21 Dec 2011 08:44:27 +0100
-
-> David, I suggest we add back the garbage collector for current kernels,
-> we'll remove it when route cache really disappear ?
-> 
-> I'll send a patch today.
-
-Yes, it's the best idea.
-
-We can actually remove it again as early as when when route neigh's
-are ref-less.
+SGksDQogICAgVGhhbmtzIGZvciB0aGUgcGF0Y2hlcy4gIEkgd2lsbCBhcHBseSB0aGVtIHRvIHRo
+ZSBtYXN0ZXIgY29weSBvZiB0aGUgc291cmNlIGNvZGUgaGVyZS4NCg0KDQpSZWdhcmRzDQoNCg0K
+S2V2aW4gQ3VydGlzDQpMaW51eCBEZXZlbG9wbWVudA0KRmFyU2l0ZSBDb21tdW5pY2F0aW9ucyBM
+dGQgaHR0cDovL3d3dy5mYXJzaXRlLmNvbQ0KV2lubmVyIG9mIFRoZSBRdWVlbidzIEF3YXJkIGZv
+ciBFbnRlcnByaXNlIDIwMDkNCnRlbDrCoCArNDQgMTI1NiAzMzA0NjENCmZheDrCoCArNDQgMTI1
+NiA4NTQ5MzENCg0KDQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBCZW4gSHV0
+Y2hpbmdzIFttYWlsdG86YmVuQGRlY2FkZW50Lm9yZy51a10gDQpTZW50OiAyMSBEZWNlbWJlciAy
+MDExIDA1OjQxDQpUbzogRGF2aWQgTWlsbGVyDQpDYzogS2V2aW4gQ3VydGlzOyBuZXRkZXZAdmdl
+ci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnDQpTdWJqZWN0OiBSZTog
+W1BBVENIIDIvOF0gZmFyc3luYzogRml4IGNvbmZ1c2lvbiBhYm91dCBETUEgYWRkcmVzcyBhbmQg
+YnVmZmVyIG9mZnNldCB0eXBlcw0KDQpPbiBUdWUsIDIwMTEtMTItMjAgYXQgMjM6NDYgLTA1MDAs
+IERhdmlkIE1pbGxlciB3cm90ZToNCj4gRnJvbTogQmVuIEh1dGNoaW5ncyA8YmVuQGRlY2FkZW50
+Lm9yZy51az4NCj4gRGF0ZTogV2VkLCAyMSBEZWMgMjAxMSAwMTozMjo1MiArMDAwMA0KPiANCj4g
+PiAtCWRiZyhEQkdfUlgsICJJbiBmc3RfcnhfZG1hICVseCAlbHggJWRcbiIsDQo+ID4gLQkgICAg
+KHVuc2lnbmVkIGxvbmcpIHNrYiwgKHVuc2lnbmVkIGxvbmcpIG1lbSwgbGVuKTsNCj4gPiArCWRi
+ZyhEQkdfUlgsICJJbiBmc3RfcnhfZG1hICV4ICV4ICVkXG4iLCAodTMyKXNrYiwgbWVtLCBsZW4p
+Ow0KPiANCj4gVGhpcyBpcyBtb3JlIGFwcHJvcHJpYXRlbHkgZml4ZWQgYnkgdXNpbmcgIiVwIiBp
+bnN0ZWFkIG9mIGNhc3RpbmcgdG8gYSANCj4gMzItYml0IGludC4NCg0KJ3NrYicgaXMgdGhlIHBo
+eXNpY2FsIGFkZHJlc3Mgb2YgdGhlIGRhdGEgaW4gdGhlIHNrYi4gIFdoZXJlYXMgJ21lbScgaXMg
+dGhlIG9mZnNldCBvZiB0aGUgY29ycmVzcG9uZGluZyBidWZmZXIgaW4gc2hhcmVkIG1lbW9yeS4N
+Cg0KQWxsIGNvbXBsZXRlbHkgY2xlYXIsIHJpZ2h0PyA7LSkNCg0KQmVuLg0KDQotLQ0KQmVuIEh1
+dGNoaW5ncw0KSHVtYW5zIGFyZSBub3QgcmF0aW9uYWwgYmVpbmdzOyB0aGV5IGFyZSByYXRpb25h
+bGlzaW5nIGJlaW5ncy4NCg==
