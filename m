@@ -1,42 +1,48 @@
 From: Ben Hutchings <ben@decadent.org.uk>
 Subject: Re: [PATCH 2/8] farsync: Fix confusion about DMA address and buffer
  offset types
-Date: Wed, 21 Dec 2011 05:41:13 +0000
-Message-ID: <1324446073.2844.190.camel@deadeye>
+Date: Wed, 21 Dec 2011 05:41:39 +0000
+Message-ID: <1324446099.2844.191.camel@deadeye>
 References: <1324430940.2844.144.camel@deadeye>
-	 <1324431172.2844.147.camel@deadeye>
-	 <20111220.234656.658595607282312696.davem@davemloft.net>
+	 <1324431172.2844.147.camel@deadeye> <1324431746.2844.161.camel@deadeye>
+	 <20111220.234834.1265302793309771407.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-twrbCDpmnZPfVRp7A4XA"
-Cc: kevin.curtis@farsite.co.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+	protocol="application/pgp-signature"; boundary="=-bfzBngK6IaUJNVD5lKu+"
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111220.234656.658595607282312696.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:47257 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751348Ab1LUFlp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 00:41:45 -0500
+In-Reply-To: <20111220.234834.1265302793309771407.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---=-twrbCDpmnZPfVRp7A4XA
+--=-bfzBngK6IaUJNVD5lKu+
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, 2011-12-20 at 23:46 -0500, David Miller wrote:
+On Tue, 2011-12-20 at 23:48 -0500, David Miller wrote:
 > From: Ben Hutchings <ben@decadent.org.uk>
-> Date: Wed, 21 Dec 2011 01:32:52 +0000
+> Date: Wed, 21 Dec 2011 01:42:26 +0000
 >=20
-> > -	dbg(DBG_RX, "In fst_rx_dma %lx %lx %d\n",
-> > -	    (unsigned long) skb, (unsigned long) mem, len);
-> > +	dbg(DBG_RX, "In fst_rx_dma %x %x %d\n", (u32)skb, mem, len);
+> > I accidentally left signing enabled for this one, which I had intended
+> > to disable since you've said that patchwork doesn't deal with
+> > signatures.  Except this looks OK on patchwork:
+> > <http://patchwork.ozlabs.org/patch/132548/>.
+> >=20
+> > If that also looks OK to you, is there any reason to avoid signing
+> > networking patches?
 >=20
-> This is more appropriately fixed by using "%p" instead of casting
-> to a 32-bit int.
+> What do you mean exactly by "signing".
+>=20
+> Do you mean simply the "Signed-off-by: " tag, which you should always
+> add to your own patches, or something else?
 
-'skb' is the physical address of the data in the skb.  Whereas 'mem' is
-the offset of the corresponding buffer in shared memory.
-
-All completely clear, right? ;-)
+GPG signing.
 
 Ben.
 
@@ -44,26 +50,26 @@ Ben.
 Ben Hutchings
 Humans are not rational beings; they are rationalising beings.
 
---=-twrbCDpmnZPfVRp7A4XA
+--=-bfzBngK6IaUJNVD5lKu+
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQIVAwUATvFxeee/yOyVhhEJAQqN+hAA0R0buHs4pfmomXfNyjlDWvZUdrvoHh9k
-tXrVDPaHQgotIRbsCTOwmXC55JGd3O9vsJgGk70df8Y/OTygXqHsLmlxwyRoe2lT
-NU+sonkKBJYmoIR4UIdENGRxKy2E1ABJdBlBZY0Iwt55Pw+VORzSVECU59uTn7OQ
-aAg+Z+z4a9m5+56JlafMlwKN4UeKBSDDC1XPveeULgawovtt1anTilw2Nl+f7Jb7
-5u+fo7rQ4PjRPkv4CxUUpa8T8WemAPS39VPAwiWVC4qex6ussMxOhKQyb5hC4nrt
-oX7muBFUbjwhE7sonN77eCw5wI5Uwqp0aZ23br+svPdFZgq6zDWvaIRBKUfGCW6l
-S8qsotxwr0EryQjw+OU+D5zdpMto3YzUnkwu6OrAnSiuvc5+KI+W4GZN178k2q44
-OKWjPbAtxQ7vjnKmdOWTOw0XNIikE+IDqG7NDah+whX0rXA5vGQghP1F5IdrbrT0
-zcE1TKMVkiX6/ytZm9il1HP9BMDVslhcoz9CbXUKGuL97ycL7azDgQxHkVHmUryC
-tDxEyzp4fwyiorxKcGDo7PUjKXCPjyjyzJ8qO/lBhCwMTM8XV4ji4OqUdVCtdPKP
-3Qo9kh1+qvmkJTrGeYO9ZuMdBaTbfyuCuJ7iQz4D+ELF92A8U/V+T/4Mro+VYRo8
-AKxnHmRs6yE=
-=WHuV
+iQIVAwUATvFxk+e/yOyVhhEJAQqY5g/8DsapaJJtxg651o+Em+HcrTV+EatW9PMe
+Y6E46u5cENvuBaiXrQK7NxGcQAolAcOXslUCItqLsbamQU5FAAAlAuxILCkw07Ki
+n7BsxBUAoTrdOxMsKMVsTfoGONihbIFG2Pxc7JqzRgXU1euBj2xx+pAqXtEDf5Bu
+zq46gqi/qLDAPQYUPZX4Mnai0ztLi7bCUWNfjc9n1cSkDO4Jos573+WZx+VcFfGR
+sykquoqaYFLVQFB8pnfOz1XSSg7XCpvuvBmq/uS0YjMbdKQebzO93XovELD90f/e
+f/S6U9kaKe/RqMUbD/9NYGfFKuRWyb21MKSWi1/EqJKVxlfeCeMn2fVAwpf5KvJC
+b6RfFmPW4iP40EqHKpQHJCcjHezyK+wEZpwOjZOklCxmuanhLdFPugtvA1QQ808Q
+ztm/hIElUeLc1fG73HCyWYzDCtm2UVW5orbcVAsDrTRmik4DIJXHPrSYvqOlLoX6
+qvxRC88mo3QyBZ7+8j2+r+v9XRDyN4wP6saRkaulFKi63CSXIbbZSahc4B0YshqL
+Ll8vzJutCv4kg82BaNtnqRUY6Yjni2tmUaEcQu806WnWA3LSKnYD6nONNuugNWdF
+U38wmk4IYaoC+qFMqqAMd086H7ByI6QZKI/Qb2xOEHQzsu+1lZ8zC21GTCE2bgSH
+REiE9m2Dslo=
+=TPEW
 -----END PGP SIGNATURE-----
 
---=-twrbCDpmnZPfVRp7A4XA--
+--=-bfzBngK6IaUJNVD5lKu+--
