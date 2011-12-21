@@ -1,61 +1,41 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: ICMP packets - ll_temac with Microblaze
-Date: Wed, 21 Dec 2011 16:39:22 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AF21@saturn3.aculab.com>
-References: <1324483543.2301.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 2/4] vfs: Export some file manipulation functions
+Date: Wed, 21 Dec 2011 11:42:45 -0500
+Message-ID: <20111221164245.GA9484@hmsreliant.think-freely.org>
+References: <1324478390-22036-1-git-send-email-nhorman@tuxdriver.com>
+ <1324478390-22036-3-git-send-email-nhorman@tuxdriver.com>
+ <20111221153054.GA1489@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <monstr@monstr.eu>, "David Miller" <davem@davemloft.net>,
-	"John Williams" <john.williams@petalogix.com>,
-	<netdev@vger.kernel.org>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Jun Zhao" <mypopydev@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:42976 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751716Ab1LUQkz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 11:40:55 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 20028-02 for <netdev@vger.kernel.org>;
- Wed, 21 Dec 2011 16:40:49 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1324483543.2301.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@infradead.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-fsdevel@vger.kernel.org
+To: Christoph Hellwig <hch@infradead.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20111221153054.GA1489@infradead.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- 
-> If not, a malicious attacker could send 1-byte frames and exhaust your
-> kernel memory.
+On Wed, Dec 21, 2011 at 10:30:54AM -0500, Christoph Hellwig wrote:
+> On Wed, Dec 21, 2011 at 09:39:48AM -0500, Neil Horman wrote:
+> > the networking cgroups can use the fd table of a task to make adjustments to the
+> > sockets that they own, helping us set owners for various resources. Export
+> > get_files_struct, put_files_struct and sock_from_file, so we can walk a tasks
+> > fdarray easily.
+> 
+> No, no one has any business using these lowlevel routines form modules.
+> 
+> Please find a way to do this in core code, or find more highlevel
+> primitives to export.
+> 
+> And not even Ccing linux-fsdevel on a change like this is one of the few
+> things I'd consider extremely offensive.
+> 
+> 
 
-That used to happen in SVR4 - it was possible for single byte TCP (etc)
-data to be queued at a STREAM head (which counted actual data bytes)
-in a 2k message block.
-Actually we also managed to use all kernel memory queueing zero sized
-STREAMS messages.
 
-> If you want to reduce it, you might use copybreak : Some drivers copy
-> the data into a small skb instead of providing a jumbo frame to upper
-> stack.
+Ok, after discussing with you and Al on irc, I'm going to rewrite this to not
+use the file table.
+Neil
 
-Many, many moons ago I wrote an ethernet driver that received into
-an array of 128 (mostly) 512byte buffers. Full sized frames would have
-multiple rx ring entries, but could almost always be copied into a
-correctly
-sized buffer with a single aligned copy (cache-line aligned if useful).
-This was significantly faster than other schemes - especially
-on systems where the iommu needed setting to allow the ethernet
-hardware to access memory.
-
-I don't know if the linux skb buffers would allow the ethernet
-driver to use (say) 1600 byte rx buffers, and link them together
-when a long frame arrives. Most ethernet HW I've seen will
-fragment long receives.
-
-The painful hardware is that which enforces a 4n byte alignment
-on the rx buffer! - on systens that can't do misaligned accesses.
-2 bytes of junk would be fine!
-
-	David
