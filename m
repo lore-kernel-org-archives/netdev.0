@@ -1,37 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: macb: fix build break with !CONFIG_OF
-Date: Wed, 21 Dec 2011 01:04:46 -0500 (EST)
-Message-ID: <20111221.010446.2013036438835639474.davem@davemloft.net>
-References: <1324416029-28198-1-git-send-email-olof@lixom.net>
+Subject: Re: [PATCH V2] IPv6 : add multicast routing verify which
+ net_device is lo
+Date: Wed, 21 Dec 2011 01:15:06 -0500 (EST)
+Message-ID: <20111221.011506.1770356582907889299.davem@davemloft.net>
+References: <4EF059B3.1020705@cn.fujitsu.com>
+	<1324379424-18055-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
-	plagnioj@jcrosoft.com, jamie@jamieiles.com,
-	linux-arm-kernel@lists.infradead.org
-To: olof@lixom.net
+Cc: netdev@vger.kernel.org, wangxingtong@cn.fujitsu.com
+To: gaofeng@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47257 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:47296 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750915Ab1LUGHU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 01:07:20 -0500
-In-Reply-To: <1324416029-28198-1-git-send-email-olof@lixom.net>
+	with ESMTP id S1752537Ab1LUGPM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 01:15:12 -0500
+In-Reply-To: <1324379424-18055-1-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Olof Johansson <olof@lixom.net>
-Date: Tue, 20 Dec 2011 13:20:29 -0800
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Date: Tue, 20 Dec 2011 19:10:24 +0800
 
-> This fixes the build of the macb driver that was broken by the DT changes:
+> In currently routing subsystem, when we lookup a multicast routing
+> to send muticast packets to outside, rt6_device_match will return
+> the rt6_info which it's match first. If we add a multicast route on
+> loopback devices beforce the others interface, rt6_device_match will
+> retrun the rt6_info which rt6i_dev->name is "lo". But, obviously,
+> we can't send a muticast packet to outside using loopback devices.
+> It case all multicast packets blocking.
 > 
-> drivers/net/ethernet/cadence/macb.c:1503: error: implicit declaration of function 'of_match_ptr'
-> drivers/net/ethernet/cadence/macb.c:1503: error: 'macb_dt_ids' undeclared here (not in a function)
-> drivers/net/ethernet/cadence/macb.c:1503: error: initializer element is not constant
-> drivers/net/ethernet/cadence/macb.c:1503: error: (near initialization for 'macb_driver.driver.of_match_table')
+> Commit 4af04aba93f47699e disabled kernel add multicast route on lo
+> automatically. However,  we can't surmise the routing-add order or
+> interdict add multicast routing on loopback devices in user space.
+> The bug still exist. So, i think, more stronger routing subsystem is
+> necessary.
 > 
-> Signed-off-by: Olof Johansson <olof@lixom.net>
-> ---
-> 
-> Nicolas, care to ack this so I can apply it on top of the macb DT branch in arm-soc?
+> Signed-off-by: Wang xingtong <wangxingtong@cn.fujitsu.com>
 
-Yes, please apply it there.
+Ok, this is getting rediculious.  I want to revert all of this
+stuff.
+
+How about, instead, we stop userland adding explicit addresses to the
+loopback device since that's what started behaving differently
+recently and causes these problems in the first place?
