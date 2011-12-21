@@ -1,113 +1,107 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: ICMP packets - ll_temac with Microblaze
-Date: Wed, 21 Dec 2011 12:50:35 +0100
-Message-ID: <4EF1C80B.4060701@monstr.eu>
-References: <4EF1B0D9.2010007@monstr.eu>		 <1324463334.2728.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>		 <1324463452.2728.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>		 <4EF1B5BC.5020103@monstr.eu>		 <1324463838.2728.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>		 <4EF1B7E4.4010602@monstr.eu>		 <1324464308.2728.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>	 <1324465386.2728.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>	 <4EF1BEA4.7080005@monstr.eu> <1324466023.2728.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Reply-To: monstr@monstr.eu
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the wireless-next tree with the
+ net-next tree
+Date: Wed, 21 Dec 2011 22:59:56 +1100
+Message-ID: <20111221225956.6db7ca8f0a620b234bc25001@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	John Williams <john.williams@petalogix.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:48458 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753773Ab1LULuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 06:50:40 -0500
-Received: by eekc4 with SMTP id c4so7457956eek.19
-        for <netdev@vger.kernel.org>; Wed, 21 Dec 2011 03:50:38 -0800 (PST)
-In-Reply-To: <1324466023.2728.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__21_Dec_2011_22_59_56_+1100_6pIWgGx/xmSmxB0a"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<francesco.gringoli@ing.unibs.it>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> Le mercredi 21 d=C3=A9cembre 2011 =C3=A0 12:10 +0100, Michal Simek a =
-=C3=A9crit :
->> Eric Dumazet wrote:
->>> Le mercredi 21 d=C3=A9cembre 2011 =C3=A0 11:45 +0100, Eric Dumazet =
-a =C3=A9crit :
->>>> Le mercredi 21 d=C3=A9cembre 2011 =C3=A0 11:41 +0100, Michal Simek=
- a =C3=A9crit :
->>>>
->>>>> yes, page size is 4k.
->>>>>
->>>>> Here is the log for allocation - origin size for MTU 9000 is 0x24=
-20(9248) and size after
->>>>> overhead is 0x3f40(16192)
->>>>>
->>>>> kmalloc_node_track_caller size 00002420, SKB_WITH_OVERHEAD(ksize(=
-data)) 00003f40
->>>>> skb->head     c7870000
->>>>> skb->data     c7870000
->>>>> skb->tail     c7870000
->>>>> skb->truesize 000040c0
->>>>> skb->end      c7873f40
->>>>>
->>>> So basically truesize is bigger than previous kernel, and you hit =
-a
->>>> socket limit.  (RCVBUF ?)
->>>>
->>>> truesize is more correct, so we uncover prior bugs.
->>>>
->>>> We should allow at least one packet, regardless of its size :(
->>>>
->>>>
->>> I would try the following patch :
->>>
->>> diff --git a/include/net/sock.h b/include/net/sock.h
->>> index bf6b9fd..21bb3b5 100644
->>> --- a/include/net/sock.h
->>> +++ b/include/net/sock.h
->>> @@ -662,12 +662,14 @@ static inline void __sk_add_backlog(struct so=
-ck *sk, struct sk_buff *skb)
->>> =20
->>>  /*
->>>   * Take into account size of receive queue and backlog queue
->>> + * Do not take into account this skb truesize,
->>> + * to allow even a single big packet to come.
->>>   */
->>>  static inline bool sk_rcvqueues_full(const struct sock *sk, const =
-struct sk_buff *skb)
->>>  {
->>>  	unsigned int qsize =3D sk->sk_backlog.len + atomic_read(&sk->sk_r=
-mem_alloc);
->>> =20
->>> -	return qsize + skb->truesize > sk->sk_rcvbuf;
->>> +	return qsize > sk->sk_rcvbuf;
->>>  }
->>> =20
->>>  /* The per-socket spinlock must be held here. */
->>>
->> It doesn't fix the problem. Do you want to add some printk to code?
->>
->> Michal
->>
->>
->>
->=20
-> try to change SOCK_MIN_RCVBUF
->=20
-> include/net/sock.h
->=20
-> #define SOCK_MIN_RCVBUF (2048 + sizeof(struct sk_buff))
->=20
-> ->
->=20
-> #define SOCK_MIN_RCVBUF (16384 + sizeof(struct sk_buff))
->=20
+--Signature=_Wed__21_Dec_2011_22_59_56_+1100_6pIWgGx/xmSmxB0a
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Doesn't work. :-(
+[Resending to get through vger's address checks - sorry for duplicate]
 
-Michal
+Hi John,
 
+Today's linux-next merge of the wireless-next tree got a conflict in
+drivers/net/wireless/b43/dma.c between commit 3db1cd5c05f3 ("net: fix
+assignment of 0/1 to bool variables") from the net-next tree and commit
+bad691946966 ("b43: avoid packet losses in the dma worker code") from the
+wireless-next tree.
+
+Just context changes.  I fixed it up (see below) and can carry the fix as
+necessary.
+
+The newly created tx_queue_stopped array element assignments should be
+changed form 0/1 to false/true as well (here and in main.c).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/net/wireless/b43/dma.c
+index af23968,56d37dc..0000000
+--- a/drivers/net/wireless/b43/dma.c
++++ b/drivers/net/wireless/b43/dma.c
+@@@ -1465,8 -1465,10 +1465,10 @@@ int b43_dma_tx(struct b43_wldev *dev, s
+  	if ((free_slots(ring) < TX_SLOTS_PER_FRAME) ||
+  	    should_inject_overflow(ring)) {
+  		/* This TX ring is full. */
+- 		ieee80211_stop_queue(dev->wl->hw, skb_get_queue_mapping(skb));
++ 		unsigned int skb_mapping =3D skb_get_queue_mapping(skb);
++ 		ieee80211_stop_queue(dev->wl->hw, skb_mapping);
++ 		dev->wl->tx_queue_stopped[skb_mapping] =3D 1;
+ -		ring->stopped =3D 1;
+ +		ring->stopped =3D true;
+  		if (b43_debug(dev, B43_DBG_DMAVERBOSE)) {
+  			b43dbg(dev->wl, "Stopped TX ring %d\n", ring->index);
+  		}
+@@@ -1584,8 -1586,15 +1586,15 @@@ void b43_dma_handle_txstatus(struct b43
+  	}
+  	if (ring->stopped) {
+  		B43_WARN_ON(free_slots(ring) < TX_SLOTS_PER_FRAME);
+- 		ieee80211_wake_queue(dev->wl->hw, ring->queue_prio);
+ -		ring->stopped =3D 0;
+ +		ring->stopped =3D false;
++ 	}
++=20
++ 	if (dev->wl->tx_queue_stopped[ring->queue_prio]) {
++ 		dev->wl->tx_queue_stopped[ring->queue_prio] =3D 0;
++ 	} else {
++ 		/* If the driver queue is running wake the corresponding
++ 		 * mac80211 queue. */
++ 		ieee80211_wake_queue(dev->wl->hw, ring->queue_prio);
+  		if (b43_debug(dev, B43_DBG_DMAVERBOSE)) {
+  			b43dbg(dev->wl, "Woke up TX ring %d\n", ring->index);
+  		}
 
 
 --=20
-Michal Simek, Ing. (M.Eng)
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel 2.6 Microblaze Linux - http://www.monstr.eu/=
-fdt/
-Microblaze U-BOOT custodian
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Wed__21_Dec_2011_22_59_56_+1100_6pIWgGx/xmSmxB0a
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBCAAGBQJO8co8AAoJEECxmPOUX5FEXOoP/jMw37mrQ2ITzFUDpOY8XS+w
+pvF7FYy23juF6EhbGjA5wIcOlS9/zJoN4AXvNdST2DclF0orJaXQ+/1fqYzeJ38N
+dCEjQSmmxGRtS55zb1H4ZxyJp2RD8fVW8yLv2SALhMmzLN5OchUzHlcj6+NyuthM
+S9nB7pyLY/jod3eWQ1WnsYVT1to1P7lBYBpWw6++WCRP5W1S6SWvlRHyHIADThcF
+kD4pK0qWtAxQca7kV8EqJLqXq4YL26Tu31oJOJHqe4LtuD9o8BgBbLYQGAeoxNEk
+Ge9tcBehgtruPUMrNiM4cP7X2L8cLcpRrIc7TISz7arvM08EHyC29THL8owObm7c
+xF7JyWmMsZBvrgSj485yavr8rD2ThsYGWgiq7rleP4L3J6UFkEg+Oe0Vh4kqlZwU
+7R2iEP9AfIxuZmda8wztCigcNapxGv1Tjxywqv7/Ja7BMOZAoFQSK0PnnoLaQaRl
+uRi41bH1LE5tzfIXFLhwr+zjTm3HCFutRaaIdfo+8eoGhFOy3mfqgvFLhJeXA5o7
+FManOO8YSZHGaI2rum6pYGrBN68gdrlKCsVpPV7lnDoTaT697a0myZzQRb+t6T3x
+0G2uYFVZthHPChEhSjLXheUj6mdymNsiP7DGWhOgFo6CJjqvk3kdC821ck8E7gat
+P4FytXnBCOJzxs0vfyJd
+=f78X
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__21_Dec_2011_22_59_56_+1100_6pIWgGx/xmSmxB0a--
