@@ -1,107 +1,62 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the wireless-next tree with the
- net-next tree
-Date: Wed, 21 Dec 2011 22:59:56 +1100
-Message-ID: <20111221225956.6db7ca8f0a620b234bc25001@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 0/4] skb paged fragment destructors
+Date: Wed, 21 Dec 2011 13:30:05 +0100
+Message-ID: <1324470605.2728.42.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1323177878.2448.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1323264929.23681.178.camel@zakaz.uk.xensource.com>
+	 <1323438427.20077.57.camel@zakaz.uk.xensource.com>
+	 <20111209.133407.2156473837364120429.davem@davemloft.net>
+	 <1324465434.7877.11.camel@zakaz.uk.xensource.com>
+	 <1324465724.2728.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1324466290.7877.22.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Wed__21_Dec_2011_22_59_56_+1100_6pIWgGx/xmSmxB0a"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<francesco.gringoli@ing.unibs.it>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:57566 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752328Ab1LUMaJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 07:30:09 -0500
+Received: by vbbfc26 with SMTP id fc26so5734005vbb.19
+        for <netdev@vger.kernel.org>; Wed, 21 Dec 2011 04:30:08 -0800 (PST)
+In-Reply-To: <1324466290.7877.22.camel@zakaz.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Wed__21_Dec_2011_22_59_56_+1100_6pIWgGx/xmSmxB0a
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Le mercredi 21 d=C3=A9cembre 2011 =C3=A0 11:18 +0000, Ian Campbell a =C3=
+=A9crit :
 
-[Resending to get through vger's address checks - sorry for duplicate]
+>=20
+> An order 1 allocation is in multiples of PAGE_SIZE, isn't it, even
+> though they happen to be contiguous?
 
-Hi John,
+Really an order-1 allocation allocates one page, a compound one.
 
-Today's linux-next merge of the wireless-next tree got a conflict in
-drivers/net/wireless/b43/dma.c between commit 3db1cd5c05f3 ("net: fix
-assignment of 0/1 to bool variables") from the net-next tree and commit
-bad691946966 ("b43: avoid packet losses in the dma worker code") from the
-wireless-next tree.
+>=20
+> Or are you considering the possibility of kmalloc returning a super p=
+age
+> of some description? Isn't that to some extent transparent to the cal=
+ler
+> who (assuming PAGE_SIZE 4096) doesn't know if kmalloc(16384) returned
+> 4*4096 contiguous pages or 1*16384 page?
+>=20
 
-Just context changes.  I fixed it up (see below) and can carry the fix as
-necessary.
+Its a part of a _single_ page, or the total of it.
 
-The newly created tx_queue_stopped array element assignments should be
-changed form 0/1 to false/true as well (here and in main.c).
+Its mandatory, or else many drivers would break their DMA handling.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+> Anyway I take your underlying point that 2*PAGE_SIZE is no kind of li=
+mit
+> on the size of the linear region.
+>=20
 
-diff --cc drivers/net/wireless/b43/dma.c
-index af23968,56d37dc..0000000
---- a/drivers/net/wireless/b43/dma.c
-+++ b/drivers/net/wireless/b43/dma.c
-@@@ -1465,8 -1465,10 +1465,10 @@@ int b43_dma_tx(struct b43_wldev *dev, s
-  	if ((free_slots(ring) < TX_SLOTS_PER_FRAME) ||
-  	    should_inject_overflow(ring)) {
-  		/* This TX ring is full. */
-- 		ieee80211_stop_queue(dev->wl->hw, skb_get_queue_mapping(skb));
-+ 		unsigned int skb_mapping =3D skb_get_queue_mapping(skb);
-+ 		ieee80211_stop_queue(dev->wl->hw, skb_mapping);
-+ 		dev->wl->tx_queue_stopped[skb_mapping] =3D 1;
- -		ring->stopped =3D 1;
- +		ring->stopped =3D true;
-  		if (b43_debug(dev, B43_DBG_DMAVERBOSE)) {
-  			b43dbg(dev->wl, "Stopped TX ring %d\n", ring->index);
-  		}
-@@@ -1584,8 -1586,15 +1586,15 @@@ void b43_dma_handle_txstatus(struct b43
-  	}
-  	if (ring->stopped) {
-  		B43_WARN_ON(free_slots(ring) < TX_SLOTS_PER_FRAME);
-- 		ieee80211_wake_queue(dev->wl->hw, ring->queue_prio);
- -		ring->stopped =3D 0;
- +		ring->stopped =3D false;
-+ 	}
-+=20
-+ 	if (dev->wl->tx_queue_stopped[ring->queue_prio]) {
-+ 		dev->wl->tx_queue_stopped[ring->queue_prio] =3D 0;
-+ 	} else {
-+ 		/* If the driver queue is running wake the corresponding
-+ 		 * mac80211 queue. */
-+ 		ieee80211_wake_queue(dev->wl->hw, ring->queue_prio);
-  		if (b43_debug(dev, B43_DBG_DMAVERBOSE)) {
-  			b43dbg(dev->wl, "Woke up TX ring %d\n", ring->index);
-  		}
+Sure, since net/unix/af_unix.c can happily allocate huge linear skbs, i=
+f
+memory is not too fragmented of course...
 
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Wed__21_Dec_2011_22_59_56_+1100_6pIWgGx/xmSmxB0a
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAEBCAAGBQJO8co8AAoJEECxmPOUX5FEXOoP/jMw37mrQ2ITzFUDpOY8XS+w
-pvF7FYy23juF6EhbGjA5wIcOlS9/zJoN4AXvNdST2DclF0orJaXQ+/1fqYzeJ38N
-dCEjQSmmxGRtS55zb1H4ZxyJp2RD8fVW8yLv2SALhMmzLN5OchUzHlcj6+NyuthM
-S9nB7pyLY/jod3eWQ1WnsYVT1to1P7lBYBpWw6++WCRP5W1S6SWvlRHyHIADThcF
-kD4pK0qWtAxQca7kV8EqJLqXq4YL26Tu31oJOJHqe4LtuD9o8BgBbLYQGAeoxNEk
-Ge9tcBehgtruPUMrNiM4cP7X2L8cLcpRrIc7TISz7arvM08EHyC29THL8owObm7c
-xF7JyWmMsZBvrgSj485yavr8rD2ThsYGWgiq7rleP4L3J6UFkEg+Oe0Vh4kqlZwU
-7R2iEP9AfIxuZmda8wztCigcNapxGv1Tjxywqv7/Ja7BMOZAoFQSK0PnnoLaQaRl
-uRi41bH1LE5tzfIXFLhwr+zjTm3HCFutRaaIdfo+8eoGhFOy3mfqgvFLhJeXA5o7
-FManOO8YSZHGaI2rum6pYGrBN68gdrlKCsVpPV7lnDoTaT697a0myZzQRb+t6T3x
-0G2uYFVZthHPChEhSjLXheUj6mdymNsiP7DGWhOgFo6CJjqvk3kdC821ck8E7gat
-P4FytXnBCOJzxs0vfyJd
-=f78X
------END PGP SIGNATURE-----
-
---Signature=_Wed__21_Dec_2011_22_59_56_+1100_6pIWgGx/xmSmxB0a--
+(The stream unix socket limit their skbs to SKB_MAX_ALLOC (up to 4
+pages), but datagram ones have no limit)
