@@ -1,106 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ICMP packets - ll_temac with Microblaze
-Date: Wed, 21 Dec 2011 12:13:43 +0100
-Message-ID: <1324466023.2728.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <4EF1B0D9.2010007@monstr.eu>
-		 <1324463334.2728.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-		 <1324463452.2728.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-		 <4EF1B5BC.5020103@monstr.eu>
-		 <1324463838.2728.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-		 <4EF1B7E4.4010602@monstr.eu>
-		 <1324464308.2728.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1324465386.2728.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4EF1BEA4.7080005@monstr.eu>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH 0/4] skb paged fragment destructors
+Date: Wed, 21 Dec 2011 11:18:10 +0000
+Message-ID: <1324466290.7877.22.camel@zakaz.uk.xensource.com>
+References: <1323177878.2448.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1323264929.23681.178.camel@zakaz.uk.xensource.com>
+	 <1323438427.20077.57.camel@zakaz.uk.xensource.com>
+	 <20111209.133407.2156473837364120429.davem@davemloft.net>
+	 <1324465434.7877.11.camel@zakaz.uk.xensource.com>
+	 <1324465724.2728.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>,
-	John Williams <john.williams@petalogix.com>,
-	netdev@vger.kernel.org
-To: monstr@monstr.eu
+	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:52514 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750733Ab1LULNr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 06:13:47 -0500
-Received: by vbbfc26 with SMTP id fc26so5679302vbb.19
-        for <netdev@vger.kernel.org>; Wed, 21 Dec 2011 03:13:46 -0800 (PST)
-In-Reply-To: <4EF1BEA4.7080005@monstr.eu>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:60670 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752262Ab1LULSM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 06:18:12 -0500
+In-Reply-To: <1324465724.2728.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 21 d=C3=A9cembre 2011 =C3=A0 12:10 +0100, Michal Simek a =C3=
-=A9crit :
-> Eric Dumazet wrote:
-> > Le mercredi 21 d=C3=A9cembre 2011 =C3=A0 11:45 +0100, Eric Dumazet =
-a =C3=A9crit :
-> >> Le mercredi 21 d=C3=A9cembre 2011 =C3=A0 11:41 +0100, Michal Simek=
- a =C3=A9crit :
-> >>
-> >>> yes, page size is 4k.
-> >>>
-> >>> Here is the log for allocation - origin size for MTU 9000 is 0x24=
-20(9248) and size after
-> >>> overhead is 0x3f40(16192)
-> >>>
-> >>> kmalloc_node_track_caller size 00002420, SKB_WITH_OVERHEAD(ksize(=
-data)) 00003f40
-> >>> skb->head     c7870000
-> >>> skb->data     c7870000
-> >>> skb->tail     c7870000
-> >>> skb->truesize 000040c0
-> >>> skb->end      c7873f40
-> >>>
-> >> So basically truesize is bigger than previous kernel, and you hit =
-a
-> >> socket limit.  (RCVBUF ?)
-> >>
-> >> truesize is more correct, so we uncover prior bugs.
-> >>
-> >> We should allow at least one packet, regardless of its size :(
-> >>
-> >>
+On Wed, 2011-12-21 at 11:08 +0000, Eric Dumazet wrote:
+> Le mercredi 21 d=C3=A9cembre 2011 =C3=A0 11:03 +0000, Ian Campbell a =
+=C3=A9crit :
+> > On Fri, 2011-12-09 at 18:34 +0000, David Miller wrote:
+> > > From: Ian Campbell <Ian.Campbell@citrix.com>
+> > > Date: Fri, 9 Dec 2011 13:47:07 +0000
+> > >=20
+> > > > If we had a concept like MAX_SKB_PAGES then it would perhaps ma=
+ke
+> > > > sense to have + 2 there, but AFAICT drivers etc are already
+> > > > accounting for this appropriately by adding a further + 2 (or
+> > > > sometimes + 1) to MAX_SKB_FRAGS.
+> > >=20
+> > > Any kind of code like this, including the "+ 2" in the skbuff hea=
+der,
+> > > should be coded to use some kind of macro so we can track this
+> > > dependency instead of stumbling onto it and accidently breaking l=
+ots
+> > > of stuff if we want to change this "2" value.
 > >=20
-> > I would try the following patch :
+> > Agreed.
 > >=20
-> > diff --git a/include/net/sock.h b/include/net/sock.h
-> > index bf6b9fd..21bb3b5 100644
-> > --- a/include/net/sock.h
-> > +++ b/include/net/sock.h
-> > @@ -662,12 +662,14 @@ static inline void __sk_add_backlog(struct so=
-ck *sk, struct sk_buff *skb)
-> > =20
-> >  /*
-> >   * Take into account size of receive queue and backlog queue
-> > + * Do not take into account this skb truesize,
-> > + * to allow even a single big packet to come.
-> >   */
-> >  static inline bool sk_rcvqueues_full(const struct sock *sk, const =
-struct sk_buff *skb)
-> >  {
-> >  	unsigned int qsize =3D sk->sk_backlog.len + atomic_read(&sk->sk_r=
-mem_alloc);
-> > =20
-> > -	return qsize + skb->truesize > sk->sk_rcvbuf;
-> > +	return qsize > sk->sk_rcvbuf;
-> >  }
-> > =20
-> >  /* The per-socket spinlock must be held here. */
-> >=20
+> > Part of the problem is that no one seems to have any idea what this
+> > particular + 2 means. My best hypothesis is that it accounts for th=
+e
+> > pages used by the linear area (which potentially crosses a page
+> > boundary).
 >=20
-> It doesn't fix the problem. Do you want to add some printk to code?
->=20
-> Michal
->=20
->=20
->=20
+> I dont understand the point.
 
-try to change SOCK_MIN_RCVBUF
+I did say hypothesis ;-) Do you know what that + 2 is actually all
+about?
 
-include/net/sock.h
+If no one knows what it is for maybe we should just remove it directly
+instead of what I proposed?
 
-#define SOCK_MIN_RCVBUF (2048 + sizeof(struct sk_buff))
+> linear data is allocated with kmalloc(), so technically speaking its
+> located in a single page, but page order can be 0, 1, 2, 3, ...
+> MAX_ORDER.
 
-->
+I think I must misunderstand the terminology.
 
-#define SOCK_MIN_RCVBUF (16384 + sizeof(struct sk_buff))
+An order 1 allocation is in multiples of PAGE_SIZE, isn't it, even
+though they happen to be contiguous?
+
+Or are you considering the possibility of kmalloc returning a super pag=
+e
+of some description? Isn't that to some extent transparent to the calle=
+r
+who (assuming PAGE_SIZE 4096) doesn't know if kmalloc(16384) returned
+4*4096 contiguous pages or 1*16384 page?
+
+Anyway I take your underlying point that 2*PAGE_SIZE is no kind of limi=
+t
+on the size of the linear region.
+
+Ian.
