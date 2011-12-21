@@ -1,39 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference in
- ipv6_select_ident
-Date: Wed, 21 Dec 2011 19:00:01 +0100
-Message-ID: <1324490401.2301.46.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <4EF200BB.7000209@bootc.net>
-	 <1324484956.2301.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4EF2117F.6000803@bootc.net>
-	 <1324488984.2301.45.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH linux-firmware] linux-firmware: bnx2: Update mips
+ firmware to fix iSCSI problems
+Date: Wed, 21 Dec 2011 18:13:50 +0000
+Message-ID: <20111221181350.GG20752@decadent.org.uk>
+References: <1324268012-27719-1-git-send-email-mchan@broadcom.com>
+ <1324457726.2728.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <0E685F8B314BFB42AE2422915B7BDCC30752F5@IRVEXCHMB07.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Chris Boot <bootc@bootc.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1324488984.2301.45.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	"'dwmw2@infradead.org'" <dwmw2@infradead.org>,
+	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52335 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751730Ab1LUSN6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 13:13:58 -0500
+Content-Disposition: inline
+In-Reply-To: <0E685F8B314BFB42AE2422915B7BDCC30752F5@IRVEXCHMB07.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 21 d=C3=A9cembre 2011 =C3=A0 18:36 +0100, Eric Dumazet a =C3=
-=A9crit :
+On Wed, Dec 21, 2011 at 04:49:10PM +0000, Michael Chan wrote:
+> Eric Dumazet wrote:
+>=20
+> > Le dimanche 18 d=E9cembre 2011 =E0 20:13 -0800, Michael Chan a =E9c=
+rit :
+> > > New firmware fixes iSCSI problems with some LeftHand targets that
+> > don't
+> > > set TTT=3D0xffffffff for Data-In according to spec.  Firmware gen=
+erates
+> > > exception warnings for this condition and becomes very slow.  Thi=
+s is
+> > > fixed by suppressing these warnings when using default error mask=
+=2E
+> > >
+> > > Signed-off-by: Michael Chan <mchan@broadcom.com>
+> > > ---
+> > >  WHENCE                      |    2 ++
+> > >  bnx2/bnx2-mips-06-6.2.3.fw  |  Bin 0 -> 92824 bytes
+> > >  bnx2/bnx2-mips-09-6.2.1b.fw |  Bin 0 -> 103904 bytes
+> > >  3 files changed, 2 insertions(+), 0 deletions(-)
+> > >  create mode 100644 bnx2/bnx2-mips-06-6.2.3.fw
+> > >  create mode 100644 bnx2/bnx2-mips-09-6.2.1b.fw
+> >=20
+> > IMHO, this should be applied _before_ the drivers/net patch.
+> >=20
+>=20
+> Ben,
+>=20
+> If David Woodhouse is not available, can you help us apply this firmw=
+are
+> patch?
 
-> Good point, thats a different problem then, since 3.1 is not supposed=
- to
-> have this bug.
->=20
-> It seems rt->rt6i_peer points to invalid memory in your crash.
->=20
-> (RBX=3D00000000000001f4)
->=20
-> 8b 83 a4 00 00 00       mov    0xa4(%rbx),%eax    p->refcnt
-> 1f4+a4 -> CR2=3D0000000000000298
->=20
+Yes, but please don't expect instant response.
 
-It would help if you can confirm latest linux tree can reproduce the
-bug.
+Ben.
 
-Thanks !
+--=20
+Ben Hutchings
+We get into the habit of living before acquiring the habit of thinking.
+                                                              - Albert =
+Camus
