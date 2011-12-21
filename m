@@ -1,41 +1,58 @@
-From: "Arend van Spriel" <arend@broadcom.com>
-Subject: Re: linux-next: manual merge of the wireless-next tree with the
- tree
-Date: Wed, 21 Dec 2011 11:47:09 +0100
-Message-ID: <4EF1B92D.9040405@broadcom.com>
-References: <20111221124931.992e4e4265f2c3cd1d2e75b4@canb.auug.org.au>
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: ICMP packets - ll_temac with Microblaze
+Date: Wed, 21 Dec 2011 11:54:25 +0100
+Message-ID: <4EF1BAE1.7020409@monstr.eu>
+References: <4EF1B0D9.2010007@monstr.eu>			 <1324463334.2728.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>		 <1324463452.2728.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>		 <4EF1B5BC.5020103@monstr.eu>	 <1324463838.2728.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>	 <4EF1B7E4.4010602@monstr.eu> <1324464308.2728.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Reply-To: monstr@monstr.eu
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Rusty Russell" <rusty@rustcorp.com.au>,
-	"David Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
-To: "Stephen Rothwell" <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20111221124931.992e4e4265f2c3cd1d2e75b4@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	John Williams <john.williams@petalogix.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:33145 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750733Ab1LUKy1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 05:54:27 -0500
+Received: by eekc4 with SMTP id c4so7418219eek.19
+        for <netdev@vger.kernel.org>; Wed, 21 Dec 2011 02:54:26 -0800 (PST)
+In-Reply-To: <1324464308.2728.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/21/2011 02:49 AM, Stephen Rothwell wrote:
-> Hi John,
-> 
-> Today's linux-next merge of the wireless-next tree got a conflict in
-> drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c between commit
-> 3db1cd5c05f3 ("net: fix assignment of 0/1 to bool variables") from the
-> tree and commit 3fb1d8d2dad3 ("brcm80211: fmac: move driver up status to
-> struct brcmf_bus") from the wireless-next tree.
-> 
-> I fixed it up (see below) and can carry the fix as necessary.
-> 
+Eric Dumazet wrote:
+> Le mercredi 21 d=C3=A9cembre 2011 =C3=A0 11:41 +0100, Michal Simek a =
+=C3=A9crit :
+>=20
+>> yes, page size is 4k.
+>>
+>> Here is the log for allocation - origin size for MTU 9000 is 0x2420(=
+9248) and size after
+>> overhead is 0x3f40(16192)
+>>
+>> kmalloc_node_track_caller size 00002420, SKB_WITH_OVERHEAD(ksize(dat=
+a)) 00003f40
+>> skb->head     c7870000
+>> skb->data     c7870000
+>> skb->tail     c7870000
+>> skb->truesize 000040c0
+>> skb->end      c7873f40
+>>
+>=20
+> So basically truesize is bigger than previous kernel, and you hit a
+> socket limit.  (RCVBUF ?)
 
-Thanks, Stephen
+Where is that limit setup?
 
-I noticed Rusty's patch and the use of 0/1 for bool in our tree. Was
-going to fix that, but this fix looks fine.
+Michal
 
-Gr. AvS
+
+--=20
+Michal Simek, Ing. (M.Eng)
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel 2.6 Microblaze Linux - http://www.monstr.eu/=
+fdt/
+Microblaze U-BOOT custodian
