@@ -1,69 +1,49 @@
-From: Markus Trippelsdorf <markus-xp2qqqlHh3xzoYq+O6RWwA@public.gmane.org>
-Subject: Re: 3.2-rc6+: Reported regressions from 3.0 and 3.1
-Date: Wed, 21 Dec 2011 07:45:37 +0100
-Message-ID: <20111221064537.GD1629@x4>
-References: <lx6sezwGldO.A.IhF.UBpWOB@chimera>
- <201112210039.14100.linux-pm-bounces@lists.linux-foundation.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH 0/2] Tracepoint for tcp retransmission
+Date: Wed, 21 Dec 2011 08:05:11 +0100
+Message-ID: <1324451111.2610.13.camel@edumazet-laptop>
+References: <65795E11DBF1E645A09CEC7EAEE94B9CB5AFA64F@USINDEVS02.corp.hds.com>
+	 <5f654c7d-f18e-4d70-8830-a3e31b8f5f4a@tahiti.vyatta.com>
+	 <20111218004944.GB14903@hell>
+	 <65795E11DBF1E645A09CEC7EAEE94B9CB5AFB01E@USINDEVS02.corp.hds.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM list <linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	DRI <dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <201112210039.14100.linux-pm-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"tgraf@infradead.org" <tgraf@infradead.org>,
+	Seiji Aguchi <seiji.aguchi@hds.com>,
+	"dle-develop@lists.sourceforge.net"
+	<dle-develop@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Satoru Moriya <satoru.moriya@hds.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:59557 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752324Ab1LUHFa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 02:05:30 -0500
+Received: by wgbdr13 with SMTP id dr13so13758922wgb.1
+        for <netdev@vger.kernel.org>; Tue, 20 Dec 2011 23:05:29 -0800 (PST)
+In-Reply-To: <65795E11DBF1E645A09CEC7EAEE94B9CB5AFB01E@USINDEVS02.corp.hds.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2011.12.21 at 00:54 +0100, Rafael J. Wysocki wrote:
-> Subject    : WARNING: at fs/sysfs/sysfs.h:195 (during boot)
-> Submitter  : Markus Trippelsdorf <markus-xp2qqqlHh3xzoYq+O6RWwA-XMD5yJDbdMReXY1tMh2IBg@public.gmane.org>
-> Date       : 2011-11-13 19:24
-> Message-ID : 20111113192417.GA1659-tLCgZGx+iJ+kxVt8IV0GqQ-XMD5yJDbdMReXY1tMh2IBg@public.gmane.org
-> References : http://marc.info/?l=linux-kernel&m=132121231921932&w=2
-> 
-> Subject    : WARNING: at mm/slub.c:3357, kernel BUG at mm/slub.c:3413
-> Submitter  : Markus Trippelsdorf <markus-xp2qqqlHh3xzoYq+O6RWwA-XMD5yJDbdMReXY1tMh2IBg@public.gmane.org>
-> Date       : 2011-11-18 7:25
-> Message-ID : 20111118072519.GA1615-tLCgZGx+iJ+kxVt8IV0GqQ-XMD5yJDbdMReXY1tMh2IBg@public.gmane.org
-> References : http://marc.info/?l=linux-kernel&m=132160119031794&w=2
+Le mardi 20 d=C3=A9cembre 2011 =C3=A0 18:40 -0500, Satoru Moriya a =C3=A9=
+crit :
 
-Both entries were caused by the same Radeon kexec writeback bug. This issue
-will hopefully be fixed in the next release.
+> We use trace_kfree_skb() which 63e03724b51 uses to detect packet
+> drop event. In addition to that, we would like to detect errors
+> in TCP layer for better trouble shooting.
+>=20
 
-> Subject    : Impossible high cpu-time values for migration threads
-> Submitter  : Markus Trippelsdorf <markus-xp2qqqlHh3xzoYq+O6RWwA-XMD5yJDbdMReXY1tMh2IBg@public.gmane.org>
-> Date       : 2011-11-17 22:17
-> Message-ID : 20111117221731.GA9229-tLCgZGx+iJ+kxVt8IV0GqQ-XMD5yJDbdMReXY1tMh2IBg@public.gmane.org
-> References : http://marc.info/?l=linux-kernel&m=132156832124314&w=2
+If you feel we miss a counter in a particular spot, just add it, so tha=
+t
+even a newbie can report "netstat -s" values in a message for analysis.
 
-This is a cosmetic issue, but I'm still seeing this after bursts of high
-CPU usage:
-
- % ps afx -F
-UID        PID  PPID  C    SZ   RSS PSR STIME TTY      STAT   TIME CMD
-root         2     0  0     0     0   1 Dec20 ?        S      0:00 [kthreadd]
-root         3     2  0     0     0   0 Dec20 ?        S      0:01  \_ [ksoftirqd/0]
-root         6     2  0     0     0   0 Dec20 ?        S      0:00  \_ [migration/0]
-root         7     2  0     0     0   1 Dec20 ?        S      0:00  \_ [migration/1]
-root         8     2  0     0     0   1 Dec20 ?        S      0:05  \_ [kworker/1:0]
-root         9     2  0     0     0   1 Dec20 ?        S      0:01  \_ [ksoftirqd/1]
-root        11     2  0     0     0   2 Dec20 ?        S      0:00  \_ [migration/2]
-root        13     2  0     0     0   2 Dec20 ?        S      0:01  \_ [ksoftirqd/2]
-root        14     2 22     0     0   3 Dec20 ?        S    192:21  \_ [migration/3]
-root        16     2  0     0     0   3 Dec20 ?        S      0:01  \_ [ksoftirqd/3]
-root        17     2  0     0     0   2 Dec20 ?        S<     0:00  \_ [khelper]
-...
-
--- 
-Markus
+Not re-sending a frame because of a temporary shortage of memory is not
+an error per se, TCP will recover eventually, but keeping track of thes=
+e
+events might be useful (once we have not percpu counters for this, but
+regular atomic counters)
