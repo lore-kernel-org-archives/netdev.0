@@ -1,98 +1,69 @@
-From: Michael Wang <wangyun@linux.vnet.ibm.com>
-Subject: Re: [PATCH] Avoid extra calculation in ip_route_input_common
-Date: Wed, 21 Dec 2011 13:39:01 +0800
-Message-ID: <4EF170F5.5040900@linux.vnet.ibm.com>
-References: <4EF16AA3.2070303@linux.vnet.ibm.com> <1324445033.20505.2.camel@joe2Laptop>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH 2/8] farsync: Fix confusion about DMA address and buffer
+ offset types
+Date: Wed, 21 Dec 2011 05:41:13 +0000
+Message-ID: <1324446073.2844.190.camel@deadeye>
+References: <1324430940.2844.144.camel@deadeye>
+	 <1324431172.2844.147.camel@deadeye>
+	 <20111220.234656.658595607282312696.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp07.in.ibm.com ([122.248.162.7]:33363 "EHLO
-	e28smtp07.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750924Ab1LUFji (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 00:39:38 -0500
-Received: from /spool/local
-	by e28smtp07.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <wangyun@linux.vnet.ibm.com>;
-	Wed, 21 Dec 2011 11:09:35 +0530
-Received: from d28av01.in.ibm.com (d28av01.in.ibm.com [9.184.220.63])
-	by d28relay03.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id pBL5d5al4300862
-	for <netdev@vger.kernel.org>; Wed, 21 Dec 2011 11:09:06 +0530
-Received: from d28av01.in.ibm.com (loopback [127.0.0.1])
-	by d28av01.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id pBL5d4rp004133
-	for <netdev@vger.kernel.org>; Wed, 21 Dec 2011 11:09:05 +0530
-In-Reply-To: <1324445033.20505.2.camel@joe2Laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On 12/21/2011 01:23 PM, Joe Perches wrote:
-
-> On Wed, 2011-12-21 at 13:12 +0800, Michael Wang wrote:
->> From: Michael Wang <wangyun@linux.vnet.ibm.com>
->>
->> If previous condition doesn't meet, the later check will be cancelled.
->> So we don't need to do all the calculation.
-> 
-> Not sure about that.
-> 
-
-Hi, Joe
-
-Thanks for your reply :)
-
->> Signed-off-by: Michael Wang <wangyun@linux.vnet.ibm.com>
->> ---
->>  net/ipv4/route.c |    8 ++++----
->>  1 files changed, 4 insertions(+), 4 deletions(-)
->>
->> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
->> index f30112f..2872bfb 100644
->> --- a/net/ipv4/route.c
->> +++ b/net/ipv4/route.c
->> @@ -2362,10 +2362,10 @@ int ip_route_input_common(struct sk_buff *skb, __be32 daddr, __be32 saddr,
->>  
->>  	for (rth = rcu_dereference(rt_hash_table[hash].chain); rth;
->>  	     rth = rcu_dereference(rth->dst.rt_next)) {
->> -		if ((((__force u32)rth->rt_key_dst ^ (__force u32)daddr) |
->> -		     ((__force u32)rth->rt_key_src ^ (__force u32)saddr) |
->> -		     (rth->rt_route_iif ^ iif) |
->> -		     (rth->rt_key_tos ^ tos)) == 0 &&
->> +		if (((__force u32)rth->rt_key_dst ^ (__force u32)daddr) == 0 &&
->> +		    ((__force u32)rth->rt_key_src ^ (__force u32)saddr) == 0 &&
->> +		    rth->rt_route_iif == iif &&
->> +		    rth->rt_key_tos == tos &&
->>  		    rth->rt_mark == skb->mark &&
->>  		    net_eq(dev_net(rth->dst.dev), net) &&
->>  		    !rt_is_expired(rth)) {
-> 
-> See:
-> 
-> commit c0b8c32b1c96afc9b32b717927330025cc1c501e
-> Author: Stephen Hemminger <shemminger@vyatta.com>
-> Date:   Thu Apr 10 04:00:28 2008 -0700
-> 
->     IPV4: use xor rather than multiple ands for route compare
->     
->     The comparison in ip_route_input is a hot path, by recoding the C
->     "and" as bit operations, fewer conditional branches get generated
->     so the code should be faster. Maybe someday Gcc will be smart
->     enough to do this?
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-twrbCDpmnZPfVRp7A4XA"
+Cc: kevin.curtis@farsite.co.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111220.234656.658595607282312696.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-This is what confused me, why "fewer conditional branches get generated"
-will make code faster?
-In this example, I think the best condition when daddr is different, we
-only need to go to one branch do compare then quit, won't this be faster?
+--=-twrbCDpmnZPfVRp7A4XA
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Thanks,
-Michael Wang
+On Tue, 2011-12-20 at 23:46 -0500, David Miller wrote:
+> From: Ben Hutchings <ben@decadent.org.uk>
+> Date: Wed, 21 Dec 2011 01:32:52 +0000
+>=20
+> > -	dbg(DBG_RX, "In fst_rx_dma %lx %lx %d\n",
+> > -	    (unsigned long) skb, (unsigned long) mem, len);
+> > +	dbg(DBG_RX, "In fst_rx_dma %x %x %d\n", (u32)skb, mem, len);
+>=20
+> This is more appropriately fixed by using "%p" instead of casting
+> to a 32-bit int.
 
->     
->     Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->     Acked-by: Eric Dumazet <dada1@cosmosbay.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> 
+'skb' is the physical address of the data in the skb.  Whereas 'mem' is
+the offset of the corresponding buffer in shared memory.
+
+All completely clear, right? ;-)
+
+Ben.
+
+--=20
+Ben Hutchings
+Humans are not rational beings; they are rationalising beings.
+
+--=-twrbCDpmnZPfVRp7A4XA
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIVAwUATvFxeee/yOyVhhEJAQqN+hAA0R0buHs4pfmomXfNyjlDWvZUdrvoHh9k
+tXrVDPaHQgotIRbsCTOwmXC55JGd3O9vsJgGk70df8Y/OTygXqHsLmlxwyRoe2lT
+NU+sonkKBJYmoIR4UIdENGRxKy2E1ABJdBlBZY0Iwt55Pw+VORzSVECU59uTn7OQ
+aAg+Z+z4a9m5+56JlafMlwKN4UeKBSDDC1XPveeULgawovtt1anTilw2Nl+f7Jb7
+5u+fo7rQ4PjRPkv4CxUUpa8T8WemAPS39VPAwiWVC4qex6ussMxOhKQyb5hC4nrt
+oX7muBFUbjwhE7sonN77eCw5wI5Uwqp0aZ23br+svPdFZgq6zDWvaIRBKUfGCW6l
+S8qsotxwr0EryQjw+OU+D5zdpMto3YzUnkwu6OrAnSiuvc5+KI+W4GZN178k2q44
+OKWjPbAtxQ7vjnKmdOWTOw0XNIikE+IDqG7NDah+whX0rXA5vGQghP1F5IdrbrT0
+zcE1TKMVkiX6/ytZm9il1HP9BMDVslhcoz9CbXUKGuL97ycL7azDgQxHkVHmUryC
+tDxEyzp4fwyiorxKcGDo7PUjKXCPjyjyzJ8qO/lBhCwMTM8XV4ji4OqUdVCtdPKP
+3Qo9kh1+qvmkJTrGeYO9ZuMdBaTbfyuCuJ7iQz4D+ELF92A8U/V+T/4Mro+VYRo8
+AKxnHmRs6yE=
+=WHuV
+-----END PGP SIGNATURE-----
+
+--=-twrbCDpmnZPfVRp7A4XA--
