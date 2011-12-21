@@ -1,65 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference in
- ipv6_select_ident
-Date: Wed, 21 Dec 2011 21:28:52 +0100
-Message-ID: <1324499332.2621.7.camel@edumazet-laptop>
-References: <4EF200BB.7000209@bootc.net>
-	  <1324484956.2301.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	  <4EF2117F.6000803@bootc.net>
-	  <1324488984.2301.45.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1324490401.2301.46.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4EF23BF2.4000601@bootc.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] sch_sfq: rehash queues in perturb timer
+Date: Wed, 21 Dec 2011 15:45:02 -0500 (EST)
+Message-ID: <20111221.154502.1340769458825651650.davem@davemloft.net>
+References: <1324474211.2728.56.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Chris Boot <bootc@bootc.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:60524 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753774Ab1LUU26 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 15:28:58 -0500
-In-Reply-To: <4EF23BF2.4000601@bootc.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:55110 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751699Ab1LUUpF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 15:45:05 -0500
+In-Reply-To: <1324474211.2728.56.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 21 d=C3=A9cembre 2011 =C3=A0 20:05 +0000, Chris Boot a =C3=A9=
-crit :
-> On 21/12/2011 18:00, Eric Dumazet wrote:
-> > Le mercredi 21 d=C3=A9cembre 2011 =C3=A0 18:36 +0100, Eric Dumazet =
-a =C3=A9crit :
-> >
-> >> Good point, thats a different problem then, since 3.1 is not suppo=
-sed to
-> >> have this bug.
-> >>
-> >> It seems rt->rt6i_peer points to invalid memory in your crash.
-> >>
-> >> (RBX=3D00000000000001f4)
-> >>
-> >> 8b 83 a4 00 00 00       mov    0xa4(%rbx),%eax    p->refcnt
-> >> 1f4+a4 ->  CR2=3D0000000000000298
-> >>
-> > It would help if you can confirm latest linux tree can reproduce th=
-e
-> > bug.
->=20
-> Hi Eric,
->=20
-> I just built a v3.2-rc6-140-gb9e26df with the same config as the Debi=
-an=20
-> 3.1.0 kernel. I can reproduce the bug just as easily with this kernel=
- as=20
-> with the Debian kernel. Unfortunately I wasn't able to get an entire=20
-> trace, for some reason it didn't appear to be printed to the serial p=
-ort=20
-> and hung after the (long) list of loaded kernel modules. The crash=20
-> happens at the same offset:
->=20
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 21 Dec 2011 14:30:11 +0100
 
-Thanks !
+> A known Out Of Order (OOO) problem hurts SFQ when timer changes
+> perturbation value, since all new packets delivered to SFQ enqueue might
+> end on different slots than previous in-flight packets.
+> 
+> With round robin delivery, we can thus deliver packets in a different
+> order.
+> 
+> Since SFQ is limited to small amount of in-flight packets, we can rehash
+> packets so that this OOO problem is fixed.
+> 
+> This rehashing is performed only if internal flow classifier is in use.
+> 
+> We now store in skb->cb[] the "struct flow_keys" so that we dont call
+> skb_flow_dissect() again while rehashing.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Oh well, br_netfilter fake_rtable strikes again.
-
-I'll cook a patch in a couple of minutes...
+Applied.
