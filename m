@@ -1,66 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-3.0.x regression with ipv4 routes having mtu
-Date: Wed, 21 Dec 2011 15:56:15 -0500 (EST)
-Message-ID: <20111221.155615.990885397853981125.davem@davemloft.net>
-References: <20111220071843.GL6348@secunet.com>
-	<20111220.133542.2144336048061483258.davem@davemloft.net>
-	<20111221085616.GO6348@secunet.com>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [PATCH net-next] igb: Add support for byte queue limits.
+Date: Wed, 21 Dec 2011 21:17:58 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B626011AB6@ORSMSX102.amr.corp.intel.com>
+References: <1324480695.2301.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <20111221.144207.1402252938319338463.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: timo.teras@iki.fi, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
+To: David Miller <davem@davemloft.net>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:55339 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751481Ab1LUU4b convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 15:56:31 -0500
-In-Reply-To: <20111221085616.GO6348@secunet.com>
+Received: from mga03.intel.com ([143.182.124.21]:5988 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753885Ab1LUVSA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 16:18:00 -0500
+In-Reply-To: <20111221.144207.1402252938319338463.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Wed, 21 Dec 2011 09:56:16 +0100
 
-> On Tue, Dec 20, 2011 at 01:35:42PM -0500, David Miller wrote:
->> From: Steffen Klassert <steffen.klassert@secunet.com>
->> Date: Tue, 20 Dec 2011 08:18:43 +0100
->>=20
->> > On Tue, Dec 20, 2011 at 02:03:55AM -0500, David Miller wrote:
->> >> From: Timo Ter=E4s <timo.teras@iki.fi>
->> >> Date: Tue, 20 Dec 2011 08:53:09 +0200
->> >>=20
->> >> > Or maybe I missed the place where that updated would happen?
->> >>=20
->> >> It should happen on every routing cache lookup hit just like we
->> >> validate the peer for redirect information.
->> >=20
->> > The problem is that we need to do a route cache lookup to
->> > validate the peer informations. This does not happen if
->> > somebody adds a new route. I tried already to add a pmtu specific
->> > generation id and it appears to not solve the problem. We would
->> > still need to overwrite the cached value if we add a route with mt=
-u.
->>=20
->> Why?
->>=20
->> Every use of a routing cache entry does a dst_check() or a routing
->> cache lookup.
->>=20
->> You can check the generation ID in both locations, and if the
->> comparison fails then you force the routing cache entry to be killed
->> and the caller performs a lookup.  At that time the refreshing of th=
-e
->> new FIB entry will be realized.
->=20
-> My decscription was a bit missleading, sorry. This seems to be not
-> even related to pmtu handling. It's just that we don't use the
-> user configured metrics on the fib entry if we find an inetpeer
-> with metrics that are not in INETPEER_METRICS_NEW state when we
-> initialize the routing metrics in rt_init_metrics(). I tried to add
-> a route with a hoplimit, this has also no effect if the metrics on
-> the inetpeer are not new.
 
-Ok, so what you're saying is that we need a way to invalidate inetpeer
-entries, or at least invalidate their cached metrics and set
-INETPEER_METRICS_NEW once more.
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+>On Behalf Of David Miller
+>Sent: Wednesday, December 21, 2011 11:42 AM
+>To: eric.dumazet@gmail.com
+>Cc: netdev@vger.kernel.org; Kirsher, Jeffrey T; Duyck, Alexander H
+>Subject: Re: [PATCH net-next] igb: Add support for byte queue limits.
+>
+>From: Eric Dumazet <eric.dumazet@gmail.com>
+>Date: Wed, 21 Dec 2011 16:18:15 +0100
+>
+>> This adds support for byte queue limits (BQL)
+>>
+>> Since this driver collects bytes count in 'bytecount' field, use it
+>also
+>> in igb_tx_map()
+>>
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> CC: Alexander Duyck <alexander.h.duyck@intel.com>
+>
+>Intel folks, you got this?
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Yes, although many are out for the holidays. 
+
+ACK.  We'll get it into our queue for testing.
+
+Thanks,
+
+Carolyn Wyborny
+Linux Development
+LAN Access Division
+Intel Corporation
