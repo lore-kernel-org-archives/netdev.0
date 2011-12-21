@@ -1,39 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Kernel-DOS error in arp mechanism
- =?iso-2022-jp-3?B?GyQoUSN8GyhC?= no delete off incomplete arp adresses
-Date: Wed, 21 Dec 2011 15:47:34 -0500 (EST)
-Message-ID: <20111221.154734.248295514779001007.davem@davemloft.net>
-References: <1324453467.2610.20.camel@edumazet-laptop>
-	<20111221.030727.1528369698756365464.davem@davemloft.net>
-	<1324461072.2728.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: eddie@ehuk.net
+Subject: usb/mcs7830: Cannot read MAC address
+Date: Wed, 21 Dec 2011 20:40:44 +0000
+Message-ID: <4EF2444C.1050700@ehuk.net>
+Reply-To: eddie@ehuk.net
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: richard.weinberger@gmail.com, gladewitz@gmx.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1324461072.2728.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.freestuffjunction.co.uk ([109.169.51.71]:11781 "EHLO
+	mail.freestuffjunction.co.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754023Ab1LUUs4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 15:48:56 -0500
+Received: from tv.ehuk.net (tv.ehuk.net [10.0.5.25])
+	by mail.freestuffjunction.co.uk (8.13.8/8.13.8) with ESMTP id pBLKeivW032255
+	for <netdev@vger.kernel.org>; Wed, 21 Dec 2011 20:40:45 GMT
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 21 Dec 2011 10:51:12 +0100
+Hello,
 
-> [PATCH] ipv4: reintroduce route cache garbage collector
-> 
-> Commit 2c8cec5c10b (ipv4: Cache learned PMTU information in inetpeer)
-> removed IP route cache garbage collector a bit too soon, as this gc was
-> responsible for expired routes cleanup, releasing their neighbour
-> reference.
-> 
-> As pointed out by Robert Gladewitz, recent kernels can fill and exhaust
-> their neighbour cache.
-> 
-> Reintroduce the garbage collection, since we'll have to wait our
-> neighbour lookups become refcount-less to not depend on this stuff.
-> 
-> Reported-by: Robert Gladewitz <gladewitz@gmx.de>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+I have a USB adapter by Pluscom with a Moschip chip.  Plugging it into a 
+Centos 5.7 box with a vanilla 3.1.5 kernel I get:
 
-Applied, thanks Eric.
+usb 5-8: new high speed USB device number 4 using ehci_hcd
+usb 5-8: New USB device found, idVendor=9710, idProduct=7830
+usb 5-8: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+usb 5-8: Product: USB-MAC Controller
+usb 5-8: Manufacturer: Moschip Semiconductor
+usb 5-8: SerialNumber: 081600e2
+usb 5-8: Cannot read MAC address
+MOSCHIP usb-ethernet driver: probe of 5-8:1.0 failed with error -110
+
+I don't see this error plugging the device into my Fedora 15 Laptop with 
+a very recent kernel, which makes me think this could be something to do 
+with Centos' old userspace, maybe the kernel headers or udev.
+
+Can anyone suggest roughly whereabouts the problem might lie so I can 
+hunt around for a solution in the right place?
+
+thanks in advance,
+Eddie
