@@ -1,36 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] skb paged fragment destructors
-Date: Wed, 21 Dec 2011 14:28:41 -0500 (EST)
-Message-ID: <20111221.142841.2253787084484360430.davem@davemloft.net>
-References: <1324470605.2728.42.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1324475280.7877.33.camel@zakaz.uk.xensource.com>
-	<1324476138.2728.65.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless 2011-12-21
+Date: Wed, 21 Dec 2011 14:38:57 -0500 (EST)
+Message-ID: <20111221.143857.1290958187108678143.davem@davemloft.net>
+References: <20111221185914.GD11842@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Ian.Campbell@citrix.com, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:54436 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750837Ab1LUT2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 14:28:49 -0500
-In-Reply-To: <1324476138.2728.65.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20111221185914.GD11842-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 21 Dec 2011 15:02:18 +0100
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Wed, 21 Dec 2011 13:59:14 -0500
 
-> No idea on this +2 point.
+> A few last(?) fixes intended for 3.2...
+> 
+> The biggest portion are from Gustavo:
+> 
+> "3 fixes for 3.2! There one revert that was causing connection issues,
+> a RFCOMM fix to a potential kernel panic, and the last on L2CAP to
+> a possible access to uninitialized data due to broken remote devices."
+> 
+> Also, an iwlwifi fix for a problem causing firmware asserts.
+> 
+> Please let me know if there are problems!
 
-I think I know, and I believe I instructed Alexey Kuznetsov to do
-this.
-
-When sendfile() is performed, we might start the SKB with the last few
-bytes of one page, and end the SKB with the first few bytes of another
-page.
-
-In order to fit a full 64K frame into an SKB in this situation we have
-to accomodate this case.
+Pulled, thanks John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
