@@ -1,55 +1,47 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] iproute2: split up ip man page?
-Date: Thu, 22 Dec 2011 10:37:23 -0800
-Message-ID: <20111222103723.59a035df@nehalam.linuxnetplumber.net>
-References: <20111207131514.6815f813@nehalam.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] skb paged fragment destructors
+Date: Thu, 22 Dec 2011 13:43:44 -0500 (EST)
+Message-ID: <20111222.134344.1685328354280164155.davem@davemloft.net>
+References: <20111221.142841.2253787084484360430.davem@davemloft.net>
+	<1324550017.7877.77.camel@zakaz.uk.xensource.com>
+	<CAHXqBF+U8g16M8_MvFSmOWrLrfiAnuOzn0Mzn9uurLpQym+m4A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: Ian.Campbell@citrix.com, eric.dumazet@gmail.com,
+	jesse.brandeburg@intel.com, netdev@vger.kernel.org
+To: mirqus@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:39398 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752448Ab1LVShZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Dec 2011 13:37:25 -0500
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.vyatta.com (Postfix) with ESMTP id A92BA141000D
-	for <netdev@vger.kernel.org>; Thu, 22 Dec 2011 10:37:25 -0800 (PST)
-In-Reply-To: <20111207131514.6815f813@nehalam.linuxnetplumber.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:36924 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753684Ab1LVSnv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2011 13:43:51 -0500
+In-Reply-To: <CAHXqBF+U8g16M8_MvFSmOWrLrfiAnuOzn0Mzn9uurLpQym+m4A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 7 Dec 2011 13:15:14 -0800
-Stephen Hemminger <shemminger@vyatta.com> wrote:
-
-> The current ip man page is both incomplete and so big that
-> the actual functions get lost easily.
-> 
-> I propose splitting the the pages for the subfunction
-> into sub pages. The man command appears
-> to be smart enough to handle:
->   man tc htb
-> 
-> and pickup the manpage for /usr/share/man/man1/tc-htb.8.gz
-> Why not do the same thing for ip command?
-> 
-> The base ip page would just be a place holder that covered the
-> generic arguments.
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-Ok, the ip man page is now broken up. I tried to fix some of the
-incorrect grammar and usage as well. The pages still need editing for
-readability.
-
-Added a few examples as well.
-
-Please download from the git repository and send me any comments
-or changes.
-
-   git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+RnJvbTogTWljaGHFgiBNaXJvc8WCYXcgPG1pcnF1c0BnbWFpbC5jb20+DQpEYXRlOiBUaHUsIDIy
+IERlYyAyMDExIDE5OjM0OjIxICswMTAwDQoNCj4gMjAxMS8xMi8yMiBJYW4gQ2FtcGJlbGwgPElh
+bi5DYW1wYmVsbEBjaXRyaXguY29tPjoNCj4+IE9uIFdlZCwgMjAxMS0xMi0yMSBhdCAxOToyOCAr
+MDAwMCwgRGF2aWQgTWlsbGVyIHdyb3RlOg0KPj4+IEZyb206IEVyaWMgRHVtYXpldCA8ZXJpYy5k
+dW1hemV0QGdtYWlsLmNvbT4NCj4+PiBEYXRlOiBXZWQsIDIxIERlYyAyMDExIDE1OjAyOjE4ICsw
+MTAwDQo+Pj4gPiBObyBpZGVhIG9uIHRoaXMgKzIgcG9pbnQuDQo+Pj4gSSB0aGluayBJIGtub3cs
+IGFuZCBJIGJlbGlldmUgSSBpbnN0cnVjdGVkIEFsZXhleSBLdXpuZXRzb3YgdG8gZG8NCj4+PiB0
+aGlzLg0KPj4+DQo+Pj4gV2hlbiBzZW5kZmlsZSgpIGlzIHBlcmZvcm1lZCwgd2UgbWlnaHQgc3Rh
+cnQgdGhlIFNLQiB3aXRoIHRoZSBsYXN0IGZldw0KPj4+IGJ5dGVzIG9mIG9uZSBwYWdlLCBhbmQg
+ZW5kIHRoZSBTS0Igd2l0aCB0aGUgZmlyc3QgZmV3IGJ5dGVzIG9mIGFub3RoZXINCj4+PiBwYWdl
+Lg0KPj4+DQo+Pj4gSW4gb3JkZXIgdG8gZml0IGEgZnVsbCA2NEsgZnJhbWUgaW50byBhbiBTS0Ig
+aW4gdGhpcyBzaXR1YXRpb24gd2UgaGF2ZQ0KPj4+IHRvIGFjY29tb2RhdGUgdGhpcyBjYXNlLg0K
+Pj4gVGhhbmtzIERhdmlkLCB0aGF0IG1ha2VzIHNlbnNlLg0KPj4NCj4+IEhvd2V2ZXIgSSB0aGlu
+ayB5b3Ugb25seSBhY3R1YWxseSBuZWVkIDEgZXh0cmEgcGFnZSBmb3IgdGhhdC4gSWYgdGhlDQo+
+PiBkYXRhIGluIGZyYWdbMF0gc3RhcnRzIGF0ICRvZmZzZXQgdGhlbiBmcmFnWzE2XSB3aWxsIG5l
+ZWQgdG8gaGF2ZQ0KPj4gJG9mZnNldCBieXRlcyBpbiBpdC4gZS5nLg0KPj4gwqAgwqAgwqAgwqA0
+MDk2LSRvZmZzZXQgKyA0MDk2KjE1ICsgJG9mZnNldCA9IDY1NTM2DQo+PiB3aGljaCA9PSAxNyBw
+YWdlcyByYXRoZXIgdGhhbiAxOC4NCj4+DQo+PiBUaGUgZm9sbG93aW5nIGRvY3VtZW50cyB0aGUg
+c3RhdHVzIHF1byBidXQgSSBjb3VsZCB1cGRhdGUgdG8gc3dpdGNoIHRvICsNCj4+IDEgaW5zdGVh
+ZCBpZiB0aGVyZSBhcmUgbm8gZmxhd3MgaW4gdGhlIGFib3ZlIGxvZ2ljLi4uDQo+IA0KPiBTaW5j
+ZSBtYXggSVAgZGF0YWdyYW0gaXMgNjRLLTEsIGFkZGluZyBldGhlcm5ldCBhbmQgcG9zc2libHkg
+VkxBTg0KPiBoZWFkZXJzIG1ha2VzIHRoZSBtYXggc2l6ZSBzbGlnaHRseSBhYm92ZSA2NEsgYW5k
+IHRoZW4geW91IGhhdmUNCj4gNjRLL1BBR0VfU0laRSsyIHBhZ2VzIGFwcGVhciBpbiB3b3JzdCBj
+YXNlLg0KDQpIZWFkZXJzIGdvIGludG8gdGhlIGxpbmVhciBhcmVhLCBzbyB0aGV5IGFyZSBub3Qg
+cmVsZXZhbnQgZm9yIHRoZXNlDQpjYWxjdWxhdGlvbnMuDQo=
