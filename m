@@ -1,66 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference in
- ipv6_select_ident
-Date: Thu, 22 Dec 2011 18:41:32 +0100
-Message-ID: <1324575692.2586.6.camel@edumazet-laptop>
-References: <4EF200BB.7000209@bootc.net>
-	    <1324484956.2301.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	    <4EF2117F.6000803@bootc.net>
-	    <1324488984.2301.45.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	    <1324490401.2301.46.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	    <4EF23BF2.4000601@bootc.net> <1324499332.2621.7.camel@edumazet-laptop>
-	   <1324500775.2621.9.camel@edumazet-laptop> <4EF2568C.6040006@bootc.net>
-	   <AEC29013-98F3-4A16-A88B-AD31C9E88EB8@bootc.net>
-	  <1324528656.2621.19.camel@edumazet-laptop> <4EF300B2.3050903@bootc.net>
-	 <1324563353.2153.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4EF352A2.2090604@bootc.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] skb paged fragment destructors
+Date: Thu, 22 Dec 2011 13:20:24 -0500 (EST)
+Message-ID: <20111222.132024.2100751924070475608.davem@davemloft.net>
+References: <1324476138.2728.65.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20111221.142841.2253787084484360430.davem@davemloft.net>
+	<1324550017.7877.77.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	lkml <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Chris Boot <bootc@bootc.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4EF352A2.2090604@bootc.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, jesse.brandeburg@intel.com,
+	netdev@vger.kernel.org
+To: Ian.Campbell@citrix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:36720 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751273Ab1LVSUc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2011 13:20:32 -0500
+In-Reply-To: <1324550017.7877.77.camel@zakaz.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 22 d=C3=A9cembre 2011 =C3=A0 15:54 +0000, Chris Boot a =C3=A9c=
-rit :
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Date: Thu, 22 Dec 2011 10:33:36 +0000
 
-> Eric,
->=20
-> I'm seeing a new problem now with IPv6 on my bridge, I don't know if=20
-> it's related to any of the patches you gave me.
->=20
-> Basically, I have eth0 and eth1 in a balance-rr bond (bond0), and thi=
-s=20
-> is added as a port in a bridge. When the bond and bridge are freshly=20
-> brought up, IPv4 works fine but it appears to be deaf to IPv6 traffic=
-=2E=20
-> It stays this way until I run 'tcpdump -i eth0' and 'tcpdump -i eth1'=
-=2E=20
-> If I run tcpdump with the -p flag to not enable promiscuous mode, the=
-=20
-> interfaces remain deaf. Only if they enter promiscuous mode do they=20
-> start to listen to each other. It also doesn't help to run tcpdump=20
-> against bond0 or br0 at all.
->=20
-> I'm not sure if once I've killed tcpdump they become deaf again, but =
-I=20
-> have enough IPv6 traffic to keep the neighbour entry alive.
+> On Wed, 2011-12-21 at 19:28 +0000, David Miller wrote:
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Wed, 21 Dec 2011 15:02:18 +0100
+>> 
+>> > No idea on this +2 point.
+>> 
+>> I think I know, and I believe I instructed Alexey Kuznetsov to do
+>> this.
+>> 
+>> When sendfile() is performed, we might start the SKB with the last few
+>> bytes of one page, and end the SKB with the first few bytes of another
+>> page.
+>> 
+>> In order to fit a full 64K frame into an SKB in this situation we have
+>> to accomodate this case.
+> 
+> Thanks David, that makes sense.
+> 
+> However I think you only actually need 1 extra page for that. If the
+> data in frag[0] starts at $offset then frag[16] will need to have
+> $offset bytes in it. e.g.
+> 	4096-$offset + 4096*15 + $offset = 65536
+> which == 17 pages rather than 18.
+> 
+> The following documents the status quo but I could update to switch to +
+> 1 instead if there are no flaws in the above logic...
 
-Thats probably a separate issue. It would be better to open a new threa=
-d
-on netdev, instead of continuing this one.
-
-IPv6 needs multicast capabilities, so maybe balance-rr bonding mode is
-not propagating multicat filters properly on both nics.
-
-It might be a problem on one of your NIC.
-
-(tcpdump automatically installs promiscous mode, so all multicast frame=
-s
-are received, regardless of previous multicast filters in place)
+Indeed, you're right.  Please change this to 1 and document it, and we
+can put that change into net-next, thanks a lot!
