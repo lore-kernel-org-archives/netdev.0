@@ -1,64 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ICMP packets - ll_temac with Microblaze
-Date: Thu, 22 Dec 2011 08:57:31 +0100
-Message-ID: <1324540651.2621.44.camel@edumazet-laptop>
-References: <4EF1EC28.90008@monstr.eu>
-		<1324483144.2301.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-		<1324487504.2301.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111221.155520.1406613141134089105.davem@davemloft.net>
-	 <4EF2E102.7030008@monstr.eu>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: BUG: unable to handle kernel NULL pointer dereference in
+ ipv6_select_ident
+Date: Thu, 22 Dec 2011 08:58:30 +0100
+Message-ID: <20111222075830.GR6348@secunet.com>
+References: <1324488984.2301.45.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <1324490401.2301.46.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <4EF23BF2.4000601@bootc.net>
+ <1324499332.2621.7.camel@edumazet-laptop>
+ <1324500775.2621.9.camel@edumazet-laptop>
+ <4EF2568C.6040006@bootc.net>
+ <AEC29013-98F3-4A16-A88B-AD31C9E88EB8@bootc.net>
+ <1324528656.2621.19.camel@edumazet-laptop>
+ <20111222063806.GP6348@secunet.com>
+ <1324540277.2621.41.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, john.williams@petalogix.com,
-	netdev@vger.kernel.org
-To: monstr@monstr.eu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:53139 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752314Ab1LVH5g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2011 02:57:36 -0500
-Received: by wibhm6 with SMTP id hm6so2358304wib.19
-        for <netdev@vger.kernel.org>; Wed, 21 Dec 2011 23:57:35 -0800 (PST)
-In-Reply-To: <4EF2E102.7030008@monstr.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Chris Boot <bootc@bootc.net>, lkml <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1324540277.2621.41.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 22 d=C3=A9cembre 2011 =C3=A0 08:49 +0100, Michal Simek a =C3=A9=
-crit :
-> David Miller wrote:
-> > From: Eric Dumazet <eric.dumazet@gmail.com>
-> > Date: Wed, 21 Dec 2011 18:11:44 +0100
-> >=20
-> >> [PATCH net-next] net: relax rcvbuf limits
-> >>
-> >> skb->truesize might be big even for a small packet.
-> >>
-> >> Its even bigger after commit 87fb4b7b533 (net: more accurate skb
-> >> truesize) and big MTU.
-> >>
-> >> We should allow queueing at least one packet per receiver, even wi=
-th a
-> >> low RCVBUF setting.
-> >>
-> >> Reported-by: Michal Simek <monstr@monstr.eu>
-> >> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> >=20
-> > Applied to net-next, although I was tempted to put it into net.
-> >=20
-> > We may end up backporting this into -stable at some point, we'll
-> > see.
->=20
-> Yes, it works. Thanks Eric.
->=20
-> I hope that this patch will be in v3.2.
->=20
+On Thu, Dec 22, 2011 at 08:51:17AM +0100, Eric Dumazet wrote:
+> 
+> Prior to 618f9bc74a0, we were calling 
+> 
+> static inline u32 dst_mtu(const struct dst_entry *dst)
+>  {
+>        u32 mtu = dst_metric_raw(dst, RTAX_MTU);
+> 
+>        if (!mtu)
+>                mtu = dst->ops->mtu(dst);
+> 
+>        return mtu;
+> }
+> 
+> with dst = fake_rtable
+> 
+> and we did :
+> 
+> dst_init_metrics(&rt->dst, br_dst_default_metrics, true);
+> 
+> so dst_metric_raw(dst, RTAX_MTU) was returning 1500
+> 
+> So bug is new, we dont need to backport this fix.
+> 
 
-Thanks for testing !
-
-I overlooked fact that commit 87fb4b7b533 was already in 3.2, so yes, w=
-e
-probably can push this to 3.2
-
-(By the way, busybox ping probably doesnt work on 3.1 kernel with a
-MTU=3D9000 non copybreak driver, so its not a clear 3.2 regression)
+Ok, I see. Thanks for pointing it out!
