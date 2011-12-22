@@ -1,63 +1,77 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH, v2] Xen: consolidate and simplify struct xenbus_driver
- instantiation
-Date: Thu, 22 Dec 2011 14:44:27 +0000
-Message-ID: <1324565067.2897.2.camel@bwh-desktop>
-References: <4EF3018D020000780006986E@nat28.tlf.novell.com>
-	 <1324547820.7877.71.camel@zakaz.uk.xensource.com>
-	 <4EF327E2020000780006993E@nat28.tlf.novell.com>
-	 <1324555060.7877.84.camel@zakaz.uk.xensource.com>
+From: Nikola Ciprich <nikola.ciprich@linuxbox.cz>
+Subject: 3.0.12 - unregister_pernet_gen_subsys hogging whole system
+Date: Thu, 22 Dec 2011 16:19:08 +0100
+Message-ID: <20111222151908.GA11020@pcnci.linuxbox.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jan Beulich <JBeulich@suse.com>,
-	Konrad Rzeszutek Wilk <konrad@darnok.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"dmitry.torokhov@gmail.com" <dmitry.torokhov@gmail.com>,
-	"FlorianSchandinat@gmx.de" <FlorianSchandinat@gmx.de>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	Jens Axboe <axboe@kernel.dk>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:45969 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752615Ab1LVOod (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2011 09:44:33 -0500
-In-Reply-To: <1324555060.7877.84.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="wac7ysb48OaltWcw"
+Cc: stable@kernel.org, netdev@vger.kernel.org
+To: linux-kernel mlist <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-12-22 at 11:57 +0000, Ian Campbell wrote:
-> On Thu, 2011-12-22 at 11:51 +0000, Jan Beulich wrote:
-> > >>> On 22.12.11 at 10:57, Ian Campbell <Ian.Campbell@citrix.com> wrote:
-> > > On Thu, 2011-12-22 at 09:08 +0000, Jan Beulich wrote:
-> > >> The 'name', 'owner', and 'mod_name' members are redundant with the
-> > >> identically named fields in the 'driver' sub-structure. Rather than
-> > >> switching each instance to specify these fields explicitly, introduce
-> > >> a macro to simplify this.
-> > >> 
-> > >> Eliminate further redundancy by allowing the drvname argument to
-> > >> DEFINE_XENBUS_DRIVER() to be blank (in which case the first entry from
-> > >> the ID table will be used for .driver.name).
-> > > 
-> > > Any reason not to always use DRV_NAME here (which is generally a bit
-> > > more specific e.g. "xen-foofront" rather than "foo") and rely on the id
-> > > table for the shorter names used in xenstore?
-> > 
-> > That would imply that DRV_NAME is always defined, but I don't
-> > see this being the case.
-> 
-> My mistake, I thought it was a Kbuild thing.
 
-You're maybe thinking of KBUILD_MODNAME.
+--wac7ysb48OaltWcw
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Ben.
+Hi,
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+after updating one of our servers to 3.0.12 kernel, it became painfully slo=
+w (actually
+it's almost unusable).
+
+trying perf top, I see following:
+
+            27465.00 - 59.8% : unregister_pernet_gen_subsys
+             3144.00 -  6.8% : __start_notes
+             1211.00 -  2.6% : swiotlb_sync_sg
+             1155.00 -  2.5% : swiotlb_unmap_sg_attrs
+              621.00 -  1.4% : pci_pm_init
+              565.00 -  1.2% : swiotlb_map_sg_attrs
+              503.00 -  1.1% : cgroup_attach_task
+
+I wasn't too successfull trying to find something related, so I'd like to a=
+sk,
+which subsystem might be calling unregister_pernet_gen_subsys and why?
+I guess this is certaingly a bug... Could somebody please have a look at th=
+is?
+I'll provide all debugging information I can if needed..
+
+thanks a lot in advance
+
+with best regards
+
+nik
+
+--=20
+-------------------------------------
+Ing. Nikola CIPRICH
+LinuxBox.cz, s.r.o.
+28. rijna 168, 709 01 Ostrava
+
+tel.:   +420 596 603 142
+fax:    +420 596 621 273
+mobil:  +420 777 093 799
+www.linuxbox.cz
+
+mobil servis: +420 737 238 656
+email servis: servis@linuxbox.cz
+-------------------------------------
+
+--wac7ysb48OaltWcw
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iEYEARECAAYFAk7zSmwACgkQ3xdJJrLygV6OaACfc9yp//bLzKRyt6pqSkYJWaBU
+mzIAmgOw9Wk1wwqLrTSGVHtnXEcqH8O6
+=L4u3
+-----END PGP SIGNATURE-----
+
+--wac7ysb48OaltWcw--
