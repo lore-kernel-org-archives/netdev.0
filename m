@@ -1,105 +1,70 @@
-From: Nikola Ciprich <nikola.ciprich@linuxbox.cz>
-Subject: Re: 3.0.12 - unregister_pernet_gen_subsys hogging whole system
-Date: Thu, 22 Dec 2011 22:52:46 +0100
-Message-ID: <20111222215246.GA2694@nik-comp.lan>
-References: <20111222151908.GA11020@pcnci.linuxbox.cz>
+From: Xi Wang <xi.wang@gmail.com>
+Subject: [PATCH v2] rps: fix insufficient bounds checking in store_rps_dev_flow_table_cnt()
+Date: Thu, 22 Dec 2011 18:35:22 -0500
+Message-ID: <4EF3BEBA.4040402@gmail.com>
+References: <1324493459-19764-1-git-send-email-xi.wang@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="r5Pyd7+fXNt84Ff3"
-Cc: stable@kernel.org, netdev@vger.kernel.org
-To: linux-kernel mlist <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20111222151908.GA11020@pcnci.linuxbox.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <therbert@google.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:58853 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751334Ab1LVXf1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2011 18:35:27 -0500
+Received: by iaeh11 with SMTP id h11so14171680iae.19
+        for <netdev@vger.kernel.org>; Thu, 22 Dec 2011 15:35:26 -0800 (PST)
+In-Reply-To: <1324493459-19764-1-git-send-email-xi.wang@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Setting a large rps_flow_cnt like (1 << 30) on 32-bit platform will
+cause a kernel oops due to insufficient bounds checking.
 
---r5Pyd7+fXNt84Ff3
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+	if (count > 1<<30) {
+		/* Enforce a limit to prevent overflow */
+		return -EINVAL;
+	}
+	count = roundup_pow_of_two(count);
+	table = vmalloc(RPS_DEV_FLOW_TABLE_SIZE(count));
 
-> after updating one of our servers to 3.0.12 kernel, it became painfully s=
-low (actually
-> it's almost unusable).
->=20
-> trying perf top, I see following:
->=20
->             27465.00 - 59.8% : unregister_pernet_gen_subsys
->              3144.00 -  6.8% : __start_notes
->              1211.00 -  2.6% : swiotlb_sync_sg
->              1155.00 -  2.5% : swiotlb_unmap_sg_attrs
->               621.00 -  1.4% : pci_pm_init
->               565.00 -  1.2% : swiotlb_map_sg_attrs
->               503.00 -  1.1% : cgroup_attach_task
+Note that the macro RPS_DEV_FLOW_TABLE_SIZE(count) is defined as:
 
-crap, I was using too old perf binary - that might be reason why I wasn't a=
-ble
-to find any evidence of unregister_pernet_gen_subsys for 3.x kernels :)
-I switched to 3.0.13 now (and actual perf) and it seems better..
-Should the problem reappear, I'll report it..
-sorry for the fuzz..
-n.
+	... + (count * sizeof(struct rps_dev_flow))
 
+where sizeof(struct rps_dev_flow) is 8.  (1 << 30) * 8 will overflow
+32 bits.
 
->=20
-> I wasn't too successfull trying to find something related, so I'd like to=
- ask,
-> which subsystem might be calling unregister_pernet_gen_subsys and why?
-> I guess this is certaingly a bug... Could somebody please have a look at =
-this?
-> I'll provide all debugging information I can if needed..
->=20
-> thanks a lot in advance
->=20
-> with best regards
->=20
-> nik
->=20
-> --=20
-> -------------------------------------
-> Ing. Nikola CIPRICH
-> LinuxBox.cz, s.r.o.
-> 28. rijna 168, 709 01 Ostrava
->=20
-> tel.:   +420 596 603 142
-> fax:    +420 596 621 273
-> mobil:  +420 777 093 799
-> www.linuxbox.cz
->=20
-> mobil servis: +420 737 238 656
-> email servis: servis@linuxbox.cz
-> -------------------------------------
+This patch replaces the magic number (1 << 30) with a symbolic bound.
 
+Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Xi Wang <xi.wang@gmail.com>
+---
+ net/core/net-sysfs.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
-
---=20
--------------------------------------
-Ing. Nikola CIPRICH
-LinuxBox.cz, s.r.o.
-28. rijna 168, 709 01 Ostrava
-
-tel.:   +420 596 603 142
-fax:    +420 596 621 273
-mobil:  +420 777 093 799
-
-www.linuxbox.cz
-
-mobil servis: +420 737 238 656
-email servis: servis@linuxbox.cz
--------------------------------------
-
---r5Pyd7+fXNt84Ff3
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iEYEARECAAYFAk7zpq4ACgkQ3xdJJrLygV5nLQCgzNe8REKERQOqm5Ib1A/1h++j
-ccgAoJXmhf3bRgoVy6QCgCtGIMzBQq+2
-=cpBN
------END PGP SIGNATURE-----
-
---r5Pyd7+fXNt84Ff3--
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index c71c434..385aefe 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -665,11 +665,14 @@ static ssize_t store_rps_dev_flow_table_cnt(struct netdev_rx_queue *queue,
+ 	if (count) {
+ 		int i;
+ 
+-		if (count > 1<<30) {
++		if (count > INT_MAX)
++			return -EINVAL;
++		count = roundup_pow_of_two(count);
++		if (count > (ULONG_MAX - sizeof(struct rps_dev_flow_table))
++				/ sizeof(struct rps_dev_flow)) {
+ 			/* Enforce a limit to prevent overflow */
+ 			return -EINVAL;
+ 		}
+-		count = roundup_pow_of_two(count);
+ 		table = vmalloc(RPS_DEV_FLOW_TABLE_SIZE(count));
+ 		if (!table)
+ 			return -ENOMEM;
+-- 
+1.7.5.4
