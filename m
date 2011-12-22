@@ -1,62 +1,73 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference in
- ipv6_select_ident
-Date: Thu, 22 Dec 2011 07:38:06 +0100
-Message-ID: <20111222063806.GP6348@secunet.com>
-References: <1324484956.2301.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <4EF2117F.6000803@bootc.net>
- <1324488984.2301.45.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <1324490401.2301.46.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <4EF23BF2.4000601@bootc.net>
- <1324499332.2621.7.camel@edumazet-laptop>
- <1324500775.2621.9.camel@edumazet-laptop>
- <4EF2568C.6040006@bootc.net>
- <AEC29013-98F3-4A16-A88B-AD31C9E88EB8@bootc.net>
- <1324528656.2621.19.camel@edumazet-laptop>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next v2] igb: reset PHY after recovering from PHY
+ power down
+Date: Wed, 21 Dec 2011 22:46:04 -0800
+Message-ID: <1324536364.2327.39.camel@jtkirshe-mobl>
+References: <4EEE9248.8020009@jp.fujitsu.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Chris Boot <bootc@bootc.net>, lkml <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1324528656.2621.19.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-IyvKCn2a0p77AT83t4Ip"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:8416 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751646Ab1LVGqG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Dec 2011 01:46:06 -0500
+In-Reply-To: <4EEE9248.8020009@jp.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 22, 2011 at 05:37:36AM +0100, Eric Dumazet wrote:
-> Le mercredi 21 d=E9cembre 2011 =E0 23:12 +0000, Chris Boot a =E9crit =
-:
-> >=20
-> > (gdb) list *ip_fragment+0x9d
-> > 0xffffffff812a62e1 is in ip_fragment (include/net/dst.h:209).
-> > 204		return dst_metric(dst, RTAX_FEATURES) & feature;
-> > 205	}
-> > 206=09
-> > 207	static inline u32 dst_mtu(const struct dst_entry *dst)
-> > 208	{
-> > 209		return dst->ops->mtu(dst);
-> > 210	}
-> > 211=09
-> > 212	/* RTT metrics are stored in milliseconds for user ABI, but use=
-d as jiffies */
->=20
-> This one is different, its not IPv6 related but IPv4 :
->=20
-> fake_dst_ops lacks a .mtu() field
->=20
-> Bug added in commit 618f9bc74a039da76 (net: Move mtu handling down to
-> the protocol depended handlers)
->=20
 
-Before I did this patch, I changed the .default_mtu field of "struct ds=
-t_ops"
-to .mtu and converted all users of default_mtu to mtu. fake_dst_ops nev=
-er
-had a default_mtu field, so I did not touch it. I guess this bug is arr=
-ound
-since fake_dst_ops exists. It's now just much easier to trigger as comm=
-it
-618f9bc74a039da76 changed dst_mtu() to call dst->ops->mtu() uncondition=
-ally.
+--=-IyvKCn2a0p77AT83t4Ip
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Sun, 2011-12-18 at 17:24 -0800, Koki Sanagi wrote:
+> According to 82576_Datasheet.pdf, PHY setting is lost after PHY power
+> down.
+> So resetting PHY is needed when recovering from PHY power down to set
+> a default
+> setting to PHY register.
+> Owing to this lack, NIC doesn't link up in some rare situation.
+>=20
+> Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>=20
+
+I have added this patch to my queue.  Thanks Koki!
+
+--=-IyvKCn2a0p77AT83t4Ip
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAABCgAGBQJO8tIsAAoJEOVv75VaS+3Ox24P/isgCR/vPd8D+h9+YxESvm86
+EfnGUpXMrG0J9gNQrwmhAenPuVKQvrAH60VuWdxOPwDq2Bi6XAVNHeE7ThNl33RL
+22larXNmu7byL5YxIQl8DVvOj8iX/7KhvhoXI3gKQYqwsPxFk/Stgc9M2v4seJoq
+gfZQp1pDNPhDhvIOeVlTv3FmBWOr26k+xofrEIGh2YSjthMoM7XB0Y5f0MPT3Xgx
+4apIKJ16TMwHswTOQ8Nftyhf2q6eRgoMxVrtVyUcYoG3gtj0XsBXIrrRQcxOcXYJ
+IWa0PVfzwTUrrGi+Pn+K/ZOWalfORd4tg8p2UygqmjZZFBYfyNKxMQEGAbzMsHxm
+QWpma28Y5xMkA0Bjakc0O9E+fDZDQ9tWf/ZX5oFbkUvKquibYMRt1IiMY2bp9b0z
+onL0afa3u/UnQODvFlvKBB0ALUdTQa84/WwNBcbELKHlTGgaWzFm28zhjOMzRPsS
+heIFqqNIXP4QnNZdyDf/g/d8JGIxBa7Hut35BMdeTtiBiXg+6hOENKXMQniYnxMY
+h6P7EnUBvW8yGx9aHBlE8Ec4fCey3ki9QrQeAcYauh15EjUiWF8/t2sP0yn7eRPa
+0qwmMsRP0UzO5W/DN3JZdT9PmRguzD72qo4wuDbbtjw4xHhOlPz61SoGKgoGJBDu
+KOGfds5AwLKoQR0g5aCc
+=/MlH
+-----END PGP SIGNATURE-----
+
+--=-IyvKCn2a0p77AT83t4Ip--
