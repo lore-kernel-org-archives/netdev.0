@@ -1,57 +1,91 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: ICMP packets - ll_temac with Microblaze
-Date: Thu, 22 Dec 2011 08:49:22 +0100
-Message-ID: <4EF2E102.7030008@monstr.eu>
-References: <4EF1EC28.90008@monstr.eu>	<1324483144.2301.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>	<1324487504.2301.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20111221.155520.1406613141134089105.davem@davemloft.net>
-Reply-To: monstr@monstr.eu
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BUG: unable to handle kernel NULL pointer dereference in
+ ipv6_select_ident
+Date: Thu, 22 Dec 2011 08:51:17 +0100
+Message-ID: <1324540277.2621.41.camel@edumazet-laptop>
+References: <1324484956.2301.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4EF2117F.6000803@bootc.net>
+	 <1324488984.2301.45.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1324490401.2301.46.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4EF23BF2.4000601@bootc.net> <1324499332.2621.7.camel@edumazet-laptop>
+	 <1324500775.2621.9.camel@edumazet-laptop> <4EF2568C.6040006@bootc.net>
+	 <AEC29013-98F3-4A16-A88B-AD31C9E88EB8@bootc.net>
+	 <1324528656.2621.19.camel@edumazet-laptop>
+	 <20111222063806.GP6348@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, john.williams@petalogix.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Chris Boot <bootc@bootc.net>, lkml <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:34609 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750914Ab1LVHt0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2011 02:49:26 -0500
-Received: by eekc4 with SMTP id c4so8188929eek.19
-        for <netdev@vger.kernel.org>; Wed, 21 Dec 2011 23:49:25 -0800 (PST)
-In-Reply-To: <20111221.155520.1406613141134089105.davem@davemloft.net>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:36040 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750914Ab1LVHvX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2011 02:51:23 -0500
+In-Reply-To: <20111222063806.GP6348@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 21 Dec 2011 18:11:44 +0100
-> 
->> [PATCH net-next] net: relax rcvbuf limits
->>
->> skb->truesize might be big even for a small packet.
->>
->> Its even bigger after commit 87fb4b7b533 (net: more accurate skb
->> truesize) and big MTU.
->>
->> We should allow queueing at least one packet per receiver, even with a
->> low RCVBUF setting.
->>
->> Reported-by: Michal Simek <monstr@monstr.eu>
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> 
-> Applied to net-next, although I was tempted to put it into net.
-> 
-> We may end up backporting this into -stable at some point, we'll
-> see.
+Le jeudi 22 d=C3=A9cembre 2011 =C3=A0 07:38 +0100, Steffen Klassert a =C3=
+=A9crit :
+> On Thu, Dec 22, 2011 at 05:37:36AM +0100, Eric Dumazet wrote:
+> > Le mercredi 21 d=C3=A9cembre 2011 =C3=A0 23:12 +0000, Chris Boot a =
+=C3=A9crit :
+> > >=20
+> > > (gdb) list *ip_fragment+0x9d
+> > > 0xffffffff812a62e1 is in ip_fragment (include/net/dst.h:209).
+> > > 204		return dst_metric(dst, RTAX_FEATURES) & feature;
+> > > 205	}
+> > > 206=09
+> > > 207	static inline u32 dst_mtu(const struct dst_entry *dst)
+> > > 208	{
+> > > 209		return dst->ops->mtu(dst);
+> > > 210	}
+> > > 211=09
+> > > 212	/* RTT metrics are stored in milliseconds for user ABI, but u=
+sed as jiffies */
+> >=20
+> > This one is different, its not IPv6 related but IPv4 :
+> >=20
+> > fake_dst_ops lacks a .mtu() field
+> >=20
+> > Bug added in commit 618f9bc74a039da76 (net: Move mtu handling down =
+to
+> > the protocol depended handlers)
+> >=20
+>=20
+> Before I did this patch, I changed the .default_mtu field of "struct =
+dst_ops"
+> to .mtu and converted all users of default_mtu to mtu. fake_dst_ops n=
+ever
+> had a default_mtu field, so I did not touch it. I guess this bug is a=
+rround
+> since fake_dst_ops exists. It's now just much easier to trigger as co=
+mmit
+> 618f9bc74a039da76 changed dst_mtu() to call dst->ops->mtu() unconditi=
+onally.
 
-Yes, it works. Thanks Eric.
+I dont think so.
 
-I hope that this patch will be in v3.2.
+Prior to 618f9bc74a0, we were calling=20
 
-Thanks,
-Michal
+static inline u32 dst_mtu(const struct dst_entry *dst)
+ {
+       u32 mtu =3D dst_metric_raw(dst, RTAX_MTU);
 
--- 
-Michal Simek, Ing. (M.Eng)
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel 2.6 Microblaze Linux - http://www.monstr.eu/fdt/
-Microblaze U-BOOT custodian
+       if (!mtu)
+               mtu =3D dst->ops->mtu(dst);
+
+       return mtu;
+}
+
+with dst =3D fake_rtable
+
+and we did :
+
+dst_init_metrics(&rt->dst, br_dst_default_metrics, true);
+
+so dst_metric_raw(dst, RTAX_MTU) was returning 1500
+
+So bug is new, we dont need to backport this fix.
