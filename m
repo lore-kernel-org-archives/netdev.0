@@ -1,107 +1,443 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH net-next v2 2/4] can: cc770: add legacy ISA bus driver
- for the CC770 and AN82527
-Date: Thu, 22 Dec 2011 10:37:03 +0100
-Message-ID: <4EF2FA3F.3010308@grandegger.com>
-References: <1322214204-1121-1-git-send-email-wg@grandegger.com> <1322214204-1121-3-git-send-email-wg@grandegger.com> <4ED0FEC5.3070108@hartkopp.net> <4ED34CAD.7040000@essax.com> <4ED351A8.8000102@grandegger.com> <4ED37885.8080909@essax.com> <4ED3B198.2040308@hartkopp.net> <4ED4A2EC.40103@grandegger.com> <4EDBC05D.8070109@essax.com> <4EDBC25D.50405@grandegger.com> <4EDE8435.5080100@essax.com> <4EDF6D54.2060503@grandegger.com> <4EE1E26B.6090308@grandegger.com> <4EE4F76E.3000506@essax.com> <4EE5C824.2050704@grandegger.com> <4EE5E321.8050104@essax.com> <4EE5EBBF.6080007@grandegger.com> <4EF22625.5000109@essax.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH, v2] Xen: consolidate and simplify struct xenbus_driver
+ instantiation
+Date: Thu, 22 Dec 2011 09:57:00 +0000
+Message-ID: <1324547820.7877.71.camel@zakaz.uk.xensource.com>
+References: <4EF3018D020000780006986E@nat28.tlf.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, socketcan-users@lists.berlios.de,
-	IreneV <boir1@yandex.ru>,
-	Stanislav Yelenskiy <stanislavelensky@yahoo.com>
-To: info@essax.com
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4EF22625.5000109@essax.com>
-Sender: linux-can-owner@vger.kernel.org
+Cc: Konrad Rzeszutek Wilk <konrad@darnok.org>,
+	Jeremy Fitzhardinge <jeremy@goop.org>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"dmitry.torokhov@gmail.com" <dmitry.torokhov@gmail.com>,
+	"FlorianSchandinat@gmx.de" <FlorianSchandinat@gmx.de>,
+	Jens Axboe <axboe@kernel.dk>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jan Beulich <JBeulich@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4EF3018D020000780006986E@nat28.tlf.novell.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Wolfgang,
-
-On 12/21/2011 07:32 PM, Wolfgang Zarre wrote:
-> Hello Wolfgang,
-...
-
->> It's a bug! netif_start_queue is missing at the end of the open
->> function. Got lost some how. I have just updated (rebased!) my
->> wg-linux-can-next repository.
+On Thu, 2011-12-22 at 09:08 +0000, Jan Beulich wrote:
+> The 'name', 'owner', and 'mod_name' members are redundant with the
+> identically named fields in the 'driver' sub-structure. Rather than
+> switching each instance to specify these fields explicitly, introduce
+> a macro to simplify this.
 > 
-> Ok, I was checking out last week and since I'm running one test series
-> after the other.
+> Eliminate further redundancy by allowing the drvname argument to
+> DEFINE_XENBUS_DRIVER() to be blank (in which case the first entry from
+> the ID table will be used for .driver.name).
+
+Any reason not to always use DRV_NAME here (which is generally a bit
+more specific e.g. "xen-foofront" rather than "foo") and rely on the id
+table for the shorter names used in xenstore?
+
+Empty parameters to macros always make me look twice, I think they
+deserve at least a comment at which point you might as well just have
+the actual desired string there.
+
+Ian.
+
+> Also eliminate the questionable xenbus_register_{back,front}end()
+> wrappers - their sole remaining purpose was the checking of the
+> 'owner' field, proper setting of which shouldn't be an issue anymore
+> when the macro gets used.
 > 
-> There are several odd issues I could found and I'm trying to trace them
-> down beside some other work.
+> v2: Restore DRV_NAME for the driver name in xen-pciback.
 > 
-> Even with an assumed correct configuration like I was using with the lincan
-> driver I'm loosing telegrams so around 1 till 2 in 500000 but might be a
-> different sample-point at the PLC which is opaque due the predefined
-> setting.
-
-In principle, messages can be lost because the cc770 does buffer only up
-to two messages in hardware. If they are not read out quickly enough,
-message loss will happen. The CAN statistics should list such overruns,
-though.
-
-> For the next test I'll set the BTR's directly.
-
-OK, if you do not see bus errors, everything should be fine.
-
-> Further sometimes I can find one in dropped but mostly not.
+> Signed-off-by: Jan Beulich <jbeulich@suse.com>
+> Cc: Jens Axboe <axboe@kernel.dk>
+> Cc: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+> Cc: Florian Tobias Schandinat <FlorianSchandinat@gmx.de>
+> Cc: Ian Campbell <ian.campbell@citrix.com>
+> Cc: David S. Miller <davem@davemloft.net>
 > 
-> But more odd is that after an undefined time the transmission gets
-> stuck followed by a buffer overrun but can receive.
-
-I recently found a bug. Please try this fix:
-
-http://marc.info/?l=linux-can&m=132370253713701&w=4
-
-Did you realize related error messages in the dmesg output?
-
-> No error messages nor changes in ip -d -s link show can0.
+> ---
+>  drivers/block/xen-blkback/xenbus.c         |    9 ++------
+>  drivers/block/xen-blkfront.c               |   11 +++-------
+>  drivers/input/misc/xen-kbdfront.c          |    7 +-----
+>  drivers/net/xen-netback/xenbus.c           |    9 ++------
+>  drivers/net/xen-netfront.c                 |    9 ++------
+>  drivers/pci/xen-pcifront.c                 |   11 +++-------
+>  drivers/video/xen-fbfront.c                |    9 ++------
+>  drivers/xen/xen-pciback/xenbus.c           |   13 ++++--------
+>  drivers/xen/xenbus/xenbus_probe.c          |    7 ------
+>  drivers/xen/xenbus/xenbus_probe.h          |    4 ---
+>  drivers/xen/xenbus/xenbus_probe_backend.c  |    8 ++-----
+>  drivers/xen/xenbus/xenbus_probe_frontend.c |    8 ++-----
+>  include/xen/xenbus.h                       |   31 ++++++++---------------------
+>  13 files changed, 44 insertions(+), 92 deletions(-)
 > 
-> Additional it seems that neither the automatic restart nor
-> the manual one works.
-
-What version are you using. I think this problem has been fixed by
-adding the missing netif_start_queue() at the end of the open
-function, as mentioned above. Do you have that in your driver?
-
-> ip link set can0 up type can restart gives me 'RTNETLINK answers: Invalid
-> argument' and ip link set can0 up type can bitrate 500000 restart a
-> RTNETLINK answers: Device or resource busy but nothing connected to can0.
-
-The error message is shown because you try to set bitrate when the
-device is up. For the restart after bus-off just type:
-
-  # ip link set can0 type can restart
-
-Anyway, if you run into a bus-off, then it's likely that you have
-electrical problems on the CAN bus, e.g. termination, mismatching
-bit-timing parameters.
-
-> So I have to perform per example  ip link set can0 down;ip link set can0 up
-> type can bitrate 500000 restart-ms 2000 sample-point 0.75
-> but this is emptying the buffer and these telegrams are lost then as well.
+> --- 3.2-rc6/drivers/block/xen-blkback/xenbus.c
+> +++ 3.2-rc6-struct-xenbus_driver/drivers/block/xen-blkback/xenbus.c
+> @@ -787,17 +787,14 @@ static const struct xenbus_device_id xen
+>  };
 > 
-> I was comparing with my lincan driver which was running so far ok also
-> to confirm a proper working PLC.
 > 
-> First I assumed that maybe the set_reset_mode procedure is responsible for
-> that misbehaviour because according to the cc770 manual we should wait for
-> a zero of bit 7 RstST of the CPU interface register but when the
-> transmission
-> gets stuck there was no call for set_reset_mode.
+> -static struct xenbus_driver xen_blkbk = {
+> -       .name = "vbd",
+> -       .owner = THIS_MODULE,
+> -       .ids = xen_blkbk_ids,
+> +static DEFINE_XENBUS_DRIVER(xen_blkbk, ,
+>         .probe = xen_blkbk_probe,
+>         .remove = xen_blkbk_remove,
+>         .otherend_changed = frontend_changed
+> -};
+> +);
 > 
-> Maybe it's ending up somehow recessive.
 > 
-> Anyway, I might compare the registers of both drivers just to figure out
-> what's going on but maybe You have an idea as well.
+>  int xen_blkif_xenbus_init(void)
+>  {
+> -       return xenbus_register_backend(&xen_blkbk);
+> +       return xenbus_register_backend(&xen_blkbk_driver);
+>  }
+> --- 3.2-rc6/drivers/block/xen-blkfront.c
+> +++ 3.2-rc6-struct-xenbus_driver/drivers/block/xen-blkfront.c
+> @@ -1437,16 +1437,13 @@ static const struct xenbus_device_id blk
+>         { "" }
+>  };
 > 
-> Problem is just it runs always quite some time until the issues happen
-> otherwise it would be more easy.
-
-Again, please check if you have netif_start_queue() at the end of the
-open function.
-
-Wolfgang.
+> -static struct xenbus_driver blkfront = {
+> -       .name = "vbd",
+> -       .owner = THIS_MODULE,
+> -       .ids = blkfront_ids,
+> +static DEFINE_XENBUS_DRIVER(blkfront, ,
+>         .probe = blkfront_probe,
+>         .remove = blkfront_remove,
+>         .resume = blkfront_resume,
+>         .otherend_changed = blkback_changed,
+>         .is_ready = blkfront_is_ready,
+> -};
+> +);
+> 
+>  static int __init xlblk_init(void)
+>  {
+> @@ -1461,7 +1458,7 @@ static int __init xlblk_init(void)
+>                 return -ENODEV;
+>         }
+> 
+> -       ret = xenbus_register_frontend(&blkfront);
+> +       ret = xenbus_register_frontend(&blkfront_driver);
+>         if (ret) {
+>                 unregister_blkdev(XENVBD_MAJOR, DEV_NAME);
+>                 return ret;
+> @@ -1474,7 +1471,7 @@ module_init(xlblk_init);
+> 
+>  static void __exit xlblk_exit(void)
+>  {
+> -       return xenbus_unregister_driver(&blkfront);
+> +       return xenbus_unregister_driver(&blkfront_driver);
+>  }
+>  module_exit(xlblk_exit);
+> 
+> --- 3.2-rc6/drivers/input/misc/xen-kbdfront.c
+> +++ 3.2-rc6-struct-xenbus_driver/drivers/input/misc/xen-kbdfront.c
+> @@ -361,15 +361,12 @@ static const struct xenbus_device_id xen
+>         { "" }
+>  };
+> 
+> -static struct xenbus_driver xenkbd_driver = {
+> -       .name = "vkbd",
+> -       .owner = THIS_MODULE,
+> -       .ids = xenkbd_ids,
+> +static DEFINE_XENBUS_DRIVER(xenkbd, ,
+>         .probe = xenkbd_probe,
+>         .remove = xenkbd_remove,
+>         .resume = xenkbd_resume,
+>         .otherend_changed = xenkbd_backend_changed,
+> -};
+> +);
+> 
+>  static int __init xenkbd_init(void)
+>  {
+> --- 3.2-rc6/drivers/net/xen-netback/xenbus.c
+> +++ 3.2-rc6-struct-xenbus_driver/drivers/net/xen-netback/xenbus.c
+> @@ -474,17 +474,14 @@ static const struct xenbus_device_id net
+>  };
+> 
+> 
+> -static struct xenbus_driver netback = {
+> -       .name = "vif",
+> -       .owner = THIS_MODULE,
+> -       .ids = netback_ids,
+> +static DEFINE_XENBUS_DRIVER(netback, ,
+>         .probe = netback_probe,
+>         .remove = netback_remove,
+>         .uevent = netback_uevent,
+>         .otherend_changed = frontend_changed,
+> -};
+> +);
+> 
+>  int xenvif_xenbus_init(void)
+>  {
+> -       return xenbus_register_backend(&netback);
+> +       return xenbus_register_backend(&netback_driver);
+>  }
+> --- 3.2-rc6/drivers/net/xen-netfront.c
+> +++ 3.2-rc6-struct-xenbus_driver/drivers/net/xen-netfront.c
+> @@ -1910,7 +1910,7 @@ static void xennet_sysfs_delif(struct ne
+> 
+>  #endif /* CONFIG_SYSFS */
+> 
+> -static struct xenbus_device_id netfront_ids[] = {
+> +static const struct xenbus_device_id netfront_ids[] = {
+>         { "vif" },
+>         { "" }
+>  };
+> @@ -1937,15 +1937,12 @@ static int __devexit xennet_remove(struc
+>         return 0;
+>  }
+> 
+> -static struct xenbus_driver netfront_driver = {
+> -       .name = "vif",
+> -       .owner = THIS_MODULE,
+> -       .ids = netfront_ids,
+> +static DEFINE_XENBUS_DRIVER(netfront, ,
+>         .probe = netfront_probe,
+>         .remove = __devexit_p(xennet_remove),
+>         .resume = netfront_resume,
+>         .otherend_changed = netback_changed,
+> -};
+> +);
+> 
+>  static int __init netif_init(void)
+>  {
+> --- 3.2-rc6/drivers/pci/xen-pcifront.c
+> +++ 3.2-rc6-struct-xenbus_driver/drivers/pci/xen-pcifront.c
+> @@ -1126,14 +1126,11 @@ static const struct xenbus_device_id xen
+>         {""},
+>  };
+> 
+> -static struct xenbus_driver xenbus_pcifront_driver = {
+> -       .name                   = "pcifront",
+> -       .owner                  = THIS_MODULE,
+> -       .ids                    = xenpci_ids,
+> +static DEFINE_XENBUS_DRIVER(xenpci, "pcifront",
+>         .probe                  = pcifront_xenbus_probe,
+>         .remove                 = pcifront_xenbus_remove,
+>         .otherend_changed       = pcifront_backend_changed,
+> -};
+> +);
+> 
+>  static int __init pcifront_init(void)
+>  {
+> @@ -1142,12 +1139,12 @@ static int __init pcifront_init(void)
+> 
+>         pci_frontend_registrar(1 /* enable */);
+> 
+> -       return xenbus_register_frontend(&xenbus_pcifront_driver);
+> +       return xenbus_register_frontend(&xenpci_driver);
+>  }
+> 
+>  static void __exit pcifront_cleanup(void)
+>  {
+> -       xenbus_unregister_driver(&xenbus_pcifront_driver);
+> +       xenbus_unregister_driver(&xenpci_driver);
+>         pci_frontend_registrar(0 /* disable */);
+>  }
+>  module_init(pcifront_init);
+> --- 3.2-rc6/drivers/video/xen-fbfront.c
+> +++ 3.2-rc6-struct-xenbus_driver/drivers/video/xen-fbfront.c
+> @@ -671,20 +671,17 @@ InitWait:
+>         }
+>  }
+> 
+> -static struct xenbus_device_id xenfb_ids[] = {
+> +static const struct xenbus_device_id xenfb_ids[] = {
+>         { "vfb" },
+>         { "" }
+>  };
+> 
+> -static struct xenbus_driver xenfb_driver = {
+> -       .name = "vfb",
+> -       .owner = THIS_MODULE,
+> -       .ids = xenfb_ids,
+> +static DEFINE_XENBUS_DRIVER(xenfb, ,
+>         .probe = xenfb_probe,
+>         .remove = xenfb_remove,
+>         .resume = xenfb_resume,
+>         .otherend_changed = xenfb_backend_changed,
+> -};
+> +);
+> 
+>  static int __init xenfb_init(void)
+>  {
+> --- 3.2-rc6/drivers/xen/xen-pciback/xenbus.c
+> +++ 3.2-rc6-struct-xenbus_driver/drivers/xen/xen-pciback/xenbus.c
+> @@ -707,19 +707,16 @@ static int xen_pcibk_xenbus_remove(struc
+>         return 0;
+>  }
+> 
+> -static const struct xenbus_device_id xenpci_ids[] = {
+> +static const struct xenbus_device_id xen_pcibk_ids[] = {
+>         {"pci"},
+>         {""},
+>  };
+> 
+> -static struct xenbus_driver xenbus_xen_pcibk_driver = {
+> -       .name                   = DRV_NAME,
+> -       .owner                  = THIS_MODULE,
+> -       .ids                    = xenpci_ids,
+> +static DEFINE_XENBUS_DRIVER(xen_pcibk, DRV_NAME,
+>         .probe                  = xen_pcibk_xenbus_probe,
+>         .remove                 = xen_pcibk_xenbus_remove,
+>         .otherend_changed       = xen_pcibk_frontend_changed,
+> -};
+> +);
+> 
+>  const struct xen_pcibk_backend *__read_mostly xen_pcibk_backend;
+> 
+> @@ -735,11 +732,11 @@ int __init xen_pcibk_xenbus_register(voi
+>         if (passthrough)
+>                 xen_pcibk_backend = &xen_pcibk_passthrough_backend;
+>         pr_info(DRV_NAME ": backend is %s\n", xen_pcibk_backend->name);
+> -       return xenbus_register_backend(&xenbus_xen_pcibk_driver);
+> +       return xenbus_register_backend(&xen_pcibk_driver);
+>  }
+> 
+>  void __exit xen_pcibk_xenbus_unregister(void)
+>  {
+>         destroy_workqueue(xen_pcibk_wq);
+> -       xenbus_unregister_driver(&xenbus_xen_pcibk_driver);
+> +       xenbus_unregister_driver(&xen_pcibk_driver);
+>  }
+> --- 3.2-rc6/drivers/xen/xenbus/xenbus_probe.c
+> +++ 3.2-rc6-struct-xenbus_driver/drivers/xen/xenbus/xenbus_probe.c
+> @@ -291,14 +291,9 @@ void xenbus_dev_shutdown(struct device *
+>  EXPORT_SYMBOL_GPL(xenbus_dev_shutdown);
+> 
+>  int xenbus_register_driver_common(struct xenbus_driver *drv,
+> -                                 struct xen_bus_type *bus,
+> -                                 struct module *owner,
+> -                                 const char *mod_name)
+> +                                 struct xen_bus_type *bus)
+>  {
+> -       drv->driver.name = drv->name;
+>         drv->driver.bus = &bus->bus;
+> -       drv->driver.owner = owner;
+> -       drv->driver.mod_name = mod_name;
+> 
+>         return driver_register(&drv->driver);
+>  }
+> --- 3.2-rc6/drivers/xen/xenbus/xenbus_probe.h
+> +++ 3.2-rc6-struct-xenbus_driver/drivers/xen/xenbus/xenbus_probe.h
+> @@ -53,9 +53,7 @@ extern int xenbus_match(struct device *_
+>  extern int xenbus_dev_probe(struct device *_dev);
+>  extern int xenbus_dev_remove(struct device *_dev);
+>  extern int xenbus_register_driver_common(struct xenbus_driver *drv,
+> -                                        struct xen_bus_type *bus,
+> -                                        struct module *owner,
+> -                                        const char *mod_name);
+> +                                        struct xen_bus_type *bus);
+>  extern int xenbus_probe_node(struct xen_bus_type *bus,
+>                              const char *type,
+>                              const char *nodename);
+> --- 3.2-rc6/drivers/xen/xenbus/xenbus_probe_backend.c
+> +++ 3.2-rc6-struct-xenbus_driver/drivers/xen/xenbus/xenbus_probe_backend.c
+> @@ -232,15 +232,13 @@ int xenbus_dev_is_online(struct xenbus_d
+>  }
+>  EXPORT_SYMBOL_GPL(xenbus_dev_is_online);
+> 
+> -int __xenbus_register_backend(struct xenbus_driver *drv,
+> -                             struct module *owner, const char *mod_name)
+> +int xenbus_register_backend(struct xenbus_driver *drv)
+>  {
+>         drv->read_otherend_details = read_frontend_details;
+> 
+> -       return xenbus_register_driver_common(drv, &xenbus_backend,
+> -                                            owner, mod_name);
+> +       return xenbus_register_driver_common(drv, &xenbus_backend);
+>  }
+> -EXPORT_SYMBOL_GPL(__xenbus_register_backend);
+> +EXPORT_SYMBOL_GPL(xenbus_register_backend);
+> 
+>  static int backend_probe_and_watch(struct notifier_block *notifier,
+>                                    unsigned long event,
+> --- 3.2-rc6/drivers/xen/xenbus/xenbus_probe_frontend.c
+> +++ 3.2-rc6-struct-xenbus_driver/drivers/xen/xenbus/xenbus_probe_frontend.c
+> @@ -230,15 +230,13 @@ static void wait_for_devices(struct xenb
+>                          print_device_status);
+>  }
+> 
+> -int __xenbus_register_frontend(struct xenbus_driver *drv,
+> -                              struct module *owner, const char *mod_name)
+> +int xenbus_register_frontend(struct xenbus_driver *drv)
+>  {
+>         int ret;
+> 
+>         drv->read_otherend_details = read_backend_details;
+> 
+> -       ret = xenbus_register_driver_common(drv, &xenbus_frontend,
+> -                                           owner, mod_name);
+> +       ret = xenbus_register_driver_common(drv, &xenbus_frontend);
+>         if (ret)
+>                 return ret;
+> 
+> @@ -247,7 +245,7 @@ int __xenbus_register_frontend(struct xe
+> 
+>         return 0;
+>  }
+> -EXPORT_SYMBOL_GPL(__xenbus_register_frontend);
+> +EXPORT_SYMBOL_GPL(xenbus_register_frontend);
+> 
+>  static DECLARE_WAIT_QUEUE_HEAD(backend_state_wq);
+>  static int backend_state;
+> --- 3.2-rc6/include/xen/xenbus.h
+> +++ 3.2-rc6-struct-xenbus_driver/include/xen/xenbus.h
+> @@ -85,8 +85,6 @@ struct xenbus_device_id
+> 
+>  /* A xenbus driver. */
+>  struct xenbus_driver {
+> -       char *name;
+> -       struct module *owner;
+>         const struct xenbus_device_id *ids;
+>         int (*probe)(struct xenbus_device *dev,
+>                      const struct xenbus_device_id *id);
+> @@ -101,31 +99,20 @@ struct xenbus_driver {
+>         int (*is_ready)(struct xenbus_device *dev);
+>  };
+> 
+> -static inline struct xenbus_driver *to_xenbus_driver(struct device_driver *drv)
+> -{
+> -       return container_of(drv, struct xenbus_driver, driver);
+> +#define DEFINE_XENBUS_DRIVER(var, drvname, methods...)         \
+> +struct xenbus_driver var ## _driver = {                                \
+> +       .driver.name = drvname + 0 ?: var ## _ids->devicetype,  \
+> +       .driver.owner = THIS_MODULE,                            \
+> +       .ids = var ## _ids, ## methods                          \
+>  }
+> 
+> -int __must_check __xenbus_register_frontend(struct xenbus_driver *drv,
+> -                                           struct module *owner,
+> -                                           const char *mod_name);
+> -
+> -static inline int __must_check
+> -xenbus_register_frontend(struct xenbus_driver *drv)
+> +static inline struct xenbus_driver *to_xenbus_driver(struct device_driver *drv)
+>  {
+> -       WARN_ON(drv->owner != THIS_MODULE);
+> -       return __xenbus_register_frontend(drv, THIS_MODULE, KBUILD_MODNAME);
+> +       return container_of(drv, struct xenbus_driver, driver);
+>  }
+> 
+> -int __must_check __xenbus_register_backend(struct xenbus_driver *drv,
+> -                                          struct module *owner,
+> -                                          const char *mod_name);
+> -static inline int __must_check
+> -xenbus_register_backend(struct xenbus_driver *drv)
+> -{
+> -       WARN_ON(drv->owner != THIS_MODULE);
+> -       return __xenbus_register_backend(drv, THIS_MODULE, KBUILD_MODNAME);
+> -}
+> +int __must_check xenbus_register_frontend(struct xenbus_driver *);
+> +int __must_check xenbus_register_backend(struct xenbus_driver *);
+> 
+>  void xenbus_unregister_driver(struct xenbus_driver *drv);
+> 
+> 
+> 
