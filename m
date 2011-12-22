@@ -1,31 +1,53 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [RFC] iproute2: split up ip man page?
-Date: Fri, 23 Dec 2011 01:10:03 +0100
-Message-ID: <20111223001003.GD4767@hell>
-References: <20111207131514.6815f813@nehalam.linuxnetplumber.net>
- <20111222103723.59a035df@nehalam.linuxnetplumber.net>
+From: <kgudipat@brocade.com>
+Subject: [PATCH 0/2] bna: Enable ethtool flash management and debugfs interface.
+Date: Thu, 22 Dec 2011 15:29:07 -0800
+Message-ID: <1324596547-7646-1-git-send-email-kgudipat@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain
+Cc: <adapter_linux_open_src_team@brocade.com>, <kgudipat@brocade.com>,
+	<rmody@brocade.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:43547 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752209Ab1LWAKH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2011 19:10:07 -0500
-Content-Disposition: inline
-In-Reply-To: <20111222103723.59a035df@nehalam.linuxnetplumber.net>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:46473 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751334Ab1LWAKr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2011 19:10:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Stephen Hemminger | 2011-12-22 10:37:23 [-0800]:
+From: Krishna Gudipati <kgudipat@brocade.com>
 
->Ok, the ip man page is now broken up. I tried to fix some of the
->incorrect grammar and usage as well. The pages still need editing for
->readability.
+Hi Dave,
 
-Great! Commit 1b1177ed5f3 synched kernel headers. Should I rebase my iproute
-netem rate patch (and again update include/linux/pkt_sched.h for net-next) or
-keep you aware of this?
+	The following patch-set enhances BNA ethtool to support flash management
+using eeprom entry points and also enables debugfs support for BNA driver to
+collect firmware traces, saved firmware trace in the flash on an IOC crash and to
+perform register reads/writes.
 
-Hagen
+	The patch is compiled and tested against latest net-next kernel.
+
+Thanks,
+Krishna
+
+Krishna Gudipati (2):
+  bna: Added flash sub-module and ethtool eeprom entry points.
+  bna: Add debugfs interface.
+
+ drivers/net/ethernet/brocade/bna/Makefile       |    2 +-
+ drivers/net/ethernet/brocade/bna/bfa_cee.c      |   35 ++
+ drivers/net/ethernet/brocade/bna/bfa_cee.h      |    4 +-
+ drivers/net/ethernet/brocade/bna/bfa_defs.h     |   98 +++--
+ drivers/net/ethernet/brocade/bna/bfa_ioc.c      |  493 ++++++++++++++++++
+ drivers/net/ethernet/brocade/bna/bfa_ioc.h      |   54 ++
+ drivers/net/ethernet/brocade/bna/bfi.h          |   97 ++++
+ drivers/net/ethernet/brocade/bna/bna_enet.c     |   13 +-
+ drivers/net/ethernet/brocade/bna/bna_types.h    |    1 +
+ drivers/net/ethernet/brocade/bna/bnad.c         |   52 ++-
+ drivers/net/ethernet/brocade/bna/bnad.h         |   27 +
+ drivers/net/ethernet/brocade/bna/bnad_debugfs.c |  623 +++++++++++++++++++++++
+ drivers/net/ethernet/brocade/bna/bnad_ethtool.c |  142 +++++-
+ 13 files changed, 1598 insertions(+), 43 deletions(-)
+ create mode 100644 drivers/net/ethernet/brocade/bna/bnad_debugfs.c
+
+-- 
+1.7.3.rc1
