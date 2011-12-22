@@ -1,59 +1,89 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] bridge: provide a mtu() method for fake_dst_ops
-Date: Thu, 22 Dec 2011 07:00:32 +0100
-Message-ID: <1324533632.2621.35.camel@edumazet-laptop>
-References: <4EF200BB.7000209@bootc.net>
-	 <1324484956.2301.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4EF2117F.6000803@bootc.net>
-	 <1324488984.2301.45.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1324490401.2301.46.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4EF23BF2.4000601@bootc.net> <1324499332.2621.7.camel@edumazet-laptop>
-	 <1324500775.2621.9.camel@edumazet-laptop> <4EF2568C.6040006@bootc.net>
-	 <AEC29013-98F3-4A16-A88B-AD31C9E88EB8@bootc.net>
-	 <1324528656.2621.19.camel@edumazet-laptop>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the final tree (net tree
+ related)
+Date: Thu, 22 Dec 2011 17:07:26 +1100
+Message-ID: <20111222170726.b16565ef7d1434cc4ec170d7@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Chris Boot <bootc@bootc.net>, David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1324528656.2621.19.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__22_Dec_2011_17_07_26_+1100_zPnZRsnIu7nYL/Zw"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Linus <torvalds@linux-foundation.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 618f9bc74a039da76 (net: Move mtu handling down to the protocol
-depended handlers) forgot the bridge netfilter case, adding a NULL
-dereference in ip_fragment().
+--Signature=_Thu__22_Dec_2011_17_07_26_+1100_zPnZRsnIu7nYL/Zw
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Reported-by: Chris Boot <bootc@bootc.net>
-CC: Steffen Klassert <steffen.klassert@secunet.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Hi all,
+
+After merging the final tree, today's linux-next build (sparc32 defconfig)
+failed like this:
+
+net/ipv4/route.c: In function 'rt_check_expire':
+net/ipv4/route.c:873:4: error: implicit declaration of function 'prefetch' =
+[-Werror=3Dimplicit-function-declaration]
+
+Caused by commit 9f28a2fc0bd7 ("ipv4: reintroduce route cache garbage
+collector").
+
+Linus, that commit is in the latest pull request you have from Dave ...
+
+I applied the following patch for today:
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 22 Dec 2011 17:03:29 +1100
+Subject: [PATCH] ipv4: using prefetch requires including prefetch.h
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 ---
- net/bridge/br_netfilter.c |    6 ++++++
- 1 file changed, 6 insertions(+)
+ net/ipv4/route.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index d6ec372..08757dc 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -114,12 +114,18 @@ static struct neighbour *fake_neigh_lookup(const struct dst_entry *dst, const vo
- 	return NULL;
- }
- 
-+static unsigned int fake_mtu(const struct dst_entry *dst)
-+{
-+	return dst->dev->mtu;
-+}
-+
- static struct dst_ops fake_dst_ops = {
- 	.family =		AF_INET,
- 	.protocol =		cpu_to_be16(ETH_P_IP),
- 	.update_pmtu =		fake_update_pmtu,
- 	.cow_metrics =		fake_cow_metrics,
- 	.neigh_lookup =		fake_neigh_lookup,
-+	.mtu =			fake_mtu,
- };
- 
- /*
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 7460483..9c01f56 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -91,6 +91,7 @@
+ #include <linux/rcupdate.h>
+ #include <linux/times.h>
+ #include <linux/slab.h>
++#include <linux/prefetch.h>
+ #include <net/dst.h>
+ #include <net/net_namespace.h>
+ #include <net/protocol.h>
+--=20
+1.7.8.197.g73c6b
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Thu__22_Dec_2011_17_07_26_+1100_zPnZRsnIu7nYL/Zw
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBCAAGBQJO8skeAAoJEECxmPOUX5FEpJ8P/3COL4qJAgYd0aYdIKIrngj1
++r2N4UZypMKg1hYcR4RCETeb/qyotgppdTwX93GNF+nXQ2if/2ql0B2cUWkB4a6F
+s1IvsLRQLBcEtqkPtElJZuUa3geEfGVF7x2GxQ+7TpSKF/1mgVs9dUMZa18yOsxL
+31IcVV9Rb15trJuWVQM3Rk+1SC/zlPdyMjLAnI2mnEIy2I1HGCKwi4WQTJQjE26N
+2AStPiDoEzin6tMfbKp17TVBVLYAZs0SkIwvzxh2J3Vlp3MNIR+rybOZTRQJsvtZ
+p0IUKPk4Kh4xiXtLJZ562fAOkli7YRYYf4uVq26CZuHKvpejUnfy9jHJuqoVEpwn
+AsrM9G8NAFFgTBWLKDj/ha2Gr1IAuUy5R2NLahi8YPWe9aZAWOcn31097V62T8XL
+tStFOSrFupUWVE7bfD0ZKdrvuZpUKpyfUhQpWapt56JLucCchcVSQawTjSluIS21
+8f+14EyI4TOR3Z5OfT1+EaIRHxCyYFhUEojSHPsYcmFl0GXkSzn823EVc5yh4fpb
+UjNqUzJwqrJQYxQiJWWf/W9CW37xoZyOy9IIof+xOcC5E3wftjE+gTZdMBqXLYhe
+NhBzDpP7qzQrYMZZKAGHYCv/hAL4je1quDv5RseHW1cq6Sry5QB96e6So9OPIv3P
+fVc9q7kRE5i0IbcuQ9Qg
+=A/m7
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__22_Dec_2011_17_07_26_+1100_zPnZRsnIu7nYL/Zw--
