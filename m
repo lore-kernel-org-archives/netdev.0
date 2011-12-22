@@ -1,272 +1,653 @@
-From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: [PATCH] Partial revert "Basic kernel memory functionality for the Memory Controller"
-Date: Thu, 22 Dec 2011 12:53:10 +0400
-Message-ID: <1324543990-27784-1-git-send-email-glommer@parallels.com>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"Kirill A. Shutemov" <kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>,
-	Paul Menage <paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org>,
-	Greg Thelen <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Johannes Weiner <jweiner-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: [PATCH, v2] Xen: consolidate and simplify struct xenbus_driver
+ instantiation
+Date: Thu, 22 Dec 2011 09:08:13 +0000
+Message-ID: <4EF3018D020000780006986E@nat28.tlf.novell.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="=__Part4A65FB6D.9__="
+Cc: "Ian Campbell" <ian.campbell@citrix.com>, <davem@davemloft.net>,
+	<dmitry.torokhov@gmail.com>, <FlorianSchandinat@gmx.de>,
+	"Jens Axboe" <axboe@kernel.dk>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "Konrad Rzeszutek Wilk" <konrad@darnok.org>,
+	"Jeremy Fitzhardinge" <jeremy@goop.org>,
+	"Konrad Rzeszutek Wilk" <konrad.wilk@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This reverts commit e5671dfae59b165e2adfd4dfbdeab11ac8db5bda.
+This is a MIME message. If you are reading this text, you may want to 
+consider changing to a mail reader or gateway that understands how to 
+properly handle MIME multipart messages.
 
-After a follow up discussion with Michal, it was agreed it would
-be better to leave the kmem controller with just the tcp files,
-deferring the behavior of the other general memory.kmem.* files
-for a later time, when more caches are controlled.
+--=__Part4A65FB6D.9__=
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-We are reverting the original commit so we can track the reference.
-Part of the patch is kept, because it was used by the later tcp
-code. Conflicts are shown in the bottom. init/Kconfig is removed from
-the revert entirely.
+The 'name', 'owner', and 'mod_name' members are redundant with the
+identically named fields in the 'driver' sub-structure. Rather than
+switching each instance to specify these fields explicitly, introduce
+a macro to simplify this.
 
-Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-CC: Kirill A. Shutemov <kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>
-CC: Paul Menage <paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org>
-CC: Greg Thelen <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-CC: Johannes Weiner <jweiner-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-CC: Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
-CC: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Eliminate further redundancy by allowing the drvname argument to
+DEFINE_XENBUS_DRIVER() to be blank (in which case the first entry from
+the ID table will be used for .driver.name).
 
+Also eliminate the questionable xenbus_register_{back,front}end()
+wrappers - their sole remaining purpose was the checking of the
+'owner' field, proper setting of which shouldn't be an issue anymore
+when the macro gets used.
 
-Conflicts:
+v2: Restore DRV_NAME for the driver name in xen-pciback.
 
-	Documentation/cgroups/memory.txt
-	mm/memcontrol.c
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+Cc: Jens Axboe <axboe@kernel.dk>
+Cc: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Cc: Florian Tobias Schandinat <FlorianSchandinat@gmx.de>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: David S. Miller <davem@davemloft.net>
+
 ---
- Documentation/cgroups/memory.txt |   22 +--------
- mm/memcontrol.c                  |   93 +++-----------------------------------
- 2 files changed, 8 insertions(+), 107 deletions(-)
+ drivers/block/xen-blkback/xenbus.c         |    9 ++------
+ drivers/block/xen-blkfront.c               |   11 +++-------
+ drivers/input/misc/xen-kbdfront.c          |    7 +-----
+ drivers/net/xen-netback/xenbus.c           |    9 ++------
+ drivers/net/xen-netfront.c                 |    9 ++------
+ drivers/pci/xen-pcifront.c                 |   11 +++-------
+ drivers/video/xen-fbfront.c                |    9 ++------
+ drivers/xen/xen-pciback/xenbus.c           |   13 ++++--------
+ drivers/xen/xenbus/xenbus_probe.c          |    7 ------
+ drivers/xen/xenbus/xenbus_probe.h          |    4 ---
+ drivers/xen/xenbus/xenbus_probe_backend.c  |    8 ++-----
+ drivers/xen/xenbus/xenbus_probe_frontend.c |    8 ++-----
+ include/xen/xenbus.h                       |   31 ++++++++----------------=
+-----
+ 13 files changed, 44 insertions(+), 92 deletions(-)
 
-diff --git a/Documentation/cgroups/memory.txt b/Documentation/cgroups/memory.txt
-index 6922b6c..4d8774f 100644
---- a/Documentation/cgroups/memory.txt
-+++ b/Documentation/cgroups/memory.txt
-@@ -44,9 +44,8 @@ Features:
-  - oom-killer disable knob and oom-notifier
-  - Root cgroup has no limit controls.
- 
-- Hugepages is not under control yet. We just manage pages on LRU. To add more
-- controls, we have to take care of performance. Kernel memory support is work
-- in progress, and the current version provides basically functionality.
-+ Kernel memory support is work in progress, and the current version provides
-+ basically functionality. (See Section 2.7)
- 
- Brief summary of control files.
- 
-@@ -57,11 +56,8 @@ Brief summary of control files.
- 				 (See 5.5 for details)
-  memory.memsw.usage_in_bytes	 # show current res_counter usage for memory+Swap
- 				 (See 5.5 for details)
-- memory.kmem.usage_in_bytes	 # show current res_counter usage for kmem only.
--				 (See 2.7 for details)
-  memory.limit_in_bytes		 # set/show limit of memory usage
-  memory.memsw.limit_in_bytes	 # set/show limit of memory+Swap usage
-- memory.kmem.limit_in_bytes	 # if allowed, set/show limit of kernel memory
-  memory.failcnt			 # show the number of memory usage hits limits
-  memory.memsw.failcnt		 # show the number of memory+Swap hits limits
-  memory.max_usage_in_bytes	 # show max memory usage recorded
-@@ -76,8 +72,6 @@ Brief summary of control files.
-  memory.oom_control		 # set/show oom controls.
-  memory.numa_stat		 # show the number of memory usage per numa node
- 
-- memory.independent_kmem_limit	 # select whether or not kernel memory limits are
--				   independent of user limits
-  memory.kmem.tcp.limit_in_bytes  # set/show hard limit for tcp buf memory
-  memory.kmem.tcp.usage_in_bytes  # show current tcp buf memory allocation
- 
-@@ -271,21 +265,9 @@ the amount of kernel memory used by the system. Kernel memory is fundamentally
- different than user memory, since it can't be swapped out, which makes it
- possible to DoS the system by consuming too much of this precious resource.
- 
--Some kernel memory resources may be accounted and limited separately from the
--main "kmem" resource. For instance, a slab cache that is considered important
--enough to be limited separately may have its own knobs.
--
- Kernel memory limits are not imposed for the root cgroup. Usage for the root
- cgroup may or may not be accounted.
- 
--Memory limits as specified by the standard Memory Controller may or may not
--take kernel memory into consideration. This is achieved through the file
--memory.independent_kmem_limit. A Value different than 0 will allow for kernel
--memory to be controlled separately.
--
--When kernel memory limits are not independent, the limit values set in
--memory.kmem files are ignored.
--
- Currently no soft limit is implemented for kernel memory. It is future work
- to trigger slab reclaim when those limits are reached.
- 
-diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index 7266202..8cdc915 100644
---- a/mm/memcontrol.c
-+++ b/mm/memcontrol.c
-@@ -229,10 +229,6 @@ struct mem_cgroup {
- 	 */
- 	struct res_counter memsw;
- 	/*
--	 * the counter to account for kmem usage.
--	 */
--	struct res_counter kmem;
--	/*
- 	 * Per cgroup active and inactive list, similar to the
- 	 * per zone LRU lists.
- 	 */
-@@ -283,11 +279,6 @@ struct mem_cgroup {
- 	 */
- 	unsigned long 	move_charge_at_immigrate;
- 	/*
--	 * Should kernel memory limits be stabilished independently
--	 * from user memory ?
--	 */
--	int		kmem_independent_accounting;
--	/*
- 	 * percpu counter.
- 	 */
- 	struct mem_cgroup_stat_cpu *stat;
-@@ -359,14 +350,9 @@ enum charge_type {
+--- 3.2-rc6/drivers/block/xen-blkback/xenbus.c
++++ 3.2-rc6-struct-xenbus_driver/drivers/block/xen-blkback/xenbus.c
+@@ -787,17 +787,14 @@ static const struct xenbus_device_id xen
  };
- 
- /* for encoding cft->private value on file */
--
--enum mem_type {
--	_MEM = 0,
--	_MEMSWAP,
--	_OOM_TYPE,
--	_KMEM,
+=20
+=20
+-static struct xenbus_driver xen_blkbk =3D {
+-	.name =3D "vbd",
+-	.owner =3D THIS_MODULE,
+-	.ids =3D xen_blkbk_ids,
++static DEFINE_XENBUS_DRIVER(xen_blkbk, ,
+ 	.probe =3D xen_blkbk_probe,
+ 	.remove =3D xen_blkbk_remove,
+ 	.otherend_changed =3D frontend_changed
 -};
--
-+#define _MEM			(0)
-+#define _MEMSWAP		(1)
-+#define _OOM_TYPE		(2)
- #define MEMFILE_PRIVATE(x, val)	(((x) << 16) | (val))
- #define MEMFILE_TYPE(val)	(((val) >> 16) & 0xffff)
- #define MEMFILE_ATTR(val)	((val) & 0xffff)
-@@ -3919,17 +3905,10 @@ static inline u64 mem_cgroup_usage(struct mem_cgroup *memcg, bool swap)
- 	u64 val;
- 
- 	if (!mem_cgroup_is_root(memcg)) {
--		val = 0;
--#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
--		if (!memcg->kmem_independent_accounting)
--			val = res_counter_read_u64(&memcg->kmem, RES_USAGE);
--#endif
- 		if (!swap)
--			val += res_counter_read_u64(&memcg->res, RES_USAGE);
-+			return res_counter_read_u64(&memcg->res, RES_USAGE);
- 		else
--			val += res_counter_read_u64(&memcg->memsw, RES_USAGE);
--
--		return val;
-+			return res_counter_read_u64(&memcg->memsw, RES_USAGE);
- 	}
- 
- 	val = mem_cgroup_recursive_stat(memcg, MEM_CGROUP_STAT_CACHE);
-@@ -3962,11 +3941,6 @@ static u64 mem_cgroup_read(struct cgroup *cont, struct cftype *cft)
- 		else
- 			val = res_counter_read_u64(&memcg->memsw, name);
- 		break;
--#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
--	case _KMEM:
--		val = res_counter_read_u64(&memcg->kmem, name);
--		break;
--#endif
- 	default:
- 		BUG();
- 		break;
-@@ -4696,59 +4670,8 @@ static int mem_control_numa_stat_open(struct inode *unused, struct file *file)
- #endif /* CONFIG_NUMA */
- 
- #ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
--static u64 kmem_limit_independent_read(struct cgroup *cgroup, struct cftype *cft)
--{
--	return mem_cgroup_from_cont(cgroup)->kmem_independent_accounting;
--}
--
--static int kmem_limit_independent_write(struct cgroup *cgroup, struct cftype *cft,
--					u64 val)
--{
--	struct mem_cgroup *memcg = mem_cgroup_from_cont(cgroup);
--	struct mem_cgroup *parent = parent_mem_cgroup(memcg);
--
--	val = !!val;
--
--	/*
--	 * This follows the same hierarchy restrictions than
--	 * mem_cgroup_hierarchy_write()
--	 */
--	if (!parent || !parent->use_hierarchy) {
--		if (list_empty(&cgroup->children))
--			memcg->kmem_independent_accounting = val;
--		else
--			return -EBUSY;
--	}
--	else
--		return -EINVAL;
--
--	return 0;
--}
--static struct cftype kmem_cgroup_files[] = {
--	{
--		.name = "independent_kmem_limit",
--		.read_u64 = kmem_limit_independent_read,
--		.write_u64 = kmem_limit_independent_write,
--	},
--	{
--		.name = "kmem.usage_in_bytes",
--		.private = MEMFILE_PRIVATE(_KMEM, RES_USAGE),
--		.read_u64 = mem_cgroup_read,
--	},
--	{
--		.name = "kmem.limit_in_bytes",
--		.private = MEMFILE_PRIVATE(_KMEM, RES_LIMIT),
--		.read_u64 = mem_cgroup_read,
--	},
--};
--
- static int register_kmem_files(struct cgroup *cont, struct cgroup_subsys *ss)
++);
+=20
+=20
+ int xen_blkif_xenbus_init(void)
  {
--	int ret = 0;
--
--	ret = cgroup_add_files(cont, ss, kmem_cgroup_files,
--			       ARRAY_SIZE(kmem_cgroup_files));
--
- 	/*
- 	 * Part of this would be better living in a separate allocation
- 	 * function, leaving us with just the cgroup tree population work.
-@@ -4756,9 +4679,7 @@ static int register_kmem_files(struct cgroup *cont, struct cgroup_subsys *ss)
- 	 * is only initialized after cgroup creation. I found the less
- 	 * cumbersome way to deal with it to defer it all to populate time
- 	 */
--	if (!ret)
--		ret = mem_cgroup_sockets_init(cont, ss);
--	return ret;
-+	return mem_cgroup_sockets_init(cont, ss);
+-	return xenbus_register_backend(&xen_blkbk);
++	return xenbus_register_backend(&xen_blkbk_driver);
+ }
+--- 3.2-rc6/drivers/block/xen-blkfront.c
++++ 3.2-rc6-struct-xenbus_driver/drivers/block/xen-blkfront.c
+@@ -1437,16 +1437,13 @@ static const struct xenbus_device_id blk
+ 	{ "" }
  };
- 
- static void kmem_cgroup_destroy(struct cgroup_subsys *ss,
-@@ -5092,7 +5013,6 @@ mem_cgroup_create(struct cgroup_subsys *ss, struct cgroup *cont)
- 	if (parent && parent->use_hierarchy) {
- 		res_counter_init(&memcg->res, &parent->res);
- 		res_counter_init(&memcg->memsw, &parent->memsw);
--		res_counter_init(&memcg->kmem, &parent->kmem);
- 		/*
- 		 * We increment refcnt of the parent to ensure that we can
- 		 * safely access it on res_counter_charge/uncharge.
-@@ -5103,7 +5023,6 @@ mem_cgroup_create(struct cgroup_subsys *ss, struct cgroup *cont)
- 	} else {
- 		res_counter_init(&memcg->res, NULL);
- 		res_counter_init(&memcg->memsw, NULL);
--		res_counter_init(&memcg->kmem, NULL);
+=20
+-static struct xenbus_driver blkfront =3D {
+-	.name =3D "vbd",
+-	.owner =3D THIS_MODULE,
+-	.ids =3D blkfront_ids,
++static DEFINE_XENBUS_DRIVER(blkfront, ,
+ 	.probe =3D blkfront_probe,
+ 	.remove =3D blkfront_remove,
+ 	.resume =3D blkfront_resume,
+ 	.otherend_changed =3D blkback_changed,
+ 	.is_ready =3D blkfront_is_ready,
+-};
++);
+=20
+ static int __init xlblk_init(void)
+ {
+@@ -1461,7 +1458,7 @@ static int __init xlblk_init(void)
+ 		return -ENODEV;
  	}
- 	memcg->last_scanned_child = 0;
- 	memcg->last_scanned_node = MAX_NUMNODES;
--- 
-1.7.6.4
+=20
+-	ret =3D xenbus_register_frontend(&blkfront);
++	ret =3D xenbus_register_frontend(&blkfront_driver);
+ 	if (ret) {
+ 		unregister_blkdev(XENVBD_MAJOR, DEV_NAME);
+ 		return ret;
+@@ -1474,7 +1471,7 @@ module_init(xlblk_init);
+=20
+ static void __exit xlblk_exit(void)
+ {
+-	return xenbus_unregister_driver(&blkfront);
++	return xenbus_unregister_driver(&blkfront_driver);
+ }
+ module_exit(xlblk_exit);
+=20
+--- 3.2-rc6/drivers/input/misc/xen-kbdfront.c
++++ 3.2-rc6-struct-xenbus_driver/drivers/input/misc/xen-kbdfront.c
+@@ -361,15 +361,12 @@ static const struct xenbus_device_id xen
+ 	{ "" }
+ };
+=20
+-static struct xenbus_driver xenkbd_driver =3D {
+-	.name =3D "vkbd",
+-	.owner =3D THIS_MODULE,
+-	.ids =3D xenkbd_ids,
++static DEFINE_XENBUS_DRIVER(xenkbd, ,
+ 	.probe =3D xenkbd_probe,
+ 	.remove =3D xenkbd_remove,
+ 	.resume =3D xenkbd_resume,
+ 	.otherend_changed =3D xenkbd_backend_changed,
+-};
++);
+=20
+ static int __init xenkbd_init(void)
+ {
+--- 3.2-rc6/drivers/net/xen-netback/xenbus.c
++++ 3.2-rc6-struct-xenbus_driver/drivers/net/xen-netback/xenbus.c
+@@ -474,17 +474,14 @@ static const struct xenbus_device_id net
+ };
+=20
+=20
+-static struct xenbus_driver netback =3D {
+-	.name =3D "vif",
+-	.owner =3D THIS_MODULE,
+-	.ids =3D netback_ids,
++static DEFINE_XENBUS_DRIVER(netback, ,
+ 	.probe =3D netback_probe,
+ 	.remove =3D netback_remove,
+ 	.uevent =3D netback_uevent,
+ 	.otherend_changed =3D frontend_changed,
+-};
++);
+=20
+ int xenvif_xenbus_init(void)
+ {
+-	return xenbus_register_backend(&netback);
++	return xenbus_register_backend(&netback_driver);
+ }
+--- 3.2-rc6/drivers/net/xen-netfront.c
++++ 3.2-rc6-struct-xenbus_driver/drivers/net/xen-netfront.c
+@@ -1910,7 +1910,7 @@ static void xennet_sysfs_delif(struct ne
+=20
+ #endif /* CONFIG_SYSFS */
+=20
+-static struct xenbus_device_id netfront_ids[] =3D {
++static const struct xenbus_device_id netfront_ids[] =3D {
+ 	{ "vif" },
+ 	{ "" }
+ };
+@@ -1937,15 +1937,12 @@ static int __devexit xennet_remove(struc
+ 	return 0;
+ }
+=20
+-static struct xenbus_driver netfront_driver =3D {
+-	.name =3D "vif",
+-	.owner =3D THIS_MODULE,
+-	.ids =3D netfront_ids,
++static DEFINE_XENBUS_DRIVER(netfront, ,
+ 	.probe =3D netfront_probe,
+ 	.remove =3D __devexit_p(xennet_remove),
+ 	.resume =3D netfront_resume,
+ 	.otherend_changed =3D netback_changed,
+-};
++);
+=20
+ static int __init netif_init(void)
+ {
+--- 3.2-rc6/drivers/pci/xen-pcifront.c
++++ 3.2-rc6-struct-xenbus_driver/drivers/pci/xen-pcifront.c
+@@ -1126,14 +1126,11 @@ static const struct xenbus_device_id xen
+ 	{""},
+ };
+=20
+-static struct xenbus_driver xenbus_pcifront_driver =3D {
+-	.name			=3D "pcifront",
+-	.owner			=3D THIS_MODULE,
+-	.ids			=3D xenpci_ids,
++static DEFINE_XENBUS_DRIVER(xenpci, "pcifront",
+ 	.probe			=3D pcifront_xenbus_probe,
+ 	.remove			=3D pcifront_xenbus_remove,
+ 	.otherend_changed	=3D pcifront_backend_changed,
+-};
++);
+=20
+ static int __init pcifront_init(void)
+ {
+@@ -1142,12 +1139,12 @@ static int __init pcifront_init(void)
+=20
+ 	pci_frontend_registrar(1 /* enable */);
+=20
+-	return xenbus_register_frontend(&xenbus_pcifront_driver);
++	return xenbus_register_frontend(&xenpci_driver);
+ }
+=20
+ static void __exit pcifront_cleanup(void)
+ {
+-	xenbus_unregister_driver(&xenbus_pcifront_driver);
++	xenbus_unregister_driver(&xenpci_driver);
+ 	pci_frontend_registrar(0 /* disable */);
+ }
+ module_init(pcifront_init);
+--- 3.2-rc6/drivers/video/xen-fbfront.c
++++ 3.2-rc6-struct-xenbus_driver/drivers/video/xen-fbfront.c
+@@ -671,20 +671,17 @@ InitWait:
+ 	}
+ }
+=20
+-static struct xenbus_device_id xenfb_ids[] =3D {
++static const struct xenbus_device_id xenfb_ids[] =3D {
+ 	{ "vfb" },
+ 	{ "" }
+ };
+=20
+-static struct xenbus_driver xenfb_driver =3D {
+-	.name =3D "vfb",
+-	.owner =3D THIS_MODULE,
+-	.ids =3D xenfb_ids,
++static DEFINE_XENBUS_DRIVER(xenfb, ,
+ 	.probe =3D xenfb_probe,
+ 	.remove =3D xenfb_remove,
+ 	.resume =3D xenfb_resume,
+ 	.otherend_changed =3D xenfb_backend_changed,
+-};
++);
+=20
+ static int __init xenfb_init(void)
+ {
+--- 3.2-rc6/drivers/xen/xen-pciback/xenbus.c
++++ 3.2-rc6-struct-xenbus_driver/drivers/xen/xen-pciback/xenbus.c
+@@ -707,19 +707,16 @@ static int xen_pcibk_xenbus_remove(struc
+ 	return 0;
+ }
+=20
+-static const struct xenbus_device_id xenpci_ids[] =3D {
++static const struct xenbus_device_id xen_pcibk_ids[] =3D {
+ 	{"pci"},
+ 	{""},
+ };
+=20
+-static struct xenbus_driver xenbus_xen_pcibk_driver =3D {
+-	.name			=3D DRV_NAME,
+-	.owner			=3D THIS_MODULE,
+-	.ids			=3D xenpci_ids,
++static DEFINE_XENBUS_DRIVER(xen_pcibk, DRV_NAME,
+ 	.probe			=3D xen_pcibk_xenbus_probe,
+ 	.remove			=3D xen_pcibk_xenbus_remove,
+ 	.otherend_changed	=3D xen_pcibk_frontend_changed,
+-};
++);
+=20
+ const struct xen_pcibk_backend *__read_mostly xen_pcibk_backend;
+=20
+@@ -735,11 +732,11 @@ int __init xen_pcibk_xenbus_register(voi
+ 	if (passthrough)
+ 		xen_pcibk_backend =3D &xen_pcibk_passthrough_backend;
+ 	pr_info(DRV_NAME ": backend is %s\n", xen_pcibk_backend->name);
+-	return xenbus_register_backend(&xenbus_xen_pcibk_driver);
++	return xenbus_register_backend(&xen_pcibk_driver);
+ }
+=20
+ void __exit xen_pcibk_xenbus_unregister(void)
+ {
+ 	destroy_workqueue(xen_pcibk_wq);
+-	xenbus_unregister_driver(&xenbus_xen_pcibk_driver);
++	xenbus_unregister_driver(&xen_pcibk_driver);
+ }
+--- 3.2-rc6/drivers/xen/xenbus/xenbus_probe.c
++++ 3.2-rc6-struct-xenbus_driver/drivers/xen/xenbus/xenbus_probe.c
+@@ -291,14 +291,9 @@ void xenbus_dev_shutdown(struct device *
+ EXPORT_SYMBOL_GPL(xenbus_dev_shutdown);
+=20
+ int xenbus_register_driver_common(struct xenbus_driver *drv,
+-				  struct xen_bus_type *bus,
+-				  struct module *owner,
+-				  const char *mod_name)
++				  struct xen_bus_type *bus)
+ {
+-	drv->driver.name =3D drv->name;
+ 	drv->driver.bus =3D &bus->bus;
+-	drv->driver.owner =3D owner;
+-	drv->driver.mod_name =3D mod_name;
+=20
+ 	return driver_register(&drv->driver);
+ }
+--- 3.2-rc6/drivers/xen/xenbus/xenbus_probe.h
++++ 3.2-rc6-struct-xenbus_driver/drivers/xen/xenbus/xenbus_probe.h
+@@ -53,9 +53,7 @@ extern int xenbus_match(struct device *_
+ extern int xenbus_dev_probe(struct device *_dev);
+ extern int xenbus_dev_remove(struct device *_dev);
+ extern int xenbus_register_driver_common(struct xenbus_driver *drv,
+-					 struct xen_bus_type *bus,
+-					 struct module *owner,
+-					 const char *mod_name);
++					 struct xen_bus_type *bus);
+ extern int xenbus_probe_node(struct xen_bus_type *bus,
+ 			     const char *type,
+ 			     const char *nodename);
+--- 3.2-rc6/drivers/xen/xenbus/xenbus_probe_backend.c
++++ 3.2-rc6-struct-xenbus_driver/drivers/xen/xenbus/xenbus_probe_backend.c
+@@ -232,15 +232,13 @@ int xenbus_dev_is_online(struct xenbus_d
+ }
+ EXPORT_SYMBOL_GPL(xenbus_dev_is_online);
+=20
+-int __xenbus_register_backend(struct xenbus_driver *drv,
+-			      struct module *owner, const char *mod_name)
++int xenbus_register_backend(struct xenbus_driver *drv)
+ {
+ 	drv->read_otherend_details =3D read_frontend_details;
+=20
+-	return xenbus_register_driver_common(drv, &xenbus_backend,
+-					     owner, mod_name);
++	return xenbus_register_driver_common(drv, &xenbus_backend);
+ }
+-EXPORT_SYMBOL_GPL(__xenbus_register_backend);
++EXPORT_SYMBOL_GPL(xenbus_register_backend);
+=20
+ static int backend_probe_and_watch(struct notifier_block *notifier,
+ 				   unsigned long event,
+--- 3.2-rc6/drivers/xen/xenbus/xenbus_probe_frontend.c
++++ 3.2-rc6-struct-xenbus_driver/drivers/xen/xenbus/xenbus_probe_frontend.c=
+
+@@ -230,15 +230,13 @@ static void wait_for_devices(struct xenb
+ 			 print_device_status);
+ }
+=20
+-int __xenbus_register_frontend(struct xenbus_driver *drv,
+-			       struct module *owner, const char *mod_name)
++int xenbus_register_frontend(struct xenbus_driver *drv)
+ {
+ 	int ret;
+=20
+ 	drv->read_otherend_details =3D read_backend_details;
+=20
+-	ret =3D xenbus_register_driver_common(drv, &xenbus_frontend,
+-					    owner, mod_name);
++	ret =3D xenbus_register_driver_common(drv, &xenbus_frontend);
+ 	if (ret)
+ 		return ret;
+=20
+@@ -247,7 +245,7 @@ int __xenbus_register_frontend(struct xe
+=20
+ 	return 0;
+ }
+-EXPORT_SYMBOL_GPL(__xenbus_register_frontend);
++EXPORT_SYMBOL_GPL(xenbus_register_frontend);
+=20
+ static DECLARE_WAIT_QUEUE_HEAD(backend_state_wq);
+ static int backend_state;
+--- 3.2-rc6/include/xen/xenbus.h
++++ 3.2-rc6-struct-xenbus_driver/include/xen/xenbus.h
+@@ -85,8 +85,6 @@ struct xenbus_device_id
+=20
+ /* A xenbus driver. */
+ struct xenbus_driver {
+-	char *name;
+-	struct module *owner;
+ 	const struct xenbus_device_id *ids;
+ 	int (*probe)(struct xenbus_device *dev,
+ 		     const struct xenbus_device_id *id);
+@@ -101,31 +99,20 @@ struct xenbus_driver {
+ 	int (*is_ready)(struct xenbus_device *dev);
+ };
+=20
+-static inline struct xenbus_driver *to_xenbus_driver(struct device_driver =
+*drv)
+-{
+-	return container_of(drv, struct xenbus_driver, driver);
++#define DEFINE_XENBUS_DRIVER(var, drvname, methods...)		\
++struct xenbus_driver var ## _driver =3D {				\
++	.driver.name =3D drvname + 0 ?: var ## _ids->devicetype,	\
++	.driver.owner =3D THIS_MODULE,				\
++	.ids =3D var ## _ids, ## methods				\
+ }
+=20
+-int __must_check __xenbus_register_frontend(struct xenbus_driver *drv,
+-					    struct module *owner,
+-					    const char *mod_name);
+-
+-static inline int __must_check
+-xenbus_register_frontend(struct xenbus_driver *drv)
++static inline struct xenbus_driver *to_xenbus_driver(struct device_driver =
+*drv)
+ {
+-	WARN_ON(drv->owner !=3D THIS_MODULE);
+-	return __xenbus_register_frontend(drv, THIS_MODULE, KBUILD_MODNAME)=
+;
++	return container_of(drv, struct xenbus_driver, driver);
+ }
+=20
+-int __must_check __xenbus_register_backend(struct xenbus_driver *drv,
+-					   struct module *owner,
+-					   const char *mod_name);
+-static inline int __must_check
+-xenbus_register_backend(struct xenbus_driver *drv)
+-{
+-	WARN_ON(drv->owner !=3D THIS_MODULE);
+-	return __xenbus_register_backend(drv, THIS_MODULE, KBUILD_MODNAME);=
+
+-}
++int __must_check xenbus_register_frontend(struct xenbus_driver *);
++int __must_check xenbus_register_backend(struct xenbus_driver *);
+=20
+ void xenbus_unregister_driver(struct xenbus_driver *drv);
+=20
+
+
+
+--=__Part4A65FB6D.9__=
+Content-Type: text/plain; name="linux-3.2-rc6-struct-xenbus_driver.patch"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment; filename="linux-3.2-rc6-struct-xenbus_driver.patch"
+
+Xen: consolidate and simplify struct xenbus_driver instantiation=0A=0AThe =
+'name', 'owner', and 'mod_name' members are redundant with the=0Aidenticall=
+y named fields in the 'driver' sub-structure. Rather than=0Aswitching each =
+instance to specify these fields explicitly, introduce=0Aa macro to =
+simplify this.=0A=0AEliminate further redundancy by allowing the drvname =
+argument to=0ADEFINE_XENBUS_DRIVER() to be blank (in which case the first =
+entry from=0Athe ID table will be used for .driver.name).=0A=0AAlso =
+eliminate the questionable xenbus_register_{back,front}end()=0Awrappers - =
+their sole remaining purpose was the checking of the=0A'owner' field, =
+proper setting of which shouldn't be an issue anymore=0Awhen the macro =
+gets used.=0A=0Av2: Restore DRV_NAME for the driver name in xen-pciback.=0A=
+=0ASigned-off-by: Jan Beulich <jbeulich@suse.com>=0ACc: Jens Axboe =
+<axboe@kernel.dk>=0ACc: Dmitry Torokhov <dmitry.torokhov@gmail.com>=0ACc: =
+Florian Tobias Schandinat <FlorianSchandinat@gmx.de>=0ACc: Ian Campbell =
+<ian.campbell@citrix.com>=0ACc: David S. Miller <davem@davemloft.net>=0A=0A=
+---=0A drivers/block/xen-blkback/xenbus.c         |    9 ++------=0A =
+drivers/block/xen-blkfront.c               |   11 +++-------=0A drivers/inp=
+ut/misc/xen-kbdfront.c          |    7 +-----=0A drivers/net/xen-netback/xe=
+nbus.c           |    9 ++------=0A drivers/net/xen-netfront.c             =
+    |    9 ++------=0A drivers/pci/xen-pcifront.c                 |   11 =
++++-------=0A drivers/video/xen-fbfront.c                |    9 ++------=0A=
+ drivers/xen/xen-pciback/xenbus.c           |   13 ++++--------=0A =
+drivers/xen/xenbus/xenbus_probe.c          |    7 ------=0A drivers/xen/xen=
+bus/xenbus_probe.h          |    4 ---=0A drivers/xen/xenbus/xenbus_probe_b=
+ackend.c  |    8 ++-----=0A drivers/xen/xenbus/xenbus_probe_frontend.c |   =
+ 8 ++-----=0A include/xen/xenbus.h                       |   31 ++++++++---=
+------------------=0A 13 files changed, 44 insertions(+), 92 deletions(-)=
+=0A=0A--- 3.2-rc6/drivers/block/xen-blkback/xenbus.c=0A+++ 3.2-rc6-struct-x=
+enbus_driver/drivers/block/xen-blkback/xenbus.c=0A@@ -787,17 +787,14 @@ =
+static const struct xenbus_device_id xen=0A };=0A =0A =0A-static struct =
+xenbus_driver xen_blkbk =3D {=0A-	.name =3D "vbd",=0A-	.owner =3D =
+THIS_MODULE,=0A-	.ids =3D xen_blkbk_ids,=0A+static DEFINE_XENBUS_DRI=
+VER(xen_blkbk, ,=0A 	.probe =3D xen_blkbk_probe,=0A 	.remove =3D =
+xen_blkbk_remove,=0A 	.otherend_changed =3D frontend_changed=0A-};=0A+);=
+=0A =0A =0A int xen_blkif_xenbus_init(void)=0A {=0A-	return xenbus_regis=
+ter_backend(&xen_blkbk);=0A+	return xenbus_register_backend(&xen_blkbk_d=
+river);=0A }=0A--- 3.2-rc6/drivers/block/xen-blkfront.c=0A+++ 3.2-rc6-struc=
+t-xenbus_driver/drivers/block/xen-blkfront.c=0A@@ -1437,16 +1437,13 @@ =
+static const struct xenbus_device_id blk=0A 	{ "" }=0A };=0A =0A-static =
+struct xenbus_driver blkfront =3D {=0A-	.name =3D "vbd",=0A-	.owner =3D =
+THIS_MODULE,=0A-	.ids =3D blkfront_ids,=0A+static DEFINE_XENBUS_DRIV=
+ER(blkfront, ,=0A 	.probe =3D blkfront_probe,=0A 	.remove =3D =
+blkfront_remove,=0A 	.resume =3D blkfront_resume,=0A 	.otherend_c=
+hanged =3D blkback_changed,=0A 	.is_ready =3D blkfront_is_ready,=0A-};=0A+)=
+;=0A =0A static int __init xlblk_init(void)=0A {=0A@@ -1461,7 +1458,7 @@ =
+static int __init xlblk_init(void)=0A 		return -ENODEV;=0A 	=
+}=0A =0A-	ret =3D xenbus_register_frontend(&blkfront);=0A+	=
+ret =3D xenbus_register_frontend(&blkfront_driver);=0A 	if (ret) {=0A 		=
+unregister_blkdev(XENVBD_MAJOR, DEV_NAME);=0A 		return ret;=0A@@ =
+-1474,7 +1471,7 @@ module_init(xlblk_init);=0A =0A static void __exit =
+xlblk_exit(void)=0A {=0A-	return xenbus_unregister_driver(&blkfront);=
+=0A+	return xenbus_unregister_driver(&blkfront_driver);=0A }=0A =
+module_exit(xlblk_exit);=0A =0A--- 3.2-rc6/drivers/input/misc/xen-kbdfront.=
+c=0A+++ 3.2-rc6-struct-xenbus_driver/drivers/input/misc/xen-kbdfront.c=0A@@=
+ -361,15 +361,12 @@ static const struct xenbus_device_id xen=0A 	{ =
+"" }=0A };=0A =0A-static struct xenbus_driver xenkbd_driver =3D {=0A-	=
+.name =3D "vkbd",=0A-	.owner =3D THIS_MODULE,=0A-	.ids =3D xenkbd_ids=
+,=0A+static DEFINE_XENBUS_DRIVER(xenkbd, ,=0A 	.probe =3D xenkbd_probe,=0A=
+ 	.remove =3D xenkbd_remove,=0A 	.resume =3D xenkbd_resume,=0A 	=
+.otherend_changed =3D xenkbd_backend_changed,=0A-};=0A+);=0A =0A static =
+int __init xenkbd_init(void)=0A {=0A--- 3.2-rc6/drivers/net/xen-netback/xen=
+bus.c=0A+++ 3.2-rc6-struct-xenbus_driver/drivers/net/xen-netback/xenbus.c=
+=0A@@ -474,17 +474,14 @@ static const struct xenbus_device_id net=0A };=0A =
+=0A =0A-static struct xenbus_driver netback =3D {=0A-	.name =3D =
+"vif",=0A-	.owner =3D THIS_MODULE,=0A-	.ids =3D netback_ids,=0A+st=
+atic DEFINE_XENBUS_DRIVER(netback, ,=0A 	.probe =3D netback_probe,=
+=0A 	.remove =3D netback_remove,=0A 	.uevent =3D netback_uevent,=0A 	=
+.otherend_changed =3D frontend_changed,=0A-};=0A+);=0A =0A int xenvif_xenbu=
+s_init(void)=0A {=0A-	return xenbus_register_backend(&netback);=0A+	=
+return xenbus_register_backend(&netback_driver);=0A }=0A--- 3.2-rc6/drivers=
+/net/xen-netfront.c=0A+++ 3.2-rc6-struct-xenbus_driver/drivers/net/xen-netf=
+ront.c=0A@@ -1910,7 +1910,7 @@ static void xennet_sysfs_delif(struct ne=0A =
+=0A #endif /* CONFIG_SYSFS */=0A =0A-static struct xenbus_device_id =
+netfront_ids[] =3D {=0A+static const struct xenbus_device_id netfront_ids[]=
+ =3D {=0A 	{ "vif" },=0A 	{ "" }=0A };=0A@@ -1937,15 +1937,12 @@ =
+static int __devexit xennet_remove(struc=0A 	return 0;=0A }=0A =
+=0A-static struct xenbus_driver netfront_driver =3D {=0A-	.name =3D =
+"vif",=0A-	.owner =3D THIS_MODULE,=0A-	.ids =3D netfront_ids,=0A+s=
+tatic DEFINE_XENBUS_DRIVER(netfront, ,=0A 	.probe =3D netfront_probe,=
+=0A 	.remove =3D __devexit_p(xennet_remove),=0A 	.resume =3D =
+netfront_resume,=0A 	.otherend_changed =3D netback_changed,=0A-};=0A+);=
+=0A =0A static int __init netif_init(void)=0A {=0A--- 3.2-rc6/drivers/pci/x=
+en-pcifront.c=0A+++ 3.2-rc6-struct-xenbus_driver/drivers/pci/xen-pcifront.c=
+=0A@@ -1126,14 +1126,11 @@ static const struct xenbus_device_id xen=0A 	=
+{""},=0A };=0A =0A-static struct xenbus_driver xenbus_pcifront_driver =3D =
+{=0A-	.name			=3D "pcifront",=0A-	.owner			=
+=3D THIS_MODULE,=0A-	.ids			=3D xenpci_ids,=0A+static =
+DEFINE_XENBUS_DRIVER(xenpci, "pcifront",=0A 	.probe			=
+=3D pcifront_xenbus_probe,=0A 	.remove			=3D pcifront_xenbus=
+_remove,=0A 	.otherend_changed	=3D pcifront_backend_changed,=0A-};=
+=0A+);=0A =0A static int __init pcifront_init(void)=0A {=0A@@ -1142,12 =
++1139,12 @@ static int __init pcifront_init(void)=0A =0A 	pci_fronten=
+d_registrar(1 /* enable */);=0A =0A-	return xenbus_register_frontend(&xe=
+nbus_pcifront_driver);=0A+	return xenbus_register_frontend(&xenpci_dri=
+ver);=0A }=0A =0A static void __exit pcifront_cleanup(void)=0A {=0A-	=
+xenbus_unregister_driver(&xenbus_pcifront_driver);=0A+	xenbus_unregister_d=
+river(&xenpci_driver);=0A 	pci_frontend_registrar(0 /* disable =
+*/);=0A }=0A module_init(pcifront_init);=0A--- 3.2-rc6/drivers/video/xen-fb=
+front.c=0A+++ 3.2-rc6-struct-xenbus_driver/drivers/video/xen-fbfront.c=0A@@=
+ -671,20 +671,17 @@ InitWait:=0A 	}=0A }=0A =0A-static struct =
+xenbus_device_id xenfb_ids[] =3D {=0A+static const struct xenbus_device_id =
+xenfb_ids[] =3D {=0A 	{ "vfb" },=0A 	{ "" }=0A };=0A =0A-static struct =
+xenbus_driver xenfb_driver =3D {=0A-	.name =3D "vfb",=0A-	.owner =3D =
+THIS_MODULE,=0A-	.ids =3D xenfb_ids,=0A+static DEFINE_XENBUS_DRIVER(=
+xenfb, ,=0A 	.probe =3D xenfb_probe,=0A 	.remove =3D xenfb_remove,=
+=0A 	.resume =3D xenfb_resume,=0A 	.otherend_changed =3D xenfb_backend=
+_changed,=0A-};=0A+);=0A =0A static int __init xenfb_init(void)=0A {=0A--- =
+3.2-rc6/drivers/xen/xen-pciback/xenbus.c=0A+++ 3.2-rc6-struct-xenbus_driver=
+/drivers/xen/xen-pciback/xenbus.c=0A@@ -707,19 +707,16 @@ static int =
+xen_pcibk_xenbus_remove(struc=0A 	return 0;=0A }=0A =0A-static const =
+struct xenbus_device_id xenpci_ids[] =3D {=0A+static const struct =
+xenbus_device_id xen_pcibk_ids[] =3D {=0A 	{"pci"},=0A 	{""},=0A =
+};=0A =0A-static struct xenbus_driver xenbus_xen_pcibk_driver =3D {=0A-	=
+.name			=3D DRV_NAME,=0A-	.owner			=
+=3D THIS_MODULE,=0A-	.ids			=3D xenpci_ids,=0A+static =
+DEFINE_XENBUS_DRIVER(xen_pcibk, DRV_NAME,=0A 	.probe			=
+=3D xen_pcibk_xenbus_probe,=0A 	.remove			=3D xen_pcibk_xenbu=
+s_remove,=0A 	.otherend_changed	=3D xen_pcibk_frontend_changed,=0A-=
+};=0A+);=0A =0A const struct xen_pcibk_backend *__read_mostly xen_pcibk_bac=
+kend;=0A =0A@@ -735,11 +732,11 @@ int __init xen_pcibk_xenbus_register(voi=
+=0A 	if (passthrough)=0A 		xen_pcibk_backend =3D &xen_pcibk_pa=
+ssthrough_backend;=0A 	pr_info(DRV_NAME ": backend is %s\n", xen_pcibk_bac=
+kend->name);=0A-	return xenbus_register_backend(&xenbus_xen_pcibk_dr=
+iver);=0A+	return xenbus_register_backend(&xen_pcibk_driver);=0A }=0A =
+=0A void __exit xen_pcibk_xenbus_unregister(void)=0A {=0A 	destroy_wor=
+kqueue(xen_pcibk_wq);=0A-	xenbus_unregister_driver(&xenbus_xen_pcibk_=
+driver);=0A+	xenbus_unregister_driver(&xen_pcibk_driver);=0A }=0A--- =
+3.2-rc6/drivers/xen/xenbus/xenbus_probe.c=0A+++ 3.2-rc6-struct-xenbus_drive=
+r/drivers/xen/xenbus/xenbus_probe.c=0A@@ -291,14 +291,9 @@ void xenbus_dev_=
+shutdown(struct device *=0A EXPORT_SYMBOL_GPL(xenbus_dev_shutdown);=0A =0A =
+int xenbus_register_driver_common(struct xenbus_driver *drv,=0A-		=
+		  struct xen_bus_type *bus,=0A-				  =
+struct module *owner,=0A-				  const char =
+*mod_name)=0A+				  struct xen_bus_type *bus)=0A =
+{=0A-	drv->driver.name =3D drv->name;=0A 	drv->driver.bus =3D =
+&bus->bus;=0A-	drv->driver.owner =3D owner;=0A-	drv->driver.mod_nam=
+e =3D mod_name;=0A =0A 	return driver_register(&drv->driver);=0A }=0A--- =
+3.2-rc6/drivers/xen/xenbus/xenbus_probe.h=0A+++ 3.2-rc6-struct-xenbus_drive=
+r/drivers/xen/xenbus/xenbus_probe.h=0A@@ -53,9 +53,7 @@ extern int =
+xenbus_match(struct device *_=0A extern int xenbus_dev_probe(struct device =
+*_dev);=0A extern int xenbus_dev_remove(struct device *_dev);=0A extern =
+int xenbus_register_driver_common(struct xenbus_driver *drv,=0A-		=
+			 struct xen_bus_type *bus,=0A-				=
+	 struct module *owner,=0A-					 =
+const char *mod_name);=0A+					 struct =
+xen_bus_type *bus);=0A extern int xenbus_probe_node(struct xen_bus_type =
+*bus,=0A 			     const char *type,=0A 			=
+     const char *nodename);=0A--- 3.2-rc6/drivers/xen/xenbus/xenbus_probe_b=
+ackend.c=0A+++ 3.2-rc6-struct-xenbus_driver/drivers/xen/xenbus/xenbus_probe=
+_backend.c=0A@@ -232,15 +232,13 @@ int xenbus_dev_is_online(struct =
+xenbus_d=0A }=0A EXPORT_SYMBOL_GPL(xenbus_dev_is_online);=0A =0A-int =
+__xenbus_register_backend(struct xenbus_driver *drv,=0A-			=
+      struct module *owner, const char *mod_name)=0A+int xenbus_register_ba=
+ckend(struct xenbus_driver *drv)=0A {=0A 	drv->read_otherend_details =
+=3D read_frontend_details;=0A =0A-	return xenbus_register_driver_commo=
+n(drv, &xenbus_backend,=0A-					     =
+owner, mod_name);=0A+	return xenbus_register_driver_common(drv, =
+&xenbus_backend);=0A }=0A-EXPORT_SYMBOL_GPL(__xenbus_register_backend);=0A+=
+EXPORT_SYMBOL_GPL(xenbus_register_backend);=0A =0A static int backend_probe=
+_and_watch(struct notifier_block *notifier,=0A 				   =
+unsigned long event,=0A--- 3.2-rc6/drivers/xen/xenbus/xenbus_probe_frontend=
+.c=0A+++ 3.2-rc6-struct-xenbus_driver/drivers/xen/xenbus/xenbus_probe_front=
+end.c=0A@@ -230,15 +230,13 @@ static void wait_for_devices(struct xenb=0A 	=
+		 print_device_status);=0A }=0A =0A-int __xenbus_register_fr=
+ontend(struct xenbus_driver *drv,=0A-			       struct =
+module *owner, const char *mod_name)=0A+int xenbus_register_frontend(struct=
+ xenbus_driver *drv)=0A {=0A 	int ret;=0A =0A 	drv->read_otherend_=
+details =3D read_backend_details;=0A =0A-	ret =3D xenbus_register_dri=
+ver_common(drv, &xenbus_frontend,=0A-					   =
+ owner, mod_name);=0A+	ret =3D xenbus_register_driver_common(drv, =
+&xenbus_frontend);=0A 	if (ret)=0A 		return ret;=0A =0A@@ =
+-247,7 +245,7 @@ int __xenbus_register_frontend(struct xe=0A =0A 	=
+return 0;=0A }=0A-EXPORT_SYMBOL_GPL(__xenbus_register_frontend);=0A+EXPORT_=
+SYMBOL_GPL(xenbus_register_frontend);=0A =0A static DECLARE_WAIT_QUEUE_HEAD=
+(backend_state_wq);=0A static int backend_state;=0A--- 3.2-rc6/include/xen/=
+xenbus.h=0A+++ 3.2-rc6-struct-xenbus_driver/include/xen/xenbus.h=0A@@ =
+-85,8 +85,6 @@ struct xenbus_device_id=0A =0A /* A xenbus driver. */=0A =
+struct xenbus_driver {=0A-	char *name;=0A-	struct module *owner;=0A 	=
+const struct xenbus_device_id *ids;=0A 	int (*probe)(struct xenbus_device =
+*dev,=0A 		     const struct xenbus_device_id *id);=0A@@ =
+-101,31 +99,20 @@ struct xenbus_driver {=0A 	int (*is_ready)(struct =
+xenbus_device *dev);=0A };=0A =0A-static inline struct xenbus_driver =
+*to_xenbus_driver(struct device_driver *drv)=0A-{=0A-	return container_of=
+(drv, struct xenbus_driver, driver);=0A+#define DEFINE_XENBUS_DRIVER(var, =
+drvname, methods...)		\=0A+struct xenbus_driver var ## _driver =
+=3D {				\=0A+	.driver.name =3D drvname + 0 ?: =
+var ## _ids->devicetype,	\=0A+	.driver.owner =3D THIS_MODULE,		=
+		\=0A+	.ids =3D var ## _ids, ## methods			=
+	\=0A }=0A =0A-int __must_check __xenbus_register_frontend(struct =
+xenbus_driver *drv,=0A-					    struct module =
+*owner,=0A-					    const char *mod_name);=
+=0A-=0A-static inline int __must_check=0A-xenbus_register_frontend(struct =
+xenbus_driver *drv)=0A+static inline struct xenbus_driver *to_xenbus_driver=
+(struct device_driver *drv)=0A {=0A-	WARN_ON(drv->owner !=3D THIS_MODULE=
+);=0A-	return __xenbus_register_frontend(drv, THIS_MODULE, KBUILD_MODNAME)=
+;=0A+	return container_of(drv, struct xenbus_driver, driver);=0A }=0A =
+=0A-int __must_check __xenbus_register_backend(struct xenbus_driver =
+*drv,=0A-					   struct module *owner,=0A=
+-					   const char *mod_name);=0A-static=
+ inline int __must_check=0A-xenbus_register_backend(struct xenbus_driver =
+*drv)=0A-{=0A-	WARN_ON(drv->owner !=3D THIS_MODULE);=0A-	return =
+__xenbus_register_backend(drv, THIS_MODULE, KBUILD_MODNAME);=0A-}=0A+int =
+__must_check xenbus_register_frontend(struct xenbus_driver *);=0A+int =
+__must_check xenbus_register_backend(struct xenbus_driver *);=0A =0A void =
+xenbus_unregister_driver(struct xenbus_driver *drv);=0A =0A
+--=__Part4A65FB6D.9__=--
