@@ -1,73 +1,71 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next v2] igb: reset PHY after recovering from PHY
- power down
-Date: Wed, 21 Dec 2011 22:46:04 -0800
-Message-ID: <1324536364.2327.39.camel@jtkirshe-mobl>
-References: <4EEE9248.8020009@jp.fujitsu.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the final tree (net
+ tree related)
+Date: Thu, 22 Dec 2011 02:01:59 -0500 (EST)
+Message-ID: <20111222.020159.138601584172644611.davem@davemloft.net>
+References: <20111222170726.b16565ef7d1434cc4ec170d7@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-IyvKCn2a0p77AT83t4Ip"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:8416 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751646Ab1LVGqG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Dec 2011 01:46:06 -0500
-In-Reply-To: <4EEE9248.8020009@jp.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-IyvKCn2a0p77AT83t4Ip
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Sun, 2011-12-18 at 17:24 -0800, Koki Sanagi wrote:
-> According to 82576_Datasheet.pdf, PHY setting is lost after PHY power
-> down.
-> So resetting PHY is needed when recovering from PHY power down to set
-> a default
-> setting to PHY register.
-> Owing to this lack, NIC doesn't link up in some rare situation.
->=20
-> Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>=20
-
-I have added this patch to my queue.  Thanks Koki!
-
---=-IyvKCn2a0p77AT83t4Ip
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
+	eric.dumazet@gmail.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111222170726.b16565ef7d1434cc4ec170d7@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 22 Dec 2011 17:07:26 +1100
 
-iQIcBAABCgAGBQJO8tIsAAoJEOVv75VaS+3Ox24P/isgCR/vPd8D+h9+YxESvm86
-EfnGUpXMrG0J9gNQrwmhAenPuVKQvrAH60VuWdxOPwDq2Bi6XAVNHeE7ThNl33RL
-22larXNmu7byL5YxIQl8DVvOj8iX/7KhvhoXI3gKQYqwsPxFk/Stgc9M2v4seJoq
-gfZQp1pDNPhDhvIOeVlTv3FmBWOr26k+xofrEIGh2YSjthMoM7XB0Y5f0MPT3Xgx
-4apIKJ16TMwHswTOQ8Nftyhf2q6eRgoMxVrtVyUcYoG3gtj0XsBXIrrRQcxOcXYJ
-IWa0PVfzwTUrrGi+Pn+K/ZOWalfORd4tg8p2UygqmjZZFBYfyNKxMQEGAbzMsHxm
-QWpma28Y5xMkA0Bjakc0O9E+fDZDQ9tWf/ZX5oFbkUvKquibYMRt1IiMY2bp9b0z
-onL0afa3u/UnQODvFlvKBB0ALUdTQa84/WwNBcbELKHlTGgaWzFm28zhjOMzRPsS
-heIFqqNIXP4QnNZdyDf/g/d8JGIxBa7Hut35BMdeTtiBiXg+6hOENKXMQniYnxMY
-h6P7EnUBvW8yGx9aHBlE8Ec4fCey3ki9QrQeAcYauh15EjUiWF8/t2sP0yn7eRPa
-0qwmMsRP0UzO5W/DN3JZdT9PmRguzD72qo4wuDbbtjw4xHhOlPz61SoGKgoGJBDu
-KOGfds5AwLKoQR0g5aCc
-=/MlH
------END PGP SIGNATURE-----
+> After merging the final tree, today's linux-next build (sparc32 defconfig)
+> failed like this:
+> 
+> net/ipv4/route.c: In function 'rt_check_expire':
+> net/ipv4/route.c:873:4: error: implicit declaration of function 'prefetch' [-Werror=implicit-function-declaration]
+> 
+> Caused by commit 9f28a2fc0bd7 ("ipv4: reintroduce route cache garbage
+> collector").
+> 
+> Linus, that commit is in the latest pull request you have from Dave ...
 
---=-IyvKCn2a0p77AT83t4Ip--
+Sorry, that was just reinstating code that got removed but we forgot
+the prefetch.h header.  Both Eric and I test built this as well as did
+run time testing on the fix.
+
+Linus, could you just apply this obvious fix directly?  Sorry for the
+trouble.
+
+Thanks.
+
+> I applied the following patch for today:
+> 
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Thu, 22 Dec 2011 17:03:29 +1100
+> Subject: [PATCH] ipv4: using prefetch requires including prefetch.h
+> 
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> ---
+>  net/ipv4/route.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 7460483..9c01f56 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -91,6 +91,7 @@
+>  #include <linux/rcupdate.h>
+>  #include <linux/times.h>
+>  #include <linux/slab.h>
+> +#include <linux/prefetch.h>
+>  #include <net/dst.h>
+>  #include <net/net_namespace.h>
+>  #include <net/protocol.h>
+> -- 
+> 1.7.8.197.g73c6b
+> 
+> -- 
+> Cheers,
+> Stephen Rothwell                    sfr@canb.auug.org.au
+> http://www.canb.auug.org.au/~sfr/
