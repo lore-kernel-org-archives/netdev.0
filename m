@@ -1,37 +1,42 @@
-From: "Guy, Wey-Yi W" <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [PATCH] drivers/iwlwifi: use dma_zalloc_coherent() for DMA
- allocation
-Date: Wed, 21 Dec 2011 17:33:33 -0800
-Message-ID: <E9954878DD1FB34FAE5187FB88C58A3501AC762882@orsmsx506.amr.corp.intel.com>
-References: <20111221002147.GA4996@dztty>
- <1324486330.13074.322.camel@wwguy-huron> <20111221194852.GA19795@dztty>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: under-performing bonded interfaces
+Date: Wed, 21 Dec 2011 17:36:08 -0800
+Message-ID: <20111221173608.0f04bc8b@nehalam.linuxnetplumber.net>
+References: <CANj2EbeMRzicixHwrKpCQ3mMqQ1qbyjbRCxpW+CmVRREAhyeRQ@mail.gmail.com>
+	<4EC44ECB.4050201@candelatech.com>
+	<CANj2EbfrtbysEbj+gMa+fOhWo0EWjBXVyGkw8WyiPAV9nPduuQ@mail.gmail.com>
+	<1321491449.2709.90.camel@bwh-desktop>
+	<CANj2Ebdd89=Fk6i4e4Txsb3ANuzz-x4t+tT6CAnWDNZe0zvx9g@mail.gmail.com>
+	<1321498314.2885.78.camel@deadeye>
+	<CANj2Eben0hrP6KwxyA1WPqiqzm84w=J2_sdtrKtGvxdftuksqg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: Djalal Harouni <tixxdz-Umm1ozX2/EEdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20111221194852.GA19795@dztty>
-Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org
+To: Simon Chen <simonchennj@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:36058 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752016Ab1LVBgL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Dec 2011 20:36:11 -0500
+In-Reply-To: <CANj2Eben0hrP6KwxyA1WPqiqzm84w=J2_sdtrKtGvxdftuksqg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Djalal,
+On Wed, 21 Dec 2011 20:26:04 -0500
+Simon Chen <simonchennj@gmail.com> wrote:
 
+> Hi folks,
 > 
-> iwl-trans-pcie.c is one of the source files in iwlwifi driver hold 
-> dual-license (GPL + BSD), are you ok to release your code for the BSD 
-> license and relinquish the copyright?
-Yes, It's ok.
+> I added an Intel X520 card to both the sender and receiver... Now I
+> have two 10G ports on a PCIe 2.0 x8 slot (5Gx8), so the bandwidth of
+> the PCI bus shouldn't be the bottleneck.
+> 
+> Now the throughput test gives me around 16Gbps in aggregate. Any ideas
+> how I can push closer to 20G? I don't quite understand where the
+> bottleneck is now.
 
-Thank you very much
-
-Wey
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+In my experience, Intel dual port cards can not run at full speed
+when both ports are in use. You need separate slots to hit full
+line rate.
