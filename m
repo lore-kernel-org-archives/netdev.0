@@ -1,57 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] skb paged fragment destructors
-Date: Thu, 22 Dec 2011 14:34:22 -0500 (EST)
-Message-ID: <20111222.143422.1948369460874203875.davem@davemloft.net>
-References: <CAHXqBF+U8g16M8_MvFSmOWrLrfiAnuOzn0Mzn9uurLpQym+m4A@mail.gmail.com>
-	<20111222.134344.1685328354280164155.davem@davemloft.net>
-	<CAHXqBFL7oHgeUvKpV3Z2ddhMK-5KEqXJsp7p_geiYWTH_zwtaA@mail.gmail.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH, v2] Xen: consolidate and simplify struct xenbus_driver
+ instantiation
+Date: Thu, 22 Dec 2011 20:38:21 +0000
+Message-ID: <1324586301.13113.3.camel@dagon.hellion.org.uk>
+References: <4EF3018D020000780006986E@nat28.tlf.novell.com>
+	 <1324547820.7877.71.camel@zakaz.uk.xensource.com>
+	 <4EF327E2020000780006993E@nat28.tlf.novell.com>
+	 <1324555060.7877.84.camel@zakaz.uk.xensource.com>
+	 <1324565067.2897.2.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: Ian.Campbell@citrix.com, eric.dumazet@gmail.com,
-	jesse.brandeburg@intel.com, netdev@vger.kernel.org
-To: mirqus@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37353 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753561Ab1LVTe3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2011 14:34:29 -0500
-In-Reply-To: <CAHXqBFL7oHgeUvKpV3Z2ddhMK-5KEqXJsp7p_geiYWTH_zwtaA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jan Beulich <JBeulich@suse.com>,
+	Konrad Rzeszutek Wilk <konrad@darnok.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"dmitry.torokhov@gmail.com" <dmitry.torokhov@gmail.com>,
+	"FlorianSchandinat@gmx.de" <FlorianSchandinat@gmx.de>,
+	Jeremy Fitzhardinge <jeremy@goop.org>,
+	Jens Axboe <axboe@kernel.dk>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1324565067.2897.2.camel@bwh-desktop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogTWljaGHFgiBNaXJvc8WCYXcgPG1pcnF1c0BnbWFpbC5jb20+DQpEYXRlOiBUaHUsIDIy
-IERlYyAyMDExIDIwOjI5OjMwICswMTAwDQoNCj4gMjAxMS8xMi8yMiBEYXZpZCBNaWxsZXIgPGRh
-dmVtQGRhdmVtbG9mdC5uZXQ+Og0KPj4gRnJvbTogTWljaGHFgiBNaXJvc8WCYXcgPG1pcnF1c0Bn
-bWFpbC5jb20+DQo+PiBEYXRlOiBUaHUsIDIyIERlYyAyMDExIDE5OjM0OjIxICswMTAwDQo+Pg0K
-Pj4+IDIwMTEvMTIvMjIgSWFuIENhbXBiZWxsIDxJYW4uQ2FtcGJlbGxAY2l0cml4LmNvbT46DQo+
-Pj4+IE9uIFdlZCwgMjAxMS0xMi0yMSBhdCAxOToyOCArMDAwMCwgRGF2aWQgTWlsbGVyIHdyb3Rl
-Og0KPj4+Pj4gRnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KPj4+
-Pj4gRGF0ZTogV2VkLCAyMSBEZWMgMjAxMSAxNTowMjoxOCArMDEwMA0KPj4+Pj4gPiBObyBpZGVh
-IG9uIHRoaXMgKzIgcG9pbnQuDQo+Pj4+PiBJIHRoaW5rIEkga25vdywgYW5kIEkgYmVsaWV2ZSBJ
-IGluc3RydWN0ZWQgQWxleGV5IEt1em5ldHNvdiB0byBkbw0KPj4+Pj4gdGhpcy4NCj4+Pj4+DQo+
-Pj4+PiBXaGVuIHNlbmRmaWxlKCkgaXMgcGVyZm9ybWVkLCB3ZSBtaWdodCBzdGFydCB0aGUgU0tC
-IHdpdGggdGhlIGxhc3QgZmV3DQo+Pj4+PiBieXRlcyBvZiBvbmUgcGFnZSwgYW5kIGVuZCB0aGUg
-U0tCIHdpdGggdGhlIGZpcnN0IGZldyBieXRlcyBvZiBhbm90aGVyDQo+Pj4+PiBwYWdlLg0KPj4+
-Pj4NCj4+Pj4+IEluIG9yZGVyIHRvIGZpdCBhIGZ1bGwgNjRLIGZyYW1lIGludG8gYW4gU0tCIGlu
-IHRoaXMgc2l0dWF0aW9uIHdlIGhhdmUNCj4+Pj4+IHRvIGFjY29tb2RhdGUgdGhpcyBjYXNlLg0K
-Pj4+PiBUaGFua3MgRGF2aWQsIHRoYXQgbWFrZXMgc2Vuc2UuDQo+Pj4+DQo+Pj4+IEhvd2V2ZXIg
-SSB0aGluayB5b3Ugb25seSBhY3R1YWxseSBuZWVkIDEgZXh0cmEgcGFnZSBmb3IgdGhhdC4gSWYg
-dGhlDQo+Pj4+IGRhdGEgaW4gZnJhZ1swXSBzdGFydHMgYXQgJG9mZnNldCB0aGVuIGZyYWdbMTZd
-IHdpbGwgbmVlZCB0byBoYXZlDQo+Pj4+ICRvZmZzZXQgYnl0ZXMgaW4gaXQuIGUuZy4NCj4+Pj4g
-wqAgwqAgwqAgwqA0MDk2LSRvZmZzZXQgKyA0MDk2KjE1ICsgJG9mZnNldCA9IDY1NTM2DQo+Pj4+
-IHdoaWNoID09IDE3IHBhZ2VzIHJhdGhlciB0aGFuIDE4Lg0KPj4+Pg0KPj4+PiBUaGUgZm9sbG93
-aW5nIGRvY3VtZW50cyB0aGUgc3RhdHVzIHF1byBidXQgSSBjb3VsZCB1cGRhdGUgdG8gc3dpdGNo
-IHRvICsNCj4+Pj4gMSBpbnN0ZWFkIGlmIHRoZXJlIGFyZSBubyBmbGF3cyBpbiB0aGUgYWJvdmUg
-bG9naWMuLi4NCj4+Pg0KPj4+IFNpbmNlIG1heCBJUCBkYXRhZ3JhbSBpcyA2NEstMSwgYWRkaW5n
-IGV0aGVybmV0IGFuZCBwb3NzaWJseSBWTEFODQo+Pj4gaGVhZGVycyBtYWtlcyB0aGUgbWF4IHNp
-emUgc2xpZ2h0bHkgYWJvdmUgNjRLIGFuZCB0aGVuIHlvdSBoYXZlDQo+Pj4gNjRLL1BBR0VfU0la
-RSsyIHBhZ2VzIGFwcGVhciBpbiB3b3JzdCBjYXNlLg0KPj4NCj4+IEhlYWRlcnMgZ28gaW50byB0
-aGUgbGluZWFyIGFyZWEsIHNvIHRoZXkgYXJlIG5vdCByZWxldmFudCBmb3IgdGhlc2UNCj4+IGNh
-bGN1bGF0aW9ucy4NCj4gDQo+IERvZXMgdGhpcyBob2xkIGZvciBMUk8nZWQgcGFja2V0cyBhbmQg
-cGFja2V0cyBzZW50IHZpYSBQRl9QQUNLRVQgc29ja2V0Pw0KDQpMUk8gaXMgZm9yIHJlY2VpdmUs
-IG5vdCBwYWNrZXRzIHdlIGJ1aWxkIG9uIHRyYW5zbWl0LCBhbmQgaW4gYW55IGV2ZW50DQpoYXZl
-IHRoZWlyIGhlYWRlcnMgYWxzbyBwdWxsZWQgaW50byB0aGUgbGluZWFyIGFyZWEgYmVmb3JlIHRo
-ZSBzdGFjaw0Kc2VlcyBpdC4NCg0KRm9yIFBGX1BBQ0tFVCwgaW4gdGhlIHBhY2tldF9zbmQoKSBj
-YXNlIGl0IHVzZXMgYSBsaW5lYXIgU0tCIGFuZCBpbg0KdGhlIHRwYWNrZXRfc25kKCkgY2FzZSBp
-dCB1c2VzIGEgbGluZWFyIFNLQiBhcyB3ZWxsLg0K
+On Thu, 2011-12-22 at 14:44 +0000, Ben Hutchings wrote:
+> On Thu, 2011-12-22 at 11:57 +0000, Ian Campbell wrote:
+> > On Thu, 2011-12-22 at 11:51 +0000, Jan Beulich wrote:
+> > > >>> On 22.12.11 at 10:57, Ian Campbell <Ian.Campbell@citrix.com> wrote:
+> > > > On Thu, 2011-12-22 at 09:08 +0000, Jan Beulich wrote:
+> > > >> The 'name', 'owner', and 'mod_name' members are redundant with the
+> > > >> identically named fields in the 'driver' sub-structure. Rather than
+> > > >> switching each instance to specify these fields explicitly, introduce
+> > > >> a macro to simplify this.
+> > > >> 
+> > > >> Eliminate further redundancy by allowing the drvname argument to
+> > > >> DEFINE_XENBUS_DRIVER() to be blank (in which case the first entry from
+> > > >> the ID table will be used for .driver.name).
+> > > > 
+> > > > Any reason not to always use DRV_NAME here (which is generally a bit
+> > > > more specific e.g. "xen-foofront" rather than "foo") and rely on the id
+> > > > table for the shorter names used in xenstore?
+> > > 
+> > > That would imply that DRV_NAME is always defined, but I don't
+> > > see this being the case.
+> > 
+> > My mistake, I thought it was a Kbuild thing.
+> 
+> You're maybe thinking of KBUILD_MODNAME.
+
+Yes, I think I was.
+
+Thanks,
+Ian.
