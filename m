@@ -1,59 +1,82 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH, v2] Xen: consolidate and simplify struct xenbus_driver
- instantiation
-Date: Thu, 22 Dec 2011 20:38:21 +0000
-Message-ID: <1324586301.13113.3.camel@dagon.hellion.org.uk>
-References: <4EF3018D020000780006986E@nat28.tlf.novell.com>
-	 <1324547820.7877.71.camel@zakaz.uk.xensource.com>
-	 <4EF327E2020000780006993E@nat28.tlf.novell.com>
-	 <1324555060.7877.84.camel@zakaz.uk.xensource.com>
-	 <1324565067.2897.2.camel@bwh-desktop>
+From: Jason Baron <jbaron@redhat.com>
+Subject: Re: [PATCH v9 3/9] socket: initial cgroup code.
+Date: Thu, 22 Dec 2011 16:10:29 -0500
+Message-ID: <20111222211028.GB3916@redhat.com>
+References: <1323676029-5890-1-git-send-email-glommer@parallels.com>
+ <1323676029-5890-4-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jan Beulich <JBeulich@suse.com>,
-	Konrad Rzeszutek Wilk <konrad@darnok.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"dmitry.torokhov@gmail.com" <dmitry.torokhov@gmail.com>,
-	"FlorianSchandinat@gmx.de" <FlorianSchandinat@gmx.de>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	Jens Axboe <axboe@kernel.dk>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1324565067.2897.2.camel@bwh-desktop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org, paul@paulmenage.org,
+        lizf@cn.fujitsu.com, kamezawa.hiroyu@jp.fujitsu.com,
+        ebiederm@xmission.com, gthelen@google.com, netdev@vger.kernel.org,
+        linux-mm@kvack.org, kirill@shutemov.name, avagin@parallels.com,
+        devel@openvz.org, eric.dumazet@gmail.com, cgroups@vger.kernel.org
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1323676029-5890-4-git-send-email-glommer@parallels.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-12-22 at 14:44 +0000, Ben Hutchings wrote:
-> On Thu, 2011-12-22 at 11:57 +0000, Ian Campbell wrote:
-> > On Thu, 2011-12-22 at 11:51 +0000, Jan Beulich wrote:
-> > > >>> On 22.12.11 at 10:57, Ian Campbell <Ian.Campbell@citrix.com> wrote:
-> > > > On Thu, 2011-12-22 at 09:08 +0000, Jan Beulich wrote:
-> > > >> The 'name', 'owner', and 'mod_name' members are redundant with the
-> > > >> identically named fields in the 'driver' sub-structure. Rather than
-> > > >> switching each instance to specify these fields explicitly, introduce
-> > > >> a macro to simplify this.
-> > > >> 
-> > > >> Eliminate further redundancy by allowing the drvname argument to
-> > > >> DEFINE_XENBUS_DRIVER() to be blank (in which case the first entry from
-> > > >> the ID table will be used for .driver.name).
-> > > > 
-> > > > Any reason not to always use DRV_NAME here (which is generally a bit
-> > > > more specific e.g. "xen-foofront" rather than "foo") and rely on the id
-> > > > table for the shorter names used in xenstore?
-> > > 
-> > > That would imply that DRV_NAME is always defined, but I don't
-> > > see this being the case.
-> > 
-> > My mistake, I thought it was a Kbuild thing.
-> 
-> You're maybe thinking of KBUILD_MODNAME.
+On Mon, Dec 12, 2011 at 11:47:03AM +0400, Glauber Costa wrote:
+> +
+> +static bool mem_cgroup_is_root(struct mem_cgroup *memcg);
+> +void sock_update_memcg(struct sock *sk)
+> +{
+> +	/* A socket spends its whole life in the same cgroup */
+> +	if (sk->sk_cgrp) {
+> +		WARN_ON(1);
+> +		return;
+> +	}
+> +	if (static_branch(&memcg_socket_limit_enabled)) {
+> +		struct mem_cgroup *memcg;
+> +
+> +		BUG_ON(!sk->sk_prot->proto_cgroup);
+> +
+> +		rcu_read_lock();
+> +		memcg = mem_cgroup_from_task(current);
+> +		if (!mem_cgroup_is_root(memcg)) {
+> +			mem_cgroup_get(memcg);
+> +			sk->sk_cgrp = sk->sk_prot->proto_cgroup(memcg);
+> +		}
+> +		rcu_read_unlock();
+> +	}
+> +}
+> +EXPORT_SYMBOL(sock_update_memcg);
+> +
+> +void sock_release_memcg(struct sock *sk)
+> +{
+> +	if (static_branch(&memcg_socket_limit_enabled) && sk->sk_cgrp) {
+> +		struct mem_cgroup *memcg;
+> +		WARN_ON(!sk->sk_cgrp->memcg);
+> +		memcg = sk->sk_cgrp->memcg;
+> +		mem_cgroup_put(memcg);
+> +	}
+> +}
 
-Yes, I think I was.
+Hi Glauber,
+
+I think for 'sock_release_memcg()', you want:
+
+static inline sock_release_memcg(sk)
+{
+	if (static_branch())
+		__sock_release_memcg();
+}
+
+And then re-define the current sock_release_memcg -> __sock_release_memcg().
+In that way the straight line path is a single no-op. As currently
+written, there is function call and then an immediate return.
 
 Thanks,
-Ian.
+
+-Jason
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
