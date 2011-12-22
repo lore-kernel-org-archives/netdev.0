@@ -1,71 +1,63 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Re: [PATCH net-next] tcp: Fix bug in ofo queue pruning MIB stats
-Date: Wed, 21 Dec 2011 17:14:05 -0800
-Message-ID: <CAGK4HS8g41A8KB9iqyabZN85Ytgb+HPk3wwvoOuwkk8s9+iuCA@mail.gmail.com>
-References: <1324511401-2640-1-git-send-email-subramanian.vijay@gmail.com>
-	<20111221.193315.2134174670572741208.davem@davemloft.net>
+From: Simon Chen <simonchennj@gmail.com>
+Subject: Re: under-performing bonded interfaces
+Date: Wed, 21 Dec 2011 20:26:04 -0500
+Message-ID: <CANj2Eben0hrP6KwxyA1WPqiqzm84w=J2_sdtrKtGvxdftuksqg@mail.gmail.com>
+References: <CANj2EbeMRzicixHwrKpCQ3mMqQ1qbyjbRCxpW+CmVRREAhyeRQ@mail.gmail.com>
+	<4EC44ECB.4050201@candelatech.com>
+	<CANj2EbfrtbysEbj+gMa+fOhWo0EWjBXVyGkw8WyiPAV9nPduuQ@mail.gmail.com>
+	<1321491449.2709.90.camel@bwh-desktop>
+	<CANj2Ebdd89=Fk6i4e4Txsb3ANuzz-x4t+tT6CAnWDNZe0zvx9g@mail.gmail.com>
+	<1321498314.2885.78.camel@deadeye>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
-To: David Miller <davem@davemloft.net>
+Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:60385 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752149Ab1LVBOG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2011 20:14:06 -0500
-Received: by vbbfc26 with SMTP id fc26so6266381vbb.19
-        for <netdev@vger.kernel.org>; Wed, 21 Dec 2011 17:14:05 -0800 (PST)
-In-Reply-To: <20111221.193315.2134174670572741208.davem@davemloft.net>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:36507 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751850Ab1LVB0H convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Dec 2011 20:26:07 -0500
+Received: by lahd3 with SMTP id d3so748927lah.19
+        for <netdev@vger.kernel.org>; Wed, 21 Dec 2011 17:26:05 -0800 (PST)
+In-Reply-To: <1321498314.2885.78.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 21 December 2011 16:33, David Miller <davem@davemloft.net> wrote:
-> From: Vijay Subramanian <subramanian.vijay@gmail.com>
-> Date: Wed, 21 Dec 2011 15:50:01 -0800
->
->> Linux MIB LINUX_MIB_OFOPRUNED is supposed to count the number of pac=
-kets
->> dropped from the out-of-order queue due to socket buffer overrun. In=
-stead
->> of counting the number of skbs freed, it counts the number of calls =
-make to
->> __skb_queue_purge() which is not what the user (see f.e. netstat) is=
- expecting.
->> Fix this by =A0incrementing the counter correctly.
+Hi folks,
+
+I added an Intel X520 card to both the sender and receiver... Now I
+have two 10G ports on a PCIe 2.0 x8 slot (5Gx8), so the bandwidth of
+the PCI bus shouldn't be the bottleneck.
+
+Now the throughput test gives me around 16Gbps in aggregate. Any ideas
+how I can push closer to 20G? I don't quite understand where the
+bottleneck is now.
+
+Thanks.
+-Simon
+
+On Wed, Nov 16, 2011 at 9:51 PM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+> On Wed, 2011-11-16 at 20:38 -0500, Simon Chen wrote:
+>> Thanks, Ben. That's good discovery...
 >>
->> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+>> Are you saying that both 10G NICs are on the same PCIe x4 slot, so
+>> that they're subject to the 12G throughput bottleneck?
 >
-> I disagree, this is an event, and the counter is counting how many ti=
-mes
-> we prune the out of order queue, not how many packets we prune from t=
-hat
-> queue.
-
-David,
-Thank you for the review.
-
-The reason I felt this was a bug was because of what netstat reports.
-Here are 2 sample output lines from netstat.
-
-622 packets pruned from receive queue because of socket buffer overrun
-   --> (from LINUX_MIB_RCVPRUNED)
-7 packets dropped from out-of-order queue because of socket buffer
-overrun   --> (from LINUX_MIB_OFOPRUNED)
-
-netstat is interpreting this incorrectly if the mib counter is
-supposed to be tracking events.
-
-Also, LINUX_MIB_OFOPRUNED is named similarly to counters that track
-dropped packets (e.g.LINUX_MIB_RCVPRUNED ) than counters that track
-events such as a function call (e.g LINUX_MIB_PRUNECALLED). I realize
-the naming scheme is not a clinching argument  but taken with what
-netstat reports, the intent seems to be to track dropped packets.
-
-If the counter is tracking the right thing, is it worth fixing
-netstat? The nstat tool in iproute2 tool does not print any
-explanatory text in the output, so there is less chance of confusion
-there.  Maybe we just use the newer nstat and forget about this?
-
-Thanks for your time.
-Vijay
+> I assumed you were using 2 ports on the same board, i.e. the same slo=
+t.
+> If you were using 1 port each of 2 boards then I would have expected
+> them both to be usable at full speed. =A0So far as I can remember, PC=
+Ie
+> bridges are usually set up so there isn't contention for bandwidth
+> between slots.
+>
+> Ben.
+>
+> --
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
