@@ -1,47 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] skb paged fragment destructors
-Date: Thu, 22 Dec 2011 13:43:44 -0500 (EST)
-Message-ID: <20111222.134344.1685328354280164155.davem@davemloft.net>
-References: <20111221.142841.2253787084484360430.davem@davemloft.net>
-	<1324550017.7877.77.camel@zakaz.uk.xensource.com>
-	<CAHXqBF+U8g16M8_MvFSmOWrLrfiAnuOzn0Mzn9uurLpQym+m4A@mail.gmail.com>
+Subject: Re: linux-3.0.x regression with ipv4 routes having mtu
+Date: Thu, 22 Dec 2011 13:51:27 -0500 (EST)
+Message-ID: <20111222.135127.1577166695312077920.davem@davemloft.net>
+References: <20111221085616.GO6348@secunet.com>
+	<20111221.155615.990885397853981125.davem@davemloft.net>
+	<20111222102526.GT6348@secunet.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: Ian.Campbell@citrix.com, eric.dumazet@gmail.com,
-	jesse.brandeburg@intel.com, netdev@vger.kernel.org
-To: mirqus@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: timo.teras@iki.fi, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36924 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:36994 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753684Ab1LVSnv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2011 13:43:51 -0500
-In-Reply-To: <CAHXqBF+U8g16M8_MvFSmOWrLrfiAnuOzn0Mzn9uurLpQym+m4A@mail.gmail.com>
+	with ESMTP id S1755217Ab1LVSwn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2011 13:52:43 -0500
+In-Reply-To: <20111222102526.GT6348@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTWljaGHFgiBNaXJvc8WCYXcgPG1pcnF1c0BnbWFpbC5jb20+DQpEYXRlOiBUaHUsIDIy
-IERlYyAyMDExIDE5OjM0OjIxICswMTAwDQoNCj4gMjAxMS8xMi8yMiBJYW4gQ2FtcGJlbGwgPElh
-bi5DYW1wYmVsbEBjaXRyaXguY29tPjoNCj4+IE9uIFdlZCwgMjAxMS0xMi0yMSBhdCAxOToyOCAr
-MDAwMCwgRGF2aWQgTWlsbGVyIHdyb3RlOg0KPj4+IEZyb206IEVyaWMgRHVtYXpldCA8ZXJpYy5k
-dW1hemV0QGdtYWlsLmNvbT4NCj4+PiBEYXRlOiBXZWQsIDIxIERlYyAyMDExIDE1OjAyOjE4ICsw
-MTAwDQo+Pj4gPiBObyBpZGVhIG9uIHRoaXMgKzIgcG9pbnQuDQo+Pj4gSSB0aGluayBJIGtub3cs
-IGFuZCBJIGJlbGlldmUgSSBpbnN0cnVjdGVkIEFsZXhleSBLdXpuZXRzb3YgdG8gZG8NCj4+PiB0
-aGlzLg0KPj4+DQo+Pj4gV2hlbiBzZW5kZmlsZSgpIGlzIHBlcmZvcm1lZCwgd2UgbWlnaHQgc3Rh
-cnQgdGhlIFNLQiB3aXRoIHRoZSBsYXN0IGZldw0KPj4+IGJ5dGVzIG9mIG9uZSBwYWdlLCBhbmQg
-ZW5kIHRoZSBTS0Igd2l0aCB0aGUgZmlyc3QgZmV3IGJ5dGVzIG9mIGFub3RoZXINCj4+PiBwYWdl
-Lg0KPj4+DQo+Pj4gSW4gb3JkZXIgdG8gZml0IGEgZnVsbCA2NEsgZnJhbWUgaW50byBhbiBTS0Ig
-aW4gdGhpcyBzaXR1YXRpb24gd2UgaGF2ZQ0KPj4+IHRvIGFjY29tb2RhdGUgdGhpcyBjYXNlLg0K
-Pj4gVGhhbmtzIERhdmlkLCB0aGF0IG1ha2VzIHNlbnNlLg0KPj4NCj4+IEhvd2V2ZXIgSSB0aGlu
-ayB5b3Ugb25seSBhY3R1YWxseSBuZWVkIDEgZXh0cmEgcGFnZSBmb3IgdGhhdC4gSWYgdGhlDQo+
-PiBkYXRhIGluIGZyYWdbMF0gc3RhcnRzIGF0ICRvZmZzZXQgdGhlbiBmcmFnWzE2XSB3aWxsIG5l
-ZWQgdG8gaGF2ZQ0KPj4gJG9mZnNldCBieXRlcyBpbiBpdC4gZS5nLg0KPj4gwqAgwqAgwqAgwqA0
-MDk2LSRvZmZzZXQgKyA0MDk2KjE1ICsgJG9mZnNldCA9IDY1NTM2DQo+PiB3aGljaCA9PSAxNyBw
-YWdlcyByYXRoZXIgdGhhbiAxOC4NCj4+DQo+PiBUaGUgZm9sbG93aW5nIGRvY3VtZW50cyB0aGUg
-c3RhdHVzIHF1byBidXQgSSBjb3VsZCB1cGRhdGUgdG8gc3dpdGNoIHRvICsNCj4+IDEgaW5zdGVh
-ZCBpZiB0aGVyZSBhcmUgbm8gZmxhd3MgaW4gdGhlIGFib3ZlIGxvZ2ljLi4uDQo+IA0KPiBTaW5j
-ZSBtYXggSVAgZGF0YWdyYW0gaXMgNjRLLTEsIGFkZGluZyBldGhlcm5ldCBhbmQgcG9zc2libHkg
-VkxBTg0KPiBoZWFkZXJzIG1ha2VzIHRoZSBtYXggc2l6ZSBzbGlnaHRseSBhYm92ZSA2NEsgYW5k
-IHRoZW4geW91IGhhdmUNCj4gNjRLL1BBR0VfU0laRSsyIHBhZ2VzIGFwcGVhciBpbiB3b3JzdCBj
-YXNlLg0KDQpIZWFkZXJzIGdvIGludG8gdGhlIGxpbmVhciBhcmVhLCBzbyB0aGV5IGFyZSBub3Qg
-cmVsZXZhbnQgZm9yIHRoZXNlDQpjYWxjdWxhdGlvbnMuDQo=
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Thu, 22 Dec 2011 11:25:26 +0100
+
+> Actually, I'm getting some doubts on the concept of caching
+> the metrics on the inetpeer. How should we handle the case when
+> we have multiple routes with different metrics to the same
+> destination? As it is, we can cache just one of them on the
+> inetpeer.
+
+In such cases the metrics won't be perfect.
+
+Actually, we have two kinds of metrics and it might be best in the
+long term to seperate them out explicitly.
+
+We have "loose" metrics (such as all the TCP measurements) which,
+if incorrect, will lead to suboptimal performance but will not
+dramatically effect connectivity.
+
+Then we have "strict" metrics like PMTU information and redirects,
+which could have more fatal consequences if wrong.
+
+The core issue is I want to keep these things tied only to destination
+address, it is the only sane way to get the routing cache removed.
+
+Sockets and the packet forwarding path in the future will be using
+routes that cover whole subnets, or even the default route.  There
+will be no "rt->rt_dst" and there will also be not attached inetpeer.
+
+The inetpeer, or something like it, will be managed seperately.
+Therefore metrics will need to be calculated using both objects (rt
+and inetpeer).
+
+This is one of the longer term design issues we face in the routing
+cache removal and for which I don't have exact plans for yet.  I'm
+still concentrating on "ref-less" neighbour entries, so once I finish
+that work I can think more seriously about metrics in a world without
+the routing cache.
