@@ -1,66 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v5] ARM: net: JIT compiler for packet filters
-Date: Fri, 23 Dec 2011 05:44:17 +0100
-Message-ID: <1324615457.2674.6.camel@edumazet-laptop>
-References: <1324601625-20351-1-git-send-email-mgherzan@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	linux@arm.linux.org.uk
-To: Mircea Gherzan <mgherzan@gmail.com>
+From: Xi Wang <xi.wang@gmail.com>
+Subject: Re: [PATCH v2] rps: fix insufficient bounds checking in store_rps_dev_flow_table_cnt()
+Date: Thu, 22 Dec 2011 23:44:51 -0500
+Message-ID: <C0DC969A-A32B-4CC8-B565-FF741E9D75DA@gmail.com>
+References: <1324493459-19764-1-git-send-email-xi.wang@gmail.com> <4EF3BEBA.4040402@gmail.com> <1324613414.2674.2.camel@edumazet-laptop>
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <therbert@google.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:44261 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753355Ab1LWEoW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2011 23:44:22 -0500
-Received: by werm1 with SMTP id m1so3742407wer.19
-        for <netdev@vger.kernel.org>; Thu, 22 Dec 2011 20:44:21 -0800 (PST)
-In-Reply-To: <1324601625-20351-1-git-send-email-mgherzan@gmail.com>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:44453 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753813Ab1LWEo6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2011 23:44:58 -0500
+Received: by iaeh11 with SMTP id h11so14502806iae.19
+        for <netdev@vger.kernel.org>; Thu, 22 Dec 2011 20:44:57 -0800 (PST)
+In-Reply-To: <1324613414.2674.2.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 23 d=C3=A9cembre 2011 =C3=A0 01:53 +0100, Mircea Gherzan a =
-=C3=A9crit :
-> Based of Matt Evans's PPC64 implementation.
->=20
-> The compiler generates ARM instructions but interworking is
-> supported for Thumb2 kernels.
->=20
-> Supports both little and big endian. Unaligned loads are emitted
-> for ARMv6+. Not all the BPF opcodes that deal with ancillary data
-> are supported. The scratch memory of the filter lives on the stack.
-> Hardware integer division is used if it is available.
->=20
-> Enabled in the same way as for x86-64 and PPC64:
->=20
-> 	echo 1 > /proc/sys/net/core/bpf_jit_enable
->=20
-> A value greater than 1 enables opcode output.
->=20
-> Signed-off-by: Mircea Gherzan <mgherzan@gmail.com>
-> ---
->=20
-> Changes in v5:
->  * replace SEEN_LEN with SEEN_SKB
->  * set ctx->seen when handling some ancillary data opcodes
+On Dec 22, 2011, at 11:10 PM, Eric Dumazet wrote:
+>> -		if (count > 1<<30) {
+>> +		if (count > INT_MAX)
+>> +			return -EINVAL;
+>> +		count = roundup_pow_of_two(count);
+>> +		if (count > (ULONG_MAX - sizeof(struct rps_dev_flow_table))
+> 
+> Oh well, you added a bug here, since count is "unsigned int"
+> 
+> Why mixing INT_MAX in the previous test and ULONG_MAX here ?
 
-> +		case BPF_S_ANC_CPU:
-> +			/* A =3D current_thread_info()->cpu */
-> +			emit_mov_i(r_scratch, (~(THREAD_SIZE - 1)), ctx);
-> +			emit(ARM_ADD_R(r_scratch, ARM_SP, r_scratch), ctx);
+The first check (count > INT_MAX) is used to avoid overflowing
+roundup_pow_of_two(count), e.g., when count is 0xffffffff.
 
-This cant be right ;)
+The second check is to avoid overflowing the size for vmalloc().
+It gives a less restrictive upper bound than using INT_MAX/UINT_MAX
+on 64-bit platform.
 
-> +
-> +			BUILD_BUG_ON(FIELD_SIZEOF(struct thread_info, cpu) !=3D 4);
-> +			off =3D offsetof(struct thread_info, cpu);
-> +			emit(ARM_LDR_I(r_A, r_scratch, off), ctx);
-> +			break;
+Why do you think it's a bug there?  I agree using two checks looks
+ugly though.
 
-code for r_A =3D raw_smp_processor_id(); should be something like :
-
-mov r0, sp
-bic r0, r0, #8128   ; 0x1fc0
-bic r0, r0, #63 ; 0x3f
-ldr r4, [r0, #20]=20
+- xi
