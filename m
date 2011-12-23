@@ -1,57 +1,64 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: Re: SFQ on HFSC leaf does not seem to work
-Date: Fri, 23 Dec 2011 12:35:27 -0500
-Message-ID: <1324661727.10184.617.camel@denise.theartistscloset.com>
-References: <1324620022.10184.100.camel@denise.theartistscloset.com>
-	 <1324627808.10854.6.camel@edumazet-laptop>
-	 <1324645986.10184.571.camel@denise.theartistscloset.com>
-	 <1324647920.2223.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1324648822.2223.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1324651128.10184.586.camel@denise.theartistscloset.com>
-	 <1324652361.2223.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1324654013.10184.597.camel@denise.theartistscloset.com>
-	 <1324656963.4540.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1324658658.10184.613.camel@denise.theartistscloset.com>
-	 <1324659976.4540.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1324660666.4540.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1324661598.10184.615.camel@denise.theartistscloset.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: netem and hierarchical ingress traffic shaping
+Date: Fri, 23 Dec 2011 18:39:10 +0100
+Message-ID: <1324661950.4540.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1324185132.8451.439.camel@denise.theartistscloset.com>
+	 <20111218115549.0d9e1259@nehalam.linuxnetplumber.net>
+	 <1324661639.4540.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "John A. Sullivan III" <jsullivan@opensourcedevel.com>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.195]:62257 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757524Ab1LWRfb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 12:35:31 -0500
-In-Reply-To: <1324661598.10184.615.camel@denise.theartistscloset.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:39453 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754110Ab1LWRjO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 12:39:14 -0500
+Received: by wgbdr13 with SMTP id dr13so17766973wgb.1
+        for <netdev@vger.kernel.org>; Fri, 23 Dec 2011 09:39:13 -0800 (PST)
+In-Reply-To: <1324661639.4540.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-12-23 at 12:33 -0500, John A. Sullivan III wrote:
-> On Fri, 2011-12-23 at 18:17 +0100, Eric Dumazet wrote:
-> > Le vendredi 23 d=C3=A9cembre 2011 =C3=A0 18:06 +0100, Eric Dumazet =
-a =C3=A9crit :
+Le vendredi 23 d=C3=A9cembre 2011 =C3=A0 18:33 +0100, Eric Dumazet a =C3=
+=A9crit :
+> Le dimanche 18 d=C3=A9cembre 2011 =C3=A0 11:55 -0800, Stephen Hemming=
+er a =C3=A9crit :
+> > On Sun, 18 Dec 2011 00:12:12 -0500
+> > "John A. Sullivan III" <jsullivan@opensourcedevel.com> wrote:
 > >=20
-> > > Maybe I was not clear :
-> > >=20
-> > > netem currently uses a fifo queue, you cant change this, without
-> > > patching kernel.
-> > >=20
+> > > Since netem appears to be classless, we realized we would need to
+> > > replace the SFQ on each leaf with netem which we really didn't wa=
+nt to
+> > > do - not only to not lose SFQ but because we didn't want to maint=
+ain the
+> > > netem parameters on each leaf.  So, we activated our ifb1 interfa=
+ce,
+> > > placed netem on it and redirected all the egress traffic to ifb1.=
+  Taht
+> > > worked fine.
 > >=20
-> > An other way would be to patch sch_tbf, adding delay, if its all yo=
-u
-> > want to do.
-> >=20
-> > (Or adding delay capability to ifb)
-> >=20
-> >=20
-> >=20
-> >=20
-> <grin> that's just a little outside by skill set ;) - John
+> > Current versions of netem can take one class.
+> > --
 >=20
-<snip>
-And I should mention seriously, that we are viewing our learning curve
-as something we will use in production so we'd like to accomplish our
-goals using stock distribution code.  Thanks, though - John
+> Hmm, I can see that (commit 10f6dfcfde884441)=20
+>=20
+> But it wont work very well, it assumes qdisc uses a single queue if
+> netem reordering is requested :
+>=20
+> (__skb_queue_head(&q->qdisc->q, skb))
+>=20
+> We should allow reordering if netem queue is changed from tfifo, only=
+ if
+> new qdisc is compatible with __skb_queue_head(&q->qdisc->q, skb)
+>=20
+> (maybe providing a new ->queue_at_head() new ops)
+
+Also, child qdisc must not scratch skb->cb[], since netem stores
+time_to_send in it.
+
+I guess nobody actually tried this netem mis-feature :(
+
+I'll send a fix.
