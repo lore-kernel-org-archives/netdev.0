@@ -1,40 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference in
- ipv6_select_ident
-Date: Thu, 22 Dec 2011 22:38:29 -0500 (EST)
-Message-ID: <20111222.223829.536447332324142274.davem@davemloft.net>
-References: <1324528656.2621.19.camel@edumazet-laptop>
-	<4EF300B2.3050903@bootc.net>
-	<1324563353.2153.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH net-next] packet: fix typo in packet_mmap.txt
+Date: Fri, 23 Dec 2011 11:47:54 +0800
+Message-ID: <CAPgLHd-YqSvDKDpsgyL5UJx1wK4MUOGw=LpMbWkENti=7MdkgA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bootc@bootc.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, steffen.klassert@secunet.com
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1324563353.2153.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:50869 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752535Ab1LWDrz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2011 22:47:55 -0500
+Received: by qcqz2 with SMTP id z2so5374838qcq.19
+        for <netdev@vger.kernel.org>; Thu, 22 Dec 2011 19:47:55 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 22 Dec 2011 15:15:53 +0100
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-> [PATCH] net: introduce DST_NOPEER dst flag
-> 
-> Chris Boot reported crashes occurring in ipv6_select_ident().
- ...
-> This is caused by bridge netfilter special dst_entry (fake_rtable), a
-> special shared entry, where attaching an inetpeer makes no sense.
-> 
-> Problem is present since commit 87c48fa3b46 (ipv6: make fragment
-> identifications less predictable)
-> 
-> Introduce DST_NOPEER dst flag and make sure ipv6_select_ident() and
-> __ip_select_ident() fallback to the 'no peer attached' handling.
-> 
-> Reported-by: Chris Boot <bootc@bootc.net>
-> Tested-by: Chris Boot <bootc@bootc.net>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Just fixed typo of sample code in packet_mmap.txt
 
-Applied.
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+
+diff --git a/Documentation/networking/packet_mmap.txt b/Documentation/networking/packet_mmap.txt
+index 4acea66..1c08a4b 100644
+--- a/Documentation/networking/packet_mmap.txt
++++ b/Documentation/networking/packet_mmap.txt
+@@ -155,7 +155,7 @@ As capture, each frame contains two parts:
+ 
+  /* fill sockaddr_ll struct to prepare binding */
+  my_addr.sll_family = AF_PACKET;
+- my_addr.sll_protocol = ETH_P_ALL;
++ my_addr.sll_protocol = htons(ETH_P_ALL);
+  my_addr.sll_ifindex =  s_ifr.ifr_ifindex;
+ 
+  /* bind socket to eth0 */
+-- 
+1.7.7.4
