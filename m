@@ -1,42 +1,39 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: netem: Gilbert, Simple Gilbert, Bernouli loss model broken
-Date: Thu, 22 Dec 2011 17:10:23 -0800
-Message-ID: <20111222171023.1c343e6b@nehalam.linuxnetplumber.net>
-References: <CAFXUZ_G7oAT9v1B4NNm5c2nxUpU_-zXNV47XzcyKNKgsDLjQzA@mail.gmail.com>
+From: Nicolas Pitre <nicolas.pitre@linaro.org>
+Subject: RE: [PATCH v2] ARM: net: JIT compiler for packet filters
+Date: Thu, 22 Dec 2011 21:26:47 -0500 (EST)
+Message-ID: <alpine.LFD.2.02.1112222122100.2907@xanadu.home>
+References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF25@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Marcus Wermuth <marcus.wermuth@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Dave Martin <dave.martin@linaro.org>,
+	Mircea Gherzan <mgherzan@gmail.com>, netdev@vger.kernel.org,
+	linux@arm.linux.org.uk, linux-arm-kernel@lists.infradead.org
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45489 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753854Ab1LWBK0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Dec 2011 20:10:26 -0500
-In-Reply-To: <CAFXUZ_G7oAT9v1B4NNm5c2nxUpU_-zXNV47XzcyKNKgsDLjQzA@mail.gmail.com>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:61506 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753009Ab1LWC0u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2011 21:26:50 -0500
+Received: by qcqz2 with SMTP id z2so5351995qcq.19
+        for <netdev@vger.kernel.org>; Thu, 22 Dec 2011 18:26:50 -0800 (PST)
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6D8AF25@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 8 Nov 2011 12:40:29 +0100
-Marcus Wermuth <marcus.wermuth@gmail.com> wrote:
+On Thu, 22 Dec 2011, David Laight wrote:
 
-> Hey,
+> > In principle, the condition could be __LINUX_ARM_ARCH__ < 5, since the
+> > bx instruction is guaranteed to be available on all ARMv5 CPUs and
+> > later (ARMv5T is not required).
 > 
-> I wanted to try the netem extension to setup a loss via Gilbert,
-> Simple Gilbert, Bernouli loss model[1]. Kernel support is included
-> since several releases. But configuration as demonstrated in [1] does
-> not work at all. It seems that the userspace part in iproute is
-> missing, the original patch from the authors does not work.
-> 
-> Does anybody know about that?
-> 
-> Bye, Marcus
-> 
-> (I'm not subscribed to netdev-list)
-> 
-> [1] http://netgroup.uniroma2.it/twiki/bin/view.cgi/Main/NetemCLG
+> Can't this code look at the actual cpu being used, and
+> generate the relevant 'return' instruction?
+> (Instead of trying to use some compile-time value.)
+
+There is really no point doing so.  We intend to ultimately have a 
+kernel that may support ARMv5 and lower, and another kernel to support 
+ARMv6 and ARMv7.  So in a given context, either bx is always available 
+(ARMv6+) or never required (ARMv5-).
 
 
-I just wrote, tested and support for the loss model parameters
-in iproute. Check the latest checkin in the git repo. Also the man
-page has been fixed to reflect the implemented options.
+Nicolas
