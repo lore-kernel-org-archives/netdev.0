@@ -1,36 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] netlink: Undo const marker in netlink_is_kernel().
-Date: Fri, 23 Dec 2011 17:33:32 -0500 (EST)
-Message-ID: <20111223.173332.1816822953738839558.davem@davemloft.net>
+From: =?ISO-8859-1?Q?Jean=2DBaptiste_Th=E9ou?= <jbtheou@gmail.com>
+Subject: Questioning about DM9000 and link up delay
+Date: Sat, 24 Dec 2011 00:46:03 +0100
+Message-ID: <CAGdsSeALNsVhqXsn32MqvCiqRTavxnBQrVbdPjOOSt-FFDMrsQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: shemminger@vyatta.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47330 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752023Ab1LWWdg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 17:33:36 -0500
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:64061 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752924Ab1LWXqZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 18:46:25 -0500
+Received: by eaad14 with SMTP id d14so3066677eaa.19
+        for <netdev@vger.kernel.org>; Fri, 23 Dec 2011 15:46:24 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpXZSBjYW4ndCBkbyB0aGlzIHdpdGhvdXQgcHJvcGFnYXRpbmcgdGhlIGNvbnN0IHRvIG5sa19z
-aygpDQp0b28sIG90aGVyd2lzZToNCg0KbmV0L25ldGxpbmsvYWZfbmV0bGluay5jOiBJbiBmdW5j
-dGlvbiChbmV0bGlua19pc19rZXJuZWyiOg0KbmV0L25ldGxpbmsvYWZfbmV0bGluay5jOjEwMzoy
-OiB3YXJuaW5nOiBwYXNzaW5nIGFyZ3VtZW50IDEgb2YgoW5sa19za6IgZGlzY2FyZHMgoWNvbnN0
-oiBxdWFsaWZpZXIgZnJvbSBwb2ludGVyIHRhcmdldCB0eXBlIFtlbmFibGVkIGJ5IGRlZmF1bHRd
-DQpuZXQvbmV0bGluay9hZl9uZXRsaW5rLmM6OTY6MzY6IG5vdGU6IGV4cGVjdGVkIKFzdHJ1Y3Qg
-c29jayAqoiBidXQgYXJndW1lbnQgaXMgb2YgdHlwZSChY29uc3Qgc3RydWN0IHNvY2sgKqINCg0K
-U2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KLS0t
-DQogbmV0L25ldGxpbmsvYWZfbmV0bGluay5jIHwgICAgMiArLQ0KIDEgZmlsZXMgY2hhbmdlZCwg
-MSBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9ucygtKQ0KDQpkaWZmIC0tZ2l0IGEvbmV0L25ldGxp
-bmsvYWZfbmV0bGluay5jIGIvbmV0L25ldGxpbmsvYWZfbmV0bGluay5jDQppbmRleCA4NmEyNThk
-Li42MjliMDYxIDEwMDY0NA0KLS0tIGEvbmV0L25ldGxpbmsvYWZfbmV0bGluay5jDQorKysgYi9u
-ZXQvbmV0bGluay9hZl9uZXRsaW5rLmMNCkBAIC05OCw3ICs5OCw3IEBAIHN0YXRpYyBpbmxpbmUg
-c3RydWN0IG5ldGxpbmtfc29jayAqbmxrX3NrKHN0cnVjdCBzb2NrICpzaykNCiAJcmV0dXJuIGNv
-bnRhaW5lcl9vZihzaywgc3RydWN0IG5ldGxpbmtfc29jaywgc2spOw0KIH0NCiANCi1zdGF0aWMg
-aW5saW5lIGludCBuZXRsaW5rX2lzX2tlcm5lbChjb25zdCBzdHJ1Y3Qgc29jayAqc2spDQorc3Rh
-dGljIGlubGluZSBpbnQgbmV0bGlua19pc19rZXJuZWwoc3RydWN0IHNvY2sgKnNrKQ0KIHsNCiAJ
-cmV0dXJuIG5sa19zayhzayktPmZsYWdzICYgTkVUTElOS19LRVJORUxfU09DS0VUOw0KIH0NCi0t
-IA0KMS43LjcuNA0KDQo=
+Hello everyone,
+
+I am working on a fast boot project and i have a "trouble" and i would
+know if someone know more about this topic.
+
+I have improve my boot time . But now i would like to add dhcp
+capacity and i have a delay (~2 sec) between dm9000 loading and link
+up message. I use kernel ip autoconfig (ip=3Ddhcp on boot cmd) to get
+the IP adress.
+
+I have try lot of things (Force media type, trace initcall, etc), but
+i cannot find the source of this delay. I think it's a hardware delay,
+but 2 second sound like to much for me.
+
+Have you any idea where i can search ?
+
+Hardware configuration :
+
+Mini2440 board
+Linux 2.6.32.2
+DM9000 driver
+
+Thanking you in advance.
+
+--
+Jean-Baptiste Th=E9ou,
