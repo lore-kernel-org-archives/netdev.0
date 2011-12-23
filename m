@@ -1,85 +1,42 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH v9 3/9] socket: initial cgroup code.
-Date: Fri, 23 Dec 2011 12:57:49 +0400
-Message-ID: <4EF4428D.6010103@parallels.com>
-References: <1323676029-5890-1-git-send-email-glommer@parallels.com> <1323676029-5890-4-git-send-email-glommer@parallels.com> <20111222211028.GB3916@redhat.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: linux-3.0.x regression with ipv4 routes having mtu
+Date: Fri, 23 Dec 2011 09:58:37 +0100
+Message-ID: <20111223085837.GV6348@secunet.com>
+References: <20111220071843.GL6348@secunet.com>
+ <20111220.133542.2144336048061483258.davem@davemloft.net>
+ <20111221085616.GO6348@secunet.com>
+ <20111221.155615.990885397853981125.davem@davemloft.net>
+ <20111222102526.GT6348@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
-	<paul@paulmenage.org>, <lizf@cn.fujitsu.com>,
-	<kamezawa.hiroyu@jp.fujitsu.com>, <ebiederm@xmission.com>,
-	<gthelen@google.com>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
-	<kirill@shutemov.name>, <avagin@parallels.com>, <devel@openvz.org>,
-	<eric.dumazet@gmail.com>, <cgroups@vger.kernel.org>
-To: Jason Baron <jbaron@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20111222211028.GB3916@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: timo.teras@iki.fi, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:39886 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753863Ab1LWI6k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Dec 2011 03:58:40 -0500
+Content-Disposition: inline
+In-Reply-To: <20111222102526.GT6348@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/23/2011 01:10 AM, Jason Baron wrote:
-> On Mon, Dec 12, 2011 at 11:47:03AM +0400, Glauber Costa wrote:
->> +
->> +static bool mem_cgroup_is_root(struct mem_cgroup *memcg);
->> +void sock_update_memcg(struct sock *sk)
->> +{
->> +	/* A socket spends its whole life in the same cgroup */
->> +	if (sk->sk_cgrp) {
->> +		WARN_ON(1);
->> +		return;
->> +	}
->> +	if (static_branch(&memcg_socket_limit_enabled)) {
->> +		struct mem_cgroup *memcg;
->> +
->> +		BUG_ON(!sk->sk_prot->proto_cgroup);
->> +
->> +		rcu_read_lock();
->> +		memcg = mem_cgroup_from_task(current);
->> +		if (!mem_cgroup_is_root(memcg)) {
->> +			mem_cgroup_get(memcg);
->> +			sk->sk_cgrp = sk->sk_prot->proto_cgroup(memcg);
->> +		}
->> +		rcu_read_unlock();
->> +	}
->> +}
->> +EXPORT_SYMBOL(sock_update_memcg);
->> +
->> +void sock_release_memcg(struct sock *sk)
->> +{
->> +	if (static_branch(&memcg_socket_limit_enabled)&&  sk->sk_cgrp) {
->> +		struct mem_cgroup *memcg;
->> +		WARN_ON(!sk->sk_cgrp->memcg);
->> +		memcg = sk->sk_cgrp->memcg;
->> +		mem_cgroup_put(memcg);
->> +	}
->> +}
->
-> Hi Glauber,
->
-> I think for 'sock_release_memcg()', you want:
->
-> static inline sock_release_memcg(sk)
-> {
-> 	if (static_branch())
-> 		__sock_release_memcg();
-> }
->
-> And then re-define the current sock_release_memcg ->  __sock_release_memcg().
-> In that way the straight line path is a single no-op. As currently
-> written, there is function call and then an immediate return.
->
+On Thu, Dec 22, 2011 at 11:25:26AM +0100, Steffen Klassert wrote:
+> > 
+> > Ok, so what you're saying is that we need a way to invalidate inetpeer
+> > entries, or at least invalidate their cached metrics and set
+> > INETPEER_METRICS_NEW once more.
+> 
+> Yes, we probaply need to invalidate whenever the fib changes.
+> We would have to invalidate at least the cached metrics and
+> all the pmtu related stuff we have on the inetpeer now.
+> Not sure if it is better to just invalidate some pieces
+> or the whole inetpeer entries.
+> 
 
-Hello Jason,
+I think I would favour to invalidate the inetpeer entries, we could
+do this similar to the invalidation of the routing cache. Do you have
+any preferences on this regarding the routing cache removal?
 
-Thanks for the tip. I may be wrong here, but I don't think that the 
-release performance matters to that level. But your suggestion seems 
-good nevertheless. Since this is already sitting on a tree, would you 
-like to send a patch for that?
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I'll continue to work at this in the new year, as I'll leave for
+holidays in some hours.
