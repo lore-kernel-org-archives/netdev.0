@@ -1,55 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: SFQ on HFSC leaf does not seem to work
-Date: Fri, 23 Dec 2011 23:24:23 +0100
-Message-ID: <1324679063.2915.18.camel@edumazet-laptop>
-References: <1324620022.10184.100.camel@denise.theartistscloset.com>
-	 <1324627808.10854.6.camel@edumazet-laptop>
-	 <1324645986.10184.571.camel@denise.theartistscloset.com>
-	 <1324647920.2223.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1324648822.2223.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1324651128.10184.586.camel@denise.theartistscloset.com>
-	 <1324652361.2223.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1324654013.10184.597.camel@denise.theartistscloset.com>
-	 <1324656963.4540.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1324658658.10184.613.camel@denise.theartistscloset.com>
-	 <1324659976.4540.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1324660666.4540.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1324661598.10184.615.camel@denise.theartistscloset.com>
-	 <1324661727.10184.617.camel@denise.theartistscloset.com>
-	 <1324674615.10184.631.camel@denise.theartistscloset.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] netlink: Undo const marker in netlink_is_kernel().
+Date: Fri, 23 Dec 2011 17:33:32 -0500 (EST)
+Message-ID: <20111223.173332.1816822953738839558.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "John A. Sullivan III" <jsullivan@spiritualoutreach.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: shemminger@vyatta.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:36924 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752446Ab1LWWY1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 17:24:27 -0500
-Received: by werm1 with SMTP id m1so4196773wer.19
-        for <netdev@vger.kernel.org>; Fri, 23 Dec 2011 14:24:26 -0800 (PST)
-In-Reply-To: <1324674615.10184.631.camel@denise.theartistscloset.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:47330 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752023Ab1LWWdg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 17:33:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 23 d=C3=A9cembre 2011 =C3=A0 16:10 -0500, John A. Sullivan =
-III a
-=C3=A9crit :
-
-> Should I guess that, from the flood of subsequent emails about patchi=
-ng
-> netem that it is not currently possible to do netem and hfsc/sfq on
-> ingress traffic using the currently available tools?=20
->=20
-
-Yep... current netem is a bit limited.
-
-> It's definitely netem on the ingress.  When I run it on egress and
-> disable it on ingress, I do not have the problem.  But, I see no what=
- of
-> getting the netem traffic into or out of SFQ.  Thanks - John
->=20
-
-It'll be possible, after a few patches, but only using net-next, or
-waiting a backport to a 3.2 kernel somehow...
+DQpXZSBjYW4ndCBkbyB0aGlzIHdpdGhvdXQgcHJvcGFnYXRpbmcgdGhlIGNvbnN0IHRvIG5sa19z
+aygpDQp0b28sIG90aGVyd2lzZToNCg0KbmV0L25ldGxpbmsvYWZfbmV0bGluay5jOiBJbiBmdW5j
+dGlvbiChbmV0bGlua19pc19rZXJuZWyiOg0KbmV0L25ldGxpbmsvYWZfbmV0bGluay5jOjEwMzoy
+OiB3YXJuaW5nOiBwYXNzaW5nIGFyZ3VtZW50IDEgb2YgoW5sa19za6IgZGlzY2FyZHMgoWNvbnN0
+oiBxdWFsaWZpZXIgZnJvbSBwb2ludGVyIHRhcmdldCB0eXBlIFtlbmFibGVkIGJ5IGRlZmF1bHRd
+DQpuZXQvbmV0bGluay9hZl9uZXRsaW5rLmM6OTY6MzY6IG5vdGU6IGV4cGVjdGVkIKFzdHJ1Y3Qg
+c29jayAqoiBidXQgYXJndW1lbnQgaXMgb2YgdHlwZSChY29uc3Qgc3RydWN0IHNvY2sgKqINCg0K
+U2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KLS0t
+DQogbmV0L25ldGxpbmsvYWZfbmV0bGluay5jIHwgICAgMiArLQ0KIDEgZmlsZXMgY2hhbmdlZCwg
+MSBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9ucygtKQ0KDQpkaWZmIC0tZ2l0IGEvbmV0L25ldGxp
+bmsvYWZfbmV0bGluay5jIGIvbmV0L25ldGxpbmsvYWZfbmV0bGluay5jDQppbmRleCA4NmEyNThk
+Li42MjliMDYxIDEwMDY0NA0KLS0tIGEvbmV0L25ldGxpbmsvYWZfbmV0bGluay5jDQorKysgYi9u
+ZXQvbmV0bGluay9hZl9uZXRsaW5rLmMNCkBAIC05OCw3ICs5OCw3IEBAIHN0YXRpYyBpbmxpbmUg
+c3RydWN0IG5ldGxpbmtfc29jayAqbmxrX3NrKHN0cnVjdCBzb2NrICpzaykNCiAJcmV0dXJuIGNv
+bnRhaW5lcl9vZihzaywgc3RydWN0IG5ldGxpbmtfc29jaywgc2spOw0KIH0NCiANCi1zdGF0aWMg
+aW5saW5lIGludCBuZXRsaW5rX2lzX2tlcm5lbChjb25zdCBzdHJ1Y3Qgc29jayAqc2spDQorc3Rh
+dGljIGlubGluZSBpbnQgbmV0bGlua19pc19rZXJuZWwoc3RydWN0IHNvY2sgKnNrKQ0KIHsNCiAJ
+cmV0dXJuIG5sa19zayhzayktPmZsYWdzICYgTkVUTElOS19LRVJORUxfU09DS0VUOw0KIH0NCi0t
+IA0KMS43LjcuNA0KDQo=
