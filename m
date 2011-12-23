@@ -1,42 +1,34 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: linux-3.0.x regression with ipv4 routes having mtu
-Date: Fri, 23 Dec 2011 09:58:37 +0100
-Message-ID: <20111223085837.GV6348@secunet.com>
-References: <20111220071843.GL6348@secunet.com>
- <20111220.133542.2144336048061483258.davem@davemloft.net>
- <20111221085616.GO6348@secunet.com>
- <20111221.155615.990885397853981125.davem@davemloft.net>
- <20111222102526.GT6348@secunet.com>
+Date: Fri, 23 Dec 2011 04:00:34 -0500 (EST)
+Message-ID: <20111223.040034.1806835027241935268.davem@davemloft.net>
+References: <20111222102526.GT6348@secunet.com>
+	<20111222.135127.1577166695312077920.davem@davemloft.net>
+	<20111223084737.GU6348@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: timo.teras@iki.fi, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:39886 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753863Ab1LWI6k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Dec 2011 03:58:40 -0500
-Content-Disposition: inline
-In-Reply-To: <20111222102526.GT6348@secunet.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:41879 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752174Ab1LWJA7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 04:00:59 -0500
+In-Reply-To: <20111223084737.GU6348@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 22, 2011 at 11:25:26AM +0100, Steffen Klassert wrote:
-> > 
-> > Ok, so what you're saying is that we need a way to invalidate inetpeer
-> > entries, or at least invalidate their cached metrics and set
-> > INETPEER_METRICS_NEW once more.
-> 
-> Yes, we probaply need to invalidate whenever the fib changes.
-> We would have to invalidate at least the cached metrics and
-> all the pmtu related stuff we have on the inetpeer now.
-> Not sure if it is better to just invalidate some pieces
-> or the whole inetpeer entries.
-> 
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Fri, 23 Dec 2011 09:47:37 +0100
 
-I think I would favour to invalidate the inetpeer entries, we could
-do this similar to the invalidation of the routing cache. Do you have
-any preferences on this regarding the routing cache removal?
+> Could you please give a short explaination or point me to where I
+> can find this informations?
 
-I'll continue to work at this in the new year, as I'll leave for
-holidays in some hours.
+The routing cache can be easily DoS'd because it fundamentally
+has performance which is a product of the characteristics of
+the packets we receive, which is controllable by remote entities.
+
+If we get rid of the routing cache, then our lookup performance
+will be a product of the contents of the routing table which we
+and the administrator have full control over.
