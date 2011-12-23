@@ -1,80 +1,59 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: Re: SFQ on HFSC leaf does not seem to work
-Date: Fri, 23 Dec 2011 11:44:18 -0500
-Message-ID: <1324658658.10184.613.camel@denise.theartistscloset.com>
-References: <1324620022.10184.100.camel@denise.theartistscloset.com>
-	 <1324627808.10854.6.camel@edumazet-laptop>
-	 <1324645986.10184.571.camel@denise.theartistscloset.com>
-	 <1324647920.2223.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1324648822.2223.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1324651128.10184.586.camel@denise.theartistscloset.com>
-	 <1324652361.2223.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1324654013.10184.597.camel@denise.theartistscloset.com>
-	 <1324656963.4540.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: [patch] usb: pegasus: cleanup a couple conditions
+Date: Fri, 23 Dec 2011 18:15:29 +0200 (EET)
+Message-ID: <alpine.DEB.2.02.1112231813001.6533@bender.nucleusys.com>
+References: <20111223104436.GA8592@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Petko Manolov <petkan@users.sourceforge.net>,
+	Greg Kroah-Hartman <gregkh@suse.de>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.195]:65063 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757396Ab1LWQoX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 11:44:23 -0500
-In-Reply-To: <1324656963.4540.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from lan.nucleusys.com ([78.83.248.164]:53810 "EHLO
+	zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754461Ab1LWQyD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 11:54:03 -0500
+In-Reply-To: <20111223104436.GA8592@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-12-23 at 17:16 +0100, Eric Dumazet wrote:
-> Le vendredi 23 d=C3=A9cembre 2011 =C3=A0 10:26 -0500, John A. Sulliva=
-n III a
-> =C3=A9crit :
->=20
-> > Yes.  This is a problem I have with netem on ingress traffic.  I us=
-e the
-> > filter on ffff: to redirect to ifb0 for the ingress traffic shaping=
-=2E  I
-> > cannot figure out a way to redirect a second time to ifb1 for the n=
-etem
-> > qdisc.  I tried putting two action mirred statements in the filter =
-but
-> > that did not work.  Unlike eth1, I cannot attach a filter further d=
-own
-> > the ifb0 hfsc hierarchy because one can't redirect one ifb into ano=
-ther
-> > ifb.  Thus, the only way I could figure out how to do inbound netem=
- was
-> > to replace the terminal qdisc with netem rather than SFQ.  I'd love=
- to
-> > be able to do that differently.  I tried attaching netem to the SFQ=
- but
-> > that failed (I assume because SFQ is classless) and I tried the oth=
-er
-> > way around, attaching SFQ to netem since you mentioned netem could =
-take
-> > a class but that did not work either.
->=20
-> Unfortunately, netem wants to control skbs itself, in a fifo queue.
->=20
-> To implement what you want, we would need to setup a second qdisc,
-> and when packets are dequeued from internal netem fifo, queue them in
-> second qdisc.
->=20
->=20
->=20
-I thought I tried to do that but I must have done it incorrectly.  I
-would think something like:
+Once i thought 'loopback' may have other significant bits.  Since it 
+doesn't look likely anymore i guess the patch is OK.
 
-tc qdisc add dev eth1 ingress
-tc filter add dev eth1 parent ffff: protocol ip prio 50 u32 match u32 0=
- 0 action mirred egress redirect dev ifb0
-tc qdisc add  dev ifb0 root handle 4 netem delay 25ms 5ms distribution =
-normal loss 0.1% 30%
-tc qdisc add dev ifb0 parent 4:0 handle 1: hfsc default 20
 
-but I get:
-root@testswitch01:~# tc qdisc add dev ifb0 parent 4:0 handle 1: hfsc de=
-fault 20
-RTNETLINK answers: Operation not supported
+cheers,
+Petko
 
-What did I do wrong? Thanks - John
+
+
+On Fri, 23 Dec 2011, Dan Carpenter wrote:
+
+> We recently made loopback a bool type instead of an int, so the bitwise
+> AND is redundent.
+>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>
+> diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
+> index 908b427..5d99b8c 100644
+> --- a/drivers/net/usb/pegasus.c
+> +++ b/drivers/net/usb/pegasus.c
+> @@ -517,7 +517,7 @@ static inline int reset_mac(pegasus_t *pegasus)
+> 	for (i = 0; i < REG_TIMEOUT; i++) {
+> 		get_registers(pegasus, EthCtrl1, 1, &data);
+> 		if (~data & 0x08) {
+> -			if (loopback & 1)
+> +			if (loopback)
+> 				break;
+> 			if (mii_mode && (pegasus->features & HAS_HOME_PNA))
+> 				set_register(pegasus, Gpio1, 0x34);
+> @@ -561,7 +561,7 @@ static int enable_net_traffic(struct net_device *dev, struct usb_device *usb)
+> 		data[1] |= 0x10;	/* set 100 Mbps */
+> 	if (mii_mode)
+> 		data[1] = 0;
+> -	data[2] = (loopback & 1) ? 0x09 : 0x01;
+> +	data[2] = loopback ? 0x09 : 0x01;
+>
+> 	memcpy(pegasus->eth_regs, data, sizeof(data));
+> 	ret = set_registers(pegasus, EthCtrl0, 3, data);
+>
