@@ -1,69 +1,68 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 6/9] ixgbe: add support for new 82599 device id
-Date: Fri, 23 Dec 2011 01:09:14 -0800
-Message-ID: <1324631357-31789-7-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1324631357-31789-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/9][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 23 Dec 2011 01:09:08 -0800
+Message-ID: <1324631357-31789-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:9686 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:44079 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753995Ab1LWJJW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Dec 2011 04:09:22 -0500
-In-Reply-To: <1324631357-31789-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1752658Ab1LWJJT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Dec 2011 04:09:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+The following series contains updates to igb, ixgbe and ixgbevf.  Most of
+the changes are adding support of some kind.  There are 3 fixes, one fix
+for ixgbevf to fix register defines.  The other two fixes are for ixgbe,
+one being a minor comment spelling fix and the other is to fix register
+reads.
 
-Support for new 82599 based quad port adapter.
+Here is a list of the new support added:
+ - 2 new device id's in ixgbe
+ - igb flow control advertising to ethtool
+ - ixgbe thermal data sensor
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c |    1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |    1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |    1 +
- 3 files changed, 3 insertions(+), 0 deletions(-)
+The following are changes since commit 2c64580046a122fa15bb586d8ca4fd5e4b69a1e7:
+  netlink: wake up netlink listeners sooner (v2)
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index 4ae26a7..7720721 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -356,6 +356,7 @@ static enum ixgbe_media_type ixgbe_get_media_type_82599(struct ixgbe_hw *hw)
- 	case IXGBE_DEV_ID_82599_SFP_FCOE:
- 	case IXGBE_DEV_ID_82599_SFP_EM:
- 	case IXGBE_DEV_ID_82599_SFP_SF2:
-+	case IXGBE_DEV_ID_82599_SFP_SF_QP:
- 	case IXGBE_DEV_ID_82599EN_SFP:
- 		media_type = ixgbe_media_type_fiber;
- 		break;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index cd1f893..e27e4d1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -106,6 +106,7 @@ static DEFINE_PCI_DEVICE_TABLE(ixgbe_pci_tbl) = {
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_SFP_SF2), board_82599 },
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_LS), board_82599 },
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599EN_SFP), board_82599 },
-+	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_SFP_SF_QP), board_82599 },
- 	/* required last entry */
- 	{0, }
- };
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 242643a..7c5817f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -65,6 +65,7 @@
- #define IXGBE_SUBDEV_ID_82599_KX4_KR_MEZZ  0x000C
- #define IXGBE_DEV_ID_82599_LS            0x154F
- #define IXGBE_DEV_ID_X540T               0x1528
-+#define IXGBE_DEV_ID_82599_SFP_SF_QP     0x154A
- 
- /* VF Device IDs */
- #define IXGBE_DEV_ID_82599_VF           0x10ED
+Alexander Duyck (1):
+  ixgbevf: Fix register defines to correctly handle complex expressions
+
+Carolyn Wyborny (1):
+  igb: Add flow control advertising to ethtool setting.
+
+Don Skidmore (3):
+  ixgbe: add support functions for gathering thermal data sensor
+  ixgbe: add interface to export thermal data
+  ixgbe: add support for new 82599 device.
+
+Emil Tantilov (3):
+  ixgbe: fix incorrect PHY register reads
+  ixgbe: add write flush in ixgbe_clock_out_i2c_byte()
+  ixgbe: add support for new 82599 device id
+
+Stephen Hemminger (1):
+  ixgbe: fix typo's
+
+ drivers/net/ethernet/intel/igb/igb_ethtool.c     |    6 +-
+ drivers/net/ethernet/intel/ixgbe/Makefile        |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |    4 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   |    3 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  |  158 +++++++++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h  |   13 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   15 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |   32 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |    1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c   |  305 ++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |   40 +++
+ drivers/net/ethernet/intel/ixgbevf/mbx.h         |    4 +-
+ drivers/net/ethernet/intel/ixgbevf/regs.h        |   42 ++--
+ 13 files changed, 583 insertions(+), 42 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
+
 -- 
 1.7.7.4
