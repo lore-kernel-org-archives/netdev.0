@@ -1,37 +1,56 @@
-From: Xi Wang <xi.wang@gmail.com>
-Subject: Re: [PATCH v2] rps: fix insufficient bounds checking in store_rps_dev_flow_table_cnt()
-Date: Fri, 23 Dec 2011 10:07:57 -0500
-Message-ID: <C6E2C6E1-A4DA-45F8-A94F-D3B78AFA018F@gmail.com>
-References: <1324493459-19764-1-git-send-email-xi.wang@gmail.com> <4EF3BEBA.4040402@gmail.com> <1324613414.2674.2.camel@edumazet-laptop> <C0DC969A-A32B-4CC8-B565-FF741E9D75DA@gmail.com> <1324616007.2674.8.camel@edumazet-laptop> <ACB00AE8-CFEF-4535-9242-1B5C44F05C13@gmail.com> <1324617390.2674.13.camel@edumazet-laptop> <1324618555.10854.4.camel@edumazet-laptop> <4DA4756B-0654-49F4-B135-9A9F89BC7D21@gmail.com> <1324645592.2223.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <EC59D18E-82F6-4409-BB29-D7434D63B0C9@gmail.com> <1324652031.2223.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Mime-Version: 1.0 (Apple Message framework v1084)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Krishna Gudipati <kgudipat@Brocade.com>
+Subject: RE: [PATCH 1/2] bna: Added flash sub-module and ethtool eeprom
+ entry points.
+Date: Fri, 23 Dec 2011 07:09:24 -0800
+Message-ID: <B5EE62D80D50B84BB9E5174F7FCCE80A206BE39A24@HQ1-EXCH02.corp.brocade.com>
+References: <1324596585-8614-1-git-send-email-kgudipat@brocade.com>
+ <1324633462.3860.6.camel@deadeye>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "'davem@davemloft.net'" <davem@davemloft.net>,
+	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+	Adapter Linux Open SRC Team
+	<adapter_linux_open_src_team@Brocade.COM>,
+	Rasesh Mody <rmody@brocade.com>
+To: "'Ben Hutchings'" <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:44254 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751848Ab1LWPIC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 10:08:02 -0500
-Received: by iaeh11 with SMTP id h11so15218700iae.19
-        for <netdev@vger.kernel.org>; Fri, 23 Dec 2011 07:08:01 -0800 (PST)
-In-Reply-To: <1324652031.2223.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:33956 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751848Ab1LWPJe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 10:09:34 -0500
+In-Reply-To: <1324633462.3860.6.camel@deadeye>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Dec 23, 2011, at 9:53 AM, Eric Dumazet wrote:
-> Unsigned arithmetics is well defined in C. Very well in fact.
-
-Oversized shifts are undefined in C, no matter it is unsigned
-or not; roundup_pow_of_two() is implemented by shifting.
-
->> BTW, (count > UINT_MAX) is shorter and easier to understand
->> than (count != (unsigned long)(u32)count).
-> 
-> You miss the point. UINT_MAX is too small for 64bit arches.
-
-I am sorry why is it too small?  what's difference between
-(count > UINT_MAX) and (count != (unsigned long)(u32)count)?
-
-- xi
+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IG5ldGRldi1vd25lckB2Z2VyLmtlcm5l
+bC5vcmcgW21haWx0bzpuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnXSBPbiBCZWhhbGYgT2Yg
+QmVuIEh1dGNoaW5ncw0KU2VudDogRnJpZGF5LCBEZWNlbWJlciAyMywgMjAxMSAxOjQ0IEFNDQpU
+bzogS3Jpc2huYSBHdWRpcGF0aQ0KQ2M6IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IG5ldGRldkB2Z2Vy
+Lmtlcm5lbC5vcmc7IEFkYXB0ZXIgTGludXggT3BlbiBTUkMgVGVhbTsgUmFzZXNoIE1vZHkNClN1
+YmplY3Q6IFJlOiBbUEFUQ0ggMS8yXSBibmE6IEFkZGVkIGZsYXNoIHN1Yi1tb2R1bGUgYW5kIGV0
+aHRvb2wgZWVwcm9tIGVudHJ5IHBvaW50cy4NCg0KT24gVGh1LCAyMDExLTEyLTIyIGF0IDE1OjI5
+IC0wODAwLCBrZ3VkaXBhdEBicm9jYWRlLmNvbSB3cm90ZToNCj4gRnJvbTogS3Jpc2huYSBHdWRp
+cGF0aSA8a2d1ZGlwYXRAYnJvY2FkZS5jb20+DQo+IA0KPiBDaGFuZ2UgZGV0YWlsczoNCj4gCS0g
+VGhlIHBhdGNoIGFkZHMgZmxhc2ggc3ViLW1vZHVsZSB0byB0aGUgYm5hIGRyaXZlci4NCj4gCS0g
+QWRkZWQgZXRodG9vbCBzZXRfZWVwcm9tKCkgYW5kIGdldF9lZXByb20oKSBlbnRyeSBwb2ludHMg
+dG8NCj4gCSAgc3VwcG9ydCBmbGFzaCBwYXJ0aXRpb24gcmVhZC93cml0ZSBvcGVyYXRpb25zLg0K
+Wy4uLl0NCg0KSSdtIG5vdCBnb2luZyB0byBzYXkgdGhpcyBpcyB3cm9uZywgYnV0IHdlIGRpZG4n
+dCBmaW5kIHRoZSBFRVBST00NCm9wZXJhdGlvbnMgc3VpdGFibGUgZm9yIGZpcm13YXJlIHVwZ3Jh
+ZGUuICBJIGhhdmUgYSBjb3VwbGUgb2YgcXVlc3Rpb25zOg0KDQoxLiBIb3cgbG9uZyBjYW4gYSBz
+aW5nbGUgc2V0X2VlcHJvbSgpIG9wZXJhdGlvbiB0YWtlPw0KMi4gSGF2ZSB5b3UgY29uc2lkZXJl
+ZCBpbXBsZW1lbnRpbmcgdGhlIGZsYXNoX2RldmljZSgpIG9wZXJhdGlvbiBvciBhbg0KTVREIGRy
+aXZlcj8NCg0KLS0tLS0NCg0KVGhhbmtzIEJlbiBmb3IgcmV2aWV3aW5nLg0KDQpGb3IgMTogQ29u
+c2lkZXJpbmcgdGhlIG1heCBzaXplIG9mIHRoZSBmbGFzaCBpbWFnZSBjaHVuayBwYXNzZWQgdG8g
+dGhlIHNldF9lZXByb20oKSBlbnRyeSBwb2ludA0KCSBhdCBhIHRpbWUgaXMgNEtieXRlcywgaXQg
+dGFrZXMgYSBsaXR0bGUgYXJvdW5kIH4zbWluIGZvciB0aGUgZmlybXdhcmUgdXBncmFkZSBhcyB0
+aGUNCgkgb3BlcmF0aW9uIGludm9sdmVzIGEgZmxhc2ggd3JpdGUgZm9yIGVhY2ggNEtieXRlcyBv
+ZiB0aGUgdG90YWwgNDYxS2J5dGVzIHdoaWNoIGlzIG91ciBmd2ltZyBzaXplLg0KDQoJIFBsZWFz
+ZSBub3RlIHRoYXQgd2UgdXNlIHRoZSBzYW1lIGVudHJ5IHBvaW50IHRvIGRvIGZsYXNoIHVwZGF0
+ZSBmb3Igb3RoZXIgZmxhc2ggcGFydGl0aW9ucyBhcyB3ZWxsLA0KCSBmb3Igd2hpY2ggdGhlIGZs
+YXNoIGltYWdlIHNpemUgaXMgbXVjaCBsZXNzZXIgdGhhbiB0aGUgZmlybXdhcmUgaW1hZ2UuDQoN
+CkZvciAyOiBObywgd2Ugbm90aWNlZCB0aGF0IGZsYXNoX2RldmljZSgpIGVudHJ5IHBvaW50IGlz
+IGxpc3RlZCBhcyBvYnNvbGV0ZSBpbiB0aGUgUkhFTDYuMiBrZXJuZWwgc291cmNlLA0KCSBzbyB3
+ZSBkaWQgbm90IHdhbnQgdG8gaW1wbGVtZW50IHVzaW5nIGl0Lg0KDQpUaGFua3MsDQpLcmlzaG5h
+Lg0K
