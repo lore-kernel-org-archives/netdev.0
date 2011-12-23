@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] skb paged fragment destructors
-Date: Fri, 23 Dec 2011 16:52:47 -0500 (EST)
-Message-ID: <20111223.165247.1508204992154625980.davem@davemloft.net>
-References: <20111222.132024.2100751924070475608.davem@davemloft.net>
-	<45B8991A987A4149B40F1A061BF49097B96C9EFF05@LONPMAILBOX01.citrite.net>
-	<1324633155.7877.106.camel@zakaz.uk.xensource.com>
+Subject: Re: [PATCH net-next] packet: fix typo in packet_mmap.txt
+Date: Fri, 23 Dec 2011 16:53:11 -0500 (EST)
+Message-ID: <20111223.165311.2301039891317716897.davem@davemloft.net>
+References: <CAPgLHd-YqSvDKDpsgyL5UJx1wK4MUOGw=LpMbWkENti=7MdkgA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org
-To: Ian.Campbell@citrix.com
+Cc: netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46972 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:46983 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754611Ab1LWVwx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 16:52:53 -0500
-In-Reply-To: <1324633155.7877.106.camel@zakaz.uk.xensource.com>
+	with ESMTP id S1757849Ab1LWVxO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 16:53:14 -0500
+In-Reply-To: <CAPgLHd-YqSvDKDpsgyL5UJx1wK4MUOGw=LpMbWkENti=7MdkgA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Date: Fri, 23 Dec 2011 09:39:14 +0000
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Fri, 23 Dec 2011 11:47:54 +0800
 
-> Subject: [PATCH] net: only use a single page of slop in MAX_SKB_FRAGS
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 > 
-> In order to accommodate a 64K buffer we need 64K/PAGE_SIZE plus one more page
-> in order to allow for a buffer which does not start on a page boundary.
+> Just fixed typo of sample code in packet_mmap.txt
 > 
-> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
 Applied.
