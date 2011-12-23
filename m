@@ -1,189 +1,90 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [net-next 8/9] ixgbe: add interface to export thermal data
-Date: Fri, 23 Dec 2011 14:01:48 +0100
-Message-ID: <20111223130148.GB27206@electric-eye.fr.zoreil.com>
-References: <1324631357-31789-1-git-send-email-jeffrey.t.kirsher@intel.com> <1324631357-31789-9-git-send-email-jeffrey.t.kirsher@intel.com>
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Subject: Re: SFQ on HFSC leaf does not seem to work
+Date: Fri, 23 Dec 2011 08:13:06 -0500
+Message-ID: <1324645986.10184.571.camel@denise.theartistscloset.com>
+References: <1324620022.10184.100.camel@denise.theartistscloset.com>
+	 <1324627808.10854.6.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, Don Skidmore <donald.c.skidmore@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:46390 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757032Ab1LWNJ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 08:09:56 -0500
-Content-Disposition: inline
-In-Reply-To: <1324631357-31789-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mout.perfora.net ([74.208.4.195]:62787 "EHLO mout.perfora.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756849Ab1LWNNL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 08:13:11 -0500
+In-Reply-To: <1324627808.10854.6.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher <jeffrey.t.kirsher@intel.com> :
-> From: Don Skidmore <donald.c.skidmore@intel.com>
-> 
-> Some of our adapters have thermal data available, this patch exports this
-> data via a read-only sysfs interface.  More patches will follow that will
-> contain additional information to be exported.
-> 
-> Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/Makefile      |    2 +-
->  drivers/net/ethernet/intel/ixgbe/ixgbe.h       |    4 +
->  drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c |    2 +
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |    6 +
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c |  305 ++++++++++++++++++++++++
-[...]
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-> index 7720721..1a3810e 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-> @@ -2137,6 +2137,8 @@ static struct ixgbe_mac_operations mac_ops_82599 = {
->  	.set_vlan_anti_spoofing = &ixgbe_set_vlan_anti_spoofing,
->  	.acquire_swfw_sync      = &ixgbe_acquire_swfw_sync,
->  	.release_swfw_sync      = &ixgbe_release_swfw_sync,
-> +	.get_thermal_sensor_data = &ixgbe_get_thermal_sensor_data_generic,
-> +	.init_thermal_sensor_thresh = &ixgbe_init_thermal_sensor_thresh_generic,
+On Fri, 2011-12-23 at 09:10 +0100, Eric Dumazet wrote:
+> Le vendredi 23 d=C3=A9cembre 2011 =C3=A0 01:00 -0500, John A. Sulliva=
+n III a
+> =C3=A9crit :
+>=20
+> > Where might this 3000 ms delay be coming from?
+> >=20
+>=20
+> Certainly not from SFQ
+>=20
+> You could use tcpdump to check if delay is at egress or ingress side.
+>=20
+>=20
+>=20
+That's perplexing as well.  Tracing on the eth1 interface of the test
+devices, we see the packets going out with near perfect regularity at
+one second intervals and replies returning immediately.  They are also
+completely in sequence so it is not as if we are matching packet 4 with
+packet 7 and seeing an immediate reply that is really offset by three
+seconds.
 
-.get_thermal_sensor_data and .init_thermal_sensor_thresh do not seem to
-be read anywhere.
+Thus, the delay seems to be registered only in the ICMP application
+itself.  The CPU is virtually idle - very impressed with Debian's
+handling of interrupts on this old system would have been spending
+almost 60% on hardware interrupts.
 
->  
->  };
->  
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index e27e4d1..b5cef7e 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -7717,6 +7717,10 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
->  
->  	e_dev_info("Intel(R) 10 Gigabit Network Connection\n");
->  	cards_found++;
-> +
-> +	if (ixgbe_sysfs_init(adapter))
-> +		e_err(probe, "failed to allocate sysfs resources\n");
-> +
->  	return 0;
->  
->  err_register:
-> @@ -7764,6 +7768,8 @@ static void __devexit ixgbe_remove(struct pci_dev *pdev)
->  	}
->  
->  #endif
-> +	ixgbe_sysfs_exit(adapter);
-> +
->  #ifdef IXGBE_FCOE
->  	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)
->  		ixgbe_cleanup_fcoe(adapter);
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-> new file mode 100644
-> index 0000000..db818ae
-> --- /dev/null
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-[...]
-> +static void ixgbe_del_adapter(struct ixgbe_adapter *adapter)
+Another weird characteristic is that the delay is introduced gradually
+over several seconds:
+64 bytes from 192.168.223.84: icmp_req=3D4 ttl=3D64 time=3D58.0 ms
+64 bytes from 192.168.223.84: icmp_req=3D5 ttl=3D64 time=3D52.4 ms
+64 bytes from 192.168.223.84: icmp_req=3D6 ttl=3D64 time=3D48.7 ms
+64 bytes from 192.168.223.84: icmp_req=3D7 ttl=3D64 time=3D118 ms
+64 bytes from 192.168.223.84: icmp_req=3D8 ttl=3D64 time=3D834 ms
+64 bytes from 192.168.223.84: icmp_req=3D9 ttl=3D64 time=3D896 ms
+64 bytes from 192.168.223.84: icmp_req=3D10 ttl=3D64 time=3D897 ms
+64 bytes from 192.168.223.84: icmp_req=3D11 ttl=3D64 time=3D1081 ms
+64 bytes from 192.168.223.84: icmp_req=3D12 ttl=3D64 time=3D1257 ms
+64 bytes from 192.168.223.84: icmp_req=3D13 ttl=3D64 time=3D1744 ms
+64 bytes from 192.168.223.84: icmp_req=3D14 ttl=3D64 time=3D2107 ms
+64 bytes from 192.168.223.84: icmp_req=3D15 ttl=3D64 time=3D2532 ms
+64 bytes from 192.168.223.84: icmp_req=3D16 ttl=3D64 time=3D2948 ms
+64 bytes from 192.168.223.84: icmp_req=3D17 ttl=3D64 time=3D3191 ms
+64 bytes from 192.168.223.84: icmp_req=3D18 ttl=3D64 time=3D3163 ms
 
-Please name it ixgbe_sysfs_del_adapter or anything better.
+While the delay builds, we can see the replied noticeably delayed
+however, once we hit 3000ms, the display updates one packet per second.
+I would expect one packet per three seconds unless we were interleaving
+packets but we are not according to the packet trace.
 
-> +{
-> +	int i;
-> +
-> +	if (adapter == NULL)
-> +		return;
-> +
-> +	for (i = 0; i < IXGBE_MAX_SENSORS; i++) {
-> +		if (adapter->therm_kobj[i] == NULL)
-> +			continue;
-> +		sysfs_remove_group(adapter->therm_kobj[i], &therm_attr_group);
-> +		kobject_put(adapter->therm_kobj[i]);
-> +	}
-> +	if (adapter->info_kobj != NULL)
-> +		kobject_put(adapter->info_kobj);
-> +}
-> +
-> +/* called from ixgbe_main.c */
-> +void ixgbe_sysfs_exit(struct ixgbe_adapter *adapter)
-> +{
-> +	ixgbe_del_adapter(adapter);
-> +}
-> +
-> +/* called from ixgbe_main.c */
-> +int ixgbe_sysfs_init(struct ixgbe_adapter *adapter)
-> +{
-> +	struct net_device *netdev;
-> +	int rc = 0;
-> +	int i;
-> +	char buf[16];
-> +
-> +	if (adapter == NULL)
-> +		goto err;
+So I am guessing an inbound queue but where? Ah, netem.  I pulled out
+netem and I seem vastly different results.  I get a very occasional los=
+t
+packet but no impact to latency:
 
-ixgbe_sysfs_init is only used in ixgbe_probe at a place where adapter can
-not be NULL.
+64 bytes from 192.168.223.84: icmp_req=3D48 ttl=3D64 time=3D0.802 ms
+64 bytes from 192.168.223.84: icmp_req=3D49 ttl=3D64 time=3D0.843 ms
+64 bytes from 192.168.223.84: icmp_req=3D50 ttl=3D64 time=3D0.739 ms
+64 bytes from 192.168.223.84: icmp_req=3D51 ttl=3D64 time=3D0.769 ms
+64 bytes from 192.168.223.84: icmp_req=3D52 ttl=3D64 time=3D0.833 ms
+64 bytes from 192.168.223.84: icmp_req=3D53 ttl=3D64 time=3D0.872 ms
+64 bytes from 192.168.223.84: icmp_req=3D54 ttl=3D64 time=3D0.786 ms
+64 bytes from 192.168.223.84: icmp_req=3D55 ttl=3D64 time=3D0.766 ms
+64 bytes from 192.168.223.84: icmp_req=3D56 ttl=3D64 time=3D0.715 ms
+64 bytes from 192.168.223.84: icmp_req=3D57 ttl=3D64 time=3D0.710 ms
+64 bytes from 192.168.223.84: icmp_req=3D58 ttl=3D64 time=3D0.784 ms
+64 bytes from 192.168.223.84: icmp_req=3D59 ttl=3D64 time=3D0.766 ms
+64 bytes from 192.168.223.84: icmp_req=3D60 ttl=3D64 time=3D0.748 ms
 
-> +	netdev = adapter->netdev;
-> +	if (netdev == NULL)
-> +		goto err;
 
-netdev can not be NULL.
-
-> +
-> +	adapter->info_kobj = NULL;
-> +	for (i = 0; i < IXGBE_MAX_SENSORS; i++)
-> +		adapter->therm_kobj[i] = NULL;
-> +
-> +	/* create info kobj and attribute listings in kobj */
-> +	adapter->info_kobj = kobject_create_and_add("info", 
-> +					&(netdev->dev.kobj));
-
-Remove comment and parenthesis. Everything can fit in a single line.
-
-> +	if (adapter->info_kobj == NULL)
-> +		goto err;
-> +
-> +	/* Don't create thermal subkobjs if no data present */
-> +	if (ixgbe_thermal_present(adapter->info_kobj) != true)
-> +		goto exit;
-> +
-> +	for (i = 0; i < IXGBE_MAX_SENSORS; i++) {
-
-'buf' ought to be declared here.
-
-> +
-> +		/*
-> +		 * Likewise only create individual kobjs that have
-> +		 * meaningful data.
-> +		 */
-> +		if (adapter->hw.mac.thermal_sensor_data.sensor[i].location == 0)
-> +			continue;
-> +
-> +		/* directory named after sensor offset */
-> +		snprintf(buf, sizeof(buf), "sensor_%d", i);
-> +		adapter->therm_kobj[i] =
-> +			kobject_create_and_add(buf, adapter->info_kobj);
-> +		if (adapter->therm_kobj[i] == NULL)
-> +			goto err;
-> +		if (sysfs_create_group(adapter->therm_kobj[i],
-> +				       &therm_attr_group))
-> +			goto err;
-> +	}
-> +
-> +	goto exit;
-> +
-> +err:
-> +	ixgbe_del_adapter(adapter);
-> +	rc = -1;
-> +exit:
-> +	return rc;
-> +}
-> +
-> -- 
-> 1.7.7.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+So netem has bufferbloat ;)  Thanks - John
