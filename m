@@ -1,27 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] drivers/net/usb/asix: fixed asix_get_wol reported
- wrong wol status issue
-Date: Fri, 23 Dec 2011 16:53:00 -0500 (EST)
-Message-ID: <20111223.165300.2261669987917250996.davem@davemloft.net>
-References: <005001ccc13d$8c9850e0$a5c8f2a0$@com.tw>
+Subject: Re: [PATCH 0/2] bna: Enable ethtool flash management and debugfs
+ interface.
+Date: Fri, 23 Dec 2011 16:53:24 -0500 (EST)
+Message-ID: <20111223.165324.1792767022324983695.davem@davemloft.net>
+References: <1324596547-7646-1-git-send-email-kgudipat@brocade.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	freddy@asix.com.tw, grundler@chromium.org, elubarsky@gmail.com,
-	louis@asix.com.tw
-To: allan@asix.com.tw
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <005001ccc13d$8c9850e0$a5c8f2a0$@com.tw>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@Brocade.com,
+	rmody@Brocade.com
+To: kgudipat@Brocade.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:47012 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757909Ab1LWVy1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 16:54:27 -0500
+In-Reply-To: <1324596547-7646-1-git-send-email-kgudipat@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "allan" <allan@asix.com.tw>
-Date: Fri, 23 Dec 2011 14:38:51 +0800
+From: <kgudipat@Brocade.com>
+Date: Thu, 22 Dec 2011 15:29:07 -0800
 
-> Fixed the asix_get_wol() routine reported wrong wol status issue. 
+> 	The following patch-set enhances BNA ethtool to support flash management
+> using eeprom entry points and also enables debugfs support for BNA driver to
+> collect firmware traces, saved firmware trace in the flash on an IOC crash and to
+> perform register reads/writes.
 > 
-> Signed-off-by: Allan Chou <allan@asix.com.tw>
-> Tested-by: Eugene <elubarsky@gmail.com>; Allan Chou <allan@asix.com.tw>
+> 	The patch is compiled and tested against latest net-next kernel.
 
-Applied.
+Both applied, thanks.
