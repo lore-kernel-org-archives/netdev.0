@@ -1,66 +1,85 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: linux-3.0.x regression with ipv4 routes having mtu
-Date: Fri, 23 Dec 2011 09:47:37 +0100
-Message-ID: <20111223084737.GU6348@secunet.com>
-References: <20111221085616.GO6348@secunet.com>
- <20111221.155615.990885397853981125.davem@davemloft.net>
- <20111222102526.GT6348@secunet.com>
- <20111222.135127.1577166695312077920.davem@davemloft.net>
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [PATCH v9 3/9] socket: initial cgroup code.
+Date: Fri, 23 Dec 2011 12:57:49 +0400
+Message-ID: <4EF4428D.6010103@parallels.com>
+References: <1323676029-5890-1-git-send-email-glommer@parallels.com> <1323676029-5890-4-git-send-email-glommer@parallels.com> <20111222211028.GB3916@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: timo.teras@iki.fi, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:39773 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752068Ab1LWIrk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Dec 2011 03:47:40 -0500
-Content-Disposition: inline
-In-Reply-To: <20111222.135127.1577166695312077920.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
+	<paul@paulmenage.org>, <lizf@cn.fujitsu.com>,
+	<kamezawa.hiroyu@jp.fujitsu.com>, <ebiederm@xmission.com>,
+	<gthelen@google.com>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
+	<kirill@shutemov.name>, <avagin@parallels.com>, <devel@openvz.org>,
+	<eric.dumazet@gmail.com>, <cgroups@vger.kernel.org>
+To: Jason Baron <jbaron@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20111222211028.GB3916@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 22, 2011 at 01:51:27PM -0500, David Miller wrote:
-> From: Steffen Klassert <steffen.klassert@secunet.com>
-> Date: Thu, 22 Dec 2011 11:25:26 +0100
-> 
-> > Actually, I'm getting some doubts on the concept of caching
-> > the metrics on the inetpeer. How should we handle the case when
-> > we have multiple routes with different metrics to the same
-> > destination? As it is, we can cache just one of them on the
-> > inetpeer.
-> 
-> In such cases the metrics won't be perfect.
-> 
-> Actually, we have two kinds of metrics and it might be best in the
-> long term to seperate them out explicitly.
-> 
-> We have "loose" metrics (such as all the TCP measurements) which,
-> if incorrect, will lead to suboptimal performance but will not
-> dramatically effect connectivity.
-> 
-> Then we have "strict" metrics like PMTU information and redirects,
-> which could have more fatal consequences if wrong.
-> 
-> The core issue is I want to keep these things tied only to destination
-> address, it is the only sane way to get the routing cache removed.
-> 
-> Sockets and the packet forwarding path in the future will be using
-> routes that cover whole subnets, or even the default route.  There
-> will be no "rt->rt_dst" and there will also be not attached inetpeer.
-> 
-> The inetpeer, or something like it, will be managed seperately.
-> Therefore metrics will need to be calculated using both objects (rt
-> and inetpeer).
-> 
-> This is one of the longer term design issues we face in the routing
-> cache removal and for which I don't have exact plans for yet.  I'm
-> still concentrating on "ref-less" neighbour entries, so once I finish
-> that work I can think more seriously about metrics in a world without
-> the routing cache.
+On 12/23/2011 01:10 AM, Jason Baron wrote:
+> On Mon, Dec 12, 2011 at 11:47:03AM +0400, Glauber Costa wrote:
+>> +
+>> +static bool mem_cgroup_is_root(struct mem_cgroup *memcg);
+>> +void sock_update_memcg(struct sock *sk)
+>> +{
+>> +	/* A socket spends its whole life in the same cgroup */
+>> +	if (sk->sk_cgrp) {
+>> +		WARN_ON(1);
+>> +		return;
+>> +	}
+>> +	if (static_branch(&memcg_socket_limit_enabled)) {
+>> +		struct mem_cgroup *memcg;
+>> +
+>> +		BUG_ON(!sk->sk_prot->proto_cgroup);
+>> +
+>> +		rcu_read_lock();
+>> +		memcg = mem_cgroup_from_task(current);
+>> +		if (!mem_cgroup_is_root(memcg)) {
+>> +			mem_cgroup_get(memcg);
+>> +			sk->sk_cgrp = sk->sk_prot->proto_cgroup(memcg);
+>> +		}
+>> +		rcu_read_unlock();
+>> +	}
+>> +}
+>> +EXPORT_SYMBOL(sock_update_memcg);
+>> +
+>> +void sock_release_memcg(struct sock *sk)
+>> +{
+>> +	if (static_branch(&memcg_socket_limit_enabled)&&  sk->sk_cgrp) {
+>> +		struct mem_cgroup *memcg;
+>> +		WARN_ON(!sk->sk_cgrp->memcg);
+>> +		memcg = sk->sk_cgrp->memcg;
+>> +		mem_cgroup_put(memcg);
+>> +	}
+>> +}
+>
+> Hi Glauber,
+>
+> I think for 'sock_release_memcg()', you want:
+>
+> static inline sock_release_memcg(sk)
+> {
+> 	if (static_branch())
+> 		__sock_release_memcg();
+> }
+>
+> And then re-define the current sock_release_memcg ->  __sock_release_memcg().
+> In that way the straight line path is a single no-op. As currently
+> written, there is function call and then an immediate return.
+>
 
-Ok, so let's try to keep the things working as good as possible at this
-intermediate stage and see how it evolves. I know that you want to remove
-the routing cache, but I did not care too much in the beginning. So I
-missed the reason why you want to do that. Could you please give a short
-explaination or point me to where I can find this informations?
+Hello Jason,
+
+Thanks for the tip. I may be wrong here, but I don't think that the 
+release performance matters to that level. But your suggestion seems 
+good nevertheless. Since this is already sitting on a tree, would you 
+like to send a patch for that?
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
