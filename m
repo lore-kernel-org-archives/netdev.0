@@ -1,29 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] packet: fix typo in packet_mmap.txt
-Date: Fri, 23 Dec 2011 16:53:11 -0500 (EST)
-Message-ID: <20111223.165311.2301039891317716897.davem@davemloft.net>
-References: <CAPgLHd-YqSvDKDpsgyL5UJx1wK4MUOGw=LpMbWkENti=7MdkgA@mail.gmail.com>
+Subject: Re: [PATCH v2] drivers/net/usb/asix: fixed asix_get_wol reported
+ wrong wol status issue
+Date: Fri, 23 Dec 2011 16:53:00 -0500 (EST)
+Message-ID: <20111223.165300.2261669987917250996.davem@davemloft.net>
+References: <005001ccc13d$8c9850e0$a5c8f2a0$@com.tw>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46983 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757849Ab1LWVxO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 16:53:14 -0500
-In-Reply-To: <CAPgLHd-YqSvDKDpsgyL5UJx1wK4MUOGw=LpMbWkENti=7MdkgA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	freddy@asix.com.tw, grundler@chromium.org, elubarsky@gmail.com,
+	louis@asix.com.tw
+To: allan@asix.com.tw
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <005001ccc13d$8c9850e0$a5c8f2a0$@com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Fri, 23 Dec 2011 11:47:54 +0800
+From: "allan" <allan@asix.com.tw>
+Date: Fri, 23 Dec 2011 14:38:51 +0800
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> Fixed the asix_get_wol() routine reported wrong wol status issue. 
 > 
-> Just fixed typo of sample code in packet_mmap.txt
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> Signed-off-by: Allan Chou <allan@asix.com.tw>
+> Tested-by: Eugene <elubarsky@gmail.com>; Allan Chou <allan@asix.com.tw>
 
 Applied.
