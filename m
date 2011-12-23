@@ -1,56 +1,73 @@
-From: Krishna Gudipati <kgudipat@Brocade.com>
-Subject: RE: [PATCH 1/2] bna: Added flash sub-module and ethtool eeprom
- entry points.
-Date: Fri, 23 Dec 2011 07:09:24 -0800
-Message-ID: <B5EE62D80D50B84BB9E5174F7FCCE80A206BE39A24@HQ1-EXCH02.corp.brocade.com>
-References: <1324596585-8614-1-git-send-email-kgudipat@brocade.com>
- <1324633462.3860.6.camel@deadeye>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] sch_hfsc: report backlog information
+Date: Fri, 23 Dec 2011 16:19:20 +0100
+Message-ID: <1324653560.2223.37.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1324620022.10184.100.camel@denise.theartistscloset.com>
+	 <1324627808.10854.6.camel@edumazet-laptop>
+	 <1324645986.10184.571.camel@denise.theartistscloset.com>
+	 <1324647920.2223.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1324648822.2223.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "'davem@davemloft.net'" <davem@davemloft.net>,
-	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	Adapter Linux Open SRC Team
-	<adapter_linux_open_src_team@Brocade.COM>,
-	Rasesh Mody <rmody@brocade.com>
-To: "'Ben Hutchings'" <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"John A. Sullivan III" <jsullivan@opensourcedevel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:33956 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751848Ab1LWPJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 10:09:34 -0500
-In-Reply-To: <1324633462.3860.6.camel@deadeye>
-Content-Language: en-US
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:49456 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752569Ab1LWPTY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2011 10:19:24 -0500
+Received: by wibhm6 with SMTP id hm6so3224769wib.19
+        for <netdev@vger.kernel.org>; Fri, 23 Dec 2011 07:19:22 -0800 (PST)
+In-Reply-To: <1324648822.2223.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IG5ldGRldi1vd25lckB2Z2VyLmtlcm5l
-bC5vcmcgW21haWx0bzpuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnXSBPbiBCZWhhbGYgT2Yg
-QmVuIEh1dGNoaW5ncw0KU2VudDogRnJpZGF5LCBEZWNlbWJlciAyMywgMjAxMSAxOjQ0IEFNDQpU
-bzogS3Jpc2huYSBHdWRpcGF0aQ0KQ2M6IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IG5ldGRldkB2Z2Vy
-Lmtlcm5lbC5vcmc7IEFkYXB0ZXIgTGludXggT3BlbiBTUkMgVGVhbTsgUmFzZXNoIE1vZHkNClN1
-YmplY3Q6IFJlOiBbUEFUQ0ggMS8yXSBibmE6IEFkZGVkIGZsYXNoIHN1Yi1tb2R1bGUgYW5kIGV0
-aHRvb2wgZWVwcm9tIGVudHJ5IHBvaW50cy4NCg0KT24gVGh1LCAyMDExLTEyLTIyIGF0IDE1OjI5
-IC0wODAwLCBrZ3VkaXBhdEBicm9jYWRlLmNvbSB3cm90ZToNCj4gRnJvbTogS3Jpc2huYSBHdWRp
-cGF0aSA8a2d1ZGlwYXRAYnJvY2FkZS5jb20+DQo+IA0KPiBDaGFuZ2UgZGV0YWlsczoNCj4gCS0g
-VGhlIHBhdGNoIGFkZHMgZmxhc2ggc3ViLW1vZHVsZSB0byB0aGUgYm5hIGRyaXZlci4NCj4gCS0g
-QWRkZWQgZXRodG9vbCBzZXRfZWVwcm9tKCkgYW5kIGdldF9lZXByb20oKSBlbnRyeSBwb2ludHMg
-dG8NCj4gCSAgc3VwcG9ydCBmbGFzaCBwYXJ0aXRpb24gcmVhZC93cml0ZSBvcGVyYXRpb25zLg0K
-Wy4uLl0NCg0KSSdtIG5vdCBnb2luZyB0byBzYXkgdGhpcyBpcyB3cm9uZywgYnV0IHdlIGRpZG4n
-dCBmaW5kIHRoZSBFRVBST00NCm9wZXJhdGlvbnMgc3VpdGFibGUgZm9yIGZpcm13YXJlIHVwZ3Jh
-ZGUuICBJIGhhdmUgYSBjb3VwbGUgb2YgcXVlc3Rpb25zOg0KDQoxLiBIb3cgbG9uZyBjYW4gYSBz
-aW5nbGUgc2V0X2VlcHJvbSgpIG9wZXJhdGlvbiB0YWtlPw0KMi4gSGF2ZSB5b3UgY29uc2lkZXJl
-ZCBpbXBsZW1lbnRpbmcgdGhlIGZsYXNoX2RldmljZSgpIG9wZXJhdGlvbiBvciBhbg0KTVREIGRy
-aXZlcj8NCg0KLS0tLS0NCg0KVGhhbmtzIEJlbiBmb3IgcmV2aWV3aW5nLg0KDQpGb3IgMTogQ29u
-c2lkZXJpbmcgdGhlIG1heCBzaXplIG9mIHRoZSBmbGFzaCBpbWFnZSBjaHVuayBwYXNzZWQgdG8g
-dGhlIHNldF9lZXByb20oKSBlbnRyeSBwb2ludA0KCSBhdCBhIHRpbWUgaXMgNEtieXRlcywgaXQg
-dGFrZXMgYSBsaXR0bGUgYXJvdW5kIH4zbWluIGZvciB0aGUgZmlybXdhcmUgdXBncmFkZSBhcyB0
-aGUNCgkgb3BlcmF0aW9uIGludm9sdmVzIGEgZmxhc2ggd3JpdGUgZm9yIGVhY2ggNEtieXRlcyBv
-ZiB0aGUgdG90YWwgNDYxS2J5dGVzIHdoaWNoIGlzIG91ciBmd2ltZyBzaXplLg0KDQoJIFBsZWFz
-ZSBub3RlIHRoYXQgd2UgdXNlIHRoZSBzYW1lIGVudHJ5IHBvaW50IHRvIGRvIGZsYXNoIHVwZGF0
-ZSBmb3Igb3RoZXIgZmxhc2ggcGFydGl0aW9ucyBhcyB3ZWxsLA0KCSBmb3Igd2hpY2ggdGhlIGZs
-YXNoIGltYWdlIHNpemUgaXMgbXVjaCBsZXNzZXIgdGhhbiB0aGUgZmlybXdhcmUgaW1hZ2UuDQoN
-CkZvciAyOiBObywgd2Ugbm90aWNlZCB0aGF0IGZsYXNoX2RldmljZSgpIGVudHJ5IHBvaW50IGlz
-IGxpc3RlZCBhcyBvYnNvbGV0ZSBpbiB0aGUgUkhFTDYuMiBrZXJuZWwgc291cmNlLA0KCSBzbyB3
-ZSBkaWQgbm90IHdhbnQgdG8gaW1wbGVtZW50IHVzaW5nIGl0Lg0KDQpUaGFua3MsDQpLcmlzaG5h
-Lg0K
+Add backlog (byte count) information in hfsc classes and qdisc, so that
+"tc -s" can report it to user, instead of 0 values :
+
+qdisc hfsc 1: root refcnt 6 default 20 
+ Sent 45141660 bytes 30545 pkt (dropped 0, overlimits 91751 requeues 0) 
+ rate 1492Kbit 126pps backlog 103226b 74p requeues 0 
+...
+class hfsc 1:20 parent 1:1 leaf 1201: rt m1 0bit d 0us m2 400000bit ls m1 0bit d 0us m2 200000bit 
+ Sent 49534912 bytes 33519 pkt (dropped 0, overlimits 0 requeues 0) 
+ backlog 81822b 56p requeues 0 
+ period 23 work 49451576 bytes rtwork 13277552 bytes level 0 
+...
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: John A. Sullivan III <jsullivan@opensourcedevel.com>
+---
+ net/sched/sch_hfsc.c |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index 6488e64..9bdca2e 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -1368,6 +1368,7 @@ hfsc_dump_class_stats(struct Qdisc *sch, unsigned long arg,
+ 	struct tc_hfsc_stats xstats;
+ 
+ 	cl->qstats.qlen = cl->qdisc->q.qlen;
++	cl->qstats.backlog = cl->qdisc->qstats.backlog;
+ 	xstats.level   = cl->level;
+ 	xstats.period  = cl->cl_vtperiod;
+ 	xstats.work    = cl->cl_total;
+@@ -1561,6 +1562,15 @@ hfsc_dump_qdisc(struct Qdisc *sch, struct sk_buff *skb)
+ 	struct hfsc_sched *q = qdisc_priv(sch);
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct tc_hfsc_qopt qopt;
++	struct hfsc_class *cl;
++	struct hlist_node *n;
++	unsigned int i;
++
++	sch->qstats.backlog = 0;
++	for (i = 0; i < q->clhash.hashsize; i++) {
++		hlist_for_each_entry(cl, n, &q->clhash.hash[i], cl_common.hnode)
++			sch->qstats.backlog += cl->qdisc->qstats.backlog;
++	}
+ 
+ 	qopt.defcls = q->defcls;
+ 	NLA_PUT(skb, TCA_OPTIONS, sizeof(qopt), &qopt);
