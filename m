@@ -1,48 +1,34 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: route classifiers and mirred actions
-Date: Sat, 24 Dec 2011 12:47:20 -0500
-Message-ID: <1324748840.3200.20.camel@denise.theartistscloset.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.194]:55230 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753028Ab1LXRr1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Dec 2011 12:47:27 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: pablo@netfilter.org
+Subject: [PATCH 0/2] late fixes for netfilter's ctnetlink
+Date: Sat, 24 Dec 2011 19:52:46 +0100
+Message-ID: <1324752768-5853-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello, all.  I may have a workaround for the problem we have using netem
-with ingress filters but I have hit a roadblock in implementing it.  It
-appears I cannot use an action with a route classifier.  Specifically:
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-root@testswitch01:~# tc filter add dev eth0 parent ffff: protocol ip prio 50 route fromif eth1 action mirred egress redirect dev ifb1
-What is "action"?
-Usage: ... route [ from REALM | fromif TAG ] [ to REALM ]
-                [ flowid CLASSID ] [ police POLICE_SPEC ]
-       POLICE_SPEC := ... look at TBF
-       CLASSID := X:Y
+Hi Dave,
 
-NOTE: CLASSID is parsed as hexadecimal input.
-root@testswitch01:~# tc action add action mirred help
-Usage: mirred <DIRECTION> <ACTION> [index INDEX] <dev DEVICENAME>
-where:
-        DIRECTION := <ingress | egress>
-        ACTION := <mirror | redirect>
-        INDEX  is the specific policy instance id
-        DEVICENAME is the devicename
+These are a couple of late fixes for ctnetlink.
 
-Yet, this works:
+You can pull them from:
 
-root@testswitch01:~# tc filter add dev eth0 parent ffff: protocol ip prio 50 u32 match u32 0 0 action mirred egress redirect dev ifb1
+git://1984.lsi.us.es/net nf
 
-and this works:
+Please, apply!
+Thanks.
 
-root@testswitch01:~# tc filter add dev eth0 parent ffff: protocol ip prio 1 route fromif eth1 classid 1:10
+Pablo Neira Ayuso (2):
+  netfilter: ctnetlink: fix return value of ctnetlink_get_expect()
+  netfilter: ctnetlink: fix scheduling while atomic if helper is
+    autoloaded
 
+ net/netfilter/nf_conntrack_netlink.c |   18 +++++++++++++-----
+ 1 files changed, 13 insertions(+), 5 deletions(-)
 
-So why does the u32 classifier work with actions, the route classifier
-work with classids, but the route classifier does not work with actions?
-Thanks - John
+-- 
+1.7.2.5
+
