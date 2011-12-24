@@ -1,45 +1,75 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next 8/9] ixgbe: add interface to export thermal data
-Date: Sat, 24 Dec 2011 11:22:12 +0100
-Message-ID: <1324722132.3860.15.camel@deadeye>
-References: <1324631357-31789-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1324631357-31789-9-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <CAHXqBFL_44T5nQVA=n03aT9Q1QpsLCY2dn9o6GE-9Rm66DSt-A@mail.gmail.com>
+From: John Heffner <johnwheffner@gmail.com>
+Subject: Re: tcp_mtu_probe implementation details
+Date: Sat, 24 Dec 2011 10:03:08 -0500
+Message-ID: <CABrhC0mhuY75Y0Q_dkkPMH4si1OinM3bvpK_cHhOwQRpAAFu2A@mail.gmail.com>
+References: <op.v6s5j2i0fzo5me@stalin>
+	<CAGK4HS93u=3muZu_rkqK7FSacTHUytK5H6_dMNo_uOQY738R_g@mail.gmail.com>
+	<op.v6t2ygnyfzo5me@stalin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, <davem@davemloft.net>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	<netdev@vger.kernel.org>, <gospo@redhat.com>,
-	<sassmann@redhat.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Anatoly Sivov <mm05@mail.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:37744 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753041Ab1LXKWT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Dec 2011 05:22:19 -0500
-In-Reply-To: <CAHXqBFL_44T5nQVA=n03aT9Q1QpsLCY2dn9o6GE-9Rm66DSt-A@mail.gmail.com>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:57719 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755126Ab1LXPDJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Dec 2011 10:03:09 -0500
+Received: by vcbfk14 with SMTP id fk14so7850584vcb.19
+        for <netdev@vger.kernel.org>; Sat, 24 Dec 2011 07:03:08 -0800 (PST)
+In-Reply-To: <op.v6t2ygnyfzo5me@stalin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-12-23 at 18:58 +0100, Micha=C5=82 Miros=C5=82aw wrote:
-> 2011/12/23 Jeff Kirsher <jeffrey.t.kirsher@intel.com>:
-> > From: Don Skidmore <donald.c.skidmore@intel.com>
-> >
-> > Some of our adapters have thermal data available, this patch export=
-s this
-> > data via a read-only sysfs interface.
->=20
-> Just curious: can't this use the hwmon subsystem to be consistent wit=
-h
-> other system monitoring devices?
+TCP doesn't operate as well with a small window, and below some point
+there isn't really a justification for increasing the MTU size.  11 is
+something of a magic number, but here's the reasoning:
 
-That would certainly be the proper way to expose this...
+A cwnd of 11 pre-probe will result in a cwnd of 6 after a successful
+probe.  (By the time the probe succeeds, cwnd will have been increased
+to 12, then doubling MSS will halve cwnd to 6.)  A window size smaller
+than this makes TCP more vulnerable to double loss events and
+increases the likeliness of timeouts.
 
-Ben.
+  -John
 
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+
+2011/12/21 Anatoly Sivov <mm05@mail.ru>:
+> Hello Vijay,
+>
+> Thank you for your response.
+>
+>
+>>> The other question is about size_needed variable.
+>>> It is assigned to value probe_size + (tp->reordering + 1) * tp->mss=
+_cache
+>>> And that is not clear for me.
+>>> What is this "(tp->reordering + 1) * tp->mss_cache" addition?
+>>>
+>>
+>> I think the idea is that you want enough bytes in the write_queue so
+>> that even if the probe is lost, the sender will get an ack even if
+>> there is reordering in the network. Without sufficient bytes, the
+>> probe will not be sent. This is what I make of the code but I could =
+be
+>> wrong.
+>
+>
+> I believe, I found the explanation of this addition in RFC 4821:
+> =A0"TCP Fast Retransmit is not robust unless there are
+> =A0 sufficient segments following a probe; that is, the sender SHOULD
+> =A0 have enough data queued and sufficient receiver window to send th=
+e
+> =A0 probe plus at least Tcprexmtthresh [RFC2760] additional segments.=
+"
+>
+> However, I'm still confused with magic number 11 in "tp->snd_cwnd < 1=
+1"
+> check.
+>
+> Thanks.
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
