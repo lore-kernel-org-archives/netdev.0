@@ -1,41 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netem: dont call vfree() under spinlock and BH disabled
-Date: Sat, 24 Dec 2011 16:10:08 -0500 (EST)
-Message-ID: <20111224.161008.1932318524459500544.davem@davemloft.net>
-References: <1324704531.2915.43.camel@edumazet-laptop>
-	<20111224111854.479d497e@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH 0/2] late fixes for netfilter's ctnetlink
+Date: Sat, 24 Dec 2011 16:11:41 -0500 (EST)
+Message-ID: <20111224.161141.862742489018841541.davem@davemloft.net>
+References: <1324752768-5853-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:54044 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:54056 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753279Ab1LXVKO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Dec 2011 16:10:14 -0500
-In-Reply-To: <20111224111854.479d497e@nehalam.linuxnetplumber.net>
+	with ESMTP id S1753279Ab1LXVMs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Dec 2011 16:12:48 -0500
+In-Reply-To: <1324752768-5853-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Sat, 24 Dec 2011 11:18:54 -0800
+From: pablo@netfilter.org
+Date: Sat, 24 Dec 2011 19:52:46 +0100
 
-> On Sat, 24 Dec 2011 06:28:51 +0100
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> These are a couple of late fixes for ctnetlink.
 > 
->> commit 6373a9a286 (netem: use vmalloc for distribution table) added a
->> regression, since vfree() is called while holding a spinlock and BH
->> being disabled.
->> 
->> Fix this by doing the pointers swap in critical section, and freeing
->> after spinlock release.
->> 
->> Also add __GFP_NOWARN to the kmalloc() try, since we fallback to
->> vmalloc().
->> 
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
- ...
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+> You can pull them from:
+> 
+> git://1984.lsi.us.es/net nf
 
-Applied, thanks.
+Pulled, thanks!
