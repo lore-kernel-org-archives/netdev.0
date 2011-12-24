@@ -1,44 +1,35 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH iproute2] netem: fix a typo in explain()
-Date: Sat, 24 Dec 2011 11:21:42 -0800
-Message-ID: <20111224112142.1839d76d@nehalam.linuxnetplumber.net>
-References: <1324701553.2915.32.camel@edumazet-laptop>
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Subject: PRIO qdisc classes and filters
+Date: Sat, 24 Dec 2011 14:36:33 -0500
+Message-ID: <1324755393.3200.31.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35767 "EHLO mail.vyatta.com"
+Received: from mout.perfora.net ([74.208.4.195]:61870 "EHLO mout.perfora.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751032Ab1LXTVo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Dec 2011 14:21:44 -0500
-In-Reply-To: <1324701553.2915.32.camel@edumazet-laptop>
+	id S1751782Ab1LXTgh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Dec 2011 14:36:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 24 Dec 2011 05:39:13 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Hello, all.  Sorry for such pestering; I really do spend a lot of time
+in Internet research before posting believe it or not!
 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
->  tc/q_netem.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/tc/q_netem.c b/tc/q_netem.c
-> index e9a601b..b1fd452 100644
-> --- a/tc/q_netem.c
-> +++ b/tc/q_netem.c
-> @@ -38,7 +38,7 @@ static void explain(void)
->  "                 [ loss random PERCENT [CORRELATION]]\n" \
->  "                 [ loss state P13 [P31 [P32 [P23 P14]]]\n" \
->  "                 [ loss gemodel PERCENT [R [1-H [1-K]]]\n" \
-> -"                 [ reorder PRECENT [CORRELATION] [ gap DISTANCE ]]\n");
-> +"                 [ reorder PERCENT [CORRELATION] [ gap DISTANCE ]]\n");
->  }
->  
->  static void explain1(const char *arg)
-> 
-> 
+Is it my imagination or is it not possible to attach a filter to a PRIO
+qdisc class? I only succeed in attaching filters to root or the qdisc
+itself.
 
-Applied
+tc qdisc add dev eth1 root handle 2: prio bands 2 priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+root@testswitch01:~# tc filter add dev eth1 parent 2:2 protocol ip prio 1 u32 match u32 0 0 flowid 1:1
+RTNETLINK answers: Invalid argument
+We have an error talking to the kernel
+root@testswitch01:~# tc filter add dev eth1 parent 2:0 protocol ip prio 1 u32 match u32 0 0 flowid 1:0
+root@testswitch01:~# tc filter del dev eth1 parent 2:0 protocol ip prio 1 u32 match u32 0 0 flowid 1:0
+root@testswitch01:~# tc filter add dev eth1 parent 2:1 protocol ip prio 1 u32 match u32 0 0 flowid 1:0
+RTNETLINK answers: Invalid argument
+We have an error talking to the kernel
+
+I am trying to use PRIO simply as a container so that I can apply two
+separate filters to the same traffic.  Thanks - John
