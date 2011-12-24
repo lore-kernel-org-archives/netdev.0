@@ -1,69 +1,61 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: Re: A sysadmin's understanding of HFSC and IFB
-Date: Sat, 24 Dec 2011 00:20:00 -0500
-Message-ID: <1324704000.10184.645.camel@denise.theartistscloset.com>
-References: <1323415051.3159.25.camel@denise.theartistscloset.com>
-	 <1323417599.2529.18.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] netem: dont call vfree() under spinlock and BH disabled
+Date: Sat, 24 Dec 2011 06:28:51 +0100
+Message-ID: <1324704531.2915.43.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.194]:62964 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750868Ab1LXFUG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Dec 2011 00:20:06 -0500
-In-Reply-To: <1323417599.2529.18.camel@edumazet-laptop>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:55167 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751915Ab1LXF2z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Dec 2011 00:28:55 -0500
+Received: by wgbdr13 with SMTP id dr13so18243713wgb.1
+        for <netdev@vger.kernel.org>; Fri, 23 Dec 2011 21:28:54 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-12-09 at 08:59 +0100, Eric Dumazet wrote:
-> Le vendredi 09 d=C3=A9cembre 2011 =C3=A0 02:17 -0500, John A. Sulliva=
-n III a
-> =C3=A9crit :
-> > Hello, all.  I've been trying to summarize my last week's worth of
-> > research into HFSC and IFB.  Being neither a developer nor a
-> > mathematician, I found most of the existing documentation daunting =
-and
-> > am truly grateful for the help I received on this list to understan=
-d the
-> > technologies.
-> >=20
-> > I do not currently have a blog to post this research and so was thi=
-nking
-> > of posting it to this list so that it could be archived and searcha=
-ble
-> > for other poor sysadmin types like me to save them the days of
-> > struggling to get their practical heads around the concepts.
-> >=20
-> > However, since this is probably a 15 page or so document, I realize=
-d
-> > this could be quite rude to those on dial up or metered connections=
-=2E
-> > Would it be appropriate to post my summary here? Thanks - John
-> >=20
->=20
-> Please post here, thats definitely a good idea.
->=20
-> I am pretty sure your contribution could serve to add a page to=20
->=20
-> http://www.linuxfoundation.org/collaborate/workgroups/networking/grou=
-p
->=20
-> I believe we lack documentation. A lot.
-<snip>
-Well . . . it's finally done but, it required so many non-ascii graphic=
-s
-that it turned into a 25 page PDF.  Would that be appropriate to post t=
-o
-this list? I don't know if it allows attachments?
+commit 6373a9a286 (netem: use vmalloc for distribution table) added a
+regression, since vfree() is called while holding a spinlock and BH
+being disabled.
 
-Would it be considered rude to cross post it to the new LARTC list?
+Fix this by doing the pointers swap in critical section, and freeing
+after spinlock release.
 
-Also, if it is of any help, I have a far less structured document - 12
-pages of my notes on building a test WAN environment with IFB, HFSC, an=
-d
-netem.  If that is of any interest, I can post that, too. I do not want
-to be presumptuous and they are far from perfect but I also know how
-much I struggled to find documentation.  Thanks - John
+Also add __GFP_NOWARN to the kmalloc() try, since we fallback to
+vmalloc().
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/sched/sch_netem.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index eb3b9a8..a4ab207 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -488,7 +488,7 @@ static int get_dist_table(struct Qdisc *sch, const struct nlattr *attr)
+ 		return -EINVAL;
+ 
+ 	s = sizeof(struct disttable) + n * sizeof(s16);
+-	d = kmalloc(s, GFP_KERNEL);
++	d = kmalloc(s, GFP_KERNEL | __GFP_NOWARN);
+ 	if (!d)
+ 		d = vmalloc(s);
+ 	if (!d)
+@@ -501,9 +501,10 @@ static int get_dist_table(struct Qdisc *sch, const struct nlattr *attr)
+ 	root_lock = qdisc_root_sleeping_lock(sch);
+ 
+ 	spin_lock_bh(root_lock);
+-	dist_free(q->delay_dist);
+-	q->delay_dist = d;
++	swap(q->delay_dist, d);
+ 	spin_unlock_bh(root_lock);
++
++	dist_free(d);
+ 	return 0;
+ }
+ 
