@@ -1,35 +1,41 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: PRIO qdisc classes and filters
-Date: Sat, 24 Dec 2011 14:36:33 -0500
-Message-ID: <1324755393.3200.31.camel@denise.theartistscloset.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netem: dont call vfree() under spinlock and BH disabled
+Date: Sat, 24 Dec 2011 16:10:08 -0500 (EST)
+Message-ID: <20111224.161008.1932318524459500544.davem@davemloft.net>
+References: <1324704531.2915.43.camel@edumazet-laptop>
+	<20111224111854.479d497e@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.195]:61870 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751782Ab1LXTgh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Dec 2011 14:36:37 -0500
+Received: from shards.monkeyblade.net ([198.137.202.13]:54044 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753279Ab1LXVKO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Dec 2011 16:10:14 -0500
+In-Reply-To: <20111224111854.479d497e@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, all.  Sorry for such pestering; I really do spend a lot of time
-in Internet research before posting believe it or not!
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Sat, 24 Dec 2011 11:18:54 -0800
 
-Is it my imagination or is it not possible to attach a filter to a PRIO
-qdisc class? I only succeed in attaching filters to root or the qdisc
-itself.
+> On Sat, 24 Dec 2011 06:28:51 +0100
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+>> commit 6373a9a286 (netem: use vmalloc for distribution table) added a
+>> regression, since vfree() is called while holding a spinlock and BH
+>> being disabled.
+>> 
+>> Fix this by doing the pointers swap in critical section, and freeing
+>> after spinlock release.
+>> 
+>> Also add __GFP_NOWARN to the kmalloc() try, since we fallback to
+>> vmalloc().
+>> 
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+ ...
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
-tc qdisc add dev eth1 root handle 2: prio bands 2 priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-root@testswitch01:~# tc filter add dev eth1 parent 2:2 protocol ip prio 1 u32 match u32 0 0 flowid 1:1
-RTNETLINK answers: Invalid argument
-We have an error talking to the kernel
-root@testswitch01:~# tc filter add dev eth1 parent 2:0 protocol ip prio 1 u32 match u32 0 0 flowid 1:0
-root@testswitch01:~# tc filter del dev eth1 parent 2:0 protocol ip prio 1 u32 match u32 0 0 flowid 1:0
-root@testswitch01:~# tc filter add dev eth1 parent 2:1 protocol ip prio 1 u32 match u32 0 0 flowid 1:0
-RTNETLINK answers: Invalid argument
-We have an error talking to the kernel
-
-I am trying to use PRIO simply as a container so that I can apply two
-separate filters to the same traffic.  Thanks - John
+Applied, thanks.
