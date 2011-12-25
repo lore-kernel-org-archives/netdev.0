@@ -1,14 +1,14 @@
 From: pablo@netfilter.org
-Subject: [PATCH 02/19] netfilter: add ipv4 reverse path filter match
-Date: Sun, 25 Dec 2011 02:57:18 +0100
-Message-ID: <1324778255-2830-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 04/19] netfilter: add ipv6 reverse path filter match
+Date: Sun, 25 Dec 2011 02:57:20 +0100
+Message-ID: <1324778255-2830-5-git-send-email-pablo@netfilter.org>
 References: <1324778255-2830-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55985 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:55983 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757975Ab1LYB54 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756179Ab1LYB54 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 24 Dec 2011 20:57:56 -0500
 In-Reply-To: <1324778255-2830-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
@@ -16,91 +16,28 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Florian Westphal <fw@strlen.de>
 
-This tries to do the same thing as fib_validate_source(), but differs
-in several aspects.
-
-The most important difference is that the reverse path filter built into
-fib_validate_source uses the oif as iif when performing the reverse
-lookup.  We do not do this, as the oif is not yet known by the time the
-PREROUTING hook is invoked.
-
-We can't wait until FORWARD chain because by the time FORWARD is invoked
-ipv4 forward path may have already sent icmp messages is response
-to to-be-discarded-via-rpfilter packets.
-
-To avoid the such an additional lookup in PREROUTING, Patrick McHardy
-suggested to attach the path information directly in the match
-(i.e., just do what the standard ipv4 path does a bit earlier in PREROUTING).
-
-This works, but it also has a few caveats. Most importantly, when using
-marks in PREROUTING to re-route traffic based on the nfmark, -m rpfilter
-would have to be used after the nfmark has been set; otherwise the nfmark
-would have no effect (because the route is already attached).
-
-Another problem would be interaction with -j TPROXY, as this target sets an
-nfmark and uses ACCEPT instead of continue, i.e. such a version of
--m rpfilter cannot be used for the initial to-be-intercepted packets.
-
-In case in turns out that the oif is required, we can add Patricks
-suggestion with a new match option (e.g. --rpf-use-oif) to keep ruleset
-compatibility.
-
-Another difference to current builtin ipv4 rpfilter is that packets subject to ipsec
-transformation are not automatically excluded. If you want this, simply
-combine -m rpfilter with the policy match.
-
-Packets arriving on loopback interfaces always match.
+This is not merged with the ipv4 match into xt_rpfilter.c
+to avoid ipv6 module dependency issues.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Acked-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter/xt_rpfilter.h |   23 ++++++
- net/ipv4/netfilter/Kconfig            |   10 +++
- net/ipv4/netfilter/Makefile           |    1 +
- net/ipv4/netfilter/ipt_rpfilter.c     |  141 +++++++++++++++++++++++++++++++++
- 4 files changed, 175 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/netfilter/xt_rpfilter.h
- create mode 100644 net/ipv4/netfilter/ipt_rpfilter.c
+ net/ipv6/netfilter/Kconfig         |   10 +++
+ net/ipv6/netfilter/Makefile        |    1 +
+ net/ipv6/netfilter/ip6t_rpfilter.c |  133 ++++++++++++++++++++++++++++++++++++
+ 3 files changed, 144 insertions(+), 0 deletions(-)
+ create mode 100644 net/ipv6/netfilter/ip6t_rpfilter.c
 
-diff --git a/include/linux/netfilter/xt_rpfilter.h b/include/linux/netfilter/xt_rpfilter.h
-new file mode 100644
-index 0000000..8358d4f
---- /dev/null
-+++ b/include/linux/netfilter/xt_rpfilter.h
-@@ -0,0 +1,23 @@
-+#ifndef _XT_RPATH_H
-+#define _XT_RPATH_H
-+
-+#include <linux/types.h>
-+
-+enum {
-+	XT_RPFILTER_LOOSE = 1 << 0,
-+	XT_RPFILTER_VALID_MARK = 1 << 1,
-+	XT_RPFILTER_ACCEPT_LOCAL = 1 << 2,
-+	XT_RPFILTER_INVERT = 1 << 3,
-+#ifdef __KERNEL__
-+	XT_RPFILTER_OPTION_MASK = XT_RPFILTER_LOOSE |
-+				  XT_RPFILTER_VALID_MARK |
-+				  XT_RPFILTER_ACCEPT_LOCAL |
-+				  XT_RPFILTER_INVERT,
-+#endif
-+};
-+
-+struct xt_rpfilter_info {
-+	__u8 flags;
-+};
-+
-+#endif
-diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
-index f19f218..7e1f5cd 100644
---- a/net/ipv4/netfilter/Kconfig
-+++ b/net/ipv4/netfilter/Kconfig
-@@ -82,6 +82,16 @@ config IP_NF_MATCH_ECN
+diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
+index f792b34..9a68fb5 100644
+--- a/net/ipv6/netfilter/Kconfig
++++ b/net/ipv6/netfilter/Kconfig
+@@ -125,6 +125,16 @@ config IP6_NF_MATCH_MH
  
  	  To compile it as a module, choose M here.  If unsure, say N.
  
-+config IP_NF_MATCH_RPFILTER
++config IP6_NF_MATCH_RPFILTER
 +	tristate '"rpfilter" reverse path filter match support'
 +	depends on NETFILTER_ADVANCED
 +	---help---
@@ -108,133 +45,125 @@ index f19f218..7e1f5cd 100644
 +	  go out via the interface the packet came in.
 +
 +	  To compile it as a module, choose M here.  If unsure, say N.
-+	  The module will be called ipt_rpfilter.
++	  The module will be called ip6t_rpfilter.
 +
- config IP_NF_MATCH_TTL
- 	tristate '"ttl" match support'
+ config IP6_NF_MATCH_RT
+ 	tristate '"rt" Routing header match support'
  	depends on NETFILTER_ADVANCED
-diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
-index dca2082..123dd88 100644
---- a/net/ipv4/netfilter/Makefile
-+++ b/net/ipv4/netfilter/Makefile
-@@ -50,6 +50,7 @@ obj-$(CONFIG_IP_NF_SECURITY) += iptable_security.o
- # matches
- obj-$(CONFIG_IP_NF_MATCH_AH) += ipt_ah.o
- obj-$(CONFIG_IP_NF_MATCH_ECN) += ipt_ecn.o
-+obj-$(CONFIG_IP_NF_MATCH_RPFILTER) += ipt_rpfilter.o
+diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
+index abfee91..2eaed96 100644
+--- a/net/ipv6/netfilter/Makefile
++++ b/net/ipv6/netfilter/Makefile
+@@ -27,6 +27,7 @@ obj-$(CONFIG_IP6_NF_MATCH_FRAG) += ip6t_frag.o
+ obj-$(CONFIG_IP6_NF_MATCH_IPV6HEADER) += ip6t_ipv6header.o
+ obj-$(CONFIG_IP6_NF_MATCH_MH) += ip6t_mh.o
+ obj-$(CONFIG_IP6_NF_MATCH_OPTS) += ip6t_hbh.o
++obj-$(CONFIG_IP6_NF_MATCH_RPFILTER) += ip6t_rpfilter.o
+ obj-$(CONFIG_IP6_NF_MATCH_RT) += ip6t_rt.o
  
  # targets
- obj-$(CONFIG_IP_NF_TARGET_CLUSTERIP) += ipt_CLUSTERIP.o
-diff --git a/net/ipv4/netfilter/ipt_rpfilter.c b/net/ipv4/netfilter/ipt_rpfilter.c
+diff --git a/net/ipv6/netfilter/ip6t_rpfilter.c b/net/ipv6/netfilter/ip6t_rpfilter.c
 new file mode 100644
-index 0000000..31371be
+index 0000000..5d1d8b0
 --- /dev/null
-+++ b/net/ipv4/netfilter/ipt_rpfilter.c
-@@ -0,0 +1,141 @@
++++ b/net/ipv6/netfilter/ip6t_rpfilter.c
+@@ -0,0 +1,133 @@
 +/*
 + * Copyright (c) 2011 Florian Westphal <fw@strlen.de>
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License version 2 as
 + * published by the Free Software Foundation.
-+ *
-+ * based on fib_frontend.c; Author: Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
 + */
 +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 +#include <linux/module.h>
 +#include <linux/skbuff.h>
 +#include <linux/netdevice.h>
-+#include <linux/ip.h>
-+#include <net/ip.h>
-+#include <net/ip_fib.h>
-+#include <net/route.h>
++#include <linux/route.h>
++#include <net/ip6_fib.h>
++#include <net/ip6_route.h>
 +
 +#include <linux/netfilter/xt_rpfilter.h>
 +#include <linux/netfilter/x_tables.h>
 +
 +MODULE_LICENSE("GPL");
 +MODULE_AUTHOR("Florian Westphal <fw@strlen.de>");
-+MODULE_DESCRIPTION("iptables: ipv4 reverse path filter match");
++MODULE_DESCRIPTION("Xtables: IPv6 reverse path filter match");
 +
-+/* don't try to find route from mcast/bcast/zeronet */
-+static __be32 rpfilter_get_saddr(__be32 addr)
++static bool rpfilter_addr_unicast(const struct in6_addr *addr)
 +{
-+	if (ipv4_is_multicast(addr) || ipv4_is_lbcast(addr) ||
-+	    ipv4_is_zeronet(addr))
-+		return 0;
-+	return addr;
++	int addr_type = ipv6_addr_type(addr);
++	return addr_type & IPV6_ADDR_UNICAST;
 +}
 +
-+static bool rpfilter_lookup_reverse(struct flowi4 *fl4,
-+				const struct net_device *dev, u8 flags)
++static bool rpfilter_lookup_reverse6(const struct sk_buff *skb,
++				     const struct net_device *dev, u8 flags)
 +{
-+	struct fib_result res;
-+	bool dev_match;
-+	struct net *net = dev_net(dev);
-+	int ret __maybe_unused;
++	struct rt6_info *rt;
++	struct ipv6hdr *iph = ipv6_hdr(skb);
++	bool ret = false;
++	struct flowi6 fl6 = {
++		.flowlabel = (* (__be32 *) iph) & IPV6_FLOWINFO_MASK,
++		.flowi6_proto = iph->nexthdr,
++		.daddr = iph->saddr,
++	};
++	int lookup_flags;
 +
-+	if (fib_lookup(net, fl4, &res))
-+		return false;
-+
-+	if (res.type != RTN_UNICAST) {
-+		if (res.type != RTN_LOCAL || !(flags & XT_RPFILTER_ACCEPT_LOCAL))
-+			return false;
++	if (rpfilter_addr_unicast(&iph->daddr)) {
++		memcpy(&fl6.saddr, &iph->daddr, sizeof(struct in6_addr));
++		lookup_flags = RT6_LOOKUP_F_HAS_SADDR;
++	} else {
++		lookup_flags = 0;
 +	}
-+	dev_match = false;
-+#ifdef CONFIG_IP_ROUTE_MULTIPATH
-+	for (ret = 0; ret < res.fi->fib_nhs; ret++) {
-+		struct fib_nh *nh = &res.fi->fib_nh[ret];
 +
-+		if (nh->nh_dev == dev) {
-+			dev_match = true;
-+			break;
-+		}
++	fl6.flowi6_mark = flags & XT_RPFILTER_VALID_MARK ? skb->mark : 0;
++	if ((flags & XT_RPFILTER_LOOSE) == 0) {
++		fl6.flowi6_oif = dev->ifindex;
++		lookup_flags |= RT6_LOOKUP_F_IFACE;
 +	}
-+#else
-+	if (FIB_RES_DEV(res) == dev)
-+		dev_match = true;
-+#endif
-+	if (dev_match || flags & XT_RPFILTER_LOOSE)
-+		return FIB_RES_NH(res).nh_scope <= RT_SCOPE_HOST;
-+	return dev_match;
++
++	rt = (void *) ip6_route_lookup(dev_net(dev), &fl6, lookup_flags);
++	if (rt->dst.error)
++		goto out;
++
++	if (rt->rt6i_flags & (RTF_REJECT|RTF_ANYCAST))
++		goto out;
++
++	if (rt->rt6i_flags & RTF_LOCAL) {
++		ret = flags & XT_RPFILTER_ACCEPT_LOCAL;
++		goto out;
++	}
++
++	if (rt->rt6i_idev->dev == dev || (flags & XT_RPFILTER_LOOSE))
++		ret = true;
++ out:
++	dst_release(&rt->dst);
++	return ret;
 +}
 +
 +static bool rpfilter_mt(const struct sk_buff *skb, struct xt_action_param *par)
 +{
-+	const struct xt_rpfilter_info *info;
-+	const struct iphdr *iph;
-+	struct flowi4 flow;
-+	bool invert;
-+
-+	info = par->matchinfo;
-+	invert = info->flags & XT_RPFILTER_INVERT;
++	const struct xt_rpfilter_info *info = par->matchinfo;
++	int saddrtype;
++	struct ipv6hdr *iph;
++	bool invert = info->flags & XT_RPFILTER_INVERT;
 +
 +	if (par->in->flags & IFF_LOOPBACK)
 +		return true ^ invert;
 +
-+	iph = ip_hdr(skb);
-+	if (ipv4_is_multicast(iph->daddr)) {
-+		if (ipv4_is_zeronet(iph->saddr))
-+			return ipv4_is_local_multicast(iph->daddr) ^ invert;
-+		flow.flowi4_iif = 0;
-+	} else {
-+		flow.flowi4_iif = dev_net(par->in)->loopback_dev->ifindex;
-+	}
++	iph = ipv6_hdr(skb);
++	saddrtype = ipv6_addr_type(&iph->saddr);
++	if (unlikely(saddrtype == IPV6_ADDR_ANY))
++		return true ^ invert; /* not routable: forward path will drop it */
 +
-+	flow.daddr = iph->saddr;
-+	flow.saddr = rpfilter_get_saddr(iph->daddr);
-+	flow.flowi4_oif = 0;
-+	flow.flowi4_mark = info->flags & XT_RPFILTER_VALID_MARK ? skb->mark : 0;
-+	flow.flowi4_tos = RT_TOS(iph->tos);
-+	flow.flowi4_scope = RT_SCOPE_UNIVERSE;
-+
-+	return rpfilter_lookup_reverse(&flow, par->in, info->flags) ^ invert;
++	return rpfilter_lookup_reverse6(skb, par->in, info->flags) ^ invert;
 +}
 +
 +static int rpfilter_check(const struct xt_mtchk_param *par)
 +{
 +	const struct xt_rpfilter_info *info = par->matchinfo;
 +	unsigned int options = ~XT_RPFILTER_OPTION_MASK;
++
 +	if (info->flags & options) {
 +		pr_info("unknown options encountered");
 +		return -EINVAL;
@@ -252,7 +181,7 @@ index 0000000..31371be
 +
 +static struct xt_match rpfilter_mt_reg __read_mostly = {
 +	.name		= "rpfilter",
-+	.family		= NFPROTO_IPV4,
++	.family		= NFPROTO_IPV6,
 +	.checkentry	= rpfilter_check,
 +	.match		= rpfilter_mt,
 +	.matchsize	= sizeof(struct xt_rpfilter_info),
