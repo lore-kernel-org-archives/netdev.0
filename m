@@ -1,7 +1,7 @@
 From: pablo@netfilter.org
-Subject: [PATCH 16/19] netfilter: ctnetlink: remove dead NAT code
-Date: Sun, 25 Dec 2011 02:57:32 +0100
-Message-ID: <1324778255-2830-17-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 14/19] netfilter: nf_nat: remove obsolete code from nf_nat_icmp_reply_translation()
+Date: Sun, 25 Dec 2011 02:57:30 +0100
+Message-ID: <1324778255-2830-15-git-send-email-pablo@netfilter.org>
 References: <1324778255-2830-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -12,162 +12,56 @@ List-Id: netdev.vger.kernel.org
 
 From: Patrick McHardy <kaber@trash.net>
 
-The NAT range to nlattr conversation callbacks and helpers are entirely
-dead code and are also useless since there are no NAT ranges in conntrack
-context, they are only used for initially selecting a tuple. The final NAT
-information is contained in the selected tuples of the conntrack entry.
+The inner tuple that is extracted from the packet is unused. The code also
+doesn't have any useful side-effects like verifying the packet does contain
+enough data to extract the inner tuple since conntrack already does the
+same, so remove it.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_nat_protocol.h   |    5 -----
- net/ipv4/netfilter/nf_nat_proto_common.c  |   14 +-------------
- net/ipv4/netfilter/nf_nat_proto_dccp.c    |    1 -
- net/ipv4/netfilter/nf_nat_proto_gre.c     |    1 -
- net/ipv4/netfilter/nf_nat_proto_icmp.c    |    1 -
- net/ipv4/netfilter/nf_nat_proto_sctp.c    |    1 -
- net/ipv4/netfilter/nf_nat_proto_tcp.c     |    1 -
- net/ipv4/netfilter/nf_nat_proto_udp.c     |    1 -
- net/ipv4/netfilter/nf_nat_proto_udplite.c |    1 -
- 9 files changed, 1 insertions(+), 25 deletions(-)
+ net/ipv4/netfilter/nf_nat_core.c |   14 +-------------
+ 1 files changed, 1 insertions(+), 13 deletions(-)
 
-diff --git a/include/net/netfilter/nf_nat_protocol.h b/include/net/netfilter/nf_nat_protocol.h
-index eaad0ac..7b0b511 100644
---- a/include/net/netfilter/nf_nat_protocol.h
-+++ b/include/net/netfilter/nf_nat_protocol.h
-@@ -32,9 +32,6 @@ struct nf_nat_protocol {
- 			     enum nf_nat_manip_type maniptype,
- 			     const struct nf_conn *ct);
+diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
+index 5e1bd85..acdd002 100644
+--- a/net/ipv4/netfilter/nf_nat_core.c
++++ b/net/ipv4/netfilter/nf_nat_core.c
+@@ -30,7 +30,6 @@
+ #include <net/netfilter/nf_nat_helper.h>
+ #include <net/netfilter/nf_conntrack_helper.h>
+ #include <net/netfilter/nf_conntrack_l3proto.h>
+-#include <net/netfilter/nf_conntrack_l4proto.h>
+ #include <net/netfilter/nf_conntrack_zones.h>
  
--	int (*range_to_nlattr)(struct sk_buff *skb,
--			       const struct nf_nat_ipv4_range *range);
+ static DEFINE_SPINLOCK(nf_nat_lock);
+@@ -414,8 +413,7 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
+ 		struct icmphdr icmp;
+ 		struct iphdr ip;
+ 	} *inside;
+-	const struct nf_conntrack_l4proto *l4proto;
+-	struct nf_conntrack_tuple inner, target;
++	struct nf_conntrack_tuple target;
+ 	int hdrlen = ip_hdrlen(skb);
+ 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
+ 	unsigned long statusbit;
+@@ -463,16 +461,6 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
+ 		 "dir %s\n", skb, manip,
+ 		 dir == IP_CT_DIR_ORIGINAL ? "ORIG" : "REPLY");
+ 
+-	/* rcu_read_lock()ed by nf_hook_slow */
+-	l4proto = __nf_ct_l4proto_find(PF_INET, inside->ip.protocol);
 -
- 	int (*nlattr_to_range)(struct nlattr *tb[],
- 			       struct nf_nat_ipv4_range *range);
- };
-@@ -64,8 +61,6 @@ extern void nf_nat_proto_unique_tuple(struct nf_conntrack_tuple *tuple,
- 				      const struct nf_conn *ct,
- 				      u_int16_t *rover);
- 
--extern int nf_nat_proto_range_to_nlattr(struct sk_buff *skb,
--					const struct nf_nat_ipv4_range *range);
- extern int nf_nat_proto_nlattr_to_range(struct nlattr *tb[],
- 					struct nf_nat_ipv4_range *range);
- 
-diff --git a/net/ipv4/netfilter/nf_nat_proto_common.c b/net/ipv4/netfilter/nf_nat_proto_common.c
-index 47fff91..9993bc9 100644
---- a/net/ipv4/netfilter/nf_nat_proto_common.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_common.c
-@@ -96,18 +96,6 @@ void nf_nat_proto_unique_tuple(struct nf_conntrack_tuple *tuple,
- EXPORT_SYMBOL_GPL(nf_nat_proto_unique_tuple);
- 
- #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
--int nf_nat_proto_range_to_nlattr(struct sk_buff *skb,
--				 const struct nf_nat_ipv4_range *range)
--{
--	NLA_PUT_BE16(skb, CTA_PROTONAT_PORT_MIN, range->min.all);
--	NLA_PUT_BE16(skb, CTA_PROTONAT_PORT_MAX, range->max.all);
--	return 0;
+-	if (!nf_ct_get_tuple(skb, hdrlen + sizeof(struct icmphdr),
+-			     (hdrlen +
+-			      sizeof(struct icmphdr) + inside->ip.ihl * 4),
+-			     (u_int16_t)AF_INET, inside->ip.protocol,
+-			     &inner, l3proto, l4proto))
+-		return 0;
 -
--nla_put_failure:
--	return -1;
--}
--EXPORT_SYMBOL_GPL(nf_nat_proto_nlattr_to_range);
--
- int nf_nat_proto_nlattr_to_range(struct nlattr *tb[],
- 				 struct nf_nat_ipv4_range *range)
- {
-@@ -122,5 +110,5 @@ int nf_nat_proto_nlattr_to_range(struct nlattr *tb[],
- 	}
- 	return 0;
- }
--EXPORT_SYMBOL_GPL(nf_nat_proto_range_to_nlattr);
-+EXPORT_SYMBOL_GPL(nf_nat_proto_nlattr_to_range);
- #endif
-diff --git a/net/ipv4/netfilter/nf_nat_proto_dccp.c b/net/ipv4/netfilter/nf_nat_proto_dccp.c
-index 466d63d..3f67138 100644
---- a/net/ipv4/netfilter/nf_nat_proto_dccp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_dccp.c
-@@ -84,7 +84,6 @@ static const struct nf_nat_protocol nf_nat_protocol_dccp = {
- 	.in_range		= nf_nat_proto_in_range,
- 	.unique_tuple		= dccp_unique_tuple,
- #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
--	.range_to_nlattr	= nf_nat_proto_range_to_nlattr,
- 	.nlattr_to_range	= nf_nat_proto_nlattr_to_range,
- #endif
- };
-diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_proto_gre.c
-index 35cd158..46ba0b9 100644
---- a/net/ipv4/netfilter/nf_nat_proto_gre.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_gre.c
-@@ -123,7 +123,6 @@ static const struct nf_nat_protocol gre = {
- 	.in_range		= nf_nat_proto_in_range,
- 	.unique_tuple		= gre_unique_tuple,
- #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
--	.range_to_nlattr	= nf_nat_proto_range_to_nlattr,
- 	.nlattr_to_range	= nf_nat_proto_nlattr_to_range,
- #endif
- };
-diff --git a/net/ipv4/netfilter/nf_nat_proto_icmp.c b/net/ipv4/netfilter/nf_nat_proto_icmp.c
-index 036c009..b351728 100644
---- a/net/ipv4/netfilter/nf_nat_proto_icmp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_icmp.c
-@@ -78,7 +78,6 @@ const struct nf_nat_protocol nf_nat_protocol_icmp = {
- 	.in_range		= icmp_in_range,
- 	.unique_tuple		= icmp_unique_tuple,
- #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
--	.range_to_nlattr	= nf_nat_proto_range_to_nlattr,
- 	.nlattr_to_range	= nf_nat_proto_nlattr_to_range,
- #endif
- };
-diff --git a/net/ipv4/netfilter/nf_nat_proto_sctp.c b/net/ipv4/netfilter/nf_nat_proto_sctp.c
-index 50283ab..3cce9b6 100644
---- a/net/ipv4/netfilter/nf_nat_proto_sctp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_sctp.c
-@@ -74,7 +74,6 @@ static const struct nf_nat_protocol nf_nat_protocol_sctp = {
- 	.in_range		= nf_nat_proto_in_range,
- 	.unique_tuple		= sctp_unique_tuple,
- #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
--	.range_to_nlattr	= nf_nat_proto_range_to_nlattr,
- 	.nlattr_to_range	= nf_nat_proto_nlattr_to_range,
- #endif
- };
-diff --git a/net/ipv4/netfilter/nf_nat_proto_tcp.c b/net/ipv4/netfilter/nf_nat_proto_tcp.c
-index e0e2ba8..9fb4b4e 100644
---- a/net/ipv4/netfilter/nf_nat_proto_tcp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_tcp.c
-@@ -86,7 +86,6 @@ const struct nf_nat_protocol nf_nat_protocol_tcp = {
- 	.in_range		= nf_nat_proto_in_range,
- 	.unique_tuple		= tcp_unique_tuple,
- #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
--	.range_to_nlattr	= nf_nat_proto_range_to_nlattr,
- 	.nlattr_to_range	= nf_nat_proto_nlattr_to_range,
- #endif
- };
-diff --git a/net/ipv4/netfilter/nf_nat_proto_udp.c b/net/ipv4/netfilter/nf_nat_proto_udp.c
-index bde94cd..9883336 100644
---- a/net/ipv4/netfilter/nf_nat_proto_udp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_udp.c
-@@ -77,7 +77,6 @@ const struct nf_nat_protocol nf_nat_protocol_udp = {
- 	.in_range		= nf_nat_proto_in_range,
- 	.unique_tuple		= udp_unique_tuple,
- #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
--	.range_to_nlattr	= nf_nat_proto_range_to_nlattr,
- 	.nlattr_to_range	= nf_nat_proto_nlattr_to_range,
- #endif
- };
-diff --git a/net/ipv4/netfilter/nf_nat_proto_udplite.c b/net/ipv4/netfilter/nf_nat_proto_udplite.c
-index 58e9a3a..d24d10a 100644
---- a/net/ipv4/netfilter/nf_nat_proto_udplite.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_udplite.c
-@@ -76,7 +76,6 @@ static const struct nf_nat_protocol nf_nat_protocol_udplite = {
- 	.in_range		= nf_nat_proto_in_range,
- 	.unique_tuple		= udplite_unique_tuple,
- #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
--	.range_to_nlattr	= nf_nat_proto_range_to_nlattr,
- 	.nlattr_to_range	= nf_nat_proto_nlattr_to_range,
- #endif
- };
+ 	/* Change inner back to look like incoming packet.  We do the
+ 	   opposite manip on this hook to normal, because it might not
+ 	   pass all hooks (locally-generated ICMP).  Consider incoming
 -- 
 1.7.2.5
 
