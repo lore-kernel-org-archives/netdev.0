@@ -1,53 +1,46 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next 2/2] igb: offer a PTP Hardware Clock instead
- of the timecompare method
-Date: Sun, 25 Dec 2011 12:30:52 +0100
-Message-ID: <20111225113051.GA20094@netboy.at.omicron.at>
-References: <cover.1323744724.git.richardcochran@gmail.com>
- <388385c50909f63bff239894c60dbb00abc65c93.1323744725.git.richardcochran@gmail.com>
- <1323901989.19702.12.camel@jbrandeb-mobl2>
- <20111215161256.GA5176@cherladcori01>
- <EDC0E76513226749BFBC9C3FB031318F018669B7BB@orsmsx508.amr.corp.intel.com>
+From: Trond Myklebust <Trond.Myklebust@netapp.com>
+Subject: Re: [PATCH] SUNRPC: make SUNPRC clients list per network namespace
+ context
+Date: Sun, 25 Dec 2011 13:48:15 +0100
+Message-ID: <1324817295.5195.0.camel@lade.trondhjem.org>
+References: <20111214081918.2804.59143.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Keller, Jacob E" <jacob.e.keller@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
+	davem@davemloft.net, devel@openvz.org
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:55332 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753271Ab1LYLbE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Dec 2011 06:31:04 -0500
-Received: by eekc4 with SMTP id c4so10519968eek.19
-        for <netdev@vger.kernel.org>; Sun, 25 Dec 2011 03:31:02 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <EDC0E76513226749BFBC9C3FB031318F018669B7BB@orsmsx508.amr.corp.intel.com>
+Received: from mx2.netapp.com ([216.240.18.37]:13605 "EHLO mx2.netapp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752096Ab1LYMsh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Dec 2011 07:48:37 -0500
+In-Reply-To: <20111214081918.2804.59143.stgit@localhost6.localdomain6>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 15, 2011 at 08:46:55AM -0800, Wyborny, Carolyn wrote:
-> >-----Original Message-----
-> >From: Richard Cochran [mailto:richardcochran@gmail.com]
-...
-> >Any chance of getting the driver tested on a 82576?
-> >
-> >Thanks,
-> >
-> >Richard
+On Wed, 2011-12-14 at 12:19 +0300, Stanislav Kinsbursky wrote: 
+> This patch moves static SUNRPC clients list and it's lock to sunrpc_net
+> structure.
+> Currently this list is used only for debug purposes. But later it will be used
+> also for selecting clients by networks namespace on PipeFS mount/umount events.
+> Per-network namespace lists will make this faster and simplier.
 > 
-> I will request this testing and let you know.
+> Note: client list is taken from "init_net" network namespace context in
+> rpc_show_tasks(). This will be changed with making SUNRPC sysctl's per network
+> namespace context.
+> 
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
-Never mind about testing this patch. I have already found a bug in the
-code path for the 82576. I will post a new, corrected patch later on
-this week.
+This doesn't seem to integrate with any of your patch series, and
+conflicts with everything that touches netns.h, for instance...
 
-Thanks, and Merry Christmas to All,
+-- 
+Trond Myklebust
+Linux NFS client maintainer
 
-Richard
+NetApp
+Trond.Myklebust@netapp.com
+www.netapp.com
