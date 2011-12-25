@@ -1,67 +1,42 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next 2/2] igb: offer a PTP Hardware Clock instead
- of the timecompare method
-Date: Sun, 25 Dec 2011 16:32:28 +0100
-Message-ID: <20111225153227.GB2581@netboy.at.omicron.at>
-References: <cover.1323744724.git.richardcochran@gmail.com>
- <388385c50909f63bff239894c60dbb00abc65c93.1323744725.git.richardcochran@gmail.com>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH] unix_diag: Fix incoming connections nla length
+Date: Sun, 25 Dec 2011 23:58:05 +0400
+Message-ID: <4EF7804D.4050300@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: e1000-devel@lists.sourceforge.net,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:48846 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752328Ab1LYPci (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Dec 2011 10:32:38 -0500
-Received: by eekc4 with SMTP id c4so10603259eek.19
-        for <netdev@vger.kernel.org>; Sun, 25 Dec 2011 07:32:37 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <388385c50909f63bff239894c60dbb00abc65c93.1323744725.git.richardcochran@gmail.com>
+Received: from mailhub.sw.ru ([195.214.232.25]:27071 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750947Ab1LYT6O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Dec 2011 14:58:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 13, 2011 at 04:00:35AM +0100, Richard Cochran wrote:
-> +void igb_systim_to_hwtstamp(struct igb_adapter *adapter,
-> +			    struct skb_shared_hwtstamps *hwtstamps,
-> +			    u64 systim)
-> +{
-> +	u64 ns;
-> +	unsigned long flags;
-> +	unsigned int shift;
-> +	int msb_set;
-> +
-> +	switch (adapter->hw.mac.type) {
-> +	case e1000_i350:
-> +	case e1000_82580:
-> +		shift = OFL_SHIFT_82580;
-> +		msb_set = (systim >> 32) & SYSTIMH_MSB_82580;
-> +		break;
-> +	case e1000_82576:
-> +		shift = OFL_SHIFT_82576;
-> +		msb_set = (systim >> 32) & SYSTIMH_MSB_82576;
+The NLA_PUT macro should accept the actual attribute length, not
+the amount of elements in array :(
 
-Should have converted systim to nanoseconds here.
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
-> +		break;
-> +	default:
-> +		return;
-> +	}
-> +
-> +	spin_lock_irqsave(&adapter->tmreg_lock, flags);
-> +
-> +	ns = igb_overflow_get(adapter, systim, msb_set, shift);
-> +
-> +	spin_unlock_irqrestore(&adapter->tmreg_lock, flags);
-> +
-> +	memset(hwtstamps, 0, sizeof(*hwtstamps));
-> +	hwtstamps->hwtstamp = ns_to_ktime(ns);
-> +}
-> -- 
-> 1.7.2.5
-> 
+---
+ net/unix/diag.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/unix/diag.c b/net/unix/diag.c
+index 91d5782..39e44c9 100644
+--- a/net/unix/diag.c
++++ b/net/unix/diag.c
+@@ -72,7 +72,8 @@ static int sk_diag_dump_icons(struct sock *sk, struct sk_buff *nlskb)
+ 
+ 	if (sk->sk_state == TCP_LISTEN) {
+ 		spin_lock(&sk->sk_receive_queue.lock);
+-		buf = UNIX_DIAG_PUT(nlskb, UNIX_DIAG_ICONS, sk->sk_receive_queue.qlen);
++		buf = UNIX_DIAG_PUT(nlskb, UNIX_DIAG_ICONS,
++				sk->sk_receive_queue.qlen * sizeof(u32));
+ 		i = 0;
+ 		skb_queue_walk(&sk->sk_receive_queue, skb) {
+ 			struct sock *req, *peer;
+-- 
+1.5.5.6
