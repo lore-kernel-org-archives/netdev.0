@@ -1,43 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/19] netfilter updates for net-next (upcoming 3.3)
-Date: Sun, 25 Dec 2011 03:12:43 -0500 (EST)
-Message-ID: <20111225.031243.1507750002843759659.davem@davemloft.net>
-References: <1324778255-2830-1-git-send-email-pablo@netfilter.org>
+From: Florian Zumbiehl <florz@florz.de>
+Subject: [PATCH] skge: restore multicast rx filter on resume
+Date: Sun, 25 Dec 2011 09:18:33 +0100
+Message-ID: <20111225081833.GC3088@florz.florz.dyndns.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1324778255-2830-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, shemminger@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rain.florz.de ([62.216.164.86]:59529 "EHLO
+	rain.florz.dyndns.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751376Ab1LYJCO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Dec 2011 04:02:14 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: pablo@netfilter.org
-Date: Sun, 25 Dec 2011 02:57:16 +0100
+Hi,
 
-> The following patchset includes the Netfilter updates for net-next.
-> It contains:
-> 
-> - New reverse path filter matches for xtables from Florian Westphal.
-> 
-> - Use of atomic64_t for the conntrack packet and bytes counters, instead
->   of using spinlock to protect counters updates from Eric Dumazet.
-> 
-> - One enhancement for the SH scheduler (IPVS) from Michael Maxim.
-> 
-> - Seven patches from Patrick McHardy to cleanup several aspects of the
->   existing NAT code.
-> 
-> - The rework of the user-space expectation support by myself.
-> 
-> - Several updates for ctnetlink by myself.
-> 
-> - The new nfacct infrastructure and the corresponding xtables match
->   by myself.
-> 
-> You can pull these changes from:
-> 
-> git://1984.lsi.us.es/net-next nf-next
+no clue whether this is really the correct[tm] way to fix this, but it
+makes it so that IPv6 doesn't start failing after a suspend/resume cycle
+because neighbour discovery stops working ...
 
-Pulled, thanks a lot.
+Florian
+
+---------------------------------------------------------------------------
+skge: restore multicast rx filter on resume
+    
+Signed-off-by: Florian Zumbiehl <florz@florz.de>
+
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+index f4be5c7..cd968e5 100644
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -4046,6 +4046,7 @@ static int skge_resume(struct device *dev)
+ 				dev_close(dev);
+ 				goto out;
+ 			}
++			skge_set_multicast(dev);
+ 		}
+ 	}
+ out:
