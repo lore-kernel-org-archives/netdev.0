@@ -1,64 +1,64 @@
-From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 4/6] SUNPRC: cleanup RPC PipeFS pipes upcall interface
-Date: Sun, 25 Dec 2011 14:17:57 +0100
-Message-ID: <1324819077.5195.5.camel@lade.trondhjem.org>
-References: <20111122134514.479.9848.stgit@localhost6.localdomain6>
-	 <20111122144159.479.68045.stgit@localhost6.localdomain6>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next 1/2] igb: add PTP Hardware Clock
+	code
+Date: Sun, 25 Dec 2011 16:30:51 +0100
+Message-ID: <20111225153050.GA2581@netboy.at.omicron.at>
+References: <cover.1323744724.git.richardcochran@gmail.com>
+	<382db16df224b31b126f26f0671cb5f67904e834.1323744725.git.richardcochran@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20111122144159.479.68045.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, John Ronciak <john.ronciak@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: netdev@vger.kernel.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <382db16df224b31b126f26f0671cb5f67904e834.1323744725.git.richardcochran@gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-11-22 at 18:41 +0300, Stanislav Kinsbursky wrote: 
-> RPC pipe upcall doesn't requires only private pipe data. Thus RPC inode
-> references in this code can be removed.
-> 
-> Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-> 
-> ---
->  fs/nfs/blocklayout/blocklayoutdev.c |    2 +-
->  fs/nfs/blocklayout/blocklayoutdm.c  |    2 +-
->  fs/nfs/idmap.c                      |    4 ++--
->  include/linux/sunrpc/rpc_pipe_fs.h  |    2 +-
->  net/sunrpc/auth_gss/auth_gss.c      |    3 +--
->  net/sunrpc/rpc_pipe.c               |    3 +--
->  6 files changed, 7 insertions(+), 9 deletions(-)
-> 
-> diff --git a/fs/nfs/blocklayout/blocklayoutdev.c b/fs/nfs/blocklayout/blocklayoutdev.c
-> index a83b393..44dc348 100644
-> --- a/fs/nfs/blocklayout/blocklayoutdev.c
-> +++ b/fs/nfs/blocklayout/blocklayoutdev.c
-> @@ -168,7 +168,7 @@ nfs4_blk_decode_device(struct nfs_server *server,
->  
->  	dprintk("%s CALLING USERSPACE DAEMON\n", __func__);
->  	add_wait_queue(&bl_wq, &wq);
-> -	if (rpc_queue_upcall(bl_device_pipe->d_inode, &msg) < 0) {
-> +	if (rpc_queue_upcall(RPC_I(bl_device_pipe->d_inode)->pipe, &msg) < 0) {
 
-Needs a rebase: the above doesn't apply...
+Just for the record, reviewing my own patch and pointing out the
+mistakes WRT the 82576.
 
-> 		remove_wait_queue(&bl_wq, &wq);
->  		goto out;
->  	}
+On Tue, Dec 13, 2011 at 04:00:34AM +0100, Richard Cochran wrote:
+> +static void igb_82576_systim_write(struct igb_adapter *igb, u64 ns)
+> +{
+> +	u32 hi, lo;
+> +	struct e1000_hw *hw = &igb->hw;
+> +
+> +	hi = (ns >> 8) & 0xffffffff;
+> +	lo = (ns & 0xff) << NS_SHIFT_82576;
 
+Should have been:
 
--- 
-Trond Myklebust
-Linux NFS client maintainer
+	hi = (ns >> 13) & 0xffffffff;
+	lo = (ns & 0x1fff) << NS_SHIFT_82576;
 
-NetApp
-Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
-www.netapp.com
+> +
+> +	wr32(E1000_SYSTIML, lo);
+> +	wr32(E1000_SYSTIMH, hi);
+> +
+> +	igb_overflow_set(igb, ns, hi & SYSTIMH_MSB_82576, OFL_SHIFT_82576);
+> +}
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+------------------------------------------------------------------------------
+Write once. Port to many.
+Get the SDK and tools to simplify cross-platform app development. Create 
+new or port existing apps to sell to consumers worldwide. Explore the 
+Intel AppUpSM program developer opportunity. appdeveloper.intel.com/join
+http://p.sf.net/sfu/intel-appdev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
