@@ -1,8 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v3 7/7] SUNRPC: added debug messages to RPC pipefs
-Date: Mon, 26 Dec 2011 15:39:47 +0300
-Message-ID: <20111226113947.13216.91503.stgit@localhost6.localdomain6>
-References: <20111226113504.13216.19798.stgit@localhost6.localdomain6>
+Subject: [PATCH v2 0/6] SUNPRC: cleanup PipeFS for network-namespace-aware
+ users
+Date: Mon, 26 Dec 2011 15:43:15 +0300
+Message-ID: <20111226114042.13743.73804.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -12,48 +12,50 @@ Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
 	davem@davemloft.net, devel@openvz.org
 To: Trond.Myklebust@netapp.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111226113504.13216.19798.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds debug messages for notification events.
+This patch-set was created in context of clone of git
+branch: git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git.
+tag: v3.2-rc7
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+v2:
+1) rebased on tag "v3.2-rc7"
+2) some cleanup and minor changes
+
+This is cleanup precursor patch set. It's required for easier further
+implementation of network-namespace-aware SUNRPC PipeFS pipes creators.
+Generally, this patch set split SUNRPC PipeFS logic into two parts: working
+with pipes (new rpc_pipe structure with link to PipeFS dentry) and
+creating/destroying PipeFS dentries (old rpc_inode structure with link to
+rpc_pipe).
+With this patch-set kernel PipeFS pipes users initially creates
+rpc_pipe data and then creates Pipefs dentries. Later these dentries will be
+created in notifier callbacks on PipeFS mount event from user-space and in
+network namespace operations for such modules like nfs and blocklayout.
+
+The following series consists of:
 
 ---
- net/sunrpc/rpc_pipe.c |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
 
-diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index e40ec55..0cafd59 100644
---- a/net/sunrpc/rpc_pipe.c
-+++ b/net/sunrpc/rpc_pipe.c
-@@ -33,6 +33,10 @@
- #include "netns.h"
- #include "sunrpc.h"
- 
-+#define RPCDBG_FACILITY RPCDBG_DEBUG
-+
-+#define NET_NAME(net)	((net == &init_net) ? " (init_net)" : "")
-+
- static struct vfsmount *rpc_mnt __read_mostly;
- static int rpc_mount_count;
- 
-@@ -1083,6 +1087,8 @@ rpc_fill_super(struct super_block *sb, void *data, int silent)
- 	}
- 	if (rpc_populate(root, files, RPCAUTH_lockd, RPCAUTH_RootEOF, NULL))
- 		return -ENOMEM;
-+	dprintk("RPC:	sending pipefs MOUNT notification for net %p%s\n", net,
-+								NET_NAME(net));
- 	err = blocking_notifier_call_chain(&rpc_pipefs_notifier_list,
- 					   RPC_PIPEFS_MOUNT,
- 					   sb);
-@@ -1116,6 +1122,8 @@ void rpc_kill_sb(struct super_block *sb)
- 	sn->pipefs_sb = NULL;
- 	mutex_unlock(&sn->pipefs_sb_lock);
- 	put_net(net);
-+	dprintk("RPC:	sending pipefs UMOUNT notification for net %p%s\n", net,
-+								NET_NAME(net));
- 	blocking_notifier_call_chain(&rpc_pipefs_notifier_list,
- 					   RPC_PIPEFS_UMOUNT,
- 					   sb);
+Stanislav Kinsbursky (6):
+      SUNRPC: replace inode lock with pipe lock for RPC PipeFS operations
+      SUNRPC: split SUNPRC PipeFS pipe data and inode creation
+      SUNRPC: cleanup PipeFS redundant RPC inode usage
+      SUNPRC: cleanup RPC PipeFS pipes upcall interface
+      SUNRPC: cleanup GSS pipes usage
+      SUNRPC: split SUNPRC PipeFS dentry and private pipe data creation
+
+
+ fs/nfs/blocklayout/blocklayout.c    |   16 ++
+ fs/nfs/blocklayout/blocklayout.h    |    2 
+ fs/nfs/blocklayout/blocklayoutdev.c |    2 
+ fs/nfs/blocklayout/blocklayoutdm.c  |    2 
+ fs/nfs/idmap.c                      |   28 +++-
+ include/linux/sunrpc/rpc_pipe_fs.h  |   20 ++-
+ net/sunrpc/auth_gss/auth_gss.c      |  130 ++++++++++--------
+ net/sunrpc/rpc_pipe.c               |  258 +++++++++++++++++++----------------
+ 8 files changed, 262 insertions(+), 196 deletions(-)
+
+-- 
+Signature
