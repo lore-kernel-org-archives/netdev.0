@@ -1,72 +1,24 @@
-From: Finacial Loan Company LTD <andesne1@veloxmail.com.br>
-Subject: SEASONAL LOAN OFFER!!!
-Date: Mon, 26 Dec 2011 20:58:25 -0200 (BRST)
-Message-ID: <1994946166.589292.1324940305805.JavaMail.root@r-zv1>
-Reply-To: Finacial Loan Company LTD <loanfirm.online@pkuit.com>
+From: "Avasthi, Sulekha (NIH/NCI) [C]" <sulekha.avasthi@nih.gov>
+Subject: =?iso-8859-6?B?w+bHIMfk0+rPySDH6uTqIMfk1dHqzawgx+bHIMjNx8zJIMfk6SDl08fZ?=
+ =?iso-8859-6?B?z8rj5SDkw+bnIOHqIM3H5MrqIMfk5dHW6skg6tHM6SDH5MjR6s8gx+TH?=
+ =?iso-8859-6?B?5OPK0ejm6iDk6iDk5dLqzyDl5iDH5Mrhx9Xq5CA6?=
+Date: Mon, 26 Dec 2011 18:10:45 -0500
+Message-ID: <5D34B5F0ED33F941A4DCC3D7492425BD07CFE3908B@NIHMLBX11.nih.gov>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_589291_1787665328.1324940305803"
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=iso-8859-6
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-static-inova.u.inova.com.br ([187.61.57.124]:55225 "EHLO
-	r-sv5.v.inova.com.br" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752552Ab1LZXEK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 18:04:10 -0500
+Received: from nihxway3out.hub.nih.gov ([128.231.90.111]:11267 "EHLO
+	nihxway3out.hub.nih.gov" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752492Ab1LZXUW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 18:20:22 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_589291_1787665328.1324940305803
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-
-
-Kindly open the attach file for details 
-------=_Part_589291_1787665328.1324940305803
-Content-Type: text/plain; name=NOTIFICATION.txt
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename=NOTIFICATION.txt
-
-TVIgTkFOREEgS1VNQVIgRklOQU5DSUFMIEhPTUUNCk5vMTYgR3JlZW4gUGFyayBXYXksIEluZGlh
-Lg0KUmVmOiBUSy1BRkQvNzIxT1k4LzExL0RoLUluZGlhDQpTU0w6IFBULzQ1LzAwMTgNCkdPVkVS
-Tk1FTlQgQUNDUkVESVRFRCBMSUNFTlNFRCEhDQpNUiBOQU5EQSBLVU1BUiAgSVMgUkVHSVNURVJF
-RA0KVU5ERVIgVEhFIERBVEEgUFJPVEVDVElPTiBBQ1QgT0Y6IE1PRg0KUmVnaXN0cmF0aW9uIChQ
-UVgwMVEwNFQ0SW4pLg0KTW9iaWxlOis5MS03ODM4LTExNjk3MQ0KVGVsOis5MTExLTMyMDctNTA3
-Mw0KDQoNCg0KQXR0bjogQ3VzdG9tZXIsDQoNCllvdSBhcmUgd2VsY29tZSB0byBDaG91ZGhhcnkg
-UmFqICBLdW1hciBGaW5hbmNpYWwgTGVuZGluZyBDb21wYW55IFNlcnZpY2U6IFdlDQpvZmZlciBs
-b2FuIHRvIGhvbmVzdCBhbmQgR29kIGZlYXJpbmcgcGVvcGxlLiBXZWxsIHdlIGRvIG9mZmVyIGFs
-bCBraW5kDQpvZiBsb2FuLCBmb3IgdGhhdCByZWFzb24gd2UgYXJlIHJlYWR5IHRvIG9mZmVyIHlv
-dSB0aGUgbG9hbiBmdW5kcyB5b3UNCm5lZWQgZnJvbSB0aGlzIGNvbXBhbnkgc28gdGhhdCB5b3Ug
-Y2FuIGJlIGFibGUgdG8gY2Fycnkgb3V0IGFueSB0eXBlDQpvZiBidXNpbmVzcyB5b3Ugd2lzaCB0
-byBkbyBldGMsIHdlIHNoYWxsIGdpdmUsIHdlIHdpbGwgb2ZmZXIgeW91IGxvYW4NCmFzIHlvdSBy
-ZXF1ZXN0ZWQsIGJlIHJlc3QgaW5mb3JtZWQgdGhhdCB3ZSBvbmx5IGF0dGVuZCB0byBzZXJpb3Vz
-DQptaW5kZWQgaW5kaXZpZHVhbHMsIGlmIHlvdSBhcmUgYXBwbHlpbmcgZm9yIHRoaXMgbG9hbiB3
-ZSB3aWxsIGdpdmVuDQp5b3UgdGhlIGJlc3QgaW4gdGhpcyB0cmFuc2FjdGlvbiBhcyB3ZWxsLg0K
-DQoNClNvIGl0IGFsbCBkZXBlbmQgb24geW91LiBXZSB3aWxsIHdhbnQgeW91IHRvIGZpbGwgb3V0
-IHRoZSBib3Jyb3dlcidzDQppbmZvcm1hdGlvbiBiZWxvdyBhbmQgcmV0dXJuIGJhY2sgdG8gdXMg
-YXMgc29vbiBhcyBwb3NzaWJsZSBzbyB0aGF0IHdlDQpjYW4gcHJvY2VlZCB3aXRoIHRoaXMgdHJh
-bnNhY3Rpb24sIFdlbGwgd2UgbXVzdCBsZXQgeW91IGtub3cgdGhhdCB0aGlzDQpjb21wYW55IHdp
-bGwgaGlnaGx5IGFwcHJlY2lhdGUgeW91ciB1cmdlbnQgcmVzcG9uc2UgaW4gdGhpcw0KdHJhbnNh
-Y3Rpb24sIGFuZCB3ZSBzaGFsbCBhbGwgYmUgaW4gc2VydmljZSB3aXRoIHlvdSB0byBtYWtlIHN1
-cmUgeW91DQpyZWNlaXZlIHRoaXMgbG9hbiBmYXN0IGFuZCB3aXRoIGdvb2QgZmFpdGgsIHdpdGgg
-Z3JhY2UgYWxsIHRoaW5ncyBhcmUNCnBvc3NpYmxlIHNvIHdlIHNoYWxsIGludmVzdCB0cnVzdCBh
-bmQgaG9uZXN0IGluIHRoaXMgdHJhbnNhY3Rpb24uDQoNCg0KICAgICAgICAgICAgIFF1YWxpZmlj
-YXRpb25zIE9uIFRoaXMgVHJhbnNhY3Rpb246DQoNCk5PVEU6IDEpIFRoZSBCb3Jyb3dlciBtdXN0
-IGJlIHRydXN0ZWQgd2l0aCBnb29kIGZhaXRoIGFuZCB1bmxpbWl0ZWQNCmdyYWNlLiAyKSBFdmVu
-IHdpdGggQmFkIGNyZWRpdCwgd2Ugc3RpbGwgZ3VhcmFudGVlIHRoZSBCb3Jyb3dlciB0aGUNCkxv
-YW4gd2l0aCB1bmxpbWl0ZWQgZ3JhY2UgaW4gdGhpcyBjb21wYW55LiAzKSBUaGUgTG9hbiBDYW4g
-QmUgZ3JhbnRlZA0KZXZlbiB3aXRoIGxvdyBjcmVkaXQuIDQpIEZpeGVkIFJhdGUgb2YgdGhlIExv
-YW4gaW50ZXJlc3QgaXMgMyUuIGFzDQp3ZWxsLg0KDQpGSUxMIFRIRSBMT0FOIEFQUExJQ0FUSU9O
-IEZPUk0NCg0KWW91ciBGdWxsIE5hbWU6DQpZb3VyIENvdW50cnk6DQpZb3VyIFN0YXRlOg0KQWRk
-cmVzczoNCllvdXIgQWdlOg0KWW91ciBGYXggTnVtYmVyOg0KT2NjdXBhdGlvbjoNCk1hcml0YWwg
-c3RhdHVzOg0KQ3VycmVudCBTdGF0dXMgYXQgcGxhY2Ugb2Ygd29yazoNClNleDoNCllvdXIgUGVy
-c29uYWwgUGhvbmUgTnVtYmVyOg0KWW91ciBNb250aGx5IEluY29tZToNCllvdXIgV2Vla2x5IElu
-Y29tZToNCkxvYW4gRnVuZHMgQW1vdW50IE5lZWRlZDoNClB1cnBvc2Ugb2YgTG9hbjoNCkxvYW4g
-RHVyYXRpb246DQpIb3cgVXJnZW50IGRvIHlvdSBuZWVkIHRoZSBsb2FuOg0KDQoNCkluIGFja25v
-d2xlZGdtZW50IHRvIHRoZXNlIGRldGFpbHMsIFdlIHdpbGwgc2VuZCB5b3UgYSB3ZWxsIGNhbGN1
-bGF0ZWQNClRlcm1zIGFuZCBDb25kaXRpb24gd2hpY2ggd2lsbCBpbmNsdWRlIHRoZSBhZ3JlZW1l
-bnRzIG9mIHRoaXMNCnRyYW5zYWN0aW9uLCB3ZSB3aWxsIHdhbnQgeW91IHRvIGZpbGwgdGhlIGJv
-cnJvd2VyJ3MgaW5mb3JtYXRpb24gYWJvdmUNCmFuZCByZXR1cm4gYmFjayB0byB1cyBhcyBzb29u
-IGFzIHBvc3NpYmxlIHNvIHRoYXQgd2UgY2FuIHByb2NlZWQNCmZ1cnRoZXIgaW4gdGhpcyB0cmFu
-c2FjdGlvbi4NCg0KTWFuYWdlbWVudA0KTXIgTmFuZGEga3VtYXINCkZpbmFuY2lhbCBFeHByZXNz
-IExlbmRpbmcgQ29tcGFueSBTZXJ2aWNlLi4=
-------=_Part_589291_1787665328.1324940305803--
+=C3=E6=C7 =C7=E4=D3=EA=CF=C9 =C7=EA=E4=EA =C7=E4=D5=D1=EA=CD=AC =C7=E6=C7=
+ =C8=CD=C7=CC=C9 =C7=E4=E9 =E5=D3=C7=D9=CF=CA=E3=E5 =E4=C3=E6=E7 =E1=EA=
+ =CD=C7=E4=CA=EA =C7=E4=E5=D1=D6=EA=C9 =EA=D1=CC=E9 =C7=E4=C8=D1=EA=CF =
+=C7=E4=C7=E4=E3=CA=D1=E8=E6=EA =E4=EA =E4=E5=D2=EA=CF =E5=E6 =C7=E4=CA=E1=
+=C7=D5=EA=E4 : elifrank9@hotmail.com<mailto:elifrank9@hotmail.com>
