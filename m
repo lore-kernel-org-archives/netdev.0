@@ -1,35 +1,58 @@
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Subject: Re: [PATCH 1/2] bna: Added flash sub-module and ethtool eeprom entry
- points.
-Date: Mon, 26 Dec 2011 13:02:27 +0100
-Message-ID: <4EF86253.3010108@computer.org>
-References: <1324596585-8614-1-git-send-email-kgudipat@brocade.com>	 <1324633462.3860.6.camel@deadeye>	 <B5EE62D80D50B84BB9E5174F7FCCE80A206BE39A24@HQ1-EXCH02.corp.brocade.com> <1324721314.3860.11.camel@deadeye>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH] SUNRPC: make SUNPRC clients list per network namespace
+ context
+Date: Mon, 26 Dec 2011 16:25:06 +0400
+Message-ID: <4EF867A2.2020003@parallels.com>
+References: <20111214081918.2804.59143.stgit@localhost6.localdomain6> <1324817295.5195.0.camel@lade.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Krishna Gudipati <kgudipat@Brocade.com>,
-	"'davem@davemloft.net'" <davem@davemloft.net>,
-	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	Adapter Linux Open SRC Team
-	<adapter_linux_open_src_team@Brocade.com>,
-	Rasesh Mody <rmody@Brocade.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay009.isp.belgacom.be ([195.238.6.176]:27668 "EHLO
-	mailrelay009.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755310Ab1LZMHH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 07:07:07 -0500
-In-Reply-To: <1324721314.3860.11.camel@deadeye>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: Trond Myklebust <Trond.Myklebust@netapp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1324817295.5195.0.camel@lade.trondhjem.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/24/2011 11:08 AM, Ben Hutchings wrote:
-> I asked how long a single call would take, because the RTNL lock will be
-> held for this time.  Presumably it doesn't take very long to write a 4K
-> chunk, so this shouldn't be a problem.
+25.12.2011 16:48, Trond Myklebust =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Wed, 2011-12-14 at 12:19 +0300, Stanislav Kinsbursky wrote:
+>> This patch moves static SUNRPC clients list and it's lock to sunrpc_=
+net
+>> structure.
+>> Currently this list is used only for debug purposes. But later it wi=
+ll be used
+>> also for selecting clients by networks namespace on PipeFS mount/umo=
+unt events.
+>> Per-network namespace lists will make this faster and simplier.
+>>
+>> Note: client list is taken from "init_net" network namespace context=
+ in
+>> rpc_show_tasks(). This will be changed with making SUNRPC sysctl's p=
+er network
+>> namespace context.
+>>
+>> Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
+>
+> This doesn't seem to integrate with any of your patch series, and
+> conflicts with everything that touches netns.h, for instance...
 >
 
-461K is around 115 4K blocks. If these take around 3 minutes to flash 
-then that's about 1.5s per 4K block.
+Yep, you are right. Currently this path doesn't apply, if you'll try to=
+ apply=20
+patches in the same order I've sent them.
+This is caused by different development branches.
+Anyway, most of the patches will not apply to current tree.
+And I'll be glad to rebase and resent them on request.
 
-Is it OK to hold the RTNL lock for that length of time?
+--=20
+Best regards,
+Stanislav Kinsbursky
