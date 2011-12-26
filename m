@@ -1,15 +1,16 @@
 From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH series v2] IEEE 802.15.4 MAC layer
-	basic implementation
-Date: Mon, 26 Dec 2011 19:01:04 +0300
-Message-ID: <CAJmB2rBMVvw_TV-mT2-jT7=H0adfMWaYFC0Q908pc_ND+PLD_g@mail.gmail.com>
+Subject: [PATCH 01/14 v2] mac802154: basic ieee802.15.4
+	device structures
+Date: Mon, 26 Dec 2011 20:02:33 +0300
+Message-ID: <1324918953-14813-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+References: <CAJmB2rBMVvw_TV-mT2-jT7=H0adfMWaYFC0Q908pc_ND+PLD_g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "open list:NETWORKING \[GENERAL\]" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-zigbee-devel <linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <CAJmB2rBMVvw_TV-mT2-jT7=H0adfMWaYFC0Q908pc_ND+PLD_g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
 	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
@@ -20,103 +21,183 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Dear David, colleagues,
-
-I'm very sorry for the flood with my previous messages, problems with
-mail client :-(
-
-This is the second version of patch series which adds basic support for
-IEEE 802.15.4 Medium Access Control layer.
-
 The IEEE 802.15.4 Working Group focuses on the standardization of the
 bottom two layers of ISO/OSI protocol stack: Physical (PHY) and MAC.
 The MAC layer provides access control to a shared channel and reliable
-data delivery.
+data delivery. The main functions performed by the MAC sublayer are:
+association and disassociation, security control, optional star
+network topology functions, such as beacon generation and Guaranteed
+Time Slots (GTSs) management, generation of ACK frames (if used), and,
+finally, application support for the two possible network topologies
+described in the standard.
 
-This series provide only basic features:
- - interface for drivers registration
- - RX/TX datapaths
- - reduced mlme operations
- - monitor device type support (used by network sniffers, e.g. Wireshark)
- - IEEE 802.15.4 loopback driver
- - documentation update
+This is an initial commit which describes main data structures needed
+for ieee802.15.4 compatible devices representation in MAC layer and
+callbacks that the driver may, or in some cases, must handle, for
+example to transmit a frame
 
-With best regards,
-Alexander
-
---
-
-Changes since last post:
- * lots and lots of coding style and poor formating issues
- * additional comments
- * using proper byte order (little endian)
- * locking in loopback driver
- * mac802154: allocation of ieee802154 device: using of NETDEV_ALIGN,
- reworked like for ieee80211 stack (net/mac80211/main.c)
- The reason why I use alignment of data in ieee802154 layer is because of
- there are two levels of private data: mac layer's and driver's.
-
---
-
-The following changes since commit eb93992207dadb946a3b5cf4544957dc924a6f58:
-
- module_param: make bool parameters really bool (net & drivers/net)
-(2011-12-19 22:27:29 -0500)
-
-are available in the git repository at:
- git://linux-zigbee.git.sourceforge.net/gitroot/linux-zigbee/kernel to_upstream
-
-Alexander Smirnov (14):
-    mac802154: basic ieee802.15.4 device structures
-    mac802154: allocation of ieee802154 device
-    mac802154: RX data path
-    mac802154: TX data path
-    mac802154: define reduced mlme operations
-    mac802154: slave interfaces definition
-    mac802154: reduced mlme operations
-    mac802154: basic mib support
-    ieee802154: remove ieee802154 policy from globals
-    ieee802154: interface type to be added
-    mac802154: slaves manipulation routine
-    mac802154: monitor device support
-    drivers/ieee802154: IEEE 802.15.4 loopback driver
-    Documentation/networking/ieee802154: update MAC chapter
-
- Documentation/networking/ieee802154.txt |   75 ++++++--
- drivers/ieee802154/Kconfig              |    8 +
- drivers/ieee802154/Makefile             |    1 +
- drivers/ieee802154/fakelb.c             |  293 +++++++++++++++++++++++++++++++
- include/linux/if_arp.h                  |    1 +
- include/linux/nl802154.h                |   19 ++-
- include/net/ieee802154_netdev.h         |   26 +++-
- include/net/mac802154.h                 |  157 +++++++++++++++++
- include/net/wpan-phy.h                  |    5 +-
- net/Kconfig                             |    1 +
- net/Makefile                            |    1 +
- net/ieee802154/ieee802154.h             |    2 +
- net/ieee802154/nl-phy.c                 |    9 +-
- net/ieee802154/wpan-class.c             |    1 +
- net/mac802154/Kconfig                   |   16 ++
- net/mac802154/Makefile                  |    2 +
- net/mac802154/ieee802154_dev.c          |  269 ++++++++++++++++++++++++++++
- net/mac802154/mac802154.h               |  107 +++++++++++
- net/mac802154/mac_cmd.c                 |   43 +++++
- net/mac802154/mib.c                     |   97 ++++++++++
- net/mac802154/monitor.c                 |  115 ++++++++++++
- net/mac802154/rx.c                      |  110 ++++++++++++
- net/mac802154/tx.c                      |  113 ++++++++++++
- 23 files changed, 1447 insertions(+), 24 deletions(-)
- create mode 100644 drivers/ieee802154/fakelb.c
+Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ include/net/mac802154.h |  147 +++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 147 insertions(+), 0 deletions(-)
  create mode 100644 include/net/mac802154.h
- create mode 100644 net/mac802154/Kconfig
- create mode 100644 net/mac802154/Makefile
- create mode 100644 net/mac802154/ieee802154_dev.c
- create mode 100644 net/mac802154/mac802154.h
- create mode 100644 net/mac802154/mac_cmd.c
- create mode 100644 net/mac802154/mib.c
- create mode 100644 net/mac802154/monitor.c
- create mode 100644 net/mac802154/rx.c
- create mode 100644 net/mac802154/tx.c
+
+diff --git a/include/net/mac802154.h b/include/net/mac802154.h
+new file mode 100644
+index 0000000..85d371c
+--- /dev/null
++++ b/include/net/mac802154.h
+@@ -0,0 +1,147 @@
++/*
++ * IEEE802.15.4-2003 specification
++ *
++ * Copyright (C) 2007-2011 Siemens AG
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++#ifndef NET_MAC802154_H
++#define NET_MAC802154_H
++
++#include <net/af_ieee802154.h>
++
++/**
++ * enum ieee802154_hw_addr_filt_flags - hardware flags
++ *
++ * These flags are used to indicate changed address settings from
++ * the stack to the hardware.
++ *
++ * @IEEE802515_SADDR_CHANGED:
++ *	Indicates that the Short Address changed
++ *
++ * @IEEE802515_IEEEADDR_CHANGED:
++ *	Indicates that the IEEE Address changed
++ *
++ * @IEEE802515_PANID_CHANGED:
++ *	Indicates that the PAN ID changed
++ *
++ * @IEEE802515_PANC_CHANGED:
++ *	Indicates that PAN Coordinator status changed
++ */
++enum ieee802154_hw_addr_filt_flags {
++	IEEE802515_SADDR_CHANGED	= 1 << 0,
++	IEEE802515_IEEEADDR_CHANGED	= 1 << 1,
++	IEEE802515_PANID_CHANGED	= 1 << 2,
++	IEEE802515_PANC_CHANGED		= 1 << 3,
++};
++
++struct ieee802154_hw_addr_filt {
++	__le16 pan_id;		/* Each independent PAN selects a unique
++				 * identifier. This PAN id allows communication
++				 * between devices within a network using short
++				 * addresses and enables transmissions between
++				 * devices across independent networks.
++				 */
++	__le16 short_addr;
++	u8 ieee_addr[IEEE802154_ADDR_LEN];
++	u8 pan_coord;
++};
++
++struct ieee802154_dev {
++	/* filled by the driver */
++	int	extra_tx_headroom;		/* tx headroom to reserve */
++	u32	flags;				/* flags for device to set */
++	struct device *parent;
++
++	/* filled by mac802154 core */
++	struct ieee802154_hw_addr_filt hw_filt;
++	void	*priv;				/* driver-specific data */
++	struct wpan_phy *phy;
++};
++
++/* Checksum is in hardware and is omitted from packet */
++/**
++ * enum ieee802154_hw_flags - hardware flags
++ *
++ * These flags are used to indicate hardware capabilities to
++ * the stack. Generally, flags here should have their meaning
++ * done in a way that the simplest hardware doesn't need setting
++ * any particular flags. There are some exceptions to this rule,
++ * however, so you are advised to review these flags carefully.
++ *
++ * @IEEE802154_HW_OMIT_CKSUM:
++ *	Indicates that receiver omits FCS and transmitter will add
++ *	FCS on it's own.
++ *
++ * @IEEE802154_HW_AACK:
++ *	Indicates that receiver will autorespond with ACK frames.
++ */
++enum ieee802154_hw_flags {
++	IEEE802154_HW_OMIT_CKSUM			= 1 << 0,
++	IEEE802154_HW_AACK				= 1 << 1,
++};
++
++/**
++ * struct ieee802154_ops - callbacks from mac802154 to the driver
++ *
++ * This structure contains various callbacks that the driver may
++ * handle or, in some cases, must handle, for example to transmit
++ * a frame.
++ *
++ * @start: Handler that 802.15.4 module calls for device initialisation.
++ *	This function is called before the first interface is attached.
++ *
++ * @stop: Handler that 802.15.4 module calls for device cleanup
++ *	This function is called after the last interface is removed.
++ *
++ * @xmit: Handler that 802.15.4 module calls for each transmitted frame.
++ *	skb cntains the buffer starting from the IEEE 802.15.4 header.
++ *	The low-level driver should send the frame based on available
++ *	configuration.
++ *	This function should return zero or negative errno.
++ *	Called with pib_lock held.
++ *
++ * @ed: Handler that 802.15.4 module calls for Energy Detection.
++ *	This function should place the value for detected energy
++ *	(usually device-dependant) in the level pointer and return
++ *	either zero or negative errno.
++ *	Called with pib_lock held.
++ *
++ * @set_channel: Set radio for listening on specific channel.
++ *	Set the device for listening on specified channel.
++ *	Returns either zero, or negative errno.
++ *	Called with pib_lock held.
++ *
++ * @set_hw_addr_filt: Set radio for listening on specific address.
++ *	Set the device for listening on specified address.
++ *	Returns either zero, or negative errno.
++ */
++struct ieee802154_ops {
++	struct module	*owner;
++	int		(*start)(struct ieee802154_dev *dev);
++	void		(*stop)(struct ieee802154_dev *dev);
++	int		(*xmit)(struct ieee802154_dev *dev,
++				struct sk_buff *skb);
++	int		(*ed)(struct ieee802154_dev *dev, u8 *level);
++	int		(*set_channel)(struct ieee802154_dev *dev,
++				       int page,
++				       int channel);
++	int		(*set_hw_addr_filt)(struct ieee802154_dev *dev,
++					struct ieee802154_hw_addr_filt *filt,
++					    unsigned long changed);
++	int		(*ieee_addr)(struct ieee802154_dev *dev,
++				     u8 addr[IEEE802154_ADDR_LEN]);
++};
++
++#endif /* NET_MAC802154_H */
+-- 
+1.7.2.3
+
 
 ------------------------------------------------------------------------------
 Write once. Port to many.
