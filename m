@@ -1,37 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: meth: Add set_rx_mode hook to fix ICMPv6 neighbor
- discovery
-Date: Mon, 26 Dec 2011 15:17:13 -0500 (EST)
-Message-ID: <20111226.151713.2002746283994460284.davem@davemloft.net>
-References: <4EED3A3D.9080503@gentoo.org>
-	<4EF6803C.9060203@gentoo.org>
+Subject: Re: [PATCH] skge: restore multicast rx filter on resume
+Date: Mon, 26 Dec 2011 15:17:54 -0500 (EST)
+Message-ID: <20111226.151754.417402855307646295.davem@davemloft.net>
+References: <20111225081833.GC3088@florz.florz.dyndns.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org
-To: kumba@gentoo.org
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: florz@florz.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40084 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:40095 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752874Ab1LZURY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 15:17:24 -0500
-In-Reply-To: <4EF6803C.9060203@gentoo.org>
+	with ESMTP id S1752874Ab1LZUTF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 15:19:05 -0500
+In-Reply-To: <20111225081833.GC3088@florz.florz.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joshua Kinard <kumba@gentoo.org>
-Date: Sat, 24 Dec 2011 20:45:32 -0500
+From: Florian Zumbiehl <florz@florz.de>
+Date: Sun, 25 Dec 2011 09:18:33 +0100
 
-> SGI IP32 (O2)'s ethernet driver (meth) lacks meth_set_rx_mode, which
-> prevents IPv6 from working completely because any ICMPv6 neighbor
-> solicitation requests aren't picked up by the driver.  So the machine can
-> ping out and connect to other systems, but other systems will have a very
-> hard time connecting to the O2.
-> 
-> Signed-off-by: Joshua Kinard <kumba@gentoo.org>
+> skge: restore multicast rx filter on resume
+>     
+> Signed-off-by: Florian Zumbiehl <florz@florz.de>
 
-Lots of completely unrelated changes here, the IRQ name string has
-nothing to do with specifically fixing the ICMPv6 neighbour discovery
-bug.
+Stephen?  This one looks fine to me.
 
-Do not mix changes like this, one change per patch please, thanks.
+> diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+> index f4be5c7..cd968e5 100644
+> --- a/drivers/net/skge.c
+> +++ b/drivers/net/skge.c
+> @@ -4046,6 +4046,7 @@ static int skge_resume(struct device *dev)
+>  				dev_close(dev);
+>  				goto out;
+>  			}
+> +			skge_set_multicast(dev);
+>  		}
+>  	}
+>  out:
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
