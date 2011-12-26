@@ -1,84 +1,94 @@
-From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 09/14 v2] ieee802154: remove ieee802154
-	policy from globals
-Date: Mon, 26 Dec 2011 20:10:13 +0300
-Message-ID: <1324919413-15146-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH 10/14 v2] ieee802154: interface type to be added
+Date: Mon, 26 Dec 2011 20:11:34 +0300
+Message-ID: <1324919494-15181-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 References: <CAJmB2rBMVvw_TV-mT2-jT7=H0adfMWaYFC0Q908pc_ND+PLD_g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <CAJmB2rBMVvw_TV-mT2-jT7=H0adfMWaYFC0Q908pc_ND+PLD_g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org,
+	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:39503 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750966Ab1LZQMc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 11:12:32 -0500
+Received: by eekc4 with SMTP id c4so11134286eek.19
+        for <netdev@vger.kernel.org>; Mon, 26 Dec 2011 08:12:31 -0800 (PST)
+In-Reply-To: <CAJmB2rBMVvw_TV-mT2-jT7=H0adfMWaYFC0Q908pc_ND+PLD_g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This item is used inside ieee802154 layer only and it shouldn't be
-defined in headers, common for multiple layers. But at the same time it
-can't be marked as static because it's used in several files inside
-ieee802154 layer. So just move ieee802154 netlink policy array
-definition to more appropriate place.
+This stack supports several types of slaves interfaces. Another
+parameter to 'add_iface_ function is added.
 
-Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 ---
- include/linux/nl802154.h    |    2 --
- net/ieee802154/ieee802154.h |    2 ++
- net/ieee802154/wpan-class.c |    1 +
- 3 files changed, 3 insertions(+), 2 deletions(-)
+ include/linux/nl802154.h |    6 ++++++
+ include/net/wpan-phy.h   |    2 +-
+ net/ieee802154/nl-phy.c  |    9 ++++++++-
+ 3 files changed, 15 insertions(+), 2 deletions(-)
 
 diff --git a/include/linux/nl802154.h b/include/linux/nl802154.h
-index 33d9f51..d2b5ae2 100644
+index d2b5ae2..e339c96 100644
 --- a/include/linux/nl802154.h
 +++ b/include/linux/nl802154.h
-@@ -74,8 +74,6 @@ enum {
+@@ -68,6 +68,7 @@ enum {
+ 	IEEE802154_ATTR_CHANNEL_PAGE_LIST,
  
- #define IEEE802154_ATTR_MAX (__IEEE802154_ATTR_MAX - 1)
+ 	IEEE802154_ATTR_PHY_NAME,
++	IEEE802154_ATTR_DEV_TYPE,
  
--extern const struct nla_policy ieee802154_policy[];
--
- /* commands */
- /* REQ should be responded with CONF
-  * and INDIC with RESP
-diff --git a/net/ieee802154/ieee802154.h b/net/ieee802154/ieee802154.h
-index aadec42..e9799af 100644
---- a/net/ieee802154/ieee802154.h
-+++ b/net/ieee802154/ieee802154.h
-@@ -21,6 +21,8 @@
- int __init ieee802154_nl_init(void);
- void __exit ieee802154_nl_exit(void);
+ 	__IEEE802154_ATTR_MAX,
+ };
+@@ -124,4 +125,9 @@ enum {
  
-+extern const struct nla_policy ieee802154_policy[];
+ #define IEEE802154_CMD_MAX (__IEEE802154_CMD_MAX - 1)
+ 
++enum {
++	__IEEE802154_DEV_INVALID = -1,
++	__IEEE802154_DEV_MAX,
++};
 +
- #define IEEE802154_OP(_cmd, _func)			\
- 	{						\
- 		.cmd	= _cmd,				\
-diff --git a/net/ieee802154/wpan-class.c b/net/ieee802154/wpan-class.c
-index 1627ef2..36d32e2 100644
---- a/net/ieee802154/wpan-class.c
-+++ b/net/ieee802154/wpan-class.c
-@@ -21,6 +21,7 @@
- #include <linux/module.h>
- #include <linux/device.h>
+ #endif
+diff --git a/include/net/wpan-phy.h b/include/net/wpan-phy.h
+index d86fffd..1437c90 100644
+--- a/include/net/wpan-phy.h
++++ b/include/net/wpan-phy.h
+@@ -42,7 +42,7 @@ struct wpan_phy {
+ 	int idx;
  
-+#include <net/netlink.h>
- #include <net/wpan-phy.h>
+ 	struct net_device *(*add_iface)(struct wpan_phy *phy,
+-			const char *name);
++					const char *name, int type);
+ 	void (*del_iface)(struct wpan_phy *phy, struct net_device *dev);
  
- #include "ieee802154.h"
+ 	char priv[0] __attribute__((__aligned__(NETDEV_ALIGN)));
+diff --git a/net/ieee802154/nl-phy.c b/net/ieee802154/nl-phy.c
+index c64a38d..2e0ae10 100644
+--- a/net/ieee802154/nl-phy.c
++++ b/net/ieee802154/nl-phy.c
+@@ -179,6 +179,7 @@ static int ieee802154_add_iface(struct sk_buff *skb,
+ 	const char *devname;
+ 	int rc = -ENOBUFS;
+ 	struct net_device *dev;
++	int type = __IEEE802154_DEV_INVALID;
+ 
+ 	pr_debug("%s\n", __func__);
+ 
+@@ -221,7 +222,13 @@ static int ieee802154_add_iface(struct sk_buff *skb,
+ 		goto nla_put_failure;
+ 	}
+ 
+-	dev = phy->add_iface(phy, devname);
++	if (info->attrs[IEEE802154_ATTR_DEV_TYPE]) {
++		type = nla_get_u8(info->attrs[IEEE802154_ATTR_DEV_TYPE]);
++		if (type >= __IEEE802154_DEV_MAX)
++			return -EINVAL;
++	}
++
++	dev = phy->add_iface(phy, devname, type);
+ 	if (IS_ERR(dev)) {
+ 		rc = PTR_ERR(dev);
+ 		goto nla_put_failure;
 -- 
 1.7.2.3
-
-
-------------------------------------------------------------------------------
-Write once. Port to many.
-Get the SDK and tools to simplify cross-platform app development. Create 
-new or port existing apps to sell to consumers worldwide. Explore the 
-Intel AppUpSM program developer opportunity. appdeveloper.intel.com/join
-http://p.sf.net/sfu/intel-appdev
