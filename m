@@ -1,63 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] unix_diag: Fix incoming connections nla length
-Date: Mon, 26 Dec 2011 14:42:45 -0500 (EST)
-Message-ID: <20111226.144245.1639855054069401229.davem@davemloft.net>
-References: <4EF7804D.4050300@parallels.com>
-	<1324928172.2599.3.camel@edumazet-laptop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 01/14 v2] mac802154: basic
+ ieee802.15.4 device structures
+Date: Mon, 26 Dec 2011 15:07:20 -0500 (EST)
+Message-ID: <20111226.150720.932661578734898837.davem@davemloft.net>
+References: <CAJmB2rBMVvw_TV-mT2-jT7=H0adfMWaYFC0Q908pc_ND+PLD_g@mail.gmail.com>
+	<1324918953-14813-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: xemul@parallels.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39829 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752636Ab1LZTmv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 14:42:51 -0500
-In-Reply-To: <1324928172.2599.3.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1324918953-14813-1-git-send-email-alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 26 Dec 2011 20:36:12 +0100
+From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Mon, 26 Dec 2011 20:02:33 +0300
 
-> if (peer)
-> 	buf[i++] = sock_i_ino(peer);
-> 
-> So we probably leak kernel memory content to user for the (!peer) case,
-> since we did :
-> 
-> UNIX_DIAG_PUT(nlskb, UNIX_DIAG_ICONS,
-> 		sk->sk_receive_queue.qlen * sizeof(u32));
+> +enum ieee802154_hw_addr_filt_flags {
+> +	IEEE802515_SADDR_CHANGED	= 1 << 0,
+> +	IEEE802515_IEEEADDR_CHANGED	= 1 << 1,
+> +	IEEE802515_PANID_CHANGED	= 1 << 2,
+> +	IEEE802515_PANC_CHANGED		= 1 << 3,
+> +};
 
-I just commited the following fix for this, it probably takes less
-effort to post a patch for this kind of bug than explain it don't
-you think? :)
+These enumeration definitions for flags are undesriable for several
+reasons.
 
---------------------
-unix: If we happen to find peer NULL when diag dumping, write zero.
+First you do not even indicate what datastructure member these flags
+are used in.  And because you use an enumeration you can't just indicate
+this by using "enum ieee802154_hw_addr_filt_flags" as the type in the
+datastructure.
 
-Otherwise we leave uninitialized kernel memory in there.
+Forget all the enum crap, at the datastructure where the flags are defined
+do something like:
 
-Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/unix/diag.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+	u32	flags;
+#define IEEE802154_AFILT_SADDR_CHANGED		0x00000001
+#define IEEE802154_AFILT_IEEEADDR_CHANGED	0x00000002
+#define IEEE802154_AFILT_PANID_CHANGED		0x00000004
+#define IEEE802154_AFILT_PANC_CHANGED		0x00000008
 
-diff --git a/net/unix/diag.c b/net/unix/diag.c
-index 39e44c9..c5bdbcb 100644
---- a/net/unix/diag.c
-+++ b/net/unix/diag.c
-@@ -86,8 +86,7 @@ static int sk_diag_dump_icons(struct sock *sk, struct sk_buff *nlskb)
- 			 */
- 			unix_state_lock_nested(req);
- 			peer = unix_sk(req)->peer;
--			if (peer)
--				buf[i++] = sock_i_ino(peer);
-+			buf[i++] = (peer ? sock_i_ino(peer) : 0);
- 			unix_state_unlock(req);
- 		}
- 		spin_unlock(&sk->sk_receive_queue.lock);
--- 
-1.7.7.4
+There is then no confusion whatsoever where these flag bits are meant
+to be applied and used, and the spurious data type definition is eliminated.
+
+------------------------------------------------------------------------------
+Write once. Port to many.
+Get the SDK and tools to simplify cross-platform app development. Create 
+new or port existing apps to sell to consumers worldwide. Explore the 
+Intel AppUpSM program developer opportunity. appdeveloper.intel.com/join
+http://p.sf.net/sfu/intel-appdev
