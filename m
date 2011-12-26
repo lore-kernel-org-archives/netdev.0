@@ -1,7 +1,9 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v3 0/7] SUNRPC: initial part of making pipefs work in net ns
-Date: Mon, 26 Dec 2011 15:38:48 +0300
-Message-ID: <20111226113504.13216.19798.stgit@localhost6.localdomain6>
+Subject: [PATCH v3 1/7] SUNRPC: create RPC pipefs superblock per network
+ namespace context
+Date: Mon, 26 Dec 2011 15:38:56 +0300
+Message-ID: <20111226113856.13216.82195.stgit@localhost6.localdomain6>
+References: <20111226113504.13216.19798.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,45 +13,39 @@ Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
 	davem@davemloft.net, devel@openvz.org
 To: Trond.Myklebust@netapp.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111226113504.13216.19798.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch-set was created in context of clone of git branch:
-git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git.
+This is the initial step of RPC pipefs virtualization. It changes nothing to
+current pipefs behaviour except that mount of pipefs in other than init_net
+network namespace context will provide only root tree. No other dentries will
+be visible.
 
-v3:
-1) Rebased on tag "v3.2-rc7".
-
-v2:
-1) Rebased of current repo state (i.e. all commits were pulled before apply)
-
-This patch-set implements pipefs superblock creation per network namespace
-context instead of using single one for all possible contexts. Also, it
-provides pipefs dentries creation and destruction helpers for kernel routines.
-
-Additional description of the idea about how to make RPC pipefs work per
-network namespace context can be found in the letter titled "SUNRPC: "RPC
-pipefs per network namespace" preparations", which has been sent already to
-linux-nfs@vger.kernel.org.
-The following series consists of:
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
+ net/sunrpc/rpc_pipe.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-Stanislav Kinsbursky (7):
-      SUNRPC: create RPC pipefs superblock per network namespace context
-      SUNRPC: hold current network namespace while pipefs superblock is active
-      SUNRPC: send notification events on pipefs sb creation and destruction
-      SUNRPC: pipefs dentry lookup helper introduced
-      SUNRPC: put pipefs superblock link on network namespace
-      SUNRPC: pipefs per-net operations helper introduced
-      SUNRPC: added debug messages to RPC pipefs
-
-
- include/linux/sunrpc/rpc_pipe_fs.h |   14 ++++
- net/sunrpc/netns.h                 |    3 +
- net/sunrpc/rpc_pipe.c              |  113 +++++++++++++++++++++++++++++++++++-
- net/sunrpc/sunrpc_syms.c           |    1 
- 4 files changed, 129 insertions(+), 2 deletions(-)
-
--- 
-Signature
+diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
+index e2f7b7f..bb8a40b 100644
+--- a/net/sunrpc/rpc_pipe.c
++++ b/net/sunrpc/rpc_pipe.c
+@@ -994,6 +994,7 @@ rpc_fill_super(struct super_block *sb, void *data, int silent)
+ {
+ 	struct inode *inode;
+ 	struct dentry *root;
++	struct net *net = data;
+ 
+ 	sb->s_blocksize = PAGE_CACHE_SIZE;
+ 	sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
+@@ -1018,7 +1019,7 @@ static struct dentry *
+ rpc_mount(struct file_system_type *fs_type,
+ 		int flags, const char *dev_name, void *data)
+ {
+-	return mount_single(fs_type, flags, data, rpc_fill_super);
++	return mount_ns(fs_type, flags, current->nsproxy->net_ns, rpc_fill_super);
+ }
+ 
+ static struct file_system_type rpc_pipe_fs_type = {
