@@ -1,56 +1,55 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] packet: fix dev refcnt leak when bind fail
-Date: Mon, 26 Dec 2011 17:02:59 +0800
-Message-ID: <CAPgLHd9KNN81cPYv3bGzoBwUtnJSAoX4NN0Fh+wNgoHE_t7d=w@mail.gmail.com>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Subject: Re: [PATCH] Partial revert
+ "Basic kernel memory functionality for the Memory Controller"
+Date: Mon, 26 Dec 2011 18:32:07 +0900
+Message-ID: <20111226183207.1c40b8f4.kamezawa.hiroyu@jp.fujitsu.com>
+References: <1324543990-27784-1-git-send-email-glommer@parallels.com>
+	<20111222104339.GA8833@tiehlicka.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:41365 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752647Ab1LZJDA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 04:03:00 -0500
-Received: by qcqz2 with SMTP id z2so6492644qcq.19
-        for <netdev@vger.kernel.org>; Mon, 26 Dec 2011 01:02:59 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"Kirill A. Shutemov" <kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>,
+	Paul Menage <paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org>,
+	Greg Thelen <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Johannes Weiner <jweiner-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20111222104339.GA8833-VqjxzfR4DlwKmadIfiO5sKVXKuFTiq87@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Thu, 22 Dec 2011 11:43:39 +0100
+Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org> wrote:
 
-If bind is fail such as bind is called after set PACKET_FANOUT
-sock option, the dev refcnt will leak.
+> On Thu 22-12-11 12:53:10, Glauber Costa wrote:
+> > This reverts commit e5671dfae59b165e2adfd4dfbdeab11ac8db5bda.
+> > 
+> > After a follow up discussion with Michal, it was agreed it would
+> > be better to leave the kmem controller with just the tcp files,
+> > deferring the behavior of the other general memory.kmem.* files
+> > for a later time, when more caches are controlled.
+> 
+> "Because generic kmem files are not used by tcp accounting and it is
+> not clear how other slab caches would fit into the scheme."
+> 
+> > 
+> > We are reverting the original commit so we can track the reference.
+> > Part of the patch is kept, because it was used by the later tcp
+> > code. Conflicts are shown in the bottom. init/Kconfig is removed from
+> > the revert entirely.
+> > 
+> > Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> > CC: Kirill A. Shutemov <kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>
+> > CC: Paul Menage <paul-inf54ven1CmVyaH7bEyXVA@public.gmane.org>
+> > CC: Greg Thelen <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+> > CC: Johannes Weiner <jweiner-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> > CC: Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
+> > CC: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> 
+> Acked-by: Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
+> 
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- net/packet/af_packet.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 3891702..b6ac234 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2501,8 +2501,11 @@ static int packet_bind_spkt(struct socket *sock, struct sockaddr *uaddr,
- 	strlcpy(name, uaddr->sa_data, sizeof(name));
- 
- 	dev = dev_get_by_name(sock_net(sk), name);
--	if (dev)
-+	if (dev) {
- 		err = packet_do_bind(sk, dev, pkt_sk(sk)->num);
-+		if (err)
-+			dev_put(dev);
-+	}
- 	return err;
- }
- 
-@@ -2530,6 +2533,8 @@ static int packet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len
- 			goto out;
- 	}
- 	err = packet_do_bind(sk, dev, sll->sll_protocol ? : pkt_sk(sk)->num);
-+	if (err && dev)
-+		dev_put(dev);
- 
- out:
- 	return err;
--- 
-1.7.7
+Acked-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
