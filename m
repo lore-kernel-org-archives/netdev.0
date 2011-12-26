@@ -1,141 +1,71 @@
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: [PATCH 12/14 v2] mac802154: monitor device support
-Date: Mon, 26 Dec 2011 20:12:29 +0300
-Message-ID: <1324919549-15250-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 13/14 v2] drivers/ieee802154: IEEE
+	802.15.4 loopback driver
+Date: Mon, 26 Dec 2011 20:12:47 +0300
+Message-ID: <1324919567-15284-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 References: <CAJmB2rBMVvw_TV-mT2-jT7=H0adfMWaYFC0Q908pc_ND+PLD_g@mail.gmail.com>
-Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:53209 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750966Ab1LZQN0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 11:13:26 -0500
-Received: by eekc4 with SMTP id c4so11134712eek.19
-        for <netdev@vger.kernel.org>; Mon, 26 Dec 2011 08:13:25 -0800 (PST)
-In-Reply-To: <CAJmB2rBMVvw_TV-mT2-jT7=H0adfMWaYFC0Q908pc_ND+PLD_g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <CAJmB2rBMVvw_TV-mT2-jT7=H0adfMWaYFC0Q908pc_ND+PLD_g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Support for monitor device intended to capture all the network
-activity. This interface could be used by networks sniffers.
+Add support for loopback driver. It's very useful tool for testing
+and development upper IEEE 802.15.4 layer.
 
-Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- include/linux/if_arp.h         |    1 +
- include/linux/nl802154.h       |   11 ++++
- include/net/wpan-phy.h         |    3 +
- net/mac802154/Makefile         |    2 +-
- net/mac802154/ieee802154_dev.c |    5 ++-
- net/mac802154/mac802154.h      |    5 ++
- net/mac802154/monitor.c        |  115 ++++++++++++++++++++++++++++++++++++++++
- net/mac802154/rx.c             |    1 +
- 8 files changed, 141 insertions(+), 2 deletions(-)
- create mode 100644 net/mac802154/monitor.c
+ drivers/ieee802154/Kconfig  |    8 ++
+ drivers/ieee802154/Makefile |    1 +
+ drivers/ieee802154/fakelb.c |  293 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 302 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/ieee802154/fakelb.c
 
-diff --git a/include/linux/if_arp.h b/include/linux/if_arp.h
-index 6d722f4..f0e69c6 100644
---- a/include/linux/if_arp.h
-+++ b/include/linux/if_arp.h
-@@ -87,6 +87,7 @@
- #define ARPHRD_IEEE80211_PRISM 802	/* IEEE 802.11 + Prism2 header  */
- #define ARPHRD_IEEE80211_RADIOTAP 803	/* IEEE 802.11 + radiotap header */
- #define ARPHRD_IEEE802154	  804
-+#define ARPHRD_IEEE802154_MONITOR 805	/* IEEE 802.15.4 network monitor */
+diff --git a/drivers/ieee802154/Kconfig b/drivers/ieee802154/Kconfig
+index 9b9f43a..15c0640 100644
+--- a/drivers/ieee802154/Kconfig
++++ b/drivers/ieee802154/Kconfig
+@@ -19,4 +19,12 @@ config IEEE802154_FAKEHARD
  
- #define ARPHRD_PHONET	820		/* PhoNet media type		*/
- #define ARPHRD_PHONET_PIPE 821		/* PhoNet pipe header		*/
-diff --git a/include/linux/nl802154.h b/include/linux/nl802154.h
-index e339c96..fbd0fdf 100644
---- a/include/linux/nl802154.h
-+++ b/include/linux/nl802154.h
-@@ -127,6 +127,17 @@ enum {
+           This driver can also be built as a module. To do so say M here.
+ 	  The module will be called 'fakehard'.
++config IEEE802154_FAKELB
++	depends on IEEE802154_DRIVERS && MAC802154
++	tristate "IEEE 802.15.4 loopback driver"
++	---help---
++	  Say Y here to enable the fake driver that can emulate a net
++	  of several interconnected radio devices.
  
- enum {
- 	__IEEE802154_DEV_INVALID = -1,
-+
-+	/*
-+	 * Three device types are currently available in linux-zigbee
-+	 * project: WPAN = 0, MONITOR = 1 and SMAC = 2.
-+	 * All these values are already in use by other software (iz tools,
-+	 * WireShark) so we should keep compatibility with it by assigning
-+	 * proper values. Currently only monitor device is added.
-+	 */
-+
-+	IEEE802154_DEV_MONITOR = 1,
-+
- 	__IEEE802154_DEV_MAX,
- };
- 
-diff --git a/include/net/wpan-phy.h b/include/net/wpan-phy.h
-index 1437c90..d0fb1ed 100644
---- a/include/net/wpan-phy.h
-+++ b/include/net/wpan-phy.h
-@@ -24,6 +24,9 @@
- #include <linux/netdevice.h>
- #include <linux/mutex.h>
- 
-+#define WPAN_NUM_PAGES		32
-+#define WPAN_NUM_CHANNELS	27
-+
- struct wpan_phy {
- 	struct mutex pib_lock;
- 
-diff --git a/net/mac802154/Makefile b/net/mac802154/Makefile
-index 6b348b0..ec1bd3f 100644
---- a/net/mac802154/Makefile
-+++ b/net/mac802154/Makefile
-@@ -1,2 +1,2 @@
- obj-$(CONFIG_MAC802154)	+= mac802154.o
--mac802154-objs		:= ieee802154_dev.o rx.o tx.o mac_cmd.o mib.o
-+mac802154-objs		:= ieee802154_dev.o rx.o tx.o mac_cmd.o mib.o monitor.o
-diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
-index 27a6495..cc85410 100644
---- a/net/mac802154/ieee802154_dev.c
-+++ b/net/mac802154/ieee802154_dev.c
-@@ -129,8 +129,11 @@ mac802154_add_iface(struct wpan_phy *phy, const char *name, int type)
- 	struct net_device *dev;
- 	int err = -ENOMEM;
- 
--	/* No devices is currently supported */
- 	switch (type) {
-+	case IEEE802154_DEV_MONITOR:
-+		dev = alloc_netdev(sizeof(struct mac802154_sub_if_data),
-+				   name, mac802154_monitor_setup);
-+		break;
- 	default:
- 		dev = NULL;
- 		err = -EINVAL;
-diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
-index 7d8736a..f0a0c08 100644
---- a/net/mac802154/mac802154.h
-+++ b/net/mac802154/mac802154.h
-@@ -88,11 +88,16 @@ struct mac802154_sub_if_data {
- 
- #define MAC802154_MAX_XMIT_ATTEMPTS	3
- 
-+#define MAC802154_CHAN_NONE		(~(u8)0)
-+
- extern struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced;
- 
- int mac802154_slave_open(struct net_device *dev);
- int mac802154_slave_close(struct net_device *dev);
- 
-+void mac802154_monitors_rx(struct mac802154_priv *priv, struct sk_buff *skb);
-+void mac802154_monitor_setup(struct net_device *dev);
-+
- netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
- 			 u8 page, u8 chan);
- 
-diff --git a/net/mac802154/monitor.c b/net/mac802154/monitor.c
++	  This driver can also be built as a module. To do so say M here.
++	  The module will be called 'fakelb'.
+diff --git a/drivers/ieee802154/Makefile b/drivers/ieee802154/Makefile
+index 800a389..ea784ea 100644
+--- a/drivers/ieee802154/Makefile
++++ b/drivers/ieee802154/Makefile
+@@ -1 +1,2 @@
+ obj-$(CONFIG_IEEE802154_FAKEHARD) += fakehard.o
++obj-$(CONFIG_IEEE802154_FAKELB) += fakelb.o
+diff --git a/drivers/ieee802154/fakelb.c b/drivers/ieee802154/fakelb.c
 new file mode 100644
-index 0000000..d76e8d0
+index 0000000..f56fa8c
 --- /dev/null
-+++ b/net/mac802154/monitor.c
-@@ -0,0 +1,115 @@
++++ b/drivers/ieee802154/fakelb.c
+@@ -0,0 +1,293 @@
 +/*
-+ * Copyright 2007, 2008, 2009 Siemens AG
++ * Loopback IEEE 802.15.4 interface
++ *
++ * Copyright 2007-2011 Siemens AG
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License version 2
@@ -151,115 +81,287 @@ index 0000000..d76e8d0
 + * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 + *
 + * Written by:
-+ * Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-+ * Sergey Lapin <slapin@ossfans.org>
-+ * Maxim Gorbachyov <maxim.gorbachev@siemens.com>
++ * Sergey Lapin <slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org>
++ * Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 + */
 +
++#include <linux/module.h>
++#include <linux/timer.h>
++#include <linux/platform_device.h>
 +#include <linux/netdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/if_arp.h>
-+#include <linux/crc-ccitt.h>
-+#include <linux/nl802154.h>
-+#include <net/ieee802154.h>
++#include <linux/spinlock.h>
 +#include <net/mac802154.h>
 +#include <net/wpan-phy.h>
 +
-+#include "mac802154.h"
++static int numlbs = 1;
 +
-+static netdev_tx_t mac802154_monitor_xmit(struct sk_buff *skb,
-+					  struct net_device *dev)
-+{
-+	struct mac802154_sub_if_data *priv;
-+	u8 chan, page;
++struct fakelb_dev_priv {
++	struct ieee802154_dev *dev;
 +
-+	priv = netdev_priv(dev);
++	struct list_head list;
++	struct fakelb_priv *fake;
 +
-+	/* FIXME: locking */
-+	chan = priv->hw->phy->current_channel;
-+	page = priv->hw->phy->current_page;
-+
-+	if (chan == MAC802154_CHAN_NONE) /* not initialized */
-+		return NETDEV_TX_OK;
-+
-+	BUG_ON(page >= WPAN_NUM_PAGES);
-+	BUG_ON(chan >= WPAN_NUM_CHANNELS);
-+
-+	skb->skb_iif = dev->ifindex;
-+	dev->stats.tx_packets++;
-+	dev->stats.tx_bytes += skb->len;
-+
-+	return mac802154_tx(priv->hw, skb, page, chan);
-+}
-+
-+
-+void mac802154_monitors_rx(struct mac802154_priv *priv, struct sk_buff *skb)
-+{
-+	struct sk_buff *skb2;
-+	struct mac802154_sub_if_data *sdata;
-+	u16 crc = crc_ccitt(0, skb->data, skb->len);
-+	u8 *data;
-+
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(sdata, &priv->slaves, list) {
-+		if (sdata->type != IEEE802154_DEV_MONITOR)
-+			continue;
-+
-+		skb2 = skb_clone(skb, GFP_ATOMIC);
-+		skb2->dev = sdata->dev;
-+		skb2->pkt_type = PACKET_HOST;
-+		data = skb_put(skb2, 2);
-+		data[0] = crc & 0xff;
-+		data[1] = crc >> 8;
-+
-+		if (in_interrupt())
-+			netif_rx(skb2);
-+		else
-+			netif_rx_ni(skb2);
-+	}
-+	rcu_read_unlock();
-+}
-+
-+static const struct net_device_ops mac802154_monitor_ops = {
-+	.ndo_open		= mac802154_slave_open,
-+	.ndo_stop		= mac802154_slave_close,
-+	.ndo_start_xmit		= mac802154_monitor_xmit,
++	spinlock_t lock;
++	bool working;
 +};
 +
-+void mac802154_monitor_setup(struct net_device *dev)
++struct fakelb_priv {
++	struct list_head list;
++	rwlock_t lock;
++};
++
++static int
++fakelb_hw_ed(struct ieee802154_dev *dev, u8 *level)
 +{
-+	struct mac802154_sub_if_data *priv;
++	might_sleep();
++	BUG_ON(!level);
++	*level = 0xbe;
 +
-+	dev->addr_len		= 0;
-+	dev->hard_header_len	= 0;
-+	dev->needed_tailroom	= 2; /* FCS */
-+	dev->mtu		= IEEE802154_MTU;
-+	dev->tx_queue_len	= 10;
-+	dev->type		= ARPHRD_IEEE802154_MONITOR;
-+	dev->flags		= IFF_NOARP | IFF_BROADCAST;
-+	dev->watchdog_timeo	= 0;
-+
-+	dev->destructor		= free_netdev;
-+	dev->netdev_ops		= &mac802154_monitor_ops;
-+	dev->ml_priv		= &mac802154_mlme_reduced;
-+
-+	priv = netdev_priv(dev);
-+	priv->type = IEEE802154_DEV_MONITOR;
-+
-+	priv->chan = MAC802154_CHAN_NONE; /* not initialized */
-+	priv->page = 0; /* for compat */
++	return 0;
 +}
-diff --git a/net/mac802154/rx.c b/net/mac802154/rx.c
-index 3446379..3a6836c 100644
---- a/net/mac802154/rx.c
-+++ b/net/mac802154/rx.c
-@@ -58,6 +58,7 @@ mac802154_subif_rx(struct ieee802154_dev *hw, struct sk_buff *skb, u8 lqi)
- 		skb_trim(skb, skb->len - 2); /* CRC */
- 	}
- 
-+	mac802154_monitors_rx(priv, skb);
- out:
- 	dev_kfree_skb(skb);
- 	return;
++
++static int
++fakelb_hw_channel(struct ieee802154_dev *dev, int page, int channel)
++{
++	pr_debug("set channel to %d\n", channel);
++
++	might_sleep();
++	dev->phy->current_page = page;
++	dev->phy->current_channel = channel;
++
++	return 0;
++}
++
++static void
++fakelb_hw_deliver(struct fakelb_dev_priv *priv, struct sk_buff *skb)
++{
++	struct sk_buff *newskb;
++
++	spin_lock(&priv->lock);
++	if (priv->working) {
++		newskb = pskb_copy(skb, GFP_ATOMIC);
++		ieee802154_rx_irqsafe(priv->dev, newskb, 0xcc);
++	}
++	spin_unlock(&priv->lock);
++}
++
++static int
++fakelb_hw_xmit(struct ieee802154_dev *dev, struct sk_buff *skb)
++{
++	struct fakelb_dev_priv *priv = dev->priv;
++	struct fakelb_priv *fake = priv->fake;
++
++	might_sleep();
++
++	read_lock_bh(&fake->lock);
++	if (priv->list.next == priv->list.prev) {
++		/* we are the only one device */
++		fakelb_hw_deliver(priv, skb);
++	} else {
++		struct fakelb_dev_priv *dp;
++		list_for_each_entry(dp, &priv->fake->list, list) {
++			if (dp != priv &&
++			    (dp->dev->phy->current_channel ==
++			     priv->dev->phy->current_channel))
++				fakelb_hw_deliver(dp, skb);
++		}
++	}
++	read_unlock_bh(&fake->lock);
++
++	return 0;
++}
++
++static int
++fakelb_hw_start(struct ieee802154_dev *dev) {
++	struct fakelb_dev_priv *priv = dev->priv;
++	int ret = 0;
++
++	spin_lock(&priv->lock);
++	if (priv->working)
++		ret = -EBUSY;
++	else
++		priv->working = 1;
++	spin_unlock(&priv->lock);
++
++	return ret;
++}
++
++static void
++fakelb_hw_stop(struct ieee802154_dev *dev) {
++	struct fakelb_dev_priv *priv = dev->priv;
++
++	spin_lock(&priv->lock);
++	priv->working = 0;
++	spin_unlock(&priv->lock);
++}
++
++static struct ieee802154_ops fakelb_ops = {
++	.owner = THIS_MODULE,
++	.xmit = fakelb_hw_xmit,
++	.ed = fakelb_hw_ed,
++	.set_channel = fakelb_hw_channel,
++	.start = fakelb_hw_start,
++	.stop = fakelb_hw_stop,
++};
++
++/* Number of dummy devices to be set up by this module. */
++module_param(numlbs, int, 0);
++MODULE_PARM_DESC(numlbs, " number of pseudo devices");
++
++static int fakelb_add_one(struct device *dev, struct fakelb_priv *fake)
++{
++	struct fakelb_dev_priv *priv;
++	int err;
++	struct ieee802154_dev *ieee;
++
++	ieee = ieee802154_alloc_device(sizeof(*priv), &fakelb_ops);
++	if (!ieee)
++		return -ENOMEM;
++
++	priv = ieee->priv;
++	priv->dev = ieee;
++
++	/* 868 MHz BPSK	802.15.4-2003 */
++	ieee->phy->channels_supported[0] |= 1;
++	/* 915 MHz BPSK	802.15.4-2003 */
++	ieee->phy->channels_supported[0] |= 0x7fe;
++	/* 2.4 GHz O-QPSK 802.15.4-2003 */
++	ieee->phy->channels_supported[0] |= 0x7FFF800;
++	/* 868 MHz ASK 802.15.4-2006 */
++	ieee->phy->channels_supported[1] |= 1;
++	/* 915 MHz ASK 802.15.4-2006 */
++	ieee->phy->channels_supported[1] |= 0x7fe;
++	/* 868 MHz O-QPSK 802.15.4-2006 */
++	ieee->phy->channels_supported[2] |= 1;
++	/* 915 MHz O-QPSK 802.15.4-2006 */
++	ieee->phy->channels_supported[2] |= 0x7fe;
++	/* 2.4 GHz CSS 802.15.4a-2007 */
++	ieee->phy->channels_supported[3] |= 0x3fff;
++	/* UWB Sub-gigahertz 802.15.4a-2007 */
++	ieee->phy->channels_supported[4] |= 1;
++	/* UWB Low band 802.15.4a-2007 */
++	ieee->phy->channels_supported[4] |= 0x1e;
++	/* UWB High band 802.15.4a-2007 */
++	ieee->phy->channels_supported[4] |= 0xffe0;
++	/* 750 MHz O-QPSK 802.15.4c-2009 */
++	ieee->phy->channels_supported[5] |= 0xf;
++	/* 750 MHz MPSK 802.15.4c-2009 */
++	ieee->phy->channels_supported[5] |= 0xf0;
++	/* 950 MHz BPSK 802.15.4d-2009 */
++	ieee->phy->channels_supported[6] |= 0x3ff;
++	/* 950 MHz GFSK 802.15.4d-2009 */
++	ieee->phy->channels_supported[6] |= 0x3ffc00;
++
++	INIT_LIST_HEAD(&priv->list);
++	priv->fake = fake;
++
++	spin_lock_init(&priv->lock);
++
++	ieee->parent = dev;
++
++	err = ieee802154_register_device(ieee);
++	if (err)
++		goto err_reg;
++
++	write_lock_bh(&fake->lock);
++	list_add_tail(&priv->list, &fake->list);
++	write_unlock_bh(&fake->lock);
++
++	return 0;
++
++err_reg:
++	ieee802154_free_device(priv->dev);
++	return err;
++}
++
++static void fakelb_del(struct fakelb_dev_priv *priv)
++{
++	write_lock_bh(&priv->fake->lock);
++	list_del(&priv->list);
++	write_unlock_bh(&priv->fake->lock);
++
++	ieee802154_unregister_device(priv->dev);
++	ieee802154_free_device(priv->dev);
++}
++
++static int __devinit fakelb_probe(struct platform_device *pdev)
++{
++	struct fakelb_priv *priv;
++	struct fakelb_dev_priv *dp;
++	int err = -ENOMEM, i;
++
++	priv = kzalloc(sizeof(struct fakelb_priv), GFP_KERNEL);
++	if (!priv)
++		goto err_alloc;
++
++	INIT_LIST_HEAD(&priv->list);
++	rwlock_init(&priv->lock);
++
++	for (i = 0; i < numlbs; i++) {
++		err = fakelb_add_one(&pdev->dev, priv);
++		if (err < 0)
++			goto err_slave;
++	}
++
++	platform_set_drvdata(pdev, priv);
++	dev_info(&pdev->dev, "added ieee802154 hardware\n");
++	return 0;
++
++err_slave:
++	list_for_each_entry(dp, &priv->list, list)
++		fakelb_del(dp);
++	kfree(priv);
++err_alloc:
++	return err;
++}
++
++static int __devexit fakelb_remove(struct platform_device *pdev)
++{
++	struct fakelb_priv *priv = platform_get_drvdata(pdev);
++	struct fakelb_dev_priv *dp, *temp;
++
++	list_for_each_entry_safe(dp, temp, &priv->list, list)
++		fakelb_del(dp);
++	kfree(priv);
++
++	return 0;
++}
++
++static struct platform_device *ieee802154fake_dev;
++
++static struct platform_driver ieee802154fake_driver = {
++	.probe = fakelb_probe,
++	.remove = __devexit_p(fakelb_remove),
++	.driver = {
++			.name = "ieee802154fakelb",
++			.owner = THIS_MODULE,
++	},
++};
++
++static __init int fakelb_init_module(void)
++{
++	ieee802154fake_dev = platform_device_register_simple(
++			"ieee802154fakelb", -1, NULL, 0);
++	return platform_driver_register(&ieee802154fake_driver);
++}
++
++static __exit void fake_remove_module(void)
++{
++	platform_driver_unregister(&ieee802154fake_driver);
++	platform_device_unregister(ieee802154fake_dev);
++}
++
++module_init(fakelb_init_module);
++module_exit(fake_remove_module);
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Dmitry Eremin-Solenikov, Sergey Lapin");
 -- 
 1.7.2.3
+
+
+------------------------------------------------------------------------------
+Write once. Port to many.
+Get the SDK and tools to simplify cross-platform app development. Create 
+new or port existing apps to sell to consumers worldwide. Explore the 
+Intel AppUpSM program developer opportunity. appdeveloper.intel.com/join
+http://p.sf.net/sfu/intel-appdev
