@@ -1,8 +1,8 @@
 From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 13/14 v2] drivers/ieee802154: IEEE
-	802.15.4 loopback driver
-Date: Mon, 26 Dec 2011 20:12:47 +0300
-Message-ID: <1324919567-15284-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH 14/14 v2]
+	Documentation/networking/ieee802154: update MAC chapter
+Date: Mon, 26 Dec 2011 20:13:15 +0300
+Message-ID: <1324919595-15318-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 References: <CAJmB2rBMVvw_TV-mT2-jT7=H0adfMWaYFC0Q908pc_ND+PLD_g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,340 +21,127 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add support for loopback driver. It's very useful tool for testing
-and development upper IEEE 802.15.4 layer.
+Update the documentation according to latest changes.
 
 Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/ieee802154/Kconfig  |    8 ++
- drivers/ieee802154/Makefile |    1 +
- drivers/ieee802154/fakelb.c |  293 +++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 302 insertions(+), 0 deletions(-)
- create mode 100644 drivers/ieee802154/fakelb.c
+ Documentation/networking/ieee802154.txt |   75 ++++++++++++++++++++++++-------
+ 1 files changed, 59 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/ieee802154/Kconfig b/drivers/ieee802154/Kconfig
-index 9b9f43a..15c0640 100644
---- a/drivers/ieee802154/Kconfig
-+++ b/drivers/ieee802154/Kconfig
-@@ -19,4 +19,12 @@ config IEEE802154_FAKEHARD
+diff --git a/Documentation/networking/ieee802154.txt b/Documentation/networking/ieee802154.txt
+index 1dc1c24..703cf43 100644
+--- a/Documentation/networking/ieee802154.txt
++++ b/Documentation/networking/ieee802154.txt
+@@ -4,15 +4,22 @@
  
-           This driver can also be built as a module. To do so say M here.
- 	  The module will be called 'fakehard'.
-+config IEEE802154_FAKELB
-+	depends on IEEE802154_DRIVERS && MAC802154
-+	tristate "IEEE 802.15.4 loopback driver"
-+	---help---
-+	  Say Y here to enable the fake driver that can emulate a net
-+	  of several interconnected radio devices.
+ Introduction
+ ============
++The IEEE 802.15.4 working group focuses on standartization of bottom
++two layers: Medium Accsess Control (MAC) and Physical (PHY). And there
++are mainly two options available for upper layers:
++ - ZigBee - proprietary protocol from ZigBee Alliance
++ - 6LowPAN - IPv6 networking over low rate personal area networks
  
-+	  This driver can also be built as a module. To do so say M here.
-+	  The module will be called 'fakelb'.
-diff --git a/drivers/ieee802154/Makefile b/drivers/ieee802154/Makefile
-index 800a389..ea784ea 100644
---- a/drivers/ieee802154/Makefile
-+++ b/drivers/ieee802154/Makefile
-@@ -1 +1,2 @@
- obj-$(CONFIG_IEEE802154_FAKEHARD) += fakehard.o
-+obj-$(CONFIG_IEEE802154_FAKELB) += fakelb.o
-diff --git a/drivers/ieee802154/fakelb.c b/drivers/ieee802154/fakelb.c
-new file mode 100644
-index 0000000..f56fa8c
---- /dev/null
-+++ b/drivers/ieee802154/fakelb.c
-@@ -0,0 +1,293 @@
-+/*
-+ * Loopback IEEE 802.15.4 interface
-+ *
-+ * Copyright 2007-2011 Siemens AG
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-+ *
-+ * Written by:
-+ * Sergey Lapin <slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org>
-+ * Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-+ */
+ The Linux-ZigBee project goal is to provide complete implementation
+-of IEEE 802.15.4 / ZigBee / 6LoWPAN protocols. IEEE 802.15.4 is a stack
++of IEEE 802.15.4 and 6LoWPAN protocols. IEEE 802.15.4 is a stack
+ of protocols for organizing Low-Rate Wireless Personal Area Networks.
+ 
+-Currently only IEEE 802.15.4 layer is implemented. We have chosen
+-to use plain Berkeley socket API, the generic Linux networking stack
+-to transfer IEEE 802.15.4 messages and a special protocol over genetlink
+-for configuration/management
++The stack is composed of three main parts:
++ - IEEE 802.15.4 layer;  We have chosen to use plain Berkeley socket API,
++   the generic Linux networking stack to transfer IEEE 802.15.4 messages
++   and a special protocol over genetlink for configuration/management
++ - MAC - provides access to shared channel and reliable data delivery
++ - PHY - represents device drivers
+ 
+ 
+ Socket API
+@@ -29,15 +36,6 @@ or git tree at git://linux-zigbee.git.sourceforge.net/gitroot/linux-zigbee).
+ One can use SOCK_RAW for passing raw data towards device xmit function. YMMV.
+ 
+ 
+-MLME - MAC Level Management
+-============================
+-
+-Most of IEEE 802.15.4 MLME interfaces are directly mapped on netlink commands.
+-See the include/net/nl802154.h header. Our userspace tools package
+-(see above) provides CLI configuration utility for radio interfaces and simple
+-coordinator for IEEE 802.15.4 networks as an example users of MLME protocol.
+-
+-
+ Kernel side
+ =============
+ 
+@@ -51,6 +49,15 @@ Like with WiFi, there are several types of devices implementing IEEE 802.15.4.
+ Those types of devices require different approach to be hooked into Linux kernel.
+ 
+ 
++MLME - MAC Level Management
++============================
 +
-+#include <linux/module.h>
-+#include <linux/timer.h>
-+#include <linux/platform_device.h>
-+#include <linux/netdevice.h>
-+#include <linux/spinlock.h>
-+#include <net/mac802154.h>
-+#include <net/wpan-phy.h>
++Most of IEEE 802.15.4 MLME interfaces are directly mapped on netlink commands.
++See the include/net/nl802154.h header. Our userspace tools package
++(see above) provides CLI configuration utility for radio interfaces and simple
++coordinator for IEEE 802.15.4 networks as an example users of MLME protocol.
 +
-+static int numlbs = 1;
 +
-+struct fakelb_dev_priv {
-+	struct ieee802154_dev *dev;
+ HardMAC
+ =======
+ 
+@@ -73,11 +80,47 @@ We provide an example of simple HardMAC driver at drivers/ieee802154/fakehard.c
+ SoftMAC
+ =======
+ 
+-We are going to provide intermediate layer implementing IEEE 802.15.4 MAC
+-in software. This is currently WIP.
++The MAC is the middle layer in the IEEE 802.15.4 Linux stack. This moment it
++provides interface for drivers registration and management of slave interfaces.
 +
-+	struct list_head list;
-+	struct fakelb_priv *fake;
++NOTE: Currently the only monitor device type is supported - it's IEEE 802.15.4
++stack interface for network sniffers (e.g. WireShark).
 +
-+	spinlock_t lock;
-+	bool working;
-+};
++This layer is going to be extended soon.
+ 
+ See header include/net/mac802154.h and several drivers in drivers/ieee802154/.
+ 
 +
-+struct fakelb_priv {
-+	struct list_head list;
-+	rwlock_t lock;
-+};
++Device drivers API
++==================
 +
-+static int
-+fakelb_hw_ed(struct ieee802154_dev *dev, u8 *level)
-+{
-+	might_sleep();
-+	BUG_ON(!level);
-+	*level = 0xbe;
++The include/net/mac802154.h defines following functions:
++ - struct ieee802154_dev *ieee802154_alloc_device
++   (size_t priv_size, struct ieee802154_ops *ops):
++   allocation of IEEE 802.15.4 compatible device
 +
-+	return 0;
-+}
++ - void ieee802154_free_device(struct ieee802154_dev *dev):
++   freeing allocated device
 +
-+static int
-+fakelb_hw_channel(struct ieee802154_dev *dev, int page, int channel)
-+{
-+	pr_debug("set channel to %d\n", channel);
++ - int ieee802154_register_device(struct ieee802154_dev *dev):
++   register PHY in the system
 +
-+	might_sleep();
-+	dev->phy->current_page = page;
-+	dev->phy->current_channel = channel;
++ - void ieee802154_unregister_device(struct ieee802154_dev *dev):
++   freeing registered PHY
 +
-+	return 0;
-+}
++Moreover IEEE 802.15.4 device operations structure should be filled.
 +
-+static void
-+fakelb_hw_deliver(struct fakelb_dev_priv *priv, struct sk_buff *skb)
-+{
-+	struct sk_buff *newskb;
++Fake drivers
++============
 +
-+	spin_lock(&priv->lock);
-+	if (priv->working) {
-+		newskb = pskb_copy(skb, GFP_ATOMIC);
-+		ieee802154_rx_irqsafe(priv->dev, newskb, 0xcc);
-+	}
-+	spin_unlock(&priv->lock);
-+}
++In addition there are two drivers available which simulate real devices with
++HardMAC (fakehard) and SoftMAC (fakelb - IEEE 802.15.4 loopback driver)
++interfaces. This option provides possibility to test and debug stack without
++usage of real hardware.
 +
-+static int
-+fakelb_hw_xmit(struct ieee802154_dev *dev, struct sk_buff *skb)
-+{
-+	struct fakelb_dev_priv *priv = dev->priv;
-+	struct fakelb_priv *fake = priv->fake;
++See sources in drivers/ieee802154 folder for more details.
 +
-+	might_sleep();
 +
-+	read_lock_bh(&fake->lock);
-+	if (priv->list.next == priv->list.prev) {
-+		/* we are the only one device */
-+		fakelb_hw_deliver(priv, skb);
-+	} else {
-+		struct fakelb_dev_priv *dp;
-+		list_for_each_entry(dp, &priv->fake->list, list) {
-+			if (dp != priv &&
-+			    (dp->dev->phy->current_channel ==
-+			     priv->dev->phy->current_channel))
-+				fakelb_hw_deliver(dp, skb);
-+		}
-+	}
-+	read_unlock_bh(&fake->lock);
-+
-+	return 0;
-+}
-+
-+static int
-+fakelb_hw_start(struct ieee802154_dev *dev) {
-+	struct fakelb_dev_priv *priv = dev->priv;
-+	int ret = 0;
-+
-+	spin_lock(&priv->lock);
-+	if (priv->working)
-+		ret = -EBUSY;
-+	else
-+		priv->working = 1;
-+	spin_unlock(&priv->lock);
-+
-+	return ret;
-+}
-+
-+static void
-+fakelb_hw_stop(struct ieee802154_dev *dev) {
-+	struct fakelb_dev_priv *priv = dev->priv;
-+
-+	spin_lock(&priv->lock);
-+	priv->working = 0;
-+	spin_unlock(&priv->lock);
-+}
-+
-+static struct ieee802154_ops fakelb_ops = {
-+	.owner = THIS_MODULE,
-+	.xmit = fakelb_hw_xmit,
-+	.ed = fakelb_hw_ed,
-+	.set_channel = fakelb_hw_channel,
-+	.start = fakelb_hw_start,
-+	.stop = fakelb_hw_stop,
-+};
-+
-+/* Number of dummy devices to be set up by this module. */
-+module_param(numlbs, int, 0);
-+MODULE_PARM_DESC(numlbs, " number of pseudo devices");
-+
-+static int fakelb_add_one(struct device *dev, struct fakelb_priv *fake)
-+{
-+	struct fakelb_dev_priv *priv;
-+	int err;
-+	struct ieee802154_dev *ieee;
-+
-+	ieee = ieee802154_alloc_device(sizeof(*priv), &fakelb_ops);
-+	if (!ieee)
-+		return -ENOMEM;
-+
-+	priv = ieee->priv;
-+	priv->dev = ieee;
-+
-+	/* 868 MHz BPSK	802.15.4-2003 */
-+	ieee->phy->channels_supported[0] |= 1;
-+	/* 915 MHz BPSK	802.15.4-2003 */
-+	ieee->phy->channels_supported[0] |= 0x7fe;
-+	/* 2.4 GHz O-QPSK 802.15.4-2003 */
-+	ieee->phy->channels_supported[0] |= 0x7FFF800;
-+	/* 868 MHz ASK 802.15.4-2006 */
-+	ieee->phy->channels_supported[1] |= 1;
-+	/* 915 MHz ASK 802.15.4-2006 */
-+	ieee->phy->channels_supported[1] |= 0x7fe;
-+	/* 868 MHz O-QPSK 802.15.4-2006 */
-+	ieee->phy->channels_supported[2] |= 1;
-+	/* 915 MHz O-QPSK 802.15.4-2006 */
-+	ieee->phy->channels_supported[2] |= 0x7fe;
-+	/* 2.4 GHz CSS 802.15.4a-2007 */
-+	ieee->phy->channels_supported[3] |= 0x3fff;
-+	/* UWB Sub-gigahertz 802.15.4a-2007 */
-+	ieee->phy->channels_supported[4] |= 1;
-+	/* UWB Low band 802.15.4a-2007 */
-+	ieee->phy->channels_supported[4] |= 0x1e;
-+	/* UWB High band 802.15.4a-2007 */
-+	ieee->phy->channels_supported[4] |= 0xffe0;
-+	/* 750 MHz O-QPSK 802.15.4c-2009 */
-+	ieee->phy->channels_supported[5] |= 0xf;
-+	/* 750 MHz MPSK 802.15.4c-2009 */
-+	ieee->phy->channels_supported[5] |= 0xf0;
-+	/* 950 MHz BPSK 802.15.4d-2009 */
-+	ieee->phy->channels_supported[6] |= 0x3ff;
-+	/* 950 MHz GFSK 802.15.4d-2009 */
-+	ieee->phy->channels_supported[6] |= 0x3ffc00;
-+
-+	INIT_LIST_HEAD(&priv->list);
-+	priv->fake = fake;
-+
-+	spin_lock_init(&priv->lock);
-+
-+	ieee->parent = dev;
-+
-+	err = ieee802154_register_device(ieee);
-+	if (err)
-+		goto err_reg;
-+
-+	write_lock_bh(&fake->lock);
-+	list_add_tail(&priv->list, &fake->list);
-+	write_unlock_bh(&fake->lock);
-+
-+	return 0;
-+
-+err_reg:
-+	ieee802154_free_device(priv->dev);
-+	return err;
-+}
-+
-+static void fakelb_del(struct fakelb_dev_priv *priv)
-+{
-+	write_lock_bh(&priv->fake->lock);
-+	list_del(&priv->list);
-+	write_unlock_bh(&priv->fake->lock);
-+
-+	ieee802154_unregister_device(priv->dev);
-+	ieee802154_free_device(priv->dev);
-+}
-+
-+static int __devinit fakelb_probe(struct platform_device *pdev)
-+{
-+	struct fakelb_priv *priv;
-+	struct fakelb_dev_priv *dp;
-+	int err = -ENOMEM, i;
-+
-+	priv = kzalloc(sizeof(struct fakelb_priv), GFP_KERNEL);
-+	if (!priv)
-+		goto err_alloc;
-+
-+	INIT_LIST_HEAD(&priv->list);
-+	rwlock_init(&priv->lock);
-+
-+	for (i = 0; i < numlbs; i++) {
-+		err = fakelb_add_one(&pdev->dev, priv);
-+		if (err < 0)
-+			goto err_slave;
-+	}
-+
-+	platform_set_drvdata(pdev, priv);
-+	dev_info(&pdev->dev, "added ieee802154 hardware\n");
-+	return 0;
-+
-+err_slave:
-+	list_for_each_entry(dp, &priv->list, list)
-+		fakelb_del(dp);
-+	kfree(priv);
-+err_alloc:
-+	return err;
-+}
-+
-+static int __devexit fakelb_remove(struct platform_device *pdev)
-+{
-+	struct fakelb_priv *priv = platform_get_drvdata(pdev);
-+	struct fakelb_dev_priv *dp, *temp;
-+
-+	list_for_each_entry_safe(dp, temp, &priv->list, list)
-+		fakelb_del(dp);
-+	kfree(priv);
-+
-+	return 0;
-+}
-+
-+static struct platform_device *ieee802154fake_dev;
-+
-+static struct platform_driver ieee802154fake_driver = {
-+	.probe = fakelb_probe,
-+	.remove = __devexit_p(fakelb_remove),
-+	.driver = {
-+			.name = "ieee802154fakelb",
-+			.owner = THIS_MODULE,
-+	},
-+};
-+
-+static __init int fakelb_init_module(void)
-+{
-+	ieee802154fake_dev = platform_device_register_simple(
-+			"ieee802154fakelb", -1, NULL, 0);
-+	return platform_driver_register(&ieee802154fake_driver);
-+}
-+
-+static __exit void fake_remove_module(void)
-+{
-+	platform_driver_unregister(&ieee802154fake_driver);
-+	platform_device_unregister(ieee802154fake_dev);
-+}
-+
-+module_init(fakelb_init_module);
-+module_exit(fake_remove_module);
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Dmitry Eremin-Solenikov, Sergey Lapin");
+ 6LoWPAN Linux implementation
+ ============================
+ 
 -- 
 1.7.2.3
 
