@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] packet: fix dev refcnt leak when bind fail
-Date: Mon, 26 Dec 2011 15:15:47 -0500 (EST)
-Message-ID: <20111226.151547.564743129441895726.davem@davemloft.net>
-References: <CAPgLHd9KNN81cPYv3bGzoBwUtnJSAoX4NN0Fh+wNgoHE_t7d=w@mail.gmail.com>
+Subject: Re: [PATCH] net: meth: Add set_rx_mode hook to fix ICMPv6 neighbor
+ discovery
+Date: Mon, 26 Dec 2011 15:17:13 -0500 (EST)
+Message-ID: <20111226.151713.2002746283994460284.davem@davemloft.net>
+References: <4EED3A3D.9080503@gentoo.org>
+	<4EF6803C.9060203@gentoo.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
+Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org
+To: kumba@gentoo.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40074 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:40084 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752116Ab1LZUPt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 15:15:49 -0500
-In-Reply-To: <CAPgLHd9KNN81cPYv3bGzoBwUtnJSAoX4NN0Fh+wNgoHE_t7d=w@mail.gmail.com>
+	with ESMTP id S1752874Ab1LZURY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 15:17:24 -0500
+In-Reply-To: <4EF6803C.9060203@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Mon, 26 Dec 2011 17:02:59 +0800
+From: Joshua Kinard <kumba@gentoo.org>
+Date: Sat, 24 Dec 2011 20:45:32 -0500
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> SGI IP32 (O2)'s ethernet driver (meth) lacks meth_set_rx_mode, which
+> prevents IPv6 from working completely because any ICMPv6 neighbor
+> solicitation requests aren't picked up by the driver.  So the machine can
+> ping out and connect to other systems, but other systems will have a very
+> hard time connecting to the O2.
 > 
-> If bind is fail such as bind is called after set PACKET_FANOUT
-> sock option, the dev refcnt will leak.
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> Signed-off-by: Joshua Kinard <kumba@gentoo.org>
 
-The device pointer is stored in ->prot_hook.dev
+Lots of completely unrelated changes here, the IRQ name string has
+nothing to do with specifically fixing the ICMPv6 neighbour discovery
+bug.
 
-Therefore, it will be released at the latest in packet_release() or
-earlier if another bind() attempt is done on the socket.
-
-There is no leak here as far as I can see.
+Do not mix changes like this, one change per patch please, thanks.
