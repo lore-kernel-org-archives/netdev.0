@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlx4: Add missing include of linux/slab.h
-Date: Mon, 26 Dec 2011 15:19:36 -0500 (EST)
-Message-ID: <20111226.151936.1114579002330233726.davem@davemloft.net>
-References: <1324892134.9765.1.camel@phoenix>
+Subject: Re: [PATCH] bonding: document undocumented active_slave sysfs
+ entry.
+Date: Mon, 26 Dec 2011 15:20:45 -0500 (EST)
+Message-ID: <20111226.152045.825885996925003801.davem@davemloft.net>
+References: <1324901955-5816-1-git-send-email-nicolas.2p.debian@free.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, yevgenyp@mellanox.co.il,
-	jackm@dev.mellanox.co.il, marcela@dev.mellanox.co.il,
-	eugenia@mellanox.co.il, netdev@vger.kernel.org
-To: axel.lin@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1324892134.9765.1.camel@phoenix>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
+To: nicolas.2p.debian@free.fr
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:40121 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752116Ab1LZUUx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 15:20:53 -0500
+In-Reply-To: <1324901955-5816-1-git-send-email-nicolas.2p.debian@free.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Axel Lin <axel.lin@gmail.com>
-Date: Mon, 26 Dec 2011 17:35:34 +0800
+=46rom: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
+Date: Mon, 26 Dec 2011 13:19:15 +0100
 
-> Include linux/slab.h to fix below build error:
+> Signed-off-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
+> cc: Jay Vosburgh <fubar@us.ibm.com>
+> cc: Andy Gospodarek <andy@greyhouse.net>
 
-You make no indication whatsoever what source tree you see this
-error in.
-
-By trial and error I figured out that your patch only applies to
-the net-next tree, so I added it there.
-
-But I should not have to go through such a sequence just to figure out
-what tree your patch is for, so please indicate this properly in the
-future.
+Jay/Andy, please review.
