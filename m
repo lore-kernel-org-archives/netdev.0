@@ -1,44 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] skge: restore multicast rx filter on resume
-Date: Mon, 26 Dec 2011 15:17:54 -0500 (EST)
-Message-ID: <20111226.151754.417402855307646295.davem@davemloft.net>
-References: <20111225081833.GC3088@florz.florz.dyndns.org>
+Subject: Re: [PATCH] mlx4: Add missing include of linux/slab.h
+Date: Mon, 26 Dec 2011 15:19:36 -0500 (EST)
+Message-ID: <20111226.151936.1114579002330233726.davem@davemloft.net>
+References: <1324892134.9765.1.camel@phoenix>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: florz@florz.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40095 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752874Ab1LZUTF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 15:19:05 -0500
-In-Reply-To: <20111225081833.GC3088@florz.florz.dyndns.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, yevgenyp@mellanox.co.il,
+	jackm@dev.mellanox.co.il, marcela@dev.mellanox.co.il,
+	eugenia@mellanox.co.il, netdev@vger.kernel.org
+To: axel.lin@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1324892134.9765.1.camel@phoenix>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Zumbiehl <florz@florz.de>
-Date: Sun, 25 Dec 2011 09:18:33 +0100
+From: Axel Lin <axel.lin@gmail.com>
+Date: Mon, 26 Dec 2011 17:35:34 +0800
 
-> skge: restore multicast rx filter on resume
->     
-> Signed-off-by: Florian Zumbiehl <florz@florz.de>
+> Include linux/slab.h to fix below build error:
 
-Stephen?  This one looks fine to me.
+You make no indication whatsoever what source tree you see this
+error in.
 
-> diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-> index f4be5c7..cd968e5 100644
-> --- a/drivers/net/skge.c
-> +++ b/drivers/net/skge.c
-> @@ -4046,6 +4046,7 @@ static int skge_resume(struct device *dev)
->  				dev_close(dev);
->  				goto out;
->  			}
-> +			skge_set_multicast(dev);
->  		}
->  	}
->  out:
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+By trial and error I figured out that your patch only applies to
+the net-next tree, so I added it there.
+
+But I should not have to go through such a sequence just to figure out
+what tree your patch is for, so please indicate this properly in the
+future.
