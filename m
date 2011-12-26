@@ -1,24 +1,68 @@
-From: "Avasthi, Sulekha (NIH/NCI) [C]" <sulekha.avasthi@nih.gov>
-Subject: =?iso-8859-6?B?w+bHIMfk0+rPySDH6uTqIMfk1dHqzawgx+bHIMjNx8zJIMfk6SDl08fZ?=
- =?iso-8859-6?B?z8rj5SDkw+bnIOHqIM3H5MrqIMfk5dHW6skg6tHM6SDH5MjR6s8gx+TH?=
- =?iso-8859-6?B?5OPK0ejm6iDk6iDk5dLqzyDl5iDH5Mrhx9Xq5CA6?=
-Date: Mon, 26 Dec 2011 18:10:45 -0500
-Message-ID: <5D34B5F0ED33F941A4DCC3D7492425BD07CFE3908B@NIHMLBX11.nih.gov>
+From: =?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
+	<nicolas.2p.debian@free.fr>
+Subject: [PATCH V2] bonding: document undocumented active_slave sysfs entry.
+Date: Tue, 27 Dec 2011 00:35:24 +0100
+Message-ID: <1324942524-32116-1-git-send-email-nicolas.2p.debian@free.fr>
+References: <1324901955-5816-1-git-send-email-nicolas.2p.debian@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-6
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+Cc: =?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
+	<nicolas.2p.debian@free.fr>, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nihxway3out.hub.nih.gov ([128.231.90.111]:11267 "EHLO
-	nihxway3out.hub.nih.gov" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752492Ab1LZXUW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 18:20:22 -0500
-Content-Language: en-US
+Received: from smtp09.smtpout.orange.fr ([80.12.242.131]:19348 "EHLO
+	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752552Ab1LZXgD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 18:36:03 -0500
+In-reply-to: <1324901955-5816-1-git-send-email-nicolas.2p.debian@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=C3=E6=C7 =C7=E4=D3=EA=CF=C9 =C7=EA=E4=EA =C7=E4=D5=D1=EA=CD=AC =C7=E6=C7=
- =C8=CD=C7=CC=C9 =C7=E4=E9 =E5=D3=C7=D9=CF=CA=E3=E5 =E4=C3=E6=E7 =E1=EA=
- =CD=C7=E4=CA=EA =C7=E4=E5=D1=D6=EA=C9 =EA=D1=CC=E9 =C7=E4=C8=D1=EA=CF =
-=C7=E4=C7=E4=E3=CA=D1=E8=E6=EA =E4=EA =E4=E5=D2=EA=CF =E5=E6 =C7=E4=CA=E1=
-=C7=D5=EA=E4 : elifrank9@hotmail.com<mailto:elifrank9@hotmail.com>
+v2, based on Jay's review.
+
+I kept the 'link must be up' part, because this is enforced in the code=
+=2E
+
+Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+cc: Andy Gospodarek <andy@greyhouse.net>
+---
+ Documentation/networking/bonding.txt |   17 +++++++++++++++++
+ 1 files changed, 17 insertions(+), 0 deletions(-)
+
+diff --git a/Documentation/networking/bonding.txt b/Documentation/netwo=
+rking/bonding.txt
+index 91df678..067e715 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -196,6 +196,23 @@ or, for backwards compatibility, the option value.=
+  E.g.,
+=20
+ 	The parameters are as follows:
+=20
++active_slave
++
++	Specifies the new active slave for modes that support it
++	(active-backup, balance-alb and balance-tlb).  Possible values
++	are the name of any currently enslaved interface, or an empty
++	string.  If a name is given, the slave and its link must be up in ord=
+er
++	to be selected as the new active slave.  If an empty string is
++	specified, the current active slave is cleared, and a new active
++	slave is selected automatically.
++
++	Note that this is only available through the sysfs interface. No modu=
+le
++	parameter by this name exists.
++
++	The normal value of this option is the name of the currently
++	active slave, or the empty string if there is no active slave or
++	the current mode does not use an active slave.
++
+ ad_select
+=20
+ 	Specifies the 802.3ad aggregation selection logic to use.  The
+--=20
+1.7.7.3
