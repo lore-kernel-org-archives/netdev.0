@@ -1,28 +1,29 @@
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: (unknown)
-Date: Mon, 26 Dec 2011 18:55:26 +0300
-Message-ID: <CAJmB2rB+f+SpeCWWfi8Ao-gDjs1pugSiEjYWSZ7JsrmQ82WQuw@mail.gmail.com>
+From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH series v2] IEEE 802.15.4 MAC layer
+	basic implementation
+Date: Mon, 26 Dec 2011 19:01:04 +0300
+Message-ID: <CAJmB2rBMVvw_TV-mT2-jT7=H0adfMWaYFC0Q908pc_ND+PLD_g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-zigbee-devel <linux-zigbee-devel@lists.sourceforge.net>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:42912 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750955Ab1LZPz2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 10:55:28 -0500
-Received: by lahd3 with SMTP id d3so1843512lah.19
-        for <netdev@vger.kernel.org>; Mon, 26 Dec 2011 07:55:27 -0800 (PST)
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "open list:NETWORKING \[GENERAL\]" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-zigbee-devel <linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 Dear David, colleagues,
 
-sorry, forgot to add netdev list.
+I'm very sorry for the flood with my previous messages, problems with
+mail client :-(
 
 This is the second version of patch series which adds basic support for
 IEEE 802.15.4 Medium Access Control layer.
@@ -51,9 +52,9 @@ Changes since last post:
  * using proper byte order (little endian)
  * locking in loopback driver
  * mac802154: allocation of ieee802154 device: using of NETDEV_ALIGN,
-  reworked like for ieee80211 stack (net/mac80211/main.c)
-  The reason why I use alignment of data in ieee802154 layer is because of
-  there are two levels of private data: mac layer's and driver's.
+ reworked like for ieee80211 stack (net/mac80211/main.c)
+ The reason why I use alignment of data in ieee802154 layer is because of
+ there are two levels of private data: mac layer's and driver's.
 
 --
 
@@ -66,20 +67,20 @@ are available in the git repository at:
  git://linux-zigbee.git.sourceforge.net/gitroot/linux-zigbee/kernel to_upstream
 
 Alexander Smirnov (14):
-     mac802154: basic ieee802.15.4 device structures
-     mac802154: allocation of ieee802154 device
-     mac802154: RX data path
-     mac802154: TX data path
-     mac802154: define reduced mlme operations
-     mac802154: slave interfaces definition
-     mac802154: reduced mlme operations
-     mac802154: basic mib support
-     ieee802154: remove ieee802154 policy from globals
-     ieee802154: interface type to be added
-     mac802154: slaves manipulation routine
-     mac802154: monitor device support
-     drivers/ieee802154: IEEE 802.15.4 loopback driver
-     Documentation/networking/ieee802154: update MAC chapter
+    mac802154: basic ieee802.15.4 device structures
+    mac802154: allocation of ieee802154 device
+    mac802154: RX data path
+    mac802154: TX data path
+    mac802154: define reduced mlme operations
+    mac802154: slave interfaces definition
+    mac802154: reduced mlme operations
+    mac802154: basic mib support
+    ieee802154: remove ieee802154 policy from globals
+    ieee802154: interface type to be added
+    mac802154: slaves manipulation routine
+    mac802154: monitor device support
+    drivers/ieee802154: IEEE 802.15.4 loopback driver
+    Documentation/networking/ieee802154: update MAC chapter
 
  Documentation/networking/ieee802154.txt |   75 ++++++--
  drivers/ieee802154/Kconfig              |    8 +
@@ -116,3 +117,10 @@ Alexander Smirnov (14):
  create mode 100644 net/mac802154/monitor.c
  create mode 100644 net/mac802154/rx.c
  create mode 100644 net/mac802154/tx.c
+
+------------------------------------------------------------------------------
+Write once. Port to many.
+Get the SDK and tools to simplify cross-platform app development. Create 
+new or port existing apps to sell to consumers worldwide. Explore the 
+Intel AppUpSM program developer opportunity. appdeveloper.intel.com/join
+http://p.sf.net/sfu/intel-appdev
