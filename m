@@ -1,8 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v3 3/7] SUNRPC: send notification events on pipefs sb creation
- and destruction
-Date: Mon, 26 Dec 2011 15:39:13 +0300
-Message-ID: <20111226113913.13216.49396.stgit@localhost6.localdomain6>
+Subject: [PATCH v3 4/7] SUNRPC: pipefs dentry lookup helper introduced
+Date: Mon, 26 Dec 2011 15:39:22 +0300
+Message-ID: <20111226113922.13216.45211.stgit@localhost6.localdomain6>
 References: <20111226113504.13216.19798.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -17,109 +16,62 @@ In-Reply-To: <20111226113504.13216.19798.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-They will be used to notify subscribers about pipefs superblock creation and
-destruction.
-Subcribers will have to create their dentries on passed superblock on mount
-event and destroy otherwise.
+In all places, where pipefs dentries are created, only directory inode is
+actually required to create new dentry. And all this directories has root
+pipefs dentry as their parent. So we actually don't need this pipefs mount
+point at all if some pipefs lookup method will be provided.
+IOW, all we really need is just superblock and simple lookup method to find
+root's child dentry with appropriate name. And this patch introduces this
+method.
+Note, that no locking implemented in rpc_d_lookup_sb(). So it can be used only
+in case of assurance, that pipefs superblock still exist. IOW, we can use this
+method only in pipefs mount-umount notification subscribers callbacks.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- include/linux/sunrpc/rpc_pipe_fs.h |    8 ++++++++
- net/sunrpc/rpc_pipe.c              |   32 ++++++++++++++++++++++++++++++++
- 2 files changed, 40 insertions(+), 0 deletions(-)
+ include/linux/sunrpc/rpc_pipe_fs.h |    3 +++
+ net/sunrpc/rpc_pipe.c              |   16 ++++++++++++++++
+ 2 files changed, 19 insertions(+), 0 deletions(-)
 
 diff --git a/include/linux/sunrpc/rpc_pipe_fs.h b/include/linux/sunrpc/rpc_pipe_fs.h
-index 08aae01..733ef50 100644
+index 733ef50..4585985 100644
 --- a/include/linux/sunrpc/rpc_pipe_fs.h
 +++ b/include/linux/sunrpc/rpc_pipe_fs.h
-@@ -43,6 +43,14 @@ RPC_I(struct inode *inode)
- 	return container_of(inode, struct rpc_inode, vfs_inode);
- }
+@@ -51,6 +51,9 @@ enum {
+ 	RPC_PIPEFS_UMOUNT,
+ };
  
-+extern int rpc_pipefs_notifier_register(struct notifier_block *);
-+extern void rpc_pipefs_notifier_unregister(struct notifier_block *);
-+
-+enum {
-+	RPC_PIPEFS_MOUNT,
-+	RPC_PIPEFS_UMOUNT,
-+};
++extern struct dentry *rpc_d_lookup_sb(const struct super_block *sb,
++				      const unsigned char *dir_name);
 +
  extern ssize_t rpc_pipe_generic_upcall(struct file *, struct rpc_pipe_msg *,
  				       char __user *, size_t);
  extern int rpc_queue_upcall(struct inode *, struct rpc_pipe_msg *);
 diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index ff41fef..07fb7dd 100644
+index 07fb7dd..1de840d 100644
 --- a/net/sunrpc/rpc_pipe.c
 +++ b/net/sunrpc/rpc_pipe.c
-@@ -28,8 +28,10 @@
- #include <linux/sunrpc/rpc_pipe_fs.h>
- #include <linux/sunrpc/cache.h>
- #include <linux/nsproxy.h>
-+#include <linux/notifier.h>
+@@ -1008,6 +1008,22 @@ static const struct rpc_filelist files[] = {
+ 	},
+ };
  
- #include "netns.h"
-+#include "sunrpc.h"
- 
- static struct vfsmount *rpc_mnt __read_mostly;
- static int rpc_mount_count;
-@@ -41,6 +43,20 @@ static struct kmem_cache *rpc_inode_cachep __read_mostly;
- 
- #define RPC_UPCALL_TIMEOUT (30*HZ)
- 
-+static BLOCKING_NOTIFIER_HEAD(rpc_pipefs_notifier_list);
-+
-+int rpc_pipefs_notifier_register(struct notifier_block *nb)
++/*
++ * This call can be used only in RPC pipefs mount notification hooks.
++ */
++struct dentry *rpc_d_lookup_sb(const struct super_block *sb,
++			       const unsigned char *dir_name)
 +{
-+	return blocking_notifier_chain_cond_register(&rpc_pipefs_notifier_list, nb);
-+}
-+EXPORT_SYMBOL_GPL(rpc_pipefs_notifier_register);
++	struct qstr dir = {
++		.name = dir_name,
++		.len = strlen(dir_name),
++		.hash = full_name_hash(dir_name, strlen(dir_name)),
++	};
 +
-+void rpc_pipefs_notifier_unregister(struct notifier_block *nb)
-+{
-+	blocking_notifier_chain_unregister(&rpc_pipefs_notifier_list, nb);
++	return d_lookup(sb->s_root, &dir);
 +}
-+EXPORT_SYMBOL_GPL(rpc_pipefs_notifier_unregister);
++EXPORT_SYMBOL_GPL(rpc_d_lookup_sb);
 +
- static void rpc_purge_list(struct rpc_inode *rpci, struct list_head *head,
- 		void (*destroy_msg)(struct rpc_pipe_msg *), int err)
+ static int
+ rpc_fill_super(struct super_block *sb, void *data, int silent)
  {
-@@ -998,6 +1014,7 @@ rpc_fill_super(struct super_block *sb, void *data, int silent)
- 	struct inode *inode;
- 	struct dentry *root;
- 	struct net *net = data;
-+	int err;
- 
- 	sb->s_blocksize = PAGE_CACHE_SIZE;
- 	sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
-@@ -1015,8 +1032,20 @@ rpc_fill_super(struct super_block *sb, void *data, int silent)
- 	}
- 	if (rpc_populate(root, files, RPCAUTH_lockd, RPCAUTH_RootEOF, NULL))
- 		return -ENOMEM;
-+	err = blocking_notifier_call_chain(&rpc_pipefs_notifier_list,
-+					   RPC_PIPEFS_MOUNT,
-+					   sb);
-+	if (err)
-+		goto err_depopulate;
- 	sb->s_fs_info = get_net(net);
- 	return 0;
-+
-+err_depopulate:
-+	blocking_notifier_call_chain(&rpc_pipefs_notifier_list,
-+					   RPC_PIPEFS_UMOUNT,
-+					   sb);
-+	__rpc_depopulate(root, files, RPCAUTH_lockd, RPCAUTH_RootEOF);
-+	return err;
- }
- 
- static struct dentry *
-@@ -1031,6 +1060,9 @@ void rpc_kill_sb(struct super_block *sb)
- 	struct net *net = sb->s_fs_info;
- 
- 	put_net(net);
-+	blocking_notifier_call_chain(&rpc_pipefs_notifier_list,
-+					   RPC_PIPEFS_UMOUNT,
-+					   sb);
- 	kill_litter_super(sb);
- }
- 
