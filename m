@@ -1,60 +1,35 @@
-From: =?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
-	<nicolas.2p.debian@free.fr>
-Subject: [PATCH] bonding: document undocumented active_slave sysfs entry.
-Date: Mon, 26 Dec 2011 13:19:15 +0100
-Message-ID: <1324901955-5816-1-git-send-email-nicolas.2p.debian@free.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] bna: Added flash sub-module and ethtool eeprom
+ entry points.
+Date: Mon, 26 Dec 2011 10:10:35 -0500 (EST)
+Message-ID: <20111226.101035.782817982749726680.davem@davemloft.net>
+References: <B5EE62D80D50B84BB9E5174F7FCCE80A206BE39A24@HQ1-EXCH02.corp.brocade.com>
+	<1324721314.3860.11.camel@deadeye>
+	<4EF86253.3010108@computer.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
-	<nicolas.2p.debian@free.fr>, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bhutchings@solarflare.com, kgudipat@Brocade.com,
+	netdev@vger.kernel.org, adapter_linux_open_src_team@Brocade.com,
+	rmody@Brocade.com
+To: jan.ceuleers@computer.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp09.smtpout.orange.fr ([80.12.242.131]:16418 "EHLO
-	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754802Ab1LZM1P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 07:27:15 -0500
+Received: from shards.monkeyblade.net ([198.137.202.13]:38131 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752705Ab1LZPLr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 10:11:47 -0500
+In-Reply-To: <4EF86253.3010108@computer.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
-cc: Jay Vosburgh <fubar@us.ibm.com>
-cc: Andy Gospodarek <andy@greyhouse.net>
+From: Jan Ceuleers <jan.ceuleers@computer.org>
+Date: Mon, 26 Dec 2011 13:02:27 +0100
 
----
- Documentation/networking/bonding.txt |   14 ++++++++++++++
- 1 files changed, 14 insertions(+), 0 deletions(-)
+> Is it OK to hold the RTNL lock for that length of time?
 
-diff --git a/Documentation/networking/bonding.txt b/Documentation/netwo=
-rking/bonding.txt
-index 91df678..83b44c2 100644
---- a/Documentation/networking/bonding.txt
-+++ b/Documentation/networking/bonding.txt
-@@ -196,6 +196,20 @@ or, for backwards compatibility, the option value.=
-  E.g.,
-=20
- 	The parameters are as follows:
-=20
-+active_slave
-+
-+	Specifies the active slave for modes that support it (active-backup,
-+	balance-alb and balance-tlb). The possible values are one of the
-+	currently enslaved slaves. The selected slave must be up and the
-+	underlying link must be up too.
-+=09
-+	Note that this is only available through the sysfs interface. No modu=
-le
-+	parameter by that name exists.
-+
-+	The default value is empty (no active slave). It will automatically b=
-e
-+	set every time an active slave is selected by normal bonding operatio=
-n.
-+	The current active slave can be read from this sysfs entry.
-+
- ad_select
-=20
- 	Specifies the 802.3ad aggregation selection logic to use.  The
---=20
-1.7.7.3
+No, because it means that no network configuration of any kind can
+occur during this time.
+
+Backbone routers need to perform hundreds of routing table updates per
+second, even more during major route flaps.  All of these would be
+blocked during your flash operation.
