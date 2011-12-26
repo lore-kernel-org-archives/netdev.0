@@ -1,90 +1,35 @@
-From: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [PATCH] bonding: document undocumented active_slave sysfs entry.
-Date: Mon, 26 Dec 2011 23:51:11 +0100
-Message-ID: <4EF8FA5F.8010609@gmail.com>
-References: <1324901955-5816-1-git-send-email-nicolas.2p.debian@free.fr> <20213.1324933811@death>
+From: "=?utf-8?B?SmVhbi1iYXB0aXN0ZSBUaMOpb3U=?=" <jbtheou@gmail.com>
+Subject: Re: Cross posting
+Date: Mon, 26 Dec 2011 22:49:13 +0000
+Message-ID: <1225677229-1324940443-cardhu_decombobulator_blackberry.rim.net-264887756-@b27.c6.bise7.blackberry>
+Reply-To: jbtheou@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
-	<nicolas.2p.debian@free.fr>, netdev@vger.kernel.org,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: base64
+To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>,
+	netdev-owner@vger.kernel.org, lartc@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:49263 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752552Ab1LZWu5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 17:50:57 -0500
-Received: by wibhm6 with SMTP id hm6so4592957wib.19
-        for <netdev@vger.kernel.org>; Mon, 26 Dec 2011 14:50:56 -0800 (PST)
-In-Reply-To: <20213.1324933811@death>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:36879 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752552Ab1LZXAs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 18:00:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 26/12/2011 22:10, Jay Vosburgh a =C3=A9crit :
-> Nicolas de Peslo=C3=BCan 	<nicolas.2p.debian@free.fr>  wrote:
->
->> Signed-off-by: Nicolas de Peslo=C3=BCan<nicolas.2p.debian@free.fr>
->> cc: Jay Vosburgh<fubar@us.ibm.com>
->> cc: Andy Gospodarek<andy@greyhouse.net>
->>
->> ---
->> Documentation/networking/bonding.txt |   14 ++++++++++++++
->> 1 files changed, 14 insertions(+), 0 deletions(-)
->>
->> diff --git a/Documentation/networking/bonding.txt b/Documentation/ne=
-tworking/bonding.txt
->> index 91df678..83b44c2 100644
->> --- a/Documentation/networking/bonding.txt
->> +++ b/Documentation/networking/bonding.txt
->> @@ -196,6 +196,20 @@ or, for backwards compatibility, the option val=
-ue.  E.g.,
->>
->> 	The parameters are as follows:
->>
->> +active_slave
->> +
->> +	Specifies the active slave for modes that support it (active-backu=
-p,
->> +	balance-alb and balance-tlb). The possible values are one of the
->> +	currently enslaved slaves. The selected slave must be up and the
->> +	underlying link must be up too.
->
-> 	I would phrase this a bit differently, also including the empty
-> string as a possible value:
->
-> 	Specifies the new active slave for modes that support it
-> 	(active-backup, balance-alb and balance-tlb).  Possible values
-> 	are the name of any currently enslaved interface, or an empty
-> 	string.  If a name is given, the slave must be up in order to be
-> 	selected as the new active slave.  If an empty string is
-> 	specified, the current active slave is cleared, and a new active
-> 	slave is selected automatically.
->
->> +	Note that this is only available through the sysfs interface. No m=
-odule
->> +	parameter by that name exists.
-> =09
-> 	"by this name" instead of "that".
->
->> +	The default value is empty (no active slave). It will automaticall=
-y be
->> +	set every time an active slave is selected by normal bonding opera=
-tion.
->> +	The current active slave can be read from this sysfs entry.
->
-> 	I'd write this as:
->
-> 	The normal value of this option is the name of the currently
-> 	active slave, or the empty string if there is no active slave or
-> 	the current mode does not use an active slave.
->
-> 	With the above changes (or something pretty much equivalent) I'm
-> good with this, and you can add a signed-off for me.
-
-
-Thanks for the review. I will send V2 later.
-
-	Nicolas.
+SnVzdCBjb21tZW50IDopIA0KLS0tLS0tTWVzc2FnZSBkJ29yaWdpbmUtLS0tLS0NCkRlOiBKb2hu
+IEEuIFN1bGxpdmFuIElJSQ0KRXhw6WRpdGV1cqA6IG5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5v
+cmcNCsA6IGxhcnRjQHZnZXIua2VybmVsLm9yZw0KwDogbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0K
+T2JqZXQ6IENyb3NzIHBvc3RpbmcNCkVudm956TogMjYgZOljLiAyMDExIDIzOjI2DQoNCkhlbGxv
+LCBhbGwuICBJIHN0aWxsIGZpbmQgbXlzZWxmIHBvc3RpbmcgbW9zdCBvZiBteSBxdWVzdGlvbnMg
+dG8NCm5ldGRldkB2Z2VyLmtlcm5lbC5vcmcgc2luY2UgSSdtIG5vdCBxdWl0ZSBzdXJlIHdobyBo
+YXMgZm91bmQgdGhlcmUgd2F5DQp0byBsYXJ0YyB5ZXQuDQoNCkkga25vdyBpdCBpcyBub3JtYWxs
+eSBjb25zaWRlcmVkIHJ1ZGUgdG8gY3Jvc3MgcG9zdCBidXQgd291bGQgaXQgYmUgYQ0KZ29vZCBp
+ZGVhIHRvIGNyb3NzIHBvc3QgdW50aWwgbGFydGMgYnVpbGRzIHVwIGEgc3VwcG9ydCBjb21tdW5p
+dHkgb2YgaXRzDQpvd24gYW5kIHRvIGhlbHAgYnVpbGQgaXRzIGFyY2hpdmVzPyBUaG91Z2h0cz8g
+Q29tbWVudHM/IEluc3VsdHM/IFRoYW5rcw0KLSBKb2huDQoNCi0tDQpUbyB1bnN1YnNjcmliZSBm
+cm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBpbg0KdGhl
+IGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcNCk1vcmUgbWFq
+b3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRt
+bA0KDQoNCkplYW4tQmFwdGlzdGUgVGjpb3UNClNvY2npdOkgTGF0ZXhwcmVzcywgc2VydmljZXMg
+cG91ciBsJ+lkaXRpb24uIA0Kd3d3LmxhdGV4cHJlc3MuZnI=
