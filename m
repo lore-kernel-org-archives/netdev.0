@@ -1,7 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v3 5/7] SUNRPC: put pipefs superblock link on network namespace
-Date: Mon, 26 Dec 2011 15:39:30 +0300
-Message-ID: <20111226113930.13216.24458.stgit@localhost6.localdomain6>
+Subject: [PATCH v3 6/7] SUNRPC: pipefs per-net operations helper introduced
+Date: Mon, 26 Dec 2011 15:39:39 +0300
+Message-ID: <20111226113938.13216.27995.stgit@localhost6.localdomain6>
 References: <20111226113504.13216.19798.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -16,61 +16,113 @@ In-Reply-To: <20111226113504.13216.19798.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We have modules (like, pNFS blocklayout module) which creates pipes on
-rpc_pipefs. Thus we need per-net operations for them. To make it possible we
-require appropriate super block. So we have to put sb link on network namespace
-context. Note, that it's not strongly required to create pipes in per-net
-operations. IOW, if pipefs wasn't mounted yet, that no sb link reference will
-present on network namespace and in this case we need just need to pass through
-pipe creation. Pipe dentry will be created during pipefs mount notification.
+During per-net pipes creation and destruction we have to make sure, that pipefs
+sb exists for the whole creation/destruction cycle. This is done by using
+special mutex which controls pipefs sb reference on network namespace context.
+Helper consists of two parts: first of them (rpc_get_dentry_net) searches for
+dentry with specified name and returns with mutex taken on success. When pipe
+creation or destructions is completed, caller should release this mutex by
+rpc_put_dentry_net call.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- net/sunrpc/netns.h    |    2 ++
- net/sunrpc/rpc_pipe.c |    4 ++++
- 2 files changed, 6 insertions(+), 0 deletions(-)
+ include/linux/sunrpc/rpc_pipe_fs.h |    3 +++
+ net/sunrpc/netns.h                 |    1 +
+ net/sunrpc/rpc_pipe.c              |   36 ++++++++++++++++++++++++++++++++++++
+ net/sunrpc/sunrpc_syms.c           |    1 +
+ 4 files changed, 41 insertions(+), 0 deletions(-)
 
+diff --git a/include/linux/sunrpc/rpc_pipe_fs.h b/include/linux/sunrpc/rpc_pipe_fs.h
+index 4585985..f32490c 100644
+--- a/include/linux/sunrpc/rpc_pipe_fs.h
++++ b/include/linux/sunrpc/rpc_pipe_fs.h
+@@ -53,6 +53,9 @@ enum {
+ 
+ extern struct dentry *rpc_d_lookup_sb(const struct super_block *sb,
+ 				      const unsigned char *dir_name);
++extern void rpc_pipefs_init_net(struct net *net);
++extern struct super_block *rpc_get_sb_net(const struct net *net);
++extern void rpc_put_sb_net(const struct net *net);
+ 
+ extern ssize_t rpc_pipe_generic_upcall(struct file *, struct rpc_pipe_msg *,
+ 				       char __user *, size_t);
 diff --git a/net/sunrpc/netns.h b/net/sunrpc/netns.h
-index d013bf2..b384252 100644
+index b384252..11d2f48 100644
 --- a/net/sunrpc/netns.h
 +++ b/net/sunrpc/netns.h
-@@ -9,6 +9,8 @@ struct cache_detail;
- struct sunrpc_net {
- 	struct proc_dir_entry *proc_net_rpc;
+@@ -11,6 +11,7 @@ struct sunrpc_net {
  	struct cache_detail *ip_map_cache;
-+
-+	struct super_block *pipefs_sb;
+ 
+ 	struct super_block *pipefs_sb;
++	struct mutex pipefs_sb_lock;
  };
  
  extern int sunrpc_net_id;
 diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index 1de840d..831e81d 100644
+index 831e81d..e40ec55 100644
 --- a/net/sunrpc/rpc_pipe.c
 +++ b/net/sunrpc/rpc_pipe.c
-@@ -1030,6 +1030,7 @@ rpc_fill_super(struct super_block *sb, void *data, int silent)
- 	struct inode *inode;
- 	struct dentry *root;
- 	struct net *net = data;
+@@ -1024,6 +1024,40 @@ struct dentry *rpc_d_lookup_sb(const struct super_block *sb,
+ }
+ EXPORT_SYMBOL_GPL(rpc_d_lookup_sb);
+ 
++void rpc_pipefs_init_net(struct net *net)
++{
 +	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
- 	int err;
- 
- 	sb->s_blocksize = PAGE_CACHE_SIZE;
-@@ -1054,6 +1055,7 @@ rpc_fill_super(struct super_block *sb, void *data, int silent)
- 	if (err)
- 		goto err_depopulate;
- 	sb->s_fs_info = get_net(net);
-+	sn->pipefs_sb = sb;
- 	return 0;
- 
- err_depopulate:
-@@ -1074,7 +1076,9 @@ rpc_mount(struct file_system_type *fs_type,
- void rpc_kill_sb(struct super_block *sb)
++
++	mutex_init(&sn->pipefs_sb_lock);
++}
++
++/*
++ * This call will be used for per network namespace operations calls.
++ * Note: Function will be returned with pipefs_sb_lock taken if superblock was
++ * found. This lock have to be released by rpc_put_sb_net() when all operations
++ * will be completed.
++ */
++struct super_block *rpc_get_sb_net(const struct net *net)
++{
++	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
++
++	mutex_lock(&sn->pipefs_sb_lock);
++	if (sn->pipefs_sb)
++		return sn->pipefs_sb;
++	mutex_unlock(&sn->pipefs_sb_lock);
++	return NULL;
++}
++EXPORT_SYMBOL_GPL(rpc_get_sb_net);
++
++void rpc_put_sb_net(const struct net *net)
++{
++	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
++
++	BUG_ON(sn->pipefs_sb == NULL);
++	mutex_unlock(&sn->pipefs_sb_lock);
++}
++EXPORT_SYMBOL_GPL(rpc_put_sb_net);
++
+ static int
+ rpc_fill_super(struct super_block *sb, void *data, int silent)
  {
+@@ -1078,7 +1112,9 @@ void rpc_kill_sb(struct super_block *sb)
  	struct net *net = sb->s_fs_info;
-+	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
+ 	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
  
-+	sn->pipefs_sb = NULL;
++	mutex_lock(&sn->pipefs_sb_lock);
+ 	sn->pipefs_sb = NULL;
++	mutex_unlock(&sn->pipefs_sb_lock);
  	put_net(net);
  	blocking_notifier_call_chain(&rpc_pipefs_notifier_list,
  					   RPC_PIPEFS_UMOUNT,
+diff --git a/net/sunrpc/sunrpc_syms.c b/net/sunrpc/sunrpc_syms.c
+index 8ec9778..7086d11 100644
+--- a/net/sunrpc/sunrpc_syms.c
++++ b/net/sunrpc/sunrpc_syms.c
+@@ -38,6 +38,7 @@ static __net_init int sunrpc_init_net(struct net *net)
+ 	if (err)
+ 		goto err_ipmap;
+ 
++	rpc_pipefs_init_net(net);
+ 	return 0;
+ 
+ err_ipmap:
