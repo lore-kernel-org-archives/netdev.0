@@ -1,93 +1,111 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] bonding: document undocumented active_slave sysfs entry.
-Date: Mon, 26 Dec 2011 13:10:11 -0800
-Message-ID: <20213.1324933811@death>
-References: <1324901955-5816-1-git-send-email-nicolas.2p.debian@free.fr>
+From: "John A. Sullivan III" <jsullivan@spiritualoutreach.com>
+Subject: Redirection to multiple IFBs from different qdiscs on the same
+ interface produces a loop
+Date: Mon, 26 Dec 2011 17:22:28 -0500
+Message-ID: <1324938148.4401.71.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
-To: =?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
-	<nicolas.2p.debian@free.fr>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:50407 "EHLO e4.ny.us.ibm.com"
+Received: from mout.perfora.net ([74.208.4.195]:54680 "EHLO mout.perfora.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753219Ab1LZVKa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 16:10:30 -0500
-Received: from /spool/local
-	by e4.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Mon, 26 Dec 2011 16:10:29 -0500
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id pBQLADJW255230
-	for <netdev@vger.kernel.org>; Mon, 26 Dec 2011 16:10:14 -0500
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id pBQLADKs029827
-	for <netdev@vger.kernel.org>; Mon, 26 Dec 2011 16:10:13 -0500
-In-reply-to: <1324901955-5816-1-git-send-email-nicolas.2p.debian@free.fr>
+	id S1753390Ab1LZWWc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Dec 2011 17:22:32 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nicolas de Peslo=C3=BCan 	<nicolas.2p.debian@free.fr> wrote:
+Hello, all.  I've been able to successfully create our WAN test
+environment using netem on egress and ingress along with HFSC and have
+eliminated the terrible bufferbloat effect.  Since I can't do both HFSC
+shaping and netem conditioning on the ingress, I got around it by
+marking the packet coming in from the Internet, and then redirecting it
+to a netem conditioned IFB interface on the egress if it has the
+"Internet ingress" mark.  It works perfectly fine for traffic traversing
+the forward chain.
 
->Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
->cc: Jay Vosburgh <fubar@us.ibm.com>
->cc: Andy Gospodarek <andy@greyhouse.net>
->
->---
-> Documentation/networking/bonding.txt |   14 ++++++++++++++
-> 1 files changed, 14 insertions(+), 0 deletions(-)
->
->diff --git a/Documentation/networking/bonding.txt b/Documentation/netw=
-orking/bonding.txt
->index 91df678..83b44c2 100644
->--- a/Documentation/networking/bonding.txt
->+++ b/Documentation/networking/bonding.txt
->@@ -196,6 +196,20 @@ or, for backwards compatibility, the option value=
-=2E  E.g.,
->
-> 	The parameters are as follows:
->
->+active_slave
->+
->+	Specifies the active slave for modes that support it (active-backup,
->+	balance-alb and balance-tlb). The possible values are one of the
->+	currently enslaved slaves. The selected slave must be up and the
->+	underlying link must be up too.
+However, I hit a problem when trying to produce the same effect for
+traffic directed to the test router.  In this case, the packets must
+pass twice through netem conditioning.  Thus, I set up a "placeholder"
+PRIO qdisc to hold the HFSC qdisc so I could put one redirection filter
+on the first and a second on the second.
 
-	I would phrase this a bit differently, also including the empty
-string as a possible value:
+When I do so, I seem to create a loop.  My pings stop and, when I remove
+the filter, they resume without a single packet lost but huge round trip
+times.  I tried sending the packets to separate IFB interfaces rather
+than passing twice through the same one and I tried creating a PRIO
+qdisc to hold the PRIO qdisc to insert an extra processing step between
+the redirections in case that was the problem.  Nothing help - I always
+create a loop.
 
-	Specifies the new active slave for modes that support it
-	(active-backup, balance-alb and balance-tlb).  Possible values
-	are the name of any currently enslaved interface, or an empty
-	string.  If a name is given, the slave must be up in order to be
-	selected as the new active slave.  If an empty string is
-	specified, the current active slave is cleared, and a new active
-	slave is selected automatically.
+How can I do this successfully?
 
->+	Note that this is only available through the sysfs interface. No mod=
-ule
->+	parameter by that name exists.
-=09
-	"by this name" instead of "that".
+Here is the rule set:
 
->+	The default value is empty (no active slave). It will automatically =
-be
->+	set every time an active slave is selected by normal bonding operati=
-on.
->+	The current active slave can be read from this sysfs entry.
+#egress traffic shaping
+tc qdisc add dev eth1 root handle 2: prio bands 2 priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+tc qdisc add dev eth1 parent 2:1 handle 1: hfsc default 20
+tc class add dev eth1 parent 1: classid 1:1 hfsc sc rate 1490kbit ul rate 1490kbit #mimic T1 on LAN outbound
+tc class add dev eth1 parent 1:1 classid 1:20 hfsc rt rate 400kbit ls rate 200kbit
+tc qdisc add dev eth1 parent 1:20 handle 1201 sfq perturb 60
+tc class add dev eth1 parent 1:1 classid 1:10 hfsc rt umax 16kbit dmax 50ms rate 200kbit ls rate 1000kbit
+tc qdisc add dev eth1 parent 1:10 handle 1101 sfq perturb 60
+tc class add dev eth1 parent 1:1 classid 1:30 hfsc rt umax 1514b dmax 20ms rate 20kbit
+tc qdisc add dev eth1 parent 1:30 handle 1301 sfq perturb 60
 
-	I'd write this as:
+iptables -t mangle -A PREROUTING -p 6 --tcp-flags SYN,RST,FIN SYN --dport 443 -j CONNMARK --set-mark 0x12/0 #test settings
+iptables -t mangle -A PREROUTING -p 6 --tcp-flags SYN,RST,FIN SYN --dport 822 -j CONNMARK --set-mark 0x11/0 #Interactive
+iptables -t mangle -A PREROUTING -i eth1 -j CONNMARK --set-mark 0x30/0
+iptables -t mangle -A POSTROUTING -o eth1 -j CONNMARK --restore-mark
+iptables -t mangle -A PREROUTING -i eth1 -j CONNMARK --restore-mark
+modprobe ifb #numifbs=3
+ifconfig ifb0 up
+ifconfig ifb1 up
 
-	The normal value of this option is the name of the currently
-	active slave, or the empty string if there is no active slave or
-	the current mode does not use an active slave.
+#ingress traffic shaping
+tc qdisc add dev ifb0 root handle 1: hfsc default 20
+tc class add dev ifb0 parent 1: classid 1:1 hfsc sc rate 1490kbit ul rate 1490kbit - mimic T1 on LAN inbound
+tc class add dev ifb0 parent 1:1 classid 1:20 hfsc rt rate 400kbit ls rate 200kbit
+tc qdisc add dev ifb0 parent 1:20 handle 1201 sfq perturb 60
+tc class add dev ifb0 parent 1:1 classid 1:10 hfsc rt umax 16kbit dmax 50ms rate 200kbit ls rate 1000kbit
+tc qdisc add dev ifb0 parent 1:10 handle 1101 sfq perturb 60
+tc class add dev ifb0 parent 1:1 classid 1:30 hfsc rt umax 1514b dmax 20ms rate 20kbit
+tc qdisc add dev ifb0 parent 1:30 handle 1301 sfq perturb 60
+tc filter add dev ifb0 parent 1:0 protocol ip prio 1 handle 6: u32 divisor 1
+tc filter add dev ifb0 parent 1:0 protocol ip prio 1 u32 match ip protocol 6 0xff link 6: offset at 0 mask 0x0f00 shift 6 plus 0 eat
+tc filter add dev ifb0 parent 1:0 protocol ip prio 1 u32 ht 6:0 match tcp src 443 0x00ff flowid 1:10
+tc filter add dev ifb0 parent 1:0 protocol ip prio 1 u32 ht 6:0 match tcp dst 822 0xff00 flowid 1:30
 
-	With the above changes (or something pretty much equivalent) I'm
-good with this, and you can add a signed-off for me.
+#handle all netem conditioning in one definition
+tc qdisc add dev ifb1 root handle 2 netem delay 25ms 5ms distribution normal loss 0.1% 30%
 
-	-J
+# ingress traffic shaping
+tc qdisc add dev eth1 ingress
+tc filter add dev eth1 parent ffff: protocol ip prio 50 u32 match u32 0 0 action mirred egress redirect dev ifb0
+tc filter add dev eth1 parent 1:1 protocol ip prio 1 handle 0x11 fw flowid 1:30
+tc filter add dev eth1 parent 1:1 protocol ip prio 1 handle 0x12 fw flowid 1:10
+tc filter add dev eth1 parent 1:1 protocol ip prio 2 u32 match u32 0 0 flowid 1:20
+#egress netem conditioning
+tc filter add dev eth1 parent 1:0 protocol ip prio 1 u32 match u32 0 0 flowid 1:1 action mirred egress redirect dev ifb1
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+tc qdisc add dev eth0 root handle 10: prio
+tc qdisc add dev eth0 parent 10:1 handle 110: sfq perturb 60
+tc qdisc add dev eth0 parent 10:2 handle 120: sfq perturb 60
+tc qdisc add dev eth0 parent 10:3 handle 130: sfq perturb 60
+#ingress netem conditioning
+tc filter add dev eth0 parent 10: protocol ip prio 1 handle 0x30/0x30 fw action mirred egress redirect dev ifb1
+# THE NEXT ONE IS THE PROBLEM - this one acts on 2:0 as opposed to the eth1 redirect filter above which acts on 1:0
+tc filter add dev eth1 parent 2:0 protocol ip prio 1 handle 0x30/0x30 fw action mirred egress redirect dev ifb1
+
+#buffer management
+ip link set eth1 txqueuelen 100
+ip link set ifb1 txqueuelen 100
+ip link set ifb0 txqueuelen 100
+ethtool -K eth1 gso off gro off
+
+
+Oh, as an aside, I first tried to do the "ingress marking" as an action
+in the eth1 ingress filter but it seemed to be eliminated by the
+--restore-mark in iptables.  Am I correct to assume that is the expected
+behavior and CONNMARK and marking in tc are somewhat incompatible?
+Thanks - John
