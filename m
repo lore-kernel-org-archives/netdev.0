@@ -1,76 +1,41 @@
-From: Axel Lin <axel.lin@gmail.com>
-Subject: [PATCH] mlx4: Add missing include of linux/slab.h
-Date: Mon, 26 Dec 2011 17:35:34 +0800
-Message-ID: <1324892134.9765.1.camel@phoenix>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH 6/6] SUNRPC: split SUNPRC PipeFS dentry and private pipe
+ data creation
+Date: Mon, 26 Dec 2011 14:45:56 +0400
+Message-ID: <4EF85064.6040907@parallels.com>
+References: <20111122134514.479.9848.stgit@localhost6.localdomain6>	 <20111122144215.479.20931.stgit@localhost6.localdomain6> <1324819019.5195.4.camel@lade.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Marcel Apfelbaum <marcela@dev.mellanox.co.il>,
-	Eugenia Emantayev <eugenia@mellanox.co.il>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:56752 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752647Ab1LZJfr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 04:35:47 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: Trond Myklebust <Trond.Myklebust@netapp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1324819019.5195.4.camel@lade.trondhjem.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Include linux/slab.h to fix below build error:
+25.12.2011 17:16, Trond Myklebust =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>> @@ -387,7 +397,9 @@ nfs_idmap_delete(struct nfs_client *clp)
+>> >
+>> >         if (!idmap)
+>> >                 return;
+>> >  -     rpc_unlink(idmap->idmap_dentry);
+>> >  +     if (idmap->idmap_pipe->dentry)
+> Shouldn't this be a test for IS_ERR(idmap->idmap_pipe->dentry)?
+>
 
-  CC      drivers/net/ethernet/mellanox/mlx4/resource_tracker.o
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'mlx4_init_resource_tracker':
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:233: error: implicit declaration of function 'kzalloc'
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:234: warning: assignment makes pointer from integer without a cast
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'mlx4_free_resource_tracker':
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:264: error: implicit declaration of function 'kfree'
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'alloc_qp_tr':
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:370: warning: assignment makes pointer from integer without a cast
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'alloc_mtt_tr':
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:386: warning: assignment makes pointer from integer without a cast
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'alloc_mpt_tr':
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:402: warning: assignment makes pointer from integer without a cast
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'alloc_eq_tr':
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:417: warning: assignment makes pointer from integer without a cast
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'alloc_cq_tr':
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:431: warning: assignment makes pointer from integer without a cast
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'alloc_srq_tr':
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:446: warning: assignment makes pointer from integer without a cast
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'alloc_counter_tr':
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:461: warning: assignment makes pointer from integer without a cast
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'add_res_range':
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:521: warning: assignment makes pointer from integer without a cast
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'mac_add_to_slave':
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:1193: warning: assignment makes pointer from integer without a cast
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'add_mcg_res':
-drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:2521: warning: assignment makes pointer from integer without a cast
-make[5]: *** [drivers/net/ethernet/mellanox/mlx4/resource_tracker.o] Error 1
-make[4]: *** [drivers/net/ethernet/mellanox/mlx4] Error 2
-make[3]: *** [drivers/net/ethernet/mellanox] Error 2
-make[2]: *** [drivers/net/ethernet] Error 2
-make[1]: *** [drivers/net] Error 2
-make: *** [drivers] Error 2
+Nope. This dentry is either NULL or valid pointer.
+Will resend rebased version soon.
 
-Signed-off-by: Axel Lin <axel.lin@gmail.com>
----
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index b41762d..ed20751 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -38,6 +38,7 @@
- #include <linux/errno.h>
- #include <linux/kernel.h>
- #include <linux/io.h>
-+#include <linux/slab.h>
- #include <linux/mlx4/cmd.h>
- #include <linux/mlx4/qp.h>
- 
--- 
-1.7.5.4
+--=20
+Best regards,
+Stanislav Kinsbursky
