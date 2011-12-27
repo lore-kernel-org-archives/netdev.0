@@ -1,34 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2] bonding: document undocumented active_slave sysfs
- entry.
-Date: Mon, 26 Dec 2011 20:09:49 -0500 (EST)
-Message-ID: <20111226.200949.1825245602796988976.davem@davemloft.net>
-References: <1324901955-5816-1-git-send-email-nicolas.2p.debian@free.fr>
-	<1324942524-32116-1-git-send-email-nicolas.2p.debian@free.fr>
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Subject: tc filter fw match and masks
+Date: Mon, 26 Dec 2011 21:52:05 -0500
+Message-ID: <1324954325.4401.78.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
-To: nicolas.2p.debian@free.fr
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42009 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753583Ab1L0BJ6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2011 20:09:58 -0500
-In-Reply-To: <1324942524-32116-1-git-send-email-nicolas.2p.debian@free.fr>
+Received: from mout.perfora.net ([74.208.4.195]:58376 "EHLO mout.perfora.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752253Ab1L0CwK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Dec 2011 21:52:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
-Date: Tue, 27 Dec 2011 00:35:24 +0100
+Hello, all.  While working on my test WAN project, I was quite surprised
+to see only half my packets matching my filter.  I as using netfilter
+marks which overlapped, e.g., inbound from Internet were
+0011 0000
+and interactive traffic was
+0001 0001
 
-> v2, based on Jay's review.
->=20
-> I kept the 'link must be up' part, because this is enforced in the co=
-de.
->=20
-> Signed-off-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-> cc: Andy Gospodarek <andy@greyhouse.net>
-
-Applied, thanks.
+I needed to switch to a u32 match as it appears the fw match does not
+accept masks.  Is there any plan to change this? Thanks - John
