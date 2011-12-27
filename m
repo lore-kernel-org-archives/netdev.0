@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ucc_geth: some fix in current kernel
-Date: Tue, 27 Dec 2011 12:59:40 -0500 (EST)
-Message-ID: <20111227.125940.1585324652948148302.davem@davemloft.net>
-References: <y>
-	<1324979328-32081-1-git-send-email-X.Xie@freescale.com>
+Subject: Re: [PATCH -next] net: calxeda xgmac ethernet driver add missing
+ HAS_IOMEM dependency
+Date: Tue, 27 Dec 2011 13:01:56 -0500 (EST)
+Message-ID: <20111227.130156.1047123326718924884.davem@davemloft.net>
+References: <1324994825-4197-1-git-send-email-heiko.carstens@de.ibm.com>
+	<4EF9D327.3070808@calxeda.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	leoli@freescale.com, Haiying.Wang@freescale.com
-To: X.Xie@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48409 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754689Ab1L0SBx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2011 13:01:53 -0500
-In-Reply-To: <1324979328-32081-1-git-send-email-X.Xie@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: heiko.carstens@de.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: rob.herring@calxeda.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4EF9D327.3070808@calxeda.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Xie Xiaobo <X.Xie@freescale.com>
-Date: Tue, 27 Dec 2011 17:48:48 +0800
+From: Rob Herring <rob.herring@calxeda.com>
+Date: Tue, 27 Dec 2011 08:16:07 -0600
 
-> * Revert commit "ucc_geth: Fix hangs after switching from full to half duplex"
->   This commit impacted the driver in all link state change more than
->   duplex change.
-> * Change some parameters.
->   Increased the BD ring length.
+> On 12/27/2011 08:07 AM, Heiko Carstens wrote:
+>> Fix allyesconfig build on architectures without IOMEM:
+>> 
+>> drivers/net/ethernet/calxeda/xgmac.c:1800:2:
+>>   error: implicit declaration of function 'iounmap' [-Werror=implicit-function-declaration]
+>> 
+>> Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+>> Cc: Rob Herring <rob.herring@calxeda.com>
 > 
-> Signed-off-by: Haiying Wang <Haiying.Wang@freescale.com>
-> Signed-off-by: Xie Xiaobo <X.Xie@freescale.com>
+> Thanks.
+> 
+> Acked-by: Rob Herring <rob.herring@calxeda.com>
 
-Please, one major change per patch.
+Applied, thanks.
