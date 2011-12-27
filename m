@@ -1,35 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] net: calxeda xgmac ethernet driver add missing
- HAS_IOMEM dependency
-Date: Tue, 27 Dec 2011 13:01:56 -0500 (EST)
-Message-ID: <20111227.130156.1047123326718924884.davem@davemloft.net>
-References: <1324994825-4197-1-git-send-email-heiko.carstens@de.ibm.com>
-	<4EF9D327.3070808@calxeda.com>
+Subject: Re: [PATCH net-next 00/23] TIPC: Updates for what will be v3.3
+Date: Tue, 27 Dec 2011 13:08:07 -0500 (EST)
+Message-ID: <20111227.130807.1680254459456306555.davem@davemloft.net>
+References: <1325007582-31610-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: heiko.carstens@de.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: rob.herring@calxeda.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4EF9D327.3070808@calxeda.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
+	ying.xue@windriver.com
+To: paul.gortmaker@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:48463 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754662Ab1L0SIJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2011 13:08:09 -0500
+In-Reply-To: <1325007582-31610-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rob Herring <rob.herring@calxeda.com>
-Date: Tue, 27 Dec 2011 08:16:07 -0600
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Tue, 27 Dec 2011 12:39:19 -0500
 
-> On 12/27/2011 08:07 AM, Heiko Carstens wrote:
->> Fix allyesconfig build on architectures without IOMEM:
->> 
->> drivers/net/ethernet/calxeda/xgmac.c:1800:2:
->>   error: implicit declaration of function 'iounmap' [-Werror=implicit-function-declaration]
->> 
->> Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
->> Cc: Rob Herring <rob.herring@calxeda.com>
+> Here are some more updates for TIPC, based on the backlog of stuff
+> that was unfortunately stacked away in sourceforge a while ago.
 > 
-> Thanks.
+> Given the timing, please feel free to defer these to the for-3.4
+> net-next if there isn't a convenient opportunity to process it
+> before 3.2 is officially released.  I can easily resend later.
 > 
-> Acked-by: Rob Herring <rob.herring@calxeda.com>
+> Fortunately, the SF backlog will finally be 100% gone with the
+> pending stuff that will be sent in the next year for the 3.4
+> net-next, so that will be nice to have that task closed out.
+> 
+> I just finished testing this over the wire between an x86-32 and
+> an x86-64 box, with both taking turns being server and client.
 
-Applied, thanks.
+Pulled, thanks Paul.
+
+Two suggestions:
+
+1) Please rename things like "struct media" to something more global
+   namespace friendly like "struct tipc_media"
+
+2) We really should get rid of the ad-hoc debug logging facility tipc
+   uses.  It's not like there aren't tons of generic, well maintained,
+   feature-full logging facilities available.  There is no reason for
+   tipc to have it's own special, private, logginc facility.
+
+   If the generic facilities lack some feature, add it and submit
+   it for inclusion to linux-kernel so everyone can use it, not just
+   TIPC.
