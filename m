@@ -1,100 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: The mystery of optimistic ipv6 DAD handling
-Date: Tue, 27 Dec 2011 14:53:05 -0500 (EST)
-Message-ID: <20111227.145305.229364634255751368.davem@davemloft.net>
-References: <20111227.140652.1729386263761283235.davem@davemloft.net>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: bonding device in balance-alb mode shows packet loss in kernel
+ 3.2-rc6
+Date: Tue, 27 Dec 2011 20:56:01 +0100
+Message-ID: <4EFA22D1.8050807@gmail.com>
+References: <E31FB011129F30488D5861F38390491520C52BCC8B@BLRX7MCDC201.AMER.DELL.COM>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com
+To: Narendra_K@Dell.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:49320 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750720Ab1L0TyO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2011 14:54:14 -0500
-In-Reply-To: <20111227.140652.1729386263761283235.davem@davemloft.net>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:49676 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750720Ab1L0Tzq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2011 14:55:46 -0500
+Received: by wgbdr13 with SMTP id dr13so21346823wgb.1
+        for <netdev@vger.kernel.org>; Tue, 27 Dec 2011 11:55:45 -0800 (PST)
+In-Reply-To: <E31FB011129F30488D5861F38390491520C52BCC8B@BLRX7MCDC201.AMER.DELL.COM>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 27 Dec 2011 14:06:52 -0500 (EST)
+Le 27/12/2011 15:31, Narendra_K@Dell.com a =E9crit :
+> Hello,
+>
+> On kernel version 3.2-rc6, when a bonding device is configured in 'ba=
+lance-alb' mode,
+> ping reported packet losses. By looking at protocol trance, it seemed=
+ like the lost
+> packets had the destination MAC id of inactive slave.
+>
 
-> However, two things strike me:
-> 
-> 1) even beforehand we'd only get a NULL neigh when the device pointer
->    is NULL, that can't happen here, rt->rt6i_dev will be non-NULL always
->    in these circumstances, it's forced to be net->loopback_dev by the
->    ip6_dst_alloc() call made by addrconf_dst_alloc() (the code back
->    in 2.6.21 does the same exact thing, just inline)
-> 
-> 2) on top of that it's looking up a neighbour using rt->rt6i_gateway
->    as the key, that's either bogus or pointless.  As far as I can tell
->    it's uninitialized at this point and therefore always all-zeros.
-> 
-> My quick hunch is that the neigh should be looked up based upon 'addr', and
-> that ipv6_add_addr() should test if the neigh is resolved in order to determine
-> if the optimistic flag should be cleared.  That matches the logic in the comment
-> "do not yet know the link layer address of our nexthop router."
-> 
-> Neil, any chance you can help me unravel this?
+[snip]
 
-So the fundamental thing is that these addrconf routes are mainly for
-for input and looping back traffic on output.
+Can you provide the output of the following command?
 
-We create the addrconf route "to us", for input.  That's why the lookup
-key is the ipv6 address we are configuring on the interface.
+grep . /sys/classs/net/bond0/bonding/*
 
-For output, the neigh is "don't care".  It goes to the loopback device
-and for loopback ->hard_header is NULL so
-net/ipv6/ndisc.c:ndisc_constructor() directly hooks up
-neigh->ops->queue_xmit as the neigh->output method, which is
-dev_queue_xmit().  So it doesn't matter that we lookup the neigh in
-addrconf_dst_alloc() using the all-zeros rt->rt6i_gateway.
+Thanks,
 
-So this route and it's neigh have nothing to do with link layer
-address of any nexthop gatway(s) in this interface.
-
-Therefore the test is completely wrong, and all I can determine is
-that we should flat out remove it.  It never triggers anyways.
-
-Perhaps we should find another appropriate spot to put this kind of
-test, but in this spot and against this route object seems totally not
-right.
-
-Neil, what say you?
-
---------------------
-ipv6: Remove optimistic DAD flag test in ipv6_add_addr()
-
-The route we have here is for the address being added to the interface,
-ie. for input packet processing.
-
-Therefore using that route to determine whether an output nexthop gateway
-is known and resolved doesn't make any sense.
-
-So, simply remove this test, it never triggered anyways.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 59a9d0e..85421cc 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -650,16 +650,6 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr, int pfxlen,
- 
- 	ifa->rt = rt;
- 
--	/*
--	 * part one of RFC 4429, section 3.3
--	 * We should not configure an address as
--	 * optimistic if we do not yet know the link
--	 * layer address of our nexhop router
--	 */
--
--	if (dst_get_neighbour_noref_raw(&rt->dst) == NULL)
--		ifa->flags &= ~IFA_F_OPTIMISTIC;
--
- 	ifa->idev = idev;
- 	in6_dev_hold(idev);
- 	/* For caller */
+	Nicolas.
