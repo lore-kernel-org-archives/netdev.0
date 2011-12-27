@@ -1,136 +1,58 @@
-From: Joshua Kinard <kumba@gentoo.org>
-Subject: Re: [PATCH] net: meth: Add set_rx_mode hook to fix ICMPv6 neighbor
- discovery
-Date: Tue, 27 Dec 2011 00:06:15 -0500
-Message-ID: <4EF95247.7000403@gentoo.org>
-References: <4EED3A3D.9080503@gentoo.org>
+From: zrpeng <zrpeng@linx-info.com>
+Subject: Why network stack not reply RST
+Date: Tue, 27 Dec 2011 16:31:36 +0800
+Message-ID: <201112271631.36154.zrpeng@linx-info.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, Linux MIPS List <linux-mips@linux-mips.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta03.westchester.pa.mail.comcast.net ([76.96.62.32]:43748
-	"EHLO qmta03.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750738Ab1L0FGi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2011 00:06:38 -0500
-In-Reply-To: <4EED3A3D.9080503@gentoo.org>
+Received: from [159.226.21.127] ([159.226.21.127]:32986 "EHLO
+	mail.linx-info.com" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1752021Ab1L0Iid (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2011 03:38:33 -0500
+Received: from [172.17.0.100] (unknown [192.168.46.3])
+	by mail.linx-info.com (Postfix) with ESMTP id 7335695C1C3
+	for <netdev@vger.kernel.org>; Tue, 27 Dec 2011 16:28:56 +0800 (CST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGI IP32 (O2)'s ethernet driver (meth) lacks a set_rx_mode function, which
-prevents IPv6 from working completely because any ICMPv6 neighbor
-solicitation requests aren't picked up by the driver.  So the machine can
-ping out and connect to other systems, but other systems will have a very
-hard time connecting to the O2.
+Hi:
+    Why network stack not reply RST?
+    I am doing test recently based on kernel 2.6.32. In my case:
+    1) The server application closed the established socket, the network stack 
+sent FIN to client. The socket status in kernel's network stack was 
+TCP_FIN_WAIT1.
+    2) The client sent out a tcp packet with ACK bit set for the server's FIN, 
+the packet also took new data.
+    3) When the server received the packet, network stack entered "step 5" in 
+function "tcp_rcv_state_process".
+    4) Then came to 'case TCP_FIN_WAIT1:'
+    5) Then came to judgement
+if (tp->linger2 < 0 ||
+					    (TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq &&
+					     after(TCP_SKB_CB(skb)->end_seq - th->fin, tp->rcv_nxt))) {
+.....
+}
+    6) Because the previous packet took data and ACK (for the FIN), it entered 
+the judgement. So, the socket is deleted in function 'tcp_done(sk)'.
+    7) No TCP message was sent back to client side from then on, and client 
+was left in LAST_ACK status.
 
-Signed-off-by: Joshua Kinard <kumba@gentoo.org>
----
+    My questions are:
+    1) Is this process correct? I think the server should sent RST to client, 
+is this correct?
+    2) What's the using of judgement 
+ (TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq &&
+					     after(TCP_SKB_CB(skb)->end_seq - th->fin, tp->rcv_nxt)
 
- arch/mips/include/asm/ip32/mace.h |    2 -
- drivers/net/ethernet/sgi/meth.c   |   48 +++++++++++++++++++++++++++++++++++++-
- 2 files changed, 48 insertions(+), 2 deletions(-)
+       The code exists from kernel 2.3.41 and 2.3.42. 
 
-diff -Naurp a/arch/mips/include/asm/ip32/mace.h
-b/arch/mips/include/asm/ip32/mace.h
---- a/arch/mips/include/asm/ip32/mace.h	2011-12-24 16:19:46.703561171 -0500
-+++ b/arch/mips/include/asm/ip32/mace.h	2011-12-26 20:04:15.281839510 -0500
-@@ -95,7 +95,7 @@ struct mace_video {
-  * Ethernet interface
-  */
- struct mace_ethernet {
--	volatile unsigned long mac_ctrl;
-+	volatile u64 mac_ctrl;
- 	volatile unsigned long int_stat;
- 	volatile unsigned long dma_ctrl;
- 	volatile unsigned long timer;
-diff -Naurp a/drivers/net/ethernet/sgi/meth.c b/drivers/net/ethernet/sgi/meth.c
---- a/drivers/net/ethernet/sgi/meth.c	2011-12-24 16:20:06.743560985 -0500
-+++ b/drivers/net/ethernet/sgi/meth.c	2011-12-26 20:03:53.471839710 -0500
-@@ -28,6 +28,7 @@
- #include <linux/tcp.h>         /* struct tcphdr */
- #include <linux/skbuff.h>
- #include <linux/mii.h>         /* MII definitions */
-+#include <linux/crc32.h>
+    Thank you very much!
+    Best Regards.
 
- #include <asm/ip32/mace.h>
- #include <asm/ip32/ip32_ints.h>
-@@ -58,12 +59,19 @@ static int timeout = TX_TIMEOUT;
- module_param(timeout, int, 0);
-
- /*
-+ * Maximum number of multicast addresses to filter (vs. Rx-all-multicast).
-+ * MACE Ethernet uses a 64 element hash table based on the Ethernet CRC.
-+ */
-+#define METH_MCF_LIMIT 32
-+
-+/*
-  * This structure is private to each device. It is used to pass
-  * packets in and out, so there is place for a packet
-  */
- struct meth_private {
- 	/* in-memory copy of MAC Control register */
--	unsigned long mac_ctrl;
-+	u64 mac_ctrl;
-+
- 	/* in-memory copy of DMA Control register */
- 	unsigned long dma_ctrl;
- 	/* address of PHY, used by mdio_* functions, initialized in mdio_probe */
-@@ -79,6 +87,9 @@ struct meth_private {
- 	struct sk_buff *rx_skbs[RX_RING_ENTRIES];
- 	unsigned long rx_write;
-
-+	/* Multicast filter. */
-+	u64 mcast_filter;
-+
- 	spinlock_t meth_lock;
- };
-
-@@ -765,6 +776,40 @@ static int meth_ioctl(struct net_device
- 	}
- }
-
-+static void meth_set_rx_mode(struct net_device *dev)
-+{
-+	struct meth_private *priv = netdev_priv(dev);
-+	unsigned long flags;
-+
-+	netif_stop_queue(dev);
-+	spin_lock_irqsave(&priv->meth_lock, flags);
-+	priv->mac_ctrl &= ~METH_PROMISC;
-+
-+	if (dev->flags & IFF_PROMISC) {
-+		priv->mac_ctrl |= METH_PROMISC;
-+		priv->mcast_filter = 0xffffffffffffffffUL;
-+	} else if ((netdev_mc_count(dev) > METH_MCF_LIMIT) ||
-+		   (dev->flags & IFF_ALLMULTI)) {
-+		priv->mac_ctrl |= METH_ACCEPT_AMCAST;
-+		priv->mcast_filter = 0xffffffffffffffffUL;
-+	} else {
-+		struct netdev_hw_addr *ha;
-+		priv->mac_ctrl |= METH_ACCEPT_MCAST;
-+
-+		netdev_for_each_mc_addr(ha, dev)
-+			set_bit((ether_crc(ETH_ALEN, ha->addr) >> 26),
-+			        (volatile unsigned long *)&priv->mcast_filter);
-+	}
-+
-+	/* Write the changes to the chip registers. */
-+	mace->eth.mac_ctrl = priv->mac_ctrl;
-+	mace->eth.mcast_filter = priv->mcast_filter;
-+
-+	/* Done! */
-+	spin_unlock_irqrestore(&priv->meth_lock, flags);
-+	netif_wake_queue(dev);
-+}
-+
- static const struct net_device_ops meth_netdev_ops = {
- 	.ndo_open		= meth_open,
- 	.ndo_stop		= meth_release,
-@@ -774,6 +819,7 @@ static const struct net_device_ops meth_
- 	.ndo_change_mtu		= eth_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_set_mac_address	= eth_mac_addr,
-+	.ndo_set_rx_mode    	= meth_set_rx_mode,
- };
-
- /*
+    Peng Zhaoran from Linx-Info Tech.
+    
+    www.linx-info.com
