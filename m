@@ -1,203 +1,54 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 23/23] tipc: Allow use of buf_seqno() helper routine by unicast links
-Date: Tue, 27 Dec 2011 12:39:42 -0500
-Message-ID: <1325007582-31610-24-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 14/23] tipc: Eliminate useless memset operations in Ethernet media support
+Date: Tue, 27 Dec 2011 12:39:33 -0500
+Message-ID: <1325007582-31610-15-git-send-email-paul.gortmaker@windriver.com>
 References: <1325007582-31610-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
 	ying.xue@windriver.com,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:39517 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:39461 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754858Ab1L0RkN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2011 12:40:13 -0500
+	with ESMTP id S1754775Ab1L0RkE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2011 12:40:04 -0500
 In-Reply-To: <1325007582-31610-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Migrates the buf_seqno() helper routine from broadcast link level to
-unicast link level so that it can be used both types of TIPC links.
-This is a cosmetic change only, and does not affect the operation of TIPC.
+Gets rid of two pointless operations that zero out the array used to
+record information about TIPC's Ethernet bearers. There is no need to
+initialize the array on start up since it is a global variable that is
+already zero'd out, and there is no need to zero it out on exit because
+the array is never referenced again.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/bcast.c |    5 -----
- net/tipc/link.c  |   39 +++++++++++++++++++--------------------
- net/tipc/link.h  |    5 +++++
- 3 files changed, 24 insertions(+), 25 deletions(-)
+ net/tipc/eth_media.c |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 15eb744..048b7a3 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -115,11 +115,6 @@ static void tipc_nmap_diff(struct tipc_node_map *nm_a,
- 			   struct tipc_node_map *nm_b,
- 			   struct tipc_node_map *nm_diff);
+diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
+index 236155c..cd0a4b8 100644
+--- a/net/tipc/eth_media.c
++++ b/net/tipc/eth_media.c
+@@ -371,8 +371,6 @@ int tipc_eth_media_start(void)
+ 	if (eth_started)
+ 		return -EINVAL;
  
--static u32 buf_seqno(struct sk_buff *buf)
--{
--	return msg_seqno(buf_msg(buf));
--}
+-	memset(eth_bearers, 0, sizeof(eth_bearers));
 -
- static u32 bcbuf_acks(struct sk_buff *buf)
- {
- 	return (u32)(unsigned long)TIPC_SKB_CB(buf)->handle;
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 4eff342..853b286 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -130,7 +130,7 @@ static void link_init_max_pkt(struct link *l_ptr)
- static u32 link_next_sent(struct link *l_ptr)
- {
- 	if (l_ptr->next_out)
--		return msg_seqno(buf_msg(l_ptr->next_out));
-+		return buf_seqno(l_ptr->next_out);
- 	return mod(l_ptr->next_out_no);
+ 	res = tipc_register_media(&eth_media_info);
+ 	if (res)
+ 		return res;
+@@ -396,6 +394,5 @@ void tipc_eth_media_stop(void)
+ 
+ 	flush_scheduled_work();
+ 	unregister_netdevice_notifier(&notifier);
+-	memset(&eth_bearers, 0, sizeof(eth_bearers));
+ 	eth_started = 0;
  }
- 
-@@ -1354,7 +1354,7 @@ u32 tipc_link_push_packet(struct link *l_ptr)
- 	if (r_q_size && buf) {
- 		u32 last = lesser(mod(r_q_head + r_q_size),
- 				  link_last_sent(l_ptr));
--		u32 first = msg_seqno(buf_msg(buf));
-+		u32 first = buf_seqno(buf);
- 
- 		while (buf && less(first, r_q_head)) {
- 			first = mod(first + 1);
-@@ -1403,7 +1403,7 @@ u32 tipc_link_push_packet(struct link *l_ptr)
- 	if (buf) {
- 		struct tipc_msg *msg = buf_msg(buf);
- 		u32 next = msg_seqno(msg);
--		u32 first = msg_seqno(buf_msg(l_ptr->first_out));
-+		u32 first = buf_seqno(l_ptr->first_out);
- 
- 		if (mod(next - first) < l_ptr->queue_limit[0]) {
- 			msg_set_ack(msg, mod(l_ptr->next_in_no - 1));
-@@ -1558,7 +1558,7 @@ void tipc_link_retransmit(struct link *l_ptr, struct sk_buff *buf,
- 		} else {
- 			tipc_bearer_schedule(l_ptr->b_ptr, l_ptr);
- 			l_ptr->stats.bearer_congs++;
--			l_ptr->retransm_queue_head = msg_seqno(buf_msg(buf));
-+			l_ptr->retransm_queue_head = buf_seqno(buf);
- 			l_ptr->retransm_queue_size = retransmits;
- 			return;
- 		}
-@@ -1579,7 +1579,7 @@ static struct sk_buff *link_insert_deferred_queue(struct link *l_ptr,
- 	if (l_ptr->oldest_deferred_in == NULL)
- 		return buf;
- 
--	seq_no = msg_seqno(buf_msg(l_ptr->oldest_deferred_in));
-+	seq_no = buf_seqno(l_ptr->oldest_deferred_in);
- 	if (seq_no == mod(l_ptr->next_in_no)) {
- 		l_ptr->newest_deferred_in->next = buf;
- 		buf = l_ptr->oldest_deferred_in;
-@@ -1738,7 +1738,7 @@ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *b_ptr)
- 
- 		crs = l_ptr->first_out;
- 		while ((crs != l_ptr->next_out) &&
--		       less_eq(msg_seqno(buf_msg(crs)), ackd)) {
-+		       less_eq(buf_seqno(crs), ackd)) {
- 			struct sk_buff *next = crs->next;
- 
- 			buf_discard(crs);
-@@ -1861,7 +1861,7 @@ u32 tipc_link_defer_pkt(struct sk_buff **head,
- {
- 	struct sk_buff *prev = NULL;
- 	struct sk_buff *crs = *head;
--	u32 seq_no = msg_seqno(buf_msg(buf));
-+	u32 seq_no = buf_seqno(buf);
- 
- 	buf->next = NULL;
- 
-@@ -1872,7 +1872,7 @@ u32 tipc_link_defer_pkt(struct sk_buff **head,
- 	}
- 
- 	/* Last ? */
--	if (less(msg_seqno(buf_msg(*tail)), seq_no)) {
-+	if (less(buf_seqno(*tail), seq_no)) {
- 		(*tail)->next = buf;
- 		*tail = buf;
- 		return 1;
-@@ -1909,7 +1909,7 @@ u32 tipc_link_defer_pkt(struct sk_buff **head,
- static void link_handle_out_of_seq_msg(struct link *l_ptr,
- 				       struct sk_buff *buf)
- {
--	u32 seq_no = msg_seqno(buf_msg(buf));
-+	u32 seq_no = buf_seqno(buf);
- 
- 	if (likely(msg_user(buf_msg(buf)) == LINK_PROTOCOL)) {
- 		link_recv_proto_msg(l_ptr, buf);
-@@ -1971,10 +1971,10 @@ void tipc_link_send_proto_msg(struct link *l_ptr, u32 msg_typ, int probe_msg,
- 		if (!tipc_link_is_up(l_ptr))
- 			return;
- 		if (l_ptr->next_out)
--			next_sent = msg_seqno(buf_msg(l_ptr->next_out));
-+			next_sent = buf_seqno(l_ptr->next_out);
- 		msg_set_next_sent(msg, next_sent);
- 		if (l_ptr->oldest_deferred_in) {
--			u32 rec = msg_seqno(buf_msg(l_ptr->oldest_deferred_in));
-+			u32 rec = buf_seqno(l_ptr->oldest_deferred_in);
- 			gap = mod(rec - mod(l_ptr->next_in_no));
- 		}
- 		msg_set_seq_gap(msg, gap);
-@@ -2589,7 +2589,7 @@ int tipc_link_recv_fragment(struct sk_buff **pending, struct sk_buff **fb,
- 
- 	/* Is there an incomplete message waiting for this fragment? */
- 
--	while (pbuf && ((msg_seqno(buf_msg(pbuf)) != long_msg_seq_no) ||
-+	while (pbuf && ((buf_seqno(pbuf) != long_msg_seq_no) ||
- 			(msg_orignode(fragm) != msg_orignode(buf_msg(pbuf))))) {
- 		prev = pbuf;
- 		pbuf = pbuf->next;
-@@ -3112,13 +3112,12 @@ static void link_print(struct link *l_ptr, const char *str)
- 	tipc_printf(buf, "NXI(%u):", mod(l_ptr->next_in_no));
- 	tipc_printf(buf, "SQUE");
- 	if (l_ptr->first_out) {
--		tipc_printf(buf, "[%u..", msg_seqno(buf_msg(l_ptr->first_out)));
-+		tipc_printf(buf, "[%u..", buf_seqno(l_ptr->first_out));
- 		if (l_ptr->next_out)
--			tipc_printf(buf, "%u..",
--				    msg_seqno(buf_msg(l_ptr->next_out)));
--		tipc_printf(buf, "%u]", msg_seqno(buf_msg(l_ptr->last_out)));
--		if ((mod(msg_seqno(buf_msg(l_ptr->last_out)) -
--			 msg_seqno(buf_msg(l_ptr->first_out)))
-+			tipc_printf(buf, "%u..", buf_seqno(l_ptr->next_out));
-+		tipc_printf(buf, "%u]", buf_seqno(l_ptr->last_out));
-+		if ((mod(buf_seqno(l_ptr->last_out) -
-+			 buf_seqno(l_ptr->first_out))
- 		     != (l_ptr->out_queue_size - 1)) ||
- 		    (l_ptr->last_out->next != NULL)) {
- 			tipc_printf(buf, "\nSend queue inconsistency\n");
-@@ -3130,8 +3129,8 @@ static void link_print(struct link *l_ptr, const char *str)
- 		tipc_printf(buf, "[]");
- 	tipc_printf(buf, "SQSIZ(%u)", l_ptr->out_queue_size);
- 	if (l_ptr->oldest_deferred_in) {
--		u32 o = msg_seqno(buf_msg(l_ptr->oldest_deferred_in));
--		u32 n = msg_seqno(buf_msg(l_ptr->newest_deferred_in));
-+		u32 o = buf_seqno(l_ptr->oldest_deferred_in);
-+		u32 n = buf_seqno(l_ptr->newest_deferred_in);
- 		tipc_printf(buf, ":RQUE[%u..%u]", o, n);
- 		if (l_ptr->deferred_inqueue_sz != mod((n + 1) - o)) {
- 			tipc_printf(buf, ":RQSIZ(%u)",
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 7879239..d35b0f3 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -254,6 +254,11 @@ void tipc_link_retransmit(struct link *l_ptr, struct sk_buff *start, u32 retrans
-  * Link sequence number manipulation routines (uses modulo 2**16 arithmetic)
-  */
- 
-+static inline u32 buf_seqno(struct sk_buff *buf)
-+{
-+	return msg_seqno(buf_msg(buf));
-+}
-+
- static inline u32 mod(u32 x)
- {
- 	return x & 0xffffu;
 -- 
 1.7.4.4
