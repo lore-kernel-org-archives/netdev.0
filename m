@@ -1,38 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: fec: Adjust ENET MDIO timeouts
-Date: Tue, 27 Dec 2011 14:07:47 -0500 (EST)
-Message-ID: <20111227.140747.1238640414600997264.davem@davemloft.net>
-References: <1324997198-2241-1-git-send-email-festevam@gmail.com>
-	<1325012021-3134-1-git-send-email-festevam@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shawn.guo@freescale.com,
-	kernel@pengutronix.de, rogerio.pimentel@freescale.com,
-	fabio.estevam@freescale.com
-To: festevam@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48947 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751197Ab1L0TIy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2011 14:08:54 -0500
-In-Reply-To: <1325012021-3134-1-git-send-email-festevam@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Xi Wang <xi.wang@gmail.com>
+Subject: [PATCH -next] ax25: avoid overflows in ax25_setsockopt()
+Date: Tue, 27 Dec 2011 14:43:19 -0500
+Message-ID: <1325014999-28931-1-git-send-email-xi.wang@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Xi Wang <xi.wang@gmail.com>, Ralf Baechle <ralf@linux-mips.org>
+To: linux-hams@vger.kernel.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Fabio Estevam <festevam@gmail.com>
-Date: Tue, 27 Dec 2011 16:53:41 -0200
+Commit be639ac6 ("NET: AX.25: Check ioctl arguments to avoid overflows
+further down the road") rejects very large arguments, but doesn't
+completely fix overflows on 64-bit systems.  Consider the AX25_T2 case.
 
-> On extensive NFS boots on a mx6qsabrelite board it was noted that "FEC: MDIO read timeout" were occuring,
-> which caused failure on loading the FEC driver.
-> 
-> The original FEC_MII_TIMEOUT was set to 1 ms, which is too low when passed to the usecs_to_jiffies macro.
-> 
-> On ARM one jiffy is 10ms, so use a timeout of 30ms, which corresponds to 3 jiffies.
-> 
-> After running extensive NFS boots, the MDIO timeouts do not occur anymore with this change.
-> 
-> Signed-off-by: Rogerio Pimentel <rogerio.pimentel@freescale.com>
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+	int opt;
+	...
+	if (opt < 1 || opt > ULONG_MAX / HZ) {
+		res = -EINVAL;
+		break;
+	}
+	ax25->t2 = opt * HZ;
 
-Applied, thanks.
+The 32-bit multiplication opt * HZ would overflow before being assigned
+to 64-bit ax25->t2.  This patch changes "opt" to unsigned long.
+
+Signed-off-by: Xi Wang <xi.wang@gmail.com>
+Cc: Ralf Baechle <ralf@linux-mips.org>
+---
+ net/ax25/af_ax25.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+index b863c18..3cd0a0d 100644
+--- a/net/ax25/af_ax25.c
++++ b/net/ax25/af_ax25.c
+@@ -545,15 +545,16 @@ static int ax25_setsockopt(struct socket *sock, int level, int optname,
+ 	ax25_cb *ax25;
+ 	struct net_device *dev;
+ 	char devname[IFNAMSIZ];
+-	int opt, res = 0;
++	unsigned long opt;
++	int res = 0;
+ 
+ 	if (level != SOL_AX25)
+ 		return -ENOPROTOOPT;
+ 
+-	if (optlen < sizeof(int))
++	if (optlen < sizeof(unsigned int))
+ 		return -EINVAL;
+ 
+-	if (get_user(opt, (int __user *)optval))
++	if (get_user(opt, (unsigned int __user *)optval))
+ 		return -EFAULT;
+ 
+ 	lock_sock(sk);
+@@ -609,7 +610,7 @@ static int ax25_setsockopt(struct socket *sock, int level, int optname,
+ 		break;
+ 
+ 	case AX25_IDLE:
+-		if (opt < 0 || opt > ULONG_MAX / (60 * HZ)) {
++		if (opt > ULONG_MAX / (60 * HZ)) {
+ 			res = -EINVAL;
+ 			break;
+ 		}
+@@ -617,7 +618,7 @@ static int ax25_setsockopt(struct socket *sock, int level, int optname,
+ 		break;
+ 
+ 	case AX25_BACKOFF:
+-		if (opt < 0 || opt > 2) {
++		if (opt > 2) {
+ 			res = -EINVAL;
+ 			break;
+ 		}
+-- 
+1.7.5.4
+
