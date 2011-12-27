@@ -1,35 +1,33 @@
-From: "Ronciak, John" <john.ronciak@intel.com>
-Subject: RE: [PATCH net-next V2 0/2] igb: ptp hardware clock
-Date: Tue, 27 Dec 2011 18:17:04 +0000
-Message-ID: <D38E8E86660E514AB505863C19C9287C256C262C@ORSMSX102.amr.corp.intel.com>
-References: <cover.1324901880.git.richardcochran@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: meth: Add set_rx_mode hook to fix ICMPv6 neighbor
+ discovery
+Date: Tue, 27 Dec 2011 13:17:43 -0500 (EST)
+Message-ID: <20111227.131743.1555029258883745131.davem@davemloft.net>
+References: <4EED3A3D.9080503@gentoo.org>
+	<4EF95247.7000403@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Keller, Jacob E" <jacob.e.keller@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Richard Cochran <richardcochran@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org
+To: kumba@gentoo.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:48068 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754662Ab1L0SRG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2011 13:17:06 -0500
-In-Reply-To: <cover.1324901880.git.richardcochran@gmail.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([198.137.202.13]:48543 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754720Ab1L0SRy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2011 13:17:54 -0500
+In-Reply-To: <4EF95247.7000403@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I have tested the 82580 with good results. However, I don't have the
-> 82576 and so would appreciate testing and feedback.
+From: Joshua Kinard <kumba@gentoo.org>
+Date: Tue, 27 Dec 2011 00:06:15 -0500
+
+> SGI IP32 (O2)'s ethernet driver (meth) lacks a set_rx_mode function, which
+> prevents IPv6 from working completely because any ICMPv6 neighbor
+> solicitation requests aren't picked up by the driver.  So the machine can
+> ping out and connect to other systems, but other systems will have a very
+> hard time connecting to the O2.
 > 
-Richard,
+> Signed-off-by: Joshua Kinard <kumba@gentoo.org>
 
-We'll test this on an 82576 but that won't happen until next week we staff is back from the holidays.
-
-Cheers,
-John
+Applied to net-next, thanks.
