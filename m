@@ -1,48 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] genetlink: add auto module loading
-Date: Wed, 28 Dec 2011 14:03:15 -0500 (EST)
-Message-ID: <20111228.140315.1485215996445763095.davem@davemloft.net>
-References: <20111228101958.2326b7cc@nehalam.linuxnetplumber.net>
-	<20111228.134939.1155715366574563784.davem@davemloft.net>
-	<20111228110208.5f6de3d8@nehalam.linuxnetplumber.net>
+Subject: Re: attempted oversize allocations in tcp_recvmsg.
+Date: Wed, 28 Dec 2011 14:06:33 -0500 (EST)
+Message-ID: <20111228.140633.884619516495494384.davem@davemloft.net>
+References: <20111228184416.GB7901@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+To: davej@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56910 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:56937 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754166Ab1L1TDR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 14:03:17 -0500
-In-Reply-To: <20111228110208.5f6de3d8@nehalam.linuxnetplumber.net>
+	with ESMTP id S1754148Ab1L1TGg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 14:06:36 -0500
+In-Reply-To: <20111228184416.GB7901@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 28 Dec 2011 11:02:08 -0800
+From: Dave Jones <davej@redhat.com>
+Date: Wed, 28 Dec 2011 13:44:17 -0500
 
-> On Wed, 28 Dec 2011 13:49:39 -0500 (EST)
-> David Miller <davem@davemloft.net> wrote:
+> I got this trace from the page allocator while fuzzing sys_recvfrom
+ ...
+> The code in tcp_recvmsg that passes down the enormous size has these checks..
 > 
->> From: Stephen Hemminger <shemminger@vyatta.com>
->> Date: Wed, 28 Dec 2011 10:19:58 -0800
->> 
->> > When testing L2TP support, I discovered that the l2tp module is not autoloaded
->> > as are other netlink interfaces. There is because of lack of hook in genetlink to call
->> > request_module and load the module.
->> > 
->> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->> 
->> Applied, but for completeness we should probably also handle the "by ID" case right
->> above this code block too.
->> 
->> Could you please submit a patch for that?
->> 
->> Thanks.
+>                 if (skb)
+>                         available = TCP_SKB_CB(skb)->seq + skb->len - (*seq);
+>                 if ((available < target) &&
+>                     (len > sysctl_tcp_dma_copybreak) && !(flags & MSG_PEEK) &&
+>                     !sysctl_tcp_low_latency &&
+>                     dma_find_channel(DMA_MEMCPY)) {
+>                         preempt_enable_no_resched();
+>                         tp->ucopy.pinned_list =
+>                                         dma_pin_iovec_pages(msg->msg_iov, len);
+>                 } else {
+>                         preempt_enable_no_resched();
+>                 }
 > 
-> There is no point really. All the existing drivers,
-> use GENL_ID_GENERATE which generates the ID when they are loaded.
-> Chicken and egg principle.
+> I'm guessing there should be a (len < 65535) (or similar constant) in that check ?
+> Or should we be doing this even sooner in one of the earlier functions?
 
-Ok, then I wonder why we support ID based lookups at all.
+I would say that it is dma_pin_iovec_pages()'s job to validate things, since the
+fact that it does this kmalloc() whose size is some function of the given length
+is it's business.
+
+> Also, when that dma_pin_iovec_pages fails, we still proceed through the rest of
+> tcp_recvmsg. Is that expected ? Or should it be doing a goto out; in that case ?
+
+That's fine, we'll just try to process the recvmsg() without using the
+DMA memcpy offloading.  It's exactly the same as if we took the else
+branch here.
+
+Anyways, please report this to the DMA layer maintainer.
+
+Thanks.
