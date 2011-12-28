@@ -1,41 +1,42 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] genetlink: add auto module loading
-Date: Wed, 28 Dec 2011 10:19:58 -0800
-Message-ID: <20111228101958.2326b7cc@nehalam.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on
+ low-end broads.
+Date: Wed, 28 Dec 2011 13:34:50 -0500 (EST)
+Message-ID: <20111228.133450.479385013770977594.davem@davemloft.net>
+References: <1325092423.2327.70.camel@deadeye>
+	<CACPM=kX2hcGt3XXDJkCAcOjv=5oqSHChhhphUAyRhR_PsNFEEQ@mail.gmail.com>
+	<20111228101710.51c4893f@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: gurligebis@gentoo.org, bhutchings@solarflare.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	rl@hellgate.ch
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:48794 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754045Ab1L1SUB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Dec 2011 13:20:01 -0500
+Received: from shards.monkeyblade.net ([198.137.202.13]:56668 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754066Ab1L1SfE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 13:35:04 -0500
+In-Reply-To: <20111228101710.51c4893f@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When testing L2TP support, I discovered that the l2tp module is not autoloaded
-as are other netlink interfaces. There is because of lack of hook in genetlink to call
-request_module and load the module.
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 28 Dec 2011 10:17:10 -0800
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Looks like the hardware isn't really disabling interrupts correctly to support
+> NAPI. NAPI is supposed to be friendly and under load the work should move to
+> ksoftirqd. I suspect the IRQ management in this driver is borked.
+> There is some stupid spin loops in the IRQ handler that happen when looking for
+> Tx IRQ. I would run with debug set  and see if this is triggering.
 
---- a/net/netlink/genetlink.c	2011-12-24 11:13:44.373214171 -0800
-+++ b/net/netlink/genetlink.c	2011-12-24 11:13:59.361360729 -0800
-@@ -792,6 +792,15 @@ static int ctrl_getfamily(struct sk_buff
- 
- 		name = nla_data(info->attrs[CTRL_ATTR_FAMILY_NAME]);
- 		res = genl_family_find_byname(name);
-+#ifdef CONFIG_MODULES
-+		if (res == NULL) {
-+			genl_unlock();
-+			request_module("net-pf-%d-proto-%d-type-%s",
-+				       PF_NETLINK, NETLINK_GENERIC, name);
-+			genl_lock();
-+			res = genl_family_find_byname(name);
-+		}
-+#endif
- 		err = -ENOENT;
- 	}
- 
+This could be simply a side effect of the fact that via-rhine only does
+RX work in it's NAPI handler.
+
+If all the work (or at least both TX and RX) were moved into the NAPI
+handler, it'd probably be easier to properly shut off all IRQs during
+NAPI processing, and thus avoid the high CPU load in the IRQ handler
+being seen here.
+
+This "shut off only some interrupts" scheme is just asking for trouble.
