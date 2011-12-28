@@ -1,77 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] skge: restore multicast rx filter on resume
-Date: Wed, 28 Dec 2011 13:09:08 -0500 (EST)
-Message-ID: <20111228.130908.182833189468208987.davem@davemloft.net>
-References: <20111227095635.19087752@nehalam.linuxnetplumber.net>
-	<20111228074143.GA8041@florz.florz.dyndns.org>
-	<20111228092714.0a6d5f80@nehalam.linuxnetplumber.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on
+ low-end broads.
+Date: Wed, 28 Dec 2011 10:17:10 -0800
+Message-ID: <20111228101710.51c4893f@nehalam.linuxnetplumber.net>
+References: <1325075319-13464-1-git-send-email-gurligebis@gentoo.org>
+	<1325083051.2327.47.camel@deadeye>
+	<CACPM=kWpGnBOuKPUK9MgzyETe4VmvEtVXkYtPA_+Xgn=COkCPw@mail.gmail.com>
+	<1325092423.2327.70.camel@deadeye>
+	<CACPM=kX2hcGt3XXDJkCAcOjv=5oqSHChhhphUAyRhR_PsNFEEQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: florz@florz.de, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Roger Luethi <rl@hellgate.ch>
+To: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56520 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754118Ab1L1SKU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 13:10:20 -0500
-In-Reply-To: <20111228092714.0a6d5f80@nehalam.linuxnetplumber.net>
+Received: from mail.vyatta.com ([76.74.103.46]:48731 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754045Ab1L1SRN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Dec 2011 13:17:13 -0500
+In-Reply-To: <CACPM=kX2hcGt3XXDJkCAcOjv=5oqSHChhhphUAyRhR_PsNFEEQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 28 Dec 2011 09:27:14 -0800
-
-> On Wed, 28 Dec 2011 08:41:43 +0100
-> Florian Zumbiehl <florz@florz.de> wrote:
-> 
->> Hi,
->> 
->> > > > diff --git a/drivers/net/skge.c b/drivers/net/skge.c
->> > > > index f4be5c7..cd968e5 100644
->> > > > --- a/drivers/net/skge.c
->> > > > +++ b/drivers/net/skge.c
->> > > > @@ -4046,6 +4046,7 @@ static int skge_resume(struct device *dev)
->> > > >  				dev_close(dev);
->> > > >  				goto out;
->> > > >  			}
->> > > > +			skge_set_multicast(dev);
->> > > >  		}
->> > > >  	}
->> > > >  out:
->> > 
->> > Right idea, but it needs to be done in a different spot to catch
->> > all the other device restart cases like changing settings.
->> 
->> Roughly like this maybe? (Successfully tested with an MTU change ...)
->> 
->> Florian
->> 
->> ---------------------------------------------------------------------------
->> skge: restore rx multicast filter on resume
->> 
->> Signed-off-by: Florian Zumbiehl <florz@florz.de>
->> 
->> diff --git a/drivers/net/skge.c b/drivers/net/skge.c
->> index f4be5c7..8f985a8 100644
->> --- a/drivers/net/skge.c
->> +++ b/drivers/net/skge.c
->> @@ -2587,6 +2587,9 @@ static int skge_up(struct net_device *dev)
->>  	spin_unlock_irq(&hw->hw_lock);
->>  
->>  	napi_enable(&skge->napi);
->> +
->> +	skge_set_multicast(dev);
->> +
->>  	return 0;
->>  
->>   free_rx_ring:
-> 
-> Looks good. That is (basically) the same as the patch I was testing.
-> 
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
-
-Florian, please formally resubmit this with proper changelog and
-Stephen's ack.
-
-Thanks.
+Looks like the hardware isn't really disabling interrupts correctly to support
+NAPI. NAPI is supposed to be friendly and under load the work should move to
+ksoftirqd. I suspect the IRQ management in this driver is borked.
+There is some stupid spin loops in the IRQ handler that happen when looking for
+Tx IRQ. I would run with debug set  and see if this is triggering.
