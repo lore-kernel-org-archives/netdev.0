@@ -1,200 +1,53 @@
-From: pablo@netfilter.org
-Subject: [PATCH 3/5] netfilter: xtables: add an IPv6 capable version of the ECN match
-Date: Wed, 28 Dec 2011 14:39:31 +0100
-Message-ID: <1325079573-6120-4-git-send-email-pablo@netfilter.org>
-References: <1325079573-6120-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jengelh@medozas.de,
-	kaber@trash.net
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1325079573-6120-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH 5/5] unix_diag: Report ack backlog info for listen sockets
+Date: Wed, 28 Dec 2011 17:40:24 +0400
+Message-ID: <4EFB1C48.7060407@parallels.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:18041 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753844Ab1L1Nk3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Dec 2011 08:40:29 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+I propose to reuse the MEMINFO bit and message for this, since it's
 
-References: http://www.spinics.net/lists/netfilter-devel/msg18875.html
+a) also 2 values
+b) symmetrical to how inet diag reports the length
 
-Augment xt_ecn by facilities to match on IPv6 packets' DSCP/TOS field
-similar to how it is already done for the IPv4 packet field.
+Is it OK, or is it better to introduce separate bit and message?
 
-Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+
 ---
- net/netfilter/xt_ecn.c |  106 ++++++++++++++++++++++++++++++++++++------------
- 1 files changed, 80 insertions(+), 26 deletions(-)
+ net/unix/diag.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/xt_ecn.c b/net/netfilter/xt_ecn.c
-index 3ebb3dc..6ccc35d 100644
---- a/net/netfilter/xt_ecn.c
-+++ b/net/netfilter/xt_ecn.c
-@@ -1,6 +1,8 @@
--/* IP tables module for matching the value of the IPv4 and TCP ECN bits
-+/*
-+ * Xtables module for matching the value of the IPv4/IPv6 and TCP ECN bits
-  *
-  * (C) 2002 by Harald Welte <laforge@gnumonks.org>
-+ * (C) 2011 Patrick McHardy <kaber@trash.net>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -17,32 +19,25 @@
- #include <linux/netfilter/x_tables.h>
- #include <linux/netfilter/xt_ecn.h>
- #include <linux/netfilter_ipv4/ip_tables.h>
-+#include <linux/netfilter_ipv6/ip6_tables.h>
+diff --git a/net/unix/diag.c b/net/unix/diag.c
+index dbae8a4..ebec5fc 100644
+--- a/net/unix/diag.c
++++ b/net/unix/diag.c
+@@ -113,8 +113,14 @@ static int sk_diag_show_meminfo(struct sock *sk, struct sk_buff *nlskb)
+ 	struct unix_diag_meminfo *mi;
  
- MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
--MODULE_DESCRIPTION("Xtables: Explicit Congestion Notification (ECN) flag match for IPv4");
-+MODULE_DESCRIPTION("Xtables: Explicit Congestion Notification (ECN) flag match");
- MODULE_LICENSE("GPL");
- MODULE_ALIAS("ipt_ecn");
-+MODULE_ALIAS("ip6t_ecn");
- 
--static inline bool match_ip(const struct sk_buff *skb,
--			    const struct xt_ecn_info *einfo)
--{
--	return ((ip_hdr(skb)->tos & XT_ECN_IP_MASK) == einfo->ip_ect) ^
--	       !!(einfo->invert & XT_ECN_OP_MATCH_IP);
--}
--
--static inline bool match_tcp(const struct sk_buff *skb,
--			     const struct xt_ecn_info *einfo,
--			     bool *hotdrop)
-+static bool match_tcp(const struct sk_buff *skb, struct xt_action_param *par)
- {
-+	const struct xt_ecn_info *einfo = par->matchinfo;
- 	struct tcphdr _tcph;
- 	const struct tcphdr *th;
- 
- 	/* In practice, TCP match does this, so can't fail.  But let's
- 	 * be good citizens.
- 	 */
--	th = skb_header_pointer(skb, ip_hdrlen(skb), sizeof(_tcph), &_tcph);
-+	th = skb_header_pointer(skb, par->thoff, sizeof(_tcph), &_tcph);
- 	if (th == NULL) {
--		*hotdrop = false;
- 		return false;
- 	}
- 
-@@ -69,7 +64,14 @@ static inline bool match_tcp(const struct sk_buff *skb,
- 	return true;
- }
- 
--static bool ecn_mt(const struct sk_buff *skb, struct xt_action_param *par)
-+static inline bool match_ip(const struct sk_buff *skb,
-+			    const struct xt_ecn_info *einfo)
-+{
-+	return ((ip_hdr(skb)->tos & XT_ECN_IP_MASK) == einfo->ip_ect) ^
-+	       !!(einfo->invert & XT_ECN_OP_MATCH_IP);
-+}
+ 	mi = UNIX_DIAG_PUT(nlskb, UNIX_DIAG_MEMINFO, sizeof(*mi));
+-	mi->udiag_len = sk_wmem_alloc_get(sk);
+-	mi->udiag_limit = sk->sk_sndbuf;
 +
-+static bool ecn_mt4(const struct sk_buff *skb, struct xt_action_param *par)
- {
- 	const struct xt_ecn_info *info = par->matchinfo;
- 
-@@ -78,14 +80,14 @@ static bool ecn_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 			return false;
- 
- 	if (info->operation & (XT_ECN_OP_MATCH_ECE | XT_ECN_OP_MATCH_CWR)) {
--		if (!match_tcp(skb, info, &par->hotdrop))
-+		if (!match_tcp(skb, par))
- 			return false;
- 	}
- 
- 	return true;
- }
- 
--static int ecn_mt_check(const struct xt_mtchk_param *par)
-+static int ecn_mt_check4(const struct xt_mtchk_param *par)
- {
- 	const struct xt_ecn_info *info = par->matchinfo;
- 	const struct ipt_ip *ip = par->entryinfo;
-@@ -105,23 +107,75 @@ static int ecn_mt_check(const struct xt_mtchk_param *par)
- 	return 0;
- }
- 
--static struct xt_match ecn_mt_reg __read_mostly = {
--	.name		= "ecn",
--	.family		= NFPROTO_IPV4,
--	.match		= ecn_mt,
--	.matchsize	= sizeof(struct xt_ecn_info),
--	.checkentry	= ecn_mt_check,
--	.me		= THIS_MODULE,
-+static inline bool match_ipv6(const struct sk_buff *skb,
-+			      const struct xt_ecn_info *einfo)
-+{
-+	return (((ipv6_hdr(skb)->flow_lbl[0] >> 4) & XT_ECN_IP_MASK) ==
-+	        einfo->ip_ect) ^
-+	       !!(einfo->invert & XT_ECN_OP_MATCH_IP);
-+}
-+
-+static bool ecn_mt6(const struct sk_buff *skb, struct xt_action_param *par)
-+{
-+	const struct xt_ecn_info *info = par->matchinfo;
-+
-+	if (info->operation & XT_ECN_OP_MATCH_IP && !match_ipv6(skb, info))
-+		return false;
-+
-+	if (info->operation & (XT_ECN_OP_MATCH_ECE | XT_ECN_OP_MATCH_CWR) &&
-+	    !match_tcp(skb, par))
-+		return false;
-+
-+	return true;
-+}
-+
-+static int ecn_mt_check6(const struct xt_mtchk_param *par)
-+{
-+	const struct xt_ecn_info *info = par->matchinfo;
-+	const struct ip6t_ip6 *ip = par->entryinfo;
-+
-+	if (info->operation & XT_ECN_OP_MATCH_MASK)
-+		return -EINVAL;
-+
-+	if (info->invert & XT_ECN_OP_MATCH_MASK)
-+		return -EINVAL;
-+
-+	if (info->operation & (XT_ECN_OP_MATCH_ECE | XT_ECN_OP_MATCH_CWR) &&
-+	    (ip->proto != IPPROTO_TCP || ip->invflags & IP6T_INV_PROTO)) {
-+		pr_info("cannot match TCP bits in rule for non-tcp packets\n");
-+		return -EINVAL;
++	if (sk->sk_state == TCP_LISTEN) {
++		mi->udiag_len = sk->sk_receive_queue.qlen;
++		mi->udiag_limit = sk->sk_max_ack_backlog;
++	} else {
++		mi->udiag_len = sk_wmem_alloc_get(sk);
++		mi->udiag_limit = sk->sk_sndbuf;
 +	}
-+
-+	return 0;
-+}
-+
-+static struct xt_match ecn_mt_reg[] __read_mostly = {
-+	{
-+		.name		= "ecn",
-+		.family		= NFPROTO_IPV4,
-+		.match		= ecn_mt4,
-+		.matchsize	= sizeof(struct xt_ecn_info),
-+		.checkentry	= ecn_mt_check4,
-+		.me		= THIS_MODULE,
-+	},
-+	{
-+		.name		= "ecn",
-+		.family		= NFPROTO_IPV6,
-+		.match		= ecn_mt6,
-+		.matchsize	= sizeof(struct xt_ecn_info),
-+		.checkentry	= ecn_mt_check6,
-+		.me		= THIS_MODULE,
-+	},
- };
  
- static int __init ecn_mt_init(void)
- {
--	return xt_register_match(&ecn_mt_reg);
-+	return xt_register_matches(ecn_mt_reg, ARRAY_SIZE(ecn_mt_reg));
- }
+ 	return 0;
  
- static void __exit ecn_mt_exit(void)
- {
--	xt_unregister_match(&ecn_mt_reg);
-+	xt_unregister_matches(ecn_mt_reg, ARRAY_SIZE(ecn_mt_reg));
- }
- 
- module_init(ecn_mt_init);
 -- 
-1.7.7.3
-
+1.5.5.6
