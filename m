@@ -1,95 +1,178 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH 4/5] unix_diag: Report memory usage info
-Date: Wed, 28 Dec 2011 17:39:26 +0400
-Message-ID: <4EFB1C0E.4060004@parallels.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:48267 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753770Ab1L1Njc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Dec 2011 08:39:32 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: pablo@netfilter.org
+Subject: [PATCH 2/5] netfilter: xtables: give xt_ecn its own name
+Date: Wed, 28 Dec 2011 14:39:30 +0100
+Message-ID: <1325079573-6120-3-git-send-email-pablo@netfilter.org>
+References: <1325079573-6120-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jengelh@medozas.de,
+	kaber@trash.net
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1325079573-6120-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Symmetrical to inet sockets, but unix only have two meaningful
-values -- the wmem allocation and sndbuf.
+From: Jan Engelhardt <jengelh@medozas.de>
 
-Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+Use the new macro and struct names in xt_ecn.h, and put the old
+definitions into a definition-forwarding ipt_ecn.h.
 
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/unix_diag.h |    7 +++++++
- net/unix/diag.c           |   18 ++++++++++++++++++
- 2 files changed, 25 insertions(+), 0 deletions(-)
+ include/linux/netfilter/xt_ecn.h       |   12 +++++-----
+ include/linux/netfilter_ipv4/ipt_ecn.h |   11 +++++++++-
+ net/netfilter/xt_ecn.c                 |   34 ++++++++++++++++----------------
+ 3 files changed, 33 insertions(+), 24 deletions(-)
 
-diff --git a/include/linux/unix_diag.h b/include/linux/unix_diag.h
-index 3f7afb0..d62e562 100644
---- a/include/linux/unix_diag.h
-+++ b/include/linux/unix_diag.h
-@@ -16,6 +16,7 @@ struct unix_diag_req {
- #define UDIAG_SHOW_PEER		0x00000004	/* show peer socket info */
- #define UDIAG_SHOW_ICONS	0x00000008	/* show pending connections */
- #define UDIAG_SHOW_RQLEN	0x00000010	/* show skb receive queue len */
-+#define UDIAG_SHOW_MEMINFO	0x00000020
+diff --git a/include/linux/netfilter/xt_ecn.h b/include/linux/netfilter/xt_ecn.h
+index 065c1a5..7158fca 100644
+--- a/include/linux/netfilter/xt_ecn.h
++++ b/include/linux/netfilter/xt_ecn.h
+@@ -12,16 +12,16 @@
+ #include <linux/types.h>
+ #include <linux/netfilter/xt_dscp.h>
  
- struct unix_diag_msg {
- 	__u8	udiag_family;
-@@ -33,6 +34,7 @@ enum {
- 	UNIX_DIAG_PEER,
- 	UNIX_DIAG_ICONS,
- 	UNIX_DIAG_RQLEN,
-+	UNIX_DIAG_MEMINFO,
+-#define IPT_ECN_IP_MASK	(~XT_DSCP_MASK)
++#define XT_ECN_IP_MASK	(~XT_DSCP_MASK)
  
- 	UNIX_DIAG_MAX,
- };
-@@ -42,4 +44,9 @@ struct unix_diag_vfs {
- 	__u32	udiag_vfs_dev;
- };
+-#define IPT_ECN_OP_MATCH_IP	0x01
+-#define IPT_ECN_OP_MATCH_ECE	0x10
+-#define IPT_ECN_OP_MATCH_CWR	0x20
++#define XT_ECN_OP_MATCH_IP	0x01
++#define XT_ECN_OP_MATCH_ECE	0x10
++#define XT_ECN_OP_MATCH_CWR	0x20
  
-+struct unix_diag_meminfo {
-+	__u32	udiag_len;
-+	__u32	udiag_limit;
+-#define IPT_ECN_OP_MATCH_MASK	0xce
++#define XT_ECN_OP_MATCH_MASK	0xce
+ 
+ /* match info */
+-struct ipt_ecn_info {
++struct xt_ecn_info {
+ 	__u8 operation;
+ 	__u8 invert;
+ 	__u8 ip_ect;
+diff --git a/include/linux/netfilter_ipv4/ipt_ecn.h b/include/linux/netfilter_ipv4/ipt_ecn.h
+index b1124ec..0e0c063 100644
+--- a/include/linux/netfilter_ipv4/ipt_ecn.h
++++ b/include/linux/netfilter_ipv4/ipt_ecn.h
+@@ -2,5 +2,14 @@
+ #define _IPT_ECN_H
+ 
+ #include <linux/netfilter/xt_ecn.h>
++#define ipt_ecn_info xt_ecn_info
+ 
+-#endif /* _IPT_ECN_H */
++enum {
++	IPT_ECN_IP_MASK       = XT_ECN_IP_MASK,
++	IPT_ECN_OP_MATCH_IP   = XT_ECN_OP_MATCH_IP,
++	IPT_ECN_OP_MATCH_ECE  = XT_ECN_OP_MATCH_ECE,
++	IPT_ECN_OP_MATCH_CWR  = XT_ECN_OP_MATCH_CWR,
++	IPT_ECN_OP_MATCH_MASK = XT_ECN_OP_MATCH_MASK,
 +};
 +
- #endif
-diff --git a/net/unix/diag.c b/net/unix/diag.c
-index c5bdbcb..dbae8a4 100644
---- a/net/unix/diag.c
-+++ b/net/unix/diag.c
-@@ -108,6 +108,20 @@ rtattr_failure:
- 	return -EMSGSIZE;
++#endif /* IPT_ECN_H */
+diff --git a/net/netfilter/xt_ecn.c b/net/netfilter/xt_ecn.c
+index 2c198f5..3ebb3dc 100644
+--- a/net/netfilter/xt_ecn.c
++++ b/net/netfilter/xt_ecn.c
+@@ -15,8 +15,8 @@
+ #include <linux/tcp.h>
+ 
+ #include <linux/netfilter/x_tables.h>
++#include <linux/netfilter/xt_ecn.h>
+ #include <linux/netfilter_ipv4/ip_tables.h>
+-#include <linux/netfilter_ipv4/ipt_ecn.h>
+ 
+ MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
+ MODULE_DESCRIPTION("Xtables: Explicit Congestion Notification (ECN) flag match for IPv4");
+@@ -24,14 +24,14 @@ MODULE_LICENSE("GPL");
+ MODULE_ALIAS("ipt_ecn");
+ 
+ static inline bool match_ip(const struct sk_buff *skb,
+-			    const struct ipt_ecn_info *einfo)
++			    const struct xt_ecn_info *einfo)
+ {
+-	return ((ip_hdr(skb)->tos & IPT_ECN_IP_MASK) == einfo->ip_ect) ^
+-	       !!(einfo->invert & IPT_ECN_OP_MATCH_IP);
++	return ((ip_hdr(skb)->tos & XT_ECN_IP_MASK) == einfo->ip_ect) ^
++	       !!(einfo->invert & XT_ECN_OP_MATCH_IP);
  }
  
-+static int sk_diag_show_meminfo(struct sock *sk, struct sk_buff *nlskb)
-+{
-+	struct unix_diag_meminfo *mi;
-+
-+	mi = UNIX_DIAG_PUT(nlskb, UNIX_DIAG_MEMINFO, sizeof(*mi));
-+	mi->udiag_len = sk_wmem_alloc_get(sk);
-+	mi->udiag_limit = sk->sk_sndbuf;
-+
-+	return 0;
-+
-+rtattr_failure:
-+	return -EMSGSIZE;
-+}
-+
- static int sk_diag_fill(struct sock *sk, struct sk_buff *skb, struct unix_diag_req *req,
- 		u32 pid, u32 seq, u32 flags, int sk_ino)
+ static inline bool match_tcp(const struct sk_buff *skb,
+-			     const struct ipt_ecn_info *einfo,
++			     const struct xt_ecn_info *einfo,
+ 			     bool *hotdrop)
  {
-@@ -146,6 +160,10 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb, struct unix_diag_r
- 			sk_diag_show_rqlen(sk, skb))
- 		goto nlmsg_failure;
+ 	struct tcphdr _tcph;
+@@ -46,8 +46,8 @@ static inline bool match_tcp(const struct sk_buff *skb,
+ 		return false;
+ 	}
  
-+	if ((req->udiag_show & UDIAG_SHOW_MEMINFO) &&
-+			sk_diag_show_meminfo(sk, skb))
-+		goto nlmsg_failure;
-+
- 	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
- 	return skb->len;
+-	if (einfo->operation & IPT_ECN_OP_MATCH_ECE) {
+-		if (einfo->invert & IPT_ECN_OP_MATCH_ECE) {
++	if (einfo->operation & XT_ECN_OP_MATCH_ECE) {
++		if (einfo->invert & XT_ECN_OP_MATCH_ECE) {
+ 			if (th->ece == 1)
+ 				return false;
+ 		} else {
+@@ -56,8 +56,8 @@ static inline bool match_tcp(const struct sk_buff *skb,
+ 		}
+ 	}
  
+-	if (einfo->operation & IPT_ECN_OP_MATCH_CWR) {
+-		if (einfo->invert & IPT_ECN_OP_MATCH_CWR) {
++	if (einfo->operation & XT_ECN_OP_MATCH_CWR) {
++		if (einfo->invert & XT_ECN_OP_MATCH_CWR) {
+ 			if (th->cwr == 1)
+ 				return false;
+ 		} else {
+@@ -71,13 +71,13 @@ static inline bool match_tcp(const struct sk_buff *skb,
+ 
+ static bool ecn_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+-	const struct ipt_ecn_info *info = par->matchinfo;
++	const struct xt_ecn_info *info = par->matchinfo;
+ 
+-	if (info->operation & IPT_ECN_OP_MATCH_IP)
++	if (info->operation & XT_ECN_OP_MATCH_IP)
+ 		if (!match_ip(skb, info))
+ 			return false;
+ 
+-	if (info->operation & (IPT_ECN_OP_MATCH_ECE|IPT_ECN_OP_MATCH_CWR)) {
++	if (info->operation & (XT_ECN_OP_MATCH_ECE | XT_ECN_OP_MATCH_CWR)) {
+ 		if (!match_tcp(skb, info, &par->hotdrop))
+ 			return false;
+ 	}
+@@ -87,16 +87,16 @@ static bool ecn_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 
+ static int ecn_mt_check(const struct xt_mtchk_param *par)
+ {
+-	const struct ipt_ecn_info *info = par->matchinfo;
++	const struct xt_ecn_info *info = par->matchinfo;
+ 	const struct ipt_ip *ip = par->entryinfo;
+ 
+-	if (info->operation & IPT_ECN_OP_MATCH_MASK)
++	if (info->operation & XT_ECN_OP_MATCH_MASK)
+ 		return -EINVAL;
+ 
+-	if (info->invert & IPT_ECN_OP_MATCH_MASK)
++	if (info->invert & XT_ECN_OP_MATCH_MASK)
+ 		return -EINVAL;
+ 
+-	if (info->operation & (IPT_ECN_OP_MATCH_ECE|IPT_ECN_OP_MATCH_CWR) &&
++	if (info->operation & (XT_ECN_OP_MATCH_ECE | XT_ECN_OP_MATCH_CWR) &&
+ 	    (ip->proto != IPPROTO_TCP || ip->invflags & IPT_INV_PROTO)) {
+ 		pr_info("cannot match TCP bits in rule for non-tcp packets\n");
+ 		return -EINVAL;
+@@ -109,7 +109,7 @@ static struct xt_match ecn_mt_reg __read_mostly = {
+ 	.name		= "ecn",
+ 	.family		= NFPROTO_IPV4,
+ 	.match		= ecn_mt,
+-	.matchsize	= sizeof(struct ipt_ecn_info),
++	.matchsize	= sizeof(struct xt_ecn_info),
+ 	.checkentry	= ecn_mt_check,
+ 	.me		= THIS_MODULE,
+ };
 -- 
-1.5.5.6
+1.7.7.3
+
