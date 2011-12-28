@@ -1,88 +1,113 @@
-From: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
-Subject: Re: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on low-end broads.
-Date: Wed, 28 Dec 2011 16:14:39 +0100
-Message-ID: <CACPM=kWpGnBOuKPUK9MgzyETe4VmvEtVXkYtPA_+Xgn=COkCPw@mail.gmail.com>
-References: <1325075319-13464-1-git-send-email-gurligebis@gentoo.org>
-	<1325083051.2327.47.camel@deadeye>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: The mystery of optimistic ipv6 DAD handling
+Date: Wed, 28 Dec 2011 10:19:28 -0500
+Message-ID: <20111228151928.GA12025@neilslaptop.think-freely.org>
+References: <20111227.140652.1729386263761283235.davem@davemloft.net>
+ <20111227.145305.229364634255751368.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Roger Luethi <rl@hellgate.ch>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:64934 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752875Ab1L1POk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 10:14:40 -0500
-In-Reply-To: <1325083051.2327.47.camel@deadeye>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57117 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753090Ab1L1PTi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 10:19:38 -0500
+Content-Disposition: inline
+In-Reply-To: <20111227.145305.229364634255751368.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/12/28 Ben Hutchings <bhutchings@solarflare.com>:
-> On Wed, 2011-12-28 at 12:28 +0000, Bjarke Istrup Pedersen wrote:
->> Working around problem causing high CPU load and hanging system when
->> there is alot of network trafic.
->>
->> It is kind of an ugly way to work around it, but it allows the Soekr=
-is
->> net5501 to have trafic between two of it's NICs without hanging so m=
-uch
->> that the watchdog kicks in and does a hard reboot of the system.
->>
->> There is more info on the problem here:
->> http://http://lists.soekris.com/pipermail/soekris-tech/2010-October/=
-016889.html
->>
->> Tested with positive results on two Soekris net5501-70 boxes.
->
-> This is completely wrong. =A0In a UP configuration the extra spinlock
-> calls have no effect (except perhaps a small delay). =A0In an SMP
-> configuration they will cause rhine_tx() to deadlock when it also tri=
-es
-> to acquire the spinlock.
->
-> Ben.
+On Tue, Dec 27, 2011 at 02:53:05PM -0500, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Tue, 27 Dec 2011 14:06:52 -0500 (EST)
+> 
+> > However, two things strike me:
+> > 
+> > 1) even beforehand we'd only get a NULL neigh when the device pointer
+> >    is NULL, that can't happen here, rt->rt6i_dev will be non-NULL always
+> >    in these circumstances, it's forced to be net->loopback_dev by the
+> >    ip6_dst_alloc() call made by addrconf_dst_alloc() (the code back
+> >    in 2.6.21 does the same exact thing, just inline)
+> > 
+> > 2) on top of that it's looking up a neighbour using rt->rt6i_gateway
+> >    as the key, that's either bogus or pointless.  As far as I can tell
+> >    it's uninitialized at this point and therefore always all-zeros.
+> > 
+> > My quick hunch is that the neigh should be looked up based upon 'addr', and
+> > that ipv6_add_addr() should test if the neigh is resolved in order to determine
+> > if the optimistic flag should be cleared.  That matches the logic in the comment
+> > "do not yet know the link layer address of our nexthop router."
+> > 
+> > Neil, any chance you can help me unravel this?
+> 
+> So the fundamental thing is that these addrconf routes are mainly for
+> for input and looping back traffic on output.
+> 
+> We create the addrconf route "to us", for input.  That's why the lookup
+> key is the ipv6 address we are configuring on the interface.
+> 
+> For output, the neigh is "don't care".  It goes to the loopback device
+> and for loopback ->hard_header is NULL so
+> net/ipv6/ndisc.c:ndisc_constructor() directly hooks up
+> neigh->ops->queue_xmit as the neigh->output method, which is
+> dev_queue_xmit().  So it doesn't matter that we lookup the neigh in
+> addrconf_dst_alloc() using the all-zeros rt->rt6i_gateway.
+> 
+> So this route and it's neigh have nothing to do with link layer
+> address of any nexthop gatway(s) in this interface.
+> 
+> Therefore the test is completely wrong, and all I can determine is
+> that we should flat out remove it.  It never triggers anyways.
+> 
+> Perhaps we should find another appropriate spot to put this kind of
+> test, but in this spot and against this route object seems totally not
+> right.
+> 
+> Neil, what say you?
+Yeah, If the premise that the test never triggers is true (and it seems like
+you've confirmed that), then theres no harm in removing it.  It still
+seems like we might still need the test somewhere (maybe on a manual route add).
+I've family in town, so I'm not able to look at this closely today, but I'd say this
+is at least a harmless change right now.  Lets take this change, and I'll
+re-read the RFC and look for appropriate code paths where we may need this
+test in a few days.  Thanks Dave!
 
-Okay, the Soekris net5501-70 boxes are single-core, and I haven't got
-any SMP boxes with that nic.
-Is there a better solution for the problem then, to avoid it hanging
-the box on a non-smp machine with a slow (500mhz) cpu?
+Acked-By: Neil Horman <nhorman@tuxdriver.com>
 
-/Bjarke
-
-> [...]
->> diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethe=
-rnet/via/via-rhine.c
->> index f34dd99..8c77dcd 100644
->> --- a/drivers/net/ethernet/via/via-rhine.c
->> +++ b/drivers/net/ethernet/via/via-rhine.c
->> @@ -1567,6 +1567,9 @@ static irqreturn_t rhine_interrupt(int irq, vo=
-id *dev_instance)
->> =A0 =A0 =A0 =A0 int boguscnt =3D max_interrupt_work;
->> =A0 =A0 =A0 =A0 int handled =3D 0;
->>
->> + =A0 =A0 =A0 if (!spin_trylock(&rp->lock))
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return IRQ_RETVAL(handled);
->> +
->> =A0 =A0 =A0 =A0 while ((intr_status =3D get_intr_status(dev))) {
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 handled =3D 1;
->>
->> @@ -1616,6 +1619,8 @@ static irqreturn_t rhine_interrupt(int irq, vo=
-id *dev_instance)
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
->> =A0 =A0 =A0 =A0 }
->>
->> + =A0 =A0 =A0 spin_unlock(&rp->lock);
->> +
->> =A0 =A0 =A0 =A0 if (debug > 3)
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 netdev_dbg(dev, "exiting interrupt, =
-status=3D%08x\n",
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ioread16(ioad=
-dr + IntrStatus));
->
-> --
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
->
+> 
+> --------------------
+> ipv6: Remove optimistic DAD flag test in ipv6_add_addr()
+> 
+> The route we have here is for the address being added to the interface,
+> ie. for input packet processing.
+> 
+> Therefore using that route to determine whether an output nexthop gateway
+> is known and resolved doesn't make any sense.
+> 
+> So, simply remove this test, it never triggered anyways.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 59a9d0e..85421cc 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -650,16 +650,6 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr, int pfxlen,
+>  
+>  	ifa->rt = rt;
+>  
+> -	/*
+> -	 * part one of RFC 4429, section 3.3
+> -	 * We should not configure an address as
+> -	 * optimistic if we do not yet know the link
+> -	 * layer address of our nexhop router
+> -	 */
+> -
+> -	if (dst_get_neighbour_noref_raw(&rt->dst) == NULL)
+> -		ifa->flags &= ~IFA_F_OPTIMISTIC;
+> -
+>  	ifa->idev = idev;
+>  	in6_dev_hold(idev);
+>  	/* For caller */
+> 
