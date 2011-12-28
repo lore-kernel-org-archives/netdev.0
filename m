@@ -1,62 +1,57 @@
-From: Florian Zumbiehl <florz@florz.de>
-Subject: Re: [PATCH] skge: restore multicast rx filter on resume
-Date: Wed, 28 Dec 2011 08:41:43 +0100
-Message-ID: <20111228074143.GA8041@florz.florz.dyndns.org>
-References: <20111225081833.GC3088@florz.florz.dyndns.org>
- <20111226.151754.417402855307646295.davem@davemloft.net>
- <20111227095635.19087752@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
+Subject: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on low-end broads.
+Date: Wed, 28 Dec 2011 12:28:39 +0000
+Message-ID: <1325075319-13464-1-git-send-email-gurligebis@gentoo.org>
+Cc: netdev@vger.kernel.org, Roger Luethi <rl@hellgate.ch>,
+	Bjarke Istrup Pedersen <gurligebis@gentoo.org>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rain.florz.de ([62.216.164.86]:45720 "EHLO
-	rain.florz.dyndns.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751252Ab1L1Hlw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 02:41:52 -0500
-Content-Disposition: inline
-In-Reply-To: <20111227095635.19087752@nehalam.linuxnetplumber.net>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:44784 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213Ab1L1MbA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 07:31:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Working around problem causing high CPU load and hanging system when
+there is alot of network trafic.
 
-> > > diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-> > > index f4be5c7..cd968e5 100644
-> > > --- a/drivers/net/skge.c
-> > > +++ b/drivers/net/skge.c
-> > > @@ -4046,6 +4046,7 @@ static int skge_resume(struct device *dev)
-> > >  				dev_close(dev);
-> > >  				goto out;
-> > >  			}
-> > > +			skge_set_multicast(dev);
-> > >  		}
-> > >  	}
-> > >  out:
-> 
-> Right idea, but it needs to be done in a different spot to catch
-> all the other device restart cases like changing settings.
+It is kind of an ugly way to work around it, but it allows the Soekris
+net5501 to have trafic between two of it's NICs without hanging so much
+that the watchdog kicks in and does a hard reboot of the system.
 
-Roughly like this maybe? (Successfully tested with an MTU change ...)
+There is more info on the problem here:
+http://http://lists.soekris.com/pipermail/soekris-tech/2010-October/016889.html
 
-Florian
+Tested with positive results on two Soekris net5501-70 boxes.
 
----------------------------------------------------------------------------
-skge: restore rx multicast filter on resume
+Signed-off-by: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
+---
+ drivers/net/ethernet/via/via-rhine.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-Signed-off-by: Florian Zumbiehl <florz@florz.de>
-
-diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-index f4be5c7..8f985a8 100644
---- a/drivers/net/skge.c
-+++ b/drivers/net/skge.c
-@@ -2587,6 +2587,9 @@ static int skge_up(struct net_device *dev)
- 	spin_unlock_irq(&hw->hw_lock);
+diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
+index f34dd99..8c77dcd 100644
+--- a/drivers/net/ethernet/via/via-rhine.c
++++ b/drivers/net/ethernet/via/via-rhine.c
+@@ -1567,6 +1567,9 @@ static irqreturn_t rhine_interrupt(int irq, void *dev_instance)
+ 	int boguscnt = max_interrupt_work;
+ 	int handled = 0;
  
- 	napi_enable(&skge->napi);
++	if (!spin_trylock(&rp->lock))
++		return IRQ_RETVAL(handled);
 +
-+	skge_set_multicast(dev);
-+
- 	return 0;
+ 	while ((intr_status = get_intr_status(dev))) {
+ 		handled = 1;
  
-  free_rx_ring:
+@@ -1616,6 +1619,8 @@ static irqreturn_t rhine_interrupt(int irq, void *dev_instance)
+ 		}
+ 	}
+ 
++	spin_unlock(&rp->lock);
++
+ 	if (debug > 3)
+ 		netdev_dbg(dev, "exiting interrupt, status=%08x\n",
+ 			   ioread16(ioaddr + IntrStatus));
+-- 
+1.7.8
