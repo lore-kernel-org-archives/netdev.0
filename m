@@ -1,103 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Crash in ip_expire/icmp_send - 2.6.38.2 (Ubuntu 11.04 natty)
-Date: Tue, 27 Dec 2011 22:48:53 -0500 (EST)
-Message-ID: <20111227.224853.1945641698257880843.davem@davemloft.net>
-References: <1325043141.4354.20.camel@boudreau>
+Subject: [GIT] Networking
+Date: Tue, 27 Dec 2011 22:50:11 -0500 (EST)
+Message-ID: <20111227.225011.2200443449958204960.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tim@edgecast.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51779 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753185Ab1L1Ds4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2011 22:48:56 -0500
-In-Reply-To: <1325043141.4354.20.camel@boudreau>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-Well known and fixed a long time ago, see the patch below.
+1) AF_PACKET bind() can leak a netdevice reference, from Wei Yongjun.
 
-Please reproduce bugs against current upstream kernels before
-reporting the problem here, if it only occurs in the vendor's
-kernel then the appropriate thing to do is to report it to
-the vendor.
+2) netem erroneously calls vfree() under spinlock and soft interrupt
+   disable, fix from Eric Dumazet.
 
---------------------
-commit 64f3b9e203bd06855072e295557dca1485a2ecba
-Author: Eric Dumazet <eric.dumazet@gmail.com>
-Date:   Wed May 4 10:02:26 2011 +0000
+3) ctnetlink_get_expect() can make nfnetlink loop forever when it
+   returns -EAGAIN in situations where it should not, fix from
+   Pablo Neira Ayuso.
 
-    net: ip_expire() must revalidate route
-    
-    Commit 4a94445c9a5c (net: Use ip_route_input_noref() in input path)
-    added a bug in IP defragmentation handling, in case timeout is fired.
-    
-    When a frame is defragmented, we use last skb dst field when building
-    final skb. Its dst is valid, since we are in rcu read section.
-    
-    But if a timeout occurs, we take first queued fragment to build one ICMP
-    TIME EXCEEDED message. Problem is all queued skb have weak dst pointers,
-    since we escaped RCU critical section after their queueing. icmp_send()
-    might dereference a now freed (and possibly reused) part of memory.
-    
-    Calling skb_dst_drop() and ip_route_input_noref() to revalidate route is
-    the only possible choice.
-    
-    Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
-    Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+4) Autoloading connection tracking helpers cannot be done with
+   spinlocks held because that operation sleeps, fix also from Pablo.
 
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index a1151b8..b1d282f 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -223,31 +223,30 @@ static void ip_expire(unsigned long arg)
- 
- 	if ((qp->q.last_in & INET_FRAG_FIRST_IN) && qp->q.fragments != NULL) {
- 		struct sk_buff *head = qp->q.fragments;
-+		const struct iphdr *iph;
-+		int err;
- 
- 		rcu_read_lock();
- 		head->dev = dev_get_by_index_rcu(net, qp->iif);
- 		if (!head->dev)
- 			goto out_rcu_unlock;
- 
-+		/* skb dst is stale, drop it, and perform route lookup again */
-+		skb_dst_drop(head);
-+		iph = ip_hdr(head);
-+		err = ip_route_input_noref(head, iph->daddr, iph->saddr,
-+					   iph->tos, head->dev);
-+		if (err)
-+			goto out_rcu_unlock;
-+
- 		/*
--		 * Only search router table for the head fragment,
--		 * when defraging timeout at PRE_ROUTING HOOK.
-+		 * Only an end host needs to send an ICMP
-+		 * "Fragment Reassembly Timeout" message, per RFC792.
- 		 */
--		if (qp->user == IP_DEFRAG_CONNTRACK_IN && !skb_dst(head)) {
--			const struct iphdr *iph = ip_hdr(head);
--			int err = ip_route_input(head, iph->daddr, iph->saddr,
--						 iph->tos, head->dev);
--			if (unlikely(err))
--				goto out_rcu_unlock;
--
--			/*
--			 * Only an end host needs to send an ICMP
--			 * "Fragment Reassembly Timeout" message, per RFC792.
--			 */
--			if (skb_rtable(head)->rt_type != RTN_LOCAL)
--				goto out_rcu_unlock;
-+		if (qp->user == IP_DEFRAG_CONNTRACK_IN &&
-+		    skb_rtable(head)->rt_type != RTN_LOCAL)
-+			goto out_rcu_unlock;
- 
--		}
- 
- 		/* Send an ICMP "Fragment Reassembly Timeout" message. */
- 		icmp_send(head, ICMP_TIME_EXCEEDED, ICMP_EXC_FRAGTIME, 0);
+Please pull, thanks a lot!
+
+The following changes since commit 6fd8fb7f55cb6d45e7f078cd0eaf7e3c243f6c33:
+
+  Merge tag 'for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/ieee1394/linux1394 (2011-12-26 12:46:17 -0800)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+
+David S. Miller (1):
+      Merge branch 'nf' of git://1984.lsi.us.es/net
+
+Eric Dumazet (1):
+      netem: dont call vfree() under spinlock and BH disabled
+
+Pablo Neira Ayuso (2):
+      netfilter: ctnetlink: fix return value of ctnetlink_get_expect()
+      netfilter: ctnetlink: fix scheduling while atomic if helper is autoloaded
+
+Wei Yongjun (1):
+      packet: fix possible dev refcnt leak when bind fail
+
+ net/netfilter/nf_conntrack_netlink.c |   18 +++++++++++++-----
+ net/packet/af_packet.c               |    6 +++++-
+ net/sched/sch_netem.c                |    7 ++++---
+ 3 files changed, 22 insertions(+), 9 deletions(-)
