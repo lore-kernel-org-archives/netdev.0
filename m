@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/5] inet_diag: Extend the meminfo report
-Date: Wed, 28 Dec 2011 13:45:53 -0500 (EST)
-Message-ID: <20111228.134553.1005758963166343587.davem@davemloft.net>
-References: <4EFB1BE0.1020305@parallels.com>
+Subject: Re: [PATCH] genetlink: add auto module loading
+Date: Wed, 28 Dec 2011 13:49:39 -0500 (EST)
+Message-ID: <20111228.134939.1155715366574563784.davem@davemloft.net>
+References: <20111228101958.2326b7cc@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: xemul@parallels.com
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56774 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:56809 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754334Ab1L1Sp4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 13:45:56 -0500
-In-Reply-To: <4EFB1BE0.1020305@parallels.com>
+	with ESMTP id S1753940Ab1L1Stl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 13:49:41 -0500
+In-Reply-To: <20111228101958.2326b7cc@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@parallels.com>
-Date: Wed, 28 Dec 2011 17:38:40 +0400
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 28 Dec 2011 10:19:58 -0800
 
-> Add the backlog length and wmem and rmem buffers limits.
-> With this the TCP memory info is full and can be analyzed.
+> When testing L2TP support, I discovered that the l2tp module is not autoloaded
+> as are other netlink interfaces. There is because of lack of hook in genetlink to call
+> request_module and load the module.
 > 
-> Few words about extending the existing structure. The nla engine stores lengths of
-> fields and the nla parser will parse the new format successfully (checked on the ss
-> tool). But new apps will have to take this field's length into account. Hopefully
-> this is acceptable price for not introducing another ext bit and structure.
-> 
-> Singed-off-by: Pavel Emelyanov <xemul@parallels.com>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-I think you'll need to add a new extension, rather than create this incompatability.
+Applied, but for completeness we should probably also handle the "by ID" case right
+above this code block too.
+
+Could you please submit a patch for that?
+
+Thanks.
