@@ -1,42 +1,58 @@
-From: =?ISO-8859-15?Q?Niccol=F2_Belli?= <darkbasic@linuxsystems.it>
-Subject: [Announce] LARTC wiki available
-Date: Wed, 28 Dec 2011 16:52:11 +0100
-Message-ID: <4EFB3B2B.7060200@linuxsystems.it>
+From: Mircea Gherzan <mgherzan@gmail.com>
+Subject: Re: [PATCH v3] ARM: net: JIT compiler for packet filters
+Date: Wed, 28 Dec 2011 16:51:34 +0100
+Message-ID: <4EFB3B06.1090203@gmail.com>
+References: <1324404263-913-1-git-send-email-mgherzan@gmail.com> <20111220.135526.82432216865290827.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netfilter@vger.kernel.org" <netfilter@vger.kernel.org>,
-	Linux Networking Developer Mailing List
-	<netdev@vger.kernel.org>
-To: lartc@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	linux@arm.linux.org.uk
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxsystems.it ([2.119.245.41]:48089 "EHLO
-	mail.linuxsystems.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753954Ab1L1Ptd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 10:49:33 -0500
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:38904 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752875Ab1L1Pvh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 10:51:37 -0500
+Received: by eekc4 with SMTP id c4so12384045eek.19
+        for <netdev@vger.kernel.org>; Wed, 28 Dec 2011 07:51:36 -0800 (PST)
+In-Reply-To: <20111220.135526.82432216865290827.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-I still didn't find a viable solution for the LARTC wiki, so I decided=20
-to start hosting it on my own server. Later we can easily switch=20
-somewhere else if we keep using the same wiki engine (and maybe even=20
-with another wiki engine).
-I decided to use wikimedia because it's the only one I know of, so if=20
-someone knows a better alternative please let me know, we are still in=20
-time for a change.
-Since I never used a wiki seriously I will probably need someone else=20
-who can help me maintaining it, please let me know if you are=20
-experienced and willing to help.
+Am 20.12.2011 19:55, schrieb David Miller:
+> From: Mircea Gherzan<mgherzan@gmail.com>
+> Date: Tue, 20 Dec 2011 19:04:23 +0100
+>
+>> Based of Matt Evans's PPC64 implementation.
+>>
+>> The compiler generates ARM instructions but interworking is
+>> supported for Thumb2 kernels.
+>>
+>> Supports both little and big endian. Unaligned loads are emitted
+>> for ARMv6+. Not all the BPF opcodes that deal with ancillary data
+>> are supported. The scratch memory of the filter lives on the stack.
+>> Hardware integer division is used if it is available.
+>>
+>> Enabled in the same way as for x86-64 and PPC64:
+>>
+>> 	echo 1>  /proc/sys/net/core/bpf_jit_enable
+>>
+>> A value greater than 1 enables opcode output.
+>>
+>> Signed-off-by: Mircea Gherzan<mgherzan@gmail.com>
+>
+> I'm happy with this going in via the ARM tree once all the details
+> are worked out:
 
-Here is the wiki: http://lartc.linuxsystems.it/
-And here is the new mailing list for those who still don't know:=20
-http://vger.kernel.org/vger-lists.html#lartc
+I do not really care that much about the tree where this is going, as 
+long as it gets into 3.3 :) If you want to take it via the -net tree, 
+please synchronize with Russell (I've uploaded the patch to his tracking 
+system [1]).
 
-I just copy-pasted the Linux Advanced Routing & Traffic Control HOWTO=20
-atm, it still needs to be wikified and we still need to choose how to=20
-organize the contents.
+Thanks,
+Mircea
 
-Cheers,
-Niccol=F2
+[1] http://www.arm.linux.org.uk/developer/patche/viewpatch.php?id=7259/1
+
+> Acked-by: David S. Miller<davem@davemloft.net>
