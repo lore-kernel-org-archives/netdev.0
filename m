@@ -1,56 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 02/14 v2] mac802154: allocation of ieee802154 device
-Date: Wed, 28 Dec 2011 02:31:45 -0500 (EST)
-Message-ID: <20111228.023145.2078199792492848729.davem@davemloft.net>
-References: <1324919047-14851-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-	<20111226.150924.734645949941473044.davem@davemloft.net>
-	<CAJmB2rAyyPmYTmtTvFK3UuFn9t+361raA5R=92XPNHrH7dfgfw@mail.gmail.com>
+From: Florian Zumbiehl <florz@florz.de>
+Subject: Re: [PATCH] skge: restore multicast rx filter on resume
+Date: Wed, 28 Dec 2011 08:41:43 +0100
+Message-ID: <20111228074143.GA8041@florz.florz.dyndns.org>
+References: <20111225081833.GC3088@florz.florz.dyndns.org>
+ <20111226.151754.417402855307646295.davem@davemloft.net>
+ <20111227095635.19087752@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: alex.bluesman.smirnov@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52789 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751258Ab1L1Hbu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 02:31:50 -0500
-In-Reply-To: <CAJmB2rAyyPmYTmtTvFK3UuFn9t+361raA5R=92XPNHrH7dfgfw@mail.gmail.com>
+Received: from rain.florz.de ([62.216.164.86]:45720 "EHLO
+	rain.florz.dyndns.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751252Ab1L1Hlw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 02:41:52 -0500
+Content-Disposition: inline
+In-Reply-To: <20111227095635.19087752@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Date: Wed, 28 Dec 2011 10:19:23 +0300
+Hi,
 
-> Dear David,
->=20
-> 2011/12/26 David Miller <davem@davemloft.net>:
->> From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
->> Date: Mon, 26 Dec 2011 20:04:07 +0300
->>
->>> + =A0 =A0 /*
->>> + =A0 =A0 =A0* SoftMAC device is registered and running. One can ad=
-d
->>> + =A0 =A0 =A0* subinterfaces.
->>> + =A0 =A0 =A0*/
->>> + =A0 =A0 unsigned running:1;
->>
->> I told you to change this to a 'bool' in my previous review of your =
-changes.
->>
->> I'm pretty much going to stop reviewing right here, because I don't
->> want to waste my time only to find out that you've ignored other
->> review feedback I've already given to you.
->>
->=20
-> Regarding your comments to my previous post, none of them was omitted=
-=2E I
-> reworked code according to them and added extended comments in a patc=
-h
-> explaining why I can't follow your hint. The issue with 'bool' you ma=
-rked
-> was in another patch (#14) which I already fixed.
+> > > diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+> > > index f4be5c7..cd968e5 100644
+> > > --- a/drivers/net/skge.c
+> > > +++ b/drivers/net/skge.c
+> > > @@ -4046,6 +4046,7 @@ static int skge_resume(struct device *dev)
+> > >  				dev_close(dev);
+> > >  				goto out;
+> > >  			}
+> > > +			skge_set_multicast(dev);
+> > >  		}
+> > >  	}
+> > >  out:
+> 
+> Right idea, but it needs to be done in a different spot to catch
+> all the other device restart cases like changing settings.
 
-My bad, I thought I had asked you do it here too.
+Roughly like this maybe? (Successfully tested with an MTU change ...)
 
-Sorry about that.
+Florian
+
+---------------------------------------------------------------------------
+skge: restore rx multicast filter on resume
+
+Signed-off-by: Florian Zumbiehl <florz@florz.de>
+
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+index f4be5c7..8f985a8 100644
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -2587,6 +2587,9 @@ static int skge_up(struct net_device *dev)
+ 	spin_unlock_irq(&hw->hw_lock);
+ 
+ 	napi_enable(&skge->napi);
++
++	skge_set_multicast(dev);
++
+ 	return 0;
+ 
+  free_rx_ring:
