@@ -1,143 +1,219 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: bonding device in balance-alb mode shows packet loss in kernel 3.2-rc6
-Date: Wed, 28 Dec 2011 12:08:30 -0800
-Message-ID: <27384.1325102910@death>
-References: <E31FB011129F30488D5861F38390491520C52BCC8B@BLRX7MCDC201.AMER.DELL.COM>
-Cc: netdev@vger.kernel.org
-To: Narendra_K@Dell.com
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] ipv6: Use universal hash for NDISC.
+Date: Wed, 28 Dec 2011 15:14:49 -0500 (EST)
+Message-ID: <20111228.151449.565478155723952140.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:41891 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754165Ab1L1UJG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Dec 2011 15:09:06 -0500
-Received: from /spool/local
-	by e6.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Wed, 28 Dec 2011 15:09:04 -0500
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id pBSK8WJo292266
-	for <netdev@vger.kernel.org>; Wed, 28 Dec 2011 15:08:32 -0500
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id pBSK8Vpa007684
-	for <netdev@vger.kernel.org>; Wed, 28 Dec 2011 13:08:31 -0700
-In-reply-to: <E31FB011129F30488D5861F38390491520C52BCC8B@BLRX7MCDC201.AMER.DELL.COM>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57468 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754339Ab1L1UPE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 15:15:04 -0500
+Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
+	(authenticated bits=0)
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id pBSKF0c1024040
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 28 Dec 2011 12:15:02 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-<Narendra_K@Dell.com> wrote:
 
->Hello,
->
->On kernel version 3.2-rc6, when a bonding device is configured in 'balance-alb' mode,
->ping reported packet losses. By looking at protocol trance, it seemed like the lost
->packets had the destination MAC id of inactive slave. 
+In order to perform a proper universal hash on a vector of integers,
+we have to use different universal hashes on each vector element.
 
-	In balance-alb mode, there isn't really an "inactive" slave in
-the same sense as for active-backup mode.  For this mode, the "inactive"
-slave flag is used to suppress duplicates for multicast and broadcasts,
-to prevent multiple copies of those from being received (if each slave
-gets one copy).  Unicast traffic should pass normally to all slaves.
-Each slave also keeps a discrete MAC address, and peers are assigned to
-particular slaves via tailored ARP messages (so, different peers may see
-a different MAC for the bond's IP address).
+Which means we need 4 different hash randoms for ipv6.
 
->Scenario:
->
->Host under test:
->
->bond0 IP addr: 10.2.2.1 - balance-alb mode, 2 or more slaves.
->
->Remote Host1: 10.2.2.11
->
->Remote Host2: 10.2.2.2
->
->Ping to Host 1 IP. Observe that there is no packet loss
->
-># ping 10.2.2.11
->PING 10.2.2.11 (10.2.2.11) 56(84) bytes of data.
->64 bytes from 10.2.2.11: icmp_seq=1 ttl=64 time=0.156 ms
->64 bytes from 10.2.2.11: icmp_seq=2 ttl=64 time=0.130 ms
->64 bytes from 10.2.2.11: icmp_seq=3 ttl=64 time=0.151 ms
->64 bytes from 10.2.2.11: icmp_seq=4 ttl=64 time=0.137 ms
->64 bytes from 10.2.2.11: icmp_seq=5 ttl=64 time=0.151 ms
->64 bytes from 10.2.2.11: icmp_seq=6 ttl=64 time=0.129 ms
->^C
->--- 10.2.2.11 ping statistics ---
->6 packets transmitted, 6 received, 0% packet loss, time 4997ms
->rtt min/avg/max/mdev = 0.129/0.142/0.156/0.014 ms
->
->Now ping to Host2 IP. Observe that there is packet loss. It is reproducible almost
->always.
->
-># ping 10.2.2.2
->PING 10.2.2.2 (10.2.2.2) 56(84) bytes of data.
->64 bytes from 10.2.2.2: icmp_seq=6 ttl=64 time=0.108 ms
->64 bytes from 10.2.2.2: icmp_seq=7 ttl=64 time=0.104 ms
->64 bytes from 10.2.2.2: icmp_seq=8 ttl=64 time=0.119 ms
->64 bytes from 10.2.2.2: icmp_seq=56 ttl=64 time=0.139 ms
->64 bytes from 10.2.2.2: icmp_seq=57 ttl=64 time=0.111 ms
->^C
->--- 10.2.2.2 ping statistics ---
->75 packets transmitted, 5 received, 93% packet loss, time 74037ms
->rtt min/avg/max/mdev = 0.104/0.116/0.139/0.014 ms
->
->More information:
->
->Hardware information: 
->Dell PowerEdge R610
->
-># lspci | grep -i ether
->01:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5709 Gigabit Ethernet (rev 20)
->01:00.1 Ethernet controller: Broadcom Corporation NetXtreme II BCM5709 Gigabit Ethernet (rev 20)
->02:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5709 Gigabit Ethernet (rev 20)
->02:00.1 Ethernet controller: Broadcom Corporation NetXtreme II BCM5709 Gigabit Ethernet (rev 20)
->
->Kernel version:
->3.2.0-rc6
->
-># ethtool -i bond0
->driver: bonding
->version: 3.7.1
->
->By observing the packets on remote HOST2, the sequence is
->
->1. 'bond0' broadcasts an ARP request with source MAC equal to
->'bond0' MAC address and receives a ARP response to the same.
->Next few packets are received.
-
-	In this case, it means the peer has been assigned to the "em2"
-slave.
-
->2. After some, there are 2 ARP replies from 'bond0' to HOST2
->with source MAC equal to 'inactive slave' MAC id. Now HOST2 sends
->ICMP response with destnation MAC equal to inactive slave MAC id
->and these packets are dropped.
-
-	This part is not unusual for the balance-alb mode; the traffic
-is periodically rebalanced, and in this case the peer HOST2 was likely
-assigned to a different slave that it was previously.  I'm not sure why
-the packets don't reach their destination, but they shouldn't be dropped
-due to the slave being "inactive," as I explained above.
-
->The wireshark protocol trace is attached to this note.
->
->3. The behavior was independent of the Network adapters models.
->
->4. Also, I had few prints in 'eth_type_trans' and it seemed like the 'inactive slave'
->was not receiving any frames destined to it (00:21:9b:9d:a5:74) except ARP broadcasts.
->Setting the 'inactive slave' in 'promisc' mode made bond0 see the responses.
-
-	This seems very strange, since the MAC information shown later
-suggests that the slaves all are using their original MAC addresses, so
-the packets ought to be delivered.
-
-	I'm out of the office until next week, so I won't have an
-opportunity to try and reproduce this myself until then.  I wonder if
-something in the rx_handler changes over the last few months has broken
-this, although a look at the code suggests that it should be doing the
-right things.
-
-	-J
-
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+Committed to net-next
+
+ include/net/arp.h       |    2 +-
+ include/net/ndisc.h     |    9 +++++++++
+ include/net/neighbour.h |    6 ++++--
+ net/core/neighbour.c    |   13 ++++++++++---
+ net/decnet/dn_neigh.c   |    4 ++--
+ net/ipv4/arp.c          |    6 +++---
+ net/ipv6/ndisc.c        |   13 +++----------
+ 7 files changed, 32 insertions(+), 21 deletions(-)
+
+diff --git a/include/net/arp.h b/include/net/arp.h
+index 4979af8..0013dc8 100644
+--- a/include/net/arp.h
++++ b/include/net/arp.h
+@@ -23,7 +23,7 @@ static inline struct neighbour *__ipv4_neigh_lookup(struct neigh_table *tbl, str
+ 
+ 	rcu_read_lock_bh();
+ 	nht = rcu_dereference_bh(tbl->nht);
+-	hash_val = arp_hashfn(key, dev, nht->hash_rnd) >> (32 - nht->hash_shift);
++	hash_val = arp_hashfn(key, dev, nht->hash_rnd[0]) >> (32 - nht->hash_shift);
+ 	for (n = rcu_dereference_bh(nht->hash_buckets[hash_val]);
+ 	     n != NULL;
+ 	     n = rcu_dereference_bh(n->next)) {
+diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+index c977c37..e9c3002 100644
+--- a/include/net/ndisc.h
++++ b/include/net/ndisc.h
+@@ -79,6 +79,15 @@ struct nd_opt_hdr {
+ 	__u8		nd_opt_len;
+ } __packed;
+ 
++static inline u32 ndisc_hashfn(const void *pkey, const struct net_device *dev, __u32 *hash_rnd)
++{
++	const u32 *p32 = pkey;
++
++	return (((p32[0] ^ dev->ifindex) * hash_rnd[0]) +
++		(p32[1] * hash_rnd[1]) +
++		(p32[2] * hash_rnd[2]) +
++		(p32[3] * hash_rnd[3]));
++}
+ 
+ extern int			ndisc_init(void);
+ 
+diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+index e31f0a8..34c996f 100644
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -139,10 +139,12 @@ struct pneigh_entry {
+  *	neighbour table manipulation
+  */
+ 
++#define NEIGH_NUM_HASH_RND	4
++
+ struct neigh_hash_table {
+ 	struct neighbour __rcu	**hash_buckets;
+ 	unsigned int		hash_shift;
+-	__u32			hash_rnd;
++	__u32			hash_rnd[NEIGH_NUM_HASH_RND];
+ 	struct rcu_head		rcu;
+ };
+ 
+@@ -154,7 +156,7 @@ struct neigh_table {
+ 	int			key_len;
+ 	__u32			(*hash)(const void *pkey,
+ 					const struct net_device *dev,
+-					__u32 hash_rnd);
++					__u32 *hash_rnd);
+ 	int			(*constructor)(struct neighbour *);
+ 	int			(*pconstructor)(struct pneigh_entry *);
+ 	void			(*pdestructor)(struct pneigh_entry *);
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 4af151e..e287346 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -322,11 +322,18 @@ out_entries:
+ 	goto out;
+ }
+ 
++static void neigh_get_hash_rnd(u32 *x)
++{
++	get_random_bytes(x, sizeof(*x));
++	*x |= 1;
++}
++
+ static struct neigh_hash_table *neigh_hash_alloc(unsigned int shift)
+ {
+ 	size_t size = (1 << shift) * sizeof(struct neighbour *);
+ 	struct neigh_hash_table *ret;
+ 	struct neighbour __rcu **buckets;
++	int i;
+ 
+ 	ret = kmalloc(sizeof(*ret), GFP_ATOMIC);
+ 	if (!ret)
+@@ -343,8 +350,8 @@ static struct neigh_hash_table *neigh_hash_alloc(unsigned int shift)
+ 	}
+ 	ret->hash_buckets = buckets;
+ 	ret->hash_shift = shift;
+-	get_random_bytes(&ret->hash_rnd, sizeof(ret->hash_rnd));
+-	ret->hash_rnd |= 1;
++	for (i = 0; i < NEIGH_NUM_HASH_RND; i++)
++		neigh_get_hash_rnd(&ret->hash_rnd[i]);
+ 	return ret;
+ }
+ 
+@@ -1828,7 +1835,7 @@ static int neightbl_fill_info(struct sk_buff *skb, struct neigh_table *tbl,
+ 
+ 		rcu_read_lock_bh();
+ 		nht = rcu_dereference_bh(tbl->nht);
+-		ndc.ndtc_hash_rnd = nht->hash_rnd;
++		ndc.ndtc_hash_rnd = nht->hash_rnd[0];
+ 		ndc.ndtc_hash_mask = ((1 << nht->hash_shift) - 1);
+ 		rcu_read_unlock_bh();
+ 
+diff --git a/net/decnet/dn_neigh.c b/net/decnet/dn_neigh.c
+index 7d2fff2..befe426 100644
+--- a/net/decnet/dn_neigh.c
++++ b/net/decnet/dn_neigh.c
+@@ -88,9 +88,9 @@ static const struct neigh_ops dn_phase3_ops = {
+ 
+ static u32 dn_neigh_hash(const void *pkey,
+ 			 const struct net_device *dev,
+-			 __u32 hash_rnd)
++			 __u32 *hash_rnd)
+ {
+-	return jhash_2words(*(__u16 *)pkey, 0, hash_rnd);
++	return jhash_2words(*(__u16 *)pkey, 0, hash_rnd[0]);
+ }
+ 
+ struct neigh_table dn_neigh_table = {
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 381a087..59402be 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -121,7 +121,7 @@
+ /*
+  *	Interface to generic neighbour cache.
+  */
+-static u32 arp_hash(const void *pkey, const struct net_device *dev, __u32 rnd);
++static u32 arp_hash(const void *pkey, const struct net_device *dev, __u32 *hash_rnd);
+ static int arp_constructor(struct neighbour *neigh);
+ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb);
+ static void arp_error_report(struct neighbour *neigh, struct sk_buff *skb);
+@@ -215,9 +215,9 @@ int arp_mc_map(__be32 addr, u8 *haddr, struct net_device *dev, int dir)
+ 
+ static u32 arp_hash(const void *pkey,
+ 		    const struct net_device *dev,
+-		    __u32 hash_rnd)
++		    __u32 *hash_rnd)
+ {
+-	return arp_hashfn(*(u32 *)pkey, dev, hash_rnd);
++	return arp_hashfn(*(u32 *)pkey, dev, *hash_rnd);
+ }
+ 
+ static int arp_constructor(struct neighbour *neigh)
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index f3e50c2..538a619 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -93,7 +93,7 @@
+ 
+ static u32 ndisc_hash(const void *pkey,
+ 		      const struct net_device *dev,
+-		      __u32 rnd);
++		      __u32 *hash_rnd);
+ static int ndisc_constructor(struct neighbour *neigh);
+ static void ndisc_solicit(struct neighbour *neigh, struct sk_buff *skb);
+ static void ndisc_error_report(struct neighbour *neigh, struct sk_buff *skb);
+@@ -349,16 +349,9 @@ EXPORT_SYMBOL(ndisc_mc_map);
+ 
+ static u32 ndisc_hash(const void *pkey,
+ 		      const struct net_device *dev,
+-		      __u32 hash_rnd)
++		      __u32 *hash_rnd)
+ {
+-	const u32 *p32 = pkey;
+-	u32 addr_hash, i;
+-
+-	addr_hash = 0;
+-	for (i = 0; i < (sizeof(struct in6_addr) / sizeof(u32)); i++)
+-		addr_hash ^= *p32++;
+-
+-	return jhash_2words(addr_hash, dev->ifindex, hash_rnd);
++	return ndisc_hashfn(pkey, dev, hash_rnd);
+ }
+ 
+ static int ndisc_constructor(struct neighbour *neigh)
+-- 
+1.7.7.4
