@@ -1,37 +1,77 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: detect loss above high_seq in recovery
-Date: Wed, 28 Dec 2011 13:07:36 -0500 (EST)
-Message-ID: <20111228.130736.79570418506453470.davem@davemloft.net>
-References: <1325033182-25905-1-git-send-email-ycheng@google.com>
-	<alpine.DEB.2.00.1112281736480.7752@melkinpaasi.cs.helsinki.fi>
+Subject: Re: [PATCH] skge: restore multicast rx filter on resume
+Date: Wed, 28 Dec 2011 13:09:08 -0500 (EST)
+Message-ID: <20111228.130908.182833189468208987.davem@davemloft.net>
+References: <20111227095635.19087752@nehalam.linuxnetplumber.net>
+	<20111228074143.GA8041@florz.florz.dyndns.org>
+	<20111228092714.0a6d5f80@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ycheng@google.com, ncardwell@google.com, nanditad@google.com,
-	netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: florz@florz.de, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56503 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:56520 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753945Ab1L1SHv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 13:07:51 -0500
-In-Reply-To: <alpine.DEB.2.00.1112281736480.7752@melkinpaasi.cs.helsinki.fi>
+	with ESMTP id S1754118Ab1L1SKU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 13:10:20 -0500
+In-Reply-To: <20111228092714.0a6d5f80@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Wed, 28 Dec 2011 17:42:06 +0200 (EET)
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 28 Dec 2011 09:27:14 -0800
 
-> I don't think you can remove MIBs as they're userspace visible.
+> On Wed, 28 Dec 2011 08:41:43 +0100
+> Florian Zumbiehl <florz@florz.de> wrote:
+> 
+>> Hi,
+>> 
+>> > > > diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+>> > > > index f4be5c7..cd968e5 100644
+>> > > > --- a/drivers/net/skge.c
+>> > > > +++ b/drivers/net/skge.c
+>> > > > @@ -4046,6 +4046,7 @@ static int skge_resume(struct device *dev)
+>> > > >  				dev_close(dev);
+>> > > >  				goto out;
+>> > > >  			}
+>> > > > +			skge_set_multicast(dev);
+>> > > >  		}
+>> > > >  	}
+>> > > >  out:
+>> > 
+>> > Right idea, but it needs to be done in a different spot to catch
+>> > all the other device restart cases like changing settings.
+>> 
+>> Roughly like this maybe? (Successfully tested with an MTU change ...)
+>> 
+>> Florian
+>> 
+>> ---------------------------------------------------------------------------
+>> skge: restore rx multicast filter on resume
+>> 
+>> Signed-off-by: Florian Zumbiehl <florz@florz.de>
+>> 
+>> diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+>> index f4be5c7..8f985a8 100644
+>> --- a/drivers/net/skge.c
+>> +++ b/drivers/net/skge.c
+>> @@ -2587,6 +2587,9 @@ static int skge_up(struct net_device *dev)
+>>  	spin_unlock_irq(&hw->hw_lock);
+>>  
+>>  	napi_enable(&skge->napi);
+>> +
+>> +	skge_set_multicast(dev);
+>> +
+>>  	return 0;
+>>  
+>>   free_rx_ring:
+> 
+> Looks good. That is (basically) the same as the patch I was testing.
+> 
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Because of how they are implemented and how applications use them,
-this is actually allowed.
+Florian, please formally resubmit this with proper changelog and
+Stephen's ack.
 
-All the MIBs are presented first as a series of strings, then as a
-series of values.
-
-So applications parse them both to report the statistics, and this do
-get coded in a way that they do not need to assume the presence or
-particular ordering of these MIBS.
-
-Therefore, such a change is safe.
+Thanks.
