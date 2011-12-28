@@ -1,58 +1,64 @@
-From: Mircea Gherzan <mgherzan@gmail.com>
-Subject: Re: [PATCH v3] ARM: net: JIT compiler for packet filters
-Date: Wed, 28 Dec 2011 16:51:34 +0100
-Message-ID: <4EFB3B06.1090203@gmail.com>
-References: <1324404263-913-1-git-send-email-mgherzan@gmail.com> <20111220.135526.82432216865290827.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on
+ low-end broads.
+Date: Wed, 28 Dec 2011 18:13:43 +0100
+Message-ID: <1325092423.2327.70.camel@deadeye>
+References: <1325075319-13464-1-git-send-email-gurligebis@gentoo.org>
+	 <1325083051.2327.47.camel@deadeye>
+	 <CACPM=kWpGnBOuKPUK9MgzyETe4VmvEtVXkYtPA_+Xgn=COkCPw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	linux@arm.linux.org.uk
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:38904 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752875Ab1L1Pvh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 10:51:37 -0500
-Received: by eekc4 with SMTP id c4so12384045eek.19
-        for <netdev@vger.kernel.org>; Wed, 28 Dec 2011 07:51:36 -0800 (PST)
-In-Reply-To: <20111220.135526.82432216865290827.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Roger Luethi <rl@hellgate.ch>
+To: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACPM=kWpGnBOuKPUK9MgzyETe4VmvEtVXkYtPA_+Xgn=COkCPw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Am 20.12.2011 19:55, schrieb David Miller:
-> From: Mircea Gherzan<mgherzan@gmail.com>
-> Date: Tue, 20 Dec 2011 19:04:23 +0100
->
->> Based of Matt Evans's PPC64 implementation.
->>
->> The compiler generates ARM instructions but interworking is
->> supported for Thumb2 kernels.
->>
->> Supports both little and big endian. Unaligned loads are emitted
->> for ARMv6+. Not all the BPF opcodes that deal with ancillary data
->> are supported. The scratch memory of the filter lives on the stack.
->> Hardware integer division is used if it is available.
->>
->> Enabled in the same way as for x86-64 and PPC64:
->>
->> 	echo 1>  /proc/sys/net/core/bpf_jit_enable
->>
->> A value greater than 1 enables opcode output.
->>
->> Signed-off-by: Mircea Gherzan<mgherzan@gmail.com>
->
-> I'm happy with this going in via the ARM tree once all the details
-> are worked out:
+On Wed, 2011-12-28 at 16:14 +0100, Bjarke Istrup Pedersen wrote:
+> 2011/12/28 Ben Hutchings <bhutchings@solarflare.com>:
+> > On Wed, 2011-12-28 at 12:28 +0000, Bjarke Istrup Pedersen wrote:
+> >> Working around problem causing high CPU load and hanging system when
+> >> there is alot of network trafic.
+> >>
+> >> It is kind of an ugly way to work around it, but it allows the Soekris
+> >> net5501 to have trafic between two of it's NICs without hanging so much
+> >> that the watchdog kicks in and does a hard reboot of the system.
+> >>
+> >> There is more info on the problem here:
+> >> http://http://lists.soekris.com/pipermail/soekris-tech/2010-October/016889.html
+> >>
+> >> Tested with positive results on two Soekris net5501-70 boxes.
+> >
+> > This is completely wrong.  In a UP configuration the extra spinlock
+> > calls have no effect (except perhaps a small delay).  In an SMP
+> > configuration they will cause rhine_tx() to deadlock when it also tries
+> > to acquire the spinlock.
+> >
+> > Ben.
+> 
+> Okay, the Soekris net5501-70 boxes are single-core, and I haven't got
+> any SMP boxes with that nic.
+> Is there a better solution for the problem then, to avoid it hanging
+> the box on a non-smp machine with a slow (500mhz) cpu?
 
-I do not really care that much about the tree where this is going, as 
-long as it gets into 3.3 :) If you want to take it via the -net tree, 
-please synchronize with Russell (I've uploaded the patch to his tracking 
-system [1]).
+If the system actually hangs then I assume there is some bug in the
+driver.  I would guess the actual problem is that the interrupt and NAPI
+handlers are running constantly so that user processes never run (which
+I think counts as soft lockup).
 
-Thanks,
-Mircea
+If the hardware supports it, interrupt moderation may help a little by
+slightly reducing the per-packet processing cost, but it isn't a full
+solution.  Or you can use a real-time kernel, which schedules interrupt
+and NAPI handlers as tasks, and adjust priorities so that user processes
+can still run.  But that brings its own problems (including generally
+lower throughput).
 
-[1] http://www.arm.linux.org.uk/developer/patche/viewpatch.php?id=7259/1
+Ben.
 
-> Acked-by: David S. Miller<davem@davemloft.net>
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
