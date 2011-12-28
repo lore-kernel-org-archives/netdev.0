@@ -1,31 +1,41 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on
- low-end broads.
-Date: Wed, 28 Dec 2011 10:17:10 -0800
-Message-ID: <20111228101710.51c4893f@nehalam.linuxnetplumber.net>
-References: <1325075319-13464-1-git-send-email-gurligebis@gentoo.org>
-	<1325083051.2327.47.camel@deadeye>
-	<CACPM=kWpGnBOuKPUK9MgzyETe4VmvEtVXkYtPA_+Xgn=COkCPw@mail.gmail.com>
-	<1325092423.2327.70.camel@deadeye>
-	<CACPM=kX2hcGt3XXDJkCAcOjv=5oqSHChhhphUAyRhR_PsNFEEQ@mail.gmail.com>
+Subject: [PATCH] genetlink: add auto module loading
+Date: Wed, 28 Dec 2011 10:19:58 -0800
+Message-ID: <20111228101958.2326b7cc@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Roger Luethi <rl@hellgate.ch>
-To: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:48731 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:48794 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754045Ab1L1SRN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Dec 2011 13:17:13 -0500
-In-Reply-To: <CACPM=kX2hcGt3XXDJkCAcOjv=5oqSHChhhphUAyRhR_PsNFEEQ@mail.gmail.com>
+	id S1754045Ab1L1SUB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Dec 2011 13:20:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Looks like the hardware isn't really disabling interrupts correctly to support
-NAPI. NAPI is supposed to be friendly and under load the work should move to
-ksoftirqd. I suspect the IRQ management in this driver is borked.
-There is some stupid spin loops in the IRQ handler that happen when looking for
-Tx IRQ. I would run with debug set  and see if this is triggering.
+When testing L2TP support, I discovered that the l2tp module is not autoloaded
+as are other netlink interfaces. There is because of lack of hook in genetlink to call
+request_module and load the module.
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+--- a/net/netlink/genetlink.c	2011-12-24 11:13:44.373214171 -0800
++++ b/net/netlink/genetlink.c	2011-12-24 11:13:59.361360729 -0800
+@@ -792,6 +792,15 @@ static int ctrl_getfamily(struct sk_buff
+ 
+ 		name = nla_data(info->attrs[CTRL_ATTR_FAMILY_NAME]);
+ 		res = genl_family_find_byname(name);
++#ifdef CONFIG_MODULES
++		if (res == NULL) {
++			genl_unlock();
++			request_module("net-pf-%d-proto-%d-type-%s",
++				       PF_NETLINK, NETLINK_GENERIC, name);
++			genl_lock();
++			res = genl_family_find_byname(name);
++		}
++#endif
+ 		err = -ENOENT;
+ 	}
+ 
