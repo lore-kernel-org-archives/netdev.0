@@ -1,64 +1,61 @@
 From: pablo@netfilter.org
-Subject: [PATCH 4/5] netfilter: xtables: collapse conditions in xt_ecn
-Date: Wed, 28 Dec 2011 14:39:32 +0100
-Message-ID: <1325079573-6120-5-git-send-email-pablo@netfilter.org>
-References: <1325079573-6120-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 0/5] netfilter updates for net-next (2nd round)
+Date: Wed, 28 Dec 2011 14:39:28 +0100
+Message-ID: <1325079573-6120-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org, jengelh@medozas.de,
 	kaber@trash.net
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59529 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:59542 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753789Ab1L1Nju (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Dec 2011 08:39:50 -0500
-In-Reply-To: <1325079573-6120-1-git-send-email-pablo@netfilter.org>
+	id S1753879Ab1L1Njz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Dec 2011 08:39:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Engelhardt <jengelh@medozas.de>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-One simplification of an if clause.
+Hi Dave,
 
-Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/xt_ecn.c |   15 ++++++---------
- 1 files changed, 6 insertions(+), 9 deletions(-)
+These are a couple of late updates from Jan Engelhardt, who has been
+kind enough to recover the unmerged ECN support for IPv6. The IPv6
+ECN support is original work from Patrick McHardy.
 
-diff --git a/net/netfilter/xt_ecn.c b/net/netfilter/xt_ecn.c
-index 6ccc35d..3c831a8 100644
---- a/net/netfilter/xt_ecn.c
-+++ b/net/netfilter/xt_ecn.c
-@@ -37,9 +37,8 @@ static bool match_tcp(const struct sk_buff *skb, struct xt_action_param *par)
- 	 * be good citizens.
- 	 */
- 	th = skb_header_pointer(skb, par->thoff, sizeof(_tcph), &_tcph);
--	if (th == NULL) {
-+	if (th == NULL)
- 		return false;
--	}
- 
- 	if (einfo->operation & XT_ECN_OP_MATCH_ECE) {
- 		if (einfo->invert & XT_ECN_OP_MATCH_ECE) {
-@@ -75,14 +74,12 @@ static bool ecn_mt4(const struct sk_buff *skb, struct xt_action_param *par)
- {
- 	const struct xt_ecn_info *info = par->matchinfo;
- 
--	if (info->operation & XT_ECN_OP_MATCH_IP)
--		if (!match_ip(skb, info))
--			return false;
-+	if (info->operation & XT_ECN_OP_MATCH_IP && !match_ip(skb, info))
-+		return false;
- 
--	if (info->operation & (XT_ECN_OP_MATCH_ECE | XT_ECN_OP_MATCH_CWR)) {
--		if (!match_tcp(skb, par))
--			return false;
--	}
-+	if (info->operation & (XT_ECN_OP_MATCH_ECE | XT_ECN_OP_MATCH_CWR) &&
-+	    !match_tcp(skb, par))
-+		return false;
- 
- 	return true;
- }
+This includes one patch to obsolete the /proc/net/[nf|ip]_conntrack
+outputs in favour of conntrack(8). Basically, it adds some compilation
+time option to disable it. Later on, we can schedule it for removal.
+
+You can pull this changes from:
+
+git://1984.lsi.us.es/net-next nf-next
+
+Let us know if it's too late for this merge window.
+Thanks again!
+
+Jan Engelhardt (4):
+  netfilter: xtables: move ipt_ecn to xt_ecn
+  netfilter: xtables: give xt_ecn its own name
+  netfilter: xtables: collapse conditions in xt_ecn
+  netfilter: provide config option to disable ancient procfs parts
+
+Patrick McHardy (1):
+  netfilter: xtables: add an IPv6 capable version of the ECN match
+
+ include/linux/netfilter/Kbuild          |    1 +
+ include/linux/netfilter/xt_ecn.h        |   35 ++++++
+ include/linux/netfilter_ipv4/ipt_ecn.h  |   38 ++-----
+ net/ipv4/netfilter/Kconfig              |   12 +-
+ net/ipv4/netfilter/Makefile             |    1 -
+ net/ipv4/netfilter/ipt_ecn.c            |  127 ----------------------
+ net/netfilter/Kconfig                   |   19 ++++
+ net/netfilter/Makefile                  |    1 +
+ net/netfilter/nf_conntrack_expect.c     |   12 +-
+ net/netfilter/nf_conntrack_standalone.c |    4 +-
+ net/netfilter/xt_ecn.c                  |  179 +++++++++++++++++++++++++++++++
+ 11 files changed, 258 insertions(+), 171 deletions(-)
+ create mode 100644 include/linux/netfilter/xt_ecn.h
+ delete mode 100644 net/ipv4/netfilter/ipt_ecn.c
+ create mode 100644 net/netfilter/xt_ecn.c
+
 -- 
 1.7.7.3
