@@ -1,78 +1,45 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: Re: [Announce] LARTC wiki available
-Date: Thu, 29 Dec 2011 14:04:02 -0500 (EST)
-Message-ID: <26c0801e-2702-4520-a265-5d94e57432dd@jasiiieee>
-References: <4EFC9FC2.1090503@linuxsystems.it>
+From: Anton Vorontsov <anton.vorontsov@linaro.org>
+Subject: Re: Allocation of MDIO bus numbers when fixed MDIO bus is enabled?
+Date: Thu, 29 Dec 2011 23:10:11 +0400
+Message-ID: <20111229191011.GA19220@oksana.dev.rtsoft.ru>
+References: <4EFC90C8.1060802@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter@vger.kernel.org,
-	Linux Networking Developer Mailing List
-	<netdev@vger.kernel.org>, lartc@vger.kernel.org
-To: =?utf-8?Q?Niccol=C3=B2?= Belli <darkbasic@linuxsystems.it>
+Cc: afleming@freescale.com, netdev@vger.kernel.org
+To: Florian Fainelli <florian@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.194]:60055 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750888Ab1L2TEE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 14:04:04 -0500
-In-Reply-To: <4EFC9FC2.1090503@linuxsystems.it>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:51900 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750888Ab1L2TKQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 14:10:16 -0500
+Received: by wgbdr13 with SMTP id dr13so23556292wgb.1
+        for <netdev@vger.kernel.org>; Thu, 29 Dec 2011 11:10:15 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <4EFC90C8.1060802@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello,
 
+On Thu, Dec 29, 2011 at 05:09:44PM +0100, Florian Fainelli wrote:
+> An user of the r6040 driver has enabled support for the Fixed MDIO
+> bus, so when the r6040 registers with its first instance, it will
+> also try to register a MDIO bus with id 0, and this fails.
+> 
+> What's the proper solution to fixing this kind of issue? The same
+> user proposed to use the pci slot and function as an id for
+> registering the MDIO bus, which will work for PCI devices, but not
+> for platform_devices for instance.
 
------ Original Message -----
-> From: "Niccol=C3=B2 Belli" <darkbasic@linuxsystems.it>
-> To: lartc@vger.kernel.org
-> Cc: netfilter@vger.kernel.org, "Linux Networking Developer Mailing Li=
-st" <netdev@vger.kernel.org>
-> Sent: Thursday, December 29, 2011 12:13:38 PM
-> Subject: Re: [Announce] LARTC wiki available
->=20
-> Il 29/12/2011 17:19, Hagen Paul Pfeifer ha scritto:
-> > But I don't like the idea to outhouse the existing wiki. Why two
-> > wikis?
->=20
-> Because if you need an invite to edit something then it isn't a wiki
-> anymore, for example.
->=20
->=20
-> > What happened with the wiki server if you leave the university?
->=20
-> This isn't a problem, because relocating would be as simple as doing
-> a
-> database dump. Releasing dumps publicly wouldn't be a problem too.
-> Also,
-> there is no reason to keep using my servers when better alternatives
-> arise. I created the wiki in a dedicated server because I didn't find
-> viable alternatives (unlike for the mailing list) and considering the
-> few feedbacks I received hopefully doing something tangible would
-> create
-> more interest: I'm pretty sure I'm not the only one who thinks there
-> isn't enough documentation for the *end user*.
->=20
-> > So maybe the user
-> > restriction on linuxfoundation.org should be changed?
->=20
-> Yes, IMHO.
->=20
-> > https://www.wiki.kernel.org/.
->=20
-> It seems a wiki for a kernel hacker, not for the end user.
->=20
-> P.S.
-> Feedbacks are welcome, if there is no interest at all maybe we should
-> just discard the idea after all.
->=20
-> <snip>
-I can certainly concur that there is a lack of end user documentation. =
- I have found the net devs extremely helpful and am deeply grateful for=
- their support but I do sometimes chuckle because the documentation and=
- the responses are written from such a developer's context.  Of course,=
- that is entirely expected and I don't mean the least bit of disrespect=
-; I stand in complete awe of the net devs.
+AFAIR, MDIO bus id doesn't have to be numeric, so you can change it
+to parent's dev_name(). I.e. something like
 
-But the needs and perspectives of net devs and system engineers/admins =
-are very different and rightly so.  So, I'd love to see a hybrid enviro=
-nment where we have the best of both worlds (but where sys admin types =
-don't feel completely lost and overwhelmed).  Thanks, all - John
+ snprintf(fmb->mii_bus->id, MII_BUS_ID_SIZE, "%s-mdio", dev_name(dev));
+
+So, the resulting PHYs would have IDs something like "dev-mdio:1".
+
+Thanks,
+
+-- 
+Anton Vorontsov
+Email: cbouatmailru@gmail.com
