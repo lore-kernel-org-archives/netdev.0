@@ -1,36 +1,60 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] skge: restore multicast rx filter on resume
-Date: Thu, 29 Dec 2011 08:18:46 -0800
-Message-ID: <20111229081846.04eb0c63@nehalam.linuxnetplumber.net>
-References: <20111228092714.0a6d5f80@nehalam.linuxnetplumber.net>
-	<20111228.130908.182833189468208987.davem@davemloft.net>
-	<20111229064849.GB8041@florz.florz.dyndns.org>
-	<20111229.025611.2043166821951238153.davem@davemloft.net>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [Announce] LARTC wiki available
+Date: Thu, 29 Dec 2011 17:19:20 +0100
+Message-ID: <20111229161919.GA2948@hell>
+References: <4EFB3B2B.7060200@linuxsystems.it>
+ <20111229002717.GB3548@hell>
+ <4EFC34E5.4040202@linuxsystems.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: florz@florz.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: lartc@vger.kernel.org,
+	"netfilter@vger.kernel.org" <netfilter@vger.kernel.org>,
+	Linux Networking Developer Mailing List
+	<netdev@vger.kernel.org>
+To: =?iso-8859-1?Q?Niccol=F2?= Belli <darkbasic@linuxsystems.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51229 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753270Ab1L2QSu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Dec 2011 11:18:50 -0500
-In-Reply-To: <20111229.025611.2043166821951238153.davem@davemloft.net>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:48804 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753270Ab1L2QTX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 11:19:23 -0500
+Content-Disposition: inline
+In-Reply-To: <4EFC34E5.4040202@linuxsystems.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 29 Dec 2011 02:56:11 -0500 (EST)
-David Miller <davem@davemloft.net> wrote:
+* Niccol=F2 Belli | 2011-12-29 10:37:41 [+0100]:
 
-> From: Florian Zumbiehl <florz@florz.de>
-> Date: Thu, 29 Dec 2011 07:48:50 +0100
-> 
-> > --- a/drivers/net/skge.c
-> > +++ b/drivers/net/skge.c  
-> 
-> This file no longer exists in the current source tree.
+>> What about
+>>
+>> http://www.linuxfoundation.org/collaborate/workgroups/networking/gro=
+up
+>
+>I saw it, but I didn't like it because unregistered users cannot edit
+>the wiki and even registered users need an invite. Also, it seems
+>quite confusing, a traditional wiki is a better solution in my
+>opinion.
 
-Florian the driver has moved to:
-  drivers/net/ethernet/marvell/skge.c
-in latest kernel release.
+Anybody knows that network stack lacks documentation - no doubt. Maybe =
+a wiki
+is an adequate concept (beside man pages and in Kernel docs). Everybody=
+, not
+restricted to kernel hackers, can edit documentation and add examples.
+
+Maybe the netem wiki page at
+
+http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
+
+is a good example for a good documented subsystem.
+
+
+But I don't like the idea to outhouse the existing wiki. Why two wikis?=
+ What
+happened with the wiki server if you leave the university? So maybe the=
+ user
+restriction on linuxfoundation.org should be changed? I strongly sugges=
+t to
+keep to documentation as tightly as possible to linuxfoundation (or
+https://www.wiki.kernel.org/).
+
+Hagen
