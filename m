@@ -1,46 +1,38 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH net-next] netem: fix classful handling
-Date: Thu, 29 Dec 2011 18:43:24 +0100
-Message-ID: <20111229174323.GC2948@hell>
-References: <1324661950.4540.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <CAA93jw77tL88oxt=2ZTs68k5awCOO2f4d+aE9H-yQdTsd8=gAQ@mail.gmail.com>
- <1324664907.2915.5.camel@edumazet-laptop>
- <20111223110749.7a690685@nehalam.linuxnetplumber.net>
- <1324668083.2915.15.camel@edumazet-laptop>
- <1325132760.2607.15.camel@edumazet-laptop>
- <20111228221731.4d4954a9@s6510.linuxnetplumber.net>
- <1325149922.2607.33.camel@edumazet-laptop>
- <20111229165249.GB2948@hell>
- <1325178950.2607.46.camel@edumazet-laptop>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH net-next 1/2] mlx4_core: using array index for sense_allowed
+Date: Thu, 29 Dec 2011 19:42:34 +0200
+Message-ID: <4EFCA68A.4010207@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Dave Taht <dave.taht@gmail.com>,
-	"John A. Sullivan III" <jsullivan@opensourcedevel.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:53510 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754541Ab1L2Rn0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 12:43:26 -0500
-Content-Disposition: inline
-In-Reply-To: <1325178950.2607.46.camel@edumazet-laptop>
+Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:48375 "HELO
+	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753662Ab1L2Rs5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 12:48:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Eric Dumazet | 2011-12-29 18:15:50 [+0100]:
 
->> In other words netem jitter and a qdisc !tfifo will not work. Correct? The
->> rate extension also peak the last packet to get the reference time (assuming a
->> strict ordering):
->> 
->
->Yep, current situation is borked. It assumes we _use_ tfifo, for delay
->jitters but also for rate extension.
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Mhh, should we signal this to the user via 'tc -s qdisc show'? Or should we
-assume that a user who set netem rate|jitter AND a qdisc !tfifo knows what he
-does - because we assume he is a experienced user? At least somewhere in the
-manpage a comment should point to this characteristic.
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 1209934..6bb62c5 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -332,7 +332,7 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 		 * and perform sense_port FW command to try and set the correct
+ 		 * port type from beginning
+ 		 */
+-		if (mlx4_priv(dev)->sense.sense_allowed && dev->caps.default_sense[i]) {
++		if (mlx4_priv(dev)->sense.sense_allowed[i] && dev->caps.default_sense[i]) {
+ 			enum mlx4_port_type sensed_port = MLX4_PORT_TYPE_NONE;
+ 			dev->caps.possible_type[i] = MLX4_PORT_TYPE_AUTO;
+ 			mlx4_SENSE_PORT(dev, i, &sensed_port);
+-- 
+1.7.7
