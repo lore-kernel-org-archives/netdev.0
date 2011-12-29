@@ -1,44 +1,41 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: The mystery of optimistic ipv6 DAD handling
-Date: Wed, 28 Dec 2011 19:00:44 -0500
-Message-ID: <20111229000044.GA7513@hmsreliant.think-freely.org>
-References: <20111228151928.GA12025@neilslaptop.think-freely.org>
- <20111228.133933.866545698956085305.davem@davemloft.net>
- <20111228192150.GA16499@neilslaptop.think-freely.org>
- <20111228.143812.206477268839022030.davem@davemloft.net>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [Announce] LARTC wiki available
+Date: Thu, 29 Dec 2011 01:27:17 +0100
+Message-ID: <20111229002717.GB3548@hell>
+References: <4EFB3B2B.7060200@linuxsystems.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: lartc@vger.kernel.org,
+	"netfilter@vger.kernel.org" <netfilter@vger.kernel.org>,
+	Linux Networking Developer Mailing List
+	<netdev@vger.kernel.org>
+To: =?iso-8859-1?Q?Niccol=F2?= Belli <darkbasic@linuxsystems.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:36778 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752087Ab1L2AAs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 19:00:48 -0500
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:57697 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753856Ab1L2A1U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 19:27:20 -0500
 Content-Disposition: inline
-In-Reply-To: <20111228.143812.206477268839022030.davem@davemloft.net>
+In-Reply-To: <4EFB3B2B.7060200@linuxsystems.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 28, 2011 at 02:38:12PM -0500, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Wed, 28 Dec 2011 14:21:50 -0500
-> 
-> > Clearly I misread the RFC the first time through and the test as it existed is
-> > incorrect.  I'm wondering though if what we need is a way to lookup if we've
-> > received a RA on the interface, and check to see if it has a source link layer
-> > option attached to it.
-> 
-> Yes, we could implement this with a new neigh lookup routine, that allows
-> keying on device pointer and flags.
-> 
-> So in this case we'd pass the device and NTF_ROUTER.  If the lookup returns
-> non-NULL then we've seen an RA with SLLAO specified.
-> 
+* Niccol=F2 Belli | 2011-12-28 16:52:11 [+0100]:
 
-Agreed.  If its ok with you I'll start working on that in a few days, once we
-get through the holidays here.  
+>I still didn't find a viable solution for the LARTC wiki, so I
+>decided to start hosting it on my own server. Later we can easily
+>switch somewhere else if we keep using the same wiki engine (and
+>maybe even with another wiki engine).
+>I decided to use wikimedia because it's the only one I know of, so if
+>someone knows a better alternative please let me know, we are still
+>in time for a change.
+>Since I never used a wiki seriously I will probably need someone else
+>who can help me maintaining it, please let me know if you are
+>experienced and willing to help.
+>
+>Here is the wiki: http://lartc.linuxsystems.it/
 
-Happy New Year!
-Best
-Neil
+What about
+
+http://www.linuxfoundation.org/collaborate/workgroups/networking/group
