@@ -1,60 +1,64 @@
 From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [Announce] LARTC wiki available
-Date: Thu, 29 Dec 2011 17:19:20 +0100
-Message-ID: <20111229161919.GA2948@hell>
-References: <4EFB3B2B.7060200@linuxsystems.it>
- <20111229002717.GB3548@hell>
- <4EFC34E5.4040202@linuxsystems.it>
+Subject: Re: [PATCH net-next] netem: fix classful handling
+Date: Thu, 29 Dec 2011 17:52:49 +0100
+Message-ID: <20111229165249.GB2948@hell>
+References: <20111218115549.0d9e1259@nehalam.linuxnetplumber.net>
+ <1324661639.4540.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <1324661950.4540.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <CAA93jw77tL88oxt=2ZTs68k5awCOO2f4d+aE9H-yQdTsd8=gAQ@mail.gmail.com>
+ <1324664907.2915.5.camel@edumazet-laptop>
+ <20111223110749.7a690685@nehalam.linuxnetplumber.net>
+ <1324668083.2915.15.camel@edumazet-laptop>
+ <1325132760.2607.15.camel@edumazet-laptop>
+ <20111228221731.4d4954a9@s6510.linuxnetplumber.net>
+ <1325149922.2607.33.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lartc@vger.kernel.org,
-	"netfilter@vger.kernel.org" <netfilter@vger.kernel.org>,
-	Linux Networking Developer Mailing List
-	<netdev@vger.kernel.org>
-To: =?iso-8859-1?Q?Niccol=F2?= Belli <darkbasic@linuxsystems.it>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	Dave Taht <dave.taht@gmail.com>,
+	"John A. Sullivan III" <jsullivan@opensourcedevel.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:48804 "EHLO
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:50413 "EHLO
 	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753270Ab1L2QTX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 11:19:23 -0500
+	by vger.kernel.org with ESMTP id S1754673Ab1L2Qww (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 11:52:52 -0500
 Content-Disposition: inline
-In-Reply-To: <4EFC34E5.4040202@linuxsystems.it>
+In-Reply-To: <1325149922.2607.33.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Niccol=F2 Belli | 2011-12-29 10:37:41 [+0100]:
+* Eric Dumazet | 2011-12-29 10:12:02 [+0100]:
 
->> What about
->>
->> http://www.linuxfoundation.org/collaborate/workgroups/networking/gro=
-up
+>> Also, the whole tfifo idea is only to support the wierd idea that
+>> if doing random delay that packets should get reordered based on the
+>> results of the random value; it was an behavior some users wanted
+>> because that is what NISTnet did.
 >
->I saw it, but I didn't like it because unregistered users cannot edit
->the wiki and even registered users need an invite. Also, it seems
->quite confusing, a traditional wiki is a better solution in my
->opinion.
+>tfifo supports a time ordered queuing, wich mimics some jitter in the
+>network. This seems quite useful.
+>
+>I see what you suggest : adding 'time_to_send' in the generic qdisc cb.
+>
+>But it makes no sense if we attach a reordering qdisc, like SFQ :
+>A 'high prio' packet will block the whole netem because we'll have to
+>throttle since this packet time_to_send will be in the future, while
+>many other elligible packets are in queue.
 
-Anybody knows that network stack lacks documentation - no doubt. Maybe =
-a wiki
-is an adequate concept (beside man pages and in Kernel docs). Everybody=
-, not
-restricted to kernel hackers, can edit documentation and add examples.
+In other words netem jitter and a qdisc !tfifo will not work. Correct? The
+rate extension also peak the last packet to get the reference time (assuming a
+strict ordering):
 
-Maybe the netem wiki page at
-
-http://www.linuxfoundation.org/collaborate/workgroups/networking/netem
-
-is a good example for a good documented subsystem.
+[...]
+now = netem_skb_cb(skb_peek_tail(list))->time_to_send;
+[...]
 
 
-But I don't like the idea to outhouse the existing wiki. Why two wikis?=
- What
-happened with the wiki server if you leave the university? So maybe the=
- user
-restriction on linuxfoundation.org should be changed? I strongly sugges=
-t to
-keep to documentation as tightly as possible to linuxfoundation (or
-https://www.wiki.kernel.org/).
+We should avoid a different (unseeable) behavior depending on the queue
+(tfifo, SFQ).  Another point: operate netem and qdisc on the same computer can
+lead to timing abnormalities. In our test setups we operate qdisc/tcp/whatever
+setups and netem on more then on computer.
 
 Hagen
