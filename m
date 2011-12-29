@@ -1,54 +1,51 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: Re: [PATCH][NET] several cleanups and bugfixes for fec.c
-Date: Thu, 29 Dec 2011 15:14:08 +0800
-Message-ID: <20111229071407.GA11474@S2100-06.ap.freescale.net>
-References: <cover.1323163127.git.LW@KARO-electronics.de>
- <4EFC0AE4.6020608@googlemail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] skge: restore multicast rx filter on resume
+Date: Thu, 29 Dec 2011 02:56:11 -0500 (EST)
+Message-ID: <20111229.025611.2043166821951238153.davem@davemloft.net>
+References: <20111228092714.0a6d5f80@nehalam.linuxnetplumber.net>
+	<20111228.130908.182833189468208987.davem@davemloft.net>
+	<20111229064849.GB8041@florz.florz.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>,
-	<netdev@vger.kernel.org>, Shawn Guo <shawn.guo@linaro.org>,
-	<linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Dirk Behme <dirk.behme@googlemail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4EFC0AE4.6020608@googlemail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: florz@florz.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60540 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751157Ab1L2H5W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 02:57:22 -0500
+In-Reply-To: <20111229064849.GB8041@florz.florz.dyndns.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 29, 2011 at 07:38:28AM +0100, Dirk Behme wrote:
-> On 06.12.2011 11:27, Lothar Wa=C3=9Fmann wrote:
-> >The following set of patches provides some cleanup and bugfixes for
-> >drivers/net/ethernet/freescale/fec.c and makes the driver buildable =
-as
-> >a module.
-> >
-> >Lothar Wa=C3=83=C5=B8mann (8):
-> >   misc cleanups
-> >   set con_id in clk_get() call to NULL
-> >   prevent dobule restart of interface on FDX/HDX change
-> >   don't request invalid IRQ
-> >   don't munge MAC address from platform data
-> >   preserve MII/RMII setting in fec_stop()
-> >   fix the .remove code
-> >   make FEC driver buildable as module
-> >
-> >  drivers/net/ethernet/freescale/Kconfig |    2 +-
-> >  drivers/net/ethernet/freescale/fec.c   |   63 ++++++++++++++++++++=
-++----------
-> >  2 files changed, 44 insertions(+), 21 deletions(-)
->=20
-> What's the status of this patch series?
->=20
-> If I remember correctly, most of them got an Ack or Tested-by from
-> Shawn? But one or two need an update (not sure, though)? And the
-> subject should be updated?
->=20
-The series with update has been picked up by David on net-next.
-The LAKML was just missed from the updated posting.
+From: Florian Zumbiehl <florz@florz.de>
+Date: Thu, 29 Dec 2011 07:48:50 +0100
 
---=20
-Regards,
-Shawn
+> --- a/drivers/net/skge.c
+> +++ b/drivers/net/skge.c
+
+This file no longer exists in the current source tree.
+
+All of the ethernet drivers have been moved to various directories
+under drivers/net/ethernet
+
+Please do not generate patches against older source trees.
+
+And when I ask you to post a patch anew, please make it clean.  In
+this case you replied to my email, added some unrelated commentary,
+and then included the commit log message and the patch.
+
+This is not the correct way to do things.  Post a fresh email, not a
+reply, with a clean Subject line and the email body contents only
+contain the commit log message and the subsequent patch.
+
+If you don't do things the correct way, then the person applying your
+patch has to do a lot of work editing things.  If you do it the right
+way, adding your patch is very easy.
+
+See:
+
+	http://linux.yyz.us/patch-format.html
+
+for more details
