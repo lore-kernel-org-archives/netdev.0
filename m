@@ -1,40 +1,33 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [FIX PATCH net] mlx4_en: nullify cq->vector field when closing completion
- queue
-Date: Thu, 29 Dec 2011 17:49:58 +0200
-Message-ID: <4EFC8C26.3060006@mellanox.co.il>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Allocation of MDIO bus numbers when fixed MDIO bus is enabled?
+Date: Thu, 29 Dec 2011 17:09:44 +0100
+Message-ID: <4EFC90C8.1060802@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
-To: <davem@davemloft.net>
+To: afleming@freescale.com, netdev@vger.kernel.org,
+	Anton Vorontsov <avorontsov@ru.mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:57215 "HELO
-	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752113Ab1L2Pz4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 10:55:56 -0500
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:48990 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752944Ab1L2QKm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 11:10:42 -0500
+Received: by wgbdr13 with SMTP id dr13so23398427wgb.1
+        for <netdev@vger.kernel.org>; Thu, 29 Dec 2011 08:10:41 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello Andy,
 
-Caused loss of connectivity when changing ring size.
+An user of the r6040 driver has enabled support for the Fixed MDIO bus, 
+so when the r6040 registers with its first instance, it will also try to 
+register a MDIO bus with id 0, and this fails.
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
- drivers/net/ethernet/mellanox/mlx4/en_cq.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+What's the proper solution to fixing this kind of issue? The same user 
+proposed to use the pci slot and function as an id for registering the 
+MDIO bus, which will work for PCI devices, but not for platform_devices 
+for instance.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-index 227997d..5829e0b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-@@ -147,6 +147,7 @@ void mlx4_en_destroy_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
- 	mlx4_free_hwq_res(mdev->dev, &cq->wqres, cq->buf_size);
- 	if (priv->mdev->dev->caps.comp_pool && cq->vector)
- 		mlx4_release_eq(priv->mdev->dev, cq->vector);
-+	cq->vector = 0;
- 	cq->buf_size = 0;
- 	cq->buf = NULL;
- }
--- 
-1.5.4.3
+Thanks.
+--
+Florian
