@@ -1,53 +1,62 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: linux-next: Tree for Dec 28 (nfnetlink)
-Date: Thu, 29 Dec 2011 10:53:00 -0800
-Message-ID: <4EFCB70C.50409@xenotime.net>
-References: <20111228201806.d6de27fa2dbd9e3a3b7a2603@canb.auug.org.au> <4EFB87CC.6020105@xenotime.net> <20111228.153304.1267926241298522965.davem@davemloft.net> <20111229010330.GA2663@1984>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] netem: fix classful handling
+Date: Thu, 29 Dec 2011 19:10:36 +0100
+Message-ID: <1325182236.2607.50.camel@edumazet-laptop>
+References: <1324661950.4540.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CAA93jw77tL88oxt=2ZTs68k5awCOO2f4d+aE9H-yQdTsd8=gAQ@mail.gmail.com>
+	 <1324664907.2915.5.camel@edumazet-laptop>
+	 <20111223110749.7a690685@nehalam.linuxnetplumber.net>
+	 <1324668083.2915.15.camel@edumazet-laptop>
+	 <1325132760.2607.15.camel@edumazet-laptop>
+	 <20111228221731.4d4954a9@s6510.linuxnetplumber.net>
+	 <1325149922.2607.33.camel@edumazet-laptop> <20111229165249.GB2948@hell>
+	 <1325178950.2607.46.camel@edumazet-laptop> <20111229174323.GC2948@hell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, sfr@canb.auug.org.au,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20111229010330.GA2663@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	Dave Taht <dave.taht@gmail.com>,
+	"John A. Sullivan III" <jsullivan@opensourcedevel.com>,
+	netdev@vger.kernel.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:56376 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751171Ab1L2SKo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 13:10:44 -0500
+Received: by wgbdr13 with SMTP id dr13so23506979wgb.1
+        for <netdev@vger.kernel.org>; Thu, 29 Dec 2011 10:10:43 -0800 (PST)
+In-Reply-To: <20111229174323.GC2948@hell>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/28/2011 05:03 PM, Pablo Neira Ayuso wrote:
-> On Wed, Dec 28, 2011 at 03:33:04PM -0500, David Miller wrote:
->> From: Randy Dunlap <rdunlap@xenotime.net>
->> Date: Wed, 28 Dec 2011 13:19:08 -0800
->>
->>> On 12/28/2011 01:18 AM, Stephen Rothwell wrote:
->>>> Hi all,
->>>>
->>>> I got bored :-(  I also hate tree wide, flag day changes :-(
->>>>
->>>> Changes since 20111222:
->>>
->>>
->>>
->>> warning: (NETFILTER_XT_MATCH_NFACCT) selects NETFILTER_NETLINK_ACCT which has unmet direct dependencies (NET && INET && NETFILTER && NETFILTER_ADVANCED)
->>>
->>> and then
->>>
->>> ERROR: "nfnetlink_subsys_unregister" [net/netfilter/nfnetlink_acct.ko] undefined!
->>> ERROR: "nfnetlink_subsys_register" [net/netfilter/nfnetlink_acct.ko] undefined!
->>>
->>>
->>> Full randconfig file is attached.
->>
->> Pablo please fix this, thanks.
-> 
-> Please, apply the following patch.
+Le jeudi 29 d=C3=A9cembre 2011 =C3=A0 18:43 +0100, Hagen Paul Pfeifer a=
+ =C3=A9crit :
+> * Eric Dumazet | 2011-12-29 18:15:50 [+0100]:
+>=20
+> >> In other words netem jitter and a qdisc !tfifo will not work. Corr=
+ect? The
+> >> rate extension also peak the last packet to get the reference time=
+ (assuming a
+> >> strict ordering):
+> >>=20
+> >
+> >Yep, current situation is borked. It assumes we _use_ tfifo, for del=
+ay
+> >jitters but also for rate extension.
+>=20
+> Mhh, should we signal this to the user via 'tc -s qdisc show'? Or sho=
+uld we
+> assume that a user who set netem rate|jitter AND a qdisc !tfifo knows=
+ what he
+> does - because we assume he is a experienced user? At least somewhere=
+ in the
+> manpage a comment should point to this characteristic.
 
-Acked-by: Randy Dunlap <rdunlap@xenotime.net>
+I dont quite understand the question. The patch I posted is supposed to
+fix the problem. What do you want to tell to the user ?
 
-Thanks.
-
-
--- 
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+netem module is probably only used by experimented users, on very recen=
+t
+kernels anyway.
