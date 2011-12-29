@@ -1,53 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: Tree for Dec 28 (nfnetlink)
-Date: Thu, 29 Dec 2011 14:39:44 -0500 (EST)
-Message-ID: <20111229.143944.1971586044787221232.davem@davemloft.net>
-References: <20111228.153304.1267926241298522965.davem@davemloft.net>
-	<20111229010330.GA2663@1984>
-	<4EFCB70C.50409@xenotime.net>
+Subject: Re: [PATCH 1/5] sock_diag: Introduce the meminfo nla core
+Date: Thu, 29 Dec 2011 15:05:29 -0500 (EST)
+Message-ID: <20111229.150529.161850446045222440.davem@davemloft.net>
+References: <4EFC754D.6000803@parallels.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, sfr@canb.auug.org.au,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: rdunlap@xenotime.net
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <4EFCB70C.50409@xenotime.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: xemul@parallels.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:36393 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752624Ab1L2UFg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 15:05:36 -0500
+In-Reply-To: <4EFC754D.6000803@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@xenotime.net>
-Date: Thu, 29 Dec 2011 10:53:00 -0800
+From: Pavel Emelyanov <xemul@parallels.com>
+Date: Thu, 29 Dec 2011 18:12:29 +0400
 
-> On 12/28/2011 05:03 PM, Pablo Neira Ayuso wrote:
->> On Wed, Dec 28, 2011 at 03:33:04PM -0500, David Miller wrote:
->>> From: Randy Dunlap <rdunlap@xenotime.net>
->>> Date: Wed, 28 Dec 2011 13:19:08 -0800
->>>
->>>> On 12/28/2011 01:18 AM, Stephen Rothwell wrote:
->>>>> Hi all,
->>>>>
->>>>> I got bored :-(  I also hate tree wide, flag day changes :-(
->>>>>
->>>>> Changes since 20111222:
->>>>
->>>>
->>>>
->>>> warning: (NETFILTER_XT_MATCH_NFACCT) selects NETFILTER_NETLINK_ACCT which has unmet direct dependencies (NET && INET && NETFILTER && NETFILTER_ADVANCED)
->>>>
->>>> and then
->>>>
->>>> ERROR: "nfnetlink_subsys_unregister" [net/netfilter/nfnetlink_acct.ko] undefined!
->>>> ERROR: "nfnetlink_subsys_register" [net/netfilter/nfnetlink_acct.ko] undefined!
->>>>
->>>>
->>>> Full randconfig file is attached.
->>>
->>> Pablo please fix this, thanks.
->> 
->> Please, apply the following patch.
+> Add a routine that dumps memory-related values of a socket.
+> It's made as an array to make it possible to add more stuff
+> here later without breaking compatibility.
 > 
-> Acked-by: Randy Dunlap <rdunlap@xenotime.net>
+> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
-Applied, thanks everyone.
+If userspace is going to need to use the SK_MEMINFO_* values, then you
+need to arrange linux/sock_diag.h such that it is exportable to
+userspace, and all the kernel private non-userspace exported
+components are properly __KERNEL__ ifdef protected.
