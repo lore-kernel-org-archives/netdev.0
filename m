@@ -1,50 +1,88 @@
-From: =?ISO-8859-1?Q?Niccol=F2_Belli?= <darkbasic@linuxsystems.it>
-Subject: Re: [Announce] LARTC wiki available
-Date: Thu, 29 Dec 2011 10:37:41 +0100
-Message-ID: <4EFC34E5.4040202@linuxsystems.it>
-References: <4EFB3B2B.7060200@linuxsystems.it> <20111229002717.GB3548@hell>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [PATCH] virtio_net: set/cancel work on ndo_open/ndo_stop
+Date: Thu, 29 Dec 2011 21:12:38 +1030
+Message-ID: <87pqf7fyld.fsf@rustcorp.com.au>
+References: <87hb0kgiwn.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lartc@vger.kernel.org,
-	"netfilter@vger.kernel.org" <netfilter@vger.kernel.org>,
-	Linux Networking Developer Mailing List
-	<netdev@vger.kernel.org>
-To: Hagen Paul Pfeifer <hagen@jauu.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Michael S. Tsirkin" <mst@redhat.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxsystems.it ([2.119.245.41]:49553 "EHLO
-	mail.linuxsystems.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751886Ab1L2Jhl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 04:37:41 -0500
-In-Reply-To: <20111229002717.GB3548@hell>
+Received: from ozlabs.org ([203.10.76.45]:53404 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752614Ab1L2Koo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Dec 2011 05:44:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Il 29/12/2011 01:27, Hagen Paul Pfeifer ha scritto:
- > What about
- >
- > http://www.linuxfoundation.org/collaborate/workgroups/networking/gro=
-up
+Michael S. Tsirkin noticed that we could run the refill work after
+ndo_close, which can re-enable napi - we don't disable it until
+virtnet_remove.  This is clearly wrong, so move the workqueue control
+to ndo_open and ndo_stop (aka. virtnet_open and virtnet_close).
 
-I saw it, but I didn't like it because unregistered users cannot edit=20
-the wiki and even registered users need an invite. Also, it seems quite=
-=20
-confusing, a traditional wiki is a better solution in my opinion.
+One subtle point: virtnet_probe() could simply fail if it couldn't
+allocate a receive buffer, but that's less polite in virtnet_open() so
+we schedule a refill as we do in the normal receive path if we run out
+of memory.
 
-Niccol=F2
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+---
+ drivers/net/virtio_net.c |   17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
 
->> I still didn't find a viable solution for the LARTC wiki, so I
->> decided to start hosting it on my own server. Later we can easily
->> switch somewhere else if we keep using the same wiki engine (and
->> maybe even with another wiki engine).
->> I decided to use wikimedia because it's the only one I know of, so i=
-f
->> someone knows a better alternative please let me know, we are still
->> in time for a change.
->> Since I never used a wiki seriously I will probably need someone els=
-e
->> who can help me maintaining it, please let me know if you are
->> experienced and willing to help.
->>
->> Here is the wiki: http://lartc.linuxsystems.it/
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -439,7 +439,13 @@ static int add_recvbuf_mergeable(struct 
+ 	return err;
+ }
+ 
+-/* Returns false if we couldn't fill entirely (OOM). */
++/*
++ * Returns false if we couldn't fill entirely (OOM).
++ *
++ * Normally run in the receive path, but can also be run from ndo_open
++ * before we're receiving packets, or from refill_work which is
++ * careful to disable receiving (using napi_disable).
++ */
+ static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
+ {
+ 	int err;
+@@ -719,6 +725,10 @@ static int virtnet_open(struct net_devic
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 
++	/* Make sure we have some buffers: if oom use wq. */
++	if (!try_fill_recv(vi, GFP_KERNEL))
++		schedule_delayed_work(&vi->refill, 0);
++
+ 	virtnet_napi_enable(vi);
+ 	return 0;
+ }
+@@ -772,6 +782,8 @@ static int virtnet_close(struct net_devi
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 
++	/* Make sure refill_work doesn't re-enable napi! */
++	cancel_delayed_work_sync(&vi->refill);
+ 	napi_disable(&vi->napi);
+ 
+ 	return 0;
+@@ -1082,7 +1094,6 @@ static int virtnet_probe(struct virtio_d
+ 
+ unregister:
+ 	unregister_netdev(dev);
+-	cancel_delayed_work_sync(&vi->refill);
+ free_vqs:
+ 	vdev->config->del_vqs(vdev);
+ free_stats:
+@@ -1121,9 +1132,7 @@ static void __devexit virtnet_remove(str
+ 	/* Stop all the virtqueues. */
+ 	vdev->config->reset(vdev);
+ 
+-
+ 	unregister_netdev(vi->dev);
+-	cancel_delayed_work_sync(&vi->refill);
+ 
+ 	/* Free unused buffers in both send and recv, if any. */
+ 	free_unused_bufs(vi);
