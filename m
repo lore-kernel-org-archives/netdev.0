@@ -1,55 +1,55 @@
-From: Dirk Behme <dirk.behme@googlemail.com>
-Subject: Re: [PATCH][NET] several cleanups and bugfixes for fec.c
-Date: Thu, 29 Dec 2011 07:38:28 +0100
-Message-ID: <4EFC0AE4.6020608@googlemail.com>
-References: <cover.1323163127.git.LW@KARO-electronics.de>
+From: Florian Zumbiehl <florz@florz.de>
+Subject: Re: [PATCH] skge: restore multicast rx filter on resume
+Date: Thu, 29 Dec 2011 07:48:50 +0100
+Message-ID: <20111229064849.GB8041@florz.florz.dyndns.org>
+References: <20111227095635.19087752@nehalam.linuxnetplumber.net>
+ <20111228074143.GA8041@florz.florz.dyndns.org>
+ <20111228092714.0a6d5f80@nehalam.linuxnetplumber.net>
+ <20111228.130908.182833189468208987.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; Format="flowed"
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: =?windows-1252?Q?Lothar_Wa=DFmann?= <LW@KARO-electronics.de>,
- netdev@vger.kernel.org, Shawn Guo <shawn.guo@linaro.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <cover.1323163127.git.LW@KARO-electronics.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rain.florz.de ([62.216.164.86]:55548 "EHLO
+	rain.florz.dyndns.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751019Ab1L2Gs5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 01:48:57 -0500
+Content-Disposition: inline
+In-Reply-To: <20111228.130908.182833189468208987.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06.12.2011 11:27, Lothar Wa=DFmann wrote:
-> The following set of patches provides some cleanup and bugfixes for
-> drivers/net/ethernet/freescale/fec.c and makes the driver buildable as
-> a module.
->
-> Lothar Wa=C3=9Fmann (8):
->    misc cleanups
->    set con_id in clk_get() call to NULL
->    prevent dobule restart of interface on FDX/HDX change
->    don't request invalid IRQ
->    don't munge MAC address from platform data
->    preserve MII/RMII setting in fec_stop()
->    fix the .remove code
->    make FEC driver buildable as module
->
->   drivers/net/ethernet/freescale/Kconfig |    2 +-
->   drivers/net/ethernet/freescale/fec.c   |   63 ++++++++++++++++++++++---=
--------
->   2 files changed, 44 insertions(+), 21 deletions(-)
+Hi,
 
-What's the status of this patch series?
+> Florian, please formally resubmit this with proper changelog and
+> Stephen's ack.
 
-If I remember correctly, most of them got an Ack or Tested-by from =
+Erm, yeah, indeed. Well, there you go ...
 
-Shawn? But one or two need an update (not sure, though)? And the =
+Florian
 
-subject should be updated?
+---------------------------------------------------------------------------
+skge: restore rx multicast filter on resume and after config changes
 
-Best regards
+Restore skge hardware registers for multicast filtering to their
+appropriate values after system resume and after hardware restarts
+that are done when changing certain settings.
 
-Dirk
+Signed-off-by: Florian Zumbiehl <florz@florz.de>
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+index f4be5c7..8f985a8 100644
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -2587,6 +2587,9 @@ static int skge_up(struct net_device *dev)
+ 	spin_unlock_irq(&hw->hw_lock);
+ 
+ 	napi_enable(&skge->napi);
++
++	skge_set_multicast(dev);
++
+ 	return 0;
+ 
+  free_rx_ring:
