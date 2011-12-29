@@ -1,46 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] sch_tbf: report backlog information
-Date: Thu, 29 Dec 2011 10:27:44 +0100
-Message-ID: <1325150864.2607.37.camel@edumazet-laptop>
+From: =?ISO-8859-1?Q?Niccol=F2_Belli?= <darkbasic@linuxsystems.it>
+Subject: Re: [Announce] LARTC wiki available
+Date: Thu, 29 Dec 2011 10:37:41 +0100
+Message-ID: <4EFC34E5.4040202@linuxsystems.it>
+References: <4EFB3B2B.7060200@linuxsystems.it> <20111229002717.GB3548@hell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: lartc@vger.kernel.org,
+	"netfilter@vger.kernel.org" <netfilter@vger.kernel.org>,
+	Linux Networking Developer Mailing List
+	<netdev@vger.kernel.org>
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:44076 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751926Ab1L2J1s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 04:27:48 -0500
-Received: by vbbfc26 with SMTP id fc26so10114748vbb.19
-        for <netdev@vger.kernel.org>; Thu, 29 Dec 2011 01:27:48 -0800 (PST)
+Received: from mail.linuxsystems.it ([2.119.245.41]:49553 "EHLO
+	mail.linuxsystems.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751886Ab1L2Jhl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 04:37:41 -0500
+In-Reply-To: <20111229002717.GB3548@hell>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Provide child qdisc backlog (byte count) information so that "tc -s
-qdisc" can report it to user.
+Il 29/12/2011 01:27, Hagen Paul Pfeifer ha scritto:
+ > What about
+ >
+ > http://www.linuxfoundation.org/collaborate/workgroups/networking/gro=
+up
 
-qdisc netem 30: root refcnt 18 limit 1000 delay 20.0ms  10.0ms
- Sent 948517 bytes 898 pkt (dropped 0, overlimits 0 requeues 1) 
- rate 175056bit 16pps backlog 114b 1p requeues 1 
-qdisc tbf 40: parent 30: rate 256000bit burst 20Kb/8 mpu 0b lat 0us 
- Sent 948517 bytes 898 pkt (dropped 15, overlimits 611 requeues 0) 
- backlog 18168b 12p requeues 0 
+I saw it, but I didn't like it because unregistered users cannot edit=20
+the wiki and even registered users need an invite. Also, it seems quite=
+=20
+confusing, a traditional wiki is a better solution in my opinion.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/sched/sch_tbf.c |    1 +
- 1 file changed, 1 insertion(+)
+Niccol=F2
 
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index 1dcfb52..b8e1563 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -346,6 +346,7 @@ static int tbf_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	struct nlattr *nest;
- 	struct tc_tbf_qopt opt;
- 
-+	sch->qstats.backlog = q->qdisc->qstats.backlog;
- 	nest = nla_nest_start(skb, TCA_OPTIONS);
- 	if (nest == NULL)
- 		goto nla_put_failure;
+>> I still didn't find a viable solution for the LARTC wiki, so I
+>> decided to start hosting it on my own server. Later we can easily
+>> switch somewhere else if we keep using the same wiki engine (and
+>> maybe even with another wiki engine).
+>> I decided to use wikimedia because it's the only one I know of, so i=
+f
+>> someone knows a better alternative please let me know, we are still
+>> in time for a change.
+>> Since I never used a wiki seriously I will probably need someone els=
+e
+>> who can help me maintaining it, please let me know if you are
+>> experienced and willing to help.
+>>
+>> Here is the wiki: http://lartc.linuxsystems.it/
