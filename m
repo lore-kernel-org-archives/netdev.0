@@ -1,38 +1,66 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] mlx4_core: limiting VF port options
-Date: Thu, 29 Dec 2011 15:09:59 -0500 (EST)
-Message-ID: <20111229.150959.49185424410920094.davem@davemloft.net>
-References: <4EFCA68F.9060904@mellanox.co.il>
+Subject: [PATCH] ipv6: Report TCP timetstamp info in cacheinfo just like
+ ipv4 does.
+Date: Thu, 29 Dec 2011 15:23:07 -0500 (EST)
+Message-ID: <20111229.152307.2117046467310069170.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yevgenyp@mellanox.co.il
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36427 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:36477 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752018Ab1L2UKF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 15:10:05 -0500
-In-Reply-To: <4EFCA68F.9060904@mellanox.co.il>
+	with ESMTP id S1752421Ab1L2UXJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 15:23:09 -0500
+Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
+	(authenticated bits=0)
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id pBTKN7a3022095
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 29 Dec 2011 12:23:08 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Thu, 29 Dec 2011 19:42:39 +0200
 
-> 
-> At the moment VFs can only operate in Eth mode.
-> In addition we don't want the VF to attempt link sensing,
-> so we block this option as well.
-> 
-> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+I missed this while adding ipv6 support to inet_peer.
 
-Applied, but:
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv6/route.c |   11 ++++++++++-
+ 1 files changed, 10 insertions(+), 1 deletions(-)
 
-> +#define MLX4_VF_PORT_ETH_ONLY_MASK	0xE6
-
-Why don't you just clearly define what all the port type bits mean
-instead of only defining some arbitrary combination of them?
-
-What if people want to experiment with other bit mask settings?  They
-can't do that if you don't document the layout fully and properly.
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 0940729..30de9e7 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2360,11 +2360,13 @@ static int rt6_fill_node(struct net *net,
+ 			 int iif, int type, u32 pid, u32 seq,
+ 			 int prefix, int nowait, unsigned int flags)
+ {
++	const struct inet_peer *peer;
+ 	struct rtmsg *rtm;
+ 	struct nlmsghdr *nlh;
+ 	long expires;
+ 	u32 table;
+ 	struct neighbour *n;
++	u32 ts, tsage;
+ 
+ 	if (prefix) {	/* user wants prefix routes only */
+ 		if (!(rt->rt6i_flags & RTF_PREFIX_RT)) {
+@@ -2471,7 +2473,14 @@ static int rt6_fill_node(struct net *net,
+ 	else
+ 		expires = INT_MAX;
+ 
+-	if (rtnl_put_cacheinfo(skb, &rt->dst, 0, 0, 0,
++	peer = rt->rt6i_peer;
++	ts = tsage = 0;
++	if (peer && peer->tcp_ts_stamp) {
++		ts = peer->tcp_ts;
++		tsage = get_seconds() - peer->tcp_ts_stamp;
++	}
++
++	if (rtnl_put_cacheinfo(skb, &rt->dst, 0, ts, tsage,
+ 			       expires, rt->dst.error) < 0)
+ 		goto nla_put_failure;
+ 
+-- 
+1.7.7.4
