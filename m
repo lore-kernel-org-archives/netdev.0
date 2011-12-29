@@ -1,83 +1,43 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH] tcp: detect loss above high_seq in recovery
-Date: Thu, 29 Dec 2011 10:21:18 -0800
-Message-ID: <CAK6E8=fu_KAnzMhKYa368BzhGkLGtjjPhvDUezQ_b6Nsd5o6Zw@mail.gmail.com>
-References: <1325033182-25905-1-git-send-email-ycheng@google.com> <alpine.DEB.2.00.1112281736480.7752@melkinpaasi.cs.helsinki.fi>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH net-next] netem: fix classful handling
+Date: Thu, 29 Dec 2011 19:25:03 +0100
+Message-ID: <20111229182502.GD2948@hell>
+References: <1324664907.2915.5.camel@edumazet-laptop>
+ <20111223110749.7a690685@nehalam.linuxnetplumber.net>
+ <1324668083.2915.15.camel@edumazet-laptop>
+ <1325132760.2607.15.camel@edumazet-laptop>
+ <20111228221731.4d4954a9@s6510.linuxnetplumber.net>
+ <1325149922.2607.33.camel@edumazet-laptop>
+ <20111229165249.GB2948@hell>
+ <1325178950.2607.46.camel@edumazet-laptop>
+ <20111229174323.GC2948@hell>
+ <1325182236.2607.50.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, ncardwell@google.com,
-	nanditad@google.com, Netdev <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	Dave Taht <dave.taht@gmail.com>,
+	"John A. Sullivan III" <jsullivan@opensourcedevel.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-tul01m020-f174.google.com ([209.85.214.174]:53256 "EHLO
-	mail-tul01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751200Ab1L2SVk convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Dec 2011 13:21:40 -0500
-Received: by obcwo16 with SMTP id wo16so9469573obc.19
-        for <netdev@vger.kernel.org>; Thu, 29 Dec 2011 10:21:39 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.00.1112281736480.7752@melkinpaasi.cs.helsinki.fi>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:39887 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751460Ab1L2SZF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 13:25:05 -0500
+Content-Disposition: inline
+In-Reply-To: <1325182236.2607.50.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ilpo,
-On Wed, Dec 28, 2011 at 7:42 AM, Ilpo J=E4rvinen
-<ilpo.jarvinen@helsinki.fi> wrote:
->
-> On Tue, 27 Dec 2011, Yuchung Cheng wrote:
-> > The new sequences sent during fast-recovery maybe marked as lost
-> > and/or retransmitted. It is possible these (new) losses are recover=
-ed
-> > within the current fast recovery and the state moves back to CA_Ope=
-n
-> > without entering another fast recovery / cwnd redunction. This is
-> > especially possible for light losses. =A0Note RFC 3517 (implicitly)
-> > allows this as well.
->
-> No it doesn't! It does not allow you to avoid the second cwnd reducti=
-on.
-> They're from different RTT. What you now claim is that we never need =
-to
-> do cwnd reduction until we visit CA_Open in between. That's very very
-> dangerous if the congestion suddently spikes because nobody reduces t=
-wice
-> causing everyone to get losses and continues in the recovery forever.
+* Eric Dumazet | 2011-12-29 19:10:36 [+0100]:
 
-Should TCP perform another CWR for sequences lost after recovery point?
-my colleagues and I all agree with you it should. But my commit message=
- did a
-poor job explain some subtle deviations in standard and current Linux.
+>I dont quite understand the question. The patch I posted is supposed to
+>fix the problem. What do you want to tell to the user ?
 
-RFC3517 supports this by principle; however, it may repair such new dat=
-a losses
-in the current recovery: Rue 1.b and 1.c in NextSeg() allow retransmitt=
-ing any
-segment below highest sacked sequence. Thus it may repair every loss in=
- the
-current recovery and won't never go into another.
+I assumed that the patch makes it possible to replace standard tfifo?! Tfifo
+provides strict ordering, other qdisc's do not. So I thought if someone use
+netem rate|jitter with e.g. SFQ then this should be mentioned somewhere. E.g.
+"rate|jitter can only be used with tfifo qdisc". Correct me if I am wrong.
 
-As a matter of fact, Linux already does that today, by implementing rul=
-e 3 in
-NextSeg(), aka forward-retransmit. But Linux won't mark these packets l=
-ost even
-if there are >=3D tp->reordering packets sacked above. This change fixe=
-s this.
-
-How often is second CWR avoided? it's probably rare b/c it requires new=
- data
-during the recovery RTT and a complete repair any losses of them. It's =
-arguably
- OK to fix small new data losses during current recovery, and RFC/Linux=
- seem
-to do so.
-
-To summarize:
-1) this change does NOT forbid TCP performing further CWR on new losses
-2) this change (merely) marks some forward-retransmitted packets LOST.
-3) the commit message is to be explicit that CWR may not always be perf=
-ormed,
-    in both my change and current kernel.
-
-
-HTH. I will update commit message if people can make sense of it :)
+Cheers
