@@ -1,52 +1,44 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next] netem: fix classful handling
-Date: Thu, 29 Dec 2011 10:31:49 -0800
-Message-ID: <20111229103149.7256369c@nehalam.linuxnetplumber.net>
-References: <1324664907.2915.5.camel@edumazet-laptop>
-	<20111223110749.7a690685@nehalam.linuxnetplumber.net>
-	<1324668083.2915.15.camel@edumazet-laptop>
-	<1325132760.2607.15.camel@edumazet-laptop>
-	<20111228221731.4d4954a9@s6510.linuxnetplumber.net>
-	<1325149922.2607.33.camel@edumazet-laptop>
-	<20111229165249.GB2948@hell>
-	<1325178950.2607.46.camel@edumazet-laptop>
-	<20111229174323.GC2948@hell>
-	<1325182236.2607.50.camel@edumazet-laptop>
-	<20111229182502.GD2948@hell>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Dave Taht <dave.taht@gmail.com>,
-	"John A. Sullivan III" <jsullivan@opensourcedevel.com>,
-	netdev@vger.kernel.org
-To: Hagen Paul Pfeifer <hagen@jauu.net>
+From: Todd Broch <tbroch@chromium.org>
+Subject: [PATCH] r8169: Enable suspend when device is idle from boot.
+Date: Thu, 29 Dec 2011 10:33:14 -0800
+Message-ID: <1325183594-8947-1-git-send-email-tbroch@chromium.org>
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	Todd Broch <tbroch@chromium.org>
+To: nic_swsd@realtek.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:52117 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751221Ab1L2Sbx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Dec 2011 13:31:53 -0500
-In-Reply-To: <20111229182502.GD2948@hell>
+Received: from mail-tul01m020-f174.google.com ([209.85.214.174]:55919 "EHLO
+	mail-tul01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751221Ab1L2Sd6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 13:33:58 -0500
+Received: by obcwo16 with SMTP id wo16so9483556obc.19
+        for <netdev@vger.kernel.org>; Thu, 29 Dec 2011 10:33:57 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 29 Dec 2011 19:25:03 +0100
-Hagen Paul Pfeifer <hagen@jauu.net> wrote:
+The r8169 driver supports power management and correctly transitions
+from active to suspend when link transitions from connected to
+disconnected.  However, if link is not connected at boot the device
+remains active after the initial probe.
 
-> * Eric Dumazet | 2011-12-29 19:10:36 [+0100]:
-> 
-> >I dont quite understand the question. The patch I posted is supposed to
-> >fix the problem. What do you want to tell to the user ?
-> 
-> I assumed that the patch makes it possible to replace standard tfifo?! Tfifo
-> provides strict ordering, other qdisc's do not. So I thought if someone use
-> netem rate|jitter with e.g. SFQ then this should be mentioned somewhere. E.g.
-> "rate|jitter can only be used with tfifo qdisc". Correct me if I am wrong.
-> 
-> Cheers
+This change adds a check of the link status to the idle pm_op that
+will schedule a suspend if inactive.
 
-This is actually a feature. It is documented that tfifo can be replaced
-with pfifo. In other words, if default (tfifo) is used then packets
-can be reordered by the delay/jitter values. But if pfifo (or other
-qdisc) is used, the packets will not be reordered.
+Signed-off-by: Todd Broch <tbroch@chromium.org>
+---
+ drivers/net/ethernet/realtek/r8169.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 67bf078..3dbb5fd 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -6137,6 +6137,7 @@ static int rtl8169_runtime_idle(struct device *device)
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 
++	__rtl8169_check_link_status(dev, tp, tp->mmio_addr, true);
+ 	return tp->TxDescArray ? -EBUSY : 0;
+ }
+ 
+-- 
+1.7.3.1
