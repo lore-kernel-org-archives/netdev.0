@@ -1,41 +1,94 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [Announce] LARTC wiki available
-Date: Thu, 29 Dec 2011 01:27:17 +0100
-Message-ID: <20111229002717.GB3548@hell>
-References: <4EFB3B2B.7060200@linuxsystems.it>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: linux-next: Tree for Dec 28 (nfnetlink)
+Date: Thu, 29 Dec 2011 02:03:30 +0100
+Message-ID: <20111229010330.GA2663@1984>
+References: <20111228201806.d6de27fa2dbd9e3a3b7a2603@canb.auug.org.au>
+ <4EFB87CC.6020105@xenotime.net>
+ <20111228.153304.1267926241298522965.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lartc@vger.kernel.org,
-	"netfilter@vger.kernel.org" <netfilter@vger.kernel.org>,
-	Linux Networking Developer Mailing List
-	<netdev@vger.kernel.org>
-To: =?iso-8859-1?Q?Niccol=F2?= Belli <darkbasic@linuxsystems.it>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:57697 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753856Ab1L2A1U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2011 19:27:20 -0500
+Content-Type: multipart/mixed; boundary="fUYQa+Pmc3FrFX/N"
+Cc: rdunlap@xenotime.net, sfr@canb.auug.org.au,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4EFB3B2B.7060200@linuxsystems.it>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20111228.153304.1267926241298522965.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-* Niccol=F2 Belli | 2011-12-28 16:52:11 [+0100]:
 
->I still didn't find a viable solution for the LARTC wiki, so I
->decided to start hosting it on my own server. Later we can easily
->switch somewhere else if we keep using the same wiki engine (and
->maybe even with another wiki engine).
->I decided to use wikimedia because it's the only one I know of, so if
->someone knows a better alternative please let me know, we are still
->in time for a change.
->Since I never used a wiki seriously I will probably need someone else
->who can help me maintaining it, please let me know if you are
->experienced and willing to help.
->
->Here is the wiki: http://lartc.linuxsystems.it/
+--fUYQa+Pmc3FrFX/N
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-What about
+On Wed, Dec 28, 2011 at 03:33:04PM -0500, David Miller wrote:
+> From: Randy Dunlap <rdunlap@xenotime.net>
+> Date: Wed, 28 Dec 2011 13:19:08 -0800
+> 
+> > On 12/28/2011 01:18 AM, Stephen Rothwell wrote:
+> >> Hi all,
+> >> 
+> >> I got bored :-(  I also hate tree wide, flag day changes :-(
+> >> 
+> >> Changes since 20111222:
+> > 
+> > 
+> > 
+> > warning: (NETFILTER_XT_MATCH_NFACCT) selects NETFILTER_NETLINK_ACCT which has unmet direct dependencies (NET && INET && NETFILTER && NETFILTER_ADVANCED)
+> > 
+> > and then
+> > 
+> > ERROR: "nfnetlink_subsys_unregister" [net/netfilter/nfnetlink_acct.ko] undefined!
+> > ERROR: "nfnetlink_subsys_register" [net/netfilter/nfnetlink_acct.ko] undefined!
+> > 
+> > 
+> > Full randconfig file is attached.
+> 
+> Pablo please fix this, thanks.
 
-http://www.linuxfoundation.org/collaborate/workgroups/networking/group
+Please, apply the following patch.
+
+--fUYQa+Pmc3FrFX/N
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="0001-netfilter-Kconfig-fix-unmet-xt_nfacct-dependencies.patch"
+
+>From 3e52c20b633f9c829eaa9fe693a0cbef10ac4d02 Mon Sep 17 00:00:00 2001
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Thu, 29 Dec 2011 01:50:25 +0100
+Subject: [PATCH] netfilter: Kconfig: fix unmet xt_nfacct dependencies
+
+warning: (NETFILTER_XT_MATCH_NFACCT) selects NETFILTER_NETLINK_ACCT which has
+nmet direct dependencies (NET && INET && NETFILTER && NETFILTER_ADVANCED)
+
+and then
+
+ERROR: "nfnetlink_subsys_unregister" [net/netfilter/nfnetlink_acct.ko]
+ndefined!
+ERROR: "nfnetlink_subsys_register" [net/netfilter/nfnetlink_acct.ko]
++undefined!
+
+Reported-by: Randy Dunlap <rdunlap@xenotime.net>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index f6275a0..f8ac4ef 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -908,7 +908,7 @@ config NETFILTER_XT_MATCH_MULTIPORT
+ 
+ config NETFILTER_XT_MATCH_NFACCT
+ 	tristate '"nfacct" match support'
+-	default m if NETFILTER_ADVANCED=n
++	depends on NETFILTER_ADVANCED
+ 	select NETFILTER_NETLINK_ACCT
+ 	help
+ 	  This option allows you to use the extended accounting through
+-- 
+1.7.7.3
+
+
+--fUYQa+Pmc3FrFX/N--
