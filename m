@@ -1,58 +1,55 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next] netem: fix classful handling
-Date: Wed, 28 Dec 2011 22:17:31 -0800
-Message-ID: <20111228221731.4d4954a9@s6510.linuxnetplumber.net>
-References: <1324185132.8451.439.camel@denise.theartistscloset.com>
-	<20111218115549.0d9e1259@nehalam.linuxnetplumber.net>
-	<1324661639.4540.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1324661950.4540.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<CAA93jw77tL88oxt=2ZTs68k5awCOO2f4d+aE9H-yQdTsd8=gAQ@mail.gmail.com>
-	<1324664907.2915.5.camel@edumazet-laptop>
-	<20111223110749.7a690685@nehalam.linuxnetplumber.net>
-	<1324668083.2915.15.camel@edumazet-laptop>
-	<1325132760.2607.15.camel@edumazet-laptop>
+From: Dirk Behme <dirk.behme@googlemail.com>
+Subject: Re: [PATCH][NET] several cleanups and bugfixes for fec.c
+Date: Thu, 29 Dec 2011 07:38:28 +0100
+Message-ID: <4EFC0AE4.6020608@googlemail.com>
+References: <cover.1323163127.git.LW@KARO-electronics.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Dave Taht <dave.taht@gmail.com>,
-	"John A. Sullivan III" <jsullivan@opensourcedevel.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:42353 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751163Ab1L2GRg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Dec 2011 01:17:36 -0500
-In-Reply-To: <1325132760.2607.15.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; Format="flowed"
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: =?windows-1252?Q?Lothar_Wa=DFmann?= <LW@KARO-electronics.de>,
+ netdev@vger.kernel.org, Shawn Guo <shawn.guo@linaro.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <cover.1323163127.git.LW@KARO-electronics.de>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 29 Dec 2011 05:26:00 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On 06.12.2011 11:27, Lothar Wa=DFmann wrote:
+> The following set of patches provides some cleanup and bugfixes for
+> drivers/net/ethernet/freescale/fec.c and makes the driver buildable as
+> a module.
+>
+> Lothar Wa=C3=9Fmann (8):
+>    misc cleanups
+>    set con_id in clk_get() call to NULL
+>    prevent dobule restart of interface on FDX/HDX change
+>    don't request invalid IRQ
+>    don't munge MAC address from platform data
+>    preserve MII/RMII setting in fec_stop()
+>    fix the .remove code
+>    make FEC driver buildable as module
+>
+>   drivers/net/ethernet/freescale/Kconfig |    2 +-
+>   drivers/net/ethernet/freescale/fec.c   |   63 ++++++++++++++++++++++---=
+-------
+>   2 files changed, 44 insertions(+), 21 deletions(-)
 
-> Commit 10f6dfcfde (Revert "sch_netem: Remove classful functionality")
-> reintroduced classful functionality to netem, but broke basic netem
-> behavior :
-> 
-> netem uses an t(ime)fifo queue, and store timestamps in skb->cb[]
-> 
-> If qdisc is changed, time constraints are not respected and other qdisc
-> can destroy skb->cb[] and block netem at dequeue time.
-> 
-> Fix this by always using internal tfifo, and optionally attach a child
-> qdisc to netem.
-> 
-> Example of use :
-> 
-> DEV=eth3
-> tc qdisc del dev $DEV root
-> tc qdisc add dev $DEV root handle 30: est 1sec 8sec netem delay 20ms 10ms
-> tc qdisc add dev $DEV parent 30:0 sfq
+What's the status of this patch series?
 
-Does it work with TBF which is a more useful option?
+If I remember correctly, most of them got an Ack or Tested-by from =
 
-Also, the whole tfifo idea is only to support the wierd idea that
-if doing random delay that packets should get reordered based on the
-results of the random value; it was an behavior some users wanted
-because that is what NISTnet did.
+Shawn? But one or two need an update (not sure, though)? And the =
+
+subject should be updated?
+
+Best regards
+
+Dirk
