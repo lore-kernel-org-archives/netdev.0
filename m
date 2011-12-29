@@ -1,82 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on
- low-end broads.
-Date: Thu, 29 Dec 2011 18:48:42 -0500 (EST)
-Message-ID: <20111229.184842.664528940770120593.davem@davemloft.net>
-References: <20111229.170514.1766899380937848638.davem@davemloft.net>
-	<CACPM=kV8NwYLAdODQHxYmJ21X0RmZ8KJT9szKdY2xa-DsesvQg@mail.gmail.com>
-	<CACPM=kVfsXgFhKheevTS1pm7kCoezKO3M+102O=PRbXzxebxxg@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on low-end broads.
+Date: Fri, 30 Dec 2011 00:53:12 +0100
+Message-ID: <20111229235312.GA27092@electric-eye.fr.zoreil.com>
+References: <CACPM=kXOddA+T6vQPijR6sh8x5cMO=4baKGeKxEmMKG896Lz4g@mail.gmail.com> <20111229153902.GB21946@electric-eye.fr.zoreil.com> <20111229183902.GC21946@electric-eye.fr.zoreil.com> <20111229.170514.1766899380937848638.davem@davemloft.net> <CACPM=kV8NwYLAdODQHxYmJ21X0RmZ8KJT9szKdY2xa-DsesvQg@mail.gmail.com> <CACPM=kVfsXgFhKheevTS1pm7kCoezKO3M+102O=PRbXzxebxxg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, shemminger@vyatta.com,
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
 	bhutchings@solarflare.com, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, rl@hellgate.ch
-To: gurligebis@gentoo.org
+To: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37836 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754809Ab1L2Xtw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 18:49:52 -0500
+Received: from violet.fr.zoreil.com ([92.243.8.30]:47226 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754816Ab1L3ACB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 19:02:01 -0500
+Content-Disposition: inline
 In-Reply-To: <CACPM=kVfsXgFhKheevTS1pm7kCoezKO3M+102O=PRbXzxebxxg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
-Date: Fri, 30 Dec 2011 00:37:17 +0100
+Bjarke Istrup Pedersen <gurligebis@gentoo.org> :
+[...]
+> Would it be a problem if I try and use the patch on top of a clean
+> 3.1.6 kernel ?
 
-> Hmm, it seems like this problem isn't related to the driver, but
-> related to the current HEAD of net-next :)
+You will have to "cd drivers/net && patch -p5 ..." as the paths are
+different. Avoid suspend/resume/runtime PM.
 
-Please try this patch.
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 30de9e7..4a62c47 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -129,11 +129,14 @@ static struct neighbour *ip6_neigh_lookup(const struct dst_entry *dst, const voi
- 	return neigh_create(&nd_tbl, daddr, dst->dev);
- }
- 
--static int rt6_bind_neighbour(struct rt6_info *rt)
-+static int rt6_bind_neighbour(struct rt6_info *rt, struct net_device *dev)
- {
--	struct neighbour *n = ip6_neigh_lookup(&rt->dst, &rt->rt6i_gateway);
--	if (IS_ERR(n))
--		return PTR_ERR(n);
-+	struct neighbour *n = __ipv6_neigh_lookup(&nd_tbl, dev, &rt->rt6i_gateway);
-+	if (!n) {
-+		n = neigh_create(&nd_tbl, &rt->rt6i_gateway, dev);
-+		if (IS_ERR(n))
-+			return PTR_ERR(n);
-+	}
- 	dst_set_neighbour(&rt->dst, n);
- 
- 	return 0;
-@@ -746,7 +749,7 @@ static struct rt6_info *rt6_alloc_cow(const struct rt6_info *ort,
- #endif
- 
- 	retry:
--		if (rt6_bind_neighbour(rt)) {
-+		if (rt6_bind_neighbour(rt, rt->dst.dev)) {
- 			struct net *net = dev_net(rt->dst.dev);
- 			int saved_rt_min_interval =
- 				net->ipv6.sysctl.ip6_rt_gc_min_interval;
-@@ -1397,7 +1400,7 @@ int ip6_route_add(struct fib6_config *cfg)
- 		rt->rt6i_prefsrc.plen = 0;
- 
- 	if (cfg->fc_flags & (RTF_GATEWAY | RTF_NONEXTHOP)) {
--		err = rt6_bind_neighbour(rt);
-+		err = rt6_bind_neighbour(rt, dev);
- 		if (err)
- 			goto out;
- 	}
-@@ -2084,7 +2087,7 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
- 		rt->rt6i_flags |= RTF_ANYCAST;
- 	else
- 		rt->rt6i_flags |= RTF_LOCAL;
--	err = rt6_bind_neighbour(rt);
-+	err = rt6_bind_neighbour(rt, rt->dst.dev);
- 	if (err) {
- 		dst_free(&rt->dst);
- 		return ERR_PTR(err);
+-- 
+Ueimor
