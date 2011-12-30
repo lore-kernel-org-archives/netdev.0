@@ -1,244 +1,28 @@
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH net-next 3/3] be2net: query link status in be_open()
-Date: Fri, 30 Dec 2011 16:15:40 -0600
-Message-ID: <20111230221540.GA6866@akhaparde-VBox>
-Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [FIX PATCH net] mlx4_en: nullify cq->vector field when closing
+ completion queue
+Date: Fri, 30 Dec 2011 17:16:16 -0500 (EST)
+Message-ID: <20111230.171616.1116293904077742908.davem@davemloft.net>
+References: <4EFC8C26.3060006@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: yevgenyp@mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:55985 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752080Ab1L3WQV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2011 17:16:21 -0500
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([198.137.202.13]:44543 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752448Ab1L3WQZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2011 17:16:25 -0500
+In-Reply-To: <4EFC8C26.3060006@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-be2net gets an async link status notification from the FW when it creates
-an MCC queue. There are some cases in which this gratuitous notification
-is not received from FW. To cover this explicitly query the link status
-in be_open().
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Thu, 29 Dec 2011 17:49:58 +0200
 
-Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
-Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h         |    5 ++++-
- drivers/net/ethernet/emulex/benet/be_cmds.c    |   21 +++++++++++++++++----
- drivers/net/ethernet/emulex/benet/be_cmds.h    |    7 ++++---
- drivers/net/ethernet/emulex/benet/be_ethtool.c |    7 +++++--
- drivers/net/ethernet/emulex/benet/be_main.c    |   24 +++++++++++++++---------
- 5 files changed, 45 insertions(+), 19 deletions(-)
+> Caused loss of connectivity when changing ring size.
+> 
+> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 995198d..cbdec25 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -299,6 +299,8 @@ struct be_vf_cfg {
- 	u32 tx_rate;
- };
- 
-+#define BE_FLAGS_LINK_STATUS_INIT		1
-+
- struct be_adapter {
- 	struct pci_dev *pdev;
- 	struct net_device *netdev;
-@@ -347,6 +349,7 @@ struct be_adapter {
- 	struct delayed_work work;
- 	u16 work_counter;
- 
-+	u32 flags;
- 	/* Ethtool knobs and info */
- 	char fw_ver[FW_VER_LEN];
- 	int if_handle;		/* Used to configure filtering */
-@@ -538,7 +541,7 @@ static inline bool be_error(struct be_adapter *adapter)
- 
- extern void be_cq_notify(struct be_adapter *adapter, u16 qid, bool arm,
- 		u16 num_popped);
--extern void be_link_status_update(struct be_adapter *adapter, u32 link_status);
-+extern void be_link_status_update(struct be_adapter *adapter, u8 link_status);
- extern void be_parse_stats(struct be_adapter *adapter);
- extern int be_load_fw(struct be_adapter *adapter, u8 *func);
- #endif				/* BE_H */
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 62868ea..0fcb456 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -125,7 +125,14 @@ done:
- static void be_async_link_state_process(struct be_adapter *adapter,
- 		struct be_async_event_link_state *evt)
- {
--	be_link_status_update(adapter, evt->port_link_status);
-+	/* When link status changes, link speed must be re-queried from FW */
-+	adapter->link_speed = -1;
-+
-+	/* For the initial link status do not rely on the ASYNC event as
-+	 * it may not be received in some cases.
-+	 */
-+	if (adapter->flags & BE_FLAGS_LINK_STATUS_INIT)
-+		be_link_status_update(adapter, evt->port_link_status);
- }
- 
- /* Grp5 CoS Priority evt */
-@@ -1232,7 +1239,7 @@ err:
- 
- /* Uses synchronous mcc */
- int be_cmd_link_status_query(struct be_adapter *adapter, u8 *mac_speed,
--			u16 *link_speed, u32 dom)
-+			     u16 *link_speed, u8 *link_status, u32 dom)
- {
- 	struct be_mcc_wrb *wrb;
- 	struct be_cmd_req_link_status *req;
-@@ -1240,6 +1247,9 @@ int be_cmd_link_status_query(struct be_adapter *adapter, u8 *mac_speed,
- 
- 	spin_lock_bh(&adapter->mcc_lock);
- 
-+	if (link_status)
-+		*link_status = LINK_DOWN;
-+
- 	wrb = wrb_from_mccq(adapter);
- 	if (!wrb) {
- 		status = -EBUSY;
-@@ -1247,7 +1257,7 @@ int be_cmd_link_status_query(struct be_adapter *adapter, u8 *mac_speed,
- 	}
- 	req = embedded_payload(wrb);
- 
--	if (lancer_chip(adapter))
-+	if (adapter->generation == BE_GEN3 || lancer_chip(adapter))
- 		req->hdr.version = 1;
- 
- 	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
-@@ -1257,10 +1267,13 @@ int be_cmd_link_status_query(struct be_adapter *adapter, u8 *mac_speed,
- 	if (!status) {
- 		struct be_cmd_resp_link_status *resp = embedded_payload(wrb);
- 		if (resp->mac_speed != PHY_LINK_SPEED_ZERO) {
--			*link_speed = le16_to_cpu(resp->link_speed);
-+			if (link_speed)
-+				*link_speed = le16_to_cpu(resp->link_speed);
- 			if (mac_speed)
- 				*mac_speed = resp->mac_speed;
- 		}
-+		if (link_status)
-+			*link_status = resp->logical_link_status;
- 	}
- 
- err:
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 0b694c6..dca8924 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -960,7 +960,8 @@ struct be_cmd_resp_link_status {
- 	u8 mgmt_mac_duplex;
- 	u8 mgmt_mac_speed;
- 	u16 link_speed;
--	u32 rsvd0;
-+	u8 logical_link_status;
-+	u8 rsvd1[3];
- } __packed;
- 
- /******************** Port Identification ***************************/
-@@ -1507,8 +1508,8 @@ extern int be_cmd_q_destroy(struct be_adapter *adapter, struct be_queue_info *q,
- 			int type);
- extern int be_cmd_rxq_destroy(struct be_adapter *adapter,
- 			struct be_queue_info *q);
--extern int be_cmd_link_status_query(struct be_adapter *adapter,
--			u8 *mac_speed, u16 *link_speed, u32 dom);
-+extern int be_cmd_link_status_query(struct be_adapter *adapter, u8 *mac_speed,
-+				    u16 *link_speed, u8 *link_status, u32 dom);
- extern int be_cmd_reset(struct be_adapter *adapter);
- extern int be_cmd_get_stats(struct be_adapter *adapter,
- 			struct be_dma_mem *nonemb_cmd);
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index 6ba2dc6..6db6b6a 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -429,11 +429,14 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 	struct be_phy_info phy_info;
- 	u8 mac_speed = 0;
- 	u16 link_speed = 0;
-+	u8 link_status;
- 	int status;
- 
- 	if ((adapter->link_speed < 0) || (!(netdev->flags & IFF_UP))) {
- 		status = be_cmd_link_status_query(adapter, &mac_speed,
--						&link_speed, 0);
-+						  &link_speed, &link_status, 0);
-+		if (!status)
-+			be_link_status_update(adapter, link_status);
- 
- 		/* link_speed is in units of 10 Mbps */
- 		if (link_speed) {
-@@ -700,7 +703,7 @@ be_self_test(struct net_device *netdev, struct ethtool_test *test, u64 *data)
- 	}
- 
- 	if (be_cmd_link_status_query(adapter, &mac_speed,
--				&qos_link_speed, 0) != 0) {
-+				     &qos_link_speed, NULL, 0) != 0) {
- 		test->flags |= ETH_TEST_FL_FAILED;
- 		data[4] = -1;
- 	} else if (!mac_speed) {
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index fe702c1..6c46753 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -496,19 +496,19 @@ static struct rtnl_link_stats64 *be_get_stats64(struct net_device *netdev,
- 	return stats;
- }
- 
--void be_link_status_update(struct be_adapter *adapter, u32 link_status)
-+void be_link_status_update(struct be_adapter *adapter, u8 link_status)
- {
- 	struct net_device *netdev = adapter->netdev;
- 
--	/* when link status changes, link speed must be re-queried from card */
--	adapter->link_speed = -1;
--	if ((link_status & LINK_STATUS_MASK) == LINK_UP) {
--		netif_carrier_on(netdev);
--		dev_info(&adapter->pdev->dev, "%s: Link up\n", netdev->name);
--	} else {
-+	if (!(adapter->flags & BE_FLAGS_LINK_STATUS_INIT)) {
- 		netif_carrier_off(netdev);
--		dev_info(&adapter->pdev->dev, "%s: Link down\n", netdev->name);
-+		adapter->flags |= BE_FLAGS_LINK_STATUS_INIT;
- 	}
-+
-+	if ((link_status & LINK_STATUS_MASK) == LINK_UP)
-+		netif_carrier_on(netdev);
-+	else
-+		netif_carrier_off(netdev);
- }
- 
- static void be_tx_stats_update(struct be_tx_obj *txo,
-@@ -2414,6 +2414,7 @@ static int be_open(struct net_device *netdev)
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 	struct be_eq_obj *tx_eq = &adapter->tx_eq;
- 	struct be_rx_obj *rxo;
-+	u8 link_status;
- 	int status, i;
- 
- 	status = be_rx_queues_setup(adapter);
-@@ -2437,6 +2438,11 @@ static int be_open(struct net_device *netdev)
- 	/* Now that interrupts are on we can process async mcc */
- 	be_async_mcc_enable(adapter);
- 
-+	status = be_cmd_link_status_query(adapter, NULL, NULL,
-+					  &link_status, 0);
-+	if (!status)
-+		be_link_status_update(adapter, link_status);
-+
- 	return 0;
- err:
- 	be_close(adapter->netdev);
-@@ -2584,7 +2590,7 @@ static int be_vf_setup(struct be_adapter *adapter)
- 
- 	for_all_vfs(adapter, vf_cfg, vf) {
- 		status = be_cmd_link_status_query(adapter, NULL, &lnk_speed,
--						  vf + 1);
-+						  NULL, vf + 1);
- 		if (status)
- 			goto err;
- 		vf_cfg->tx_rate = lnk_speed * 10;
--- 
-1.7.5.4
+Applied, thanks.
