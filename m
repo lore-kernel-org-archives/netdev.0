@@ -1,104 +1,110 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [BUG] SIOCSIFFLAGS returns -EIO on SMSC LAN911x
-Date: Fri, 30 Dec 2011 11:56:13 +0100
-Message-ID: <1325242573.13595.71.camel@deadeye>
-References: <CAAwP0s37E=9J-KR397snkvq=idrc7nmELDJKrm33reeK84wJYQ@mail.gmail.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] tcp: detect loss above high_seq in recovery
+Date: Fri, 30 Dec 2011 13:19:18 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.1112301256060.15137@wel-95.cs.helsinki.fi>
+References: <1325033182-25905-1-git-send-email-ycheng@google.com> <alpine.DEB.2.00.1112281736480.7752@melkinpaasi.cs.helsinki.fi> <CAK6E8=fu_KAnzMhKYa368BzhGkLGtjjPhvDUezQ_b6Nsd5o6Zw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Gjr5DDY7tCbPk6kExwUj"
-Cc: netdev@vger.kernel.org,
-	Enric Balletbo i Serra <eballetbo@iseebcn.com>
-To: Javier Martinez Canillas <martinez.javier@gmail.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-2023122206-1325243958=:15137"
+Cc: David Miller <davem@davemloft.net>, ncardwell@google.com,
+	nanditad@google.com, Netdev <netdev@vger.kernel.org>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:48072 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751423Ab1L3K4X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2011 05:56:23 -0500
-In-Reply-To: <CAAwP0s37E=9J-KR397snkvq=idrc7nmELDJKrm33reeK84wJYQ@mail.gmail.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:49975 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751459Ab1L3LTU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2011 06:19:20 -0500
+In-Reply-To: <CAK6E8=fu_KAnzMhKYa368BzhGkLGtjjPhvDUezQ_b6Nsd5o6Zw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
---=-Gjr5DDY7tCbPk6kExwUj
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+--8323329-2023122206-1325243958=:15137
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
-On Fri, 2011-12-30 at 10:44 +0100, Javier Martinez Canillas wrote:
-> Hello,
->=20
-> We have an issue with the SMSC LAN911x driver with today linux-2.6 [1]
-> executing on an IGEPv2 [2] board using omap2plus_defconfig.
->=20
-> When I try to bring up the network interface, the ioctl set interface
-> flags command (SIOCSIFFLAGS)  fails returning -EIO:
-[...]
-> By doing a git bisect we found that this strange behavior exists when
-> the Kconfig tristate compilation condition SMSC_PHY has the value yes
-> to be compiled built-in:
->=20
-> SMSC_PHY=3Dy
->=20
-> If this config symbol has the value module (m) or not build at all,
-> then bringing up the network interface never fails.
+On Thu, 29 Dec 2011, Yuchung Cheng wrote:
 
-So the PHY driver is doing something that interferes with soft reset.
+> Ilpo,
+> On Wed, Dec 28, 2011 at 7:42 AM, Ilpo Järvinen
+> <ilpo.jarvinen@helsinki.fi> wrote:
+> >
+> > On Tue, 27 Dec 2011, Yuchung Cheng wrote:
+> > > The new sequences sent during fast-recovery maybe marked as lost
+> > > and/or retransmitted. It is possible these (new) losses are recovered
+> > > within the current fast recovery and the state moves back to CA_Open
+> > > without entering another fast recovery / cwnd redunction. This is
+> > > especially possible for light losses.  Note RFC 3517 (implicitly)
+> > > allows this as well.
+> >
+> > No it doesn't! It does not allow you to avoid the second cwnd reduction.
+> > They're from different RTT. What you now claim is that we never need to
+> > do cwnd reduction until we visit CA_Open in between. That's very very
+> > dangerous if the congestion suddently spikes because nobody reduces twice
+> > causing everyone to get losses and continues in the recovery forever.
+> 
+> Should TCP perform another CWR for sequences lost after recovery point?
+> my colleagues and I all agree with you it should.
 
-The data sheet for this part
-<http://www.smsc.com/media/Downloads_Public/Data_Sheets/9221.pdf> says
-that soft reset does not work if the PHY is in certain states.  Also, it
-doesn't seem to specify a maximum time for soft reset to complete,
-though it does say that PHY reset takes 100 us.
+I agree, and it seems that neither Linux nor RFC3517 does this right
+(I should have read the RFC more carefully instead just trust my own 
+guesswork. It seems that there's instead this corner case not covered in 
+the RFC correctly, probably because it would require rexmit loss that 
+forces RTO with standard TCP or reordering).
 
-> Did anyone have the same problem?
->=20
-> The problem is really strange to me, especially since we are sure that
-> all the requirements to software reset the device are meet in both
-> cases (with SMSC_PHY compiled built-in and without it)
+> But my commit message did a poor job explain some subtle deviations in 
+> standard and current Linux.
 
-I don't know about that.  smsc_phy_config_init() attempts to enable
-power-saving on the PHY, but it is writing to a bit that is reserved
-according to the data sheet for the combined MAC/PHY chip.  You might
-want to try reverting:
+Right, I though you're changing (removing) the second reduction based on 
+the commit message as I didn't have time to go through enough code. But it 
+seems that it is pre-existing issue.
 
-commit 698244ace8b63896565022143ab19f141bc48993
-Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Date:   Wed Jan 6 20:35:14 2010 -0800
+> RFC3517 supports this by principle; however, it may repair such new data 
+> losses in the current recovery: Rue 1.b and 1.c in NextSeg() allow 
+> retransmitting any segment below highest sacked sequence. Thus it may 
+> repair every loss in the current recovery and won't never go into 
+> another.
 
-    phy: SMSC device Energy Detect power-down mode
+I suppose we should be moving high_seq (RecoveryPoint) to the snd_nxt when 
+we retransmit something above high_seq and initiate the addition reduction 
+using PRR. It won't be accurately measuring the next RTT though as rexmits 
+and new data were mixed during the first recovery RTT but I suppose it's 
+still good enough approximation.
 
-Ben.
+> As a matter of fact, Linux already does that today, by implementing rule 3 in
+> NextSeg(), aka forward-retransmit. But Linux won't mark these packets 
+> lost even if there are >= tp->reordering packets sacked above. This 
+> change fixes this.
 
-> [1]: HEAD on commit 371de6e4e0042adf4f9b54c414154f57414ddd37 drm/i915:
-> Disable RC6 on Sandybridge by default
-> [2]: https://wiki.linaro.org/Boards/Igep
->=20
-> Thank you and best regards,
->=20
+I was thinking there used to be seq < high_seq condition in the rexmit 
+loop but it seems that it either got dropped or I remember wrong. That 
+would have prevented forward rexmits past the boundary.
 
---=20
-Ben Hutchings
-Beware of programmers who carry screwdrivers. - Leonard Brandwein
+> How often is second CWR avoided? it's probably rare b/c it requires new data
+> during the recovery RTT and a complete repair any losses of them. It's 
+> arguably OK to fix small new data losses during current recovery, and 
+> RFC/Linux seem to do so.
 
---=-Gjr5DDY7tCbPk6kExwUj
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+There's one significant difference here: For RFC this is includes only 
+some trivial reordering cases, but with Linux we can handle lost rexmits, 
+making it more likely to happen (they would require RTO & its consequences 
+with RFC/Std TCP if we assume no reordering cumulative ACKs end the 
+previous recovery and the next one immediately gets triggered).
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+> To summarize:
+> 1) this change does NOT forbid TCP performing further CWR on new losses
+> 2) this change (merely) marks some forward-retransmitted packets LOST.
+> 3) the commit message is to be explicit that CWR may not always be performed,
+>     in both my change and current kernel.
 
-iQIVAwUATv2Yzee/yOyVhhEJAQrd2w/9HF8ygWV6xFPblXAjXyuRAyBB2WlvN/CW
-0YhxrxqVVOyETxasysloyG4ndaoXjG53FRfOcXQCFriWKhBq7hW2DH1ZXPq8Hy1T
-L0ZzrbnFmqzIDHCnX4iBUTH0zm+ipWWQfY3eFxy5i4S5A1qbkEOmYmd2UDbZcL8I
-5wTBtGeW3H1zU+klfoyNSIVdJPAeKsni20ULuSP9T6lGOH2HUVfrEMRPVsJmoySt
-+r9TyePQqJcHL4c/wVMy+2Wj4m7gC0UqqKafB4eHDbIw/pHe+pT1VR6sgn4rNUns
-mWJe95PFlOSLyk8CqQ/OHGZ82mmY/KkvOF3VGtErazXdhaovDlpKn2KiQKDRwGeO
-0cY61Gl1mlaomRLRTf8msvJyh4yb+0y1U+ZEzpK48aZHpIJ9ihNwMbZ4Avwv5hl7
-n6CDdX9PYt/eXjSO00dltC7lCvjDws+eM1YUXf+DGl1QNEEvlcnIdi/rqJbKY0JG
-2r9SOKDtZ9u6dbS/D4UkvF+cGVm2h1+sQIEgrZcIEmDillSDWMHg2lyVIkX8RXKU
-RzklMZCGRRMuqKw6Xv61u5np7HHxNqUczad34rk0hPWnoq9iTl9Kzd70UqrVJKoL
-kfahw4DIP6rowML0bkaLnf2hGJwGDGfcbV/6B7DQ0MYeETfdgL+3xNszJnqCFo++
-rLvlVM73mbE=
-=4c5f
------END PGP SIGNATURE-----
+I agree with these points. I wonder if you intend to look to fixing the 
+lacking CWR problem or should I look to that once I get some spare time?
 
---=-Gjr5DDY7tCbPk6kExwUj--
+> HTH. I will update commit message if people can make sense of it :)
+
+Please do.
+
+-- 
+ i.
+--8323329-2023122206-1325243958=:15137--
