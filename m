@@ -1,89 +1,57 @@
 From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH net-next 1/3] be2net: fix be_vlan_add/rem_vid
-Date: Fri, 30 Dec 2011 16:15:12 -0600
-Message-ID: <20111230221512.GA6825@akhaparde-VBox>
+Subject: [PATCH net-next 2/3] be2net: fix range check for set_qos for a VF
+Date: Fri, 30 Dec 2011 16:15:30 -0600
+Message-ID: <20111230221530.GA6850@akhaparde-VBox>
 Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Cc: <netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:55982 "EHLO
+Received: from exht1.emulex.com ([138.239.113.183]:55985 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752037Ab1L3WPq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2011 17:15:46 -0500
+	with ESMTP id S1752037Ab1L3WQV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2011 17:16:21 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1) fix be_vlan_add/rem_vid to return proper status
-2) perform appropriate housekeeping if firmware command succeeds.
-
 Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |   35 ++++++++++++++++++--------
- 1 files changed, 24 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |   14 +++++++++-----
+ 1 files changed, 9 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 76f3a98..10f2313 100644
+index 10f2313..fe702c1 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -817,32 +817,45 @@ static int be_vid_config(struct be_adapter *adapter, bool vf, u32 vf_num)
- static int be_vlan_add_vid(struct net_device *netdev, u16 vid)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
-+	int status = 0;
+@@ -978,18 +978,22 @@ static int be_set_vf_tx_rate(struct net_device *netdev,
+ 	if (!sriov_enabled(adapter))
+ 		return -EPERM;
  
--	adapter->vlans_added++;
--	if (!be_physfn(adapter))
--		return 0;
-+	if (!be_physfn(adapter)) {
-+		status = -EINVAL;
-+		goto ret;
+-	if (vf >= adapter->num_vfs || rate < 0)
++	if (vf >= adapter->num_vfs)
+ 		return -EINVAL;
+ 
+-	if (rate > 10000)
+-		rate = 10000;
++	if (rate < 100 || rate > 10000) {
++		dev_err(&adapter->pdev->dev,
++			"tx rate must be between 100 and 10000 Mbps\n");
++		return -EINVAL;
 +	}
  
- 	adapter->vlan_tag[vid] = 1;
- 	if (adapter->vlans_added <= (adapter->max_vlans + 1))
--		be_vid_config(adapter, false, 0);
-+		status = be_vid_config(adapter, false, 0);
+-	adapter->vf_cfg[vf].tx_rate = rate;
+ 	status = be_cmd_set_qos(adapter, rate / 10, vf + 1);
  
--	return 0;
-+	if (!status)
-+		adapter->vlans_added++;
+ 	if (status)
+-		dev_info(&adapter->pdev->dev,
++		dev_err(&adapter->pdev->dev,
+ 				"tx rate %d on VF %d failed\n", rate, vf);
 +	else
-+		adapter->vlan_tag[vid] = 0;
-+ret:
-+	return status;
++		adapter->vf_cfg[vf].tx_rate = rate;
+ 	return status;
  }
  
- static int be_vlan_rem_vid(struct net_device *netdev, u16 vid)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
-+	int status = 0;
- 
--	adapter->vlans_added--;
--
--	if (!be_physfn(adapter))
--		return 0;
-+	if (!be_physfn(adapter)) {
-+		status = -EINVAL;
-+		goto ret;
-+	}
- 
- 	adapter->vlan_tag[vid] = 0;
- 	if (adapter->vlans_added <= adapter->max_vlans)
--		be_vid_config(adapter, false, 0);
-+		status = be_vid_config(adapter, false, 0);
- 
--	return 0;
-+	if (!status)
-+		adapter->vlans_added--;
-+	else
-+		adapter->vlan_tag[vid] = 1;
-+ret:
-+	return status;
- }
- 
- static void be_set_rx_mode(struct net_device *netdev)
 -- 
 1.7.5.4
