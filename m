@@ -1,65 +1,28 @@
-From: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
-Subject: Re: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on low-end broads.
-Date: Fri, 30 Dec 2011 21:38:26 +0100
-Message-ID: <CACPM=kXWXUE+JcVhkz-6tGZ2YyteN9sGA80+Pnw6+LaJ-eNWBA@mail.gmail.com>
-References: <CACPM=kXOddA+T6vQPijR6sh8x5cMO=4baKGeKxEmMKG896Lz4g@mail.gmail.com>
-	<20111229153902.GB21946@electric-eye.fr.zoreil.com>
-	<20111229183902.GC21946@electric-eye.fr.zoreil.com>
-	<20111229.170514.1766899380937848638.davem@davemloft.net>
-	<CACPM=kV8NwYLAdODQHxYmJ21X0RmZ8KJT9szKdY2xa-DsesvQg@mail.gmail.com>
-	<CACPM=kVfsXgFhKheevTS1pm7kCoezKO3M+102O=PRbXzxebxxg@mail.gmail.com>
-	<20111229235312.GA27092@electric-eye.fr.zoreil.com>
-	<CACPM=kXTqY1kVWrEMB-Z0Lqy6t+rXvMzixcSUy7fAz6g_ajV9g@mail.gmail.com>
-	<20111230125655.GA32031@electric-eye.fr.zoreil.com>
-	<CACPM=kVBxcL1_Z9zVvnEEdEgAc0rbAAbzkcocz4OYWQ2xn6VmQ@mail.gmail.com>
-	<20111230180347.GA3647@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/7] unix_diag: Include unix_diag.h into header-y target
+Date: Fri, 30 Dec 2011 16:46:54 -0500 (EST)
+Message-ID: <20111230.164654.187467235176041323.davem@davemloft.net>
+References: <4EFD9803.3040106@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	bhutchings@solarflare.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, rl@hellgate.ch
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: xemul@parallels.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:33695 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750943Ab1L3Ui1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2011 15:38:27 -0500
-In-Reply-To: <20111230180347.GA3647@electric-eye.fr.zoreil.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:44324 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751744Ab1L3Vq5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2011 16:46:57 -0500
+In-Reply-To: <4EFD9803.3040106@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/12/30 Francois Romieu <romieu@fr.zoreil.com>:
-> Bjarke Istrup Pedersen <gurligebis@gentoo.org> :
-> [...]
->> Great, let me know when there is more to test :)
->
-> It's done. I have removed linux-kernel from the Cc: where patches are=
- sent
-> since there is netdev.
->
-> If you don't crash trivially, feel free to :
-> 1. loop ip link up / down + module removal / insertion under traffic
-> 2. loop ethtool / vlan commands under traffic
-> 3. do the same as above and perform suspend / resume
+From: Pavel Emelyanov <xemul@parallels.com>
+Date: Fri, 30 Dec 2011 14:52:51 +0400
 
-Hey,
+> The headers check complains it should include the linux/types.h
+> withing, thus add this one.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
-Going to test it later tonight.
-Just applied it to HEAD of net-next, and got the following compiler war=
-ning:
-drivers/net/ethernet/via/via-rhine.c:2182:13: warning:
-'rhine_task_enable' defined but not used
-
-Just so you know that too :)
-
-/Bjarke
-
-> --
-> Ueimor
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at =A0http://www.tux.org/lkml/
+Applied.
