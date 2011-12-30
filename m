@@ -1,96 +1,86 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 6/8] tipc: rename struct bcbearer* to tipc_bcbearer*
-Date: Thu, 29 Dec 2011 22:48:55 -0500
-Message-ID: <1325216937-5856-7-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 8/8] tipc: rename struct bearer_name to struct tipc_bearer_names
+Date: Thu, 29 Dec 2011 22:48:57 -0500
+Message-ID: <1325216937-5856-9-git-send-email-paul.gortmaker@windriver.com>
 References: <1325216937-5856-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
 	ying.xue@windriver.com,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:63630 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:63632 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755091Ab1L3DtQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 22:49:16 -0500
+	with ESMTP id S1755094Ab1L3DtR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 22:49:17 -0500
 In-Reply-To: <1325216937-5856-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This changes both the struct bcbearer and struct bcbearer_pair to
-have the "tipc_" prefix.  Runtime behaviour is unchanged.
+The addition of the "s" to indicate pluralization is intentional,
+since the struct actually contains two name variants.
 
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/bcast.c |   20 ++++++++++----------
- 1 files changed, 10 insertions(+), 10 deletions(-)
+ net/tipc/bearer.c |   10 +++++-----
+ net/tipc/bearer.h |    2 +-
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index e88da1c..c24690f 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -46,7 +46,7 @@
- #define BCLINK_WIN_DEFAULT 20		/* bcast link window size (default) */
- 
- /**
-- * struct bcbearer_pair - a pair of bearers used by broadcast link
-+ * struct tipc_bcbearer_pair - a pair of bearers used by broadcast link
-  * @primary: pointer to primary bearer
-  * @secondary: pointer to secondary bearer
-  *
-@@ -54,13 +54,13 @@
-  * to be paired.
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index eab4201..329fb65 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -185,7 +185,7 @@ struct sk_buff *tipc_media_get_names(void)
   */
  
--struct bcbearer_pair {
-+struct tipc_bcbearer_pair {
- 	struct tipc_bearer *primary;
- 	struct tipc_bearer *secondary;
- };
- 
- /**
-- * struct bcbearer - bearer used by broadcast link
-+ * struct tipc_bcbearer - bearer used by broadcast link
-  * @bearer: (non-standard) broadcast bearer structure
-  * @media: (non-standard) broadcast media structure
-  * @bpairs: array of bearer pairs
-@@ -74,11 +74,11 @@ struct bcbearer_pair {
-  * prevented through use of the spinlock "bc_lock".
-  */
- 
--struct bcbearer {
-+struct tipc_bcbearer {
- 	struct tipc_bearer bearer;
- 	struct tipc_media media;
--	struct bcbearer_pair bpairs[MAX_BEARERS];
--	struct bcbearer_pair bpairs_temp[TIPC_MAX_LINK_PRI + 1];
-+	struct tipc_bcbearer_pair bpairs[MAX_BEARERS];
-+	struct tipc_bcbearer_pair bpairs_temp[TIPC_MAX_LINK_PRI + 1];
- 	struct tipc_node_map remains;
- 	struct tipc_node_map remains_new;
- };
-@@ -100,10 +100,10 @@ struct tipc_bclink {
- 	struct tipc_node *retransmit_to;
- };
- 
--static struct bcbearer bcast_bearer;
-+static struct tipc_bcbearer bcast_bearer;
- static struct tipc_bclink bcast_link;
- 
--static struct bcbearer *bcbearer = &bcast_bearer;
-+static struct tipc_bcbearer *bcbearer = &bcast_bearer;
- static struct tipc_bclink *bclink = &bcast_link;
- static struct link *bcl = &bcast_link.link;
- 
-@@ -677,8 +677,8 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
- 
- void tipc_bcbearer_sort(void)
+ static int bearer_name_validate(const char *name,
+-				struct bearer_name *name_parts)
++				struct tipc_bearer_names *name_parts)
  {
--	struct bcbearer_pair *bp_temp = bcbearer->bpairs_temp;
--	struct bcbearer_pair *bp_curr;
-+	struct tipc_bcbearer_pair *bp_temp = bcbearer->bpairs_temp;
-+	struct tipc_bcbearer_pair *bp_curr;
- 	int b_index;
- 	int pri;
+ 	char name_copy[TIPC_MAX_BEARER_NAME];
+ 	char *media_name;
+@@ -428,7 +428,7 @@ int tipc_enable_bearer(const char *name, u32 disc_domain, u32 priority)
+ {
+ 	struct tipc_bearer *b_ptr;
+ 	struct tipc_media *m_ptr;
+-	struct bearer_name b_name;
++	struct tipc_bearer_names b_names;
+ 	char addr_string[16];
+ 	u32 bearer_id;
+ 	u32 with_this_prio;
+@@ -440,7 +440,7 @@ int tipc_enable_bearer(const char *name, u32 disc_domain, u32 priority)
+ 		     name);
+ 		return -ENOPROTOOPT;
+ 	}
+-	if (!bearer_name_validate(name, &b_name)) {
++	if (!bearer_name_validate(name, &b_names)) {
+ 		warn("Bearer <%s> rejected, illegal name\n", name);
+ 		return -EINVAL;
+ 	}
+@@ -465,10 +465,10 @@ int tipc_enable_bearer(const char *name, u32 disc_domain, u32 priority)
  
+ 	write_lock_bh(&tipc_net_lock);
+ 
+-	m_ptr = tipc_media_find(b_name.media_name);
++	m_ptr = tipc_media_find(b_names.media_name);
+ 	if (!m_ptr) {
+ 		warn("Bearer <%s> rejected, media <%s> not registered\n", name,
+-		     b_name.media_name);
++		     b_names.media_name);
+ 		goto exit;
+ 	}
+ 
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index 3480654..d3eac56 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -152,7 +152,7 @@ struct tipc_bearer {
+ 	struct tipc_node_map nodes;
+ };
+ 
+-struct bearer_name {
++struct tipc_bearer_names {
+ 	char media_name[TIPC_MAX_MEDIA_NAME];
+ 	char if_name[TIPC_MAX_IF_NAME];
+ };
 -- 
 1.7.4.4
