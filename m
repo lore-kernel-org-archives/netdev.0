@@ -1,73 +1,64 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 0/8] tipc: add tipc_ prefix to various structs
-Date: Thu, 29 Dec 2011 22:48:49 -0500
-Message-ID: <1325216937-5856-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 5/8] tipc: rename struct bclink to struct tipc_bclink
+Date: Thu, 29 Dec 2011 22:48:54 -0500
+Message-ID: <1325216937-5856-6-git-send-email-paul.gortmaker@windriver.com>
+References: <1325216937-5856-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
 	ying.xue@windriver.com,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:63602 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:63619 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754979Ab1L3DtL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 22:49:11 -0500
+	with ESMTP id S1755079Ab1L3DtO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 22:49:14 -0500
+In-Reply-To: <1325216937-5856-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Make this rename so that it is consistent with the majority
+of the other tipc structs and to assist in removing any
+ambiguity with other similar names in other subsystems.
 
-Here is the addition of the tipc_ prefix that you requested earlier
-this week.  I left the changes as separate commits since it makes it
-easier at a glance to review them and make sure my regex foo did
-the right thing in each case.  The last commit intentionally adds
-an "s" [i.e. name --> names] since that better describes what the
-struct actually contains.
-
-I didn't redo runtime testing, but it is compile tested as a sanity
-check.  Long lines caused by the addition of the prefix have been
-wrapped so the patches are (as usual) checkpatch clean.
-
-Happy New Year!
-Paul.
-
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
+ net/tipc/bcast.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-The following changes since commit d191854282fd831da785a5a34bc6fd16049b8578:
-
-  ipv6: Kill rt6i_dev and rt6i_expires defines. (2011-12-28 20:19:20 -0500)
-
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/paulg/linux.git tipc-Dec29-2011
-
-Paul Gortmaker (8):
-  tipc: rename struct media to struct tipc_media
-  tipc: rename struct port_list to struct tipc_port_list
-  tipc: rename struct subscription to struct tipc_subscription
-  tipc: rename struct subscriber to struct tipc_subscriber
-  tipc: rename struct bclink to struct tipc_bclink
-  tipc: rename struct bcbearer* to tipc_bcbearer*
-  tipc: rename struct link* to struct tipc_link*
-  tipc: rename struct bearer_name to struct tipc_bearer_names
-
- net/tipc/bcast.c      |   46 +++++++-------
- net/tipc/bcast.h      |   10 ++--
- net/tipc/bearer.c     |   42 +++++++------
- net/tipc/bearer.h     |   23 ++++----
- net/tipc/discover.c   |   20 +++---
- net/tipc/discover.h   |    8 +-
- net/tipc/eth_media.c  |    4 +-
- net/tipc/link.c       |  155 +++++++++++++++++++++++++------------------------
- net/tipc/link.h       |   52 +++++++++--------
- net/tipc/name_distr.c |    2 +-
- net/tipc/name_table.c |   15 +++--
- net/tipc/name_table.h |   10 ++--
- net/tipc/node.c       |   18 +++---
- net/tipc/node.h       |   12 ++--
- net/tipc/port.c       |    8 +-
- net/tipc/port.h       |    4 +-
- net/tipc/subscr.c     |   46 +++++++-------
- net/tipc/subscr.h     |   10 ++--
- 18 files changed, 248 insertions(+), 237 deletions(-)
-
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index 653be79..e88da1c 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -84,7 +84,7 @@ struct bcbearer {
+ };
+ 
+ /**
+- * struct bclink - link used for broadcast messages
++ * struct tipc_bclink - link used for broadcast messages
+  * @link: (non-standard) broadcast link structure
+  * @node: (non-standard) node structure representing b'cast link's peer node
+  * @bcast_nodes: map of broadcast-capable nodes
+@@ -93,7 +93,7 @@ struct bcbearer {
+  * Handles sequence numbering, fragmentation, bundling, etc.
+  */
+ 
+-struct bclink {
++struct tipc_bclink {
+ 	struct link link;
+ 	struct tipc_node node;
+ 	struct tipc_node_map bcast_nodes;
+@@ -101,10 +101,10 @@ struct bclink {
+ };
+ 
+ static struct bcbearer bcast_bearer;
+-static struct bclink bcast_link;
++static struct tipc_bclink bcast_link;
+ 
+ static struct bcbearer *bcbearer = &bcast_bearer;
+-static struct bclink *bclink = &bcast_link;
++static struct tipc_bclink *bclink = &bcast_link;
+ static struct link *bcl = &bcast_link.link;
+ 
+ static DEFINE_SPINLOCK(bc_lock);
 -- 
 1.7.4.4
