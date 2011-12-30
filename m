@@ -1,32 +1,58 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on low-end broads.
-Date: Fri, 30 Dec 2011 23:19:38 +0100
-Message-ID: <20111230221938.GA6197@electric-eye.fr.zoreil.com>
-References: <CACPM=kV8NwYLAdODQHxYmJ21X0RmZ8KJT9szKdY2xa-DsesvQg@mail.gmail.com> <CACPM=kVfsXgFhKheevTS1pm7kCoezKO3M+102O=PRbXzxebxxg@mail.gmail.com> <20111229235312.GA27092@electric-eye.fr.zoreil.com> <CACPM=kXTqY1kVWrEMB-Z0Lqy6t+rXvMzixcSUy7fAz6g_ajV9g@mail.gmail.com> <20111230125655.GA32031@electric-eye.fr.zoreil.com> <CACPM=kVBxcL1_Z9zVvnEEdEgAc0rbAAbzkcocz4OYWQ2xn6VmQ@mail.gmail.com> <20111230180347.GA3647@electric-eye.fr.zoreil.com> <CACPM=kXWXUE+JcVhkz-6tGZ2YyteN9sGA80+Pnw6+LaJ-eNWBA@mail.gmail.com> <20111230215024.GA5513@electric-eye.fr.zoreil.com> <CACPM=kUxSRhDc2EqgceBRTFgBei7dh3_n7bPyoH=8aNC_uq4FA@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] bonding: fix error handling if slave is busy
+Date: Fri, 30 Dec 2011 14:40:23 -0800
+Message-ID: <20111230144023.371be015@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	bhutchings@solarflare.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, rl@hellgate.ch
-To: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CACPM=kUxSRhDc2EqgceBRTFgBei7dh3_n7bPyoH=8aNC_uq4FA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:35240 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751939Ab1L3Wk0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Dec 2011 17:40:26 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bjarke Istrup Pedersen <gurligebis@gentoo.org> :
-[...]
-> Does not build with patch:
+The bonding device can cause kernel panic in the enslave error handling.
 
-Neither did it here. My head is already elsewhere.
+If slave device already has a receive handler registered, then the
+error unwind does not clear the new entry out of the slave list.
+This ends up leaving a reference to freed memory in the bond
+device slave linked list.
 
-[...]
-> Wouldn't it be an idea to move the declarations to a via-rhine.h file,
-> and include it, to work around it, and seperate it like it should be?
+The following is a simple example:
+# modprobe dummy
+# ip li add dummy0-1 link dummy0 type macvlan
+# modprobe bonding
+# echo +dummy0 >/sys/class/net/bond0/bonding/slaves
+# ip -s li show dev bond0
 
-Code could be correctly ordered too. Forward declare it. It's good enough
-in the meantime.
+This returns with -EBUSY, but the bonding device has bogus entry in
+the slave list, and will panic on next operation that gets statistics
+from bond0.
 
--- 
-Ueimor
+The fix is to detach the slave (which removes it from the list)
+in the unwind path.
+
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+---
+Patch is against net-next but should be applied to net (3.2), and
+stable (3.1 and 3.0).
+
+--- a/drivers/net/bonding/bond_main.c	2011-12-30 14:20:03.171823181 -0800
++++ b/drivers/net/bonding/bond_main.c	2011-12-30 14:20:20.232020474 -0800
+@@ -1853,6 +1853,9 @@ err_dest_symlinks:
+ 	bond_destroy_slave_symlinks(bond_dev, slave_dev);
+ 
+ err_close:
++	write_lock_bh(&bond->lock);
++	bond_detach_slave(bond, new_slave);
++	write_unlock_bh(&bond->lock);
+ 	dev_close(slave_dev);
+ 
+ err_unset_master:
