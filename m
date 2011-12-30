@@ -1,83 +1,67 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 2/3] via-rhine: balance interrupt acknowledge and events retrieval.
-Date: Fri, 30 Dec 2011 19:04:04 +0100
-Message-ID: <20111230180404.GC3647@electric-eye.fr.zoreil.com>
+Subject: [PATCH net-next 1/3] via-rhine: factor out tx_thresh handling
+Date: Fri, 30 Dec 2011 19:03:57 +0100
+Message-ID: <20111230180357.GB3647@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
 	bhutchings@solarflare.com, netdev@vger.kernel.org, rl@hellgate.ch
 To: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:47060 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:47053 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751704Ab1L3SMr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2011 13:12:47 -0500
+	with ESMTP id S1751632Ab1L3SMk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2011 13:12:40 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
- drivers/net/ethernet/via/via-rhine.c |   22 ++++++++++++++--------
- 1 files changed, 14 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/via/via-rhine.c |   17 ++++++++++++-----
+ 1 files changed, 12 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-index 93987e8..716fd42 100644
+index 5c4983b..93987e8 100644
 --- a/drivers/net/ethernet/via/via-rhine.c
 +++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -508,9 +508,8 @@ do {								\
- 			1024 - i, __func__, __LINE__);		\
- } while (0)
- 
--static inline u32 get_intr_status(struct net_device *dev)
-+static u32 rhine_get_events(struct rhine_private *rp)
- {
--	struct rhine_private *rp = netdev_priv(dev);
- 	void __iomem *ioaddr = rp->base;
- 	u32 intr_status;
- 
-@@ -521,6 +520,16 @@ static inline u32 get_intr_status(struct net_device *dev)
- 	return intr_status;
+@@ -657,6 +657,16 @@ static void rhine_poll(struct net_device *dev)
  }
+ #endif
  
-+static void rhine_ack_events(struct rhine_private *rp, u32 mask)
++static void rhine_kick_tx_threshold(struct rhine_private *rp)
 +{
-+	void __iomem *ioaddr = rp->base;
++	if (rp->tx_thresh < 0xe0) {
++		void __iomem *ioaddr = rp->base;
 +
-+	if (rp->quirks & rqStatusWBRace)
-+		iowrite8(mask >> 16, ioaddr + IntrStatus2);
-+	iowrite16(mask, ioaddr + IntrStatus);
-+	IOSYNC;
++		rp->tx_thresh += 0x20;
++		BYTE_REG_BITS_SET(rp->tx_thresh, 0x80, ioaddr + TxConfig);
++	}
 +}
 +
- /*
-  * Get power related registers into sane state.
-  * Notify user about past WOL event.
-@@ -1580,14 +1589,11 @@ static irqreturn_t rhine_interrupt(int irq, void *dev_instance)
- 	int boguscnt = max_interrupt_work;
- 	int handled = 0;
- 
--	while ((intr_status = get_intr_status(dev))) {
-+	while ((intr_status = rhine_get_events(rp))) {
- 		handled = 1;
- 
- 		/* Acknowledge all of the current interrupt sources ASAP. */
--		if (intr_status & IntrTxDescRace)
--			iowrite8(0x08, ioaddr + IntrStatus2);
--		iowrite16(intr_status & 0xffff, ioaddr + IntrStatus);
--		IOSYNC;
-+		rhine_ack_events(rp, intr_status);
- 
- 		if (debug > 4)
- 			netdev_dbg(dev, "Interrupt, status %08x\n",
-@@ -1872,7 +1878,7 @@ static void rhine_restart_tx(struct net_device *dev) {
- 	 * If new errors occurred, we need to sort them out before doing Tx.
- 	 * In that case the ISR will be back here RSN anyway.
- 	 */
--	intr_status = get_intr_status(dev);
-+	intr_status = rhine_get_events(rp);
- 
- 	if ((intr_status & IntrTxErrSummary) == 0) {
- 
+ static int rhine_napipoll(struct napi_struct *napi, int budget)
+ {
+ 	struct rhine_private *rp = container_of(napi, struct rhine_private, napi);
+@@ -1910,8 +1920,7 @@ static void rhine_error(struct net_device *dev, int intr_status)
+ 				    intr_status);
+ 	}
+ 	if (intr_status & IntrTxUnderrun) {
+-		if (rp->tx_thresh < 0xE0)
+-			BYTE_REG_BITS_SET((rp->tx_thresh += 0x20), 0x80, ioaddr + TxConfig);
++		rhine_kick_tx_threshold(rp);
+ 		if (debug > 1)
+ 			netdev_info(dev, "Transmitter underrun, Tx threshold now %02x\n",
+ 				    rp->tx_thresh);
+@@ -1923,9 +1932,7 @@ static void rhine_error(struct net_device *dev, int intr_status)
+ 	if ((intr_status & IntrTxError) &&
+ 	    (intr_status & (IntrTxAborted |
+ 	     IntrTxUnderrun | IntrTxDescRace)) == 0) {
+-		if (rp->tx_thresh < 0xE0) {
+-			BYTE_REG_BITS_SET((rp->tx_thresh += 0x20), 0x80, ioaddr + TxConfig);
+-		}
++		rhine_kick_tx_threshold(rp);
+ 		if (debug > 1)
+ 			netdev_info(dev, "Unspecified error. Tx threshold now %02x\n",
+ 				    rp->tx_thresh);
 -- 
 1.7.6.4
