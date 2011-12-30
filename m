@@ -1,32 +1,39 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: WTF is going with sock->file "allocation" by iscsi_target_login.c?
-Date: Fri, 30 Dec 2011 01:34:11 +0000
-Message-ID: <20111230013411.GT23916@ZenIV.linux.org.uk>
+From: "Li, Zhen-Hua" <lizhenhua.dev@gmail.com>
+Subject: Re: A pure virtual nic
+Date: Fri, 30 Dec 2011 09:51:11 +0800
+Message-ID: <CAEk7JKY6xtBm4DraqRMYEnmZZhsOZoZG-MSgrq+W4n2eCCz1Sg@mail.gmail.com>
+References: <CAEk7JKbQgjiL90oGyWy6jkwY7eudUUqLP7GvdjfMcotTN8YhwQ@mail.gmail.com>
+	<CAHXqBFKstJCQ4rif6S7mNuQUzFjJ1wfRKAksFePJyBoTw0YTfg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-fsdevel@vger.kernel.org, open-iscsi@googlegroups.com,
-	Nicholas Bellinger <nab@linux-iscsi.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux NetDev <netdev@vger.kernel.org>
+To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:36269 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751545Ab1L3BvM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2011 20:51:12 -0500
+Received: by iaeh11 with SMTP id h11so24504408iae.19
+        for <netdev@vger.kernel.org>; Thu, 29 Dec 2011 17:51:12 -0800 (PST)
+In-Reply-To: <CAHXqBFKstJCQ4rif6S7mNuQUzFjJ1wfRKAksFePJyBoTw0YTfg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In iscsi_target_setup_login_socket()
-        /*
-         * The SCTP stack needs struct socket->file.
-         */
-        if ((np->np_network_transport == ISCSI_SCTP_TCP) ||
-            (np->np_network_transport == ISCSI_SCTP_UDP)) {
-                if (!sock->file) {
-                        sock->file = kzalloc(sizeof(struct file), GFP_KERNEL);
-and similar bit slightly below are utterly bogus.  In the best case the comment
-is BS and SCTP actually doesn't give a damn about having non-NULL sock->file.
-Assuming that this Fine Piece Of Software actually manages to deal with
-all codepaths that might kill that sock, that is.
+I plan to add some protocols to it. For example, HTTP Proxy packet
+analysis. So user-space programs can use an NIC in common way in a
+proxy needed environment.
 
-In the worst case, we end up leaking stuff or passing that object to something
-that expect real struct file *.  In which case we are well and truly screwed.
 
-Could somebody familiar with the code in question (iscsi and sctp) explain
-what the hell is going on?
+
+2011/12/29 Micha=C5=82 Miros=C5=82aw <mirqus@gmail.com>:
+> 2011/12/29 Zhen-Hua Li <lizhenhua.dev@gmail.com>:
+>> I have opened a project in SourceForge, it provides a pure virtual
+>> ethernet adapter. =C2=A0If you are interested to join it, please mai=
+l me.
+>
+> Is veth or tap (both in vanilla kernel) not enough for you? What are
+> the differences?
+>
+> Best Regards,
+> Micha=C5=82 Miros=C5=82aw
