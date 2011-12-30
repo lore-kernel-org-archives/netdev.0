@@ -1,67 +1,32 @@
-From: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
-Subject: Re: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on low-end broads.
-Date: Fri, 30 Dec 2011 02:21:47 +0100
-Message-ID: <CACPM=kX01NgO_Vd8nKECno940e=j0NbpQVhe46X30ZYpO9BVrA@mail.gmail.com>
-References: <CACPM=kXOddA+T6vQPijR6sh8x5cMO=4baKGeKxEmMKG896Lz4g@mail.gmail.com>
-	<20111229153902.GB21946@electric-eye.fr.zoreil.com>
-	<20111229183902.GC21946@electric-eye.fr.zoreil.com>
-	<20111229.170514.1766899380937848638.davem@davemloft.net>
-	<CACPM=kV8NwYLAdODQHxYmJ21X0RmZ8KJT9szKdY2xa-DsesvQg@mail.gmail.com>
-	<CACPM=kVfsXgFhKheevTS1pm7kCoezKO3M+102O=PRbXzxebxxg@mail.gmail.com>
-	<20111229235312.GA27092@electric-eye.fr.zoreil.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: WTF is going with sock->file "allocation" by iscsi_target_login.c?
+Date: Fri, 30 Dec 2011 01:34:11 +0000
+Message-ID: <20111230013411.GT23916@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	bhutchings@solarflare.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, rl@hellgate.ch
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111229235312.GA27092@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-fsdevel@vger.kernel.org, open-iscsi@googlegroups.com,
+	Nicholas Bellinger <nab@linux-iscsi.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2011/12/30 Francois Romieu <romieu@fr.zoreil.com>:
-> Bjarke Istrup Pedersen <gurligebis@gentoo.org> :
-> [...]
->> Would it be a problem if I try and use the patch on top of a clean
->> 3.1.6 kernel ?
->
-> You will have to "cd drivers/net && patch -p5 ..." as the paths are
-> different. Avoid suspend/resume/runtime PM.
+In iscsi_target_setup_login_socket()
+        /*
+         * The SCTP stack needs struct socket->file.
+         */
+        if ((np->np_network_transport == ISCSI_SCTP_TCP) ||
+            (np->np_network_transport == ISCSI_SCTP_UDP)) {
+                if (!sock->file) {
+                        sock->file = kzalloc(sizeof(struct file), GFP_KERNEL);
+and similar bit slightly below are utterly bogus.  In the best case the comment
+is BS and SCTP actually doesn't give a damn about having non-NULL sock->file.
+Assuming that this Fine Piece Of Software actually manages to deal with
+all codepaths that might kill that sock, that is.
 
-The driver seems to be working fine on 3.1.6 - tried VPN'ing into my
-network using my phone, and tried copying some files, which seems to
-be working.
-Not sure if it will be a problem when there is more bandwidth, but so
-far it looks alot better.
+In the worst case, we end up leaking stuff or passing that object to something
+that expect real struct file *.  In which case we are well and truly screwed.
 
-The log is flodded with this debug info, in case you need it:
-
-Dec 30 01:19:27 woodpecker kernel: via-rhine 0000:00:08.0: lan0:
-Interrupt, status 00000002
-Dec 30 01:19:27 woodpecker kernel: via-rhine 0000:00:06.0: wan0:
-Interrupt, status 00000001
-Dec 30 01:19:27 woodpecker kernel: via-rhine 0000:00:06.0: wan0:
-Interrupt, status 00000001
-Dec 30 01:19:27 woodpecker kernel: via-rhine 0000:00:08.0: lan0:
-Interrupt, status 00000002
-Dec 30 01:19:27 woodpecker kernel: via-rhine 0000:00:08.0: lan0:
-Interrupt, status 00000002
-Dec 30 01:19:27 woodpecker kernel: via-rhine 0000:00:08.0: lan0:
-Interrupt, status 00000001
-Dec 30 01:19:27 woodpecker kernel: via-rhine 0000:00:06.0: wan0:
-Interrupt, status 00000002
-
-Looking forward to seeing this in mainline, without the log spamming :)
-
-/Bjarke
-
-> --
-> Ueimor
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at =A0http://www.tux.org/lkml/
+Could somebody familiar with the code in question (iscsi and sctp) explain
+what the hell is going on?
