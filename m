@@ -1,36 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] IPv6: Avoid taking write lock for
- /proc/net/ipv6_route
-Date: Fri, 30 Dec 2011 17:09:05 -0500 (EST)
-Message-ID: <20111230.170905.1348056803377924696.davem@davemloft.net>
-References: <CAKA=qzbZ4x5u1bBM0gAECeMNutyaVzp1FmRPwKHsBEEs7984ag@mail.gmail.com>
+Subject: Re: [PATCH net-next] netem: fix classful handling
+Date: Fri, 30 Dec 2011 17:12:52 -0500 (EST)
+Message-ID: <20111230.171252.1738548584966971193.davem@davemloft.net>
+References: <1325132760.2607.15.camel@edumazet-laptop>
+	<20111228221731.4d4954a9@s6510.linuxnetplumber.net>
+	<1325149922.2607.33.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: joshhunt00@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKA=qzbZ4x5u1bBM0gAECeMNutyaVzp1FmRPwKHsBEEs7984ag@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, dave.taht@gmail.com,
+	jsullivan@opensourcedevel.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:44505 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752120Ab1L3WM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2011 17:12:56 -0500
+In-Reply-To: <1325149922.2607.33.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Josh Hunt <joshhunt00@gmail.com>
-Date: Wed, 28 Dec 2011 17:23:07 -0600
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 29 Dec 2011 10:12:02 +0100
 
-> lock_stat shows taking the write lock is causing the slowdown. Using
-> this info I decided to write a version of fib6_clean_all() which
-> replaces write_lock_bh(&table->tb6_lock) with
-> read_lock_bh(&table->tb6_lock). With this new function I see the same
-> results as with my rtnetlink iperf test. I guess my question is what
-> am I missing? Is there a reason you need to take the write lock when
-> reading the route table to display to proc?
+> [PATCH v2 net-next] netem: fix classful handling
 
-You're not missing anything, it's just an oversight or laziness. :-)
-
-I've applied your patch thanks.
-
-Longer term we should make the ipv6 tree traversals RCU safe just
-like net/ipv4/fib_trie.c is.  Then we can do away with even the
-read locks for read-only traversals.
+Applied, thanks Eric.
