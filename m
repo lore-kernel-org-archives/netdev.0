@@ -1,102 +1,93 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH] ipvs: try also real server with port 0 in backup server
-Date: Fri, 30 Dec 2011 14:19:02 +0900
-Message-ID: <1325222342-20240-2-git-send-email-horms@verge.net.au>
-References: <1325222342-20240-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
-To: Patrick McHardy <kaber@trash.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1325222342-20240-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Javier Martinez Canillas <martinez.javier@gmail.com>
+Subject: [BUG] SIOCSIFFLAGS returns -EIO on SMSC LAN911x
+Date: Fri, 30 Dec 2011 10:44:45 +0100
+Message-ID: <CAAwP0s37E=9J-KR397snkvq=idrc7nmELDJKrm33reeK84wJYQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Enric Balletbo i Serra <eballetbo@iseebcn.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:53452 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751431Ab1L3JpH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2011 04:45:07 -0500
+Received: by ghbg21 with SMTP id g21so2449124ghb.19
+        for <netdev@vger.kernel.org>; Fri, 30 Dec 2011 01:45:06 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+Hello,
 
-	We should not forget to try for real server with port 0
-in the backup server when processing the sync message. We should
-do it in all cases because the backup server can use different
-forwarding method.
+We have an issue with the SMSC LAN911x driver with today linux-2.6 [1]
+executing on an IGEPv2 [2] board using omap2plus_defconfig.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- include/net/ip_vs.h             |    2 +-
- net/netfilter/ipvs/ip_vs_conn.c |    2 +-
- net/netfilter/ipvs/ip_vs_ctl.c  |   10 ++++++++--
- net/netfilter/ipvs/ip_vs_sync.c |    2 +-
- 4 files changed, 11 insertions(+), 5 deletions(-)
+When I try to bring up the network interface, the ioctl set interface
+flags command (SIOCSIFFLAGS)  fails returning -EIO:
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 48fd12e..ebe517f 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1207,7 +1207,7 @@ extern void ip_vs_control_cleanup(void);
- extern struct ip_vs_dest *
- ip_vs_find_dest(struct net *net, int af, const union nf_inet_addr *daddr,
- 		__be16 dport, const union nf_inet_addr *vaddr, __be16 vport,
--		__u16 protocol, __u32 fwmark);
-+		__u16 protocol, __u32 fwmark, __u32 flags);
- extern struct ip_vs_dest *ip_vs_try_bind_dest(struct ip_vs_conn *cp);
- 
- 
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index 12571fb..29fa5ba 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -616,7 +616,7 @@ struct ip_vs_dest *ip_vs_try_bind_dest(struct ip_vs_conn *cp)
- 	if ((cp) && (!cp->dest)) {
- 		dest = ip_vs_find_dest(ip_vs_conn_net(cp), cp->af, &cp->daddr,
- 				       cp->dport, &cp->vaddr, cp->vport,
--				       cp->protocol, cp->fwmark);
-+				       cp->protocol, cp->fwmark, cp->flags);
- 		ip_vs_bind_dest(cp, dest);
- 		return dest;
- 	} else
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 008bf97..e1a66cf 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -619,15 +619,21 @@ struct ip_vs_dest *ip_vs_find_dest(struct net  *net, int af,
- 				   const union nf_inet_addr *daddr,
- 				   __be16 dport,
- 				   const union nf_inet_addr *vaddr,
--				   __be16 vport, __u16 protocol, __u32 fwmark)
-+				   __be16 vport, __u16 protocol, __u32 fwmark,
-+				   __u32 flags)
- {
- 	struct ip_vs_dest *dest;
- 	struct ip_vs_service *svc;
-+	__be16 port = dport;
- 
- 	svc = ip_vs_service_get(net, af, fwmark, protocol, vaddr, vport);
- 	if (!svc)
- 		return NULL;
--	dest = ip_vs_lookup_dest(svc, daddr, dport);
-+	if (fwmark && (flags & IP_VS_CONN_F_FWD_MASK) != IP_VS_CONN_F_MASQ)
-+		port = 0;
-+	dest = ip_vs_lookup_dest(svc, daddr, port);
-+	if (!dest)
-+		dest = ip_vs_lookup_dest(svc, daddr, port ^ dport);
- 	if (dest)
- 		atomic_inc(&dest->refcnt);
- 	ip_vs_service_put(svc);
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index bcf5563..8a0d6d6 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -740,7 +740,7 @@ static void ip_vs_proc_conn(struct net *net, struct ip_vs_conn_param *param,
- 		 * but still handled.
- 		 */
- 		dest = ip_vs_find_dest(net, type, daddr, dport, param->vaddr,
--				       param->vport, protocol, fwmark);
-+				       param->vport, protocol, fwmark, flags);
- 
- 		/*  Set the approprite ativity flag */
- 		if (protocol == IPPROTO_TCP) {
--- 
-1.7.6.3
+root@igep00x0:~# ifconfig eth0 up
+ifconfig: SIOCSIFFLAGS: Input/output error
 
+But if I execute again it succeeds:
+
+root@igep00x0:~# ifconfig eth0 up
+[  832.465423] smsc911x smsc911x.0: eth0: SMSC911x/921x identified at
+0xdb086000, IRQ: 336
+
+We found that the problem is on the SMSC LAN911x driver
+(drivers/net/ethernet/smsc/smsc911x.c) net_dev ndo_open function
+handler smsc911x_open.
+
+When the handler is called, it tries to software reset the device by
+writing a bit to a self-clearing configuration register. According to
+the data-sheet the hardware clears that bit to notify that the reset
+was successfully:
+
+ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
+{
+       unsigned int timeout;
+       unsigned int temp;
+
+       /* Reset the LAN911x */
+       smsc911x_reg_write(pdata, HW_CFG, HW_CFG_SRST_);
+       timeout =3D 10;
+       do {
+               udelay(10);
+               temp =3D smsc911x_reg_read(pdata, HW_CFG);
+       } while ((--timeout) && (temp & HW_CFG_SRST_));
+
+       if (unlikely(temp & HW_CFG_SRST_)) {
+               SMSC_WARN(pdata, drv, "Failed to complete reset");
+               return -EIO;
+       }
+       return 0;
+}
+
+The condition temp & HW_CFG_SRST_ is false so the error code -EIO is
+returned and propagated to user-space.
+
+By doing a git bisect we found that this strange behavior exists when
+the Kconfig tristate compilation condition SMSC_PHY has the value yes
+to be compiled built-in:
+
+SMSC_PHY=3Dy
+
+If this config symbol has the value module (m) or not build at all,
+then bringing up the network interface never fails.
+
+Did anyone have the same problem?
+
+The problem is really strange to me, especially since we are sure that
+all the requirements to software reset the device are meet in both
+cases (with SMSC_PHY compiled built-in and without it)
+
+[1]: HEAD on commit 371de6e4e0042adf4f9b54c414154f57414ddd37 drm/i915:
+Disable RC6 on Sandybridge by default
+[2]: https://wiki.linaro.org/Boards/Igep
+
+Thank you and best regards,
+
+--=20
+Javier Mart=C3=ADnez Canillas
+(+34) 682 39 81 69
+Barcelona, Spain
