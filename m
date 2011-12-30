@@ -1,52 +1,55 @@
-From: Xi Wang <xi.wang@gmail.com>
-Subject: [PATCH] netfilter: ctnetlink: fix timeout calculation
-Date: Fri, 30 Dec 2011 10:40:17 -0500
-Message-ID: <1325259617-22034-1-git-send-email-xi.wang@gmail.com>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Xi Wang <xi.wang@gmail.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: A pure virtual nic
+Date: Fri, 30 Dec 2011 07:44:21 -0800
+Message-ID: <4EFDDC55.80406@candelatech.com>
+References: <CAEk7JKbQgjiL90oGyWy6jkwY7eudUUqLP7GvdjfMcotTN8YhwQ@mail.gmail.com> <CAHXqBFKstJCQ4rif6S7mNuQUzFjJ1wfRKAksFePJyBoTw0YTfg@mail.gmail.com> <CAEk7JKY6xtBm4DraqRMYEnmZZhsOZoZG-MSgrq+W4n2eCCz1Sg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
+	Linux NetDev <netdev@vger.kernel.org>
+To: "Li, Zhen-Hua" <lizhenhua.dev@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:56766 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750899Ab1L3PoY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2011 10:44:24 -0500
+In-Reply-To: <CAEk7JKY6xtBm4DraqRMYEnmZZhsOZoZG-MSgrq+W4n2eCCz1Sg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The sanity check (timeout < 0) never works; the dividend is unsigned
-and so is the division, which should have been a signed division.
+On 12/29/2011 05:51 PM, Li, Zhen-Hua wrote:
+> I plan to add some protocols to it. For example, HTTP Proxy packet
+> analysis. So user-space programs can use an NIC in common way in a
+> proxy needed environment.
 
-	long timeout = (ct->timeout.expires - jiffies) / HZ;
-	if (timeout < 0)
-		timeout = 0;
+When a program transmits a packet on your virtual NIC, where does the
+packet go?  When it receives a packet, where did the packet come from?
 
-This patch converts the time values to signed for the division.
+Thanks,
+Ben
 
-Signed-off-by: Xi Wang <xi.wang@gmail.com>
----
- net/netfilter/nf_conntrack_netlink.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+>
+>
+>
+> 2011/12/29 Micha=C5=82 Miros=C5=82aw<mirqus@gmail.com>:
+>> 2011/12/29 Zhen-Hua Li<lizhenhua.dev@gmail.com>:
+>>> I have opened a project in SourceForge, it provides a pure virtual
+>>> ethernet adapter.  If you are interested to join it, please mail me=
+=2E
+>>
+>> Is veth or tap (both in vanilla kernel) not enough for you? What are
+>> the differences?
+>>
+>> Best Regards,
+>> Micha=C5=82 Miros=C5=82aw
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index b697777..257e772 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -135,7 +135,7 @@ nla_put_failure:
- static inline int
- ctnetlink_dump_timeout(struct sk_buff *skb, const struct nf_conn *ct)
- {
--	long timeout = (ct->timeout.expires - jiffies) / HZ;
-+	long timeout = ((long)ct->timeout.expires - (long)jiffies) / HZ;
- 
- 	if (timeout < 0)
- 		timeout = 0;
-@@ -1641,7 +1641,7 @@ ctnetlink_exp_dump_expect(struct sk_buff *skb,
- 			  const struct nf_conntrack_expect *exp)
- {
- 	struct nf_conn *master = exp->master;
--	long timeout = (exp->timeout.expires - jiffies) / HZ;
-+	long timeout = ((long)exp->timeout.expires - (long)jiffies) / HZ;
- 	struct nf_conn_help *help;
- 
- 	if (timeout < 0)
--- 
-1.7.5.4
 
+--=20
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
