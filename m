@@ -1,40 +1,27 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: iproute2: avoid use of implicit declarations
-Date: Sat, 31 Dec 2011 23:22:05 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1112312321370.6978@frira.zrqbmnf.qr>
-References: <alpine.LNX.2.01.1112312317220.24158@frira.zrqbmnf.qr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC] IPv6: Avoid taking write lock for
+ /proc/net/ipv6_route
+Date: Sat, 31 Dec 2011 17:46:05 -0500 (EST)
+Message-ID: <20111231.174605.901317517736513953.davem@davemloft.net>
+References: <CAKA=qzbZ4x5u1bBM0gAECeMNutyaVzp1FmRPwKHsBEEs7984ag@mail.gmail.com>
+	<20111230.170905.1348056803377924696.davem@davemloft.net>
+	<CAKA=qzb=PYTMO=9KFpTJ9BVdDRkqbaCuW02pbW0onM8gU1E7sw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Networking Developer Mailing List <netdev@vger.kernel.org>
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from seven.medozas.de ([188.40.89.202]:50040 "EHLO seven.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753251Ab1LaWWH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Dec 2011 17:22:07 -0500
-In-Reply-To: <alpine.LNX.2.01.1112312317220.24158@frira.zrqbmnf.qr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: joshhunt00@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKA=qzb=PYTMO=9KFpTJ9BVdDRkqbaCuW02pbW0onM8gU1E7sw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jan Engelhardt <jengelh@medozas.de>
-Date: 2011-12-31 23:16:27.428349795 +0100
+From: Josh Hunt <joshhunt00@gmail.com>
+Date: Sat, 31 Dec 2011 13:49:38 -0600
 
-gcc -DLIBDIR=\"/usr/lib64\" -D_GNU_SOURCE -fmessage-length=0 -O2 -Wall -D_FORTIFY_SOURCE=2 -fstack-protector -funwind-tables -fasynchronous-unwind-tables -g -Wstrict-prototypes -fPIC -DXT_LIB_DIR=\"/usr/lib64/xtables\" -I../include -DRESOLVE_HOSTNAMES -DLIBDIR=\"/usr/lib64\" -fPIC   -c -o ipx_pton.o ipx_pton.c
-In file included from ../include/utils.h:8:0,
-                 from ipx_ntop.c:5:
-../include/libnetlink.h: In function 'rta_getattr_u64':
-../include/libnetlink.h:84:2: warning: implicit declaration of function 'memcpy'
-../include/libnetlink.h:84:2: warning: incompatible implicit declaration of built-in function 'memcpy'
+> Thanks David. Are you aware if anyone has started the work to make
+> IPv6 traversals RCU safe?
 
-diff --git a/include/libnetlink.h b/include/libnetlink.h
-index b237579..b0656ce 100644
---- a/include/libnetlink.h
-+++ b/include/libnetlink.h
-@@ -1,6 +1,7 @@
- #ifndef __LIBNETLINK_H__
- #define __LIBNETLINK_H__ 1
- 
-+#include <string.h>
- #include <asm/types.h>
- #include <linux/netlink.h>
- #include <linux/rtnetlink.h>
+Nobody is working on this.
