@@ -1,45 +1,45 @@
-From: Yinghai Lu <yinghai-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net-next V2 00/21] net/mlx4: SRIOV support
-Date: Sat, 31 Dec 2011 10:37:36 -0800
-Message-ID: <CAE9FiQX1q+qFHrGJdX5aZ9ix0bZ-vH3xEWPqFcRab87a9y2vrQ@mail.gmail.com>
-References: <4EE75CD1.7070900@mellanox.co.il>
-	<20111213.141413.1872427395829102426.davem@davemloft.net>
-	<953B660C027164448AE903364AC447D2485F0A86@MTLDAG02.mtl.com>
-	<CAE9FiQU1EwcGBhn2bFksB30nb8p3FEo=vvOJYXq3hAA1ArhqWg@mail.gmail.com>
-	<CAJZOPZJ+BxAa_OcB0f5nPAjnW7eZfsDdXz_o-VSCW7dsp5p2wg@mail.gmail.com>
-	<CAE9FiQW2ZB3VUrg9z-=UVp=s3w1LQhY81hRUjfMXwW3d1dNaig@mail.gmail.com>
-	<CAL1RGDWa+8gv8WZrCtQBpzAQUkD982ONODE7qRjUs_Gn2m4DKA@mail.gmail.com>
+From: Josh Hunt <joshhunt00@gmail.com>
+Subject: Re: [PATCH RFC] IPv6: Avoid taking write lock for /proc/net/ipv6_route
+Date: Sat, 31 Dec 2011 13:49:38 -0600
+Message-ID: <CAKA=qzb=PYTMO=9KFpTJ9BVdDRkqbaCuW02pbW0onM8gU1E7sw@mail.gmail.com>
+References: <CAKA=qzbZ4x5u1bBM0gAECeMNutyaVzp1FmRPwKHsBEEs7984ag@mail.gmail.com>
+	<20111230.170905.1348056803377924696.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org" <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-To: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAL1RGDWa+8gv8WZrCtQBpzAQUkD982ONODE7qRjUs_Gn2m4DKA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111230.170905.1348056803377924696.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 30, 2011 at 9:57 PM, Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org> wrote:
-> On Fri, Dec 30, 2011 at 2:23 PM, Yinghai Lu <yinghai-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+On Fri, Dec 30, 2011 at 4:09 PM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Josh Hunt <joshhunt00@gmail.com>
+> Date: Wed, 28 Dec 2011 17:23:07 -0600
 >
->> hotplug removal is broken...
+>> lock_stat shows taking the write lock is causing the slowdown. Using
+>> this info I decided to write a version of fib6_clean_all() which
+>> replaces write_lock_bh(&table->tb6_lock) with
+>> read_lock_bh(&table->tb6_lock). With this new function I see the sam=
+e
+>> results as with my rtnetlink iperf test. I guess my question is what
+>> am I missing? Is there a reason you need to take the write lock when
+>> reading the route table to display to proc?
 >
-> Is this a new regression with these patches?
+> You're not missing anything, it's just an oversight or laziness. :-)
+>
+> I've applied your patch thanks.
+>
+> Longer term we should make the ipv6 tree traversals RCU safe just
+> like net/ipv4/fib_trie.c is. =A0Then we can do away with even the
+> read locks for read-only traversals.
 >
 
-yes.
-
-after reverting those patches, removal work well without problem.
-
-Thanks
-
-Yinghai
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks David. Are you aware if anyone has started the work to make
+IPv6 traversals RCU safe?
+--=20
+Josh
