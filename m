@@ -1,45 +1,55 @@
-From: Josh Hunt <joshhunt00@gmail.com>
-Subject: Re: [PATCH RFC] IPv6: Avoid taking write lock for /proc/net/ipv6_route
-Date: Sat, 31 Dec 2011 13:49:38 -0600
-Message-ID: <CAKA=qzb=PYTMO=9KFpTJ9BVdDRkqbaCuW02pbW0onM8gU1E7sw@mail.gmail.com>
-References: <CAKA=qzbZ4x5u1bBM0gAECeMNutyaVzp1FmRPwKHsBEEs7984ag@mail.gmail.com>
-	<20111230.170905.1348056803377924696.davem@davemloft.net>
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Subject: Re: SFQ on HFSC leaf does not seem to work
+Date: Sat, 31 Dec 2011 17:17:21 -0500
+Message-ID: <1325369841.4174.47.camel@denise.theartistscloset.com>
+References: <1324620022.10184.100.camel@denise.theartistscloset.com>
+	 <1324627808.10854.6.camel@edumazet-laptop>
+	 <1324645986.10184.571.camel@denise.theartistscloset.com>
+	 <1324647920.2223.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1324648822.2223.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1324651128.10184.586.camel@denise.theartistscloset.com>
+	 <1324652361.2223.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1324654013.10184.597.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111230.170905.1348056803377924696.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.perfora.net ([74.208.4.195]:58928 "EHLO mout.perfora.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753251Ab1LaWR3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Dec 2011 17:17:29 -0500
+In-Reply-To: <1324654013.10184.597.camel@denise.theartistscloset.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 30, 2011 at 4:09 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: Josh Hunt <joshhunt00@gmail.com>
-> Date: Wed, 28 Dec 2011 17:23:07 -0600
->
->> lock_stat shows taking the write lock is causing the slowdown. Using
->> this info I decided to write a version of fib6_clean_all() which
->> replaces write_lock_bh(&table->tb6_lock) with
->> read_lock_bh(&table->tb6_lock). With this new function I see the sam=
-e
->> results as with my rtnetlink iperf test. I guess my question is what
->> am I missing? Is there a reason you need to take the write lock when
->> reading the route table to display to proc?
->
-> You're not missing anything, it's just an oversight or laziness. :-)
->
-> I've applied your patch thanks.
->
-> Longer term we should make the ipv6 tree traversals RCU safe just
-> like net/ipv4/fib_trie.c is. =A0Then we can do away with even the
-> read locks for read-only traversals.
->
+On Fri, 2011-12-23 at 10:26 -0500, John A. Sullivan III wrote:
+> <snip>> 
+> > > tc filter add dev ifb0 parent 1:0 protocol ip prio 1 u32 ht 6:0 match
+> > > tcp src 443 0x00ff flowid 1:10
+> > 
+> > why "src 443 0x00ff" ? It should be "src 443 0xffff"
+> That's what I tried at first but nothing matched the filter.  I assumed
+> it was because it objected to a value in the dst field so I masked it
+> off and it worked.
+> > 
+> > > tc filter add dev ifb0 parent 1:0 protocol ip prio 1 u32 ht 6:0 match
+> > > tcp dst 822 0xff00 flowid 1:30
+> > 
+> > same here : "dst 822 0xffff"
+> Same as above.  No filter matches when using that mask.
+> > 
+<snip>
+Oops! Must have not matched for some other reason - this is a clear
+binary brain cramp! This now appears to be working:
 
-Thanks David. Are you aware if anyone has started the work to make
-IPv6 traversals RCU safe?
---=20
-Josh
+tc filter add dev ifb0 parent 1:0 protocol ip prio 1 handle 6: u32 divisor 1
+tc filter add dev ifb0 parent 1:0 protocol ip prio 1 u32 match ip protocol 6 0xff link 6: offset at 0 mask 0x0f00 shift 6 plus 0
+tc filter add dev ifb0 parent 1:0 protocol ip prio 1 u32 ht 6:0 match tcp dst 822 0xffff at nexthdr+2 flowid 1:30
+tc filter add dev ifb0 parent 1:0 protocol ip prio 1 u32 ht 6:0 match tcp src 822 0xffff at nexthdr+0 flowid 1:30
+# Send packets <64 bytes (u16 0 0xffc0 at 2) with only the ACK flag set (match u8 16 0xff at nexthdr+13) to the low latency queue
+tc filter add dev ifb0 parent 1:0 protocol ip prio 1 u32 ht 6:0 match u16 0 0xffc0 at 2 match u8 16 0xff at nexthdr+13 flowid 1:30
+tc filter add dev ifb0 parent 1:0 protocol ip prio 1 u32 ht 6:0 match tcp src 443 0xffff at nexthdr+0 flowid 1:10
+
+Thanks - John
