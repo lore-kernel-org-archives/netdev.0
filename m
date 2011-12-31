@@ -1,35 +1,34 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: Enable suspend when device is idle from boot.
-Date: Sat, 31 Dec 2011 13:17:04 +0100
-Message-ID: <20111231121704.GA9842@electric-eye.fr.zoreil.com>
-References: <1325183594-8947-1-git-send-email-tbroch@chromium.org> <20111230.172211.188260740088628815.davem@davemloft.net>
+Subject: Re: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on low-end broads.
+Date: Sat, 31 Dec 2011 13:17:10 +0100
+Message-ID: <20111231121710.GB9842@electric-eye.fr.zoreil.com>
+References: <CACPM=kXTqY1kVWrEMB-Z0Lqy6t+rXvMzixcSUy7fAz6g_ajV9g@mail.gmail.com> <20111230125655.GA32031@electric-eye.fr.zoreil.com> <CACPM=kVBxcL1_Z9zVvnEEdEgAc0rbAAbzkcocz4OYWQ2xn6VmQ@mail.gmail.com> <20111230180347.GA3647@electric-eye.fr.zoreil.com> <CACPM=kXWXUE+JcVhkz-6tGZ2YyteN9sGA80+Pnw6+LaJ-eNWBA@mail.gmail.com> <20111230215024.GA5513@electric-eye.fr.zoreil.com> <CACPM=kUxSRhDc2EqgceBRTFgBei7dh3_n7bPyoH=8aNC_uq4FA@mail.gmail.com> <20111230221938.GA6197@electric-eye.fr.zoreil.com> <CACPM=kXAr46BXAc3t8puRB37NeFy_ZEOWZa0H=DnSioagSLpxA@mail.gmail.com> <CACPM=kWn41S85eLgj4G+c6cN0WBgqF=6MigSwa9QBOxD1Uh64A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: tbroch@chromium.org, nic_swsd@realtek.com, netdev@vger.kernel.org,
-	Hayes Wang <hayeswang@realtek.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:47564 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752938Ab1LaMZy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Dec 2011 07:25:54 -0500
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	bhutchings@solarflare.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, rl@hellgate.ch
+To: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20111230.172211.188260740088628815.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CACPM=kWn41S85eLgj4G+c6cN0WBgqF=6MigSwa9QBOxD1Uh64A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> :
+Bjarke Istrup Pedersen <gurligebis@gentoo.org> :
 [...]
-> Francois, what would you like me to do with this patch?
+> Also tried connect a machine to one of the ports, and copying a large
+> file across (something that before could make it lock up within 15
+> secords) - also worked without any problems - CPU usage around 15%
+> (mostly "top" using that), so thats not bad at all.
+> 
+> Is there any other testcases that I should try out?
 
-I have not tested it yet. I have no objection if a fix must go in now.
+Same thing + random ethtool link management commands.
+Same thing + random cable unplug/plug.
+Same thing + pktgen facing the lan interface.
 
-There is a slot for some sanity testing this evening.
-
-The description of the patch implies that the initial power management
-state is not right. I would be more inclined to set it correctly when
-the device goes up instead of checking repeatedly for a loss of sync
-through rtl8169_runtime_idle. Todd, any comment ?
+Everything at the same time.
 
 -- 
 Ueimor
