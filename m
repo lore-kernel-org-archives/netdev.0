@@ -1,34 +1,42 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on low-end broads.
-Date: Sat, 31 Dec 2011 13:17:10 +0100
-Message-ID: <20111231121710.GB9842@electric-eye.fr.zoreil.com>
-References: <CACPM=kXTqY1kVWrEMB-Z0Lqy6t+rXvMzixcSUy7fAz6g_ajV9g@mail.gmail.com> <20111230125655.GA32031@electric-eye.fr.zoreil.com> <CACPM=kVBxcL1_Z9zVvnEEdEgAc0rbAAbzkcocz4OYWQ2xn6VmQ@mail.gmail.com> <20111230180347.GA3647@electric-eye.fr.zoreil.com> <CACPM=kXWXUE+JcVhkz-6tGZ2YyteN9sGA80+Pnw6+LaJ-eNWBA@mail.gmail.com> <20111230215024.GA5513@electric-eye.fr.zoreil.com> <CACPM=kUxSRhDc2EqgceBRTFgBei7dh3_n7bPyoH=8aNC_uq4FA@mail.gmail.com> <20111230221938.GA6197@electric-eye.fr.zoreil.com> <CACPM=kXAr46BXAc3t8puRB37NeFy_ZEOWZa0H=DnSioagSLpxA@mail.gmail.com> <CACPM=kWn41S85eLgj4G+c6cN0WBgqF=6MigSwa9QBOxD1Uh64A@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL net-next] IPVS
+Date: Sat, 31 Dec 2011 16:08:21 +0100
+Message-ID: <20111231150821.GB17062@1984>
+References: <1325222342-20240-1-git-send-email-horms@verge.net.au>
+ <20111230112419.GB12015@1984>
+ <20111231090603.GA30937@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	bhutchings@solarflare.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, rl@hellgate.ch
-To: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CACPM=kWn41S85eLgj4G+c6cN0WBgqF=6MigSwa9QBOxD1Uh64A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20111231090603.GA30937@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bjarke Istrup Pedersen <gurligebis@gentoo.org> :
-[...]
-> Also tried connect a machine to one of the ports, and copying a large
-> file across (something that before could make it lock up within 15
-> secords) - also worked without any problems - CPU usage around 15%
-> (mostly "top" using that), so thats not bad at all.
+On Sat, Dec 31, 2011 at 06:06:25PM +0900, Simon Horman wrote:
+> On Fri, Dec 30, 2011 at 12:24:19PM +0100, Pablo Neira Ayuso wrote:
+> > Hi Simon,
+> > 
+> > On Fri, Dec 30, 2011 at 02:19:01PM +0900, Simon Horman wrote:
+> > > Hi Pablo,
+> > > 
+> > > please consider pulling
+> > >   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next
+> > >   master
+> > 
+> > Since this is a fix, I can try to pass this for 3.2-rc7 to davem. I
+> > read Linus will release 3.2 by new year, so we can still try to see if
+> > we can get it in time.
+> > 
+> > Let me know what you prefer.
 > 
-> Is there any other testcases that I should try out?
+> Hi Pablo,
+> 
+> please try for 3.2-rc7 if possible.
 
-Same thing + random ethtool link management commands.
-Same thing + random cable unplug/plug.
-Same thing + pktgen facing the lan interface.
-
-Everything at the same time.
-
--- 
-Ueimor
+OK, let's try!
