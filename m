@@ -1,122 +1,132 @@
-From: Chris Boot <bootc@bootc.net>
-Subject: Re: e1000e interface hang on 82574L
-Date: Sat, 31 Dec 2011 09:31:40 +0000
-Message-ID: <FCF3184D-CE4F-471C-B66C-0F671795FD3C@bootc.net>
-References: <4EFA4024.5000909@bootc.net>
-Mime-Version: 1.0 (Apple Message framework v1255)
-Content-Type: text/plain; charset="us-ascii"
+From: Wolfgang Zarre <info-PyqsHJVlJN8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v2 2/4] can: cc770: add
+ legacy ISA bus driver for the CC770 and AN82527
+Date: Sat, 31 Dec 2011 10:39:35 +0100
+Message-ID: <4EFED857.3000701@essax.com>
+References: <1322214204-1121-1-git-send-email-wg@grandegger.com>
+	<1322214204-1121-3-git-send-email-wg@grandegger.com>
+	<4ED0FEC5.3070108@hartkopp.net> <4ED34CAD.7040000@essax.com>
+	<4ED351A8.8000102@grandegger.com> <4ED37885.8080909@essax.com>
+	<4ED3B198.2040308@hartkopp.net> <4ED4A2EC.40103@grandegger.com>
+	<4EDBC05D.8070109@essax.com> <4EDBC25D.50405@grandegger.com>
+	<4EDE8435.5080100@essax.com> <4EDF6D54.2060503@grandegger.com>
+	<4EE1E26B.6090308@grandegger.com> <4EE4F76E.3000506@essax.com>
+	<4EE5C824.2050704@grandegger.com> <4EE5E321.8050104@essax.com>
+	<4EE5EBBF.6080007@grandegger.com> <4EF22625.5000109@essax.com>
+	<4EF2FA3F.3010308@grandegger.com> <4EF32E84.1080006@essax.com>
+Reply-To: info-PyqsHJVlJN8AvxtiuMwx3w@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>, lkml <linux-kernel@vger.kernel.org>,
-	e1000-devel@lists.sourceforge.net
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <4EFA4024.5000909@bootc.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4EF32E84.1080006-PyqsHJVlJN8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
+List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 27 Dec 2011, at 22:01, Chris Boot wrote:
+Hello Wolfgang,
 
-> Hi folks,
-> 
-> Another networking issue I've run into, this time with e1000e (Intel Corporation 82574L Gigabit). My new VM cluster appears to drop a NIC - the port stops responding within Linux and shows the link as being down with ethtool. My ISP says 'Ports running Half Duplex or reduced speed' on the port.
-> 
-> When the port stops working I see this in dmesg:
-> 
-> [35481.659629] ------------[ cut here ]------------
-> [35481.667837] WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0xe9/0x148()
-> [35481.676370] Hardware name: X9SCL/X9SCM
-> [35481.684793] NETDEV WATCHDOG: eth2 (e1000e): transmit queue 0 timed out
-> [35481.684795] Modules linked in: hmac sha256_generic dlm configfs ebtable_nat ebtables acpi_cpufreq mperf cpufreq_stats cpufreq_conservative cpufreq_userspace cpufreq_powersave microcode xt_NOTRACK ip_set_hash_net act_police cls_basic cls_flow cls_fw cls_u32 sch_tbf sch_prio sch_htb sch_hfsc sch_ingress sch_sfq xt_connlimit xt_realm xt_addrtype ip_set_hash_ip iptable_raw xt_comment xt_recent ipt_ULOG ipt_REJECT ipt_REDIRECT ipt_NETMAP ipt_MASQUERADE ipt_ECN ipt_ecn ipt_CLUSTERIP ipt_ah nf_nat_tftp nf_nat_snmp_basic nf_conntrack_snmp nf_nat_sip nf_nat_pptp nf_nat_proto_gre nf_nat_irc nf_nat_h323 nf_nat_ftp ip6_queue nf_nat_amanda xt_set ip_set nf_conntrack_tftp nf_conntrack_sip nf_conntrack_sane nf_conntrack_proto_udplite nf_conntrack_proto_sctp nf_conntrack_pptp nf_conntrack_proto_gre n
- f_conntrack_netlink nf_conntrack_netbios_ns nf_conntrack_broadcast nf_conntrack_irc nf_conntrack_h323 nf_conntrack_ftp ts_kmp nf_conntrack_amanda xt_TPROXY xt_NFLOG nfnetlink_log nf_tproxy_core xt_time xt_TCPMSS xt_tcpmss xt_sctp xt_policy xt_pkttype xt_physdev xt_owner xt_NFQUEUE xt_multiport xt_mark xt_mac xt_limit xt_length xt_iprange xt_helper xt_hashlimit xt_DSCP xt_dscp xt_dccp xt_connmark xt_CLASSIFY xt_AUDIT ip6t_LOG ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 xt_conntrack ip6table_raw ipt_LOG xt_tcpudp ip6table_mangle xt_state iptable_nat nf_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_conntrack iptable_mangle nfnetlink iptable_filter ip_tables ip6table_filter ip6_tables x_tables bridge stp bonding w83627ehf hwmon_vid coretemp sha1_ssse3 sha1_generic crc32c_intel aesni_intel cryptd 
- aes_x86_64 aes_generic ipmi_poweroff ipmi_devintf ipmi_si ipmi_msghandler vhost_net macvtap macvlan tun drbd lru_cache cn loop kvm_intel kvm snd_pcm snd_timer snd iTCO_wdt soundcore psmouse snd_page_alloc i2c_i801 i2c_core cdc_acm iTCO_vendor_support joydev evdev serio_raw processor button pcspkr thermal_sys ext4 mbcache jbd2 crc16 dm_mod raid1 md_mod sd_mod crc_t10dif usb_storage uas usbhid hid ahci libahci libata igb ehci_hcd scsi_mod usbcore e1000e dca usb_common [last unloaded: scsi_wait_scan]
-> [35481.685740] Pid: 0, comm: swapper/4 Not tainted 3.2.0-rc6+ #4
-> [35481.685744] Call Trace:
-> [35481.685746]  <IRQ>  [<ffffffff810467ed>] ? warn_slowpath_common+0x78/0x8c
-> [35481.685849]  [<ffffffff81046899>] ? warn_slowpath_fmt+0x45/0x4a
-> [35481.685875]  [<ffffffff810aeaa0>] ? perf_event_task_tick+0x166/0x1ab
-> [35481.686018]  [<ffffffff81294219>] ? netif_tx_lock+0x40/0x72
-> [35481.686090]  [<ffffffff8129437a>] ? dev_watchdog+0xe9/0x148
-> [35481.686136]  [<ffffffff81051e58>] ? run_timer_softirq+0x19a/0x261
-> [35481.686176]  [<ffffffff81294291>] ? netif_tx_unlock+0x46/0x46
-> [35481.686215]  [<ffffffff810659bb>] ? timekeeping_get_ns+0xd/0x2a
-> [35481.686286]  [<ffffffff8104bdd4>] ? __do_softirq+0xb9/0x177
-> [35481.686365]  [<ffffffff81341d6c>] ? call_softirq+0x1c/0x30
-> [35481.686530]  [<ffffffff8100f841>] ? do_softirq+0x3c/0x7b
-> [35481.686580]  [<ffffffff8104c03c>] ? irq_exit+0x3c/0x9a
-> [35481.686742]  [<ffffffff81023e58>] ? smp_apic_timer_interrupt+0x74/0x82
-> [35481.686820]  [<ffffffff813405de>] ? apic_timer_interrupt+0x6e/0x80
-> [35481.686826]  <EOI>  [<ffffffff811ddf49>] ? intel_idle+0xea/0x119
-> [35481.686991]  [<ffffffff811ddf28>] ? intel_idle+0xc9/0x119
-> [35481.687051]  [<ffffffff8125dce3>] ? cpuidle_idle_call+0xec/0x179
-> [35481.687089]  [<ffffffff8100d255>] ? cpu_idle+0xa1/0xe8
-> [35481.687143]  [<ffffffff810706ee>] ? arch_local_irq_restore+0x2/0x8
-> [35481.687189]  [<ffffffff8132d191>] ? start_secondary+0x1d5/0x1db
-> [35481.687234] ---[ end trace 01e9907674757948 ]---
-> [35481.687817] e1000e 0000:05:00.0: eth2: Reset adapter
-> 
-> To try to regain connectivity I bring down the bond and the interface (eth2), then unload e1000e. Upon loading the module again:
-> 
-> [36021.888962] e1000e: Intel(R) PRO/1000 Network Driver - 1.5.1-k
-> [36021.900258] e1000e: Copyright(c) 1999 - 2011 Intel Corporation.
-> [36021.911446] e1000e 0000:00:19.0: PCI INT A -> GSI 20 (level, low) -> IRQ 20
-> [36021.923204] e1000e 0000:00:19.0: setting latency timer to 64
-> [36021.923372] e1000e 0000:00:19.0: irq 45 for MSI/MSI-X
-> [36022.202737] e1000e 0000:00:19.0: eth2: (PCI Express:2.5GT/s:Width x1) 00:25:90:56:ac:75
-> [36022.214480] e1000e 0000:00:19.0: eth3: Intel(R) PRO/1000 Network Connection
-> [36022.227506] e1000e 0000:00:19.0: eth3: MAC: 10, PHY: 11, PBA No: FFFFFF-0FF
-> [36022.239789] e1000e 0000:05:00.0: Disabling ASPM L0s
-> [36022.239805] e1000e 0000:05:00.0: enabling device (0000 -> 0002)
-> [36022.239829] e1000e 0000:05:00.0: PCI INT A -> GSI 16 (level, low) -> IRQ 16
-> [36022.239921] e1000e 0000:05:00.0: setting latency timer to 64
-> [36022.240963] e1000e 0000:05:00.0: irq 64 for MSI/MSI-X
-> [36022.240995] e1000e 0000:05:00.0: irq 65 for MSI/MSI-X
-> [36022.241028] e1000e 0000:05:00.0: irq 66 for MSI/MSI-X
-> [36022.241596] e1000e 0000:05:00.0: PCI INT A disabled
-> [36022.241606] e1000e: probe of 0000:05:00.0 failed with error -2
-> [36022.304706] udevd[3634]: renamed network interface eth2 to eth3
-> 
-> I then don't get an eth2 interface. Only a reboot brings the interface back. This has happened twice so far on this server in the past week, both times using v3.2-rc7-3-g4962516.
-> 
-> lspci -vnn shows:
-> 
-> 05:00.0 Ethernet controller [0200]: Intel Corporation 82574L Gigabit Network Connection [8086:10d3]
->        Subsystem: Super Micro Computer Inc Device [15d9:0000]
->        Flags: bus master, fast devsel, latency 0, IRQ 16
->        Memory at fbd00000 (32-bit, non-prefetchable) [size=128K]
->        I/O ports at e000 [size=32]
->        Memory at fbd20000 (32-bit, non-prefetchable) [size=16K]
->        Capabilities: [c8] Power Management version 2
->        Capabilities: [d0] MSI: Enable- Count=1/1 Maskable- 64bit+
->        Capabilities: [e0] Express Endpoint, MSI 00
->        Capabilities: [a0] MSI-X: Enable+ Count=5 Masked-
->        Capabilities: [100] Advanced Error Reporting
->        Capabilities: [140] Device Serial Number 00-25-90-ff-ff-56-ac-74
->        Kernel driver in use: e1000e
+> Hello Wolfgang,
+>> Hi Wolfgang,
+>>
+>> On 12/21/2011 07:32 PM, Wolfgang Zarre wrote:
+>>> Hello Wolfgang,
+>> ...
+>>
+>>
+>> Again, please check if you have netif_start_queue() at the end of the
+>> open function.
+>>
+>
+> As said I'm using eec921ac28fde243456078a557768808d93d94a3
+>
+> However, I'll try further to investigate that issue due the fact having it
+> running with my lincan without problems and therefore it should be possible
+> to find the problem.
+>
 
-I've just had this happen on my other (identical) server with a nearly identical trace. Is there anything I can do do avoid this at all or at least help narrow down the problem?
+I found the problem which was then at the end quite simple to understand why it
+get stuck due the fact not receiving an interrupt for TX and due that no
+reactivation of the queue.
 
-Cheers,
-Chris
+I think that maybe also the hacks in the TX functions are obsolete with the
+fix assuming that the repeated interrupts just happen by indirect access.
 
--- 
-Chris Boot
-bootc@bootc.net
+Here my fix which worked for me:
+--------------------------------------------------------------------------------------------------------
+diff --git a/drivers/net/can/cc770/cc770.c b/drivers/net/can/cc770/cc770.c
+index 2d12f89..dad6707 100644
+--- a/drivers/net/can/cc770/cc770.c
++++ b/drivers/net/can/cc770/cc770.c
+@@ -460,15 +460,6 @@ static netdev_tx_t cc770_start_xmit(struct sk_buff *skb, struct net_device *dev)
+
+  	stats->tx_bytes += dlc;
+
+-
+-	/*
+-	 * HM: We had some cases of repeated IRQs so make sure the
+-	 * INT is acknowledged I know it's already further up, but
+-	 * doing again fixed the issue
+-	 */
+-	cc770_write_reg(priv, msgobj[mo].ctrl0,
+-			MSGVAL_UNC | TXIE_UNC | RXIE_UNC | INTPND_RES);
+-
+  	return NETDEV_TX_OK;
+  }
+
+@@ -689,12 +680,6 @@ static void cc770_tx_interrupt(struct net_device *dev, unsigned int o)
+  	/* Nothing more to send, switch off interrupts */
+  	cc770_write_reg(priv, msgobj[mo].ctrl0,
+  			MSGVAL_RES | TXIE_RES | RXIE_RES | INTPND_RES);
+-	/*
+-	 * We had some cases of repeated IRQ so make sure the
+-	 * INT is acknowledged
+-	 */
+-	cc770_write_reg(priv, msgobj[mo].ctrl0,
+-			MSGVAL_UNC | TXIE_UNC | RXIE_UNC | INTPND_RES);
+
+  	stats->tx_packets++;
+  	can_get_echo_skb(dev, 0);
+diff --git a/drivers/net/can/cc770/cc770_isa.c b/drivers/net/can/cc770/cc770_isa.c
+index 4be5fe2..48fc128 100644
+--- a/drivers/net/can/cc770/cc770_isa.c
++++ b/drivers/net/can/cc770/cc770_isa.c
+@@ -148,8 +148,7 @@ static void cc770_isa_port_write_reg_indirect(const struct cc770_priv *priv,
+  {
+  	unsigned long base = (unsigned long)priv->reg_base;
+
+-	outb(reg, base);
+-	outb(val, base + 1);
++	outw( reg + ( val << 8), base);
+  }
+
+  static int __devinit cc770_isa_probe(struct platform_device *pdev)
+
+---------------------------------------------------------------------------------------------
 
 
-------------------------------------------------------------------------------
-Ridiculously easy VDI. With Citrix VDI-in-a-Box, you don't need a complex
-infrastructure or vast IT resources to deliver seamless, secure access to
-virtual desktops. With this all-in-one solution, easily deploy virtual 
-desktops for less than the cost of PCs and save 60% on VDI infrastructure 
-costs. Try it free! http://p.sf.net/sfu/Citrix-VDIinabox
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Please let me know if this is OK for You, maybe You can do some tests as well.
+
+Would continue then with further tests regarding error conditions, however
+I realised another small issue with dropped packages at reception.
+
+As soon as You read the first time from the socket and then You stop reading
+the packages are not counted as 'dropped' any more which is IMHO not correct
+because as soon as You stop reading they should be counted as dropped again.
+
+
+>> Wolfgang.
+>
+> Wolfgang
+
+Wolfgang
