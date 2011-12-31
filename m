@@ -1,34 +1,39 @@
-From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
-Subject: Re: [PATCH net-next V2 00/21] net/mlx4: SRIOV support
-Date: Fri, 30 Dec 2011 21:57:11 -0800
-Message-ID: <CAL1RGDWa+8gv8WZrCtQBpzAQUkD982ONODE7qRjUs_Gn2m4DKA@mail.gmail.com>
-References: <4EE75CD1.7070900@mellanox.co.il> <20111213.141413.1872427395829102426.davem@davemloft.net>
- <953B660C027164448AE903364AC447D2485F0A86@MTLDAG02.mtl.com>
- <CAE9FiQU1EwcGBhn2bFksB30nb8p3FEo=vvOJYXq3hAA1ArhqWg@mail.gmail.com>
- <CAJZOPZJ+BxAa_OcB0f5nPAjnW7eZfsDdXz_o-VSCW7dsp5p2wg@mail.gmail.com> <CAE9FiQW2ZB3VUrg9z-=UVp=s3w1LQhY81hRUjfMXwW3d1dNaig@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [GIT PULL net-next] IPVS
+Date: Sat, 31 Dec 2011 18:06:25 +0900
+Message-ID: <20111231090603.GA30937@verge.net.au>
+References: <1325222342-20240-1-git-send-email-horms@verge.net.au>
+ <20111230112419.GB12015@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org" <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-To: Yinghai Lu <yinghai-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAE9FiQW2ZB3VUrg9z-=UVp=s3w1LQhY81hRUjfMXwW3d1dNaig-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20111230112419.GB12015@1984>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 30, 2011 at 2:23 PM, Yinghai Lu <yinghai-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+On Fri, Dec 30, 2011 at 12:24:19PM +0100, Pablo Neira Ayuso wrote:
+> Hi Simon,
+> 
+> On Fri, Dec 30, 2011 at 02:19:01PM +0900, Simon Horman wrote:
+> > Hi Pablo,
+> > 
+> > please consider pulling
+> >   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next
+> >   master
+> 
+> Since this is a fix, I can try to pass this for 3.2-rc7 to davem. I
+> read Linus will release 3.2 by new year, so we can still try to see if
+> we can get it in time.
+> 
+> Let me know what you prefer.
 
-> hotplug removal is broken...
+Hi Pablo,
 
-Is this a new regression with these patches?
+please try for 3.2-rc7 if possible.
 
- - R.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
