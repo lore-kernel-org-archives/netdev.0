@@ -1,32 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: Enable suspend when device is idle from boot.
-Date: Sat, 31 Dec 2011 12:46:57 -0500 (EST)
-Message-ID: <20111231.124657.2287162410740530507.davem@davemloft.net>
-References: <1325183594-8947-1-git-send-email-tbroch@chromium.org>
-	<20111230.172211.188260740088628815.davem@davemloft.net>
-	<20111231121704.GA9842@electric-eye.fr.zoreil.com>
+From: Yinghai Lu <yinghai-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH net-next V2 00/21] net/mlx4: SRIOV support
+Date: Sat, 31 Dec 2011 10:37:36 -0800
+Message-ID: <CAE9FiQX1q+qFHrGJdX5aZ9ix0bZ-vH3xEWPqFcRab87a9y2vrQ@mail.gmail.com>
+References: <4EE75CD1.7070900@mellanox.co.il>
+	<20111213.141413.1872427395829102426.davem@davemloft.net>
+	<953B660C027164448AE903364AC447D2485F0A86@MTLDAG02.mtl.com>
+	<CAE9FiQU1EwcGBhn2bFksB30nb8p3FEo=vvOJYXq3hAA1ArhqWg@mail.gmail.com>
+	<CAJZOPZJ+BxAa_OcB0f5nPAjnW7eZfsDdXz_o-VSCW7dsp5p2wg@mail.gmail.com>
+	<CAE9FiQW2ZB3VUrg9z-=UVp=s3w1LQhY81hRUjfMXwW3d1dNaig@mail.gmail.com>
+	<CAL1RGDWa+8gv8WZrCtQBpzAQUkD982ONODE7qRjUs_Gn2m4DKA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tbroch@chromium.org, nic_swsd@realtek.com, netdev@vger.kernel.org,
-	hayeswang@realtek.com
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50199 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753212Ab1LaRsH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Dec 2011 12:48:07 -0500
-In-Reply-To: <20111231121704.GA9842@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org" <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+To: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAL1RGDWa+8gv8WZrCtQBpzAQUkD982ONODE7qRjUs_Gn2m4DKA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Sat, 31 Dec 2011 13:17:04 +0100
+On Fri, Dec 30, 2011 at 9:57 PM, Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org> wrote:
+> On Fri, Dec 30, 2011 at 2:23 PM, Yinghai Lu <yinghai-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+>
+>> hotplug removal is broken...
+>
+> Is this a new regression with these patches?
+>
 
-> David Miller <davem@davemloft.net> :
-> [...]
->> Francois, what would you like me to do with this patch?
-> 
-> I have not tested it yet. I have no objection if a fix must go in now.
+yes.
 
-There is no rush with this, I just was seeking your opinion :-)
+after reverting those patches, removal work well without problem.
+
+Thanks
+
+Yinghai
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
