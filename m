@@ -1,58 +1,72 @@
-From: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
-Subject: Re: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on low-end broads.
-Date: Sun, 1 Jan 2012 13:09:20 +0100
-Message-ID: <CACPM=kXD8+RF1D=-RskbkKOby8U00X9cmYKCC65Ct8mGqztqyw@mail.gmail.com>
-References: <CACPM=kXTqY1kVWrEMB-Z0Lqy6t+rXvMzixcSUy7fAz6g_ajV9g@mail.gmail.com>
-	<20111230125655.GA32031@electric-eye.fr.zoreil.com>
-	<CACPM=kVBxcL1_Z9zVvnEEdEgAc0rbAAbzkcocz4OYWQ2xn6VmQ@mail.gmail.com>
-	<20111230180347.GA3647@electric-eye.fr.zoreil.com>
-	<CACPM=kXWXUE+JcVhkz-6tGZ2YyteN9sGA80+Pnw6+LaJ-eNWBA@mail.gmail.com>
-	<20111230215024.GA5513@electric-eye.fr.zoreil.com>
-	<CACPM=kUxSRhDc2EqgceBRTFgBei7dh3_n7bPyoH=8aNC_uq4FA@mail.gmail.com>
-	<20111230221938.GA6197@electric-eye.fr.zoreil.com>
-	<CACPM=kXAr46BXAc3t8puRB37NeFy_ZEOWZa0H=DnSioagSLpxA@mail.gmail.com>
-	<CACPM=kWn41S85eLgj4G+c6cN0WBgqF=6MigSwa9QBOxD1Uh64A@mail.gmail.com>
-	<20111231121710.GB9842@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	bhutchings@solarflare.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, rl@hellgate.ch
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111231121710.GB9842@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: pablo@netfilter.org
+Subject: [PATCH] netfilter: nfnetlink_acct: fix nfnl_acct_get operation
+Date: Sun,  1 Jan 2012 17:22:25 +0100
+Message-ID: <1325434945-21900-2-git-send-email-pablo@netfilter.org>
+References: <1325434945-21900-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1325434945-21900-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2011/12/31 Francois Romieu <romieu@fr.zoreil.com>:
-> Bjarke Istrup Pedersen <gurligebis@gentoo.org> :
-> [...]
->> Also tried connect a machine to one of the ports, and copying a larg=
-e
->> file across (something that before could make it lock up within 15
->> secords) - also worked without any problems - CPU usage around 15%
->> (mostly "top" using that), so thats not bad at all.
->>
->> Is there any other testcases that I should try out?
->
-> Same thing + random ethtool link management commands.
-> Same thing + random cable unplug/plug.
-> Same thing + pktgen facing the lan interface.
->
-> Everything at the same time.
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-I tried messing around with plugging cables and playing with ethtool
-at the same time, while there was alot of trafic, which went fine :)
-Happy new year btw :)
+The get operation was not sending the message that was built to
+user-space. This patch also includes the appropriate handling for
+the return value of netlink_unicast().
 
-/Bjarke
+Moreover, fix error codes on error (for example, for non-existing
+entry was uncorrect).
 
-> --
-> Ueimor
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at =A0http://www.tux.org/lkml/
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nfnetlink_acct.c |   17 +++++++++++++----
+ 1 files changed, 13 insertions(+), 4 deletions(-)
+
+diff --git a/net/netfilter/nfnetlink_acct.c b/net/netfilter/nfnetlink_acct.c
+index 362ab6c..11ba013 100644
+--- a/net/netfilter/nfnetlink_acct.c
++++ b/net/netfilter/nfnetlink_acct.c
+@@ -166,7 +166,7 @@ static int
+ nfnl_acct_get(struct sock *nfnl, struct sk_buff *skb,
+ 	     const struct nlmsghdr *nlh, const struct nlattr * const tb[])
+ {
+-	int ret = 0;
++	int ret = -ENOENT;
+ 	struct nf_acct *cur;
+ 	char *acct_name;
+ 
+@@ -186,17 +186,26 @@ nfnl_acct_get(struct sock *nfnl, struct sk_buff *skb,
+ 			continue;
+ 
+ 		skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+-		if (skb2 == NULL)
++		if (skb2 == NULL) {
++			ret = -ENOMEM;
+ 			break;
++		}
+ 
+ 		ret = nfnl_acct_fill_info(skb2, NETLINK_CB(skb).pid,
+ 					 nlh->nlmsg_seq,
+ 					 NFNL_MSG_TYPE(nlh->nlmsg_type),
+ 					 NFNL_MSG_ACCT_NEW, cur);
+-		if (ret <= 0)
++		if (ret <= 0) {
+ 			kfree_skb(skb2);
++			break;
++		}
++		ret = netlink_unicast(nfnl, skb2, NETLINK_CB(skb).pid,
++					MSG_DONTWAIT);
++		if (ret > 0)
++			ret = 0;
+ 
+-		break;
++		/* this avoids a loop in nfnetlink. */
++		return ret == -EAGAIN ? -ENOBUFS : ret;
+ 	}
+ 	return ret;
+ }
+-- 
+1.7.7.3
+
