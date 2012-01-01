@@ -1,16 +1,16 @@
-From: "John A. Sullivan III" <jsullivan@spiritualoutreach.com>
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
 Subject: tc filter mask for ACK packets off?
-Date: Sat, 31 Dec 2011 21:30:32 -0500
-Message-ID: <1325385032.4174.50.camel@denise.theartistscloset.com>
+Date: Sat, 31 Dec 2011 21:30:56 -0500
+Message-ID: <1325385056.4174.51.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.194]:54756 "EHLO mout.perfora.net"
+Received: from mout.perfora.net ([74.208.4.194]:52267 "EHLO mout.perfora.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750883Ab2AACag (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Dec 2011 21:30:36 -0500
+	id S1751033Ab2AACa7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Dec 2011 21:30:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
