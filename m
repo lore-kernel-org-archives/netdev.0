@@ -1,24 +1,58 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: tc filter mask for ACK packets off?
-Date: Sat, 31 Dec 2011 21:30:56 -0500
-Message-ID: <1325385056.4174.51.camel@denise.theartistscloset.com>
+From: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
+Subject: Re: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on low-end broads.
+Date: Sun, 1 Jan 2012 13:09:20 +0100
+Message-ID: <CACPM=kXD8+RF1D=-RskbkKOby8U00X9cmYKCC65Ct8mGqztqyw@mail.gmail.com>
+References: <CACPM=kXTqY1kVWrEMB-Z0Lqy6t+rXvMzixcSUy7fAz6g_ajV9g@mail.gmail.com>
+	<20111230125655.GA32031@electric-eye.fr.zoreil.com>
+	<CACPM=kVBxcL1_Z9zVvnEEdEgAc0rbAAbzkcocz4OYWQ2xn6VmQ@mail.gmail.com>
+	<20111230180347.GA3647@electric-eye.fr.zoreil.com>
+	<CACPM=kXWXUE+JcVhkz-6tGZ2YyteN9sGA80+Pnw6+LaJ-eNWBA@mail.gmail.com>
+	<20111230215024.GA5513@electric-eye.fr.zoreil.com>
+	<CACPM=kUxSRhDc2EqgceBRTFgBei7dh3_n7bPyoH=8aNC_uq4FA@mail.gmail.com>
+	<20111230221938.GA6197@electric-eye.fr.zoreil.com>
+	<CACPM=kXAr46BXAc3t8puRB37NeFy_ZEOWZa0H=DnSioagSLpxA@mail.gmail.com>
+	<CACPM=kWn41S85eLgj4G+c6cN0WBgqF=6MigSwa9QBOxD1Uh64A@mail.gmail.com>
+	<20111231121710.GB9842@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.194]:52267 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751033Ab2AACa7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Dec 2011 21:30:59 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	bhutchings@solarflare.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, rl@hellgate.ch
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111231121710.GB9842@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello, all.  I've been noticing that virtually all the documentation
-says we should prioritize ACK only packets and that they can be
-identified with match u8 0x10 0xff.  However, isn't the actual flag
-field only 6 bits longs and the first two belong to a previous 6 bit
-reserved field?
-If that is true, if ever those bits are set, our filters will
-unnecessarily break.  Shouldn't it be match u8 0x10 0x3f? Then again,
-I'm very new at this.  Thanks - John
+2011/12/31 Francois Romieu <romieu@fr.zoreil.com>:
+> Bjarke Istrup Pedersen <gurligebis@gentoo.org> :
+> [...]
+>> Also tried connect a machine to one of the ports, and copying a larg=
+e
+>> file across (something that before could make it lock up within 15
+>> secords) - also worked without any problems - CPU usage around 15%
+>> (mostly "top" using that), so thats not bad at all.
+>>
+>> Is there any other testcases that I should try out?
+>
+> Same thing + random ethtool link management commands.
+> Same thing + random cable unplug/plug.
+> Same thing + pktgen facing the lan interface.
+>
+> Everything at the same time.
+
+I tried messing around with plugging cables and playing with ethtool
+at the same time, while there was alot of trafic, which went fine :)
+Happy new year btw :)
+
+/Bjarke
+
+> --
+> Ueimor
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
+l" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at =A0http://www.tux.org/lkml/
