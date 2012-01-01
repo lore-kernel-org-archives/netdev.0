@@ -1,34 +1,59 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] fix for nfacct infrastructure in net-next
-Date: Sun, 1 Jan 2012 17:23:58 +0100
-Message-ID: <20120101162358.GA21795@1984>
-References: <1325434945-21900-1-git-send-email-pablo@netfilter.org>
+From: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
+Subject: Re: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on low-end broads.
+Date: Sun, 1 Jan 2012 22:15:44 +0100
+Message-ID: <CACPM=kUQ8FB6H9CUNmpRQf_QQ6gY3oP5YHMRPm7xhG11eoHePQ@mail.gmail.com>
+References: <CACPM=kXTqY1kVWrEMB-Z0Lqy6t+rXvMzixcSUy7fAz6g_ajV9g@mail.gmail.com>
+	<20111230125655.GA32031@electric-eye.fr.zoreil.com>
+	<CACPM=kVBxcL1_Z9zVvnEEdEgAc0rbAAbzkcocz4OYWQ2xn6VmQ@mail.gmail.com>
+	<20111230180347.GA3647@electric-eye.fr.zoreil.com>
+	<CACPM=kXWXUE+JcVhkz-6tGZ2YyteN9sGA80+Pnw6+LaJ-eNWBA@mail.gmail.com>
+	<20111230215024.GA5513@electric-eye.fr.zoreil.com>
+	<CACPM=kUxSRhDc2EqgceBRTFgBei7dh3_n7bPyoH=8aNC_uq4FA@mail.gmail.com>
+	<20111230221938.GA6197@electric-eye.fr.zoreil.com>
+	<CACPM=kXAr46BXAc3t8puRB37NeFy_ZEOWZa0H=DnSioagSLpxA@mail.gmail.com>
+	<CACPM=kWn41S85eLgj4G+c6cN0WBgqF=6MigSwa9QBOxD1Uh64A@mail.gmail.com>
+	<20111231121710.GB9842@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:51582 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750829Ab2AAQYA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Jan 2012 11:24:00 -0500
-Content-Disposition: inline
-In-Reply-To: <1325434945-21900-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	bhutchings@solarflare.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, rl@hellgate.ch
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111231121710.GB9842@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 01, 2012 at 05:22:24PM +0100, pablo@netfilter.org wrote:
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
-> 
-> Hi Dave,
-> 
-> Please, pull the following fix for the nfacct infrastructure already
-> in your net-next tree.
-> 
-> You can pull it from:
-> 
-> git://1984.lsi.us.es/net-net nf-next
-                       ^^^^^^^
-I meant to say net-next, of course.
+2011/12/31 Francois Romieu <romieu@fr.zoreil.com>:
+> Bjarke Istrup Pedersen <gurligebis@gentoo.org> :
+> [...]
+>> Also tried connect a machine to one of the ports, and copying a larg=
+e
+>> file across (something that before could make it lock up within 15
+>> secords) - also worked without any problems - CPU usage around 15%
+>> (mostly "top" using that), so thats not bad at all.
+>>
+>> Is there any other testcases that I should try out?
+>
+> Same thing + random ethtool link management commands.
+> Same thing + random cable unplug/plug.
+> Same thing + pktgen facing the lan interface.
+>
+> Everything at the same time.
 
-Sorry.
+Btw. - I have split up the via-rhine.c file (with all the changes you
+have sent me) into via-rhine.c and via-rhine.h , like it should be :-)
+I'll send it shortly after this mail - could you incorporate it into yo=
+ur work?
+
+/Bjarke
+
+> --
+> Ueimor
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
+l" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at =A0http://www.tux.org/lkml/
