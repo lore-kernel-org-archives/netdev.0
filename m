@@ -1,53 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fix for nfacct infrastructure in net-next
-Date: Sun, 01 Jan 2012 18:02:29 -0500 (EST)
-Message-ID: <20120101.180229.1338519415596129407.davem@davemloft.net>
-References: <1325434945-21900-1-git-send-email-pablo@netfilter.org>
-	<20120101162358.GA21795@1984>
+Subject: [GIT] Networking
+Date: Sun, 01 Jan 2012 18:42:34 -0500 (EST)
+Message-ID: <20120101.184234.350480175566737629.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120101162358.GA21795@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Sun, 1 Jan 2012 17:23:58 +0100
 
-> On Sun, Jan 01, 2012 at 05:22:24PM +0100, pablo@netfilter.org wrote:
->> From: Pablo Neira Ayuso <pablo@netfilter.org>
->> 
->> Hi Dave,
->> 
->> Please, pull the following fix for the nfacct infrastructure already
->> in your net-next tree.
->> 
->> You can pull it from:
->> 
->> git://1984.lsi.us.es/net-net nf-next
->                        ^^^^^^^
-> I meant to say net-next, of course.
+1) mlx4 driver stops working after a ring size change due to forgotten
+   clear of the queue vector value, fix from Yevgeny Petrilin.
 
-I'm not pulling this.
+2) RX multicast filter in skge is not restored after resume, breaking
+   ipv6 amongst other things, fix from Florian Zumbiehl.
 
-If I pull from your "corrected" URL, "git://1984.lsi.us.es/net-next nf-next"
-it starts to download 17937 objects.  Which means it's going to bring in all
-of your -next work as well as my net-next tree upon which it is based, not
-just this one bug fix.
+3) Fix sync message handling in IPVS, from Julian Anastasov.
 
-These mistakes should never happen in the first place.
+4) ctnetlink timeout sanity checks never work due to signedness,
+   fix from Xi Wang.
 
-If you actually use "git request-pull" to generate the pull request
-email body, you can NEVER get the URL wrong, GIT enforces it to be
-correct and it enforces that the changes in your local tree are
-present at the remote URL as well.
+Please pull, thanks a lot!
 
-You can't make these kinds of errors and oversights when you want to
-ask me to pull in bug fixes at the very last minute when Linus is
-about to make a final release.
+The following changes since commit c7f46b7aa4ae5cbef32eb5e016512a14f936affa:
 
-Just toss these fixes, if they are so important submit them to Greg KH
-and the -stable branch after 3.2.0-final goes out.
+  Merge branch 'fix/asoc' of git://git.kernel.org/pub/scm/linux/kernel/git/tiwai/sound (2011-12-31 11:55:06 -0800)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+
+Florian Zumbiehl (1):
+      skge: restore rx multicast filter on resume and after config changes
+
+Julian Anastasov (1):
+      ipvs: try also real server with port 0 in backup server
+
+Xi Wang (1):
+      netfilter: ctnetlink: fix timeout calculation
+
+Yevgeny Petrilin (1):
+      mlx4_en: nullify cq->vector field when closing completion queue
+
+ drivers/net/ethernet/marvell/skge.c        |    3 +++
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c |    1 +
+ include/net/ip_vs.h                        |    2 +-
+ net/netfilter/ipvs/ip_vs_conn.c            |    2 +-
+ net/netfilter/ipvs/ip_vs_ctl.c             |   10 ++++++++--
+ net/netfilter/ipvs/ip_vs_sync.c            |    2 +-
+ net/netfilter/nf_conntrack_netlink.c       |    4 ++--
+ 7 files changed, 17 insertions(+), 7 deletions(-)
