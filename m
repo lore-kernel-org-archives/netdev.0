@@ -1,44 +1,41 @@
-From: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
-Subject: Re: [PATCH 1/1] via-rhine: Split driver into .c and .h files.
-Date: Mon, 2 Jan 2012 09:44:39 +0100
-Message-ID: <CACPM=kWr7X4ACV1r40HL_kQt5iJjh8Nek1GWqqxNJsKaE2zL-A@mail.gmail.com>
-References: <1325452525-23476-1-git-send-email-gurligebis@gentoo.org>
-	<20120101224909.GA18144@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	bhutchings@solarflare.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, rl@hellgate.ch
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120101224909.GA18144@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <florian@openwrt.org>
+Subject: [PATCH] r6040: use an unique MDIO bus name
+Date: Mon,  2 Jan 2012 10:50:00 +0100
+Message-ID: <1325497800-21450-1-git-send-email-florian@openwrt.org>
+Cc: netdev@vger.kernel.org, vova.kolpakov@gmail.com,
+	Florian Fainelli <florian@openwrt.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zmc.proxad.net ([212.27.53.206]:59633 "EHLO zmc.proxad.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751009Ab2ABJ7j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jan 2012 04:59:39 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2012/1/1 Francois Romieu <romieu@fr.zoreil.com>:
-> Bjarke Istrup Pedersen <gurligebis@gentoo.org> :
->> Split the driver into via-rhine.c and via-rhine.h like it should be.
->> There is also a bit of cleanup of checkpatch warnings, other than th=
-at,
->> there is no changes to how the code works, it is plain refactoring.
->
-> Please don't do that. The .h won't be used elsewhere. It's useless
-> (and register definitions stay barely readable).
+We should use an unique MDIO bus name which does not clash with anything
+else in the system like the Fixed MDIO bus. The bus is now named:
+<dev_name>-<card number> which is unique in the system.
 
-Hmm, I see your point, was just trying to make the two via drivers more=
- alike :)
+Reported-by: Vladimir Kolpakov <vova.kolpakov@gmail.com>
+Signed-off-by: Florian Fainelli <florian@openwrt.org>
+---
+ drivers/net/ethernet/rdc/r6040.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-> Roger, any comment regarding patches #1 .. #3 ?
->
-> rhine_task_{enable / disable} should be balanced in open / close and
-> suspend / resume, ok.
->
-> --
-> Ueimor
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at =A0http://www.tux.org/lkml/
+diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
+index 4bf68cf..de5e923 100644
+--- a/drivers/net/ethernet/rdc/r6040.c
++++ b/drivers/net/ethernet/rdc/r6040.c
+@@ -1188,7 +1188,8 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
+ 	lp->mii_bus->write = r6040_mdiobus_write;
+ 	lp->mii_bus->reset = r6040_mdiobus_reset;
+ 	lp->mii_bus->name = "r6040_eth_mii";
+-	snprintf(lp->mii_bus->id, MII_BUS_ID_SIZE, "%x", card_idx);
++	snprintf(lp->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
++					dev_name(&pdev->dev), card_idx);
+ 	lp->mii_bus->irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
+ 	if (!lp->mii_bus->irq) {
+ 		dev_err(&pdev->dev, "mii_bus irq allocation failed\n");
+-- 
+1.7.5.4
