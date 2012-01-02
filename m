@@ -1,44 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next] xfrm: Call IP receive handler directly for
-	inbound tunnel-mode packets
-Date: Mon, 2 Jan 2012 18:28:28 +1100
-Message-ID: <20120102072828.GA5380@gondor.apana.org.au>
-References: <1325475154-15997-1-git-send-email-david.ward@ll.mit.edu>
+From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: RE: [PATCH net-next V2 00/21] net/mlx4: SRIOV support
+Date: Mon, 2 Jan 2012 07:55:38 +0000
+Message-ID: <953B660C027164448AE903364AC447D24CDA8704@MTLDAG01.mtl.com>
+References: <4EE75CD1.7070900@mellanox.co.il>
+	<20111213.141413.1872427395829102426.davem@davemloft.net>
+	<953B660C027164448AE903364AC447D2485F0A86@MTLDAG02.mtl.com>
+	<CAE9FiQU1EwcGBhn2bFksB30nb8p3FEo=vvOJYXq3hAA1ArhqWg@mail.gmail.com>
+	<CAJZOPZJ+BxAa_OcB0f5nPAjnW7eZfsDdXz_o-VSCW7dsp5p2wg@mail.gmail.com>
+	<CAE9FiQW2ZB3VUrg9z-=UVp=s3w1LQhY81hRUjfMXwW3d1dNaig@mail.gmail.com>
+	<CAL1RGDWa+8gv8WZrCtQBpzAQUkD982ONODE7qRjUs_Gn2m4DKA@mail.gmail.com>
+ <CAE9FiQX1q+qFHrGJdX5aZ9ix0bZ-vH3xEWPqFcRab87a9y2vrQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Ward <david.ward@ll.mit.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:56380 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751372Ab2ABH2b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2012 02:28:31 -0500
-Content-Disposition: inline
-In-Reply-To: <1325475154-15997-1-git-send-email-david.ward@ll.mit.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org" <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+To: Yinghai Lu <yinghai-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAE9FiQX1q+qFHrGJdX5aZ9ix0bZ-vH3xEWPqFcRab87a9y2vrQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 01, 2012 at 10:32:34PM -0500, David Ward wrote:
-> For IPsec tunnel mode (or BEET mode), after inbound packets are xfrm'ed,
-> call the IPv4/IPv6 receive handler directly instead of calling netif_rx.
-> In addition to avoiding unneeded re-processing of the MAC layer, packets
-> will not be received a second time on network taps. (Note that outbound
-> packets are only received on network taps post-xfrm, but inbound packets
-> were being received both pre- and post-xfrm. So now network taps will
-> receive packets in either direction only once, in the form that they go
-> "over the wire".)
+> >
+> >> hotplug removal is broken...
+> >
+> > Is this a new regression with these patches?
+> >
 > 
-> Signed-off-by: David Ward <david.ward@ll.mit.edu>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> yes.
+> 
+> after reverting those patches, removal work well without problem.
+> 
+> Thanks
+> 
+> Yinghai
 
-You can't do this as this may cause stack overruns if we nest
-too deeply.
+Thanks,
+We just found the same failure internally.
+Will send a fix shortly.
 
-Changing the existing tap processing behaviour will also break
-existing setups.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Yevgeny
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
