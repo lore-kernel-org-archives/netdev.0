@@ -1,55 +1,44 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] fix for nfacct infrastructure in net-next
-Date: Mon, 2 Jan 2012 02:04:15 +0100
-Message-ID: <20120102010415.GA23310@1984>
-References: <1325434945-21900-1-git-send-email-pablo@netfilter.org>
- <20120101162358.GA21795@1984>
- <20120101.180229.1338519415596129407.davem@davemloft.net>
-Mime-Version: 1.0
+From: Matt Ginzton <matt@ginzton.net>
+Subject: Re: reproducible kernel freeze using r8169 in Linux 3.0
+Date: Sun, 1 Jan 2012 18:03:20 -0800
+Message-ID: <DED183BB-B51D-4739-99B3-7E0B71897159@ginzton.net>
+References: <63CE35CA-7DD6-41EC-A745-6BA776D8C5E3@ginzton.net> <20111218083212.GA28286@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0 (Apple Message framework v1251.1)
 Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: 8BIT
+Cc: nic_swsd@realtek.com, netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:40953 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751328Ab2ABBEV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Jan 2012 20:04:21 -0500
-Content-Disposition: inline
-In-Reply-To: <20120101.180229.1338519415596129407.davem@davemloft.net>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:55524 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751054Ab2ABCDX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jan 2012 21:03:23 -0500
+Received: by iaeh11 with SMTP id h11so28550286iae.19
+        for <netdev@vger.kernel.org>; Sun, 01 Jan 2012 18:03:23 -0800 (PST)
+In-Reply-To: <20111218083212.GA28286@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Dec 18, 2011, at 12:32 AM, Francois Romieu wrote:
 
-On Sun, Jan 01, 2012 at 06:02:29PM -0500, David Miller wrote:
-> I'm not pulling this.
+> Matt Ginzton <matt@ginzton.net> :
+> [...]
+>> Please let me know if I'm reporting this to the right place, or if there's
+>> any other helpful info I can provide.
 > 
-> If I pull from your "corrected" URL, "git://1984.lsi.us.es/net-next nf-next"
-> it starts to download 17937 objects.  Which means it's going to bring in all
-> of your -next work as well as my net-next tree upon which it is based, not
-> just this one bug fix.
->
-> These mistakes should never happen in the first place.
+> Please grep for a XID line in dmesg and send it so we can figure the
+> specific revision of your chipset (lspci can not figure it).
 > 
-> If you actually use "git request-pull" to generate the pull request
-> email body, you can NEVER get the URL wrong, GIT enforces it to be
-> correct and it enforces that the changes in your local tree are
-> present at the remote URL as well.
+> If it says something like "blah blah XID 1c4...", you should give current
+> -rc a try (who shouldn't ?).
 
-You caught me here, I wasn't using git request-pull. I'll do next time,
-sorry.
+Just to follow up on this old thread:
 
-> You can't make these kinds of errors and oversights when you want to
-> ask me to pull in bug fixes at the very last minute when Linus is
-> about to make a final release.
+- my XID line says 1c4000c0
+- I tried 3.2-rc7 kernel, and couldn't reproduce any problems at all -- not the complete system freeze from 3.0 kernels, nor the slow_path kernel warning and backtrace from 3.1 kernels. A big improvement indeed -- thank you.
 
-I think there's a misunderstanding.
+I do note that TX performance as measured by pktgen is lower than r8168 -- with r8169 in 3.2-rc7 I see something like 455MB/sec and with r8168, IIRC, the number was closer to 800MB/sec. This may be a very artificial statistic, and isn't something I happen to care about and I'm certainly not going to use r8168 because of it, but it may be worth looking into?
 
-This is not intended for current 3.2-rc7. This is a fix for something
-that is in your net-next tree (upcoming 3.3).
+cheers,
 
-I can wait and resubmit this later, we have the entire 3.3-rc cycle to
-get it fixed. Sorry for rushing you.
-
-> Just toss these fixes, if they are so important submit them to Greg KH
-> and the -stable branch after 3.2.0-final goes out.
+Matt
