@@ -1,65 +1,60 @@
-From: Dave Taht <dave.taht@gmail.com>
-Subject: Re: [PATCH] sch_qfq: fix overflow in qfq_update_start()
-Date: Mon, 2 Jan 2012 22:56:27 +0100
-Message-ID: <CAA93jw49WSxU1tATiB1nQJRLvwHXJOaHq2t_1+Kp-Eb9FzS=rA@mail.gmail.com>
-References: <1325519277.2375.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1325540706.2874.3.camel@edumazet-laptop>
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: Re: [PATCH net-next 1/2] mlx4_core: fix mtt range deallocation
+Date: Mon, 2 Jan 2012 14:05:02 -0800
+Message-ID: <CAE9FiQX+LkhifWTAQLfGfPyogOKUmuWNS2cuyL5wm36hoAJS6A@mail.gmail.com>
+References: <4F01BA2B.1060605@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	marcela@dev.mellanox.co.il
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:63451 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752606Ab2ABV42 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2012 16:56:28 -0500
-Received: by iaeh11 with SMTP id h11so29847320iae.19
-        for <netdev@vger.kernel.org>; Mon, 02 Jan 2012 13:56:28 -0800 (PST)
-In-Reply-To: <1325540706.2874.3.camel@edumazet-laptop>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:56654 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752606Ab2ABWFD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2012 17:05:03 -0500
+Received: by yhr47 with SMTP id 47so9227027yhr.19
+        for <netdev@vger.kernel.org>; Mon, 02 Jan 2012 14:05:02 -0800 (PST)
+In-Reply-To: <4F01BA2B.1060605@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 2, 2012 at 10:45 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le lundi 02 janvier 2012 =E0 16:47 +0100, Eric Dumazet a =E9crit :
->> grp->slot_shift is between 22 and 41, so using 32bit wide variables =
-is
->> probably a typo.
->>
->> This could explain QFQ hangs Dave reported to me, after 2^23 packets=
- ?
->>
->> (23 =3D 64 - 41)
->>
->> Reported-by: Dave Taht <dave.taht@gmail.com>
->> CC: Stephen Hemminger <shemminger@vyatta.com>
->> CC: Dave Taht <dave.taht@gmail.com>
+On Mon, Jan 2, 2012 at 6:07 AM, Yevgeny Petrilin
+<yevgenyp@mellanox.co.il> wrote:
+> From: Marcel Apfelbaum <marcela@mellanox.co.il>
 >
-> Oh well, I forgot my SOB :(
+> The mtt range was allocated in mtt units but deallocated
+> in segments. Among the rest, this caused crash during hotplug removal
 >
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Reported-by: Yinghai Lu <yinghai@kernel.org>
+> Signed-off-by: Marcel Apfelbaum <marcela@mellanox.co.il>
+> Reviewed-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+> ---
+> =A0drivers/net/ethernet/mellanox/mlx4/mr.c | =A0 =A04 ++--
+> =A01 files changed, 2 insertions(+), 2 deletions(-)
 >
-> David please just tell me if you prefer me to resend it
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/et=
+hernet/mellanox/mlx4/mr.c
+> index f7243b2..01df556 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/mr.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
+> @@ -239,8 +239,8 @@ void __mlx4_free_mtt_range(struct mlx4_dev *dev, =
+u32 offset, int order)
+> =A0 =A0 =A0 =A0first_seg =3D offset / (1 << log_mtts_per_seg);
 >
+> =A0 =A0 =A0 =A0mlx4_buddy_free(&mr_table->mtt_buddy, first_seg, seg_o=
+rder);
+> - =A0 =A0 =A0 mlx4_table_put_range(dev, &mr_table->mtt_table, first_s=
+eg,
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0first_seg + =
+(1 << seg_order) - 1);
+> + =A0 =A0 =A0 mlx4_table_put_range(dev, &mr_table->mtt_table, offset,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0offset + (1 =
+<< order) - 1);
+> =A0}
 >
+> =A0static void mlx4_free_mtt_range(struct mlx4_dev *dev, u32 offset, =
+int order)
 
-I figure I'm the wrong david, but I'll be testing the QFQ patch overnig=
-ht.
-I have tested it for about an hour thus far.
-
-Your SFQ patch, posted earlier today, does bring SFQ and QFQ back
-into equivalence at 10 iperfs.
-
-http://www.teklibre.com/~d/bloat/sfqnewvsqfq10iperfs.png
-
-Well done.
-
---=20
-Dave T=E4ht
-SKYPE: davetaht
-US Tel: 1-239-829-5608
-=46R Tel: 0638645374
-http://www.bufferbloat.net
+Tested-by: Yinghai Lu <yinghai@kernel.org>
