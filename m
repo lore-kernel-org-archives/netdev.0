@@ -1,18 +1,19 @@
 From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Subject: Re: [PATCH 1/4] block: xsysace: Don't use NO_IRQ
-Date: Mon, 2 Jan 2012 01:21:04 -0700
-Message-ID: <20120102082104.GC18381@ponder.secretlab.ca>
+Subject: Re: [PATCH 2/4] net: ethernet: xilinx: Don't use NO_IRQ in xilinx
+Date: Mon, 2 Jan 2012 01:21:24 -0700
+Message-ID: <20120102082124.GD18381@ponder.secretlab.ca>
 References: <1324477932-19262-1-git-send-email-monstr@monstr.eu>
+ <1324477932-19262-2-git-send-email-monstr@monstr.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
- Ryan Mallon <rmallon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>, Ryan Mallon <rmallon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 To: Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>
 Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1324477932-19262-1-git-send-email-monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>
+In-Reply-To: <1324477932-19262-2-git-send-email-monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>
 List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
  <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
@@ -24,68 +25,49 @@ Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06c
 Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 21, 2011 at 03:32:09PM +0100, Michal Simek wrote:
-> Drivers shouldn't use NO_IRQ. Microblaze and PPC
-> define NO_IRQ as 0 and this reference will be removed
-> in near future.
+On Wed, Dec 21, 2011 at 03:32:10PM +0100, Michal Simek wrote:
+> Fix ll_temac and emaclite drivers. Only Microblaze and Xilinx PPC
+> use then and both use NO_IRQ as 0. It will be removed in near future.
 > 
 > Signed-off-by: Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>
+> CC: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (commit_signer:7/10=70%)
+> CC: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org> (commit_signer:1/10=10%)
 > CC: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-> CC: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
 > CC: Ryan Mallon <rmallon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
 
 Acked-by: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
 
-> ---
->  drivers/block/xsysace.c |   10 +++++-----
->  1 files changed, 5 insertions(+), 5 deletions(-)
+>  drivers/net/ethernet/xilinx/ll_temac_main.c   |    2 +-
+>  drivers/net/ethernet/xilinx/xilinx_emaclite.c |    2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
 > 
-> diff --git a/drivers/block/xsysace.c b/drivers/block/xsysace.c
-> index fb1975d..1a17e33 100644
-> --- a/drivers/block/xsysace.c
-> +++ b/drivers/block/xsysace.c
-> @@ -456,7 +456,7 @@ static inline void ace_fsm_yieldirq(struct ace_device *ace)
->  {
->  	dev_dbg(ace->dev, "ace_fsm_yieldirq()\n");
+> diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
+> index 2681b53..87775d7 100644
+> --- a/drivers/net/ethernet/xilinx/ll_temac_main.c
+> +++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
+> @@ -1077,7 +1077,7 @@ static int __devinit temac_of_probe(struct platform_device *op)
 >  
-> -	if (ace->irq == NO_IRQ)
-> +	if (!ace->irq)
->  		/* No IRQ assigned, so need to poll */
->  		tasklet_schedule(&ace->fsm_tasklet);
->  	ace->fsm_continue_flag = 0;
-> @@ -1034,12 +1034,12 @@ static int __devinit ace_setup(struct ace_device *ace)
->  		ACE_CTRL_DATABUFRDYIRQ | ACE_CTRL_ERRORIRQ);
+>  	of_node_put(np); /* Finished with the DMA node; drop the reference */
 >  
->  	/* Now we can hook up the irq handler */
-> -	if (ace->irq != NO_IRQ) {
-> +	if (ace->irq) {
->  		rc = request_irq(ace->irq, ace_interrupt, 0, "systemace", ace);
->  		if (rc) {
->  			/* Failure - fall back to polled mode */
->  			dev_err(ace->dev, "request_irq failed\n");
-> -			ace->irq = NO_IRQ;
-> +			ace->irq = 0;
->  		}
+> -	if ((lp->rx_irq == NO_IRQ) || (lp->tx_irq == NO_IRQ)) {
+> +	if (!lp->rx_irq || !lp->tx_irq) {
+>  		dev_err(&op->dev, "could not determine irqs\n");
+>  		rc = -ENOMEM;
+>  		goto err_iounmap_2;
+> diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+> index 8018d7d..252edf7 100644
+> --- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+> +++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+> @@ -1129,7 +1129,7 @@ static int __devinit xemaclite_of_probe(struct platform_device *ofdev)
+>  
+>  	/* Get IRQ for the device */
+>  	rc = of_irq_to_resource(ofdev->dev.of_node, 0, &r_irq);
+> -	if (rc == NO_IRQ) {
+> +	if (!rc) {
+>  		dev_err(dev, "no IRQ found\n");
+>  		return rc;
 >  	}
->  
-> @@ -1086,7 +1086,7 @@ static void __devexit ace_teardown(struct ace_device *ace)
->  
->  	tasklet_kill(&ace->fsm_tasklet);
->  
-> -	if (ace->irq != NO_IRQ)
-> +	if (ace->irq)
->  		free_irq(ace->irq, ace);
->  
->  	iounmap(ace->baseaddr);
-> @@ -1156,7 +1156,7 @@ static int __devinit ace_probe(struct platform_device *dev)
->  	resource_size_t physaddr = 0;
->  	int bus_width = ACE_BUS_WIDTH_16; /* FIXME: should not be hard coded */
->  	u32 id = dev->id;
-> -	int irq = NO_IRQ;
-> +	int irq = 0;
->  	int i;
->  
->  	dev_dbg(&dev->dev, "ace_probe(%p)\n", dev);
 > -- 
 > 1.7.5.4
 > 
