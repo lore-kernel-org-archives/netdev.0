@@ -1,33 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r6040: use an unique MDIO bus name
-Date: Mon, 02 Jan 2012 15:49:30 -0500 (EST)
-Message-ID: <20120102.154930.1761330488764990513.davem@davemloft.net>
-References: <1325497800-21450-1-git-send-email-florian@openwrt.org>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [ANNOUNCE] libnetfilter_queue 1.0.1 release
+Date: Mon, 2 Jan 2012 22:22:28 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1201022221470.29809@frira.zrqbmnf.qr>
+References: <20120102195845.GA26867@1984>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vova.kolpakov@gmail.com
-To: florian@openwrt.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33850 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751454Ab2ABUti (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2012 15:49:38 -0500
-In-Reply-To: <1325497800-21450-1-git-send-email-florian@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netfilter@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	netfilter-announce@lists.netfilter.org, lwn@lwn.net
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120102195845.GA26867@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <florian@openwrt.org>
-Date: Mon,  2 Jan 2012 10:50:00 +0100
+On Monday 2012-01-02 20:58, Pablo Neira Ayuso wrote:
 
-> +	snprintf(lp->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
-> +					dev_name(&pdev->dev), card_idx);
+>Hi!
+>
+>The Netfilter project proudly presents:
+>
+>        libnetfilter_queue 1.0.1
 
-Please don't be so sloppy with the formatting like this,
-make the arguments on the second line get indented exactly
-to the first column after the openning parenthesis on the
-first line.
+In commit 390b0c0f45597c72fa93a40f4f7f9ffeec371f42
+Author: Pablo Neira Ayuso <pablo@netfilter.org>
+Date:   Mon Jan 2 20:28:45 2012 +0100
 
-If you can't be bothered to get this right by hand, use
-something like emacs's C-mode to do it for you when you hit
-TAB.
+    build: bump version to 1.0.1
+    
+    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+
+diff --git a/src/Makefile.am b/src/Makefile.am
+index 0bd037f..bc27625 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -18,7 +18,7 @@
+ # set age to 0.
+ # </snippet>
+ #
+-LIBVERSION=2:0:1
++LIBVERSION=2:0:2
+ 
+ include ${top_srcdir}/Make_global.am
+ 
+
+You wrongly changed LIBVERSION. It went from .so.1.1 to so.0.2, and that 
+just does not sound right. Perhaps you intended 2:1:1.
+
+Or just leaving r alone, like proposed? :)
