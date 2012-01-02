@@ -1,77 +1,33 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [ANNOUNCE] libnetfilter_log 1.0.1 release
-Date: Mon, 2 Jan 2012 21:26:41 +0100
-Message-ID: <20120102202641.GA26980@1984>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] r6040: use an unique MDIO bus name
+Date: Mon, 02 Jan 2012 15:49:30 -0500 (EST)
+Message-ID: <20120102.154930.1761330488764990513.davem@davemloft.net>
+References: <1325497800-21450-1-git-send-email-florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="3MwIy2ne0vdjdPXF"
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
-	netfilter-announce@lists.netfilter.org, lwn@lwn.net
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, vova.kolpakov@gmail.com
+To: florian@openwrt.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:33850 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751454Ab2ABUti (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2012 15:49:38 -0500
+In-Reply-To: <1325497800-21450-1-git-send-email-florian@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Florian Fainelli <florian@openwrt.org>
+Date: Mon,  2 Jan 2012 10:50:00 +0100
 
---3MwIy2ne0vdjdPXF
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> +	snprintf(lp->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
+> +					dev_name(&pdev->dev), card_idx);
 
-Hi!
+Please don't be so sloppy with the formatting like this,
+make the arguments on the second line get indented exactly
+to the first column after the openning parenthesis on the
+first line.
 
-The Netfilter project proudly presents:
-
-        libnetfilter_log 1.0.1
-
-libnetfilter_log is a userspace library providing interface to packets
-that have been logged by the kernel packet filter.
-
-See ChangeLog that comes attached to this email for more details.
-
-You can download it from:
-
-http://www.netfilter.org/projects/libnetfilter_log/downloads.html
-ftp://ftp.netfilter.org/pub/libnetfilter_log/
-
-Have fun!
-
---3MwIy2ne0vdjdPXF
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="changes-libnetfilter_log-1.0.1.txt"
-
-Jan Engelhardt (23):
-      build: use autoconf-suggested naming of files
-      build: use modern call syntax for AC_INIT, AM_INIT_AUTOMAKE
-      build: avoid use of deprecated INCLUDES
-      build: use simpler autoreconf in autogen
-      build: run AC_CANONICAL_HOST only
-      build: remove statements without effect
-      build: remove -fPIC flag
-      build: no need for error message in PKG_CHECK_MODULES
-      build: set Libs.private for pkgconfig file
-      Remove accidentally-added file "depcomp"
-      Add .gitignore files
-      build: default to not building static libraries
-      build: use AC_OUTPUT
-      src: remove redundant casts
-      src: declare non-modified data as const
-      build: remove unused LIBTOOL_DEPS
-      build: create a Make_global.am file
-      build: use -Wall across the entire source
-      utils: resolve compiler warnings
-      build: fix error with automake-1.9
-      Update .gitignore
-      build: use AC_CONFIG_AUX_DIR and stash away tools
-      build: disable implicit .tar.gz archive generation and use POSIX mode
-
-Pablo Neira Ayuso (7):
-      build: bump version to 1.0.0
-      license: upgrade to GPLv2+
-      doc: discourage the use of nflog_set_nlbufsiz()
-      Merge branch 'master' of git://dev.medozas.de/libnetfilter_log
-      build: fix `make distcheck'
-      build: Linux kernel-style for compilation messages
-      build: bump version to 1.0.1
-
-
---3MwIy2ne0vdjdPXF--
+If you can't be bothered to get this right by hand, use
+something like emacs's C-mode to do it for you when you hit
+TAB.
