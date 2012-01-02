@@ -1,48 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] xfrm: Call IP receive handler directly for
- inbound tunnel-mode packets
-Date: Mon, 02 Jan 2012 09:18:02 +0100
-Message-ID: <1325492282.2526.32.camel@edumazet-laptop>
-References: <1325475154-15997-1-git-send-email-david.ward@ll.mit.edu>
-	 <20120102072828.GA5380@gondor.apana.org.au>
+From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Subject: Re: [PATCH 1/4] block: xsysace: Don't use NO_IRQ
+Date: Mon, 2 Jan 2012 01:21:04 -0700
+Message-ID: <20120102082104.GC18381@ponder.secretlab.ca>
+References: <1324477932-19262-1-git-send-email-monstr@monstr.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Ward <david.ward@ll.mit.edu>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:60400 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751089Ab2ABISH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2012 03:18:07 -0500
-Received: by werm1 with SMTP id m1so7320541wer.19
-        for <netdev@vger.kernel.org>; Mon, 02 Jan 2012 00:18:06 -0800 (PST)
-In-Reply-To: <20120102072828.GA5380@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
+ Ryan Mallon <rmallon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1324477932-19262-1-git-send-email-monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 02 janvier 2012 =C3=A0 18:28 +1100, Herbert Xu a =C3=A9crit :
+On Wed, Dec 21, 2011 at 03:32:09PM +0100, Michal Simek wrote:
+> Drivers shouldn't use NO_IRQ. Microblaze and PPC
+> define NO_IRQ as 0 and this reference will be removed
+> in near future.
+> 
+> Signed-off-by: Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>
+> CC: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+> CC: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
+> CC: Ryan Mallon <rmallon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-> You can't do this as this may cause stack overruns if we nest
-> too deeply.
->=20
+Acked-by: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
 
-I was considering adding a generic helper, for tunneling,
-taking into account the depth for current packet.
-
-[ calling netif_receive_skb() instead of netif_rx(), to solve the OOO
-problem occurring on SMP when interrupts are spreaded on several cpus ]
-
-
-We could use the delta between skb->data and skb->head as an estimation
-of this depth, in order not adding a new skb field ?
-
-#define DEPTH_THRESHOLD (NET_SKB_PAD + 64)
-
-static inline void netif_reinject(struct sk_buff *skb)
-{
-if (skb->data - skb->head < DEPTH_THRESHOLD)
-	netif_receive_skb(skb);
-else
-	netif_rx(skb);
-}
+> ---
+>  drivers/block/xsysace.c |   10 +++++-----
+>  1 files changed, 5 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/block/xsysace.c b/drivers/block/xsysace.c
+> index fb1975d..1a17e33 100644
+> --- a/drivers/block/xsysace.c
+> +++ b/drivers/block/xsysace.c
+> @@ -456,7 +456,7 @@ static inline void ace_fsm_yieldirq(struct ace_device *ace)
+>  {
+>  	dev_dbg(ace->dev, "ace_fsm_yieldirq()\n");
+>  
+> -	if (ace->irq == NO_IRQ)
+> +	if (!ace->irq)
+>  		/* No IRQ assigned, so need to poll */
+>  		tasklet_schedule(&ace->fsm_tasklet);
+>  	ace->fsm_continue_flag = 0;
+> @@ -1034,12 +1034,12 @@ static int __devinit ace_setup(struct ace_device *ace)
+>  		ACE_CTRL_DATABUFRDYIRQ | ACE_CTRL_ERRORIRQ);
+>  
+>  	/* Now we can hook up the irq handler */
+> -	if (ace->irq != NO_IRQ) {
+> +	if (ace->irq) {
+>  		rc = request_irq(ace->irq, ace_interrupt, 0, "systemace", ace);
+>  		if (rc) {
+>  			/* Failure - fall back to polled mode */
+>  			dev_err(ace->dev, "request_irq failed\n");
+> -			ace->irq = NO_IRQ;
+> +			ace->irq = 0;
+>  		}
+>  	}
+>  
+> @@ -1086,7 +1086,7 @@ static void __devexit ace_teardown(struct ace_device *ace)
+>  
+>  	tasklet_kill(&ace->fsm_tasklet);
+>  
+> -	if (ace->irq != NO_IRQ)
+> +	if (ace->irq)
+>  		free_irq(ace->irq, ace);
+>  
+>  	iounmap(ace->baseaddr);
+> @@ -1156,7 +1156,7 @@ static int __devinit ace_probe(struct platform_device *dev)
+>  	resource_size_t physaddr = 0;
+>  	int bus_width = ACE_BUS_WIDTH_16; /* FIXME: should not be hard coded */
+>  	u32 id = dev->id;
+> -	int irq = NO_IRQ;
+> +	int irq = 0;
+>  	int i;
+>  
+>  	dev_dbg(&dev->dev, "ace_probe(%p)\n", dev);
+> -- 
+> 1.7.5.4
+> 
