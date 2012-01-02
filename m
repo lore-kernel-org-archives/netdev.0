@@ -1,56 +1,91 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [ANNOUNCE] libnetfilter_queue 1.0.1 release
-Date: Mon, 2 Jan 2012 22:45:31 +0100
-Message-ID: <20120102214531.GA27247@1984>
-References: <20120102195845.GA26867@1984>
- <alpine.LNX.2.01.1201022221470.29809@frira.zrqbmnf.qr>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] sch_qfq: accurate wsum handling
+Date: Mon, 02 Jan 2012 22:47:50 +0100
+Message-ID: <1325540870.2874.6.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	netfilter-announce@lists.netfilter.org, lwn@lwn.net
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LNX.2.01.1201022221470.29809@frira.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:60413 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752606Ab2ABVry (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2012 16:47:54 -0500
+Received: by wgbds13 with SMTP id ds13so21900669wgb.1
+        for <netdev@vger.kernel.org>; Mon, 02 Jan 2012 13:47:53 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 02, 2012 at 10:22:28PM +0100, Jan Engelhardt wrote:
-> On Monday 2012-01-02 20:58, Pablo Neira Ayuso wrote:
-> 
-> >Hi!
-> >
-> >The Netfilter project proudly presents:
-> >
-> >        libnetfilter_queue 1.0.1
-> 
-> In commit 390b0c0f45597c72fa93a40f4f7f9ffeec371f42
-> Author: Pablo Neira Ayuso <pablo@netfilter.org>
-> Date:   Mon Jan 2 20:28:45 2012 +0100
-> 
->     build: bump version to 1.0.1
->     
->     Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> 
-> diff --git a/src/Makefile.am b/src/Makefile.am
-> index 0bd037f..bc27625 100644
-> --- a/src/Makefile.am
-> +++ b/src/Makefile.am
-> @@ -18,7 +18,7 @@
->  # set age to 0.
->  # </snippet>
->  #
-> -LIBVERSION=2:0:1
-> +LIBVERSION=2:0:2
->  
->  include ${top_srcdir}/Make_global.am
->  
-> 
-> You wrongly changed LIBVERSION. It went from .so.1.1 to so.0.2, and that 
-> just does not sound right. Perhaps you intended 2:1:1.
-> 
-> Or just leaving r alone, like proposed? :)
+We can underestimate q->wsum in case of "tc class replace ... qfq"
+and/or qdisc_create_dflt() error.
 
-I forgot to increment current, Florian Westphal added some new
-interfaces. I'll fix this, sorry.
+wsum is not really used in fast path, only at qfq qdisc/class setup,
+to catch user error.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Stephen Hemminger <shemminger@vyatta.com>
+---
+ net/sched/sch_qfq.c |   17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
+index 1033434..2c5ff61 100644
+--- a/net/sched/sch_qfq.c
++++ b/net/sched/sch_qfq.c
+@@ -211,6 +211,7 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 	struct nlattr *tb[TCA_QFQ_MAX + 1];
+ 	u32 weight, lmax, inv_w;
+ 	int i, err;
++	int delta_w;
+ 
+ 	if (tca[TCA_OPTIONS] == NULL) {
+ 		pr_notice("qfq: no options\n");
+@@ -232,9 +233,10 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 
+ 	inv_w = ONE_FP / weight;
+ 	weight = ONE_FP / inv_w;
+-	if (q->wsum + weight > QFQ_MAX_WSUM) {
++	delta_w = weight - (cl ? ONE_FP / cl->inv_w : 0);
++	if (q->wsum + delta_w > QFQ_MAX_WSUM) {
+ 		pr_notice("qfq: total weight out of range (%u + %u)\n",
+-			  weight, q->wsum);
++			  delta_w, q->wsum);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -256,13 +258,12 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 				return err;
+ 		}
+ 
+-		sch_tree_lock(sch);
+-		if (tb[TCA_QFQ_WEIGHT]) {
+-			q->wsum = weight - ONE_FP / cl->inv_w;
++		if (inv_w != cl->inv_w) {
++			sch_tree_lock(sch);
++			q->wsum += delta_w;
+ 			cl->inv_w = inv_w;
++			sch_tree_unlock(sch);
+ 		}
+-		sch_tree_unlock(sch);
+-
+ 		return 0;
+ 	}
+ 
+@@ -277,7 +278,6 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 	i = qfq_calc_index(cl->inv_w, cl->lmax);
+ 
+ 	cl->grp = &q->groups[i];
+-	q->wsum += weight;
+ 
+ 	cl->qdisc = qdisc_create_dflt(sch->dev_queue,
+ 				      &pfifo_qdisc_ops, classid);
+@@ -294,6 +294,7 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 			return err;
+ 		}
+ 	}
++	q->wsum += weight;
+ 
+ 	sch_tree_lock(sch);
+ 	qdisc_class_hash_insert(&q->clhash, &cl->common);
