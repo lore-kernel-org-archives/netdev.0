@@ -1,129 +1,154 @@
 From: Javier Martinez Canillas <martinez.javier@gmail.com>
-Subject: [PATCH 1/2] net: phy: smsc: Move SMSC PHY constants to <linux/smscphy.h>
-Date: Mon,  2 Jan 2012 18:08:50 +0100
-Message-ID: <1325524131-14585-1-git-send-email-martinez.javier@gmail.com>
+Subject: [PATCH 2/2] net/smsc911x: Check if PHY is in operational mode before software reset
+Date: Mon,  2 Jan 2012 18:08:51 +0100
+Message-ID: <1325524131-14585-2-git-send-email-martinez.javier@gmail.com>
+References: <1325524131-14585-1-git-send-email-martinez.javier@gmail.com>
 Cc: Ben Hutchings <ben@decadent.org.uk>,
 	Enric Balletbo i Serra <eballetbo@iseebcn.com>,
 	netdev@vger.kernel.org,
 	Javier Martinez Canillas <martinez.javier@gmail.com>
 To: Steve Glendinning <steve.glendinning@smsc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:46112 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752654Ab2ABRIH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2012 12:08:07 -0500
-Received: by wgbdr13 with SMTP id dr13so26809211wgb.1
-        for <netdev@vger.kernel.org>; Mon, 02 Jan 2012 09:08:06 -0800 (PST)
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:46990 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753037Ab2ABRII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2012 12:08:08 -0500
+Received: by wibhm6 with SMTP id hm6so8519588wib.19
+        for <netdev@vger.kernel.org>; Mon, 02 Jan 2012 09:08:07 -0800 (PST)
+In-Reply-To: <1325524131-14585-1-git-send-email-martinez.javier@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SMSC generation 4 LAN chips integrate an IEEE 802.3 ethernet physical layer.
-The ethernet driver for this family of devices needs to access the SMSC PHY
-registers and bits.
+SMSC LAN generation 4 chips integrate an IEEE 802.3 ethernet physical layer.
+The PHY driver for this integrated chip enable an energy detect power-down mode.
+When the PHY is in a power-down mode, it prevents the MAC portion chip to be
+software reseted.
 
-So, this patch moves these constants to a place where it can be used for both
-the PHY and LAN drivers.
+That means that if we compile the kernel with the configuration option SMSC_PHY
+enabled and try to bring the network interface up without an cable plug-ed the
+PHY will be in a low power mode and the software reset will fail returning -EIO
+to user-space:
+
+root@igep00x0:~# ifconfig eth0 up
+ifconfig: SIOCSIFFLAGS: Input/output error
+
+This patch disable the energy detect power-down mode before trying to software
+reset the LAN chip and re-enables after it was reseted successfully.
 
 Signed-off-by: Javier Martinez Canillas <martinez.javier@gmail.com>
 ---
- drivers/net/ethernet/smsc/smsc911x.h |    4 +++
- drivers/net/phy/smsc.c               |   21 +----------------
- include/linux/smscphy.h              |   42 ++++++++++++++++++++++++++++++++++
- 3 files changed, 47 insertions(+), 20 deletions(-)
- create mode 100644 include/linux/smscphy.h
+ drivers/net/ethernet/smsc/smsc911x.c |   88 ++++++++++++++++++++++++++++++++++
+ 1 files changed, 88 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.h b/drivers/net/ethernet/smsc/smsc911x.h
-index 8d67aac..938ecf2 100644
---- a/drivers/net/ethernet/smsc/smsc911x.h
-+++ b/drivers/net/ethernet/smsc/smsc911x.h
-@@ -401,4 +401,8 @@
- #include <asm/smsc911x.h>
- #endif
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index 8843071..2a63e11 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -1243,10 +1243,88 @@ static void smsc911x_rx_multicast_update_workaround(struct smsc911x_data *pdata)
+ 	spin_unlock(&pdata->mac_lock);
+ }
  
-+#ifdef CONFIG_SMSC_PHY
-+#include <linux/smscphy.h>
-+#endif
++static int smsc911x_phy_disable_energy_detect(struct smsc911x_data *pdata)
++{
++	int rc = 0;
 +
- #endif				/* __SMSC911X_H__ */
-diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-index 342505c..fc3e7e9 100644
---- a/drivers/net/phy/smsc.c
-+++ b/drivers/net/phy/smsc.c
-@@ -22,26 +22,7 @@
- #include <linux/ethtool.h>
- #include <linux/phy.h>
- #include <linux/netdevice.h>
--
--#define MII_LAN83C185_ISF 29 /* Interrupt Source Flags */
--#define MII_LAN83C185_IM  30 /* Interrupt Mask */
--#define MII_LAN83C185_CTRL_STATUS 17 /* Mode/Status Register */
--
--#define MII_LAN83C185_ISF_INT1 (1<<1) /* Auto-Negotiation Page Received */
--#define MII_LAN83C185_ISF_INT2 (1<<2) /* Parallel Detection Fault */
--#define MII_LAN83C185_ISF_INT3 (1<<3) /* Auto-Negotiation LP Ack */
--#define MII_LAN83C185_ISF_INT4 (1<<4) /* Link Down */
--#define MII_LAN83C185_ISF_INT5 (1<<5) /* Remote Fault Detected */
--#define MII_LAN83C185_ISF_INT6 (1<<6) /* Auto-Negotiation complete */
--#define MII_LAN83C185_ISF_INT7 (1<<7) /* ENERGYON */
--
--#define MII_LAN83C185_ISF_INT_ALL (0x0e)
--
--#define MII_LAN83C185_ISF_INT_PHYLIB_EVENTS \
--	(MII_LAN83C185_ISF_INT6 | MII_LAN83C185_ISF_INT4 | \
--	 MII_LAN83C185_ISF_INT7)
--
--#define MII_LAN83C185_EDPWRDOWN	(1 << 13) /* EDPWRDOWN */
-+#include <linux/smscphy.h>
- 
- static int smsc_phy_config_intr(struct phy_device *phydev)
++	if (!pdata->phy_dev)
++		return rc;
++
++	rc = phy_read(pdata->phy_dev, MII_LAN83C185_CTRL_STATUS);
++
++	if (rc < 0) {
++		SMSC_WARN(pdata, drv, "Failed reading PHY control reg");
++		return rc;
++	}
++
++	/* If energy is detected the PHY is already awake so is not necessary
++	 * to disable the energy detect power-down mode. */
++	if ((rc & MII_LAN83C185_EDPWRDOWN) &&
++	    !(rc & MII_LAN83C185_ENERGYON)) {
++		/* Disable energy detect mode for this SMSC Transceivers */
++		rc = phy_write(pdata->phy_dev, MII_LAN83C185_CTRL_STATUS,
++			       rc & (~MII_LAN83C185_EDPWRDOWN));
++
++		if (rc < 0) {
++			SMSC_WARN(pdata, drv, "Failed writing PHY control reg");
++			return rc;
++		}
++
++		mdelay(1);
++	}
++
++	return 0;
++}
++
++static int smsc911x_phy_enable_energy_detect(struct smsc911x_data *pdata)
++{
++	int rc = 0;
++
++	if (!pdata->phy_dev)
++		return rc;
++
++	rc = phy_read(pdata->phy_dev, MII_LAN83C185_CTRL_STATUS);
++
++	if (rc < 0) {
++		SMSC_WARN(pdata, drv, "Failed reading PHY control reg");
++		return rc;
++	}
++
++	/* Only enable if energy detect mode is already disabled */
++	if (!(rc & MII_LAN83C185_EDPWRDOWN)) {
++		mdelay(100);
++		/* Enable energy detect mode for this SMSC Transceivers */
++		rc = phy_write(pdata->phy_dev, MII_LAN83C185_CTRL_STATUS,
++			       rc | MII_LAN83C185_EDPWRDOWN);
++
++		if (rc < 0) {
++			SMSC_WARN(pdata, drv, "Failed writing PHY control reg");
++			return rc;
++		}
++
++		mdelay(1);
++	}
++	return 0;
++}
++
+ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
  {
-diff --git a/include/linux/smscphy.h b/include/linux/smscphy.h
-new file mode 100644
-index 0000000..c8eb7ed
---- /dev/null
-+++ b/include/linux/smscphy.h
-@@ -0,0 +1,42 @@
-+/***************************************************************************
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-+ *
-+ ***************************************************************************/
-+#ifndef __LINUX_SMSCPHY_H__
-+#define __LINUX_SMSCPHY_H__
+ 	unsigned int timeout;
+ 	unsigned int temp;
++	int ret;
 +
-+#define MII_LAN83C185_ISF 29 /* Interrupt Source Flags */
-+#define MII_LAN83C185_IM  30 /* Interrupt Mask */
-+#define MII_LAN83C185_CTRL_STATUS 17 /* Mode/Status Register */
++	/* LAN9210/LAN9211/LAN9220/LAN9221 chips have an internal PHY that
++	 * are initialized in a Energy Detect Power-Down mode that prevents
++	 * the MAC chip to be software reseted. So we have to wakeup the PHY
++	 * before */
++	if (pdata->generation == 4) {
++		ret = smsc911x_phy_disable_energy_detect(pdata);
 +
-+#define MII_LAN83C185_ISF_INT1 (1<<1) /* Auto-Negotiation Page Received */
-+#define MII_LAN83C185_ISF_INT2 (1<<2) /* Parallel Detection Fault */
-+#define MII_LAN83C185_ISF_INT3 (1<<3) /* Auto-Negotiation LP Ack */
-+#define MII_LAN83C185_ISF_INT4 (1<<4) /* Link Down */
-+#define MII_LAN83C185_ISF_INT5 (1<<5) /* Remote Fault Detected */
-+#define MII_LAN83C185_ISF_INT6 (1<<6) /* Auto-Negotiation complete */
-+#define MII_LAN83C185_ISF_INT7 (1<<7) /* ENERGYON */
++		if (ret) {
++			SMSC_WARN(pdata, drv, "Failed to wakeup the PHY chip");
++			return ret;
++		}
++	}
+ 
+ 	/* Reset the LAN911x */
+ 	smsc911x_reg_write(pdata, HW_CFG, HW_CFG_SRST_);
+@@ -1260,6 +1338,16 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
+ 		SMSC_WARN(pdata, drv, "Failed to complete reset");
+ 		return -EIO;
+ 	}
 +
-+#define MII_LAN83C185_ISF_INT_ALL (0x0e)
++	if (pdata->generation == 4) {
++		ret = smsc911x_phy_enable_energy_detect(pdata);
 +
-+#define MII_LAN83C185_ISF_INT_PHYLIB_EVENTS \
-+	(MII_LAN83C185_ISF_INT6 | MII_LAN83C185_ISF_INT4 | \
-+	 MII_LAN83C185_ISF_INT7)
++		if (ret) {
++			SMSC_WARN(pdata, drv, "Failed to wakeup the PHY chip");
++			return ret;
++		}
++	}
 +
-+#define MII_LAN83C185_EDPWRDOWN (1 << 13) /* EDPWRDOWN */
-+#define MII_LAN83C185_ENERGYON  (1 << 1)  /* ENERGYON */
-+
-+#endif /* __LINUX_SMSCPHY_H__ */
+ 	return 0;
+ }
+ 
 -- 
 1.7.4.1
