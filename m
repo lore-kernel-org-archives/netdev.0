@@ -1,91 +1,75 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [ANNOUNCE] libmnl 1.0.2 release
-Date: Mon, 2 Jan 2012 19:55:36 +0100
-Message-ID: <20120102185536.GA26679@1984>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [BUG] SIOCSIFFLAGS returns -EIO on SMSC LAN911x
+Date: Mon, 02 Jan 2012 19:45:05 +0000
+Message-ID: <1325533505.13595.246.camel@deadeye>
+References: <CAAwP0s37E=9J-KR397snkvq=idrc7nmELDJKrm33reeK84wJYQ@mail.gmail.com>
+	 <1325242573.13595.71.camel@deadeye>
+	 <CAAwP0s0Y329AAXpHW9muOECt5DpgpDm6kefXR7uE1233A1LGWg@mail.gmail.com>
+	 <1325250948.13595.100.camel@deadeye>
+	 <CAAwP0s1KV0gCWXB4-sNDjyVKETGrp9xO8VmAnbJHHCupf4P5pg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="0F1p//8PRICkK4MW"
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org, lwn@lwn.net,
-	netfilter-announce@lists.netfilter.org
-To: Netfilter Development Mailing list
-	<netfilter-devel@vger.kernel.org>
-Return-path: <netfilter-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-72MHETT2cM7abKmF+Wr8"
+Cc: netdev@vger.kernel.org,
+	Enric Balletbo i Serra <eballetbo@iseebcn.com>
+To: Javier Martinez Canillas <martinez.javier@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:50972 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751251Ab2ABTp0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2012 14:45:26 -0500
+In-Reply-To: <CAAwP0s1KV0gCWXB4-sNDjyVKETGrp9xO8VmAnbJHHCupf4P5pg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---0F1p//8PRICkK4MW
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+--=-72MHETT2cM7abKmF+Wr8
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Hi!
+On Mon, 2012-01-02 at 19:37 +0100, Javier Martinez Canillas wrote:
+[...]
+> Thanks for your help.
+>=20
+> Finally, what I did was to bring to operational mode the integrated
+> PHY chip by disabling the energy detect power-down mode before doing a
+> software reset and re-enabling after it.
+>=20
+> Does that solution make sense to you? I've sent the patch-set to the
+> list for review. The patch-set is composed of the following patches:
+[...]
 
-The Netfilter project presents libmnl-1.0.0
+I think that if the data sheet says the power-down bit is reserved on
+the 9221i then it is better not to set it at all.  However, given that
+you actually have hardware to test on, you are in a better position to
+say what actually works.
 
-libmnl is a minimalistic user-space library oriented to Netlink
-developers. There are a lot of common tasks in parsing, validating,
-constructing of both the Netlink header and TLVs that are repetitive
-and
-easy to get wrong. This library aims to provide simple helpers that
-allows you to re-use code and to avoid re-inventing the wheel.
+Ben.
 
-This library is released under LGPLv2+.
+--=20
+Ben Hutchings
+All the simple programs have been written, and all the good names taken.
 
-Features:
-* Small: the shared library requires around 45KB for an x86-based
-* computer.
-* Simple: this library avoids complexity and elaborated abstractions
-that tend to hide Netlink details.
-* Easy to use: the library simplifies the work for Netlink-wise
-developers. It provides functions to make socket handling, message
-building, validating, parsing and sequence tracking, easier.
-* Easy to re-use: you can use the library to build your own
-* abstraction
-layer on top of this library.
-* Decoupling: the interdependency of the main bricks that compose the
-library is reduced, i.e. the library provides many helpers, but the
-programmer is not forced to use them.
+--=-72MHETT2cM7abKmF+Wr8
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-More info at:
-http://www.netfilter.org/projects/libmnl/
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-Doxygen documentation at:
-http://www.netfilter.org/projects/libmnl/doxygen/
+iQIVAwUATwIJQee/yOyVhhEJAQodqg//eqw//2lLTNKJE7deaLFP0jIrMVKnIILk
+Fg8qe87mWvRL2r19qWuJCMXqr+lrAsPtnbmjzEZdMDI43+sxNlDSnMXsmZDIIgZO
+EOe9X0byz9qqaB2/31DgSwb8WFcUzaed0a7rAV2QSvzMY4deG4ZZtAqRWS5zXDEt
+RfB3q0IsHjfJdhrDda27K3hPIME3+gwDVAhynW7nB4cU5fWnMNon6mytO8mCb2pF
+9y44hlAlFxSSdYvMJBb7y0lTKPQuzah42sXpXa6/0IRsXTnmOSFJzVk5I7XiERY2
+TmcdGqP3dBBHZCXb92TbhLe7rYJlPgwCyc8FKcixu3gk8vLMEHrE0tg4bGDhmmWL
+BGbRtrAA2ywaMlz//AyqPWvkTYva6UGcAE4UqcRl51j+FMA+eJXnK3aQew90Rb75
+Z/U8eeZyXw4He5iUpbxgGNaVG4aWpqJSqQqzNIouAkb2L6yBaVh4E0lh/qoFbSVz
+XQteSbJPFqdMYkgAb4qWaON9GmU9aEV/CfoShMtiCzhdNfYouwx0q0MSvtM2sr9M
+2678bvO4tXi+RdlR1PFop/+kaVaoheQQxPsv9aiXZYlRgttROM8/FdRNodsgmh1Y
+3GTrLkzZ8HCstTI20I5jTNnvrEOplZixPXkWwV6+SfLx+XliBxoOyBqyjKmq0J5T
+M5iDUM+d/wM=
+=3a3h
+-----END PGP SIGNATURE-----
 
-You can download it via FTP at:
-ftp://ftp.netfilter.org/pub/libmnl
-
-Enjoy!
-
---0F1p//8PRICkK4MW
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="changes-libmnl-1.0.2.txt"
-
-Jan Engelhardt (11):
-      build: use AM_CPPFLAGS
-      build: use only AC_CANONICAL_HOST
-      examples/genl: fix newline imbalance
-      examples/genl: support dumping the genl families
-      src: use limits.h header
-      include: use sanitized header from headers_install
-      build: abort autogen on subcommand failure
-      Update .gitignore
-      build: use AC_CONFIG_AUX_DIR and stash away tools
-      m4: resolve autoconf-2.68 warnings
-      build: disable implicit .tar.gz archive generation and use POSIX mode
-
-Pablo Neira Ayuso (8):
-      header: fix invalid use of type void * in arithmetic of mnl_for_each_nest(...)
-      Merge branch 'master' of git://dev.medozas.de/libmnl
-      doc: don't show up EXPORT_SYMBOL in doxygen
-      doxygen: exclude EXPORT_SYMBOL and skip .git files
-      COPYING: update file (FSF address was outdated)
-      build: kernel-like compilation messages
-      example: release them in the public domain
-      build: libmnl 1.0.2 release
-
-Sean Robinson (1):
-      doc: fix wrong comment describing mnl_nlmsg_batch_stop()
-
-
---0F1p//8PRICkK4MW--
+--=-72MHETT2cM7abKmF+Wr8--
