@@ -1,46 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: fix error handling if slave is busy (v2)
-Date: Tue, 03 Jan 2012 12:49:35 -0500 (EST)
-Message-ID: <20120103.124935.657537317702636488.davem@davemloft.net>
-References: <4EFF3419.4050504@gmail.com>
-	<20111231152646.6f0f98fc@nehalam.linuxnetplumber.net>
-	<4EFFA44E.10507@gmail.com>
+Subject: Re: BQL + Basic Latency under load results - 100Mbit, GSO/TSO off,
+ pfifo_fast vs SFQ vs QFQ
+Date: Tue, 03 Jan 2012 12:52:37 -0500 (EST)
+Message-ID: <20120103.125237.6858695266751093.davem@davemloft.net>
+References: <CAA93jw5JjVBQOFL=td55rOpXbUYc=uT_rjeY04O137g_-tBJHw@mail.gmail.com>
+	<CAA93jw7bLnHtVnZGN5wVPQZc46XT_B--cY1ocUbnm1AS=J_YHw@mail.gmail.com>
+	<1325478811.2526.10.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, fubar@us.ibm.com, andy@greyhouse.net,
-	netdev@vger.kernel.org
-To: nicolas.2p.debian@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dave.taht@gmail.com, jg@freedesktop.org, shemminger@vyatta.com,
+	jch@pps.jussieu.fr, nichols@pollere.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40858 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:40889 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754441Ab2ACRtn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 12:49:43 -0500
-In-Reply-To: <4EFFA44E.10507@gmail.com>
+	with ESMTP id S1754136Ab2ACRwz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 12:52:55 -0500
+In-Reply-To: <1325478811.2526.10.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Nicolas de Peslo=FCan <nicolas.2p.debian@gmail.com>
-Date: Sun, 01 Jan 2012 01:09:50 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 02 Jan 2012 05:33:31 +0100
 
-> Le 01/01/2012 00:26, Stephen Hemminger a =E9crit :
->> If slave device already has a receive handler registered, then the
->> error unwind of bonding device enslave function is broken.
->>
->> The following will leave a pointer to freed memory in the slave
->> device list, causing a later kernel panic.
->> # modprobe dummy
->> # ip li add dummy0-1 link dummy0 type macvlan
->> # modprobe bonding
->> # echo +dummy0>/sys/class/net/bond0/bonding/slaves
->>
->> The fix is to detach the slave (which removes it from the list)
->> in the unwind path.
->>
->> Signed-off-by: Stephen Hemminger<shemminger@vyatta.com>
->=20
-> Thanks Stephen.
->=20
-> Reviewed-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
+> [PATCH net-next] sch_sfq: dont put new flow at the end of flows
+> 
+> SFQ enqueue algo puts a new flow _behind_ all pre-existing flows in the
+> circular list. In fact this is probably an old SFQ implementation bug.
+> 
+> 100 Mbits = ~8333 full frames per second, or ~8 frames per ms.
+> 
+> With 50 flows, it means your "new flow" will have to wait 50 packets
+> being sent before its own packet. Thats the ~6ms.
+> 
+> We certainly can change SFQ to give a priority advantage to new flows,
+> so that next dequeued packet is taken from a new flow, not an old one.
+> 
+> Reported-by: Dave Taht <dave.taht@gmail.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, thanks.
+Applied, thanks Eric.
