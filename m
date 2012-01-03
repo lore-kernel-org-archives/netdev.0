@@ -1,60 +1,48 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCHv2 net-next 0/8] RX NFC support for hash-based filters
-Date: Tue, 3 Jan 2012 21:56:59 +0000
-Message-ID: <1325627819.2832.31.camel@bwh-desktop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: iproute2: avoid use of implicit declarations
+Date: Tue, 3 Jan 2012 13:57:24 -0800
+Message-ID: <20120103135724.0e23e797@nehalam.linuxnetplumber.net>
+References: <alpine.LNX.2.01.1112312317220.24158@frira.zrqbmnf.qr>
+	<alpine.LNX.2.01.1112312321370.6978@frira.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Cc: Linux Networking Developer Mailing List <netdev@vger.kernel.org>
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:36702 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754125Ab2ACV5D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 16:57:03 -0500
+Received: from mail.vyatta.com ([76.74.103.46]:50883 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754904Ab2ACV51 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jan 2012 16:57:27 -0500
+In-Reply-To: <alpine.LNX.2.01.1112312321370.6978@frira.zrqbmnf.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1. Fix gianfar's validation of filter rule locations.  In the previous
-   version of this series, this was a requirement for part 2, but that's
-   no longer the case.
+On Sat, 31 Dec 2011 23:22:05 +0100 (CET)
+Jan Engelhardt <jengelh@medozas.de> wrote:
 
-2. Extend ethtool RX NFC rules API to support hash-based filter hardware
-   in which rule locations should be selected by the driver or firmware.
-
-3. Change the sfc driver to implement this API instead of RX n-tuple.
-
-4. Remove support for RX n-tuple, now that there are no in-tree
-   implementations.
-
-Ben.
-
-Ben Hutchings (8):
-  gianfar: Reject out-of-range RX NFC locations
-  ethtool: Allow drivers to select RX NFC rule locations
-  sfc: Change filter ID generation to satisfy priority semantics of RX
-    NFC
-  sfc: Use consistent types for filter IDs, indices and search depths
-  sfc: Add support for retrieving and removing filters by ID
-  sfc: Implement ethtool RX NFC rules API instead of n-tuple API
-  sfc: Remove now-unused filter function
-  ethtool: Remove ethtool_ops::set_rx_ntuple operation
-
- drivers/net/ethernet/freescale/gianfar_ethtool.c |    5 +-
- drivers/net/ethernet/sfc/efx.h                   |   16 +-
- drivers/net/ethernet/sfc/ethtool.c               |  188 +++++++++++---
- drivers/net/ethernet/sfc/filter.c                |  310 +++++++++++++++++++---
- drivers/net/ethernet/sfc/filter.h                |   12 +
- include/linux/ethtool.h                          |   30 ++-
- net/core/ethtool.c                               |   66 +----
- net/socket.c                                     |    2 +-
- 8 files changed, 484 insertions(+), 145 deletions(-)
-
--- 
-1.7.4.4
+> From: Jan Engelhardt <jengelh@medozas.de>
+> Date: 2011-12-31 23:16:27.428349795 +0100
+> 
+> gcc -DLIBDIR=\"/usr/lib64\" -D_GNU_SOURCE -fmessage-length=0 -O2 -Wall -D_FORTIFY_SOURCE=2 -fstack-protector -funwind-tables -fasynchronous-unwind-tables -g -Wstrict-prototypes -fPIC -DXT_LIB_DIR=\"/usr/lib64/xtables\" -I../include -DRESOLVE_HOSTNAMES -DLIBDIR=\"/usr/lib64\" -fPIC   -c -o ipx_pton.o ipx_pton.c
+> In file included from ../include/utils.h:8:0,
+>                  from ipx_ntop.c:5:
+> ../include/libnetlink.h: In function 'rta_getattr_u64':
+> ../include/libnetlink.h:84:2: warning: implicit declaration of function 'memcpy'
+> ../include/libnetlink.h:84:2: warning: incompatible implicit declaration of built-in function 'memcpy'
+> 
+> diff --git a/include/libnetlink.h b/include/libnetlink.h
+> index b237579..b0656ce 100644
+> --- a/include/libnetlink.h
+> +++ b/include/libnetlink.h
+> @@ -1,6 +1,7 @@
+>  #ifndef __LIBNETLINK_H__
+>  #define __LIBNETLINK_H__ 1
+>  
+> +#include <string.h>
+>  #include <asm/types.h>
+>  #include <linux/netlink.h>
+>  #include <linux/rtnetlink.h>
 
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Applied.
