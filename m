@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sch_qfq: fix overflow in qfq_update_start()
-Date: Tue, 03 Jan 2012 12:59:07 -0500 (EST)
-Message-ID: <20120103.125907.270899701719279707.davem@davemloft.net>
-References: <1325519277.2375.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: [PATCH net-next 1/2] mlx4_core: fix mtt range deallocation
+Date: Tue, 03 Jan 2012 13:01:08 -0500 (EST)
+Message-ID: <20120103.130108.238896737013725266.davem@davemloft.net>
+References: <4F01BA2B.1060605@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com, dave.taht@gmail.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, marcela@dev.mellanox.co.il
+To: yevgenyp@mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40958 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:41011 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754283Ab2ACR7Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 12:59:16 -0500
-In-Reply-To: <1325519277.2375.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	with ESMTP id S1754283Ab2ACSBT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 13:01:19 -0500
+In-Reply-To: <4F01BA2B.1060605@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 02 Jan 2012 16:47:57 +0100
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Mon, 2 Jan 2012 16:07:39 +0200
 
-> grp->slot_shift is between 22 and 41, so using 32bit wide variables is
-> probably a typo.
+> From: Marcel Apfelbaum <marcela@mellanox.co.il>
 > 
-> This could explain QFQ hangs Dave reported to me, after 2^23 packets ?
+> The mtt range was allocated in mtt units but deallocated
+> in segments. Among the rest, this caused crash during hotplug removal
 > 
-> (23 = 64 - 41)
-> 
-> Reported-by: Dave Taht <dave.taht@gmail.com>
-> CC: Stephen Hemminger <shemminger@vyatta.com>
-> CC: Dave Taht <dave.taht@gmail.com>
+> Reported-by: Yinghai Lu <yinghai@kernel.org> 
+> Signed-off-by: Marcel Apfelbaum <marcela@mellanox.co.il>
+> Reviewed-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-Applied, thanks Eric.
+Applied.
