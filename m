@@ -1,38 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Why is gre0 auto-created, and can we fix it?
-Date: Tue, 03 Jan 2012 15:11:29 -0500 (EST)
-Message-ID: <20120103.151129.2017623336171898647.davem@davemloft.net>
-References: <4F035BDE.5060409@candelatech.com>
-	<20120103.145931.2188599484081157576.davem@davemloft.net>
-	<4F035F2C.1000003@candelatech.com>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: [PATCH] netfilter: Fix br_nf_pre_routing() in conjunction with
+ bridge-nf-call-ip(6)tables=0
+Date: Tue, 03 Jan 2012 21:15:19 +0100
+Message-ID: <4F0361D7.3000602@pandora.be>
+References: <4F025A07.2000304@nod.at> <1325597164-13459-1-git-send-email-richard@nod.at> <1325597164-13459-2-git-send-email-richard@nod.at> <20120103081521.2fec3a29@nehalam.linuxnetplumber.net> <4F033E11.5060707@nod.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42313 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754884Ab2ACULb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 15:11:31 -0500
-In-Reply-To: <4F035F2C.1000003@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Hemminger <shemminger@vyatta.com>, davem@davemloft.net,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Richard Weinberger <richard@nod.at>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4F033E11.5060707@nod.at>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Tue, 03 Jan 2012 12:03:56 -0800
-
-> On 01/03/2012 11:59 AM, David Miller wrote:
->> From: Ben Greear<greearb@candelatech.com>
->> Date: Tue, 03 Jan 2012 11:49:50 -0800
+Op 3/01/2012 18:42, Richard Weinberger schreef:
+> Am 03.01.2012 17:15, schrieb Stephen Hemminger:
+>> On Tue,  3 Jan 2012 14:26:04 +0100
+>> Richard Weinberger<richard@nod.at>  wrote:
 >>
->>> As far as I can tell, no other interfaces are auto-created
->>> in this manner.
->>
->> ip6tnl0 and sit0 do it too, just grep for alloc_netdev() under
->> net/{ipv4,ipv6}/
-> 
-> So, no changing the behaviour?
+>>> If net.bridge.bridge-nf-call-iptables or net.bridge.bridge-nf-call-ip6tables
+>>> are set to zero xt_physdev has no effect because skb->nf_bridge has not been set up.
+>>>
+>>> Signed-off-by: Richard Weinberger<richard@nod.at>
+>> I am not sure if this is a valid configuration. The setting of sysctl is saying
+>> "don't do iptables on bridge (since I won't be using it)" and then you are later
+>> doing iptables and expecting the settings as if the iptables setup was being
+>> done.
+> I don't think so.
+>
+> Also rules like this one are broken:
+> iptables -A INPUT -i bridge0 -m physdev --physdev-in eth0 -j ...
+>
+> No firewalling is done on the bridge, xt_physdev is only using some meta
+> information.
+>
+> At least a big fat warning would be nice that xt_physdev does not work
+> if bridge-nf-call-iptables=0.
+> It took me some time to figure out why my firewall rule set gone nuts on
+> RHEL6...
 
-Probably too risky.  I think the exposure is on the order of ~16
-years.
+The documentation is probably not explicit enough, but I would keep the 
+behavior as it is now. Setting bridge-nf-call-iptables to 0 makes 
+iptables behave as if bridge-netfilter was not enabled at compilation.
+Anyway, your patch is almost certainly flawed since the fact that 
+skb->nf_bridge can be NULL is used as part of the logic in 
+br_netfilter.c: it indicates that bridge-nf-call-iptables was 0 when the 
+packet was first processed by bridge-netfilter and should therefore not 
+be given to iptables in any other netfilter hook.
+
+cheers,
+Bart
+
+
+-- 
+Bart De Schuymer
+www.artinalgorithms.be
+
