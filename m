@@ -1,35 +1,126 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: iproute2: proper detection of libxtables position and flags
-Date: Tue, 3 Jan 2012 23:18:07 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1201032303470.9394@frira.zrqbmnf.qr>
-References: <alpine.LNX.2.01.1112312317220.24158@frira.zrqbmnf.qr> <20120103134719.414ae3d0@nehalam.linuxnetplumber.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCHv2 ethtool 1/3] ethtool-copy.h: sync with net-next
+Date: Tue, 3 Jan 2012 22:24:31 +0000
+Message-ID: <1325629471.2832.46.camel@bwh-desktop>
+References: <1325627819.2832.31.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Networking Developer Mailing List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-net-drivers@solarflare.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from seven.medozas.de ([188.40.89.202]:57907 "EHLO seven.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754891Ab2ACWSJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jan 2012 17:18:09 -0500
-In-Reply-To: <20120103134719.414ae3d0@nehalam.linuxnetplumber.net>
+Received: from mail.solarflare.com ([216.237.3.220]:21475 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751546Ab2ACWYe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 17:24:34 -0500
+In-Reply-To: <1325627819.2832.31.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 2012-01-03 22:47, Stephen Hemminger wrote:
+This covers kernel changes up to:
 
->On Sat, 31 Dec 2011 23:17:56 +0100 (CET)
->Jan Engelhardt <jengelh@medozas.de> wrote:
->
->> From: Jan Engelhardt <jengelh@medozas.de>
->> Date: 2011-09-24 23:37:34.405739159 +0200
->> Upstream: not sent yet
->> 
->> Any tests involving iptables _MUST_ utilize pkg-config to find the
->> proper locations of the installation. 
->> 
->
->Will this work for all distros? Is this backwards compatiable?
+commit XXX NOT YET PULLED
+Author: Ben Hutchings <bhutchings@solarflare.com>
+Date:   Tue Sep 6 21:58:27 2011 +0100
 
-The pkg-config file was shipped since the start, and it is the
-one supported variant to find/link the lib.
+    ethtool: Remove ethtool_ops::set_rx_ntuple operation
+
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ ethtool-copy.h |   38 ++++++++++++++++++++++++++++++++++----
+ 1 files changed, 34 insertions(+), 4 deletions(-)
+
+diff --git a/ethtool-copy.h b/ethtool-copy.h
+index 8342ade..d904c1a 100644
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
+@@ -486,7 +486,10 @@ struct ethtool_rx_flow_spec {
+  * on return.
+  *
+  * For %ETHTOOL_GRXCLSRLCNT, @rule_cnt is set to the number of defined
+- * rules on return.
++ * rules on return.  If @data is non-zero on return then it is the
++ * size of the rule table, plus the flag %RX_CLS_LOC_SPECIAL if the
++ * driver supports any special location values.  If that flag is not
++ * set in @data then special location values should not be used.
+  *
+  * For %ETHTOOL_GRXCLSRULE, @fs.@location specifies the location of an
+  * existing rule on entry and @fs contains the rule on return.
+@@ -498,10 +501,23 @@ struct ethtool_rx_flow_spec {
+  * must use the second parameter to get_rxnfc() instead of @rule_locs.
+  *
+  * For %ETHTOOL_SRXCLSRLINS, @fs specifies the rule to add or update.
+- * @fs.@location specifies the location to use and must not be ignored.
++ * @fs.@location either specifies the location to use or is a special
++ * location value with %RX_CLS_LOC_SPECIAL flag set.  On return,
++ * @fs.@location is the actual rule location.
+  *
+  * For %ETHTOOL_SRXCLSRLDEL, @fs.@location specifies the location of an
+  * existing rule on entry.
++ *
++ * A driver supporting the special location values for
++ * %ETHTOOL_SRXCLSRLINS may add the rule at any suitable unused
++ * location, and may remove a rule at a later location (lower
++ * priority) that matches exactly the same set of flows.  The special
++ * values are: %RX_CLS_LOC_ANY, selecting any location;
++ * %RX_CLS_LOC_FIRST, selecting the first suitable location (maximum
++ * priority); and %RX_CLS_LOC_LAST, selecting the last suitable
++ * location (minimum priority).  Additional special values may be
++ * defined in future and drivers must return -%EINVAL for any
++ * unrecognised value.
+  */
+ struct ethtool_rxnfc {
+ 	__u32				cmd;
+@@ -516,9 +532,15 @@ struct ethtool_rxnfc {
+ /**
+  * struct ethtool_rxfh_indir - command to get or set RX flow hash indirection
+  * @cmd: Specific command number - %ETHTOOL_GRXFHINDIR or %ETHTOOL_SRXFHINDIR
+- * @size: On entry, the array size of the user buffer.  On return from
+- *	%ETHTOOL_GRXFHINDIR, the array size of the hardware indirection table.
++ * @size: On entry, the array size of the user buffer, which may be zero.
++ *	On return from %ETHTOOL_GRXFHINDIR, the array size of the hardware
++ *	indirection table.
+  * @ring_index: RX ring/queue index for each hash value
++ *
++ * For %ETHTOOL_GRXFHINDIR, a @size of zero means that only the size
++ * should be returned.  For %ETHTOOL_SRXFHINDIR, a @size of zero means
++ * the table should be reset to default values.  This last feature
++ * is not supported by the original implementations.
+  */
+ struct ethtool_rxfh_indir {
+ 	__u32	cmd;
+@@ -831,10 +853,12 @@ enum ethtool_sfeatures_retval_bits {
+ #define SPEED_1000		1000
+ #define SPEED_2500		2500
+ #define SPEED_10000		10000
++#define SPEED_UNKNOWN		-1
+ 
+ /* Duplex, half or full. */
+ #define DUPLEX_HALF		0x00
+ #define DUPLEX_FULL		0x01
++#define DUPLEX_UNKNOWN		0xff
+ 
+ /* Which connector port. */
+ #define PORT_TP			0x00
+@@ -905,6 +929,12 @@ enum ethtool_sfeatures_retval_bits {
+ 
+ #define	RX_CLS_FLOW_DISC	0xffffffffffffffffULL
+ 
++/* Special RX classification rule insert location values */
++#define RX_CLS_LOC_SPECIAL	0x80000000	/* flag */
++#define RX_CLS_LOC_ANY		0xffffffff
++#define RX_CLS_LOC_FIRST	0xfffffffe
++#define RX_CLS_LOC_LAST		0xfffffffd
++
+ /* Reset flags */
+ /* The reset() operation must clear the flags for the components which
+  * were actually reset.  On successful return, the flags indicate the
+-- 
+1.7.4.4
+
+
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
