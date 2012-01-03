@@ -1,65 +1,51 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCHv2 net-next 1/8] gianfar: Reject out-of-range RX NFC
- locations
-Date: Tue, 3 Jan 2012 21:59:30 +0000
-Message-ID: <1325627970.2832.33.camel@bwh-desktop>
-References: <1325627819.2832.31.camel@bwh-desktop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 07/11] e1000e: cleanup Rx checksum offload code
+Date: Tue, 03 Jan 2012 17:02:13 -0500 (EST)
+Message-ID: <20120103.170213.1542305105290211959.davem@davemloft.net>
+References: <1325624413.2832.9.camel@bwh-desktop>
+	<20120103.161553.395980097965998086.davem@davemloft.net>
+	<1325625842.2832.17.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
-	Sebastian =?ISO-8859-1?Q?P=F6hn?=
-	<sebastian.poehn@googlemail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, bruce.w.allan@intel.com,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:36752 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754125Ab2ACV7d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 16:59:33 -0500
-In-Reply-To: <1325627819.2832.31.camel@bwh-desktop>
+Received: from shards.monkeyblade.net ([198.137.202.13]:43523 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754125Ab2ACWCT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 17:02:19 -0500
+In-Reply-To: <1325625842.2832.17.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently the driver only uses location values to maintain an ordered
-list of filters.  Make it reject location values >=3D MAX_FILER_IDX
-passed to the ETHTOOL_SRXCLSRLINS command, consistent with the range
-it reports for the ETHTOOL_GRXCLSRLALL command.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 3 Jan 2012 21:24:02 +0000
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-Acked-by: Sebastian P=C3=B6hn <sebastian.poehn@googlemail.com>
----
-Sebastian, I took your private reply as an ack; please shout if that's
-wrong.
+> On Tue, 2012-01-03 at 16:15 -0500, David Miller wrote:
+>> From: Ben Hutchings <bhutchings@solarflare.com>
+>> Date: Tue, 3 Jan 2012 21:00:12 +0000
+>> 
+>> > On Tue, 2012-01-03 at 15:08 -0500, David Miller wrote:
+>> >> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> >> Date: Tue,  3 Jan 2012 11:19:12 -0800
+>> >> 
+>> >> > -		__sum16 sum = (__force __sum16)htons(csum);
+>> >> > +		__sum16 sum = (__force __sum16)htons(le16_to_cpu(csum));
+>> >> 
+>> >> Looks like a NOP.  It's essentially "cpu_to_le16(le16_to_cpu(csum)" as
+>> >> far as I can tell.
+>> > 
+>> > Looks like a swab() to me...
+>> 
+>> I don't see how it can be.  It's effectively doing a 16-bit swap and
+>> then a 16-bit swap again, which is a NOP.
+>> 
+>> It's the same as "(__force __sum16) csum" and I bet if the code above
+>> works, then this expression I'm suggesting will work too.
+> 
+> In this part of the universe, network order is big-endian.
 
-Ben.
-
- drivers/net/ethernet/freescale/gianfar_ethtool.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers=
-/net/ethernet/freescale/gianfar_ethtool.c
-index 5890f4b..5a3b2e5 100644
---- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
-+++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-@@ -1692,8 +1692,9 @@ static int gfar_set_nfc(struct net_device *dev, s=
-truct ethtool_rxnfc *cmd)
- 		ret =3D gfar_set_hash_opts(priv, cmd);
- 		break;
- 	case ETHTOOL_SRXCLSRLINS:
--		if (cmd->fs.ring_cookie !=3D RX_CLS_FLOW_DISC &&
--			cmd->fs.ring_cookie >=3D priv->num_rx_queues) {
-+		if ((cmd->fs.ring_cookie !=3D RX_CLS_FLOW_DISC &&
-+		     cmd->fs.ring_cookie >=3D priv->num_rx_queues) ||
-+		    cmd->fs.location >=3D MAX_FILER_IDX) {
- 			ret =3D -EINVAL;
- 			break;
- 		}
---=20
-1.7.4.4
-
-
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Indeed, you're right, therefore this is something like swab().
+:-)
