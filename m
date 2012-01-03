@@ -1,36 +1,53 @@
-From: Jia Rao <rickenrao@gmail.com>
-Subject: Re: APIC seems not working under high network load
-Date: Tue, 3 Jan 2012 15:48:40 -0500
-Message-ID: <CAA8E7hHttOg8jC0PPbTBgMJLG8BEhNA3LVJrhNLeUKiyhr=r-w@mail.gmail.com>
-References: <CAA8E7hFwvhATa+LAsW4csnUh1gL-tFZVQMO7LN0iQBa6NFj3KQ@mail.gmail.com>
-	<1325622628.2611.8.camel@edumazet-laptop>
+From: "Parikh, Neerav" <neerav.parikh@intel.com>
+Subject: RE: [net-next 05/11] netdev: FCoE: Add new ndo_get_fcoe_hbainfo()
+ call
+Date: Tue, 3 Jan 2012 20:53:00 +0000
+Message-ID: <739353123C992A4C8800D77E20942590240B7DC8@ORSMSX101.amr.corp.intel.com>
+References: <1325618356-2655-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1325618356-2655-6-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20120103.150742.289215241240567940.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: David Miller <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:51501 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754643Ab2ACUsl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 15:48:41 -0500
-In-Reply-To: <1325622628.2611.8.camel@edumazet-laptop>
+Received: from mga01.intel.com ([192.55.52.88]:36472 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754696Ab2ACUxC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 15:53:02 -0500
+In-Reply-To: <20120103.150742.289215241240567940.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> With your kernel, one way to help this cpu exit from softirq is using
-> RPS (Receive Packet Steering), since packets will be spreaded on seve=
-ral
-> cpus. Then, later hardware IRQ might be spreaded on other cpus as wel=
-l.
->
-> for n in `seq 0 7`
-> do
-> =C2=A0echo ff >/sys/class/net/eth0/queues/rx-$n/rps_cpus
-> done
-It seems that my NIC only have one queue: rx-0. Is there a work around
-for this ?
-As for the softirq, is it possible migrating the softirq to other
-cores through CPU load balancing ?
 
-Thanks !
+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Tuesday, January 03, 2012 12:08 PM
+> To: Kirsher, Jeffrey T
+> Cc: Parikh, Neerav; netdev@vger.kernel.org; gospo@redhat.com;
+> sassmann@redhat.com
+> Subject: Re: [net-next 05/11] netdev: FCoE: Add new
+> ndo_get_fcoe_hbainfo() call
+> 
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Tue,  3 Jan 2012 11:19:10 -0800
+> 
+> > +	int			(*ndo_fcoe_get_hbainfo)(struct net_device *dev,
+> > +					struct netdev_fcoe_hbainfo *hbainfo);
+> 
+> Please line up the second line's argument correctly, it should be:
+> 
+I was just trying to make checkpatch.pl happy as the line went beyond
+80 character limit.
+
+> > +	int			(*ndo_fcoe_get_hbainfo)(struct net_device *dev,
+> > +							struct netdev_fcoe_hbainfo
+> *hbainfo);
+> 
+> Thanks.
