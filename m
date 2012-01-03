@@ -1,67 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH 06/19] netfilter: nf_conntrack: use atomic64 for
- accounting counters
-Date: Tue, 03 Jan 2012 18:05:47 +0100
-Message-ID: <1325610347.2320.109.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF28@saturn3.aculab.com>
-	 <1325597490.2320.45.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1325597877.2320.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 0/7][pull request] Intel Wired LAN Driver Updates
+Date: Tue, 03 Jan 2012 12:23:34 -0500 (EST)
+Message-ID: <20120103.122334.326551836776966296.davem@davemloft.net>
+References: <1325555451-4697-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1325597877.2320.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:40631 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754179Ab2ACRXk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 12:23:40 -0500
+In-Reply-To: <1325555451-4697-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 03 janvier 2012 =C3=A0 14:37 +0100, Eric Dumazet a =C3=A9crit =
-:
-> Le mardi 03 janvier 2012 =C3=A0 14:31 +0100, Eric Dumazet a =C3=A9cri=
-t :
-> > Le mardi 03 janvier 2012 =C3=A0 12:01 +0000, David Laight a =C3=A9c=
-rit :
-> > > >  		if (acct) {
-> > > > -			spin_lock_bh(&ct->lock);
-> > > > -			acct[CTINFO2DIR(ctinfo)].packets++;
-> > > > -			acct[CTINFO2DIR(ctinfo)].bytes +=3D skb->len;
-> > > > -			spin_unlock_bh(&ct->lock);
-> > > > +			atomic64_inc(&acct[CTINFO2DIR(ctinfo)].packets);
-> > > > +			atomic64_add(skb->len,
-> > > &acct[CTINFO2DIR(ctinfo)].bytes);
-> > > >  		}
-> > >=20
-> > > On a 32bit arch the two atomic64 operations require a locked
-> > > bus cycle each. The spin_unlock_bh() may not need one - so
-> > > the code may now be slower (modulo lock contention etc).
-> > >=20
-> > > Probably worth caching &acct[CTINFO2DIR(ctinfo)] in a local,
-> > > the compiler probably can't do it itself.
-> >=20
-> > You're mistaken.
-> >=20
-> > Compile a UP kernel and check yourself before doing such claims.
-> >=20
-> >=20
->=20
-> Oops sorry, I misread your mail, I thought you were speaking of UP
-> kernel.
->=20
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon,  2 Jan 2012 17:50:44 -0800
 
-I got confused because your argument applies to 64bit platform as well
-(two atomic ops instead of one in spin_lock_bh())
+> The following series contains updates to igb, ixgbe and ixgbevf.  Most of
+> the changes are adding support of some kind.  There are 3 fixes, one fix
+> for ixgbevf to fix register defines.  The other two fixes are for ixgbe,
+> one being a minor comment spelling fix and the other is to fix register
+> reads.
+> 
+> Here is a list of the new support added:
+>  - 2 new device id's in ixgbe
+>  - igb flow control advertising to ethtool
+> 
+> v2: Dropped the 2 patches to 'add thermal data sensor' to ixgbe while Don/PJ
+>     review and potentially fix-up the patches based on community feedback.
+> 
+> The following are changes since commit 455ffa607f0efa90c9fec99604553b7cdd5274b2:
+>   Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-As a matter of fact, atomic64_[inc|add]() use two locked operations on
-32bit.
-
-Plus this code (atomic64_xxx_cx8()) seems very buggy since 2.6.35
-kernels ... Oh well...
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Pulled, thanks Jeff.
