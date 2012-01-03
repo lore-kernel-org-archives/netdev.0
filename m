@@ -1,57 +1,46 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] tcp: detect loss above high_seq in recovery
-Date: Tue, 3 Jan 2012 21:11:11 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.1201032059570.28487@melkinpaasi.cs.helsinki.fi>
-References: <1325033182-25905-1-git-send-email-ycheng@google.com> <alpine.DEB.2.00.1112281736480.7752@melkinpaasi.cs.helsinki.fi> <CAK6E8=fu_KAnzMhKYa368BzhGkLGtjjPhvDUezQ_b6Nsd5o6Zw@mail.gmail.com> <alpine.DEB.2.00.1112301256060.15137@wel-95.cs.helsinki.fi>
- <CAK6E8=eJU0puyqWsJg-7FESMEdHZgx3FXCMkxM7+rUyrSg1Hdg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-1590063589-1325617871=:28487"
-Cc: David Miller <davem@davemloft.net>, ncardwell@google.com,
-	nanditad@google.com, Netdev <netdev@vger.kernel.org>
-To: Yuchung Cheng <ycheng@google.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/11] igb: reset PHY after recovering from PHY power down
+Date: Tue,  3 Jan 2012 11:19:09 -0800
+Message-ID: <1325618356-2655-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1325618356-2655-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Koki Sanagi <sanagi.koki@jp.fujitsu.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:40198 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754589Ab2ACTLM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 14:11:12 -0500
-In-Reply-To: <CAK6E8=eJU0puyqWsJg-7FESMEdHZgx3FXCMkxM7+rUyrSg1Hdg@mail.gmail.com>
+Received: from mga02.intel.com ([134.134.136.20]:48412 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754640Ab2ACTTq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jan 2012 14:19:46 -0500
+In-Reply-To: <1325618356-2655-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
 
---8323329-1590063589-1325617871=:28487
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+According to 82576_Datasheet.pdf, PHY setting is lost after PHY power down.
+So resetting PHY is needed when recovering from PHY power down to set a default
+setting to PHY register.
+Owing to this lack, NIC doesn't link up in some rare situation.
 
-On Tue, 3 Jan 2012, Yuchung Cheng wrote:
+Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/igb_main.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-> On Fri, Dec 30, 2011 at 3:19 AM, Ilpo Järvinen
-> <ilpo.jarvinen@helsinki.fi> wrote:
-> > On Thu, 29 Dec 2011, Yuchung Cheng wrote:
-> >
-> >> To summarize:
-> >> 1) this change does NOT forbid TCP performing further CWR on new losses
-> >> 2) this change (merely) marks some forward-retransmitted packets LOST.
-> >> 3) the commit message is to be explicit that CWR may not always be performed,
-> >>     in both my change and current kernel.
-> >
-> > I agree with these points. I wonder if you intend to look to fixing the
-> > lacking CWR problem or should I look to that once I get some spare time?
-> >
-> >> HTH. I will update commit message if people can make sense of it :)
-> >
-> > Please do.
-> Great, I'll update the commit message first, and work on another
-> feature patch that does CWR if
-> a) new sequence is lost
-> b) a retransmission is lost
-
-Ok, thanks. I think that it's better to do the way you suggest... ie., to 
-do the cwr on detection rather than (possibly much) later when 
-rexmitting.
-
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index fac71e2..01e5e89 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -1507,6 +1507,7 @@ void igb_power_up_link(struct igb_adapter *adapter)
+ 		igb_power_up_phy_copper(&adapter->hw);
+ 	else
+ 		igb_power_up_serdes_link_82575(&adapter->hw);
++	igb_reset_phy(&adapter->hw);
+ }
+ 
+ /**
 -- 
- i.
---8323329-1590063589-1325617871=:28487--
+1.7.7.4
