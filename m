@@ -1,72 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] x86: fix and improve cmpxchg_double{,_local}()
-Date: Tue, 03 Jan 2012 16:15:14 +0100
-Message-ID: <1325603714.2320.73.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <4F01F12A020000780006A19B@nat28.tlf.novell.com>
-	 <1325602830.2320.69.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mingo@elte.hu, tglx@linutronix.de, hpa@zytor.com,
-	Christoph Lameter <cl@linux.com>, linux-kernel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Jan Beulich <JBeulich@suse.com>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: [PATCH] net/davinci: do not use all descriptors for tx packets
+Date: Tue,  3 Jan 2012 16:27:47 +0100
+Message-ID: <1325604467-15122-1-git-send-email-s.hauer@pengutronix.de>
+Cc: Anant Gole <anantgole@ti.com>, davem@davemloft.net, srk@ti.com,
+	Sascha Hauer <s.hauer@pengutronix.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:46757 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753418Ab2ACPPU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 10:15:20 -0500
-In-Reply-To: <1325602830.2320.69.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:34384 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753442Ab2ACP2D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 10:28:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 03 janvier 2012 =C3=A0 16:00 +0100, Eric Dumazet a =C3=A9crit =
-:
+The driver uses a shared pool for both rx and tx descriptors.
+During open it queues fixed number of 128 descriptors for receive
+packets. For each received packet it tries to queue another
+descriptor. If this fails the descriptor is lost for rx.
+The driver has no limitation on tx descriptors to use, so it
+can happen during a nmap / ping -f attack that the driver
+allocates all descriptors for tx and looses all rx descriptors.
+The driver stops working then.
+To fix this limit the number of tx descriptors used to half of
+the descriptors available, the rx path uses the other half.
 
-> While looking at your patch, I discovered that atomic64_add() /
-> atomic64_inc() on 32bit are completely buggy. Oh well...
->=20
-> Generated code :
->=20
-> c03bc00c <atomic64_add_return_cx8>:
-> c03bc00c:       55                      push   %ebp
-> c03bc00d:       53                      push   %ebx
-> c03bc00e:       56                      push   %esi
-> c03bc00f:       57                      push   %edi
-> c03bc010:       89 c6                   mov    %eax,%esi
-> c03bc012:       89 d7                   mov    %edx,%edi
-> c03bc014:       89 cd                   mov    %ecx,%ebp
-> c03bc016:       89 d8                   mov    %ebx,%eax
-> c03bc018:       89 ca                   mov    %ecx,%edx
-> c03bc01a:       f0 0f c7 4d 00          lock cmpxchg8b 0x0(%ebp)
-> c03bc01f:       89 c3                   mov    %eax,%ebx
-> c03bc021:       89 d1                   mov    %edx,%ecx
-> c03bc023:       01 f3                   add    %esi,%ebx
-> c03bc025:       11 f9                   adc    %edi,%ecx
-> c03bc027:       f0 0f c7 4d 00          lock cmpxchg8b 0x0(%ebp)
-> c03bc02c:       75 f9                   jne    c03bc027 <atomic64_add=
-_return_cx8+0x1b>
-> c03bc02e:       89 d8                   mov    %ebx,%eax
-> c03bc030:       89 ca                   mov    %ecx,%edx
-> c03bc032:       5f                      pop    %edi
-> c03bc033:       5e                      pop    %esi
-> c03bc034:       5b                      pop    %ebx
-> c03bc035:       5d                      pop    %ebp
-> c03bc036:       c3                      ret
->=20
-> The ' jne c03bc027' should really be 'jne c03bc01f'
->=20
-> No idea how old is this bug.
->=20
+Tested on a custom board using nmap / ping -f to the board from
+two different hosts.
 
-Very old it seems...
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+---
+ drivers/net/ethernet/ti/davinci_emac.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
-arch/x86/lib/atomic64_cx8_32.S
-
-all "jxx 1b" are wrong if a LOCK_PREFIX is included after the 1: label
-
-1:
-	inst1
-	LOCK_PREFIX
-	cmpxchg8b (%ebp)
-	jne 1b  / jumps to beginning of LOCK_PREFIX, inst1 is not replayed
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index 815c797..794ac30 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -115,6 +115,7 @@ static const char emac_version_string[] = "TI DaVinci EMAC Linux v6.1";
+ #define EMAC_DEF_TX_CH			(0) /* Default 0th channel */
+ #define EMAC_DEF_RX_CH			(0) /* Default 0th channel */
+ #define EMAC_DEF_RX_NUM_DESC		(128)
++#define EMAC_DEF_TX_NUM_DESC		(128)
+ #define EMAC_DEF_MAX_TX_CH		(1) /* Max TX channels configured */
+ #define EMAC_DEF_MAX_RX_CH		(1) /* Max RX channels configured */
+ #define EMAC_POLL_WEIGHT		(64) /* Default NAPI poll weight */
+@@ -336,6 +337,7 @@ struct emac_priv {
+ 	u32 mac_hash2;
+ 	u32 multicast_hash_cnt[EMAC_NUM_MULTICAST_BITS];
+ 	u32 rx_addr_type;
++	atomic_t cur_tx;
+ 	const char *phy_id;
+ 	struct phy_device *phydev;
+ 	spinlock_t lock;
+@@ -1044,6 +1046,9 @@ static void emac_tx_handler(void *token, int len, int status)
+ {
+ 	struct sk_buff		*skb = token;
+ 	struct net_device	*ndev = skb->dev;
++	struct emac_priv	*priv = netdev_priv(ndev);
++
++	atomic_dec(&priv->cur_tx);
+ 
+ 	if (unlikely(netif_queue_stopped(ndev)))
+ 		netif_start_queue(ndev);
+@@ -1092,6 +1097,9 @@ static int emac_dev_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 		goto fail_tx;
+ 	}
+ 
++	if (atomic_inc_return(&priv->cur_tx) >= EMAC_DEF_TX_NUM_DESC)
++		netif_stop_queue(ndev);
++
+ 	return NETDEV_TX_OK;
+ 
+ fail_tx:
+-- 
+1.7.7.3
