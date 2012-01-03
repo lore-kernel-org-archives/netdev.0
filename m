@@ -1,113 +1,133 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: pull request: wireless 2011-12-15
-Date: Tue, 3 Jan 2012 23:06:59 +0100
-Message-ID: <CACna6rwjrg6m3SEBxfYWgRSTN5_4-TuA0tdG6P2pFuUvwvvjZA@mail.gmail.com>
-References: <20111215191523.GA2561@tuxdriver.com>
-	<CACna6rw736JdkoM8zKxorCFd5oy08QTwWZ6PutoJPSr3ZN8hTg@mail.gmail.com>
-	<20111215213822.GB2561@tuxdriver.com>
-	<CACna6rz3qDpw4eJOoCXx7=z1719v7kS-Ou-WUseR9_vB-O2dag@mail.gmail.com>
-	<CACna6rxO2dC=Y3nv-d-w89MqyM0j0aumk=r5Yh_KEg=MwOcvEQ@mail.gmail.com>
-	<20120103205226.GA17131@kroah.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCHv2 net-next 8/8] ethtool: Remove ethtool_ops::set_rx_ntuple
+ operation
+Date: Tue, 3 Jan 2012 22:07:59 +0000
+Message-ID: <1325628479.2832.45.camel@bwh-desktop>
+References: <1325627819.2832.31.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "John W. Linville" <linville@tuxdriver.com>, davem@davemloft.net,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Greg KH <greg@kroah.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:47742 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754953Ab2ACWHB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 17:07:01 -0500
-In-Reply-To: <20120103205226.GA17131@kroah.com>
+Received: from mail.solarflare.com ([216.237.3.220]:56160 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754957Ab2ACWID (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 17:08:03 -0500
+In-Reply-To: <1325627819.2832.31.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 3 stycznia 2012 21:52 u=C5=BCytkownik Greg KH <greg@kroah.com> n=
-apisa=C5=82:
-> On Mon, Dec 26, 2011 at 12:36:59AM +0100, Rafa=C5=82 Mi=C5=82ecki wro=
-te:
->> W dniu 16 grudnia 2011 07:40 u=C5=BCytkownik Rafa=C5=82 Mi=C5=82ecki
->> <zajec5@gmail.com> napisa=C5=82:
->> > W dniu 15 grudnia 2011 22:38 u=C5=BCytkownik John W. Linville
->> > <linville@tuxdriver.com> napisa=C5=82:
->> >> On Thu, Dec 15, 2011 at 09:04:29PM +0100, Rafa=C5=82 Mi=C5=82ecki=
- wrote:
->> >>> 2011/12/15 John W. Linville <linville@tuxdriver.com>:
->> >>> > commit 42a3b63bb2ca4996a3d1210a004eae2333f1119e
->> >>> >
->> >>> > Dave,
->> >>> >
->> >>> > Here are a few more fixes intended for the 3.2 release. =C2=A0=
-They are
->> >>> > all small and narrowly focused.
->> >>>
->> >>> John, I've made a mistake and didn't use [PATCH 3.2] header to m=
-ake it
->> >>> clean my patch is fix. Could you take a look at
->> >>> [PATCH] bcma: support for suspend and resume
->> >>> please?
->> >>>
->> >>> It's not one-liner, but fixes lock ups, which I believe - we rea=
-lly
->> >>> want to avoid.
->> >>
->> >> It's late in the release cycle, and Dave specifically asked me to=
- slow down.
->> >>
->> >> Are these suspend/resume lockups a regression? =C2=A0Or have they=
- always
->> >> been there? =C2=A0Do they happen to everyone?
->> >
->> > The bug is present since first days of bcma. That's why I even dec=
-ided
->> > to add stable to CC.
->> >
->> > Personally I've tested that only on 1 machine (I don't have more
->> > suspendable machines with mini PCIe slot). However all Macbook 8.1=
-/8.2
->> > users have to remove b43 & bcma before suspending [0], they compla=
-in
->> > about that since ever.
->> >
->> > Arend: I know you're also complaining for suspend in bcma. Can you
->> > comment on this?
->> >
->> > [0] http://ubuntuforums.org/showthread.php?t=3D1695746
->>
->> User nephyrin on #bcm-users has confirmed this patch fixes
->> suspend&resume for him. Without this patch he got deadlock without
->> seeing any kernel panic logs - quite an ugly case.
->>
->> I still think this patch may be worth taking as fix and backporting =
-too.
->
-> What patch specifically? =C2=A0What is the git commit id of it in Lin=
-us's
-> tree? =C2=A0Without that information, telling stable@ about it is
-> pointless...
+All implementations have been converted to implement set_rxnfc
+instead.
 
-Sorry Greg, it's about
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ include/linux/ethtool.h |    4 ---
+ net/core/ethtool.c      |   55 -----------------------------------------------
+ 2 files changed, 0 insertions(+), 59 deletions(-)
 
-commit 775ab52142b02237a54184238e922251c59a2b5c
-Author: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
-Date:   Fri Dec 9 22:16:07 2011 +0100
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index d901714..da5b2de 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -859,8 +859,6 @@ static inline u32 ethtool_rxfh_indir_default(u32 index, u32 n_rx_rings)
+  * @reset: Reset (part of) the device, as specified by a bitmask of
+  *	flags from &enum ethtool_reset_flags.  Returns a negative
+  *	error code or zero.
+- * @set_rx_ntuple: Set an RX n-tuple rule.  Returns a negative error code
+- *	or zero.
+  * @get_rxfh_indir_size: Get the size of the RX flow hash indirection table.
+  *	Returns zero if not supported for this specific device.
+  * @get_rxfh_indir: Get the contents of the RX flow hash indirection table.
+@@ -929,8 +927,6 @@ struct ethtool_ops {
+ 	int	(*set_rxnfc)(struct net_device *, struct ethtool_rxnfc *);
+ 	int	(*flash_device)(struct net_device *, struct ethtool_flash *);
+ 	int	(*reset)(struct net_device *, u32 *);
+-	int	(*set_rx_ntuple)(struct net_device *,
+-				 struct ethtool_rx_ntuple *);
+ 	u32	(*get_rxfh_indir_size)(struct net_device *);
+ 	int	(*get_rxfh_indir)(struct net_device *, u32 *);
+ 	int	(*set_rxfh_indir)(struct net_device *, const u32 *);
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index e88b80d..921aa2b 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -631,58 +631,6 @@ out:
+ 	return ret;
+ }
+ 
+-/*
+- * ethtool does not (or did not) set masks for flow parameters that are
+- * not specified, so if both value and mask are 0 then this must be
+- * treated as equivalent to a mask with all bits set.  Implement that
+- * here rather than in drivers.
+- */
+-static void rx_ntuple_fix_masks(struct ethtool_rx_ntuple_flow_spec *fs)
+-{
+-	struct ethtool_tcpip4_spec *entry = &fs->h_u.tcp_ip4_spec;
+-	struct ethtool_tcpip4_spec *mask = &fs->m_u.tcp_ip4_spec;
+-
+-	if (fs->flow_type != TCP_V4_FLOW &&
+-	    fs->flow_type != UDP_V4_FLOW &&
+-	    fs->flow_type != SCTP_V4_FLOW)
+-		return;
+-
+-	if (!(entry->ip4src | mask->ip4src))
+-		mask->ip4src = htonl(0xffffffff);
+-	if (!(entry->ip4dst | mask->ip4dst))
+-		mask->ip4dst = htonl(0xffffffff);
+-	if (!(entry->psrc | mask->psrc))
+-		mask->psrc = htons(0xffff);
+-	if (!(entry->pdst | mask->pdst))
+-		mask->pdst = htons(0xffff);
+-	if (!(entry->tos | mask->tos))
+-		mask->tos = 0xff;
+-	if (!(fs->vlan_tag | fs->vlan_tag_mask))
+-		fs->vlan_tag_mask = 0xffff;
+-	if (!(fs->data | fs->data_mask))
+-		fs->data_mask = 0xffffffffffffffffULL;
+-}
+-
+-static noinline_for_stack int ethtool_set_rx_ntuple(struct net_device *dev,
+-						    void __user *useraddr)
+-{
+-	struct ethtool_rx_ntuple cmd;
+-	const struct ethtool_ops *ops = dev->ethtool_ops;
+-
+-	if (!ops->set_rx_ntuple)
+-		return -EOPNOTSUPP;
+-
+-	if (!(dev->features & NETIF_F_NTUPLE))
+-		return -EINVAL;
+-
+-	if (copy_from_user(&cmd, useraddr, sizeof(cmd)))
+-		return -EFAULT;
+-
+-	rx_ntuple_fix_masks(&cmd.fs);
+-
+-	return ops->set_rx_ntuple(dev, &cmd);
+-}
+-
+ static int ethtool_get_regs(struct net_device *dev, char __user *useraddr)
+ {
+ 	struct ethtool_regs regs;
+@@ -1495,9 +1443,6 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_RESET:
+ 		rc = ethtool_reset(dev, useraddr);
+ 		break;
+-	case ETHTOOL_SRXNTUPLE:
+-		rc = ethtool_set_rx_ntuple(dev, useraddr);
+-		break;
+ 	case ETHTOOL_GSSET_INFO:
+ 		rc = ethtool_get_sset_info(dev, useraddr);
+ 		break;
+-- 
+1.7.4.4
 
-    bcma: support for suspend and resume
 
-    bcma used to lock up machine without enabling PCI or initializing C=
-C.
-
-    Cc: stable@vger.kernel.org
-    Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
-    Signed-off-by: John W. Linville <linville@tuxdriver.com>
-
-it's located in wireless-testing:
-git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-testing=
-=2Egit
-
-John didn't pass this to Linus yet.
-
---=20
-Rafa=C5=82
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
