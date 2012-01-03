@@ -1,108 +1,81 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/11] e1000e: cleanup Rx checksum offload code
-Date: Tue,  3 Jan 2012 11:19:12 -0800
-Message-ID: <1325618356-2655-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/11] igb: Add support for byte queue limits.
+Date: Tue,  3 Jan 2012 11:19:07 -0800
+Message-ID: <1325618356-2655-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1325618356-2655-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:57343 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754786Ab2ACTTs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jan 2012 14:19:48 -0500
+	id S1754736Ab2ACTTp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jan 2012 14:19:45 -0500
 In-Reply-To: <1325618356-2655-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 
-1) cleanup whitespace in e1000_rx_checksum() function header comment
-2) do not check hardware checksum when Rx checksum is disabled
-3) reduce duplicated calls to le16_to_cpu() by just using it within
-   e1000_rx_checksum() instead of in each call to the function
+This adds support for byte queue limits (BQL)
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Since this driver collects bytes count in 'bytecount' field, use it also
+in igb_tx_map()
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c |   25 ++++++++++++++-----------
- 1 files changed, 14 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h      |    5 +++++
+ drivers/net/ethernet/intel/igb/igb_main.c |    5 +++++
+ 2 files changed, 10 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 3911401..e01ffce 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -487,10 +487,10 @@ static void e1000_receive_skb(struct e1000_adapter *adapter,
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index c69feeb..3d12e67 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -447,4 +447,9 @@ static inline s32 igb_get_phy_info(struct e1000_hw *hw)
+ 	return 0;
+ }
  
- /**
-  * e1000_rx_checksum - Receive Checksum Offload
-- * @adapter:     board private structure
-- * @status_err:  receive descriptor status and error fields
-- * @csum:	receive descriptor csum field
-- * @sk_buff:     socket buffer with received data
-+ * @adapter: board private structure
-+ * @status_err: receive descriptor status and error fields
-+ * @csum: receive descriptor csum field
-+ * @sk_buff: socket buffer with received data
-  **/
- static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
- 			      u32 csum, struct sk_buff *skb)
-@@ -500,9 +500,14 @@ static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
- 
- 	skb_checksum_none_assert(skb);
- 
-+	/* Rx checksum disabled */
-+	if (!(adapter->netdev->features & NETIF_F_RXCSUM))
-+		return;
++static inline struct netdev_queue *txring_txq(const struct igb_ring *tx_ring)
++{
++	return netdev_get_tx_queue(tx_ring->netdev, tx_ring->queue_index);
++}
 +
- 	/* Ignore Checksum bit is set */
- 	if (status & E1000_RXD_STAT_IXSM)
- 		return;
-+
- 	/* TCP/UDP checksum error bit is set */
- 	if (errors & E1000_RXD_ERR_TCPE) {
- 		/* let the stack verify checksum errors */
-@@ -524,7 +529,7 @@ static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
- 		 * Hardware complements the payload checksum, so we undo it
- 		 * and then put the value in host order for further stack use.
- 		 */
--		__sum16 sum = (__force __sum16)htons(csum);
-+		__sum16 sum = (__force __sum16)htons(le16_to_cpu(csum));
- 		skb->csum = csum_unfold(~sum);
- 		skb->ip_summed = CHECKSUM_COMPLETE;
+ #endif /* _IGB_H_ */
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 89d576c..dcc68cc 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -3201,6 +3201,7 @@ static void igb_clean_tx_ring(struct igb_ring *tx_ring)
+ 		buffer_info = &tx_ring->tx_buffer_info[i];
+ 		igb_unmap_and_free_tx_resource(tx_ring, buffer_info);
  	}
-@@ -957,8 +962,7 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
++	netdev_tx_reset_queue(txring_txq(tx_ring));
  
- 		/* Receive Checksum Offload */
- 		e1000_rx_checksum(adapter, staterr,
--				  le16_to_cpu(rx_desc->wb.lower.hi_dword.
--					      csum_ip.csum), skb);
-+				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
+ 	size = sizeof(struct igb_tx_buffer) * tx_ring->count;
+ 	memset(tx_ring->tx_buffer_info, 0, size);
+@@ -4238,6 +4239,8 @@ static void igb_tx_map(struct igb_ring *tx_ring,
+ 		frag++;
+ 	}
  
- 		e1000_receive_skb(adapter, netdev, skb, staterr,
- 				  rx_desc->wb.upper.vlan);
-@@ -1318,8 +1322,8 @@ copydone:
- 		total_rx_bytes += skb->len;
- 		total_rx_packets++;
++	netdev_tx_sent_queue(txring_txq(tx_ring), first->bytecount);
++
+ 	/* write last descriptor with RS and EOP bits */
+ 	cmd_type |= cpu_to_le32(size) | cpu_to_le32(IGB_TXD_DCMD);
+ 	tx_desc->read.cmd_type_len = cmd_type;
+@@ -5777,6 +5780,8 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
+ 		}
+ 	}
  
--		e1000_rx_checksum(adapter, staterr, le16_to_cpu(
--			rx_desc->wb.lower.hi_dword.csum_ip.csum), skb);
-+		e1000_rx_checksum(adapter, staterr,
-+				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
- 
- 		if (rx_desc->wb.upper.header_status &
- 			   cpu_to_le16(E1000_RXDPS_HDRSTAT_HDRSP))
-@@ -1491,8 +1495,7 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
- 
- 		/* Receive Checksum Offload XXX recompute due to CRC strip? */
- 		e1000_rx_checksum(adapter, staterr,
--				  le16_to_cpu(rx_desc->wb.lower.hi_dword.
--					      csum_ip.csum), skb);
-+				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
- 
- 		/* probably a little skewed due to removing CRC */
- 		total_rx_bytes += skb->len;
++	netdev_tx_completed_queue(txring_txq(tx_ring),
++				  total_packets, total_bytes);
+ 	i += tx_ring->count;
+ 	tx_ring->next_to_clean = i;
+ 	u64_stats_update_begin(&tx_ring->tx_syncp);
 -- 
 1.7.7.4
