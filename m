@@ -1,92 +1,103 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/7] ixgbe: fix typo's
-Date: Mon,  2 Jan 2012 17:50:48 -0800
-Message-ID: <1325555451-4697-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/7] ixgbevf: Fix register defines to correctly handle complex expressions
+Date: Mon,  2 Jan 2012 17:50:45 -0800
+Message-ID: <1325555451-4697-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1325555451-4697-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:18965 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751178Ab2ACBu4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jan 2012 20:50:56 -0500
+	id S1751091Ab2ACBuy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jan 2012 20:50:54 -0500
 In-Reply-To: <1325555451-4697-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Saw typo in one message, so decided to run spell checker.
+This patch is meant to address possible issues with the IXGBEVF register
+defines generating incorrect values when given a complex expression for the
+register offset.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   14 +++++++-------
- 1 files changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/mbx.h  |    4 +-
+ drivers/net/ethernet/intel/ixgbevf/regs.h |   42 ++++++++++++++--------------
+ 2 files changed, 23 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index fcf8d4e..cd1f893 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -146,7 +146,7 @@ static void ixgbe_service_event_complete(struct ixgbe_adapter *adapter)
- {
- 	BUG_ON(!test_bit(__IXGBE_SERVICE_SCHED, &adapter->state));
+diff --git a/drivers/net/ethernet/intel/ixgbevf/mbx.h b/drivers/net/ethernet/intel/ixgbevf/mbx.h
+index ea393eb..9d38a94 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/mbx.h
++++ b/drivers/net/ethernet/intel/ixgbevf/mbx.h
+@@ -47,8 +47,8 @@
+ #define IXGBE_VFMAILBOX_RSTD     0x00000080 /* PF has indicated reset done */
+ #define IXGBE_VFMAILBOX_R2C_BITS 0x000000B0 /* All read to clear bits */
  
--	/* flush memory to make sure state is correct before next watchog */
-+	/* flush memory to make sure state is correct before next watchdog */
- 	smp_mb__before_clear_bit();
- 	clear_bit(__IXGBE_SERVICE_SCHED, &adapter->state);
- }
-@@ -2156,7 +2156,7 @@ static irqreturn_t ixgbe_intr(int irq, void *data)
- 	IXGBE_WRITE_REG(hw, IXGBE_EIMC, IXGBE_IRQ_CLEAR_MASK);
+-#define IXGBE_PFMAILBOX(x)          (0x04B00 + (4 * x))
+-#define IXGBE_PFMBMEM(vfn)          (0x13000 + (64 * vfn))
++#define IXGBE_PFMAILBOX(x)          (0x04B00 + (4 * (x)))
++#define IXGBE_PFMBMEM(vfn)          (0x13000 + (64 * (vfn)))
  
- 	/* for NAPI, using EIAM to auto-mask tx/rx interrupt bits on read
--	 * therefore no explict interrupt disable is necessary */
-+	 * therefore no explicit interrupt disable is necessary */
- 	eicr = IXGBE_READ_REG(hw, IXGBE_EICR);
- 	if (!eicr) {
- 		/*
-@@ -3606,7 +3606,7 @@ static inline bool ixgbe_is_sfp(struct ixgbe_hw *hw)
- static void ixgbe_sfp_link_config(struct ixgbe_adapter *adapter)
- {
- 	/*
--	 * We are assuming the worst case scenerio here, and that
-+	 * We are assuming the worst case scenario here, and that
- 	 * is that an SFP was inserted/removed after the reset
- 	 * but before SFP detection was enabled.  As such the best
- 	 * solution is to just start searching as soon as we start
-@@ -3828,7 +3828,7 @@ void ixgbe_reset(struct ixgbe_adapter *adapter)
- 	case IXGBE_ERR_EEPROM_VERSION:
- 		/* We are running on a pre-production device, log a warning */
- 		e_dev_warn("This device is a pre-production adapter/LOM. "
--			   "Please be aware there may be issuesassociated with "
-+			   "Please be aware there may be issues associated with "
- 			   "your hardware.  If you are experiencing problems "
- 			   "please contact your Intel or hardware "
- 			   "representative who provided you with this "
-@@ -5792,9 +5792,9 @@ static void ixgbe_fdir_reinit_subtask(struct ixgbe_adapter *adapter)
-  * @adapter - pointer to the device adapter structure
-  *
-  * This function serves two purposes.  First it strobes the interrupt lines
-- * in order to make certain interrupts are occuring.  Secondly it sets the
-+ * in order to make certain interrupts are occurring.  Secondly it sets the
-  * bits needed to check for TX hangs.  As a result we should immediately
-- * determine if a hang has occured.
-+ * determine if a hang has occurred.
-  */
- static void ixgbe_check_hang_subtask(struct ixgbe_adapter *adapter)
- {
-@@ -7132,7 +7132,7 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
- 		return -EINVAL;
- 
- 	/* Hardware has to reinitialize queues and interrupts to
--	 * match packet buffer alignment. Unfortunantly, the
-+	 * match packet buffer alignment. Unfortunately, the
- 	 * hardware is not flexible enough to do this dynamically.
- 	 */
- 	if (netif_running(dev))
+ #define IXGBE_PFMAILBOX_STS   0x00000001 /* Initiate message send to VF */
+ #define IXGBE_PFMAILBOX_ACK   0x00000002 /* Ack message recv'd from VF */
+diff --git a/drivers/net/ethernet/intel/ixgbevf/regs.h b/drivers/net/ethernet/intel/ixgbevf/regs.h
+index 189200e..5e4d5e5 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/regs.h
++++ b/drivers/net/ethernet/intel/ixgbevf/regs.h
+@@ -39,29 +39,29 @@
+ #define IXGBE_VTEIMC           0x0010C
+ #define IXGBE_VTEIAC           0x00110
+ #define IXGBE_VTEIAM           0x00114
+-#define IXGBE_VTEITR(x)        (0x00820 + (4 * x))
+-#define IXGBE_VTIVAR(x)        (0x00120 + (4 * x))
++#define IXGBE_VTEITR(x)        (0x00820 + (4 * (x)))
++#define IXGBE_VTIVAR(x)        (0x00120 + (4 * (x)))
+ #define IXGBE_VTIVAR_MISC      0x00140
+-#define IXGBE_VTRSCINT(x)      (0x00180 + (4 * x))
+-#define IXGBE_VFRDBAL(x)       (0x01000 + (0x40 * x))
+-#define IXGBE_VFRDBAH(x)       (0x01004 + (0x40 * x))
+-#define IXGBE_VFRDLEN(x)       (0x01008 + (0x40 * x))
+-#define IXGBE_VFRDH(x)         (0x01010 + (0x40 * x))
+-#define IXGBE_VFRDT(x)         (0x01018 + (0x40 * x))
+-#define IXGBE_VFRXDCTL(x)      (0x01028 + (0x40 * x))
+-#define IXGBE_VFSRRCTL(x)      (0x01014 + (0x40 * x))
+-#define IXGBE_VFRSCCTL(x)      (0x0102C + (0x40 * x))
++#define IXGBE_VTRSCINT(x)      (0x00180 + (4 * (x)))
++#define IXGBE_VFRDBAL(x)       (0x01000 + (0x40 * (x)))
++#define IXGBE_VFRDBAH(x)       (0x01004 + (0x40 * (x)))
++#define IXGBE_VFRDLEN(x)       (0x01008 + (0x40 * (x)))
++#define IXGBE_VFRDH(x)         (0x01010 + (0x40 * (x)))
++#define IXGBE_VFRDT(x)         (0x01018 + (0x40 * (x)))
++#define IXGBE_VFRXDCTL(x)      (0x01028 + (0x40 * (x)))
++#define IXGBE_VFSRRCTL(x)      (0x01014 + (0x40 * (x)))
++#define IXGBE_VFRSCCTL(x)      (0x0102C + (0x40 * (x)))
+ #define IXGBE_VFPSRTYPE        0x00300
+-#define IXGBE_VFTDBAL(x)       (0x02000 + (0x40 * x))
+-#define IXGBE_VFTDBAH(x)       (0x02004 + (0x40 * x))
+-#define IXGBE_VFTDLEN(x)       (0x02008 + (0x40 * x))
+-#define IXGBE_VFTDH(x)         (0x02010 + (0x40 * x))
+-#define IXGBE_VFTDT(x)         (0x02018 + (0x40 * x))
+-#define IXGBE_VFTXDCTL(x)      (0x02028 + (0x40 * x))
+-#define IXGBE_VFTDWBAL(x)      (0x02038 + (0x40 * x))
+-#define IXGBE_VFTDWBAH(x)      (0x0203C + (0x40 * x))
+-#define IXGBE_VFDCA_RXCTRL(x)  (0x0100C + (0x40 * x))
+-#define IXGBE_VFDCA_TXCTRL(x)  (0x0200c + (0x40 * x))
++#define IXGBE_VFTDBAL(x)       (0x02000 + (0x40 * (x)))
++#define IXGBE_VFTDBAH(x)       (0x02004 + (0x40 * (x)))
++#define IXGBE_VFTDLEN(x)       (0x02008 + (0x40 * (x)))
++#define IXGBE_VFTDH(x)         (0x02010 + (0x40 * (x)))
++#define IXGBE_VFTDT(x)         (0x02018 + (0x40 * (x)))
++#define IXGBE_VFTXDCTL(x)      (0x02028 + (0x40 * (x)))
++#define IXGBE_VFTDWBAL(x)      (0x02038 + (0x40 * (x)))
++#define IXGBE_VFTDWBAH(x)      (0x0203C + (0x40 * (x)))
++#define IXGBE_VFDCA_RXCTRL(x)  (0x0100C + (0x40 * (x)))
++#define IXGBE_VFDCA_TXCTRL(x)  (0x0200c + (0x40 * (x)))
+ #define IXGBE_VFGPRC           0x0101C
+ #define IXGBE_VFGPTC           0x0201C
+ #define IXGBE_VFGORC_LSB       0x01020
 -- 
 1.7.7.4
