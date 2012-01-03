@@ -1,44 +1,91 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net_sched: qdisc_alloc_handle() can be too
- slow
-Date: Tue, 03 Jan 2012 13:03:53 -0500 (EST)
-Message-ID: <20120103.130353.716810185692904362.davem@davemloft.net>
-References: <1325584697.2320.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1325584811.2320.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [PATCH] CAN MAINTAINERS update
+Date: Tue, 03 Jan 2012 19:40:28 +0100
+Message-ID: <4F034B9C.2030106@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dave.taht@gmail.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41056 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754180Ab2ACSD4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 13:03:56 -0500
-In-Reply-To: <1325584811.2320.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+To: Linux Netdev List <netdev@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 03 Jan 2012 11:00:11 +0100
+Update the CAN MAINTAINERS section:
 
-> When trying to allocate ~32768 qdiscs using autohandle mechanism, we can
-> fill the space managed by kernel (handles in [8000-FFFF]:0000 range)
-> 
-> But O(N^2) qdisc_alloc_handle() loops 0x10000 times instead of 0x8000
-> 
-> time tc add qdisc add dev eth0 parent 10:7fff pfifo limit 10
-> RTNETLINK answers: Cannot allocate memory
-> real    1m54.826s
-> user    0m0.000s
-> sys     0m0.004s
-> 
-> INFO: rcu_sched_state detected stall on CPU 0 (t=60000 jiffies)
-> 
-> Half number of loops, and add a cond_resched() call.
-> We hold rtnl at this point.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Dave Taht <dave.taht@gmail.com>
+- point out active maintainers
+- pull the CAN driver discussion away from netdev ML
+- point to the new CAN web site on gitorious.org
+- add CAN development git repository URL to submit patches
 
-Applied, thanks Eric.  I always cringed when I looked at this function :)
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+
+CC: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+CC: Urs Thuermann <urs.thuermann@volkswagen.de>
+CC: Wolfgang Grandegger <wg@grandegger.com>
+CC: Marc Kleine-Budde <mkl@pengutronix.de>
+CC: linux-can@vger.kernel.org
+
+---
+
+Hello Dave,
+
+this is the updated MAINTAINERS section for the CAN subsystem.
+
+As Marc Kleine-Budde will send upcoming git pull requests we discussed, if we
+would need an additional section like this ...
+
+NETWORKING [CAN]
+M:	Marc Kleine-Budde <mkl@pengutronix.de>
+L:	linux-can@vger.kernel.org
+W:	http://gitorious.org/linux-can
+T:	git://gitorious.org/linux-can/linux-can-next.git
+S:	Maintained
+F:	net/can/
+F:	drivers/net/can/
+F:	include/linux/can*
+
+to make sure for you, who's sending the pull requests ...
+
+Is this really needed or is it ok for you like it is below?
+
+Regards,
+Oliver
+
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index dbf3d94..59ce369 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1698,11 +1698,9 @@ F:	arch/x86/include/asm/tce.h
+
+ CAN NETWORK LAYER
+ M:	Oliver Hartkopp <socketcan@hartkopp.net>
+-M:	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+-M:	Urs Thuermann <urs.thuermann@volkswagen.de>
+ L:	linux-can@vger.kernel.org
+-L:	netdev@vger.kernel.org
+-W:	http://developer.berlios.de/projects/socketcan/
++W:	http://gitorious.org/linux-can
++T:	git://gitorious.org/linux-can/linux-can-next.git
+ S:	Maintained
+ F:	net/can/
+ F:	include/linux/can.h
+@@ -1713,9 +1711,10 @@ F:	include/linux/can/gw.h
+
+ CAN NETWORK DRIVERS
+ M:	Wolfgang Grandegger <wg@grandegger.com>
++M:	Marc Kleine-Budde <mkl@pengutronix.de>
+ L:	linux-can@vger.kernel.org
+-L:	netdev@vger.kernel.org
+-W:	http://developer.berlios.de/projects/socketcan/
++W:	http://gitorious.org/linux-can
++T:	git://gitorious.org/linux-can/linux-can-next.git
+ S:	Maintained
+ F:	drivers/net/can/
+ F:	include/linux/can/dev.h
+
