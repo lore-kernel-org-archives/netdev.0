@@ -1,7 +1,7 @@
 From: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
-Subject: [PATCH 2/4] CS89x0 : add CS89x0 platform device to the iMX21ADS board
-Date: Tue,  3 Jan 2012 23:12:10 +0100
-Message-ID: <1325628732-14535-2-git-send-email-jaccon.bastiaansen@gmail.com>
+Subject: [PATCH 4/4] CS89x0 : remove QQ2440 board support from the CS89x0 driver
+Date: Tue,  3 Jan 2012 23:12:12 +0100
+Message-ID: <1325628732-14535-4-git-send-email-jaccon.bastiaansen@gmail.com>
 References: <1325628732-14535-1-git-send-email-jaccon.bastiaansen@gmail.com>
 Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
 To: s.hauer@pengutronix.de, kernel@pengutronix.de,
@@ -10,74 +10,60 @@ To: s.hauer@pengutronix.de, kernel@pengutronix.de,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-ee0-f46.google.com ([74.125.83.46]:51206 "EHLO
 	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755012Ab2ACWMt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 17:12:49 -0500
+	with ESMTP id S1755406Ab2ACWM7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 17:12:59 -0500
 Received: by mail-ee0-f46.google.com with SMTP id c4so16247808eek.19
-        for <netdev@vger.kernel.org>; Tue, 03 Jan 2012 14:12:48 -0800 (PST)
+        for <netdev@vger.kernel.org>; Tue, 03 Jan 2012 14:12:59 -0800 (PST)
 In-Reply-To: <1325628732-14535-1-git-send-email-jaccon.bastiaansen@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add CS89x0 networking support to the iMX21ADS board by using the
-platform driver support in the CS89x0 driver.
+The QQ2440 board isn't supported anymore in the kernel, so support
+for this board can be removed from the CS89x0 driver.
 
 Signed-off-by: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
 ---
- arch/arm/configs/imx_v4_v5_defconfig |    2 ++
- arch/arm/mach-imx/mach-mx21ads.c     |   21 +++++++++++++++++++++
- 2 files changed, 23 insertions(+), 0 deletions(-)
+ drivers/net/Space.c                  |    2 +-
+ drivers/net/ethernet/cirrus/cs89x0.c |    7 -------
+ 2 files changed, 1 insertions(+), 8 deletions(-)
 
-diff --git a/arch/arm/configs/imx_v4_v5_defconfig b/arch/arm/configs/imx_v4_v5_defconfig
-index 11a4192..fc0106f 100644
---- a/arch/arm/configs/imx_v4_v5_defconfig
-+++ b/arch/arm/configs/imx_v4_v5_defconfig
-@@ -81,6 +81,8 @@ CONFIG_NET_ETHERNET=y
- CONFIG_SMC91X=y
- CONFIG_DM9000=y
- CONFIG_SMC911X=y
-+CONFIG_CS89x0=y
-+CONFIG_CS89x0_PLATFORM=y
- # CONFIG_NETDEV_1000 is not set
- # CONFIG_NETDEV_10000 is not set
- # CONFIG_INPUT_MOUSEDEV is not set
-diff --git a/arch/arm/mach-imx/mach-mx21ads.c b/arch/arm/mach-imx/mach-mx21ads.c
-index 25f8402..b26b49c 100644
---- a/arch/arm/mach-imx/mach-mx21ads.c
-+++ b/arch/arm/mach-imx/mach-mx21ads.c
-@@ -159,6 +159,26 @@ static struct platform_device mx21ads_nor_mtd_device = {
- 	.resource = &mx21ads_flash_resource,
- };
+diff --git a/drivers/net/Space.c b/drivers/net/Space.c
+index 04c4561..2e9c222 100644
+--- a/drivers/net/Space.c
++++ b/drivers/net/Space.c
+@@ -191,7 +191,7 @@ static struct devprobe2 isa_probes[] __initdata = {
+ #endif
+ #ifdef CONFIG_CS89x0
+ #if !defined(CONFIG_CS89x0_PLATFORM) || defined(CONFIG_MACH_IXDP2351) || \
+-	defined(CONFIG_ARCH_IXDP2X01) || defined(CONFIG_MACH_QQ2440)
++	defined(CONFIG_ARCH_IXDP2X01)
+  	{cs89x0_probe, 0},
+ #endif
+ #endif
+diff --git a/drivers/net/ethernet/cirrus/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
+index 01cbf57..ba32c13 100644
+--- a/drivers/net/ethernet/cirrus/cs89x0.c
++++ b/drivers/net/ethernet/cirrus/cs89x0.c
+@@ -185,10 +185,6 @@ static unsigned int cs8900_irq_map[] = {IRQ_IXDP2351_CS8900, 0, 0, 0};
+ #elif defined(CONFIG_ARCH_IXDP2X01)
+ static unsigned int netcard_portlist[] __used __initdata = {IXDP2X01_CS8900_VIRT_BASE, 0};
+ static unsigned int cs8900_irq_map[] = {IRQ_IXDP2X01_CS8900, 0, 0, 0};
+-#elif defined(CONFIG_MACH_QQ2440)
+-#include <mach/qq2440.h>
+-static unsigned int netcard_portlist[] __used __initdata = { QQ2440_CS8900_VIRT_BASE + 0x300, 0 };
+-static unsigned int cs8900_irq_map[] = { QQ2440_CS8900_IRQ, 0, 0, 0 };
+ #else
+ /*
+  * Counter for the number of CS89x0 platform device instances, which is needed
+@@ -539,9 +535,6 @@ cs89x0_probe1(struct net_device *dev, int ioaddr, int modular)
+ 		lp->force = g_cs89x0_media__force;
+ #endif
  
-+static struct resource mx21ads_cs8900_resources[] = {
-+	{
-+		.start = (u32)MX21ADS_CS8900A_IOBASE_REG,
-+		.end = (u32)MX21ADS_CS8900A_IOBASE_REG + 0x200000 - 1,
-+		.flags = IORESOURCE_MEM
-+	},
-+	{
-+		.start = MX21ADS_CS8900A_IRQ,
-+		.end = MX21ADS_CS8900A_IRQ,
-+		.flags = IORESOURCE_IRQ
-+	}
-+};
-+
-+static struct platform_device mx21ads_cs8900_device = {
-+	.name = "cs89x0",
-+	.id = 0,
-+	.num_resources = ARRAY_SIZE(mx21ads_cs8900_resources),
-+	.resource = mx21ads_cs8900_resources
-+};
-+
- static const struct imxuart_platform_data uart_pdata_rts __initconst = {
- 	.flags = IMXUART_HAVE_RTSCTS,
- };
-@@ -275,6 +295,7 @@ static void __init mx21ads_map_io(void)
+-#if defined(CONFIG_MACH_QQ2440)
+-		lp->force |= FORCE_RJ45 | FORCE_FULL;
+-#endif
+         }
  
- static struct platform_device *platform_devices[] __initdata = {
- 	&mx21ads_nor_mtd_device,
-+	&mx21ads_cs8900_device
- };
- 
- static void __init mx21ads_board_init(void)
+ 	/* Grab the region so we can find another board if autoIRQ fails. */
 -- 
 1.7.1
