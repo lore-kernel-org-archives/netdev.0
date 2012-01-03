@@ -1,71 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [RFC] SFQ planned changes
-Date: Tue, 03 Jan 2012 11:40:35 +0100
-Message-ID: <1325587235.2320.37.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1325385056.4174.51.camel@denise.theartistscloset.com>
-	 <21734335.uCtjXOcSpA@alaris>
-	 <CAA93jw5NYChp+hKWjOWiw7SnGhNe+REofr2KM-85GnKNVpkw6w@mail.gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 06/19] netfilter: nf_conntrack: use atomic64 for accounting counters
+Date: Tue, 3 Jan 2012 12:01:27 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AF28@saturn3.aculab.com>
+References: <1324778255-2830-7-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michal =?UTF-8?Q?Kube=C4=8Dek?= <mkubecek@suse.cz>,
-	netdev@vger.kernel.org,
-	"John A. Sullivan III" <jsullivan@opensourcedevel.com>
-To: Dave Taht <dave.taht@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:39733 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752125Ab2ACKkj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 05:40:39 -0500
-Received: by lahd3 with SMTP id d3so3660030lah.19
-        for <netdev@vger.kernel.org>; Tue, 03 Jan 2012 02:40:38 -0800 (PST)
-In-Reply-To: <CAA93jw5NYChp+hKWjOWiw7SnGhNe+REofr2KM-85GnKNVpkw6w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <pablo@netfilter.org>, <netfilter-devel@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <1324778255-2830-7-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 03 janvier 2012 =C3=A0 10:36 +0100, Dave Taht a =C3=A9crit :
+ 
+>  		if (acct) {
+> -			spin_lock_bh(&ct->lock);
+> -			acct[CTINFO2DIR(ctinfo)].packets++;
+> -			acct[CTINFO2DIR(ctinfo)].bytes += skb->len;
+> -			spin_unlock_bh(&ct->lock);
+> +			atomic64_inc(&acct[CTINFO2DIR(ctinfo)].packets);
+> +			atomic64_add(skb->len,
+&acct[CTINFO2DIR(ctinfo)].bytes);
+>  		}
 
-> I note that (as of yesterday) sfq is performing as well as qfq did
-> under most workloads, and is considerably simpler than qfq, but
-> what I have in mind for shaping in a asymmetric scenario
-> *may* involve 'weighting' - rather than strictly prioritizing -
-> small acks... and it may not - I'd like to be able to benchmark
-> the various AQM approaches against a variety of workloads
-> before declaring victory.
+On a 32bit arch the two atomic64 operations require a locked
+bus cycle each. The spin_unlock_bh() may not need one - so
+the code may now be slower (modulo lock contention etc).
 
+Probably worth caching &acct[CTINFO2DIR(ctinfo)] in a local,
+the compiler probably can't do it itself.
 
-A QFQ setup with more than 1024 classes/qdisc is way too slow at init
-time, and consume ~384 bytes per class : ~12582912 bytes for 32768
-classes.
-
-We also are limited to 65536 qdisc per device, so QFQ setup using hash
-is limited to a 32768 divisor.
+	David
 
 
-Now SFQ as implemented in Linux is very limited, with at most 127 flows
-and limit of 127 packets. [ So if 127 flows are active, we have one
-packet per flow ]
-
-I plan to add to SFQ following features :
-
-- Ability to specify a per flow limit=20
-     Its what is called the 'depth',
-     currently hardcoded to min(127, limit)
-
-- Ability to have up to 65535 flows (instead of 127)
-
-- Ability to have a head drop (to drop old packets from a flow)
-
-example of use : No more than 20 packets per flow, max 8000 flows, max
-20000 packets in SFQ qdisc, hash table of 65536 slots.
-
-tc qdisc add ... sfq \
-	flows 8000 \
-	depth 20 \
-	headdrop \
-	limit 20000 divisor 65536
-
-Ram usage : 32 bytes per flow, instead of 384 for QFQ, so much better
-cache hit ratio. 2 bytes per hash table slots, instead of 8 for QFQ.
-
-(perturb timer for a huge SFQ setup would be not recommended)
