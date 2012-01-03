@@ -1,36 +1,62 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] netfilter: Fix br_nf_pre_routing() in conjunction with
- bridge-nf-call-ip(6)tables=0
-Date: Tue, 3 Jan 2012 08:15:21 -0800
-Message-ID: <20120103081521.2fec3a29@nehalam.linuxnetplumber.net>
-References: <4F025A07.2000304@nod.at>
-	<1325597164-13459-1-git-send-email-richard@nod.at>
-	<1325597164-13459-2-git-send-email-richard@nod.at>
+Subject: Re: [PATCH] sch_qfq: fix overflow in qfq_update_start()
+Date: Tue, 3 Jan 2012 08:25:57 -0800
+Message-ID: <20120103082557.5c5cb962@nehalam.linuxnetplumber.net>
+References: <1325519277.2375.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Richard Weinberger <richard@nod.at>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1325597164-13459-2-git-send-email-richard@nod.at>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Dave Taht <dave.taht@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Luigi Rizzo <rizzo@iet.unipi.it>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:40987 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753947Ab2ACQ0A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jan 2012 11:26:00 -0500
+In-Reply-To: <1325519277.2375.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue,  3 Jan 2012 14:26:04 +0100
-Richard Weinberger <richard@nod.at> wrote:
+On Mon, 02 Jan 2012 16:47:57 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> If net.bridge.bridge-nf-call-iptables or net.bridge.bridge-nf-call-ip6tables
-> are set to zero xt_physdev has no effect because skb->nf_bridge has not been set up.
+> grp->slot_shift is between 22 and 41, so using 32bit wide variables is
+> probably a typo.
 > 
-> Signed-off-by: Richard Weinberger <richard@nod.at>
+> This could explain QFQ hangs Dave reported to me, after 2^23 packets ?
+> 
+> (23 = 64 - 41)
+> 
+> Reported-by: Dave Taht <dave.taht@gmail.com>
+> CC: Stephen Hemminger <shemminger@vyatta.com>
+> CC: Dave Taht <dave.taht@gmail.com>
+> ---
+>  net/sched/sch_qfq.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
+> index 1033434..7b03254 100644
+> --- a/net/sched/sch_qfq.c
+> +++ b/net/sched/sch_qfq.c
+> @@ -817,11 +817,11 @@ skip_unblock:
+>  static void qfq_update_start(struct qfq_sched *q, struct qfq_class *cl)
+>  {
+>  	unsigned long mask;
+> -	uint32_t limit, roundedF;
+> +	u64 limit, roundedF;
+>  	int slot_shift = cl->grp->slot_shift;
+>  
+>  	roundedF = qfq_round_down(cl->F, slot_shift);
+> -	limit = qfq_round_down(q->V, slot_shift) + (1UL << slot_shift);
+> +	limit = qfq_round_down(q->V, slot_shift) + (1ULL << slot_shift);
+>  
+>  	if (!qfq_gt(cl->F, q->V) || qfq_gt(roundedF, limit)) {
+>  		/* timestamp was stale */
+> 
+> 
 
-I am not sure if this is a valid configuration. The setting of sysctl is saying
-"don't do iptables on bridge (since I won't be using it)" and then you are later
-doing iptables and expecting the settings as if the iptables setup was being
-done.
 
-Instead, you should just enable the net.bridge.bridge-nf-call-iptables sysctl.
-If a distro chooses to disable it then you may have to do it explicitly.
-
+You need to copy the BSD developers on these patches since
+most of the code came from them and FreeBSD probably still has same bug!
