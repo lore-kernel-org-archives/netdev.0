@@ -1,34 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 05/11] netdev: FCoE: Add new ndo_get_fcoe_hbainfo()
- call
-Date: Tue, 03 Jan 2012 15:07:42 -0500 (EST)
-Message-ID: <20120103.150742.289215241240567940.davem@davemloft.net>
+Subject: Re: [net-next 07/11] e1000e: cleanup Rx checksum offload code
+Date: Tue, 03 Jan 2012 15:08:42 -0500 (EST)
+Message-ID: <20120103.150842.1516759599032629705.davem@davemloft.net>
 References: <1325618356-2655-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1325618356-2655-6-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1325618356-2655-8-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Neerav.Parikh@intel.com, netdev@vger.kernel.org, gospo@redhat.com,
+Cc: bruce.w.allan@intel.com, netdev@vger.kernel.org, gospo@redhat.com,
 	sassmann@redhat.com
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42254 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:42266 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754731Ab2ACUHq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 15:07:46 -0500
-In-Reply-To: <1325618356-2655-6-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1754731Ab2ACUIp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 15:08:45 -0500
+In-Reply-To: <1325618356-2655-8-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue,  3 Jan 2012 11:19:10 -0800
+Date: Tue,  3 Jan 2012 11:19:12 -0800
 
-> +	int			(*ndo_fcoe_get_hbainfo)(struct net_device *dev,
-> +					struct netdev_fcoe_hbainfo *hbainfo);
+> -		__sum16 sum = (__force __sum16)htons(csum);
+> +		__sum16 sum = (__force __sum16)htons(le16_to_cpu(csum));
 
-Please line up the second line's argument correctly, it should be:
-
-> +	int			(*ndo_fcoe_get_hbainfo)(struct net_device *dev,
-> +							struct netdev_fcoe_hbainfo *hbainfo);
-
-Thanks.
+Looks like a NOP.  It's essentially "cpu_to_le16(le16_to_cpu(csum)" as
+far as I can tell.
