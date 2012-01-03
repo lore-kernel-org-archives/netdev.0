@@ -1,43 +1,38 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH net-next] tcp: Fix bug in ofo queue pruning MIB stats
-Date: Tue, 03 Jan 2012 15:10:41 -0800
-Message-ID: <4F038AF1.3040307@hp.com>
-References: <1324511401-2640-1-git-send-email-subramanian.vijay@gmail.com> <20111221.193315.2134174670572741208.davem@davemloft.net> <CAGK4HS8g41A8KB9iqyabZN85Ytgb+HPk3wwvoOuwkk8s9+iuCA@mail.gmail.com> <20111221.221511.1067604757446412302.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next 2011-01-03
+Date: Tue, 03 Jan 2012 18:18:13 -0500 (EST)
+Message-ID: <20120103.181813.578384244467512432.davem@davemloft.net>
+References: <20120103210912.GB24318@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: subramanian.vijay@gmail.com, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:43009 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753362Ab2ACXKo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 18:10:44 -0500
-In-Reply-To: <20111221.221511.1067604757446412302.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120103210912.GB24318-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 12/21/2011 07:15 PM, David Miller wrote:
-> From: Vijay Subramanian<subramanian.vijay@gmail.com>
-> Date: Wed, 21 Dec 2011 17:14:05 -0800
->
->> If the counter is tracking the right thing, is it worth fixing
->> netstat?
->
-> Probably.
->
-> The thing is, I can see both intepretations being useful.
->
-> If we count packets, we can't tell that OFO pruning happened 4 times
-> vs. we pruned 4 packets.
->
-> But if you want to know the "extent" to which OFO pruning occurs, then
-> you want the packet count.
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Tue, 3 Jan 2012 16:09:13 -0500
 
-Starting from the premise that the *primary* goal of netstat is to allow 
-end users/admins to know about packet loss events and how they correlate 
-with retransmissions, were I to have a "vote" it would be "count the 
-packets."
+> commit 57adc1fcbae2c13104ce291b40f23e40a414fa87
+> 
+> Dave,
+> 
+> I had planned to send a pull request before Christmas, but apparently
+> I forgot.  So, I reckon this batch of updates got a little extra
+> testing in linux-next over the past week or so. :-)
+> 
+> This one is kinda big, with pulls from the ath6kl, bluetooth, iwlwifi,
+> and wl12xx trees.  The brcm80211 team showed a lot of activity,
+> and both the mwifies and the b43 guys made good showings as well.
+> A couple of NFC updates and a handful of other bits round things out.
+> 
+> Please let me know if there are problems!
 
-rick jones
+Pulled, thanks John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
