@@ -1,47 +1,92 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/11] e1000e: re-enable alternate MAC address for all devices which support it
-Date: Tue,  3 Jan 2012 11:19:14 -0800
-Message-ID: <1325618356-2655-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/11] netdev: FCoE: Add new ndo_get_fcoe_hbainfo() call
+Date: Tue,  3 Jan 2012 11:19:10 -0800
+Message-ID: <1325618356-2655-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1325618356-2655-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+Cc: Neerav Parikh <Neerav.Parikh@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:57343 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:48412 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754802Ab2ACTTs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jan 2012 14:19:48 -0500
+	id S1754680Ab2ACTTr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jan 2012 14:19:47 -0500
 In-Reply-To: <1325618356-2655-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Neerav Parikh <Neerav.Parikh@intel.com>
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+This adds a new ndo_get_fcoe_hbainfo() call in
+net_device_ops for FCoE protocol stack.
+
+If supported by the underlying device, the FCoE protocol
+stack will call this to get device specific information
+from the underlying device.
+This information will then be utilized by the FCoE protocol
+stack to register Fiber Channel HBA attributes with the
+Fiber Channel Management Service via Fabric Device
+Management Interface (FDMI) as per the T11 FC-GS
+specification.
+
+Signed-off-by: Neerav Parikh <Neerav.Parikh@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/lib.c |    7 ++-----
- 1 files changed, 2 insertions(+), 5 deletions(-)
+ include/linux/netdevice.h |   26 ++++++++++++++++++++++++++
+ 1 files changed, 26 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/lib.c b/drivers/net/ethernet/intel/e1000e/lib.c
-index 0893ab1..78e3f4c 100644
---- a/drivers/net/ethernet/intel/e1000e/lib.c
-+++ b/drivers/net/ethernet/intel/e1000e/lib.c
-@@ -187,11 +187,8 @@ s32 e1000_check_alt_mac_addr_generic(struct e1000_hw *hw)
- 	if (ret_val)
- 		goto out;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index a776a67..4009ce6 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -707,6 +707,23 @@ struct netdev_tc_txq {
+ 	u16 offset;
+ };
  
--	/* Check for LOM (vs. NIC) or one of two valid mezzanine cards */
--	if (!((nvm_data & NVM_COMPAT_LOM) ||
--	      (hw->adapter->pdev->device == E1000_DEV_ID_82571EB_SERDES_DUAL) ||
--	      (hw->adapter->pdev->device == E1000_DEV_ID_82571EB_SERDES_QUAD) ||
--	      (hw->adapter->pdev->device == E1000_DEV_ID_82571EB_SERDES)))
-+	/* not supported on older hardware or 82573 */
-+	if ((hw->mac.type < e1000_82571) || (hw->mac.type == e1000_82573))
- 		goto out;
++#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
++/*
++ * This structure is to hold information about the device
++ * configured to run FCoE protocol stack.
++ */
++struct netdev_fcoe_hbainfo {
++	char	manufacturer[64];
++	char	serial_number[64];
++	char	hardware_version[64];
++	char	driver_version[64];
++	char	optionrom_version[64];
++	char	firmware_version[64];
++	char	model[256];
++	char	model_description[256];
++};
++#endif
++
+ /*
+  * This structure defines the management hooks for network devices.
+  * The following hooks can be defined; unless noted otherwise, they are
+@@ -847,6 +864,13 @@ struct netdev_tc_txq {
+  *	perform necessary setup and returns 1 to indicate the device is set up
+  *	successfully to perform DDP on this I/O, otherwise this returns 0.
+  *
++ * int (*ndo_fcoe_get_hbainfo)(struct net_device *dev,
++ *			       struct netdev_fcoe_hbainfo *hbainfo);
++ *	Called when the FCoE Protocol stack wants information on the underlying
++ *	device. This information is utilized by the FCoE protocol stack to
++ *	register attributes with Fiber Channel management service as per the
++ *	FC-GS Fabric Device Management Information(FDMI) specification.
++ *
+  * int (*ndo_fcoe_get_wwn)(struct net_device *dev, u64 *wwn, int type);
+  *	Called when the underlying device wants to override default World Wide
+  *	Name (WWN) generation mechanism in FCoE protocol stack to pass its own
+@@ -950,6 +974,8 @@ struct net_device_ops {
+ 						       u16 xid,
+ 						       struct scatterlist *sgl,
+ 						       unsigned int sgc);
++	int			(*ndo_fcoe_get_hbainfo)(struct net_device *dev,
++					struct netdev_fcoe_hbainfo *hbainfo);
+ #endif
  
- 	ret_val = e1000_read_nvm(hw, NVM_ALT_MAC_ADDR_PTR, 1,
+ #if IS_ENABLED(CONFIG_LIBFCOE)
 -- 
 1.7.7.4
