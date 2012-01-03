@@ -1,103 +1,122 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: RE: [PATCH net-next] igb: Add support for byte queue limits.
-Date: Tue, 03 Jan 2012 02:15:58 -0800
-Message-ID: <1325585758.2428.13.camel@jtkirshe-mobl>
-References: <1324480695.2301.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111221.144207.1402252938319338463.davem@davemloft.net>
-	 <9BBC4E0CF881AA4299206E2E1412B626011AB6@ORSMSX102.amr.corp.intel.com>
-	 <1325570866.2874.10.camel@edumazet-laptop>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: [PATCH net-next v2] net_sched: qdisc_alloc_handle() can be too slow
+Date: Tue, 3 Jan 2012 11:23:25 +0100
+Message-ID: <CAA93jw4uzOZPGsQt-+JqBCtHfu+s8ivLL8Vnb1+tds56r7FK1A@mail.gmail.com>
+References: <1325584697.2320.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<1325584811.2320.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ihrUwO2+Sl4ML/08rpLC"
-Cc: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:63305 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751347Ab2ACKQA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jan 2012 05:16:00 -0500
-In-Reply-To: <1325570866.2874.10.camel@edumazet-laptop>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:42782 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751347Ab2ACKX1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 05:23:27 -0500
+Received: by iaeh11 with SMTP id h11so30680766iae.19
+        for <netdev@vger.kernel.org>; Tue, 03 Jan 2012 02:23:26 -0800 (PST)
+In-Reply-To: <1325584811.2320.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Jan 3, 2012 at 11:00 AM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> When trying to allocate ~32768 qdiscs using autohandle mechanism, we =
+can
+> fill the space managed by kernel (handles in [8000-FFFF]:0000 range)
+>
+> But O(N^2) qdisc_alloc_handle() loops 0x10000 times instead of 0x8000
+>
+> time tc add qdisc add dev eth0 parent 10:7fff pfifo limit 10
+> RTNETLINK answers: Cannot allocate memory
+> real =A0 =A01m54.826s
+> user =A0 =A00m0.000s
+> sys =A0 =A0 0m0.004s
+>
+> INFO: rcu_sched_state detected stall on CPU 0 (t=3D60000 jiffies)
+>
+> Half number of loops, and add a cond_resched() call.
+> We hold rtnl at this point.
+>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Dave Taht <dave.taht@gmail.com>
+> ---
+> v2: With the patch itself :)
+>
+> Next move is using rb-tree instead of a linked list, to speedup
+> qdisc_lookup(). A complex qdisc setup is way too slow.
+>
+> =A0net/sched/sch_api.c | =A0 14 +++++++++-----
+> =A01 file changed, 9 insertions(+), 5 deletions(-)
+>
+> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+> index dca6c1a..3d8981f 100644
+> --- a/net/sched/sch_api.c
+> +++ b/net/sched/sch_api.c
+> @@ -618,20 +618,24 @@ void qdisc_class_hash_remove(struct Qdisc_class=
+_hash *clhash,
+> =A0}
+> =A0EXPORT_SYMBOL(qdisc_class_hash_remove);
+>
+> -/* Allocate an unique handle from space managed by kernel */
+> -
+> +/* Allocate an unique handle from space managed by kernel
+> + * Possible range is [8000-FFFF]:0000 (0x8000 values)
+> + */
+> =A0static u32 qdisc_alloc_handle(struct net_device *dev)
+> =A0{
+> - =A0 =A0 =A0 int i =3D 0x10000;
+> + =A0 =A0 =A0 int i =3D 0x8000;
+> =A0 =A0 =A0 =A0static u32 autohandle =3D TC_H_MAKE(0x80000000U, 0);
+>
+> =A0 =A0 =A0 =A0do {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0autohandle +=3D TC_H_MAKE(0x10000U, 0)=
+;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (autohandle =3D=3D TC_H_MAKE(TC_H_R=
+OOT, 0))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0autohandle =3D TC_H_MA=
+KE(0x80000000U, 0);
+> - =A0 =A0 =A0 } while (qdisc_lookup(dev, autohandle) && --i > 0);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!qdisc_lookup(dev, autohandle))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return autohandle;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 cond_resched();
+> + =A0 =A0 =A0 } while (--i > 0);
+>
+> - =A0 =A0 =A0 return i > 0 ? autohandle : 0;
+> + =A0 =A0 =A0 return 0;
+> =A0}
+>
+> =A0void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
+>
+>
 
---=-ihrUwO2+Sl4ML/08rpLC
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I take it this is from you trying to allocate XXk bins in staqfq.lua
+and watching it
+go boom? I'll gladly go and try to break more stuff if you like. :)
 
-On Tue, 2012-01-03 at 07:07 +0100, Eric Dumazet wrote:
-> Le mercredi 21 d=C3=A9cembre 2011 =C3=A0 21:17 +0000, Wyborny, Carolyn a =
-=C3=A9crit :
-> >=20
-> > >-----Original Message-----
-> > >From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.or=
-g]
-> > >On Behalf Of David Miller
-> > >Sent: Wednesday, December 21, 2011 11:42 AM
-> > >To: eric.dumazet@gmail.com
-> > >Cc: netdev@vger.kernel.org; Kirsher, Jeffrey T; Duyck, Alexander H
-> > >Subject: Re: [PATCH net-next] igb: Add support for byte queue limits.
-> > >
-> > >From: Eric Dumazet <eric.dumazet@gmail.com>
-> > >Date: Wed, 21 Dec 2011 16:18:15 +0100
-> > >
-> > >> This adds support for byte queue limits (BQL)
-> > >>
-> > >> Since this driver collects bytes count in 'bytecount' field, use it
-> > >also
-> > >> in igb_tx_map()
-> > >>
-> > >> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> > >> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > >> CC: Alexander Duyck <alexander.h.duyck@intel.com>
-> > >
-> > >Intel folks, you got this?
-> > >--
-> > >To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > >the body of a message to majordomo@vger.kernel.org
-> > >More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >=20
-> > Yes, although many are out for the holidays.=20
-> >=20
-> > ACK.  We'll get it into our queue for testing.
->=20
-> Any news on this patch ?
->=20
-> I would like it being added for next merge window.
->=20
-> By the way I did test it on my machine.
->=20
-> Thanks
->=20
+I ran yesterday's patches for sfq, and qfq on net-next all night on an =
+x86 box,
+successfully, on e1000e to ag71xx.
 
-Yes, it passed testing, so I will push it in my next series of patches.
-Just waiting on the current series to be accepted before I push it.
+I'm not willing to declare victory on  QFQ yet, it was a really
+hard problem to trigger... give me a day on it...
 
---=-ihrUwO2+Sl4ML/08rpLC
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+I'm testing the backport of those two patches to 3.1.6
+ (no porting needed, they just apply) on cerowrt now, then I'm going to=
+ setup
+a fairly complex scenario (wireless,wired, 7-8 machines) in bloatlab #2
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+The wireless data I got a couple days back is rather noisy but the
+median is promising.
 
-iQIcBAABCgAGBQJPAtVeAAoJEOVv75VaS+3O4CYQAJNfIVDlnYQ2YvInZlhA+gx3
-+SjEQNM+ixbCw5h4MvvbIh/Y4hfSaCFzMYWx6Uv10A1V4Mva0GGO0sOXOv28GNd0
-ch/e6acSdAdUCTF//575gL6NtCYfMie+JKMQb0YL0Kwbc1brFkHCmOIDBVblEpzP
-tfRljHzryiXfNEomhK0/XvSiCv37YjR1GjWIb77MIlcNor6lp/oSyx7hR1wgib9b
-wZNwm0cyN2Blx+ZmYGCONBJIOseu2mt6sZZc5fPans6jxpc2vdhtjuB6bRcnMWCx
-RU9CGpyjYf7vpfSIUnIAxEOcKRnb1J3r1RbZ6U6shdlLKtQ1d8zAzFOlyoN83MIE
-j1j810wXu+y45U0fdi/5rUO/Bhp8sEJyLWFbrwW9DRFCyyTtXOfpPIXJ2q0d9tsk
-OFRsJGsZrJaLSLmL7BZYRarfq27blwtkwl5svBz70NwhCf57XP75iSFcVClsj3jk
-1XXKAdYWOGwMropZh66mErttKpl+btbn4H2U6qumoVgctezMQkbxkdHirIb74b18
-/JYilEBxC/c/a3uK7nUvbMfbNzkM79Zn0ZloEZj/3Nf2e2u1qY/ULsFBpOUZarra
-PV7N2kJv4xeICI0z+KHTLSFrT+7UgQbUSJOarnbL4EKwrA6r/LGXhjvgjeHIVJ34
-uX4ItkdFQ6RZcXvaZ9Pg
-=/tlC
------END PGP SIGNATURE-----
+http://www.teklibre.com/~d/bloat/wireless.qfqvspfifofast10iperfs.png
 
---=-ihrUwO2+Sl4ML/08rpLC--
+I'll get a lot more over the next few days and smooth it out.
+
+--=20
+Dave T=E4ht
+SKYPE: davetaht
+US Tel: 1-239-829-5608
+=46R Tel: 0638645374
+http://www.bufferbloat.net
