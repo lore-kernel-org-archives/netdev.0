@@ -1,37 +1,34 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Why is gre0 auto-created, and can we fix it?
-Date: Tue, 03 Jan 2012 12:03:56 -0800
-Message-ID: <4F035F2C.1000003@candelatech.com>
-References: <4F035BDE.5060409@candelatech.com> <20120103.145931.2188599484081157576.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 05/11] netdev: FCoE: Add new ndo_get_fcoe_hbainfo()
+ call
+Date: Tue, 03 Jan 2012 15:07:42 -0500 (EST)
+Message-ID: <20120103.150742.289215241240567940.davem@davemloft.net>
+References: <1325618356-2655-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1325618356-2655-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Neerav.Parikh@intel.com, netdev@vger.kernel.org, gospo@redhat.com,
+	sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:38677 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753710Ab2ACUEC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 15:04:02 -0500
-In-Reply-To: <20120103.145931.2188599484081157576.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:42254 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754731Ab2ACUHq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 15:07:46 -0500
+In-Reply-To: <1325618356-2655-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/03/2012 11:59 AM, David Miller wrote:
-> From: Ben Greear<greearb@candelatech.com>
-> Date: Tue, 03 Jan 2012 11:49:50 -0800
->
->> As far as I can tell, no other interfaces are auto-created
->> in this manner.
->
-> ip6tnl0 and sit0 do it too, just grep for alloc_netdev() under
-> net/{ipv4,ipv6}/
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue,  3 Jan 2012 11:19:10 -0800
 
-So, no changing the behaviour?
+> +	int			(*ndo_fcoe_get_hbainfo)(struct net_device *dev,
+> +					struct netdev_fcoe_hbainfo *hbainfo);
 
-Thanks,
-Ben
+Please line up the second line's argument correctly, it should be:
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+> +	int			(*ndo_fcoe_get_hbainfo)(struct net_device *dev,
+> +							struct netdev_fcoe_hbainfo *hbainfo);
+
+Thanks.
