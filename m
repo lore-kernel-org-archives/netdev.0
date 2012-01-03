@@ -1,69 +1,56 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 6/7] ixgbe: add support for new 82599 device id
-Date: Mon,  2 Jan 2012 17:50:50 -0800
-Message-ID: <1325555451-4697-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/7] igb: Add flow control advertising to ethtool setting.
+Date: Mon,  2 Jan 2012 17:50:46 -0800
+Message-ID: <1325555451-4697-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1325555451-4697-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:18965 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751254Ab2ACBu4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jan 2012 20:50:56 -0500
+	id S1751044Ab2ACBuz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jan 2012 20:50:55 -0500
 In-Reply-To: <1325555451-4697-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-Support for new 82599 based quad port adapter.
+Added pause flag for bi-directional flow control advertising to ethtool
+settings.
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c |    1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |    1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |    1 +
- 3 files changed, 3 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_ethtool.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index 4ae26a7..7720721 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -356,6 +356,7 @@ static enum ixgbe_media_type ixgbe_get_media_type_82599(struct ixgbe_hw *hw)
- 	case IXGBE_DEV_ID_82599_SFP_FCOE:
- 	case IXGBE_DEV_ID_82599_SFP_EM:
- 	case IXGBE_DEV_ID_82599_SFP_SF2:
-+	case IXGBE_DEV_ID_82599_SFP_SF_QP:
- 	case IXGBE_DEV_ID_82599EN_SFP:
- 		media_type = ixgbe_media_type_fiber;
- 		break;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index cd1f893..e27e4d1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -106,6 +106,7 @@ static DEFINE_PCI_DEVICE_TABLE(ixgbe_pci_tbl) = {
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_SFP_SF2), board_82599 },
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_LS), board_82599 },
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599EN_SFP), board_82599 },
-+	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_SFP_SF_QP), board_82599 },
- 	/* required last entry */
- 	{0, }
- };
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 242643a..7c5817f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -65,6 +65,7 @@
- #define IXGBE_SUBDEV_ID_82599_KX4_KR_MEZZ  0x000C
- #define IXGBE_DEV_ID_82599_LS            0x154F
- #define IXGBE_DEV_ID_X540T               0x1528
-+#define IXGBE_DEV_ID_82599_SFP_SF_QP     0x154A
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index e9335ef..f1206be 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -148,7 +148,8 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 				   SUPPORTED_1000baseT_Full|
+ 				   SUPPORTED_Autoneg |
+ 				   SUPPORTED_TP);
+-		ecmd->advertising = ADVERTISED_TP;
++		ecmd->advertising = (ADVERTISED_TP |
++				     ADVERTISED_Pause);
  
- /* VF Device IDs */
- #define IXGBE_DEV_ID_82599_VF           0x10ED
+ 		if (hw->mac.autoneg == 1) {
+ 			ecmd->advertising |= ADVERTISED_Autoneg;
+@@ -165,7 +166,8 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 
+ 		ecmd->advertising = (ADVERTISED_1000baseT_Full |
+ 				     ADVERTISED_FIBRE |
+-				     ADVERTISED_Autoneg);
++				     ADVERTISED_Autoneg |
++				     ADVERTISED_Pause);
+ 
+ 		ecmd->port = PORT_FIBRE;
+ 	}
 -- 
 1.7.7.4
