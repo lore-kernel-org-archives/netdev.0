@@ -1,53 +1,27 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: [PATCH] fix CAN MAINTAINERS SCM tree type
-Date: Tue, 03 Jan 2012 20:55:58 +0100
-Message-ID: <4F035D4E.2070108@hartkopp.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Why is gre0 auto-created, and can we fix it?
+Date: Tue, 03 Jan 2012 14:59:31 -0500 (EST)
+Message-ID: <20120103.145931.2188599484081157576.davem@davemloft.net>
+References: <4F035BDE.5060409@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Urs Thuermann <urs.thuermann@volkswagen.de>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Joe Perches <joe@perches.com>
-To: Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:42134 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752612Ab2ACT7d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 14:59:33 -0500
+In-Reply-To: <4F035BDE.5060409@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As pointed out by Joe Perches the SCM tree type was missing in my patch.
+From: Ben Greear <greearb@candelatech.com>
+Date: Tue, 03 Jan 2012 11:49:50 -0800
 
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> As far as I can tell, no other interfaces are auto-created
+> in this manner.
 
-CC: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-CC: Urs Thuermann <urs.thuermann@volkswagen.de>
-CC: Wolfgang Grandegger <wg@grandegger.com>
-CC: Marc Kleine-Budde <mkl@pengutronix.de>
-CC: linux-can@vger.kernel.org
-
----
-
-diff -u -r a/MAINTAINERS b/MAINTAINERS
---- a/MAINTAINERS	2012-01-03 20:48:07.160746574 +0100
-+++ b/MAINTAINERS	2012-01-03 20:48:51.208745047 +0100
-@@ -1700,7 +1700,7 @@
- M:	Oliver Hartkopp <socketcan@hartkopp.net>
- L:	linux-can@vger.kernel.org
- W:	http://gitorious.org/linux-can
--T:	git://gitorious.org/linux-can/linux-can-next.git
-+T:	git git://gitorious.org/linux-can/linux-can-next.git
- S:	Maintained
- F:	net/can/
- F:	include/linux/can.h
-@@ -1714,7 +1714,7 @@
- M:	Marc Kleine-Budde <mkl@pengutronix.de>
- L:	linux-can@vger.kernel.org
- W:	http://gitorious.org/linux-can
--T:	git://gitorious.org/linux-can/linux-can-next.git
-+T:	git git://gitorious.org/linux-can/linux-can-next.git
- S:	Maintained
- F:	drivers/net/can/
- F:	include/linux/can/dev.h
-
-
+ip6tnl0 and sit0 do it too, just grep for alloc_netdev() under
+net/{ipv4,ipv6}/
