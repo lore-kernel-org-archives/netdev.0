@@ -1,27 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Why is gre0 auto-created, and can we fix it?
-Date: Tue, 03 Jan 2012 14:59:31 -0500 (EST)
-Message-ID: <20120103.145931.2188599484081157576.davem@davemloft.net>
-References: <4F035BDE.5060409@candelatech.com>
+Subject: Re: [PATCH] fix CAN MAINTAINERS SCM tree type
+Date: Tue, 03 Jan 2012 14:57:57 -0500 (EST)
+Message-ID: <20120103.145757.1547355981123194868.davem@davemloft.net>
+References: <4F035D4E.2070108@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42134 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752612Ab2ACT7d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 14:59:33 -0500
-In-Reply-To: <4F035BDE.5060409@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	oliver.hartkopp@volkswagen.de, urs.thuermann@volkswagen.de,
+	wg@grandegger.com, mkl@pengutronix.de, joe@perches.com
+To: socketcan@hartkopp.net
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4F035D4E.2070108@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Tue, 03 Jan 2012 11:49:50 -0800
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Tue, 03 Jan 2012 20:55:58 +0100
 
-> As far as I can tell, no other interfaces are auto-created
-> in this manner.
+> As pointed out by Joe Perches the SCM tree type was missing in my patch.
+> 
+> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> 
+> CC: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+> CC: Urs Thuermann <urs.thuermann@volkswagen.de>
+> CC: Wolfgang Grandegger <wg@grandegger.com>
+> CC: Marc Kleine-Budde <mkl@pengutronix.de>
+> CC: linux-can@vger.kernel.org
 
-ip6tnl0 and sit0 do it too, just grep for alloc_netdev() under
-net/{ipv4,ipv6}/
+Applied, thanks.
