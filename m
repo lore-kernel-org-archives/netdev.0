@@ -1,8 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCHv2 net-next 6/8] sfc: Implement ethtool RX NFC rules API
- instead of n-tuple API
-Date: Tue, 3 Jan 2012 22:05:47 +0000
-Message-ID: <1325628347.2832.42.camel@bwh-desktop>
+Subject: [PATCHv2 net-next 7/8] sfc: Remove now-unused filter function
+Date: Tue, 3 Jan 2012 22:05:58 +0000
+Message-ID: <1325628358.2832.43.camel@bwh-desktop>
 References: <1325627819.2832.31.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,287 +9,90 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:36904 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:36910 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754891Ab2ACWFv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 17:05:51 -0500
+	by vger.kernel.org with ESMTP id S1755384Ab2ACWGB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 17:06:01 -0500
 In-Reply-To: <1325627819.2832.31.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ethtool.c |  188 ++++++++++++++++++++++++++++--------
- 1 files changed, 149 insertions(+), 39 deletions(-)
+ drivers/net/ethernet/sfc/efx.h    |    2 -
+ drivers/net/ethernet/sfc/filter.c |   46 -------------------------------------
+ 2 files changed, 0 insertions(+), 48 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
-index 1be51b2..289c13b 100644
---- a/drivers/net/ethernet/sfc/ethtool.c
-+++ b/drivers/net/ethernet/sfc/ethtool.c
-@@ -818,9 +818,58 @@ static int efx_ethtool_reset(struct net_device *net_dev, u32 *flags)
- 	return efx_reset(efx, rc);
+diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
+index f0a5b7c..a3541ac 100644
+--- a/drivers/net/ethernet/sfc/efx.h
++++ b/drivers/net/ethernet/sfc/efx.h
+@@ -64,8 +64,6 @@ extern void efx_remove_filters(struct efx_nic *efx);
+ extern s32 efx_filter_insert_filter(struct efx_nic *efx,
+ 				    struct efx_filter_spec *spec,
+ 				    bool replace);
+-extern int efx_filter_remove_filter(struct efx_nic *efx,
+-				    struct efx_filter_spec *spec);
+ extern int efx_filter_remove_id_safe(struct efx_nic *efx,
+ 				     enum efx_filter_priority priority,
+ 				     u32 filter_id);
+diff --git a/drivers/net/ethernet/sfc/filter.c b/drivers/net/ethernet/sfc/filter.c
+index 8e3d33d..929b09b 100644
+--- a/drivers/net/ethernet/sfc/filter.c
++++ b/drivers/net/ethernet/sfc/filter.c
+@@ -680,52 +680,6 @@ int efx_filter_get_filter_safe(struct efx_nic *efx,
+ 	return rc;
  }
  
-+static int efx_ethtool_get_class_rule(struct efx_nic *efx,
-+				      struct ethtool_rx_flow_spec *rule)
-+{
-+	struct ethtool_tcpip4_spec *ip_entry = &rule->h_u.tcp_ip4_spec;
-+	struct ethtool_tcpip4_spec *ip_mask = &rule->m_u.tcp_ip4_spec;
-+	struct efx_filter_spec spec;
-+	u16 vid;
-+	u8 proto;
-+	int rc;
-+
-+	rc = efx_filter_get_filter_safe(efx, EFX_FILTER_PRI_MANUAL,
-+					rule->location, &spec);
-+	if (rc)
-+		return rc;
-+
-+	if (spec.dmaq_id == 0xfff)
-+		rule->ring_cookie = RX_CLS_FLOW_DISC;
-+	else
-+		rule->ring_cookie = spec.dmaq_id;
-+
-+	rc = efx_filter_get_eth_local(&spec, &vid,
-+				      rule->h_u.ether_spec.h_dest);
-+	if (rc == 0) {
-+		rule->flow_type = ETHER_FLOW;
-+		memset(rule->m_u.ether_spec.h_dest, ~0, ETH_ALEN);
-+		if (vid != EFX_FILTER_VID_UNSPEC) {
-+			rule->flow_type |= FLOW_EXT;
-+			rule->h_ext.vlan_tci = htons(vid);
-+			rule->m_ext.vlan_tci = htons(0xfff);
-+		}
-+		return 0;
-+	}
-+
-+	rc = efx_filter_get_ipv4_local(&spec, &proto,
-+				       &ip_entry->ip4dst, &ip_entry->pdst);
-+	if (rc != 0) {
-+		rc = efx_filter_get_ipv4_full(
-+			&spec, &proto, &ip_entry->ip4src, &ip_entry->psrc,
-+			&ip_entry->ip4dst, &ip_entry->pdst);
-+		EFX_WARN_ON_PARANOID(rc);
-+		ip_mask->ip4src = ~0;
-+		ip_mask->psrc = ~0;
-+	}
-+	rule->flow_type = (proto == IPPROTO_TCP) ? TCP_V4_FLOW : UDP_V4_FLOW;
-+	ip_mask->ip4dst = ~0;
-+	ip_mask->pdst = ~0;
-+	return rc;
-+}
-+
- static int
- efx_ethtool_get_rxnfc(struct net_device *net_dev,
--		      struct ethtool_rxnfc *info, u32 *rules __always_unused)
-+		      struct ethtool_rxnfc *info, u32 *rule_locs)
- {
- 	struct efx_nic *efx = netdev_priv(net_dev);
- 
-@@ -862,42 +911,80 @@ efx_ethtool_get_rxnfc(struct net_device *net_dev,
- 		return 0;
- 	}
- 
-+	case ETHTOOL_GRXCLSRLCNT:
-+		info->data = efx_filter_get_rx_id_limit(efx);
-+		if (info->data == 0)
-+			return -EOPNOTSUPP;
-+		info->data |= RX_CLS_LOC_SPECIAL;
-+		info->rule_cnt =
-+			efx_filter_count_rx_used(efx, EFX_FILTER_PRI_MANUAL);
-+		return 0;
-+
-+	case ETHTOOL_GRXCLSRULE:
-+		if (efx_filter_get_rx_id_limit(efx) == 0)
-+			return -EOPNOTSUPP;
-+		return efx_ethtool_get_class_rule(efx, &info->fs);
-+
-+	case ETHTOOL_GRXCLSRLALL: {
-+		s32 rc;
-+		info->data = efx_filter_get_rx_id_limit(efx);
-+		if (info->data == 0)
-+			return -EOPNOTSUPP;
-+		rc = efx_filter_get_rx_ids(efx, EFX_FILTER_PRI_MANUAL,
-+					   rule_locs, info->rule_cnt);
-+		if (rc < 0)
-+			return rc;
-+		info->rule_cnt = rc;
-+		return 0;
-+	}
-+
- 	default:
- 		return -EOPNOTSUPP;
- 	}
- }
- 
--static int efx_ethtool_set_rx_ntuple(struct net_device *net_dev,
--				     struct ethtool_rx_ntuple *ntuple)
-+static int efx_ethtool_set_class_rule(struct efx_nic *efx,
-+				      struct ethtool_rx_flow_spec *rule)
- {
--	struct efx_nic *efx = netdev_priv(net_dev);
--	struct ethtool_tcpip4_spec *ip_entry = &ntuple->fs.h_u.tcp_ip4_spec;
--	struct ethtool_tcpip4_spec *ip_mask = &ntuple->fs.m_u.tcp_ip4_spec;
--	struct ethhdr *mac_entry = &ntuple->fs.h_u.ether_spec;
--	struct ethhdr *mac_mask = &ntuple->fs.m_u.ether_spec;
--	struct efx_filter_spec filter;
-+	struct ethtool_tcpip4_spec *ip_entry = &rule->h_u.tcp_ip4_spec;
-+	struct ethtool_tcpip4_spec *ip_mask = &rule->m_u.tcp_ip4_spec;
-+	struct ethhdr *mac_entry = &rule->h_u.ether_spec;
-+	struct ethhdr *mac_mask = &rule->m_u.ether_spec;
-+	struct efx_filter_spec spec;
- 	int rc;
- 
--	/* Range-check action */
--	if (ntuple->fs.action < ETHTOOL_RXNTUPLE_ACTION_CLEAR ||
--	    ntuple->fs.action >= (s32)efx->n_rx_channels)
-+	/* Check that user wants us to choose the location */
-+	if (rule->location != RX_CLS_LOC_ANY &&
-+	    rule->location != RX_CLS_LOC_FIRST &&
-+	    rule->location != RX_CLS_LOC_LAST)
- 		return -EINVAL;
- 
--	if (~ntuple->fs.data_mask)
-+	/* Range-check ring_cookie */
-+	if (rule->ring_cookie >= efx->n_rx_channels &&
-+	    rule->ring_cookie != RX_CLS_FLOW_DISC)
- 		return -EINVAL;
- 
--	efx_filter_init_rx(&filter, EFX_FILTER_PRI_MANUAL, 0,
--			   (ntuple->fs.action == ETHTOOL_RXNTUPLE_ACTION_DROP) ?
--			   0xfff : ntuple->fs.action);
-+	/* Check for unsupported extensions */
-+	if ((rule->flow_type & FLOW_EXT) &&
-+	    (rule->m_ext.vlan_etype | rule->m_ext.data[0] |
-+	     rule->m_ext.data[1]))
-+		return -EINVAL;
-+
-+	efx_filter_init_rx(&spec, EFX_FILTER_PRI_MANUAL,
-+			   (rule->location == RX_CLS_LOC_FIRST) ?
-+			   EFX_FILTER_FLAG_RX_OVERRIDE_IP : 0,
-+			   (rule->ring_cookie == RX_CLS_FLOW_DISC) ?
-+			   0xfff : rule->ring_cookie);
- 
--	switch (ntuple->fs.flow_type) {
-+	switch (rule->flow_type) {
- 	case TCP_V4_FLOW:
- 	case UDP_V4_FLOW: {
--		u8 proto = (ntuple->fs.flow_type == TCP_V4_FLOW ?
-+		u8 proto = (rule->flow_type == TCP_V4_FLOW ?
- 			    IPPROTO_TCP : IPPROTO_UDP);
- 
- 		/* Must match all of destination, */
--		if (ip_mask->ip4dst | ip_mask->pdst)
-+		if ((__force u32)~ip_mask->ip4dst |
-+		    (__force u16)~ip_mask->pdst)
- 			return -EINVAL;
- 		/* all or none of source, */
- 		if ((ip_mask->ip4src | ip_mask->psrc) &&
-@@ -905,17 +992,17 @@ static int efx_ethtool_set_rx_ntuple(struct net_device *net_dev,
- 		     (__force u16)~ip_mask->psrc))
- 			return -EINVAL;
- 		/* and nothing else */
--		if ((u8)~ip_mask->tos | (u16)~ntuple->fs.vlan_tag_mask)
-+		if (ip_mask->tos | rule->m_ext.vlan_tci)
- 			return -EINVAL;
- 
--		if (!ip_mask->ip4src)
--			rc = efx_filter_set_ipv4_full(&filter, proto,
-+		if (ip_mask->ip4src)
-+			rc = efx_filter_set_ipv4_full(&spec, proto,
- 						      ip_entry->ip4dst,
- 						      ip_entry->pdst,
- 						      ip_entry->ip4src,
- 						      ip_entry->psrc);
- 		else
--			rc = efx_filter_set_ipv4_local(&filter, proto,
-+			rc = efx_filter_set_ipv4_local(&spec, proto,
- 						       ip_entry->ip4dst,
- 						       ip_entry->pdst);
- 		if (rc)
-@@ -923,23 +1010,24 @@ static int efx_ethtool_set_rx_ntuple(struct net_device *net_dev,
- 		break;
- 	}
- 
--	case ETHER_FLOW:
--		/* Must match all of destination, */
--		if (!is_zero_ether_addr(mac_mask->h_dest))
-+	case ETHER_FLOW | FLOW_EXT:	
-+		/* Must match all or none of VID */
-+		if (rule->m_ext.vlan_tci != htons(0xfff) &&
-+		    rule->m_ext.vlan_tci != 0)
- 			return -EINVAL;
--		/* all or none of VID, */
--		if (ntuple->fs.vlan_tag_mask != 0xf000 &&
--		    ntuple->fs.vlan_tag_mask != 0xffff)
-+	case ETHER_FLOW:
-+		/* Must match all of destination */
-+		if (!is_broadcast_ether_addr(mac_mask->h_dest))
- 			return -EINVAL;
- 		/* and nothing else */
--		if (!is_broadcast_ether_addr(mac_mask->h_source) ||
--		    mac_mask->h_proto != htons(0xffff))
-+		if (!is_zero_ether_addr(mac_mask->h_source) ||
-+		    mac_mask->h_proto)
- 			return -EINVAL;
- 
- 		rc = efx_filter_set_eth_local(
--			&filter,
--			(ntuple->fs.vlan_tag_mask == 0xf000) ?
--			ntuple->fs.vlan_tag : EFX_FILTER_VID_UNSPEC,
-+			&spec,
-+			(rule->flow_type & FLOW_EXT && rule->m_ext.vlan_tci) ?
-+			ntohs(rule->h_ext.vlan_tci) : EFX_FILTER_VID_UNSPEC,
- 			mac_entry->h_dest);
- 		if (rc)
- 			return rc;
-@@ -949,11 +1037,33 @@ static int efx_ethtool_set_rx_ntuple(struct net_device *net_dev,
- 		return -EINVAL;
- 	}
- 
--	if (ntuple->fs.action == ETHTOOL_RXNTUPLE_ACTION_CLEAR)
--		return efx_filter_remove_filter(efx, &filter);
-+	rc = efx_filter_insert_filter(efx, &spec, true);
-+	if (rc < 0)
-+		return rc;
- 
--	rc = efx_filter_insert_filter(efx, &filter, true);
--	return rc < 0 ? rc : 0;
-+	rule->location = rc;
-+	return 0;
-+}
-+
-+static int efx_ethtool_set_rxnfc(struct net_device *net_dev,
-+				 struct ethtool_rxnfc *info)
-+{
-+	struct efx_nic *efx = netdev_priv(net_dev);
-+
-+	if (efx_filter_get_rx_id_limit(efx) == 0)
-+		return -EOPNOTSUPP;
-+
-+	switch (info->cmd) {
-+	case ETHTOOL_SRXCLSRLINS:
-+		return efx_ethtool_set_class_rule(efx, &info->fs);
-+
-+	case ETHTOOL_SRXCLSRLDEL:
-+		return efx_filter_remove_id_safe(efx, EFX_FILTER_PRI_MANUAL,
-+						 info->fs.location);
-+
-+	default:
-+		return -EOPNOTSUPP;
-+	}
- }
- 
- static u32 efx_ethtool_get_rxfh_indir_size(struct net_device *net_dev)
-@@ -1007,7 +1117,7 @@ const struct ethtool_ops efx_ethtool_ops = {
- 	.set_wol                = efx_ethtool_set_wol,
- 	.reset			= efx_ethtool_reset,
- 	.get_rxnfc		= efx_ethtool_get_rxnfc,
--	.set_rx_ntuple		= efx_ethtool_set_rx_ntuple,
-+	.set_rxnfc		= efx_ethtool_set_rxnfc,
- 	.get_rxfh_indir_size	= efx_ethtool_get_rxfh_indir_size,
- 	.get_rxfh_indir		= efx_ethtool_get_rxfh_indir,
- 	.set_rxfh_indir		= efx_ethtool_set_rxfh_indir,
+-/**
+- * efx_filter_remove_filter - remove a filter by specification
+- * @efx: NIC from which to remove the filter
+- * @spec: Specification for the filter
+- *
+- * On success, return zero.
+- * On failure, return a negative error code.
+- */
+-int efx_filter_remove_filter(struct efx_nic *efx, struct efx_filter_spec *spec)
+-{
+-	struct efx_filter_state *state = efx->filter_state;
+-	struct efx_filter_table *table = efx_filter_spec_table(state, spec);
+-	struct efx_filter_spec *saved_spec;
+-	efx_oword_t filter;
+-	unsigned int filter_idx, depth;
+-	u32 key;
+-	int rc;
+-
+-	if (!table)
+-		return -EINVAL;
+-
+-	key = efx_filter_build(&filter, spec);
+-
+-	spin_lock_bh(&state->lock);
+-
+-	rc = efx_filter_search(table, spec, key, false, &depth);
+-	if (rc < 0)
+-		goto out;
+-	filter_idx = rc;
+-	saved_spec = &table->spec[filter_idx];
+-
+-	if (spec->priority < saved_spec->priority) {
+-		rc = -EPERM;
+-		goto out;
+-	}
+-
+-	efx_filter_table_clear_entry(efx, table, filter_idx);
+-	if (table->used == 0)
+-		efx_filter_table_reset_search_depth(table);
+-	rc = 0;
+-
+-out:
+-	spin_unlock_bh(&state->lock);
+-	return rc;
+-}
+-
+ static void efx_filter_table_clear(struct efx_nic *efx,
+ 				   enum efx_filter_table_id table_id,
+ 				   enum efx_filter_priority priority)
 -- 
 1.7.4.4
 
