@@ -1,66 +1,51 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH] netfilter: Fix br_nf_pre_routing() in conjunction with
- bridge-nf-call-ip(6)tables=0
-Date: Tue, 03 Jan 2012 21:29:01 +0100
-Message-ID: <4F03650D.8050200@nod.at>
-References: <4F025A07.2000304@nod.at> <1325597164-13459-1-git-send-email-richard@nod.at> <1325597164-13459-2-git-send-email-richard@nod.at> <20120103081521.2fec3a29@nehalam.linuxnetplumber.net> <4F033E11.5060707@nod.at> <4F0361D7.3000602@pandora.be>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: APIC seems not working under high network load
+Date: Tue, 03 Jan 2012 21:30:28 +0100
+Message-ID: <1325622628.2611.8.camel@edumazet-laptop>
+References: <CAA8E7hFwvhATa+LAsW4csnUh1gL-tFZVQMO7LN0iQBa6NFj3KQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig6E73FD4239D9CA1170A15979"
-Cc: Stephen Hemminger <shemminger@vyatta.com>, davem@davemloft.net,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Bart De Schuymer <bdschuym@pandora.be>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4F0361D7.3000602@pandora.be>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Jia Rao <rickenrao@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAA8E7hFwvhATa+LAsW4csnUh1gL-tFZVQMO7LN0iQBa6NFj3KQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig6E73FD4239D9CA1170A15979
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-Am 03.01.2012 21:15, schrieb Bart De Schuymer:
-> The documentation is probably not explicit enough, but I would keep the=
-
-> behavior as it is now. Setting bridge-nf-call-iptables to 0 makes
-> iptables behave as if bridge-netfilter was not enabled at compilation.
-> Anyway, your patch is almost certainly flawed since the fact that
-> skb->nf_bridge can be NULL is used as part of the logic in
-> br_netfilter.c: it indicates that bridge-nf-call-iptables was 0 when th=
+Le mardi 03 janvier 2012 =C3=A0 14:28 -0500, Jia Rao a =C3=A9crit :
+> Hi all,
+>=20
+> I had scalability issues when running memcached-like workloads in a
+> Intel 8-core system. It turned out that under high network load only
+> one core handled the interrupts from NIC. In the output of mpstat, on=
 e
-> packet was first processed by bridge-netfilter and should therefore not=
+> of the core was overloaded with 100% %soft time. I tried to echo
+> different core ids to /proc/irq/irq#/smp_affinity, it did not take
+> effect until I stopped the incoming network traffic. It seems that
+> APIC is not distributing interrupts to different cores.
+>=20
+> The below are the details of the testing system:
+> OS: Linux 3.1.4 X86_64
+> CPU: Intel L5450, quad-core
+> NIC: Intel e1000e
 
-> be given to iptables in any other netfilter hook.
+If network load is high enough, cpu handling network IRQ stay in softir=
+q
+mode (NAPI) and never re-arms interrupt, so no other cpu can handle the
+load.
 
-Thanks for the explanation!
+This is why its better to change /proc/irq/irq#/smp_affinity _before_
+load starts.
 
-Wouldn't it make sense to check for bridge-nf-call-iptables in xt_physdev=
-?
-So that the user gets warned that his iptables rule will never match...
+With your kernel, one way to help this cpu exit from softirq is using
+RPS (Receive Packet Steering), since packets will be spreaded on severa=
+l
+cpus. Then, later hardware IRQ might be spreaded on other cpus as well.
 
-Thanks,
-//richard
+for n in `seq 0 7`
+do
+ echo ff >/sys/class/net/eth0/queues/rx-$n/rps_cpus
+done
 
-
-
---------------enig6E73FD4239D9CA1170A15979
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.18 (GNU/Linux)
-
-iQEcBAEBAgAGBQJPA2UNAAoJEN9758yqZn9esRYIAIk5GxS5s1dkDZwOKdvuUUCZ
-3AQddHjP1yAMsluheZCXjgZNJ6cItl0T+y+0iwKZow0oNHkjp8czgCfyF6W97xSm
-4fAKYDwAMfwiJsqunvOowVBo1+xFTVLBsOo9fAf/6zsRbKJrth2oNG3ijRa5iZuf
-mwbs1j3AdCWGUksF7vKVDemkO3eXFX8tdDbqfFKGfjdjPXRMo0AGzMkkNKZFfhJ8
-v1llsdO1y5+Z+G8fK3BOyHdUzaCUHqYtLJ4GEznF3IqyFXcSir51dhwkfnidAnUP
-rtKYds5Rd7WsbAnSseb0eJWMLHz4/XwqEdOJBpAG+TzLIZA48B8kST6DZdFoQCc=
-=LJRl
------END PGP SIGNATURE-----
-
---------------enig6E73FD4239D9CA1170A15979--
+[ If your eth0 has 8 queues ]
