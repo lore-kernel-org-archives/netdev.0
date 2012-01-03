@@ -1,61 +1,59 @@
-From: Bart De Schuymer <bdschuym@pandora.be>
-Subject: Re: [PATCH] netfilter: Fix br_nf_pre_routing() in conjunction with
- bridge-nf-call-ip(6)tables=0
-Date: Tue, 03 Jan 2012 21:15:19 +0100
-Message-ID: <4F0361D7.3000602@pandora.be>
-References: <4F025A07.2000304@nod.at> <1325597164-13459-1-git-send-email-richard@nod.at> <1325597164-13459-2-git-send-email-richard@nod.at> <20120103081521.2fec3a29@nehalam.linuxnetplumber.net> <4F033E11.5060707@nod.at>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC] IPv6: RTM_GETROUTE NLM_F_MATCH handled as stated
+ in RFC 3549
+Date: Tue, 03 Jan 2012 15:16:19 -0500 (EST)
+Message-ID: <20120103.151619.1382800390097680631.davem@davemloft.net>
+References: <1325080915.26559.43.camel@hakki>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, davem@davemloft.net,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Richard Weinberger <richard@nod.at>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4F033E11.5060707@nod.at>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: matti.vaittinen@nsn.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:42405 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754848Ab2ACUQZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 15:16:25 -0500
+In-Reply-To: <1325080915.26559.43.camel@hakki>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Op 3/01/2012 18:42, Richard Weinberger schreef:
-> Am 03.01.2012 17:15, schrieb Stephen Hemminger:
->> On Tue,  3 Jan 2012 14:26:04 +0100
->> Richard Weinberger<richard@nod.at>  wrote:
->>
->>> If net.bridge.bridge-nf-call-iptables or net.bridge.bridge-nf-call-ip6tables
->>> are set to zero xt_physdev has no effect because skb->nf_bridge has not been set up.
->>>
->>> Signed-off-by: Richard Weinberger<richard@nod.at>
->> I am not sure if this is a valid configuration. The setting of sysctl is saying
->> "don't do iptables on bridge (since I won't be using it)" and then you are later
->> doing iptables and expecting the settings as if the iptables setup was being
->> done.
-> I don't think so.
->
-> Also rules like this one are broken:
-> iptables -A INPUT -i bridge0 -m physdev --physdev-in eth0 -j ...
->
-> No firewalling is done on the bridge, xt_physdev is only using some meta
-> information.
->
-> At least a big fat warning would be nice that xt_physdev does not work
-> if bridge-nf-call-iptables=0.
-> It took me some time to figure out why my firewall rule set gone nuts on
-> RHEL6...
+From: Matti Vaittinen <matti.vaittinen@nsn.com>
+Date: Wed, 28 Dec 2011 16:01:55 +0200
 
-The documentation is probably not explicit enough, but I would keep the 
-behavior as it is now. Setting bridge-nf-call-iptables to 0 makes 
-iptables behave as if bridge-netfilter was not enabled at compilation.
-Anyway, your patch is almost certainly flawed since the fact that 
-skb->nf_bridge can be NULL is used as part of the logic in 
-br_netfilter.c: it indicates that bridge-nf-call-iptables was 0 when the 
-packet was first processed by bridge-netfilter and should therefore not 
-be given to iptables in any other netfilter hook.
+> This patch makes ipv6 module to return only routes which match 
+> attributes / filled fields in RTM_GETROUTE, if NLM_F_MATCH is 
+> specified and NLM_F_ROOT is not. This patch has not been tested, 
+> and is meant more to be for visualization of what I thought of doing.
+> If the NLM_F_MATCH support is considered to be good idea, then I 
+> will check this more thoroughly and send another patch.
+> 
+> I assume this would not break *many* existing userspace applications, 
+> since specifying NLM_F_MATCH (especially with no NLM_F_ROOT) sounds 
+> pretty stupid - if no entries should be filtered.
+> 
+> I checked iproute2, and it uses NLM_F_DUMP and does filtering entries 
+> in userspace - thus it is not affected. 
+> 
+> I guess this same idea could be brought in RTM_GETADDR and RTM_GETLINK 
+> too? Maybe also on IPv4 side? 
 
-cheers,
-Bart
+The problem is that you can't avoid writing the user level filters
+even if we add this behavior now.
 
+Any tool which wants to work on every single Linux system out there
+right now has to accomodate the case where NLM_F_MATCH isn't done by
+the kernel.  It will take several years before this would be widely
+deployed even if it went in right now.
 
--- 
-Bart De Schuymer
-www.artinalgorithms.be
+This means applications are not simplified at all, in fact they become
+more complex, since they have to accomodate not just one but two
+possible cases.
 
+Specifying this behavior in RFC 3549 is pretty pointless, given the
+existing situation.
+
+So the value proposition of adding this change doesn't add up to me.
+
+I'm therefore not inclined to apply a patch like this, sorry.  And even
+if I was, I'd ask that ipv4 get it first or at the same time.
