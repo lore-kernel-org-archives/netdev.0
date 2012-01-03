@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCHv2 net-next 3/8] sfc: Change filter ID generation to satisfy
- priority semantics of RX NFC
-Date: Tue, 3 Jan 2012 22:05:15 +0000
-Message-ID: <1325628315.2832.39.camel@bwh-desktop>
+Subject: [PATCHv2 net-next 4/8] sfc: Use consistent types for filter IDs,
+ indices and search depths
+Date: Tue, 3 Jan 2012 22:05:27 +0000
+Message-ID: <1325628327.2832.40.camel@bwh-desktop>
 References: <1325627819.2832.31.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,102 +10,105 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:36879 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:36888 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754891Ab2ACWFT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 17:05:19 -0500
+	by vger.kernel.org with ESMTP id S1754891Ab2ACWFa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 17:05:30 -0500
 In-Reply-To: <1325627819.2832.31.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also add note that the efx_filter_spec::priority field has nothing
-to do with priority between multiple matching filters.
+Filter IDs are u32 (but never very large) so an ID/error return
+value should have type s32.
+
+Filter indices and search depths are never negative, so should
+have type unsigned int.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/filter.c |   43 ++++++++++++++++++++++++++++++++----
- drivers/net/ethernet/sfc/filter.h |    5 ++++
- 2 files changed, 43 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/sfc/efx.h    |    2 +-
+ drivers/net/ethernet/sfc/filter.c |   14 +++++++-------
+ 2 files changed, 8 insertions(+), 8 deletions(-)
 
+diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
+index 8a5336d..27f0b01 100644
+--- a/drivers/net/ethernet/sfc/efx.h
++++ b/drivers/net/ethernet/sfc/efx.h
+@@ -61,7 +61,7 @@ extern void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue);
+ extern int efx_probe_filters(struct efx_nic *efx);
+ extern void efx_restore_filters(struct efx_nic *efx);
+ extern void efx_remove_filters(struct efx_nic *efx);
+-extern int efx_filter_insert_filter(struct efx_nic *efx,
++extern s32 efx_filter_insert_filter(struct efx_nic *efx,
+ 				    struct efx_filter_spec *spec,
+ 				    bool replace);
+ extern int efx_filter_remove_filter(struct efx_nic *efx,
 diff --git a/drivers/net/ethernet/sfc/filter.c b/drivers/net/ethernet/sfc/filter.c
-index 2b9636f..1e079bd 100644
+index 1e079bd..f41ed5b 100644
 --- a/drivers/net/ethernet/sfc/filter.c
 +++ b/drivers/net/ethernet/sfc/filter.c
-@@ -366,12 +366,45 @@ static int efx_filter_search(struct efx_filter_table *table,
- 	}
- }
+@@ -332,7 +332,7 @@ static bool efx_filter_equal(const struct efx_filter_spec *left,
  
--/* Construct/deconstruct external filter IDs */
-+/*
-+ * Construct/deconstruct external filter IDs.  These must be ordered
-+ * by matching priority, for RX NFC semantics.
-+ *
-+ * Each RX MAC filter entry has a flag for whether it can override an
-+ * RX IP filter that also matches.  So we assign locations for MAC
-+ * filters with overriding behaviour, then for IP filters, then for
-+ * MAC filters without overriding behaviour.
-+ */
-+
-+#define EFX_FILTER_INDEX_WIDTH	13
-+#define EFX_FILTER_INDEX_MASK	((1 << EFX_FILTER_INDEX_WIDTH) - 1)
-+
-+static inline u32 efx_filter_make_id(enum efx_filter_table_id table_id,
-+				     unsigned int index, u8 flags)
-+{
-+	return (table_id == EFX_FILTER_TABLE_RX_MAC &&
-+		flags & EFX_FILTER_FLAG_RX_OVERRIDE_IP) ?
-+		index :
-+		(table_id + 1) << EFX_FILTER_INDEX_WIDTH | index;
-+}
-+
-+static inline enum efx_filter_table_id efx_filter_id_table_id(u32 id)
-+{
-+	return (id <= EFX_FILTER_INDEX_MASK) ?
-+		EFX_FILTER_TABLE_RX_MAC :
-+		(id >> EFX_FILTER_INDEX_WIDTH) - 1;
-+}
-+
-+static inline unsigned int efx_filter_id_index(u32 id)
-+{
-+	return id & EFX_FILTER_INDEX_MASK;
-+}
- 
--static inline int
--efx_filter_make_id(enum efx_filter_table_id table_id, unsigned index)
-+static inline u8 efx_filter_id_flags(u32 id)
+ static int efx_filter_search(struct efx_filter_table *table,
+ 			     struct efx_filter_spec *spec, u32 key,
+-			     bool for_insert, int *depth_required)
++			     bool for_insert, unsigned int *depth_required)
  {
--	return table_id << 16 | index;
-+	return (id <= EFX_FILTER_INDEX_MASK) ?
-+		EFX_FILTER_FLAG_RX | EFX_FILTER_FLAG_RX_OVERRIDE_IP :
-+		EFX_FILTER_FLAG_RX;
- }
+ 	unsigned hash, incr, filter_idx, depth, depth_max;
  
- /**
-@@ -439,7 +472,7 @@ int efx_filter_insert_filter(struct efx_nic *efx, struct efx_filter_spec *spec,
- 	netif_vdbg(efx, hw, efx->net_dev,
- 		   "%s: filter type %d index %d rxq %u set",
- 		   __func__, spec->type, filter_idx, spec->dmaq_id);
--	rc = efx_filter_make_id(table->id, filter_idx);
-+	rc = efx_filter_make_id(table->id, filter_idx, spec->flags);
- 
- out:
- 	spin_unlock_bh(&state->lock);
-diff --git a/drivers/net/ethernet/sfc/filter.h b/drivers/net/ethernet/sfc/filter.h
-index 872f213..dc9a256 100644
---- a/drivers/net/ethernet/sfc/filter.h
-+++ b/drivers/net/ethernet/sfc/filter.h
-@@ -78,6 +78,11 @@ enum efx_filter_flags {
-  *
-  * Use the efx_filter_set_*() functions to initialise the @type and
-  * @data fields.
-+ *
-+ * The @priority field is used by software to determine whether a new
-+ * filter may replace an old one.  The hardware priority of a filter
-+ * depends on the filter type and %EFX_FILTER_FLAG_RX_OVERRIDE_IP
-+ * flag.
+@@ -417,14 +417,14 @@ static inline u8 efx_filter_id_flags(u32 id)
+  * On success, return the filter ID.
+  * On failure, return a negative error code.
   */
- struct efx_filter_spec {
- 	u8	type:4;
+-int efx_filter_insert_filter(struct efx_nic *efx, struct efx_filter_spec *spec,
++s32 efx_filter_insert_filter(struct efx_nic *efx, struct efx_filter_spec *spec,
+ 			     bool replace)
+ {
+ 	struct efx_filter_state *state = efx->filter_state;
+ 	struct efx_filter_table *table = efx_filter_spec_table(state, spec);
+ 	struct efx_filter_spec *saved_spec;
+ 	efx_oword_t filter;
+-	int filter_idx, depth;
++	unsigned int filter_idx, depth;
+ 	u32 key;
+ 	int rc;
+ 
+@@ -481,7 +481,7 @@ out:
+ 
+ static void efx_filter_table_clear_entry(struct efx_nic *efx,
+ 					 struct efx_filter_table *table,
+-					 int filter_idx)
++					 unsigned int filter_idx)
+ {
+ 	static efx_oword_t filter;
+ 
+@@ -509,7 +509,7 @@ int efx_filter_remove_filter(struct efx_nic *efx, struct efx_filter_spec *spec)
+ 	struct efx_filter_table *table = efx_filter_spec_table(state, spec);
+ 	struct efx_filter_spec *saved_spec;
+ 	efx_oword_t filter;
+-	int filter_idx, depth;
++	unsigned int filter_idx, depth;
+ 	u32 key;
+ 	int rc;
+ 
+@@ -547,7 +547,7 @@ static void efx_filter_table_clear(struct efx_nic *efx,
+ {
+ 	struct efx_filter_state *state = efx->filter_state;
+ 	struct efx_filter_table *table = &state->table[table_id];
+-	int filter_idx;
++	unsigned int filter_idx;
+ 
+ 	spin_lock_bh(&state->lock);
+ 
+@@ -578,7 +578,7 @@ void efx_restore_filters(struct efx_nic *efx)
+ 	enum efx_filter_table_id table_id;
+ 	struct efx_filter_table *table;
+ 	efx_oword_t filter;
+-	int filter_idx;
++	unsigned int filter_idx;
+ 
+ 	spin_lock_bh(&state->lock);
+ 
 -- 
 1.7.4.4
 
