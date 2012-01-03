@@ -1,44 +1,59 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 5/7] ixgbe: add write flush in ixgbe_clock_out_i2c_byte()
-Date: Mon,  2 Jan 2012 17:50:49 -0800
-Message-ID: <1325555451-4697-6-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1325555451-4697-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:48584 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751230Ab2ACBu4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jan 2012 20:50:56 -0500
-In-Reply-To: <1325555451-4697-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [PATCH 01/11] SYSCTL: export root and set handling routines
+Date: Mon, 02 Jan 2012 19:49:00 -0800
+Message-ID: <m1vcotigyb.fsf@fess.ebiederm.org>
+References: <20111214103602.3991.20990.stgit@localhost6.localdomain6>
+	<20111214104449.3991.61989.stgit@localhost6.localdomain6>
+	<m1bor6rg39.fsf@fess.ebiederm.org> <4EEEFC54.10700@parallels.com>
+	<m18vm8g951.fsf@fess.ebiederm.org> <4EEF2C9A.8000403@parallels.com>
+	<m1pqfkecw0.fsf@fess.ebiederm.org> <4EEF7364.8000407@parallels.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Trond.Myklebust\@netapp.com" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"linux-nfs\@vger.kernel.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"neilb\@suse.de" <neilb-l3A5Bk7waGM@public.gmane.org>,
+	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	James Bottomley <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"bfields\@fieldses.org" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"davem\@davemloft.net" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"devel\@openvz.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4EEF7364.8000407-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> (Stanislav Kinsbursky's message
+	of "Mon, 19 Dec 2011 21:24:52 +0400")
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> writes:
 
-I2C access is timing critical. Always do a write flush after writing
-to the I2CCTL register.
+> 19.12.2011 20:37, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>> Stanislav Kinsbursky<skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>  writes:
+>>
+>> Doing that independently of the rest of the sysctls is pretty horrib=
+le
+>> and confusing to users.   What I am planning might suit your needs a=
+nd
+>> if not we need to talk some more about how to get the vfs to do
+>> something reasonable.
+>>
+>
+> Ok, Eric. Would be glad to discuss your sysctls plans.
+> But actually you already know my needs: I would like to make sysctls =
+work in the
+> way like sysfs does: i.e. content of files depends on mount maker -
+> not viewer.
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+What drives the desire to have sysctls depend on the mount maker?
+Especially what drives that desire not to have it have a /proc/<pid>/sy=
+s
+directory that reflects the sysctls for a given process.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index 8b113e3..7cf1e1f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -1457,6 +1457,7 @@ static s32 ixgbe_clock_out_i2c_byte(struct ixgbe_hw *hw, u8 data)
- 	i2cctl = IXGBE_READ_REG(hw, IXGBE_I2CCTL);
- 	i2cctl |= IXGBE_I2C_DATA_OUT;
- 	IXGBE_WRITE_REG(hw, IXGBE_I2CCTL, i2cctl);
-+	IXGBE_WRITE_FLUSH(hw);
- 
- 	return status;
- }
--- 
-1.7.7.4
+Eric
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
