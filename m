@@ -1,37 +1,36 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: reproducible kernel freeze using r8169 in Linux 3.0
-Date: Tue, 3 Jan 2012 23:33:54 +0100
-Message-ID: <20120103223354.GC8563@electric-eye.fr.zoreil.com>
-References: <63CE35CA-7DD6-41EC-A745-6BA776D8C5E3@ginzton.net> <20111218083212.GA28286@electric-eye.fr.zoreil.com> <DED183BB-B51D-4739-99B3-7E0B71897159@ginzton.net>
+Subject: Re: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on low-end broads.
+Date: Tue, 3 Jan 2012 23:32:43 +0100
+Message-ID: <20120103223243.GB8563@electric-eye.fr.zoreil.com>
+References: <CACPM=kVBxcL1_Z9zVvnEEdEgAc0rbAAbzkcocz4OYWQ2xn6VmQ@mail.gmail.com> <20111230180347.GA3647@electric-eye.fr.zoreil.com> <CACPM=kXWXUE+JcVhkz-6tGZ2YyteN9sGA80+Pnw6+LaJ-eNWBA@mail.gmail.com> <20111230215024.GA5513@electric-eye.fr.zoreil.com> <CACPM=kUxSRhDc2EqgceBRTFgBei7dh3_n7bPyoH=8aNC_uq4FA@mail.gmail.com> <20111230221938.GA6197@electric-eye.fr.zoreil.com> <CACPM=kXAr46BXAc3t8puRB37NeFy_ZEOWZa0H=DnSioagSLpxA@mail.gmail.com> <CACPM=kWn41S85eLgj4G+c6cN0WBgqF=6MigSwa9QBOxD1Uh64A@mail.gmail.com> <20111231121710.GB9842@electric-eye.fr.zoreil.com> <CACPM=kX2B6p6CSs+s-5WUbQCLa0WZW5K9Rr+hnB5VCxkEmh=8w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: nic_swsd@realtek.com, netdev@vger.kernel.org
-To: Matt Ginzton <matt@ginzton.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:32937 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932206Ab2ACWm7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 17:42:59 -0500
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	bhutchings@solarflare.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, rl@hellgate.ch
+To: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <DED183BB-B51D-4739-99B3-7E0B71897159@ginzton.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CACPM=kX2B6p6CSs+s-5WUbQCLa0WZW5K9Rr+hnB5VCxkEmh=8w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Matt Ginzton <matt@ginzton.net> :
+Bjarke Istrup Pedersen <gurligebis@gentoo.org> :
 [...]
-> Just to follow up on this old thread:
+> Is there anything else I should try out?
 
-Thanks.
+Your computer is supposed to be moderately underpowered. Find someone
+with an heavily overpowered one.
 
-[...]
-> I do note that TX performance as measured by pktgen is lower than r8168 --
-> with r8169 in 3.2-rc7 I see something like 455MB/sec and with r8168, IIRC,
-> the number was closer to 800MB/sec. This may be a very artificial statistic,
-> and isn't something I happen to care about and I'm certainly not going to
-> use r8168 because of it, but it may be worth looking into?
+> Also, would it be possible to push these changes to mainline as
 
-Expect a "remove everything from irq context" patch this week. It should
-turn things simpler in the (apparently not so-) fast paths.
+Probably. There has not been much objection nor comments so far.
+
+> another CONFIG option (not sure if thats possible), so more people can
+> enable it and test it? :)
+
+I'd rather not. It would not be terribly elegant and more CONFIG options
+would not imply more testing.
 
 -- 
 Ueimor
