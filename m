@@ -1,62 +1,62 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] sch_qfq: fix overflow in qfq_update_start()
-Date: Tue, 3 Jan 2012 08:25:57 -0800
-Message-ID: <20120103082557.5c5cb962@nehalam.linuxnetplumber.net>
-References: <1325519277.2375.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] x86: fix atomic64_xxx_cx8() functions
+Date: Tue, 03 Jan 2012 17:35:40 +0100
+Message-ID: <1325608540.2320.103.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <4F01F12A020000780006A19B@nat28.tlf.novell.com>
+	 <1325602830.2320.69.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1325603714.2320.73.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1325605290.2320.76.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4F03361C020000780006A3A5@nat28.tlf.novell.com>
+	 <1325607218.2320.89.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Dave Taht <dave.taht@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Luigi Rizzo <rizzo@iet.unipi.it>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:40987 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753947Ab2ACQ0A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jan 2012 11:26:00 -0500
-In-Reply-To: <1325519277.2375.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mingo@elte.hu, tglx@linutronix.de,
+	Christoph Lameter <cl@linux.com>, linux-kernel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>, hpa@zytor.com
+To: Jan Beulich <JBeulich@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1325607218.2320.89.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 02 Jan 2012 16:47:57 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+It appears about all functions in arch/x86/lib/atomic64_cx8_32.S are
+wrong in case cmpxchg8b must be restarted, because LOCK_PREFIX macro
+defines a label "1" clashing with other local labels :
 
-> grp->slot_shift is between 22 and 41, so using 32bit wide variables is
-> probably a typo.
-> 
-> This could explain QFQ hangs Dave reported to me, after 2^23 packets ?
-> 
-> (23 = 64 - 41)
-> 
-> Reported-by: Dave Taht <dave.taht@gmail.com>
-> CC: Stephen Hemminger <shemminger@vyatta.com>
-> CC: Dave Taht <dave.taht@gmail.com>
-> ---
->  net/sched/sch_qfq.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
-> index 1033434..7b03254 100644
-> --- a/net/sched/sch_qfq.c
-> +++ b/net/sched/sch_qfq.c
-> @@ -817,11 +817,11 @@ skip_unblock:
->  static void qfq_update_start(struct qfq_sched *q, struct qfq_class *cl)
->  {
->  	unsigned long mask;
-> -	uint32_t limit, roundedF;
-> +	u64 limit, roundedF;
->  	int slot_shift = cl->grp->slot_shift;
->  
->  	roundedF = qfq_round_down(cl->F, slot_shift);
-> -	limit = qfq_round_down(q->V, slot_shift) + (1UL << slot_shift);
-> +	limit = qfq_round_down(q->V, slot_shift) + (1ULL << slot_shift);
->  
->  	if (!qfq_gt(cl->F, q->V) || qfq_gt(roundedF, limit)) {
->  		/* timestamp was stale */
-> 
-> 
+1:
+	some_instructions
+	LOCK_PREFIX
+	cmpxchg8b (%ebp)
+	jne 1b  / jumps to beginning of LOCK_PREFIX !
 
+A possible fix is to use a magic label "672" in LOCK_PREFIX asm
+definition, similar to the "671" one we defined in LOCK_PREFIX_HERE. 
 
-You need to copy the BSD developers on these patches since
-most of the code came from them and FreeBSD probably still has same bug!
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Acked-by: Jan Beulich <JBeulich@suse.com>
+CC: Christoph Lameter <cl@linux.com>
+CC: Ingo Molnar <mingo@elte.hu>
+CC: H. Peter Anvin <hpa@zytor.com>
+Cc: stable@vger.kernel.org  [2.6.35+]
+---
+ arch/x86/include/asm/alternative-asm.h |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/include/asm/alternative-asm.h b/arch/x86/include/asm/alternative-asm.h
+index 091508b..952bd01 100644
+--- a/arch/x86/include/asm/alternative-asm.h
++++ b/arch/x86/include/asm/alternative-asm.h
+@@ -4,10 +4,10 @@
+ 
+ #ifdef CONFIG_SMP
+ 	.macro LOCK_PREFIX
+-1:	lock
++672:	lock
+ 	.section .smp_locks,"a"
+ 	.balign 4
+-	.long 1b - .
++	.long 672b - .
+ 	.previous
+ 	.endm
+ #else
