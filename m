@@ -1,104 +1,113 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCHv2 net-next 7/8] sfc: Remove now-unused filter function
-Date: Tue, 3 Jan 2012 22:05:58 +0000
-Message-ID: <1325628358.2832.43.camel@bwh-desktop>
-References: <1325627819.2832.31.camel@bwh-desktop>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: pull request: wireless 2011-12-15
+Date: Tue, 3 Jan 2012 23:06:59 +0100
+Message-ID: <CACna6rwjrg6m3SEBxfYWgRSTN5_4-TuA0tdG6P2pFuUvwvvjZA@mail.gmail.com>
+References: <20111215191523.GA2561@tuxdriver.com>
+	<CACna6rw736JdkoM8zKxorCFd5oy08QTwWZ6PutoJPSr3ZN8hTg@mail.gmail.com>
+	<20111215213822.GB2561@tuxdriver.com>
+	<CACna6rz3qDpw4eJOoCXx7=z1719v7kS-Ou-WUseR9_vB-O2dag@mail.gmail.com>
+	<CACna6rxO2dC=Y3nv-d-w89MqyM0j0aumk=r5Yh_KEg=MwOcvEQ@mail.gmail.com>
+	<20120103205226.GA17131@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "John W. Linville" <linville@tuxdriver.com>, davem@davemloft.net,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:36910 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755384Ab2ACWGB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 17:06:01 -0500
-In-Reply-To: <1325627819.2832.31.camel@bwh-desktop>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:47742 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754953Ab2ACWHB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 17:07:01 -0500
+In-Reply-To: <20120103205226.GA17131@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/efx.h    |    2 -
- drivers/net/ethernet/sfc/filter.c |   46 -------------------------------------
- 2 files changed, 0 insertions(+), 48 deletions(-)
+W dniu 3 stycznia 2012 21:52 u=C5=BCytkownik Greg KH <greg@kroah.com> n=
+apisa=C5=82:
+> On Mon, Dec 26, 2011 at 12:36:59AM +0100, Rafa=C5=82 Mi=C5=82ecki wro=
+te:
+>> W dniu 16 grudnia 2011 07:40 u=C5=BCytkownik Rafa=C5=82 Mi=C5=82ecki
+>> <zajec5@gmail.com> napisa=C5=82:
+>> > W dniu 15 grudnia 2011 22:38 u=C5=BCytkownik John W. Linville
+>> > <linville@tuxdriver.com> napisa=C5=82:
+>> >> On Thu, Dec 15, 2011 at 09:04:29PM +0100, Rafa=C5=82 Mi=C5=82ecki=
+ wrote:
+>> >>> 2011/12/15 John W. Linville <linville@tuxdriver.com>:
+>> >>> > commit 42a3b63bb2ca4996a3d1210a004eae2333f1119e
+>> >>> >
+>> >>> > Dave,
+>> >>> >
+>> >>> > Here are a few more fixes intended for the 3.2 release. =C2=A0=
+They are
+>> >>> > all small and narrowly focused.
+>> >>>
+>> >>> John, I've made a mistake and didn't use [PATCH 3.2] header to m=
+ake it
+>> >>> clean my patch is fix. Could you take a look at
+>> >>> [PATCH] bcma: support for suspend and resume
+>> >>> please?
+>> >>>
+>> >>> It's not one-liner, but fixes lock ups, which I believe - we rea=
+lly
+>> >>> want to avoid.
+>> >>
+>> >> It's late in the release cycle, and Dave specifically asked me to=
+ slow down.
+>> >>
+>> >> Are these suspend/resume lockups a regression? =C2=A0Or have they=
+ always
+>> >> been there? =C2=A0Do they happen to everyone?
+>> >
+>> > The bug is present since first days of bcma. That's why I even dec=
+ided
+>> > to add stable to CC.
+>> >
+>> > Personally I've tested that only on 1 machine (I don't have more
+>> > suspendable machines with mini PCIe slot). However all Macbook 8.1=
+/8.2
+>> > users have to remove b43 & bcma before suspending [0], they compla=
+in
+>> > about that since ever.
+>> >
+>> > Arend: I know you're also complaining for suspend in bcma. Can you
+>> > comment on this?
+>> >
+>> > [0] http://ubuntuforums.org/showthread.php?t=3D1695746
+>>
+>> User nephyrin on #bcm-users has confirmed this patch fixes
+>> suspend&resume for him. Without this patch he got deadlock without
+>> seeing any kernel panic logs - quite an ugly case.
+>>
+>> I still think this patch may be worth taking as fix and backporting =
+too.
+>
+> What patch specifically? =C2=A0What is the git commit id of it in Lin=
+us's
+> tree? =C2=A0Without that information, telling stable@ about it is
+> pointless...
 
-diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
-index f0a5b7c..a3541ac 100644
---- a/drivers/net/ethernet/sfc/efx.h
-+++ b/drivers/net/ethernet/sfc/efx.h
-@@ -64,8 +64,6 @@ extern void efx_remove_filters(struct efx_nic *efx);
- extern s32 efx_filter_insert_filter(struct efx_nic *efx,
- 				    struct efx_filter_spec *spec,
- 				    bool replace);
--extern int efx_filter_remove_filter(struct efx_nic *efx,
--				    struct efx_filter_spec *spec);
- extern int efx_filter_remove_id_safe(struct efx_nic *efx,
- 				     enum efx_filter_priority priority,
- 				     u32 filter_id);
-diff --git a/drivers/net/ethernet/sfc/filter.c b/drivers/net/ethernet/sfc/filter.c
-index 8e3d33d..929b09b 100644
---- a/drivers/net/ethernet/sfc/filter.c
-+++ b/drivers/net/ethernet/sfc/filter.c
-@@ -680,52 +680,6 @@ int efx_filter_get_filter_safe(struct efx_nic *efx,
- 	return rc;
- }
- 
--/**
-- * efx_filter_remove_filter - remove a filter by specification
-- * @efx: NIC from which to remove the filter
-- * @spec: Specification for the filter
-- *
-- * On success, return zero.
-- * On failure, return a negative error code.
-- */
--int efx_filter_remove_filter(struct efx_nic *efx, struct efx_filter_spec *spec)
--{
--	struct efx_filter_state *state = efx->filter_state;
--	struct efx_filter_table *table = efx_filter_spec_table(state, spec);
--	struct efx_filter_spec *saved_spec;
--	efx_oword_t filter;
--	unsigned int filter_idx, depth;
--	u32 key;
--	int rc;
--
--	if (!table)
--		return -EINVAL;
--
--	key = efx_filter_build(&filter, spec);
--
--	spin_lock_bh(&state->lock);
--
--	rc = efx_filter_search(table, spec, key, false, &depth);
--	if (rc < 0)
--		goto out;
--	filter_idx = rc;
--	saved_spec = &table->spec[filter_idx];
--
--	if (spec->priority < saved_spec->priority) {
--		rc = -EPERM;
--		goto out;
--	}
--
--	efx_filter_table_clear_entry(efx, table, filter_idx);
--	if (table->used == 0)
--		efx_filter_table_reset_search_depth(table);
--	rc = 0;
--
--out:
--	spin_unlock_bh(&state->lock);
--	return rc;
--}
--
- static void efx_filter_table_clear(struct efx_nic *efx,
- 				   enum efx_filter_table_id table_id,
- 				   enum efx_filter_priority priority)
--- 
-1.7.4.4
+Sorry Greg, it's about
 
+commit 775ab52142b02237a54184238e922251c59a2b5c
+Author: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+Date:   Fri Dec 9 22:16:07 2011 +0100
 
+    bcma: support for suspend and resume
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+    bcma used to lock up machine without enabling PCI or initializing C=
+C.
+
+    Cc: stable@vger.kernel.org
+    Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+    Signed-off-by: John W. Linville <linville@tuxdriver.com>
+
+it's located in wireless-testing:
+git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-testing=
+=2Egit
+
+John didn't pass this to Linus yet.
+
+--=20
+Rafa=C5=82
