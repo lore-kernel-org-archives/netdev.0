@@ -1,34 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 08/11] e1000e: add Receive Packet Steering (RPS)
- support
-Date: Tue, 03 Jan 2012 15:09:36 -0500 (EST)
-Message-ID: <20120103.150936.572765552893657192.davem@davemloft.net>
-References: <1325618356-2655-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1325618356-2655-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: Why is gre0 auto-created, and can we fix it?
+Date: Tue, 03 Jan 2012 15:11:29 -0500 (EST)
+Message-ID: <20120103.151129.2017623336171898647.davem@davemloft.net>
+References: <4F035BDE.5060409@candelatech.com>
+	<20120103.145931.2188599484081157576.davem@davemloft.net>
+	<4F035F2C.1000003@candelatech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bruce.w.allan@intel.com, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42283 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:42313 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754873Ab2ACUJk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 15:09:40 -0500
-In-Reply-To: <1325618356-2655-9-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1754884Ab2ACULb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 15:11:31 -0500
+In-Reply-To: <4F035F2C.1000003@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue,  3 Jan 2012 11:19:13 -0800
+From: Ben Greear <greearb@candelatech.com>
+Date: Tue, 03 Jan 2012 12:03:56 -0800
 
-> +		e_err("Enabling both receive checksum offload and receive hashing is not possible with jumbo frames.  Disable jumbos or enable only one of the receive offload features.\n");
+> On 01/03/2012 11:59 AM, David Miller wrote:
+>> From: Ben Greear<greearb@candelatech.com>
+>> Date: Tue, 03 Jan 2012 11:49:50 -0800
+>>
+>>> As far as I can tell, no other interfaces are auto-created
+>>> in this manner.
+>>
+>> ip6tnl0 and sit0 do it too, just grep for alloc_netdev() under
+>> net/{ipv4,ipv6}/
+> 
+> So, no changing the behaviour?
 
-Please split this up into multiple lines like this:
-
-	e_err("..."
-	      "..."
-	      "...");
-
-Thanks.
+Probably too risky.  I think the exposure is on the order of ~16
+years.
