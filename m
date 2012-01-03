@@ -1,122 +1,71 @@
-From: Dave Taht <dave.taht@gmail.com>
-Subject: Re: [PATCH net-next v2] net_sched: qdisc_alloc_handle() can be too slow
-Date: Tue, 3 Jan 2012 11:23:25 +0100
-Message-ID: <CAA93jw4uzOZPGsQt-+JqBCtHfu+s8ivLL8Vnb1+tds56r7FK1A@mail.gmail.com>
-References: <1325584697.2320.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1325584811.2320.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC] SFQ planned changes
+Date: Tue, 03 Jan 2012 11:40:35 +0100
+Message-ID: <1325587235.2320.37.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1325385056.4174.51.camel@denise.theartistscloset.com>
+	 <21734335.uCtjXOcSpA@alaris>
+	 <CAA93jw5NYChp+hKWjOWiw7SnGhNe+REofr2KM-85GnKNVpkw6w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Michal =?UTF-8?Q?Kube=C4=8Dek?= <mkubecek@suse.cz>,
+	netdev@vger.kernel.org,
+	"John A. Sullivan III" <jsullivan@opensourcedevel.com>
+To: Dave Taht <dave.taht@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:42782 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751347Ab2ACKX1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 05:23:27 -0500
-Received: by iaeh11 with SMTP id h11so30680766iae.19
-        for <netdev@vger.kernel.org>; Tue, 03 Jan 2012 02:23:26 -0800 (PST)
-In-Reply-To: <1325584811.2320.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:39733 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752125Ab2ACKkj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 05:40:39 -0500
+Received: by lahd3 with SMTP id d3so3660030lah.19
+        for <netdev@vger.kernel.org>; Tue, 03 Jan 2012 02:40:38 -0800 (PST)
+In-Reply-To: <CAA93jw5NYChp+hKWjOWiw7SnGhNe+REofr2KM-85GnKNVpkw6w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 3, 2012 at 11:00 AM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> When trying to allocate ~32768 qdiscs using autohandle mechanism, we =
-can
-> fill the space managed by kernel (handles in [8000-FFFF]:0000 range)
->
-> But O(N^2) qdisc_alloc_handle() loops 0x10000 times instead of 0x8000
->
-> time tc add qdisc add dev eth0 parent 10:7fff pfifo limit 10
-> RTNETLINK answers: Cannot allocate memory
-> real =A0 =A01m54.826s
-> user =A0 =A00m0.000s
-> sys =A0 =A0 0m0.004s
->
-> INFO: rcu_sched_state detected stall on CPU 0 (t=3D60000 jiffies)
->
-> Half number of loops, and add a cond_resched() call.
-> We hold rtnl at this point.
->
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Dave Taht <dave.taht@gmail.com>
-> ---
-> v2: With the patch itself :)
->
-> Next move is using rb-tree instead of a linked list, to speedup
-> qdisc_lookup(). A complex qdisc setup is way too slow.
->
-> =A0net/sched/sch_api.c | =A0 14 +++++++++-----
-> =A01 file changed, 9 insertions(+), 5 deletions(-)
->
-> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-> index dca6c1a..3d8981f 100644
-> --- a/net/sched/sch_api.c
-> +++ b/net/sched/sch_api.c
-> @@ -618,20 +618,24 @@ void qdisc_class_hash_remove(struct Qdisc_class=
-_hash *clhash,
-> =A0}
-> =A0EXPORT_SYMBOL(qdisc_class_hash_remove);
->
-> -/* Allocate an unique handle from space managed by kernel */
-> -
-> +/* Allocate an unique handle from space managed by kernel
-> + * Possible range is [8000-FFFF]:0000 (0x8000 values)
-> + */
-> =A0static u32 qdisc_alloc_handle(struct net_device *dev)
-> =A0{
-> - =A0 =A0 =A0 int i =3D 0x10000;
-> + =A0 =A0 =A0 int i =3D 0x8000;
-> =A0 =A0 =A0 =A0static u32 autohandle =3D TC_H_MAKE(0x80000000U, 0);
->
-> =A0 =A0 =A0 =A0do {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0autohandle +=3D TC_H_MAKE(0x10000U, 0)=
-;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (autohandle =3D=3D TC_H_MAKE(TC_H_R=
-OOT, 0))
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0autohandle =3D TC_H_MA=
-KE(0x80000000U, 0);
-> - =A0 =A0 =A0 } while (qdisc_lookup(dev, autohandle) && --i > 0);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!qdisc_lookup(dev, autohandle))
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return autohandle;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 cond_resched();
-> + =A0 =A0 =A0 } while (--i > 0);
->
-> - =A0 =A0 =A0 return i > 0 ? autohandle : 0;
-> + =A0 =A0 =A0 return 0;
-> =A0}
->
-> =A0void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
->
->
+Le mardi 03 janvier 2012 =C3=A0 10:36 +0100, Dave Taht a =C3=A9crit :
 
-I take it this is from you trying to allocate XXk bins in staqfq.lua
-and watching it
-go boom? I'll gladly go and try to break more stuff if you like. :)
+> I note that (as of yesterday) sfq is performing as well as qfq did
+> under most workloads, and is considerably simpler than qfq, but
+> what I have in mind for shaping in a asymmetric scenario
+> *may* involve 'weighting' - rather than strictly prioritizing -
+> small acks... and it may not - I'd like to be able to benchmark
+> the various AQM approaches against a variety of workloads
+> before declaring victory.
 
-I ran yesterday's patches for sfq, and qfq on net-next all night on an =
-x86 box,
-successfully, on e1000e to ag71xx.
 
-I'm not willing to declare victory on  QFQ yet, it was a really
-hard problem to trigger... give me a day on it...
+A QFQ setup with more than 1024 classes/qdisc is way too slow at init
+time, and consume ~384 bytes per class : ~12582912 bytes for 32768
+classes.
 
-I'm testing the backport of those two patches to 3.1.6
- (no porting needed, they just apply) on cerowrt now, then I'm going to=
- setup
-a fairly complex scenario (wireless,wired, 7-8 machines) in bloatlab #2
+We also are limited to 65536 qdisc per device, so QFQ setup using hash
+is limited to a 32768 divisor.
 
-The wireless data I got a couple days back is rather noisy but the
-median is promising.
 
-http://www.teklibre.com/~d/bloat/wireless.qfqvspfifofast10iperfs.png
+Now SFQ as implemented in Linux is very limited, with at most 127 flows
+and limit of 127 packets. [ So if 127 flows are active, we have one
+packet per flow ]
 
-I'll get a lot more over the next few days and smooth it out.
+I plan to add to SFQ following features :
 
---=20
-Dave T=E4ht
-SKYPE: davetaht
-US Tel: 1-239-829-5608
-=46R Tel: 0638645374
-http://www.bufferbloat.net
+- Ability to specify a per flow limit=20
+     Its what is called the 'depth',
+     currently hardcoded to min(127, limit)
+
+- Ability to have up to 65535 flows (instead of 127)
+
+- Ability to have a head drop (to drop old packets from a flow)
+
+example of use : No more than 20 packets per flow, max 8000 flows, max
+20000 packets in SFQ qdisc, hash table of 65536 slots.
+
+tc qdisc add ... sfq \
+	flows 8000 \
+	depth 20 \
+	headdrop \
+	limit 20000 divisor 65536
+
+Ram usage : 32 bytes per flow, instead of 384 for QFQ, so much better
+cache hit ratio. 2 bytes per hash table slots, instead of 8 for QFQ.
+
+(perturb timer for a huge SFQ setup would be not recommended)
