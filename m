@@ -1,48 +1,43 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 0/4] skb paged fragment destructors
-Date: Tue, 3 Jan 2012 09:36:33 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AF27@saturn3.aculab.com>
-References: <1324632922.7877.103.camel@zakaz.uk.xensource.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net_sched: qdisc_alloc_handle() can be too slow
+Date: Tue, 03 Jan 2012 10:58:17 +0100
+Message-ID: <1325584697.2320.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <eric.dumazet@gmail.com>, <jesse.brandeburg@intel.com>,
-	<netdev@vger.kernel.org>
-To: "Ian Campbell" <Ian.Campbell@citrix.com>,
-	"David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Dave Taht <dave.taht@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:38734 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751627Ab2ACJiS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 04:38:18 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 23550-03 for <netdev@vger.kernel.org>;
- Tue,  3 Jan 2012 09:38:15 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1324632922.7877.103.camel@zakaz.uk.xensource.com>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:64655 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751288Ab2ACJ6W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 04:58:22 -0500
+Received: by lahd3 with SMTP id d3so3646454lah.19
+        for <netdev@vger.kernel.org>; Tue, 03 Jan 2012 01:58:21 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
-> -#if (65536/PAGE_SIZE + 2) < 16
-> +#if (65536/PAGE_SIZE + 1) < 16
->  #define MAX_SKB_FRAGS 16UL
->  #else
-> -#define MAX_SKB_FRAGS (65536/PAGE_SIZE + 2)
-> +#define MAX_SKB_FRAGS (65536/PAGE_SIZE + 1)
->  #endif
+When trying to allocate ~32768 qdiscs using autohandle mechanism, we can
+fill the space managed by kernel (handles in [8000-FFFF]:0000 range)
 
-Wouldn't it be better to only have the expression once?
-Either using a MAX() define or maybe:
+But O(N^2) qdisc_alloc_handle() loops 0x10000 times instead of 0x8000
 
-#define MAX_SKB_FRAGS (65536UL/PAGE_SIZE + 1)
-#if MAX_SKB_FRAGS < 16UL
-#undef MAX_SKB_FRAGS
-#define MAX_SKB_FRAGS 16UL
-#endif
+time tc add qdisc add dev eth0 parent 10:7fff pfifo limit 10
+RTNETLINK answers: Cannot allocate memory
+real	1m54.826s
+user	0m0.000s
+sys	0m0.004s
 
-Although that replicates the 16 instead :-(
+INFO: rcu_sched_state detected stall on CPU 0 (t=60000 jiffies)
 
-	David
+Half number of loops, and add a cond_resched() call.
+We hold rtnl at this point.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Dave Taht <dave.taht@gmail.com>
+---
+Next move is using rb-tree instead of a linked list, to speedup
+qdisc_lookup(). A complex qdisc setup is way too slow.
+
+ net/sched/sch_api.c |   14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
