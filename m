@@ -1,122 +1,64 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: igb + balance-rr + bridge + IPv6 = no go without promiscuous
- mode
-Date: Tue, 3 Jan 2012 23:23:48 +0000
-Message-ID: <9BBC4E0CF881AA4299206E2E1412B62602B194@ORSMSX102.amr.corp.intel.com>
-References: <4EF44CEE.5020704@bootc.net>
- <CAADHFRBWR0JJNmPzQA3=40s5a6fZ3TJEoC0aWzo+3wXruEZC5A@mail.gmail.com>
- <4EF454C7.8020305@bootc.net> <4EF45C7D.8090409@gmail.com>
- <4EF45E79.6020803@bootc.net> <4EFA3E3C.4020706@bootc.net>
+From: Javier Martinez Canillas <martinez.javier@gmail.com>
+Subject: Re: [PATCH 1/2] net: phy: smsc: Move SMSC PHY constants to <linux/smscphy.h>
+Date: Wed, 4 Jan 2012 00:29:24 +0100
+Message-ID: <CAAwP0s12yzP9rDLYg76RCB+4EaVByOg_GU_CgghGUB_OSHDAjA@mail.gmail.com>
+References: <1325524131-14585-1-git-send-email-martinez.javier@gmail.com> <20120103.134549.1973511401092214707.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Chris Boot <bootc@bootc.net>,
-	=?utf-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
-	<nicolas.2p.debian@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: steve.glendinning@smsc.com, ben@decadent.org.uk,
+	eballetbo@iseebcn.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:37081 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753431Ab2ACXYB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jan 2012 18:24:01 -0500
-In-Reply-To: <4EFA3E3C.4020706@bootc.net>
-Content-Language: en-US
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:60158 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752312Ab2ACX3q convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 18:29:46 -0500
+Received: by ghbg21 with SMTP id g21so3729750ghb.19
+        for <netdev@vger.kernel.org>; Tue, 03 Jan 2012 15:29:45 -0800 (PST)
+In-Reply-To: <20120103.134549.1973511401092214707.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IG5ldGRldi1vd25lckB2Z2Vy
-Lmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnXQ0KPk9uIEJl
-aGFsZiBPZiBDaHJpcyBCb290DQo+U2VudDogVHVlc2RheSwgRGVjZW1iZXIgMjcsIDIwMTEgMTo1
-MyBQTQ0KPlRvOiBOaWNvbGFzIGRlIFBlc2xvw7xhbg0KPkNjOiBuZXRkZXYNCj5TdWJqZWN0OiBS
-ZTogaWdiICsgYmFsYW5jZS1yciArIGJyaWRnZSArIElQdjYgPSBubyBnbyB3aXRob3V0DQo+cHJv
-bWlzY3VvdXMgbW9kZQ0KPg0KPk9uIDIzLzEyLzIwMTEgMTA6NTYsIENocmlzIEJvb3Qgd3JvdGU6
-DQo+PiBPbiAyMy8xMi8yMDExIDEwOjQ4LCBOaWNvbGFzIGRlIFBlc2xvw7xhbiB3cm90ZToNCj4+
-PiBbIEZvcndhcmRlZCB0byBuZXRkZXYsIGJlY2F1c2UgdHdvIHByZXZpb3VzIGUtbWFpbCBlcnJv
-bmVvdXNseSBzZW50DQo+aW4NCj4+PiBIVE1MIF0NCj4+Pg0KPj4+IExlIDIzLzEyLzIwMTEgMTE6
-MTUsIENocmlzIEJvb3QgYSDDqWNyaXQgOg0KPj4+PiBPbiAyMy8xMi8yMDExIDA5OjUyLCBOaWNv
-bGFzIGRlIFBlc2xvw7xhbiB3cm90ZToNCj4+Pj4+DQo+Pj4+Pg0KPj4+Pj4gTGUgMjMgZMOpYy4g
-MjAxMSAxMDo0MiwgIkNocmlzIEJvb3QiIDxib290Y0Bib290Yy5uZXQNCj4+Pj4+IDxtYWlsdG86
-Ym9vdGNAYm9vdGMubmV0Pj4gYSDDqWNyaXQgOg0KPj4+Pj4gPg0KPj4+Pj4gPiBIaSBmb2xrcywN
-Cj4+Pj4+ID4NCj4+Pj4+ID4gQXMgcGVyIEVyaWMgRHVtYXpldCBhbmQgRGF2ZSBNaWxsZXIsIEkn
-bSBvcGVuaW5nIHVwIGEgc2VwYXJhdGUNCj4+Pj4+IHRocmVhZCBvbiB0aGlzIGlzc3VlLg0KPj4+
-Pj4gPg0KPj4+Pj4gPiBJIGhhdmUgdHdvIGlkZW50aWNhbCBzZXJ2ZXJzIGluIGEgY2x1c3RlciBm
-b3IgcnVubmluZyBLVk0gdmlydHVhbA0KPj4+Pj4gbWFjaGluZXMuIFRoZXkgZWFjaCBoYXZlIGEN
-Cj4+Pj4+IHNpbmdsZSBjb25uZWN0aW9uIHRvIHRoZSBJbnRlcm5ldCAoaXJyZWxldmFudCBmb3Ig
-dGhpcykgYW5kIHR3bw0KPj4+Pj4gZ2lnYWJpdCBjb25uZWN0aW9ucyBiZXR3ZWVuIGVhY2gNCj4+
-Pj4+IG90aGVyIGZvciBjbHVzdGVyIHJlcGxpY2F0aW9uLCBldGMuLi4gVGhlc2UgdHdvIGNvbm5l
-Y3Rpb25zIGFyZSBpbg0KPmENCj4+Pj4+IGJhbGFuY2UtcnIgYm9uZGVkIGNvbm5lY3Rpb24sDQo+
-Pj4+PiB3aGljaCBpcyBpdHNlbGYgbWVtYmVyIG9mIGEgYnJpZGdlIHRoYXQgdGhlIFZNcyBhdHRh
-Y2ggdG8uIEknbQ0KPj4+Pj4gcnVubmluZyB2My4yLXJjNi0xNDAtZ2I5ZTI2ZGYgb24NCj4+Pj4+
-IERlYmlhbiBXaGVlenkuDQo+Pj4+PiA+DQo+Pj4+PiA+IFdoZW4gdGhlIGJyaWRnZSBpcyBicm91
-Z2h0IHVwLCBJUHY0IHdvcmtzIGZpbmUgYnV0IElQdjYgZG9lcyBub3QuDQo+Pj4+PiBJIGNhbiB1
-c2UgbmVpdGhlciB0aGUNCj4+Pj4+IGF1dG9tYXRpYyBsaW5rLWxvY2FsIG9uIHRoZSBicmlkIGdl
-IG5vciB0aGUgc3RhdGljIGdsb2JhbCBhZGRyZXNzIEkNCj4+Pj4+IGFzc2lnbi4gTmVpdGhlciBt
-YWNoaW5lIGNhbg0KPj4+Pj4gcGVyZm9ybSBuZWlnaGJvdXIgZGlzY292ZXJ5IG92ZXIgdGhlIGxp
-bmsgdW50aWwgSSBwdXQgdGhlIGJvbmQNCj4+Pj4+IG1lbWJlcnMgKGV0aDAgYW5kIGV0aDEpIGlu
-dG8NCj4+Pj4+IHByb21pc2N1b3VzIG1vZGUuIEkgY2FuIGRvIHRoaXMgZWl0aGVyIHdpdGggdGNw
-ZHVtcCBvciAnaXAgbGluayBzZXQNCj4+Pj4+IGRldiBldGhYIHByb21pc2Mgb24nIGFuZCB0aGlz
-DQo+Pj4+PiBpcyBlbm91Z2ggdG8gbWFrZSB0aGUgbGluayBzcHJpbmcgdG8gbGlmZS4NCj4+Pj4+
-DQo+Pj4+PiBGb3IgYXMgZmFyIGFzIEkgcmVtZW1iZXIsIHNldHRpbmcgYm9uZDAgdG8gcHJvbWlz
-YyBzaG91bGQgc2V0IHRoZQ0KPj4+Pj4gYm9uZGluZyBtZW1iZXIgdG8gcHJvbWlzYyB0b28uDQo+
-Pj4+PiBBbmQgaW5zZXJ0aW5nIGJvbmQwIGludG8gYnIwIHNob3VsZCBzZXQgYm9uZDAgdG8gcHJv
-bWlzYy4uLiBTbw0KPj4+Pj4gZXZlcnl0aGluZyBzaG91bGQgYmUgaW4gcHJvbWlzYw0KPj4+Pj4g
-bW9kZSBhbnl3YXkuLi4gYnV0IHlvdSBzaG91ZG4ndCBoYXZlIHRvIGRvIGl0IGJ5IGhhbmQuDQo+
-Pj4+Pg0KPj4+Pg0KPj4+PiBTb3JyeSwgSSBzaG91bGQgaGF2ZSBhZGRlZCB0aGF0IEkgdHJpZWQg
-dGhpcy4gU2V0dGluZyBib25kMCBvciBicjANCj50bw0KPj4+PiBwcm9taXNjIGhhcyBubyBlZmZl
-Y3QuIEkNCj4+Pj4gZGlzY292ZXJlZCB0aGlzIGJ5IHJ1bm5pbmcgdGNwZHVtcCBvbiBicjAgZmly
-c3QsIHRoZW4gYm9uZDAsIHRoZW4NCj4+Pj4gZXZlbnR1YWxseSBlYWNoIGJvbmQgbWVtYmVyIGlu
-DQo+Pj4+IHR1cm4uIE9ubHkgYXQgdGhlIGxhc3Qgc3RhZ2UgZGlkIHRoaW5ncyBqdW1wIHRvIGxp
-ZmUuDQo+Pj4+DQo+Pj4+PiA+DQo+Pj4+PiA+IFRoaXMgY2x1c3RlciBpcyBub3QgY3VycmVudGx5
-IGxpdmUgc28gSSBjYW4gZWFzaWx5IHRlc3QgcGF0Y2hlcw0KPj4+Pj4gYW5kIHZhcmlvdXMgY29u
-ZmlndXJhdGlvbnMuDQo+Pj4+Pg0KPj4+Pj4gQ2FuIHlvdSB0cnkgdG8gcmVtb3ZlIHRoZSBib25k
-aW5nIHBhcnQsIGNvbm5lY3RpbmcgZXRoMCBhbmQgZXRoMQ0KPj4+Pj4gZGlyZWN0bHkgdG8gYnIw
-IGFuZCBzZWUgaWYgaXQNCj4+Pj4+IHdvcmtzIGJldHRlcj8gKFRoaXMgaXMgYSB0ZXN0IG9ueS4g
-SSBwZXJmZWN0bHkgdW5kZXJzdGFuZCB0aGF0IHlvdQ0KPj4+Pj4gd291bGQgbG9vc2UgYmFsYW5j
-ZS1yciBpbiB0aGlzDQo+Pj4+PiBzZXR1cC4pDQo+Pj4+Pg0KPj4+Pg0KPj4+PiBHb29kIGNhbGwu
-IExldCdzIHNlZS4NCj4+Pj4NCj4+Pj4gSSB0b29rIGJyMCBhbmQgYm9uZDAgYXBhcnQsIHRvb2sg
-ZXRoMCBhbmQgZXRoMSBvdXQgb2YgZW5mb3JjZWQNCj4+Pj4gcHJvbWlzYyBtb2RlLCB0aGVuIG1h
-bnVhbGx5IGJ1aWx0IGENCj4+Pj4gYnIwIHdpdGggZXRoMCBpbiBvbmx5IHNvIEkgZGlkbid0IGNh
-dXNlIGEgbmV0d29yayBsb29wLiBBZGRpbmcgZXRoMA0KPj4+PiB0byBicjAgZGlkIG5vdCBtYWtl
-IGl0IGdvIGludG8NCj4+Pj4gcHJvbWlzYyBtb2RlLCBidXQgSVB2NiBkb2VzIHdvcmsgb3ZlciB0
-aGlzIHNldHVwLiBJIGFsc28gbWFkZSBzdXJlDQo+aXANCj4+Pj4gLTYgbmVpZ2ggd2FzIGVtcHR5
-IG9uIGJvdGgNCj4+Pj4gbWFjaGluZXMgYmVmb3JlIEkgc3RhcnRlZC4NCj4+Pj4NCj4+Pj4gSSB0
-aGVuIGRlY2lkZWQgdG8gdHJ5IHRoZSB0ZXN0IHdpdGgganVzdCB0aGUgYm9uZDAgaW4gYmFsYW5j
-ZS1ycg0KPj4+PiBtb2RlLiBPbmNlIGFnYWluIEkgdG9vayBldmVyeXRoaW5nDQo+Pj4+IGRvd24g
-YW5kIGVuc3VyZWQgbm8gcHJvbWlzYyBtb2RlIGFuZCBubyBpcCAtNiBuZWlnaC4gSSBub3RpY2Vk
-IGJvbmQwDQo+Pj4+IHdhc24ndCBnZXR0aW5nIGEgbGluay1sb2NhbCBhbmQNCj4+Pj4gSSBmb3Vu
-ZCBvdXQgZm9yIHNvbWUgcmVhc29uDQo+Pj4+IC9wcm9jL3N5cy9uZXQvaXB2Ni9jb25mL2JvbmQw
-L2Rpc2FibGVfaXB2NiB3YXMgc2V0IG9uIGJvdGggc2VydmVycw0KPnNvIEkNCj4+Pj4gc2V0IGl0
-IHRvIDAuIFRoYXQgYnJvdWdodCB0aGluZ3MgdG8gbGlmZS4NCj4+Pj4NCj4+Pj4gU28gdGhlbiBJ
-IHB1dCBpdCBhbGwgYmFjayB0b2dldGhlciBhZ2FpbiBhbmQgaXQgZGlkbid0IHdvcmsuIEkgb25j
-ZQ0KPj4+PiBhZ2FpbiBub3RpY2VkIGRpc2FibGVfaXB2NiB3YXMNCj4+Pj4gc2V0IG9uIHRoZSBi
-b25kMCBpbnRlcmZhY2VzLCBub3cgcGFydCBvZiB0aGUgYnJpZGdlLiBUb2dnbGluZyB0aGlzDQo+
-b24NCj4+Pj4gdGhlIF9ib25kXyBpbnRlcmZhY2UgbWFkZQ0KPj4+PiB0aGluZ3Mgd29yayBhZ2Fp
-bi4NCj4+Pj4NCj4+Pj4gV2hhdCdzIHNldHRpbmcgZGlzYWJsZV9pcHY2PyBTaG91bGQgdGhpcyBi
-ZSBoYXZpbmcgYW4gaW1wYWN0IGlmIHRoZQ0KPj4+PiBwb3J0IGlzIHBhcnQgb2YgYSBicmlkZ2U/
-DQo+Pg0KPj4gSG1tLCBhcyBhIGZ1cnRoZXIgdXBkYXRlLi4uIEkgYnJvdWdodCB1cCBteSBWTXMg
-b24gdGhlIGJyaWRnZSB3aXRoDQo+PiBkaXNhYmxlX2lwdjYgdHVybmVkIG9mZi4gVGhlIFZNcyBv
-biBvbmUgaG9zdCBjb3VsZG4ndCBzZWUgd2hhdCB3YXMgb24NCj4+IHRoZSBvdGhlciBzaWRlIG9m
-IHRoZSBicmlkZ2UgKG9uIHRoZSBvdGhlciBzZXJ2ZXIpIHVudGlsIEkgdHVybmVkDQo+PiBwcm9t
-aXNjIGJhY2sgb24gbWFudWFsbHkuIFNvIGl0J3Mgbm90IGVudGlyZWx5IGRpc2FibGVfaXB2Nidz
-IGZhdWx0Lg0KPg0KPkhpLA0KPg0KPkkgZG9uJ3Qgd2FudCB0aGlzIHRvIGdldCBsb3N0IGFyb3Vu
-ZCB0aGUgQ2hyaXN0bWFzIGJyZWFrLCBzbyBJJ20ganVzdA0KPnJlc2VuZGluZyBpdC4gSSdtIHN0
-aWxsIHNlZWluZyB0aGUgc2FtZSBiZWhhdmlvdXIgYXMgYmVmb3JlLg0KPg0KPiBGcm9tIGFib3Zl
-Og0KPg0KPj4+Pj4gRm9yIGFzIGZhciBhcyBJIHJlbWVtYmVyLCBzZXR0aW5nIGJvbmQwIHRvIHBy
-b21pc2Mgc2hvdWxkIHNldCB0aGUNCj4+Pj4+IGJvbmRpbmcgbWVtYmVyIHRvIHByb21pc2MgdG9v
-Lg0KPj4+Pj4gQW5kIGluc2VydGluZyBib25kMCBpbnRvIGJyMCBzaG91bGQgc2V0IGJvbmQwIHRv
-IHByb21pc2MuLi4gU28NCj4+Pj4+IGV2ZXJ5dGhpbmcgc2hvdWxkIGJlIGluIHByb21pc2MNCj4+
-Pj4+IG1vZGUgYW55d2F5Li4uIGJ1dCB5b3Ugc2hvdWRuJ3QgaGF2ZSB0byBkbyBpdCBieSBoYW5k
-Lg0KPg0KPlRoaXMgZGVmaW5pdGVseSBkb2Vzbid0IGhhcHBlbiwgYXQgbGVhc3QgYWNjb3JkaW5n
-IHRvICdpcCBsaW5rIHNob3cgfA0KPmdyZXAgUFJPTUlTQycuDQo+DQo+Q2hyaXMNCj4NCj4tLQ0K
-PkNocmlzIEJvb3QNCj5ib290Y0Bib290Yy5uZXQNCj4tLQ0KPlRvIHVuc3Vic2NyaWJlIGZyb20g
-dGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluDQo+dGhlIGJv
-ZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcNCj5Nb3JlIG1ham9y
-ZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwN
-Cg0KU29ycnkgZm9yIHRoZSBkZWxheSBpbiByZXNwb25kaW5nLiAgSSdtIG5vdCBzdXJlIHdoYXQg
-aXMgZ29pbmcgb24gaGVyZSBhbmQgSSdtIG5vdCBvdXIgYm9uZGluZyBleHBlcnQgd2hvIGlzIHN0
-aWxsIG91dCBvbiBob2xpZGF5cy4gIEhvd2V2ZXIsIHdlJ2xsIHRyeSB0byByZXByb2R1Y2UgdGhp
-cy4gIFdoZW4gSSBnZXQgc29tZSBtb3JlIGFkdmljZSwgSSBtYXkgYmUgYXNraW5nIGZvciBzb21l
-IG1vcmUgZGF0YS4NCg0KVGhhbmtzLA0KDQpDYXJvbHluDQpDYXJvbHluIFd5Ym9ybnkNCkxpbnV4
-IERldmVsb3BtZW50DQpMQU4gQWNjZXNzIERpdmlzaW9uDQpJbnRlbCBDb3Jwb3JhdGlvbg0K
+On Tue, Jan 3, 2012 at 7:45 PM, David Miller <davem@davemloft.net> wrot=
+e:
+> From: Javier Martinez Canillas <martinez.javier@gmail.com>
+> Date: Mon, =C2=A02 Jan 2012 18:08:50 +0100
+>
+>> +/******************************************************************=
+*********
+>> + *
+>> + * This program is free software; you can redistribute it and/or
+>> + * modify it under the terms of the GNU General Public License
+>> + * as published by the Free Software Foundation; either version 2
+>> + * of the License, or (at your option) any later version.
+>> + *
+>> + * This program is distributed in the hope that it will be useful,
+>> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+>> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. =C2=A0See t=
+he
+>> + * GNU General Public License for more details.
+>> + *
+>> + * You should have received a copy of the GNU General Public Licens=
+e
+>> + * along with this program; if not, write to the Free Software
+>> + * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA =C2=A0=
+02111-1307, USA.
+>> + *
+>> + ******************************************************************=
+*********/
+>
+> Come on, I normally don't get into how people do copyrights in files,
+> but this is a file with 13 trivial defines, and the whole kernel
+> source tree is explicitly GPL V2'd by the top-level COPYING file.
+>
+> So this thing is over the top.
+
+Ok, I'll remove the license from the file.
+
+Thanks
+
+--=20
+Javier Mart=C3=ADnez Canillas
+(+34) 682 39 81 69
+Barcelona, Spain
