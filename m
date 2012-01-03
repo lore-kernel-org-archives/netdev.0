@@ -1,41 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net/smsc911x: Check if PHY is in operational mode
- before software reset
-Date: Tue, 03 Jan 2012 13:46:47 -0500 (EST)
-Message-ID: <20120103.134647.1029494174636172958.davem@davemloft.net>
-References: <1325524131-14585-1-git-send-email-martinez.javier@gmail.com>
-	<1325524131-14585-2-git-send-email-martinez.javier@gmail.com>
+Subject: Re: [PATCH] net: fsl: fec: fix build for mx23-only kernel
+Date: Tue, 03 Jan 2012 13:48:51 -0500 (EST)
+Message-ID: <20120103.134851.1069804762867901608.davem@davemloft.net>
+References: <1325598407-14353-1-git-send-email-w.sang@pengutronix.de>
+ <CAOMZO5BmKJP-3y_FxczuGwGfBR_3e2J9z3+gqzs-JDxOtR_PdQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning@smsc.com, ben@decadent.org.uk,
-	eballetbo@iseebcn.com, netdev@vger.kernel.org
-To: martinez.javier@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41403 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754537Ab2ACSq5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 13:46:57 -0500
-In-Reply-To: <1325524131-14585-2-git-send-email-martinez.javier@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: fabio.estevam@freescale.com, netdev@vger.kernel.org, w.sang@pengutronix.de,
+ u.kleine-koenig@pengutronix.de, shawn.guo@linaro.org,
+ linux-arm-kernel@lists.infradead.org
+To: festevam@gmail.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAOMZO5BmKJP-3y_FxczuGwGfBR_3e2J9z3+gqzs-JDxOtR_PdQ@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Javier Martinez Canillas <martinez.javier@gmail.com>
-Date: Mon,  2 Jan 2012 18:08:51 +0100
+From: Fabio Estevam <festevam@gmail.com>
+Date: Tue, 3 Jan 2012 13:37:47 -0200
 
-> +	/* If energy is detected the PHY is already awake so is not necessary
-> +	 * to disable the energy detect power-down mode. */
- ...
-> +	/* LAN9210/LAN9211/LAN9220/LAN9221 chips have an internal PHY that
-> +	 * are initialized in a Energy Detect Power-Down mode that prevents
-> +	 * the MAC chip to be software reseted. So we have to wakeup the PHY
-> +	 * before */
+> On Tue, Jan 3, 2012 at 11:46 AM, Wolfram Sang <w.sang@pengutronix.de> wro=
+te:
+>> If one only selects mx23-based boards, compile fails:
+>>
+>> drivers/net/ethernet/freescale/fec.c:410:2: error: 'FEC_HASH_TABLE_HIGH'=
+ undeclared (first use in this function)
+>> drivers/net/ethernet/freescale/fec.c:411:2: error: 'FEC_HASH_TABLE_LOW' =
+undeclared (first use in this function)
+>>
+>> This is because fec.h uses CONFIG_SOC_IMX28 to determine the register
+>> layout of the core which makes sense since the MX23 does not have a fec.
+>> However, Kconfig uses the broader ARCH_MXS symbol and this way even
+>> makes the fec-driver default for MX23. Adapt Kconfig to use the more
+>> precise SOC_IMX28 as well.
+>>
+>> Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
+>> Cc: Fabio Estevam <fabio.estevam@freescale.com>
+>> Cc: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+>> Cc: Shawn Guo <shawn.guo@linaro.org>
+>> Cc: David S. Miller <davem@davemloft.net>
+> =
 
-Format these comments correctly:
+> Acked-by: Fabio Estevam <fabio.estevam@freescale.com>
 
-	/* Like this.
-	 * See?
-	 */
-
-	/* Not like this.
-	 * Ok? */
+Applied, thanks.
