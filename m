@@ -1,87 +1,46 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH] netfilter: Fix br_nf_pre_routing() in conjunction with
- bridge-nf-call-ip(6)tables=0
-Date: Tue, 03 Jan 2012 18:42:41 +0100
-Message-ID: <4F033E11.5060707@nod.at>
-References: <4F025A07.2000304@nod.at> <1325597164-13459-1-git-send-email-richard@nod.at> <1325597164-13459-2-git-send-email-richard@nod.at> <20120103081521.2fec3a29@nehalam.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bonding: fix error handling if slave is busy (v2)
+Date: Tue, 03 Jan 2012 12:49:35 -0500 (EST)
+Message-ID: <20120103.124935.657537317702636488.davem@davemloft.net>
+References: <4EFF3419.4050504@gmail.com>
+	<20111231152646.6f0f98fc@nehalam.linuxnetplumber.net>
+	<4EFFA44E.10507@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigBDF9393B90E3ECC436D4C566"
-Cc: davem@davemloft.net, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120103081521.2fec3a29@nehalam.linuxnetplumber.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, fubar@us.ibm.com, andy@greyhouse.net,
+	netdev@vger.kernel.org
+To: nicolas.2p.debian@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:40858 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754441Ab2ACRtn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 12:49:43 -0500
+In-Reply-To: <4EFFA44E.10507@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigBDF9393B90E3ECC436D4C566
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+=46rom: Nicolas de Peslo=FCan <nicolas.2p.debian@gmail.com>
+Date: Sun, 01 Jan 2012 01:09:50 +0100
 
-Am 03.01.2012 17:15, schrieb Stephen Hemminger:
-> On Tue,  3 Jan 2012 14:26:04 +0100
-> Richard Weinberger <richard@nod.at> wrote:
->=20
->> If net.bridge.bridge-nf-call-iptables or net.bridge.bridge-nf-call-ip6=
-tables
->> are set to zero xt_physdev has no effect because skb->nf_bridge has no=
-t been set up.
+> Le 01/01/2012 00:26, Stephen Hemminger a =E9crit :
+>> If slave device already has a receive handler registered, then the
+>> error unwind of bonding device enslave function is broken.
 >>
->> Signed-off-by: Richard Weinberger <richard@nod.at>
+>> The following will leave a pointer to freed memory in the slave
+>> device list, causing a later kernel panic.
+>> # modprobe dummy
+>> # ip li add dummy0-1 link dummy0 type macvlan
+>> # modprobe bonding
+>> # echo +dummy0>/sys/class/net/bond0/bonding/slaves
+>>
+>> The fix is to detach the slave (which removes it from the list)
+>> in the unwind path.
+>>
+>> Signed-off-by: Stephen Hemminger<shemminger@vyatta.com>
 >=20
-> I am not sure if this is a valid configuration. The setting of sysctl i=
-s saying
-> "don't do iptables on bridge (since I won't be using it)" and then you =
-are later
-> doing iptables and expecting the settings as if the iptables setup was =
-being
-> done.
+> Thanks Stephen.
+>=20
+> Reviewed-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
 
-I don't think so.
-
-Also rules like this one are broken:
-iptables -A INPUT -i bridge0 -m physdev --physdev-in eth0 -j ...
-
-No firewalling is done on the bridge, xt_physdev is only using some meta
-information.
-
-At least a big fat warning would be nice that xt_physdev does not work
-if bridge-nf-call-iptables=3D0.
-It took me some time to figure out why my firewall rule set gone nuts on
-RHEL6...
-
-> Instead, you should just enable the net.bridge.bridge-nf-call-iptables =
-sysctl.
-> If a distro chooses to disable it then you may have to do it explicitly=
-=2E
-
-Fedora and RHEL have net.bridge.bridge-nf-call-iptables=3D0 per default
-due to KVM network performance issues.
-I'm sure I'm not the only user of xt_physdev on RHEL and friends.
-
-Thanks,
-//richard
-
-
---------------enigBDF9393B90E3ECC436D4C566
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.18 (GNU/Linux)
-
-iQEcBAEBAgAGBQJPAz4WAAoJEN9758yqZn9eXDgH/RmvXgoPKEQMuYnqs5w8wS11
-ZSqJ3y36HGRvNuanMHj9Gqt1mGDhIS0SYSD0qIpX1ulDKeEg+WepphTDkxAqn//3
-3WpSEVFPkDRccSy9Qm9/FZpkqNmjEsB0271iOcdb3XB16fkiO3DE3fA81mIQ9zSL
-pyISulmVm43sGKsFFFrAi1VwezKEeUbDT7nwSUzcjhffpahYX7fPVv8uHYGh1mB2
-79nfGNIxgQFXpbMUzr8Y1V3V2aNtzEa/GAwDHkPlHj29dVwzCVZjFZ6uRzqeXlzk
-0o9cfMx0RNWwJ90KhmraDLbD4hDy5de6E0/z4Ms3H+jrtkXmstX54tHvwLa98bo=
-=7mt9
------END PGP SIGNATURE-----
-
---------------enigBDF9393B90E3ECC436D4C566--
+Applied, thanks.
