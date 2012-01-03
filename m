@@ -1,31 +1,60 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: iproute2: proper detection of libxtables position and flags
-Date: Tue, 3 Jan 2012 13:47:19 -0800
-Message-ID: <20120103134719.414ae3d0@nehalam.linuxnetplumber.net>
-References: <alpine.LNX.2.01.1112312317220.24158@frira.zrqbmnf.qr>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCHv2 net-next 0/8] RX NFC support for hash-based filters
+Date: Tue, 3 Jan 2012 21:56:59 +0000
+Message-ID: <1325627819.2832.31.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Networking Developer Mailing List <netdev@vger.kernel.org>
-To: Jan Engelhardt <jengelh@medozas.de>
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:46805 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754125Ab2ACVrX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jan 2012 16:47:23 -0500
-In-Reply-To: <alpine.LNX.2.01.1112312317220.24158@frira.zrqbmnf.qr>
+Received: from mail.solarflare.com ([216.237.3.220]:36702 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754125Ab2ACV5D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 16:57:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 31 Dec 2011 23:17:56 +0100 (CET)
-Jan Engelhardt <jengelh@medozas.de> wrote:
+1. Fix gianfar's validation of filter rule locations.  In the previous
+   version of this series, this was a requirement for part 2, but that's
+   no longer the case.
 
-> From: Jan Engelhardt <jengelh@medozas.de>
-> Date: 2011-09-24 23:37:34.405739159 +0200
-> Upstream: not sent yet
-> 
-> Any tests involving iptables _MUST_ utilize pkg-config to find the
-> proper locations of the installation. 
-> 
+2. Extend ethtool RX NFC rules API to support hash-based filter hardware
+   in which rule locations should be selected by the driver or firmware.
 
-Will this work for all distros? Is this backwards compatiable?
+3. Change the sfc driver to implement this API instead of RX n-tuple.
+
+4. Remove support for RX n-tuple, now that there are no in-tree
+   implementations.
+
+Ben.
+
+Ben Hutchings (8):
+  gianfar: Reject out-of-range RX NFC locations
+  ethtool: Allow drivers to select RX NFC rule locations
+  sfc: Change filter ID generation to satisfy priority semantics of RX
+    NFC
+  sfc: Use consistent types for filter IDs, indices and search depths
+  sfc: Add support for retrieving and removing filters by ID
+  sfc: Implement ethtool RX NFC rules API instead of n-tuple API
+  sfc: Remove now-unused filter function
+  ethtool: Remove ethtool_ops::set_rx_ntuple operation
+
+ drivers/net/ethernet/freescale/gianfar_ethtool.c |    5 +-
+ drivers/net/ethernet/sfc/efx.h                   |   16 +-
+ drivers/net/ethernet/sfc/ethtool.c               |  188 +++++++++++---
+ drivers/net/ethernet/sfc/filter.c                |  310 +++++++++++++++++++---
+ drivers/net/ethernet/sfc/filter.h                |   12 +
+ include/linux/ethtool.h                          |   30 ++-
+ net/core/ethtool.c                               |   66 +----
+ net/socket.c                                     |    2 +-
+ 8 files changed, 484 insertions(+), 145 deletions(-)
+
+-- 
+1.7.4.4
+
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
