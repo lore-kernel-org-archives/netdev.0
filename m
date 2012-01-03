@@ -1,66 +1,114 @@
-From: Jean-Michel Hautbois <jhautbois@gmail.com>
-Subject: Re: TCP communication for raw image transmission
-Date: Tue, 3 Jan 2012 08:36:46 +0100
-Message-ID: <CAL8zT=htsVAJotATQ5Lqidea5dEqCkZOgTT6t4-fFjjDzcVviw@mail.gmail.com>
-References: <CAL8zT=iSiKZfENdtng9gDtuRSuFNn4WZ69uuGapLVVEduFRVyQ@mail.gmail.com>
- <1325519943.2375.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <CAL8zT=giNe46FYQYxPkbshVfyG-DvCTKS0RLdiN8Kz+e-x-JFw@mail.gmail.com>
- <1325521745.18116.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <CAL8zT=gbCmtNpw1Lot0P7zB+b_Kw911jhxsXCzO3JOBmMLRcFg@mail.gmail.com>
- <1325523137.18116.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <1325523178.18116.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <CAL8zT=gA2pd8wJtBRRLSH_MKXOj3_FzfcXg7v705+8w-xdByLg@mail.gmail.com>
- <1325526085.18116.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <CAL8zT=jKGYPe+bi44m0ADWzr+h0Hx59oGUYZoYsuu5syQQ-N5g@mail.gmail.com> <CAL8zT=h=mDNiDRVDo=jjcCjkyRGZ79iQiQLT3ZVRLb2PuC2ugg@mail.gmail.com>
+From: Javier Martinez Canillas <martinez.javier@gmail.com>
+Subject: Re: [BUG] SIOCSIFFLAGS returns -EIO on SMSC LAN911x
+Date: Tue, 3 Jan 2012 08:44:25 +0100
+Message-ID: <CAAwP0s36dvw7d5LLs4LGZ8_ANiCHpCSWLSrUObF6thziY9JpsQ@mail.gmail.com>
+References: <CAAwP0s37E=9J-KR397snkvq=idrc7nmELDJKrm33reeK84wJYQ@mail.gmail.com>
+ <1325242573.13595.71.camel@deadeye> <CAAwP0s0Y329AAXpHW9muOECt5DpgpDm6kefXR7uE1233A1LGWg@mail.gmail.com>
+ <1325250948.13595.100.camel@deadeye> <CAAwP0s1KV0gCWXB4-sNDjyVKETGrp9xO8VmAnbJHHCupf4P5pg@mail.gmail.com>
+ <1325533505.13595.246.camel@deadeye>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org,
+	Enric Balletbo i Serra <eballetbo@iseebcn.com>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:51709 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751462Ab2ACHhI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 02:37:08 -0500
-Received: by wibhm6 with SMTP id hm6so8867085wib.19
-        for <netdev@vger.kernel.org>; Mon, 02 Jan 2012 23:37:07 -0800 (PST)
-In-Reply-To: <CAL8zT=h=mDNiDRVDo=jjcCjkyRGZ79iQiQLT3ZVRLb2PuC2ugg@mail.gmail.com>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:63324 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750985Ab2ACHor convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 02:44:47 -0500
+Received: by ghbg21 with SMTP id g21so3362420ghb.19
+        for <netdev@vger.kernel.org>; Mon, 02 Jan 2012 23:44:46 -0800 (PST)
+In-Reply-To: <1325533505.13595.246.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2012/1/2 Jean-Michel Hautbois <jhautbois@gmail.com>:
-> 2012/1/2 Jean-Michel Hautbois <jhautbois@gmail.com>:
->> 2012/1/2 Eric Dumazet <eric.dumazet@gmail.com>:
->>> Le lundi 02 janvier 2012 =C3=A0 18:20 +0100, Jean-Michel Hautbois a=
- =C3=A9crit :
->>>
->>>> Here we go...
->>>>
->>>> Recv =C2=A0 Send =C2=A0 =C2=A0Send
->>>> Socket Socket =C2=A0Message =C2=A0Elapsed
->>>> Size =C2=A0 Size =C2=A0 =C2=A0Size =C2=A0 =C2=A0 Time =C2=A0 =C2=A0=
- Throughput
->>>> bytes =C2=A0bytes =C2=A0 bytes =C2=A0 =C2=A0secs. =C2=A0 =C2=A010^=
-6bits/sec
->>>>
->>>> =C2=A087380 =C2=A016384 =C2=A016384 =C2=A0 =C2=A060.01 =C2=A0 =C2=A0=
- =C2=A021.79
->>>>
->>>> It is not very good, AFAIK.
->>>> CPU usage is between 17 and 35%.
->>>
->>> Ouch...
->>>
->>> Better find out what is happening before even starting coding
->>> anything...
->>>
->>> checkout "netstat -s" on both sender/receiver
+On Mon, Jan 2, 2012 at 8:45 PM, Ben Hutchings <ben@decadent.org.uk> wro=
+te:
+> On Mon, 2012-01-02 at 19:37 +0100, Javier Martinez Canillas wrote:
+> [...]
+>> Thanks for your help.
 >>
+>> Finally, what I did was to bring to operational mode the integrated
+>> PHY chip by disabling the energy detect power-down mode before doing=
+ a
+>> software reset and re-enabling after it.
+>>
+>> Does that solution make sense to you? I've sent the patch-set to the
+>> list for review. The patch-set is composed of the following patches:
+> [...]
+>
+> I think that if the data sheet says the power-down bit is reserved on
+> the 9221i then it is better not to set it at all. =C2=A0However, give=
+n that
+> you actually have hardware to test on, you are in a better position t=
+o
+> say what actually works.
+>
+> Ben.
+>
 
-After looking to the results, I can't see really bad values or
-anything which would explain such a behaviour...
-Maybe is there some limits in the driver ? My board is a leopardboard (=
-dm368).
-Any idea ?
+Hello Ben,
 
-JM
+I didn't find on the LAN9221/LAN9221i data-sheet where it says that
+this bit 0x17.13 is reserved.
+
+In fact if you look at Section 5.5 "PHY Registers" (page 117) you will
+see that the PHY register 0x17 "Mode Control/Status Register" (page
+122) is a valid PHY register address and can be used to enable and
+disable the Energy Detect Power-Down mode by writing to the bit-field
+13 (EDPWRDOWN). Also a functional description of this behavior is
+explanied in Section "3.10.3.2 Energy Detect Power-Down" (page 47).
+
+Since in drivers/net/phy/smsc.c the phy is initialized with:
+
+#define MII_LAN83C185_CTRL_STATUS 17 /* Mode/Status Register */
+#define MII_LAN83C185_EDPWRDOWN (1 << 13) /* EDPWRDOWN */
+
+static int smsc_phy_config_init(struct phy_device *phydev)
+{
+        int rc =3D phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
+        if (rc < 0)
+                return rc;
+
+        /* Enable energy detect mode for this SMSC Transceivers */
+        rc =3D phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
+                       rc | MII_LAN83C185_EDPWRDOWN);
+        if (rc < 0)
+                return rc;
+
+        return smsc_phy_ack_interrupt (phydev);
+}
+
+I think that the enabling of the Energy Detect Power-Down mode is corre=
+ct.
+
+On section 5.3.9 "HW_CFG=E2=80=94Hardware Configuration Register" it sa=
+ys that:
+
+"Soft Reset Timeout (SRST_TO). If a software reset is attempted when
+the PHY is not in the operational state (RX_CLK and TX_CLK running),
+the reset will not
+complete and the soft reset operation will timeout and this bit will
+be set to a =E2=80=981=E2=80=99."
+
+Is exactly the behavior we have when the PHY is in low power mode
+because the energy detect power-down mode is enabled and no energy is
+detected.
+
+That's why I thought to use the bit-field EDPWRDOWN to disable the
+energy detect power-down mode before making the software reset. This
+brings the PHY to operational mode so the software reset never fails.
+After the software reset was successful we can re-enable the energy
+detect power-down mode to take advantage of the automatic energy
+detection supported by the device.
+
+I have tested on the hardware and seems to work properly, but I don't
+know if is the best approach.
+
+Best regards,
+
+--=20
+Javier Mart=C3=ADnez Canillas
+(+34) 682 39 81 69
+Barcelona, Spain
