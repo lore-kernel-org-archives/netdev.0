@@ -1,11 +1,10 @@
 From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: [net-next 08/11] e1000e: add Receive Packet Steering (RPS)
- support
-Date: Tue, 3 Jan 2012 20:16:44 +0000
-Message-ID: <804857E1F29AAC47BF68C404FC60A1840292A5@ORSMSX102.amr.corp.intel.com>
+Subject: RE: [net-next 07/11] e1000e: cleanup Rx checksum offload code
+Date: Tue, 3 Jan 2012 20:17:16 +0000
+Message-ID: <804857E1F29AAC47BF68C404FC60A18402A6C5@ORSMSX102.amr.corp.intel.com>
 References: <1325618356-2655-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1325618356-2655-9-git-send-email-jeffrey.t.kirsher@intel.com>
- <20120103.150936.572765552893657192.davem@davemloft.net>
+	<1325618356-2655-8-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20120103.150842.1516759599032629705.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -15,47 +14,33 @@ Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 To: David Miller <davem@davemloft.net>,
 	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:38984 "EHLO mga03.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:25374 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755087Ab2ACUQq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 15:16:46 -0500
-In-Reply-To: <20120103.150936.572765552893657192.davem@davemloft.net>
+	id S1755156Ab2ACURS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 15:17:18 -0500
+In-Reply-To: <20120103.150842.1516759599032629705.davem@davemloft.net>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 >-----Original Message-----
 >From: David Miller [mailto:davem@davemloft.net]
->Sent: Tuesday, January 03, 2012 12:10 PM
+>Sent: Tuesday, January 03, 2012 12:09 PM
 >To: Kirsher, Jeffrey T
 >Cc: Allan, Bruce W; netdev@vger.kernel.org; gospo@redhat.com;
 >sassmann@redhat.com
->Subject: Re: [net-next 08/11] e1000e: add Receive Packet Steering (RPS) support
+>Subject: Re: [net-next 07/11] e1000e: cleanup Rx checksum offload code
 >
 >From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->Date: Tue,  3 Jan 2012 11:19:13 -0800
+>Date: Tue,  3 Jan 2012 11:19:12 -0800
 >
->> +		e_err("Enabling both receive checksum offload and receive hashing is
->not possible with jumbo frames.  Disable jumbos or enable only one of the
->receive offload features.\n");
+>> -		__sum16 sum = (__force __sum16)htons(csum);
+>> +		__sum16 sum = (__force __sum16)htons(le16_to_cpu(csum));
 >
->Please split this up into multiple lines like this:
->
->	e_err("..."
->	      "..."
->	      "...");
->
->Thanks.
+>Looks like a NOP.  It's essentially "cpu_to_le16(le16_to_cpu(csum)" as
+>far as I can tell.
 
-I was under the impression from recently accepted patches that the preferred
-method for log/error message strings was to keep them as a single string
-(rather than broken across multiple lines) for easy searching.  Is that not
-the case here?
-
->From ./Documentation/CodingStyle..."never break user-visible strings such as
-printk messages, because that breaks the ability to grep for them."
-
-Do you still want this change?
+OK, I'll look into fixing this.
 
 Thanks,
 Bruce.
