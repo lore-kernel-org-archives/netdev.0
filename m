@@ -1,63 +1,53 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Why is gre0 auto-created, and can we fix it?
-Date: Tue, 03 Jan 2012 11:49:50 -0800
-Message-ID: <4F035BDE.5060409@candelatech.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [PATCH] fix CAN MAINTAINERS SCM tree type
+Date: Tue, 03 Jan 2012 20:55:58 +0100
+Message-ID: <4F035D4E.2070108@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:54055 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754438Ab2ACTtv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 14:49:51 -0500
-Received: from [192.168.100.111] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id q03JnoTo027066
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 3 Jan 2012 11:49:50 -0800
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Joe Perches <joe@perches.com>
+To: Linux Netdev List <netdev@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-While trying to figure out why 'gre0' doesn't
-go away properly in my application, I noticed that
-it is auto-created if you just run 'ifconfig gre0'.
-(Same thing happens if you use 'ip link show gre0')
+As pointed out by Joe Perches the SCM tree type was missing in my patch.
 
-As far as I can tell, no other interfaces are auto-created
-in this manner.
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
-If I cook up a patch to 'fix' this, would it be acceptable,
-or are we stuck with the current behaviour for backwards-compat
-reasons?
+CC: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+CC: Urs Thuermann <urs.thuermann@volkswagen.de>
+CC: Wolfgang Grandegger <wg@grandegger.com>
+CC: Marc Kleine-Budde <mkl@pengutronix.de>
+CC: linux-can@vger.kernel.org
 
-[root@lec2010-ath9k-1 lanforge]# rmmod ip_gre
-[root@lec2010-ath9k-1 lanforge]# ip link show
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
-     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
-     link/ether 00:90:0b:13:ed:ea brd ff:ff:ff:ff:ff:ff
-3: eth1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN qlen 1000
-     link/ether 00:90:0b:13:ed:eb brd ff:ff:ff:ff:ff:ff
-[root@lec2010-ath9k-1 lanforge]# ifconfig gre0
-gre0      Link encap:UNSPEC  HWaddr 00-00-00-00-00-00-01-00-00-00-00-00-00-00-00-00
-           NOARP  MTU:1476  Metric:1
+---
 
-[root@lec2010-ath9k-1 lanforge]# ip link show
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
-     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
-     link/ether 00:90:0b:13:ed:ea brd ff:ff:ff:ff:ff:ff
-3: eth1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN qlen 1000
-     link/ether 00:90:0b:13:ed:eb brd ff:ff:ff:ff:ff:ff
-76: gre0: <NOARP> mtu 1476 qdisc noop state DOWN
-     link/gre 0.0.0.0 brd 0.0.0.0
-[root@lec2010-ath9k-1 lanforge]# ifconfig tap0
-tap0: error fetching interface information: Device not found
+diff -u -r a/MAINTAINERS b/MAINTAINERS
+--- a/MAINTAINERS	2012-01-03 20:48:07.160746574 +0100
++++ b/MAINTAINERS	2012-01-03 20:48:51.208745047 +0100
+@@ -1700,7 +1700,7 @@
+ M:	Oliver Hartkopp <socketcan@hartkopp.net>
+ L:	linux-can@vger.kernel.org
+ W:	http://gitorious.org/linux-can
+-T:	git://gitorious.org/linux-can/linux-can-next.git
++T:	git git://gitorious.org/linux-can/linux-can-next.git
+ S:	Maintained
+ F:	net/can/
+ F:	include/linux/can.h
+@@ -1714,7 +1714,7 @@
+ M:	Marc Kleine-Budde <mkl@pengutronix.de>
+ L:	linux-can@vger.kernel.org
+ W:	http://gitorious.org/linux-can
+-T:	git://gitorious.org/linux-can/linux-can-next.git
++T:	git git://gitorious.org/linux-can/linux-can-next.git
+ S:	Maintained
+ F:	drivers/net/can/
+ F:	include/linux/can/dev.h
 
-Thanks,
-Ben
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
