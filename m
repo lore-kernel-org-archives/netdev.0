@@ -1,88 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Possible DoS with 6RD border relay
-Date: Wed, 04 Jan 2012 18:02:47 +0100
-Message-ID: <1325696567.2428.32.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <201201041048.44509.bcook@breakingpoint.com>
+From: Mihai Maruseac <mihai.maruseac@gmail.com>
+Subject: Re: [PATCH] ipv6/addrconf: speedup /proc/net/if_inet6 filling
+Date: Wed, 4 Jan 2012 19:03:53 +0200
+Message-ID: <CAOMsUMKp_7w2+0bBTFbQk3HKpobJQd8b2vi6_zTTzGjtZ_+OMA@mail.gmail.com>
+References: <1325669495-5626-1-git-send-email-mmaruseac@ixiacom.com> <20120104082200.437df26a@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Brent Cook <bcook@breakingpoint.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org, Mihai Maruseac <mmaruseac@ixiacom.com>,
+	Daniel Baluta <dbaluta@ixiacom.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:38630 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756481Ab2ADRCv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 12:02:51 -0500
-Received: by wgbdr13 with SMTP id dr13so29231954wgb.1
-        for <netdev@vger.kernel.org>; Wed, 04 Jan 2012 09:02:50 -0800 (PST)
-In-Reply-To: <201201041048.44509.bcook@breakingpoint.com>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:49667 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756448Ab2ADREO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 12:04:14 -0500
+Received: by ggdk6 with SMTP id k6so10364553ggd.19
+        for <netdev@vger.kernel.org>; Wed, 04 Jan 2012 09:04:13 -0800 (PST)
+In-Reply-To: <20120104082200.437df26a@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 04 janvier 2012 =C3=A0 10:48 -0600, Brent Cook a =C3=A9crit=
- :
-> Hi All,
->=20
->   I have been doing some testing of Linux serving as a 6RD border rel=
-ay. It=20
-> seems that if a client sends 6RD-encapsulated packets and varies the =
-lower 64-
-> bits of the 6RD address over the range of the neighbor table size (th=
-e bits=20
-> below the delegated prefix), it causes the neighbor table to quickly =
-overflow.=20
-> However, viewing the neighbor table never shows more than a handful o=
-f=20
-> entries. When the neighbor table overflows, packet routing on my test=
- system=20
-> slows from 1Gbps to a couple of Mbps at most.
->=20
-> [28765.764079] net_ratelimit: 32003 callbacks suppressed
-> [28765.764084] ipv6: Neighbour table overflow.
-> [28765.764171] ipv6: Neighbour table overflow.
->=20
-> root@target1:~# ip neigh
-> fe80::1a:c5ff:fe02:2 dev test2  router FAILED
-> 2001:1234::3 dev test2 lladdr 02:1a:c5:02:00:02 REACHABLE
-> 192.168.2.1 dev mgmt0 lladdr 04:7d:7b:06:8d:2d REACHABLE
-> 1.0.0.1 dev test0 lladdr 02:1a:c5:01:00:00 REACHABLE
->=20
-> If I send packets much more slowly, the system works as expected. If =
-the 6RD=20
-> client sends from a constant address rather than varying the lower bi=
-ts, it=20
-> also works fine. I tested the two neighbor table checks in sit.c and=20
->=20
-> The network topology looks something like this:
->=20
-> 6RD client -> Router -> Linux (6RD BR) -> IPv6 host
->=20
-> The 6RD client is at 1.1.1.1/24
-> The Linux BR is at 1.0.0.2/24, the IPv4 router is at 1.0.0.1/24 and t=
-he IPv6=20
-> host is directly attached on a second physical interface at address=20
-> 2001:1234::3
->=20
-> A configuration script for configuring the BR follows:
->=20
-> #!/bin/bash
-> PREFIX1=3D"2001:0db8"                  # 6rd ipv6 prefix
-> intf1=3Dtest0
-> intf2=3Dtest2
->=20
-> modprobe sit
->=20
-> ## Setup the tunnel, it will create an interface named '6rd'
-> ip addr add 1.0.0.2/24 dev $intf1
-> ip link set $intf1 up
-> sudo ip route add 1.1.1.0/24 via 1.0.0.1
-> ip addr add 2001:1234::1/64 dev $intf2
-> ip link set $intf2 up
-> ip tunnel add 6rd mode sit local 1.0.0.2 dev $intf1 ttl 64
-> ip tunnel 6rd dev 6rd 6rd-prefix ${PREFIX1}::/32
-> ip addr add ${PREFIX1}::1/32 dev 6rd
-> ip link set 6rd up
->=20
-> sysctl -w net.ipv6.conf.all.forwarding=3D1
+On Wed, Jan 4, 2012 at 6:22 PM, Stephen Hemminger <shemminger@vyatta.co=
+m> wrote:
+> On Wed, =A04 Jan 2012 11:31:35 +0200
+> Mihai Maruseac <mihai.maruseac@gmail.com> wrote:
+>
+>> This ensures a linear behaviour when filling /proc/net/if_inet6 thus=
+ making
+>> ifconfig run really fast on IPv6 only addresses. In fact, with this =
+patch and
+>> the IPv4 one sent a while ago, ifconfig will run in linear time rega=
+rdless of
+>> address type.
+>>
+>> IPv4 related patch: f04565ddf52e401880f8ba51de0dff8ba51c99fd
+>> =A0 =A0 =A0 =A0dev: use name hash for dev_seq_ops
+>> =A0 =A0 =A0 =A0...
+>>
+>> Some statistics (running ifconfig > /dev/null on a different setup):
+>>
+>> iface count / IPv6 no-patch time / IPv6 patched time / IPv4 time
+>> ----------------------------------------------------------------
+>> =A0 =A0 =A0 6250 =A0| =A0 =A0 =A0 0.23 s =A0 =A0 =A0 | =A0 =A0 =A00.=
+13 s =A0 =A0 =A0 | =A00.11 s
+>> =A0 =A0 =A012500 =A0| =A0 =A0 =A0 0.62 s =A0 =A0 =A0 | =A0 =A0 =A00.=
+28 s =A0 =A0 =A0 | =A00.22 s
+>> =A0 =A0 =A025000 =A0| =A0 =A0 =A0 2.91 s =A0 =A0 =A0 | =A0 =A0 =A00.=
+57 s =A0 =A0 =A0 | =A00.46 s
+>> =A0 =A0 =A050000 =A0| =A0 =A0 =A011.37 s =A0 =A0 =A0 | =A0 =A0 =A01.=
+21 s =A0 =A0 =A0 | =A00.94 s
+>> =A0 =A0 128000 =A0| =A0 =A0 =A086.78 s =A0 =A0 =A0 | =A0 =A0 =A03.05=
+ s =A0 =A0 =A0 | =A02.54 s
+>>
+>> Signed-off-by: Mihai Maruseac <mmaruseac@ixiacom.com>
+>> Cc: Daniel Baluta <dbaluta@ixiacom.com>
+>> ---
+>> =A0net/ipv6/addrconf.c | =A0 43 ++++++++++++++++++++++++++++--------=
+-------
+>> =A01 files changed, 28 insertions(+), 15 deletions(-)
+>>
+>
+>
+> What about netlink? Also ifconfig is really considered deprecated,
+> especially for ipv6 usage.
 
-What kernel version do you use ?
+Yes, ifconfig is deprecated but the /proc/net/if_inet6 file can be
+used in a lot of bash scripts and this was what we wanted to optimize.
+
+We tried to look at the netlink sockets used in iproute2 but there
+seems to be no way to improve the performance there. We used 3 pair of
+eyes for this before giving up.
+
+I'll come back with statistics from ip a s in at most 24 hours, I
+cannot test right now.
+
+Thanks,
+Mihai
