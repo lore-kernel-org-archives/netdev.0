@@ -1,79 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Possible DoS with 6RD border relay
-Date: Wed, 04 Jan 2012 18:53:20 +0100
-Message-ID: <1325699600.2428.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <201201041048.44509.bcook@breakingpoint.com>
-	 <201201041102.31205.bcook@breakingpoint.com>
-	 <1325697931.2428.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <201201041135.54071.bcook@breakingpoint.com>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: [PATCH] netfilter: Fix br_nf_pre_routing() in conjunction with
+ bridge-nf-call-ip(6)tables=0
+Date: Wed, 04 Jan 2012 18:55:28 +0100
+Message-ID: <4F049290.3090803@pandora.be>
+References: <4F025A07.2000304@nod.at> <1325597164-13459-1-git-send-email-richard@nod.at> <1325597164-13459-2-git-send-email-richard@nod.at> <20120103081521.2fec3a29@nehalam.linuxnetplumber.net> <4F033E11.5060707@nod.at> <4F0361D7.3000602@pandora.be> <4F03650D.8050200@nod.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Brent Cook <bcook@breakingpoint.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:40733 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750884Ab2ADRxY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 12:53:24 -0500
-Received: by wibhm6 with SMTP id hm6so10093156wib.19
-        for <netdev@vger.kernel.org>; Wed, 04 Jan 2012 09:53:23 -0800 (PST)
-In-Reply-To: <201201041135.54071.bcook@breakingpoint.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>, davem@davemloft.net,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Richard Weinberger <richard@nod.at>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F03650D.8050200@nod.at>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 04 janvier 2012 =C3=A0 11:35 -0600, Brent Cook a =C3=A9crit=
- :
-> On Wednesday, January 04, 2012 11:25:31 AM Eric Dumazet wrote:
-> > Le mercredi 04 janvier 2012 =C3=A0 11:02 -0600, Brent Cook a =C3=A9=
-crit :
-> > > I forgot to mention, I'm testing 3.2 rc7:
-> > >=20
-> > > Linux target1 3.2.0-7-generic #13-Ubuntu SMP Sat Dec 24 18:06:57 =
-UTC 2011
-> > > x86_64 x86_64 x86_64 GNU/Linux
-> > >=20
-> > > but the same behavior occurs with 2.6.35
-> >=20
-> > Please check :
-> >=20
-> > grep . /proc/sys/net/ipv6/route/*
->=20
-> /proc/sys/net/ipv6/route/gc_elasticity:9
-> /proc/sys/net/ipv6/route/gc_interval:30
-> /proc/sys/net/ipv6/route/gc_min_interval:0
-> /proc/sys/net/ipv6/route/gc_min_interval_ms:500
-> /proc/sys/net/ipv6/route/gc_thresh:1024
-> /proc/sys/net/ipv6/route/gc_timeout:60
-> /proc/sys/net/ipv6/route/max_size:4096
-> /proc/sys/net/ipv6/route/min_adv_mss:1220
-> /proc/sys/net/ipv6/route/mtu_expires:600
->=20
-> This is a system with 8GB of ram.
->=20
-> If I modify gc_thresh to be >=3D the number of bits the client varies=
-, the=20
-> system works OK:
->=20
-> /proc/sys/net/ipv6/neigh/default/gc_thresh1:128
-> /proc/sys/net/ipv6/neigh/default/gc_thresh2:512
-> /proc/sys/net/ipv6/neigh/default/gc_thresh3:1024
->=20
-> root@target1:~# echo 200000 > /proc/sys/net/ipv6/neigh/default/gc_thr=
-esh1
-> root@target1:~# echo 200000 > /proc/sys/net/ipv6/neigh/default/gc_thr=
-esh2
-> root@target1:~# echo 200000 > /proc/sys/net/ipv6/neigh/default/gc_thr=
-esh3
->=20
-> But it seems to be a losing battle since the client has a delegated p=
-refix of=20
-> /64.
+Op 3/01/2012 21:29, Richard Weinberger schreef:
+> Am 03.01.2012 21:15, schrieb Bart De Schuymer:
+>> The documentation is probably not explicit enough, but I would keep the
+>> behavior as it is now. Setting bridge-nf-call-iptables to 0 makes
+>> iptables behave as if bridge-netfilter was not enabled at compilation.
+>> Anyway, your patch is almost certainly flawed since the fact that
+>> skb->nf_bridge can be NULL is used as part of the logic in
+>> br_netfilter.c: it indicates that bridge-nf-call-iptables was 0 when the
+>> packet was first processed by bridge-netfilter and should therefore not
+>> be given to iptables in any other netfilter hook.
+> Thanks for the explanation!
+>
+> Wouldn't it make sense to check for bridge-nf-call-iptables in xt_physdev?
+> So that the user gets warned that his iptables rule will never match...
 
-I am not sure of this.
+We don't want to introduce module dependencies between the bridge module 
+and the iptables physdev match.
+We could add a message to the syslog whenever these proc settings are 
+changed (in br_netfilter.c::brnf_sysctl_call_tables()).
 
-Try to change /proc/sys/net/ipv6/route/max_size
+cheers,
+Bart
 
-and /proc/sys/net/ipv6/route/gc_thresh
 
-[To something larger than number of in flight packets on your gateway ]
+-- 
+Bart De Schuymer
+www.artinalgorithms.be
