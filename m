@@ -1,46 +1,50 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/1] netfilter: Add possibility to turn off netfilters
- defrag per netns
-Date: Wed, 4 Jan 2012 18:40:35 +0100
-Message-ID: <20120104174035.GB3489@1984>
-References: <1325664443-10320-1-git-send-email-hans.schillstrom@ericsson.com>
- <201201041118.18552.hans.schillstrom@ericsson.com>
- <alpine.LNX.2.01.1201041216010.2645@frira.zrqbmnf.qr>
- <201201041248.36881.hans.schillstrom@ericsson.com>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: pull request: wireless 2012-01-04
+Date: Wed, 04 Jan 2012 11:40:54 -0600
+Message-ID: <4F048F26.5000804@lwfinger.net>
+References: <20120104155816.GE2540@tuxdriver.com> <20120104163109.GF2540@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Patrick McHardy <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hans@schillstrom.com" <hans@schillstrom.com>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55395 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750745Ab2ADRkh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jan 2012 12:40:37 -0500
-Content-Disposition: inline
-In-Reply-To: <201201041248.36881.hans.schillstrom@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120104163109.GF2540-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 04, 2012 at 12:48:35PM +0100, Hans Schillstrom wrote:
-> I like that idea, an "early" table at prio -500 with PREROUTING.
-> There is also a need for a new flag "--allfrags"
-> i.e. all fragments needs to be sorted out and sent to same dest for defrag.
-> 
-> ex.
-> iptables -t early -A PREROUTING -i eth0 --allfrags -j NOTRACK
+On 01/04/2012 10:31 AM, John W. Linville wrote:
+> On Wed, Jan 04, 2012 at 10:58:16AM -0500, John W. Linville wrote:
+>
+>> I was hesitant to include the rtlwifi fix, but settled on inclusion
+>> because it was a product of a recent ginormous thread about the
+>> intersection of firmware loading and suspend/resume.  Plus it fixes
+>> a bug report in the Red Hat Bugzilla. :-) If you don't think it is
+>> worthy, let me know and I'll drop it from this release.
+>
+> It looks like this could generate a build warning...
+>
+> 	http://marc.info/?l=linux-wireless&m=132569396407866&w=2
+>
+> I'm getting cold feet on this one.  I withdraw this pull request --
+> new one to follow soon!
 
-New tables add too much overhead. We have discussed this before with
-Patrick.
+John,
 
-Since this still remains specific to your needs, I think you can
-remove nf_conntrack module in your setup.
+I will resubmit this patch with a fix.
 
-I don't come with one sane setup that may want selectively defragment
-some traffic yes and other not.
+I now realize that my fix has a different problem in that the firmware might not 
+be preserved under certain scenarios if there were two instances of the device 
+sharing the driver. These are corner cases, but I would like to fix that as well.
 
-Am I missing anything else?
+Is there any way for a driver to know that it is being initialized for a second 
+device?
+
+Thanks,
+
+Larry
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
