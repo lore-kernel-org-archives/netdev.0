@@ -1,86 +1,65 @@
-From: Brent Cook <bcook@breakingpoint.com>
-Subject: Re: Possible DoS with 6RD border relay
-Date: Wed, 4 Jan 2012 13:26:04 -0600
-Message-ID: <201201041326.04403.bcook@breakingpoint.com>
-References: <201201041048.44509.bcook@breakingpoint.com> <201201041135.54071.bcook@breakingpoint.com> <1325699600.2428.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Maxim Uvarov <maxim.uvarov@oracle.com>
+Subject: Re: [PATCH] bond_alb: do not disable BH under netpoll
+Date: Wed, 04 Jan 2012 11:35:59 -0800
+Message-ID: <4F04AA1F.10004@oracle.com>
+References: <1325643618-3051-1-git-send-email-maxim.uvarov@oracle.com>	<20120103.214919.346240095248499387.davem@davemloft.net>	<4F040A6F.2000002@oracle.com> <20120104.132510.1521809723158602749.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.breakingpoint.com ([65.36.7.12]:46040 "EHLO
-	mail.breakingpoint.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750805Ab2ADT0L convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 14:26:11 -0500
-In-Reply-To: <1325699600.2428.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from rcsinet15.oracle.com ([148.87.113.117]:62916 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750908Ab2ADTiZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 14:38:25 -0500
+In-Reply-To: <20120104.132510.1521809723158602749.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, January 04, 2012 11:53:20 AM Eric Dumazet wrote:
-> Le mercredi 04 janvier 2012 =C3=A0 11:35 -0600, Brent Cook a =C3=A9cr=
-it :
-> > On Wednesday, January 04, 2012 11:25:31 AM Eric Dumazet wrote:
-> > > Le mercredi 04 janvier 2012 =C3=A0 11:02 -0600, Brent Cook a =C3=A9=
-crit :
-> > > > I forgot to mention, I'm testing 3.2 rc7:
-> > > >=20
-> > > > Linux target1 3.2.0-7-generic #13-Ubuntu SMP Sat Dec 24 18:06:5=
-7 UTC
-> > > > 2011 x86_64 x86_64 x86_64 GNU/Linux
-> > > >=20
-> > > > but the same behavior occurs with 2.6.35
-> > >=20
-> > > Please check :
-> > >=20
-> > > grep . /proc/sys/net/ipv6/route/*
-> >=20
-> > /proc/sys/net/ipv6/route/gc_elasticity:9
-> > /proc/sys/net/ipv6/route/gc_interval:30
-> > /proc/sys/net/ipv6/route/gc_min_interval:0
-> > /proc/sys/net/ipv6/route/gc_min_interval_ms:500
-> > /proc/sys/net/ipv6/route/gc_thresh:1024
-> > /proc/sys/net/ipv6/route/gc_timeout:60
-> > /proc/sys/net/ipv6/route/max_size:4096
-> > /proc/sys/net/ipv6/route/min_adv_mss:1220
-> > /proc/sys/net/ipv6/route/mtu_expires:600
-> >=20
-> > This is a system with 8GB of ram.
-> >=20
-> > If I modify gc_thresh to be >=3D the number of bits the client vari=
-es, the
-> > system works OK:
-> >=20
-> > /proc/sys/net/ipv6/neigh/default/gc_thresh1:128
-> > /proc/sys/net/ipv6/neigh/default/gc_thresh2:512
-> > /proc/sys/net/ipv6/neigh/default/gc_thresh3:1024
-> >=20
-> > root@target1:~# echo 200000 > /proc/sys/net/ipv6/neigh/default/gc_t=
-hresh1
-> > root@target1:~# echo 200000 > /proc/sys/net/ipv6/neigh/default/gc_t=
-hresh2
-> > root@target1:~# echo 200000 > /proc/sys/net/ipv6/neigh/default/gc_t=
-hresh3
-> >=20
-> > But it seems to be a losing battle since the client has a delegated
-> > prefix of /64.
->=20
-> I am not sure of this.
->=20
-> Try to change /proc/sys/net/ipv6/route/max_size
->=20
-> and /proc/sys/net/ipv6/route/gc_thresh
->=20
-> [To something larger than number of in flight packets on your gateway=
- ]
+On 01/04/2012 10:25 AM, David Miller wrote:
+> From: Maxim Uvarov<maxim.uvarov@oracle.com>
+> Date: Wed, 04 Jan 2012 00:14:39 -0800
+>
+>> On 03.01.2012 18:49, David Miller wrote:
+>>> From: Maxim Uvarov<maxim.uvarov@oracle.com>
+>>> Date: Tue,  3 Jan 2012 18:20:18 -0800
+>>>
+>>>> Do not disable BH if interrupts are already disabled
+>>>> (netpoll case).
+>>>> Signed-off-by: Maxim Uvarov<maxim.uvarov@oracle.com>
+>>> Barf...
+>>>
+>>> We should never use conditional locking like this.
+>>
+>>
+>> How about change spin_lock_bh  to spin_lock_irqsave at this place?
+>
+> Then it's ambiguous whether it's a softirq safe lock or a hardirq
+> safe one.
+>
+> It's just another way to make the locking inconsistent.
 
-Thanks for the suggestion, I tried 200k:
+at bond_start_xmit() there is check if it's netpoll or not:
 
-root@target1:~# echo 200000 > /proc/sys/net/ipv6/route/max_size=20
-root@target1:~# echo 200000 > /proc/sys/net/ipv6/route/gc_thresh=20
+	/*
+	 * If we risk deadlock from transmitting this in the
+	 * netpoll path, tell netpoll to queue the frame for later tx
+	 */
+	if (is_netpoll_tx_blocked(dev))
+		return NETDEV_TX_BUSY;
 
-It did not seem to improve the behavior - once neighbor table overflow =
-hits,=20
-things go downhill.  So far, only modifying the neighbor cache threshol=
-d seems=20
-to improve things.
+which is in the end:
+
+static inline int netpoll_tx_running(struct net_device *dev)
+{
+	return irqs_disabled();
+}
+
+So the original patch was in the way as it already implemented.
+
+BTW,
+I'm trying to remove warning generated by local_bh_enable_ip:
+http://marc.info/?l=linux-netdev&m=132528368523980&w=2
+
+Maxim.
