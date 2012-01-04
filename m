@@ -1,97 +1,70 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] ipv6: Check RA for sllao when configuring optimistic ipv6 address
-Date: Wed,  4 Jan 2012 11:47:23 -0500
-Message-ID: <1325695643-27656-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: netdev@vger.kernel.org
+From: Brent Cook <bcook@breakingpoint.com>
+Subject: Possible DoS with 6RD border relay
+Date: Wed, 4 Jan 2012 10:48:44 -0600
+Message-ID: <201201041048.44509.bcook@breakingpoint.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:44577 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752284Ab2ADQrq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 11:47:46 -0500
+Received: from mail.breakingpoint.com ([65.36.7.12]:11429 "EHLO
+	mail.breakingpoint.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750745Ab2ADQyF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 11:54:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recently Dave noticed that a test we did in ipv6_add_addr to see if we next hop
-route for the interface we're adding an addres to was wrong (see commit
-7ffbcecbeed91e5874e9a1cfc4c0cbb07dac3069).  for one, it never triggers, and two,
-it was completely wrong to begin with.  This test was meant to cover this
-section of RFC 4429:
+Hi All,
 
-3.3 Modifications to RFC 2462 Stateless Address Autoconfiguration
+  I have been doing some testing of Linux serving as a 6RD border relay. It 
+seems that if a client sends 6RD-encapsulated packets and varies the lower 64-
+bits of the 6RD address over the range of the neighbor table size (the bits 
+below the delegated prefix), it causes the neighbor table to quickly overflow. 
+However, viewing the neighbor table never shows more than a handful of 
+entries. When the neighbor table overflows, packet routing on my test system 
+slows from 1Gbps to a couple of Mbps at most.
 
-   * (modifies section 5.5) A host MAY choose to configure a new address
-        as an Optimistic Address.  A host that does not know the SLLAO
-        of its router SHOULD NOT configure a new address as Optimistic.
-        A router SHOULD NOT configure an Optimistic Address.
+[28765.764079] net_ratelimit: 32003 callbacks suppressed
+[28765.764084] ipv6: Neighbour table overflow.
+[28765.764171] ipv6: Neighbour table overflow.
 
-This patch should bring us into proper compliance with the above clause.  Since
-we only add a SLAAC address after we've received a RA which may or may not
-contain a source link layer address option, we can pass a pointer to that option
-to addrconf_prefix_rcv (which may be null if the option is not present), and
-only set the optimistic flag if the option was found in the RA.
+root@target1:~# ip neigh
+fe80::1a:c5ff:fe02:2 dev test2  router FAILED
+2001:1234::3 dev test2 lladdr 02:1a:c5:02:00:02 REACHABLE
+192.168.2.1 dev mgmt0 lladdr 04:7d:7b:06:8d:2d REACHABLE
+1.0.0.1 dev test0 lladdr 02:1a:c5:01:00:00 REACHABLE
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
----
- include/net/addrconf.h |    3 ++-
- net/ipv6/addrconf.c    |    4 ++--
- net/ipv6/ndisc.c       |    4 +++-
- 3 files changed, 7 insertions(+), 4 deletions(-)
+If I send packets much more slowly, the system works as expected. If the 6RD 
+client sends from a constant address rather than varying the lower bits, it 
+also works fine. I tested the two neighbor table checks in sit.c and 
 
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index cbc6bb0..8f786b8 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -151,7 +151,8 @@ extern int ipv6_chk_mcast_addr(struct net_device *dev,
- 			       const struct in6_addr *src_addr);
- extern int ipv6_is_mld(struct sk_buff *skb, int nexthdr);
- 
--extern void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len);
-+extern void addrconf_prefix_rcv(struct net_device *dev,
-+				u8 *opt, int len, void *sllao);
- 
- /*
-  *	anycast prototypes (anycast.c)
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 647e6cb..34a1b45 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1803,7 +1803,7 @@ static struct inet6_dev *addrconf_add_dev(struct net_device *dev)
- 	return idev;
- }
- 
--void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len)
-+void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len, void *sllao)
- {
- 	struct prefix_info *pinfo;
- 	__u32 valid_lft;
-@@ -1934,7 +1934,7 @@ ok:
- 
- #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
- 			if (in6_dev->cnf.optimistic_dad &&
--			    !net->ipv6.devconf_all->forwarding)
-+			    !net->ipv6.devconf_all->forwarding && sllao)
- 				addr_flags = IFA_F_OPTIMISTIC;
- #endif
- 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 3b1fe4b..95e9414 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1368,7 +1368,9 @@ skip_routeinfo:
- 		for (p = ndopts.nd_opts_pi;
- 		     p;
- 		     p = ndisc_next_option(p, ndopts.nd_opts_pi_end)) {
--			addrconf_prefix_rcv(skb->dev, (u8*)p, (p->nd_opt_len) << 3);
-+			addrconf_prefix_rcv(skb->dev, (u8 *)p,
-+					    (p->nd_opt_len) << 3,
-+					    ndopts.nd_opts_src_lladdr);
- 		}
- 	}
- 
--- 
-1.7.7.5
+The network topology looks something like this:
+
+6RD client -> Router -> Linux (6RD BR) -> IPv6 host
+
+The 6RD client is at 1.1.1.1/24
+The Linux BR is at 1.0.0.2/24, the IPv4 router is at 1.0.0.1/24 and the IPv6 
+host is directly attached on a second physical interface at address 
+2001:1234::3
+
+A configuration script for configuring the BR follows:
+
+#!/bin/bash
+PREFIX1="2001:0db8"                  # 6rd ipv6 prefix
+intf1=test0
+intf2=test2
+
+modprobe sit
+
+## Setup the tunnel, it will create an interface named '6rd'
+ip addr add 1.0.0.2/24 dev $intf1
+ip link set $intf1 up
+sudo ip route add 1.1.1.0/24 via 1.0.0.1
+ip addr add 2001:1234::1/64 dev $intf2
+ip link set $intf2 up
+ip tunnel add 6rd mode sit local 1.0.0.2 dev $intf1 ttl 64
+ip tunnel 6rd dev 6rd 6rd-prefix ${PREFIX1}::/32
+ip addr add ${PREFIX1}::1/32 dev 6rd
+ip link set 6rd up
+
+sysctl -w net.ipv6.conf.all.forwarding=1
