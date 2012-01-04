@@ -1,86 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Wed, 04 Jan 2012 16:11:14 -0500 (EST)
-Message-ID: <20120104.161114.1924910384933450343.davem@davemloft.net>
+From: Hans Schillstrom <hans@schillstrom.com>
+Subject: Re: [PATCH 1/1] netfilter: Add possibility to turn off netfilters defrag per netns
+Date: Wed, 4 Jan 2012 22:15:10 +0100
+Message-ID: <201201042215.20290.hans@schillstrom.com>
+References: <1325664443-10320-1-git-send-email-hans.schillstrom@ericsson.com> <201201041248.36881.hans.schillstrom@ericsson.com> <20120104174035.GB3489@1984>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed;
+  boundary="nextPart2694023.bmYndUduOG";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Patrick McHardy <kaber@trash.net>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120104174035.GB3489@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+--nextPart2694023.bmYndUduOG
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-Probably the bluetooth 10 second resume delay fix is the most
-interesting fix here, especially if you're actually hitting it.
+Hello Again
 
-The rest are small fixes isolated to specific drivers or packet
-schedulers.
+On Wednesday, January 04, 2012 18:40:35 Pablo Neira Ayuso wrote:
+> On Wed, Jan 04, 2012 at 12:48:35PM +0100, Hans Schillstrom wrote:
+> > I like that idea, an "early" table at prio -500 with PREROUTING.
+> > There is also a need for a new flag "--allfrags"
+> > i.e. all fragments needs to be sorted out and sent to same dest for def=
+rag.
+> >=20
+> > ex.
+> > iptables -t early -A PREROUTING -i eth0 --allfrags -j NOTRACK
+>=20
+> New tables add too much overhead. We have discussed this before with
+> Patrick.
+>=20
+Only if loaded ..=20
+It would have been the perfect solution.
+Is the discussion about the overhead on the list (I can't find it)?
 
-1) Revert bluetooth HCI reset timeout increase, it adds a 10 second delay
-   during resume in Thinkpad laptops and potentially other machines.  From
-   Gustavo F. Padovan.
+I made a quick test with an "early" table
+and --allfrags fix (for IPv4) and it works really good.
 
-2) New packet QFQ scheduler using wrong types to compute queueing limits
-   leading to overflows, fix from Eric Dumazet.
+iptables -t early -A PREROUTING -i eth0 -a -j NOTRACK
+iptables -t mangle -A PREROUTING -i eth0 -a -j HMARK --mod 3 --offs 100
 
-3) Fix regression in b43 driver conversion to new RX descriptor header
-   format, it broke PIO mode where the header length needs to be computed
-   differently.  Fix from Guennadi Liakhovetski.
+So your opinion is no more tables,
+even if it's rare that it is loaded?
 
-4) Fix build dependencies of FEC ethernet driver, from Wolfram Sang.
+Regards
+Hans
 
-5) mwifiex gets OOPS when scan and connect occur simultaneously, fix from
-   Amitkumar Karwar.
+--nextPart2694023.bmYndUduOG
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
-6) ath9k crashes in access point mode because it does aggregation
-   handling during power save even if TX aggregation is not enabled.
-   Fix from Mohammed Shafi Shajakhan.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.14 (GNU/Linux)
 
-7) Update CAN MAINTAINERS entry, from Oliver Hartkopp.
+iEYEABECAAYFAk8EwWgACgkQsPw1jACzjGZZkwCcCWx6T4rBkmfJCnSaU0CtFxYk
+o+AAnRvAkWg3e32ua2oWi/5VaonoMM0p
+=Ked8
+-----END PGP SIGNATURE-----
 
-Please pull, thanks a lot!
-
-The following changes since commit f423fc627b05f47bc9305f9661630fce30f208f9:
-
-  Revert "rtc: Expire alarms after the time is set." (2012-01-04 07:57:22 -0800)
-
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
-
-Amitkumar Karwar (1):
-      mwifiex: fix crash during simultaneous scan and connect
-
-Eric Dumazet (1):
-      sch_qfq: fix overflow in qfq_update_start()
-
-Guennadi Liakhovetski (1):
-      b43: fix regression in PIO case
-
-Gustavo F. Padovan (1):
-      Revert "Bluetooth: Increase HCI reset timeout in hci_dev_do_close"
-
-John W. Linville (2):
-      Merge branch 'master' of git://git.kernel.org/.../padovan/bluetooth
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless into for-davem
-
-Mohammed Shafi Shajakhan (1):
-      ath9k: Fix kernel panic in AR2427 in AP mode
-
-Oliver Hartkopp (2):
-      CAN MAINTAINERS update
-      fix CAN MAINTAINERS SCM tree type
-
-Wolfram Sang (1):
-      net: fsl: fec: fix build for mx23-only kernel
-
- MAINTAINERS                              |   11 +++++------
- drivers/net/ethernet/freescale/Kconfig   |    4 ++--
- drivers/net/wireless/ath/ath9k/main.c    |    3 +++
- drivers/net/wireless/b43/pio.c           |   16 +++++++++++++---
- drivers/net/wireless/mwifiex/sta_ioctl.c |    7 ++++++-
- net/bluetooth/hci_core.c                 |    2 +-
- net/sched/sch_qfq.c                      |    4 ++--
- 7 files changed, 32 insertions(+), 15 deletions(-)
+--nextPart2694023.bmYndUduOG--
