@@ -1,72 +1,48 @@
-From: Hans Schillstrom <hans@schillstrom.com>
-Subject: Re: [PATCH 1/1] netfilter: Add possibility to turn off netfilters defrag per netns
-Date: Wed, 4 Jan 2012 22:15:10 +0100
-Message-ID: <201201042215.20290.hans@schillstrom.com>
-References: <1325664443-10320-1-git-send-email-hans.schillstrom@ericsson.com> <201201041248.36881.hans.schillstrom@ericsson.com> <20120104174035.GB3489@1984>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCHv2 net-next 0/8] RX NFC support for hash-based filters
+Date: Wed, 4 Jan 2012 21:39:30 +0000
+Message-ID: <1325713170.3764.2.camel@bwh-desktop>
+References: <1325627819.2832.31.camel@bwh-desktop>
+	 <20120104.141111.16071561018650942.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2694023.bmYndUduOG";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Patrick McHardy <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120104174035.GB3489@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:57289 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754203Ab2ADVjg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 16:39:36 -0500
+In-Reply-To: <20120104.141111.16071561018650942.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart2694023.bmYndUduOG
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+On Wed, 2012-01-04 at 14:11 -0500, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Tue, 3 Jan 2012 21:56:59 +0000
+> 
+> > 1. Fix gianfar's validation of filter rule locations.  In the previous
+> >    version of this series, this was a requirement for part 2, but that's
+> >    no longer the case.
+> > 
+> > 2. Extend ethtool RX NFC rules API to support hash-based filter hardware
+> >    in which rule locations should be selected by the driver or firmware.
+> > 
+> > 3. Change the sfc driver to implement this API instead of RX n-tuple.
+> > 
+> > 4. Remove support for RX n-tuple, now that there are no in-tree
+> >    implementations.
+> 
+> All applied, I had to fix some trailing whitespace errors in patches
+> 5 and 6.
 
-Hello Again
+Thanks, and sorry about the formatting.  I should try to work out why
+git didn't alert me to that earlier...
 
-On Wednesday, January 04, 2012 18:40:35 Pablo Neira Ayuso wrote:
-> On Wed, Jan 04, 2012 at 12:48:35PM +0100, Hans Schillstrom wrote:
-> > I like that idea, an "early" table at prio -500 with PREROUTING.
-> > There is also a need for a new flag "--allfrags"
-> > i.e. all fragments needs to be sorted out and sent to same dest for def=
-rag.
-> >=20
-> > ex.
-> > iptables -t early -A PREROUTING -i eth0 --allfrags -j NOTRACK
->=20
-> New tables add too much overhead. We have discussed this before with
-> Patrick.
->=20
-Only if loaded ..=20
-It would have been the perfect solution.
-Is the discussion about the overhead on the list (I can't find it)?
+Ben.
 
-I made a quick test with an "early" table
-and --allfrags fix (for IPv4) and it works really good.
-
-iptables -t early -A PREROUTING -i eth0 -a -j NOTRACK
-iptables -t mangle -A PREROUTING -i eth0 -a -j HMARK --mod 3 --offs 100
-
-So your opinion is no more tables,
-even if it's rare that it is loaded?
-
-Regards
-Hans
-
---nextPart2694023.bmYndUduOG
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.14 (GNU/Linux)
-
-iEYEABECAAYFAk8EwWgACgkQsPw1jACzjGZZkwCcCWx6T4rBkmfJCnSaU0CtFxYk
-o+AAnRvAkWg3e32ua2oWi/5VaonoMM0p
-=Ked8
------END PGP SIGNATURE-----
-
---nextPart2694023.bmYndUduOG--
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
