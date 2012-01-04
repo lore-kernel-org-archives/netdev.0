@@ -1,8 +1,7 @@
 From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Subject: [PATCH 5/6] ath6kl: convert ath6kl_dbg() and ath6kl_dbg_dump() into
- functions
-Date: Thu, 05 Jan 2012 01:09:50 +0200
-Message-ID: <20120104230950.32306.21264.stgit@x201>
+Subject: [PATCH 6/6] ath6kl: create ath6kl_core.ko
+Date: Thu, 05 Jan 2012 01:10:16 +0200
+Message-ID: <20120104231016.32306.72354.stgit@x201>
 References: <20120104230429.32306.75965.stgit@x201>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -17,74 +16,225 @@ In-Reply-To: <20120104230429.32306.75965.stgit@x201>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-That way it's possible to not export debug_mask outside the upcoming
-ath6kl_core.ko and that makes it easier to ath6kl_core.ko in the
-following patch.
+Now ath6kl is ready for splitting core code to ath6kl_core.ko module.
+This also makes it possible to link both sdio and usb code to kernel
+at the same time, which earlier failed miserably.
 
+Reported-by: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
 Signed-off-by: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
 ---
- drivers/net/wireless/ath/ath6kl/debug.c |   24 ++++++++++++++++++++++++
- drivers/net/wireless/ath/ath6kl/debug.h |   25 ++++---------------------
- 2 files changed, 28 insertions(+), 21 deletions(-)
+ drivers/net/wireless/ath/ath6kl/Makefile   |   37 +++++++++++-----------------
+ drivers/net/wireless/ath/ath6kl/cfg80211.c |    3 ++
+ drivers/net/wireless/ath/ath6kl/core.c     |    9 +++++++
+ drivers/net/wireless/ath/ath6kl/debug.c    |    3 ++
+ drivers/net/wireless/ath/ath6kl/hif.c      |    5 ++++
+ drivers/net/wireless/ath/ath6kl/init.c     |    3 ++
+ 6 files changed, 37 insertions(+), 23 deletions(-)
 
+diff --git a/drivers/net/wireless/ath/ath6kl/Makefile b/drivers/net/wireless/ath/ath6kl/Makefile
+index 9bb69a8..863b9f6 100644
+--- a/drivers/net/wireless/ath/ath6kl/Makefile
++++ b/drivers/net/wireless/ath/ath6kl/Makefile
+@@ -21,32 +21,23 @@
+ # Author(s): ="Atheros"
+ #------------------------------------------------------------------------------
+ 
+-obj-$(CONFIG_ATH6KL_SDIO) := ath6kl_sdio.o
+-ath6kl_sdio-y += debug.o
+-ath6kl_sdio-y += hif.o
+-ath6kl_sdio-y += htc.o
+-ath6kl_sdio-y += bmi.o
+-ath6kl_sdio-y += cfg80211.o
+-ath6kl_sdio-y += init.o
+-ath6kl_sdio-y += main.o
+-ath6kl_sdio-y += txrx.o
+-ath6kl_sdio-y += wmi.o
+-ath6kl_sdio-y += core.o
++obj-$(CONFIG_ATH6KL) += ath6kl_core.o
++ath6kl_core-y += debug.o
++ath6kl_core-y += hif.o
++ath6kl_core-y += htc.o
++ath6kl_core-y += bmi.o
++ath6kl_core-y += cfg80211.o
++ath6kl_core-y += init.o
++ath6kl_core-y += main.o
++ath6kl_core-y += txrx.o
++ath6kl_core-y += wmi.o
++ath6kl_core-y += core.o
++ath6kl_core-$(CONFIG_NL80211_TESTMODE) += testmode.o
++
++obj-$(CONFIG_ATH6KL_SDIO) += ath6kl_sdio.o
+ ath6kl_sdio-y += sdio.o
+-ath6kl_sdio-$(CONFIG_NL80211_TESTMODE) += testmode.o
+ 
+ obj-$(CONFIG_ATH6KL_USB) += ath6kl_usb.o
+-ath6kl_usb-y += debug.o
+-ath6kl_usb-y += hif.o
+-ath6kl_usb-y += htc.o
+-ath6kl_usb-y += bmi.o
+-ath6kl_usb-y += cfg80211.o
+-ath6kl_usb-y += init.o
+-ath6kl_usb-y += main.o
+-ath6kl_usb-y += txrx.o
+-ath6kl_usb-y += wmi.o
+-ath6kl_usb-y += core.o
+ ath6kl_usb-y += usb.o
+-ath6kl_usb-$(CONFIG_NL80211_TESTMODE) += testmode.o
+ 
+ ccflags-y += -D__CHECK_ENDIAN__
+diff --git a/drivers/net/wireless/ath/ath6kl/cfg80211.c b/drivers/net/wireless/ath/ath6kl/cfg80211.c
+index 64043f8..d4ed6d1 100644
+--- a/drivers/net/wireless/ath/ath6kl/cfg80211.c
++++ b/drivers/net/wireless/ath/ath6kl/cfg80211.c
+@@ -15,6 +15,7 @@
+  */
+ 
+ #include <linux/moduleparam.h>
++#include <linux/export.h>
+ 
+ #include "core.h"
+ #include "cfg80211.h"
+@@ -1907,6 +1908,7 @@ int ath6kl_cfg80211_suspend(struct ath6kl *ar,
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL(ath6kl_cfg80211_suspend);
+ 
+ int ath6kl_cfg80211_resume(struct ath6kl *ar)
+ {
+@@ -1958,6 +1960,7 @@ int ath6kl_cfg80211_resume(struct ath6kl *ar)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL(ath6kl_cfg80211_resume);
+ 
+ #ifdef CONFIG_PM
+ 
+diff --git a/drivers/net/wireless/ath/ath6kl/core.c b/drivers/net/wireless/ath/ath6kl/core.c
+index 7e3574e..0d00475 100644
+--- a/drivers/net/wireless/ath/ath6kl/core.c
++++ b/drivers/net/wireless/ath/ath6kl/core.c
+@@ -16,7 +16,9 @@
+ 
+ #include "core.h"
+ 
++#include <linux/module.h>
+ #include <linux/moduleparam.h>
++#include <linux/export.h>
+ 
+ #include "debug.h"
+ #include "hif-ops.h"
+@@ -198,6 +200,7 @@ err_wq:
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL(ath6kl_core_init);
+ 
+ struct ath6kl *ath6kl_core_create(struct device *dev)
+ {
+@@ -254,6 +257,7 @@ struct ath6kl *ath6kl_core_create(struct device *dev)
+ 
+ 	return ar;
+ }
++EXPORT_SYMBOL(ath6kl_core_create);
+ 
+ void ath6kl_core_cleanup(struct ath6kl *ar)
+ {
+@@ -280,9 +284,14 @@ void ath6kl_core_cleanup(struct ath6kl *ar)
+ 	ath6kl_cfg80211_cleanup(ar);
+ 	ath6kl_cfg80211_destroy(ar);
+ }
++EXPORT_SYMBOL(ath6kl_core_cleanup);
+ 
+ void ath6kl_core_destroy(struct ath6kl *ar)
+ {
+ 	ath6kl_cfg80211_destroy(ar);
+ }
++EXPORT_SYMBOL(ath6kl_core_destroy);
+ 
++MODULE_AUTHOR("Qualcomm Atheros");
++MODULE_DESCRIPTION("Core module for AR600x SDIO and USB devices.");
++MODULE_LICENSE("Dual BSD/GPL");
 diff --git a/drivers/net/wireless/ath/ath6kl/debug.c b/drivers/net/wireless/ath/ath6kl/debug.c
-index 0d77129..1d216e9 100644
+index 1d216e9..19795a6 100644
 --- a/drivers/net/wireless/ath/ath6kl/debug.c
 +++ b/drivers/net/wireless/ath/ath6kl/debug.c
-@@ -57,6 +57,30 @@ int ath6kl_printk(const char *level, const char *fmt, ...)
+@@ -54,6 +54,7 @@ int ath6kl_printk(const char *level, const char *fmt, ...)
+ 
+ 	return rtn;
+ }
++EXPORT_SYMBOL(ath6kl_printk);
  
  #ifdef CONFIG_ATH6KL_DEBUG
  
-+void ath6kl_dbg(enum ATH6K_DEBUG_MASK mask, const char *fmt, ...)
-+{
-+	va_list args;
-+
-+	if (!(debug_mask & mask))
-+		return;
-+
-+	va_start(args, fmt);
-+	ath6kl_printk(KERN_DEBUG, fmt, &args);
-+	va_end(args);
-+}
-+
-+void ath6kl_dbg_dump(enum ATH6K_DEBUG_MASK mask,
-+		     const char *msg, const char *prefix,
-+		     const void *buf, size_t len)
-+{
-+	if (debug_mask & mask) {
-+		if (msg)
-+			ath6kl_dbg(mask, "%s\n", msg);
-+
-+		print_hex_dump_bytes(prefix, DUMP_PREFIX_OFFSET, buf, len);
-+	}
-+}
-+
+@@ -68,6 +69,7 @@ void ath6kl_dbg(enum ATH6K_DEBUG_MASK mask, const char *fmt, ...)
+ 	ath6kl_printk(KERN_DEBUG, fmt, &args);
+ 	va_end(args);
+ }
++EXPORT_SYMBOL(ath6kl_dbg);
+ 
+ void ath6kl_dbg_dump(enum ATH6K_DEBUG_MASK mask,
+ 		     const char *msg, const char *prefix,
+@@ -80,6 +82,7 @@ void ath6kl_dbg_dump(enum ATH6K_DEBUG_MASK mask,
+ 		print_hex_dump_bytes(prefix, DUMP_PREFIX_OFFSET, buf, len);
+ 	}
+ }
++EXPORT_SYMBOL(ath6kl_dbg_dump);
+ 
  #define REG_OUTPUT_LEN_PER_LINE	25
  #define REGTYPE_STR_LEN		100
+diff --git a/drivers/net/wireless/ath/ath6kl/hif.c b/drivers/net/wireless/ath/ath6kl/hif.c
+index 3d26c14..e911737 100644
+--- a/drivers/net/wireless/ath/ath6kl/hif.c
++++ b/drivers/net/wireless/ath/ath6kl/hif.c
+@@ -15,6 +15,8 @@
+  */
+ #include "hif.h"
  
-diff --git a/drivers/net/wireless/ath/ath6kl/debug.h b/drivers/net/wireless/ath/ath6kl/debug.h
-index cb21d91..c4be6e5 100644
---- a/drivers/net/wireless/ath/ath6kl/debug.h
-+++ b/drivers/net/wireless/ath/ath6kl/debug.h
-@@ -61,28 +61,11 @@ enum ath6kl_war {
- };
++#include <linux/export.h>
++
+ #include "core.h"
+ #include "target.h"
+ #include "hif-ops.h"
+@@ -59,6 +61,8 @@ int ath6kl_hif_rw_comp_handler(void *context, int status)
  
- #ifdef CONFIG_ATH6KL_DEBUG
--#define ath6kl_dbg(mask, fmt, ...)					\
--	({								\
--	 int rtn;							\
--	 if (debug_mask & mask)						\
--		rtn = ath6kl_printk(KERN_DEBUG, fmt, ##__VA_ARGS__);	\
--	 else								\
--		rtn = 0;						\
--									\
--	 rtn;								\
--	 })
+ 	return 0;
+ }
++EXPORT_SYMBOL(ath6kl_hif_rw_comp_handler);
++
+ #define REG_DUMP_COUNT_AR6003   60
+ #define REGISTER_DUMP_LEN_MAX   60
  
--static inline void ath6kl_dbg_dump(enum ATH6K_DEBUG_MASK mask,
--				   const char *msg, const char *prefix,
--				   const void *buf, size_t len)
--{
--	if (debug_mask & mask) {
--		if (msg)
--			ath6kl_dbg(mask, "%s\n", msg);
+@@ -560,6 +564,7 @@ int ath6kl_hif_intr_bh_handler(struct ath6kl *ar)
+ 
+ 	return status;
+ }
++EXPORT_SYMBOL(ath6kl_hif_intr_bh_handler);
+ 
+ static int ath6kl_hif_enable_intrs(struct ath6kl_device *dev)
+ {
+diff --git a/drivers/net/wireless/ath/ath6kl/init.c b/drivers/net/wireless/ath/ath6kl/init.c
+index 5a92307..6183c42 100644
+--- a/drivers/net/wireless/ath/ath6kl/init.c
++++ b/drivers/net/wireless/ath/ath6kl/init.c
+@@ -17,8 +17,10 @@
+ 
+ #include <linux/moduleparam.h>
+ #include <linux/errno.h>
++#include <linux/export.h>
+ #include <linux/of.h>
+ #include <linux/mmc/sdio_func.h>
++
+ #include "core.h"
+ #include "cfg80211.h"
+ #include "target.h"
+@@ -1596,3 +1598,4 @@ void ath6kl_stop_txrx(struct ath6kl *ar)
+ 
+ 	clear_bit(WLAN_ENABLED, &ar->flag);
+ }
++EXPORT_SYMBOL(ath6kl_stop_txrx);
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
