@@ -1,35 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] net_sched: sfq: always randomize hash
- perturbation
-Date: Wed, 04 Jan 2012 14:13:07 -0500 (EST)
-Message-ID: <20120104.141307.215742763480818454.davem@davemloft.net>
-References: <1325694181.2428.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Greg KH <greg@kroah.com>
+Subject: Re: Detected Hardware Unit Hang on Intel Wired
+	Ethernet
+Date: Wed, 4 Jan 2012 11:22:34 -0800
+Message-ID: <20120104192234.GC18214@kroah.com>
+References: <CAHM4w1=i5dYy+ReqMO=m6W96CNaQ+O=jw+pKQok0nmjb5-fNAw@mail.gmail.com>
+	<4F043190.70405@st.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51994 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754778Ab2ADTNL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 14:13:11 -0500
-In-Reply-To: <1325694181.2428.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Bhavna YADAV <bhavna.yadav@st.com>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-pci@vger.kernel.org, Shiraz HASHIM <shiraz.hashim@st.com>,
+	Deepak SIKRI <deepak.sikri@st.com>
+To: Pratyush Anand <pratyush.anand@st.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <4F043190.70405@st.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 04 Jan 2012 17:23:01 +0100
+On Wed, Jan 04, 2012 at 04:31:36PM +0530, Pratyush Anand wrote:
+> Adding PCI mailing list too, as problem is coming only when MSI is enabled.
+> 
+> If I connect an PCIe analyzer, I see that at the time of issue
+> MRd(64) for 32 words has been issued with a wrong 64 bit address
+> from ethernet card to my RC.
+> In the normal course it always issues MRd(32) only.
 
-> SFQ q->perturbation is used in sfq_hash() as an input to Jenkins hash.
-> 
-> We currently randomize this 32bit value only if a perturbation timer is
-> setup.
-> 
-> Its much better to always initialize it to defeat attackers, or else
-> they can predict very well what kind of packets they have to forge to
-> hit a particular flow.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Bug in your pcie firmware controller?
 
-Applied.
+
+------------------------------------------------------------------------------
+Ridiculously easy VDI. With Citrix VDI-in-a-Box, you don't need a complex
+infrastructure or vast IT resources to deliver seamless, secure access to
+virtual desktops. With this all-in-one solution, easily deploy virtual 
+desktops for less than the cost of PCs and save 60% on VDI infrastructure 
+costs. Try it free! http://p.sf.net/sfu/Citrix-VDIinabox
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
