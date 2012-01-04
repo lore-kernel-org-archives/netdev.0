@@ -1,83 +1,88 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: pull request: wireless 2012-01-04 #2
-Date: Wed, 4 Jan 2012 11:57:52 -0500
-Message-ID: <20120104165752.GH2540@tuxdriver.com>
-References: <20120104164339.GG2540@tuxdriver.com>
+From: Brent Cook <bcook@breakingpoint.com>
+Subject: Re: Possible DoS with 6RD border relay
+Date: Wed, 4 Jan 2012 11:02:31 -0600
+Message-ID: <201201041102.31205.bcook@breakingpoint.com>
+References: <201201041048.44509.bcook@breakingpoint.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="J5MfuwkIyy7RmF4Q"
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120104164339.GG2540@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.breakingpoint.com ([65.36.7.12]:21399 "EHLO
+	mail.breakingpoint.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756203Ab2ADRCo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 12:02:44 -0500
+In-Reply-To: <201201041048.44509.bcook@breakingpoint.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wednesday, January 04, 2012 10:48:44 AM Brent Cook wrote:
+> Hi All,
+> 
+>   I have been doing some testing of Linux serving as a 6RD border relay. It
+> seems that if a client sends 6RD-encapsulated packets and varies the lower
+> 64- bits of the 6RD address over the range of the neighbor table size (the
+> bits below the delegated prefix), it causes the neighbor table to quickly
+> overflow. However, viewing the neighbor table never shows more than a
+> handful of entries. When the neighbor table overflows, packet routing on
+> my test system slows from 1Gbps to a couple of Mbps at most.
 
---J5MfuwkIyy7RmF4Q
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I forgot to mention, I'm testing 3.2 rc7:
 
-On Wed, Jan 04, 2012 at 11:43:40AM -0500, John W. Linville wrote:
-> Dave,
->=20
-> Here are a handful of straggler wireless fixes for 3.2.  Included is
-> a NULL pointer fix for mwifiex, a regression fix for handling rx
-> header lengths for differnt b43 firmwares in PIO mode, a revert of
-> a one-liner for Bluetooth HCI that was causing uncomfortable delays
-> during resume, and an ath9k fix for a panic when running in AP mode
-> with aggregation disabled.
->=20
-> The Bluetooth fix is a one-liner change of a delay value.  The mwifiex,
-> b43, and ath9k fixes are relatively small and isolated to their
-> respective drivers.
->=20
-> Please let me know if there are problems!
->=20
-> John
->=20
-> ---
->=20
-> The following changes since commit 405cc2736527bd506fd8f652308b03b2c8a1e8=
-b9:
->=20
->   fix CAN MAINTAINERS SCM tree type (2012-01-03 14:57:43 -0500)
->=20
-> are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for=
--davem
+Linux target1 3.2.0-7-generic #13-Ubuntu SMP Sat Dec 24 18:06:57 UTC 2011 
+x86_64 x86_64 x86_64 GNU/Linux
 
-The top of the tree here is commit d8f46ff11081f03b09efe82245a3257bab6bf60e.
+but the same behavior occurs with 2.6.35
 
-Thanks,
+> [28765.764079] net_ratelimit: 32003 callbacks suppressed
+> [28765.764084] ipv6: Neighbour table overflow.
+> [28765.764171] ipv6: Neighbour table overflow.
+> 
+> root@target1:~# ip neigh
+> fe80::1a:c5ff:fe02:2 dev test2  router FAILED
+> 2001:1234::3 dev test2 lladdr 02:1a:c5:02:00:02 REACHABLE
+> 192.168.2.1 dev mgmt0 lladdr 04:7d:7b:06:8d:2d REACHABLE
+> 1.0.0.1 dev test0 lladdr 02:1a:c5:01:00:00 REACHABLE
+> 
+> If I send packets much more slowly, the system works as expected. If the
+> 6RD client sends from a constant address rather than varying the lower
+> bits, it also works fine. I tested the two neighbor table checks in sit.c
+> and
 
-John
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+continuing thought: ipip6_tunnel_xmit does not appear to be hitting the ISATAP 
+or !dst sections that might invoke a call to dst_get_neighbour().
 
---J5MfuwkIyy7RmF4Q
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAEBAgAGBQJPBIUPAAoJEJctW/TcYTgGDbAQAIzBwlebXC7xi4l+JYIth6Qd
-hdztsJoloFnetiSOVh9iyZgfOfKltweWZgPtjSTtyvxrNWIzB2aS+IvFYHYOduBc
-VSBRQWT6CTBrnoCvTrIATnYXcmiIkQa8W1ylVPLujUnrcSp40hAb+hps25SWRvPg
-FSnhlCIE5D55sxshUgNG9qmJaJrsivbjrKeDiKSwzivC9K2GZCHubqd9suIer7fZ
-AwiK20ayJ9T3jS68qu2H3BDeZuTni2W57pENHe+UFF2nE3Bytyhx0+A6hFx5fapu
-1x2V/BxUWL8v/QoXutImOsyYG22DuDfzuOd7/4A53W9Z2mO0al4Qa/TKCqoUrTBH
-/g/NlDbUdFXzU/o8a9MJEzX0f8vmXhqJ9xFD2RxlVQIikYKXFrpTMOapuXMWR3Eo
-h87nxxIOfd7dwImHbJxo5zs2jdkp08fdRemozWdsLBsmi96mumNzXQaLE3fnvv8K
-PxJboyZWs8E4z/bamBgM7LjQDXcKYtys36W+/UkI0ZT0FkupS77jVEJIg+ww/ySC
-gMyU9b84qroeunHhISAZK3V3VRGgEf9TnxmeeeGRANx15ALl5LyEopuEO64Cp+Bm
-bn43sgL5K9XU1u4x0AvSvwf3hTqAYPrlAL2Pau9ClJc1IzgSwG9eI+TnOip55W3w
-+2kHbM6UJ7spUKrVkl6y
-=bAk9
------END PGP SIGNATURE-----
-
---J5MfuwkIyy7RmF4Q--
+> The network topology looks something like this:
+> 
+> 6RD client -> Router -> Linux (6RD BR) -> IPv6 host
+> 
+> The 6RD client is at 1.1.1.1/24
+> The Linux BR is at 1.0.0.2/24, the IPv4 router is at 1.0.0.1/24 and the
+> IPv6 host is directly attached on a second physical interface at address
+> 2001:1234::3
+> 
+> A configuration script for configuring the BR follows:
+> 
+> #!/bin/bash
+> PREFIX1="2001:0db8"                  # 6rd ipv6 prefix
+> intf1=test0
+> intf2=test2
+> 
+> modprobe sit
+> 
+> ## Setup the tunnel, it will create an interface named '6rd'
+> ip addr add 1.0.0.2/24 dev $intf1
+> ip link set $intf1 up
+> sudo ip route add 1.1.1.0/24 via 1.0.0.1
+> ip addr add 2001:1234::1/64 dev $intf2
+> ip link set $intf2 up
+> ip tunnel add 6rd mode sit local 1.0.0.2 dev $intf1 ttl 64
+> ip tunnel 6rd dev 6rd 6rd-prefix ${PREFIX1}::/32
+> ip addr add ${PREFIX1}::1/32 dev 6rd
+> ip link set 6rd up
+> 
+> sysctl -w net.ipv6.conf.all.forwarding=1
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
