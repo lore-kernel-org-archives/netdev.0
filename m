@@ -1,167 +1,76 @@
-From: Pratyush Anand <pratyush.anand@gmail.com>
-Subject: Detected Hardware Unit Hang on Intel Wired Ethernet
-Date: Wed, 4 Jan 2012 15:18:52 +0530
-Message-ID: <CAHM4w1=i5dYy+ReqMO=m6W96CNaQ+O=jw+pKQok0nmjb5-fNAw@mail.gmail.com>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH 1/1] netfilter: Add possibility to turn off netfilters
+ defrag per netns
+Date: Wed, 4 Jan 2012 10:49:09 +0100 (CET)
+Message-ID: <alpine.DEB.2.00.1201041044290.925@blackhole.kfki.hu>
+References: <1325664443-10320-1-git-send-email-hans.schillstrom@ericsson.com> <alpine.DEB.2.00.1201040922020.925@blackhole.kfki.hu> <201201040949.54985.hans.schillstrom@ericsson.com> <alpine.DEB.2.00.1201041000150.925@blackhole.kfki.hu>
+ <alpine.LNX.2.01.1201041030450.23605@frira.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Pratyush ANAND <pratyush.anand@st.com>,
-	Shiraz HASHIM <shiraz.hashim@st.com>,
-	Deepak SIKRI <deepak.sikri@st.com>,
-	Bhavna YADAV <bhavna.yadav@st.com>
-To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:39085 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754696Ab2ADJsw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 04:48:52 -0500
-Received: by ghbg21 with SMTP id g21so3856005ghb.19
-        for <netdev@vger.kernel.org>; Wed, 04 Jan 2012 01:48:52 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hans@schillstrom.com" <hans@schillstrom.com>
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.01.1201041030450.23605@frira.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi All,
+On Wed, 4 Jan 2012, Jan Engelhardt wrote:
 
-I am trying to use PCIe based Intel PRO/1000 PT Server Adapter card on
-an ARM Corterx A-9 based platform.
-I am using linux 2.6.37.
+> On Wednesday 2012-01-04 10:03, Jozsef Kadlecsik wrote:
+> 
+> >On Wed, 4 Jan 2012, Hans Schillstrom wrote:
+> >
+> >> On Wednesday 04 January 2012 09:28:05 Jozsef Kadlecsik wrote:
+> >> > 
+> >> > On Wed, 4 Jan 2012, Hans Schillstrom wrote:
+> >> > 
+> >> > > In some cases it not desirable to have auto defrag.
+> >> > > Ex. in a cluster where packets can arrive on different blades.
+> >> > > In that case it is possible to use containers (LXC) and send
+> >> > > all fragments to one place where defrag is enabled.
+> >> > > 
+> >> > > This patch makes it possible to turn off the defrag per network name space,
+> >> > > by setting net.netfilter.nf_conntrack_nodefrag to 1.
+> >> > > Both IPv4 and IPv6 is effected by this sysctl.
+> >> > > Default is 0 which is defrag.
+> >> > 
+> >> > Conntrack assumes that the packets are defragmented and will drop any 
+> >> > unfragmented one. So your patch results packet drops.
+> >> 
+> >> Hmmm, more work...
+> >> > 
+> >> > Also, if you want to disable defragmentation then why don't you simply 
+> >> > "mark" the packets with the NOTRACK target?
+> >> 
+> >> I don't think that will work since NF_IP_PRI_CONNTRACK_DEFRAG is -400
+> >
+> >Then change NF_IP_PRI_RAW so that it precedes NF_IP_PRI_CONNTRACK_DEFRAG. 
+> >The raw table should be made possible to completely override conntack and 
+> >defrag is implicit part of the latter.
+> 
+> We've been there (me in the thread even) - defrag is running before raw,
+> because otherwise you could not select packets based upon L4 
+> parameters for non-defrag in the first place:
+> 
+> 	-t raw ... -p udp --dport 53 -j CT --notrack
+> 
+> Not that I overly care about whether defrag is before/after raw..
 
-I am trying to mount my rootfile system on NFS using interface of this card.
+You mean "for non-conntrack", but you are right. Nice cicle :-).
 
-I see follwing issue while nfs mount
-----------------------------------------------------------------------------------------------------------------------------------------------------------
-IP-Config: Complete:
-     device=eth0, addr=192.168.1.10, mask=255.255.255.0, gw=255.255.255.255,
-     host=192.168.1.10, domain=, nis-domain=(none),
-     bootserver=192.168.1.1, rootserver=192.168.1.1, rootpath=
-NFS:1. attempt to mount rootVFS: Mounted root (nfs filesystem) on device 0:13.
-Freeing init memory: 184K
-nfs: server 192.168.1.1 not responding, still trying
-e1000e 0000:03:00.0: eth0: Detected Hardware Unit Hang:
-  TDH                  <40>
-  TDT                  <43>
-  next_to_use          <43>
-  next_to_clean        <3f>
-buffer_info[next_to_clean]:
-  time_stamp           <ffff984a>
-  next_to_watch        <40>
-  jiffies              <ffff9948>
-  next_to_watch.status <0>
-MAC Status             <80383>
-PHY Status             <792d>
-PHY 1000BASE-T Status  <3800>
-PHY Extended Status    <3000>
-PCI Status             <4010>
-e1000e 0000:03:00.0: eth0: Detected Hardware Unit Hang:
-  TDH                  <40>
-  TDT                  <43>
-  next_to_use          <43>
-  next_to_clean        <3f>
-buffer_info[next_to_clean]:
-  time_stamp           <ffff984a>
-  next_to_watch        <40>
-  jiffies              <ffff9a10>
-  next_to_watch.status <0>
-MAC Status             <80383>
-PHY Status             <792d>
-PHY 1000BASE-T Status  <3800>
-PHY Extended Status    <3000>
-PCI Status             <4010>
-e1000e 0000:03:00.0: eth0: Detected Hardware Unit Hang:
-  TDH                  <40>
-  TDT                  <43>
-  next_to_use          <43>
-  next_to_clean        <3f>
-buffer_info[next_to_clean]:
-  time_stamp           <ffff984a>
-  next_to_watch        <40>
-  jiffies              <ffff9ba0>
-  next_to_watch.status <0>
-MAC Status             <80383>
-PHY Status             <792d>
-PHY 1000BASE-T Status  <3800>
-PHY Extended Status    <3000>
-PCI Status             <4010>
-e1000e 0000:03:00.0: eth0: Detected Hardware Unit Hang:
-  TDH                  <40>
-  TDT                  <43>
-  next_to_use          <43>
-  next_to_clean        <3f>
-buffer_info[next_to_clean]:
-  time_stamp           <ffff984a>
-  next_to_watch        <40>
-  jiffies              <ffff9c68>
-  next_to_watch.status <0>
-MAC Status             <80383>
-PHY Status             <792d>
-PHY 1000BASE-T Status  <3800>
-PHY Extended Status    <3000>
-PCI Status             <4010>
-------------[ cut here ]------------
-WARNING: at /data/csd_sw/spear/drives_os/pratyusha/spear/kernel/linux-2.6/net/sched/sch_generic.c:258
-dev_watchdog+0x168/0x280()
-NETDEV WATCHDOG: eth0 (e1000e): transmit queue 0 timed out
-Modules linked in:
-Backtrace:
-[<8003f9fc>] (dump_backtrace+0x0/0x10c) from [<803ede3c>] (dump_stack+0x18/0x1c)
- r6:804f3833 r5:00000102 r4:8e83dc18 r3:60000113
-[<803ede24>] (dump_stack+0x0/0x1c) from [<8005e2b8>]
-(warn_slowpath_common+0x54/0x6c)
-[<8005e264>] (warn_slowpath_common+0x0/0x6c) from [<8005e374>]
-(warn_slowpath_fmt+0x38/0x40)
- r8:00000001 r7:00000000 r6:807164c0 r5:8eaf01d4 r4:8eaf0000
-r3:00000009
-[<8005e33c>] (warn_slowpath_fmt+0x0/0x40) from [<8036d7bc>]
-(dev_watchdog+0x168/0x280)
- r3:8eaf0000 r2:804f3889
-[<8036d654>] (dev_watchdog+0x0/0x280) from [<80069680>]
-(run_timer_softirq+0x158/0x210)
-[<80069528>] (run_timer_softirq+0x0/0x210) from [<80063cb8>]
-(__do_softirq+0xb8/0x160)
- r8:0000000a r7:00000100 r6:80525044 r5:00000141 r4:8e83c000
-[<80063c00>] (__do_softirq+0x0/0x160) from [<80064144>] (irq_exit+0x4c/0x54)
-[<800640f8>] (irq_exit+0x0/0x54) from [<80040e2c>] (ipi_timer+0x40/0x4c)
-[<80040dec>] (ipi_timer+0x0/0x4c) from [<80036260>] (do_local_timer+0x5c/0x88)
- r4:800348b4 r3:00001179
-[<80036204>] (do_local_timer+0x0/0x88) from [<8003b714>] (__irq_svc+0x34/0xc0)
-Exception stack(0x8e83dd68 to 0x8e83ddb0)
-dd60:                   8054d648 60000093 8054d640 60000013 00000206 00000001
-dd80: 80585216 00000000 8054d5b8 8e83de3c 804ca994 8e83de1c 8e83dd88 8e83ddb0
-dda0: 8005f0b0 8005f588 60000013 ffffffff
- r6:0000001d r5:fec80100 r4:ffffffff r3:60000013
-[<8005f1f4>] (vprintk+0x0/0x3f0) from [<803edfe0>] (printk+0x24/0x2c)
-[<803edfbc>] (printk+0x0/0x2c) from [<8020db74>] (__dev_printk+0x58/0x68)
- r3:8e886dc0 r2:8056e0fc r1:804b70c9 r0:804ca994
-[<8020db1c>] (__dev_printk+0x0/0x68) from [<8020ddb0>] (dev_printk+0x34/0x3c)
- r6:00000040 r5:ffff984a r4:8eaf0360
-[<8020dd7c>] (dev_printk+0x0/0x3c) from [<803589fc>] (__netdev_printk+0x4c/0x94)
- r3:8eaf0000 r2:804ca999
-[<803589b0>] (__netdev_printk+0x0/0x94) from [<80358b58>] (netdev_err+0x3c/0x48)
- r4:8eaf0360
-[<80358b1c>] (netdev_err+0x0/0x48) from [<8028cb34>]
-(e1000_print_hw_hang+0x124/0x134)
- r3:00000043 r2:00000040 r1:804d85ab
-[<8028ca10>] (e1000_print_hw_hang+0x0/0x134) from [<80072d6c>]
-(process_one_work+0x1f0/0x324)
-[<80072b7c>] (process_one_work+0x0/0x324) from [<800733a4>]
-(worker_thread+0x1c0/0x300)
-[<800731e4>] (worker_thread+0x0/0x300) from [<80076e04>] (kthread+0x90/0x98)
-[<80076d74>] (kthread+0x0/0x98) from [<8006169c>] (do_exit+0x0/0x5f8)
- r6:8006169c r5:80076d74 r4:8e831ee0
----[ end trace ea1efd5a579b2b9e ]---
-e1000e 0000:03:00.0: eth0: Reset adapter
-e1000e: eth0 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: RX/TX
-nfs: server 192.168.1.1 not responding, still trying
-nfs: server 192.168.1.1 not responding, still trying
-----------------------------------------------------------------------------------------------------------------------------------------------------------
+So we can sum up that either the system has got conntrack enabled which
+requires defrag, or there's no defrag but then there's no conntrack at 
+all.
 
-However, If I pass pci=nomsi in bootargs then it works fine.
-
-I see similar issue discussed earlier at following link:
-http://sourceforge.net/tracker/index.php?func=detail&aid=2896629&group_id=42302&atid=447449
-
-Reading above link, it seems that bug should have been resolved in linux 2.6.32.
-But I still see it in 2.6.37.
-Any suggestion to resolve?
-
-Regards
-Pratyush
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
