@@ -1,116 +1,67 @@
 From: Hans Schillstrom <hans@schillstrom.com>
-Subject: Re: [PATCH 1/1] netfilter: Add possibility to turn off netfilters defrag per netns
-Date: Wed, 4 Jan 2012 21:45:10 +0100
-Message-ID: <201201042145.10698.hans@schillstrom.com>
-References: <1325664443-10320-1-git-send-email-hans.schillstrom@ericsson.com> <201201041248.36881.hans.schillstrom@ericsson.com> <20120104174035.GB3489@1984>
+Subject: Re: [v5 PATCH 1/3] NETFILTER added flags to __ipv6_find_hdr()
+Date: Wed, 4 Jan 2012 21:48:11 +0100
+Message-ID: <201201042148.11614.hans@schillstrom.com>
+References: <1325516801-25488-1-git-send-email-hans.schillstrom@ericsson.com> <1325516801-25488-2-git-send-email-hans.schillstrom@ericsson.com> <20120104173741.GA3524@1984>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Patrick McHardy <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>, kaber@trash.net,
+	jengelh@medozas.de, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
 To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120104174035.GB3489@1984>
+In-Reply-To: <20120104173741.GA3524@1984>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-On Wednesday, January 04, 2012 18:40:35 Pablo Neira Ayuso wrote:
-> On Wed, Jan 04, 2012 at 12:48:35PM +0100, Hans Schillstrom wrote:
-> > I like that idea, an "early" table at prio -500 with PREROUTING.
-> > There is also a need for a new flag "--allfrags"
-> > i.e. all fragments needs to be sorted out and sent to same dest for defrag.
+On Wednesday, January 04, 2012 18:37:41 Pablo Neira Ayuso wrote:
+> On Mon, Jan 02, 2012 at 04:06:39PM +0100, Hans Schillstrom wrote:
+> > Two new flags to __ipv6_find_hdr,
+> > One that tells us that this is a fragemnt.
+> > One that stops at AH if any i.e. treat it like a transport header.
+> > i.e. make handling of ESP and AH the same.
 > > 
-> > ex.
-> > iptables -t early -A PREROUTING -i eth0 --allfrags -j NOTRACK
+> > Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+> > ---
+> >  include/linux/netfilter_ipv6/ip6_tables.h |   16 ++++++++++++++--
+> >  net/ipv6/netfilter/ip6_tables.c           |   19 ++++++++++++++-----
+> >  2 files changed, 28 insertions(+), 7 deletions(-)
+> > 
+> > diff --git a/include/linux/netfilter_ipv6/ip6_tables.h b/include/linux/netfilter_ipv6/ip6_tables.h
+> > index f549adc..ee0c68e 100644
+> > --- a/include/linux/netfilter_ipv6/ip6_tables.h
+> > +++ b/include/linux/netfilter_ipv6/ip6_tables.h
+> > @@ -288,9 +288,21 @@ extern unsigned int ip6t_do_table(struct sk_buff *skb,
+> >  
+> >  /* Check for an extension */
+> >  extern int ip6t_ext_hdr(u8 nexthdr);
+> > +enum {
+> > +	IP6T_FH_FRAG,
+> > +	IP6T_FH_AUTH,
+> > +	IP6T_FH_F_FRAG = 1 << IP6T_FH_FRAG,
+> > +	IP6T_FH_F_AUTH = 1 << IP6T_FH_AUTH,
+> > +};
+> >  /* find specified header and get offset to it */
+> > -extern int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
+> > -			 int target, unsigned short *fragoff);
+> > +extern int __ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
+> > +			 int target, unsigned short *fragoff, int *fragflg);
 > 
-> New tables add too much overhead. We have discussed this before with
-> Patrick.
+> Please, don't do this.
 > 
-> Since this still remains specific to your needs, I think you can
-> remove nf_conntrack module in your setup.
+> the convention in the kernel is to use __function for non-locked
+> versions of one function.
 > 
-> I don't come with one sane setup that may want selectively defragment
-> some traffic yes and other not.
+> The number of clients for this function seems small. I'll be very
+> happy if you send me a patch that changes this interface and that
+> propagates the changes to other clients of it.
 > 
-> Am I missing anything else?
->
+No problem, I'll fix this.
 
-I might have been a little bit unclear, so I'll try the opposite :-)
+I have some minor compilation warnings with out nat to fix also in the other patch.
 
-Network namesapce i.e. Linux Containers (LXC) creates new possibilities,
-Linux moves to new domains - Large Clusters controllers.
-
-When you have two or more interfaces (on different machines) that receives data
-from the Internet you will sooner or later end up with fragments on different
-interfaces.
-
-If you deal with Virtual IP:s in the cluster (which is very common)
-there must be some place where packet defrag occurs, before sending
-it to a load balancer.
-
-Hardware is cheap but space and power consumption is not, so
-no one wants extra hardware. If possible extra hops should also be avoided.
-
-With existing functionality an extra level of physical machines must be
-added between the (FW/GW) and the Load-Balancers to do the defrag,
-which is not very efficient.
-
-With a solution where it's possible to sort out fragments early
-(based on ex source address) and send them to the same Container for defragmentation
-no extra hardware is needed and only fragmented packet have an extra hop.
-
-
-A Simplified Example:
-(ASCII grapichs have some limitaions)
-
-            Blade 1
-         +------------+
-         |   +-----+  | Defrag/LB
-Inet A   |   | FW. |  |  Trafic                 VIP 11.1.1.1
----------+-> | LXC |--|-->+                     Blade a
-         |   +-----+  |   |                    +-------+
-         |      |<----|---+                    | Appl. |
-         |   +-----+  |   |       +-------- >  | Serv. |
-         |   | LB. |__|___|_______|            +-------+
-         |   | IPVS|  |   |       |
-         |   +-----+  |   |       |
-         +------------+   |       |
-                          |       |
-            Blade 2       |       |
-         +------------+   |       |             VIP 11.1.1.1
-         |   +-----+  |   |       |             Blade b
-Inet B   |   | FW. |  |   |       |            +-------+
----------+-> | LXC |--|-->|       |            | Appl. |
-         |   +-----+  |   |       +----------> | Serv. |
-         |      | <---|---+       |            +-------+
-         |   +-----+  |   |       |
-         |   | LB. |__|___|_______|
-         |   | IPVS|  |   |       |             VIP 11.1.1.1
-         |   +-----+  |   |       |             Blade c
-         +------------+   |       |            +-------+
-                          |       |            | Appl. |
-            Blade n       |       +--------->  | Serv. |
-         +------------+   |       |            +-------+
-         |   +-----+  |   |       |
-Inet N   |   | FW. |  |   |       |             VIP 11.1.1.1
----------+-> | LXC |--|-->|       |             Blade x
-         |   +-----+  |   |       |            +-------+
-         |      |<----|---+       |            | Appl. |
-         |   +-----+  |           +--------->  | Serv. |
-         |   | LB. |__|___________|            +-------+
-         |   | IPVS|  |
-         |   +-----+  |
-         +------------+
-
-You might even co-locate the Appl on the FW/GW Blades.
-The ideal solution would be where you can sort out fragments based on interface
-and have defrag on others. (In this case even the first fragment)
-
-Regards
-Hans Schillstrom
+Thanks
+Hans
