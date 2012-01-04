@@ -1,7 +1,7 @@
 From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Subject: [PATCH 1/6] ath6kl: rename vif init and cleanup functions
-Date: Thu, 05 Jan 2012 01:07:51 +0200
-Message-ID: <20120104230751.32306.2699.stgit@x201>
+Subject: [PATCH 2/6] ath6kl: unify cfg80211 init/cleanup functions
+Date: Thu, 05 Jan 2012 01:08:24 +0200
+Message-ID: <20120104230824.32306.2644.stgit@x201>
 References: <20120104230429.32306.75965.stgit@x201>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -16,113 +16,189 @@ In-Reply-To: <20120104230429.32306.75965.stgit@x201>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-ath6kl_cfg80211_vif_init/cleanup() follow more closely the style used
-elsewhere in ath6kl.
+Group them together and change the naming to follow the common style in
+ath6kl. No functional changes.
 
 Signed-off-by: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
 ---
- drivers/net/wireless/ath/ath6kl/cfg80211.c |    9 ++++-----
- drivers/net/wireless/ath/ath6kl/cfg80211.h |    2 ++
- drivers/net/wireless/ath/ath6kl/core.h     |    1 -
- drivers/net/wireless/ath/ath6kl/init.c     |    5 +++--
- 4 files changed, 9 insertions(+), 8 deletions(-)
+ drivers/net/wireless/ath/ath6kl/cfg80211.c |  109 +++++++++++++++-------------
+ drivers/net/wireless/ath/ath6kl/cfg80211.h |    6 +-
+ drivers/net/wireless/ath/ath6kl/init.c     |    4 +
+ 3 files changed, 62 insertions(+), 57 deletions(-)
 
 diff --git a/drivers/net/wireless/ath/ath6kl/cfg80211.c b/drivers/net/wireless/ath/ath6kl/cfg80211.c
-index 6c59a21..cd67cb6 100644
+index cd67cb6..5f2c137 100644
 --- a/drivers/net/wireless/ath/ath6kl/cfg80211.c
 +++ b/drivers/net/wireless/ath/ath6kl/cfg80211.c
-@@ -1403,7 +1403,7 @@ static int ath6kl_cfg80211_del_iface(struct wiphy *wiphy,
- 
- 	ath6kl_cleanup_vif(vif, test_bit(WMI_READY, &ar->flag));
- 
--	ath6kl_deinit_if_data(vif);
-+	ath6kl_cfg80211_vif_cleanup(vif);
- 
- 	return 0;
- }
-@@ -2742,7 +2742,7 @@ int ath6kl_register_ieee80211_hw(struct ath6kl *ar)
- 	return 0;
+@@ -2691,57 +2691,6 @@ struct ath6kl *ath6kl_core_alloc(struct device *dev)
+ 	return ar;
  }
  
--static int ath6kl_init_if_data(struct ath6kl_vif *vif)
-+static int ath6kl_cfg80211_vif_init(struct ath6kl_vif *vif)
+-int ath6kl_register_ieee80211_hw(struct ath6kl *ar)
+-{
+-	struct wiphy *wiphy = ar->wiphy;
+-	int ret;
+-
+-	wiphy->mgmt_stypes = ath6kl_mgmt_stypes;
+-
+-	wiphy->max_remain_on_channel_duration = 5000;
+-
+-	/* set device pointer for wiphy */
+-	set_wiphy_dev(wiphy, ar->dev);
+-
+-	wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION) |
+-				 BIT(NL80211_IFTYPE_ADHOC) |
+-				 BIT(NL80211_IFTYPE_AP);
+-	if (ar->p2p) {
+-		wiphy->interface_modes |= BIT(NL80211_IFTYPE_P2P_GO) |
+-					  BIT(NL80211_IFTYPE_P2P_CLIENT);
+-	}
+-
+-	/* max num of ssids that can be probed during scanning */
+-	wiphy->max_scan_ssids = MAX_PROBED_SSID_INDEX;
+-	wiphy->max_scan_ie_len = 1000; /* FIX: what is correct limit? */
+-	wiphy->bands[IEEE80211_BAND_2GHZ] = &ath6kl_band_2ghz;
+-	wiphy->bands[IEEE80211_BAND_5GHZ] = &ath6kl_band_5ghz;
+-	wiphy->signal_type = CFG80211_SIGNAL_TYPE_MBM;
+-
+-	wiphy->cipher_suites = cipher_suites;
+-	wiphy->n_cipher_suites = ARRAY_SIZE(cipher_suites);
+-
+-	wiphy->wowlan.flags = WIPHY_WOWLAN_MAGIC_PKT |
+-			      WIPHY_WOWLAN_DISCONNECT |
+-			      WIPHY_WOWLAN_GTK_REKEY_FAILURE  |
+-			      WIPHY_WOWLAN_SUPPORTS_GTK_REKEY |
+-			      WIPHY_WOWLAN_EAP_IDENTITY_REQ   |
+-			      WIPHY_WOWLAN_4WAY_HANDSHAKE;
+-	wiphy->wowlan.n_patterns = WOW_MAX_FILTERS_PER_LIST;
+-	wiphy->wowlan.pattern_min_len = 1;
+-	wiphy->wowlan.pattern_max_len = WOW_PATTERN_SIZE;
+-
+-	wiphy->max_sched_scan_ssids = 10;
+-
+-	ret = wiphy_register(wiphy);
+-	if (ret < 0) {
+-		ath6kl_err("couldn't register wiphy device\n");
+-		return ret;
+-	}
+-
+-	return 0;
+-}
+-
+ static int ath6kl_cfg80211_vif_init(struct ath6kl_vif *vif)
  {
  	vif->aggr_cntxt = aggr_init(vif->ndev);
- 	if (!vif->aggr_cntxt) {
-@@ -2761,7 +2761,7 @@ static int ath6kl_init_if_data(struct ath6kl_vif *vif)
- 	return 0;
+@@ -2835,8 +2784,64 @@ err:
+ 	return NULL;
  }
  
--void ath6kl_deinit_if_data(struct ath6kl_vif *vif)
-+void ath6kl_cfg80211_vif_cleanup(struct ath6kl_vif *vif)
+-void ath6kl_deinit_ieee80211_hw(struct ath6kl *ar)
++int ath6kl_cfg80211_init(struct ath6kl *ar)
++{
++	struct wiphy *wiphy = ar->wiphy;
++	int ret;
++
++	wiphy->mgmt_stypes = ath6kl_mgmt_stypes;
++
++	wiphy->max_remain_on_channel_duration = 5000;
++
++	/* set device pointer for wiphy */
++	set_wiphy_dev(wiphy, ar->dev);
++
++	wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION) |
++				 BIT(NL80211_IFTYPE_ADHOC) |
++				 BIT(NL80211_IFTYPE_AP);
++	if (ar->p2p) {
++		wiphy->interface_modes |= BIT(NL80211_IFTYPE_P2P_GO) |
++					  BIT(NL80211_IFTYPE_P2P_CLIENT);
++	}
++
++	/* max num of ssids that can be probed during scanning */
++	wiphy->max_scan_ssids = MAX_PROBED_SSID_INDEX;
++	wiphy->max_scan_ie_len = 1000; /* FIX: what is correct limit? */
++	wiphy->bands[IEEE80211_BAND_2GHZ] = &ath6kl_band_2ghz;
++	wiphy->bands[IEEE80211_BAND_5GHZ] = &ath6kl_band_5ghz;
++	wiphy->signal_type = CFG80211_SIGNAL_TYPE_MBM;
++
++	wiphy->cipher_suites = cipher_suites;
++	wiphy->n_cipher_suites = ARRAY_SIZE(cipher_suites);
++
++	wiphy->wowlan.flags = WIPHY_WOWLAN_MAGIC_PKT |
++			      WIPHY_WOWLAN_DISCONNECT |
++			      WIPHY_WOWLAN_GTK_REKEY_FAILURE  |
++			      WIPHY_WOWLAN_SUPPORTS_GTK_REKEY |
++			      WIPHY_WOWLAN_EAP_IDENTITY_REQ   |
++			      WIPHY_WOWLAN_4WAY_HANDSHAKE;
++	wiphy->wowlan.n_patterns = WOW_MAX_FILTERS_PER_LIST;
++	wiphy->wowlan.pattern_min_len = 1;
++	wiphy->wowlan.pattern_max_len = WOW_PATTERN_SIZE;
++
++	wiphy->max_sched_scan_ssids = 10;
++
++	ret = wiphy_register(wiphy);
++	if (ret < 0) {
++		ath6kl_err("couldn't register wiphy device\n");
++		return ret;
++	}
++
++	return 0;
++}
++
++void ath6kl_cfg80211_cleanup(struct ath6kl *ar)
  {
- 	struct ath6kl *ar = vif->ar;
- 
-@@ -2808,8 +2808,7 @@ struct net_device *ath6kl_interface_add(struct ath6kl *ar, char *name,
- 
- 	ath6kl_init_control_info(vif);
- 
--	/* TODO: Pass interface specific pointer instead of ar */
--	if (ath6kl_init_if_data(vif))
-+	if (ath6kl_cfg80211_vif_init(vif))
- 		goto err;
- 
- 	if (register_netdevice(ndev))
+ 	wiphy_unregister(ar->wiphy);
++
++	/*
++	 * FIXME: should be removed as we remove wiphy in
++	 * ath6kl_core_free(). Most likely this causes a use after free.
++	 */
+ 	wiphy_free(ar->wiphy);
+ }
 diff --git a/drivers/net/wireless/ath/ath6kl/cfg80211.h b/drivers/net/wireless/ath/ath6kl/cfg80211.h
-index 81f20a5..aa96169 100644
+index aa96169..08d9769 100644
 --- a/drivers/net/wireless/ath/ath6kl/cfg80211.h
 +++ b/drivers/net/wireless/ath/ath6kl/cfg80211.h
-@@ -53,6 +53,8 @@ int ath6kl_cfg80211_suspend(struct ath6kl *ar,
+@@ -27,10 +27,7 @@ enum ath6kl_cfg_suspend_mode {
+ struct net_device *ath6kl_interface_add(struct ath6kl *ar, char *name,
+ 					enum nl80211_iftype type,
+ 					u8 fw_vif_idx, u8 nw_type);
+-int ath6kl_register_ieee80211_hw(struct ath6kl *ar);
+ struct ath6kl *ath6kl_core_alloc(struct device *dev);
+-void ath6kl_deinit_ieee80211_hw(struct ath6kl *ar);
+-
+ void ath6kl_cfg80211_scan_complete_event(struct ath6kl_vif *vif, bool aborted);
  
- int ath6kl_cfg80211_resume(struct ath6kl *ar);
- 
-+void ath6kl_cfg80211_vif_cleanup(struct ath6kl_vif *vif);
-+
+ void ath6kl_cfg80211_connect_event(struct ath6kl_vif *vif, u16 channel,
+@@ -58,4 +55,7 @@ void ath6kl_cfg80211_vif_cleanup(struct ath6kl_vif *vif);
  void ath6kl_cfg80211_stop(struct ath6kl_vif *vif);
  void ath6kl_cfg80211_stop_all(struct ath6kl *ar);
  
-diff --git a/drivers/net/wireless/ath/ath6kl/core.h b/drivers/net/wireless/ath/ath6kl/core.h
-index c863a28..93d05c0 100644
---- a/drivers/net/wireless/ath/ath6kl/core.h
-+++ b/drivers/net/wireless/ath/ath6kl/core.h
-@@ -723,7 +723,6 @@ void ath6kl_wakeup_event(void *dev);
- void ath6kl_reset_device(struct ath6kl *ar, u32 target_type,
- 			 bool wait_fot_compltn, bool cold_reset);
- void ath6kl_init_control_info(struct ath6kl_vif *vif);
--void ath6kl_deinit_if_data(struct ath6kl_vif *vif);
- void ath6kl_core_free(struct ath6kl *ar);
- struct ath6kl_vif *ath6kl_vif_first(struct ath6kl *ar);
- void ath6kl_cleanup_vif(struct ath6kl_vif *vif, bool wmi_ready);
++int ath6kl_cfg80211_init(struct ath6kl *ar);
++void ath6kl_cfg80211_cleanup(struct ath6kl *ar);
++
+ #endif /* ATH6KL_CFG80211_H */
 diff --git a/drivers/net/wireless/ath/ath6kl/init.c b/drivers/net/wireless/ath/ath6kl/init.c
-index 368ecbd..ffe6254 100644
+index ffe6254..32bd111 100644
 --- a/drivers/net/wireless/ath/ath6kl/init.c
 +++ b/drivers/net/wireless/ath/ath6kl/init.c
-@@ -1695,7 +1695,7 @@ err_rxbuf_cleanup:
- 	ath6kl_htc_flush_rx_buf(ar->htc_target);
- 	ath6kl_cleanup_amsdu_rxbufs(ar);
- 	rtnl_lock();
--	ath6kl_deinit_if_data(netdev_priv(ndev));
-+	ath6kl_cfg80211_vif_cleanup(netdev_priv(ndev));
- 	rtnl_unlock();
- 	wiphy_unregister(ar->wiphy);
- err_debug_init:
-@@ -1716,6 +1716,7 @@ err_wq:
- 	return ret;
+@@ -600,7 +600,7 @@ void ath6kl_core_cleanup(struct ath6kl *ar)
+ 	kfree(ar->fw);
+ 	kfree(ar->fw_patch);
+ 
+-	ath6kl_deinit_ieee80211_hw(ar);
++	ath6kl_cfg80211_cleanup(ar);
  }
  
-+/* FIXME: move this to cfg80211.c and rename to ath6kl_cfg80211_vif_stop() */
- void ath6kl_cleanup_vif(struct ath6kl_vif *vif, bool wmi_ready)
- {
- 	static u8 bcast_mac[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-@@ -1761,7 +1762,7 @@ void ath6kl_stop_txrx(struct ath6kl *ar)
- 		spin_unlock_bh(&ar->list_lock);
- 		ath6kl_cleanup_vif(vif, test_bit(WMI_READY, &ar->flag));
- 		rtnl_lock();
--		ath6kl_deinit_if_data(vif);
-+		ath6kl_cfg80211_vif_cleanup(vif);
- 		rtnl_unlock();
- 		spin_lock_bh(&ar->list_lock);
- 	}
+ /* firmware upload */
+@@ -1608,7 +1608,7 @@ int ath6kl_core_init(struct ath6kl *ar)
+ 
+ 	ath6kl_dbg(ATH6KL_DBG_TRC, "%s: got wmi @ 0x%p.\n", __func__, ar->wmi);
+ 
+-	ret = ath6kl_register_ieee80211_hw(ar);
++	ret = ath6kl_cfg80211_init(ar);
+ 	if (ret)
+ 		goto err_node_cleanup;
+ 
 
 --
 To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
