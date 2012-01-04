@@ -1,77 +1,135 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH, v2] Xen: consolidate and simplify struct xenbus_driver
- instantiation
-Date: Wed, 4 Jan 2012 09:20:45 +0000
-Message-ID: <1325668846.25206.172.camel@zakaz.uk.xensource.com>
-References: <4EF3018D020000780006986E@nat28.tlf.novell.com>
-	 <1324547820.7877.71.camel@zakaz.uk.xensource.com>
-	 <4EF327E2020000780006993E@nat28.tlf.novell.com>
-	 <1324555060.7877.84.camel@zakaz.uk.xensource.com>
-	 <1324565067.2897.2.camel@bwh-desktop>
-	 <1324586301.13113.3.camel@dagon.hellion.org.uk>
-	 <20120103203637.GF17472@phenom.dumpdata.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Jan Beulich <JBeulich@suse.com>,
-	Konrad Rzeszutek Wilk <konrad@darnok.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"dmitry.torokhov@gmail.com" <dmitry.torokhov@gmail.com>,
-	"FlorianSchandinat@gmx.de" <FlorianSchandinat@gmx.de>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	"Jens Axboe" <axboe@kernel.dk>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120103203637.GF17472@phenom.dumpdata.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mihai Maruseac <mihai.maruseac@gmail.com>
+Subject: [PATCH] ipv6/addrconf: speedup /proc/net/if_inet6 filling
+Date: Wed,  4 Jan 2012 11:31:35 +0200
+Message-ID: <1325669495-5626-1-git-send-email-mmaruseac@ixiacom.com>
+Cc: eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	mihai.maruseac@gmail.com, Mihai Maruseac <mmaruseac@ixiacom.com>,
+	Daniel Baluta <dbaluta@ixiacom.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:65414 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754694Ab2ADJby (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 04:31:54 -0500
+Received: by eekc4 with SMTP id c4so16516568eek.19
+        for <netdev@vger.kernel.org>; Wed, 04 Jan 2012 01:31:53 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-01-03 at 20:36 +0000, Konrad Rzeszutek Wilk wrote:
-> On Thu, Dec 22, 2011 at 08:38:21PM +0000, Ian Campbell wrote:
-> > On Thu, 2011-12-22 at 14:44 +0000, Ben Hutchings wrote:
-> > > On Thu, 2011-12-22 at 11:57 +0000, Ian Campbell wrote:
-> > > > On Thu, 2011-12-22 at 11:51 +0000, Jan Beulich wrote:
-> > > > > >>> On 22.12.11 at 10:57, Ian Campbell <Ian.Campbell@citrix.com> wrote:
-> > > > > > On Thu, 2011-12-22 at 09:08 +0000, Jan Beulich wrote:
-> > > > > >> The 'name', 'owner', and 'mod_name' members are redundant with the
-> > > > > >> identically named fields in the 'driver' sub-structure. Rather than
-> > > > > >> switching each instance to specify these fields explicitly, introduce
-> > > > > >> a macro to simplify this.
-> > > > > >> 
-> > > > > >> Eliminate further redundancy by allowing the drvname argument to
-> > > > > >> DEFINE_XENBUS_DRIVER() to be blank (in which case the first entry from
-> > > > > >> the ID table will be used for .driver.name).
-> > > > > > 
-> > > > > > Any reason not to always use DRV_NAME here (which is generally a bit
-> > > > > > more specific e.g. "xen-foofront" rather than "foo") and rely on the id
-> > > > > > table for the shorter names used in xenstore?
-> > > > > 
-> > > > > That would imply that DRV_NAME is always defined, but I don't
-> > > > > see this being the case.
-> > > > 
-> > > > My mistake, I thought it was a Kbuild thing.
-> > > 
-> > > You're maybe thinking of KBUILD_MODNAME.
-> > 
-> > Yes, I think I was.
-> 
-> Ian, are you OK with this patch? I think Jan needs to repost once more with the
-> "pciback" -> DRV_NAME change and then it is OK?
+This ensures a linear behaviour when filling /proc/net/if_inet6 thus making
+ifconfig run really fast on IPv6 only addresses. In fact, with this patch and
+the IPv4 one sent a while ago, ifconfig will run in linear time regardless of
+address type.
 
-I don't much like the style of leaving macro parameters blank -- I'd
-much rather have things be explicitly specified and live with the slight
-duplication in cases where the device name happens to match an entry in
-the id list. But it's not a show stopper for me.
+IPv4 related patch: f04565ddf52e401880f8ba51de0dff8ba51c99fd
+	 dev: use name hash for dev_seq_ops
+	 ...
 
-> I've tested it with all backends, except the pciback one, and I see no regressions
-> with 'xl' or 'xm' toolstack.
+Some statistics (running ifconfig > /dev/null on a different setup):
 
-Great!
+iface count / IPv6 no-patch time / IPv6 patched time / IPv4 time
+----------------------------------------------------------------
+      6250  |       0.23 s       |      0.13 s       |  0.11 s
+     12500  |       0.62 s       |      0.28 s       |  0.22 s
+     25000  |       2.91 s       |      0.57 s       |  0.46 s
+     50000  |      11.37 s       |      1.21 s       |  0.94 s
+    128000  |      86.78 s       |      3.05 s       |  2.54 s
 
-Presumably there is no actual change to sysfs arising from this patch.
+Signed-off-by: Mihai Maruseac <mmaruseac@ixiacom.com>
+Cc: Daniel Baluta <dbaluta@ixiacom.com>
+---
+ net/ipv6/addrconf.c |   43 ++++++++++++++++++++++++++++---------------
+ 1 files changed, 28 insertions(+), 15 deletions(-)
 
-Ian.
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 59a9d0e..adb972a 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3078,20 +3078,39 @@ static void addrconf_dad_run(struct inet6_dev *idev)
+ struct if6_iter_state {
+ 	struct seq_net_private p;
+ 	int bucket;
++	int offset;
+ };
+ 
+-static struct inet6_ifaddr *if6_get_first(struct seq_file *seq)
++static struct inet6_ifaddr *if6_get_first(struct seq_file *seq, loff_t pos)
+ {
+ 	struct inet6_ifaddr *ifa = NULL;
+ 	struct if6_iter_state *state = seq->private;
+ 	struct net *net = seq_file_net(seq);
++	int p = 0;
+ 
+-	for (state->bucket = 0; state->bucket < IN6_ADDR_HSIZE; ++state->bucket) {
++	/* initial bucket if pos is 0 */
++	if (pos == 0) {
++		state->bucket = 0;
++		state->offset = 0;
++	}
++
++	for (; state->bucket < IN6_ADDR_HSIZE; ++state->bucket) {
+ 		struct hlist_node *n;
+ 		hlist_for_each_entry_rcu_bh(ifa, n, &inet6_addr_lst[state->bucket],
+-					 addr_lst)
++					 addr_lst) {
++			/* sync with offset */
++			if (p < state->offset) {
++				p++;
++				continue;
++			}
++			state->offset++;
+ 			if (net_eq(dev_net(ifa->idev->dev), net))
+ 				return ifa;
++		}
++
++		/* prepare for next bucket */
++		state->offset = 0;
++		p = 0;
+ 	}
+ 	return NULL;
+ }
+@@ -3103,13 +3122,17 @@ static struct inet6_ifaddr *if6_get_next(struct seq_file *seq,
+ 	struct net *net = seq_file_net(seq);
+ 	struct hlist_node *n = &ifa->addr_lst;
+ 
+-	hlist_for_each_entry_continue_rcu_bh(ifa, n, addr_lst)
++	hlist_for_each_entry_continue_rcu_bh(ifa, n, addr_lst) {
++		state->offset++;
+ 		if (net_eq(dev_net(ifa->idev->dev), net))
+ 			return ifa;
++	}
+ 
+ 	while (++state->bucket < IN6_ADDR_HSIZE) {
++		state->offset = 0;
+ 		hlist_for_each_entry_rcu_bh(ifa, n,
+ 				     &inet6_addr_lst[state->bucket], addr_lst) {
++			state->offset++;
+ 			if (net_eq(dev_net(ifa->idev->dev), net))
+ 				return ifa;
+ 		}
+@@ -3118,21 +3141,11 @@ static struct inet6_ifaddr *if6_get_next(struct seq_file *seq,
+ 	return NULL;
+ }
+ 
+-static struct inet6_ifaddr *if6_get_idx(struct seq_file *seq, loff_t pos)
+-{
+-	struct inet6_ifaddr *ifa = if6_get_first(seq);
+-
+-	if (ifa)
+-		while (pos && (ifa = if6_get_next(seq, ifa)) != NULL)
+-			--pos;
+-	return pos ? NULL : ifa;
+-}
+-
+ static void *if6_seq_start(struct seq_file *seq, loff_t *pos)
+ 	__acquires(rcu_bh)
+ {
+ 	rcu_read_lock_bh();
+-	return if6_get_idx(seq, *pos);
++	return if6_get_first(seq, *pos);
+ }
+ 
+ static void *if6_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+-- 
+1.7.4.1
