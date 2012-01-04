@@ -1,57 +1,73 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH 1/1] netfilter: Add possibility to turn off netfilters
- defrag per netns
-Date: Wed, 4 Jan 2012 10:03:49 +0100 (CET)
-Message-ID: <alpine.DEB.2.00.1201041000150.925@blackhole.kfki.hu>
-References: <1325664443-10320-1-git-send-email-hans.schillstrom@ericsson.com> <alpine.DEB.2.00.1201040922020.925@blackhole.kfki.hu> <201201040949.54985.hans.schillstrom@ericsson.com>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [PATCH, v2] Xen: consolidate and simplify struct
+ xenbus_driver instantiation
+Date: Wed, 04 Jan 2012 09:17:34 +0000
+Message-ID: <4F04273E020000780006A502@nat28.tlf.novell.com>
+References: <4EF3018D020000780006986E@nat28.tlf.novell.com>
+ <1324547820.7877.71.camel@zakaz.uk.xensource.com>
+ <4EF327E2020000780006993E@nat28.tlf.novell.com>
+ <1324555060.7877.84.camel@zakaz.uk.xensource.com>
+ <1324565067.2897.2.camel@bwh-desktop>
+ <1324586301.13113.3.camel@dagon.hellion.org.uk>
+ <20120103203637.GF17472@phenom.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"jengelh@medozas.de" <jengelh@medozas.de>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hans@schillstrom.com" <hans@schillstrom.com>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <201201040949.54985.hans.schillstrom@ericsson.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: "Konrad Rzeszutek Wilk" <konrad@darnok.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"dmitry.torokhov@gmail.com" <dmitry.torokhov@gmail.com>,
+	"FlorianSchandinat@gmx.de" <FlorianSchandinat@gmx.de>,
+	"Jeremy Fitzhardinge" <jeremy@goop.org>,
+	"Jens Axboe" <axboe@kernel.dk>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Ian Campbell" <Ian.Campbell@citrix.com>,
+	"Konrad Rzeszutek Wilk" <konrad.wilk@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120103203637.GF17472@phenom.dumpdata.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 4 Jan 2012, Hans Schillstrom wrote:
-
-> On Wednesday 04 January 2012 09:28:05 Jozsef Kadlecsik wrote:
-> > 
-> > On Wed, 4 Jan 2012, Hans Schillstrom wrote:
-> > 
-> > > In some cases it not desirable to have auto defrag.
-> > > Ex. in a cluster where packets can arrive on different blades.
-> > > In that case it is possible to use containers (LXC) and send
-> > > all fragments to one place where defrag is enabled.
-> > > 
-> > > This patch makes it possible to turn off the defrag per network name space,
-> > > by setting net.netfilter.nf_conntrack_nodefrag to 1.
-> > > Both IPv4 and IPv6 is effected by this sysctl.
-> > > Default is 0 which is defrag.
-> > 
-> > Conntrack assumes that the packets are defragmented and will drop any 
-> > unfragmented one. So your patch results packet drops.
+>>> On 03.01.12 at 21:36, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com> wrote:
+> On Thu, Dec 22, 2011 at 08:38:21PM +0000, Ian Campbell wrote:
+>> On Thu, 2011-12-22 at 14:44 +0000, Ben Hutchings wrote:
+>> > On Thu, 2011-12-22 at 11:57 +0000, Ian Campbell wrote:
+>> > > On Thu, 2011-12-22 at 11:51 +0000, Jan Beulich wrote:
+>> > > > >>> On 22.12.11 at 10:57, Ian Campbell <Ian.Campbell@citrix.com> wrote:
+>> > > > > On Thu, 2011-12-22 at 09:08 +0000, Jan Beulich wrote:
+>> > > > >> The 'name', 'owner', and 'mod_name' members are redundant with the
+>> > > > >> identically named fields in the 'driver' sub-structure. Rather than
+>> > > > >> switching each instance to specify these fields explicitly, introduce
+>> > > > >> a macro to simplify this.
+>> > > > >> 
+>> > > > >> Eliminate further redundancy by allowing the drvname argument to
+>> > > > >> DEFINE_XENBUS_DRIVER() to be blank (in which case the first entry from
+>> > > > >> the ID table will be used for .driver.name).
+>> > > > > 
+>> > > > > Any reason not to always use DRV_NAME here (which is generally a bit
+>> > > > > more specific e.g. "xen-foofront" rather than "foo") and rely on the id
+>> > > > > table for the shorter names used in xenstore?
+>> > > > 
+>> > > > That would imply that DRV_NAME is always defined, but I don't
+>> > > > see this being the case.
+>> > > 
+>> > > My mistake, I thought it was a Kbuild thing.
+>> > 
+>> > You're maybe thinking of KBUILD_MODNAME.
+>> 
+>> Yes, I think I was.
 > 
-> Hmmm, more work...
-> > 
-> > Also, if you want to disable defragmentation then why don't you simply 
-> > "mark" the packets with the NOTRACK target?
-> 
-> I don't think that will work since NF_IP_PRI_CONNTRACK_DEFRAG is -400
+> Ian, are you OK with this patch? I think Jan needs to repost once more with 
+> the
+> "pciback" -> DRV_NAME change and then it is OK?
 
-Then change NF_IP_PRI_RAW so that it precedes NF_IP_PRI_CONNTRACK_DEFRAG. 
-The raw table should be made possible to completely override conntack and 
-defrag is implicit part of the latter.
+But that is what v2 was about (which is this thread).
 
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+Jan
+
+> I've tested it with all backends, except the pciback one, and I see no 
+> regressions
+> with 'xl' or 'xm' toolstack.
