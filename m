@@ -1,114 +1,57 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next 1/2] net_sched: sfq: fix mem alloc error recovery
-Date: Wed, 04 Jan 2012 17:22:24 +0100
-Message-ID: <1325694144.2428.30.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: [PATCH net-next 2/2] net_sched: sfq: always randomize hash
+ perturbation
+Date: Wed, 04 Jan 2012 17:23:01 +0100
+Message-ID: <1325694181.2428.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:59286 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756103Ab2ADQW2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 11:22:28 -0500
-Received: by werm1 with SMTP id m1so8671043wer.19
-        for <netdev@vger.kernel.org>; Wed, 04 Jan 2012 08:22:27 -0800 (PST)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:54105 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754584Ab2ADQXF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 11:23:05 -0500
+Received: by wgbdr13 with SMTP id dr13so29187739wgb.1
+        for <netdev@vger.kernel.org>; Wed, 04 Jan 2012 08:23:04 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 817fb15dfd98 (net_sched: sfq: allow divisor to be a
-parameter), we can leave perturbation timer armed if a memory allocation
-error aborts sfq_init().
+SFQ q->perturbation is used in sfq_hash() as an input to Jenkins hash.
 
-Memory containing active struct timer_list is freed and kernel can
-crash.
+We currently randomize this 32bit value only if a perturbation timer is
+setup.
 
-Call sfq_destroy() from sfq_init() to properly dismantle qdisc.
+Its much better to always initialize it to defeat attackers, or else
+they can predict very well what kind of packets they have to forge to
+hit a particular flow.
 
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- net/sched/sch_sfq.c |   52 ++++++++++++++++++++++++++----------------
- 1 file changed, 33 insertions(+), 19 deletions(-)
+ net/sched/sch_sfq.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index f7f62a5..465af66 100644
+index 465af66..a1cb00e 100644
 --- a/net/sched/sch_sfq.c
 +++ b/net/sched/sch_sfq.c
-@@ -544,10 +544,38 @@ static int sfq_change(struct Qdisc *sch, struct nlattr *opt)
- 	return 0;
- }
- 
-+static void *sfq_alloc(size_t sz)
-+{
-+	void *ptr = kmalloc(sz, GFP_KERNEL | __GFP_NOWARN);
-+
-+	if (!ptr)
-+		ptr = vmalloc(sz);
-+	return ptr;
-+}
-+
-+static void sfq_free(void *addr)
-+{
-+	if (addr) {
-+		if (is_vmalloc_addr(addr))
-+			vfree(addr);
-+		else
-+			kfree(addr);
-+	}
-+}
-+
-+static void sfq_destroy(struct Qdisc *sch)
-+{
-+	struct sfq_sched_data *q = qdisc_priv(sch);
-+
-+	tcf_destroy_chain(&q->filter_list);
+@@ -591,12 +591,12 @@ static int sfq_init(struct Qdisc *sch, struct nlattr *opt)
+ 	q->cur_depth = 0;
+ 	q->tail = NULL;
+ 	q->divisor = SFQ_DEFAULT_HASH_DIVISOR;
+-	if (opt == NULL) {
+-		q->quantum = psched_mtu(qdisc_dev(sch));
+-		q->scaled_quantum = SFQ_ALLOT_SIZE(q->quantum);
+-		q->perturb_period = 0;
+-		q->perturbation = net_random();
+-	} else {
++	q->quantum = psched_mtu(qdisc_dev(sch));
++	q->scaled_quantum = SFQ_ALLOT_SIZE(q->quantum);
 +	q->perturb_period = 0;
-+	del_timer_sync(&q->perturb_timer);
-+	sfq_free(q->ht);
-+}
++	q->perturbation = net_random();
 +
- static int sfq_init(struct Qdisc *sch, struct nlattr *opt)
- {
- 	struct sfq_sched_data *q = qdisc_priv(sch);
--	size_t sz;
- 	int i;
- 
- 	q->perturb_timer.function = sfq_perturbation;
-@@ -574,12 +602,11 @@ static int sfq_init(struct Qdisc *sch, struct nlattr *opt)
++	if (opt) {
+ 		int err = sfq_change(sch, opt);
+ 		if (err)
  			return err;
- 	}
- 
--	sz = sizeof(q->ht[0]) * q->divisor;
--	q->ht = kmalloc(sz, GFP_KERNEL);
--	if (!q->ht && sz > PAGE_SIZE)
--		q->ht = vmalloc(sz);
--	if (!q->ht)
-+	q->ht = sfq_alloc(sizeof(q->ht[0]) * q->divisor);
-+	if (!q->ht) {
-+		sfq_destroy(sch);
- 		return -ENOMEM;
-+	}
- 	for (i = 0; i < q->divisor; i++)
- 		q->ht[i] = SFQ_EMPTY_SLOT;
- 
-@@ -594,19 +621,6 @@ static int sfq_init(struct Qdisc *sch, struct nlattr *opt)
- 	return 0;
- }
- 
--static void sfq_destroy(struct Qdisc *sch)
--{
--	struct sfq_sched_data *q = qdisc_priv(sch);
--
--	tcf_destroy_chain(&q->filter_list);
--	q->perturb_period = 0;
--	del_timer_sync(&q->perturb_timer);
--	if (is_vmalloc_addr(q->ht))
--		vfree(q->ht);
--	else
--		kfree(q->ht);
--}
--
- static int sfq_dump(struct Qdisc *sch, struct sk_buff *skb)
- {
- 	struct sfq_sched_data *q = qdisc_priv(sch);
