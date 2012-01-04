@@ -1,77 +1,137 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: Re: [PATCH 1/1] netfilter: Add possibility to turn off netfilters defrag per netns
-Date: Wed, 4 Jan 2012 12:48:35 +0100
-Message-ID: <201201041248.36881.hans.schillstrom@ericsson.com>
-References: <1325664443-10320-1-git-send-email-hans.schillstrom@ericsson.com> <201201041118.18552.hans.schillstrom@ericsson.com> <alpine.LNX.2.01.1201041216010.2645@frira.zrqbmnf.qr>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH net-next v2 2/4] can: cc770: add legacy ISA bus driver
+ for the CC770 and AN82527
+Date: Wed, 04 Jan 2012 14:10:52 +0100
+Message-ID: <4F044FDC.60303@grandegger.com>
+References: <1322214204-1121-1-git-send-email-wg@grandegger.com> <1322214204-1121-3-git-send-email-wg@grandegger.com> <4ED0FEC5.3070108@hartkopp.net> <4ED34CAD.7040000@essax.com> <4ED351A8.8000102@grandegger.com> <4ED37885.8080909@essax.com> <4ED3B198.2040308@hartkopp.net> <4ED4A2EC.40103@grandegger.com> <4EDBC05D.8070109@essax.com> <4EDBC25D.50405@grandegger.com> <4EDE8435.5080100@essax.com> <4EDF6D54.2060503@grandegger.com> <4EE1E26B.6090308@grandegger.com> <4EE4F76E.3000506@essax.com> <4EE5C824.2050704@grandegger.com> <4EE5E321.8050104@essax.com> <4EE5EBBF.6080007@grandegger.com> <4EF22625.5000109@essax.com> <4EF2FA3F.3010308@grandegger.com> <4EF32E84.1080006@essax.com> <4EFED857.3000701@essax.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Patrick McHardy <kaber@trash.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hans@schillstrom.com" <hans@schillstrom.com>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw10.se.ericsson.net ([193.180.251.61]:49944 "EHLO
-	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752370Ab2ADLsj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 06:48:39 -0500
-In-Reply-To: <alpine.LNX.2.01.1201041216010.2645@frira.zrqbmnf.qr>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org, socketcan-users@lists.berlios.de,
+	IreneV <boir1@yandex.ru>,
+	Stanislav Yelenskiy <stanislavelensky@yahoo.com>
+To: info@essax.com
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4EFED857.3000701@essax.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 04 January 2012 12:17:18 Jan Engelhardt wrote:
-> On Wednesday 2012-01-04 11:18, Hans Schillstrom wrote:
+Hi Wolfgang,
+
+On 12/31/2011 10:39 AM, Wolfgang Zarre wrote:
+> Hello Wolfgang,
 > 
-> >On Wednesday 04 January 2012 10:03:49 Jozsef Kadlecsik wrote:
-> >> On Wed, 4 Jan 2012, Hans Schillstrom wrote:
-> >> 
-> >> > On Wednesday 04 January 2012 09:28:05 Jozsef Kadlecsik wrote:
-> >> > > 
-> >> > > On Wed, 4 Jan 2012, Hans Schillstrom wrote:
-> >> > > 
-> >> > > > In some cases it not desirable to have auto defrag.
-> >> > > > Ex. in a cluster where packets can arrive on different blades.
-> >> > > > In that case it is possible to use containers (LXC) and send
-> >> > > > all fragments to one place where defrag is enabled.
-> >> > > > 
-> >> > > > This patch makes it possible to turn off the defrag per network name space,
-> >> > > > by setting net.netfilter.nf_conntrack_nodefrag to 1.
-> >> > > > Both IPv4 and IPv6 is effected by this sysctl.
-> >> > > > Default is 0 which is defrag.
-> >> > > 
-> >> > > Conntrack assumes that the packets are defragmented and will drop any 
-> >> > > unfragmented one. So your patch results packet drops.
-> >> > 
-> >> > Hmmm, more work...
-> >> > > 
-> >> > > Also, if you want to disable defragmentation then why don't you simply 
-> >> > > "mark" the packets with the NOTRACK target?
-> >> > 
-> >> > I don't think that will work since NF_IP_PRI_CONNTRACK_DEFRAG is -400
-> >> 
-> >> Then change NF_IP_PRI_RAW so that it precedes NF_IP_PRI_CONNTRACK_DEFRAG. 
-> >> The raw table should be made possible to completely override conntack and 
-> >> defrag is implicit part of the latter.
-> >> 
-> >
-> >An other idea, turn off both conntrack and defrag
-> >i.e. do like NOTRAC and rename the flag  ?
+>> Hello Wolfgang,
+>>> Hi Wolfgang,
+>>>
+>>> On 12/21/2011 07:32 PM, Wolfgang Zarre wrote:
+>>>> Hello Wolfgang,
+>>> ...
+>>>
+>>>
+>>> Again, please check if you have netif_start_queue() at the end of the
+>>> open function.
+>>>
+>>
+>> As said I'm using eec921ac28fde243456078a557768808d93d94a3
+>>
+>> However, I'll try further to investigate that issue due the fact
+>> having it
+>> running with my lincan without problems and therefore it should be
+>> possible
+>> to find the problem.
+>>
 > 
-> Or just add a new table - that one we can remove/stash
-> when I get my xt2 patches out.
+> I found the problem which was then at the end quite simple to understand
+> why it
+> get stuck due the fact not receiving an interrupt for TX and due that no
+> reactivation of the queue.
 > 
-I like that idea, an "early" table at prio -500 with PREROUTING.
-There is also a need for a new flag "--allfrags"
-i.e. all fragments needs to be sorted out and sent to same dest for defrag.
+> I think that maybe also the hacks in the TX functions are obsolete with the
+> fix assuming that the repeated interrupts just happen by indirect access.
 
-ex.
-iptables -t early -A PREROUTING -i eth0 --allfrags -j NOTRACK
+OK, to understand you correctly...
 
+> Here my fix which worked for me:
+> --------------------------------------------------------------------------------------------------------
+> 
+> diff --git a/drivers/net/can/cc770/cc770.c b/drivers/net/can/cc770/cc770.c
+> index 2d12f89..dad6707 100644
+> --- a/drivers/net/can/cc770/cc770.c
+> +++ b/drivers/net/can/cc770/cc770.c
+> @@ -460,15 +460,6 @@ static netdev_tx_t cc770_start_xmit(struct sk_buff
+> *skb, struct net_device *dev)
+> 
+>      stats->tx_bytes += dlc;
+> 
+> -
+> -    /*
+> -     * HM: We had some cases of repeated IRQs so make sure the
+> -     * INT is acknowledged I know it's already further up, but
+> -     * doing again fixed the issue
+> -     */
+> -    cc770_write_reg(priv, msgobj[mo].ctrl0,
+> -            MSGVAL_UNC | TXIE_UNC | RXIE_UNC | INTPND_RES);
+> -
+>      return NETDEV_TX_OK;
+>  }
+> 
+> @@ -689,12 +680,6 @@ static void cc770_tx_interrupt(struct net_device
+> *dev, unsigned int o)
+>      /* Nothing more to send, switch off interrupts */
+>      cc770_write_reg(priv, msgobj[mo].ctrl0,
+>              MSGVAL_RES | TXIE_RES | RXIE_RES | INTPND_RES);
+> -    /*
+> -     * We had some cases of repeated IRQ so make sure the
+> -     * INT is acknowledged
+> -     */
+> -    cc770_write_reg(priv, msgobj[mo].ctrl0,
+> -            MSGVAL_UNC | TXIE_UNC | RXIE_UNC | INTPND_RES);
+> 
+>      stats->tx_packets++;
+>      can_get_echo_skb(dev, 0);
+> diff --git a/drivers/net/can/cc770/cc770_isa.c
+> b/drivers/net/can/cc770/cc770_isa.c
+> index 4be5fe2..48fc128 100644
+> --- a/drivers/net/can/cc770/cc770_isa.c
+> +++ b/drivers/net/can/cc770/cc770_isa.c
+> @@ -148,8 +148,7 @@ static void cc770_isa_port_write_reg_indirect(const
+> struct cc770_priv *priv,
+>  {
+>      unsigned long base = (unsigned long)priv->reg_base;
+> 
+> -    outb(reg, base);
+> -    outb(val, base + 1);
+> +    outw( reg + ( val << 8), base);
 
--- 
-Regards
-Hans Schillstrom <hans.schillstrom@ericsson.com>
+That modification does fix your problem, right? The others above don't
+help nor harm but we don't know if it's really realted to the same
+problem. I wll dig a bit deeper.
+
+>  }
+> 
+>  static int __devinit cc770_isa_probe(struct platform_device *pdev)
+> 
+> ---------------------------------------------------------------------------------------------
+> 
+> 
+> 
+> Please let me know if this is OK for You, maybe You can do some tests as
+> well.
+
+My board does not use indirect accesses.
+
+> Would continue then with further tests regarding error conditions, however
+> I realised another small issue with dropped packages at reception.
+> 
+> As soon as You read the first time from the socket and then You stop
+> reading
+> the packages are not counted as 'dropped' any more which is IMHO not
+> correct
+> because as soon as You stop reading they should be counted as dropped
+> again.
+
+Will have a closer look now...
+
+Wolfgang.
