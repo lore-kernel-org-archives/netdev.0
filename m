@@ -1,144 +1,54 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: igb + balance-rr + bridge + IPv6 = no go without promiscuous
- mode
-Date: Wed, 4 Jan 2012 16:00:57 +0000
-Message-ID: <9BBC4E0CF881AA4299206E2E1412B62602BB18@ORSMSX102.amr.corp.intel.com>
-References: <4EF44CEE.5020704@bootc.net>
- <CAADHFRBWR0JJNmPzQA3=40s5a6fZ3TJEoC0aWzo+3wXruEZC5A@mail.gmail.com>
- <4EF454C7.8020305@bootc.net> <4EF45C7D.8090409@gmail.com>
- <4EF45E79.6020803@bootc.net> <4EFA3E3C.4020706@bootc.net>
- <9BBC4E0CF881AA4299206E2E1412B62602B194@ORSMSX102.amr.corp.intel.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] ipv6/addrconf: speedup /proc/net/if_inet6 filling
+Date: Wed, 4 Jan 2012 08:22:00 -0800
+Message-ID: <20120104082200.437df26a@nehalam.linuxnetplumber.net>
+References: <1325669495-5626-1-git-send-email-mmaruseac@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	Chris Boot <bootc@bootc.net>,
-	=?utf-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
-	<nicolas.2p.debian@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org, Mihai Maruseac <mmaruseac@ixiacom.com>,
+	Daniel Baluta <dbaluta@ixiacom.com>
+To: Mihai Maruseac <mihai.maruseac@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:59235 "EHLO mga11.intel.com"
+Received: from mail.vyatta.com ([76.74.103.46]:52192 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756127Ab2ADQA6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jan 2012 11:00:58 -0500
-In-Reply-To: <9BBC4E0CF881AA4299206E2E1412B62602B194@ORSMSX102.amr.corp.intel.com>
-Content-Language: en-US
+	id S1756144Ab2ADQWE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jan 2012 11:22:04 -0500
+In-Reply-To: <1325669495-5626-1-git-send-email-mmaruseac@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IG5ldGRldi1vd25lckB2Z2Vy
-Lmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnXQ0KPk9uIEJl
-aGFsZiBPZiBXeWJvcm55LCBDYXJvbHluDQo+U2VudDogVHVlc2RheSwgSmFudWFyeSAwMywgMjAx
-MiAzOjI0IFBNDQo+VG86IENocmlzIEJvb3Q7IE5pY29sYXMgZGUgUGVzbG/DvGFuDQo+Q2M6IG5l
-dGRldjsgZTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0DQo+U3ViamVjdDogUkU6IGln
-YiArIGJhbGFuY2UtcnIgKyBicmlkZ2UgKyBJUHY2ID0gbm8gZ28gd2l0aG91dA0KPnByb21pc2N1
-b3VzIG1vZGUNCj4NCj4NCj4NCj4+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4+RnJvbTog
-bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj5vd25lckB2Z2Vy
-Lmtlcm5lbC5vcmddDQo+Pk9uIEJlaGFsZiBPZiBDaHJpcyBCb290DQo+PlNlbnQ6IFR1ZXNkYXks
-IERlY2VtYmVyIDI3LCAyMDExIDE6NTMgUE0NCj4+VG86IE5pY29sYXMgZGUgUGVzbG/DvGFuDQo+
-PkNjOiBuZXRkZXYNCj4+U3ViamVjdDogUmU6IGlnYiArIGJhbGFuY2UtcnIgKyBicmlkZ2UgKyBJ
-UHY2ID0gbm8gZ28gd2l0aG91dA0KPj5wcm9taXNjdW91cyBtb2RlDQo+Pg0KPj5PbiAyMy8xMi8y
-MDExIDEwOjU2LCBDaHJpcyBCb290IHdyb3RlOg0KPj4+IE9uIDIzLzEyLzIwMTEgMTA6NDgsIE5p
-Y29sYXMgZGUgUGVzbG/DvGFuIHdyb3RlOg0KPj4+PiBbIEZvcndhcmRlZCB0byBuZXRkZXYsIGJl
-Y2F1c2UgdHdvIHByZXZpb3VzIGUtbWFpbCBlcnJvbmVvdXNseSBzZW50DQo+PmluDQo+Pj4+IEhU
-TUwgXQ0KPj4+Pg0KPj4+PiBMZSAyMy8xMi8yMDExIDExOjE1LCBDaHJpcyBCb290IGEgw6ljcml0
-IDoNCj4+Pj4+IE9uIDIzLzEyLzIwMTEgMDk6NTIsIE5pY29sYXMgZGUgUGVzbG/DvGFuIHdyb3Rl
-Og0KPj4+Pj4+DQo+Pj4+Pj4NCj4+Pj4+PiBMZSAyMyBkw6ljLiAyMDExIDEwOjQyLCAiQ2hyaXMg
-Qm9vdCIgPGJvb3RjQGJvb3RjLm5ldA0KPj4+Pj4+IDxtYWlsdG86Ym9vdGNAYm9vdGMubmV0Pj4g
-YSDDqWNyaXQgOg0KPj4+Pj4+ID4NCj4+Pj4+PiA+IEhpIGZvbGtzLA0KPj4+Pj4+ID4NCj4+Pj4+
-PiA+IEFzIHBlciBFcmljIER1bWF6ZXQgYW5kIERhdmUgTWlsbGVyLCBJJ20gb3BlbmluZyB1cCBh
-IHNlcGFyYXRlDQo+Pj4+Pj4gdGhyZWFkIG9uIHRoaXMgaXNzdWUuDQo+Pj4+Pj4gPg0KPj4+Pj4+
-ID4gSSBoYXZlIHR3byBpZGVudGljYWwgc2VydmVycyBpbiBhIGNsdXN0ZXIgZm9yIHJ1bm5pbmcg
-S1ZNDQo+dmlydHVhbA0KPj4+Pj4+IG1hY2hpbmVzLiBUaGV5IGVhY2ggaGF2ZSBhDQo+Pj4+Pj4g
-c2luZ2xlIGNvbm5lY3Rpb24gdG8gdGhlIEludGVybmV0IChpcnJlbGV2YW50IGZvciB0aGlzKSBh
-bmQgdHdvDQo+Pj4+Pj4gZ2lnYWJpdCBjb25uZWN0aW9ucyBiZXR3ZWVuIGVhY2gNCj4+Pj4+PiBv
-dGhlciBmb3IgY2x1c3RlciByZXBsaWNhdGlvbiwgZXRjLi4uIFRoZXNlIHR3byBjb25uZWN0aW9u
-cyBhcmUgaW4NCj4+YQ0KPj4+Pj4+IGJhbGFuY2UtcnIgYm9uZGVkIGNvbm5lY3Rpb24sDQo+Pj4+
-Pj4gd2hpY2ggaXMgaXRzZWxmIG1lbWJlciBvZiBhIGJyaWRnZSB0aGF0IHRoZSBWTXMgYXR0YWNo
-IHRvLiBJJ20NCj4+Pj4+PiBydW5uaW5nIHYzLjItcmM2LTE0MC1nYjllMjZkZiBvbg0KPj4+Pj4+
-IERlYmlhbiBXaGVlenkuDQo+Pj4+Pj4gPg0KPj4+Pj4+ID4gV2hlbiB0aGUgYnJpZGdlIGlzIGJy
-b3VnaHQgdXAsIElQdjQgd29ya3MgZmluZSBidXQgSVB2NiBkb2VzDQo+bm90Lg0KPj4+Pj4+IEkg
-Y2FuIHVzZSBuZWl0aGVyIHRoZQ0KPj4+Pj4+IGF1dG9tYXRpYyBsaW5rLWxvY2FsIG9uIHRoZSBi
-cmlkIGdlIG5vciB0aGUgc3RhdGljIGdsb2JhbCBhZGRyZXNzDQo+SQ0KPj4+Pj4+IGFzc2lnbi4g
-TmVpdGhlciBtYWNoaW5lIGNhbg0KPj4+Pj4+IHBlcmZvcm0gbmVpZ2hib3VyIGRpc2NvdmVyeSBv
-dmVyIHRoZSBsaW5rIHVudGlsIEkgcHV0IHRoZSBib25kDQo+Pj4+Pj4gbWVtYmVycyAoZXRoMCBh
-bmQgZXRoMSkgaW50bw0KPj4+Pj4+IHByb21pc2N1b3VzIG1vZGUuIEkgY2FuIGRvIHRoaXMgZWl0
-aGVyIHdpdGggdGNwZHVtcCBvciAnaXAgbGluaw0KPnNldA0KPj4+Pj4+IGRldiBldGhYIHByb21p
-c2Mgb24nIGFuZCB0aGlzDQo+Pj4+Pj4gaXMgZW5vdWdoIHRvIG1ha2UgdGhlIGxpbmsgc3ByaW5n
-IHRvIGxpZmUuDQo+Pj4+Pj4NCj4+Pj4+PiBGb3IgYXMgZmFyIGFzIEkgcmVtZW1iZXIsIHNldHRp
-bmcgYm9uZDAgdG8gcHJvbWlzYyBzaG91bGQgc2V0IHRoZQ0KPj4+Pj4+IGJvbmRpbmcgbWVtYmVy
-IHRvIHByb21pc2MgdG9vLg0KPj4+Pj4+IEFuZCBpbnNlcnRpbmcgYm9uZDAgaW50byBicjAgc2hv
-dWxkIHNldCBib25kMCB0byBwcm9taXNjLi4uIFNvDQo+Pj4+Pj4gZXZlcnl0aGluZyBzaG91bGQg
-YmUgaW4gcHJvbWlzYw0KPj4+Pj4+IG1vZGUgYW55d2F5Li4uIGJ1dCB5b3Ugc2hvdWRuJ3QgaGF2
-ZSB0byBkbyBpdCBieSBoYW5kLg0KPj4+Pj4+DQo+Pj4+Pg0KPj4+Pj4gU29ycnksIEkgc2hvdWxk
-IGhhdmUgYWRkZWQgdGhhdCBJIHRyaWVkIHRoaXMuIFNldHRpbmcgYm9uZDAgb3IgYnIwDQo+PnRv
-DQo+Pj4+PiBwcm9taXNjIGhhcyBubyBlZmZlY3QuIEkNCj4+Pj4+IGRpc2NvdmVyZWQgdGhpcyBi
-eSBydW5uaW5nIHRjcGR1bXAgb24gYnIwIGZpcnN0LCB0aGVuIGJvbmQwLCB0aGVuDQo+Pj4+PiBl
-dmVudHVhbGx5IGVhY2ggYm9uZCBtZW1iZXIgaW4NCj4+Pj4+IHR1cm4uIE9ubHkgYXQgdGhlIGxh
-c3Qgc3RhZ2UgZGlkIHRoaW5ncyBqdW1wIHRvIGxpZmUuDQo+Pj4+Pg0KPj4+Pj4+ID4NCj4+Pj4+
-PiA+IFRoaXMgY2x1c3RlciBpcyBub3QgY3VycmVudGx5IGxpdmUgc28gSSBjYW4gZWFzaWx5IHRl
-c3QgcGF0Y2hlcw0KPj4+Pj4+IGFuZCB2YXJpb3VzIGNvbmZpZ3VyYXRpb25zLg0KPj4+Pj4+DQo+
-Pj4+Pj4gQ2FuIHlvdSB0cnkgdG8gcmVtb3ZlIHRoZSBib25kaW5nIHBhcnQsIGNvbm5lY3Rpbmcg
-ZXRoMCBhbmQgZXRoMQ0KPj4+Pj4+IGRpcmVjdGx5IHRvIGJyMCBhbmQgc2VlIGlmIGl0DQo+Pj4+
-Pj4gd29ya3MgYmV0dGVyPyAoVGhpcyBpcyBhIHRlc3Qgb255LiBJIHBlcmZlY3RseSB1bmRlcnN0
-YW5kIHRoYXQgeW91DQo+Pj4+Pj4gd291bGQgbG9vc2UgYmFsYW5jZS1yciBpbiB0aGlzDQo+Pj4+
-Pj4gc2V0dXAuKQ0KPj4+Pj4+DQo+Pj4+Pg0KPj4+Pj4gR29vZCBjYWxsLiBMZXQncyBzZWUuDQo+
-Pj4+Pg0KPj4+Pj4gSSB0b29rIGJyMCBhbmQgYm9uZDAgYXBhcnQsIHRvb2sgZXRoMCBhbmQgZXRo
-MSBvdXQgb2YgZW5mb3JjZWQNCj4+Pj4+IHByb21pc2MgbW9kZSwgdGhlbiBtYW51YWxseSBidWls
-dCBhDQo+Pj4+PiBicjAgd2l0aCBldGgwIGluIG9ubHkgc28gSSBkaWRuJ3QgY2F1c2UgYSBuZXR3
-b3JrIGxvb3AuIEFkZGluZyBldGgwDQo+Pj4+PiB0byBicjAgZGlkIG5vdCBtYWtlIGl0IGdvIGlu
-dG8NCj4+Pj4+IHByb21pc2MgbW9kZSwgYnV0IElQdjYgZG9lcyB3b3JrIG92ZXIgdGhpcyBzZXR1
-cC4gSSBhbHNvIG1hZGUgc3VyZQ0KPj5pcA0KPj4+Pj4gLTYgbmVpZ2ggd2FzIGVtcHR5IG9uIGJv
-dGgNCj4+Pj4+IG1hY2hpbmVzIGJlZm9yZSBJIHN0YXJ0ZWQuDQo+Pj4+Pg0KPj4+Pj4gSSB0aGVu
-IGRlY2lkZWQgdG8gdHJ5IHRoZSB0ZXN0IHdpdGgganVzdCB0aGUgYm9uZDAgaW4gYmFsYW5jZS1y
-cg0KPj4+Pj4gbW9kZS4gT25jZSBhZ2FpbiBJIHRvb2sgZXZlcnl0aGluZw0KPj4+Pj4gZG93biBh
-bmQgZW5zdXJlZCBubyBwcm9taXNjIG1vZGUgYW5kIG5vIGlwIC02IG5laWdoLiBJIG5vdGljZWQN
-Cj5ib25kMA0KPj4+Pj4gd2Fzbid0IGdldHRpbmcgYSBsaW5rLWxvY2FsIGFuZA0KPj4+Pj4gSSBm
-b3VuZCBvdXQgZm9yIHNvbWUgcmVhc29uDQo+Pj4+PiAvcHJvYy9zeXMvbmV0L2lwdjYvY29uZi9i
-b25kMC9kaXNhYmxlX2lwdjYgd2FzIHNldCBvbiBib3RoIHNlcnZlcnMNCj4+c28gSQ0KPj4+Pj4g
-c2V0IGl0IHRvIDAuIFRoYXQgYnJvdWdodCB0aGluZ3MgdG8gbGlmZS4NCj4+Pj4+DQo+Pj4+PiBT
-byB0aGVuIEkgcHV0IGl0IGFsbCBiYWNrIHRvZ2V0aGVyIGFnYWluIGFuZCBpdCBkaWRuJ3Qgd29y
-ay4gSSBvbmNlDQo+Pj4+PiBhZ2FpbiBub3RpY2VkIGRpc2FibGVfaXB2NiB3YXMNCj4+Pj4+IHNl
-dCBvbiB0aGUgYm9uZDAgaW50ZXJmYWNlcywgbm93IHBhcnQgb2YgdGhlIGJyaWRnZS4gVG9nZ2xp
-bmcgdGhpcw0KPj5vbg0KPj4+Pj4gdGhlIF9ib25kXyBpbnRlcmZhY2UgbWFkZQ0KPj4+Pj4gdGhp
-bmdzIHdvcmsgYWdhaW4uDQo+Pj4+Pg0KPj4+Pj4gV2hhdCdzIHNldHRpbmcgZGlzYWJsZV9pcHY2
-PyBTaG91bGQgdGhpcyBiZSBoYXZpbmcgYW4gaW1wYWN0IGlmIHRoZQ0KPj4+Pj4gcG9ydCBpcyBw
-YXJ0IG9mIGEgYnJpZGdlPw0KPj4+DQo+Pj4gSG1tLCBhcyBhIGZ1cnRoZXIgdXBkYXRlLi4uIEkg
-YnJvdWdodCB1cCBteSBWTXMgb24gdGhlIGJyaWRnZSB3aXRoDQo+Pj4gZGlzYWJsZV9pcHY2IHR1
-cm5lZCBvZmYuIFRoZSBWTXMgb24gb25lIGhvc3QgY291bGRuJ3Qgc2VlIHdoYXQgd2FzIG9uDQo+
-Pj4gdGhlIG90aGVyIHNpZGUgb2YgdGhlIGJyaWRnZSAob24gdGhlIG90aGVyIHNlcnZlcikgdW50
-aWwgSSB0dXJuZWQNCj4+PiBwcm9taXNjIGJhY2sgb24gbWFudWFsbHkuIFNvIGl0J3Mgbm90IGVu
-dGlyZWx5IGRpc2FibGVfaXB2NidzIGZhdWx0Lg0KPj4NCj4+SGksDQo+Pg0KPj5JIGRvbid0IHdh
-bnQgdGhpcyB0byBnZXQgbG9zdCBhcm91bmQgdGhlIENocmlzdG1hcyBicmVhaywgc28gSSdtIGp1
-c3QNCj4+cmVzZW5kaW5nIGl0LiBJJ20gc3RpbGwgc2VlaW5nIHRoZSBzYW1lIGJlaGF2aW91ciBh
-cyBiZWZvcmUuDQo+Pg0KPj4gRnJvbSBhYm92ZToNCj4+DQo+Pj4+Pj4gRm9yIGFzIGZhciBhcyBJ
-IHJlbWVtYmVyLCBzZXR0aW5nIGJvbmQwIHRvIHByb21pc2Mgc2hvdWxkIHNldCB0aGUNCj4+Pj4+
-PiBib25kaW5nIG1lbWJlciB0byBwcm9taXNjIHRvby4NCj4+Pj4+PiBBbmQgaW5zZXJ0aW5nIGJv
-bmQwIGludG8gYnIwIHNob3VsZCBzZXQgYm9uZDAgdG8gcHJvbWlzYy4uLiBTbw0KPj4+Pj4+IGV2
-ZXJ5dGhpbmcgc2hvdWxkIGJlIGluIHByb21pc2MNCj4+Pj4+PiBtb2RlIGFueXdheS4uLiBidXQg
-eW91IHNob3Vkbid0IGhhdmUgdG8gZG8gaXQgYnkgaGFuZC4NCj4+DQo+PlRoaXMgZGVmaW5pdGVs
-eSBkb2Vzbid0IGhhcHBlbiwgYXQgbGVhc3QgYWNjb3JkaW5nIHRvICdpcCBsaW5rIHNob3cgfA0K
-Pj5ncmVwIFBST01JU0MnLg0KPj4NCj4+Q2hyaXMNCj4+DQo+Pi0tDQo+PkNocmlzIEJvb3QNCj4+
-Ym9vdGNAYm9vdGMubmV0DQo+Pi0tDQo+PlRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBz
-ZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluDQo+PnRoZSBib2R5IG9mIGEgbWVz
-c2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+Pk1vcmUgbWFqb3Jkb21vIGluZm8g
-YXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0KPg0KPlNvcnJ5
-IGZvciB0aGUgZGVsYXkgaW4gcmVzcG9uZGluZy4gIEknbSBub3Qgc3VyZSB3aGF0IGlzIGdvaW5n
-IG9uIGhlcmUNCj5hbmQgSSdtIG5vdCBvdXIgYm9uZGluZyBleHBlcnQgd2hvIGlzIHN0aWxsIG91
-dCBvbiBob2xpZGF5cy4gIEhvd2V2ZXIsDQo+d2UnbGwgdHJ5IHRvIHJlcHJvZHVjZSB0aGlzLiAg
-V2hlbiBJIGdldCBzb21lIG1vcmUgYWR2aWNlLCBJIG1heSBiZQ0KPmFza2luZyBmb3Igc29tZSBt
-b3JlIGRhdGEuDQo+DQo+VGhhbmtzLA0KPg0KPkNhcm9seW4NCj5DYXJvbHluIFd5Ym9ybnkNCj5M
-aW51eCBEZXZlbG9wbWVudA0KPkxBTiBBY2Nlc3MgRGl2aXNpb24NCj5JbnRlbCBDb3Jwb3JhdGlv
-bg0KPk7vv73vv73vv73vv73vv71y77+977+9ee+/ve+/ve+/vWLvv71Y77+977+9x6d277+9Xu+/
-vSneunsubu+/vSvvv73vv73vv71677+9Xu+/vSnvv73vv73vv713Kg0KPmpn77+977+977+9Hu+/
-ve+/ve+/ve+/ve+/vd2iai/vv73vv73vv71677+93pbvv73vv70y77+93pnvv73vv73vv70m77+9
-Kd+h77+9Ye+/ve+/vX/vv73vv70e77+9R++/ve+/ve+/vWjvv70P77+9ajordu+/ve+/ve+/vXfv
-v73ZpQ0KDQpIZWxsbywNCg0KQ2hlY2sgeW91ciBpcF9mb3J3YXJkIGNvbmZpZ3VyYXRpb24gb24g
-eW91ciBicmlkZ2UgdG8gbWFrZSBzdXJlIGl0cyBjb25maWd1cmVkIHRvIGZvcndhcmQgaXB2NiBw
-YWNrZXRzIGFuZCBhbHNvIHBsZWFzZSBzZW5kIHRoZSBjb250ZW50cyBvZiAvZXRjL21vZHByb2Jl
-LmQvYm9uZGluZy5jb25mIGFuZCB0aGUgY29udGVudHMgb2YgeW91ciByb3V0aW5nIHRhYmxlIGFu
-ZCB3ZSdsbCBjb250aW51ZSB0byB3b3JrIG9uIHRoaXMuDQoNClRoYW5rcywNCg0KQ2Fyb2x5bg0K
-DQpDYXJvbHluIFd5Ym9ybnkNCkxpbnV4IERldmVsb3BtZW50DQpMQU4gQWNjZXNzIERpdmlzaW9u
-DQpJbnRlbCBDb3Jwb3JhdGlvbg0KDQoNCg==
+On Wed,  4 Jan 2012 11:31:35 +0200
+Mihai Maruseac <mihai.maruseac@gmail.com> wrote:
+
+> This ensures a linear behaviour when filling /proc/net/if_inet6 thus making
+> ifconfig run really fast on IPv6 only addresses. In fact, with this patch and
+> the IPv4 one sent a while ago, ifconfig will run in linear time regardless of
+> address type.
+> 
+> IPv4 related patch: f04565ddf52e401880f8ba51de0dff8ba51c99fd
+> 	 dev: use name hash for dev_seq_ops
+> 	 ...
+> 
+> Some statistics (running ifconfig > /dev/null on a different setup):
+> 
+> iface count / IPv6 no-patch time / IPv6 patched time / IPv4 time
+> ----------------------------------------------------------------
+>       6250  |       0.23 s       |      0.13 s       |  0.11 s
+>      12500  |       0.62 s       |      0.28 s       |  0.22 s
+>      25000  |       2.91 s       |      0.57 s       |  0.46 s
+>      50000  |      11.37 s       |      1.21 s       |  0.94 s
+>     128000  |      86.78 s       |      3.05 s       |  2.54 s
+> 
+> Signed-off-by: Mihai Maruseac <mmaruseac@ixiacom.com>
+> Cc: Daniel Baluta <dbaluta@ixiacom.com>
+> ---
+>  net/ipv6/addrconf.c |   43 ++++++++++++++++++++++++++++---------------
+>  1 files changed, 28 insertions(+), 15 deletions(-)
+> 
+
+
+What about netlink? Also ifconfig is really considered deprecated,
+especially for ipv6 usage.
