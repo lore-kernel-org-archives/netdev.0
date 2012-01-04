@@ -1,47 +1,86 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6/addrconf: speedup /proc/net/if_inet6 filling
-Date: Wed, 04 Jan 2012 16:01:15 -0500 (EST)
-Message-ID: <20120104.160115.1628594967715806849.davem@davemloft.net>
-References: <1325669495-5626-1-git-send-email-mmaruseac@ixiacom.com>
+Subject: [GIT] Networking
+Date: Wed, 04 Jan 2012 16:11:14 -0500 (EST)
+Message-ID: <20120104.161114.1924910384933450343.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	mmaruseac@ixiacom.com, dbaluta@ixiacom.com
-To: mihai.maruseac@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52786 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756825Ab2ADVEK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 16:04:10 -0500
-In-Reply-To: <1325669495-5626-1-git-send-email-mmaruseac@ixiacom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mihai Maruseac <mihai.maruseac@gmail.com>
-Date: Wed,  4 Jan 2012 11:31:35 +0200
 
-> This ensures a linear behaviour when filling /proc/net/if_inet6 thus making
-> ifconfig run really fast on IPv6 only addresses. In fact, with this patch and
-> the IPv4 one sent a while ago, ifconfig will run in linear time regardless of
-> address type.
-> 
-> IPv4 related patch: f04565ddf52e401880f8ba51de0dff8ba51c99fd
-> 	 dev: use name hash for dev_seq_ops
-> 	 ...
-> 
-> Some statistics (running ifconfig > /dev/null on a different setup):
-> 
-> iface count / IPv6 no-patch time / IPv6 patched time / IPv4 time
-> ----------------------------------------------------------------
->       6250  |       0.23 s       |      0.13 s       |  0.11 s
->      12500  |       0.62 s       |      0.28 s       |  0.22 s
->      25000  |       2.91 s       |      0.57 s       |  0.46 s
->      50000  |      11.37 s       |      1.21 s       |  0.94 s
->     128000  |      86.78 s       |      3.05 s       |  2.54 s
-> 
-> Signed-off-by: Mihai Maruseac <mmaruseac@ixiacom.com>
-> Cc: Daniel Baluta <dbaluta@ixiacom.com>
+Probably the bluetooth 10 second resume delay fix is the most
+interesting fix here, especially if you're actually hitting it.
 
-Applied, thanks.
+The rest are small fixes isolated to specific drivers or packet
+schedulers.
+
+1) Revert bluetooth HCI reset timeout increase, it adds a 10 second delay
+   during resume in Thinkpad laptops and potentially other machines.  From
+   Gustavo F. Padovan.
+
+2) New packet QFQ scheduler using wrong types to compute queueing limits
+   leading to overflows, fix from Eric Dumazet.
+
+3) Fix regression in b43 driver conversion to new RX descriptor header
+   format, it broke PIO mode where the header length needs to be computed
+   differently.  Fix from Guennadi Liakhovetski.
+
+4) Fix build dependencies of FEC ethernet driver, from Wolfram Sang.
+
+5) mwifiex gets OOPS when scan and connect occur simultaneously, fix from
+   Amitkumar Karwar.
+
+6) ath9k crashes in access point mode because it does aggregation
+   handling during power save even if TX aggregation is not enabled.
+   Fix from Mohammed Shafi Shajakhan.
+
+7) Update CAN MAINTAINERS entry, from Oliver Hartkopp.
+
+Please pull, thanks a lot!
+
+The following changes since commit f423fc627b05f47bc9305f9661630fce30f208f9:
+
+  Revert "rtc: Expire alarms after the time is set." (2012-01-04 07:57:22 -0800)
+
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+
+Amitkumar Karwar (1):
+      mwifiex: fix crash during simultaneous scan and connect
+
+Eric Dumazet (1):
+      sch_qfq: fix overflow in qfq_update_start()
+
+Guennadi Liakhovetski (1):
+      b43: fix regression in PIO case
+
+Gustavo F. Padovan (1):
+      Revert "Bluetooth: Increase HCI reset timeout in hci_dev_do_close"
+
+John W. Linville (2):
+      Merge branch 'master' of git://git.kernel.org/.../padovan/bluetooth
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless into for-davem
+
+Mohammed Shafi Shajakhan (1):
+      ath9k: Fix kernel panic in AR2427 in AP mode
+
+Oliver Hartkopp (2):
+      CAN MAINTAINERS update
+      fix CAN MAINTAINERS SCM tree type
+
+Wolfram Sang (1):
+      net: fsl: fec: fix build for mx23-only kernel
+
+ MAINTAINERS                              |   11 +++++------
+ drivers/net/ethernet/freescale/Kconfig   |    4 ++--
+ drivers/net/wireless/ath/ath9k/main.c    |    3 +++
+ drivers/net/wireless/b43/pio.c           |   16 +++++++++++++---
+ drivers/net/wireless/mwifiex/sta_ioctl.c |    7 ++++++-
+ net/bluetooth/hci_core.c                 |    2 +-
+ net/sched/sch_qfq.c                      |    4 ++--
+ 7 files changed, 32 insertions(+), 15 deletions(-)
