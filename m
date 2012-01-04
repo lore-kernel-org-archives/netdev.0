@@ -1,62 +1,101 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH v6 09/11] virtio: net: Add freeze,
-	restore handlers to support S4
-Date: Wed, 04 Jan 2012 13:19:47 +1030
-Message-ID: <87ty4cchbo.fsf@rustcorp.com.au>
-References: <cover.1324553223.git.amit.shah@redhat.com>
-	<f84fa9fdc9f5629e711cbb89a2e7efbb289d72fa.1324553223.git.amit.shah@redhat.com>
-	<20111229161523.GB2300@redhat.com>
-	<20111230085205.GG4576@amit.redhat.com>
-	<20120101114727.GC25350@redhat.com>
-	<20120103170748.GE4536@amit.redhat.com>
+Subject: [PATCH 1/2] virtio: net: Move vq initialization into separate function
+Date: Wed, 04 Jan 2012 13:27:05 +1030
+Message-ID: <87obukcgzi.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, linux-pm@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Virtualization List <virtualization@lists.linux-foundation.org>
-To: Amit Shah <amit.shah@redhat.com>, "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120103170748.GE4536@amit.redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Virtualization List <virtualization@lists.linux-foundation.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Amit Shah <amit.shah@redhat.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:33585 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752477Ab2ADC5m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jan 2012 21:57:42 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 3 Jan 2012 22:37:48 +0530, Amit Shah <amit.shah@redhat.com> wrote:
-> On (Sun) 01 Jan 2012 [13:47:27], Michael S. Tsirkin wrote:
-> > On Fri, Dec 30, 2011 at 03:08:19PM +0530, Amit Shah wrote:
-> > > > 
-> > > > > +	if (!try_fill_recv(vi, GFP_KERNEL))
-> > > > > +		schedule_delayed_work(&vi->refill, 0);
-> > > > 
-> > > > This needs to be switched to non reentrant wq too?
-> > > 
-> > > Subsequent invocations could create problems?  Note that this will be
-> > > the first item to be queued in the workqueue for the refill work.
-> > > 
-> > > 		Amit
-> > 
-> > See recent patches on net-next.
-> > We switched other calls to a non reentrant wq so I think same
-> > reasoning applies there.
-> 
-> There's a patch ordering issue; so this series should land after the
-> -net series is merged.
-> 
-> Rusty, do you want me to re-spin this patch on top of yours, or is
-> that something that you'll handle?
+From: Amit Shah <amit.shah@redhat.com>
 
-Indeed, this can't go via -net, since it needs the virtio-pci patches
-which change power management.
+The probe and PM restore functions will share this code.
 
-I've changed that one line, and will post those patches for DaveM's ack.
+Signed-off-by: Amit Shah <amit.shah@redhat.com>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+---
+ drivers/net/virtio_net.c |   47 ++++++++++++++++++++++++++++-------------------
+ 1 file changed, 28 insertions(+), 19 deletions(-)
 
-Thanks,
-Rusty.
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 1b67e8a..ec8c400 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -966,15 +966,38 @@ static void virtnet_config_changed(struct virtio_device *vdev)
+ 	virtnet_update_status(vi);
+ }
+ 
++static int init_vqs(struct virtnet_info *vi)
++{
++	struct virtqueue *vqs[3];
++	vq_callback_t *callbacks[] = { skb_recv_done, skb_xmit_done, NULL};
++	const char *names[] = { "input", "output", "control" };
++	int nvqs, err;
++
++	/* We expect two virtqueues, receive then send,
++	 * and optionally control. */
++	nvqs = virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ) ? 3 : 2;
++
++	err = vi->vdev->config->find_vqs(vi->vdev, nvqs, vqs, callbacks, names);
++	if (err)
++		return err;
++
++	vi->rvq = vqs[0];
++	vi->svq = vqs[1];
++
++	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ)) {
++		vi->cvq = vqs[2];
++
++		if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VLAN))
++			vi->dev->features |= NETIF_F_HW_VLAN_FILTER;
++	}
++	return 0;
++}
++
+ static int virtnet_probe(struct virtio_device *vdev)
+ {
+ 	int err;
+ 	struct net_device *dev;
+ 	struct virtnet_info *vi;
+-	struct virtqueue *vqs[3];
+-	vq_callback_t *callbacks[] = { skb_recv_done, skb_xmit_done, NULL};
+-	const char *names[] = { "input", "output", "control" };
+-	int nvqs;
+ 
+ 	/* Allocate ourselves a network device with room for our info */
+ 	dev = alloc_etherdev(sizeof(struct virtnet_info));
+@@ -1046,24 +1069,10 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
+ 		vi->mergeable_rx_bufs = true;
+ 
+-	/* We expect two virtqueues, receive then send,
+-	 * and optionally control. */
+-	nvqs = virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ) ? 3 : 2;
+-
+-	err = vdev->config->find_vqs(vdev, nvqs, vqs, callbacks, names);
++	err = init_vqs(vi);
+ 	if (err)
+ 		goto free_stats;
+ 
+-	vi->rvq = vqs[0];
+-	vi->svq = vqs[1];
+-
+-	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ)) {
+-		vi->cvq = vqs[2];
+-
+-		if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VLAN))
+-			dev->features |= NETIF_F_HW_VLAN_FILTER;
+-	}
+-
+ 	err = register_netdev(dev);
+ 	if (err) {
+ 		pr_debug("virtio_net: registering device failed\n");
