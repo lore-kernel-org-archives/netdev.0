@@ -1,341 +1,144 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless 2012-01-04
-Date: Wed, 4 Jan 2012 10:58:17 -0500
-Message-ID: <20120104155816.GE2540@tuxdriver.com>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: igb + balance-rr + bridge + IPv6 = no go without promiscuous
+ mode
+Date: Wed, 4 Jan 2012 16:00:57 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B62602BB18@ORSMSX102.amr.corp.intel.com>
+References: <4EF44CEE.5020704@bootc.net>
+ <CAADHFRBWR0JJNmPzQA3=40s5a6fZ3TJEoC0aWzo+3wXruEZC5A@mail.gmail.com>
+ <4EF454C7.8020305@bootc.net> <4EF45C7D.8090409@gmail.com>
+ <4EF45E79.6020803@bootc.net> <4EFA3E3C.4020706@bootc.net>
+ <9BBC4E0CF881AA4299206E2E1412B62602B194@ORSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="xXmbgvnjoT4axfJE"
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	Chris Boot <bootc@bootc.net>,
+	=?utf-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
+	<nicolas.2p.debian@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:59235 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756127Ab2ADQA6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jan 2012 11:00:58 -0500
+In-Reply-To: <9BBC4E0CF881AA4299206E2E1412B62602B194@ORSMSX102.amr.corp.intel.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---xXmbgvnjoT4axfJE
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-commit a3657f54f7f0371473d9d734ba1b0d15ddf24286
-
-Dave,
-
-Here are a handful of straggler wireless fixes for 3.2.  Included is
-a NULL pointer fix for mwifiex, a regression fix for handling rx
-header lengths for differnt b43 firmwares in PIO mode, a revert of
-a one-liner for Bluetooth HCI that was causing uncomfortable delays
-during resume, an ath9k fix for a panic when running in AP mode
-with aggregation disabled, an an rtlwifi fix for an annoying WARNING
-during suspend/resume.
-
-The Bluetooth fix is a one-liner change of a delay value.  The mwifiex,
-b43, and ath9k fixes are relatively small and isolated to their
-respective drivers.  The rtlwifi fix is a bit porky, but it also
-limits itself at least to the rtlwifi family.
-
-I was hesitant to include the rtlwifi fix, but settled on inclusion
-because it was a product of a recent ginormous thread about the
-intersection of firmware loading and suspend/resume.  Plus it fixes
-a bug report in the Red Hat Bugzilla. :-) If you don't think it is
-worthy, let me know and I'll drop it from this release.
-
-Please let me know if there are problems!
-
-John
-
----
-
-The following changes since commit 405cc2736527bd506fd8f652308b03b2c8a1e8b9:
-
-  fix CAN MAINTAINERS SCM tree type (2012-01-03 14:57:43 -0500)
-
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-d=
-avem
-
-Amitkumar Karwar (1):
-      mwifiex: fix crash during simultaneous scan and connect
-
-Guennadi Liakhovetski (1):
-      b43: fix regression in PIO case
-
-Gustavo F. Padovan (1):
-      Revert "Bluetooth: Increase HCI reset timeout in hci_dev_do_close"
-
-John W. Linville (2):
-      Merge branch 'master' of git://git.kernel.org/.../padovan/bluetooth
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless i=
-nto for-davem
-
-Larry Finger (1):
-      rtl8192cu: Fix WARNING on suspend/resume
-
-Mohammed Shafi Shajakhan (1):
-      ath9k: Fix kernel panic in AR2427 in AP mode
-
- drivers/net/wireless/ath/ath9k/main.c             |    3 +
- drivers/net/wireless/b43/pio.c                    |   16 +++++-
- drivers/net/wireless/mwifiex/sta_ioctl.c          |    7 ++-
- drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c |    1 -
- drivers/net/wireless/rtlwifi/rtl8192ce/sw.c       |    1 +
- drivers/net/wireless/rtlwifi/rtl8192cu/sw.c       |   54 +++++++++++++++++=
----
- net/bluetooth/hci_core.c                          |    2 +-
- 7 files changed, 70 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/wireless/ath/ath9k/main.c b/drivers/net/wireless/a=
-th/ath9k/main.c
-index d2348a5..a9c5ae7 100644
---- a/drivers/net/wireless/ath/ath9k/main.c
-+++ b/drivers/net/wireless/ath/ath9k/main.c
-@@ -1843,6 +1843,9 @@ static void ath9k_sta_notify(struct ieee80211_hw *hw,
- 	struct ath_softc *sc =3D hw->priv;
- 	struct ath_node *an =3D (struct ath_node *) sta->drv_priv;
-=20
-+	if (!(sc->sc_flags & SC_OP_TXAGGR))
-+		return;
-+
- 	switch (cmd) {
- 	case STA_NOTIFY_SLEEP:
- 		an->sleeping =3D true;
-diff --git a/drivers/net/wireless/b43/pio.c b/drivers/net/wireless/b43/pio.c
-index fcff923..279a53e 100644
---- a/drivers/net/wireless/b43/pio.c
-+++ b/drivers/net/wireless/b43/pio.c
-@@ -617,9 +617,19 @@ static bool pio_rx_frame(struct b43_pio_rxqueue *q)
- 	const char *err_msg =3D NULL;
- 	struct b43_rxhdr_fw4 *rxhdr =3D
- 		(struct b43_rxhdr_fw4 *)wl->pio_scratchspace;
-+	size_t rxhdr_size =3D sizeof(*rxhdr);
-=20
- 	BUILD_BUG_ON(sizeof(wl->pio_scratchspace) < sizeof(*rxhdr));
--	memset(rxhdr, 0, sizeof(*rxhdr));
-+	switch (dev->fw.hdr_format) {
-+	case B43_FW_HDR_410:
-+	case B43_FW_HDR_351:
-+		rxhdr_size -=3D sizeof(rxhdr->format_598) -
-+			sizeof(rxhdr->format_351);
-+		break;
-+	case B43_FW_HDR_598:
-+		break;
-+	}
-+	memset(rxhdr, 0, rxhdr_size);
-=20
- 	/* Check if we have data and wait for it to get ready. */
- 	if (q->rev >=3D 8) {
-@@ -657,11 +667,11 @@ data_ready:
-=20
- 	/* Get the preamble (RX header) */
- 	if (q->rev >=3D 8) {
--		b43_block_read(dev, rxhdr, sizeof(*rxhdr),
-+		b43_block_read(dev, rxhdr, rxhdr_size,
- 			       q->mmio_base + B43_PIO8_RXDATA,
- 			       sizeof(u32));
- 	} else {
--		b43_block_read(dev, rxhdr, sizeof(*rxhdr),
-+		b43_block_read(dev, rxhdr, rxhdr_size,
- 			       q->mmio_base + B43_PIO_RXDATA,
- 			       sizeof(u16));
- 	}
-diff --git a/drivers/net/wireless/mwifiex/sta_ioctl.c b/drivers/net/wireles=
-s/mwifiex/sta_ioctl.c
-index ea4a29b..1679c25 100644
---- a/drivers/net/wireless/mwifiex/sta_ioctl.c
-+++ b/drivers/net/wireless/mwifiex/sta_ioctl.c
-@@ -55,9 +55,14 @@ int mwifiex_wait_queue_complete(struct mwifiex_adapter *=
-adapter)
- {
- 	bool cancel_flag =3D false;
- 	int status =3D adapter->cmd_wait_q.status;
--	struct cmd_ctrl_node *cmd_queued =3D adapter->cmd_queued;
-+	struct cmd_ctrl_node *cmd_queued;
-=20
-+	if (!adapter->cmd_queued)
-+		return 0;
-+
-+	cmd_queued =3D adapter->cmd_queued;
- 	adapter->cmd_queued =3D NULL;
-+
- 	dev_dbg(adapter->dev, "cmd pending\n");
- 	atomic_inc(&adapter->cmd_pending);
-=20
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c b/drivers/ne=
-t/wireless/rtlwifi/rtl8192c/fw_common.c
-index 950c65a..9fcb478 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c
-@@ -227,7 +227,6 @@ int rtl92c_download_fw(struct ieee80211_hw *hw)
- 	u32 fwsize;
- 	enum version_8192c version =3D rtlhal->version;
-=20
--	pr_info("Loading firmware file %s\n", rtlpriv->cfg->fw_name);
- 	if (!rtlhal->pfirmware)
- 		return 1;
-=20
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/sw.c b/drivers/net/wire=
-less/rtlwifi/rtl8192ce/sw.c
-index f2aa33d..acf9d14 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ce/sw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ce/sw.c
-@@ -186,6 +186,7 @@ int rtl92c_init_sw_vars(struct ieee80211_hw *hw)
- 	memcpy(rtlpriv->rtlhal.pfirmware, firmware->data, firmware->size);
- 	rtlpriv->rtlhal.fwsize =3D firmware->size;
- 	release_firmware(firmware);
-+	pr_info("rtl8192ce: Loaded firmware file %s\n", rtlpriv->cfg->fw_name);
-=20
- 	return 0;
- }
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c b/drivers/net/wire=
-less/rtlwifi/rtl8192cu/sw.c
-index c244f2f..250fd9f 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
-@@ -43,6 +43,8 @@
- #include "hw.h"
- #include <linux/vmalloc.h>
- #include <linux/module.h>
-+#include <linux/atomic.h>
-+#include <linux/types.h>
-=20
- MODULE_AUTHOR("Georgia		<georgia@realtek.com>");
- MODULE_AUTHOR("Ziv Huang	<ziv_huang@realtek.com>");
-@@ -51,6 +53,10 @@ MODULE_LICENSE("GPL");
- MODULE_DESCRIPTION("Realtek 8192C/8188C 802.11n USB wireless");
- MODULE_FIRMWARE("rtlwifi/rtl8192cufw.bin");
-=20
-+static char *rtl8192cu_firmware;		/* pointer to firmware */
-+static int firmware_size;
-+static atomic_t usage_count;
-+
- static int rtl92cu_init_sw_vars(struct ieee80211_hw *hw)
- {
- 	struct rtl_priv *rtlpriv =3D rtl_priv(hw);
-@@ -62,12 +68,21 @@ static int rtl92cu_init_sw_vars(struct ieee80211_hw *hw)
- 	rtlpriv->dm.disable_framebursting =3D 0;
- 	rtlpriv->dm.thermalvalue =3D 0;
- 	rtlpriv->dbg.global_debuglevel =3D rtlpriv->cfg->mod_params->debug;
--	rtlpriv->rtlhal.pfirmware =3D vmalloc(0x4000);
--	if (!rtlpriv->rtlhal.pfirmware) {
-+
-+	if (rtl8192cu_firmware) {
-+		/* firmware already loaded - true for suspend/resume
-+		 * and multiple instances of the device */
-+		rtlpriv->rtlhal.pfirmware =3D rtl8192cu_firmware;
-+		rtlpriv->rtlhal.fwsize =3D firmware_size;
-+		return 0;
-+	}
-+	rtl8192cu_firmware =3D vzalloc(0x4000);
-+	if (!rtl8192cu_firmware) {
- 		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
- 			 ("Can't alloc buffer for fw.\n"));
- 		return 1;
- 	}
-+
- 	/* request fw */
- 	err =3D request_firmware(&firmware, rtlpriv->cfg->fw_name,
- 			rtlpriv->io.dev);
-@@ -82,9 +97,14 @@ static int rtl92cu_init_sw_vars(struct ieee80211_hw *hw)
- 		release_firmware(firmware);
- 		return 1;
- 	}
--	memcpy(rtlpriv->rtlhal.pfirmware, firmware->data, firmware->size);
-+	pr_info("rtl8192cu: Loaded firmware from file %s\n",
-+		rtlpriv->cfg->fw_name);
-+	memcpy(rtl8192cu_firmware, firmware->data, firmware->size);
-+	firmware_size =3D firmware->size;
- 	rtlpriv->rtlhal.fwsize =3D firmware->size;
-+	rtlpriv->rtlhal.pfirmware =3D rtl8192cu_firmware;
- 	release_firmware(firmware);
-+	atomic_inc(&usage_count);
-=20
- 	return 0;
- }
-@@ -93,12 +113,30 @@ static void rtl92cu_deinit_sw_vars(struct ieee80211_hw=
- *hw)
- {
- 	struct rtl_priv *rtlpriv =3D rtl_priv(hw);
-=20
--	if (rtlpriv->rtlhal.pfirmware) {
--		vfree(rtlpriv->rtlhal.pfirmware);
-+	atomic_dec(&usage_count);
-+	if (!atomic_read(&usage_count) && rtlpriv->rtlhal.pfirmware) {
-+		vfree(rtl8192cu_firmware);
-+		rtl8192cu_firmware =3D NULL;
- 		rtlpriv->rtlhal.pfirmware =3D NULL;
- 	}
- }
-=20
-+#ifdef CONFIG_PM
-+static int rtl8192cu_usb_suspend(struct usb_interface *pusb_intf,
-+				 pm_message_t message)
-+{
-+	/* Increase usage_count to Save loaded fw across suspend/resume */
-+	atomic_inc(&usage_count);
-+	return 0;
-+}
-+
-+static int rtl8192cu_usb_resume(struct usb_interface *pusb_intf)
-+{
-+	atomic_dec(&usage_count);	/* after resume, decrease usage count */
-+	return 0;
-+}
-+#endif
-+
- static struct rtl_hal_ops rtl8192cu_hal_ops =3D {
- 	.init_sw_vars =3D rtl92cu_init_sw_vars,
- 	.deinit_sw_vars =3D rtl92cu_deinit_sw_vars,
-@@ -347,9 +385,9 @@ static struct usb_driver rtl8192cu_driver =3D {
- 	.id_table =3D rtl8192c_usb_ids,
-=20
- #ifdef CONFIG_PM
--	/* .suspend =3D rtl_usb_suspend, */
--	/* .resume =3D rtl_usb_resume, */
--	/* .reset_resume =3D rtl8192c_resume, */
-+	.suspend =3D rtl8192cu_usb_suspend,
-+	.resume =3D rtl8192cu_usb_resume,
-+	.reset_resume =3D rtl8192cu_usb_resume,
- #endif /* CONFIG_PM */
- #ifdef CONFIG_AUTOSUSPEND
- 	.supports_autosuspend =3D 1,
-diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
-index be84ae3..b84458d 100644
---- a/net/bluetooth/hci_core.c
-+++ b/net/bluetooth/hci_core.c
-@@ -613,7 +613,7 @@ static int hci_dev_do_close(struct hci_dev *hdev)
- 	if (!test_bit(HCI_RAW, &hdev->flags)) {
- 		set_bit(HCI_INIT, &hdev->flags);
- 		__hci_request(hdev, hci_reset_req, 0,
--					msecs_to_jiffies(HCI_INIT_TIMEOUT));
-+					msecs_to_jiffies(250));
- 		clear_bit(HCI_INIT, &hdev->flags);
- 	}
-=20
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
-
---xXmbgvnjoT4axfJE
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAEBAgAGBQJPBHcYAAoJEJctW/TcYTgG/icP/ipW/qNmKlJU11OJopw4JTpZ
-naD9+kNe33G1uHDvSQMXh361tdvDZLIOcd57/FW39FEN+RybJGKkP250F1YxI8cd
-E46OgI1x4B8OH0wmSDUX/M2RpXSirkT5itJqZOhfQjbg2AE2c4AHdWYFegYeAFog
-2hy5RlAHYWOfkPpwS+IfBVG2QjucB25DkTy6gRxiu0isjtKFZX0rsp8UYlv4My0j
-u4/qgbRVg7/nQkCPZP7qVJbjRxbxMaPuRRFWCNVl7MlZtSNJ3kgoTpEXYwmd1QnO
-vIKLne3oTAT5NiTgc/hjSV+T5LWyzLMHZFCMPjnwgiTIvpvm1mCS7lHkxwKwk7zw
-rks+840GXCcjwXFaV/gDTQH4/qjoLLL4vXGrA3E355GRb3/LUgxRuMCgStbEXZrL
-iIF6ZHP8TlracQpBwKiRM7iDIPUY/C2q+HI7S9U1ZAodj2eb1Z0d+qWP4kfD7y5e
-KxAd8PQJKtbLvrKrpUSQjISa6AW5xsktFaZ7McvBcWg8mH8qAvY8ybIU6wJKT8eV
-4I8UDowmBqoH2mYgiNmTykfo+/6c/Zyv8+wVkM15uusoMzka4OdRGuaTQIi4BCO3
-Cpvv3MwFKfx0F5F4qPtwZvNtJkuqBCQXzbwITgkITkxe3Q4GvxNJ3o+J1a9RhuWG
-Z1wanfX/O0hcCr8rxjeN
-=kCz8
------END PGP SIGNATURE-----
-
---xXmbgvnjoT4axfJE--
+DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IG5ldGRldi1vd25lckB2Z2Vy
+Lmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnXQ0KPk9uIEJl
+aGFsZiBPZiBXeWJvcm55LCBDYXJvbHluDQo+U2VudDogVHVlc2RheSwgSmFudWFyeSAwMywgMjAx
+MiAzOjI0IFBNDQo+VG86IENocmlzIEJvb3Q7IE5pY29sYXMgZGUgUGVzbG/DvGFuDQo+Q2M6IG5l
+dGRldjsgZTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0DQo+U3ViamVjdDogUkU6IGln
+YiArIGJhbGFuY2UtcnIgKyBicmlkZ2UgKyBJUHY2ID0gbm8gZ28gd2l0aG91dA0KPnByb21pc2N1
+b3VzIG1vZGUNCj4NCj4NCj4NCj4+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4+RnJvbTog
+bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj5vd25lckB2Z2Vy
+Lmtlcm5lbC5vcmddDQo+Pk9uIEJlaGFsZiBPZiBDaHJpcyBCb290DQo+PlNlbnQ6IFR1ZXNkYXks
+IERlY2VtYmVyIDI3LCAyMDExIDE6NTMgUE0NCj4+VG86IE5pY29sYXMgZGUgUGVzbG/DvGFuDQo+
+PkNjOiBuZXRkZXYNCj4+U3ViamVjdDogUmU6IGlnYiArIGJhbGFuY2UtcnIgKyBicmlkZ2UgKyBJ
+UHY2ID0gbm8gZ28gd2l0aG91dA0KPj5wcm9taXNjdW91cyBtb2RlDQo+Pg0KPj5PbiAyMy8xMi8y
+MDExIDEwOjU2LCBDaHJpcyBCb290IHdyb3RlOg0KPj4+IE9uIDIzLzEyLzIwMTEgMTA6NDgsIE5p
+Y29sYXMgZGUgUGVzbG/DvGFuIHdyb3RlOg0KPj4+PiBbIEZvcndhcmRlZCB0byBuZXRkZXYsIGJl
+Y2F1c2UgdHdvIHByZXZpb3VzIGUtbWFpbCBlcnJvbmVvdXNseSBzZW50DQo+PmluDQo+Pj4+IEhU
+TUwgXQ0KPj4+Pg0KPj4+PiBMZSAyMy8xMi8yMDExIDExOjE1LCBDaHJpcyBCb290IGEgw6ljcml0
+IDoNCj4+Pj4+IE9uIDIzLzEyLzIwMTEgMDk6NTIsIE5pY29sYXMgZGUgUGVzbG/DvGFuIHdyb3Rl
+Og0KPj4+Pj4+DQo+Pj4+Pj4NCj4+Pj4+PiBMZSAyMyBkw6ljLiAyMDExIDEwOjQyLCAiQ2hyaXMg
+Qm9vdCIgPGJvb3RjQGJvb3RjLm5ldA0KPj4+Pj4+IDxtYWlsdG86Ym9vdGNAYm9vdGMubmV0Pj4g
+YSDDqWNyaXQgOg0KPj4+Pj4+ID4NCj4+Pj4+PiA+IEhpIGZvbGtzLA0KPj4+Pj4+ID4NCj4+Pj4+
+PiA+IEFzIHBlciBFcmljIER1bWF6ZXQgYW5kIERhdmUgTWlsbGVyLCBJJ20gb3BlbmluZyB1cCBh
+IHNlcGFyYXRlDQo+Pj4+Pj4gdGhyZWFkIG9uIHRoaXMgaXNzdWUuDQo+Pj4+Pj4gPg0KPj4+Pj4+
+ID4gSSBoYXZlIHR3byBpZGVudGljYWwgc2VydmVycyBpbiBhIGNsdXN0ZXIgZm9yIHJ1bm5pbmcg
+S1ZNDQo+dmlydHVhbA0KPj4+Pj4+IG1hY2hpbmVzLiBUaGV5IGVhY2ggaGF2ZSBhDQo+Pj4+Pj4g
+c2luZ2xlIGNvbm5lY3Rpb24gdG8gdGhlIEludGVybmV0IChpcnJlbGV2YW50IGZvciB0aGlzKSBh
+bmQgdHdvDQo+Pj4+Pj4gZ2lnYWJpdCBjb25uZWN0aW9ucyBiZXR3ZWVuIGVhY2gNCj4+Pj4+PiBv
+dGhlciBmb3IgY2x1c3RlciByZXBsaWNhdGlvbiwgZXRjLi4uIFRoZXNlIHR3byBjb25uZWN0aW9u
+cyBhcmUgaW4NCj4+YQ0KPj4+Pj4+IGJhbGFuY2UtcnIgYm9uZGVkIGNvbm5lY3Rpb24sDQo+Pj4+
+Pj4gd2hpY2ggaXMgaXRzZWxmIG1lbWJlciBvZiBhIGJyaWRnZSB0aGF0IHRoZSBWTXMgYXR0YWNo
+IHRvLiBJJ20NCj4+Pj4+PiBydW5uaW5nIHYzLjItcmM2LTE0MC1nYjllMjZkZiBvbg0KPj4+Pj4+
+IERlYmlhbiBXaGVlenkuDQo+Pj4+Pj4gPg0KPj4+Pj4+ID4gV2hlbiB0aGUgYnJpZGdlIGlzIGJy
+b3VnaHQgdXAsIElQdjQgd29ya3MgZmluZSBidXQgSVB2NiBkb2VzDQo+bm90Lg0KPj4+Pj4+IEkg
+Y2FuIHVzZSBuZWl0aGVyIHRoZQ0KPj4+Pj4+IGF1dG9tYXRpYyBsaW5rLWxvY2FsIG9uIHRoZSBi
+cmlkIGdlIG5vciB0aGUgc3RhdGljIGdsb2JhbCBhZGRyZXNzDQo+SQ0KPj4+Pj4+IGFzc2lnbi4g
+TmVpdGhlciBtYWNoaW5lIGNhbg0KPj4+Pj4+IHBlcmZvcm0gbmVpZ2hib3VyIGRpc2NvdmVyeSBv
+dmVyIHRoZSBsaW5rIHVudGlsIEkgcHV0IHRoZSBib25kDQo+Pj4+Pj4gbWVtYmVycyAoZXRoMCBh
+bmQgZXRoMSkgaW50bw0KPj4+Pj4+IHByb21pc2N1b3VzIG1vZGUuIEkgY2FuIGRvIHRoaXMgZWl0
+aGVyIHdpdGggdGNwZHVtcCBvciAnaXAgbGluaw0KPnNldA0KPj4+Pj4+IGRldiBldGhYIHByb21p
+c2Mgb24nIGFuZCB0aGlzDQo+Pj4+Pj4gaXMgZW5vdWdoIHRvIG1ha2UgdGhlIGxpbmsgc3ByaW5n
+IHRvIGxpZmUuDQo+Pj4+Pj4NCj4+Pj4+PiBGb3IgYXMgZmFyIGFzIEkgcmVtZW1iZXIsIHNldHRp
+bmcgYm9uZDAgdG8gcHJvbWlzYyBzaG91bGQgc2V0IHRoZQ0KPj4+Pj4+IGJvbmRpbmcgbWVtYmVy
+IHRvIHByb21pc2MgdG9vLg0KPj4+Pj4+IEFuZCBpbnNlcnRpbmcgYm9uZDAgaW50byBicjAgc2hv
+dWxkIHNldCBib25kMCB0byBwcm9taXNjLi4uIFNvDQo+Pj4+Pj4gZXZlcnl0aGluZyBzaG91bGQg
+YmUgaW4gcHJvbWlzYw0KPj4+Pj4+IG1vZGUgYW55d2F5Li4uIGJ1dCB5b3Ugc2hvdWRuJ3QgaGF2
+ZSB0byBkbyBpdCBieSBoYW5kLg0KPj4+Pj4+DQo+Pj4+Pg0KPj4+Pj4gU29ycnksIEkgc2hvdWxk
+IGhhdmUgYWRkZWQgdGhhdCBJIHRyaWVkIHRoaXMuIFNldHRpbmcgYm9uZDAgb3IgYnIwDQo+PnRv
+DQo+Pj4+PiBwcm9taXNjIGhhcyBubyBlZmZlY3QuIEkNCj4+Pj4+IGRpc2NvdmVyZWQgdGhpcyBi
+eSBydW5uaW5nIHRjcGR1bXAgb24gYnIwIGZpcnN0LCB0aGVuIGJvbmQwLCB0aGVuDQo+Pj4+PiBl
+dmVudHVhbGx5IGVhY2ggYm9uZCBtZW1iZXIgaW4NCj4+Pj4+IHR1cm4uIE9ubHkgYXQgdGhlIGxh
+c3Qgc3RhZ2UgZGlkIHRoaW5ncyBqdW1wIHRvIGxpZmUuDQo+Pj4+Pg0KPj4+Pj4+ID4NCj4+Pj4+
+PiA+IFRoaXMgY2x1c3RlciBpcyBub3QgY3VycmVudGx5IGxpdmUgc28gSSBjYW4gZWFzaWx5IHRl
+c3QgcGF0Y2hlcw0KPj4+Pj4+IGFuZCB2YXJpb3VzIGNvbmZpZ3VyYXRpb25zLg0KPj4+Pj4+DQo+
+Pj4+Pj4gQ2FuIHlvdSB0cnkgdG8gcmVtb3ZlIHRoZSBib25kaW5nIHBhcnQsIGNvbm5lY3Rpbmcg
+ZXRoMCBhbmQgZXRoMQ0KPj4+Pj4+IGRpcmVjdGx5IHRvIGJyMCBhbmQgc2VlIGlmIGl0DQo+Pj4+
+Pj4gd29ya3MgYmV0dGVyPyAoVGhpcyBpcyBhIHRlc3Qgb255LiBJIHBlcmZlY3RseSB1bmRlcnN0
+YW5kIHRoYXQgeW91DQo+Pj4+Pj4gd291bGQgbG9vc2UgYmFsYW5jZS1yciBpbiB0aGlzDQo+Pj4+
+Pj4gc2V0dXAuKQ0KPj4+Pj4+DQo+Pj4+Pg0KPj4+Pj4gR29vZCBjYWxsLiBMZXQncyBzZWUuDQo+
+Pj4+Pg0KPj4+Pj4gSSB0b29rIGJyMCBhbmQgYm9uZDAgYXBhcnQsIHRvb2sgZXRoMCBhbmQgZXRo
+MSBvdXQgb2YgZW5mb3JjZWQNCj4+Pj4+IHByb21pc2MgbW9kZSwgdGhlbiBtYW51YWxseSBidWls
+dCBhDQo+Pj4+PiBicjAgd2l0aCBldGgwIGluIG9ubHkgc28gSSBkaWRuJ3QgY2F1c2UgYSBuZXR3
+b3JrIGxvb3AuIEFkZGluZyBldGgwDQo+Pj4+PiB0byBicjAgZGlkIG5vdCBtYWtlIGl0IGdvIGlu
+dG8NCj4+Pj4+IHByb21pc2MgbW9kZSwgYnV0IElQdjYgZG9lcyB3b3JrIG92ZXIgdGhpcyBzZXR1
+cC4gSSBhbHNvIG1hZGUgc3VyZQ0KPj5pcA0KPj4+Pj4gLTYgbmVpZ2ggd2FzIGVtcHR5IG9uIGJv
+dGgNCj4+Pj4+IG1hY2hpbmVzIGJlZm9yZSBJIHN0YXJ0ZWQuDQo+Pj4+Pg0KPj4+Pj4gSSB0aGVu
+IGRlY2lkZWQgdG8gdHJ5IHRoZSB0ZXN0IHdpdGgganVzdCB0aGUgYm9uZDAgaW4gYmFsYW5jZS1y
+cg0KPj4+Pj4gbW9kZS4gT25jZSBhZ2FpbiBJIHRvb2sgZXZlcnl0aGluZw0KPj4+Pj4gZG93biBh
+bmQgZW5zdXJlZCBubyBwcm9taXNjIG1vZGUgYW5kIG5vIGlwIC02IG5laWdoLiBJIG5vdGljZWQN
+Cj5ib25kMA0KPj4+Pj4gd2Fzbid0IGdldHRpbmcgYSBsaW5rLWxvY2FsIGFuZA0KPj4+Pj4gSSBm
+b3VuZCBvdXQgZm9yIHNvbWUgcmVhc29uDQo+Pj4+PiAvcHJvYy9zeXMvbmV0L2lwdjYvY29uZi9i
+b25kMC9kaXNhYmxlX2lwdjYgd2FzIHNldCBvbiBib3RoIHNlcnZlcnMNCj4+c28gSQ0KPj4+Pj4g
+c2V0IGl0IHRvIDAuIFRoYXQgYnJvdWdodCB0aGluZ3MgdG8gbGlmZS4NCj4+Pj4+DQo+Pj4+PiBT
+byB0aGVuIEkgcHV0IGl0IGFsbCBiYWNrIHRvZ2V0aGVyIGFnYWluIGFuZCBpdCBkaWRuJ3Qgd29y
+ay4gSSBvbmNlDQo+Pj4+PiBhZ2FpbiBub3RpY2VkIGRpc2FibGVfaXB2NiB3YXMNCj4+Pj4+IHNl
+dCBvbiB0aGUgYm9uZDAgaW50ZXJmYWNlcywgbm93IHBhcnQgb2YgdGhlIGJyaWRnZS4gVG9nZ2xp
+bmcgdGhpcw0KPj5vbg0KPj4+Pj4gdGhlIF9ib25kXyBpbnRlcmZhY2UgbWFkZQ0KPj4+Pj4gdGhp
+bmdzIHdvcmsgYWdhaW4uDQo+Pj4+Pg0KPj4+Pj4gV2hhdCdzIHNldHRpbmcgZGlzYWJsZV9pcHY2
+PyBTaG91bGQgdGhpcyBiZSBoYXZpbmcgYW4gaW1wYWN0IGlmIHRoZQ0KPj4+Pj4gcG9ydCBpcyBw
+YXJ0IG9mIGEgYnJpZGdlPw0KPj4+DQo+Pj4gSG1tLCBhcyBhIGZ1cnRoZXIgdXBkYXRlLi4uIEkg
+YnJvdWdodCB1cCBteSBWTXMgb24gdGhlIGJyaWRnZSB3aXRoDQo+Pj4gZGlzYWJsZV9pcHY2IHR1
+cm5lZCBvZmYuIFRoZSBWTXMgb24gb25lIGhvc3QgY291bGRuJ3Qgc2VlIHdoYXQgd2FzIG9uDQo+
+Pj4gdGhlIG90aGVyIHNpZGUgb2YgdGhlIGJyaWRnZSAob24gdGhlIG90aGVyIHNlcnZlcikgdW50
+aWwgSSB0dXJuZWQNCj4+PiBwcm9taXNjIGJhY2sgb24gbWFudWFsbHkuIFNvIGl0J3Mgbm90IGVu
+dGlyZWx5IGRpc2FibGVfaXB2NidzIGZhdWx0Lg0KPj4NCj4+SGksDQo+Pg0KPj5JIGRvbid0IHdh
+bnQgdGhpcyB0byBnZXQgbG9zdCBhcm91bmQgdGhlIENocmlzdG1hcyBicmVhaywgc28gSSdtIGp1
+c3QNCj4+cmVzZW5kaW5nIGl0LiBJJ20gc3RpbGwgc2VlaW5nIHRoZSBzYW1lIGJlaGF2aW91ciBh
+cyBiZWZvcmUuDQo+Pg0KPj4gRnJvbSBhYm92ZToNCj4+DQo+Pj4+Pj4gRm9yIGFzIGZhciBhcyBJ
+IHJlbWVtYmVyLCBzZXR0aW5nIGJvbmQwIHRvIHByb21pc2Mgc2hvdWxkIHNldCB0aGUNCj4+Pj4+
+PiBib25kaW5nIG1lbWJlciB0byBwcm9taXNjIHRvby4NCj4+Pj4+PiBBbmQgaW5zZXJ0aW5nIGJv
+bmQwIGludG8gYnIwIHNob3VsZCBzZXQgYm9uZDAgdG8gcHJvbWlzYy4uLiBTbw0KPj4+Pj4+IGV2
+ZXJ5dGhpbmcgc2hvdWxkIGJlIGluIHByb21pc2MNCj4+Pj4+PiBtb2RlIGFueXdheS4uLiBidXQg
+eW91IHNob3Vkbid0IGhhdmUgdG8gZG8gaXQgYnkgaGFuZC4NCj4+DQo+PlRoaXMgZGVmaW5pdGVs
+eSBkb2Vzbid0IGhhcHBlbiwgYXQgbGVhc3QgYWNjb3JkaW5nIHRvICdpcCBsaW5rIHNob3cgfA0K
+Pj5ncmVwIFBST01JU0MnLg0KPj4NCj4+Q2hyaXMNCj4+DQo+Pi0tDQo+PkNocmlzIEJvb3QNCj4+
+Ym9vdGNAYm9vdGMubmV0DQo+Pi0tDQo+PlRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBz
+ZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluDQo+PnRoZSBib2R5IG9mIGEgbWVz
+c2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+Pk1vcmUgbWFqb3Jkb21vIGluZm8g
+YXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0KPg0KPlNvcnJ5
+IGZvciB0aGUgZGVsYXkgaW4gcmVzcG9uZGluZy4gIEknbSBub3Qgc3VyZSB3aGF0IGlzIGdvaW5n
+IG9uIGhlcmUNCj5hbmQgSSdtIG5vdCBvdXIgYm9uZGluZyBleHBlcnQgd2hvIGlzIHN0aWxsIG91
+dCBvbiBob2xpZGF5cy4gIEhvd2V2ZXIsDQo+d2UnbGwgdHJ5IHRvIHJlcHJvZHVjZSB0aGlzLiAg
+V2hlbiBJIGdldCBzb21lIG1vcmUgYWR2aWNlLCBJIG1heSBiZQ0KPmFza2luZyBmb3Igc29tZSBt
+b3JlIGRhdGEuDQo+DQo+VGhhbmtzLA0KPg0KPkNhcm9seW4NCj5DYXJvbHluIFd5Ym9ybnkNCj5M
+aW51eCBEZXZlbG9wbWVudA0KPkxBTiBBY2Nlc3MgRGl2aXNpb24NCj5JbnRlbCBDb3Jwb3JhdGlv
+bg0KPk7vv73vv73vv73vv73vv71y77+977+9ee+/ve+/ve+/vWLvv71Y77+977+9x6d277+9Xu+/
+vSneunsubu+/vSvvv73vv73vv71677+9Xu+/vSnvv73vv73vv713Kg0KPmpn77+977+977+9Hu+/
+ve+/ve+/ve+/ve+/vd2iai/vv73vv73vv71677+93pbvv73vv70y77+93pnvv73vv73vv70m77+9
+Kd+h77+9Ye+/ve+/vX/vv73vv70e77+9R++/ve+/ve+/vWjvv70P77+9ajordu+/ve+/ve+/vXfv
+v73ZpQ0KDQpIZWxsbywNCg0KQ2hlY2sgeW91ciBpcF9mb3J3YXJkIGNvbmZpZ3VyYXRpb24gb24g
+eW91ciBicmlkZ2UgdG8gbWFrZSBzdXJlIGl0cyBjb25maWd1cmVkIHRvIGZvcndhcmQgaXB2NiBw
+YWNrZXRzIGFuZCBhbHNvIHBsZWFzZSBzZW5kIHRoZSBjb250ZW50cyBvZiAvZXRjL21vZHByb2Jl
+LmQvYm9uZGluZy5jb25mIGFuZCB0aGUgY29udGVudHMgb2YgeW91ciByb3V0aW5nIHRhYmxlIGFu
+ZCB3ZSdsbCBjb250aW51ZSB0byB3b3JrIG9uIHRoaXMuDQoNClRoYW5rcywNCg0KQ2Fyb2x5bg0K
+DQpDYXJvbHluIFd5Ym9ybnkNCkxpbnV4IERldmVsb3BtZW50DQpMQU4gQWNjZXNzIERpdmlzaW9u
+DQpJbnRlbCBDb3Jwb3JhdGlvbg0KDQoNCg==
