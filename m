@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next 0/8] RX NFC support for hash-based filters
-Date: Wed, 04 Jan 2012 14:11:11 -0500 (EST)
-Message-ID: <20120104.141111.16071561018650942.davem@davemloft.net>
-References: <1325627819.2832.31.camel@bwh-desktop>
+Subject: Re: [PATCH net-next 1/2] net_sched: sfq: fix mem alloc error
+ recovery
+Date: Wed, 04 Jan 2012 14:13:01 -0500 (EST)
+Message-ID: <20120104.141301.1584452659395659449.davem@davemloft.net>
+References: <1325694144.2428.30.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51968 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:51990 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754977Ab2ADTLQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 14:11:16 -0500
-In-Reply-To: <1325627819.2832.31.camel@bwh-desktop>
+	with ESMTP id S1751502Ab2ADTNE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 14:13:04 -0500
+In-Reply-To: <1325694144.2428.30.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 3 Jan 2012 21:56:59 +0000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 04 Jan 2012 17:22:24 +0100
 
-> 1. Fix gianfar's validation of filter rule locations.  In the previous
->    version of this series, this was a requirement for part 2, but that's
->    no longer the case.
+> Since commit 817fb15dfd98 (net_sched: sfq: allow divisor to be a
+> parameter), we can leave perturbation timer armed if a memory allocation
+> error aborts sfq_init().
 > 
-> 2. Extend ethtool RX NFC rules API to support hash-based filter hardware
->    in which rule locations should be selected by the driver or firmware.
+> Memory containing active struct timer_list is freed and kernel can
+> crash.
 > 
-> 3. Change the sfc driver to implement this API instead of RX n-tuple.
+> Call sfq_destroy() from sfq_init() to properly dismantle qdisc.
 > 
-> 4. Remove support for RX n-tuple, now that there are no in-tree
->    implementations.
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-All applied, I had to fix some trailing whitespace errors in patches
-5 and 6.
+Applied.
