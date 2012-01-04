@@ -1,69 +1,81 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH 1/1] netfilter: Add possibility to turn off netfilters
- defrag per netns
-Date: Wed, 4 Jan 2012 22:40:09 +0100 (CET)
-Message-ID: <alpine.DEB.2.00.1201042232510.3934@blackhole.kfki.hu>
-References: <1325664443-10320-1-git-send-email-hans.schillstrom@ericsson.com> <20120104174035.GB3489@1984> <alpine.DEB.2.00.1201041857350.3170@blackhole.kfki.hu> <201201042156.05586.hans@schillstrom.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 1/2] e1000: unmap ce4100_gbe_mdio_base_virt in
+ e1000_remove
+Date: Wed, 04 Jan 2012 13:41:47 -0800
+Message-ID: <1325713307.2718.35.camel@jtkirshe-mobl>
+References: <1323276062-10906-1-git-send-email-ffainelli@freebox.fr>
+	 <1323295282.2415.36.camel@jtkirshe-mobl> <4F04A205.4040908@freebox.fr>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Patrick McHardy <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-2/J6avCxsb5ccIBsY9Q+"
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <201201042156.05586.hans@schillstrom.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Florian Fainelli <ffainelli@freebox.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:27070 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756992Ab2ADVlt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jan 2012 16:41:49 -0500
+In-Reply-To: <4F04A205.4040908@freebox.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 4 Jan 2012, Hans Schillstrom wrote:
 
-> On Wednesday, January 04, 2012 19:05:10 Jozsef Kadlecsik wrote:
-> > On Wed, 4 Jan 2012, Pablo Neira Ayuso wrote:
-> > 
-> > > On Wed, Jan 04, 2012 at 12:48:35PM +0100, Hans Schillstrom wrote:
-> > > > I like that idea, an "early" table at prio -500 with PREROUTING.
-> > > > There is also a need for a new flag "--allfrags"
-> > > > i.e. all fragments needs to be sorted out and sent to same dest for defrag.
-> > > > 
-> > > > ex.
-> > > > iptables -t early -A PREROUTING -i eth0 --allfrags -j NOTRACK
-> > > 
-> > > New tables add too much overhead. We have discussed this before with
-> > > Patrick.
-> > > 
-> > > Since this still remains specific to your needs, I think you can
-> > > remove nf_conntrack module in your setup.
-> > > 
-> > > I don't come with one sane setup that may want selectively defragment
-> > > some traffic yes and other not.
-> > > 
-> > > Am I missing anything else?
-> > 
-> > I agree. If you don't want defragmentation at all, then make sure you 
-> > don't load the nf_conntrack module directly/indirectly. Conntrack doesn't 
-> > work without defragmentation anyway.
-> 
-> We are using LXC and it's only in the container that holds the external 
-> interface that can't have defragmentation.
-> The problem is if it's loaded you have it in all namespaces :-(
+--=-2/J6avCxsb5ccIBsY9Q+
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Conntrack is per net namespaces. You may have one container with conntrack 
-enabled and another one without conntrack.
+On Wed, 2012-01-04 at 20:01 +0100, Florian Fainelli wrote:
+> Hello Jeff,
+>=20
+> On 12/07/11 23:01, Jeff Kirsher wrote:
+> > On Wed, 2011-12-07 at 08:41 -0800, Florian Fainelli wrote:
+> >> We are not unmapping ce4100_gbe_mdio_base_virt in exit path in case
+> >> we are running on a CE4100 adapter, fix that.
+> >>
+> >> Signed-off-by: Florian Fainelli<ffainelli@freebox.fr>
+> >> ---
+> >>   drivers/net/ethernet/intel/e1000/e1000_main.c |    2 ++
+> >>   1 files changed, 2 insertions(+), 0 deletions(-)
+> >
+> > Thanks Florian, I have added your two patches to my queue.
+>=20
+> I have not seen these patches in the last "Intel Wired LAN" pull requets=
+=20
+> that you did, are you holding them for a later pull request?
+>=20
+> Thanks.
+> --
+> Florian
+>=20
 
-Moreover, if you may receive fragments of the same packet at different 
-interfaces in different blades, then you may receive different whole 
-packets of the same flow at different interfaces/blades. But stateful 
-firewalling relies on the assumption that all packets goes through of the 
-firewall. Because it's not assured, conntrack may not run in the 
-containers you denoted as FW LXC.
+Yes, I apologize and had overlooked your patches when putting together
+the last to pull requests.  I will make sure they are in the one of the
+next 2 pull requests.
 
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+--=-2/J6avCxsb5ccIBsY9Q+
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAABCgAGBQJPBMebAAoJEOVv75VaS+3OmbcP/2q4YIzEgzxUYMQj8OHx7YFA
+HdH5lIzoqdMorY4HgtOvVMUVeOT3KsxpvJPjVL6N37zSiRFGhybxbMJ5q2rF8GCb
+46ksWCzxg60tUGEStW+zdMXxrVRrmuYCk2kFRo43jjZKVPk0oybsWzwzyMJcEK/F
+xntOXqNlTGyKromXSpXycofA18ryI6ZjFD5zW26xehzDAyHO9YmbV50ghgBLRnGN
+QqDS4LyxU83kO8+5jmmoIPrKRsyE6WBlJQ8YAuSn7YUDgY7h8+7ER+eDc2/omKd3
+IemrxlKBsXElGMIjJyzX+YmQXmwMHWdK7Ypmy4PubpbqAk2MJShjEQfACuxvssx+
+tH6rWRAovCHeS82d88q4rhsKqszYNNkD7Dxe42piyC9PJuJO1BNLa209ixLzzI4U
+ouVQ8gYSV0VIMJPIincUIdVwXbmMEK+dpKPy67TQqUoIJl/oLAHG3+dlokeN0bv+
+hcKTYYYTNBPQrsakPt4E4mzKIDNJLAIZl1iyLoNneb4ef7hrk9ayPUoz+nCLjfaR
+7y8pqhjxmuoDLmPb3WH1ZABBvaLRppFSpkcIAR/KzTFHmFI66M5yHIgUuC6bYtxj
+ip7m0fpWZzWKk/SHK1v2s0KSHUeFRjd7BZNHUhF/0ypfSc8CgNtFONMeMcJETQnD
+xoz1VhLH7/1gv5PTIhQY
+=qkUz
+-----END PGP SIGNATURE-----
+
+--=-2/J6avCxsb5ccIBsY9Q+--
