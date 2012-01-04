@@ -1,72 +1,74 @@
-From: Richard Zhao <richard.zhao@freescale.com>
-Subject: Re: linux-next: manual merge of the net-next tree with the arm-soc
- tree
-Date: Wed, 4 Jan 2012 12:46:21 +0800
-Message-ID: <20120104044620.GL2414@b20223-02.ap.freescale.net>
-References: <20120104150658.aafd5ae8ebce944e897f1079@canb.auug.org.au>
+From: Matti Vaittinen <matti.vaittinen@nsn.com>
+Subject: Re: [PATCH RFC] IPv6: RTM_GETROUTE NLM_F_MATCH handled as stated in
+ RFC 3549
+Date: Wed, 04 Jan 2012 08:24:25 +0200
+Message-ID: <1325658265.7008.4.camel@hakki>
+References: <1325080915.26559.43.camel@hakki>
+	 <20120103.151619.1382800390097680631.davem@davemloft.net>
+Reply-To: matti.vaittinen@nsn.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Arnd Bergmann <arnd@arndb.de>, <linux-kernel@vger.kernel.org>,
-	<linux-next@vger.kernel.org>, Olof Johansson <olof@lixom.net>,
-	Richard Zhao <richard.zhao@linaro.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120104150658.aafd5ae8ebce944e897f1079@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: ext David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from demumfd002.nsn-inter.net ([93.183.12.31]:11637 "EHLO
+	demumfd002.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755846Ab2ADGOB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 01:14:01 -0500
+In-Reply-To: <20120103.151619.1382800390097680631.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 04, 2012 at 03:06:58PM +1100, Stephen Rothwell wrote:
-> Hi all,
+On Tue, 2012-01-03 at 15:16 -0500, ext David Miller wrote:
+> From: Matti Vaittinen <matti.vaittinen@nsn.com>
+> Date: Wed, 28 Dec 2011 16:01:55 +0200
 > 
-> Today's linux-next merge of the net-next tree got a conflict in
-> drivers/net/ethernet/freescale/fec.c between commit 0ebafefcaa7a ("net:
-> fec: add clk_prepare/clk_unprepare") from the arm-soc tree and commit
-> e163cc97f9ac ("net/fec: fix the .remove code") from the net-next tree.
+> > This patch makes ipv6 module to return only routes which match 
+> > attributes / filled fields in RTM_GETROUTE, if NLM_F_MATCH is 
+> > specified and NLM_F_ROOT is not. This patch has not been tested, 
+> > and is meant more to be for visualization of what I thought of doing.
+> > If the NLM_F_MATCH support is considered to be good idea, then I 
+> > will check this more thoroughly and send another patch.
+> > 
+> > I assume this would not break *many* existing userspace applications, 
+> > since specifying NLM_F_MATCH (especially with no NLM_F_ROOT) sounds 
+> > pretty stupid - if no entries should be filtered.
+> > 
+> > I checked iproute2, and it uses NLM_F_DUMP and does filtering entries 
+> > in userspace - thus it is not affected. 
+> > 
+> > I guess this same idea could be brought in RTM_GETADDR and RTM_GETLINK 
+> > too? Maybe also on IPv4 side? 
 > 
-> Just context changes.  I fixed it up (see below) and can carry the fix as
-> necessary.
-It's good. 
-
-Thanks
-Richard
-> -- 
-> Cheers,
-> Stephen Rothwell                    sfr@canb.auug.org.au
+> The problem is that you can't avoid writing the user level filters
+> even if we add this behavior now.
 > 
-> diff --cc drivers/net/ethernet/freescale/fec.c
-> index 112af9b,b0b0445..0000000
-> --- a/drivers/net/ethernet/freescale/fec.c
-> +++ b/drivers/net/ethernet/freescale/fec.c
-> @@@ -1638,13 -1657,18 +1657,18 @@@ fec_drv_remove(struct platform_device *
->   	struct net_device *ndev = platform_get_drvdata(pdev);
->   	struct fec_enet_private *fep = netdev_priv(ndev);
->   	struct resource *r;
-> + 	int i;
->   
-> - 	fec_stop(ndev);
-> + 	unregister_netdev(ndev);
->   	fec_enet_mii_remove(fep);
-> + 	for (i = 0; i < FEC_IRQ_NUM; i++) {
-> + 		int irq = platform_get_irq(pdev, i);
-> + 		if (irq > 0)
-> + 			free_irq(irq, ndev);
-> + 	}
->  -	clk_disable(fep->clk);
->  +	clk_disable_unprepare(fep->clk);
->   	clk_put(fep->clk);
->   	iounmap(fep->hwp);
-> - 	unregister_netdev(ndev);
->   	free_netdev(ndev);
->   
->   	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> Any tool which wants to work on every single Linux system out there
+> right now has to accomodate the case where NLM_F_MATCH isn't done by
+> the kernel.  It will take several years before this would be widely
+> deployed even if it went in right now.
+> 
+> This means applications are not simplified at all, in fact they become
+> more complex, since they have to accomodate not just one but two
+> possible cases.
+
+I can't argue. Like Metallica sang, "Sad but true".
+
+> I'm therefore not inclined to apply a patch like this, sorry.  And even
+> if I was, I'd ask that ipv4 get it first or at the same time.
+> 
+
+No need to be sorry. I guess I can live with this ;) Thanks for closing
+the case.
+
+--Matti
 
 
-
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+-- 
+Matti Vaittinen
++358 504863070
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Told a UDP joke the other night...
+...but I'm not sure everyone got it...
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
