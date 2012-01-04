@@ -1,75 +1,77 @@
-From: Brent Cook <bcook@breakingpoint.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: Possible DoS with 6RD border relay
-Date: Wed, 4 Jan 2012 11:02:31 -0600
-Message-ID: <201201041102.31205.bcook@breakingpoint.com>
+Date: Wed, 04 Jan 2012 18:02:47 +0100
+Message-ID: <1325696567.2428.32.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 References: <201201041048.44509.bcook@breakingpoint.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Brent Cook <bcook@breakingpoint.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.breakingpoint.com ([65.36.7.12]:21399 "EHLO
-	mail.breakingpoint.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756203Ab2ADRCo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 12:02:44 -0500
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:38630 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756481Ab2ADRCv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 12:02:51 -0500
+Received: by wgbdr13 with SMTP id dr13so29231954wgb.1
+        for <netdev@vger.kernel.org>; Wed, 04 Jan 2012 09:02:50 -0800 (PST)
 In-Reply-To: <201201041048.44509.bcook@breakingpoint.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, January 04, 2012 10:48:44 AM Brent Cook wrote:
+Le mercredi 04 janvier 2012 =C3=A0 10:48 -0600, Brent Cook a =C3=A9crit=
+ :
 > Hi All,
-> 
->   I have been doing some testing of Linux serving as a 6RD border relay. It
-> seems that if a client sends 6RD-encapsulated packets and varies the lower
-> 64- bits of the 6RD address over the range of the neighbor table size (the
-> bits below the delegated prefix), it causes the neighbor table to quickly
-> overflow. However, viewing the neighbor table never shows more than a
-> handful of entries. When the neighbor table overflows, packet routing on
-> my test system slows from 1Gbps to a couple of Mbps at most.
-
-I forgot to mention, I'm testing 3.2 rc7:
-
-Linux target1 3.2.0-7-generic #13-Ubuntu SMP Sat Dec 24 18:06:57 UTC 2011 
-x86_64 x86_64 x86_64 GNU/Linux
-
-but the same behavior occurs with 2.6.35
-
+>=20
+>   I have been doing some testing of Linux serving as a 6RD border rel=
+ay. It=20
+> seems that if a client sends 6RD-encapsulated packets and varies the =
+lower 64-
+> bits of the 6RD address over the range of the neighbor table size (th=
+e bits=20
+> below the delegated prefix), it causes the neighbor table to quickly =
+overflow.=20
+> However, viewing the neighbor table never shows more than a handful o=
+f=20
+> entries. When the neighbor table overflows, packet routing on my test=
+ system=20
+> slows from 1Gbps to a couple of Mbps at most.
+>=20
 > [28765.764079] net_ratelimit: 32003 callbacks suppressed
 > [28765.764084] ipv6: Neighbour table overflow.
 > [28765.764171] ipv6: Neighbour table overflow.
-> 
+>=20
 > root@target1:~# ip neigh
 > fe80::1a:c5ff:fe02:2 dev test2  router FAILED
 > 2001:1234::3 dev test2 lladdr 02:1a:c5:02:00:02 REACHABLE
 > 192.168.2.1 dev mgmt0 lladdr 04:7d:7b:06:8d:2d REACHABLE
 > 1.0.0.1 dev test0 lladdr 02:1a:c5:01:00:00 REACHABLE
-> 
-> If I send packets much more slowly, the system works as expected. If the
-> 6RD client sends from a constant address rather than varying the lower
-> bits, it also works fine. I tested the two neighbor table checks in sit.c
-> and
-
-continuing thought: ipip6_tunnel_xmit does not appear to be hitting the ISATAP 
-or !dst sections that might invoke a call to dst_get_neighbour().
-
+>=20
+> If I send packets much more slowly, the system works as expected. If =
+the 6RD=20
+> client sends from a constant address rather than varying the lower bi=
+ts, it=20
+> also works fine. I tested the two neighbor table checks in sit.c and=20
+>=20
 > The network topology looks something like this:
-> 
+>=20
 > 6RD client -> Router -> Linux (6RD BR) -> IPv6 host
-> 
+>=20
 > The 6RD client is at 1.1.1.1/24
-> The Linux BR is at 1.0.0.2/24, the IPv4 router is at 1.0.0.1/24 and the
-> IPv6 host is directly attached on a second physical interface at address
+> The Linux BR is at 1.0.0.2/24, the IPv4 router is at 1.0.0.1/24 and t=
+he IPv6=20
+> host is directly attached on a second physical interface at address=20
 > 2001:1234::3
-> 
+>=20
 > A configuration script for configuring the BR follows:
-> 
+>=20
 > #!/bin/bash
-> PREFIX1="2001:0db8"                  # 6rd ipv6 prefix
-> intf1=test0
-> intf2=test2
-> 
+> PREFIX1=3D"2001:0db8"                  # 6rd ipv6 prefix
+> intf1=3Dtest0
+> intf2=3Dtest2
+>=20
 > modprobe sit
-> 
+>=20
 > ## Setup the tunnel, it will create an interface named '6rd'
 > ip addr add 1.0.0.2/24 dev $intf1
 > ip link set $intf1 up
@@ -80,9 +82,7 @@ or !dst sections that might invoke a call to dst_get_neighbour().
 > ip tunnel 6rd dev 6rd 6rd-prefix ${PREFIX1}::/32
 > ip addr add ${PREFIX1}::1/32 dev 6rd
 > ip link set 6rd up
-> 
-> sysctl -w net.ipv6.conf.all.forwarding=1
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
+> sysctl -w net.ipv6.conf.all.forwarding=3D1
+
+What kernel version do you use ?
