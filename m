@@ -1,57 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next 2/2] net_sched: sfq: always randomize hash
- perturbation
-Date: Wed, 04 Jan 2012 17:23:01 +0100
-Message-ID: <1325694181.2428.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [ANNOUNCE] libnetfilter_conntrack 1.0.0 release
+Date: Wed, 4 Jan 2012 17:42:57 +0100
+Message-ID: <20120104164257.GA3309@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:54105 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754584Ab2ADQXF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 11:23:05 -0500
-Received: by wgbdr13 with SMTP id dr13so29187739wgb.1
-        for <netdev@vger.kernel.org>; Wed, 04 Jan 2012 08:23:04 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="+HP7ph2BbKc20aGI"
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-announce@lists.netfilter.org, lwn@lwn.net
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SFQ q->perturbation is used in sfq_hash() as an input to Jenkins hash.
 
-We currently randomize this 32bit value only if a perturbation timer is
-setup.
+--+HP7ph2BbKc20aGI
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Its much better to always initialize it to defeat attackers, or else
-they can predict very well what kind of packets they have to forge to
-hit a particular flow.
+Hi!
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/sched/sch_sfq.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+The Netfilter project proudly presents:
 
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index 465af66..a1cb00e 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -591,12 +591,12 @@ static int sfq_init(struct Qdisc *sch, struct nlattr *opt)
- 	q->cur_depth = 0;
- 	q->tail = NULL;
- 	q->divisor = SFQ_DEFAULT_HASH_DIVISOR;
--	if (opt == NULL) {
--		q->quantum = psched_mtu(qdisc_dev(sch));
--		q->scaled_quantum = SFQ_ALLOT_SIZE(q->quantum);
--		q->perturb_period = 0;
--		q->perturbation = net_random();
--	} else {
-+	q->quantum = psched_mtu(qdisc_dev(sch));
-+	q->scaled_quantum = SFQ_ALLOT_SIZE(q->quantum);
-+	q->perturb_period = 0;
-+	q->perturbation = net_random();
-+
-+	if (opt) {
- 		int err = sfq_change(sch, opt);
- 		if (err)
- 			return err;
+        libnetfilter_conntrack-1.0.0
+
+libnetfilter_conntrack is a userspace library providing a programming
+interface (API) to the in-kernel connection tracking state table.
+
+See ChangeLog that comes attached to this email for more details.
+
+You can download it from:
+
+http://www.netfilter.org/projects/libnetfilter_conntrack/downloads.html
+ftp://ftp.netfilter.org/pub/libnetfilter_conntrack/
+
+Have fun!
+
+--+HP7ph2BbKc20aGI
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="changes-libnetfilter_conntrack-1.0.0.txt"
+
+Andrew Beverley (1):
+      utils: add nfct_destroy() to all examples in utils
+
+Jan Engelhardt (3):
+      Update .gitignore
+      build: use AC_CONFIG_AUX_DIR and stash away tools
+      build: disable implicit .tar.gz archive generation and use POSIX mode
+
+Jiri Popelka (1):
+      conntrack: objopt: NO_EFFECT
+
+Pablo Neira Ayuso (20):
+      build: Linux kernel-style for compilation messages
+      doc: fix missing nfct_copy function not included in doxygen report
+      expect: fix missing parsing of master tuple
+      expect: nfexp_snprintf prints expectation timeout if present
+      expect: nfexp_snprintf displays mask and master tuple information
+      expect: add nfexp_send()
+      expect: support CTA_EXPECT_HELP_NAME
+      expect: modify output by moving zone and flags to the end of the line
+      src: export NFCT_HELPER_NAME_MAX
+      utils: fix expect_get to work with expect_create
+      Merge branch 'master' of git://dev.medozas.de/libnetfilter_conntrack
+      src: clarify licensing terms of library (GPLv2+)
+      conntrack: fix size of CTA_PROTOINFO_TCP_FLAGS_ORIGINAL in ARM
+      include: remove reference to licensing terms from headers
+      src: put nf_expect and nf_conntrack into diet
+      qa: extend test_api to validate set API for conntrack objects
+      conntrack: fix set operation for master IPv6 src and dst
+      expect: extend test_api for the expectation API
+      expect: add nfexp_cmp
+      build: bump version to 1.0.0
+
+
+--+HP7ph2BbKc20aGI--
