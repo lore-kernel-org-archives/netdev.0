@@ -1,103 +1,65 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] ipv6: Check RA for sllao when configuring optimistic ipv6 address (v2)
-Date: Wed,  4 Jan 2012 15:49:15 -0500
-Message-ID: <1325710155-30289-1-git-send-email-nhorman@tuxdriver.com>
-References: <1325695643-27656-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59105 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756337Ab2ADUtY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 15:49:24 -0500
-In-Reply-To: <1325695643-27656-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hans Schillstrom <hans@schillstrom.com>
+Subject: Re: [PATCH 1/1] netfilter: Add possibility to turn off netfilters defrag per netns
+Date: Wed, 4 Jan 2012 21:56:05 +0100
+Message-ID: <201201042156.05586.hans@schillstrom.com>
+References: <1325664443-10320-1-git-send-email-hans.schillstrom@ericsson.com> <20120104174035.GB3489@1984> <alpine.DEB.2.00.1201041857350.3170@blackhole.kfki.hu>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Patrick McHardy <kaber@trash.net>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.00.1201041857350.3170@blackhole.kfki.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Recently Dave noticed that a test we did in ipv6_add_addr to see if we next hop
-route for the interface we're adding an addres to was wrong (see commit
-7ffbcecbeed91e5874e9a1cfc4c0cbb07dac3069).  for one, it never triggers, and two,
-it was completely wrong to begin with.  This test was meant to cover this
-section of RFC 4429:
 
-3.3 Modifications to RFC 2462 Stateless Address Autoconfiguration
+On Wednesday, January 04, 2012 19:05:10 Jozsef Kadlecsik wrote:
+> On Wed, 4 Jan 2012, Pablo Neira Ayuso wrote:
+> 
+> > On Wed, Jan 04, 2012 at 12:48:35PM +0100, Hans Schillstrom wrote:
+> > > I like that idea, an "early" table at prio -500 with PREROUTING.
+> > > There is also a need for a new flag "--allfrags"
+> > > i.e. all fragments needs to be sorted out and sent to same dest for defrag.
+> > > 
+> > > ex.
+> > > iptables -t early -A PREROUTING -i eth0 --allfrags -j NOTRACK
+> > 
+> > New tables add too much overhead. We have discussed this before with
+> > Patrick.
+> > 
+> > Since this still remains specific to your needs, I think you can
+> > remove nf_conntrack module in your setup.
+> > 
+> > I don't come with one sane setup that may want selectively defragment
+> > some traffic yes and other not.
+> > 
+> > Am I missing anything else?
+> 
+> I agree. If you don't want defragmentation at all, then make sure you 
+> don't load the nf_conntrack module directly/indirectly. Conntrack doesn't 
+> work without defragmentation anyway.
 
-   * (modifies section 5.5) A host MAY choose to configure a new address
-        as an Optimistic Address.  A host that does not know the SLLAO
-        of its router SHOULD NOT configure a new address as Optimistic.
-        A router SHOULD NOT configure an Optimistic Address.
+We are using LXC and it's only in the container that holds the external 
+interface that can't have defragmentation.
+The problem is if it's loaded you have it in all namespaces :-(
 
-This patch should bring us into proper compliance with the above clause.  Since
-we only add a SLAAC address after we've received a RA which may or may not
-contain a source link layer address option, we can pass a pointer to that option
-to addrconf_prefix_rcv (which may be null if the option is not present), and
-only set the optimistic flag if the option was found in the RA.
+> 
+> The only thing what such a really-early table could buy at the moment is 
+> to specify which flows not to defragment at layer 3 level.
+> 
+> If we had dynamic hooks registration and hook priorities at table level, 
+> that'd come handy now.
 
-Change notes:
-(v2) modified the new parameter to addrconf_prefix_rcv to be a bool rather than
-a pointer to make its use more clear as per request from davem.
+I do agree.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
----
- include/net/addrconf.h |    3 ++-
- net/ipv6/addrconf.c    |    4 ++--
- net/ipv6/ndisc.c       |    4 +++-
- 3 files changed, 7 insertions(+), 4 deletions(-)
+> 
 
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index cbc6bb0..f68dce2 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -151,7 +151,8 @@ extern int ipv6_chk_mcast_addr(struct net_device *dev,
- 			       const struct in6_addr *src_addr);
- extern int ipv6_is_mld(struct sk_buff *skb, int nexthdr);
- 
--extern void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len);
-+extern void addrconf_prefix_rcv(struct net_device *dev,
-+				u8 *opt, int len, bool sllao);
- 
- /*
-  *	anycast prototypes (anycast.c)
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 647e6cb..3513cce 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1803,7 +1803,7 @@ static struct inet6_dev *addrconf_add_dev(struct net_device *dev)
- 	return idev;
- }
- 
--void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len)
-+void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len, bool sllao)
- {
- 	struct prefix_info *pinfo;
- 	__u32 valid_lft;
-@@ -1934,7 +1934,7 @@ ok:
- 
- #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
- 			if (in6_dev->cnf.optimistic_dad &&
--			    !net->ipv6.devconf_all->forwarding)
-+			    !net->ipv6.devconf_all->forwarding && sllao)
- 				addr_flags = IFA_F_OPTIMISTIC;
- #endif
- 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 3b1fe4b..d8f02ef 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1368,7 +1368,9 @@ skip_routeinfo:
- 		for (p = ndopts.nd_opts_pi;
- 		     p;
- 		     p = ndisc_next_option(p, ndopts.nd_opts_pi_end)) {
--			addrconf_prefix_rcv(skb->dev, (u8*)p, (p->nd_opt_len) << 3);
-+			addrconf_prefix_rcv(skb->dev, (u8 *)p,
-+					    (p->nd_opt_len) << 3,
-+					    ndopts.nd_opts_src_lladdr != NULL);
- 		}
- 	}
- 
--- 
-1.7.7.5
+Regards
+Hans
