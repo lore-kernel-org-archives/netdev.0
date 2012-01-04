@@ -1,85 +1,124 @@
-From: Joe Perches <joe@perches.com>
-Subject: RE: [net-next 08/11] e1000e: add Receive Packet Steering (RPS)
- support
-Date: Tue, 03 Jan 2012 16:12:54 -0800
-Message-ID: <1325635974.24257.20.camel@joe2Laptop>
-References: <1325618356-2655-9-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20120103.150936.572765552893657192.davem@davemloft.net>
-	 <804857E1F29AAC47BF68C404FC60A1840292A5@ORSMSX102.amr.corp.intel.com>
-	 <20120103.152739.1456113375065412910.davem@davemloft.net>
-	 <804857E1F29AAC47BF68C404FC60A18402A7BC@ORSMSX102.amr.corp.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] SFQ planned changes
+Date: Wed, 04 Jan 2012 01:14:58 +0100
+Message-ID: <1325636098.30256.12.camel@edumazet-laptop>
+References: <1325385056.4174.51.camel@denise.theartistscloset.com>
+	 <21734335.uCtjXOcSpA@alaris>
+	 <CAA93jw5NYChp+hKWjOWiw7SnGhNe+REofr2KM-85GnKNVpkw6w@mail.gmail.com>
+	 <1325587235.2320.37.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CAA93jw5T10PHD+YQQjy_r=LHKVbYeiWerwM0ou7HANGoenFRKw@mail.gmail.com>
+	 <1325595036.2320.43.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1325606918.2320.84.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CAA93jw427XZj17CtAavJCiZDgPqYu4S5v_fZzoYuZ+p5KbyWAg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michal =?UTF-8?Q?Kube=C4=8Dek?= <mkubecek@suse.cz>,
+	netdev@vger.kernel.org,
+	"John A. Sullivan III" <jsullivan@opensourcedevel.com>
+To: Dave Taht <dave.taht@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:55610 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754975Ab2ADAM4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jan 2012 19:12:56 -0500
-In-Reply-To: <804857E1F29AAC47BF68C404FC60A18402A7BC@ORSMSX102.amr.corp.intel.com>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:59194 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754975Ab2ADAPD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 19:15:03 -0500
+Received: by wibhm6 with SMTP id hm6so9532450wib.19
+        for <netdev@vger.kernel.org>; Tue, 03 Jan 2012 16:15:02 -0800 (PST)
+In-Reply-To: <CAA93jw427XZj17CtAavJCiZDgPqYu4S5v_fZzoYuZ+p5KbyWAg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-01-03 at 20:28 +0000, Allan, Bruce W wrote:
-> >From: David Miller [mailto:davem@davemloft.net]
-> >Fair enough, I rescind my request and this patch is fine as-is.
-> Okay, thanks Dave.
+Le mercredi 04 janvier 2012 =C3=A0 00:57 +0100, Dave Taht a =C3=A9crit =
+:
+> On Tue, Jan 3, 2012 at 5:08 PM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> > Here is the code I ran on my test server with 200 netperf TCP_STREA=
+M
+> > flows with pretty good results (each flow gets 0.5 % of bandwidth)
+>=20
+> Can I encourage you to always simultaneously run a fping and/or a
+> netperf -t TCP_RR
+>=20
 
-A couple of other comments though.
+ping is pretty nice ;)
 
-On Tue, 2012-01-03 at 11:19 -0800, Jeff Kirsher wrote:
-> From: Bruce Allan <bruce.w.allan@intel.com>
-> 
-> Enable RPS by default.  Disallow jumbo frames when both receive checksum
-> and receive hashing are enabled because the hardware cannot do both IP
-> payload checksum (enabled when receive checksum is enabled when using
-> packet split which is used for jumbo frames) and provide RSS hash at the
-> same time.
-[]
-> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-[]
-> +static void e1000e_setup_rss_hash(struct e1000_adapter *adapter)
-[]
-> +	static const u8 rsshash[40] = {
-[]
-+	};
-> +
-> +	/* Fill out hash function seeds */
-> +	for (j = 0; j < 10; j++) {
-> +		u32 rsskey = rsshash[(j * 4)];
-> +		rsskey |= rsshash[(j * 4) + 1] << 8;
-> +		rsskey |= rsshash[(j * 4) + 2] << 16;
-> +		rsskey |= rsshash[(j * 4) + 3] << 24;
+# ping -c 20 192.168.20.112
+PING 192.168.20.112 (192.168.20.112) 56(84) bytes of data.
+64 bytes from 192.168.20.112: icmp_req=3D1 ttl=3D64 time=3D0.251 ms
+64 bytes from 192.168.20.112: icmp_req=3D2 ttl=3D64 time=3D0.123 ms
+64 bytes from 192.168.20.112: icmp_req=3D3 ttl=3D64 time=3D0.124 ms
+64 bytes from 192.168.20.112: icmp_req=3D4 ttl=3D64 time=3D0.108 ms
+64 bytes from 192.168.20.112: icmp_req=3D5 ttl=3D64 time=3D0.131 ms
+64 bytes from 192.168.20.112: icmp_req=3D6 ttl=3D64 time=3D0.126 ms
+64 bytes from 192.168.20.112: icmp_req=3D7 ttl=3D64 time=3D0.156 ms
+64 bytes from 192.168.20.112: icmp_req=3D8 ttl=3D64 time=3D0.123 ms
+64 bytes from 192.168.20.112: icmp_req=3D9 ttl=3D64 time=3D0.111 ms
+64 bytes from 192.168.20.112: icmp_req=3D10 ttl=3D64 time=3D0.129 ms
+64 bytes from 192.168.20.112: icmp_req=3D11 ttl=3D64 time=3D0.112 ms
+64 bytes from 192.168.20.112: icmp_req=3D12 ttl=3D64 time=3D0.138 ms
+64 bytes from 192.168.20.112: icmp_req=3D13 ttl=3D64 time=3D0.118 ms
+64 bytes from 192.168.20.112: icmp_req=3D14 ttl=3D64 time=3D0.119 ms
+64 bytes from 192.168.20.112: icmp_req=3D15 ttl=3D64 time=3D0.121 ms
+64 bytes from 192.168.20.112: icmp_req=3D16 ttl=3D64 time=3D0.125 ms
+64 bytes from 192.168.20.112: icmp_req=3D17 ttl=3D64 time=3D0.128 ms
+64 bytes from 192.168.20.112: icmp_req=3D18 ttl=3D64 time=3D0.108 ms
+64 bytes from 192.168.20.112: icmp_req=3D19 ttl=3D64 time=3D0.149 ms
+64 bytes from 192.168.20.112: icmp_req=3D20 ttl=3D64 time=3D0.126 ms
 
-Strictly, don't these shifts first need a cast to u32?
+--- 192.168.20.112 ping statistics ---
+20 packets transmitted, 20 received, 0% packet loss, time 18999ms
+rtt min/avg/max/mdev =3D 0.108/0.131/0.251/0.031 ms
 
-	u32 rsskey = rsshash[j * 4];
-	rsskey |= ((u32)rsshash[j * 4 + 1]) << 8;
-	rsskey |= ((u32)rsshash[j * 4 + 2]) << 16;
-	rsskey |= ((u32)rsshash[j * 4 + 3]) << 24;
 
-[]
+> latency under load test when doing stuff like this?
+>=20
+> The amount of backlogged bytes is rather impressive...
 
-> +	if (adapter->rx_ps_pages &&
-> +	    (features & NETIF_F_RXCSUM) && (features & NETIF_F_RXHASH)) {
-> +		e_err("Enabling both receive checksum offload and receive hashing is not possible with jumbo frames.  Disable jumbos or enable only one of the receive offload features.\n");
-> +		return -EINVAL;
-> +	}
- 
-This is a very long output string.
-I think keeping individual dmesg lines shorter is preferred.
-It might be better to use 2 e_err lines like:
+200 tcp flooding flows... thats pretty normal.
 
-		e_err("Enabling both receive checksum offload and receive hashing is not possible with jumbo frames\n");
-		e_err("Disable jumbos or enable only one of the receive offload features\n");
+If I add to this load a TCP_RR one I get :
 
-or
+# netperf -H 192.168.20.110 -v 0 -l 10 -t TCP_RR
+TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
+192.168.20.110 (192.168.20.110) port 0 AF_INET : demo
+7606.18=20
 
-		e_err("Enabling both receive checksum offload and receive hashing is not possible with jumbo frames\n"
-		      "Disable jumbos or enable only one of the receive offload features\n");
+
+If I stop the flood and start the TCP_RR alone :
+
+# netperf -H 192.168.20.110 -v 0 -l 10 -t TCP_RR
+TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
+192.168.20.110 (192.168.20.110) port 0 AF_INET : demo
+12031.39=20
+
+And a ping on idle link :
+#  ping -c 20 192.168.20.112
+PING 192.168.20.112 (192.168.20.112) 56(84) bytes of data.
+64 bytes from 192.168.20.112: icmp_req=3D1 ttl=3D64 time=3D0.119 ms
+64 bytes from 192.168.20.112: icmp_req=3D2 ttl=3D64 time=3D0.090 ms
+64 bytes from 192.168.20.112: icmp_req=3D3 ttl=3D64 time=3D0.085 ms
+64 bytes from 192.168.20.112: icmp_req=3D4 ttl=3D64 time=3D0.087 ms
+64 bytes from 192.168.20.112: icmp_req=3D5 ttl=3D64 time=3D0.084 ms
+64 bytes from 192.168.20.112: icmp_req=3D6 ttl=3D64 time=3D0.084 ms
+64 bytes from 192.168.20.112: icmp_req=3D7 ttl=3D64 time=3D0.088 ms
+64 bytes from 192.168.20.112: icmp_req=3D8 ttl=3D64 time=3D0.085 ms
+64 bytes from 192.168.20.112: icmp_req=3D9 ttl=3D64 time=3D0.083 ms
+64 bytes from 192.168.20.112: icmp_req=3D10 ttl=3D64 time=3D0.082 ms
+64 bytes from 192.168.20.112: icmp_req=3D11 ttl=3D64 time=3D0.082 ms
+64 bytes from 192.168.20.112: icmp_req=3D12 ttl=3D64 time=3D0.085 ms
+64 bytes from 192.168.20.112: icmp_req=3D13 ttl=3D64 time=3D0.086 ms
+64 bytes from 192.168.20.112: icmp_req=3D14 ttl=3D64 time=3D0.084 ms
+64 bytes from 192.168.20.112: icmp_req=3D15 ttl=3D64 time=3D0.089 ms
+64 bytes from 192.168.20.112: icmp_req=3D16 ttl=3D64 time=3D0.081 ms
+64 bytes from 192.168.20.112: icmp_req=3D17 ttl=3D64 time=3D0.084 ms
+64 bytes from 192.168.20.112: icmp_req=3D18 ttl=3D64 time=3D0.086 ms
+64 bytes from 192.168.20.112: icmp_req=3D19 ttl=3D64 time=3D0.084 ms
+64 bytes from 192.168.20.112: icmp_req=3D20 ttl=3D64 time=3D0.084 ms
+
+--- 192.168.20.112 ping statistics ---
+20 packets transmitted, 20 received, 0% packet loss, time 19000ms
+rtt min/avg/max/mdev =3D 0.081/0.086/0.119/0.012 ms
+
+
+I can do a test on full Gigabit speed (removing the HTB) and 1000 flows
+and post results
