@@ -1,45 +1,63 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: Re: [PATCH] r8169: Enable suspend when device is idle from boot.
-Date: Wed, 4 Jan 2012 10:01:44 -0800
-Message-ID: <CAOesGMip7hRsGmRuQ7PmDReKp08awsrq_0R+0BouLEisyMpMGg@mail.gmail.com>
-References: <1325183594-8947-1-git-send-email-tbroch@chromium.org>
-	<20111230.172211.188260740088628815.davem@davemloft.net>
-	<20111231121704.GA9842@electric-eye.fr.zoreil.com>
-	<20120103233046.GD8563@electric-eye.fr.zoreil.com>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH 1/1] netfilter: Add possibility to turn off netfilters
+ defrag per netns
+Date: Wed, 4 Jan 2012 19:05:10 +0100 (CET)
+Message-ID: <alpine.DEB.2.00.1201041857350.3170@blackhole.kfki.hu>
+References: <1325664443-10320-1-git-send-email-hans.schillstrom@ericsson.com> <201201041118.18552.hans.schillstrom@ericsson.com> <alpine.LNX.2.01.1201041216010.2645@frira.zrqbmnf.qr> <201201041248.36881.hans.schillstrom@ericsson.com>
+ <20120104174035.GB3489@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: tbroch@chromium.org, David Miller <davem@davemloft.net>,
-	nic_swsd@realtek.com, netdev@vger.kernel.org,
-	Hayes Wang <hayeswang@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Patrick McHardy <kaber@trash.net>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hans@schillstrom.com" <hans@schillstrom.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:45699 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750884Ab2ADSBq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 13:01:46 -0500
-Received: by werm1 with SMTP id m1so8748114wer.19
-        for <netdev@vger.kernel.org>; Wed, 04 Jan 2012 10:01:45 -0800 (PST)
-In-Reply-To: <20120103233046.GD8563@electric-eye.fr.zoreil.com>
+Received: from smtp-in.kfki.hu ([148.6.0.28]:52419 "EHLO smtp2.kfki.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752272Ab2ADSFN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jan 2012 13:05:13 -0500
+In-Reply-To: <20120104174035.GB3489@1984>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 3, 2012 at 3:30 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
-> Francois Romieu <romieu@fr.zoreil.com> :
-> [...]
->> The description of the patch implies that the initial power management
->> state is not right. I would be more inclined to set it correctly when
->> the device goes up instead of checking repeatedly for a loss of sync
->> through rtl8169_runtime_idle. Todd, any comment ?
->
-> ... which could be as simple as (completely untested) :
+On Wed, 4 Jan 2012, Pablo Neira Ayuso wrote:
 
-That change is just to the code path of open(), which means that for
-the power savings to kick in, you have to bring the interface up. The
-point of the original patch is to check even if the interface has
-never been touched.
+> On Wed, Jan 04, 2012 at 12:48:35PM +0100, Hans Schillstrom wrote:
+> > I like that idea, an "early" table at prio -500 with PREROUTING.
+> > There is also a need for a new flag "--allfrags"
+> > i.e. all fragments needs to be sorted out and sent to same dest for defrag.
+> > 
+> > ex.
+> > iptables -t early -A PREROUTING -i eth0 --allfrags -j NOTRACK
+> 
+> New tables add too much overhead. We have discussed this before with
+> Patrick.
+> 
+> Since this still remains specific to your needs, I think you can
+> remove nf_conntrack module in your setup.
+> 
+> I don't come with one sane setup that may want selectively defragment
+> some traffic yes and other not.
+> 
+> Am I missing anything else?
 
-Perhaps call check_link_status at the end if init_one instead to
-activate pm then?
+I agree. If you don't want defragmentation at all, then make sure you 
+don't load the nf_conntrack module directly/indirectly. Conntrack doesn't 
+work without defragmentation anyway.
 
+The only thing what such a really-early table could buy at the moment is 
+to specify which flows not to defragment at layer 3 level.
 
--Olof
+If we had dynamic hooks registration and hook priorities at table level, 
+that'd come handy now.
+
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
