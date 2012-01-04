@@ -1,180 +1,77 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH 1/4] CS89x0 : add platform driver support
-Date: Wed, 4 Jan 2012 10:20:00 +0100
-Message-ID: <20120104092000.GP5446@pengutronix.de>
-References: <1325628732-14535-1-git-send-email-jaccon.bastiaansen@gmail.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH, v2] Xen: consolidate and simplify struct xenbus_driver
+ instantiation
+Date: Wed, 4 Jan 2012 09:20:45 +0000
+Message-ID: <1325668846.25206.172.camel@zakaz.uk.xensource.com>
+References: <4EF3018D020000780006986E@nat28.tlf.novell.com>
+	 <1324547820.7877.71.camel@zakaz.uk.xensource.com>
+	 <4EF327E2020000780006993E@nat28.tlf.novell.com>
+	 <1324555060.7877.84.camel@zakaz.uk.xensource.com>
+	 <1324565067.2897.2.camel@bwh-desktop>
+	 <1324586301.13113.3.camel@dagon.hellion.org.uk>
+	 <20120103203637.GF17472@phenom.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kernel@pengutronix.de, u.kleine-koenig@pengutronix.de,
-	davem@davemloft.net, cavokz@gmail.com,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:58868 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754522Ab2ADJUG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 04:20:06 -0500
-Content-Disposition: inline
-In-Reply-To: <1325628732-14535-1-git-send-email-jaccon.bastiaansen@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Jan Beulich <JBeulich@suse.com>,
+	Konrad Rzeszutek Wilk <konrad@darnok.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"dmitry.torokhov@gmail.com" <dmitry.torokhov@gmail.com>,
+	"FlorianSchandinat@gmx.de" <FlorianSchandinat@gmx.de>,
+	Jeremy Fitzhardinge <jeremy@goop.org>,
+	"Jens Axboe" <axboe@kernel.dk>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120103203637.GF17472@phenom.dumpdata.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, 2012-01-03 at 20:36 +0000, Konrad Rzeszutek Wilk wrote:
+> On Thu, Dec 22, 2011 at 08:38:21PM +0000, Ian Campbell wrote:
+> > On Thu, 2011-12-22 at 14:44 +0000, Ben Hutchings wrote:
+> > > On Thu, 2011-12-22 at 11:57 +0000, Ian Campbell wrote:
+> > > > On Thu, 2011-12-22 at 11:51 +0000, Jan Beulich wrote:
+> > > > > >>> On 22.12.11 at 10:57, Ian Campbell <Ian.Campbell@citrix.com> wrote:
+> > > > > > On Thu, 2011-12-22 at 09:08 +0000, Jan Beulich wrote:
+> > > > > >> The 'name', 'owner', and 'mod_name' members are redundant with the
+> > > > > >> identically named fields in the 'driver' sub-structure. Rather than
+> > > > > >> switching each instance to specify these fields explicitly, introduce
+> > > > > >> a macro to simplify this.
+> > > > > >> 
+> > > > > >> Eliminate further redundancy by allowing the drvname argument to
+> > > > > >> DEFINE_XENBUS_DRIVER() to be blank (in which case the first entry from
+> > > > > >> the ID table will be used for .driver.name).
+> > > > > > 
+> > > > > > Any reason not to always use DRV_NAME here (which is generally a bit
+> > > > > > more specific e.g. "xen-foofront" rather than "foo") and rely on the id
+> > > > > > table for the shorter names used in xenstore?
+> > > > > 
+> > > > > That would imply that DRV_NAME is always defined, but I don't
+> > > > > see this being the case.
+> > > > 
+> > > > My mistake, I thought it was a Kbuild thing.
+> > > 
+> > > You're maybe thinking of KBUILD_MODNAME.
+> > 
+> > Yes, I think I was.
+> 
+> Ian, are you OK with this patch? I think Jan needs to repost once more with the
+> "pciback" -> DRV_NAME change and then it is OK?
 
-Hi Jaccon,
+I don't much like the style of leaving macro parameters blank -- I'd
+much rather have things be explicitly specified and live with the slight
+duplication in cases where the device name happens to match an entry in
+the id list. But it's not a show stopper for me.
 
-Thanks for continuing this. Some comments inline.
+> I've tested it with all backends, except the pciback one, and I see no regressions
+> with 'xl' or 'xm' toolstack.
 
-On Tue, Jan 03, 2012 at 11:12:09PM +0100, Jaccon Bastiaansen wrote:
-> @@ -151,6 +153,9 @@
->  #include <asm/system.h>
->  #include <asm/io.h>
->  #include <asm/irq.h>
-> +#ifdef CONFIG_CS89x0_PLATFORM
-> +#include <linux/atomic.h>
-> +#endif
+Great!
 
-No need to ifdef includes.
+Presumably there is no actual change to sysfs arising from this patch.
 
->  #if ALLOW_DMA
->  #include <asm/dma.h>
->  #endif
-> @@ -173,6 +178,7 @@ static char version[] __initdata =
->  /* The cs8900 has 4 IRQ pins, software selectable. cs8900_irq_map maps
->     them to system IRQ numbers. This mapping is card specific and is set to
->     the configuration of the Cirrus Eval board for this chip. */
-> +#if defined(CONFIG_CS89x0_PLATFORM)
->  #if defined(CONFIG_MACH_IXDP2351)
->  static unsigned int netcard_portlist[] __used __initdata = {IXDP2351_VIRT_CS8900_BASE, 0};
->  static unsigned int cs8900_irq_map[] = {IRQ_IXDP2351_CS8900, 0, 0, 0};
-> @@ -188,7 +194,17 @@ static unsigned int cs8900_irq_map[] = { QQ2440_CS8900_IRQ, 0, 0, 0 };
->  static unsigned int netcard_portlist[] __used __initdata = {
->  	PBC_BASE_ADDRESS + PBC_CS8900A_IOBASE + 0x300, 0
->  };
-> -static unsigned cs8900_irq_map[] = {EXPIO_INT_ENET_INT, 0, 0, 0};
-> +static unsigned int cs8900_irq_map[] = {EXPIO_INT_ENET_INT, 0, 0, 0};
-> +#else
-> +/*
-> + * Counter for the number of CS89x0 platform device instances, which is needed
-> + * because this driver currently supports only one CS89x0 platform device
-> + * instance.
-> + */
-> +static atomic_t platform_dev_cnt = ATOMIC_INIT(0);
-> +static unsigned int cs8900_irq_map[] = {0, 0, 0, 0};
-> +static unsigned int netcard_portlist[] __used __initdata = {0, 0};
-> +#endif
->  #else
->  static unsigned int netcard_portlist[] __used __initdata =
->     { 0x300, 0x320, 0x340, 0x360, 0x200, 0x220, 0x240, 0x260, 0x280, 0x2a0, 0x2c0, 0x2e0, 0};
-> @@ -737,7 +753,7 @@ cs89x0_probe1(struct net_device *dev, int ioaddr, int modular)
->  	} else {
->  		i = lp->isa_config & INT_NO_MASK;
->  		if (lp->chip_type == CS8900) {
-
-[...]
-
->  
-> -#ifdef MODULE
-> +#if defined(MODULE) && !defined(CONFIG_CS89x0_PLATFORM)
->  
->  static struct net_device *dev_cs89x0;
->  
-> @@ -1900,7 +1916,78 @@ cleanup_module(void)
->  	release_region(dev_cs89x0->base_addr, NETCARD_IO_EXTENT);
->  	free_netdev(dev_cs89x0);
->  }
-> -#endif /* MODULE */
-> +#endif /* MODULE && !CONFIG_CS89x0_PLATFORM */
-> +
-> +#ifdef CONFIG_CS89x0_PLATFORM
-> +static int cs89x0_platform_probe(struct platform_device *pdev)
-> +{
-> +	struct net_device *dev = alloc_etherdev(sizeof(struct net_local));
-> +	struct resource *mem_res;
-> +	struct resource *irq_res;
-> +	int err;
-> +
-> +	if (!dev)
-> +		return -ENODEV;
-> +
-> +	if (atomic_inc_return(&platform_dev_cnt) != 1)
-> +		return -EBUSY;
-
-This deserves a comment like this:
-
-/*
- * This driver uses global variables. Until this is fixed we can
- * only support a single instance.
- */
-
-> +
-> +	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-
-Don't use virtual addresses in resources. It's wrong. Pass in physical
-addresses here and use ioremap() in the driver.
-
-> +	irq_res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-> +	if (mem_res == NULL || irq_res == NULL) {
-> +		pr_warning("memory and/or interrupt resource missing.\n");
-
-dev_warn please
-
-> +		err = -ENOENT;
-> +		goto out;
-> +	}
-> +
-> +	cs8900_irq_map[0] = irq_res->start;
-> +	err = cs89x0_probe1(dev, mem_res->start, 0);
-> +	if (err) {
-> +		pr_warning("no cs8900 or cs8920 detected.\n");
-
-ditto
-
-> +		goto out;
-> +	}
-> +
-> +	platform_set_drvdata(pdev, dev);
-> +	return 0;
-> +
-> +out:
-> +	free_netdev(dev);
-> +	return err;
-> +}
-> +
-> +static int cs89x0_platform_remove(struct platform_device *pdev)
-> +{
-> +	struct net_device *dev = platform_get_drvdata(pdev);
-> +
-> +	unregister_netdev(dev);
-> +	free_netdev(dev);
-> +	return 0;
-> +}
-> +
-> +static struct platform_driver cs89x0_platform_driver = {
-> +	.driver = {
-> +		.name	= DRV_NAME,
-> +		.owner	= THIS_MODULE
-> +	},
-> +	.probe	= cs89x0_platform_probe,
-> +	.remove	= cs89x0_platform_remove
-
-Please add a comma at the end of the last elements aswell. The rationale
-if that we can add elements later without touching the existing lines.
-
->  
->  /*
->   * Local variables:
-> @@ -1911,3 +1998,4 @@ cleanup_module(void)
->   * End:
->   *
->   */
-> +
-
-Please don't add blank lines at the end of files.
-
-Sascha
-
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+Ian.
