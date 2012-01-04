@@ -1,135 +1,63 @@
-From: Mihai Maruseac <mihai.maruseac@gmail.com>
-Subject: [PATCH] ipv6/addrconf: speedup /proc/net/if_inet6 filling
-Date: Wed,  4 Jan 2012 11:31:35 +0200
-Message-ID: <1325669495-5626-1-git-send-email-mmaruseac@ixiacom.com>
-Cc: eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	mihai.maruseac@gmail.com, Mihai Maruseac <mmaruseac@ixiacom.com>,
-	Daniel Baluta <dbaluta@ixiacom.com>
-To: davem@davemloft.net
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH 1/1] netfilter: Add possibility to turn off netfilters
+ defrag per netns
+Date: Wed, 4 Jan 2012 10:32:14 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1201041030450.23605@frira.zrqbmnf.qr>
+References: <1325664443-10320-1-git-send-email-hans.schillstrom@ericsson.com> <alpine.DEB.2.00.1201040922020.925@blackhole.kfki.hu> <201201040949.54985.hans.schillstrom@ericsson.com> <alpine.DEB.2.00.1201041000150.925@blackhole.kfki.hu>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hans@schillstrom.com" <hans@schillstrom.com>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:65414 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754694Ab2ADJby (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 04:31:54 -0500
-Received: by eekc4 with SMTP id c4so16516568eek.19
-        for <netdev@vger.kernel.org>; Wed, 04 Jan 2012 01:31:53 -0800 (PST)
+Received: from seven.medozas.de ([188.40.89.202]:32958 "EHLO seven.medozas.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754694Ab2ADJcR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jan 2012 04:32:17 -0500
+In-Reply-To: <alpine.DEB.2.00.1201041000150.925@blackhole.kfki.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This ensures a linear behaviour when filling /proc/net/if_inet6 thus making
-ifconfig run really fast on IPv6 only addresses. In fact, with this patch and
-the IPv4 one sent a while ago, ifconfig will run in linear time regardless of
-address type.
+On Wednesday 2012-01-04 10:03, Jozsef Kadlecsik wrote:
 
-IPv4 related patch: f04565ddf52e401880f8ba51de0dff8ba51c99fd
-	 dev: use name hash for dev_seq_ops
-	 ...
+>On Wed, 4 Jan 2012, Hans Schillstrom wrote:
+>
+>> On Wednesday 04 January 2012 09:28:05 Jozsef Kadlecsik wrote:
+>> > 
+>> > On Wed, 4 Jan 2012, Hans Schillstrom wrote:
+>> > 
+>> > > In some cases it not desirable to have auto defrag.
+>> > > Ex. in a cluster where packets can arrive on different blades.
+>> > > In that case it is possible to use containers (LXC) and send
+>> > > all fragments to one place where defrag is enabled.
+>> > > 
+>> > > This patch makes it possible to turn off the defrag per network name space,
+>> > > by setting net.netfilter.nf_conntrack_nodefrag to 1.
+>> > > Both IPv4 and IPv6 is effected by this sysctl.
+>> > > Default is 0 which is defrag.
+>> > 
+>> > Conntrack assumes that the packets are defragmented and will drop any 
+>> > unfragmented one. So your patch results packet drops.
+>> 
+>> Hmmm, more work...
+>> > 
+>> > Also, if you want to disable defragmentation then why don't you simply 
+>> > "mark" the packets with the NOTRACK target?
+>> 
+>> I don't think that will work since NF_IP_PRI_CONNTRACK_DEFRAG is -400
+>
+>Then change NF_IP_PRI_RAW so that it precedes NF_IP_PRI_CONNTRACK_DEFRAG. 
+>The raw table should be made possible to completely override conntack and 
+>defrag is implicit part of the latter.
 
-Some statistics (running ifconfig > /dev/null on a different setup):
+We've been there (me in the thread even) - defrag is running before raw,
+because otherwise you could not select packets based upon L4 
+parameters for non-defrag in the first place:
 
-iface count / IPv6 no-patch time / IPv6 patched time / IPv4 time
-----------------------------------------------------------------
-      6250  |       0.23 s       |      0.13 s       |  0.11 s
-     12500  |       0.62 s       |      0.28 s       |  0.22 s
-     25000  |       2.91 s       |      0.57 s       |  0.46 s
-     50000  |      11.37 s       |      1.21 s       |  0.94 s
-    128000  |      86.78 s       |      3.05 s       |  2.54 s
+	-t raw ... -p udp --dport 53 -j CT --notrack
 
-Signed-off-by: Mihai Maruseac <mmaruseac@ixiacom.com>
-Cc: Daniel Baluta <dbaluta@ixiacom.com>
----
- net/ipv6/addrconf.c |   43 ++++++++++++++++++++++++++++---------------
- 1 files changed, 28 insertions(+), 15 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 59a9d0e..adb972a 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3078,20 +3078,39 @@ static void addrconf_dad_run(struct inet6_dev *idev)
- struct if6_iter_state {
- 	struct seq_net_private p;
- 	int bucket;
-+	int offset;
- };
- 
--static struct inet6_ifaddr *if6_get_first(struct seq_file *seq)
-+static struct inet6_ifaddr *if6_get_first(struct seq_file *seq, loff_t pos)
- {
- 	struct inet6_ifaddr *ifa = NULL;
- 	struct if6_iter_state *state = seq->private;
- 	struct net *net = seq_file_net(seq);
-+	int p = 0;
- 
--	for (state->bucket = 0; state->bucket < IN6_ADDR_HSIZE; ++state->bucket) {
-+	/* initial bucket if pos is 0 */
-+	if (pos == 0) {
-+		state->bucket = 0;
-+		state->offset = 0;
-+	}
-+
-+	for (; state->bucket < IN6_ADDR_HSIZE; ++state->bucket) {
- 		struct hlist_node *n;
- 		hlist_for_each_entry_rcu_bh(ifa, n, &inet6_addr_lst[state->bucket],
--					 addr_lst)
-+					 addr_lst) {
-+			/* sync with offset */
-+			if (p < state->offset) {
-+				p++;
-+				continue;
-+			}
-+			state->offset++;
- 			if (net_eq(dev_net(ifa->idev->dev), net))
- 				return ifa;
-+		}
-+
-+		/* prepare for next bucket */
-+		state->offset = 0;
-+		p = 0;
- 	}
- 	return NULL;
- }
-@@ -3103,13 +3122,17 @@ static struct inet6_ifaddr *if6_get_next(struct seq_file *seq,
- 	struct net *net = seq_file_net(seq);
- 	struct hlist_node *n = &ifa->addr_lst;
- 
--	hlist_for_each_entry_continue_rcu_bh(ifa, n, addr_lst)
-+	hlist_for_each_entry_continue_rcu_bh(ifa, n, addr_lst) {
-+		state->offset++;
- 		if (net_eq(dev_net(ifa->idev->dev), net))
- 			return ifa;
-+	}
- 
- 	while (++state->bucket < IN6_ADDR_HSIZE) {
-+		state->offset = 0;
- 		hlist_for_each_entry_rcu_bh(ifa, n,
- 				     &inet6_addr_lst[state->bucket], addr_lst) {
-+			state->offset++;
- 			if (net_eq(dev_net(ifa->idev->dev), net))
- 				return ifa;
- 		}
-@@ -3118,21 +3141,11 @@ static struct inet6_ifaddr *if6_get_next(struct seq_file *seq,
- 	return NULL;
- }
- 
--static struct inet6_ifaddr *if6_get_idx(struct seq_file *seq, loff_t pos)
--{
--	struct inet6_ifaddr *ifa = if6_get_first(seq);
--
--	if (ifa)
--		while (pos && (ifa = if6_get_next(seq, ifa)) != NULL)
--			--pos;
--	return pos ? NULL : ifa;
--}
--
- static void *if6_seq_start(struct seq_file *seq, loff_t *pos)
- 	__acquires(rcu_bh)
- {
- 	rcu_read_lock_bh();
--	return if6_get_idx(seq, *pos);
-+	return if6_get_first(seq, *pos);
- }
- 
- static void *if6_seq_next(struct seq_file *seq, void *v, loff_t *pos)
--- 
-1.7.4.1
+Not that I overly care about whether defrag is before/after raw..
