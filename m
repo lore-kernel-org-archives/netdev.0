@@ -1,45 +1,45 @@
-From: Bart De Schuymer <bdschuym@pandora.be>
-Subject: Re: [PATCH] netfilter: Fix br_nf_pre_routing() in conjunction with
- bridge-nf-call-ip(6)tables=0
-Date: Wed, 04 Jan 2012 18:55:28 +0100
-Message-ID: <4F049290.3090803@pandora.be>
-References: <4F025A07.2000304@nod.at> <1325597164-13459-1-git-send-email-richard@nod.at> <1325597164-13459-2-git-send-email-richard@nod.at> <20120103081521.2fec3a29@nehalam.linuxnetplumber.net> <4F033E11.5060707@nod.at> <4F0361D7.3000602@pandora.be> <4F03650D.8050200@nod.at>
+From: Olof Johansson <olof@lixom.net>
+Subject: Re: [PATCH] r8169: Enable suspend when device is idle from boot.
+Date: Wed, 4 Jan 2012 10:01:44 -0800
+Message-ID: <CAOesGMip7hRsGmRuQ7PmDReKp08awsrq_0R+0BouLEisyMpMGg@mail.gmail.com>
+References: <1325183594-8947-1-git-send-email-tbroch@chromium.org>
+	<20111230.172211.188260740088628815.davem@davemloft.net>
+	<20111231121704.GA9842@electric-eye.fr.zoreil.com>
+	<20120103233046.GD8563@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, davem@davemloft.net,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Richard Weinberger <richard@nod.at>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F03650D.8050200@nod.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: tbroch@chromium.org, David Miller <davem@davemloft.net>,
+	nic_swsd@realtek.com, netdev@vger.kernel.org,
+	Hayes Wang <hayeswang@realtek.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:45699 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750884Ab2ADSBq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 13:01:46 -0500
+Received: by werm1 with SMTP id m1so8748114wer.19
+        for <netdev@vger.kernel.org>; Wed, 04 Jan 2012 10:01:45 -0800 (PST)
+In-Reply-To: <20120103233046.GD8563@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Op 3/01/2012 21:29, Richard Weinberger schreef:
-> Am 03.01.2012 21:15, schrieb Bart De Schuymer:
->> The documentation is probably not explicit enough, but I would keep the
->> behavior as it is now. Setting bridge-nf-call-iptables to 0 makes
->> iptables behave as if bridge-netfilter was not enabled at compilation.
->> Anyway, your patch is almost certainly flawed since the fact that
->> skb->nf_bridge can be NULL is used as part of the logic in
->> br_netfilter.c: it indicates that bridge-nf-call-iptables was 0 when the
->> packet was first processed by bridge-netfilter and should therefore not
->> be given to iptables in any other netfilter hook.
-> Thanks for the explanation!
+On Tue, Jan 3, 2012 at 3:30 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
+> Francois Romieu <romieu@fr.zoreil.com> :
+> [...]
+>> The description of the patch implies that the initial power management
+>> state is not right. I would be more inclined to set it correctly when
+>> the device goes up instead of checking repeatedly for a loss of sync
+>> through rtl8169_runtime_idle. Todd, any comment ?
 >
-> Wouldn't it make sense to check for bridge-nf-call-iptables in xt_physdev?
-> So that the user gets warned that his iptables rule will never match...
+> ... which could be as simple as (completely untested) :
 
-We don't want to introduce module dependencies between the bridge module 
-and the iptables physdev match.
-We could add a message to the syslog whenever these proc settings are 
-changed (in br_netfilter.c::brnf_sysctl_call_tables()).
+That change is just to the code path of open(), which means that for
+the power savings to kick in, you have to bring the interface up. The
+point of the original patch is to check even if the interface has
+never been touched.
 
-cheers,
-Bart
+Perhaps call check_link_status at the end if init_one instead to
+activate pm then?
 
 
--- 
-Bart De Schuymer
-www.artinalgorithms.be
+-Olof
