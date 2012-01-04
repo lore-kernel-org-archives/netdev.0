@@ -1,80 +1,204 @@
-From: Mihai Maruseac <mihai.maruseac@gmail.com>
-Subject: Re: [PATCH] ipv6/addrconf: speedup /proc/net/if_inet6 filling
-Date: Wed, 4 Jan 2012 19:03:53 +0200
-Message-ID: <CAOMsUMKp_7w2+0bBTFbQk3HKpobJQd8b2vi6_zTTzGjtZ_+OMA@mail.gmail.com>
-References: <1325669495-5626-1-git-send-email-mmaruseac@ixiacom.com> <20120104082200.437df26a@nehalam.linuxnetplumber.net>
+From: Chris Boot <bootc@bootc.net>
+Subject: Re: e1000e interface hang on 82574L
+Date: Wed, 04 Jan 2012 17:12:01 +0000
+Message-ID: <4F048861.8070501@bootc.net>
+References: <4EFA4024.5000909@bootc.net>
+	<FCF3184D-CE4F-471C-B66C-0F671795FD3C@bootc.net>
+	<9BBC4E0CF881AA4299206E2E1412B626017762@ORSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, Mihai Maruseac <mmaruseac@ixiacom.com>,
-	Daniel Baluta <dbaluta@ixiacom.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:49667 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756448Ab2ADREO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 12:04:14 -0500
-Received: by ggdk6 with SMTP id k6so10364553ggd.19
-        for <netdev@vger.kernel.org>; Wed, 04 Jan 2012 09:04:13 -0800 (PST)
-In-Reply-To: <20120104082200.437df26a@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	netdev <netdev@vger.kernel.org>, lkml <linux-kernel@vger.kernel.org>
+To: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <9BBC4E0CF881AA4299206E2E1412B626017762@ORSMSX102.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 4, 2012 at 6:22 PM, Stephen Hemminger <shemminger@vyatta.co=
-m> wrote:
-> On Wed, =A04 Jan 2012 11:31:35 +0200
-> Mihai Maruseac <mihai.maruseac@gmail.com> wrote:
->
->> This ensures a linear behaviour when filling /proc/net/if_inet6 thus=
- making
->> ifconfig run really fast on IPv6 only addresses. In fact, with this =
-patch and
->> the IPv4 one sent a while ago, ifconfig will run in linear time rega=
-rdless of
->> address type.
->>
->> IPv4 related patch: f04565ddf52e401880f8ba51de0dff8ba51c99fd
->> =A0 =A0 =A0 =A0dev: use name hash for dev_seq_ops
->> =A0 =A0 =A0 =A0...
->>
->> Some statistics (running ifconfig > /dev/null on a different setup):
->>
->> iface count / IPv6 no-patch time / IPv6 patched time / IPv4 time
->> ----------------------------------------------------------------
->> =A0 =A0 =A0 6250 =A0| =A0 =A0 =A0 0.23 s =A0 =A0 =A0 | =A0 =A0 =A00.=
-13 s =A0 =A0 =A0 | =A00.11 s
->> =A0 =A0 =A012500 =A0| =A0 =A0 =A0 0.62 s =A0 =A0 =A0 | =A0 =A0 =A00.=
-28 s =A0 =A0 =A0 | =A00.22 s
->> =A0 =A0 =A025000 =A0| =A0 =A0 =A0 2.91 s =A0 =A0 =A0 | =A0 =A0 =A00.=
-57 s =A0 =A0 =A0 | =A00.46 s
->> =A0 =A0 =A050000 =A0| =A0 =A0 =A011.37 s =A0 =A0 =A0 | =A0 =A0 =A01.=
-21 s =A0 =A0 =A0 | =A00.94 s
->> =A0 =A0 128000 =A0| =A0 =A0 =A086.78 s =A0 =A0 =A0 | =A0 =A0 =A03.05=
- s =A0 =A0 =A0 | =A02.54 s
->>
->> Signed-off-by: Mihai Maruseac <mmaruseac@ixiacom.com>
->> Cc: Daniel Baluta <dbaluta@ixiacom.com>
->> ---
->> =A0net/ipv6/addrconf.c | =A0 43 ++++++++++++++++++++++++++++--------=
--------
->> =A01 files changed, 28 insertions(+), 15 deletions(-)
->>
+On 03/01/2012 00:02, Wyborny, Carolyn wrote:
 >
 >
-> What about netlink? Also ifconfig is really considered deprecated,
-> especially for ipv6 usage.
+>> -----Original Message-----
+>> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+>> On Behalf Of Chris Boot
+>> Sent: Saturday, December 31, 2011 1:32 AM
+>> To: netdev; lkml; e1000-devel@lists.sourceforge.net
+>> Subject: Re: e1000e interface hang on 82574L
+>>
+>> On 27 Dec 2011, at 22:01, Chris Boot wrote:
+>>
+>>> Hi folks,
+>>>
+>>> Another networking issue I've run into, this time with e1000e (Intel
+>> Corporation 82574L Gigabit). My new VM cluster appears to drop a NIC -
+>> the port stops responding within Linux and shows the link as being down
+>> with ethtool. My ISP says 'Ports running Half Duplex or reduced speed'
+>> on the port.
+>>>
+>>> When the port stops working I see this in dmesg:
+>>>
+>>> [35481.659629] ------------[ cut here ]------------
+>>> [35481.667837] WARNING: at net/sched/sch_generic.c:255
+>> dev_watchdog+0xe9/0x148()
+>>> [35481.676370] Hardware name: X9SCL/X9SCM
+>>> [35481.684793] NETDEV WATCHDOG: eth2 (e1000e): transmit queue 0 timed
+>> out
+>>> [35481.684795] Modules linked in: hmac sha256_generic dlm configfs
+>> ebtable_nat ebtables acpi_cpufreq mperf cpufreq_stats
+>> cpufreq_conservative cpufreq_userspace cpufreq_powersave microcode
+>> xt_NOTRACK ip_set_hash_net act_police cls_basic cls_flow cls_fw cls_u32
+>> sch_tbf sch_prio sch_htb sch_hfsc sch_ingress sch_sfq xt_connlimit
+>> xt_realm xt_addrtype ip_set_hash_ip iptable_raw xt_comment xt_recent
+>> ipt_ULOG ipt_REJECT ipt_REDIRECT ipt_NETMAP ipt_MASQUERADE ipt_ECN
+>> ipt_ecn ipt_CLUSTERIP ipt_ah nf_nat_tftp nf_nat_snmp_basic
+>> nf_conntrack_snmp nf_nat_sip nf_nat_pptp nf_nat_proto_gre nf_nat_irc
+>> nf_nat_h323 nf_nat_ftp ip6_queue nf_nat_amanda xt_set ip_set
+>> nf_conntrack_tftp nf_conntrack_sip nf_conntrack_sane
+>> nf_conntrack_proto_udplite nf_conntrack_proto_sctp nf_conntrack_pptp
+>> nf_conntrack_proto_gre nf_conntrack_netlink nf_conntrack_netbios_ns
+>> nf_conntrack_broadcast nf_conntrack_irc nf_conntrack_h323
+>> nf_conntrack_ftp ts_kmp nf_conntrack_amanda xt_TPROXY xt_NFLOG
+>> nfnetlink_log nf_tproxy_core xt_time xt_TCPMSS xt_tcpmss xt_sctp
+>> xt_policy xt_pkttype xt_physdev xt_owner xt_NFQUEUE xt_multiport xt_mark
+>> xt_mac xt_limit xt_length xt_iprange xt_helper xt_hashlimit xt_DSCP
+>> xt_dscp xt_dccp xt_connmark xt_CLASSIFY xt_AUDIT ip6t_LOG ip6t_REJECT
+>> nf_conntrack_ipv6 nf_defrag_ipv6 xt_conntrack ip6table_raw ipt_LOG
+>> xt_tcpudp ip6table_mangle xt_state iptable_nat nf_nat nf_conntrack_ipv4
+>> nf_defrag_ipv4 nf_conntrack iptable_mangle nfnetlink iptable_filter
+>> ip_tables ip6table_filter ip6_tables x_tables bridge stp bonding
+>> w83627ehf hwmon_vid coretemp sha1_ssse3 sha1_generic crc32c_intel
+>> aesni_intel cryptd aes_x86_64 aes_generic ipmi_poweroff ipmi_devintf
+>> ipmi_si ipmi_msghandler vhost_net macvtap macvlan tun drbd lru_cache cn
+>> loop kvm_intel kvm snd_pcm snd_timer snd iTCO_wdt soundcore psmouse
+>> snd_page_alloc i2c_i801 i2c_core cdc_acm iTCO_vendor_support joydev
+>> evdev serio_raw processor button pcspkr thermal_sys ext4 mbcache jbd2
+>> crc16 dm_mod raid1 md_mod sd_mod crc_t10dif usb_storage uas usbhid hid
+>> ahci libahci libata igb ehci_hcd scsi_mod usbcore e1000e dca usb_common
+>> [last unloaded: scsi_wait_scan]
+>>> [35481.685740] Pid: 0, comm: swapper/4 Not tainted 3.2.0-rc6+ #4
+>>> [35481.685744] Call Trace:
+>>> [35481.685746]<IRQ>   [<ffffffff810467ed>] ?
+>> warn_slowpath_common+0x78/0x8c
+>>> [35481.685849]  [<ffffffff81046899>] ? warn_slowpath_fmt+0x45/0x4a
+>>> [35481.685875]  [<ffffffff810aeaa0>] ?
+>> perf_event_task_tick+0x166/0x1ab
+>>> [35481.686018]  [<ffffffff81294219>] ? netif_tx_lock+0x40/0x72
+>>> [35481.686090]  [<ffffffff8129437a>] ? dev_watchdog+0xe9/0x148
+>>> [35481.686136]  [<ffffffff81051e58>] ? run_timer_softirq+0x19a/0x261
+>>> [35481.686176]  [<ffffffff81294291>] ? netif_tx_unlock+0x46/0x46
+>>> [35481.686215]  [<ffffffff810659bb>] ? timekeeping_get_ns+0xd/0x2a
+>>> [35481.686286]  [<ffffffff8104bdd4>] ? __do_softirq+0xb9/0x177
+>>> [35481.686365]  [<ffffffff81341d6c>] ? call_softirq+0x1c/0x30
+>>> [35481.686530]  [<ffffffff8100f841>] ? do_softirq+0x3c/0x7b
+>>> [35481.686580]  [<ffffffff8104c03c>] ? irq_exit+0x3c/0x9a
+>>> [35481.686742]  [<ffffffff81023e58>] ?
+>> smp_apic_timer_interrupt+0x74/0x82
+>>> [35481.686820]  [<ffffffff813405de>] ? apic_timer_interrupt+0x6e/0x80
+>>> [35481.686826]<EOI>   [<ffffffff811ddf49>] ? intel_idle+0xea/0x119
+>>> [35481.686991]  [<ffffffff811ddf28>] ? intel_idle+0xc9/0x119
+>>> [35481.687051]  [<ffffffff8125dce3>] ? cpuidle_idle_call+0xec/0x179
+>>> [35481.687089]  [<ffffffff8100d255>] ? cpu_idle+0xa1/0xe8
+>>> [35481.687143]  [<ffffffff810706ee>] ? arch_local_irq_restore+0x2/0x8
+>>> [35481.687189]  [<ffffffff8132d191>] ? start_secondary+0x1d5/0x1db
+>>> [35481.687234] ---[ end trace 01e9907674757948 ]---
+>>> [35481.687817] e1000e 0000:05:00.0: eth2: Reset adapter
+>>>
+>>> To try to regain connectivity I bring down the bond and the interface
+>> (eth2), then unload e1000e. Upon loading the module again:
+>>>
+>>> [36021.888962] e1000e: Intel(R) PRO/1000 Network Driver - 1.5.1-k
+>>> [36021.900258] e1000e: Copyright(c) 1999 - 2011 Intel Corporation.
+>>> [36021.911446] e1000e 0000:00:19.0: PCI INT A ->  GSI 20 (level, low) -
+>>> IRQ 20
+>>> [36021.923204] e1000e 0000:00:19.0: setting latency timer to 64
+>>> [36021.923372] e1000e 0000:00:19.0: irq 45 for MSI/MSI-X
+>>> [36022.202737] e1000e 0000:00:19.0: eth2: (PCI Express:2.5GT/s:Width
+>> x1) 00:25:90:56:ac:75
+>>> [36022.214480] e1000e 0000:00:19.0: eth3: Intel(R) PRO/1000 Network
+>> Connection
+>>> [36022.227506] e1000e 0000:00:19.0: eth3: MAC: 10, PHY: 11, PBA No:
+>> FFFFFF-0FF
+>>> [36022.239789] e1000e 0000:05:00.0: Disabling ASPM L0s
+>>> [36022.239805] e1000e 0000:05:00.0: enabling device (0000 ->  0002)
+>>> [36022.239829] e1000e 0000:05:00.0: PCI INT A ->  GSI 16 (level, low) -
+>>> IRQ 16
+>>> [36022.239921] e1000e 0000:05:00.0: setting latency timer to 64
+>>> [36022.240963] e1000e 0000:05:00.0: irq 64 for MSI/MSI-X
+>>> [36022.240995] e1000e 0000:05:00.0: irq 65 for MSI/MSI-X
+>>> [36022.241028] e1000e 0000:05:00.0: irq 66 for MSI/MSI-X
+>>> [36022.241596] e1000e 0000:05:00.0: PCI INT A disabled
+>>> [36022.241606] e1000e: probe of 0000:05:00.0 failed with error -2
+>>> [36022.304706] udevd[3634]: renamed network interface eth2 to eth3
+>>>
+>>> I then don't get an eth2 interface. Only a reboot brings the interface
+>> back. This has happened twice so far on this server in the past week,
+>> both times using v3.2-rc7-3-g4962516.
+>>>
+>>> lspci -vnn shows:
+>>>
+>>> 05:00.0 Ethernet controller [0200]: Intel Corporation 82574L Gigabit
+>> Network Connection [8086:10d3]
+>>>         Subsystem: Super Micro Computer Inc Device [15d9:0000]
+>>>         Flags: bus master, fast devsel, latency 0, IRQ 16
+>>>         Memory at fbd00000 (32-bit, non-prefetchable) [size=128K]
+>>>         I/O ports at e000 [size=32]
+>>>         Memory at fbd20000 (32-bit, non-prefetchable) [size=16K]
+>>>         Capabilities: [c8] Power Management version 2
+>>>         Capabilities: [d0] MSI: Enable- Count=1/1 Maskable- 64bit+
+>>>         Capabilities: [e0] Express Endpoint, MSI 00
+>>>         Capabilities: [a0] MSI-X: Enable+ Count=5 Masked-
+>>>         Capabilities: [100] Advanced Error Reporting
+>>>         Capabilities: [140] Device Serial Number 00-25-90-ff-ff-56-ac-
+>> 74
+>>>         Kernel driver in use: e1000e
+>>
+>> I've just had this happen on my other (identical) server with a nearly
+>> identical trace. Is there anything I can do do avoid this at all or at
+>> least help narrow down the problem?
+>>
+>> Cheers,
+>> Chris
+>>
+>> --
+>> Chris Boot
+>> bootc@bootc.net
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> Hello,
+>
+> Sorry for the delay in responding.  We have seen some hang issues using MSI-X on 82574 parts.  Can you try reloading the driver the IntMode module parameter.  IntMode=1 (you'll need a setting for each device in the system so two adapters would be IntMode=1,1)  See if that changes the symptom you are seeing with this part.  That setting will make sure the adapter uses MSI interrupts instead of MSI-X.
 
-Yes, ifconfig is deprecated but the /proc/net/if_inet6 file can be
-used in a lot of bash scripts and this was what we wanted to optimize.
+Carolyn,
 
-We tried to look at the netlink sockets used in iproute2 but there
-seems to be no way to improve the performance there. We used 3 pair of
-eyes for this before giving up.
+I'll give this a go next time I reproduce it. I built a new kernel with 
+more debugging and so far it hasn't yet triggered again...
 
-I'll come back with statistics from ip a s in at most 24 hours, I
-cannot test right now.
+Chris
 
-Thanks,
-Mihai
+-- 
+Chris Boot
+bootc@bootc.net
+
+------------------------------------------------------------------------------
+Ridiculously easy VDI. With Citrix VDI-in-a-Box, you don't need a complex
+infrastructure or vast IT resources to deliver seamless, secure access to
+virtual desktops. With this all-in-one solution, easily deploy virtual 
+desktops for less than the cost of PCs and save 60% on VDI infrastructure 
+costs. Try it free! http://p.sf.net/sfu/Citrix-VDIinabox
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
