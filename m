@@ -1,35 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2012-01-04 #2
-Date: Wed, 04 Jan 2012 14:49:23 -0500 (EST)
-Message-ID: <20120104.144923.372584452455227614.davem@davemloft.net>
-References: <20120104164339.GG2540@tuxdriver.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] ipv6: Check RA for sllao when configuring optimistic
+ ipv6 address
+Date: Wed, 4 Jan 2012 14:52:48 -0500
+Message-ID: <20120104195248.GC24324@hmsreliant.think-freely.org>
+References: <1325695643-27656-1-git-send-email-nhorman@tuxdriver.com>
+ <20120104.144318.1141715284599085189.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120104164339.GG2540@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:60324 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755426Ab2ADTwx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 14:52:53 -0500
+Content-Disposition: inline
+In-Reply-To: <20120104.144318.1141715284599085189.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 4 Jan 2012 11:43:40 -0500
-
-> Here are a handful of straggler wireless fixes for 3.2.  Included is
-> a NULL pointer fix for mwifiex, a regression fix for handling rx
-> header lengths for differnt b43 firmwares in PIO mode, a revert of
-> a one-liner for Bluetooth HCI that was causing uncomfortable delays
-> during resume, and an ath9k fix for a panic when running in AP mode
-> with aggregation disabled.
+On Wed, Jan 04, 2012 at 02:43:18PM -0500, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Wed,  4 Jan 2012 11:47:23 -0500
 > 
-> The Bluetooth fix is a one-liner change of a delay value.  The mwifiex,
-> b43, and ath9k fixes are relatively small and isolated to their
-> respective drivers.
+> > +extern void addrconf_prefix_rcv(struct net_device *dev,
+> > +				u8 *opt, int len, void *sllao);
 > 
-> Please let me know if there are problems!
-...
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-davem
+> You're not going to dereference or inspect 'sllao' otherwise you'd
+> give it a more appropriate type.  You just care if it was present or
+> not.
+> 
+> So why not just make 'sllao' a "bool" and the argument passed as the
+> test "X != NULL"?
+> 
 
-Pulled, thanks.
+Honestly I was just avoiding doing the extra comparison.  I'm happy to pass it
+as a test like that though if you think its cleaner.  I'll repost shortly.
+
+Neil
