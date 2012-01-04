@@ -1,48 +1,69 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCHv2 net-next 0/8] RX NFC support for hash-based filters
-Date: Wed, 4 Jan 2012 21:39:30 +0000
-Message-ID: <1325713170.3764.2.camel@bwh-desktop>
-References: <1325627819.2832.31.camel@bwh-desktop>
-	 <20120104.141111.16071561018650942.davem@davemloft.net>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH 1/1] netfilter: Add possibility to turn off netfilters
+ defrag per netns
+Date: Wed, 4 Jan 2012 22:40:09 +0100 (CET)
+Message-ID: <alpine.DEB.2.00.1201042232510.3934@blackhole.kfki.hu>
+References: <1325664443-10320-1-git-send-email-hans.schillstrom@ericsson.com> <20120104174035.GB3489@1984> <alpine.DEB.2.00.1201041857350.3170@blackhole.kfki.hu> <201201042156.05586.hans@schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:57289 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754203Ab2ADVjg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 16:39:36 -0500
-In-Reply-To: <20120104.141111.16071561018650942.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Patrick McHardy <kaber@trash.net>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hans Schillstrom <hans@schillstrom.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <201201042156.05586.hans@schillstrom.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-01-04 at 14:11 -0500, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Tue, 3 Jan 2012 21:56:59 +0000
+On Wed, 4 Jan 2012, Hans Schillstrom wrote:
+
+> On Wednesday, January 04, 2012 19:05:10 Jozsef Kadlecsik wrote:
+> > On Wed, 4 Jan 2012, Pablo Neira Ayuso wrote:
+> > 
+> > > On Wed, Jan 04, 2012 at 12:48:35PM +0100, Hans Schillstrom wrote:
+> > > > I like that idea, an "early" table at prio -500 with PREROUTING.
+> > > > There is also a need for a new flag "--allfrags"
+> > > > i.e. all fragments needs to be sorted out and sent to same dest for defrag.
+> > > > 
+> > > > ex.
+> > > > iptables -t early -A PREROUTING -i eth0 --allfrags -j NOTRACK
+> > > 
+> > > New tables add too much overhead. We have discussed this before with
+> > > Patrick.
+> > > 
+> > > Since this still remains specific to your needs, I think you can
+> > > remove nf_conntrack module in your setup.
+> > > 
+> > > I don't come with one sane setup that may want selectively defragment
+> > > some traffic yes and other not.
+> > > 
+> > > Am I missing anything else?
+> > 
+> > I agree. If you don't want defragmentation at all, then make sure you 
+> > don't load the nf_conntrack module directly/indirectly. Conntrack doesn't 
+> > work without defragmentation anyway.
 > 
-> > 1. Fix gianfar's validation of filter rule locations.  In the previous
-> >    version of this series, this was a requirement for part 2, but that's
-> >    no longer the case.
-> > 
-> > 2. Extend ethtool RX NFC rules API to support hash-based filter hardware
-> >    in which rule locations should be selected by the driver or firmware.
-> > 
-> > 3. Change the sfc driver to implement this API instead of RX n-tuple.
-> > 
-> > 4. Remove support for RX n-tuple, now that there are no in-tree
-> >    implementations.
-> 
-> All applied, I had to fix some trailing whitespace errors in patches
-> 5 and 6.
+> We are using LXC and it's only in the container that holds the external 
+> interface that can't have defragmentation.
+> The problem is if it's loaded you have it in all namespaces :-(
 
-Thanks, and sorry about the formatting.  I should try to work out why
-git didn't alert me to that earlier...
+Conntrack is per net namespaces. You may have one container with conntrack 
+enabled and another one without conntrack.
 
-Ben.
+Moreover, if you may receive fragments of the same packet at different 
+interfaces in different blades, then you may receive different whole 
+packets of the same flow at different interfaces/blades. But stateful 
+firewalling relies on the assumption that all packets goes through of the 
+firewall. Because it's not assured, conntrack may not run in the 
+containers you denoted as FW LXC.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
