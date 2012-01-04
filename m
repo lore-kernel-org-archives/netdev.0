@@ -1,44 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 2/2] net/smsc911x: Check if PHY is in operational
- mode before software reset
-Date: Tue, 03 Jan 2012 20:24:33 -0500 (EST)
-Message-ID: <20120103.202433.812126500710199359.davem@davemloft.net>
-References: <1325633779-6159-1-git-send-email-javier@dowhile0.org>
-	<1325633779-6159-2-git-send-email-javier@dowhile0.org>
+Subject: Re: linux-next: merge of the wireless-next tree into the net-next
+ tree
+Date: Tue, 03 Jan 2012 20:27:33 -0500 (EST)
+Message-ID: <20120103.202733.1070369898271428121.davem@davemloft.net>
+References: <20120104105947.8bac77d1d7198a49e6feeca8@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning@smsc.com, eballetbo@iseebcn.com,
-	ben@decadent.org.uk, netdev@vger.kernel.org
-To: javier@dowhile0.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45499 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754125Ab2ADBYm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 20:24:42 -0500
-In-Reply-To: <1325633779-6159-2-git-send-email-javier@dowhile0.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kvalo@qca.qualcomm.com,
+	linville@tuxdriver.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20120104105947.8bac77d1d7198a49e6feeca8@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Javier Martinez Canillas <javier@dowhile0.org>
-Date: Wed,  4 Jan 2012 00:36:19 +0100
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 4 Jan 2012 10:59:47 +1100
 
-> SMSC LAN generation 4 chips integrate an IEEE 802.3 ethernet physical layer.
-> The PHY driver for this integrated chip enable an energy detect power-down mode.
-> When the PHY is in a power-down mode, it prevents the MAC portion chip to be
-> software reseted.
+> I noticed that the wireless-next tree has been merged into the net-next
+> tree today.  Has anything been done about the build failure I reported in
+> the wireless-next a while ago:
 > 
-> That means that if we compile the kernel with the configuration option SMSC_PHY
-> enabled and try to bring the network interface up without an cable plug-ed the
-> PHY will be in a low power mode and the software reset will fail returning -EIO
-> to user-space:
-> 
-> root@igep00x0:~# ifconfig eth0 up
-> ifconfig: SIOCSIFFLAGS: Input/output error
-> 
-> This patch disable the energy detect power-down mode before trying to software
-> reset the LAN chip and re-enables after it was reseted successfully.
-> 
-> Signed-off-by: Javier Martinez Canillas <javier@dowhile0.org>
+> On 12/22/2011 16:58 +1100, Stephen Rothwell wrote:
+>>
+>> After merging the final tree, today's linux-next build (powerpc
+>> allyesconfig) failed like this:
+>> 
+>> drivers/net/wireless/ath/ath6kl/cfg80211.c:27:1: error: expected ')' before 'KBUILD_MODNAME'
+>> drivers/net/wireless/ath/ath6kl/cfg80211.c:27:1: error: 'KBUILD_MODNAME' undeclared here (not in a function)
+>> drivers/net/wireless/ath/ath6kl/cfg80211.c:27:1: error: expected ',' or ';' before string constant
 
-Applied.
+It happens on any platform not just powerpc, John please fix this and
+don't have known unresolved -next build failures in your tree when you
+push to me.
