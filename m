@@ -1,240 +1,83 @@
-From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Subject: [PATCH 6/6] ath6kl: create ath6kl_core.ko
-Date: Thu, 05 Jan 2012 01:10:16 +0200
-Message-ID: <20120104231016.32306.72354.stgit@x201>
-References: <20120104230429.32306.75965.stgit@x201>
+From: Richard Weinberger <richard@nod.at>
+Subject: Re: [PATCH] netfilter: Fix br_nf_pre_routing() in conjunction with
+ bridge-nf-call-ip(6)tables=0
+Date: Thu, 05 Jan 2012 00:13:29 +0100
+Message-ID: <4F04DD19.601@nod.at>
+References: <4F025A07.2000304@nod.at> <1325597164-13459-1-git-send-email-richard@nod.at> <1325597164-13459-2-git-send-email-richard@nod.at> <20120103081521.2fec3a29@nehalam.linuxnetplumber.net> <4F033E11.5060707@nod.at> <4F0361D7.3000602@pandora.be> <4F03650D.8050200@nod.at> <4F049290.3090803@pandora.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath6kl-devel-zC7DfRvBq/JWk0Htik3J/w@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120104230429.32306.75965.stgit@x201>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigB4BE8FEDA6EBD4B15340840A"
+Cc: Stephen Hemminger <shemminger@vyatta.com>, davem@davemloft.net,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Bart De Schuymer <bdschuym@pandora.be>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4F049290.3090803@pandora.be>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now ath6kl is ready for splitting core code to ath6kl_core.ko module.
-This also makes it possible to link both sdio and usb code to kernel
-at the same time, which earlier failed miserably.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigB4BE8FEDA6EBD4B15340840A
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Reported-by: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
-Signed-off-by: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
----
- drivers/net/wireless/ath/ath6kl/Makefile   |   37 +++++++++++-----------------
- drivers/net/wireless/ath/ath6kl/cfg80211.c |    3 ++
- drivers/net/wireless/ath/ath6kl/core.c     |    9 +++++++
- drivers/net/wireless/ath/ath6kl/debug.c    |    3 ++
- drivers/net/wireless/ath/ath6kl/hif.c      |    5 ++++
- drivers/net/wireless/ath/ath6kl/init.c     |    3 ++
- 6 files changed, 37 insertions(+), 23 deletions(-)
+Am 04.01.2012 18:55, schrieb Bart De Schuymer:
+> Op 3/01/2012 21:29, Richard Weinberger schreef:
+>> Am 03.01.2012 21:15, schrieb Bart De Schuymer:
+>>> The documentation is probably not explicit enough, but I would keep t=
+he
+>>> behavior as it is now. Setting bridge-nf-call-iptables to 0 makes
+>>> iptables behave as if bridge-netfilter was not enabled at compilation=
+=2E
+>>> Anyway, your patch is almost certainly flawed since the fact that
+>>> skb->nf_bridge can be NULL is used as part of the logic in
+>>> br_netfilter.c: it indicates that bridge-nf-call-iptables was 0 when =
+the
+>>> packet was first processed by bridge-netfilter and should therefore n=
+ot
+>>> be given to iptables in any other netfilter hook.
+>> Thanks for the explanation!
+>>
+>> Wouldn't it make sense to check for bridge-nf-call-iptables in
+>> xt_physdev?
+>> So that the user gets warned that his iptables rule will never match..=
+=2E
+>=20
+> We don't want to introduce module dependencies between the bridge modul=
+e
+> and the iptables physdev match.
 
-diff --git a/drivers/net/wireless/ath/ath6kl/Makefile b/drivers/net/wireless/ath/ath6kl/Makefile
-index 9bb69a8..863b9f6 100644
---- a/drivers/net/wireless/ath/ath6kl/Makefile
-+++ b/drivers/net/wireless/ath/ath6kl/Makefile
-@@ -21,32 +21,23 @@
- # Author(s): ="Atheros"
- #------------------------------------------------------------------------------
- 
--obj-$(CONFIG_ATH6KL_SDIO) := ath6kl_sdio.o
--ath6kl_sdio-y += debug.o
--ath6kl_sdio-y += hif.o
--ath6kl_sdio-y += htc.o
--ath6kl_sdio-y += bmi.o
--ath6kl_sdio-y += cfg80211.o
--ath6kl_sdio-y += init.o
--ath6kl_sdio-y += main.o
--ath6kl_sdio-y += txrx.o
--ath6kl_sdio-y += wmi.o
--ath6kl_sdio-y += core.o
-+obj-$(CONFIG_ATH6KL) += ath6kl_core.o
-+ath6kl_core-y += debug.o
-+ath6kl_core-y += hif.o
-+ath6kl_core-y += htc.o
-+ath6kl_core-y += bmi.o
-+ath6kl_core-y += cfg80211.o
-+ath6kl_core-y += init.o
-+ath6kl_core-y += main.o
-+ath6kl_core-y += txrx.o
-+ath6kl_core-y += wmi.o
-+ath6kl_core-y += core.o
-+ath6kl_core-$(CONFIG_NL80211_TESTMODE) += testmode.o
-+
-+obj-$(CONFIG_ATH6KL_SDIO) += ath6kl_sdio.o
- ath6kl_sdio-y += sdio.o
--ath6kl_sdio-$(CONFIG_NL80211_TESTMODE) += testmode.o
- 
- obj-$(CONFIG_ATH6KL_USB) += ath6kl_usb.o
--ath6kl_usb-y += debug.o
--ath6kl_usb-y += hif.o
--ath6kl_usb-y += htc.o
--ath6kl_usb-y += bmi.o
--ath6kl_usb-y += cfg80211.o
--ath6kl_usb-y += init.o
--ath6kl_usb-y += main.o
--ath6kl_usb-y += txrx.o
--ath6kl_usb-y += wmi.o
--ath6kl_usb-y += core.o
- ath6kl_usb-y += usb.o
--ath6kl_usb-$(CONFIG_NL80211_TESTMODE) += testmode.o
- 
- ccflags-y += -D__CHECK_ENDIAN__
-diff --git a/drivers/net/wireless/ath/ath6kl/cfg80211.c b/drivers/net/wireless/ath/ath6kl/cfg80211.c
-index 64043f8..d4ed6d1 100644
---- a/drivers/net/wireless/ath/ath6kl/cfg80211.c
-+++ b/drivers/net/wireless/ath/ath6kl/cfg80211.c
-@@ -15,6 +15,7 @@
-  */
- 
- #include <linux/moduleparam.h>
-+#include <linux/export.h>
- 
- #include "core.h"
- #include "cfg80211.h"
-@@ -1907,6 +1908,7 @@ int ath6kl_cfg80211_suspend(struct ath6kl *ar,
- 
- 	return 0;
- }
-+EXPORT_SYMBOL(ath6kl_cfg80211_suspend);
- 
- int ath6kl_cfg80211_resume(struct ath6kl *ar)
- {
-@@ -1958,6 +1960,7 @@ int ath6kl_cfg80211_resume(struct ath6kl *ar)
- 
- 	return 0;
- }
-+EXPORT_SYMBOL(ath6kl_cfg80211_resume);
- 
- #ifdef CONFIG_PM
- 
-diff --git a/drivers/net/wireless/ath/ath6kl/core.c b/drivers/net/wireless/ath/ath6kl/core.c
-index 7e3574e..0d00475 100644
---- a/drivers/net/wireless/ath/ath6kl/core.c
-+++ b/drivers/net/wireless/ath/ath6kl/core.c
-@@ -16,7 +16,9 @@
- 
- #include "core.h"
- 
-+#include <linux/module.h>
- #include <linux/moduleparam.h>
-+#include <linux/export.h>
- 
- #include "debug.h"
- #include "hif-ops.h"
-@@ -198,6 +200,7 @@ err_wq:
- 
- 	return ret;
- }
-+EXPORT_SYMBOL(ath6kl_core_init);
- 
- struct ath6kl *ath6kl_core_create(struct device *dev)
- {
-@@ -254,6 +257,7 @@ struct ath6kl *ath6kl_core_create(struct device *dev)
- 
- 	return ar;
- }
-+EXPORT_SYMBOL(ath6kl_core_create);
- 
- void ath6kl_core_cleanup(struct ath6kl *ar)
- {
-@@ -280,9 +284,14 @@ void ath6kl_core_cleanup(struct ath6kl *ar)
- 	ath6kl_cfg80211_cleanup(ar);
- 	ath6kl_cfg80211_destroy(ar);
- }
-+EXPORT_SYMBOL(ath6kl_core_cleanup);
- 
- void ath6kl_core_destroy(struct ath6kl *ar)
- {
- 	ath6kl_cfg80211_destroy(ar);
- }
-+EXPORT_SYMBOL(ath6kl_core_destroy);
- 
-+MODULE_AUTHOR("Qualcomm Atheros");
-+MODULE_DESCRIPTION("Core module for AR600x SDIO and USB devices.");
-+MODULE_LICENSE("Dual BSD/GPL");
-diff --git a/drivers/net/wireless/ath/ath6kl/debug.c b/drivers/net/wireless/ath/ath6kl/debug.c
-index 1d216e9..19795a6 100644
---- a/drivers/net/wireless/ath/ath6kl/debug.c
-+++ b/drivers/net/wireless/ath/ath6kl/debug.c
-@@ -54,6 +54,7 @@ int ath6kl_printk(const char *level, const char *fmt, ...)
- 
- 	return rtn;
- }
-+EXPORT_SYMBOL(ath6kl_printk);
- 
- #ifdef CONFIG_ATH6KL_DEBUG
- 
-@@ -68,6 +69,7 @@ void ath6kl_dbg(enum ATH6K_DEBUG_MASK mask, const char *fmt, ...)
- 	ath6kl_printk(KERN_DEBUG, fmt, &args);
- 	va_end(args);
- }
-+EXPORT_SYMBOL(ath6kl_dbg);
- 
- void ath6kl_dbg_dump(enum ATH6K_DEBUG_MASK mask,
- 		     const char *msg, const char *prefix,
-@@ -80,6 +82,7 @@ void ath6kl_dbg_dump(enum ATH6K_DEBUG_MASK mask,
- 		print_hex_dump_bytes(prefix, DUMP_PREFIX_OFFSET, buf, len);
- 	}
- }
-+EXPORT_SYMBOL(ath6kl_dbg_dump);
- 
- #define REG_OUTPUT_LEN_PER_LINE	25
- #define REGTYPE_STR_LEN		100
-diff --git a/drivers/net/wireless/ath/ath6kl/hif.c b/drivers/net/wireless/ath/ath6kl/hif.c
-index 3d26c14..e911737 100644
---- a/drivers/net/wireless/ath/ath6kl/hif.c
-+++ b/drivers/net/wireless/ath/ath6kl/hif.c
-@@ -15,6 +15,8 @@
-  */
- #include "hif.h"
- 
-+#include <linux/export.h>
-+
- #include "core.h"
- #include "target.h"
- #include "hif-ops.h"
-@@ -59,6 +61,8 @@ int ath6kl_hif_rw_comp_handler(void *context, int status)
- 
- 	return 0;
- }
-+EXPORT_SYMBOL(ath6kl_hif_rw_comp_handler);
-+
- #define REG_DUMP_COUNT_AR6003   60
- #define REGISTER_DUMP_LEN_MAX   60
- 
-@@ -560,6 +564,7 @@ int ath6kl_hif_intr_bh_handler(struct ath6kl *ar)
- 
- 	return status;
- }
-+EXPORT_SYMBOL(ath6kl_hif_intr_bh_handler);
- 
- static int ath6kl_hif_enable_intrs(struct ath6kl_device *dev)
- {
-diff --git a/drivers/net/wireless/ath/ath6kl/init.c b/drivers/net/wireless/ath/ath6kl/init.c
-index 5a92307..6183c42 100644
---- a/drivers/net/wireless/ath/ath6kl/init.c
-+++ b/drivers/net/wireless/ath/ath6kl/init.c
-@@ -17,8 +17,10 @@
- 
- #include <linux/moduleparam.h>
- #include <linux/errno.h>
-+#include <linux/export.h>
- #include <linux/of.h>
- #include <linux/mmc/sdio_func.h>
-+
- #include "core.h"
- #include "cfg80211.h"
- #include "target.h"
-@@ -1596,3 +1598,4 @@ void ath6kl_stop_txrx(struct ath6kl *ar)
- 
- 	clear_bit(WLAN_ENABLED, &ar->flag);
- }
-+EXPORT_SYMBOL(ath6kl_stop_txrx);
+CONFIG_NETFILTER_XT_MATCH_PHYSDEV depends anyway on
+CONFIG_BRIDGE_NETFILTER...
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> We could add a message to the syslog whenever these proc settings are
+> changed (in br_netfilter.c::brnf_sysctl_call_tables()).
+>=20
+
+Let's export brnf_call_iptables and brnf_call_ip6tables, such that
+physdev_mt_check() can notify the user that his iptables rule will have
+no effect.
+
+Thanks,
+//richard
+
+
+--------------enigB4BE8FEDA6EBD4B15340840A
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.18 (GNU/Linux)
+
+iQEcBAEBAgAGBQJPBN0eAAoJEN9758yqZn9eNVoIAKsFri6hfQdyZKl9FsCcHC4r
+kJGjdm2AWAocQb8/yYajPylhrJbS5WK103SjfUXFfRuPdTAr8VBiazo8zrqqy7Oy
++s7iLv1k/tQpS8GcSom67fZOIpRnjshRNMaFIw0IBk1A7CBbJU1HzQaqplSCMAJS
+NeiCVaJbWfOFafiKC8VZDv8gIro0WbroNPJwC+DhzhnDi8Zq2534K4nB1R53JR0W
+wMOJa+QWi5OslHas9a3ZCo7trLxcp+lYpAa9/Q/4u+A82GSMV9t2IRtvcDSAb72o
+cBhI9WTzi2rGUVmL6RBqsXiFFgbSVtCr8GW0n5c4s0OmyyOzAkC9gZqjQjnCVlM=
+=kali
+-----END PGP SIGNATURE-----
+
+--------------enigB4BE8FEDA6EBD4B15340840A--
