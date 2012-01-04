@@ -1,76 +1,59 @@
-From: "Li, Zhen-Hua" <lizhenhua.dev@gmail.com>
-Subject: Re: A pure virtual nic
-Date: Wed, 4 Jan 2012 10:07:08 +0800
-Message-ID: <CAEk7JKa-H=7oHjU-A1z8aNUZxd3TkJpBmwwrp4zWmZ_i2SQ+Tg@mail.gmail.com>
-References: <CAEk7JKbQgjiL90oGyWy6jkwY7eudUUqLP7GvdjfMcotTN8YhwQ@mail.gmail.com>
-	<CAHXqBFKstJCQ4rif6S7mNuQUzFjJ1wfRKAksFePJyBoTw0YTfg@mail.gmail.com>
-	<CAEk7JKY6xtBm4DraqRMYEnmZZhsOZoZG-MSgrq+W4n2eCCz1Sg@mail.gmail.com>
-	<4EFDDC55.80406@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>,
-	Linux NetDev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+From: Maxim Uvarov <maxim.uvarov@oracle.com>
+Subject: [PATCH] bond_alb: do not disable BH under netpoll
+Date: Tue,  3 Jan 2012 18:20:18 -0800
+Message-ID: <1325643618-3051-1-git-send-email-maxim.uvarov@oracle.com>
+Cc: Maxim Uvarov <maxim.uvarov@oracle.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:44224 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752549Ab2ADCHP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 21:07:15 -0500
-Received: by iaeh11 with SMTP id h11so31752080iae.19
-        for <netdev@vger.kernel.org>; Tue, 03 Jan 2012 18:07:14 -0800 (PST)
-In-Reply-To: <4EFDDC55.80406@candelatech.com>
+Received: from acsinet15.oracle.com ([141.146.126.227]:62317 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753821Ab2ADCW6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2012 21:22:58 -0500
+Received: from acsinet21.oracle.com (acsinet21.oracle.com [141.146.126.237])
+	by acsinet15.oracle.com (Switch-3.4.4/Switch-3.4.4) with ESMTP id q042MuM4011567
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 4 Jan 2012 02:22:57 GMT
+Received: from acsmt357.oracle.com (acsmt357.oracle.com [141.146.40.157])
+	by acsinet21.oracle.com (8.14.4+Sun/8.14.4) with ESMTP id q042MuJg004341
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 4 Jan 2012 02:22:56 GMT
+Received: from abhmt102.oracle.com (abhmt102.oracle.com [141.146.116.54])
+	by acsmt357.oracle.com (8.12.11.20060308/8.12.11) with ESMTP id q042Mtvi020407
+	for <netdev@vger.kernel.org>; Tue, 3 Jan 2012 20:22:55 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When a program sends out a packet, at start_xmit function. it will
-unpack it and packet again with HTTP proxy headers, then give it to
-the actual physical ethernet adapter.
-When it receives a packet, unpack it and remove the http proxy
-headers, and then put it back to the queue in kernel.
+Do not disable BH if interrupts are already disabled
+(netpoll case).
+Signed-off-by: Maxim Uvarov <maxim.uvarov@oracle.com>
+---
+ drivers/net/bonding/bond_alb.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
 
-
-2011/12/30 Ben Greear <greearb@candelatech.com>:
-> On 12/29/2011 05:51 PM, Li, Zhen-Hua wrote:
->>
->> I plan to add some protocols to it. For example, HTTP Proxy packet
->> analysis. So user-space programs can use an NIC in common way in a
->> proxy needed environment.
->
->
-> When a program transmits a packet on your virtual NIC, where does the
-> packet go? =A0When it receives a packet, where did the packet come fr=
-om?
->
-> Thanks,
-> Ben
->
->>
->>
->>
->> 2011/12/29 Micha=B3 Miros=B3aw<mirqus@gmail.com>:
->>>
->>> 2011/12/29 Zhen-Hua Li<lizhenhua.dev@gmail.com>:
->>>>
->>>> I have opened a project in SourceForge, it provides a pure virtual
->>>> ethernet adapter. =A0If you are interested to join it, please mail=
- me.
->>>
->>>
->>> Is veth or tap (both in vanilla kernel) not enough for you? What ar=
-e
->>> the differences?
->>>
->>> Best Regards,
->>> Micha=B3 Miros=B3aw
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
->
->
-> --
-> Ben Greear <greearb@candelatech.com>
-> Candela Technologies Inc =A0http://www.candelatech.com
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index d4fbd2e..69eeb36 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -101,12 +101,18 @@ static inline u8 _simple_hash(const u8 *hash_start, int hash_size)
+ 
+ static inline void _lock_tx_hashtbl(struct bonding *bond)
+ {
+-	spin_lock_bh(&(BOND_ALB_INFO(bond).tx_hashtbl_lock));
++	if (unlikely(irqs_disabled())) /*netpoll case*/
++		spin_lock(&(BOND_ALB_INFO(bond).tx_hashtbl_lock));
++	else
++		spin_lock_bh(&(BOND_ALB_INFO(bond).tx_hashtbl_lock));
+ }
+ 
+ static inline void _unlock_tx_hashtbl(struct bonding *bond)
+ {
+-	spin_unlock_bh(&(BOND_ALB_INFO(bond).tx_hashtbl_lock));
++	if (unlikely(irqs_disabled())) /*netpoll case*/
++		spin_unlock(&(BOND_ALB_INFO(bond).tx_hashtbl_lock));
++	else
++		spin_unlock_bh(&(BOND_ALB_INFO(bond).tx_hashtbl_lock));
+ }
+ 
+ /* Caller must hold tx_hashtbl lock */
+-- 
+1.7.4.1
