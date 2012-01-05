@@ -1,77 +1,104 @@
-From: Mike Waychison <mikew@google.com>
-Subject: Re: [RFC PATCH v1 2/2] virtio_net: Don't disable napi on low memory.
-Date: Wed, 4 Jan 2012 18:46:55 -0800
-Message-ID: <CAGTjWtB3PjWDfaunXjF-KQwKYg-bPgrn-8N=8iwL0EPvviXMuw@mail.gmail.com>
-References: <20120104225223.18184.1537.stgit@mike2.sea.corp.google.com>
-	<20120104225237.18184.71853.stgit@mike2.sea.corp.google.com>
-	<87y5tnat2g.fsf@rustcorp.com.au>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the wireless-next tree with the
+ net-next tree
+Date: Thu, 5 Jan 2012 14:04:05 +1100
+Message-ID: <20120105140405.92816482d364abfcf3854d74@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <87y5tnat2g.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__5_Jan_2012_14_04_05_+1100_6QZJW+EiW.bI.Th="
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Larry Finger <Larry.Finger@lwfinger.net>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 4, 2012 at 4:31 PM, Rusty Russell <rusty@rustcorp.com.au> wrote:
-> On Wed, 04 Jan 2012 14:52:38 -0800, Mike Waychison <mikew@google.com> wro=
-te:
->> Currently, the virtio_net driver deals with low memory memory by kicking
->> off delayed work in process context to try and refill the rx queues.
->> This process-context filling is synchronized against the receive
->> bottom-half by serially:
->>
->> =A0 - disabling NAPI polling on the device,
->> =A0 - allocating buffers,
->> =A0 - enqueueing the buffers,
->> =A0 - re-enabling napi.
->>
->> Disabling NAPI just to synchronize virtio_add_buf calls is a bit
->> overkill, and there isn't any reason we shouldn't be able to continue
->> processing received packets as they come in. =A0In the simple case, this
->> does not involve allocating any memory, and in fact allows memory to be
->> released as the guest system receives and processes packets.
->
-> Adding a spinlock to the fastpath for a weird case in the slow path is
-> bad too.
->
-> I dislike several things about this patch:
-> 1) You seem to leak memory if you allocate a batch then don't add it all.
-> 2) You have a module parameter, which I guarantee noone else will ever us=
-e.
-> 3) You've made three changes at once: allocating outside the lock,
-> =A0 batching, and replacing the napi lock with a spinlock.
-> 4) You use the skb data for the linked list; use the skb head's list.
->
-> Instead, here's how I think it should be done:
->
-> 1) Split alloc and add, but make alloc return the skb.
-> 2) Make try_fill_recv() only called in the receive path, keep it
-> =A0 basically the same (no batching).
-> 3) Add a new try_fill_recv_batch() for the workqueue and init paths.
-> =A0 This should try to allocate max - num, though in practice the
-> =A0 first alloc would probably kick off reclaim and take forever,
-> =A0 then by the time it's done, the problem is solved. =A0Since it's
-> =A0 reading max and num outside the lock, write this loop carefully!
-> 4) try_fill_recv_batch() should then stop napi and add as many as it
-> =A0 can, then restart it, then free any remainder.
+--Signature=_Thu__5_Jan_2012_14_04_05_+1100_6QZJW+EiW.bI.Th=
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-This sounds reasonable to me.  I'll see what I can muster together this wee=
-k.
+Hi John,
 
-Thanks for taking a look :)
+Today's linux-next merge of the wireless-next tree got a conflict in
+drivers/net/wireless/b43legacy/dma.c between commit 3db1cd5c05f3 ("net:
+fix assignment of 0/1 to bool variables") from the net-next tree and
+commit 5d07a3d62f63 ("b43legacy: Avoid packet losses in the dma worker
+code") from the wireless-next tree.
 
->
-> Cheers,
-> Rusty.
+Just context changes.  I fixed it up (see below) and can carry the fix as
+necessary.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/net/wireless/b43legacy/dma.c
+index 1ee31c5,aebef75..0000000
+--- a/drivers/net/wireless/b43legacy/dma.c
++++ b/drivers/net/wireless/b43legacy/dma.c
+@@@ -1186,8 -1180,10 +1180,10 @@@ int b43legacy_dma_tx(struct b43legacy_w
+  	if ((free_slots(ring) < SLOTS_PER_PACKET) ||
+  	    should_inject_overflow(ring)) {
+  		/* This TX ring is full. */
+- 		ieee80211_stop_queue(dev->wl->hw, txring_to_priority(ring));
++ 		unsigned int skb_mapping =3D skb_get_queue_mapping(skb);
++ 		ieee80211_stop_queue(dev->wl->hw, skb_mapping);
++ 		dev->wl->tx_queue_stopped[skb_mapping] =3D 1;
+ -		ring->stopped =3D 1;
+ +		ring->stopped =3D true;
+  		if (b43legacy_debug(dev, B43legacy_DBG_DMAVERBOSE))
+  			b43legacydbg(dev->wl, "Stopped TX ring %d\n",
+  			       ring->index);
+@@@ -1285,14 -1293,21 +1293,21 @@@ void b43legacy_dma_handle_txstatus(stru
+  	dev->stats.last_tx =3D jiffies;
+  	if (ring->stopped) {
+  		B43legacy_WARN_ON(free_slots(ring) < SLOTS_PER_PACKET);
+- 		ieee80211_wake_queue(dev->wl->hw, txring_to_priority(ring));
+ -		ring->stopped =3D 0;
+ +		ring->stopped =3D false;
++ 	}
++=20
++ 	if (dev->wl->tx_queue_stopped[ring->queue_prio]) {
++ 		dev->wl->tx_queue_stopped[ring->queue_prio] =3D 0;
++ 	} else {
++ 		/* If the driver queue is running wake the corresponding
++ 		 * mac80211 queue. */
++ 		ieee80211_wake_queue(dev->wl->hw, ring->queue_prio);
+  		if (b43legacy_debug(dev, B43legacy_DBG_DMAVERBOSE))
+  			b43legacydbg(dev->wl, "Woke up TX ring %d\n",
+- 			       ring->index);
++ 				     ring->index);
+  	}
+-=20
+- 	spin_unlock(&ring->lock);
++ 	/* Add work to the queue. */
++ 	ieee80211_queue_work(dev->wl->hw, &dev->wl->tx_work);
+  }
+ =20
+  static void dma_rx(struct b43legacy_dmaring *ring,
+
+--Signature=_Thu__5_Jan_2012_14_04_05_+1100_6QZJW+EiW.bI.Th=
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBCAAGBQJPBRMlAAoJEECxmPOUX5FEnbUP/0GNpT1I5oqPc0RwPiliHTRq
+T97vek5Mjc1Y7ENvJl5DnPSda1D5sDVMGuvXR1y1Qnw+LhsyJVYsjnumsR22haFg
++4McRvzLt8E56hePDx+l0rZ56MlFx8vL1Ogf6Wh9UlZ8Ze5aZEyG2EvLa6RzRaFN
+Hndf4ZTXfpAKxnFiTCZvR+4jI2tqXEpjyNyoiJZoAgF8FFlvgqZR6M9XjHp117EV
+HPQRj+fseiKsWHch+hMlabD70RcR5chX/PT8AaoC/tdRgOHokrPH8AdYIwoEzcAv
+5T4xfE9czc/zBfAEOXAI/DYTA0PsuVvXTyYU2+CxF+EID4EKaht5G+VLEwy0AV7v
+LUFSFCMLrnCrIW+8GRccOUGqhgBE5JoKVZ0/xrI3NrV08xw9evPfoK5QKNj/eFzt
+9QiMbWLK1FXDNvzqmS+CQjwaXqWtIPLy/yT24fAejITvDXMSWLpNIhYFRXXWHYxZ
+U+TDNoL0jTIbuTnw34z9WkOYfMWhDc6/W+4HASYRiKP/24oZ/pyfIS3s1oqwmN/K
+BdfRCR8YNd6yWNBJ5iyoYNa69Kdd0Xsj8wwmo6kC7KSiU8HV9lrZTWgBUP7PLYDO
+opV+nvOnSH2TTQq7hpjVSTOonl+UN8gKf99moVhC/KPIjwRjuMTlsDwNnBsly9SC
+ainihfmB7j7dihCAmNOm
+=zd4a
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__5_Jan_2012_14_04_05_+1100_6QZJW+EiW.bI.Th=--
