@@ -1,91 +1,95 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH 1/1] netfilter: Add possibility to turn off netfilters
- defrag per netns
-Date: Thu, 5 Jan 2012 10:11:28 +0100 (CET)
-Message-ID: <alpine.DEB.2.00.1201050959030.5244@blackhole.kfki.hu>
-References: <1325664443-10320-1-git-send-email-hans.schillstrom@ericsson.com> <201201042156.05586.hans@schillstrom.com> <alpine.DEB.2.00.1201042232510.3934@blackhole.kfki.hu> <201201050819.21363.hans.schillstrom@ericsson.com>
+From: Jean-Michel Hautbois <jhautbois@gmail.com>
+Subject: Re: TCP communication for raw image transmission
+Date: Thu, 5 Jan 2012 10:13:32 +0100
+Message-ID: <CAL8zT=iSP+GncMEJ38eaCZ85P-tBDMUjUeaFr-x3j_rksUaK2A@mail.gmail.com>
+References: <CAL8zT=iSiKZfENdtng9gDtuRSuFNn4WZ69uuGapLVVEduFRVyQ@mail.gmail.com>
+ <1325519943.2375.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <CAL8zT=giNe46FYQYxPkbshVfyG-DvCTKS0RLdiN8Kz+e-x-JFw@mail.gmail.com>
+ <1325521745.18116.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <CAL8zT=gbCmtNpw1Lot0P7zB+b_Kw911jhxsXCzO3JOBmMLRcFg@mail.gmail.com>
+ <1325523137.18116.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <4F0382BB.5060601@hp.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Patrick McHardy <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <201201050819.21363.hans.schillstrom@ericsson.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:41068 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753607Ab2AEJNy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 04:13:54 -0500
+Received: by werm1 with SMTP id m1so201854wer.19
+        for <netdev@vger.kernel.org>; Thu, 05 Jan 2012 01:13:53 -0800 (PST)
+In-Reply-To: <4F0382BB.5060601@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 5 Jan 2012, Hans Schillstrom wrote:
-
-> On Wednesday 04 January 2012 22:40:09 Jozsef Kadlecsik wrote:
-> > On Wed, 4 Jan 2012, Hans Schillstrom wrote:
-> > 
-> > > On Wednesday, January 04, 2012 19:05:10 Jozsef Kadlecsik wrote:
-> > > > On Wed, 4 Jan 2012, Pablo Neira Ayuso wrote:
-> > > > 
-> > > > > On Wed, Jan 04, 2012 at 12:48:35PM +0100, Hans Schillstrom wrote:
-> > > > > > I like that idea, an "early" table at prio -500 with PREROUTING.
-> > > > > > There is also a need for a new flag "--allfrags"
-> > > > > > i.e. all fragments needs to be sorted out and sent to same dest for defrag.
-> > > > > > 
-> > > > > > ex.
-> > > > > > iptables -t early -A PREROUTING -i eth0 --allfrags -j NOTRACK
-> > > > > 
-> > > > > New tables add too much overhead. We have discussed this before with
-> > > > > Patrick.
-> > > > > 
-> > > > > Since this still remains specific to your needs, I think you can
-> > > > > remove nf_conntrack module in your setup.
-> > > > > 
-> > > > > I don't come with one sane setup that may want selectively defragment
-> > > > > some traffic yes and other not.
-> > > > > 
-> > > > > Am I missing anything else?
-> > > > 
-> > > > I agree. If you don't want defragmentation at all, then make sure you 
-> > > > don't load the nf_conntrack module directly/indirectly. Conntrack doesn't 
-> > > > work without defragmentation anyway.
-> > > 
-> > > We are using LXC and it's only in the container that holds the external 
-> > > interface that can't have defragmentation.
-> > > The problem is if it's loaded you have it in all namespaces :-(
-> > 
-> > Conntrack is per net namespaces. You may have one container with conntrack 
-> > enabled and another one without conntrack.
-> 
-> How do you disable conntrack per netns ?
-> I can't see how to do it except for NOTRACK
-> Then the nf_defrag issue is still there...
-
-OK, I see. Conntrack is per net namespace but it's enabled globally.
- 
-So at the moment I think the best solution is something like your patch 
-variant (but the condition is wrong, it should be "&& !skb->nfct"):
-
---- a/net/ipv4/netfilter/nf_defrag_ipv4.c
-+++ b/net/ipv4/netfilter/nf_defrag_ipv4.c
-@@ -74,6 +74,14 @@ static unsigned int ipv4_conntrack_defrag(unsigned int
-hooknum,
-...
-+       const struct net_device *dev = (hooknum == NF_INET_LOCAL_OUT ?
-+                                       out : in);
-+
-+       /* No defrag and not Previously seen (loopback)? */
-+       if (dev_net(dev)->ct.sysctl_notrac_defrag && skb->nfct) {
-+               /* Attach fake conntrack entry. as in NOTRACK */
-+               skb->nfct = &nf_ct_untracked_get()->ct_general;
-+               skb->nfctinfo = IP_CT_NEW;
-+               nf_conntrack_get(skb->nfct);
-+               return NF_ACCEPT;
-+       }
-...
-
-Best regards,
-Jozsef
+2012/1/3 Rick Jones <rick.jones2@hp.com>:
+> On 01/02/2012 08:52 AM, Eric Dumazet wrote:
+>>
+>> Le lundi 02 janvier 2012 =C3=A0 17:40 +0100, Jean-Michel Hautbois a =
+=C3=A9crit :
+>>
+>>> Mmmh, using netperf you would like to know what the client (my ARM
+>>> board) can do ?
+>>> How would you test it ? I can have an ARM board on one side, and th=
+e
+>>> x86 on the other...
+>>>
+>>
+>> x86> =C2=A0netserver&
+>> arm> =C2=A0netperf -H<arm_ip_address> =C2=A0-l 60 -t TCP_STREAM
+>>
+>> 1) check cpu usage on<arm> =C2=A0while test is running
+>> (for example : vmstat 1 )
+>> 2) check bandwith of test run
+>
+>
+> The "&" at the end of the netserver command is (should be) redundant =
 -
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+> netserver will by default daemonize itself.
+>
+> I would suggest amending the netperf command line to something more l=
+ike:
+>
+> netperf -H <x86IP> -c -l 60 -t TCP_STREAM -- -m <dataofoneline> -D
+
+I did it, and here are the results (when plugged directly between x86
+and arm, and not throught the switch, as before) :
+/ # netperf -H 192.168.0.1 -c -l 60 -t TCP_STREAM -- -m 1344 -D
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
+192.168.0.1 (192.168.0.1) port 0 AF_INET : nodelay
+Recv   Send    Send                          Utilization       Service =
+Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    =
+Recv
+Size   Size    Size     Time     Throughput  local    remote   local   =
+remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   =
+us/KB
+
+ 87380  16384   1344    60.01        45.43   100.00   -1.00    180.325 =
+ -1.000
+
+And without specifying the data size :
+/ # netperf -H 192.168.0.1 -c -l 60 -t TCP_STREAM
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
+192.168.0.1 (192.168.0.1) port 0 AF_INET
+Recv   Send    Send                          Utilization       Service =
+Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    =
+Recv
+Size   Size    Size     Time     Throughput  local    remote   local   =
+remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   =
+us/KB
+
+ 87380  16384  16384    60.01        61.94   99.98    -1.00    132.230 =
+ -1.000
+
+This is far better than the first tests, but this means my best bet is
+to send as much data as possible (here, 16384)...
+I will do a benchmark with a little script which will test several
+frame sizes (or is there a way to know the theorical better value ?).
+
+JM
