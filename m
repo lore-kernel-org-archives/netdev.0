@@ -1,44 +1,55 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: Re: linux-next: manual merge of the selinux tree with the net-next tree
-Date: Thu, 05 Jan 2012 16:25:53 -0500
-Message-ID: <27624574.j8RvKjachg@sifl>
-References: <20120105151255.f72ad113a93493bb55844034@canb.auug.org.au>
+From: "Yalagandula, Praveen" <praveen.yalagandula@hp.com>
+Subject: RE: bug in qavg calculation in include/net/red.h (resending as
+ plain-text email)
+Date: Thu, 5 Jan 2012 21:29:38 +0000
+Message-ID: <67E2BF19E6D6A749A7680AEF496EB37C39D92B263A@GVW0547EXC.americas.hpqcorp.net>
+References: <67E2BF19E6D6A749A7680AEF496EB37C39D9204067@GVW0547EXC.americas.hpqcorp.net>
+	 <1325794400.2748.1.camel@edumazet-laptop>
+ <1325798396.2748.19.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Eric Paris <eparis@redhat.com>, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Andrei Emeltchenko <andrei.emeltchenko@intel.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	"Gustavo F. Padovan" <padovan@profusion.mobi>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20120105151255.f72ad113a93493bb55844034@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:5122 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758302Ab2AEV37 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 16:29:59 -0500
+In-Reply-To: <1325798396.2748.19.camel@edumazet-laptop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, January 05, 2012 03:12:55 PM Stephen Rothwell wrote:
-> Hi Eric,
-> 
-> Today's linux-next merge of the selinux tree got a conflict in
-> net/bluetooth/l2cap_sock.c between commit 15770b1ab974 ("Bluetooth:
-> convert force_active variable to flag in l2cap chan") from the net-next
-> tree and commit 53860f3d0499 ("bluetooth: Properly clone LSM attributes
-> to newly created child connections") from the selinux tree.
-> 
-> These both remove the same line, but there is probably something more
-> subtle going on ...  I just used the version from the net-next tree.
-
-Something is a bit odd.  When I look in the current linux-next tree I see two 
-commits which fix a Bluetooth/LSM bug; the first is correct, the second one 
-appears to be some other commit which just hijacked the description from the 
-first ... I have no idea what is going on in the second commit; I'll leave 
-that to you git gurus :)
-
- * Correct commit -> 6230c9b4f8957c8938ee4cf2d03166d3c2dc89de
-
- * Garbage commit -> 53860f3d0499992855d58e33f0f79bfe642dfccb
-
--- 
-paul moore
-virtualization @ redhat
+VGhhbmtzIGZvciB0aGUgcHJvbXB0IHJlc3BvbnNlLiBJIHVuZGVyc3RhbmQgaXQgYmV0dGVyIG5v
+dy4NCg0KQ2hlZXJzLA0KUHJhdmVlbg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+
+IEZyb206IEVyaWMgRHVtYXpldCBbbWFpbHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dDQo+IFNl
+bnQ6IFRodXJzZGF5LCBKYW51YXJ5IDA1LCAyMDEyIDE6MjAgUE0NCj4gVG86IFlhbGFnYW5kdWxh
+LCBQcmF2ZWVuDQo+IENjOiBBbGV4ZXkgS3V6bmV0c292OyBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
+DQo+IFN1YmplY3Q6IFJlOiBidWcgaW4gcWF2ZyBjYWxjdWxhdGlvbiBpbiBpbmNsdWRlL25ldC9y
+ZWQuaCAocmVzZW5kaW5nIGFzDQo+IHBsYWluLXRleHQgZW1haWwpDQo+IA0KPiBMZSBqZXVkaSAw
+NSBqYW52aWVyIDIwMTIgw6AgMjE6MTMgKzAxMDAsIEVyaWMgRHVtYXpldCBhIMOpY3JpdCA6DQo+
+ID4gTGUgamV1ZGkgMDUgamFudmllciAyMDEyIMOgIDE5OjMwICswMDAwLCBZYWxhZ2FuZHVsYSwg
+UHJhdmVlbiBhIMOpY3JpdA0KPiA6DQo+ID4gPiAoUmVzZW5kaW5nIGFzIHBsYWluIHRleHQpDQo+
+ID4gPg0KPiA+ID4gRGVhciBBbGV4ZXksDQo+ID4gPg0KPiA+ID4gVGhlIGNvZGUgKHNlZSBiZWxv
+dykgZm9yIGNvbXB1dGluZyB0aGUgcXVldWUgYXZlcmFnZSBmb3IgUkVEDQo+ID4gPiBpbXBsZW1l
+bnRhdGlvbiBpbiBMaW51eCBrZXJuZWwgaGFzIGEgYnVnLiBUaGUgcmV0dXJuIGxpbmUgc2hvdWxk
+IGJlDQo+ID4gPiAicmV0dXJuIHAtPnFhdmcgKyAoKGJhY2tsb2cgLSBwLT5xYXZnKSA+PiBwLT5X
+bG9nKTsiLg0KPiA+ID4NCj4gPiA+IHFhdmcgPSBxYXZnKigxLVcpICsgYmFja2xvZypXDQo+ID4g
+Pg0KPiA+ID4gICAgICA9IHFhdmcgKyAoYmFja2xvZy1xYXZnKSpXDQo+ID4gPg0KPiA+ID4gVGhl
+IGN1cnJlbnQgYnVnZ3kgY29kZSBhcHBsaWVzIHJpZ2h0IHNoaWZ0IHRvIG9ubHkgdGhlIHByZXZp
+b3VzDQo+IHFhdmcsDQo+ID4gPiB3aGVyZSBhcyBpdCBzaG91bGQgYmUgYXBwbGllZCB0byAoYmFj
+a2xvZyAtIHFhdmcpLiBIb3BlIHlvdSBjYW4gZ2V0DQo+ID4gPiB0aGlzIGJ1ZyBjb3JyZWN0ZWQu
+DQo+ID4NCj4gPiBDb2RlIGlzIGNvcnJlY3QuDQo+ID4NCj4gPiBQbGVhc2UgcmVhZCB0aGUgY29t
+bWVudCwgaXQgcmVhbGx5IGV4cGxhaW5zIHRoZSB0aGluZy4NCj4gPg0KPiANCj4gSSBoYXZlIG1v
+cmUgdGltZSB0byBleHBsYWluIHdoYXQncyBnb2luZyBvbiA6DQo+IA0KPiBPbiBpbnB1dCwgInVu
+c2lnbmVkIGludCBiYWNrbG9nIiBpcyBub3QgeWV0IHNjYWxlZC4NCj4gQnV0IHFhdmcgX2lzXyBz
+Y2FsZWQgYnkgcC0+V2xvZy4NCj4gDQo+IFNvIHdlIHNob3VsZCBmaXJzdCBzY2FsZSAiYmFja2xv
+ZyIgYnkgV2xvZyBiaXRzIHRvIHRoZSBsZWZ0IDoNCj4gDQo+IGJhY2tsb2dfc2NhbGVkID0gYmFj
+a2xvZyA8PCBwLT5XbG9nOw0KPiANCj4gVGhlbiB3ZSBkbyBvdXIgY29tcHV0YXRpb24gYXMgeW91
+IHN0YXRlZCA6DQo+IA0KPiByZXR1cm4gcC0+cWF2ZyArICgoYmFja2xvZ19zY2FsZWQgLSBwLT5x
+YXZnKSA+PiBwLT5XbG9nKTsNCj4gDQo+IEl0cyBlcXVpdmFsZW50IHRvIGN1cnJlbnQgY29kZSwg
+YnV0IHVzaW5nIGEgc2luZ2xlIHNoaWZ0IHRvIHRoZSByaWdodC4NCj4gDQo+IHJldHVybiBwLT5x
+YXZnICsgKGJhY2tsb2cgLSAocC0+cWF2ZyA+PiBwLT5XbG9nKSk7DQo+IA0KPiANCj4gSG9wZSB0
+aGlzIGhlbHBzLg0KPiANCg0K
