@@ -1,54 +1,41 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: pull request: wireless-next 2012-01-05
-Date: Thu, 5 Jan 2012 12:49:07 -0500
-Message-ID: <20120105174906.GD10666@tuxdriver.com>
-References: <20120105160938.GC10666@tuxdriver.com>
- <20120105.123039.977245333906219511.davem@davemloft.net>
+From: Fabio Estevam <festevam-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2] drivers: net: Fix dependency for EEPROM_93CX6
+Date: Thu, 5 Jan 2012 16:06:54 -0200
+Message-ID: <CAOMZO5AuZ_MHW3C1uNK7PyRz=XRHXhn2pvKCwk7iXLDd0YkDOQ@mail.gmail.com>
+References: <1325770673-17309-1-git-send-email-festevam@gmail.com>
+	<4F05CBA9.1070602@lwfinger.net>
+	<20120105.122004.1170447281304011158.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:48291 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751335Ab2AESA5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 13:00:57 -0500
-Content-Disposition: inline
-In-Reply-To: <20120105.123039.977245333906219511.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gwingerde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, fabio.estevam-KZfg59tc24xl57MIdRCFDg@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120105.122004.1170447281304011158.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 05, 2012 at 12:30:39PM -0500, David Miller wrote:
-> From: "John W. Linville" <linville@tuxdriver.com>
-> Date: Thu, 5 Jan 2012 11:09:38 -0500
-> 
-> > Here is the last wireless "feature" pull request intended for 3.3.
-> > Mostly minutia, but highlights include an NFC spec update and some
-> > relicensing of regulatory code under the ISC license.
-> > 
-> > After consulation with Kalle, I have reverted the ath6kl USB bits that
-> > were causing build problems.
-> > 
-> > Please let me know if there are problems!
-> > 
-> > John
-> > 
-> > P.S. Sorry about the "ssh://" URL -- git.kernel.org seems a bit slow
-> > about syncing today...
-> 
-> That ssh URL would only work for you, since I don't have permission to get
-> at your trees even just to pull.
+On Thu, Jan 5, 2012 at 3:20 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
 
-Hmmm...really?  I'm pretty sure I pulled other trees that way.
+> Right, this is definitely the wrong fix, "select" is the right way to
+> fix this because no user should have to know the gory details of what
+> random odd config variables have to be on already in order to turn on
+> support for a device they are interested in.
+>
+> Fix this right, by using "select MISC_DEVICES"
 
-> I pulled from the equivalent git:// URL, the top commit was the ath6kl
-> USB revert.
+I have tried selecting MISC_DEVICES in the Kconfig's, but the warning remains.
 
-Sure, that's fine.
+I agree with Ben's comment: "That seems like a bug, since MISC_DEVICES
+doesn't by itself select any
+code.  (It's also not a meaningful category and maybe ought not to be an
+option at all.)"
 
-Thanks!
+Regards,
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Fabio Estevam
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
