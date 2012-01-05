@@ -1,53 +1,43 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Bug in netem reordering
-Date: Wed, 4 Jan 2012 16:44:51 -0800
-Message-ID: <CAGK4HS8YBBwPtPpQhi8gas=RBE6wao6KZ1dwbwo2rxn4qXggCQ@mail.gmail.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [RFC PATCH v1 1/2] virtio_net: Pass gfp flags when allocating rx
+	buffers.
+Date: Thu, 05 Jan 2012 10:40:02 +1030
+Message-ID: <871urfc8md.fsf@rustcorp.com.au>
+References: <20120104225223.18184.1537.stgit@mike2.sea.corp.google.com>
+	<20120104225231.18184.96390.stgit@mike2.sea.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:61751 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757264Ab2AEAow (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 19:44:52 -0500
-Received: by vbbfc26 with SMTP id fc26so9723vbb.19
-        for <netdev@vger.kernel.org>; Wed, 04 Jan 2012 16:44:51 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Mike Waychison <mikew@google.com>, "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120104225231.18184.96390.stgit@mike2.sea.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, 04 Jan 2012 14:52:32 -0800, Mike Waychison <mikew@google.com> wrote:
+> Currently, the refill path for RX buffers will always allocate the
+> buffers as GFP_ATOMIC, even if we are in process context.  This will
+> fail to apply memory pressure as the worker thread will not contribute
+> to the freeing of memory.
+> 
+> Fix this by changing add_recvbuf_small to use the gfp variant allocator,
+> __netdev_alloc_skb_ip_align().
+> 
+> Signed-off-by: Mike Waychison <mikew@google.com>
 
-I am getting a crash when I test the reordering feature of netem. This
-happens every time I run the following tc  command and then pass some
-traffic through the
-interface. I am using the latest net-next kernel.
+OK, this is a no-brainer.  Thanks!  Dave, can you pick this up?
 
-#tc qdisc add dev eth0 root netem delay 10ms reorder 25% 50%
+Acked-by: Rusty Russell <rusty@rustcorp.com.au>
 
-Then wait for several packets to go through.
-
-The problem seems to be in netem_enqueue(). Part of the code for
-reordering is as follows:
-
- } else {
-                /*
-                 * Do re-ordering by putting one out of N packets at the front
-                 * of the queue.
-                 */
-                cb->time_to_send = psched_get_time();
-                q->counter = 0;
-
-                __skb_queue_head(&sch->q, skb);
-                q->qdisc->qstats.backlog += qdisc_pkt_len(skb);
-                q->qdisc->qstats.requeues++;
-                ret = NET_XMIT_SUCCESS;
-        }
-
-
-The issue is that q->qdisc is initialized to NULL (by netem_init? ).
-When the else branch is executed as above after a few packets,
-q->qdisc is NULL and we get a crash.
-Can anyone else reproduce the problem?
-
-Regards,
-Vijay Subramanian
+Cheers,
+Rusty.
