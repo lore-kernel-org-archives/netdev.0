@@ -1,51 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/6] net: add paged frag destructor
- support to kernel_sendpage.
-Date: Thu, 05 Jan 2012 14:15:22 -0500 (EST)
-Message-ID: <20120105.141522.1303730212186060591.davem@davemloft.net>
-References: <1325783399.25206.413.camel@zakaz.uk.xensource.com>
-	<1325783624-14601-5-git-send-email-ian.campbell@citrix.com>
+Subject: Re: Possible DoS with 6RD border relay
+Date: Thu, 05 Jan 2012 14:20:54 -0500 (EST)
+Message-ID: <20120105.142054.318495253662798509.davem@davemloft.net>
+References: <1325699600.2428.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<201201041326.04403.bcook@breakingpoint.com>
+	<201201042222.53147.bcook@breakingpoint.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, rds-devel@oss.oracle.com, pekkas@netcore.fi,
-        eric.dumazet@gmail.com, yoshfuji@linux-ipv6.org,
-        netdev@vger.kernel.org, gregkh@suse.de, Trond.Myklebust@netapp.com,
-        jmorris@namei.org, cluster-devel@redhat.com,
-        ocfs2-devel@oss.oracle.com, kuznet@ms2.inr.ac.ru,
-        ceph-devel@vger.kernel.org, linux-nfs@vger.kernel.org, kaber@trash.net,
-        drbd-user@lists.linbit.com
-To: ian.campbell@citrix.com
-Return-path: <cluster-devel-bounces@redhat.com>
-In-Reply-To: <1325783624-14601-5-git-send-email-ian.campbell@citrix.com>
-List-Unsubscribe: <https://www.redhat.com/mailman/options/cluster-devel>,
-	<mailto:cluster-devel-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/cluster-devel>
-List-Post: <mailto:cluster-devel@redhat.com>
-List-Help: <mailto:cluster-devel-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/cluster-devel>,
-	<mailto:cluster-devel-request@redhat.com?subject=subscribe>
-Sender: cluster-devel-bounces@redhat.com
-Errors-To: cluster-devel-bounces@redhat.com
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: bcook@breakingpoint.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:33876 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755357Ab2AETVF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 14:21:05 -0500
+In-Reply-To: <201201042222.53147.bcook@breakingpoint.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <ian.campbell@citrix.com>
-Date: Thu, 5 Jan 2012 17:13:43 +0000
+From: Brent Cook <bcook@breakingpoint.com>
+Date: Wed, 4 Jan 2012 22:22:52 -0600
 
-> -static ssize_t do_tcp_sendpages(struct sock *sk, struct page **pages, int poffset,
-> +static ssize_t do_tcp_sendpages(struct sock *sk,
-> +				struct page **pages,
-> +				struct skb_frag_destructor **destructors,
-> +				int poffset,
->  			 size_t psize, int flags)
->  {
->  	struct tcp_sock *tp = tcp_sk(sk);
+> Is this expected behavior? All of the peers in this case are really the same 
+> 6RD client - it's really simulating a customer edge router with a few thousand 
+> hosts behind it. I suspect that adding a static route entry for the CE's 
+> prefix via 'sit' will also make the problem go away.
 
-An array of destructors is madness, and the one call site that specifies this
-passes an address of a single entry.
+Any route which refers to more than one exact host as the destination must
+be cloned or COW'd.
 
-This also would never even have to occur if you put the destructor inside of
-struct page instead.
+This is so that we can provide unique metrics for the destination, as
+well as a unique neighbour for the nexthop.
 
-Finally, except for the skb_shared_info() layout optimization in patch #1 which
-I alreayd applied, this stuff is not baked enough for the 3.3 merge window.
+In your case, the keys used to lookup the nexthop for all of these
+routes must be different, otherwise you wouldn't hit the neighbour
+table limits.  Since if they were all the same we'd find an existing
+neighbour entry and just bump it's reference count.
+
+Longer term I intend to make the ipv4 and ipv6 routes not take a
+reference to the neighbour entries.  The neighbour entries will be
+"refcount-less", and only we'll just use the neighbour entry at packet
+output time using a low latency fast lookup inside of a tight RCU
+protected code sequence.
+
+So all of this "neighbour table overflow" crap will just disappear.
