@@ -1,94 +1,111 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Subject: Re: [PATCH] rds_rdma: don't assume infiniband device is PCI
-Date: Thu, 5 Jan 2012 15:05:24 -0200
-Message-ID: <20120105170523.GA19022@oc1711230544.ibm.com>
-References: <ed54708d-990e-4c8f-8057-50a70f93d3d8@default>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: [PATCH 0/6 v2] skb paged fragment destructors
+Date: Thu, 5 Jan 2012 17:09:59 +0000
+Message-ID: <1325783399.25206.413.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dledford@redhat.com,
-	Jes.Sorensen@redhat.com, rds-devel@oss.oracle.com
-To: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <ed54708d-990e-4c8f-8057-50a70f93d3d8@default>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.eu.citrix.com ([62.200.22.115]:51604 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757758Ab2AERKB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 12:10:01 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> ----- Original Message -----
-> From: cascardo@linux.vnet.ibm.com
-> To: venkat.x.venkatsubra@oracle.com
-> Cc: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, cascardo@linux.vnet.ibm.com, dledford@redhat.com, Jes.Sorensen@redhat.com, rds-devel@oss.oracle.com
-> Sent: Wednesday, January 4, 2012 4:03:42 PM GMT -06:00 US/Canada Central
-> Subject: [PATCH] rds_rdma: don't assume infiniband device is PCI
-> 
-> RDS code assumes that the struct ib_device dma_device member, which is a
-> pointer, points to a struct device embedded in a struct pci_dev.
-> 
-> This is not the case for ehca, for example, which is a OF driver, and
-> makes dma_device point to a struct device embedded in a struct
-> platform_device.
-> 
-> This will make the system crash when rds_rdma is loaded in a system
-> with ehca, since it will try to access the bus member of a non-existent
-> struct pci_dev.
-> 
-> The only reason rds_rdma uses the struct pci_dev is to get the NUMA node
-> the device is attached to. Using dev_to_node for that is much better,
-> since it won't assume which bus the infiniband is attached to.
-> 
-> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-> Cc: dledford@redhat.com
-> Cc: Jes.Sorensen@redhat.com
-> Cc: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-> Cc: rds-devel@oss.oracle.com
-> ---
->  net/rds/ib.h |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/rds/ib.h b/net/rds/ib.h
-> index edfaaaf..8d2b3d5 100644
-> --- a/net/rds/ib.h
-> +++ b/net/rds/ib.h
-> @@ -186,8 +186,7 @@ struct rds_ib_device {
->  	struct work_struct	free_work;
->  };
->  
-> -#define pcidev_to_node(pcidev) pcibus_to_node(pcidev->bus)
-> -#define ibdev_to_node(ibdev) pcidev_to_node(to_pci_dev(ibdev->dma_device))
-> +#define ibdev_to_node(ibdev) dev_to_node(ibdev->dma_device)
->  #define rdsibdev_to_node(rdsibdev) ibdev_to_node(rdsibdev->dev)
->  
->  /* bits for i_ack_flags */
-> -- 
-> 1.7.4.4
-> 
+The following series makes use of the skb fragment API (which is in 3.2)
+to add a per-paged-fragment destructor callback. This can be used by
+creators of skbs who are interested in the lifecycle of the pages
+included in that skb after they have handed it off to the network stack.
+I think these have all been posted before, but have been backed up
+behind the skb fragment API.
 
-On Thu, Jan 05, 2012 at 08:56:34AM -0800, Venkat Venkatsubra wrote:
-> Hi Cascardo,
-> 
-> Your changes look good to me.
-> But our latest code doesn't use this rdsibdev_to_node macro anywhere.
-> Checking with the people in my group who know the history of the NUMA feature.
-> Trying to find out if the call to kzalloc_node() can be replaced by kzalloc().
-> In which case this macro can be removed.
-> 
-> I will keep you posted.
-> 
-> Venkat
-> 
+The mail at [0] contains some more background and rationale but
+basically the completed series will allow entities which inject pages
+into the networking stack to receive a notification when the stack has
+really finished with those pages (i.e. including retransmissions,
+clones, pull-ups etc) and not just when the original skb is finished
+with, which is beneficial to many subsystems which wish to inject pages
+into the network stack without giving up full ownership of those page's
+lifecycle. It implements something broadly along the lines of what was
+described in [1].
 
-Hi, Venkat.
+I have also included a patch to the RPC subsystem which uses this API to
+fix the bug which I describe at [2].
 
-Do you have any public tree where we can track the last changes in RDS?
-Note that I have changed ibsdev_to_node, which rdsibdev_to_node makes
-use of. Anyway, replacing kzalloc_node with kzalloc has crossed my mind,
-but since I was not sure if this would affect latency of RDS in any use
-cases, I kept that and used a better function to get the node from the
-device. And we have dev_to_node since 2.6.20, so it should not be a
-problem to use it.
+Last time I posted this series it was observed that the size of struct
+skb_frag_struct was increased sufficiently that a 1500 byte frame would
+no longer fit into a half page allocation (with 4K pages).
 
-If possible, keep everyone copied and avoid top posting.
+I investigated some options which did not require increasing the size of
+the skb_frag_struct at all but they were mostly pretty ugly (either for
+the user of the API or within the network stack itself). 
 
-Regards.
-Cascardo.
+However having observed that MAX_SKB_FRAGS could be reduced by 1 (see
+9d4dde521577 "net: only use a single page of slop in MAX_SKB_FRAGS") I
+decided it was worth trying to see if I could pack the shared info a bit
+tighter and fit it into the necessary space.
+
+By tweaking the ordering of the fields and reducing the size of nr_frags
+(in combination with 9d4dde521577) I was able to get the shinfo size
+down to:
+
+                                          BEFORE        AFTER(v1)	AFTER(v2)
+AMD64:  sizeof(struct skb_frag_struct)  = 16            24		24
+        sizeof(struct skb_shared_info)  = 344           488		456
+
+i386:   sizeof(struct skb_frag_struct)  = 8             12		12
+        sizeof(struct skb_shared_info)  = 188           260		244
+
+(I think these are representative of 32 and 64 bit arches generally)
+
+This isn't quite enough to squeeze things into half a page since both
+the data allocation and shinfo are cache line aligned. e.g. for 64 byte
+cache lines on amd64:
+
+          ALIGN(NET_SKB_PAD(64) + 1500 + 14) + ALIGN(456)
+        = ALIGN(1578) + ALIGN(456)
+        = 1600 + 512
+        = 2112
+
+This actually leaves a fair bit of slack in many cases so we actually
+align the end of the shinfo to a cache line by using ksize() to place it
+right at the end of the actual allocation rather than aligning the
+front.
+
+If instead we align the total allocation size we reduce the amount of
+slop and a maximum MTU frame fits into half a page:
+
+          ALIGN(NET_SKB_PAD(64) + 1500 + 14 456)
+        = ALIGN(1578 + 456)
+        = ALIGN(2034)
+        = 2048
+
+The downside in this scenario is that, for 64 byte cache lines, the
+first 8 bytes of shinfo are on the same cache line as the tail of the
+data. I think this is the worst case and as the data size varies the
+"overlap" will always be <= to this assuming the allocator always rounds
+to a multiple of the cache line size. I think this small overlap is
+better than spilling over into the next allocation size and it only
+happens for sizes 427-490 and 1451-1500 bytes (inclusive).
+
+For the 128 byte cache line case the overlap at worst is 72 bytes which
+is up to and including shinfo->frags[0]. This happens for sizes in the
+ranges 363-490 and 1387-1500 bytes (inclusive).
+
+There may be various ways which we could mitigate this somewhat if it is
+a problem, the most obvious being to reorder the shinfo to put less
+frequently access members up front (e.g. destructor_arg seems like a
+good candidate). An even more extreme idea might be to put the shinfo
+_first_ within the allocation such that the overlap is with the last
+(presumably less frequently used) frags.
+
+Cheers,
+Ian.
+
+[0] http://marc.info/?l=linux-netdev&m=131072801125521&w=2
+[1] http://marc.info/?l=linux-netdev&m=130925719513084&w=2
+[2] http://marc.info/?l=linux-nfs&m=122424132729720&w=2
