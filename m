@@ -1,136 +1,73 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 2/7] rtlwifi: Standardize RT_PRINT_DATA macro and uses
-Date: Thu, 05 Jan 2012 10:44:17 -0600
-Message-ID: <4F05D361.6040809@lwfinger.net>
-References: <cover.1325734202.git.joe@perches.com>  <e7d4163a9897f33145d8a07be54f507ab68e0243.1325734203.git.joe@perches.com>  <20120105114314.GD2222@redhat.com> <1325780947.22154.14.camel@joe2Laptop>
+From: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
+Subject: Re: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on low-end broads.
+Date: Thu, 5 Jan 2012 17:46:06 +0100
+Message-ID: <CACPM=kVeqfxc3SkMPghLOTHFiiVCkPmdRBtVKA_RDfVS3iZOsg@mail.gmail.com>
+References: <20111230215024.GA5513@electric-eye.fr.zoreil.com>
+	<CACPM=kUxSRhDc2EqgceBRTFgBei7dh3_n7bPyoH=8aNC_uq4FA@mail.gmail.com>
+	<20111230221938.GA6197@electric-eye.fr.zoreil.com>
+	<CACPM=kXAr46BXAc3t8puRB37NeFy_ZEOWZa0H=DnSioagSLpxA@mail.gmail.com>
+	<CACPM=kWn41S85eLgj4G+c6cN0WBgqF=6MigSwa9QBOxD1Uh64A@mail.gmail.com>
+	<20111231121710.GB9842@electric-eye.fr.zoreil.com>
+	<CACPM=kX2B6p6CSs+s-5WUbQCLa0WZW5K9Rr+hnB5VCxkEmh=8w@mail.gmail.com>
+	<20120103223243.GB8563@electric-eye.fr.zoreil.com>
+	<CACPM=kUhBydaVDQaxs7BaB_ZkFRa2p6cVme-77Gbsk+QDk=MFA@mail.gmail.com>
+	<CACPM=kWL+Z6PH268qg=i0Nafrouq4O25+uFf8WLcE08azqpqpA@mail.gmail.com>
+	<20120105162013.GA19440@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	bhutchings@solarflare.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, rl@hellgate.ch
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1325780947.22154.14.camel@joe2Laptop>
+In-Reply-To: <20120105162013.GA19440@electric-eye.fr.zoreil.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/05/2012 10:29 AM, Joe Perches wrote:
-> On Thu, 2012-01-05 at 12:43 +0100, Stanislaw Gruszka wrote:
->> Hi Joe
+2012/1/5 Francois Romieu <romieu@fr.zoreil.com>:
+> Bjarke Istrup Pedersen <gurligebis@gentoo.org> :
+> [...]
+>> Sorry for repeating myself David, but would it be possible to get th=
+is
+>> into net-next for 3.4 inclusion ?
 >
-> Morning Stanislaw.
->
->> On Wed, Jan 04, 2012 at 07:40:40PM -0800, Joe Perches wrote:
->>>   	RT_PRINT_DATA(rtlpriv, COMP_CMD, DBG_DMESG,
->>
->> Since you are working on it, can you also get rid of this DBG_*
->> parameter, if rtlwifi maintainers are ok with that? It is additional
->> console loglvevel, standard kernel loglevel should be used.
->
-> Not quite, all of the RT_PRINT_DATA are emitted at KERN_DEBUG.
-> These DBG_*s are just a normal debug verbosity level.
->
-> It does seem odd though to have a DBG_EMERG and not always
-> emit it.
+> You should not expect #net-next for 3.4 to open before the merge wind=
+ow
+> for 3.3 is closed.
 
-Those are always logged, no matter what debug level is set.
+Okay, I'm still pretty new to how the kernel development model works,
+and what opens when and for how long, but hey, you learn something
+everyday :)
 
-> What might also be useful for any embedded use is to add
-> CONFIG_RTLWIFI_DEBUG to conditionally remove all of the
-> debug logging code to reduce the largish object size.
->
-> This reduces the object size by about 1/3 (250KB)
-> when CONFIG_RTLWIFI_DEBUG is not set.
->
-> $ size drivers/net/wireless/rtlwifi/built-in.o*
->     text	   data	    bss	    dec	    hex	filename
->   368722	  55333	  94224	 518279	  7e887	drivers/net/wireless/rtlwifi/built-in.o.new
->   586904	  55333	 127216	 769453	  bbdad	drivers/net/wireless/rtlwifi/built-in.o.old
->
-> Signed-off-by: Joe Perches<joe@perches.com>
+> With due consideration for his freedom of will and action, David can =
+not
+> take the current patchkit because he needs a formal submission of a c=
+omplete
+> set where #3 is fixed. Our last friday's exchange does not count as o=
+ne.
 
-This change seems sensible to me.
+Sure, it wasn't meant like that (Sorry if it was written that way, can
+be difficult from time to time to get it across on paper) :)
 
-Larry
+> I understand it is important for you, it will be sent, ok ?
 
+Yep :)
+
+/Bjarke
+
+> For future reference, you can see what is going on here :
 >
-> ---
+> http://patchwork.ozlabs.org/project/netdev/list/?state=3D*&q=3Dvia-rh=
+ine
 >
->   drivers/net/wireless/rtlwifi/Kconfig |    5 +++++
->   drivers/net/wireless/rtlwifi/debug.h |   34 ++++++++++++++++++++++++++++++++++
->   2 files changed, 39 insertions(+), 0 deletions(-)
+> /me returns to paperwork...
 >
-> diff --git a/drivers/net/wireless/rtlwifi/Kconfig b/drivers/net/wireless/rtlwifi/Kconfig
-> index d6c42e6..44b9c0a 100644
-> --- a/drivers/net/wireless/rtlwifi/Kconfig
-> +++ b/drivers/net/wireless/rtlwifi/Kconfig
-> @@ -49,6 +49,11 @@ config RTLWIFI
->   	depends on RTL8192CE || RTL8192CU || RTL8192SE || RTL8192DE
->   	default m
->
-> +config RTLWIFI_DEBUG
-> +	tristate "Additional debugging output"
-> +	depends on RTL8192CE || RTL8192CU || RTL8192SE || RTL8192DE
-> +	default y
-> +
->   config RTL8192C_COMMON
->   	tristate
->   	depends on RTL8192CE || RTL8192CU
-> diff --git a/drivers/net/wireless/rtlwifi/debug.h b/drivers/net/wireless/rtlwifi/debug.h
-> index b024c23..fd5600c 100644
-> --- a/drivers/net/wireless/rtlwifi/debug.h
-> +++ b/drivers/net/wireless/rtlwifi/debug.h
-> @@ -156,6 +156,8 @@ enum dbgp_flag_e {
->   	DBGP_TYPE_MAX
->   };
->
-> +#ifdef CONFIG_RTLWIFI_DEBUG
-> +
->   #define RT_ASSERT(_exp, fmt, ...)					\
->   do {									\
->   	if (!(_exp)) {							\
-> @@ -195,5 +197,37 @@ do {									\
->   	}								\
->   } while (0)
->
-> +#else
-> +
-> +struct rtl_priv;
-> +
-> +__printf(2, 3)
-> +static inline void RT_ASSERT(int exp, const char *fmt, ...)
-> +{
-> +}
-> +
-> +__printf(4, 5)
-> +static inline void RT_TRACE(struct rtl_priv *rtlpriv,
-> +			    int comp, int level,
-> +			    const char *fmt, ...)
-> +{
-> +}
-> +
-> +__printf(4, 5)
-> +static inline void RTPRINT(struct rtl_priv *rtlpriv,
-> +			   int dbgtype, int dbgflag,
-> +			   const char *fmt, ...)
-> +{
-> +}
-> +
-> +static inline void RT_PRINT_DATA(struct rtl_priv *rtlpriv,
-> +				 int comp, int level,
-> +				 const char *titlestring,
-> +				 const void *hexdata, size_t hexdatalen)
-> +{
-> +}
-> +
-> +#endif
-> +
->   void rtl_dbgp_flag_init(struct ieee80211_hw *hw);
->   #endif
->
->
->
->
+> --
+> Ueimor
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
+l" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at =A0http://www.tux.org/lkml/
