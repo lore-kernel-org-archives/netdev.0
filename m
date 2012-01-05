@@ -1,48 +1,33 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: Detected Hardware Unit Hang on Intel Wired Ethernet
-Date: Thu, 5 Jan 2012 08:46:06 -0800
-Message-ID: <20120105164606.GC26153@kroah.com>
-References: <CAHM4w1=i5dYy+ReqMO=m6W96CNaQ+O=jw+pKQok0nmjb5-fNAw@mail.gmail.com>
- <4F043190.70405@st.com>
- <20120104192234.GC18214@kroah.com>
- <4F05276F.6040708@st.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 2/7] rtlwifi: Standardize RT_PRINT_DATA macro and uses
+Date: Thu, 05 Jan 2012 08:54:44 -0800
+Message-ID: <1325782484.22154.25.camel@joe2Laptop>
+References: <cover.1325734202.git.joe@perches.com>
+	 <e7d4163a9897f33145d8a07be54f507ab68e0243.1325734203.git.joe@perches.com>
+	 <20120105114314.GD2222@redhat.com> <1325780947.22154.14.camel@joe2Laptop>
+	 <4F05D361.6040809@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pratyush Anand <pratyush.anand@gmail.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Shiraz HASHIM <shiraz.hashim@st.com>,
-	Deepak SIKRI <deepak.sikri@st.com>,
-	Bhavna YADAV <bhavna.yadav@st.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	linux.nics@intel.com
-To: Pratyush Anand <pratyush.anand@st.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4F05276F.6040708@st.com>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F05D361.6040809@lwfinger.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 05, 2012 at 10:00:39AM +0530, Pratyush Anand wrote:
-> On 1/5/2012 12:52 AM, Greg KH wrote:
-> >On Wed, Jan 04, 2012 at 04:31:36PM +0530, Pratyush Anand wrote:
-> >>Adding PCI mailing list too, as problem is coming only when MSI is enabled.
-> >>
-> >>If I connect an PCIe analyzer, I see that at the time of issue
-> >>MRd(64) for 32 words has been issued with a wrong 64 bit address
-> >>from ethernet card to my RC.
-> >>In the normal course it always issues MRd(32) only.
-> >
-> >Bug in your pcie firmware controller?
-> >
-> >.
-> >
-> 
-> when you say "Bug in your pcie firmware controller?", is it RC's
-> software or EP's software?
+On Thu, 2012-01-05 at 10:44 -0600, Larry Finger wrote:
+> On 01/05/2012 10:29 AM, Joe Perches wrote:
+> > It does seem odd though to have a DBG_EMERG and not always
+> > emit it.
+> Those are always logged, no matter what debug level is set.
 
-I don't know, but I would place the bet on your motherboard controller,
-not the device.
+Well, not _always_...
+	$ echo -1 > /whatever/rtlwifi/debug_level_param
+or whatever is appropriate.
 
-greg k-h
+cheers, Joe
