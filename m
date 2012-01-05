@@ -1,46 +1,96 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 6/8] igb: reset PHY after recovering from PHY power down
-Date: Wed,  4 Jan 2012 22:23:38 -0800
-Message-ID: <1325744620-5067-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 7/8] netdev: FCoE: Add new ndo_get_fcoe_hbainfo() call
+Date: Wed,  4 Jan 2012 22:23:39 -0800
+Message-ID: <1325744620-5067-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1325744620-5067-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Koki Sanagi <sanagi.koki@jp.fujitsu.com>, netdev@vger.kernel.org,
+Cc: Neerav Parikh <Neerav.Parikh@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:37346 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:28297 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752180Ab2AEGXr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751869Ab2AEGXr (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 5 Jan 2012 01:23:47 -0500
 In-Reply-To: <1325744620-5067-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+From: Neerav Parikh <Neerav.Parikh@intel.com>
 
-According to 82576_Datasheet.pdf, PHY setting is lost after PHY power down.
-So resetting PHY is needed when recovering from PHY power down to set a default
-setting to PHY register.
-Owing to this lack, NIC doesn't link up in some rare situation.
+This adds a new ndo_get_fcoe_hbainfo() call in
+net_device_ops for FCoE protocol stack.
 
-Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+If supported by the underlying device, the FCoE protocol
+stack will call this to get device specific information
+from the underlying device.
+This information will then be utilized by the FCoE protocol
+stack to register Fiber Channel HBA attributes with the
+Fiber Channel Management Service via Fabric Device
+Management Interface (FDMI) as per the T11 FC-GS
+specification.
+
+Changes in v2:
+- As per comments from David Miller aligning the parameters
+of the ndo_get_fcoe_hbainfo()
+
+Signed-off-by: Neerav Parikh <Neerav.Parikh@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ include/linux/netdevice.h |   26 ++++++++++++++++++++++++++
+ 1 files changed, 26 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index fac71e2..01e5e89 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1507,6 +1507,7 @@ void igb_power_up_link(struct igb_adapter *adapter)
- 		igb_power_up_phy_copper(&adapter->hw);
- 	else
- 		igb_power_up_serdes_link_82575(&adapter->hw);
-+	igb_reset_phy(&adapter->hw);
- }
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index a776a67..a1d1095 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -707,6 +707,23 @@ struct netdev_tc_txq {
+ 	u16 offset;
+ };
  
- /**
++#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
++/*
++ * This structure is to hold information about the device
++ * configured to run FCoE protocol stack.
++ */
++struct netdev_fcoe_hbainfo {
++	char	manufacturer[64];
++	char	serial_number[64];
++	char	hardware_version[64];
++	char	driver_version[64];
++	char	optionrom_version[64];
++	char	firmware_version[64];
++	char	model[256];
++	char	model_description[256];
++};
++#endif
++
+ /*
+  * This structure defines the management hooks for network devices.
+  * The following hooks can be defined; unless noted otherwise, they are
+@@ -847,6 +864,13 @@ struct netdev_tc_txq {
+  *	perform necessary setup and returns 1 to indicate the device is set up
+  *	successfully to perform DDP on this I/O, otherwise this returns 0.
+  *
++ * int (*ndo_fcoe_get_hbainfo)(struct net_device *dev,
++ *			       struct netdev_fcoe_hbainfo *hbainfo);
++ *	Called when the FCoE Protocol stack wants information on the underlying
++ *	device. This information is utilized by the FCoE protocol stack to
++ *	register attributes with Fiber Channel management service as per the
++ *	FC-GS Fabric Device Management Information(FDMI) specification.
++ *
+  * int (*ndo_fcoe_get_wwn)(struct net_device *dev, u64 *wwn, int type);
+  *	Called when the underlying device wants to override default World Wide
+  *	Name (WWN) generation mechanism in FCoE protocol stack to pass its own
+@@ -950,6 +974,8 @@ struct net_device_ops {
+ 						       u16 xid,
+ 						       struct scatterlist *sgl,
+ 						       unsigned int sgc);
++	int			(*ndo_fcoe_get_hbainfo)(struct net_device *dev,
++							struct netdev_fcoe_hbainfo *hbainfo);
+ #endif
+ 
+ #if IS_ENABLED(CONFIG_LIBFCOE)
 -- 
 1.7.7.5
