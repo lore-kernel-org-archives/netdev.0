@@ -1,96 +1,81 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 7/8] netdev: FCoE: Add new ndo_get_fcoe_hbainfo() call
-Date: Wed,  4 Jan 2012 22:23:39 -0800
-Message-ID: <1325744620-5067-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 4/8] igb: Add support for byte queue limits.
+Date: Wed,  4 Jan 2012 22:23:36 -0800
+Message-ID: <1325744620-5067-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1325744620-5067-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Neerav Parikh <Neerav.Parikh@intel.com>, netdev@vger.kernel.org,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:28297 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:21235 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751869Ab2AEGXr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jan 2012 01:23:47 -0500
+	id S1751862Ab2AEGXq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jan 2012 01:23:46 -0500
 In-Reply-To: <1325744620-5067-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neerav Parikh <Neerav.Parikh@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 
-This adds a new ndo_get_fcoe_hbainfo() call in
-net_device_ops for FCoE protocol stack.
+This adds support for byte queue limits (BQL)
 
-If supported by the underlying device, the FCoE protocol
-stack will call this to get device specific information
-from the underlying device.
-This information will then be utilized by the FCoE protocol
-stack to register Fiber Channel HBA attributes with the
-Fiber Channel Management Service via Fabric Device
-Management Interface (FDMI) as per the T11 FC-GS
-specification.
+Since this driver collects bytes count in 'bytecount' field, use it also
+in igb_tx_map()
 
-Changes in v2:
-- As per comments from David Miller aligning the parameters
-of the ndo_get_fcoe_hbainfo()
-
-Signed-off-by: Neerav Parikh <Neerav.Parikh@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- include/linux/netdevice.h |   26 ++++++++++++++++++++++++++
- 1 files changed, 26 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h      |    5 +++++
+ drivers/net/ethernet/intel/igb/igb_main.c |    5 +++++
+ 2 files changed, 10 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index a776a67..a1d1095 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -707,6 +707,23 @@ struct netdev_tc_txq {
- 	u16 offset;
- };
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index c69feeb..3d12e67 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -447,4 +447,9 @@ static inline s32 igb_get_phy_info(struct e1000_hw *hw)
+ 	return 0;
+ }
  
-+#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
-+/*
-+ * This structure is to hold information about the device
-+ * configured to run FCoE protocol stack.
-+ */
-+struct netdev_fcoe_hbainfo {
-+	char	manufacturer[64];
-+	char	serial_number[64];
-+	char	hardware_version[64];
-+	char	driver_version[64];
-+	char	optionrom_version[64];
-+	char	firmware_version[64];
-+	char	model[256];
-+	char	model_description[256];
-+};
-+#endif
++static inline struct netdev_queue *txring_txq(const struct igb_ring *tx_ring)
++{
++	return netdev_get_tx_queue(tx_ring->netdev, tx_ring->queue_index);
++}
 +
- /*
-  * This structure defines the management hooks for network devices.
-  * The following hooks can be defined; unless noted otherwise, they are
-@@ -847,6 +864,13 @@ struct netdev_tc_txq {
-  *	perform necessary setup and returns 1 to indicate the device is set up
-  *	successfully to perform DDP on this I/O, otherwise this returns 0.
-  *
-+ * int (*ndo_fcoe_get_hbainfo)(struct net_device *dev,
-+ *			       struct netdev_fcoe_hbainfo *hbainfo);
-+ *	Called when the FCoE Protocol stack wants information on the underlying
-+ *	device. This information is utilized by the FCoE protocol stack to
-+ *	register attributes with Fiber Channel management service as per the
-+ *	FC-GS Fabric Device Management Information(FDMI) specification.
-+ *
-  * int (*ndo_fcoe_get_wwn)(struct net_device *dev, u64 *wwn, int type);
-  *	Called when the underlying device wants to override default World Wide
-  *	Name (WWN) generation mechanism in FCoE protocol stack to pass its own
-@@ -950,6 +974,8 @@ struct net_device_ops {
- 						       u16 xid,
- 						       struct scatterlist *sgl,
- 						       unsigned int sgc);
-+	int			(*ndo_fcoe_get_hbainfo)(struct net_device *dev,
-+							struct netdev_fcoe_hbainfo *hbainfo);
- #endif
+ #endif /* _IGB_H_ */
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 89d576c..dcc68cc 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -3201,6 +3201,7 @@ static void igb_clean_tx_ring(struct igb_ring *tx_ring)
+ 		buffer_info = &tx_ring->tx_buffer_info[i];
+ 		igb_unmap_and_free_tx_resource(tx_ring, buffer_info);
+ 	}
++	netdev_tx_reset_queue(txring_txq(tx_ring));
  
- #if IS_ENABLED(CONFIG_LIBFCOE)
+ 	size = sizeof(struct igb_tx_buffer) * tx_ring->count;
+ 	memset(tx_ring->tx_buffer_info, 0, size);
+@@ -4238,6 +4239,8 @@ static void igb_tx_map(struct igb_ring *tx_ring,
+ 		frag++;
+ 	}
+ 
++	netdev_tx_sent_queue(txring_txq(tx_ring), first->bytecount);
++
+ 	/* write last descriptor with RS and EOP bits */
+ 	cmd_type |= cpu_to_le32(size) | cpu_to_le32(IGB_TXD_DCMD);
+ 	tx_desc->read.cmd_type_len = cmd_type;
+@@ -5777,6 +5780,8 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
+ 		}
+ 	}
+ 
++	netdev_tx_completed_queue(txring_txq(tx_ring),
++				  total_packets, total_bytes);
+ 	i += tx_ring->count;
+ 	tx_ring->next_to_clean = i;
+ 	u64_stats_update_begin(&tx_ring->tx_syncp);
 -- 
 1.7.7.5
