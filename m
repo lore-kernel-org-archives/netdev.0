@@ -1,89 +1,73 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the selinux tree with the net-next
- tree
-Date: Fri, 6 Jan 2012 09:15:50 +1100
-Message-ID: <20120106091550.534131cb1fe6e3dee323699c@canb.auug.org.au>
-References: <20120105151255.f72ad113a93493bb55844034@canb.auug.org.au>
-	<27624574.j8RvKjachg@sifl>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [ANNOUNCE] iproute2 3.2.0
+Date: Thu, 5 Jan 2012 14:42:01 -0800
+Message-ID: <20120105144201.67348e16@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__6_Jan_2012_09_15_50_+1100_f7Q/N/GKLRBCvOZA"
-Cc: Eric Paris <eparis@redhat.com>, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Andrei Emeltchenko <andrei.emeltchenko@intel.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	"Gustavo F. Padovan" <padovan@profusion.mobi>
-To: Paul Moore <pmoore@redhat.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <27624574.j8RvKjachg@sifl>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Fri__6_Jan_2012_09_15_50_+1100_f7Q/N/GKLRBCvOZA
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Linus released 3.2, and this means it is time for another release
+of iproute2. Lots of little build and typo fixes.
+The real visible changes in this release are:
+  * better manual pages
+  * L2TPv3 support
+  * improved RED options
+  * netem additions for loss models
+  * iptables integration fixes
 
-Hi Paul,
+Download:
+  http://www.kernel.org/pub/linux/utils/net/iproute2/iproute2-3.2.0.tar.gz
 
-On Thu, 05 Jan 2012 16:25:53 -0500 Paul Moore <pmoore@redhat.com> wrote:
->
-> On Thursday, January 05, 2012 03:12:55 PM Stephen Rothwell wrote:
-> >=20
-> > Today's linux-next merge of the selinux tree got a conflict in
-> > net/bluetooth/l2cap_sock.c between commit 15770b1ab974 ("Bluetooth:
-> > convert force_active variable to flag in l2cap chan") from the net-next
-> > tree and commit 53860f3d0499 ("bluetooth: Properly clone LSM attributes
-> > to newly created child connections") from the selinux tree.
-> >=20
-> > These both remove the same line, but there is probably something more
-> > subtle going on ...  I just used the version from the net-next tree.
->=20
-> Something is a bit odd.  When I look in the current linux-next tree I see=
- two=20
-> commits which fix a Bluetooth/LSM bug; the first is correct, the second o=
-ne=20
-> appears to be some other commit which just hijacked the description from =
-the=20
-> first ... I have no idea what is going on in the second commit; I'll leav=
-e=20
-> that to you git gurus :)
->=20
->  * Correct commit -> 6230c9b4f8957c8938ee4cf2d03166d3c2dc89de
+Repository:
+  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
 
-That is a commit in Linus' tree before v3.1
+This version is signed with my GPG public key
 
->  * Garbage commit -> 53860f3d0499992855d58e33f0f79bfe642dfccb
+Report problems (or enhancements) to the netdev@vger.kernel.org mailing list.
 
-That is the commit in the selinux tree.  This should be unnecessary as
-the selinux tree is based on v3.1 (and I basically ignored it in the
-merge resolution).
+---
+Eric Dumazet (5):
+      ss: report ecnseen
+      red: give a hint about burst value
+      red: make burst optional
+      red: harddrop support and cleanups
+      netem: fix a typo in explain()
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+Florian Westphal (1):
+      tc: man: add man page for stochastic fair blue
 
---Signature=_Fri__6_Jan_2012_09_15_50_+1100_f7Q/N/GKLRBCvOZA
-Content-Type: application/pgp-signature
+Greg Rose (1):
+      iproute2: Add new command to ip link to enable/disable VF spoof check
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+Hagen Paul Pfeifer (1):
+      netem: add man-page
 
-iQIcBAEBCAAGBQJPBiEWAAoJEECxmPOUX5FEMZMP/i+miHsN7mlL28u1F8NFO1m4
-+f2fGQW3pMCD68TrXNiB7hIxQvL3yvOr47dF29h75buFrZ0J/uwdHH7K8QrgArSS
-8+Wz7Sf406gPWl0USG9PK0kIaTSMbD7FiQyYb0jtydWk0uZEuo7utU1AkQI89ZXZ
-CTebAiwXZyVfyWfeqbVegiEdadEl8OGAGOsUvvrTIo6Cmk3InAozWPSiNlAXYb2s
-9uct3YE04jntb6iNCnwVLPonoBsOhi1KFFBHyEFnHDfYONheoFJB0EAZblTEiequ
-QPIHPbxX5VMmBujT3uvVYIzQupdsy3z4YMnf2UMS4dvNmG0Q5+3DrKqBz1tQC9hs
-vTjbIr4XlqKWRmSwpqnGSXJH8xszARQrTEnZe7G3URi4EewX2kZwGHHc2x+5S/Xw
-i8XP5SQwAXlv5retXUneVq8I02atsyq5JRUzTiBVcsM/Jkd0JOWlg1MnlP6THNSh
-Y9xKTgrtExSb5ILtGqnAdGQcjGc3M7Pmaw79Do0kU5V1bKmcclrhDeNmK+pzl7ir
-IBdiOamrkrxQrRlsdYn5cWxp/DwDkwPn1c62HiOzcj/xhtzK3BO9ZqqpIbWSNW6q
-IFo1gRdcV1TmXCWBenDC9Mk4UOcfRgsbbfGIZv3c+LyBF/0/Ffq/I1fX2uEV2kLM
-QQ3NVrUIIp+j559f3SsQ
-=ZCoB
------END PGP SIGNATURE-----
+Jan Engelhardt (3):
+      iproute2: avoid use of implicit declarations
+      iproute2: proper detection of libxtables position and flags
+      iproute2: fix calling up the xt action
 
---Signature=_Fri__6_Jan_2012_09_15_50_+1100_f7Q/N/GKLRBCvOZA--
+Stephen Hemminger (14):
+      Update to 3.2.0-rc2 headers
+      Split up ip man page
+      Update to latest 3.2 kernel headers
+      netem: fix man page
+      netem: add support for 4 state and GE loss model
+      libnetlink: change rtnl_send() to take void *
+      libnetlink: add more attribute functions
+      libnetlink: remove unused junk callback
+      libnetlink: add attribute access inline functions
+      l2tp: Add l2tp support
+      ematch: fix warning about yyerror and const
+      ematch: fix warning about unused input()
+      README cleanup's
+      v3.2.0
+
+Thomas Jarosch (2):
+      tc: Remove unused variable 'res'.
+      tc: Use correct variable type for get_distribution() result
