@@ -1,53 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP communication for raw image transmission
-Date: Thu, 05 Jan 2012 11:04:51 +0100
-Message-ID: <1325757891.2415.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <CAL8zT=iSiKZfENdtng9gDtuRSuFNn4WZ69uuGapLVVEduFRVyQ@mail.gmail.com>
-	 <1325519943.2375.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <CAL8zT=giNe46FYQYxPkbshVfyG-DvCTKS0RLdiN8Kz+e-x-JFw@mail.gmail.com>
-	 <1325521745.18116.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <CAL8zT=gbCmtNpw1Lot0P7zB+b_Kw911jhxsXCzO3JOBmMLRcFg@mail.gmail.com>
-	 <1325523137.18116.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4F0382BB.5060601@hp.com>
-	 <CAL8zT=iSP+GncMEJ38eaCZ85P-tBDMUjUeaFr-x3j_rksUaK2A@mail.gmail.com>
-	 <1325756410.2415.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <CAL8zT=jyzV6BwB6Lce0CCi+Z3MuwNsWLw2DQu8HBdm_J8kvArA@mail.gmail.com>
-	 <1325757343.2415.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <CAL8zT=hGnnuXf+cETy9fAeu+aACp2pfL3XfBS_jL_mk38fj4yQ@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [ANNOUNCE] conntrack-tools 1.0.1 release
+Date: Thu, 5 Jan 2012 11:35:09 +0100
+Message-ID: <20120105103509.GB7046@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org
-To: Jean-Michel Hautbois <jhautbois@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:65164 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754084Ab2AEKEz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 05:04:55 -0500
-Received: by qats34 with SMTP id s34so9856qat.19
-        for <netdev@vger.kernel.org>; Thu, 05 Jan 2012 02:04:54 -0800 (PST)
-In-Reply-To: <CAL8zT=hGnnuXf+cETy9fAeu+aACp2pfL3XfBS_jL_mk38fj4yQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="IiVenqGWf+H9Y6IX"
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-announce@lists.netfilter.org, lwn@lwn.net
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 05 janvier 2012 =C3=A0 10:57 +0100, Jean-Michel Hautbois a =C3=
-=A9crit :
->  # netperf -H 192.168.0.1 -c -l 10 -t UDP_STREAM -- -m 1500
-> MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-> 192.168.0.1 (192.168.0.1) port 0 AF_INET
-> Socket  Message  Elapsed      Messages                   CPU      Ser=
-vice
-> Size    Size     Time         Okay Errors   Throughput   Util     Dem=
-and
-> bytes   bytes    secs            #      #   10^6bits/sec % SU     us/=
-KB
->=20
-> 106496    1500   10.00       54477      0        0.0     65.34    100=
-=2E000
-> 1073741824           2.25            0               0.0     65.34   =
- -1.000
->=20
 
-Hmm... this sounds you have half duplex somewhere ?
+--IiVenqGWf+H9Y6IX
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-ethtool eth0   (on both machines)
+Hi!
+
+The Netfilter project proudly presents:
+
+        conntrack-tools 1.0.1
+
+The conntrack-tools are a set of tools targeted at system
+administrators. They are conntrack, the userspace command line
+interface, and conntrackd, the userspace daemon. The tool conntrack
+provides a full featured interface that is intended to replace the old
+/proc/net/ip_conntrack interface. Using conntrack, you can view and
+manage the in-kernel connection tracking state table from userspace.
+On the other hand, conntrackd covers the specific aspects of stateful
+firewalls to enable highly available scenarios.
+
+See ChangeLog that comes attached to this email for more details.
+
+You can download it from:
+
+http://www.netfilter.org/projects/conntrack-tools/downloads.html
+ftp://ftp.netfilter.org/pub/conntrack-tools/
+
+Have fun!
+
+--IiVenqGWf+H9Y6IX
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="changes-conntrack-tools-1.0.1.txt"
+
+Florian Westphal (4):
+      conntrack: add support for mark mask
+      conntrack: skip sending update message to kernel if conntrack is unchanged
+      testsuite: add tests for --mark option
+      conntrack: add missing break when parsing --id/--secmark options
+
+Jan Engelhardt (3):
+      Update .gitignore
+      build: use AC_CONFIG_AUX_DIR and stash away tools
+      build: disable implicit .tar.gz archive generation and use POSIX mode
+
+Pablo Neira Ayuso (8):
+      build: Linux kernel-style for compilation messages
+      conntrack: remove unused variable with -S
+      conntrackd: add missing initial caching of gettimeofday()
+      conntrackd: fix filtering of dump output if internal cache is disabled
+      Merge branch 'master' of git://dev.medozas.de/conntrack-tools
+      doc: primary-backup.sh: clarify licensing terms (GPLv2+)
+      conntrackd: fix checking of return value of queue_add()
+      build: bump version to 1.0.1
+
+
+--IiVenqGWf+H9Y6IX--
