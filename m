@@ -1,83 +1,192 @@
-From: Brent Cook <bcook@breakingpoint.com>
-Subject: Re: Possible DoS with 6RD border relay
-Date: Wed, 4 Jan 2012 22:22:52 -0600
-Message-ID: <201201042222.53147.bcook@breakingpoint.com>
-References: <201201041048.44509.bcook@breakingpoint.com> <1325699600.2428.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <201201041326.04403.bcook@breakingpoint.com>
+From: Pratyush Anand <pratyush.anand@st.com>
+Subject: Re: Detected Hardware Unit Hang on Intel Wired Ethernet
+Date: Thu, 5 Jan 2012 10:00:39 +0530
+Message-ID: <4F05276F.6040708@st.com>
+References: <CAHM4w1=i5dYy+ReqMO=m6W96CNaQ+O=jw+pKQok0nmjb5-fNAw@mail.gmail.com> <4F043190.70405@st.com> <20120104192234.GC18214@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.breakingpoint.com ([65.36.7.12]:7206 "EHLO
-	mail.breakingpoint.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757849Ab2AEEX0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 23:23:26 -0500
-In-Reply-To: <201201041326.04403.bcook@breakingpoint.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Pratyush Anand <pratyush.anand@gmail.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Shiraz HASHIM <shiraz.hashim@st.com>,
+	Deepak SIKRI <deepak.sikri@st.com>,
+	Bhavna YADAV <bhavna.yadav@st.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	<linux.nics@intel.com>
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20120104192234.GC18214@kroah.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday, January 04, 2012 01:26:04 PM Brent Cook wrote:
-> On Wednesday, January 04, 2012 11:53:20 AM Eric Dumazet wrote:
-> > 
-> > I am not sure of this.
-> > 
-> > Try to change /proc/sys/net/ipv6/route/max_size
-> > 
-> > and /proc/sys/net/ipv6/route/gc_thresh
-> > 
-> > [To something larger than number of in flight packets on your gateway ]
-> 
-> Thanks for the suggestion, I tried 200k:
-> 
-> root@target1:~# echo 200000 > /proc/sys/net/ipv6/route/max_size
-> root@target1:~# echo 200000 > /proc/sys/net/ipv6/route/gc_thresh
-> 
-> It did not seem to improve the behavior - once neighbor table overflow
-> hits, things go downhill.  So far, only modifying the neighbor cache
-> threshold seems to improve things.
+On 1/5/2012 12:52 AM, Greg KH wrote:
+> On Wed, Jan 04, 2012 at 04:31:36PM +0530, Pratyush Anand wrote:
+>> Adding PCI mailing list too, as problem is coming only when MSI is enabled.
+>>
+>> If I connect an PCIe analyzer, I see that at the time of issue
+>> MRd(64) for 32 words has been issued with a wrong 64 bit address
+>> from ethernet card to my RC.
+>> In the normal course it always issues MRd(32) only.
+>
+> Bug in your pcie firmware controller?
+>
+> .
+>
 
-After some more examination, it appears that the extra neighbor entries are 
-only allocated for traffic flowing from the native IPv6 host to the 6rd 
-client. Packets generated from the 6rd client to the native IPv6 host did not 
-experience a problem by themselves. I originally tested bidirectional TCP 
-traffic, but switching to unidirection UDP to isolate the routing paths.
+when you say "Bug in your pcie firmware controller?", is it RC's 
+software or EP's software?
 
- Pid: 0, comm: swapper/3 Not tainted 3.2.0-rc7 #8
- Call Trace:
-  <IRQ>  
-  [<ffffffffa013a476>] ? rt6_bind_peer+0x36/0x80 [ipv6]
-  [<ffffffff8153bed0>] neigh_create+0x30/0x550  
-  [<ffffffff8153923d>] ? neigh_lookup+0xcd/0x100  
-  [<ffffffffa013a182>] rt6_alloc_cow+0x202/0x240 [ipv6]  
-  [<ffffffffa013aa0b>] ip6_pol_route.isra.36+0x38b/0x3a0 [ipv6]
-  [<ffffffffa013aa7d>] ip6_pol_route_input+0x2d/0x30 [ipv6]
-  [<ffffffffa015caa1>] fib6_rule_action+0xd1/0x1f0 [ipv6]
-  [<ffffffffa013aa50>] ? ip6_pol_route_output+0x30/0x30 [ipv6]
-  [<ffffffff815316b1>] ? dev_queue_xmit+0x1c1/0x630
-  [<ffffffff81546acd>] fib_rules_lookup+0xcd/0x150
-  [<ffffffffa015ce64>] fib6_rule_lookup+0x44/0x80 [ipv6]
-  [<ffffffffa013aa50>] ? ip6_pol_route_output+0x30/0x30 [ipv6]
-  [<ffffffffa013ab44>] ip6_route_input+0xc4/0xf0 [ipv6]
-  [<ffffffffa0130177>] ipv6_rcv+0x317/0x3c0 [ipv6]
-  [<ffffffff8152ed1a>] __netif_receive_skb+0x51a/0x5c0  
-  [<ffffffff8152f990>] netif_receive_skb+0x80/0x90  
-  [<ffffffff8152fd89>] ? dev_gro_receive+0x1b9/0x2c0
-  [<ffffffff8152fad0>] napi_skb_finish+0x50/0x70
-  [<ffffffff81530005>] napi_gro_receive+0xb5/0xc0
-  [<ffffffffa001034b>] e1000_receive_skb+0x5b/0x70 [e1000e]
-  [<ffffffffa0012122>] e1000_clean_rx_irq+0x352/0x460 [e1000e]
-  [<ffffffffa00117f8>] e1000_clean+0x78/0x2b0 [e1000e]
-  [<ffffffff81530214>] net_rx_action+0x134/0x290
-  [<ffffffff8106c4f8>] __do_softirq+0xa8/0x210    
-  [<ffffffff8160736e>] ? _raw_spin_lock+0xe/0x20
-  [<ffffffff816116ac>] call_softirq+0x1c/0x30  
-  [<ffffffff81015195>] do_softirq+0x65/0xa0
-  [<ffffffff8106c8de>] irq_exit+0x8e/0xb0  
-  [<ffffffff81611f63>] do_IRQ+0x63/0xe0
-  [<ffffffff8160782e>] common_interrupt+0x6e/0x6e
+Here I am pasting a part of analyzer log converted into text.
+Packet(177940), is an upstream request for MSI. Whenever any device 
+writes at address 0x58A8F8, my PCIe RC considers it as MSI and generates 
+an interrupt. So I receive MSI interrupt correctly in my software. Also 
+MSI controller is correctly able to point me that the interrupt is from 
+ethernet card.
 
-Is this expected behavior? All of the peers in this case are really the same 
-6RD client - it's really simulating a customer edge router with a few thousand 
-hosts behind it. I suspect that adding a static route entry for the CE's 
-prefix via 'sit' will also make the problem go away.
+Now in Packet(178010), ethernet controller sends another upstream 
+request for MRd(64) of 32 dwords with Address(AFECEB87:A9D88B00).Since, 
+this address does not exist in my RC's world so, an UR is returned and 
+hence the problem occurs.
+
+Now, question is, why ethernet card is generating inbound request with 
+such a wrong address. I have taken log of all the tx_desc->buffer_addr 
+programmed by software in function e1000_tx_queue. None of them is 64 
+bit or any invalid address.
+
+_______|_______________________________________________________________________
+Packet(177916) Upstream 2.5(x1) TLP(1475) Mem MWr(32)(10:00000) Length(4)
+_______| RequesterID(003:00:0) Tag(2) Address(0EB00200) 1st BE(1111)
+_______| Last BE(1111) Data(4 dwords) LCRC(0x44E0407C)
+_______| Time Stamp(0013 . 460 549 544 s)
+_______|_______________________________________________________________________
+Packet(177918) Downstream 2.5(x1) DLLP ACK AckNak_Seq_Num(1475)
+_______| CRC 16(0x0EB7) Time Stamp(0013 . 460 551 144 s)
+_______|_______________________________________________________________________
+Packet(177940) Upstream 2.5(x1) TLP(1476) Mem MWr(32)(10:00000) Length(1)
+_______| RequesterID(003:00:0) Tag(30) Address(0058A8F8) 1st BE(0011)
+_______| Last BE(0000) Data(1 dword) LCRC(0xC21F32B6)
+_______| Time Stamp(0013 . 460 588 544 s)
+_______|_______________________________________________________________________
+Packet(177942) Downstream 2.5(x1) DLLP ACK AckNak_Seq_Num(1476)
+_______| CRC 16(0x69F5) Time Stamp(0013 . 460 590 088 s)
+_______|_______________________________________________________________________
+Packet(177946) Downstream 2.5(x1) TLP(309) Mem MRd(32)(00:00000) Length(1)
+_______| RequesterID(002:00:0) Tag(19) Address(C01000C0) 1st BE(1111)
+_______| Last BE(0000) LCRC(0x91BDA1F5) Time Stamp(0013 . 460 595 936 s)
+_______|_______________________________________________________________________
+Packet(177947) Upstream 2.5(x1) DLLP ACK AckNak_Seq_Num(309)
+_______| CRC 16(0x25C6) Time Stamp(0013 . 460 596 368 s)
+_______|_______________________________________________________________________
+Packet(177950) Upstream 2.5(x1) TLP(1477) Cpl CplD(10:01010) Length(1)
+_______| RequesterID(002:00:0) Tag(19) CompleterID(003:00:0) Status(SC) 
+BCM(0)
+_______| Byte Cnt(4) Lwr Addr(0x40) Data(1 dword) LCRC(0x8FE0D922)
+_______| Time Stamp(0013 . 460 597 304 s)
+_______|_______________________________________________________________________
+Packet(177952) Downstream 2.5(x1) DLLP ACK AckNak_Seq_Num(1477)
+_______| CRC 16(0xC8EE) Time Stamp(0013 . 460 598 840 s)
+_______|_______________________________________________________________________
+Packet(177999) Downstream 2.5(x1) TLP(310) Mem MWr(32)(10:00000) Length(1)
+_______| RequesterID(002:00:0) Tag(0) Address(C0103818) 1st BE(1111)
+_______| Last BE(0000) Data(1 dword) LCRC(0xA898D9A1)
+_______| Time Stamp(0013 . 460 687 936 s)
+_______|_______________________________________________________________________
+Packet(178001) Upstream 2.5(x1) DLLP ACK AckNak_Seq_Num(310)
+_______| CRC 16(0xC6EA) Time Stamp(0013 . 460 688 384 s)
+_______|_______________________________________________________________________
+Packet(178004) Upstream 2.5(x1) TLP(1478) Mem MRd(32)(00:00000) Length(4)
+_______| RequesterID(003:00:0) Tag(4) Address(0EAFB990) 1st BE(1111)
+_______| Last BE(1111) LCRC(0xB54722D2) Time Stamp(0013 . 460 689 312 s)
+_______|_______________________________________________________________________
+Packet(178006) Downstream 2.5(x1) TLP(311) Cpl CplD(10:01010) Length(4)
+_______| RequesterID(003:00:0) Tag(4) CompleterID(002:00:0) Status(SC) 
+BCM(0)
+_______| Byte Cnt(16) Lwr Addr(0x10) Data(4 dwords) LCRC(0xFE303776)
+_______| Time Stamp(0013 . 460 690 288 s)
+_______|_______________________________________________________________________
+Packet(178007) Upstream 2.5(x1) DLLP ACK AckNak_Seq_Num(311)
+_______| CRC 16(0x67F1) Time Stamp(0013 . 460 690 776 s)
+_______|_______________________________________________________________________
+Packet(178008) Downstream 2.5(x1) DLLP ACK AckNak_Seq_Num(1478)
+_______| CRC 16(0x2BC2) Time Stamp(0013 . 460 690 824 s)
+_______|_______________________________________________________________________
+Packet(178010) Upstream 2.5(x1) TLP(1479) Mem MRd(64)(01:00000) Length(32)
+_______| RequesterID(003:00:0) Tag(11) Address(AFECEB87:A9D88B00) 1st 
+BE(1100)
+_______| Last BE(0011) LCRC(0x6BE341C9) Time Stamp(0013 . 460 691 680 s)
+_______|_______________________________________________________________________
+Packet(178011) Upstream 2.5(x1) TLP(1480) Mem MRd(64)(01:00000) Length(32)
+_______| RequesterID(003:00:0) Tag(8) Address(AFECEB87:A9D88B7C) 1st 
+BE(1100)
+_______| Last BE(0011) LCRC(0xAA5647BD) Time Stamp(0013 . 460 691 808 s)
+_______|_______________________________________________________________________
+Packet(178012) Upstream 2.5(x1) TLP(1481) Mem MRd(64)(01:00000) Length(32)
+_______| RequesterID(003:00:0) Tag(9) Address(AFECEB87:A9D88BF8) 1st 
+BE(1100)
+_______| Last BE(0011) LCRC(0xEEB1F63F) Time Stamp(0013 . 460 692 120 s)
+_______|_______________________________________________________________________
+Packet(178013) Upstream 2.5(x1) TLP(1482) Mem MRd(64)(01:00000) Length(32)
+_______| RequesterID(003:00:0) Tag(10) Address(AFECEB87:A9D88C74) 1st 
+BE(1100)
+_______| Last BE(0011) LCRC(0xA508142C) Time Stamp(0013 . 460 692 248 s)
+_______|_______________________________________________________________________
+Packet(178014) Downstream 2.5(x1) TLP(312) Cpl Cpl(00:01010) Length(0)
+_______| RequesterID(003:00:0) Tag(11) CompleterID(002:00:0) Status(UR)-BAD
+_______| BCM(0) Byte Cnt(124) Lwr Addr(0x02) LCRC(0xCE5540D2)
+_______| Time Stamp(0013 . 460 692 328 s)
+_______|_______________________________________________________________________
+Packet(178015) Downstream 2.5(x1) TLP(313) Cpl Cpl(00:01010) Length(0)
+_______| RequesterID(003:00:0) Tag(8) CompleterID(002:00:0) Status(UR)-BAD
+_______| BCM(0) Byte Cnt(124) Lwr Addr(0x7E) LCRC(0x9FE2487D)
+_______| Time Stamp(0013 . 460 692 456 s)
+_______|_______________________________________________________________________
+Packet(178016) Upstream 2.5(x1) DLLP ACK AckNak_Seq_Num(312)
+_______| CRC 16(0x086E) Time Stamp(0013 . 460 692 760 s)
+_______|_______________________________________________________________________
+Packet(178017) Downstream 2.5(x1) TLP(314) Cpl Cpl(00:01010) Length(0)
+_______| RequesterID(003:00:0) Tag(9) CompleterID(002:00:0) Status(UR)-BAD
+_______| BCM(0) Byte Cnt(124) Lwr Addr(0x7A) LCRC(0x097BF4DE)
+_______| Time Stamp(0013 . 460 692 776 s)
+_______|_______________________________________________________________________
+Packet(178018) Upstream 2.5(x1) DLLP ACK AckNak_Seq_Num(313)
+_______| CRC 16(0xA975) Time Stamp(0013 . 460 692 888 s)
+_______|_______________________________________________________________________
+Packet(178019) Downstream 2.5(x1) TLP(315) Cpl Cpl(00:01010) Length(0)
+_______| RequesterID(003:00:0) Tag(10) CompleterID(002:00:0) Status(UR)-BAD
+_______| BCM(0) Byte Cnt(124) Lwr Addr(0x76) LCRC(0x64BDF921)
+_______| Time Stamp(0013 . 460 692 904 s)
+_______|_______________________________________________________________________
+Packet(178020) Upstream 2.5(x1) TLP(1483) Msg Msg(01:10000)
+_______| Msg Routing(To RC) Length(0) RequesterID(003:00:0) Tag(31)
+_______| Message Code(ERR_FATAL) LCRC(0xCDA53E96)
+_______| Time Stamp(0013 . 460 693 184 s)
+_______|_______________________________________________________________________
+Packet(178021) Downstream 2.5(x1) DLLP ACK AckNak_Seq_Num(1482)
+_______| CRC 16(0xA771) Time Stamp(0013 . 460 693 208 s)
+_______|_______________________________________________________________________
+Packet(178023) Upstream 2.5(x1) DLLP ACK AckNak_Seq_Num(314)
+_______| CRC 16(0x4A59) Time Stamp(0013 . 460 693 280 s)
+_______|_______________________________________________________________________
+Packet(178024) Upstream 2.5(x1) TLP(1484) Msg Msg(01:10000)
+_______| Msg Routing(To RC) Length(0) RequesterID(003:00:0) Tag(31)
+_______| Message Code(ERR_FATAL) LCRC(0x86D9ACB6)
+_______| Time Stamp(0013 . 460 693 312 s)
+_______|_______________________________________________________________________
+Packet(178025) Upstream 2.5(x1) DLLP ACK AckNak_Seq_Num(315)
+_______| CRC 16(0xEB42) Time Stamp(0013 . 460 693 408 s)
+_______|_______________________________________________________________________
+Packet(178026) Upstream 2.5(x1) TLP(1485) Msg Msg(01:10000)
+_______| Msg Routing(To RC) Length(0) RequesterID(003:00:0) Tag(31)
+_______| Message Code(ERR_FATAL) LCRC(0xC5120A31)
+_______| Time Stamp(0013 . 460 693 632 s)
+_______|_______________________________________________________________________
+Packet(178028) Upstream 2.5(x1) TLP(1486) Msg Msg(01:10000)
+_______| Msg Routing(To RC) Length(0) RequesterID(003:00:0) Tag(31)
+_______| Message Code(ERR_FATAL) LCRC(0x41499062)
+_______| Time Stamp(0013 . 460 693 792 s)
+_______|_______________________________________________________________________
+Packet(178029) Downstream 2.5(x1) DLLP ACK AckNak_Seq_Num(1486)
+_______| CRC 16(0x231F) Time Stamp(0013 . 460 694 704 s)
+_______|_______________________________________________________________________
