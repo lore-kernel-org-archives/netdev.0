@@ -1,85 +1,51 @@
-From: Shan Wei <shanwei88@gmail.com>
-Subject: Re: [PATCH 1/2] netfilter: xtables: inclusion of xt_SYSRQ
-Date: Thu, 05 Jan 2012 21:19:08 +0800
-Message-ID: <4F05A34C.10405@gmail.com>
-References: <1271845618-28569-1-git-send-email-jengelh@medozas.de> <1271845618-28569-2-git-send-email-jengelh@medozas.de> <4BCEF6B4.8090105@trash.net>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: [PATCH v2 0/6] ath6kl: create ath6kl_core.ko
+Date: Thu, 05 Jan 2012 15:25:56 +0200
+Message-ID: <20120105132523.22281.95999.stgit@x201>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	netfilter-devel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	prarit@redhat.com, David Miller <davem@davemloft.net>
-To: john.haxby@oracle.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4BCEF6B4.8090105@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-next@vger.kernel.org, ath6kl-devel@qualcomm.com,
+	davem@davemloft.net
+To: linville@tuxdriver.com
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote, at 2010/4/21 20:59:
+Here's the patchset to fix the allyesconfig build breakage. The fix is to
+create a separate module ath6kl_core.ko which both ath6kl_sdio.ko and
+ath6kl_usb.ko use.
 
-> I really think this is pushing what netfilter is meant for a bit
-> far. Its basically abusing the firewall ruleset to offer a network
-> service.
-> 
-> I can see that its useful to have this in the kernel instead of
-> userspace, but why isn't this implemented as a stand-alone module?
-> That seems like a better design to me and also makes it more useful
-> by not depending on netfilter.
+v2:
 
+o fix ath6kl_dbg() to use va_format correctly (thanks to joe)
+o improved commit log in patch 4
 
-It's very useful to remotely sysrq server machines in large data-center.
-Another solution by Prarit Bhargava is denied by David Miller,
-see discussion http://patchwork.ozlabs.org/patch/101284/.
+---
 
-xt_SYSRQ solution is more convenience for us to use in inner system.
-I hope this solution can be merged to main tree. :-)
-But before that, this code need to be fixed (may be need more hashing enhancement).
-
-> 
->> Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
->> ---
->> +module_param_string(password, sysrq_password, sizeof(sysrq_password),
->> +	S_IRUSR | S_IWUSR);
->> +module_param_string(hash, sysrq_hash, sizeof(sysrq_hash), S_IRUSR);
-
-Read only.
-hash algorithm can be changed.
-
->> +module_param_named(seqno, sysrq_seqno, long, S_IRUSR | S_IWUSR);
-
-sysrq_seqno is set using current time in sysrq_crypto_init.
-Whatever we set, sysrq_seqno is not equal to what we set.
-
->> +	if (len == 0)
->> +		return NF_DROP;
-
-malformed packet should be delivered to udp protocol handing.
- 
+Kalle Valo (6):
+      ath6kl: rename vif init and cleanup functions
+      ath6kl: unify cfg80211 init/cleanup functions
+      ath6kl: create core.c
+      ath6kl: get rid of AR_DBG_LVL_CHECK()
+      ath6kl: convert ath6kl_dbg() and ath6kl_dbg_dump() into functions
+      ath6kl: create ath6kl_core.ko
 
 
->> +	if (i != 3) {
->> +		if (sysrq_debug)
->> +			pr_info("badly formatted request\n");
->> +		return NF_DROP;
-
-Is there 1% possibility for user to send x,x,x,x, type data in udp payload?
-
->> +	do_gettimeofday(&now);
->> +	sysrq_seqno = now.tv_sec;
->> +	ret = xt_register_targets(sysrq_tg_reg, ARRAY_SIZE(sysrq_tg_reg));
-
-register target.
-
->> +static int __init sysrq_tg_init(void)
->> +{
->> +	if (sysrq_crypto_init() < 0)
->> +		pr_info("starting without crypto\n");
->> +	return xt_register_targets(sysrq_tg_reg, ARRAY_SIZE(sysrq_tg_reg));
-
-register again. This will cause target list dead loop.
-
---
-Best Regards
-Shan Wei
+ drivers/net/wireless/ath/ath6kl/Makefile   |   35 +--
+ drivers/net/wireless/ath/ath6kl/cfg80211.c |  207 ++++++++------------
+ drivers/net/wireless/ath/ath6kl/cfg80211.h |   12 +
+ drivers/net/wireless/ath/ath6kl/common.h   |    3 
+ drivers/net/wireless/ath/ath6kl/core.c     |  297 ++++++++++++++++++++++++++++
+ drivers/net/wireless/ath/ath6kl/core.h     |   10 +
+ drivers/net/wireless/ath/ath6kl/debug.c    |   68 +++++-
+ drivers/net/wireless/ath/ath6kl/debug.h    |   27 ---
+ drivers/net/wireless/ath/ath6kl/hif.c      |   10 +
+ drivers/net/wireless/ath/ath6kl/init.c     |  211 +-------------------
+ drivers/net/wireless/ath/ath6kl/sdio.c     |    4 
+ drivers/net/wireless/ath/ath6kl/usb.c      |    8 -
+ drivers/net/wireless/ath/ath6kl/wmi.c      |    3 
+ 13 files changed, 484 insertions(+), 411 deletions(-)
+ create mode 100644 drivers/net/wireless/ath/ath6kl/core.c
