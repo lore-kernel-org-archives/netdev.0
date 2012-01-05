@@ -1,112 +1,70 @@
-From: Mihai Maruseac <mihai.maruseac@gmail.com>
-Subject: Re: [PATCH] ipv6/addrconf: speedup /proc/net/if_inet6 filling
-Date: Thu, 5 Jan 2012 16:07:33 +0200
-Message-ID: <CAOMsUM+wJm0YiTZpAVh+4GYJdDKFmSCqZek_ykaYuvHYXx5MFw@mail.gmail.com>
-References: <1325669495-5626-1-git-send-email-mmaruseac@ixiacom.com>
- <20120104082200.437df26a@nehalam.linuxnetplumber.net> <CAOMsUMKp_7w2+0bBTFbQk3HKpobJQd8b2vi6_zTTzGjtZ_+OMA@mail.gmail.com>
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Subject: Re: [PATCH 02/14 v2] mac802154: allocation of ieee802154 device
+Date: Thu, 5 Jan 2012 18:11:54 +0400
+Message-ID: <CAJmB2rCED2whi1o=dPyi15ZaoTw9o5RcSokeZuWtwPNVGf9mMQ@mail.gmail.com>
+References: <1324919047-14851-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+	<20111226.150924.734645949941473044.davem@davemloft.net>
+	<CAJmB2rAyyPmYTmtTvFK3UuFn9t+361raA5R=92XPNHrH7dfgfw@mail.gmail.com>
+	<20111228.023145.2078199792492848729.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, Mihai Maruseac <mmaruseac@ixiacom.com>,
-	Daniel Baluta <dbaluta@ixiacom.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:54740 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932294Ab2AEOHy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 09:07:54 -0500
-Received: by ggdk6 with SMTP id k6so187629ggd.19
-        for <netdev@vger.kernel.org>; Thu, 05 Jan 2012 06:07:53 -0800 (PST)
-In-Reply-To: <CAOMsUMKp_7w2+0bBTFbQk3HKpobJQd8b2vi6_zTTzGjtZ_+OMA@mail.gmail.com>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:60878 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757334Ab2AEOL4 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jan 2012 09:11:56 -0500
+Received: by lahd3 with SMTP id d3so176897lah.19
+        for <netdev@vger.kernel.org>; Thu, 05 Jan 2012 06:11:55 -0800 (PST)
+In-Reply-To: <20111228.023145.2078199792492848729.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 4, 2012 at 7:03 PM, Mihai Maruseac <mihai.maruseac@gmail.co=
-m> wrote:
-> On Wed, Jan 4, 2012 at 6:22 PM, Stephen Hemminger <shemminger@vyatta.=
-com> wrote:
->> On Wed, =A04 Jan 2012 11:31:35 +0200
->> Mihai Maruseac <mihai.maruseac@gmail.com> wrote:
+Hello David,
+
+2011/12/28 David Miller <davem@davemloft.net>:
+> From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+> Date: Wed, 28 Dec 2011 10:19:23 +0300
+>
+>> Dear David,
 >>
->>> This ensures a linear behaviour when filling /proc/net/if_inet6 thu=
-s making
->>> ifconfig run really fast on IPv6 only addresses. In fact, with this=
- patch and
->>> the IPv4 one sent a while ago, ifconfig will run in linear time reg=
-ardless of
->>> address type.
+>> 2011/12/26 David Miller <davem@davemloft.net>:
+>>> From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+>>> Date: Mon, 26 Dec 2011 20:04:07 +0300
 >>>
->>> IPv4 related patch: f04565ddf52e401880f8ba51de0dff8ba51c99fd
->>> =A0 =A0 =A0 =A0dev: use name hash for dev_seq_ops
->>> =A0 =A0 =A0 =A0...
+>>>> + =A0 =A0 /*
+>>>> + =A0 =A0 =A0* SoftMAC device is registered and running. One can a=
+dd
+>>>> + =A0 =A0 =A0* subinterfaces.
+>>>> + =A0 =A0 =A0*/
+>>>> + =A0 =A0 unsigned running:1;
 >>>
->>> Some statistics (running ifconfig > /dev/null on a different setup)=
-:
+>>> I told you to change this to a 'bool' in my previous review of your=
+ changes.
 >>>
->>> iface count / IPv6 no-patch time / IPv6 patched time / IPv4 time
->>> ----------------------------------------------------------------
->>> =A0 =A0 =A0 6250 =A0| =A0 =A0 =A0 0.23 s =A0 =A0 =A0 | =A0 =A0 =A00=
-=2E13 s =A0 =A0 =A0 | =A00.11 s
->>> =A0 =A0 =A012500 =A0| =A0 =A0 =A0 0.62 s =A0 =A0 =A0 | =A0 =A0 =A00=
-=2E28 s =A0 =A0 =A0 | =A00.22 s
->>> =A0 =A0 =A025000 =A0| =A0 =A0 =A0 2.91 s =A0 =A0 =A0 | =A0 =A0 =A00=
-=2E57 s =A0 =A0 =A0 | =A00.46 s
->>> =A0 =A0 =A050000 =A0| =A0 =A0 =A011.37 s =A0 =A0 =A0 | =A0 =A0 =A01=
-=2E21 s =A0 =A0 =A0 | =A00.94 s
->>> =A0 =A0 128000 =A0| =A0 =A0 =A086.78 s =A0 =A0 =A0 | =A0 =A0 =A03.0=
-5 s =A0 =A0 =A0 | =A02.54 s
->>>
->>> Signed-off-by: Mihai Maruseac <mmaruseac@ixiacom.com>
->>> Cc: Daniel Baluta <dbaluta@ixiacom.com>
->>> ---
->>> =A0net/ipv6/addrconf.c | =A0 43 ++++++++++++++++++++++++++++-------=
---------
->>> =A01 files changed, 28 insertions(+), 15 deletions(-)
+>>> I'm pretty much going to stop reviewing right here, because I don't
+>>> want to waste my time only to find out that you've ignored other
+>>> review feedback I've already given to you.
 >>>
 >>
->>
->> What about netlink? Also ifconfig is really considered deprecated,
->> especially for ipv6 usage.
+>> Regarding your comments to my previous post, none of them was omitte=
+d. I
+>> reworked code according to them and added extended comments in a pat=
+ch
+>> explaining why I can't follow your hint. The issue with 'bool' you m=
+arked
+>> was in another patch (#14) which I already fixed.
 >
-> Yes, ifconfig is deprecated but the /proc/net/if_inet6 file can be
-> used in a lot of bash scripts and this was what we wanted to optimize=
-=2E
+> My bad, I thought I had asked you do it here too.
 >
-> We tried to look at the netlink sockets used in iproute2 but there
-> seems to be no way to improve the performance there. We used 3 pair o=
-f
-> eyes for this before giving up.
->
-> I'll come back with statistics from ip a s in at most 24 hours, I
-> cannot test right now.
+> Sorry about that.
 
+Should I wait for the review of remaining patches or it would be
+better to resubmit all the series with changes according to your new
+comments?
 
-Here are the statistics comparing ip a s with ifconfig, as promised:
-
-* for IPv6:
-
-iface count / ifconfig /   ip a s
-----------------------------------------------
- =A0 =A0 =A0 6250 =A0|  0.13 s  | =A0   1.23 s
-=A0 =A0 =A012500 =A0|  0.28 s  | =A0   5.03 s
-=A0 =A0 =A025000 =A0|  0.57 s  | =A0 20.17 s
-=A0 =A0 =A050000 =A0|  1.21 s  | =A0 87.25 s
- =A0 128000 =A0|  3.05 s  | =A0968.12 s
-
-* for IPv4:
-
-iface count / ifconfig /   ip a s
-----------------------------------------------
- =A0 =A0 =A0 6250 =A0|  0.11 s  | =A0   0.61 s
-=A0 =A0 =A012500 =A0|  0.22 s  | =A0   2.49 s
-=A0 =A0 =A025000 =A0|  0.46 s  | =A0 10.12 s
-=A0 =A0 =A050000 =A0|  0.94 s  | =A0 40.36 s
- =A0 128000 =A0|  2.54 s  | =A0293.14 s
-
-It seems that an optimisation for the ip case is required. We have a
-quadratic behaviour here too.
-
-Thanks,
-Mihai
+With best regards,
+Alexander
