@@ -1,36 +1,37 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: RE: [PATCH 1/2] bna: make ethtool_ops and strings const
-Date: Thu, 5 Jan 2012 10:28:43 -0800
-Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86AE729175C8@HQ1-EXCH01.corp.brocade.com>
-References: <20120104230222.355802239@vyatta.com>
-	<20120104230239.002499460@vyatta.com>
- <20120105.132344.2216919504798290770.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/6] net: pack skb_shared_info more efficiently
+Date: Thu, 05 Jan 2012 19:30:58 +0100
+Message-ID: <1325788258.4759.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1325783399.25206.413.camel@zakaz.uk.xensource.com>
+	 <1325783624-14601-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Ian Campbell <ian.campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:35413 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757836Ab2AES3F convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jan 2012 13:29:05 -0500
-In-Reply-To: <20120105.132344.2216919504798290770.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:46484 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753099Ab2AESbC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 13:31:02 -0500
+Received: by wibhm6 with SMTP id hm6so557406wib.19
+        for <netdev@vger.kernel.org>; Thu, 05 Jan 2012 10:31:01 -0800 (PST)
+In-Reply-To: <1325783624-14601-1-git-send-email-ian.campbell@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From: David Miller [mailto:davem@davemloft.net]
->Sent: Thursday, January 05, 2012 10:24 AM
->
->From: Stephen Hemminger <shemminger@vyatta.com>
->Date: Wed, 04 Jan 2012 15:02:23 -0800
->
->> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->
->Applied.
+Le jeudi 05 janvier 2012 =C3=A0 17:13 +0000, Ian Campbell a =C3=A9crit =
+:
+> nr_frags can be 8 bits since 256 is plenty of fragments. This allows =
+it to be
+> packed with tx_flags.
+>=20
+> Also by moving ip6_frag_id and dataref (both 4 bytes) next to each ot=
+her we can
+> avoid a hole between ip6_frag_id and frag_list on 64 bit systems.
+>=20
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> ---
 
-Thanks Stephen, David!
---Rasesh
+
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
