@@ -1,45 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Bug in netem reordering
-Date: Thu, 05 Jan 2012 13:28:44 -0500 (EST)
-Message-ID: <20120105.132844.667708412405670292.davem@davemloft.net>
-References: <CAGK4HS8YBBwPtPpQhi8gas=RBE6wao6KZ1dwbwo2rxn4qXggCQ@mail.gmail.com>
-	<1325734526-13428-1-git-send-email-hagen@jauu.net>
-	<1325741656.2634.20.camel@edumazet-laptop>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: RE: [PATCH 1/2] bna: make ethtool_ops and strings const
+Date: Thu, 5 Jan 2012 10:28:43 -0800
+Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86AE729175C8@HQ1-EXCH01.corp.brocade.com>
+References: <20120104230222.355802239@vyatta.com>
+	<20120104230239.002499460@vyatta.com>
+ <20120105.132344.2216919504798290770.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hagen@jauu.net, netdev@vger.kernel.org, shemminger@vyatta.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33383 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758015Ab2AES2x convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 13:28:53 -0500
-In-Reply-To: <1325741656.2634.20.camel@edumazet-laptop>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:35413 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757836Ab2AES3F convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jan 2012 13:29:05 -0500
+In-Reply-To: <20120105.132344.2216919504798290770.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 05 Jan 2012 06:34:16 +0100
+>From: David Miller [mailto:davem@davemloft.net]
+>Sent: Thursday, January 05, 2012 10:24 AM
+>
+>From: Stephen Hemminger <shemminger@vyatta.com>
+>Date: Wed, 04 Jan 2012 15:02:23 -0800
+>
+>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>
+>Applied.
 
-> Le jeudi 05 janvier 2012 =E0 04:35 +0100, Hagen Paul Pfeifer a =E9cri=
-t :
->> Not now, but it looks you are correct. q->qdisc is NULL until anothe=
-r
->> additional qdisc is attached (beside tfifo). See 50612537e9ab2969312=
-=2E
->> The following patch should work.
->>=20
->> From: Hagen Paul Pfeifer <hagen@jauu.net>
->>=20
->> netem: catch NULL pointer by updating the real qdisc statistic
->>=20
->> Reported-by: Vijay Subramanian <subramanian.vijay@gmail.com>
->> Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
->> ---
->=20
-> Thanks for this fix !
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-Applied, thanks.
+Thanks Stephen, David!
+--Rasesh
