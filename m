@@ -1,50 +1,54 @@
-From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Subject: Re: [PATCH 5/6] ath6kl: convert ath6kl_dbg() and ath6kl_dbg_dump()
- into functions
-Date: Thu, 5 Jan 2012 10:22:32 +0200
-Message-ID: <4F055DC8.9050902@qca.qualcomm.com>
-References: <20120104230429.32306.75965.stgit@x201>	 <20120104230950.32306.21264.stgit@x201> <1325720472.4116.7.camel@joe2Laptop>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH] xen-netback: make ops structs const
+Date: Thu, 5 Jan 2012 08:44:46 +0000
+Message-ID: <1325753087.25206.336.camel@zakaz.uk.xensource.com>
+References: <20120104135658.0347211f@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<ath6kl-devel-zC7DfRvBq/JWk0Htik3J/w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1325720472.4116.7.camel@joe2Laptop>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:54739 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756179Ab2AEIos (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 03:44:48 -0500
+In-Reply-To: <20120104135658.0347211f@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/05/2012 01:41 AM, Joe Perches wrote:
-> On Thu, 2012-01-05 at 01:09 +0200, Kalle Valo wrote:
->> That way it's possible to not export debug_mask outside the upcoming
->> ath6kl_core.ko and that makes it easier to ath6kl_core.ko in the
->> following patch.
-> []
->> Signed-off-by: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-> []
->> diff --git a/drivers/net/wireless/ath/ath6kl/debug.c b/drivers/net/wireless/ath/ath6kl/debug.c
-> []
->> +void ath6kl_dbg(enum ATH6K_DEBUG_MASK mask, const char *fmt, ...)
->> +{
->> +	va_list args;
->> +
->> +	if (!(debug_mask & mask))
->> +		return;
->> +
->> +	va_start(args, fmt);
->> +	ath6kl_printk(KERN_DEBUG, fmt, &args);
+On Wed, 2012-01-04 at 21:56 +0000, Stephen Hemminger wrote:
+> All tables of function pointers should be const to make hacks
+> more difficult. Compile tested only.
+
+I also eyeballed for any writes to these structs and couldn't find one.
+
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+Acked-by: Ian Campbell <ian.campbell@citrix.com>
+
 > 
-> Passing a va_list as an argument?
-> I believe this doesn't work.
-
-Doh, I was supposed to test this but then I forgot in the hurry. Thanks
-for pointing this out. I will send v2 which will fix this.
-
-Kalle
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> ---
+> Patch against net-next
+> 
+> --- a/drivers/net/xen-netback/interface.c	2011-12-07 10:54:19.232282492 -0800
+> +++ b/drivers/net/xen-netback/interface.c	2012-01-04 13:16:04.414052721 -0800
+> @@ -223,7 +223,7 @@ static void xenvif_get_strings(struct ne
+>  	}
+>  }
+>  
+> -static struct ethtool_ops xenvif_ethtool_ops = {
+> +static const struct ethtool_ops xenvif_ethtool_ops = {
+>  	.get_link	= ethtool_op_get_link,
+>  
+>  	.get_sset_count = xenvif_get_sset_count,
+> @@ -231,7 +231,7 @@ static struct ethtool_ops xenvif_ethtool
+>  	.get_strings = xenvif_get_strings,
+>  };
+>  
+> -static struct net_device_ops xenvif_netdev_ops = {
+> +static const struct net_device_ops xenvif_netdev_ops = {
+>  	.ndo_start_xmit	= xenvif_start_xmit,
+>  	.ndo_get_stats	= xenvif_get_stats,
+>  	.ndo_open	= xenvif_open,
