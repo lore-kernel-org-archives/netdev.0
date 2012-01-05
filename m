@@ -1,48 +1,71 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: Bug in netem reordering
-Date: Thu,  5 Jan 2012 04:35:26 +0100
-Message-ID: <1325734526-13428-1-git-send-email-hagen@jauu.net>
-References: <CAGK4HS8YBBwPtPpQhi8gas=RBE6wao6KZ1dwbwo2rxn4qXggCQ@mail.gmail.com>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, shemminger@vyatta.com,
-	Hagen Paul Pfeifer <hagen@jauu.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:60983 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752763Ab2AEDfh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2012 22:35:37 -0500
-In-Reply-To: <CAGK4HS8YBBwPtPpQhi8gas=RBE6wao6KZ1dwbwo2rxn4qXggCQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 0/7] rtlwifi: debug macros and uses neatening
+Date: Wed,  4 Jan 2012 19:40:38 -0800
+Message-ID: <cover.1325734202.git.joe@perches.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Not now, but it looks you are correct. q->qdisc is NULL until another
-additional qdisc is attached (beside tfifo). See 50612537e9ab2969312.
-The following patch should work.
+Shrinks the objects a fair bit too.
 
-From: Hagen Paul Pfeifer <hagen@jauu.net>
+Joe Perches (7):
+  rtlwifi: Neaten RT_ASSERT, RT_TRACE, RTPRINT, RT_PRINT_DATA macros
+  rtlwifi: Standardize RT_PRINT_DATA macro and uses
+  rtlwifi: Convert RT_TRACE macro to use ##__VA_ARGS__
+  rtlwifi: Convert RTPRINT macro to use ##__VA_ARGS__
+  rtlwifi: Convert RT_ASSERT macro to use ##__VA_ARGS__
+  rtlwifi: Remove duplicate __func__
+  rtlwifi: Optimize RT_TRACE macro use of KBUILD_MODNAME for size
 
-netem: catch NULL pointer by updating the real qdisc statistic
+ drivers/net/wireless/rtlwifi/base.c                |   56 +-
+ drivers/net/wireless/rtlwifi/cam.c                 |   81 ++--
+ drivers/net/wireless/rtlwifi/core.c                |  124 ++--
+ drivers/net/wireless/rtlwifi/debug.h               |   85 ++--
+ drivers/net/wireless/rtlwifi/efuse.c               |   61 +-
+ drivers/net/wireless/rtlwifi/pci.c                 |  211 +++----
+ drivers/net/wireless/rtlwifi/ps.c                  |   31 +-
+ drivers/net/wireless/rtlwifi/rc.c                  |    2 +-
+ drivers/net/wireless/rtlwifi/regd.c                |   12 +-
+ drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c  |  189 +++---
+ drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c  |   84 ++--
+ drivers/net/wireless/rtlwifi/rtl8192c/phy_common.c |  211 +++---
+ drivers/net/wireless/rtlwifi/rtl8192ce/dm.c        |   24 +-
+ drivers/net/wireless/rtlwifi/rtl8192ce/hw.c        |  262 ++++----
+ drivers/net/wireless/rtlwifi/rtl8192ce/led.c       |   16 +-
+ drivers/net/wireless/rtlwifi/rtl8192ce/phy.c       |  108 ++--
+ drivers/net/wireless/rtlwifi/rtl8192ce/rf.c        |   83 ++--
+ drivers/net/wireless/rtlwifi/rtl8192ce/sw.c        |    8 +-
+ drivers/net/wireless/rtlwifi/rtl8192ce/trx.c       |   23 +-
+ drivers/net/wireless/rtlwifi/rtl8192cu/dm.c        |   24 +-
+ drivers/net/wireless/rtlwifi/rtl8192cu/hw.c        |  257 ++++----
+ drivers/net/wireless/rtlwifi/rtl8192cu/led.c       |   15 +-
+ drivers/net/wireless/rtlwifi/rtl8192cu/mac.c       |  105 ++--
+ drivers/net/wireless/rtlwifi/rtl8192cu/phy.c       |  121 ++--
+ drivers/net/wireless/rtlwifi/rtl8192cu/rf.c        |   71 +-
+ drivers/net/wireless/rtlwifi/rtl8192cu/sw.c        |    6 +-
+ drivers/net/wireless/rtlwifi/rtl8192cu/trx.c       |   42 +-
+ drivers/net/wireless/rtlwifi/rtl8192de/dm.c        |  239 +++----
+ drivers/net/wireless/rtlwifi/rtl8192de/fw.c        |  117 ++--
+ drivers/net/wireless/rtlwifi/rtl8192de/hw.c        |  188 +++---
+ drivers/net/wireless/rtlwifi/rtl8192de/led.c       |   14 +-
+ drivers/net/wireless/rtlwifi/rtl8192de/phy.c       |  682 ++++++++++----------
+ drivers/net/wireless/rtlwifi/rtl8192de/rf.c        |   95 ++--
+ drivers/net/wireless/rtlwifi/rtl8192de/sw.c        |    8 +-
+ drivers/net/wireless/rtlwifi/rtl8192de/trx.c       |   26 +-
+ drivers/net/wireless/rtlwifi/rtl8192se/dm.c        |   30 +-
+ drivers/net/wireless/rtlwifi/rtl8192se/fw.c        |   66 +-
+ drivers/net/wireless/rtlwifi/rtl8192se/hw.c        |  244 ++++----
+ drivers/net/wireless/rtlwifi/rtl8192se/led.c       |   15 +-
+ drivers/net/wireless/rtlwifi/rtl8192se/phy.c       |  204 +++---
+ drivers/net/wireless/rtlwifi/rtl8192se/rf.c        |   60 +-
+ drivers/net/wireless/rtlwifi/rtl8192se/sw.c        |    8 +-
+ drivers/net/wireless/rtlwifi/rtl8192se/trx.c       |   18 +-
+ drivers/net/wireless/rtlwifi/usb.c                 |   39 +-
+ 44 files changed, 2084 insertions(+), 2281 deletions(-)
 
-Reported-by: Vijay Subramanian <subramanian.vijay@gmail.com>
-Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
----
- net/sched/sch_netem.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index 06a5ceb..cc29d18 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -458,8 +458,8 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		q->counter = 0;
- 
- 		__skb_queue_head(&sch->q, skb);
--		q->qdisc->qstats.backlog += qdisc_pkt_len(skb);
--		q->qdisc->qstats.requeues++;
-+		sch->qstats.backlog += qdisc_pkt_len(skb);
-+		sch->qstats.requeues++;
- 		ret = NET_XMIT_SUCCESS;
- 	}
- 
 -- 
-1.7.7.3
+1.7.8.111.gad25c.dirty
