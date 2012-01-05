@@ -1,60 +1,94 @@
-From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Subject: Re: [PATCH v2] drivers: net: Fix dependency for EEPROM_93CX6
-Date: Thu, 5 Jan 2012 17:03:27 +0000
-Message-ID: <1325783007.3764.19.camel@bwh-desktop>
-References: <1325770673-17309-1-git-send-email-festevam@gmail.com>
-	 <4F05CBA9.1070602@lwfinger.net>
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: Re: [PATCH] rds_rdma: don't assume infiniband device is PCI
+Date: Thu, 5 Jan 2012 15:05:24 -0200
+Message-ID: <20120105170523.GA19022@oc1711230544.ibm.com>
+References: <ed54708d-990e-4c8f-8057-50a70f93d3d8@default>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Fabio Estevam <festevam-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <gwingerde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Fabio Estevam <fabio.estevam-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4F05CBA9.1070602-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dledford@redhat.com,
+	Jes.Sorensen@redhat.com, rds-devel@oss.oracle.com
+To: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <ed54708d-990e-4c8f-8057-50a70f93d3d8@default>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-01-05 at 10:11 -0600, Larry Finger wrote:
-> On 01/05/2012 07:37 AM, Fabio Estevam wrote:
-> > Fix the following build warning:
-> >
-> > warning: (KS8851&&  AX88796_93CX6&&  RTL8180&&  RTL8187&&  ADM8211&&  RT2400PCI&&  RT2500PCI&&  RT61PCI&&  RT2800PCI&&  R8187SE) selects EEPROM_93CX6 which has unmet direct dependencies (MISC_DEVICES)
-> >
-> > Signed-off-by: Fabio Estevam<fabio.estevam-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-> > ---
-> > Changes since v1:
-> > - Place MISC_DEVICES dependency into the 'depends on' line
+> ----- Original Message -----
+> From: cascardo@linux.vnet.ibm.com
+> To: venkat.x.venkatsubra@oracle.com
+> Cc: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, cascardo@linux.vnet.ibm.com, dledford@redhat.com, Jes.Sorensen@redhat.com, rds-devel@oss.oracle.com
+> Sent: Wednesday, January 4, 2012 4:03:42 PM GMT -06:00 US/Canada Central
+> Subject: [PATCH] rds_rdma: don't assume infiniband device is PCI
 > 
-> Is this the right way to fix this? Whenever I get this kind of build warning, I 
-> usually attribute it to a problem with my local configuration and fix my copy of 
-> .config, not modify the build system. With this change, it seems to me that a 
-> lot of devices will suddenly disappear from the build with little explanation.
+> RDS code assumes that the struct ib_device dma_device member, which is a
+> pointer, points to a struct device embedded in a struct pci_dev.
+> 
+> This is not the case for ehca, for example, which is a OF driver, and
+> makes dma_device point to a struct device embedded in a struct
+> platform_device.
+> 
+> This will make the system crash when rds_rdma is loaded in a system
+> with ehca, since it will try to access the bus member of a non-existent
+> struct pci_dev.
+> 
+> The only reason rds_rdma uses the struct pci_dev is to get the NUMA node
+> the device is attached to. Using dev_to_node for that is much better,
+> since it won't assume which bus the infiniband is attached to.
+> 
+> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+> Cc: dledford@redhat.com
+> Cc: Jes.Sorensen@redhat.com
+> Cc: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+> Cc: rds-devel@oss.oracle.com
+> ---
+>  net/rds/ib.h |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/rds/ib.h b/net/rds/ib.h
+> index edfaaaf..8d2b3d5 100644
+> --- a/net/rds/ib.h
+> +++ b/net/rds/ib.h
+> @@ -186,8 +186,7 @@ struct rds_ib_device {
+>  	struct work_struct	free_work;
+>  };
+>  
+> -#define pcidev_to_node(pcidev) pcibus_to_node(pcidev->bus)
+> -#define ibdev_to_node(ibdev) pcidev_to_node(to_pci_dev(ibdev->dma_device))
+> +#define ibdev_to_node(ibdev) dev_to_node(ibdev->dma_device)
+>  #define rdsibdev_to_node(rdsibdev) ibdev_to_node(rdsibdev->dev)
+>  
+>  /* bits for i_ack_flags */
+> -- 
+> 1.7.4.4
+> 
 
-I entirely agree.
+On Thu, Jan 05, 2012 at 08:56:34AM -0800, Venkat Venkatsubra wrote:
+> Hi Cascardo,
+> 
+> Your changes look good to me.
+> But our latest code doesn't use this rdsibdev_to_node macro anywhere.
+> Checking with the people in my group who know the history of the NUMA feature.
+> Trying to find out if the call to kzalloc_node() can be replaced by kzalloc().
+> In which case this macro can be removed.
+> 
+> I will keep you posted.
+> 
+> Venkat
+> 
 
-> I don't feel confident enough to NACK the patch, but I would like an expert to 
-> comment.
+Hi, Venkat.
 
-I'm not an expert but am prepared to be opinionated!
+Do you have any public tree where we can track the last changes in RDS?
+Note that I have changed ibsdev_to_node, which rdsibdev_to_node makes
+use of. Anyway, replacing kzalloc_node with kzalloc has crossed my mind,
+but since I was not sure if this would affect latency of RDS in any use
+cases, I kept that and used a better function to get the node from the
+device. And we have dev_to_node since 2.6.20, so it should not be a
+problem to use it.
 
-> I have noticed that the defconfigs for various architectures are split between 
-> turning MISC_DEVICES on or off.
+If possible, keep everyone copied and avoid top posting.
 
-That seems like a bug, since MISC_DEVICES doesn't by itself select any
-code.  (It's also not a meaningful category and maybe ought not to be an
-option at all.)
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards.
+Cascardo.
