@@ -1,93 +1,90 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH] drivers: misc: Remove MISC_DEVICES config option
-Date: Thu,  5 Jan 2012 18:49:01 -0200
-Message-ID: <1325796541-11402-1-git-send-email-festevam@gmail.com>
-Cc: gwingerde@gmail.com, larry.finger@lwfinger.net,
-	davem@davemloft.net, bhutchings@solarflare.com, greg@kroah.com,
-	arnd@arndb.de, linux-kernel@vger.kernel.org,
-	Fabio Estevam <festevam@gmail.com>,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: netdev@vger.kernel.org
+From: Trond Myklebust <Trond.Myklebust@netapp.com>
+Subject: Re: [PATCH 0/5] NFS: create blocklayout pipe per network namesapce
+ context
+Date: Thu, 05 Jan 2012 15:58:31 -0500
+Message-ID: <1325797111.11084.22.camel@lade.trondhjem.org>
+References: <20111129090754.20730.64567.stgit@localhost6.localdomain6>
+	 <1325285705.10984.4.camel@lade.trondhjem.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
+	davem@davemloft.net, devel@openvz.org
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1325285705.10984.4.camel@lade.trondhjem.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-MISC_DEVICES option alone does not select any kernel code and can cause dependency build warnings, such as:
+On Fri, 2011-12-30 at 17:55 -0500, Trond Myklebust wrote: 
+> On Tue, 2011-11-29 at 13:10 +0300, Stanislav Kinsbursky wrote: 
+> > This patch set was created in context of clone of git
+> > branch: git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git.
+> > tag: v3.1
+> > 
+> > This patch set depends on previous patch sets titled:
+> > 1) "SUNRPC: initial part of making pipefs work in net ns"
+> > 2) "SUNPRC: cleanup PipeFS for network-namespace-aware users"
+> > 3) "SUNRPC: make RPC clients use network-namespace-aware PipeFS routines"
+> > 4) "NFS: create clients and IDMAP pipes per network namespace"
+> > 
+> > This patch set is the final part of making SUNRPC PipeFS and it's users work in
+> > network namespace context.
+> > 
+> > The following series consists of:
+> > 
+> > ---
+> > 
+> > Stanislav Kinsbursky (5):
+> >       NFS: handle blocklayout pipe PipeFS dentry by network namespace aware routines
+> >       NFS: blocklayout pipe creation per network namespace context introduced
+> >       NFS: blocklayout PipeFS notifier introduced
+> >       NFS: remove RPC PipeFS mount point reference from blocklayout routines
+> >       SUNRPC: kernel PipeFS mount point creation routines removed
+> > 
+> > 
+> >  fs/nfs/blocklayout/blocklayout.c    |  154 ++++++++++++++++++++++++++++-------
+> >  fs/nfs/blocklayout/blocklayout.h    |    3 -
+> >  fs/nfs/blocklayout/blocklayoutdev.c |    5 +
+> >  fs/nfs/blocklayout/blocklayoutdm.c  |    7 +-
+> >  fs/nfs/inode.c                      |    1 
+> >  fs/nfs/netns.h                      |    1 
+> >  include/linux/sunrpc/rpc_pipe_fs.h  |    2 
+> >  net/sunrpc/rpc_pipe.c               |   21 -----
+> >  8 files changed, 137 insertions(+), 57 deletions(-)
+> 
+> 
+> These patches need rebasing in order to apply on top of 3.2-rc7...
 
-warning: (KS8851 && AX88796_93CX6 && RTL8180 && RTL8187 && ADM8211 && RT2400PCI && RT2500PCI && RT61PCI && RT2800PCI && R8187SE) selects EEPROM_93CX6 which has unmet direct dependencies (MISC_DEVICES)
+OK. Further testing seems to indicate that we're going to have to
+postpone merging these patches until the 3.4 merge window.
 
-Remove MISC_DEVICES option so that any dependency on this symbol is avoided.
+The problems are twofold:
 
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
----
-This applies against linux-next
+As the patches stand now in the linux-next tree, they can (and
+occasionally do) Oops on unmount. The reason was that I rejected the
+PipeFS notifier patch for the idmapper (due to the reported problem of
+nfs_idmap_init/nfs_idmap_quit being undefined when CONFIG_NFS_V4 is
+undefined), and the fact that it is missing causes the unmount at the
+end of our tests to hit the BUG() in fs/dcache.c:905. This suggests that
+we will have the same problem with the pNFS block layout driver, since I
+still haven't received a rebased update of the 5 'create blocklayout
+pipe per network namesapce context' patches.
 
- drivers/misc/Kconfig                |   17 +++--------------
- drivers/mmc/host/Kconfig            |    1 -
- drivers/net/ethernet/micrel/Kconfig |    1 -
- 3 files changed, 3 insertions(+), 16 deletions(-)
+The second problem that was highlighted was the fact that as they stand
+today, these patchsets do not allow for bisection. When we hit the Oops,
+I had Bryan try to bisect where the problem arose. He ended up pointing
+at the patch "SUNRPC: handle RPC client pipefs dentries by network
+namespace aware routine", which is indeed the cause, but which is one of
+the _dependencies_ for all the PipeFS notifier patches that fix the
+problem.
 
-diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
-index 6a1a092..c779509 100644
---- a/drivers/misc/Kconfig
-+++ b/drivers/misc/Kconfig
-@@ -2,24 +2,14 @@
- # Misc strange devices
- #
- 
--# This one has to live outside of the MISC_DEVICES conditional,
--# because it may be selected by drivers/platform/x86/hp_accel.
-+menu "Misc devices"
-+
- config SENSORS_LIS3LV02D
- 	tristate
- 	depends on INPUT
- 	select INPUT_POLLDEV
- 	default n
- 
--menuconfig MISC_DEVICES
--	bool "Misc devices"
--	---help---
--	  Say Y here to get to see options for device drivers from various
--	  different categories. This option alone does not add any kernel code.
--
--	  If you say N, all options in this submenu will be skipped and disabled.
--
--if MISC_DEVICES
--
- config AD525X_DPOT
- 	tristate "Analog Devices Digital Potentiometers"
- 	depends on (I2C || SPI) && SYSFS
-@@ -516,5 +506,4 @@ source "drivers/misc/ti-st/Kconfig"
- source "drivers/misc/lis3lv02d/Kconfig"
- source "drivers/misc/carma/Kconfig"
- source "drivers/misc/altera-stapl/Kconfig"
--
--endif # MISC_DEVICES
-+endmenu
-diff --git a/drivers/mmc/host/Kconfig b/drivers/mmc/host/Kconfig
-index cf444b0..00fcbed 100644
---- a/drivers/mmc/host/Kconfig
-+++ b/drivers/mmc/host/Kconfig
-@@ -477,7 +477,6 @@ config MMC_SDHI
- config MMC_CB710
- 	tristate "ENE CB710 MMC/SD Interface support"
- 	depends on PCI
--	select MISC_DEVICES
- 	select CB710_CORE
- 	help
- 	  This option enables support for MMC/SD part of ENE CB710/720 Flash
-diff --git a/drivers/net/ethernet/micrel/Kconfig b/drivers/net/ethernet/micrel/Kconfig
-index 1ea811c..fe42fc0 100644
---- a/drivers/net/ethernet/micrel/Kconfig
-+++ b/drivers/net/ethernet/micrel/Kconfig
-@@ -42,7 +42,6 @@ config KS8851
- 	select NET_CORE
- 	select MII
- 	select CRC32
--	select MISC_DEVICES
- 	select EEPROM_93CX6
- 	---help---
- 	  SPI driver for Micrel KS8851 SPI attached network chip.
 -- 
-1.7.1
+Trond Myklebust
+Linux NFS client maintainer
+
+NetApp
+Trond.Myklebust@netapp.com
+www.netapp.com
