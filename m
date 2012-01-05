@@ -1,69 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: bug in qavg calculation in include/net/red.h (resending as
- plain-text email)
-Date: Thu, 05 Jan 2012 22:19:56 +0100
-Message-ID: <1325798396.2748.19.camel@edumazet-laptop>
-References: <67E2BF19E6D6A749A7680AEF496EB37C39D9204067@GVW0547EXC.americas.hpqcorp.net>
-	 <1325794400.2748.1.camel@edumazet-laptop>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: linux-next: manual merge of the selinux tree with the net-next tree
+Date: Thu, 05 Jan 2012 16:25:53 -0500
+Message-ID: <27624574.j8RvKjachg@sifl>
+References: <20120105151255.f72ad113a93493bb55844034@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Yalagandula, Praveen" <praveen.yalagandula@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:60565 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754948Ab2AEVUE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 16:20:04 -0500
-Received: by wibhm6 with SMTP id hm6so663687wib.19
-        for <netdev@vger.kernel.org>; Thu, 05 Jan 2012 13:20:03 -0800 (PST)
-In-Reply-To: <1325794400.2748.1.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Eric Paris <eparis@redhat.com>, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Andrei Emeltchenko <andrei.emeltchenko@intel.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	"Gustavo F. Padovan" <padovan@profusion.mobi>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20120105151255.f72ad113a93493bb55844034@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 05 janvier 2012 =C3=A0 21:13 +0100, Eric Dumazet a =C3=A9crit =
-:
-> Le jeudi 05 janvier 2012 =C3=A0 19:30 +0000, Yalagandula, Praveen a =C3=
-=A9crit :
-> > (Resending as plain text)
-> >=20
-> > Dear Alexey,
-> >=20
-> > The code (see below) for computing the queue average for RED
-> > implementation in Linux kernel has a bug. The return line should be
-> > "return p->qavg + ((backlog - p->qavg) >> p->Wlog);".=20
-> >=20
-> > qavg =3D qavg*(1-W) + backlog*W
-> >=20
-> >      =3D qavg + (backlog-qavg)*W
-> >=20
-> > The current buggy code applies right shift to only the previous qav=
-g,
-> > where as it should be applied to (backlog - qavg). Hope you can get
-> > this bug corrected.
->=20
-> Code is correct.
->=20
-> Please read the comment, it really explains the thing.
->=20
+On Thursday, January 05, 2012 03:12:55 PM Stephen Rothwell wrote:
+> Hi Eric,
+> 
+> Today's linux-next merge of the selinux tree got a conflict in
+> net/bluetooth/l2cap_sock.c between commit 15770b1ab974 ("Bluetooth:
+> convert force_active variable to flag in l2cap chan") from the net-next
+> tree and commit 53860f3d0499 ("bluetooth: Properly clone LSM attributes
+> to newly created child connections") from the selinux tree.
+> 
+> These both remove the same line, but there is probably something more
+> subtle going on ...  I just used the version from the net-next tree.
 
-I have more time to explain what's going on :
+Something is a bit odd.  When I look in the current linux-next tree I see two 
+commits which fix a Bluetooth/LSM bug; the first is correct, the second one 
+appears to be some other commit which just hijacked the description from the 
+first ... I have no idea what is going on in the second commit; I'll leave 
+that to you git gurus :)
 
-On input, "unsigned int backlog" is not yet scaled.
-But qavg _is_ scaled by p->Wlog.
+ * Correct commit -> 6230c9b4f8957c8938ee4cf2d03166d3c2dc89de
 
-So we should first scale "backlog" by Wlog bits to the left :
+ * Garbage commit -> 53860f3d0499992855d58e33f0f79bfe642dfccb
 
-backlog_scaled =3D backlog << p->Wlog;
-
-Then we do our computation as you stated :
-
-return p->qavg + ((backlog_scaled - p->qavg) >> p->Wlog);
-
-Its equivalent to current code, but using a single shift to the right.
-
-return p->qavg + (backlog - (p->qavg >> p->Wlog));
-
-
-Hope this helps.
+-- 
+paul moore
+virtualization @ redhat
