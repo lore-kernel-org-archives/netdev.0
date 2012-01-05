@@ -1,55 +1,37 @@
-From: "Yalagandula, Praveen" <praveen.yalagandula@hp.com>
-Subject: RE: bug in qavg calculation in include/net/red.h (resending as
- plain-text email)
-Date: Thu, 5 Jan 2012 21:29:38 +0000
-Message-ID: <67E2BF19E6D6A749A7680AEF496EB37C39D92B263A@GVW0547EXC.americas.hpqcorp.net>
-References: <67E2BF19E6D6A749A7680AEF496EB37C39D9204067@GVW0547EXC.americas.hpqcorp.net>
-	 <1325794400.2748.1.camel@edumazet-laptop>
- <1325798396.2748.19.camel@edumazet-laptop>
+From: " ACCOUNT DATABASE 2012" <info@upc.nl>
+Subject: Geachte UPC account eigenaar,
+Date: Thu, 5 Jan 2012 23:43:15 +0530
+Message-ID: <20120105181249.5DDCA14C6E76@SRV00013.viprede.com.br>
+Reply-To: <alert01@cpll.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+	charset="_iso-2022-jp$ESC"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:5122 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758302Ab2AEV37 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 16:29:59 -0500
-In-Reply-To: <1325798396.2748.19.camel@edumazet-laptop>
-Content-Language: en-US
+Received: from ns.viprede.com.br ([189.50.0.9]:50053 "EHLO
+	SRV00013.viprede.com.br" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932924Ab2AEV6l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 16:58:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VGhhbmtzIGZvciB0aGUgcHJvbXB0IHJlc3BvbnNlLiBJIHVuZGVyc3RhbmQgaXQgYmV0dGVyIG5v
-dy4NCg0KQ2hlZXJzLA0KUHJhdmVlbg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+
-IEZyb206IEVyaWMgRHVtYXpldCBbbWFpbHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dDQo+IFNl
-bnQ6IFRodXJzZGF5LCBKYW51YXJ5IDA1LCAyMDEyIDE6MjAgUE0NCj4gVG86IFlhbGFnYW5kdWxh
-LCBQcmF2ZWVuDQo+IENjOiBBbGV4ZXkgS3V6bmV0c292OyBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
-DQo+IFN1YmplY3Q6IFJlOiBidWcgaW4gcWF2ZyBjYWxjdWxhdGlvbiBpbiBpbmNsdWRlL25ldC9y
-ZWQuaCAocmVzZW5kaW5nIGFzDQo+IHBsYWluLXRleHQgZW1haWwpDQo+IA0KPiBMZSBqZXVkaSAw
-NSBqYW52aWVyIDIwMTIgw6AgMjE6MTMgKzAxMDAsIEVyaWMgRHVtYXpldCBhIMOpY3JpdCA6DQo+
-ID4gTGUgamV1ZGkgMDUgamFudmllciAyMDEyIMOgIDE5OjMwICswMDAwLCBZYWxhZ2FuZHVsYSwg
-UHJhdmVlbiBhIMOpY3JpdA0KPiA6DQo+ID4gPiAoUmVzZW5kaW5nIGFzIHBsYWluIHRleHQpDQo+
-ID4gPg0KPiA+ID4gRGVhciBBbGV4ZXksDQo+ID4gPg0KPiA+ID4gVGhlIGNvZGUgKHNlZSBiZWxv
-dykgZm9yIGNvbXB1dGluZyB0aGUgcXVldWUgYXZlcmFnZSBmb3IgUkVEDQo+ID4gPiBpbXBsZW1l
-bnRhdGlvbiBpbiBMaW51eCBrZXJuZWwgaGFzIGEgYnVnLiBUaGUgcmV0dXJuIGxpbmUgc2hvdWxk
-IGJlDQo+ID4gPiAicmV0dXJuIHAtPnFhdmcgKyAoKGJhY2tsb2cgLSBwLT5xYXZnKSA+PiBwLT5X
-bG9nKTsiLg0KPiA+ID4NCj4gPiA+IHFhdmcgPSBxYXZnKigxLVcpICsgYmFja2xvZypXDQo+ID4g
-Pg0KPiA+ID4gICAgICA9IHFhdmcgKyAoYmFja2xvZy1xYXZnKSpXDQo+ID4gPg0KPiA+ID4gVGhl
-IGN1cnJlbnQgYnVnZ3kgY29kZSBhcHBsaWVzIHJpZ2h0IHNoaWZ0IHRvIG9ubHkgdGhlIHByZXZp
-b3VzDQo+IHFhdmcsDQo+ID4gPiB3aGVyZSBhcyBpdCBzaG91bGQgYmUgYXBwbGllZCB0byAoYmFj
-a2xvZyAtIHFhdmcpLiBIb3BlIHlvdSBjYW4gZ2V0DQo+ID4gPiB0aGlzIGJ1ZyBjb3JyZWN0ZWQu
-DQo+ID4NCj4gPiBDb2RlIGlzIGNvcnJlY3QuDQo+ID4NCj4gPiBQbGVhc2UgcmVhZCB0aGUgY29t
-bWVudCwgaXQgcmVhbGx5IGV4cGxhaW5zIHRoZSB0aGluZy4NCj4gPg0KPiANCj4gSSBoYXZlIG1v
-cmUgdGltZSB0byBleHBsYWluIHdoYXQncyBnb2luZyBvbiA6DQo+IA0KPiBPbiBpbnB1dCwgInVu
-c2lnbmVkIGludCBiYWNrbG9nIiBpcyBub3QgeWV0IHNjYWxlZC4NCj4gQnV0IHFhdmcgX2lzXyBz
-Y2FsZWQgYnkgcC0+V2xvZy4NCj4gDQo+IFNvIHdlIHNob3VsZCBmaXJzdCBzY2FsZSAiYmFja2xv
-ZyIgYnkgV2xvZyBiaXRzIHRvIHRoZSBsZWZ0IDoNCj4gDQo+IGJhY2tsb2dfc2NhbGVkID0gYmFj
-a2xvZyA8PCBwLT5XbG9nOw0KPiANCj4gVGhlbiB3ZSBkbyBvdXIgY29tcHV0YXRpb24gYXMgeW91
-IHN0YXRlZCA6DQo+IA0KPiByZXR1cm4gcC0+cWF2ZyArICgoYmFja2xvZ19zY2FsZWQgLSBwLT5x
-YXZnKSA+PiBwLT5XbG9nKTsNCj4gDQo+IEl0cyBlcXVpdmFsZW50IHRvIGN1cnJlbnQgY29kZSwg
-YnV0IHVzaW5nIGEgc2luZ2xlIHNoaWZ0IHRvIHRoZSByaWdodC4NCj4gDQo+IHJldHVybiBwLT5x
-YXZnICsgKGJhY2tsb2cgLSAocC0+cWF2ZyA+PiBwLT5XbG9nKSk7DQo+IA0KPiANCj4gSG9wZSB0
-aGlzIGhlbHBzLg0KPiANCg0K
+Geachte UPC account eigenaar,
+
+upgrade van onze webmail service en UPC als gevolg van deze onze UPC
+de klant is veranderd en uw oorspronkelijke wachtwoord opnieuw in te stellen. sorry
+
+voor het ongemak, wordt u hierbij advies om je upc te upgraden
+rekening onmiddellijk.
+
+UPC op uw account, zodat u om ons uw e-mail account gegevens als
+volgt:
+
+* User name:
+* Wachtwoord:
+* Geboortedatum:
+
+Als u dit binnen 48 uur-niet meteen maken uw account
+UPC
+gedeactiveerd uit onze database.
+Dit bericht is van UPC Database Record 2012
