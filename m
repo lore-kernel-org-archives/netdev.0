@@ -1,73 +1,48 @@
-From: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
-Subject: Re: [PATCH 1/1] via-rhine: Fix hanging with high CPU load on low-end broads.
-Date: Thu, 5 Jan 2012 17:46:06 +0100
-Message-ID: <CACPM=kVeqfxc3SkMPghLOTHFiiVCkPmdRBtVKA_RDfVS3iZOsg@mail.gmail.com>
-References: <20111230215024.GA5513@electric-eye.fr.zoreil.com>
-	<CACPM=kUxSRhDc2EqgceBRTFgBei7dh3_n7bPyoH=8aNC_uq4FA@mail.gmail.com>
-	<20111230221938.GA6197@electric-eye.fr.zoreil.com>
-	<CACPM=kXAr46BXAc3t8puRB37NeFy_ZEOWZa0H=DnSioagSLpxA@mail.gmail.com>
-	<CACPM=kWn41S85eLgj4G+c6cN0WBgqF=6MigSwa9QBOxD1Uh64A@mail.gmail.com>
-	<20111231121710.GB9842@electric-eye.fr.zoreil.com>
-	<CACPM=kX2B6p6CSs+s-5WUbQCLa0WZW5K9Rr+hnB5VCxkEmh=8w@mail.gmail.com>
-	<20120103223243.GB8563@electric-eye.fr.zoreil.com>
-	<CACPM=kUhBydaVDQaxs7BaB_ZkFRa2p6cVme-77Gbsk+QDk=MFA@mail.gmail.com>
-	<CACPM=kWL+Z6PH268qg=i0Nafrouq4O25+uFf8WLcE08azqpqpA@mail.gmail.com>
-	<20120105162013.GA19440@electric-eye.fr.zoreil.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: Detected Hardware Unit Hang on Intel Wired Ethernet
+Date: Thu, 5 Jan 2012 08:46:06 -0800
+Message-ID: <20120105164606.GC26153@kroah.com>
+References: <CAHM4w1=i5dYy+ReqMO=m6W96CNaQ+O=jw+pKQok0nmjb5-fNAw@mail.gmail.com>
+ <4F043190.70405@st.com>
+ <20120104192234.GC18214@kroah.com>
+ <4F05276F.6040708@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	bhutchings@solarflare.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, rl@hellgate.ch
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120105162013.GA19440@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Pratyush Anand <pratyush.anand@gmail.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Shiraz HASHIM <shiraz.hashim@st.com>,
+	Deepak SIKRI <deepak.sikri@st.com>,
+	Bhavna YADAV <bhavna.yadav@st.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	linux.nics@intel.com
+To: Pratyush Anand <pratyush.anand@st.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4F05276F.6040708@st.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2012/1/5 Francois Romieu <romieu@fr.zoreil.com>:
-> Bjarke Istrup Pedersen <gurligebis@gentoo.org> :
-> [...]
->> Sorry for repeating myself David, but would it be possible to get th=
-is
->> into net-next for 3.4 inclusion ?
->
-> You should not expect #net-next for 3.4 to open before the merge wind=
-ow
-> for 3.3 is closed.
+On Thu, Jan 05, 2012 at 10:00:39AM +0530, Pratyush Anand wrote:
+> On 1/5/2012 12:52 AM, Greg KH wrote:
+> >On Wed, Jan 04, 2012 at 04:31:36PM +0530, Pratyush Anand wrote:
+> >>Adding PCI mailing list too, as problem is coming only when MSI is enabled.
+> >>
+> >>If I connect an PCIe analyzer, I see that at the time of issue
+> >>MRd(64) for 32 words has been issued with a wrong 64 bit address
+> >>from ethernet card to my RC.
+> >>In the normal course it always issues MRd(32) only.
+> >
+> >Bug in your pcie firmware controller?
+> >
+> >.
+> >
+> 
+> when you say "Bug in your pcie firmware controller?", is it RC's
+> software or EP's software?
 
-Okay, I'm still pretty new to how the kernel development model works,
-and what opens when and for how long, but hey, you learn something
-everyday :)
+I don't know, but I would place the bet on your motherboard controller,
+not the device.
 
-> With due consideration for his freedom of will and action, David can =
-not
-> take the current patchkit because he needs a formal submission of a c=
-omplete
-> set where #3 is fixed. Our last friday's exchange does not count as o=
-ne.
-
-Sure, it wasn't meant like that (Sorry if it was written that way, can
-be difficult from time to time to get it across on paper) :)
-
-> I understand it is important for you, it will be sent, ok ?
-
-Yep :)
-
-/Bjarke
-
-> For future reference, you can see what is going on here :
->
-> http://patchwork.ozlabs.org/project/netdev/list/?state=3D*&q=3Dvia-rh=
-ine
->
-> /me returns to paperwork...
->
-> --
-> Ueimor
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at =A0http://www.tux.org/lkml/
+greg k-h
