@@ -1,73 +1,234 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 2/6] net: pad skb data and shinfo as a whole rather than individually
-Date: Thu, 5 Jan 2012 17:13:40 +0000
-Message-ID: <1325783624-14601-2-git-send-email-ian.campbell@citrix.com>
+From: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 6/6] sunrpc: use SKB fragment destructors to delay completion until page is released by network stack.
+Date: Thu, 5 Jan 2012 17:13:44 +0000
+Message-ID: <1325783624-14601-6-git-send-email-ian.campbell@citrix.com>
 References: <1325783399.25206.413.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ian Campbell <ian.campbell@citrix.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:49271 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755401Ab2AERXe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 12:23:34 -0500
-In-Reply-To: <1325783399.25206.413.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>,
+	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1325783399.25206.413.camel-o4Be2W7LfRlXesXXhkcM7miJhflN2719@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-We already push the shinfo to the very end of the actual allocation which is
-already cache-line aligned.
+This prevents an issue where an ACK is delayed, a retransmit is queued (either
+at the RPC or TCP level) and the ACK arrives before the retransmission hits the
+wire. If this happens to an NFS WRITE RPC then the write() system call
+completes and the userspace process can continue, potentially modifying data
+referenced by the retransmission before the retransmission occurs.
 
-This reduces the minimum overhead required for this allocation such that the
-shinfo can be grown in the following patch without overflowing 2048 bytes for a
-1500 byte frame. Reducing this overhead means that sometimes the tail end of
-the data can end up in the same cache line as the beginning of the shinfo but
-in many cases the allocation slop means that there is no overlap.
-
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Signed-off-by: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Acked-by: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>
+Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 ---
- include/linux/skbuff.h |    4 ++--
- net/core/skbuff.c      |    3 +--
- 2 files changed, 3 insertions(+), 4 deletions(-)
+ include/linux/sunrpc/xdr.h  |    2 ++
+ include/linux/sunrpc/xprt.h |    5 ++++-
+ net/sunrpc/clnt.c           |   27 ++++++++++++++++++++++-----
+ net/sunrpc/svcsock.c        |    3 ++-
+ net/sunrpc/xprt.c           |   13 +++++++++++++
+ net/sunrpc/xprtsock.c       |    3 ++-
+ 6 files changed, 45 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 50db9b0..f04333b 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -41,7 +41,7 @@
- #define SKB_DATA_ALIGN(X)	(((X) + (SMP_CACHE_BYTES - 1)) & \
- 				 ~(SMP_CACHE_BYTES - 1))
- #define SKB_WITH_OVERHEAD(X)	\
--	((X) - SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
-+	((X) - sizeof(struct skb_shared_info))
- #define SKB_MAX_ORDER(X, ORDER) \
- 	SKB_WITH_OVERHEAD((PAGE_SIZE << (ORDER)) - (X))
- #define SKB_MAX_HEAD(X)		(SKB_MAX_ORDER((X), 0))
-@@ -50,7 +50,7 @@
- /* return minimum truesize of one skb containing X bytes of data */
- #define SKB_TRUESIZE(X) ((X) +						\
- 			 SKB_DATA_ALIGN(sizeof(struct sk_buff)) +	\
--			 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
-+			 sizeof(struct skb_shared_info))
+diff --git a/include/linux/sunrpc/xdr.h b/include/linux/sunrpc/xdr.h
+index a20970e..172f81e 100644
+--- a/include/linux/sunrpc/xdr.h
++++ b/include/linux/sunrpc/xdr.h
+@@ -16,6 +16,7 @@
+ #include <asm/byteorder.h>
+ #include <asm/unaligned.h>
+ #include <linux/scatterlist.h>
++#include <linux/skbuff.h>
  
- /* A. Checksumming of received packets by device.
-  *
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index da0c97f..b6de604 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -189,8 +189,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 	 * aligned memory blocks, unless SLUB/SLAB debug is enabled.
- 	 * Both skb->head and skb_shared_info are cache line aligned.
+ /*
+  * Buffer adjustment
+@@ -57,6 +58,7 @@ struct xdr_buf {
+ 			tail[1];	/* Appended after page data */
+ 
+ 	struct page **	pages;		/* Array of contiguous pages */
++	struct skb_frag_destructor *destructor;
+ 	unsigned int	page_base,	/* Start of page data */
+ 			page_len,	/* Length of page data */
+ 			flags;		/* Flags for data disposition */
+diff --git a/include/linux/sunrpc/xprt.h b/include/linux/sunrpc/xprt.h
+index 15518a1..75131eb 100644
+--- a/include/linux/sunrpc/xprt.h
++++ b/include/linux/sunrpc/xprt.h
+@@ -92,7 +92,10 @@ struct rpc_rqst {
+ 						/* A cookie used to track the
+ 						   state of the transport
+ 						   connection */
+-	
++	struct skb_frag_destructor destructor;	/* SKB paged fragment
++						 * destructor for
++						 * transmitted pages*/
++
+ 	/*
+ 	 * Partial send handling
  	 */
--	size = SKB_DATA_ALIGN(size);
--	size += SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-+	size = SKB_DATA_ALIGN(size + sizeof(struct skb_shared_info));
- 	data = kmalloc_node_track_caller(size, gfp_mask, node);
- 	if (!data)
- 		goto nodata;
+diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
+index f0268ea..06f363f 100644
+--- a/net/sunrpc/clnt.c
++++ b/net/sunrpc/clnt.c
+@@ -61,6 +61,7 @@ static void	call_reserve(struct rpc_task *task);
+ static void	call_reserveresult(struct rpc_task *task);
+ static void	call_allocate(struct rpc_task *task);
+ static void	call_decode(struct rpc_task *task);
++static void	call_complete(struct rpc_task *task);
+ static void	call_bind(struct rpc_task *task);
+ static void	call_bind_status(struct rpc_task *task);
+ static void	call_transmit(struct rpc_task *task);
+@@ -1115,6 +1116,8 @@ rpc_xdr_encode(struct rpc_task *task)
+ 			 (char *)req->rq_buffer + req->rq_callsize,
+ 			 req->rq_rcvsize);
+ 
++	req->rq_snd_buf.destructor = &req->destructor;
++
+ 	p = rpc_encode_header(task);
+ 	if (p == NULL) {
+ 		printk(KERN_INFO "RPC: couldn't encode RPC header, exit EIO\n");
+@@ -1278,6 +1281,7 @@ call_connect_status(struct rpc_task *task)
+ static void
+ call_transmit(struct rpc_task *task)
+ {
++	struct rpc_rqst *req = task->tk_rqstp;
+ 	dprint_status(task);
+ 
+ 	task->tk_action = call_status;
+@@ -1311,8 +1315,8 @@ call_transmit(struct rpc_task *task)
+ 	call_transmit_status(task);
+ 	if (rpc_reply_expected(task))
+ 		return;
+-	task->tk_action = rpc_exit_task;
+-	rpc_wake_up_queued_task(&task->tk_xprt->pending, task);
++	task->tk_action = call_complete;
++	skb_frag_destructor_unref(&req->destructor);
+ }
+ 
+ /*
+@@ -1385,7 +1389,8 @@ call_bc_transmit(struct rpc_task *task)
+ 		return;
+ 	}
+ 
+-	task->tk_action = rpc_exit_task;
++	task->tk_action = call_complete;
++	skb_frag_destructor_unref(&req->destructor);
+ 	if (task->tk_status < 0) {
+ 		printk(KERN_NOTICE "RPC: Could not send backchannel reply "
+ 			"error: %d\n", task->tk_status);
+@@ -1425,7 +1430,6 @@ call_bc_transmit(struct rpc_task *task)
+ 			"error: %d\n", task->tk_status);
+ 		break;
+ 	}
+-	rpc_wake_up_queued_task(&req->rq_xprt->pending, task);
+ }
+ #endif /* CONFIG_SUNRPC_BACKCHANNEL */
+ 
+@@ -1591,12 +1595,14 @@ call_decode(struct rpc_task *task)
+ 		return;
+ 	}
+ 
+-	task->tk_action = rpc_exit_task;
++	task->tk_action = call_complete;
+ 
+ 	if (decode) {
+ 		task->tk_status = rpcauth_unwrap_resp(task, decode, req, p,
+ 						      task->tk_msg.rpc_resp);
+ 	}
++	rpc_sleep_on(&req->rq_xprt->pending, task, NULL);
++	skb_frag_destructor_unref(&req->destructor);
+ 	dprintk("RPC: %5u call_decode result %d\n", task->tk_pid,
+ 			task->tk_status);
+ 	return;
+@@ -1611,6 +1617,17 @@ out_retry:
+ 	}
+ }
+ 
++/*
++ * 8.	Wait for pages to be released by the network stack.
++ */
++static void
++call_complete(struct rpc_task *task)
++{
++	dprintk("RPC: %5u call_complete result %d\n",
++		task->tk_pid, task->tk_status);
++	task->tk_action = rpc_exit_task;
++}
++
+ static __be32 *
+ rpc_encode_header(struct rpc_task *task)
+ {
+diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+index 0e6b919..aa7f108 100644
+--- a/net/sunrpc/svcsock.c
++++ b/net/sunrpc/svcsock.c
+@@ -198,7 +198,8 @@ int svc_send_common(struct socket *sock, struct xdr_buf *xdr,
+ 	while (pglen > 0) {
+ 		if (slen == size)
+ 			flags = 0;
+-		result = kernel_sendpage(sock, *ppage, NULL, base, size, flags);
++		result = kernel_sendpage(sock, *ppage, xdr->destructor,
++					 base, size, flags);
+ 		if (result > 0)
+ 			len += result;
+ 		if (result != size)
+diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
+index c64c0ef..5f28bc7 100644
+--- a/net/sunrpc/xprt.c
++++ b/net/sunrpc/xprt.c
+@@ -1101,6 +1101,16 @@ static inline void xprt_init_xid(struct rpc_xprt *xprt)
+ 	xprt->xid = net_random();
+ }
+ 
++static int xprt_complete_skb_pages(void *calldata)
++{
++	struct rpc_task *task = calldata;
++	struct rpc_rqst	*req = task->tk_rqstp;
++
++	dprintk("RPC: %5u completing skb pages\n", task->tk_pid);
++	rpc_wake_up_queued_task(&req->rq_xprt->pending, task);
++	return 0;
++}
++
+ static void xprt_request_init(struct rpc_task *task, struct rpc_xprt *xprt)
+ {
+ 	struct rpc_rqst	*req = task->tk_rqstp;
+@@ -1113,6 +1123,9 @@ static void xprt_request_init(struct rpc_task *task, struct rpc_xprt *xprt)
+ 	req->rq_xid     = xprt_alloc_xid(xprt);
+ 	req->rq_release_snd_buf = NULL;
+ 	xprt_reset_majortimeo(req);
++	atomic_set(&req->destructor.ref, 1);
++	req->destructor.destroy = &xprt_complete_skb_pages;
++	req->destructor.data = task;
+ 	dprintk("RPC: %5u reserved req %p xid %08x\n", task->tk_pid,
+ 			req, ntohl(req->rq_xid));
+ }
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index 38b2fec..5406977 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -408,7 +408,8 @@ static int xs_send_pagedata(struct socket *sock, struct xdr_buf *xdr, unsigned i
+ 		remainder -= len;
+ 		if (remainder != 0 || more)
+ 			flags |= MSG_MORE;
+-		err = sock->ops->sendpage(sock, *ppage, NULL, base, len, flags);
++		err = sock->ops->sendpage(sock, *ppage, xdr->destructor,
++					  base, len, flags);
+ 		if (remainder == 0 || err != len)
+ 			break;
+ 		sent += err;
 -- 
 1.7.2.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
