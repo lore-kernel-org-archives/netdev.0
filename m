@@ -1,64 +1,105 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 0/8][pull request] Intel Wired LAN Driver Updates
-Date: Wed,  4 Jan 2012 22:23:32 -0800
-Message-ID: <1325744620-5067-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 3/8] e1000: cleanup CE4100 MDIO registers access
+Date: Wed,  4 Jan 2012 22:23:35 -0800
+Message-ID: <1325744620-5067-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1325744620-5067-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Florian Fainelli <ffainelli@freebox.fr>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:21235 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751310Ab2AEGXo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jan 2012 01:23:44 -0500
+	id S1751731Ab2AEGXp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jan 2012 01:23:45 -0500
+In-Reply-To: <1325744620-5067-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains updates to e1000, igb and
-netdev/ixgbe.  There are 2 fixes and the remaining patches are
-either add support or cleanup.
+From: Florian Fainelli <ffainelli@freebox.fr>
 
-Here is a list of the new support added:
- - igb adds support for byte queue limits and basic runtime PM
- - FCoE adds ndo_get_fcoe_hbainfo() call
+A global variable is currently used to hold the virtual address of the
+CE4100 MDIO base register address. Store the address in the e1000_hw
+structure and update macros accordingly.
 
-v2- Dropped e1000e patches while Bruce works on the suggested changes and
-    added 2 e1000 patches from Florian.
+Signed-off-by: Florian Fainelli <ffainelli@freebox.fr>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000/e1000_hw.h   |    4 ++--
+ drivers/net/ethernet/intel/e1000/e1000_main.c |   15 +++++----------
+ 2 files changed, 7 insertions(+), 12 deletions(-)
 
-The following are changes since commit 117ff42fd43e92d24c6aa6f3e4f0f1e1edada140:
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Eric Dumazet (1):
-  igb: Add support for byte queue limits.
-
-Florian Fainelli (2):
-  e1000: unmap ce4100_gbe_mdio_base_virt in e1000_remove
-  e1000: cleanup CE4100 MDIO registers access
-
-Jesse Brandeburg (1):
-  e1000: fix lockdep splat in shutdown handler
-
-Koki Sanagi (1):
-  igb: reset PHY after recovering from PHY power down
-
-Neerav Parikh (2):
-  netdev: FCoE: Add new ndo_get_fcoe_hbainfo() call
-  ixgbe: FCoE: Add support for ndo_get_fcoe_hbainfo() call
-
-Yan, Zheng (1):
-  igb: add basic runtime PM support
-
- drivers/net/ethernet/intel/e1000/e1000_hw.h   |    4 +-
- drivers/net/ethernet/intel/e1000/e1000_main.c |   23 ++---
- drivers/net/ethernet/intel/igb/igb.h          |    5 +
- drivers/net/ethernet/intel/igb/igb_ethtool.c  |   16 +++
- drivers/net/ethernet/intel/igb/igb_main.c     |  142 +++++++++++++++++++++----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    3 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c |   83 ++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    5 +-
- include/linux/netdevice.h                     |   26 +++++
- 9 files changed, 269 insertions(+), 38 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_hw.h b/drivers/net/ethernet/intel/e1000/e1000_hw.h
+index cf7e3c0..f6c4d7e 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_hw.h
++++ b/drivers/net/ethernet/intel/e1000/e1000_hw.h
+@@ -812,8 +812,7 @@ struct e1000_ffvt_entry {
+ #define E1000_FLA      0x0001C	/* Flash Access - RW */
+ #define E1000_MDIC     0x00020	/* MDI Control - RW */
+ 
+-extern void __iomem *ce4100_gbe_mdio_base_virt;
+-#define INTEL_CE_GBE_MDIO_RCOMP_BASE    (ce4100_gbe_mdio_base_virt)
++#define INTEL_CE_GBE_MDIO_RCOMP_BASE    (hw->ce4100_gbe_mdio_base_virt)
+ #define E1000_MDIO_STS  (INTEL_CE_GBE_MDIO_RCOMP_BASE + 0)
+ #define E1000_MDIO_CMD  (INTEL_CE_GBE_MDIO_RCOMP_BASE + 4)
+ #define E1000_MDIO_DRV  (INTEL_CE_GBE_MDIO_RCOMP_BASE + 8)
+@@ -1343,6 +1342,7 @@ struct e1000_hw_stats {
+ struct e1000_hw {
+ 	u8 __iomem *hw_addr;
+ 	u8 __iomem *flash_address;
++	void __iomem *ce4100_gbe_mdio_base_virt;
+ 	e1000_mac_type mac_type;
+ 	e1000_phy_type phy_type;
+ 	u32 phy_init_script;
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 9cf07f6..669ca38 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -33,11 +33,6 @@
+ #include <linux/bitops.h>
+ #include <linux/if_vlan.h>
+ 
+-/* Intel Media SOC GbE MDIO physical base address */
+-static unsigned long ce4100_gbe_mdio_base_phy;
+-/* Intel Media SOC GbE MDIO virtual base address */
+-void __iomem *ce4100_gbe_mdio_base_virt;
+-
+ char e1000_driver_name[] = "e1000";
+ static char e1000_driver_string[] = "Intel(R) PRO/1000 Network Driver";
+ #define DRV_VERSION "7.3.21-k8-NAPI"
+@@ -1054,11 +1049,11 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 
+ 	err = -EIO;
+ 	if (hw->mac_type == e1000_ce4100) {
+-		ce4100_gbe_mdio_base_phy = pci_resource_start(pdev, BAR_1);
+-		ce4100_gbe_mdio_base_virt = ioremap(ce4100_gbe_mdio_base_phy,
++		hw->ce4100_gbe_mdio_base_virt =
++					ioremap(pci_resource_start(pdev, BAR_1),
+ 		                                pci_resource_len(pdev, BAR_1));
+ 
+-		if (!ce4100_gbe_mdio_base_virt)
++		if (!hw->ce4100_gbe_mdio_base_virt)
+ 			goto err_mdio_ioremap;
+ 	}
+ 
+@@ -1249,7 +1244,7 @@ err_eeprom:
+ err_dma:
+ err_sw_init:
+ err_mdio_ioremap:
+-	iounmap(ce4100_gbe_mdio_base_virt);
++	iounmap(hw->ce4100_gbe_mdio_base_virt);
+ 	iounmap(hw->hw_addr);
+ err_ioremap:
+ 	free_netdev(netdev);
+@@ -1287,7 +1282,7 @@ static void __devexit e1000_remove(struct pci_dev *pdev)
+ 	kfree(adapter->rx_ring);
+ 
+ 	if (hw->mac_type == e1000_ce4100)
+-		iounmap(ce4100_gbe_mdio_base_virt);
++		iounmap(hw->ce4100_gbe_mdio_base_virt);
+ 	iounmap(hw->hw_addr);
+ 	if (hw->flash_address)
+ 		iounmap(hw->flash_address);
 -- 
 1.7.7.5
