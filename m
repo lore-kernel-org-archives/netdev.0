@@ -1,73 +1,36 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [ANNOUNCE] iproute2 3.2.0
-Date: Thu, 5 Jan 2012 14:42:01 -0800
-Message-ID: <20120105144201.67348e16@nehalam.linuxnetplumber.net>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] drivers: misc: Remove MISC_DEVICES config option
+Date: Thu, 5 Jan 2012 14:39:33 -0800
+Message-ID: <20120105223933.GA10268@kroah.com>
+References: <1325796541-11402-1-git-send-email-festevam@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, gwingerde@gmail.com,
+	larry.finger@lwfinger.net, davem@davemloft.net,
+	bhutchings@solarflare.com, arnd@arndb.de,
+	linux-kernel@vger.kernel.org,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: Fabio Estevam <festevam@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1325796541-11402-1-git-send-email-festevam@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linus released 3.2, and this means it is time for another release
-of iproute2. Lots of little build and typo fixes.
-The real visible changes in this release are:
-  * better manual pages
-  * L2TPv3 support
-  * improved RED options
-  * netem additions for loss models
-  * iptables integration fixes
+On Thu, Jan 05, 2012 at 06:49:01PM -0200, Fabio Estevam wrote:
+> MISC_DEVICES option alone does not select any kernel code and can cause dependency build warnings, such as:
+> 
+> warning: (KS8851 && AX88796_93CX6 && RTL8180 && RTL8187 && ADM8211 && RT2400PCI && RT2500PCI && RT61PCI && RT2800PCI && R8187SE) selects EEPROM_93CX6 which has unmet direct dependencies (MISC_DEVICES)
+> 
+> Remove MISC_DEVICES option so that any dependency on this symbol is avoided.
 
-Download:
-  http://www.kernel.org/pub/linux/utils/net/iproute2/iproute2-3.2.0.tar.gz
+Are you sure that this isn't getting confused with the
+drivers/char/misc.c interface instead of the "throw a bunch of randome
+drivers into drivers/misc/" issue?
 
-Repository:
-  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+Why would anything ever want to select MISC_DEVICES?  What happens if
+you just remove that select line from the Kconfig?
 
-This version is signed with my GPG public key
+thanks,
 
-Report problems (or enhancements) to the netdev@vger.kernel.org mailing list.
-
----
-Eric Dumazet (5):
-      ss: report ecnseen
-      red: give a hint about burst value
-      red: make burst optional
-      red: harddrop support and cleanups
-      netem: fix a typo in explain()
-
-Florian Westphal (1):
-      tc: man: add man page for stochastic fair blue
-
-Greg Rose (1):
-      iproute2: Add new command to ip link to enable/disable VF spoof check
-
-Hagen Paul Pfeifer (1):
-      netem: add man-page
-
-Jan Engelhardt (3):
-      iproute2: avoid use of implicit declarations
-      iproute2: proper detection of libxtables position and flags
-      iproute2: fix calling up the xt action
-
-Stephen Hemminger (14):
-      Update to 3.2.0-rc2 headers
-      Split up ip man page
-      Update to latest 3.2 kernel headers
-      netem: fix man page
-      netem: add support for 4 state and GE loss model
-      libnetlink: change rtnl_send() to take void *
-      libnetlink: add more attribute functions
-      libnetlink: remove unused junk callback
-      libnetlink: add attribute access inline functions
-      l2tp: Add l2tp support
-      ematch: fix warning about yyerror and const
-      ematch: fix warning about unused input()
-      README cleanup's
-      v3.2.0
-
-Thomas Jarosch (2):
-      tc: Remove unused variable 'res'.
-      tc: Use correct variable type for get_distribution() result
+greg k-h
