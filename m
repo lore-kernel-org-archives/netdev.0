@@ -1,7 +1,8 @@
 From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: [PATCH v2 4/6] ath6kl: get rid of AR_DBG_LVL_CHECK()
-Date: Thu, 05 Jan 2012 15:28:12 +0200
-Message-ID: <20120105132812.22281.98859.stgit@x201>
+Subject: [PATCH v2 5/6] ath6kl: convert ath6kl_dbg() and ath6kl_dbg_dump()
+ into functions
+Date: Thu, 05 Jan 2012 15:28:34 +0200
+Message-ID: <20120105132834.22281.78822.stgit@x201>
 References: <20120105132523.22281.95999.stgit@x201>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -16,155 +17,91 @@ In-Reply-To: <20120105132523.22281.95999.stgit@x201>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We don't need it as debug calls already have a log level and compiler
-should be smart enough to optimise away the code when ath6kl debug code
-is not enabled. Also it makes it easier to abstract core code to
-ath6kl_core.ko.
-
-In ath6kl_dump_registers() I had to change the debug level from ANY to IRQ
-as I removed the AR_DBG_LVL_CHECK() check before calling the function.
+That way it's possible to not export debug_mask outside the upcoming
+ath6kl_core.ko and that makes it easier to ath6kl_core.ko in the
+following patch.
 
 Signed-off-by: Kalle Valo <kvalo@qca.qualcomm.com>
 ---
- drivers/net/wireless/ath/ath6kl/debug.c |   35 ++++++++++++++-----------------
- drivers/net/wireless/ath/ath6kl/debug.h |    2 --
- drivers/net/wireless/ath/ath6kl/hif.c   |    5 ++--
- drivers/net/wireless/ath/ath6kl/wmi.c   |    3 ---
- 4 files changed, 18 insertions(+), 27 deletions(-)
+ drivers/net/wireless/ath/ath6kl/debug.c |   30 ++++++++++++++++++++++++++++++
+ drivers/net/wireless/ath/ath6kl/debug.h |   25 ++++---------------------
+ 2 files changed, 34 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/wireless/ath/ath6kl/debug.c b/drivers/net/wireless/ath/ath6kl/debug.c
-index eb808b4..0d77129 100644
+index 0d77129..f1fa57b 100644
 --- a/drivers/net/wireless/ath/ath6kl/debug.c
 +++ b/drivers/net/wireless/ath/ath6kl/debug.c
-@@ -82,31 +82,31 @@ void ath6kl_dump_registers(struct ath6kl_device *dev,
- 			   struct ath6kl_irq_enable_reg *irq_enable_reg)
- {
+@@ -57,6 +57,36 @@ int ath6kl_printk(const char *level, const char *fmt, ...)
  
--	ath6kl_dbg(ATH6KL_DBG_ANY, ("<------- Register Table -------->\n"));
-+	ath6kl_dbg(ATH6KL_DBG_IRQ, ("<------- Register Table -------->\n"));
+ #ifdef CONFIG_ATH6KL_DEBUG
  
- 	if (irq_proc_reg != NULL) {
--		ath6kl_dbg(ATH6KL_DBG_ANY,
-+		ath6kl_dbg(ATH6KL_DBG_IRQ,
- 			"Host Int status:           0x%x\n",
- 			irq_proc_reg->host_int_status);
--		ath6kl_dbg(ATH6KL_DBG_ANY,
-+		ath6kl_dbg(ATH6KL_DBG_IRQ,
- 			   "CPU Int status:            0x%x\n",
- 			irq_proc_reg->cpu_int_status);
--		ath6kl_dbg(ATH6KL_DBG_ANY,
-+		ath6kl_dbg(ATH6KL_DBG_IRQ,
- 			   "Error Int status:          0x%x\n",
- 			irq_proc_reg->error_int_status);
--		ath6kl_dbg(ATH6KL_DBG_ANY,
-+		ath6kl_dbg(ATH6KL_DBG_IRQ,
- 			   "Counter Int status:        0x%x\n",
- 			irq_proc_reg->counter_int_status);
--		ath6kl_dbg(ATH6KL_DBG_ANY,
-+		ath6kl_dbg(ATH6KL_DBG_IRQ,
- 			   "Mbox Frame:                0x%x\n",
- 			irq_proc_reg->mbox_frame);
--		ath6kl_dbg(ATH6KL_DBG_ANY,
-+		ath6kl_dbg(ATH6KL_DBG_IRQ,
- 			   "Rx Lookahead Valid:        0x%x\n",
- 			irq_proc_reg->rx_lkahd_valid);
--		ath6kl_dbg(ATH6KL_DBG_ANY,
-+		ath6kl_dbg(ATH6KL_DBG_IRQ,
- 			   "Rx Lookahead 0:            0x%x\n",
- 			irq_proc_reg->rx_lkahd[0]);
--		ath6kl_dbg(ATH6KL_DBG_ANY,
-+		ath6kl_dbg(ATH6KL_DBG_IRQ,
- 			   "Rx Lookahead 1:            0x%x\n",
- 			irq_proc_reg->rx_lkahd[1]);
- 
-@@ -115,16 +115,16 @@ void ath6kl_dump_registers(struct ath6kl_device *dev,
- 			 * If the target supports GMBOX hardware, dump some
- 			 * additional state.
- 			 */
--			ath6kl_dbg(ATH6KL_DBG_ANY,
-+			ath6kl_dbg(ATH6KL_DBG_IRQ,
- 				"GMBOX Host Int status 2:   0x%x\n",
- 				irq_proc_reg->host_int_status2);
--			ath6kl_dbg(ATH6KL_DBG_ANY,
-+			ath6kl_dbg(ATH6KL_DBG_IRQ,
- 				"GMBOX RX Avail:            0x%x\n",
- 				irq_proc_reg->gmbox_rx_avail);
--			ath6kl_dbg(ATH6KL_DBG_ANY,
-+			ath6kl_dbg(ATH6KL_DBG_IRQ,
- 				"GMBOX lookahead alias 0:   0x%x\n",
- 				irq_proc_reg->rx_gmbox_lkahd_alias[0]);
--			ath6kl_dbg(ATH6KL_DBG_ANY,
-+			ath6kl_dbg(ATH6KL_DBG_IRQ,
- 				"GMBOX lookahead alias 1:   0x%x\n",
- 				irq_proc_reg->rx_gmbox_lkahd_alias[1]);
- 		}
-@@ -132,13 +132,13 @@ void ath6kl_dump_registers(struct ath6kl_device *dev,
- 	}
- 
- 	if (irq_enable_reg != NULL) {
--		ath6kl_dbg(ATH6KL_DBG_ANY,
-+		ath6kl_dbg(ATH6KL_DBG_IRQ,
- 			"Int status Enable:         0x%x\n",
- 			irq_enable_reg->int_status_en);
--		ath6kl_dbg(ATH6KL_DBG_ANY, "Counter Int status Enable: 0x%x\n",
-+		ath6kl_dbg(ATH6KL_DBG_IRQ, "Counter Int status Enable: 0x%x\n",
- 			irq_enable_reg->cntr_int_status_en);
- 	}
--	ath6kl_dbg(ATH6KL_DBG_ANY, "<------------------------------->\n");
-+	ath6kl_dbg(ATH6KL_DBG_IRQ, "<------------------------------->\n");
- }
- 
- static void dump_cred_dist(struct htc_endpoint_credit_dist *ep_dist)
-@@ -175,9 +175,6 @@ void dump_cred_dist_stats(struct htc_target *target)
- {
- 	struct htc_endpoint_credit_dist *ep_list;
- 
--	if (!AR_DBG_LVL_CHECK(ATH6KL_DBG_CREDIT))
--		return;
--
- 	list_for_each_entry(ep_list, &target->cred_dist_list, list)
- 		dump_cred_dist(ep_list);
++void ath6kl_dbg(enum ATH6K_DEBUG_MASK mask, const char *fmt, ...)
++{
++	struct va_format vaf;
++	va_list args;
++
++	if (!(debug_mask & mask))
++		return;
++
++	va_start(args, fmt);
++
++	vaf.fmt = fmt;
++	vaf.va = &args;
++
++	ath6kl_printk(KERN_DEBUG, "%pV", &vaf);
++
++	va_end(args);
++}
++
++void ath6kl_dbg_dump(enum ATH6K_DEBUG_MASK mask,
++		     const char *msg, const char *prefix,
++		     const void *buf, size_t len)
++{
++	if (debug_mask & mask) {
++		if (msg)
++			ath6kl_dbg(mask, "%s\n", msg);
++
++		print_hex_dump_bytes(prefix, DUMP_PREFIX_OFFSET, buf, len);
++	}
++}
++
+ #define REG_OUTPUT_LEN_PER_LINE	25
+ #define REGTYPE_STR_LEN		100
  
 diff --git a/drivers/net/wireless/ath/ath6kl/debug.h b/drivers/net/wireless/ath/ath6kl/debug.h
-index e569c65..cb21d91 100644
+index cb21d91..c4be6e5 100644
 --- a/drivers/net/wireless/ath/ath6kl/debug.h
 +++ b/drivers/net/wireless/ath/ath6kl/debug.h
-@@ -56,8 +56,6 @@ int ath6kl_printk(const char *level, const char *fmt, ...);
- #define ath6kl_warn(fmt, ...)					\
- 	ath6kl_printk(KERN_WARNING, fmt, ##__VA_ARGS__)
- 
--#define AR_DBG_LVL_CHECK(mask)	(debug_mask & mask)
--
- enum ath6kl_war {
- 	ATH6KL_WAR_INVALID_RATE,
+@@ -61,28 +61,11 @@ enum ath6kl_war {
  };
-diff --git a/drivers/net/wireless/ath/ath6kl/hif.c b/drivers/net/wireless/ath/ath6kl/hif.c
-index 0772ef6..3d26c14 100644
---- a/drivers/net/wireless/ath/ath6kl/hif.c
-+++ b/drivers/net/wireless/ath/ath6kl/hif.c
-@@ -429,9 +429,8 @@ static int proc_pending_irqs(struct ath6kl_device *dev, bool *done)
- 		if (status)
- 			goto out;
  
--		if (AR_DBG_LVL_CHECK(ATH6KL_DBG_IRQ))
--			ath6kl_dump_registers(dev, &dev->irq_proc_reg,
--					 &dev->irq_en_reg);
-+		ath6kl_dump_registers(dev, &dev->irq_proc_reg,
-+				      &dev->irq_en_reg);
+ #ifdef CONFIG_ATH6KL_DEBUG
+-#define ath6kl_dbg(mask, fmt, ...)					\
+-	({								\
+-	 int rtn;							\
+-	 if (debug_mask & mask)						\
+-		rtn = ath6kl_printk(KERN_DEBUG, fmt, ##__VA_ARGS__);	\
+-	 else								\
+-		rtn = 0;						\
+-									\
+-	 rtn;								\
+-	 })
  
- 		/* Update only those registers that are enabled */
- 		host_int_status = dev->irq_proc_reg.host_int_status &
-diff --git a/drivers/net/wireless/ath/ath6kl/wmi.c b/drivers/net/wireless/ath/ath6kl/wmi.c
-index f6f2aa2..fbd886a 100644
---- a/drivers/net/wireless/ath/ath6kl/wmi.c
-+++ b/drivers/net/wireless/ath/ath6kl/wmi.c
-@@ -419,9 +419,6 @@ static int ath6kl_wmi_tx_complete_event_rx(u8 *datap, int len)
- 	ath6kl_dbg(ATH6KL_DBG_WMI, "comp: %d %d %d\n",
- 		   evt->num_msg, evt->msg_len, evt->msg_type);
- 
--	if (!AR_DBG_LVL_CHECK(ATH6KL_DBG_WMI))
--		return 0;
+-static inline void ath6kl_dbg_dump(enum ATH6K_DEBUG_MASK mask,
+-				   const char *msg, const char *prefix,
+-				   const void *buf, size_t len)
+-{
+-	if (debug_mask & mask) {
+-		if (msg)
+-			ath6kl_dbg(mask, "%s\n", msg);
 -
- 	for (index = 0; index < evt->num_msg; index++) {
- 		size = sizeof(struct wmi_tx_complete_event) +
- 		    (index * sizeof(struct tx_complete_msg_v1));
+-		print_hex_dump_bytes(prefix, DUMP_PREFIX_OFFSET, buf, len);
+-	}
+-}
++void ath6kl_dbg(enum ATH6K_DEBUG_MASK mask, const char *fmt, ...);
++void ath6kl_dbg_dump(enum ATH6K_DEBUG_MASK mask,
++		     const char *msg, const char *prefix,
++		     const void *buf, size_t len);
+ 
+ void ath6kl_dump_registers(struct ath6kl_device *dev,
+ 			   struct ath6kl_irq_proc_registers *irq_proc_reg,
