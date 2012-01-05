@@ -1,41 +1,41 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next 2012-01-05
-Date: Thu, 05 Jan 2012 12:30:39 -0500 (EST)
-Message-ID: <20120105.123039.977245333906219511.davem@davemloft.net>
-References: <20120105160938.GC10666@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/6 v2] skb paged fragment destructors
+Date: Thu, 05 Jan 2012 12:34:48 -0500 (EST)
+Message-ID: <20120105.123448.22028378936304397.davem@davemloft.net>
+References: <1325783399.25206.413.camel@zakaz.uk.xensource.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6D8AF35@saturn3.aculab.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120105160938.GC10666-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Ian.Campbell@citrix.com, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: David.Laight@ACULAB.COM
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:32892 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754816Ab2AERe4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 12:34:56 -0500
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6D8AF35@saturn3.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Thu, 5 Jan 2012 11:09:38 -0500
+From: "David Laight" <David.Laight@ACULAB.COM>
+Date: Thu, 5 Jan 2012 17:27:31 -0000
 
-> Here is the last wireless "feature" pull request intended for 3.3.
-> Mostly minutia, but highlights include an NFC spec update and some
-> relicensing of regulatory code under the ISC license.
+> If you are doing that, then the network drivers must ensure they
+> free such skb as soon as the transmit completes - rather than
+> deferring the 'end of tx' processing until some later time.
 > 
-> After consulation with Kalle, I have reverted the ath6kl USB bits that
-> were causing build problems.
-> 
-> Please let me know if there are problems!
-> 
-> John
-> 
-> P.S. Sorry about the "ssh://" URL -- git.kernel.org seems a bit slow
-> about syncing today...
+> Without that the sending code can't reuse the 'page' for another
+> request - which is one of the things I presume this allows.
 
-That ssh URL would only work for you, since I don't have permission to get
-at your trees even just to pull.
+TCP breaks already if a driver defers indefinitely.  All drivers
+absolutely must perform TX reclaim in a small, finite, amount of
+time.
 
-I pulled from the equivalent git:// URL, the top commit was the ath6kl
-USB revert.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> (We had issues with this on SVR4 with STREAMS buffers allocated
+> with esballoc()...)
+
+This isn't the Mentat stack... so it's extremely unwise to try and
+match up concerns you've had in that stack over here when evaluating
+changes to Linux.
