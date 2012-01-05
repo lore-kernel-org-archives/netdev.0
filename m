@@ -1,122 +1,107 @@
-From: Fabio Estevam <festevam-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v2] drivers: net: Fix dependency for EEPROM_93CX6
-Date: Thu,  5 Jan 2012 11:37:53 -0200
-Message-ID: <1325770673-17309-1-git-send-email-festevam@gmail.com>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gwingerde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	Fabio Estevam <festevam-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Fabio Estevam <fabio.estevam-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net_sched: red: split red_parms into parms and
+ vars
+Date: Thu, 05 Jan 2012 14:39:37 +0100
+Message-ID: <1325770777.2415.35.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1325766316.2415.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CAA93jw4ndMg-4BnhmspxgcXYdozu5+YX9VJgtHJ3N5HVX1b4yg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Dave Taht <dave.taht@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:40595 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756270Ab2AENjl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 08:39:41 -0500
+Received: by werm1 with SMTP id m1so363574wer.19
+        for <netdev@vger.kernel.org>; Thu, 05 Jan 2012 05:39:40 -0800 (PST)
+In-Reply-To: <CAA93jw4ndMg-4BnhmspxgcXYdozu5+YX9VJgtHJ3N5HVX1b4yg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix the following build warning:
+Le jeudi 05 janvier 2012 =C3=A0 14:03 +0100, Dave Taht a =C3=A9crit :
+> On Thu, Jan 5, 2012 at 1:25 PM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> > This patch splits the red_parms structure into two components.
+> >
+> > One holding the RED 'constant' parameters, and one containing the
+> > variables.
+> >
+> > This permits a size reduction of GRED qdisc, and is a preliminary s=
+tep
+> > to add an optional RED unit to SFQ.
+>=20
+> ah. I see where you are going with this. You are trying also to get y=
+our
+> 'time in red' adaptation idea done, aren't you, or at least lay the g=
+roundwork
+> for that?
+>=20
 
-warning: (KS8851 && AX88796_93CX6 && RTL8180 && RTL8187 && ADM8211 && RT2400PCI && RT2500PCI && RT61PCI && RT2800PCI && R8187SE) selects EEPROM_93CX6 which has unmet direct dependencies (MISC_DEVICES)
+RED algo is agnostic : The quantity you want to average can be :
 
-Signed-off-by: Fabio Estevam <fabio.estevam-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
----
-Changes since v1:
-- Place MISC_DEVICES dependency into the 'depends on' line
+1) queue length in bytes
+2) queue length in packets
+3) time of residence in queue
+=2E..
 
- drivers/net/ethernet/8390/Kconfig    |    2 +-
- drivers/net/wireless/Kconfig         |    2 +-
- drivers/net/wireless/rt2x00/Kconfig  |    7 ++++---
- drivers/net/wireless/rtl818x/Kconfig |    4 ++--
- 4 files changed, 8 insertions(+), 7 deletions(-)
+Adding 3) is very easy.
 
-diff --git a/drivers/net/ethernet/8390/Kconfig b/drivers/net/ethernet/8390/Kconfig
-index e04ade4..993e0fa 100644
---- a/drivers/net/ethernet/8390/Kconfig
-+++ b/drivers/net/ethernet/8390/Kconfig
-@@ -68,7 +68,7 @@ config AX88796
- 
- config AX88796_93CX6
- 	bool "ASIX AX88796 external 93CX6 eeprom support"
--	depends on AX88796
-+	depends on AX88796 && MISC_DEVICES
- 	select EEPROM_93CX6
- 	---help---
- 	  Select this if your platform comes with an external 93CX6 eeprom.
-diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
-index abd3b71..ef7fff0 100644
---- a/drivers/net/wireless/Kconfig
-+++ b/drivers/net/wireless/Kconfig
-@@ -221,7 +221,7 @@ source "drivers/net/wireless/rtl818x/Kconfig"
- 
- config ADM8211
- 	tristate "ADMtek ADM8211 support"
--	depends on MAC80211 && PCI && EXPERIMENTAL
-+	depends on MAC80211 && PCI && EXPERIMENTAL && MISC_DEVICES
- 	select CRC32
- 	select EEPROM_93CX6
- 	---help---
-diff --git a/drivers/net/wireless/rt2x00/Kconfig b/drivers/net/wireless/rt2x00/Kconfig
-index a0a7854..bccd5c6 100644
---- a/drivers/net/wireless/rt2x00/Kconfig
-+++ b/drivers/net/wireless/rt2x00/Kconfig
-@@ -19,7 +19,7 @@ if RT2X00
- 
- config RT2400PCI
- 	tristate "Ralink rt2400 (PCI/PCMCIA) support"
--	depends on PCI
-+	depends on PCI && MISC_DEVICES
- 	select RT2X00_LIB_PCI
- 	select EEPROM_93CX6
- 	---help---
-@@ -30,7 +30,7 @@ config RT2400PCI
- 
- config RT2500PCI
- 	tristate "Ralink rt2500 (PCI/PCMCIA) support"
--	depends on PCI
-+	depends on PCI && MISC_DEVICES
- 	select RT2X00_LIB_PCI
- 	select EEPROM_93CX6
- 	---help---
-@@ -41,7 +41,7 @@ config RT2500PCI
- 
- config RT61PCI
- 	tristate "Ralink rt2501/rt61 (PCI/PCMCIA) support"
--	depends on PCI
-+	depends on PCI && MISC_DEVICES
- 	select RT2X00_LIB_PCI
- 	select RT2X00_LIB_FIRMWARE
- 	select RT2X00_LIB_CRYPTO
-@@ -56,6 +56,7 @@ config RT61PCI
- config RT2800PCI
- 	tristate "Ralink rt27xx/rt28xx/rt30xx (PCI/PCIe/PCMCIA) support"
- 	depends on PCI || RALINK_RT288X || RALINK_RT305X
-+	depends on MISC_DEVICES
- 	select RT2800_LIB
- 	select RT2X00_LIB_PCI if PCI
- 	select RT2X00_LIB_SOC if RALINK_RT288X || RALINK_RT305X
-diff --git a/drivers/net/wireless/rtl818x/Kconfig b/drivers/net/wireless/rtl818x/Kconfig
-index 17d80fe..7d7268e 100644
---- a/drivers/net/wireless/rtl818x/Kconfig
-+++ b/drivers/net/wireless/rtl818x/Kconfig
-@@ -3,7 +3,7 @@
- #
- config RTL8180
- 	tristate "Realtek 8180/8185 PCI support"
--	depends on MAC80211 && PCI && EXPERIMENTAL
-+	depends on MAC80211 && PCI && EXPERIMENTAL && MISC_DEVICES
- 	select EEPROM_93CX6
- 	---help---
- 	  This is a driver for RTL8180 and RTL8185 based cards.
-@@ -59,7 +59,7 @@ config RTL8180
- 
- config RTL8187
- 	tristate "Realtek 8187 and 8187B USB support"
--	depends on MAC80211 && USB
-+	depends on MAC80211 && USB && MISC_DEVICES
- 	select EEPROM_93CX6
- 	---help---
- 	  This is a driver for RTL8187 and RTL8187B based cards.
--- 
-1.7.1
+> Are you trying to make the 3.3 merge window for all this?
+>=20
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Its up to David ;)
+
+> I don't want to discourage you in any way, but byte oriented RED
+> with or without TSO doesn't work in your typical asymmetric
+> environment. If you set an appropriate byte limit for
+> stuff going one way, you end up with acks going out of
+> control - and vice versa.
+
+TSO has little impact if you use "average queue length in bytes"
+
+My main concern about adding RED is to be able to perform ecn marking
+instead of mere packet drops.
+
+In the case of your router, TSO is a non issue, since a router should
+handle MTU sized skbs. (disable GRO at ingress side)
+
+>=20
+> and/or packet oriented RED has some hope, but in either
+> case you have to do something intelligent with a giant TSO
+> stream if you are going to use it on a server or host.
+>=20
+
+Again, a flow is a flow, and TSO is just a big packet.
+
+Once you separate flows (using SFQ or QFQ), adding a RED unit permits
+early drops only on flows that want to be unfair.
+
+> And the basic red still has two flaws that may or may
+> not go away with your adaptation, or combination with
+> SFQ - (I do retain hope, though)
+
+I only want to 'activate' red on selected backlogged flows.
+
+tc qdisc add dev eth0 root sfq[red] \
+	limit 3000 headdrop flows 512 divisor 16384 \
+	redflowlimit 200000b ecn
+
+Problems of RED are :
+
+1) the 'average' on highly variable trafic : It means nothing
+interesting at all.
+
+2) the idle time management requires to specify the link bandwidth, as =
+a
+fixed value. This is a problem.
+
+In case of SFQRED, flow bandwidth is unknown, or very dynamic.
+
+This is why I plan to reset qavg to 0 each time a flow becomes 'active'=
+,
+and not care of idle time at all.
