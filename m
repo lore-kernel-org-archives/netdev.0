@@ -1,82 +1,74 @@
 From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH 2/6] net: pad skb data and shinfo as a whole rather
- than individually
-Date: Thu, 5 Jan 2012 20:00:58 +0000
-Message-ID: <1325793658.29084.21.camel@dagon.hellion.org.uk>
+Subject: Re: [PATCH 5/6] net: add paged frag destructor support to
+ kernel_sendpage.
+Date: Thu, 5 Jan 2012 20:04:34 +0000
+Message-ID: <1325793874.29084.25.camel@dagon.hellion.org.uk>
 References: <1325783399.25206.413.camel@zakaz.uk.xensource.com>
-	 <1325783624-14601-2-git-send-email-ian.campbell@citrix.com>
-	 <1325785607.4759.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20120105.141331.83457091828476806.davem@davemloft.net>
+	 <1325783624-14601-5-git-send-email-ian.campbell@citrix.com>
+	 <20120105.141522.1303730212186060591.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+	"pekkas@netcore.fi" <pekkas@netcore.fi>,
+	"jmorris@namei.org" <jmorris@namei.org>,
+	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
+	"gregkh@suse.de" <gregkh@suse.de>,
+	"drbd-user@lists.linbit.com" <drbd-user@lists.linbit.com>,
+	"devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
+	"cluster-devel@redhat.com" <cluster-devel@redhat.com>,
+	"ocfs2-devel@oss.oracle.com" <ocfs2-devel@oss.oracle.com>,
+	"ceph-devel@vger.kernel.org" <ceph-devel@vger.kernel.org>,
+	"rds-devel@oss.oracle.com" <rds-devel@oss.oracle.com>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:49654 "EHLO
+Received: from smtp.eu.citrix.com ([62.200.22.115]:28740 "EHLO
 	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755357Ab2AEUBL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 15:01:11 -0500
-In-Reply-To: <20120105.141331.83457091828476806.davem@davemloft.net>
+	with ESMTP id S1757846Ab2AEUEh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 15:04:37 -0500
+In-Reply-To: <20120105.141522.1303730212186060591.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-01-05 at 19:13 +0000, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 05 Jan 2012 18:46:47 +0100
+On Thu, 2012-01-05 at 19:15 +0000, David Miller wrote:
+> From: Ian Campbell <ian.campbell@citrix.com>
+> Date: Thu, 5 Jan 2012 17:13:43 +0000
 > 
-> >> @@ -189,8 +189,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
-> >>  	 * aligned memory blocks, unless SLUB/SLAB debug is enabled.
-> >>  	 * Both skb->head and skb_shared_info are cache line aligned.
-> >>  	 */
-> >> -	size = SKB_DATA_ALIGN(size);
-> >> -	size += SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-> >> +	size = SKB_DATA_ALIGN(size + sizeof(struct skb_shared_info));
-> >>  	data = kmalloc_node_track_caller(size, gfp_mask, node);
-> >>  	if (!data)
-> >>  		goto nodata;
-> > 
-> > Unfortunately this makes the frequently use part of skb_shared_info not
-> > any more in a single cache line.
-> > 
-> > This will slow down many operations like kfree_skb() of cold skbs (TX
-> > completion for example)
+> > -static ssize_t do_tcp_sendpages(struct sock *sk, struct page **pages, int poffset,
+> > +static ssize_t do_tcp_sendpages(struct sock *sk,
+> > +				struct page **pages,
+> > +				struct skb_frag_destructor **destructors,
+> > +				int poffset,
+> >  			 size_t psize, int flags)
+> >  {
+> >  	struct tcp_sock *tp = tcp_sk(sk);
 > 
-> My concerns match Eric's here.
+> An array of destructors is madness, and the one call site that specifies this
+> passes an address of a single entry.
+
+I figured it was easy enough to accommodate the multiple destructor case
+but you are right that is overkill given the current (and realistically,
+expected) usage, I'll change that for the next round.
+
+(that's assuming we don't end up with some scheme where the struct page
+* is in the destructor struct like I was investigating previously to
+alleviate the frag size overhead. I guess this illustrates nicely why
+that approach got ugly: these array propagate all the way up the call
+chain if you do that)
+
+> This also would never even have to occur if you put the destructor inside of
+> struct page instead.
 > 
-> Ian, you state that you attempted to look into schemes that put the
-> destructor info somewhere other than skb_shared_info() and that none
-> of them worked well.
-> 
-> But what kind of issues do you run into if you add this into struct
-> page itself?  Other subsystems could then use this facility too, and
-> if I recall there was even some talk of this.
+> Finally, except for the skb_shared_info() layout optimization in patch #1 which
+> I alreayd applied, this stuff is not baked enough for the 3.3 merge window.
 
-This is what the old out of tree Xen stuff used to do and it was my
-understanding that it had been nacked by the mm guys, although it was a
-long while ago and I wasn't really involved at the time. I think space
-in struct page is pretty tight and any addition is multiplied over the
-number of pages in the system which makes it undesirable. AIUI there
-were also complaints about the addition of a hook on the page free path,
-which is quite a hot one.
+Sure thing, I should have made it clear in my intro mail that I was
+aiming for 3.4.
 
-I could run it by them again but...
-
-Although this scheme works fine for Xen's netback I don't think it works
-for other use cases like the NFS one (or basically any kernel_sendpage
-usage). In those cases you don't want to wait for the last core mm ref
-on the page to get dropped, you just want to wait for the last ref due
-to the particular sendpage. If you use the core page_count() reference
-count then you end up waiting for the process to exit (and drop the core
-reference count) before the destructor fires and you can complete the
-write, which is obviously not what is desired!
-
-There's also issues with things like two threads simultaneously doing
-I/O from the same page. If one lot of I/O is to NFS and the other to
-iSCSI (assuming they both use this facility in the future) then they
-will clash over the use of the struct page field. In fact even if they
-were both to NFS I bet nothing good would happen...
-
-Cheers,
-Ian.
+Thanks,
+Ian
