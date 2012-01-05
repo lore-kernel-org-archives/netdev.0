@@ -1,235 +1,122 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: [PATCH v2 6/6] ath6kl: create ath6kl_core.ko
-Date: Thu, 05 Jan 2012 15:28:55 +0200
-Message-ID: <20120105132855.22281.87053.stgit@x201>
-References: <20120105132523.22281.95999.stgit@x201>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-next@vger.kernel.org, ath6kl-devel@qualcomm.com,
-	davem@davemloft.net
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120105132523.22281.95999.stgit@x201>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Fabio Estevam <festevam-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v2] drivers: net: Fix dependency for EEPROM_93CX6
+Date: Thu,  5 Jan 2012 11:37:53 -0200
+Message-ID: <1325770673-17309-1-git-send-email-festevam@gmail.com>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gwingerde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	Fabio Estevam <festevam-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Fabio Estevam <fabio.estevam-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Now ath6kl is ready for splitting core code to ath6kl_core.ko module.
-This also makes it possible to link both sdio and usb code to kernel
-at the same time, which earlier failed miserably.
+Fix the following build warning:
 
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Signed-off-by: Kalle Valo <kvalo@qca.qualcomm.com>
+warning: (KS8851 && AX88796_93CX6 && RTL8180 && RTL8187 && ADM8211 && RT2400PCI && RT2500PCI && RT61PCI && RT2800PCI && R8187SE) selects EEPROM_93CX6 which has unmet direct dependencies (MISC_DEVICES)
+
+Signed-off-by: Fabio Estevam <fabio.estevam-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 ---
- drivers/net/wireless/ath/ath6kl/Makefile   |   37 +++++++++++-----------------
- drivers/net/wireless/ath/ath6kl/cfg80211.c |    3 ++
- drivers/net/wireless/ath/ath6kl/core.c     |    9 +++++++
- drivers/net/wireless/ath/ath6kl/debug.c    |    3 ++
- drivers/net/wireless/ath/ath6kl/hif.c      |    5 ++++
- drivers/net/wireless/ath/ath6kl/init.c     |    3 ++
- 6 files changed, 37 insertions(+), 23 deletions(-)
+Changes since v1:
+- Place MISC_DEVICES dependency into the 'depends on' line
 
-diff --git a/drivers/net/wireless/ath/ath6kl/Makefile b/drivers/net/wireless/ath/ath6kl/Makefile
-index 9bb69a8..863b9f6 100644
---- a/drivers/net/wireless/ath/ath6kl/Makefile
-+++ b/drivers/net/wireless/ath/ath6kl/Makefile
-@@ -21,32 +21,23 @@
- # Author(s): ="Atheros"
- #------------------------------------------------------------------------------
+ drivers/net/ethernet/8390/Kconfig    |    2 +-
+ drivers/net/wireless/Kconfig         |    2 +-
+ drivers/net/wireless/rt2x00/Kconfig  |    7 ++++---
+ drivers/net/wireless/rtl818x/Kconfig |    4 ++--
+ 4 files changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/8390/Kconfig b/drivers/net/ethernet/8390/Kconfig
+index e04ade4..993e0fa 100644
+--- a/drivers/net/ethernet/8390/Kconfig
++++ b/drivers/net/ethernet/8390/Kconfig
+@@ -68,7 +68,7 @@ config AX88796
  
--obj-$(CONFIG_ATH6KL_SDIO) := ath6kl_sdio.o
--ath6kl_sdio-y += debug.o
--ath6kl_sdio-y += hif.o
--ath6kl_sdio-y += htc.o
--ath6kl_sdio-y += bmi.o
--ath6kl_sdio-y += cfg80211.o
--ath6kl_sdio-y += init.o
--ath6kl_sdio-y += main.o
--ath6kl_sdio-y += txrx.o
--ath6kl_sdio-y += wmi.o
--ath6kl_sdio-y += core.o
-+obj-$(CONFIG_ATH6KL) += ath6kl_core.o
-+ath6kl_core-y += debug.o
-+ath6kl_core-y += hif.o
-+ath6kl_core-y += htc.o
-+ath6kl_core-y += bmi.o
-+ath6kl_core-y += cfg80211.o
-+ath6kl_core-y += init.o
-+ath6kl_core-y += main.o
-+ath6kl_core-y += txrx.o
-+ath6kl_core-y += wmi.o
-+ath6kl_core-y += core.o
-+ath6kl_core-$(CONFIG_NL80211_TESTMODE) += testmode.o
-+
-+obj-$(CONFIG_ATH6KL_SDIO) += ath6kl_sdio.o
- ath6kl_sdio-y += sdio.o
--ath6kl_sdio-$(CONFIG_NL80211_TESTMODE) += testmode.o
+ config AX88796_93CX6
+ 	bool "ASIX AX88796 external 93CX6 eeprom support"
+-	depends on AX88796
++	depends on AX88796 && MISC_DEVICES
+ 	select EEPROM_93CX6
+ 	---help---
+ 	  Select this if your platform comes with an external 93CX6 eeprom.
+diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
+index abd3b71..ef7fff0 100644
+--- a/drivers/net/wireless/Kconfig
++++ b/drivers/net/wireless/Kconfig
+@@ -221,7 +221,7 @@ source "drivers/net/wireless/rtl818x/Kconfig"
  
- obj-$(CONFIG_ATH6KL_USB) += ath6kl_usb.o
--ath6kl_usb-y += debug.o
--ath6kl_usb-y += hif.o
--ath6kl_usb-y += htc.o
--ath6kl_usb-y += bmi.o
--ath6kl_usb-y += cfg80211.o
--ath6kl_usb-y += init.o
--ath6kl_usb-y += main.o
--ath6kl_usb-y += txrx.o
--ath6kl_usb-y += wmi.o
--ath6kl_usb-y += core.o
- ath6kl_usb-y += usb.o
--ath6kl_usb-$(CONFIG_NL80211_TESTMODE) += testmode.o
+ config ADM8211
+ 	tristate "ADMtek ADM8211 support"
+-	depends on MAC80211 && PCI && EXPERIMENTAL
++	depends on MAC80211 && PCI && EXPERIMENTAL && MISC_DEVICES
+ 	select CRC32
+ 	select EEPROM_93CX6
+ 	---help---
+diff --git a/drivers/net/wireless/rt2x00/Kconfig b/drivers/net/wireless/rt2x00/Kconfig
+index a0a7854..bccd5c6 100644
+--- a/drivers/net/wireless/rt2x00/Kconfig
++++ b/drivers/net/wireless/rt2x00/Kconfig
+@@ -19,7 +19,7 @@ if RT2X00
  
- ccflags-y += -D__CHECK_ENDIAN__
-diff --git a/drivers/net/wireless/ath/ath6kl/cfg80211.c b/drivers/net/wireless/ath/ath6kl/cfg80211.c
-index 64043f8..d4ed6d1 100644
---- a/drivers/net/wireless/ath/ath6kl/cfg80211.c
-+++ b/drivers/net/wireless/ath/ath6kl/cfg80211.c
-@@ -15,6 +15,7 @@
-  */
+ config RT2400PCI
+ 	tristate "Ralink rt2400 (PCI/PCMCIA) support"
+-	depends on PCI
++	depends on PCI && MISC_DEVICES
+ 	select RT2X00_LIB_PCI
+ 	select EEPROM_93CX6
+ 	---help---
+@@ -30,7 +30,7 @@ config RT2400PCI
  
- #include <linux/moduleparam.h>
-+#include <linux/export.h>
+ config RT2500PCI
+ 	tristate "Ralink rt2500 (PCI/PCMCIA) support"
+-	depends on PCI
++	depends on PCI && MISC_DEVICES
+ 	select RT2X00_LIB_PCI
+ 	select EEPROM_93CX6
+ 	---help---
+@@ -41,7 +41,7 @@ config RT2500PCI
  
- #include "core.h"
- #include "cfg80211.h"
-@@ -1907,6 +1908,7 @@ int ath6kl_cfg80211_suspend(struct ath6kl *ar,
+ config RT61PCI
+ 	tristate "Ralink rt2501/rt61 (PCI/PCMCIA) support"
+-	depends on PCI
++	depends on PCI && MISC_DEVICES
+ 	select RT2X00_LIB_PCI
+ 	select RT2X00_LIB_FIRMWARE
+ 	select RT2X00_LIB_CRYPTO
+@@ -56,6 +56,7 @@ config RT61PCI
+ config RT2800PCI
+ 	tristate "Ralink rt27xx/rt28xx/rt30xx (PCI/PCIe/PCMCIA) support"
+ 	depends on PCI || RALINK_RT288X || RALINK_RT305X
++	depends on MISC_DEVICES
+ 	select RT2800_LIB
+ 	select RT2X00_LIB_PCI if PCI
+ 	select RT2X00_LIB_SOC if RALINK_RT288X || RALINK_RT305X
+diff --git a/drivers/net/wireless/rtl818x/Kconfig b/drivers/net/wireless/rtl818x/Kconfig
+index 17d80fe..7d7268e 100644
+--- a/drivers/net/wireless/rtl818x/Kconfig
++++ b/drivers/net/wireless/rtl818x/Kconfig
+@@ -3,7 +3,7 @@
+ #
+ config RTL8180
+ 	tristate "Realtek 8180/8185 PCI support"
+-	depends on MAC80211 && PCI && EXPERIMENTAL
++	depends on MAC80211 && PCI && EXPERIMENTAL && MISC_DEVICES
+ 	select EEPROM_93CX6
+ 	---help---
+ 	  This is a driver for RTL8180 and RTL8185 based cards.
+@@ -59,7 +59,7 @@ config RTL8180
  
- 	return 0;
- }
-+EXPORT_SYMBOL(ath6kl_cfg80211_suspend);
- 
- int ath6kl_cfg80211_resume(struct ath6kl *ar)
- {
-@@ -1958,6 +1960,7 @@ int ath6kl_cfg80211_resume(struct ath6kl *ar)
- 
- 	return 0;
- }
-+EXPORT_SYMBOL(ath6kl_cfg80211_resume);
- 
- #ifdef CONFIG_PM
- 
-diff --git a/drivers/net/wireless/ath/ath6kl/core.c b/drivers/net/wireless/ath/ath6kl/core.c
-index 7e3574e..0d00475 100644
---- a/drivers/net/wireless/ath/ath6kl/core.c
-+++ b/drivers/net/wireless/ath/ath6kl/core.c
-@@ -16,7 +16,9 @@
- 
- #include "core.h"
- 
-+#include <linux/module.h>
- #include <linux/moduleparam.h>
-+#include <linux/export.h>
- 
- #include "debug.h"
- #include "hif-ops.h"
-@@ -198,6 +200,7 @@ err_wq:
- 
- 	return ret;
- }
-+EXPORT_SYMBOL(ath6kl_core_init);
- 
- struct ath6kl *ath6kl_core_create(struct device *dev)
- {
-@@ -254,6 +257,7 @@ struct ath6kl *ath6kl_core_create(struct device *dev)
- 
- 	return ar;
- }
-+EXPORT_SYMBOL(ath6kl_core_create);
- 
- void ath6kl_core_cleanup(struct ath6kl *ar)
- {
-@@ -280,9 +284,14 @@ void ath6kl_core_cleanup(struct ath6kl *ar)
- 	ath6kl_cfg80211_cleanup(ar);
- 	ath6kl_cfg80211_destroy(ar);
- }
-+EXPORT_SYMBOL(ath6kl_core_cleanup);
- 
- void ath6kl_core_destroy(struct ath6kl *ar)
- {
- 	ath6kl_cfg80211_destroy(ar);
- }
-+EXPORT_SYMBOL(ath6kl_core_destroy);
- 
-+MODULE_AUTHOR("Qualcomm Atheros");
-+MODULE_DESCRIPTION("Core module for AR600x SDIO and USB devices.");
-+MODULE_LICENSE("Dual BSD/GPL");
-diff --git a/drivers/net/wireless/ath/ath6kl/debug.c b/drivers/net/wireless/ath/ath6kl/debug.c
-index f1fa57b..5430166 100644
---- a/drivers/net/wireless/ath/ath6kl/debug.c
-+++ b/drivers/net/wireless/ath/ath6kl/debug.c
-@@ -54,6 +54,7 @@ int ath6kl_printk(const char *level, const char *fmt, ...)
- 
- 	return rtn;
- }
-+EXPORT_SYMBOL(ath6kl_printk);
- 
- #ifdef CONFIG_ATH6KL_DEBUG
- 
-@@ -74,6 +75,7 @@ void ath6kl_dbg(enum ATH6K_DEBUG_MASK mask, const char *fmt, ...)
- 
- 	va_end(args);
- }
-+EXPORT_SYMBOL(ath6kl_dbg);
- 
- void ath6kl_dbg_dump(enum ATH6K_DEBUG_MASK mask,
- 		     const char *msg, const char *prefix,
-@@ -86,6 +88,7 @@ void ath6kl_dbg_dump(enum ATH6K_DEBUG_MASK mask,
- 		print_hex_dump_bytes(prefix, DUMP_PREFIX_OFFSET, buf, len);
- 	}
- }
-+EXPORT_SYMBOL(ath6kl_dbg_dump);
- 
- #define REG_OUTPUT_LEN_PER_LINE	25
- #define REGTYPE_STR_LEN		100
-diff --git a/drivers/net/wireless/ath/ath6kl/hif.c b/drivers/net/wireless/ath/ath6kl/hif.c
-index 3d26c14..e911737 100644
---- a/drivers/net/wireless/ath/ath6kl/hif.c
-+++ b/drivers/net/wireless/ath/ath6kl/hif.c
-@@ -15,6 +15,8 @@
-  */
- #include "hif.h"
- 
-+#include <linux/export.h>
-+
- #include "core.h"
- #include "target.h"
- #include "hif-ops.h"
-@@ -59,6 +61,8 @@ int ath6kl_hif_rw_comp_handler(void *context, int status)
- 
- 	return 0;
- }
-+EXPORT_SYMBOL(ath6kl_hif_rw_comp_handler);
-+
- #define REG_DUMP_COUNT_AR6003   60
- #define REGISTER_DUMP_LEN_MAX   60
- 
-@@ -560,6 +564,7 @@ int ath6kl_hif_intr_bh_handler(struct ath6kl *ar)
- 
- 	return status;
- }
-+EXPORT_SYMBOL(ath6kl_hif_intr_bh_handler);
- 
- static int ath6kl_hif_enable_intrs(struct ath6kl_device *dev)
- {
-diff --git a/drivers/net/wireless/ath/ath6kl/init.c b/drivers/net/wireless/ath/ath6kl/init.c
-index 5a92307..6183c42 100644
---- a/drivers/net/wireless/ath/ath6kl/init.c
-+++ b/drivers/net/wireless/ath/ath6kl/init.c
-@@ -17,8 +17,10 @@
- 
- #include <linux/moduleparam.h>
- #include <linux/errno.h>
-+#include <linux/export.h>
- #include <linux/of.h>
- #include <linux/mmc/sdio_func.h>
-+
- #include "core.h"
- #include "cfg80211.h"
- #include "target.h"
-@@ -1596,3 +1598,4 @@ void ath6kl_stop_txrx(struct ath6kl *ar)
- 
- 	clear_bit(WLAN_ENABLED, &ar->flag);
- }
-+EXPORT_SYMBOL(ath6kl_stop_txrx);
+ config RTL8187
+ 	tristate "Realtek 8187 and 8187B USB support"
+-	depends on MAC80211 && USB
++	depends on MAC80211 && USB && MISC_DEVICES
+ 	select EEPROM_93CX6
+ 	---help---
+ 	  This is a driver for RTL8187 and RTL8187B based cards.
+-- 
+1.7.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
