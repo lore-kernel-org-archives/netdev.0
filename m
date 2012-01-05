@@ -1,112 +1,91 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 3/3] qmi_wwan: Driver for WWAN devices requiring use of the QMI protocol
-Date: Thu, 05 Jan 2012 09:58:11 +0100
-Message-ID: <87r4zey198.fsf@nemi.mork.no>
-References: <1323750784-32608-1-git-send-email-bjorn@mork.no>
-	<1323750784-32608-4-git-send-email-bjorn@mork.no>
-	<1323882501.2077.3.camel@dcbw.foobar.com>
-	<87r506b1ap.fsf@nemi.mork.no>
-	<1323971530.23419.13.camel@dcbw.foobar.com>
-	<874nx0bj1d.fsf@nemi.mork.no>
-	<1324055842.17587.18.camel@dcbw.foobar.com>
-	<1325710654.7269.42.camel@d430>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH 1/1] netfilter: Add possibility to turn off netfilters
+ defrag per netns
+Date: Thu, 5 Jan 2012 10:11:28 +0100 (CET)
+Message-ID: <alpine.DEB.2.00.1201050959030.5244@blackhole.kfki.hu>
+References: <1325664443-10320-1-git-send-email-hans.schillstrom@ericsson.com> <201201042156.05586.hans@schillstrom.com> <alpine.DEB.2.00.1201042232510.3934@blackhole.kfki.hu> <201201050819.21363.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:38924 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751714Ab2AEI6t convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 03:58:49 -0500
-In-Reply-To: <1325710654.7269.42.camel@d430> (Dan Williams's message of "Wed,
-	04 Jan 2012 14:57:34 -0600")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Patrick McHardy <kaber@trash.net>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <201201050819.21363.hans.schillstrom@ericsson.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dan Williams <dcbw@redhat.com> writes:
+On Thu, 5 Jan 2012, Hans Schillstrom wrote:
 
-> I spent some time with the Pantech UML290 (a dual-mode CDMA/LTE devic=
-e
-> based off MSM9xxx) and its network port is basically the same as the
-> Huawei and the Gobi devices; it uses control transfers for the QMI
-> commands and bulk transfers for the network data.  Interestingly, the
-> UML290 uses the "rawip" mode instead of 802.3 mode, so the incoming a=
-nd
-> outgoing data is simply raw IP packets.
+> On Wednesday 04 January 2012 22:40:09 Jozsef Kadlecsik wrote:
+> > On Wed, 4 Jan 2012, Hans Schillstrom wrote:
+> > 
+> > > On Wednesday, January 04, 2012 19:05:10 Jozsef Kadlecsik wrote:
+> > > > On Wed, 4 Jan 2012, Pablo Neira Ayuso wrote:
+> > > > 
+> > > > > On Wed, Jan 04, 2012 at 12:48:35PM +0100, Hans Schillstrom wrote:
+> > > > > > I like that idea, an "early" table at prio -500 with PREROUTING.
+> > > > > > There is also a need for a new flag "--allfrags"
+> > > > > > i.e. all fragments needs to be sorted out and sent to same dest for defrag.
+> > > > > > 
+> > > > > > ex.
+> > > > > > iptables -t early -A PREROUTING -i eth0 --allfrags -j NOTRACK
+> > > > > 
+> > > > > New tables add too much overhead. We have discussed this before with
+> > > > > Patrick.
+> > > > > 
+> > > > > Since this still remains specific to your needs, I think you can
+> > > > > remove nf_conntrack module in your setup.
+> > > > > 
+> > > > > I don't come with one sane setup that may want selectively defragment
+> > > > > some traffic yes and other not.
+> > > > > 
+> > > > > Am I missing anything else?
+> > > > 
+> > > > I agree. If you don't want defragmentation at all, then make sure you 
+> > > > don't load the nf_conntrack module directly/indirectly. Conntrack doesn't 
+> > > > work without defragmentation anyway.
+> > > 
+> > > We are using LXC and it's only in the container that holds the external 
+> > > interface that can't have defragmentation.
+> > > The problem is if it's loaded you have it in all namespaces :-(
+> > 
+> > Conntrack is per net namespaces. You may have one container with conntrack 
+> > enabled and another one without conntrack.
+> 
+> How do you disable conntrack per netns ?
+> I can't see how to do it except for NOTRACK
+> Then the nf_defrag issue is still there...
 
-Interesting.  I assume that's the mode I have been seeing under certain
-circumstances too.  But I've not yet discovered how to enable/disable
-it.
+OK, I see. Conntrack is per net namespace but it's enabled globally.
+ 
+So at the moment I think the best solution is something like your patch 
+variant (but the condition is wrong, it should be "&& !skb->nfct"):
 
-> The IPv4 and IPv6 addresses of
-> the interface are determined either through QMI requests (IPv4) or
-> through WMC requests on a separate port (IPv6).  I'm hopeful that we
-> could switch the device over to 802.3 mode by just sending the right =
-QMI
-> TLV as part of the CTL/Set Data Format command (0x26) using TLV 0x01
-> (CTL/Set Data Format Request/Format) and TLV 0x10 (CTL/Set Data Forma=
-t
-> Request/Protocol).  But I'm not sure, I haven't tried it yet, and it'=
-s
-> obviously not something that Pantech is actually testing otherwise th=
-e
-> Windows driver would use 802.3 mode.
+--- a/net/ipv4/netfilter/nf_defrag_ipv4.c
++++ b/net/ipv4/netfilter/nf_defrag_ipv4.c
+@@ -74,6 +74,14 @@ static unsigned int ipv4_conntrack_defrag(unsigned int
+hooknum,
+...
++       const struct net_device *dev = (hooknum == NF_INET_LOCAL_OUT ?
++                                       out : in);
++
++       /* No defrag and not Previously seen (loopback)? */
++       if (dev_net(dev)->ct.sysctl_notrac_defrag && skb->nfct) {
++               /* Attach fake conntrack entry. as in NOTRACK */
++               skb->nfct = &nf_ct_untracked_get()->ct_general;
++               skb->nfctinfo = IP_CT_NEW;
++               nf_conntrack_get(skb->nfct);
++               return NF_ACCEPT;
++       }
+...
 
-So the Windows driver uses this mode?  Then it could be something the
-vendor chooses when building the firmware, and therefore not runtime
-configurable at all.
-
-> But what this says to me is that we do need a generic QMI driver for
-> devices that handles the network traffic and also QMI passthrough.  A=
-nd
-> then separate interface drivers that handle the USB-level quirks like
-> your Huawei driver.  We already have the "gobi_net" driver that Elly
-> Jones from Google cleaned up back in 2009, but it's not split out lik=
-e
-> you've done here and I haven't looked into what changes would need to=
- be
-> done for that.
-
-I have barely started looking at this, but christmas and a beach
-vacation have been far more interesting lately :-)
-
-> I'm still somewhat uncomfortable with the amount of QMI logic in this
-> driver though, given that for the most part, we try to keep this sort=
- of
-> stuff out of the kernel and in userland.  It also gives the wrong
-> impression that the interface can actually be used like a normal
-> interface, where for the most part it cannot unless there is addition=
-al
-> control logic in userspace.  I don't view it as any different from
-> AT-based WWAN devices in this regard and I think treating it differen=
-tly
-> from them is not the right approach.
-
-Yes, agree fully that my first draft had too much QMI logic built-in.  =
-I
-do want to keep the bare minimum to make the driver work out-of-the-box
-with "ip link set dev wwanX up", but nothing more than that.
-
-I started thinking about just exporting the raw embedded protocol as a
-char device, making the exported device completely protocol agnostic
-(just a wrapper around USB_CDC_SEND_ENCAPSULATED_COMMAND/
-USB_CDC_GET_ENCAPSULATED_RESPONSE, ignoring the contents).  But this
-would not allow multiplexing more than one client.   Therefore I added =
-a
-bit of QMI logic to allow multiple simultaneous clients, multiplexing b=
-y
-the transaction ID.  This allows the wwan driver to act as a QMI client
-and at the same time have multiple clients using the char device
-interface.
-
-I have a working demo of this, but the current state of the code is so
-bad that I'm hesitating posting it publicly. It needs a lot of cleanup,
-and I want to split out the remaining QMI parts from what's now become =
-a
-generic CDC encapsulated command/response interface.
-
-
-
-Bj=C3=B8rn
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
