@@ -1,106 +1,43 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [net-next 8/9] ixgbe: add interface to export thermal data
-Date: Thu, 5 Jan 2012 22:57:04 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF22286646027184@ORSMSX102.amr.corp.intel.com>
-References: <1324631357-31789-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1324631357-31789-9-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <CAHXqBFL_44T5nQVA=n03aT9Q1QpsLCY2dn9o6GE-9Rm66DSt-A@mail.gmail.com>
-	 <F6FB0E698C9B3143BDF729DF22286646025656@ORSMSX102.amr.corp.intel.com>
- <1325788584.3764.28.camel@bwh-desktop>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] drivers: misc: Remove MISC_DEVICES config option
+Date: Thu, 05 Jan 2012 17:42:54 -0600
+Message-ID: <4F06357E.8050000@lwfinger.net>
+References: <1325796541-11402-1-git-send-email-festevam@gmail.com> <4F0635FE.6050507@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Michal Miroslaw <mirqus@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Fabio Estevam <festevam@gmail.com>, netdev@vger.kernel.org,
+	gwingerde@gmail.com, davem@davemloft.net,
+	bhutchings@solarflare.com, greg@kroah.com, arnd@arndb.de,
+	linux-kernel@vger.kernel.org,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: Randy Dunlap <rdunlap@xenotime.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:58459 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932570Ab2AEW5H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jan 2012 17:57:07 -0500
-In-Reply-To: <1325788584.3764.28.camel@bwh-desktop>
-Content-Language: en-US
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:55912 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758151Ab2AEXm7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 18:42:59 -0500
+In-Reply-To: <4F0635FE.6050507@xenotime.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRv
-OmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+U2VudDogVGh1cnNkYXksIEphbnVhcnkgMDUs
-IDIwMTIgMTA6MzYgQU0NCj5UbzogU2tpZG1vcmUsIERvbmFsZCBDDQo+Q2M6IE1pY2hhbCBNaXJv
-c2xhdzsgS2lyc2hlciwgSmVmZnJleSBUOyBkYXZlbUBkYXZlbWxvZnQubmV0Ow0KPm5ldGRldkB2
-Z2VyLmtlcm5lbC5vcmc7IGdvc3BvQHJlZGhhdC5jb207IHNhc3NtYW5uQHJlZGhhdC5jb207DQo+
-V2Fza2lld2ljeiBKciwgUGV0ZXIgUA0KPlN1YmplY3Q6IFJFOiBbbmV0LW5leHQgOC85XSBpeGdi
-ZTogYWRkIGludGVyZmFjZSB0byBleHBvcnQgdGhlcm1hbCBkYXRhDQo+DQo+T24gVGh1LCAyMDEy
-LTAxLTA1IGF0IDE3OjUzICswMDAwLCBTa2lkbW9yZSwgRG9uYWxkIEMgd3JvdGU6DQo+PiA+LS0t
-LS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4+ID5Gcm9tOiBNaWNoYcWCIE1pcm9zxYJhdyBbbWFp
-bHRvOm1pcnF1c0BnbWFpbC5jb21dDQo+PiA+U2VudDogRnJpZGF5LCBEZWNlbWJlciAyMywgMjAx
-MSA5OjU5IEFNDQo+PiA+VG86IEtpcnNoZXIsIEplZmZyZXkgVA0KPj4gPkNjOiBkYXZlbUBkYXZl
-bWxvZnQubmV0OyBTa2lkbW9yZSwgRG9uYWxkIEM7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+
-PiA+Z29zcG9AcmVkaGF0LmNvbTsgc2Fzc21hbm5AcmVkaGF0LmNvbTsgV2Fza2lld2ljeiBKciwg
-UGV0ZXIgUA0KPj4gPlN1YmplY3Q6IFJlOiBbbmV0LW5leHQgOC85XSBpeGdiZTogYWRkIGludGVy
-ZmFjZSB0byBleHBvcnQgdGhlcm1hbA0KPmRhdGENCj4+ID4NCj4+ID4yMDExLzEyLzIzIEplZmYg
-S2lyc2hlciA8amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPjoNCj4+ID4+IEZyb206IERvbiBT
-a2lkbW9yZSA8ZG9uYWxkLmMuc2tpZG1vcmVAaW50ZWwuY29tPg0KPj4gPj4NCj4+ID4+IFNvbWUg
-b2Ygb3VyIGFkYXB0ZXJzIGhhdmUgdGhlcm1hbCBkYXRhIGF2YWlsYWJsZSwgdGhpcyBwYXRjaA0K
-PmV4cG9ydHMNCj4+ID50aGlzDQo+PiA+PiBkYXRhIHZpYSBhIHJlYWQtb25seSBzeXNmcyBpbnRl
-cmZhY2UuDQo+PiA+DQo+PiA+SnVzdCBjdXJpb3VzOiBjYW4ndCB0aGlzIHVzZSB0aGUgaHdtb24g
-c3Vic3lzdGVtIHRvIGJlIGNvbnNpc3RlbnQNCj53aXRoDQo+PiA+b3RoZXIgc3lzdGVtIG1vbml0
-b3JpbmcgZGV2aWNlcz8NCj4+ID4NCj4+ID5CZXN0IFJlZ2FyZHMsDQo+PiA+TWljaGHFgiBNaXJv
-c8WCYXcNCj4+DQo+PiBTb3JyeSBhYm91dCB0aGUgc2xvdyByZXNwb25zZSwgZmlyc3QgdmFjYXRp
-b24gdGhlbiBJIGhhZG4ndCBoZWFyZCBvZg0KPj4gaHdtb24gYW5kIHdhbnRlZCB0byBsb29rIGlu
-dG8gaXQgYSBiaXQuICBJIGNhbiBzZWUgd2h5IHlvdSBtZW50aW9uZWQNCj4+IGl0IGFzIGl0IGxv
-b2tzIHRvIGJlIGNsb3NlIHRvIHdoYXQgSSdtIHRyeWluZyB0byBkbyBoZXJlLiAgSG93ZXZlciBJ
-DQo+PiBkb24ndCB0aGluayBpdCBxdWl0ZSBtYXRjaGVzLiAgSSdsbCBsaXN0IG15IHRob3VnaHRz
-IGJlbG93Og0KPj4NCj4+IC0gV2UgYXJlIHRyeWluZyB0byBleHBvcnQgYSBsYXJnZSBzZXQgb2Yg
-ZGF0YSB0aGF0IG91ciBjdXN0b21lcnMgYXJlDQo+PiByZXF1ZXN0aW5nLiAgVGhlIHRoZXJtYWxz
-IHdlcmUganVzdCB0aGUgZmlyc3QgcGF0Y2ggYW5kIHRoZSBvdGhlciBkYXRhDQo+PiBpdGVtcyB3
-b3VsZG4ndCByZWFsbHkgZml0IHdlbGwgaW4gdGhlIGh3bW9uIChpLmUuIEZXIHZlcnNpb24sDQo+
-PiBzZWNvbmRhcnkgTUFDIGFkZHJlc3MpLg0KPg0KPk5ldmVydGhlbGVzcywgdGhlcmUgaXMgYSBz
-cGVjaWZpYyB3YXkgdGhhdCB0aGUgdGhlcm1hbCBpbmZvcm1hdGlvbg0KPnNob3VsZCBiZSBleHBv
-c2VkLg0KPg0KPj4gLSBEaWRuJ3Qgc2VlbSBsaWtlIHdlIGhhZCBtdWNoIGRhdGEgdG8gb2ZmZXIg
-aHdtb24gYW55d2F5IGp1c3Qgc2Vuc29yDQo+PiB0ZW1wLCBjYXV0aW9uIHRocmVzaG9sZCwgbWF4
-b3AgdGhyZXNob2xkIGFuZCBsb2NhdGlvbiBvZiBzZW5zb3IuICBBbGwNCj4+IHRoZSBvdGhlciBk
-YXRhICh3aGljaCB5b3UgaGF2ZW4ndCBzZWVuIHlldCBzbyBjb3VsZG4ndCBoYXZlIGtub3duIDop
-DQo+PiB3YXNuJ3QgcmVsYXRlZC4NCj4+IC0gVGhlIHRoZXJtYWwgZGF0YSB3ZSBkbyBoYXZlIGlz
-IGRlZmluZWQgaW4gb3VyIEZXIGFuZCBjb3VsZCBjaGFuZ2UNCj4+IChudW1iZXIgb2Ygc2Vuc29y
-cykgYmFzZWQgb24gdGhhdCBGVy4gIEkgd2Fzbid0IHN1cmUgd2hldGhlciB0aGF0DQo+PiB3b3Vs
-ZCBiZSBhbiBpc3N1ZSBmb3IgaHdtb24uDQo+DQo+SSBoYXZlIHRoZSBzYW1lIGlzc3VlIHdpdGgg
-dGhlIGN1cnJlbnQgU29sYXJmbGFyZSBjb250cm9sbGVycywgYXMgdGhlDQo+ZHJpdmVyIGhhcyBu
-byBzdGF0aWMgaW5mb3JtYXRpb24gYWJvdXQgc3BlY2lmaWMgYm9hcmRzLiAgSXQgaXMgcG9zc2li
-bGUNCj50byBnZW5lcmF0ZSBod21vbiBhdHRyaWJ1dGVzIGR5bmFtaWNhbGx5IHRob3VnaCBJJ3Zl
-IG5vdCB5ZXQgZ290IHJvdW5kDQo+dG8gY29tcGxldGluZyBteSBpbXBsZW1lbnRhdGlvbiBvZiB0
-aGlzLiAgKFNpbmNlIGZpcm13YXJlIGlzIGFsc28NCj5yZXNwb25zaWJsZSBmb3IgdGhlcm1hbCBz
-aHV0ZG93biwgaGFuZGxpbmcgYW55IG9mIHRoaXMgc3R1ZmYgaW4gdGhlDQo+ZHJpdmVyIGhhcyBi
-ZWVuIGEgbG93IHByaW9yaXR5LikNCj4NCj4+IC0gSSB3ZW50IHdpdGggc3lzZnMgYmFzZWQgb24g
-YSBjb252ZXJzYXRpb24gd2l0aCBQZXRlciBXYXNraWV3aWN6LiAgSGUNCj4+IG1lbnRpb25lZCB0
-aGF0IHRoZXJlIHdhcyBkaXNjdXNzaW9uIG9uIGhvdyB0byBleHBvcnQgZ2VuZXJpYyBkYXRhIGF0
-DQo+PiBuZXRjb25mIGFuZCBzeXNmcyB3YXMgYnJvdWdodCB1cCBhcyB0aGUgYmVzdCBjaG9pY2Uu
-DQo+DQo+U2Vuc29ycyBhcmUgYWxzbyBleHBvc2VkIHRocm91Z2ggc3lzZnMsIGJ1dCBmb2xsb3dp
-bmcgYSBzcGVjaWZpYyBuYW1pbmcNCj5jb252ZW50aW9uIGFuZCB1c2luZyBhIHNlcGFyYXRlIGh3
-bW9uIGRldmljZS4NCj4NCj4oT2RkbHksIHRob3VnaCwgdGhlIHNlbnNvciBhdHRyaWJ1dGVzIGFy
-ZSBtdXN0IGJlIGF0dGFjaGVkIHRvIHRoZSBod21vbg0KPmRldmljZSdzIHBhcmVudCAtIHdoaWNo
-IHdpbGwgYmUgeW91ciBQQ0kgZGV2aWNlLiAgU28geW91IG1heSBub3QgbmVlZCB0bw0KPm1ha2Ug
-bWFueSBjaGFuZ2VzLikNCj4NCj5CZW4uDQo+DQoNCkhleSBCZW4sDQoNClRoYW5rcyBmb3IgYWxs
-IHRoZSBjbGFyaWZpY2F0aW9ucy4gIEkgdGhpbmsgSSBoYXZlIGEgYmV0dGVyIGlkZWEgd2hhdCB3
-b3VsZCBiZSByZXF1aXJlZCBmcm9tIGFuIGh3bW9uIGludGVyZmFjZS4gDQoNCk15IG9uZSByZWFs
-IGNvbmNlcm4gd2l0aCB0aGlzIGltcGxlbWVudGF0aW9uIGlzIHRoYXQgdGhlIGl4Z2JlIGRyaXZl
-ciB3aWxsIG5vdyBoYXZlIGEgZGVwZW5kZW5jeSBvbiBod21vbi4gIFRoZSBjdXN0b21lcnMgdGhh
-dCBhcmUgcmVxdWVzdGluZyB0aGlzIGRhdGEgYXJlbid0IGludGVyZXN0ZWQgaW4gdXNpbmcgaHdt
-b24gYW5kIHdvdWxkIG1vc3QgbGlrZWx5IGp1c3QgZ3JhYiB0aGUgdGhlcm1hbCBpbmZvcm1hdGlv
-biAod2hpY2ggaXMgYSBzbWFsbCBwb3J0aW9uIG9mIHRoZSBkYXRhIHRoZXkgYXJlIGFza2luZyBm
-b3IgdXMgdG8gZXhwb3J0KSBkaXJlY3RseSBmcm9tIHN5c2ZzLiAgT3JpZ2luYWxseSB0aGV5IHdh
-bnRlZCB0aGUgRlcgdG8gZXhwb3J0IHRoZSBkYXRhIGRpcmVjdGx5LCB3aGVuIHRoaXMgd2FzIGZv
-dW5kIHRvIGJlIGltcG9zc2libGUgdGhlIGRyaXZlciBiZWNhbWUgdGhlIGZhbGwgYmFjayBvcHRp
-b24uDQoNCkkgZG8gc2VlIHlvdXIgcG9pbnQgb24gdGhpcyBiZWluZyBhIGRlZmluZWQgd2F5IHRv
-IGV4cG9zZSB0aGVybWFscyBhbmQgSSB3YW50IHRvIGRvIHRoaXMgdGhlIGNvcnJlY3Qgd2F5LiAg
-SXQganVzdCBzZWVtcyB0byBwdXQgYSBsb3Qgb2Ygb3ZlcmhlYWQgb24gdGhlIGRyaXZlciAoZGVw
-ZW5kZW5jZSBvbiBod21vbikgZm9yIDQgZmllbGRzIHRoYXQgdGhlIHVzZXIgb2YgdGhpcyBkYXRh
-IHdvbid0IGV2ZW4gYmUgdXNpbmcgaHdtb24gdG8gbG9vayBhdC4gIEkgZ3Vlc3MgSSB3b3VsZCBm
-ZWVsIGJldHRlciBpZiB3ZSBoYWQgbW9yZSBkYXRhIHRvIHByb3ZpZGUgaHdtb24gdGhlbiBpdHMg
-c3VwcG9ydCB3b3VsZCBzZWVtIG1vcmUgdXNlZnVsLg0KDQpUaGFua3MgYWdhaW4gZm9yIGJyaW5n
-IGFsbCB0aGlzIHVwLg0KLURvbiBTa2lkbW9yZSA8ZG9uYWxkLmMuc2tpZG1vcmVAaW50ZWwuY29t
-Pg0KDQoNCg0KDQo=
+On 01/05/2012 05:45 PM, Randy Dunlap wrote:
+> On 01/05/2012 12:49 PM, Fabio Estevam wrote:
+>> MISC_DEVICES option alone does not select any kernel code and can cause dependency build warnings, such as:
+>>
+>> warning: (KS8851&&  AX88796_93CX6&&  RTL8180&&  RTL8187&&  ADM8211&&  RT2400PCI&&  RT2500PCI&&  RT61PCI&&  RT2800PCI&&  R8187SE) selects EEPROM_93CX6 which has unmet direct dependencies (MISC_DEVICES)
+>>
+>> Remove MISC_DEVICES option so that any dependency on this symbol is avoided.
+>
+> I thought that one purpose of MISC_DEVICES was to allow anyone to disable all
+> options under it with one click (or keystroke), but since several drivers now
+> "select MISC_DEVICES", that does not work.
+>
+> I would like to be able to disable all MISC_DEVICES, but since that
+> does not currently function, this change is OK with me.
+
+All of the drivers in the above list select *only* one driver in the 
+MISC_DEVICES category. If that one were moved outside of MISC_DEVICES, most, if 
+not all,problems would go away.
+
+Larry
