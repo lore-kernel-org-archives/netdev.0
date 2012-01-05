@@ -1,72 +1,82 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH] netfilter: Fix br_nf_pre_routing() in conjunction with
- bridge-nf-call-ip(6)tables=0
-Date: Thu, 05 Jan 2012 20:54:55 +0100
-Message-ID: <4F06000F.10303@nod.at>
-References: <4F025A07.2000304@nod.at> <1325597164-13459-1-git-send-email-richard@nod.at> <1325597164-13459-2-git-send-email-richard@nod.at> <20120103081521.2fec3a29@nehalam.linuxnetplumber.net> <4F033E11.5060707@nod.at> <4F0361D7.3000602@pandora.be> <4F03650D.8050200@nod.at> <4F049290.3090803@pandora.be> <4F04DD19.601@nod.at> <4F05FF15.5010809@pandora.be>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH 2/6] net: pad skb data and shinfo as a whole rather
+ than individually
+Date: Thu, 5 Jan 2012 20:00:58 +0000
+Message-ID: <1325793658.29084.21.camel@dagon.hellion.org.uk>
+References: <1325783399.25206.413.camel@zakaz.uk.xensource.com>
+	 <1325783624-14601-2-git-send-email-ian.campbell@citrix.com>
+	 <1325785607.4759.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20120105.141331.83457091828476806.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigBCBBD152521AE419BAC6D58E"
-Cc: Stephen Hemminger <shemminger@vyatta.com>, davem@davemloft.net,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Bart De Schuymer <bdschuym@pandora.be>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4F05FF15.5010809@pandora.be>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.eu.citrix.com ([62.200.22.115]:49654 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755357Ab2AEUBL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 15:01:11 -0500
+In-Reply-To: <20120105.141331.83457091828476806.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigBCBBD152521AE419BAC6D58E
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Thu, 2012-01-05 at 19:13 +0000, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 05 Jan 2012 18:46:47 +0100
+> 
+> >> @@ -189,8 +189,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+> >>  	 * aligned memory blocks, unless SLUB/SLAB debug is enabled.
+> >>  	 * Both skb->head and skb_shared_info are cache line aligned.
+> >>  	 */
+> >> -	size = SKB_DATA_ALIGN(size);
+> >> -	size += SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+> >> +	size = SKB_DATA_ALIGN(size + sizeof(struct skb_shared_info));
+> >>  	data = kmalloc_node_track_caller(size, gfp_mask, node);
+> >>  	if (!data)
+> >>  		goto nodata;
+> > 
+> > Unfortunately this makes the frequently use part of skb_shared_info not
+> > any more in a single cache line.
+> > 
+> > This will slow down many operations like kfree_skb() of cold skbs (TX
+> > completion for example)
+> 
+> My concerns match Eric's here.
+> 
+> Ian, you state that you attempted to look into schemes that put the
+> destructor info somewhere other than skb_shared_info() and that none
+> of them worked well.
+> 
+> But what kind of issues do you run into if you add this into struct
+> page itself?  Other subsystems could then use this facility too, and
+> if I recall there was even some talk of this.
 
-Am 05.01.2012 20:50, schrieb Bart De Schuymer:
-> Op 5/01/2012 0:13, Richard Weinberger schreef:
->>
->> Let's export brnf_call_iptables and brnf_call_ip6tables, such that
->> physdev_mt_check() can notify the user that his iptables rule will hav=
-e
->> no effect.
->>
->=20
-> I don't want to introduce a runtime dependency between the iptables
-> physdev module and the bridge module.
-> This should keep working:
-> #modprobe bridge
-> #modprobe xt_physdev
-> #rmmod bridge
-> It will stop working if you use exported symbols of the bridge module i=
-n
-> the physdev module.
->=20
+This is what the old out of tree Xen stuff used to do and it was my
+understanding that it had been nacked by the mm guys, although it was a
+long while ago and I wasn't really involved at the time. I think space
+in struct page is pretty tight and any addition is multiplied over the
+number of pages in the system which makes it undesirable. AIUI there
+were also complaints about the addition of a hook on the page free path,
+which is quite a hot one.
 
-IMHO this behavior would be useful. 8-)
+I could run it by them again but...
 
-Removing bridge while xt_physdev is loaded will make some netfilter
-rules void.
-Which is not fun on a production firewall.
+Although this scheme works fine for Xen's netback I don't think it works
+for other use cases like the NFS one (or basically any kernel_sendpage
+usage). In those cases you don't want to wait for the last core mm ref
+on the page to get dropped, you just want to wait for the last ref due
+to the particular sendpage. If you use the core page_count() reference
+count then you end up waiting for the process to exit (and drop the core
+reference count) before the destructor fires and you can complete the
+write, which is obviously not what is desired!
 
-Thanks,
-//richard
+There's also issues with things like two threads simultaneously doing
+I/O from the same page. If one lot of I/O is to NFS and the other to
+iSCSI (assuming they both use this facility in the future) then they
+will clash over the use of the struct page field. In fact even if they
+were both to NFS I bet nothing good would happen...
 
-
---------------enigBCBBD152521AE419BAC6D58E
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.18 (GNU/Linux)
-
-iQEcBAEBAgAGBQJPBgAQAAoJEN9758yqZn9eknAIAL1xVa5ClYRqdGMmXeJ1cdk5
-u1aqx89IJLtGCnuQ7RZChpXjoRUCKejokGbMoQzN6NN2iZayzAqYPA8YJXptE1lw
-5d3/QklB9zVr7KxwXVdBHg7FagbLJMfPT66JX2Y6CkyP/w0Qw1UdRiGtJW3fLMbG
-Vcn3NWh4fWpPe4Wb4BsA9CLjXHL7o6QBUE1Y4oka1hbzP5Xu4roMg++TwhZ/w3Zp
-JQ8dz4mPAO9InpXNv1ulaX3ImkP/XXO/nEhF3lKSkZvnND8ZoxazIrJDqloaWQ5W
-rAhW5v3XMy8YdG9gtCwfCnFv29Ocjp7j0OLnh2RsQVITDn4fpI1G0D3HETsIc/I=
-=fFns
------END PGP SIGNATURE-----
-
---------------enigBCBBD152521AE419BAC6D58E--
+Cheers,
+Ian.
