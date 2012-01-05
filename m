@@ -1,54 +1,73 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2] drivers: net: Fix dependency for EEPROM_93CX6
-Date: Thu, 05 Jan 2012 12:20:04 -0500 (EST)
-Message-ID: <20120105.122004.1170447281304011158.davem@davemloft.net>
-References: <1325770673-17309-1-git-send-email-festevam@gmail.com>
-	<4F05CBA9.1070602@lwfinger.net>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: [PATCH 2/6] net: pad skb data and shinfo as a whole rather than individually
+Date: Thu, 5 Jan 2012 17:13:40 +0000
+Message-ID: <1325783624-14601-2-git-send-email-ian.campbell@citrix.com>
+References: <1325783399.25206.413.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: festevam-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gwingerde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, fabio.estevam-KZfg59tc24xl57MIdRCFDg@public.gmane.org
-To: Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4F05CBA9.1070602-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ian Campbell <ian.campbell@citrix.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:49271 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755401Ab2AERXe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 12:23:34 -0500
+In-Reply-To: <1325783399.25206.413.camel@zakaz.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Date: Thu, 05 Jan 2012 10:11:21 -0600
+We already push the shinfo to the very end of the actual allocation which is
+already cache-line aligned.
 
-> On 01/05/2012 07:37 AM, Fabio Estevam wrote:
->> Fix the following build warning:
->>
->> warning: (KS8851&& AX88796_93CX6&& RTL8180&& RTL8187&& ADM8211&&
->> RT2400PCI&& RT2500PCI&& RT61PCI&& RT2800PCI&& R8187SE) selects
->> EEPROM_93CX6 which has unmet direct dependencies (MISC_DEVICES)
->>
->> Signed-off-by: Fabio Estevam<fabio.estevam-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
->> ---
->> Changes since v1:
->> - Place MISC_DEVICES dependency into the 'depends on' line
-> 
-> Is this the right way to fix this? Whenever I get this kind of build
-> warning, I usually attribute it to a problem with my local
-> configuration and fix my copy of .config, not modify the build
-> system. With this change, it seems to me that a lot of devices will
-> suddenly disappear from the build with little explanation. I don't
-> feel confident enough to NACK the patch, but I would like an expert to
-> comment.
-> 
-> I have noticed that the defconfigs for various architectures are split
-> between turning MISC_DEVICES on or off.
+This reduces the minimum overhead required for this allocation such that the
+shinfo can be grown in the following patch without overflowing 2048 bytes for a
+1500 byte frame. Reducing this overhead means that sometimes the tail end of
+the data can end up in the same cache line as the beginning of the shinfo but
+in many cases the allocation slop means that there is no overlap.
 
-Right, this is definitely the wrong fix, "select" is the right way to
-fix this because no user should have to know the gory details of what
-random odd config variables have to be on already in order to turn on
-support for a device they are interested in.
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+---
+ include/linux/skbuff.h |    4 ++--
+ net/core/skbuff.c      |    3 +--
+ 2 files changed, 3 insertions(+), 4 deletions(-)
 
-Fix this right, by using "select MISC_DEVICES"
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 50db9b0..f04333b 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -41,7 +41,7 @@
+ #define SKB_DATA_ALIGN(X)	(((X) + (SMP_CACHE_BYTES - 1)) & \
+ 				 ~(SMP_CACHE_BYTES - 1))
+ #define SKB_WITH_OVERHEAD(X)	\
+-	((X) - SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
++	((X) - sizeof(struct skb_shared_info))
+ #define SKB_MAX_ORDER(X, ORDER) \
+ 	SKB_WITH_OVERHEAD((PAGE_SIZE << (ORDER)) - (X))
+ #define SKB_MAX_HEAD(X)		(SKB_MAX_ORDER((X), 0))
+@@ -50,7 +50,7 @@
+ /* return minimum truesize of one skb containing X bytes of data */
+ #define SKB_TRUESIZE(X) ((X) +						\
+ 			 SKB_DATA_ALIGN(sizeof(struct sk_buff)) +	\
+-			 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
++			 sizeof(struct skb_shared_info))
+ 
+ /* A. Checksumming of received packets by device.
+  *
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index da0c97f..b6de604 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -189,8 +189,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ 	 * aligned memory blocks, unless SLUB/SLAB debug is enabled.
+ 	 * Both skb->head and skb_shared_info are cache line aligned.
+ 	 */
+-	size = SKB_DATA_ALIGN(size);
+-	size += SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
++	size = SKB_DATA_ALIGN(size + sizeof(struct skb_shared_info));
+ 	data = kmalloc_node_track_caller(size, gfp_mask, node);
+ 	if (!data)
+ 		goto nodata;
+-- 
+1.7.2.5
