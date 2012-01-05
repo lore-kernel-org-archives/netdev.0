@@ -1,88 +1,105 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2] drivers: net: Fix dependency for EEPROM_93CX6
-Date: Thu, 5 Jan 2012 19:17:58 +0000
-Message-ID: <1325791078.3764.30.camel@bwh-desktop>
-References: <1325770673-17309-1-git-send-email-festevam@gmail.com>
-	 <4F05CBA9.1070602@lwfinger.net>
-	 <20120105.122004.1170447281304011158.davem@davemloft.net>
-	 <CAOMZO5AuZ_MHW3C1uNK7PyRz=XRHXhn2pvKCwk7iXLDd0YkDOQ@mail.gmail.com>
-	 <CAOMZO5DTDpp8+9FOjPXGFQtQPg7Pv5qfAwFO3UC6AUdEDgpHYg@mail.gmail.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH 2/6] net: pad skb data and shinfo as a whole rather
+ than individually
+Date: Thu, 5 Jan 2012 19:19:24 +0000
+Message-ID: <1325791164.29084.8.camel@dagon.hellion.org.uk>
+References: <1325783399.25206.413.camel@zakaz.uk.xensource.com>
+	 <1325783624-14601-2-git-send-email-ian.campbell@citrix.com>
+	 <1325785607.4759.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <Larry.Finger@lwfinger.net>,
-	<netdev@vger.kernel.org>, <linux-wireless@vger.kernel.org>,
-	<gwingerde@gmail.com>, <linville@tuxdriver.com>,
-	<fabio.estevam@freescale.com>
-To: Fabio Estevam <festevam@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:25320 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932235Ab2AETSJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 14:18:09 -0500
-In-Reply-To: <CAOMZO5DTDpp8+9FOjPXGFQtQPg7Pv5qfAwFO3UC6AUdEDgpHYg@mail.gmail.com>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:21814 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932235Ab2AETT0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 14:19:26 -0500
+In-Reply-To: <1325785607.4759.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-01-05 at 17:02 -0200, Fabio Estevam wrote:
-> On Thu, Jan 5, 2012 at 4:06 PM, Fabio Estevam <festevam@gmail.com> wrote:
-> 
-> > I have tried selecting MISC_DEVICES in the Kconfig's, but the warning remains.
-> >
-> > I agree with Ben's comment: "That seems like a bug, since MISC_DEVICES
-> > doesn't by itself select any
-> > code.  (It's also not a meaningful category and maybe ought not to be an
-> > option at all.)"
-> 
-> What about the aproach below?
-> 
-> drivers/misc/Kconfig |   12 ++----------
->  1 files changed, 2 insertions(+), 10 deletions(-)
-> 
-> diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
-> index 6a1a092..9c7a474 100644
-> --- a/drivers/misc/Kconfig
-> +++ b/drivers/misc/Kconfig
-> @@ -10,15 +10,8 @@ config SENSORS_LIS3LV02D
->  	select INPUT_POLLDEV
->  	default n
-> 
-> -menuconfig MISC_DEVICES
-> -	bool "Misc devices"
-> -	---help---
-> -	  Say Y here to get to see options for device drivers from various
-> -	  different categories. This option alone does not add any kernel code.
-> -
-> -	  If you say N, all options in this submenu will be skipped and disabled.
-> +menu "Misc devices"
-> 
-> -if MISC_DEVICES
-> 
->  config AD525X_DPOT
->  	tristate "Analog Devices Digital Potentiometers"
-> @@ -516,5 +509,4 @@ source "drivers/misc/ti-st/Kconfig"
->  source "drivers/misc/lis3lv02d/Kconfig"
->  source "drivers/misc/carma/Kconfig"
->  source "drivers/misc/altera-stapl/Kconfig"
-> -
-> -endif # MISC_DEVICES
-> +endmenu
+On Thu, 2012-01-05 at 17:46 +0000, Eric Dumazet wrote:
+> Le jeudi 05 janvier 2012 =E0 17:13 +0000, Ian Campbell a =E9crit :
+> > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> > index da0c97f..b6de604 100644
+> > --- a/net/core/skbuff.c
+> > +++ b/net/core/skbuff.c
+> > @@ -189,8 +189,7 @@ struct sk_buff *__alloc_skb(unsigned int size, =
+gfp_t gfp_mask,
+> >  	 * aligned memory blocks, unless SLUB/SLAB debug is enabled.
+> >  	 * Both skb->head and skb_shared_info are cache line aligned.
+> >  	 */
+> > -	size =3D SKB_DATA_ALIGN(size);
+> > -	size +=3D SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+> > +	size =3D SKB_DATA_ALIGN(size + sizeof(struct skb_shared_info));
+> >  	data =3D kmalloc_node_track_caller(size, gfp_mask, node);
+> >  	if (!data)
+> >  		goto nodata;
+>=20
+> Unfortunately this makes the frequently use part of skb_shared_info n=
+ot
+> any more in a single cache line.
+>=20
+> This will slow down many operations like kfree_skb() of cold skbs (TX
+> completion for example)
 
-Yes, that's what I was thinking of.
+I've been toying with the following which moves the infrequently used
+destructor_arg field to the front. With 32 or 64 byte cache lines this
+is then the only field which ends up on a different cache line. With 12=
+8
+byte cache lines it is all already on the same line.
 
-> This would remove the unneeded dependency of MISC_DEVICES.
-> 
-> I know I need to take extra care not to break other things, but just
-> would like to get a feedback if this approach goes into the right
-> direction.
+Does that alleviate your concern? If so I can clean it up and include i=
+t
+in the series.
 
-Right, you'll have to delete all dependencies on MISC_DEVICES.  Maybe
-remove it from defconfigs as well, though I'm not sure whether it's
-normal to do that at the same time.
+Cheers,
+Ian.
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index cbc815c..533c2ea 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -249,6 +249,11 @@ struct ubuf_info {
+  * the end of the header data, ie. at skb->end.
+  */
+ struct skb_shared_info {
++	/* Intermediate layers must ensure that destructor_arg
++	 * remains valid until skb destructor */
++	void *		destructor_arg;
++
++	/* Warning all fields from here until dataref are cleared in __alloc_=
+skb() */
+ 	unsigned char	nr_frags;
+ 	__u8		tx_flags;
+ 	unsigned short	gso_size;
+@@ -264,9 +269,6 @@ struct skb_shared_info {
+ 	 */
+ 	atomic_t	dataref;
+=20
+-	/* Intermediate layers must ensure that destructor_arg
+-	 * remains valid until skb destructor */
+-	void *		destructor_arg;
+=20
+ 	/* must be last field, see pskb_expand_head() */
+ 	skb_frag_t	frags[MAX_SKB_FRAGS];
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index e942a86..592b8a8 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -219,7 +219,10 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp=
+_t gfp_mask,
+=20
+ 	/* make sure we initialize shinfo sequentially */
+ 	shinfo =3D skb_shinfo(skb);
+-	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
++
++	memset(&shinfo->nr_frags, 0,
++	       offsetof(struct skb_shared_info, dataref)
++	       - offsetof(struct skb_shared_info, nr_frags));
+ 	atomic_set(&shinfo->dataref, 1);
+ 	kmemcheck_annotate_variable(shinfo->destructor_arg);
+=20
