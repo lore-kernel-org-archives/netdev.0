@@ -1,34 +1,56 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 4/6] ath6kl: get rid of AR_DBG_LVL_CHECK()
-Date: Thu, 5 Jan 2012 14:14:30 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AF33@saturn3.aculab.com>
-References: <20120105132812.22281.98859.stgit@x201>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/1] netfilter: Add possibility to turn off netfilters
+ defrag per netns
+Date: Thu, 5 Jan 2012 15:18:59 +0100
+Message-ID: <20120105141859.GA8210@1984>
+References: <1325664443-10320-1-git-send-email-hans.schillstrom@ericsson.com>
+ <201201042156.05586.hans@schillstrom.com>
+ <alpine.DEB.2.00.1201042232510.3934@blackhole.kfki.hu>
+ <201201050819.21363.hans.schillstrom@ericsson.com>
+ <alpine.DEB.2.00.1201050959030.5244@blackhole.kfki.hu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <sfr@canb.auug.org.au>, <netdev@vger.kernel.org>,
-	<linux-wireless@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-next@vger.kernel.org>, <ath6kl-devel@qualcomm.com>,
-	<davem@davemloft.net>
-To: "Kalle Valo" <kvalo@qca.qualcomm.com>, <linville@tuxdriver.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <20120105132812.22281.98859.stgit@x201>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Patrick McHardy <kaber@trash.net>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.00.1201050959030.5244@blackhole.kfki.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- 
-> We don't need it as debug calls already have a log level and compiler
-> should be smart enough to optimise away the code when ath6kl 
-> debug code is not enabled.
+On Thu, Jan 05, 2012 at 10:11:28AM +0100, Jozsef Kadlecsik wrote:
+> OK, I see. Conntrack is per net namespace but it's enabled globally.
+>  
+> So at the moment I think the best solution is something like your patch 
+> variant (but the condition is wrong, it should be "&& !skb->nfct"):
+> 
+> --- a/net/ipv4/netfilter/nf_defrag_ipv4.c
+> +++ b/net/ipv4/netfilter/nf_defrag_ipv4.c
+> @@ -74,6 +74,14 @@ static unsigned int ipv4_conntrack_defrag(unsigned int
+> hooknum,
+> ...
+> +       const struct net_device *dev = (hooknum == NF_INET_LOCAL_OUT ?
+> +                                       out : in);
+> +
+> +       /* No defrag and not Previously seen (loopback)? */
+> +       if (dev_net(dev)->ct.sysctl_notrac_defrag && skb->nfct) {
+> +               /* Attach fake conntrack entry. as in NOTRACK */
+> +               skb->nfct = &nf_ct_untracked_get()->ct_general;
+> +               skb->nfctinfo = IP_CT_NEW;
+> +               nf_conntrack_get(skb->nfct);
+> +               return NF_ACCEPT;
+> +       }
+> ...
 
-Have you checked?
-I think you are assuming that because the called
-function collapses, the call will be removed allowing
-the loop to be removed.
-I suspect this is only true if the function is inlined.
-IIRC the normal linkage rules mean that only static
-functions are candidates for inlining.
+I prefer the sysctl option as well, the new table is too much and it
+remains too specific for this.
 
-	David
+I wonder if we can conditionally register the sysctl only if we are
+inside one lxc container.
+
+I'm telling this because this sysctl does not seem to make any sense
+to me outside of it.
