@@ -1,108 +1,142 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH/RFC] gianfar: Add support for byte queue limits.
-Date: Fri,  6 Jan 2012 15:24:26 -0500
-Message-ID: <1325881466-26214-1-git-send-email-paul.gortmaker@windriver.com>
-Cc: galak@kernel.crashing.org, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: eric.dumazet@gmail.com, therbert@google.com
+From: Maxim Uvarov <maxim.uvarov@oracle.com>
+Subject: [PATCH] bond_alb: don't disable softirq under bond_alb_xmit
+Date: Fri,  6 Jan 2012 12:23:43 -0800
+Message-ID: <1325881423-19309-1-git-send-email-maxim.uvarov@oracle.com>
+Cc: fubar@us.ibm.com, andy@greyhouse.net, davem@davemloft.net,
+	Maxim Uvarov <maxim.uvarov@oracle.com>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:33318 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759079Ab2AFUY6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2012 15:24:58 -0500
+Received: from rcsinet15.oracle.com ([148.87.113.117]:56944 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932638Ab2AFU0h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2012 15:26:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for byte queue limits (BQL), based on the similar
-modifications made to intel/igb/igb_main.c from Eric Dumazet
-in commit bdbc063129e811264cd6c311d8c2d9b95de01231.
+No need to lock soft irqs under bond_alb_xmit()
+which already has softirq disabled.
 
-A local variable for tx_queue->qindex was introduced in
-gfar_clean_tx_ring, since it is now used often enough to warrant it,
-and it cleans up the readability somewhat as well.
-
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Signed-off-by: Maxim Uvarov <maxim.uvarov@oracle.com>
+Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
+ drivers/net/bonding/bond_alb.c |   40 +++++++++++++++++++++++++++-------------
+ 1 files changed, 27 insertions(+), 13 deletions(-)
 
-[Too late for 3.3, but I figured I might as well get feedback from people
- in the interim.  Passes basic boot test with NFS root on sbc8548 board.]
-
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index e01cdaa..7d86d38 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -1755,9 +1755,12 @@ static void free_skb_resources(struct gfar_private *priv)
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 106b88a..42d4286 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -135,7 +135,7 @@ static void tlb_clear_slave(struct bonding *bond, struct slave *slave, int save_
+ 	struct tlb_client_info *tx_hash_table;
+ 	u32 index;
  
- 	/* Go through all the buffer descriptors and free their data buffers */
- 	for (i = 0; i < priv->num_tx_queues; i++) {
-+		struct netdev_queue *txq;
- 		tx_queue = priv->tx_queue[i];
-+		txq = netdev_get_tx_queue(tx_queue->dev, tx_queue->qindex);
- 		if(tx_queue->tx_skbuff)
- 			free_skb_tx_queue(tx_queue);
-+		netdev_tx_reset_queue(txq);
- 	}
+-	_lock_tx_hashtbl(bond);
++	spin_lock(&(BOND_ALB_INFO(bond).tx_hashtbl_lock));
  
- 	for (i = 0; i < priv->num_rx_queues; i++) {
-@@ -2204,6 +2207,8 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		lstatus |= BD_LFLAG(TXBD_CRC | TXBD_READY) | skb_headlen(skb);
- 	}
+ 	/* clear slave from tx_hashtbl */
+ 	tx_hash_table = BOND_ALB_INFO(bond).tx_hashtbl;
+@@ -152,7 +152,7 @@ static void tlb_clear_slave(struct bonding *bond, struct slave *slave, int save_
  
-+	netdev_tx_sent_queue(txq, skb->len);
-+
- 	/*
- 	 * We can work in parallel with gfar_clean_tx_ring(), except
- 	 * when modifying num_txbdfree. Note that we didn't grab the lock
-@@ -2447,6 +2452,7 @@ static void gfar_align_skb(struct sk_buff *skb)
- static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- {
- 	struct net_device *dev = tx_queue->dev;
-+	struct netdev_queue *txq;
- 	struct gfar_private *priv = netdev_priv(dev);
- 	struct gfar_priv_rx_q *rx_queue = NULL;
- 	struct txbd8 *bdp, *next = NULL;
-@@ -2458,10 +2464,13 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- 	int frags = 0, nr_txbds = 0;
- 	int i;
- 	int howmany = 0;
-+	int tqi = tx_queue->qindex;
-+	unsigned int bytes_sent = 0;
- 	u32 lstatus;
- 	size_t buflen;
+ 	tlb_init_slave(slave);
  
--	rx_queue = priv->rx_queue[tx_queue->qindex];
-+	rx_queue = priv->rx_queue[tqi];
-+	txq = netdev_get_tx_queue(dev, tqi);
- 	bdp = tx_queue->dirty_tx;
- 	skb_dirtytx = tx_queue->skb_dirtytx;
- 
-@@ -2519,6 +2528,8 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- 			bdp = next_txbd(bdp, base, tx_ring_size);
- 		}
- 
-+		bytes_sent += skb->len;
-+
- 		/*
- 		 * If there's room in the queue (limit it to rx_buffer_size)
- 		 * we add this skb back into the pool, if it's the right size
-@@ -2543,13 +2554,15 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- 	}
- 
- 	/* If we freed a buffer, we can restart transmission, if necessary */
--	if (__netif_subqueue_stopped(dev, tx_queue->qindex) && tx_queue->num_txbdfree)
--		netif_wake_subqueue(dev, tx_queue->qindex);
-+	if (__netif_subqueue_stopped(dev, tqi) && tx_queue->num_txbdfree)
-+		netif_wake_subqueue(dev, tqi);
- 
- 	/* Update dirty indicators */
- 	tx_queue->skb_dirtytx = skb_dirtytx;
- 	tx_queue->dirty_tx = bdp;
- 
-+	netdev_tx_completed_queue(txq, howmany, bytes_sent);
-+
- 	return howmany;
+-	_unlock_tx_hashtbl(bond);
++	spin_unlock(&(BOND_ALB_INFO(bond).tx_hashtbl_lock));
  }
  
+ /* Must be called before starting the monitor timer */
+@@ -226,15 +226,13 @@ static struct slave *tlb_get_least_loaded_slave(struct bonding *bond)
+ 	return least_loaded;
+ }
+ 
+-/* Caller must hold bond lock for read */
+-static struct slave *tlb_choose_channel(struct bonding *bond, u32 hash_index, u32 skb_len)
++static struct slave *__tlb_choose_channel(struct bonding *bond, u32 hash_index,
++						u32 skb_len)
+ {
+ 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+ 	struct tlb_client_info *hash_table;
+ 	struct slave *assigned_slave;
+ 
+-	_lock_tx_hashtbl(bond);
+-
+ 	hash_table = bond_info->tx_hashtbl;
+ 	assigned_slave = hash_table[hash_index].tx_slave;
+ 	if (!assigned_slave) {
+@@ -263,11 +261,27 @@ static struct slave *tlb_choose_channel(struct bonding *bond, u32 hash_index, u3
+ 		hash_table[hash_index].tx_bytes += skb_len;
+ 	}
+ 
+-	_unlock_tx_hashtbl(bond);
+-
+ 	return assigned_slave;
+ }
+ 
++/* Caller must hold bond lock for read */
++static struct slave *tlb_choose_channel(struct bonding *bond, u32 hash_index,
++					u32 skb_len)
++{
++	struct slave *tx_slave;
++	/*
++	 * We don't need to disable softirq here, becase
++	 * tlb_choose_channel() is only called by bond_alb_xmit()
++	 * which already has softirq disabled.
++	 */
++	spin_lock(&(BOND_ALB_INFO(bond).tx_hashtbl_lock));
++	tx_slave = __tlb_choose_channel(bond, hash_index, skb_len);
++	spin_unlock(&(BOND_ALB_INFO(bond).tx_hashtbl_lock));
++	return tx_slave;
++}
++
++
++
+ /*********************** rlb specific functions ***************************/
+ static inline void _lock_rx_hashtbl(struct bonding *bond)
+ {
+@@ -548,7 +562,7 @@ static void rlb_req_update_subnet_clients(struct bonding *bond, __be32 src_ip)
+ 	struct rlb_client_info *client_info;
+ 	u32 hash_index;
+ 
+-	_lock_rx_hashtbl(bond);
++	spin_lock(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
+ 
+ 	hash_index = bond_info->rx_hashtbl_head;
+ 	for (; hash_index != RLB_NULL_INDEX; hash_index = client_info->next) {
+@@ -572,7 +586,7 @@ static void rlb_req_update_subnet_clients(struct bonding *bond, __be32 src_ip)
+ 		}
+ 	}
+ 
+-	_unlock_rx_hashtbl(bond);
++	spin_unlock(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
+ }
+ 
+ /* Caller must hold both bond and ptr locks for read */
+@@ -584,7 +598,7 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ 	struct rlb_client_info *client_info;
+ 	u32 hash_index = 0;
+ 
+-	_lock_rx_hashtbl(bond);
++	spin_lock(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
+ 
+ 	hash_index = _simple_hash((u8 *)&arp->ip_dst, sizeof(arp->ip_dst));
+ 	client_info = &(bond_info->rx_hashtbl[hash_index]);
+@@ -600,7 +614,7 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ 
+ 			assigned_slave = client_info->slave;
+ 			if (assigned_slave) {
+-				_unlock_rx_hashtbl(bond);
++				spin_unlock(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
+ 				return assigned_slave;
+ 			}
+ 		} else {
+@@ -652,7 +666,7 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ 		}
+ 	}
+ 
+-	_unlock_rx_hashtbl(bond);
++	spin_unlock(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
+ 
+ 	return assigned_slave;
+ }
 -- 
-1.7.4.4
+1.7.4.1
