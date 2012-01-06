@@ -1,8 +1,8 @@
 From: Ian Campbell <Ian.Campbell@citrix.com>
 Subject: Re: [PATCH 2/6] net: pad skb data and shinfo as a whole rather than
  individually
-Date: Fri, 6 Jan 2012 13:20:01 +0000
-Message-ID: <1325856001.25206.493.camel@zakaz.uk.xensource.com>
+Date: Fri, 6 Jan 2012 13:29:45 +0000
+Message-ID: <1325856585.25206.498.camel@zakaz.uk.xensource.com>
 References: <1325783399.25206.413.camel@zakaz.uk.xensource.com>
 	 <1325783624-14601-2-git-send-email-ian.campbell@citrix.com>
 	 <1325785607.4759.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
@@ -17,10 +17,10 @@ Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:13330 "EHLO
+Received: from smtp.eu.citrix.com ([62.200.22.115]:9821 "EHLO
 	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751090Ab2AFNUD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2012 08:20:03 -0500
+	with ESMTP id S1751673Ab2AFN3r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2012 08:29:47 -0500
 In-Reply-To: <1325853226.2999.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -41,36 +41,34 @@ crit :
 > offsetof(struct skb_shared_info, nr_frags)=3D0x0
 > offsetof(struct skb_shared_info, frags[1])=3D0x40   (0x30 on 32bit ar=
 ches)
+>=20
+> So _all_ fields, including one frag, are included in a single cache l=
+ine
+> on most machines (64-bytes cache line),
 
-I see 0x48 here at cset 6386994e03ebbe60338ded3d586308a41e81c0dc:
-(gdb) print &((struct skb_shared_info *)0)->nr_frags
-$1 =3D (short unsigned int *) 0x0
+BTW, this is also true with my patch + put destructor_arg first in the
+struct (at least for all interesting fields, since I chose
+destructor_arg specifically because it did not seem interesting for
+these purposes -- do you disagree?)
+
 (gdb) print &((struct skb_shared_info *)0)->frags[1]
-$2 =3D (skb_frag_t *) 0x48
-(gdb) print &((struct skb_shared_info *)0)->frags[0]
-$3 =3D (skb_frag_t *) 0x38
+$1 =3D (skb_frag_t *) 0x48
+but there is a cacheline boundary just before nr_frags:
+(gdb) print &((struct skb_shared_info *)0)->nr_frags
+$3 =3D (unsigned char *) 0x8
 
-(it's 0x34 and 0x2c on 32 bit) and these numbers match what I posted fo=
-r
-v3.1 (and I imagine earlier since this stuff doesn't seem to change ver=
-y
-often).
+So the interesting fields total 0x48-0x8 =3D 0x40 bytes and the alignme=
+nt
+is such that this is a single cache line.
 
-I provided the offsets of each field in struct skb_shared_info, which
-one do you think is wrong?
+>  IF struct skb_shared_info is
+> aligned.
 
-Remember that the end shared info is explicitly aligned (to the end of
-the allocation =3D=3D a cache line) while the front just ends up at whe=
-rever
-the size dictates so you can't measure the alignment of the fields from
-the beginning  of the struct, you need to measure from the end.
+Obviously the conditions for the above are a little different but they
+are, AFAIK, met.
 
 Ian.
 
-> So _all_ fields, including one frag, are included in a single cache l=
-ine
-> on most machines (64-bytes cache line), IF struct skb_shared_info is
-> aligned.
 >=20
 > Your patch obviously breaks this on 64bit arches, unless you make sur=
 e
