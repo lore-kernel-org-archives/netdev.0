@@ -1,147 +1,212 @@
-From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Subject: asix, setting MAC broken in v3.2. Bisected to "NET: fix phy init
- for AX88772 USB ethernet".
-Date: Fri, 06 Jan 2012 13:10:51 +0200
-Message-ID: <20120106131051.92814bd4b7x0nmqs@www.81.fi>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH 2/6] net: pad skb data and shinfo as a whole rather than
+ individually
+Date: Fri, 6 Jan 2012 11:20:15 +0000
+Message-ID: <1325848815.25206.471.camel@zakaz.uk.xensource.com>
+References: <1325783399.25206.413.camel@zakaz.uk.xensource.com>
+	 <1325783624-14601-2-git-send-email-ian.campbell@citrix.com>
+	 <1325785607.4759.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1325791164.29084.8.camel@dagon.hellion.org.uk>
+	 <1325794968.2748.6.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="=_48v6xlmzq86c"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Freddy Xin <freddy@asix.com.tw>,
-	Grant Grundler <grundler@chromium.org>,
-	Olof Johansson <olofj@chromium.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	David Hollis <dhollis@davehollis.com>
-To: netdev@vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sd-mail-sa-01.sanoma.fi ([158.127.18.161]:52669 "EHLO
-	sd-mail-sa-01.sanoma.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758477Ab2AFLSo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2012 06:18:44 -0500
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:15266 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758647Ab2AFLUR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2012 06:20:17 -0500
+In-Reply-To: <1325794968.2748.6.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This message is in MIME format.
+On Thu, 2012-01-05 at 20:22 +0000, Eric Dumazet wrote:
+> Take a look at kfree_skb() and please list all skb_shared_info needed
+> fields, for a typical skb with nr_frags= 0 or 1.
+> 
+> If all fit in a single cache line, its ok.
 
---=_48v6xlmzq86c
-Content-Type: text/plain;
- charset=ISO-8859-1;
- DelSp="Yes";
- format="flowed"
-Content-Disposition: inline
-Content-Transfer-Encoding: 7bit
+It doesn't fit in a single cache line today.
 
-Hello,
+Before I started touching any of this stuff (e.g. in v3.1) kfree_skb
+would touch 3x32 byte caches lines (with boundaries between
+frag_list/hwtstamps and destructor_arg/frags[0]) or 2x64 byte cache
+lines (boundary between between frag_list/hwtstamps).
 
-I have asix adapter plugged to mini-server and have to change MAC  
-address before DHCP because of ISP. This worked fine, until v3.2. Now  
-I have to set interface in promisc mode to have custom MAC working.
+After the v2 version of these patches the situation is much the same,
+although the boundaries are different and which field is in which line
+has shifted a bit. The boundaries are now gso_type/frag_list and
+dataref/destructor_arg for 32 byte cache lines and gso_type/frag_list
+for 64 byte cache lines.
 
-I bisected problem to '[4ad1438f025ed8d1e4e95a796ca7f0ad5a22c378] NET:  
-fix phy init for AX88772 USB ethernet':
+With the proposed reordering to put destructor_arg first it actually
+shrinks to just 2 32 byte cache lines (boundary between hwtstamps and
+ip6_frag_id) or a single 64 byte cache line, since the other 32&64
+boundary is between destructor_arg and nr_frags.
 
-# bad: [5f0a6e2d503896062f641639dacfe5055c2f593b] Linux 3.2-rc7
-# good: [c3b92c8787367a8bb53d57d9789b558f1295cc96] Linux 3.1
-git bisect start 'v3.2-rc7' 'v3.1' 'drivers/net/usb/asix.c'
-# bad: [79de9efdb93d8e693dccd0eb7d80cd6092f5875b] NET: asix: fix  
-ethtool -e for AX88178 USB dongle
-git bisect bad 79de9efdb93d8e693dccd0eb7d80cd6092f5875b
-# bad: [4ad1438f025ed8d1e4e95a796ca7f0ad5a22c378] NET: fix phy init  
-for AX88772 USB ethernet
-git bisect bad 4ad1438f025ed8d1e4e95a796ca7f0ad5a22c378
-# good: [afc4b13df143122f99a0eb10bfefb216c2806de0] net: remove use of  
-ndo_set_multicast_list in drivers
-git bisect good afc4b13df143122f99a0eb10bfefb216c2806de0
+Even if we don't consider destructor_arg to be rarely used / cold things
+are no worse than they were before (3x32 or 2x64 byte cache lines
+touched).
 
--Jussi
+So I think if anything I think these patches improve things when
+nr_frags = 0 or 1 or at at least no worse than the current situation.
 
+> If not, this adds a cache line miss in a critical path.
 
---=_48v6xlmzq86c
-Content-Type: text/plain;
- charset=UTF-8;
- name="lsusb.txt"
-Content-Disposition: attachment;
- filename="lsusb.txt"
-Content-Transfer-Encoding: 7bit
+I think it does not, but please do check my working (see below).
 
+> Also in transmit path, when an skb is queued by cpu X on qdisc, and
+> dequeued by another cpu Y to be delivered to device.
 
-Bus 001 Device 002: ID 0b95:7720 ASIX Electronics Corp. AX88772
-Device Descriptor:
-  bLength                18
-  bDescriptorType         1
-  bcdUSB               2.00
-  bDeviceClass          255 Vendor Specific Class
-  bDeviceSubClass       255 Vendor Specific Subclass
-  bDeviceProtocol         0 
-  bMaxPacketSize0        64
-  idVendor           0x0b95 ASIX Electronics Corp.
-  idProduct          0x7720 AX88772
-  bcdDevice            0.01
-  iManufacturer           1 ASIX Elec. Corp.
-  iProduct                2 AX88772 
-  iSerial                 3 000001
-  bNumConfigurations      1
-  Configuration Descriptor:
-    bLength                 9
-    bDescriptorType         2
-    wTotalLength           39
-    bNumInterfaces          1
-    bConfigurationValue     1
-    iConfiguration          4 0
-    bmAttributes         0xe0
-      Self Powered
-      Remote Wakeup
-    MaxPower              250mA
-    Interface Descriptor:
-      bLength                 9
-      bDescriptorType         4
-      bInterfaceNumber        0
-      bAlternateSetting       0
-      bNumEndpoints           3
-      bInterfaceClass       255 Vendor Specific Class
-      bInterfaceSubClass    255 Vendor Specific Subclass
-      bInterfaceProtocol      0 
-      iInterface              7 0
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x81  EP 1 IN
-        bmAttributes            3
-          Transfer Type            Interrupt
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0008  1x 8 bytes
-        bInterval              11
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x82  EP 2 IN
-        bmAttributes            2
-          Transfer Type            Bulk
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0200  1x 512 bytes
-        bInterval               0
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x03  EP 3 OUT
-        bmAttributes            2
-          Transfer Type            Bulk
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0200  1x 512 bytes
-        bInterval               0
-Device Qualifier (for other device speed):
-  bLength                10
-  bDescriptorType         6
-  bcdUSB               2.00
-  bDeviceClass          255 Vendor Specific Class
-  bDeviceSubClass       255 Vendor Specific Subclass
-  bDeviceProtocol         0 
-  bMaxPacketSize0         8
-  bNumConfigurations      1
-Device Status:     0x0001
-  Self Powered
+You mean the path starting at dev_queue_xmit -> q->enqueue is true ->
+__dev_xmit_skb ?
 
---=_48v6xlmzq86c--
+I didn't follow it properly but it doesn't seem like there is much use
+of the shinfo at all in this area qdisc, the only thing I spotted was
+the use of the gso_{size,segs} fields in qdisc_bstats_update and those
+are always on the same cache line. Did I miss something?
+
+Anyway, by similar logic to the kfree_skb case I think the number of
+cachelines touched will always be <= the current number.
+
+Ian.
+
+My working:
+
+						Used in kfree_skb?
+unsigned short  nr_frags;			YES (if dataref -> 0 etc)
+unsigned short  gso_size;
+unsigned short  gso_segs;
+unsigned short  gso_type;
+__be32          ip6_frag_id;
+__u8            tx_flags;			YES (if dataref -> 0 etc)
+struct sk_buff  *frag_list;			YES (if dataref -> 0 etc)
+struct skb_shared_hwtstamps hwtstamps;
+atomic_t        dataref;			YES
+void *          destructor_arg;			YES if skb->destructor || tx_flags & ZEROCOPY
+                                                -> I count this as unused by
+						   kfree_skb for the purposes here
+
+skb_frag_t      frags[MAX_SKB_FRAGS];		YES (<nr_frags, if dataref->0 etc)
+
+LEGEND:
+
+*<-used in kfree_skb
+ N<-offset from start of shinfo		    offset from end of shinfo-> -N
+
+v3.1:
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= 32 & 64 byte cache line =-=-=-=-=
+ -40									-384
+--------------------------------------------- 32 byte cache line --------------
+ -8									-352
+struct skb_shared_info {
+*0	unsigned short  nr_frags;					-344
+ 2	unsigned short  gso_size;					-342
+        /* Warning: this field is not always filled in (UFO)! */
+ 4	unsigned short  gso_segs;					-340
+ 6	unsigned short  gso_type;					-338
+ 8	__be32          ip6_frag_id;					-336
+*12	__u8            tx_flags;					-332
+*16	struct sk_buff  *frag_list;					-328
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= 32 & 64 byte cache line =-=-=-=-=
+ 24	struct skb_shared_hwtstamps hwtstamps;				-320
+
+        /*
+         * Warning : all fields before dataref are cleared in __alloc_skb()
+         */
+*40	atomic_t        dataref;					-304
+
+        /* Intermediate layers must ensure that destructor_arg
+         * remains valid until skb destructor */
+ 48	void *          destructor_arg;					-296
+
+        /* must be last field, see pskb_expand_head() */
+--------------------------------------------- 32 byte cache line --------------
+*56	skb_frag_t      frags[MAX_SKB_FRAGS];				-16x18 
+									= -288
+									=  9x32
+									or 4.5x64
+									or 2.25x128
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= 32 & 64 & 128 byte cache line =-=
+ 344	= 10.75x32 or 5.375x64 or 2.6875x128				-0
+};
+
+skb patches v2:
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= 32 & 64 byte cache line =-=-=-=-=
+ -56									-512
+--------------------------------------------- 32 byte cache line --------------
+ -24									-480
+struct skb_shared_info {
+*0	unsigned char	nr_frags;					-456
+*1	__u8		tx_flags;					-455
+ 2	unsigned short	gso_size;					-454
+	/* Warning: this field is not always filled in (UFO)! */
+ 4	unsigned short	gso_segs;					-452
+ 6	unsigned short  gso_type;					-450
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= 32 & 64 byte cache line =-=-=-=-=
+*8	struct sk_buff	*frag_list;					-448
+ 16	struct skb_shared_hwtstamps hwtstamps;				-440
+ 32	__be32          ip6_frag_id;					-424
+
+	/*
+	 * Warning : all fields before dataref are cleared in __alloc_skb()
+	 */
+*36	atomic_t	dataref;					-420
+
+	/* Intermediate layers must ensure that destructor_arg
+	 * remains valid until skb destructor */
+--------------------------------------------- 32 byte cache line --------------
+ 40	void *		destructor_arg;					-416
+
+	/* must be last field, see pskb_expand_head() */
+*48	skb_frag_t	frags[MAX_SKB_FRAGS];				-24*17
+									= -408
+									=  12.75x32
+									or 6.375x64
+									or 3.1875x128
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= 32 & 64 & 128 byte cache line =-=
+ 456	= 14.25x32 or 7.125x64 or 3.5625x128				-0
+};
+
+skb patches + put destructor_arg first
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= 32 & 64 byte cache line =-=-=-=-=
+ -56									-512
+--------------------------------------------- 32 byte cache line
+ -24									-480
+struct skb_shared_info {
+	/* Intermediate layers must ensure that destructor_arg
+	 * remains valid until skb destructor */
+ 0	void *		destructor_arg;					-456
+
+	/* Warning all fields from here until dataref are cleared in __alloc_skb() */
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= 32 & 64 byte cache line =-=-=-=-=
+*8	unsigned char	nr_frags;					-448
+*9	__u8		tx_flags;					-447
+ 10	unsigned short	gso_size;					-446
+	/* Warning: this field is not always filled in (UFO)! */
+ 12	unsigned short	gso_segs;					-444
+ 14	unsigned short  gso_type;					-442
+*16	struct sk_buff	*frag_list;					-440
+ 24	struct skb_shared_hwtstamps hwtstamps;				-432
+--------------------------------------------- 32 byte cache line --------------
+ 40	__be32          ip6_frag_id;					-416
+
+	/*
+	 * Warning : all fields before dataref are cleared in __alloc_skb()
+	 */
+*44	atomic_t	dataref;					-412
+
+	/* must be last field, see pskb_expand_head() */
+*48	skb_frag_t	frags[MAX_SKB_FRAGS];				-24*17
+									= -408
+									=  12.75x32
+									or 6.375x64
+									or 3.1875x128
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= 32 & 64 & 128 byte cache line =-=
+}; 456 = 14.25x32 or 7.125x64 or 3.5625x128
