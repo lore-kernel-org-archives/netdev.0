@@ -1,42 +1,66 @@
-From: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [PATCH 1/3] usbnet: make ethtool_ops const
-Date: Fri, 6 Jan 2012 05:34:25 -0800
-Message-ID: <20120106133425.GC9279@suse.de>
-References: <20120106051022.712047093@vyatta.com>
- <20120106051050.936477418@vyatta.com>
+From: "Laura Graham" <phaderle@aol.com>
+Subject: Treat As Urgent
+Date: Fri, 6 Jan 2012 05:41:44 -0800
+Message-ID: <201201061341.q06Dfh18023708@ims-m13.mx.aol.com>
+Reply-To: <laura_graham7@aol.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Oliver Neukum <oliver-Q6YOFhsQ4GZ7tPAFqOLdPg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20120106051050.936477418-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_00ED_01C2A9A6.41F9F292"
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ims-m13.mx.aol.com ([64.12.207.146]:57702 "EHLO
+	ims-m13.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752302Ab2AFNrt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2012 08:47:49 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 05, 2012 at 09:10:23PM -0800, Stephen Hemminger wrote:
-> The ethtool_ops table of function pointers should be const.
-> Fix all the usb network drivers.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-> 
-> ---
-> Not sure if you want these through net-next or usb-next?
-> 
->  drivers/net/usb/asix.c       |    2 +-
->  drivers/net/usb/cdc_ncm.c    |    4 ++--
->  drivers/net/usb/ipheth.c     |    2 +-
->  drivers/net/usb/sierra_net.c |    2 +-
->  4 files changed, 5 insertions(+), 5 deletions(-)
+This is a multi-part message in MIME format.
 
-drivers/net/usb/ patches go through David and net-next, not me.
+------=_NextPart_000_00ED_01C2A9A6.41F9F292
+Content-Type: text/plain;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
 
-thanks,
+Hello,
 
-greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Kindly read the attached message and reply me as soon as possible
+
+------=_NextPart_000_00ED_01C2A9A6.41F9F292
+Content-Type: application/octet-stream;
+	name="Letter From Graham.rtf"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+	filename="Letter From Graham.rtf"
+
+e1xydGYxXGFuc2lcYW5zaWNwZzEyNTJcZGVmZjBcZGVmbGFuZzEwMzN7XGZv
+bnR0Ymx7XGYwXGZzd2lzc1xmY2hhcnNldDAgQXJpYWw7fX0NCntcKlxnZW5l
+cmF0b3IgTXNmdGVkaXQgNS40MS4yMS4yNTA5O31cdmlld2tpbmQ0XHVjMVxw
+YXJkXGYwXGZzMjAgRGVhcmVzdCxccGFyDQpJIGFtIE1ycyBMYXVyYSBHcmFo
+YW0sc3VmZmVyaW5nIGZyb20gY2FuY2Vyb3VzIGFpbG1lbnQuSSB3YXMgbWFy
+cmllZCB0byBNci5SYXltb25kIEdyYWhhbSxNeSBodXNiYW5kIHdvcmtlZCB3
+aXRoIENoZXZyb24vVGV4YWNvIGluIHRoZSBVbml0ZWQgS2luZ2RvbSBmb3Ig
+dHdlbnR5IHllYXJzIGJlZm9yZSBoZSBkaWVkIGluIHRoZSB5ZWFyIDIwMDMu
+XHBhcg0KXHBhcg0KTXkgTGF0ZSBIdXNiYW5kIGRlcG9zaXRlZCB0aGUgc3Vt
+IG9mIFwnYTMxNSwzMDAsMDAwLjAwIE1pbGxpb24gKEZpZnRlZW4gTWlsbGlv
+biBUaHJlZSBIdW5kcmVkIFRob3VzYW5kIEdyZWF0IEJyaXRpc2ggUG91bmRz
+IFN0ZXJsaW5nKSB3aXRoIGEgRmluYW5jaWFsIEluc3RpdHVpdGlvbiBpbiBF
+dXJvcGUuXHBhcg0KXHBhcg0KUmVjZW50bHksbXkgRG9jdG9yIHRvbGQgbWUg
+dGhhdCBJIGhhdmUgbGltaXRlZCBkYXlzIHRvIGxpdmUgZHVlIHRvIHRoZSBz
+dHJva2UgYW5kIGNhbmNlcm91cyBwcm9ibGVtcyBJIGFtIHN1ZmZlcmluZyBm
+cm9tLlxwYXINClxwYXINCkkgaGF2ZSBkZWNpZGVkIHRvIGRvbmF0ZSB0aGlz
+IGZ1bmQgdG8geW91IGFuZCBJIHdhbnQgeW91IHRvIHVzZSBNeSBIdXNiYW5k
+J3MgZWZmb3J0IHRvIGZ1bmQgdGhlIHVwa2VlcCBvZiB3aWRvd3MgYW5kIGNo
+YXJpdGllcyB3b3JsZHdpZGUuSSB0b29rIHRoaXMgZGVjaXNpb24gYmVjYXVz
+ZSBJIGRvIG5vdCBoYXZlIGFueSBjaGlsZCB0aGF0IHdpbGwgaW5oZXJpdCB0
+aGlzIG1vbmV5IGFuZCBNeSBIdXNiYW5kJ3MgcmVsYXRpdmVzIGFyZSBib3Vy
+Z2VvaXMgYW5kIHZlcnkgd2VhbHRoeSBwZXJzb25zIGFuZCBJIGRvIG5vdCB3
+YW50IE15IEh1c2JhbmQncyBoYXJkIGVhcm5lZCBtb25leSB0byBiZSBtaXN1
+c2VkLlxwYXINClxwYXINCkF3YWl0aW5nIHlvdXIgdXJnZW50IHJlcGx5LiBS
+ZXBseSB0byBteSB2ZXJ5IGNvbmZpZGVudGlhbCBlbWFpbCBhZGRyZXNzIGJl
+bG93OlxwYXINCiBccGFyDQpce2xhdXJhX2dyYWhhbThAbXNuLmNvbVx9XHBh
+cg0KXHBhcg0KV2l0aCBHb2QgYWxsIHRoaW5ncyBhcmUgcG9zc2libGUuXHBh
+cg0KXHBhcg0KWW91ciBTaXN0ZXIgaW4gQ2hyaXN0LFxwYXINCk1ycy4gTGF1
+cmEgR3JhaGFtXHBhcg0KfQ0KAA==
+
+------=_NextPart_000_00ED_01C2A9A6.41F9F292--
