@@ -1,78 +1,53 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [net-next 8/9] ixgbe: add interface to export thermal data
-Date: Fri, 6 Jan 2012 18:09:22 +0000
-Message-ID: <1325873362.2850.20.camel@bwh-desktop>
-References: <1324631357-31789-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1324631357-31789-9-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <CAHXqBFL_44T5nQVA=n03aT9Q1QpsLCY2dn9o6GE-9Rm66DSt-A@mail.gmail.com>
-	 <F6FB0E698C9B3143BDF729DF22286646025656@ORSMSX102.amr.corp.intel.com>
-	 <1325788584.3764.28.camel@bwh-desktop>
-	 <F6FB0E698C9B3143BDF729DF22286646027184@ORSMSX102.amr.corp.intel.com>
-	 <CAHXqBF+ZY-KH8hOi+QnDZVHx+8OOqP5CLXR44YtDLB3=1DDEOA@mail.gmail.com>
-	 <363B5007A0D944459CBE9CF6A37B891B01E292@ORSMSX104.amr.corp.intel.com>
+From: Arvid Brodin <arvid.brodin@enea.com>
+Subject: Re: bridge: HSR support
+Date: Fri, 6 Jan 2012 19:11:32 +0100
+Message-ID: <4F073954.7040001@enea.com>
+References: <4E948A04.8060400@enea.com> <20111011112821.28cd3e51@nehalam.linuxnetplumber.net> <4E94D67A.9060207@enea.com> <4EA5738B.8080008@enea.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michal Miroslaw <mirqus@gmail.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Arvid Brodin <arvid.brodin@enea.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:31941 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1758883Ab2AFSJ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2012 13:09:27 -0500
-In-Reply-To: <363B5007A0D944459CBE9CF6A37B891B01E292@ORSMSX104.amr.corp.intel.com>
+Received: from sestofw01.enea.se ([192.36.1.252]:27792 "HELO mx-3.enea.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1758875Ab2AFSLt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jan 2012 13:11:49 -0500
+In-Reply-To: <4EA5738B.8080008@enea.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-01-06 at 17:55 +0000, Waskiewicz Jr, Peter P wrote:
-> > -----Original Message-----
-> > From: Micha=C5=82 Miros=C5=82aw [mailto:mirqus@gmail.com]
-> > Sent: Thursday, January 05, 2012 3:51 PM
-> > To: Skidmore, Donald C
-> > Cc: Ben Hutchings; Kirsher, Jeffrey T; davem@davemloft.net;
-> > netdev@vger.kernel.org; gospo@redhat.com; sassmann@redhat.com;
-> > Waskiewicz Jr, Peter P
-> > Subject: Re: [net-next 8/9] ixgbe: add interface to export thermal =
-data
-> >=20
-> > Drivers outside of drivers/hwmon just select HWMON in Kconfig. This=
- adds a
-> > 3kB .c file to the kernel build for the first one that needs it.
->=20
-> This is where we run into issues though.  We can put this dependency =
-in, but
-> customers don't pull upstream kernels, they rely on the OSV's to dist=
-ribute
-> updates.  The customer doesn't want HWMON, and if their kernel doesn'=
-t ship
-> with HWMON support for ixgbe, then we're sunk.
+Arvid Brodin wrote:
+>> On Tue, 11 Oct 2011 20:25:08 +0200
+>> Arvid Brodin <arvid.brodin@enea.com> wrote:
+>>
+>>> Hi,
+>>>
+>>> I want to add support for HSR ("High-availability Seamless Redundancy",
+>>> IEC-62439-3) to the bridge code. With HSR, all connected units have two network
+>>> ports and are connected in a ring. All new Ethernet packets are sent on both
+>>> ports (or passed through if the current unit is not the originating unit). The
+>>> same packet is never passed twice. Non-HSR units are not allowed in the ring.
+>>>
+>>> This gives instant, reconfiguration-free failover.
+>>>
+*snip*
+> 
+> I need to do two things:
+> 
+> 1) Bind two network interfaces into one (say, eth0 & eth1 => hsr0). Frames sent on
+>    hsr0 should get an HSR tag (including the correct EtherType) and go out on both
+>    eth0 and eth1.
+> 
+> 2) Ingress frames on eth0 & eth1, with EtherType 0x88fb, should be captured and 
+>    handled specially (either received on hsr0 or forwarded to the other bound 
+>    physical interface).
+> 
 
-So if !IS_ENABLED(CONFIG_HWMON), don't try to create an hwmon device,
-but create the attributes anyway.
+I'm slowly getting there! :)
 
-> The point is what we're trying to implement, based on what our custom=
-ers'
-> requirements are, is something completely different than what HWMON i=
-s
-> providing.  Trying to wedge HWMON onto this framework we're trying to
-> provide just overcomplicates the entire thing we're trying to provide=
-=2E  It's
-> a generic interface to generic data in our drivers,
-[...]
+But what is net_device->header_ops->rebuild supposed to do?
 
-It sounds like you want to provide a "generic" ixgbe interface on
-different operating systems.  But that is not a valid argument for an
-in-tree driver.
-
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks,
+Arvid Brodin
+Enea Services Stockholm AB
