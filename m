@@ -1,70 +1,66 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] drivers: misc: Remove MISC_DEVICES config option
-Date: Fri, 6 Jan 2012 12:00:43 +0000
-Message-ID: <201201061200.44183.arnd@arndb.de>
-References: <1325796541-11402-1-git-send-email-festevam@gmail.com> <CAOMZO5BQhcxViN3KnjhzF9hL1w04egkmb9njc7sDUB0GFdgBog@mail.gmail.com> <20120106050355.GA7633@kroah.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/6] net: pad skb data and shinfo as a whole rather than
+ individually
+Date: Fri, 06 Jan 2012 13:33:46 +0100
+Message-ID: <1325853226.2999.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1325783399.25206.413.camel@zakaz.uk.xensource.com>
+	 <1325783624-14601-2-git-send-email-ian.campbell@citrix.com>
+	 <1325785607.4759.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1325791164.29084.8.camel@dagon.hellion.org.uk>
+	 <1325794968.2748.6.camel@edumazet-laptop>
+	 <1325848815.25206.471.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Fabio Estevam <festevam@gmail.com>, netdev@vger.kernel.org,
-	gwingerde@gmail.com, larry.finger@lwfinger.net,
-	davem@davemloft.net, bhutchings@solarflare.com,
-	linux-kernel@vger.kernel.org,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: Greg KH <greg@kroah.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:64398 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933140Ab2AFMA4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2012 07:00:56 -0500
-In-Reply-To: <20120106050355.GA7633@kroah.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:57818 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751471Ab2AFMdu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2012 07:33:50 -0500
+Received: by wgbdr13 with SMTP id dr13so1692614wgb.1
+        for <netdev@vger.kernel.org>; Fri, 06 Jan 2012 04:33:49 -0800 (PST)
+In-Reply-To: <1325848815.25206.471.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 06 January 2012, Greg KH wrote:
-> On Thu, Jan 05, 2012 at 11:18:28PM -0200, Fabio Estevam wrote:
-> > On Thu, Jan 5, 2012 at 8:39 PM, Greg KH <greg@kroah.com> wrote:
-> >=20
-> > > Are you sure that this isn't getting confused with the
-> > > drivers/char/misc.c interface instead of the "throw a bunch of ra=
-ndome
-> > > drivers into drivers/misc/" issue?
-> >=20
-> > Sorry, I am not aware of this issue.
-> >=20
-> > > Why would anything ever want to select MISC_DEVICES?  What happen=
-s if
-> > > you just remove that select line from the Kconfig?
-> >=20
-> > Yes, I don=B4t understand the point of allowing the selection MISC_=
-DEVICES.
-> >=20
-> > IMHO it is potential for causing dependency issues.
->=20
-> Then remove that selection.  Nothing should be depending on a misc
-> driver, if it is, then that implies that this is more than just a "mi=
-sc"
-> driver, and it should be moved elsewhere.
+Le vendredi 06 janvier 2012 =C3=A0 11:20 +0000, Ian Campbell a =C3=A9cr=
+it :
 
-I think that is true for the majority of stuff we have under drivers/mi=
-sc
-anyway. I had done the same patch that Fabio sent a couple of months ag=
-o
-but then forgot about it, so here is a wholehearted
+> It doesn't fit in a single cache line today.
 
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+It really does, thanks to your (net: pack skb_shared_info more
+efficiently) previous patch.
 
-for the new patch. It fixes a real problem, and we applied a similar pa=
-tch
-in drivers/mfd as 8a0a8e8e already. We probably still want to find a be=
-tter
-home for drivers that frequently get selected by other subsystems as yo=
-u
-said, but that is an independent issue. I don't see why anyone would
-need a way to disable all MISC drivers at once, when the only thing tha=
-t
-(in theory) connects them is that they are all different from everythin=
-g
-else.
+I dont understand your numbers, very hard to read.
 
-	Arnd
+Current net-next :
+
+offsetof(struct skb_shared_info, nr_frags)=3D0x0
+offsetof(struct skb_shared_info, frags[1])=3D0x40   (0x30 on 32bit arch=
+es)
+
+So _all_ fields, including one frag, are included in a single cache lin=
+e
+on most machines (64-bytes cache line), IF struct skb_shared_info is
+aligned.
+
+Your patch obviously breaks this on 64bit arches, unless you make sure
+sizeof(struct skb_shared_info) is a multiple of cache line.
+
+[BTW, it is incidentaly the case after your 1/6 patch]
+
+fields reordering is not going to change anything on this.
+
+Or maybe I misread your patch ?
+
+At least you claimed in Changelog :=20
+
+<quote>
+ Reducing this overhead means that sometimes the tail end of
+ the data can end up in the same cache line as the beginning of the shi=
+nfo but
+ in many cases the allocation slop means that there is no overlap.
+</quote>
