@@ -1,45 +1,29 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net_sched: sfq: add optional RED on top of SFQ
-Date: Fri, 06 Jan 2012 18:25:59 +0100
-Message-ID: <1325870759.2911.37.camel@edumazet-laptop>
-References: <1325766316.2415.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <CAA93jw4ndMg-4BnhmspxgcXYdozu5+YX9VJgtHJ3N5HVX1b4yg@mail.gmail.com>
-	 <1325770777.2415.35.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1325867504.2911.23.camel@edumazet-laptop>
-	 <20120106090929.009a78d6@nehalam.linuxnetplumber.net>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [RFC] pktgen: set correct max and min in pktgen_setup_inject()
+Date: Fri, 6 Jan 2012 09:29:12 -0800
+Message-ID: <20120106092912.000015cd@unknown>
+References: <20120106131346.GA2491@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Dave Taht <dave.taht@gmail.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:45377 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752395Ab2AFR0E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2012 12:26:04 -0500
-Received: by wgbdr13 with SMTP id dr13so1966110wgb.1
-        for <netdev@vger.kernel.org>; Fri, 06 Jan 2012 09:26:02 -0800 (PST)
-In-Reply-To: <20120106090929.009a78d6@nehalam.linuxnetplumber.net>
+Received: from mga03.intel.com ([143.182.124.21]:39060 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752395Ab2AFR3P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jan 2012 12:29:15 -0500
+In-Reply-To: <20120106131346.GA2491@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 06 janvier 2012 =C3=A0 09:09 -0800, Stephen Hemminger a =C3=
-=A9crit :
+On Fri, 6 Jan 2012 05:13:47 -0800
+Dan Carpenter <dan.carpenter@oracle.com> wrote:
 
-> Since SFQ is classful, I don't see what this buys over just putting
-> a red qdisc under each SFQ class?
->=20
+> In 882716604ec "pktgen: fix multiple queue warning" we added special
+> logic to handle the case where ntxq is zero.  It's not clear to me that
+> ntxq can actually be zero.  But if it were then we would set
+> ->queue_map_min and ->queue_map_max to USHRT_MAX when probably we want
+> to set them to zero?
 
-You meant RED is classful, not SFQ ?
-
-Idea is to use RED on each flow, not on global SFQ, since as you pointe=
-d
-out, you already can do that right now (and it has no interest)
-
-You can have this right now using QFQ, and for each QFQ class, attach a
-RED qdisc, but memory cost and setup time are crazy.
-
-Please note that RED cant perform head mark or drop. (unless we add new
-qdisc ops for this)
-We can do it from SFQ because we do our proper queue management.
+seems fine to me, esp since -1 seems like a bad value there.
