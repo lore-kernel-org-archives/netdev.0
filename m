@@ -1,73 +1,53 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] net_sched: sfq: add optional RED on top of SFQ
-Date: Fri, 6 Jan 2012 09:09:29 -0800
-Message-ID: <20120106090929.009a78d6@nehalam.linuxnetplumber.net>
-References: <1325766316.2415.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<CAA93jw4ndMg-4BnhmspxgcXYdozu5+YX9VJgtHJ3N5HVX1b4yg@mail.gmail.com>
-	<1325770777.2415.35.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1325867504.2911.23.camel@edumazet-laptop>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: [net-next 08/11] e1000e: add Receive Packet Steering (RPS)
+ support
+Date: Fri, 6 Jan 2012 17:22:43 +0000
+Message-ID: <804857E1F29AAC47BF68C404FC60A18403B8ED@ORSMSX102.amr.corp.intel.com>
+References: <1325618356-2655-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1325618356-2655-9-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1325624728.2832.12.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Dave Taht <dave.taht@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:41255 "EHLO mail.vyatta.com"
+Received: from mga09.intel.com ([134.134.136.24]:7375 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750937Ab2AFRJc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jan 2012 12:09:32 -0500
-In-Reply-To: <1325867504.2911.23.camel@edumazet-laptop>
+	id S1752395Ab2AFRWr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jan 2012 12:22:47 -0500
+In-Reply-To: <1325624728.2832.12.camel@bwh-desktop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 06 Jan 2012 17:31:44 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-
-> Adds an optional Random Early Detection on each SFQ flow queue.
-> 
-> Traditional SFQ limits count of packets, while RED permits to also
-> control number of bytes per flow, and adds ECN capability as well.
-> 
-> 1) We dont handle the idle time management in this RED implementation,
-> since each 'new flow' begins with a null qavg. We really want to address
-> backlogged flows.
-> 
-> 2) if headdrop is selected, we try to ecn mark first packet instead of
-> currently enqueued packet. This gives faster feedback for tcp flows
-> compared to traditional RED [ marking the last packet in queue ]
-> 
-> Example of use :
-> 
-> tc qdisc add dev $DEV parent 1:1 handle 10: est 1sec 4sec sfq \
-> 	limit 3000 headdrop flows 512 divisor 16384 \
-> 	redflowlimit 100000 min 8000 max 60000 probability 0.20 ecn
-> 
-> qdisc sfq 10: parent 1:1 limit 3000p quantum 1514b depth 127 headdrop
-> flows 512/16384 divisor 16384 
->  ewma 6 min 8000b max 60000b probability 0.2 ecn 
->  prob_mark 0 prob_mark_head 4876 prob_drop 6131
->  forced_mark 0 forced_mark_head 0 forced_drop 0
->  Sent 1175211782 bytes 777537 pkt (dropped 6131, overlimits 11007
-> requeues 0) 
->  rate 99483Kbit 8219pps backlog 689392b 456p requeues 0 
-> 
-> In this test, with 64 netperf TCP_STREAM sessions, 50% using ECN enabled
-> flows, we can see number of packets CE marked is smaller than number of
-> drops (for non ECN flows)
-> 
-> If same test is run, without RED, we can check backlog is much bigger.
-> 
-> qdisc sfq 10: parent 1:1 limit 3000p quantum 1514b depth 127 headdrop
-> flows 512/16384 divisor 16384 
->  Sent 1148683617 bytes 795006 pkt (dropped 0, overlimits 0 requeues 0) 
->  rate 98429Kbit 8521pps backlog 1221290b 841p requeues 0 
-> 
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Stephen Hemminger <shemminger@vyatta.com>
-> CC: Dave Taht <dave.taht@gmail.com>
-
-
-Since SFQ is classful, I don't see what this buys over just putting
-a red qdisc under each SFQ class?
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRv
+OmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+U2VudDogVHVlc2RheSwgSmFudWFyeSAwMywg
+MjAxMiAxOjA1IFBNDQo+VG86IEtpcnNoZXIsIEplZmZyZXkgVA0KPkNjOiBkYXZlbUBkYXZlbWxv
+ZnQubmV0OyBBbGxhbiwgQnJ1Y2UgVzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsNCj5nb3Nwb0By
+ZWRoYXQuY29tOyBzYXNzbWFubkByZWRoYXQuY29tDQo+U3ViamVjdDogUmU6IFtuZXQtbmV4dCAw
+OC8xMV0gZTEwMDBlOiBhZGQgUmVjZWl2ZSBQYWNrZXQgU3RlZXJpbmcgKFJQUykgc3VwcG9ydA0K
+Pg0KPk9uIFR1ZSwgMjAxMi0wMS0wMyBhdCAxMToxOSAtMDgwMCwgSmVmZiBLaXJzaGVyIHdyb3Rl
+Og0KPj4gRnJvbTogQnJ1Y2UgQWxsYW4gPGJydWNlLncuYWxsYW5AaW50ZWwuY29tPg0KPj4NCj4+
+IEVuYWJsZSBSUFMgYnkgZGVmYXVsdC4gIERpc2FsbG93IGp1bWJvIGZyYW1lcyB3aGVuIGJvdGgg
+cmVjZWl2ZSBjaGVja3N1bQ0KPj4gYW5kIHJlY2VpdmUgaGFzaGluZyBhcmUgZW5hYmxlZCBiZWNh
+dXNlIHRoZSBoYXJkd2FyZSBjYW5ub3QgZG8gYm90aCBJUA0KPj4gcGF5bG9hZCBjaGVja3N1bSAo
+ZW5hYmxlZCB3aGVuIHJlY2VpdmUgY2hlY2tzdW0gaXMgZW5hYmxlZCB3aGVuIHVzaW5nDQo+PiBw
+YWNrZXQgc3BsaXQgd2hpY2ggaXMgdXNlZCBmb3IganVtYm8gZnJhbWVzKSBhbmQgcHJvdmlkZSBS
+U1MgaGFzaCBhdCB0aGUNCj4+IHNhbWUgdGltZS4NCj5bLi4uXQ0KPg0KPlRoaXMgZG9lc24ndCBz
+ZWVtIHRvIGhhdmUgbXVjaCB0byBkbyB3aXRoIFJQUy4gIFJQUyBjYW4gdXNlIGEgaGFyZHdhcmUN
+Cj5oYXNoIGJ1dCBkb2Vzbid0IHJlcXVpcmUgaXQuDQo+DQo+WW91IHNob3VsZCBhbHNvIGltcGxl
+bWVudCB0aGUgZXRodG9vbCBjb21tYW5kIHRvIHF1ZXJ5IGZsb3cgaGFzaGluZw0KPmJlaGF2aW91
+ciAoRVRIVE9PTF9HUlhGSCBjb21tYW5kLCBnZXRfcnhuZmMgb3BlcmF0aW9uKS4NCj4NCj5CZW4u
+DQo+DQo+LS0NCj5CZW4gSHV0Y2hpbmdzLCBTdGFmZiBFbmdpbmVlciwgU29sYXJmbGFyZQ0KPk5v
+dCBzcGVha2luZyBmb3IgbXkgZW1wbG95ZXI7IHRoYXQncyB0aGUgbWFya2V0aW5nIGRlcGFydG1l
+bnQncyBqb2IuDQo+VGhleSBhc2tlZCB1cyB0byBub3RlIHRoYXQgU29sYXJmbGFyZSBwcm9kdWN0
+IG5hbWVzIGFyZSB0cmFkZW1hcmtlZC4NCg0KVGhhbmtzIGZvciB0aGUgZmVlZGJhY2sgQmVuLiAg
+T25lIHF1ZXN0aW9uOiBpcyB0aGUgZGF0YSByZXR1cm5lZCBmcm9tDQphbiBFVEhUT09MX0dSWEZI
+IGNvbW1hbmQgd2l0aCB0aGUgZ2V0X3J4bmZjIG9wZXJhdGlvbiBzdXBwb3NlZCB0byBiZQ0KdGhl
+IGRlZmF1bHQgZm9yIHRoZSBkZXZpY2Ugb3IgdGhlIGN1cnJlbnQgc2V0dGluZz8NCg0KVGhhbmtz
+LA0KQnJ1Y2UuDQo=
