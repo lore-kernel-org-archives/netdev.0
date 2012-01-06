@@ -1,41 +1,51 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH] drivers: misc: Remove MISC_DEVICES config option
-Date: Thu, 5 Jan 2012 23:18:28 -0200
-Message-ID: <CAOMZO5BQhcxViN3KnjhzF9hL1w04egkmb9njc7sDUB0GFdgBog@mail.gmail.com>
-References: <1325796541-11402-1-git-send-email-festevam@gmail.com>
-	<20120105223933.GA10268@kroah.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH 3/6] net: add support for per-paged-fragment destructors
+Date: Fri, 6 Jan 2012 02:15:24 +0100
+Message-ID: <20120106011524.GA10975@rere.qmqm.pl>
+References: <1325783399.25206.413.camel@zakaz.uk.xensource.com>
+ <1325783624-14601-3-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, gwingerde@gmail.com,
-	larry.finger@lwfinger.net, davem@davemloft.net,
-	bhutchings@solarflare.com, arnd@arndb.de,
-	linux-kernel@vger.kernel.org,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120105223933.GA10268@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Ian Campbell <ian.campbell@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:35537 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756482Ab2AFBY3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jan 2012 20:24:29 -0500
+Content-Disposition: inline
+In-Reply-To: <1325783624-14601-3-git-send-email-ian.campbell@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 5, 2012 at 8:39 PM, Greg KH <greg@kroah.com> wrote:
+On Thu, Jan 05, 2012 at 05:13:41PM +0000, Ian Campbell wrote:
+> Entities which care about the complete lifecycle of pages which they =
+inject
+> into the network stack via an skb paged fragment can choose to set th=
+is
+> destructor in order to receive a callback when the stack is really fi=
+nished
+> with a page (including all clones, retransmits, pull-ups etc etc).
+[...]
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -143,9 +143,16 @@ struct sk_buff;
+> =20
+>  typedef struct skb_frag_struct skb_frag_t;
+> =20
+> +struct skb_frag_destructor {
+> +	atomic_t ref;
+> +	int (*destroy)(void *data);
+> +	void *data;
+> +};
+> +
+[...]
 
-> Are you sure that this isn't getting confused with the
-> drivers/char/misc.c interface instead of the "throw a bunch of random=
-e
-> drivers into drivers/misc/" issue?
+What happened to removal of 'data' field from this structure?
 
-Sorry, I am not aware of this issue.
+ref: http://www.spinics.net/lists/netdev/msg179050.html
 
-> Why would anything ever want to select MISC_DEVICES? =C2=A0What happe=
-ns if
-> you just remove that select line from the Kconfig?
-
-Yes, I don=C2=B4t understand the point of allowing the selection MISC_D=
-EVICES.
-
-IMHO it is potential for causing dependency issues.
-
-Thanks,
-
-=46abio Estevam
+Best Regards,
+Micha=B3 Miros=B3aw
