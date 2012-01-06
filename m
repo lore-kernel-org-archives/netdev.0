@@ -1,133 +1,437 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Subject: Re: [PATCH] rds_rdma: don't assume infiniband device is PCI
-Date: Fri, 6 Jan 2012 13:57:50 -0200
-Message-ID: <20120106155750.GA3536@oc1711230544.ibm.com>
-References: <ed54708d-990e-4c8f-8057-50a70f93d3d8@default>
- <20120105170523.GA19022@oc1711230544.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net_sched: sfq: add optional RED on top of SFQ
+Date: Fri, 06 Jan 2012 17:31:44 +0100
+Message-ID: <1325867504.2911.23.camel@edumazet-laptop>
+References: <1325766316.2415.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CAA93jw4ndMg-4BnhmspxgcXYdozu5+YX9VJgtHJ3N5HVX1b4yg@mail.gmail.com>
+	 <1325770777.2415.35.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dledford@redhat.com,
-	Jes.Sorensen@redhat.com, rds-devel@oss.oracle.com
-To: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120105170523.GA19022@oc1711230544.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Dave Taht <dave.taht@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:47379 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751004Ab2AFQbt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2012 11:31:49 -0500
+Received: by werm1 with SMTP id m1so1237708wer.19
+        for <netdev@vger.kernel.org>; Fri, 06 Jan 2012 08:31:47 -0800 (PST)
+In-Reply-To: <1325770777.2415.35.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 05, 2012 at 03:05:24PM -0200, Thadeu Lima de Souza Cascardo wrote:
-> > ----- Original Message -----
-> > From: cascardo@linux.vnet.ibm.com
-> > To: venkat.x.venkatsubra@oracle.com
-> > Cc: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, cascardo@linux.vnet.ibm.com, dledford@redhat.com, Jes.Sorensen@redhat.com, rds-devel@oss.oracle.com
-> > Sent: Wednesday, January 4, 2012 4:03:42 PM GMT -06:00 US/Canada Central
-> > Subject: [PATCH] rds_rdma: don't assume infiniband device is PCI
-> > 
-> > RDS code assumes that the struct ib_device dma_device member, which is a
-> > pointer, points to a struct device embedded in a struct pci_dev.
-> > 
-> > This is not the case for ehca, for example, which is a OF driver, and
-> > makes dma_device point to a struct device embedded in a struct
-> > platform_device.
-> > 
-> > This will make the system crash when rds_rdma is loaded in a system
-> > with ehca, since it will try to access the bus member of a non-existent
-> > struct pci_dev.
-> > 
-> > The only reason rds_rdma uses the struct pci_dev is to get the NUMA node
-> > the device is attached to. Using dev_to_node for that is much better,
-> > since it won't assume which bus the infiniband is attached to.
-> > 
-> > Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-> > Cc: dledford@redhat.com
-> > Cc: Jes.Sorensen@redhat.com
-> > Cc: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-> > Cc: rds-devel@oss.oracle.com
-> > ---
-> >  net/rds/ib.h |    3 +--
-> >  1 files changed, 1 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/net/rds/ib.h b/net/rds/ib.h
-> > index edfaaaf..8d2b3d5 100644
-> > --- a/net/rds/ib.h
-> > +++ b/net/rds/ib.h
-> > @@ -186,8 +186,7 @@ struct rds_ib_device {
-> >  	struct work_struct	free_work;
-> >  };
-> >  
-> > -#define pcidev_to_node(pcidev) pcibus_to_node(pcidev->bus)
-> > -#define ibdev_to_node(ibdev) pcidev_to_node(to_pci_dev(ibdev->dma_device))
-> > +#define ibdev_to_node(ibdev) dev_to_node(ibdev->dma_device)
-> >  #define rdsibdev_to_node(rdsibdev) ibdev_to_node(rdsibdev->dev)
-> >  
-> >  /* bits for i_ack_flags */
-> > -- 
-> > 1.7.4.4
-> > 
-> 
-> On Thu, Jan 05, 2012 at 08:56:34AM -0800, Venkat Venkatsubra wrote:
-> > Hi Cascardo,
-> > 
-> > Your changes look good to me.
-> > But our latest code doesn't use this rdsibdev_to_node macro anywhere.
-> > Checking with the people in my group who know the history of the NUMA feature.
-> > Trying to find out if the call to kzalloc_node() can be replaced by kzalloc().
-> > In which case this macro can be removed.
-> > 
-> > I will keep you posted.
-> > 
-> > Venkat
-> > 
-> 
-> Hi, Venkat.
-> 
-> Do you have any public tree where we can track the last changes in RDS?
-> Note that I have changed ibsdev_to_node, which rdsibdev_to_node makes
-> use of. Anyway, replacing kzalloc_node with kzalloc has crossed my mind,
-> but since I was not sure if this would affect latency of RDS in any use
-> cases, I kept that and used a better function to get the node from the
-> device. And we have dev_to_node since 2.6.20, so it should not be a
-> problem to use it.
-> 
-> If possible, keep everyone copied and avoid top posting.
-> 
-> Regards.
-> Cascardo.
+Adds an optional Random Early Detection on each SFQ flow queue.
 
-Just to make it clean, ibdev_to_node is used in Linus' tree and
-next/master as of today and this patch fixes a real oops. I should have
-probably added the stack trace in the log message. For completion, here
-it is, running 3.2.0-rc7-00039-g89307ba:
+Traditional SFQ limits count of packets, while RED permits to also
+control number of bytes per flow, and adds ECN capability as well.
 
-NET: Registered protocol family 21
-Registered RDS/iwarp transport
-Unable to handle kernel paging request for data at address 0x00000088
-Faulting instruction address: 0xc0000000000336d0
-cpu 0x6: Vector: 300 (Data Access) at [c0000000ddd837e0]
-    pc: c0000000000336d0: .pcibus_to_node+0x0/0x10
-    lr: d000000004590de0: .rds_ib_add_one+0x100/0x360 [rds_rdma]
-    sp: c0000000ddd83a60
-   msr: 8000000000009032
-   dar: 88
- dsisr: 40000000
-  current = 0xc0000000ee6c0000
-  paca    = 0xc000000006c32d00
-    pid   = 8574, comm = modprobe
-enter ? for help
-[link register   ] d000000004590de0 .rds_ib_add_one+0x100/0x360
-[rds_rdma]
-[c0000000ddd83a60] d000000004590d88 .rds_ib_add_one+0xa8/0x360
-[rds_rdma] (unreliable)
-[c0000000ddd83b10] d000000003195240 .ib_register_client+0xc0/0x120
-[ib_core]
-[c0000000ddd83bb0] d00000000459074c .rds_ib_init+0x2c/0xf0 [rds_rdma]
-[c0000000ddd83c30] d000000004590144 .rds_rdma_init+0xe4/0x180 [rds_rdma]
-[c0000000ddd83cd0] c00000000000aa54 .do_one_initcall+0x64/0x1e0
-[c0000000ddd83d90] c0000000000d359c .SyS_init_module+0xcc/0x220
-[c0000000ddd83e30] c0000000000097e4 syscall_exit+0x0/0x40
---- Exception: c00 (System Call) at 00000fff7dc3d3d8
-SP (fffe87eeeb0) is in userspace
+1) We dont handle the idle time management in this RED implementation,
+since each 'new flow' begins with a null qavg. We really want to address
+backlogged flows.
 
-Regards.
-Cascardo.
+2) if headdrop is selected, we try to ecn mark first packet instead of
+currently enqueued packet. This gives faster feedback for tcp flows
+compared to traditional RED [ marking the last packet in queue ]
+
+Example of use :
+
+tc qdisc add dev $DEV parent 1:1 handle 10: est 1sec 4sec sfq \
+	limit 3000 headdrop flows 512 divisor 16384 \
+	redflowlimit 100000 min 8000 max 60000 probability 0.20 ecn
+
+qdisc sfq 10: parent 1:1 limit 3000p quantum 1514b depth 127 headdrop
+flows 512/16384 divisor 16384 
+ ewma 6 min 8000b max 60000b probability 0.2 ecn 
+ prob_mark 0 prob_mark_head 4876 prob_drop 6131
+ forced_mark 0 forced_mark_head 0 forced_drop 0
+ Sent 1175211782 bytes 777537 pkt (dropped 6131, overlimits 11007
+requeues 0) 
+ rate 99483Kbit 8219pps backlog 689392b 456p requeues 0 
+
+In this test, with 64 netperf TCP_STREAM sessions, 50% using ECN enabled
+flows, we can see number of packets CE marked is smaller than number of
+drops (for non ECN flows)
+
+If same test is run, without RED, we can check backlog is much bigger.
+
+qdisc sfq 10: parent 1:1 limit 3000p quantum 1514b depth 127 headdrop
+flows 512/16384 divisor 16384 
+ Sent 1148683617 bytes 795006 pkt (dropped 0, overlimits 0 requeues 0) 
+ rate 98429Kbit 8521pps backlog 1221290b 841p requeues 0 
+
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Stephen Hemminger <shemminger@vyatta.com>
+CC: Dave Taht <dave.taht@gmail.com>
+---
+ include/linux/pkt_sched.h |   20 ++++
+ include/net/red.h         |    3 
+ net/sched/sch_sfq.c       |  146 ++++++++++++++++++++++++++++++++----
+ 3 files changed, 152 insertions(+), 17 deletions(-)
+
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index 8f1b928..0d5b793 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -162,10 +162,30 @@ struct tc_sfq_qopt {
+ 	unsigned	flows;		/* Maximal number of flows  */
+ };
+ 
++struct tc_sfqred_stats {
++	__u32           prob_drop;      /* Early drops, below max threshold */
++	__u32           forced_drop;	/* Early drops, after max threshold */
++	__u32           prob_mark;      /* Marked packets, below max threshold */
++	__u32           forced_mark;    /* Marked packets, after max threshold */
++	__u32           prob_mark_head; /* Marked packets, below max threshold */
++	__u32           forced_mark_head;/* Marked packets, after max threshold */
++};
++
+ struct tc_sfq_qopt_v1 {
+ 	struct tc_sfq_qopt v0;
+ 	unsigned int	depth;		/* max number of packets per flow */
+ 	unsigned int	headdrop;
++/* SFQRED parameters */
++	__u32		limit;		/* HARD maximal flow queue length (bytes) */
++	__u32		qth_min;	/* Min average length threshold (bytes) */
++	__u32		qth_max;	/* Max average length threshold (bytes) */
++	unsigned char   Wlog;		/* log(W)		*/
++	unsigned char   Plog;		/* log(P_max/(qth_max-qth_min))	*/
++	unsigned char   Scell_log;	/* cell size for idle damping */
++	unsigned char	flags;
++	__u32		max_P;		/* probability, high resolution */
++/* SFQRED stats */
++	struct tc_sfqred_stats stats;
+ };
+ 
+ 
+diff --git a/include/net/red.h b/include/net/red.h
+index baab385..28068ec 100644
+--- a/include/net/red.h
++++ b/include/net/red.h
+@@ -199,7 +199,8 @@ static inline void red_set_parms(struct red_parms *p,
+ 	p->Scell_log	= Scell_log;
+ 	p->Scell_max	= (255 << Scell_log);
+ 
+-	memcpy(p->Stab, stab, sizeof(p->Stab));
++	if (stab)
++		memcpy(p->Stab, stab, sizeof(p->Stab));
+ }
+ 
+ static inline int red_is_idling(const struct red_vars *v)
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index 0a79640..67494ae 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -24,6 +24,7 @@
+ #include <net/netlink.h>
+ #include <net/pkt_sched.h>
+ #include <net/flow_keys.h>
++#include <net/red.h>
+ 
+ 
+ /*	Stochastic Fairness Queuing algorithm.
+@@ -108,24 +109,30 @@ struct sfq_slot {
+ 	struct sfq_head dep; /* anchor in dep[] chains */
+ 	unsigned short	hash; /* hash value (index in ht[]) */
+ 	short		allot; /* credit for this slot */
++
++	unsigned int    backlog;
++	struct red_vars vars;
+ };
+ 
+ struct sfq_sched_data {
+ /* frequently used fields */
+ 	int		limit;		/* limit of total number of packets in this qdisc */
+ 	unsigned int	divisor;	/* number of slots in hash table */
+-	unsigned int	maxflows;	/* number of flows in flows array */
+-	int		headdrop;
+-	int		maxdepth;	/* limit of packets per flow */
++	u8		headdrop;
++	u8		maxdepth;	/* limit of packets per flow */
+ 
+ 	u32		perturbation;
+-	struct tcf_proto *filter_list;
+-	sfq_index	cur_depth;	/* depth of longest slot */
++	u8		cur_depth;	/* depth of longest slot */
++	u8		flags;
+ 	unsigned short  scaled_quantum; /* SFQ_ALLOT_SIZE(quantum) */
+-	struct sfq_slot *tail;		/* current slot in round */
++	struct tcf_proto *filter_list;
+ 	sfq_index	*ht;		/* Hash table ('divisor' slots) */
+ 	struct sfq_slot	*slots;		/* Flows table ('maxflows' entries) */
+ 
++	struct red_parms *red_parms;
++	struct tc_sfqred_stats stats;
++	struct sfq_slot *tail;		/* current slot in round */
++
+ 	struct sfq_head	dep[SFQ_MAX_DEPTH + 1];
+ 					/* Linked lists of slots, indexed by depth
+ 					 * dep[0] : list of unused flows
+@@ -133,6 +140,7 @@ struct sfq_sched_data {
+ 					 * dep[X] : list of flows with X packets
+ 					 */
+ 
++	unsigned int	maxflows;	/* number of flows in flows array */
+ 	int		perturb_period;
+ 	unsigned int	quantum;	/* Allotment per round: MUST BE >= MTU */
+ 	struct timer_list perturb_timer;
+@@ -321,6 +329,7 @@ static unsigned int sfq_drop(struct Qdisc *sch)
+ drop:
+ 		skb = q->headdrop ? slot_dequeue_head(slot) : slot_dequeue_tail(slot);
+ 		len = qdisc_pkt_len(skb);
++		slot->backlog -= len;
+ 		sfq_dec(q, x);
+ 		kfree_skb(skb);
+ 		sch->q.qlen--;
+@@ -341,6 +350,23 @@ drop:
+ 	return 0;
+ }
+ 
++/* Is ECN parameter configured */
++static int sfq_prob_mark(const struct sfq_sched_data *q)
++{
++	return q->flags & TC_RED_ECN;
++}
++
++/* Should packets over max threshold just be marked */
++static int sfq_hard_mark(const struct sfq_sched_data *q)
++{
++	return (q->flags & (TC_RED_ECN | TC_RED_HARDDROP)) == TC_RED_ECN;
++}
++
++static int sfq_headdrop(const struct sfq_sched_data *q)
++{
++	return q->headdrop;
++}
++
+ static int
+ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ {
+@@ -349,6 +375,8 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	sfq_index x, qlen;
+ 	struct sfq_slot *slot;
+ 	int uninitialized_var(ret);
++	struct sk_buff *head;
++	int delta;
+ 
+ 	hash = sfq_classify(skb, sch, &ret);
+ 	if (hash == 0) {
+@@ -368,24 +396,75 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 		q->ht[hash] = x;
+ 		slot = &q->slots[x];
+ 		slot->hash = hash;
++		slot->backlog = 0; /* should already be 0 anyway... */
++		red_set_vars(&slot->vars);
++		goto enqueue;
+ 	}
++	if (q->red_parms) {
++		slot->vars.qavg = red_calc_qavg_no_idle_time(q->red_parms,
++							&slot->vars,
++							slot->backlog);
++		switch (red_action(q->red_parms,
++				   &slot->vars,
++				   slot->vars.qavg)) {
++		case RED_DONT_MARK:
++			break;
+ 
+-	if (slot->qlen >= q->maxdepth) {
+-		struct sk_buff *head;
++		case RED_PROB_MARK:
++			sch->qstats.overlimits++;
++			if (sfq_prob_mark(q)) {
++				/* We know we have at least one packet in queue */
++				if (sfq_headdrop(q) &&
++				    INET_ECN_set_ce(slot->skblist_next)) {
++					q->stats.prob_mark_head++;
++					break;
++				}
++				if (INET_ECN_set_ce(skb)) {
++					q->stats.prob_mark++;
++					break;
++				}
++			}
++			q->stats.prob_drop++;
++			goto congestion_drop;
++
++		case RED_HARD_MARK:
++			sch->qstats.overlimits++;
++			if (sfq_hard_mark(q)) {
++				/* We know we have at least one packet in queue */
++				if (sfq_headdrop(q) &&
++				    INET_ECN_set_ce(slot->skblist_next)) {
++					q->stats.forced_mark_head++;
++					break;
++				}
++				if (INET_ECN_set_ce(skb)) {
++					q->stats.forced_mark++;
++					break;
++				}
++			}
++			q->stats.forced_drop++;
++			goto congestion_drop;
++		}
++	}
+ 
+-		if (!q->headdrop)
++	if (slot->qlen >= q->maxdepth) {
++congestion_drop:
++		if (!sfq_headdrop(q))
+ 			return qdisc_drop(skb, sch);
+ 
++		/* We know we have at least one packet in queue */
+ 		head = slot_dequeue_head(slot);
+-		sch->qstats.backlog -= qdisc_pkt_len(head);
++		delta = qdisc_pkt_len(head) - qdisc_pkt_len(skb);
++		sch->qstats.backlog -= delta;
++		slot->backlog -= delta;
+ 		qdisc_drop(head, sch);
+ 
+-		sch->qstats.backlog += qdisc_pkt_len(skb);
+ 		slot_queue_add(slot, skb);
+ 		return NET_XMIT_CN;
+ 	}
+ 
++enqueue:
+ 	sch->qstats.backlog += qdisc_pkt_len(skb);
++	slot->backlog += qdisc_pkt_len(skb);
+ 	slot_queue_add(slot, skb);
+ 	sfq_inc(q, x);
+ 	if (slot->qlen == 1) {		/* The flow is new */
+@@ -396,6 +475,7 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 			slot->next = q->tail->next;
+ 			q->tail->next = x;
+ 		}
++		/* We could use a bigger initial quantum for new flows */
+ 		slot->allot = q->scaled_quantum;
+ 	}
+ 	if (++sch->q.qlen <= q->limit)
+@@ -439,7 +519,7 @@ next_slot:
+ 	qdisc_bstats_update(sch, skb);
+ 	sch->q.qlen--;
+ 	sch->qstats.backlog -= qdisc_pkt_len(skb);
+-
++	slot->backlog -= qdisc_pkt_len(skb);
+ 	/* Is the slot empty? */
+ 	if (slot->qlen == 0) {
+ 		q->ht[slot->hash] = SFQ_EMPTY_SLOT;
+@@ -490,6 +570,8 @@ static void sfq_rehash(struct Qdisc *sch)
+ 			sfq_dec(q, i);
+ 			__skb_queue_tail(&list, skb);
+ 		}
++		slot->backlog = 0;
++		red_set_vars(&slot->vars);
+ 		q->ht[slot->hash] = SFQ_EMPTY_SLOT;
+ 	}
+ 	q->tail = NULL;
+@@ -514,6 +596,11 @@ drop:				sch->qstats.backlog -= qdisc_pkt_len(skb);
+ 		if (slot->qlen >= q->maxdepth)
+ 			goto drop;
+ 		slot_queue_add(slot, skb);
++		if (q->red_parms)
++			slot->vars.qavg = red_calc_qavg(q->red_parms,
++							&slot->vars,
++							slot->backlog);
++		slot->backlog += qdisc_pkt_len(skb);
+ 		sfq_inc(q, x);
+ 		if (slot->qlen == 1) {		/* The flow is new */
+ 			if (q->tail == NULL) {	/* It is the first flow */
+@@ -552,6 +639,7 @@ static int sfq_change(struct Qdisc *sch, struct nlattr *opt)
+ 	struct tc_sfq_qopt *ctl = nla_data(opt);
+ 	struct tc_sfq_qopt_v1 *ctl_v1 = NULL;
+ 	unsigned int qlen;
++	struct red_parms *p = NULL;
+ 
+ 	if (opt->nla_len < nla_attr_size(sizeof(*ctl)))
+ 		return -EINVAL;
+@@ -560,7 +648,11 @@ static int sfq_change(struct Qdisc *sch, struct nlattr *opt)
+ 	if (ctl->divisor &&
+ 	    (!is_power_of_2(ctl->divisor) || ctl->divisor > 65536))
+ 		return -EINVAL;
+-
++	if (ctl_v1 && ctl_v1->qth_min) {
++		p = kmalloc(sizeof(*p), GFP_KERNEL);
++		if (!p)
++			return -ENOMEM;
++	}
+ 	sch_tree_lock(sch);
+ 	if (ctl->quantum) {
+ 		q->quantum = ctl->quantum;
+@@ -576,6 +668,16 @@ static int sfq_change(struct Qdisc *sch, struct nlattr *opt)
+ 	if (ctl_v1) {
+ 		if (ctl_v1->depth)
+ 			q->maxdepth = min_t(u32, ctl_v1->depth, SFQ_MAX_DEPTH);
++		if (p) {
++			swap(q->red_parms, p);
++			red_set_parms(q->red_parms,
++				      ctl_v1->qth_min, ctl_v1->qth_max,
++				      ctl_v1->Wlog,
++				      ctl_v1->Plog, ctl_v1->Scell_log,
++				      NULL,
++				      ctl_v1->max_P);
++		}
++		q->flags = ctl_v1->flags;
+ 		q->headdrop = ctl_v1->headdrop;
+ 	}
+ 	if (ctl->limit) {
+@@ -594,6 +696,7 @@ static int sfq_change(struct Qdisc *sch, struct nlattr *opt)
+ 		q->perturbation = net_random();
+ 	}
+ 	sch_tree_unlock(sch);
++	kfree(p);
+ 	return 0;
+ }
+ 
+@@ -625,6 +728,7 @@ static void sfq_destroy(struct Qdisc *sch)
+ 	del_timer_sync(&q->perturb_timer);
+ 	sfq_free(q->ht);
+ 	sfq_free(q->slots);
++	kfree(q->red_parms);
+ }
+ 
+ static int sfq_init(struct Qdisc *sch, struct nlattr *opt)
+@@ -683,6 +787,7 @@ static int sfq_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	struct sfq_sched_data *q = qdisc_priv(sch);
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct tc_sfq_qopt_v1 opt;
++	struct red_parms *p = q->red_parms;
+ 
+ 	memset(&opt, 0, sizeof(opt));
+ 	opt.v0.quantum	= q->quantum;
+@@ -693,6 +798,17 @@ static int sfq_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	opt.depth	= q->maxdepth;
+ 	opt.headdrop	= q->headdrop;
+ 
++	if (p) {
++		opt.qth_min	= p->qth_min >> p->Wlog;
++		opt.qth_max	= p->qth_max >> p->Wlog;
++		opt.Wlog	= p->Wlog;
++		opt.Plog	= p->Plog;
++		opt.Scell_log	= p->Scell_log;
++		opt.max_P	= p->max_P;
++	}
++	memcpy(&opt.stats, &q->stats, sizeof(opt.stats));
++	opt.flags	= q->flags;
++
+ 	NLA_PUT(skb, TCA_OPTIONS, sizeof(opt), &opt);
+ 
+ 	return skb->len;
+@@ -747,15 +863,13 @@ static int sfq_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+ 	sfq_index idx = q->ht[cl - 1];
+ 	struct gnet_stats_queue qs = { 0 };
+ 	struct tc_sfq_xstats xstats = { 0 };
+-	struct sk_buff *skb;
+ 
+ 	if (idx != SFQ_EMPTY_SLOT) {
+ 		const struct sfq_slot *slot = &q->slots[idx];
+ 
+ 		xstats.allot = slot->allot << SFQ_ALLOT_SHIFT;
+ 		qs.qlen = slot->qlen;
+-		slot_queue_walk(slot, skb)
+-			qs.backlog += qdisc_pkt_len(skb);
++		qs.backlog = slot->backlog;
+ 	}
+ 	if (gnet_stats_copy_queue(d, &qs) < 0)
+ 		return -1;
