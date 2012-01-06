@@ -1,8 +1,8 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH 2/6] net: pad skb data and shinfo as a whole rather than
  individually
-Date: Fri, 6 Jan 2012 13:29:45 +0000
-Message-ID: <1325856585.25206.498.camel@zakaz.uk.xensource.com>
+Date: Fri, 06 Jan 2012 14:37:10 +0100
+Message-ID: <1325857030.2999.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 References: <1325783399.25206.413.camel@zakaz.uk.xensource.com>
 	 <1325783624-14601-2-git-send-email-ian.campbell@citrix.com>
 	 <1325785607.4759.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
@@ -10,84 +10,91 @@ References: <1325783399.25206.413.camel@zakaz.uk.xensource.com>
 	 <1325794968.2748.6.camel@edumazet-laptop>
 	 <1325848815.25206.471.camel@zakaz.uk.xensource.com>
 	 <1325853226.2999.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1325856001.25206.493.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:9821 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751673Ab2AFN3r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2012 08:29:47 -0500
-In-Reply-To: <1325853226.2999.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:38311 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751225Ab2AFNhO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2012 08:37:14 -0500
+Received: by werm1 with SMTP id m1so1114550wer.19
+        for <netdev@vger.kernel.org>; Fri, 06 Jan 2012 05:37:13 -0800 (PST)
+In-Reply-To: <1325856001.25206.493.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-01-06 at 12:33 +0000, Eric Dumazet wrote:
-> Le vendredi 06 janvier 2012 =C3=A0 11:20 +0000, Ian Campbell a =C3=A9=
+Le vendredi 06 janvier 2012 =C3=A0 13:20 +0000, Ian Campbell a =C3=A9cr=
+it :
+> On Fri, 2012-01-06 at 12:33 +0000, Eric Dumazet wrote:
+> > Le vendredi 06 janvier 2012 =C3=A0 11:20 +0000, Ian Campbell a =C3=A9=
 crit :
+> >=20
+> > > It doesn't fit in a single cache line today.
+> >=20
+> > It really does, thanks to your (net: pack skb_shared_info more
+> > efficiently) previous patch.
+> >=20
+> > I dont understand your numbers, very hard to read.
+> >=20
+> > Current net-next :
+> >=20
+> > offsetof(struct skb_shared_info, nr_frags)=3D0x0
+> > offsetof(struct skb_shared_info, frags[1])=3D0x40   (0x30 on 32bit =
+arches)
 >=20
-> > It doesn't fit in a single cache line today.
->=20
-> It really does, thanks to your (net: pack skb_shared_info more
-> efficiently) previous patch.
->=20
-> I dont understand your numbers, very hard to read.
->=20
-> Current net-next :
->=20
-> offsetof(struct skb_shared_info, nr_frags)=3D0x0
-> offsetof(struct skb_shared_info, frags[1])=3D0x40   (0x30 on 32bit ar=
-ches)
->=20
-> So _all_ fields, including one frag, are included in a single cache l=
-ine
-> on most machines (64-bytes cache line),
+> I see 0x48 here at cset 6386994e03ebbe60338ded3d586308a41e81c0dc:
 
-BTW, this is also true with my patch + put destructor_arg first in the
-struct (at least for all interesting fields, since I chose
-destructor_arg specifically because it did not seem interesting for
-these purposes -- do you disagree?)
+If you read my mail, I said "current net-next"=20
 
-(gdb) print &((struct skb_shared_info *)0)->frags[1]
-$1 =3D (skb_frag_t *) 0x48
-but there is a cacheline boundary just before nr_frags:
-(gdb) print &((struct skb_shared_info *)0)->nr_frags
-$3 =3D (unsigned char *) 0x8
+Please "git pull" again ?
 
-So the interesting fields total 0x48-0x8 =3D 0x40 bytes and the alignme=
-nt
-is such that this is a single cache line.
 
->  IF struct skb_shared_info is
-> aligned.
+Here I really have your commit 9f42f126154786e6e76df513004800c8c633f020
+in.
 
-Obviously the conditions for the above are a little different but they
-are, AFAIK, met.
 
-Ian.
 
+> (gdb) print &((struct skb_shared_info *)0)->nr_frags
+> $1 =3D (short unsigned int *) 0x0
+> (gdb) print &((struct skb_shared_info *)0)->frags[1]
+> $2 =3D (skb_frag_t *) 0x48
+> (gdb) print &((struct skb_shared_info *)0)->frags[0]
+> $3 =3D (skb_frag_t *) 0x38
 >=20
-> Your patch obviously breaks this on 64bit arches, unless you make sur=
-e
-> sizeof(struct skb_shared_info) is a multiple of cache line.
+> (it's 0x34 and 0x2c on 32 bit) and these numbers match what I posted =
+for
+> v3.1 (and I imagine earlier since this stuff doesn't seem to change v=
+ery
+> often).
 >=20
-> [BTW, it is incidentaly the case after your 1/6 patch]
+> I provided the offsets of each field in struct skb_shared_info, which
+> one do you think is wrong?
 >=20
-> fields reordering is not going to change anything on this.
->=20
-> Or maybe I misread your patch ?
->=20
-> At least you claimed in Changelog :=20
->=20
-> <quote>
->  Reducing this overhead means that sometimes the tail end of
->  the data can end up in the same cache line as the beginning of the s=
-hinfo but
->  in many cases the allocation slop means that there is no overlap.
-> </quote>
->=20
->=20
->=20
+> Remember that the end shared info is explicitly aligned (to the end o=
+f
+> the allocation =3D=3D a cache line) while the front just ends up at w=
+herever
+> the size dictates so you can't measure the alignment of the fields fr=
+om
+> the beginning  of the struct, you need to measure from the end.
+
+You're mistaken. Really.
+
+Current code makes SURE skb->end starts at a cache line boundary
+(assuminf kmalloc() returned an aligned bloc, this might be not true
+with SLAB debugging)
+
+size =3D SKB_WITH_OVERHEAD(ksize(data));
+=2E..
+skb->end =3D skb->tail + size;
+
+So there is possibility of padding (less than 64 bytes) _after_
+skb_shared_info and before the end of allocated area.
+
+After your 9f42f1261547 commit on 64bit, we have no padding anymore
+since sizeof(struct skb_shared_info)=3D0x140
