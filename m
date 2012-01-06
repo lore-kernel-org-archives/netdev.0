@@ -1,49 +1,29 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] drivers: misc: Remove MISC_DEVICES config option
-Date: Thu, 5 Jan 2012 21:03:55 -0800
-Message-ID: <20120106050355.GA7633@kroah.com>
-References: <1325796541-11402-1-git-send-email-festevam@gmail.com>
- <20120105223933.GA10268@kroah.com>
- <CAOMZO5BQhcxViN3KnjhzF9hL1w04egkmb9njc7sDUB0GFdgBog@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, gwingerde@gmail.com,
-	larry.finger@lwfinger.net, davem@davemloft.net,
-	bhutchings@solarflare.com, arnd@arndb.de,
-	linux-kernel@vger.kernel.org,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: Fabio Estevam <festevam@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAOMZO5BQhcxViN3KnjhzF9hL1w04egkmb9njc7sDUB0GFdgBog@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 2/3] bcm63xx: make ethtool_ops const
+Date: Thu, 05 Jan 2012 21:10:24 -0800
+Message-ID: <20120106051051.050675760@vyatta.com>
+References: <20120106051022.712047093@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sfca-50.vyatta.com ([76.74.103.50]:35080 "EHLO fiji.vyatta.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750984Ab2AFFQk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jan 2012 00:16:40 -0500
+Content-Disposition: inline; filename=broadcom-ethtool-ops.patch
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 05, 2012 at 11:18:28PM -0200, Fabio Estevam wrote:
-> On Thu, Jan 5, 2012 at 8:39 PM, Greg KH <greg@kroah.com> wrote:
->=20
-> > Are you sure that this isn't getting confused with the
-> > drivers/char/misc.c interface instead of the "throw a bunch of rand=
-ome
-> > drivers into drivers/misc/" issue?
->=20
-> Sorry, I am not aware of this issue.
->=20
-> > Why would anything ever want to select MISC_DEVICES? =A0What happen=
-s if
-> > you just remove that select line from the Kconfig?
->=20
-> Yes, I don=B4t understand the point of allowing the selection MISC_DE=
-VICES.
->=20
-> IMHO it is potential for causing dependency issues.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Then remove that selection.  Nothing should be depending on a misc
-driver, if it is, then that implies that this is more than just a "misc=
-"
-driver, and it should be moved elsewhere.
-
-thanks,
-
-greg k-h
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c	2011-12-07 10:54:18.688278133 -0800
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c	2012-01-04 14:19:01.945391195 -0800
+@@ -1469,7 +1469,7 @@ static int bcm_enet_set_pauseparam(struc
+ 	return 0;
+ }
+ 
+-static struct ethtool_ops bcm_enet_ethtool_ops = {
++static const struct ethtool_ops bcm_enet_ethtool_ops = {
+ 	.get_strings		= bcm_enet_get_strings,
+ 	.get_sset_count		= bcm_enet_get_sset_count,
+ 	.get_ethtool_stats      = bcm_enet_get_ethtool_stats,
