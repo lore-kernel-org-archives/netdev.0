@@ -1,145 +1,44 @@
-From: "Yan, Zheng" <zheng.z.yan@intel.com>
-Subject: [PATCH RFC] iwlwifi: add basic runtime PM support
-Date: Fri, 06 Jan 2012 10:41:29 +0800
-Message-ID: <4F065F59.2070107@intel.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [net-next 8/9] ixgbe: add interface to export thermal data
+Date: Thu, 5 Jan 2012 19:03:56 -0800
+Message-ID: <20120105190356.41a8907c@nehalam.linuxnetplumber.net>
+References: <1324631357-31789-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1324631357-31789-9-git-send-email-jeffrey.t.kirsher@intel.com>
+	<CAHXqBFL_44T5nQVA=n03aT9Q1QpsLCY2dn9o6GE-9Rm66DSt-A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: wey-yi.w.guy@intel.com, ilw@linux.intel.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: =?ISO-8859-2?B?TWljaGGzIE1pcm9zs2F3?= <mirqus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:41807 "EHLO mga14.intel.com"
+Received: from mail.vyatta.com ([76.74.103.46]:56670 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758436Ab2AFClb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jan 2012 21:41:31 -0500
+	id S1758298Ab2AFDD7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2012 22:03:59 -0500
+In-Reply-To: <CAHXqBFL_44T5nQVA=n03aT9Q1QpsLCY2dn9o6GE-9Rm66DSt-A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This simple patch adds open/close based runtime PM support to the iwlwifi driver.
-Namely, make the driver suspend the device after shutting down the interface and
-resume the device when activating the interface. In my test, suspending the device
-can save about 0.4 watt power. The shortcoming is that the device no longer generate
-rfkill changes interrupt.
+On Fri, 23 Dec 2011 18:58:48 +0100
+Micha=B3 Miros=B3aw <mirqus@gmail.com> wrote:
 
-Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
----
-diff --git a/drivers/net/wireless/iwlwifi/iwl-agn.c b/drivers/net/wireless/iwlwifi/iwl-agn.c
-index e0e9a3d..c0b7b85 100644
---- a/drivers/net/wireless/iwlwifi/iwl-agn.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
-@@ -38,6 +38,7 @@
- #include <linux/firmware.h>
- #include <linux/etherdevice.h>
- #include <linux/if_arp.h>
-+#include <linux/pm_runtime.h>
- 
- #include <net/mac80211.h>
- 
-@@ -1755,6 +1756,8 @@ static int iwlagn_mac_start(struct ieee80211_hw *hw)
- 	struct iwl_priv *priv = hw->priv;
- 	int ret;
- 
-+	pm_runtime_get_sync(bus(priv)->dev);
-+
- 	IWL_DEBUG_MAC80211(priv, "enter\n");
- 
- 	/* we should be verifying the device is ready to be opened */
-@@ -1762,19 +1765,24 @@ static int iwlagn_mac_start(struct ieee80211_hw *hw)
- 	ret = __iwl_up(priv);
- 	mutex_unlock(&priv->shrd->mutex);
- 	if (ret)
--		return ret;
-+		goto out;
- 
- 	IWL_DEBUG_INFO(priv, "Start UP work done.\n");
- 
- 	/* Now we should be done, and the READY bit should be set. */
--	if (WARN_ON(!test_bit(STATUS_READY, &priv->shrd->status)))
-+	if (WARN_ON(!test_bit(STATUS_READY, &priv->shrd->status))) {
- 		ret = -EIO;
-+		goto out;
-+	}
- 
- 	iwlagn_led_enable(priv);
- 
- 	priv->is_open = 1;
- 	IWL_DEBUG_MAC80211(priv, "leave\n");
--	return 0;
-+	ret = 0;
-+out:
-+	pm_runtime_put(bus(priv)->dev);
-+	return ret;
- }
- 
- static void iwlagn_mac_stop(struct ieee80211_hw *hw)
-@@ -1786,6 +1794,8 @@ static void iwlagn_mac_stop(struct ieee80211_hw *hw)
- 	if (!priv->is_open)
- 		return;
- 
-+	pm_runtime_get_sync(bus(priv)->dev);
-+
- 	priv->is_open = 0;
- 
- 	iwl_down(priv);
-@@ -1798,6 +1808,8 @@ static void iwlagn_mac_stop(struct ieee80211_hw *hw)
- 	iwl_enable_rfkill_int(priv);
- 
- 	IWL_DEBUG_MAC80211(priv, "leave\n");
-+
-+	pm_runtime_put(bus(priv)->dev);
- }
- 
- #ifdef CONFIG_PM_SLEEP
-diff --git a/drivers/net/wireless/iwlwifi/iwl-pci.c b/drivers/net/wireless/iwlwifi/iwl-pci.c
-index 1800029..d3f39b2 100644
---- a/drivers/net/wireless/iwlwifi/iwl-pci.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-pci.c
-@@ -63,6 +63,7 @@
- #include <linux/module.h>
- #include <linux/pci.h>
- #include <linux/pci-aspm.h>
-+#include <linux/pm_runtime.h>
- 
- #include "iwl-bus.h"
- #include "iwl-io.h"
-@@ -465,6 +466,8 @@ static int iwl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	err = iwl_probe(bus, &trans_ops_pcie, cfg);
- 	if (err)
- 		goto out_disable_msi;
-+
-+	pm_runtime_put_noidle(&pdev->dev);
- 	return 0;
- 
- out_disable_msi:
-@@ -487,6 +490,8 @@ static void __devexit iwl_pci_remove(struct pci_dev *pdev)
- 	struct pci_dev *pci_dev = IWL_BUS_GET_PCI_DEV(bus);
- 	struct iwl_shared *shrd = bus->shrd;
- 
-+	pm_runtime_get_noresume(&pdev->dev);
-+
- 	iwl_remove(shrd->priv);
- 
- 	pci_disable_msi(pci_dev);
-@@ -534,7 +539,21 @@ static int iwl_pci_resume(struct device *device)
- 	return iwl_trans_resume(shrd->trans);
- }
- 
--static SIMPLE_DEV_PM_OPS(iwl_dev_pm_ops, iwl_pci_suspend, iwl_pci_resume);
-+
-+static int iwl_pci_runtime_idle(struct device *dev)
-+{
-+	struct pci_dev *pdev = to_pci_dev(dev);
-+	struct iwl_bus *bus = pci_get_drvdata(pdev);
-+	struct iwl_shared *shrd = bus->shrd;
-+
-+	if (!test_bit(STATUS_ALIVE, &shrd->status))
-+		return 0;
-+
-+	return -EBUSY;
-+}
-+
-+static UNIVERSAL_DEV_PM_OPS(iwl_dev_pm_ops, iwl_pci_suspend,
-+			iwl_pci_resume, iwl_pci_runtime_idle);
- 
- #define IWL_PM_OPS	(&iwl_dev_pm_ops)
- 
+> 2011/12/23 Jeff Kirsher <jeffrey.t.kirsher@intel.com>:
+> > From: Don Skidmore <donald.c.skidmore@intel.com>
+> >
+> > Some of our adapters have thermal data available, this patch export=
+s this
+> > data via a read-only sysfs interface.
+>=20
+> Just curious: can't this use the hwmon subsystem to be consistent wit=
+h
+> other system monitoring devices?
+>=20
+> Best Regards,
+> Micha=B3 Miros=B3aw
+
+There is also libsensors support in net-snmp, so if you use standard AP=
+I's
+the values can be monitored with standard management tools.
