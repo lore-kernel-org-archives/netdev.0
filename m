@@ -1,72 +1,68 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [net-next 08/11] e1000e: add Receive Packet Steering (RPS)
- support
-Date: Fri, 6 Jan 2012 17:31:11 +0000
-Message-ID: <1325871071.2850.13.camel@bwh-desktop>
-References: <1325618356-2655-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1325618356-2655-9-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1325624728.2832.12.camel@bwh-desktop>
-	 <804857E1F29AAC47BF68C404FC60A18403B8ED@ORSMSX102.amr.corp.intel.com>
+From: Grant Grundler <grundler@chromium.org>
+Subject: Re: asix, setting MAC broken in v3.2. Bisected to "NET: fix phy init
+ for AX88772 USB ethernet".
+Date: Fri, 6 Jan 2012 09:33:47 -0800
+Message-ID: <CANEJEGvXST4YzDL4kuF=kjZBN=ng-bC5UptCU2zk6JUmhpVjmg@mail.gmail.com>
+References: <20120106131051.92814bd4b7x0nmqs@www.81.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Freddy Xin <freddy@asix.com.tw>,
+	Olof Johansson <olofj@chromium.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	David Hollis <dhollis@davehollis.com>,
+	Allan Chou <allan@asix.com.tw>
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:7626 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752842Ab2AFRbQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2012 12:31:16 -0500
-In-Reply-To: <804857E1F29AAC47BF68C404FC60A18403B8ED@ORSMSX102.amr.corp.intel.com>
+Received: from mail-tul01m020-f174.google.com ([209.85.214.174]:60024 "EHLO
+	mail-tul01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758864Ab2AFRds (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2012 12:33:48 -0500
+Received: by obcwo16 with SMTP id wo16so2124550obc.19
+        for <netdev@vger.kernel.org>; Fri, 06 Jan 2012 09:33:47 -0800 (PST)
+In-Reply-To: <20120106131051.92814bd4b7x0nmqs@www.81.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-01-06 at 17:22 +0000, Allan, Bruce W wrote:
-> >-----Original Message-----
-> >From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> >Sent: Tuesday, January 03, 2012 1:05 PM
-> >To: Kirsher, Jeffrey T
-> >Cc: davem@davemloft.net; Allan, Bruce W; netdev@vger.kernel.org;
-> >gospo@redhat.com; sassmann@redhat.com
-> >Subject: Re: [net-next 08/11] e1000e: add Receive Packet Steering (RPS) support
-> >
-> >On Tue, 2012-01-03 at 11:19 -0800, Jeff Kirsher wrote:
-> >> From: Bruce Allan <bruce.w.allan@intel.com>
-> >>
-> >> Enable RPS by default.  Disallow jumbo frames when both receive checksum
-> >> and receive hashing are enabled because the hardware cannot do both IP
-> >> payload checksum (enabled when receive checksum is enabled when using
-> >> packet split which is used for jumbo frames) and provide RSS hash at the
-> >> same time.
-> >[...]
-> >
-> >This doesn't seem to have much to do with RPS.  RPS can use a hardware
-> >hash but doesn't require it.
-> >
-> >You should also implement the ethtool command to query flow hashing
-> >behaviour (ETHTOOL_GRXFH command, get_rxnfc operation).
-> >
-> >Ben.
-> >
-> >--
-> >Ben Hutchings, Staff Engineer, Solarflare
-> >Not speaking for my employer; that's the marketing department's job.
-> >They asked us to note that Solarflare product names are trademarked.
-> 
-> Thanks for the feedback Ben.  One question: is the data returned from
-> an ETHTOOL_GRXFH command with the get_rxnfc operation supposed to be
-> the default for the device or the current setting?
+On Fri, Jan 6, 2012 at 3:10 AM, Jussi Kivilinna
+<jussi.kivilinna@mbnet.fi> wrote:
+> Hello,
+>
+> I have asix adapter plugged to mini-server
 
-It's supposed to return the current setting.  There's no way to find out
-the default once the behaviour has been changed.
+Which Asix adapter do you have? (Vendor/model)
 
-Ben.
+Can you please provide:
+1) dmesg output from asix driver
+2) lsusb output for the device
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> and have to change MAC address
+> before DHCP because of ISP. This worked fine, until v3.2. Now I have to set
+> interface in promisc mode to have custom MAC working.
+
+Sorry - I didn't test this but I also would not expect this to break
+with the changes in 3.2.
+
+I'll see if Freddy or Allan (ASIX) need my help with this.
+
+cheers,
+grant
+
+>
+> I bisected problem to '[4ad1438f025ed8d1e4e95a796ca7f0ad5a22c378] NET: fix
+> phy init for AX88772 USB ethernet':
+>
+> # bad: [5f0a6e2d503896062f641639dacfe5055c2f593b] Linux 3.2-rc7
+> # good: [c3b92c8787367a8bb53d57d9789b558f1295cc96] Linux 3.1
+> git bisect start 'v3.2-rc7' 'v3.1' 'drivers/net/usb/asix.c'
+> # bad: [79de9efdb93d8e693dccd0eb7d80cd6092f5875b] NET: asix: fix ethtool -e
+> for AX88178 USB dongle
+> git bisect bad 79de9efdb93d8e693dccd0eb7d80cd6092f5875b
+> # bad: [4ad1438f025ed8d1e4e95a796ca7f0ad5a22c378] NET: fix phy init for
+> AX88772 USB ethernet
+> git bisect bad 4ad1438f025ed8d1e4e95a796ca7f0ad5a22c378
+> # good: [afc4b13df143122f99a0eb10bfefb216c2806de0] net: remove use of
+> ndo_set_multicast_list in drivers
+> git bisect good afc4b13df143122f99a0eb10bfefb216c2806de0
+>
+> -Jussi
+>
