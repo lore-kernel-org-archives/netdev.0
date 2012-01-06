@@ -1,176 +1,188 @@
-From: Grant Grundler <grundler@chromium.org>
-Subject: Re: 3.0.8 kernel : NULL ptr deref in skb_queue_purge()
-Date: Fri, 6 Jan 2012 13:19:30 -0800
-Message-ID: <CANEJEGtfQtcsmGkhNBKHV3Uxaxxy3PjjUU7TLnRhh9UsP79cHA@mail.gmail.com>
-References: <CANEJEGtJ3UmFNyui_SaZ6NF5FFVjZ+_UBg1RC2eif5Lu1YKDsQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] bond_alb: don't disable softirq under bond_alb_xmit
+Date: Fri, 06 Jan 2012 13:33:25 -0800
+Message-ID: <7449.1325885605@death>
+References: <1325881423-19309-1-git-send-email-maxim.uvarov@oracle.com>
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, davem@davemloft.net,
+	Cong Wang <amwang@redhat.com>
+To: Maxim Uvarov <maxim.uvarov@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-tul01m020-f174.google.com ([209.85.214.174]:54369 "EHLO
-	mail-tul01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759222Ab2AFVTb convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jan 2012 16:19:31 -0500
-Received: by obcwo16 with SMTP id wo16so2380022obc.19
-        for <netdev@vger.kernel.org>; Fri, 06 Jan 2012 13:19:30 -0800 (PST)
-In-Reply-To: <CANEJEGtJ3UmFNyui_SaZ6NF5FFVjZ+_UBg1RC2eif5Lu1YKDsQ@mail.gmail.com>
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:59195 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756924Ab2AFVfM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jan 2012 16:35:12 -0500
+Received: from /spool/local
+	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Fri, 6 Jan 2012 16:35:11 -0500
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q06LXSPp290838
+	for <netdev@vger.kernel.org>; Fri, 6 Jan 2012 16:33:28 -0500
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q06LXSDJ020093
+	for <netdev@vger.kernel.org>; Fri, 6 Jan 2012 19:33:28 -0200
+In-reply-to: <1325881423-19309-1-git-send-email-maxim.uvarov@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 7, 2011 at 2:40 PM, Grant Grundler <grundler@chromium.org> =
-wrote:
-> Hi,
-> I'm testing asix (USB 100BT ethernet adapter with AX88772) driver
-> initialization (and shut down) paths and reproduced a
-> "skb_queue_purge" panic 3 times after a few hundred/thousand
-> iterations of rmmod/modprobe. I'm inclined to believe
-> skb_queue_purge() is a victim and not a culprit here.
+Maxim Uvarov <maxim.uvarov@oracle.com> wrote:
 
-=46YI - Follow up:
-I'm not able to reproduce this problem in 10000 iterations of
-unload/USB off/USB on/load asix cycles. I've closed the original bug
-report (http://crosbug.com/17349).
+>No need to lock soft irqs under bond_alb_xmit()
+>which already has softirq disabled.
 
-Our kernel moved forward to 3.0.13 since then (was 3.0.8 based) but
-I'm skeptical this 'fixed' the problem. So I think there is something
-else going on (memory corruption? don't know).
+	In commit:
 
-cheers,
-grant
+commit 6603a6f25e4bca922a7dfbf0bf03072d98850176
+Author: Jay Vosburgh <fubar@us.ibm.com>
+Date:   Wed Oct 17 17:37:50 2007 -0700
 
+    bonding: Convert more locks to _bh, acquire rtnl, for new locking
+    
+        Convert more lock acquisitions to _bh flavor to avoid deadlock
+    with workqueue activity and add acquisition of RTNL in appropriate places.
+    Affects ALB mode, as well as core bonding functions and sysfs.
+    
+    Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+    Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+    Signed-off-by: Jeff Garzik <jeff@garzik.org>
+
+	the _lock_tx_hashtbl was upgraded from regular to _bh to prevent
+deadlocks.  I don't recall right offhand what deadlock this prevented,
+but are we sure there are no possible issues with converting this lock
+back to a non-_bh acquisition?  A lot has changed since then, so I'm
+willing to believe it's no longer an issue, but I think a bit of
+research is warranted.
+
+	Also, unlike my log message from the above commit, it would be
+useful for future reference to describe the actual problem that this is
+fixing.
+
+	-J
+
+>Signed-off-by: Maxim Uvarov <maxim.uvarov@oracle.com>
+>Signed-off-by: Cong Wang <amwang@redhat.com>
+>---
+> drivers/net/bonding/bond_alb.c |   40 +++++++++++++++++++++++++++-------------
+> 1 files changed, 27 insertions(+), 13 deletions(-)
 >
-> =C2=A0I don't know if all 3 "spontaneous reboots" I've seen have the =
-same
-> stack trace as the one I have a record for:
+>diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+>index 106b88a..42d4286 100644
+>--- a/drivers/net/bonding/bond_alb.c
+>+++ b/drivers/net/bonding/bond_alb.c
+>@@ -135,7 +135,7 @@ static void tlb_clear_slave(struct bonding *bond, struct slave *slave, int save_
+> 	struct tlb_client_info *tx_hash_table;
+> 	u32 index;
 >
-> ...
-> <6>[57776.637311] asix 1-4:1.0: eth0: link up, 100Mbps, full-duplex, =
-lpa 0xCDE1
-> <6>[57777.224552] usbcore: deregistering interface driver asix
-> <6>[57777.224859] asix 1-4:1.0: eth0: unregister 'asix'
-> usb-0000:00:1d.7-4, ASIX AX88772 USB 2.0 Ethernet
-> <1>[57777.224918] BUG: unable to handle kernel NULL pointer
-> dereference at 00000002
-> <1>[57777.224934] IP: [<00000002>] 0x1
-> <5>[57777.224952] *pdpt =3D 0000000061d70001 *pde =3D 000000000000000=
-0
-> <0>[57777.224967] Oops: 0010 [#1] SMP
-> <5>[57777.224980] Modules linked in: asix(-) i2c_dev tsl2583(C)
-> industrialio(C) snd_hda_codec_realtek i2c_i801 nm10_gpio snd_hda_inte=
-l
-> snd_hda_codec snd_hwdep snd_pcm snd_timer snd_page_alloc gobi rtc_cmo=
-s
-> fuse nf_conntrack_ipv6 nf_defrag_ipv6 ip6table_filter xt_mark ath9k
-> ip6_tables mac80211 ath9k_common ath9k_hw ath cfg80211 uvcvideo
-> videodev usbnet qcserial usb_wwan [last unloaded: asix]
-> <5>[57777.225109]
-> <5>[57777.225121] Pid: 30292, comm: rmmod Tainted: G =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 C =C2=A03.0.8
-> #2 SAMSUNG ELECTRONICS CO., LTD. Alex/G100
-> <5>[57777.225141] EIP: 0060:[<00000002>] EFLAGS: 00010286 CPU: 1
-> <5>[57777.225153] EIP is at 0x2
-> <5>[57777.225162] EAX: 00000001 EBX: 00000100 ECX: 00000000 EDX: 0000=
-0100
-> <5>[57777.225172] ESI: f6bad5a8 EDI: f6bad59c EBP: e44e7e20 ESP: e44e=
-7e14
-> <5>[57777.225183] =C2=A0DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
-> <0>[57777.225194] Process rmmod (pid: 30292, ti=3De44e6000 task=3Df0c=
-2e040
-> task.ti=3De44e6000)
-> <0>[57777.225203] Stack:
-> <5>[57777.225209] =C2=A0f58fdb70 f6bad000 f8c63a34 e44e7e2c 812d2a98
-> f6bad480 e44e7e40 f87e820e
-> <5>[57777.225242] =C2=A0e44e7e88 f6bad000 e44e7e88 e44e7e50 812d79cd
-> e44e7e88 f6bad000 e44e7e6c
-> <5>[57777.225273] =C2=A0812d7a82 e44e7e58 e44e7e58 e44e7e88 f6bad000
-> e44e7e88 e44e7e80 812d7b60
-> <0>[57777.225305] Call Trace:
-> <5>[57777.225325] =C2=A0[<812d2a98>] skb_queue_purge+0x19/0x20
-> <5>[57777.225345] =C2=A0[<f87e820e>] usbnet_stop+0xb5/0xf9 [usbnet]
-> <5>[57777.225361] =C2=A0[<812d79cd>] __dev_close_many+0x85/0xa2
-> <5>[57777.225375] =C2=A0[<812d7a82>] dev_close_many+0x61/0xb1
-> <5>[57777.225390] =C2=A0[<812d7b60>] rollback_registered_many+0x8e/0x=
-1ec
-> <5>[57777.225405] =C2=A0[<812d9224>] unregister_netdevice_queue+0x6e/=
-0x9f
-> <5>[57777.225419] =C2=A0[<812d9270>] unregister_netdev+0x1b/0x22
-> <5>[57777.225437] =C2=A0[<f87e76be>] usbnet_disconnect+0x71/0xb9 [usb=
-net]
-> <5>[57777.225454] =C2=A0[<81273a03>] usb_unbind_interface+0x44/0xf8
-> <5>[57777.225471] =C2=A0[<81237d25>] __device_release_driver+0x80/0xb=
-8
-> <5>[57777.225484] =C2=A0[<812381e2>] driver_detach+0x6c/0x8a
-> <5>[57777.225499] =C2=A0[<81237c41>] bus_remove_driver+0x6e/0x8d
-> <5>[57777.225513] =C2=A0[<81238721>] driver_unregister+0x51/0x58
-> <5>[57777.225526] =C2=A0[<812730c2>] usb_deregister+0x92/0x9f
-> <5>[57777.225541] =C2=A0[<f8c62885>] cleanup_module+0xd/0x788 [asix]
-> <5>[57777.225556] =C2=A0[<810573ed>] sys_delete_module+0x19d/0x1fa
-> <5>[57777.225573] =C2=A0[<8109a059>] ? do_munmap+0x1f2/0x20a
-> <5>[57777.225590] =C2=A0[<8137e677>] sysenter_do_call+0x12/0x26
-> <0>[57777.225599] Code: =C2=A0Bad EIP value.
-> <0>[57777.225614] EIP: [<00000002>] 0x2 SS:ESP 0068:e44e7e14
-> <0>[57777.225631] CR2: 0000000000000002
-> <1>[57777.225035] BUG: unable to handle kernel NULL pointer
-> dereference at =C2=A0 (null)
-> <1>[57777.225035] IP: [< =C2=A0(null)>] =C2=A0 (null)
-> <5>[57777.225035] *pdpt =3D 000000006ff81001 *pde =3D 000000000000000=
-0
-> <4>[57777.225684] ---[ end trace
+>-	_lock_tx_hashtbl(bond);
+>+	spin_lock(&(BOND_ALB_INFO(bond).tx_hashtbl_lock));
 >
+> 	/* clear slave from tx_hashtbl */
+> 	tx_hash_table = BOND_ALB_INFO(bond).tx_hashtbl;
+>@@ -152,7 +152,7 @@ static void tlb_clear_slave(struct bonding *bond, struct slave *slave, int save_
 >
-> On my workstation, I run the following to push/run multiple iteration=
-s
-> on the target system:
-> T=3Droot@172.xx.xx.xx
-> scp ~/reload_asix $T:/tmp
-> for i in `seq 10000`; do printf " %3d: " $i; ssh $T ".
-> /tmp/reload_asix" && ssh $T "tail -30 /var/log/messages | fgrep
-> leased" ; done | tee reload_asix-loop.out
+> 	tlb_init_slave(slave);
 >
+>-	_unlock_tx_hashtbl(bond);
+>+	spin_unlock(&(BOND_ALB_INFO(bond).tx_hashtbl_lock));
+> }
 >
-> "/tmp/reload_asix" script has the following contents:
-> #!/bin/bash -x
+> /* Must be called before starting the monitor timer */
+>@@ -226,15 +226,13 @@ static struct slave *tlb_get_least_loaded_slave(struct bonding *bond)
+> 	return least_loaded;
+> }
 >
-> # redirect all output to a file. SSH might drop.
-> exec > /tmp/`date =C2=A0--rfc-3339=3Ddate`-reload-$$.out 2>&1
+>-/* Caller must hold bond lock for read */
+>-static struct slave *tlb_choose_channel(struct bonding *bond, u32 hash_index, u32 skb_len)
+>+static struct slave *__tlb_choose_channel(struct bonding *bond, u32 hash_index,
+>+						u32 skb_len)
+> {
+> 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+> 	struct tlb_client_info *hash_table;
+> 	struct slave *assigned_slave;
 >
-> date
-> rmmod asix
+>-	_lock_tx_hashtbl(bond);
+>-
+> 	hash_table = bond_info->tx_hashtbl;
+> 	assigned_slave = hash_table[hash_index].tx_slave;
+> 	if (!assigned_slave) {
+>@@ -263,11 +261,27 @@ static struct slave *tlb_choose_channel(struct bonding *bond, u32 hash_index, u3
+> 		hash_table[hash_index].tx_bytes += skb_len;
+> 	}
 >
-> # side effect of auth/deauth is a USB reset on reconnect. :)
-> echo 0 > /sys/devices/pci0000:00/0000:00:1d.7/usb1/1-4/authorized
-> sleep 1
-> echo 1 > /sys/devices/pci0000:00/0000:00:1d.7/usb1/1-4/authorized
-> sleep 1
+>-	_unlock_tx_hashtbl(bond);
+>-
+> 	return assigned_slave;
+> }
 >
-> time modprobe asix
+>+/* Caller must hold bond lock for read */
+>+static struct slave *tlb_choose_channel(struct bonding *bond, u32 hash_index,
+>+					u32 skb_len)
+>+{
+>+	struct slave *tx_slave;
+>+	/*
+>+	 * We don't need to disable softirq here, becase
+>+	 * tlb_choose_channel() is only called by bond_alb_xmit()
+>+	 * which already has softirq disabled.
+>+	 */
+>+	spin_lock(&(BOND_ALB_INFO(bond).tx_hashtbl_lock));
+>+	tx_slave = __tlb_choose_channel(bond, hash_index, skb_len);
+>+	spin_unlock(&(BOND_ALB_INFO(bond).tx_hashtbl_lock));
+>+	return tx_slave;
+>+}
+>+
+>+
+>+
+> /*********************** rlb specific functions ***************************/
+> static inline void _lock_rx_hashtbl(struct bonding *bond)
+> {
+>@@ -548,7 +562,7 @@ static void rlb_req_update_subnet_clients(struct bonding *bond, __be32 src_ip)
+> 	struct rlb_client_info *client_info;
+> 	u32 hash_index;
 >
-> for i in `seq 5` ; do
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0l=3D"$(cat /sys/class/net/eth0/speed) $(ca=
-t /sys/class/net/eth0/duplex)"
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0printf "%3d: %s %s\n" $i $(cat /sys/class/=
-net/eth0/address) "$l"
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if [ "$l" =3D "100 full" ] ; then
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0break
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0fi
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0sleep 1
-> done
+>-	_lock_rx_hashtbl(bond);
+>+	spin_lock(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
 >
-> # at this point we have negotiated link..but not DHCP yet. :/
-> return 0
+> 	hash_index = bond_info->rx_hashtbl_head;
+> 	for (; hash_index != RLB_NULL_INDEX; hash_index = client_info->next) {
+>@@ -572,7 +586,7 @@ static void rlb_req_update_subnet_clients(struct bonding *bond, __be32 src_ip)
+> 		}
+> 	}
 >
+>-	_unlock_rx_hashtbl(bond);
+>+	spin_unlock(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
+> }
 >
-> Reproduced this panic on two different x86 laptops (Asus AGB and
-> Samsung Series 5).
+> /* Caller must hold both bond and ptr locks for read */
+>@@ -584,7 +598,7 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+> 	struct rlb_client_info *client_info;
+> 	u32 hash_index = 0;
 >
-> At first glance, this doesn't look like an asix driver bug (though it=
- might be).
-> I'm hoping the bug will be obvious to someone who understands usbnet
-> and skb_queue calls.
-> Open to any debugging advice folks have.
+>-	_lock_rx_hashtbl(bond);
+>+	spin_lock(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
 >
-> thanks in advance,
-> grant
+> 	hash_index = _simple_hash((u8 *)&arp->ip_dst, sizeof(arp->ip_dst));
+> 	client_info = &(bond_info->rx_hashtbl[hash_index]);
+>@@ -600,7 +614,7 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+>
+> 			assigned_slave = client_info->slave;
+> 			if (assigned_slave) {
+>-				_unlock_rx_hashtbl(bond);
+>+				spin_unlock(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
+> 				return assigned_slave;
+> 			}
+> 		} else {
+>@@ -652,7 +666,7 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+> 		}
+> 	}
+>
+>-	_unlock_rx_hashtbl(bond);
+>+	spin_unlock(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
+>
+> 	return assigned_slave;
+> }
+>-- 
+>1.7.4.1
+>
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
