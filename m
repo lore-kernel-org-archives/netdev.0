@@ -1,36 +1,37 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [GIT] Networking
-Date: Fri, 6 Jan 2012 17:55:13 -0800
-Message-ID: <CA+55aFwbykuZ30i2qrdAbX=PzRC5jtOYuAk8s8j47OP7qDSM8g@mail.gmail.com>
-References: <20120105.192833.760673635385506638.davem@davemloft.net>
- <CA+55aFyk6QJib8UCtK_gWzidr8Ti1utJgHg359fkq=+GY8hbnw@mail.gmail.com> <20120106.175028.1076280359661712542.davem@davemloft.net>
+Date: Fri, 06 Jan 2012 18:07:45 -0800 (PST)
+Message-ID: <20120106.180745.694506225640408539.davem@davemloft.net>
+References: <CA+55aFyk6QJib8UCtK_gWzidr8Ti1utJgHg359fkq=+GY8hbnw@mail.gmail.com>
+	<20120106.175028.1076280359661712542.davem@davemloft.net>
+	<CA+55aFwbykuZ30i2qrdAbX=PzRC5jtOYuAk8s8j47OP7qDSM8g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:57541 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759358Ab2AGBzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2012 20:55:35 -0500
-In-Reply-To: <20120106.175028.1076280359661712542.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:45440 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759355Ab2AGCHr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2012 21:07:47 -0500
+In-Reply-To: <CA+55aFwbykuZ30i2qrdAbX=PzRC5jtOYuAk8s8j47OP7qDSM8g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 6, 2012 at 5:50 PM, David Miller <davem@davemloft.net> wrote:
->
-> It replaces the crappy and hard to scale procfs socket listing junk,
-> which doesn't even provide a way to filter requests.
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Fri, 6 Jan 2012 17:55:13 -0800
 
-No it doesn't.
+> Look, I have a *recent* distro (up-to-date F16) and the tool that is
+> mentioned (ss) doesn't actually use the new feature even when compiled
+> in.
+> 
+> So it doesn't "replace" anything, and buys normal people nothing at all.
+> 
+> Some day, maybe. Today? No. It's pure baggage. It shouldn't be "default y".
 
-Look, I have a *recent* distro (up-to-date F16) and the tool that is
-mentioned (ss) doesn't actually use the new feature even when compiled
-in.
+Oh I see.
 
-So it doesn't "replace" anything, and buys normal people nothing at all.
-
-Some day, maybe. Today? No. It's pure baggage. It shouldn't be "default y".
-
-                               Linus
+Ok, we can take away those default Kconfig tags for the UDP and AF_UNIX
+bits, no problem.
