@@ -1,7 +1,7 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 2/7] via-rhine: balance interrupt acknowledge and events retrieval.
-Date: Sat, 7 Jan 2012 23:50:12 +0100
-Message-ID: <20120107225012.GB25021@electric-eye.fr.zoreil.com>
+Subject: [PATCH net-next 3/7] via-rhine: remove useless forward declarations.
+Date: Sat, 7 Jan 2012 23:50:40 +0100
+Message-ID: <20120107225040.GC25021@electric-eye.fr.zoreil.com>
 References: <20120107224856.GA24928@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,10 +9,10 @@ Cc: rl@hellgate.ch, Bjarke Istrup Pedersen <gurligebis@gentoo.org>,
 	David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:50357 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:50366 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751023Ab2AGW7c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jan 2012 17:59:32 -0500
+	with ESMTP id S1751023Ab2AGXAA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jan 2012 18:00:00 -0500
 Content-Disposition: inline
 In-Reply-To: <20120107224856.GA24928@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,66 +20,28 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
- drivers/net/ethernet/via/via-rhine.c |   22 ++++++++++++++--------
- 1 files changed, 14 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/via/via-rhine.c |    7 -------
+ 1 files changed, 0 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-index 93987e8..716fd42 100644
+index 716fd42..d17ca32 100644
 --- a/drivers/net/ethernet/via/via-rhine.c
 +++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -508,9 +508,8 @@ do {								\
- 			1024 - i, __func__, __LINE__);		\
- } while (0)
+@@ -488,15 +488,8 @@ static struct net_device_stats *rhine_get_stats(struct net_device *dev);
+ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+ static const struct ethtool_ops netdev_ethtool_ops;
+ static int  rhine_close(struct net_device *dev);
+-static void rhine_shutdown (struct pci_dev *pdev);
+ static int rhine_vlan_rx_add_vid(struct net_device *dev, unsigned short vid);
+ static int rhine_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid);
+-static void rhine_set_cam(void __iomem *ioaddr, int idx, u8 *addr);
+-static void rhine_set_vlan_cam(void __iomem *ioaddr, int idx, u8 *addr);
+-static void rhine_set_cam_mask(void __iomem *ioaddr, u32 mask);
+-static void rhine_set_vlan_cam_mask(void __iomem *ioaddr, u32 mask);
+-static void rhine_init_cam_filter(struct net_device *dev);
+-static void rhine_update_vcam(struct net_device *dev);
  
--static inline u32 get_intr_status(struct net_device *dev)
-+static u32 rhine_get_events(struct rhine_private *rp)
- {
--	struct rhine_private *rp = netdev_priv(dev);
- 	void __iomem *ioaddr = rp->base;
- 	u32 intr_status;
- 
-@@ -521,6 +520,16 @@ static inline u32 get_intr_status(struct net_device *dev)
- 	return intr_status;
- }
- 
-+static void rhine_ack_events(struct rhine_private *rp, u32 mask)
-+{
-+	void __iomem *ioaddr = rp->base;
-+
-+	if (rp->quirks & rqStatusWBRace)
-+		iowrite8(mask >> 16, ioaddr + IntrStatus2);
-+	iowrite16(mask, ioaddr + IntrStatus);
-+	IOSYNC;
-+}
-+
- /*
-  * Get power related registers into sane state.
-  * Notify user about past WOL event.
-@@ -1580,14 +1589,11 @@ static irqreturn_t rhine_interrupt(int irq, void *dev_instance)
- 	int boguscnt = max_interrupt_work;
- 	int handled = 0;
- 
--	while ((intr_status = get_intr_status(dev))) {
-+	while ((intr_status = rhine_get_events(rp))) {
- 		handled = 1;
- 
- 		/* Acknowledge all of the current interrupt sources ASAP. */
--		if (intr_status & IntrTxDescRace)
--			iowrite8(0x08, ioaddr + IntrStatus2);
--		iowrite16(intr_status & 0xffff, ioaddr + IntrStatus);
--		IOSYNC;
-+		rhine_ack_events(rp, intr_status);
- 
- 		if (debug > 4)
- 			netdev_dbg(dev, "Interrupt, status %08x\n",
-@@ -1872,7 +1878,7 @@ static void rhine_restart_tx(struct net_device *dev) {
- 	 * If new errors occurred, we need to sort them out before doing Tx.
- 	 * In that case the ISR will be back here RSN anyway.
- 	 */
--	intr_status = get_intr_status(dev);
-+	intr_status = rhine_get_events(rp);
- 
- 	if ((intr_status & IntrTxErrSummary) == 0) {
- 
+ #define RHINE_WAIT_FOR(condition)				\
+ do {								\
 -- 
 1.7.6.4
