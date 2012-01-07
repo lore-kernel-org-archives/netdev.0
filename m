@@ -1,49 +1,49 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: linux-next: net/smsc911x compile error on next-20120106
-Date: Sat, 7 Jan 2012 13:55:41 +0800
-Message-ID: <CAAQ0ZWSRzUM2rdhfWDqang6Baat6x-gEso5hQGEkbOqFjM-sMQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>, David Miller <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+From: Cesar Eduardo Barros <cesarb@cesarb.net>
+Subject: [PATCH] r6040: fix typo in use of MCR0 register bits
+Date: Sat,  7 Jan 2012 13:13:17 -0200
+Message-ID: <1325949197-10143-1-git-send-email-cesarb@cesarb.net>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Cesar Eduardo Barros <cesarb@cesarb.net>
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen, David,
+Commit 4e16d6ebd65b4f2c4e3f780b4c5704beef64019c (r6040: define more MCR0
+register bits) added #define values for MCR0 register bits and converted
+uses of hardcoded magic values to uses of these defines.
 
-I just ran into the following compile error when building
-next-20120106 with imx_v6_v7_defconfig.
+However, one of the conversions looks suspicious:
 
-  CC      drivers/net/ethernet/smsc/smsc911x.o
-drivers/net/ethernet/smsc/smsc911x.c: In function
-=91smsc911x_phy_disable_energy_detect=92:
-drivers/net/ethernet/smsc/smsc911x.c:1329:32: error:
-=91MII_LAN83C185_CTRL_STATUS=92 undeclared (first use in this function)
-drivers/net/ethernet/smsc/smsc911x.c:1329:32: note: each undeclared
-identifier is reported only once for each function it appears in
-drivers/net/ethernet/smsc/smsc911x.c:1340:12: error:
-=91MII_LAN83C185_EDPWRDOWN=92 undeclared (first use in this function)
-drivers/net/ethernet/smsc/smsc911x.c:1341:13: error:
-=91MII_LAN83C185_ENERGYON=92 undeclared (first use in this function)
-drivers/net/ethernet/smsc/smsc911x.c: In function
-=91smsc911x_phy_enable_energy_detect=92:
-drivers/net/ethernet/smsc/smsc911x.c:1364:32: error:
-=91MII_LAN83C185_CTRL_STATUS=92 undeclared (first use in this function)
-drivers/net/ethernet/smsc/smsc911x.c:1372:13: error:
-=91MII_LAN83C185_EDPWRDOWN=92 undeclared (first use in this function)
+ #define MCR0		0x00	/* Control register 0 */
++#define  MCR0_RCVEN	0x0002	/* Receive enable */
++#define  MCR0_XMTEN	0x1000	/* Transmission enable */
 
--- =
+ 	/* Init RDC private data */
+-	lp->mcr0 = 0x1002;
++	lp->mcr0 = MCR0_XMTEN | MCR0;
 
-Regards,
-Shawn
+I believe what was meant here was MCR0_XMTEN | MCR0_RCVEN, which makes
+sense and matches the original values.
+
+Signed-off-by: Cesar Eduardo Barros <cesarb@cesarb.net>
+---
+ drivers/net/ethernet/rdc/r6040.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
+index 87aa439..cb0eca8 100644
+--- a/drivers/net/ethernet/rdc/r6040.c
++++ b/drivers/net/ethernet/rdc/r6040.c
+@@ -1160,7 +1160,7 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
+ 	lp->dev = dev;
+ 
+ 	/* Init RDC private data */
+-	lp->mcr0 = MCR0_XMTEN | MCR0;
++	lp->mcr0 = MCR0_XMTEN | MCR0_RCVEN;
+ 
+ 	/* The RDC-specific entries in the device structure. */
+ 	dev->netdev_ops = &r6040_netdev_ops;
+-- 
+1.7.7.5
