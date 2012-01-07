@@ -1,37 +1,30 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: ping6: why TTL instead of Hop Limit?
-Date: Sun, 8 Jan 2012 00:33:04 +0100
-Message-ID: <20120107233304.GA618@hell>
-References: <CAAfuxnJX0ULFvUbrNag2TE3brTZiBv6x9X9_bKnAuD9Q_Oe1Jg@mail.gmail.com>
-Mime-Version: 1.0
+From: Xi Wang <xi.wang@gmail.com>
+Subject: Re: [PATCH] pch_can: fix error passive level test
+Date: Sat, 7 Jan 2012 18:47:33 -0500
+Message-ID: <5E853DA0-2F5E-452A-8588-2B8616E971D7@gmail.com>
+References: <1323674180-16916-1-git-send-email-xi.wang@gmail.com> <4EE5B5D9.3030702@grandegger.com> <4EE5C6A7.1070506@pengutronix.de> <4EE5C9F2.7050502@grandegger.com> <4EE5CBBD.4050206@pengutronix.de> <4EE5CE71.5050004@grandegger.com>
+Mime-Version: 1.0 (Apple Message framework v1084)
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Dan Luedtke <maildanrl@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:32944 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751823Ab2AGXdK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jan 2012 18:33:10 -0500
-Content-Disposition: inline
-In-Reply-To: <CAAfuxnJX0ULFvUbrNag2TE3brTZiBv6x9X9_bKnAuD9Q_Oe1Jg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	Masayuki Ohtake <masa-korg@dsn.okisemi.com>,
+	Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4EE5CE71.5050004@grandegger.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-* Dan Luedtke | 2012-01-07 19:07:03 [+0100]:
+On Dec 12, 2011, at 4:50 AM, Wolfgang Grandegger wrote:
+> On 12/12/2011 10:39 AM, Marc Kleine-Budde wrote:
+>> 
+>> Even for all trees which contain this driver (in a working version),
+>> which is v2.6.38 and newer.
+> 
+> OK, Well, it's not a serious fix, at least.
 
->I was just wondering why there is a TTL-field in ping6, although the
->corresponding field in the IPv6 header is called "Hop Limit". [1]
->
->Example:
->> ping6 -c 1 www.linux-ipv6.org
->> 64 bytes from 2001:200:dff:fff1:216:3eff:fea4:f9e9: icmp_seq=1 ttl=48 time=309 ms
->
->What I expected:
->> 64 bytes from 2001:200:dff:fff1:216:3eff:fea4:f9e9: icmp_seq=1 hl=48 time=309 ms
->
->Anyone an idea?
->Should I write a patch or is there a special reason for this?
+Should I resend the patch and cc to stable?  Thanks.
 
-Sorry, to late! You will break scripts/programms that parse ping6.
-
-Hagen
+- xi
