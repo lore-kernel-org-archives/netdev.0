@@ -1,49 +1,40 @@
-From: Cesar Eduardo Barros <cesarb@cesarb.net>
-Subject: [PATCH] r6040: fix typo in use of MCR0 register bits
-Date: Sat,  7 Jan 2012 13:13:17 -0200
-Message-ID: <1325949197-10143-1-git-send-email-cesarb@cesarb.net>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Cesar Eduardo Barros <cesarb@cesarb.net>
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dan Luedtke <maildanrl@googlemail.com>
+Subject: ping6: why TTL instead of Hop Limit?
+Date: Sat, 7 Jan 2012 19:07:03 +0100
+Message-ID: <CAAfuxnJX0ULFvUbrNag2TE3brTZiBv6x9X9_bKnAuD9Q_Oe1Jg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:50756 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752497Ab2AGSHF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jan 2012 13:07:05 -0500
+Received: by yenm11 with SMTP id m11so1087603yen.19
+        for <netdev@vger.kernel.org>; Sat, 07 Jan 2012 10:07:04 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 4e16d6ebd65b4f2c4e3f780b4c5704beef64019c (r6040: define more MCR0
-register bits) added #define values for MCR0 register bits and converted
-uses of hardcoded magic values to uses of these defines.
+Hello everyone,
 
-However, one of the conversions looks suspicious:
+I was just wondering why there is a TTL-field in ping6, although the
+corresponding field in the IPv6 header is called "Hop Limit". [1]
 
- #define MCR0		0x00	/* Control register 0 */
-+#define  MCR0_RCVEN	0x0002	/* Receive enable */
-+#define  MCR0_XMTEN	0x1000	/* Transmission enable */
+Example:
+> ping6 -c 1 www.linux-ipv6.org
+> 64 bytes from 2001:200:dff:fff1:216:3eff:fea4:f9e9: icmp_seq=1 ttl=48 time=309 ms
 
- 	/* Init RDC private data */
--	lp->mcr0 = 0x1002;
-+	lp->mcr0 = MCR0_XMTEN | MCR0;
+What I expected:
+> 64 bytes from 2001:200:dff:fff1:216:3eff:fea4:f9e9: icmp_seq=1 hl=48 time=309 ms
 
-I believe what was meant here was MCR0_XMTEN | MCR0_RCVEN, which makes
-sense and matches the original values.
+Anyone an idea?
+Should I write a patch or is there a special reason for this?
 
-Signed-off-by: Cesar Eduardo Barros <cesarb@cesarb.net>
----
- drivers/net/ethernet/rdc/r6040.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+best regards,
+Dan
 
-diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
-index 87aa439..cb0eca8 100644
---- a/drivers/net/ethernet/rdc/r6040.c
-+++ b/drivers/net/ethernet/rdc/r6040.c
-@@ -1160,7 +1160,7 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
- 	lp->dev = dev;
- 
- 	/* Init RDC private data */
--	lp->mcr0 = MCR0_XMTEN | MCR0;
-+	lp->mcr0 = MCR0_XMTEN | MCR0_RCVEN;
- 
- 	/* The RDC-specific entries in the device structure. */
- 	dev->netdev_ops = &r6040_netdev_ops;
+[1] RFC 2460, 3.  IPv6 Header Format, page 4,
+http://tools.ietf.org/html/rfc2460#page-4
 -- 
-1.7.7.5
+Dan Luedtke
+http://www.danrl.de
