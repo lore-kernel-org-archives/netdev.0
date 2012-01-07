@@ -1,39 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r6040: fix typo in use of MCR0 register bits
-Date: Sat, 07 Jan 2012 12:09:47 -0800 (PST)
-Message-ID: <20120107.120947.1387951434734479835.davem@davemloft.net>
-References: <1325949197-10143-1-git-send-email-cesarb@cesarb.net>
+Subject: [PATCH] net: Default UDP and UNIX diag to 'n'.
+Date: Sat, 07 Jan 2012 12:13:39 -0800 (PST)
+Message-ID: <20120107.121339.633839797125273714.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: florian@openwrt.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: cesarb@cesarb.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1325949197-10143-1-git-send-email-cesarb@cesarb.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:50328 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751080Ab2AGUNk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jan 2012 15:13:40 -0500
+Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
+	(authenticated bits=0)
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id q07KDdXw008330
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Sat, 7 Jan 2012 12:13:39 -0800
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Cesar Eduardo Barros <cesarb@cesarb.net>
-Date: Sat,  7 Jan 2012 13:13:17 -0200
 
-> Commit 4e16d6ebd65b4f2c4e3f780b4c5704beef64019c (r6040: define more MCR0
-> register bits) added #define values for MCR0 register bits and converted
-> uses of hardcoded magic values to uses of these defines.
-> 
-> However, one of the conversions looks suspicious:
-> 
->  #define MCR0		0x00	/* Control register 0 */
-> +#define  MCR0_RCVEN	0x0002	/* Receive enable */
-> +#define  MCR0_XMTEN	0x1000	/* Transmission enable */
-> 
->  	/* Init RDC private data */
-> -	lp->mcr0 = 0x1002;
-> +	lp->mcr0 = MCR0_XMTEN | MCR0;
-> 
-> I believe what was meant here was MCR0_XMTEN | MCR0_RCVEN, which makes
-> sense and matches the original values.
-> 
-> Signed-off-by: Cesar Eduardo Barros <cesarb@cesarb.net>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/Kconfig |    6 +++++-
+ net/unix/Kconfig |    2 +-
+ 2 files changed, 6 insertions(+), 2 deletions(-)
 
-Good catch, applied, thanks a lot.
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 1a8f93b..43e1439 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -410,8 +410,12 @@ config INET_TCP_DIAG
+ 	def_tristate INET_DIAG
+ 
+ config INET_UDP_DIAG
++	tristate "UDP: socket monitoring interface"
+ 	depends on INET_DIAG
+-	def_tristate INET_DIAG && IPV6
++	default n
++	---help---
++	  Support for UDP socket monitoring interface used by the ss tool.
++	  If unsure, say Y.
+ 
+ menuconfig TCP_CONG_ADVANCED
+ 	bool "TCP: advanced congestion control"
+diff --git a/net/unix/Kconfig b/net/unix/Kconfig
+index c2128b1..8b31ab8 100644
+--- a/net/unix/Kconfig
++++ b/net/unix/Kconfig
+@@ -22,7 +22,7 @@ config UNIX
+ config UNIX_DIAG
+ 	tristate "UNIX: socket monitoring interface"
+ 	depends on UNIX
+-	default UNIX
++	default n
+ 	---help---
+ 	  Support for UNIX socket monitoring interface used by the ss tool.
+ 	  If unsure, say Y.
+-- 
+1.7.6.5
