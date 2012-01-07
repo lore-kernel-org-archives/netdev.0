@@ -1,119 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 7/7] via-rhine: rework suspend and resume.
-Date: Sat, 7 Jan 2012 23:52:41 +0100
-Message-ID: <20120107225241.GG25021@electric-eye.fr.zoreil.com>
-References: <20120107224856.GA24928@electric-eye.fr.zoreil.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: ping6: why TTL instead of Hop Limit?
+Date: Sun, 8 Jan 2012 00:33:04 +0100
+Message-ID: <20120107233304.GA618@hell>
+References: <CAAfuxnJX0ULFvUbrNag2TE3brTZiBv6x9X9_bKnAuD9Q_Oe1Jg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: rl@hellgate.ch, Bjarke Istrup Pedersen <gurligebis@gentoo.org>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Dan Luedtke <maildanrl@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:50398 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751695Ab2AGXCC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jan 2012 18:02:02 -0500
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:32944 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751823Ab2AGXdK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jan 2012 18:33:10 -0500
 Content-Disposition: inline
-In-Reply-To: <20120107224856.GA24928@electric-eye.fr.zoreil.com>
+In-Reply-To: <CAAfuxnJX0ULFvUbrNag2TE3brTZiBv6x9X9_bKnAuD9Q_Oe1Jg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cover of 861ab44059350e5cab350238606cf8814abab93b.
+* Dan Luedtke | 2012-01-07 19:07:03 [+0100]:
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/ethernet/via/via-rhine.c |   41 ++++++++++++++++-----------------
- 1 files changed, 20 insertions(+), 21 deletions(-)
+>I was just wondering why there is a TTL-field in ping6, although the
+>corresponding field in the IPv6 header is called "Hop Limit". [1]
+>
+>Example:
+>> ping6 -c 1 www.linux-ipv6.org
+>> 64 bytes from 2001:200:dff:fff1:216:3eff:fea4:f9e9: icmp_seq=1 ttl=48 time=309 ms
+>
+>What I expected:
+>> 64 bytes from 2001:200:dff:fff1:216:3eff:fea4:f9e9: icmp_seq=1 hl=48 time=309 ms
+>
+>Anyone an idea?
+>Should I write a patch or is there a special reason for this?
 
-diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-index e39802f..10b18eb 100644
---- a/drivers/net/ethernet/via/via-rhine.c
-+++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -2291,17 +2291,18 @@ static void rhine_shutdown (struct pci_dev *pdev)
- 
- 	spin_unlock(&rp->lock);
- 
--	/* Hit power state D3 (sleep) */
--	if (!avoid_D3)
-+	if (system_state == SYSTEM_POWER_OFF && !avoid_D3) {
- 		iowrite8(ioread8(ioaddr + StickyHW) | 0x03, ioaddr + StickyHW);
- 
--	/* TODO: Check use of pci_enable_wake() */
--
-+		pci_wake_from_d3(pdev, true);
-+		pci_set_power_state(pdev, PCI_D3hot);
-+	}
- }
- 
--#ifdef CONFIG_PM
--static int rhine_suspend(struct pci_dev *pdev, pm_message_t state)
-+#ifdef CONFIG_PM_SLEEP
-+static int rhine_suspend(struct device *device)
- {
-+	struct pci_dev *pdev = to_pci_dev(device);
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct rhine_private *rp = netdev_priv(dev);
- 
-@@ -2313,28 +2314,21 @@ static int rhine_suspend(struct pci_dev *pdev, pm_message_t state)
- 	napi_disable(&rp->napi);
- 
- 	netif_device_detach(dev);
--	pci_save_state(pdev);
- 
- 	rhine_shutdown(pdev);
- 
- 	return 0;
- }
- 
--static int rhine_resume(struct pci_dev *pdev)
-+static int rhine_resume(struct device *device)
- {
-+	struct pci_dev *pdev = to_pci_dev(device);
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct rhine_private *rp = netdev_priv(dev);
--	int ret;
- 
- 	if (!netif_running(dev))
- 		return 0;
- 
--	ret = pci_set_power_state(pdev, PCI_D0);
--	netif_info(rp, drv, dev, "Entering power state D0 %s (%d)\n",
--		   ret ? "failed" : "succeeded", ret);
--
--	pci_restore_state(pdev);
--
- #ifdef USE_MMIO
- 	enable_mmio(rp->pioaddr, rp->quirks);
- #endif
-@@ -2352,18 +2346,23 @@ static int rhine_resume(struct pci_dev *pdev)
- 
- 	return 0;
- }
--#endif /* CONFIG_PM */
-+
-+static SIMPLE_DEV_PM_OPS(rhine_pm_ops, rhine_suspend, rhine_resume);
-+#define RHINE_PM_OPS	(&rhine_pm_ops)
-+
-+#else
-+
-+#define RHINE_PM_OPS	NULL
-+
-+#endif /* !CONFIG_PM_SLEEP */
- 
- static struct pci_driver rhine_driver = {
- 	.name		= DRV_NAME,
- 	.id_table	= rhine_pci_tbl,
- 	.probe		= rhine_init_one,
- 	.remove		= __devexit_p(rhine_remove_one),
--#ifdef CONFIG_PM
--	.suspend	= rhine_suspend,
--	.resume		= rhine_resume,
--#endif /* CONFIG_PM */
--	.shutdown =	rhine_shutdown,
-+	.shutdown	= rhine_shutdown,
-+	.driver.pm	= RHINE_PM_OPS,
- };
- 
- static struct dmi_system_id __initdata rhine_dmi_table[] = {
--- 
-1.7.6.4
+Sorry, to late! You will break scripts/programms that parse ping6.
+
+Hagen
