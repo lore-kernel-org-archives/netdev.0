@@ -1,75 +1,58 @@
-From: "HANA MUAMMAR GADDAFI" <info@mail.com>
-Subject: =?windows-1256?Q?=D3=E1=C7=E3_=DA=E1=ED=DF=E3?=
-Date: Sun, 8 Jan 2012 18:33:03 -0300
-Message-ID: <538a09e332ed9583125ed1a9aa80466f.squirrel@www.arlink.net.ar>
-Reply-To: hanamuammagadafy02@gmail.com
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] brcm80211: Don't leak 'vbuffer' in
+ brcmf_sdbrcm_write_vars()
+Date: Sun, 8 Jan 2012 23:41:21 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1201082338350.24030@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1256
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.static.supercanal.com.ar ([190.113.128.3]:55068 "EHLO
-	supercanal.com.ar" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754651Ab2AHWbI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2012 17:31:08 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, Alwin Beukers <alwin@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Franky Lin <frankyl@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=C7=E1=D3=E1=C7=E3 =DA=E1=ED=DF=E3 =E6=D1=CD=E3=C9 =C7=E1=E1=E5  , =C7=D3=
-=E3=EC =E5=C7=E4=C7 =E3=DA=E3=D1 =C7=E1=DE=D0=C7=DD=EC
-=E3=E4 =CA=D1=ED=C8=E6=E1=EC ,=E1=ED=C8=ED=C7 =D1=DE=E3 19 =C8=C7=C8 =C7=
-=E1=DA=D2=C7=ED=D2=C9, =C8=E3=E4=D8=DE=C9 =E3=C7=D1=EC =DD=ED=CA=D2=CC=ED=
-=D1=C7=E1=CF , =CA=D1=ED=C8=E6=E1=EC ,
-=E1=ED=C8=ED=C7 .
-=CE=CF=E3=CA =DF=CF=DF=CA=E6=D1=C9 =C8=E6=D2=C7=D1=C9 =C7=E1=D5=CD=C9 =C7=
-=E1=E1=ED=C8=ED=C9.
-=E6=DE=CA =C7=E1=E6=E1=C7=ED=C7=CA =C7=E1=E3=CA=CD=CF=C9 =D6=D1=C8=CA =E3=
-=E4=D8=DE=C9 =D3=DF=E4=C7 =C7=E1=CE=C7=D5 =C8=C7=D3=E3 =C7=E1=DE=D0=C7=DD=
-=EC =C8=C8=C7=C8 =C7=E1=DA=D2=C7=ED=D2=C9 =DD=EC
-14 =C7=C8=D1=ED=E1 1986 =C7=E4=CA=DE=C7=E3=C7 =E1=E3=C7 =CD=CF=CB =C8=CA=
-=DD=CC=ED=D1 =C7=E1=E3=E1=E5=EC =C7=E1=E1=ED=E1=EC =E1=C7=C8=ED=E1=C7 =C8=
-=E3=CF=ED=E4=C9 =C8=D1=E1=ED=E4 =DA=E4
-=ED=CF =E1=ED=C8=ED=ED=E4 =E3=CA=E1 =E3=C7=DE=C7=E1=E6=C7 . =E6=C7=E4=CC=
-=D1=CD=CA =C7=E4=C7 =C8=E5=CF=C7 =C7=E1=CD=C7=CF=CB =E6=E3=D4=C7=E4 =E5=
-=C7=DF =C7=C8=E6=ED=C7 =CD=DD=D9 =E5=E6=ED=CA=EC
-=D3=D1=ED=C7 , =E6=DE=C8=E1 =E6=DD=C7=C9 =E6=C7=E1=CF=EC =E6=DE=C8=E1 =C7=
-=E4 =CA=CA=CC=E3=CF =CD=D3=C7=C8=C7=CA=E5 =C8=C7=E1=C8=E4=E6=DF =DE=C8=E1=
- =C8=CF=C7=ED=C9 =C7=E1=CB=E6=D1=C9
-=C7=E1=E1=ED=C8=ED=C9 =DE=CF =CD=E6=E1 32.4 =E3=E1=ED=E6=E4 =ED=E6=D1=E6=
- =E3=E4 =C8=E4=DF =C8=D3=E6=ED=D3=D1=C7 =E3=E4 =CE=E1=C7=E1 =D4=D1=DF=C9=
- =CA=C7=E3=ED=E4 =CE=C7=D6=DA=C9
-=E1=E3=DF=CA=C8 =C7=E1=C7=E3=E3 =C7=E1=E3=CA=CD=CF=C9 =C8=E1=ED=C8=ED=C7=
- =E1=DA=DE=CF =E1=E3=D4=C7=D1=ED=DA =C7=E4=C7=C8=ED=C8 =C7=E1=DB=C7=D2 =
-=E6=C7=E1=D2=ED=CA ...
-=C7=E1=E6=D6=DA =C8=E1=ED=C8=ED=C7 =DF=C7=E4 =E3=E5=ED=E4 =E6=DF=C7=E4 =
-=E3=E5=D2=E1=C9 =DF=C8=ED=D1=C9 =E6=DE=CA =CD=CF=CB =DF=E1 =E3=C7=CD=D5=
-=E1, =E6=DF=C7=E4 =E6=D6=DA=E4=C7 =CE=D8=ED=D1
-=CC=CF=C7 =E6=E3=DA=D1=D6=ED=E4 =E1=E1=C7=D0=EC =C8=C7=EC =E6=DE=CA =E6=
-=CE=C7=D5=C9 =E6=DE=CA =CA=CD=E6=E1 =C7=E1=E6=D6=DA =C7=E1=EC =CD=D1=C8=
- =C7=E5=E1=ED=C9 =C8=ED=E4 =C7=E1=E3=CF=E4
-=C8=E1=ED=C8=ED=C7 , =E6=DB=D1=D6=EC =E3=E4 =CA=E6=C7=D5=E1=EC =E3=DA=DF=
- =E6=C7=D1=D3=C7=E1 =E5=CF=EC =C7=E1=D1=D3=C7=E1=C9 =E1=DF =E6=D4=D1=CD=
- =C7=E1=E6=D6=DA =DF=E1=E5 =E5=E6 =C7=E4=EC
-=C7=D1=ED=CF =E3=D3=C7=DA=CF=CA=DF =C8=E6=D6=DA=EC , =C7=D1=ED=CF =E3=D3=
-=C7=DA=CF=CA=DF =DD=EC =C7=D3=CA=CB=E3=C7=D1 =E5=CF=E5 =C7=E1=C7=E3=E6=C7=
-=E1 =E6=CA=DF=E6=E4 =D4=D1=ED=DF=EC =C8=DF=E1
-=D4=EC=C1 =E6=CA=DF=E6=E4 =C7=ED=D6=C7 =E3=CF=ED=D1 =E1=C7=D3=CA=CB=E3=C7=
-=D1=C7=CA=EC =E6=DF=E1 =D4=EC=C1 , =E6=CA=D3=C7=DA=CF=E4=EC =C8=D4=D1=C7=
-=C1 =C8=ED=CA =DD=EC =C8=E1=CF=DF
-=E6=CA=CD=D1=ED=D1=EC =E3=E3=C7 =C7=DA=C7=E4=ED=E5 =E5=E4=C7 , =E3=CD=CA=
-=C7=CC=C9 =C7=E1=CE=D1=E6=CC =E3=E4 =E5=E4=C7 =C8=C7=DE=D1=C8 =DD=D1=D5=
-=C9 ,=C7=E4=C7 =E3=E6=CC=E6=CF=C9 =CA=E6=EC
-=C8=C7=E1=DF=C7=E3=C8 =C7=E1=DF=C7=D1=ED=C8=EC =DD=EC =E3=ED=C7=E3=EC =C8=
-=C7=E3=D1=ED=DF=C7 , =E6=E3=C7=C8=E6=CF=EC =C7=E1=DA=ED=D4=C9 =E5=E4=C7=
- , =D3=C7=DA=CF=E4=EC =C8=C7=E1=CE=D1=E6=CC =E3=E4
-=E5=E4=C7 =E6=C7=E1=DA=ED=D4=C9 =C8=C7=E3=C7=E4 =E6=D3=E1=C7=E3 .. =C7=E4=
-=C7 =E3=CD=CA=C7=CC=C9 =DD=DE=D8 =D1=CC=E1 =C7=DA=E3=C7=E1 =DA=D1=C8=EC=
- =ED=D3=C7=DA=CF=E4=EC =C8=E5=CF=C7
-=C7=E1=E3=E6=D6=E6=DA , =DD=C7=D1=CC=E6=DF =C7=D0=C7 =C8=CA=DE=CF=D1 =CA=
-=D3=C7=DA=CF=E4=EC =C7=D1=CC=E6=DF =D1=CF =DA=E1=EC =D1=D3=C7=E1=CA=EC =
-=E6=C7=D1=D3=E1=EC =C7=D3=E3=DF =DF=C7=E3=E1=C7
-=E6=D1=DE=E3 =CC=E6=C7=E1=DF =E6=C7=E4 =D4=C7=C1 =C7=E1=E1=E5 =C7=E4=C7=
- =C8=CA=E6=C7=D5=E1 =E3=DA=DF =C8=C7=E1=C7=ED=E3=ED=E1 =E6=C8=CA=D5=E1 =
-=C8=DF =C7=ED=D6=C7 =E6=C8=D4=D1=CD=E1=DF =DF=E1
-=D4=EC=C1 =C8=CF=DF =CA=DA=D1=DD=E5 =C8=C7=D0=E4 =C7=E1=E1=E5 ...
-=C8=D1=DA=C7=ED=C9 =C7=E1=E1=E5 =E6=C8=C7=E4=CA=D9=C7=D1 =D1=CF=DF .
+If the memory allocation 'nvram_ularray = kmalloc(varsize,
+GFP_ATOMIC);' fails we'll leak the memory allocated to 'vbuffer' when
+we return -ENOMEM from the function.
+
+This patch resolves the leak by kfree()'ing the allocated memory
+before the return.
+
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+  compile tested only.
+
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
+index 5a002a2..f7eeee1 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
+@@ -3119,8 +3119,10 @@ static int brcmf_sdbrcm_write_vars(struct brcmf_sdio *bus)
+ 		/* Verify NVRAM bytes */
+ 		brcmf_dbg(INFO, "Compare NVRAM dl & ul; varsize=%d\n", varsize);
+ 		nvram_ularray = kmalloc(varsize, GFP_ATOMIC);
+-		if (!nvram_ularray)
++		if (!nvram_ularray) {
++			kfree(vbuffer);
+ 			return -ENOMEM;
++		}
+ 
+ 		/* Upload image to verify downloaded contents. */
+ 		memset(nvram_ularray, 0xaa, varsize);
+-- 
+1.7.8.1
+
+
+
+PS. Please CC me on replies.
+
+-- 
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
