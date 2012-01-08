@@ -1,89 +1,90 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next V3 0/2] igb: ptp hardware clock
-Date: Sat, 07 Jan 2012 17:02:39 -0800
-Message-ID: <1325984559.2641.0.camel@jtkirshe-mobl>
-References: <cover.1325964581.git.richardcochran@gmail.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
+Subject: Re: [PATCH net-next 1/7] via-rhine: factor out tx_thresh handling
+Date: Sun, 8 Jan 2012 05:41:49 +0100
+Message-ID: <CACPM=kVKm1xYnBGJ_-ABaBkLcSApnixagQhqmgi89OfCTn5ktQ@mail.gmail.com>
+References: <20120107224856.GA24928@electric-eye.fr.zoreil.com>
+	<20120107224941.GA25021@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-AM/LdGICpf7xei+lfrMd"
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, rl@hellgate.ch,
+	David Miller <davem@davemloft.net>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:51124 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752408Ab2AHBCw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Jan 2012 20:02:52 -0500
-In-Reply-To: <cover.1325964581.git.richardcochran@gmail.com>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:50985 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751113Ab2AHElt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jan 2012 23:41:49 -0500
+Received: by iaeh11 with SMTP id h11so4926492iae.19
+        for <netdev@vger.kernel.org>; Sat, 07 Jan 2012 20:41:49 -0800 (PST)
+In-Reply-To: <20120107224941.GA25021@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+2012/1/7 Francois Romieu <romieu@fr.zoreil.com>:
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> ---
+> =A0drivers/net/ethernet/via/via-rhine.c | =A0 17 ++++++++++++-----
+> =A01 files changed, 12 insertions(+), 5 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ether=
+net/via/via-rhine.c
+> index 5c4983b..93987e8 100644
+> --- a/drivers/net/ethernet/via/via-rhine.c
+> +++ b/drivers/net/ethernet/via/via-rhine.c
+> @@ -657,6 +657,16 @@ static void rhine_poll(struct net_device *dev)
+> =A0}
+> =A0#endif
+>
+> +static void rhine_kick_tx_threshold(struct rhine_private *rp)
+> +{
+> + =A0 =A0 =A0 if (rp->tx_thresh < 0xe0) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 void __iomem *ioaddr =3D rp->base;
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 rp->tx_thresh +=3D 0x20;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 BYTE_REG_BITS_SET(rp->tx_thresh, 0x80, =
+ioaddr + TxConfig);
+> + =A0 =A0 =A0 }
+> +}
+> +
+> =A0static int rhine_napipoll(struct napi_struct *napi, int budget)
+> =A0{
+> =A0 =A0 =A0 =A0struct rhine_private *rp =3D container_of(napi, struct=
+ rhine_private, napi);
+> @@ -1910,8 +1920,7 @@ static void rhine_error(struct net_device *dev,=
+ int intr_status)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+intr_status);
+> =A0 =A0 =A0 =A0}
+> =A0 =A0 =A0 =A0if (intr_status & IntrTxUnderrun) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (rp->tx_thresh < 0xE0)
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 BYTE_REG_BITS_SET((rp->=
+tx_thresh +=3D 0x20), 0x80, ioaddr + TxConfig);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 rhine_kick_tx_threshold(rp);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (debug > 1)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0netdev_info(dev, "Tran=
+smitter underrun, Tx threshold now %02x\n",
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+rp->tx_thresh);
+> @@ -1923,9 +1932,7 @@ static void rhine_error(struct net_device *dev,=
+ int intr_status)
+> =A0 =A0 =A0 =A0if ((intr_status & IntrTxError) &&
+> =A0 =A0 =A0 =A0 =A0 =A0(intr_status & (IntrTxAborted |
+> =A0 =A0 =A0 =A0 =A0 =A0 IntrTxUnderrun | IntrTxDescRace)) =3D=3D 0) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (rp->tx_thresh < 0xE0) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 BYTE_REG_BITS_SET((rp->=
+tx_thresh +=3D 0x20), 0x80, ioaddr + TxConfig);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 rhine_kick_tx_threshold(rp);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (debug > 1)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0netdev_info(dev, "Unsp=
+ecified error. Tx threshold now %02x\n",
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+rp->tx_thresh);
+> --
+> 1.7.6.4
+>
 
---=-AM/LdGICpf7xei+lfrMd
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Still net-next, or should they be applied on top of mainline 3.2? :)
 
-On Sat, 2012-01-07 at 20:38 +0100, Richard Cochran wrote:
-> * ChangeLog
-> ** V3
->    - Driver compiles even without CONFIG_PTP_1588_CLOCK.
->    - Timestamping always works, even when PTP code missing or fails.
-> ** V2
->    - Fixed wrong bit shifting in the 82576 code.
->    - Explained the timestamp locking with a comment in the code.
->    - Preserved the comments from the original timecompare
-> implementation.
->    - Added an additional test within the overflow counter code to fix
->      a race condition. Details of the problem are given in the commit
->      message.
->=20
-> This patch series implements a PHC driver for the Intel 82576 and
-> 82580 devices, as part of the igb driver.
->=20
-> The first patch adds the PHC driver code as a new source module but
-> does not link it into the main igb driver. Because the system time
-> counter is not so very wide, the code implements an overflow counter
-> in software. Every read operation maintains the overflow counter, as
-> does a "delayed work" watchdog. Only the base clock operations are
-> implemented. The hardware does have some ancillary features, but these
-> can be easily added later.
->=20
-> The second patch removes the timecompare code and links in the new
-> functions.
->=20
-> I have tested the 82580 with good results. However, I don't have the
-> 82576 and so would appreciate testing and feedback.
->=20
-> Thanks,
-> Richard=20
-
-Thanks Richard, I will add this series to my queue.
-
---=-AM/LdGICpf7xei+lfrMd
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAABCgAGBQJPCOsvAAoJEOVv75VaS+3OMhMP/AzQ6IvOluxaf+V3lpmRnl4w
-R75W9Ih2lu4fpsSWPlaOfQ0TyoZkFRXRW2joL1b8NIP/I61AholeDMR8YzdBQgVZ
-CyeuXXowGYX6+TtCuEXTO0Q1b/ScemCbKkBqHFbfO9dHNy3C3D7or+Hw0cSbrYL2
-7yoRPWCyGtq2gFOS8NIxWz/2ssj3hiNwqrm4KMch2E4qX9U8u9zBresacBtgF9oP
-i4J6OKYcBSghd71XoszM5SPl7wv4c4S8mzebjHqhAp1UcQudnNhefvwJy6yYY0cU
-uK1OZPLSjTevqq/hCR+Pm2ZcW6HEp0wTf49PU2sR7MHVAa5urTif/GXUWPa68LLs
-pXrFBFEKhNfHLz13YhH12KoiOnCNPPhWPbRm80Ch163r3MQsH1j6c0uFGid1XBdG
-cattz3dtVNuuC5tL/fzmhzDxHWCJPfzHfZ6VrEm7EBuBf9X+tfSsz3wJjFnM2QVL
-d/pNT8pWHIBTaO9F4r69RFFr6rgokrpL2vjnFitFmkYz3tIOPE2DR0kszIlr1lar
-fo3epTdJKPnxLMTyNkqTiNmK76fgIQraH2Rg2tLMKq/q1kDrYv0v4gTVBl0vddaj
-+Io0uB+Bbun3JYYHXM21BbfJntzy825+N85LWQ6m8Yg1zwbVwEZ582BMqodqA40l
-bM2jMdoMFwsWGsrh9lH7
-=boDA
------END PGP SIGNATURE-----
-
---=-AM/LdGICpf7xei+lfrMd--
+/Bjarke
