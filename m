@@ -1,25 +1,25 @@
 From: PRIZE <Martine.Sennegon-Meslem@univ-paris1.fr>
 Subject: (unknown)
-Date: Sun, 08 Jan 2012 14:25:31 +0100
-Message-ID: <20120108142531.c14eivebokbkgok8@courrier.univ-paris1.fr>
+Date: Sun, 08 Jan 2012 14:30:07 +0100
+Message-ID: <20120108143007.b3gi61a8ai8cosso@courrier.univ-paris1.fr>
 Reply-To: googlelott_ery@hotmail.co.uk
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
-	boundary="=_15xy1e29td8g"
+	boundary="=_iob8nks4k0w"
 Content-Transfer-Encoding: 7bit
 To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.univ-paris1.fr ([193.55.97.2]:52706 "EHLO
+Received: from mx2.univ-paris1.fr ([193.55.97.2]:53121 "EHLO
 	mx2.univ-paris1.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753419Ab2AHNhj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2012 08:37:39 -0500
+	with ESMTP id S1753530Ab2AHNlw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2012 08:41:52 -0500
 Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This message is in MIME format.
 
---=_15xy1e29td8g
+--=_iob8nks4k0w
 Content-Type: text/plain;
 	charset=ISO-8859-1;
 	DelSp="Yes";
@@ -35,7 +35,7 @@ pour des virus ou des polluriels et rien de
 suspect n'a ete trouve.
 
 
---=_15xy1e29td8g
+--=_iob8nks4k0w
 Content-Type: application/msword;
 	name="prize.rtf"
 Content-Disposition: attachment;
@@ -76,4 +76,4 @@ MVxmczI0XHBhcg0KXGNmMVxiXGYwIFRoYW5rIHlvdSBhbmQgYWNjZXB0IG15
 IGhlYXJ0eSBjb25ncmF0dWxhdGlvbnMgb25jZSBhZ2FpbiFcflx+XGNmMFxi
 MFxmM1xmczIyXHBhcg0KfQ0KAA==
 
---=_15xy1e29td8g--
+--=_iob8nks4k0w--
