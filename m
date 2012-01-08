@@ -1,105 +1,75 @@
-From: "allan" <allan@asix.com.tw>
-Subject: RE: asix, setting MAC broken in v3.2. Bisected to "NET: fix phy init for AX88772 USB ethernet".
-Date: Sun, 8 Jan 2012 23:28:41 +0800
-Message-ID: <002001ccce1a$3c5337a0$b4f9a6e0$@com.tw>
-References: <20120106131051.92814bd4b7x0nmqs@www.81.fi> <CANEJEGvXST4YzDL4kuF=kjZBN=ng-bC5UptCU2zk6JUmhpVjmg@mail.gmail.com> <20120108171802.287811bpiixnymys@www.81.fi>
+From: "HANA MUAMMAR GADDAFI" <info@mail.com>
+Subject: =?windows-1256?Q?=D3=E1=C7=E3_=DA=E1=ED=DF=E3?=
+Date: Sun, 8 Jan 2012 18:33:03 -0300
+Message-ID: <538a09e332ed9583125ed1a9aa80466f.squirrel@www.arlink.net.ar>
+Reply-To: hanamuammagadafy02@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1256
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, "'Freddy Xin'" <freddy@asix.com.tw>,
-	"'Olof Johansson'" <olofj@chromium.org>,
-	"'David S. Miller'" <davem@davemloft.net>,
-	"'David Hollis'" <dhollis@davehollis.com>
-To: "'Jussi Kivilinna'" <jussi.kivilinna@mbnet.fi>,
-	"'Grant Grundler'" <grundler@chromium.org>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from asix.com.tw ([113.196.140.82]:52214 "EHLO asix.com.tw"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752727Ab2AHP3b convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2012 10:29:31 -0500
-In-Reply-To: <20120108171802.287811bpiixnymys@www.81.fi>
-Content-Language: zh-tw
+Received: from mail.static.supercanal.com.ar ([190.113.128.3]:55068 "EHLO
+	supercanal.com.ar" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754651Ab2AHWbI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2012 17:31:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Jussi,
-
-Please help to double check if the following information is helpful to =
-solve your issue or not? If no, please deliver us your test asix.c driv=
-er file and detailed test procedures for further investigation. Thanks =
-a lot.
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-Actually, if you just want to manually set the MAC address of your AX88=
-772B/AX88772A/AX88178 devices for engineering testing, you can refer to=
- below procedures to temporary change the MAC address of your AX88772B/=
-AX88772A/AX88178 device on Linux platform through the =E2=80=9Cax8817x_=
-set_mac_addr()=E2=80=9D routine of AX88772B/AX88772A/AX88178 Linux driv=
-er source code.
-
-How to change MAC address in Linux
-http://linuxhelp.blogspot.com/2005/09/how-to-change-mac-address-of-your=
-=2Ehtml=20
-
-# ifconfig eth0 down
-# ifconfig eth0 hw ether 00:80:48:BA:d1:30
-# ifconfig eth0 up
-
-
----
-Best regards,
-Allan Chou
-Technical Support Division
-ASIX Electronics Corporation
-TEL: 886-3-5799500 ext.228
-=46AX: 886-3-5799558
-E-mail: allan@asix.com.tw=20
-http://www.asix.com.tw/=20
-
------Original Message-----
-=46rom: Jussi Kivilinna [mailto:jussi.kivilinna@mbnet.fi]=20
-Sent: Sunday, January 08, 2012 11:18 PM
-To: Grant Grundler
-Cc: netdev@vger.kernel.org; Freddy Xin; Olof Johansson; David S. Miller=
-; David Hollis; Allan Chou
-Subject: Re: asix, setting MAC broken in v3.2. Bisected to "NET: fix ph=
-y init for AX88772 USB ethernet".
-
-Quoting Grant Grundler <grundler@chromium.org>:
-
-> On Fri, Jan 6, 2012 at 3:10 AM, Jussi Kivilinna
-> <jussi.kivilinna@mbnet.fi> wrote:
->> Hello,
->>
->> I have asix adapter plugged to mini-server
->
-> Which Asix adapter do you have? (Vendor/model)
-
-It's Wii Ethernet adapter,
-Bus 001 Device 008: ID 0b95:7720 ASIX Electronics Corp. AX88772
-
->
-> Can you please provide:
-> 1) dmesg output from asix driver
-> 2) lsusb output for the device
-
-Both attached.
-
->> and have to change MAC address
->> before DHCP because of ISP. This worked fine, until v3.2. Now I have=
- to set
->> interface in promisc mode to have custom MAC working.
->
-> Sorry - I didn't test this but I also would not expect this to break
-> with the changes in 3.2.
->
-> I'll see if Freddy or Allan (ASIX) need my help with this.
-
-I found out that setting MAC in ax88722_reset() solves the issue for =20
-me. Maybe changes to init/reset sequence causes hardware to be reseted =
-=20
-after set_mac_address call and revert to default MAC?
-
-Patch attached.
-
--Jussi
+=C7=E1=D3=E1=C7=E3 =DA=E1=ED=DF=E3 =E6=D1=CD=E3=C9 =C7=E1=E1=E5  , =C7=D3=
+=E3=EC =E5=C7=E4=C7 =E3=DA=E3=D1 =C7=E1=DE=D0=C7=DD=EC
+=E3=E4 =CA=D1=ED=C8=E6=E1=EC ,=E1=ED=C8=ED=C7 =D1=DE=E3 19 =C8=C7=C8 =C7=
+=E1=DA=D2=C7=ED=D2=C9, =C8=E3=E4=D8=DE=C9 =E3=C7=D1=EC =DD=ED=CA=D2=CC=ED=
+=D1=C7=E1=CF , =CA=D1=ED=C8=E6=E1=EC ,
+=E1=ED=C8=ED=C7 .
+=CE=CF=E3=CA =DF=CF=DF=CA=E6=D1=C9 =C8=E6=D2=C7=D1=C9 =C7=E1=D5=CD=C9 =C7=
+=E1=E1=ED=C8=ED=C9.
+=E6=DE=CA =C7=E1=E6=E1=C7=ED=C7=CA =C7=E1=E3=CA=CD=CF=C9 =D6=D1=C8=CA =E3=
+=E4=D8=DE=C9 =D3=DF=E4=C7 =C7=E1=CE=C7=D5 =C8=C7=D3=E3 =C7=E1=DE=D0=C7=DD=
+=EC =C8=C8=C7=C8 =C7=E1=DA=D2=C7=ED=D2=C9 =DD=EC
+14 =C7=C8=D1=ED=E1 1986 =C7=E4=CA=DE=C7=E3=C7 =E1=E3=C7 =CD=CF=CB =C8=CA=
+=DD=CC=ED=D1 =C7=E1=E3=E1=E5=EC =C7=E1=E1=ED=E1=EC =E1=C7=C8=ED=E1=C7 =C8=
+=E3=CF=ED=E4=C9 =C8=D1=E1=ED=E4 =DA=E4
+=ED=CF =E1=ED=C8=ED=ED=E4 =E3=CA=E1 =E3=C7=DE=C7=E1=E6=C7 . =E6=C7=E4=CC=
+=D1=CD=CA =C7=E4=C7 =C8=E5=CF=C7 =C7=E1=CD=C7=CF=CB =E6=E3=D4=C7=E4 =E5=
+=C7=DF =C7=C8=E6=ED=C7 =CD=DD=D9 =E5=E6=ED=CA=EC
+=D3=D1=ED=C7 , =E6=DE=C8=E1 =E6=DD=C7=C9 =E6=C7=E1=CF=EC =E6=DE=C8=E1 =C7=
+=E4 =CA=CA=CC=E3=CF =CD=D3=C7=C8=C7=CA=E5 =C8=C7=E1=C8=E4=E6=DF =DE=C8=E1=
+ =C8=CF=C7=ED=C9 =C7=E1=CB=E6=D1=C9
+=C7=E1=E1=ED=C8=ED=C9 =DE=CF =CD=E6=E1 32.4 =E3=E1=ED=E6=E4 =ED=E6=D1=E6=
+ =E3=E4 =C8=E4=DF =C8=D3=E6=ED=D3=D1=C7 =E3=E4 =CE=E1=C7=E1 =D4=D1=DF=C9=
+ =CA=C7=E3=ED=E4 =CE=C7=D6=DA=C9
+=E1=E3=DF=CA=C8 =C7=E1=C7=E3=E3 =C7=E1=E3=CA=CD=CF=C9 =C8=E1=ED=C8=ED=C7=
+ =E1=DA=DE=CF =E1=E3=D4=C7=D1=ED=DA =C7=E4=C7=C8=ED=C8 =C7=E1=DB=C7=D2 =
+=E6=C7=E1=D2=ED=CA ...
+=C7=E1=E6=D6=DA =C8=E1=ED=C8=ED=C7 =DF=C7=E4 =E3=E5=ED=E4 =E6=DF=C7=E4 =
+=E3=E5=D2=E1=C9 =DF=C8=ED=D1=C9 =E6=DE=CA =CD=CF=CB =DF=E1 =E3=C7=CD=D5=
+=E1, =E6=DF=C7=E4 =E6=D6=DA=E4=C7 =CE=D8=ED=D1
+=CC=CF=C7 =E6=E3=DA=D1=D6=ED=E4 =E1=E1=C7=D0=EC =C8=C7=EC =E6=DE=CA =E6=
+=CE=C7=D5=C9 =E6=DE=CA =CA=CD=E6=E1 =C7=E1=E6=D6=DA =C7=E1=EC =CD=D1=C8=
+ =C7=E5=E1=ED=C9 =C8=ED=E4 =C7=E1=E3=CF=E4
+=C8=E1=ED=C8=ED=C7 , =E6=DB=D1=D6=EC =E3=E4 =CA=E6=C7=D5=E1=EC =E3=DA=DF=
+ =E6=C7=D1=D3=C7=E1 =E5=CF=EC =C7=E1=D1=D3=C7=E1=C9 =E1=DF =E6=D4=D1=CD=
+ =C7=E1=E6=D6=DA =DF=E1=E5 =E5=E6 =C7=E4=EC
+=C7=D1=ED=CF =E3=D3=C7=DA=CF=CA=DF =C8=E6=D6=DA=EC , =C7=D1=ED=CF =E3=D3=
+=C7=DA=CF=CA=DF =DD=EC =C7=D3=CA=CB=E3=C7=D1 =E5=CF=E5 =C7=E1=C7=E3=E6=C7=
+=E1 =E6=CA=DF=E6=E4 =D4=D1=ED=DF=EC =C8=DF=E1
+=D4=EC=C1 =E6=CA=DF=E6=E4 =C7=ED=D6=C7 =E3=CF=ED=D1 =E1=C7=D3=CA=CB=E3=C7=
+=D1=C7=CA=EC =E6=DF=E1 =D4=EC=C1 , =E6=CA=D3=C7=DA=CF=E4=EC =C8=D4=D1=C7=
+=C1 =C8=ED=CA =DD=EC =C8=E1=CF=DF
+=E6=CA=CD=D1=ED=D1=EC =E3=E3=C7 =C7=DA=C7=E4=ED=E5 =E5=E4=C7 , =E3=CD=CA=
+=C7=CC=C9 =C7=E1=CE=D1=E6=CC =E3=E4 =E5=E4=C7 =C8=C7=DE=D1=C8 =DD=D1=D5=
+=C9 ,=C7=E4=C7 =E3=E6=CC=E6=CF=C9 =CA=E6=EC
+=C8=C7=E1=DF=C7=E3=C8 =C7=E1=DF=C7=D1=ED=C8=EC =DD=EC =E3=ED=C7=E3=EC =C8=
+=C7=E3=D1=ED=DF=C7 , =E6=E3=C7=C8=E6=CF=EC =C7=E1=DA=ED=D4=C9 =E5=E4=C7=
+ , =D3=C7=DA=CF=E4=EC =C8=C7=E1=CE=D1=E6=CC =E3=E4
+=E5=E4=C7 =E6=C7=E1=DA=ED=D4=C9 =C8=C7=E3=C7=E4 =E6=D3=E1=C7=E3 .. =C7=E4=
+=C7 =E3=CD=CA=C7=CC=C9 =DD=DE=D8 =D1=CC=E1 =C7=DA=E3=C7=E1 =DA=D1=C8=EC=
+ =ED=D3=C7=DA=CF=E4=EC =C8=E5=CF=C7
+=C7=E1=E3=E6=D6=E6=DA , =DD=C7=D1=CC=E6=DF =C7=D0=C7 =C8=CA=DE=CF=D1 =CA=
+=D3=C7=DA=CF=E4=EC =C7=D1=CC=E6=DF =D1=CF =DA=E1=EC =D1=D3=C7=E1=CA=EC =
+=E6=C7=D1=D3=E1=EC =C7=D3=E3=DF =DF=C7=E3=E1=C7
+=E6=D1=DE=E3 =CC=E6=C7=E1=DF =E6=C7=E4 =D4=C7=C1 =C7=E1=E1=E5 =C7=E4=C7=
+ =C8=CA=E6=C7=D5=E1 =E3=DA=DF =C8=C7=E1=C7=ED=E3=ED=E1 =E6=C8=CA=D5=E1 =
+=C8=DF =C7=ED=D6=C7 =E6=C8=D4=D1=CD=E1=DF =DF=E1
+=D4=EC=C1 =C8=CF=DF =CA=DA=D1=DD=E5 =C8=C7=D0=E4 =C7=E1=E1=E5 ...
+=C8=D1=DA=C7=ED=C9 =C7=E1=E1=E5 =E6=C8=C7=E4=CA=D9=C7=D1 =D1=CF=DF .
