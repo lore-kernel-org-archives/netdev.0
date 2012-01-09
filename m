@@ -1,66 +1,42 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [RFC PATCH v1 2/2] virtio_net: Don't disable napi on low memory.
-Date: Mon, 09 Jan 2012 17:16:52 +1030
-Message-ID: <877h119xur.fsf@rustcorp.com.au>
-References: <20120104225223.18184.1537.stgit@mike2.sea.corp.google.com>
-	<20120104225237.18184.71853.stgit@mike2.sea.corp.google.com>
-	<87y5tnat2g.fsf@rustcorp.com.au>
-	<CAGTjWtB3PjWDfaunXjF-KQwKYg-bPgrn-8N=8iwL0EPvviXMuw@mail.gmail.com>
-	<CAGTjWtBbLtm47kozBC2fdwGYKsOooQec0W9PwUEAF58mYDioaQ@mail.gmail.com>
+From: Manfred Rudigier <manfred.rudigier@omicron.at>
+Subject: RE: [PATCH] gianfar: Fix invalid TX frames returned on error queue
+ when time stamping.
+Date: Mon, 9 Jan 2012 08:16:01 +0100
+Message-ID: <95DC1AA8EC908B48939B72CF375AA5E3013A99124D@alice.at.omicron.at>
+References: <1325775021-23049-1-git-send-email-manfred.rudigier@omicron.at>
+ <20120105.132637.2130515220408371607.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Mike Waychison <mikew@google.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAGTjWtBbLtm47kozBC2fdwGYKsOooQec0W9PwUEAF58mYDioaQ@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"afleming@freescale.com" <afleming@freescale.com>,
+	"avorontsov@mvista.com" <avorontsov@mvista.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.omicron.at ([212.183.10.25]:53569 "EHLO ns.omicron.at"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753493Ab2AIHQ0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2012 02:16:26 -0500
+In-Reply-To: <20120105.132637.2130515220408371607.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCA2IEphbiAyMDEyIDA5OjU0OjQ2IC0wODAwLCBNaWtlIFdheWNoaXNvbiA8bWlrZXdA
-Z29vZ2xlLmNvbT4gd3JvdGU6Cj4gT24gV2VkLCBKYW4gNCwgMjAxMiBhdCA2OjQ2IFBNLCBNaWtl
-IFdheWNoaXNvbiA8bWlrZXdAZ29vZ2xlLmNvbT4gd3JvdGU6Cj4gPiBPbiBXZWQsIEphbiA0LCAy
-MDEyIGF0IDQ6MzEgUE0sIFJ1c3R5IFJ1c3NlbGwgPHJ1c3R5QHJ1c3Rjb3JwLmNvbS5hdT4gd3Jv
-dGU6Cj4gPj4gNCkgWW91IHVzZSB0aGUgc2tiIGRhdGEgZm9yIHRoZSBsaW5rZWQgbGlzdDsgdXNl
-IHRoZSBza2IgaGVhZCdzIGxpc3QuCj4gCj4gV2hhdCBkaWQgeW91IG1lYW4gYnkgdGhpcz8gIEkg
-d2FzIHVuZGVyIHRoZSBpbXByZXNzaW9uIHRoYXQgdGhlIC0+bmV4dAo+IGFuZCAtPnByZXYgZmll
-bGRzIGluIHNrX2J1ZmYgd2VyZSB0aGUgZmlyc3QgdHdvIGVsZW1lbnRzIHNwZWNpZmljYWxseQo+
-IHNvIHRoYXQgdGhlIHBvaW50ZXIgY291bGQgYmUgdHJlYXRlZCBhcyBhIGxpc3RfaGVhZC4gIElm
-IGl0J3MgdGhlIGNhc3QKPiBpbiBwYXJ0aWN1bGFyIHRoYXQgeW91IGhhdmUgYW4gb2JqZWN0aW9u
-IHdpdGgsIEkgY2FuIGVhc2lseSBjaGFuZ2UKPiB0aGlzIHRvIGEgc2luZ2x5IGxpbmtlZCBsaXN0
-IHRocmVhZGVkIHRocm91Z2ggLT5uZXh0IGlmIHRoYXQncwo+IGNsZWFuZXIuCgpZZXAsIEkgc2F3
-IHRoZSBjYXN0IGFuZCBtaXNyZWFkIHlvdXIgY29kZS4gIEkgY291bGQgaGF2ZSBzd29ybiB0aGF0
-IHNrYgp1c2VkIGEgcmVhbCBsaXN0X2hlYWQgdGhlc2UgZGF5cywgYnV0IEknbSB3cm9uZy4KCj4g
-Pj4KPiA+PiBJbnN0ZWFkLCBoZXJlJ3MgaG93IEkgdGhpbmsgaXQgc2hvdWxkIGJlIGRvbmU6Cj4g
-Li4uCj4gPgo+ID4gVGhpcyBzb3VuZHMgcmVhc29uYWJsZSB0byBtZS4gwqBJJ2xsIHNlZSB3aGF0
-IEkgY2FuIG11c3RlciB0b2dldGhlciB0aGlzIHdlZWsuCj4gPgo+IAo+IFNvIEkgc3RhcnRlZCBp
-bXBsZW1lbnRpbmcgaXQgdGhlIHdheSB5b3Ugd2VyZSBtZW50aW9uaW5nLCBhbmQgcmFuIGludG8K
-PiBhIHByb2JsZW0gd2l0aCB0aGUgb3JpZ2luYWwgcGF0Y2hzZXQuCj4gCj4gQ3VycmVudGx5IHRo
-ZSAibWVyZ2VhYmxlIiBhbmQgImJpZyIgcmVjZWl2ZSBidWZmZXJzIHVzZSBhIHByaXZhdGUgcGFn
-ZQo+IGZyZWUgbGlzdCAodmlydG5ldF9pbmZvLT5wYWdlcykgd2hpY2ggaGFzIG5vIHN5bmNocm9u
-aXphdGlvbiBpdHNlbGYuCj4gVGhpcyBtZWFucyB0aGF0IHRoZSBiYXRjaGVkIHZlcnNpb24gY2Fu
-J3QgdXNlIGdldF9hX3BhZ2UoKSBhbmQKPiBnaXZlX3BhZ2VzKCkgYXMgaXMsIHdoaWNoIHJlZHVj
-ZXMgdGhlIG5lZWQgdG8gcmUtdXNlIHRoZSBzYW1lIGFsbG9jCj4gaGFsdmVzIHRoYXQgSSd2ZSBz
-cGxpdC4gICBBbHRlcm5hdGl2ZXMgSSBjYW4gdGhpbmsgb2YgYXQgdGhpcyBwb2ludDoKPiAKPiAt
-IHBhc3MgaW4gYSBmbGFnIHRvIHRoZSBhbGxvY2F0b3JzIGxpa2UgImJvb2wgaXNfc2VyaWFsIiB0
-aGF0IGlzIHRydWUKPiBpZiB3ZSBhcmUgc2VyaWFsaXppbmcgd2l0aCBuYXBpLCAod2hpY2ggZGV0
-ZXJtaW5lcyBpZiB3ZSBjYW4gbXVjaCB3aXRoCj4gdmktPnBhZ2VzKQo+IG9yCj4gLSBub3QgdXNl
-IHRoZSBzYW1lIGFsbG9jYXRvcnMgZm9yIHRoZSAibWVyZ2VhYmxlIiBhbmQgImJpZyIgcGF0aHMu
-Cj4gVGhlIG1lcmdlYWJsZSBhbGxvY2F0b3IgaW4gdGhlIG5vbi1zZXJpYWxpemVkIGNhc2UgcmVk
-dWNlcyB0bwo+IGFsbG9jX3BhZ2UoKSwgd2hpbGUgdGhlIGJpZyBhbGxvY2F0b3IgbG9va3MgbGlr
-ZSBhIGNvcHkgYW5kIHBhc3RlIHRoYXQKPiB1c2VzIGFsbG9jX3BhZ2UgaW5zdGVhZCBvZiBnZXRf
-YV9wYWdlKCkuCj4gCj4gUHJlZmVyZW5jZXM/ICBJJ2xsIGNvZGUgb25lIG9mIHRoZSB0d28gdXAg
-YW5kIHNlZSB3aGF0IGl0IGxvb2tzIGxpa2UuCgpXaGF0ZXZlciByZXN1bHRzIGluIGEgY2xlYW5l
-ciBkcml2ZXIsIEknbSBoYXBweS4KClRoYW5rcywKUnVzdHkuCl9fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApW
-aXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxp
-bnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
+From: David Miller [mailto:davem@davemloft.net]
+Sent: Thursday, January 05, 2012 19:27
+
+>From: Manfred Rudigier <manfred.rudigier@omicron.at>
+>Date: Thu, 5 Jan 2012 15:50:21 +0100
+>
+>> +
+>> +		/* Keep sock if we must return a time stamp on the err queue */
+>> +		skb_new->sk = skb->sk;
+>
+>When I see something like this without any kind of reference counting or
+>similar, I am gravely concerned.
+
+The skb_tstamp_tx function called during gfar_clean_tx_ring requires the skb->sk pointer to be set. Otherwise no time stamp can be queued on the socket error queue. 
+What would be the correct way for doing this?
+
+Regards,
+Manfred
