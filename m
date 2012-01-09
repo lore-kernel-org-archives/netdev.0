@@ -1,48 +1,59 @@
-From: "Guy, Wey-Yi" <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH RFC] iwlwifi: add basic runtime PM support
-Date: Mon, 09 Jan 2012 06:39:59 -0800
-Message-ID: <1326119999.13074.369.camel@wwguy-huron>
-References: <4F065F59.2070107@intel.com>
-	 <1325843269.3330.4.camel@jlt3.sipsolutions.net>
-	 <4F0A3C62.6010403@intel.com> <1326069251.13074.360.camel@wwguy-huron>
-	 <4F0A492A.5080504@intel.com>  <1326071127.13074.367.camel@wwguy-huron>
-	 <1326100270.3451.5.camel@jlt3.sipsolutions.net>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: "-w deadline" bug in ping/iputils- i will provide fix if you
+ can tell me where owner of iputils is. Thanks.
+Date: Tue, 10 Jan 2012 00:45:09 +0900
+Message-ID: <4F0B0B85.5040305@linux-ipv6.org>
+References: <7D3B6706FA74174B8C1AC24710890745136F3C8944@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Yan, Zheng" <zheng.z.yan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1326100270.3451.5.camel-8upI4CBIZJIJvtFkdXX2HixXY32XiHfO@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: 'Linus Torvalds' <torvalds@linux-foundation.org>,
+	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+	"'torvalds@osdl.org'" <torvalds@osdl.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: "Cloutier, Joseph (Joseph)" <joseph.cloutier@alcatel-lucent.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:46219 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755679Ab2AIPpQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2012 10:45:16 -0500
+In-Reply-To: <7D3B6706FA74174B8C1AC24710890745136F3C8944@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-01-09 at 10:11 +0100, Johannes Berg wrote:
-> On Sun, 2012-01-08 at 17:05 -0800, Guy, Wey-Yi wrote:
-> 
-> 
-> > I understand, but unless we figure out either make rkill interrupt works
-> > in runtime PM, or figure out the platform does not has HW RFKILL
-> > automatically, I don't see how this patch can upstream without generate
-> > a lot of issues and bug reports.
-> 
-> I suppose the question is -- will any tools/users enable it and then
-> scream about their rfkill?
-> 
-> Maybe we can use pm_runtime_forbid() to disable it completely, and add a
-> module parameter or something to enable it -- just so people are aware
-> of the tradeoffs?
+Cloutier, Joseph (Joseph) wrote:
+>
+>
+> -----Original Message-----
+> From: Cloutier, Joseph (Joseph)
+> Sent: Wednesday, January 04, 2012 3:55 PM
+> To: 'Linus Torvalds'; 'netdev@vger.kernel.org'
+> Cc: 'torvalds@osdl.org'
+> Subject: RE: "-w deadline" bug in ping/iputils- i will provide fix if
+> you can tell me where owner of iputils is. Thanks.
+>
+>
+> netdev@vger.kernel.org.
+>
+> I have made a fix for the "-w deadline" issue to iputils-s20101006.tar.bz2.  There are 4 places in the code with the fix, identified by my name, Joe Cloutier- ALU.
+>
+> There are 2 bugs fixed:
+> *       For flood pings if the "-w" option is set then more pings than "-c x" are sent out.
+> *       The "-w x" timer should be set after he last "-c x" ping is sent out.
+>
+> Linux flood ping is an invaluable tool for us to use when trouble shooting wireless network problems.  It is a very fast way to verify things like PVC allocations, duplex miss-matches, fiber problems, egress queue settins, etc.
+>
+> I have modified 2 ping versions (one an older one prior to the shared library change many years ago, and then Redhat 8.0 release), but my Management does not my copies released to our Customers because the code is "unsupported".
+>
+> If you would accept these changes then I can direct our Customers to use the official Linux flood ping option.
+>
+> I have tested the code using Linux release 14 and the latest gcc compiler.  It is doing what it should now.
+>
+> Thanks, Joe Cloutier
+>
+> Created with tar cjvf ...
 
-module parameter shall works, we just need a clear and easy way to allow
-user enable/disable this runtime PM feature and not making mistake
+I could not find any patches/tarballs unfortunately.
+Would you resend it please?  Thank you.
 
-Wey
-> 
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--yoshfuji
