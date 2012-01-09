@@ -1,40 +1,53 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH RFC] iwlwifi: add basic runtime PM support
-Date: Mon, 09 Jan 2012 10:11:10 +0100
-Message-ID: <1326100270.3451.5.camel@jlt3.sipsolutions.net>
-References: <4F065F59.2070107@intel.com>
-	 <1325843269.3330.4.camel@jlt3.sipsolutions.net>
-	 <4F0A3C62.6010403@intel.com> <1326069251.13074.360.camel@wwguy-huron>
-	 <4F0A492A.5080504@intel.com>  <1326071127.13074.367.camel@wwguy-huron>
+From: Manfred Rudigier <manfred.rudigier@omicron.at>
+Subject: RE: [PATCH] gianfar: Fix invalid TX frames returned on error queue
+ when time stamping.
+Date: Mon, 9 Jan 2012 10:36:44 +0100
+Message-ID: <95DC1AA8EC908B48939B72CF375AA5E3013A99137D@alice.at.omicron.at>
+References: <1325775021-23049-1-git-send-email-manfred.rudigier@omicron.at>
+	 <20120105.132637.2130515220408371607.davem@davemloft.net>
+	 <95DC1AA8EC908B48939B72CF375AA5E3013A99124D@alice.at.omicron.at>
+ <1326095038.2627.4.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Yan, Zheng" <zheng.z.yan@intel.com>, ilw@linux.intel.com,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: "Guy, Wey-Yi" <wey-yi.w.guy@intel.com>
+	"afleming@freescale.com" <afleming@freescale.com>,
+	"avorontsov@mvista.com" <avorontsov@mvista.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:36506 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753412Ab2AIJLO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2012 04:11:14 -0500
-In-Reply-To: <1326071127.13074.367.camel@wwguy-huron>
+Received: from ns.omicron.at ([212.183.10.25]:58428 "EHLO ns.omicron.at"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751142Ab2AIJhF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jan 2012 04:37:05 -0500
+In-Reply-To: <1326095038.2627.4.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-01-08 at 17:05 -0800, Guy, Wey-Yi wrote:
-
-
-> I understand, but unless we figure out either make rkill interrupt works
-> in runtime PM, or figure out the platform does not has HW RFKILL
-> automatically, I don't see how this patch can upstream without generate
-> a lot of issues and bug reports.
-
-I suppose the question is -- will any tools/users enable it and then
-scream about their rfkill?
-
-Maybe we can use pm_runtime_forbid() to disable it completely, and add a
-module parameter or something to enable it -- just so people are aware
-of the tradeoffs?
-
-johannes
+RnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NClNlbnQ6
+IE1vbmRheSwgSmFudWFyeSAwOSwgMjAxMiAwODo0NA0KDQo+TGUgbHVuZGkgMDkgamFudmllciAy
+MDEyIMOgIDA4OjE2ICswMTAwLCBNYW5mcmVkIFJ1ZGlnaWVyIGEgw6ljcml0IDoNCj4+IEZyb206
+IERhdmlkIE1pbGxlciBbbWFpbHRvOmRhdmVtQGRhdmVtbG9mdC5uZXRdDQo+PiBTZW50OiBUaHVy
+c2RheSwgSmFudWFyeSAwNSwgMjAxMiAxOToyNw0KPj4NCj4+ID5Gcm9tOiBNYW5mcmVkIFJ1ZGln
+aWVyIDxtYW5mcmVkLnJ1ZGlnaWVyQG9taWNyb24uYXQ+DQo+PiA+RGF0ZTogVGh1LCA1IEphbiAy
+MDEyIDE1OjUwOjIxICswMTAwDQo+PiA+DQo+PiA+PiArDQo+PiA+PiArCQkvKiBLZWVwIHNvY2sg
+aWYgd2UgbXVzdCByZXR1cm4gYSB0aW1lIHN0YW1wIG9uIHRoZSBlcnIgcXVldWUgKi8NCj4+ID4+
+ICsJCXNrYl9uZXctPnNrID0gc2tiLT5zazsNCj4+ID4NCj4+ID5XaGVuIEkgc2VlIHNvbWV0aGlu
+ZyBsaWtlIHRoaXMgd2l0aG91dCBhbnkga2luZCBvZiByZWZlcmVuY2UgY291bnRpbmcNCj4+ID5v
+ciBzaW1pbGFyLCBJIGFtIGdyYXZlbHkgY29uY2VybmVkLg0KPj4NCj4+IFRoZSBza2JfdHN0YW1w
+X3R4IGZ1bmN0aW9uIGNhbGxlZCBkdXJpbmcgZ2Zhcl9jbGVhbl90eF9yaW5nIHJlcXVpcmVzDQo+
+PiB0aGUgc2tiLT5zayBwb2ludGVyIHRvIGJlIHNldC4gT3RoZXJ3aXNlIG5vIHRpbWUgc3RhbXAg
+Y2FuIGJlIHF1ZXVlZA0KPj4gb24gdGhlIHNvY2tldCBlcnJvciBxdWV1ZS4NCj4+IFdoYXQgd291
+bGQgYmUgdGhlIGNvcnJlY3Qgd2F5IGZvciBkb2luZyB0aGlzPw0KPg0KPkkgcmVhbGx5IHdvbmRl
+ciBob3cgeW91ciBjb2RlIHdhcyBwb3NzaWJseSB3b3JraW5nLi4uDQoNCldlbGwsIGl0IHdhcyB3
+b3JraW5nIDotKQ0KDQo+QSBjb3JyZWN0IHN0ZWFsIHNlcXVlbmNlIG1heWJlDQo+DQo+CXNrYl9u
+ZXctPnNrID0gc2tiLT5zazsNCj4Jc2tiLT5zayA9IE5VTEw7DQo+CWtmcmVlX3NrYihza2IpOw0K
+Pg0KPk9yIGVsc2UsIGtmcmVlX3NrYigpIHJlbGVhc2VzIHNrIHJlZmVyZW5jZSBhbmQgZXZlbnR1
+YWxseSBzb2NrZXQgaXMgZnJlZWQNCj5iZWZvcmUgc2tiX3RzdGFtcF90eCgpDQoNCkkgaGF2ZSB0
+cmllZCB5b3VyIHN1Z2dlc3RlZCBzdGVhbCBzZXF1ZW5jZSwgYnV0IGl0IGNyYXNoZWQuIA0KSSBz
+ZWUgdGhhdCB0aGVyZSBpcyBhbHNvIGEgZGVzdHJ1Y3RvciAtIHdoZW4gSSB1c2UgdGhlIHNrYl9v
+cnBoYW4gZnVuY3Rpb24gKHdoaWNoIGNhbGxzIHRoZSBkZXN0cnVjdG9yKSBsaWtlIHRoaXMgaXQg
+d29ya3M6DQoNCglza2JfbmV3LT5zayA9IHNrYi0+c2s7DQoJc2tiX29ycGhhbihza2IpOw0KCWtm
+cmVlX3NrYihza2IpOw0KDQpJcyB0aGlzIHRoZSBjb3JyZWN0IHNvbHV0aW9uPw0KDQpSZWdhcmRz
+LA0KTWFuZnJlZA0K
