@@ -1,40 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the final tree (net
- tree related)
-Date: Sun, 08 Jan 2012 22:52:25 -0800 (PST)
-Message-ID: <20120108.225225.1735038078666958154.davem@davemloft.net>
-References: <20120109163812.4cb695944ea9716953afbfc9@canb.auug.org.au>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [RFC PATCH v1 2/2] virtio_net: Don't disable napi on low memory.
+Date: Mon, 09 Jan 2012 17:16:52 +1030
+Message-ID: <877h119xur.fsf@rustcorp.com.au>
+References: <20120104225223.18184.1537.stgit@mike2.sea.corp.google.com>
+	<20120104225237.18184.71853.stgit@mike2.sea.corp.google.com>
+	<87y5tnat2g.fsf@rustcorp.com.au>
+	<CAGTjWtB3PjWDfaunXjF-KQwKYg-bPgrn-8N=8iwL0EPvviXMuw@mail.gmail.com>
+	<CAGTjWtBbLtm47kozBC2fdwGYKsOooQec0W9PwUEAF58mYDioaQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, glommer@parallels.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20120109163812.4cb695944ea9716953afbfc9@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
+To: Mike Waychison <mikew@google.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAGTjWtBbLtm47kozBC2fdwGYKsOooQec0W9PwUEAF58mYDioaQ@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 9 Jan 2012 16:38:12 +1100
-
-> I applied the following patch for today:
-> 
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Mon, 9 Jan 2012 16:33:16 +1100
-> Subject: [PATCH] net: sk_update_clone is only used in net/core/sock.c
-> 
-> so move it there.  Fixes build errors when CONFIG_INET is not defeined:
-> 
-> In file included from include/linux/tcp.h:211:0,
->                  from include/linux/ipv6.h:221,
->                  from include/net/ipv6.h:16,
->                  from include/linux/sunrpc/clnt.h:26,
->                  from include/linux/nfs_fs.h:50,
->                  from init/do_mounts.c:20:
-> include/net/sock.h: In function 'sk_update_clone':
-> include/net/sock.h:1109:3: error: implicit declaration of function 'sock_update_memcg' [-Werror=implicit-function-declaration]
-> 
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-
-Applied, thanks Stephen.
+T24gRnJpLCA2IEphbiAyMDEyIDA5OjU0OjQ2IC0wODAwLCBNaWtlIFdheWNoaXNvbiA8bWlrZXdA
+Z29vZ2xlLmNvbT4gd3JvdGU6Cj4gT24gV2VkLCBKYW4gNCwgMjAxMiBhdCA2OjQ2IFBNLCBNaWtl
+IFdheWNoaXNvbiA8bWlrZXdAZ29vZ2xlLmNvbT4gd3JvdGU6Cj4gPiBPbiBXZWQsIEphbiA0LCAy
+MDEyIGF0IDQ6MzEgUE0sIFJ1c3R5IFJ1c3NlbGwgPHJ1c3R5QHJ1c3Rjb3JwLmNvbS5hdT4gd3Jv
+dGU6Cj4gPj4gNCkgWW91IHVzZSB0aGUgc2tiIGRhdGEgZm9yIHRoZSBsaW5rZWQgbGlzdDsgdXNl
+IHRoZSBza2IgaGVhZCdzIGxpc3QuCj4gCj4gV2hhdCBkaWQgeW91IG1lYW4gYnkgdGhpcz8gIEkg
+d2FzIHVuZGVyIHRoZSBpbXByZXNzaW9uIHRoYXQgdGhlIC0+bmV4dAo+IGFuZCAtPnByZXYgZmll
+bGRzIGluIHNrX2J1ZmYgd2VyZSB0aGUgZmlyc3QgdHdvIGVsZW1lbnRzIHNwZWNpZmljYWxseQo+
+IHNvIHRoYXQgdGhlIHBvaW50ZXIgY291bGQgYmUgdHJlYXRlZCBhcyBhIGxpc3RfaGVhZC4gIElm
+IGl0J3MgdGhlIGNhc3QKPiBpbiBwYXJ0aWN1bGFyIHRoYXQgeW91IGhhdmUgYW4gb2JqZWN0aW9u
+IHdpdGgsIEkgY2FuIGVhc2lseSBjaGFuZ2UKPiB0aGlzIHRvIGEgc2luZ2x5IGxpbmtlZCBsaXN0
+IHRocmVhZGVkIHRocm91Z2ggLT5uZXh0IGlmIHRoYXQncwo+IGNsZWFuZXIuCgpZZXAsIEkgc2F3
+IHRoZSBjYXN0IGFuZCBtaXNyZWFkIHlvdXIgY29kZS4gIEkgY291bGQgaGF2ZSBzd29ybiB0aGF0
+IHNrYgp1c2VkIGEgcmVhbCBsaXN0X2hlYWQgdGhlc2UgZGF5cywgYnV0IEknbSB3cm9uZy4KCj4g
+Pj4KPiA+PiBJbnN0ZWFkLCBoZXJlJ3MgaG93IEkgdGhpbmsgaXQgc2hvdWxkIGJlIGRvbmU6Cj4g
+Li4uCj4gPgo+ID4gVGhpcyBzb3VuZHMgcmVhc29uYWJsZSB0byBtZS4gwqBJJ2xsIHNlZSB3aGF0
+IEkgY2FuIG11c3RlciB0b2dldGhlciB0aGlzIHdlZWsuCj4gPgo+IAo+IFNvIEkgc3RhcnRlZCBp
+bXBsZW1lbnRpbmcgaXQgdGhlIHdheSB5b3Ugd2VyZSBtZW50aW9uaW5nLCBhbmQgcmFuIGludG8K
+PiBhIHByb2JsZW0gd2l0aCB0aGUgb3JpZ2luYWwgcGF0Y2hzZXQuCj4gCj4gQ3VycmVudGx5IHRo
+ZSAibWVyZ2VhYmxlIiBhbmQgImJpZyIgcmVjZWl2ZSBidWZmZXJzIHVzZSBhIHByaXZhdGUgcGFn
+ZQo+IGZyZWUgbGlzdCAodmlydG5ldF9pbmZvLT5wYWdlcykgd2hpY2ggaGFzIG5vIHN5bmNocm9u
+aXphdGlvbiBpdHNlbGYuCj4gVGhpcyBtZWFucyB0aGF0IHRoZSBiYXRjaGVkIHZlcnNpb24gY2Fu
+J3QgdXNlIGdldF9hX3BhZ2UoKSBhbmQKPiBnaXZlX3BhZ2VzKCkgYXMgaXMsIHdoaWNoIHJlZHVj
+ZXMgdGhlIG5lZWQgdG8gcmUtdXNlIHRoZSBzYW1lIGFsbG9jCj4gaGFsdmVzIHRoYXQgSSd2ZSBz
+cGxpdC4gICBBbHRlcm5hdGl2ZXMgSSBjYW4gdGhpbmsgb2YgYXQgdGhpcyBwb2ludDoKPiAKPiAt
+IHBhc3MgaW4gYSBmbGFnIHRvIHRoZSBhbGxvY2F0b3JzIGxpa2UgImJvb2wgaXNfc2VyaWFsIiB0
+aGF0IGlzIHRydWUKPiBpZiB3ZSBhcmUgc2VyaWFsaXppbmcgd2l0aCBuYXBpLCAod2hpY2ggZGV0
+ZXJtaW5lcyBpZiB3ZSBjYW4gbXVjaCB3aXRoCj4gdmktPnBhZ2VzKQo+IG9yCj4gLSBub3QgdXNl
+IHRoZSBzYW1lIGFsbG9jYXRvcnMgZm9yIHRoZSAibWVyZ2VhYmxlIiBhbmQgImJpZyIgcGF0aHMu
+Cj4gVGhlIG1lcmdlYWJsZSBhbGxvY2F0b3IgaW4gdGhlIG5vbi1zZXJpYWxpemVkIGNhc2UgcmVk
+dWNlcyB0bwo+IGFsbG9jX3BhZ2UoKSwgd2hpbGUgdGhlIGJpZyBhbGxvY2F0b3IgbG9va3MgbGlr
+ZSBhIGNvcHkgYW5kIHBhc3RlIHRoYXQKPiB1c2VzIGFsbG9jX3BhZ2UgaW5zdGVhZCBvZiBnZXRf
+YV9wYWdlKCkuCj4gCj4gUHJlZmVyZW5jZXM/ICBJJ2xsIGNvZGUgb25lIG9mIHRoZSB0d28gdXAg
+YW5kIHNlZSB3aGF0IGl0IGxvb2tzIGxpa2UuCgpXaGF0ZXZlciByZXN1bHRzIGluIGEgY2xlYW5l
+ciBkcml2ZXIsIEknbSBoYXBweS4KClRoYW5rcywKUnVzdHkuCl9fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApW
+aXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxp
+bnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
