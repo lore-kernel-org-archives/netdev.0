@@ -1,44 +1,50 @@
-From: phil.edworthy@renesas.com
-Subject: Bug in smsc911x_init
-Date: Mon, 09 Jan 2012 13:31:09 +0000
-Message-ID: <OF308AD908.27774DC2-ON80257980.0046416E-80257980.004A4357@eu.necel.com>
+From: Manfred Rudigier <manfred.rudigier@omicron.at>
+Subject: RE: [PATCH] gianfar: Fix invalid TX frames returned on error queue
+ when time stamping.
+Date: Mon, 9 Jan 2012 15:45:03 +0100
+Message-ID: <95DC1AA8EC908B48939B72CF375AA5E3013A991565@alice.at.omicron.at>
+References: <1325775021-23049-1-git-send-email-manfred.rudigier@omicron.at>
+ <20120105.132637.2130515220408371607.davem@davemloft.net>
+ <95DC1AA8EC908B48939B72CF375AA5E3013A99124D@alice.at.omicron.at>
+ <20120109124908.GB4404@cherladcori01>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Robert Marklund <robert.marklund@stericsson.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Steve Glendinning <steve.glendinning@smsc.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"afleming@freescale.com" <afleming@freescale.com>,
+	"avorontsov@mvista.com" <avorontsov@mvista.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor1.renesas.com ([210.160.252.171]:50873 "EHLO
-	relmlor1.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755024Ab2AINb1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2012 08:31:27 -0500
-Received: from relmlir1.idc.renesas.com ([10.200.68.151])
- by relmlor1.idc.renesas.com ( SJSMS)
- with ESMTP id <0LXJ008OY9KETH00@relmlor1.idc.renesas.com> for
- netdev@vger.kernel.org; Mon, 09 Jan 2012 22:31:26 +0900 (JST)
-Received: from relmlac2.idc.renesas.com ([10.200.69.22])
- by relmlir1.idc.renesas.com (SJSMS)
- with ESMTP id <0LXJ00LJO9KE6E00@relmlir1.idc.renesas.com> for
- netdev@vger.kernel.org; Mon, 09 Jan 2012 22:31:26 +0900 (JST)
+Received: from ns.omicron.at ([212.183.10.25]:41226 "EHLO ns.omicron.at"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754063Ab2AIOpV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2012 09:45:21 -0500
+In-Reply-To: <20120109124908.GB4404@cherladcori01>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: netdev-owner@vger.kernel.org [mailto:netdev-
+owner@vger.kernel.org] On Behalf Of Richard Cochran
+Sent: Monday, January 09, 2012 13:49
 
-I've found that commit 3ac3546e5f17248d961ef0f4a27e75564bf71578, 
-"net/smsc911x: Always wait for the chip to be ready" can cause init to 
-fail. I am working on an out of tree board, but it will affect other 
-users. With an smsc 9218 connected to a big endian processor using a 
-16-bit bus, we have to wait for the value read from PMT_CTRL to be 0x10000 
-rather than 0x1.
+>Hi Manfred,
+>
+>You have to make sure the new clone holds a reference on skb->sk.
+>A recent, similar problem was discussed:
+>
+>    http://comments.gmane.org/gmane.linux.network/208143
+>
+>And the solution came in:
+>
+>    commit da92b194cc36b5dc1fbd85206aeeffd80bee0c39
+>    Author: Richard Cochran <richardcochran@gmail.com>
+>    Date:   Fri Oct 21 00:49:15 2011 +0000
+>
+>    net: hold sock reference while processing tx timestamps
 
-However, I am not sure what the correct test should be, as the data sheet 
-states that you can't read or write to any other reg until the PMT_CTRL 
-READY bit is set. Maybe we can poll until we get a valid result from 
-reading BYTE_TEST, and then wait for the PMT_CTRL (endian specific) READY 
-bit?
+Thanks Richard, I will come up with a new version.
 
-Regards
-Phil
+Regard,
+Manfred
