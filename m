@@ -1,123 +1,69 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: Re: [PATCH 1/1] netfilter: Add possibility to turn off netfilters defrag per netns
-Date: Mon, 9 Jan 2012 09:58:42 +0100
-Message-ID: <201201090958.43017.hans.schillstrom@ericsson.com>
-References: <1325664443-10320-1-git-send-email-hans.schillstrom@ericsson.com> <alpine.DEB.2.00.1201050959030.5244@blackhole.kfki.hu> <20120105141859.GA8210@1984>
+From: "Yan, Zheng" <zheng.z.yan@intel.com>
+Subject: Re: [PATCH RFC] iwlwifi: add basic runtime PM support
+Date: Mon, 09 Jan 2012 17:04:43 +0800
+Message-ID: <4F0AADAB.4070608@intel.com>
+References: <4F065F59.2070107@intel.com>  <1325843269.3330.4.camel@jlt3.sipsolutions.net>  <4F0A3C62.6010403@intel.com> <1326069251.13074.360.camel@wwguy-huron>  <4F0A492A.5080504@intel.com> <1326071127.13074.367.camel@wwguy-huron>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Patrick McHardy <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120105141859.GA8210@1984>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Johannes Berg <johannes@sipsolutions.net>, ilw@linux.intel.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>
+To: "Guy, Wey-Yi" <wey-yi.w.guy@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:27327 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754972Ab2AIJEp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jan 2012 04:04:45 -0500
+In-Reply-To: <1326071127.13074.367.camel@wwguy-huron>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 05 January 2012 15:18:59 Pablo Neira Ayuso wrote:
-> On Thu, Jan 05, 2012 at 10:11:28AM +0100, Jozsef Kadlecsik wrote:
-> > OK, I see. Conntrack is per net namespace but it's enabled globally.
-> >  
-> > So at the moment I think the best solution is something like your patch 
-> > variant (but the condition is wrong, it should be "&& !skb->nfct"):
-> > 
-
-Oops, I'll fix that :-)
-
-> > --- a/net/ipv4/netfilter/nf_defrag_ipv4.c
-> > +++ b/net/ipv4/netfilter/nf_defrag_ipv4.c
-> > @@ -74,6 +74,14 @@ static unsigned int ipv4_conntrack_defrag(unsigned int
-> > hooknum,
-> > ...
-> > +       const struct net_device *dev = (hooknum == NF_INET_LOCAL_OUT ?
-> > +                                       out : in);
-> > +
-> > +       /* No defrag and not Previously seen (loopback)? */
-> > +       if (dev_net(dev)->ct.sysctl_notrac_defrag && skb->nfct) {
-> > +               /* Attach fake conntrack entry. as in NOTRACK */
-> > +               skb->nfct = &nf_ct_untracked_get()->ct_general;
-> > +               skb->nfctinfo = IP_CT_NEW;
-> > +               nf_conntrack_get(skb->nfct);
-> > +               return NF_ACCEPT;
-> > +       }
-> > ...
+On 01/09/2012 09:05 AM, Guy, Wey-Yi wrote:
+> On Mon, 2012-01-09 at 09:55 +0800, Yan, Zheng wrote:
+>> On 01/09/2012 08:34 AM, Guy, Wey-Yi wrote:
+>>> On Mon, 2012-01-09 at 09:01 +0800, Yan, Zheng wrote:
+>>>> On 01/06/2012 05:47 PM, Johannes Berg wrote:
+>>>>> [add linux-wireless]
+>>>>>
+>>>>> On Fri, 2012-01-06 at 10:41 +0800, Yan, Zheng wrote:
+>>>>>> This simple patch adds open/close based runtime PM support to the iwlwifi driver.
+>>>>>> Namely, make the driver suspend the device after shutting down the interface and
+>>>>>> resume the device when activating the interface. In my test, suspending the device
+>>>>>> can save about 0.4 watt power. The shortcoming is that the device no longer generate
+>>>>>> rfkill changes interrupt.
+>>>>>
+>>>>> NACK due to that last sentence. There's no way we can live with that in
+>>>>> the general case -- and your patch isn't even configurable afaict. And
+>>>>> I'm sure polling the rfkill flag would use just as much energy.
+>>>>>
+>>>> It's configurable, runtime PM is disabled by default.
+>>>
+>>> Somehow I miss it, how you configure it?
+>>>
+>> change the value of /sys/devices/.../power/control to auto to enable the runtime PM.
+>> (e.g echo auto > /sys/devices/pci0000:00/0000:00:1c.3/0000:02:00.0/power/control)
 > 
-> I prefer the sysctl option as well, the new table is too much and it
-> remains too specific for this.
+> I am not sure it is acceptable, how you expect user figure out the pci
+> space especially the NIC can be in any of the PCI slots.
 > 
-> I wonder if we can conditionally register the sysctl only if we are
-> inside one lxc container.
+>>
+>>>>
+>>>>> There might be some value in this in a system that doesn't have a hard
+>>>>> rfkill line, but that means this needs to be configurable since the
+>>>>> device can't know whether there's a button or not [1].
+>>>>>
+>>>> The patch targets system that only use software rfkill
+>>>
+>>> How you control that?  
+>> I can't. Our team is working on runtime PM project, the purpose of the patch is
+>> more or less to demonstrate how much power can be saved.
+>>
+> I understand, but unless we figure out either make rkill interrupt works
+> in runtime PM, or figure out the platform does not has HW RFKILL
+> automatically, I don't see how this patch can upstream without generate
+> a lot of issues and bug reports.
 > 
-Sure no problem, but the code will not be so nice ... 
+Thank you for the suggestion.
 
-> I'm telling this because this sysctl does not seem to make any sense
-> to me outside of it.
-
-I'm not so sure that we should make it asymetric,
-but it's not a big deal.
-
-Anyway here is a sample of the sysctl in a namespace.
-It is the  "if (!net_eq(net, &init_net)) {..." that does the magic
-
-diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
-index 885f5ab..2a0d530 100644
---- a/net/netfilter/nf_conntrack_standalone.c
-+++ b/net/netfilter/nf_conntrack_standalone.c
-@@ -454,6 +454,21 @@ static ctl_table nf_ct_sysctl_table[] = {
-        },
-        { }
- };
-+#define NFCT_SYSCTL_LAST \
-+       ((sizeof(nf_ct_sysctl_table) / sizeof(struct ctl_table)) - 1)
-+/*
-+ * Not Visible in root name space (init_net)
-+ */
-+static ctl_table nf_ct_sysctl_ns_table[] = {
-+               {
-+                       .procname       = "nf_conntrack_nodefrag",
-+                       .data           = &init_net.ct.sysctl_nodefrag,
-+                       .maxlen         = sizeof(int),
-+                       .mode           = 0644,
-+                       .proc_handler   = proc_dointvec,
-+               },
-+               { }
-+};
-
- #define NET_NF_CONNTRACK_MAX 2089
-
-@@ -483,9 +498,10 @@ static int nf_conntrack_standalone_init_sysctl(struct net *net)
-                if (!nf_ct_netfilter_header)
-                        goto out;
-        }
-+       table = kzalloc(sizeof(nf_ct_sysctl_table) +
-+                       sizeof(nf_ct_sysctl_ns_table), GFP_KERNEL);
-+       memcpy(table, nf_ct_sysctl_table, sizeof(nf_ct_sysctl_table));
-
--       table = kmemdup(nf_ct_sysctl_table, sizeof(nf_ct_sysctl_table),
--                       GFP_KERNEL);
-        if (!table)
-                goto out_kmemdup;
-
-@@ -494,6 +510,12 @@ static int nf_conntrack_standalone_init_sysctl(struct net *net)
-        table[3].data = &net->ct.sysctl_checksum;
-        table[4].data = &net->ct.sysctl_log_invalid;
-
-+       if (!net_eq(net, &init_net)) {
-+               memcpy(&table[NFCT_SYSCTL_LAST], nf_ct_sysctl_ns_table,
-+                      sizeof(nf_ct_sysctl_ns_table));
-+               table[NFCT_SYSCTL_LAST].data = &net->ct.sysctl_nodefrag;
-+       }
-+
-        net->ct.sysctl_header = register_net_sysctl_table(net,
-                                        nf_net_netfilter_sysctl_path, table);
-        if (!net->ct.sysctl_header)
---
-1.7.2.3
-
--- 
-Regards
-Hans Schillstrom <hans.schillstrom@ericsson.com>
+Yan, Zheng
