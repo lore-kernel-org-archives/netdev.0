@@ -1,46 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH] gianfar: Fix invalid TX frames returned on error queue
- when time stamping.
-Date: Mon, 09 Jan 2012 10:58:46 +0100
-Message-ID: <1326103126.2407.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1325775021-23049-1-git-send-email-manfred.rudigier@omicron.at>
-	 <20120105.132637.2130515220408371607.davem@davemloft.net>
-	 <95DC1AA8EC908B48939B72CF375AA5E3013A99124D@alice.at.omicron.at>
-	 <1326095038.2627.4.camel@edumazet-laptop>
-	 <95DC1AA8EC908B48939B72CF375AA5E3013A99137D@alice.at.omicron.at>
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: [PATCH] brcm80211: Don't leak 'vbuffer' in
+ brcmf_sdbrcm_write_vars()
+Date: Mon, 9 Jan 2012 11:01:15 +0100
+Message-ID: <4F0ABAEB.5070306@broadcom.com>
+References: <alpine.LNX.2.00.1201082338350.24030@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"afleming@freescale.com" <afleming@freescale.com>,
-	"avorontsov@mvista.com" <avorontsov@mvista.com>
-To: Manfred Rudigier <manfred.rudigier@omicron.at>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:65535 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751599Ab2AIJ6v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2012 04:58:51 -0500
-Received: by bkcjm19 with SMTP id jm19so1374324bkc.19
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2012 01:58:50 -0800 (PST)
-In-Reply-To: <95DC1AA8EC908B48939B72CF375AA5E3013A99137D@alice.at.omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Alwin Beukers" <alwin@broadcom.com>,
+	"Pieter-Paul Giesberts" <pieterpg@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+To: "Jesper Juhl" <jj@chaosbits.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1201082338350.24030@swampdragon.chaosbits.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 09 janvier 2012 =C3=A0 10:36 +0100, Manfred Rudigier a =C3=A9c=
-rit :
+On 01/08/2012 11:41 PM, Jesper Juhl wrote:
+> If the memory allocation 'nvram_ularray = kmalloc(varsize,
+> GFP_ATOMIC);' fails we'll leak the memory allocated to 'vbuffer' when
+> we return -ENOMEM from the function.
+> 
+> This patch resolves the leak by kfree()'ing the allocated memory
+> before the return.
+> 
+> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 
-> I have tried your suggested steal sequence, but it crashed.=20
-> I see that there is also a destructor - when I use the skb_orphan fun=
-ction (which calls the destructor) like this it works:
->=20
-> 	skb_new->sk =3D skb->sk;
-> 	skb_orphan(skb);
-> 	kfree_skb(skb);
->=20
-> Is this the correct solution?
+Nice catch. Thanks.
 
-I dont think so.
+Acked-by: Arend van Spriel <arend@broadcom.com>
 
-destructor and sk are coupled, you cant steal one and let the other
-untouched.
+Gr. AvS
