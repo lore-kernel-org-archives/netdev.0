@@ -1,42 +1,46 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 4/4] drivers/net/wireless/mwifiex/scan.c: convert GFP_KERNEL to GFP_ATOMIC
-Date: Mon,  9 Jan 2012 10:40:50 +0100
-Message-ID: <1326102050-30265-4-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Julia Lawall <julia.lawall@lip6.fr>
-To: Bing Zhao <bzhao@marvell.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH] gianfar: Fix invalid TX frames returned on error queue
+ when time stamping.
+Date: Mon, 09 Jan 2012 10:58:46 +0100
+Message-ID: <1326103126.2407.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1325775021-23049-1-git-send-email-manfred.rudigier@omicron.at>
+	 <20120105.132637.2130515220408371607.davem@davemloft.net>
+	 <95DC1AA8EC908B48939B72CF375AA5E3013A99124D@alice.at.omicron.at>
+	 <1326095038.2627.4.camel@edumazet-laptop>
+	 <95DC1AA8EC908B48939B72CF375AA5E3013A99137D@alice.at.omicron.at>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"afleming@freescale.com" <afleming@freescale.com>,
+	"avorontsov@mvista.com" <avorontsov@mvista.com>
+To: Manfred Rudigier <manfred.rudigier@omicron.at>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:65535 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751599Ab2AIJ6v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2012 04:58:51 -0500
+Received: by bkcjm19 with SMTP id jm19so1374324bkc.19
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2012 01:58:50 -0800 (PST)
+In-Reply-To: <95DC1AA8EC908B48939B72CF375AA5E3013A99137D@alice.at.omicron.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia.lawall@lip6.fr>
+Le lundi 09 janvier 2012 =C3=A0 10:36 +0100, Manfred Rudigier a =C3=A9c=
+rit :
 
-The function is called with locks held and thus should not use GFP_KERNEL.
+> I have tried your suggested steal sequence, but it crashed.=20
+> I see that there is also a destructor - when I use the skb_orphan fun=
+ction (which calls the destructor) like this it works:
+>=20
+> 	skb_new->sk =3D skb->sk;
+> 	skb_orphan(skb);
+> 	kfree_skb(skb);
+>=20
+> Is this the correct solution?
 
-The semantic patch that makes this report is available
-in scripts/coccinelle/locks/call_kern.cocci.
+I dont think so.
 
-More information about semantic patching is available at
-http://coccinelle.lip6.fr/
-
-Signed-off-by: Julia Lawall <julia.lawall@lip6.fr>
-
----
- drivers/net/wireless/mwifiex/scan.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/mwifiex/scan.c b/drivers/net/wireless/mwifiex/scan.c
-index 6396d33..98f1ca9 100644
---- a/drivers/net/wireless/mwifiex/scan.c
-+++ b/drivers/net/wireless/mwifiex/scan.c
-@@ -2001,7 +2001,7 @@ mwifiex_save_curr_bcn(struct mwifiex_private *priv)
- 
- 		kfree(priv->curr_bcn_buf);
- 		priv->curr_bcn_buf = kmalloc(curr_bss->beacon_buf_size,
--						GFP_KERNEL);
-+						GFP_ATOMIC);
- 		if (!priv->curr_bcn_buf) {
- 			dev_err(priv->adapter->dev,
- 					"failed to alloc curr_bcn_buf\n");
+destructor and sk are coupled, you cant steal one and let the other
+untouched.
