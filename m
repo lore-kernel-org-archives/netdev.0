@@ -1,63 +1,48 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH iputils ping]: report outstanding packets before sending
- next packet
-Date: Tue, 10 Jan 2012 00:20:43 +0900
-Message-ID: <4F0B05CB.1080803@linux-ipv6.org>
-References: <201201050904.KAA04877@shell02.nsc.no>
+From: "Guy, Wey-Yi" <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH RFC] iwlwifi: add basic runtime PM support
+Date: Mon, 09 Jan 2012 06:39:59 -0800
+Message-ID: <1326119999.13074.369.camel@wwguy-huron>
+References: <4F065F59.2070107@intel.com>
+	 <1325843269.3330.4.camel@jlt3.sipsolutions.net>
+	 <4F0A3C62.6010403@intel.com> <1326069251.13074.360.camel@wwguy-huron>
+	 <4F0A492A.5080504@intel.com>  <1326071127.13074.367.camel@wwguy-huron>
+	 <1326100270.3451.5.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: =?UTF-8?B?T2xlIEJq77+9cm4gSGVzc2Vu?= <obh@telenor.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:46188 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755260Ab2AIPUq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2012 10:20:46 -0500
-In-Reply-To: <201201050904.KAA04877@shell02.nsc.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Yan, Zheng" <zheng.z.yan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1326100270.3451.5.camel-8upI4CBIZJIJvtFkdXX2HixXY32XiHfO@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Ole Bj=EF=BF=BDrn Hessen wrote:
-> Hello,
->
-> please accept following patch to ping to let ping report outstanding
-> packets before sending next packet. This is a sorely missed feature
-> from the old sun ping. Very useful together with the -D option:
->
->       ping -DO 10.122.145.180>  file
->       # wait next day
->       ^C
->       grep "no answer yet" file
->
->       [1325752664.026900] 64 bytes from 10.122.145.180: icmp_req=3D20=
- ttl=3D64 time=3D0.695 ms
->       [1325752665.026926] 64 bytes from 10.122.145.180: icmp_req=3D21=
- ttl=3D64 time=3D0.695 ms
->       [1325752666.026917] 64 bytes from 10.122.145.180: icmp_req=3D22=
- ttl=3D64 time=3D0.682 ms
->       [1325752667.026922] 64 bytes from 10.122.145.180: icmp_req=3D23=
- ttl=3D64 time=3D0.695 ms
->       [1325752669.026217] no answer yet for icmp_seq=3D24
->       [1325752670.026207] no answer yet for icmp_seq=3D25
->       ...
->       [1325752697.026206] no answer yet for icmp_seq=3D52
->       [1325752698.026205] no answer yet for icmp_seq=3D53
->       [1325752698.026962] 64 bytes from 10.122.145.180: icmp_req=3D54=
- ttl=3D64 time=3D0.717 ms
->       [1325752699.026930] 64 bytes from 10.122.145.180: icmp_req=3D55=
- ttl=3D64 time=3D0.690 ms
->       [1325752700.026928] 64 bytes from 10.122.145.180: icmp_req=3D56=
- ttl=3D64 time=3D0.695 ms
->
-> Kind regards,
->
-> Ole Bj=C3=B8rn Hessen,
-> Telenor
+On Mon, 2012-01-09 at 10:11 +0100, Johannes Berg wrote:
+> On Sun, 2012-01-08 at 17:05 -0800, Guy, Wey-Yi wrote:
+> 
+> 
+> > I understand, but unless we figure out either make rkill interrupt works
+> > in runtime PM, or figure out the platform does not has HW RFKILL
+> > automatically, I don't see how this patch can upstream without generate
+> > a lot of issues and bug reports.
+> 
+> I suppose the question is -- will any tools/users enable it and then
+> scream about their rfkill?
+> 
+> Maybe we can use pm_runtime_forbid() to disable it completely, and add a
+> module parameter or something to enable it -- just so people are aware
+> of the tradeoffs?
 
-Applied, thanks.
+module parameter shall works, we just need a clear and easy way to allow
+user enable/disable this runtime PM feature and not making mistake
 
-Please provide the "signed-off-by" line, next time.
+Wey
+> 
 
---yoshfuji
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
