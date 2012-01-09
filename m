@@ -1,16 +1,21 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next 2/2] net: introduce netif_addr_lock_nested() and call if when appropriate
-Date: Mon,  9 Jan 2012 17:18:35 +0100
-Message-ID: <1326125915-2711-2-git-send-email-jpirko@redhat.com>
+Subject: [patch net-next v2 2/2] net: introduce netif_addr_lock_nested() and
+ call if when appropriate
+Date: Mon, 9 Jan 2012 17:36:54 +0100
+Message-ID: <20120109163654.GC2114@minipsycho.brq.redhat.com>
 References: <1326125915-2711-1-git-send-email-jpirko@redhat.com>
+ <1326125915-2711-2-git-send-email-jpirko@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, eric.dumazet@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29506 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:63266 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932266Ab2AIQSm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jan 2012 11:18:42 -0500
-In-Reply-To: <1326125915-2711-1-git-send-email-jpirko@redhat.com>
+	id S932304Ab2AIQg5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jan 2012 11:36:57 -0500
+Content-Disposition: inline
+In-Reply-To: <1326125915-2711-2-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -23,13 +28,16 @@ There's no way this deathlock can happen so use spin_lock_nested() to
 silence the warning.
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+
+v1->v2:
+	use SINGLE_DEPTH_NESTING instead of wrongly c&p'ed DENTRY_D_LOCK_NESTED
 ---
  include/linux/netdevice.h |    5 +++++
  net/core/dev_addr_lists.c |   12 ++++++------
  2 files changed, 11 insertions(+), 6 deletions(-)
 
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index a1d1095..656fade 100644
+index a1d1095..d0522bb 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
 @@ -2450,6 +2450,11 @@ static inline void netif_addr_lock(struct net_device *dev)
@@ -38,7 +46,7 @@ index a1d1095..656fade 100644
  
 +static inline void netif_addr_lock_nested(struct net_device *dev)
 +{
-+	spin_lock_nested(&dev->addr_list_lock, DENTRY_D_LOCK_NESTED);
++	spin_lock_nested(&dev->addr_list_lock, SINGLE_DEPTH_NESTING);
 +}
 +
  static inline void netif_addr_lock_bh(struct net_device *dev)
