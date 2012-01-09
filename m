@@ -1,35 +1,75 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v2 2/2] net: introduce
- netif_addr_lock_nested() and call if when appropriate
-Date: Mon, 09 Jan 2012 12:47:23 -0800 (PST)
-Message-ID: <20120109.124723.2024034017916493404.davem@davemloft.net>
-References: <1326125915-2711-2-git-send-email-jpirko@redhat.com>
-	<20120109163654.GC2114@minipsycho.brq.redhat.com>
-	<1326136028.2725.0.camel@bwh-desktop>
+Subject: Re: linux-next: Tree for Jan 9 (net/core/sock.c)
+Date: Mon, 09 Jan 2012 13:44:28 -0800 (PST)
+Message-ID: <20120109.134428.1344005477076228276.davem@davemloft.net>
+References: <20120109170457.4465dfc66a0eace4a2230fef@canb.auug.org.au>
+	<4F0B5302.5050105@xenotime.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jpirko@redhat.com, netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35840 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933241Ab2AIUr1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2012 15:47:27 -0500
-In-Reply-To: <1326136028.2725.0.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: rdunlap@xenotime.net
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <4F0B5302.5050105@xenotime.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 9 Jan 2012 19:07:08 +0000
+From: Randy Dunlap <rdunlap@xenotime.net>
+Date: Mon, 09 Jan 2012 12:50:10 -0800
 
-> On Mon, 2012-01-09 at 17:36 +0100, Jiri Pirko wrote:
->> dev_uc_sync() and dev_mc_sync() are acquiring netif_addr_lock for
->> destination device of synchronization. Since netif_addr_lock is already
->> held at the time for source device, this triggers depmod deathlock
->> warning.
-> [...]
+> On 01/08/2012 10:04 PM, Stephen Rothwell wrote:
+>> Hi all,
+>> 
+>> Changes since 20120106:
+>> 
+>> The net tree gained a build failure for which I applied a patch.
 > 
-> I think you mean '...lockdep deadlock warning'?
+> 
+> net/core/sock.c: In function 'sk_update_clone':
+> net/core/sock.c:1278:3: error: implicit declaration of function 'sock_update_memcg'
 
-Applied with this wording fixed.
+Sigh...
+
+I'll add the following patch, the example randconfig seems to work
+with it here at least:
+
+net: Fix build with INET disabled.
+
+> net/core/sock.c: In function 'sk_update_clone':
+> net/core/sock.c:1278:3: error: implicit declaration of function 'sock_update_memcg'
+
+Reported-by: Randy Dunlap <rdunlap@xenotime.net>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+index 9b296ea..f944591 100644
+--- a/include/linux/memcontrol.h
++++ b/include/linux/memcontrol.h
+@@ -390,7 +390,6 @@ enum {
+ 	OVER_LIMIT,
+ };
+ 
+-#ifdef CONFIG_INET
+ struct sock;
+ #ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+ void sock_update_memcg(struct sock *sk);
+@@ -403,6 +402,5 @@ static inline void sock_release_memcg(struct sock *sk)
+ {
+ }
+ #endif /* CONFIG_CGROUP_MEM_RES_CTLR_KMEM */
+-#endif /* CONFIG_INET */
+ #endif /* _LINUX_MEMCONTROL_H */
+ 
+diff --git a/net/core/sock.c b/net/core/sock.c
+index c3ae73d..5c5af998 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -112,6 +112,7 @@
+ #include <linux/highmem.h>
+ #include <linux/user_namespace.h>
+ #include <linux/jump_label.h>
++#include <linux/memcontrol.h>
+ 
+ #include <asm/uaccess.h>
+ #include <asm/system.h>
