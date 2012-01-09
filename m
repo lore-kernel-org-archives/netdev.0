@@ -1,46 +1,35 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] gianfar: Fix invalid TX frames returned on error queue
- when time stamping.
-Date: Mon, 9 Jan 2012 13:50:34 +0100
-Message-ID: <20120109125034.GC4404@cherladcori01>
-References: <1325775021-23049-1-git-send-email-manfred.rudigier@omicron.at>
- <20120105.132637.2130515220408371607.davem@davemloft.net>
- <95DC1AA8EC908B48939B72CF375AA5E3013A99124D@alice.at.omicron.at>
- <1326095038.2627.4.camel@edumazet-laptop>
- <95DC1AA8EC908B48939B72CF375AA5E3013A99137D@alice.at.omicron.at>
- <20120109124108.GA4404@cherladcori01>
+From: Paula Mezger <pm3@gci.net>
+Subject: LOAN OFFER
+Date: Mon, 09 Jan 2012 17:30:33 +0500
+Message-ID: <fc6eefef75cf.4f0b2439@gci.net>
+Reply-To: uniqueloan_solu@bitscn.net
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"afleming@freescale.com" <afleming@freescale.com>,
-	"avorontsov@mvista.com" <avorontsov@mvista.com>
-To: Manfred Rudigier <manfred.rudigier@omicron.at>
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:59811 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753988Ab2AIMuj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2012 07:50:39 -0500
-Received: by werm1 with SMTP id m1so2576903wer.19
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2012 04:50:38 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20120109124108.GA4404@cherladcori01>
+Received: from msgmmp-4.gci.net ([209.165.130.14]:45787 "EHLO msgmmp-4.gci.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754160Ab2AINai (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jan 2012 08:30:38 -0500
+Received: from gci.net ([209.165.130.77])
+ by msgmmp-1.gci.net (Sun Java System Messaging Server 6.2-3.03 (built Jun 27
+ 2005)) with ESMTP id <0LXJ0087A6QXAQ00@msgmmp-1.gci.net> for
+ netdev@vger.kernel.org; Mon, 09 Jan 2012 03:30:38 -0900 (AKST)
+Content-language: en
+Content-disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 09, 2012 at 01:41:08PM +0100, Richard Cochran wrote:
-> 
-> 	if (((skb->ip_summed == CHECKSUM_PARTIAL) ||
->       	   		vlan_tx_tag_present(skb) ||
-> 			unlikely(do_tstamp)) &&
-> 			(skb_headroom(skb) < GMAC_FCB_LEN)) {
-> 		struct sk_buff *skb_new;
-> 		...
-> 	}
-> 
-> IOW, there was always at least GMAC_FCB_LEN bytes in skb_headroom.
 
-And now, you are asking for more space.
 
-Richard
+Unique Loan Solutions offers loan at 0.5%. Apply now with Your
+
+Full Name:
+Country of Residence:
+Phone Number:
+Loan Amount:
+
+Note: We only lend from $5,000.00 USD to $100,000,000.00 USD
+
+Email(uniqueloan_solu@bitscn.net)
