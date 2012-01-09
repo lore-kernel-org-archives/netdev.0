@@ -1,172 +1,76 @@
-From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Subject: RE: asix, setting MAC broken in v3.2. Bisected to "NET: fix phy
- init for AX88772 USB ethernet".
-Date: Mon, 09 Jan 2012 12:53:24 +0200
-Message-ID: <20120109125324.14414ynmnofsl5gc@www.81.fi>
-References: <20120106131051.92814bd4b7x0nmqs@www.81.fi>
- <CANEJEGvXST4YzDL4kuF=kjZBN=ng-bC5UptCU2zk6JUmhpVjmg@mail.gmail.com>
- <20120108171802.287811bpiixnymys@www.81.fi>
- <002001ccce1a$3c5337a0$b4f9a6e0$@com.tw>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] gianfar: Fix invalid TX frames returned on error queue
+ when time stamping.
+Date: Mon, 9 Jan 2012 13:41:08 +0100
+Message-ID: <20120109124108.GA4404@cherladcori01>
+References: <1325775021-23049-1-git-send-email-manfred.rudigier@omicron.at>
+ <20120105.132637.2130515220408371607.davem@davemloft.net>
+ <95DC1AA8EC908B48939B72CF375AA5E3013A99124D@alice.at.omicron.at>
+ <1326095038.2627.4.camel@edumazet-laptop>
+ <95DC1AA8EC908B48939B72CF375AA5E3013A99137D@alice.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	DelSp=Yes	format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: 'Grant Grundler' <grundler@chromium.org>, netdev@vger.kernel.org,
-	'Freddy Xin' <freddy@asix.com.tw>,
-	'Olof Johansson' <olofj@chromium.org>,
-	"'David S. Miller'" <davem@davemloft.net>,
-	'David Hollis' <dhollis@davehollis.com>
-To: allan <allan@asix.com.tw>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"afleming@freescale.com" <afleming@freescale.com>,
+	"avorontsov@mvista.com" <avorontsov@mvista.com>
+To: Manfred Rudigier <manfred.rudigier@omicron.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sd-mail-sa-02.sanoma.fi ([158.127.18.162]:48882 "EHLO
-	sd-mail-sa-02.sanoma.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752050Ab2AIKxe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2012 05:53:34 -0500
-In-Reply-To: <002001ccce1a$3c5337a0$b4f9a6e0$@com.tw>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:55659 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754188Ab2AIMlV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2012 07:41:21 -0500
+Received: by wibhm6 with SMTP id hm6so2509033wib.19
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2012 04:41:20 -0800 (PST)
 Content-Disposition: inline
+In-Reply-To: <95DC1AA8EC908B48939B72CF375AA5E3013A99137D@alice.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Mon, Jan 09, 2012 at 10:36:44AM +0100, Manfred Rudigier wrote:
+> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+> Sent: Monday, January 09, 2012 08:44
+>=20
+> >Le lundi 09 janvier 2012 =C3=A0 08:16 +0100, Manfred Rudigier a =C3=A9=
+crit :
+> >> From: David Miller [mailto:davem@davemloft.net]
+> >> Sent: Thursday, January 05, 2012 19:27
+> >>
+> >> >From: Manfred Rudigier <manfred.rudigier@omicron.at>
+> >> >Date: Thu, 5 Jan 2012 15:50:21 +0100
+> >> >
+> >> >> +
+> >> >> +		/* Keep sock if we must return a time stamp on the err queue=
+ */
+> >> >> +		skb_new->sk =3D skb->sk;
+> >> >
+> >> >When I see something like this without any kind of reference coun=
+ting
+> >> >or similar, I am gravely concerned.
+> >>
+> >> The skb_tstamp_tx function called during gfar_clean_tx_ring requir=
+es
+> >> the skb->sk pointer to be set. Otherwise no time stamp can be queu=
+ed
+> >> on the socket error queue.
+> >> What would be the correct way for doing this?
+> >
+> >I really wonder how your code was possibly working...
+>=20
+> Well, it was working :-)
 
-Yes, that is exactly what I have for interface initialization. System =20
-is running Debian Squeeze, with following entry in =20
-/etc/network/interfaces:
+It was only working because the conditional was always false:
 
-  # wan1 is asix device
-  auto wan1
-  iface wan1 inet dhcp
-          pre-up /etc/network/change-mac-addr-to.sh wan1 00:02:xx:xx:xx=
-:xx
+	if (((skb->ip_summed =3D=3D CHECKSUM_PARTIAL) ||
+      	   		vlan_tx_tag_present(skb) ||
+			unlikely(do_tstamp)) &&
+			(skb_headroom(skb) < GMAC_FCB_LEN)) {
+		struct sk_buff *skb_new;
+		...
+	}
 
-and change-mac-addr-to.sh is:
+IOW, there was always at least GMAC_FCB_LEN bytes in skb_headroom.
 
-  #!/bin/sh
-
-  # check if mac address already set
-  if [ "$(ifconfig "$1" | grep HWaddr | grep "$2")" =3D "" ]; then
-          # set new mac
-          ifconfig "$1" down
-          ifconfig "$1" hw ether "$2"
-          ifconfig "$1" up
-
-          echo Changed MAC-address for interface $1 to $2
-  fi
-
-  exit 0
-
-This works with kernel v3.1, but not with v3.2. Not working means: 1. =20
-DHCP does not work on wan1/asix, does not receive answer from DHCP =20
-server. 2. PPPoE connection doesn't initialize over wan1/asix. (DHCP =20
-is for ISP private/local network and Internet connection is through =20
-PPPoE).
-
-With v3.2 I found out that enabling promisc for wan1 interface =20
-(ifconfig wan1 promisc 1) allows DHCP and PPPoE to make connection and =
-=20
-to work.
-
-Also the patch attached in previous message (patch is for kernel v3.2) =
-=20
-fixes the problem (for me).
-
--Jussi
-
-Quoting allan <allan@asix.com.tw>:
-
-> Dear Jussi,
->
-> Please help to double check if the following information is helpful =20
-> to solve your issue or not? If no, please deliver us your test
-asix.c
-> driver file and detailed test procedures for further investigation. =20
-> Thanks a lot.
->
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> Actually, if you just want to manually set the MAC address of your =20
-> AX88772B/AX88772A/AX88178 devices for engineering testing, you can =20
-> refer to below procedures to temporary change the MAC address of
-your
-> AX88772B/AX88772A/AX88178 device on Linux platform through the =20
-> =E2=80=9Cax8817x_set_mac_addr()=E2=80=9D routine of AX88772B/AX88772A=
-/AX88178
-Linux
-> driver source code.
->
-> How to change MAC address in Linux
->
-http://linuxhelp.blogspot.com/2005/09/how-to-change-mac-address-of-your=
-=2Ehtml
->
-> # ifconfig eth0 down
-> # ifconfig eth0 hw ether 00:80:48:BA:d1:30
-> # ifconfig eth0 up
->
->
-> ---
-> Best regards,
-> Allan Chou
-> Technical Support Division
-> ASIX Electronics Corporation
-> TEL: 886-3-5799500 ext.228
-> FAX: 886-3-5799558
-> E-mail: allan@asix.com.tw
-> http://www.asix.com.tw/
->
-> -----Original Message-----
-> From: Jussi Kivilinna [mailto:jussi.kivilinna@mbnet.fi]
-> Sent: Sunday, January 08, 2012 11:18 PM
-> To: Grant Grundler
-> Cc: netdev@vger.kernel.org; Freddy Xin; Olof Johansson; David S. =20
-> Miller; David Hollis; Allan Chou
-> Subject: Re: asix, setting MAC broken in v3.2. Bisected to "NET: fix
-
-> phy init for AX88772 USB ethernet".
->
-> Quoting Grant Grundler <grundler@chromium.org>:
->
->> On Fri, Jan 6, 2012 at 3:10 AM, Jussi Kivilinna
->> <jussi.kivilinna@mbnet.fi> wrote:
->>> Hello,
->>>
->>> I have asix adapter plugged to mini-server
->>
->> Which Asix adapter do you have? (Vendor/model)
->
-> It's Wii Ethernet adapter,
-> Bus 001 Device 008: ID 0b95:7720 ASIX Electronics Corp. AX88772
->
->>
->> Can you please provide:
->> 1) dmesg output from asix driver
->> 2) lsusb output for the device
->
-> Both attached.
->
->>> and have to change MAC address
->>> before DHCP because of ISP. This worked fine, until v3.2. Now I
-have to set
->>> interface in promisc mode to have custom MAC working.
->>
->> Sorry - I didn't test this but I also would not expect this to
-break
->> with the changes in 3.2.
->>
->> I'll see if Freddy or Allan (ASIX) need my help with this.
->
-> I found out that setting MAC in ax88722_reset() solves the issue for
-> me. Maybe changes to init/reset sequence causes hardware to be
-reseted
-> after set_mac_address call and revert to default MAC?
->
-> Patch attached.
->
-> -Jussi
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+Richard
