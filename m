@@ -1,558 +1,245 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [PATCH net-next V3 1/2] igb: add PTP Hardware Clock code
-Date: Mon, 9 Jan 2012 17:42:20 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5801E86F@ORSMSX106.amr.corp.intel.com>
-References: <cover.1325964581.git.richardcochran@gmail.com>
- <06a2d33bed05d5c17c03fca6f0fcc2fe3f6870f4.1325964581.git.richardcochran@gmail.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [net-next 8/9] ixgbe: add interface to export thermal data
+Date: Mon, 9 Jan 2012 18:08:51 +0000
+Message-ID: <363B5007A0D944459CBE9CF6A37B891B01FB58@ORSMSX104.amr.corp.intel.com>
+References: <1324631357-31789-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1324631357-31789-9-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <CAHXqBFL_44T5nQVA=n03aT9Q1QpsLCY2dn9o6GE-9Rm66DSt-A@mail.gmail.com>
+	 <F6FB0E698C9B3143BDF729DF22286646025656@ORSMSX102.amr.corp.intel.com>
+	 <1325788584.3764.28.camel@bwh-desktop>
+	 <F6FB0E698C9B3143BDF729DF22286646027184@ORSMSX102.amr.corp.intel.com>
+	 <CAHXqBF+ZY-KH8hOi+QnDZVHx+8OOqP5CLXR44YtDLB3=1DDEOA@mail.gmail.com>
+	 <363B5007A0D944459CBE9CF6A37B891B01E292@ORSMSX104.amr.corp.intel.com>
+	 <1325873362.2850.20.camel@bwh-desktop>
+	 <363B5007A0D944459CBE9CF6A37B891B01E718@ORSMSX104.amr.corp.intel.com>
+ <1325874309.25896.2.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
+Content-Type: multipart/signed; micalg=SHA1;
+	protocol="application/x-pkcs7-signature";
+	boundary="----=_NextPart_000_0003_01CCCEB6.ADAEDE30"
+Cc: Michal Miroslaw <mirqus@gmail.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
 	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Richard Cochran <richardcochran@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:33403 "EHLO mga03.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:56497 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751198Ab2AIRmX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2012 12:42:23 -0500
-In-Reply-To: <06a2d33bed05d5c17c03fca6f0fcc2fe3f6870f4.1325964581.git.richardcochran@gmail.com>
+	id S1755795Ab2AISIx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jan 2012 13:08:53 -0500
+In-Reply-To: <1325874309.25896.2.camel@bwh-desktop>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Richard Cochran [mailto:richardcochran@gmail.com]
-> Sent: Saturday, January 07, 2012 11:38 AM
-> To: netdev@vger.kernel.org
-> Cc: e1000-devel@lists.sourceforge.net; Keller, Jacob E; Kirsher,
-> Jeffrey T; Ronciak, John; John Stultz; Thomas Gleixner
-> Subject: [PATCH net-next V3 1/2] igb: add PTP Hardware Clock code
-> 
-> This patch adds a source file implementing a PHC. Only the basic
-> clock operations have been implemented, although the hardware
-> would offer some ancillary functions. The code is fairly self
-> contained and is not yet used in the main igb driver.
-> 
-> Every timestamp and clock read operation must consult the overflow
-> counter to form a correct time value. Access to the counter is
-> protected by a spin lock, and this would be sufficient, assuming that
-> the time values are monotonic.
-> 
-> However, this assumption does not hold in general. Consider the
-> following sequence.
-> 
->  1. Hardware latches a receive timestamp (just before counter
-> overflow).
->  2. User calls clock_gettime() (just after counter overflow).
->  3. User takes lock, detects 1-0 transition, and increments overflow
-> count.
->  4. Driver takes lock, incorrectly combines overflow count with
-> timestamp.
-> 
-> A very similar race condition exists between two nearly simultaneous
-> hardware timestamps.
->
-> The implementation detects this race by checking the two most
-> significant bits for a transition from 11b to 00b. When this pattern
-> is detected, the code uses the previous value of the overflow count.
-> 
-> The two most significant bits divide the overflow period into four
-> regions, and so the watchdog timeout is set to sample the counter at
-> just over four times per period.
->
-Is there a reason for not using the timecounter structure from the kernel? It is a layer beneath the timecompare code which is meant to handle this condition. As far as I can tell this issue is solved in the timecounter code. If it is not, then that should be a bug in the timecounter cyclecounter code. I don't know if this issue occurs in the timecounter structure because it handles the ns conversion differently.
+------=_NextPart_000_0003_01CCCEB6.ADAEDE30
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
- 
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
-> ---
->  drivers/net/ethernet/intel/igb/igb.h     |    8 +
->  drivers/net/ethernet/intel/igb/igb_ptp.c |  427
-> ++++++++++++++++++++++++++++++
->  2 files changed, 435 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/net/ethernet/intel/igb/igb_ptp.c
-> 
-> diff --git a/drivers/net/ethernet/intel/igb/igb.h
-> b/drivers/net/ethernet/intel/igb/igb.h
-> index c69feeb..f30458d 100644
-> --- a/drivers/net/ethernet/intel/igb/igb.h
-> +++ b/drivers/net/ethernet/intel/igb/igb.h
-> @@ -37,6 +37,7 @@
->  #include <linux/clocksource.h>
->  #include <linux/timecompare.h>
->  #include <linux/net_tstamp.h>
-> +#include <linux/ptp_clock_kernel.h>
->  #include <linux/bitops.h>
->  #include <linux/if_vlan.h>
-> 
-> @@ -364,6 +365,13 @@ struct igb_adapter {
->  	u32 wvbr;
->  	int node;
->  	u32 *shadow_vfta;
-> +
-> +	struct ptp_clock *ptp_clock;
-> +	struct ptp_clock_info caps;
-> +	struct delayed_work overflow_work;
-> +	spinlock_t tmreg_lock;
-> +	u32 overflow_counter;
-> +	unsigned int last_msb;
->  };
-> 
->  #define IGB_FLAG_HAS_MSI           (1 << 0)
-> diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c
-> b/drivers/net/ethernet/intel/igb/igb_ptp.c
-> new file mode 100644
-> index 0000000..dd27be1
-> --- /dev/null
-> +++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-> @@ -0,0 +1,427 @@
-> +/*
-> + * PTP Hardware Clock (PHC) driver for the Intel 82576 and 82580
-> + *
-> + * Copyright (C) 2011 Richard Cochran <richardcochran@gmail.com>
-> + *
-> + * This program is free software; you can redistribute it and/or
-> modify
-> + * it under the terms of the GNU General Public License as published
-> by
-> + * the Free Software Foundation; either version 2 of the License, or
-> + * (at your option) any later version.
-> + *
-> + * This program is distributed in the hope that it will be useful,
-> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + * GNU General Public License for more details.
-> + *
-> + * You should have received a copy of the GNU General Public License
-> along
-> + * with this program; if not, write to the Free Software Foundation,
-> Inc.,
-> + * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-> + */
-> +#include <linux/device.h>
-> +#include <linux/pci.h>
-> +
-> +#include "igb.h"
-> +
-> +#define INCVALUE_MASK		0x7fffffff
-> +#define ISGN			0x80000000
-> +
-> +/*
-> + * Neither the 82576 nor the 82580 offer registers wide enough to hold
-> + * nanoseconds time values for very long. For the 82580, SYSTIM always
-> + * counts nanoseconds, but the upper 24 bits are not availible. The
-> + * frequency is adjusted by changing the 32 bit fractional nanoseconds
-> + * register, TIMINCA.
-> + *
-> + * For the 82576, the SYSTIM register time unit is affect by the
-> + * choice of the 24 bit TININCA:IV (incvalue) field. Five bits of this
-> + * field are needed to provide the nominal 16 nanosecond period,
-> + * leaving 19 bits for fractional nanoseconds.
-> + *
-> + *
-> + *             SYSTIMH            SYSTIML
-> + *        +--------------+   +---+---+------+
-> + *  82576 |      32      |   | 8 | 5 |  19  |
-> + *        +--------------+   +---+---+------+
-> + *         \________ 45 bits _______/  fract
-> + *
-> + *        +----------+---+   +--------------+
-> + *  82580 |    24    | 8 |   |      32      |
-> + *        +----------+---+   +--------------+
-> + *          reserved  \______ 40 bits _____/
-> + *
-> + *
-> + * The 45 bit 82576 SYSTIM overflows every
-> + *   2^45 * 10^-9 / 3600 = 9.77 hours.
-> + *
-> + * The 40 bit 82580 SYSTIM overflows every
-> + *   2^40 * 10^-9 /  60  = 18.3 minutes.
-> + *
-> + * We implement a 32 bit overflow counter in software to hold the
-> + * missing 19 or 24 bits, for a combined virtual nanosecond time
-> + * register of 64 bits.
-> + */
-> +
-> +#define IGB_OVERFLOW_PERIOD	(HZ * 60 * 4)
-> +#define INCPERIOD_82576		(1 << E1000_TIMINCA_16NS_SHIFT)
-> +#define INCVALUE_82576_MASK	((1 << E1000_TIMINCA_16NS_SHIFT) - 1)
-> +#define INCVALUE_82576		(16 << IGB_82576_TSYNC_SHIFT)
-> +#define OFL_SHIFT_82580		40
-> +#define OFL_SHIFT_82576		45
-> +#define NS_SHIFT_82576		IGB_82576_TSYNC_SHIFT
-> +
-> +/*
-> + * Overflow counter for the SYSTIM register.
-> + */
-> +
-> +static u64 igb_overflow_get(struct igb_adapter *igb, u64 low, unsigned
-> int nbit)
-> +{
-> +	unsigned int msb_set = (low >> (nbit - 2)) & 0x3;
-> +
-> +	if (msb_set == 0x3 && igb->last_msb == 0x0) {
-> +		/*
-> +		 * This time stamp was taken before the last overflow,
-> +		 * but it lost the race to read the overflow counter.
-> +		 * Therefore, we just use the previous overflow value.
-> +		 */
-> +		low |= ((u64) igb->overflow_counter - 1ULL) << nbit;
-> +		return low;
-> +	}
-> +
-> +	/*
-> +	 * Test for a one to zero transition of the most significant
-> +	 * bit, and increment the overflow counter.
-> +	 */
-> +	if ((igb->last_msb & 0x2) && !(msb_set & 0x2))
-> +		igb->overflow_counter++;
-> +
-> +	igb->last_msb = msb_set;
-> +
-> +	low |= ((u64) igb->overflow_counter) << nbit;
-> +
-> +	return low;
-> +}
-> +
-> +static void igb_overflow_set(struct igb_adapter *igb, u64 ns, unsigned
-> int nbit)
-> +{
-> +	igb->overflow_counter = ns >> nbit;
-> +	igb->last_msb = (ns >> (nbit - 2)) & 0x3;
-> +}
-> +
-> +/*
-> + * SYSTIM / overflow access functions for the 82576
-> + */
-> +
-> +static u64 igb_82576_systim_read(struct igb_adapter *igb)
-> +{
-> +	u64 ns;
-> +	u32 lo, hi;
-> +	struct e1000_hw *hw = &igb->hw;
-> +
-> +	lo = rd32(E1000_SYSTIML);
-> +	hi = rd32(E1000_SYSTIMH);
-> +
-> +	ns = ((u64) hi) << 32;
-> +	ns |= lo;
-> +	ns >>= NS_SHIFT_82576;
-> +
-> +	ns = igb_overflow_get(igb, ns, OFL_SHIFT_82576);
-> +
-> +	return ns;
-> +}
-> +
-> +static void igb_82576_systim_write(struct igb_adapter *igb, u64 ns)
-> +{
-> +	u32 hi, lo;
-> +	struct e1000_hw *hw = &igb->hw;
-> +
-> +	hi = (ns >> 13) & 0xffffffff;
-> +	lo = (ns & 0x1fff) << NS_SHIFT_82576;
-> +
-> +	wr32(E1000_SYSTIML, lo);
-> +	wr32(E1000_SYSTIMH, hi);
-> +
-> +	igb_overflow_set(igb, ns, OFL_SHIFT_82576);
-> +}
-> +
-> +/*
-> + * SYSTIM / overflow access functions for the 82580
-> + */
-> +
-> +static u64 igb_82580_systim_read(struct igb_adapter *igb)
-> +{
-> +	u64 ns;
-> +	u32 lo, hi, jk;
-> +	struct e1000_hw *hw = &igb->hw;
-> +
-> +	jk = rd32(E1000_SYSTIMR);
-> +	lo = rd32(E1000_SYSTIML);
-> +	hi = rd32(E1000_SYSTIMH);
-> +
-> +	ns = ((u64) hi) << 32;
-> +	ns |= lo;
-> +
-> +	ns = igb_overflow_get(igb, ns, OFL_SHIFT_82580);
-> +
-> +	return ns;
-> +}
-> +
-> +static void igb_82580_systim_write(struct igb_adapter *igb, u64 ns)
-> +{
-> +	u32 hi, lo;
-> +	struct e1000_hw *hw = &igb->hw;
-> +
-> +	hi = ns >> 32;
-> +	lo = ns & 0xffffffff;
-> +
-> +	wr32(E1000_SYSTIMR, 0);
-> +	wr32(E1000_SYSTIML, lo);
-> +	wr32(E1000_SYSTIMH, hi & 0xff);
-> +
-> +	igb_overflow_set(igb, ns, OFL_SHIFT_82580);
-> +}
-> +
-> +/*
-> + * SYSTIM / overflow register access functions
-> + * Callers must hold tmreg_lock.
-> + */
-> +
-> +static u64 igb_systim_read(struct igb_adapter *igb)
-> +{
-> +	switch (igb->hw.mac.type) {
-> +	case e1000_i350:
-> +	case e1000_82580:
-> +		return igb_82580_systim_read(igb);
-> +	case e1000_82576:
-> +		return igb_82576_systim_read(igb);
-> +	default:
-> +		return 0;
-> +	}
-> +}
-> +
-> +static void igb_systim_write(struct igb_adapter *igb, u64 ns)
-> +{
-> +	switch (igb->hw.mac.type) {
-> +	case e1000_i350:
-> +	case e1000_82580:
-> +		igb_82580_systim_write(igb, ns);
-> +		break;
-> +	case e1000_82576:
-> +		igb_82576_systim_write(igb, ns);
-> +		break;
-> +	default:
-> +		break;
-> +	}
-> +}
-> +
-> +/*
-> + * PTP clock operations
-> + */
-> +
-> +static int ptp_82576_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
-> +{
-> +	u64 rate;
-> +	u32 incvalue;
-> +	int neg_adj = 0;
-> +	struct igb_adapter *igb = container_of(ptp, struct igb_adapter,
-> caps);
-> +	struct e1000_hw *hw = &igb->hw;
-> +
-> +	if (ppb < 0) {
-> +		neg_adj = 1;
-> +		ppb = -ppb;
-> +	}
-> +	rate = ppb;
-> +	rate <<= 14;
-> +	rate = div_u64(rate, 1953125);
-> +
-> +	incvalue = 16 << IGB_82576_TSYNC_SHIFT;
-> +
-> +	if (neg_adj)
-> +		incvalue -= rate;
-> +	else
-> +		incvalue += rate;
-> +
-> +	wr32(E1000_TIMINCA, INCPERIOD_82576 | (incvalue &
-> INCVALUE_82576_MASK));
-> +
-> +	return 0;
-> +}
-> +
-> +static int ptp_82580_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
-> +{
-> +	u64 rate;
-> +	u32 inca;
-> +	int neg_adj = 0;
-> +	struct igb_adapter *igb = container_of(ptp, struct igb_adapter,
-> caps);
-> +	struct e1000_hw *hw = &igb->hw;
-> +
-> +	if (ppb < 0) {
-> +		neg_adj = 1;
-> +		ppb = -ppb;
-> +	}
-> +	rate = ppb;
-> +	rate <<= 26;
-> +	rate = div_u64(rate, 1953125);
-> +
-> +	inca = rate & INCVALUE_MASK;
-> +	if (neg_adj)
-> +		inca |= ISGN;
-> +
-> +	wr32(E1000_TIMINCA, inca);
-> +
-> +	return 0;
-> +}
-> +
-> +static int igb_adjtime(struct ptp_clock_info *ptp, s64 delta)
-> +{
-> +	s64 now;
-> +	unsigned long flags;
-> +	struct igb_adapter *igb = container_of(ptp, struct igb_adapter,
-> caps);
-> +
-> +	spin_lock_irqsave(&igb->tmreg_lock, flags);
-> +
-> +	now = igb_systim_read(igb);
-> +	now += delta;
-> +	igb_systim_write(igb, now);
-> +
-> +	spin_unlock_irqrestore(&igb->tmreg_lock, flags);
-> +
-> +	return 0;
-> +}
-> +
-> +static int igb_gettime(struct ptp_clock_info *ptp, struct timespec
-> *ts)
-> +{
-> +	u64 ns;
-> +	u32 remainder;
-> +	unsigned long flags;
-> +	struct igb_adapter *igb = container_of(ptp, struct igb_adapter,
-> caps);
-> +
-> +	spin_lock_irqsave(&igb->tmreg_lock, flags);
-> +
-> +	ns = igb_systim_read(igb);
-> +
-> +	spin_unlock_irqrestore(&igb->tmreg_lock, flags);
-> +
-> +	ts->tv_sec = div_u64_rem(ns, 1000000000, &remainder);
-> +	ts->tv_nsec = remainder;
-> +
-> +	return 0;
-> +}
-> +
-> +static int igb_settime(struct ptp_clock_info *ptp, const struct
-> timespec *ts)
-> +{
-> +	u64 ns;
-> +	unsigned long flags;
-> +	struct igb_adapter *igb = container_of(ptp, struct igb_adapter,
-> caps);
-> +
-> +	ns = ts->tv_sec * 1000000000ULL;
-> +	ns += ts->tv_nsec;
-> +
-> +	spin_lock_irqsave(&igb->tmreg_lock, flags);
-> +
-> +	igb_systim_write(igb, ns);
-> +
-> +	spin_unlock_irqrestore(&igb->tmreg_lock, flags);
-> +
-> +	return 0;
-> +}
-> +
-> +static int ptp_82576_enable(struct ptp_clock_info *ptp,
-> +			    struct ptp_clock_request *rq, int on)
-> +{
-> +	return -EOPNOTSUPP;
-> +}
-> +
-> +static int ptp_82580_enable(struct ptp_clock_info *ptp,
-> +			    struct ptp_clock_request *rq, int on)
-> +{
-> +	return -EOPNOTSUPP;
-> +}
-> +
-> +static void igb_overflow_check(struct work_struct *work)
-> +{
-> +	struct timespec ts;
-> +	struct igb_adapter *igb =
-> +		container_of(work, struct igb_adapter, overflow_work.work);
-> +
-> +	igb_gettime(&igb->caps, &ts);
-> +
-> +	pr_debug("igb overflow check at %ld.%09lu\n", ts.tv_sec,
-> ts.tv_nsec);
-> +
-> +	schedule_delayed_work(&igb->overflow_work, IGB_OVERFLOW_PERIOD);
-> +}
-> +
-> +void igb_ptp_init(struct igb_adapter *adapter)
-> +{
-> +	struct e1000_hw *hw = &adapter->hw;
-> +
-> +	switch (hw->mac.type) {
-> +	case e1000_i350:
-> +	case e1000_82580:
-> +		adapter->caps.owner	= THIS_MODULE;
-> +		strcpy(adapter->caps.name, "igb-82580");
-> +		adapter->caps.max_adj	= 62499999;
-> +		adapter->caps.n_ext_ts	= 0;
-> +		adapter->caps.pps	= 0;
-> +		adapter->caps.adjfreq	= ptp_82580_adjfreq;
-> +		adapter->caps.adjtime	= igb_adjtime;
-> +		adapter->caps.gettime	= igb_gettime;
-> +		adapter->caps.settime	= igb_settime;
-> +		adapter->caps.enable	= ptp_82580_enable;
-> +		/* Enable the timer functions by clearing bit 31. */
-> +		wr32(E1000_TSAUXC, 0x0);
-> +		break;
-> +
-> +	case e1000_82576:
-> +		adapter->caps.owner	= THIS_MODULE;
-> +		strcpy(adapter->caps.name, "igb-82576");
-> +		adapter->caps.max_adj	= 1000000000;
-> +		adapter->caps.n_ext_ts	= 0;
-> +		adapter->caps.pps	= 0;
-> +		adapter->caps.adjfreq	= ptp_82576_adjfreq;
-> +		adapter->caps.adjtime	= igb_adjtime;
-> +		adapter->caps.gettime	= igb_gettime;
-> +		adapter->caps.settime	= igb_settime;
-> +		adapter->caps.enable	= ptp_82576_enable;
-> +		/* Dial the nominal frequency. */
-> +		wr32(E1000_TIMINCA, INCPERIOD_82576 | INCVALUE_82576);
-> +		break;
-> +
-> +	default:
-> +		adapter->ptp_clock = NULL;
-> +		return;
-> +	}
-> +
-> +	wrfl();
-> +
-> +	INIT_DELAYED_WORK(&adapter->overflow_work, igb_overflow_check);
-> +
-> +	spin_lock_init(&adapter->tmreg_lock);
-> +
-> +	schedule_delayed_work(&adapter->overflow_work,
-> IGB_OVERFLOW_PERIOD);
-> +
-> +#ifdef CONFIG_PTP_1588_CLOCK
-> +
-> +	adapter->ptp_clock = ptp_clock_register(&adapter->caps);
-> +	if (IS_ERR(adapter->ptp_clock)) {
-> +		adapter->ptp_clock = NULL;
-> +		dev_err(&adapter->pdev->dev, "ptp_clock_register
-> failed\n");
-> +	} else
-> +		dev_info(&adapter->pdev->dev, "added PHC on %s\n",
-> +			 adapter->netdev->name);
-> +
-> +#endif /*CONFIG_PTP_1588_CLOCK*/
-> +}
-> +
-> +void igb_ptp_remove(struct igb_adapter *adapter)
-> +{
-> +	cancel_delayed_work_sync(&adapter->overflow_work);
-> +
-> +#ifdef CONFIG_PTP_1588_CLOCK
-> +
-> +	if (adapter->ptp_clock) {
-> +		ptp_clock_unregister(adapter->ptp_clock);
-> +		dev_info(&adapter->pdev->dev, "removed PHC on %s\n",
-> +			 adapter->netdev->name);
-> +	}
-> +
-> +#endif /*CONFIG_PTP_1588_CLOCK*/
-> +}
-> --
-> 1.7.2.5
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Ben Hutchings
+> Sent: Friday, January 06, 2012 10:25 AM
+> To: Waskiewicz Jr, Peter P
+> Cc: Michal Miroslaw; Skidmore, Donald C; Kirsher, Jeffrey T;
+> davem@davemloft.net; netdev@vger.kernel.org; gospo@redhat.com;
+> sassmann@redhat.com
+> Subject: RE: [net-next 8/9] ixgbe: add interface to export thermal =
+data
+>=20
+> On Fri, 2012-01-06 at 18:20 +0000, Waskiewicz Jr, Peter P wrote:
+> > > -----Original Message-----
+> > > From: Ben Hutchings [mailto:bhutchings@solarflare.com]
+> > > Sent: Friday, January 06, 2012 10:09 AM
+> > > To: Waskiewicz Jr, Peter P
+> > > Cc: Michal Miroslaw; Skidmore, Donald C; Kirsher, Jeffrey T;
+> > > davem@davemloft.net; netdev@vger.kernel.org; gospo@redhat.com;
+> > > sassmann@redhat.com
+> > > Subject: RE: [net-next 8/9] ixgbe: add interface to export thermal
+> > > data
+> > >
+> > > On Fri, 2012-01-06 at 17:55 +0000, Waskiewicz Jr, Peter P wrote:
+> > > > > -----Original Message-----
+> > > > > From: Micha=C5=82 Miros=C5=82aw [mailto:mirqus@gmail.com]
+> > > > > Sent: Thursday, January 05, 2012 3:51 PM
+> > > > > To: Skidmore, Donald C
+> > > > > Cc: Ben Hutchings; Kirsher, Jeffrey T; davem@davemloft.net;
+> > > > > netdev@vger.kernel.org; gospo@redhat.com;
+> sassmann@redhat.com;
+> > > > > Waskiewicz Jr, Peter P
+> > > > > Subject: Re: [net-next 8/9] ixgbe: add interface to export
+> > > > > thermal data
+> > > > >
+> > > > > Drivers outside of drivers/hwmon just select HWMON in Kconfig.
+> > > > > This adds a 3kB .c file to the kernel build for the first one =
+that needs it.
+> > > >
+> > > > This is where we run into issues though.  We can put this
+> > > > dependency in, but customers don't pull upstream kernels, they
+> > > > rely on the OSV's to distribute updates.  The customer doesn't
+> > > > want HWMON, and if their kernel doesn't ship with HWMON support
+> for ixgbe, then we're sunk.
+> > >
+> > > So if !IS_ENABLED(CONFIG_HWMON), don't try to create an hwmon
+> > > device, but create the attributes anyway.
+> >
+> > And if CONFIG_HWMON is not enabled, are we then responsible for
+> > creating the hwmon area in sysfs to link in our attributes?  That
+> > would make even less sense to include HWMON attributes if HWMON =
+isn't
+> > built in.
+>=20
+> No, the attributes actually appear under the parent device.
+
+Ok, so how we have it now in the current patches.
+
+> > > > The point is what we're trying to implement, based on what our
+> customers'
+> > > > requirements are, is something completely different than what
+> > > > HWMON is providing.  Trying to wedge HWMON onto this framework
+> > > > we're trying to provide just overcomplicates the entire thing =
+we're trying
+> to provide.
+> > > > It's a generic interface to generic data in our drivers,
+> > > [...]
+> > >
+> > > It sounds like you want to provide a "generic" ixgbe interface on
+> > > different operating systems.  But that is not a valid argument for =
+an in-
+> tree driver.
+> >
+> > No, we're trying to provide a generic ixgbe interface on Linux
+> > systems.  The reality is different OSV's pull our driver from =
+upstream
+> > to build their distros,
+>=20
+> Yes we know.
+>=20
+> [...]
+> > The reality is these attributes of our thermal sensors are about 5% =
+of
+> > the data we need to export.
+> [...]
+>=20
+> And I think all you need to do is (1) give these particular attributes =
+the right
+> names and (2) create a child hwmon device if possible.  Is that so =
+hard?
+
+Yes, it is.  The sensors that we have defined for this SKU are defined =
+by the customers who this board was built for, so it fits with their =
+BMC.  We don't have much control over the names.
+
+Again, I'm failing to see why you are requiring us to put in this =
+support when we don't benefit at all from it, we don't need it, and =
+don't want it.  Perhaps you can add the HWMON support to ixgbe when you =
+get around to adding the same support to your Solarflare driver that =
+hasn't been completed yet?  We'd be happy to accept those patches.  =
+Please don't hold us to a standard you won't hold your own driver to.
+
+-PJ
+
+------=_NextPart_000_0003_01CCCEB6.ADAEDE30
+Content-Type: application/pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIISJjCCAyAw
+ggKJoAMCAQICBDXe9M8wDQYJKoZIhvcNAQEFBQAwTjELMAkGA1UEBhMCVVMxEDAOBgNVBAoTB0Vx
+dWlmYXgxLTArBgNVBAsTJEVxdWlmYXggU2VjdXJlIENlcnRpZmljYXRlIEF1dGhvcml0eTAeFw05
+ODA4MjIxNjQxNTFaFw0xODA4MjIxNjQxNTFaME4xCzAJBgNVBAYTAlVTMRAwDgYDVQQKEwdFcXVp
+ZmF4MS0wKwYDVQQLEyRFcXVpZmF4IFNlY3VyZSBDZXJ0aWZpY2F0ZSBBdXRob3JpdHkwgZ8wDQYJ
+KoZIhvcNAQEBBQADgY0AMIGJAoGBAMFdsVhnCGLuoJotHwhtkRRomAoe/toEbxOEYiHD0XzOnwXg
+uAHwTjTs4oqVBGSs8WtTXwWzy2eAv0ICjv7dAQns4QAUT/z78AzdQ7pbK+EfgHCZFVeTFvEPl2q3
+wmgjHMxNWTCsUR47ryvW7mNFe8XZX1DS41APOojnvxT94Me5AgMBAAGjggEJMIIBBTBwBgNVHR8E
+aTBnMGWgY6BhpF8wXTELMAkGA1UEBhMCVVMxEDAOBgNVBAoTB0VxdWlmYXgxLTArBgNVBAsTJEVx
+dWlmYXggU2VjdXJlIENlcnRpZmljYXRlIEF1dGhvcml0eTENMAsGA1UEAxMEQ1JMMTAaBgNVHRAE
+EzARgQ8yMDE4MDgyMjE2NDE1MVowCwYDVR0PBAQDAgEGMB8GA1UdIwQYMBaAFEjmaPkr0rKV10fY
+IyAQTzOYkJ/UMB0GA1UdDgQWBBRI5mj5K9KylddH2CMgEE8zmJCf1DAMBgNVHRMEBTADAQH/MBoG
+CSqGSIb2fQdBAAQNMAsbBVYzLjBjAwIGwDANBgkqhkiG9w0BAQUFAAOBgQBYzinq/Pfetc4CuRe1
+hdG54+CVzCUxDQCmkm5/tpJjnlCV0Zpv5BHeY4VumO6o/1rI01WyZnFX3sAh6z0qpyNJAQSGQnv8
+7n+iFlK1Z2fTQNs7JliyKHc9rhR3Ydb6KmYnoA36p3Nc6nDxlCFlRF/6/O8paKmih3nvee9PrAd3
+ODCCAz0wggKmoAMCAQICAwWw/zANBgkqhkiG9w0BAQUFADBOMQswCQYDVQQGEwJVUzEQMA4GA1UE
+ChMHRXF1aWZheDEtMCsGA1UECxMkRXF1aWZheCBTZWN1cmUgQ2VydGlmaWNhdGUgQXV0aG9yaXR5
+MB4XDTA2MDIxNjE4MDEzMFoXDTE2MDIxOTE4MDEzMFowUjELMAkGA1UEBhMCVVMxGjAYBgNVBAoT
+EUludGVsIENvcnBvcmF0aW9uMScwJQYDVQQDEx5JbnRlbCBFeHRlcm5hbCBCYXNpYyBQb2xpY3kg
+Q0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDBpd/XOb9QVqEZ8mQ1042TdOIq3ATD
+IsV2xDyt30yLyMR5Wjtus0bn3B+he89BiNO/LP6+rFzEwlD55PlX+HLGIKeNNG97dqyc30FElEUj
+ZzTZFq2N4e3kVJ/XAEEgANzV8v9qp7qWwxugPgfc3z9BkYot+CifozexHLb/hEZj+yISCU61kRZv
+uSQ0E11yYL4dRgcglJeaHo3oX57rvIckaLsYV5/1Aj+R8DM1Ppk965XQAKsHfnyT7C4S50T4lVn4
+lz36wOdNZn/zegG1zp41lnoTFfT4KuKVJH5x7YD1p6KbgJCKLovnujGuohquBNfdXKpZkvz6pGv+
+iC1HawJdAgMBAAGjgaAwgZ0wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBQaxgxKxEdvqNutK/D0
+Vgaj7TdUDDA6BgNVHR8EMzAxMC+gLaArhilodHRwOi8vY3JsLmdlb3RydXN0LmNvbS9jcmxzL3Nl
+Y3VyZWNhLmNybDAfBgNVHSMEGDAWgBRI5mj5K9KylddH2CMgEE8zmJCf1DAPBgNVHRMBAf8EBTAD
+AQH/MA0GCSqGSIb3DQEBBQUAA4GBABMQOK2kVKVIlUWwLTdywJ+e2O+PC/uQltK2F3lRyrPfBn69
+tOkIP4SgDJOfsxyobIrPLe75kBLw+Dom13OBDp/EMZJZ1CglQfVV8co9mT3aZMjSGGQiMgkJLR3j
+Mfr900fXZKj5XeqCJ+JP0mEhJGEdVCY+FFlksJjV86fDrq1QMIIFijCCBHKgAwIBAgIKYSCKYgAA
+AAAACDANBgkqhkiG9w0BAQUFADBSMQswCQYDVQQGEwJVUzEaMBgGA1UEChMRSW50ZWwgQ29ycG9y
+YXRpb24xJzAlBgNVBAMTHkludGVsIEV4dGVybmFsIEJhc2ljIFBvbGljeSBDQTAeFw0wOTA1MTUx
+OTI3MjZaFw0xNTA1MTUxOTM3MjZaMFYxCzAJBgNVBAYTAlVTMRowGAYDVQQKExFJbnRlbCBDb3Jw
+b3JhdGlvbjErMCkGA1UEAxMiSW50ZWwgRXh0ZXJuYWwgQmFzaWMgSXNzdWluZyBDQSAzQjCCASIw
+DQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKQEM1Wn9TU9vc9C+/Tc7KB+eiYElmrcEWE32WUd
+HvWG+IcQHVQsikTmMyKKojNLw2B5s6Iekc8ivDo/wCfjZzX9JyftMnc+AArc0la87Olybzm8K9jX
+EfTBvTnUSFSiI9ZYefITdiUgqlAFuljFZEHYKYtLuhrRacpmQfP4mV63NKdc2bT804HRf6YptZFa
+4k6YN94zlrGNrBuQQ74WFzz/jLBusbUpEkro6Mu/ZYFOFWQrV9lBhF9Ruk8yN+3N6n9fUo/qBigi
+F2kEn9xVh1ykl7SCGL2jBUkXx4qgV27a6Si8lRRdgrHGtN/HWnSWlLXTH5l575H4Lq++77OFv38C
+AwEAAaOCAlwwggJYMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFA7GKvdZsggQkCVvw939imYx
+MCvFMAsGA1UdDwQEAwIBhjASBgkrBgEEAYI3FQEEBQIDAQABMCMGCSsGAQQBgjcVAgQWBBQ5oFY2
+ekKQ/5Ktim+VdMeSWb4QWTAZBgkrBgEEAYI3FAIEDB4KAFMAdQBiAEMAQTAfBgNVHSMEGDAWgBQa
+xgxKxEdvqNutK/D0Vgaj7TdUDDCBvQYDVR0fBIG1MIGyMIGvoIGsoIGphk5odHRwOi8vd3d3Lmlu
+dGVsLmNvbS9yZXBvc2l0b3J5L0NSTC9JbnRlbCUyMEV4dGVybmFsJTIwQmFzaWMlMjBQb2xpY3kl
+MjBDQS5jcmyGV2h0dHA6Ly9jZXJ0aWZpY2F0ZXMuaW50ZWwuY29tL3JlcG9zaXRvcnkvQ1JML0lu
+dGVsJTIwRXh0ZXJuYWwlMjBCYXNpYyUyMFBvbGljeSUyMENBLmNybDCB4wYIKwYBBQUHAQEEgdYw
+gdMwYwYIKwYBBQUHMAKGV2h0dHA6Ly93d3cuaW50ZWwuY29tL3JlcG9zaXRvcnkvY2VydGlmaWNh
+dGVzL0ludGVsJTIwRXh0ZXJuYWwlMjBCYXNpYyUyMFBvbGljeSUyMENBLmNydDBsBggrBgEFBQcw
+AoZgaHR0cDovL2NlcnRpZmljYXRlcy5pbnRlbC5jb20vcmVwb3NpdG9yeS9jZXJ0aWZpY2F0ZXMv
+SW50ZWwlMjBFeHRlcm5hbCUyMEJhc2ljJTIwUG9saWN5JTIwQ0EuY3J0MA0GCSqGSIb3DQEBBQUA
+A4IBAQCxtQEHchVQhXyjEqtMVUMe6gkmPsIczHxSeqNbo9dsD+6xbT65JT+oYgpIAtfEsYXeUJu1
+cChqpb22U5bMAz7eaQcW5bzefufWvA6lg2048B8oczBj/q+5P5NpYrUO8jOmN4jTjfJq3ElZ7yFW
+py7rB3Vm/aN6ATYqWfMbS/xfh+JCxmH3droUmMJI0/aZJHsLtjbjFnNsHDNrJZX1vxlM78Lb1hjs
+kTENPmhbVbfTj5i/ZGnhv4tmI8QZPCNtcegXJrfhRl2D9bWpdTOPrWiLDUqzy1Z6KL7TcOS/PCl8
+RHCJXkPau/thTQCpIoDa2+c+3XA++gRTfAQ4svTO260NMIIGLzCCBRegAwIBAgIKf0es/QABAABR
+FTANBgkqhkiG9w0BAQUFADBWMQswCQYDVQQGEwJVUzEaMBgGA1UEChMRSW50ZWwgQ29ycG9yYXRp
+b24xKzApBgNVBAMTIkludGVsIEV4dGVybmFsIEJhc2ljIElzc3VpbmcgQ0EgM0IwHhcNMTAwNDA5
+MDgyNzMwWhcNMTMwMzI0MDgyNzMwWjBRMR8wHQYDVQQDExZXYXNraWV3aWN6IEpyLCBQZXRlciBQ
+MS4wLAYJKoZIhvcNAQkBFh9wZXRlci5wLndhc2tpZXdpY3ouanJAaW50ZWwuY29tMIIBIjANBgkq
+hkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxNvzDG+qS7UFSaYiqMqQr7exXHirCVe1tapLZoFlJZLP
+fqZsBsAAUqARnY+v3RQj3WDmoIOtTMHxtnmo4pd5UXrsk+PraedGAilso9tkfp5ZjRjZo9LL06AZ
+zjiBVfAxgvyxMPsoKhdfFijzqSJRpc12kB662PAJWfyJO+f6lg5+Cd4KgRVGrpGI4bvBKEVGMeOq
+wD+kcVtiwRcqNygx35GqdcpJCCJqOSAJsLI3DR7tDvATeNzsasweaHgWonaK4D6qaHkoGx4VHknC
+6uNn/FK/wXtFbXkeOrnRGJIzaZNsOBVhTou9w3NYU1EjuK75hZJ4Fd4/r1gHafxWD+VzrwIDAQAB
+o4IDAjCCAv4wCwYDVR0PBAQDAgeAMDwGCSsGAQQBgjcVBwQvMC0GJSsGAQQBgjcVCIbDjHWEmeVR
+g/2BKIWOn1OCkcAJZ4HevTmV8EMCAWQCAQgwHQYDVR0OBBYEFLtB44dRTSgY1071RY+nMiKRkn1P
+MB8GA1UdIwQYMBaAFA7GKvdZsggQkCVvw939imYxMCvFMIHPBgNVHR8EgccwgcQwgcGggb6ggbuG
+V2h0dHA6Ly93d3cuaW50ZWwuY29tL3JlcG9zaXRvcnkvQ1JML0ludGVsJTIwRXh0ZXJuYWwlMjBC
+YXNpYyUyMElzc3VpbmclMjBDQSUyMDNCKDEpLmNybIZgaHR0cDovL2NlcnRpZmljYXRlcy5pbnRl
+bC5jb20vcmVwb3NpdG9yeS9DUkwvSW50ZWwlMjBFeHRlcm5hbCUyMEJhc2ljJTIwSXNzdWluZyUy
+MENBJTIwM0IoMSkuY3JsMIH1BggrBgEFBQcBAQSB6DCB5TBsBggrBgEFBQcwAoZgaHR0cDovL3d3
+dy5pbnRlbC5jb20vcmVwb3NpdG9yeS9jZXJ0aWZpY2F0ZXMvSW50ZWwlMjBFeHRlcm5hbCUyMEJh
+c2ljJTIwSXNzdWluZyUyMENBJTIwM0IoMSkuY3J0MHUGCCsGAQUFBzAChmlodHRwOi8vY2VydGlm
+aWNhdGVzLmludGVsLmNvbS9yZXBvc2l0b3J5L2NlcnRpZmljYXRlcy9JbnRlbCUyMEV4dGVybmFs
+JTIwQmFzaWMlMjBJc3N1aW5nJTIwQ0ElMjAzQigxKS5jcnQwHwYDVR0lBBgwFgYIKwYBBQUHAwQG
+CisGAQQBgjcKAwwwKQYJKwYBBAGCNxUKBBwwGjAKBggrBgEFBQcDBDAMBgorBgEEAYI3CgMMMFsG
+A1UdEQRUMFKgLwYKKwYBBAGCNxQCA6AhDB9wZXRlci5wLndhc2tpZXdpY3ouanJAaW50ZWwuY29t
+gR9wZXRlci5wLndhc2tpZXdpY3ouanJAaW50ZWwuY29tMA0GCSqGSIb3DQEBBQUAA4IBAQBYea1K
+ThIl9gNf1uIob1trWtsthhWAXsdUu1V+gl10RBChuM4okZccJf1JXItFA2z7J2UR4cu/tRZBRFar
+tVPhGBjKntLofxsaW7wwzfsinbNy30gHGShG83XDADdGUteL8PmupDcDf/MtbRIlfjEknLiuOnrM
+25WVajtB3fB1pOA2jmLaaNmasza9ordaD3afJD3IWr/Zj+aevMu4zrKzwdOZqBZW1J1Qc7uog8Mn
++mm+wRMmEY0z7VFdjsZjJH9EQA0UbF1aYcshv0a/M2deKN9TdYuJ1eTKRSZdzSiRG5w75xujFMYZ
+go4ETlu1Behgey1jvJiyWdOsPt7at08QMYICLDCCAigCAQEwZDBWMQswCQYDVQQGEwJVUzEaMBgG
+A1UEChMRSW50ZWwgQ29ycG9yYXRpb24xKzApBgNVBAMTIkludGVsIEV4dGVybmFsIEJhc2ljIElz
+c3VpbmcgQ0EgM0ICCn9HrP0AAQAAURUwCQYFKw4DAhoFAKCBnjAYBgkqhkiG9w0BCQMxCwYJKoZI
+hvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0xMjAxMDkxODA4NDhaMCMGCSqGSIb3DQEJBDEWBBQDfu41
+vqUu6B77mYVnatyBbM/GeDA/BgkqhkiG9w0BCQ8xMjAwMAcGBSsOAwIaMAsGCWCGSAFlAwQCAzAL
+BglghkgBZQMEAgIwCwYJYIZIAWUDBAIBMA0GCSqGSIb3DQEBAQUABIIBAJnfXJud+7rHyshwjnZT
+dHWZCjZmKZMInRjSnCTw3qRZqU41V+QP7PlS9Abj1XpzlQ25pMUmq+4nXyi/n9B3k2727ELtXsdD
+Vg+FLGI4QZ5TRHzYfeyxFg73u5upSU3Lt5xxMxuY1EU/ALZ8jmvH45v920KKCjqHt84imZbcOc/Q
+jJ8NiqlWuJIu6CoW22iL9PdhovzaevvCZeNCYUjeMeytDxuX+vwm1j/WNnsX499dDBrHqBuFVuDW
+c183cHp202ge0527FQZB/Zaesm3klcms2gWMxWslk14sYuX8QduvlquUebDuR8QgG9Vxx9TLbATw
+/jS8I7ivsPoMXA6LaJ0AAAAAAAA=
+
+------=_NextPart_000_0003_01CCCEB6.ADAEDE30--
