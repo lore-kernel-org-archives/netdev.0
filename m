@@ -1,7 +1,7 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: RE: [net-next 8/9] ixgbe: add interface to export thermal data
-Date: Mon, 9 Jan 2012 18:08:51 +0000
-Message-ID: <363B5007A0D944459CBE9CF6A37B891B01FB58@ORSMSX104.amr.corp.intel.com>
+Date: Mon, 9 Jan 2012 18:49:43 +0000
+Message-ID: <1326134983.2930.19.camel@bwh-desktop>
 References: <1324631357-31789-1-git-send-email-jeffrey.t.kirsher@intel.com>
 	 <1324631357-31789-9-git-send-email-jeffrey.t.kirsher@intel.com>
 	 <CAHXqBFL_44T5nQVA=n03aT9Q1QpsLCY2dn9o6GE-9Rm66DSt-A@mail.gmail.com>
@@ -12,11 +12,10 @@ References: <1324631357-31789-1-git-send-email-jeffrey.t.kirsher@intel.com>
 	 <363B5007A0D944459CBE9CF6A37B891B01E292@ORSMSX104.amr.corp.intel.com>
 	 <1325873362.2850.20.camel@bwh-desktop>
 	 <363B5007A0D944459CBE9CF6A37B891B01E718@ORSMSX104.amr.corp.intel.com>
- <1325874309.25896.2.camel@bwh-desktop>
+	 <1325874309.25896.2.camel@bwh-desktop>
+	 <363B5007A0D944459CBE9CF6A37B891B01FB58@ORSMSX104.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=SHA1;
-	protocol="application/x-pkcs7-signature";
-	boundary="----=_NextPart_000_0003_01CCCEB6.ADAEDE30"
+Content-Type: multipart/mixed; boundary="=-Fh8KWK7mboEuWyvQZlF3"
 Cc: Michal Miroslaw <mirqus@gmail.com>,
 	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
 	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
@@ -24,222 +23,678 @@ Cc: Michal Miroslaw <mirqus@gmail.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"gospo@redhat.com" <gospo@redhat.com>,
 	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:56497 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755795Ab2AISIx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jan 2012 13:08:53 -0500
-In-Reply-To: <1325874309.25896.2.camel@bwh-desktop>
-Content-Language: en-US
+Received: from mail.solarflare.com ([216.237.3.220]:60868 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932525Ab2AIStr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2012 13:49:47 -0500
+In-Reply-To: <363B5007A0D944459CBE9CF6A37B891B01FB58@ORSMSX104.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_NextPart_000_0003_01CCCEB6.ADAEDE30
-Content-Type: text/plain;
-	charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+--=-Fh8KWK7mboEuWyvQZlF3
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Ben Hutchings
-> Sent: Friday, January 06, 2012 10:25 AM
-> To: Waskiewicz Jr, Peter P
-> Cc: Michal Miroslaw; Skidmore, Donald C; Kirsher, Jeffrey T;
-> davem@davemloft.net; netdev@vger.kernel.org; gospo@redhat.com;
-> sassmann@redhat.com
-> Subject: RE: [net-next 8/9] ixgbe: add interface to export thermal =
-data
->=20
-> On Fri, 2012-01-06 at 18:20 +0000, Waskiewicz Jr, Peter P wrote:
-> > > -----Original Message-----
-> > > From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> > > Sent: Friday, January 06, 2012 10:09 AM
-> > > To: Waskiewicz Jr, Peter P
-> > > Cc: Michal Miroslaw; Skidmore, Donald C; Kirsher, Jeffrey T;
-> > > davem@davemloft.net; netdev@vger.kernel.org; gospo@redhat.com;
-> > > sassmann@redhat.com
-> > > Subject: RE: [net-next 8/9] ixgbe: add interface to export thermal
-> > > data
-> > >
-> > > On Fri, 2012-01-06 at 17:55 +0000, Waskiewicz Jr, Peter P wrote:
-> > > > > -----Original Message-----
-> > > > > From: Micha=C5=82 Miros=C5=82aw [mailto:mirqus@gmail.com]
-> > > > > Sent: Thursday, January 05, 2012 3:51 PM
-> > > > > To: Skidmore, Donald C
-> > > > > Cc: Ben Hutchings; Kirsher, Jeffrey T; davem@davemloft.net;
-> > > > > netdev@vger.kernel.org; gospo@redhat.com;
-> sassmann@redhat.com;
-> > > > > Waskiewicz Jr, Peter P
-> > > > > Subject: Re: [net-next 8/9] ixgbe: add interface to export
-> > > > > thermal data
-> > > > >
-> > > > > Drivers outside of drivers/hwmon just select HWMON in Kconfig.
-> > > > > This adds a 3kB .c file to the kernel build for the first one =
-that needs it.
+On Mon, 2012-01-09 at 18:08 +0000, Waskiewicz Jr, Peter P wrote:
+> > -----Original Message-----
+> > From: netdev-owner@vger.kernel.org [mailto:netdev-
+> > owner@vger.kernel.org] On Behalf Of Ben Hutchings
+> > Sent: Friday, January 06, 2012 10:25 AM
+> > To: Waskiewicz Jr, Peter P
+> > Cc: Michal Miroslaw; Skidmore, Donald C; Kirsher, Jeffrey T;
+> > davem@davemloft.net; netdev@vger.kernel.org; gospo@redhat.com;
+> > sassmann@redhat.com
+> > Subject: RE: [net-next 8/9] ixgbe: add interface to export thermal data
+> > 
+> > On Fri, 2012-01-06 at 18:20 +0000, Waskiewicz Jr, Peter P wrote:
+> > > > -----Original Message-----
+> > > > From: Ben Hutchings [mailto:bhutchings@solarflare.com]
+> > > > Sent: Friday, January 06, 2012 10:09 AM
+> > > > To: Waskiewicz Jr, Peter P
+> > > > Cc: Michal Miroslaw; Skidmore, Donald C; Kirsher, Jeffrey T;
+> > > > davem@davemloft.net; netdev@vger.kernel.org; gospo@redhat.com;
+> > > > sassmann@redhat.com
+> > > > Subject: RE: [net-next 8/9] ixgbe: add interface to export thermal
+> > > > data
 > > > >
-> > > > This is where we run into issues though.  We can put this
-> > > > dependency in, but customers don't pull upstream kernels, they
-> > > > rely on the OSV's to distribute updates.  The customer doesn't
-> > > > want HWMON, and if their kernel doesn't ship with HWMON support
-> for ixgbe, then we're sunk.
+> > > > On Fri, 2012-01-06 at 17:55 +0000, Waskiewicz Jr, Peter P wrote:
+> > > > > > -----Original Message-----
+> > > > > > From: Michał Mirosław [mailto:mirqus@gmail.com]
+> > > > > > Sent: Thursday, January 05, 2012 3:51 PM
+> > > > > > To: Skidmore, Donald C
+> > > > > > Cc: Ben Hutchings; Kirsher, Jeffrey T; davem@davemloft.net;
+> > > > > > netdev@vger.kernel.org; gospo@redhat.com;
+> > sassmann@redhat.com;
+> > > > > > Waskiewicz Jr, Peter P
+> > > > > > Subject: Re: [net-next 8/9] ixgbe: add interface to export
+> > > > > > thermal data
+> > > > > >
+> > > > > > Drivers outside of drivers/hwmon just select HWMON in Kconfig.
+> > > > > > This adds a 3kB .c file to the kernel build for the first one that needs it.
+> > > > >
+> > > > > This is where we run into issues though.  We can put this
+> > > > > dependency in, but customers don't pull upstream kernels, they
+> > > > > rely on the OSV's to distribute updates.  The customer doesn't
+> > > > > want HWMON, and if their kernel doesn't ship with HWMON support
+> > for ixgbe, then we're sunk.
+> > > >
+> > > > So if !IS_ENABLED(CONFIG_HWMON), don't try to create an hwmon
+> > > > device, but create the attributes anyway.
 > > >
-> > > So if !IS_ENABLED(CONFIG_HWMON), don't try to create an hwmon
-> > > device, but create the attributes anyway.
-> >
-> > And if CONFIG_HWMON is not enabled, are we then responsible for
-> > creating the hwmon area in sysfs to link in our attributes?  That
-> > would make even less sense to include HWMON attributes if HWMON =
-isn't
-> > built in.
->=20
-> No, the attributes actually appear under the parent device.
+> > > And if CONFIG_HWMON is not enabled, are we then responsible for
+> > > creating the hwmon area in sysfs to link in our attributes?  That
+> > > would make even less sense to include HWMON attributes if HWMON isn't
+> > > built in.
+> > 
+> > No, the attributes actually appear under the parent device.
+> 
+> Ok, so how we have it now in the current patches.
 
-Ok, so how we have it now in the current patches.
+Only with different names.
 
-> > > > The point is what we're trying to implement, based on what our
-> customers'
-> > > > requirements are, is something completely different than what
-> > > > HWMON is providing.  Trying to wedge HWMON onto this framework
-> > > > we're trying to provide just overcomplicates the entire thing =
-we're trying
-> to provide.
-> > > > It's a generic interface to generic data in our drivers,
-> > > [...]
+> > > > > The point is what we're trying to implement, based on what our
+> > customers'
+> > > > > requirements are, is something completely different than what
+> > > > > HWMON is providing.  Trying to wedge HWMON onto this framework
+> > > > > we're trying to provide just overcomplicates the entire thing we're trying
+> > to provide.
+> > > > > It's a generic interface to generic data in our drivers,
+> > > > [...]
+> > > >
+> > > > It sounds like you want to provide a "generic" ixgbe interface on
+> > > > different operating systems.  But that is not a valid argument for an in-
+> > tree driver.
 > > >
-> > > It sounds like you want to provide a "generic" ixgbe interface on
-> > > different operating systems.  But that is not a valid argument for =
-an in-
-> tree driver.
-> >
-> > No, we're trying to provide a generic ixgbe interface on Linux
-> > systems.  The reality is different OSV's pull our driver from =
-upstream
-> > to build their distros,
->=20
-> Yes we know.
->=20
-> [...]
-> > The reality is these attributes of our thermal sensors are about 5% =
-of
-> > the data we need to export.
-> [...]
->=20
-> And I think all you need to do is (1) give these particular attributes =
-the right
-> names and (2) create a child hwmon device if possible.  Is that so =
-hard?
+> > > No, we're trying to provide a generic ixgbe interface on Linux
+> > > systems.  The reality is different OSV's pull our driver from upstream
+> > > to build their distros,
+> > 
+> > Yes we know.
+> > 
+> > [...]
+> > > The reality is these attributes of our thermal sensors are about 5% of
+> > > the data we need to export.
+> > [...]
+>
+> > And I think all you need to do is (1) give these particular attributes the right
+> > names and (2) create a child hwmon device if possible.  Is that so hard?
+> 
+> Yes, it is.  The sensors that we have defined for this SKU are defined
+> by the customers who this board was built for, so it fits with their
+> BMC.  We don't have much control over the names.
 
-Yes, it is.  The sensors that we have defined for this SKU are defined =
-by the customers who this board was built for, so it fits with their =
-BMC.  We don't have much control over the names.
+You should expose the names as '<type><index>_label' attributes.
 
-Again, I'm failing to see why you are requiring us to put in this =
-support when we don't benefit at all from it, we don't need it, and =
-don't want it.  Perhaps you can add the HWMON support to ixgbe when you =
-get around to adding the same support to your Solarflare driver that =
-hasn't been completed yet?  We'd be happy to accept those patches.  =
-Please don't hold us to a standard you won't hold your own driver to.
+> Again, I'm failing to see why you are requiring us to put in this
+> support when we don't benefit at all from it, we don't need it, and
+> don't want it.  Perhaps you can add the HWMON support to ixgbe when
+> you get around to adding the same support to your Solarflare driver
+> that hasn't been completed yet?
 
--PJ
+I already did that for the SFC4000 boards, using existing hwmon drivers.
+I'm attaching the implementation for SFC9000-family boards (though it's
+not immediately applicable as it needs an update to the firmware
+protocol header).  Oddly enough I'm not inclined to spend time on your
+boards!  But maybe this can serve as an example of how to expose sensors
+that are discoverd at run-time.
 
-------=_NextPart_000_0003_01CCCEB6.ADAEDE30
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
+> We'd be happy to accept those patches.  Please don't hold us to a
+> standard you won't hold your own driver to.
 
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIISJjCCAyAw
-ggKJoAMCAQICBDXe9M8wDQYJKoZIhvcNAQEFBQAwTjELMAkGA1UEBhMCVVMxEDAOBgNVBAoTB0Vx
-dWlmYXgxLTArBgNVBAsTJEVxdWlmYXggU2VjdXJlIENlcnRpZmljYXRlIEF1dGhvcml0eTAeFw05
-ODA4MjIxNjQxNTFaFw0xODA4MjIxNjQxNTFaME4xCzAJBgNVBAYTAlVTMRAwDgYDVQQKEwdFcXVp
-ZmF4MS0wKwYDVQQLEyRFcXVpZmF4IFNlY3VyZSBDZXJ0aWZpY2F0ZSBBdXRob3JpdHkwgZ8wDQYJ
-KoZIhvcNAQEBBQADgY0AMIGJAoGBAMFdsVhnCGLuoJotHwhtkRRomAoe/toEbxOEYiHD0XzOnwXg
-uAHwTjTs4oqVBGSs8WtTXwWzy2eAv0ICjv7dAQns4QAUT/z78AzdQ7pbK+EfgHCZFVeTFvEPl2q3
-wmgjHMxNWTCsUR47ryvW7mNFe8XZX1DS41APOojnvxT94Me5AgMBAAGjggEJMIIBBTBwBgNVHR8E
-aTBnMGWgY6BhpF8wXTELMAkGA1UEBhMCVVMxEDAOBgNVBAoTB0VxdWlmYXgxLTArBgNVBAsTJEVx
-dWlmYXggU2VjdXJlIENlcnRpZmljYXRlIEF1dGhvcml0eTENMAsGA1UEAxMEQ1JMMTAaBgNVHRAE
-EzARgQ8yMDE4MDgyMjE2NDE1MVowCwYDVR0PBAQDAgEGMB8GA1UdIwQYMBaAFEjmaPkr0rKV10fY
-IyAQTzOYkJ/UMB0GA1UdDgQWBBRI5mj5K9KylddH2CMgEE8zmJCf1DAMBgNVHRMEBTADAQH/MBoG
-CSqGSIb2fQdBAAQNMAsbBVYzLjBjAwIGwDANBgkqhkiG9w0BAQUFAAOBgQBYzinq/Pfetc4CuRe1
-hdG54+CVzCUxDQCmkm5/tpJjnlCV0Zpv5BHeY4VumO6o/1rI01WyZnFX3sAh6z0qpyNJAQSGQnv8
-7n+iFlK1Z2fTQNs7JliyKHc9rhR3Ydb6KmYnoA36p3Nc6nDxlCFlRF/6/O8paKmih3nvee9PrAd3
-ODCCAz0wggKmoAMCAQICAwWw/zANBgkqhkiG9w0BAQUFADBOMQswCQYDVQQGEwJVUzEQMA4GA1UE
-ChMHRXF1aWZheDEtMCsGA1UECxMkRXF1aWZheCBTZWN1cmUgQ2VydGlmaWNhdGUgQXV0aG9yaXR5
-MB4XDTA2MDIxNjE4MDEzMFoXDTE2MDIxOTE4MDEzMFowUjELMAkGA1UEBhMCVVMxGjAYBgNVBAoT
-EUludGVsIENvcnBvcmF0aW9uMScwJQYDVQQDEx5JbnRlbCBFeHRlcm5hbCBCYXNpYyBQb2xpY3kg
-Q0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDBpd/XOb9QVqEZ8mQ1042TdOIq3ATD
-IsV2xDyt30yLyMR5Wjtus0bn3B+he89BiNO/LP6+rFzEwlD55PlX+HLGIKeNNG97dqyc30FElEUj
-ZzTZFq2N4e3kVJ/XAEEgANzV8v9qp7qWwxugPgfc3z9BkYot+CifozexHLb/hEZj+yISCU61kRZv
-uSQ0E11yYL4dRgcglJeaHo3oX57rvIckaLsYV5/1Aj+R8DM1Ppk965XQAKsHfnyT7C4S50T4lVn4
-lz36wOdNZn/zegG1zp41lnoTFfT4KuKVJH5x7YD1p6KbgJCKLovnujGuohquBNfdXKpZkvz6pGv+
-iC1HawJdAgMBAAGjgaAwgZ0wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBQaxgxKxEdvqNutK/D0
-Vgaj7TdUDDA6BgNVHR8EMzAxMC+gLaArhilodHRwOi8vY3JsLmdlb3RydXN0LmNvbS9jcmxzL3Nl
-Y3VyZWNhLmNybDAfBgNVHSMEGDAWgBRI5mj5K9KylddH2CMgEE8zmJCf1DAPBgNVHRMBAf8EBTAD
-AQH/MA0GCSqGSIb3DQEBBQUAA4GBABMQOK2kVKVIlUWwLTdywJ+e2O+PC/uQltK2F3lRyrPfBn69
-tOkIP4SgDJOfsxyobIrPLe75kBLw+Dom13OBDp/EMZJZ1CglQfVV8co9mT3aZMjSGGQiMgkJLR3j
-Mfr900fXZKj5XeqCJ+JP0mEhJGEdVCY+FFlksJjV86fDrq1QMIIFijCCBHKgAwIBAgIKYSCKYgAA
-AAAACDANBgkqhkiG9w0BAQUFADBSMQswCQYDVQQGEwJVUzEaMBgGA1UEChMRSW50ZWwgQ29ycG9y
-YXRpb24xJzAlBgNVBAMTHkludGVsIEV4dGVybmFsIEJhc2ljIFBvbGljeSBDQTAeFw0wOTA1MTUx
-OTI3MjZaFw0xNTA1MTUxOTM3MjZaMFYxCzAJBgNVBAYTAlVTMRowGAYDVQQKExFJbnRlbCBDb3Jw
-b3JhdGlvbjErMCkGA1UEAxMiSW50ZWwgRXh0ZXJuYWwgQmFzaWMgSXNzdWluZyBDQSAzQjCCASIw
-DQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKQEM1Wn9TU9vc9C+/Tc7KB+eiYElmrcEWE32WUd
-HvWG+IcQHVQsikTmMyKKojNLw2B5s6Iekc8ivDo/wCfjZzX9JyftMnc+AArc0la87Olybzm8K9jX
-EfTBvTnUSFSiI9ZYefITdiUgqlAFuljFZEHYKYtLuhrRacpmQfP4mV63NKdc2bT804HRf6YptZFa
-4k6YN94zlrGNrBuQQ74WFzz/jLBusbUpEkro6Mu/ZYFOFWQrV9lBhF9Ruk8yN+3N6n9fUo/qBigi
-F2kEn9xVh1ykl7SCGL2jBUkXx4qgV27a6Si8lRRdgrHGtN/HWnSWlLXTH5l575H4Lq++77OFv38C
-AwEAAaOCAlwwggJYMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFA7GKvdZsggQkCVvw939imYx
-MCvFMAsGA1UdDwQEAwIBhjASBgkrBgEEAYI3FQEEBQIDAQABMCMGCSsGAQQBgjcVAgQWBBQ5oFY2
-ekKQ/5Ktim+VdMeSWb4QWTAZBgkrBgEEAYI3FAIEDB4KAFMAdQBiAEMAQTAfBgNVHSMEGDAWgBQa
-xgxKxEdvqNutK/D0Vgaj7TdUDDCBvQYDVR0fBIG1MIGyMIGvoIGsoIGphk5odHRwOi8vd3d3Lmlu
-dGVsLmNvbS9yZXBvc2l0b3J5L0NSTC9JbnRlbCUyMEV4dGVybmFsJTIwQmFzaWMlMjBQb2xpY3kl
-MjBDQS5jcmyGV2h0dHA6Ly9jZXJ0aWZpY2F0ZXMuaW50ZWwuY29tL3JlcG9zaXRvcnkvQ1JML0lu
-dGVsJTIwRXh0ZXJuYWwlMjBCYXNpYyUyMFBvbGljeSUyMENBLmNybDCB4wYIKwYBBQUHAQEEgdYw
-gdMwYwYIKwYBBQUHMAKGV2h0dHA6Ly93d3cuaW50ZWwuY29tL3JlcG9zaXRvcnkvY2VydGlmaWNh
-dGVzL0ludGVsJTIwRXh0ZXJuYWwlMjBCYXNpYyUyMFBvbGljeSUyMENBLmNydDBsBggrBgEFBQcw
-AoZgaHR0cDovL2NlcnRpZmljYXRlcy5pbnRlbC5jb20vcmVwb3NpdG9yeS9jZXJ0aWZpY2F0ZXMv
-SW50ZWwlMjBFeHRlcm5hbCUyMEJhc2ljJTIwUG9saWN5JTIwQ0EuY3J0MA0GCSqGSIb3DQEBBQUA
-A4IBAQCxtQEHchVQhXyjEqtMVUMe6gkmPsIczHxSeqNbo9dsD+6xbT65JT+oYgpIAtfEsYXeUJu1
-cChqpb22U5bMAz7eaQcW5bzefufWvA6lg2048B8oczBj/q+5P5NpYrUO8jOmN4jTjfJq3ElZ7yFW
-py7rB3Vm/aN6ATYqWfMbS/xfh+JCxmH3droUmMJI0/aZJHsLtjbjFnNsHDNrJZX1vxlM78Lb1hjs
-kTENPmhbVbfTj5i/ZGnhv4tmI8QZPCNtcegXJrfhRl2D9bWpdTOPrWiLDUqzy1Z6KL7TcOS/PCl8
-RHCJXkPau/thTQCpIoDa2+c+3XA++gRTfAQ4svTO260NMIIGLzCCBRegAwIBAgIKf0es/QABAABR
-FTANBgkqhkiG9w0BAQUFADBWMQswCQYDVQQGEwJVUzEaMBgGA1UEChMRSW50ZWwgQ29ycG9yYXRp
-b24xKzApBgNVBAMTIkludGVsIEV4dGVybmFsIEJhc2ljIElzc3VpbmcgQ0EgM0IwHhcNMTAwNDA5
-MDgyNzMwWhcNMTMwMzI0MDgyNzMwWjBRMR8wHQYDVQQDExZXYXNraWV3aWN6IEpyLCBQZXRlciBQ
-MS4wLAYJKoZIhvcNAQkBFh9wZXRlci5wLndhc2tpZXdpY3ouanJAaW50ZWwuY29tMIIBIjANBgkq
-hkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxNvzDG+qS7UFSaYiqMqQr7exXHirCVe1tapLZoFlJZLP
-fqZsBsAAUqARnY+v3RQj3WDmoIOtTMHxtnmo4pd5UXrsk+PraedGAilso9tkfp5ZjRjZo9LL06AZ
-zjiBVfAxgvyxMPsoKhdfFijzqSJRpc12kB662PAJWfyJO+f6lg5+Cd4KgRVGrpGI4bvBKEVGMeOq
-wD+kcVtiwRcqNygx35GqdcpJCCJqOSAJsLI3DR7tDvATeNzsasweaHgWonaK4D6qaHkoGx4VHknC
-6uNn/FK/wXtFbXkeOrnRGJIzaZNsOBVhTou9w3NYU1EjuK75hZJ4Fd4/r1gHafxWD+VzrwIDAQAB
-o4IDAjCCAv4wCwYDVR0PBAQDAgeAMDwGCSsGAQQBgjcVBwQvMC0GJSsGAQQBgjcVCIbDjHWEmeVR
-g/2BKIWOn1OCkcAJZ4HevTmV8EMCAWQCAQgwHQYDVR0OBBYEFLtB44dRTSgY1071RY+nMiKRkn1P
-MB8GA1UdIwQYMBaAFA7GKvdZsggQkCVvw939imYxMCvFMIHPBgNVHR8EgccwgcQwgcGggb6ggbuG
-V2h0dHA6Ly93d3cuaW50ZWwuY29tL3JlcG9zaXRvcnkvQ1JML0ludGVsJTIwRXh0ZXJuYWwlMjBC
-YXNpYyUyMElzc3VpbmclMjBDQSUyMDNCKDEpLmNybIZgaHR0cDovL2NlcnRpZmljYXRlcy5pbnRl
-bC5jb20vcmVwb3NpdG9yeS9DUkwvSW50ZWwlMjBFeHRlcm5hbCUyMEJhc2ljJTIwSXNzdWluZyUy
-MENBJTIwM0IoMSkuY3JsMIH1BggrBgEFBQcBAQSB6DCB5TBsBggrBgEFBQcwAoZgaHR0cDovL3d3
-dy5pbnRlbC5jb20vcmVwb3NpdG9yeS9jZXJ0aWZpY2F0ZXMvSW50ZWwlMjBFeHRlcm5hbCUyMEJh
-c2ljJTIwSXNzdWluZyUyMENBJTIwM0IoMSkuY3J0MHUGCCsGAQUFBzAChmlodHRwOi8vY2VydGlm
-aWNhdGVzLmludGVsLmNvbS9yZXBvc2l0b3J5L2NlcnRpZmljYXRlcy9JbnRlbCUyMEV4dGVybmFs
-JTIwQmFzaWMlMjBJc3N1aW5nJTIwQ0ElMjAzQigxKS5jcnQwHwYDVR0lBBgwFgYIKwYBBQUHAwQG
-CisGAQQBgjcKAwwwKQYJKwYBBAGCNxUKBBwwGjAKBggrBgEFBQcDBDAMBgorBgEEAYI3CgMMMFsG
-A1UdEQRUMFKgLwYKKwYBBAGCNxQCA6AhDB9wZXRlci5wLndhc2tpZXdpY3ouanJAaW50ZWwuY29t
-gR9wZXRlci5wLndhc2tpZXdpY3ouanJAaW50ZWwuY29tMA0GCSqGSIb3DQEBBQUAA4IBAQBYea1K
-ThIl9gNf1uIob1trWtsthhWAXsdUu1V+gl10RBChuM4okZccJf1JXItFA2z7J2UR4cu/tRZBRFar
-tVPhGBjKntLofxsaW7wwzfsinbNy30gHGShG83XDADdGUteL8PmupDcDf/MtbRIlfjEknLiuOnrM
-25WVajtB3fB1pOA2jmLaaNmasza9ordaD3afJD3IWr/Zj+aevMu4zrKzwdOZqBZW1J1Qc7uog8Mn
-+mm+wRMmEY0z7VFdjsZjJH9EQA0UbF1aYcshv0a/M2deKN9TdYuJ1eTKRSZdzSiRG5w75xujFMYZ
-go4ETlu1Behgey1jvJiyWdOsPt7at08QMYICLDCCAigCAQEwZDBWMQswCQYDVQQGEwJVUzEaMBgG
-A1UEChMRSW50ZWwgQ29ycG9yYXRpb24xKzApBgNVBAMTIkludGVsIEV4dGVybmFsIEJhc2ljIElz
-c3VpbmcgQ0EgM0ICCn9HrP0AAQAAURUwCQYFKw4DAhoFAKCBnjAYBgkqhkiG9w0BCQMxCwYJKoZI
-hvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0xMjAxMDkxODA4NDhaMCMGCSqGSIb3DQEJBDEWBBQDfu41
-vqUu6B77mYVnatyBbM/GeDA/BgkqhkiG9w0BCQ8xMjAwMAcGBSsOAwIaMAsGCWCGSAFlAwQCAzAL
-BglghkgBZQMEAgIwCwYJYIZIAWUDBAIBMA0GCSqGSIb3DQEBAQUABIIBAJnfXJud+7rHyshwjnZT
-dHWZCjZmKZMInRjSnCTw3qRZqU41V+QP7PlS9Abj1XpzlQ25pMUmq+4nXyi/n9B3k2727ELtXsdD
-Vg+FLGI4QZ5TRHzYfeyxFg73u5upSU3Lt5xxMxuY1EU/ALZ8jmvH45v920KKCjqHt84imZbcOc/Q
-jJ8NiqlWuJIu6CoW22iL9PdhovzaevvCZeNCYUjeMeytDxuX+vwm1j/WNnsX499dDBrHqBuFVuDW
-c183cHp202ge0527FQZB/Zaesm3klcms2gWMxWslk14sYuX8QduvlquUebDuR8QgG9Vxx9TLbATw
-/jS8I7ivsPoMXA6LaJ0AAAAAAAA=
+I'm not the one proposing to add a driver-specific interface for
+something that's already standardised!
 
-------=_NextPart_000_0003_01CCCEB6.ADAEDE30--
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
+--=-Fh8KWK7mboEuWyvQZlF3
+Content-Disposition: attachment;
+	filename*0="0001-sfc-Add-hardware-monitor-for-sensors-managed-by-firm.pat";
+	filename*1="ch"
+Content-Type: text/x-patch;
+	name="0001-sfc-Add-hardware-monitor-for-sensors-managed-by-firm.patch";
+	charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+>From a64b65e8e5efee3b176ae395e30132bff7564440 Mon Sep 17 00:00:00 2001
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 6 Jan 2012 20:25:39 +0000
+Subject: [PATCH net-next] sfc: Add hardware monitor for sensors managed by
+ firmware
+To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/ethernet/sfc/Kconfig    |    7 +
+ drivers/net/ethernet/sfc/Makefile   |    1 +
+ drivers/net/ethernet/sfc/mcdi.h     |   27 +++
+ drivers/net/ethernet/sfc/mcdi_mon.c |  368 +++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/sfc/nic.h      |   14 ++
+ drivers/net/ethernet/sfc/siena.c    |    6 +
+ 6 files changed, 423 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/ethernet/sfc/mcdi_mon.c
+
+diff --git a/drivers/net/ethernet/sfc/Kconfig b/drivers/net/ethernet/sfc/Kconfig
+index 5d18841..ae40b66 100644
+--- a/drivers/net/ethernet/sfc/Kconfig
++++ b/drivers/net/ethernet/sfc/Kconfig
+@@ -19,3 +19,10 @@ config SFC_MTD
+ 	  This exposes the on-board flash memory as MTD devices (e.g.
+ 	  /dev/mtd1).  This makes it possible to upload new firmware
+ 	  to the NIC.
++config SFC_MCDI_MON
++	bool "Solarflare SFC9000-family hwmon support"
++	depends on SFC && HWMON && !(SFC=y && HWMON=m)
++	default y
++	----help---
++	  This exposes the on-board firmware-managed sensors as a
++	  hardware monitor device.
+diff --git a/drivers/net/ethernet/sfc/Makefile b/drivers/net/ethernet/sfc/Makefile
+index ab31c71..3a1aa84 100644
+--- a/drivers/net/ethernet/sfc/Makefile
++++ b/drivers/net/ethernet/sfc/Makefile
+@@ -4,5 +4,6 @@ sfc-y			+= efx.o nic.o falcon.o siena.o tx.o rx.o filter.o \
+ 			   tenxpress.o txc43128_phy.o falcon_boards.o \
+ 			   mcdi.o mcdi_phy.o
+ sfc-$(CONFIG_SFC_MTD)	+= mtd.o
++sfc-$(CONFIG_SFC_MCDI_MON) += mcdi_mon.o
+ 
+ obj-$(CONFIG_SFC)	+= sfc.o
+diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
+index 4dd39fc..0af1bd4 100644
+--- a/drivers/net/ethernet/sfc/mcdi.h
++++ b/drivers/net/ethernet/sfc/mcdi.h
+@@ -56,6 +56,15 @@ struct efx_mcdi_iface {
+ 	size_t resplen;
+ };
+ 
++struct efx_mcdi_mon {
++	struct efx_buffer dma_buf;
++	struct mutex update_lock;
++	unsigned long last_update;
++	struct device *device;
++	struct efx_mcdi_mon_attribute *attrs;
++	unsigned int n_attrs;
++};
++
+ extern void efx_mcdi_init(struct efx_nic *efx);
+ 
+ extern int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd, const u8 *inbuf,
+@@ -83,6 +92,10 @@ extern void efx_mcdi_process_event(struct efx_channel *channel,
+ 
+ #define MCDI_PTR(_buf, _ofst)						\
+ 	MCDI_PTR2(_buf, MC_CMD_ ## _ofst ## _OFST)
++#define MCDI_ARRAY_PTR(_buf, _field, _type, _index)			\
++	MCDI_PTR2(_buf,							\
++		  MC_CMD_ ## _field ## _OFST +				\
++		  (_index) * MC_CMD_ ## _type ## _TYPEDEF_LEN)
+ #define MCDI_SET_DWORD(_buf, _ofst, _value)				\
+ 	MCDI_SET_DWORD2(_buf, MC_CMD_ ## _ofst ## _OFST, _value)
+ #define MCDI_DWORD(_buf, _ofst)						\
+@@ -92,6 +105,12 @@ extern void efx_mcdi_process_event(struct efx_channel *channel,
+ 
+ #define MCDI_EVENT_FIELD(_ev, _field)			\
+ 	EFX_QWORD_FIELD(_ev, MCDI_EVENT_ ## _field)
++#define MCDI_ARRAY_FIELD(_buf, _field1, _type, _index, _field2)		\
++	EFX_DWORD_FIELD(						\
++		*((efx_dword_t *)					\
++		  (MCDI_ARRAY_PTR(_buf, _field1, _type, _index) +	\
++		   (MC_CMD_ ## _type ## _TYPEDEF_ ## _field2 ## _OFST & ~3))), \
++		MC_CMD_ ## _type ## _TYPEDEF_ ## _field2)
+ 
+ extern void efx_mcdi_print_fwver(struct efx_nic *efx, char *buf, size_t len);
+ extern int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
+@@ -131,4 +150,12 @@ extern int efx_mcdi_mac_stats(struct efx_nic *efx, dma_addr_t dma_addr,
+ extern int efx_mcdi_mac_reconfigure(struct efx_nic *efx);
+ extern bool efx_mcdi_mac_check_fault(struct efx_nic *efx);
+ 
++#ifdef CONFIG_SFC_MCDI_MON
++extern int efx_mcdi_mon_probe(struct efx_nic *efx);
++extern void efx_mcdi_mon_remove(struct efx_nic *efx);
++#else
++static inline int efx_mcdi_mon_probe(struct efx_nic *efx) { return 0; }
++static inline void efx_mcdi_mon_remove(struct efx_nic *efx) {}
++#endif
++
+ #endif /* EFX_MCDI_H */
+diff --git a/drivers/net/ethernet/sfc/mcdi_mon.c b/drivers/net/ethernet/sfc/mcdi_mon.c
+new file mode 100644
+index 0000000..ce4e49e
+--- /dev/null
++++ b/drivers/net/ethernet/sfc/mcdi_mon.c
+@@ -0,0 +1,368 @@
++/****************************************************************************
++ * Driver for Solarflare Solarstorm network controllers and boards
++ * Copyright 2011 Solarflare Communications Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
++
++#include <linux/bitops.h>
++#include <linux/slab.h>
++#include <linux/hwmon.h>
++#include <linux/stat.h>
++
++#include "net_driver.h"
++#include "mcdi.h"
++#include "mcdi_pcol.h"
++#include "nic.h"
++
++enum efx_hwmon_type {
++	EFX_HWMON_UNKNOWN,
++	EFX_HWMON_TEMP,         /* temperature */
++	EFX_HWMON_COOL,         /* cooling device, probably a heatsink */
++	EFX_HWMON_IN            /* input voltage */
++};
++
++static const struct {
++	const char *label;
++	enum efx_hwmon_type hwmon_type;
++	int port;
++} efx_mcdi_sensor_type[MC_CMD_SENSOR_ENTRY_MAXNUM] = {
++#define SENSOR_TYPE(name, label, hwmon_type, port)			\
++	[MC_CMD_SENSOR_##name] = { label, hwmon_type, port }
++	SENSOR_TYPE(CONTROLLER_TEMP,	"NIC temp.",	EFX_HWMON_TEMP,	-1),
++	SENSOR_TYPE(PHY_COMMON_TEMP,	"PHY temp.",	EFX_HWMON_TEMP,	-1),
++	SENSOR_TYPE(CONTROLLER_COOLING,	"NIC cooling",	EFX_HWMON_COOL,	-1),
++	SENSOR_TYPE(PHY0_TEMP,		"PHY temp.",	EFX_HWMON_TEMP,	0),
++	SENSOR_TYPE(PHY0_COOLING,	"PHY cooling",	EFX_HWMON_COOL,	0),
++	SENSOR_TYPE(PHY1_TEMP,		"PHY temp.",	EFX_HWMON_TEMP,	1),
++	SENSOR_TYPE(PHY1_COOLING, 	"PHY cooling",	EFX_HWMON_COOL,	1),
++	SENSOR_TYPE(IN_1V0,		"1.0V",		EFX_HWMON_IN,	-1),
++	SENSOR_TYPE(IN_1V2,		"1.2V",		EFX_HWMON_IN,	-1),
++	SENSOR_TYPE(IN_1V8,		"1.8V",		EFX_HWMON_IN,	-1),
++	SENSOR_TYPE(IN_2V5,		"2.5V",		EFX_HWMON_IN,	-1),
++	SENSOR_TYPE(IN_3V3,		"3.3V",		EFX_HWMON_IN,	-1),
++	SENSOR_TYPE(IN_12V0,		"12.0V",	EFX_HWMON_IN,	-1),
++	SENSOR_TYPE(IN_1V2A,		"1.2V analogue", EFX_HWMON_IN,	-1),
++	SENSOR_TYPE(IN_VREF,		"ref. voltage",	EFX_HWMON_IN,	-1),
++};
++
++struct efx_mcdi_mon_attribute {
++	struct device_attribute dev_attr;
++	unsigned int index;
++	unsigned int limit_value;
++	char name[12];
++};
++
++static int efx_mcdi_mon_update(struct efx_nic *efx)
++{
++	struct efx_mcdi_mon *hwmon = efx_mcdi_mon(efx);
++	u8 inbuf[MC_CMD_READ_SENSORS_IN_LEN];
++	int rc;
++
++	MCDI_SET_DWORD(inbuf, READ_SENSORS_IN_DMA_ADDR_LO,
++		       hwmon->dma_buf.dma_addr & 0xffffffff);
++	MCDI_SET_DWORD(inbuf, READ_SENSORS_IN_DMA_ADDR_HI,
++		       (u64)hwmon->dma_buf.dma_addr >> 32);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_READ_SENSORS,
++			  inbuf, sizeof(inbuf), NULL, 0, NULL);
++	if (rc == 0)
++		hwmon->last_update = jiffies;
++	return rc;
++}
++
++static ssize_t efx_mcdi_mon_show_name(struct device *dev,
++				      struct device_attribute *attr,
++				      char *buf)
++{
++	return sprintf(buf, "%s\n", KBUILD_MODNAME);
++}
++
++static int efx_mcdi_mon_get_entry(struct device *dev, unsigned int index,
++				  efx_dword_t *entry)
++{
++	struct efx_nic *efx = dev_get_drvdata(dev);
++	struct efx_mcdi_mon *hwmon = efx_mcdi_mon(efx);
++	int rc;
++
++	BUILD_BUG_ON(MC_CMD_READ_SENSORS_OUT_LEN != 0);
++
++	mutex_lock(&hwmon->update_lock);
++
++	/* Use cached value if last update was < 1 s ago */
++	if (time_before(jiffies, hwmon->last_update + HZ))
++		rc = 0;
++	else
++		rc = efx_mcdi_mon_update(efx);
++
++	/* Copy out the requested entry */
++	*entry = ((efx_dword_t *)hwmon->dma_buf.addr)[index];
++
++	mutex_unlock(&hwmon->update_lock);
++
++	return rc;
++}
++
++static ssize_t efx_mcdi_mon_show_value(struct device *dev,
++				       struct device_attribute *attr,
++				       char *buf)
++{
++	struct efx_mcdi_mon_attribute *mon_attr =
++		container_of(attr, struct efx_mcdi_mon_attribute, dev_attr);
++	efx_dword_t entry;
++	unsigned int value;
++	int rc;
++
++	rc = efx_mcdi_mon_get_entry(dev, mon_attr->index, &entry);
++	if (rc)
++		return rc;
++
++	value = EFX_DWORD_FIELD(entry, MC_CMD_SENSOR_VALUE_ENTRY_TYPEDEF_VALUE);
++
++	/* Convert temperature from degrees to milli-degrees Celsius */
++	if (efx_mcdi_sensor_type[mon_attr->index].hwmon_type == EFX_HWMON_TEMP)
++		value *= 1000;
++
++	return sprintf(buf, "%u\n", value);
++}
++
++static ssize_t efx_mcdi_mon_show_limit(struct device *dev,
++				       struct device_attribute *attr,
++				       char *buf)
++{
++	struct efx_mcdi_mon_attribute *mon_attr =
++		container_of(attr, struct efx_mcdi_mon_attribute, dev_attr);
++	unsigned int value;
++
++	value = mon_attr->limit_value;
++
++	/* Convert temperature from degrees to milli-degrees Celsius */
++	if (efx_mcdi_sensor_type[mon_attr->index].hwmon_type == EFX_HWMON_TEMP)
++		value *= 1000;
++
++	return sprintf(buf, "%u\n", value);
++}
++
++static ssize_t efx_mcdi_mon_show_alarm(struct device *dev,
++				       struct device_attribute *attr,
++				       char *buf)
++{
++	struct efx_mcdi_mon_attribute *mon_attr =
++		container_of(attr, struct efx_mcdi_mon_attribute, dev_attr);
++	efx_dword_t entry;
++	int state;
++	int rc;
++
++	rc = efx_mcdi_mon_get_entry(dev, mon_attr->index, &entry);
++	if (rc)
++		return rc;
++
++	state = EFX_DWORD_FIELD(entry, MC_CMD_SENSOR_VALUE_ENTRY_TYPEDEF_STATE);
++	return sprintf(buf, "%d\n", state != MC_CMD_SENSOR_STATE_OK);
++}
++
++static ssize_t efx_mcdi_mon_show_label(struct device *dev,
++				       struct device_attribute *attr,
++				       char *buf)
++{
++	struct efx_mcdi_mon_attribute *mon_attr =
++		container_of(attr, struct efx_mcdi_mon_attribute, dev_attr);
++	return sprintf(buf, "%s\n",
++		       efx_mcdi_sensor_type[mon_attr->index].label);
++}
++
++static int
++efx_mcdi_mon_add_attr(struct efx_nic *efx, const char *name,
++		      ssize_t (*reader)(struct device *,
++					struct device_attribute *, char *),
++		      unsigned int index, unsigned int limit_value)
++{
++	struct efx_mcdi_mon *hwmon = efx_mcdi_mon(efx);
++	struct efx_mcdi_mon_attribute *attr = &hwmon->attrs[hwmon->n_attrs];
++	int rc;
++
++	strlcpy(attr->name, name, sizeof(attr->name));
++	attr->index = index;
++	attr->limit_value = limit_value;
++	attr->dev_attr.attr.name = attr->name;
++	attr->dev_attr.attr.mode = S_IRUGO;
++	attr->dev_attr.show = reader;
++	rc = device_create_file(&efx->pci_dev->dev, &attr->dev_attr);
++	if (rc == 0)
++		++hwmon->n_attrs;
++	return rc;
++}
++
++int efx_mcdi_mon_probe(struct efx_nic *efx)
++{
++	struct efx_mcdi_mon *hwmon = efx_mcdi_mon(efx);
++	unsigned int n_attrs, n_temp = 0, n_cool = 0, n_in = 0;
++	u8 outbuf[MC_CMD_SENSOR_INFO_OUT_LENMAX];
++	size_t outlen;
++	char name[12];
++	u32 mask;
++	int rc, i;
++
++	BUILD_BUG_ON(MC_CMD_SENSOR_INFO_IN_LEN != 0);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_SENSOR_INFO, NULL, 0,
++			  outbuf, sizeof(outbuf), &outlen);
++	if (rc)
++		return rc;
++	if (outlen < MC_CMD_SENSOR_INFO_OUT_LENMIN)
++		return -EIO;
++
++	/* Find out which sensors are present.  Don't create a device
++	 * if there are none.
++	 */
++	mask = MCDI_DWORD(outbuf, SENSOR_INFO_OUT_MASK);
++	if (mask == 0)
++		return 0;
++
++	rc = efx_nic_alloc_buffer(efx, &hwmon->dma_buf,
++				  4 * MC_CMD_SENSOR_ENTRY_MAXNUM);
++	if (rc)
++		return rc;
++
++	mutex_init(&hwmon->update_lock);
++	efx_mcdi_mon_update(efx);
++
++	/* Allocate space for the maximum possible number of
++	 * attributes for this set of sensors: name of the driver plus
++	 * value, min, max, crit, alarm and label for each sensor.
++	 */
++	n_attrs = 1 + 6 * hweight32(mask);
++	hwmon->attrs = kcalloc(n_attrs, sizeof(*hwmon->attrs), GFP_KERNEL);
++	if (!hwmon->attrs) {
++		rc = -ENOMEM;
++		goto fail;
++	}
++
++	hwmon->device = hwmon_device_register(&efx->pci_dev->dev);
++	if (IS_ERR(hwmon->device)) {
++		rc = PTR_ERR(hwmon->device);
++		goto fail;
++	}
++
++	rc = efx_mcdi_mon_add_attr(efx, "name", efx_mcdi_mon_show_name, 0, 0);
++	if (rc)
++		goto fail;
++
++	for (i = 0; MC_CMD_SENSOR_INFO_OUT_LEN(i + 1) <= outlen; i++) {
++		const char *hwmon_prefix;
++		unsigned hwmon_index;
++		u16 min1, max1, min2, max2;
++
++		if (!(mask & (1 << i)))
++			continue;
++
++		/* Skip sensors specific to a different port */
++		if (efx_mcdi_sensor_type[i].hwmon_type != EFX_HWMON_UNKNOWN &&
++		    efx_mcdi_sensor_type[i].port >= 0 &&
++		    efx_mcdi_sensor_type[i].port != efx_port_num(efx))
++			continue;
++
++		switch (efx_mcdi_sensor_type[i].hwmon_type) {
++		case EFX_HWMON_TEMP:
++			hwmon_prefix = "temp";
++			hwmon_index = ++n_temp; /* 1-based */
++			break;
++		case EFX_HWMON_COOL:
++			/* This is likely to be a heatsink, but there
++			 * is no convention for representing cooling
++			 * devices other than fans.
++			 */
++			hwmon_prefix = "fan";
++			hwmon_index = ++n_cool; /* 1-based */
++			break;
++		default:
++			hwmon_prefix = "in";
++			hwmon_index = n_in++; /* 0-based */
++			break;
++		}
++
++		min1 = MCDI_ARRAY_FIELD(outbuf, SENSOR_ENTRY,
++					SENSOR_INFO_ENTRY, i, MIN1);
++		max1 = MCDI_ARRAY_FIELD(outbuf, SENSOR_ENTRY,
++					SENSOR_INFO_ENTRY, i, MAX1);
++		min2 = MCDI_ARRAY_FIELD(outbuf, SENSOR_ENTRY,
++					SENSOR_INFO_ENTRY, i, MIN2);
++		max2 = MCDI_ARRAY_FIELD(outbuf, SENSOR_ENTRY,
++					SENSOR_INFO_ENTRY, i, MAX2);
++
++		if (min1 != max1) {
++			snprintf(name, sizeof(name), "%s%u_input",
++				 hwmon_prefix, hwmon_index);
++			rc = efx_mcdi_mon_add_attr(
++				efx, name, efx_mcdi_mon_show_value, i, 0);
++			if (rc)
++				goto fail;
++
++			snprintf(name, sizeof(name), "%s%u_min",
++				 hwmon_prefix, hwmon_index);
++			rc = efx_mcdi_mon_add_attr(
++				efx, name, efx_mcdi_mon_show_limit, i, min1);
++			if (rc)
++				goto fail;
++
++			snprintf(name, sizeof(name), "%s%u_max",
++				 hwmon_prefix, hwmon_index);
++			rc = efx_mcdi_mon_add_attr(
++				efx, name, efx_mcdi_mon_show_limit, i, max1);
++			if (rc)
++				goto fail;
++
++			if (min2 != max2) {
++				/* Assume max2 is critical value.
++				 * But we have no good way to expose min2.
++				 */
++				snprintf(name, sizeof(name), "%s%u_crit",
++					 hwmon_prefix, hwmon_index);
++				rc = efx_mcdi_mon_add_attr(
++					efx, name, efx_mcdi_mon_show_limit, i,
++					max2);
++				if (rc)
++					goto fail;
++			}
++		}
++
++		snprintf(name, sizeof(name), "%s%u_alarm",
++			 hwmon_prefix, hwmon_index);
++		rc = efx_mcdi_mon_add_attr(
++			efx, name, efx_mcdi_mon_show_alarm, i, 0);
++		if (rc)
++			goto fail;
++
++		if (efx_mcdi_sensor_type[i].label) {
++			snprintf(name, sizeof(name), "%s%u_label",
++				 hwmon_prefix, hwmon_index);
++			rc = efx_mcdi_mon_add_attr(
++				efx, name, efx_mcdi_mon_show_label, i, 0);
++			if (rc)
++				goto fail;
++		}
++	}
++
++	return 0;
++
++fail:
++	efx_mcdi_mon_remove(efx);
++	return rc;
++}
++
++void efx_mcdi_mon_remove(struct efx_nic *efx)
++{
++	struct siena_nic_data *nic_data = efx->nic_data;
++	struct efx_mcdi_mon *hwmon = &nic_data->hwmon;
++	unsigned int i;
++
++	for (i = 0; i < hwmon->n_attrs; i++)
++		device_remove_file(&efx->pci_dev->dev,
++				   &hwmon->attrs[i].dev_attr);
++	kfree(hwmon->attrs);
++	if (hwmon->device)
++		hwmon_device_unregister(hwmon->device);
++	efx_nic_free_buffer(efx, &hwmon->dma_buf);
++}
+diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
+index a3ccd0b..905a187 100644
+--- a/drivers/net/ethernet/sfc/nic.h
++++ b/drivers/net/ethernet/sfc/nic.h
+@@ -144,12 +144,26 @@ static inline struct falcon_board *falcon_board(struct efx_nic *efx)
+  * struct siena_nic_data - Siena NIC state
+  * @mcdi: Management-Controller-to-Driver Interface
+  * @wol_filter_id: Wake-on-LAN packet filter id
++ * @hwmon: Hardware monitor state
+  */
+ struct siena_nic_data {
+ 	struct efx_mcdi_iface mcdi;
+ 	int wol_filter_id;
++#ifdef CONFIG_SFC_MCDI_MON
++	struct efx_mcdi_mon hwmon;
++#endif
+ };
+ 
++#ifdef CONFIG_SFC_MCDI_MON
++static inline struct efx_mcdi_mon *efx_mcdi_mon(struct efx_nic *efx)
++{
++	struct siena_nic_data *nic_data;
++	EFX_BUG_ON_PARANOID(efx_nic_rev(efx) < EFX_REV_SIENA_A0);
++	nic_data = efx->nic_data;
++	return &nic_data->hwmon;
++}
++#endif
++
+ extern const struct efx_nic_type falcon_a1_nic_type;
+ extern const struct efx_nic_type falcon_b0_nic_type;
+ extern const struct efx_nic_type siena_a0_nic_type;
+diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
+index f054258..d3c4169 100644
+--- a/drivers/net/ethernet/sfc/siena.c
++++ b/drivers/net/ethernet/sfc/siena.c
+@@ -300,6 +300,10 @@ static int siena_probe_nic(struct efx_nic *efx)
+ 		goto fail5;
+ 	}
+ 
++	rc = efx_mcdi_mon_probe(efx);
++	if (rc)
++		goto fail5;
++
+ 	return 0;
+ 
+ fail5:
+@@ -387,6 +391,8 @@ static int siena_init_nic(struct efx_nic *efx)
+ 
+ static void siena_remove_nic(struct efx_nic *efx)
+ {
++	efx_mcdi_mon_remove(efx);
++
+ 	efx_nic_free_buffer(efx, &efx->irq_status);
+ 
+ 	siena_reset_hw(efx, RESET_TYPE_ALL);
+-- 
+1.7.7.5
+
+
+--=-Fh8KWK7mboEuWyvQZlF3--
