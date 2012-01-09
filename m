@@ -1,44 +1,53 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH] 8139cp: fix missing napi_gro_flush.
-Date: Mon, 9 Jan 2012 00:41:33 +0100
-Message-ID: <20120108234133.GA2785@electric-eye.fr.zoreil.com>
+From: "Yan, Zheng" <zheng.z.yan@intel.com>
+Subject: Re: [PATCH RFC] iwlwifi: add basic runtime PM support
+Date: Mon, 09 Jan 2012 09:01:22 +0800
+Message-ID: <4F0A3C62.6010403@intel.com>
+References: <4F065F59.2070107@intel.com> <1325843269.3330.4.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Marin Glibic <zhilla2@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: wey-yi.w.guy@intel.com, ilw@linux.intel.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:35741 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754867Ab2AHXvA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2012 18:51:00 -0500
-Content-Disposition: inline
+Received: from mga09.intel.com ([134.134.136.24]:51722 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755050Ab2AIBBY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Jan 2012 20:01:24 -0500
+In-Reply-To: <1325843269.3330.4.camel@jlt3.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver uses __napi_complete and napi_gro_receive. Without it, the
-driver hits the BUG_ON(n->gro_list) assertion hard in __napi_complete.
+On 01/06/2012 05:47 PM, Johannes Berg wrote:
+> [add linux-wireless]
+> 
+> On Fri, 2012-01-06 at 10:41 +0800, Yan, Zheng wrote:
+>> This simple patch adds open/close based runtime PM support to the iwlwifi driver.
+>> Namely, make the driver suspend the device after shutting down the interface and
+>> resume the device when activating the interface. In my test, suspending the device
+>> can save about 0.4 watt power. The shortcoming is that the device no longer generate
+>> rfkill changes interrupt.
+> 
+> NACK due to that last sentence. There's no way we can live with that in
+> the general case -- and your patch isn't even configurable afaict. And
+> I'm sure polling the rfkill flag would use just as much energy.
+> 
+It's configurable, runtime PM is disabled by default.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Tested-by: Marin Glibic <zhilla2@gmail.com>
----
+> There might be some value in this in a system that doesn't have a hard
+> rfkill line, but that means this needs to be configurable since the
+> device can't know whether there's a button or not [1].
+> 
+The patch targets system that only use software rfkill
 
- This is a candidate for -stable.
+Regards
+Yan, Zheng
 
- drivers/net/ethernet/realtek/8139cp.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
-index cc6b391..abc7907 100644
---- a/drivers/net/ethernet/realtek/8139cp.c
-+++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -563,6 +563,7 @@ rx_next:
- 		if (cpr16(IntrStatus) & cp_rx_intr_mask)
- 			goto rx_status_loop;
- 
-+		napi_gro_flush(napi);
- 		spin_lock_irqsave(&cp->lock, flags);
- 		__napi_complete(napi);
- 		cpw16_f(IntrMask, cp_intr_mask);
--- 
-1.7.6.4
+> johannes
+> 
+> [1] actually in theory it might be possible to determine whether or not
+> the pin is floating or not? I doubt even that is possible with the HW we
+> have though
+> 
