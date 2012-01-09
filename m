@@ -1,181 +1,359 @@
-From: Wolfgang Zarre <info@essax.com>
-Subject: Re: [PATCH net-next v2 2/4] can: cc770: add legacy ISA bus driver
- for the CC770 and AN82527
-Date: Mon, 09 Jan 2012 22:47:57 +0100
-Message-ID: <4F0B608D.6090309@essax.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF31@saturn3.aculab.com>
-Reply-To: info@essax.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	socketcan-users@lists.berlios.de, IreneV <boir1@yandex.ru>,
-	Stanislav Yelenskiy <stanislavelensky@yahoo.com>, oe@port.de,
-	henrik@focus-sw.com
-To: David Laight <David.Laight@ACULAB.COM>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>, henrik@proconx.com
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6D8AF31@saturn3.aculab.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Maxim Uvarov <maxim.uvarov@oracle.com>
+Subject: [PATCHv2] bond_alb: don't disable softirq under bond_alb_xmit
+Date: Mon,  9 Jan 2012 14:01:37 -0800
+Message-ID: <1326146497-27711-1-git-send-email-maxim.uvarov@oracle.com>
+Cc: fubar@us.ibm.com, andy@greyhouse.net, davem@davemloft.net,
+	Maxim Uvarov <maxim.uvarov@oracle.com>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from acsinet15.oracle.com ([141.146.126.227]:56073 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932412Ab2AIWEW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2012 17:04:22 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello guys,
+No need to lock soft irqs under bond_alb_xmit()
+which already has softirq disabled.
 
->>>>> -    outb(reg, base);
->>>>> -    outb(val, base + 1);
->>>>> +    outw( reg + ( val<<   8), base);
->>>>
->>>> That modification does fix your problem, right? The others above
-> don't
->>>> help nor harm but we don't know if it's really realted to the same
->>>> problem. I wll dig a bit deeper.
->>>
->>> Exactly. The others above I removed because facing the opposite,
-> even
->>> missing interrupts but then just to avoid other possible side
-> effects
->>> and then assuming that they might be related.
->>
->> OK. My concern: Can we be sure that 16bit accesses are always
-> supported
->> by the hardware? Does a spinlock_irqsave/spinlock_irqrestore around
-> the
->> 8bit accesses already help?
->
-> Hmmm... are there any register reads that need the
-> same 'double cycle' sequence ??
-> If so you need to stop reads being interleaved (with
-> themselves and writes) so requesting a 16bit access
-> doesn't help.
->
-> Which means you need a spinlock...
->
-> 	David
->
->
+Changes:
+1. add non-bh/bh version to tlb_clear_slave()
 
-@David: Thank You very much for that hint. You are right and to
-implement correct we need a spinlock.
+2. represent BH and non BH hash table locks
+_lock_rx_hashtbl_bh/_unlock_rx_hashtbl_bh
+_lock_rx_hashtbl/_unlock_rx_hashtbl
+_lock_tx_hashtbl_bh/_unlock_tx_hashtbl_bh
+_lock_tx_hashtbl/_unlock_tx_hashtbl
 
-@Wolfgang: I was thinking about Your question regarding 8/16 bit and
-in fact it wouldn't work at all on a clean 8 bit cards.
+Signed-off-by: Maxim Uvarov <maxim.uvarov@oracle.com>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+---
+ drivers/net/bonding/bond_alb.c |  112 +++++++++++++++++++++++++++-------------
+ 1 files changed, 76 insertions(+), 36 deletions(-)
 
-Further it wouldn't work on 16 bit cards where the MSB is not equal
-to base port +1 and anyway, it's depending always on how the chip is
-interfaced to the ISA bus and in which mode the chip is configured.
-
-
-And therefore I was giving David's hint a try in using a spinlock in
-function cc770_isa_port_write_reg_indirect() and patched as follows:
-
----------------------------------------------------------------------
-diff --git a/drivers/net/can/cc770/cc770.c b/drivers/net/can/cc770/cc770.c
-index 2d12f89..dad6707 100644
---- a/drivers/net/can/cc770/cc770.c
-+++ b/drivers/net/can/cc770/cc770.c
-@@ -460,15 +460,6 @@ static netdev_tx_t cc770_start_xmit(struct sk_buff *skb, struct net_device *dev)
-
-  	stats->tx_bytes += dlc;
-
--
--	/*
--	 * HM: We had some cases of repeated IRQs so make sure the
--	 * INT is acknowledged I know it's already further up, but
--	 * doing again fixed the issue
--	 */
--	cc770_write_reg(priv, msgobj[mo].ctrl0,
--			MSGVAL_UNC | TXIE_UNC | RXIE_UNC | INTPND_RES);
--
-  	return NETDEV_TX_OK;
-  }
-
-@@ -689,12 +680,6 @@ static void cc770_tx_interrupt(struct net_device *dev, unsigned int o)
-  	/* Nothing more to send, switch off interrupts */
-  	cc770_write_reg(priv, msgobj[mo].ctrl0,
-  			MSGVAL_RES | TXIE_RES | RXIE_RES | INTPND_RES);
--	/*
--	 * We had some cases of repeated IRQ so make sure the
--	 * INT is acknowledged
--	 */
--	cc770_write_reg(priv, msgobj[mo].ctrl0,
--			MSGVAL_UNC | TXIE_UNC | RXIE_UNC | INTPND_RES);
-
-  	stats->tx_packets++;
-  	can_get_echo_skb(dev, 0);
-diff --git a/drivers/net/can/cc770/cc770_isa.c b/drivers/net/can/cc770/cc770_isa.c
-index 4be5fe2..fe39eed 100644
---- a/drivers/net/can/cc770/cc770_isa.c
-+++ b/drivers/net/can/cc770/cc770_isa.c
-@@ -110,6 +110,9 @@ MODULE_PARM_DESC(bcr, "Bus configuration register (default=0x40 [CBY])");
-  #define CC770_IOSIZE          0x20
-  #define CC770_IOSIZE_INDIRECT 0x02
-
-+/* Spinlock for cc770_isa_port_write_reg_indirect */
-+static DEFINE_SPINLOCK( outb_lock);
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 106b88a..342626f 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -99,16 +99,26 @@ static inline u8 _simple_hash(const u8 *hash_start, int hash_size)
+ 
+ /*********************** tlb specific functions ***************************/
+ 
+-static inline void _lock_tx_hashtbl(struct bonding *bond)
++static inline void _lock_tx_hashtbl_bh(struct bonding *bond)
+ {
+ 	spin_lock_bh(&(BOND_ALB_INFO(bond).tx_hashtbl_lock));
+ }
+ 
+-static inline void _unlock_tx_hashtbl(struct bonding *bond)
++static inline void _unlock_tx_hashtbl_bh(struct bonding *bond)
+ {
+ 	spin_unlock_bh(&(BOND_ALB_INFO(bond).tx_hashtbl_lock));
+ }
+ 
++static inline void _lock_tx_hashtbl(struct bonding *bond)
++{
++	spin_lock(&(BOND_ALB_INFO(bond).tx_hashtbl_lock));
++}
 +
-  static struct platform_device *cc770_isa_devs[MAXDEV];
-
-  static u8 cc770_isa_mem_read_reg(const struct cc770_priv *priv, int reg)
-@@ -147,9 +150,12 @@ static void cc770_isa_port_write_reg_indirect(const struct cc770_priv *priv,
-  						int reg, u8 val)
-  {
-  	unsigned long base = (unsigned long)priv->reg_base;
-+	unsigned long flags;
-
-+	spin_lock_irqsave( &outb_lock, flags);
-  	outb(reg, base);
-  	outb(val, base + 1);
-+	spin_unlock_irqrestore( &outb_lock, flags);	
-  }
-
-  static int __devinit cc770_isa_probe(struct platform_device *pdev)
-----------------------------------------------------------------------
-
-
-The result is absolutely perfect. I was sending 2,000,000 telegrams
-without any problem like the foregoing patch but now 8 bit compatible.
-
-
-
-
-Further I have also investigated a bit the issue regarding the "HM"
-patches.
-
-I checked out the can4linux and I could find this patch in file
-can_i82527funcs.c as mentioned by Oliver.
-@Oliver: BTW thanks for Your investigation.
-
-After studying the Makefile and some tests I discovered that
-this file is just used for the target SBS_PC7 but funny enough not
-for GENERIC_I82527.
-
-I was seeking the declaration of CANout used in can_i82527funcs.c
-to see if it's based on the same code we had and as well as in Lincan
-but unfortunately the target SBS_PC7 doesn't compile with kernel
-2.6.39-4 and moreover I got the message:
-...can4linux/trunk/can4linux/i82527funcs.c:72:
-                       error: implicit declaration of function 'CANout'
-
-And additional not knowing if the board of SBS_PC7 is ISA or PCI based
-I tried to find out and found after some research the following
-thread:
-http://old.nabble.com/-PATCH-v2--cc770-isa%3A-legacy-driver-for-CC770-i82725-on-the-ISA-bus-td24216347.html
-
-According to that I assumed it's ISA based and is working with cc770_isa.
-
-But not finding the declaration of CANout used in can_i82527funcs.c I
-assumed further that it was done without spinlock which might cause
-the effect of repeated or even lost interrupts as well depending on
-the hardware configuration.
-
-If this is the case then the HM patches would be obsolete and maybe
-someone owning a SBS PC7 can test without these patches.
-
-@Henrik: I would like to ask You if You can confirm this when You are
-back.
-Thanks a lot.
-
-
-Wolfgang
-
++static inline void _unlock_tx_hashtbl(struct bonding *bond)
++{
++	spin_unlock(&(BOND_ALB_INFO(bond).tx_hashtbl_lock));
++}
++
+ /* Caller must hold tx_hashtbl lock */
+ static inline void tlb_init_table_entry(struct tlb_client_info *entry, int save_load)
+ {
+@@ -129,14 +139,13 @@ static inline void tlb_init_slave(struct slave *slave)
+ 	SLAVE_TLB_INFO(slave).head = TLB_NULL_INDEX;
+ }
+ 
+-/* Caller must hold bond lock for read */
+-static void tlb_clear_slave(struct bonding *bond, struct slave *slave, int save_load)
++/* Caller must hold bond lock for read, BH disabled */
++static void __tlb_clear_slave(struct bonding *bond, struct slave *slave,
++			 int save_load)
+ {
+ 	struct tlb_client_info *tx_hash_table;
+ 	u32 index;
+ 
+-	_lock_tx_hashtbl(bond);
+-
+ 	/* clear slave from tx_hashtbl */
+ 	tx_hash_table = BOND_ALB_INFO(bond).tx_hashtbl;
+ 
+@@ -151,8 +160,15 @@ static void tlb_clear_slave(struct bonding *bond, struct slave *slave, int save_
+ 	}
+ 
+ 	tlb_init_slave(slave);
++}
+ 
+-	_unlock_tx_hashtbl(bond);
++/* Caller must hold bond lock for read */
++static void tlb_clear_slave(struct bonding *bond, struct slave *slave,
++			 int save_load)
++{
++	_lock_tx_hashtbl_bh(bond);
++	__tlb_clear_slave(bond, slave, save_load);
++	_unlock_tx_hashtbl_bh(bond);
+ }
+ 
+ /* Must be called before starting the monitor timer */
+@@ -169,7 +185,7 @@ static int tlb_initialize(struct bonding *bond)
+ 		       bond->dev->name);
+ 		return -1;
+ 	}
+-	_lock_tx_hashtbl(bond);
++	_lock_tx_hashtbl_bh(bond);
+ 
+ 	bond_info->tx_hashtbl = new_hashtbl;
+ 
+@@ -177,7 +193,7 @@ static int tlb_initialize(struct bonding *bond)
+ 		tlb_init_table_entry(&bond_info->tx_hashtbl[i], 0);
+ 	}
+ 
+-	_unlock_tx_hashtbl(bond);
++	_unlock_tx_hashtbl_bh(bond);
+ 
+ 	return 0;
+ }
+@@ -187,12 +203,12 @@ static void tlb_deinitialize(struct bonding *bond)
+ {
+ 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+ 
+-	_lock_tx_hashtbl(bond);
++	_lock_tx_hashtbl_bh(bond);
+ 
+ 	kfree(bond_info->tx_hashtbl);
+ 	bond_info->tx_hashtbl = NULL;
+ 
+-	_unlock_tx_hashtbl(bond);
++	_unlock_tx_hashtbl_bh(bond);
+ }
+ 
+ static long long compute_gap(struct slave *slave)
+@@ -226,15 +242,13 @@ static struct slave *tlb_get_least_loaded_slave(struct bonding *bond)
+ 	return least_loaded;
+ }
+ 
+-/* Caller must hold bond lock for read */
+-static struct slave *tlb_choose_channel(struct bonding *bond, u32 hash_index, u32 skb_len)
++static struct slave *__tlb_choose_channel(struct bonding *bond, u32 hash_index,
++						u32 skb_len)
+ {
+ 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+ 	struct tlb_client_info *hash_table;
+ 	struct slave *assigned_slave;
+ 
+-	_lock_tx_hashtbl(bond);
+-
+ 	hash_table = bond_info->tx_hashtbl;
+ 	assigned_slave = hash_table[hash_index].tx_slave;
+ 	if (!assigned_slave) {
+@@ -263,22 +277,46 @@ static struct slave *tlb_choose_channel(struct bonding *bond, u32 hash_index, u3
+ 		hash_table[hash_index].tx_bytes += skb_len;
+ 	}
+ 
+-	_unlock_tx_hashtbl(bond);
+-
+ 	return assigned_slave;
+ }
+ 
++/* Caller must hold bond lock for read */
++static struct slave *tlb_choose_channel(struct bonding *bond, u32 hash_index,
++					u32 skb_len)
++{
++	struct slave *tx_slave;
++	/*
++	 * We don't need to disable softirq here, becase
++	 * tlb_choose_channel() is only called by bond_alb_xmit()
++	 * which already has softirq disabled.
++	 */
++	_lock_tx_hashtbl(bond);
++	tx_slave = __tlb_choose_channel(bond, hash_index, skb_len);
++	_unlock_tx_hashtbl(bond);
++	return tx_slave;
++}
++
+ /*********************** rlb specific functions ***************************/
+-static inline void _lock_rx_hashtbl(struct bonding *bond)
++static inline void _lock_rx_hashtbl_bh(struct bonding *bond)
+ {
+ 	spin_lock_bh(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
+ }
+ 
+-static inline void _unlock_rx_hashtbl(struct bonding *bond)
++static inline void _unlock_rx_hashtbl_bh(struct bonding *bond)
+ {
+ 	spin_unlock_bh(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
+ }
+ 
++static inline void _lock_rx_hashtbl(struct bonding *bond)
++{
++	spin_lock(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
++}
++
++static inline void _unlock_rx_hashtbl(struct bonding *bond)
++{
++	spin_unlock(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
++}
++
+ /* when an ARP REPLY is received from a client update its info
+  * in the rx_hashtbl
+  */
+@@ -288,7 +326,7 @@ static void rlb_update_entry_from_arp(struct bonding *bond, struct arp_pkt *arp)
+ 	struct rlb_client_info *client_info;
+ 	u32 hash_index;
+ 
+-	_lock_rx_hashtbl(bond);
++	_lock_rx_hashtbl_bh(bond);
+ 
+ 	hash_index = _simple_hash((u8*)&(arp->ip_src), sizeof(arp->ip_src));
+ 	client_info = &(bond_info->rx_hashtbl[hash_index]);
+@@ -303,7 +341,7 @@ static void rlb_update_entry_from_arp(struct bonding *bond, struct arp_pkt *arp)
+ 		bond_info->rx_ntt = 1;
+ 	}
+ 
+-	_unlock_rx_hashtbl(bond);
++	_unlock_rx_hashtbl_bh(bond);
+ }
+ 
+ static void rlb_arp_recv(struct sk_buff *skb, struct bonding *bond,
+@@ -401,7 +439,7 @@ static void rlb_clear_slave(struct bonding *bond, struct slave *slave)
+ 	u32 index, next_index;
+ 
+ 	/* clear slave from rx_hashtbl */
+-	_lock_rx_hashtbl(bond);
++	_lock_rx_hashtbl_bh(bond);
+ 
+ 	rx_hash_table = bond_info->rx_hashtbl;
+ 	index = bond_info->rx_hashtbl_head;
+@@ -432,7 +470,7 @@ static void rlb_clear_slave(struct bonding *bond, struct slave *slave)
+ 		}
+ 	}
+ 
+-	_unlock_rx_hashtbl(bond);
++	_unlock_rx_hashtbl_bh(bond);
+ 
+ 	write_lock_bh(&bond->curr_slave_lock);
+ 
+@@ -489,7 +527,7 @@ static void rlb_update_rx_clients(struct bonding *bond)
+ 	struct rlb_client_info *client_info;
+ 	u32 hash_index;
+ 
+-	_lock_rx_hashtbl(bond);
++	_lock_rx_hashtbl_bh(bond);
+ 
+ 	hash_index = bond_info->rx_hashtbl_head;
+ 	for (; hash_index != RLB_NULL_INDEX; hash_index = client_info->next) {
+@@ -507,7 +545,7 @@ static void rlb_update_rx_clients(struct bonding *bond)
+ 	 */
+ 	bond_info->rlb_update_delay_counter = RLB_UPDATE_DELAY;
+ 
+-	_unlock_rx_hashtbl(bond);
++	_unlock_rx_hashtbl_bh(bond);
+ }
+ 
+ /* The slave was assigned a new mac address - update the clients */
+@@ -518,7 +556,7 @@ static void rlb_req_update_slave_clients(struct bonding *bond, struct slave *sla
+ 	int ntt = 0;
+ 	u32 hash_index;
+ 
+-	_lock_rx_hashtbl(bond);
++	_lock_rx_hashtbl_bh(bond);
+ 
+ 	hash_index = bond_info->rx_hashtbl_head;
+ 	for (; hash_index != RLB_NULL_INDEX; hash_index = client_info->next) {
+@@ -538,7 +576,7 @@ static void rlb_req_update_slave_clients(struct bonding *bond, struct slave *sla
+ 		bond_info->rlb_update_retry_counter = RLB_UPDATE_RETRY;
+ 	}
+ 
+-	_unlock_rx_hashtbl(bond);
++	_unlock_rx_hashtbl_bh(bond);
+ }
+ 
+ /* mark all clients using src_ip to be updated */
+@@ -709,7 +747,7 @@ static void rlb_rebalance(struct bonding *bond)
+ 	int ntt;
+ 	u32 hash_index;
+ 
+-	_lock_rx_hashtbl(bond);
++	_lock_rx_hashtbl_bh(bond);
+ 
+ 	ntt = 0;
+ 	hash_index = bond_info->rx_hashtbl_head;
+@@ -727,7 +765,7 @@ static void rlb_rebalance(struct bonding *bond)
+ 	if (ntt) {
+ 		bond_info->rx_ntt = 1;
+ 	}
+-	_unlock_rx_hashtbl(bond);
++	_unlock_rx_hashtbl_bh(bond);
+ }
+ 
+ /* Caller must hold rx_hashtbl lock */
+@@ -751,7 +789,7 @@ static int rlb_initialize(struct bonding *bond)
+ 		       bond->dev->name);
+ 		return -1;
+ 	}
+-	_lock_rx_hashtbl(bond);
++	_lock_rx_hashtbl_bh(bond);
+ 
+ 	bond_info->rx_hashtbl = new_hashtbl;
+ 
+@@ -761,7 +799,7 @@ static int rlb_initialize(struct bonding *bond)
+ 		rlb_init_table_entry(bond_info->rx_hashtbl + i);
+ 	}
+ 
+-	_unlock_rx_hashtbl(bond);
++	_unlock_rx_hashtbl_bh(bond);
+ 
+ 	/* register to receive ARPs */
+ 	bond->recv_probe = rlb_arp_recv;
+@@ -773,13 +811,13 @@ static void rlb_deinitialize(struct bonding *bond)
+ {
+ 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+ 
+-	_lock_rx_hashtbl(bond);
++	_lock_rx_hashtbl_bh(bond);
+ 
+ 	kfree(bond_info->rx_hashtbl);
+ 	bond_info->rx_hashtbl = NULL;
+ 	bond_info->rx_hashtbl_head = RLB_NULL_INDEX;
+ 
+-	_unlock_rx_hashtbl(bond);
++	_unlock_rx_hashtbl_bh(bond);
+ }
+ 
+ static void rlb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
+@@ -787,7 +825,7 @@ static void rlb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
+ 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+ 	u32 curr_index;
+ 
+-	_lock_rx_hashtbl(bond);
++	_lock_rx_hashtbl_bh(bond);
+ 
+ 	curr_index = bond_info->rx_hashtbl_head;
+ 	while (curr_index != RLB_NULL_INDEX) {
+@@ -812,7 +850,7 @@ static void rlb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
+ 		curr_index = next_index;
+ 	}
+ 
+-	_unlock_rx_hashtbl(bond);
++	_unlock_rx_hashtbl_bh(bond);
+ }
+ 
+ /*********************** tlb/rlb shared functions *********************/
+@@ -1320,7 +1358,9 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 		res = bond_dev_queue_xmit(bond, skb, tx_slave->dev);
+ 	} else {
+ 		if (tx_slave) {
+-			tlb_clear_slave(bond, tx_slave, 0);
++			_lock_tx_hashtbl(bond);
++			__tlb_clear_slave(bond, tx_slave, 0);
++			_unlock_tx_hashtbl(bond);
+ 		}
+ 	}
+ 
+-- 
+1.7.4.1
