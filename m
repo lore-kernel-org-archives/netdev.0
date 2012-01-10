@@ -1,62 +1,36 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+From: "Venkataraman, Meenakshi" <meenakshi.venkataraman-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 Subject: RE: iwlwifi worse than ever in current git.
-Date: Tue, 10 Jan 2012 20:40:32 +0000
-Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB3063085@HASMSX103.ger.corp.intel.com>
+Date: Tue, 10 Jan 2012 22:05:25 +0000
+Message-ID: <4595B4D22AB93C4FABBA84AAD5AA37FD0154B1@ORSMSX104.amr.corp.intel.com>
 References: <20120110184917.GA26973@redhat.com>
  <1326221614.5067.6.camel@dcbw.foobar.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Guy, Wey-Yi W" <wey-yi.w.guy@intel.com>,
-	Linux Wireless <linux-wireless@vger.kernel.org>
-To: Dan Williams <dcbw@redhat.com>, Dave Jones <davej@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:61806 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756672Ab2AJUki (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jan 2012 15:40:38 -0500
-In-Reply-To: <1326221614.5067.6.camel@dcbw.foobar.com>
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Guy, Wey-Yi W" <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Linux Wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1326221614.5067.6.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-SGksDQoNCklzIHRoYXQgc2VyaWVzIEkgYWRkZWQgYSBkZWJ1ZyBmbGFnIHRoYXQgdGVsbHMgdXMg
-d2hhdCBoYXBwZW5zIHdpdGggdGhlIHF1ZXVlczogcGxlYXNlIGVuYWJsZSB0aGUgMzFzdCBiaXQ6
-IDB4ODAwMDAwMDANCg0KSnVzdCBkZWJ1Zz0weDgwMDAwMDAwIGFzIGEgbW9kdWxlIHBhcmFtZXRl
-ci4NCg0KPiANCj4gT24gVHVlLCAyMDEyLTAxLTEwIGF0IDEzOjQ5IC0wNTAwLCBEYXZlIEpvbmVz
-IHdyb3RlOg0KPiA+IEZvciB0aGUgbGFzdCBmZXcgcmVsZWFzZXMsIGl3bHdpZmkgaGFzIGJlZW4g
-Z2V0dGluZyBjb25zaXN0ZW50bHkgd29yc2UNCj4gPiB3cnQgcmVsaWFiaWxpdHkgZm9yIG1lLiAg
-VGhlIGZhaWx1cmUgbW9kZSBoYXMgdmFyaWVkLCBmcm9tIHRoZSBjaGlwIGp1c3QNCj4gPiBsb2Nr
-aW5nIHVwIHdpdGggbm8gdHgvcnggb2YgcGFja2V0cyB3aXRoIG5vdGhpbmcgYmVpbmcgbG9nZ2Vk
-LCB0bw0KPiA+IG1pY3JvY29kZSB3YXJuaW5ncywgYW5kIHNwZXdpbmcgJ1R4IGFnZ3JlZ2F0aW9u
-IGVuYWJsZWQnIG1lc3NhZ2VzIG92ZXIgYW5kDQo+IG92ZXIuDQo+IA0KPiBZb3UgbWlnaHQgd2Fu
-dCB0byBDQyBsaW51eC13aXJlbGVzc0B2Z2VyIHRvby4uLg0KPiANCj4gPiBUaGUgbWVyZ2UgcG9z
-dCAzLjIgaGFzIG1hZGUgdGhlc2UgcHJvYmxlbXMgYSBsb3Qgd29yc2UuICBCZWZvcmUsIHRoZXNl
-DQo+ID4gbG9jay11cHMgd2VyZSBoYXBwZW5pbmcgb25jZSBvciB0d2ljZSBhIGRheS4gTm93IHRo
-ZXkgaGFwcGVuIHNldmVyYWwgdGltZXMNCj4gYW4gaG91cg0KPiA+IChhbmQgYWZ0ZXIgdGhlIGZp
-cnN0IG9uZSwgdGhleSBzZWVtIG1vcmUgZnJlcXVlbnQpLiBXaGVuIHRoZXkgaGFwcGVuLA0KPiA+
-IHVubG9hZGluZyBhbmQgcmVsb2FkaW5nIHRoZSBtb2R1bGUgaXMgdGhlIG9ubHkgd2F5IGZvciBt
-ZSB0byBnZXQgd29ya2luZw0KPiB3aXJlbGVzcyBhZ2Fpbi4NCj4gPiBUaGV5IG1heSBoYXBwZW4g
-bW9yZSBmcmVxdWVudGx5IHdoZW4gdGhlIGxhcHRvcCBpcyBub3QgaWRsZS4NCj4gPg0KPiA+IEkg
-ZGlkIGEgYmlzZWN0IG9mIHRoZSBjaGFuZ2VzIHNpbmNlIDMuMiwgd2hpY2ggcG9pbnRlZCBhdA0K
-PiA3NmJjMTBmY2QxMjhhZDAyOGNmNzdjNjJlMTc5Y2QyMGRjMmZmZWNmDQo+ID4gYXMgYmVpbmcg
-dGhlIGN1bHByaXQsIGJ1dCB0byBiZSBob25lc3QgSSdtIG5vdCAxMDAlIGNvbnZpbmNlZC4NCj4g
-Pg0KPiA+IEJlY2F1c2UgZXZlcnkgc3RlcCBvZiB0aGUgd2F5IGR1cmluZyB0aGUgYmlzZWN0LCBJ
-IHNhdyBkaWZmZXJlbnQgZmFpbHVyZQ0KPiBtb2RlcywNCj4gPiBzbyB3aGVuIEkgbWFya2VkIHNv
-bWV0aGluZyBhcyAnZ29vZCcsIGl0IG1lYW50ICJkb2Vzbid0IGxvY2sgdXAgaW4gdGhlIHNhbWUN
-Cj4gd2F5IiwNCj4gPiBldmVuIHRob3VnaCBpdCBtYXkgYmUgc3ltcHRvbWF0aWMgb2YgdGhlIHNh
-bWUgcHJvYmxlbS4NCj4gPg0KPiA+IFRoZSBzcGVjaWZpYyBjaGlwIEknbSB1c2luZyBpcyBhIDUz
-MDAgaW4gYSBEZWxsIEFkYW1vLCBjb25uZWN0aW5nIHRvDQo+ID4gYW4gQXBwbGUgYWlycG9ydCBl
-eHRyZW1lIChjdXJyZW50IG1vZGVsKSBpbiBOIG1vZGUuDQo+ID4NCj4gPiAJRGF2ZQ0KPiA+DQo+
-ID4gLS0NCj4gPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAi
-dW5zdWJzY3JpYmUgbmV0ZGV2IiBpbg0KPiA+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpv
-cmRvbW9Admdlci5rZXJuZWwub3JnDQo+ID4gTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDov
-L3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQo+IA0KDQotLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0K
-SW50ZWwgSXNyYWVsICg3NCkgTGltaXRlZAoKVGhpcyBlLW1haWwgYW5kIGFueSBhdHRhY2htZW50
-cyBtYXkgY29udGFpbiBjb25maWRlbnRpYWwgbWF0ZXJpYWwgZm9yCnRoZSBzb2xlIHVzZSBvZiB0
-aGUgaW50ZW5kZWQgcmVjaXBpZW50KHMpLiBBbnkgcmV2aWV3IG9yIGRpc3RyaWJ1dGlvbgpieSBv
-dGhlcnMgaXMgc3RyaWN0bHkgcHJvaGliaXRlZC4gSWYgeW91IGFyZSBub3QgdGhlIGludGVuZGVk
-CnJlY2lwaWVudCwgcGxlYXNlIGNvbnRhY3QgdGhlIHNlbmRlciBhbmQgZGVsZXRlIGFsbCBjb3Bp
-ZXMuCg==
+SGkgRGFuLA0KDQo+PiBGb3IgdGhlIGxhc3QgZmV3IHJlbGVhc2VzLCBpd2x3aWZpIGhhcyBiZWVu
+IGdldHRpbmcgY29uc2lzdGVudGx5IHdvcnNlDQo+PiB3cnQgcmVsaWFiaWxpdHkgZm9yIG1lLiAN
+Cg0KW01WXSBEbyB5b3UgaGF2ZSBhbiBhcHByb3hpbWF0ZSBpZGVhIG9mIHdoYXQgcmVsZWFzZSB0
+aGUgZmFpbHVyZSBzdGFydGVkIG9jY3VycmluZz8NCg0KIFRoZSBmYWlsdXJlIG1vZGUgaGFzIHZh
+cmllZCwgZnJvbSB0aGUgY2hpcA0KPj4ganVzdCBsb2NraW5nIHVwIHdpdGggbm8gdHgvcnggb2Yg
+cGFja2V0cyB3aXRoIG5vdGhpbmcgYmVpbmcgbG9nZ2VkLCB0bw0KPj4gbWljcm9jb2RlIHdhcm5p
+bmdzLCBhbmQgc3Bld2luZyAnVHggYWdncmVnYXRpb24gZW5hYmxlZCcgbWVzc2FnZXMgb3Zlcg0K
+PmFuZCBvdmVyLg0KIA0KW01WXSBJJ20gbm90IHN1cmUgaWYgaXQgaXMgcmVsYXRlZCB0byB0aGUg
+cHJvYmxlbSB5b3UncmUgc2VlaW5nLCBidXQgSSBzZWUgdGhhdCB5b3UncmUgdXNpbmcgYSA1MzAw
+LCBzbyBjYW4geW91IHRyeSB0byBsb2FkIHRoZSBpd2x3aWZpIG1vZHVsZSB3aXRoIHRoZSBmb2xs
+b3dpbmcgcGFyYW1ldGVyIGFuZCBzZWUgaWYgaXQgaGVscHM/DQoNCm1vZHByb2JlIGl3bGFnbiBi
+dF9jb2V4X2FjdGl2ZT0wDQoNClRoYW5rcywNCk1lZW5ha3NoaQ0K
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
