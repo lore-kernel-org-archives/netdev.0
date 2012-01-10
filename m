@@ -1,40 +1,44 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 20/21] mdio-gpio: use an unique MDIO bus name.
-Date: Tue, 10 Jan 2012 10:59:26 +0100
-Message-ID: <1326189567-21663-21-git-send-email-florian@openwrt.org>
-References: <1326189567-21663-1-git-send-email-florian@openwrt.org>
-Cc: Florian Fainelli <florian@openwrt.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Srinivas Kandagatla <srinivas.kandagatla@st.com>,
-	Dirk Eibach <eibach@gdsys.de>, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zmc.proxad.net ([212.27.53.206]:59929 "EHLO zmc.proxad.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756136Ab2AJKBX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jan 2012 05:01:23 -0500
-In-Reply-To: <1326189567-21663-1-git-send-email-florian@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH 05/21] macb: use an unique MDIO bus name.
+Date: Tue, 10 Jan 2012 11:01:50 +0100
+Message-ID: <4F0C0C8E.7070607@atmel.com>
+References: <1326189567-21663-1-git-send-email-florian@openwrt.org> <1326189567-21663-6-git-send-email-florian@openwrt.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1326189567-21663-6-git-send-email-florian@openwrt.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
- drivers/net/phy/mdio-gpio.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+On 01/10/2012 10:59 AM, Florian Fainelli :
+> Signed-off-by: Florian Fainelli <florian@openwrt.org>
 
-diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
-index 89c5a3e..50e8e5e 100644
---- a/drivers/net/phy/mdio-gpio.c
-+++ b/drivers/net/phy/mdio-gpio.c
-@@ -116,7 +116,7 @@ static struct mii_bus * __devinit mdio_gpio_bus_init(struct device *dev,
- 		if (!new_bus->irq[i])
- 			new_bus->irq[i] = PHY_POLL;
- 
--	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%x", bus_id);
-+	snprintf(new_bus->id, MII_BUS_ID_SIZE, "gpio-%x", bus_id);
- 
- 	if (gpio_request(bitbang->mdc, "mdc"))
- 		goto out_free_bus;
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+
+Thanks Florian,
+
+> ---
+>  drivers/net/ethernet/cadence/macb.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> index a437b46..49508b7 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -244,7 +244,8 @@ static int macb_mii_init(struct macb *bp)
+>  	bp->mii_bus->read = &macb_mdio_read;
+>  	bp->mii_bus->write = &macb_mdio_write;
+>  	bp->mii_bus->reset = &macb_mdio_reset;
+> -	snprintf(bp->mii_bus->id, MII_BUS_ID_SIZE, "%x", bp->pdev->id);
+> +	snprintf(bp->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
+> +		bp->pdev->name, bp->pdev->id);
+>  	bp->mii_bus->priv = bp;
+>  	bp->mii_bus->parent = &bp->dev->dev;
+>  	pdata = bp->pdev->dev.platform_data;
+
+Best regards,
 -- 
-1.7.5.4
+Nicolas Ferre
