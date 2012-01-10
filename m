@@ -1,47 +1,41 @@
-From: Stefan Roese <sr@denx.de>
-Subject: [PATCH] stmmac: Add missing LF to pr_info() in stmmac_main.c
-Date: Tue, 10 Jan 2012 12:47:51 +0100
-Message-ID: <1326196071-10341-1-git-send-email-sr@denx.de>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: [PATCH] drivers: isdn: Fix dependency for ISDN_PPP
+Date: Tue, 10 Jan 2012 09:54:23 -0200
+Message-ID: <1326196463-8727-1-git-send-email-festevam@gmail.com>
+Cc: isdn@linux-pingi.de, Fabio Estevam <festevam@gmail.com>,
+	Fabio Estevam <fabio.estevam@freescale.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p05-ob.rzone.de ([81.169.146.180]:8839 "EHLO
-	mo-p05-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755147Ab2AJLxO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2012 06:53:14 -0500
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:42938 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755735Ab2AJLyf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2012 06:54:35 -0500
+Received: by yenm10 with SMTP id m10so669300yen.19
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2012 03:54:34 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Otherwise the output looks like this:
+Fix the following build warning:
 
-...
-STMMAC - user ID: 0x10, Synopsys ID: 0x32
- No HW DMA feature register supported
- Normal descriptors
- Remote wake-up capable
- Checksum Offload Engine supported
- No MAC Management Counters availableIP-Config: Complete:
-     device=eth0, addr=192.168.20.42, mask=255.255.0.0, gw=192.168.1.254,
-...
+warning: (ISDN_PPP) selects SLHC which has unmet direct dependencies (NETDEVICES)
 
-Signed-off-by: Stefan Roese <sr@denx.de>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    2 +-
+ drivers/isdn/i4l/Kconfig |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 3738b47..ee85a14 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -772,7 +772,7 @@ static void stmmac_mmc_setup(struct stmmac_priv *priv)
- 		dwmac_mmc_ctrl(priv->ioaddr, mode);
- 		memset(&priv->mmc, 0, sizeof(struct stmmac_counters));
- 	} else
--		pr_info(" No MAC Management Counters available");
-+		pr_info(" No MAC Management Counters available\n");
- }
+diff --git a/drivers/isdn/i4l/Kconfig b/drivers/isdn/i4l/Kconfig
+index 9c6650e..2302fbe 100644
+--- a/drivers/isdn/i4l/Kconfig
++++ b/drivers/isdn/i4l/Kconfig
+@@ -6,7 +6,7 @@ if ISDN_I4L
  
- static u32 stmmac_get_synopsys_id(struct stmmac_priv *priv)
+ config ISDN_PPP
+ 	bool "Support synchronous PPP"
+-	depends on INET
++	depends on INET && NETDEVICES
+ 	select SLHC
+ 	help
+ 	  Over digital connections such as ISDN, there is no need to
 -- 
-1.7.8.3
+1.7.1
