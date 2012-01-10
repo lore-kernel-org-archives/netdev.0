@@ -1,87 +1,69 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net] igmp: Avoid zero delay when receiving odd mixture
- of IGMP queries
-Date: Tue, 10 Jan 2012 00:23:09 +0000
-Message-ID: <1326154989.3432.18.camel@deadeye>
-References: <20120109220428.GS20752@decadent.org.uk>
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: RE: Intel ixgbe: uninitialized variable use in
+ ixgbe_non_sfp_link_config()
+Date: Tue, 10 Jan 2012 00:24:23 +0000
+Message-ID: <F6FB0E698C9B3143BDF729DF2228664602839B@ORSMSX102.amr.corp.intel.com>
+References: <alpine.LNX.2.00.1201082215310.24030@swampdragon.chaosbits.net>
+ <1326085648.2641.9.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Eyl/mHJ7XWKZXfQb7sUj"
-Cc: netdev@vger.kernel.org, Simon McVittie <smcv@debian.org>,
-	654876@bugs.debian.org, security@kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Jesper Juhl <jj@chaosbits.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:33513 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933521Ab2AJAXV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2012 19:23:21 -0500
-In-Reply-To: <20120109220428.GS20752@decadent.org.uk>
+Received: from mga02.intel.com ([134.134.136.20]:16532 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933521Ab2AJAYZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jan 2012 19:24:25 -0500
+In-Reply-To: <1326085648.2641.9.camel@jtkirshe-mobl>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-Eyl/mHJ7XWKZXfQb7sUj
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, 2012-01-09 at 22:04 +0000, Ben Hutchings wrote:
-> Commit 5b7c84066733c5dfb0e4016d939757b38de189e4 ('ipv4: correct IGMP
-> behavior on v3 query during v2-compatibility mode') added yet another
-> case for query parsing, which can result in max_delay =3D 0.  Substitute
-> a value of 1, as in the usual v3 case.
-
-This has been assigned CVE-2012-0207.
-
-Ben.
-
-> Reported-by: Simon McVittie <smcv@debian.org>
-> References: http://bugs.debian.org/654876
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> ---
->  net/ipv4/igmp.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
->=20
-> diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-> index d577199..e0d42db 100644
-> --- a/net/ipv4/igmp.c
-> +++ b/net/ipv4/igmp.c
-> @@ -875,6 +875,8 @@ static void igmp_heard_query(struct in_device *in_dev=
-, struct sk_buff *skb,
->  		 * to be intended in a v3 query.
->  		 */
->  		max_delay =3D IGMPV3_MRC(ih3->code)*(HZ/IGMP_TIMER_SCALE);
-> +		if (!max_delay)
-> +			max_delay =3D 1;	/* can't mod w/ 0 */
->  	} else { /* v3 */
->  		if (!pskb_may_pull(skb, sizeof(struct igmpv3_query)))
->  			return;
-
---=20
-Ben Hutchings
-Life is what happens to you while you're busy making other plans.
-                                                               - John Lenno=
-n
-
---=-Eyl/mHJ7XWKZXfQb7sUj
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIVAwUATwuE7ee/yOyVhhEJAQrkzBAAtHiXT8x5s2s9CQqm6bx8WH1qCzvUC2Ni
-ZIFsmDmHfKhonYwz05eB+D34wGSuphRkIPZqlJyWsHy9e7OkdYm4WT9I/QM8OnKf
-omatJJP0+I33/YBVa+jHm3EaLoEPFSToPDuOad6+XToNPpPmKvIat4/nsK/G5fxb
-QJtAp8ergg84i2EAnZR2Qy3O9GAgsZDLhkFEbuQGj97yH+nVggnj5VQ2oepeDP8b
-a/RPnzmKzH4kMesmJostUlak3T/MOxC60mFKMg0P3ZXtUjTAxDTPmataaVbO4msY
-E/4bvVdWDe9+DZE7fEZFs+2NpB+3/L8vci+pOYOM9pba8hcbu8RcWMaAS85hctH2
-p7dFMjYEE1qhizwF3jdfYSfqngRMpFMxVd1WplFttpwPmDfxYmhDK+jRGYA1ry0X
-A1lNDLqywKNlEKehjRqUcLexYSJsLeuffqgL2wBxqtLM4MqSLq3FO8jyUoIXV+at
-L1rZyhHXez8Go4IChZ7IqR8K5VIZAzTFytKiiXM60fuyEmmno7iyCS11cFyEcS+p
-qowv1J+/fUu4A52W/wk0RBE0GipoBnGfs6JLJbzx9+R58sHl+MtlO4/r0xGK3cTs
-hbuCLKOlBddWJCZFHFiXVfYnRYCl9u/gPSfLe/dfCH25cruxwY8LeRIlcS7qTqOs
-tNd8N/T+3nw=
-=Rygv
------END PGP SIGNATURE-----
-
---=-Eyl/mHJ7XWKZXfQb7sUj--
+DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IEtpcnNoZXIsIEplZmZyZXkg
+VA0KPlNlbnQ6IFN1bmRheSwgSmFudWFyeSAwOCwgMjAxMiA5OjA3IFBNDQo+VG86IEplc3BlciBK
+dWhsOyBTa2lkbW9yZSwgRG9uYWxkIEMNCj5DYzogZTEwMDAtZGV2ZWwgTWFpbGluZyBMaXN0OyBE
+YXZpZCBTLiBNaWxsZXI7IEJyYW5kZWJ1cmcsIEplc3NlOyBuZXRkZXYNCj5TdWJqZWN0OiBSZTog
+SW50ZWwgaXhnYmU6IHVuaW5pdGlhbGl6ZWQgdmFyaWFibGUgdXNlIGluDQo+aXhnYmVfbm9uX3Nm
+cF9saW5rX2NvbmZpZygpDQo+DQo+T24gU3VuLCAyMDEyLTAxLTA4IGF0IDIyOjIxICswMTAwLCBK
+ZXNwZXIgSnVobCB3cm90ZToNCj4+IEhpDQo+Pg0KPj4gSW4gaXhnYmVfbm9uX3NmcF9saW5rX2Nv
+bmZpZygpLCB0aGUgdmFyaWFibGUgJ25lZ290aWF0aW9uJyBpcyBkZWNsYXJlZA0KPj4gd2l0aG91
+dCBpbml0aWFsaXplciBhbmQgdW5sZXNzIHdlIHRha2UgdGhlIHRydWUgYnJhbmNoIGluIHRoZSAn
+aWYNCj4+ICgoIWF1dG9uZWcpICYmIChody0+bWFjLm9wcy5nZXRfbGlua19jYXBhYmlsaXRpZXMp
+KScgc3RhdGVtZW50IGl0IHdpbGwNCj4+IHJlbWFpbiB1bmluaXRpYWxpemVkIHdoZW4gaXQgaXMg
+c3Vic2VxdWVudGx5IHJlYWQgaW4gdGhlICdyZXQgPQ0KPj4gaHctPm1hYy5vcHMuc2V0dXBfbGlu
+ayhodywgYXV0b25lZywgbmVnb3RpYXRpb24sIGxpbmtfdXApJyBzdGF0ZW1lbnQuDQo+Pg0KPj4g
+VGhlIHRlc3Qgb2YgJ3JldCcgYWZ0ZXIgdGhlICdpZiAoKCFhdXRvbmVnKSAmJg0KPj4gKGh3LT5t
+YWMub3BzLmdldF9saW5rX2NhcGFiaWxpdGllcykpJyBzdGF0ZW1lbnQgYWxzbyBsb29rcyBmYWly
+bHkNCj4+IHBvaW50bGVzcyBpZiB3ZSBkbyBub3QgdGFrZSB0aGUgdHJ1ZSBicmFuY2gsIHNpbmNl
+IHRoZW4gJ3JldCcgd2lsbCBub3QNCj4+IGhhdmUgYmVlbiBjaGFuZ2VkIHNpbmNlIHRoZSBwcmV2
+aW91cyBpZGVudGljYWwgdGVzdC4NCj4+DQo+PiBUaGUgY29ycmVjdCBmaXggZXNjYXBlcyBtZSBz
+aW5jZSBJIGRvbid0IHJlYWxseSBrbm93IHRoaXMgY29kZSAoYW5kDQo+ZG9uJ3QNCj4+IHBsYW4g
+dG8gc3BlbmQgdGhlIHRpbWUgdG8gZ2V0IHRvIGtub3cgaXQpLCBidXQgSSB0aG91Z2h0IEknZCBq
+dXN0DQo+cmVwb3J0DQo+PiB3aGF0IEkgaGFkIG5vdGljZWQgYW5kIHRoZW4gc29tZW9uZSBlbHNl
+IGNhbiBob3BlZnVsbHkgY29tZSB1cCB3aXRoIGENCj5nb29kDQo+PiBmaXggOi0pDQo+Pg0KPj4N
+Cj4+IFBTLiBQbGVhc2UgQ0MgbWUgb24gcmVwbGllcy4NCj4+DQo+DQo+QWRkaW5nIG5ldGRldiBt
+YWlsaW5nIGxpc3QgYW5kIERvbiBTa2lkbW9yZSAoaXhnYmUgbWFpbnRhaW5lcikNCj5SZW1vdmVk
+IEJydWNlIEFsbGFuIChlMTAwMGUgbWFpbnRhaW5lcikNCj4NCj5JIHNlZSB0aGUgcG90ZW50aWFs
+IGlzc3VlIHlvdSBhcmUgcmVmZXJyaW5nIHRvLCBJIHdpbGwgZGVmZXIgdG8gRG9uIHRvDQo+ZWl0
+aGVyIGV4cGxhaW4gdGhlIHJlYXNvbmluZyBpbiB0aGUgbG9naWMgb3Igc3VnZ2VzdCBhIGZpeC4N
+Cg0KDQpUaGFua3MgZm9yIGJyaW5naW5nIHRoaXMgdXAgSmFzcGVyLg0KDQpJJ3ZlIGFjdHVhbGx5
+IG5vdGljZWQgdGhpcyBiZWZvcmUgYW5kIGhhdmUgaXQgb24gbXkgbGlzdCBvZiB0aGluZ3MgdGhh
+dCBuZWVkIHJlZmFjdG9yaW5nLiAgSSdsbCB0cnkgdG8gZ2V0IHRvIGl0IG11Y2ggc29vbmVyIG5v
+dy4gOikNCg0KVGhlIGdvb2QgbmV3cyBpcyB0aGF0IGhpcyBkb2Vzbid0IGFjdHVhbGx5IGNhdXNl
+IGEgcHJvYmxlbS4gIFNpbmNlIGFsbCB0aGUgcG9zc2libGUgZnVuY3Rpb25zIHRoYXQgdGhlIHNl
+dHVwX2xpbmsgcG9pbnRlciBwb2ludHMgdG8gZG9uJ3QgYWN0dWFsbHkgdXNlIHRoZSAnbmVnb3Rp
+YXRpb24nIHZhcmlhYmxlIHVudGlsIGl0IGhhcyBiZWVuIGluaXRpYWxpemVkIGluIHRoZSBzYW1l
+IHNhaWQgZnVuY3Rpb24uICBUaGlzIGRvZXMgYmVncyB0aGUgcXVlc3Rpb24gIndoeSBkbyB3ZSBl
+dmVuIHBhc3MgaXQgaW4gdGhlbiIsIHdlbGwgdGhlIHNob3J0IGFuc3dlciBpcyB3ZSBzaG91bGRu
+J3QuICBJIHBsYW4gb24gcmVmYWN0b3JpbmcgdGhlIGNvZGUgdG8gcmVtb3ZlIGl0LiAgVGhlIG9u
+bHkgcmVhc29uIEkgaGF2ZW4ndCBkb25lIGl0IHlldCBpcyB3ZSBoYXZlIG90aGVyIGRyaXZlcnMg
+dGhhdCB1c2UgdGhpcyBzYW1lIGNvZGUgd2hpY2ggbWFrZXMgdGhlIGNoYW5nZSBhIGJpdCBtb3Jl
+IGNvbXBsaWNhdGVkIGNvb3JkaW5hdGluZyB0aGUgZWZmb3J0LiAgDQoNCkknbGwgYWxzbyBmaXgg
+dGhlIHJlZHVuZGFudCBjb25kaXRpb25hbCBhcm91bmQgdGhlIGdvdG8gd2hpbGUgSSdtIGF0IGl0
+Lg0KDQpUaGFua3MgYWdhaW4sDQotRG9uIFNraWRtb3JlIDxkb25hbGQuYy5za2lkbW9yZUBpbnRl
+bC5jb20+DQo=
