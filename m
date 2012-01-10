@@ -1,99 +1,60 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH net-next v2 2/4] can: cc770: add legacy ISA bus driver
- for the CC770 and AN82527
-Date: Tue, 10 Jan 2012 17:23:59 +0100
-Message-ID: <4F0C661F.6030508@grandegger.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF39@saturn3.aculab.com> <4F0C31F1.20908@essax.com> <4F0C4EA8.7060002@grandegger.com> <4F0C63C6.5080305@essax.com>
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Subject: [PATCH 1/2] asix: fix setting custom MAC address on Asix 88772 devices
+Date: Tue, 10 Jan 2012 18:40:17 +0200
+Message-ID: <20120110164017.24658.9965.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	Oliver Hartkopp <socketcan@hartkopp.net>, henrik@proconx.com,
-	netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	socketcan-users@lists.berlios.de, IreneV <boir1@yandex.ru>,
-	Stanislav Yelenskiy <stanislavelensky@yahoo.com>, oe@port.de,
-	henrik@focus-sw.com
-To: info@essax.com
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4F0C63C6.5080305@essax.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Grant Grundler <grundler@chromium.org>,
+	Allan Chou <allan@asix.com.tw>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sd-mail-sa-02.sanoma.fi ([158.127.18.162]:52390 "EHLO
+	sd-mail-sa-02.sanoma.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932114Ab2AJQkW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2012 11:40:22 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Wolfgang,
+In kernel v3.2 initialization sequence for Asix 88772 devices was changed so
+that hardware is reseted on every time interface is brought up (ifconfig up),
+instead just at USB probe time. This causes problem with setting custom MAC
+address to device as ax88772_reset causes reload of MAC address from EEPROM.
 
-On 01/10/2012 05:13 PM, Wolfgang Zarre wrote:
-> Hello Wolfgang,
-> 
->> On 01/10/2012 01:41 PM, Wolfgang Zarre wrote:
->>> Hello David,
->>>>
->>>>> cc770_isa_port_write_reg_indirect(const struct cc770_priv *priv,
->>>>>                             int reg, u8 val)
->>>>>     {
->>>>>         unsigned long base = (unsigned long)priv->reg_base;
->>>>> +    unsigned long flags;
->>>>>
->>>>> +    spin_lock_irqsave(&outb_lock, flags);
->>>>>         outb(reg, base);
->>>>>         outb(val, base + 1);
->>>>> +    spin_unlock_irqrestore(&outb_lock, flags);
->>>>
->>>> Is there a 'read_reg_indirect' function??
->>>
->>> Yes, there is.
->>>
->>>> If so it also needs to use the same mutex.
->>>
->>> Actually, I don't think that we have a problem with mutex
->>> beside that it's using just one inb() statement but having
->>> for sure with an interrupt between both outb() statements which
->>> seems to be critical for the cc770.
->>
->> But the indirect read function also sets the address register before
->> reading the data using inb(). This sequence should also not be
->> interrupted and therefore we need to synchronize. For the indirect
->> access of the SJA1000 we also need to add spinlocks. Wonder why nobody
->> complained so far.
-> 
-> So, if I understand correct that means that inb() can be interrupted
-> between
-> setting the address and reading. If this is the case then yes, we need
-> spinlock if this is not the case then IMHO we wouldn't need or am I wrong?
+This patch fixes the issue by rewriting MAC address at end of ax88772_reset.
 
-I think we speak about different things. inb() cannot be interrupted but
-outb() followed by inb(). For indirect accesses we need something like:
+Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Acked-by: Grant Grundler <grundler@chromium.org>
+Cc: Allan Chou <allan@asix.com.tw>
+Cc: stable <stable@vger.kernel.org>
+---
+ drivers/net/usb/asix.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
-/* Spinlock for cc770_isa_port_write_reg_indirect */
-static DEFINE_SPINLOCK(cc770_isa_port_lock);
-
-static u8 cc770_isa_port_read_reg_indirect(const struct cc770_priv *priv,
-                                             int reg)
-{
-        unsigned long base = (unsigned long)priv->reg_base;
-	unsigned long flags;
-	u8 val;
-
-	spin_lock_irqsave(&cc770_isa_port_lock, flags);
-        outb(reg, base);
-        val = inb(base + 1);
-	spin_unlock_irqrestore(&cc770_isa_port_lock, flags);    
-
-	return val;
-}
-
-static void cc770_isa_port_write_reg_indirect(const struct cc770_priv *priv,
-                                                int reg, u8 val)
-{
-        unsigned long base = (unsigned long)priv->reg_base;
-	unsigned long flags;
-
-	spin_lock_irqsave(&cc770_isa_port_lock, flags);
-        outb(reg, base);
-        outb(val, base + 1);
-	spin_unlock_irqrestore(&cc770_isa_port_lock, flags);    
-}
-
-Hope we are in synch now.
-
-Wolfgang.
-
+diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
+index e95f0e6..eb6b4c1 100644
+--- a/drivers/net/usb/asix.c
++++ b/drivers/net/usb/asix.c
+@@ -974,6 +974,7 @@ static int ax88772_link_reset(struct usbnet *dev)
+ 
+ static int ax88772_reset(struct usbnet *dev)
+ {
++	struct asix_data *data = (struct asix_data *)&dev->data;
+ 	int ret, embd_phy;
+ 	u16 rx_ctl;
+ 
+@@ -1051,6 +1052,13 @@ static int ax88772_reset(struct usbnet *dev)
+ 		goto out;
+ 	}
+ 
++	/* Rewrite MAC address */
++	memcpy(data->mac_addr, dev->net->dev_addr, ETH_ALEN);
++	ret = asix_write_cmd(dev, AX_CMD_WRITE_NODE_ID, 0, 0, ETH_ALEN,
++							data->mac_addr);
++	if (ret < 0)
++		goto out;
++
+ 	/* Set RX_CTL to default values with 2k buffer, and enable cactus */
+ 	ret = asix_write_rx_ctl(dev, AX_DEFAULT_RX_CTL);
+ 	if (ret < 0)
