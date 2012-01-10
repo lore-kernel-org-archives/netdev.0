@@ -1,114 +1,47 @@
-From: Henrik Maier <henrik@proconX.com>
-Subject: Re: [PATCH net-next v2 2/4] can: cc770: add legacy ISA bus driver
- for the CC770 and AN82527
-Date: Tue, 10 Jan 2012 12:41:36 +0100
-Message-ID: <4F0C23F0.10602@proconX.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF31@saturn3.aculab.com> <4F0B608D.6090309@essax.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	socketcan-users@lists.berlios.de, IreneV <boir1@yandex.ru>,
-	Stanislav Yelenskiy <stanislavelensky@yahoo.com>, oe@port.de,
-	henrik@focus-sw.com
-To: info@essax.com
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4F0B608D.6090309@essax.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stefan Roese <sr@denx.de>
+Subject: [PATCH] stmmac: Add missing LF to pr_info() in stmmac_main.c
+Date: Tue, 10 Jan 2012 12:47:51 +0100
+Message-ID: <1326196071-10341-1-git-send-email-sr@denx.de>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p05-ob.rzone.de ([81.169.146.180]:8839 "EHLO
+	mo-p05-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755147Ab2AJLxO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2012 06:53:14 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello guys,
+Otherwise the output looks like this:
 
-see comments below.
+...
+STMMAC - user ID: 0x10, Synopsys ID: 0x32
+ No HW DMA feature register supported
+ Normal descriptors
+ Remote wake-up capable
+ Checksum Offload Engine supported
+ No MAC Management Counters availableIP-Config: Complete:
+     device=eth0, addr=192.168.20.42, mask=255.255.0.0, gw=192.168.1.254,
+...
 
-On 9/01/2012 10:47 PM, Wolfgang Zarre wrote:
-> Further I have also investigated a bit the issue regarding the "HM"
-> patches.
->
-> I checked out the can4linux and I could find this patch in file
-> can_i82527funcs.c as mentioned by Oliver.
-> @Oliver: BTW thanks for Your investigation.
->
-> After studying the Makefile and some tests I discovered that
-> this file is just used for the target SBS_PC7 but funny enough not
-> for GENERIC_I82527.
->
-> I was seeking the declaration of CANout used in can_i82527funcs.c
-> to see if it's based on the same code we had and as well as in Lincan
-> but unfortunately the target SBS_PC7 doesn't compile with kernel
-> 2.6.39-4 and moreover I got the message:
-> ...can4linux/trunk/can4linux/i82527funcs.c:72:
->                       error: implicit declaration of function 'CANout'
->
-> And additional not knowing if the board of SBS_PC7 is ISA or PCI based
-> I tried to find out and found after some research the following
-> thread:
-> http://old.nabble.com/-PATCH-v2--cc770-isa%3A-legacy-driver-for-CC770-i82725-on-the-ISA-bus-td24216347.html 
->
->
-> According to that I assumed it's ISA based and is working with cc770_isa.
->
-> But not finding the declaration of CANout used in can_i82527funcs.c I
-> assumed further that it was done without spinlock which might cause
-> the effect of repeated or even lost interrupts as well depending on
-> the hardware configuration.
->
-> If this is the case then the HM patches would be obsolete and maybe
-> someone owning a SBS PC7 can test without these patches.
->
-> @Henrik: I would like to ask You if You can confirm this when You are
-> back.
-> Thanks a lot.
->
->
-> Wolfgang
+Signed-off-by: Stefan Roese <sr@denx.de>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-The can4linux port I made was done for a specific project and a specific 
-hardware, the SBS PC7, and only ever tested on that hardware. The i82527 
-code was already in the can4linux 3.x archive but not maintained for a 
-while and has become non-functional over time.
-
-Initially we used the 2.4 Linux kernel and the can4linux version 3.1 as 
-basis for the re-integration of the i82527. I called our modified 
-version  "3.1i" (i for Intel). This is from the changelog:
-
-3.1i - Integration of the i82527 code into can4linux version 3.1,
-       major refactoring and clean-up of the i82527 code, fixed
-       interrupt lock-up issue w/ sending while receiving in heavy load,
-       fixed issue w/ stopping and re-starting the bus, added
-       new acceptance mask function to bring code in line with SJA1000 code
-       base, new I/O model to support the SJA1000 CANin/CANout macros,
-       support added to the makefile for generic i82527 cards and
-       SBS PC7compact DINrail mounted industry PC
-       by Henrik Maier of FOCUS Software Engineering Pty Ltd 
-<www.focus-sw.com>
-
-As time passed the requirement for kernel 2.6 support emerged and we did 
-the same based on can4linux 3.3.2 and called it "3.3.2i" which later was 
-merged into the official can4linux archive and became 3.3.3.
-
-The "repeated TX IRQ" issue came up only with kernel 2.6 and was not 
-required in the 2.4 version. The way I fixed it may not have been the 
-best, but it solved the immediate need of finishing a project and 
-getting the driver stable. I am not a kernel driver expert.
-
-The PC7 hardware is now obsolete anyway. From my point we can do a 
-"clean" start and remove the old baggage.
-
-The PC7 CAN interface is ISA based and I don't have a hardware any more 
-to test.
-
-Some background info and our "i" versions are published here:
-
-http://www.focus-sw.com/can/can4linux.html
-
-I hope that helps a bit. It has been a few years since I worked with 
-can4linux but it is great to see that the community is further enhancing 
-CAN support for Linux.
-
-Henrik
-
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 3738b47..ee85a14 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -772,7 +772,7 @@ static void stmmac_mmc_setup(struct stmmac_priv *priv)
+ 		dwmac_mmc_ctrl(priv->ioaddr, mode);
+ 		memset(&priv->mmc, 0, sizeof(struct stmmac_counters));
+ 	} else
+-		pr_info(" No MAC Management Counters available");
++		pr_info(" No MAC Management Counters available\n");
+ }
+ 
+ static u32 stmmac_get_synopsys_id(struct stmmac_priv *priv)
+-- 
+1.7.8.3
