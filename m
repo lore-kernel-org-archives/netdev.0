@@ -1,62 +1,73 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH net-next v2 2/4] can: cc770: add legacy ISA bus driver
- for the CC770 and AN82527
-Date: Tue, 10 Jan 2012 15:50:12 +0100
-Message-ID: <4F0C5024.1080106@hartkopp.net>
-References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF39@saturn3.aculab.com> <4F0C31F1.20908@essax.com> <4F0C4EA8.7060002@grandegger.com>
+From: "Naveen B N (nbn)" <nbn@cisco.com>
+Subject: RE: [IPsec] CPU usage for IPSec in Linux 2.6.38
+Date: Tue, 10 Jan 2012 20:30:08 +0530
+Message-ID: <A2354B6A9F807641B21EEABD666ECEEA02596D9C@XMB-BGL-416.cisco.com>
+References: <B97B134FACB2024DB45F524AB0A7B7F20545EA24@XMB-BGL-419.cisco.com><20203.19901.967544.547378@fireball.kivinen.iki.fi> <B2C779B5E2D74D1792EB988E1B59B42B@trustworks.com> <A2354B6A9F807641B21EEABD666ECEEA02596D7C@XMB-BGL-416.cisco.com> <0769428D-FA00-4928-8E0A-0DEFB214396A@bbn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: info@essax.com, David Laight <David.Laight@ACULAB.COM>,
-	henrik@proconx.com, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, socketcan-users@lists.berlios.de,
-	IreneV <boir1@yandex.ru>,
-	Stanislav Yelenskiy <stanislavelensky@yahoo.com>, oe@port.de,
-	henrik@focus-sw.com
-To: Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4F0C4EA8.7060002@grandegger.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "John Lowry" <jlowry@bbn.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bgl-iport-2.cisco.com ([72.163.197.26]:2235 "EHLO
+	bgl-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756245Ab2AJPAL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2012 10:00:11 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <0769428D-FA00-4928-8E0A-0DEFB214396A@bbn.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10.01.2012 15:43, Wolfgang Grandegger wrote:
+I think the issue is when adding an entry to SPD 
+Database which already contains 4000 entries, because 
+The entries have to be checked before adding the 
+New entry.
 
-> On 01/10/2012 01:41 PM, Wolfgang Zarre wrote:
->> Hello David,
->>>
->>>> cc770_isa_port_write_reg_indirect(const struct cc770_priv *priv,
->>>>                            int reg, u8 val)
->>>>    {
->>>>        unsigned long base = (unsigned long)priv->reg_base;
->>>> +    unsigned long flags;
->>>>
->>>> +    spin_lock_irqsave(&outb_lock, flags);
->>>>        outb(reg, base);
->>>>        outb(val, base + 1);
->>>> +    spin_unlock_irqrestore(&outb_lock, flags);   
->>>
->>> Is there a 'read_reg_indirect' function??
->>
->> Yes, there is.
->>
->>> If so it also needs to use the same mutex.
->>
->> Actually, I don't think that we have a problem with mutex
->> beside that it's using just one inb() statement but having
->> for sure with an interrupt between both outb() statements which
->> seems to be critical for the cc770.
+Regards
+Naveen  
+
+-----Original Message-----
+From: John Lowry [mailto:jlowry@bbn.com] 
+Sent: Tuesday, January 10, 2012 8:25 PM
+To: Naveen B N (nbn)
+Subject: Re: [IPsec] CPU usage for IPSec in Linux 2.6.38
+
+The only time we had troubles like this was with
+a Dell 1U that had rotten drivers.  Upgrading to
+different kernel and updated drivers fixed the problem.
+
+
+On Jan 10, 2012, at 8:48 AM, Naveen B N (nbn) wrote:
+
+> Hi All,
+> I am using linux 2.6.36 kernel and trying to add 6000 Ikev2/ipsec
+> tunnels 
+> at 20 Ikev2 messages per second , I am using netlink socket which is
+set
+> to 
+> NON_BLOCKING and i am sending XFRM SPD added for every successful AUTH
+> message received.
 > 
-> But the indirect read function also sets the address register before
-> reading the data using inb(). This sequence should also not be
-> interrupted and therefore we need to synchronize. For the indirect
-> access of the SJA1000 we also need to add spinlocks. Wonder why nobody
-> complained so far.
-
-
-Maybe due to old single core hardware that has SJA1000 hw with indirect
-addressing? Or this old hardware has not been 'kernel-upgraded' so far ...
-
-In any case you are right with the missing spinlocks.
-
-Regards,
-Oliver
+> But the problem is after the 4000 tunnels are established, CPU usage
+> goes 
+> to > 90%, which will likely cause dropping of few AUTH response from
+> responder.
+> 
+> NOTE:
+> But when I disabled adding SPD messaged via netlink sockets using xfrm
+> messages,
+> I am able to complete 6000 ikev2 SA negotiation successfully.
+> 
+> So the problem i am seeing is when sending XFRM netlink message >
+4000.
+> 
+> Any solutions are or analysis different then the above is appreciated.
+> 
+> 
+> Thanks and Regards
+> Naveen 
+> _______________________________________________
+> IPsec mailing list
+> IPsec@ietf.org
+> https://www.ietf.org/mailman/listinfo/ipsec
