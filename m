@@ -1,124 +1,54 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH net-next v2 2/4] can: cc770: add legacy ISA bus driver
- for the CC770 and AN82527
-Date: Tue, 10 Jan 2012 10:30:58 +0100
-Message-ID: <4F0C0552.5080504@grandegger.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF31@saturn3.aculab.com> <4F0B608D.6090309@essax.com> <4F0B7421.6050203@pengutronix.de>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next V3 1/2] igb: add PTP Hardware Clock code
+Date: Tue, 10 Jan 2012 10:33:49 +0100
+Message-ID: <20120110093349.GA5480@cherladcori01>
+References: <cover.1325964581.git.richardcochran@gmail.com>
+ <06a2d33bed05d5c17c03fca6f0fcc2fe3f6870f4.1325964581.git.richardcochran@gmail.com>
+ <02874ECE860811409154E81DA85FBB5801E86F@ORSMSX106.amr.corp.intel.com>
+ <20120110084450.GA5356@cherladcori01>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: info@essax.com, David Laight <David.Laight@ACULAB.COM>,
-	Oliver Hartkopp <socketcan@hartkopp.net>, henrik@proconx.com,
-	netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	socketcan-users@lists.berlios.de, IreneV <boir1@yandex.ru>,
-	Stanislav Yelenskiy <stanislavelensky@yahoo.com>, oe@port.de,
-	henrik@focus-sw.com
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4F0B7421.6050203@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:52328 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754424Ab2AJJeD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2012 04:34:03 -0500
+Received: by wgbdr10 with SMTP id dr10so2809275wgb.1
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2012 01:34:01 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20120110084450.GA5356@cherladcori01>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/10/2012 12:11 AM, Marc Kleine-Budde wrote:
-> On 01/09/2012 10:47 PM, Wolfgang Zarre wrote:
-> [...]
+On Tue, Jan 10, 2012 at 09:44:50AM +0100, Richard Cochran wrote:
+> On Mon, Jan 09, 2012 at 05:42:20PM +0000, Keller, Jacob E wrote:
 > 
->>>> OK. My concern: Can we be sure that 16bit accesses are always
->>> supported
->>>> by the hardware? Does a spinlock_irqsave/spinlock_irqrestore around
->>> the
->>>> 8bit accesses already help?
->>>
->>> Hmmm... are there any register reads that need the
->>> same 'double cycle' sequence ??
->>> If so you need to stop reads being interleaved (with
->>> themselves and writes) so requesting a 16bit access
->>> doesn't help.
->>>
->>> Which means you need a spinlock...
->>>
->>>     David
->>>
->>>
->>
->> @David: Thank You very much for that hint. You are right and to
->> implement correct we need a spinlock.
->>
->> @Wolfgang: I was thinking about Your question regarding 8/16 bit and
->> in fact it wouldn't work at all on a clean 8 bit cards.
->>
->> Further it wouldn't work on 16 bit cards where the MSB is not equal
->> to base port +1 and anyway, it's depending always on how the chip is
->> interfaced to the ISA bus and in which mode the chip is configured.
->>
->>
->> And therefore I was giving David's hint a try in using a spinlock in
->> function cc770_isa_port_write_reg_indirect() and patched as follows:
->>
->> ---------------------------------------------------------------------
->> diff --git a/drivers/net/can/cc770/cc770.c b/drivers/net/can/cc770/cc770.c
->> index 2d12f89..dad6707 100644
->> --- a/drivers/net/can/cc770/cc770.c
->> +++ b/drivers/net/can/cc770/cc770.c
->> @@ -460,15 +460,6 @@ static netdev_tx_t cc770_start_xmit(struct sk_buff
->> *skb, struct net_device *dev)
->>
->>      stats->tx_bytes += dlc;
->>
->> -
->> -    /*
->> -     * HM: We had some cases of repeated IRQs so make sure the
->> -     * INT is acknowledged I know it's already further up, but
->> -     * doing again fixed the issue
->> -     */
->> -    cc770_write_reg(priv, msgobj[mo].ctrl0,
->> -            MSGVAL_UNC | TXIE_UNC | RXIE_UNC | INTPND_RES);
->> -
->>      return NETDEV_TX_OK;
->>  }
->>
->> @@ -689,12 +680,6 @@ static void cc770_tx_interrupt(struct net_device
->> *dev, unsigned int o)
->>      /* Nothing more to send, switch off interrupts */
->>      cc770_write_reg(priv, msgobj[mo].ctrl0,
->>              MSGVAL_RES | TXIE_RES | RXIE_RES | INTPND_RES);
->> -    /*
->> -     * We had some cases of repeated IRQ so make sure the
->> -     * INT is acknowledged
->> -     */
->> -    cc770_write_reg(priv, msgobj[mo].ctrl0,
->> -            MSGVAL_UNC | TXIE_UNC | RXIE_UNC | INTPND_RES);
-
-Please provide an extra patch for these unrelated changes. If we really
-want to remove it.
-
->>      stats->tx_packets++;
->>      can_get_echo_skb(dev, 0);
->> diff --git a/drivers/net/can/cc770/cc770_isa.c
->> b/drivers/net/can/cc770/cc770_isa.c
->> index 4be5fe2..fe39eed 100644
->> --- a/drivers/net/can/cc770/cc770_isa.c
->> +++ b/drivers/net/can/cc770/cc770_isa.c
->> @@ -110,6 +110,9 @@ MODULE_PARM_DESC(bcr, "Bus configuration register
->> (default=0x40 [CBY])");
->>  #define CC770_IOSIZE          0x20
->>  #define CC770_IOSIZE_INDIRECT 0x02
->>
->> +/* Spinlock for cc770_isa_port_write_reg_indirect */
->> +static DEFINE_SPINLOCK( outb_lock);
->> +
+> > Is there a reason for not using the timecounter structure from the
+> > kernel? It is a layer beneath the timecompare code which is meant to
+> > handle this condition. As far as I can tell this issue is solved in
+> > the timecounter code. If it is not, then that should be a bug in the
+> > timecounter cyclecounter code. I don't know if this issue occurs in
+> > the timecounter structure because it handles the ns conversion
+> > differently.
 > 
-> Do we need a global or a per device spin lock? If this should be a per
-> device one, please introduce a cc770_isa_priv and put the spinlock
-> there. Don't forget to initialize the spinlock.
+> My only reason is that I am not sure that the timecounter code really
+> does what we need.  It might well work.  Consider, though, that the
+> 82580 register does not overflow in the usual way. The upper 24 bits
+> are always zero.
+> 
+> What I wrote does the right thing, I think.  However, duplicated
+> effort is always bad, so can you show me how to change it?
 
-Yes, that's what I was thinking as well but in the ocan driver I find:
+I took a brief look, and I think the timecounter idea might work.
+Later this week I'll try it out if I can.
 
-/*
- * we need a spinlock here, as the address register looks shared between
- * two PC-ECAN devices. Moreover, we need to protect WRT interrupts
- */
-
-Looks like wired hardware. Anyway, a global spinlock might be safer.
-
-Wolfgang.
+Thanks,
+Richard
