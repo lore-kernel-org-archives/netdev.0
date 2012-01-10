@@ -1,91 +1,34 @@
-From: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
-Subject: [PATCH V2 4/4] CS89x0 : remove QQ2440 board support from the CS89x0
- driver
-Date: Wed, 11 Jan 2012 00:14:54 +0100
-Message-ID: <1326237294-23698-1-git-send-email-jaccon.bastiaansen@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] asix: fix setting custom MAC address on Asix 88772
+ devices
+Date: Tue, 10 Jan 2012 15:00:04 -0800 (PST)
+Message-ID: <20120110.150004.868770279947981269.davem@davemloft.net>
+References: <20120110164017.24658.9965.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: jaccon.bastiaansen@gmail.com, s.hauer@pengutronix.de,
- kernel@pengutronix.de, u.kleine-koenig@pengutronix.de, davem@davemloft.net,
- cavokz@gmail.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, grundler@chromium.org, allan@asix.com.tw
+To: jussi.kivilinna@mbnet.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:46990 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933809Ab2AJXAU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2012 18:00:20 -0500
+In-Reply-To: <20120110164017.24658.9965.stgit@localhost6.localdomain6>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The QQ2440 board isn't supported anymore in the kernel, so support
-for this board can be removed from the CS89x0 driver.
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Date: Tue, 10 Jan 2012 18:40:17 +0200
 
-Signed-off-by: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
----
- drivers/net/Space.c                  |    2 +-
- drivers/net/ethernet/cirrus/cs89x0.c |   11 ++---------
- 2 files changed, 3 insertions(+), 10 deletions(-)
+> In kernel v3.2 initialization sequence for Asix 88772 devices was changed so
+> that hardware is reseted on every time interface is brought up (ifconfig up),
+> instead just at USB probe time. This causes problem with setting custom MAC
+> address to device as ax88772_reset causes reload of MAC address from EEPROM.
+> 
+> This patch fixes the issue by rewriting MAC address at end of ax88772_reset.
+> 
+> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+> Acked-by: Grant Grundler <grundler@chromium.org>
 
-diff --git a/drivers/net/Space.c b/drivers/net/Space.c
-index 04c4561..2e9c222 100644
---- a/drivers/net/Space.c
-+++ b/drivers/net/Space.c
-@@ -191,7 +191,7 @@ static struct devprobe2 isa_probes[] __initdata = {
- #endif
- #ifdef CONFIG_CS89x0
- #if !defined(CONFIG_CS89x0_PLATFORM) || defined(CONFIG_MACH_IXDP2351) || \
--	defined(CONFIG_ARCH_IXDP2X01) || defined(CONFIG_MACH_QQ2440)
-+	defined(CONFIG_ARCH_IXDP2X01)
-  	{cs89x0_probe, 0},
- #endif
- #endif
-diff --git a/drivers/net/ethernet/cirrus/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
-index 9149974..af5042d 100644
---- a/drivers/net/ethernet/cirrus/cs89x0.c
-+++ b/drivers/net/ethernet/cirrus/cs89x0.c
-@@ -181,10 +181,6 @@ static unsigned int cs8900_irq_map[] = {IRQ_IXDP2351_CS8900, 0, 0, 0};
- #elif defined(CONFIG_ARCH_IXDP2X01)
- static unsigned int netcard_portlist[] __used __initdata = {IXDP2X01_CS8900_VIRT_BASE, 0};
- static unsigned int cs8900_irq_map[] = {IRQ_IXDP2X01_CS8900, 0, 0, 0};
--#elif defined(CONFIG_MACH_QQ2440)
--#include <mach/qq2440.h>
--static unsigned int netcard_portlist[] __used __initdata = { QQ2440_CS8900_VIRT_BASE + 0x300, 0 };
--static unsigned int cs8900_irq_map[] = { QQ2440_CS8900_IRQ, 0, 0, 0 };
- #endif
- #else
- static unsigned int netcard_portlist[] __used __initdata =
-@@ -297,7 +293,7 @@ __setup("cs89x0_media=", media_fn);
- 
- 
- #if !defined(CONFIG_CS89x0_PLATFORM) || defined(CONFIG_MACH_IXDP2351) || \
--	defined(CONFIG_ARCH_IXDP2X01) || defined(CONFIG_MACH_QQ2440)
-+	defined(CONFIG_ARCH_IXDP2X01)
- /* Check for a network adaptor of this type, and return '0' iff one exists.
-    If dev->base_addr == 0, probe all likely locations.
-    If dev->base_addr == 1, always return failure.
-@@ -534,9 +530,6 @@ cs89x0_probe1(struct net_device *dev, int ioaddr, int modular)
- 		lp->force = g_cs89x0_media__force;
- #endif
- 
--#if defined(CONFIG_MACH_QQ2440)
--		lp->force |= FORCE_RJ45 | FORCE_FULL;
--#endif
-         }
- 
- 	/* Grab the region so we can find another board if autoIRQ fails. */
-@@ -1173,7 +1166,7 @@ write_irq(struct net_device *dev, int chip_type, int irq)
- 
- 	if (chip_type == CS8900) {
- #if !defined(CONFIG_CS89x0_PLATFORM) || defined(CONFIG_MACH_IXDP2351) || \
--	defined(CONFIG_ARCH_IXDP2X01) || defined(CONFIG_MACH_QQ2440)
-+	defined(CONFIG_ARCH_IXDP2X01)
- 		/* Search the mapping table for the corresponding IRQ pin. */
- 		for (i = 0; i != ARRAY_SIZE(cs8900_irq_map); i++)
- 			if (cs8900_irq_map[i] == irq)
--- 
-1.7.1
+Applied.
