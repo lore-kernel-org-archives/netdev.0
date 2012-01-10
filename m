@@ -1,7 +1,8 @@
 From: Mike Waychison <mikew@google.com>
-Subject: [PATCH v2 0/3] virtio_net: Better low memory handling.
-Date: Tue, 10 Jan 2012 09:40:54 -0800
-Message-ID: <20120110174052.4505.66514.stgit@mike2.sea.corp.google.com>
+Subject: [PATCH v2 2/3] virtio_net: Batch receive buffer filling
+Date: Tue, 10 Jan 2012 09:41:07 -0800
+Message-ID: <20120110174106.4505.95254.stgit@mike2.sea.corp.google.com>
+References: <20120110174052.4505.66514.stgit@mike2.sea.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,6 +11,7 @@ Cc: netdev@vger.kernel.org, earhart@google.com, digitaleric@google.com,
 To: Rusty Russell <rusty@rustcorp.com.au>,
 	"Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120110174052.4505.66514.stgit@mike2.sea.corp.google.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -21,59 +23,191 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-The following series applies to net-next.
+In preparation of moving the allocation of receive buffers on the slow
+path outside of the NAPI disable block in refill_work(), introduce a new
+method, try_fill_recvbatch(), which fill the receive buffers in a
+batched mode.  Although their algorithms are similar, the list enqeueing
+and cleanup are different enough that duplicating the overall algorithm
+resulted in cleaner code.
 
-The following series changes the low memory paths in virtio_net to not
-disable NAPI while waiting in the allocator in the slow path.
+This new function is implemented either by fill_recvbatch_pages() in the
+case of "big" or "mergeable" receive buffers, or fill_recvbatch_small()
+for the small buffer fallback case.
 
-It attempts to rectify some performance problems we've seen where the
-network performance drops significantly when memory is low.  The working
-theory is that the disabling of NAPI while allocations are occuring in
-the slow refill_work() path can in turn cause significant delays in
-processing of the receive queue.
+The batched operation allows us to later push the disabling of napi on
+the virtio_net device down to only cover the bits that manipulate the
+virtio queue, letting the bulk of the allocations operate while the nic
+can still process received packets.
 
-The observed situation on an unmodified kernel is that a system with low
-memory will in turn quickly stop being being able to refill the rx queue
-with buffers, in turn causing packets to be dropped by the host OS (as
-NAPI polling is disabled) while the driver wait for memory to be
-reclaimed.  The way the process-context refill loop works, the memory
-subsystem is effectively polled every half second when things look
-bleak, leading to significant packet loss and congestion window
-collapse.
-
-The first patch prepares for a batched refill path by splitting the
-receive buffer allocation and enqueue bits into separate functions.
-
-The second patch introduces the batched refill path itself.  As
-implemented, it still disables NAPI completely for the whole refill.
-
-The third patch then pushed the disabling and enabling of NAPI down into
-the refill loop so that it only covers the actual enqueueing of receive
-buffers on the virtqueue.
-
-This patchset seems to help the test setups that I'm playing with.
-Example tests include using several bit-torrent clients within a VM and
-watching the network throughputs on the host.  Other similar workloads
-(high network traffic, reasonably high disk IO causing memory pressure)
-also appear to have throughput problems alleviated by these changes.
-
-
-As a warning, I've only tested this using the "small buffers" and
-"mergeable" buffers paths.  I haven't figured out how to force qemu-kvm
-to not support the feature bits that trigger 'mergable' receive buffers.
-
-ChangeLog:
-==========
-v2:
-- Rewritten to not introduce a spinlock to protect the virtqueue data.
-
+Signed-off-by: Mike Waychison <mikew@google.com>
 ---
+ drivers/net/virtio_net.c |  142 ++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 141 insertions(+), 1 deletions(-)
 
-Mike Waychison (3):
-      virtio_net: Split receive buffer alloc/add
-      virtio_net: Batch receive buffer filling
-      virtio_net: Don't disable NAPI while allocating
-
-
- drivers/net/virtio_net.c |  325 ++++++++++++++++++++++++++++++++++++++++------
- 1 files changed, 285 insertions(+), 40 deletions(-)
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 5531089..10d9761 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -37,6 +37,7 @@ module_param(gso, bool, 0444);
+ /* FIXME: MTU in config. */
+ #define MAX_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
+ #define GOOD_COPY_LEN	128
++#define MAX_RX_ALLOCATE_BATCH	32
+ 
+ #define VIRTNET_SEND_COMMAND_SG_MAX    2
+ #define VIRTNET_DRIVER_VERSION "1.0.0"
+@@ -572,6 +573,144 @@ static void virtnet_napi_enable(struct virtnet_info *vi)
+ 	}
+ }
+ 
++/*
++ * Try to fill a "big" or "mergeable" receive queue using batching.
++ * Caller must serialize against NAPI.
++ * Returns false if we failed to finish due to oom.
++ */
++static bool fill_recvbatch_pages(struct virtnet_info *vi)
++{
++	bool oom = false;
++	bool full = false;
++	LIST_HEAD(local_list);
++	struct page *page, *npage;
++	int i;
++
++	BUG_ON(!vi->big_packets && !vi->mergeable_rx_bufs);
++fill_more:
++	/* Allocate a batch. */
++	for (i = 0; i < MAX_RX_ALLOCATE_BATCH; i++) {
++		if (vi->mergeable_rx_bufs)
++			page = alloc_recvbuf_mergeable(vi, GFP_KERNEL);
++		else  /* vi->big_packets */
++			page = alloc_recvbuf_big(vi, GFP_KERNEL);
++		if (!page) {
++			oom =  true;
++			break;
++		}
++		list_add_tail(&page->lru, &local_list);
++	}
++
++	/* Enqueue batch as available. */
++	list_for_each_entry_safe(page, npage, &local_list, lru) {
++		int err;
++
++		list_del(&page->lru);
++		if (vi->mergeable_rx_bufs)
++			err = add_recvbuf_mergeable(vi, page, GFP_KERNEL);
++		else  /* vi->big_packets */
++			err = add_recvbuf_big(vi, page, GFP_KERNEL);
++		if (err > 0)
++			continue;
++		if (err == -ENOSPC || err == 0)
++			full = true;
++		else if (err == -ENOMEM)
++			oom = true;
++		else
++			BUG();
++		break;
++	}
++	if (unlikely(vi->num > vi->max))
++		vi->max = vi->num;
++
++	/* Cleanup any remaining entries on the list */
++	if (unlikely(!list_empty(&local_list))) {
++		list_for_each_entry_safe(page, npage, &local_list, lru) {
++			list_del(&page->lru);
++			give_pages(vi, page);
++		}
++	}
++
++	if (!oom && !full)
++		goto fill_more;
++
++	return !oom;
++}
++
++/*
++ * Try to fill a "small" receive queue using batching.
++ * Caller must serialize against NAPI.
++ * Returns false if we failed to finish due to oom.
++ */
++static bool fill_recvbatch_small(struct virtnet_info *vi)
++{
++	bool oom = false;
++	bool full = false;
++	LIST_HEAD(local_list);
++	struct list_head *pos, *npos;
++	struct sk_buff *skb;
++	int i;
++
++fill_more:
++	/* Allocate a batch. */
++	for (i = 0; i < MAX_RX_ALLOCATE_BATCH; i++) {
++		skb = alloc_recvbuf_small(vi, GFP_KERNEL);
++		if (!skb) {
++			oom =  true;
++			break;
++		}
++		list_add_tail((struct list_head *)skb, &local_list);
++	}
++
++	/* Enqueue batch as available. */
++	list_for_each_safe(pos, npos, &local_list) {
++		int err;
++
++		list_del(pos);
++		skb = (struct sk_buff *)pos;
++
++		err = add_recvbuf_small(vi, skb, GFP_KERNEL);
++		if (err > 0)
++			continue;
++		if (err == -ENOSPC || err == 0)
++			full = true;
++		else if (err == -ENOMEM)
++			oom = true;
++		else
++			BUG();
++		break;
++	}
++	if (unlikely(vi->num > vi->max))
++		vi->max = vi->num;
++
++	/* Cleanup any remaining entries on the list */
++	if (unlikely(!list_empty(&local_list))) {
++		list_for_each_safe(pos, npos, &local_list) {
++			skb = (struct sk_buff *)pos;
++			list_del(pos);
++			dev_kfree_skb(skb);
++		}
++	}
++
++	if (!oom && !full)
++		goto fill_more;
++
++	return !oom;
++}
++
++/*
++ * Refill the receive queues from process context.
++ * Caller must serialize against NAPI.
++ * Returns false if we failed to allocate due to memory pressure.
++ */
++static bool try_fill_recvbatch(struct virtnet_info *vi)
++{
++	if (vi->mergeable_rx_bufs || vi->big_packets)
++		return fill_recvbatch_pages(vi);
++	else
++		return fill_recvbatch_small(vi);
++}
++
+ static void refill_work(struct work_struct *work)
+ {
+ 	struct virtnet_info *vi;
+@@ -579,7 +718,8 @@ static void refill_work(struct work_struct *work)
+ 
+ 	vi = container_of(work, struct virtnet_info, refill.work);
+ 	napi_disable(&vi->napi);
+-	still_empty = !try_fill_recv(vi, GFP_KERNEL);
++	still_empty = !try_fill_recvbatch(vi);
++	virtqueue_kick(vi->rvq);
+ 	virtnet_napi_enable(vi);
+ 
+ 	/* In theory, this can happen: if we don't get any buffers in
