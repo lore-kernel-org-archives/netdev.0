@@ -1,39 +1,40 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 09/21] mv643xx-eth: use an unique MDIO bus name.
-Date: Tue, 10 Jan 2012 10:59:15 +0100
-Message-ID: <1326189567-21663-10-git-send-email-florian@openwrt.org>
-References: <1326189567-21663-1-git-send-email-florian@openwrt.org>
-Cc: Florian Fainelli <florian@openwrt.org>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zmc.proxad.net ([212.27.53.206]:59780 "EHLO zmc.proxad.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755147Ab2AJKAl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jan 2012 05:00:41 -0500
-In-Reply-To: <1326189567-21663-1-git-send-email-florian@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v2 2/4] can: cc770: add legacy ISA bus driver for the CC770 and AN82527
+Date: Tue, 10 Jan 2012 10:00:49 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AF39@saturn3.aculab.com>
+References: <4F0B608D.6090309@essax.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
+	<socketcan-users@lists.berlios.de>, "IreneV" <boir1@yandex.ru>,
+	"Stanislav Yelenskiy" <stanislavelensky@yahoo.com>, <oe@port.de>,
+	<henrik@focus-sw.com>
+To: <info@essax.com>, "Wolfgang Grandegger" <wg@grandegger.com>,
+	"Oliver Hartkopp" <socketcan@hartkopp.net>, <henrik@proconx.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <4F0B608D.6090309@essax.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
- drivers/net/ethernet/marvell/mv643xx_eth.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ 
+> cc770_isa_port_write_reg_indirect(const struct cc770_priv *priv,
+>   						int reg, u8 val)
+>   {
+>   	unsigned long base = (unsigned long)priv->reg_base;
+> +	unsigned long flags;
+> 
+> +	spin_lock_irqsave( &outb_lock, flags);
+>   	outb(reg, base);
+>   	outb(val, base + 1);
+> +	spin_unlock_irqrestore( &outb_lock, flags);	
 
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index e87847e..f14122c 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -2612,7 +2612,8 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
- 		msp->smi_bus->name = "mv643xx_eth smi";
- 		msp->smi_bus->read = smi_bus_read;
- 		msp->smi_bus->write = smi_bus_write,
--		snprintf(msp->smi_bus->id, MII_BUS_ID_SIZE, "%d", pdev->id);
-+		snprintf(msp->smi_bus->id, MII_BUS_ID_SIZE, "%s-%d",
-+			pdev->name, pdev->id);
- 		msp->smi_bus->parent = &pdev->dev;
- 		msp->smi_bus->phy_mask = 0xffffffff;
- 		if (mdiobus_register(msp->smi_bus) < 0)
--- 
-1.7.5.4
+Is there a 'read_reg_indirect' function??
+If so it also needs to use the same mutex.
+I'd double check all references to the 'reg_base' field.
+
+	David
+
+
