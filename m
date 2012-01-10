@@ -1,7 +1,7 @@
 From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: [v6 PATCH 3/3] NETFILTER userspace part for target HMARK
-Date: Tue, 10 Jan 2012 14:20:06 +0100
-Message-ID: <1326201606-17241-4-git-send-email-hans.schillstrom@ericsson.com>
+Subject: [v6 PATCH 1/3] NETFILTER added flags to ipv6_find_hdr()
+Date: Tue, 10 Jan 2012 14:20:04 +0100
+Message-ID: <1326201606-17241-2-git-send-email-hans.schillstrom@ericsson.com>
 References: <1326201606-17241-1-git-send-email-hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,528 +9,182 @@ Cc: <hans@schillstrom.com>,
 	Hans Schillstrom <hans.schillstrom@ericsson.com>
 To: <kaber@trash.net>, <pablo@netfilter.org>, <jengelh@medozas.de>,
 	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw9.se.ericsson.net ([193.180.251.57]:65229 "EHLO
-	mailgw9.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756241Ab2AJNUJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2012 08:20:09 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1326201606-17241-1-git-send-email-hans.schillstrom@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-    The target allows you to create rules in the "raw" and "mangle" tables
-    which alter the netfilter mark (nfmark) field within a given range.
-    First a 32 bit hash value is generated then modulus by <limit> and
-    finally an offset is added before it's written to nfmark.
-    Prior to routing, the nfmark can influence the routing method (see
-    "Use netfilter MARK value as routing key") and can also be used by
-    other subsystems to change their behaviour.
+Two new flags to ipv6_find_hdr,
+One that tells us that this is a fragment.
+One that stops at AH if any i.e. treat it like a transport header.
+i.e. make handling of ESP and AH the same.
 
-    The mark match can also be used to match nfmark produced by this module.
-    Ver 6
-      -
-    Ver 5
-      smask and dmask changed to length
-
-    Ver 4
-      xtoptions used for parsing.
-
-    Ver 3
-       -
-
-    Ver 2
-      IPv4 NAT added
-      iptables ver 1.4.12.1 adaptions.
+Version 2:
+    wrapper removed and changes made at every call.
 
 Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
 ---
- extensions/libxt_HMARK.c           |  335 ++++++++++++++++++++++++++++++++++++
- extensions/libxt_HMARK.man         |   65 +++++++
- include/linux/netfilter/xt_hmark.h |   62 +++++++
- 3 files changed, 462 insertions(+), 0 deletions(-)
- create mode 100644 extensions/libxt_HMARK.c
- create mode 100644 extensions/libxt_HMARK.man
- create mode 100644 include/linux/netfilter/xt_hmark.h
+ include/linux/netfilter_ipv6/ip6_tables.h |    8 +++++++-
+ net/ipv6/netfilter/ip6_tables.c           |   17 +++++++++++++----
+ net/ipv6/netfilter/ip6t_ah.c              |    2 +-
+ net/ipv6/netfilter/ip6t_frag.c            |    2 +-
+ net/ipv6/netfilter/ip6t_hbh.c             |    2 +-
+ net/ipv6/netfilter/ip6t_rt.c              |    2 +-
+ net/netfilter/xt_TPROXY.c                 |    2 +-
+ net/netfilter/xt_socket.c                 |    2 +-
+ 8 files changed, 26 insertions(+), 11 deletions(-)
 
-diff --git a/extensions/libxt_HMARK.c b/extensions/libxt_HMARK.c
-new file mode 100644
-index 0000000..ec74a19
---- /dev/null
-+++ b/extensions/libxt_HMARK.c
-@@ -0,0 +1,335 @@
-+/*
-+ * Shared library add-on to iptables to add HMARK target support.
-+ *
-+ * The kernel module calculates a hash value that can be modified by modulus
-+ * and an offset. The hash value is based on a direction independent
-+ * five tuple: src & dst addr src & dst ports and protocol.
-+ * However src & dst port can be masked and are not used for fragmented
-+ * packets, ESP and AH don't have ports so SPI will be used instead.
-+ * For ICMP error messages the hash mark values will be calculated on
-+ * the source packet i.e. the packet caused the error (If sufficient
-+ * amount of data exists).
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+#include <stdbool.h>
-+#include <stdio.h>
-+#include <string.h>
-+
-+#include <xtables.h>
-+#include <linux/netfilter/xt_hmark.h>
-+
-+
-+#define DEF_HRAND 0xc175a3b8	/* Default "random" value to jhash */
-+
-+static void HMARK_help(void)
-+{
-+	printf(
-+"HMARK target options, i.e. modify hash calculation by:\n"
-+"  --hmark-smask length               Source address mask length\n"
-+"  --hmark-dmask length               Dest address mask length\n"
-+"  --hmark-sp-mask value              Mask src port with value\n"
-+"  --hmark-dp-mask value              Mask dst port with value\n"
-+"  --hmark-spi-mask value             For esp and ah AND spi with value\n"
-+"  --hmark-sp-set value               OR src port with value\n"
-+"  --hmark-dp-set value               OR dst port with value\n"
-+"  --hmark-spi-set value              For esp and ah OR spi with value\n"
-+"  --hmark-proto-mask value           Mask Protocol with value\n"
-+"  --hmark-rnd                        Random value to hash cacl.\n"
-+"  Limit/modify the calculated hash mark by:\n"
-+"  --hmark-mod value                  nfmark modulus value\n"
-+"  --hmark-offs value                 Last action add value to nfmark\n"
-+" For NAT in IPv4 the original address can be used in the return path.\n"
-+" Make sure to qualify the statement in a proper way when using nat flags\n"
-+"  --hmark-dnat                       Replace src addr with original dst addr\n"
-+"  --hmark-snat                       Replace dst addr with original src addr\n"
-+" In many cases hmark can be omitted i.e. --smask can be used\n");
-+}
-+
-+#define hi struct xt_hmark_info
-+
-+static const struct xt_option_entry HMARK_opts[] = {
-+	{ .name = "hmark-smask",      .type = XTTYPE_PLENMASK, .id = XT_HMARK_SADR_AND,
-+	  .flags = XTOPT_PUT, XTOPT_POINTER(hi, smask)
-+	},
-+	{ .name = "hmark-dmask",      .type = XTTYPE_PLENMASK, .id = XT_HMARK_DADR_AND,
-+	  .flags = XTOPT_PUT, XTOPT_POINTER(hi, dmask)
-+	},
-+	{ .name = "hmark-sp-mask",    .type = XTTYPE_UINT16, .id = XT_HMARK_SPORT_AND,
-+	  .flags = XTOPT_PUT, XTOPT_POINTER(hi, pmask.p16.src)
-+	},
-+	{ .name = "hmark-dp-mask",    .type = XTTYPE_UINT16, .id = XT_HMARK_DPORT_AND,
-+	  .flags = XTOPT_PUT, XTOPT_POINTER(hi, pmask.p16.dst)
-+	},
-+	{ .name = "hmark-spi-mask",   .type = XTTYPE_UINT32, .id = XT_HMARK_SPI_AND,
-+	  .flags = XTOPT_PUT,  XTOPT_POINTER(hi, spimask)
-+	},
-+	{ .name = "hmark-sp-set",     .type = XTTYPE_UINT16, .id = XT_HMARK_SPORT_OR,
-+	  .flags = XTOPT_PUT, XTOPT_POINTER(hi, pset.p16.src)
-+	},
-+	{ .name = "hmark-dp-set",     .type = XTTYPE_UINT16, .id = XT_HMARK_DPORT_OR,
-+	  .flags = XTOPT_PUT, XTOPT_POINTER(hi, pset.p16.dst)
-+	},
-+	{ .name = "hmark-spi-set",    .type = XTTYPE_UINT32, .id = XT_HMARK_SPI_OR,
-+	  .flags = XTOPT_PUT, XTOPT_POINTER(hi, spiset)
-+	},
-+	{ .name = "hmark-proto-mask", .type = XTTYPE_UINT16, .id = XT_HMARK_PROTO_AND,
-+	  .flags = XTOPT_PUT, XTOPT_POINTER(hi, prmask)
-+	},
-+	{ .name = "hmark-rnd",        .type = XTTYPE_UINT32, .id = XT_HMARK_RND,
-+	  .flags = XTOPT_PUT, XTOPT_POINTER(hi, hashrnd)
-+	},
-+	{ .name = "hmark-mod",        .type = XTTYPE_UINT32, .id = XT_HMARK_MODULUS,
-+	  .flags = XTOPT_PUT | XTOPT_MAND, XTOPT_POINTER(hi, hmod)
-+	},
-+	{ .name = "hmark-offs",       .type = XTTYPE_UINT32, .id = XT_HMARK_OFFSET,
-+	  .flags = XTOPT_PUT, XTOPT_POINTER(hi, hoffs)
-+	},
-+	{ .name = "hmark-dnat",       .type = XTTYPE_NONE,   .id = XT_HMARK_USE_DNAT },
-+	{ .name = "hmark-snat",       .type = XTTYPE_NONE,   .id = XT_HMARK_USE_SNAT },
-+
-+	{ .name = "smask",      .type = XTTYPE_PLENMASK, .id = XT_HMARK_SADR_AND,
-+	  .flags = XTOPT_PUT, XTOPT_POINTER(hi, smask)
-+	},
-+	{ .name = "dmask",      .type = XTTYPE_PLENMASK, .id = XT_HMARK_DADR_AND,
-+	  .flags = XTOPT_PUT, XTOPT_POINTER(hi, dmask)
-+	},
-+	{ .name = "sp-mask",    .type = XTTYPE_UINT16, .id = XT_HMARK_SPORT_AND,
-+	  .flags = XTOPT_PUT,  XTOPT_POINTER(hi, pmask.p16.src)
-+	},
-+	{ .name = "dp-mask",    .type = XTTYPE_UINT16, .id = XT_HMARK_DPORT_AND,
-+	  .flags = XTOPT_PUT,  XTOPT_POINTER(hi, pmask.p16.dst)
-+	},
-+	{ .name = "spi-mask",   .type = XTTYPE_UINT32, .id = XT_HMARK_SPI_AND,
-+	  .flags = XTOPT_PUT, XTOPT_POINTER(hi, spimask)
-+	},
-+	{ .name = "sp-set",     .type = XTTYPE_UINT16, .id = XT_HMARK_SPORT_OR,
-+	  .flags = XTOPT_PUT,  XTOPT_POINTER(hi, pset.p16.src)
-+	},
-+	{ .name = "dp-set",     .type = XTTYPE_UINT16, .id = XT_HMARK_DPORT_OR,
-+	  .flags = XTOPT_PUT,  XTOPT_POINTER(hi, pset.p16.dst)
-+	},
-+	{ .name = "spi-set",    .type = XTTYPE_UINT32, .id = XT_HMARK_SPI_OR,
-+	  .flags = XTOPT_PUT, XTOPT_POINTER(hi, spiset)
-+	},
-+	{ .name = "proto-mask", .type = XTTYPE_UINT16, .id = XT_HMARK_PROTO_AND,
-+	  .flags = XTOPT_PUT, XTOPT_POINTER(hi, prmask)
-+	},
-+	{ .name = "rnd",        .type = XTTYPE_UINT32, .id = XT_HMARK_RND,
-+	  .flags = XTOPT_PUT, XTOPT_POINTER(hi, hashrnd)
-+	},
-+	{ .name = "mod",        .type = XTTYPE_UINT32, .id = XT_HMARK_MODULUS,
-+	  .flags = XTOPT_PUT | XTOPT_MAND, XTOPT_POINTER(hi, hmod)
-+	},
-+	{ .name = "offs",       .type = XTTYPE_UINT32, .id = XT_HMARK_OFFSET,
-+	  .flags = XTOPT_PUT, XTOPT_POINTER(hi, hoffs)
-+	},
-+	{ .name = "dnat",       .type = XTTYPE_NONE,   .id = XT_HMARK_USE_DNAT },
-+	{ .name = "snat",       .type = XTTYPE_NONE,   .id = XT_HMARK_USE_SNAT },
-+	XTOPT_TABLEEND,
-+};
-+
-+static void HMARK_parse(struct xt_option_call *cb)
-+{
-+	struct xt_hmark_info *info = cb->data;
-+
-+	if (!cb->xflags) {
-+		memset(info, 0xff, sizeof(struct xt_hmark_info));
-+		info->pset.v32 = 0;
-+		info->flags = 0;
-+		info->spiset = 0;
-+		info->hoffs = 0;
-+		info->hashrnd = DEF_HRAND;
-+	}
-+	xtables_option_parse(cb);
-+
-+	switch (cb->entry->id) {
-+	case XT_HMARK_SPI_AND:
-+		info->spimask = htonl(cb->val.u32);
-+		break;
-+	case XT_HMARK_SPI_OR:
-+		info->spiset = htonl(cb->val.u32);
-+		break;
-+	case XT_HMARK_SPORT_AND:
-+		info->pmask.p16.src = htons(cb->val.u16);
-+		break;
-+	case XT_HMARK_DPORT_AND:
-+		info->pmask.p16.dst = htons(cb->val.u16);
-+		break;
-+	case XT_HMARK_SPORT_OR:
-+		info->pset.p16.src = htons(cb->val.u16);
-+		break;
-+	case XT_HMARK_DPORT_OR:
-+		info->pset.p16.dst = htons(cb->val.u16);
-+		break;
-+	case XT_HMARK_MODULUS:
-+		if (info->hmod == 0) {
-+			xtables_error(PARAMETER_PROBLEM,
-+				      "xxx modulus 0 ? "
-+				      "thats a div by 0");
-+			info->hmod = 0xffffffff;
-+		}
-+		break;
-+	}
-+	info->flags = cb->xflags;
-+}
-+
-+static void HMARK_check(struct xt_fcheck_call *cb)
-+{
-+	if (!(cb->xflags & XT_F_HMARK_MODULUS))
-+		xtables_error(PARAMETER_PROBLEM, "HMARK: the --hmark-mod, "
-+			   "is not set, that means the nfmark will be in range"
-+			   " 0 - 0xffffffff");
-+}
-+/*
-+ * Common print for IPv4 & IPv6
-+ */
-+static void HMARK_print(const struct xt_hmark_info *info)
-+{
-+	if (info->flags & (1 << XT_HMARK_SPORT_AND))
-+		printf("sp-mask 0x%x ", htons(info->pmask.p16.src));
-+	if (info->flags & (1 << XT_HMARK_DPORT_AND))
-+		printf("dp-mask 0x%x ", htons(info->pmask.p16.dst));
-+	if (info->flags & (1 << XT_HMARK_SPI_AND))
-+		printf("spi-mask 0x%x ", htonl(info->spimask));
-+	if (info->flags & (1 << XT_HMARK_SPORT_OR))
-+		printf("sp-set 0x%x ", htons(info->pset.p16.src));
-+	if (info->flags & (1 << XT_HMARK_DPORT_OR))
-+		printf("dp-set 0x%x ", htons(info->pset.p16.dst));
-+	if (info->flags & (1 << XT_HMARK_SPI_OR))
-+		printf("spi-set 0x%x ", htonl(info->spiset));
-+	if (info->flags & (1 << XT_HMARK_PROTO_AND))
-+		printf("proto-mask 0x%x ", info->prmask);
-+	if (info->flags & (1 << XT_HMARK_RND))
-+		printf("rnd 0x%x ", info->hashrnd);
-+}
-+
-+static void HMARK_ip6_print(const void *ip, const struct xt_entry_target *target,
-+			int numeric)
-+{
-+	const struct xt_hmark_info *info =
-+			(const struct xt_hmark_info *)target->data;
-+
-+	printf(" HMARK ");
-+	if (info->flags & (1 << XT_HMARK_MODULUS))
-+		printf("%% 0x%x ", info->hmod);
-+	if (info->flags & (1 << XT_HMARK_OFFSET))
-+		printf("+ 0x%x ", info->hoffs);
-+	if (info->flags & (1 << XT_HMARK_USE_SNAT))
-+		printf("snat, ");
-+	if (info->flags & (1 << XT_HMARK_SADR_AND))
-+		printf("smask %s ", xtables_ip6mask_to_numeric(&info->smask.in6) + 1);
-+	if (info->flags & (1 << XT_HMARK_USE_DNAT))
-+		printf("dnat, ");
-+	if (info->flags & (1 << XT_HMARK_DADR_AND))
-+		printf("dmask %s ", xtables_ip6mask_to_numeric(&info->dmask.in6) + 1);
-+	HMARK_print(info);
-+}
-+static void HMARK_ip4_print(const void *ip, const struct xt_entry_target *target, int numeric)
-+{
-+	const struct xt_hmark_info *info = (const struct xt_hmark_info *)target->data;
-+
-+	printf(" HMARK ");
-+	if (info->flags & (1 << XT_HMARK_MODULUS))
-+		printf("%% 0x%x ", info->hmod);
-+	if (info->flags & (1 << XT_HMARK_OFFSET))
-+		printf("+ 0x%x ", info->hoffs);
-+	if (info->flags & (1 << XT_HMARK_USE_SNAT))
-+		printf("snat, ");
-+	if (info->flags & (1 << XT_HMARK_SADR_AND))
-+		printf("smask %s ", xtables_ipmask_to_numeric(&info->smask.in) + 1);
-+	if (info->flags & (1 << XT_HMARK_USE_DNAT))
-+		printf("dnat, ");
-+	if (info->flags & (1 << XT_HMARK_DADR_AND))
-+		printf("dmask %s ", xtables_ipmask_to_numeric(&info->dmask.in) + 1);
-+	HMARK_print(info);
-+}
-+static void HMARK_save(const struct xt_hmark_info *info)
-+{
-+	if (info->flags & (1 << XT_HMARK_SPORT_AND))
-+		printf(" --hmark-sp-mask 0x%x", htons(info->pmask.p16.src));
-+	if (info->flags & (1 << XT_HMARK_DPORT_AND))
-+		printf(" --hmark-dp-mask 0x%x", htons(info->pmask.p16.dst));
-+	if (info->flags & (1 << XT_HMARK_SPI_AND))
-+		printf(" --hmark-spi-mask 0x%x", htonl(info->spimask));
-+	if (info->flags & (1 << XT_HMARK_SPORT_OR))
-+		printf(" --hmark-sp-set 0x%x", htons(info->pset.p16.src));
-+	if (info->flags & (1 << XT_HMARK_DPORT_OR))
-+		printf(" --hmark-dp-set 0x%x", htons(info->pset.p16.dst));
-+	if (info->flags & (1 << XT_HMARK_SPI_OR))
-+		printf(" --hmark-spi-set 0x%x", htonl(info->spiset));
-+	if (info->flags & (1 << XT_HMARK_PROTO_AND))
-+		printf(" --hmark-proto-mask 0x%x", info->prmask);
-+	if (info->flags & (1 << XT_HMARK_RND))
-+		printf(" --hmark-rnd 0x%x", info->hashrnd);
-+	if (info->flags & (1 << XT_HMARK_MODULUS))
-+		printf(" --hmark-mod 0x%x", info->hmod);
-+	if (info->flags & (1 << XT_HMARK_OFFSET))
-+		printf(" --hmark-offs 0x%x", info->hoffs);
-+	if (info->flags & (1 << XT_HMARK_USE_DNAT))
-+		printf(" --hmark-dnat");
-+	if (info->flags & (1 << XT_HMARK_USE_SNAT))
-+		printf(" --hmark-snat");
-+}
-+
-+static void HMARK_ip6_save(const void *ip, const struct xt_entry_target *target)
-+{
-+	const struct xt_hmark_info *info =
-+		(const struct xt_hmark_info *)target->data;
-+
-+	if (info->flags & (1 << XT_HMARK_SADR_AND))
-+		printf(" --hmark-smask %s", xtables_ip6mask_to_numeric(&info->smask.in6) + 1);
-+	if (info->flags & (1 << XT_HMARK_DADR_AND))
-+		printf(" --hmark-dmask %s", xtables_ip6mask_to_numeric(&info->dmask.in6) + 1);
-+	HMARK_save(info);
-+}
-+
-+static void HMARK_ip4_save(const void *ip, const struct xt_entry_target *target)
-+{
-+	const struct xt_hmark_info *info =
-+		(const struct xt_hmark_info *)target->data;
-+
-+	if (info->flags & (1 << XT_HMARK_SADR_AND))
-+		printf(" --hmark-smask %s", xtables_ipmask_to_numeric(&info->smask.in) + 1);
-+	if (info->flags & (1 << XT_HMARK_DADR_AND))
-+		printf(" --hmark-dmask %s", xtables_ipmask_to_numeric(&info->dmask.in) + 1);
-+	HMARK_save(info);
-+}
-+
-+static struct xtables_target mark_tg_reg[] = {
-+	{
-+		.family        = NFPROTO_IPV4,
-+		.name          = "HMARK",
-+		.version       = XTABLES_VERSION,
-+		.revision      = 0,
-+		.size          = XT_ALIGN(sizeof(struct xt_hmark_info)),
-+		.userspacesize = XT_ALIGN(sizeof(struct xt_hmark_info)),
-+		.help          = HMARK_help,
-+		.print         = HMARK_ip4_print,
-+		.save          = HMARK_ip4_save,
-+		.x6_parse      = HMARK_parse,
-+		.x6_fcheck     = HMARK_check,
-+		.x6_options    = HMARK_opts,
-+	},
-+	{
-+		.family        = NFPROTO_IPV6,
-+		.name          = "HMARK",
-+		.version       = XTABLES_VERSION,
-+		.revision      = 0,
-+		.size          = XT_ALIGN(sizeof(struct xt_hmark_info)),
-+		.userspacesize = XT_ALIGN(sizeof(struct xt_hmark_info)),
-+		.help          = HMARK_help,
-+		.print         = HMARK_ip6_print,
-+		.save          = HMARK_ip6_save,
-+		.x6_parse      = HMARK_parse,
-+		.x6_fcheck     = HMARK_check,
-+		.x6_options    = HMARK_opts,
-+	},
-+};
-+
-+void _init(void)
-+{
-+	xtables_register_targets(mark_tg_reg, ARRAY_SIZE(mark_tg_reg));
-+}
-+
-diff --git a/extensions/libxt_HMARK.man b/extensions/libxt_HMARK.man
-new file mode 100644
-index 0000000..74beb64
---- /dev/null
-+++ b/extensions/libxt_HMARK.man
-@@ -0,0 +1,65 @@
-+This module does the same as MARK, i.e. set an fwmark, but the mark is based on a hash value.
-+The hash is based on saddr, daddr, sport, dport and proto. The same mark will be produced independet of direction if no masks is set or the same masks is used for src and dest.
-+The hash mark could be adjusted by modulus and finally an offset could be added, i.e the final mark will be within a range.
-+ICMP error will use the the original message for hash calculation not the icmp it self.
-+Fragmented packets will not use ports/spi not even the first packet.
-+
-+Note: IPv4 packets with nf_defrag_ipv4 loaded will be defragmented before they reach hmark,
-+      IPv6 nf_defrag is not implemented this way, hence fragmented ipv6 packets will reach hmark.
-+      None of the parameters effect the packet it self only the calculated hash value.
-+.PP
-+Parameters:
-+For all masks default is all "1:s", to disable a field use mask 0
-+For IPv6 it's just the last 32 bits that is included in the hash
-+.TP
-+\fB\-\-hmark\-smask\fP \fIlength\fP
-+The length of the mask to AND the source address with (saddr & value).
-+.TP
-+\fB\-\-hmark\-dmask\fP \fIlength\fP
-+The length of the mask to AND the dest. address with (daddr & value).
-+.TP
-+\fB\-\-hmark\-sp\-mask\fP \fIvalue\fP
-+A 16 bit value to AND the src port with (sport & value).
-+.TP
-+\fB\-\-hmark\-dp\-mask\fP \fIvalue\fP
-+A 16 bit value to AND the dest port with (dport & value).
-+.TP
-+\fB\-\-hmark\-sp\-set\fP \fIvalue\fP
-+A 16 bit value to OR the src port with (sport | value).
-+.TP
-+\fB\-\-hmark\-dp\-set\fP \fIvalue\fP
-+A 16 bit value to OR the dest port with (dport | value).
-+.TP
-+\fB\-\-hmark\-spi\-mask\fP \fIvalue\fP
-+Value to AND the spi field with (spi & value) valid for proto esp or ah.
-+.TP
-+\fB\-\-hmark\-spi\-set\fP \fIvalue\fP
-+Value to OR the spi field with (spi | value) valid for proto esp or ah.
-+.TP
-+\fB\-\-hmark\-proto\-mask\fP \fIvalue\fP
-+An 8 bit value to AND the L4 proto field with (proto & value).
-+.TP
-+\fB\-\-hmark\-rnd\fP \fIvalue\fP
-+A 32 bit initial value for hash calc, default is 0xc175a3b8.
-+.PP
-+Final processing of the mark in order of execution.
-+.TP
-+\fB\-\-hmark\-mod\fP \fvalue (must be > 0)\fP
-+The easiest way to describe this is:  hash = hash mod <value>
-+.TP
-+\fB\-\-hmark\-offs\fP \fvalue\fP
-+The easiest way to describe this is:  hash = hash + <value>
-+.PP
-+\fIExamples:\fP
-+.PP
-+Default rule handles all TCP, UDP, SCTP, ESP & AH
-+.IP
-+iptables \-t mangle \-A PREROUTING \-m state \-\-state NEW,ESTABLISHED,RELATED
-+ \-j HMARK \-\-hmark-offs 10000 \-\-hmark-mod 10
-+.PP
-+Handle SCTP and hash dest port only and produce a nfmark between 100-119.
-+.IP
-+iptables \-t mangle \-A PREROUTING -p SCTP \-j HMARK \-\-smask 0 \-\-dmask 0
-+ \-\-sp\-mask 0 \-\-offs 100 \-\-mod 20
-+.PP
-+
-diff --git a/include/linux/netfilter/xt_hmark.h b/include/linux/netfilter/xt_hmark.h
-new file mode 100644
-index 0000000..366ecce
---- /dev/null
-+++ b/include/linux/netfilter/xt_hmark.h
-@@ -0,0 +1,62 @@
-+#ifndef XT_HMARK_H_
-+#define XT_HMARK_H_
-+
-+#include <linux/types.h>
-+
-+/*
-+ * Flags must not start at 0, since it's used as none.
-+ */
+diff --git a/include/linux/netfilter_ipv6/ip6_tables.h b/include/linux/netfilter_ipv6/ip6_tables.h
+index f549adc..e1ad013 100644
+--- a/include/linux/netfilter_ipv6/ip6_tables.h
++++ b/include/linux/netfilter_ipv6/ip6_tables.h
+@@ -288,9 +288,15 @@ extern unsigned int ip6t_do_table(struct sk_buff *skb,
+ 
+ /* Check for an extension */
+ extern int ip6t_ext_hdr(u8 nexthdr);
 +enum {
-+	XT_HMARK_SADR_AND = 1,	/* SNAT & DNAT are used by the kernel module */
-+	XT_HMARK_DADR_AND,
-+	XT_HMARK_SPI_AND,
-+	XT_HMARK_SPI_OR,
-+	XT_HMARK_SPORT_AND,
-+	XT_HMARK_DPORT_AND,
-+	XT_HMARK_SPORT_OR,
-+	XT_HMARK_DPORT_OR,
-+	XT_HMARK_PROTO_AND,
-+	XT_HMARK_RND,
-+	XT_HMARK_MODULUS,
-+	XT_HMARK_OFFSET,
-+	XT_HMARK_USE_SNAT,
-+	XT_HMARK_USE_DNAT,
-+	XT_F_HMARK_USE_SNAT = 1 << XT_HMARK_USE_SNAT,
-+	XT_F_HMARK_USE_DNAT = 1 << XT_HMARK_USE_DNAT,
-+	XT_F_HMARK_SADR_AND = 1 << XT_HMARK_SADR_AND,
-+	XT_F_HMARK_DADR_AND = 1 << XT_HMARK_DADR_AND,
-+	XT_F_HMARK_SPI_AND = 1 << XT_HMARK_SPI_AND,
-+	XT_F_HMARK_SPI_OR = 1 << XT_HMARK_SPI_OR,
-+	XT_F_HMARK_SPORT_AND = 1 << XT_HMARK_SPORT_AND,
-+	XT_F_HMARK_DPORT_AND = 1 << XT_HMARK_DPORT_AND,
-+	XT_F_HMARK_SPORT_OR = 1 << XT_HMARK_SPORT_OR,
-+	XT_F_HMARK_DPORT_OR = 1 << XT_HMARK_DPORT_OR,
-+	XT_F_HMARK_PROTO_AND = 1 << XT_HMARK_PROTO_AND,
-+	XT_F_HMARK_RND = 1 << XT_HMARK_RND,
-+	XT_F_HMARK_MODULUS = 1 << XT_HMARK_MODULUS,
-+	XT_F_HMARK_OFFSET = 1 << XT_HMARK_OFFSET,
++	IP6T_FH_FRAG,
++	IP6T_FH_AUTH,
++	IP6T_FH_F_FRAG = 1 << IP6T_FH_FRAG,
++	IP6T_FH_F_AUTH = 1 << IP6T_FH_AUTH,
 +};
+ /* find specified header and get offset to it */
+ extern int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
+-			 int target, unsigned short *fragoff);
++			 int target, unsigned short *fragoff, int *fragflg);
+ 
+ #ifdef CONFIG_COMPAT
+ #include <net/compat.h>
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 94874b0..96a49ba 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -146,7 +146,7 @@ ip6_packet_match(const struct sk_buff *skb,
+ 		int protohdr;
+ 		unsigned short _frag_off;
+ 
+-		protohdr = ipv6_find_hdr(skb, protoff, -1, &_frag_off);
++		protohdr = ipv6_find_hdr(skb, protoff, -1, &_frag_off, NULL);
+ 		if (protohdr < 0) {
+ 			if (_frag_off == 0)
+ 				*hotdrop = true;
+@@ -2302,9 +2302,13 @@ static void __exit ip6_tables_fini(void)
+  * *offset is meaningless and fragment offset is stored in *fragoff if fragoff
+  * isn't NULL.
+  *
++ * if flags != NULL AND
++ *    it's a fragment the frag flag "IP6T_FH_F_FRAG" will be set
++ *    it's an AH header and IP6T_FH_F_AUTH is set and target < 0
++ *      stop at AH (i.e. treat is as a transport header)
+  */
+ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
+-		  int target, unsigned short *fragoff)
++		  int target, unsigned short *fragoff, int *flags)
+ {
+ 	unsigned int start = skb_network_offset(skb) + sizeof(struct ipv6hdr);
+ 	u8 nexthdr = ipv6_hdr(skb)->nexthdr;
+@@ -2329,6 +2333,9 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
+ 		if (nexthdr == NEXTHDR_FRAGMENT) {
+ 			unsigned short _frag_off;
+ 			__be16 *fp;
 +
-+union hports {
-+	struct {
-+		__u16	src;
-+		__u16	dst;
-+	} p16;
-+	__u32	v32;
-+};
-+
-+struct xt_hmark_info {
-+	union nf_inet_addr	smask;		/* Source address mask */
-+	union nf_inet_addr	dmask;		/* Dest address mask */
-+	union hports		pmask;
-+	union hports		pset;
-+	__u32			spimask;
-+	__u32			spiset;
-+	__u16			flags;		/* Print out only */
-+	__u16			prmask;		/* L4 Proto mask */
-+	__u32			hashrnd;
-+	__u32			hmod;		/* Modulus */
-+	__u32			hoffs;		/* Offset */
-+};
-+
-+#endif /* XT_HMARK_H_ */
++			if (flags)	/* Indicate that this is a fragment */
++				*flags |= IP6T_FH_F_FRAG;
+ 			fp = skb_header_pointer(skb,
+ 						start+offsetof(struct frag_hdr,
+ 							       frag_off),
+@@ -2349,9 +2356,11 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
+ 				return -ENOENT;
+ 			}
+ 			hdrlen = 8;
+-		} else if (nexthdr == NEXTHDR_AUTH)
++		} else if (nexthdr == NEXTHDR_AUTH) {
++			if (flags && (*flags & IP6T_FH_F_AUTH) && (target < 0))
++				break;
+ 			hdrlen = (hp->hdrlen + 2) << 2;
+-		else
++		} else
+ 			hdrlen = ipv6_optlen(hp);
+ 
+ 		nexthdr = hp->nexthdr;
+diff --git a/net/ipv6/netfilter/ip6t_ah.c b/net/ipv6/netfilter/ip6t_ah.c
+index 89cccc5..f321c1e 100644
+--- a/net/ipv6/netfilter/ip6t_ah.c
++++ b/net/ipv6/netfilter/ip6t_ah.c
+@@ -45,7 +45,7 @@ static bool ah_mt6(const struct sk_buff *skb, struct xt_action_param *par)
+ 	unsigned int hdrlen = 0;
+ 	int err;
+ 
+-	err = ipv6_find_hdr(skb, &ptr, NEXTHDR_AUTH, NULL);
++	err = ipv6_find_hdr(skb, &ptr, NEXTHDR_AUTH, NULL, NULL);
+ 	if (err < 0) {
+ 		if (err != -ENOENT)
+ 			par->hotdrop = true;
+diff --git a/net/ipv6/netfilter/ip6t_frag.c b/net/ipv6/netfilter/ip6t_frag.c
+index eda898f..7454e60 100644
+--- a/net/ipv6/netfilter/ip6t_frag.c
++++ b/net/ipv6/netfilter/ip6t_frag.c
+@@ -43,7 +43,7 @@ frag_mt6(const struct sk_buff *skb, struct xt_action_param *par)
+ 	unsigned int ptr;
+ 	int err;
+ 
+-	err = ipv6_find_hdr(skb, &ptr, NEXTHDR_FRAGMENT, NULL);
++	err = ipv6_find_hdr(skb, &ptr, NEXTHDR_FRAGMENT, NULL, NULL);
+ 	if (err < 0) {
+ 		if (err != -ENOENT)
+ 			par->hotdrop = true;
+diff --git a/net/ipv6/netfilter/ip6t_hbh.c b/net/ipv6/netfilter/ip6t_hbh.c
+index 59df051..e9329c2 100644
+--- a/net/ipv6/netfilter/ip6t_hbh.c
++++ b/net/ipv6/netfilter/ip6t_hbh.c
+@@ -62,7 +62,7 @@ hbh_mt6(const struct sk_buff *skb, struct xt_action_param *par)
+ 
+ 	err = ipv6_find_hdr(skb, &ptr,
+ 			    (par->match == &hbh_mt6_reg[0]) ?
+-			    NEXTHDR_HOP : NEXTHDR_DEST, NULL);
++			    NEXTHDR_HOP : NEXTHDR_DEST, NULL, NULL);
+ 	if (err < 0) {
+ 		if (err != -ENOENT)
+ 			par->hotdrop = true;
+diff --git a/net/ipv6/netfilter/ip6t_rt.c b/net/ipv6/netfilter/ip6t_rt.c
+index d8488c5..ffa9958 100644
+--- a/net/ipv6/netfilter/ip6t_rt.c
++++ b/net/ipv6/netfilter/ip6t_rt.c
+@@ -49,7 +49,7 @@ static bool rt_mt6(const struct sk_buff *skb, struct xt_action_param *par)
+ 	const struct in6_addr *ap;
+ 	int err;
+ 
+-	err = ipv6_find_hdr(skb, &ptr, NEXTHDR_ROUTING, NULL);
++	err = ipv6_find_hdr(skb, &ptr, NEXTHDR_ROUTING, NULL, NULL);
+ 	if (err < 0) {
+ 		if (err != -ENOENT)
+ 			par->hotdrop = true;
+diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
+index 35a959a..7898b57 100644
+--- a/net/netfilter/xt_TPROXY.c
++++ b/net/netfilter/xt_TPROXY.c
+@@ -285,7 +285,7 @@ tproxy_tg6_v1(struct sk_buff *skb, const struct xt_action_param *par)
+ 	int thoff;
+ 	int tproto;
+ 
+-	tproto = ipv6_find_hdr(skb, &thoff, -1, NULL);
++	tproto = ipv6_find_hdr(skb, &thoff, -1, NULL, NULL);
+ 	if (tproto < 0) {
+ 		pr_debug("unable to find transport header in IPv6 packet, dropping\n");
+ 		return NF_DROP;
+diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
+index 72bb07f..d5c36cc 100644
+--- a/net/netfilter/xt_socket.c
++++ b/net/netfilter/xt_socket.c
+@@ -266,7 +266,7 @@ socket_mt6_v1(const struct sk_buff *skb, struct xt_action_param *par)
+ 	int thoff, tproto;
+ 	const struct xt_socket_mtinfo1 *info = (struct xt_socket_mtinfo1 *) par->matchinfo;
+ 
+-	tproto = ipv6_find_hdr(skb, &thoff, -1, NULL);
++	tproto = ipv6_find_hdr(skb, &thoff, -1, NULL, NULL);
+ 	if (tproto < 0) {
+ 		pr_debug("unable to find transport header in IPv6 packet, dropping\n");
+ 		return NF_DROP;
 -- 
 1.7.2.3
+
