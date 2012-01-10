@@ -1,8 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v2 4/5] NFS: remove RPC PipeFS mount point reference from
- blocklayout routines
-Date: Tue, 10 Jan 2012 17:04:40 +0400
-Message-ID: <20120110130440.1672.43785.stgit@localhost6.localdomain6>
+Subject: [PATCH v2 5/5] SUNRPC: kernel PipeFS mount point creation routines
+ removed
+Date: Tue, 10 Jan 2012 17:04:48 +0400
+Message-ID: <20120110130448.1672.9202.stgit@localhost6.localdomain6>
 References: <20120110130323.1672.97025.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -17,50 +17,72 @@ In-Reply-To: <20120110130323.1672.97025.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a cleanup patch. We don't need this reference anymore, because
-blocklayout pipes dentries now creates and destroys in per-net operations and
-on PipeFS mount/umount notification.
-Note that nfs4blocklayout_register_net() now returns 0 instead of -ENOENT in
-case of PipeFS superblock absence. This is ok, because blocklayout pipe dentry
-will be created on PipeFS mount event.
+This patch removes static rpc_mnt variable and its creation and destruction
+routines, because they are not used anymore.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- fs/nfs/blocklayout/blocklayout.c |    9 +--------
- 1 files changed, 1 insertions(+), 8 deletions(-)
+ include/linux/sunrpc/rpc_pipe_fs.h |    2 --
+ net/sunrpc/rpc_pipe.c              |   21 ---------------------
+ 2 files changed, 0 insertions(+), 23 deletions(-)
 
-diff --git a/fs/nfs/blocklayout/blocklayout.c b/fs/nfs/blocklayout/blocklayout.c
-index 322d920..2c70202 100644
---- a/fs/nfs/blocklayout/blocklayout.c
-+++ b/fs/nfs/blocklayout/blocklayout.c
-@@ -1034,7 +1034,7 @@ static struct dentry *nfs4blocklayout_register_net(struct net *net,
+diff --git a/include/linux/sunrpc/rpc_pipe_fs.h b/include/linux/sunrpc/rpc_pipe_fs.h
+index 7eb0160..a28d2de 100644
+--- a/include/linux/sunrpc/rpc_pipe_fs.h
++++ b/include/linux/sunrpc/rpc_pipe_fs.h
+@@ -90,8 +90,6 @@ void rpc_destroy_pipe_data(struct rpc_pipe *pipe);
+ extern struct dentry *rpc_mkpipe_dentry(struct dentry *, const char *, void *,
+ 					struct rpc_pipe *);
+ extern int rpc_unlink(struct dentry *);
+-extern struct vfsmount *rpc_get_mount(void);
+-extern void rpc_put_mount(void);
+ extern int register_rpc_pipefs(void);
+ extern void unregister_rpc_pipefs(void);
  
- 	pipefs_sb = rpc_get_sb_net(net);
- 	if (!pipefs_sb)
--		return ERR_PTR(-ENOENT);
-+		return 0;
- 	dentry = nfs4blocklayout_register_sb(pipefs_sb, pipe);
- 	rpc_put_sb_net(net);
- 	return dentry;
-@@ -1085,7 +1085,6 @@ static struct pernet_operations nfs4blocklayout_net_ops = {
+diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
+index cd565d7..b53bb3b 100644
+--- a/net/sunrpc/rpc_pipe.c
++++ b/net/sunrpc/rpc_pipe.c
+@@ -18,7 +18,6 @@
+ #include <linux/kernel.h>
  
- static int __init nfs4blocklayout_init(void)
- {
--	struct vfsmount *mnt;
- 	int ret;
+ #include <asm/ioctls.h>
+-#include <linux/fs.h>
+ #include <linux/poll.h>
+ #include <linux/wait.h>
+ #include <linux/seq_file.h>
+@@ -37,9 +36,6 @@
  
- 	dprintk("%s: NFSv4 Block Layout Driver Registering...\n", __func__);
-@@ -1095,12 +1094,6 @@ static int __init nfs4blocklayout_init(void)
- 		goto out;
+ #define NET_NAME(net)	((net == &init_net) ? " (init_net)" : "")
  
- 	init_waitqueue_head(&bl_wq);
+-static struct vfsmount *rpc_mnt __read_mostly;
+-static int rpc_mount_count;
 -
--	mnt = rpc_get_mount();
--	if (IS_ERR(mnt)) {
--		ret = PTR_ERR(mnt);
--		goto out_remove;
--	}
- 	ret = rpc_pipefs_notifier_register(&nfs4blocklayout_block);
- 	if (ret)
- 		goto out_remove;
+ static struct file_system_type rpc_pipe_fs_type;
+ 
+ 
+@@ -450,23 +446,6 @@ struct rpc_filelist {
+ 	umode_t mode;
+ };
+ 
+-struct vfsmount *rpc_get_mount(void)
+-{
+-	int err;
+-
+-	err = simple_pin_fs(&rpc_pipe_fs_type, &rpc_mnt, &rpc_mount_count);
+-	if (err != 0)
+-		return ERR_PTR(err);
+-	return rpc_mnt;
+-}
+-EXPORT_SYMBOL_GPL(rpc_get_mount);
+-
+-void rpc_put_mount(void)
+-{
+-	simple_release_fs(&rpc_mnt, &rpc_mount_count);
+-}
+-EXPORT_SYMBOL_GPL(rpc_put_mount);
+-
+ static int rpc_delete_dentry(const struct dentry *dentry)
+ {
+ 	return 1;
