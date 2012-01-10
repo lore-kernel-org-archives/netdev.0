@@ -1,190 +1,70 @@
-From: wwguy <wey-yi.w.guy@intel.com>
-Subject: Re: [PATCH V2] iwlwifi: add basic runtime PM support
-Date: Tue, 10 Jan 2012 07:41:29 -0800
-Message-ID: <1326210089.25784.30.camel@wwguy-ubuntu>
-References: <4F0BDCFD.7000603@intel.com>
+From: Wolfgang Zarre <info@essax.com>
+Subject: Re: [PATCH net-next v2 2/4] can: cc770: add legacy ISA bus driver
+ for the CC770 and AN82527
+Date: Tue, 10 Jan 2012 17:13:58 +0100
+Message-ID: <4F0C63C6.5080305@essax.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF39@saturn3.aculab.com> <4F0C31F1.20908@essax.com> <4F0C4EA8.7060002@grandegger.com>
+Reply-To: info@essax.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>, ilw@linux.intel.com
-To: "Yan, Zheng" <zheng.z.yan@intel.com>
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	Oliver Hartkopp <socketcan@hartkopp.net>, henrik@proconx.com,
+	netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	socketcan-users@lists.berlios.de, IreneV <boir1@yandex.ru>,
+	Stanislav Yelenskiy <stanislavelensky@yahoo.com>, oe@port.de,
+	henrik@focus-sw.com
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:20245 "EHLO mga01.intel.com"
+Received: from smtp.essax.com ([80.71.48.244]:51291 "EHLO mail.essax.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756250Ab2AJPsm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jan 2012 10:48:42 -0500
-In-Reply-To: <4F0BDCFD.7000603@intel.com>
+	id S1756527Ab2AJQOJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jan 2012 11:14:09 -0500
+In-Reply-To: <4F0C4EA8.7060002@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-01-10 at 14:38 +0800, Yan, Zheng wrote:
-> This simple patch adds open/close based runtime PM support to the iwlwifi driver.
-> Namely, make the driver suspend the device after shutting down the interface and
-> resume the device when activating the interface. In my test, suspending the device
-> can save about 0.4 watt power. The shortcoming is that the device no longer generate
-> rfkill changes interrupt.
-> 
-> Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
-> ---
-> Changes since v1:
-> Add module parameter to enable/disable runtime PM
-> 
->  drivers/net/wireless/iwlwifi/iwl-agn-lib.c |    1 +
->  drivers/net/wireless/iwlwifi/iwl-agn.c     |   21 +++++++++++++++++++--
->  drivers/net/wireless/iwlwifi/iwl-pci.c     |   22 +++++++++++++++++++++-
->  drivers/net/wireless/iwlwifi/iwl-shared.h  |    1 +
->  4 files changed, 42 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
-> index 1a52ed2..b9ac097 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
-> +++ b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
-> @@ -164,6 +164,7 @@ struct iwl_mod_params iwlagn_mod_params = {
->  	.bt_ch_announce = true,
->  	.wanted_ucode_alternative = 1,
->  	.auto_agg = true,
-> +	.runtime_pm = false,
-no need if it is "false"
+Hello Wolfgang,
 
->  	/* the rest are 0 by default */
->  };
->  
-> diff --git a/drivers/net/wireless/iwlwifi/iwl-agn.c b/drivers/net/wireless/iwlwifi/iwl-agn.c
-> index e0e9a3d..2d1f890a 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl-agn.c
-> +++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
-> @@ -38,6 +38,7 @@
->  #include <linux/firmware.h>
->  #include <linux/etherdevice.h>
->  #include <linux/if_arp.h>
-> +#include <linux/pm_runtime.h>
->  
->  #include <net/mac80211.h>
->  
-> @@ -1755,6 +1756,8 @@ static int iwlagn_mac_start(struct ieee80211_hw *hw)
->  	struct iwl_priv *priv = hw->priv;
->  	int ret;
->  
-> +	pm_runtime_get_sync(bus(priv)->dev);
-> +
->  	IWL_DEBUG_MAC80211(priv, "enter\n");
->  
->  	/* we should be verifying the device is ready to be opened */
-> @@ -1762,7 +1765,7 @@ static int iwlagn_mac_start(struct ieee80211_hw *hw)
->  	ret = __iwl_up(priv);
->  	mutex_unlock(&priv->shrd->mutex);
->  	if (ret)
-> -		return ret;
-> +		goto out;
->  
->  	IWL_DEBUG_INFO(priv, "Start UP work done.\n");
->  
-> @@ -1774,7 +1777,10 @@ static int iwlagn_mac_start(struct ieee80211_hw *hw)
->  
->  	priv->is_open = 1;
->  	IWL_DEBUG_MAC80211(priv, "leave\n");
-> -	return 0;
-> +	ret = 0;
-> +out:
-> +	pm_runtime_put(bus(priv)->dev);
-> +	return ret;
->  }
->  
->  static void iwlagn_mac_stop(struct ieee80211_hw *hw)
-> @@ -1786,6 +1792,8 @@ static void iwlagn_mac_stop(struct ieee80211_hw *hw)
->  	if (!priv->is_open)
->  		return;
->  
-> +	pm_runtime_get_sync(bus(priv)->dev);
-> +
->  	priv->is_open = 0;
->  
->  	iwl_down(priv);
-> @@ -1798,6 +1806,8 @@ static void iwlagn_mac_stop(struct ieee80211_hw *hw)
->  	iwl_enable_rfkill_int(priv);
->  
->  	IWL_DEBUG_MAC80211(priv, "leave\n");
-> +
-> +	pm_runtime_put(bus(priv)->dev);
->  }
->  
->  #ifdef CONFIG_PM_SLEEP
-> @@ -3557,3 +3567,10 @@ module_param_named(no_sleep_autoadjust, iwlagn_mod_params.no_sleep_autoadjust,
->  MODULE_PARM_DESC(no_sleep_autoadjust,
->  		 "don't automatically adjust sleep level "
->  		 "according to maximum network latency (default: true)");
-> +
-> +module_param_named(runtime_pm, iwlagn_mod_params.runtime_pm, bool, S_IRUGO);
-> +MODULE_PARM_DESC(runtime_pm,
-> +		 "enable open/close based runtime power management, this "
-> +		 "feature can make HW rfkill unusable (default: disabled)");
-> +
-> +
-> diff --git a/drivers/net/wireless/iwlwifi/iwl-pci.c b/drivers/net/wireless/iwlwifi/iwl-pci.c
-> index 1800029..541f3e6 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl-pci.c
-> +++ b/drivers/net/wireless/iwlwifi/iwl-pci.c
-> @@ -63,6 +63,7 @@
->  #include <linux/module.h>
->  #include <linux/pci.h>
->  #include <linux/pci-aspm.h>
-> +#include <linux/pm_runtime.h>
->  
->  #include "iwl-bus.h"
->  #include "iwl-io.h"
-> @@ -465,6 +466,8 @@ static int iwl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
->  	err = iwl_probe(bus, &trans_ops_pcie, cfg);
->  	if (err)
->  		goto out_disable_msi;
-> +
-> +	pm_runtime_put_noidle(&pdev->dev);
->  	return 0;
->  
->  out_disable_msi:
-> @@ -487,6 +490,8 @@ static void __devexit iwl_pci_remove(struct pci_dev *pdev)
->  	struct pci_dev *pci_dev = IWL_BUS_GET_PCI_DEV(bus);
->  	struct iwl_shared *shrd = bus->shrd;
->  
-> +	pm_runtime_get_noresume(&pdev->dev);
-> +
->  	iwl_remove(shrd->priv);
->  
->  	pci_disable_msi(pci_dev);
-> @@ -534,7 +539,22 @@ static int iwl_pci_resume(struct device *device)
->  	return iwl_trans_resume(shrd->trans);
->  }
->  
-> -static SIMPLE_DEV_PM_OPS(iwl_dev_pm_ops, iwl_pci_suspend, iwl_pci_resume);
-> +
-> +static int iwl_pci_runtime_idle(struct device *dev)
-> +{
-> +	struct pci_dev *pdev = to_pci_dev(dev);
-> +	struct iwl_bus *bus = pci_get_drvdata(pdev);
-> +	struct iwl_shared *shrd = bus->shrd;
-> +
-> +	if (iwlagn_mod_params.runtime_pm &&
-> +	    !test_bit(STATUS_ALIVE, &shrd->status))
-> +		return 0;
-checking for "Runtiem PM parameter enabled" and "uCode not loaded"? 
-> +
-> +	return -EBUSY;
-> +}
-> +
-> +static UNIVERSAL_DEV_PM_OPS(iwl_dev_pm_ops, iwl_pci_suspend,
-> +			iwl_pci_resume, iwl_pci_runtime_idle);
->  
->  #define IWL_PM_OPS	(&iwl_dev_pm_ops)
->  
-> diff --git a/drivers/net/wireless/iwlwifi/iwl-shared.h b/drivers/net/wireless/iwlwifi/iwl-shared.h
-> index 14eaf37..a570e0d 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl-shared.h
-> +++ b/drivers/net/wireless/iwlwifi/iwl-shared.h
-> @@ -152,6 +152,7 @@ struct iwl_mod_params {
->  	bool bt_ch_announce;
->  	int wanted_ucode_alternative;
->  	bool auto_agg;
-> +	bool runtime_pm;
->  };
->  
->  /**
+> On 01/10/2012 01:41 PM, Wolfgang Zarre wrote:
+>> Hello David,
+>>>
+>>>> cc770_isa_port_write_reg_indirect(const struct cc770_priv *priv,
+>>>>                             int reg, u8 val)
+>>>>     {
+>>>>         unsigned long base = (unsigned long)priv->reg_base;
+>>>> +    unsigned long flags;
+>>>>
+>>>> +    spin_lock_irqsave(&outb_lock, flags);
+>>>>         outb(reg, base);
+>>>>         outb(val, base + 1);
+>>>> +    spin_unlock_irqrestore(&outb_lock, flags);
+>>>
+>>> Is there a 'read_reg_indirect' function??
+>>
+>> Yes, there is.
+>>
+>>> If so it also needs to use the same mutex.
+>>
+>> Actually, I don't think that we have a problem with mutex
+>> beside that it's using just one inb() statement but having
+>> for sure with an interrupt between both outb() statements which
+>> seems to be critical for the cc770.
+>
+> But the indirect read function also sets the address register before
+> reading the data using inb(). This sequence should also not be
+> interrupted and therefore we need to synchronize. For the indirect
+> access of the SJA1000 we also need to add spinlocks. Wonder why nobody
+> complained so far.
+
+So, if I understand correct that means that inb() can be interrupted between
+setting the address and reading. If this is the case then yes, we need
+spinlock if this is not the case then IMHO we wouldn't need or am I wrong?
+
+
+
+>
+> Wolfgang.
+>
+
+Wolfgang
