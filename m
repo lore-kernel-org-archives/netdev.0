@@ -1,41 +1,41 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH] drivers: isdn: Fix dependency for ISDN_PPP
-Date: Tue, 10 Jan 2012 09:54:23 -0200
-Message-ID: <1326196463-8727-1-git-send-email-festevam@gmail.com>
-Cc: isdn@linux-pingi.de, Fabio Estevam <festevam@gmail.com>,
-	Fabio Estevam <fabio.estevam@freescale.com>
+From: Stefan Roese <sr@denx.de>
+Subject: [PATCH] stmmac: Fix compilation error in mmc_core.c
+Date: Tue, 10 Jan 2012 12:47:40 +0100
+Message-ID: <1326196060-10283-1-git-send-email-sr@denx.de>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:42938 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755735Ab2AJLyf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2012 06:54:35 -0500
-Received: by yenm10 with SMTP id m10so669300yen.19
-        for <netdev@vger.kernel.org>; Tue, 10 Jan 2012 03:54:34 -0800 (PST)
+Received: from mo-p05-ob.rzone.de ([81.169.146.181]:21608 "EHLO
+	mo-p05-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755792Ab2AJL6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2012 06:58:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the following build warning:
+Fix this error:
 
-warning: (ISDN_PPP) selects SLHC which has unmet direct dependencies (NETDEVICES)
+  CC      drivers/net/ethernet/stmicro/stmmac/mmc_core.o
+drivers/net/ethernet/stmicro/stmmac/mmc_core.c: In function 'dwmac_mmc_ctrl':
+drivers/net/ethernet/stmicro/stmmac/mmc_core.c:143:2: error: implicit
+  declaration of function 'pr_debug' [-Werror=implicit-function-declaration]
 
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+Signed-off-by: Stefan Roese <sr@denx.de>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/isdn/i4l/Kconfig |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/mmc_core.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/isdn/i4l/Kconfig b/drivers/isdn/i4l/Kconfig
-index 9c6650e..2302fbe 100644
---- a/drivers/isdn/i4l/Kconfig
-+++ b/drivers/isdn/i4l/Kconfig
-@@ -6,7 +6,7 @@ if ISDN_I4L
+diff --git a/drivers/net/ethernet/stmicro/stmmac/mmc_core.c b/drivers/net/ethernet/stmicro/stmmac/mmc_core.c
+index 41e6b33..c07cfe9 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/mmc_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/mmc_core.c
+@@ -22,6 +22,7 @@
+   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+ *******************************************************************************/
  
- config ISDN_PPP
- 	bool "Support synchronous PPP"
--	depends on INET
-+	depends on INET && NETDEVICES
- 	select SLHC
- 	help
- 	  Over digital connections such as ISDN, there is no need to
++#include <linux/kernel.h>
+ #include <linux/io.h>
+ #include "mmc.h"
+ 
 -- 
-1.7.1
+1.7.8.3
