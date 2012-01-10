@@ -1,69 +1,36 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: Intel ixgbe: uninitialized variable use in
- ixgbe_non_sfp_link_config()
-Date: Tue, 10 Jan 2012 00:24:23 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF2228664602839B@ORSMSX102.amr.corp.intel.com>
-References: <alpine.LNX.2.00.1201082215310.24030@swampdragon.chaosbits.net>
- <1326085648.2641.9.camel@jtkirshe-mobl>
+From: Dongsoo Nathaniel Kim <dongsoo.kim@gmail.com>
+Subject: Mainline kernel has problem with broadcom firmware
+Date: Tue, 10 Jan 2012 10:12:47 +0900
+Message-ID: <CAP+Vy9f0wMXebtfMWBXdC24cQR1d-2i6YZxfjK8JyOpVGgKvrQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Jesper Juhl <jj@chaosbits.net>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:16532 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933521Ab2AJAYZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jan 2012 19:24:25 -0500
-In-Reply-To: <1326085648.2641.9.camel@jtkirshe-mobl>
-Content-Language: en-US
+Received: from mail-tul01m020-f174.google.com ([209.85.214.174]:51883 "EHLO
+	mail-tul01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932132Ab2AJBNJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2012 20:13:09 -0500
+Received: by obcwo16 with SMTP id wo16so4890475obc.19
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2012 17:13:08 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IEtpcnNoZXIsIEplZmZyZXkg
-VA0KPlNlbnQ6IFN1bmRheSwgSmFudWFyeSAwOCwgMjAxMiA5OjA3IFBNDQo+VG86IEplc3BlciBK
-dWhsOyBTa2lkbW9yZSwgRG9uYWxkIEMNCj5DYzogZTEwMDAtZGV2ZWwgTWFpbGluZyBMaXN0OyBE
-YXZpZCBTLiBNaWxsZXI7IEJyYW5kZWJ1cmcsIEplc3NlOyBuZXRkZXYNCj5TdWJqZWN0OiBSZTog
-SW50ZWwgaXhnYmU6IHVuaW5pdGlhbGl6ZWQgdmFyaWFibGUgdXNlIGluDQo+aXhnYmVfbm9uX3Nm
-cF9saW5rX2NvbmZpZygpDQo+DQo+T24gU3VuLCAyMDEyLTAxLTA4IGF0IDIyOjIxICswMTAwLCBK
-ZXNwZXIgSnVobCB3cm90ZToNCj4+IEhpDQo+Pg0KPj4gSW4gaXhnYmVfbm9uX3NmcF9saW5rX2Nv
-bmZpZygpLCB0aGUgdmFyaWFibGUgJ25lZ290aWF0aW9uJyBpcyBkZWNsYXJlZA0KPj4gd2l0aG91
-dCBpbml0aWFsaXplciBhbmQgdW5sZXNzIHdlIHRha2UgdGhlIHRydWUgYnJhbmNoIGluIHRoZSAn
-aWYNCj4+ICgoIWF1dG9uZWcpICYmIChody0+bWFjLm9wcy5nZXRfbGlua19jYXBhYmlsaXRpZXMp
-KScgc3RhdGVtZW50IGl0IHdpbGwNCj4+IHJlbWFpbiB1bmluaXRpYWxpemVkIHdoZW4gaXQgaXMg
-c3Vic2VxdWVudGx5IHJlYWQgaW4gdGhlICdyZXQgPQ0KPj4gaHctPm1hYy5vcHMuc2V0dXBfbGlu
-ayhodywgYXV0b25lZywgbmVnb3RpYXRpb24sIGxpbmtfdXApJyBzdGF0ZW1lbnQuDQo+Pg0KPj4g
-VGhlIHRlc3Qgb2YgJ3JldCcgYWZ0ZXIgdGhlICdpZiAoKCFhdXRvbmVnKSAmJg0KPj4gKGh3LT5t
-YWMub3BzLmdldF9saW5rX2NhcGFiaWxpdGllcykpJyBzdGF0ZW1lbnQgYWxzbyBsb29rcyBmYWly
-bHkNCj4+IHBvaW50bGVzcyBpZiB3ZSBkbyBub3QgdGFrZSB0aGUgdHJ1ZSBicmFuY2gsIHNpbmNl
-IHRoZW4gJ3JldCcgd2lsbCBub3QNCj4+IGhhdmUgYmVlbiBjaGFuZ2VkIHNpbmNlIHRoZSBwcmV2
-aW91cyBpZGVudGljYWwgdGVzdC4NCj4+DQo+PiBUaGUgY29ycmVjdCBmaXggZXNjYXBlcyBtZSBz
-aW5jZSBJIGRvbid0IHJlYWxseSBrbm93IHRoaXMgY29kZSAoYW5kDQo+ZG9uJ3QNCj4+IHBsYW4g
-dG8gc3BlbmQgdGhlIHRpbWUgdG8gZ2V0IHRvIGtub3cgaXQpLCBidXQgSSB0aG91Z2h0IEknZCBq
-dXN0DQo+cmVwb3J0DQo+PiB3aGF0IEkgaGFkIG5vdGljZWQgYW5kIHRoZW4gc29tZW9uZSBlbHNl
-IGNhbiBob3BlZnVsbHkgY29tZSB1cCB3aXRoIGENCj5nb29kDQo+PiBmaXggOi0pDQo+Pg0KPj4N
-Cj4+IFBTLiBQbGVhc2UgQ0MgbWUgb24gcmVwbGllcy4NCj4+DQo+DQo+QWRkaW5nIG5ldGRldiBt
-YWlsaW5nIGxpc3QgYW5kIERvbiBTa2lkbW9yZSAoaXhnYmUgbWFpbnRhaW5lcikNCj5SZW1vdmVk
-IEJydWNlIEFsbGFuIChlMTAwMGUgbWFpbnRhaW5lcikNCj4NCj5JIHNlZSB0aGUgcG90ZW50aWFs
-IGlzc3VlIHlvdSBhcmUgcmVmZXJyaW5nIHRvLCBJIHdpbGwgZGVmZXIgdG8gRG9uIHRvDQo+ZWl0
-aGVyIGV4cGxhaW4gdGhlIHJlYXNvbmluZyBpbiB0aGUgbG9naWMgb3Igc3VnZ2VzdCBhIGZpeC4N
-Cg0KDQpUaGFua3MgZm9yIGJyaW5naW5nIHRoaXMgdXAgSmFzcGVyLg0KDQpJJ3ZlIGFjdHVhbGx5
-IG5vdGljZWQgdGhpcyBiZWZvcmUgYW5kIGhhdmUgaXQgb24gbXkgbGlzdCBvZiB0aGluZ3MgdGhh
-dCBuZWVkIHJlZmFjdG9yaW5nLiAgSSdsbCB0cnkgdG8gZ2V0IHRvIGl0IG11Y2ggc29vbmVyIG5v
-dy4gOikNCg0KVGhlIGdvb2QgbmV3cyBpcyB0aGF0IGhpcyBkb2Vzbid0IGFjdHVhbGx5IGNhdXNl
-IGEgcHJvYmxlbS4gIFNpbmNlIGFsbCB0aGUgcG9zc2libGUgZnVuY3Rpb25zIHRoYXQgdGhlIHNl
-dHVwX2xpbmsgcG9pbnRlciBwb2ludHMgdG8gZG9uJ3QgYWN0dWFsbHkgdXNlIHRoZSAnbmVnb3Rp
-YXRpb24nIHZhcmlhYmxlIHVudGlsIGl0IGhhcyBiZWVuIGluaXRpYWxpemVkIGluIHRoZSBzYW1l
-IHNhaWQgZnVuY3Rpb24uICBUaGlzIGRvZXMgYmVncyB0aGUgcXVlc3Rpb24gIndoeSBkbyB3ZSBl
-dmVuIHBhc3MgaXQgaW4gdGhlbiIsIHdlbGwgdGhlIHNob3J0IGFuc3dlciBpcyB3ZSBzaG91bGRu
-J3QuICBJIHBsYW4gb24gcmVmYWN0b3JpbmcgdGhlIGNvZGUgdG8gcmVtb3ZlIGl0LiAgVGhlIG9u
-bHkgcmVhc29uIEkgaGF2ZW4ndCBkb25lIGl0IHlldCBpcyB3ZSBoYXZlIG90aGVyIGRyaXZlcnMg
-dGhhdCB1c2UgdGhpcyBzYW1lIGNvZGUgd2hpY2ggbWFrZXMgdGhlIGNoYW5nZSBhIGJpdCBtb3Jl
-IGNvbXBsaWNhdGVkIGNvb3JkaW5hdGluZyB0aGUgZWZmb3J0LiAgDQoNCkknbGwgYWxzbyBmaXgg
-dGhlIHJlZHVuZGFudCBjb25kaXRpb25hbCBhcm91bmQgdGhlIGdvdG8gd2hpbGUgSSdtIGF0IGl0
-Lg0KDQpUaGFua3MgYWdhaW4sDQotRG9uIFNraWRtb3JlIDxkb25hbGQuYy5za2lkbW9yZUBpbnRl
-bC5jb20+DQo=
+Hello folks,
+After updating my kernel to 3.2 vanilla, I experienced a weird problem
+with my broadcom ethernet card.
+It seems to have some problem with firmware which is not placed in
+kernel firmware directory.
+When will it the correct firmware be available in the mainline?
+bnx2-mips-09-6.2.1b.fw <= I mean this one.
+I hacked bnx2 driver to use bnx2-mips-09-6.2.1a.fw and ethernet is
+working, but we really need bnx2-mips-09-6.2.1b.fw, don't we?
+Cheers,
+
+Nate
+
+--
+=
+Dongsoo Nathaniel Kim
+Linux kernel, media device S/W engineer / Ph.D Student
+Dept. of Computer Science, KAIST
+Real-time & Embedded Systems Lab.
