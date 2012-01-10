@@ -1,90 +1,48 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [PATCH 01/11] SYSCTL: export root and set handling routines
-Date: Tue, 10 Jan 2012 14:39:36 -0800
-Message-ID: <m1ehv76v2v.fsf@fess.ebiederm.org>
-References: <20111214103602.3991.20990.stgit@localhost6.localdomain6>
-	<20111214104449.3991.61989.stgit@localhost6.localdomain6>
-	<m1bor6rg39.fsf@fess.ebiederm.org> <4EEEFC54.10700@parallels.com>
-	<m18vm8g951.fsf@fess.ebiederm.org> <4EEF2C9A.8000403@parallels.com>
-	<m1pqfkecw0.fsf@fess.ebiederm.org> <4EEF7364.8000407@parallels.com>
-	<m1vcotigyb.fsf@fess.ebiederm.org> <4F0C150F.1020007@parallels.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] asix: fix setting custom MAC address on Asix 88178
+ devices
+Date: Tue, 10 Jan 2012 15:00:51 -0800 (PST)
+Message-ID: <20120110.150051.1786115333097978498.davem@davemloft.net>
+References: <20120110164017.24658.9965.stgit@localhost6.localdomain6>
+	<20120110164023.24658.76719.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust\@netapp.com" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"linux-nfs\@vger.kernel.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"neilb\@suse.de" <neilb-l3A5Bk7waGM@public.gmane.org>,
-	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	James Bottomley <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"bfields\@fieldses.org" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"davem\@davemloft.net" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"devel\@openvz.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4F0C150F.1020007-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> (Stanislav Kinsbursky's message
-	of "Tue, 10 Jan 2012 14:38:07 +0400")
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, grundler@chromium.org, allan@asix.com.tw
+To: jussi.kivilinna@mbnet.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:47015 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933887Ab2AJXBE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2012 18:01:04 -0500
+In-Reply-To: <20120110164023.24658.76719.stgit@localhost6.localdomain6>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> writes:
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Date: Tue, 10 Jan 2012 18:40:23 +0200
 
-> 03.01.2012 07:49, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->> Stanislav Kinsbursky<skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>  writes:
->>
->>> 19.12.2011 20:37, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>>> Stanislav Kinsbursky<skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>   writes:
->>>>
->>>> Doing that independently of the rest of the sysctls is pretty horr=
-ible
->>>> and confusing to users.   What I am planning might suit your needs=
- and
->>>> if not we need to talk some more about how to get the vfs to do
->>>> something reasonable.
->>>>
->>>
->>> Ok, Eric. Would be glad to discuss your sysctls plans.
->>> But actually you already know my needs: I would like to make sysctl=
-s work in the
->>> way like sysfs does: i.e. content of files depends on mount maker -
->>> not viewer.
->>
->> What drives the desire to have sysctls depend on the mount maker?
->
-> Because we can (will, actually) have nested fs root's for containers.=
- IOW,
-> container's root will be accessible from it's creator context. And I =
-want to
-> tune container's fs from creators context.
+> (Note: only compile tested, I don't have 88178 device to confirm that this
+> patch works. Please, test.)
+> 
+> ---
+> 
+> In kernel v3.2 initialization sequence for Asix 88178 devices was changed so
+> that hardware is reseted on every time interface is brought up (ifconfig up),
+> instead just at USB probe time. This causes problem with setting custom MAC
+> address to device as ax88178_reset causes reload of MAC address from EEPROM.
+> 
+> This patch fixes the issue by rewriting MAC address at end of ax88178_reset.
+> 
+> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+> Cc: Grant Grundler <grundler@chromium.org>
+> Cc: Allan Chou <allan@asix.com.tw>
+> Cc: stable <stable@vger.kernel.org>
+> ---
 
-Tuning the child context from the parent context is an entirely
-reasonable thing to do.  To affect a namespace that is not yours
-the requirement is simply that we don't use current to lookup the
-sysctl.  So what I am proposing should work for your case.
+Please do not format your commit messages like this, everything after
+that first "---" will be stripped away.  So in this case if I applied
+this email into GIT as-is we'd lose the actual commit message and
+only have your "(Note: " thing.
 
->> Especially what drives that desire not to have it have a /proc/<pid>=
-/sys
->> directory that reflects the sysctls for a given process.
->>
->
-> This is not so important for me, where to access sysctl's. But I'm wo=
-rrying
-> about backward compatibility. IOW, I'm afraid of changing path
-> "/proc/sys/sunprc/*" to "/proc/<pid>/sys/sunrpc". This would break a =
-lot of
-> user-space programs.
-
-The part that keeps it all working is by adding a symlink from /proc/sy=
-s
-to /proc/self/sys.  That technique has worked well for /proc/net, and I
-don't expect there will be any problems with /proc/sys either.  It is
-possible but is very rare for the introduction of a symlink in a path
-to cause problems.
-
-Eric
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I fixed this up and applied it with Grant's ACK.
