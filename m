@@ -1,25 +1,84 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH 09/21] mv643xx-eth: use an unique MDIO bus name.
-Date: Tue, 10 Jan 2012 11:02:52 +0100
-Message-ID: <20120110100252.GX1107@wantstofly.org>
-References: <1326189567-21663-1-git-send-email-florian@openwrt.org>
- <1326189567-21663-10-git-send-email-florian@openwrt.org>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH 6/6] NFS: idmap PipeFS notifier introduced
+Date: Tue, 10 Jan 2012 14:27:17 +0400
+Message-ID: <4F0C1285.10002@parallels.com>
+References: <20111128132805.4251.15252.stgit@localhost6.localdomain6>	 <20111128133410.4251.656.stgit@localhost6.localdomain6> <1325285643.10984.3.camel@lade.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wantstofly.org ([80.101.37.227]:57492 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756297Ab2AJKMl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2012 05:12:41 -0500
-Content-Disposition: inline
-In-Reply-To: <1326189567-21663-10-git-send-email-florian@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: Trond Myklebust <Trond.Myklebust@netapp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1325285643.10984.3.camel@lade.trondhjem.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 10, 2012 at 10:59:15AM +0100, Florian Fainelli wrote:
+31.12.2011 02:54, Trond Myklebust =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Mon, 2011-11-28 at 17:34 +0300, Stanislav Kinsbursky wrote:
+>> This patch subscribes NFS clients to RPC pipefs notifications. Idmap=
+ notifier
+>> is registering on NFS module load. This notifier callback is respons=
+ible for
+>> creation/destruction of PipeFS idmap pipe dentry for NFS4 clients.
+>>
+>> Since ipdmap pipe is created in rpc client pipefs directory, we have=
+ make sure,
+>> that this directory has been created already. IOW RPC client notifie=
+r callback
+>> has been called already. To achive this, PipeFS notifier priorities =
+has been
+>> introduced (RPC clients notifier priority is greater than NFS idmap =
+one).
+>> But this approach gives another problem: unlink for RPC client direc=
+tory will
+>> be called before NFS idmap pipe unlink on UMOUNT event and will fail=
+, because
+>> directory is not empty.
+>> The solution, introduced in this patch, is to try to remove client d=
+irectory
+>> once again after idmap pipe was unlinked. This looks like ugly hack,=
+ so
+>> probably it should be replaced in some more elegant way.
+>>
+>> Note that no locking required in notifier callback because PipeFS su=
+perblock
+>> pointer is passed as an argument from it's creation or destruction r=
+outine and
+>> thus we can be sure about it's validity.
+>>
+>> Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
+>
+> This patch gives me:
+>
+> Kernel: arch/x86/boot/bzImage is ready  (#3)
+>    Building modules, stage 2.
+>    MODPOST 921 modules
+> ERROR: "nfs_idmap_init" [fs/nfs/nfs.ko] undefined!
+> ERROR: "nfs_idmap_quit" [fs/nfs/nfs.ko] undefined!
+> make[2]: *** [__modpost] Error 1
+> make[1]: *** [modules] Error 2
+> make: *** [sub-make] Error 2
+>
+> if CONFIG_NFS_V4 is not defined.
+>
 
-> Signed-off-by: Florian Fainelli <florian@openwrt.org>
+Sorry.
+Will resend soon.
 
-Acked-by: Lennert Buytenhek <buytenh@wantstofly.org>
+> Cheers
+>    Trond
+>
+
+
+--=20
+Best regards,
+Stanislav Kinsbursky
