@@ -1,388 +1,186 @@
-From: "ASIX Allan Email [office]" <allan@asix.com.tw>
-Subject: RE: asix, setting MAC broken in v3.2. Bisected to "NET: fix phy init for AX88772 USB ethernet".
-Date: Tue, 10 Jan 2012 13:27:39 +0800
-Message-ID: <002801cccf58$92fe41f0$b8fac5d0$@com.tw>
-References: <20120106131051.92814bd4b7x0nmqs@www.81.fi> <CANEJEGvXST4YzDL4kuF=kjZBN=ng-bC5UptCU2zk6JUmhpVjmg@mail.gmail.com> <20120108171802.287811bpiixnymys@www.81.fi> <002001ccce1a$3c5337a0$b4f9a6e0$@com.tw> <20120109125324.14414ynmnofsl5gc@www.81.fi>
+From: "Yan, Zheng" <zheng.z.yan@intel.com>
+Subject: [PATCH V2] iwlwifi: add basic runtime PM support
+Date: Tue, 10 Jan 2012 14:38:53 +0800
+Message-ID: <4F0BDCFD.7000603@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, "'Freddy Xin'" <freddy@asix.com.tw>,
-	"'Olof Johansson'" <olofj@chromium.org>,
-	"'David S. Miller'" <davem@davemloft.net>,
-	"'David Hollis'" <dhollis@davehollis.com>,
-	=?UTF-8?B?QVNJWCBMb3VpcyBb6JiH5aiB6Zm4XQ==?= <louis@asix.com.tw>
-To: "'Jussi Kivilinna'" <jussi.kivilinna@mbnet.fi>,
-	"'Grant Grundler'" <grundler@chromium.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: wey-yi.w.guy@intel.com, Johannes Berg <johannes@sipsolutions.net>,
+	ilw@linux.intel.com
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from asix.com.tw ([113.196.140.82]:63484 "EHLO asix.com.tw"
+Received: from mga11.intel.com ([192.55.52.93]:65230 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751017Ab2AJF1n convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2012 00:27:43 -0500
-In-Reply-To: 
-Content-Language: zh-tw
+	id S1752797Ab2AJGiz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jan 2012 01:38:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Jussi and Grant,
+This simple patch adds open/close based runtime PM support to the iwlwifi driver.
+Namely, make the driver suspend the device after shutting down the interface and
+resume the device when activating the interface. In my test, suspending the device
+can save about 0.4 watt power. The shortcoming is that the device no longer generate
+rfkill changes interrupt.
 
-Your driver patch should be OK, but you should also need to add the sim=
-ilar driver patch in the ax88178_reset() routine. =20
-
-This issue was caused by the reload EEPROM operation in the ax88772_res=
-et() (and ax88178_reset()) routine that will overwrite the Node ID regi=
-ster setting by using the MAC address setting from EEPROM. So you need =
-to re-write the user defined MAC address after reloading the EEPROM in =
-your test case.=20
-
-You can submit the driver patches onto Linux kernel mainline source if =
-you don't have other concerns. If you need us to submit it from our sit=
-e, please feel free to let us know. Thanks a lot in advance.
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-<<< Plugged in AX88772 dongle here >>>
-[ 1395.199892] asix 1-1:1.0: eth0: register 'asix' at usb-0000:02:03.0-=
-1, ASIX AX88772 USB 2.0 Ethernet, 00:0e:c6:87:72:02
-[ 1395.199949] usbcore: registered new interface driver asix
-[ 1395.464389] udev: renamed network interface eth0 to eth11
-[ 1395.469491] ax88772_reset: #10 Node ID Register MAC address =3D 00 0=
-e c6 87 72 02
-[ 1395.489812] ax88772_reset: #11 Node ID Register MAC address =3D 00 0=
-e c6 87 72 02
-[ 1395.491980] ax88772_reset: #12 Node ID Register MAC address =3D 00 0=
-e c6 87 72 02
-[ 1395.652582] ax88772_reset: #13 Node ID Register MAC address =3D 00 0=
-e c6 87 72 02
-[ 1395.812136] ax88772_reset: #14 Node ID Register MAC address =3D 00 0=
-e c6 87 72 02
-[ 1395.971982] ax88772_reset: #15 Node ID Register MAC address =3D 00 0=
-e c6 87 72 02
-[ 1396.330473] ax88772_reset: #1 Node ID Register MAC address =3D 00 0e=
- c6 87 72 02
-[ 1396.332009] ax88772_reset: EEPROM MAC address =3D 00 0e c6 87 72 02
-[ 1396.333638] ax88772_reset: #1 Node ID Register MAC address =3D 00 0e=
- c6 87 72 02
-[ 1396.339841] ADDRCONF(NETDEV_UP): eth11: link is not ready
-[ 1398.399696] ADDRCONF(NETDEV_CHANGE): eth11: link becomes ready
-[ 1398.432009] asix 1-1:1.0: eth11: link up, 100Mbps, full-duplex, lpa =
-0xC1E1
-[ 1408.864780] eth11: no IPv6 routers present
-
-<<< Run "ifconfig eth11 down" command here >>>
-<<< Run "ifconfig eth11 hw ether 02:12:34:56:78:9a" command here >>>
-[ 1447.816565] asix_set_mac_address: Beginning.....
-[ 1448.620602] asix_set_mac_address: #1 Node ID Register MAC address =3D=
- 00 0e c6 87 72 02
-[ 1448.620617] asix_set_mac_address: EEPROM MAC address =3D 02 12 34 56=
- 78 9a
-[ 1448.625896] asix_set_mac_address: #2 Node ID Register MAC address =3D=
- 02 12 34 56 78 9a
-[ 1448.625904] asix_set_mac_address: end.....
-
-<<< Run "ifconfig eth11 up" command here >>>
-[ 1452.661275] ax88772_reset: #10 Node ID Register MAC address =3D 02 1=
-2 34 56 78 9a
-
-<<< Run "ret =3D asix_write_gpio(dev, AX_GPIO_RSE | AX_GPIO_GPO_2 | AX_=
-GPIO_GPO2EN, 5);" statement in ax88772_reset() routine to reload EEPROM=
- here (it will overwrite the Node ID register value by using the MAC ad=
-dress setting from EEPROM >>>=20
-
-Or <<< Run " asix_write_gpio(dev, AX_GPIO_RSE | AX_GPIO_GPO_1 | AX_GPIO=
-_GPO1EN, 40); " statement in ax88178_reset() routine to reload EEPROM h=
-ere (it will overwrite the Node ID register value by using the MAC addr=
-ess setting from EEPROM >>>
-
-[ 1452.678162] ax88772_reset: #11 Node ID Register MAC address =3D 00 0=
-e c6 87 72 02
-[ 1452.683305] ax88772_reset: #12 Node ID Register MAC address =3D 00 0=
-e c6 87 72 02
-[ 1452.843391] ax88772_reset: #13 Node ID Register MAC address =3D 00 0=
-e c6 87 72 02
-[ 1453.002635] ax88772_reset: #14 Node ID Register MAC address =3D 00 0=
-e c6 87 72 02
-[ 1453.163264] ax88772_reset: #15 Node ID Register MAC address =3D 00 0=
-e c6 87 72 02
-[ 1453.527994] ax88772_reset: #1 Node ID Register MAC address =3D 00 0e=
- c6 87 72 02
-[ 1453.530656] ax88772_reset: EEPROM MAC address =3D 02 12 34 56 78 9a
-[ 1453.533076] ax88772_reset: #1 Node ID Register MAC address =3D 02 12=
- 34 56 78 9a
-[ 1455.428494] asix 1-1:1.0: eth11: link up, 100Mbps, full-duplex, lpa =
-0xC1E1
-[ 1463.953124] eth11: no IPv6 routers present
-
-
+Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
 ---
-Best regards,
-Allan Chou
-Technical Support Division
-ASIX Electronics Corporation
-TEL: 886-3-5799500 ext.228
-=46AX: 886-3-5799558
-E-mail: allan@asix.com.tw=20
-http://www.asix.com.tw/=20
+Changes since v1:
+Add module parameter to enable/disable runtime PM
 
------Original Message-----
-=46rom: ASIX Allan Email [office] [mailto:allan@asix.com.tw]=20
-Sent: Tuesday, January 10, 2012 9:54 AM
-To: 'Jussi Kivilinna'; 'Grant Grundler'
-Cc: 'netdev@vger.kernel.org'; 'Freddy Xin'; 'Olof Johansson'; 'David S.=
- Miller'; 'David Hollis'
-Subject: RE: asix, setting MAC broken in v3.2. Bisected to "NET: fix ph=
-y init for AX88772 USB ethernet".
+ drivers/net/wireless/iwlwifi/iwl-agn-lib.c |    1 +
+ drivers/net/wireless/iwlwifi/iwl-agn.c     |   21 +++++++++++++++++++--
+ drivers/net/wireless/iwlwifi/iwl-pci.c     |   22 +++++++++++++++++++++-
+ drivers/net/wireless/iwlwifi/iwl-shared.h  |    1 +
+ 4 files changed, 42 insertions(+), 3 deletions(-)
 
-Dear Jussi and Grant,
-
-As I know, the manually changed MAC address function should be handled =
-by the "asix_set_mac_address()" routine but not need to enable the prom=
-iscuous mode. If you enabled the driver promiscuous mode, the asix.c dr=
-iver will receive all Ethernet packets without checking the DA field of=
- the received packets. I suppose this should not be a good solution to =
-solve this issue for normal operation cases.=20
-
-I will try to reproduce your issue in our site and look into why the "a=
-six_set_mac_address()" routine doesn't work as expected? If I got any r=
-esults, I will let you know ASAP. Thanks a lot. =20
-
-
----
-Best regards,
-Allan Chou
-Technical Support Division
-ASIX Electronics Corporation
-TEL: 886-3-5799500 ext.228
-=46AX: 886-3-5799558
-E-mail: allan@asix.com.tw=20
-http://www.asix.com.tw/=20
-
------Original Message-----
-=46rom: grundler@google.com [mailto:grundler@google.com] On Behalf Of G=
-rant Grundler
-Sent: Tuesday, January 10, 2012 9:38 AM
-To: Jussi Kivilinna
-Cc: netdev@vger.kernel.org; Freddy Xin; Olof Johansson; David S. Miller=
-; David Hollis; Allan Chou
-Subject: Re: asix, setting MAC broken in v3.2. Bisected to "NET: fix ph=
-y init for AX88772 USB ethernet".
-
-On Mon, Jan 9, 2012 at 9:21 AM, Grant Grundler <grundler@chromium.org> =
-wrote:
-=2E..
->> Patch attached.
->
-> I'll try the patch here to confirm. Thanks!
-
-Jussi,
-I can confirm you patch doesn't break my basic use case:
-  Acked-By: Grant Grundler <grundler@chromium.org>
-
-
-localhost ~ # ifconfig eth0
-eth0      Link encap:Ethernet  HWaddr 00:00:00:00:08:b3
-          inet addr:XX.XX.XX.1  Bcast:XX.XX.XX.255  Mask:255.255.252.0
-=2E..
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:500 errors:0 dropped:19 overruns:0 frame:0
-          TX packets:320 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:110020 (107.4 KiB)  TX bytes:43569 (42.5 KiB)
-
-localhost ~ # dmesg | fgrep eth0
-[    2.049163] asix 1-4:1.0: eth0: register 'asix' at
-usb-0000:00:1d.7-4, ASIX AX88772 USB 2.0 Ethernet, 00:00:00:00:08:b3
-[    3.693169] ADDRCONF(NETDEV_UP): eth0: link is not ready
-[    5.515078] ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-[    5.518469] asix 1-4:1.0: eth0: link up, 100Mbps, full-duplex, lpa 0=
-xCDE1
-localhost ~ #
-
------Original Message-----
-=46rom: grundler@google.com [mailto:grundler@google.com] On Behalf Of G=
-rant Grundler
-Sent: Tuesday, January 10, 2012 1:22 AM
-To: Jussi Kivilinna
-Cc: netdev@vger.kernel.org; Freddy Xin; Olof Johansson; David S. Miller=
-; David Hollis; Allan Chou
-Subject: Re: asix, setting MAC broken in v3.2. Bisected to "NET: fix ph=
-y init for AX88772 USB ethernet".
-
-On Sun, Jan 8, 2012 at 7:18 AM, Jussi Kivilinna
-<jussi.kivilinna@mbnet.fi> wrote:
-=2E..
-> It's Wii Ethernet adapter,
-> Bus 001 Device 008: ID 0b95:7720 ASIX Electronics Corp. AX88772
-
-=2E..
-> Both attached.
-
-[lsusb/dmesg  output]  Thanks!
-
-=2E..
-> I found out that setting MAC in ax88722_reset() solves the issue for =
-me.
-> Maybe changes to init/reset sequence causes hardware to be reseted af=
-ter
-> set_mac_address call and revert to default MAC?
-
-That's exactly what I was thinking too over the weekend.
-
-
-> Patch attached.
-
-I'll try the patch here to confirm. Thanks!
-
-cheers,
-grant
-
------Original Message-----
-=46rom: Jussi Kivilinna [mailto:jussi.kivilinna@mbnet.fi]=20
-Sent: Monday, January 09, 2012 6:53 PM
-To: allan
-Cc: 'Grant Grundler'; netdev@vger.kernel.org; 'Freddy Xin'; 'Olof Johan=
-sson'; 'David S. Miller'; 'David Hollis'
-Subject: RE: asix, setting MAC broken in v3.2. Bisected to "NET: fix ph=
-y init for AX88772 USB ethernet".
-
-Hello,
-
-Yes, that is exactly what I have for interface initialization. System =20
-is running Debian Squeeze, with following entry in =20
-/etc/network/interfaces:
-
-  # wan1 is asix device
-  auto wan1
-  iface wan1 inet dhcp
-          pre-up /etc/network/change-mac-addr-to.sh wan1 00:02:xx:xx:xx=
-:xx
-
-and change-mac-addr-to.sh is:
-
-  #!/bin/sh
-
-  # check if mac address already set
-  if [ "$(ifconfig "$1" | grep HWaddr | grep "$2")" =3D "" ]; then
-          # set new mac
-          ifconfig "$1" down
-          ifconfig "$1" hw ether "$2"
-          ifconfig "$1" up
-
-          echo Changed MAC-address for interface $1 to $2
-  fi
-
-  exit 0
-
-This works with kernel v3.1, but not with v3.2. Not working means: 1. =20
-DHCP does not work on wan1/asix, does not receive answer from DHCP =20
-server. 2. PPPoE connection doesn't initialize over wan1/asix. (DHCP =20
-is for ISP private/local network and Internet connection is through =20
-PPPoE).
-
-With v3.2 I found out that enabling promisc for wan1 interface =20
-(ifconfig wan1 promisc 1) allows DHCP and PPPoE to make connection and =
-=20
-to work.
-
-Also the patch attached in previous message (patch is for kernel v3.2) =
-=20
-fixes the problem (for me).
-
--Jussi
-
-Quoting allan <allan@asix.com.tw>:
-
-> Dear Jussi,
->
-> Please help to double check if the following information is helpful =20
-> to solve your issue or not? If no, please deliver us your test
-asix.c
-> driver file and detailed test procedures for further investigation. =20
-> Thanks a lot.
->
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> Actually, if you just want to manually set the MAC address of your =20
-> AX88772B/AX88772A/AX88178 devices for engineering testing, you can =20
-> refer to below procedures to temporary change the MAC address of
-your
-> AX88772B/AX88772A/AX88178 device on Linux platform through the =20
-> =E2=80=9Cax8817x_set_mac_addr()=E2=80=9D routine of AX88772B/AX88772A=
-/AX88178
-Linux
-> driver source code.
->
-> How to change MAC address in Linux
->
-http://linuxhelp.blogspot.com/2005/09/how-to-change-mac-address-of-your=
-=2Ehtml
->
-> # ifconfig eth0 down
-> # ifconfig eth0 hw ether 00:80:48:BA:d1:30
-> # ifconfig eth0 up
->
->
-> ---
-> Best regards,
-> Allan Chou
-> Technical Support Division
-> ASIX Electronics Corporation
-> TEL: 886-3-5799500 ext.228
-> FAX: 886-3-5799558
-> E-mail: allan@asix.com.tw
-> http://www.asix.com.tw/
->
-> -----Original Message-----
-> From: Jussi Kivilinna [mailto:jussi.kivilinna@mbnet.fi]
-> Sent: Sunday, January 08, 2012 11:18 PM
-> To: Grant Grundler
-> Cc: netdev@vger.kernel.org; Freddy Xin; Olof Johansson; David S. =20
-> Miller; David Hollis; Allan Chou
-> Subject: Re: asix, setting MAC broken in v3.2. Bisected to "NET: fix
-
-> phy init for AX88772 USB ethernet".
->
-> Quoting Grant Grundler <grundler@chromium.org>:
->
->> On Fri, Jan 6, 2012 at 3:10 AM, Jussi Kivilinna
->> <jussi.kivilinna@mbnet.fi> wrote:
->>> Hello,
->>>
->>> I have asix adapter plugged to mini-server
->>
->> Which Asix adapter do you have? (Vendor/model)
->
-> It's Wii Ethernet adapter,
-> Bus 001 Device 008: ID 0b95:7720 ASIX Electronics Corp. AX88772
->
->>
->> Can you please provide:
->> 1) dmesg output from asix driver
->> 2) lsusb output for the device
->
-> Both attached.
->
->>> and have to change MAC address
->>> before DHCP because of ISP. This worked fine, until v3.2. Now I
-have to set
->>> interface in promisc mode to have custom MAC working.
->>
->> Sorry - I didn't test this but I also would not expect this to
-break
->> with the changes in 3.2.
->>
->> I'll see if Freddy or Allan (ASIX) need my help with this.
->
-> I found out that setting MAC in ax88722_reset() solves the issue for
-> me. Maybe changes to init/reset sequence causes hardware to be
-reseted
-> after set_mac_address call and revert to default MAC?
->
-> Patch attached.
->
-> -Jussi
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+diff --git a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
+index 1a52ed2..b9ac097 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
++++ b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
+@@ -164,6 +164,7 @@ struct iwl_mod_params iwlagn_mod_params = {
+ 	.bt_ch_announce = true,
+ 	.wanted_ucode_alternative = 1,
+ 	.auto_agg = true,
++	.runtime_pm = false,
+ 	/* the rest are 0 by default */
+ };
+ 
+diff --git a/drivers/net/wireless/iwlwifi/iwl-agn.c b/drivers/net/wireless/iwlwifi/iwl-agn.c
+index e0e9a3d..2d1f890a 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-agn.c
++++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
+@@ -38,6 +38,7 @@
+ #include <linux/firmware.h>
+ #include <linux/etherdevice.h>
+ #include <linux/if_arp.h>
++#include <linux/pm_runtime.h>
+ 
+ #include <net/mac80211.h>
+ 
+@@ -1755,6 +1756,8 @@ static int iwlagn_mac_start(struct ieee80211_hw *hw)
+ 	struct iwl_priv *priv = hw->priv;
+ 	int ret;
+ 
++	pm_runtime_get_sync(bus(priv)->dev);
++
+ 	IWL_DEBUG_MAC80211(priv, "enter\n");
+ 
+ 	/* we should be verifying the device is ready to be opened */
+@@ -1762,7 +1765,7 @@ static int iwlagn_mac_start(struct ieee80211_hw *hw)
+ 	ret = __iwl_up(priv);
+ 	mutex_unlock(&priv->shrd->mutex);
+ 	if (ret)
+-		return ret;
++		goto out;
+ 
+ 	IWL_DEBUG_INFO(priv, "Start UP work done.\n");
+ 
+@@ -1774,7 +1777,10 @@ static int iwlagn_mac_start(struct ieee80211_hw *hw)
+ 
+ 	priv->is_open = 1;
+ 	IWL_DEBUG_MAC80211(priv, "leave\n");
+-	return 0;
++	ret = 0;
++out:
++	pm_runtime_put(bus(priv)->dev);
++	return ret;
+ }
+ 
+ static void iwlagn_mac_stop(struct ieee80211_hw *hw)
+@@ -1786,6 +1792,8 @@ static void iwlagn_mac_stop(struct ieee80211_hw *hw)
+ 	if (!priv->is_open)
+ 		return;
+ 
++	pm_runtime_get_sync(bus(priv)->dev);
++
+ 	priv->is_open = 0;
+ 
+ 	iwl_down(priv);
+@@ -1798,6 +1806,8 @@ static void iwlagn_mac_stop(struct ieee80211_hw *hw)
+ 	iwl_enable_rfkill_int(priv);
+ 
+ 	IWL_DEBUG_MAC80211(priv, "leave\n");
++
++	pm_runtime_put(bus(priv)->dev);
+ }
+ 
+ #ifdef CONFIG_PM_SLEEP
+@@ -3557,3 +3567,10 @@ module_param_named(no_sleep_autoadjust, iwlagn_mod_params.no_sleep_autoadjust,
+ MODULE_PARM_DESC(no_sleep_autoadjust,
+ 		 "don't automatically adjust sleep level "
+ 		 "according to maximum network latency (default: true)");
++
++module_param_named(runtime_pm, iwlagn_mod_params.runtime_pm, bool, S_IRUGO);
++MODULE_PARM_DESC(runtime_pm,
++		 "enable open/close based runtime power management, this "
++		 "feature can make HW rfkill unusable (default: disabled)");
++
++
+diff --git a/drivers/net/wireless/iwlwifi/iwl-pci.c b/drivers/net/wireless/iwlwifi/iwl-pci.c
+index 1800029..541f3e6 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-pci.c
++++ b/drivers/net/wireless/iwlwifi/iwl-pci.c
+@@ -63,6 +63,7 @@
+ #include <linux/module.h>
+ #include <linux/pci.h>
+ #include <linux/pci-aspm.h>
++#include <linux/pm_runtime.h>
+ 
+ #include "iwl-bus.h"
+ #include "iwl-io.h"
+@@ -465,6 +466,8 @@ static int iwl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	err = iwl_probe(bus, &trans_ops_pcie, cfg);
+ 	if (err)
+ 		goto out_disable_msi;
++
++	pm_runtime_put_noidle(&pdev->dev);
+ 	return 0;
+ 
+ out_disable_msi:
+@@ -487,6 +490,8 @@ static void __devexit iwl_pci_remove(struct pci_dev *pdev)
+ 	struct pci_dev *pci_dev = IWL_BUS_GET_PCI_DEV(bus);
+ 	struct iwl_shared *shrd = bus->shrd;
+ 
++	pm_runtime_get_noresume(&pdev->dev);
++
+ 	iwl_remove(shrd->priv);
+ 
+ 	pci_disable_msi(pci_dev);
+@@ -534,7 +539,22 @@ static int iwl_pci_resume(struct device *device)
+ 	return iwl_trans_resume(shrd->trans);
+ }
+ 
+-static SIMPLE_DEV_PM_OPS(iwl_dev_pm_ops, iwl_pci_suspend, iwl_pci_resume);
++
++static int iwl_pci_runtime_idle(struct device *dev)
++{
++	struct pci_dev *pdev = to_pci_dev(dev);
++	struct iwl_bus *bus = pci_get_drvdata(pdev);
++	struct iwl_shared *shrd = bus->shrd;
++
++	if (iwlagn_mod_params.runtime_pm &&
++	    !test_bit(STATUS_ALIVE, &shrd->status))
++		return 0;
++
++	return -EBUSY;
++}
++
++static UNIVERSAL_DEV_PM_OPS(iwl_dev_pm_ops, iwl_pci_suspend,
++			iwl_pci_resume, iwl_pci_runtime_idle);
+ 
+ #define IWL_PM_OPS	(&iwl_dev_pm_ops)
+ 
+diff --git a/drivers/net/wireless/iwlwifi/iwl-shared.h b/drivers/net/wireless/iwlwifi/iwl-shared.h
+index 14eaf37..a570e0d 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-shared.h
++++ b/drivers/net/wireless/iwlwifi/iwl-shared.h
+@@ -152,6 +152,7 @@ struct iwl_mod_params {
+ 	bool bt_ch_announce;
+ 	int wanted_ucode_alternative;
+ 	bool auto_agg;
++	bool runtime_pm;
+ };
+ 
+ /**
+-- 
+1.7.7.5
