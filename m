@@ -1,143 +1,147 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: [v6 PATCH 0/3] NETFILTER new target module, HMARK
-Date: Tue, 10 Jan 2012 14:20:03 +0100
-Message-ID: <1326201606-17241-1-git-send-email-hans.schillstrom@ericsson.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH net-next v2 2/4] can: cc770: add legacy ISA bus driver
+ for the CC770 and AN82527
+Date: Tue, 10 Jan 2012 15:20:05 +0100
+Message-ID: <4F0C4915.2010909@grandegger.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF31@saturn3.aculab.com> <4F0B608D.6090309@essax.com> <4F0B7421.6050203@pengutronix.de> <4F0C0552.5080504@grandegger.com> <4F0C2F4A.20500@essax.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: <kaber@trash.net>, <pablo@netfilter.org>, <jengelh@medozas.de>,
-	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Oliver Hartkopp <socketcan@hartkopp.net>, henrik@proconx.com,
+	netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	socketcan-users@lists.berlios.de, IreneV <boir1@yandex.ru>,
+	Stanislav Yelenskiy <stanislavelensky@yahoo.com>, oe@port.de,
+	henrik@focus-sw.com
+To: info@essax.com
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4F0C2F4A.20500@essax.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The target allows you to create rules in the "raw" and "mangle" tables
-which alter the netfilter mark (nfmark) field within a given range.
-First a 32 bit hash value is generated then modulus by <limit> and
-finally an offset is added before it's written to nfmark.
-Prior to routing, the nfmark can influence the routing method (see
-"Use netfilter MARK value as routing key") and can also be used by
-other subsystems to change their behavior.
+On 01/10/2012 01:30 PM, Wolfgang Zarre wrote:
+> Hello Wolfgang,
+> 
+>> On 01/10/2012 12:11 AM, Marc Kleine-Budde wrote:
+>>> On 01/09/2012 10:47 PM, Wolfgang Zarre wrote:
+>>> [...]
+>>>
+>>>>>> OK. My concern: Can we be sure that 16bit accesses are always
+>>>>> supported
+>>>>>> by the hardware? Does a spinlock_irqsave/spinlock_irqrestore around
+>>>>> the
+>>>>>> 8bit accesses already help?
+>>>>>
+>>>>> Hmmm... are there any register reads that need the
+>>>>> same 'double cycle' sequence ??
+>>>>> If so you need to stop reads being interleaved (with
+>>>>> themselves and writes) so requesting a 16bit access
+>>>>> doesn't help.
+>>>>>
+>>>>> Which means you need a spinlock...
+>>>>>
+>>>>>      David
+>>>>>
+>>>>>
+>>>>
+>>>> @David: Thank You very much for that hint. You are right and to
+>>>> implement correct we need a spinlock.
+>>>>
+>>>> @Wolfgang: I was thinking about Your question regarding 8/16 bit and
+>>>> in fact it wouldn't work at all on a clean 8 bit cards.
+>>>>
+>>>> Further it wouldn't work on 16 bit cards where the MSB is not equal
+>>>> to base port +1 and anyway, it's depending always on how the chip is
+>>>> interfaced to the ISA bus and in which mode the chip is configured.
+>>>>
+>>>>
+>>>> And therefore I was giving David's hint a try in using a spinlock in
+>>>> function cc770_isa_port_write_reg_indirect() and patched as follows:
+>>>>
+>>>> ---------------------------------------------------------------------
+>>>> diff --git a/drivers/net/can/cc770/cc770.c
+>>>> b/drivers/net/can/cc770/cc770.c
+>>>> index 2d12f89..dad6707 100644
+>>>> --- a/drivers/net/can/cc770/cc770.c
+>>>> +++ b/drivers/net/can/cc770/cc770.c
+>>>> @@ -460,15 +460,6 @@ static netdev_tx_t cc770_start_xmit(struct sk_buff
+>>>> *skb, struct net_device *dev)
+>>>>
+>>>>       stats->tx_bytes += dlc;
+>>>>
+>>>> -
+>>>> -    /*
+>>>> -     * HM: We had some cases of repeated IRQs so make sure the
+>>>> -     * INT is acknowledged I know it's already further up, but
+>>>> -     * doing again fixed the issue
+>>>> -     */
+>>>> -    cc770_write_reg(priv, msgobj[mo].ctrl0,
+>>>> -            MSGVAL_UNC | TXIE_UNC | RXIE_UNC | INTPND_RES);
+>>>> -
+>>>>       return NETDEV_TX_OK;
+>>>>   }
+>>>>
+>>>> @@ -689,12 +680,6 @@ static void cc770_tx_interrupt(struct net_device
+>>>> *dev, unsigned int o)
+>>>>       /* Nothing more to send, switch off interrupts */
+>>>>       cc770_write_reg(priv, msgobj[mo].ctrl0,
+>>>>               MSGVAL_RES | TXIE_RES | RXIE_RES | INTPND_RES);
+>>>> -    /*
+>>>> -     * We had some cases of repeated IRQ so make sure the
+>>>> -     * INT is acknowledged
+>>>> -     */
+>>>> -    cc770_write_reg(priv, msgobj[mo].ctrl0,
+>>>> -            MSGVAL_UNC | TXIE_UNC | RXIE_UNC | INTPND_RES);
+>>
+>> Please provide an extra patch for these unrelated changes. If we really
+>> want to remove it.
+>>
+> 
+> Sure, this I can do.
+> 
+>>>>       stats->tx_packets++;
+>>>>       can_get_echo_skb(dev, 0);
+>>>> diff --git a/drivers/net/can/cc770/cc770_isa.c
+>>>> b/drivers/net/can/cc770/cc770_isa.c
+>>>> index 4be5fe2..fe39eed 100644
+>>>> --- a/drivers/net/can/cc770/cc770_isa.c
+>>>> +++ b/drivers/net/can/cc770/cc770_isa.c
+>>>> @@ -110,6 +110,9 @@ MODULE_PARM_DESC(bcr, "Bus configuration register
+>>>> (default=0x40 [CBY])");
+>>>>   #define CC770_IOSIZE          0x20
+>>>>   #define CC770_IOSIZE_INDIRECT 0x02
+>>>>
+>>>> +/* Spinlock for cc770_isa_port_write_reg_indirect */
+>>>> +static DEFINE_SPINLOCK( outb_lock);
 
-The mark match can also be used to match nfmark produced by this module.
-See the kernel module for more info.
+Please use a more specific name, e.g.: cc770_isa_port_lock
 
-REVISION
-Version 6
-        Removed ipv6_find_hdr() wrapper (Pablo)
-	NAT / Conntrack compilation switches.
+>>>> +
+>>>
+>>> Do we need a global or a per device spin lock? If this should be a per
+>>> device one, please introduce a cc770_isa_priv and put the spinlock
+>>> there. Don't forget to initialize the spinlock.
+>>
+>> Yes, that's what I was thinking as well but in the ocan driver I find:
+>>
+>> /*
+>>   * we need a spinlock here, as the address register looks shared between
+>>   * two PC-ECAN devices. Moreover, we need to protect WRT interrupts
+>>   */
+>>
+>> Looks like wired hardware. Anyway, a global spinlock might be safer.
+>>
+> 
+> Hmmm, actually I thought to place the spinlock local because of having
+> the problem just with the interrupt and not with mutex.
+> 
+> But if global wouldn't it then better to make an array[MAX_DEV] for the
+> lock with initialisation in _init or _start?
 
-Version 5
-	Use length of mask an smask and dmask and whole IPv6 addr (Jan E)
-	Modify ipv6_find_hdr() and use it while traversing the IPv6 header.
-        Manual changes.
-	More or less all comments implemented.
+Global means *one* spin-irq-lock for the indirect register access of all
+devices. That might be the most efficient solution but we are sure that
+it works, also with wired i82527 hardware, which seem to exist. That's
+also what the related lincan and ocan drivers used.
 
-Version 4
-	Split of IPv6 and IPv4, use IP_CT_IS_REPLY, as Pablo suggested.
-	removed one pskb_may_pull()
-	xtoption parse used in the user space part.
-
-Version 3
-        Handling of SCTP for IPv6 added.
-
-Version 2
-	NAT Added for IPv4
-	IPv6 ICMP handling enhanced.
-	Usage example added
-
-Version 1
-	Initial RFC
-
-
-We (Ericsson) use hmark in-front of ipvs as a pre-loadbalancer and
-handles up to 70 ipvs running in parallel in clusters.
-However hmark is not restricted to run in front of IPVS it can also be used as
-"poor mans" load balancer.
-With this version is also NAT supported as an option, with very high flows
-you might not want to use conntrack.
-
-The idea is to generate a direction independent fw mark range to use as input to
-the routing (i.e. ip rule add fwmark ...).
-Pretty straight forward and simple.
-
-
-Example:
-                                      App Server (Real Server)
-
-                                           +---------+
-                                        -->| Service |
-     Gateway A                             +---------+
-                          /
-            +----------+ /     +----+      +---------+
---- if -A---| selector |---->  |ipvs|  --->| Service |
-            +----------+ \     +----+      +---------+
-                          \
-                               +----+      +---------+
-                               |ipvs|   -->| Service |
-                               +----+      +---------+
-      Gateway C
-            +----------+ /     +----+
---- if-B ---| selector | --->  |ipvs|
-            +----------+ \     +----+      +---------+
-                                           | Service |
-                                           +---------+
-                          /
-            +----------+ /     +----+     ..
---- if-B ---| selector | --->  |ipvs|      +---------+
-            +----------+ \     +----+      | Service |
-                          \                +---------+
-#
-# Example with four ipvs loadbalancers
-#
-iptables -t mangle -I PREROUTING -d $IPADDR -j HMARK --hmark-mod 4 --hmark-offs 100
-
-ip rule add fwmark 100 table 100
-ip rule add fwmark 101 table 101
-ip rule add fwmark 102 table 102
-ip rule add fwmark 103 table 103
-
-ip ro ad table 100 default via x.y.z.1 dev bond1
-ip ro ad table 101 default via x.y.z.2 dev bond1
-ip ro ad table 102 default via x.y.z.3 dev bond1
-ip ro ad table 103 default via x.y.z.4 dev bond1
-
-
-If conntrack doesn't handle the return path,
-do the oposite with HMARK and send it back right to ipvs.
-
-Another exmaple of usage could be if you have cluster originated connections
-and want to spread the connections over a number of interfaces
-(NAT will complpicate things for you in this case)
-
-
-
-                     \  Blade 1
-                      \ +----------+      +---------+
-                    <-- | selector | <--- | Service |
-                      / +----------+      +---------+
-                     /
-   +------+
--- | Gw-A |          \  Blade 2
-   +------+           \ +----------+      +---------+
-   +------+         <-- | selector | <--- | Service |
--- | Gw-B |           / +----------+      +---------+
-   +------+          /
-   +------+
--- | Gw-C |          \
-   +------+           \ +----------+      +---------+
-                    <-- | selector | <--- | Service |
-                      / +----------+      +---------+
-                     /
-
-                     \  Blande -n
-                      \ +----------+      +---------+
-                    <-- | selector | <--- | Service |
-                      / +----------+      +---------+
-                     /
-
-
-Regards
-Hans Schillstrom <hans.schillstrom@ericsson.com>
-
+Wolfgang.
