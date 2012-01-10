@@ -1,58 +1,46 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/1] netfilter: Add possibility to turn off netfilters
- defrag per netns
-Date: Tue, 10 Jan 2012 04:17:14 +0100
-Message-ID: <20120110031714.GA31483@1984>
-References: <1325664443-10320-1-git-send-email-hans.schillstrom@ericsson.com>
- <alpine.DEB.2.00.1201050959030.5244@blackhole.kfki.hu>
- <20120105141859.GA8210@1984>
- <201201090958.43017.hans.schillstrom@ericsson.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: "-w deadline" bug in ping/iputils- i will provide fix if you
+ can tell me where owner of iputils is. Thanks.
+Date: Tue, 10 Jan 2012 12:54:47 +0900
+Message-ID: <4F0BB687.6070603@linux-ipv6.org>
+References: <7D3B6706FA74174B8C1AC24710890745136F453C33@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Patrick McHardy <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201201090958.43017.hans.schillstrom@ericsson.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	'Linus Torvalds' <torvalds@linux-foundation.org>
+To: "Cloutier, Joseph (Joseph)" <joseph.cloutier@alcatel-lucent.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:46956 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756015Ab2AJDyu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2012 22:54:50 -0500
+In-Reply-To: <7D3B6706FA74174B8C1AC24710890745136F453C33@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Hans,
+Hello.
 
-On Mon, Jan 09, 2012 at 09:58:42AM +0100, Hans Schillstrom wrote:
-> > I wonder if we can conditionally register the sysctl only if we are
-> > inside one lxc container.
-> > 
-> Sure no problem, but the code will not be so nice ... 
+Cloutier, Joseph (Joseph) wrote:
+> I have made a fix for the "-w deadline" issue to iputils-s20101006.tar.bz2.  There are 4 places in the code with the fix, identified by my name, Joe Cloutier- ALU.
+>>
+>>  There are 2 bugs fixed:
+>>  *       For flood pings if the "-w" option is set then more pings than "-c x" are sent out.
+>>  *       The "-w x" timer should be set after he last "-c x" ping is sent out.
 
-Indeed, ugly indeed.
+Is this a real bug?
 
-> > I'm telling this because this sysctl does not seem to make any sense
-> > to me outside of it.
-> 
-> I'm not so sure that we should make it asymetric,
-> but it's not a big deal.
-> 
-> Anyway here is a sample of the sysctl in a namespace.
-> It is the  "if (!net_eq(net, &init_net)) {..." that does the magic
+If both of -c COUNT and -w TIMEOUT are specified, ping exits by
+timer _OR_ by the counter regardless of -f option.
 
-Hm, after having a look at it, I think I prefer to provide some
-inconditional sysctl.
+If you want to ping really COUNT times, try -W TIMEOUT option.
 
-Better call it nf_conntrack_enable and set it to 1 by default. AFAICS,
-this will be a synonymous of:
 
-iptables -I PREROUTING -t raw -j NOTRACK
+... And please send your changes in the patch (or unified diff;
+diff -u) format with your appropriate "sign-off" line, next time.
 
-This option is disabling conntracking after all. I don't think we
-would ever support conntrack with fragments.
-
-Please, send a patch including in the description that we need this
-for lxc, I'll enqueue it for net-next unless someone raise the hand
-with a better solution.
 
 Thanks.
+
+--yoshfuji
