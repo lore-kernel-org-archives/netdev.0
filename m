@@ -1,49 +1,45 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next V3 1/2] igb: add PTP Hardware Clock code
-Date: Tue, 10 Jan 2012 09:44:50 +0100
-Message-ID: <20120110084450.GA5356@cherladcori01>
-References: <cover.1325964581.git.richardcochran@gmail.com>
- <06a2d33bed05d5c17c03fca6f0fcc2fe3f6870f4.1325964581.git.richardcochran@gmail.com>
- <02874ECE860811409154E81DA85FBB5801E86F@ORSMSX106.amr.corp.intel.com>
+From: Manfred Rudigier <manfred.rudigier@omicron.at>
+Subject: RE: [PATCH v2] gianfar: Fix invalid TX frames returned on error
+ queue when time stamping.
+Date: Tue, 10 Jan 2012 10:05:15 +0100
+Message-ID: <95DC1AA8EC908B48939B72CF375AA5E3013A99172D@alice.at.omicron.at>
+References: <1326120774-20647-1-git-send-email-manfred.rudigier@omicron.at>
+ <1326121920.2407.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"afleming@freescale.com" <afleming@freescale.com>,
+	"avorontsov@mvista.com" <avorontsov@mvista.com>,
+	"richardcochran@gmail.com" <richardcochran@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:49618 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751499Ab2AJIpE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2012 03:45:04 -0500
-Received: by wibhm6 with SMTP id hm6so3196770wib.19
-        for <netdev@vger.kernel.org>; Tue, 10 Jan 2012 00:45:03 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <02874ECE860811409154E81DA85FBB5801E86F@ORSMSX106.amr.corp.intel.com>
+Received: from ns.omicron.at ([212.183.10.25]:41557 "EHLO ns.omicron.at"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755620Ab2AJJFi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jan 2012 04:05:38 -0500
+In-Reply-To: <1326121920.2407.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 09, 2012 at 05:42:20PM +0000, Keller, Jacob E wrote:
-
-> Is there a reason for not using the timecounter structure from the
-> kernel? It is a layer beneath the timecompare code which is meant to
-> handle this condition. As far as I can tell this issue is solved in
-> the timecounter code. If it is not, then that should be a bug in the
-> timecounter cyclecounter code. I don't know if this issue occurs in
-> the timecounter structure because it handles the ns conversion
-> differently.
-
-My only reason is that I am not sure that the timecounter code really
-does what we need.  It might well work.  Consider, though, that the
-82580 register does not overflow in the usual way. The upper 24 bits
-are always zero.
-
-What I wrote does the right thing, I think.  However, duplicated
-effort is always bad, so can you show me how to change it?
-
-Thanks,
-Richard
+RnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCm93bmVy
+QHZnZXIua2VybmVsLm9yZ10gT24gQmVoYWxmIE9mIEVyaWMgRHVtYXpldA0KU2VudDogTW9uZGF5
+LCBKYW51YXJ5IDA5LCAyMDEyIDE2OjEyDQoNCj4+ICsNCj4+ICsJCS8qIEhvbGQgc29jayByZWZl
+cmVuY2UgZm9yIHByb2Nlc3NpbmcgVFggdGltZSBzdGFtcHMgKi8NCj4+ICsJCWlmICh1bmxpa2Vs
+eShkb190c3RhbXApKSB7DQo+PiArCQkJc3RydWN0IHNvY2sgKnNrID0gc2tiLT5zazsNCj4NCj5O
+b3QgY2xlYXIgdG8gbWUgd2h5IHNrX3JlZmNudCBjb3VsZCBiZSAwIGhlcmUNCg0KV2VsbCwgSSBo
+YXZlIHRyaWVkIHRvIG1ha2UgYSBzaW1pbGFyIHNvbHV0aW9uIGFzIG91dGxpbmVkIGluIGNvbW1p
+dCBkYTkyYjE5NGNjMzZiNWRjMWZiZDg1MjA2YWVlZmZkODBiZWUwYzM5Lg0KDQo+SSB3b3VsZCBy
+YXRoZXIgZG8gc29tZXRoaW5nIGxpa2UgOg0KPg0KPmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9l
+dGhlcm5ldC9mcmVlc2NhbGUvZ2lhbmZhci5jDQo+Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVl
+c2NhbGUvZ2lhbmZhci5jDQo+aW5kZXggZTAxY2RhYS4uOGUwMDQ2MSAxMDA2NDQNCj4tLS0gYS9k
+cml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZ2lhbmZhci5jDQo+KysrIGIvZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2dpYW5mYXIuYw0KPkBAIC0yMDg2LDYgKzIwODYsOCBAQCBz
+dGF0aWMgaW50IGdmYXJfc3RhcnRfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QNCj5u
+ZXRfZGV2aWNlICpkZXYpDQo+IAkJCWtmcmVlX3NrYihza2IpOw0KPiAJCQlyZXR1cm4gTkVUREVW
+X1RYX09LOw0KPiAJCX0NCj4rCQlzd2FwKHNrYl9uZXctPnNrLCBza2ItPnNrKTsNCj4rCQlzd2Fw
+KHNrYl9uZXctPmRlc3RydWN0b3IsIHNrYi0+ZGVzdHJ1Y3Rvcik7DQo+IAkJa2ZyZWVfc2tiKHNr
+Yik7DQo+IAkJc2tiID0gc2tiX25ldzsNCj4gCX0NCg0KSSBndWVzcyB0aGlzIHNob3VsZCBhbHNv
+IHdvcmssIHNvIEkgd2lsbCBjb21lIHVwIHdpdGggYSBuZXcgdmVyc2lvbi4NCg==
