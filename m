@@ -1,55 +1,190 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: CPU usage for IPSec in Linux 2.6.38
-Date: Tue, 10 Jan 2012 16:24:32 +0100
-Message-ID: <1326209072.19095.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <B97B134FACB2024DB45F524AB0A7B7F20545EA24@XMB-BGL-419.cisco.com>
-	<20203.19901.967544.547378@fireball.kivinen.iki.fi>
-	<B2C779B5E2D74D1792EB988E1B59B42B@trustworks.com>
-	 <A2354B6A9F807641B21EEABD666ECEEA02596D7C@XMB-BGL-416.cisco.com>
-	 <09787EF419216C41A903FD14EE5506DD030F1A4FDA@AUSX7MCPC103.AMER.DELL.COM>
-	 <A2354B6A9F807641B21EEABD666ECEEA02596D98@XMB-BGL-416.cisco.com>
+From: wwguy <wey-yi.w.guy@intel.com>
+Subject: Re: [PATCH V2] iwlwifi: add basic runtime PM support
+Date: Tue, 10 Jan 2012 07:41:29 -0800
+Message-ID: <1326210089.25784.30.camel@wwguy-ubuntu>
+References: <4F0BDCFD.7000603@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "Naveen B N (nbn)" <nbn@cisco.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Johannes Berg <johannes@sipsolutions.net>, ilw@linux.intel.com
+To: "Yan, Zheng" <zheng.z.yan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:65134 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751756Ab2AJPYh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2012 10:24:37 -0500
-Received: by wgbdr10 with SMTP id dr10so3171517wgb.1
-        for <netdev@vger.kernel.org>; Tue, 10 Jan 2012 07:24:36 -0800 (PST)
-In-Reply-To: <A2354B6A9F807641B21EEABD666ECEEA02596D98@XMB-BGL-416.cisco.com>
+Received: from mga01.intel.com ([192.55.52.88]:20245 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756250Ab2AJPsm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jan 2012 10:48:42 -0500
+In-Reply-To: <4F0BDCFD.7000603@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 10 janvier 2012 =C3=A0 20:23 +0530, Naveen B N (nbn) a =C3=A9c=
-rit :
-> Hi All,
-> I am using linux 2.6.36 kernel and trying to add 6000 Ikev2/ipsec
-> tunnels at 20 Ikev2 messages per second , I am using netlink socket
-> which is set to NON_BLOCKING and i am sending XFRM SPD added for ever=
-y
-> successful AUTH message received.
->=20
-> But the problem is after the 4000 tunnels are established, CPU usage
-> goes to > 90%, which will likely cause dropping of few AUTH response
-> from responder.
->=20
-> NOTE:
-> But when I disabled adding SPD messaged via netlink sockets using xfr=
-m
-> messages, I am able to complete 6000 ikev2 SA negotiation successfull=
-y.
->=20
-> So the problem i am seeing is when sending XFRM netlink message > 400=
-0.
->=20
-> Any solutions are or analysis different then the above is appreciated=
-=2E
->=20
+On Tue, 2012-01-10 at 14:38 +0800, Yan, Zheng wrote:
+> This simple patch adds open/close based runtime PM support to the iwlwifi driver.
+> Namely, make the driver suspend the device after shutting down the interface and
+> resume the device when activating the interface. In my test, suspending the device
+> can save about 0.4 watt power. The shortcoming is that the device no longer generate
+> rfkill changes interrupt.
+> 
+> Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
+> ---
+> Changes since v1:
+> Add module parameter to enable/disable runtime PM
+> 
+>  drivers/net/wireless/iwlwifi/iwl-agn-lib.c |    1 +
+>  drivers/net/wireless/iwlwifi/iwl-agn.c     |   21 +++++++++++++++++++--
+>  drivers/net/wireless/iwlwifi/iwl-pci.c     |   22 +++++++++++++++++++++-
+>  drivers/net/wireless/iwlwifi/iwl-shared.h  |    1 +
+>  4 files changed, 42 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
+> index 1a52ed2..b9ac097 100644
+> --- a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
+> +++ b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
+> @@ -164,6 +164,7 @@ struct iwl_mod_params iwlagn_mod_params = {
+>  	.bt_ch_announce = true,
+>  	.wanted_ucode_alternative = 1,
+>  	.auto_agg = true,
+> +	.runtime_pm = false,
+no need if it is "false"
 
-Most probably something uses a linear search, giving O(N^2) complexity.
-
-You could post "perf top" results while doing these operations.
+>  	/* the rest are 0 by default */
+>  };
+>  
+> diff --git a/drivers/net/wireless/iwlwifi/iwl-agn.c b/drivers/net/wireless/iwlwifi/iwl-agn.c
+> index e0e9a3d..2d1f890a 100644
+> --- a/drivers/net/wireless/iwlwifi/iwl-agn.c
+> +++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
+> @@ -38,6 +38,7 @@
+>  #include <linux/firmware.h>
+>  #include <linux/etherdevice.h>
+>  #include <linux/if_arp.h>
+> +#include <linux/pm_runtime.h>
+>  
+>  #include <net/mac80211.h>
+>  
+> @@ -1755,6 +1756,8 @@ static int iwlagn_mac_start(struct ieee80211_hw *hw)
+>  	struct iwl_priv *priv = hw->priv;
+>  	int ret;
+>  
+> +	pm_runtime_get_sync(bus(priv)->dev);
+> +
+>  	IWL_DEBUG_MAC80211(priv, "enter\n");
+>  
+>  	/* we should be verifying the device is ready to be opened */
+> @@ -1762,7 +1765,7 @@ static int iwlagn_mac_start(struct ieee80211_hw *hw)
+>  	ret = __iwl_up(priv);
+>  	mutex_unlock(&priv->shrd->mutex);
+>  	if (ret)
+> -		return ret;
+> +		goto out;
+>  
+>  	IWL_DEBUG_INFO(priv, "Start UP work done.\n");
+>  
+> @@ -1774,7 +1777,10 @@ static int iwlagn_mac_start(struct ieee80211_hw *hw)
+>  
+>  	priv->is_open = 1;
+>  	IWL_DEBUG_MAC80211(priv, "leave\n");
+> -	return 0;
+> +	ret = 0;
+> +out:
+> +	pm_runtime_put(bus(priv)->dev);
+> +	return ret;
+>  }
+>  
+>  static void iwlagn_mac_stop(struct ieee80211_hw *hw)
+> @@ -1786,6 +1792,8 @@ static void iwlagn_mac_stop(struct ieee80211_hw *hw)
+>  	if (!priv->is_open)
+>  		return;
+>  
+> +	pm_runtime_get_sync(bus(priv)->dev);
+> +
+>  	priv->is_open = 0;
+>  
+>  	iwl_down(priv);
+> @@ -1798,6 +1806,8 @@ static void iwlagn_mac_stop(struct ieee80211_hw *hw)
+>  	iwl_enable_rfkill_int(priv);
+>  
+>  	IWL_DEBUG_MAC80211(priv, "leave\n");
+> +
+> +	pm_runtime_put(bus(priv)->dev);
+>  }
+>  
+>  #ifdef CONFIG_PM_SLEEP
+> @@ -3557,3 +3567,10 @@ module_param_named(no_sleep_autoadjust, iwlagn_mod_params.no_sleep_autoadjust,
+>  MODULE_PARM_DESC(no_sleep_autoadjust,
+>  		 "don't automatically adjust sleep level "
+>  		 "according to maximum network latency (default: true)");
+> +
+> +module_param_named(runtime_pm, iwlagn_mod_params.runtime_pm, bool, S_IRUGO);
+> +MODULE_PARM_DESC(runtime_pm,
+> +		 "enable open/close based runtime power management, this "
+> +		 "feature can make HW rfkill unusable (default: disabled)");
+> +
+> +
+> diff --git a/drivers/net/wireless/iwlwifi/iwl-pci.c b/drivers/net/wireless/iwlwifi/iwl-pci.c
+> index 1800029..541f3e6 100644
+> --- a/drivers/net/wireless/iwlwifi/iwl-pci.c
+> +++ b/drivers/net/wireless/iwlwifi/iwl-pci.c
+> @@ -63,6 +63,7 @@
+>  #include <linux/module.h>
+>  #include <linux/pci.h>
+>  #include <linux/pci-aspm.h>
+> +#include <linux/pm_runtime.h>
+>  
+>  #include "iwl-bus.h"
+>  #include "iwl-io.h"
+> @@ -465,6 +466,8 @@ static int iwl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  	err = iwl_probe(bus, &trans_ops_pcie, cfg);
+>  	if (err)
+>  		goto out_disable_msi;
+> +
+> +	pm_runtime_put_noidle(&pdev->dev);
+>  	return 0;
+>  
+>  out_disable_msi:
+> @@ -487,6 +490,8 @@ static void __devexit iwl_pci_remove(struct pci_dev *pdev)
+>  	struct pci_dev *pci_dev = IWL_BUS_GET_PCI_DEV(bus);
+>  	struct iwl_shared *shrd = bus->shrd;
+>  
+> +	pm_runtime_get_noresume(&pdev->dev);
+> +
+>  	iwl_remove(shrd->priv);
+>  
+>  	pci_disable_msi(pci_dev);
+> @@ -534,7 +539,22 @@ static int iwl_pci_resume(struct device *device)
+>  	return iwl_trans_resume(shrd->trans);
+>  }
+>  
+> -static SIMPLE_DEV_PM_OPS(iwl_dev_pm_ops, iwl_pci_suspend, iwl_pci_resume);
+> +
+> +static int iwl_pci_runtime_idle(struct device *dev)
+> +{
+> +	struct pci_dev *pdev = to_pci_dev(dev);
+> +	struct iwl_bus *bus = pci_get_drvdata(pdev);
+> +	struct iwl_shared *shrd = bus->shrd;
+> +
+> +	if (iwlagn_mod_params.runtime_pm &&
+> +	    !test_bit(STATUS_ALIVE, &shrd->status))
+> +		return 0;
+checking for "Runtiem PM parameter enabled" and "uCode not loaded"? 
+> +
+> +	return -EBUSY;
+> +}
+> +
+> +static UNIVERSAL_DEV_PM_OPS(iwl_dev_pm_ops, iwl_pci_suspend,
+> +			iwl_pci_resume, iwl_pci_runtime_idle);
+>  
+>  #define IWL_PM_OPS	(&iwl_dev_pm_ops)
+>  
+> diff --git a/drivers/net/wireless/iwlwifi/iwl-shared.h b/drivers/net/wireless/iwlwifi/iwl-shared.h
+> index 14eaf37..a570e0d 100644
+> --- a/drivers/net/wireless/iwlwifi/iwl-shared.h
+> +++ b/drivers/net/wireless/iwlwifi/iwl-shared.h
+> @@ -152,6 +152,7 @@ struct iwl_mod_params {
+>  	bool bt_ch_announce;
+>  	int wanted_ucode_alternative;
+>  	bool auto_agg;
+> +	bool runtime_pm;
+>  };
+>  
+>  /**
