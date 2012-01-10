@@ -1,186 +1,49 @@
-From: "Yan, Zheng" <zheng.z.yan@intel.com>
-Subject: [PATCH V2] iwlwifi: add basic runtime PM support
-Date: Tue, 10 Jan 2012 14:38:53 +0800
-Message-ID: <4F0BDCFD.7000603@intel.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next V3 1/2] igb: add PTP Hardware Clock code
+Date: Tue, 10 Jan 2012 09:44:50 +0100
+Message-ID: <20120110084450.GA5356@cherladcori01>
+References: <cover.1325964581.git.richardcochran@gmail.com>
+ <06a2d33bed05d5c17c03fca6f0fcc2fe3f6870f4.1325964581.git.richardcochran@gmail.com>
+ <02874ECE860811409154E81DA85FBB5801E86F@ORSMSX106.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: wey-yi.w.guy@intel.com, Johannes Berg <johannes@sipsolutions.net>,
-	ilw@linux.intel.com
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:65230 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752797Ab2AJGiz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jan 2012 01:38:55 -0500
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:49618 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751499Ab2AJIpE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2012 03:45:04 -0500
+Received: by wibhm6 with SMTP id hm6so3196770wib.19
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2012 00:45:03 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <02874ECE860811409154E81DA85FBB5801E86F@ORSMSX106.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This simple patch adds open/close based runtime PM support to the iwlwifi driver.
-Namely, make the driver suspend the device after shutting down the interface and
-resume the device when activating the interface. In my test, suspending the device
-can save about 0.4 watt power. The shortcoming is that the device no longer generate
-rfkill changes interrupt.
+On Mon, Jan 09, 2012 at 05:42:20PM +0000, Keller, Jacob E wrote:
 
-Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
----
-Changes since v1:
-Add module parameter to enable/disable runtime PM
+> Is there a reason for not using the timecounter structure from the
+> kernel? It is a layer beneath the timecompare code which is meant to
+> handle this condition. As far as I can tell this issue is solved in
+> the timecounter code. If it is not, then that should be a bug in the
+> timecounter cyclecounter code. I don't know if this issue occurs in
+> the timecounter structure because it handles the ns conversion
+> differently.
 
- drivers/net/wireless/iwlwifi/iwl-agn-lib.c |    1 +
- drivers/net/wireless/iwlwifi/iwl-agn.c     |   21 +++++++++++++++++++--
- drivers/net/wireless/iwlwifi/iwl-pci.c     |   22 +++++++++++++++++++++-
- drivers/net/wireless/iwlwifi/iwl-shared.h  |    1 +
- 4 files changed, 42 insertions(+), 3 deletions(-)
+My only reason is that I am not sure that the timecounter code really
+does what we need.  It might well work.  Consider, though, that the
+82580 register does not overflow in the usual way. The upper 24 bits
+are always zero.
 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
-index 1a52ed2..b9ac097 100644
---- a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
-@@ -164,6 +164,7 @@ struct iwl_mod_params iwlagn_mod_params = {
- 	.bt_ch_announce = true,
- 	.wanted_ucode_alternative = 1,
- 	.auto_agg = true,
-+	.runtime_pm = false,
- 	/* the rest are 0 by default */
- };
- 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-agn.c b/drivers/net/wireless/iwlwifi/iwl-agn.c
-index e0e9a3d..2d1f890a 100644
---- a/drivers/net/wireless/iwlwifi/iwl-agn.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
-@@ -38,6 +38,7 @@
- #include <linux/firmware.h>
- #include <linux/etherdevice.h>
- #include <linux/if_arp.h>
-+#include <linux/pm_runtime.h>
- 
- #include <net/mac80211.h>
- 
-@@ -1755,6 +1756,8 @@ static int iwlagn_mac_start(struct ieee80211_hw *hw)
- 	struct iwl_priv *priv = hw->priv;
- 	int ret;
- 
-+	pm_runtime_get_sync(bus(priv)->dev);
-+
- 	IWL_DEBUG_MAC80211(priv, "enter\n");
- 
- 	/* we should be verifying the device is ready to be opened */
-@@ -1762,7 +1765,7 @@ static int iwlagn_mac_start(struct ieee80211_hw *hw)
- 	ret = __iwl_up(priv);
- 	mutex_unlock(&priv->shrd->mutex);
- 	if (ret)
--		return ret;
-+		goto out;
- 
- 	IWL_DEBUG_INFO(priv, "Start UP work done.\n");
- 
-@@ -1774,7 +1777,10 @@ static int iwlagn_mac_start(struct ieee80211_hw *hw)
- 
- 	priv->is_open = 1;
- 	IWL_DEBUG_MAC80211(priv, "leave\n");
--	return 0;
-+	ret = 0;
-+out:
-+	pm_runtime_put(bus(priv)->dev);
-+	return ret;
- }
- 
- static void iwlagn_mac_stop(struct ieee80211_hw *hw)
-@@ -1786,6 +1792,8 @@ static void iwlagn_mac_stop(struct ieee80211_hw *hw)
- 	if (!priv->is_open)
- 		return;
- 
-+	pm_runtime_get_sync(bus(priv)->dev);
-+
- 	priv->is_open = 0;
- 
- 	iwl_down(priv);
-@@ -1798,6 +1806,8 @@ static void iwlagn_mac_stop(struct ieee80211_hw *hw)
- 	iwl_enable_rfkill_int(priv);
- 
- 	IWL_DEBUG_MAC80211(priv, "leave\n");
-+
-+	pm_runtime_put(bus(priv)->dev);
- }
- 
- #ifdef CONFIG_PM_SLEEP
-@@ -3557,3 +3567,10 @@ module_param_named(no_sleep_autoadjust, iwlagn_mod_params.no_sleep_autoadjust,
- MODULE_PARM_DESC(no_sleep_autoadjust,
- 		 "don't automatically adjust sleep level "
- 		 "according to maximum network latency (default: true)");
-+
-+module_param_named(runtime_pm, iwlagn_mod_params.runtime_pm, bool, S_IRUGO);
-+MODULE_PARM_DESC(runtime_pm,
-+		 "enable open/close based runtime power management, this "
-+		 "feature can make HW rfkill unusable (default: disabled)");
-+
-+
-diff --git a/drivers/net/wireless/iwlwifi/iwl-pci.c b/drivers/net/wireless/iwlwifi/iwl-pci.c
-index 1800029..541f3e6 100644
---- a/drivers/net/wireless/iwlwifi/iwl-pci.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-pci.c
-@@ -63,6 +63,7 @@
- #include <linux/module.h>
- #include <linux/pci.h>
- #include <linux/pci-aspm.h>
-+#include <linux/pm_runtime.h>
- 
- #include "iwl-bus.h"
- #include "iwl-io.h"
-@@ -465,6 +466,8 @@ static int iwl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	err = iwl_probe(bus, &trans_ops_pcie, cfg);
- 	if (err)
- 		goto out_disable_msi;
-+
-+	pm_runtime_put_noidle(&pdev->dev);
- 	return 0;
- 
- out_disable_msi:
-@@ -487,6 +490,8 @@ static void __devexit iwl_pci_remove(struct pci_dev *pdev)
- 	struct pci_dev *pci_dev = IWL_BUS_GET_PCI_DEV(bus);
- 	struct iwl_shared *shrd = bus->shrd;
- 
-+	pm_runtime_get_noresume(&pdev->dev);
-+
- 	iwl_remove(shrd->priv);
- 
- 	pci_disable_msi(pci_dev);
-@@ -534,7 +539,22 @@ static int iwl_pci_resume(struct device *device)
- 	return iwl_trans_resume(shrd->trans);
- }
- 
--static SIMPLE_DEV_PM_OPS(iwl_dev_pm_ops, iwl_pci_suspend, iwl_pci_resume);
-+
-+static int iwl_pci_runtime_idle(struct device *dev)
-+{
-+	struct pci_dev *pdev = to_pci_dev(dev);
-+	struct iwl_bus *bus = pci_get_drvdata(pdev);
-+	struct iwl_shared *shrd = bus->shrd;
-+
-+	if (iwlagn_mod_params.runtime_pm &&
-+	    !test_bit(STATUS_ALIVE, &shrd->status))
-+		return 0;
-+
-+	return -EBUSY;
-+}
-+
-+static UNIVERSAL_DEV_PM_OPS(iwl_dev_pm_ops, iwl_pci_suspend,
-+			iwl_pci_resume, iwl_pci_runtime_idle);
- 
- #define IWL_PM_OPS	(&iwl_dev_pm_ops)
- 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-shared.h b/drivers/net/wireless/iwlwifi/iwl-shared.h
-index 14eaf37..a570e0d 100644
---- a/drivers/net/wireless/iwlwifi/iwl-shared.h
-+++ b/drivers/net/wireless/iwlwifi/iwl-shared.h
-@@ -152,6 +152,7 @@ struct iwl_mod_params {
- 	bool bt_ch_announce;
- 	int wanted_ucode_alternative;
- 	bool auto_agg;
-+	bool runtime_pm;
- };
- 
- /**
--- 
-1.7.7.5
+What I wrote does the right thing, I think.  However, duplicated
+effort is always bad, so can you show me how to change it?
+
+Thanks,
+Richard
