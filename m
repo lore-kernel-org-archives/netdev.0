@@ -1,120 +1,167 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH net-next v2 2/4] can: cc770: add legacy ISA bus driver
- for the CC770 and AN82527
-Date: Tue, 10 Jan 2012 12:59:38 +0100
-Message-ID: <4F0C282A.5020505@grandegger.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF31@saturn3.aculab.com> <4F0B608D.6090309@essax.com> <4F0C23F0.10602@proconX.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH v2 1/6] SUNRPC: fix pipe->ops cleanup on pipe dentry unlink
+Date: Tue, 10 Jan 2012 16:12:38 +0400
+Message-ID: <20120110121238.7307.19734.stgit@localhost6.localdomain6>
+References: <20120110120946.7307.60098.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: info@essax.com, David Laight <David.Laight@ACULAB.COM>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	socketcan-users@lists.berlios.de, IreneV <boir1@yandex.ru>,
-	Stanislav Yelenskiy <stanislavelensky@yahoo.com>, oe@port.de,
-	henrik@focus-sw.com
-To: Henrik Maier <henrik@proconX.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4F0C23F0.10602@proconX.com>
-Sender: linux-can-owner@vger.kernel.org
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
+	davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120110120946.7307.60098.stgit@localhost6.localdomain6>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Henrik,
+This patch looks late due to GSS AUTH patches sent already. But it fixes a flaw
+in RPC PipeFS pipes handling.
+I've added this patch in the series, because this series related to pipes. But
+it should be a part of previous series named "SUNPRC: cleanup PipeFS for
+network-namespace-aware users".
 
-On 01/10/2012 12:41 PM, Henrik Maier wrote:
-> Hello guys,
-> 
-> see comments below.
-> 
-> On 9/01/2012 10:47 PM, Wolfgang Zarre wrote:
->> Further I have also investigated a bit the issue regarding the "HM"
->> patches.
->>
->> I checked out the can4linux and I could find this patch in file
->> can_i82527funcs.c as mentioned by Oliver.
->> @Oliver: BTW thanks for Your investigation.
->>
->> After studying the Makefile and some tests I discovered that
->> this file is just used for the target SBS_PC7 but funny enough not
->> for GENERIC_I82527.
->>
->> I was seeking the declaration of CANout used in can_i82527funcs.c
->> to see if it's based on the same code we had and as well as in Lincan
->> but unfortunately the target SBS_PC7 doesn't compile with kernel
->> 2.6.39-4 and moreover I got the message:
->> ...can4linux/trunk/can4linux/i82527funcs.c:72:
->>                       error: implicit declaration of function 'CANout'
->>
->> And additional not knowing if the board of SBS_PC7 is ISA or PCI based
->> I tried to find out and found after some research the following
->> thread:
->> http://old.nabble.com/-PATCH-v2--cc770-isa%3A-legacy-driver-for-CC770-i82725-on-the-ISA-bus-td24216347.html
->>
->>
->> According to that I assumed it's ISA based and is working with cc770_isa.
->>
->> But not finding the declaration of CANout used in can_i82527funcs.c I
->> assumed further that it was done without spinlock which might cause
->> the effect of repeated or even lost interrupts as well depending on
->> the hardware configuration.
->>
->> If this is the case then the HM patches would be obsolete and maybe
->> someone owning a SBS PC7 can test without these patches.
->>
->> @Henrik: I would like to ask You if You can confirm this when You are
->> back.
->> Thanks a lot.
->>
->>
->> Wolfgang
-> 
-> The can4linux port I made was done for a specific project and a specific
-> hardware, the SBS PC7, and only ever tested on that hardware. The i82527
-> code was already in the can4linux 3.x archive but not maintained for a
-> while and has become non-functional over time.
-> 
-> Initially we used the 2.4 Linux kernel and the can4linux version 3.1 as
-> basis for the re-integration of the i82527. I called our modified
-> version  "3.1i" (i for Intel). This is from the changelog:
-> 
-> 3.1i - Integration of the i82527 code into can4linux version 3.1,
->       major refactoring and clean-up of the i82527 code, fixed
->       interrupt lock-up issue w/ sending while receiving in heavy load,
->       fixed issue w/ stopping and re-starting the bus, added
->       new acceptance mask function to bring code in line with SJA1000 code
->       base, new I/O model to support the SJA1000 CANin/CANout macros,
->       support added to the makefile for generic i82527 cards and
->       SBS PC7compact DINrail mounted industry PC
->       by Henrik Maier of FOCUS Software Engineering Pty Ltd
-> <www.focus-sw.com>
-> 
-> As time passed the requirement for kernel 2.6 support emerged and we did
-> the same based on can4linux 3.3.2 and called it "3.3.2i" which later was
-> merged into the official can4linux archive and became 3.3.3.
-> 
-> The "repeated TX IRQ" issue came up only with kernel 2.6 and was not
-> required in the 2.4 version. The way I fixed it may not have been the
-> best, but it solved the immediate need of finishing a project and
-> getting the driver stable. I am not a kernel driver expert.
+Pipe dentry can be created and destroyed many times during pipe life cycle.
+This actually means, that we can't set pipe->ops to NULL in rpc_close_pipes()
+and use this variable as a flag, indicating, that pipe's dentry is unlinking.
+To follow this restriction, this patch replaces "pipe->ops = NULL" assignment
+and checks for NULL with "pipe->dentry = NULL" assignment and checks for
+NULL respectively.
+This patch also removes check for non-NULL pipe->ops (or pipe->dentry) in
+rpc_close_pipes() because it always non-NULL now.
 
-OK, then most likely it's not a hardware issue.
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
-> The PC7 hardware is now obsolete anyway. From my point we can do a
-> "clean" start and remove the old baggage.
-> 
-> The PC7 CAN interface is ISA based and I don't have a hardware any more
-> to test.
-> 
-> Some background info and our "i" versions are published here:
-> 
-> http://www.focus-sw.com/can/can4linux.html
-> 
-> I hope that helps a bit. It has been a few years since I worked with
-> can4linux but it is great to see that the community is further enhancing
-> CAN support for Linux.
+---
+ net/sunrpc/rpc_pipe.c |   51 +++++++++++++++++++------------------------------
+ 1 files changed, 20 insertions(+), 31 deletions(-)
 
-Yes, of course. Thanks for digging that out. As you suggest, we will
-remove that code and wait what happens.
-
-Wolfgang.
-
+diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
+index 8d74575..6415241 100644
+--- a/net/sunrpc/rpc_pipe.c
++++ b/net/sunrpc/rpc_pipe.c
+@@ -86,10 +86,6 @@ rpc_timeout_upcall_queue(struct work_struct *work)
+ 	void (*destroy_msg)(struct rpc_pipe_msg *);
+ 
+ 	spin_lock(&pipe->lock);
+-	if (pipe->ops == NULL) {
+-		spin_unlock(&pipe->lock);
+-		return;
+-	}
+ 	destroy_msg = pipe->ops->destroy_msg;
+ 	if (pipe->nreaders == 0) {
+ 		list_splice_init(&pipe->pipe, &free_list);
+@@ -135,8 +131,6 @@ rpc_queue_upcall(struct rpc_pipe *pipe, struct rpc_pipe_msg *msg)
+ 	int res = -EPIPE;
+ 
+ 	spin_lock(&pipe->lock);
+-	if (pipe->ops == NULL)
+-		goto out;
+ 	if (pipe->nreaders) {
+ 		list_add_tail(&msg->list, &pipe->pipe);
+ 		pipe->pipelen += msg->len;
+@@ -150,7 +144,6 @@ rpc_queue_upcall(struct rpc_pipe *pipe, struct rpc_pipe_msg *msg)
+ 		pipe->pipelen += msg->len;
+ 		res = 0;
+ 	}
+-out:
+ 	spin_unlock(&pipe->lock);
+ 	wake_up(&pipe->waitq);
+ 	return res;
+@@ -167,27 +160,23 @@ static void
+ rpc_close_pipes(struct inode *inode)
+ {
+ 	struct rpc_pipe *pipe = RPC_I(inode)->pipe;
+-	const struct rpc_pipe_ops *ops;
+ 	int need_release;
++	LIST_HEAD(free_list);
+ 
+ 	mutex_lock(&inode->i_mutex);
+-	ops = pipe->ops;
+-	if (ops != NULL) {
+-		LIST_HEAD(free_list);
+-		spin_lock(&pipe->lock);
+-		need_release = pipe->nreaders != 0 || pipe->nwriters != 0;
+-		pipe->nreaders = 0;
+-		list_splice_init(&pipe->in_upcall, &free_list);
+-		list_splice_init(&pipe->pipe, &free_list);
+-		pipe->pipelen = 0;
+-		pipe->ops = NULL;
+-		spin_unlock(&pipe->lock);
+-		rpc_purge_list(pipe, &free_list, ops->destroy_msg, -EPIPE);
+-		pipe->nwriters = 0;
+-		if (need_release && ops->release_pipe)
+-			ops->release_pipe(inode);
+-		cancel_delayed_work_sync(&pipe->queue_timeout);
+-	}
++	spin_lock(&pipe->lock);
++	need_release = pipe->nreaders != 0 || pipe->nwriters != 0;
++	pipe->nreaders = 0;
++	list_splice_init(&pipe->in_upcall, &free_list);
++	list_splice_init(&pipe->pipe, &free_list);
++	pipe->pipelen = 0;
++	pipe->dentry = NULL;
++	spin_unlock(&pipe->lock);
++	rpc_purge_list(pipe, &free_list, pipe->ops->destroy_msg, -EPIPE);
++	pipe->nwriters = 0;
++	if (need_release && pipe->ops->release_pipe)
++		pipe->ops->release_pipe(inode);
++	cancel_delayed_work_sync(&pipe->queue_timeout);
+ 	rpc_inode_setowner(inode, NULL);
+ 	mutex_unlock(&inode->i_mutex);
+ }
+@@ -224,7 +213,7 @@ rpc_pipe_open(struct inode *inode, struct file *filp)
+ 	int res = -ENXIO;
+ 
+ 	mutex_lock(&inode->i_mutex);
+-	if (pipe->ops == NULL)
++	if (pipe->dentry == NULL)
+ 		goto out;
+ 	first_open = pipe->nreaders == 0 && pipe->nwriters == 0;
+ 	if (first_open && pipe->ops->open_pipe) {
+@@ -250,7 +239,7 @@ rpc_pipe_release(struct inode *inode, struct file *filp)
+ 	int last_close;
+ 
+ 	mutex_lock(&inode->i_mutex);
+-	if (pipe->ops == NULL)
++	if (pipe->dentry == NULL)
+ 		goto out;
+ 	msg = filp->private_data;
+ 	if (msg != NULL) {
+@@ -291,7 +280,7 @@ rpc_pipe_read(struct file *filp, char __user *buf, size_t len, loff_t *offset)
+ 	int res = 0;
+ 
+ 	mutex_lock(&inode->i_mutex);
+-	if (pipe->ops == NULL) {
++	if (pipe->dentry == NULL) {
+ 		res = -EPIPE;
+ 		goto out_unlock;
+ 	}
+@@ -334,7 +323,7 @@ rpc_pipe_write(struct file *filp, const char __user *buf, size_t len, loff_t *of
+ 
+ 	mutex_lock(&inode->i_mutex);
+ 	res = -EPIPE;
+-	if (pipe->ops != NULL)
++	if (pipe->dentry != NULL)
+ 		res = pipe->ops->downcall(filp, buf, len);
+ 	mutex_unlock(&inode->i_mutex);
+ 	return res;
+@@ -349,7 +338,7 @@ rpc_pipe_poll(struct file *filp, struct poll_table_struct *wait)
+ 	poll_wait(filp, &pipe->waitq, wait);
+ 
+ 	mask = POLLOUT | POLLWRNORM;
+-	if (pipe->ops == NULL)
++	if (pipe->dentry == NULL)
+ 		mask |= POLLERR | POLLHUP;
+ 	if (filp->private_data || !list_empty(&pipe->pipe))
+ 		mask |= POLLIN | POLLRDNORM;
+@@ -366,7 +355,7 @@ rpc_pipe_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 	switch (cmd) {
+ 	case FIONREAD:
+ 		spin_lock(&pipe->lock);
+-		if (pipe->ops == NULL) {
++		if (pipe->dentry == NULL) {
+ 			spin_unlock(&pipe->lock);
+ 			return -EPIPE;
+ 		}
