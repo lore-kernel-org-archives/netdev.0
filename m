@@ -1,38 +1,91 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: Iproute2 build broken by current kernel headers
-Date: Wed, 11 Jan 2012 22:27:51 +0400
-Message-ID: <4F0DD4A7.1080204@parallels.com>
-References: <20120110105409.3567bb1b@nehalam.linuxnetplumber.net>	<20120110110749.42c1252a@nehalam.linuxnetplumber.net>	<4F0D2D88.8010705@parallels.com> <20120111102400.178baee6@nehalam.linuxnetplumber.net>
+From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2 4/5] NFS: remove RPC PipeFS mount point reference
+ from blocklayout routines
+Date: Wed, 11 Jan 2012 13:33:13 -0500
+Message-ID: <1326306793.20284.3.camel@lade.trondhjem.org>
+References: <20120110130323.1672.97025.stgit@localhost6.localdomain6>
+	 <20120110130440.1672.43785.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:33036 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932550Ab2AKS15 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jan 2012 13:27:57 -0500
-In-Reply-To: <20120111102400.178baee6@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120110130440.1672.43785.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> These patches will have to be redone to work with the revised include
-> files. The iproute2 changes are not acceptable as is because they do not support
-> older kernels.
+On Tue, 2012-01-10 at 17:04 +0400, Stanislav Kinsbursky wrote: 
+> This is a cleanup patch. We don't need this reference anymore, because
+> blocklayout pipes dentries now creates and destroys in per-net operations and
+> on PipeFS mount/umount notification.
+> Note that nfs4blocklayout_register_net() now returns 0 instead of -ENOENT in
+> case of PipeFS superblock absence. This is ok, because blocklayout pipe dentry
+> will be created on PipeFS mount event.
 > 
-> It is critical that the resulting code work on both old and new
-> kernels. In other words, when the new ss command is built (using your
-> patches and 3.3 headers), it:
->  * SHOULD send new diag requests to kernel and be able to display
->    the new UNIX domain info
->  * MUST still work when run against old 3.2 kernel.
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
 > 
-> This means the code should send new request first, and if that generates
-> an error fallback (silently) to the old message format.
+> ---
+>  fs/nfs/blocklayout/blocklayout.c |    9 +--------
+>  1 files changed, 1 insertions(+), 8 deletions(-)
+> 
+> diff --git a/fs/nfs/blocklayout/blocklayout.c b/fs/nfs/blocklayout/blocklayout.c
+> index 322d920..2c70202 100644
+> --- a/fs/nfs/blocklayout/blocklayout.c
+> +++ b/fs/nfs/blocklayout/blocklayout.c
+> @@ -1034,7 +1034,7 @@ static struct dentry *nfs4blocklayout_register_net(struct net *net,
+>  
+>  	pipefs_sb = rpc_get_sb_net(net);
+>  	if (!pipefs_sb)
+> -		return ERR_PTR(-ENOENT);
+> +		return 0;
 
-OK, I will rework the patches in this way.
+This looks like a typo of some sort. The caller in
+nfs4blocklayout_net_init() checks for IS_ERR(), not NULL. I'll just
+remove this hunk...
 
-Thanks,
-Pavel
+> 	dentry = nfs4blocklayout_register_sb(pipefs_sb, pipe);
+>  	rpc_put_sb_net(net);
+>  	return dentry;
+> @@ -1085,7 +1085,6 @@ static struct pernet_operations nfs4blocklayout_net_ops = {
+>  
+>  static int __init nfs4blocklayout_init(void)
+>  {
+> -	struct vfsmount *mnt;
+>  	int ret;
+>  
+>  	dprintk("%s: NFSv4 Block Layout Driver Registering...\n", __func__);
+> @@ -1095,12 +1094,6 @@ static int __init nfs4blocklayout_init(void)
+>  		goto out;
+>  
+>  	init_waitqueue_head(&bl_wq);
+> -
+> -	mnt = rpc_get_mount();
+> -	if (IS_ERR(mnt)) {
+> -		ret = PTR_ERR(mnt);
+> -		goto out_remove;
+> -	}
+>  	ret = rpc_pipefs_notifier_register(&nfs4blocklayout_block);
+>  	if (ret)
+>  		goto out_remove;
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+-- 
+Trond Myklebust
+Linux NFS client maintainer
+
+NetApp
+Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
+www.netapp.com
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
