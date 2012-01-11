@@ -1,8 +1,9 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v2 0/6] SUNRPC: make RPC clients use network-namespace-aware
- PipeFS routines
-Date: Wed, 11 Jan 2012 19:17:52 +0400
-Message-ID: <20120111151051.5891.1830.stgit@localhost6.localdomain6>
+Subject: [PATCH v2 2/6] SUNRPC: handle GSS AUTH pipes by network namespace
+ aware routines
+Date: Wed, 11 Jan 2012 19:18:09 +0400
+Message-ID: <20120111151809.5891.25764.stgit@localhost6.localdomain6>
+References: <20120111151051.5891.1830.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -12,48 +13,143 @@ Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
 	davem@davemloft.net, devel@openvz.org
 To: Trond.Myklebust@netapp.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120111151051.5891.1830.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch set was created in context of clone of git
-branch: git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git.
+This patch makes RPC GSS PipeFs pipes allocated in it's RPC client owner
+network namespace context.
+Pipes creation and destruction now done in separated functions, which takes
+care about PipeFS superblock locking.
 
-v2:
-1) "over-put" of PipeFS mount point in 1st patch of the series fixed, which
-allow allows to bisect the patch set.
-2) rebased on tag v3.2
-
-This patch set depends on previous patch sets titled:
-1) "SUNRPC: initial part of making pipefs work in net ns"
-2) "SUNPRC: cleanup PipeFS for network-namespace-aware users"
-
-This patch set is a first part of reworking SUNPRC PipeFS users.
-It makes SUNRPC clients using PipeFS nofitications for directory and GSS pipes
-dentries creation. With this patch set RPC clients and GSS auth creations
-routines doesn't force SUNRPC PipeFS mount point creation which actually means,
-that they now can work without PipeFS dentries.
-
-
-The following series consists of:
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
+ net/sunrpc/auth_gss/auth_gss.c |   95 +++++++++++++++++++++++++++++++---------
+ 1 files changed, 73 insertions(+), 22 deletions(-)
 
-Stanislav Kinsbursky (6):
-      SUNRPC: handle RPC client pipefs dentries by network namespace aware routines
-      SUNRPC: handle GSS AUTH pipes by network namespace aware routines
-      SUNRPC: subscribe RPC clients to pipefs notifications
-      SUNRPC: remove RPC client pipefs dentries after unregister
-      SUNRPC: remove RPC pipefs mount point manipulations from RPC clients code
-      SUNRPC: remove RPC PipeFS mount point reference from RPC client
-
-
- fs/nfs/idmap.c                 |    4 +
- fs/nfsd/nfs4callback.c         |    2 -
- include/linux/nfs.h            |    2 -
- include/linux/sunrpc/auth.h    |    2 +
- include/linux/sunrpc/clnt.h    |    2 -
- net/sunrpc/auth_gss/auth_gss.c |  101 +++++++++++++++++++++------
- net/sunrpc/clnt.c              |  150 +++++++++++++++++++++++++++++++---------
- net/sunrpc/rpc_pipe.c          |   19 +++--
- net/sunrpc/sunrpc.h            |    2 +
- 9 files changed, 217 insertions(+), 67 deletions(-)
+diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
+index 7544305..164193e 100644
+--- a/net/sunrpc/auth_gss/auth_gss.c
++++ b/net/sunrpc/auth_gss/auth_gss.c
+@@ -759,6 +759,73 @@ gss_pipe_destroy_msg(struct rpc_pipe_msg *msg)
+ 	}
+ }
+ 
++static void gss_pipes_dentries_destroy(struct rpc_auth *auth)
++{
++	struct gss_auth *gss_auth;
++
++	gss_auth = container_of(auth, struct gss_auth, rpc_auth);
++	rpc_unlink(gss_auth->pipe[0]->dentry);
++	rpc_unlink(gss_auth->pipe[1]->dentry);
++}
++
++static int gss_pipes_dentries_create(struct rpc_auth *auth)
++{
++	int err;
++	struct gss_auth *gss_auth;
++	struct rpc_clnt *clnt;
++
++	gss_auth = container_of(auth, struct gss_auth, rpc_auth);
++	clnt = gss_auth->client;
++
++	gss_auth->pipe[1]->dentry = rpc_mkpipe_dentry(clnt->cl_path.dentry,
++						      "gssd",
++						      clnt, gss_auth->pipe[1]);
++	if (IS_ERR(gss_auth->pipe[1]->dentry))
++		return PTR_ERR(gss_auth->pipe[1]->dentry);
++	gss_auth->pipe[0]->dentry = rpc_mkpipe_dentry(clnt->cl_path.dentry,
++						      gss_auth->mech->gm_name,
++						      clnt, gss_auth->pipe[0]);
++	if (IS_ERR(gss_auth->pipe[0]->dentry)) {
++		err = PTR_ERR(gss_auth->pipe[0]->dentry);
++		goto err_unlink_pipe_1;
++	}
++	return 0;
++
++err_unlink_pipe_1:
++	rpc_unlink(gss_auth->pipe[1]->dentry);
++	return err;
++}
++
++static void gss_pipes_dentries_destroy_net(struct rpc_clnt *clnt,
++					   struct rpc_auth *auth)
++{
++	struct net *net = clnt->cl_xprt->xprt_net;
++	struct super_block *sb;
++
++	sb = rpc_get_sb_net(net);
++	if (sb) {
++		if (clnt->cl_path.dentry)
++			gss_pipes_dentries_destroy(auth);
++		rpc_put_sb_net(net);
++	}
++}
++
++static int gss_pipes_dentries_create_net(struct rpc_clnt *clnt,
++					 struct rpc_auth *auth)
++{
++	struct net *net = clnt->cl_xprt->xprt_net;
++	struct super_block *sb;
++	int err = 0;
++
++	sb = rpc_get_sb_net(net);
++	if (sb) {
++		if (clnt->cl_path.dentry)
++			err = gss_pipes_dentries_create(auth);
++		rpc_put_sb_net(net);
++	}
++	return err;
++}
++
+ /*
+  * NOTE: we have the opportunity to use different
+  * parameters based on the input flavor (which must be a pseudoflavor)
+@@ -814,31 +881,16 @@ gss_create(struct rpc_clnt *clnt, rpc_authflavor_t flavor)
+ 		err = PTR_ERR(gss_auth->pipe[0]);
+ 		goto err_destroy_pipe_1;
+ 	}
+-
+-	gss_auth->pipe[1]->dentry = rpc_mkpipe_dentry(clnt->cl_path.dentry,
+-						      "gssd",
+-						      clnt, gss_auth->pipe[1]);
+-	if (IS_ERR(gss_auth->pipe[1]->dentry)) {
+-		err = PTR_ERR(gss_auth->pipe[1]->dentry);
++	err = gss_pipes_dentries_create_net(clnt, auth);
++	if (err)
+ 		goto err_destroy_pipe_0;
+-	}
+-
+-	gss_auth->pipe[0]->dentry = rpc_mkpipe_dentry(clnt->cl_path.dentry,
+-						      gss_auth->mech->gm_name,
+-						      clnt, gss_auth->pipe[0]);
+-	if (IS_ERR(gss_auth->pipe[0]->dentry)) {
+-		err = PTR_ERR(gss_auth->pipe[0]->dentry);
+-		goto err_unlink_pipe_1;
+-	}
+ 	err = rpcauth_init_credcache(auth);
+ 	if (err)
+-		goto err_unlink_pipe_0;
++		goto err_unlink_pipes;
+ 
+ 	return auth;
+-err_unlink_pipe_0:
+-	rpc_unlink(gss_auth->pipe[0]->dentry);
+-err_unlink_pipe_1:
+-	rpc_unlink(gss_auth->pipe[1]->dentry);
++err_unlink_pipes:
++	gss_pipes_dentries_destroy_net(clnt, auth);
+ err_destroy_pipe_0:
+ 	rpc_destroy_pipe_data(gss_auth->pipe[0]);
+ err_destroy_pipe_1:
+@@ -855,8 +907,7 @@ out_dec:
+ static void
+ gss_free(struct gss_auth *gss_auth)
+ {
+-	rpc_unlink(gss_auth->pipe[0]->dentry);
+-	rpc_unlink(gss_auth->pipe[1]->dentry);
++	gss_pipes_dentries_destroy_net(gss_auth->client, &gss_auth->rpc_auth);
+ 	rpc_destroy_pipe_data(gss_auth->pipe[0]);
+ 	rpc_destroy_pipe_data(gss_auth->pipe[1]);
+ 	gss_mech_put(gss_auth->mech);
