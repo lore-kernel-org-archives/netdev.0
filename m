@@ -1,36 +1,59 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: brcm80211 breakage..
-Date: Wed, 11 Jan 2012 07:05:38 -0800
-Message-ID: <CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com>
-References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com>
- <4F0D6806.4080201@broadcom.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH v2 0/6] SUNRPC: make RPC clients use network-namespace-aware
+ PipeFS routines
+Date: Wed, 11 Jan 2012 19:17:52 +0400
+Message-ID: <20120111151051.5891.1830.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Network Development <netdev@vger.kernel.org>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	=?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:62890 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756905Ab2AKPGA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2012 10:06:00 -0500
-Received: by wibhm14 with SMTP id hm14so430865wib.19
-        for <netdev@vger.kernel.org>; Wed, 11 Jan 2012 07:05:59 -0800 (PST)
-In-Reply-To: <4F0D6806.4080201@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
+	davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 11, 2012 at 2:44 AM, Arend van Spriel <arend@broadcom.com> wrote:
->
-> My theory is that the BAR window is not mapped to a valid address. Could
-> you try to revert the following commit:
+This patch set was created in context of clone of git
+branch: git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git.
 
-Sadly, that one makes no difference. I'll enable BRCM/BCMA debugging
-and see if that gives any more information, but will be unable to do
-much for the next few hours, so it will likely not be until this
-afternoon.
+v2:
+1) "over-put" of PipeFS mount point in 1st patch of the series fixed, which
+allow allows to bisect the patch set.
+2) rebased on tag v3.2
 
-                            Linus
+This patch set depends on previous patch sets titled:
+1) "SUNRPC: initial part of making pipefs work in net ns"
+2) "SUNPRC: cleanup PipeFS for network-namespace-aware users"
+
+This patch set is a first part of reworking SUNPRC PipeFS users.
+It makes SUNRPC clients using PipeFS nofitications for directory and GSS pipes
+dentries creation. With this patch set RPC clients and GSS auth creations
+routines doesn't force SUNRPC PipeFS mount point creation which actually means,
+that they now can work without PipeFS dentries.
+
+
+The following series consists of:
+
+---
+
+Stanislav Kinsbursky (6):
+      SUNRPC: handle RPC client pipefs dentries by network namespace aware routines
+      SUNRPC: handle GSS AUTH pipes by network namespace aware routines
+      SUNRPC: subscribe RPC clients to pipefs notifications
+      SUNRPC: remove RPC client pipefs dentries after unregister
+      SUNRPC: remove RPC pipefs mount point manipulations from RPC clients code
+      SUNRPC: remove RPC PipeFS mount point reference from RPC client
+
+
+ fs/nfs/idmap.c                 |    4 +
+ fs/nfsd/nfs4callback.c         |    2 -
+ include/linux/nfs.h            |    2 -
+ include/linux/sunrpc/auth.h    |    2 +
+ include/linux/sunrpc/clnt.h    |    2 -
+ net/sunrpc/auth_gss/auth_gss.c |  101 +++++++++++++++++++++------
+ net/sunrpc/clnt.c              |  150 +++++++++++++++++++++++++++++++---------
+ net/sunrpc/rpc_pipe.c          |   19 +++--
+ net/sunrpc/sunrpc.h            |    2 +
+ 9 files changed, 217 insertions(+), 67 deletions(-)
