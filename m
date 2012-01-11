@@ -1,52 +1,40 @@
-From: Andy Gospodarek <gospo@redhat.com>
-Subject: Re: [PATCHv2] bond_alb: don't disable softirq under bond_alb_xmit
-Date: Wed, 11 Jan 2012 16:26:36 -0500
-Message-ID: <20120111212636.GE32485@quad.redhat.com>
-References: <1326146497-27711-1-git-send-email-maxim.uvarov@oracle.com>
- <20120111.125246.979686086126749318.davem@davemloft.net>
+From: Doug Kehn <rdkehn@yahoo.com>
+Subject: [PATCH v2] ksz884x: fix mtu for VLAN
+Date: Wed, 11 Jan 2012 17:12:43 -0600
+Message-ID: <20120111231243.GA14836@dkehn-Latitude-D830>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: maxim.uvarov@oracle.com, netdev@vger.kernel.org, fubar@us.ibm.com,
-	andy@greyhouse.net, amwang@redhat.com
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29361 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932749Ab2AKV1A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jan 2012 16:27:00 -0500
+Received: from nm23-vm0.bullet.mail.ne1.yahoo.com ([98.138.91.57]:45692 "HELO
+	nm23-vm0.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751005Ab2AKXSN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2012 18:18:13 -0500
 Content-Disposition: inline
-In-Reply-To: <20120111.125246.979686086126749318.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 11, 2012 at 12:52:46PM -0800, David Miller wrote:
-> From: Maxim Uvarov <maxim.uvarov@oracle.com>
-> Date: Mon,  9 Jan 2012 14:01:37 -0800
-> 
-> > No need to lock soft irqs under bond_alb_xmit()
-> > which already has softirq disabled.
-> > 
-> > Changes:
-> > 1. add non-bh/bh version to tlb_clear_slave()
-> > 
-> > 2. represent BH and non BH hash table locks
-> > _lock_rx_hashtbl_bh/_unlock_rx_hashtbl_bh
-> > _lock_rx_hashtbl/_unlock_rx_hashtbl
-> > _lock_tx_hashtbl_bh/_unlock_tx_hashtbl_bh
-> > _lock_tx_hashtbl/_unlock_tx_hashtbl
-> > 
-> > Signed-off-by: Maxim Uvarov <maxim.uvarov@oracle.com>
-> > Signed-off-by: Cong Wang <amwang@redhat.com>
-> 
-> Applied, thanks.
+The Ethernet header does not account for the addition of a VLAN header.
+Full size Ethernet frames containing VLAN header are not processed
+because the frame is larger than the resulting hw mtu.
 
-Thanks, Dave.  I'm still testing, but everything looks good so far.  I
-ran into an issue with my test system and it took longer to get going
-than I expected.  I should be done later tonight and will post if I find
-anything wrong.
+Signed-off-by: Doug Kehn <rdkehn@yahoo.com>
+---
+ drivers/net/ethernet/micrel/ksz884x.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-It's probably too late, but you can feel free to add a
-
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-
-if you want.
+diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
+index 6ed09a8..e52cd31 100644
+--- a/drivers/net/ethernet/micrel/ksz884x.c
++++ b/drivers/net/ethernet/micrel/ksz884x.c
+@@ -746,7 +746,7 @@
+ #define MAC_ADDR_ORDER(i)		(ETH_ALEN - 1 - (i))
+ 
+ #define MAX_ETHERNET_BODY_SIZE		1500
+-#define ETHERNET_HEADER_SIZE		14
++#define ETHERNET_HEADER_SIZE		(14 + VLAN_HLEN)
+ 
+ #define MAX_ETHERNET_PACKET_SIZE	\
+ 	(MAX_ETHERNET_BODY_SIZE + ETHERNET_HEADER_SIZE)
+-- 
+1.7.4.1
