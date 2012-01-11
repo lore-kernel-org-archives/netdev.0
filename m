@@ -1,65 +1,78 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: brcm80211 breakage..
-Date: Wed, 11 Jan 2012 08:04:42 -0800
-Message-ID: <CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com>
-References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com>
- <4F0D6806.4080201@broadcom.com> <CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com>
+From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 0/5] NFS: create blocklayout pipe per network namesapce
+ context
+Date: Wed, 11 Jan 2012 11:23:23 -0500
+Message-ID: <1326299003.17212.7.camel@lade.trondhjem.org>
+References: <20111129090754.20730.64567.stgit@localhost6.localdomain6>
+		 <1325285705.10984.4.camel@lade.trondhjem.org>
+	 <1325797111.11084.22.camel@lade.trondhjem.org>
+	 <4F0C35F3.7060508@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Network Development <netdev@vger.kernel.org>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	=?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:56737 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755340Ab2AKQFE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2012 11:05:04 -0500
-Received: by werm1 with SMTP id m1so637792wer.19
-        for <netdev@vger.kernel.org>; Wed, 11 Jan 2012 08:05:03 -0800 (PST)
-In-Reply-To: <CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"neilb-l3A5Bk7waGM@public.gmane.org" <neilb-l3A5Bk7waGM@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	James Bottomley <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4F0C35F3.7060508-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 11, 2012 at 7:05 AM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
->
-> Sadly, that one makes no difference. I'll enable BRCM/BCMA debugging
-> and see if that gives any more information, but will be unable to do
-> much for the next few hours, so it will likely not be until this
-> afternoon.
+On Tue, 2012-01-10 at 16:58 +0400, Stanislav Kinsbursky wrote:=20
+> 06.01.2012 00:58, Trond Myklebust =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> > The second problem that was highlighted was the fact that as they s=
+tand
+> > today, these patchsets do not allow for bisection. When we hit the =
+Oops,
+> > I had Bryan try to bisect where the problem arose. He ended up poin=
+ting
+> > at the patch "SUNRPC: handle RPC client pipefs dentries by network
+> > namespace aware routine", which is indeed the cause, but which is o=
+ne of
+> > the _dependencies_ for all the PipeFS notifier patches that fix the
+> > problem.
+> >
+>=20
+> I'm confused here. Does this means, that I have to fix patch "SUNRPC:=
+ handle RPC=20
+> client pipefs dentries by network namespace aware routine" to make it=
+ able to=20
+> bisect?
 
-Ok, could do it now. But that really doesn't give much more
-information. Here it is anyway:
+What I mean is that currently, I have various ways to Oops the kernel
+when I apply "SUNRPC: handle RPC client pipefs dentries by network
+namespace aware routine" before all these other followup patches are
+applied.
 
-[    0.746530] bcma-pci-bridge 0000:02:00.0: PCI INT A -> GSI 17
-(level, low) -> IRQ 17
-[    0.746544] bcma-pci-bridge 0000:02:00.0: setting latency timer to 64
-[    0.746617] bcma: Core 0 found: ChipCommon (manuf 0x4BF, id 0x800,
-rev 0x22, class 0x0)
-[    0.746646] bcma: Core 1 found: IEEE 802.11 (manuf 0x4BF, id 0x812,
-rev 0x17, class 0x0)
-[    0.746709] bcma: Core 2 found: PCIe (manuf 0x4BF, id 0x820, rev
-0x0F, class 0x0)
-[    0.746845] bcma: Switched to core: 0x800
-[    0.746859] bcma: Found rev 6 PMU (capabilities 0x108C2606)
-[    0.746880] bcma: Switched to core: 0x820
-[    0.775510] bcma: Switched to core: 0x800
-[    0.815750] bcma: Unsupported SPROM revision: 255
-[    0.815804] bcma: No SPROM available
-[    0.815909] bcma: Bus registered
-[   41.797178] brcmsmac bcma0:0: mfg 4bf core 812 rev 23 class 0 irq 17
-[   41.952030] bcma: Switched to core: 0x820
-[   41.952050] bcma: Switched to core: 0x800
-[   41.953881] ieee80211 phy0: wl0: brcms_b_attach: si_attach failed
-[   41.956397] ieee80211 phy0: wl0: brcms_b_attach: failed with err 11
-[   41.958443] ieee80211 phy0: wl0: brcms_c_attach: failed with err 11
-[   41.960468] ieee80211 phy0: brcmsmac: attach() failed with code 11
-[   41.962316] brcmsmac: brcms_bcma_probe: brcms_attach failed!
-[   41.967275] brcms_module_init: register returned 0
+One way to could fix this, might be to add dummy versions of
+rpc_pipefs_notifier_register()/unregister() so that "NFS: idmap PipeFS
+notifier introduced" and the other such patches can be applied without
+compilation errors or Oopses before the "handle RPC client pipefs
+dentries..." patch is applied. The latter could then enable the real
+rpc_pipefs_notifier_register()/....
 
-hopefully this gives people *some* idea, but I'm not seeing anything.
+The point is to not have these patches add _known_ bugs to the kernel a=
+t
+any point, so that someone who is trying to track down an unknown bug
+via "git bisect" doesn't have to also cope with these avoidable
+issues...
 
-         Linus
+--=20
+Trond Myklebust
+Linux NFS client maintainer
+
+NetApp
+Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
+www.netapp.com
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
