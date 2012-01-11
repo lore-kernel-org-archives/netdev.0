@@ -1,61 +1,42 @@
-From: =?UTF-8?q?Eric=20B=C3=A9nard?= <eric@eukrea.com>
-Subject: [PATCH] net: fsl: fec: handle 10Mbps speed in RMII mode
-Date: Wed, 11 Jan 2012 17:29:36 +0100
-Message-ID: <1326299376-22853-1-git-send-email-eric@eukrea.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 0/2] inet_diag: Fix old/new inet_diag_req-s structures
+Date: Wed, 11 Jan 2012 08:52:50 -0800
+Message-ID: <20120111085250.1f40b4d3@nehalam.linuxnetplumber.net>
+References: <4F0D49D4.7040100@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: shawn.guo@linaro.org, davem@davemloft.net,
- linux-arm-kernel@lists.infradead.org, u.kleine-koenig@pengutronix.de
-To: netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:52785 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932432Ab2AKQwx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jan 2012 11:52:53 -0500
+In-Reply-To: <4F0D49D4.7040100@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-d2hlbiB0aGUgbGluayBpcyAxMCBNYnBzIGFuZCB0aGUgbW9kZSBpcyBSTUlJLCBpdCdzIG5lY2Vz
-c2FyeQp0byBzZXQgRlJDT05UIHRvIDEgaW4gTUlJR1NLX0NGR1IgdG8gZGl2aWRlIHRoZSBSTUlJ
-IHNvdXJjZQpjbG9jayBieSAxMCBpbiBvcmRlciB0byBzdXBwb3J0IDEwIE1icHMgb3BlcmF0aW9u
-cy4KClNpZ25lZC1vZmYtYnk6IEVyaWMgQsOpbmFyZCA8ZXJpY0BldWtyZWEuY29tPgotLS0KIGRy
-aXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWMuYyB8ICAgMTAgKysrKysrKystLQogZHJp
-dmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlYy5oIHwgICAgNCArKysrCiAyIGZpbGVzIGNo
-YW5nZWQsIDEyIGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJp
-dmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlYy5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQv
-ZnJlZXNjYWxlL2ZlYy5jCmluZGV4IGRkY2JiYjMuLjg5NTMyYWIgMTAwNjQ0Ci0tLSBhL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWMuYworKysgYi9kcml2ZXJzL25ldC9ldGhlcm5l
-dC9mcmVlc2NhbGUvZmVjLmMKQEAgLTQ3Niw2ICs0NzYsNyBAQCBmZWNfcmVzdGFydChzdHJ1Y3Qg
-bmV0X2RldmljZSAqbmRldiwgaW50IGR1cGxleCkKIAl9IGVsc2UgewogI2lmZGVmIEZFQ19NSUlH
-U0tfRU5SCiAJCWlmIChpZF9lbnRyeS0+ZHJpdmVyX2RhdGEgJiBGRUNfUVVJUktfVVNFX0dBU0tF
-VCkgeworCQkJdTMyIG1paWdzazsKIAkJCS8qIGRpc2FibGUgdGhlIGdhc2tldCBhbmQgd2FpdCAq
-LwogCQkJd3JpdGVsKDAsIGZlcC0+aHdwICsgRkVDX01JSUdTS19FTlIpOwogCQkJd2hpbGUgKHJl
-YWRsKGZlcC0+aHdwICsgRkVDX01JSUdTS19FTlIpICYgNCkKQEAgLTQ4Niw4ICs0ODcsMTMgQEAg
-ZmVjX3Jlc3RhcnQoc3RydWN0IG5ldF9kZXZpY2UgKm5kZXYsIGludCBkdXBsZXgpCiAJCQkgKiAg
-IFJNSUksIDUwIE1Ieiwgbm8gbG9vcGJhY2ssIG5vIGVjaG8KIAkJCSAqICAgTUlJLCAyNSBNSHos
-IG5vIGxvb3BiYWNrLCBubyBlY2hvCiAJCQkgKi8KLQkJCXdyaXRlbCgoZmVwLT5waHlfaW50ZXJm
-YWNlID09IFBIWV9JTlRFUkZBQ0VfTU9ERV9STUlJKSA/Ci0JCQkJCTEgOiAwLCBmZXAtPmh3cCAr
-IEZFQ19NSUlHU0tfQ0ZHUik7CisJCQltaWlnc2sgPSAoZmVwLT5waHlfaW50ZXJmYWNlID09IFBI
-WV9JTlRFUkZBQ0VfTU9ERV9STUlJKQorCQkJCT8gRkVDX01JSUdTS19STUlJX01PREUgOiBGRUNf
-TUlJR1NLX01JSV9NT0RFOworCQkJaWYgKGZlcC0+cGh5X2RldikgeworCQkJCWlmIChmZXAtPnBo
-eV9kZXYtPnNwZWVkID09IFNQRUVEXzEwKQorCQkJCQltaWlnc2sgfD0gRkVDX01JSUdTS19GUkNP
-TlRfMTBNOworCQkJfQorCQkJd3JpdGVsKG1paWdzaywgZmVwLT5od3AgKyBGRUNfTUlJR1NLX0NG
-R1IpOwogCiAKIAkJCS8qIHJlLWVuYWJsZSB0aGUgZ2Fza2V0ICovCmRpZmYgLS1naXQgYS9kcml2
-ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjLmggYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9m
-cmVlc2NhbGUvZmVjLmgKaW5kZXggOGIyYzZkNy4uNjg3MGQ5ZSAxMDA2NDQKLS0tIGEvZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlYy5oCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0
-L2ZyZWVzY2FsZS9mZWMuaApAQCAtNDcsNiArNDcsMTAgQEAKICNkZWZpbmUgRkVDX01JSUdTS19D
-RkdSCQkweDMwMCAvKiBNSUlHU0sgQ29uZmlndXJhdGlvbiByZWcgKi8KICNkZWZpbmUgRkVDX01J
-SUdTS19FTlIJCTB4MzA4IC8qIE1JSUdTSyBFbmFibGUgcmVnICovCiAKKyNkZWZpbmUgRkVDX01J
-SUdTS19NSUlfTU9ERQkJMHgwMAorI2RlZmluZSBGRUNfTUlJR1NLX1JNSUlfTU9ERQkweDAxCisj
-ZGVmaW5lIEZFQ19NSUlHU0tfRlJDT05UXzEwTQkweDQwCisKICNlbHNlCiAKICNkZWZpbmUgRkVD
-X0VDTlRSTAkJMHgwMDAgLyogRXRoZXJuZXQgY29udHJvbCByZWcgKi8KLS0gCjEuNy43LjUKCgpf
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpsaW51eC1hcm0t
-a2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcK
-aHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0aW5mby9saW51eC1hcm0ta2Vy
-bmVsCg==
+On Wed, 11 Jan 2012 12:35:32 +0400
+Pavel Emelyanov <xemul@parallels.com> wrote:
+
+> The recent changes to inet_diag broke the compilation of tools using kernel headers.
+> 
+> Fix this by doing two sequential renames:
+> 
+>  inet_diag_req -> inet_diag_req_v2
+>  inet_diag_req_compat -> inet_diag_req
+> 
+> After this the changes in the user-space visible part of the inet_diag.h are
+> * add the inet_diag_req_v2
+> * extend the INET_DIAG_ extensions list
+> 
+> The set applies to current net tree.
+
+Tested and build succeeds.
+
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+
+Minor nit, it really didn't have to be two patches.
