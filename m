@@ -1,50 +1,67 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next] xfrm: Call IP receive handler directly for
-	inbound tunnel-mode packets
-Date: Wed, 11 Jan 2012 15:45:28 +1100
-Message-ID: <20120111044528.GA13790@gondor.apana.org.au>
-References: <1325475154-15997-1-git-send-email-david.ward@ll.mit.edu> <20120102072828.GA5380@gondor.apana.org.au> <4F020B04.9000104@ll.mit.edu>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] vhost-net: add module alias
+Date: Tue, 10 Jan 2012 20:54:00 -0800
+Message-ID: <20120110205400.6c1cb306@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Ward, David - 0663 - MITLL" <david.ward@ll.mit.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:60456 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756739Ab2AKEpc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2012 23:45:32 -0500
-Content-Disposition: inline
-In-Reply-To: <4F020B04.9000104@ll.mit.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 02, 2012 at 02:52:36PM -0500, Ward, David - 0663 - MITLL wrote:
->
-> Sorry if I'm missing something, but how are such overruns avoided on the  
-> outbound side?
+By adding the a module alias, programs (or users) won't have to explicitly
+call modprobe. Vhost-net will always be available if built into the kernel.
+It does require assigning a permanent minor number for depmod to work.
+Choose one next to TUN since this driver is related to it.
 
-We use tail calls on the output path.
+Also, use C99 style initialization.
 
-> Assuming there might be a better way to make this change, are there  
-> examples of existing setups that would be negatively affected? From my  
-> perspective this behavior is just an unintended artifact of xfrm'ed  
-> packets being placed back into netif_rx, which only occurs for inbound  
-> packets, and it complicates the usage of network taps on these  
-> interfaces (i.e. how do you systematically determine whether any packet  
-> is post-xfrm and was already seen in an earlier form?). It seems to me  
-> that network taps operate at a lower layer than xfrm, and so xfrm should  
-> be invisible to the network taps. If users are, for example, capturing  
-> ESP packets from a PF_PACKET socket and want to examine the decrypted  
-> payload, I think the capture application should be responsible for the  
-> decryption, just as it would be at higher layers with something like  
-> SSL/TLS (and again for example, both protocols can be decrypted by  
-> Wireshark when provided the keys).
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-While I sympathise with your argument, doing it nearly 10 years
-after this behaviour was implemented is just too dangerous IMHO.
+---
+ drivers/vhost/net.c        |    8 +++++---
+ include/linux/miscdevice.h |    1 +
+ 2 files changed, 6 insertions(+), 3 deletions(-)
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--- a/drivers/vhost/net.c	2012-01-10 10:56:58.883179194 -0800
++++ b/drivers/vhost/net.c	2012-01-10 19:48:23.650225892 -0800
+@@ -856,9 +856,9 @@ static const struct file_operations vhos
+ };
+ 
+ static struct miscdevice vhost_net_misc = {
+-	MISC_DYNAMIC_MINOR,
+-	"vhost-net",
+-	&vhost_net_fops,
++	.minor = VHOST_NET_MINOR,
++	.name = "vhost-net",
++	.fops = &vhost_net_fops,
+ };
+ 
+ static int vhost_net_init(void)
+@@ -879,3 +879,5 @@ MODULE_VERSION("0.0.1");
+ MODULE_LICENSE("GPL v2");
+ MODULE_AUTHOR("Michael S. Tsirkin");
+ MODULE_DESCRIPTION("Host kernel accelerator for virtio net");
++MODULE_ALIAS_MISCDEV(VHOST_NET_MINOR);
++MODULE_ALIAS("devname:vhost-net");
+--- a/include/linux/miscdevice.h	2012-01-10 10:56:59.779189436 -0800
++++ b/include/linux/miscdevice.h	2012-01-10 19:49:56.091748210 -0800
+@@ -31,6 +31,7 @@
+ #define I2O_MINOR		166
+ #define MICROCODE_MINOR		184
+ #define TUN_MINOR		200
++#define VHOST_NET_MINOR		201
+ #define MWAVE_MINOR		219	/* ACP/Mwave Modem */
+ #define MPT_MINOR		220
+ #define MPT2SAS_MINOR		221
