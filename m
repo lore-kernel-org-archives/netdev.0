@@ -1,58 +1,71 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] vhost-net: add module alias
-Date: Wed, 11 Jan 2012 08:58:57 -0800
-Message-ID: <20120111085857.0753322f@nehalam.linuxnetplumber.net>
-References: <20120110205400.6c1cb306@nehalam.linuxnetplumber.net>
-	<4F0D3543.7020401@msgid.tls.msk.ru>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: brcm80211 breakage..
+Date: Wed, 11 Jan 2012 11:00:32 -0600
+Message-ID: <4F0DC030.6090500@lwfinger.net>
+References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com> <4F0D6806.4080201@broadcom.com> <CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com> <CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Kay Sievers <kay.sievers@vrfy.org>, kvm@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Michael Tokarev <mjt@tls.msk.ru>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <4F0D3543.7020401@msgid.tls.msk.ru>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Arend van Spriel <arend@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Network Development <netdev@vger.kernel.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:42648 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756329Ab2AKRAh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2012 12:00:37 -0500
+Received: by iabz25 with SMTP id z25so1350440iab.19
+        for <netdev@vger.kernel.org>; Wed, 11 Jan 2012 09:00:37 -0800 (PST)
+In-Reply-To: <CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 11 Jan 2012 11:07:47 +0400
-Michael Tokarev <mjt@tls.msk.ru> wrote:
+On 01/11/2012 10:04 AM, Linus Torvalds wrote:
+> On Wed, Jan 11, 2012 at 7:05 AM, Linus Torvalds
+>
+> Ok, could do it now. But that really doesn't give much more
+> information. Here it is anyway:
+>
+> [    0.746530] bcma-pci-bridge 0000:02:00.0: PCI INT A ->  GSI 17
+> (level, low) ->  IRQ 17
+> [    0.746544] bcma-pci-bridge 0000:02:00.0: setting latency timer to 64
+> [    0.746617] bcma: Core 0 found: ChipCommon (manuf 0x4BF, id 0x800,
+> rev 0x22, class 0x0)
+> [    0.746646] bcma: Core 1 found: IEEE 802.11 (manuf 0x4BF, id 0x812,
+> rev 0x17, class 0x0)
+> [    0.746709] bcma: Core 2 found: PCIe (manuf 0x4BF, id 0x820, rev
+> 0x0F, class 0x0)
+> [    0.746845] bcma: Switched to core: 0x800
+> [    0.746859] bcma: Found rev 6 PMU (capabilities 0x108C2606)
+> [    0.746880] bcma: Switched to core: 0x820
+> [    0.775510] bcma: Switched to core: 0x800
+> [    0.815750] bcma: Unsupported SPROM revision: 255
+> [    0.815804] bcma: No SPROM available
 
-> On 11.01.2012 08:54, Stephen Hemminger wrote:
-> > By adding the a module alias, programs (or users) won't have to explicitly
-> > call modprobe. Vhost-net will always be available if built into the kernel.
-> > It does require assigning a permanent minor number for depmod to work.
-> > Choose one next to TUN since this driver is related to it.
-> 
-> Why do you think a statically-allocated device number will do any good
-> at all?  Static /dev is gone almost completely, at least on the systems
-> where whole virt stuff makes any sense, so you don't have pre-created
-> vhost-net device anymore, and hence this allocation makes no sense.
-> Just IMHO anyway.
+I'm not a bcma or brcmsmac expert, but the above result of SPROM version 0xFF 
+looks as if the read was from a non-existent register. If you get a chance, 
+please try this patch, which will dump the offset that is being used.
 
-The statically allocated device number is required for the udev/module
-autoloading to work. Probably the udev infrastructure needs a consistent
-number to hang off of.
+Index: wireless-testing-new/drivers/bcma/sprom.c
+===================================================================
+--- wireless-testing-new.orig/drivers/bcma/sprom.c
++++ wireless-testing-new/drivers/bcma/sprom.c
+@@ -230,6 +230,7 @@ int bcma_sprom_get(struct bcma_bus *bus)
+  	 * TODO: understand this condition and use it */
+  	offset = (bus->chipinfo.id == 0x4331) ? BCMA_CC_SPROM :
+  		BCMA_CC_SPROM_PCIE6;
++	pr_debug("SPROM offset 0x%x\n", offset);
+  	bcma_sprom_read(bus, offset, sprom);
 
-It looks like:
-  * driver adds MODULE_ALIAS() for devname and character device
-  * depmod scans modules and creates modules.devname (in /lib/modules)
-  * udev uses modules.devname to autoload the module
+  	if (bus->chipinfo.id == 0x4331)
 
-$ /sbin/modinfo vhost_net
-filename:       /lib/modules/3.2.0-net+/kernel/drivers/vhost/vhost_net.ko
-alias:          devname:vhost-net
-alias:          char-major-10-201
-description:    Host kernel accelerator for virtio net
-...
+As the TODO indicates, this part is not understood.
 
-See also: https://lkml.org/lkml/2010/5/21/134
+One other thing to try. If the new output says that the offset is 0x830, try 
+forcing it to 0x800, or vice versa. I don't think you have a 4331, and I expect 
+that the current code is trying 0x830, but should be using 0x800.
+
+Larry
