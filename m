@@ -1,66 +1,61 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] vhost-net: add module alias (v2)
-Date: Wed, 11 Jan 2012 21:00:17 +0000
-Message-ID: <1326315617.2705.10.camel@bwh-desktop>
-References: <20120110205400.6c1cb306@nehalam.linuxnetplumber.net>
-	<20120111091653.188b24ab@nehalam.linuxnetplumber.net>
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: brcm80211 breakage..
+Date: Wed, 11 Jan 2012 22:01:13 +0100
+Message-ID: <4F0DF899.8010101@broadcom.com>
+References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com>
+ <4F0D6806.4080201@broadcom.com>
+ <CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com>
+ <CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+ charset=iso-8859-2
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, Kay Sievers <kay.sievers@vrfy.org>,
-	virtualization@lists.linux-foundation.org, Alan Cox <device@lanana.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120111091653.188b24ab@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"Network Development" <netdev@vger.kernel.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	"=?ISO-8859-2?Q?Rafa=B3_?= =?ISO-8859-2?Q?Mi=B3ecki?="
+	<zajec5@gmail.com>, "Larry Finger" <Larry.Finger@lwfinger.net>
+To: "Linus Torvalds" <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:4129 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751146Ab2AKVBf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jan 2012 16:01:35 -0500
+In-Reply-To: <CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-01-11 at 09:16 -0800, Stephen Hemminger wrote:
-> By adding the correct module alias, programs won't have to explicitly
-> call modprobe. Vhost-net will always be available if built into the kernel.
-> It does require assigning a permanent minor number for depmod to work.
-> Choose one next to TUN since this driver is related to it.
+On 01/11/2012 05:04 PM, Linus Torvalds wrote:
+> On Wed, Jan 11, 2012 at 7:05 AM, Linus Torvalds
+> <torvalds@linux-foundation.org> wrote:
+>>
+>> Sadly, that one makes no difference. I'll enable BRCM/BCMA debugging
+>> and see if that gives any more information, but will be unable to do
+>> much for the next few hours, so it will likely not be until this
+>> afternoon.
+
+There goes my theory. I have no MacBook Air over here and we have
+nightly testing running for this chip. I will have it run on your branch
+iso wireless to see if I can reproduce it over here.
+
+> Ok, could do it now. But that really doesn't give much more
+> information. Here it is anyway:
+> [   41.797178] brcmsmac bcma0:0: mfg 4bf core 812 rev 23 class 0 irq 17
+> [   41.952030] bcma: Switched to core: 0x820
+> [   41.952050] bcma: Switched to core: 0x800
+> [   41.953881] ieee80211 phy0: wl0: brcms_b_attach: si_attach failed
+> [   41.956397] ieee80211 phy0: wl0: brcms_b_attach: failed with err 11
+> [   41.958443] ieee80211 phy0: wl0: brcms_c_attach: failed with err 11
+> [   41.960468] ieee80211 phy0: brcmsmac: attach() failed with code 11
+> [   41.962316] brcmsmac: brcms_bcma_probe: brcms_attach failed!
+> [   41.967275] brcms_module_init: register returned 0
 > 
-> Also, use C99 style initialization.
+> hopefully this gives people *some* idea, but I'm not seeing anything.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>          Linus
 > 
-> ---
-> v2 - document minor number and make sure to not overlap
-[...]
-> --- a/include/linux/miscdevice.h	2012-01-10 10:56:59.779189436 -0800
-> +++ b/include/linux/miscdevice.h	2012-01-11 09:13:20.803694316 -0800
-> @@ -42,6 +42,7 @@
->  #define AUTOFS_MINOR		235
->  #define MAPPER_CTRL_MINOR	236
->  #define LOOP_CTRL_MINOR		237
-> +#define VHOST_NET_MINOR		238
->  #define MISC_DYNAMIC_MINOR	255
->  
->  struct device;
-> --- a/Documentation/devices.txt	2012-01-10 10:56:53.399116518 -0800
-> +++ b/Documentation/devices.txt	2012-01-11 09:12:49.251197653 -0800
-> @@ -447,6 +447,8 @@ Your cooperation is appreciated.
->  		234 = /dev/btrfs-control	Btrfs control device
->  		235 = /dev/autofs	Autofs control device
->  		236 = /dev/mapper/control	Device-Mapper control device
-> +		237 = /dev/vhost-net	Host kernel accelerator for virtio net
-[...]
 
-238 != 237.  It looks like someone forgot to add loopctrl here.
+I have some idea, but no success in reproducing it. Could you provide
+the .config used on this?
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Gr. AvS
