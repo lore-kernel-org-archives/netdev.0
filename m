@@ -1,61 +1,54 @@
-From: Trond Myklebust <Trond.Myklebust@netapp.com>
-Subject: Re: [PATCH v2 4/5] NFS: remove RPC PipeFS mount point reference
- from blocklayout routines
-Date: Wed, 11 Jan 2012 13:36:17 -0500
-Message-ID: <1326306977.20284.4.camel@lade.trondhjem.org>
-References: <20120110130323.1672.97025.stgit@localhost6.localdomain6>
-	 <20120110130440.1672.43785.stgit@localhost6.localdomain6>
-	 <1326306793.20284.3.camel@lade.trondhjem.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] dp83640: Fix NOHZ local_softirq_pending 08 warning
+Date: Wed, 11 Jan 2012 20:03:00 +0100
+Message-ID: <20120111190300.GA14376@netboy.at.omicron.at>
+References: <1326189135-27770-1-git-send-email-manfred.rudigier@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbottomley@parallels.com, bfields@fieldses.org,
-	davem@davemloft.net, devel@openvz.org
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1326306793.20284.3.camel@lade.trondhjem.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Manfred Rudigier <manfred.rudigier@omicron.at>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:35570 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933111Ab2AKTDK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2012 14:03:10 -0500
+Received: by eekd4 with SMTP id d4so442932eek.19
+        for <netdev@vger.kernel.org>; Wed, 11 Jan 2012 11:03:09 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1326189135-27770-1-git-send-email-manfred.rudigier@omicron.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-01-11 at 13:33 -0500, Trond Myklebust wrote: 
-> On Tue, 2012-01-10 at 17:04 +0400, Stanislav Kinsbursky wrote: 
-> > This is a cleanup patch. We don't need this reference anymore, because
-> > blocklayout pipes dentries now creates and destroys in per-net operations and
-> > on PipeFS mount/umount notification.
-> > Note that nfs4blocklayout_register_net() now returns 0 instead of -ENOENT in
-> > case of PipeFS superblock absence. This is ok, because blocklayout pipe dentry
-> > will be created on PipeFS mount event.
-> > 
-> > Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
-> > 
-> > ---
-> >  fs/nfs/blocklayout/blocklayout.c |    9 +--------
-> >  1 files changed, 1 insertions(+), 8 deletions(-)
-> > 
-> > diff --git a/fs/nfs/blocklayout/blocklayout.c b/fs/nfs/blocklayout/blocklayout.c
-> > index 322d920..2c70202 100644
-> > --- a/fs/nfs/blocklayout/blocklayout.c
-> > +++ b/fs/nfs/blocklayout/blocklayout.c
-> > @@ -1034,7 +1034,7 @@ static struct dentry *nfs4blocklayout_register_net(struct net *net,
-> >  
-> >  	pipefs_sb = rpc_get_sb_net(net);
-> >  	if (!pipefs_sb)
-> > -		return ERR_PTR(-ENOENT);
-> > +		return 0;
+On Tue, Jan 10, 2012 at 10:52:15AM +0100, Manfred Rudigier wrote:
+> Similar problem as in 481a8199142c050b72bff8a1956a49fd0a75bbe0. This fix
+> replaces netif_rx() with netif_rx_ni() which has to be used from
+> process/softirq context.
+
+Thanks for spotting this. Can you post this once again with a Cc tag
+for the stable branch, too?
+
+Thanks,
+Richard
+
 > 
-> This looks like a typo of some sort. The caller in
-> nfs4blocklayout_net_init() checks for IS_ERR(), not NULL. I'll just
-> remove this hunk...
-
-Never mind. I see what's going on now... It should be NULL, and not 0
-for coding style reasons, though...
-
--- 
-Trond Myklebust
-Linux NFS client maintainer
-
-NetApp
-Trond.Myklebust@netapp.com
-www.netapp.com
+> Signed-off-by: Manfred Rudigier <manfred.rudigier@omicron.at>
+> ---
+>  drivers/net/phy/dp83640.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
+> index 9663e0b..ba3c591 100644
+> --- a/drivers/net/phy/dp83640.c
+> +++ b/drivers/net/phy/dp83640.c
+> @@ -1159,7 +1159,7 @@ static void rx_timestamp_work(struct work_struct *work)
+>  			}
+>  		}
+>  		spin_unlock_irqrestore(&dp83640->rx_lock, flags);
+> -		netif_rx(skb);
+> +		netif_rx_ni(skb);
+>  	}
+>  
+>  	/* Clear out expired time stamps. */
+> -- 
+> 1.7.0.4
+> 
