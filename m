@@ -1,34 +1,50 @@
-From: Adrian-Ken Rueegsegger <ken@codelabs.ch>
-Subject: Re: sha512: make it work, undo percpu message schedule
-Date: Wed, 11 Jan 2012 02:12:48 +0100
-Message-ID: <4F0CE210.1080305@codelabs.ch>
-References: <20120111000040.GA3801@p183.telecom.by>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH v2 1/3] virtio_net: Split receive buffer alloc/add
+Date: Wed, 11 Jan 2012 12:00:25 +1030
+Message-ID: <8739bn6n66.fsf@rustcorp.com.au>
+References: <20120110174052.4505.66514.stgit@mike2.sea.corp.google.com>
+	<20120110174100.4505.8939.stgit@mike2.sea.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, linux-crypto@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20120111000040.GA3801@p183.telecom.by>
-Sender: linux-crypto-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, earhart@google.com, digitaleric@google.com,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: Mike Waychison <mikew@google.com>, "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120110174100.4505.8939.stgit@mike2.sea.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 01/11/2012 01:00 AM, Alexey Dobriyan wrote:
-> commit f9e2bca6c22d75a289a349f869701214d63b5060
-> aka "crypto: sha512 - Move message schedule W[80] to static percpu area"
-> created global message schedule area.
-
-[snip]
-
-> I personally don't understand this changelog entry:
+On Tue, 10 Jan 2012 09:41:01 -0800, Mike Waychison <mikew@google.com> wrote:
+> In preparation for allocating receive buffers in the slow path without
+> disabling NAPI, split the allocation and addition of receive buffers
+> apart into two separate functions (per receive buffer type).
 > 
-> 	"The message schedule W (u64[80]) is too big for the stack."
+> While here, move the vi->num accounting into the add functions.
 > 
-> Hash context is dynamically allocated.
+> Signed-off-by: Mike Waychison <mikew@google.com>
 
-My original patch did the same thing as yours and put the message
-schedule on the stack in sha512_transform. Herbert argued [1], that it
-was too big and suggested to store it in a static per-cpu area.
+Hi Mike...
 
-[1] - http://www.mail-archive.com/linux-crypto@vger.kernel.org/msg02527.html
+        This exposes a nasty ugliness in the way virtio_net works.  We
+allocate an skbuff for the small packet case, and just allocate the
+pages for the large packet cases, and alloc the skbuff when we fill the
+pages.
+
+        I think all the allocators should return a populated skbuff;
+this uses a bit more memory in theory, but should make the code simpler.
+As an added bonus, your life should get much simpler for these patches.
+
+I'll try to create such a patch tonight, but I'm busy finalizing my
+linux.conf.au presentation, so it might take longer :(
+
+Thanks,
+Rusty.
