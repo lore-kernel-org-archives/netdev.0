@@ -1,78 +1,61 @@
-From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 0/5] NFS: create blocklayout pipe per network namesapce
- context
-Date: Wed, 11 Jan 2012 11:23:23 -0500
-Message-ID: <1326299003.17212.7.camel@lade.trondhjem.org>
-References: <20111129090754.20730.64567.stgit@localhost6.localdomain6>
-		 <1325285705.10984.4.camel@lade.trondhjem.org>
-	 <1325797111.11084.22.camel@lade.trondhjem.org>
-	 <4F0C35F3.7060508@parallels.com>
+From: =?UTF-8?q?Eric=20B=C3=A9nard?= <eric@eukrea.com>
+Subject: [PATCH] net: fsl: fec: handle 10Mbps speed in RMII mode
+Date: Wed, 11 Jan 2012 17:29:36 +0100
+Message-ID: <1326299376-22853-1-git-send-email-eric@eukrea.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"neilb-l3A5Bk7waGM@public.gmane.org" <neilb-l3A5Bk7waGM@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	James Bottomley <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4F0C35F3.7060508-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: shawn.guo@linaro.org, davem@davemloft.net,
+ linux-arm-kernel@lists.infradead.org, u.kleine-koenig@pengutronix.de
+To: netdev@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-01-10 at 16:58 +0400, Stanislav Kinsbursky wrote:=20
-> 06.01.2012 00:58, Trond Myklebust =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> > The second problem that was highlighted was the fact that as they s=
-tand
-> > today, these patchsets do not allow for bisection. When we hit the =
-Oops,
-> > I had Bryan try to bisect where the problem arose. He ended up poin=
-ting
-> > at the patch "SUNRPC: handle RPC client pipefs dentries by network
-> > namespace aware routine", which is indeed the cause, but which is o=
-ne of
-> > the _dependencies_ for all the PipeFS notifier patches that fix the
-> > problem.
-> >
->=20
-> I'm confused here. Does this means, that I have to fix patch "SUNRPC:=
- handle RPC=20
-> client pipefs dentries by network namespace aware routine" to make it=
- able to=20
-> bisect?
-
-What I mean is that currently, I have various ways to Oops the kernel
-when I apply "SUNRPC: handle RPC client pipefs dentries by network
-namespace aware routine" before all these other followup patches are
-applied.
-
-One way to could fix this, might be to add dummy versions of
-rpc_pipefs_notifier_register()/unregister() so that "NFS: idmap PipeFS
-notifier introduced" and the other such patches can be applied without
-compilation errors or Oopses before the "handle RPC client pipefs
-dentries..." patch is applied. The latter could then enable the real
-rpc_pipefs_notifier_register()/....
-
-The point is to not have these patches add _known_ bugs to the kernel a=
-t
-any point, so that someone who is trying to track down an unknown bug
-via "git bisect" doesn't have to also cope with these avoidable
-issues...
-
---=20
-Trond Myklebust
-Linux NFS client maintainer
-
-NetApp
-Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
-www.netapp.com
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+d2hlbiB0aGUgbGluayBpcyAxMCBNYnBzIGFuZCB0aGUgbW9kZSBpcyBSTUlJLCBpdCdzIG5lY2Vz
+c2FyeQp0byBzZXQgRlJDT05UIHRvIDEgaW4gTUlJR1NLX0NGR1IgdG8gZGl2aWRlIHRoZSBSTUlJ
+IHNvdXJjZQpjbG9jayBieSAxMCBpbiBvcmRlciB0byBzdXBwb3J0IDEwIE1icHMgb3BlcmF0aW9u
+cy4KClNpZ25lZC1vZmYtYnk6IEVyaWMgQsOpbmFyZCA8ZXJpY0BldWtyZWEuY29tPgotLS0KIGRy
+aXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWMuYyB8ICAgMTAgKysrKysrKystLQogZHJp
+dmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlYy5oIHwgICAgNCArKysrCiAyIGZpbGVzIGNo
+YW5nZWQsIDEyIGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJp
+dmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlYy5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+ZnJlZXNjYWxlL2ZlYy5jCmluZGV4IGRkY2JiYjMuLjg5NTMyYWIgMTAwNjQ0Ci0tLSBhL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWMuYworKysgYi9kcml2ZXJzL25ldC9ldGhlcm5l
+dC9mcmVlc2NhbGUvZmVjLmMKQEAgLTQ3Niw2ICs0NzYsNyBAQCBmZWNfcmVzdGFydChzdHJ1Y3Qg
+bmV0X2RldmljZSAqbmRldiwgaW50IGR1cGxleCkKIAl9IGVsc2UgewogI2lmZGVmIEZFQ19NSUlH
+U0tfRU5SCiAJCWlmIChpZF9lbnRyeS0+ZHJpdmVyX2RhdGEgJiBGRUNfUVVJUktfVVNFX0dBU0tF
+VCkgeworCQkJdTMyIG1paWdzazsKIAkJCS8qIGRpc2FibGUgdGhlIGdhc2tldCBhbmQgd2FpdCAq
+LwogCQkJd3JpdGVsKDAsIGZlcC0+aHdwICsgRkVDX01JSUdTS19FTlIpOwogCQkJd2hpbGUgKHJl
+YWRsKGZlcC0+aHdwICsgRkVDX01JSUdTS19FTlIpICYgNCkKQEAgLTQ4Niw4ICs0ODcsMTMgQEAg
+ZmVjX3Jlc3RhcnQoc3RydWN0IG5ldF9kZXZpY2UgKm5kZXYsIGludCBkdXBsZXgpCiAJCQkgKiAg
+IFJNSUksIDUwIE1Ieiwgbm8gbG9vcGJhY2ssIG5vIGVjaG8KIAkJCSAqICAgTUlJLCAyNSBNSHos
+IG5vIGxvb3BiYWNrLCBubyBlY2hvCiAJCQkgKi8KLQkJCXdyaXRlbCgoZmVwLT5waHlfaW50ZXJm
+YWNlID09IFBIWV9JTlRFUkZBQ0VfTU9ERV9STUlJKSA/Ci0JCQkJCTEgOiAwLCBmZXAtPmh3cCAr
+IEZFQ19NSUlHU0tfQ0ZHUik7CisJCQltaWlnc2sgPSAoZmVwLT5waHlfaW50ZXJmYWNlID09IFBI
+WV9JTlRFUkZBQ0VfTU9ERV9STUlJKQorCQkJCT8gRkVDX01JSUdTS19STUlJX01PREUgOiBGRUNf
+TUlJR1NLX01JSV9NT0RFOworCQkJaWYgKGZlcC0+cGh5X2RldikgeworCQkJCWlmIChmZXAtPnBo
+eV9kZXYtPnNwZWVkID09IFNQRUVEXzEwKQorCQkJCQltaWlnc2sgfD0gRkVDX01JSUdTS19GUkNP
+TlRfMTBNOworCQkJfQorCQkJd3JpdGVsKG1paWdzaywgZmVwLT5od3AgKyBGRUNfTUlJR1NLX0NG
+R1IpOwogCiAKIAkJCS8qIHJlLWVuYWJsZSB0aGUgZ2Fza2V0ICovCmRpZmYgLS1naXQgYS9kcml2
+ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjLmggYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9m
+cmVlc2NhbGUvZmVjLmgKaW5kZXggOGIyYzZkNy4uNjg3MGQ5ZSAxMDA2NDQKLS0tIGEvZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlYy5oCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0
+L2ZyZWVzY2FsZS9mZWMuaApAQCAtNDcsNiArNDcsMTAgQEAKICNkZWZpbmUgRkVDX01JSUdTS19D
+RkdSCQkweDMwMCAvKiBNSUlHU0sgQ29uZmlndXJhdGlvbiByZWcgKi8KICNkZWZpbmUgRkVDX01J
+SUdTS19FTlIJCTB4MzA4IC8qIE1JSUdTSyBFbmFibGUgcmVnICovCiAKKyNkZWZpbmUgRkVDX01J
+SUdTS19NSUlfTU9ERQkJMHgwMAorI2RlZmluZSBGRUNfTUlJR1NLX1JNSUlfTU9ERQkweDAxCisj
+ZGVmaW5lIEZFQ19NSUlHU0tfRlJDT05UXzEwTQkweDQwCisKICNlbHNlCiAKICNkZWZpbmUgRkVD
+X0VDTlRSTAkJMHgwMDAgLyogRXRoZXJuZXQgY29udHJvbCByZWcgKi8KLS0gCjEuNy43LjUKCgpf
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpsaW51eC1hcm0t
+a2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcK
+aHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0aW5mby9saW51eC1hcm0ta2Vy
+bmVsCg==
