@@ -1,60 +1,82 @@
-From: Kay Sievers <kay.sievers@vrfy.org>
-Subject: Re: [PATCH] vhost-net: add module alias
-Date: Wed, 11 Jan 2012 18:03:53 +0100
-Message-ID: <CAPXgP10Y6F_bdqxK6Oopkfs0Ppwwse=zjc=+h30t0ABWNOunMg@mail.gmail.com>
-References: <20120110205400.6c1cb306@nehalam.linuxnetplumber.net>
- <4F0D3543.7020401@msgid.tls.msk.ru> <20120111085857.0753322f@nehalam.linuxnetplumber.net>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [PATCH net-next V3 1/2] igb: add PTP Hardware
+	Clock code
+Date: Wed, 11 Jan 2012 17:14:43 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB580267C2@ORSMSX105.amr.corp.intel.com>
+References: <cover.1325964581.git.richardcochran@gmail.com>
+	<06a2d33bed05d5c17c03fca6f0fcc2fe3f6870f4.1325964581.git.richardcochran@gmail.com>
+	<02874ECE860811409154E81DA85FBB5801E86F@ORSMSX106.amr.corp.intel.com>
+	<20120110084450.GA5356@cherladcori01>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Michael Tokarev <mjt@tls.msk.ru>,
-	"Michael S. Tsirkin" <mst@redhat.com>, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20120111085857.0753322f@nehalam.linuxnetplumber.net>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Ronciak,
+	John" <john.ronciak@intel.com>, John Stultz <john.stultz@linaro.org>,
+	Gleixner <tglx@linutronix.de>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20120110084450.GA5356@cherladcori01>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 11, 2012 at 17:58, Stephen Hemminger <shemminger@vyatta.com> wrote:
-> On Wed, 11 Jan 2012 11:07:47 +0400
-> Michael Tokarev <mjt@tls.msk.ru> wrote:
->
->> On 11.01.2012 08:54, Stephen Hemminger wrote:
->> > By adding the a module alias, programs (or users) won't have to explicitly
->> > call modprobe. Vhost-net will always be available if built into the kernel.
->> > It does require assigning a permanent minor number for depmod to work.
->> > Choose one next to TUN since this driver is related to it.
->>
->> Why do you think a statically-allocated device number will do any good
->> at all?
 
-It's totally fine to use them for single-instance devices. You are
-right, enumerated devices must _never_ use any facility like that.
-That would just be broken.
 
->> Static /dev is gone almost completely, at least on the systems
->> where whole virt stuff makes any sense, so you don't have pre-created
->> vhost-net device anymore, and hence this allocation makes no sense.
->> Just IMHO anyway.
+> -----Original Message-----
+> From: Richard Cochran [mailto:richardcochran@gmail.com]
+> Sent: Tuesday, January 10, 2012 12:45 AM
+> To: Keller, Jacob E
+> Cc: netdev@vger.kernel.org; e1000-devel@lists.sourceforge.net; Kirsher,
+> Jeffrey T; Ronciak, John; John Stultz; Thomas Gleixner
+> Subject: Re: [PATCH net-next V3 1/2] igb: add PTP Hardware Clock code
+> 
+> On Mon, Jan 09, 2012 at 05:42:20PM +0000, Keller, Jacob E wrote:
+> 
+> > Is there a reason for not using the timecounter structure from the
+> > kernel? It is a layer beneath the timecompare code which is meant to
+> > handle this condition. As far as I can tell this issue is solved in
+> > the timecounter code. If it is not, then that should be a bug in the
+> > timecounter cyclecounter code. I don't know if this issue occurs in
+> > the timecounter structure because it handles the ns conversion
+> > differently.
+> 
+> My only reason is that I am not sure that the timecounter code really
+> does what we need.  It might well work.  Consider, though, that the
+> 82580 register does not overflow in the usual way. The upper 24 bits
+> are always zero.
+> 
+> What I wrote does the right thing, I think.  However, duplicated
+> effort is always bad, so can you show me how to change it?
+> 
+Sure :) The way to set it up also includes the ability to specify width, so that for example the 82580 can be set to the bit length, and you provide the whole cycle counter value as a 40bit value.
 
-It makes a lot of sense in this case. The kernel module files
-advertise the dev_t, it's not stored anywhere else. UDev finds these
-static numbers and does inplicit mkdev() for them.
+I will send you a copy of the code I will be using for the ixgbe driver.
 
-> The statically allocated device number is required for the udev/module
-> autoloading to work. Probably the udev infrastructure needs a consistent
-> number to hang off of.
+It *does* handle the conversion in a different way, because it doesn't keep an overflow counter, instead it converts "cycles" to nanoseconds. However, it claims to have support for past timestamps as long as they are within half the cycle max value.
 
-It does that properly.
+Basically it's a portion of the code used in the timecompare stuff, but without the timecompare averaging scheme which is bad. I don't use the structure the same way that the older igb code did (because it does funky things with the 82580 and doesn't setup the other devices correctly for clock rate adjustment)
 
-Just check:
-  $ cat /lib/modules/$(uname -r)/modules.devname
-  # Device nodes to trigger on-demand module loading.
-  fuse fuse c10:229
-  btrfs btrfs-control c10:234
-  ppp_generic ppp c108:0
-  tun net/tun c10:200
-  uinput uinput c10:223
-  ...
+> Thanks,
+> Richard
 
-Kay
+
+------------------------------------------------------------------------------
+Ridiculously easy VDI. With Citrix VDI-in-a-Box, you don't need a complex
+infrastructure or vast IT resources to deliver seamless, secure access to
+virtual desktops. With this all-in-one solution, easily deploy virtual 
+desktops for less than the cost of PCs and save 60% on VDI infrastructure 
+costs. Try it free! http://p.sf.net/sfu/Citrix-VDIinabox
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
