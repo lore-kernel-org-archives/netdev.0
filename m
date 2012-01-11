@@ -1,59 +1,67 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH 0/5] NFS: create blocklayout pipe per network namesapce
- context
-Date: Wed, 11 Jan 2012 22:03:17 +0400
-Message-ID: <4F0DCEE5.5090100@parallels.com>
-References: <20111129090754.20730.64567.stgit@localhost6.localdomain6>			 <1325285705.10984.4.camel@lade.trondhjem.org>		 <1325797111.11084.22.camel@lade.trondhjem.org>		 <4F0C35F3.7060508@parallels.com>	 <1326299003.17212.7.camel@lade.trondhjem.org>	 <4F0DC582.6030805@parallels.com> <1326303963.19024.1.camel@lade.trondhjem.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Iproute2 build broken by current kernel headers
+Date: Wed, 11 Jan 2012 10:24:00 -0800
+Message-ID: <20120111102400.178baee6@nehalam.linuxnetplumber.net>
+References: <20120110105409.3567bb1b@nehalam.linuxnetplumber.net>
+	<20120110110749.42c1252a@nehalam.linuxnetplumber.net>
+	<4F0D2D88.8010705@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	James Bottomley <jbottomley@parallels.com>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: Trond Myklebust <Trond.Myklebust@netapp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1326303963.19024.1.camel@lade.trondhjem.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:59888 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754772Ab2AKSYF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2012 13:24:05 -0500
+In-Reply-To: <4F0D2D88.8010705@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-11.01.2012 21:46, Trond Myklebust =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Wed, 2012-01-11 at 21:23 +0400, Stanislav Kinsbursky wrote:
->> I've sent rebased "v2" of the patch set, contains updated patch "SUN=
-RPC: handle
->> RPC client pipefs dentries by network namespace aware routine", whic=
-h, I
->> believe, fixes oops, spotted by Bryan (it was caused by excessive ca=
-ll of
->> rpc_put_mount() on PipeFS dentries unlink).
->> So, if I'm not mistaken here, there's no need in implementing of dum=
-my versions
->> of rpc_pipefs_notifier_(un)register() or any other dummy stuff.
->
-> OK. Fair enough. We'll give it some testing to make sure that we don'=
-t
-> hit it again...
->
->> BTW, it looks like that in last 2 days I've sent all updates to the =
-issues you
->> pointed out. If not, please, ping me once more.
->
-> I'm in the process of reviewing it right now.
->
+On Wed, 11 Jan 2012 10:34:48 +0400
+Pavel Emelyanov <xemul@parallels.com> wrote:
 
-Cool, thanks, Trond.
+> On 01/10/2012 11:07 PM, Stephen Hemminger wrote:
+> > On Tue, 10 Jan 2012 10:54:09 -0800
+> > Stephen Hemminger <shemminger@vyatta.com> wrote:
+> >=20
+> >> The update to inet diag broke compatibility with exported headers.
+> >> Iproute2 uses sanitized kernel headers.
+> >>
+> >> gcc -D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall -I../include -DRES=
+OLVE_HOSTNAMES -DLIBDIR=3D\"/usr/lib/\"   -c -o ss.o ss.c
+> >> ss.c: In function =E2=80=98tcp_show_netlink=E2=80=99:
+> >> ss.c:1504:7: error: =E2=80=98struct inet_diag_req=E2=80=99 has no =
+member named =E2=80=98idiag_family=E2=80=99
+> >> make[1]: *** [ss.o] Error 1
+> >=20
+> > The structures need to be swapped to maintain source compatibility.
+> > inet_diag_req_compat needs to be renamed back to inet_diag_req
+> > inet_diag_req should be named something like inet_diag_req_generic
+>=20
+> Stephen, actually the diag modules were patched to be only binary com=
+patible with the ss.
+> In order to make it compile with new headers I've sent the patches fi=
+xing ss, here they are:
+>=20
+> http://www.spinics.net/lists/netdev/msg182467.html
+> http://www.spinics.net/lists/netdev/msg182858.html
+> http://lists.openwall.net/netdev/2011/12/15/45
 
-> Cheers
->    Trond
->
+These patches will have to be redone to work with the revised include
+files. The iproute2 changes are not acceptable as is because they do no=
+t support
+older kernels.
 
+It is critical that the resulting code work on both old and new
+kernels. In other words, when the new ss command is built (using your
+patches and 3.3 headers), it:
+ * SHOULD send new diag requests to kernel and be able to display
+   the new UNIX domain info
+ * MUST still work when run against old 3.2 kernel.
 
---=20
-Best regards,
-Stanislav Kinsbursky
+This means the code should send new request first, and if that generate=
+s
+an error fallback (silently) to the old message format.
