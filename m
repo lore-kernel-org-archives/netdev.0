@@ -1,75 +1,182 @@
-From: Bastien ROUCARIES <roucaries.bastien@gmail.com>
-Subject: Fwd: Warning in wifi card
-Date: Wed, 11 Jan 2012 11:04:39 +0100
-Message-ID: <CAE2SPAaVtXWN+x8oaV2BkbLr6e700KizCc_39J2yp+XtWzFhXQ@mail.gmail.com>
-References: <CAE2SPAbTDbGjuM6rNmjzw0X2fU_k431XkbwYuhvKtfXggOO=-w@mail.gmail.com>
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: brcm80211 breakage..
+Date: Wed, 11 Jan 2012 11:44:22 +0100
+Message-ID: <4F0D6806.4080201@broadcom.com>
+References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAE2SPAbTDbGjuM6rNmjzw0X2fU_k431XkbwYuhvKtfXggOO=-w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-I get the following warning using 3.1 after going back to suspend to ra=
-m.
-
-Seems quite current a quick google search found
-https://bugs.launchpad.net/ubuntu/+source/linux/+bug/809777
-
-Kernel failure message 1:
-------------[ cut here ]------------
-WARNING: at /home/blank/debian/kernel/release/linux-2.6/linux-2.6-3.1.6=
-/debian/build/source_amd64_none/drivers/net/wireless/iwlwifi/iwl-core.c=
-:1367
-iwl_mac_remove_interface+0x39/0x5e [iwlagn]()
-Hardware name: Dell System XPS L502X
-Modules linked in: nls_utf8 nls_cp437 vfat fat pciehp pci_hotplug
-mmc_block sdhci_pci sdhci mmc_core jmb38x_ms memstick dell_wmi
-aesni_intel cryptd aes_x86_64 aes_generic ecb btusb ip6table_filter
-ip6_tables iptable_filter ip_tables ebtable_nat ebtables x_tables cn
-parport_pc ppdev lp parport acpi_cpufreq mperf cpufreq_powersave
-cpufreq_conservative cpufreq_userspace bnep rfcomm cpufreq_stats
-bluetooth binfmt_misc uinput fuse nfsd nfs lockd fscache auth_rpcgss
-nfs_acl sunrpc coretemp loop dm_crypt kvm_intel kvm snd_hda_codec_hdmi
-snd_hda_codec_realtek arc4 snd_hda_intel snd_hda_codec joydev iwlagn
-uvcvideo videodev media snd_hwdep v4l2_compat_ioctl32 snd_pcm_oss
-snd_mixer_oss snd_pcm snd_seq_midi snd_rawmidi snd_seq_midi_event
-snd_seq nouveau ttm i915 mac80211 drm_kms_helper drm snd_timer
-snd_seq_device i2c_algo_bit i2c_i801 i2c_core snd cfg80211 mxm_wmi
-pcspkr battery ac sparse_keymap iTCO_wdt iTCO_vendor_support soundcore
-wmi dell_laptop power_supply psmouse video evdev serio_raw dcdbas
-button rfkill processor snd_page_alloc ext4 mbcache jbd2 crc16 btrfs
-zlib_deflate crc32c libcrc32c dm_mod sr_mod sd_mod cdrom crc_t10dif
-ahci libahci libata scsi_mod r8169 mii xhci_hcd ehci_hcd usbcore
-thermal thermal_sys [last unloaded: dell_wmi]
-Pid: 27387, comm: kworker/0:1 Tainted: G=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0 W=C2=A0=C2=A0=C2=A0 3.1.0-1-amd64 #1
-Call Trace:
-=C2=A0[<ffffffff81045785>] ? warn_slowpath_common+0x78/0x8c
-=C2=A0[<ffffffffa04c54f8>] ? iwl_mac_remove_interface+0x39/0x5e [iwlagn=
-]
-=C2=A0[<ffffffffa027dc01>] ? cfg80211_event_work+0x4/0x2c [cfg80211]
-=C2=A0[<ffffffffa034f539>] ? ieee80211_do_stop+0x319/0x46a [mac80211]
-=C2=A0[<ffffffff8104abe7>] ? _local_bh_enable_ip.isra.11+0x1e/0x88
-=C2=A0[<ffffffffa027dc8b>] ? cfg80211_rfkill_set_block+0x62/0x62 [cfg80=
-211]
-=C2=A0[<ffffffffa034f69d>] ? ieee80211_stop+0x13/0x17 [mac80211]
-=C2=A0[<ffffffff8126e437>] ? __dev_close_many+0x84/0xb0
-=C2=A0[<ffffffff8126e532>] ? dev_close_many+0x88/0xee
-=C2=A0[<ffffffff8103539b>] ? should_resched+0x5/0x23
-=C2=A0[<ffffffff8127066f>] ? dev_close+0x37/0x46
-=C2=A0[<ffffffffa027dc66>] ? cfg80211_rfkill_set_block+0x3d/0x62 [cfg80=
-211]
-=C2=A0[<ffffffff8105a74d>] ? process_one_work+0x163/0x284
-=C2=A0[<ffffffff8105b715>] ? worker_thread+0xc2/0x145
-=C2=A0[<ffffffff8105b653>] ? manage_workers.isra.23+0x15b/0x15b
-=C2=A0[<ffffffff8105e5e5>] ? kthread+0x76/0x7e
-=C2=A0[<ffffffff81334934>] ? kernel_thread_helper+0x4/0x10
-=C2=A0[<ffffffff8105e56f>] ? kthread_worker_fn+0x139/0x139
-=C2=A0[<ffffffff81334930>] ? gs_change+0x13/0x13
----[ end trace f03a55c4c1238b61 ]---
+Content-Type: multipart/mixed;
+ boundary=------------020506010004050700080604
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"Network Development" <netdev@vger.kernel.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	"=?UTF-8?B?UmFmYcWCIE1pxYJl?= =?UTF-8?B?Y2tp?=" <zajec5@gmail.com>,
+	"Larry Finger" <Larry.Finger@lwfinger.net>
+To: "Linus Torvalds" <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:1223 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932404Ab2AKKoj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jan 2012 05:44:39 -0500
+In-Reply-To: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Bastien
+--------------020506010004050700080604
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+On 01/10/2012 09:15 PM, Linus Torvalds wrote:
+> So the wireless on my Macbook Air no longer seems to work with the
+> current -git tree.
+> 
+> The BRCMSMAC driver *used* to work, and no longer does. Also, very
+> annoyingly, it's even hard to *compile* the thing, because it used to
+> be
+> 
+>   depends on BCMA=n
+> 
+> but now it is the exact reverse:
+> 
+>   depends on BCMA
+> 
+> so there is no sane way to carry a configuration over from before, and
+> things like bisection is a major pain due to having to play idiotic
+> configuration games to get it to work across all these modifications.
+
+BCMA support has been added to brcmsmac so now we depend on it. As BCMA
+claims the PCI device we had the BCMA=n in place before. I agree that it
+makes bisecting a pain in the...
+
+> Ragardless, even once you actually enable BCMA and can get the driver
+> to come back, it just doesn't do anything. Maybe there is some
+> remaining config problem, but I don't think so. I think the driver is
+> just buggered.
+
+Looking at the output I had deja-vu feeling. The issue popped up when we
+published part of the patches for BCMA support. I looked into it with
+Larry Finger and Rafał Miłecki. We found the reason for the failure, but
+it seemed resolved after submitting the remaining patches for BCMA
+support. However, it seems to have raised its ugly head.
+
+> Please look into this. I'll obviously be happy test any reasonable suggestions,
+> 
+>                  Linus
+> 
+
+My theory is that the BAR window is not mapped to a valid address. Could
+you try to revert the following commit:
+
+commit 439678f8b0fca7aeca06c6581e3679eef618721a
+Author: Rafał Miłecki <zajec5@gmail.com>
+Date:   Mon Dec 5 19:13:39 2011 +0100
+
+    bcma: pci: use fixed windows when possible
+
+    Some cores are mapped in the fixed way, they registers can be accessed
+    all the time.
+
+    Signed-off-by: Rafał Miłecki <zajec5@gmail.com>
+    Signed-off-by: John W. Linville <linville@tuxdriver.com>
+
+I have attached the 'revert patch' based on your git master branch.
+
+Gr. AvS
+
+--------------020506010004050700080604
+Content-Type: text/plain;
+ name=0001-Revert-bcma-pci-use-fixed-windows-when-possible.patch
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename=0001-Revert-bcma-pci-use-fixed-windows-when-possible.patch
+
+>From 71e949a668bc8c371dc21f17af01284719f1b383 Mon Sep 17 00:00:00 2001
+From: Arend van Spriel <arend@broadcom.com>
+Date: Wed, 11 Jan 2012 11:35:05 +0100
+Subject: [PATCH] Revert "bcma: pci: use fixed windows when possible"
+
+This reverts commit 439678f8b0fca7aeca06c6581e3679eef618721a.
+---
+ drivers/bcma/host_pci.c |   32 +++++++++++---------------------
+ 1 files changed, 11 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/bcma/host_pci.c b/drivers/bcma/host_pci.c
+index 443b83a..990f5a8 100644
+--- a/drivers/bcma/host_pci.c
++++ b/drivers/bcma/host_pci.c
+@@ -21,58 +21,48 @@ static void bcma_host_pci_switch_core(struct bcma_device *core)
+ 	pr_debug("Switched to core: 0x%X\n", core->id.id);
+ }
+ 
+-/* Provides access to the requested core. Returns base offset that has to be
+- * used. It makes use of fixed windows when possible. */
+-static u16 bcma_host_pci_provide_access_to_core(struct bcma_device *core)
++static u8 bcma_host_pci_read8(struct bcma_device *core, u16 offset)
+ {
+-	switch (core->id.id) {
+-	case BCMA_CORE_CHIPCOMMON:
+-		return 3 * BCMA_CORE_SIZE;
+-	case BCMA_CORE_PCIE:
+-		return 2 * BCMA_CORE_SIZE;
+-	}
+-
+ 	if (core->bus->mapped_core != core)
+ 		bcma_host_pci_switch_core(core);
+-	return 0;
+-}
+-
+-static u8 bcma_host_pci_read8(struct bcma_device *core, u16 offset)
+-{
+-	offset += bcma_host_pci_provide_access_to_core(core);
+ 	return ioread8(core->bus->mmio + offset);
+ }
+ 
+ static u16 bcma_host_pci_read16(struct bcma_device *core, u16 offset)
+ {
+-	offset += bcma_host_pci_provide_access_to_core(core);
++	if (core->bus->mapped_core != core)
++		bcma_host_pci_switch_core(core);
+ 	return ioread16(core->bus->mmio + offset);
+ }
+ 
+ static u32 bcma_host_pci_read32(struct bcma_device *core, u16 offset)
+ {
+-	offset += bcma_host_pci_provide_access_to_core(core);
++	if (core->bus->mapped_core != core)
++		bcma_host_pci_switch_core(core);
+ 	return ioread32(core->bus->mmio + offset);
+ }
+ 
+ static void bcma_host_pci_write8(struct bcma_device *core, u16 offset,
+ 				 u8 value)
+ {
+-	offset += bcma_host_pci_provide_access_to_core(core);
++	if (core->bus->mapped_core != core)
++		bcma_host_pci_switch_core(core);
+ 	iowrite8(value, core->bus->mmio + offset);
+ }
+ 
+ static void bcma_host_pci_write16(struct bcma_device *core, u16 offset,
+ 				 u16 value)
+ {
+-	offset += bcma_host_pci_provide_access_to_core(core);
++	if (core->bus->mapped_core != core)
++		bcma_host_pci_switch_core(core);
+ 	iowrite16(value, core->bus->mmio + offset);
+ }
+ 
+ static void bcma_host_pci_write32(struct bcma_device *core, u16 offset,
+ 				 u32 value)
+ {
+-	offset += bcma_host_pci_provide_access_to_core(core);
++	if (core->bus->mapped_core != core)
++		bcma_host_pci_switch_core(core);
+ 	iowrite32(value, core->bus->mmio + offset);
+ }
+ 
+-- 
+1.7.5.4
+
+
+--------------020506010004050700080604--
