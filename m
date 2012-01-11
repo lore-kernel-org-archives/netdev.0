@@ -1,46 +1,52 @@
-From: Pratyush Anand <pratyush.anand@st.com>
-Subject: Re: Detected Hardware Unit Hang on Intel Wired Ethernet
-Date: Wed, 11 Jan 2012 09:03:48 +0530
-Message-ID: <4F0D031C.2050107@st.com>
-References: <CAHM4w1=i5dYy+ReqMO=m6W96CNaQ+O=jw+pKQok0nmjb5-fNAw@mail.gmail.com> <4F043190.70405@st.com> <20120104192234.GC18214@kroah.com> <4F05276F.6040708@st.com> <061C8A8601E8EE4CA8D8FD6990CEA89102D691@ORSMSX102.amr.corp.intel.com> <4F06779D.5010805@st.com> <061C8A8601E8EE4CA8D8FD6990CEA89102DE71@ORSMSX102.amr.corp.intel.com> <4F0BBC98.80406@st.com> <061C8A8601E8EE4CA8D8FD6990CEA89102FE90@ORSMSX102.amr.corp.intel.com>
+From: "Dave, Tushar N" <tushar.n.dave@intel.com>
+Subject: Re: Detected Hardware Unit Hang on Intel Wired
+	Ethernet
+Date: Wed, 11 Jan 2012 03:48:30 +0000
+Message-ID: <061C8A8601E8EE4CA8D8FD6990CEA89102FF10@ORSMSX102.amr.corp.intel.com>
+References: <CAHM4w1=i5dYy+ReqMO=m6W96CNaQ+O=jw+pKQok0nmjb5-fNAw@mail.gmail.com>
+	<4F043190.70405@st.com> <20120104192234.GC18214@kroah.com>
+	<4F05276F.6040708@st.com>
+	<061C8A8601E8EE4CA8D8FD6990CEA89102D691@ORSMSX102.amr.corp.intel.com>
+	<4F06779D.5010805@st.com>
+	<061C8A8601E8EE4CA8D8FD6990CEA89102DE71@ORSMSX102.amr.corp.intel.com>
+	<4F0BBC98.80406@st.com>
+	<061C8A8601E8EE4CA8D8FD6990CEA89102FE90@ORSMSX102.amr.corp.intel.com>
+	<4F0D031C.2050107@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>,
-	Pratyush Anand <pratyush.anand@gmail.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Shiraz HASHIM <shiraz.hashim@st.com>,
-	Deepak SIKRI <deepak.sikri@st.com>,
-	Bhavna YADAV <bhavna.yadav@st.com>,
+Cc: Bhavna YADAV <bhavna.yadav@st.com>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	Greg KH <greg@kroah.com>,
 	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	Shiraz HASHIM <shiraz.hashim@st.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Deepak SIKRI <deepak.sikri@st.com>,
 	Linux NICS <linuxnics@mailbox.intel.com>
-To: "Dave, Tushar N" <tushar.n.dave@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <061C8A8601E8EE4CA8D8FD6990CEA89102FE90@ORSMSX102.amr.corp.intel.com>
-Sender: linux-pci-owner@vger.kernel.org
+To: Pratyush Anand <pratyush.anand@st.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <4F0D031C.2050107@st.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On 1/11/2012 6:40 AM, Dave, Tushar N wrote:
-> Thanks for driver info.
-> Because you are running in-kernel driver, we can enable the debug message level via ethtool. That will print HW ring info when issue occurs.
->
-> Here is the ethtool command to enable debug messages.
-> # ethtool -s ethx msglvl 0x3c00
-> This will enable tx_done, rx_status, pktdata and hw message levels.
-> You can confirm it by typing ethtool ethx , this will show you 'Current message level'
->
-> Next time when issue occurs, please send me the full dmesg log after the issue occurred along with the bus trace.
+>As I said earlier, issue is reproducible if I try to keep my 
+>rootfilesystem  over NFS. So, after the booting, kernel tries to mount 
+>rootfs over NFS and it crashes. So, I see issue even before I can reach 
+>to # prompt. How can I use "ethtool -s ethx msglvl 0x3c00" to enable any 
+>debug message. May be I can directly change in kernel code to enable this.
 
-As I said earlier, issue is reproducible if I try to keep my 
-rootfilesystem  over NFS. So, after the booting, kernel tries to mount 
-rootfs over NFS and it crashes. So, I see issue even before I can reach 
-to # prompt. How can I use "ethtool -s ethx msglvl 0x3c00" to enable any 
-debug message. May be I can directly change in kernel code to enable this.
+Yes either you can modify in-kernel driver code  Or I will provide you the latest e1000e out of tree driver from http://sourceforge.net/projects/e1000/files/ with debug info enabled.
 
-Regards
-Pratyush
+-Tushar
+
 >
 > Thanks.
 >
@@ -307,3 +313,16 @@ Pratyush
 >
 > .
 >
+
+
+------------------------------------------------------------------------------
+Ridiculously easy VDI. With Citrix VDI-in-a-Box, you don't need a complex
+infrastructure or vast IT resources to deliver seamless, secure access to
+virtual desktops. With this all-in-one solution, easily deploy virtual 
+desktops for less than the cost of PCs and save 60% on VDI infrastructure 
+costs. Try it free! http://p.sf.net/sfu/Citrix-VDIinabox
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
