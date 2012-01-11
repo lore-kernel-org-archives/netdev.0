@@ -1,125 +1,87 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 01/11] SYSCTL: export root and set handling routines
-Date: Wed, 11 Jan 2012 09:21:43 -0800
-Message-ID: <m1sjjm40k8.fsf@fess.ebiederm.org>
-References: <20111214103602.3991.20990.stgit@localhost6.localdomain6>
-	<20111214104449.3991.61989.stgit@localhost6.localdomain6>
-	<m1bor6rg39.fsf@fess.ebiederm.org> <4EEEFC54.10700@parallels.com>
-	<m18vm8g951.fsf@fess.ebiederm.org> <4EEF2C9A.8000403@parallels.com>
-	<m1pqfkecw0.fsf@fess.ebiederm.org> <4EEF7364.8000407@parallels.com>
-	<m1vcotigyb.fsf@fess.ebiederm.org> <4F0C150F.1020007@parallels.com>
-	<m1ehv76v2v.fsf@fess.ebiederm.org> <4F0D5A9E.5030501@parallels.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH 0/5] NFS: create blocklayout pipe per network namesapce
+ context
+Date: Wed, 11 Jan 2012 21:23:14 +0400
+Message-ID: <4F0DC582.6030805@parallels.com>
+References: <20111129090754.20730.64567.stgit@localhost6.localdomain6>		 <1325285705.10984.4.camel@lade.trondhjem.org>	 <1325797111.11084.22.camel@lade.trondhjem.org>	 <4F0C35F3.7060508@parallels.com> <1326299003.17212.7.camel@lade.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust\@netapp.com" <Trond.Myklebust@netapp.com>,
-	"linux-nfs\@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
 	Pavel Emelianov <xemul@parallels.com>,
-	"neilb\@suse.de" <neilb@suse.de>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	James Bottomley <jbottomley@parallels.com>,
-	"bfields\@fieldses.org" <bfields@fieldses.org>,
-	"davem\@davemloft.net" <davem@davemloft.net>,
-	"devel\@openvz.org" <devel@openvz.org>
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: Trond Myklebust <Trond.Myklebust@netapp.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F0D5A9E.5030501@parallels.com> (Stanislav Kinsbursky's message
-	of "Wed, 11 Jan 2012 13:47:10 +0400")
+In-Reply-To: <1326299003.17212.7.camel@lade.trondhjem.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stanislav Kinsbursky <skinsbursky@parallels.com> writes:
-
-> 11.01.2012 02:39, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->> Stanislav Kinsbursky<skinsbursky@parallels.com>  writes:
->>
->>> 03.01.2012 07:49, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>>> Stanislav Kinsbursky<skinsbursky@parallels.com>   writes:
->>>>
->>>>> 19.12.2011 20:37, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82=
-:
->>>>>> Stanislav Kinsbursky<skinsbursky@parallels.com>    writes:
->>>>>>
->>>>>> Doing that independently of the rest of the sysctls is pretty ho=
-rrible
->>>>>> and confusing to users.   What I am planning might suit your nee=
-ds and
->>>>>> if not we need to talk some more about how to get the vfs to do
->>>>>> something reasonable.
->>>>>>
->>>>>
->>>>> Ok, Eric. Would be glad to discuss your sysctls plans.
->>>>> But actually you already know my needs: I would like to make sysc=
-tls work in the
->>>>> way like sysfs does: i.e. content of files depends on mount maker=
- -
->>>>> not viewer.
->>>>
->>>> What drives the desire to have sysctls depend on the mount maker?
+11.01.2012 20:23, Trond Myklebust =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Tue, 2012-01-10 at 16:58 +0400, Stanislav Kinsbursky wrote:
+>> 06.01.2012 00:58, Trond Myklebust =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>>> The second problem that was highlighted was the fact that as they s=
+tand
+>>> today, these patchsets do not allow for bisection. When we hit the =
+Oops,
+>>> I had Bryan try to bisect where the problem arose. He ended up poin=
+ting
+>>> at the patch "SUNRPC: handle RPC client pipefs dentries by network
+>>> namespace aware routine", which is indeed the cause, but which is o=
+ne of
+>>> the _dependencies_ for all the PipeFS notifier patches that fix the
+>>> problem.
 >>>
->>> Because we can (will, actually) have nested fs root's for container=
-s. IOW,
->>> container's root will be accessible from it's creator context. And =
-I want to
->>> tune container's fs from creators context.
 >>
->> Tuning the child context from the parent context is an entirely
->> reasonable thing to do.  To affect a namespace that is not yours
->> the requirement is simply that we don't use current to lookup the
->> sysctl.  So what I am proposing should work for your case.
->>
+>> I'm confused here. Does this means, that I have to fix patch "SUNRPC=
+: handle RPC
+>> client pipefs dentries by network namespace aware routine" to make i=
+t able to
+>> bisect?
 >
-> Could you explain, what are you proposing?
-> I still don't know any details about it.
-
-I am proposing treating /proc/sys like /proc/net is currently treated.
-See below.
-
->>>> Especially what drives that desire not to have it have a /proc/<pi=
-d>/sys
->>>> directory that reflects the sysctls for a given process.
->>>>
->>>
->>> This is not so important for me, where to access sysctl's. But I'm =
-worrying
->>> about backward compatibility. IOW, I'm afraid of changing path
->>> "/proc/sys/sunprc/*" to "/proc/<pid>/sys/sunrpc". This would break =
-a lot of
->>> user-space programs.
->>
->> The part that keeps it all working is by adding a symlink from /proc=
-/sys
->> to /proc/self/sys.  That technique has worked well for /proc/net, an=
-d I
->> don't expect there will be any problems with /proc/sys either.  It i=
-s
->> possible but is very rare for the introduction of a symlink in a pat=
-h
->> to cause problems.
->>
+> What I mean is that currently, I have various ways to Oops the kernel
+> when I apply "SUNRPC: handle RPC client pipefs dentries by network
+> namespace aware routine" before all these other followup patches are
+> applied.
 >
-> Probably I don't understand you, but as I see it now, symlink to "/pr=
-oc/self/"
-> is unacceptable because of the following:
-> 1) will be used current context (any) instead of desired one
-(Using the current context is the desirable outcome for existing tools)=
-=2E
-> 1) if CT has other pid namespace - then we just have broken link.
+> One way to could fix this, might be to add dummy versions of
+> rpc_pipefs_notifier_register()/unregister() so that "NFS: idmap PipeF=
+S
+> notifier introduced" and the other such patches can be applied withou=
+t
+> compilation errors or Oopses before the "handle RPC client pipefs
+> dentries..." patch is applied. The latter could then enable the real
+> rpc_pipefs_notifier_register()/....
+>
+> The point is to not have these patches add _known_ bugs to the kernel=
+ at
+> any point, so that someone who is trying to track down an unknown bug
+> via "git bisect" doesn't have to also cope with these avoidable
+> issues...
+>
 
-Assuming the process in question is not in the pid namespace available
-to proc then yes you will indeed have a broken link.  But a broken
-link is only a problem for new applications that are doing something st=
-range.
+Ok, thanks for explanation.
+I've sent rebased "v2" of the patch set, contains updated patch "SUNRPC=
+: handle=20
+RPC client pipefs dentries by network namespace aware routine", which, =
+I=20
+believe, fixes oops, spotted by Bryan (it was caused by excessive call =
+of=20
+rpc_put_mount() on PipeFS dentries unlink).
+So, if I'm not mistaken here, there's no need in implementing of dummy =
+versions=20
+of rpc_pipefs_notifier_(un)register() or any other dummy stuff.
 
-I am proposing treating /proc/sys like /proc/net has already been
-treated.  Aka move have the version of /proc/sys that relative to a
-process be visible at: /proc/<pid>/sys, and with a compat symlink=20
-from /proc/sys -> /proc/self/sys.
+BTW, it looks like that in last 2 days I've sent all updates to the iss=
+ues you=20
+pointed out. If not, please, ping me once more.
 
-Just like has already been done with /proc/net.
-
-Semantically this should be easy to understand, and about as backwards
-compatible as it gets.
-
-Eric
+--=20
+Best regards,
+Stanislav Kinsbursky
