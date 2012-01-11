@@ -1,66 +1,148 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: iwlwifi worse than ever in current git.
-Date: Wed, 11 Jan 2012 14:28:42 -0500
-Message-ID: <20120111192842.GA29305@redhat.com>
-References: <20120110184917.GA26973@redhat.com>
- <1326221614.5067.6.camel@dcbw.foobar.com>
- <0BA3FCBA62E2DC44AF3030971E174FB3063085@HASMSX103.ger.corp.intel.com>
- <20120111014243.GA22066@redhat.com>
- <0BA3FCBA62E2DC44AF3030971E174FB306429E@HASMSX103.ger.corp.intel.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 01/11] SYSCTL: export root and set handling routines
+Date: Wed, 11 Jan 2012 11:36:04 -0800
+Message-ID: <m18vle2frv.fsf@fess.ebiederm.org>
+References: <20111214103602.3991.20990.stgit@localhost6.localdomain6>
+	<20111214104449.3991.61989.stgit@localhost6.localdomain6>
+	<m1bor6rg39.fsf@fess.ebiederm.org> <4EEEFC54.10700@parallels.com>
+	<m18vm8g951.fsf@fess.ebiederm.org> <4EEF2C9A.8000403@parallels.com>
+	<m1pqfkecw0.fsf@fess.ebiederm.org> <4EEF7364.8000407@parallels.com>
+	<m1vcotigyb.fsf@fess.ebiederm.org> <4F0C150F.1020007@parallels.com>
+	<m1ehv76v2v.fsf@fess.ebiederm.org> <4F0D5A9E.5030501@parallels.com>
+	<m1sjjm40k8.fsf@fess.ebiederm.org> <4F0DCEA8.7040205@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dcbw@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Guy, Wey-Yi W" <wey-yi.w.guy@intel.com>,
-	Linux Wireless <linux-wireless@vger.kernel.org>
-To: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62428 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932560Ab2AKT2s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jan 2012 14:28:48 -0500
-Content-Disposition: inline
-In-Reply-To: <0BA3FCBA62E2DC44AF3030971E174FB306429E@HASMSX103.ger.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Trond.Myklebust\@netapp.com" <Trond.Myklebust@netapp.com>,
+	"linux-nfs\@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb\@suse.de" <neilb@suse.de>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>,
+	"bfields\@fieldses.org" <bfields@fieldses.org>,
+	"davem\@davemloft.net" <davem@davemloft.net>,
+	"devel\@openvz.org" <devel@openvz.org>
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F0DCEA8.7040205@parallels.com> (Stanislav Kinsbursky's message
+	of "Wed, 11 Jan 2012 22:02:16 +0400")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 11, 2012 at 12:38:43PM +0000, Grumbach, Emmanuel wrote:
- > > [  173.145695] iwlwifi 0000:04:00.0: U iwlagn_tx_agg_start Can proceed: ssn =
- > > next_recl = 869
- > > [  173.147133] iwlwifi 0000:04:00.0: U iwl_trans_set_wr_ptrs Q 11  WrPtr: 101
- > > [  173.147545] iwlwifi 0000:04:00.0: U iwl_trans_tx_queue_set_status Activate
- > > BA Queue 11 on FIFO 1
- > > [  173.148050] iwlwifi 0000:04:00.0: Tx aggregation enabled on ra =
- > > b8:c7:5d:0c:39:88 tid = 0
- > 
- > I am missing logs here... You seem to reauthenticate but I can't see disconnection... weird
- 
-I'll recreate some clean logs in a few minutes..
- 
- > > [  192.805102] wlan0: authenticate with b8:c7:5d:0c:39:87 (try 1)
- > > [  192.807392] wlan0: authenticated
- > > [  192.814840] iwlwifi 0000:04:00.0: U iwlagn_tx_agg_stop Can't proceed: ssn
- > > 1633, next_recl = 139
- > 
- > Stop AGG before we are associated ?!
- > Is that leftovers from the previous association that was torn down ?
- 
-no idea.
+Stanislav Kinsbursky <skinsbursky@parallels.com> writes:
 
- > > [  192.818669] wlan0: moving STA b8:c7:5d:0c:39:88 to state 2
- > > [  192.818939] wlan0: moving STA b8:c7:5d:0c:39:88 to state 1
- > > [  192.819206] wlan0: moving STA b8:c7:5d:0c:39:88 to state 0
- > > [  192.824157] wlan0: associate with b8:c7:5d:0c:39:87 (try 1)
- > 
- > Associating to another AP ? A band maybe ?
- 
-I only have one AP.
+> 11.01.2012 21:21, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>>>>>> Especially what drives that desire not to have it have a /proc/<=
+pid>/sys
+>>>>>> directory that reflects the sysctls for a given process.
+>>>>>>
+>>>>>
+>>>>> This is not so important for me, where to access sysctl's. But I'=
+m worrying
+>>>>> about backward compatibility. IOW, I'm afraid of changing path
+>>>>> "/proc/sys/sunprc/*" to "/proc/<pid>/sys/sunrpc". This would brea=
+k a lot of
+>>>>> user-space programs.
+>>>>
+>>>> The part that keeps it all working is by adding a symlink from /pr=
+oc/sys
+>>>> to /proc/self/sys.  That technique has worked well for /proc/net, =
+and I
+>>>> don't expect there will be any problems with /proc/sys either.  It=
+ is
+>>>> possible but is very rare for the introduction of a symlink in a p=
+ath
+>>>> to cause problems.
+>>>>
+>>>
+>>> Probably I don't understand you, but as I see it now, symlink to "/=
+proc/self/"
+>>> is unacceptable because of the following:
+>>> 1) will be used current context (any) instead of desired one
+>> (Using the current context is the desirable outcome for existing too=
+ls).
+>>> 1) if CT has other pid namespace - then we just have broken link.
+>>
+>> Assuming the process in question is not in the pid namespace availab=
+le
+>> to proc then yes you will indeed have a broken link.  But a broken
+>> link is only a problem for new applications that are doing something=
+ strange.
+>>
+>
+> I believe, that container is assuming to work in  it's own network an=
+d pid
+> namespaces.
+> With your approach, if I'm not mistaken, container's /proc/net and /p=
+roc/sys
+> tunables will be unaccessible from parent environment. Or I'm wrong h=
+ere?
 
- > There are a few AMPDUs issues here but I guess the worst issue you are seeing is due to the passive channel thing.
- > Does it feel better with 11n disabled ?
- 
-5 hours of use this morning with 11n_disabled=1, and not a single problem.
+Wrong.
 
-I'll re-enable 11n, and get you some cleaner logs shortly.
+>> I am proposing treating /proc/sys like /proc/net has already been
+>> treated.  Aka move have the version of /proc/sys that relative to a
+>> process be visible at: /proc/<pid>/sys, and with a compat symlink
+>> from /proc/sys ->  /proc/self/sys.
+>>
+>> Just like has already been done with /proc/net.
+>>
+>
+> 1) On one hand it looks logical, that any nested dentries in /proc ar=
+e tied to
+> pid namespace. But on the other hand we have a lot of tunables in /pr=
+oc/net,
+> /proc/sys, etc. which have nothing with processes or whatever similar=
+=2E
 
-	Dave
+Please stop and take a look at /proc/net.  If your /proc/net is not a
+symlink please look at a modern kernel.
+
+/proc/<pid>/net reflects the network namespace of the task in question.
+
+> 2) currently /proc processes directories (i.e. /proc/1/, etc) depends=
+ on mount
+> maker context. But /proc/sys and /proc/net doesn't. This looks weird =
+and
+> despondently, from my pow. What do you think about it?
+
+Yep.  Sysfs is weird.  Ideally sysfs would display all devices all of
+the time but unfortunately that breaks backwards compatibility.
+
+In proc we have the opportunity to display nearly everything all of the
+time and I think that opportunity is worth seizing.
+
+Having to mount a filesystem simply because the designers of the
+filesystem were not creative enough to figure out how to display
+all of the information the filesystem is responsible for displaying
+without having namespace conflicts is unfortunate.
+
+> And what do you think about "conteinerization" of /proc contents in t=
+he way like
+> "sysfs" was done?
+
+I think the way sysfs is done is a pain in the neck to use.  Especially
+in the context of commands like "ip netns exec".  With the sysfs model
+there is a lot of extra state to manage.
+
+I totally agree that the way sysfs is done is much better than the way
+/proc/sys is done today.  Looking at current can be limiting in the
+general case.
+
+My current preference is the way /proc/net was done.
+
+> Implementing /proc "conteinerization" in this way can give us great f=
+lexibility.
+> For example, /proc/net (and /proc/sys/sunrpc) depends on mount owner =
+net
+> namespace, /proc/sysvipc depends on mount owner ipc namespace, etc.
+> And this approach doesn't break backward compatibility as well.
+
+The thing is /proc/net is already done.
+
+All I see with making things like /proc/net depend on the context of th=
+e
+process that called mount is a need to call mount much more often.
+
+Eric
