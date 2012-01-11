@@ -1,203 +1,100 @@
-From: "Yan, Zheng" <zheng.z.yan@intel.com>
-Subject: Re: [PATCH V2] iwlwifi: add basic runtime PM support
-Date: Wed, 11 Jan 2012 08:39:44 +0800
-Message-ID: <4F0CDA50.4010200@intel.com>
-References: <4F0BDCFD.7000603@intel.com> <1326221848.5067.9.camel@dcbw.foobar.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: [PATCH] netfilter: fix unused variable warning in xt_hashlimit.c
+Date: Wed, 11 Jan 2012 11:52:17 +1100
+Message-ID: <20120111115217.b5db064c4bf233a4e1df42b8@canb.auug.org.au>
 Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__11_Jan_2012_11_52_17_+1100_B.oiuv/7=ykjb1zD"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Signature=_Wed__11_Jan_2012_11_52_17_+1100_B.oiuv/7=ykjb1zD
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	wey-yi.w.guy@intel.com, Johannes Berg <johannes@sipsolutions.net>,
-	ilw@linux.intel.com
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:27551 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755674Ab2AKAjx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jan 2012 19:39:53 -0500
-In-Reply-To: <1326221848.5067.9.camel@dcbw.foobar.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On 01/11/2012 02:57 AM, Dan Williams wrote:
-> On Tue, 2012-01-10 at 14:38 +0800, Yan, Zheng wrote:
->> This simple patch adds open/close based runtime PM support to the iwlwifi driver.
->> Namely, make the driver suspend the device after shutting down the interface and
->> resume the device when activating the interface. In my test, suspending the device
->> can save about 0.4 watt power. The shortcoming is that the device no longer generate
->> rfkill changes interrupt.
-> 
-> That could be a problem; how are rfkill changes noticed then when the
-> device is suspended or are they just dropped?  In userspace we want to
-> know that the device cannot be used until it is unkilled so that we can
-> show the right stuff to the user.
-> 
-Yes, it's a problem for system that uses HW rfkill. But it may have some value for system
-that uses software rfkill. The feature is disabled by default, so I assume it's not a big
-issue.
+Fixes this warning when CONFIG_IP6_NF_IPTABLES is not enabled:
 
-Thanks
-Yan, Zheng
-> 
->> Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
->> ---
->> Changes since v1:
->> Add module parameter to enable/disable runtime PM
->>
->>  drivers/net/wireless/iwlwifi/iwl-agn-lib.c |    1 +
->>  drivers/net/wireless/iwlwifi/iwl-agn.c     |   21 +++++++++++++++++++--
->>  drivers/net/wireless/iwlwifi/iwl-pci.c     |   22 +++++++++++++++++++++-
->>  drivers/net/wireless/iwlwifi/iwl-shared.h  |    1 +
->>  4 files changed, 42 insertions(+), 3 deletions(-)
->>
->> diff --git a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
->> index 1a52ed2..b9ac097 100644
->> --- a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
->> +++ b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
->> @@ -164,6 +164,7 @@ struct iwl_mod_params iwlagn_mod_params = {
->>  	.bt_ch_announce = true,
->>  	.wanted_ucode_alternative = 1,
->>  	.auto_agg = true,
->> +	.runtime_pm = false,
->>  	/* the rest are 0 by default */
->>  };
->>  
->> diff --git a/drivers/net/wireless/iwlwifi/iwl-agn.c b/drivers/net/wireless/iwlwifi/iwl-agn.c
->> index e0e9a3d..2d1f890a 100644
->> --- a/drivers/net/wireless/iwlwifi/iwl-agn.c
->> +++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
->> @@ -38,6 +38,7 @@
->>  #include <linux/firmware.h>
->>  #include <linux/etherdevice.h>
->>  #include <linux/if_arp.h>
->> +#include <linux/pm_runtime.h>
->>  
->>  #include <net/mac80211.h>
->>  
->> @@ -1755,6 +1756,8 @@ static int iwlagn_mac_start(struct ieee80211_hw *hw)
->>  	struct iwl_priv *priv = hw->priv;
->>  	int ret;
->>  
->> +	pm_runtime_get_sync(bus(priv)->dev);
->> +
->>  	IWL_DEBUG_MAC80211(priv, "enter\n");
->>  
->>  	/* we should be verifying the device is ready to be opened */
->> @@ -1762,7 +1765,7 @@ static int iwlagn_mac_start(struct ieee80211_hw *hw)
->>  	ret = __iwl_up(priv);
->>  	mutex_unlock(&priv->shrd->mutex);
->>  	if (ret)
->> -		return ret;
->> +		goto out;
->>  
->>  	IWL_DEBUG_INFO(priv, "Start UP work done.\n");
->>  
->> @@ -1774,7 +1777,10 @@ static int iwlagn_mac_start(struct ieee80211_hw *hw)
->>  
->>  	priv->is_open = 1;
->>  	IWL_DEBUG_MAC80211(priv, "leave\n");
->> -	return 0;
->> +	ret = 0;
->> +out:
->> +	pm_runtime_put(bus(priv)->dev);
->> +	return ret;
->>  }
->>  
->>  static void iwlagn_mac_stop(struct ieee80211_hw *hw)
->> @@ -1786,6 +1792,8 @@ static void iwlagn_mac_stop(struct ieee80211_hw *hw)
->>  	if (!priv->is_open)
->>  		return;
->>  
->> +	pm_runtime_get_sync(bus(priv)->dev);
->> +
->>  	priv->is_open = 0;
->>  
->>  	iwl_down(priv);
->> @@ -1798,6 +1806,8 @@ static void iwlagn_mac_stop(struct ieee80211_hw *hw)
->>  	iwl_enable_rfkill_int(priv);
->>  
->>  	IWL_DEBUG_MAC80211(priv, "leave\n");
->> +
->> +	pm_runtime_put(bus(priv)->dev);
->>  }
->>  
->>  #ifdef CONFIG_PM_SLEEP
->> @@ -3557,3 +3567,10 @@ module_param_named(no_sleep_autoadjust, iwlagn_mod_params.no_sleep_autoadjust,
->>  MODULE_PARM_DESC(no_sleep_autoadjust,
->>  		 "don't automatically adjust sleep level "
->>  		 "according to maximum network latency (default: true)");
->> +
->> +module_param_named(runtime_pm, iwlagn_mod_params.runtime_pm, bool, S_IRUGO);
->> +MODULE_PARM_DESC(runtime_pm,
->> +		 "enable open/close based runtime power management, this "
->> +		 "feature can make HW rfkill unusable (default: disabled)");
->> +
->> +
->> diff --git a/drivers/net/wireless/iwlwifi/iwl-pci.c b/drivers/net/wireless/iwlwifi/iwl-pci.c
->> index 1800029..541f3e6 100644
->> --- a/drivers/net/wireless/iwlwifi/iwl-pci.c
->> +++ b/drivers/net/wireless/iwlwifi/iwl-pci.c
->> @@ -63,6 +63,7 @@
->>  #include <linux/module.h>
->>  #include <linux/pci.h>
->>  #include <linux/pci-aspm.h>
->> +#include <linux/pm_runtime.h>
->>  
->>  #include "iwl-bus.h"
->>  #include "iwl-io.h"
->> @@ -465,6 +466,8 @@ static int iwl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
->>  	err = iwl_probe(bus, &trans_ops_pcie, cfg);
->>  	if (err)
->>  		goto out_disable_msi;
->> +
->> +	pm_runtime_put_noidle(&pdev->dev);
->>  	return 0;
->>  
->>  out_disable_msi:
->> @@ -487,6 +490,8 @@ static void __devexit iwl_pci_remove(struct pci_dev *pdev)
->>  	struct pci_dev *pci_dev = IWL_BUS_GET_PCI_DEV(bus);
->>  	struct iwl_shared *shrd = bus->shrd;
->>  
->> +	pm_runtime_get_noresume(&pdev->dev);
->> +
->>  	iwl_remove(shrd->priv);
->>  
->>  	pci_disable_msi(pci_dev);
->> @@ -534,7 +539,22 @@ static int iwl_pci_resume(struct device *device)
->>  	return iwl_trans_resume(shrd->trans);
->>  }
->>  
->> -static SIMPLE_DEV_PM_OPS(iwl_dev_pm_ops, iwl_pci_suspend, iwl_pci_resume);
->> +
->> +static int iwl_pci_runtime_idle(struct device *dev)
->> +{
->> +	struct pci_dev *pdev = to_pci_dev(dev);
->> +	struct iwl_bus *bus = pci_get_drvdata(pdev);
->> +	struct iwl_shared *shrd = bus->shrd;
->> +
->> +	if (iwlagn_mod_params.runtime_pm &&
->> +	    !test_bit(STATUS_ALIVE, &shrd->status))
->> +		return 0;
->> +
->> +	return -EBUSY;
->> +}
->> +
->> +static UNIVERSAL_DEV_PM_OPS(iwl_dev_pm_ops, iwl_pci_suspend,
->> +			iwl_pci_resume, iwl_pci_runtime_idle);
->>  
->>  #define IWL_PM_OPS	(&iwl_dev_pm_ops)
->>  
->> diff --git a/drivers/net/wireless/iwlwifi/iwl-shared.h b/drivers/net/wireless/iwlwifi/iwl-shared.h
->> index 14eaf37..a570e0d 100644
->> --- a/drivers/net/wireless/iwlwifi/iwl-shared.h
->> +++ b/drivers/net/wireless/iwlwifi/iwl-shared.h
->> @@ -152,6 +152,7 @@ struct iwl_mod_params {
->>  	bool bt_ch_announce;
->>  	int wanted_ucode_alternative;
->>  	bool auto_agg;
->> +	bool runtime_pm;
->>  };
->>  
->>  /**
-> 
-> 
+net/netfilter/xt_hashlimit.c: In function =E2=80=98hashlimit_init_dst=E2=80=
+=99:
+net/netfilter/xt_hashlimit.c:448:9: warning: unused variable =E2=80=98frag_=
+off=E2=80=99 [-Wunused-variable]
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ net/netfilter/xt_hashlimit.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+Sorry for the wide posting, but the MAINTAINERS file is not clear about
+which mailing lists are relevant.
+
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index 8e49921..d95f9c9 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -445,7 +445,6 @@ hashlimit_init_dst(const struct xt_hashlimit_htable *hi=
+nfo,
+ {
+ 	__be16 _ports[2], *ports;
+ 	u8 nexthdr;
+-	__be16 frag_off;
+ 	int poff;
+=20
+ 	memset(dst, 0, sizeof(*dst));
+@@ -466,6 +465,9 @@ hashlimit_init_dst(const struct xt_hashlimit_htable *hi=
+nfo,
+ 		break;
+ #if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
+ 	case NFPROTO_IPV6:
++	{
++		__be16 frag_off;
++
+ 		if (hinfo->cfg.mode & XT_HASHLIMIT_HASH_DIP) {
+ 			memcpy(&dst->ip6.dst, &ipv6_hdr(skb)->daddr,
+ 			       sizeof(dst->ip6.dst));
+@@ -485,6 +487,7 @@ hashlimit_init_dst(const struct xt_hashlimit_htable *hi=
+nfo,
+ 		if ((int)protoff < 0)
+ 			return -1;
+ 		break;
++	}
+ #endif
+ 	default:
+ 		BUG();
+--=20
+1.7.8.197.g73c6b
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Wed__11_Jan_2012_11_52_17_+1100_B.oiuv/7=ykjb1zD
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBCAAGBQJPDN1BAAoJEECxmPOUX5FEr0wP/3/an3mvFqpWxZe25LjlMpzT
+3qjaVWOX5zmelm8IU5MUcjLFw5ofMxy6vUAH6CUFnCqy0di0fIOUnIXkGhcDuMI1
+O8sXILErzoV/klu5vut6RMdtQvdKj6U2CBAvBqEcAacQ3Er2r3hUXM0D4JwXhZYq
+sf5DuA7RtFCNuscLXgHJKpkEXe1WJW7bnRVOpfT6ECzu+ZreLQkoVNyAs9pWb8oK
+Zl4tspaWztat74uyMhytSiTPD07tJycIEwd6Lw/214gvi86sDmXc7pzgi/wFQgSQ
+ZNcG+DuDrDrSjPk2TzX9xol+J9PZoOEQCgQDVzSWcDgV6bokEe6qlv/Vts1tyGxp
+6o/+Yz9MtQpqlZHDfCuofQVeayTe+t+X1MYF175B5G+vdc07itn5SFnKAuRfSB2s
+u6RjGBYPm3TbwIJbijvzrhPD+oZotY+a3hTX+kWFDPZKYoLv1PTPAnc/jM3a6i+p
+8THwbtnFMAmlPkI1zW1NYrHlR+UqUpm5rMck34RqM8P+ZI2s2dLgpxZnSxGd0n7v
+umQPWDNyW5vcygZEZMiTb1AlKvhVy9p12YhiHikb/HdnIWUf/hlu41we4mw9HORM
+qSwCwVRx2HN5+e0WDR31bxUpvjQ+U+nL8RSCwIRlhyzVB5JY+JDNCdWbvZ1xCziL
+QjRWKTP9z9645O7eHyZY
+=3ZMy
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__11_Jan_2012_11_52_17_+1100_B.oiuv/7=ykjb1zD--
