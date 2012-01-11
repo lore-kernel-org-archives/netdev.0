@@ -1,45 +1,42 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: iwlwifi worse than ever in current git.
-Date: Tue, 10 Jan 2012 20:42:57 -0500
-Message-ID: <20120111014257.GB22066@redhat.com>
-References: <20120110184917.GA26973@redhat.com>
- <1326221614.5067.6.camel@dcbw.foobar.com>
- <4595B4D22AB93C4FABBA84AAD5AA37FD0154B1@ORSMSX104.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dcbw@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
-	"Guy, Wey-Yi W" <wey-yi.w.guy@intel.com>,
-	Linux Wireless <linux-wireless@vger.kernel.org>
-To: "Venkataraman, Meenakshi" <meenakshi.venkataraman@intel.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: [PATCH] net: bridge: netfilter: Fix dependency for BRIDGE_NF_EBTABLES
+Date: Tue, 10 Jan 2012 23:48:25 -0200
+Message-ID: <1326246505-5038-1-git-send-email-festevam@gmail.com>
+Cc: bridge@lists.linux-foundation.org, davem@davemloft.net,
+	shemminger@vyatta.com, Fabio Estevam <festevam@gmail.com>,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60898 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932778Ab2AKBm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jan 2012 20:42:59 -0500
-Content-Disposition: inline
-In-Reply-To: <4595B4D22AB93C4FABBA84AAD5AA37FD0154B1@ORSMSX104.amr.corp.intel.com>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:47993 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757035Ab2AKBse (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2012 20:48:34 -0500
+Received: by yenm10 with SMTP id m10so105923yen.19
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2012 17:48:33 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 10, 2012 at 10:05:25PM +0000, Venkataraman, Meenakshi wrote:
- > Hi Dan,
- > 
- > >> For the last few releases, iwlwifi has been getting consistently worse
- > >> wrt reliability for me. 
- > 
- > [MV] Do you have an approximate idea of what release the failure started occurring?
- > 
- >  The failure mode has varied, from the chip
- > >> just locking up with no tx/rx of packets with nothing being logged, to
- > >> microcode warnings, and spewing 'Tx aggregation enabled' messages over
- > >and over.
- >  
- > [MV] I'm not sure if it is related to the problem you're seeing, but I see that you're using a 5300, so can you try to load the iwlwifi module with the following parameter and see if it helps?
- > 
- > modprobe iwlagn bt_coex_active=0
+Fix the following build warning:
 
-Seems to make no difference at all.
+warning: (BRIDGE_NF_EBTABLES) selects NETFILTER_XTABLES which has unmet direct dependencies (NET && INET && NETFILTER)
 
-	Dave
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+---
+ net/bridge/netfilter/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/bridge/netfilter/Kconfig b/net/bridge/netfilter/Kconfig
+index a9aff9c..9ca621a 100644
+--- a/net/bridge/netfilter/Kconfig
++++ b/net/bridge/netfilter/Kconfig
+@@ -4,7 +4,7 @@
+ 
+ menuconfig BRIDGE_NF_EBTABLES
+ 	tristate "Ethernet Bridge tables (ebtables) support"
+-	depends on BRIDGE && NETFILTER
++	depends on BRIDGE && NETFILTER && INET
+ 	select NETFILTER_XTABLES
+ 	help
+ 	  ebtables is a general, extensible frame/packet identification
+-- 
+1.7.1
