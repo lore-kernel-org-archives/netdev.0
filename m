@@ -1,33 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ksz884x: fix mtu for VLAN
-Date: Wed, 11 Jan 2012 12:47:13 -0800 (PST)
-Message-ID: <20120111.124713.534230702535605364.davem@davemloft.net>
-References: <1326313306.57525.YahooMailNeo@web39305.mail.mud.yahoo.com>
+Subject: Re: [PATCHv2] bond_alb: don't disable softirq under bond_alb_xmit
+Date: Wed, 11 Jan 2012 12:52:46 -0800 (PST)
+Message-ID: <20120111.125246.979686086126749318.davem@davemloft.net>
+References: <1326146497-27711-1-git-send-email-maxim.uvarov@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: rdkehn@yahoo.com
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
+	amwang@redhat.com
+To: maxim.uvarov@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59785 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:59840 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933248Ab2AKUrQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2012 15:47:16 -0500
-In-Reply-To: <1326313306.57525.YahooMailNeo@web39305.mail.mud.yahoo.com>
+	with ESMTP id S1752776Ab2AKUxG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2012 15:53:06 -0500
+In-Reply-To: <1326146497-27711-1-git-send-email-maxim.uvarov@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Doug Kehn <rdkehn@yahoo.com>
-Date: Wed, 11 Jan 2012 12:21:46 -0800 (PST)
+From: Maxim Uvarov <maxim.uvarov@oracle.com>
+Date: Mon,  9 Jan 2012 14:01:37 -0800
 
-> The Ethernet header does not account for the addition of a VLAN header.
-> Full size Ethernet frames containing VLAN header are not processed
-> because the frame is larger than the resulting hw mtu.
+> No need to lock soft irqs under bond_alb_xmit()
+> which already has softirq disabled.
 > 
-> Signed-off-by: Doug Kehn <rdkehn@yahoo.com>
+> Changes:
+> 1. add non-bh/bh version to tlb_clear_slave()
+> 
+> 2. represent BH and non BH hash table locks
+> _lock_rx_hashtbl_bh/_unlock_rx_hashtbl_bh
+> _lock_rx_hashtbl/_unlock_rx_hashtbl
+> _lock_tx_hashtbl_bh/_unlock_tx_hashtbl_bh
+> _lock_tx_hashtbl/_unlock_tx_hashtbl
+> 
+> Signed-off-by: Maxim Uvarov <maxim.uvarov@oracle.com>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Your email client corrupted your patch making it unusable to us.
-
-Send the patch to yourself, and try to apply the patch you receive.
-Only resubmit your patch again here once you are able to do that
-successfully.
+Applied, thanks.
