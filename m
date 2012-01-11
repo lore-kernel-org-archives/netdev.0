@@ -1,46 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] inet_diag: Fix old/new inet_diag_req-s structures
-Date: Wed, 11 Jan 2012 12:58:13 -0800 (PST)
-Message-ID: <20120111.125813.546007433493549448.davem@davemloft.net>
-References: <4F0D49D4.7040100@parallels.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] vhost-net: add module alias (v2)
+Date: Wed, 11 Jan 2012 21:00:17 +0000
+Message-ID: <1326315617.2705.10.camel@bwh-desktop>
+References: <20120110205400.6c1cb306@nehalam.linuxnetplumber.net>
+	<20120111091653.188b24ab@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: xemul@parallels.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59880 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751146Ab2AKU6S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2012 15:58:18 -0500
-In-Reply-To: <4F0D49D4.7040100@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, Kay Sievers <kay.sievers@vrfy.org>,
+	virtualization@lists.linux-foundation.org, Alan Cox <device@lanana.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120111091653.188b24ab@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@parallels.com>
-Date: Wed, 11 Jan 2012 12:35:32 +0400
-
-> The recent changes to inet_diag broke the compilation of tools using kernel headers.
+On Wed, 2012-01-11 at 09:16 -0800, Stephen Hemminger wrote:
+> By adding the correct module alias, programs won't have to explicitly
+> call modprobe. Vhost-net will always be available if built into the kernel.
+> It does require assigning a permanent minor number for depmod to work.
+> Choose one next to TUN since this driver is related to it.
 > 
-> Fix this by doing two sequential renames:
+> Also, use C99 style initialization.
 > 
->  inet_diag_req -> inet_diag_req_v2
->  inet_diag_req_compat -> inet_diag_req
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 > 
-> After this the changes in the user-space visible part of the inet_diag.h are
-> * add the inet_diag_req_v2
-> * extend the INET_DIAG_ extensions list
-> 
-> The set applies to current net tree.
+> ---
+> v2 - document minor number and make sure to not overlap
+[...]
+> --- a/include/linux/miscdevice.h	2012-01-10 10:56:59.779189436 -0800
+> +++ b/include/linux/miscdevice.h	2012-01-11 09:13:20.803694316 -0800
+> @@ -42,6 +42,7 @@
+>  #define AUTOFS_MINOR		235
+>  #define MAPPER_CTRL_MINOR	236
+>  #define LOOP_CTRL_MINOR		237
+> +#define VHOST_NET_MINOR		238
+>  #define MISC_DYNAMIC_MINOR	255
+>  
+>  struct device;
+> --- a/Documentation/devices.txt	2012-01-10 10:56:53.399116518 -0800
+> +++ b/Documentation/devices.txt	2012-01-11 09:12:49.251197653 -0800
+> @@ -447,6 +447,8 @@ Your cooperation is appreciated.
+>  		234 = /dev/btrfs-control	Btrfs control device
+>  		235 = /dev/autofs	Autofs control device
+>  		236 = /dev/mapper/control	Device-Mapper control device
+> +		237 = /dev/vhost-net	Host kernel accelerator for virtio net
+[...]
 
-Both applied, thanks.
+238 != 237.  It looks like someone forgot to add loopctrl here.
 
-> David, Stephen, I'm a little bit confused with the situation with this header. Can
-> you please comment on the (quite ancient) commit 73c1f4a0 ([TCPDIAG]: Just rename 
-> everything to inet_diag) from acme@? This commit did the similar thing with inet_diag
-> header -- flushed away the old struct and introduced a new one keeping just the binary
-> compatibility. Why was the breakage of tools caused by this commit considered as 
-> acceptable?
+Ben.
 
-Sigh... we simply didn't notice it back then, and that's the end of
-it.  Can you please stop bringing up this point now?  Thanks.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
