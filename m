@@ -1,59 +1,83 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: brcm80211 breakage..
-Date: Wed, 11 Jan 2012 17:15:30 +0000
-Message-ID: <1326302130.2705.3.camel@bwh-desktop>
-References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com>
-	 <4F0D6806.4080201@broadcom.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] vhost-net: add module alias (v2)
+Date: Wed, 11 Jan 2012 09:16:53 -0800
+Message-ID: <20120111091653.188b24ab@nehalam.linuxnetplumber.net>
+References: <20120110205400.6c1cb306@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Network Development <netdev@vger.kernel.org>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	=?UTF-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:42595 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755320Ab2AKRPi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2012 12:15:38 -0500
-In-Reply-To: <4F0D6806.4080201@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Kay Sievers <kay.sievers@vrfy.org>, kvm@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Stephen Hemminger <shemminger@vyatta.com>, Alan Cox <device@lanana.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120110205400.6c1cb306@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-01-11 at 11:44 +0100, Arend van Spriel wrote:
-> On 01/10/2012 09:15 PM, Linus Torvalds wrote:
-> > So the wireless on my Macbook Air no longer seems to work with the
-> > current -git tree.
-> > 
-> > The BRCMSMAC driver *used* to work, and no longer does. Also, very
-> > annoyingly, it's even hard to *compile* the thing, because it used to
-> > be
-> > 
-> >   depends on BCMA=n
-> > 
-> > but now it is the exact reverse:
-> > 
-> >   depends on BCMA
-> > 
-> > so there is no sane way to carry a configuration over from before, and
-> > things like bisection is a major pain due to having to play idiotic
-> > configuration games to get it to work across all these modifications.
-> 
-> BCMA support has been added to brcmsmac so now we depend on it. As BCMA
-> claims the PCI device we had the BCMA=n in place before. I agree that it
-> makes bisecting a pain in the...
-[...]
+By adding the correct module alias, programs won't have to explicitly
+call modprobe. Vhost-net will always be available if built into the kernel.
+It does require assigning a permanent minor number for depmod to work.
+Choose one next to TUN since this driver is related to it.
 
-Maybe BRCMSMAC should select BCMA rather than depending on it.  This bus
-seems like kind of an implementation detail that people are unlikely to
-be aware of, unlike say PCI.
+Also, use C99 style initialization.
 
-Ben.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+---
+v2 - document minor number and make sure to not overlap
+
+ Documentation/devices.txt  |    2 ++
+ drivers/vhost/net.c        |    8 +++++---
+ include/linux/miscdevice.h |    1 +
+ 3 files changed, 8 insertions(+), 3 deletions(-)
+
+--- a/drivers/vhost/net.c	2012-01-10 10:56:58.883179194 -0800
++++ b/drivers/vhost/net.c	2012-01-10 19:48:23.650225892 -0800
+@@ -856,9 +856,9 @@ static const struct file_operations vhos
+ };
+ 
+ static struct miscdevice vhost_net_misc = {
+-	MISC_DYNAMIC_MINOR,
+-	"vhost-net",
+-	&vhost_net_fops,
++	.minor = VHOST_NET_MINOR,
++	.name = "vhost-net",
++	.fops = &vhost_net_fops,
+ };
+ 
+ static int vhost_net_init(void)
+@@ -879,3 +879,5 @@ MODULE_VERSION("0.0.1");
+ MODULE_LICENSE("GPL v2");
+ MODULE_AUTHOR("Michael S. Tsirkin");
+ MODULE_DESCRIPTION("Host kernel accelerator for virtio net");
++MODULE_ALIAS_MISCDEV(VHOST_NET_MINOR);
++MODULE_ALIAS("devname:vhost-net");
+--- a/include/linux/miscdevice.h	2012-01-10 10:56:59.779189436 -0800
++++ b/include/linux/miscdevice.h	2012-01-11 09:13:20.803694316 -0800
+@@ -42,6 +42,7 @@
+ #define AUTOFS_MINOR		235
+ #define MAPPER_CTRL_MINOR	236
+ #define LOOP_CTRL_MINOR		237
++#define VHOST_NET_MINOR		238
+ #define MISC_DYNAMIC_MINOR	255
+ 
+ struct device;
+--- a/Documentation/devices.txt	2012-01-10 10:56:53.399116518 -0800
++++ b/Documentation/devices.txt	2012-01-11 09:12:49.251197653 -0800
+@@ -447,6 +447,8 @@ Your cooperation is appreciated.
+ 		234 = /dev/btrfs-control	Btrfs control device
+ 		235 = /dev/autofs	Autofs control device
+ 		236 = /dev/mapper/control	Device-Mapper control device
++		237 = /dev/vhost-net	Host kernel accelerator for virtio net
++
+ 		240-254			Reserved for local use
+ 		255			Reserved for MISC_DYNAMIC_MINOR
