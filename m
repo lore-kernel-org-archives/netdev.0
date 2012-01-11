@@ -1,83 +1,125 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] vhost-net: add module alias (v2)
-Date: Wed, 11 Jan 2012 09:16:53 -0800
-Message-ID: <20120111091653.188b24ab@nehalam.linuxnetplumber.net>
-References: <20120110205400.6c1cb306@nehalam.linuxnetplumber.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 01/11] SYSCTL: export root and set handling routines
+Date: Wed, 11 Jan 2012 09:21:43 -0800
+Message-ID: <m1sjjm40k8.fsf@fess.ebiederm.org>
+References: <20111214103602.3991.20990.stgit@localhost6.localdomain6>
+	<20111214104449.3991.61989.stgit@localhost6.localdomain6>
+	<m1bor6rg39.fsf@fess.ebiederm.org> <4EEEFC54.10700@parallels.com>
+	<m18vm8g951.fsf@fess.ebiederm.org> <4EEF2C9A.8000403@parallels.com>
+	<m1pqfkecw0.fsf@fess.ebiederm.org> <4EEF7364.8000407@parallels.com>
+	<m1vcotigyb.fsf@fess.ebiederm.org> <4F0C150F.1020007@parallels.com>
+	<m1ehv76v2v.fsf@fess.ebiederm.org> <4F0D5A9E.5030501@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Kay Sievers <kay.sievers@vrfy.org>, kvm@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Stephen Hemminger <shemminger@vyatta.com>, Alan Cox <device@lanana.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120110205400.6c1cb306@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Trond.Myklebust\@netapp.com" <Trond.Myklebust@netapp.com>,
+	"linux-nfs\@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb\@suse.de" <neilb@suse.de>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>,
+	"bfields\@fieldses.org" <bfields@fieldses.org>,
+	"davem\@davemloft.net" <davem@davemloft.net>,
+	"devel\@openvz.org" <devel@openvz.org>
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F0D5A9E.5030501@parallels.com> (Stanislav Kinsbursky's message
+	of "Wed, 11 Jan 2012 13:47:10 +0400")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-By adding the correct module alias, programs won't have to explicitly
-call modprobe. Vhost-net will always be available if built into the kernel.
-It does require assigning a permanent minor number for depmod to work.
-Choose one next to TUN since this driver is related to it.
+Stanislav Kinsbursky <skinsbursky@parallels.com> writes:
 
-Also, use C99 style initialization.
+> 11.01.2012 02:39, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>> Stanislav Kinsbursky<skinsbursky@parallels.com>  writes:
+>>
+>>> 03.01.2012 07:49, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>>>> Stanislav Kinsbursky<skinsbursky@parallels.com>   writes:
+>>>>
+>>>>> 19.12.2011 20:37, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82=
+:
+>>>>>> Stanislav Kinsbursky<skinsbursky@parallels.com>    writes:
+>>>>>>
+>>>>>> Doing that independently of the rest of the sysctls is pretty ho=
+rrible
+>>>>>> and confusing to users.   What I am planning might suit your nee=
+ds and
+>>>>>> if not we need to talk some more about how to get the vfs to do
+>>>>>> something reasonable.
+>>>>>>
+>>>>>
+>>>>> Ok, Eric. Would be glad to discuss your sysctls plans.
+>>>>> But actually you already know my needs: I would like to make sysc=
+tls work in the
+>>>>> way like sysfs does: i.e. content of files depends on mount maker=
+ -
+>>>>> not viewer.
+>>>>
+>>>> What drives the desire to have sysctls depend on the mount maker?
+>>>
+>>> Because we can (will, actually) have nested fs root's for container=
+s. IOW,
+>>> container's root will be accessible from it's creator context. And =
+I want to
+>>> tune container's fs from creators context.
+>>
+>> Tuning the child context from the parent context is an entirely
+>> reasonable thing to do.  To affect a namespace that is not yours
+>> the requirement is simply that we don't use current to lookup the
+>> sysctl.  So what I am proposing should work for your case.
+>>
+>
+> Could you explain, what are you proposing?
+> I still don't know any details about it.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+I am proposing treating /proc/sys like /proc/net is currently treated.
+See below.
 
----
-v2 - document minor number and make sure to not overlap
+>>>> Especially what drives that desire not to have it have a /proc/<pi=
+d>/sys
+>>>> directory that reflects the sysctls for a given process.
+>>>>
+>>>
+>>> This is not so important for me, where to access sysctl's. But I'm =
+worrying
+>>> about backward compatibility. IOW, I'm afraid of changing path
+>>> "/proc/sys/sunprc/*" to "/proc/<pid>/sys/sunrpc". This would break =
+a lot of
+>>> user-space programs.
+>>
+>> The part that keeps it all working is by adding a symlink from /proc=
+/sys
+>> to /proc/self/sys.  That technique has worked well for /proc/net, an=
+d I
+>> don't expect there will be any problems with /proc/sys either.  It i=
+s
+>> possible but is very rare for the introduction of a symlink in a pat=
+h
+>> to cause problems.
+>>
+>
+> Probably I don't understand you, but as I see it now, symlink to "/pr=
+oc/self/"
+> is unacceptable because of the following:
+> 1) will be used current context (any) instead of desired one
+(Using the current context is the desirable outcome for existing tools)=
+=2E
+> 1) if CT has other pid namespace - then we just have broken link.
 
- Documentation/devices.txt  |    2 ++
- drivers/vhost/net.c        |    8 +++++---
- include/linux/miscdevice.h |    1 +
- 3 files changed, 8 insertions(+), 3 deletions(-)
+Assuming the process in question is not in the pid namespace available
+to proc then yes you will indeed have a broken link.  But a broken
+link is only a problem for new applications that are doing something st=
+range.
 
---- a/drivers/vhost/net.c	2012-01-10 10:56:58.883179194 -0800
-+++ b/drivers/vhost/net.c	2012-01-10 19:48:23.650225892 -0800
-@@ -856,9 +856,9 @@ static const struct file_operations vhos
- };
- 
- static struct miscdevice vhost_net_misc = {
--	MISC_DYNAMIC_MINOR,
--	"vhost-net",
--	&vhost_net_fops,
-+	.minor = VHOST_NET_MINOR,
-+	.name = "vhost-net",
-+	.fops = &vhost_net_fops,
- };
- 
- static int vhost_net_init(void)
-@@ -879,3 +879,5 @@ MODULE_VERSION("0.0.1");
- MODULE_LICENSE("GPL v2");
- MODULE_AUTHOR("Michael S. Tsirkin");
- MODULE_DESCRIPTION("Host kernel accelerator for virtio net");
-+MODULE_ALIAS_MISCDEV(VHOST_NET_MINOR);
-+MODULE_ALIAS("devname:vhost-net");
---- a/include/linux/miscdevice.h	2012-01-10 10:56:59.779189436 -0800
-+++ b/include/linux/miscdevice.h	2012-01-11 09:13:20.803694316 -0800
-@@ -42,6 +42,7 @@
- #define AUTOFS_MINOR		235
- #define MAPPER_CTRL_MINOR	236
- #define LOOP_CTRL_MINOR		237
-+#define VHOST_NET_MINOR		238
- #define MISC_DYNAMIC_MINOR	255
- 
- struct device;
---- a/Documentation/devices.txt	2012-01-10 10:56:53.399116518 -0800
-+++ b/Documentation/devices.txt	2012-01-11 09:12:49.251197653 -0800
-@@ -447,6 +447,8 @@ Your cooperation is appreciated.
- 		234 = /dev/btrfs-control	Btrfs control device
- 		235 = /dev/autofs	Autofs control device
- 		236 = /dev/mapper/control	Device-Mapper control device
-+		237 = /dev/vhost-net	Host kernel accelerator for virtio net
-+
- 		240-254			Reserved for local use
- 		255			Reserved for MISC_DYNAMIC_MINOR
+I am proposing treating /proc/sys like /proc/net has already been
+treated.  Aka move have the version of /proc/sys that relative to a
+process be visible at: /proc/<pid>/sys, and with a compat symlink=20
+from /proc/sys -> /proc/self/sys.
+
+Just like has already been done with /proc/net.
+
+Semantically this should be easy to understand, and about as backwards
+compatible as it gets.
+
+Eric
