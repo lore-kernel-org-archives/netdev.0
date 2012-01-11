@@ -1,84 +1,151 @@
-From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: [PATCH v2 5/6] SUNRPC: remove RPC pipefs mount point manipulations
- from RPC clients code
-Date: Wed, 11 Jan 2012 19:18:34 +0400
-Message-ID: <20120111151834.5891.17329.stgit@localhost6.localdomain6>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH v2 6/6] SUNRPC: remove RPC PipeFS mount point reference from
+ RPC client
+Date: Wed, 11 Jan 2012 19:18:42 +0400
+Message-ID: <20120111151842.5891.32237.stgit@localhost6.localdomain6>
 References: <20120111151051.5891.1830.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120111151051.5891.1830.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
+	davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120111151051.5891.1830.stgit@localhost6.localdomain6>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-v2:
-1) Updated due to changes in the first patch of the series.
+This is a cleanup patch. We don't need this reference anymore.
 
-Now, with RPC pipefs mount notifications handling in RPC clients, we can remove
-mount point creation and destruction. RPC clients dentries will be created on
-PipeFS mount event and removed on umount event.
-
-Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- net/sunrpc/clnt.c |   19 +++----------------
- 1 files changed, 3 insertions(+), 16 deletions(-)
+ fs/nfs/idmap.c                 |    4 ++--
+ include/linux/sunrpc/clnt.h    |    2 +-
+ net/sunrpc/auth_gss/auth_gss.c |    8 ++++----
+ net/sunrpc/clnt.c              |   21 ++++++++++-----------
+ 4 files changed, 17 insertions(+), 18 deletions(-)
 
+diff --git a/fs/nfs/idmap.c b/fs/nfs/idmap.c
+index 096e374..9c701b5 100644
+--- a/fs/nfs/idmap.c
++++ b/fs/nfs/idmap.c
+@@ -368,8 +368,8 @@ nfs_idmap_new(struct nfs_client *clp)
+ 		return error;
+ 	}
+ 
+-	if (clp->cl_rpcclient->cl_path.dentry)
+-		pipe->dentry = rpc_mkpipe_dentry(clp->cl_rpcclient->cl_path.dentry,
++	if (clp->cl_rpcclient->cl_dentry)
++		pipe->dentry = rpc_mkpipe_dentry(clp->cl_rpcclient->cl_dentry,
+ 				"idmap", idmap, pipe);
+ 	if (IS_ERR(pipe->dentry)) {
+ 		error = PTR_ERR(pipe->dentry);
+diff --git a/include/linux/sunrpc/clnt.h b/include/linux/sunrpc/clnt.h
+index a4f237c..1e56469 100644
+--- a/include/linux/sunrpc/clnt.h
++++ b/include/linux/sunrpc/clnt.h
+@@ -57,7 +57,7 @@ struct rpc_clnt {
+ 
+ 	int			cl_nodelen;	/* nodename length */
+ 	char 			cl_nodename[UNX_MAXNODENAME];
+-	struct path		cl_path;
++	struct dentry *		cl_dentry;
+ 	struct rpc_clnt *	cl_parent;	/* Points to parent of clones */
+ 	struct rpc_rtt		cl_rtt_default;
+ 	struct rpc_timeout	cl_timeout_default;
+diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
+index d7a5719..1fd4abe 100644
+--- a/net/sunrpc/auth_gss/auth_gss.c
++++ b/net/sunrpc/auth_gss/auth_gss.c
+@@ -779,12 +779,12 @@ static int gss_pipes_dentries_create(struct rpc_auth *auth)
+ 	gss_auth = container_of(auth, struct gss_auth, rpc_auth);
+ 	clnt = gss_auth->client;
+ 
+-	gss_auth->pipe[1]->dentry = rpc_mkpipe_dentry(clnt->cl_path.dentry,
++	gss_auth->pipe[1]->dentry = rpc_mkpipe_dentry(clnt->cl_dentry,
+ 						      "gssd",
+ 						      clnt, gss_auth->pipe[1]);
+ 	if (IS_ERR(gss_auth->pipe[1]->dentry))
+ 		return PTR_ERR(gss_auth->pipe[1]->dentry);
+-	gss_auth->pipe[0]->dentry = rpc_mkpipe_dentry(clnt->cl_path.dentry,
++	gss_auth->pipe[0]->dentry = rpc_mkpipe_dentry(clnt->cl_dentry,
+ 						      gss_auth->mech->gm_name,
+ 						      clnt, gss_auth->pipe[0]);
+ 	if (IS_ERR(gss_auth->pipe[0]->dentry)) {
+@@ -806,7 +806,7 @@ static void gss_pipes_dentries_destroy_net(struct rpc_clnt *clnt,
+ 
+ 	sb = rpc_get_sb_net(net);
+ 	if (sb) {
+-		if (clnt->cl_path.dentry)
++		if (clnt->cl_dentry)
+ 			gss_pipes_dentries_destroy(auth);
+ 		rpc_put_sb_net(net);
+ 	}
+@@ -821,7 +821,7 @@ static int gss_pipes_dentries_create_net(struct rpc_clnt *clnt,
+ 
+ 	sb = rpc_get_sb_net(net);
+ 	if (sb) {
+-		if (clnt->cl_path.dentry)
++		if (clnt->cl_dentry)
+ 			err = gss_pipes_dentries_create(auth);
+ 		rpc_put_sb_net(net);
+ 	}
 diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-index c89ceb8..e3ced30 100644
+index e3ced30..ed7c22d 100644
 --- a/net/sunrpc/clnt.c
 +++ b/net/sunrpc/clnt.c
-@@ -109,17 +109,12 @@ static void __rpc_clnt_remove_pipedir(struct rpc_clnt *clnt)
+@@ -98,12 +98,12 @@ static void rpc_unregister_client(struct rpc_clnt *clnt)
+ 
+ static void __rpc_clnt_remove_pipedir(struct rpc_clnt *clnt)
+ {
+-	if (clnt->cl_path.dentry) {
++	if (clnt->cl_dentry) {
+ 		if (clnt->cl_auth && clnt->cl_auth->au_ops->pipes_destroy)
+ 			clnt->cl_auth->au_ops->pipes_destroy(clnt->cl_auth);
+-		rpc_remove_client_dir(clnt->cl_path.dentry);
++		rpc_remove_client_dir(clnt->cl_dentry);
+ 	}
+-	clnt->cl_path.dentry = NULL;
++	clnt->cl_dentry = NULL;
+ }
+ 
  static void rpc_clnt_remove_pipedir(struct rpc_clnt *clnt)
+@@ -154,20 +154,19 @@ static int
+ rpc_setup_pipedir(struct rpc_clnt *clnt, char *dir_name)
  {
  	struct super_block *pipefs_sb;
--	int put_mnt = 0;
+-	struct path path;
++	struct dentry *dentry;
  
- 	pipefs_sb = rpc_get_sb_net(clnt->cl_xprt->xprt_net);
- 	if (pipefs_sb) {
--		if (clnt->cl_path.dentry)
--			put_mnt = 1;
- 		__rpc_clnt_remove_pipedir(clnt);
- 		rpc_put_sb_net(clnt->cl_xprt->xprt_net);
- 	}
--	if (put_mnt)
--		rpc_put_mount();
- }
- 
- static struct dentry *rpc_setup_pipedir_sb(struct super_block *sb,
-@@ -165,21 +160,13 @@ rpc_setup_pipedir(struct rpc_clnt *clnt, char *dir_name)
- 	clnt->cl_path.dentry = NULL;
+-	clnt->cl_path.mnt = ERR_PTR(-ENOENT);
+-	clnt->cl_path.dentry = NULL;
++	clnt->cl_dentry = NULL;
  	if (dir_name == NULL)
  		return 0;
--
--	path.mnt = rpc_get_mount();
--	if (IS_ERR(path.mnt))
--		return PTR_ERR(path.mnt);
  	pipefs_sb = rpc_get_sb_net(clnt->cl_xprt->xprt_net);
--	if (!pipefs_sb) {
--		rpc_put_mount();
--		return -ENOENT;
--	}
-+	if (!pipefs_sb)
-+		return 0;
- 	path.dentry = rpc_setup_pipedir_sb(pipefs_sb, clnt, dir_name);
+ 	if (!pipefs_sb)
+ 		return 0;
+-	path.dentry = rpc_setup_pipedir_sb(pipefs_sb, clnt, dir_name);
++	dentry = rpc_setup_pipedir_sb(pipefs_sb, clnt, dir_name);
  	rpc_put_sb_net(clnt->cl_xprt->xprt_net);
--	if (IS_ERR(path.dentry)) {
--		rpc_put_mount();
-+	if (IS_ERR(path.dentry))
- 		return PTR_ERR(path.dentry);
--	}
- 	clnt->cl_path = path;
+-	if (IS_ERR(path.dentry))
+-		return PTR_ERR(path.dentry);
+-	clnt->cl_path = path;
++	if (IS_ERR(dentry))
++		return PTR_ERR(dentry);
++	clnt->cl_dentry = dentry;
  	return 0;
  }
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 
+@@ -186,7 +185,7 @@ static int __rpc_pipefs_event(struct rpc_clnt *clnt, unsigned long event,
+ 		BUG_ON(dentry == NULL);
+ 		if (IS_ERR(dentry))
+ 			return PTR_ERR(dentry);
+-		clnt->cl_path.dentry = dentry;
++		clnt->cl_dentry = dentry;
+ 		if (clnt->cl_auth->au_ops->pipes_create) {
+ 			err = clnt->cl_auth->au_ops->pipes_create(clnt->cl_auth);
+ 			if (err)
