@@ -1,110 +1,101 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH net-next v2 2/4] can: cc770: add legacy ISA bus driver
- for the CC770 and AN82527
-Date: Wed, 11 Jan 2012 10:38:54 +0100
-Message-ID: <4F0D58AE.7070601@pengutronix.de>
-References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF31@saturn3.aculab.com> <4F0B608D.6090309@essax.com> <4F0B7421.6050203@pengutronix.de> <4F0C0552.5080504@grandegger.com> <4F0C2F4A.20500@essax.com> <4F0D4FBA.1080108@essax.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH 01/11] SYSCTL: export root and set handling routines
+Date: Wed, 11 Jan 2012 13:47:10 +0400
+Message-ID: <4F0D5A9E.5030501@parallels.com>
+References: <20111214103602.3991.20990.stgit@localhost6.localdomain6>	<20111214104449.3991.61989.stgit@localhost6.localdomain6>	<m1bor6rg39.fsf@fess.ebiederm.org> <4EEEFC54.10700@parallels.com>	<m18vm8g951.fsf@fess.ebiederm.org> <4EEF2C9A.8000403@parallels.com>	<m1pqfkecw0.fsf@fess.ebiederm.org> <4EEF7364.8000407@parallels.com>	<m1vcotigyb.fsf@fess.ebiederm.org> <4F0C150F.1020007@parallels.com> <m1ehv76v2v.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig00B331AFBEC8F11109C88CD5"
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Oliver Hartkopp <socketcan@hartkopp.net>, henrik@proconx.com,
-	netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	socketcan-users@lists.berlios.de, IreneV <boir1@yandex.ru>,
-	Stanislav Yelenskiy <stanislavelensky@yahoo.com>, oe@port.de,
-	henrik@focus-sw.com
-To: info@essax.com
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4F0D4FBA.1080108@essax.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <m1ehv76v2v.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig00B331AFBEC8F11109C88CD5
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+11.01.2012 02:39, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> Stanislav Kinsbursky<skinsbursky@parallels.com>  writes:
+>
+>> 03.01.2012 07:49, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>>> Stanislav Kinsbursky<skinsbursky@parallels.com>   writes:
+>>>
+>>>> 19.12.2011 20:37, Eric W. Biederman =D0=BF=D0=B8=D1=88=D0=B5=D1=82=
+:
+>>>>> Stanislav Kinsbursky<skinsbursky@parallels.com>    writes:
+>>>>>
+>>>>> Doing that independently of the rest of the sysctls is pretty hor=
+rible
+>>>>> and confusing to users.   What I am planning might suit your need=
+s and
+>>>>> if not we need to talk some more about how to get the vfs to do
+>>>>> something reasonable.
+>>>>>
+>>>>
+>>>> Ok, Eric. Would be glad to discuss your sysctls plans.
+>>>> But actually you already know my needs: I would like to make sysct=
+ls work in the
+>>>> way like sysfs does: i.e. content of files depends on mount maker =
+-
+>>>> not viewer.
+>>>
+>>> What drives the desire to have sysctls depend on the mount maker?
+>>
+>> Because we can (will, actually) have nested fs root's for containers=
+=2E IOW,
+>> container's root will be accessible from it's creator context. And I=
+ want to
+>> tune container's fs from creators context.
+>
+> Tuning the child context from the parent context is an entirely
+> reasonable thing to do.  To affect a namespace that is not yours
+> the requirement is simply that we don't use current to lookup the
+> sysctl.  So what I am proposing should work for your case.
+>
 
-Hello,
+Could you explain, what are you proposing?
+I still don't know any details about it.
 
-On 01/11/2012 10:00 AM, Wolfgang Zarre wrote:
->>> Please provide an extra patch for these unrelated changes. If we real=
-ly
->>> want to remove it.
+>>> Especially what drives that desire not to have it have a /proc/<pid=
+>/sys
+>>> directory that reflects the sysctls for a given process.
 >>>
 >>
->> Sure, this I can do.
->>
->=20
-> Ok, here the patch to remove:
+>> This is not so important for me, where to access sysctl's. But I'm w=
+orrying
+>> about backward compatibility. IOW, I'm afraid of changing path
+>> "/proc/sys/sunprc/*" to "/proc/<pid>/sys/sunrpc". This would break a=
+ lot of
+>> user-space programs.
+>
+> The part that keeps it all working is by adding a symlink from /proc/=
+sys
+> to /proc/self/sys.  That technique has worked well for /proc/net, and=
+ I
+> don't expect there will be any problems with /proc/sys either.  It is
+> possible but is very rare for the introduction of a symlink in a path
+> to cause problems.
+>
 
-Looks good, please add a patch description and put in a patch series
-together with the spinlock patch (see other mail).
+Probably I don't understand you, but as I see it now, symlink to "/proc=
+/self/"=20
+is unacceptable because of the following:
+1) will be used current context (any) instead of desired one
+1) if CT has other pid namespace - then we just have broken link.
 
-Marc
+> Eric
+>
 
-> --------------------------------------------------------
-> diff --git a/drivers/net/can/cc770/cc770.c b/drivers/net/can/cc770/cc77=
-0.c
-> index 2d12f89..dad6707 100644
-> --- a/drivers/net/can/cc770/cc770.c
-> +++ b/drivers/net/can/cc770/cc770.c
-> @@ -460,15 +460,6 @@ static netdev_tx_t cc770_start_xmit(struct sk_buff=
-
-> *skb, struct net_device *dev)
->=20
->      stats->tx_bytes +=3D dlc;
->=20
-> -
-> -    /*
-> -     * HM: We had some cases of repeated IRQs so make sure the
-> -     * INT is acknowledged I know it's already further up, but
-> -     * doing again fixed the issue
-> -     */
-> -    cc770_write_reg(priv, msgobj[mo].ctrl0,
-> -            MSGVAL_UNC | TXIE_UNC | RXIE_UNC | INTPND_RES);
-> -
->      return NETDEV_TX_OK;
->  }
->=20
-> @@ -689,12 +680,6 @@ static void cc770_tx_interrupt(struct net_device
-> *dev, unsigned int o)
->      /* Nothing more to send, switch off interrupts */
->      cc770_write_reg(priv, msgobj[mo].ctrl0,
->              MSGVAL_RES | TXIE_RES | RXIE_RES | INTPND_RES);
-> -    /*
-> -     * We had some cases of repeated IRQ so make sure the
-> -     * INT is acknowledged
-> -     */
-> -    cc770_write_reg(priv, msgobj[mo].ctrl0,
-> -            MSGVAL_UNC | TXIE_UNC | RXIE_UNC | INTPND_RES);
->=20
->      stats->tx_packets++;
->      can_get_echo_skb(dev, 0);
-> ----------------------------------------------------------
-
-Marc
 
 --=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig00B331AFBEC8F11109C88CD5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk8NWK4ACgkQjTAFq1RaXHMPMQCeIwqiUQjpzi/ZTxyzOuFsZxKX
-qRUAoIWr7v7jWbhY/KbnzgtKBjgOT2cl
-=7qLN
------END PGP SIGNATURE-----
-
---------------enig00B331AFBEC8F11109C88CD5--
+Best regards,
+Stanislav Kinsbursky
