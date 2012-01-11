@@ -1,40 +1,104 @@
-From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Subject: Re: [PATCH 2/2] asix: fix setting custom MAC address on Asix 88178
- devices
-Date: Wed, 11 Jan 2012 16:22:29 +0200
-Message-ID: <20120111162229.10867aa2361hnako@www.81.fi>
-References: <20120110164017.24658.9965.stgit@localhost6.localdomain6>
- <20120110164023.24658.76719.stgit@localhost6.localdomain6>
- <20120110.150051.1786115333097978498.davem@davemloft.net>
+From: Wolfgang Zarre <info@essax.com>
+Subject: Re: [PATCH net-next v2 2/4] can: cc770: add legacy ISA bus driver
+ for the CC770 and AN82527
+Date: Wed, 11 Jan 2012 15:37:32 +0100
+Message-ID: <4F0D9EAC.9010101@essax.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF3B@saturn3.aculab.com>
+Reply-To: info@essax.com
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=ISO-8859-1;
- DelSp="Yes";
- format="flowed"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, grundler@chromium.org, allan@asix.com.tw
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sd-mail-sa-01.sanoma.fi ([158.127.18.161]:38504 "EHLO
-	sd-mail-sa-01.sanoma.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932923Ab2AKOWc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2012 09:22:32 -0500
-In-Reply-To: <20120110.150051.1786115333097978498.davem@davemloft.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	Oliver Hartkopp <socketcan@hartkopp.net>, henrik@proconx.com,
+	netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	socketcan-users@lists.berlios.de, IreneV <boir1@yandex.ru>,
+	Stanislav Yelenskiy <stanislavelensky@yahoo.com>, oe@port.de,
+	henrik@focus-sw.com
+To: David Laight <David.Laight@ACULAB.COM>,
+	Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6D8AF3B@saturn3.aculab.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Quoting David Miller <davem@davemloft.net>:
+Hello David,
 
 >
-> Please do not format your commit messages like this, everything after
-> that first "---" will be stripped away.  So in this case if I applied
-> this email into GIT as-is we'd lose the actual commit message and
-> only have your "(Note: " thing.
+>> @@ -689,12 +680,6 @@ static void cc770_tx_interrupt(struct
+>> net_device *dev, unsigned int o)
+>>    	/* Nothing more to send, switch off interrupts */
+>>    	cc770_write_reg(priv, msgobj[mo].ctrl0,
+>>    			MSGVAL_RES | TXIE_RES | RXIE_RES | INTPND_RES);
+>> -	/*
+>> -	 * We had some cases of repeated IRQ so make sure the
+>> -	 * INT is acknowledged
+>> -	 */
+>> -	cc770_write_reg(priv, msgobj[mo].ctrl0,
+>> -			MSGVAL_UNC | TXIE_UNC | RXIE_UNC | INTPND_RES);
 >
-> I fixed this up and applied it with Grant's ACK.
+> A wild guess is that this is needed to clear an interrupt
+> that was asserted during the ISR processing.
+> So you need to ack the IRQ as well as mask it.
+
+I was digging a bit and as far as I understood by studying both
+manuals of i82527 and cc770 the procedure is in any case most
+probably not completely clean.
+
+ From my point of view there would be no need to set and reset
+TXIE/RXIE after every request because according to the description
+as below (e.g for TXIE):
+
+
+       MSB LSB    Meaning
+Write  0   0  Not allowed
+               (indeterminate)
+        0   1  reset
+        1   0  set
+        1   1  unchanged
+
+
+
+TXIE Transmit Interrupt Enable
+  one  An interrupt will be generated after a successful
+       transmission of a frame
+  zero No interrupt will be generated after a successful
+       transmission of a frame
+       The Transmit Interrupt Enable bit enables the
+       82527 to initiate an interrupt after the successful
+       transmission by the corresponding message
+       object This bit is written by the CPU
+
+In fact with that we are telling the chip if we want to have
+interrupts or not for a transmission and therefore it would
+be enough, so far I understood, to set it at _init and switch
+it of at _deinit and between just using 'unchanged'.
+
+Actually to ack the IRQ we would have to set TXOK of the
+status register to zero after reading a one for a successful
+transmission but is in fact the chip doesn't care if we
+reset TXOK or not.
+
+However, if time permits I'll try to dig deeper and doing some
+tests because it would need some changes more.
+
+
+Anyway, I might be wrong as well because sometimes I'm checking
+under heavy workload the wrong bit's as You know already ;-)
+
+
+More or less the reason for the request of removal was just because
+assuming that the repeated interrupts were caused as well not having
+spinlock's and on the other hand if obsolete to save I/O resources
+which affects mostly smaller systems with heavy load.
+
+However, maybe Wolfgang can give an advice.
+
+
 >
-
-Ok, I'll avoid doing that in future. Thanks.
-
--Jussi
+> Not sure if the difference between the xxx_UNC and xxx_RES
+> bits though.
+>
+> 	David
+>
+>
+Wolfgang
