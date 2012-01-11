@@ -1,54 +1,66 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] dp83640: Fix NOHZ local_softirq_pending 08 warning
-Date: Wed, 11 Jan 2012 20:03:00 +0100
-Message-ID: <20120111190300.GA14376@netboy.at.omicron.at>
-References: <1326189135-27770-1-git-send-email-manfred.rudigier@omicron.at>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: iwlwifi worse than ever in current git.
+Date: Wed, 11 Jan 2012 14:28:42 -0500
+Message-ID: <20120111192842.GA29305@redhat.com>
+References: <20120110184917.GA26973@redhat.com>
+ <1326221614.5067.6.camel@dcbw.foobar.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB3063085@HASMSX103.ger.corp.intel.com>
+ <20120111014243.GA22066@redhat.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB306429E@HASMSX103.ger.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Manfred Rudigier <manfred.rudigier@omicron.at>
+Cc: Dan Williams <dcbw@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Guy, Wey-Yi W" <wey-yi.w.guy@intel.com>,
+	Linux Wireless <linux-wireless@vger.kernel.org>
+To: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:35570 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933111Ab2AKTDK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2012 14:03:10 -0500
-Received: by eekd4 with SMTP id d4so442932eek.19
-        for <netdev@vger.kernel.org>; Wed, 11 Jan 2012 11:03:09 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:62428 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932560Ab2AKT2s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jan 2012 14:28:48 -0500
 Content-Disposition: inline
-In-Reply-To: <1326189135-27770-1-git-send-email-manfred.rudigier@omicron.at>
+In-Reply-To: <0BA3FCBA62E2DC44AF3030971E174FB306429E@HASMSX103.ger.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 10, 2012 at 10:52:15AM +0100, Manfred Rudigier wrote:
-> Similar problem as in 481a8199142c050b72bff8a1956a49fd0a75bbe0. This fix
-> replaces netif_rx() with netif_rx_ni() which has to be used from
-> process/softirq context.
+On Wed, Jan 11, 2012 at 12:38:43PM +0000, Grumbach, Emmanuel wrote:
+ > > [  173.145695] iwlwifi 0000:04:00.0: U iwlagn_tx_agg_start Can proceed: ssn =
+ > > next_recl = 869
+ > > [  173.147133] iwlwifi 0000:04:00.0: U iwl_trans_set_wr_ptrs Q 11  WrPtr: 101
+ > > [  173.147545] iwlwifi 0000:04:00.0: U iwl_trans_tx_queue_set_status Activate
+ > > BA Queue 11 on FIFO 1
+ > > [  173.148050] iwlwifi 0000:04:00.0: Tx aggregation enabled on ra =
+ > > b8:c7:5d:0c:39:88 tid = 0
+ > 
+ > I am missing logs here... You seem to reauthenticate but I can't see disconnection... weird
+ 
+I'll recreate some clean logs in a few minutes..
+ 
+ > > [  192.805102] wlan0: authenticate with b8:c7:5d:0c:39:87 (try 1)
+ > > [  192.807392] wlan0: authenticated
+ > > [  192.814840] iwlwifi 0000:04:00.0: U iwlagn_tx_agg_stop Can't proceed: ssn
+ > > 1633, next_recl = 139
+ > 
+ > Stop AGG before we are associated ?!
+ > Is that leftovers from the previous association that was torn down ?
+ 
+no idea.
 
-Thanks for spotting this. Can you post this once again with a Cc tag
-for the stable branch, too?
+ > > [  192.818669] wlan0: moving STA b8:c7:5d:0c:39:88 to state 2
+ > > [  192.818939] wlan0: moving STA b8:c7:5d:0c:39:88 to state 1
+ > > [  192.819206] wlan0: moving STA b8:c7:5d:0c:39:88 to state 0
+ > > [  192.824157] wlan0: associate with b8:c7:5d:0c:39:87 (try 1)
+ > 
+ > Associating to another AP ? A band maybe ?
+ 
+I only have one AP.
 
-Thanks,
-Richard
+ > There are a few AMPDUs issues here but I guess the worst issue you are seeing is due to the passive channel thing.
+ > Does it feel better with 11n disabled ?
+ 
+5 hours of use this morning with 11n_disabled=1, and not a single problem.
 
-> 
-> Signed-off-by: Manfred Rudigier <manfred.rudigier@omicron.at>
-> ---
->  drivers/net/phy/dp83640.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-> index 9663e0b..ba3c591 100644
-> --- a/drivers/net/phy/dp83640.c
-> +++ b/drivers/net/phy/dp83640.c
-> @@ -1159,7 +1159,7 @@ static void rx_timestamp_work(struct work_struct *work)
->  			}
->  		}
->  		spin_unlock_irqrestore(&dp83640->rx_lock, flags);
-> -		netif_rx(skb);
-> +		netif_rx_ni(skb);
->  	}
->  
->  	/* Clear out expired time stamps. */
-> -- 
-> 1.7.0.4
-> 
+I'll re-enable 11n, and get you some cleaner logs shortly.
+
+	Dave
