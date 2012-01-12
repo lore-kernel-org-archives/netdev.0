@@ -1,44 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 2/2] gianfar: Fix invalid TX frames returned on
- error queue when time stamping
-Date: Thu, 12 Jan 2012 15:26:19 -0800 (PST)
-Message-ID: <20120112.152619.2007546642181896584.davem@davemloft.net>
-References: <1326187612-27384-1-git-send-email-manfred.rudigier@omicron.at>
-	<1326187612-27384-2-git-send-email-manfred.rudigier@omicron.at>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: sha512: make it work, undo percpu message schedule
+Date: Fri, 13 Jan 2012 02:55:14 +0300
+Message-ID: <20120112235514.GA5065@p183.telecom.by>
+References: <20120111000040.GA3801@p183.telecom.by>
+ <20120111003611.GA12257@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, afleming@freescale.com,
-	avorontsov@mvista.com, richardcochran@gmail.com,
-	eric.dumazet@gmail.com
-To: manfred.rudigier@omicron.at
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42159 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755278Ab2ALX0c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 18:26:32 -0500
-In-Reply-To: <1326187612-27384-2-git-send-email-manfred.rudigier@omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+	ken@codelabs.ch
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120111003611.GA12257@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Manfred Rudigier <manfred.rudigier@omicron.at>
-Date: Tue, 10 Jan 2012 10:26:51 +0100
+On Wed, Jan 11, 2012 at 11:36:11AM +1100, Herbert Xu wrote:
+> On Wed, Jan 11, 2012 at 03:00:40AM +0300, Alexey Dobriyan wrote:
+> > commit f9e2bca6c22d75a289a349f869701214d63b5060
+> > aka "crypto: sha512 - Move message schedule W[80] to static percpu area"
+> > created global message schedule area.
+> > 
+> > If sha512_update will ever be entered twice, hilarity ensures.
+> 
+> Hmm, do you know why this happens? On the face of it this shouldn't
+> be possible as preemption is disabled.
 
-> When TX time stamping for PTP messages is enabled on a socket, a time
-> stamp is returned on the socket error queue to the user space application
-> after the frame was transmitted. The transmitted frame is also returned on
-> the error queue so that an application knows to which frame the time stamp
-> belongs.
-> 
-> In the current implementation the TxFCB is immediately followed by the
-> frame. Since the eTSEC inserts the TX time stamp 8 bytes after the TxFCB,
-> parts of the frame have been overwritten and an invalid frame was returned
-> on the socket error queue.
-> 
-> This patch fixes the described problem by adding additional 16 padding
-> bytes between the TxFCB and the frame for all messages sent from a time
-> stamping enabled socket (other sockets are not affected).
-> 
-> Signed-off-by: Manfred Rudigier <manfred.rudigier@omicron.at>
-
-Applied.
+Herbert, I couldn't come up with a single scenario. :-(
+But the bug is easy to reproduce.
