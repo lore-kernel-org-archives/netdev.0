@@ -1,94 +1,86 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Subject: Re: [PATCH] vhost-net: add module alias (v2)
-Date: Thu, 12 Jan 2012 18:04:48 -0200
-Message-ID: <20120112200448.GA3446@oc1711230544.ibm.com>
-References: <20120110205400.6c1cb306@nehalam.linuxnetplumber.net>
- <20120111091653.188b24ab@nehalam.linuxnetplumber.net>
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: brcm80211 breakage..
+Date: Thu, 12 Jan 2012 21:09:16 +0100
+Message-ID: <4F0F3DEC.4050605@broadcom.com>
+References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com>
+ <4F0D6806.4080201@broadcom.com>
+ <CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com>
+ <CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com>
+ <4F0DC030.6090500@lwfinger.net>
+ <CA+55aFyAX_OdE7yNp1vM1AmywrYZ9Pvr0EX47jNQciZKOQUQHg@mail.gmail.com>
+ <4F0E3B7E.8040005@lwfinger.net>
+ <CA+55aFyR9C8GjhKb8orr1kgd_G23=-mcmT-uz9zJd6wk7rYDPA@mail.gmail.com>
+ <4F0E5E57.9060204@lwfinger.net>
+ <CA+55aFw0XArx0jpNh4dWYFmvJbb+GJYAWRUN2Ec14oREiATo7g@mail.gmail.com>
+ <CA+55aFxDOr_TT+kxp1SuwNFfm7KLTaWSLQwk1Fx8fWe7tdstcg@mail.gmail.com>
+ <CA+55aFzkCXnHfF_TO5M+gaN4RMvj_WNuW_QeBezuYBdWnwPDpg@mail.gmail.com>
+ <CA+55aFx2UnVZP1Z44dMHeifB2nD1zJ87kz25zZjUdwv0ozwKPA@mail.gmail.com>
+ <CA+55aFzNJbM=ohXninJ06518e3a6E8vySg8GT6dx+Qovk1QW0Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Cox <device@lanana.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Kay Sievers <kay.sievers@vrfy.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120111091653.188b24ab@nehalam.linuxnetplumber.net>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Larry Finger" <Larry.Finger@lwfinger.net>,
+	"Alwin Beukers" <alwin@broadcom.com>,
+	"Roland Vossen" <rvossen@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Network Development" <netdev@vger.kernel.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	=?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>
+To: "Linus Torvalds" <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:1641 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755224Ab2ALUJe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 15:09:34 -0500
+In-Reply-To: <CA+55aFzNJbM=ohXninJ06518e3a6E8vySg8GT6dx+Qovk1QW0Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 11, 2012 at 09:16:53AM -0800, Stephen Hemminger wrote:
-> By adding the correct module alias, programs won't have to explicitly
-> call modprobe. Vhost-net will always be available if built into the kernel.
-> It does require assigning a permanent minor number for depmod to work.
-> Choose one next to TUN since this driver is related to it.
-> 
-> Also, use C99 style initialization.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> ---
-> v2 - document minor number and make sure to not overlap
-> 
->  Documentation/devices.txt  |    2 ++
->  drivers/vhost/net.c        |    8 +++++---
->  include/linux/miscdevice.h |    1 +
->  3 files changed, 8 insertions(+), 3 deletions(-)
-> 
-> --- a/drivers/vhost/net.c	2012-01-10 10:56:58.883179194 -0800
-> +++ b/drivers/vhost/net.c	2012-01-10 19:48:23.650225892 -0800
-> @@ -856,9 +856,9 @@ static const struct file_operations vhos
->  };
-> 
->  static struct miscdevice vhost_net_misc = {
-> -	MISC_DYNAMIC_MINOR,
-> -	"vhost-net",
-> -	&vhost_net_fops,
-> +	.minor = VHOST_NET_MINOR,
-> +	.name = "vhost-net",
-> +	.fops = &vhost_net_fops,
->  };
-> 
->  static int vhost_net_init(void)
-> @@ -879,3 +879,5 @@ MODULE_VERSION("0.0.1");
->  MODULE_LICENSE("GPL v2");
->  MODULE_AUTHOR("Michael S. Tsirkin");
->  MODULE_DESCRIPTION("Host kernel accelerator for virtio net");
-> +MODULE_ALIAS_MISCDEV(VHOST_NET_MINOR);
-> +MODULE_ALIAS("devname:vhost-net");
-> --- a/include/linux/miscdevice.h	2012-01-10 10:56:59.779189436 -0800
-> +++ b/include/linux/miscdevice.h	2012-01-11 09:13:20.803694316 -0800
-> @@ -42,6 +42,7 @@
->  #define AUTOFS_MINOR		235
->  #define MAPPER_CTRL_MINOR	236
->  #define LOOP_CTRL_MINOR		237
-> +#define VHOST_NET_MINOR		238
->  #define MISC_DYNAMIC_MINOR	255
-> 
->  struct device;
-> --- a/Documentation/devices.txt	2012-01-10 10:56:53.399116518 -0800
-> +++ b/Documentation/devices.txt	2012-01-11 09:12:49.251197653 -0800
-> @@ -447,6 +447,8 @@ Your cooperation is appreciated.
->  		234 = /dev/btrfs-control	Btrfs control device
->  		235 = /dev/autofs	Autofs control device
->  		236 = /dev/mapper/control	Device-Mapper control device
-> +		237 = /dev/vhost-net	Host kernel accelerator for virtio net
-> +
->  		240-254			Reserved for local use
->  		255			Reserved for MISC_DYNAMIC_MINOR
-> 
-> 
+On 01/12/2012 08:08 PM, Linus Torvalds wrote:
+> On Thu, Jan 12, 2012 at 11:00 AM, Linus Torvalds
+> <torvalds@linux-foundation.org> wrote:
+>>
+>> I'll send out a patch that seems to get things to a working state fo=
+r
+>> me. At least I have wireless connectivity again, I don't know if the=
+re
+>> are some other problems remaining.
+>=20
+> Ok, this is the patch that gets me going, and this is sent from the M=
+acbook Air.
+>=20
+> NOTE! The BCMA confusion about the sprom still exists, but doesn't
+> seem to matter:
 
-You added vhost-net minor as 238 in the code and 237 in the
-documentation. That's because loop-control is missing from the docs.
+That is because brcmsmac is not relying on the sprom logic provided by
+bcma. As Rafa=B3 indicated that is duplicated code so if we are to use
+bcma sprom functionality that needs to be fixed (after the merge window=
+).
 
-Regards.
-Cascardo.
+>  bcma: Core 0 found: ChipCommon (manuf 0x4BF, id 0x800, rev 0x22, cla=
+ss 0x0)
+>  bcma: Core 1 found: IEEE 802.11 (manuf 0x4BF, id 0x812, rev 0x17, cl=
+ass 0x0)
+>  bcma: Core 2 found: PCIe (manuf 0x4BF, id 0x820, rev 0x0F, class 0x0=
+)
+>  bcma: Found rev 6 PMU (capabilities 0x108C2606)
+>  bcma: Unsupported SPROM revision: 255
+>  bcma: No SPROM available
+>  bcma: Bus registered
+>   ..
+>  brcmsmac bcma0:0: mfg 4bf core 812 rev 23 class 0 irq 17
+>  brcmsmac: Found chip type AI (0x1381a8d8)
+>  brcmsmac: Applying 43224B0+ WARs
+>  bcma: Switched to core: 0x812
+>  ieee80211 phy0: Selected rate control algorithm 'minstrel_ht'
+>  brcms_module_init: register returned 0
+>=20
+> so this does seem to work, but there are clearly some issues still..
+>=20
+>                  Linus
 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+That output look fine. The patch looks fine although you can use the ne=
+w
+do_crc_check() function in otp_read_pci as well.
 
+Gr. AvS
