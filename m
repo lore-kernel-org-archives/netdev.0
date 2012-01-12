@@ -1,55 +1,38 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [BUG] commit a9b3cd7f32 is a mess
-Date: Thu, 12 Jan 2012 09:12:01 -0800
-Message-ID: <20120112171201.GC2419@linux.vnet.ibm.com>
-References: <1326376603.2950.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: brcm80211 breakage..
+Date: Thu, 12 Jan 2012 11:18:30 -0600
+Message-ID: <4F0F15E6.30301@lwfinger.net>
+References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com> <4F0D6806.4080201@broadcom.com> <CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com> <CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com> <4F0DC030.6090500@lwfinger.net> <CA+55aFyAX_OdE7yNp1vM1AmywrYZ9Pvr0EX47jNQciZKOQUQHg@mail.gmail.com> <4F0E3B7E.8040005@lwfinger.net> <CA+55aFyR9C8GjhKb8orr1kgd_G23=-mcmT-uz9zJd6wk7rYDPA@mail.gmail.com> <4F0E5E57.9060204@lwfinger.net> <4F0EDC75.3040003@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Network Development <netdev@vger.kernel.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+To: Arend van Spriel <arend@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:37764 "EHLO e7.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754543Ab2ALROe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jan 2012 12:14:34 -0500
-Received: from /spool/local
-	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-	Thu, 12 Jan 2012 12:14:33 -0500
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q0CHDOBf279724
-	for <netdev@vger.kernel.org>; Thu, 12 Jan 2012 12:13:24 -0500
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q0CHC2aG014100
-	for <netdev@vger.kernel.org>; Thu, 12 Jan 2012 10:12:02 -0700
-Content-Disposition: inline
-In-Reply-To: <1326376603.2950.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:49766 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754089Ab2ALRSd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 12:18:33 -0500
+Received: by ggdk6 with SMTP id k6so1108141ggd.19
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2012 09:18:33 -0800 (PST)
+In-Reply-To: <4F0EDC75.3040003@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 12, 2012 at 02:56:43PM +0100, Eric Dumazet wrote:
-> commit a9b3cd7f32 (rcu: convert uses of rcu_assign_pointer(x, NULL) to
-> RCU_INIT_POINTER) is complete garbage.
-> 
-> Real content of this commit doesnt reflect Changelog claim.
-> 
-> I found this while trying to understand a 3.2 regression in IGMP code.
-> 
-> 	iml->sfmode = MCAST_EXCLUDE;
-> -	rcu_assign_pointer(inet->mc_list, iml);
-> +	RCU_INIT_POINTER(inet->mc_list, iml);
-> 
-> Obviously iml is not NULL here.
-> 
-> Please Paul dont Ack a patch only reading the Changelog.
+On 01/12/2012 07:13 AM, Arend van Spriel wrote:
+>
+> I am surprised that we end up on sprom_read_pci(). That suggests that
+> MacBook Air has an external sprom. Can you tell me what the function
+> ai_is_sprom_available() returns on your system?
 
-Sigh.  That will teach me to trust coccinelle.  :-(
+For completeness, sromctrl is 0x12, thus bit 1 (SRC_PRESENT) is not set, and my 
+device has an OTP, not an SPROM.
 
-> I'll make a patch to revert all non NULL uses.
+I do not see anything wrong with commit 888153b3db3f, but I realize that my card 
+really does not test any of those changes.
 
-Please accept my apologies.  I will avoid trusting coccinelle quite so
-much in the future, and thank you for fixing this up.
-
-							Thanx, Paul
+Larry
