@@ -1,72 +1,36 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [patch] svcrdma: endian bug in send_write_chunks()
-Date: Thu, 12 Jan 2012 11:21:41 -0500
-Message-ID: <20120112162141.GC6563@fieldses.org>
-References: <20120112064722.GB2408@elgon.mountain>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: brcm80211 breakage..
+Date: Thu, 12 Jan 2012 10:22:50 -0600
+Message-ID: <4F0F08DA.803@lwfinger.net>
+References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com> <4F0D6806.4080201@broadcom.com> <CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com> <CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com> <4F0DC030.6090500@lwfinger.net> <CA+55aFyAX_OdE7yNp1vM1AmywrYZ9Pvr0EX47jNQciZKOQUQHg@mail.gmail.com> <4F0E3B7E.8040005@lwfinger.net> <CA+55aFyR9C8GjhKb8orr1kgd_G23=-mcmT-uz9zJd6wk7rYDPA@mail.gmail.com> <4F0E5E57.9060204@lwfinger.net> <4F0EDC75.3040003@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Tom Tucker <tom@opengridcomputing.com>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Network Development <netdev@vger.kernel.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+To: Arend van Spriel <arend@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fieldses.org ([174.143.236.118]:38718 "EHLO fieldses.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750927Ab2ALQVq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jan 2012 11:21:46 -0500
-Content-Disposition: inline
-In-Reply-To: <20120112064722.GB2408@elgon.mountain>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:64533 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751910Ab2ALQWx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 11:22:53 -0500
+Received: by iabz25 with SMTP id z25so2931472iab.19
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2012 08:22:53 -0800 (PST)
+In-Reply-To: <4F0EDC75.3040003@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 12, 2012 at 09:47:22AM +0300, Dan Carpenter wrote:
-> Sparse complains because arg_ch->rs_length is declared as network
-> endian but we're treating it as CPU endian.
+On 01/12/2012 07:13 AM, Arend van Spriel wrote:
+>
+> Hi, Larry
+>
+> I am surprised that we end up on sprom_read_pci(). That suggests that
+> MacBook Air has an external sprom. Can you tell me what the function
+> ai_is_sprom_available() returns on your system?
 
-This looks like it would actually change behavior on a little endian
-architecture, so how did this work before?
+It returns false. My card uses OTP.
 
->From some quick grepping, I see assignments both of the form
-
-	...rs_length = ntohl(...)
-
-and
-
-	...rs_length = htonl(...)
-
-but only see one declaration for a field named rs_length.
-
-So my best guess would be that the code is ugly but working as is, and
-needs cleanup by someone who knows how this field was intended to be
-used.
-
-?
-
---b.
-
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> diff --git a/net/sunrpc/xprtrdma/svc_rdma_sendto.c b/net/sunrpc/xprtrdma/svc_rdma_sendto.c
-> index 249a835..30fda86 100644
-> --- a/net/sunrpc/xprtrdma/svc_rdma_sendto.c
-> +++ b/net/sunrpc/xprtrdma/svc_rdma_sendto.c
-> @@ -409,7 +409,7 @@ static int send_write_chunks(struct svcxprt_rdma *xprt,
->  		u64 rs_offset;
->  
->  		arg_ch = &arg_ary->wc_array[chunk_no].wc_target;
-> -		write_len = min(xfer_len, arg_ch->rs_length);
-> +		write_len = min(xfer_len, ntohl(arg_ch->rs_length));
->  
->  		/* Prepare the response chunk given the length actually
->  		 * written */
-> @@ -481,7 +481,7 @@ static int send_reply_chunks(struct svcxprt_rdma *xprt,
->  	     chunk_no++) {
->  		u64 rs_offset;
->  		ch = &arg_ary->wc_array[chunk_no].wc_target;
-> -		write_len = min(xfer_len, ch->rs_length);
-> +		write_len = min(xfer_len, ntohl(ch->rs_length));
->  
->  		/* Prepare the reply chunk given the length actually
->  		 * written */
+Larry
