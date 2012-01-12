@@ -1,9 +1,10 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 2/15] drivers/net/ethernet/tundra/tsi108_eth.c: add missing iounmap
-Date: Thu, 12 Jan 2012 10:55:04 +0100
-Message-ID: <1326362117-29371-2-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Subject: [PATCH 8/15] drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c: add missing iounmap
+Date: Thu, 12 Jan 2012 10:55:10 +0100
+Message-ID: <1326362117-29371-8-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -37,32 +38,19 @@ iounmap(e);
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- drivers/net/ethernet/tundra/tsi108_eth.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/tundra/tsi108_eth.c b/drivers/net/ethernet/tundra/tsi108_eth.c
-index a9ce01b..164fb77 100644
---- a/drivers/net/ethernet/tundra/tsi108_eth.c
-+++ b/drivers/net/ethernet/tundra/tsi108_eth.c
-@@ -1604,7 +1604,7 @@ tsi108_init_one(struct platform_device *pdev)
- 	data->phyregs = ioremap(einfo->phyregs, 0x400);
- 	if (NULL == data->phyregs) {
- 		err = -ENOMEM;
--		goto regs_fail;
-+		goto phyregs_fail;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 7b1594f..1ac8324 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -62,7 +62,7 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
+ 	priv = stmmac_dvr_probe(&(pdev->dev), plat_dat);
+ 	if (!priv) {
+ 		pr_err("%s: main drivr probe failed", __func__);
+-		goto out_release_region;
++		goto out_unmap;
  	}
- /* MII setup */
- 	data->mii_if.dev = dev;
-@@ -1663,9 +1663,11 @@ tsi108_init_one(struct platform_device *pdev)
- 	return 0;
  
- register_fail:
--	iounmap(data->regs);
- 	iounmap(data->phyregs);
- 
-+phyregs_fail:
-+	iounmap(data->regs);
-+
- regs_fail:
- 	free_netdev(dev);
- 	return err;
+ 	priv->ioaddr = addr;
