@@ -1,120 +1,95 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [ethtool] ethtool: Correct register dump offsets for Intel
- 82575 chipsets.
-Date: Thu, 12 Jan 2012 05:11:02 -0800
-Message-ID: <1326373862.2709.63.camel@jtkirshe-mobl>
-References: <1324636371-5402-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: brcm80211 breakage..
+Date: Thu, 12 Jan 2012 14:13:25 +0100
+Message-ID: <4F0EDC75.3040003@broadcom.com>
+References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com>
+ <4F0D6806.4080201@broadcom.com>
+ <CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com>
+ <CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com>
+ <4F0DC030.6090500@lwfinger.net>
+ <CA+55aFyAX_OdE7yNp1vM1AmywrYZ9Pvr0EX47jNQciZKOQUQHg@mail.gmail.com>
+ <4F0E3B7E.8040005@lwfinger.net>
+ <CA+55aFyR9C8GjhKb8orr1kgd_G23=-mcmT-uz9zJd6wk7rYDPA@mail.gmail.com>
+ <4F0E5E57.9060204@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-LoejTsSID1fFGMeD8qed"
-Cc: "Vick, Matthew" <matthew.vick@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "Linus Torvalds" <torvalds@linux-foundation.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Network Development" <netdev@vger.kernel.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+To: "Larry Finger" <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:7020 "EHLO mga01.intel.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2149 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751937Ab2ALNLE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jan 2012 08:11:04 -0500
-In-Reply-To: <1324636371-5402-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1753516Ab2ALNNm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jan 2012 08:13:42 -0500
+In-Reply-To: <4F0E5E57.9060204@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 01/12/2012 05:15 AM, Larry Finger wrote:
+> On 01/11/2012 08:11 PM, Linus Torvalds wrote:
+>> On Wed, Jan 11, 2012 at 5:46 PM, Larry Finger<Larry.Finger@lwfinger.net>  wrote:
+>>>
+>>> OK. The SPROM issue is not completely irrelevant as that has to be correct,
+>>> but obviously not sufficient.
+>>
+>> Hmm. Having dug a bit deeper, I do think it's kind of related.
+>>
+>> I get -ENODATA form sprom_read_pci(), but that function actually seems
+>> to get the offset *right*.
+>>
+>> Some printout shows that for that chip, I have
+>>
+>>   - ai_get_ccrev(sih) = 34
+>>   - sprom_offset = 0x800
+>>
+>> but then it apparently reads all ones anyway. At least in the first
+>> word. So then I get that -ENODATA error.
+>>
+>> So once more, it's somehow related to the sprom, just in a new place:
+>> sprom_read_pci() in brcmsmac/srom.c instead of drivers/bcma/sprom.c.
+>>
+>> Does that give people any new ideas to try out?
+> 
+> Things are getting curious. I have a 14e4:4353 device, which works with both b43 
+> and brcmsmac using mainline v3.2-6271-g925b5d2. The output of
+> 
+> dmesg | egrep "bcma|brcm"
+> 
+> with some extra debugging added yields:
+> 
+> bcma-pci-bridge 0000:06:00.0: PCI INT A -> Link[LK1E] -> GSI 22 (level, low) -> 
+> IRQ 22
+> bcma-pci-bridge 0000:06:00.0: setting latency timer to 64
+> bcma: Core 0 found: ChipCommon (manuf 0x4BF, id 0x800, rev 0x22, class 0x0)
+> bcma: Core 1 found: IEEE 802.11 (manuf 0x4BF, id 0x812, rev 0x17, class 0x0)
+> bcma: Core 2 found: PCIe (manuf 0x4BF, id 0x820, rev 0x0F, class 0x0)
+> bcma: Found rev 6 PMU (capabilities 0x108C2606)
+> bcma: SPROM offset 0x830
+> bcma: Found SPROM Revision 8
+> bcma: Bus registered
+> brcmsmac bcma0:0: mfg 4bf core 812 rev 23 class 0 irq 22
+> brcmsmac: Found chip type AI (0x1381a8d8)
+> brcmsmac: Applying 43224B0+ WARs
+> bcma: Switched to core: 0x812
+> brcms_module_init: register returned 0
+> 
+> I see no difference in the core revisions, etc. to explain why mine should work, 
+> and yours fail.
+> 
+> Arend: Any particular place we should look?
+> 
+> Larry
+> 
 
---=-LoejTsSID1fFGMeD8qed
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Hi, Larry
 
-On Fri, 2011-12-23 at 02:32 -0800, Kirsher, Jeffrey T wrote:
-> From: Matthew Vick <matthew.vick@intel.com>
->=20
-> When support was added to dump the registers on 82575 chipset devices,
-> six register offsets (receive/transmit desc length, head, and tail)
-> were incorrectly mapped. This patch remaps the offsets to the correct
-> registers.
->=20
-> Signed-off-by: Matthew Vick <matthew.vick@intel.com>
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  igb.c |   12 ++++++------
->  1 files changed, 6 insertions(+), 6 deletions(-)
->=20
-> diff --git a/igb.c b/igb.c
-> index ec35d36..e0ccef9 100644
-> --- a/igb.c
-> +++ b/igb.c
-> @@ -200,13 +200,13 @@ igb_dump_regs(struct ethtool_drvinfo *info, struct =
-ethtool_regs *regs)
->         /* Receive descriptor registers */
->         fprintf(stdout,
->                 "0x02808: RDLEN  (Receive desc length)                 0x=
-%08X\n",
-> -               regs_buff[142]);
-> +               regs_buff[137]);
->         fprintf(stdout,
->                 "0x02810: RDH    (Receive desc head)                   0x=
-%08X\n",
-> -               regs_buff[146]);
-> +               regs_buff[141]);
->         fprintf(stdout,
->                 "0x02818: RDT    (Receive desc tail)                   0x=
-%08X\n",
-> -               regs_buff[150]);
-> +               regs_buff[145]);
->=20
->         /* Transmit control register */
->         reg =3D regs_buff[38];
-> @@ -226,13 +226,13 @@ igb_dump_regs(struct ethtool_drvinfo *info, struct =
-ethtool_regs *regs)
->         /* Transmit descriptor registers */
->         fprintf(stdout,
->                 "0x03808: TDLEN       (Transmit desc length)           0x=
-%08X\n",
-> -               regs_buff[214]);
-> +               regs_buff[219]);
->         fprintf(stdout,
->                 "0x03810: TDH         (Transmit desc head)             0x=
-%08X\n",
-> -               regs_buff[218]);
-> +               regs_buff[223]);
->         fprintf(stdout,
->                 "0x03818: TDT         (Transmit desc tail)             0x=
-%08X\n",
-> -               regs_buff[222]);
-> +               regs_buff[227]);
->=20
->=20
->         fprintf(stdout,
-> --
-> 1.7.7.4
->=20
+I am surprised that we end up on sprom_read_pci(). That suggests that
+MacBook Air has an external sprom. Can you tell me what the function
+ai_is_sprom_available() returns on your system?
 
-Ben, what is the status of this patch?
-
---=-LoejTsSID1fFGMeD8qed
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAABCgAGBQJPDtvmAAoJEOVv75VaS+3O1GQP/iJaF+AVqMRaCHMqKWOea3qs
-6gPXVYQ99XlHn4FcrGdPhZSt/d/8X+9TOcdMfOuVi53dyH5GwL4MGmK9HN4fBwpP
-vVMDkz5IAdnPvTZnGAL2Wczv3EFLiP250BEGeYmIlZN0UPfqXNqZPXzJZhYfyCAK
-4NUzsRO2bI3Ygaak6o/6AI4s6oIqOJFRc7pKisJmlJWthVRiwnv6d7OsmOvaIx2q
-kkmYxYsqQIDZfVI4xZr68n9JHN3ValQNYW89yoGqL8yj/hVSRbqTYUC6qNCWARar
-Uwme51klXiTEn9njsFomBl3gRY5+nHDDmAQ0UOss1NpxPptOYCDzyCLvhLI+iv8k
-Pc7j4b3K+fVMJ7aFO1CFTrWnDbLWX6cyiq6wakuogb/RwjUf89/Jzbc5/P0T30+E
-ppgXqE8mVOz02h/hH6XDpa9RXrM3JiTGi4e44lUGi+OXD/nVVeuivIp9SmSqF6BQ
-gPeC1fGjZaT3j/9os7ZHDOuQR5THCRwJ4YY6Nk8x3iLp5NXggv3/UBIpJxJj9nvH
-FNlZfsDsRZZm2lQhl3tzlZ+322/GUBDu87H9ozFeTA/YP8l74+sKUrLVy4TJ1VM+
-MnY+eE30xHCwGJaEgdUY3avwzfqcnRA1hMogkEIhwHL43xXLW6KqCGyjMdwYSiYI
-aytsxVdEq/p94zy+RegG
-=q3qp
------END PGP SIGNATURE-----
-
---=-LoejTsSID1fFGMeD8qed--
+Gr. AvS
