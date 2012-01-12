@@ -1,42 +1,49 @@
-From: Manfred Rudigier <manfred.rudigier@omicron.at>
-Subject: [PATCH] dp83640: Fix NOHZ local_softirq_pending 08 warning
-Date: Thu, 12 Jan 2012 12:58:05 +0100
-Message-ID: <1326369485-6218-1-git-send-email-manfred.rudigier@omicron.at>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <stable@vger.kernel.org>,
-	<richardcochran@gmail.com>,
-	Manfred Rudigier <manfred.rudigier@omicron.at>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.omicron.at ([212.183.10.25]:37874 "EHLO ns.omicron.at"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751799Ab2ALMIM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jan 2012 07:08:12 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: [PATCH] net: decrement memcg jump label when limit, not usage, is changed
+Date: Thu, 12 Jan 2012 16:16:06 +0400
+Message-ID: <1326370566-4286-1-git-send-email-glommer@parallels.com>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Similar problem as in 481a8199142c050b72bff8a1956a49fd0a75bbe0. This fix
-replaces netif_rx() with netif_rx_ni() which has to be used from
-process/softirq context.
+The logic of the current code is that whenever we destroy
+a cgroup that had its limit set (set meaning different than
+maximum), we should decrement the jump_label counter.
+Otherwise we assume it was never incremented.
 
-Signed-off-by: Manfred Rudigier <manfred.rudigier@omicron.at>
+But what the code actually does is test for RES_USAGE
+instead of RES_LIMIT. Usage being different than maximum
+is likely to be true most of the time.
+
+The effect of this is that the key must become negative,
+and since the jump_label test says:
+
+        !!atomic_read(&key->enabled);
+
+we'll have jump_labels still on when no one else is
+using this functionality.
+
+Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+CC: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 ---
- drivers/net/phy/dp83640.c |    2 +-
+ net/ipv4/tcp_memcontrol.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index 9663e0b..ba3c591 100644
---- a/drivers/net/phy/dp83640.c
-+++ b/drivers/net/phy/dp83640.c
-@@ -1159,7 +1159,7 @@ static void rx_timestamp_work(struct work_struct *work)
- 			}
- 		}
- 		spin_unlock_irqrestore(&dp83640->rx_lock, flags);
--		netif_rx(skb);
-+		netif_rx_ni(skb);
- 	}
+diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
+index 7fed04f..4997878 100644
+--- a/net/ipv4/tcp_memcontrol.c
++++ b/net/ipv4/tcp_memcontrol.c
+@@ -108,7 +108,7 @@ void tcp_destroy_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss)
+ 	tcp = tcp_from_cgproto(cg_proto);
+ 	percpu_counter_destroy(&tcp->tcp_sockets_allocated);
  
- 	/* Clear out expired time stamps. */
+-	val = res_counter_read_u64(&tcp->tcp_memory_allocated, RES_USAGE);
++	val = res_counter_read_u64(&tcp->tcp_memory_allocated, RES_LIMIT);
+ 
+ 	if (val != RESOURCE_MAX)
+ 		jump_label_dec(&memcg_socket_limit_enabled);
 -- 
-1.7.0.4
+1.7.7.4
