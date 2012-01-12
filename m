@@ -1,40 +1,77 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: brcm80211 breakage..
-Date: Thu, 12 Jan 2012 07:51:09 -0800
-Message-ID: <CA+55aFwN3ErAPQ6d_5bg43H+Xz3MkehQ_qekFfq6OG=Mj-czYg@mail.gmail.com>
-References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com>
- <4F0D6806.4080201@broadcom.com> <CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com>
- <CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com>
- <4F0DC030.6090500@lwfinger.net> <CA+55aFyAX_OdE7yNp1vM1AmywrYZ9Pvr0EX47jNQciZKOQUQHg@mail.gmail.com>
- <4F0E3B7E.8040005@lwfinger.net> <CA+55aFyR9C8GjhKb8orr1kgd_G23=-mcmT-uz9zJd6wk7rYDPA@mail.gmail.com>
- <4F0E5E57.9060204@lwfinger.net> <CA+55aFw0XArx0jpNh4dWYFmvJbb+GJYAWRUN2Ec14oREiATo7g@mail.gmail.com>
- <CA+55aFxDOr_TT+kxp1SuwNFfm7KLTaWSLQwk1Fx8fWe7tdstcg@mail.gmail.com>
- <CA+55aFzkCXnHfF_TO5M+gaN4RMvj_WNuW_QeBezuYBdWnwPDpg@mail.gmail.com> <4F0EB009.208@broadcom.com>
+From: =?UTF-8?q?Eric=20B=C3=A9nard?= <eric@eukrea.com>
+Subject: [PATCH v2] net: fsl: fec: handle 10Mbps speed in RMII mode
+Date: Thu, 12 Jan 2012 17:10:28 +0100
+Message-ID: <1326384628-7967-1-git-send-email-eric@eukrea.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Alwin Beukers <alwin@broadcom.com>,
-	Roland Vossen <rvossen@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Network Development <netdev@vger.kernel.org>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	=?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>
-To: Arend van Spriel <arend@broadcom.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, u.kleine-koenig@pengutronix.de,
+	shawn.guo@linaro.org, linux-arm-kernel@lists.infradead.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:43024 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753997Ab2ALPvb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 10:51:31 -0500
-Received: by yenm10 with SMTP id m10so992649yen.19
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2012 07:51:30 -0800 (PST)
-In-Reply-To: <4F0EB009.208@broadcom.com>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:59302 "EHLO smtp2-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753501Ab2ALQKh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jan 2012 11:10:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2012/1/12 Arend van Spriel <arend@broadcom.com>:
->
-> Ok. I know a hint when I see one ;-)
+when the link is 10 Mbps and the mode is RMII, it's necessary
+to set FRCONT to 1 in MIIGSK_CFGR to divide the RMII source
+clock by 10 in order to support 10 Mbps operations.
 
-Yeah. I'm real subtle.
+Signed-off-by: Eric B=C3=A9nard <eric@eukrea.com>
+Acked-by: Shawn Guo <shawn.guo@linaro.org>
+---
+v2: rework following Shawn's comments
 
-          Linus
+ drivers/net/ethernet/freescale/fec.c |    9 ++++++---
+ drivers/net/ethernet/freescale/fec.h |    4 ++++
+ 2 files changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/etherne=
+t/freescale/fec.c
+index ddcbbb3..9a96aea 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -476,6 +476,7 @@ fec_restart(struct net_device *ndev, int duplex)
+ 	} else {
+ #ifdef FEC_MIIGSK_ENR
+ 		if (id_entry->driver_data & FEC_QUIRK_USE_GASKET) {
++			u32 cfgr;
+ 			/* disable the gasket and wait */
+ 			writel(0, fep->hwp + FEC_MIIGSK_ENR);
+ 			while (readl(fep->hwp + FEC_MIIGSK_ENR) & 4)
+@@ -486,9 +487,11 @@ fec_restart(struct net_device *ndev, int duplex)
+ 			 *   RMII, 50 MHz, no loopback, no echo
+ 			 *   MII, 25 MHz, no loopback, no echo
+ 			 */
+-			writel((fep->phy_interface =3D=3D PHY_INTERFACE_MODE_RMII) ?
+-					1 : 0, fep->hwp + FEC_MIIGSK_CFGR);
+-
++			cfgr =3D (fep->phy_interface =3D=3D PHY_INTERFACE_MODE_RMII)
++				? BM_MIIGSK_CFGR_RMII : BM_MIIGSK_CFGR_MII;
++			if (fep->phy_dev && fep->phy_dev->speed =3D=3D SPEED_10)
++				cfgr |=3D BM_MIIGSK_CFGR_FRCONT_10M;
++			writel(cfgr, fep->hwp + FEC_MIIGSK_CFGR);
+=20
+ 			/* re-enable the gasket */
+ 			writel(2, fep->hwp + FEC_MIIGSK_ENR);
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/etherne=
+t/freescale/fec.h
+index 8b2c6d7..8408c62 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -47,6 +47,10 @@
+ #define FEC_MIIGSK_CFGR		0x300 /* MIIGSK Configuration reg */
+ #define FEC_MIIGSK_ENR		0x308 /* MIIGSK Enable reg */
+=20
++#define BM_MIIGSK_CFGR_MII		0x00
++#define BM_MIIGSK_CFGR_RMII		0x01
++#define BM_MIIGSK_CFGR_FRCONT_10M	0x40
++
+ #else
+=20
+ #define FEC_ECNTRL		0x000 /* Ethernet control reg */
+--=20
+1.7.7.5
