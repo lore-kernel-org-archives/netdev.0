@@ -1,144 +1,190 @@
-From: Arvid Brodin <arvid.brodin@enea.com>
-Subject: Re: bridge: HSR support - possible recursive locking?
-Date: Thu, 12 Jan 2012 19:02:23 +0100
-Message-ID: <4F0F202F.8060901@enea.com>
-References: <4E948A04.8060400@enea.com> <20111011112821.28cd3e51@nehalam.linuxnetplumber.net> <4E94D67A.9060207@enea.com> <4EA5738B.8080008@enea.com> <4F073954.7040001@enea.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH v2] SUNRPC: make SUNPRC clients list per network namespace
+ context
+Date: Thu, 12 Jan 2012 22:07:51 +0400
+Message-ID: <20120112180602.20309.91180.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: arbr <Arvid.Brodin@enea.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sestofw01.enea.se ([192.36.1.252]:25692 "HELO mx-3.enea.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751142Ab2ALSCk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jan 2012 13:02:40 -0500
-In-Reply-To: <4F073954.7040001@enea.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
+	davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Arvid Brodin wrote:
-> Arvid Brodin wrote:
->>> On Tue, 11 Oct 2011 20:25:08 +0200
->>> Arvid Brodin <arvid.brodin@enea.com> wrote:
->>>
->>>> Hi,
->>>>
->>>> I want to add support for HSR ("High-availability Seamless Redundancy",
->>>> IEC-62439-3) to the bridge code. With HSR, all connected units have two network
->>>> ports and are connected in a ring. All new Ethernet packets are sent on both
->>>> ports (or passed through if the current unit is not the originating unit). The
->>>> same packet is never passed twice. Non-HSR units are not allowed in the ring.
->>>>
->>>> This gives instant, reconfiguration-free failover.
->>>>
-> *snip*
->> I need to do two things:
->>
->> 1) Bind two network interfaces into one (say, eth0 & eth1 => hsr0). Frames sent on
->>    hsr0 should get an HSR tag (including the correct EtherType) and go out on both
->>    eth0 and eth1.
->>
->> 2) Ingress frames on eth0 & eth1, with EtherType 0x88fb, should be captured and 
->>    handled specially (either received on hsr0 or forwarded to the other bound 
->>    physical interface).
->>
-> 
-> I'm slowly getting there! :)
-> 
-> But what is net_device->header_ops->rebuild supposed to do?
-> 
+v2:
+1) rebased on current repo ("devel" head of "trondmy") state. Have to be
+inserted between patches
+"SUNRPC: handle GSS AUTH pipes by network namespace aware routines"
+and
+"SUNRPC: subscribe RPC clients to pipefs notifications".
+Currently "devel" head is not compilable without this patch.
 
-I have a "possible recursive locking" when I send cloned packets, and I can't figure out
-why. Here's the stack dump and some debug printouts:
+This patch moves static SUNRPC clients list and it's lock to sunrpc_net
+structure.
+Currently this list is used only for debug purposes. But later it will be used
+also for selecting clients by networks namespace on PipeFS mount/umount events.
+Per-network namespace lists will make this faster and simplier.
 
+Note: client list is taken from "init_net" network namespace context in
+rpc_show_tasks(). This will be changed some day later with making SUNRPC
+sysctl's per network namespace context.
 
-hsr_dev_xmit:286: sent on first slave
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
-=============================================
-[ INFO: possible recursive locking detected ]
-2.6.37 #43
----------------------------------------------
-swapper/0 is trying to acquire lock:
- (_xmit_ETHER#2){+.-...}, at: [<901b9aae>] sch_direct_xmit+0x24/0x152
+---
+ include/linux/sunrpc/sched.h |    3 ++-
+ net/sunrpc/clnt.c            |   26 +++++++++++++++-----------
+ net/sunrpc/netns.h           |    3 +++
+ net/sunrpc/sunrpc_syms.c     |    3 +++
+ net/sunrpc/sysctl.c          |    4 +++-
+ 5 files changed, 26 insertions(+), 13 deletions(-)
 
-but task is already holding lock:
- (_xmit_ETHER#2){+.-...}, at: [<901afc4a>] dev_queue_xmit+0x2ce/0x37c
-
-other info that might help us debug this:
-4 locks held by swapper/0:
- #0:  (&n->timer){+.-...}, at: [<9002b2b4>] run_timer_softirq+0x98/0x184
- #1:  (rcu_read_lock_bh){.+....}, at: [<901af97c>] dev_queue_xmit+0x0/0x37c
- #2:  (_xmit_ETHER#2){+.-...}, at: [<901afc4a>] dev_queue_xmit+0x2ce/0x37c
- #3:  (rcu_read_lock_bh){.+....}, at: [<901af97c>] dev_queue_xmit+0x0/0x37c
-
-stack backtrace:
-Call trace:
- [<9001c264>] dump_stack+0x18/0x20
- [<9003fdbc>] validate_chain+0x40c/0x9ac
- [<90040968>] __lock_acquire+0x60c/0x670
- [<90041cda>] lock_acquire+0x3a/0x48
- [<90216c5c>] _raw_spin_lock+0x20/0x44
- [<901b9aae>] sch_direct_xmit+0x24/0x152
- [<901afb44>] dev_queue_xmit+0x1c8/0x37c
- [<90213090>] nf_hook_xmit+0x8/0xc
- [<902130a2>] slave_xmit+0xe/0x10
- [<902131d6>] hsr_dev_xmit+0xa6/0xcc
- [<901af8c2>] dev_hard_start_xmit+0x382/0x43c
- [<901afc64>] dev_queue_xmit+0x2e8/0x37c
- [<901dc8a0>] arp_xmit+0x8/0xc
- [<901dcf86>] arp_send+0x2a/0x2c
- [<901dd978>] arp_solicit+0x110/0x130
- [<901b54a4>] neigh_timer_handler+0x1c2/0x206
- [<9002b31e>] run_timer_softirq+0x102/0x184
- [<90027eb8>] __do_softirq+0x64/0xe0
- [<9002804a>] do_softirq+0x26/0x48
- [<90028146>] irq_exit+0x2e/0x64
- [<90019bae>] do_IRQ+0x46/0x5c
- [<90018424>] irq_level0+0x18/0x60
- [<902136ae>] rest_init+0x72/0x90
- [<9000063c>] start_kernel+0x21c/0x258
- [<00000000>] 0x0
-
-hsr_dev_xmit:289: sent on second slave
-
-The code looks like this (from my hsr_dev_xmit() function):
-
-	...
-	skb2 = skb_clone(skb, GFP_ATOMIC);
-	slave_xmit(skb, hsr_priv->slave_data[0].dev);
-	printk(KERN_INFO "%s:%d: sent on first slave\n", __func__, __LINE__);
-	if (skb2)
-		slave_xmit(skb2, hsr_priv->slave_data[1].dev);
-	printk(KERN_INFO "%s:%d: sent on second slave\n", __func__, __LINE__);
-	...
-
-and slave_xmit looks like this:
-
-int nf_hook_xmit(struct sk_buff *skb)
-{
-	dev_queue_xmit(skb);
-	return 0;
-}
-
-static int slave_xmit(struct sk_buff *skb, struct net_device *dev)
-{
-	int res;
-
-	skb->dev = dev;
-	skb->priority = 1; // FIXME: what does this mean?
-
-	res = NF_HOOK(NFPROTO_BRIDGE, NF_BR_POST_ROUTING, skb, NULL, skb->dev, nf_hook_xmit);
-//	res = dev_queue_xmit(skb);
-	/* Buffer is consumed on errors too, so nothing to do here, really... */
-
-	return res;
-}
-
-I believe I'm doing exactly the same thing as the bridging code (but of course I
-can't be). So what is it that I'm doing wrong???
-
-
--- 
-Arvid Brodin
-Enea Services Stockholm AB
+diff --git a/include/linux/sunrpc/sched.h b/include/linux/sunrpc/sched.h
+index e775689..b16243a 100644
+--- a/include/linux/sunrpc/sched.h
++++ b/include/linux/sunrpc/sched.h
+@@ -244,7 +244,8 @@ int		rpciod_up(void);
+ void		rpciod_down(void);
+ int		__rpc_wait_for_completion_task(struct rpc_task *task, int (*)(void *));
+ #ifdef RPC_DEBUG
+-void		rpc_show_tasks(void);
++struct net;
++void		rpc_show_tasks(struct net *);
+ #endif
+ int		rpc_init_mempool(void);
+ void		rpc_destroy_mempool(void);
+diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
+index 5ef192c..90e82c5 100644
+--- a/net/sunrpc/clnt.c
++++ b/net/sunrpc/clnt.c
+@@ -38,6 +38,7 @@
+ #include <linux/sunrpc/bc_xprt.h>
+ 
+ #include "sunrpc.h"
++#include "netns.h"
+ 
+ #ifdef RPC_DEBUG
+ # define RPCDBG_FACILITY	RPCDBG_CALL
+@@ -50,8 +51,6 @@
+ /*
+  * All RPC clients are linked into this list
+  */
+-static LIST_HEAD(all_clients);
+-static DEFINE_SPINLOCK(rpc_client_lock);
+ 
+ static DECLARE_WAIT_QUEUE_HEAD(destroy_wait);
+ 
+@@ -81,16 +80,20 @@ static int	rpc_ping(struct rpc_clnt *clnt);
+ 
+ static void rpc_register_client(struct rpc_clnt *clnt)
+ {
+-	spin_lock(&rpc_client_lock);
+-	list_add(&clnt->cl_clients, &all_clients);
+-	spin_unlock(&rpc_client_lock);
++	struct sunrpc_net *sn = net_generic(clnt->cl_xprt->xprt_net, sunrpc_net_id);
++
++	spin_lock(&sn->rpc_client_lock);
++	list_add(&clnt->cl_clients, &sn->all_clients);
++	spin_unlock(&sn->rpc_client_lock);
+ }
+ 
+ static void rpc_unregister_client(struct rpc_clnt *clnt)
+ {
+-	spin_lock(&rpc_client_lock);
++	struct sunrpc_net *sn = net_generic(clnt->cl_xprt->xprt_net, sunrpc_net_id);
++
++	spin_lock(&sn->rpc_client_lock);
+ 	list_del(&clnt->cl_clients);
+-	spin_unlock(&rpc_client_lock);
++	spin_unlock(&sn->rpc_client_lock);
+ }
+ 
+ static void __rpc_clnt_remove_pipedir(struct rpc_clnt *clnt)
+@@ -1883,14 +1886,15 @@ static void rpc_show_task(const struct rpc_clnt *clnt,
+ 		task->tk_action, rpc_waitq);
+ }
+ 
+-void rpc_show_tasks(void)
++void rpc_show_tasks(struct net *net)
+ {
+ 	struct rpc_clnt *clnt;
+ 	struct rpc_task *task;
+ 	int header = 0;
++	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
+ 
+-	spin_lock(&rpc_client_lock);
+-	list_for_each_entry(clnt, &all_clients, cl_clients) {
++	spin_lock(&sn->rpc_client_lock);
++	list_for_each_entry(clnt, &sn->all_clients, cl_clients) {
+ 		spin_lock(&clnt->cl_lock);
+ 		list_for_each_entry(task, &clnt->cl_tasks, tk_task) {
+ 			if (!header) {
+@@ -1901,6 +1905,6 @@ void rpc_show_tasks(void)
+ 		}
+ 		spin_unlock(&clnt->cl_lock);
+ 	}
+-	spin_unlock(&rpc_client_lock);
++	spin_unlock(&sn->rpc_client_lock);
+ }
+ #endif
+diff --git a/net/sunrpc/netns.h b/net/sunrpc/netns.h
+index 11d2f48..0f3af34 100644
+--- a/net/sunrpc/netns.h
++++ b/net/sunrpc/netns.h
+@@ -12,6 +12,9 @@ struct sunrpc_net {
+ 
+ 	struct super_block *pipefs_sb;
+ 	struct mutex pipefs_sb_lock;
++
++	struct list_head all_clients;
++	spinlock_t rpc_client_lock;
+ };
+ 
+ extern int sunrpc_net_id;
+diff --git a/net/sunrpc/sunrpc_syms.c b/net/sunrpc/sunrpc_syms.c
+index 7086d11..b4217dc 100644
+--- a/net/sunrpc/sunrpc_syms.c
++++ b/net/sunrpc/sunrpc_syms.c
+@@ -29,6 +29,7 @@ int sunrpc_net_id;
+ static __net_init int sunrpc_init_net(struct net *net)
+ {
+ 	int err;
++	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
+ 
+ 	err = rpc_proc_init(net);
+ 	if (err)
+@@ -39,6 +40,8 @@ static __net_init int sunrpc_init_net(struct net *net)
+ 		goto err_ipmap;
+ 
+ 	rpc_pipefs_init_net(net);
++	INIT_LIST_HEAD(&sn->all_clients);
++	spin_lock_init(&sn->rpc_client_lock);
+ 	return 0;
+ 
+ err_ipmap:
+diff --git a/net/sunrpc/sysctl.c b/net/sunrpc/sysctl.c
+index e65dcc6..af7d339 100644
+--- a/net/sunrpc/sysctl.c
++++ b/net/sunrpc/sysctl.c
+@@ -20,6 +20,8 @@
+ #include <linux/sunrpc/stats.h>
+ #include <linux/sunrpc/svc_xprt.h>
+ 
++#include "netns.h"
++
+ /*
+  * Declare the debug flags here
+  */
+@@ -110,7 +112,7 @@ proc_dodebug(ctl_table *table, int write,
+ 		*(unsigned int *) table->data = value;
+ 		/* Display the RPC tasks on writing to rpc_debug */
+ 		if (strcmp(table->procname, "rpc_debug") == 0)
+-			rpc_show_tasks();
++			rpc_show_tasks(&init_net);
+ 	} else {
+ 		if (!access_ok(VERIFY_WRITE, buffer, left))
+ 			return -EFAULT;
