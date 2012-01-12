@@ -1,86 +1,46 @@
-From: "Arend van Spriel" <arend@broadcom.com>
-Subject: Re: brcm80211 breakage..
-Date: Thu, 12 Jan 2012 21:09:16 +0100
-Message-ID: <4F0F3DEC.4050605@broadcom.com>
-References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com>
- <4F0D6806.4080201@broadcom.com>
- <CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com>
- <CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com>
- <4F0DC030.6090500@lwfinger.net>
- <CA+55aFyAX_OdE7yNp1vM1AmywrYZ9Pvr0EX47jNQciZKOQUQHg@mail.gmail.com>
- <4F0E3B7E.8040005@lwfinger.net>
- <CA+55aFyR9C8GjhKb8orr1kgd_G23=-mcmT-uz9zJd6wk7rYDPA@mail.gmail.com>
- <4F0E5E57.9060204@lwfinger.net>
- <CA+55aFw0XArx0jpNh4dWYFmvJbb+GJYAWRUN2Ec14oREiATo7g@mail.gmail.com>
- <CA+55aFxDOr_TT+kxp1SuwNFfm7KLTaWSLQwk1Fx8fWe7tdstcg@mail.gmail.com>
- <CA+55aFzkCXnHfF_TO5M+gaN4RMvj_WNuW_QeBezuYBdWnwPDpg@mail.gmail.com>
- <CA+55aFx2UnVZP1Z44dMHeifB2nD1zJ87kz25zZjUdwv0ozwKPA@mail.gmail.com>
- <CA+55aFzNJbM=ohXninJ06518e3a6E8vySg8GT6dx+Qovk1QW0Q@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless 2012-01-12
+Date: Thu, 12 Jan 2012 12:10:23 -0800 (PST)
+Message-ID: <20120112.121023.570915351051554327.davem@davemloft.net>
+References: <20120112184919.GK11093@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Larry Finger" <Larry.Finger@lwfinger.net>,
-	"Alwin Beukers" <alwin@broadcom.com>,
-	"Roland Vossen" <rvossen@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"Network Development" <netdev@vger.kernel.org>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	=?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>
-To: "Linus Torvalds" <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1641 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755224Ab2ALUJe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 15:09:34 -0500
-In-Reply-To: <CA+55aFzNJbM=ohXninJ06518e3a6E8vySg8GT6dx+Qovk1QW0Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120112184919.GK11093-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 01/12/2012 08:08 PM, Linus Torvalds wrote:
-> On Thu, Jan 12, 2012 at 11:00 AM, Linus Torvalds
-> <torvalds@linux-foundation.org> wrote:
->>
->> I'll send out a patch that seems to get things to a working state fo=
-r
->> me. At least I have wireless connectivity again, I don't know if the=
-re
->> are some other problems remaining.
->=20
-> Ok, this is the patch that gets me going, and this is sent from the M=
-acbook Air.
->=20
-> NOTE! The BCMA confusion about the sprom still exists, but doesn't
-> seem to matter:
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Thu, 12 Jan 2012 13:49:19 -0500
 
-That is because brcmsmac is not relying on the sprom logic provided by
-bcma. As Rafa=B3 indicated that is duplicated code so if we are to use
-bcma sprom functionality that needs to be fixed (after the merge window=
-).
+> Here is a quick batch of wireless fixes intended for 3.3!
+> 
+> On the Bluetooth patches, Gustavo says this:
+> 
+> "A couple of fixes for the 3.3 release. The majority of the fixes are
+> related to the change from tasklets to workqueue in the Bluetooth
+> Core. The rest are important fixes over the tree. Exception is
+> 'Bluetooth: Rename extfeatures', as the name says it is just a rename
+> and no harm, but it is a preparation for a following fix."
+> 
+> Also included is a fix from Jesper Juhl for a potential memory leak in
+> brcm80211, a one-line comment fix (plus a couple of lines of removing
+> unused code) from Mohammed Shafi Shajakhan in ath9k, a fix from Larry
+> Finger to prevent hitting a BUG in rtl8192se when an skb allocation
+> fails, a fix from Stanislaw Gruszka for a NULL pointer dereference
+> in mac80211, a fix from Rajkumar Manoharan for an ath9k regression
+> relating to channel noisefloor readings, and a fix from Johannes Berg
+> for a regression related to parsing station flags.
+> 
+> Hopefully all of these are fine for the merge window.  Please let me
+> know if there are problems!
 
->  bcma: Core 0 found: ChipCommon (manuf 0x4BF, id 0x800, rev 0x22, cla=
-ss 0x0)
->  bcma: Core 1 found: IEEE 802.11 (manuf 0x4BF, id 0x812, rev 0x17, cl=
-ass 0x0)
->  bcma: Core 2 found: PCIe (manuf 0x4BF, id 0x820, rev 0x0F, class 0x0=
-)
->  bcma: Found rev 6 PMU (capabilities 0x108C2606)
->  bcma: Unsupported SPROM revision: 255
->  bcma: No SPROM available
->  bcma: Bus registered
->   ..
->  brcmsmac bcma0:0: mfg 4bf core 812 rev 23 class 0 irq 17
->  brcmsmac: Found chip type AI (0x1381a8d8)
->  brcmsmac: Applying 43224B0+ WARs
->  bcma: Switched to core: 0x812
->  ieee80211 phy0: Selected rate control algorithm 'minstrel_ht'
->  brcms_module_init: register returned 0
->=20
-> so this does seem to work, but there are clearly some issues still..
->=20
->                  Linus
-
-That output look fine. The patch looks fine although you can use the ne=
-w
-do_crc_check() function in otp_read_pci as well.
-
-Gr. AvS
+Pulled, thanks John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
