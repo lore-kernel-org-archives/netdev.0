@@ -1,39 +1,56 @@
-From: Bart Van Assche <bvanassche@acm.org>
-Subject: Consequences of commit 16e5726269611b71c930054ffe9b858c1cea88eb
-Date: Thu, 12 Jan 2012 19:14:49 +0000
-Message-ID: <CAO+b5-pGcKbTYQWdWo=kbiQ2ORbgn8GAV_cfYjGzOARmgrsUxQ@mail.gmail.com>
+From: Trond Myklebust <Trond.Myklebust@netapp.com>
+Subject: Re: [patch] svcrdma: endian bug in send_write_chunks()
+Date: Thu, 12 Jan 2012 14:15:59 -0500
+Message-ID: <1326395759.6198.7.camel@lade.trondhjem.org>
+References: <20120112064722.GB2408@elgon.mountain>
+	 <20120112162141.GC6563@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Eric Paris <eparis@redhat.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Tom Tucker <tom@opengridcomputing.com>
+To: "J. Bruce Fields" <bfields@fieldses.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:39453 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754939Ab2ALTOv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 14:14:51 -0500
-Received: by wgbds12 with SMTP id ds12so2156498wgb.1
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2012 11:14:49 -0800 (PST)
+Received: from mx2.netapp.com ([216.240.18.37]:51441 "EHLO mx2.netapp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751792Ab2ALTQD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 14:16:03 -0500
+In-Reply-To: <20120112162141.GC6563@fieldses.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, 2012-01-12 at 11:21 -0500, J. Bruce Fields wrote: 
+> On Thu, Jan 12, 2012 at 09:47:22AM +0300, Dan Carpenter wrote:
+> > Sparse complains because arg_ch->rs_length is declared as network
+> > endian but we're treating it as CPU endian.
+> 
+> This looks like it would actually change behavior on a little endian
+> architecture, so how did this work before?
+> 
+> >From some quick grepping, I see assignments both of the form
+> 
+> 	...rs_length = ntohl(...)
+> 
+> and
+> 
+> 	...rs_length = htonl(...)
+> 
+> but only see one declaration for a field named rs_length.
+> 
+> So my best guess would be that the code is ugly but working as is, and
+> needs cleanup by someone who knows how this field was intended to be
+> used.
 
-If my analysis is correct commit
-16e5726269611b71c930054ffe9b858c1cea88eb ("af_unix: dont send
-SCM_CREDENTIALS by default") changes the value of
-NETLINK_CREDS(skb)->pid from the sender pid into zero. Does that mean
-that the code using that construct did work in kernel 3.1 but that it
-is broken in kernel 3.2 ? Should that commit be reverted or will
-someone fix the code that uses NETLINK_CREDS() ? Would changing
-NETLINK_CREDS(skb)->pid into NETLINK_CB(skb).pid be sufficient ?
+It looks to me as if rs_handle and rs_offset are being similarly abused.
+Basically, we need a serious clean up in svc_rdma_marshall.c to separate
+out those variables that are in XDR-encoded form and those that are not.
 
-Thanks,
+-- 
+Trond Myklebust
+Linux NFS client maintainer
 
-Bart.
-
-$ git grep 'NETLINK_CREDS([a-zA-Z0-9_]*)->pid'
-drivers/scsi/scsi_netlink.c:	pid = NETLINK_CREDS(skb)->pid;
-kernel/audit.c:	pid  = NETLINK_CREDS(skb)->pid;
+NetApp
+Trond.Myklebust@netapp.com
+www.netapp.com
