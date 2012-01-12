@@ -1,76 +1,40 @@
-From: "Arend van Spriel" <arend@broadcom.com>
-Subject: Re: brcm80211 breakage..
-Date: Thu, 12 Jan 2012 20:46:31 +0100
-Message-ID: <4F0F3897.7040200@broadcom.com>
-References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com>
- <4F0D6806.4080201@broadcom.com>
- <CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com>
- <CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com>
- <4F0DC030.6090500@lwfinger.net>
- <CA+55aFyAX_OdE7yNp1vM1AmywrYZ9Pvr0EX47jNQciZKOQUQHg@mail.gmail.com>
- <4F0E3B7E.8040005@lwfinger.net>
- <CA+55aFyR9C8GjhKb8orr1kgd_G23=-mcmT-uz9zJd6wk7rYDPA@mail.gmail.com>
- <4F0E5E57.9060204@lwfinger.net>
- <CA+55aFw0XArx0jpNh4dWYFmvJbb+GJYAWRUN2Ec14oREiATo7g@mail.gmail.com>
- <CA+55aFxDOr_TT+kxp1SuwNFfm7KLTaWSLQwk1Fx8fWe7tdstcg@mail.gmail.com>
- <CA+55aFzkCXnHfF_TO5M+gaN4RMvj_WNuW_QeBezuYBdWnwPDpg@mail.gmail.com>
- <CA+55aFx2UnVZP1Z44dMHeifB2nD1zJ87kz25zZjUdwv0ozwKPA@mail.gmail.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] dp83640: Fix NOHZ local_softirq_pending 08 warning
+Date: Thu, 12 Jan 2012 11:51:02 -0800
+Message-ID: <20120112195102.GA28100@kroah.com>
+References: <1326369485-6218-1-git-send-email-manfred.rudigier@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-2
-Content-Transfer-Encoding: 7bit
-Cc: "Larry Finger" <Larry.Finger@lwfinger.net>,
-	"Alwin Beukers" <alwin@broadcom.com>,
-	"Roland Vossen" <rvossen@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"Network Development" <netdev@vger.kernel.org>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	=?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>
-To: "Linus Torvalds" <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	stable@vger.kernel.org, richardcochran@gmail.com
+To: Manfred Rudigier <manfred.rudigier@omicron.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2974 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755140Ab2ALTqr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jan 2012 14:46:47 -0500
-In-Reply-To: <CA+55aFx2UnVZP1Z44dMHeifB2nD1zJ87kz25zZjUdwv0ozwKPA@mail.gmail.com>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:55052 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753848Ab2ALUAL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 15:00:11 -0500
+Received: from compute5.internal (compute5.nyi.mail.srv.osa [10.202.2.45])
+	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id 8674623DDC
+	for <netdev@vger.kernel.org>; Thu, 12 Jan 2012 15:00:10 -0500 (EST)
+Content-Disposition: inline
+In-Reply-To: <1326369485-6218-1-git-send-email-manfred.rudigier@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/12/2012 08:00 PM, Linus Torvalds wrote:
-> On Wed, Jan 11, 2012 at 11:13 PM, Linus Torvalds
-> <torvalds@linux-foundation.org> wrote:
->>
->> All the BCMA changes make the revert somewhat non-trivial, could
->> somebody who knows the code better please try to do it for me? It
->> doesn't look complicated, and I can try to do it myself tomorrow if
->> nobody else steps up, but I'd *really* prefer the guilty parties
->> themselves to do it, ok?
+On Thu, Jan 12, 2012 at 12:58:05PM +0100, Manfred Rudigier wrote:
+> Similar problem as in 481a8199142c050b72bff8a1956a49fd0a75bbe0. This fix
+> replaces netif_rx() with netif_rx_ni() which has to be used from
+> process/softirq context.
 > 
-> Since I had the hardware to test, I could work on this and try to
-> figure out exactly what went wrong in that commit.
+> Signed-off-by: Manfred Rudigier <manfred.rudigier@omicron.at>
+> ---
+>  drivers/net/phy/dp83640.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 
-I was trying to get my hands on a card with SPROM to dig in and I still
-intend to get it because Apples are no pears.
+<formletter>
 
-> The problem seems to be simple: the SPROM contents *have* to be read
-> as aligned 16-bit words. Anything else seems to return 0xff and just
-> fails the transaction.
+This is not the correct way to submit patches for inclusion in the
+stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
+for how to do this properly.
 
-I was already wondering what aspect of the patch was causing the issue.
-The transaction size requirement seems likely and I was not aware.
-
-> I didn't check all the combinations, of course, so who knows what the
-> exact details are, but it does look like the sprom has very limited
-> pci decode and simply refuses to touch anything but the one case it
-> can handle.
-> 
-> I'll send out a patch that seems to get things to a working state for
-> me. At least I have wireless connectivity again, I don't know if there
-> are some other problems remaining.
-> 
->                       Linus
-> 
-
-Thanks for putting the effort into this in the middle of a merge window.
-
-Gr. AvS
+</formletter>
