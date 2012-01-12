@@ -1,36 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [BUG] commit a9b3cd7f32 is a mess
-Date: Thu, 12 Jan 2012 14:56:43 +0100
-Message-ID: <1326376603.2950.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [ethtool] ethtool: Correct register dump offsets for Intel
+ 82575 chipsets.
+Date: Thu, 12 Jan 2012 14:08:04 +0000
+Message-ID: <1326377284.2819.7.camel@deadeye>
+References: <1324636371-5402-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1326373862.2709.63.camel@jtkirshe-mobl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: "Vick, Matthew" <matthew.vick@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:58851 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753630Ab2ALN4r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 08:56:47 -0500
-Received: by werm1 with SMTP id m1so1352954wer.19
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2012 05:56:46 -0800 (PST)
+Received: from exchange.solarflare.com ([216.237.3.220]:7540 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753525Ab2ALOIL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 09:08:11 -0500
+In-Reply-To: <1326373862.2709.63.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit a9b3cd7f32 (rcu: convert uses of rcu_assign_pointer(x, NULL) to
-RCU_INIT_POINTER) is complete garbage.
+On Thu, 2012-01-12 at 05:11 -0800, Jeff Kirsher wrote:
+> On Fri, 2011-12-23 at 02:32 -0800, Kirsher, Jeffrey T wrote:
+> > From: Matthew Vick <matthew.vick@intel.com>
+> > 
+> > When support was added to dump the registers on 82575 chipset devices,
+> > six register offsets (receive/transmit desc length, head, and tail)
+> > were incorrectly mapped. This patch remaps the offsets to the correct
+> > registers.
+[...]
+> Ben, what is the status of this patch?
 
-Real content of this commit doesnt reflect Changelog claim.
+The status is 'arrived just as I went on vacation, and forgotten'.
 
-I found this while trying to understand a 3.2 regression in IGMP code.
+I'll be sure to apply this before releasing ethtool 3.2.
 
-	iml->sfmode = MCAST_EXCLUDE;
--	rcu_assign_pointer(inet->mc_list, iml);
-+	RCU_INIT_POINTER(inet->mc_list, iml);
+Ben.
 
-Obviously iml is not NULL here.
-
-Please Paul dont Ack a patch only reading the Changelog.
-
-I'll make a patch to revert all non NULL uses.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
