@@ -1,111 +1,120 @@
-From: Bart Van Assche <bvanassche@acm.org>
-Subject: NULL pointer dereference in net_rx_action
-Date: Thu, 12 Jan 2012 19:05:50 +0000
-Message-ID: <CAO+b5-q3DVHQTG1ZKB_tfqjrdokgOdZA4G5QrJ7LFQPhOMHu6Q@mail.gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: brcm80211 breakage..
+Date: Thu, 12 Jan 2012 11:08:24 -0800
+Message-ID: <CA+55aFzNJbM=ohXninJ06518e3a6E8vySg8GT6dx+Qovk1QW0Q@mail.gmail.com>
+References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com>
+ <4F0D6806.4080201@broadcom.com> <CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com>
+ <CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com>
+ <4F0DC030.6090500@lwfinger.net> <CA+55aFyAX_OdE7yNp1vM1AmywrYZ9Pvr0EX47jNQciZKOQUQHg@mail.gmail.com>
+ <4F0E3B7E.8040005@lwfinger.net> <CA+55aFyR9C8GjhKb8orr1kgd_G23=-mcmT-uz9zJd6wk7rYDPA@mail.gmail.com>
+ <4F0E5E57.9060204@lwfinger.net> <CA+55aFw0XArx0jpNh4dWYFmvJbb+GJYAWRUN2Ec14oREiATo7g@mail.gmail.com>
+ <CA+55aFxDOr_TT+kxp1SuwNFfm7KLTaWSLQwk1Fx8fWe7tdstcg@mail.gmail.com>
+ <CA+55aFzkCXnHfF_TO5M+gaN4RMvj_WNuW_QeBezuYBdWnwPDpg@mail.gmail.com> <CA+55aFx2UnVZP1Z44dMHeifB2nD1zJ87kz25zZjUdwv0ozwKPA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary=20cf30363877321be204b6597a8d
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Network Development <netdev@vger.kernel.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	=?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+	Arend van Spriel <arend@broadcom.com>,
+	Alwin Beukers <alwin@broadcom.com>,
+	Roland Vossen <rvossen@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:47427 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754593Ab2ALTFx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 14:05:53 -0500
-Received: by werm1 with SMTP id m1so1609302wer.19
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2012 11:05:50 -0800 (PST)
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:40428 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754560Ab2ALTIp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 14:08:45 -0500
+Received: by yhjj63 with SMTP id j63so1124043yhj.19
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2012 11:08:45 -0800 (PST)
+In-Reply-To: <CA+55aFx2UnVZP1Z44dMHeifB2nD1zJ87kz25zZjUdwv0ozwKPA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+--20cf30363877321be204b6597a8d
+Content-Type: text/plain; charset=ISO-8859-1
 
-If I send enough data via netconsole and an Ethernet interface to a
-remote system, sooner or later a NULL pointer dereference is triggered
-in net_rx_action(). I can reproduce this with both 3.1.8 and 3.2.0. Is
-this a known issue ?
+On Thu, Jan 12, 2012 at 11:00 AM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+>
+> I'll send out a patch that seems to get things to a working state for
+> me. At least I have wireless connectivity again, I don't know if there
+> are some other problems remaining.
 
-# ethtool -i eth0
-driver: skge
-version: 1.14
-firmware-version: N/A
-bus-info: 0000:06:02.0
+Ok, this is the patch that gets me going, and this is sent from the Macbook Air.
 
-Thanks,
+NOTE! The BCMA confusion about the sprom still exists, but doesn't
+seem to matter:
 
-Bart.
+ bcma: Core 0 found: ChipCommon (manuf 0x4BF, id 0x800, rev 0x22, class 0x0)
+ bcma: Core 1 found: IEEE 802.11 (manuf 0x4BF, id 0x812, rev 0x17, class 0x0)
+ bcma: Core 2 found: PCIe (manuf 0x4BF, id 0x820, rev 0x0F, class 0x0)
+ bcma: Found rev 6 PMU (capabilities 0x108C2606)
+ bcma: Unsupported SPROM revision: 255
+ bcma: No SPROM available
+ bcma: Bus registered
+  ..
+ brcmsmac bcma0:0: mfg 4bf core 812 rev 23 class 0 irq 17
+ brcmsmac: Found chip type AI (0x1381a8d8)
+ brcmsmac: Applying 43224B0+ WARs
+ bcma: Switched to core: 0x812
+ ieee80211 phy0: Selected rate control algorithm 'minstrel_ht'
+ brcms_module_init: register returned 0
 
-BUG: unable to handle kernel NULL pointer dereference at 0000000000000525
-IP: [<ffffffff8130c95e>] net_rx_action+0x9e/0x290
-PGD 19e4d0067 PUD 19895b067 PMD 0
-Oops: 0000 [#1] SMP
-CPU 0
-Modules linked in: ib_srp scsi_transport_srp scsi_tgt netconsole
-configfs snd_pcm_oss snd_mixer_oss snd_seq snd_seq_device af_packet
-rdma_ucm rdma_cm iw_cm ib_addr ib_ipoib ib_cm ib_sa ib_uverbs ib_umad
-mlx4_ib ib_mad ib_core microcode cpufreq_conservative
-cpufreq_userspace cpufreq_powersave acpi_cpufreq mperf dm_mod
-snd_hda_codec_hdmi snd_hda_codec_analog snd_hda_intel snd_hda_codec
-snd_hwdep snd_pcm snd_timer intel_agp snd sr_mod mlx4_core intel_gtt
-i2c_i801 sg cdrom agpgart i2c_core soundcore pcspkr snd_page_alloc
-button uhci_hcd ehci_hcd sd_mod crc_t10dif usbcore edd ext3 mbcache
-jbd fan ata_generic ata_piix pata_marvell ahci libahci libata scsi_mod
-thermal processor thermal_sys hwmon
+so this does seem to work, but there are clearly some issues still..
 
-Pid: 3, comm: ksoftirqd/0 Not tainted 3.1.8-debug+ #1 System
-manufacturer P5Q DELUXE/P5Q DELUXE
-RIP: 0010:[<ffffffff8130c95e>]  [<ffffffff8130c95e>] net_rx_action+0x9e/0x290
-RSP: 0018:ffff8801b50b7d60  EFLAGS: 00010246
-RAX: 00000000000000d5 RBX: ffff8801bfc12750 RCX: 0000000000000000
-RDX: 0000000000000046 RSI: 0000000000000000 RDI: ffff8801b50a9ec0
-RBP: ffff8801b50b7dc0 R08: 0d28000000000000 R09: 0000000000000000
-R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000000000
-R13: 000000000000012c R14: ffff8801bfc12740 R15: ffff8801bfc12750
-FS:  0000000000000000(0000) GS:ffff8801bfc00000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-CR2: 0000000000000525 CR3: 0000000198978000 CR4: 00000000000406f0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process ksoftirqd/0 (pid: 3, threadinfo ffff8801b50b6000, task ffff8801b50a9ec0)
-Stack:
- ffff88019fbc42d0 ffffffff8104cfb1 ffff8801b50b7fd8 ffff8801b50b7fd8
- 00000000ffffe238 ffff8801b50b7fd8 ffff8801b50b7db0 ffffffff81605098
- 0000000000000003 0000000000000041 0000000000000101 ffff8801b50b7fd8
-Call Trace:
- [<ffffffff8104cfb1>] ? __do_softirq+0x81/0x250
- [<ffffffff8104cffd>] __do_softirq+0xcd/0x250
- [<ffffffff8104d297>] run_ksoftirqd+0x117/0x1e0
- [<ffffffff8104d180>] ? __do_softirq+0x250/0x250
- [<ffffffff81069786>] kthread+0x96/0xa0
- [<ffffffff813e8534>] kernel_thread_helper+0x4/0x10
- [<ffffffff813de75d>] ? retint_restore_args+0xe/0xe
- [<ffffffff810696f0>] ? __init_kthread_worker+0x70/0x70
- [<ffffffff813e8530>] ? gs_change+0xb/0xb
-Code: 48 8b 05 c6 16 39 00 48 39 45 c0 0f 88 24 01 00 00 e8 07 67 d7
-ff fb 49 8b 5e 10 48 8b 43 68 48 85 c0 0f 84 05 01 00 00 45 31 e4
- 83 b8 50 04 00 00 00 74 17 48 8d 7b 28 49 89 dc e8 5c 10 0d
-RIP  [<ffffffff8130c95e>] net_rx_action+0x9e/0x290
- RSP <ffff8801b50b7d60>
-CR2: 0000000000000525
----[ end trace 455fc5fc77d19f4a ]---
-Kernel panic - not syncing: Fatal exception in interrupt
-Pid: 3, comm: ksoftirqd/0 Tainted: G      D     3.1.8-debug+ #1
-Call Trace:
- [<ffffffff813da43c>] panic+0xa0/0x1bd
- [<ffffffff813df692>] oops_end+0xe2/0xf0
- [<ffffffff810288eb>] no_context+0xfb/0x260
- [<ffffffff813ddab7>] ? _raw_spin_lock_irq+0x17/0x60
- [<ffffffff81028b85>] __bad_area_nosemaphore+0x135/0x220
- [<ffffffff81028c83>] bad_area_nosemaphore+0x13/0x20
- [<ffffffff813e1e86>] do_page_fault+0x3e6/0x520
- [<ffffffff811d436b>] ? blk_run_queue+0x4b/0x60
- [<ffffffff813deb23>] ? error_sti+0x5/0x6
- [<ffffffff811f300d>] ? trace_hardirqs_off_thunk+0x3a/0x3c
- [<ffffffff813de93f>] page_fault+0x1f/0x30
- [<ffffffff8130c95e>] ? net_rx_action+0x9e/0x290
- [<ffffffff8104cfb1>] ? __do_softirq+0x81/0x250
- [<ffffffff8104cffd>] __do_softirq+0xcd/0x250
- [<ffffffff8104d297>] run_ksoftirqd+0x117/0x1e0
- [<ffffffff8104d180>] ? __do_softirq+0x250/0x250
- [<ffffffff81069786>] kthread+0x96/0xa0
- [<ffffffff813e8534>] kernel_thread_helper+0x4/0x10
- [<ffffffff813de75d>] ? retint_restore_args+0xe/0xe
- [<ffffffff810696f0>] ? __init_kthread_worker+0x70/0x70
- [<ffffffff813e8530>] ? gs_change+0xb/0xb
+                 Linus
+
+--20cf30363877321be204b6597a8d
+Content-Type: text/x-patch; charset=US-ASCII; name="patch.diff"
+Content-Disposition: attachment; filename="patch.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gxc5jas80
+
+IGRyaXZlcnMvbmV0L3dpcmVsZXNzL2JyY204MDIxMS9NYWtlZmlsZSAgICAgICAgfCAgICAyICst
+CiBkcml2ZXJzL25ldC93aXJlbGVzcy9icmNtODAyMTEvYnJjbXNtYWMvc3JvbS5jIHwgICAzMSAr
+KysrKysrKysrKysrKystLS0tLS0tLQogMiBmaWxlcyBjaGFuZ2VkLCAyMSBpbnNlcnRpb25zKCsp
+LCAxMiBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC93aXJlbGVzcy9icmNt
+ODAyMTEvTWFrZWZpbGUgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9icmNtODAyMTEvTWFrZWZpbGUK
+aW5kZXggZjQxYzA0N2VjYTgyLi5iYWU1MjE5Y2Q4YmUgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0
+L3dpcmVsZXNzL2JyY204MDIxMS9NYWtlZmlsZQorKysgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9i
+cmNtODAyMTEvTWFrZWZpbGUKQEAgLTE2LDcgKzE2LDcgQEAKICMgQ09OTkVDVElPTiBXSVRIIFRI
+RSBVU0UgT1IgUEVSRk9STUFOQ0UgT0YgVEhJUyBTT0ZUV0FSRS4KIAogIyBjb21tb24gZmxhZ3MK
+LXN1YmRpci1jY2ZsYWdzLSQoQ09ORklHX0JSQ01EQkcpCSs9IC1EQkNNREJHCitzdWJkaXItY2Nm
+bGFncy0kKENPTkZJR19CUkNNREJHKQkrPSAtREJDTURCRyAtRERFQlVHCiAKIG9iai0kKENPTkZJ
+R19CUkNNVVRJTCkJKz0gYnJjbXV0aWwvCiBvYmotJChDT05GSUdfQlJDTUZNQUMpCSs9IGJyY21m
+bWFjLwpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvYnJjbTgwMjExL2JyY21zbWFj
+L3Nyb20uYyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2JyY204MDIxMS9icmNtc21hYy9zcm9tLmMK
+aW5kZXggNjEwOTIxNTY3NTVlLi41NjM3NDM2NDMwMzggMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0
+L3dpcmVsZXNzL2JyY204MDIxMS9icmNtc21hYy9zcm9tLmMKKysrIGIvZHJpdmVycy9uZXQvd2ly
+ZWxlc3MvYnJjbTgwMjExL2JyY21zbWFjL3Nyb20uYwpAQCAtNzY0LDYgKzc2NCwyMiBAQCBfaW5p
+dHZhcnNfc3JvbV9wY2kodTggc3JvbXJldiwgdTE2ICpzcm9tLCBzdHJ1Y3QgbGlzdF9oZWFkICp2
+YXJfbGlzdCkKIH0KIAogLyoKKyAqIFRoZSBjcmMgY2hlY2sgaXMgZG9uZSBvbiBhIGxpdHRsZS1l
+bmRpYW4gYXJyYXksIHdlIG5lZWQKKyAqIHRvIHN3aXRjaCB0aGUgYnl0ZXMgYXJvdW5kIGJlZm9y
+ZSBjaGVja2luZyBjcmMgKGFuZAorICogdGhlbiBzd2l0Y2ggaXQgYmFjaykuCisgKi8KK3N0YXRp
+YyBpbnQgZG9fY3JjX2NoZWNrKHUxNiAqYnVmLCB1bnNpZ25lZCBud29yZHMpCit7CisJdTggY3Jj
+OworCisJY3B1X3RvX2xlMTZfYnVmKGJ1ZiwgbndvcmRzKTsKKwljcmMgPSBjcmM4KGJyY21zX3Ny
+b21fY3JjOF90YWJsZSwgKHZvaWQgKilidWYsIG53b3JkcyA8PCAxLCBDUkM4X0lOSVRfVkFMVUUp
+OworCWxlMTZfdG9fY3B1X2J1ZihidWYsIG53b3Jkcyk7CisKKwlyZXR1cm4gY3JjID09IENSQzhf
+R09PRF9WQUxVRShicmNtc19zcm9tX2NyYzhfdGFibGUpOworfQorCisvKgogICogUmVhZCBpbiBh
+bmQgdmFsaWRhdGUgc3Byb20uCiAgKiBSZXR1cm4gMCBvbiBzdWNjZXNzLCBub256ZXJvIG9uIGVy
+cm9yLgogICovCkBAIC03NzIsOCArNzg4LDYgQEAgc3Byb21fcmVhZF9wY2koc3RydWN0IHNpX3B1
+YiAqc2loLCB1MTYgKmJ1ZiwgdWludCBud29yZHMsIGJvb2wgY2hlY2tfY3JjKQogewogCWludCBl
+cnIgPSAwOwogCXVpbnQgaTsKLQl1OCAqYmJ1ZiA9ICh1OCAqKWJ1ZjsgLyogYnl0ZSBidWZmZXIg
+Ki8KLQl1aW50IG5ieXRlcyA9IG53b3JkcyA8PCAxOwogCXN0cnVjdCBiY21hX2RldmljZSAqY29y
+ZTsKIAl1aW50IHNwcm9tX29mZnNldDsKIApAQCAtNzg2LDkgKzgwMCw5IEBAIHNwcm9tX3JlYWRf
+cGNpKHN0cnVjdCBzaV9wdWIgKnNpaCwgdTE2ICpidWYsIHVpbnQgbndvcmRzLCBib29sIGNoZWNr
+X2NyYykKIAkJc3Byb21fb2Zmc2V0ID0gQ0hJUENSRUdPRkZTKHNyb21vdHApOwogCX0KIAotCS8q
+IHJlYWQgdGhlIHNwcm9tIGluIGJ5dGVzICovCi0JZm9yIChpID0gMDsgaSA8IG5ieXRlczsgaSsr
+KQotCQliYnVmW2ldID0gYmNtYV9yZWFkOChjb3JlLCBzcHJvbV9vZmZzZXQraSk7CisJLyogcmVh
+ZCB0aGUgc3Byb20gKi8KKwlmb3IgKGkgPSAwOyBpIDwgbndvcmRzOyBpKyspCisJCWJ1ZltpXSA9
+IGJjbWFfcmVhZDE2KGNvcmUsIHNwcm9tX29mZnNldCtpKjIpOwogCiAJaWYgKGJ1ZlswXSA9PSAw
+eGZmZmYpCiAJCS8qCkBAIC03OTgsMTMgKzgxMiw4IEBAIHNwcm9tX3JlYWRfcGNpKHN0cnVjdCBz
+aV9wdWIgKnNpaCwgdTE2ICpidWYsIHVpbnQgbndvcmRzLCBib29sIGNoZWNrX2NyYykKIAkJICov
+CiAJCXJldHVybiAtRU5PREFUQTsKIAotCWlmIChjaGVja19jcmMgJiYKLQkgICAgY3JjOChicmNt
+c19zcm9tX2NyYzhfdGFibGUsIGJidWYsIG5ieXRlcywgQ1JDOF9JTklUX1ZBTFVFKSAhPQotCQkg
+Q1JDOF9HT09EX1ZBTFVFKGJyY21zX3Nyb21fY3JjOF90YWJsZSkpCisJaWYgKGNoZWNrX2NyYyAm
+JiAhZG9fY3JjX2NoZWNrKGJ1ZiwgbndvcmRzKSkKIAkJZXJyID0gLUVJTzsKLQllbHNlCi0JCS8q
+IG5vdyBjb3JyZWN0IHRoZSBlbmRpYW5uZXNzIG9mIHRoZSBieXRlIGFycmF5ICovCi0JCWxlMTZf
+dG9fY3B1X2J1ZihidWYsIG53b3Jkcyk7CiAKIAlyZXR1cm4gZXJyOwogfQo=
+--20cf30363877321be204b6597a8d--
