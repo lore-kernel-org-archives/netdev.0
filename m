@@ -1,57 +1,60 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: brcm80211 breakage..
-Date: Thu, 12 Jan 2012 08:10:42 +0100
-Message-ID: <CACna6rwj-hO5GzaxPb16VqGJ=G_2L9NFuphKtgmY+USNtGSn3g@mail.gmail.com>
+Date: Wed, 11 Jan 2012 23:13:55 -0800
+Message-ID: <CA+55aFzkCXnHfF_TO5M+gaN4RMvj_WNuW_QeBezuYBdWnwPDpg@mail.gmail.com>
 References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com>
-	<4F0D6806.4080201@broadcom.com>
-	<CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com>
-	<CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com>
-	<4F0DC030.6090500@lwfinger.net>
-	<CA+55aFyAX_OdE7yNp1vM1AmywrYZ9Pvr0EX47jNQciZKOQUQHg@mail.gmail.com>
-	<4F0E3B7E.8040005@lwfinger.net>
-	<CA+55aFyR9C8GjhKb8orr1kgd_G23=-mcmT-uz9zJd6wk7rYDPA@mail.gmail.com>
-	<4F0E5E57.9060204@lwfinger.net>
-	<CA+55aFw0XArx0jpNh4dWYFmvJbb+GJYAWRUN2Ec14oREiATo7g@mail.gmail.com>
-	<CA+55aFxDOr_TT+kxp1SuwNFfm7KLTaWSLQwk1Fx8fWe7tdstcg@mail.gmail.com>
-	<CACna6rzv6iFiGP5F2mMs+2wxh0rVpXcXyBjve2Nbn9Ybp8AFsg@mail.gmail.com>
+ <4F0D6806.4080201@broadcom.com> <CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com>
+ <CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com>
+ <4F0DC030.6090500@lwfinger.net> <CA+55aFyAX_OdE7yNp1vM1AmywrYZ9Pvr0EX47jNQciZKOQUQHg@mail.gmail.com>
+ <4F0E3B7E.8040005@lwfinger.net> <CA+55aFyR9C8GjhKb8orr1kgd_G23=-mcmT-uz9zJd6wk7rYDPA@mail.gmail.com>
+ <4F0E5E57.9060204@lwfinger.net> <CA+55aFw0XArx0jpNh4dWYFmvJbb+GJYAWRUN2Ec14oREiATo7g@mail.gmail.com>
+ <CA+55aFxDOr_TT+kxp1SuwNFfm7KLTaWSLQwk1Fx8fWe7tdstcg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Arend van Spriel <arend@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "John W. Linville" <linville@tuxdriver.com>,
 	Network Development <netdev@vger.kernel.org>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	=?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+	Arend van Spriel <arend@broadcom.com>,
+	Alwin Beukers <alwin@broadcom.com>,
+	Roland Vossen <rvossen@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:36607 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751752Ab2ALHKn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 02:10:43 -0500
-Received: by wibhm14 with SMTP id hm14so967334wib.19
-        for <netdev@vger.kernel.org>; Wed, 11 Jan 2012 23:10:42 -0800 (PST)
-In-Reply-To: <CACna6rzv6iFiGP5F2mMs+2wxh0rVpXcXyBjve2Nbn9Ybp8AFsg@mail.gmail.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:58582 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751629Ab2ALHOR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 02:14:17 -0500
+Received: by werm1 with SMTP id m1so1116654wer.19
+        for <netdev@vger.kernel.org>; Wed, 11 Jan 2012 23:14:16 -0800 (PST)
+In-Reply-To: <CA+55aFxDOr_TT+kxp1SuwNFfm7KLTaWSLQwk1Fx8fWe7tdstcg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 12 stycznia 2012 08:08 u=C5=BCytkownik Rafa=C5=82 Mi=C5=82ecki
-<zajec5@gmail.com> napisa=C5=82:
-> Linus: is this possible for you to give b43 a chance? It has to be co=
-mpiled with
-> B43_BCMA
-> B43_PHY_N
-> Unfortunately you have to install firmware manually to get b43 workin=
-g
-> :( Howto is located at:
-> http://wireless.kernel.org/en/users/Drivers/b43
-> ("Install b43-fwcutter" and "If you are using the b43 driver from 3.2
-> kernel or newer:").
+On Wed, Jan 11, 2012 at 9:30 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
 >
-> b43 doesn't re-init bus devices, so this test will check if bcma is O=
-K or not.
+> The code in v3.2 also used to support srom rev < 4, the new code
+> doesn't seem to do that.
 
-That probably will require blacklisting brcmsmac for a moment to
-prevent bcma auto-loading it. Testing from cold-boot is recommended.
+I ended up trying to bisect this, and seem to have been successful.
+The problem came in not with the BCMA use, but with commit
+888153b3db3f ("brcm80211: smac: avoid sprom endianess conversions for
+crc8 check")
 
---=20
-Rafa=C5=82
+I haven't yet tried to revert this on top of the current tree, but I'm
+pretty sure about the bisection. That commit changes things to be read
+a byte at a time, but it *also* removes the old code that only read
+SROM_WORDS from the SROM.
+
+Might the apple parts have different SROM contents? I assume "SROM" is
+just a serial rom, which may be external and contain things like the ?
+
+All the BCMA changes make the revert somewhat non-trivial, could
+somebody who knows the code better please try to do it for me? It
+doesn't look complicated, and I can try to do it myself tomorrow if
+nobody else steps up, but I'd *really* prefer the guilty parties
+themselves to do it, ok?
+
+Arend - it's your commit...
+
+                    Linus
