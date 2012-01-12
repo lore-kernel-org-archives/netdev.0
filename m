@@ -1,36 +1,45 @@
-From: Bradley Peterson <despite@gmail.com>
-Subject: [PATCH] pptp: Accept packet with seq zero
-Date: Thu, 12 Jan 2012 14:39:16 -0600
-Message-ID: <1326400756-14021-1-git-send-email-despite@gmail.com>
-Cc: Bradley Peterson <despite@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: xeb@mail.ru
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: skb_checksum_help() vs GSO
+Date: Thu, 12 Jan 2012 20:42:10 +0000
+Message-ID: <1326400930.2740.10.camel@bwh-desktop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:31128 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755606Ab2ALUmO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 15:42:14 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Initialize the PPTP "seq received" value to 0xffffffff, so we don't
-ignore packets with seq zero.
+skb_checksum_help() does:
 
-Signed-off-by: Bradley Peterson <despite@gmail.com>
----
- drivers/net/ppp/pptp.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+	if (unlikely(skb_shinfo(skb)->gso_size)) {
+		/* Let GSO fix up the checksum. */
+		goto out_set_summed;
+	}
+...
+out_set_summed:
+	skb->ip_summed = CHECKSUM_NONE;
+out:
+	return ret;
 
-diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
-index c1c9293..df884dd 100644
---- a/drivers/net/ppp/pptp.c
-+++ b/drivers/net/ppp/pptp.c
-@@ -585,8 +585,8 @@ static int pptp_create(struct net *net, struct socket *sock)
- 	po = pppox_sk(sk);
- 	opt = &po->proto.pptp;
- 
--	opt->seq_sent = 0; opt->seq_recv = 0;
--	opt->ack_recv = 0; opt->ack_sent = 0;
-+	opt->seq_sent = 0; opt->seq_recv = 0xffffffff;
-+	opt->ack_recv = 0; opt->ack_sent = 0xffffffff;
- 
- 	error = 0;
- out:
+but skb_gso_segment() requires that skb->ip_summed == CHECKSUM_PARTIAL
+and WARNs if not.  I don't think there's any case where it's valid to
+call both.  Shouldn't skb_checksum_help() also WARN and return an error
+code instead of muddling on?
+
+Inspecting the callers of skb_checksum_help(), it looks like sch_netem's
+'corrupt' option and xt_CHECKSUM might trigger this case.
+
+Ben.
+
 -- 
-1.7.4.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
