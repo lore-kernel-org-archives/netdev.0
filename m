@@ -1,77 +1,72 @@
-From: =?UTF-8?q?Eric=20B=C3=A9nard?= <eric@eukrea.com>
-Subject: [PATCH v2] net: fsl: fec: handle 10Mbps speed in RMII mode
-Date: Thu, 12 Jan 2012 17:10:28 +0100
-Message-ID: <1326384628-7967-1-git-send-email-eric@eukrea.com>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [patch] svcrdma: endian bug in send_write_chunks()
+Date: Thu, 12 Jan 2012 11:21:41 -0500
+Message-ID: <20120112162141.GC6563@fieldses.org>
+References: <20120112064722.GB2408@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, u.kleine-koenig@pengutronix.de,
-	shawn.guo@linaro.org, linux-arm-kernel@lists.infradead.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Tom Tucker <tom@opengridcomputing.com>
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2-g21.free.fr ([212.27.42.2]:59302 "EHLO smtp2-g21.free.fr"
+Received: from fieldses.org ([174.143.236.118]:38718 "EHLO fieldses.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753501Ab2ALQKh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jan 2012 11:10:37 -0500
+	id S1750927Ab2ALQVq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jan 2012 11:21:46 -0500
+Content-Disposition: inline
+In-Reply-To: <20120112064722.GB2408@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-when the link is 10 Mbps and the mode is RMII, it's necessary
-to set FRCONT to 1 in MIIGSK_CFGR to divide the RMII source
-clock by 10 in order to support 10 Mbps operations.
+On Thu, Jan 12, 2012 at 09:47:22AM +0300, Dan Carpenter wrote:
+> Sparse complains because arg_ch->rs_length is declared as network
+> endian but we're treating it as CPU endian.
 
-Signed-off-by: Eric B=C3=A9nard <eric@eukrea.com>
-Acked-by: Shawn Guo <shawn.guo@linaro.org>
----
-v2: rework following Shawn's comments
+This looks like it would actually change behavior on a little endian
+architecture, so how did this work before?
 
- drivers/net/ethernet/freescale/fec.c |    9 ++++++---
- drivers/net/ethernet/freescale/fec.h |    4 ++++
- 2 files changed, 10 insertions(+), 3 deletions(-)
+>From some quick grepping, I see assignments both of the form
 
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/etherne=
-t/freescale/fec.c
-index ddcbbb3..9a96aea 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -476,6 +476,7 @@ fec_restart(struct net_device *ndev, int duplex)
- 	} else {
- #ifdef FEC_MIIGSK_ENR
- 		if (id_entry->driver_data & FEC_QUIRK_USE_GASKET) {
-+			u32 cfgr;
- 			/* disable the gasket and wait */
- 			writel(0, fep->hwp + FEC_MIIGSK_ENR);
- 			while (readl(fep->hwp + FEC_MIIGSK_ENR) & 4)
-@@ -486,9 +487,11 @@ fec_restart(struct net_device *ndev, int duplex)
- 			 *   RMII, 50 MHz, no loopback, no echo
- 			 *   MII, 25 MHz, no loopback, no echo
- 			 */
--			writel((fep->phy_interface =3D=3D PHY_INTERFACE_MODE_RMII) ?
--					1 : 0, fep->hwp + FEC_MIIGSK_CFGR);
--
-+			cfgr =3D (fep->phy_interface =3D=3D PHY_INTERFACE_MODE_RMII)
-+				? BM_MIIGSK_CFGR_RMII : BM_MIIGSK_CFGR_MII;
-+			if (fep->phy_dev && fep->phy_dev->speed =3D=3D SPEED_10)
-+				cfgr |=3D BM_MIIGSK_CFGR_FRCONT_10M;
-+			writel(cfgr, fep->hwp + FEC_MIIGSK_CFGR);
-=20
- 			/* re-enable the gasket */
- 			writel(2, fep->hwp + FEC_MIIGSK_ENR);
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/etherne=
-t/freescale/fec.h
-index 8b2c6d7..8408c62 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -47,6 +47,10 @@
- #define FEC_MIIGSK_CFGR		0x300 /* MIIGSK Configuration reg */
- #define FEC_MIIGSK_ENR		0x308 /* MIIGSK Enable reg */
-=20
-+#define BM_MIIGSK_CFGR_MII		0x00
-+#define BM_MIIGSK_CFGR_RMII		0x01
-+#define BM_MIIGSK_CFGR_FRCONT_10M	0x40
-+
- #else
-=20
- #define FEC_ECNTRL		0x000 /* Ethernet control reg */
---=20
-1.7.7.5
+	...rs_length = ntohl(...)
+
+and
+
+	...rs_length = htonl(...)
+
+but only see one declaration for a field named rs_length.
+
+So my best guess would be that the code is ugly but working as is, and
+needs cleanup by someone who knows how this field was intended to be
+used.
+
+?
+
+--b.
+
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> diff --git a/net/sunrpc/xprtrdma/svc_rdma_sendto.c b/net/sunrpc/xprtrdma/svc_rdma_sendto.c
+> index 249a835..30fda86 100644
+> --- a/net/sunrpc/xprtrdma/svc_rdma_sendto.c
+> +++ b/net/sunrpc/xprtrdma/svc_rdma_sendto.c
+> @@ -409,7 +409,7 @@ static int send_write_chunks(struct svcxprt_rdma *xprt,
+>  		u64 rs_offset;
+>  
+>  		arg_ch = &arg_ary->wc_array[chunk_no].wc_target;
+> -		write_len = min(xfer_len, arg_ch->rs_length);
+> +		write_len = min(xfer_len, ntohl(arg_ch->rs_length));
+>  
+>  		/* Prepare the response chunk given the length actually
+>  		 * written */
+> @@ -481,7 +481,7 @@ static int send_reply_chunks(struct svcxprt_rdma *xprt,
+>  	     chunk_no++) {
+>  		u64 rs_offset;
+>  		ch = &arg_ary->wc_array[chunk_no].wc_target;
+> -		write_len = min(xfer_len, ch->rs_length);
+> +		write_len = min(xfer_len, ntohl(ch->rs_length));
+>  
+>  		/* Prepare the reply chunk given the length actually
+>  		 * written */
