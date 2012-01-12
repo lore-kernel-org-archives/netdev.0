@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phylib: introduce mdiobus_alloc_size()
-Date: Thu, 12 Jan 2012 15:23:59 -0800 (PST)
-Message-ID: <20120112.152359.587415962225564570.davem@davemloft.net>
-References: <1325876913-20363-1-git-send-email-timur@freescale.com>
+Subject: Re: [PATCH v3 1/2] gianfar: Fix missing sock reference when
+ processing TX time stamps
+Date: Thu, 12 Jan 2012 15:26:14 -0800 (PST)
+Message-ID: <20120112.152614.1461396801832529188.davem@davemloft.net>
+References: <1326187612-27384-1-git-send-email-manfred.rudigier@omicron.at>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: afleming@freescale.com, netdev@vger.kernel.org
-To: timur@freescale.com
+Cc: netdev@vger.kernel.org, afleming@freescale.com,
+	avorontsov@mvista.com, richardcochran@gmail.com,
+	eric.dumazet@gmail.com
+To: manfred.rudigier@omicron.at
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42120 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:42158 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756142Ab2ALXYD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 18:24:03 -0500
-In-Reply-To: <1325876913-20363-1-git-send-email-timur@freescale.com>
+	with ESMTP id S1755278Ab2ALX02 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 18:26:28 -0500
+In-Reply-To: <1326187612-27384-1-git-send-email-manfred.rudigier@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Timur Tabi <timur@freescale.com>
-Date: Fri, 6 Jan 2012 13:08:33 -0600
+From: Manfred Rudigier <manfred.rudigier@omicron.at>
+Date: Tue, 10 Jan 2012 10:26:50 +0100
 
-> Introduce function mdiobus_alloc_size() as an alternative to mdiobus_alloc().
-> Most callers of mdiobus_alloc() also allocate a private data structure, and
-> then manually point bus->priv to this object.  mdiobus_alloc_size()
-> combines the two operations into one, which simplifies memory management.
+> When there is not enough headroom in the skb a private copy will be made.
+> However, the private copy had no reference to the socket and consequently
+> no time stamp could be queued on the socket error queue during the
+> skb_tstamp_tx function. This patch fixes this issue by also stealing the
+> sock reference from the original skb after making the private copy.
 > 
-> The original mdiobus_alloc() now just calls mdiobus_alloc_size(0).
-> 
-> Signed-off-by: Timur Tabi <timur@freescale.com>
+> Signed-off-by: Manfred Rudigier <manfred.rudigier@omicron.at>
 
-Applied, thanks.
+Applied.
