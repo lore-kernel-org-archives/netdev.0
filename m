@@ -1,85 +1,42 @@
-From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [patch] svcrdma: endian bug in send_write_chunks()
-Date: Fri, 13 Jan 2012 00:32:10 +0300
-Message-ID: <20120112213210.GR3644@mwanda>
-References: <20120112064722.GB2408@elgon.mountain>
- <20120112162141.GC6563@fieldses.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: skb_checksum_help() vs GSO
+Date: Fri, 13 Jan 2012 09:03:28 +1100
+Message-ID: <20120112220328.GA10813@gondor.apana.org.au>
+References: <1326400930.2740.10.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="tV/+6PImfyFtriLg"
-Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20120112162141.GC6563-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1326400930.2740.10.camel@bwh-desktop>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, Jan 12, 2012 at 08:42:10PM +0000, Ben Hutchings wrote:
+> skb_checksum_help() does:
+> 
+> 	if (unlikely(skb_shinfo(skb)->gso_size)) {
+> 		/* Let GSO fix up the checksum. */
+> 		goto out_set_summed;
+> 	}
+> ...
+> out_set_summed:
+> 	skb->ip_summed = CHECKSUM_NONE;
+> out:
+> 	return ret;
+> 
+> but skb_gso_segment() requires that skb->ip_summed == CHECKSUM_PARTIAL
+> and WARNs if not.  I don't think there's any case where it's valid to
+> call both.  Shouldn't skb_checksum_help() also WARN and return an error
+> code instead of muddling on?
 
---tV/+6PImfyFtriLg
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I think so.
 
-On Thu, Jan 12, 2012 at 11:21:41AM -0500, J. Bruce Fields wrote:
-> On Thu, Jan 12, 2012 at 09:47:22AM +0300, Dan Carpenter wrote:
-> > Sparse complains because arg_ch->rs_length is declared as network
-> > endian but we're treating it as CPU endian.
->=20
-> This looks like it would actually change behavior on a little endian
-> architecture, so how did this work before?
->=20
-> >From some quick grepping, I see assignments both of the form
->=20
-> 	...rs_length =3D ntohl(...)
->=20
-> and
->=20
-> 	...rs_length =3D htonl(...)
->=20
-> but only see one declaration for a field named rs_length.
->=20
-> So my best guess would be that the code is ugly but working as is, and
-> needs cleanup by someone who knows how this field was intended to be
-> used.
-
-Gar.  Sorry for that.  I knew it changed the behavior, and I tried
-to see how the original code worked, but I didn't read carefully
-enough.  I'll try be more careful next time.
-
-Thanks for catching that.
-
-regards,
-dan carpenter
-
-
---tV/+6PImfyFtriLg
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAEBAgAGBQJPD1FZAAoJEOnZkXI/YHqRqNIP/jVgLACKLIo0C/UI9DKry7yq
-Oso3ovMFytlficXKQWowc1yNg9bPf1Y9RBKuI6ia7eKS2FP188cpWRPOy9mYIXMY
-Pt001iQ3eEGQERhC2LQ1VBO995we38wKNEWVxrYPIYll5bcYiVyWZ62R9G05/heo
-3k0bAVeM1RQaLlzXTGrWdQgU8Vf0XYRYLk529N/xtgfY/bKWlbm4zjxKHBwM+Bic
-K5mh8yyorcQmCYUt02tkLfiaQcXZzzz+BU59WhzcX0I8TrZYVY/XtxNmXl/zKd7+
-O3woiKTOu7jseYNLY1r8R3OjcnlTvvfQU7Zd9lg+xckW+0XArQWTFK7XyGqnEZd0
-FnW9kdgyCCbw1/hzra93vARHwgPHoy4DHXqLIesXiq77zabYbdodsbhr1jdcG0bF
-KvFwQEAYCXCp7u64qOToW0lVLuKKBwzcEt8MYBLT4RsL2cFr5wmgKbfkPCrUR12A
-B6EJnGijYf7HLlr7XWPUQ8j8APuQpQOPat4XZ4dVrK/drRFDAr80AXhBFxlAgko7
-bEsoy1pbAbGCzJhrtimo8MrTYv8z397yrJcq78VeAylRm2PkatY0Sir8frXqXXew
-Ik1H9VT9FlQhlQM1HjrQABPUez6pYfC50vzwh5/hkzqjA882cPUv9sGHhGTDhOeS
-FjaNbBW6NGfCYnOtw92z
-=Y2lf
------END PGP SIGNATURE-----
-
---tV/+6PImfyFtriLg--
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
