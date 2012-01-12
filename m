@@ -1,95 +1,36 @@
-From: "Arend van Spriel" <arend@broadcom.com>
-Subject: Re: brcm80211 breakage..
-Date: Thu, 12 Jan 2012 14:13:25 +0100
-Message-ID: <4F0EDC75.3040003@broadcom.com>
-References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com>
- <4F0D6806.4080201@broadcom.com>
- <CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com>
- <CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com>
- <4F0DC030.6090500@lwfinger.net>
- <CA+55aFyAX_OdE7yNp1vM1AmywrYZ9Pvr0EX47jNQciZKOQUQHg@mail.gmail.com>
- <4F0E3B7E.8040005@lwfinger.net>
- <CA+55aFyR9C8GjhKb8orr1kgd_G23=-mcmT-uz9zJd6wk7rYDPA@mail.gmail.com>
- <4F0E5E57.9060204@lwfinger.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [BUG] commit a9b3cd7f32 is a mess
+Date: Thu, 12 Jan 2012 14:56:43 +0100
+Message-ID: <1326376603.2950.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Linus Torvalds" <torvalds@linux-foundation.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"Network Development" <netdev@vger.kernel.org>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-To: "Larry Finger" <Larry.Finger@lwfinger.net>
+Cc: netdev <netdev@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2149 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753516Ab2ALNNm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jan 2012 08:13:42 -0500
-In-Reply-To: <4F0E5E57.9060204@lwfinger.net>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:58851 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753630Ab2ALN4r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 08:56:47 -0500
+Received: by werm1 with SMTP id m1so1352954wer.19
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2012 05:56:46 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/12/2012 05:15 AM, Larry Finger wrote:
-> On 01/11/2012 08:11 PM, Linus Torvalds wrote:
->> On Wed, Jan 11, 2012 at 5:46 PM, Larry Finger<Larry.Finger@lwfinger.net>  wrote:
->>>
->>> OK. The SPROM issue is not completely irrelevant as that has to be correct,
->>> but obviously not sufficient.
->>
->> Hmm. Having dug a bit deeper, I do think it's kind of related.
->>
->> I get -ENODATA form sprom_read_pci(), but that function actually seems
->> to get the offset *right*.
->>
->> Some printout shows that for that chip, I have
->>
->>   - ai_get_ccrev(sih) = 34
->>   - sprom_offset = 0x800
->>
->> but then it apparently reads all ones anyway. At least in the first
->> word. So then I get that -ENODATA error.
->>
->> So once more, it's somehow related to the sprom, just in a new place:
->> sprom_read_pci() in brcmsmac/srom.c instead of drivers/bcma/sprom.c.
->>
->> Does that give people any new ideas to try out?
-> 
-> Things are getting curious. I have a 14e4:4353 device, which works with both b43 
-> and brcmsmac using mainline v3.2-6271-g925b5d2. The output of
-> 
-> dmesg | egrep "bcma|brcm"
-> 
-> with some extra debugging added yields:
-> 
-> bcma-pci-bridge 0000:06:00.0: PCI INT A -> Link[LK1E] -> GSI 22 (level, low) -> 
-> IRQ 22
-> bcma-pci-bridge 0000:06:00.0: setting latency timer to 64
-> bcma: Core 0 found: ChipCommon (manuf 0x4BF, id 0x800, rev 0x22, class 0x0)
-> bcma: Core 1 found: IEEE 802.11 (manuf 0x4BF, id 0x812, rev 0x17, class 0x0)
-> bcma: Core 2 found: PCIe (manuf 0x4BF, id 0x820, rev 0x0F, class 0x0)
-> bcma: Found rev 6 PMU (capabilities 0x108C2606)
-> bcma: SPROM offset 0x830
-> bcma: Found SPROM Revision 8
-> bcma: Bus registered
-> brcmsmac bcma0:0: mfg 4bf core 812 rev 23 class 0 irq 22
-> brcmsmac: Found chip type AI (0x1381a8d8)
-> brcmsmac: Applying 43224B0+ WARs
-> bcma: Switched to core: 0x812
-> brcms_module_init: register returned 0
-> 
-> I see no difference in the core revisions, etc. to explain why mine should work, 
-> and yours fail.
-> 
-> Arend: Any particular place we should look?
-> 
-> Larry
-> 
+commit a9b3cd7f32 (rcu: convert uses of rcu_assign_pointer(x, NULL) to
+RCU_INIT_POINTER) is complete garbage.
 
-Hi, Larry
+Real content of this commit doesnt reflect Changelog claim.
 
-I am surprised that we end up on sprom_read_pci(). That suggests that
-MacBook Air has an external sprom. Can you tell me what the function
-ai_is_sprom_available() returns on your system?
+I found this while trying to understand a 3.2 regression in IGMP code.
 
-Gr. AvS
+	iml->sfmode = MCAST_EXCLUDE;
+-	rcu_assign_pointer(inet->mc_list, iml);
++	RCU_INIT_POINTER(inet->mc_list, iml);
+
+Obviously iml is not NULL here.
+
+Please Paul dont Ack a patch only reading the Changelog.
+
+I'll make a patch to revert all non NULL uses.
