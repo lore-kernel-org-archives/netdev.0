@@ -1,64 +1,55 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: ethtool 3.2 released
-Date: Thu, 12 Jan 2012 16:46:13 +0000
-Message-ID: <1326386773.2740.0.camel@bwh-desktop>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [BUG] commit a9b3cd7f32 is a mess
+Date: Thu, 12 Jan 2012 09:12:01 -0800
+Message-ID: <20120112171201.GC2419@linux.vnet.ibm.com>
+References: <1326376603.2950.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="=-7ErpGIf5KcIDAfWBzzNA"
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:52814 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751514Ab2ALQq1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 11:46:27 -0500
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:37764 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754543Ab2ALROe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jan 2012 12:14:34 -0500
+Received: from /spool/local
+	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+	Thu, 12 Jan 2012 12:14:33 -0500
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q0CHDOBf279724
+	for <netdev@vger.kernel.org>; Thu, 12 Jan 2012 12:13:24 -0500
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q0CHC2aG014100
+	for <netdev@vger.kernel.org>; Thu, 12 Jan 2012 10:12:02 -0700
+Content-Disposition: inline
+In-Reply-To: <1326376603.2950.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-7ErpGIf5KcIDAfWBzzNA
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+On Thu, Jan 12, 2012 at 02:56:43PM +0100, Eric Dumazet wrote:
+> commit a9b3cd7f32 (rcu: convert uses of rcu_assign_pointer(x, NULL) to
+> RCU_INIT_POINTER) is complete garbage.
+> 
+> Real content of this commit doesnt reflect Changelog claim.
+> 
+> I found this while trying to understand a 3.2 regression in IGMP code.
+> 
+> 	iml->sfmode = MCAST_EXCLUDE;
+> -	rcu_assign_pointer(inet->mc_list, iml);
+> +	RCU_INIT_POINTER(inet->mc_list, iml);
+> 
+> Obviously iml is not NULL here.
+> 
+> Please Paul dont Ack a patch only reading the Changelog.
 
-ethtool version 3.2 has been released.
+Sigh.  That will teach me to trust coccinelle.  :-(
 
-Home page: https://ftp.kernel.org/pub/software/network/ethtool/
-Download:
-https://ftp.kernel.org/pub/software/network/ethtool/ethtool-3.2.tar.bz2
-https://ftp.kernel.org/pub/software/network/ethtool/ethtool-3.2.tar.gz
-https://ftp.kernel.org/pub/software/network/ethtool/ethtool-3.2.tar.xz
-https://ftp.kernel.org/pub/software/network/ethtool/ethtool-3.2.tar.sign
+> I'll make a patch to revert all non NULL uses.
 
-Release notes:
+Please accept my apologies.  I will avoid trusting coccinelle quite so
+much in the future, and thank you for fixing this up.
 
-	* Feature: Add support for querying and setting private flags
-	  (--show-priv-flags, --set-priv-flags options)
-	* Feature: Omit zero values in Solarflare register tables (-d option)
-	* Feature: Allow driver to select RX NFC rule location (-U option)
-	* Fix: Correct register dump offsets for Intel 82575 chipsets
-	  (-d option)
-
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
-
---=-7ErpGIf5KcIDAfWBzzNA
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAABCAAGBQJPDw5VAAoJEGkILBsOca60lSQIAK7V/4byiid3vb5D5U4Tf9WH
-UMW4zTSu/Gp/1jMk5bxP9r72sWcAFuyFao1fNlGoaTlt75ImR1e4nTw5HdXgBlva
-4UaqDpo1E6Ed0fO8RltuD+UeVnnbUR1eCu7kM3wwLi1NADfEzPbHxi+EDCkQ1Cb0
-YOvtQRSwBJPW7UufAIVMrQGslomxqn4eburhlS97eTxfCmOAGKCkRZueaaPvWGa0
-4NM2ivtL27wW1bS9fOqZyAQ89n5+XlL0jFOEVb2uelHyAGpFgc57u52s8xk0BjZY
-tgy4NFVFhvAvN9SXsHfKpylmkqmMdvJPDZiH6quNnGcDJZSnzL3iyYBrJaeiBBU=
-=iuNE
------END PGP SIGNATURE-----
-
---=-7ErpGIf5KcIDAfWBzzNA--
+							Thanx, Paul
