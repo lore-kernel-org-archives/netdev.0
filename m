@@ -1,70 +1,58 @@
-From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH] RDS: Remove some unused iWARP code
-Date: Thu, 12 Jan 2012 10:57:56 -0800
-Message-ID: <1326394676-28337-1-git-send-email-roland@kernel.org>
-Cc: Jonathan Lallinger <jonathan-/Yg/VP3ZvrM@public.gmane.org>, Steve Wise <swise-/Yg/VP3ZvrM@public.gmane.org>,
-	rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Venkat Venkatsubra <venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: brcm80211 breakage..
+Date: Thu, 12 Jan 2012 11:00:22 -0800
+Message-ID: <CA+55aFx2UnVZP1Z44dMHeifB2nD1zJ87kz25zZjUdwv0ozwKPA@mail.gmail.com>
+References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com>
+ <4F0D6806.4080201@broadcom.com> <CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com>
+ <CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com>
+ <4F0DC030.6090500@lwfinger.net> <CA+55aFyAX_OdE7yNp1vM1AmywrYZ9Pvr0EX47jNQciZKOQUQHg@mail.gmail.com>
+ <4F0E3B7E.8040005@lwfinger.net> <CA+55aFyR9C8GjhKb8orr1kgd_G23=-mcmT-uz9zJd6wk7rYDPA@mail.gmail.com>
+ <4F0E5E57.9060204@lwfinger.net> <CA+55aFw0XArx0jpNh4dWYFmvJbb+GJYAWRUN2Ec14oREiATo7g@mail.gmail.com>
+ <CA+55aFxDOr_TT+kxp1SuwNFfm7KLTaWSLQwk1Fx8fWe7tdstcg@mail.gmail.com> <CA+55aFzkCXnHfF_TO5M+gaN4RMvj_WNuW_QeBezuYBdWnwPDpg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Network Development <netdev@vger.kernel.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	=?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+	Arend van Spriel <arend@broadcom.com>,
+	Alwin Beukers <alwin@broadcom.com>,
+	Roland Vossen <rvossen@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:61500 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754560Ab2ALTAn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 14:00:43 -0500
+Received: by yhjj63 with SMTP id j63so1118503yhj.19
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2012 11:00:43 -0800 (PST)
+In-Reply-To: <CA+55aFzkCXnHfF_TO5M+gaN4RMvj_WNuW_QeBezuYBdWnwPDpg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+On Wed, Jan 11, 2012 at 11:13 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+>
+> All the BCMA changes make the revert somewhat non-trivial, could
+> somebody who knows the code better please try to do it for me? It
+> doesn't look complicated, and I can try to do it myself tomorrow if
+> nobody else steps up, but I'd *really* prefer the guilty parties
+> themselves to do it, ok?
 
-rds_iw_flush_goal() just returns a count, but it is only called in one
-place and its return value is ignored there.  So delete all the dead code.
+Since I had the hardware to test, I could work on this and try to
+figure out exactly what went wrong in that commit.
 
-Signed-off-by: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
----
- net/rds/iw_rdma.c |   15 +--------------
- 1 files changed, 1 insertions(+), 14 deletions(-)
+The problem seems to be simple: the SPROM contents *have* to be read
+as aligned 16-bit words. Anything else seems to return 0xff and just
+fails the transaction.
 
-diff --git a/net/rds/iw_rdma.c b/net/rds/iw_rdma.c
-index 4e1de17..a817705 100644
---- a/net/rds/iw_rdma.c
-+++ b/net/rds/iw_rdma.c
-@@ -477,17 +477,6 @@ void rds_iw_sync_mr(void *trans_private, int direction)
- 	}
- }
- 
--static inline unsigned int rds_iw_flush_goal(struct rds_iw_mr_pool *pool, int free_all)
--{
--	unsigned int item_count;
--
--	item_count = atomic_read(&pool->item_count);
--	if (free_all)
--		return item_count;
--
--	return 0;
--}
--
- /*
-  * Flush our pool of MRs.
-  * At a minimum, all currently unused MRs are unmapped.
-@@ -500,7 +489,7 @@ static int rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all)
- 	LIST_HEAD(unmap_list);
- 	LIST_HEAD(kill_list);
- 	unsigned long flags;
--	unsigned int nfreed = 0, ncleaned = 0, unpinned = 0, free_goal;
-+	unsigned int nfreed = 0, ncleaned = 0, unpinned = 0;
- 	int ret = 0;
- 
- 	rds_iw_stats_inc(s_iw_rdma_mr_pool_flush);
-@@ -514,8 +503,6 @@ static int rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all)
- 		list_splice_init(&pool->clean_list, &kill_list);
- 	spin_unlock_irqrestore(&pool->list_lock, flags);
- 
--	free_goal = rds_iw_flush_goal(pool, free_all);
--
- 	/* Batched invalidate of dirty MRs.
- 	 * For FMR based MRs, the mappings on the unmap list are
- 	 * actually members of an ibmr (ibmr->mapping). They either
--- 
-1.7.8.3
+I didn't check all the combinations, of course, so who knows what the
+exact details are, but it does look like the sprom has very limited
+pci decode and simply refuses to touch anything but the one case it
+can handle.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'll send out a patch that seems to get things to a working state for
+me. At least I have wireless connectivity again, I don't know if there
+are some other problems remaining.
+
+                      Linus
