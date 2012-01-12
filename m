@@ -1,49 +1,120 @@
-From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: [PATCH] net: decrement memcg jump label when limit, not usage, is changed
-Date: Thu, 12 Jan 2012 16:16:06 +0400
-Message-ID: <1326370566-4286-1-git-send-email-glommer@parallels.com>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [ethtool] ethtool: Correct register dump offsets for Intel
+ 82575 chipsets.
+Date: Thu, 12 Jan 2012 05:11:02 -0800
+Message-ID: <1326373862.2709.63.camel@jtkirshe-mobl>
+References: <1324636371-5402-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Reply-To: jeffrey.t.kirsher@intel.com
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-LoejTsSID1fFGMeD8qed"
+Cc: "Vick, Matthew" <matthew.vick@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:7020 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751937Ab2ALNLE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jan 2012 08:11:04 -0500
+In-Reply-To: <1324636371-5402-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The logic of the current code is that whenever we destroy
-a cgroup that had its limit set (set meaning different than
-maximum), we should decrement the jump_label counter.
-Otherwise we assume it was never incremented.
 
-But what the code actually does is test for RES_USAGE
-instead of RES_LIMIT. Usage being different than maximum
-is likely to be true most of the time.
+--=-LoejTsSID1fFGMeD8qed
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-The effect of this is that the key must become negative,
-and since the jump_label test says:
+On Fri, 2011-12-23 at 02:32 -0800, Kirsher, Jeffrey T wrote:
+> From: Matthew Vick <matthew.vick@intel.com>
+>=20
+> When support was added to dump the registers on 82575 chipset devices,
+> six register offsets (receive/transmit desc length, head, and tail)
+> were incorrectly mapped. This patch remaps the offsets to the correct
+> registers.
+>=20
+> Signed-off-by: Matthew Vick <matthew.vick@intel.com>
+> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  igb.c |   12 ++++++------
+>  1 files changed, 6 insertions(+), 6 deletions(-)
+>=20
+> diff --git a/igb.c b/igb.c
+> index ec35d36..e0ccef9 100644
+> --- a/igb.c
+> +++ b/igb.c
+> @@ -200,13 +200,13 @@ igb_dump_regs(struct ethtool_drvinfo *info, struct =
+ethtool_regs *regs)
+>         /* Receive descriptor registers */
+>         fprintf(stdout,
+>                 "0x02808: RDLEN  (Receive desc length)                 0x=
+%08X\n",
+> -               regs_buff[142]);
+> +               regs_buff[137]);
+>         fprintf(stdout,
+>                 "0x02810: RDH    (Receive desc head)                   0x=
+%08X\n",
+> -               regs_buff[146]);
+> +               regs_buff[141]);
+>         fprintf(stdout,
+>                 "0x02818: RDT    (Receive desc tail)                   0x=
+%08X\n",
+> -               regs_buff[150]);
+> +               regs_buff[145]);
+>=20
+>         /* Transmit control register */
+>         reg =3D regs_buff[38];
+> @@ -226,13 +226,13 @@ igb_dump_regs(struct ethtool_drvinfo *info, struct =
+ethtool_regs *regs)
+>         /* Transmit descriptor registers */
+>         fprintf(stdout,
+>                 "0x03808: TDLEN       (Transmit desc length)           0x=
+%08X\n",
+> -               regs_buff[214]);
+> +               regs_buff[219]);
+>         fprintf(stdout,
+>                 "0x03810: TDH         (Transmit desc head)             0x=
+%08X\n",
+> -               regs_buff[218]);
+> +               regs_buff[223]);
+>         fprintf(stdout,
+>                 "0x03818: TDT         (Transmit desc tail)             0x=
+%08X\n",
+> -               regs_buff[222]);
+> +               regs_buff[227]);
+>=20
+>=20
+>         fprintf(stdout,
+> --
+> 1.7.7.4
+>=20
 
-        !!atomic_read(&key->enabled);
+Ben, what is the status of this patch?
 
-we'll have jump_labels still on when no one else is
-using this functionality.
+--=-LoejTsSID1fFGMeD8qed
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-CC: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
----
- net/ipv4/tcp_memcontrol.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
-index 7fed04f..4997878 100644
---- a/net/ipv4/tcp_memcontrol.c
-+++ b/net/ipv4/tcp_memcontrol.c
-@@ -108,7 +108,7 @@ void tcp_destroy_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss)
- 	tcp = tcp_from_cgproto(cg_proto);
- 	percpu_counter_destroy(&tcp->tcp_sockets_allocated);
- 
--	val = res_counter_read_u64(&tcp->tcp_memory_allocated, RES_USAGE);
-+	val = res_counter_read_u64(&tcp->tcp_memory_allocated, RES_LIMIT);
- 
- 	if (val != RESOURCE_MAX)
- 		jump_label_dec(&memcg_socket_limit_enabled);
--- 
-1.7.7.4
+iQIcBAABCgAGBQJPDtvmAAoJEOVv75VaS+3O1GQP/iJaF+AVqMRaCHMqKWOea3qs
+6gPXVYQ99XlHn4FcrGdPhZSt/d/8X+9TOcdMfOuVi53dyH5GwL4MGmK9HN4fBwpP
+vVMDkz5IAdnPvTZnGAL2Wczv3EFLiP250BEGeYmIlZN0UPfqXNqZPXzJZhYfyCAK
+4NUzsRO2bI3Ygaak6o/6AI4s6oIqOJFRc7pKisJmlJWthVRiwnv6d7OsmOvaIx2q
+kkmYxYsqQIDZfVI4xZr68n9JHN3ValQNYW89yoGqL8yj/hVSRbqTYUC6qNCWARar
+Uwme51klXiTEn9njsFomBl3gRY5+nHDDmAQ0UOss1NpxPptOYCDzyCLvhLI+iv8k
+Pc7j4b3K+fVMJ7aFO1CFTrWnDbLWX6cyiq6wakuogb/RwjUf89/Jzbc5/P0T30+E
+ppgXqE8mVOz02h/hH6XDpa9RXrM3JiTGi4e44lUGi+OXD/nVVeuivIp9SmSqF6BQ
+gPeC1fGjZaT3j/9os7ZHDOuQR5THCRwJ4YY6Nk8x3iLp5NXggv3/UBIpJxJj9nvH
+FNlZfsDsRZZm2lQhl3tzlZ+322/GUBDu87H9ozFeTA/YP8l74+sKUrLVy4TJ1VM+
+MnY+eE30xHCwGJaEgdUY3avwzfqcnRA1hMogkEIhwHL43xXLW6KqCGyjMdwYSiYI
+aytsxVdEq/p94zy+RegG
+=q3qp
+-----END PGP SIGNATURE-----
+
+--=-LoejTsSID1fFGMeD8qed--
