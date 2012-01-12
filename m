@@ -1,178 +1,111 @@
-From: Francesco Ruggeri <fruggeri@aristanetworks.com>
-Subject: Race condition in ipv6 code
-Date: Wed, 11 Jan 2012 18:13:55 -0800
-Message-ID: <CA+HUmGhJ-YvFMRnKzb8RqH6COZ=erp1SajVcb1rq1vi2k9OBGw@mail.gmail.com>
+From: Zhi Yong Wu <zwu.kernel@gmail.com>
+Subject: Re: [PATCH] vhost-net: add module alias (v2)
+Date: Thu, 12 Jan 2012 10:15:20 +0800
+Message-ID: <CAEH94LiF_F51_avA9UWMneo1N1wY0NzJmfohpxdrkAv2WkWT5Q@mail.gmail.com>
+References: <20120110205400.6c1cb306@nehalam.linuxnetplumber.net>
+	<20120111091653.188b24ab@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Cc: Alan Cox <device@lanana.org>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Kay Sievers <kay.sievers@vrfy.org>, kvm@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:44260 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751974Ab2ALCN4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2012 21:13:56 -0500
-Received: by iabz25 with SMTP id z25so1956784iab.19
-        for <netdev@vger.kernel.org>; Wed, 11 Jan 2012 18:13:56 -0800 (PST)
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:62808 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751974Ab2ALCPZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2012 21:15:25 -0500
+In-Reply-To: <20120111091653.188b24ab@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We have hit a race condition in ipv6 code when setting
-/proc/sys/net/ipv6/conf/*/forwarding. This happens when the syscall
-has to be restarted.
+On Thu, Jan 12, 2012 at 1:16 AM, Stephen Hemminger
+<shemminger@vyatta.com> wrote:
+> By adding the correct module alias, programs won't have to explicitly
+> call modprobe. Vhost-net will always be available if built into the k=
+ernel.
+> It does require assigning a permanent minor number for depmod to work=
+=2E
+> Choose one next to TUN since this driver is related to it.
+>
+> Also, use C99 style initialization.
+>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>
+> ---
+> v2 - document minor number and make sure to not overlap
+>
+> =A0Documentation/devices.txt =A0| =A0 =A02 ++
+> =A0drivers/vhost/net.c =A0 =A0 =A0 =A0| =A0 =A08 +++++---
+> =A0include/linux/miscdevice.h | =A0 =A01 +
+> =A03 files changed, 8 insertions(+), 3 deletions(-)
+>
+> --- a/drivers/vhost/net.c =A0 =A0 =A0 2012-01-10 10:56:58.883179194 -=
+0800
+> +++ b/drivers/vhost/net.c =A0 =A0 =A0 2012-01-10 19:48:23.650225892 -=
+0800
+> @@ -856,9 +856,9 @@ static const struct file_operations vhos
+> =A0};
+>
+> =A0static struct miscdevice vhost_net_misc =3D {
+> - =A0 =A0 =A0 MISC_DYNAMIC_MINOR,
+> - =A0 =A0 =A0 "vhost-net",
+> - =A0 =A0 =A0 &vhost_net_fops,
+> + =A0 =A0 =A0 .minor =3D VHOST_NET_MINOR,
+> + =A0 =A0 =A0 .name =3D "vhost-net",
+> + =A0 =A0 =A0 .fops =3D &vhost_net_fops,
+> =A0};
+>
+> =A0static int vhost_net_init(void)
+> @@ -879,3 +879,5 @@ MODULE_VERSION("0.0.1");
+> =A0MODULE_LICENSE("GPL v2");
+> =A0MODULE_AUTHOR("Michael S. Tsirkin");
+> =A0MODULE_DESCRIPTION("Host kernel accelerator for virtio net");
+> +MODULE_ALIAS_MISCDEV(VHOST_NET_MINOR);
+> +MODULE_ALIAS("devname:vhost-net");
+> --- a/include/linux/miscdevice.h =A0 =A0 =A0 =A02012-01-10 10:56:59.7=
+79189436 -0800
+> +++ b/include/linux/miscdevice.h =A0 =A0 =A0 =A02012-01-11 09:13:20.8=
+03694316 -0800
+> @@ -42,6 +42,7 @@
+> =A0#define AUTOFS_MINOR =A0 =A0 =A0 =A0 =A0 235
+> =A0#define MAPPER_CTRL_MINOR =A0 =A0 =A0236
+> =A0#define LOOP_CTRL_MINOR =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0237
+> +#define VHOST_NET_MINOR =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0238
+> =A0#define MISC_DYNAMIC_MINOR =A0 =A0 255
+>
+> =A0struct device;
+> --- a/Documentation/devices.txt 2012-01-10 10:56:53.399116518 -0800
+> +++ b/Documentation/devices.txt 2012-01-11 09:12:49.251197653 -0800
+> @@ -447,6 +447,8 @@ Your cooperation is appreciated.
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0234 =3D /dev/btrfs-control =A0 =A0 =A0=
+ =A0Btrfs control device
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0235 =3D /dev/autofs =A0 =A0 =A0 Autofs=
+ control device
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0236 =3D /dev/mapper/control =A0 =A0 =A0=
+ Device-Mapper control device
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 237 =3D /dev/vhost-net =A0 =A0Host kern=
+el accelerator for virtio net
+> +
+238? The stuff for LOOP_CTRL seems to be missing?
 
-I wonder if anyone else has run into the same issue.
-
-The current sequence in addrconf_sysctl_forward() and
-addrconf_fixup_forwarding()=A0 is as follows:
-- change the parameter in idev->cnf.forwarding (using proc_dointvec())
-- try to get the rtnl lock
-- if cannot get the lock then restore the original value in
-idev->cnf.forwarding and restart the syscall.
-
-While this is going on, the ipv6 code may access idev->cnf.forwarding
-and get an incorrect value.
-In our case we were in addrconf_ifdown (holding the rtnl lock)=A0 and
-calling __ipv6_ifa_notify(RTM_DELADDR, ifa) on the idev->addr_list
-entries.
-__ipv6_ifa_notify() only invokes addrconf_leave_anycast() if
-idev->cnf.forwarding is set. Because a process trying to set
-forwarding to 0 was stuck in the restart_syscall sequence above
-flipping the flag on and off, we erroneously read the flag as 0, with
-the result that addrconf_leave_anycast() was not invoked, some
-idev->ac_list entries were never released, idev was never freed and
-kept a reference to its net_device, and the net_device was never freed
-and caused the "unregister_netdevice: waiting for xxx to become free"
-message forever. In our case this was a vlan interfaces that was being
-deleted, so we ended up getting stuck in vlan_ioctl_handler() holding
-vlan_ioctl_mutex with further bad consequences.
-The following diffs (for 2.6.38, but the same logic seems to be used
-in 3.2) address the issue by modifying idev->cnf.forwarding only after
-the rtnl lock is acquired. There is a similar situation for
-disable_ipv6.
-Any comments are appreciated.
-
-=46rancesco Ruggeri
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0240-254 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ Reserved for local use
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0255 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 Reserved for MISC_DYNAMIC_MINOR
+>
+>
+>
+> _______________________________________________
+> Virtualization mailing list
+> Virtualization@lists.linux-foundation.org
+> https://lists.linuxfoundation.org/mailman/listinfo/virtualization
 
 
---- a/net/ipv6/addrconf.c    2011-03-14 18:20:32.000000000 -0700
-+++ b/net/ipv6/addrconf.c    2012-01-10 12:56:01.458880292 -0800
-@@ -507,29 +507,31 @@ static void addrconf_forward_change(stru
-     rcu_read_unlock();
- }
 
--static int addrconf_fixup_forwarding(struct ctl_table *table, int *p, =
-int old)
-+static int addrconf_fixup_forwarding(struct ctl_table *table, int *p, =
-int newf)
- {
-     struct net *net;
-+    int old;
+--=20
+Regards,
 
-     net =3D (struct net *)table->extra2;
--    if (p =3D=3D &net->ipv6.devconf_dflt->forwarding)
-+    if (p =3D=3D &net->ipv6.devconf_dflt->forwarding) {
-+        *p =3D newf;
-         return 0;
-+    }
-
--    if (!rtnl_trylock()) {
--        /* Restore the original values before restarting */
--        *p =3D old;
-+    if (!rtnl_trylock())
-         return restart_syscall();
--    }
-+
-+    old =3D *p;
-+    *p =3D newf;
-
-     if (p =3D=3D &net->ipv6.devconf_all->forwarding) {
--        __s32 newf =3D net->ipv6.devconf_all->forwarding;
-         net->ipv6.devconf_dflt->forwarding =3D newf;
-         addrconf_forward_change(net, newf);
--    } else if ((!*p) ^ (!old))
-+    } else if ((!newf) ^ (!old))
-         dev_forward_change((struct inet6_dev *)table->extra1);
-     rtnl_unlock();
-
--    if (*p)
-+    if (newf)
-         rt6_purge_dflt_routers(net);
-     return 1;
- }
-@@ -4165,9 +4167,17 @@ int addrconf_sysctl_forward(ctl_table *c
-     int *valp =3D ctl->data;
-     int val =3D *valp;
-     loff_t pos =3D *ppos;
-+    ctl_table lctl;
-     int ret;
-
--    ret =3D proc_dointvec(ctl, write, buffer, lenp, ppos);
-+    /*
-+     * ctl->data points to idev->cnf.forwarding, we should
-+     * not modify it until we get the rtnl lock.
-+     */
-+    lctl =3D *ctl;
-+    lctl.data =3D &val;
-+
-+    ret =3D proc_dointvec(&lctl, write, buffer, lenp, ppos);
-
-     if (write)
-         ret =3D addrconf_fixup_forwarding(ctl, valp, val);
-@@ -4205,26 +4215,28 @@ static void addrconf_disable_change(stru
-     rcu_read_unlock();
- }
-
--static int addrconf_disable_ipv6(struct ctl_table *table, int *p, int =
-old)
-+static int addrconf_disable_ipv6(struct ctl_table *table, int *p, int =
-newf)
- {
-     struct net *net;
-+    int old;
-
-     net =3D (struct net *)table->extra2;
-
--    if (p =3D=3D &net->ipv6.devconf_dflt->disable_ipv6)
-+    if (p =3D=3D &net->ipv6.devconf_dflt->disable_ipv6) {
-+        *p =3D newf;
-         return 0;
-+    }
-
--    if (!rtnl_trylock()) {
--        /* Restore the original values before restarting */
--        *p =3D old;
-+    if (!rtnl_trylock())
-         return restart_syscall();
--    }
-+
-+    old =3D *p;
-+    *p =3D newf;
-
-     if (p =3D=3D &net->ipv6.devconf_all->disable_ipv6) {
--        __s32 newf =3D net->ipv6.devconf_all->disable_ipv6;
-         net->ipv6.devconf_dflt->disable_ipv6 =3D newf;
-         addrconf_disable_change(net, newf);
--    } else if ((!*p) ^ (!old))
-+    } else if ((!newf) ^ (!old))
-         dev_disable_change((struct inet6_dev *)table->extra1);
-
-     rtnl_unlock();
-@@ -4238,9 +4250,17 @@ int addrconf_sysctl_disable(ctl_table *c
-     int *valp =3D ctl->data;
-     int val =3D *valp;
-     loff_t pos =3D *ppos;
-+    ctl_table lctl;
-     int ret;
-
--    ret =3D proc_dointvec(ctl, write, buffer, lenp, ppos);
-+    /*
-+     * ctl->data points to idev->cnf.disable_ipv6, we should
-+     * not modify it until we get the rtnl lock.
-+     */
-+    lctl =3D *ctl;
-+    lctl.data =3D &val;
-+
-+    ret =3D proc_dointvec(&lctl, write, buffer, lenp, ppos);
-
-     if (write)
-         ret =3D addrconf_disable_ipv6(ctl, valp, val);
+Zhi Yong Wu
