@@ -1,46 +1,64 @@
-From: Hemant-vilas RAMDASI <hemant.ramdasi@stericsson.com>
-Subject: RE: about tx_queue_len for phonet driver
-Date: Thu, 12 Jan 2012 12:24:40 +0100
-Message-ID: <81C3A93C17462B4BBD7E272753C105791FB10F99BD@EXDCVYMBSTM005.EQ1STM.local>
-References: <81C3A93C17462B4BBD7E272753C105791FB10F9968@EXDCVYMBSTM005.EQ1STM.local>
- <1326365873.2950.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	=?utf-8?B?UsOpbWkgRGVuaXMtQ291cm1vbnQ=?=
+From: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
 	<remi.denis-courmont@nokia.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: about tx_queue_len for phonet driver
+Date: Thu, 12 Jan 2012 13:56:28 +0200
+Message-ID: <2151675.UOkxvXJjp1@hector>
+References: <81C3A93C17462B4BBD7E272753C105791FB10F9968@EXDCVYMBSTM005.EQ1STM.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: ext Hemant-vilas RAMDASI <hemant.ramdasi@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:39067 "EHLO
-	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750718Ab2ALLYu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 06:24:50 -0500
-In-Reply-To: <1326365873.2950.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Content-Language: en-US
+Received: from smtp.nokia.com ([147.243.1.47]:35162 "EHLO mgw-sa01.nokia.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751860Ab2ALLzn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 06:55:43 -0500
+In-Reply-To: <81C3A93C17462B4BBD7E272753C105791FB10F9968@EXDCVYMBSTM005.EQ1STM.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
-YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIEphbnVhcnkg
-MTIsIDIwMTIgNDoyOCBQTQ0KPiBUbzogSGVtYW50LXZpbGFzIFJBTURBU0kNCj4gQ2M6IG5ldGRl
-dkB2Z2VyLmtlcm5lbC5vcmc7IFLDqW1pIERlbmlzLUNvdXJtb250DQo+IFN1YmplY3Q6IFJlOiBh
-Ym91dCB0eF9xdWV1ZV9sZW4gZm9yIHBob25ldCBkcml2ZXINCj4gDQo+IExlIGpldWRpIDEyIGph
-bnZpZXIgMjAxMiDDoCAxMTo0NSArMDEwMCwgSGVtYW50LXZpbGFzIFJBTURBU0kgYSDDqWNyaXQg
-Og0KPiA+IEhpLA0KPiA+DQo+ID4gQ2FuIGFueW9uZSBndWlkZSBtZSBhYm91dCB3aGVuIHNob3Vs
-ZCBhIG5ldHdvcmsgZHJpdmVyIHNldA0KPiA+IHR4X3F1ZXVlX2xlbiB0byAwPw0KPiA+IFdlIGFy
-ZSBmYWNpbmcgYSBuZXR3b3JrIGNvbmdlc3Rpb24gaXNzdWUgd2l0aCBwaG9uZXQgcGFja2V0cyB3
-aGVyZQ0KPiBvbmUNCj4gPiBvZiB0aGUgY29udHJvbCBtZXNzYWdlIHBhY2tldCBpcyBkcm9wcGVk
-IGJlY2F1c2Ugb2YgY29uZ2VzdGlvbi4gSW4NCj4gb3VyDQo+ID4gcGhvbmV0IG5ldHdvcmsgZHJp
-dmVyIHRoZSB0eF9xdWV1ZV9sZW4gaXMgc2V0IHRvIDMgKHRha2VuIGZyb20NCj4gPiB1c2ItcGhv
-bmV0IG1vc3RseSkuIElmIHBob25ldCBjYW5ub3QgaGFuZGxlIHBhY2tldC1kcm9wIChmb3IgcGlw
-ZQ0KPiA+IG1lc3NhZ2VzKSwgdGhlbiBzaG91bGQgbmV0d29yayBkcml2ZXIgYWx3YXlzIHNldCB0
-eF9xdWV1ZV9sZW4gYXMgMD8NCj4gDQo+IDAgaXMgdXN1YWxseSB1c2VkIGJ5IHZpcnR1YWwgZGV2
-aWNlcywgc2luY2UgcmVhbCBkZXZpY2UgaGFzIGEgcXVldWUuDQo+IA0KPiBJbiB5b3VyIGNhc2Us
-IEkgd291bGQgcmF0aGVyIGluY3JlYXNlIGEgYml0IHRoZSB0eF9xdWV1ZV9sZW4NCj4gDQo+IEkg
-bm90aWNlZCBpbiB0aGUgcGFzdCAzIGlzIHRoZSBkZWZhdWx0IGZvciBwcHAsIGFuZCB3ZSBjYW4g
-aW5kZWVkIGhhdmUNCj4gZHJvcHMgYmVjYXVzZSAzIGlzIHRvbyBzbWFsbCBmb3IgY3VycmVudCB1
-c2FnZXMuDQo+IA0KPiANCldoYXQgaGFwcGVucyBpZiBpdCBpcyBzZXQgdG8gMD8gSXMgaXQgc29t
-ZXRoaW5nIGxpa2UgaW5maW5pdGUgcXVldWUgd2hlcmUgcGFja2V0IGlzIG5ldmVyIGRyb3BwZWQ/
-DQpJIHNlZSBtYW55IGRyaXZlcnMgKG1haW5seSBJUEMpIHVzaW5nIDAuIA0KDQpUaGFua3MgJiBS
-ZWdhcmRzLA0KSGVtYW50DQo=
+	Hello,
+
+Le Jeudi 12 Janvier 2012 11:45:48 ext Hemant-vilas RAMDASI a =E9crit :
+> Can anyone guide me about when should a network driver set tx_queue_l=
+en to
+> 0? We are facing a network congestion issue with phonet packets where=
+ one
+> of the control message packet is dropped because of congestion. In ou=
+r
+> phonet network driver the tx_queue_len is set to 3 (taken from usb-ph=
+onet
+> mostly). If phonet cannot handle packet-drop (for pipe messages), the=
+n
+> should network driver always set tx_queue_len as 0?
+
+In theory, I guess the network device queuing discipline should be avoi=
+ded=20
+altogether, unless there is another way to prevent packet loss, that I =
+am not=20
+aware of. Unfortunately dropping qdisc, and thus net_device also, would=
+ have=20
+major redesign implications on the Linux Phonet infrastructure to say t=
+he=20
+least.
+
+In any case, Phonet devices typically fail to provide sane, reliable an=
+d race-
+free congestion control. I have seen some Phonet modem firmwares that j=
+ust=20
+crash if they receive too many and/or too large packets. Alas, this can=
+not be=20
+fixed on the Linux / application processor side.
+
+
+So you have to find a value large enough to avoid packet loss, but also=
+ small=20
+enough to avoid overflow and who-knows-what bugs on the modem side. For=
+ the=20
+record, the SSI driver queue length found on Nokia N9/N950 defaults to =
+100.
+
+--=20
+R=E9mi Denis-Courmont
+http://www.remlab.net/
