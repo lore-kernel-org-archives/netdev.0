@@ -1,52 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] netem:  de-GSO packets before enqueing
-Date: Fri, 13 Jan 2012 16:54:57 +0100
-Message-ID: <1326470097.3826.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1326400930.2740.10.camel@bwh-desktop>
-	 <20120112220328.GA10813@gondor.apana.org.au>
-	 <20120112165720.4545c670@nehalam.linuxnetplumber.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [0/5] bcma/brcmsmac suspend/resume cleanups and fixes
+Date: Fri, 13 Jan 2012 08:15:21 -0800
+Message-ID: <CA+55aFwPT2CZ8AXLwKBvBLKT4RFyAjbniuOJ83_nFMCU58hgXw@mail.gmail.com>
+References: <CA+55aFzm21ZKs7e_ocVA1bQQ=Js2dJpbiycwHR3v8yNvb0MgTw@mail.gmail.com>
+ <1326440480-26271-1-git-send-email-zajec5@gmail.com> <alpine.LNX.2.00.1201122354430.5860@air.linux-foundation.org>
+ <CACna6rypt6ocF2ysyDMeCFsBXye24sTTEvRi63hiosUDVGS_RQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120112165720.4545c670@nehalam.linuxnetplumber.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Arend van Spriel <arend@broadcom.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Alwin Beukers <alwin@broadcom.com>,
+	Roland Vossen <rvossen@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Network Development <netdev@vger.kernel.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+To: =?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:56706 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752340Ab2AMQPm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2012 11:15:42 -0500
+Received: by wibhm14 with SMTP id hm14so502840wib.19
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2012 08:15:41 -0800 (PST)
+In-Reply-To: <CACna6rypt6ocF2ysyDMeCFsBXye24sTTEvRi63hiosUDVGS_RQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 12 janvier 2012 =C3=A0 16:57 -0800, Stephen Hemminger a =C3=A9=
-crit :
-> Probably something like this is needed (untested).
->=20
-> This issue was discovered when looking at the skb_checksum path for t=
-he
-> netem corruption operation, but it is a general problem.
-> Network emulation operations like corruption and drop want to operate
-> on a per-packet (not per-segment) basis. This patch does GSO in softw=
-are
-> if necessary to break up packets.  Code is similar to logic in xfrm_o=
-utput.
->=20
-> Although it appears that the operation is not work conserving, it is =
-okay
-> because the higher level qdisc operations account for packets by incr=
-ementing
-> by gso_size.
+2012/1/13 Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>:
+>
+> I have Asus netbook with BCM4313 since a week, so I'll able to test
+> this. Just give me a day when I'm back home.
+>
+> Could we rearrange order of patches to make
+> bcma: invalidate the mapped window over suspend/resume
+> this first one and add stable as CC? What do you think about this?
 
-gso_size ok, but what about qlen ?
+I don't think it is relevant for stable - partly because in stable the
+bcma suspend/resume isn't wired up anyway, but mostly because if that
+patch really wants to make it into stable, it really is a different
+patch than the one I munged it into. The stable bcma doesn't have
+bcma_bus_suspend() at all, so it goes into that pci-specific one like
+your original email had it, where it's a complete hack.
 
-We end up splitting one GSO skb in multiple segments, but shouldnt we
-instruct upper qdisc(s) that qlen was increased, sort of
-qdisc_tree_increase_qlen() call ?
+Does it fix anything in stable?
 
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+                     Linus
