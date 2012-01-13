@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH V2 4/5] bcma: connect the bcma bus suspend/resume to the bcma driver suspend/resume
-Date: Fri, 13 Jan 2012 23:58:41 +0100
-Message-ID: <1326495522-6024-4-git-send-email-zajec5@gmail.com>
+Subject: [PATCH V2 5/5] brcmsmac: remove PCI suspend/resume from bcma driver
+Date: Fri, 13 Jan 2012 23:58:42 +0100
+Message-ID: <1326495522-6024-5-git-send-email-zajec5@gmail.com>
 References: <1326495522-6024-1-git-send-email-zajec5@gmail.com>
 Cc: Network Development <netdev@vger.kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -12,89 +12,91 @@ Cc: Network Development <netdev@vger.kernel.org>,
 	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
 To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:42276 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754113Ab2AMW7B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2012 17:59:01 -0500
-Received: by mail-ee0-f46.google.com with SMTP id d4so1238257eek.19
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2012 14:59:01 -0800 (PST)
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:37946 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759413Ab2AMW7D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2012 17:59:03 -0500
+Received: by mail-ey0-f174.google.com with SMTP id l12so346245eaa.19
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2012 14:59:03 -0800 (PST)
 In-Reply-To: <1326495522-6024-1-git-send-email-zajec5@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Linus Torvalds <torvalds@linux-foundation.org>
 
-Now the low-level driver actually gets informed that it is getting suspended and resumed.
+The brcmsmac driver isn't a PCI driver any more, it's a bcma one.  The
+PCI device has been resumed by the PCI driver (the generic PCI layer,
+really), we should be resuming just our own driver state.
+
+Also add pr_debug() calls to show that we now actually get the
+suspend/resume events.
 
 Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
 ---
- drivers/bcma/main.c                                |   19 +++++++++++++++++++
- .../net/wireless/brcm80211/brcmsmac/mac80211_if.c  |    2 +-
- include/linux/bcma/bcma.h                          |    2 +-
- 3 files changed, 21 insertions(+), 2 deletions(-)
+ .../net/wireless/brcm80211/brcmsmac/mac80211_if.c  |   38 ++------------------
+ 1 files changed, 3 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/bcma/main.c b/drivers/bcma/main.c
-index b711d9d..febbc0a 100644
---- a/drivers/bcma/main.c
-+++ b/drivers/bcma/main.c
-@@ -243,6 +243,16 @@ int __init bcma_bus_early_register(struct bcma_bus *bus,
- #ifdef CONFIG_PM
- int bcma_bus_suspend(struct bcma_bus *bus)
- {
-+	struct bcma_device *core;
-+
-+	list_for_each_entry(core, &bus->cores, list) {
-+		struct device_driver *drv = core->dev.driver;
-+		if (drv) {
-+			struct bcma_driver *adrv = container_of(drv, struct bcma_driver, drv);
-+			if (adrv->suspend)
-+				adrv->suspend(core);
-+		}
-+	}
- 	return 0;
- }
- 
-@@ -257,6 +267,15 @@ int bcma_bus_resume(struct bcma_bus *bus)
- 		bcma_core_chipcommon_init(&bus->drv_cc);
- 	}
- 
-+	list_for_each_entry(core, &bus->cores, list) {
-+		struct device_driver *drv = core->dev.driver;
-+		if (drv) {
-+			struct bcma_driver *adrv = container_of(drv, struct bcma_driver, drv);
-+			if (adrv->resume)
-+				adrv->resume(core);
-+		}
-+	}
-+
- 	return 0;
- }
- #endif
 diff --git a/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c b/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
-index 77fdc45..19721db 100644
+index 19721db..c43b2f8 100644
 --- a/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
 +++ b/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
-@@ -1135,7 +1135,7 @@ static int brcms_pci_suspend(struct pci_dev *pdev)
- 	return pci_set_power_state(pdev, PCI_D3hot);
+@@ -1128,13 +1128,6 @@ static int __devinit brcms_bcma_probe(struct bcma_device *pdev)
+ 	return 0;
  }
  
--static int brcms_suspend(struct bcma_device *pdev, pm_message_t state)
-+static int brcms_suspend(struct bcma_device *pdev)
+-static int brcms_pci_suspend(struct pci_dev *pdev)
+-{
+-	pci_save_state(pdev);
+-	pci_disable_device(pdev);
+-	return pci_set_power_state(pdev, PCI_D3hot);
+-}
+-
+ static int brcms_suspend(struct bcma_device *pdev)
  {
  	struct brcms_info *wl;
- 	struct ieee80211_hw *hw;
-diff --git a/include/linux/bcma/bcma.h b/include/linux/bcma/bcma.h
-index f4b8346..83c209f 100644
---- a/include/linux/bcma/bcma.h
-+++ b/include/linux/bcma/bcma.h
-@@ -162,7 +162,7 @@ struct bcma_driver {
+@@ -1153,40 +1146,15 @@ static int brcms_suspend(struct bcma_device *pdev)
+ 	wl->pub->hw_up = false;
+ 	spin_unlock_bh(&wl->lock);
  
- 	int (*probe)(struct bcma_device *dev);
- 	void (*remove)(struct bcma_device *dev);
--	int (*suspend)(struct bcma_device *dev, pm_message_t state);
-+	int (*suspend)(struct bcma_device *dev);
- 	int (*resume)(struct bcma_device *dev);
- 	void (*shutdown)(struct bcma_device *dev);
+-	/* temporarily do suspend ourselves */
+-	return brcms_pci_suspend(pdev->bus->host_pci);
+-}
+-
+-static int brcms_pci_resume(struct pci_dev *pdev)
+-{
+-	int err = 0;
+-	uint val;
+-
+-	err = pci_set_power_state(pdev, PCI_D0);
+-	if (err)
+-		return err;
+-
+-	pci_restore_state(pdev);
+-
+-	err = pci_enable_device(pdev);
+-	if (err)
+-		return err;
+-
+-	pci_set_master(pdev);
+-
+-	pci_read_config_dword(pdev, 0x40, &val);
+-	if ((val & 0x0000ff00) != 0)
+-		pci_write_config_dword(pdev, 0x40, val & 0xffff00ff);
++	pr_debug("brcms_suspend ok\n");
  
+ 	return 0;
+ }
+ 
+ static int brcms_resume(struct bcma_device *pdev)
+ {
+-	/*
+-	*  just do pci resume for now until bcma supports it.
+-	*/
+-	return brcms_pci_resume(pdev->bus->host_pci);
++	pr_debug("brcms_resume ok\n");
++	return 0;
+ }
+ 
+ static struct bcma_driver brcms_bcma_driver = {
 -- 
 1.7.7
