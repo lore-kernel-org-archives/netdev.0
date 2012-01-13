@@ -1,29 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ksz884x: fix mtu for VLAN
-Date: Thu, 12 Jan 2012 20:06:49 -0800 (PST)
-Message-ID: <20120112.200649.82222668012696767.davem@davemloft.net>
-References: <20120111231243.GA14836@dkehn-Latitude-D830>
+Subject: Re: [PATCH v2] net: fsl: fec: handle 10Mbps speed in RMII mode
+Date: Thu, 12 Jan 2012 20:05:56 -0800 (PST)
+Message-ID: <20120112.200556.1749523544894504540.davem@davemloft.net>
+References: <1326384628-7967-1-git-send-email-eric@eukrea.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: rdkehn@yahoo.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43793 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751573Ab2AMEGv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 23:06:51 -0500
-In-Reply-To: <20120111231243.GA14836@dkehn-Latitude-D830>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, shawn.guo@linaro.org,
+ linux-arm-kernel@lists.infradead.org, u.kleine-koenig@pengutronix.de
+To: eric@eukrea.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1326384628-7967-1-git-send-email-eric@eukrea.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Doug Kehn <rdkehn@yahoo.com>
-Date: Wed, 11 Jan 2012 17:12:43 -0600
+From: Eric B=E9nard <eric@eukrea.com>
+Date: Thu, 12 Jan 2012 17:10:28 +0100
 
-> The Ethernet header does not account for the addition of a VLAN header.
-> Full size Ethernet frames containing VLAN header are not processed
-> because the frame is larger than the resulting hw mtu.
-> 
-> Signed-off-by: Doug Kehn <rdkehn@yahoo.com>
+> when the link is 10 Mbps and the mode is RMII, it's necessary
+> to set FRCONT to 1 in MIIGSK_CFGR to divide the RMII source
+> clock by 10 in order to support 10 Mbps operations.
+> =
+
+> Signed-off-by: Eric B=E9nard <eric@eukrea.com>
+> Acked-by: Shawn Guo <shawn.guo@linaro.org>
 
 Applied.
