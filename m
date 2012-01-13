@@ -1,50 +1,55 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH] Making de2104x working with BNC connection on 21040 chipset
-Date: Fri, 13 Jan 2012 13:43:58 -0500
-Message-ID: <CAP=VYLpWbcBae11fcQPcuPmdfvir7N6F9QMdzXip=i4mMHjxsQ@mail.gmail.com>
-References: <4F0F641B.5090407@t-online.de>
+From: David Vrabel <dvrabel@cantab.net>
+Subject: Re: [Xen-devel] [RFC PATCH 4/6] netback: add module get/put operations
+ along with vif connect/disconnect.
+Date: Fri, 13 Jan 2012 18:44:25 +0000
+Message-ID: <4F107B89.6000004@cantab.net>
+References: <1326473949-22389-1-git-send-email-wei.liu2@citrix.com> <1326473949-22389-5-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Michael Mueller <malware@t-online.de>
+Content-Transfer-Encoding: 7bit
+Cc: ian.campbell@citrix.com, konrad.wilk@oracle.com,
+	xen-devel@lists.xensource.com, netdev@vger.kernel.org
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:45133 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752364Ab2AMSn6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2012 13:43:58 -0500
-Received: by ggdk6 with SMTP id k6so1801510ggd.19
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2012 10:43:58 -0800 (PST)
-In-Reply-To: <4F0F641B.5090407@t-online.de>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:56742 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753614Ab2AMSo2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2012 13:44:28 -0500
+Received: by yhnn56 with SMTP id n56so409273yhn.19
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2012 10:44:28 -0800 (PST)
+In-Reply-To: <1326473949-22389-5-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 12, 2012 at 5:52 PM, Michael Mueller <malware@t-online.de> wrote:
-> Hi,
->
-> while I recently updated an older machine to the latest Debian
-> distribution which included updating the kernel from 2.4.x to 3.0 the
-> tulip driver did stop working for my network card. The replacement
-> driver de2104x did initialize the network interfaces but no transmission
-> was possible.
+On 13/01/12 16:59, Wei Liu wrote:
+> If there is vif running and user unloads netback, it will certainly
+> cause problems.
 
-Did you try the original de4x5.c driver?   I believe it was all that existed
-back in the 2.4 vintage, and I think it was kept around just to keep old
-cards that didn't like the "new" tulip driver working.
+Is this necessary?  As part of module unload netback_remove() will be
+called and this will clean everything correctly, yes?
 
-Paul.
-
->
-> Digging into it I found the de2104x driver just assumes there is no BNC
-> transceiver on a card using the 21040 chipset. So I extracted the
-> correct configuration values from the old tulip driver and removed some
-> sanity checking which denied setting the transceiver to BNC. Now I can
-> use the driver by just setting the correct transceiver using ethtool.
->
-> A patch against 3.0 is appended. It should apply against more recent
-> versions too since there was not the lot happening for this old driver,
-> but for the relocation of the files from drivers/net/tulip to
-> drivers/net/ethernet/dec/tulip.
->
->
-> Michael
->
+> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> ---
+>  drivers/net/xen-netback/interface.c |    4 ++++
+>  1 files changed, 4 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+> index 93cb212..3126028 100644
+> --- a/drivers/net/xen-netback/interface.c
+> +++ b/drivers/net/xen-netback/interface.c
+> @@ -323,6 +323,8 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
+>  	if (vif->irq)
+>  		return 0;
+>  
+> +	__module_get(THIS_MODULE);
+> +
+>  	err = xen_netbk_map_frontend_rings(vif, tx_ring_ref, rx_ring_ref);
+>  	if (err < 0)
+>  		goto err;
+> @@ -405,4 +407,6 @@ void xenvif_disconnect(struct xenvif *vif)
+>  	xen_netbk_unmap_frontend_rings(vif);
+>  
+>  	free_netdev(vif->dev);
+> +
+> +	module_put(THIS_MODULE);
+>  }
