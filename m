@@ -1,77 +1,49 @@
-From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: [PATCH v2 3/4] SUNRPC: register service on creation in current
- network namespace
-Date: Fri, 13 Jan 2012 14:02:56 +0400
-Message-ID: <20120113100256.12259.43503.stgit@localhost6.localdomain6>
-References: <20120113095121.12259.52250.stgit@localhost6.localdomain6>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH v5 0/6] SUNRPC: rcbind clients virtualization
+Date: Fri, 13 Jan 2012 14:03:39 +0400
+Message-ID: <4F10017B.3070808@parallels.com>
+References: <20120113084545.31750.83655.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120113095121.12259.52250.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120113084545.31750.83655.stgit@localhost6.localdomain6>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Service, using rpcbind (Lockd, NFSd) are starting from userspace call and thus
-we can use current network namespace.
-There could be a problem with NFSd service, because it's creation can be called
-through NFSd fs from different network namespace. But this is a part of "NFSd
-per net ns" task and will be fixed in future.
+13.01.2012 12:52, Stanislav Kinsbursky =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> This patch-set was created in context of clone of git branch:
+> git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git.
+> head: devel
+>
+> v5:
+> 1) Rebased on up-to-date state ("devel" head).
+> 2) Added two more patches from latter series ("SUNRPC: register servi=
+ces with
+> per-net rpcbind"), because logically this series is the more suitable=
+ place for
+> them.
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Three patches from "SUNRPC: register services with per-net rpcbind" ser=
+ies:
+a) [1/7] "SUNRPC: create rpcbind client in passed network namespace con=
+text"
+b) [2/7] "SUNRPC: register rpcbind programs in passed network namespase=
+ context"
+c) [4/7] "SUNRPC: parametrize local rpcbind clients creation with net n=
+s"
 
----
- net/sunrpc/svc.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
-index 03d2dfc..b2cc1b3 100644
---- a/net/sunrpc/svc.c
-+++ b/net/sunrpc/svc.c
-@@ -20,6 +20,7 @@
- #include <linux/module.h>
- #include <linux/kthread.h>
- #include <linux/slab.h>
-+#include <linux/nsproxy.h>
- 
- #include <linux/sunrpc/types.h>
- #include <linux/sunrpc/xdr.h>
-@@ -366,16 +367,16 @@ svc_pool_for_cpu(struct svc_serv *serv, int cpu)
- 	return &serv->sv_pools[pidx % serv->sv_nrpools];
- }
- 
--static int svc_rpcb_setup(struct svc_serv *serv)
-+static int svc_rpcb_setup(struct svc_serv *serv, struct net *net)
- {
- 	int err;
- 
--	err = rpcb_create_local(&init_net);
-+	err = rpcb_create_local(net);
- 	if (err)
- 		return err;
- 
- 	/* Remove any stale portmap registrations */
--	svc_unregister(serv, &init_net);
-+	svc_unregister(serv, net);
- 	return 0;
- }
- 
-@@ -468,7 +469,7 @@ __svc_create(struct svc_program *prog, unsigned int bufsize, int npools,
- 	}
- 
- 	if (svc_uses_rpcbind(serv)) {
--	       	if (svc_rpcb_setup(serv) < 0) {
-+	       	if (svc_rpcb_setup(serv, current->nsproxy->net_ns) < 0) {
- 			kfree(serv->sv_pools);
- 			kfree(serv);
- 			return NULL;
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Best regards,
+Stanislav Kinsbursky
