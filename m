@@ -1,75 +1,127 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: brcm80211 breakage..
-Date: Thu, 12 Jan 2012 21:34:22 -0800
-Message-ID: <CA+55aFx4Xuai3wS1Jk09mNeO7gVYqzTyX5ev_9oRxCyNdBrEaw@mail.gmail.com>
-References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com>
- <4F0D6806.4080201@broadcom.com> <CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com>
- <CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com>
- <4F0DC030.6090500@lwfinger.net> <CA+55aFyAX_OdE7yNp1vM1AmywrYZ9Pvr0EX47jNQciZKOQUQHg@mail.gmail.com>
- <4F0E3B7E.8040005@lwfinger.net> <CA+55aFyR9C8GjhKb8orr1kgd_G23=-mcmT-uz9zJd6wk7rYDPA@mail.gmail.com>
- <4F0E5E57.9060204@lwfinger.net> <CA+55aFw0XArx0jpNh4dWYFmvJbb+GJYAWRUN2Ec14oREiATo7g@mail.gmail.com>
- <CA+55aFxDOr_TT+kxp1SuwNFfm7KLTaWSLQwk1Fx8fWe7tdstcg@mail.gmail.com>
- <CA+55aFzkCXnHfF_TO5M+gaN4RMvj_WNuW_QeBezuYBdWnwPDpg@mail.gmail.com>
- <CA+55aFx2UnVZP1Z44dMHeifB2nD1zJ87kz25zZjUdwv0ozwKPA@mail.gmail.com>
- <CA+55aFzNJbM=ohXninJ06518e3a6E8vySg8GT6dx+Qovk1QW0Q@mail.gmail.com>
- <4F0F3DEC.4050605@broadcom.com> <CA+55aFw==r4TF5WPn5Ggz32m7yi2T71Ghdx+7ME=pEjQLqU=uw@mail.gmail.com>
- <CA+55aFxMh0T1W06YHepcPAyemcR4rrxghQeRKsW3MtT+gNK9eg@mail.gmail.com>
- <CACna6rwVTN6jQuAjVFN0p8QRVpt89ne7LxKbcmoorbZFtxFLkQ@mail.gmail.com>
- <CA+55aFz8z9V5vxBMAH3TFVmROj0C-8Mb+G0Ki=Yuai5_KG893A@mail.gmail.com>
- <CACna6rzeTmQu0c1=f6gizG_=XRkt3FdB7c_sAJtktjLdFmTQ3g@mail.gmail.com>
- <CA+55aFxZ7H=x2-rgQgRE9b=ky-h0WM1x-48Zs8a0dVt0NvkB_g@mail.gmail.com> <CA+55aFzP2NfDqiG9NCP+SyXstuNzJAVpN=KXTirhjhYzaCyPjA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Consequences of commit 16e5726269611b71c930054ffe9b858c1cea88eb
+Date: Fri, 13 Jan 2012 06:50:47 +0100
+Message-ID: <1326433847.2617.6.camel@edumazet-laptop>
+References: <CAO+b5-pGcKbTYQWdWo=kbiQ2ORbgn8GAV_cfYjGzOARmgrsUxQ@mail.gmail.com>
+	 <1326401943.2617.0.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Alwin Beukers <alwin@broadcom.com>,
-	Roland Vossen <rvossen@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Network Development <netdev@vger.kernel.org>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
-To: =?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>,
-	Arend van Spriel <arend@broadcom.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Eric Paris <eparis@redhat.com>
+To: Bart Van Assche <bvanassche@acm.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:36909 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750759Ab2AMFen (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2012 00:34:43 -0500
-Received: by ggdk6 with SMTP id k6so1447291ggd.19
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2012 21:34:43 -0800 (PST)
-In-Reply-To: <CA+55aFzP2NfDqiG9NCP+SyXstuNzJAVpN=KXTirhjhYzaCyPjA@mail.gmail.com>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:46867 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751559Ab2AMFuw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2012 00:50:52 -0500
+Received: by wibhm14 with SMTP id hm14so99391wib.19
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2012 21:50:51 -0800 (PST)
+In-Reply-To: <1326401943.2617.0.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2012/1/12 Linus Torvalds <torvalds@linux-foundation.org>:
-> 2012/1/12 Linus Torvalds <torvalds@linux-foundation.org>:
->>
->> I'm surprised it has ever worked for anybody. It certainly doesn't work for me.
->
-> So I can suspend the bcma driver on its own until the cows come home.
->
-> But after I have suspended the bcma driver even once, just doing a
-> "modprobe brcmsmac" will hang the machine hard. Dunno where, but this
-> is probably the same thing as "hangs on resume".
+Le jeudi 12 janvier 2012 =C3=A0 21:59 +0100, Eric Dumazet a =C3=A9crit =
+:
+> Le jeudi 12 janvier 2012 =C3=A0 19:14 +0000, Bart Van Assche a =C3=A9=
+crit :
+> > Hi,
+> >=20
+> > If my analysis is correct commit
+> > 16e5726269611b71c930054ffe9b858c1cea88eb ("af_unix: dont send
+> > SCM_CREDENTIALS by default") changes the value of
+> > NETLINK_CREDS(skb)->pid from the sender pid into zero. Does that me=
+an
+> > that the code using that construct did work in kernel 3.1 but that =
+it
+> > is broken in kernel 3.2 ? Should that commit be reverted or will
+> > someone fix the code that uses NETLINK_CREDS() ? Would changing
+> > NETLINK_CREDS(skb)->pid into NETLINK_CB(skb).pid be sufficient ?
+> >=20
+> > Thanks,
+> >=20
+> > Bart.
+> >=20
+> > $ git grep 'NETLINK_CREDS([a-zA-Z0-9_]*)->pid'
+> > drivers/scsi/scsi_netlink.c:	pid =3D NETLINK_CREDS(skb)->pid;
+> > kernel/audit.c:	pid  =3D NETLINK_CREDS(skb)->pid;
+>=20
+>=20
+> What is your problem exactly ?
+>=20
+>=20
 
-Guys, has suspend/resume with the bcma interface been tested AT ALL?
+So the underlying question is : should netlink_sendmsg() always include
+credentials of the sender, or should the sender use the right API for
+that.
 
-The suspend/resume fields of "struct bcma_driver" are COMPLETELY
-UNUSED. The only place in the kernel that uses them is the brcmsmac
-driver that does this write-only assignment:
+If we include a default credential, we still allow the sender to
+override it.
 
-        .suspend  = brcms_suspend,
-        .resume   = brcms_resume,
+Probably netlink is not performance sensitive so following patch could
+address the problem ?
 
-nothing else uses them. NOTHING. I tested by just removing the fields
-and compiling the bcma subsystem, just in case there was something
-really subtle that I was missing and was hidden through some magic
-hidden approach. But no.
+I am still not sure its really needed.
 
-Seriously - how was something that isn't even connected ever supposed
-to work at all? And why was the BCMA conversion of that driver sent
-up-stream if something as fundamental as suspend/resume had never been
-done, and didn't actually work?
+Comments ?
 
-What am I missing now? How the hell can this ever have worked for
-ANYBODY? What kind of f*&*ing sick joke is this all?
-
-                      Linus
+diff --git a/include/net/scm.h b/include/net/scm.h
+index d456f4c..4af5f90 100644
+--- a/include/net/scm.h
++++ b/include/net/scm.h
+@@ -71,9 +71,13 @@ static __inline__ void scm_destroy(struct scm_cookie=
+ *scm)
+ }
+=20
+ static __inline__ int scm_send(struct socket *sock, struct msghdr *msg=
+,
+-			       struct scm_cookie *scm)
++			       struct scm_cookie *scm, bool populate)
+ {
+ 	memset(scm, 0, sizeof(*scm));
++
++	if (populate)
++		scm_set_cred(scm, task_tgid(current), current_cred());
++
+ 	unix_get_peersec_dgram(sock, scm);
+ 	if (msg->msg_controllen <=3D 0)
+ 		return 0;
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 629b061..c040277 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1323,7 +1323,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, s=
+truct socket *sock,
+ 	if (NULL =3D=3D siocb->scm)
+ 		siocb->scm =3D &scm;
+=20
+-	err =3D scm_send(sock, msg, siocb->scm);
++	err =3D scm_send(sock, msg, siocb->scm, true);
+ 	if (err < 0)
+ 		return err;
+=20
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index aad8fb6..f788eb9 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1438,7 +1438,7 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb=
+, struct socket *sock,
+ 	if (NULL =3D=3D siocb->scm)
+ 		siocb->scm =3D &tmp_scm;
+ 	wait_for_unix_gc();
+-	err =3D scm_send(sock, msg, siocb->scm);
++	err =3D scm_send(sock, msg, siocb->scm, false);
+ 	if (err < 0)
+ 		return err;
+=20
+@@ -1599,7 +1599,7 @@ static int unix_stream_sendmsg(struct kiocb *kioc=
+b, struct socket *sock,
+ 	if (NULL =3D=3D siocb->scm)
+ 		siocb->scm =3D &tmp_scm;
+ 	wait_for_unix_gc();
+-	err =3D scm_send(sock, msg, siocb->scm);
++	err =3D scm_send(sock, msg, siocb->scm, false);
+ 	if (err < 0)
+ 		return err;
+=20
