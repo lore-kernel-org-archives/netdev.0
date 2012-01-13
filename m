@@ -1,59 +1,44 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] netem:  de-GSO packets before enqueing
-Date: Fri, 13 Jan 2012 11:20:28 -0800
-Message-ID: <20120113112028.4a24d988@nehalam.linuxnetplumber.net>
-References: <1326400930.2740.10.camel@bwh-desktop>
-	<20120112220328.GA10813@gondor.apana.org.au>
-	<20120112165720.4545c670@nehalam.linuxnetplumber.net>
-	<1326470097.3826.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] rds_rdma: don't assume infiniband device is PCI
+Date: Fri, 13 Jan 2012 13:12:48 -0800 (PST)
+Message-ID: <20120113.131248.447541680022014759.davem@davemloft.net>
+References: <20120113181706.GA3904@oc1711230544.ibm.com>
+	<20120113.102518.924916400773191073.davem@davemloft.net>
+	<20120113185258.GB3904@oc1711230544.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1326470097.3826.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: roland@purestorage.com, venkat.x.venkatsubra@oracle.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dledford@redhat.com, Jes.Sorensen@redhat.com,
+	rds-devel@oss.oracle.com
+To: cascardo@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:50580 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753814Ab2AMVNM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2012 16:13:12 -0500
+In-Reply-To: <20120113185258.GB3904@oc1711230544.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 13 Jan 2012 16:54:57 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Date: Fri, 13 Jan 2012 16:52:58 -0200
 
-> Le jeudi 12 janvier 2012 =E0 16:57 -0800, Stephen Hemminger a =E9crit=
- :
-> > Probably something like this is needed (untested).
-> >=20
-> > This issue was discovered when looking at the skb_checksum path for=
- the
-> > netem corruption operation, but it is a general problem.
-> > Network emulation operations like corruption and drop want to opera=
-te
-> > on a per-packet (not per-segment) basis. This patch does GSO in sof=
-tware
-> > if necessary to break up packets.  Code is similar to logic in xfrm=
-_output.
-> >=20
-> > Although it appears that the operation is not work conserving, it i=
-s okay
-> > because the higher level qdisc operations account for packets by in=
-crementing
-> > by gso_size.
->=20
-> gso_size ok, but what about qlen ?
->=20
-> We end up splitting one GSO skb in multiple segments, but shouldnt we
-> instruct upper qdisc(s) that qlen was increased, sort of
-> qdisc_tree_increase_qlen() call ?
->=20
->=20
->=20
+> On Fri, Jan 13, 2012 at 10:25:18AM -0800, David Miller wrote:
+>> From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+>> Date: Fri, 13 Jan 2012 16:17:06 -0200
+>> 
+>> > Is this going through your tree? In patchwork, its state is "Not
+>> > Applicable".
+>> 
+>> There was an active RDS maintainer, though I haven't seen patches
+>> from that person in a while.
+>> 
+> 
+> Hi, David.
+> 
+> Venkat is the current RDS maintainer and he has Acked the patch.
 
-Also, does pkt_len need to be set in cb after de-gso?
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Not according to patchwork.  I don't see him reply at all to the
+patch posting and give his explicit "Acked-by: "
