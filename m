@@ -1,237 +1,69 @@
-From: "Prashant Batra (prbatra)" <prbatra-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: ipsec tunnel with different inner and outer ip
-	families
-Date: Fri, 13 Jan 2012 12:41:38 +0530
-Message-ID: <B97B134FACB2024DB45F524AB0A7B7F2058AF974@XMB-BGL-419.cisco.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: brcm80211 breakage..
+Date: Thu, 12 Jan 2012 23:13:00 -0800
+Message-ID: <CA+55aFyo=A7YceX11_Tuc_-7Ube_EYp1a2iSb7sFBN0Dc_x=zQ@mail.gmail.com>
+References: <CA+55aFxw5e3EYCGYjkWiTmhy9-WaY4T_-MF7EYcn4jXuBoxAgw@mail.gmail.com>
+ <4F0D6806.4080201@broadcom.com> <CA+55aFxzFKkUPSCU6Wr_FBPd6NFPeTctGR0kpqYJJ8fcw+ck7w@mail.gmail.com>
+ <CA+55aFw7TdNzNi86cwF4o6xSWnbKuPS5CuhdbChzoboNw_1-Tw@mail.gmail.com>
+ <4F0DC030.6090500@lwfinger.net> <CA+55aFyAX_OdE7yNp1vM1AmywrYZ9Pvr0EX47jNQciZKOQUQHg@mail.gmail.com>
+ <4F0E3B7E.8040005@lwfinger.net> <CA+55aFyR9C8GjhKb8orr1kgd_G23=-mcmT-uz9zJd6wk7rYDPA@mail.gmail.com>
+ <4F0E5E57.9060204@lwfinger.net> <CA+55aFw0XArx0jpNh4dWYFmvJbb+GJYAWRUN2Ec14oREiATo7g@mail.gmail.com>
+ <CA+55aFxDOr_TT+kxp1SuwNFfm7KLTaWSLQwk1Fx8fWe7tdstcg@mail.gmail.com>
+ <CA+55aFzkCXnHfF_TO5M+gaN4RMvj_WNuW_QeBezuYBdWnwPDpg@mail.gmail.com>
+ <CA+55aFx2UnVZP1Z44dMHeifB2nD1zJ87kz25zZjUdwv0ozwKPA@mail.gmail.com>
+ <CA+55aFzNJbM=ohXninJ06518e3a6E8vySg8GT6dx+Qovk1QW0Q@mail.gmail.com>
+ <4F0F3DEC.4050605@broadcom.com> <CA+55aFw==r4TF5WPn5Ggz32m7yi2T71Ghdx+7ME=pEjQLqU=uw@mail.gmail.com>
+ <CA+55aFxMh0T1W06YHepcPAyemcR4rrxghQeRKsW3MtT+gNK9eg@mail.gmail.com>
+ <CACna6rwVTN6jQuAjVFN0p8QRVpt89ne7LxKbcmoorbZFtxFLkQ@mail.gmail.com>
+ <CA+55aFz8z9V5vxBMAH3TFVmROj0C-8Mb+G0Ki=Yuai5_KG893A@mail.gmail.com>
+ <CACna6rzeTmQu0c1=f6gizG_=XRkt3FdB7c_sAJtktjLdFmTQ3g@mail.gmail.com>
+ <CA+55aFxZ7H=x2-rgQgRE9b=ky-h0WM1x-48Zs8a0dVt0NvkB_g@mail.gmail.com>
+ <CA+55aFzP2NfDqiG9NCP+SyXstuNzJAVpN=KXTirhjhYzaCyPjA@mail.gmail.com>
+ <CA+55aFx4Xuai3wS1Jk09mNeO7gVYqzTyX5ev_9oRxCyNdBrEaw@mail.gmail.com> <CACna6rwuyp+VY3ZveCv+HLuyfu0X27pxKAc=rdzrvY2BJPk8QQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============2155606533388579848=="
-To: <ipsec-tools-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <ipsec-tools-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-class: urn:content-classes:message
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipsec-tools-devel>,
-	<mailto:ipsec-tools-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=ipsec-tools-devel>
-List-Post: <mailto:ipsec-tools-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:ipsec-tools-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipsec-tools-devel>,
-	<mailto:ipsec-tools-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: ipsec-tools-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arend van Spriel <arend@broadcom.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Alwin Beukers <alwin@broadcom.com>,
+	Roland Vossen <rvossen@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Network Development <netdev@vger.kernel.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+To: =?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:35626 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751882Ab2AMHNo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2012 02:13:44 -0500
+Received: by ghbg16 with SMTP id g16so746946ghb.19
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2012 23:13:43 -0800 (PST)
+In-Reply-To: <CACna6rwuyp+VY3ZveCv+HLuyfu0X27pxKAc=rdzrvY2BJPk8QQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
+2012/1/12 Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>:
+>
+> Linus: can you do one trivial test for me? Please simply try unloadin=
+g
+> bcma before suspending. Then resume and load bcma and brcmsmac. Does
+> it still lockup your machine?
 
---===============2155606533388579848==
-Content-Type: multipart/alternative;
-	boundary="----_=_NextPart_001_01CCD1C2.9B1BA06C"
-Content-class: urn:content-classes:message
+That works, but is not interesting. It just reloads everything.
 
-This is a multi-part message in MIME format.
+The thing is, your hardware clearly never powers anything down,
+because the bcma suspend/resume functions aren't hooked up to
+anything, so the brcmsmac suspend/resume never gets called at all.
 
-------_=_NextPart_001_01CCD1C2.9B1BA06C
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+And it sounds like it works for you for the simple reason that your
+hardware never loses power - so you don't need to do anything for
+suspend/resume.
 
-Hello,
+But there is absolutely zero question about it - the code does not
+work. Never has. It's just that your hardware doesn't *need* any code
+at all, and as far as you are concerned, suspend/resume doesn't even
+really happen (the PCI layer handles the regular "set to D3 and back
+to D0", so the fact that the driver doesn't do anything never shows
+up)
 
-=20
-
-Does linux 2.6.* support an IPSec tunnel with different family of inner
-and outer addresses , like v4 in v6 or v6 in v4.
-
-After trying ip xfrm * from user space, the utility doesn't seem to
-accept two different families in a single command.
-
-=20
-
-#ip xfrm policy add dir out src 172.168.68.1/32 dst 172.168.68.2/32 tmpl
-src 2001:db8:0:242::36/128 dst 2001:db8:0:242::37/128 proto esp  mode
-tunnel
-
-Error: an inet prefix is expected rather than "2001:db8:0:242::36/128".
-
-=20
-
-So, I tried sending a NETLINK SPD add message) from user space with,
-selector as v4 addresses and tmpl as v6 address.
-
-Policy got added but kernel doesn't seem to be interpreting the
-addresses correctly.
-
-=20
-
-src 172.16.80.1/32 dst 0.0.0.0/0
-
-        dir out priority 1024
-
-        tmpl    src 32.1.13.184 dst 32.1.13.184   /* I gave ipv6
-addresses here*/
-
-                proto esp spi 0x00000000 reqid 0 mode tunnel
-
-=20
-
-Can someone help me with this?
-
-=20
-
-Regards,
-
-Prashant.
-
-
-------_=_NextPart_001_01CCD1C2.9B1BA06C
-Content-Type: text/html;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-
-<html xmlns:v=3D"urn:schemas-microsoft-com:vml" =
-xmlns:o=3D"urn:schemas-microsoft-com:office:office" =
-xmlns:w=3D"urn:schemas-microsoft-com:office:word" =
-xmlns:m=3D"http://schemas.microsoft.com/office/2004/12/omml" =
-xmlns=3D"http://www.w3.org/TR/REC-html40">
-
-<head>
-<meta http-equiv=3DContent-Type content=3D"text/html; =
-charset=3Dus-ascii">
-<meta name=3DGenerator content=3D"Microsoft Word 12 (filtered medium)">
-<style>
-<!--
- /* Font Definitions */
- @font-face
-	{font-family:"Cambria Math";
-	panose-1:2 4 5 3 5 4 6 3 2 4;}
-@font-face
-	{font-family:Calibri;
-	panose-1:2 15 5 2 2 2 4 3 2 4;}
- /* Style Definitions */
- p.MsoNormal, li.MsoNormal, div.MsoNormal
-	{margin:0in;
-	margin-bottom:.0001pt;
-	font-size:11.0pt;
-	font-family:"Calibri","sans-serif";}
-a:link, span.MsoHyperlink
-	{mso-style-priority:99;
-	color:blue;
-	text-decoration:underline;}
-a:visited, span.MsoHyperlinkFollowed
-	{mso-style-priority:99;
-	color:purple;
-	text-decoration:underline;}
-span.EmailStyle17
-	{mso-style-type:personal-compose;
-	font-family:"Calibri","sans-serif";
-	color:windowtext;}
-.MsoChpDefault
-	{mso-style-type:export-only;}
-@page Section1
-	{size:8.5in 11.0in;
-	margin:1.0in 1.0in 1.0in 1.0in;}
-div.Section1
-	{page:Section1;}
--->
-</style>
-<!--[if gte mso 9]><xml>
- <o:shapedefaults v:ext=3D"edit" spidmax=3D"1026" />
-</xml><![endif]--><!--[if gte mso 9]><xml>
- <o:shapelayout v:ext=3D"edit">
-  <o:idmap v:ext=3D"edit" data=3D"1" />
- </o:shapelayout></xml><![endif]-->
-</head>
-
-<body lang=3DEN-US link=3Dblue vlink=3Dpurple>
-
-<div class=3DSection1>
-
-<p class=3DMsoNormal>Hello,<o:p></o:p></p>
-
-<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
-
-<p class=3DMsoNormal>Does linux 2.6.* support an IPSec tunnel with =
-different
-family of inner and outer addresses , like v4 in v6 or v6 in =
-v4.<o:p></o:p></p>
-
-<p class=3DMsoNormal>After trying ip xfrm * from user space, the utility =
-doesn&#8217;t
-seem to accept two different families in a single =
-command.<o:p></o:p></p>
-
-<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
-
-<p class=3DMsoNormal>#ip xfrm policy add dir out src 172.168.68.1/32 dst
-172.168.68.2/32 tmpl src 2001:db8:0:242::36/128 dst =
-2001:db8:0:242::37/128
-proto esp&nbsp; mode tunnel<o:p></o:p></p>
-
-<p class=3DMsoNormal>Error: an inet prefix is expected rather than
-&quot;2001:db8:0:242::36/128&quot;.<o:p></o:p></p>
-
-<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
-
-<p class=3DMsoNormal>So, I tried sending a NETLINK SPD add message) from =
-user
-space with, selector as v4 addresses and tmpl as v6 =
-address.<o:p></o:p></p>
-
-<p class=3DMsoNormal>Policy got added but kernel doesn&#8217;t seem to =
-be interpreting
-the addresses correctly.<o:p></o:p></p>
-
-<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
-
-<p class=3DMsoNormal>src 172.16.80.1/32 dst 0.0.0.0/0<o:p></o:p></p>
-
-<p class=3DMsoNormal>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; dir out =
-priority
-1024<o:p></o:p></p>
-
-<p class=3DMsoNormal>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-tmpl&nbsp;&nbsp;&nbsp; src 32.1.13.184 dst 32.1.13.184&nbsp;&nbsp; /* I =
-gave
-ipv6 addresses here*/<o:p></o:p></p>
-
-<p =
-class=3DMsoNormal>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
-nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-proto esp spi 0x00000000 reqid 0 mode tunnel<o:p></o:p></p>
-
-<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
-
-<p class=3DMsoNormal>Can someone help me with this?<o:p></o:p></p>
-
-<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
-
-<p class=3DMsoNormal>Regards,<o:p></o:p></p>
-
-<p class=3DMsoNormal>Prashant.<o:p></o:p></p>
-
-</div>
-
-</body>
-
-</html>
-
-------_=_NextPart_001_01CCD1C2.9B1BA06C--
-
-
---===============2155606533388579848==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-RSA(R) Conference 2012
-Mar 27 - Feb 2
-Save $400 by Jan. 27
-Register now!
-http://p.sf.net/sfu/rsa-sfdev2dev2
---===============2155606533388579848==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-
---===============2155606533388579848==--
+                       Linus
