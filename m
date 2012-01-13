@@ -1,40 +1,31 @@
-From: "Arend van Spriel" <arend@broadcom.com>
-Subject: Re: brcmsmac: 3.2.0-06100: no device shown (and hangs in
- 3.2.0-rc7)
-Date: Fri, 13 Jan 2012 15:20:45 +0100
-Message-ID: <4F103DBD.4070704@broadcom.com>
-References: <20120113124559.GA2260@schottelius.org>
- <4F103379.2050904@broadcom.com> <20120113141809.GA3072@schottelius.org>
+From: "Naveen B N (nbn)" <nbn@cisco.com>
+Subject: xfrm
+Date: Fri, 13 Jan 2012 20:05:48 +0530
+Message-ID: <A2354B6A9F807641B21EEABD666ECEEA02597529@XMB-BGL-416.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
-To: "Nico Schottelius" <nico-linux-20120113@schottelius.org>,
-	LKML <linux-kernel@vger.kernel.org>, b43-dev@lists.infradead.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120113141809.GA3072@schottelius.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bgl-iport-1.cisco.com ([72.163.197.25]:18607 "EHLO
+	bgl-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758240Ab2AMOfv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2012 09:35:51 -0500
+Received: from xbh-bgl-412.cisco.com (xbh-bgl-412.cisco.com [72.163.129.202])
+	by bgl-core-1.cisco.com (8.14.3/8.14.3) with ESMTP id q0DEZnpp008725
+	for <netdev@vger.kernel.org>; Fri, 13 Jan 2012 14:35:49 GMT
+Content-class: urn:content-classes:message
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/13/2012 03:18 PM, Nico Schottelius wrote:
-> Hey Arend,
-> 
-> Arend van Spriel [Fri, Jan 13, 2012 at 02:36:57PM +0100]:
->> Could this be on your MacBook Air? If so, Linus has flagged and solved
->> this issue (see thread "brcm80211 breakage" on netdev mailer).
-> 
-> Oh, yes, indeed!
-> 
-> Although the channel 13 issue seems still to exist.
+Hi All,
 
-Likely. I did not dive into that issue yet.
+I am trying to understand the design of the XFRM Policy , XFRM state
+Data structure s and lists it is using =A0to stores , traverse , search=
+=2E
+Please share if there are any links or documents ,=20
+Which share some info about the data structures, search design
+Of XFRM database and xfrm Ipsec layer interface.
 
-> I'll apply his patches this evening and test as well.
-> 
-> Cheers,
-> 
-> Nico
-> 
-
-Gr. AvS
+Thanks and Regards
+Naveen
