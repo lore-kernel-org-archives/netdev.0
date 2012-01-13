@@ -1,36 +1,48 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [RFC PATCH 1/6] netback: page pool version 1
-Date: Fri, 13 Jan 2012 12:37:46 -0500
-Message-ID: <20120113173746.GA16182@phenom.dumpdata.com>
-References: <1326473949-22389-1-git-send-email-wei.liu2@citrix.com>
- <1326473949-22389-2-git-send-email-wei.liu2@citrix.com>
+From: David Vrabel <dvrabel@cantab.net>
+Subject: Re: [Xen-devel] [RFC PATCH 2/6] netback: add module unload function.
+Date: Fri, 13 Jan 2012 17:57:47 +0000
+Message-ID: <4F10709B.8070804@cantab.net>
+References: <1326473949-22389-1-git-send-email-wei.liu2@citrix.com> <1326473949-22389-3-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ian.campbell@citrix.com, xen-devel@lists.xensource.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: ian.campbell@citrix.com, konrad.wilk@oracle.com,
+	xen-devel@lists.xensource.com, netdev@vger.kernel.org
 To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:21550 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932429Ab2AMRjp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2012 12:39:45 -0500
-Content-Disposition: inline
-In-Reply-To: <1326473949-22389-2-git-send-email-wei.liu2@citrix.com>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:47038 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751754Ab2AMR5z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2012 12:57:55 -0500
+Received: by yenq4 with SMTP id q4so365492yen.19
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2012 09:57:55 -0800 (PST)
+In-Reply-To: <1326473949-22389-3-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +static idx_t free_head;
-> +static int free_count;
-> +static unsigned long pool_size;
-> +static DEFINE_SPINLOCK(pool_lock);
-> +static struct page_pool_entry *pool;
-> +
-> +static int get_free_entry(void)
+On 13/01/12 16:59, Wei Liu wrote:
+> Enables users to unload netback module.
+[...]
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index 26af7b7..dd10c0d 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -1653,5 +1653,19 @@ failed_init:
+>  
+>  module_init(netback_init);
+>  
+> +static void __exit netback_exit(void)
 > +{
-> +	unsigned long flag;
-> +	int idx;
-> +
-> +	spin_lock_irqsave(&pool_lock, flag);
+> +	int i;
+> +	for (i = 0; i < xen_netbk_group_nr; i++) {
+> +		struct xen_netbk *netbk = &xen_netbk[i];
+> +		del_timer(&netbk->net_timer);
 
-What is the benfit of using the irq version of the spinlock instead
-of the normal one??
+This needs to be del_timer_sync().
+
+> +		kthread_stop(netbk->task);
+> +	}
+> +	vfree(xen_netbk);
+> +	page_pool_destroy();
+> +	xenvif_xenbus_exit();
+> +}
