@@ -1,8 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v5 5/6] SUNRPC: register rpcbind programs in passed network
- namespase context
-Date: Fri, 13 Jan 2012 12:52:43 +0400
-Message-ID: <20120113085243.31750.20490.stgit@localhost6.localdomain6>
+Subject: [PATCH v5 6/6] SUNRPC: parametrize local rpcbind clients creation
+ with net ns
+Date: Fri, 13 Jan 2012 12:52:51 +0400
+Message-ID: <20120113085251.31750.74257.stgit@localhost6.localdomain6>
 References: <20120113084545.31750.83655.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,123 +12,89 @@ Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
 	jbottomley@parallels.com, bfields@fieldses.org,
 	davem@davemloft.net, devel@openvz.org
 To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:7196 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755323Ab2AMIxM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jan 2012 03:53:12 -0500
 In-Reply-To: <20120113084545.31750.83655.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Registering rpcbind program requires rpcbind clients, which are per network
-namespace context.
+These client are per network namespace and thus can be created for different
+network namespaces.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- include/linux/sunrpc/clnt.h |    5 +++--
- net/sunrpc/rpcb_clnt.c      |    8 ++++----
- net/sunrpc/svc.c            |   10 +++++-----
- 3 files changed, 12 insertions(+), 11 deletions(-)
+ include/linux/sunrpc/clnt.h |    4 ++--
+ net/sunrpc/rpcb_clnt.c      |    7 +++----
+ net/sunrpc/svc.c            |    4 ++--
+ 3 files changed, 7 insertions(+), 8 deletions(-)
 
 diff --git a/include/linux/sunrpc/clnt.h b/include/linux/sunrpc/clnt.h
-index bfd6185..b0b3e57 100644
+index b0b3e57..e891a8a 100644
 --- a/include/linux/sunrpc/clnt.h
 +++ b/include/linux/sunrpc/clnt.h
-@@ -138,8 +138,9 @@ void		rpc_task_release_client(struct rpc_task *);
+@@ -136,8 +136,8 @@ void		rpc_shutdown_client(struct rpc_clnt *);
+ void		rpc_release_client(struct rpc_clnt *);
+ void		rpc_task_release_client(struct rpc_task *);
  
- int		rpcb_create_local(void);
- void		rpcb_put_local(void);
--int		rpcb_register(u32, u32, int, unsigned short);
--int		rpcb_v4_register(const u32 program, const u32 version,
-+int		rpcb_register(struct net *, u32, u32, int, unsigned short);
-+int		rpcb_v4_register(struct net *net, const u32 program,
-+				 const u32 version,
- 				 const struct sockaddr *address,
- 				 const char *netid);
- void		rpcb_getport_async(struct rpc_task *);
+-int		rpcb_create_local(void);
+-void		rpcb_put_local(void);
++int		rpcb_create_local(struct net *);
++void		rpcb_put_local(struct net *);
+ int		rpcb_register(struct net *, u32, u32, int, unsigned short);
+ int		rpcb_v4_register(struct net *net, const u32 program,
+ 				 const u32 version,
 diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
-index 0d76c0f..a5aa50d 100644
+index a5aa50d..6d6a84f 100644
 --- a/net/sunrpc/rpcb_clnt.c
 +++ b/net/sunrpc/rpcb_clnt.c
-@@ -425,7 +425,7 @@ static int rpcb_register_call(struct rpc_clnt *clnt, struct rpc_message *msg)
-  * IN6ADDR_ANY (ie available for all AF_INET and AF_INET6
-  * addresses).
-  */
--int rpcb_register(u32 prog, u32 vers, int prot, unsigned short port)
-+int rpcb_register(struct net *net, u32 prog, u32 vers, int prot, unsigned short port)
+@@ -175,9 +175,9 @@ static int rpcb_get_local(struct net *net)
+ 	return cnt;
+ }
+ 
+-void rpcb_put_local(void)
++void rpcb_put_local(struct net *net)
  {
- 	struct rpcbind_args map = {
- 		.r_prog		= prog,
-@@ -436,7 +436,7 @@ int rpcb_register(u32 prog, u32 vers, int prot, unsigned short port)
- 	struct rpc_message msg = {
- 		.rpc_argp	= &map,
- 	};
 -	struct sunrpc_net *sn = net_generic(&init_net, sunrpc_net_id);
 +	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
- 
- 	dprintk("RPC:       %sregistering (%u, %u, %d, %u) with local "
- 			"rpcbind\n", (port ? "" : "un"),
-@@ -563,7 +563,7 @@ static int rpcb_unregister_all_protofamilies(struct sunrpc_net *sn,
-  * service on any IPv4 address, but not on IPv6.  The latter
-  * advertises the service on all IPv4 and IPv6 addresses.
+ 	struct rpc_clnt *clnt = sn->rpcb_local_clnt;
+ 	struct rpc_clnt *clnt4 = sn->rpcb_local_clnt4;
+ 	int shutdown;
+@@ -323,11 +323,10 @@ out:
+  * Returns zero on success, otherwise a negative errno value
+  * is returned.
   */
--int rpcb_v4_register(const u32 program, const u32 version,
-+int rpcb_v4_register(struct net *net, const u32 program, const u32 version,
- 		     const struct sockaddr *address, const char *netid)
+-int rpcb_create_local(void)
++int rpcb_create_local(struct net *net)
  {
- 	struct rpcbind_args map = {
-@@ -575,7 +575,7 @@ int rpcb_v4_register(const u32 program, const u32 version,
- 	struct rpc_message msg = {
- 		.rpc_argp	= &map,
- 	};
--	struct sunrpc_net *sn = net_generic(&init_net, sunrpc_net_id);
-+	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
+ 	static DEFINE_MUTEX(rpcb_create_local_mutex);
+ 	int result = 0;
+-	struct net *net = &init_net;
  
- 	if (sn->rpcb_local_clnt4 == NULL)
- 		return -EPROTONOSUPPORT;
+ 	if (rpcb_get_local(net))
+ 		return result;
 diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
-index 9d01d46..aa0041a 100644
+index aa0041a..8f6c255 100644
 --- a/net/sunrpc/svc.c
 +++ b/net/sunrpc/svc.c
-@@ -813,7 +813,7 @@ static int __svc_rpcb_register4(const u32 program, const u32 version,
- 		return -ENOPROTOOPT;
- 	}
- 
--	error = rpcb_v4_register(program, version,
-+	error = rpcb_v4_register(&init_net, program, version,
- 					(const struct sockaddr *)&sin, netid);
- 
- 	/*
-@@ -821,7 +821,7 @@ static int __svc_rpcb_register4(const u32 program, const u32 version,
- 	 * registration request with the legacy rpcbind v2 protocol.
- 	 */
- 	if (error == -EPROTONOSUPPORT)
--		error = rpcb_register(program, version, protocol, port);
-+		error = rpcb_register(&init_net, program, version, protocol, port);
- 
- 	return error;
- }
-@@ -860,7 +860,7 @@ static int __svc_rpcb_register6(const u32 program, const u32 version,
- 		return -ENOPROTOOPT;
- 	}
- 
--	error = rpcb_v4_register(program, version,
-+	error = rpcb_v4_register(&init_net, program, version,
- 					(const struct sockaddr *)&sin6, netid);
- 
- 	/*
-@@ -963,14 +963,14 @@ static void __svc_unregister(const u32 program, const u32 version,
+@@ -370,7 +370,7 @@ static int svc_rpcb_setup(struct svc_serv *serv)
  {
- 	int error;
+ 	int err;
  
--	error = rpcb_v4_register(program, version, NULL, "");
-+	error = rpcb_v4_register(&init_net, program, version, NULL, "");
+-	err = rpcb_create_local();
++	err = rpcb_create_local(&init_net);
+ 	if (err)
+ 		return err;
  
- 	/*
- 	 * User space didn't support rpcbind v4, so retry this
- 	 * request with the legacy rpcbind v2 protocol.
- 	 */
- 	if (error == -EPROTONOSUPPORT)
--		error = rpcb_register(program, version, 0, 0);
-+		error = rpcb_register(&init_net, program, version, 0, 0);
+@@ -382,7 +382,7 @@ static int svc_rpcb_setup(struct svc_serv *serv)
+ void svc_rpcb_cleanup(struct svc_serv *serv)
+ {
+ 	svc_unregister(serv);
+-	rpcb_put_local();
++	rpcb_put_local(&init_net);
+ }
+ EXPORT_SYMBOL_GPL(svc_rpcb_cleanup);
  
- 	dprintk("svc: %s(%sv%u), error %d\n",
- 			__func__, progname, version, error);
