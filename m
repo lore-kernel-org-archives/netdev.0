@@ -1,61 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vhost-net: add module alias (v2.1)
-Date: Fri, 13 Jan 2012 10:12:45 -0800 (PST)
-Message-ID: <20120113.101245.1898604125300586417.davem@davemloft.net>
-References: <20120111213038.39213819@nehalam.linuxnetplumber.net>
-	<20120112.200701.1473475851890804136.davem@davemloft.net>
-	<CAPXgP10uf-5wDxGOP8yhfUcn+18Ga+eZp-Psz_Pxe9PoJZagoA@mail.gmail.com>
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: Re: [PATCH] rds_rdma: don't assume infiniband device is PCI
+Date: Fri, 13 Jan 2012 16:17:06 -0200
+Message-ID: <20120113181706.GA3904@oc1711230544.ibm.com>
+References: <1325714596-4655-1-git-send-email-cascardo@linux.vnet.ibm.com>
+ <CAL1RGDWOitrKp31RuWLCV3ifUa=CKvZ2qZaRQJMcxdU6_eubww@mail.gmail.com>
+ <CAL1RGDVEqr9XzzcpG6wK49e209JtrhXGayFa5Qnz_NziLinR-g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, shemminger@vyatta.com,
-	device@lanana.org
-To: kay.sievers@vrfy.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAPXgP10uf-5wDxGOP8yhfUcn+18Ga+eZp-Psz_Pxe9PoJZagoA@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: venkat.x.venkatsubra@oracle.com, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dledford@redhat.com, Jes.Sorensen@redhat.com,
+	rds-devel@oss.oracle.com
+To: Roland Dreier <roland@purestorage.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAL1RGDVEqr9XzzcpG6wK49e209JtrhXGayFa5Qnz_NziLinR-g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kay Sievers <kay.sievers@vrfy.org>
-Date: Fri, 13 Jan 2012 05:19:05 +0100
+On Fri, Jan 06, 2012 at 09:49:36AM -0800, Roland Dreier wrote:
+> On Fri, Jan 6, 2012 at 9:47 AM, Roland Dreier <roland@purestorage.com> wrote:
+> > Looks great to me:
+> 
+> And BTW if Oracle has some non-published work they should probably just
+> rebase it on top of this fix.  We should merge this rather than shipping a
+> kernel with an obvious know crash like this.
+> 
+>  - R.
+> 
 
-> On Fri, Jan 13, 2012 at 05:07, David Miller <davem@davemloft.net> wrote:
->> From: Stephen Hemminger <shemminger@vyatta.com>
->> Date: Wed, 11 Jan 2012 21:30:38 -0800
->>
->>> Subject: vhost-net: add module alias (v2.1)
->>>
->>> By adding some module aliases, programs (or users) won't have to explic=
-itly
->>> call modprobe. Vhost-net will always be available if built into the ker=
-nel.
->>> It does require assigning a permanent minor number for depmod to work.
->>>
->>> Also:
->>> =A0 - use C99 style initialization.
->>> =A0 - add missing entry in documentation for loop-control
->>>
->>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->>
->> ACKs, NACKs? =A0What is happening here?
-> =
+Hi, Roland.
 
-> In general, static minors are acceptable and very useful to make
-> on-demand loading of kernel modules working. They should be used only
-> for single-instance devices though, which usually means: One single
-> static device name associated with a module.
-> =
+Sorry that I didn't include you. Should I include the infiniband users
+under net/ in the files that Infiniband maintainers take care of?
 
-> That looks all fine here, and for what it's worth:
->   Acked-By: Kay Sievers <kay.sievers@vrfy.org>
+David,
 
-Ok, applied, thanks everyone.
+Is this going through your tree? In patchwork, its state is "Not
+Applicable".
+
+Thanks.
+Cascardo.
