@@ -1,43 +1,39 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Subject: Re: [PATCH] rds_rdma: don't assume infiniband device is PCI
-Date: Fri, 13 Jan 2012 16:17:06 -0200
-Message-ID: <20120113181706.GA3904@oc1711230544.ibm.com>
-References: <1325714596-4655-1-git-send-email-cascardo@linux.vnet.ibm.com>
- <CAL1RGDWOitrKp31RuWLCV3ifUa=CKvZ2qZaRQJMcxdU6_eubww@mail.gmail.com>
- <CAL1RGDVEqr9XzzcpG6wK49e209JtrhXGayFa5Qnz_NziLinR-g@mail.gmail.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [RFC PATCH 3/6] netback: switch to NAPI + kthread
+ model
+Date: Fri, 13 Jan 2012 18:21:25 +0000
+Message-ID: <4F107625.7090601@citrix.com>
+References: <1326473949-22389-1-git-send-email-wei.liu2@citrix.com> <1326473949-22389-4-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: venkat.x.venkatsubra@oracle.com, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dledford@redhat.com, Jes.Sorensen@redhat.com,
-	rds-devel@oss.oracle.com
-To: Roland Dreier <roland@purestorage.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAL1RGDVEqr9XzzcpG6wK49e209JtrhXGayFa5Qnz_NziLinR-g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <ian.campbell@citrix.com>, <konrad.wilk@oracle.com>,
+	<xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:55638 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753181Ab2AMSV1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jan 2012 13:21:27 -0500
+In-Reply-To: <1326473949-22389-4-git-send-email-wei.liu2@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 06, 2012 at 09:49:36AM -0800, Roland Dreier wrote:
-> On Fri, Jan 6, 2012 at 9:47 AM, Roland Dreier <roland@purestorage.com> wrote:
-> > Looks great to me:
+On 13/01/12 16:59, Wei Liu wrote:
+> This patch implements 1:1 model netback. We utilizes NAPI and kthread
+> to do the weight-lifting job:
 > 
-> And BTW if Oracle has some non-published work they should probably just
-> rebase it on top of this fix.  We should merge this rather than shipping a
-> kernel with an obvious know crash like this.
+>   - NAPI is used for guest side TX (host side RX)
+>   - kthread is used for guest side RX (host side TX)
 > 
->  - R.
+> This model provides better scheduling fairness among vifs. It also
+> lays the foundation for future work.
 > 
+> The major defect for the current implementation is that in the NAPI
+> poll handler we don't actually disable interrupt. Xen stuff is
+> different from real hardware, it requires some other tuning of ring
+> macros.
 
-Hi, Roland.
+RING_FINAL_CHECK_FOR_REQUESTS() looks it does the correct thing to me.
 
-Sorry that I didn't include you. Should I include the infiniband users
-under net/ in the files that Infiniband maintainers take care of?
-
-David,
-
-Is this going through your tree? In patchwork, its state is "Not
-Applicable".
-
-Thanks.
-Cascardo.
+David
