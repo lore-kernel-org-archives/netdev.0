@@ -1,57 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: release idev when ip6_neigh_lookup failed in
- icmp6_dst_alloc
-Date: Fri, 13 Jan 2012 10:11:09 -0800 (PST)
-Message-ID: <20120113.101109.1309327184308507695.davem@davemloft.net>
-References: <1326443626-19580-1-git-send-email-roy.qing.li@gmail.com>
-	<1326448121.2272.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: [PATCH] vhost-net: add module alias (v2.1)
+Date: Fri, 13 Jan 2012 10:12:45 -0800 (PST)
+Message-ID: <20120113.101245.1898604125300586417.davem@davemloft.net>
+References: <20120111213038.39213819@nehalam.linuxnetplumber.net>
+	<20120112.200701.1473475851890804136.davem@davemloft.net>
+	<CAPXgP10uf-5wDxGOP8yhfUcn+18Ga+eZp-Psz_Pxe9PoJZagoA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: roy.qing.li@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:49276 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752231Ab2AMSLM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2012 13:11:12 -0500
-In-Reply-To: <1326448121.2272.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, shemminger@vyatta.com,
+	device@lanana.org
+To: kay.sievers@vrfy.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAPXgP10uf-5wDxGOP8yhfUcn+18Ga+eZp-Psz_Pxe9PoJZagoA@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 13 Jan 2012 10:48:41 +0100
+From: Kay Sievers <kay.sievers@vrfy.org>
+Date: Fri, 13 Jan 2012 05:19:05 +0100
 
-> Le vendredi 13 janvier 2012 =E0 16:33 +0800, roy.qing.li@gmail.com a
-> =E9crit :
->> From: RongQing.Li <roy.qing.li@gmail.com>
->>=20
->> release idev when ip6_neigh_lookup failed in icmp6_dst_alloc
->>=20
->> Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
->> ---
->>  net/ipv6/route.c |    1 +
->>  1 files changed, 1 insertions(+), 0 deletions(-)
->>=20
->> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
->> index 07361df..8c2e3ab 100644
->> --- a/net/ipv6/route.c
->> +++ b/net/ipv6/route.c
->> @@ -1091,6 +1091,7 @@ struct dst_entry *icmp6_dst_alloc(struct net_d=
-evice *dev,
->>  	else {
->>  		neigh =3D ip6_neigh_lookup(&rt->dst, &fl6->daddr);
->>  		if (IS_ERR(neigh)) {
->> +			in6_dev_put(idev);
->>  			dst_free(&rt->dst);
->>  			return ERR_CAST(neigh);
->>  		}
->=20
-> Good catch, thanks.
->=20
-> Bug added in commit b43faac6906 (ipv6: If neigh lookup fails during
-> icmp6 dst allocation, propagate error.),=20
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> On Fri, Jan 13, 2012 at 05:07, David Miller <davem@davemloft.net> wrote:
+>> From: Stephen Hemminger <shemminger@vyatta.com>
+>> Date: Wed, 11 Jan 2012 21:30:38 -0800
+>>
+>>> Subject: vhost-net: add module alias (v2.1)
+>>>
+>>> By adding some module aliases, programs (or users) won't have to explic=
+itly
+>>> call modprobe. Vhost-net will always be available if built into the ker=
+nel.
+>>> It does require assigning a permanent minor number for depmod to work.
+>>>
+>>> Also:
+>>> =A0 - use C99 style initialization.
+>>> =A0 - add missing entry in documentation for loop-control
+>>>
+>>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>>
+>> ACKs, NACKs? =A0What is happening here?
+> =
 
-Applied, thanks everyone.
+> In general, static minors are acceptable and very useful to make
+> on-demand loading of kernel modules working. They should be used only
+> for single-instance devices though, which usually means: One single
+> static device name associated with a module.
+> =
+
+> That looks all fine here, and for what it's worth:
+>   Acked-By: Kay Sievers <kay.sievers@vrfy.org>
+
+Ok, applied, thanks everyone.
