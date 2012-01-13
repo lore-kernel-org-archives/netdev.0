@@ -1,100 +1,32 @@
-From: Simon Chen <simonchennj@gmail.com>
-Subject: Re: stable bonding config
-Date: Thu, 12 Jan 2012 21:52:25 -0500
-Message-ID: <CANj2Ebf4f3o+zKMLvqiVGyMegdJiqUzVupkOLuKqmxuaVSTdyg@mail.gmail.com>
-References: <CANj2Ebc8+Uu6gW8=Jsb42Cr2Ry88cvys-DZrkeX8Rh+uvAsRAQ@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] RDS: Remove some unused iWARP code
+Date: Thu, 12 Jan 2012 20:06:12 -0800 (PST)
+Message-ID: <20120112.200612.1772111104683359934.davem@davemloft.net>
+References: <1326394676-28337-1-git-send-email-roland@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:41508 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751000Ab2AMCw2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2012 21:52:28 -0500
-Received: by wibhm14 with SMTP id hm14so35444wib.19
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2012 18:52:26 -0800 (PST)
-In-Reply-To: <CANj2Ebc8+Uu6gW8=Jsb42Cr2Ry88cvys-DZrkeX8Rh+uvAsRAQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, jonathan-/Yg/VP3ZvrM@public.gmane.org, swise-/Yg/VP3ZvrM@public.gmane.org,
+	rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1326394676-28337-1-git-send-email-roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I am using the following:
+From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Date: Thu, 12 Jan 2012 10:57:56 -0800
 
-Ethernet Channel Bonding Driver: v3.6.0 (September 26, 2009)
-ixgbe 3.7.17 driver (latest from intel)
+> From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+> 
+> rds_iw_flush_goal() just returns a count, but it is only called in one
+> place and its return value is ignored there.  So delete all the dead code.
+> 
+> Signed-off-by: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
 
-Thanks.
--Simon
-
-On Thu, Jan 12, 2012 at 9:31 PM, Simon Chen <simonchennj@gmail.com> wro=
-te:
-> Hi all,
->
-> Not sure if this is the right place to ask, but I got very good
-> answers about this topic in the past...
->
-> I am mostly using Ubuntu 10.10. Each server has dual intel 10G NICs,
-> which I want to bond. I configured the switches to support 802.3ad.
-> Based on this post http://ubuntuforums.org/showthread.php?t=3D1595177=
-, I
-> configure the server as:
->
-> /home/simon# cat /etc/modprobe.d/aliases.conf
-> alias bond0 bonding
-> options bonding mode=3D4 miimon=3D100 lacp_rate=3D1 downdelay=3D200
-> updelay=3D200 ad_select=3D1 xmit_hash_policy=3D1
->
-> /home/simon# cat /etc/network/interfaces
-> ...
-> auto bond0
-> iface bond0 inet manual
-> =A0 =A0 =A0 =A0bond-slaves none
-> =A0 =A0 =A0 =A0bond-mode 4
-> =A0 =A0 =A0 =A0bond-miimon 100
-> =A0 =A0 =A0 =A0up /sbin/ifenslave bond0 eth2 eth3
-> =A0 =A0 =A0 =A0down /sbin/ifenslave bond0 eth2 eth3
->
-> auto eth2
-> iface eth2 inet manual
-> bond-master bond0
-> bond-primary eth2 eth3
->
-> auto eth3
-> iface eth3 inet manual
-> bond-master bond0
-> bond-primary eth2 eth3
->
-> auto bond0.200
-> iface bond0.200 inet static
-> =A0address ...
-> =A0vlan_raw_device bond0
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D
->
-> However, after a reboot the bonding doesn't work immediately. In part=
-icular:
->
-> /home/simon# cat /proc/net/bonding/bond0
-> ...
-> 802.3ad info
-> LACP rate: fast
-> Aggregator selection policy (ad_select): bandwidth
-> Active Aggregator Info:
-> =A0 =A0 =A0 =A0Aggregator ID: 3
-> =A0 =A0 =A0 =A0Number of ports: 2
-> =A0 =A0 =A0 =A0Actor Key: 33
-> =A0 =A0 =A0 =A0Partner Key: 19
-> =A0 =A0 =A0 =A0Partner Mac Address: 00:00:00:00:00:00 <------bonding =
-not working
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->
-> The only magic to get it work that I know of, is to perform "rmmod
-> ixgbe" "modprobe ixgbe" and then "ifconfig eth2 0.0.0.0 up" "ifconfig
-> eth3 0.0.0.0 up" "ifdown bond0" "ifup bond0".
->
-> Is there a hassle-free bonding configuration that I can use? Or some
-> trick that I am not aware of?
->
-> Thanks.
-> -Simon
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
