@@ -1,68 +1,53 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH 1/5] bcma: convert suspend/resume to pm_ops
-Date: Fri, 13 Jan 2012 11:01:16 +0100
-Message-ID: <CACna6rwM3rs2q7sQLniv+5tcjLkyTYfZzN1XEPwbNt36_kgLtw@mail.gmail.com>
-References: <CA+55aFzm21ZKs7e_ocVA1bQQ=Js2dJpbiycwHR3v8yNvb0MgTw@mail.gmail.com>
-	<1326440480-26271-1-git-send-email-zajec5@gmail.com>
-	<alpine.LNX.2.00.1201122354430.5860@air.linux-foundation.org>
-	<alpine.LNX.2.00.1201122359400.5860@air.linux-foundation.org>
-	<4F10004B.5010309@broadcom.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH v2 0/4] SUNRPC: register services with per-net rpcbind
+Date: Fri, 13 Jan 2012 14:02:31 +0400
+Message-ID: <20120113095121.12259.52250.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Alwin Beukers <alwin@broadcom.com>,
-	Roland Vossen <rvossen@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Network Development <netdev@vger.kernel.org>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:50890 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752627Ab2AMKBR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2012 05:01:17 -0500
-Received: by werb13 with SMTP id b13so235417wer.19
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2012 02:01:16 -0800 (PST)
-In-Reply-To: <4F10004B.5010309@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
+	davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-W dniu 13 stycznia 2012 10:58 u=C5=BCytkownik Arend van Spriel
-<arend@broadcom.com> napisa=C5=82:
-> On 01/13/2012 09:00 AM, Linus Torvalds wrote:
->>
->> From: Linus Torvalds <torvalds@linux-foundation.org>
->> Date: Thu, 12 Jan 2012 22:47:01 -0800
->>
->> .. and avoid doing th eunnecessary PCI operations - the PCI layer wi=
-ll do them for us.
->>
->> Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
->> ---
->> =C2=A0drivers/bcma/host_pci.c | =C2=A0 38 +++++++++++++-------------=
-------------
->> =C2=A01 files changed, 13 insertions(+), 25 deletions(-)
->>
->> diff --git a/drivers/bcma/host_pci.c b/drivers/bcma/host_pci.c
->> index 443b83a2fd7a..3aee641c9b7b 100644
->> --- a/drivers/bcma/host_pci.c
->> +++ b/drivers/bcma/host_pci.c
->> @@ -235,38 +235,27 @@ static void bcma_host_pci_remove(struct pci_de=
-v *dev)
->> =C2=A0}
->>
->> =C2=A0#ifdef CONFIG_PM
->> -static int bcma_host_pci_suspend(struct pci_dev *dev, pm_message_t =
-state)
->> +static int bcma_suspend(struct device *dev)
->
-> All functions in host_pci.c start with bcma_host_pci_ prefix. Can we
-> stick to that convention?
+This patch-set was created in context of clone of git branch:
+git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git.
+head: devel
 
-/me agrees
-Would be nice
+v2:
+1) Rebased on up-to-date state ("devel" head).
+2) 3 patches from previous series:
+a) [1/7] "SUNRPC: create rpcbind client in passed network namespace context"
+b) [2/7] "SUNRPC: register rpcbind programs in passed network namespase context"
+c) [4/7] "SUNRPC: parametrize local rpcbind clients creation with net ns"
+moved to series:
+[PATCH v5 0/6] SUNRPC: rcbind clients virtualization
 
---=20
-Rafa=C5=82
+This patch set makes service registered with per-net rpcbind and required for
+making Lockd and NFSd services able to handle requests from and to different
+network namespaces.
+
+The following series consists of:
+
+---
+
+Stanislav Kinsbursky (4):
+      SUNRPC: use proper network namespace in rpcbind RPCBPROC_GETADDR procedure
+      SUNRPC: pass network namespace to service registering routines
+      SUNRPC: register service on creation in current network namespace
+      SUNRPC: unregister service on creation in current network namespace
+
+
+ fs/nfsd/nfssvc.c           |    4 +--
+ include/linux/sunrpc/svc.h |   11 ++++----
+ net/sunrpc/rpcb_clnt.c     |    3 +-
+ net/sunrpc/svc.c           |   61 ++++++++++++++++++++++++--------------------
+ net/sunrpc/svcsock.c       |    3 +-
+ 5 files changed, 45 insertions(+), 37 deletions(-)
+
+-- 
+Signature
