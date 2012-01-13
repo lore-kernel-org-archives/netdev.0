@@ -1,39 +1,66 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [RFC PATCH 3/6] netback: switch to NAPI + kthread
- model
-Date: Fri, 13 Jan 2012 18:21:25 +0000
-Message-ID: <4F107625.7090601@citrix.com>
-References: <1326473949-22389-1-git-send-email-wei.liu2@citrix.com> <1326473949-22389-4-git-send-email-wei.liu2@citrix.com>
+From: Dave Jones <davej@redhat.com>
+Subject: recvmsg sleeping from invalid context
+Date: Fri, 13 Jan 2012 13:24:01 -0500
+Message-ID: <20120113182401.GA25885@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <ian.campbell@citrix.com>, <konrad.wilk@oracle.com>,
-	<xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:55638 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753181Ab2AMSV1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Jan 2012 13:21:27 -0500
-In-Reply-To: <1326473949-22389-4-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 13/01/12 16:59, Wei Liu wrote:
-> This patch implements 1:1 model netback. We utilizes NAPI and kthread
-> to do the weight-lifting job:
-> 
->   - NAPI is used for guest side TX (host side RX)
->   - kthread is used for guest side RX (host side TX)
-> 
-> This model provides better scheduling fairness among vifs. It also
-> lays the foundation for future work.
-> 
-> The major defect for the current implementation is that in the NAPI
-> poll handler we don't actually disable interrupt. Xen stuff is
-> different from real hardware, it requires some other tuning of ring
-> macros.
+getting a ton of these on the latest head (099469502f62fbe0d7e4f0b83a2f22538367f734)
 
-RING_FINAL_CHECK_FOR_REQUESTS() looks it does the correct thing to me.
+BUG: sleeping function called from invalid context at mm/memory.c:3905
+in_atomic(): 0, irqs_disabled(): 0, pid: 1067, name: NetworkManager
+INFO: lockdep is turned off.
+Pid: 1067, comm: NetworkManager Not tainted 3.2.0+ #22
+Call Trace:
+ [<ffffffff81099415>] __might_sleep+0x145/0x200
+ [<ffffffff811752a4>] might_fault+0x34/0xb0
+ [<ffffffff81551555>] ? sock_def_readable+0x25/0x1a0
+ [<ffffffff8155c387>] put_cmsg+0x77/0x120
+ [<ffffffff8159379c>] netlink_recvmsg+0x35c/0x480
+ [<ffffffff8155201a>] ? sock_update_classid+0x9a/0x260
+ [<ffffffff81552052>] ? sock_update_classid+0xd2/0x260
+ [<ffffffff81549fbd>] sock_recvmsg+0x11d/0x140
+ [<ffffffff811752c3>] ? might_fault+0x53/0xb0
+ [<ffffffff8117530c>] ? might_fault+0x9c/0xb0
+ [<ffffffff811752c3>] ? might_fault+0x53/0xb0
+ [<ffffffff8154b1b3>] __sys_recvmsg+0x153/0x2d0
+ [<ffffffff811bc39a>] ? fget_light+0x5a/0x470
+ [<ffffffff8109fd11>] ? get_parent_ip+0x11/0x50
+ [<ffffffff816ac23d>] ? sub_preempt_count+0x9d/0xd0
+ [<ffffffff811bc43b>] ? fget_light+0xfb/0x470
+ [<ffffffff811bc39a>] ? fget_light+0x5a/0x470
+ [<ffffffff8154e2e9>] sys_recvmsg+0x49/0x90
+ [<ffffffff816b00e9>] system_call_fastpath+0x16/0x1b
 
-David
+
+BUG: sleeping function called from invalid context at kernel/mutex.c:271
+in_atomic(): 0, irqs_disabled(): 0, pid: 1067, name: NetworkManager
+INFO: lockdep is turned off.
+Pid: 1067, comm: NetworkManager Not tainted 3.2.0+ #22
+Call Trace:
+ [<ffffffff81099415>] __might_sleep+0x145/0x200
+ [<ffffffff816a529e>] mutex_lock_nested+0x2e/0x50
+ [<ffffffff812022d0>] inotify_poll+0x30/0x60
+ [<ffffffff811d16f0>] do_sys_poll+0x280/0x500
+ [<ffffffff811d01b0>] ? poll_freewait+0xe0/0xe0
+ [<ffffffff811d02a0>] ? __pollwait+0xf0/0xf0
+ [<ffffffff811d02a0>] ? __pollwait+0xf0/0xf0
+ [<ffffffff811d02a0>] ? __pollwait+0xf0/0xf0
+ [<ffffffff811d02a0>] ? __pollwait+0xf0/0xf0
+ [<ffffffff811d02a0>] ? __pollwait+0xf0/0xf0
+ [<ffffffff811d02a0>] ? __pollwait+0xf0/0xf0
+ [<ffffffff811d02a0>] ? __pollwait+0xf0/0xf0
+ [<ffffffff8109fd11>] ? get_parent_ip+0x11/0x50
+ [<ffffffff816ac23d>] ? sub_preempt_count+0x9d/0xd0
+ [<ffffffff811bc39a>] ? fget_light+0x5a/0x470
+ [<ffffffff8154dc2b>] ? sys_sendto+0x15b/0x190
+ [<ffffffff810b776d>] ? ktime_get_ts+0xad/0xe0
+ [<ffffffff811d049a>] ? poll_select_set_timeout+0x7a/0x90
+ [<ffffffff811d1a56>] sys_poll+0x76/0x110
+ [<ffffffff816b00e9>] system_call_fastpath+0x16/0x1b
