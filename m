@@ -1,54 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: recvmsg sleeping from invalid context
-Date: Fri, 13 Jan 2012 10:27:12 -0800 (PST)
-Message-ID: <20120113.102712.600185688659703015.davem@davemloft.net>
-References: <20120113182401.GA25885@redhat.com>
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Subject: Re: forcedeth doesn't pass traffic (3.0.x kernel and earliers)
+Date: Fri, 13 Jan 2012 13:34:55 -0500
+Message-ID: <1326479695.31393.326.camel@denise.theartistscloset.com>
+References: <201112102226.31546.a.miskiewicz@gmail.com>
+	 <201112102231.31206.a.miskiewicz@gmail.com>
+	 <201201131833.29727.a.miskiewicz@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	glommer@parallels.com
-To: davej@redhat.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Arkadiusz =?UTF-8?Q?Mi=C5=9Bkiewicz?= <a.miskiewicz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:49488 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753528Ab2AMS1Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2012 13:27:16 -0500
-In-Reply-To: <20120113182401.GA25885@redhat.com>
+Received: from mout.perfora.net ([74.208.4.195]:63358 "EHLO mout.perfora.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753181Ab2AMSfC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2012 13:35:02 -0500
+In-Reply-To: <201201131833.29727.a.miskiewicz@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dave Jones <davej@redhat.com>
-Date: Fri, 13 Jan 2012 13:24:01 -0500
-
-> getting a ton of these on the latest head (099469502f62fbe0d7e4f0b83a2f22538367f734)
-> 
-> BUG: sleeping function called from invalid context at mm/memory.c:3905
-> in_atomic(): 0, irqs_disabled(): 0, pid: 1067, name: NetworkManager
-> INFO: lockdep is turned off.
-> Pid: 1067, comm: NetworkManager Not tainted 3.2.0+ #22
-> Call Trace:
->  [<ffffffff81099415>] __might_sleep+0x145/0x200
->  [<ffffffff811752a4>] might_fault+0x34/0xb0
->  [<ffffffff81551555>] ? sock_def_readable+0x25/0x1a0
->  [<ffffffff8155c387>] put_cmsg+0x77/0x120
->  [<ffffffff8159379c>] netlink_recvmsg+0x35c/0x480
->  [<ffffffff8155201a>] ? sock_update_classid+0x9a/0x260
->  [<ffffffff81552052>] ? sock_update_classid+0xd2/0x260
->  [<ffffffff81549fbd>] sock_recvmsg+0x11d/0x140
->  [<ffffffff811752c3>] ? might_fault+0x53/0xb0
->  [<ffffffff8117530c>] ? might_fault+0x9c/0xb0
->  [<ffffffff811752c3>] ? might_fault+0x53/0xb0
->  [<ffffffff8154b1b3>] __sys_recvmsg+0x153/0x2d0
->  [<ffffffff811bc39a>] ? fget_light+0x5a/0x470
->  [<ffffffff8109fd11>] ? get_parent_ip+0x11/0x50
->  [<ffffffff816ac23d>] ? sub_preempt_count+0x9d/0xd0
->  [<ffffffff811bc43b>] ? fget_light+0xfb/0x470
->  [<ffffffff811bc39a>] ? fget_light+0x5a/0x470
->  [<ffffffff8154e2e9>] sys_recvmsg+0x49/0x90
->  [<ffffffff816b00e9>] system_call_fastpath+0x16/0x1b
-
-Sigh, I suspect the new socket memcg code, which I didn't want to
-even apply in the first place. :-/
-
-Glauber, please fix this.
+On Fri, 2012-01-13 at 18:33 +0100, Arkadiusz Mi=C5=9Bkiewicz wrote:
+> On Saturday 10 of December 2011, Arkadiusz Mi=C5=9Bkiewicz wrote:
+> > On Saturday 10 of December 2011, Arkadiusz Mi=C5=9Bkiewicz wrote:
+> > > Hello,
+> > >=20
+> > > I have few supermicro machines connected to edge-core switch usin=
+g 1Gbps
+> > > uplink. The problem is that after boot I have to restart net to g=
+et
+> > > network card pass traffic. The problem is only with forcedeth net=
+work
+> > > cards. It happens on different supermicro servers and it happens =
+for as
+> > > far as I can remember (so, 2.6.3x kernels, too). Currently I'm on=
+ 3.0.13.
+> > >=20
+> > > Logs below show state after fresh boot where network traffic does=
+n't get
+> > > through. Note that it shows that link is up but still - traffic d=
+oesn't
+> > > get passed. tcpdump on eth0 interface sees only traffic initiated=
+ from
+> > > this server and no traffic from outside.
+> > >=20
+> > > Tried to set every offload (via ethtool -K) to off but that didn'=
+t help.
+> > >=20
+> > > I have to make:
+> > > ip link set eth0 down; ip link set eth0 up
+> > > wait few second and then traffic starts to get passed. When I do =
+that
+> > > this shows in dmesg: [ 1058.266480] forcedeth 0000:00:08.0: irq 4=
+0 for
+> > > MSI/MSI-X
+> > > [ 1069.163238] eth0: no IPv6 routers present
+> >=20
+> > One more note. This doesn't always happens like that. Sometimes I b=
+oot
+> > and I get link working, traffic gets passed fine:
+>=20
+<snip>
+We have noticed similar behavior on some of our SuperMicro systems.  It
+was worse for us; the interfaces would work fine on boot but then
+inexplicably stop after weeks of running causing production outages.  W=
+e
+simply stopped using them - John
