@@ -1,19 +1,20 @@
-From: David Miller <davem@davemloft.net>
+From: Kay Sievers <kay.sievers@vrfy.org>
 Subject: Re: [PATCH] vhost-net: add module alias (v2.1)
-Date: Thu, 12 Jan 2012 20:07:01 -0800 (PST)
-Message-ID: <20120112.200701.1473475851890804136.davem@davemloft.net>
+Date: Fri, 13 Jan 2012 05:19:05 +0100
+Message-ID: <CAPXgP10uf-5wDxGOP8yhfUcn+18Ga+eZp-Psz_Pxe9PoJZagoA@mail.gmail.com>
 References: <20120111091653.188b24ab@nehalam.linuxnetplumber.net>
 	<CAEH94LiF_F51_avA9UWMneo1N1wY0NzJmfohpxdrkAv2WkWT5Q@mail.gmail.com>
 	<20120111213038.39213819@nehalam.linuxnetplumber.net>
+	<20120112.200701.1473475851890804136.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
-	kay.sievers@vrfy.org, virtualization@lists.linux-foundation.org,
+	virtualization@lists.linux-foundation.org, shemminger@vyatta.com,
 	device@lanana.org
-To: shemminger@vyatta.com
+To: David Miller <davem@davemloft.net>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120111213038.39213819@nehalam.linuxnetplumber.net>
+In-Reply-To: <20120112.200701.1473475851890804136.davem@davemloft.net>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -25,19 +26,25 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 11 Jan 2012 21:30:38 -0800
-
-> Subject: vhost-net: add module alias (v2.1)
-> 
-> By adding some module aliases, programs (or users) won't have to explicitly
-> call modprobe. Vhost-net will always be available if built into the kernel.
-> It does require assigning a permanent minor number for depmod to work.
-> 
-> Also:
->   - use C99 style initialization.
->   - add missing entry in documentation for loop-control
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
-ACKs, NACKs?  What is happening here?
+T24gRnJpLCBKYW4gMTMsIDIwMTIgYXQgMDU6MDcsIERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1s
+b2Z0Lm5ldD4gd3JvdGU6Cj4gRnJvbTogU3RlcGhlbiBIZW1taW5nZXIgPHNoZW1taW5nZXJAdnlh
+dHRhLmNvbT4KPiBEYXRlOiBXZWQsIDExIEphbiAyMDEyIDIxOjMwOjM4IC0wODAwCj4KPj4gU3Vi
+amVjdDogdmhvc3QtbmV0OiBhZGQgbW9kdWxlIGFsaWFzICh2Mi4xKQo+Pgo+PiBCeSBhZGRpbmcg
+c29tZSBtb2R1bGUgYWxpYXNlcywgcHJvZ3JhbXMgKG9yIHVzZXJzKSB3b24ndCBoYXZlIHRvIGV4
+cGxpY2l0bHkKPj4gY2FsbCBtb2Rwcm9iZS4gVmhvc3QtbmV0IHdpbGwgYWx3YXlzIGJlIGF2YWls
+YWJsZSBpZiBidWlsdCBpbnRvIHRoZSBrZXJuZWwuCj4+IEl0IGRvZXMgcmVxdWlyZSBhc3NpZ25p
+bmcgYSBwZXJtYW5lbnQgbWlub3IgbnVtYmVyIGZvciBkZXBtb2QgdG8gd29yay4KPj4KPj4gQWxz
+bzoKPj4gwqAgLSB1c2UgQzk5IHN0eWxlIGluaXRpYWxpemF0aW9uLgo+PiDCoCAtIGFkZCBtaXNz
+aW5nIGVudHJ5IGluIGRvY3VtZW50YXRpb24gZm9yIGxvb3AtY29udHJvbAo+Pgo+PiBTaWduZWQt
+b2ZmLWJ5OiBTdGVwaGVuIEhlbW1pbmdlciA8c2hlbW1pbmdlckB2eWF0dGEuY29tPgo+Cj4gQUNL
+cywgTkFDS3M/IMKgV2hhdCBpcyBoYXBwZW5pbmcgaGVyZT8KCkluIGdlbmVyYWwsIHN0YXRpYyBt
+aW5vcnMgYXJlIGFjY2VwdGFibGUgYW5kIHZlcnkgdXNlZnVsIHRvIG1ha2UKb24tZGVtYW5kIGxv
+YWRpbmcgb2Yga2VybmVsIG1vZHVsZXMgd29ya2luZy4gVGhleSBzaG91bGQgYmUgdXNlZCBvbmx5
+CmZvciBzaW5nbGUtaW5zdGFuY2UgZGV2aWNlcyB0aG91Z2gsIHdoaWNoIHVzdWFsbHkgbWVhbnM6
+IE9uZSBzaW5nbGUKc3RhdGljIGRldmljZSBuYW1lIGFzc29jaWF0ZWQgd2l0aCBhIG1vZHVsZS4K
+ClRoYXQgbG9va3MgYWxsIGZpbmUgaGVyZSwgYW5kIGZvciB3aGF0IGl0J3Mgd29ydGg6CiAgQWNr
+ZWQtQnk6IEtheSBTaWV2ZXJzIDxrYXkuc2lldmVyc0B2cmZ5Lm9yZz4KCktheQpfX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWls
+aW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6
+Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRp
+b24=
