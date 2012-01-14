@@ -1,41 +1,65 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [0/5] bcma/brcmsmac suspend/resume cleanups and fixes
-Date: Fri, 13 Jan 2012 19:50:21 -0800
-Message-ID: <CA+55aFxtaw+FF8wRf9td1rU0A_vhM8XwgSznzE-ph_4j=t5gWg@mail.gmail.com>
-References: <CA+55aFzm21ZKs7e_ocVA1bQQ=Js2dJpbiycwHR3v8yNvb0MgTw@mail.gmail.com>
- <1326440480-26271-1-git-send-email-zajec5@gmail.com> <alpine.LNX.2.00.1201122354430.5860@air.linux-foundation.org>
- <4F101047.4090902@broadcom.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Race condition in ipv6 code
+Date: Fri, 13 Jan 2012 21:46:45 -0800
+Message-ID: <m139biesze.fsf@fess.ebiederm.org>
+References: <CA+HUmGhJ-YvFMRnKzb8RqH6COZ=erp1SajVcb1rq1vi2k9OBGw@mail.gmail.com>
+	<1326349911.2741.1.camel@edumazet-laptop>
+	<m1pqeov4u1.fsf@fess.ebiederm.org>
+	<1326434549.2617.14.camel@edumazet-laptop>
+	<m1ipkgqccb.fsf@fess.ebiederm.org> <4F10642E.2040302@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: =?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Alwin Beukers <alwin@broadcom.com>,
-	Roland Vossen <rvossen@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Network Development <netdev@vger.kernel.org>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
-To: Arend van Spriel <arend@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Francesco Ruggeri <fruggeri@aristanetworks.com>,
+	netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:40835 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754158Ab2ANDuo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2012 22:50:44 -0500
-Received: by werb13 with SMTP id b13so859270wer.19
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2012 19:50:43 -0800 (PST)
-In-Reply-To: <4F101047.4090902@broadcom.com>
+Received: from out01.mta.xmission.com ([166.70.13.231]:36596 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751219Ab2ANFoY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2012 00:44:24 -0500
+In-Reply-To: <4F10642E.2040302@candelatech.com> (Ben Greear's message of "Fri,
+	13 Jan 2012 09:04:46 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2012/1/13 Arend van Spriel <arend@broadcom.com>:
+Ben Greear <greearb@candelatech.com> writes:
+
+> On 01/12/2012 11:40 PM, Eric W. Biederman wrote:
 >
-> Upon suspend my laptop hangs (see trace below pulled from serial
-> console). I do not see the pr_debug in the suspend function (compiled
-> with -DDEBUG). Unfortunately the same happens when I don't insert bcma
-> and brcmsmac. I attached the kernel configuration.
+>> So I really think the best solution to avoid the locking craziness is to
+>> have a wrapper that gets the value from userspace and calls
+>> schedule_work to get another thread to actually process the change.  I
+>> don't see any problems with writing a helper function for that.  The
+>> only downside with using schedule_work is that we return to userspace
+>> before the change has been fully installed in the kernel.  I don't
+>> expect that would be a problem but stranger things have happened.
+>
+> That sounds a bit risky to me.  If something sets a value, and then
+> queries it, it should always show the proper result for the previous
+> calls.
 
-Ok, I note that you do have MCE enabled.
+Which is easy to do if you keep two values.  One integer
+for the userspace control and another integer for the internal
+kernel state.
 
-The MCE problems should be fixed in current -git, and so it might be
-worth re-testing with that.
+The problem is that we have exactly one integer currently.
 
-                   Linus
+> If the queries also went through the the same sched-work queue
+> then maybe it would be OK.
+
+We can't want for anything that has to take the rtnl_lock.  That would
+be the same as taking the rtnl_lock from a locking perspective.
+
+I expect I would use something like:
+struct rtnl_protected_knob {
+	struct work_struct work;
+        int userspace_value;
+        int *kernel_var;
+        void (*func)(int new_value, *kernel_var);
+};
+
+userspace_value would be what userspace sees, and kernel_var would be a
+pointer to the value that we manipulate in the kernel.
+
+Eric
