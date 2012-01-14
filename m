@@ -1,41 +1,46 @@
-From: Darren Hart <dvhart@linux.intel.com>
-Subject: Re: [PATCH] pch_gbe: Use a randomly generated MAC instead of failing
- probe
-Date: Sat, 14 Jan 2012 07:45:05 -0800
-Message-ID: <4F11A301.4010904@linux.intel.com>
-References: <132d2a41a089905de3147b4656e350608aa7fd6f.1326523495.git.dvhart@linux.intel.com> <20120114.001525.2158050844390627233.davem@davemloft.net>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [RFC] netem:  de-GSO packets before enqueing
+Date: Sat, 14 Jan 2012 17:06:46 +0100
+Message-ID: <20120114160646.GB2966@hell>
+References: <1326400930.2740.10.camel@bwh-desktop>
+ <20120112220328.GA10813@gondor.apana.org.au>
+ <20120112165720.4545c670@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, arjan@linux.intel.com,
-	alan@linux.intel.com, tomoya.rohm@gmail.com,
-	jeffrey.t.kirsher@intel.com, paul.gortmaker@windriver.com,
-	jdmason@kudzu.us, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	netdev <netdev@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:32885 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755035Ab2ANP4F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Jan 2012 10:56:05 -0500
-In-Reply-To: <20120114.001525.2158050844390627233.davem@davemloft.net>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:57195 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753678Ab2ANQGs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2012 11:06:48 -0500
+Content-Disposition: inline
+In-Reply-To: <20120112165720.4545c670@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+* Stephen Hemminger | 2012-01-12 16:57:20 [-0800]:
 
+>Probably something like this is needed (untested).
+>
+>This issue was discovered when looking at the skb_checksum path for the
+>netem corruption operation, but it is a general problem.
+>Network emulation operations like corruption and drop want to operate
+>on a per-packet (not per-segment) basis. This patch does GSO in software
+>if necessary to break up packets.  Code is similar to logic in xfrm_output.
+>
+>Although it appears that the operation is not work conserving, it is okay
+>because the higher level qdisc operations account for packets by incrementing
+>by gso_size.
 
-On 01/14/2012 12:15 AM, David Miller wrote:
-> From: Darren Hart <dvhart@linux.intel.com>
-> Date: Fri, 13 Jan 2012 22:44:55 -0800
-> 
->> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com> (commit_signer:1/3=33%,commit_signer:1/8=12%)
-> 
-> BTW, please try to figure out where this "commit_signer" stuff came from.
-> 
-> It ended up corrupting the CC: list of your posting too.
+Thanks Stephen! Corruption is currently unusable if GSO is enabled. We disable
+GSO/TSO on all our test machines therefore.
 
-Sorry about that, I caught it too late.
+I have a larger set of patches for the corruption option for this merge
+window. We will now test your patch (and the hopefully following qdisc len
+updated patch).
 
--- 
-Darren Hart
-Intel Open Source Technology Center
-Yocto Project - Linux Kernel
+Hagen
