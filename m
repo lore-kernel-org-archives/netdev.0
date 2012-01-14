@@ -1,31 +1,29 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] pch_gbe: Use a randomly generated MAC instead of failing
- probe
-Date: Sat, 14 Jan 2012 16:18:24 +0800
-Message-ID: <4F113A50.1040303@gmail.com>
-References: <132d2a41a089905de3147b4656e350608aa7fd6f.1326523495.git.dvhart@linux.intel.com> <20120114.001525.2158050844390627233.davem@davemloft.net>
+From: "Julia" <stv777@asdd.com>
+Subject: If you have time
+Date: Sat, 14 Jan 2012 09:24:01 +0100
+Message-ID: <9f8fc6a99294e55052e4c5eb3c03dc83@mwinf5d16.me-wanadoo.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+ 	reply-type=original
+Content-Type: text/plain; 	charset="windows-1250";
 Content-Transfer-Encoding: 7bit
-Cc: dvhart@linux.intel.com, linux-kernel@vger.kernel.org,
-	arjan@linux.intel.com, alan@linux.intel.com, tomoya.rohm@gmail.com,
-	jeffrey.t.kirsher@intel.com, paul.gortmaker@windriver.com,
-	jdmason@kudzu.us, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120114.001525.2158050844390627233.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: "Tobias" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp08.smtpout.orange.fr ([80.12.242.130]:31124 "EHLO
+	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752813Ab2ANI36 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2012 03:29:58 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/14/2012 04:15 PM, David Miller wrote:
-> From: Darren Hart<dvhart@linux.intel.com>
-> Date: Fri, 13 Jan 2012 22:44:55 -0800
->
->> CC: Jeff Kirsher<jeffrey.t.kirsher@intel.com>  (commit_signer:1/3=33%,commit_signer:1/8=12%)
->
-> BTW, please try to figure out where this "commit_signer" stuff came from.
->
-> It ended up corrupting the CC: list of your posting too.
-
-It is from `./scripts/get_maintainer.pl`, and can be suppressed by 
-adding '--norolestats' option. :)
+Hi to you
+My heart to you is given: Oh, do give yours to me; We will lock them up
+together, And throw away the key. I am a little bird who is ready to fly
+far and far away in order to find my love in the foreign land. When I
+find what I am looking for, my love will be undying. We will feel truly
+blessed that we become a part of each other lives. I want to become your
+everything, because you will be everything for me http://all-pretties.in/
+I promise to love you  always  and always hold you in my heart. I will
+always be there for you when you need me, and I will love you no matter
+what life brings us.
+Hugs and kisses
+Claudy
