@@ -1,58 +1,68 @@
-From: Kay Sievers <kay.sievers@vrfy.org>
-Subject: calling request_firmware() from module init will not work with
- recent/future udev versions
-Date: Sat, 14 Jan 2012 16:25:23 +0100
-Message-ID: <CAPXgP11iT9K2KcDCJvw_druf5qdNjs0jLfrbpS7CcYh5vXrz_w@mail.gmail.com>
+From: Darren Hart <dvhart@linux.intel.com>
+Subject: Re: [PATCH] pch_gbe: Use a randomly generated MAC instead of failing
+ probe
+Date: Sat, 14 Jan 2012 07:54:27 -0800
+Message-ID: <4F11A533.4040406@linux.intel.com>
+References: <132d2a41a089905de3147b4656e350608aa7fd6f.1326523495.git.dvhart@linux.intel.com> <20120114.001430.787918662083526597.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tom Gundersen <teg@jklm.no>, Andy Whitcroft <apw@canonical.com>
-To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, arjan@linux.intel.com,
+	alan@linux.intel.com, tomoya.rohm@gmail.com,
+	jeffrey.t.kirsher@intel.com, paul.gortmaker@windriver.com,
+	jdmason@kudzu.us, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:59950 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755033Ab2ANPZr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2012 10:25:47 -0500
+Received: from mga03.intel.com ([143.182.124.21]:32885 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755164Ab2ANP4G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Jan 2012 10:56:06 -0500
+In-Reply-To: <20120114.001430.787918662083526597.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey,
 
-just a heads-up, when bug reports are coming in now. The kernel log
-might look like a kernel failure, but it's caused by recent userspace
-changes.
 
-We changed udev to strictly enforce sequence order and dependency
-handling of events. This seems to break some netdev drivers which
-block in modprobe until the firmware from userspace is loaded into the
-driver.
+On 01/14/2012 12:14 AM, David Miller wrote:
+> From: Darren Hart <dvhart@linux.intel.com>
+> Date: Fri, 13 Jan 2012 22:44:55 -0800
+> 
+>> If the MAC is invalid or not implemented, use a randomly generated one rather
+>> than failing the probe. Store the generated addr in a new sw_mac array in the
+>> pch_gbe_mac_info structure. Take care to allow for assigning the MAC via
+>> ifconfig by reusing sw_addr to store an assigned mac if probe populated it with
+>> a random one (otherwise the assignment would rely on the ROM and the reset would
+>> fail to write a valid MAC to the rx filter).
+>>
+>> Tested on two platforms, one with a valid MAC, the other without a MAC. The
+>> real MAC is used if present, a randomly generated one otherwise. Both are
+>> capable of changing the MAC with ifconfig. They successfully get an IP over
+>> DHCP and pass a simple ping and login over ssh test.
+>>
+>> This does not make any attempt to address a missing or invalid MAC for the
+>> pch_phub driver.
+>>
+>> Signed-off-by: Darren Hart <dvhart@linux.intel.com>
+> 
+> I don't want to see code like this added if it's "just in case."
 
-I think it's out of question, that nothing must block in module init
-and rely on a userspace transaction to be fulfilled to finish the
-init_module() syscall. If userspace is not running properly, nothing
-will work. Built-in drivers and the transition from initramfs to the
-real root can't be handled properly that way.
+I don't disagree, unfortunately it is not "just in case". The Inforce
+Goldstein QSeven Module on the Portwell PQ7-C100XL carrier board are
+already available and do not implement the MAC EEPROM in hardware.
 
-These drivers need to be fixed to load their firmware during ifup,
-which would be the most flexible solution. That way, it should also
-work if the driver is built-in, or is loaded from initramfs and no
-firmware is available.
-Alternatively, the firmware request should be able to use the aync
-firmware_request API and not the blocking one.
+> 
+> Please correct any hardware that hasn't shipped yet or is alpha/beta
+> hardware in testing, so that we don't need stuff like this.
 
-We might need to work around that in the current udev for now, but
-these drivers will definitely break in future udev versions.
-Userspace, these days, should not be in charge of papering over
-obvious kernel bugs like this.
+I saw that the use of random_ether_addr is fairly prevalent, and
+attempted a roughly similar sort of approach to others I had seen. Do
+you consider all of those to be "necessary evils" or are there
+legitimate situations for its use?
 
-These are the drivers we received bug reports so far. We didn't look
-into any of details of the drivers, but according to the logs, they
-seem to block for 60 seconds in modprobe, when userspace is not
-behaving like expected:
-  bnx2/bnx2-mips-06-6.2.1.fw
-  rtlwifi/rtl8192sefw.bin
-  brcm/bcm43xx-0.fw
+In any case, with existing hardware out there that is unusable with the
+current pch_gbe driver, can we consider this workaround for inclusion?
 
-Any help here would be appreciated.
-
-Thanks,
-Kay
+-- 
+Darren Hart
+Intel Open Source Technology Center
+Yocto Project - Linux Kernel
