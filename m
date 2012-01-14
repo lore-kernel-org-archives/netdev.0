@@ -1,91 +1,72 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 1/3] sha512: make it work, undo percpu message schedule
-Date: Sat, 14 Jan 2012 21:27:37 +0300
-Message-ID: <20120114182737.GB4207@p183.telecom.by>
-References: <20120111000040.GA3801@p183.telecom.by>
- <20120111003611.GA12257@gondor.apana.org.au>
- <20120112235514.GA5065@p183.telecom.by>
- <20120113070813.GA20068@gondor.apana.org.au>
- <1326450942.2272.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <1326451301.2272.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <1326452246.2272.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <CACVxJT9FOYdRFZJ0WRe+5ty4t4XLwgHKWaoZBWB+Zjm-yCEMEA@mail.gmail.com>
- <1326458053.3826.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20120114182024.GA4207@p183.telecom.by>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Race condition in ipv6 code
+Date: Sat, 14 Jan 2012 10:31:04 -0800
+Message-ID: <4F11C9E8.7040300@candelatech.com>
+References: <CA+HUmGhJ-YvFMRnKzb8RqH6COZ=erp1SajVcb1rq1vi2k9OBGw@mail.gmail.com> <1326349911.2741.1.camel@edumazet-laptop> <m1pqeov4u1.fsf@fess.ebiederm.org> <1326434549.2617.14.camel@edumazet-laptop> <m1ipkgqccb.fsf@fess.ebiederm.org> <4F10642E.2040302@candelatech.com> <m139biesze.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	ken@codelabs.ch, Steffen Klassert <steffen.klassert@secunet.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, security@kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120114182024.GA4207@p183.telecom.by>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Francesco Ruggeri <fruggeri@aristanetworks.com>,
+	netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:43256 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756203Ab2ANSbL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2012 13:31:11 -0500
+In-Reply-To: <m139biesze.fsf@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit f9e2bca6c22d75a289a349f869701214d63b5060
-aka "crypto: sha512 - Move message schedule W[80] to static percpu area"
-created global message schedule area.
+On 01/13/2012 09:46 PM, Eric W. Biederman wrote:
+> Ben Greear<greearb@candelatech.com>  writes:
+>
+>> On 01/12/2012 11:40 PM, Eric W. Biederman wrote:
+>>
+>>> So I really think the best solution to avoid the locking craziness is to
+>>> have a wrapper that gets the value from userspace and calls
+>>> schedule_work to get another thread to actually process the change.  I
+>>> don't see any problems with writing a helper function for that.  The
+>>> only downside with using schedule_work is that we return to userspace
+>>> before the change has been fully installed in the kernel.  I don't
+>>> expect that would be a problem but stranger things have happened.
+>>
+>> That sounds a bit risky to me.  If something sets a value, and then
+>> queries it, it should always show the proper result for the previous
+>> calls.
+>
+> Which is easy to do if you keep two values.  One integer
+> for the userspace control and another integer for the internal
+> kernel state.
+>
+> The problem is that we have exactly one integer currently.
+>
+>> If the queries also went through the the same sched-work queue
+>> then maybe it would be OK.
+>
+> We can't want for anything that has to take the rtnl_lock.  That would
+> be the same as taking the rtnl_lock from a locking perspective.
+>
+> I expect I would use something like:
+> struct rtnl_protected_knob {
+> 	struct work_struct work;
+>          int userspace_value;
+>          int *kernel_var;
+>          void (*func)(int new_value, *kernel_var);
+> };
+>
+> userspace_value would be what userspace sees, and kernel_var would be a
+> pointer to the value that we manipulate in the kernel.
 
-If sha512_update will ever be entered twice, hash will be silently
-calculated incorrectly.
+What if valid values are 0-5 and user sets value to 6 and then immediately
+queries the value?  Would your method possibly return 6, when in fact when
+the kernel does the work it will internally either reject the setting and
+stay with the old value or round the 6 down to 5?
 
-Probably the easiest way to notice incorrect hashes being calculated is
-to run 2 ping floods over AH with hmac(sha512):
+Thanks,
+Ben
 
-	#!/usr/sbin/setkey -f
-	flush;
-	spdflush;
-	add IP1 IP2 ah 25 -A hmac-sha512 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000025;
-	add IP2 IP1 ah 52 -A hmac-sha512 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000052;
-	spdadd IP1 IP2 any -P out ipsec ah/transport//require;
-	spdadd IP2 IP1 any -P in  ipsec ah/transport//require;
-
-XfrmInStateProtoError will start ticking with -EBADMSG being returned
-from ah_input(). This never happens with, say, hmac(sha1).
-
-With patch applied (on BOTH sides), XfrmInStateProtoError does not tick
-with multiple bidirectional ping flood streams like it doesn't tick
-with SHA-1.
-
-After this patch sha512_transform() will start using ~750 bytes of stack on x86_64.
-This is OK for simple loads, for something more heavy, stack reduction will be done
-separatedly.
-
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-Cc: stable@vger.kernel.org
----
-
- crypto/sha512_generic.c |    6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
-
---- a/crypto/sha512_generic.c
-+++ b/crypto/sha512_generic.c
-@@ -21,8 +21,6 @@
- #include <linux/percpu.h>
- #include <asm/byteorder.h>
- 
--static DEFINE_PER_CPU(u64[80], msg_schedule);
--
- static inline u64 Ch(u64 x, u64 y, u64 z)
- {
-         return z ^ (x & (y ^ z));
-@@ -89,7 +87,7 @@ sha512_transform(u64 *state, const u8 *input)
- 	u64 a, b, c, d, e, f, g, h, t1, t2;
- 
- 	int i;
--	u64 *W = get_cpu_var(msg_schedule);
-+	u64 W[80];
- 
- 	/* load the input */
-         for (i = 0; i < 16; i++)
-@@ -128,8 +126,6 @@ sha512_transform(u64 *state, const u8 *input)
- 
- 	/* erase our data */
- 	a = b = c = d = e = f = g = h = t1 = t2 = 0;
--	memset(W, 0, sizeof(__get_cpu_var(msg_schedule)));
--	put_cpu_var(msg_schedule);
- }
- 
- static int
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
