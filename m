@@ -1,35 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] netem:  de-GSO packets before enqueing
-Date: Sat, 14 Jan 2012 00:44:11 +0100
-Message-ID: <1326498251.5287.2.camel@edumazet-laptop>
-References: <1326400930.2740.10.camel@bwh-desktop>
-	 <20120112220328.GA10813@gondor.apana.org.au>
-	 <20120112165720.4545c670@nehalam.linuxnetplumber.net>
-	 <1326470097.3826.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20120113112028.4a24d988@nehalam.linuxnetplumber.net>
+From: Bruce Jones <brucerjones@gmail.com>
+Subject: neighbour table overflow errors. leaking neighbours I think
+Date: Fri, 13 Jan 2012 17:29:59 -0700
+Message-ID: <CAKedQg_qWUgXzsTrQJ0NGoxzKHaQvAnZ2pztzAXVHbq9H4gLRQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120113112028.4a24d988@nehalam.linuxnetplumber.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:42419 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753228Ab2ANAaA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2012 19:30:00 -0500
+Received: by bkuw12 with SMTP id w12so366528bku.19
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2012 16:29:59 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 13 janvier 2012 =C3=A0 11:20 -0800, Stephen Hemminger a =C3=
-=A9crit :
+I am seeing neighbour table overflow messages so I began exploring
+neighbour structure reference counts to try and understand the issue
+and see why they are not being reclaimed by the garbage collector.
+I'm pretty new to the kernel so have just been sprinkling printks
+around to try to understand how this all works.
 
-> Also, does pkt_len need to be set in cb after de-gso?
+The box is running 2.6.32.50.  I know that is old, but the current
+code for 3.2.1 looks like it is doing basically the same thing.
 
-Yes, most probably :)
+I am running a test that is blasting the box with lots of bogus tcp
+packets.  This results in calls to tcp_v4_send_reset().  That then
+calls ip_send_reply() which calls ip_route_output_key() which causes a
+new neighbour entry to be allocated.  Then back in ip_send_reply(),
+ip_append_data() is called.  I find that this call is failing and
+returning ENOBUFS.   The return value from ip_append_data() is not
+checked in ip_send_reply() so nothing is cleaned up.  I see that other
+calls to ip_append_data() do check the return value and call some
+cleanup function.  Those cleanup functions do things like release skb,
+dsts, etc.  I image I might be leaking those things too, though I have
+only looked at nieghbours.  My question is should there be a similar
+function to clean up if ip_append_data fails() in ip_send_reply() or
+is there a reason that that particular call doesn't check for errors
+when the others do?
 
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Bruce
