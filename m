@@ -1,51 +1,103 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/3] sha512: make it work, undo percpu message schedule
-Date: Sat, 14 Jan 2012 23:00:39 +0100
-Message-ID: <1326578439.5287.43.camel@edumazet-laptop>
-References: <20120111000040.GA3801@p183.telecom.by>
-	 <20120111003611.GA12257@gondor.apana.org.au>
-	 <20120112235514.GA5065@p183.telecom.by>
-	 <20120113070813.GA20068@gondor.apana.org.au>
-	 <1326450942.2272.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1326451301.2272.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1326452246.2272.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <CACVxJT9FOYdRFZJ0WRe+5ty4t4XLwgHKWaoZBWB+Zjm-yCEMEA@mail.gmail.com>
-	 <1326458053.3826.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20120114182024.GA4207@p183.telecom.by>
-	 <20120114182737.GB4207@p183.telecom.by>
-	 <1326577610.5287.38.camel@edumazet-laptop>
-	 <CA+55aFxfKyqm9eC_XajLYJ6D5YhHn_9K0pkG+caZDhxrAwvA0w@mail.gmail.com>
+Subject: Re: recvmsg sleeping from invalid context
+Date: Sat, 14 Jan 2012 23:16:02 +0100
+Message-ID: <1326579362.5287.45.camel@edumazet-laptop>
+References: <20120113182401.GA25885@redhat.com>
+	 <20120113.102712.600185688659703015.davem@davemloft.net>
+	 <20120114214334.GA28423@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	ken@codelabs.ch, Steffen Klassert <steffen.klassert@secunet.com>,
-	security@kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFxfKyqm9eC_XajLYJ6D5YhHn_9K0pkG+caZDhxrAwvA0w@mail.gmail.com>
-Sender: linux-crypto-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, glommer@parallels.com
+To: Dave Jones <davej@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120114214334.GA28423@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le samedi 14 janvier 2012 =C3=A0 13:52 -0800, Linus Torvalds a =C3=A9cr=
-it :
-> On Sat, Jan 14, 2012 at 1:46 PM, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
-> >
-> > This is too risky, and we provided an alternate patch, not just for=
- fun.
+Le samedi 14 janvier 2012 =C3=A0 16:43 -0500, Dave Jones a =C3=A9crit :
+> On Fri, Jan 13, 2012 at 10:27:12AM -0800, David Miller wrote:
+>  > From: Dave Jones <davej@redhat.com>
+>  > Date: Fri, 13 Jan 2012 13:24:01 -0500
+>  >=20
+>  > > getting a ton of these on the latest head (099469502f62fbe0d7e4f=
+0b83a2f22538367f734)
+>  > >=20
+>  > > BUG: sleeping function called from invalid context at mm/memory.=
+c:3905
+>  > > in_atomic(): 0, irqs_disabled(): 0, pid: 1067, name: NetworkMana=
+ger
+>  > > INFO: lockdep is turned off.
+>  > > Pid: 1067, comm: NetworkManager Not tainted 3.2.0+ #22
+>  > > Call Trace:
+>  > >  [<ffffffff81099415>] __might_sleep+0x145/0x200
+>  > >  [<ffffffff811752a4>] might_fault+0x34/0xb0
+>  > >  [<ffffffff81551555>] ? sock_def_readable+0x25/0x1a0
+>  > >  [<ffffffff8155c387>] put_cmsg+0x77/0x120
+>  > >  [<ffffffff8159379c>] netlink_recvmsg+0x35c/0x480
+>  > >  [<ffffffff8155201a>] ? sock_update_classid+0x9a/0x260
+>  > >  [<ffffffff81552052>] ? sock_update_classid+0xd2/0x260
+>  > >  [<ffffffff81549fbd>] sock_recvmsg+0x11d/0x140
+>  > >  [<ffffffff811752c3>] ? might_fault+0x53/0xb0
+>  > >  [<ffffffff8117530c>] ? might_fault+0x9c/0xb0
+>  > >  [<ffffffff811752c3>] ? might_fault+0x53/0xb0
+>  > >  [<ffffffff8154b1b3>] __sys_recvmsg+0x153/0x2d0
+>  > >  [<ffffffff811bc39a>] ? fget_light+0x5a/0x470
+>  > >  [<ffffffff8109fd11>] ? get_parent_ip+0x11/0x50
+>  > >  [<ffffffff816ac23d>] ? sub_preempt_count+0x9d/0xd0
+>  > >  [<ffffffff811bc43b>] ? fget_light+0xfb/0x470
+>  > >  [<ffffffff811bc39a>] ? fget_light+0x5a/0x470
+>  > >  [<ffffffff8154e2e9>] sys_recvmsg+0x49/0x90
+>  > >  [<ffffffff816b00e9>] system_call_fastpath+0x16/0x1b
+>  >=20
+>  > Sigh, I suspect the new socket memcg code, which I didn't want to
+>  > even apply in the first place. :-/
+>  >=20
+>  > Glauber, please fix this.
 >=20
-> Did you see the second patch?
+> How new is 'new' ?
+>=20
+> interestingly, I now started getting these in 3.1.9 where I never not=
+iced them before.
+>=20
+>=20
+> BUG: sleeping function called from invalid context at mm/memory.c:390=
+5
+> in_atomic(): 1, irqs_disabled(): 0, pid: 962, name: NetworkManager
+> 1 lock held by NetworkManager/962:
+>  #0:  (rcu_read_lock){.+.+..}, at: [<ffffffff815f610d>] inet6_dump_fi=
+b+0x3d/0x3d0
+> Pid: 962, comm: NetworkManager Not tainted 3.1.9-1.fc16.x86_64.debug =
+#1
+> Call Trace:
+>  [<ffffffff8105fbd0>] __might_sleep+0xf0/0x120
+>  [<ffffffff81160f68>] might_fault+0x38/0xb0
+>  [<ffffffff81519070>] ? sock_def_error_report+0x120/0x120
+>  [<ffffffff81523877>] put_cmsg+0x77/0x120
+>  [<ffffffff815587ec>] netlink_recvmsg+0x35c/0x480
+>  [<ffffffff81518d2e>] ? sock_update_classid+0x8e/0x190
+>  [<ffffffff81518d68>] ? sock_update_classid+0xc8/0x190
+>  [<ffffffff815122ad>] sock_recvmsg+0x11d/0x140
+>  [<ffffffff81160f8c>] ? might_fault+0x5c/0xb0
+>  [<ffffffff81160fd5>] ? might_fault+0xa5/0xb0
+>  [<ffffffff81160f8c>] ? might_fault+0x5c/0xb0
+>  [<ffffffff81513373>] __sys_recvmsg+0x153/0x2d0
+>  [<ffffffff810a8f28>] ? sched_clock_cpu+0xa8/0x110
+>  [<ffffffff810b6bfd>] ? trace_hardirqs_off+0xd/0x10
+>  [<ffffffff810a8fff>] ? local_clock+0x6f/0x80
+>  [<ffffffff810b74a5>] ? lock_release_holdtime.part.9+0x15/0x1a0
+>  [<ffffffff811a4bef>] ? fget_light+0xcf/0x3b0
+>  [<ffffffff811a4c07>] ? fget_light+0xe7/0x3b0
+>  [<ffffffff811a4b68>] ? fget_light+0x48/0x3b0
+>  [<ffffffff81516359>] sys_recvmsg+0x49/0x90
+>  [<ffffffff81669dc2>] system_call_fastpath+0x16/0x1b
 >=20
 
-I saw it and felt it was not a stable material.
+I dont understand this trace.
 
-And Herbert sent an alternate patch, then I sent a V3 patch.
+inet6_dump_fib() does indeed an rcu_read_lock(), but pair it by
+rcu_read_unlock().
 
-> The one that got rid of the *stupid* 80-entry array?
->=20
-
-Maybe, I didnt wrote this code, and I am very glad this code can be
-smarter and all.
+fib6_dump_table() is called with rcu_read_lock(), but certainly cannot
+end calling pu_cmsg().
