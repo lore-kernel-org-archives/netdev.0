@@ -1,103 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: recvmsg sleeping from invalid context
-Date: Sat, 14 Jan 2012 23:16:02 +0100
-Message-ID: <1326579362.5287.45.camel@edumazet-laptop>
-References: <20120113182401.GA25885@redhat.com>
-	 <20120113.102712.600185688659703015.davem@davemloft.net>
-	 <20120114214334.GA28423@redhat.com>
+From: Darren Hart <dvhart@linux.intel.com>
+Subject: Re: [PATCH] pch_gbe: Use a randomly generated MAC instead of failing
+ probe
+Date: Sat, 14 Jan 2012 14:36:07 -0800
+Message-ID: <4F120357.3020808@linux.intel.com>
+References: <132d2a41a089905de3147b4656e350608aa7fd6f.1326523495.git.dvhart@linux.intel.com> <20120114.001430.787918662083526597.davem@davemloft.net> <4F11A533.4040406@linux.intel.com> <20120114.115604.2101782124431552110.davem@davemloft.net> <20120114214658.4ddfec30@pyramind.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, glommer@parallels.com
-To: Dave Jones <davej@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	arjan@linux.intel.com, alan@linux.intel.com, tomoya.rohm@gmail.com,
+	jeffrey.t.kirsher@intel.com, paul.gortmaker@windriver.com,
+	jdmason@kudzu.us, netdev@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120114214334.GA28423@redhat.com>
+In-Reply-To: <20120114214658.4ddfec30@pyramind.ukuu.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le samedi 14 janvier 2012 =C3=A0 16:43 -0500, Dave Jones a =C3=A9crit :
-> On Fri, Jan 13, 2012 at 10:27:12AM -0800, David Miller wrote:
->  > From: Dave Jones <davej@redhat.com>
->  > Date: Fri, 13 Jan 2012 13:24:01 -0500
->  >=20
->  > > getting a ton of these on the latest head (099469502f62fbe0d7e4f=
-0b83a2f22538367f734)
->  > >=20
->  > > BUG: sleeping function called from invalid context at mm/memory.=
-c:3905
->  > > in_atomic(): 0, irqs_disabled(): 0, pid: 1067, name: NetworkMana=
-ger
->  > > INFO: lockdep is turned off.
->  > > Pid: 1067, comm: NetworkManager Not tainted 3.2.0+ #22
->  > > Call Trace:
->  > >  [<ffffffff81099415>] __might_sleep+0x145/0x200
->  > >  [<ffffffff811752a4>] might_fault+0x34/0xb0
->  > >  [<ffffffff81551555>] ? sock_def_readable+0x25/0x1a0
->  > >  [<ffffffff8155c387>] put_cmsg+0x77/0x120
->  > >  [<ffffffff8159379c>] netlink_recvmsg+0x35c/0x480
->  > >  [<ffffffff8155201a>] ? sock_update_classid+0x9a/0x260
->  > >  [<ffffffff81552052>] ? sock_update_classid+0xd2/0x260
->  > >  [<ffffffff81549fbd>] sock_recvmsg+0x11d/0x140
->  > >  [<ffffffff811752c3>] ? might_fault+0x53/0xb0
->  > >  [<ffffffff8117530c>] ? might_fault+0x9c/0xb0
->  > >  [<ffffffff811752c3>] ? might_fault+0x53/0xb0
->  > >  [<ffffffff8154b1b3>] __sys_recvmsg+0x153/0x2d0
->  > >  [<ffffffff811bc39a>] ? fget_light+0x5a/0x470
->  > >  [<ffffffff8109fd11>] ? get_parent_ip+0x11/0x50
->  > >  [<ffffffff816ac23d>] ? sub_preempt_count+0x9d/0xd0
->  > >  [<ffffffff811bc43b>] ? fget_light+0xfb/0x470
->  > >  [<ffffffff811bc39a>] ? fget_light+0x5a/0x470
->  > >  [<ffffffff8154e2e9>] sys_recvmsg+0x49/0x90
->  > >  [<ffffffff816b00e9>] system_call_fastpath+0x16/0x1b
->  >=20
->  > Sigh, I suspect the new socket memcg code, which I didn't want to
->  > even apply in the first place. :-/
->  >=20
->  > Glauber, please fix this.
->=20
-> How new is 'new' ?
->=20
-> interestingly, I now started getting these in 3.1.9 where I never not=
-iced them before.
->=20
->=20
-> BUG: sleeping function called from invalid context at mm/memory.c:390=
-5
-> in_atomic(): 1, irqs_disabled(): 0, pid: 962, name: NetworkManager
-> 1 lock held by NetworkManager/962:
->  #0:  (rcu_read_lock){.+.+..}, at: [<ffffffff815f610d>] inet6_dump_fi=
-b+0x3d/0x3d0
-> Pid: 962, comm: NetworkManager Not tainted 3.1.9-1.fc16.x86_64.debug =
-#1
-> Call Trace:
->  [<ffffffff8105fbd0>] __might_sleep+0xf0/0x120
->  [<ffffffff81160f68>] might_fault+0x38/0xb0
->  [<ffffffff81519070>] ? sock_def_error_report+0x120/0x120
->  [<ffffffff81523877>] put_cmsg+0x77/0x120
->  [<ffffffff815587ec>] netlink_recvmsg+0x35c/0x480
->  [<ffffffff81518d2e>] ? sock_update_classid+0x8e/0x190
->  [<ffffffff81518d68>] ? sock_update_classid+0xc8/0x190
->  [<ffffffff815122ad>] sock_recvmsg+0x11d/0x140
->  [<ffffffff81160f8c>] ? might_fault+0x5c/0xb0
->  [<ffffffff81160fd5>] ? might_fault+0xa5/0xb0
->  [<ffffffff81160f8c>] ? might_fault+0x5c/0xb0
->  [<ffffffff81513373>] __sys_recvmsg+0x153/0x2d0
->  [<ffffffff810a8f28>] ? sched_clock_cpu+0xa8/0x110
->  [<ffffffff810b6bfd>] ? trace_hardirqs_off+0xd/0x10
->  [<ffffffff810a8fff>] ? local_clock+0x6f/0x80
->  [<ffffffff810b74a5>] ? lock_release_holdtime.part.9+0x15/0x1a0
->  [<ffffffff811a4bef>] ? fget_light+0xcf/0x3b0
->  [<ffffffff811a4c07>] ? fget_light+0xe7/0x3b0
->  [<ffffffff811a4b68>] ? fget_light+0x48/0x3b0
->  [<ffffffff81516359>] sys_recvmsg+0x49/0x90
->  [<ffffffff81669dc2>] system_call_fastpath+0x16/0x1b
->=20
 
-I dont understand this trace.
 
-inet6_dump_fib() does indeed an rcu_read_lock(), but pair it by
-rcu_read_unlock().
+On 01/14/2012 01:46 PM, Alan Cox wrote:
+>> I fear that people are just going to add this random MAC stuff way too
+>> easily, it's a spreading disease.
+>>
+>> Ship functional hardware instead.
+> 
+> See "choir, preaching to the".
+> 
+> The stuff is out there and it's not Darren's fault !
+> 
+> Alan
 
-fib6_dump_table() is called with rcu_read_lock(), but certainly cannot
-end calling pu_cmsg().
+
+So perhaps I should provide some more context into why I'm sending these
+patches. The following hardware is currently available and the existing
+Linux support is confined to a Timesys Fedora-Based pre-installed image
+which requires user intervention to write a MAC using an old, not
+upstreamed, modified ioh_gbe_mac driver.
+
+The board documentation is available here:
+http://www.inforcecomputing.com/SYS940X_ECX.html
+
+In particular, see:
+http://www.inforcecomputing.com/proddls/SYS940X-01_UserGuide_001329.pdf
+and:
+http://www.inforcecomputing.com/proddls/BLDK2_Kern_2.6.29-10_and_2.6.29-12_for_SYS940X-1_1304.pdf
+
+I felt this patch made this hardware more accessible by allowing it to
+work with current kernels without ugly userspace hacks. It is also
+following precedent set by existing drivers.
+
+So while I completely agree with the sentiment "Ship functional
+hardware", this wasn't a product I was involved with, I'm just trying to
+make a bad situation better. As Alan alludes to above, I do actually
+spend a good deal of time trying to improve hardware to avoid this kind
+of thing (it's an amazingly difficult task).
+
+-- 
+Darren Hart
+Intel Open Source Technology Center
+Yocto Project - Linux Kernel
