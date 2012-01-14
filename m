@@ -1,50 +1,42 @@
-From: Dominique Martinet <asmadeus@codewreck.org>
-Subject: Re: [0/5] bcma/brcmsmac suspend/resume cleanups and fixes
-Date: Sat, 14 Jan 2012 13:22:22 +0100
-Message-ID: <20120114122222.GA21233@nautica>
-References: <CA+55aFzm21ZKs7e_ocVA1bQQ=Js2dJpbiycwHR3v8yNvb0MgTw@mail.gmail.com>
- <1326440480-26271-1-git-send-email-zajec5@gmail.com>
- <alpine.LNX.2.00.1201122354430.5860@air.linux-foundation.org>
- <4F101047.4090902@broadcom.com>
- <CA+55aFxtaw+FF8wRf9td1rU0A_vhM8XwgSznzE-ph_4j=t5gWg@mail.gmail.com>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: stable bonding config
+Date: Sat, 14 Jan 2012 13:51:07 +0100
+Message-ID: <4F117A3B.9000405@gmail.com>
+References: <CANj2Ebc8+Uu6gW8=Jsb42Cr2Ry88cvys-DZrkeX8Rh+uvAsRAQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Arend van Spriel <arend@broadcom.com>,
-	=?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Alwin Beukers <alwin@broadcom.com>,
-	Roland Vossen <rvossen@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Network Development <netdev@vger.kernel.org>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Simon Chen <simonchennj@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nautica.notk.org ([91.121.71.147]:34006 "EHLO nautica.notk.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754350Ab2ANMao (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Jan 2012 07:30:44 -0500
-Content-Disposition: inline
-In-Reply-To: <CA+55aFxtaw+FF8wRf9td1rU0A_vhM8XwgSznzE-ph_4j=t5gWg@mail.gmail.com>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:35705 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754627Ab2ANMut (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2012 07:50:49 -0500
+Received: by wibhm14 with SMTP id hm14so998781wib.19
+        for <netdev@vger.kernel.org>; Sat, 14 Jan 2012 04:50:47 -0800 (PST)
+In-Reply-To: <CANj2Ebc8+Uu6gW8=Jsb42Cr2Ry88cvys-DZrkeX8Rh+uvAsRAQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Le 13/01/2012 03:31, Simon Chen a =E9crit :
+> Hi all,
+>
+> Not sure if this is the right place to ask, but I got very good
+> answers about this topic in the past...
+>
+> I am mostly using Ubuntu 10.10. Each server has dual intel 10G NICs,
+> which I want to bond. I configured the switches to support 802.3ad.
+> Based on this post http://ubuntuforums.org/showthread.php?t=3D1595177=
+, I
+> configure the server as:
 
-Sorry to hijack this thread, but I had the exact same problem Arend has
-and disabling MCE fixed it.. Since it froze only after resume and it
-didn't send anything to netconsole at this moment I've had this for some
-time without any good debug info, so first is a thank you!
+[snip]
 
-I'd like to try if the fix in current -git works, could you remind me
-the exact tree name you call this?
-I'm familiar with linux-2.6.git, wireless-testing.git, and
-linux-next.git, but it's not resolved in linux-next.git not
-linux-2.6.git's HEAD at the very least.
+Consider reading the documentations in /usr/share/doc/ifenslave-2.6/ an=
+d the example files in the=20
+examples subdirectory.
 
-By the way, resume/suspend works with your patches over linux-next.git
-with a bcm4313 on a eeepc1215b!
-
-Regards,
-
--- 
-Dominique Martinet | Asmadeus
+	Nicolas.
