@@ -1,43 +1,43 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v3 1/2] gianfar: Fix missing sock reference when
- processing TX time stamps
-Date: Sat, 14 Jan 2012 18:17:10 +0100
-Message-ID: <20120114171709.GA2183@netboy.at.omicron.at>
-References: <1326187612-27384-1-git-send-email-manfred.rudigier@omicron.at>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Hung task when calling clone() due to netfilter/slab
+Date: Sat, 14 Jan 2012 18:18:53 +0100
+Message-ID: <1326561533.5287.26.camel@edumazet-laptop>
+References: <1326558605.19951.7.camel@lappy>
+	 <1326561043.5287.24.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	afleming@freescale.com, avorontsov@mvista.com,
-	eric.dumazet@gmail.com
-To: Manfred Rudigier <manfred.rudigier@omicron.at>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:40386 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755699Ab2ANRRY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2012 12:17:24 -0500
-Received: by eaal12 with SMTP id l12so535787eaa.19
-        for <netdev@vger.kernel.org>; Sat, 14 Jan 2012 09:17:23 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1326187612-27384-1-git-send-email-manfred.rudigier@omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dave Jones <davej@redhat.com>, davem <davem@davemloft.net>,
+	Pekka Enberg <penberg@kernel.org>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Matt Mackall <mpm@selenic.com>, kaber@trash.net,
+	pablo@netfilter.org, linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-mm <linux-mm@kvack.org>, netfilter-devel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1326561043.5287.24.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 10, 2012 at 10:26:50AM +0100, Manfred Rudigier wrote:
-> When there is not enough headroom in the skb a private copy will be made.
-> However, the private copy had no reference to the socket and consequently
-> no time stamp could be queued on the socket error queue during the
-> skb_tstamp_tx function. This patch fixes this issue by also stealing the
-> sock reference from the original skb after making the private copy.
+Le samedi 14 janvier 2012 =C3=A0 18:10 +0100, Eric Dumazet a =C3=A9crit=
+ :
 
-Hi Manfred,
+> Apparently SLUB calls sysfs_slab_add() from kmem_cache_create() while
+> still holding slub_lock.
+>=20
+> So if the task launched needs to "cat /proc/slabinfo" or anything
+> needing slub_lock, its a deadlock.
+>=20
+>=20
 
-If you feel like helping with maintainance, these two fixes should
-also go into stable. Once they have appeared in mainline, you can send
-them to the stable list, mentioning the upstream commit ID.
+Bug added in commit 2bce64858442149784f6c88
+(slub: Allow removal of slab caches during boot)
 
-[ If you put the Cc: tag in the sign off area, then the stable
-  submission occurs automatically. Sorry, I probably should have
-  explained that before. ]
 
-Thanks,
-Richard
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
