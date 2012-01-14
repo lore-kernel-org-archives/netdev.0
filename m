@@ -1,57 +1,45 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] Net, mac80211: Fix resource leak in
- ieee80211_rx_h_mesh_fwding()
-Date: Sat, 14 Jan 2012 21:52:17 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1201142149250.11547@swampdragon.chaosbits.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH 2/3] sha512: reduce stack usage to safe number
+Date: Sat, 14 Jan 2012 13:14:33 -0800
+Message-ID: <CA+55aFzMBFzxY0oT_fWegtMZ6rFGdtfv1CBnUM7YxnMza75spw@mail.gmail.com>
+References: <20120113070813.GA20068@gondor.apana.org.au> <1326450942.2272.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <1326451301.2272.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <1326452246.2272.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <CACVxJT9FOYdRFZJ0WRe+5ty4t4XLwgHKWaoZBWB+Zjm-yCEMEA@mail.gmail.com>
+ <1326458053.3826.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <20120114182024.GA4207@p183.telecom.by> <20120114182737.GB4207@p183.telecom.by>
+ <20120114184057.GA5516@p183.telecom.by> <CA+55aFziQSzTpfnxQ+k83Ui-65TDHu5GZFoJhhPoR504K_d7pw@mail.gmail.com>
+ <20120114204127.GA4100@p183.telecom.by>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Jiri Benc <jbenc@suse.cz>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from swampdragon.chaosbits.net ([90.184.90.115]:14894 "EHLO
-	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932173Ab2ANUwS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2012 15:52:18 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+	ken@codelabs.ch, Steffen Klassert <steffen.klassert@secunet.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, security@kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20120114204127.GA4100@p183.telecom.by>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We may leak the 'fwd_skb' we skb_copy() in ieee80211_rx_h_mesh_fwding() if 
-we take the 'else' branch in the 'if' statement just below. If we take 
-that branch we'll end up returning from the function and since we've not 
-assigned 'fwd_skb' to anything at that point, we leak it when the variable 
-goes out of scope.
+On Sat, Jan 14, 2012 at 12:41 PM, Alexey Dobriyan <adobriyan@gmail.com> wrote:
+>
+> For the record, it generates "andl $15" here.
 
-The simple fix seems to be to just kfree_skb(fwd_skb); just before we
-return. That is what this patch does.
+Ok. That means that gcc was able to prove that it never had any signed
+values (which is certainly reasonable when you do things like "for
+(i=0; i<X;i++)"). But it's better to simply not rely on gcc always
+getting details like this right.
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- net/mac80211/rx.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+It's also better to use a model that simply doesn't even require you
+as a programmer to have to even *think* about signed values.
 
- note: patch is only compile tested.
+It's easy to get "%" wrong by mistake (signed integer modulus didn't
+even use to have well-defined semantics in traditional C), and there
+is almost never any excuse for using it for powers-of-two.
 
-diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
-index f407427..7514091 100644
---- a/net/mac80211/rx.c
-+++ b/net/mac80211/rx.c
-@@ -1979,6 +1979,7 @@ ieee80211_rx_h_mesh_fwding(struct ieee80211_rx_data *rx)
- 		mesh_path_error_tx(ifmsh->mshcfg.element_ttl, fwd_hdr->addr3,
- 				    0, reason, fwd_hdr->addr2, sdata);
- 		IEEE80211_IFSTA_MESH_CTR_INC(ifmsh, dropped_frames_no_route);
-+		kfree_skb(fwd_skb);
- 		return RX_DROP_MONITOR;
- 	}
- 
--- 
-1.7.8.3
+> Here is updated patch which explicitly uses & (equally tested):
 
+Thanks,
 
--- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
+                     Linus
