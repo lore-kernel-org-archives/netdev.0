@@ -1,75 +1,80 @@
-From: Michael Mueller <malware@t-online.de>
-Subject: Re: de4x5
-Date: Sat, 14 Jan 2012 18:55:22 +0100
-Message-ID: <4F11C18A.1050802@t-online.de>
-References: <4F0F641B.5090407@t-online.de> <CAP=VYLpWbcBae11fcQPcuPmdfvir7N6F9QMdzXip=i4mMHjxsQ@mail.gmail.com> <4F10A287.2070008@t-online.de> <4F11503F.6000106@t-online.de>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: calling request_firmware() from module init will not work with
+ recent/future udev versions
+Date: Sat, 14 Jan 2012 12:58:37 -0500
+Message-ID: <20120114175837.GA8504@tuxdriver.com>
+References: <CAPXgP11iT9K2KcDCJvw_druf5qdNjs0jLfrbpS7CcYh5vXrz_w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010501030806040202000007"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	Tom Gundersen <teg@jklm.no>,
+	Andy Whitcroft <apw@canonical.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>
+To: Kay Sievers <kay.sievers@vrfy.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout11.t-online.de ([194.25.134.85]:34468 "EHLO
-	mailout11.t-online.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755971Ab2ANRza (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2012 12:55:30 -0500
-In-Reply-To: <4F11503F.6000106@t-online.de>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:37061 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756026Ab2ANSBM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2012 13:01:12 -0500
+Content-Disposition: inline
+In-Reply-To: <CAPXgP11iT9K2KcDCJvw_druf5qdNjs0jLfrbpS7CcYh5vXrz_w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010501030806040202000007
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Kay, thanks for the reports.  Drivers should definitely be loading
+firmware at IFF_UP time.
 
-Hi Paul,
+John
 
-I wrote [copy to you]:
->> When trying the de4x5 using 2.6.32 - which is what I can boot into
->> without too much problems - it did lock the machine while starting the
->> interface (ifconfig up). Sorry, but I do not feel like digging into this
->> just now.
-[..]
-> I changed the name from 'DE434/5' to 'DE434_5' since the slash seems to
-> be no good idea within a file/directory name. This does yield a lockup
-> with no message.
+On Sat, Jan 14, 2012 at 04:25:23PM +0100, Kay Sievers wrote:
+> Hey,
+> 
+> just a heads-up, when bug reports are coming in now. The kernel log
+> might look like a kernel failure, but it's caused by recent userspace
+> changes.
+> 
+> We changed udev to strictly enforce sequence order and dependency
+> handling of events. This seems to break some netdev drivers which
+> block in modprobe until the firmware from userspace is loaded into the
+> driver.
+> 
+> I think it's out of question, that nothing must block in module init
+> and rely on a userspace transaction to be fulfilled to finish the
+> init_module() syscall. If userspace is not running properly, nothing
+> will work. Built-in drivers and the transition from initramfs to the
+> real root can't be handled properly that way.
+> 
+> These drivers need to be fixed to load their firmware during ifup,
+> which would be the most flexible solution. That way, it should also
+> work if the driver is built-in, or is loaded from initramfs and no
+> firmware is available.
+> Alternatively, the firmware request should be able to use the aync
+> firmware_request API and not the blocking one.
+> 
+> We might need to work around that in the current udev for now, but
+> these drivers will definitely break in future udev versions.
+> Userspace, these days, should not be in charge of papering over
+> obvious kernel bugs like this.
+> 
+> These are the drivers we received bug reports so far. We didn't look
+> into any of details of the drivers, but according to the logs, they
+> seem to block for 60 seconds in modprobe, when userspace is not
+> behaving like expected:
+>   bnx2/bnx2-mips-06-6.2.1.fw
+>   rtlwifi/rtl8192sefw.bin
+>   brcm/bcm43xx-0.fw
+> 
+> Any help here would be appreciated.
+> 
+> Thanks,
+> Kay
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-It hangs due to the usage of synchronize_irq within the interrupt
-handler. It does not look like it was intended usage for this. Removing
-this code it does not lock up anymore. But it is not working either.
-Looking through the code it uses the same configuration values for BNC
-and AUI which de2104x uses for AUI.
-
-Changes done so far are appended as patch.
-
-
-Michael
-
---------------010501030806040202000007
-Content-Type: text/x-patch;
- name="de4x5.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="de4x5.patch"
-
---- drivers/net/tulip/de4x5.c.orig	2011-12-09 17:57:05.000000000 +0100
-+++ drivers/net/tulip/de4x5.c	2012-01-14 18:54:46.000000000 +0100
-@@ -1551,8 +1551,6 @@
-     if (test_and_set_bit(MASK_INTERRUPTS, (void*) &lp->interrupt))
- 	printk("%s: Re-entering the interrupt handler.\n", dev->name);
- 
--    synchronize_irq(dev->irq);
--
-     for (limit=0; limit<8; limit++) {
- 	sts = inl(DE4X5_STS);            /* Read IRQ status */
- 	outl(sts, DE4X5_STS);            /* Reset the board interrupts */
-@@ -3909,7 +3907,7 @@
-     int i, status = 0, siglen = ARRAY_SIZE(de4x5_signatures);
- 
-     if (lp->chipset == DC21040) {
--	strcpy(name, "DE434/5");
-+	strcpy(name, "DE434_5");
- 	return status;
-     } else {                           /* Search for a DEC name in the SROM */
- 	int tmp = *((char *)&lp->srom + 19) * 3;
-
---------------010501030806040202000007--
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
