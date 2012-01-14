@@ -1,80 +1,82 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: calling request_firmware() from module init will not work with
- recent/future udev versions
-Date: Sat, 14 Jan 2012 12:58:37 -0500
-Message-ID: <20120114175837.GA8504@tuxdriver.com>
-References: <CAPXgP11iT9K2KcDCJvw_druf5qdNjs0jLfrbpS7CcYh5vXrz_w@mail.gmail.com>
+From: Devendra Naga <devendra.aaru-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1/1] remove version.h includes in net/openvswitch/
+Date: Sat, 14 Jan 2012 23:46:21 +0530
+Message-ID: <1326564981-7142-1-git-send-email-devendra.aaru@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	Tom Gundersen <teg@jklm.no>,
-	Andy Whitcroft <apw@canonical.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>
-To: Kay Sievers <kay.sievers@vrfy.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:37061 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756026Ab2ANSBM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2012 13:01:12 -0500
-Content-Disposition: inline
-In-Reply-To: <CAPXgP11iT9K2KcDCJvw_druf5qdNjs0jLfrbpS7CcYh5vXrz_w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devendra.aaru-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Kay, thanks for the reports.  Drivers should definitely be loading
-firmware at IFF_UP time.
+remove version.h includes in net/openswitch/ as reported by make versioncheck.
 
-John
+Signed-off-by: Devendra Naga <devendra.aaru-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/openvswitch/datapath.c           |    1 -
+ net/openvswitch/datapath.h           |    1 -
+ net/openvswitch/vport-internal_dev.c |    1 -
+ net/openvswitch/vport.c              |    1 -
+ 4 files changed, 0 insertions(+), 4 deletions(-)
 
-On Sat, Jan 14, 2012 at 04:25:23PM +0100, Kay Sievers wrote:
-> Hey,
-> 
-> just a heads-up, when bug reports are coming in now. The kernel log
-> might look like a kernel failure, but it's caused by recent userspace
-> changes.
-> 
-> We changed udev to strictly enforce sequence order and dependency
-> handling of events. This seems to break some netdev drivers which
-> block in modprobe until the firmware from userspace is loaded into the
-> driver.
-> 
-> I think it's out of question, that nothing must block in module init
-> and rely on a userspace transaction to be fulfilled to finish the
-> init_module() syscall. If userspace is not running properly, nothing
-> will work. Built-in drivers and the transition from initramfs to the
-> real root can't be handled properly that way.
-> 
-> These drivers need to be fixed to load their firmware during ifup,
-> which would be the most flexible solution. That way, it should also
-> work if the driver is built-in, or is loaded from initramfs and no
-> firmware is available.
-> Alternatively, the firmware request should be able to use the aync
-> firmware_request API and not the blocking one.
-> 
-> We might need to work around that in the current udev for now, but
-> these drivers will definitely break in future udev versions.
-> Userspace, these days, should not be in charge of papering over
-> obvious kernel bugs like this.
-> 
-> These are the drivers we received bug reports so far. We didn't look
-> into any of details of the drivers, but according to the logs, they
-> seem to block for 60 seconds in modprobe, when userspace is not
-> behaving like expected:
->   bnx2/bnx2-mips-06-6.2.1.fw
->   rtlwifi/rtl8192sefw.bin
->   brcm/bcm43xx-0.fw
-> 
-> Any help here would be appreciated.
-> 
-> Thanks,
-> Kay
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 9a27251..d9d01cb 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -36,7 +36,6 @@
+ #include <linux/rcupdate.h>
+ #include <linux/tcp.h>
+ #include <linux/udp.h>
+-#include <linux/version.h>
+ #include <linux/ethtool.h>
+ #include <linux/wait.h>
+ #include <asm/system.h>
+diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
+index 5b9f884..c73370c 100644
+--- a/net/openvswitch/datapath.h
++++ b/net/openvswitch/datapath.h
+@@ -25,7 +25,6 @@
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>
+ #include <linux/u64_stats_sync.h>
+-#include <linux/version.h>
+ 
+ #include "flow.h"
+ 
+diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+index 8fc28b8..322b8d2 100644
+--- a/net/openvswitch/vport-internal_dev.c
++++ b/net/openvswitch/vport-internal_dev.c
+@@ -23,7 +23,6 @@
+ #include <linux/etherdevice.h>
+ #include <linux/ethtool.h>
+ #include <linux/skbuff.h>
+-#include <linux/version.h>
+ 
+ #include "datapath.h"
+ #include "vport-internal_dev.h"
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index 7f0ef37..6c066ba 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -27,7 +27,6 @@
+ #include <linux/rcupdate.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/compat.h>
+-#include <linux/version.h>
+ 
+ #include "vport.h"
+ #include "vport-internal_dev.h"
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+1.7.1
