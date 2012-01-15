@@ -1,45 +1,72 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost-net: add module alias (v2.1)
-Date: Sun, 15 Jan 2012 14:42:36 +0200
-Message-ID: <20120115124236.GA31012@redhat.com>
-References: <20120111091653.188b24ab@nehalam.linuxnetplumber.net>
- <CAEH94LiF_F51_avA9UWMneo1N1wY0NzJmfohpxdrkAv2WkWT5Q@mail.gmail.com>
- <20120111213038.39213819@nehalam.linuxnetplumber.net>
- <20120112.200701.1473475851890804136.davem@davemloft.net>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH v2 2/3] net: usb: cdc_enc: New driver exposing USB CDC encapsulated protocols
+Date: Sun, 15 Jan 2012 15:22:02 +0100
+Message-ID: <87lip9dp11.fsf@nemi.mork.no>
+References: <cover.1326607234.git.bjorn@mork.no>
+	<d11888532ee381806b35974e71af4c0122255c05.1326607234.git.bjorn@mork.no>
+	<201201151436.29794.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com, zwu.kernel@gmail.com, device@lanana.org,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	kay.sievers@vrfy.org, kvm@vger.kernel.org,
-	Alan Cox <alan@linux.intel.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120112.200701.1473475851890804136.davem@davemloft.net>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Thomas =?utf-8?Q?Sch=C3=A4fer?= <tschaefer-zqRNUXuvxA0b1SvskN2V4Q@public.gmane.org>
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201201151436.29794.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> (Oliver Neukum's message
+	of "Sun, 15 Jan 2012 14:36:29 +0100")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 12, 2012 at 08:07:01PM -0800, David Miller wrote:
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Wed, 11 Jan 2012 21:30:38 -0800
-> 
-> > Subject: vhost-net: add module alias (v2.1)
-> > 
-> > By adding some module aliases, programs (or users) won't have to explicitly
-> > call modprobe. Vhost-net will always be available if built into the kernel.
-> > It does require assigning a permanent minor number for depmod to work.
-> > 
-> > Also:
-> >   - use C99 style initialization.
-> >   - add missing entry in documentation for loop-control
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> ACKs, NACKs?  What is happening here?
+Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> writes:
+> Am Sonntag, 15. Januar 2012, 07:40:36 schrieb Bj=C3=B8rn Mork:
+>> USB CDC Ethernet devices may encapsulate vendor specific protocols i=
+nside
+>> USB_CDC_SEND_ENCAPSULATED_COMMAND +USB_CDC_GET_ENCAPSULATED_RESPONSE
+>> control messages. Devices based on Qualcomm MSM
+>> chipsets are known to use this for exporting the Qualcomm
+>> MSM Interface (QMI) protocol. Examples of such devices are
+>> the Huawei E392 and E398 LTE modems.
+>
+> The problem is that this is another version of the code already
+> in cdc-wdm, which is tested well.
 
-I would like an Ack from Alan Cox who switched vhost-net
-to a dynamic minor in the first place, in commit
-79907d89c397b8bc2e05b347ec94e928ea919d33.
+Huh?  I thought that was something entirely different.  Isn't it?
 
--- 
-MST
+Anyway, I see that I should look thoroughly at it as it does these
+things in a much nicer way.  Thanks for the pointer.
+
+> I'd really like to unify this stuff.
+
+That makes sense. =20
+
+[snipped a number of detailed issues which I obviously need to fix]
+
+>> +
+>> +/* per CDC_ENC interface state */
+>> +struct cdc_enc_state {
+>> +	struct usb_interface *intf;
+>> +	struct urb *urb;		/* receive urb */
+>> +	struct urb *interrupt;		/* interrupt urb */
+>> +	unsigned char rcvbuf[CDC_ENC_BUFLEN];     /* receive buffer */
+>
+> This is a violation of the DMA requirements. You must use kmalloc.
+
+This probably only demonstrates my lack of understanding these
+requirements.  I thought this was OK as long as I kmalloc'ed the whole
+struct, but I see now that that isn't necessarily true.
+
+>
+> I had a not very detailed look at this driver, but I would really pre=
+fer
+> if you could have a look at making unified code for this, cdc-wdm and=
+ cdc-acm.
+
+Will do.  Thanks a lot for the fast review.
+
+
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
