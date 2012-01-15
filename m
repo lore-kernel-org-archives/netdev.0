@@ -1,106 +1,58 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v2 2/3] net: usb: cdc_enc: New driver exposing USB CDC encapsulated protocols
-Date: Sun, 15 Jan 2012 21:33:38 +0100
-Message-ID: <201201152133.38183.oliver@neukum.org>
-References: <cover.1326607234.git.bjorn@mork.no> <87lip9dp11.fsf@nemi.mork.no> <87ehv0eoah.fsf@nemi.mork.no>
+From: Yuehai Xu <yuehaixu@gmail.com>
+Subject: Why the number of /proc/interrupts doesn't change when nic is under
+ heavy workload?
+Date: Sun, 15 Jan 2012 15:53:20 -0500
+Message-ID: <CAEc1PS0doeaH59621ia7n2GT=WgRSsCit_EzGrCV93QH95XZqw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Thomas =?utf-8?q?Sch=C3=A4fer?= <tschaefer-zqRNUXuvxA0b1SvskN2V4Q@public.gmane.org>
-To: =?utf-8?q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87ehv0eoah.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-kernel@vger.kernel.org, yhxu@wayne.edu
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Sonntag, 15. Januar 2012, 20:52:38 schrieb Bj=C3=B8rn Mork:
+Hi All,
 
-> There is one fundamental design issue which worries me though: cdc-wd=
-m
-> doesn't support multiple simultaneous readers/writers.  This is sort =
-of
-> a blocker for my use case, as I will need to keep a reader/writer for
-> the driver internal wwan management at all times.  So two simultaneou=
-s
-> clients are necessary to actually have something available for
-> userspace at all.
+My nic of server is Intel Corporation 80003ES2LAN Gigabit Ethernet
+Controller, the driver is e1000e, and my Linux version is 3.1.4. I
+have a Memcached server running on this 8 core box, the weird thing is
+that when my server is under heavy workload, the number of
+/proc/interrupts doesn't change at all. Below are some details:
+=======
+cat /proc/interrupts | grep eth0
+68:     330887     330861     331432     330544     330346     330227
+   330830     330575   PCI-MSI-edge      eth0
+=======
+cat /proc/irq/68/smp_affinity
+ff
 
-What exactly do you need? The ability to write while another task is re=
-ading?
+I know when network is under heavy load, NAPI will disable nic
+interrupt and poll ring buffer in nic. My question is, when is nic
+interrupt enabled again? It seems that it will never be enabled if the
+heavy workload doesn't stop, simply because the number showed by
+/proc/interrupts doesn't change at all. In my case, one of core is
+saturated by ksoftirqd, because lots of softirqs are pending to that
+core. I just want to distribute these softirqs to other cores. Even
+RPS is enabled, that core is still occupied by ksoftirq, nearly 100%.
 
-> Are there any reasons for this choice, and do you think it's feasible
+I dive into the codes and find these statements:
+__napi_schedule ==>
+   local_irq_save(flags);
+   ____napi_schedule(&__get_cpu_var(softnet_data), n);
+   local_irq_restore(flags);
 
-Easier to get the locking right.
+here "local_irq_save" actually invokes "cli" which disable interrupt
+for the local core, is this the one that used in NAPI to disable nic
+interrupt? Personally I don't think it is because it just disables
+local cpu.
 
-> changing it without destroying the advantage of the well tested code?=
-  I
-> seem to remember that cdc-wdm allowed simultaneous reading/writing in
-> the past, but this changed somewhere between 2.6.32 and 3.0. I have a=
-n
+I also find "enable_irq/disable_irq/e1000_irq_enable/e1000_irq_disable"
+under drivers/net/e1000e, are these used in NAPI to disable nic
+interrupt, but I fail to get any clue that they are used in the code
+path of NAPI?
 
-There might have been a locking bug which was easy to fix this way.
+My current situation is that, almost 60% of time of other 7 cores are
+idle, while only one core which is occupied by ksoftirq is 100% busy.
 
-> Ericsson modem with two such AT command speaking interfaces, and I us=
-e a
-> simple shell script to configure it.  At one point I had to switch fr=
-om
-> using /dev/cdc-wdm0 to /dev/ttyACM0 because the former started hangin=
-g
-> on constructs like this:
->=20
->     while read x; do
->     case "$x" in
->          foo)
->               echo -e "AT+bar\r" >/dev/cdc-wdm0
->               ;;
->          ...
->         esac
->     done </dev/cdc-wdm0
->              =20
->=20
-> This used to work with 2.6.32, but that might have been just pure luc=
-k?
-> Anyway, that change really made cdc-wdm much less usable for me, and
-> that sort of proves that supporting simultaneous read/write would be =
-an
-> improvement even for the existing supported devices.
-
-Then feel free to add it, just beware of deadlocks.
-
-> And then there are a couple of minor issues which I believe needs
-> sorting out.  If I understand the WDM spec correctly (without botheri=
-ng
-> to actually read if, of course), then it only defines the interface b=
-ut
-> not the protocol.  Exactly like the embedded CDC Ethernet command
-> interface.  So I have the Ericsson modem which which speaks an AT
-> command protocol, of course with a number of vendor specific AT comma=
-nds
-> included.  And then I have the Huawei modem which speaks QMI.  Just
-> mapping these to a number of /dev/cdc-wdmX interfaces isn't going to
-> help user applications much.  They need to be told *what* protocol to
-> use on the character device.  And the driver should know this, either=
- by
-> detection or maybe best: vid/pid based tables and sane fallbacks.
-
-I see.
-
-> Do you think it would be possible to add that (or similar meta data) =
-to
-> the cdc-wdmX devices?  Maybe letting it default to "AT"?  Or "unknown=
-"?
-> Any thoughts on this?  How do actual user applications deal with this=
-?
-
-Well, you need a pointer at the correct "control" interface anyway. Wou=
-ldn't you better
-put the "protocol" attribute there?
-
-	Regards
-		Oliver
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks very much!
+Yuehai
