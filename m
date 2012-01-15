@@ -1,59 +1,75 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] blutetooth: Remove bogus inline for l2cap_chan_connect()
-Date: Sun, 15 Jan 2012 12:25:04 +0100
-Message-ID: <CAMuHMdVim5VjEYCABXmaw8JQQQtAJk_hLGs+vys2Vr49AFOxCw@mail.gmail.com>
-References: <1326622076-957-1-git-send-email-geert@linux-m68k.org>
-	<20120115105203.GA12584@x220.P-661HNU-F1>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Geert Uytterhoeven <geert@linux-m68k.org>,
-	"Gustavo F. Padovan" <padovan@profusion.mobi>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120115105203.GA12584@x220.P-661HNU-F1>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Wolfgang Zarre <lkdev@essax.com>
+Subject: [PATCH wg-linux-can-next devel 1/1] can: cc770: Fix indirect access deadlock on ISA cards
+Date: Sun, 15 Jan 2012 13:21:34 +0100
+Message-ID: <1326630094-3126-1-git-send-email-lkdev@essax.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	socketcan-users@lists.berlios.de, Wolfgang Zarre <lkdev@essax.com>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org
+To: Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Johan,
+This fix avoids a deadlock if an interrupt occurs
+during consecutive port operations on ISA cards
+utilising indirect access via address and data
+port.
 
-On Sun, Jan 15, 2012 at 11:52, Johan Hedberg <johan.hedberg@gmail.com> =
-wrote:
->> =C2=A0 =C2=A0 net/bluetooth/l2cap_sock.c: In function =E2=80=98l2cap=
-_sock_connect=E2=80=99:
->> =C2=A0 =C2=A0 include/net/bluetooth/l2cap.h:838: sorry, unimplemente=
-d: inlining failed in call to =E2=80=98l2cap_chan_connect=E2=80=99: fun=
-ction body not available
->> =C2=A0 =C2=A0 net/bluetooth/l2cap_sock.c:126: sorry, unimplemented: =
-called from here
->> =C2=A0 =C2=A0 make[1]: *** [net/bluetooth/l2cap_sock.o] Error 1
+Tested on a B&R ISA card.
 
-> This was already reported[1] earlier this month and a patch[2] was al=
-so
+CC: linux-can@vger.kernel.org
+CC: netdev@vger.kernel.org
+Signed-off-by: Wolfgang Zarre <lkdev@essax.com>
+---
+ drivers/net/can/cc770/cc770_isa.c |   16 +++++++++++++++-
+ 1 files changed, 15 insertions(+), 1 deletions(-)
 
-Ah, it was reported as a sparse warning. I guess that's why I didn't fi=
-nd it.
-But a build error is worse.
+diff --git a/drivers/net/can/cc770/cc770_isa.c b/drivers/net/can/cc770/cc770_isa.c
+index 4be5fe2..9f3a25c 100644
+--- a/drivers/net/can/cc770/cc770_isa.c
++++ b/drivers/net/can/cc770/cc770_isa.c
+@@ -110,6 +110,11 @@ MODULE_PARM_DESC(bcr, "Bus configuration register (default=0x40 [CBY])");
+ #define CC770_IOSIZE          0x20
+ #define CC770_IOSIZE_INDIRECT 0x02
+ 
++/* Spinlock for cc770_isa_port_write_reg_indirect
++ * and cc770_isa_port_read_reg_indirect
++ */
++static DEFINE_SPINLOCK(cc770_isa_port_lock);
++
+ static struct platform_device *cc770_isa_devs[MAXDEV];
+ 
+ static u8 cc770_isa_mem_read_reg(const struct cc770_priv *priv, int reg)
+@@ -138,18 +143,27 @@ static u8 cc770_isa_port_read_reg_indirect(const struct cc770_priv *priv,
+ 					     int reg)
+ {
+ 	unsigned long base = (unsigned long)priv->reg_base;
++	unsigned long flags;
++	u8 val;
+ 
++	spin_lock_irqsave(&cc770_isa_port_lock, flags);
+ 	outb(reg, base);
+-	return inb(base + 1);
++	val = inb(base + 1);
++	spin_unlock_irqrestore(&cc770_isa_port_lock, flags);
++
++	return val;
+ }
+ 
+ static void cc770_isa_port_write_reg_indirect(const struct cc770_priv *priv,
+ 						int reg, u8 val)
+ {
+ 	unsigned long base = (unsigned long)priv->reg_base;
++	unsigned long flags;
+ 
++	spin_lock_irqsave(&cc770_isa_port_lock, flags);
+ 	outb(reg, base);
+ 	outb(val, base + 1);
++	spin_unlock_irqrestore(&cc770_isa_port_lock, flags);
+ }
+ 
+ static int __devinit cc770_isa_probe(struct platform_device *pdev)
+-- 
+1.7.7.3
 
-> created for it which right now resides in my bluetooth-next tree[3].
-
-OK, thanks a lot!
-
-Gr{oetje,eeting}s,
-
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
-
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
