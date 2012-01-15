@@ -1,72 +1,111 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH v2 2/3] net: usb: cdc_enc: New driver exposing USB CDC encapsulated protocols
-Date: Sun, 15 Jan 2012 15:22:02 +0100
-Message-ID: <87lip9dp11.fsf@nemi.mork.no>
-References: <cover.1326607234.git.bjorn@mork.no>
-	<d11888532ee381806b35974e71af4c0122255c05.1326607234.git.bjorn@mork.no>
-	<201201151436.29794.oliver@neukum.org>
+From: Arthur Marsh <arthur.marsh@internode.on.net>
+Subject: NETDEV WATCHDOG: eth0 (sis900): transmit queue 0 timed out
+Date: Mon, 16 Jan 2012 00:21:15 +1030
+Message-ID: <k72bu8-roo.ln1@ppp121-45-136-118.lns11.adl6.internode.on.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Thomas =?utf-8?Q?Sch=C3=A4fer?= <tschaefer-zqRNUXuvxA0b1SvskN2V4Q@public.gmane.org>
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201201151436.29794.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> (Oliver Neukum's message
-	of "Sun, 15 Jan 2012 14:36:29 +0100")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lo.gmane.org ([80.91.229.12]:59095 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752653Ab2AOPKM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Jan 2012 10:10:12 -0500
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1RmRil-0001DN-L2
+	for netdev@vger.kernel.org; Sun, 15 Jan 2012 16:10:11 +0100
+Received: from ppp121-45-83-177.lns20.adl6.internode.on.net ([121.45.83.177])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 15 Jan 2012 16:10:11 +0100
+Received: from arthur.marsh by ppp121-45-83-177.lns20.adl6.internode.on.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 15 Jan 2012 16:10:11 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> writes:
-> Am Sonntag, 15. Januar 2012, 07:40:36 schrieb Bj=C3=B8rn Mork:
->> USB CDC Ethernet devices may encapsulate vendor specific protocols i=
-nside
->> USB_CDC_SEND_ENCAPSULATED_COMMAND +USB_CDC_GET_ENCAPSULATED_RESPONSE
->> control messages. Devices based on Qualcomm MSM
->> chipsets are known to use this for exporting the Qualcomm
->> MSM Interface (QMI) protocol. Examples of such devices are
->> the Huawei E392 and E398 LTE modems.
->
-> The problem is that this is another version of the code already
-> in cdc-wdm, which is tested well.
+Hi, I've recently started using an ASUS P4S800 motherboard with a dual 
+core Pentium 4 CPU and the latest Linus git master kernel.
 
-Huh?  I thought that was something entirely different.  Isn't it?
+lspci -v reports that the ethernet card is the following:
 
-Anyway, I see that I should look thoroughly at it as it does these
-things in a much nicer way.  Thanks for the pointer.
+00:04.0 Ethernet controller: Silicon Integrated Systems [SiS] SiS900 PCI 
+Fast Et
+hernet (rev 91)
+         Subsystem: ASUSTeK Computer Inc. Device 80ff
+         Flags: bus master, medium devsel, latency 32, IRQ 19
+         I/O ports at 8800 [size=256]
+         Memory at d5000000 (32-bit, non-prefetchable) [size=4K]
+         Expansion ROM at dffe0000 [disabled] [size=128K]
+         Capabilities: [40] Power Management version 2
+         Kernel driver in use: sis900
 
-> I'd really like to unify this stuff.
-
-That makes sense. =20
-
-[snipped a number of detailed issues which I obviously need to fix]
-
->> +
->> +/* per CDC_ENC interface state */
->> +struct cdc_enc_state {
->> +	struct usb_interface *intf;
->> +	struct urb *urb;		/* receive urb */
->> +	struct urb *interrupt;		/* interrupt urb */
->> +	unsigned char rcvbuf[CDC_ENC_BUFLEN];     /* receive buffer */
->
-> This is a violation of the DMA requirements. You must use kmalloc.
-
-This probably only demonstrates my lack of understanding these
-requirements.  I thought this was OK as long as I kmalloc'ed the whole
-struct, but I see now that that isn't necessarily true.
-
->
-> I had a not very detailed look at this driver, but I would really pre=
-fer
-> if you could have a look at making unified code for this, cdc-wdm and=
- cdc-acm.
-
-Will do.  Thanks a lot for the fast review.
+A few times per day I get the following error. The kernel recovers 
+quickly enough so that the link isn't reported as down.
 
 
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Jan 15 23:19:43 localhost kernel: [18090.008013] ------------[ cut here 
+]------------
+Jan 15 23:19:43 localhost kernel: [18090.008031] WARNING: at 
+net/sched/sch_generic.c:256 dev_watchdog+0xb7/0x11a()
+Jan 15 23:19:43 localhost kernel: [18090.008035] Hardware name: System Name
+Jan 15 23:19:43 localhost kernel: [18090.008038] NETDEV WATCHDOG: eth0 
+(sis900): transmit queue 0 timed out
+Jan 15 23:19:43 localhost kernel: [18090.008041] Modules linked in: 
+snd_seq_dummy ppdev lp tun snd_hrtimer binfmt_misc microcode fuse 
+nls_utf8 nls_cp437 vfat fat w83627hf hwmon_vid max6650 snd_emu10k1_synth 
+snd_emux_synth snd_seq_midi_emul snd_seq_virmidi snd_emu10k1 
+snd_ac97_codec ac97_bus usb_storage snd_pcm_oss snd_mixer_oss snd_pcm 
+snd_page_alloc snd_util_mem snd_hwdep radeon snd_seq_midi 
+snd_seq_midi_event emu10k1_gp ttm drm_kms_helper psmouse drm evdev 
+pcspkr i2c_algo_bit snd_rawmidi snd_seq serio_raw ns558 gameport 
+i2c_sis96x power_supply i2c_core parport_pc snd_seq_device snd_timer snd 
+soundcore parport processor thermal_sys shpchp pci_hotplug button ext3 
+jbd mbcache raid1 md_mod sr_mod cdrom sd_mod ata_generic crc_t10dif uas 
+ohci_hcd floppy pata_sis libata ehci_hcd firewire_ohci eata scsi_mod 
+firewire_core sis900 mii usbcore crc_itu_t usb_common [last unloaded: 
+scsi_wait_scan]
+Jan 15 23:19:43 localhost kernel: [18090.008154] Pid: 0, comm: swapper/0 
+Not tainted 3.2.0+ #117
+Jan 15 23:19:43 localhost kernel: [18090.008158] Call Trace:
+Jan 15 23:19:43 localhost kernel: [18090.008169]  [<c1021549>] ? 
+warn_slowpath_common+0x68/0x79
+Jan 15 23:19:43 localhost kernel: [18090.008175]  [<c120e614>] ? 
+dev_watchdog+0xb7/0x11a
+Jan 15 23:19:43 localhost kernel: [18090.008180]  [<c10215c2>] ? 
+warn_slowpath_fmt+0x29/0x2d
+Jan 15 23:19:43 localhost kernel: [18090.008185]  [<c120e614>] ? 
+dev_watchdog+0xb7/0x11a
+Jan 15 23:19:43 localhost kernel: [18090.008194]  [<c120e55d>] ? 
+netif_tx_lock+0x69/0x69
+Jan 15 23:19:43 localhost kernel: [18090.008199]  [<c102afa0>] ? 
+run_timer_softirq+0x132/0x218
+Jan 15 23:19:43 localhost kernel: [18090.008205]  [<c10260d0>] ? 
+__do_softirq+0x7d/0x162
+Jan 15 23:19:43 localhost kernel: [18090.008210]  [<c1026053>] ? 
+perf_trace_irq_handler_entry+0xd3/0xd3
+Jan 15 23:19:43 localhost kernel: [18090.008213]  <IRQ>  [<c1026326>] ? 
+irq_exit+0x32/0x7d
+Jan 15 23:19:43 localhost kernel: [18090.008222]  [<c1014e0b>] ? 
+smp_apic_timer_interrupt+0x5b/0x65
+Jan 15 23:19:43 localhost kernel: [18090.008228]  [<c129f68d>] ? 
+apic_timer_interrupt+0x31/0x38
+Jan 15 23:19:43 localhost kernel: [18090.008235]  [<c107007b>] ? 
+ack_bad+0x3/0x174
+Jan 15 23:19:43 localhost kernel: [18090.008241]  [<c11e007b>] ? 
+input_event+0x59/0x6a
+Jan 15 23:19:43 localhost kernel: [18090.008248]  [<c100711b>] ? 
+mwait_idle+0x65/0x8b
+Jan 15 23:19:43 localhost kernel: [18090.008252]  [<c100168c>] ? 
+cpu_idle+0x95/0xb4
+Jan 15 23:19:43 localhost kernel: [18090.008258]  [<c13e36fd>] ? 
+start_kernel+0x35b/0x360
+Jan 15 23:19:43 localhost kernel: [18090.008261] ---[ end trace 
+f628be76a6a336bc ]---
+Jan 15 23:19:43 localhost kernel: [18090.008267] eth0: Transmit timeout, 
+status 00000004 00000040
+
+Any more information required? Any tests that I could run?
+
+Arthur.
