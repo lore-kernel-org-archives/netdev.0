@@ -1,58 +1,35 @@
-From: Yuehai Xu <yuehaixu@gmail.com>
-Subject: Why the number of /proc/interrupts doesn't change when nic is under
- heavy workload?
-Date: Sun, 15 Jan 2012 15:53:20 -0500
-Message-ID: <CAEc1PS0doeaH59621ia7n2GT=WgRSsCit_EzGrCV93QH95XZqw@mail.gmail.com>
+From: "Tai Bei" <bei@optusnet.com.au>
+Subject: Please Help.
+Date: Mon, 16 Jan 2012 04:40:02 +0700 (WIT)
+Message-ID: <4fd29d550ec34adf2d4c11230214e526.squirrel__36006.1914696873$1326665016$gmane$org@webmail.speedmark.co.id>
+Reply-To: mr.tai@9.cn
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel@vger.kernel.org, yhxu@wayne.edu
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from speedmark.co.id ([202.51.112.171]:40953 "EHLO
+	mail.fafakids.web.id" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752463Ab2AOWCy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2012 17:02:54 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+It is understandable that you might be a little bit apprehensive because
+you do not know me but I have a lucrative business proposal of mutual
+interest to share with you. I got your reference in my search for someone
+who suits my proposed business relationship. I am Mr. Tai Bei bank officer
+with the International bank of Taipei. I will need you to assist me in
+executing a business project from Taiwan to your country. It involves the
+transfer of money. Everything concerning this transaction shall be legally
+done without hitch.
 
-My nic of server is Intel Corporation 80003ES2LAN Gigabit Ethernet
-Controller, the driver is e1000e, and my Linux version is 3.1.4. I
-have a Memcached server running on this 8 core box, the weird thing is
-that when my server is under heavy workload, the number of
-/proc/interrupts doesn't change at all. Below are some details:
-=======
-cat /proc/interrupts | grep eth0
-68:     330887     330861     331432     330544     330346     330227
-   330830     330575   PCI-MSI-edge      eth0
-=======
-cat /proc/irq/68/smp_affinity
-ff
 
-I know when network is under heavy load, NAPI will disable nic
-interrupt and poll ring buffer in nic. My question is, when is nic
-interrupt enabled again? It seems that it will never be enabled if the
-heavy workload doesn't stop, simply because the number showed by
-/proc/interrupts doesn't change at all. In my case, one of core is
-saturated by ksoftirqd, because lots of softirqs are pending to that
-core. I just want to distribute these softirqs to other cores. Even
-RPS is enabled, that core is still occupied by ksoftirq, nearly 100%.
+Once the funds have been successfully transferred into your account, we
+shall share in the ratio to be agreed by both of us. Contact me for more
+information about this operation immediately I receive a positive response
+from you.
 
-I dive into the codes and find these statements:
-__napi_schedule ==>
-   local_irq_save(flags);
-   ____napi_schedule(&__get_cpu_var(softnet_data), n);
-   local_irq_restore(flags);
 
-here "local_irq_save" actually invokes "cli" which disable interrupt
-for the local core, is this the one that used in NAPI to disable nic
-interrupt? Personally I don't think it is because it just disables
-local cpu.
-
-I also find "enable_irq/disable_irq/e1000_irq_enable/e1000_irq_disable"
-under drivers/net/e1000e, are these used in NAPI to disable nic
-interrupt, but I fail to get any clue that they are used in the code
-path of NAPI?
-
-My current situation is that, almost 60% of time of other 7 cores are
-idle, while only one core which is occupied by ksoftirq is 100% busy.
-
-Thanks very much!
-Yuehai
+Kind Regards,
+Mr. Tai Bei
