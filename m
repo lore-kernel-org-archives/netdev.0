@@ -1,58 +1,43 @@
-From: "Justin P. Mattock" <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: ath9k timeouts with the current Mainline
-Date: Sun, 15 Jan 2012 07:50:53 -0800
-Message-ID: <4F12F5DD.3030904@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: why does skb->tstamp use getnstimeofday?
+Date: Sun, 15 Jan 2012 17:42:30 +0100
+Message-ID: <1326645750.5287.48.camel@edumazet-laptop>
+References: <op.v74shh18fzo5me@stalin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Anatoly Sivov <mm05@mail.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:40602 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751125Ab2AOQme (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2012 11:42:34 -0500
+Received: by wgbds12 with SMTP id ds12so4688941wgb.1
+        for <netdev@vger.kernel.org>; Sun, 15 Jan 2012 08:42:33 -0800 (PST)
+In-Reply-To: <op.v74shh18fzo5me@stalin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-not sure if the Internet provider just sucks, or I am hitting a wireless 
-issue. basically my connection times out after a few mins of being 
-up.(streaming radio is not solid).
+Le dimanche 15 janvier 2012 =C3=A0 19:11 +0400, Anatoly Sivov a =C3=A9c=
+rit :
+> Hello everyone.
+>=20
+> struct sk_buff has a field tstamp, which is used for high resolution =
+rtt =20
+> calculation.
+> All operations with this field are done directly or indirectly via kt=
+ime_* =20
+> interface,
+> which uses getnstimeofday function.
+> My question is why does skb->tstamp use getnstimeofday?
+> Isn't it better to use getrawmonotonic, where we are not inetrfered w=
+ith =20
+> ntp,  for rtt calculation?
+>=20
 
-dmesg shows:
+It's using this since day 0, so cannot be changed or break applications=
+,
+which expect timeofday, not monotonic.
 
-[ 3322.827549] wlan1: authenticate with d8:c7:c8:a2:0f:40 (try 1)
-[ 3322.831778] wlan1: d8:c7:c8:a2:0f:40 denied authentication (status 17)
-[ 3386.310128] wlan1: authenticate with d8:c7:c8:a2:0d:80 (try 1)
-[ 3386.312010] wlan1: d8:c7:c8:a2:0d:80 denied authentication (status 17)
-[ 3389.481771] wlan1: direct probe to 00:18:0a:02:19:c3 (try 1/3)
-[ 3389.681095] wlan1: direct probe to 00:18:0a:02:19:c3 (try 2/3)
-[ 3389.881094] wlan1: direct probe to 00:18:0a:02:19:c3 (try 3/3)
-[ 3390.081092] wlan1: direct probe to 00:18:0a:02:19:c3 timed out
-[ 3458.618065] wlan1: direct probe to d8:c7:c8:a2:0d:80 (try 1/3)
-[ 3458.818079] wlan1: direct probe to d8:c7:c8:a2:0d:80 (try 2/3)
-[ 3459.018080] wlan1: direct probe to d8:c7:c8:a2:0d:80 (try 3/3)
-[ 3459.218058] wlan1: direct probe to d8:c7:c8:a2:0d:80 timed out
-[ 3466.518579] wlan1: direct probe to d8:c7:c8:a2:0d:80 (try 1/3)
-[ 3466.718111] wlan1: direct probe to d8:c7:c8:a2:0d:80 (try 2/3)
-[ 3466.918074] wlan1: direct probe to d8:c7:c8:a2:0d:80 (try 3/3)
-[ 3467.118077] wlan1: direct probe to d8:c7:c8:a2:0d:80 timed out
-[ 3474.424860] wlan1: authenticate with d8:c7:c8:a2:0d:80 (try 1)
-[ 3474.449681] wlan1: authenticated
-[ 3474.457133] wlan1: associate with d8:c7:c8:a2:0d:80 (try 1)
-[ 3474.471059] wlan1: RX AssocResp from d8:c7:c8:a2:0d:80 (capab=0x421 
-status=0 aid=13)
-[ 3474.471067] wlan1: associated
-[ 3474.471075] wlan1: moving STA d8:c7:c8:a2:0d:80 to state 1
-[ 3474.471080] wlan1: moving STA d8:c7:c8:a2:0d:80 to state 2
-[ 3474.473809] wlan1: moving STA d8:c7:c8:a2:0d:80 to state 3
-[ 3484.546077] wlan1: no IPv6 routers present
-
-
-card is:
-03:00.0 Network controller: Atheros Communications Inc. AR5008 Wireless 
-Network Adapter (rev 01)
-
-has anybody else seen/experienced anything like this?
-
-Justin P. Mattock
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+monotonic time services were added later.
