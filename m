@@ -1,17 +1,17 @@
 From: "Tai Bei" <bei@optusnet.com.au>
 Subject: Please Help.
-Date: Mon, 16 Jan 2012 04:48:37 +0700 (WIT)
-Message-ID: <bf26fb974a5adc96c52e4d07b8297015.squirrel@webmail.speedmark.co.id>
+Date: Mon, 16 Jan 2012 04:56:40 +0700 (WIT)
+Message-ID: <391e4e7e210d540f1766411e12e98491.squirrel@webmail.speedmark.co.id>
 Reply-To: mr.tai@9.cn
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from speedmark.co.id ([202.51.112.171]:50231 "EHLO
+Received: from speedmark.co.id ([202.51.112.171]:41447 "EHLO
 	mail.fafakids.web.id" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750811Ab2AOWrE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2012 17:47:04 -0500
+	with ESMTP id S1752539Ab2AOW4x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2012 17:56:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
