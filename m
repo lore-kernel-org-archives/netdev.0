@@ -1,42 +1,94 @@
-From: Vlado Drzik <vlado@ttx.sk>
-Subject: ipset 6.x - bitmap:ip,mac not working
-Date: Sun, 15 Jan 2012 17:52:26 +0100
-Message-ID: <4F13044A.7070900@ttx.sk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Hung task when calling clone() due to netfilter/slab
+Date: Sun, 15 Jan 2012 18:25:05 +0100
+Message-ID: <1326648305.5287.78.camel@edumazet-laptop>
+References: <1326558605.19951.7.camel@lappy>
+	 <1326561043.5287.24.camel@edumazet-laptop> <1326632384.11711.3.camel@lappy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: kadlec@blackhole.kfki.hu
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ttx02.ttx-net.sk ([193.110.187.3]:49082 "EHLO ttx02.ttx-net.sk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751482Ab2AORLe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 Jan 2012 12:11:34 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Dave Jones <davej@redhat.com>, davem <davem@davemloft.net>, Pekka Enberg
+ <penberg@kernel.org>, Christoph Lameter <cl@linux-foundation.org>, Matt
+ Mackall <mpm@selenic.com>, kaber@trash.net, pablo@netfilter.org,
+ linux-kernel <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>,
+  netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1326632384.11711.3.camel@lappy>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
- Hello All,
+Le dimanche 15 janvier 2012 =C3=A0 14:59 +0200, Sasha Levin a =C3=A9crit =
+:
+> On Sat, 2012-01-14 at 18:10 +0100, Eric Dumazet wrote:
+> > Apparently SLUB calls sysfs_slab_add() from kmem_cache_create() while
+> > still holding slub_lock.
+> >=20
+> > So if the task launched needs to "cat /proc/slabinfo" or anything
+> > needing slub_lock, its a deadlock.
+>=20
+> I've made the following patch to test it, It doesn't look like it's
+> the correct solution, but it verifies that the problem is there (it
+> works well with the patch).
+>=20
+> ---------------
+>=20
+> From cc4874b491b8e5d9d1ea5bf2032413efdbddced8 Mon Sep 17 00:00:00 2001
+> From: Sasha Levin <levinsasha928@gmail.com>
+> Date: Sun, 15 Jan 2012 14:55:03 +0200
+> Subject: [PATCH] slab: Fix hang when creating sysfs entries
+>=20
+> This patch fixes the hang which happens when we create a sysfs entry an=
+d call
+> back to userspace. If the usermode helper tries to do anything which in=
+volves
+> slub_lock we will hang since slub_lock is already held.
+>=20
+> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+> ---
+>  mm/slub.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/mm/slub.c b/mm/slub.c
+> index 4907563..6948327 100644
+> --- a/mm/slub.c
+> +++ b/mm/slub.c
+> @@ -5283,7 +5283,9 @@ static int sysfs_slab_add(struct kmem_cache *s)
+>  		kobject_put(&s->kobj);
+>  		return err;
+>  	}
+> +	up_write(&slub_lock);
+>  	kobject_uevent(&s->kobj, KOBJ_ADD);
+> +	down_write(&slub_lock);
+>  	if (!unmergeable) {
+>  		/* Setup first alias */
+>  		sysfs_slab_alias(s, s->name);
+> --=20
+> 1.7.8.3
+>=20
+>=20
 
-Would like to ask whether someone is actually using IP sets in recent
-kernel version with bitmap:ip,mac match.
-I've updated from ipsets 4.x to ipset 6.10 and kernel 3.1.8 and I've
-noticed that bitmap:ip,mac never match.
-I've tested also bitmap:ip and that one is working fine.
+Oh well, that cannot be right. Dont send official patches if you already
+know "it's not the correct solution", we already know where is the
+problem.
 
-Test setup:
+It's _never_ right to release a lock for a short time without any
+additional checks. [ If it was right, the lock would be not needed ]
 
-ipset create ipmac_test bitmap:ip,mac range 172.16.0.0/16
-ipset add ipmac_test 172.16.1.254,00:11:22:33:44:55
+As soon as the slub_lock is released, another thread can come and find
+the new kmem_cache.
 
-iptables -I INPUT -i eth0 -m set --match-set ipmac_test src
+For example, it can destroy it, and your thread is going to access s
+while it was already freed.
 
-And after I'm running some communication from host 172.16.1.254 with
-source MAC 00:11:22:33:44:55.
+	sysfs_slab_alias(s, s->name); // crash
 
-But there are not packets matched by the rule in iptables.
-Using just bitmap:ip it is working fine. Also previous version 4.x was
-working fine with macipmap.
 
-Many thanks.
-Regards,
-Vladimir Drzik
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
+.ca/
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
