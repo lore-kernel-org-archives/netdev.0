@@ -1,37 +1,37 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 3/8] brcm80211: Add and use brcmX_dbg_dump_hex
-Date: Sun, 15 Jan 2012 01:21:50 -0800
-Message-ID: <1326619310.6164.2.camel@joe2Laptop>
-References: <cover.1326616556.git.joe@perches.com>
-	 <289e8a2dcdbb03315ba41788a358f5afc4bacb1b.1326616556.git.joe@perches.com>
-	 <4F1299C4.7020902@broadcom.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: calling request_firmware() from module init will not work with
+ recent/future udev versions
+Date: Sun, 15 Jan 2012 11:02:23 +0100
+Message-ID: <1326621743.3448.1.camel@jlt3.sipsolutions.net>
+References: <CAPXgP11iT9K2KcDCJvw_druf5qdNjs0jLfrbpS7CcYh5vXrz_w@mail.gmail.com>
+	 (sfid-20120114_162556_888923_085E9D1A)
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Brett Rudley <brudley@broadcom.com>,
-	Henry Ptasinski <henryp@broadcom.com>,
-	Roland Vossen <rvossen@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Kan Yan <kanyan@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F1299C4.7020902@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	Tom Gundersen <teg@jklm.no>, Andy Whitcroft <apw@canonical.com>
+To: Kay Sievers <kay.sievers@vrfy.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from he.sipsolutions.net ([78.46.109.217]:37176 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751340Ab2AOKC1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2012 05:02:27 -0500
+In-Reply-To: <CAPXgP11iT9K2KcDCJvw_druf5qdNjs0jLfrbpS7CcYh5vXrz_w@mail.gmail.com> (sfid-20120114_162556_888923_085E9D1A)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-01-15 at 10:17 +0100, Arend van Spriel wrote:
-> On 01/15/2012 09:38 AM, Joe Perches wrote:
-> 
-> > +#ifdef DEBUG
-> > +extern __printf(3, 4)
-> 
-> Just curious if I can learn something here. What does the __printf(3, 4) do?
+Kay,
 
-It's a #define for gcc __attribute__((format (printf, ...)))
-It makes gcc validate the printf format and arguments.
+> These drivers need to be fixed to load their firmware during ifup,
+> which would be the most flexible solution. That way, it should also
+> work if the driver is built-in, or is loaded from initramfs and no
+> firmware is available.
+> Alternatively, the firmware request should be able to use the aync
+> firmware_request API and not the blocking one.
 
-http://gcc.gnu.org/onlinedocs/gcc/Function-Attributes.html
+Will udev now also return the async load only after root is booted if it
+can't be satisfied earlier? There are a number of devices, particularly
+wireless, that need firmware before they can register with mac80211 for
+capability advertisement reasons.
+
+johannes
