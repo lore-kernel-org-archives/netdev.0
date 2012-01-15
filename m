@@ -1,79 +1,57 @@
-From: Kay Sievers <kay.sievers-tD+1rO4QERM@public.gmane.org>
-Subject: Re: calling request_firmware() from module init will not work with
- recent/future udev versions
-Date: Sun, 15 Jan 2012 16:33:18 +0100
-Message-ID: <CAPXgP13b0uu3DgOGRL-_WKx-aSQN-f0xL6OmjNPBGf9fg0satA@mail.gmail.com>
-References: <CAPXgP11iT9K2KcDCJvw_druf5qdNjs0jLfrbpS7CcYh5vXrz_w@mail.gmail.com>
- <1326621743.3448.1.camel@jlt3.sipsolutions.net>
+From: "Justin P. Mattock" <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: ath9k timeouts with the current Mainline
+Date: Sun, 15 Jan 2012 07:50:53 -0800
+Message-ID: <4F12F5DD.3030904@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Tom Gundersen <teg-B22kvLQNl6c@public.gmane.org>, Andy Whitcroft <apw-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1326621743.3448.1.camel-8upI4CBIZJIJvtFkdXX2HixXY32XiHfO@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 15, 2012 at 11:02, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
->> These drivers need to be fixed to load their firmware during ifup,
->> which would be the most flexible solution. That way, it should also
->> work if the driver is built-in, or is loaded from initramfs and no
->> firmware is available.
->> Alternatively, the firmware request should be able to use the aync
->> firmware_request API and not the blocking one.
->
-> Will udev now also return the async load only after root is booted if it
-> can't be satisfied earlier?
+not sure if the Internet provider just sucks, or I am hitting a wireless 
+issue. basically my connection times out after a few mins of being 
+up.(streaming radio is not solid).
 
-Not sure, let me explain what happens here, maybe it contains the answer:
+dmesg shows:
 
-Udev gets an event for a pci device:
-  /devices/pci0000:00/0000:00:1c.1/0000:03:00.0
+[ 3322.827549] wlan1: authenticate with d8:c7:c8:a2:0f:40 (try 1)
+[ 3322.831778] wlan1: d8:c7:c8:a2:0f:40 denied authentication (status 17)
+[ 3386.310128] wlan1: authenticate with d8:c7:c8:a2:0d:80 (try 1)
+[ 3386.312010] wlan1: d8:c7:c8:a2:0d:80 denied authentication (status 17)
+[ 3389.481771] wlan1: direct probe to 00:18:0a:02:19:c3 (try 1/3)
+[ 3389.681095] wlan1: direct probe to 00:18:0a:02:19:c3 (try 2/3)
+[ 3389.881094] wlan1: direct probe to 00:18:0a:02:19:c3 (try 3/3)
+[ 3390.081092] wlan1: direct probe to 00:18:0a:02:19:c3 timed out
+[ 3458.618065] wlan1: direct probe to d8:c7:c8:a2:0d:80 (try 1/3)
+[ 3458.818079] wlan1: direct probe to d8:c7:c8:a2:0d:80 (try 2/3)
+[ 3459.018080] wlan1: direct probe to d8:c7:c8:a2:0d:80 (try 3/3)
+[ 3459.218058] wlan1: direct probe to d8:c7:c8:a2:0d:80 timed out
+[ 3466.518579] wlan1: direct probe to d8:c7:c8:a2:0d:80 (try 1/3)
+[ 3466.718111] wlan1: direct probe to d8:c7:c8:a2:0d:80 (try 2/3)
+[ 3466.918074] wlan1: direct probe to d8:c7:c8:a2:0d:80 (try 3/3)
+[ 3467.118077] wlan1: direct probe to d8:c7:c8:a2:0d:80 timed out
+[ 3474.424860] wlan1: authenticate with d8:c7:c8:a2:0d:80 (try 1)
+[ 3474.449681] wlan1: authenticated
+[ 3474.457133] wlan1: associate with d8:c7:c8:a2:0d:80 (try 1)
+[ 3474.471059] wlan1: RX AssocResp from d8:c7:c8:a2:0d:80 (capab=0x421 
+status=0 aid=13)
+[ 3474.471067] wlan1: associated
+[ 3474.471075] wlan1: moving STA d8:c7:c8:a2:0d:80 to state 1
+[ 3474.471080] wlan1: moving STA d8:c7:c8:a2:0d:80 to state 2
+[ 3474.473809] wlan1: moving STA d8:c7:c8:a2:0d:80 to state 3
+[ 3484.546077] wlan1: no IPv6 routers present
 
-This device has a modalias, which let's udev load the matching module
-into the kernel. The module_init() syscall triggers the firmware
-loading request, which causes another event:
-  /devices/pci0000:00/0000:00:1c.1/0000:03:00.0/firmware/0000:03:00.0
 
-This event is a direct child of the pci device and udev delays the
-execution of child devices until the parent devices return from
-handling. This dependency logic is needed for many things to ensure a
-proper operation, like partitions which need to make sure the events
-for the disk devices are handled before the partition events are
-started.
+card is:
+03:00.0 Network controller: Atheros Communications Inc. AR5008 Wireless 
+Network Adapter (rev 01)
 
-Now the problem, the pcidev event is blocking in modprobe and waits
-for the child event it has generated to finish, but udev does not
-start the event because the parent still blocks in modprobe ->
-deadlock until default firmware timeout of 60 sec. What we want here,
-for several reasons not only udev's dependency logic, is that modprobe
-never waits for userspace transactions to finish.
+has anybody else seen/experienced anything like this?
 
-> There are a number of devices, particularly
-> wireless, that need firmware before they can register with mac80211 for
-> capability advertisement reasons.
-
-Right, ideally all firmware loading would be delayed until the netif
-is brought up, and that's what we shoudl use if possible. In all other
-cases, I think what iwlwifi is doing here looks fine from the
-userspace side. It does not register any netdev/mac80211 device, the
-firmware request is the only thing that it issued, and modprobe
-returns immediately, regardless of the firmware request handling.
-
-If userspace is not responding, the firmware request times out after
-60 seconds and the driver is not associated with any hardware. To
-retry the firmware loading, the module needs to be unloaded and
-reloaded, or the driver needs to be asked to bind to a device again by
-writing to the 'bind' in file in the sysfs driver directory.
-
-Firmware requests stay around in the system for by default 60 seconds.
-If the driver would be built-in the request would be issued long
-before userspace is ready, but udev's coldplug step during bootup will
-cause all events to be replayed, so it would catch also the
-outstanding firmware requests, and would be able to handle them.
-
-Kay
+Justin P. Mattock
 --
 To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
