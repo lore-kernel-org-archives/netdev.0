@@ -1,109 +1,63 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] vhost-net: add module alias (v2.1)
-Date: Mon, 16 Jan 2012 07:52:36 -0800
-Message-ID: <20120116075236.110cc4b4@nehalam.linuxnetplumber.net>
-References: <20120111091653.188b24ab@nehalam.linuxnetplumber.net>
-	<CAEH94LiF_F51_avA9UWMneo1N1wY0NzJmfohpxdrkAv2WkWT5Q@mail.gmail.com>
-	<20120111213038.39213819@nehalam.linuxnetplumber.net>
-	<20120112.200701.1473475851890804136.davem@davemloft.net>
-	<20120115124236.GA31012@redhat.com>
-	<20120116122645.2257b40b@bob.linux.org.uk>
+Subject: Re: [PATCH] bridge: BH already disabled in br_fdb_cleanup()
+Date: Mon, 16 Jan 2012 07:53:49 -0800
+Message-ID: <20120116075349.2e9bf1e1@nehalam.linuxnetplumber.net>
+References: <CAGsizzJTbGGpwrn-P=SUtqBW=1AN6hCTVXKp_oKHPBAoGZ4ubA@mail.gmail.com>
+	<1326719999.2255.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<CAGsizzJpdF5xzsEiZd5R0GD8r7pDJyz4ro=4vLBnonxfAVYg-Q@mail.gmail.com>
+	<1326723932.2255.41.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<1326724550.2255.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, kay.sievers@vrfy.org,
-	virtualization@lists.linux-foundation.org, device@lanana.org,
-	David Miller <davem@davemloft.net>
-To: Alan Cox <alan@linux.intel.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120116122645.2257b40b@bob.linux.org.uk>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?xaB0ZWZhbg==?= Gula <steweg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:42270 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753524Ab2APPxw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2012 10:53:52 -0500
+In-Reply-To: <1326724550.2255.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 16 Jan 2012 12:26:45 +0000
-Alan Cox <alan@linux.intel.com> wrote:
+On Mon, 16 Jan 2012 15:35:50 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> > > ACKs, NACKs?  What is happening here?
-> > 
-> > I would like an Ack from Alan Cox who switched vhost-net
-> > to a dynamic minor in the first place, in commit
-> > 79907d89c397b8bc2e05b347ec94e928ea919d33.
-> 
-> Sorry device@lanana.org isn't yet back from the kernel hack incident.
-> 
-> I don't read netdev so someone needs to summarise the issue and send me
-> a copy of the patch to look at.
-> 
-> Alan
+> br_fdb_cleanup() is run from timer interrupt, BH already masked.
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Stephen Hemminger <shemminger@vyatta.com>
+> CC: =C5=A0tefan Gula <steweg@gmail.com>
+> ---
+>  net/bridge/br_fdb.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+> index f963f6b..5ba0c84 100644
+> --- a/net/bridge/br_fdb.c
+> +++ b/net/bridge/br_fdb.c
+> @@ -146,7 +146,7 @@ void br_fdb_cleanup(unsigned long _data)
+>  	unsigned long next_timer =3D jiffies + br->ageing_time;
+>  	int i;
+> =20
+> -	spin_lock_bh(&br->hash_lock);
+> +	spin_lock(&br->hash_lock);
+>  	for (i =3D 0; i < BR_HASH_SIZE; i++) {
+>  		struct net_bridge_fdb_entry *f;
+>  		struct hlist_node *h, *n;
+> @@ -162,7 +162,7 @@ void br_fdb_cleanup(unsigned long _data)
+>  				next_timer =3D this_timer;
+>  		}
+>  	}
+> -	spin_unlock_bh(&br->hash_lock);
+> +	spin_unlock(&br->hash_lock);
+> =20
+>  	mod_timer(&br->gc_timer, round_jiffies_up(next_timer));
+>  }
+>=20
+>=20
 
-Subject: vhost-net: add module alias (v2.1)
-
-By adding some module aliases, programs (or users) won't have to explicitly
-call modprobe. Vhost-net will always be available if built into the kernel.
-It does require assigning a permanent minor number for depmod to work.
-
-Also:
-  - use C99 style initialization.
-  - add missing entry in documentation for loop-control
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
----
-2.1 - add missing documentation for loop control as well
-
- Documentation/devices.txt  |    3 +++
- drivers/vhost/net.c        |    8 +++++---
- include/linux/miscdevice.h |    1 +
- 3 files changed, 9 insertions(+), 3 deletions(-)
-
---- a/drivers/vhost/net.c	2012-01-12 14:14:25.681815487 -0800
-+++ b/drivers/vhost/net.c	2012-01-12 18:09:56.810680816 -0800
-@@ -856,9 +856,9 @@ static const struct file_operations vhos
- };
- 
- static struct miscdevice vhost_net_misc = {
--	MISC_DYNAMIC_MINOR,
--	"vhost-net",
--	&vhost_net_fops,
-+	.minor = VHOST_NET_MINOR,
-+	.name = "vhost-net",
-+	.fops = &vhost_net_fops,
- };
- 
- static int vhost_net_init(void)
-@@ -879,3 +879,5 @@ MODULE_VERSION("0.0.1");
- MODULE_LICENSE("GPL v2");
- MODULE_AUTHOR("Michael S. Tsirkin");
- MODULE_DESCRIPTION("Host kernel accelerator for virtio net");
-+MODULE_ALIAS_MISCDEV(VHOST_NET_MINOR);
-+MODULE_ALIAS("devname:vhost-net");
---- a/include/linux/miscdevice.h	2012-01-12 14:14:25.725815981 -0800
-+++ b/include/linux/miscdevice.h	2012-01-12 18:09:56.810680816 -0800
-@@ -42,6 +42,7 @@
- #define AUTOFS_MINOR		235
- #define MAPPER_CTRL_MINOR	236
- #define LOOP_CTRL_MINOR		237
-+#define VHOST_NET_MINOR		238
- #define MISC_DYNAMIC_MINOR	255
- 
- struct device;
---- a/Documentation/devices.txt	2012-01-12 14:14:25.701815712 -0800
-+++ b/Documentation/devices.txt	2012-01-12 18:09:56.814680860 -0800
-@@ -447,6 +447,9 @@ Your cooperation is appreciated.
- 		234 = /dev/btrfs-control	Btrfs control device
- 		235 = /dev/autofs	Autofs control device
- 		236 = /dev/mapper/control	Device-Mapper control device
-+		237 = /dev/loop-control Loopback control device
-+		238 = /dev/vhost-net	Host kernel accelerator for virtio net
-+
- 		240-254			Reserved for local use
- 		255			Reserved for MISC_DYNAMIC_MINOR
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
