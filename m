@@ -1,50 +1,37 @@
-From: Alan Cox <alan@linux.intel.com>
-Subject: Re: [PATCH] pch_gbe: Use a randomly generated MAC instead of
- failing probe
-Date: Mon, 16 Jan 2012 12:31:10 +0000
-Message-ID: <20120116123110.7ce91f2d@bob.linux.org.uk>
-References: <132d2a41a089905de3147b4656e350608aa7fd6f.1326523495.git.dvhart@linux.intel.com>
-	<20120114.001430.787918662083526597.davem@davemloft.net>
-	<4F11A533.4040406@linux.intel.com>
-	<20120114.115604.2101782124431552110.davem@davemloft.net>
-	<20120114214658.4ddfec30@pyramind.ukuu.org.uk>
-	<4F120357.3020808@linux.intel.com>
-	<CANKRQnge1n4M7W5xCqwyGzXp8J3eK1HbZVRqGW7BoE5iOwYCDQ@mail.gmail.com>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [PATCH] vhost-net: add module alias
+Date: Mon, 16 Jan 2012 14:28:35 +0200
+Message-ID: <4F1417F3.3050102@redhat.com>
+References: <20120110205400.6c1cb306@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Darren Hart <dvhart@linux.intel.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, arjan@linux.intel.com,
-	jeffrey.t.kirsher@intel.com, paul.gortmaker@windriver.com,
-	jdmason@kudzu.us, netdev@vger.kernel.org
-To: Tomoya MORINAGA <tomoya.rohm@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANKRQnge1n4M7W5xCqwyGzXp8J3eK1HbZVRqGW7BoE5iOwYCDQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120110205400.6c1cb306@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-> Saving MAC address into external ROM is generic method, I think.
-> Though I know the ROM-less system using eg20t-pch, however I think
-> this system is not common.
-> So, I think pch_gbe shouldn't have auto-mac address assignment.
+On 01/11/2012 06:54 AM, Stephen Hemminger wrote:
+> By adding the a module alias, programs (or users) won't have to explicitly
+> call modprobe. Vhost-net will always be available if built into the kernel.
+> It does require assigning a permanent minor number for depmod to work.
+> Choose one next to TUN since this driver is related to it.
 
-The problem is the module load fails for those cases. You cannot load
-the module and use the standard ifconfig eth0 hw aa:bb:cc:dd:ee:ff
-interface. The better fix might be to make sure it loads.
+Statically allocated numbers have to go through lanana, no?
 
-So change from
+This increases the security exposure and the kernel footprint for hosts
+that don't want vhost-net.
 
-        memcpy(netdev->dev_addr, adapter->hw.mac.addr,
-        netdev->addr_len);   
-        if (!is_valid_ether_addr(netdev->dev_addr)) {
-                dev_err(&pdev->dev, "Invalid MAC Address\n");
-                ret = -EIO; 
-                goto err_free_adapter;
-        }
-
-to just printing a warning, and check the current address when a user
-tries to ifconfig it up and refuse to allow the port to go active.
-
-Alan
+-- 
+error compiling committee.c: too many arguments to function
