@@ -1,64 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vhost-net: add module alias (v2.1)
-Date: Mon, 16 Jan 2012 18:06:47 -0500 (EST)
-Message-ID: <20120116.180647.1716624961347284814.davem@davemloft.net>
-References: <20120115124236.GA31012@redhat.com>
-	<20120116122645.2257b40b@bob.linux.org.uk>
-	<20120116075236.110cc4b4@nehalam.linuxnetplumber.net>
+From: Arvid Brodin <arvid.brodin@enea.com>
+Subject: HSR: Standard breaks alignment. Solution?
+Date: Tue, 17 Jan 2012 00:10:30 +0100
+Message-ID: <4F14AE66.7060301@enea.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
-	kay.sievers@vrfy.org, virtualization@lists.linux-foundation.org,
-	device@lanana.org, alan@linux.intel.com
-To: shemminger@vyatta.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120116075236.110cc4b4@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sestofw01.enea.se ([192.36.1.252]:22115 "HELO mx-3.enea.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1751068Ab2APXKu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jan 2012 18:10:50 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Mon, 16 Jan 2012 07:52:36 -0800
+As I've written before here, I'm trying to add support for the HSR protocol
+("High-availability Seamless Redundancy") to the linux kernel. The protocol is
+specified in IEC-62439-3, and involves adding a protocol tag after the ethhdr
+on outgoing frames, and stripping it again on reception, much like VLAN.
 
-> On Mon, 16 Jan 2012 12:26:45 +0000
-> Alan Cox <alan@linux.intel.com> wrote:
-> 
->> > > ACKs, NACKs?  What is happening here?
->> > 
->> > I would like an Ack from Alan Cox who switched vhost-net
->> > to a dynamic minor in the first place, in commit
->> > 79907d89c397b8bc2e05b347ec94e928ea919d33.
->> 
->> Sorry device@lanana.org isn't yet back from the kernel hack incident.
->> 
->> I don't read netdev so someone needs to summarise the issue and send me
->> a copy of the patch to look at.
->> 
->> Alan
-> 
-> Subject: vhost-net: add module alias (v2.1)
-> 
-> By adding some module aliases, programs (or users) won't have to explicitly
-> call modprobe. Vhost-net will always be available if built into the kernel.
-> It does require assigning a permanent minor number for depmod to work.
-> 
-> Also:
->   - use C99 style initialization.
->   - add missing entry in documentation for loop-control
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+This HSR tag is 6 bytes long, which breaks 32-bit header alignment and causes
+an Oops and a kernel panic in icmp_echo on the receiving side of pings (here,
+exactly: http://lxr.linux.no/#linux+v2.6.37/net/ipv4/icmp.c#L838 )
 
-I already applied your first patch, so you need to give me something
-relative to apply on top of your original one.
+If I add two bytes of padding to the HSR tag everything works beautifully. But
+of course that breaks any pretense of standard compliance.
 
-And it also shows that you're really not generating these patches
-against current 'net', otherwise you'd have noticed your other patch
-already there.
+Is there some way to fix this without having to memmove the whole frame payload
+2 bytes on reception?
+
+Or is this alignment-breaking specification crappy enough to break it and keep
+the padding? (I don't really care, I only need this to work between linux
+machines.) A "HSR-like" redundancy protocol. :-|
+
+-- 
+Arvid Brodin
+Enea Services Stockholm AB
