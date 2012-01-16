@@ -1,37 +1,37 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCH] vhost-net: add module alias
-Date: Mon, 16 Jan 2012 14:28:35 +0200
-Message-ID: <4F1417F3.3050102@redhat.com>
-References: <20120110205400.6c1cb306@nehalam.linuxnetplumber.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: fix unused variable warning in
+ xt_hashlimit.c
+Date: Mon, 16 Jan 2012 13:39:25 +0100
+Message-ID: <20120116123925.GA13131@1984>
+References: <20120111115217.b5db064c4bf233a4e1df42b8@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120110205400.6c1cb306@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120111115217.b5db064c4bf233a4e1df42b8@canb.auug.org.au>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/11/2012 06:54 AM, Stephen Hemminger wrote:
-> By adding the a module alias, programs (or users) won't have to explicitly
-> call modprobe. Vhost-net will always be available if built into the kernel.
-> It does require assigning a permanent minor number for depmod to work.
-> Choose one next to TUN since this driver is related to it.
+On Wed, Jan 11, 2012 at 11:52:17AM +1100, Stephen Rothwell wrote:
+> Fixes this warning when CONFIG_IP6_NF_IPTABLES is not enabled:
+>=20
+> net/netfilter/xt_hashlimit.c: In function =E2=80=98hashlimit_init_dst=
+=E2=80=99:
+> net/netfilter/xt_hashlimit.c:448:9: warning: unused variable =E2=80=98=
+frag_off=E2=80=99 [-Wunused-variable]
+>=20
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 
-Statically allocated numbers have to go through lanana, no?
-
-This increases the security exposure and the kernel footprint for hosts
-that don't want vhost-net.
-
--- 
-error compiling committee.c: too many arguments to function
+Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
