@@ -1,35 +1,32 @@
-From: "Tai Bei" <bei@optusnet.com.au>
-Subject: Please Help.
-Date: Mon, 16 Jan 2012 06:25:25 +0700 (WIT)
-Message-ID: <5e5567e835a72f1b56c5015c61c678e9.squirrel__43525.0249146067$1326689782$gmane$org@webmail.speedmark.co.id>
-Reply-To: mr.tai@9.cn
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Why the number of /proc/interrupts doesn't change when nic is
+ under heavy workload?
+Date: Mon, 16 Jan 2012 07:53:28 +0100
+Message-ID: <1326696808.5287.115.camel@edumazet-laptop>
+References: <CAEc1PS0doeaH59621ia7n2GT=WgRSsCit_EzGrCV93QH95XZqw@mail.gmail.com>
+	 <1326665367.5287.97.camel@edumazet-laptop>
+	 <CAEc1PS0QxYfHfLFTiSFdTX27ufuxVfJd6Vg5oyv5aip5r=tD4A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from speedmark.co.id ([202.51.112.171]:49726 "EHLO
-	mail.fafakids.web.id" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753337Ab2APEzg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2012 23:55:36 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	yhxu@wayne.edu
+To: Yuehai Xu <yuehaixu@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAEc1PS0QxYfHfLFTiSFdTX27ufuxVfJd6Vg5oyv5aip5r=tD4A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It is understandable that you might be a little bit apprehensive because
-you do not know me but I have a lucrative business proposal of mutual
-interest to share with you. I got your reference in my search for someone
-who suits my proposed business relationship. I am Mr. Tai Bei bank officer
-with the International bank of Taipei. I will need you to assist me in
-executing a business project from Taiwan to your country. It involves the
-transfer of money. Everything concerning this transaction shall be legally
-done without hitch.
+Le dimanche 15 janvier 2012 =C3=A0 17:27 -0500, Yuehai Xu a =C3=A9crit =
+:
+> Thanks for replying! Please see below:
 
+> My memcached uses 8 different UDP sockets(8 different UDP ports), so
+> there should be no lock contention for a single UDP rx-queue.
 
-Once the funds have been successfully transferred into your account, we
-shall share in the ratio to be agreed by both of us. Contact me for more
-information about this operation immediately I receive a positive response
-from you.
+Ah, I missed this mail, so you really should post here result of "perf
+top -C 0", after you make sure your NIC interrupts are handled by cpu 0=
+=2E
 
-
-Kind Regards,
-Mr. Tai Bei
+Also, what speed is your link, and how many UDP messages per second do
+you receive ?
