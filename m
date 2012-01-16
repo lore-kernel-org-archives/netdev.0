@@ -1,63 +1,109 @@
-From: Darren Hart <dvhart@linux.intel.com>
-Subject: Re: [PATCH] pch_gbe: Use a randomly generated MAC instead of failing
- probe
-Date: Mon, 16 Jan 2012 07:42:55 -0800
-Message-ID: <4F14457F.8060509@linux.intel.com>
-References: <132d2a41a089905de3147b4656e350608aa7fd6f.1326523495.git.dvhart@linux.intel.com> <20120114.001430.787918662083526597.davem@davemloft.net> <4F11A533.4040406@linux.intel.com> <20120114.115604.2101782124431552110.davem@davemloft.net> <20120114214658.4ddfec30@pyramind.ukuu.org.uk> <4F120357.3020808@linux.intel.com> <CANKRQnge1n4M7W5xCqwyGzXp8J3eK1HbZVRqGW7BoE5iOwYCDQ@mail.gmail.com> <20120116123110.7ce91f2d@bob.linux.org.uk>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] vhost-net: add module alias (v2.1)
+Date: Mon, 16 Jan 2012 07:52:36 -0800
+Message-ID: <20120116075236.110cc4b4@nehalam.linuxnetplumber.net>
+References: <20120111091653.188b24ab@nehalam.linuxnetplumber.net>
+	<CAEH94LiF_F51_avA9UWMneo1N1wY0NzJmfohpxdrkAv2WkWT5Q@mail.gmail.com>
+	<20120111213038.39213819@nehalam.linuxnetplumber.net>
+	<20120112.200701.1473475851890804136.davem@davemloft.net>
+	<20120115124236.GA31012@redhat.com>
+	<20120116122645.2257b40b@bob.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Tomoya MORINAGA <tomoya.rohm@gmail.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, arjan@linux.intel.com,
-	jeffrey.t.kirsher@intel.com, paul.gortmaker@windriver.com,
-	jdmason@kudzu.us, netdev@vger.kernel.org
+Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, kay.sievers@vrfy.org,
+	virtualization@lists.linux-foundation.org, device@lanana.org,
+	David Miller <davem@davemloft.net>
 To: Alan Cox <alan@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120116123110.7ce91f2d@bob.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120116122645.2257b40b@bob.linux.org.uk>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 16 Jan 2012 12:26:45 +0000
+Alan Cox <alan@linux.intel.com> wrote:
 
-
-On 01/16/2012 04:31 AM, Alan Cox wrote:
->> Saving MAC address into external ROM is generic method, I think.
->> Though I know the ROM-less system using eg20t-pch, however I think
->> this system is not common.
->> So, I think pch_gbe shouldn't have auto-mac address assignment.
+> > > ACKs, NACKs?  What is happening here?
+> > 
+> > I would like an Ack from Alan Cox who switched vhost-net
+> > to a dynamic minor in the first place, in commit
+> > 79907d89c397b8bc2e05b347ec94e928ea919d33.
 > 
-> The problem is the module load fails for those cases. You cannot load
-> the module and use the standard ifconfig eth0 hw aa:bb:cc:dd:ee:ff
-> interface. The better fix might be to make sure it loads.
+> Sorry device@lanana.org isn't yet back from the kernel hack incident.
 > 
-> So change from
+> I don't read netdev so someone needs to summarise the issue and send me
+> a copy of the patch to look at.
 > 
->         memcpy(netdev->dev_addr, adapter->hw.mac.addr,
->         netdev->addr_len);   
->         if (!is_valid_ether_addr(netdev->dev_addr)) {
->                 dev_err(&pdev->dev, "Invalid MAC Address\n");
->                 ret = -EIO; 
->                 goto err_free_adapter;
->         }
-> 
-> to just printing a warning, and check the current address when a user
-> tries to ifconfig it up and refuse to allow the port to go active.
+> Alan
 
-I can go this route I suppose. I don't really understand the objection
-to the use of a random mac addr in the special case given the prevalence
-of this approach within existing drivers.
+Subject: vhost-net: add module alias (v2.1)
 
-One reason I don't care for this alternative approach is that this
-particular hardware is targeted at embedded use where we can't assume a
-full init system is available, etc. It can be made to work of course, it
-just isn't as automated.
+By adding some module aliases, programs (or users) won't have to explicitly
+call modprobe. Vhost-net will always be available if built into the kernel.
+It does require assigning a permanent minor number for depmod to work.
 
-David, would you orefer/accept an alternative patch which allows the
-driver to load without a MAC address so the user can set it via ifconfig
-after boot?
+Also:
+  - use C99 style initialization.
+  - add missing entry in documentation for loop-control
 
--- 
-Darren Hart
-Intel Open Source Technology Center
-Yocto Project - Linux Kernel
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+---
+2.1 - add missing documentation for loop control as well
+
+ Documentation/devices.txt  |    3 +++
+ drivers/vhost/net.c        |    8 +++++---
+ include/linux/miscdevice.h |    1 +
+ 3 files changed, 9 insertions(+), 3 deletions(-)
+
+--- a/drivers/vhost/net.c	2012-01-12 14:14:25.681815487 -0800
++++ b/drivers/vhost/net.c	2012-01-12 18:09:56.810680816 -0800
+@@ -856,9 +856,9 @@ static const struct file_operations vhos
+ };
+ 
+ static struct miscdevice vhost_net_misc = {
+-	MISC_DYNAMIC_MINOR,
+-	"vhost-net",
+-	&vhost_net_fops,
++	.minor = VHOST_NET_MINOR,
++	.name = "vhost-net",
++	.fops = &vhost_net_fops,
+ };
+ 
+ static int vhost_net_init(void)
+@@ -879,3 +879,5 @@ MODULE_VERSION("0.0.1");
+ MODULE_LICENSE("GPL v2");
+ MODULE_AUTHOR("Michael S. Tsirkin");
+ MODULE_DESCRIPTION("Host kernel accelerator for virtio net");
++MODULE_ALIAS_MISCDEV(VHOST_NET_MINOR);
++MODULE_ALIAS("devname:vhost-net");
+--- a/include/linux/miscdevice.h	2012-01-12 14:14:25.725815981 -0800
++++ b/include/linux/miscdevice.h	2012-01-12 18:09:56.810680816 -0800
+@@ -42,6 +42,7 @@
+ #define AUTOFS_MINOR		235
+ #define MAPPER_CTRL_MINOR	236
+ #define LOOP_CTRL_MINOR		237
++#define VHOST_NET_MINOR		238
+ #define MISC_DYNAMIC_MINOR	255
+ 
+ struct device;
+--- a/Documentation/devices.txt	2012-01-12 14:14:25.701815712 -0800
++++ b/Documentation/devices.txt	2012-01-12 18:09:56.814680860 -0800
+@@ -447,6 +447,9 @@ Your cooperation is appreciated.
+ 		234 = /dev/btrfs-control	Btrfs control device
+ 		235 = /dev/autofs	Autofs control device
+ 		236 = /dev/mapper/control	Device-Mapper control device
++		237 = /dev/loop-control Loopback control device
++		238 = /dev/vhost-net	Host kernel accelerator for virtio net
++
+ 		240-254			Reserved for local use
+ 		255			Reserved for MISC_DYNAMIC_MINOR
