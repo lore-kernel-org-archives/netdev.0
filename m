@@ -1,48 +1,64 @@
-From: Darren Hart <dvhart@linux.intel.com>
-Subject: Re: [PATCH] pch_gbe: Use a randomly generated MAC instead of failing
- probe
-Date: Mon, 16 Jan 2012 15:07:05 -0800
-Message-ID: <4F14AD99.80905@linux.intel.com>
-References: <132d2a41a089905de3147b4656e350608aa7fd6f.1326523495.git.dvhart@linux.intel.com> <20120114.001525.2158050844390627233.davem@davemloft.net> <20120116152239.GA9953@elliptictech.com> <20120116.180433.986989348820850613.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] vhost-net: add module alias (v2.1)
+Date: Mon, 16 Jan 2012 18:06:47 -0500 (EST)
+Message-ID: <20120116.180647.1716624961347284814.davem@davemloft.net>
+References: <20120115124236.GA31012@redhat.com>
+	<20120116122645.2257b40b@bob.linux.org.uk>
+	<20120116075236.110cc4b4@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: nbowler@elliptictech.com, linux-kernel@vger.kernel.org,
-	arjan@linux.intel.com, alan@linux.intel.com, tomoya.rohm@gmail.com,
-	jeffrey.t.kirsher@intel.com, paul.gortmaker@windriver.com,
-	jdmason@kudzu.us, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120116.180433.986989348820850613.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	kay.sievers@vrfy.org, virtualization@lists.linux-foundation.org,
+	device@lanana.org, alan@linux.intel.com
+To: shemminger@vyatta.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120116075236.110cc4b4@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Mon, 16 Jan 2012 07:52:36 -0800
 
-
-On 01/16/2012 03:04 PM, David Miller wrote:
-> From: Nick Bowler <nbowler@elliptictech.com>
-> Date: Mon, 16 Jan 2012 10:22:39 -0500
+> On Mon, 16 Jan 2012 12:26:45 +0000
+> Alan Cox <alan@linux.intel.com> wrote:
 > 
->> On 2012-01-14 00:15 -0800, David Miller wrote:
->>> From: Darren Hart <dvhart@linux.intel.com>
->>> Date: Fri, 13 Jan 2012 22:44:55 -0800
->>>
->>>> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com> (commit_signer:1/3=33%,commit_signer:1/8=12%)
->>>
->>> BTW, please try to figure out where this "commit_signer" stuff came from.
->>>
->>> It ended up corrupting the CC: list of your posting too.
->>
->> While it ended up on the CC line, the result is still a valid and
->> correct email address per RFC 822.
+>> > > ACKs, NACKs?  What is happening here?
+>> > 
+>> > I would like an Ack from Alan Cox who switched vhost-net
+>> > to a dynamic minor in the first place, in commit
+>> > 79907d89c397b8bc2e05b347ec94e928ea919d33.
+>> 
+>> Sorry device@lanana.org isn't yet back from the kernel hack incident.
+>> 
+>> I don't read netdev so someone needs to summarise the issue and send me
+>> a copy of the patch to look at.
+>> 
+>> Alan
 > 
-> I didn't say it wasn't an "RFC compliant" email address, I just said
-> it's complete garbage.
+> Subject: vhost-net: add module alias (v2.1)
+> 
+> By adding some module aliases, programs (or users) won't have to explicitly
+> call modprobe. Vhost-net will always be available if built into the kernel.
+> It does require assigning a permanent minor number for depmod to work.
+> 
+> Also:
+>   - use C99 style initialization.
+>   - add missing entry in documentation for loop-control
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Indeed. An oversight on my part and I've addressed it. Apologies for the
-noise.
+I already applied your first patch, so you need to give me something
+relative to apply on top of your original one.
 
--- 
-Darren Hart
-Intel Open Source Technology Center
-Yocto Project - Linux Kernel
+And it also shows that you're really not generating these patches
+against current 'net', otherwise you'd have noticed your other patch
+already there.
