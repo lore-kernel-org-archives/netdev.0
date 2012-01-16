@@ -1,51 +1,41 @@
-From: Kay Sievers <kay.sievers@vrfy.org>
-Subject: Re: calling request_firmware() from module init will not work with
- recent/future udev versions
-Date: Mon, 16 Jan 2012 13:05:19 +0100
-Message-ID: <CAPXgP12gM3_OVuxQAkRRarH_TpjVpbh5NpcTPWL0nEi4eoX+kw@mail.gmail.com>
-References: <CAPXgP11iT9K2KcDCJvw_druf5qdNjs0jLfrbpS7CcYh5vXrz_w@mail.gmail.com>
- <1326621743.3448.1.camel@jlt3.sipsolutions.net> <CAPXgP13b0uu3DgOGRL-_WKx-aSQN-f0xL6OmjNPBGf9fg0satA@mail.gmail.com>
- <1326704259.3510.3.camel@jlt3.sipsolutions.net>
+From: Alan Cox <alan@linux.intel.com>
+Subject: Re: [PATCH] vhost-net: add module alias (v2.1)
+Date: Mon, 16 Jan 2012 12:26:45 +0000
+Message-ID: <20120116122645.2257b40b@bob.linux.org.uk>
+References: <20120111091653.188b24ab@nehalam.linuxnetplumber.net>
+	<CAEH94LiF_F51_avA9UWMneo1N1wY0NzJmfohpxdrkAv2WkWT5Q@mail.gmail.com>
+	<20120111213038.39213819@nehalam.linuxnetplumber.net>
+	<20120112.200701.1473475851890804136.davem@davemloft.net>
+	<20120115124236.GA31012@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	Tom Gundersen <teg@jklm.no>, Andy Whitcroft <apw@canonical.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:43932 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750808Ab2APMFk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2012 07:05:40 -0500
-In-Reply-To: <1326704259.3510.3.camel@jlt3.sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, kay.sievers@vrfy.org,
+	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	virtualization@lists.linux-foundation.org, device@lanana.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120115124236.GA31012@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 16, 2012 at 09:57, Johannes Berg <johannes@sipsolutions.net> wrote:
-> On Sun, 2012-01-15 at 16:33 +0100, Kay Sievers wrote:
+> > ACKs, NACKs?  What is happening here?
+> 
+> I would like an Ack from Alan Cox who switched vhost-net
+> to a dynamic minor in the first place, in commit
+> 79907d89c397b8bc2e05b347ec94e928ea919d33.
 
-> Let's say you have iwlwifi, built into the kernel, and an
-> initramfs that doesn't contain the iwlwifi firmware.
-> What will happen (last I checked anyway) is this: iwlwifi will do an
-> async firmware request, and the udev in initramfs will say "don't have
-> it", thus unbinding and you have to sysfs bind or module reload.
+Sorry device@lanana.org isn't yet back from the kernel hack incident.
 
-Right, currently. if no firmware is found, udev will write "-1" to the
-"loading" file in /sys, which will cancel the kernel's firmware
-request.
+I don't read netdev so someone needs to summarise the issue and send me
+a copy of the patch to look at.
 
-> What I'm was asking then is this: Can udev know that it is running from
-> initramfs (presumably that can't be too hard) and simply not reply to
-> async requests it doesn't have firmware for? Then once the real root is
-> mounted it could satisfy (or not) firmware requests from the real root.
-
-We can surely change it to not cancel the firmware request.
-
-Either by making it aware that we run from initramfs, or by never
-cancelling any firmware request and just leave it hanging around for
-forever?
-
-We need to decide what's the best model here, if we want a timeout at
-all, if yes, how large it should be, and if and when we should cancel
-requests.
-
-Kay
+Alan
