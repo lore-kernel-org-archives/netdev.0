@@ -1,39 +1,60 @@
-From: Steven Miao <realmz6@gmail.com>
-Subject: [PATCH] socket-can: bit-timing calculation
-Date: Mon, 16 Jan 2012 18:50:24 +0800
-Message-ID: <1326711025-6629-1-git-send-email-realmz6@gmail.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [Xen-devel] [RFC PATCH 3/6] netback: switch to NAPI + kthread
+ model
+Date: Mon, 16 Jan 2012 10:45:11 +0000
+Message-ID: <1326710711.17210.411.camel@zakaz.uk.xensource.com>
+References: <1326473949-22389-1-git-send-email-wei.liu2@citrix.com>
+	 <1326473949-22389-4-git-send-email-wei.liu2@citrix.com>
+	 <4F107625.7090601@citrix.com> <1326706394.5285.5.camel@liuw-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Steven Miao <realmz6@gmail.com>,
-	"open list:CAN NETWORK DRIVERS" <linux-can@vger.kernel.org>,
-	"open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: <wg@grandegger.com>, <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Vrabel <david.vrabel@citrix.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Wei Liu (Intern)" <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:19286 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754115Ab2APKpN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2012 05:45:13 -0500
+In-Reply-To: <1326706394.5285.5.camel@liuw-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-just use first found best bit rate prescaler
+On Mon, 2012-01-16 at 09:33 +0000, Wei Liu (Intern) wrote:
+> On Fri, 2012-01-13 at 18:21 +0000, David Vrabel wrote:
+> > On 13/01/12 16:59, Wei Liu wrote:
+> > > This patch implements 1:1 model netback. We utilizes NAPI and kthread
+> > > to do the weight-lifting job:
+> > > 
+> > >   - NAPI is used for guest side TX (host side RX)
+> > >   - kthread is used for guest side RX (host side TX)
+> > > 
+> > > This model provides better scheduling fairness among vifs. It also
+> > > lays the foundation for future work.
+> > > 
+> > > The major defect for the current implementation is that in the NAPI
+> > > poll handler we don't actually disable interrupt. Xen stuff is
+> > > different from real hardware, it requires some other tuning of ring
+> > > macros.
+> > 
+> > RING_FINAL_CHECK_FOR_REQUESTS() looks it does the correct thing to me.
+> > 
+> > David
+> 
+> I need to stop the other end from generating events, so
+> RING_FINAL_CHECK_FOR_REQUESTS is not the right answer I think.
 
-Signed-off-by: Steven Miao <realmz6@gmail.com>
----
- drivers/net/can/dev.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+What you need is a variant which sets req_event some large distance into
+the future instead of to just req_cons + 1. Or possibly it should be set
+to just in the past (e.g. req_cons - 1). Call it something like
+RING_POLL_FOR_REQUESTS().
 
-diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
-index 25695bd..9d4afe6 100644
---- a/drivers/net/can/dev.c
-+++ b/drivers/net/can/dev.c
-@@ -106,7 +106,7 @@ static int can_calc_bittiming(struct net_device *dev, struct can_bittiming *bt)
- 		/* tseg brp biterror */
- 		if (error < 0)
- 			error = -error;
--		if (error > best_error)
-+		if (error >= best_error)
- 			continue;
- 		best_error = error;
- 		if (error == 0) {
--- 
-1.7.0.4
+Ian.
 
-
+> 
+> 
+> Wei.
+> 
