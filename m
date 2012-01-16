@@ -1,52 +1,59 @@
-From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: [PATCH] move sock_update_memcg outside of CONFIG_INET
-Date: Mon, 16 Jan 2012 12:04:39 +0400
-Message-ID: <1326701079-10331-1-git-send-email-glommer@parallels.com>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Dmitry Antipov <dmitry.antipov@linaro.org>
+Subject: [PATCH] drivers/net/usb/smsc95xx.c: change msleep() to usleep_range()
+Date: Mon, 16 Jan 2012 12:49:34 +0400
+Message-ID: <1326703774-1154-1-git-send-email-dmitry.antipov@linaro.org>
+Cc: patches@linaro.org, Dmitry Antipov <dmitry.antipov@linaro.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:60189 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753593Ab2APIso (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2012 03:48:44 -0500
+Received: by bkas6 with SMTP id s6so424087bka.19
+        for <netdev@vger.kernel.org>; Mon, 16 Jan 2012 00:48:43 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Although only used currently for tcp sockets, this function
-is now used in common sock code (for sock_clone())
+The resolution of msleep is related to HZ, so 10ms msleep() causes
+~23ms sleep with OMAP's default CONFIG_HZ=128 timer configuration.
+This looks too much, and usleep_range() with some slack gives more
+control of what is happening here.
 
-Commit 475f1b52645a29936b9df1d8fcd45f7e56bd4a9f moved the
-declaration of sock_update_clone() to inside sock.c, but
-this only fixes the problem when CONFIG_CGROUP_MEM_RES_CTLR_KMEM
-is also not defined.
-
-This patch here is verified to fix both problems, although
-reverting the previous one is not necessary.
-
-Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-CC: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-CC: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
+Signed-off-by: Dmitry Antipov <dmitry.antipov@linaro.org>
 ---
- mm/memcontrol.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/usb/smsc95xx.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index 602207b..3dbff4d 100644
---- a/mm/memcontrol.c
-+++ b/mm/memcontrol.c
-@@ -373,7 +373,6 @@ static void mem_cgroup_put(struct mem_cgroup *memcg);
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index d45520e..5d406d4 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -688,7 +688,7 @@ static int smsc95xx_phy_initialize(struct usbnet *dev)
+ 	smsc95xx_mdio_write(dev->net, dev->mii.phy_id, MII_BMCR, BMCR_RESET);
  
- /* Writing them here to avoid exposing memcg's inner layout */
- #ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
--#ifdef CONFIG_INET
- #include <net/sock.h>
- #include <net/ip.h>
+ 	do {
+-		msleep(10);
++		usleep_range(10000, 15000);
+ 		bmcr = smsc95xx_mdio_read(dev->net, dev->mii.phy_id, MII_BMCR);
+ 		timeout++;
+ 	} while ((bmcr & BMCR_RESET) && (timeout < 100));
+@@ -736,7 +736,7 @@ static int smsc95xx_reset(struct usbnet *dev)
+ 			netdev_warn(dev->net, "Failed to read HW_CFG: %d\n", ret);
+ 			return ret;
+ 		}
+-		msleep(10);
++		usleep_range(10000, 15000);
+ 		timeout++;
+ 	} while ((read_buf & HW_CFG_LRST_) && (timeout < 100));
  
-@@ -420,6 +419,7 @@ void sock_release_memcg(struct sock *sk)
- 	}
- }
+@@ -759,7 +759,7 @@ static int smsc95xx_reset(struct usbnet *dev)
+ 			netdev_warn(dev->net, "Failed to read PM_CTRL: %d\n", ret);
+ 			return ret;
+ 		}
+-		msleep(10);
++		usleep_range(10000, 15000);
+ 		timeout++;
+ 	} while ((read_buf & PM_CTL_PHY_RST_) && (timeout < 100));
  
-+#ifdef CONFIG_INET
- struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg)
- {
- 	if (!memcg || mem_cgroup_is_root(memcg))
 -- 
-1.7.7.4
+1.7.7.5
