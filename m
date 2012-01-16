@@ -1,47 +1,41 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [patch v1, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
- multipoint GRE over IP
-Date: Mon, 16 Jan 2012 08:36:34 -0800
-Message-ID: <20120116083634.7b327c34@nehalam.linuxnetplumber.net>
-References: <CAGsizzJTbGGpwrn-P=SUtqBW=1AN6hCTVXKp_oKHPBAoGZ4ubA@mail.gmail.com>
+From: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Subject: Re: [PATCH] pch_gbe: Use a randomly generated MAC instead of
+ failing probe
+Date: Mon, 16 Jan 2012 16:44:24 +0000
+Message-ID: <20120116164424.GA19621@sirena.org.uk>
+References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF47@saturn3.aculab.com>
+ <4F1451BD.9030904@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: =?UTF-8?B?xaB0ZWZhbg==?= Gula <steweg@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	Darren Hart <dvhart@linux.intel.com>,
+	Alan Cox <alan@linux.intel.com>,
+	Tomoya MORINAGA <tomoya.rohm@gmail.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	paul.gortmaker@windriver.com, jdmason@kudzu.us,
+	netdev@vger.kernel.org
+To: Arjan van de Ven <arjan@linux.intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGsizzJTbGGpwrn-P=SUtqBW=1AN6hCTVXKp_oKHPBAoGZ4ubA@mail.gmail.com>
+Content-Disposition: inline
+In-Reply-To: <4F1451BD.9030904@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 16 Jan 2012 13:13:19 +0100
-=C5=A0tefan Gula <steweg@gmail.com> wrote:
+On Mon, Jan 16, 2012 at 08:35:09AM -0800, Arjan van de Ven wrote:
+> On 1/16/2012 8:20 AM, David Laight wrote:
 
-> From: Stefan Gula <steweg@gmail.com
->=20
-> This patch is an extension for current Ethernet over GRE
-> implementation, which allows user to create virtual bridge (multipoin=
-t
-> VPN) and forward traffic based on Ethernet MAC address informations i=
-n
-> it. It simulates the Bridge bahaviour learing mechanism, but instead
-> of learning port ID from which given MAC address comes, it learns IP
-> address of peer which encapsulated given packet. Multicast, Broadcast
-> and unknown-multicast traffic is send over network as multicast
-> enacapsulated GRE packet, so one Ethernet multipoint GRE tunnel can b=
-e
-> represented as one single virtual switch on logical level and be also
-> represented as one multicast IPv4 address on network level.
->=20
-> Signed-off-by: Stefan Gula <steweg@gmail.com>
+> > Since multiple interfaces on a single system are unlikely
+> > to be connected to the same LAN segment, it doesn't really
+> > matter if they use same MAC address.
 
-Thanks for the effort, but it is duplicating existing functionality.
-It possible to do this already with existing gretap device and the
-current bridge.
+> I think you missed the point. All embedded devices have the same fs, so
+> if you have 2 boxes of the same model/brand on the same network, they'd
+> have the same MAC. That's generally frowned upon by network
+> administrators ;-)
 
-The same thing is also supported by OpenVswitch.
+This is generally handled by putting the MAC into a board-specific bit
+of flash that isn't part the main firmware (for example, the bootloader
+configuration) - for a lot of applications random generation doesn't
+help that much as entropy is hard to come by.
