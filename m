@@ -1,50 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Why the number of /proc/interrupts doesn't change when nic is
- under heavy workload?
-Date: Mon, 16 Jan 2012 08:01:32 +0100
-Message-ID: <1326697292.5287.122.camel@edumazet-laptop>
-References: <CAEc1PS0doeaH59621ia7n2GT=WgRSsCit_EzGrCV93QH95XZqw@mail.gmail.com>
-	 <1326665367.5287.97.camel@edumazet-laptop>
-	 <CAEc1PS0QxYfHfLFTiSFdTX27ufuxVfJd6Vg5oyv5aip5r=tD4A@mail.gmail.com>
-	 <1326696808.5287.115.camel@edumazet-laptop>
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: recvmsg sleeping from invalid context
+Date: Mon, 16 Jan 2012 11:21:14 +0400
+Message-ID: <4F13CFEA.9010406@parallels.com>
+References: <20120113182401.GA25885@redhat.com> <20120113.102712.600185688659703015.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	yhxu@wayne.edu
-To: Yuehai Xu <yuehaixu@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <davej@redhat.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1326696808.5287.115.camel@edumazet-laptop>
+In-Reply-To: <20120113.102712.600185688659703015.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le lundi 16 janvier 2012 =C3=A0 07:53 +0100, Eric Dumazet a =C3=A9crit =
-:
-> Le dimanche 15 janvier 2012 =C3=A0 17:27 -0500, Yuehai Xu a =C3=A9cri=
-t :
-> > Thanks for replying! Please see below:
->=20
-> > My memcached uses 8 different UDP sockets(8 different UDP ports), s=
-o
-> > there should be no lock contention for a single UDP rx-queue.
->=20
-> Ah, I missed this mail, so you really should post here result of "per=
-f
-> top -C 0", after you make sure your NIC interrupts are handled by cpu=
- 0.
->=20
-> Also, what speed is your link, and how many UDP messages per second d=
-o
-> you receive ?
->=20
+On 01/13/2012 10:27 PM, David Miller wrote:
+> From: Dave Jones<davej@redhat.com>
+> Date: Fri, 13 Jan 2012 13:24:01 -0500
+>
+>> getting a ton of these on the latest head (099469502f62fbe0d7e4f0b83a2f22538367f734)
+>>
+>> BUG: sleeping function called from invalid context at mm/memory.c:3905
+>> in_atomic(): 0, irqs_disabled(): 0, pid: 1067, name: NetworkManager
+>> INFO: lockdep is turned off.
+>> Pid: 1067, comm: NetworkManager Not tainted 3.2.0+ #22
+>> Call Trace:
+>>   [<ffffffff81099415>] __might_sleep+0x145/0x200
+>>   [<ffffffff811752a4>] might_fault+0x34/0xb0
+>>   [<ffffffff81551555>] ? sock_def_readable+0x25/0x1a0
+>>   [<ffffffff8155c387>] put_cmsg+0x77/0x120
+>>   [<ffffffff8159379c>] netlink_recvmsg+0x35c/0x480
+>>   [<ffffffff8155201a>] ? sock_update_classid+0x9a/0x260
+>>   [<ffffffff81552052>] ? sock_update_classid+0xd2/0x260
+>>   [<ffffffff81549fbd>] sock_recvmsg+0x11d/0x140
+>>   [<ffffffff811752c3>] ? might_fault+0x53/0xb0
+>>   [<ffffffff8117530c>] ? might_fault+0x9c/0xb0
+>>   [<ffffffff811752c3>] ? might_fault+0x53/0xb0
+>>   [<ffffffff8154b1b3>] __sys_recvmsg+0x153/0x2d0
+>>   [<ffffffff811bc39a>] ? fget_light+0x5a/0x470
+>>   [<ffffffff8109fd11>] ? get_parent_ip+0x11/0x50
+>>   [<ffffffff816ac23d>] ? sub_preempt_count+0x9d/0xd0
+>>   [<ffffffff811bc43b>] ? fget_light+0xfb/0x470
+>>   [<ffffffff811bc39a>] ? fget_light+0x5a/0x470
+>>   [<ffffffff8154e2e9>] sys_recvmsg+0x49/0x90
+>>   [<ffffffff816b00e9>] system_call_fastpath+0x16/0x1b
+>
+> Sigh, I suspect the new socket memcg code, which I didn't want to
+> even apply in the first place. :-/
+>
+> Glauber, please fix this.
 
-RPS is not good for you because the generic rxhash computation will
-spread messages for UDP port XX on many different cpus (because rxhash
-computation takes into account the complete tuple (src ip, dst ip, src
-port, dst port), not only dst port.
+I really don't see how this can be related to sock memcg at all.
+Nothing in the stack trace points to it.
 
-It would be better for your workload to only hash dst port, to avoid
-false sharing on socket structure.
-
-I guess we could extend rxhash computation to use a pluggable BPF
-filter, now we can have fast filters.
+You probably got this impression by "sock_update_classid", which has
+a naming similar to the ones I used to update some sockets attributes, 
+but are something else entirely.
