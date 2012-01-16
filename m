@@ -1,206 +1,365 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless 2012-01-16
-Date: Mon, 16 Jan 2012 14:54:35 -0500
-Message-ID: <20120116195435.GB12733@tuxdriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch v2, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
+ multipoint GRE over IP
+Date: Mon, 16 Jan 2012 21:28:53 +0100
+Message-ID: <1326745733.2564.14.camel@edumazet-laptop>
+References: <CAGsizz+x1GVNR9Pz=b7wO0ELx29=FMosfvhQWL5K26EpkwsUCg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="SLDf9lqlvOQaIe6s"
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
+To: =?UTF-8?Q?=C5=A0tefan?= Gula <steweg@ynet.sk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <CAGsizz+x1GVNR9Pz=b7wO0ELx29=FMosfvhQWL5K26EpkwsUCg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Le lundi 16 janvier 2012 =C3=A0 20:45 +0100, =C5=A0tefan Gula a =C3=A9c=
+rit :
+> From: Stefan Gula <steweg@gmail.com
+>=20
+> This patch is an extension for current Ethernet over GRE
+> implementation, which allows user to create virtual bridge (multipoin=
+t
+> VPN) and forward traffic based on Ethernet MAC address information in
+> it. It simulates the Bridge behavior learning mechanism, but instead
+> of learning port ID from which given MAC address comes, it learns IP
+> address of peer which encapsulated given packet. Multicast, Broadcast
+> and unknown-multicast traffic is send over network as multicast
+> encapsulated GRE packet, so one Ethernet multipoint GRE tunnel can be
+> represented as one single virtual switch on logical level and be also
+> represented as one multicast IPv4 address on network level.
+>=20
+> Signed-off-by: Stefan Gula <steweg@gmail.com>
+>=20
+> ---
+>=20
+> code was merged with latest bridge code and should be easily comparab=
+le
+>=20
 
---SLDf9lqlvOQaIe6s
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Please make sure it applies properly on net-next tree.
 
-commit 543d1b92d5500841e70f15e79d197bbffed36561
+That is mandatory.
 
-Dave,
+> diff -uprN -X linux-3.2.1-orig/Documentation/dontdiff
+> linux-3.2.1-orig/include/net/ipip.h linux-3.2.1-my/include/net/ipip.h
+> --- linux-3.2.1-orig/include/net/ipip.h	2012-01-12 20:42:45.000000000=
+ +0100
+> +++ linux-3.2.1-my/include/net/ipip.h	2012-01-16 11:17:01.000000000 +=
+0100
+> @@ -27,6 +27,14 @@ struct ip_tunnel {
+>  	__u32			o_seqno;	/* The last output seqno */
+>  	int			hlen;		/* Precalculated GRE header length */
+>  	int			mlink;
+> +#ifdef CONFIG_NET_IPGRE_BRIDGE
+> +#define GRETAP_BR_HASH_BITS 8
+> +#define GRETAP_BR_HASH_SIZE (1 << GRETAP_BR_HASH_BITS)
+> +	struct hlist_head	hash[GRETAP_BR_HASH_SIZE];
+> +	spinlock_t		hash_lock;
+> +	unsigned long		ageing_time;
+> +	struct timer_list	gc_timer;
+> +#endif
+>=20
+>  	struct ip_tunnel_parm	parms;
+>=20
+> diff -uprN -X linux-3.2.1-orig/Documentation/dontdiff
+> linux-3.2.1-orig/net/ipv4/Kconfig linux-3.2.1-my/net/ipv4/Kconfig
+> --- linux-3.2.1-orig/net/ipv4/Kconfig	2012-01-12 20:42:45.000000000 +=
+0100
+> +++ linux-3.2.1-my/net/ipv4/Kconfig	2012-01-16 12:37:00.000000000 +01=
+00
+> @@ -211,6 +211,15 @@ config NET_IPGRE_BROADCAST
+>  	  Network), but can be distributed all over the Internet. If you wa=
+nt
+>  	  to do that, say Y here and to "IP multicast routing" below.
+>=20
+> +config NET_IPGRE_BRIDGE
+> +	bool "IP: Ethernet over multipoint GRE over IP"
+> +	depends on IP_MULTICAST && NET_IPGRE && NET_IPGRE_BROADCAST
+> +	help
+> +	  Allows you to use multipoint GRE VPN as virtual switch and interc=
+onnect
+> +	  several L2 endpoints over L3 routed infrastructure. It is useful =
+for
+> +	  creating multipoint L2 VPNs which can be later used inside bridge
+> +	  interfaces If you want to use. GRE multipoint L2 VPN feature say =
+Y.
+> +
+>  config IP_MROUTE
+>  	bool "IP: multicast routing"
+>  	depends on IP_MULTICAST
+> diff -uprN -X linux-3.2.1-orig/Documentation/dontdiff
+> linux-3.2.1-orig/net/ipv4/ip_gre.c linux-3.2.1-my/net/ipv4/ip_gre.c
+> --- linux-3.2.1-orig/net/ipv4/ip_gre.c	2012-01-12 20:42:45.000000000 =
++0100
+> +++ linux-3.2.1-my/net/ipv4/ip_gre.c	2012-01-16 20:42:03.000000000 +0=
+100
+> @@ -52,6 +52,11 @@
+>  #include <net/ip6_route.h>
+>  #endif
+>=20
+> +#ifdef CONFIG_NET_IPGRE_BRIDGE
+> +#include <linux/jhash.h>
+> +#include <asm/unaligned.h>
+> +#endif
+> +
+>  /*
+>     Problems & solutions
+>     --------------------
+> @@ -134,6 +139,191 @@ struct ipgre_net {
+>  	struct net_device *fb_tunnel_dev;
+>  };
+>=20
+> +#ifdef CONFIG_NET_IPGRE_BRIDGE
+> +	/*
+> +	 * This part of code includes codes to enable L2 ethernet
+> +	 * switch virtualization over IP routed infrastructure with
+> +	 * utilization of multicast capable endpoint using Ethernet
+> +	 * over GRE
+> +	 *
+> +	 * Author: Stefan Gula
+> +	 * Signed-off-by: Stefan Gula <steweg@gmail.com>
+> +	 */
+> +struct mac_addr {
+> +	unsigned char   addr[6];
 
-Here is a set of fixes for 3.3 that I let cook over the weekend...
+Did I mention : ETH_ALEN ?
 
-Included is a fix for a signedness bug in ipw2x00 from Dan Carpenter, a
-fix for an oops when ejecting a b43 card from Guennadi Liakhovetski
-(with a minor modification by me as noted in the changelog), a mac80211
-regresion fix from Johannes Berg for a bug related to station
-management, and a final fix for the rt2800pci spurious interrupt issue
-=66rom Stanislaw Gruszka.
+> +};
+> +
+> +struct ipgre_tap_bridge_entry {
+> +	struct hlist_node	hlist;
+> +	u32			raddr;
 
-Please let me know if there are problems!
+	__be32 raddr ?
 
-Thanks,
+> +	struct mac_addr		addr;
+> +	struct net_device	*dev;
+> +	struct rcu_head		rcu;
+> +	unsigned long		updated;
+> +};
+> +
+> +static struct kmem_cache *ipgre_tap_bridge_cache __read_mostly;
+> +static u32 ipgre_salt __read_mostly;
+> +
+> +int __net_init ipgre_tap_bridge_init(void)
+> +{
+> +	ipgre_tap_bridge_cache =3D kmem_cache_create("ipgre_tap_bridge_cach=
+e",
+> +		sizeof(struct ipgre_tap_bridge_entry),
+> +		0,
+> +		SLAB_HWCACHE_ALIGN, NULL);
+> +	if (!ipgre_tap_bridge_cache)
+> +		return -ENOMEM;
+> +	get_random_bytes(&ipgre_salt, sizeof(ipgre_salt));
+> +	return 0;
+> +}
+> +
+> +void ipgre_tap_bridge_fini(void)
+> +{
+> +	kmem_cache_destroy(ipgre_tap_bridge_cache);
+> +}
+> +
+> +static inline int ipgre_tap_bridge_hash(const unsigned char *mac)
+> +{
+> +	u32 key =3D get_unaligned((u32 *)(mac + 2));
+> +	return jhash_1word(key, ipgre_salt) & (GRETAP_BR_HASH_SIZE - 1);
+> +}
+> +
+> +static inline int ipgre_tap_bridge_has_expired(const struct ip_tunne=
+l *tunnel,
+> +		const struct ipgre_tap_bridge_entry *entry)
+> +{
+> +	return time_before_eq(entry->updated + tunnel->ageing_time,
+> +		jiffies);
+> +}
+> +
+> +static void ipgre_tap_bridge_rcu_free(struct rcu_head *head)
+> +{
+> +	struct ipgre_tap_bridge_entry *entry
+> +		=3D container_of(head, struct ipgre_tap_bridge_entry, rcu);
+> +	kmem_cache_free(ipgre_tap_bridge_cache, entry);
+> +}
+> +
+> +static inline void ipgre_tap_bridge_delete(struct
+> ipgre_tap_bridge_entry *entry)
+> +{
+> +	hlist_del_rcu(&entry->hlist);
+> +	call_rcu(&entry->rcu, ipgre_tap_bridge_rcu_free);
+> +}
 
-John
+Did I mention : kfree_rcu() ?
 
----
+> +
+> +
+> +
+> +static struct ipgre_tap_bridge_entry *ipgre_tap_bridge_find(
+> +	struct hlist_head *head,
+> +	const unsigned char *addr)
+> +{
+> +	struct hlist_node *h;
+> +	struct ipgre_tap_bridge_entry *entry;
+> +	hlist_for_each_entry(entry, h, head, hlist) {
+> +		if (!compare_ether_addr(entry->addr.addr, addr))
+> +			return entry;
+> +	}
+> +	return NULL;
+> +}
+> +
+> +
+> +static struct ipgre_tap_bridge_entry *ipgre_tap_bridge_find_rcu(
+> +	struct hlist_head *head,
+> +	const unsigned char *addr)
+> +{
+> +	struct hlist_node *h;
+> +	struct ipgre_tap_bridge_entry *entry;
+> +	hlist_for_each_entry_rcu(entry, h, head, hlist) {
+> +		if (!compare_ether_addr(entry->addr.addr, addr))
+> +			return entry;
+> +	}
+> +	return NULL;
+> +}
+> +
+> +static struct ipgre_tap_bridge_entry *ipgre_tap_bridge_create(
+> +		struct hlist_head *head,
+> +		u32 source,
 
-The following changes since commit 7c7c7f01cc5e3e423120a4848a73dd5e4586f2f9:
+	__be32 source,
 
-  vhost-net: add module alias (v2.1) (2012-01-13 10:12:23 -0800)
+> +		const unsigned char *addr, struct net_device *dev)
+> +{
+> +	struct ipgre_tap_bridge_entry *entry;
+> +	entry =3D kmem_cache_alloc(ipgre_tap_bridge_cache, GFP_ATOMIC);
+> +	if (entry) {
+> +		memcpy(entry->addr.addr, addr, ETH_ALEN);
+> +		hlist_add_head_rcu(&entry->hlist, head);
 
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-d=
-avem
+Thats bogus.
 
-Dan Carpenter (1):
-      ipw2x00: signedness bug handling frame length
+You must init all entry fields _before_ inserting entry in hash table.
 
-Guennadi Liakhovetski (1):
-      wireless: b43: fix Oops on card eject during transfer
+> +		entry->raddr =3D source;
+> +		entry->dev =3D dev;
+> +		entry->updated =3D jiffies;
+> +	}
+> +	return entry;
+> +}
+> +
+> +__be32 ipgre_tap_bridge_get_raddr(struct ip_tunnel *tunnel,
+> +	const unsigned char *addr)
+> +{
+> +	struct ipgre_tap_bridge_entry *entry;
+> +	entry =3D __ipgre_tap_bridge_get(tunnel, addr);
+> +	if (entry =3D=3D NULL)
+> +		return 0;
+> +	else
+> +		return entry->raddr;
+> +}
+> +
+> +#endif
+>  /* Tunnel hash table */
+>=20
+>  /*
+> @@ -563,6 +753,13 @@ static int ipgre_rcv(struct sk_buff *skb
+>  	int    offset =3D 4;
+>  	__be16 gre_proto;
+>=20
+> +#ifdef CONFIG_NET_IPGRE_BRIDGE
+> +	u32 orig_source;
 
-Johannes Berg (1):
-      mac80211: fix no-op authorized transitions
+Please run sparse on your code...  (make C=3D2 ...)
 
-Stanislaw Gruszka (1):
-      rt2800pci: fix spurious interrupts generation
+orig_source is not u32, but __be32
 
- drivers/net/wireless/b43/main.c         |    5 ++++-
- drivers/net/wireless/ipw2x00/ipw2200.c  |    4 ++--
- drivers/net/wireless/rt2x00/rt2800pci.c |   28 ++++++++--------------------
- net/mac80211/cfg.c                      |    2 +-
- 4 files changed, 15 insertions(+), 24 deletions(-)
+> +	struct hlist_head *head;
+> +	struct ipgre_tap_bridge_entry *entry;
+> +	struct ethhdr *tethhdr;
+> +#endif
+> +
+>  	if (!pskb_may_pull(skb, 16))
+>  		goto drop_nolock;
+>=20
+> @@ -659,10 +856,39 @@ static int ipgre_rcv(struct sk_buff *skb
+>  				tunnel->dev->stats.rx_errors++;
+>  				goto drop;
+>  			}
+> -
+> +#ifdef CONFIG_NET_IPGRE_BRIDGE
+> +			orig_source =3D iph->saddr;
+> +#endif
+>  			iph =3D ip_hdr(skb);
+>  			skb->protocol =3D eth_type_trans(skb, tunnel->dev);
+>  			skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
+> +#ifdef CONFIG_NET_IPGRE_BRIDGE
+> +			if (ipv4_is_multicast(tunnel->parms.iph.daddr)) {
+> +				tethhdr =3D eth_hdr(skb);
+> +				if (!is_multicast_ether_addr(
+> +					tethhdr->h_source)) {
+> +					head =3D &tunnel->hash[
+> +						ipgre_tap_bridge_hash(
+> +							tethhdr->h_source)];
+> +					entry =3D ipgre_tap_bridge_find_rcu(head,
+> +						tethhdr->h_source);
+> +					if (likely(entry)) {
+> +						entry->raddr =3D orig_source;
+> +						entry->updated =3D jiffies;
+> +					} else {
+> +					  spin_lock_bh(&tunnel->hash_lock);
 
-diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/mai=
-n.c
-index 1c6f193..b91f28e 100644
---- a/drivers/net/wireless/b43/main.c
-+++ b/drivers/net/wireless/b43/main.c
-@@ -4852,6 +4852,9 @@ static void b43_op_stop(struct ieee80211_hw *hw)
-=20
- 	cancel_work_sync(&(wl->beacon_update_trigger));
-=20
-+	if (!dev)
-+		goto out;
-+
- 	mutex_lock(&wl->mutex);
- 	if (b43_status(dev) >=3D B43_STAT_STARTED) {
- 		dev =3D b43_wireless_core_stop(dev);
-@@ -4863,7 +4866,7 @@ static void b43_op_stop(struct ieee80211_hw *hw)
-=20
- out_unlock:
- 	mutex_unlock(&wl->mutex);
--
-+out:
- 	cancel_work_sync(&(wl->txpower_adjust_work));
- }
-=20
-diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/=
-ipw2x00/ipw2200.c
-index 018a8de..4fcdac6 100644
---- a/drivers/net/wireless/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2200.c
-@@ -7848,7 +7848,7 @@ static void ipw_handle_data_packet_monitor(struct ipw=
-_priv *priv,
- 	 * more efficiently than we can parse it. ORDER MATTERS HERE */
- 	struct ipw_rt_hdr *ipw_rt;
-=20
--	short len =3D le16_to_cpu(pkt->u.frame.length);
-+	unsigned short len =3D le16_to_cpu(pkt->u.frame.length);
-=20
- 	/* We received data from the HW, so stop the watchdog */
- 	dev->trans_start =3D jiffies;
-@@ -8023,7 +8023,7 @@ static void ipw_handle_promiscuous_rx(struct ipw_priv=
- *priv,
- 	s8 signal =3D frame->rssi_dbm - IPW_RSSI_TO_DBM;
- 	s8 noise =3D (s8) le16_to_cpu(frame->noise);
- 	u8 rate =3D frame->rate;
--	short len =3D le16_to_cpu(pkt->u.frame.length);
-+	unsigned short len =3D le16_to_cpu(pkt->u.frame.length);
- 	struct sk_buff *skb;
- 	int hdr_only =3D 0;
- 	u16 filter =3D priv->prom_priv->filter;
-diff --git a/drivers/net/wireless/rt2x00/rt2800pci.c b/drivers/net/wireless=
-/rt2x00/rt2800pci.c
-index 4941a1a..dc88bae 100644
---- a/drivers/net/wireless/rt2x00/rt2800pci.c
-+++ b/drivers/net/wireless/rt2x00/rt2800pci.c
-@@ -422,7 +422,6 @@ static int rt2800pci_init_queues(struct rt2x00_dev *rt2=
-x00dev)
- static void rt2800pci_toggle_irq(struct rt2x00_dev *rt2x00dev,
- 				 enum dev_state state)
- {
--	int mask =3D (state =3D=3D STATE_RADIO_IRQ_ON);
- 	u32 reg;
- 	unsigned long flags;
-=20
-@@ -436,25 +435,14 @@ static void rt2800pci_toggle_irq(struct rt2x00_dev *r=
-t2x00dev,
- 	}
-=20
- 	spin_lock_irqsave(&rt2x00dev->irqmask_lock, flags);
--	rt2x00pci_register_read(rt2x00dev, INT_MASK_CSR, &reg);
--	rt2x00_set_field32(&reg, INT_MASK_CSR_RXDELAYINT, 0);
--	rt2x00_set_field32(&reg, INT_MASK_CSR_TXDELAYINT, 0);
--	rt2x00_set_field32(&reg, INT_MASK_CSR_RX_DONE, mask);
--	rt2x00_set_field32(&reg, INT_MASK_CSR_AC0_DMA_DONE, 0);
--	rt2x00_set_field32(&reg, INT_MASK_CSR_AC1_DMA_DONE, 0);
--	rt2x00_set_field32(&reg, INT_MASK_CSR_AC2_DMA_DONE, 0);
--	rt2x00_set_field32(&reg, INT_MASK_CSR_AC3_DMA_DONE, 0);
--	rt2x00_set_field32(&reg, INT_MASK_CSR_HCCA_DMA_DONE, 0);
--	rt2x00_set_field32(&reg, INT_MASK_CSR_MGMT_DMA_DONE, 0);
--	rt2x00_set_field32(&reg, INT_MASK_CSR_MCU_COMMAND, 0);
--	rt2x00_set_field32(&reg, INT_MASK_CSR_RXTX_COHERENT, 0);
--	rt2x00_set_field32(&reg, INT_MASK_CSR_TBTT, mask);
--	rt2x00_set_field32(&reg, INT_MASK_CSR_PRE_TBTT, mask);
--	rt2x00_set_field32(&reg, INT_MASK_CSR_TX_FIFO_STATUS, mask);
--	rt2x00_set_field32(&reg, INT_MASK_CSR_AUTO_WAKEUP, mask);
--	rt2x00_set_field32(&reg, INT_MASK_CSR_GPTIMER, 0);
--	rt2x00_set_field32(&reg, INT_MASK_CSR_RX_COHERENT, 0);
--	rt2x00_set_field32(&reg, INT_MASK_CSR_TX_COHERENT, 0);
-+	reg =3D 0;
-+	if (state =3D=3D STATE_RADIO_IRQ_ON) {
-+		rt2x00_set_field32(&reg, INT_MASK_CSR_RX_DONE, 1);
-+		rt2x00_set_field32(&reg, INT_MASK_CSR_TBTT, 1);
-+		rt2x00_set_field32(&reg, INT_MASK_CSR_PRE_TBTT, 1);
-+		rt2x00_set_field32(&reg, INT_MASK_CSR_TX_FIFO_STATUS, 1);
-+		rt2x00_set_field32(&reg, INT_MASK_CSR_AUTO_WAKEUP, 1);
-+	}
- 	rt2x00pci_register_write(rt2x00dev, INT_MASK_CSR, reg);
- 	spin_unlock_irqrestore(&rt2x00dev->irqmask_lock, flags);
-=20
-diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
-index e60df48..296620d 100644
---- a/net/mac80211/cfg.c
-+++ b/net/mac80211/cfg.c
-@@ -791,7 +791,7 @@ static int sta_apply_parameters(struct ieee80211_local =
-*local,
- 		if (set & BIT(NL80211_STA_FLAG_AUTHORIZED))
- 			ret =3D sta_info_move_state_checked(sta,
- 					IEEE80211_STA_AUTHORIZED);
--		else
-+		else if (test_sta_flag(sta, WLAN_STA_AUTHORIZED))
- 			ret =3D sta_info_move_state_checked(sta,
- 					IEEE80211_STA_ASSOC);
- 		if (ret)
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+You dont need the _bh() variant here, since we run from softirq handler=
+=2E
 
---SLDf9lqlvOQaIe6s
-Content-Type: application/pgp-signature
+> +					  if (!ipgre_tap_bridge_find(head,
+> +						tethhdr->h_source))
+> +						ipgre_tap_bridge_create(
+> +						 head,
+> +						 orig_source,
+> +						 tethhdr->h_source,
+> +						 tunnel->dev);
+> +					  spin_unlock_bh(&tunnel->hash_lock);
+> +					}
+> +				}
+> +			}
+> +#endif
+>  		}
+>=20
+>  		tstats =3D this_cpu_ptr(tunnel->dev->tstats);
+> @@ -716,7 +942,19 @@ static netdev_tx_t ipgre_tunnel_xmit(str
+>  		tiph =3D &tunnel->parms.iph;
+>  	}
+>=20
+> +#ifdef CONFIG_NET_IPGRE_BRIDGE
+> +	rcu_read_lock();
+> +	if ((dev->type =3D=3D ARPHRD_ETHER) &&
+> +		ipv4_is_multicast(tunnel->parms.iph.daddr))
+> +		dst =3D ipgre_tap_bridge_get_raddr(tunnel,
+> +			((struct ethhdr *)skb->data)->h_dest);
+> +	rcu_read_unlock();
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+this rcu_read_lock()/rcu_read_unlock() pair should be done in
+ipgre_tap_bridge_get_raddr() instead... so we dont hit this for all
+packets.
 
-iQIcBAEBAgAGBQJPFIB6AAoJEJctW/TcYTgGddcP/jjLwDAVjVlbDq1BmAbNY79a
-5HK/xF5b/PeVXCW2M4tf45PJoRS9nGk9S6av6xss/n6uUklhhoA+FLYYUN0pT0u5
-duv/rNWXl+QgU0bUsFw+bRj8YfCgWZaQjg9AqVRI+7F/vlPn4+jis5jqxiQRFDIh
-OVXia0r/FeLysJIDVV7Opf3epCLWjoOf7kRLgeYscRIJ3eN7qwgRekNQVrPhQy8Q
-Np8I8eHmklvaqgmCHqj7S3MMDTDYpmAY+bcMuwZeCR44Ct4HYsbSKtxx4P/awlrT
-MusubnWJLiRcyNINpTSkILA5Ig2t4JXU7tf30HnVexPgb0jLVxjr41kFuG0JMzoW
-dKLa/OJeS/ozPJIqcHqitNmbwMBIYlv0pn85Q3jRZrybh1FKNDxc+4y74IuUDRmG
-jZF8LBfptqyGvOI9pnBch7pfacN2FUypf6O97v+xWBfbAxorhDcvCA4Mu5SbNpWp
-g1phsoZ9Y/4BkZCvllPcsk0w6rp2aL7ETsr+7rkMiAXUwmFniRWREU7IEDP5jFxE
-QDquhCVC8ettH0dtU4+AplqLnl9Em3FQw+MiSGhaqkcUKwjLReUrKjR5Sxp5oX5X
-TO+/cVGmi6QYCB3L6Psd9uzYo4iDRoQmhfyordEUMrMACyJJViXPAOeoMGbxLkLo
-tfa/XuaLlxuemNbXpBpA
-=v9+6
------END PGP SIGNATURE-----
+> +	if (dst =3D=3D 0)
+> +		dst =3D tiph->daddr;
+> +	if (dst =3D=3D 0) {
+> +#else
+>  	if ((dst =3D tiph->daddr) =3D=3D 0) {
+> +#endif
+>  		/* NBMA tunnel */
+>=20
 
---SLDf9lqlvOQaIe6s--
+General comment :
+
+It would be nice this stuff is installed on a new "ip tunnel add"
+option...
+
+Hash table is 2048 bytes long... and an "ip tunnel " option would permi=
+t
+to size the hash table eventually, instead of fixed 256 slots.
