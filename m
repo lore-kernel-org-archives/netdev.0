@@ -1,59 +1,83 @@
-From: Dmitry Antipov <dmitry.antipov@linaro.org>
-Subject: [PATCH] drivers/net/usb/smsc95xx.c: change msleep() to usleep_range()
-Date: Mon, 16 Jan 2012 12:49:34 +0400
-Message-ID: <1326703774-1154-1-git-send-email-dmitry.antipov@linaro.org>
-Cc: patches@linaro.org, Dmitry Antipov <dmitry.antipov@linaro.org>
-To: netdev@vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: calling request_firmware() from module init will not work with
+ recent/future udev versions
+Date: Mon, 16 Jan 2012 09:57:39 +0100
+Message-ID: <1326704259.3510.3.camel@jlt3.sipsolutions.net>
+References: <CAPXgP11iT9K2KcDCJvw_druf5qdNjs0jLfrbpS7CcYh5vXrz_w@mail.gmail.com>
+	 <1326621743.3448.1.camel@jlt3.sipsolutions.net>
+	 <CAPXgP13b0uu3DgOGRL-_WKx-aSQN-f0xL6OmjNPBGf9fg0satA@mail.gmail.com>
+	 (sfid-20120115_163411_716244_29DE7A13)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	Tom Gundersen <teg@jklm.no>, Andy Whitcroft <apw@canonical.com>
+To: Kay Sievers <kay.sievers@vrfy.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:60189 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753593Ab2APIso (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2012 03:48:44 -0500
-Received: by bkas6 with SMTP id s6so424087bka.19
-        for <netdev@vger.kernel.org>; Mon, 16 Jan 2012 00:48:43 -0800 (PST)
+Received: from he.sipsolutions.net ([78.46.109.217]:49780 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753675Ab2API5r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2012 03:57:47 -0500
+In-Reply-To: <CAPXgP13b0uu3DgOGRL-_WKx-aSQN-f0xL6OmjNPBGf9fg0satA@mail.gmail.com> (sfid-20120115_163411_716244_29DE7A13)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The resolution of msleep is related to HZ, so 10ms msleep() causes
-~23ms sleep with OMAP's default CONFIG_HZ=128 timer configuration.
-This looks too much, and usleep_range() with some slack gives more
-control of what is happening here.
+On Sun, 2012-01-15 at 16:33 +0100, Kay Sievers wrote:
 
-Signed-off-by: Dmitry Antipov <dmitry.antipov@linaro.org>
----
- drivers/net/usb/smsc95xx.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+> > Will udev now also return the async load only after root is booted if it
+> > can't be satisfied earlier?
+> 
+> Not sure, let me explain what happens here, maybe it contains the answer:
+> 
+> Udev gets an event for a pci device:
+>   /devices/pci0000:00/0000:00:1c.1/0000:03:00.0
+> 
+> This device has a modalias, which let's udev load the matching module
+> into the kernel. The module_init() syscall triggers the firmware
+> loading request, which causes another event:
+>   /devices/pci0000:00/0000:00:1c.1/0000:03:00.0/firmware/0000:03:00.0
+> 
+> This event is a direct child of the pci device and udev delays the
+> execution of child devices until the parent devices return from
+> handling. This dependency logic is needed for many things to ensure a
+> proper operation, like partitions which need to make sure the events
+> for the disk devices are handled before the partition events are
+> started.
+> 
+> Now the problem, the pcidev event is blocking in modprobe and waits
+> for the child event it has generated to finish, but udev does not
+> start the event because the parent still blocks in modprobe ->
+> deadlock until default firmware timeout of 60 sec. What we want here,
+> for several reasons not only udev's dependency logic, is that modprobe
+> never waits for userspace transactions to finish.
 
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index d45520e..5d406d4 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -688,7 +688,7 @@ static int smsc95xx_phy_initialize(struct usbnet *dev)
- 	smsc95xx_mdio_write(dev->net, dev->mii.phy_id, MII_BMCR, BMCR_RESET);
- 
- 	do {
--		msleep(10);
-+		usleep_range(10000, 15000);
- 		bmcr = smsc95xx_mdio_read(dev->net, dev->mii.phy_id, MII_BMCR);
- 		timeout++;
- 	} while ((bmcr & BMCR_RESET) && (timeout < 100));
-@@ -736,7 +736,7 @@ static int smsc95xx_reset(struct usbnet *dev)
- 			netdev_warn(dev->net, "Failed to read HW_CFG: %d\n", ret);
- 			return ret;
- 		}
--		msleep(10);
-+		usleep_range(10000, 15000);
- 		timeout++;
- 	} while ((read_buf & HW_CFG_LRST_) && (timeout < 100));
- 
-@@ -759,7 +759,7 @@ static int smsc95xx_reset(struct usbnet *dev)
- 			netdev_warn(dev->net, "Failed to read PM_CTRL: %d\n", ret);
- 			return ret;
- 		}
--		msleep(10);
-+		usleep_range(10000, 15000);
- 		timeout++;
- 	} while ((read_buf & PM_CTL_PHY_RST_) && (timeout < 100));
- 
--- 
-1.7.7.5
+Ok, thanks for the description. I guess to me that means nothing really
+changes much in the situation I'm thinking of.
+
+> If userspace is not responding, the firmware request times out after
+> 60 seconds and the driver is not associated with any hardware. To
+> retry the firmware loading, the module needs to be unloaded and
+> reloaded, or the driver needs to be asked to bind to a device again by
+> writing to the 'bind' in file in the sysfs driver directory.
+
+Right.
+
+> Firmware requests stay around in the system for by default 60 seconds.
+> If the driver would be built-in the request would be issued long
+> before userspace is ready, but udev's coldplug step during bootup will
+> cause all events to be replayed, so it would catch also the
+> outstanding firmware requests, and would be able to handle them.
+
+Hmm, right, but I don't think that matters for the issue I'm asking
+about. Let's say you have iwlwifi, built into the kernel, and an
+initramfs that doesn't contain the iwlwifi firmware.
+What will happen (last I checked anyway) is this: iwlwifi will do an
+async firmware request, and the udev in initramfs will say "don't have
+it", thus unbinding and you have to sysfs bind or module reload.
+
+What I'm was asking then is this: Can udev know that it is running from
+initramfs (presumably that can't be too hard) and simply not reply to
+async requests it doesn't have firmware for? Then once the real root is
+mounted it could satisfy (or not) firmware requests from the real root.
+
+johannes
