@@ -1,38 +1,52 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: why does skb->tstamp use getnstimeofday?
-Date: Mon, 16 Jan 2012 14:05:21 -0800
-Message-ID: <4F149F21.70400@hp.com>
-References: <op.v74shh18fzo5me@stalin> <1326645750.5287.48.camel@edumazet-laptop> <op.v74z14g2fzo5me@stalin>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net 1/2] net: Use device model to get driver name in
+ skb_gso_segment()
+Date: Mon, 16 Jan 2012 22:38:59 +0000
+Message-ID: <1326753539.3065.31.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Anatoly Sivov <mm05@mail.ru>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:7919 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932069Ab2APWFX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2012 17:05:23 -0500
-In-Reply-To: <op.v74z14g2fzo5me@stalin>
+Received: from exchange.solarflare.com ([216.237.3.220]:6746 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750834Ab2APWjE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2012 17:39:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/15/2012 09:55 AM, Anatoly Sivov wrote:
-> I missed that field tstamp is used for things other than RTT and can be
-> even user-spaced with SO_TIMESTAMP.
-> However, timekeeper speed up/slow down (due to ntp) can seriously affect
-> some congestion avoidance algorithm quality, I guess.
-> Am I wrong?
+ethtool operations generally require the caller to hold RTNL and are
+not safe to call in atomic context.  The device model provides this
+information for most devices; we'll only lose it for some old ISA
+drivers.
 
-Good question - not sure if we will see anything, but the upcoming 
-leap-second might be interesting to watch - though I think contemporary 
-NTP addresses that by a big slew rather than a step adjust.  Of course 
-it can step-adjust the time on the system, but 99 times out of 10 (*) 
-that will be just at system start-up, when there probably will not be 
-all that many congestion controlled connections active.  Of course, who 
-knows what that 100th out of 10 times will do.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ net/core/dev.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-rick jones
-* 99 times out of 10 is an expression which if I recall correctly was 
-coined or at least repeated by a high-school sports coach to mean 
-"virtually all of the time"
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f494675..7e6b7dc 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1962,13 +1962,13 @@ struct sk_buff *skb_gso_segment(struct sk_buff *skb,
+ 
+ 	if (unlikely(skb->ip_summed != CHECKSUM_PARTIAL)) {
+ 		struct net_device *dev = skb->dev;
+-		struct ethtool_drvinfo info = {};
++		const char *driver = "";
+ 
+-		if (dev && dev->ethtool_ops && dev->ethtool_ops->get_drvinfo)
+-			dev->ethtool_ops->get_drvinfo(dev, &info);
++		if (dev && dev->dev.parent)
++			driver = dev_driver_string(dev->dev.parent);
+ 
+ 		WARN(1, "%s: caps=(%pNF, %pNF) len=%d data_len=%d ip_summed=%d\n",
+-		     info.driver, dev ? &dev->features : NULL,
++		     driver, dev ? &dev->features : NULL,
+ 		     skb->sk ? &skb->sk->sk_route_caps : NULL,
+ 		     skb->len, skb->data_len, skb->ip_summed);
+ 
+-- 
+1.7.7.5
