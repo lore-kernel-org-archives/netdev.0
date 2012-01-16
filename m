@@ -1,103 +1,58 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net 2/2] net: WARN if skb_checksum_help() is called on skb
- requiring segmentation
-Date: Mon, 16 Jan 2012 22:43:38 +0000
-Message-ID: <1326753818.3065.35.camel@bwh-desktop>
-References: <1326753539.3065.31.camel@bwh-desktop>
+From: =?ISO-8859-2?Q?=A9tefan_Gula?= <steweg@ynet.sk>
+Subject: Re: [patch v2, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
+ multipoint GRE over IP
+Date: Mon, 16 Jan 2012 23:52:25 +0100
+Message-ID: <CAGsizz+NuyPHtau3b2LjCqdAGyrPf1-08v2uD0xJBSJS9qs5Fg@mail.gmail.com>
+References: <CAGsizz+x1GVNR9Pz=b7wO0ELx29=FMosfvhQWL5K26EpkwsUCg@mail.gmail.com>
+ <20120116202907.GF1077372@jupiter.n2.diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Lamparter <equinox@diac24.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:6817 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751239Ab2APWnl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2012 17:43:41 -0500
-In-Reply-To: <1326753539.3065.31.camel@bwh-desktop>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:39225 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751366Ab2APWwq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2012 17:52:46 -0500
+In-Reply-To: <20120116202907.GF1077372@jupiter.n2.diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-skb_checksum_help() has never done anything useful with skbs that
-require segmentation.  Setting skb->ip_summed = CHECKSUM_NONE makes
-them invalid and provokes a later WARNing in skb_gso_segment().
+D=C5=88a 16. janu=C3=A1ra 2012 21:29, David Lamparter <equinox@diac24.n=
+et> nap=C3=ADsal/a:
+> At the risk of repeating myself, Linux GRE support already has
+> provisions for multipoint tunnels. And unlike your code, those reuse =
+the
+> existing neighbor table infrastructure, including all of its user
+> interface and introspection capabilities.
+>
+> It's actually slightly visible in your patch:
+>
+> On Mon, Jan 16, 2012 at 08:45:14PM +0100, =C5=A0tefan Gula wrote:
+>> +++ linux-3.2.1-my/net/ipv4/ip_gre.c =C2=A02012-01-16 20:42:03.00000=
+0000 +0100
+>> @@ -716,7 +942,19 @@ static netdev_tx_t ipgre_tunnel_xmit(str
+> [...]
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* NBMA tunnel */
+>>
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (skb_dst(skb) =3D=
+=3D NULL) {
+>
+>
+> -David
 
-Passing such an skb to skb_checksum_help() indicates a bug, so we
-should warn about it immediately.  Move the warning from
-skb_gso_segment() into a shared function, and add the calling function
-name, gso_type and gso_size to it.
+That code you are referring to is used only for routed traffic inside
+GRE - L3 traffic over L3 routed infrastructure. My patch is dealing
+with L2 traffic over L3 routed infrastructure - so the decision here
+is based on destination MAC addresses and not based on IPv4/IPv6
+addresses.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
-The price for writing the warning format only once is having to pass in
-the calling function name.  Not sure whether it's a good trade-off.
-
-Ben.
-
- net/core/dev.c |   31 +++++++++++++++++++------------
- 1 files changed, 19 insertions(+), 12 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 7e6b7dc..6824393 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1887,6 +1887,22 @@ void skb_set_dev(struct sk_buff *skb, struct net_device *dev)
- EXPORT_SYMBOL(skb_set_dev);
- #endif /* CONFIG_NET_NS */
- 
-+static void skb_warn_bad_offload(const char *func, const struct sk_buff *skb)
-+{
-+	struct net_device *dev = skb->dev;
-+	const char *driver = "";
-+
-+	if (dev && dev->dev.parent)
-+		driver = dev_driver_string(dev->dev.parent);
-+
-+	WARN(1, "%s: in %s caps=(%pNF, %pNF) len=%d data_len=%d gso_size=%d "
-+	     "gso_type=%d ip_summed=%d\n",
-+	     driver, func, dev ? &dev->features : NULL,
-+	     skb->sk ? &skb->sk->sk_route_caps : NULL,
-+	     skb->len, skb->data_len, skb_shinfo(skb)->gso_size,
-+	     skb_shinfo(skb)->gso_type, skb->ip_summed);
-+}
-+
- /*
-  * Invalidate hardware checksum when packet is to be mangled, and
-  * complete checksum manually on outgoing path.
-@@ -1900,8 +1916,8 @@ int skb_checksum_help(struct sk_buff *skb)
- 		goto out_set_summed;
- 
- 	if (unlikely(skb_shinfo(skb)->gso_size)) {
--		/* Let GSO fix up the checksum. */
--		goto out_set_summed;
-+		skb_warn_bad_offload(__func__, skb);
-+		return -EINVAL;
- 	}
- 
- 	offset = skb_checksum_start_offset(skb);
-@@ -1961,16 +1977,7 @@ struct sk_buff *skb_gso_segment(struct sk_buff *skb,
- 	__skb_pull(skb, skb->mac_len);
- 
- 	if (unlikely(skb->ip_summed != CHECKSUM_PARTIAL)) {
--		struct net_device *dev = skb->dev;
--		const char *driver = "";
--
--		if (dev && dev->dev.parent)
--			driver = dev_driver_string(dev->dev.parent);
--
--		WARN(1, "%s: caps=(%pNF, %pNF) len=%d data_len=%d ip_summed=%d\n",
--		     driver, dev ? &dev->features : NULL,
--		     skb->sk ? &skb->sk->sk_route_caps : NULL,
--		     skb->len, skb->data_len, skb->ip_summed);
-+		skb_warn_bad_offload(__func__, skb);
- 
- 		if (skb_header_cloned(skb) &&
- 		    (err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC)))
--- 
-1.7.7.5
-
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--=20
+Stefan Gula
+CCNP, CCIP
