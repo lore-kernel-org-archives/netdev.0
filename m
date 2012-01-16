@@ -1,91 +1,206 @@
-From: Darren Hart <dvhart@linux.intel.com>
-Subject: [PATCH] pch_gbe: Do not abort probe on bad MAC
-Date: Mon, 16 Jan 2012 11:50:19 -0800
-Message-ID: <965df7d0c78e4971faf8464ec3da0bb114e9b5ee.1326743419.git.dvhart@linux.intel.com>
-Cc: Darren Hart <dvhart@linux.intel.com>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	Alan Cox <alan@linux.intel.com>,
-	Tomoya MORINAGA <tomoya.rohm@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Jon Mason <jdmason@kudzu.us>, netdev@vger.kernel.org,
-	Mark Brown <broonie@opensource.wolfsonmicro.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Joe Perches <joe@perches.com>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless 2012-01-16
+Date: Mon, 16 Jan 2012 14:54:35 -0500
+Message-ID: <20120116195435.GB12733@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="SLDf9lqlvOQaIe6s"
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If the MAC is invalid or not implemented, do not abort the probe. Issue
-a warning and prevent bringing the interface up until a MAC is set manually
-(via ifconfig $IFACE hw ether $MAC).
 
-Tested on two platforms, one with a valid MAC, the other without a MAC. The real
-MAC is used if present, the interface fails to come up until the MAC is set on
-the other. They successfully get an IP over DHCP and pass a simple ping and
-login over ssh test.
+--SLDf9lqlvOQaIe6s
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-This is meant to allow the Inforce SYS940X development board:
-http://www.inforcecomputing.com/SYS940X_ECX.html
-(and others suffering from a missing MAC) to work with the mainline kernel.
-Without this patch, the probe will fail and the interface will not be created,
-preventing the user from configuring the MAC manually.
+commit 543d1b92d5500841e70f15e79d197bbffed36561
 
-This does not make any attempt to address a missing or invalid MAC for the
-pch_phub driver.
+Dave,
 
-Signed-off-by: Darren Hart <dvhart@linux.intel.com>
-CC: Arjan van de Ven <arjan@linux.intel.com>
-CC: Alan Cox <alan@linux.intel.com>
-CC: Tomoya MORINAGA <tomoya.rohm@gmail.com>
-CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Paul Gortmaker <paul.gortmaker@windriver.com>
-CC: Jon Mason <jdmason@kudzu.us>
-CC: netdev@vger.kernel.org
-CC: Mark Brown <broonie@opensource.wolfsonmicro.com>
-CC: David Laight <David.Laight@ACULAB.COM>
-CC: Joe Perches <joe@perches.com>
+Here is a set of fixes for 3.3 that I let cook over the weekend...
+
+Included is a fix for a signedness bug in ipw2x00 from Dan Carpenter, a
+fix for an oops when ejecting a b43 card from Guennadi Liakhovetski
+(with a minor modification by me as noted in the changelog), a mac80211
+regresion fix from Johannes Berg for a bug related to station
+management, and a final fix for the rt2800pci spurious interrupt issue
+=66rom Stanislaw Gruszka.
+
+Please let me know if there are problems!
+
+Thanks,
+
+John
+
 ---
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |   17 ++++++++++++++---
- 1 files changed, 14 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index 964e9c0..3ead111 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -1745,6 +1745,12 @@ int pch_gbe_up(struct pch_gbe_adapter *adapter)
- 	struct pch_gbe_rx_ring *rx_ring = adapter->rx_ring;
- 	int err;
- 
-+	/* Ensure we have a valid MAC */
-+	if (!is_valid_ether_addr(adapter->hw.mac.addr)) {
-+		pr_err("Error: Invalid MAC address\n");
-+		return -EINVAL;
-+	}
+The following changes since commit 7c7c7f01cc5e3e423120a4848a73dd5e4586f2f9:
+
+  vhost-net: add module alias (v2.1) (2012-01-13 10:12:23 -0800)
+
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-d=
+avem
+
+Dan Carpenter (1):
+      ipw2x00: signedness bug handling frame length
+
+Guennadi Liakhovetski (1):
+      wireless: b43: fix Oops on card eject during transfer
+
+Johannes Berg (1):
+      mac80211: fix no-op authorized transitions
+
+Stanislaw Gruszka (1):
+      rt2800pci: fix spurious interrupts generation
+
+ drivers/net/wireless/b43/main.c         |    5 ++++-
+ drivers/net/wireless/ipw2x00/ipw2200.c  |    4 ++--
+ drivers/net/wireless/rt2x00/rt2800pci.c |   28 ++++++++--------------------
+ net/mac80211/cfg.c                      |    2 +-
+ 4 files changed, 15 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/mai=
+n.c
+index 1c6f193..b91f28e 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -4852,6 +4852,9 @@ static void b43_op_stop(struct ieee80211_hw *hw)
+=20
+ 	cancel_work_sync(&(wl->beacon_update_trigger));
+=20
++	if (!dev)
++		goto out;
 +
- 	/* hardware has been reset, we need to reload some things */
- 	pch_gbe_set_multi(netdev);
- 
-@@ -2468,9 +2474,14 @@ static int pch_gbe_probe(struct pci_dev *pdev,
- 
- 	memcpy(netdev->dev_addr, adapter->hw.mac.addr, netdev->addr_len);
- 	if (!is_valid_ether_addr(netdev->dev_addr)) {
--		dev_err(&pdev->dev, "Invalid MAC Address\n");
--		ret = -EIO;
--		goto err_free_adapter;
-+		/*
-+		 * If the MAC is invalid (or just missing), display a warning
-+		 * but do not abort setting up the device. pch_gbe_up will
-+		 * prevent the interface from being brought up until a valid MAC
-+		 * is set.
-+		 */
-+		dev_err(&pdev->dev, "Invalid MAC address, "
-+		                    "interface disabled.\n");
+ 	mutex_lock(&wl->mutex);
+ 	if (b43_status(dev) >=3D B43_STAT_STARTED) {
+ 		dev =3D b43_wireless_core_stop(dev);
+@@ -4863,7 +4866,7 @@ static void b43_op_stop(struct ieee80211_hw *hw)
+=20
+ out_unlock:
+ 	mutex_unlock(&wl->mutex);
+-
++out:
+ 	cancel_work_sync(&(wl->txpower_adjust_work));
+ }
+=20
+diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/=
+ipw2x00/ipw2200.c
+index 018a8de..4fcdac6 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/ipw2x00/ipw2200.c
+@@ -7848,7 +7848,7 @@ static void ipw_handle_data_packet_monitor(struct ipw=
+_priv *priv,
+ 	 * more efficiently than we can parse it. ORDER MATTERS HERE */
+ 	struct ipw_rt_hdr *ipw_rt;
+=20
+-	short len =3D le16_to_cpu(pkt->u.frame.length);
++	unsigned short len =3D le16_to_cpu(pkt->u.frame.length);
+=20
+ 	/* We received data from the HW, so stop the watchdog */
+ 	dev->trans_start =3D jiffies;
+@@ -8023,7 +8023,7 @@ static void ipw_handle_promiscuous_rx(struct ipw_priv=
+ *priv,
+ 	s8 signal =3D frame->rssi_dbm - IPW_RSSI_TO_DBM;
+ 	s8 noise =3D (s8) le16_to_cpu(frame->noise);
+ 	u8 rate =3D frame->rate;
+-	short len =3D le16_to_cpu(pkt->u.frame.length);
++	unsigned short len =3D le16_to_cpu(pkt->u.frame.length);
+ 	struct sk_buff *skb;
+ 	int hdr_only =3D 0;
+ 	u16 filter =3D priv->prom_priv->filter;
+diff --git a/drivers/net/wireless/rt2x00/rt2800pci.c b/drivers/net/wireless=
+/rt2x00/rt2800pci.c
+index 4941a1a..dc88bae 100644
+--- a/drivers/net/wireless/rt2x00/rt2800pci.c
++++ b/drivers/net/wireless/rt2x00/rt2800pci.c
+@@ -422,7 +422,6 @@ static int rt2800pci_init_queues(struct rt2x00_dev *rt2=
+x00dev)
+ static void rt2800pci_toggle_irq(struct rt2x00_dev *rt2x00dev,
+ 				 enum dev_state state)
+ {
+-	int mask =3D (state =3D=3D STATE_RADIO_IRQ_ON);
+ 	u32 reg;
+ 	unsigned long flags;
+=20
+@@ -436,25 +435,14 @@ static void rt2800pci_toggle_irq(struct rt2x00_dev *r=
+t2x00dev,
  	}
- 	setup_timer(&adapter->watchdog_timer, pch_gbe_watchdog,
- 		    (unsigned long)adapter);
--- 
-1.7.6.5
+=20
+ 	spin_lock_irqsave(&rt2x00dev->irqmask_lock, flags);
+-	rt2x00pci_register_read(rt2x00dev, INT_MASK_CSR, &reg);
+-	rt2x00_set_field32(&reg, INT_MASK_CSR_RXDELAYINT, 0);
+-	rt2x00_set_field32(&reg, INT_MASK_CSR_TXDELAYINT, 0);
+-	rt2x00_set_field32(&reg, INT_MASK_CSR_RX_DONE, mask);
+-	rt2x00_set_field32(&reg, INT_MASK_CSR_AC0_DMA_DONE, 0);
+-	rt2x00_set_field32(&reg, INT_MASK_CSR_AC1_DMA_DONE, 0);
+-	rt2x00_set_field32(&reg, INT_MASK_CSR_AC2_DMA_DONE, 0);
+-	rt2x00_set_field32(&reg, INT_MASK_CSR_AC3_DMA_DONE, 0);
+-	rt2x00_set_field32(&reg, INT_MASK_CSR_HCCA_DMA_DONE, 0);
+-	rt2x00_set_field32(&reg, INT_MASK_CSR_MGMT_DMA_DONE, 0);
+-	rt2x00_set_field32(&reg, INT_MASK_CSR_MCU_COMMAND, 0);
+-	rt2x00_set_field32(&reg, INT_MASK_CSR_RXTX_COHERENT, 0);
+-	rt2x00_set_field32(&reg, INT_MASK_CSR_TBTT, mask);
+-	rt2x00_set_field32(&reg, INT_MASK_CSR_PRE_TBTT, mask);
+-	rt2x00_set_field32(&reg, INT_MASK_CSR_TX_FIFO_STATUS, mask);
+-	rt2x00_set_field32(&reg, INT_MASK_CSR_AUTO_WAKEUP, mask);
+-	rt2x00_set_field32(&reg, INT_MASK_CSR_GPTIMER, 0);
+-	rt2x00_set_field32(&reg, INT_MASK_CSR_RX_COHERENT, 0);
+-	rt2x00_set_field32(&reg, INT_MASK_CSR_TX_COHERENT, 0);
++	reg =3D 0;
++	if (state =3D=3D STATE_RADIO_IRQ_ON) {
++		rt2x00_set_field32(&reg, INT_MASK_CSR_RX_DONE, 1);
++		rt2x00_set_field32(&reg, INT_MASK_CSR_TBTT, 1);
++		rt2x00_set_field32(&reg, INT_MASK_CSR_PRE_TBTT, 1);
++		rt2x00_set_field32(&reg, INT_MASK_CSR_TX_FIFO_STATUS, 1);
++		rt2x00_set_field32(&reg, INT_MASK_CSR_AUTO_WAKEUP, 1);
++	}
+ 	rt2x00pci_register_write(rt2x00dev, INT_MASK_CSR, reg);
+ 	spin_unlock_irqrestore(&rt2x00dev->irqmask_lock, flags);
+=20
+diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
+index e60df48..296620d 100644
+--- a/net/mac80211/cfg.c
++++ b/net/mac80211/cfg.c
+@@ -791,7 +791,7 @@ static int sta_apply_parameters(struct ieee80211_local =
+*local,
+ 		if (set & BIT(NL80211_STA_FLAG_AUTHORIZED))
+ 			ret =3D sta_info_move_state_checked(sta,
+ 					IEEE80211_STA_AUTHORIZED);
+-		else
++		else if (test_sta_flag(sta, WLAN_STA_AUTHORIZED))
+ 			ret =3D sta_info_move_state_checked(sta,
+ 					IEEE80211_STA_ASSOC);
+ 		if (ret)
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
+
+--SLDf9lqlvOQaIe6s
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBAgAGBQJPFIB6AAoJEJctW/TcYTgGddcP/jjLwDAVjVlbDq1BmAbNY79a
+5HK/xF5b/PeVXCW2M4tf45PJoRS9nGk9S6av6xss/n6uUklhhoA+FLYYUN0pT0u5
+duv/rNWXl+QgU0bUsFw+bRj8YfCgWZaQjg9AqVRI+7F/vlPn4+jis5jqxiQRFDIh
+OVXia0r/FeLysJIDVV7Opf3epCLWjoOf7kRLgeYscRIJ3eN7qwgRekNQVrPhQy8Q
+Np8I8eHmklvaqgmCHqj7S3MMDTDYpmAY+bcMuwZeCR44Ct4HYsbSKtxx4P/awlrT
+MusubnWJLiRcyNINpTSkILA5Ig2t4JXU7tf30HnVexPgb0jLVxjr41kFuG0JMzoW
+dKLa/OJeS/ozPJIqcHqitNmbwMBIYlv0pn85Q3jRZrybh1FKNDxc+4y74IuUDRmG
+jZF8LBfptqyGvOI9pnBch7pfacN2FUypf6O97v+xWBfbAxorhDcvCA4Mu5SbNpWp
+g1phsoZ9Y/4BkZCvllPcsk0w6rp2aL7ETsr+7rkMiAXUwmFniRWREU7IEDP5jFxE
+QDquhCVC8ettH0dtU4+AplqLnl9Em3FQw+MiSGhaqkcUKwjLReUrKjR5Sxp5oX5X
+TO+/cVGmi6QYCB3L6Psd9uzYo4iDRoQmhfyordEUMrMACyJJViXPAOeoMGbxLkLo
+tfa/XuaLlxuemNbXpBpA
+=v9+6
+-----END PGP SIGNATURE-----
+
+--SLDf9lqlvOQaIe6s--
