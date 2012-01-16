@@ -1,49 +1,57 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch v1, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
- multipoint GRE over IP
-Date: Mon, 16 Jan 2012 15:25:32 +0100
-Message-ID: <1326723932.2255.41.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: [PATCH] bridge: BH already disabled in br_fdb_cleanup()
+Date: Mon, 16 Jan 2012 15:35:50 +0100
+Message-ID: <1326724550.2255.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 References: <CAGsizzJTbGGpwrn-P=SUtqBW=1AN6hCTVXKp_oKHPBAoGZ4ubA@mail.gmail.com>
 	 <1326719999.2255.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 	 <CAGsizzJpdF5xzsEiZd5R0GD8r7pDJyz4ro=4vLBnonxfAVYg-Q@mail.gmail.com>
+	 <1326723932.2255.41.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
 To: =?UTF-8?Q?=C5=A0tefan?= Gula <steweg@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGsizzJpdF5xzsEiZd5R0GD8r7pDJyz4ro=4vLBnonxfAVYg-Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:57762 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754417Ab2APOfy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2012 09:35:54 -0500
+Received: by bkas6 with SMTP id s6so661308bka.19
+        for <netdev@vger.kernel.org>; Mon, 16 Jan 2012 06:35:53 -0800 (PST)
+In-Reply-To: <1326723932.2255.41.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le lundi 16 janvier 2012 =C3=A0 15:05 +0100, =C5=A0tefan Gula a =C3=A9c=
-rit :
-> D=C5=88a 16. janu=C3=A1ra 2012 14:19, Eric Dumazet <eric.dumazet@gmai=
-l.com> nap=C3=ADsal/a:
+br_fdb_cleanup() is run from timer interrupt, BH already masked.
 
-> > Unfortunately you call ipgre_tap_bridge_get() from
-> > ipgre_tap_bridge_get_raddr() but you dont release the refcount on
-> > use_count. Leak in ipgre_tunnel_xmit()
-> >
-> >
-> >> +__be32 ipgre_tap_bridge_get_raddr(struct ip_tunnel *tunnel,
-> >> +     const unsigned char *addr)
-> >> +{
-> >> +     struct ipgre_tap_bridge_entry *entry;
-> >> +     entry =3D ipgre_tap_bridge_get(tunnel, addr);
-> >
-> >        So maybe you want __ipgre_tap_bridge_get(tunnel, addr); here=
- ?
-> >
-> Hmmm.. I am sorry, I am maybe not that expert on C coding, as most of
-> the codes were copied from linux bridge code. Can you give me a hint
-> how should I change that?
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Stephen Hemminger <shemminger@vyatta.com>
+CC: =C5=A0tefan Gula <steweg@gmail.com>
+---
+ net/bridge/br_fdb.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-I dont see in net/bridge the code you copied.
-
-Could you give more information ?
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index f963f6b..5ba0c84 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -146,7 +146,7 @@ void br_fdb_cleanup(unsigned long _data)
+ 	unsigned long next_timer =3D jiffies + br->ageing_time;
+ 	int i;
+=20
+-	spin_lock_bh(&br->hash_lock);
++	spin_lock(&br->hash_lock);
+ 	for (i =3D 0; i < BR_HASH_SIZE; i++) {
+ 		struct net_bridge_fdb_entry *f;
+ 		struct hlist_node *h, *n;
+@@ -162,7 +162,7 @@ void br_fdb_cleanup(unsigned long _data)
+ 				next_timer =3D this_timer;
+ 		}
+ 	}
+-	spin_unlock_bh(&br->hash_lock);
++	spin_unlock(&br->hash_lock);
+=20
+ 	mod_timer(&br->gc_timer, round_jiffies_up(next_timer));
+ }
