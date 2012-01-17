@@ -1,68 +1,34 @@
-From: Dimitri Sivanich <sivanich@sgi.com>
-Subject: Re: [PATCH] Fix panic in __d_lookup with high dentry hashtable
- counts
-Date: Tue, 17 Jan 2012 11:41:26 -0600
-Message-ID: <20120117174126.GA18982@sgi.com>
-References: <20120113155237.GA25103@sgi.com>
- <20120113162236.GK23916@ZenIV.linux.org.uk>
- <20120117171352.GA18738@sgi.com>
- <20120117.122229.323838457367599504.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V3 1/4] CS89x0 : add platform driver support
+Date: Tue, 17 Jan 2012 12:39:29 -0500 (EST)
+Message-ID: <20120117.123929.1033968651111164006.davem@davemloft.net>
+References: <1326570996-27818-1-git-send-email-jaccon.bastiaansen@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, viro@ZenIV.linux.org.uk,
-	eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net,
-	paulmck@linux.vnet.ibm.com, paul.gortmaker@windriver.com,
-	akpm@linux-foundation.org, jkosina@suse.cz, avi@redhat.com,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120117.122229.323838457367599504.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de, cavokz@gmail.com,
+ kernel@pengutronix.de, u.kleine-koenig@pengutronix.de,
+ linux-arm-kernel@lists.infradead.org
+To: jaccon.bastiaansen@gmail.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1326570996-27818-1-git-send-email-jaccon.bastiaansen@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 17, 2012 at 12:22:29PM -0500, David Miller wrote:
-> From: Dimitri Sivanich <sivanich@sgi.com>
-> Date: Tue, 17 Jan 2012 11:13:52 -0600
-> 
-> > When the number of dentry cache hash table entries gets too high
-> > (2147483648 entries), as happens by default on a 16TB system, use
-> > of a signed integer in the dcache_init() initialization loop prevents
-> > the dentry_hashtable from getting initialized, causing a panic in
-> > __d_lookup().
-> > 
-> > In addition, the _hash_mask returned from alloc_large_system_hash() does
-> > not support more than a 32 bit hash table size.
-> > 
-> > Changing the _hash_mask size returned from alloc_large_system_hash() to
-> > support larger hash table sizes in the future, and changing loop counter
-> > sizes appropriately.
-> > 
-> > Signed-off-by: Dimitri Sivanich <sivanich@sgi.com>
-> 
-> To be honest I think this is overkill.
+From: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
+Date: Sat, 14 Jan 2012 20:56:36 +0100
 
-I'm not going to flat-out disagree with you.  These would be huge hash
-tables.  The thought was to make this __init code as flexible as possible.
+> -	depends on ISA || EISA || MACH_IXDP2351 || ARCH_IXDP2X01 \
+> -		|| MACH_MX31ADS || MACH_QQ2440 || (ARM && ARCH_EP93XX) || MAC
+> +	depends on ISA || EISA || ARM || (ARM && ARCH_EP93XX) || MAC
 
-> 
-> Supporting anything larger than a 32-bit hash mask is not even close
-> to being reasonable.  Nobody needs a 4GB hash table, not for anything.
-
-Yes, at this point that is likely true.
-
-> 
-> Instead I would just make sure everything is "unsigned int" or "u32"
-> and calculations use things like "((u32) 1) << shift", and enforce an
-> upper bounds of 0x80000000 or similar unconditionally in the hash
-> allocator itself (rather than conditionally in the networking code).
-
-OK.  I had mentioned capping the value in alloc_large_system_hash() to
-32 bits, but got no response to that proposal.  I'll create a proper
-patch.
-
-> 
-> All of this "long" stuff is madness, what the heck is a long?  It's a
-> non-fixed type, yet you put constants in your code (0x80000000) which
-> depend upon that type's size.
+The expression "ARM || (ARM && ARCH_EP93XX)" should be reduced to
+just plain "ARM", which is equivalent.
