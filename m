@@ -1,96 +1,57 @@
-From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [net 3/5] bnx2x: Remove 100Mb force speed for BCM84833
-Date: Tue, 17 Jan 2012 14:33:27 +0200
-Message-ID: <1326803609-25526-4-git-send-email-yanivr@broadcom.com>
-References: <1326803609-25526-1-git-send-email-yanivr@broadcom.com>
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: [0/5] bcma/brcmsmac suspend/resume cleanups and fixes
+Date: Tue, 17 Jan 2012 11:37:13 +0100
+Message-ID: <4F154F59.4060300@broadcom.com>
+References: <CA+55aFzm21ZKs7e_ocVA1bQQ=Js2dJpbiycwHR3v8yNvb0MgTw@mail.gmail.com>
+ <1326440480-26271-1-git-send-email-zajec5@gmail.com>
+ <alpine.LNX.2.00.1201122354430.5860@air.linux-foundation.org>
+ <4F101047.4090902@broadcom.com>
+ <CA+55aFxtaw+FF8wRf9td1rU0A_vhM8XwgSznzE-ph_4j=t5gWg@mail.gmail.com>
+ <4F142D84.4060405@broadcom.com> <4F145F52.9010200@broadcom.com>
+ <CA+55aFyMY5o7irG+=c4ZrfftMu6OJvoyFFY4KNO8rCe90P0mhw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+ charset=iso-8859-2
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Yaniv Rosner" <yanivr@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "David Miller" <davem@davemloft.net>
+Cc: =?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>,
+	"Larry Finger" <Larry.Finger@lwfinger.net>,
+	"Alwin Beukers" <alwin@broadcom.com>,
+	"Roland Vossen" <rvossen@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Network Development" <netdev@vger.kernel.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+To: "Linus Torvalds" <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3458 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1049 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753091Ab2AQKez (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jan 2012 05:34:55 -0500
-In-Reply-To: <1326803609-25526-1-git-send-email-yanivr@broadcom.com>
+	id S1752988Ab2AQKh0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jan 2012 05:37:26 -0500
+In-Reply-To: <CA+55aFyMY5o7irG+=c4ZrfftMu6OJvoyFFY4KNO8rCe90P0mhw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove unsupported speed of 100Mb force for BCM84833 due to hardware limitation.
+On 01/17/2012 02:12 AM, Linus Torvalds wrote:
+> 2012/1/16 Arend van Spriel <arend@broadcom.com>:
+>>
+>> I build a new kernel with MCE enabled. Same issue. I did not load bcma
+>> or brcmsmac yet. Attached is trace I could pull from the kernel log
+>> (str-test-*).
+> 
+> Oh well. Everything looks fine in the test traces - the warnings are
+> annoying and nasty, but a known issue and not dangerous (and I have a
+> patch in my tree to fix them now).
+> 
+> So if the real suspend fails, it's some other subsystem that has
+> gotten broken. I don't think I have any other reports like that yet,
+> and there is not a lot to go on. If you could try to bisect it (I
+> assume plain Linux-3.2 works fine?) that woudl be wonderful, otherwise
+> I think we're stuck waiting for somebody else to hit it and figure it
+> out.
+> 
+>                  Linus
+> 
 
-Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |    7 ++++++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c   |   20 +++++++++++++++-----
- 2 files changed, 21 insertions(+), 6 deletions(-)
+I am going to give the bisect a try. Hopefully (not likely) it will take
+not too many steps.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index a688b9d..f99c6e3 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -365,13 +365,18 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	DP(NETIF_MSG_LINK, "cfg_idx = %x\n", cfg_idx);
- 
- 	if (cmd->autoneg == AUTONEG_ENABLE) {
-+		u32 an_supported_speed = bp->port.supported[cfg_idx];
-+		if (bp->link_params.phy[EXT_PHY1].type ==
-+		    PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833)
-+			an_supported_speed |= (SUPPORTED_100baseT_Half |
-+					       SUPPORTED_100baseT_Full);
- 		if (!(bp->port.supported[cfg_idx] & SUPPORTED_Autoneg)) {
- 			DP(NETIF_MSG_LINK, "Autoneg not supported\n");
- 			return -EINVAL;
- 		}
- 
- 		/* advertise the requested speed and duplex if supported */
--		if (cmd->advertising & ~(bp->port.supported[cfg_idx])) {
-+		if (cmd->advertising & ~an_supported_speed) {
- 			DP(NETIF_MSG_LINK, "Advertisement parameters "
- 					   "are not supported\n");
- 			return -EINVAL;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index cc80637..1d1a809 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -9454,13 +9454,10 @@ static int bnx2x_848xx_cmn_config_init(struct bnx2x_phy *phy,
- 			 an_1000_val);
- 
- 	/* set 100 speed advertisement */
--	if (((phy->req_line_speed == SPEED_AUTO_NEG) &&
-+	if ((phy->req_line_speed == SPEED_AUTO_NEG) &&
- 	     (phy->speed_cap_mask &
- 	      (PORT_HW_CFG_SPEED_CAPABILITY_D0_100M_FULL |
--	       PORT_HW_CFG_SPEED_CAPABILITY_D0_100M_HALF)) &&
--	     (phy->supported &
--	      (SUPPORTED_100baseT_Half |
--	       SUPPORTED_100baseT_Full)))) {
-+	       PORT_HW_CFG_SPEED_CAPABILITY_D0_100M_HALF))) {
- 		an_10_100_val |= (1<<7);
- 		/* Enable autoneg and restart autoneg for legacy speeds */
- 		autoneg_val |= (1<<9 | 1<<12);
-@@ -11528,6 +11525,19 @@ static int bnx2x_populate_ext_phy(struct bnx2x *bp,
- 	}
- 	phy->mdio_ctrl = bnx2x_get_emac_base(bp, mdc_mdio_access, port);
- 
-+	if ((phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833) &&
-+	    (phy->ver_addr)) {
-+		/*
-+		 * Remove 100Mb link supported for BCM84833 when phy fw
-+		 * version lower than or equal to 1.39
-+		 */
-+		u32 raw_ver = REG_RD(bp, phy->ver_addr);
-+		if (((raw_ver & 0x7F) <= 39) &&
-+		    (((raw_ver & 0xF80) >> 7) <= 1))
-+			phy->supported &= ~(SUPPORTED_100baseT_Half |
-+					    SUPPORTED_100baseT_Full);
-+	}
-+
- 	/*
- 	 * In case mdc/mdio_access of the external phy is different than the
- 	 * mdc/mdio access of the XGXS, a HW lock must be taken in each access
--- 
-1.7.7.1
+Gr. AvS
