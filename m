@@ -1,24 +1,31 @@
-From: "Luis R. Rodriguez" <mcgrof@frijolero.org>
-Subject: atl1c, etc bugs
-Date: Tue, 17 Jan 2012 12:40:35 -0800
-Message-ID: <CAB=NE6WnEwD58OXS0uqd_emdS+YhPaP+KKKbfGwCdNCCHZdLyA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fix NULL-deref in WARN() in skb_gso_segment()
+Date: Tue, 17 Jan 2012 15:48:04 -0500 (EST)
+Message-ID: <20120117.154804.290049443178263185.davem@davemloft.net>
+References: <a9312f6addc77e2af43ef4e1cceb91676944ae3d.1326829994.git.mirq-linux@rere.qmqm.pl>
+	<1326831785.2478.22.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: nic-devel@qualcomm.com, "Huang, Xiong" <xiong@qca.qualcomm.com>,
-	"Ren, Cloud" <cjren@qca.qualcomm.com>,
-	Kathy Giori <kgiori@qca.qualcomm.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org, joe@perches.com
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57815 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751550Ab2AQUsP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2012 15:48:15 -0500
+In-Reply-To: <1326831785.2478.22.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Please Cc nic-devel@qualcomm.com in future atl1c and atl1x driver bug
-reports on bugzilla.kernel.org, whether or not they will be looked at
-will depend but moving forward we are trying to get more attention to
-these from QCA (Qualcomm Atheros). Baby steps. I considered adding
-that address to the MAINTAINERS file but it seemed rather
-inappropriate. In the meantime we are reviewing a new driver that also
-supports some older chipsets but that the team may be willing to
-commit to supporting and reviewing all bugs for. We'll see..
+=46rom: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 17 Jan 2012 20:23:05 +0000
 
-  Luis
+> On Tue, 2012-01-17 at 21:00 +0100, Micha=A9=A9 Miros=A9=A9aw wrote:
+>> Bug was introduced in commit c8f44affb7244f2ac3e703cab13d55ede27621b=
+b.
+>=20
+> Sorry, this conflicts with changes I've just submitted, the first of
+> which has already been applied.
+
+I'll sort this out.
