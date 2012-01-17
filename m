@@ -1,40 +1,57 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: HSR: Standard breaks alignment. Solution?
-Date: Tue, 17 Jan 2012 09:04:41 +0100
-Message-ID: <1326787481.3342.2.camel@jlt3.sipsolutions.net>
-References: <4F14AE66.7060301@enea.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch v2, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
+ multipoint GRE over IP
+Date: Tue, 17 Jan 2012 09:29:30 +0100
+Message-ID: <1326788970.2564.52.camel@edumazet-laptop>
+References: <CAGsizz+x1GVNR9Pz=b7wO0ELx29=FMosfvhQWL5K26EpkwsUCg@mail.gmail.com>
+	 <1326745733.2564.14.camel@edumazet-laptop>
+	 <CAGsizz+2nH+Sx+7TjZwEeKBiHbio0BxoN7CgT4Sspp0EzRN6Ug@mail.gmail.com>
+	 <1326775643.2564.36.camel@edumazet-laptop>
+	 <CAGsizz+kgBB9APmU9dPExkGQvPUVa3m6qz3NvSguPYNuJQQ_7Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Arvid Brodin <arvid.brodin@enea.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: =?UTF-8?Q?=C5=A0tefan?= Gula <steweg@ynet.sk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:57744 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752333Ab2AQIEp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2012 03:04:45 -0500
-In-Reply-To: <4F14AE66.7060301@enea.com>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:47200 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752404Ab2AQI3g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2012 03:29:36 -0500
+In-Reply-To: <CAGsizz+kgBB9APmU9dPExkGQvPUVa3m6qz3NvSguPYNuJQQ_7Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-01-17 at 00:10 +0100, Arvid Brodin wrote:
-> As I've written before here, I'm trying to add support for the HSR protocol
-> ("High-availability Seamless Redundancy") to the linux kernel. The protocol is
-> specified in IEC-62439-3, and involves adding a protocol tag after the ethhdr
-> on outgoing frames, and stripping it again on reception, much like VLAN.
-> 
-> This HSR tag is 6 bytes long, which breaks 32-bit header alignment and causes
-> an Oops and a kernel panic in icmp_echo on the receiving side of pings (here,
-> exactly: http://lxr.linux.no/#linux+v2.6.37/net/ipv4/icmp.c#L838 )
-> 
-> If I add two bytes of padding to the HSR tag everything works beautifully. But
-> of course that breaks any pretense of standard compliance.
-> 
-> Is there some way to fix this without having to memmove the whole frame payload
-> 2 bytes on reception?
+Le mardi 17 janvier 2012 =C3=A0 09:04 +0100, =C5=A0tefan Gula a =C3=A9c=
+rit :
+> D=C5=88a 17. janu=C3=A1ra 2012 5:47, Eric Dumazet <eric.dumazet@gmail=
+=2Ecom> nap=C3=ADsal/a:
+> >
+> > 2) You call ipgre_tap_bridge_fini() from ipgre_exit_net() and
+> > ipgre_init_net(), thats completely bogus if CONFIG_NET_NS=3Dy
+> >
+> > Just remove the struct kmem_cache *ipgre_tap_bridge_cache
+> > and use instead kmalloc(sizeof(...))/kfree(ptr) instead.
+> >
+> As this is completely the same part of code from net/bridge/br_fdb.c,
+> can you give me a hint about how change that as I believe it should b=
+e
+> changed also there?
 
-I don't think there's any other choice, but you can use
-CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS to see whether you actually need
-to do it.
+Please dont copy code you dont understand :(
 
-johannes
+bridge code is ok, but not yours, since you destroy the kmem_cache when
+a net namespace exits.
+
+Either you fix your code, either you change your memory allocations to
+mere kmalloc()/kfree() calls and dont care of a private kmem_cache you
+have to create and destroy.
+
+Since you ask a SLAB_HWCACHE_ALIGN, the SLUB allocator will anyway merg=
+e
+your kmem_cache with the standard one (kmalloc-64 I guess)
