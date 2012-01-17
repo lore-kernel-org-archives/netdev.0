@@ -1,54 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: HSR: Standard breaks alignment. Solution?
-Date: Tue, 17 Jan 2012 09:32:05 +0100
-Message-ID: <1326789125.2564.54.camel@edumazet-laptop>
-References: <4F14AE66.7060301@enea.com>
-	 <1326787481.3342.2.camel@jlt3.sipsolutions.net>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [patch v2, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
+ multipoint GRE over IP
+Date: Tue, 17 Jan 2012 10:50:49 +0100
+Message-ID: <20120117095049.GG1077372@jupiter.n2.diac24.net>
+References: <CAGsizz+x1GVNR9Pz=b7wO0ELx29=FMosfvhQWL5K26EpkwsUCg@mail.gmail.com>
+ <20120116202907.GF1077372@jupiter.n2.diac24.net>
+ <CAGsizz+NuyPHtau3b2LjCqdAGyrPf1-08v2uD0xJBSJS9qs5Fg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arvid Brodin <arvid.brodin@enea.com>, netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:47503 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752189Ab2AQIcK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2012 03:32:10 -0500
-Received: by wgbdq11 with SMTP id dq11so1600569wgb.1
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2012 00:32:09 -0800 (PST)
-In-Reply-To: <1326787481.3342.2.camel@jlt3.sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Lamparter <equinox@diac24.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: =?utf-8?Q?=C5=A0tefan?= Gula <steweg@ynet.sk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAGsizz+NuyPHtau3b2LjCqdAGyrPf1-08v2uD0xJBSJS9qs5Fg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 17 janvier 2012 =C3=A0 09:04 +0100, Johannes Berg a =C3=A9crit=
- :
-> On Tue, 2012-01-17 at 00:10 +0100, Arvid Brodin wrote:
-> > As I've written before here, I'm trying to add support for the HSR =
-protocol
-> > ("High-availability Seamless Redundancy") to the linux kernel. The =
-protocol is
-> > specified in IEC-62439-3, and involves adding a protocol tag after =
-the ethhdr
-> > on outgoing frames, and stripping it again on reception, much like =
-VLAN.
-> >=20
-> > This HSR tag is 6 bytes long, which breaks 32-bit header alignment =
-and causes
-> > an Oops and a kernel panic in icmp_echo on the receiving side of pi=
-ngs (here,
-> > exactly: http://lxr.linux.no/#linux+v2.6.37/net/ipv4/icmp.c#L838 )
-> >=20
-> > If I add two bytes of padding to the HSR tag everything works beaut=
-ifully. But
-> > of course that breaks any pretense of standard compliance.
-> >=20
-> > Is there some way to fix this without having to memmove the whole f=
-rame payload
-> > 2 bytes on reception?
+On Mon, Jan 16, 2012 at 11:52:25PM +0100, =C5=A0tefan Gula wrote:
+> D=C5=88a 16. janu=C3=A1ra 2012 21:29, David Lamparter <equinox@diac24=
+=2Enet> nap=C3=ADsal/a:
+> > At the risk of repeating myself, Linux GRE support already has
+> > provisions for multipoint tunnels. And unlike your code, those reus=
+e the
+> > existing neighbor table infrastructure, including all of its user
+> > interface and introspection capabilities.
+> >
+> > It's actually slightly visible in your patch:
+> >
+> > On Mon, Jan 16, 2012 at 08:45:14PM +0100, =C5=A0tefan Gula wrote:
+> >> +++ linux-3.2.1-my/net/ipv4/ip_gre.c =C2=A02012-01-16 20:42:03.000=
+000000 +0100
+> >> @@ -716,7 +942,19 @@ static netdev_tx_t ipgre_tunnel_xmit(str
+> > [...]
+> >> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* NBMA tunnel */
+> >>
+> >> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (skb_dst(skb) =
+=3D=3D NULL) {
+> >
+> >
+> > -David
 >=20
-> I don't think there's any other choice, but you can use
-> CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS to see whether you actually ne=
-ed
-> to do it.
+> That code you are referring to is used only for routed traffic inside
+> GRE - L3 traffic over L3 routed infrastructure. My patch is dealing
+> with L2 traffic over L3 routed infrastructure - so the decision here
+> is based on destination MAC addresses and not based on IPv4/IPv6
+> addresses.
 
-Or test if NET_IP_ALIGN is 0, it might be more explicit.
+Yes, it currently only does IPv4/IPv6 -> IPv4 through the neighbor
+table. That doesn't mean it can't be extended to handle ethernet
+addresses the same way.
+
+
+-David
