@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2012-01-17
-Date: Tue, 17 Jan 2012 12:16:05 -0500 (EST)
-Message-ID: <20120117.121605.1198600029451960992.davem@davemloft.net>
-References: <20120117154629.GG12733@tuxdriver.com>
+Subject: Re: [PATCH net] mlx4_en: set number of rx rings used by RSS using
+ ethtool
+Date: Tue, 17 Jan 2012 12:18:41 -0500 (EST)
+Message-ID: <20120117.121841.1486682892503842786.davem@davemloft.net>
+References: <4F15A6D0.8040501@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120117154629.GG12733@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, amirv@mellanox.co.il
+To: yevgenyp@mellanox.co.il
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:55587 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750817Ab2AQRSs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2012 12:18:48 -0500
+In-Reply-To: <4F15A6D0.8040501@mellanox.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Tue, 17 Jan 2012 10:46:29 -0500
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Tue, 17 Jan 2012 18:50:24 +0200
 
-> Here is a set of fixes for 3.3.  This includes the ones that I
-> originally posted on Monday, the bcma ones from Linus, plus a few
-> more...
- ...
-> The following changes since commit 7c7c7f01cc5e3e423120a4848a73dd5e4586f2f9:
-> 
->   vhost-net: add module alias (v2.1) (2012-01-13 10:12:23 -0800)
-> 
-> are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git master
+> +	/* RSS table size must be an order of 2 */
+> +	if (rss_rings != (1 << order_base_2(rss_rings)))
+> +		return -EINVAL;
 
-Pulled, thanks a lot John.
+This is an obscure way to make this kind of test.
+
+The canonical way is:
+
+	if (is_power_of_2(rss_rings))
