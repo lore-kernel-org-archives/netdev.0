@@ -1,45 +1,47 @@
-From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Subject: [PATCH] net: sh_eth: fix build error in sh_mdio_init()
-Date: Tue, 17 Jan 2012 09:52:01 +0900
-Message-ID: <4F14C630.5070009@renesas.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [0/5] bcma/brcmsmac suspend/resume cleanups and fixes
+Date: Mon, 16 Jan 2012 17:12:52 -0800
+Message-ID: <CA+55aFyMY5o7irG+=c4ZrfftMu6OJvoyFFY4KNO8rCe90P0mhw@mail.gmail.com>
+References: <CA+55aFzm21ZKs7e_ocVA1bQQ=Js2dJpbiycwHR3v8yNvb0MgTw@mail.gmail.com>
+ <1326440480-26271-1-git-send-email-zajec5@gmail.com> <alpine.LNX.2.00.1201122354430.5860@air.linux-foundation.org>
+ <4F101047.4090902@broadcom.com> <CA+55aFxtaw+FF8wRf9td1rU0A_vhM8XwgSznzE-ph_4j=t5gWg@mail.gmail.com>
+ <4F142D84.4060405@broadcom.com> <4F145F52.9010200@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Cc: =?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Alwin Beukers <alwin@broadcom.com>,
+	Roland Vossen <rvossen@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Network Development <netdev@vger.kernel.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+To: Arend van Spriel <arend@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor1.renesas.com ([210.160.252.171]:42869 "EHLO
-	relmlor1.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751472Ab2AQAwD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2012 19:52:03 -0500
-Received: from relmlir4.idc.renesas.com ([10.200.68.154])
- by relmlor1.idc.renesas.com ( SJSMS)
- with ESMTP id <0LXX00MM03QP1C70@relmlor1.idc.renesas.com> for
- netdev@vger.kernel.org; Tue, 17 Jan 2012 09:52:01 +0900 (JST)
-Received: from relmlac1.idc.renesas.com ([10.200.69.21])
- by relmlir4.idc.renesas.com ( SJSMS)
- with ESMTP id <0LXX00AL53QPLR40@relmlir4.idc.renesas.com> for
- netdev@vger.kernel.org; Tue, 17 Jan 2012 09:52:01 +0900 (JST)
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:42128 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750766Ab2AQBNO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2012 20:13:14 -0500
+Received: by wibhm6 with SMTP id hm6so1016840wib.19
+        for <netdev@vger.kernel.org>; Mon, 16 Jan 2012 17:13:13 -0800 (PST)
+In-Reply-To: <4F145F52.9010200@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
----
- drivers/net/ethernet/renesas/sh_eth.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+2012/1/16 Arend van Spriel <arend@broadcom.com>:
+>
+> I build a new kernel with MCE enabled. Same issue. I did not load bcma
+> or brcmsmac yet. Attached is trace I could pull from the kernel log
+> (str-test-*).
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 6ece429..813d41c 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1703,7 +1703,7 @@ static int sh_mdio_init(struct net_device *ndev, int id,
- 	mdp->mii_bus->name = "sh_mii";
- 	mdp->mii_bus->parent = &ndev->dev;
- 	snprintf(mdp->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
--		mdp->pdev->name, pdid);
-+		mdp->pdev->name, id);
+Oh well. Everything looks fine in the test traces - the warnings are
+annoying and nasty, but a known issue and not dangerous (and I have a
+patch in my tree to fix them now).
 
- 	/* PHY IRQ */
- 	mdp->mii_bus->irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
--- 
-1.7.1
+So if the real suspend fails, it's some other subsystem that has
+gotten broken. I don't think I have any other reports like that yet,
+and there is not a lot to go on. If you could try to bisect it (I
+assume plain Linux-3.2 works fine?) that woudl be wonderful, otherwise
+I think we're stuck waiting for somebody else to hit it and figure it
+out.
+
+                 Linus
