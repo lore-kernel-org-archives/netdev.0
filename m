@@ -1,74 +1,67 @@
-From: Tore Anderson <tore@fud.no>
-Subject: Re: [RFC] ipv6: dst_allfrag() not taken into account by TCP
-Date: Tue, 17 Jan 2012 21:03:35 +0100
-Message-ID: <4F15D417.4050005@fud.no>
-References: <1326817699.2259.32.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net: fix NULL-deref in WARN() in skb_gso_segment()
+Date: Tue, 17 Jan 2012 20:23:05 +0000
+Message-ID: <1326831785.2478.22.camel@bwh-desktop>
+References: <a9312f6addc77e2af43ef4e1cceb91676944ae3d.1326829994.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
+	Joe Perches <joe@perches.com>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from greed.fud.no ([87.238.35.20]:59870 "EHLO greed.fud.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755555Ab2AQUXF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jan 2012 15:23:05 -0500
-In-Reply-To: <1326817699.2259.32.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from exchange.solarflare.com ([216.237.3.220]:22321 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755642Ab2AQUXJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2012 15:23:09 -0500
+In-Reply-To: <a9312f6addc77e2af43ef4e1cceb91676944ae3d.1326829994.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Eric Dumazet
+On Tue, 2012-01-17 at 21:00 +0100, Micha=C5=82 Miros=C5=82aw wrote:
+> Bug was introduced in commit c8f44affb7244f2ac3e703cab13d55ede27621bb=
+=2E
 
-> Bugzilla reference :
-> 
-> https://bugzilla.kernel.org/show_bug.cgi?id=42572
+Sorry, this conflicts with changes I've just submitted, the first of
+which has already been applied.
 
-Hi, and thanks for taking an interest in this issue!
+Ben.
 
-I've got some general comments regarding running IPv6-only Linux servers
-behind stateless IPv4/IPv6 translators. (They are not strictly related
-to the above bug, but not completely off-topic either I hope.)
+> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+> ---
+>  net/core/dev.c |    5 +++--
+>  1 files changed, 3 insertions(+), 2 deletions(-)
+>=20
+> [against net tree]
+>=20
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index f494675..634a70a 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1961,6 +1961,7 @@ struct sk_buff *skb_gso_segment(struct sk_buff =
+*skb,
+>  	__skb_pull(skb, skb->mac_len);
+> =20
+>  	if (unlikely(skb->ip_summed !=3D CHECKSUM_PARTIAL)) {
+> +		static const netdev_features_t null_features =3D 0;
+>  		struct net_device *dev =3D skb->dev;
+>  		struct ethtool_drvinfo info =3D {};
+> =20
+> @@ -1968,8 +1969,8 @@ struct sk_buff *skb_gso_segment(struct sk_buff =
+*skb,
+>  			dev->ethtool_ops->get_drvinfo(dev, &info);
+> =20
+>  		WARN(1, "%s: caps=3D(%pNF, %pNF) len=3D%d data_len=3D%d ip_summed=3D=
+%d\n",
+> -		     info.driver, dev ? &dev->features : NULL,
+> -		     skb->sk ? &skb->sk->sk_route_caps : NULL,
+> +		     info.driver, dev ? &dev->features : &null_features,
+> +		     skb->sk ? &skb->sk->sk_route_caps : &null_features,
+>  		     skb->len, skb->data_len, skb->ip_summed);
+> =20
+>  		if (skb_header_cloned(skb) &&
 
-1) The Linux kernel doesn't allow reducing the effective IPv6 link MTU
-(as recorded in the routing cache) to anything less than 1280. This
-means that it can end up in a situation where the effective IPv6 link
-MTU is greater than the actual IPv6 Path MTU. In the PCAP in the
-bugzilla, they are 1280 and 1279, respectively. However, the kernel
-doesn't appear to record the actual Path MTU anywhere, instead setting
-the allfrag feature.
-
-While this is perfectly legal behaviour according to the RFC, from an
-operational point of view it would have been nice if there were some way
-(e.g. a sysctl) to tell the kernel to also actually allow an ICMPv6 PTB
-to reduce the effective IPv6 link MTU to values less than 1280 (at least
-down to the minimum IPv4 MTU + 20 bytes). That would have avoided the
-need for the allfrag feature to come into play completely.
-
-The RFC allows for this behaviour, too.
-
-2) Since the kernel doesn't keep track of the actual Path MTU (if it's
-lower than 1280), when the allfrag feature gets set on a route, *every*
-packet gets a fragmentation header. (Which is to be expected, really,
-given it's name.) However, this means that even tiny packets such as a
-TCP SYN/ACK gets the fragmentation header added. This is clearly not
-particularly useful.
-
-If the kernel had kept track of the effective Path MTU, and only
-included the IPv6 Fragmentation header on packets that were larger than
-it *only*, this wouldn't have been a problem. (Alternatively, if it
-allowed the effective link MTU to drop below 1280 that would also have
-avoided this problem.)
-
-3) There seems to be a bug related to generating the TCP checksum of
-SYN/ACK packets to destinations with the allfrag features set. I just
-submitted a bug report about this:
-
-https://bugzilla.kernel.org/show_bug.cgi?id=42595
-
-This makes the allfrag feature pretty much useless for me, as I can only
-successfully establish a single TCP session from a client behind a <1280
-MTU link for the entire lifetime of the routing cache entry.
-
-Best regards,
--- 
-Tore Anderson
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
