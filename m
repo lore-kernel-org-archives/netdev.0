@@ -1,56 +1,61 @@
-From: =?ISO-8859-2?Q?=A9tefan_Gula?= <steweg@ynet.sk>
-Subject: Re: [patch v2, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
- multipoint GRE over IP
-Date: Tue, 17 Jan 2012 13:40:04 +0100
-Message-ID: <CAGsizzJZWjgLULpYiP6aqhEyke5sBsxOosTKda09F7beua_-rA@mail.gmail.com>
-References: <CAGsizz+x1GVNR9Pz=b7wO0ELx29=FMosfvhQWL5K26EpkwsUCg@mail.gmail.com>
- <1326745733.2564.14.camel@edumazet-laptop> <CAGsizz+2nH+Sx+7TjZwEeKBiHbio0BxoN7CgT4Sspp0EzRN6Ug@mail.gmail.com>
- <1326775643.2564.36.camel@edumazet-laptop> <CAGsizz+kgBB9APmU9dPExkGQvPUVa3m6qz3NvSguPYNuJQQ_7Q@mail.gmail.com>
- <1326788970.2564.52.camel@edumazet-laptop> <CAGsizzLwCTpuZsZyx24T9WZy1DSJo+rfhDxLsE8UmeZOSxw+mA@mail.gmail.com>
- <1326797276.2259.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <CAGsizz+WG=NEc7kj7WoZP0Z-KgGwwiJS7kycHW6cxPeo9h88zA@mail.gmail.com> <1326798951.2259.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+Subject: [PATCH net 2/2] caif: Remove bad WARN_ON in caif_dev
+Date: Tue, 17 Jan 2012 14:03:14 +0100
+Message-ID: <1326805394-2662-2-git-send-email-sjur.brandeland@stericsson.com>
+References: <1326805394-2662-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1326798951.2259.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:35509 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752767Ab2AQNDa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2012 08:03:30 -0500
+Received: by lahc1 with SMTP id c1so1502868lah.19
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2012 05:03:28 -0800 (PST)
+In-Reply-To: <1326805394-2662-1-git-send-email-sjur.brandeland@stericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-D=C5=88a 17. janu=C3=A1ra 2012 12:15, Eric Dumazet <eric.dumazet@gmail.=
-com> nap=C3=ADsal/a:
-> Le mardi 17 janvier 2012 =C3=A0 12:00 +0100, =C5=A0tefan Gula a =C3=A9=
-crit :
->
->> >
->> looks good... I am just wondering whether my previous question about
->> the placement of calls for ipgre_tap_bridge_init and
->> ipgre_tap_bridge_fini? Would it be also possible to have this
->> done/fixed when I migrate those inside the ipgre_init and ipgre_fini=
- ?
->> I would like to have much rather identical parts of code with standa=
-rd
->> bridge code just in case somebody would start doing generalization o=
-f
->> bridge code which can be then reused anywhere inside the kernel spac=
-e
->> - simpler migration process later.
->
-> Could you please stop claiming this is the same than bridge ?
->
-> There is _one_ exit function per module (ipgre_fini in ip_gre)
->
-> You wanted to destroy your kmem_cache only from this __exit function,
-> not from the pernet exit function (ipgre_exit_net)
->
->
->
-Ok, I will modify that, test that later today and if testing will be
-successful, I will provide new version of this patch.
+Remove WARN_ON and bad handling of SKB without destructor callback
+in caif_flow_cb. SKB without destructor cannot be handled as an
+error case.
+
+Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+---
+ net/caif/caif_dev.c |   16 +++++++++-------
+ 1 files changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/net/caif/caif_dev.c b/net/caif/caif_dev.c
+index 61570ee..673728a 100644
+--- a/net/caif/caif_dev.c
++++ b/net/caif/caif_dev.c
+@@ -146,15 +146,17 @@ void caif_flow_cb(struct sk_buff *skb)
+ 	spin_lock_bh(&caifd->flow_lock);
+ 	send_xoff =3D caifd->xoff;
+ 	caifd->xoff =3D 0;
+-	if (!WARN_ON(caifd->xoff_skb_dtor =3D=3D NULL)) {
+-		WARN_ON(caifd->xoff_skb !=3D skb);
+-		dtor =3D caifd->xoff_skb_dtor;
+-		caifd->xoff_skb =3D NULL;
+-		caifd->xoff_skb_dtor =3D NULL;
+-	}
++	dtor =3D caifd->xoff_skb_dtor;
++
++	if (WARN_ON(caifd->xoff_skb !=3D skb))
++		skb =3D NULL;
++
++	caifd->xoff_skb =3D NULL;
++	caifd->xoff_skb_dtor =3D NULL;
++
+ 	spin_unlock_bh(&caifd->flow_lock);
+=20
+-	if (dtor)
++	if (dtor && skb)
+ 		dtor(skb);
+=20
+ 	if (send_xoff)
+--=20
+1.7.1
