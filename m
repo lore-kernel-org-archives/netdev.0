@@ -1,35 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net] net: WARN if skb_checksum_help() is called on
- skb requiring segmentation
-Date: Tue, 17 Jan 2012 15:49:12 -0500 (EST)
-Message-ID: <20120117.154912.944088870403029424.davem@davemloft.net>
-References: <1326823076.2478.19.camel@bwh-desktop>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] inetpeer: initialize ->redirect_genid in inet_getpeer()
+Date: Tue, 17 Jan 2012 23:48:43 +0300
+Message-ID: <20120117204843.GA20999@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.hengli.com.au
-To: bhutchings@solarflare.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:57827 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752819Ab2AQUtS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2012 15:49:18 -0500
-In-Reply-To: <1326823076.2478.19.camel@bwh-desktop>
+Received: from rcsinet15.oracle.com ([148.87.113.117]:40637 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751550Ab2AQUtP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2012 15:49:15 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 17 Jan 2012 17:57:56 +0000
+kmemcheck complains that ->redirect_genid doesn't get initialized.
+Presumably it should be set to zero.
 
-> skb_checksum_help() has never done anything useful with skbs that
-> require segmentation.  Setting skb->ip_summed = CHECKSUM_NONE makes
-> them invalid and provokes a later WARNing in skb_gso_segment().
-> 
-> Passing such an skb to skb_checksum_help() indicates a bug, so we
-> should warn about it immediately.  Move the warning from
-> skb_gso_segment() into a shared function, and add gso_type and
-> gso_size to it.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied.
+diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+index 86f13c67..49ce5f4 100644
+--- a/net/ipv4/inetpeer.c
++++ b/net/ipv4/inetpeer.c
+@@ -447,6 +447,7 @@ relookup:
+ 		p->rate_last = 0;
+ 		p->pmtu_expires = 0;
+ 		p->pmtu_orig = 0;
++		p->redirect_genid = 0;
+ 		memset(&p->redirect_learned, 0, sizeof(p->redirect_learned));
+ 
+ 
