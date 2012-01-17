@@ -1,34 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3 1/4] CS89x0 : add platform driver support
-Date: Tue, 17 Jan 2012 12:39:29 -0500 (EST)
-Message-ID: <20120117.123929.1033968651111164006.davem@davemloft.net>
-References: <1326570996-27818-1-git-send-email-jaccon.bastiaansen@gmail.com>
+Subject: Re: [PATCH 1/1] net: race condition in ipv6 forwarding and
+ disable_ipv6 parameters
+Date: Tue, 17 Jan 2012 12:44:49 -0500 (EST)
+Message-ID: <20120117.124449.1065919030248165158.davem@davemloft.net>
+References: <CA+HUmGgLmsHsTUbKb=XB_Ow+BPajpu75B18Um0zRZRkof8rQmw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de, cavokz@gmail.com,
- kernel@pengutronix.de, u.kleine-koenig@pengutronix.de,
- linux-arm-kernel@lists.infradead.org
-To: jaccon.bastiaansen@gmail.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1326570996-27818-1-git-send-email-jaccon.bastiaansen@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: fruggeri@aristanetworks.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+HUmGgLmsHsTUbKb=XB_Ow+BPajpu75B18Um0zRZRkof8rQmw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
-Date: Sat, 14 Jan 2012 20:56:36 +0100
+From: Francesco Ruggeri <fruggeri@aristanetworks.com>
+Date: Mon, 16 Jan 2012 12:40:10 -0800
 
-> -	depends on ISA || EISA || MACH_IXDP2351 || ARCH_IXDP2X01 \
-> -		|| MACH_MX31ADS || MACH_QQ2440 || (ARM && ARCH_EP93XX) || MAC
-> +	depends on ISA || EISA || ARM || (ARM && ARCH_EP93XX) || MAC
+> -static int addrconf_fixup_forwarding(struct ctl_table *table, int *p, int old)
+> +static int addrconf_fixup_forwarding(struct ctl_table *table, int *p, int newf)
+ ...
+> @@ -4257,9 +4259,17 @@ int addrconf_sysctl_forward(ctl_table *c
+>  	int *valp = ctl->data;
+>  	int val = *valp;
+>  	loff_t pos = *ppos;
+> +	ctl_table lctl;
+>  	int ret;
+> 
+> -	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+> +	/*
+> +	 * ctl->data points to idev->cnf.forwarding, we should
+> +	 * not modify it until we get the rtnl lock.
+> +	 */
+> +	lctl = *ctl;
+> +	lctl.data = &val;
+> +
+> +	ret = proc_dointvec(&lctl, write, buffer, lenp, ppos);
+> 
+>  	if (write)
+>  		ret = addrconf_fixup_forwarding(ctl, valp, val);
 
-The expression "ARM || (ARM && ARCH_EP93XX)" should be reduced to
-just plain "ARM", which is equivalent.
+I don't understand this at all.
+
+"val" is still the old value, before proc_dointvec() runs, after your
+changes.  So renaming the argument to addrconf_fixup_forwarding() as
+"newf" and treating it as the new value doesn't make any sense at all.
+
+Did you really test this patch?
