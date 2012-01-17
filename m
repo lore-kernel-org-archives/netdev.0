@@ -1,183 +1,164 @@
-From: Dimitri Sivanich <sivanich@sgi.com>
-Subject: Re: [PATCH] Fix panic in __d_lookup with high dentry hashtable
- counts
-Date: Tue, 17 Jan 2012 15:05:41 -0600
-Message-ID: <20120117210541.GA21940@sgi.com>
-References: <20120113155237.GA25103@sgi.com>
- <20120113162236.GK23916@ZenIV.linux.org.uk>
- <20120117171352.GA18738@sgi.com>
- <20120117.122229.323838457367599504.davem@davemloft.net>
+From: Tina Yang <tina.yang@oracle.com>
+Subject: Re: [PATCH] add netconsole support for xen-netfront
+Date: Tue, 17 Jan 2012 13:42:22 -0800
+Message-ID: <4F15EB3E.3060700@oracle.com>
+References: <1326271956-25565-1-git-send-email-zhenzhong.duan@oracle.com>  <20120112141745.GA7685@phenom.dumpdata.com> <1326452769.17210.331.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, viro@ZenIV.linux.org.uk,
-	eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net,
-	paulmck@linux.vnet.ibm.com, paul.gortmaker@windriver.com,
-	akpm@linux-foundation.org, jkosina@suse.cz, avi@redhat.com,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3.sgi.com ([192.48.152.1]:45967 "EHLO relay.sgi.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755898Ab2AQVFr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jan 2012 16:05:47 -0500
-Content-Disposition: inline
-In-Reply-To: <20120117.122229.323838457367599504.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Zhenzhong Duan <zhenzhong.duan@oracle.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"gurudas.pai@oracle.com" <gurudas.pai@oracle.com>,
+	Jeremy Fitzhardinge <jeremy@goop.org>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1326452769.17210.331.camel@zakaz.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 17, 2012 at 12:22:29PM -0500, David Miller wrote:
-> To be honest I think this is overkill.
-> 
-> Supporting anything larger than a 32-bit hash mask is not even close
-> to being reasonable.  Nobody needs a 4GB hash table, not for anything.
+On 1/13/2012 3:06 AM, Ian Campbell wrote:
+> On Thu, 2012-01-12 at 14:17 +0000, Konrad Rzeszutek Wilk wrote:
+>> On Wed, Jan 11, 2012 at 04:52:36PM +0800, Zhenzhong Duan wrote:
+>>> add polling interface to xen-netfront device to support netconsole
+>>>
+>> Ian, any thoughts on the spinlock changes?
+> What are they for?
+When I did this patch back in 2008, both netconsole and netdump
+were supported.  Spin_lock w/o irqsave and irqrestore would cause
+netdump hang due to the unexpected change of the irq status.
+Although netdump is now obsolete, I think it's always a good practice
+to preserve caller's irq status as we had a very bad experience
+chasing a similar problem caused by such a irq change in RDS
+in the not too long ago past.
+> At a guess they are a necessary consequence of the new calling context.
+> However not all the drivers I looked at which supported netpool were
+> using the irqsave variants in this context so I guess it must be some
+> secondary effect.
 >
-Here is a patch that keeps the 32-bit hash mask.
-
-
- 
-When the number of dentry cache hash table entries gets too high
-(2147483648 entries), as happens by default on a 16TB system, use
-of a signed integer in the dcache_init() initialization loop prevents
-the dentry_hashtable from getting initialized, causing a panic in
-__d_lookup().  Fix this in dcache_init() and similar areas.
-
-Signed-off-by: Dimitri Sivanich <sivanich@sgi.com>
----
- fs/dcache.c     |    8 ++++----
- fs/inode.c      |    8 ++++----
- kernel/pid.c    |    4 ++--
- mm/page_alloc.c |    1 +
- net/ipv4/tcp.c  |    5 +++--
- 5 files changed, 14 insertions(+), 12 deletions(-)
-
-Index: linux/fs/dcache.c
-===================================================================
---- linux.orig/fs/dcache.c
-+++ linux/fs/dcache.c
-@@ -2968,7 +2968,7 @@ __setup("dhash_entries=", set_dhash_entr
- 
- static void __init dcache_init_early(void)
- {
--	int loop;
-+	unsigned int loop;
- 
- 	/* If hashes are distributed across NUMA nodes, defer
- 	 * hash allocation until vmalloc space is available.
-@@ -2986,13 +2986,13 @@ static void __init dcache_init_early(voi
- 					&d_hash_mask,
- 					0);
- 
--	for (loop = 0; loop < (1 << d_hash_shift); loop++)
-+	for (loop = 0; loop < (1U << d_hash_shift); loop++)
- 		INIT_HLIST_BL_HEAD(dentry_hashtable + loop);
- }
- 
- static void __init dcache_init(void)
- {
--	int loop;
-+	unsigned int loop;
- 
- 	/* 
- 	 * A constructor could be added for stable state like the lists,
-@@ -3016,7 +3016,7 @@ static void __init dcache_init(void)
- 					&d_hash_mask,
- 					0);
- 
--	for (loop = 0; loop < (1 << d_hash_shift); loop++)
-+	for (loop = 0; loop < (1U << d_hash_shift); loop++)
- 		INIT_HLIST_BL_HEAD(dentry_hashtable + loop);
- }
- 
-Index: linux/fs/inode.c
-===================================================================
---- linux.orig/fs/inode.c
-+++ linux/fs/inode.c
-@@ -1654,7 +1654,7 @@ __setup("ihash_entries=", set_ihash_entr
-  */
- void __init inode_init_early(void)
- {
--	int loop;
-+	unsigned int loop;
- 
- 	/* If hashes are distributed across NUMA nodes, defer
- 	 * hash allocation until vmalloc space is available.
-@@ -1672,13 +1672,13 @@ void __init inode_init_early(void)
- 					&i_hash_mask,
- 					0);
- 
--	for (loop = 0; loop < (1 << i_hash_shift); loop++)
-+	for (loop = 0; loop < (1U << i_hash_shift); loop++)
- 		INIT_HLIST_HEAD(&inode_hashtable[loop]);
- }
- 
- void __init inode_init(void)
- {
--	int loop;
-+	unsigned int loop;
- 
- 	/* inode slab cache */
- 	inode_cachep = kmem_cache_create("inode_cache",
-@@ -1702,7 +1702,7 @@ void __init inode_init(void)
- 					&i_hash_mask,
- 					0);
- 
--	for (loop = 0; loop < (1 << i_hash_shift); loop++)
-+	for (loop = 0; loop < (1U << i_hash_shift); loop++)
- 		INIT_HLIST_HEAD(&inode_hashtable[loop]);
- }
- 
-Index: linux/mm/page_alloc.c
-===================================================================
---- linux.orig/mm/page_alloc.c
-+++ linux/mm/page_alloc.c
-@@ -5258,6 +5258,7 @@ void *__init alloc_large_system_hash(con
- 		max = ((unsigned long long)nr_all_pages << PAGE_SHIFT) >> 4;
- 		do_div(max, bucketsize);
- 	}
-+	max = min(max, 0x80000000ULL);
- 
- 	if (numentries > max)
- 		numentries = max;
-Index: linux/kernel/pid.c
-===================================================================
---- linux.orig/kernel/pid.c
-+++ linux/kernel/pid.c
-@@ -543,12 +543,12 @@ struct pid *find_ge_pid(int nr, struct p
-  */
- void __init pidhash_init(void)
- {
--	int i, pidhash_size;
-+	unsigned int i, pidhash_size;
- 
- 	pid_hash = alloc_large_system_hash("PID", sizeof(*pid_hash), 0, 18,
- 					   HASH_EARLY | HASH_SMALL,
- 					   &pidhash_shift, NULL, 4096);
--	pidhash_size = 1 << pidhash_shift;
-+	pidhash_size = 1U << pidhash_shift;
- 
- 	for (i = 0; i < pidhash_size; i++)
- 		INIT_HLIST_HEAD(&pid_hash[i]);
-Index: linux/net/ipv4/tcp.c
-===================================================================
---- linux.orig/net/ipv4/tcp.c
-+++ linux/net/ipv4/tcp.c
-@@ -3220,7 +3220,8 @@ void __init tcp_init(void)
- {
- 	struct sk_buff *skb = NULL;
- 	unsigned long limit;
--	int i, max_share, cnt;
-+	int max_share, cnt;
-+	unsigned int i;
- 	unsigned long jiffy = jiffies;
- 
- 	BUILD_BUG_ON(sizeof(struct tcp_skb_cb) > sizeof(skb->cb));
-@@ -3263,7 +3264,7 @@ void __init tcp_init(void)
- 					&tcp_hashinfo.bhash_size,
- 					NULL,
- 					64 * 1024);
--	tcp_hashinfo.bhash_size = 1 << tcp_hashinfo.bhash_size;
-+	tcp_hashinfo.bhash_size = 1U << tcp_hashinfo.bhash_size;
- 	for (i = 0; i < tcp_hashinfo.bhash_size; i++) {
- 		spin_lock_init(&tcp_hashinfo.bhash[i].lock);
- 		INIT_HLIST_HEAD(&tcp_hashinfo.bhash[i].chain);
+> Anyway, the upshot is that I think the changelog needs to explain the
+> rationale for the locking change.
+>
+> Ian.
+>
+>>> Signed-off-by: Tina.Yang<tina.yang@oracle.com>
+>>> Cc: Konrad Rzeszutek Wilk<konrad.wilk@oracle.com>
+>>> Cc: Jeremy Fitzhardinge<jeremy@goop.org>
+>>> Signed-off-by: Zhenzhong.Duan<zhenzhong.duan@oracle.com>
+>>> Tested-by: gurudas.pai<gurudas.pai@oracle.com>
+>>> ---
+>>>   drivers/net/xen-netfront.c |   57 ++++++++++++++++++++++++++-----------------
+>>>   1 files changed, 34 insertions(+), 23 deletions(-)
+>>>
+>>> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+>>> index fa67905..db638b4 100644
+>>> --- a/drivers/net/xen-netfront.c
+>>> +++ b/drivers/net/xen-netfront.c
+>>> @@ -489,6 +489,7 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>>>   	int frags = skb_shinfo(skb)->nr_frags;
+>>>   	unsigned int offset = offset_in_page(data);
+>>>   	unsigned int len = skb_headlen(skb);
+>>> +	unsigned long flags;
+>>>
+>>>   	frags += DIV_ROUND_UP(offset + len, PAGE_SIZE);
+>>>   	if (unlikely(frags>  MAX_SKB_FRAGS + 1)) {
+>>> @@ -498,12 +499,12 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>>>   		goto drop;
+>>>   	}
+>>>
+>>> -	spin_lock_irq(&np->tx_lock);
+>>> +	spin_lock_irqsave(&np->tx_lock, flags);
+>>>
+>>>   	if (unlikely(!netif_carrier_ok(dev) ||
+>>>   		     (frags>  1&&  !xennet_can_sg(dev)) ||
+>>>   		     netif_needs_gso(skb, netif_skb_features(skb)))) {
+>>> -		spin_unlock_irq(&np->tx_lock);
+>>> +		spin_unlock_irqrestore(&np->tx_lock, flags);
+>>>   		goto drop;
+>>>   	}
+>>>
+>>> @@ -574,7 +575,7 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>>>   	if (!netfront_tx_slot_available(np))
+>>>   		netif_stop_queue(dev);
+>>>
+>>> -	spin_unlock_irq(&np->tx_lock);
+>>> +	spin_unlock_irqrestore(&np->tx_lock, flags);
+>>>
+>>>   	return NETDEV_TX_OK;
+>>>
+>>> @@ -1228,6 +1229,33 @@ static int xennet_set_features(struct net_device *dev,
+>>>   	return 0;
+>>>   }
+>>>
+>>> +static irqreturn_t xennet_interrupt(int irq, void *dev_id)
+>>> +{
+>>> +	struct net_device *dev = dev_id;
+>>> +	struct netfront_info *np = netdev_priv(dev);
+>>> +	unsigned long flags;
+>>> +
+>>> +	spin_lock_irqsave(&np->tx_lock, flags);
+>>> +
+>>> +	if (likely(netif_carrier_ok(dev))) {
+>>> +		xennet_tx_buf_gc(dev);
+>>> +		/* Under tx_lock: protects access to rx shared-ring indexes. */
+>>> +		if (RING_HAS_UNCONSUMED_RESPONSES(&np->rx))
+>>> +			napi_schedule(&np->napi);
+>>> +	}
+>>> +
+>>> +	spin_unlock_irqrestore(&np->tx_lock, flags);
+>>> +
+>>> +	return IRQ_HANDLED;
+>>> +}
+>>> +
+>>> +#ifdef CONFIG_NET_POLL_CONTROLLER
+>>> +static void xennet_poll_controller(struct net_device *dev)
+>>> +{
+>>> +	xennet_interrupt(0, dev);
+>>> +}
+>>> +#endif
+>>> +
+>>>   static const struct net_device_ops xennet_netdev_ops = {
+>>>   	.ndo_open            = xennet_open,
+>>>   	.ndo_uninit          = xennet_uninit,
+>>> @@ -1239,6 +1267,9 @@ static const struct net_device_ops xennet_netdev_ops = {
+>>>   	.ndo_validate_addr   = eth_validate_addr,
+>>>   	.ndo_fix_features    = xennet_fix_features,
+>>>   	.ndo_set_features    = xennet_set_features,
+>>> +#ifdef CONFIG_NET_POLL_CONTROLLER
+>>> +	.ndo_poll_controller = xennet_poll_controller,
+>>> +#endif
+>>>   };
+>>>
+>>>   static struct net_device * __devinit xennet_create_dev(struct xenbus_device *dev)
+>>> @@ -1448,26 +1479,6 @@ static int xen_net_read_mac(struct xenbus_device *dev, u8 mac[])
+>>>   	return 0;
+>>>   }
+>>>
+>>> -static irqreturn_t xennet_interrupt(int irq, void *dev_id)
+>>> -{
+>>> -	struct net_device *dev = dev_id;
+>>> -	struct netfront_info *np = netdev_priv(dev);
+>>> -	unsigned long flags;
+>>> -
+>>> -	spin_lock_irqsave(&np->tx_lock, flags);
+>>> -
+>>> -	if (likely(netif_carrier_ok(dev))) {
+>>> -		xennet_tx_buf_gc(dev);
+>>> -		/* Under tx_lock: protects access to rx shared-ring indexes. */
+>>> -		if (RING_HAS_UNCONSUMED_RESPONSES(&np->rx))
+>>> -			napi_schedule(&np->napi);
+>>> -	}
+>>> -
+>>> -	spin_unlock_irqrestore(&np->tx_lock, flags);
+>>> -
+>>> -	return IRQ_HANDLED;
+>>> -}
+>>> -
+>>>   static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
+>>>   {
+>>>   	struct xen_netif_tx_sring *txs;
+>>> -- 
+>>> 1.7.3
+>
