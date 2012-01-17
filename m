@@ -1,70 +1,51 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH 2/3] sha512: reduce stack usage to safe number
-Date: Tue, 17 Jan 2012 14:03:09 +0200
-Message-ID: <CACVxJT_cZAdxNOFTpK5seUXFZU+YB3zbe6LF1nnyzo32ae14xw@mail.gmail.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF43@saturn3.aculab.com>
-	<1326709382.2255.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Wolfgang Zarre <lkdev@essax.com>
+Subject: Re: [PATCH wg-linux-can-next devel 1/1] can: cc770: Fix indirect
+ access deadlock on ISA cards
+Date: Tue, 17 Jan 2012 13:10:34 +0100
+Message-ID: <4F15653A.2050904@essax.com>
+References: <1326630094-3126-1-git-send-email-lkdev@essax.com> <4F13ED60.5070602@grandegger.com>
+Reply-To: lkdev@essax.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Laight <David.Laight@aculab.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	ken@codelabs.ch, Steffen Klassert <steffen.klassert@secunet.com>,
-	security@kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1326709382.2255.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	socketcan-users@lists.berlios.de, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4F13ED60.5070602@grandegger.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/16/12, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Le lundi 16 janvier 2012 =E0 09:56 +0000, David Laight a =E9crit :
->> Doesn't this badly overflow W[] ..
+Hello Wolfgang,
+
+> On 01/15/2012 01:21 PM, Wolfgang Zarre wrote:
+>> This fix avoids a deadlock if an interrupt occurs
+>> during consecutive port operations on ISA cards
+>> utilising indirect access via address and data
+>> port.
 >>
->> > +#define SHA512_0_15(i, a, b, c, d, e, f, g, h) \
->> > +	t1 =3D h + e1(e) + Ch(e, f, g) + sha512_K[i] + W[i];	\
->> ...
->> > +	for (i =3D 0; i < 16; i +=3D 8) {
->> ...
->> > +		SHA512_0_15(i + 7, b, c, d, e, f, g, h, a);
->> > +	}
+>> Tested on a B&R ISA card.
 >>
->> 	David
->>
->>
+>> CC: linux-can@vger.kernel.org
+>> CC: netdev@vger.kernel.org
+>> Signed-off-by: Wolfgang Zarre<lkdev@essax.com>
 >
-> No overflow since loop is done for only i=3D0 and i=3D8
+> Acked-by: Wolfgang Grandegger<wg@grandegger.com>
+
+Thanks.
+
 >
-> By the way, I suspect previous code was chosen years ago because this
-> version uses less stack but adds much more code bloat.
+> Next time, please drop the CC to the old BerliOS Socketcan mailing
+> lists. Marc, Oliver? Do we, should we, still send patches to the
+> "netdev@vger.kernel.org" as well.
 
-I think W[80] was use because it's the most straightforward way to
-write this code
-by following spec.
+Hmmm, actually I dropped to the old BerliOS Socketcan mailing list but
+not as CC statement in the email body , however, please let me know
+if You prefer to have it there included as well.
 
-All SHA definitions have full message schedule pseudocoded
-before hash computation.
+Thanks.
 
-> size crypto/sha512_generic.o crypto/sha512_generic_old.o
->    text	   data	    bss	    dec	    hex	filename
->   17369	    704	      0	  18073	   4699	crypto/sha512_generic.o
->    8249	    704	      0	   8953	   22f9	crypto/sha512_generic_old.o
-
-This is because SHA-512 is fundamentally 64-bit algorithm multiplied by
-excessive unrolling.
-
-Surprisingly, doing variable renaming by hand like in spec:
-t1 =3D ...
-t2 =3D ...
-h =3D g;
-g =3D f;
-f =3D e;
-e =3D d + T1;
-d =3D c;
-c =3D b;
-b =3D a;
-a =3D t1 + t2;
-
-bring stack space on i386 under control too.
+>
+> Wolfgang.
