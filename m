@@ -1,111 +1,185 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: Hung task when calling clone() due to netfilter/slab
-Date: Tue, 17 Jan 2012 16:22:09 -0600 (CST)
-Message-ID: <alpine.DEB.2.00.1201171620590.14697@router.home>
-References: <1326558605.19951.7.camel@lappy>    <1326561043.5287.24.camel@edumazet-laptop>   <1326632384.11711.3.camel@lappy>  <1326648305.5287.78.camel@edumazet-laptop>   <alpine.DEB.2.00.1201170910130.4800@router.home>  <1326813630.2259.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-  <alpine.DEB.2.00.1201170927020.4800@router.home> <1326814208.2259.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <alpine.DEB.2.00.1201170942240.4800@router.home>
+From: Tina Yang <tina.yang@oracle.com>
+Subject: Re: [PATCH] add netconsole support for xen-netfront
+Date: Tue, 17 Jan 2012 15:15:31 -0800
+Message-ID: <4F160113.1030503@oracle.com>
+References: <1326271956-25565-1-git-send-email-zhenzhong.duan@oracle.com> <20120112141745.GA7685@phenom.dumpdata.com> <1326452769.17210.331.camel@zakaz.uk.xensource.com> <4F15EB3E.3060700@oracle.com> <20120117215100.GA25367@phenom.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Sasha Levin <levinsasha928@gmail.com>,
-	Dave Jones <davej@redhat.com>, davem <davem@davemloft.net>,
-	Pekka Enberg <penberg@kernel.org>,
-	Matt Mackall <mpm@selenic.com>, kaber@trash.net,
-	pablo@netfilter.org, linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-mm <linux-mm@kvack.org>, netfilter-devel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.1201170942240.4800@router.home>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	Zhenzhong Duan <zhenzhong.duan@oracle.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"gurudas.pai@oracle.com" <gurudas.pai@oracle.com>,
+	Jeremy Fitzhardinge <jeremy@goop.org>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120117215100.GA25367@phenom.dumpdata.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Another version that drops the slub lock for both invocations of sysfs
-functions from kmem_cache_create. The invocation from slab_sysfs_init
-is not a problem since user space is not active at that point.
-
-
-Subject: slub: Do not take the slub lock while calling into sysfs
-
-This patch avoids holding the slub_lock during kmem_cache_create()
-when calling sysfs. It is possible because kmem_cache_create()
-allocates the kmem_cache object and therefore is the only one context
-that can access the newly created object. It is therefore possible
-to drop the slub_lock early. We defer the adding of the new kmem_cache
-to the end of processing because the new kmem_cache structure would
-be reachable otherwise via scans over slabs. This allows sysfs_slab_add()
-to run without holding any locks.
-
-The case is different if we are creating an alias instead of a new
-kmem_cache structure. In that case we can also drop the slub lock
-early because we have taken a refcount on the kmem_cache structure.
-It therefore cannot vanish from under us.
-But if the sysfs_slab_alias() call fails we can no longer simply
-decrement the refcount since the other references may have gone
-away in the meantime. Call kmem_cache_destroy() to cause the
-refcount to be decremented and the kmem_cache structure to be
-freed if all references are gone.
-
-Signed-off-by: Christoph Lameter <cl@linux.com>
-
-
----
- mm/slub.c |   25 +++++++++++--------------
- 1 file changed, 11 insertions(+), 14 deletions(-)
-
-Index: linux-2.6/mm/slub.c
-===================================================================
---- linux-2.6.orig/mm/slub.c	2012-01-17 09:53:26.599505365 -0600
-+++ linux-2.6/mm/slub.c	2012-01-17 09:59:57.131497273 -0600
-@@ -3912,13 +3912,14 @@ struct kmem_cache *kmem_cache_create(con
- 		s->objsize = max(s->objsize, (int)size);
- 		s->inuse = max_t(int, s->inuse, ALIGN(size, sizeof(void *)));
-
-+		up_write(&slub_lock);
- 		if (sysfs_slab_alias(s, name)) {
--			s->refcount--;
-+			kmem_cache_destroy(s);
- 			goto err;
- 		}
--		up_write(&slub_lock);
- 		return s;
- 	}
-+	up_write(&slub_lock);
-
- 	n = kstrdup(name, GFP_KERNEL);
- 	if (!n)
-@@ -3928,27 +3929,23 @@ struct kmem_cache *kmem_cache_create(con
- 	if (s) {
- 		if (kmem_cache_open(s, n,
- 				size, align, flags, ctor)) {
--			list_add(&s->list, &slab_caches);
--			if (sysfs_slab_add(s)) {
--				list_del(&s->list);
--				kfree(n);
--				kfree(s);
--				goto err;
-+
-+			if (sysfs_slab_add(s) == 0) {
-+				down_write(&slub_lock);
-+				list_add(&s->list, &slab_caches);
-+				up_write(&slub_lock);
-+				return s;
- 			}
--			up_write(&slub_lock);
--			return s;
- 		}
- 		kfree(n);
- 		kfree(s);
- 	}
- err:
--	up_write(&slub_lock);
-
- 	if (flags & SLAB_PANIC)
- 		panic("Cannot create slabcache %s\n", name);
--	else
--		s = NULL;
--	return s;
-+
-+	return NULL;
- }
- EXPORT_SYMBOL(kmem_cache_create);
-
+On 1/17/2012 1:51 PM, Konrad Rzeszutek Wilk wrote:
+> On Tue, Jan 17, 2012 at 01:42:22PM -0800, Tina Yang wrote:
+>> On 1/13/2012 3:06 AM, Ian Campbell wrote:
+>>> On Thu, 2012-01-12 at 14:17 +0000, Konrad Rzeszutek Wilk wrote:
+>>>> On Wed, Jan 11, 2012 at 04:52:36PM +0800, Zhenzhong Duan wrote:
+>>>>> add polling interface to xen-netfront device to support netconsole
+>>>>>
+>>>> Ian, any thoughts on the spinlock changes?
+>>> What are they for?
+>> When I did this patch back in 2008, both netconsole and netdump
+>> were supported.  Spin_lock w/o irqsave and irqrestore would cause
+>> netdump hang due to the unexpected change of the irq status.
+> Hm, that might have been due to the bug that was lurking in there since
+> 2.6.27: d198d499148a0c64a41b3aba9e7dd43772832b91 "xen: x86_32: do not enable iterrupts when returning from exception in interrupt context"
+Don't think so.  Btw, the (guest) kernels back then were el4 (2.6.9) and 
+el5 (2.6.18).
+>> Although netdump is now obsolete, I think it's always a good practice
+>> to preserve caller's irq status as we had a very bad experience
+>> chasing a similar problem caused by such a irq change in RDS
+> Did you find the culprit of it? Was there a patch for that in the
+> upstream kernel?
+Yes.  It has nothing to do with net drivers but same cause
+elsewhere in the kernel.
+>> in the not too long ago past.
+> OK, it sounds like it was issues in the past but might not be the
+> case anymore.
+>
+> Could please re-test it without that spinlock irqsave patch using
+> the upstream kernel (or just UEK2 since it is an 3.0 type kernel).
+Shouldn't be the case now, but don't know about the future.
+The fact is as long as there is a new caller that has the expectation
+of preserved irq status, it would be a problem.  As Ian said,
+some net drivers have been cautious in this regard already by
+saving/restoring the status, but apparently not everyone.
+> Thanks.
+>
+>>> At a guess they are a necessary consequence of the new calling context.
+>>> However not all the drivers I looked at which supported netpool were
+>>> using the irqsave variants in this context so I guess it must be some
+>>> secondary effect.
+>>>
+>>> Anyway, the upshot is that I think the changelog needs to explain the
+>>> rationale for the locking change.
+>>>
+>>> Ian.
+>>>
+>>>>> Signed-off-by: Tina.Yang<tina.yang@oracle.com>
+>>>>> Cc: Konrad Rzeszutek Wilk<konrad.wilk@oracle.com>
+>>>>> Cc: Jeremy Fitzhardinge<jeremy@goop.org>
+>>>>> Signed-off-by: Zhenzhong.Duan<zhenzhong.duan@oracle.com>
+>>>>> Tested-by: gurudas.pai<gurudas.pai@oracle.com>
+>>>>> ---
+>>>>>   drivers/net/xen-netfront.c |   57 ++++++++++++++++++++++++++-----------------
+>>>>>   1 files changed, 34 insertions(+), 23 deletions(-)
+>>>>>
+>>>>> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+>>>>> index fa67905..db638b4 100644
+>>>>> --- a/drivers/net/xen-netfront.c
+>>>>> +++ b/drivers/net/xen-netfront.c
+>>>>> @@ -489,6 +489,7 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>>>>>   	int frags = skb_shinfo(skb)->nr_frags;
+>>>>>   	unsigned int offset = offset_in_page(data);
+>>>>>   	unsigned int len = skb_headlen(skb);
+>>>>> +	unsigned long flags;
+>>>>>
+>>>>>   	frags += DIV_ROUND_UP(offset + len, PAGE_SIZE);
+>>>>>   	if (unlikely(frags>   MAX_SKB_FRAGS + 1)) {
+>>>>> @@ -498,12 +499,12 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>>>>>   		goto drop;
+>>>>>   	}
+>>>>>
+>>>>> -	spin_lock_irq(&np->tx_lock);
+>>>>> +	spin_lock_irqsave(&np->tx_lock, flags);
+>>>>>
+>>>>>   	if (unlikely(!netif_carrier_ok(dev) ||
+>>>>>   		     (frags>   1&&   !xennet_can_sg(dev)) ||
+>>>>>   		     netif_needs_gso(skb, netif_skb_features(skb)))) {
+>>>>> -		spin_unlock_irq(&np->tx_lock);
+>>>>> +		spin_unlock_irqrestore(&np->tx_lock, flags);
+>>>>>   		goto drop;
+>>>>>   	}
+>>>>>
+>>>>> @@ -574,7 +575,7 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>>>>>   	if (!netfront_tx_slot_available(np))
+>>>>>   		netif_stop_queue(dev);
+>>>>>
+>>>>> -	spin_unlock_irq(&np->tx_lock);
+>>>>> +	spin_unlock_irqrestore(&np->tx_lock, flags);
+>>>>>
+>>>>>   	return NETDEV_TX_OK;
+>>>>>
+>>>>> @@ -1228,6 +1229,33 @@ static int xennet_set_features(struct net_device *dev,
+>>>>>   	return 0;
+>>>>>   }
+>>>>>
+>>>>> +static irqreturn_t xennet_interrupt(int irq, void *dev_id)
+>>>>> +{
+>>>>> +	struct net_device *dev = dev_id;
+>>>>> +	struct netfront_info *np = netdev_priv(dev);
+>>>>> +	unsigned long flags;
+>>>>> +
+>>>>> +	spin_lock_irqsave(&np->tx_lock, flags);
+>>>>> +
+>>>>> +	if (likely(netif_carrier_ok(dev))) {
+>>>>> +		xennet_tx_buf_gc(dev);
+>>>>> +		/* Under tx_lock: protects access to rx shared-ring indexes. */
+>>>>> +		if (RING_HAS_UNCONSUMED_RESPONSES(&np->rx))
+>>>>> +			napi_schedule(&np->napi);
+>>>>> +	}
+>>>>> +
+>>>>> +	spin_unlock_irqrestore(&np->tx_lock, flags);
+>>>>> +
+>>>>> +	return IRQ_HANDLED;
+>>>>> +}
+>>>>> +
+>>>>> +#ifdef CONFIG_NET_POLL_CONTROLLER
+>>>>> +static void xennet_poll_controller(struct net_device *dev)
+>>>>> +{
+>>>>> +	xennet_interrupt(0, dev);
+>>>>> +}
+>>>>> +#endif
+>>>>> +
+>>>>>   static const struct net_device_ops xennet_netdev_ops = {
+>>>>>   	.ndo_open            = xennet_open,
+>>>>>   	.ndo_uninit          = xennet_uninit,
+>>>>> @@ -1239,6 +1267,9 @@ static const struct net_device_ops xennet_netdev_ops = {
+>>>>>   	.ndo_validate_addr   = eth_validate_addr,
+>>>>>   	.ndo_fix_features    = xennet_fix_features,
+>>>>>   	.ndo_set_features    = xennet_set_features,
+>>>>> +#ifdef CONFIG_NET_POLL_CONTROLLER
+>>>>> +	.ndo_poll_controller = xennet_poll_controller,
+>>>>> +#endif
+>>>>>   };
+>>>>>
+>>>>>   static struct net_device * __devinit xennet_create_dev(struct xenbus_device *dev)
+>>>>> @@ -1448,26 +1479,6 @@ static int xen_net_read_mac(struct xenbus_device *dev, u8 mac[])
+>>>>>   	return 0;
+>>>>>   }
+>>>>>
+>>>>> -static irqreturn_t xennet_interrupt(int irq, void *dev_id)
+>>>>> -{
+>>>>> -	struct net_device *dev = dev_id;
+>>>>> -	struct netfront_info *np = netdev_priv(dev);
+>>>>> -	unsigned long flags;
+>>>>> -
+>>>>> -	spin_lock_irqsave(&np->tx_lock, flags);
+>>>>> -
+>>>>> -	if (likely(netif_carrier_ok(dev))) {
+>>>>> -		xennet_tx_buf_gc(dev);
+>>>>> -		/* Under tx_lock: protects access to rx shared-ring indexes. */
+>>>>> -		if (RING_HAS_UNCONSUMED_RESPONSES(&np->rx))
+>>>>> -			napi_schedule(&np->napi);
+>>>>> -	}
+>>>>> -
+>>>>> -	spin_unlock_irqrestore(&np->tx_lock, flags);
+>>>>> -
+>>>>> -	return IRQ_HANDLED;
+>>>>> -}
+>>>>> -
+>>>>>   static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
+>>>>>   {
+>>>>>   	struct xen_netif_tx_sring *txs;
+>>>>> -- 
+>>>>> 1.7.3
