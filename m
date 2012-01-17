@@ -1,36 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] net: kill duplicate included head
-Date: Tue, 17 Jan 2012 10:32:14 -0500 (EST)
-Message-ID: <20120117.103214.619122316378739480.davem@davemloft.net>
-References: <4F14FA50.406@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net 0/5] bnx2x: Link related fixes
+Date: Tue, 17 Jan 2012 10:45:37 -0500 (EST)
+Message-ID: <20120117.104537.1500237095289673553.davem@davemloft.net>
+References: <1326803609-25526-1-git-send-email-yanivr@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org,
-	kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, sjur.brandeland-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org
-To: shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <4F14FA50.406-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: yanivr@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:54801 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754384Ab2AQPpk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2012 10:45:40 -0500
+In-Reply-To: <1326803609-25526-1-git-send-email-yanivr@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Tue, 17 Jan 2012 12:34:24 +0800
+From: "Yaniv Rosner" <yanivr@broadcom.com>
+Date: Tue, 17 Jan 2012 14:33:24 +0200
 
-> From: Shan Wei <davidshan-1Nz4purKYjRBDgjK7y7TUQ@public.gmane.org>
-> 
-> 
-> For net part, remove duplicate included head.
-> 
-> 
-> Signed-off-by: Shan Wei <davidshan-1Nz4purKYjRBDgjK7y7TUQ@public.gmane.org>
+> The following patch series describe some link related fixes for the
+> bnx2x driver.  Please consider applying it to net.
 
-It's "header" not "head", anyways, applied.
+All applied, but please fix your commit messages in the future to use
+80 columns.  Some of your lines were very long and I had to reformat
+your commit messages to fix this stuff up.
+
+Thanks.
