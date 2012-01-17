@@ -1,185 +1,93 @@
-From: Tina Yang <tina.yang@oracle.com>
-Subject: Re: [PATCH] add netconsole support for xen-netfront
-Date: Tue, 17 Jan 2012 15:15:31 -0800
-Message-ID: <4F160113.1030503@oracle.com>
-References: <1326271956-25565-1-git-send-email-zhenzhong.duan@oracle.com> <20120112141745.GA7685@phenom.dumpdata.com> <1326452769.17210.331.camel@zakaz.uk.xensource.com> <4F15EB3E.3060700@oracle.com> <20120117215100.GA25367@phenom.dumpdata.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch v3, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
+ multipoint GRE over IP
+Date: Wed, 18 Jan 2012 00:17:42 +0100
+Message-ID: <1326842262.2606.31.camel@edumazet-laptop>
+References: <31531575.2671326838849345.JavaMail.root@5-MeO-DMT.ynet.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	Zhenzhong Duan <zhenzhong.duan@oracle.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"gurudas.pai@oracle.com" <gurudas.pai@oracle.com>,
-	Jeremy Fitzhardinge <jeremy@goop.org>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stefan Gula <steweg@ynet.sk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120117215100.GA25367@phenom.dumpdata.com>
+In-Reply-To: <31531575.2671326838849345.JavaMail.root@5-MeO-DMT.ynet.sk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/17/2012 1:51 PM, Konrad Rzeszutek Wilk wrote:
-> On Tue, Jan 17, 2012 at 01:42:22PM -0800, Tina Yang wrote:
->> On 1/13/2012 3:06 AM, Ian Campbell wrote:
->>> On Thu, 2012-01-12 at 14:17 +0000, Konrad Rzeszutek Wilk wrote:
->>>> On Wed, Jan 11, 2012 at 04:52:36PM +0800, Zhenzhong Duan wrote:
->>>>> add polling interface to xen-netfront device to support netconsole
->>>>>
->>>> Ian, any thoughts on the spinlock changes?
->>> What are they for?
->> When I did this patch back in 2008, both netconsole and netdump
->> were supported.  Spin_lock w/o irqsave and irqrestore would cause
->> netdump hang due to the unexpected change of the irq status.
-> Hm, that might have been due to the bug that was lurking in there since
-> 2.6.27: d198d499148a0c64a41b3aba9e7dd43772832b91 "xen: x86_32: do not enable iterrupts when returning from exception in interrupt context"
-Don't think so.  Btw, the (guest) kernels back then were el4 (2.6.9) and 
-el5 (2.6.18).
->> Although netdump is now obsolete, I think it's always a good practice
->> to preserve caller's irq status as we had a very bad experience
->> chasing a similar problem caused by such a irq change in RDS
-> Did you find the culprit of it? Was there a patch for that in the
-> upstream kernel?
-Yes.  It has nothing to do with net drivers but same cause
-elsewhere in the kernel.
->> in the not too long ago past.
-> OK, it sounds like it was issues in the past but might not be the
-> case anymore.
->
-> Could please re-test it without that spinlock irqsave patch using
-> the upstream kernel (or just UEK2 since it is an 3.0 type kernel).
-Shouldn't be the case now, but don't know about the future.
-The fact is as long as there is a new caller that has the expectation
-of preserved irq status, it would be a problem.  As Ian said,
-some net drivers have been cautious in this regard already by
-saving/restoring the status, but apparently not everyone.
-> Thanks.
->
->>> At a guess they are a necessary consequence of the new calling context.
->>> However not all the drivers I looked at which supported netpool were
->>> using the irqsave variants in this context so I guess it must be some
->>> secondary effect.
->>>
->>> Anyway, the upshot is that I think the changelog needs to explain the
->>> rationale for the locking change.
->>>
->>> Ian.
->>>
->>>>> Signed-off-by: Tina.Yang<tina.yang@oracle.com>
->>>>> Cc: Konrad Rzeszutek Wilk<konrad.wilk@oracle.com>
->>>>> Cc: Jeremy Fitzhardinge<jeremy@goop.org>
->>>>> Signed-off-by: Zhenzhong.Duan<zhenzhong.duan@oracle.com>
->>>>> Tested-by: gurudas.pai<gurudas.pai@oracle.com>
->>>>> ---
->>>>>   drivers/net/xen-netfront.c |   57 ++++++++++++++++++++++++++-----------------
->>>>>   1 files changed, 34 insertions(+), 23 deletions(-)
->>>>>
->>>>> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
->>>>> index fa67905..db638b4 100644
->>>>> --- a/drivers/net/xen-netfront.c
->>>>> +++ b/drivers/net/xen-netfront.c
->>>>> @@ -489,6 +489,7 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
->>>>>   	int frags = skb_shinfo(skb)->nr_frags;
->>>>>   	unsigned int offset = offset_in_page(data);
->>>>>   	unsigned int len = skb_headlen(skb);
->>>>> +	unsigned long flags;
->>>>>
->>>>>   	frags += DIV_ROUND_UP(offset + len, PAGE_SIZE);
->>>>>   	if (unlikely(frags>   MAX_SKB_FRAGS + 1)) {
->>>>> @@ -498,12 +499,12 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
->>>>>   		goto drop;
->>>>>   	}
->>>>>
->>>>> -	spin_lock_irq(&np->tx_lock);
->>>>> +	spin_lock_irqsave(&np->tx_lock, flags);
->>>>>
->>>>>   	if (unlikely(!netif_carrier_ok(dev) ||
->>>>>   		     (frags>   1&&   !xennet_can_sg(dev)) ||
->>>>>   		     netif_needs_gso(skb, netif_skb_features(skb)))) {
->>>>> -		spin_unlock_irq(&np->tx_lock);
->>>>> +		spin_unlock_irqrestore(&np->tx_lock, flags);
->>>>>   		goto drop;
->>>>>   	}
->>>>>
->>>>> @@ -574,7 +575,7 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
->>>>>   	if (!netfront_tx_slot_available(np))
->>>>>   		netif_stop_queue(dev);
->>>>>
->>>>> -	spin_unlock_irq(&np->tx_lock);
->>>>> +	spin_unlock_irqrestore(&np->tx_lock, flags);
->>>>>
->>>>>   	return NETDEV_TX_OK;
->>>>>
->>>>> @@ -1228,6 +1229,33 @@ static int xennet_set_features(struct net_device *dev,
->>>>>   	return 0;
->>>>>   }
->>>>>
->>>>> +static irqreturn_t xennet_interrupt(int irq, void *dev_id)
->>>>> +{
->>>>> +	struct net_device *dev = dev_id;
->>>>> +	struct netfront_info *np = netdev_priv(dev);
->>>>> +	unsigned long flags;
->>>>> +
->>>>> +	spin_lock_irqsave(&np->tx_lock, flags);
->>>>> +
->>>>> +	if (likely(netif_carrier_ok(dev))) {
->>>>> +		xennet_tx_buf_gc(dev);
->>>>> +		/* Under tx_lock: protects access to rx shared-ring indexes. */
->>>>> +		if (RING_HAS_UNCONSUMED_RESPONSES(&np->rx))
->>>>> +			napi_schedule(&np->napi);
->>>>> +	}
->>>>> +
->>>>> +	spin_unlock_irqrestore(&np->tx_lock, flags);
->>>>> +
->>>>> +	return IRQ_HANDLED;
->>>>> +}
->>>>> +
->>>>> +#ifdef CONFIG_NET_POLL_CONTROLLER
->>>>> +static void xennet_poll_controller(struct net_device *dev)
->>>>> +{
->>>>> +	xennet_interrupt(0, dev);
->>>>> +}
->>>>> +#endif
->>>>> +
->>>>>   static const struct net_device_ops xennet_netdev_ops = {
->>>>>   	.ndo_open            = xennet_open,
->>>>>   	.ndo_uninit          = xennet_uninit,
->>>>> @@ -1239,6 +1267,9 @@ static const struct net_device_ops xennet_netdev_ops = {
->>>>>   	.ndo_validate_addr   = eth_validate_addr,
->>>>>   	.ndo_fix_features    = xennet_fix_features,
->>>>>   	.ndo_set_features    = xennet_set_features,
->>>>> +#ifdef CONFIG_NET_POLL_CONTROLLER
->>>>> +	.ndo_poll_controller = xennet_poll_controller,
->>>>> +#endif
->>>>>   };
->>>>>
->>>>>   static struct net_device * __devinit xennet_create_dev(struct xenbus_device *dev)
->>>>> @@ -1448,26 +1479,6 @@ static int xen_net_read_mac(struct xenbus_device *dev, u8 mac[])
->>>>>   	return 0;
->>>>>   }
->>>>>
->>>>> -static irqreturn_t xennet_interrupt(int irq, void *dev_id)
->>>>> -{
->>>>> -	struct net_device *dev = dev_id;
->>>>> -	struct netfront_info *np = netdev_priv(dev);
->>>>> -	unsigned long flags;
->>>>> -
->>>>> -	spin_lock_irqsave(&np->tx_lock, flags);
->>>>> -
->>>>> -	if (likely(netif_carrier_ok(dev))) {
->>>>> -		xennet_tx_buf_gc(dev);
->>>>> -		/* Under tx_lock: protects access to rx shared-ring indexes. */
->>>>> -		if (RING_HAS_UNCONSUMED_RESPONSES(&np->rx))
->>>>> -			napi_schedule(&np->napi);
->>>>> -	}
->>>>> -
->>>>> -	spin_unlock_irqrestore(&np->tx_lock, flags);
->>>>> -
->>>>> -	return IRQ_HANDLED;
->>>>> -}
->>>>> -
->>>>>   static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
->>>>>   {
->>>>>   	struct xen_netif_tx_sring *txs;
->>>>> -- 
->>>>> 1.7.3
+Le mardi 17 janvier 2012 =C3=A0 23:20 +0100, Stefan Gula a =C3=A9crit :
+> From: Stefan Gula <steweg@gmail.com>
+>=20
+> This patch is an extension for current Ethernet over GRE
+> implementation, which allows user to create virtual bridge (multipoin=
+t
+> VPN) and forward traffic based on Ethernet MAC address information in
+> it. It simulates the Bridge behavior learning mechanism, but instead
+> of learning port ID from which given MAC address comes, it learns IP
+> address of peer which encapsulated given packet. Multicast, Broadcast
+> and unknown-multicast traffic is send over network as multicast
+> encapsulated GRE packet, so one Ethernet multipoint GRE tunnel can be
+> represented as one single virtual switch on logical level and be also
+> represented as one multicast IPv4 address on network level.
+>=20
+> Signed-off-by: Stefan Gula <steweg@gmail.com>
+>=20
+> ---
+>=20
+> code was merged with Eric Dumazet proposal (all except the reordering
+> of orig_source as that needed to be previous value), tested and fixed
+> with additional lines in ipgre_tap_netdev_ops struct
+>=20
+
+Sorry, this is buggy (again...)
+
+Its even clearly commented in the code :
+
+/* Warning: All skb pointers will be invalidated! */
+
+> =20
+>          if (!pskb_may_pull(skb, 16))
+>                  goto drop_nolock;
+> @@ -659,10 +836,38 @@ static int ipgre_rcv(struct sk_buff *skb
+>                                  tunnel->dev->stats.rx_errors++;
+>                                  goto drop;
+>                          }
+
+At this point, iph can point to freed memory and its dereference can
+crash, since pskb_may_pull() can reallocate skb head.
+
+> -
+> +#ifdef CONFIG_NET_IPGRE_BRIDGE
+> +                        orig_source =3D iph->saddr;
+> +#endif
+
+Without any doubt, you know here there is a bug.
+
+>                          iph =3D ip_hdr(skb);
+>                          skb->protocol =3D eth_type_trans(skb, tunnel=
+->dev);
+>                          skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HL=
+EN);
+
+
+So if you need orig_source as the previous iph->saddr value, you must
+fetch it _before_ the pskb_may_pull()
+
+
+/* Warning: All skb pointers will be invalidated! */
+if (tunnel->dev->type =3D=3D ARPHRD_ETHER) {
+#ifdef CONFIG_NET_IPGRE_BRIDGE
+ 	orig_source =3D iph->saddr; /* must be done before pskb_may_pull() */
+#endif
+	if (!pskb_may_pull(skb, ETH_HLEN)) {
+		tunnel->dev->stats.rx_length_errors++;
+		tunnel->dev->stats.rx_errors++;
+		goto drop;
+	}
+
+	iph =3D ip_hdr(skb);
+	...
