@@ -1,25 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ehea: make some functions and variables static
-Date: Tue, 17 Jan 2012 10:04:56 -0500 (EST)
-Message-ID: <20120117.100456.580601879746362569.davem@davemloft.net>
-References: <1326477992-16229-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Subject: Re: [PATCH net] dql: Fix inconsistency between file mode and attr
+ method.
+Date: Tue, 17 Jan 2012 10:06:15 -0500 (EST)
+Message-ID: <20120117.100615.357923937750093470.davem@davemloft.net>
+References: <20120115021021.1bb055da.shimoda.hiroaki@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: cascardo@linux.vnet.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1326477992-16229-1-git-send-email-cascardo@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, therbert@google.com
+To: shimoda.hiroaki@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:54422 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753763Ab2AQPGU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2012 10:06:20 -0500
+In-Reply-To: <20120115021021.1bb055da.shimoda.hiroaki@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Date: Fri, 13 Jan 2012 16:06:32 -0200
+From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Date: Sun, 15 Jan 2012 02:10:21 +0900
 
-> Some functions and variables in ehea are only used in their own file, so
-> they should be static. One particular function had a very generic name,
-> print_error_data.
+> There is no store() method for inflight attribute in the
+> tx-<n>/byte_queue_limits sysfs directory.
+> So remove S_IWUSR bit.
 > 
-> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+> Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
 
-Applied, thanks.
+Applied, with fixed subject line.  It's "bql" not "dql" :-)
