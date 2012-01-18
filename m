@@ -1,60 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: bind()/inet_csk_get_port() fails when no port is requested
-Date: Wed, 18 Jan 2012 18:36:59 +0100
-Message-ID: <1326908219.4910.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20120118151126.01a74dc5@asterix.rh>
+From: Phil Oester <kernel@linuxace.com>
+Subject: Re: [PATCH v2] net: bpf_jit: fix divide by 0 generation
+Date: Wed, 18 Jan 2012 09:48:07 -0800
+Message-ID: <20120118174807.GA5159@linuxace.com>
+References: <20120118022709.GA4167@linuxace.com>
+ <1326867428.2606.39.camel@edumazet-laptop>
+ <1326871835.2606.40.camel@edumazet-laptop>
+ <1326873533.2606.46.camel@edumazet-laptop>
+ <20120118155747.GA4991@linuxace.com>
+ <1326902511.2316.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <1326907302.4910.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Marcelo Leitner <mleitner@redhat.com>
-To: Flavio Leitner <fbl@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:33600 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932301Ab2ARRhD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 12:37:03 -0500
-Received: by wibhm6 with SMTP id hm6so2404517wib.19
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 09:37:02 -0800 (PST)
-In-Reply-To: <20120118151126.01a74dc5@asterix.rh>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:52629 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932322Ab2ARRsL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 12:48:11 -0500
+Received: by iagf6 with SMTP id f6so6311021iag.19
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 09:48:11 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1326907302.4910.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 18 janvier 2012 =C3=A0 15:11 -0200, Flavio Leitner a =C3=A9=
-crit :
-> Hi folks,
->=20
-> It has been reported to me that bind() fails when you leave
-> the port up to the kernel to choose and succeed when you
-> request a certain port in the same conditions.
->=20
-> For example, let's restrict the ephemeral port range to 3 ports only:
-> # echo "32768 32770" > /proc/sys/net/ipv4/ip_local_port_range
->=20
-> Assuming the system has two IP addresses: 172.31.1.6/24 and
-> 192.168.100.6/24 then run the following python script which
-> allocates all ephemeral ports using one IP address and then
-> try to bind another one using another IP address.
->=20
-=2E..
-> Conclusion: When using ephemeral ports, inet_csk_get_port()
-> fails without checking if a conflict had happened. When using
-> fixed ports on the other hand, inet_csk_get_port() works
-> as expected.
->=20
-> I will attach a quick hack to illustrate what I am thinking.
-> The idea is to check all ports first and if it fails, then
-> try again looking for a port that doesn't conflict. So, for
-> most cases, the algorithm is the same, but when the system
-> ran out of ports, there is a hope :-)
->=20
-> Is there a reason to behave like that? or is this a real bug?
-> Sounds like a FAQ, but I am not finding an explanation for this
-> on the net yet.
->=20
+On Wed, Jan 18, 2012 at 06:21:42PM +0100, Eric Dumazet wrote:
+> Several problems fixed in this patch :
+> 
+> 1) Target of the conditional jump in case a divide by 0 is performed
+>    by a bpf is wrong.
+> 
+> 2) Must 'generate' the full function prologue/epilogue at pass=0,
+>    or else we can stop too early in pass=1 if the proglen doesnt change.
+>    (if the increase of prologue/epilogue equals decrease of all
+>     instructions length because some jumps are converted to near jumps)
+> 
+> 3) Change the wrong length detection at the end of code generation to
+>    issue a more explicit message, no need for a full stack trace.
+> 
+> Reported-by: Phil Oester <kernel@linuxace.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+> Please Phil test following fix, thanks !
 
-Hi Flavio
+Looks good in testing so far, thank you!
 
-This seems a very good idea.
-
-Only drawback is when table is really full, we'll scan it twice.
+Phil
