@@ -1,73 +1,89 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH v5.4 00/13] crc32c: Add faster algorithm and self-test
- code
-Date: Wed, 18 Jan 2012 15:01:14 -0800
-Message-ID: <20120118150114.2e2dac2d.akpm@linux-foundation.org>
-References: <20120118222733.4079.13377.stgit@elm3c44.beaverton.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
-	Theodore Tso <tytso@mit.edu>,
-	Joakim Tjernlund <joakim.tjernlund@transmode.se>,
-	Bob Pearson <rpearson@systemfabricworks.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Andreas Dilger <adilger.kernel@dilger.ca>,
-	linux-crypto <linux-crypto@vger.kernel.org>,
-	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
-	Mingming Cao <cmm@us.ibm.com>, linux-ext4@vger.kernel.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: "Darrick J. Wong" <djwong@us.ibm.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20120118222733.4079.13377.stgit@elm3c44.beaverton.ibm.com>
-Sender: linux-crypto-owner@vger.kernel.org
+From: Richard Weinberger <rw@linutronix.de>
+Subject: Netfilter: New target: RLOG
+Date: Wed, 18 Jan 2012 23:43:25 +0100
+Message-ID: <1326926610-17830-1-git-send-email-rw@linutronix.de>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	rostedt@goodmis.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 18 Jan 2012 14:27:33 -0800
-"Darrick J. Wong" <djwong@us.ibm.com> wrote:
+RLOG is a new log target, it works like LOG with the exception that it writes to ring buffers.
+It makes use of Steven Rostedt's ring_buffer subsystem. 
+I've used Steve's ring buffer because it allows concurrent writes. IOW it's very fast.
+For more details see: Documentation/trace/ring-buffer-design.txt.
 
-> This patchset (re)uses Bob Pearson's crc32 slice-by-8 code to stamp out a
-> software crc32c implementation.  It removes the crc32c implementation in
-> crypto/ in favor of using the stamped-out one in lib/.  There is also a change
-> to Kconfig so that the kernel builder can pick an implementation best suited
-> for the hardware.
-> 
-> The motivation for this patchset is that I am working on adding full metadata
-> checksumming to ext4.  As far as performance impact of adding checksumming
-> goes, I see nearly no change with a standard mail server ffsb simulation.  On a
-> test that involves only file creation and deletion and extent tree writes, I
-> see a drop of about 50 pcercent with the current kernel crc32c implementation;
-> this improves to a drop of about 20 percent with the enclosed crc32c code.
-> 
-> When metadata is usually a small fraction of total IO, this new implementation
-> doesn't help much because metadata is usually a small fraction of total IO.
-> However, when we are doing IO that is almost all metadata (such as rm -rf'ing a
-> tree), then this patch speeds up the operation substantially.
-> 
-> Incidentally, given that iscsi, sctp, and btrfs also use crc32c, this patchset
-> should improve their speed as well.  I have not yet quantified that, however.
-> This latest submission combines Bob's patches from late August 2011 with mine
-> so that they can be one coherent patch set.  Please excuse my inability to
-> combine some of the patches; I've been advised to leave Bob's patches alone and
-> build atop them instead. :/
-> 
-> Since the last posting, I've also collected some crc32c test results on a bunch
-> of different x86/powerpc/sparc platforms.  The results can be viewed here:
-> http://goo.gl/sgt3i ; the "crc32-kern-le" and "crc32c" columns describe the
-> performance of the kernel's current crc32 and crc32c software implementations.
-> The "crc32c-by8-le" column shows crc32c performance with this patchset applied.
-> I expect crc32 performance to be roughly the same.
-> 
-> The two _boost columns at the right side of the spreadsheet shows how much
-> faster the new implementation is over the old one.  As you can see, crc32 rises
-> substantially, and crc32c experiences a huge increase.
+Each ring buffer is represented as a pipe-like file in /proc/net/netfilter/xt_RLOG/.
+You can read from it with and program you like (cat, syslog, etc...).
+The default size is 1MiB. With this size it can store approximately 5000 messages.
 
-I grabbed this lot, so it will turn up in linux-next soon.
+- Why not LOG?
+I like the LOG target a lot but I really hat it when it floods my kernel syslog.
+dmesg becomes useless.
+Writing all log messages to a file using syslogd also not always the best solution.
+Most of the time my firewall logs just waste disk space.
 
-There are quite a lot of clients of the crc32 code.  net, netfilter and
-wireless are prominent, but there are others everywhere.
+Compared with Steve's ring_buffer, the kernel syslog is rather slow.
+Especially when the firewall logs very much syslog becomes a bottleneck.
+As we all know printk() is not fast.
 
-So I cc'ed various other mailing lists just as a heads-up that this
-work is inbound and will hopefully yield performance improvements.  But
-of course, it might also yield bugs.
+- Why not ULOG/NFLOG?
+Because it cannot replace LOG.
+Details like PHYSIN and PHYSOUT are not available form the packet headers.
+Also on many Linux systems ulogd is not available/supported.  
+
+- Why RLOG?
+Using RLOG you can have many ring buffers with all kind of logs.
+If your firewall goes nuts you don't have to mess you rule-set with adding
+new LOG rules to find out what's going on.
+Just install a few RLOG rules with small buffer sized and read them if you don't
+know what's going on.
+If you make you firewall rule-set per default verbose using LOG or NFLOG it will 
+generate lot's of useless messages which you'll never ever read.
+With RLOG you can bypass this problem.
+On my firewall I record only useful data to the disk. Everything else goes into RLOG.
+
+If your firewall is really busy and you want to log nearly everything, c
+reate a big ring buffer and read from is using your favorite userspace tool.
+In case the buffer fills faster than the userspace consumes it, RLOG will warn you.
+I'd also possible to resize the buffer.
+
+- Example
+
+You can use RLOG like LOG.
+E.g:
+iptables -A INPUT -p icmp -j RLOG
+The default name of the ring buffer is "default".
+Now you can read your icmp logs from /proc/net/netfilter/default
+
+iptables -A INPUT -p icmp -j RLOG --ring foo
+iptables -A INPUT -j RLOG --ring bar --size 4096
+
+This will create two new ring buffers "foo" and "bar".
+"bar" has a size of 4MiB.
+
+ICMP logs go now into three ring buffers, "default" and "foo".
+Everything else (including ICMP) goes into "bar".
+If you don't want to use syslog add "--add-timestamp" to have timestamps in your logs.
+
+Different iptables rules with different RLOG flags can use the same ring buffer.
+iptables -A INPUT -p icmp -j RLOG --ring xxx --add-timestamp
+iptables -A INPUT -p icmp -j RLOG --ring xxx
+
+Every ICMP packet will show up in "xxx" twice. But the first entry will have a timestamp.
+
+
+[PATCH 1/5] ring_buffer: Export for_each_buffer_cpu()
+Steve, is this path ok for you?
+
+[PATCH 2/5] xt_log: Make printk() in sb_close() optional
+[PATCH 3/5] nf_log: Export dump_packet() and dump_mac_header()
+RLOG reuses as much code from LOG are possible.
+These two patches are needed to export some code to RLOG.
+Currently RLOG depends on both ipt_LOG and ip6t_LOG.
+
+[PATCH 4/5] netfilter: Implement xt_RLOG
+[PATCH 5/5] xt_RLOG: add userspace-components
+
+Any feedback is welcome!
