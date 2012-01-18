@@ -1,73 +1,65 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Wrong mac in arp response in bonded interfaces
-Date: Wed, 18 Jan 2012 11:47:30 -0800
-Message-ID: <12128.1326916050@death>
-References: <CANj2EbfW-YP41-=w+qGxfV-QMaBOxtijOKFDUt+o-kLsUbf1ag@mail.gmail.com>
-Cc: netdev@vger.kernel.org
-To: Simon Chen <simonchennj@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net 3/6] mlx4_en: eth statistics modification
+Date: Wed, 18 Jan 2012 20:54:17 +0100
+Message-ID: <1326916457.2742.0.camel@edumazet-laptop>
+References: <4F17204D.6030109@mellanox.co.il>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, eugenia@mellanox.co.il
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:46644 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756617Ab2ARTsK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 14:48:10 -0500
-Received: from /spool/local
-	by e37.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Wed, 18 Jan 2012 12:48:09 -0700
-Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id B391E3E40063
-	for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 12:47:36 -0700 (MST)
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q0IJlajb101100
-	for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 14:47:36 -0500
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q0IJlZUH012051
-	for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 17:47:35 -0200
-In-reply-to: <CANj2EbfW-YP41-=w+qGxfV-QMaBOxtijOKFDUt+o-kLsUbf1ag@mail.gmail.com>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:49823 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757601Ab2ARTyV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 14:54:21 -0500
+Received: by wibhm6 with SMTP id hm6so2508585wib.19
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 11:54:20 -0800 (PST)
+In-Reply-To: <4F17204D.6030109@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Simon Chen <simonchennj@gmail.com> wrote:
+Le mercredi 18 janvier 2012 =C3=A0 21:41 +0200, Yevgeny Petrilin a =C3=A9=
+crit :
+> From: Eugenia Emantayev <eugenia@mellanox.co.il>
+>=20
+> In native mode display all available statistics.
+> In SRIOV mode on VF display only SW counters statistics,
+> in SRIOV mode on hypervisor display SW counters and errors (got from =
+=46W)
+> statistics.
+>=20
+> Signed-off-by: Eugenia Emantayev <eugenia@mellanox.co.il>
+> Reviewed-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |   72 +++++++++++++=
++++++-----
+>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |    2 +
+>  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    1 +
+>  drivers/net/ethernet/mellanox/mlx4/port.c       |   21 +++++++
+>  include/linux/mlx4/device.h                     |    1 +
+>  5 files changed, 81 insertions(+), 16 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/driver=
+s/net/ethernet/mellanox/mlx4/en_ethtool.c
+> index 53c6686..0e5f275 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> @@ -183,10 +183,17 @@ static int mlx4_en_set_wol(struct net_device *n=
+etdev,
+>  static int mlx4_en_get_sset_count(struct net_device *dev, int sset)
+>  {
+>  	struct mlx4_en_priv *priv =3D netdev_priv(dev);
+> +	u64 bm =3D priv->stats_bitmap;
+> +	int bit_count =3D 0;
+> =20
+>  	switch (sset) {
+>  	case ETH_SS_STATS:
+> -		return NUM_ALL_STATS +
+> +		while (bm) {
+> +			if (bm & 1)
+> +				bit_count++;
+> +			bm >>=3D 1;
+> +		}
 
->Hi all,
->
->Something really weird with interface bonding...
->
->I have eth0 and eth1, with MAC address xx:44 and xx:45. The bonded
->interface chose to use xx:45 as its MAC.
->
->I configured an IP on the bonded interface, and try to ping the
->default gw. The ARP from the server for the .1 is answered by the GW.
->The server then sends out ICMP to the GW. The problem is the GW is not
->responding to the ping.
-
-	How much real time is elapsing between the setting up of the
-bond, and this ping test?  What are the slaves set up as prior to the
-bond being established?  In particular, is one of them (the :44)
-assigned the IP address that the bond ends up using?
-
->I then logged onto the GW (a switch) - apparently, the ARP table on
->the GW shows that my server's IP is associated with xx:44 MAC address.
->So, actually the GW is responding the ICMP, just to the wrong MAC
->dest.
->
->Any idea how the xx:44 MAC somehow polluted the ARP table on my GW?
->How can I make sure my server always sends out packets with xx:45 MAC
->via the bonded interface?
-
-	My first suspicion is that a stale ARP entry on the switch is
-hanging around for the :44 MAC address from before the bond was
-established on the host.  If you clear the switch's ARP table, does the
-problem correct itself or happen again?
-
-	The other possibility that comes to mind is that you're using
-balance-alb mode, in which case I suspect what you're seeing is normal
-behavior.  The alb mode "assigns" peers to particular slaves of the bond
-by sending them tailored ARP messages bearing the MAC of one of the
-slaves, and each slave participates on the network under its own MAC
-address (I'm simplifying a bit here, but that's basically how it works).
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+hweight64(bm) ?
