@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] openvswitch: Fix multipart datapath dumps.
-Date: Tue, 17 Jan 2012 23:56:35 -0500 (EST)
-Message-ID: <20120117.235635.2253865702946442445.davem@davemloft.net>
-References: <1326843219-14664-1-git-send-email-jesse@nicira.com>
+Subject: Re: [PATCH net] tg3: Fix single-vector MSI-X code
+Date: Tue, 17 Jan 2012 23:56:40 -0500 (EST)
+Message-ID: <20120117.235640.1394063282901449922.davem@davemloft.net>
+References: <1326850043-23417-1-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, blp@nicira.com, paul@nicira.com
-To: jesse@nicira.com
+Cc: netdev@vger.kernel.org, mchan@broadcom.com
+To: mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33120 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:33123 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757142Ab2ARE4j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2012 23:56:39 -0500
-In-Reply-To: <1326843219-14664-1-git-send-email-jesse@nicira.com>
+	with ESMTP id S1757174Ab2ARE4n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2012 23:56:43 -0500
+In-Reply-To: <1326850043-23417-1-git-send-email-mcarlson@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Tue, 17 Jan 2012 15:33:39 -0800
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Tue, 17 Jan 2012 17:27:23 -0800
 
-> From: Ben Pfaff <blp@nicira.com>
+> Kdump kernels leave MSI-X interrupts (as setup by the crashed kernel)
+> enabled.  However, kdump only enables one CPU in the new environment,
+> thus causing tg3 to abort MSI-X setup.  When the driver attempts to
+> enable INTA or MSI interrupt modes on a kdump kernel, interrupt
+> delivery fails.
 > 
-> The logic to split up the list of datapaths into multiple Netlink messages
-> was simply wrong, causing the list to be terminated after the first part.
-> Only about the first 50 datapaths would be dumped.  This fixes the
-> problem.
+> This patch attempts to workaround the problem by forcing the driver
+> to enable a single MSI-X interrupt.  In such a configuration, the
+> device's multivector interrupt mode must be disabled.
 > 
-> Reported-by: Paul Ingram <paul@nicira.com>
-> Signed-off-by: Ben Pfaff <blp@nicira.com>
-> Signed-off-by: Jesse Gross <jesse@nicira.com>
+> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 
 Applied.
