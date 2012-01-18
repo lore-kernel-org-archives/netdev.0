@@ -1,74 +1,69 @@
-From: Jean-Michel Hautbois <jhautbois@gmail.com>
-Subject: Interpreting perf stat on netperf and netserver
-Date: Wed, 18 Jan 2012 12:33:39 +0100
-Message-ID: <CAL8zT=gNwDDXcbH+hoZApc63ArW2quzHJ1gRrPSxKP7jE04KLw@mail.gmail.com>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: ixgbe: Unsupported SFP+ modules on 10Gbit/s X520-DA2 NIC?
+Date: Wed, 18 Jan 2012 12:30:58 +0100
+Message-ID: <1326886258.19261.25.camel@probook>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Peter Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: e1000-devel@lists.sourceforge.net,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:57395 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756084Ab2ARLdj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 06:33:39 -0500
-Received: by pbaa10 with SMTP id a10so1703658pba.19
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 03:33:39 -0800 (PST)
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:57336 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756683Ab2ARLkQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 06:40:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Hi Intel,
 
-I am currently using netperf/netserver in order to characterize a
-benet emulex network device on a machine with 2 Xeon5670.
-I am using the latest linux kernel from git (3.2.0+).
-I am facing several issues, and I am trying to understand the
-following perf stat launched on netserver :
+I just bought three 10Gbit/s X520-DA2 NICs (82599 based) for
+production usage, but I cannot get them to accept any of my 10Gbit/s
+SFP+ modules (4 different tried). According to the documentation I can
+find, the X520-DA2 NIC should support fiber optics SFP+ modules.
 
- Performance counter stats for process id '5043':
+The SFP+ modules does work in another 82599 based NIC in the same
+machine (engineering sample from PJ).
 
-      15452.992135 task-clock                #    0.450 CPUs utilized
-            189678 context-switches          #    0.012 M/sec
-                 5 CPU-migrations            #    0.000 M/sec
-               275 page-faults               #    0.000 M/sec
-       48490467936 cycles                    #    3.138 GHz
-       33005879963 stalled-cycles-frontend   #   68.07% frontend cycles idle
-       16325855769 stalled-cycles-backend    #   33.67% backend  cycles idle
-       27340520316 instructions              #    0.56  insns per cycle
-                                             #    1.21  stalled cycles per insn
-        4745604818 branches                  #  307.099 M/sec
-          67513124 branch-misses             #    1.42% of all branches
+According to the driver code (ixgbe) the 82599 and the X520 looks like
+they share the same init code.
 
-      34.303567279 seconds time elapsed
+What is going on with the X520-DA2 model?
 
-I am trying to understand the "stalled-cycles-frontend" and
-"stalled-cycles-backend" lines.
-It seems that frontend is high, and in red :) but I can't say why...
 
-The be2net driver seems to have difficulties woth IRQ affinity also,
-because it always uses CPU0 even if the affinity is 0-23 !
-netperf result is quite good, and perf top shows :
-   PerfTop:     689 irqs/sec  kernel:99.6% us: 0.3% guest kernel: 0.0%
-guest us: 0.0% exact:  0.0% [1000Hz cycles],  (all, 24 CPUs)
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Extra info below:
 
-    29.28%  [kernel]          [k] csum_partial
-     8.46%  [kernel]          [k] copy_user_generic_string
-     3.70%  [be2net]          [k] be_poll_rx
-     3.08%  [be2net]          [k] event_handle
-     2.37%  [kernel]          [k] irq_entries_start
-     2.21%  [be2net]          [k] be_rx_compl_get
-     1.65%  [be2net]          [k] be_post_rx_frags
-     1.64%  [kernel]          [k] __napi_complete
-     1.50%  [kernel]          [k] ip_defrag
-     1.35%  [kernel]          [k] put_page
-     1.34%  [kernel]          [k] get_page_from_freelist
-     1.29%  [kernel]          [k] __netif_receive_skb
-     1.16%  [kernel]          [k] __alloc_pages_nodemask
-     1.14%  [kernel]          [k] debug_smp_processor_id
-     1.08%  [kernel]          [k] add_preempt_count
-     1.06%  [kernel]          [k] sub_preempt_count
-     1.03%  [be2net]          [k] get_rx_page_info
-     1.01%  [kernel]          [k] alloc_pages_current
+Tested with:
+ Kernel: 3.2.0-net-next-14778-g117ff42
+ (ethtool -i)
+ driver: ixgbe
+ version: 3.6.7-k
+ firmware-version: 0x18f60001
+ bus-info: 0000:24:00.0
 
-Checksum calculation seems quite complex :).
-Regards,
-JM
+The working NIC reports firmware-version: 0xd87c0000.
+
+The kern.log error:
+ ixgbe 0000:24:00.1: failed to load because an unsupported SFP+ module type was detected.
+ ixgbe 0000:24:00.1: Reload the driver after installing a supported module.
+
+The PCI vendor ID's are also almost the same between the two cards:
+ # None working X520-DA2 NIC
+ lspci -n | grep 24:00.
+ 24:00.0 0200: 8086:10fb (rev 01)
+ 24:00.1 0200: 8086:10fb (rev 01)
+ # Working NIC
+ lspci -n | grep 12:00.
+ 12:00.0 0200: 8086:10fb
+ 12:00.1 0200: 8086:10fb
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  ComX Networks A/S
+  Linux Network Kernel Developer
+  Cand. Scient Datalog / MSc.CS
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
