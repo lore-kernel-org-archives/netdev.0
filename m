@@ -1,84 +1,52 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: route problem
-Date: Wed, 18 Jan 2012 11:15:23 +0100
-Message-ID: <1326881723.2316.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <B97B134FACB2024DB45F524AB0A7B7F2058B01D4@XMB-BGL-419.cisco.com>
-	 <1326878864.2316.0.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <B97B134FACB2024DB45F524AB0A7B7F2058B020A@XMB-BGL-419.cisco.com>
+Subject: Re: Bugzilla 42595
+Date: Wed, 18 Jan 2012 11:58:31 +0100
+Message-ID: <1326884311.2316.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1326817699.2259.32.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4F15D417.4050005@fud.no> <1326843827.2606.35.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "Prashant Batra (prbatra)" <prbatra@cisco.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Tore Anderson <tore@fud.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:41085 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757193Ab2ARKP2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 05:15:28 -0500
-Received: by lahc1 with SMTP id c1so2089918lah.19
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 02:15:27 -0800 (PST)
-In-Reply-To: <B97B134FACB2024DB45F524AB0A7B7F2058B020A@XMB-BGL-419.cisco.com>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:45136 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752984Ab2ARK6g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 05:58:36 -0500
+Received: by vcbfo1 with SMTP id fo1so2546355vcb.19
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 02:58:35 -0800 (PST)
+In-Reply-To: <1326843827.2606.35.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 18 janvier 2012 =C3=A0 15:38 +0530, Prashant Batra (prbatra=
-) a
-=C3=A9crit :
-> 2.6.18 kernel.
+Le mercredi 18 janvier 2012 =C3=A0 00:43 +0100, Eric Dumazet a =C3=A9cr=
+it :
+> Le mardi 17 janvier 2012 =C3=A0 21:03 +0100, Tore Anderson a =C3=A9cr=
+it :
 >=20
-
-Please dont top post on netdev mailing list
-
-> -----Original Message-----
-> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]=20
-> Sent: Wednesday, January 18, 2012 2:58 PM
-> To: Prashant Batra (prbatra)
-> Cc: netdev@vger.kernel.org
-> Subject: Re: route problem
+> >=20
+> > 3) There seems to be a bug related to generating the TCP checksum o=
+f
+> > SYN/ACK packets to destinations with the allfrag features set. I ju=
+st
+> > submitted a bug report about this:
+> >=20
+> > https://bugzilla.kernel.org/show_bug.cgi?id=3D42595
+> >=20
+> > This makes the allfrag feature pretty much useless for me, as I can=
+ only
+> > successfully establish a single TCP session from a client behind a =
+<1280
+> > MTU link for the entire lifetime of the routing cache entry.
+> >=20
 >=20
-> Le mercredi 18 janvier 2012 =C3=A0 14:47 +0530, Prashant Batra (prbat=
-ra) a
-> =C3=A9crit :
-> > Hi,
-> >=20
-> > I have added a route for an external ip via a gateway which is avai=
-lable
-> > on the same machine.
-> > I want to capture the packets going to this external IP using PF_PA=
-CKET
-> > socket.
-> >=20
-> > #route=20
-> > Destination     Gateway         Genmask         Flags Metric Ref   =
- Use
-> > Iface
-> > 192.168.101.0   *               255.255.255.0   U     0      0     =
-   0
-> > eth1
-> > 172.16.60.0     192.168.101.10  255.255.255.0   UG    0      0     =
-   0
-> > eth1
-> >=20
-> > So, when a packet is sent to 172.16.60.*, kernel should send arp re=
-quest
-> > for this gw IP 192.168.101.10. As gw IP is locally reachable,=20
-> > It should send its mac address in arp-response and kernel should se=
-nd
-> > the packet via that interface.
-> >=20
-> > But what I am seeing is that instead of asking the gateway IP, kern=
-el
-> > sends a arp request for destingation ip(172.16.60.*)
-> >=20
-> > #tcpdump -I eth1
-> > 04:12:45.334966 arp who-has 172.16.60.2 tell 192.168.101.20
-> > 04:12:46.334839 arp who-has 172.16.60.2 tell 192.168.101.20
-> > 04:12:48.334584 arp who-has 172.16.60.2 tell 192.168.101.20
-> > 04:12:49.334457 arp who-has 172.16.60.2 tell 192.168.101.20
-> > 04:12:50.335329 arp who-has 172.16.60.2 tell 192.168.101.20
-> > 04:12:52.335075 arp who-has 172.16.60.2 tell 192.168.101.20
-> > 04:12:53.334947 arp who-has 172.16.60.2 tell 192.168.101.20
-> > 04:12:54.334821 arp who-has 172.16.60.2 tell 192.168.101.20
-> >=20
+> It seems we dont handle skb ip_summed CHECKSUM_PARTIAL=20
+> in ip6_fragment() slow_path
 
-This comes from another machine, since your eth1 addr is 192.168.101.10
+
+and many drivers dont handle the presence of a frag header.
+
+if (ipv6_hdr(skb)->nexthdr =3D=3D IPPROTO_TCP)
+
+I suspect we'll have to compute the checksum in software...
