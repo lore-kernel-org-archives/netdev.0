@@ -1,7 +1,7 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH net 4/6] mlx4_core: removed function index from vf.
-Date: Wed, 18 Jan 2012 21:41:12 +0200
-Message-ID: <4F172058.1070808@mellanox.co.il>
+Subject: [PATCH net 6/6]  mlx4_core: map async events to arbitrary slave eqs
+Date: Wed, 18 Jan 2012 21:41:33 +0200
+Message-ID: <4F17206D.8060407@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
@@ -9,268 +9,155 @@ Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
 	<marcela@dev.mellanox.co.il>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:34609 "HELO
+Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:49250 "HELO
 	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756580Ab2ARTmR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 14:42:17 -0500
+	by vger.kernel.org with SMTP id S1757349Ab2ARTmZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 14:42:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From f8bc7b4c53455bbdef25e354d43401d663d71d56 Mon Sep 17 00:00:00 2001
 From: Marcel Apfelbaum <marcela@dev.mellanox.co.il>
-Date: Sun, 15 Jan 2012 18:08:29 +0200
-Subject: [PATCH] mlx4_core: removed function nr from vfs
 
-The Virtual Functions should not be aware their function number.
+Slave async events were mapped to single eq. This patch fixes this issue, so
+the slaves can map the async events to any eq.
 
 Signed-off-by: Marcel Apfelbaum <marcela@dev.mellanox.co.il>
 Reviewed-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 ---
- drivers/net/ethernet/mellanox/mlx4/cq.c            |    4 +-
- drivers/net/ethernet/mellanox/mlx4/eq.c            |    4 +-
- drivers/net/ethernet/mellanox/mlx4/fw.c            |    7 ----
- drivers/net/ethernet/mellanox/mlx4/fw.h            |    1 -
- drivers/net/ethernet/mellanox/mlx4/main.c          |    1 -
- drivers/net/ethernet/mellanox/mlx4/mr.c            |    2 +-
- drivers/net/ethernet/mellanox/mlx4/pd.c            |    3 +-
- drivers/net/ethernet/mellanox/mlx4/qp.c            |    2 +-
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   35 --------------------
- drivers/net/ethernet/mellanox/mlx4/srq.c           |    2 +-
- 10 files changed, 8 insertions(+), 53 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           |    9 ++++++++-
+ drivers/net/ethernet/mellanox/mlx4/eq.c            |   17 +++++++----------
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    8 +++++---
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    4 ++--
+ 4 files changed, 22 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cq.c b/drivers/net/ethernet/mellanox/mlx4/cq.c
-index 475f9d6..7e64033 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cq.c
-@@ -96,7 +96,7 @@ void mlx4_cq_event(struct mlx4_dev *dev, u32 cqn, int event_type)
- static int mlx4_SW2HW_CQ(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox,
- 			 int cq_num)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index 978f593..405e6ac 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -1247,6 +1247,7 @@ static void mlx4_master_do_cmd(struct mlx4_dev *dev, int slave, u8 cmd,
+ 	u32 reply;
+ 	u32 slave_status = 0;
+ 	u8 is_going_down = 0;
++	int i;
+ 
+ 	slave_state[slave].comm_toggle ^= 1;
+ 	reply = (u32) slave_state[slave].comm_toggle << 31;
+@@ -1258,6 +1259,10 @@ static void mlx4_master_do_cmd(struct mlx4_dev *dev, int slave, u8 cmd,
+ 	if (cmd == MLX4_COMM_CMD_RESET) {
+ 		mlx4_warn(dev, "Received reset from slave:%d\n", slave);
+ 		slave_state[slave].active = false;
++		for (i = 0; i < MLX4_EVENT_TYPES_NUM; ++i) {
++				slave_state[slave].event_eq[i].eqn = -1;
++				slave_state[slave].event_eq[i].token = 0;
++		}
+ 		/*check if we are in the middle of FLR process,
+ 		if so return "retry" status to the slave*/
+ 		if (MLX4_COMM_CMD_FLR == slave_state[slave].last_cmd) {
+@@ -1452,7 +1457,7 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
  {
--	return mlx4_cmd(dev, mailbox->dma | dev->caps.function, cq_num, 0,
-+	return mlx4_cmd(dev, mailbox->dma, cq_num, 0,
- 			MLX4_CMD_SW2HW_CQ, MLX4_CMD_TIME_CLASS_A,
- 			MLX4_CMD_WRAPPED);
- }
-@@ -111,7 +111,7 @@ static int mlx4_MODIFY_CQ(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox
- static int mlx4_HW2SW_CQ(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox,
- 			 int cq_num)
- {
--	return mlx4_cmd_box(dev, dev->caps.function, mailbox ? mailbox->dma : 0,
-+	return mlx4_cmd_box(dev, 0, mailbox ? mailbox->dma : 0,
- 			    cq_num, mailbox ? 0 : 1, MLX4_CMD_HW2SW_CQ,
- 			    MLX4_CMD_TIME_CLASS_A, MLX4_CMD_WRAPPED);
- }
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	struct mlx4_slave_state *s_state;
+-	int i, err, port;
++	int i, j, err, port;
+ 
+ 	priv->mfunc.vhcr = dma_alloc_coherent(&(dev->pdev->dev), PAGE_SIZE,
+ 					    &priv->mfunc.vhcr_dma,
+@@ -1485,6 +1490,8 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
+ 		for (i = 0; i < dev->num_slaves; ++i) {
+ 			s_state = &priv->mfunc.master.slave_state[i];
+ 			s_state->last_cmd = MLX4_COMM_CMD_RESET;
++			for (j = 0; j < MLX4_EVENT_TYPES_NUM; ++j)
++				s_state->event_eq[j].eqn = -1;
+ 			__raw_writel((__force u32) 0,
+ 				     &priv->mfunc.comm[i].slave_write);
+ 			__raw_writel((__force u32) 0,
 diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
-index 1e9b55e..e163de6 100644
+index e163de6..55d7bd4 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/eq.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
-@@ -546,7 +546,7 @@ static int mlx4_MAP_EQ(struct mlx4_dev *dev, u64 event_mask, int unmap,
- static int mlx4_SW2HW_EQ(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox,
- 			 int eq_num)
+@@ -513,25 +513,22 @@ int mlx4_MAP_EQ_wrapper(struct mlx4_dev *dev, int slave,
  {
--	return mlx4_cmd(dev, mailbox->dma | dev->caps.function, eq_num, 0,
-+	return mlx4_cmd(dev, mailbox->dma, eq_num, 0,
- 			MLX4_CMD_SW2HW_EQ, MLX4_CMD_TIME_CLASS_A,
- 			MLX4_CMD_WRAPPED);
- }
-@@ -554,7 +554,7 @@ static int mlx4_SW2HW_EQ(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox,
- static int mlx4_HW2SW_EQ(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox,
- 			 int eq_num)
- {
--	return mlx4_cmd_box(dev, dev->caps.function, mailbox->dma, eq_num,
-+	return mlx4_cmd_box(dev, 0, mailbox->dma, eq_num,
- 			    0, MLX4_CMD_HW2SW_EQ, MLX4_CMD_TIME_CLASS_A,
- 			    MLX4_CMD_WRAPPED);
- }
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index a424a19..8a21e10 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -158,7 +158,6 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	struct mlx4_slave_event_eq_info *event_eq =
+-		&priv->mfunc.master.slave_state[slave].event_eq;
++		priv->mfunc.master.slave_state[slave].event_eq;
+ 	u32 in_modifier = vhcr->in_modifier;
+ 	u32 eqn = in_modifier & 0x1FF;
+ 	u64 in_param =  vhcr->in_param;
+ 	int err = 0;
++	int i;
  
- #define QUERY_FUNC_CAP_FLAGS_OFFSET		0x0
- #define QUERY_FUNC_CAP_NUM_PORTS_OFFSET		0x1
--#define QUERY_FUNC_CAP_FUNCTION_OFFSET		0x3
- #define QUERY_FUNC_CAP_PF_BHVR_OFFSET		0x4
- #define QUERY_FUNC_CAP_QP_QUOTA_OFFSET		0x10
- #define QUERY_FUNC_CAP_CQ_QUOTA_OFFSET		0x14
-@@ -182,9 +181,6 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
- 		field = 1 << 7; /* enable only ethernet interface */
- 		MLX4_PUT(outbox->buf, field, QUERY_FUNC_CAP_FLAGS_OFFSET);
- 
--		field = slave;
--		MLX4_PUT(outbox->buf, field, QUERY_FUNC_CAP_FUNCTION_OFFSET);
--
- 		field = dev->caps.num_ports;
- 		MLX4_PUT(outbox->buf, field, QUERY_FUNC_CAP_NUM_PORTS_OFFSET);
- 
-@@ -249,9 +245,6 @@ int mlx4_QUERY_FUNC_CAP(struct mlx4_dev *dev, struct mlx4_func_cap *func_cap)
- 		goto out;
- 	}
- 
--	MLX4_GET(field, outbox, QUERY_FUNC_CAP_FUNCTION_OFFSET);
--	func_cap->function = field;
--
- 	MLX4_GET(field, outbox, QUERY_FUNC_CAP_NUM_PORTS_OFFSET);
- 	func_cap->num_ports = field;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.h b/drivers/net/ethernet/mellanox/mlx4/fw.h
-index 119e0cc..e1a5fa5 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.h
-@@ -119,7 +119,6 @@ struct mlx4_dev_cap {
- };
- 
- struct mlx4_func_cap {
--	u8	function;
- 	u8	num_ports;
- 	u8	flags;
- 	u32	pf_context_behaviour;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 6bb62c5..91c8bc9 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -471,7 +471,6 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
- 		return -ENOSYS;
- 	}
- 
--	dev->caps.function		= func_cap.function;
- 	dev->caps.num_ports		= func_cap.num_ports;
- 	dev->caps.num_qps		= func_cap.qp_quota;
- 	dev->caps.num_srqs		= func_cap.srq_quota;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
-index 01df556..8deeef9 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mr.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
-@@ -291,7 +291,7 @@ static u32 key_to_hw_index(u32 key)
- static int mlx4_SW2HW_MPT(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox,
- 			  int mpt_index)
- {
--	return mlx4_cmd(dev, mailbox->dma | dev->caps.function , mpt_index,
-+	return mlx4_cmd(dev, mailbox->dma, mpt_index,
- 			0, MLX4_CMD_SW2HW_MPT, MLX4_CMD_TIME_CLASS_B,
- 			MLX4_CMD_WRAPPED);
- }
-diff --git a/drivers/net/ethernet/mellanox/mlx4/pd.c b/drivers/net/ethernet/mellanox/mlx4/pd.c
-index 5c9a54d..db4746d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/pd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/pd.c
-@@ -52,8 +52,7 @@ int mlx4_pd_alloc(struct mlx4_dev *dev, u32 *pdn)
- 	*pdn = mlx4_bitmap_alloc(&priv->pd_bitmap);
- 	if (*pdn == -1)
- 		return -ENOMEM;
--	if (mlx4_is_mfunc(dev))
--		*pdn |= (dev->caps.function + 1) << NOT_MASKED_PD_BITS;
+ 	if (slave == dev->caps.function)
+ 		err = mlx4_cmd(dev, in_param, (in_modifier & 0x80000000) | eqn,
+ 			       0, MLX4_CMD_MAP_EQ, MLX4_CMD_TIME_CLASS_B,
+ 			       MLX4_CMD_NATIVE);
+-	if (!err) {
+-		if (in_modifier >> 31) {
+-			/* unmap */
+-			event_eq->event_type &= ~in_param;
+-		} else {
+-			event_eq->eqn = eqn;
+-			event_eq->event_type = in_param;
+-		}
+-	}
++	if (!err)
++		for (i = 0; i < MLX4_EVENT_TYPES_NUM; ++i)
++			if (in_param & (1LL << i))
++				event_eq[i].eqn = in_modifier >> 31 ? -1 : eqn;
 +
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(mlx4_pd_alloc);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
-index 6b03ac8..738f950 100644
---- a/drivers/net/ethernet/mellanox/mlx4/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
-@@ -162,7 +162,7 @@ static int __mlx4_qp_modify(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
- 	((struct mlx4_qp_context *) (mailbox->buf + 8))->local_qpn =
- 		cpu_to_be32(qp->qpn);
- 
--	ret = mlx4_cmd(dev, mailbox->dma | dev->caps.function,
-+	ret = mlx4_cmd(dev, mailbox->dma,
- 		       qp->qpn | (!!sqd_event << 31),
- 		       new_state == MLX4_QP_STATE_RST ? 2 : 0,
- 		       op[cur_state][new_state], MLX4_CMD_TIME_CLASS_C, native);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index ed20751..a30cf19 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -1561,11 +1561,6 @@ static int mr_get_mtt_size(struct mlx4_mpt_entry *mpt)
- 	return be32_to_cpu(mpt->mtt_sz);
- }
- 
--static int mr_get_pdn(struct mlx4_mpt_entry *mpt)
--{
--	return be32_to_cpu(mpt->pd_flags) & 0xffffff;
--}
--
- static int qp_get_mtt_addr(struct mlx4_qp_context *qpc)
- {
- 	return be32_to_cpu(qpc->mtt_base_addr_l) & 0xfffffff8;
-@@ -1602,16 +1597,6 @@ static int qp_get_mtt_size(struct mlx4_qp_context *qpc)
- 	return total_pages;
- }
- 
--static int qp_get_pdn(struct mlx4_qp_context *qpc)
--{
--	return be32_to_cpu(qpc->pd) & 0xffffff;
--}
--
--static int pdn2slave(int pdn)
--{
--	return (pdn >> NOT_MASKED_PD_BITS) - 1;
--}
--
- static int check_mtt_range(struct mlx4_dev *dev, int slave, int start,
- 			   int size, struct res_mtt *mtt)
- {
-@@ -1656,11 +1641,6 @@ int mlx4_SW2HW_MPT_wrapper(struct mlx4_dev *dev, int slave,
- 		mpt->mtt = mtt;
- 	}
- 
--	if (pdn2slave(mr_get_pdn(inbox->buf)) != slave) {
--		err = -EPERM;
--		goto ex_put;
--	}
--
- 	err = mlx4_DMA_wrapper(dev, slave, vhcr, inbox, outbox, cmd);
- 	if (err)
- 		goto ex_put;
-@@ -1792,11 +1772,6 @@ int mlx4_RST2INIT_QP_wrapper(struct mlx4_dev *dev, int slave,
- 	if (err)
- 		goto ex_put_mtt;
- 
--	if (pdn2slave(qp_get_pdn(qpc)) != slave) {
--		err = -EPERM;
--		goto ex_put_mtt;
--	}
--
- 	err = get_res(dev, slave, rcqn, RES_CQ, &rcq);
- 	if (err)
- 		goto ex_put_mtt;
-@@ -2289,11 +2264,6 @@ ex_put:
  	return err;
  }
  
--static int srq_get_pdn(struct mlx4_srq_context *srqc)
--{
--	return be32_to_cpu(srqc->pd) & 0xffffff;
--}
--
- static int srq_get_mtt_size(struct mlx4_srq_context *srqc)
- {
- 	int log_srq_size = (be32_to_cpu(srqc->state_logsize_srqn) >> 24) & 0xf;
-@@ -2333,11 +2303,6 @@ int mlx4_SW2HW_SRQ_wrapper(struct mlx4_dev *dev, int slave,
- 	if (err)
- 		goto ex_put_mtt;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index a80121a..c92269f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -388,9 +388,8 @@ struct mlx4_slave_eqe {
+ };
  
--	if (pdn2slave(srq_get_pdn(srqc)) != slave) {
--		err = -EPERM;
--		goto ex_put_mtt;
--	}
--
- 	err = mlx4_DMA_wrapper(dev, slave, vhcr, inbox, outbox, cmd);
- 	if (err)
- 		goto ex_put_mtt;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/srq.c b/drivers/net/ethernet/mellanox/mlx4/srq.c
-index 2823fff..feda6c0 100644
---- a/drivers/net/ethernet/mellanox/mlx4/srq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/srq.c
-@@ -67,7 +67,7 @@ void mlx4_srq_event(struct mlx4_dev *dev, u32 srqn, int event_type)
- static int mlx4_SW2HW_SRQ(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox,
- 			  int srq_num)
- {
--	return mlx4_cmd(dev, mailbox->dma | dev->caps.function, srq_num, 0,
-+	return mlx4_cmd(dev, mailbox->dma, srq_num, 0,
- 			MLX4_CMD_SW2HW_SRQ, MLX4_CMD_TIME_CLASS_A,
- 			MLX4_CMD_WRAPPED);
- }
+ struct mlx4_slave_event_eq_info {
+-	u32 eqn;
++	int eqn;
+ 	u16 token;
+-	u64 event_type;
+ };
+ 
+ struct mlx4_profile {
+@@ -449,6 +448,8 @@ struct mlx4_steer_index {
+ 	struct list_head duplicates;
+ };
+ 
++#define MLX4_EVENT_TYPES_NUM 64
++
+ struct mlx4_slave_state {
+ 	u8 comm_toggle;
+ 	u8 last_cmd;
+@@ -461,7 +462,8 @@ struct mlx4_slave_state {
+ 	struct mlx4_slave_eqe eq[MLX4_MFUNC_MAX_EQES];
+ 	struct list_head mcast_filters[MLX4_MAX_PORTS + 1];
+ 	struct mlx4_vlan_fltr *vlan_filter[MLX4_MAX_PORTS + 1];
+-	struct mlx4_slave_event_eq_info event_eq;
++	/* event type to eq number lookup */
++	struct mlx4_slave_event_eq_info event_eq[MLX4_EVENT_TYPES_NUM];
+ 	u16 eq_pi;
+ 	u16 eq_ci;
+ 	spinlock_t lock;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index a30cf19..dcd819b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -2023,10 +2023,10 @@ int mlx4_GEN_EQE(struct mlx4_dev *dev, int slave, struct mlx4_eqe *eqe)
+ 	if (!priv->mfunc.master.slave_state)
+ 		return -EINVAL;
+ 
+-	event_eq = &priv->mfunc.master.slave_state[slave].event_eq;
++	event_eq = &priv->mfunc.master.slave_state[slave].event_eq[eqe->type];
+ 
+ 	/* Create the event only if the slave is registered */
+-	if ((event_eq->event_type & (1 << eqe->type)) == 0)
++	if (event_eq->eqn < 0)
+ 		return 0;
+ 
+ 	mutex_lock(&priv->mfunc.master.gen_eqe_mutex[slave]);
 -- 
 1.5.4.3
