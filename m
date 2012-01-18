@@ -1,27 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net/ethernet/xilinx: added Xilinx AXI Ethernet
- driver
-Date: Wed, 18 Jan 2012 16:40:31 -0500 (EST)
-Message-ID: <20120118.164031.1622379199226782796.davem@davemloft.net>
-References: <20120118113746.44593p65iobrg4ca@mail.your-server.de>
+Subject: Re: [PATCH] pch_gbe: Do not abort probe on bad MAC
+Date: Wed, 18 Jan 2012 16:41:45 -0500 (EST)
+Message-ID: <20120118.164145.973182321372504360.davem@davemloft.net>
+References: <965df7d0c78e4971faf8464ec3da0bb114e9b5ee.1326743419.git.dvhart@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	ariane.keller@tik.ee.ethz.ch
-To: danborkmann@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40860 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752112Ab2ARVlU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 16:41:20 -0500
-In-Reply-To: <20120118113746.44593p65iobrg4ca@mail.your-server.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, arjan@linux.intel.com,
+	alan@linux.intel.com, tomoya.rohm@gmail.com,
+	jeffrey.t.kirsher@intel.com, paul.gortmaker@windriver.com,
+	jdmason@kudzu.us, netdev@vger.kernel.org,
+	broonie@opensource.wolfsonmicro.com, David.Laight@ACULAB.COM,
+	joe@perches.com
+To: dvhart@linux.intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <965df7d0c78e4971faf8464ec3da0bb114e9b5ee.1326743419.git.dvhart@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Darren Hart <dvhart@linux.intel.com>
+Date: Mon, 16 Jan 2012 11:50:19 -0800
 
-Your patch is severely corrupted by your email client, long lines
-have been truncated, spacing has been reformatted, etc.
+> If the MAC is invalid or not implemented, do not abort the probe. Issue
+> a warning and prevent bringing the interface up until a MAC is set manually
+> (via ifconfig $IFACE hw ether $MAC).
+> 
+> Tested on two platforms, one with a valid MAC, the other without a MAC. The real
+> MAC is used if present, the interface fails to come up until the MAC is set on
+> the other. They successfully get an IP over DHCP and pass a simple ping and
+> login over ssh test.
+> 
+> This is meant to allow the Inforce SYS940X development board:
+> http://www.inforcecomputing.com/SYS940X_ECX.html
+> (and others suffering from a missing MAC) to work with the mainline kernel.
+> Without this patch, the probe will fail and the interface will not be created,
+> preventing the user from configuring the MAC manually.
+> 
+> This does not make any attempt to address a missing or invalid MAC for the
+> pch_phub driver.
+> 
+> Signed-off-by: Darren Hart <dvhart@linux.intel.com>
 
-Do not resubmit this patch until you can email it to yourself
-and apply what you receive successfully.
+Applied, thanks.
