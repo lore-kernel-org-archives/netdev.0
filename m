@@ -1,68 +1,59 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] add netconsole support for xen-netfront
-Date: Wed, 18 Jan 2012 08:59:36 +0000
-Message-ID: <1326877176.29475.37.camel@dagon.hellion.org.uk>
-References: <1326271956-25565-1-git-send-email-zhenzhong.duan@oracle.com>
-	 <20120112141745.GA7685@phenom.dumpdata.com>
-	 <1326452769.17210.331.camel@zakaz.uk.xensource.com>
-	 <4F15EB3E.3060700@oracle.com> <20120117215100.GA25367@phenom.dumpdata.com>
-	 <4F160113.1030503@oracle.com>
+From: "Prashant Batra (prbatra)" <prbatra@cisco.com>
+Subject: route problem
+Date: Wed, 18 Jan 2012 14:47:50 +0530
+Message-ID: <B97B134FACB2024DB45F524AB0A7B7F2058B01D4@XMB-BGL-419.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Zhenzhong Duan <zhenzhong.duan@oracle.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"gurudas.pai@oracle.com" <gurudas.pai@oracle.com>,
-	Jeremy Fitzhardinge <jeremy@goop.org>
-To: Tina Yang <tina.yang@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F160113.1030503@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bgl-iport-1.cisco.com ([72.163.197.25]:44092 "EHLO
+	bgl-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756610Ab2ARJRx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 04:17:53 -0500
+Received: from xbh-bgl-411.cisco.com (xbh-bgl-411.cisco.com [72.163.129.201])
+	by bgl-core-1.cisco.com (8.14.3/8.14.3) with ESMTP id q0I9HpZx029204
+	for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 09:17:51 GMT
+Content-class: urn:content-classes:message
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-01-17 at 23:15 +0000, Tina Yang wrote:
-> On 1/17/2012 1:51 PM, Konrad Rzeszutek Wilk wrote:
-> > On Tue, Jan 17, 2012 at 01:42:22PM -0800, Tina Yang wrote:
-> >> On 1/13/2012 3:06 AM, Ian Campbell wrote:
-> >> Although netdump is now obsolete, I think it's always a good practice
-> >> to preserve caller's irq status as we had a very bad experience
-> >> chasing a similar problem caused by such a irq change in RDS
-> > Did you find the culprit of it? Was there a patch for that in the
-> > upstream kernel?
-> Yes.  It has nothing to do with net drivers but same cause
-> elsewhere in the kernel.
+Hi,
 
-I didn't think start_xmit could be called with interrupts disabled or
-from interrupt context but perhaps I am wrong about that or perhaps
-netconsole changes things?
+I have added a route for an external ip via a gateway which is available
+on the same machine.
+I want to capture the packets going to this external IP using PF_PACKET
+socket.
 
-Right, Documentation/networking/netdevices.txt states that start_xmit
-can be called with interrupts disabled by netconsole and therefore using
-the irqsave/restore locking in this function is, AFAICT, correct.
+#route 
+Destination     Gateway         Genmask         Flags Metric Ref    Use
+Iface
+192.168.101.0   *               255.255.255.0   U     0      0        0
+eth1
+172.16.60.0     192.168.101.10  255.255.255.0   UG    0      0        0
+eth1
 
-> >> in the not too long ago past.
-> > OK, it sounds like it was issues in the past but might not be the
-> > case anymore.
-> >
-> > Could please re-test it without that spinlock irqsave patch using
-> > the upstream kernel (or just UEK2 since it is an 3.0 type kernel).
-> Shouldn't be the case now, but don't know about the future.
-> The fact is as long as there is a new caller that has the expectation
-> of preserved irq status, it would be a problem.
+So, when a packet is sent to 172.16.60.*, kernel should send arp request
+for this gw IP 192.168.101.10. As gw IP is locally reachable, 
+It should send its mac address in arp-response and kernel should send
+the packet via that interface.
 
-The question is not so much what may or may not be a problem in the
-future but what the requirements of this function are, in particular
-those imposed by the network stack for the start_xmit function.
+But what I am seeing is that instead of asking the gateway IP, kernel
+sends a arp request for destingation ip(172.16.60.*)
 
-> As Ian said, some net drivers have been cautious in this regard already by
-> saving/restoring the status, but apparently not everyone.
+#tcpdump -I eth1
+04:12:45.334966 arp who-has 172.16.60.2 tell 192.168.101.20
+04:12:46.334839 arp who-has 172.16.60.2 tell 192.168.101.20
+04:12:48.334584 arp who-has 172.16.60.2 tell 192.168.101.20
+04:12:49.334457 arp who-has 172.16.60.2 tell 192.168.101.20
+04:12:50.335329 arp who-has 172.16.60.2 tell 192.168.101.20
+04:12:52.335075 arp who-has 172.16.60.2 tell 192.168.101.20
+04:12:53.334947 arp who-has 172.16.60.2 tell 192.168.101.20
+04:12:54.334821 arp who-has 172.16.60.2 tell 192.168.101.20
 
-I was talking about the interrupt/poll handler here since I hadn't yet
-noticed that the locking change was also in start_xmit and not just the
-poll/interrupt paths (which was actually just code motion and not a
-locking change in any case).
 
-Ian.
+Is my understanding correct?
+
+Regards,
+Prashant
