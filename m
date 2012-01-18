@@ -1,102 +1,40 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 4/3] sha512: reduce stack usage even on i386
-Date: Wed, 18 Jan 2012 21:02:10 +0300
-Message-ID: <20120118180210.GA22733@p183.telecom.by>
-References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF43@saturn3.aculab.com>
- <1326709382.2255.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <CACVxJT_cZAdxNOFTpK5seUXFZU+YB3zbe6LF1nnyzo32ae14xw@mail.gmail.com>
+From: Simon Chen <simonchennj@gmail.com>
+Subject: Wrong mac in arp response in bonded interfaces
+Date: Wed, 18 Jan 2012 13:52:11 -0500
+Message-ID: <CANj2EbfW-YP41-=w+qGxfV-QMaBOxtijOKFDUt+o-kLsUbf1ag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@aculab.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	ken@codelabs.ch, Steffen Klassert <steffen.klassert@secunet.com>,
-	security@kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CACVxJT_cZAdxNOFTpK5seUXFZU+YB3zbe6LF1nnyzo32ae14xw@mail.gmail.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:38205 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758114Ab2ARSwN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 13:52:13 -0500
+Received: by werb13 with SMTP id b13so623576wer.19
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 10:52:12 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix still excessive stack usage on i386.
+Hi all,
 
-There is too much loop unrolling going on, despite W[16] being used,
-gcc screws up this for some reason. So, don't be smart, use simple code
-from SHA-512 definition, this keeps code size _and_ stack usage back
-under control even on i386:
+Something really weird with interface bonding...
 
-	-14b:   81 ec 9c 03 00 00       sub    $0x39c,%esp
-	+149:   81 ec 64 01 00 00       sub    $0x164,%esp
+I have eth0 and eth1, with MAC address xx:44 and xx:45. The bonded
+interface chose to use xx:45 as its MAC.
 
-	$ size ../sha512_generic-i386-00*
-	   text    data     bss     dec     hex filename
-	  15521     712       0   16233    3f69 ../sha512_generic-i386-000.o
-	   4225     712       0    4937    1349 ../sha512_generic-i386-001.o
+I configured an IP on the bonded interface, and try to ping the
+default gw. The ARP from the server for the .1 is answered by the GW.
+The server then sends out ICMP to the GW. The problem is the GW is not
+responding to the ping.
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-Cc: stable@vger.kernel.org
----
+I then logged onto the GW (a switch) - apparently, the ARP table on
+the GW shows that my server's IP is associated with xx:44 MAC address.
+So, actually the GW is responding the ICMP, just to the wrong MAC
+dest.
 
- crypto/sha512_generic.c |   42 ++++++++++++++++++++----------------------
- 1 file changed, 20 insertions(+), 22 deletions(-)
+Any idea how the xx:44 MAC somehow polluted the ARP table on my GW?
+How can I make sure my server always sends out packets with xx:45 MAC
+via the bonded interface?
 
---- a/crypto/sha512_generic.c
-+++ b/crypto/sha512_generic.c
-@@ -95,35 +95,33 @@ sha512_transform(u64 *state, const u8 *input)
- #define SHA512_0_15(i, a, b, c, d, e, f, g, h)			\
- 	t1 = h + e1(e) + Ch(e, f, g) + sha512_K[i] + W[i];	\
- 	t2 = e0(a) + Maj(a, b, c);				\
--	d += t1;						\
--	h = t1 + t2
-+	h = g;							\
-+	g = f;							\
-+	f = e;							\
-+	e = d + t1;						\
-+	d = c;							\
-+	c = b;							\
-+	b = a;							\
-+	a = t1 + t2
- 
- #define SHA512_16_79(i, a, b, c, d, e, f, g, h)			\
- 	BLEND_OP(i, W);						\
--	t1 = h + e1(e) + Ch(e, f, g) + sha512_K[i] + W[(i)&15];	\
-+	t1 = h + e1(e) + Ch(e, f, g) + sha512_K[i] + W[i & 15];	\
- 	t2 = e0(a) + Maj(a, b, c);				\
--	d += t1;						\
--	h = t1 + t2
--
--	for (i = 0; i < 16; i += 8) {
-+	h = g;							\
-+	g = f;							\
-+	f = e;							\
-+	e = d + t1;						\
-+	d = c;							\
-+	c = b;							\
-+	b = a;							\
-+	a = t1 + t2
-+
-+	for (i = 0; i < 16; i++) {
- 		SHA512_0_15(i, a, b, c, d, e, f, g, h);
--		SHA512_0_15(i + 1, h, a, b, c, d, e, f, g);
--		SHA512_0_15(i + 2, g, h, a, b, c, d, e, f);
--		SHA512_0_15(i + 3, f, g, h, a, b, c, d, e);
--		SHA512_0_15(i + 4, e, f, g, h, a, b, c, d);
--		SHA512_0_15(i + 5, d, e, f, g, h, a, b, c);
--		SHA512_0_15(i + 6, c, d, e, f, g, h, a, b);
--		SHA512_0_15(i + 7, b, c, d, e, f, g, h, a);
- 	}
--	for (i = 16; i < 80; i += 8) {
-+	for (i = 16; i < 80; i++) {
- 		SHA512_16_79(i, a, b, c, d, e, f, g, h);
--		SHA512_16_79(i + 1, h, a, b, c, d, e, f, g);
--		SHA512_16_79(i + 2, g, h, a, b, c, d, e, f);
--		SHA512_16_79(i + 3, f, g, h, a, b, c, d, e);
--		SHA512_16_79(i + 4, e, f, g, h, a, b, c, d);
--		SHA512_16_79(i + 5, d, e, f, g, h, a, b, c);
--		SHA512_16_79(i + 6, c, d, e, f, g, h, a, b);
--		SHA512_16_79(i + 7, b, c, d, e, f, g, h, a);
- 	}
- 
- 	state[0] += a; state[1] += b; state[2] += c; state[3] += d;
+Thanks.
+-Simon
