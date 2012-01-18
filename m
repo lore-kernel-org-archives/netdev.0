@@ -1,41 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Bugzilla 42595
-Date: Wed, 18 Jan 2012 00:43:47 +0100
-Message-ID: <1326843827.2606.35.camel@edumazet-laptop>
-References: <1326817699.2259.32.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4F15D417.4050005@fud.no>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH net] tg3: Fix single-vector MSI-X code
+Date: Tue, 17 Jan 2012 17:27:23 -0800
+Message-ID: <1326850043-23417-1-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Tore Anderson <tore@fud.no>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mcarlson@broadcom.com, mchan@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:45148 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932080Ab2AQXny (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2012 18:43:54 -0500
-Received: by wgbdq11 with SMTP id dq11so2534071wgb.1
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2012 15:43:53 -0800 (PST)
-In-Reply-To: <4F15D417.4050005@fud.no>
+Received: from mms3.broadcom.com ([216.31.210.19]:2271 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754260Ab2ARB2p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jan 2012 20:28:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 17 janvier 2012 =C3=A0 21:03 +0100, Tore Anderson a =C3=A9crit=
- :
+Kdump kernels leave MSI-X interrupts (as setup by the crashed kernel)
+enabled.  However, kdump only enables one CPU in the new environment,
+thus causing tg3 to abort MSI-X setup.  When the driver attempts to
+enable INTA or MSI interrupt modes on a kdump kernel, interrupt
+delivery fails.
 
->=20
-> 3) There seems to be a bug related to generating the TCP checksum of
-> SYN/ACK packets to destinations with the allfrag features set. I just
-> submitted a bug report about this:
->=20
-> https://bugzilla.kernel.org/show_bug.cgi?id=3D42595
->=20
-> This makes the allfrag feature pretty much useless for me, as I can o=
-nly
-> successfully establish a single TCP session from a client behind a <1=
-280
-> MTU link for the entire lifetime of the routing cache entry.
->=20
+This patch attempts to workaround the problem by forcing the driver
+to enable a single MSI-X interrupt.  In such a configuration, the
+device's multivector interrupt mode must be disabled.
 
-It seems we dont handle skb ip_summed CHECKSUM_PARTIAL=20
-in ip6_fragment() slow_path
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c |   27 ++++++++++++++-------------
+ 1 files changed, 14 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 076e02a..d529af9 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -8846,9 +8846,11 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 	tw32_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl);
+ 	udelay(100);
+ 
+-	if (tg3_flag(tp, USING_MSIX) && tp->irq_cnt > 1) {
++	if (tg3_flag(tp, USING_MSIX)) {
+ 		val = tr32(MSGINT_MODE);
+-		val |= MSGINT_MODE_MULTIVEC_EN | MSGINT_MODE_ENABLE;
++		val |= MSGINT_MODE_ENABLE;
++		if (tp->irq_cnt > 1)
++			val |= MSGINT_MODE_MULTIVEC_EN;
+ 		if (!tg3_flag(tp, 1SHOT_MSI))
+ 			val |= MSGINT_MODE_ONE_SHOT_DISABLE;
+ 		tw32(MSGINT_MODE, val);
+@@ -9548,19 +9550,18 @@ static int tg3_request_firmware(struct tg3 *tp)
+ 
+ static bool tg3_enable_msix(struct tg3 *tp)
+ {
+-	int i, rc, cpus = num_online_cpus();
++	int i, rc;
+ 	struct msix_entry msix_ent[tp->irq_max];
+ 
+-	if (cpus == 1)
+-		/* Just fallback to the simpler MSI mode. */
+-		return false;
+-
+-	/*
+-	 * We want as many rx rings enabled as there are cpus.
+-	 * The first MSIX vector only deals with link interrupts, etc,
+-	 * so we add one to the number of vectors we are requesting.
+-	 */
+-	tp->irq_cnt = min_t(unsigned, cpus + 1, tp->irq_max);
++	tp->irq_cnt = num_online_cpus();
++	if (tp->irq_cnt > 1) {
++		/* We want as many rx rings enabled as there are cpus.
++		 * In multiqueue MSI-X mode, the first MSI-X vector
++		 * only deals with link interrupts, etc, so we add
++		 * one to the number of vectors we are requesting.
++		 */
++		tp->irq_cnt = min_t(unsigned, tp->irq_cnt + 1, tp->irq_max);
++	}
+ 
+ 	for (i = 0; i < tp->irq_max; i++) {
+ 		msix_ent[i].entry  = i;
+-- 
+1.7.3.4
