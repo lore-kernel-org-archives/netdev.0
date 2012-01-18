@@ -1,50 +1,40 @@
-From: Tore Anderson <tore@fud.no>
-Subject: Re: [RFC] ipv6: =?UTF-8?Q?dst=5Fallfrag=28=29=20not=20taken=20into=20acco?=
- =?UTF-8?Q?unt=20by=20TCP?=
-Date: Wed, 18 Jan 2012 16:14:40 +0100
-Message-ID: <184325098dff696295968e09accafa9d@localhost>
-References: <1326817699.2259.32.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <4F15D417.4050005@fud.no> <1326831948.2606.2.camel@edumazet-laptop> <00f1ef555b452980aae95eb3028072f8@localhost> <1326895569.2316.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <9903c7bcb83314b495e7378dae23e703@localhost> <1326898746.2316.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] ipv6: dst_allfrag() not taken into account by TCP
+Date: Wed, 18 Jan 2012 16:40:53 +0100
+Message-ID: <1326901253.2316.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1326817699.2259.32.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4F15D417.4050005@fud.no> <1326831948.2606.2.camel@edumazet-laptop>
+	 <00f1ef555b452980aae95eb3028072f8@localhost>
+	 <1326895569.2316.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <9903c7bcb83314b495e7378dae23e703@localhost>
+	 <1326898746.2316.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <184325098dff696295968e09accafa9d@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Tore Anderson <tore@fud.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from greed.fud.no ([87.238.35.20]:36512 "EHLO greed.fud.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757652Ab2ARPOm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jan 2012 10:14:42 -0500
-In-Reply-To: <1326898746.2316.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:43296 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755445Ab2ARPk4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 10:40:56 -0500
+Received: by werb13 with SMTP id b13so460001wer.19
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 07:40:55 -0800 (PST)
+In-Reply-To: <184325098dff696295968e09accafa9d@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le mercredi 18 janvier 2012 =C3=A0 16:14 +0100, Tore Anderson a =C3=A9c=
+rit :
 
-* Eric Dumazet
+> No problem. Bottom line, I'd like a "min_pmtu" IPv6 sysctl or somethi=
+ng
+> similar that would allow me to configure it so that the kernel would=20
+> accept an arbitrary low PMTU being received in an ICMPv6 PTB. That=20
+> would prevent having to deal with the Fragmentation headers completel=
+y.
 
-> Le mercredi 18 janvier 2012 =C3=A0 15:43 +0100, Tore Anderson a =C3=A9=
-crit :
->=20
->> Another way of solving it and avoiding the Fragmentation headers
->> altogether would be to allow the "route MTU" to drop below 1280 as a
->> result of Path MTU Discovery. I opened an enchancement bug report
->> requesting this:
->>=20
->> https://bugzilla.kernel.org/show_bug.cgi?id=3D42599
->=20
-> Please dont open bugzilla entries for this kind of stuff, since there=
- is
-> no bug in this case.
+I agree, but first lets fix the bugs ;)
 
-Okay...but then what is the =C2=ABenhanchement=C2=BB severity's intende=
-d use?
-
-> netdev is more appropriate to discuss future improvements.
-
-No problem. Bottom line, I'd like a "min_pmtu" IPv6 sysctl or something
-similar that would allow me to configure it so that the kernel would=20
-accept an arbitrary low PMTU being received in an ICMPv6 PTB. That=20
-would prevent having to deal with the Fragmentation headers completely.
-
-Best regards,
---=20
-Tore Anderson
+Once the allfrag feature works again, we can try to avoid it.
