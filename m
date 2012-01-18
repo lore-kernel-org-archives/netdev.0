@@ -1,35 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tg3: Fix single-vector MSI-X code
-Date: Tue, 17 Jan 2012 23:56:40 -0500 (EST)
-Message-ID: <20120117.235640.1394063282901449922.davem@davemloft.net>
-References: <1326850043-23417-1-git-send-email-mcarlson@broadcom.com>
+Subject: Re: [PATCH] Fix panic in __d_lookup with high dentry hashtable
+ counts
+Date: Tue, 17 Jan 2012 23:57:39 -0500 (EST)
+Message-ID: <20120117.235739.1691577461093505587.davem@davemloft.net>
+References: <20120117171352.GA18738@sgi.com>
+	<20120117.122229.323838457367599504.davem@davemloft.net>
+	<20120117210541.GA21940@sgi.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mchan@broadcom.com
-To: mcarlson@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33123 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757174Ab2ARE4n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2012 23:56:43 -0500
-In-Reply-To: <1326850043-23417-1-git-send-email-mcarlson@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, viro@ZenIV.linux.org.uk,
+	eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net,
+	paulmck@linux.vnet.ibm.com, paul.gortmaker@windriver.com,
+	akpm@linux-foundation.org, jkosina@suse.cz, avi@redhat.com,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
+To: sivanich@sgi.com
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20120117210541.GA21940@sgi.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Tue, 17 Jan 2012 17:27:23 -0800
+From: Dimitri Sivanich <sivanich@sgi.com>
+Date: Tue, 17 Jan 2012 15:05:41 -0600
 
-> Kdump kernels leave MSI-X interrupts (as setup by the crashed kernel)
-> enabled.  However, kdump only enables one CPU in the new environment,
-> thus causing tg3 to abort MSI-X setup.  When the driver attempts to
-> enable INTA or MSI interrupt modes on a kdump kernel, interrupt
-> delivery fails.
+> On Tue, Jan 17, 2012 at 12:22:29PM -0500, David Miller wrote:
+>> To be honest I think this is overkill.
+>> 
+>> Supporting anything larger than a 32-bit hash mask is not even close
+>> to being reasonable.  Nobody needs a 4GB hash table, not for anything.
+>>
+> Here is a patch that keeps the 32-bit hash mask.
 > 
-> This patch attempts to workaround the problem by forcing the driver
-> to enable a single MSI-X interrupt.  In such a configuration, the
-> device's multivector interrupt mode must be disabled.
 > 
-> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+>  
+> When the number of dentry cache hash table entries gets too high
+> (2147483648 entries), as happens by default on a 16TB system, use
+> of a signed integer in the dcache_init() initialization loop prevents
+> the dentry_hashtable from getting initialized, causing a panic in
+> __d_lookup().  Fix this in dcache_init() and similar areas.
+> 
+> Signed-off-by: Dimitri Sivanich <sivanich@sgi.com>
 
-Applied.
+This looks good to me, thanks Dimitri:
+
+Acked-by: David S. Miller <davem@davemloft.net>
