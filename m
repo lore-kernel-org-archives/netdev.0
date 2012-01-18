@@ -1,38 +1,49 @@
-From: Tore Anderson <tore@fud.no>
-Subject: Re: Bugzilla 42595
-Date: Wed, 18 Jan 2012 20:26:09 +0100
-Message-ID: <4F171CD1.8070401@fud.no>
-References: <1326817699.2259.32.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <4F15D417.4050005@fud.no> <1326843827.2606.35.camel@edumazet-laptop>  <1326884311.2316.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <1326894249.2316.8.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <8a6ad9cfd5afefc5617fc82203712f20@localhost>  <1326897726.2316.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1326901345.2316.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH net 0/6] mlx4: Fixes and enhancements to SRIOV code.
+Date: Wed, 18 Jan 2012 21:40:26 +0200
+Message-ID: <4F17202A.4090109@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from greed.fud.no ([87.238.35.20]:59337 "EHLO greed.fud.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752011Ab2ART0L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jan 2012 14:26:11 -0500
-In-Reply-To: <1326901345.2316.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:51630 "HELO
+	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756580Ab2ARTmC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 14:42:02 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Eric Dumazet
+Hello Dave,
 
-> Following patch is a good compromise, since it disables gso on the
-> socket on the first frame we consider too big in ip6_fragment().
-> 
-> So the added check on dst_allfrag() is only done once per socket,
-> instead of adding in sk_can_gso(sk) in fast path.
-> 
-> I can now let gso on on the device, and still have good transfert speed
-> on sockets hitting the ALLFRAG feature.
+This patchset is a series of enhancements and some fixes for mlx4 SRIOV code.
+Main changes are: 
+- Correct ethtool statistics report for each VF/PF.
+- The ability of each function to decide on which event queue to receive asynchronous events.
+- Bug fixes.
 
-I can both confirm that I too saw abysmal performance when using the
-default offload settings (with your two earlier patches applied only),
-and also that applying this patch in addition fixes the problem, with no
-apparent ill effects. Thanks!
+Thanks,
+Yevgeny
+---
 
-Best regards,
--- 
-Tore Anderson
+ drivers/net/ethernet/mellanox/mlx4/cmd.c              |    9 ++
+ drivers/net/ethernet/mellanox/mlx4/cq.c               |    4 -
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c       |   72 ++++++++++++++----
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c        |   38 ++++++---
+ drivers/net/ethernet/mellanox/mlx4/eq.c               |   21 ++---
+ drivers/net/ethernet/mellanox/mlx4/fw.c               |    7 -
+ drivers/net/ethernet/mellanox/mlx4/fw.h               |    1
+ drivers/net/ethernet/mellanox/mlx4/main.c             |    3
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h             |    8 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h          |    1
+ drivers/net/ethernet/mellanox/mlx4/mr.c               |    2
+ drivers/net/ethernet/mellanox/mlx4/pd.c               |    3
+ drivers/net/ethernet/mellanox/mlx4/port.c             |   23 +++++
+ drivers/net/ethernet/mellanox/mlx4/profile.c          |    2
+ drivers/net/ethernet/mellanox/mlx4/qp.c               |    2
+ drivers/net/ethernet/mellanox/mlx4/resource_tracker.c |   39 ---------
+ drivers/net/ethernet/mellanox/mlx4/srq.c              |    2
+ include/linux/mlx4/device.h                           |    1
+ 18 files changed, 139 insertions(+), 99 deletions(-)
+  
