@@ -1,63 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] ipv6: dst_allfrag() not taken into account by TCP
-Date: Wed, 18 Jan 2012 15:06:09 +0100
-Message-ID: <1326895569.2316.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1326817699.2259.32.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4F15D417.4050005@fud.no> <1326831948.2606.2.camel@edumazet-laptop>
-	 <00f1ef555b452980aae95eb3028072f8@localhost>
+From: Tore Anderson <tore@fud.no>
+Subject: Re: Bugzilla 42595
+Date: Wed, 18 Jan 2012 15:20:04 +0100
+Message-ID: <8a6ad9cfd5afefc5617fc82203712f20@localhost>
+References: <1326817699.2259.32.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <4F15D417.4050005@fud.no> <1326843827.2606.35.camel@edumazet-laptop> <1326884311.2316.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1326894249.2316.8.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: netdev <netdev@vger.kernel.org>
-To: Tore Anderson <tore@fud.no>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:60897 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757529Ab2AROGO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 09:06:14 -0500
-Received: by bkas6 with SMTP id s6so2789165bka.19
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 06:06:12 -0800 (PST)
-In-Reply-To: <00f1ef555b452980aae95eb3028072f8@localhost>
+Received: from greed.fud.no ([87.238.35.20]:56205 "EHLO greed.fud.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757466Ab2AROUH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jan 2012 09:20:07 -0500
+In-Reply-To: <1326894249.2316.8.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 18 janvier 2012 =C3=A0 13:42 +0100, Tore Anderson a =C3=A9c=
-rit :
-> * Eric Dumazet
->=20
-> > Could you please test following patch ?
->=20
-> Hi,
->=20
-> It seems to work fine, now all the outgoing packets that includes a
-> Fragmentation header all are "atomic" or "non-fragmented" fragments,
-> i.e., that they both have Offset=3D0 and More Fragments=3D0.
->=20
-> I'm uploaded a tcpdump showing the traffic with the patch here:
->=20
-> https://bugzilla.kernel.org/attachment.cgi?id=3D72106
->=20
-> Best regards,
 
+* Eric Dumazet
 
-Seems good, thanks !
+> Following patch seems to help for me, please test it ;)
 
-Now I wonder if some RFC can allow us to send small frames without a
-frag header, since this frag header forces us to perform tx checksum in
-software.=20
+Looks very good! I uploaded a PCAP to the bug report:
 
-I guess 576 should be safe ?
+https://bugzilla.kernel.org/show_bug.cgi?id=42595#c7
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index d97e071..14cb938 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -153,7 +153,7 @@ static int ip6_finish_output2(struct sk_buff *skb)
- static int ip6_finish_output(struct sk_buff *skb)
- {
- 	if ((skb->len > ip6_skb_dst_mtu(skb) && !skb_is_gso(skb)) ||
--	    dst_allfrag(skb_dst(skb)))
-+	    (skb->len > 576 && dst_allfrag(skb_dst(skb))))
- 		return ip6_fragment(skb, ip6_finish_output2);
- 	else
- 		return ip6_finish_output2(skb);
+-- 
+Tore Anderson
