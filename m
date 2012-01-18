@@ -1,67 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: bpf_jit_compile issues on x86_64
-Date: Wed, 18 Jan 2012 07:17:08 +0100
-Message-ID: <1326867428.2606.39.camel@edumazet-laptop>
-References: <20120118022709.GA4167@linuxace.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: ipsec tunnel with different inner and outer ip families
+Date: Wed, 18 Jan 2012 17:30:49 +1100
+Message-ID: <20120118063049.GA23795@gondor.apana.org.au>
+References: <B97B134FACB2024DB45F524AB0A7B7F2058AF99D@XMB-BGL-419.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Phil Oester <kernel@linuxace.com>
+To: Prashant Batra prbatra <prbatra@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:42120 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754303Ab2ARGRN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 01:17:13 -0500
-Received: by wgbdq11 with SMTP id dq11so2811778wgb.1
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2012 22:17:12 -0800 (PST)
-In-Reply-To: <20120118022709.GA4167@linuxace.com>
+Received: from helcar.apana.org.au ([209.40.204.226]:56842 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754303Ab2ARGax (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 01:30:53 -0500
+Content-Disposition: inline
+In-Reply-To: <B97B134FACB2024DB45F524AB0A7B7F2058AF99D@XMB-BGL-419.cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 17 janvier 2012 =C3=A0 18:27 -0800, Phil Oester a =C3=A9crit :
-> On a 3.1.8 kernel, I've had a few snort boxes panic when using the ne=
-w bpf_jit
-> code.  Setting bpf_jit_enable back to 0 solves the problem.  Below is=
- the
-> warning, followed by the panic.  I've checked the current Linus tree,=
- but
-> other than a03ffcf8 (which exists in 3.1.8) I don't see anything new =
-in this
-> area.  Any ideas?  Eric?
+Prashant Batra prbatra <prbatra@cisco.com> wrote:
+> Hello,
 >=20
+> Does linux 2.6.* support an IPSec tunnel with different family of inn=
+er and outer addresses , like v4 in v6 or v6 in v4.
+> After trying ip xfrm * from user space, the utility doesn't seem to a=
+ccept two different families in a single command.
+>=20
+> #ip xfrm policy add dir out src 172.168.68.1/32 dst 172.168.68.2/32 t=
+mpl src 2001:db8:0:242::36/128 dst 2001:db8:0:242::37/128 proto esp=A0 =
+mode tunnel
+> Error: an inet prefix is expected rather than "2001:db8:0:242::36/128=
+".
+>=20
+> So, I tried sending a NETLINK SPD add message) from user space with, =
+selector as v4 addresses and tmpl as v6 address.
+> Policy got added but kernel doesn't seem to be interpreting the addre=
+sses correctly.
+>=20
+> src 172.16.80.1/32 dst 0.0.0.0/0
+> =A0=A0=A0=A0=A0=A0=A0 dir out priority 1024
+> =A0=A0=A0=A0=A0=A0=A0 tmpl=A0=A0=A0 src 32.1.13.184 dst 32.1.13.184=A0=
+=A0 /* I gave ipv6 addresses here*/
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 proto esp spi 0x0000000=
+0 reqid 0 mode tunnel
+>=20
+> Can someone help me with this?
 
-Hi Phil, thanks for the report !
+The kernel is certainly supposed to support inter-family SAs
+and policies.  However, I wouldn't be surprised if it's buggy
+as very few people use it.
 
-Any chance you could send me the bpf filter that was loaded at this
-time ?
-
-Please try the following patch :
-
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index 7b65f75..a7e6baa 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -584,6 +584,7 @@ cond_branch:			f_offset =3D addrs[i + filter[i].jf]=
- - addrs[i];
- 			ilen =3D prog - temp;
- 			if (image) {
- 				if (unlikely(proglen + ilen > oldproglen)) {
-+bpf_fatal_error:
- 					pr_err("bpb_jit_compile fatal error\n");
- 					kfree(addrs);
- 					module_free(NULL, image);
-@@ -605,7 +606,10 @@ cond_branch:			f_offset =3D addrs[i + filter[i].jf=
-] - addrs[i];
- 			cleanup_addr -=3D 4; /* mov  -8(%rbp),%rbx */
-=20
- 		if (image) {
--			WARN_ON(proglen !=3D oldproglen);
-+			if (proglen !=3D oldproglen) {
-+				pr_err("proglen=3D%u !=3D oldproglen=3D%u\n", proglen, oldproglen)=
-;
-+				goto bpf_fatal_error;
-+			}
- 			break;
- 		}
- 		if (proglen =3D=3D oldproglen) {
+Cheers,
+--=20
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
