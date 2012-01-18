@@ -1,83 +1,92 @@
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Subject: Re: ixgbe: Unsupported SFP+ modules on 10Gbit/s
-	X520-DA2 NIC?
-Date: Wed, 18 Jan 2012 21:00:38 +0100
-Message-ID: <1326916838.2795.11.camel@probook>
-References: <1326886258.19261.25.camel@probook>
-	<20120118091351.000052fc@unknown>
-Reply-To: jdb@comx.dk
+From: Simon Chen <simonchennj@gmail.com>
+Subject: Re: Wrong mac in arp response in bonded interfaces
+Date: Wed, 18 Jan 2012 15:02:27 -0500
+Message-ID: <CANj2EbfB+9HXPtZqAASVTWLJ0fxK28c4CcSTuVJGiLvKaMXUfg@mail.gmail.com>
+References: <CANj2EbfW-YP41-=w+qGxfV-QMaBOxtijOKFDUt+o-kLsUbf1ag@mail.gmail.com>
+	<12128.1326916050@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20120118091351.000052fc@unknown>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:35931 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932102Ab2ARUC2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 15:02:28 -0500
+Received: by wgbdq11 with SMTP id dq11so3623217wgb.1
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 12:02:27 -0800 (PST)
+In-Reply-To: <12128.1326916050@death>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-01-18 at 09:13 -0800, Jesse Brandeburg wrote:
-> On Wed, 18 Jan 2012 03:30:58 -0800
-> Jesper Dangaard Brouer <hawk@comx.dk> wrote:
+bond0 and the physical interfaces show up with the same mac in ifconfig=
+=2E..
+
+The latest founding between me and my co-worker is that the MAC
+address of the bonded interface switches between :44 and :45. Because
+we're using an automated deployment tool, which unfortunately doesn't
+reliably configure the udev rules correctly to persistent the two
+NICs. So after a re-deploy, the MAC for the bonded NIC may switch. And
+the stale MAC entry on the switch is then preventing return packet to
+be delivered successfully.
+
+oh, boy, this is just fun... will see if this is indeed the issue.
+
+On Wed, Jan 18, 2012 at 2:47 PM, Jay Vosburgh <fubar@us.ibm.com> wrote:
+> Simon Chen <simonchennj@gmail.com> wrote:
 >
-> > I just bought three 10Gbit/s X520-DA2 NICs (82599 based) for
-> > production usage, but I cannot get them to accept any of my 10Gbit/s
-> > SFP+ modules (4 different tried). According to the documentation I can
-> > find, the X520-DA2 NIC should support fiber optics SFP+ modules.
+>>Hi all,
+>>
+>>Something really weird with interface bonding...
+>>
+>>I have eth0 and eth1, with MAC address xx:44 and xx:45. The bonded
+>>interface chose to use xx:45 as its MAC.
+>>
+>>I configured an IP on the bonded interface, and try to ping the
+>>default gw. The ARP from the server for the .1 is answered by the GW.
+>>The server then sends out ICMP to the GW. The problem is the GW is no=
+t
+>>responding to the ping.
 >
-> For X520 adapters, the documentation[1] states that which SFP+
-> adapters are/are not supported.  Direct attach cables are also
-> supported.
-> 
-> [1] http://www.intel.com/support/network/adapter/pro100/sb/CS-030612.htm
-
-They only support two fiber optics SFP+ module!!! ... sorry but that
-sucks :-(
-
-Does anybody know why they can only support these two SFP+ modules?
-My other 82599 NICs have been running fine with other SFP+ modules.
-Is there a technical reason?
-
-
-> > The SFP+ modules does work in another 82599 based NIC in the same
-> > machine (engineering sample from PJ).
-> 
-> Sorry, can't help you with that one, those samples are different
-> hardware.
-
-I fully understand, you cannot support these engineering samples.
-
-Do Intel have another model of NICs, that support more SFP+ modules?
-Perhaps the x540 based one?
-(I would like support for a 20Km SFP+)
-
-Thanks for your answer, Jesse :-)
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  ComX Networks A/S
-  Linux Network Kernel Developer
-  Cand. Scient Datalog / MSc.CS
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
-
-------------------------------------------------------------------------------
-Keep Your Developer Skills Current with LearnDevNow!
-The most comprehensive online learning library for Microsoft developers
-is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
-Metro Style Apps, more. Free future releases when you subscribe now!
-http://p.sf.net/sfu/learndevnow-d2d
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+> =A0 =A0 =A0 =A0How much real time is elapsing between the setting up =
+of the
+> bond, and this ping test? =A0What are the slaves set up as prior to t=
+he
+> bond being established? =A0In particular, is one of them (the :44)
+> assigned the IP address that the bond ends up using?
+>
+>>I then logged onto the GW (a switch) - apparently, the ARP table on
+>>the GW shows that my server's IP is associated with xx:44 MAC address=
+=2E
+>>So, actually the GW is responding the ICMP, just to the wrong MAC
+>>dest.
+>>
+>>Any idea how the xx:44 MAC somehow polluted the ARP table on my GW?
+>>How can I make sure my server always sends out packets with xx:45 MAC
+>>via the bonded interface?
+>
+> =A0 =A0 =A0 =A0My first suspicion is that a stale ARP entry on the sw=
+itch is
+> hanging around for the :44 MAC address from before the bond was
+> established on the host. =A0If you clear the switch's ARP table, does=
+ the
+> problem correct itself or happen again?
+>
+> =A0 =A0 =A0 =A0The other possibility that comes to mind is that you'r=
+e using
+> balance-alb mode, in which case I suspect what you're seeing is norma=
+l
+> behavior. =A0The alb mode "assigns" peers to particular slaves of the=
+ bond
+> by sending them tailored ARP messages bearing the MAC of one of the
+> slaves, and each slave participates on the network under its own MAC
+> address (I'm simplifying a bit here, but that's basically how it work=
+s).
+>
+> =A0 =A0 =A0 =A0-J
+>
+> ---
+> =A0 =A0 =A0 =A0-Jay Vosburgh, IBM Linux Technology Center, fubar@us.i=
+bm.com
+>
