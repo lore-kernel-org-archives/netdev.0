@@ -1,40 +1,38 @@
-From: Simon Chen <simonchennj@gmail.com>
-Subject: Wrong mac in arp response in bonded interfaces
-Date: Wed, 18 Jan 2012 13:52:11 -0500
-Message-ID: <CANj2EbfW-YP41-=w+qGxfV-QMaBOxtijOKFDUt+o-kLsUbf1ag@mail.gmail.com>
+From: Tore Anderson <tore@fud.no>
+Subject: Re: Bugzilla 42595
+Date: Wed, 18 Jan 2012 20:26:09 +0100
+Message-ID: <4F171CD1.8070401@fud.no>
+References: <1326817699.2259.32.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <4F15D417.4050005@fud.no> <1326843827.2606.35.camel@edumazet-laptop>  <1326884311.2316.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <1326894249.2316.8.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <8a6ad9cfd5afefc5617fc82203712f20@localhost>  <1326897726.2316.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1326901345.2316.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:38205 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758114Ab2ARSwN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 13:52:13 -0500
-Received: by werb13 with SMTP id b13so623576wer.19
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 10:52:12 -0800 (PST)
+Received: from greed.fud.no ([87.238.35.20]:59337 "EHLO greed.fud.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752011Ab2ART0L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jan 2012 14:26:11 -0500
+In-Reply-To: <1326901345.2316.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+* Eric Dumazet
 
-Something really weird with interface bonding...
+> Following patch is a good compromise, since it disables gso on the
+> socket on the first frame we consider too big in ip6_fragment().
+> 
+> So the added check on dst_allfrag() is only done once per socket,
+> instead of adding in sk_can_gso(sk) in fast path.
+> 
+> I can now let gso on on the device, and still have good transfert speed
+> on sockets hitting the ALLFRAG feature.
 
-I have eth0 and eth1, with MAC address xx:44 and xx:45. The bonded
-interface chose to use xx:45 as its MAC.
+I can both confirm that I too saw abysmal performance when using the
+default offload settings (with your two earlier patches applied only),
+and also that applying this patch in addition fixes the problem, with no
+apparent ill effects. Thanks!
 
-I configured an IP on the bonded interface, and try to ping the
-default gw. The ARP from the server for the .1 is answered by the GW.
-The server then sends out ICMP to the GW. The problem is the GW is not
-responding to the ping.
-
-I then logged onto the GW (a switch) - apparently, the ARP table on
-the GW shows that my server's IP is associated with xx:44 MAC address.
-So, actually the GW is responding the ICMP, just to the wrong MAC
-dest.
-
-Any idea how the xx:44 MAC somehow polluted the ARP table on my GW?
-How can I make sure my server always sends out packets with xx:45 MAC
-via the bonded interface?
-
-Thanks.
--Simon
+Best regards,
+-- 
+Tore Anderson
