@@ -1,93 +1,46 @@
-From: Roopa Prabhu <roprabhu@cisco.com>
-Subject: [net-next-2.6 PATCH 3/4] enic: rearrange some of the port profile code
-Date: Wed, 18 Jan 2012 06:24:07 -0800
-Message-ID: <20120118142407.7877.28496.stgit@rhel6.1>
-References: <20120118142336.7877.67031.stgit@rhel6.1>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: bpf_jit_compile issues on x86_64
+Date: Wed, 18 Jan 2012 08:30:35 +0100
+Message-ID: <1326871835.2606.40.camel@edumazet-laptop>
+References: <20120118022709.GA4167@linuxace.com>
+	 <1326867428.2606.39.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+To: Phil Oester <kernel@linuxace.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtv-iport-1.cisco.com ([173.36.130.12]:6546 "EHLO
-	mtv-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751959Ab2ARGkY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 01:40:24 -0500
-In-Reply-To: <20120118142336.7877.67031.stgit@rhel6.1>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:44370 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751380Ab2ARHak (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 02:30:40 -0500
+Received: by werb13 with SMTP id b13so147035wer.19
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2012 23:30:38 -0800 (PST)
+In-Reply-To: <1326867428.2606.39.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roprabhu@cisco.com>
+Le mercredi 18 janvier 2012 =C3=A0 07:17 +0100, Eric Dumazet a =C3=A9cr=
+it :
+> Le mardi 17 janvier 2012 =C3=A0 18:27 -0800, Phil Oester a =C3=A9crit=
+ :
+> > On a 3.1.8 kernel, I've had a few snort boxes panic when using the =
+new bpf_jit
+> > code.  Setting bpf_jit_enable back to 0 solves the problem.  Below =
+is the
+> > warning, followed by the panic.  I've checked the current Linus tre=
+e, but
+> > other than a03ffcf8 (which exists in 3.1.8) I don't see anything ne=
+w in this
+> > area.  Any ideas?  Eric?
+> >=20
+>=20
+> Hi Phil, thanks for the report !
+>=20
+> Any chance you could send me the bpf filter that was loaded at this
+> time ?
+>=20
 
-This patch rearranges some of the port profile code in enic_probe.
-It moves out some lines of port profile related code currently
-inside CONFIG_PCI_IOV. This is only done to move all port profile
-related code together so that it can help isolate the port profile
-handling code under a separate #ifdef in our internal build scripts.
+Hmm, I found the bug, I'll send a cumulative patch in following hours.
 
-Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-Signed-off-by: Christian Benvenuti <benve@cisco.com>
-Signed-off-by: Sujith Sankar <ssujith@cisco.com>
----
- drivers/net/ethernet/cisco/enic/enic_main.c |   14 +++++++-------
- 1 files changed, 7 insertions(+), 7 deletions(-)
-
-
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index 9f37d92..03b0577 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -2270,10 +2270,10 @@ static int __devinit enic_probe(struct pci_dev *pdev,
- 	int using_dac = 0;
- 	unsigned int i;
- 	int err;
--	int num_pps = 1;
- #ifdef CONFIG_PCI_IOV
- 	int pos = 0;
- #endif
-+	int num_pps;
- 
- 	/* Allocate net device structure and initialize.  Private
- 	 * instance data is initialized to zero.
-@@ -2380,17 +2380,17 @@ static int __devinit enic_probe(struct pci_dev *pdev,
- 				goto err_out_vnic_unregister;
- 			}
- 			enic->priv_flags |= ENIC_SRIOV_ENABLED;
--			num_pps = enic->num_vfs;
- 		}
- 	}
--
- #endif
-+
-+	num_pps = enic->num_vfs ? enic->num_vfs : 1;
- 	/* Allocate structure for port profiles */
- 	enic->pp = kcalloc(num_pps, sizeof(*enic->pp), GFP_KERNEL);
- 	if (!enic->pp) {
- 		pr_err("port profile alloc failed, aborting\n");
- 		err = -ENOMEM;
--		goto err_out_disable_sriov;
-+		goto err_out_disable_sriov_pp;
- 	}
- 
- 	/* Issue device open to get device in known state
-@@ -2399,7 +2399,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
- 	err = enic_dev_open(enic);
- 	if (err) {
- 		dev_err(dev, "vNIC dev open failed, aborting\n");
--		goto err_out_free_pp;
-+		goto err_out_disable_sriov;
- 	}
- 
- 	/* Setup devcmd lock
-@@ -2522,9 +2522,9 @@ err_out_dev_deinit:
- 	enic_dev_deinit(enic);
- err_out_dev_close:
- 	vnic_dev_close(enic->vdev);
--err_out_free_pp:
--	kfree(enic->pp);
- err_out_disable_sriov:
-+	kfree(enic->pp);
-+err_out_disable_sriov_pp:
- #ifdef CONFIG_PCI_IOV
- 	if (enic_sriov_enabled(enic)) {
- 		pci_disable_sriov(pdev);
+Thanks again
