@@ -1,68 +1,73 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: ixgbe: Unsupported SFP+ modules on 10Gbit/s X520-DA2 NIC?
-Date: Wed, 18 Jan 2012 14:43:22 -0800
-Message-ID: <4F174B0A.10208@candelatech.com>
-References: <1326886258.19261.25.camel@probook>  <20120118091351.000052fc@unknown>  <m3d3ag7ki8.fsf@ursa.amorsen.dk> <1326925160.2795.45.camel@probook>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH v5.4 00/13] crc32c: Add faster algorithm and self-test
+ code
+Date: Wed, 18 Jan 2012 15:01:14 -0800
+Message-ID: <20120118150114.2e2dac2d.akpm@linux-foundation.org>
+References: <20120118222733.4079.13377.stgit@elm3c44.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Benny Amorsen <benny+usenet@amorsen.dk>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Jesper Dangaard Brouer <hawk@comx.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:59881 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752258Ab2ARWnm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 17:43:42 -0500
-In-Reply-To: <1326925160.2795.45.camel@probook>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
+	Theodore Tso <tytso@mit.edu>,
+	Joakim Tjernlund <joakim.tjernlund@transmode.se>,
+	Bob Pearson <rpearson@systemfabricworks.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Andreas Dilger <adilger.kernel@dilger.ca>,
+	linux-crypto <linux-crypto@vger.kernel.org>,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+	Mingming Cao <cmm@us.ibm.com>, linux-ext4@vger.kernel.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: "Darrick J. Wong" <djwong@us.ibm.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20120118222733.4079.13377.stgit@elm3c44.beaverton.ibm.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/18/2012 02:19 PM, Jesper Dangaard Brouer wrote:
-> On Wed, 2012-01-18 at 22:45 +0100, Benny Amorsen wrote:
->> Jesse Brandeburg<jesse.brandeburg@intel.com>  writes:
->>
->>> For X520 adapters, the documentation[1] states that which SFP+
->>> adapters are/are not supported.  Direct attach cables are also
->>> supported.
->>>
->>> [1] http://www.intel.com/support/network/adapter/pro100/sb/CS-030612.htm
->>
->> I can't believe that locked optics have now arrived on commodity
->> hardware. I have been trying to migrate to all-Intel networking at work;
->> that effort is certainly on hold now.
->
-> I cannot understand why Intel are pulling a stunt like this! :-(
->
-> I have read the code, and the limitation comes from a EEPROM setting on
-> the NIC, see define "IXGBE_DEVICE_CAPS_ALLOW_ANY_SFP 0x1".
->
-> Here is a (untested) patch I believe removes the limitation in the
-> driver:
->
->
-> [PATCH] ixgbe: Always allow any SFP+ regardless of EEPROM setting.
->
-> Intel are trying to limit which SFP's we can use in our NICs.
-> We don't like this practices in the Linux Kernel.
+On Wed, 18 Jan 2012 14:27:33 -0800
+"Darrick J. Wong" <djwong@us.ibm.com> wrote:
 
-I think that you should at least print some big warnings in
-the kernel logs if you do this, as well as all the info you
-can find on the non-supported SFP+ module in use so that folks can debug
-things if the SFP+ doesn't properly work.
+> This patchset (re)uses Bob Pearson's crc32 slice-by-8 code to stamp out a
+> software crc32c implementation.  It removes the crc32c implementation in
+> crypto/ in favor of using the stamped-out one in lib/.  There is also a change
+> to Kconfig so that the kernel builder can pick an implementation best suited
+> for the hardware.
+> 
+> The motivation for this patchset is that I am working on adding full metadata
+> checksumming to ext4.  As far as performance impact of adding checksumming
+> goes, I see nearly no change with a standard mail server ffsb simulation.  On a
+> test that involves only file creation and deletion and extent tree writes, I
+> see a drop of about 50 pcercent with the current kernel crc32c implementation;
+> this improves to a drop of about 20 percent with the enclosed crc32c code.
+> 
+> When metadata is usually a small fraction of total IO, this new implementation
+> doesn't help much because metadata is usually a small fraction of total IO.
+> However, when we are doing IO that is almost all metadata (such as rm -rf'ing a
+> tree), then this patch speeds up the operation substantially.
+> 
+> Incidentally, given that iscsi, sctp, and btrfs also use crc32c, this patchset
+> should improve their speed as well.  I have not yet quantified that, however.
+> This latest submission combines Bob's patches from late August 2011 with mine
+> so that they can be one coherent patch set.  Please excuse my inability to
+> combine some of the patches; I've been advised to leave Bob's patches alone and
+> build atop them instead. :/
+> 
+> Since the last posting, I've also collected some crc32c test results on a bunch
+> of different x86/powerpc/sparc platforms.  The results can be viewed here:
+> http://goo.gl/sgt3i ; the "crc32-kern-le" and "crc32c" columns describe the
+> performance of the kernel's current crc32 and crc32c software implementations.
+> The "crc32c-by8-le" column shows crc32c performance with this patchset applied.
+> I expect crc32 performance to be roughly the same.
+> 
+> The two _boost columns at the right side of the spreadsheet shows how much
+> faster the new implementation is over the old one.  As you can see, crc32 rises
+> substantially, and crc32c experiences a huge increase.
 
-As previously mentioned, I found a case where some random SFP+
-did NOT work with a similar hack in place...
+I grabbed this lot, so it will turn up in linux-next soon.
 
-Thanks,
-Ben
+There are quite a lot of clients of the crc32 code.  net, netfilter and
+wireless are prominent, but there are others everywhere.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+So I cc'ed various other mailing lists just as a heads-up that this
+work is inbound and will hopefully yield performance improvements.  But
+of course, it might also yield bugs.
