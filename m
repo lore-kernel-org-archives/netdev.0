@@ -1,74 +1,102 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: bind()/inet_csk_get_port() fails when no port is requested
-Date: Wed, 18 Jan 2012 15:57:42 -0200
-Message-ID: <20120118155742.5ed38f98@asterix.rh>
-References: <20120118151126.01a74dc5@asterix.rh>
-	<1326908219.4910.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH 4/3] sha512: reduce stack usage even on i386
+Date: Wed, 18 Jan 2012 21:02:10 +0300
+Message-ID: <20120118180210.GA22733@p183.telecom.by>
+References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF43@saturn3.aculab.com>
+ <1326709382.2255.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <CACVxJT_cZAdxNOFTpK5seUXFZU+YB3zbe6LF1nnyzo32ae14xw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Marcelo Leitner <mleitner@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27277 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932374Ab2ARR5r convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 12:57:47 -0500
-In-Reply-To: <1326908219.4910.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Laight <David.Laight@aculab.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+	ken@codelabs.ch, Steffen Klassert <steffen.klassert@secunet.com>,
+	security@kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACVxJT_cZAdxNOFTpK5seUXFZU+YB3zbe6LF1nnyzo32ae14xw@mail.gmail.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 18 Jan 2012 18:36:59 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Fix still excessive stack usage on i386.
 
-> Le mercredi 18 janvier 2012 =C3=A0 15:11 -0200, Flavio Leitner a =C3=A9=
-crit :
-> > Hi folks,
-> >=20
-> > It has been reported to me that bind() fails when you leave
-> > the port up to the kernel to choose and succeed when you
-> > request a certain port in the same conditions.
-> >=20
-> > For example, let's restrict the ephemeral port range to 3 ports onl=
-y:
-> > # echo "32768 32770" > /proc/sys/net/ipv4/ip_local_port_range
-> >=20
-> > Assuming the system has two IP addresses: 172.31.1.6/24 and
-> > 192.168.100.6/24 then run the following python script which
-> > allocates all ephemeral ports using one IP address and then
-> > try to bind another one using another IP address.
-> >=20
-> ...
-> > Conclusion: When using ephemeral ports, inet_csk_get_port()
-> > fails without checking if a conflict had happened. When using
-> > fixed ports on the other hand, inet_csk_get_port() works
-> > as expected.
-> >=20
-> > I will attach a quick hack to illustrate what I am thinking.
-> > The idea is to check all ports first and if it fails, then
-> > try again looking for a port that doesn't conflict. So, for
-> > most cases, the algorithm is the same, but when the system
-> > ran out of ports, there is a hope :-)
-> >=20
-> > Is there a reason to behave like that? or is this a real bug?
-> > Sounds like a FAQ, but I am not finding an explanation for this
-> > on the net yet.
-> >=20
->=20
-> Hi Flavio
->=20
-> This seems a very good idea.
->=20
-> Only drawback is when table is really full, we'll scan it twice.
->=20
+There is too much loop unrolling going on, despite W[16] being used,
+gcc screws up this for some reason. So, don't be smart, use simple code
+from SHA-512 definition, this keeps code size _and_ stack usage back
+under control even on i386:
 
-That's right. Maybe checking for conflicts in the first round
-helps, but it would add a cost for the average case scenario.
+	-14b:   81 ec 9c 03 00 00       sub    $0x39c,%esp
+	+149:   81 ec 64 01 00 00       sub    $0x164,%esp
 
-But first, I'd like to know if this is a bug before spending
-more time working on it. Maybe there is a reason for behaving
-like that.
+	$ size ../sha512_generic-i386-00*
+	   text    data     bss     dec     hex filename
+	  15521     712       0   16233    3f69 ../sha512_generic-i386-000.o
+	   4225     712       0    4937    1349 ../sha512_generic-i386-001.o
 
-thanks!
-fbl
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: stable@vger.kernel.org
+---
+
+ crypto/sha512_generic.c |   42 ++++++++++++++++++++----------------------
+ 1 file changed, 20 insertions(+), 22 deletions(-)
+
+--- a/crypto/sha512_generic.c
++++ b/crypto/sha512_generic.c
+@@ -95,35 +95,33 @@ sha512_transform(u64 *state, const u8 *input)
+ #define SHA512_0_15(i, a, b, c, d, e, f, g, h)			\
+ 	t1 = h + e1(e) + Ch(e, f, g) + sha512_K[i] + W[i];	\
+ 	t2 = e0(a) + Maj(a, b, c);				\
+-	d += t1;						\
+-	h = t1 + t2
++	h = g;							\
++	g = f;							\
++	f = e;							\
++	e = d + t1;						\
++	d = c;							\
++	c = b;							\
++	b = a;							\
++	a = t1 + t2
+ 
+ #define SHA512_16_79(i, a, b, c, d, e, f, g, h)			\
+ 	BLEND_OP(i, W);						\
+-	t1 = h + e1(e) + Ch(e, f, g) + sha512_K[i] + W[(i)&15];	\
++	t1 = h + e1(e) + Ch(e, f, g) + sha512_K[i] + W[i & 15];	\
+ 	t2 = e0(a) + Maj(a, b, c);				\
+-	d += t1;						\
+-	h = t1 + t2
+-
+-	for (i = 0; i < 16; i += 8) {
++	h = g;							\
++	g = f;							\
++	f = e;							\
++	e = d + t1;						\
++	d = c;							\
++	c = b;							\
++	b = a;							\
++	a = t1 + t2
++
++	for (i = 0; i < 16; i++) {
+ 		SHA512_0_15(i, a, b, c, d, e, f, g, h);
+-		SHA512_0_15(i + 1, h, a, b, c, d, e, f, g);
+-		SHA512_0_15(i + 2, g, h, a, b, c, d, e, f);
+-		SHA512_0_15(i + 3, f, g, h, a, b, c, d, e);
+-		SHA512_0_15(i + 4, e, f, g, h, a, b, c, d);
+-		SHA512_0_15(i + 5, d, e, f, g, h, a, b, c);
+-		SHA512_0_15(i + 6, c, d, e, f, g, h, a, b);
+-		SHA512_0_15(i + 7, b, c, d, e, f, g, h, a);
+ 	}
+-	for (i = 16; i < 80; i += 8) {
++	for (i = 16; i < 80; i++) {
+ 		SHA512_16_79(i, a, b, c, d, e, f, g, h);
+-		SHA512_16_79(i + 1, h, a, b, c, d, e, f, g);
+-		SHA512_16_79(i + 2, g, h, a, b, c, d, e, f);
+-		SHA512_16_79(i + 3, f, g, h, a, b, c, d, e);
+-		SHA512_16_79(i + 4, e, f, g, h, a, b, c, d);
+-		SHA512_16_79(i + 5, d, e, f, g, h, a, b, c);
+-		SHA512_16_79(i + 6, c, d, e, f, g, h, a, b);
+-		SHA512_16_79(i + 7, b, c, d, e, f, g, h, a);
+ 	}
+ 
+ 	state[0] += a; state[1] += b; state[2] += c; state[3] += d;
