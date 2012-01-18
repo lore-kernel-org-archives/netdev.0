@@ -1,49 +1,97 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH net 0/6] mlx4: Fixes and enhancements to SRIOV code.
-Date: Wed, 18 Jan 2012 21:40:26 +0200
-Message-ID: <4F17202A.4090109@mellanox.co.il>
+Subject: [PATCH net 1/6] mlx4_en: clear all eth statistics when port goes
+ up
+Date: Wed, 18 Jan 2012 21:40:42 +0200
+Message-ID: <4F17203A.7070909@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
+	<eugenia@mellanox.co.il>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:51630 "HELO
+Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:33086 "HELO
 	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756580Ab2ARTmC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 14:42:02 -0500
+	by vger.kernel.org with SMTP id S1756580Ab2ARTmG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 14:42:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Dave,
+From: Eugenia Emantayev <eugenia@mellanox.co.il>
 
-This patchset is a series of enhancements and some fixes for mlx4 SRIOV code.
-Main changes are: 
-- Correct ethtool statistics report for each VF/PF.
-- The ability of each function to decide on which event queue to receive asynchronous events.
-- Bug fixes.
+Bug fix: Not all stats fields were cleared.
 
-Thanks,
-Yevgeny
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.co.il>
+Reviewed-by: Yevgeny Petriln <yevgenyp@mellanox.co.il>
 ---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   36 ++++++++++++++++--------
+ 1 files changed, 24 insertions(+), 12 deletions(-)
 
- drivers/net/ethernet/mellanox/mlx4/cmd.c              |    9 ++
- drivers/net/ethernet/mellanox/mlx4/cq.c               |    4 -
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c       |   72 ++++++++++++++----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c        |   38 ++++++---
- drivers/net/ethernet/mellanox/mlx4/eq.c               |   21 ++---
- drivers/net/ethernet/mellanox/mlx4/fw.c               |    7 -
- drivers/net/ethernet/mellanox/mlx4/fw.h               |    1
- drivers/net/ethernet/mellanox/mlx4/main.c             |    3
- drivers/net/ethernet/mellanox/mlx4/mlx4.h             |    8 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h          |    1
- drivers/net/ethernet/mellanox/mlx4/mr.c               |    2
- drivers/net/ethernet/mellanox/mlx4/pd.c               |    3
- drivers/net/ethernet/mellanox/mlx4/port.c             |   23 +++++
- drivers/net/ethernet/mellanox/mlx4/profile.c          |    2
- drivers/net/ethernet/mellanox/mlx4/qp.c               |    2
- drivers/net/ethernet/mellanox/mlx4/resource_tracker.c |   39 ---------
- drivers/net/ethernet/mellanox/mlx4/srq.c              |    2
- include/linux/mlx4/device.h                           |    1
- 18 files changed, 139 insertions(+), 99 deletions(-)
-  
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 72fa807..be3f415 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -807,37 +807,49 @@ static void mlx4_en_restart(struct work_struct *work)
+ 	mutex_unlock(&mdev->state_lock);
+ }
+ 
+-
+-static int mlx4_en_open(struct net_device *dev)
++static void mlx4_en_clear_stats(struct net_device *dev)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	int i;
+-	int err = 0;
+-
+-	mutex_lock(&mdev->state_lock);
+-
+-	if (!mdev->device_up) {
+-		en_err(priv, "Cannot open - device down/disabled\n");
+-		err = -EBUSY;
+-		goto out;
+-	}
+ 
+-	/* Reset HW statistics and performance counters */
+ 	if (mlx4_en_DUMP_ETH_STATS(mdev, priv->port, 1))
+ 		en_dbg(HW, priv, "Failed dumping statistics\n");
+ 
+ 	memset(&priv->stats, 0, sizeof(priv->stats));
+ 	memset(&priv->pstats, 0, sizeof(priv->pstats));
++	memset(&priv->pkstats, 0, sizeof(priv->pkstats));
++	memset(&priv->port_stats, 0, sizeof(priv->port_stats));
+ 
+ 	for (i = 0; i < priv->tx_ring_num; i++) {
+ 		priv->tx_ring[i].bytes = 0;
+ 		priv->tx_ring[i].packets = 0;
++		priv->tx_ring[i].tx_csum = 0;
+ 	}
+ 	for (i = 0; i < priv->rx_ring_num; i++) {
+ 		priv->rx_ring[i].bytes = 0;
+ 		priv->rx_ring[i].packets = 0;
++		priv->rx_ring[i].csum_ok = 0;
++		priv->rx_ring[i].csum_none = 0;
+ 	}
++}
++
++static int mlx4_en_open(struct net_device *dev)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct mlx4_en_dev *mdev = priv->mdev;
++	int err = 0;
++
++	mutex_lock(&mdev->state_lock);
++
++	if (!mdev->device_up) {
++		en_err(priv, "Cannot open - device down/disabled\n");
++		err = -EBUSY;
++		goto out;
++	}
++
++	/* Reset HW statistics and SW counters */
++	mlx4_en_clear_stats(dev);
+ 
+ 	err = mlx4_en_start_port(dev);
+ 	if (err)
+-- 
+1.5.4.3
