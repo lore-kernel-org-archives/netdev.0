@@ -1,50 +1,58 @@
-From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
 Subject: Re: [PATCH 0/5] SUNRPC: make caches network namespace aware
-Date: Thu, 19 Jan 2012 10:19:52 -0500
-Message-ID: <1326986392.6114.1.camel@lade.trondhjem.org>
-References: <20120119144517.9957.59143.stgit@localhost6.localdomain6>
+Date: Thu, 19 Jan 2012 19:31:56 +0400
+Message-ID: <4F18376C.9090504@parallels.com>
+References: <20120119144517.9957.59143.stgit@localhost6.localdomain6> <1326986392.6114.1.camel@lade.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Dr James Bruce Fields <bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120119144517.9957.59143.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dr James Bruce Fields <bfields@redhat.com>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: Trond Myklebust <Trond.Myklebust@netapp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1326986392.6114.1.camel@lade.trondhjem.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-01-19 at 18:48 +0400, Stanislav Kinsbursky wrote: 
-> One more step towards to "NFS in container".
-> With this patch set caches are allocated per network namespace.
-> 
-> The following series consists of:
-> 
-> ---
-> 
-> Stanislav Kinsbursky (5):
->       SUNRPC: cache creation and destruction routines introduced
->       SUNRPC: create unix gid cache per network namespace
->       SUNRPC: create GSS auth cache per network namespace
->       SUNRPC: ip map cache per network namespace cleanup
->       SUNRPC: generic cache register routines removed
+19.01.2012 19:19, Trond Myklebust =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Thu, 2012-01-19 at 18:48 +0400, Stanislav Kinsbursky wrote:
+>> One more step towards to "NFS in container".
+>> With this patch set caches are allocated per network namespace.
+>>
+>> The following series consists of:
+>>
+>> ---
+>>
+>> Stanislav Kinsbursky (5):
+>>        SUNRPC: cache creation and destruction routines introduced
+>>        SUNRPC: create unix gid cache per network namespace
+>>        SUNRPC: create GSS auth cache per network namespace
+>>        SUNRPC: ip map cache per network namespace cleanup
+>>        SUNRPC: generic cache register routines removed
+>
+> The patches look good, and I've applied them for now in my 'devel'
+> branch so we can test them, but I'd like to get an Ack/Nack from Bruc=
+e
+> before committing to merging them.
+>
 
-The patches look good, and I've applied them for now in my 'devel'
-branch so we can test them, but I'd like to get an Ack/Nack from Bruce
-before committing to merging them.
+Cool, thanks.
+BTW, these patches depends on patch "NFSd: use network-namespace-aware =
+cache=20
+registering routines", which Bruce took already (and it's even in linux=
+-next=20
+already), but not in your devel tree for some reason.
 
--- 
-Trond Myklebust
-Linux NFS client maintainer
 
-NetApp
-Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
-www.netapp.com
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Best regards,
+Stanislav Kinsbursky
