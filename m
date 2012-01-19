@@ -1,52 +1,49 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Interpreting perf stat on netperf and netserver
-Date: Thu, 19 Jan 2012 09:58:34 -0800
-Message-ID: <4F1859CA.6000407@hp.com>
-References: <CAL8zT=gNwDDXcbH+hoZApc63ArW2quzHJ1gRrPSxKP7jE04KLw@mail.gmail.com> <4F170629.8090307@hp.com> <CAL8zT=jP4Bm=WM0=OLcRgeetzXb0f_ZL0TiDvPAhkbA9UuxpBA@mail.gmail.com>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: iwlwifi worse than ever in current git.
+Date: Thu, 19 Jan 2012 13:04:34 -0500
+Message-ID: <20120119180433.GA32306@redhat.com>
+References: <20120110184917.GA26973@redhat.com>
+ <1326221614.5067.6.camel@dcbw.foobar.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB3063085@HASMSX103.ger.corp.intel.com>
+ <20120111014243.GA22066@redhat.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB306429E@HASMSX103.ger.corp.intel.com>
+ <20120111195055.GA5140@redhat.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB3064AF5@HASMSX103.ger.corp.intel.com>
+ <CANUX_P3UHz-Pr_M1H5pAbmKDY70es7nxkWSDGXG6-hvrPAMCJw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jean-Michel Hautbois <jhautbois@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
+	Dan Williams <dcbw@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Guy, Wey-Yi W" <wey-yi.w.guy@intel.com>,
+	Linux Wireless <linux-wireless@vger.kernel.org>
+To: Emmanuel Grumbach <egrumbach@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:48253 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932525Ab2ASR6p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 12:58:45 -0500
-In-Reply-To: <CAL8zT=jP4Bm=WM0=OLcRgeetzXb0f_ZL0TiDvPAhkbA9UuxpBA@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:19598 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932532Ab2ASSEj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jan 2012 13:04:39 -0500
+Content-Disposition: inline
+In-Reply-To: <CANUX_P3UHz-Pr_M1H5pAbmKDY70es7nxkWSDGXG6-hvrPAMCJw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/19/2012 12:29 AM, Jean-Michel Hautbois wrote:
-> 2012/1/18 Rick Jones<rick.jones2@hp.com>:
->> On 01/18/2012 03:33 AM, Jean-Michel Hautbois wrote:
->>>
->>> Hi all,
->>>
->>> I am currently using netperf/netserver in order to characterize a
->>> benet emulex network device on a machine with 2 Xeon5670.
->>> I am using the latest linux kernel from git (3.2.0+).
->>> I am facing several issues, and I am trying to understand the
->>> following perf stat launched on netserver :
->>>
->>>   Performance counter stats for process id '5043':
->>
->>
->> If you aren't already you may want to gather system-wide data as well - not
->> everything networking is guaranteed to run in the netserver's (or netperf's)
->> context.
->>
->> Might also be good to include the netperf command line driving that
->> netserver.  That will help folks know if the netserver is receiving data
->> (_STREAM), sending data (_MAERTS) or both (_RR) (though perhaps that can be
->> gleaned from the routine names in the profile.
->
-> Well, I am only launching netserver without any parameter.
+On Thu, Jan 19, 2012 at 08:47:28AM +0200, Emmanuel Grumbach wrote:
+ > >> [16580.004052] iwlwifi 0000:04:00.0: U iwlagn_tx_agg_stop Can't proceed: ssn
+ > >> 1491, next_recl = 150
+ > >>
+ > >
+ > > I understand there is nothing afterwards... This is really weird. The sequence numbers here are really crazy...
+ > > I need to think that over.
+ > >
+ > >>
+ > 
+ > Ok, I finally had a change to take a closer look at this. Please run
+ > with debug=0xC0000000.
+ > 
+ > This will be noisy, but I guess we have no choice...
 
-The netperf command line, not netserver :)  The netperf command line 
-will tell us what the netserver was asked to and was presumably doing at 
-the time the profile was taken.
+It is indeed noisy, and.. I can't reproduce the problem when that's set.
+Some timing related problem ?
 
-happy benchmarking,
-
-rick
+	Dave
