@@ -1,48 +1,26 @@
-From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH 0/5] SUNRPC: make caches network namespace aware
-Date: Thu, 19 Jan 2012 17:40:02 -0500
-Message-ID: <20120119224002.GB5177@fieldses.org>
-References: <20120119144517.9957.59143.stgit@localhost6.localdomain6>
- <1326986392.6114.1.camel@lade.trondhjem.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH iproute2 1/2] utils: add s32 parser
+Date: Thu, 19 Jan 2012 14:41:38 -0800
+Message-ID: <20120119144138.0fecfdbb@nehalam.linuxnetplumber.net>
+References: <1322156415-23331-1-git-send-email-hagen@jauu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Dr James Bruce Fields <bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1326986392.6114.1.camel-SyLVLa/KEI9HwK5hSS5vWB2eb7JE58TQ@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:34900 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756547Ab2ASWll (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jan 2012 17:41:41 -0500
+In-Reply-To: <1322156415-23331-1-git-send-email-hagen@jauu.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 19, 2012 at 10:19:52AM -0500, Trond Myklebust wrote:
-> On Thu, 2012-01-19 at 18:48 +0400, Stanislav Kinsbursky wrote: 
-> > One more step towards to "NFS in container".
-> > With this patch set caches are allocated per network namespace.
-> > 
-> > The following series consists of:
-> > 
-> > ---
-> > 
-> > Stanislav Kinsbursky (5):
-> >       SUNRPC: cache creation and destruction routines introduced
-> >       SUNRPC: create unix gid cache per network namespace
-> >       SUNRPC: create GSS auth cache per network namespace
-> >       SUNRPC: ip map cache per network namespace cleanup
-> >       SUNRPC: generic cache register routines removed
-> 
-> The patches look good, and I've applied them for now in my 'devel'
-> branch so we can test them, but I'd like to get an Ack/Nack from Bruce
-> before committing to merging them.
+On Thu, 24 Nov 2011 18:40:14 +0100
+Hagen Paul Pfeifer <hagen@jauu.net> wrote:
 
-They look good to me.  I'd like to hear how they've been tested--that
-done, they'll have my ack.
+> Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
 
---b.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+All three patches applied to iproute2 git. Had to fix some merge conflict
+and man page formatting issues.
