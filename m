@@ -1,58 +1,44 @@
-From: "Arend van Spriel" <arend@broadcom.com>
-Subject: Re: [0/5] bcma/brcmsmac suspend/resume cleanups and fixes
-Date: Thu, 19 Jan 2012 13:12:21 +0100
-Message-ID: <4F1808A5.4070502@broadcom.com>
-References: <CA+55aFzm21ZKs7e_ocVA1bQQ=Js2dJpbiycwHR3v8yNvb0MgTw@mail.gmail.com>
- <1326440480-26271-1-git-send-email-zajec5@gmail.com>
- <alpine.LNX.2.00.1201122354430.5860@air.linux-foundation.org>
- <4F101047.4090902@broadcom.com>
- <CA+55aFxtaw+FF8wRf9td1rU0A_vhM8XwgSznzE-ph_4j=t5gWg@mail.gmail.com>
- <4F142D84.4060405@broadcom.com> <4F145F52.9010200@broadcom.com>
- <CA+55aFyMY5o7irG+=c4ZrfftMu6OJvoyFFY4KNO8rCe90P0mhw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: inet6_dump_fib  lock held when returning to user space
+Date: Thu, 19 Jan 2012 13:33:19 +0100
+Message-ID: <1326976399.2249.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <201201191148.52121.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-2
-Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>,
-	"Larry Finger" <Larry.Finger@lwfinger.net>,
-	"Alwin Beukers" <alwin@broadcom.com>,
-	"Roland Vossen" <rvossen@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"Network Development" <netdev@vger.kernel.org>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
-To: "Linus Torvalds" <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1405 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750779Ab2ASMOj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jan 2012 07:14:39 -0500
-In-Reply-To: <CA+55aFyMY5o7irG+=c4ZrfftMu6OJvoyFFY4KNO8rCe90P0mhw@mail.gmail.com>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:47389 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751075Ab2ASMdX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 07:33:23 -0500
+Received: by lahc1 with SMTP id c1so2877574lah.19
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2012 04:33:22 -0800 (PST)
+In-Reply-To: <201201191148.52121.hans.schillstrom@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/17/2012 02:12 AM, Linus Torvalds wrote:
-> 2012/1/16 Arend van Spriel <arend@broadcom.com>:
->>
->> I build a new kernel with MCE enabled. Same issue. I did not load bcma
->> or brcmsmac yet. Attached is trace I could pull from the kernel log
->> (str-test-*).
-> 
-> Oh well. Everything looks fine in the test traces - the warnings are
-> annoying and nasty, but a known issue and not dangerous (and I have a
-> patch in my tree to fix them now).
-> 
-> So if the real suspend fails, it's some other subsystem that has
-> gotten broken. I don't think I have any other reports like that yet,
-> and there is not a lot to go on. If you could try to bisect it (I
-> assume plain Linux-3.2 works fine?) that woudl be wonderful, otherwise
-> I think we're stuck waiting for somebody else to hit it and figure it
-> out.
-> 
->                  Linus
-> 
+Le jeudi 19 janvier 2012 =C3=A0 11:48 +0100, Hans Schillstrom a =C3=A9c=
+rit :
+> Hello
+> Have this one been seen before ?
+> It happens during a container start i.e. in a netns,
+>=20
+> [   19.232941] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D
+> [   19.268785] [ BUG: lock held when returning to user space! ]
+> [   19.270146] 3.2.0+ #14 Tainted: G        W  =20
+> [   19.271217] ------------------------------------------------
+> [   19.272968] nsm/1042 is leaving the kernel with locks still held!
+> [   19.274603] 1 lock held by nsm/1042:
+> [   19.275524]  #0:  (rcu_read_lock){.+.+..}, at: [<ffffffff8136a9b2>=
+] inet6_dump_fib+0xbd/0x34a
+>=20
 
-As the patches are in wireless-testing I tested suspend/resume on my
-system. Worked fine and NetworkManager reestablished the wireless
-connection.
+Yep, Dave Jones reported this some days ago
 
-Gr. AvS
+"Re: recvmsg sleeping from invalid context"
+
+I have no idea of what happens yet.
