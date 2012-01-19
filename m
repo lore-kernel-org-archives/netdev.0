@@ -1,110 +1,58 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: ixgbe: Unsupported SFP+ modules on 10Gbit/s
- X520-DA2 NIC?
-Date: Thu, 19 Jan 2012 12:50:54 +0100
-Message-ID: <20120119115054.GJ2262734@jupiter.n2.diac24.net>
-References: <1326886258.19261.25.camel@probook>
-	<20120118091351.000052fc@unknown> <m3d3ag7ki8.fsf@ursa.amorsen.dk>
-	<9B4A1B1917080E46B64F07F2989DADD621FC38@ORSMSX102.amr.corp.intel.com>
-	<4F174A6F.8050002@candelatech.com>
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: [0/5] bcma/brcmsmac suspend/resume cleanups and fixes
+Date: Thu, 19 Jan 2012 13:12:21 +0100
+Message-ID: <4F1808A5.4070502@broadcom.com>
+References: <CA+55aFzm21ZKs7e_ocVA1bQQ=Js2dJpbiycwHR3v8yNvb0MgTw@mail.gmail.com>
+ <1326440480-26271-1-git-send-email-zajec5@gmail.com>
+ <alpine.LNX.2.00.1201122354430.5860@air.linux-foundation.org>
+ <4F101047.4090902@broadcom.com>
+ <CA+55aFxtaw+FF8wRf9td1rU0A_vhM8XwgSznzE-ph_4j=t5gWg@mail.gmail.com>
+ <4F142D84.4060405@broadcom.com> <4F145F52.9010200@broadcom.com>
+ <CA+55aFyMY5o7irG+=c4ZrfftMu6OJvoyFFY4KNO8rCe90P0mhw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+ charset=iso-8859-2
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Brandeburg,
-	Jesse" <jesse.brandeburg@intel.com>,
-	Benny Amorsen <benny+usenet@amorsen.dk>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <4F174A6F.8050002@candelatech.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: =?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>,
+	"Larry Finger" <Larry.Finger@lwfinger.net>,
+	"Alwin Beukers" <alwin@broadcom.com>,
+	"Roland Vossen" <rvossen@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Network Development" <netdev@vger.kernel.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+To: "Linus Torvalds" <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:1405 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750779Ab2ASMOj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jan 2012 07:14:39 -0500
+In-Reply-To: <CA+55aFyMY5o7irG+=c4ZrfftMu6OJvoyFFY4KNO8rCe90P0mhw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 18, 2012 at 02:40:47PM -0800, Ben Greear wrote:
-> On 01/18/2012 02:21 PM, Fujinaka, Todd wrote:
-> > Jesse Brandeburg<jesse.brandeburg@intel.com>  writes:
-> >
-> >> For X520 adapters, the documentation[1] states that which SFP+
-> >> adapters are/are not supported.  Direct attach cables are also
-> >> supported.
-> >>
-> >> [1]
-> >> http://www.intel.com/support/network/adapter/pro100/sb/CS-030612.htm
-> >
-> > I can't believe that locked optics have now arrived on commodity hardware. I have been trying to migrate to all-Intel networking at work; that effort is certainly on hold now.
-> >
-> >
-> > That's up to you. There's "locked" and there's "locked". I'm surprised
-> > that Benny and Jesper haven't looked at the driver to see where the
-> > messages come from.
+On 01/17/2012 02:12 AM, Linus Torvalds wrote:
+> 2012/1/16 Arend van Spriel <arend@broadcom.com>:
+>>
+>> I build a new kernel with MCE enabled. Same issue. I did not load bcma
+>> or brcmsmac yet. Attached is trace I could pull from the kernel log
+>> (str-test-*).
 > 
-> As a datapoint:  We had a customer trying to use a non-supported
-> SFP+ module in an 82599 NIC, and they hacked the driver to over-rule
-> the exclusion.  It sort of worked for them, but never well, and never
-> at any decent throughput.
+> Oh well. Everything looks fine in the test traces - the warnings are
+> annoying and nasty, but a known issue and not dangerous (and I have a
+> patch in my tree to fix them now).
 > 
-> Now, I have no idea if their SFP+ was decent or not, but at least in
-> some cases, just over-riding the driver doesn't fix things.
+> So if the real suspend fails, it's some other subsystem that has
+> gotten broken. I don't think I have any other reports like that yet,
+> and there is not a lot to go on. If you could try to bisect it (I
+> assume plain Linux-3.2 works fine?) that woudl be wonderful, otherwise
+> I think we're stuck waiting for somebody else to hit it and figure it
+> out.
 > 
-> It does seem like Intel could offer a module option to easily over-ride the
-> SFP+ exclusion for folks that wanted to test new SFP+ modules for them,
-> however.
+>                  Linus
+> 
 
-Sorry, but the whole practice is complete and utter bullshit. And I'm
-saying that as a hardware engineer.
+As the patches are in wireless-testing I tested suspend/resume on my
+system. Worked fine and NetworkManager reestablished the wireless
+connection.
 
-For starters, there are only a handful manufacturers that actually make
-SFPs. I don't have numbers but I'd claim Finisar, Avago and JDSU have
-at least 50% of the market. (cf.
-http://www.finisar.com/faq/Operational-Information:
-"Who are some of the competitors in these businesses?
-"Finisar competes primarily with Avago, CoAdna, JDSU, Oclaro, Opnext,
-Oplink, and Sumitomo.")
-
-(By the way, on 1G SFPs the original price is around $20, from where the
-OEM sticker gets them up to $150 in bad cases [Cisco]. No idea how bad
-it is with 10G.)
-
-Also, the electrical parameters are not that hard to quantify and test.
-The spec has minimum eye opening requirements, maximum jitter allowance,
-etc. - if a vendor gets them wrong, they'll fail quite quickly.
-
-Further, look at Flexoptix and their "reflash the SFP" business model.
-(http://www.flexoptix.net/)
-
-Oh and you even get the same OEM sticker on different real vendors.
-
-Intel isn't making their own SFPs, and they're not getting SFPs with
-custom tweaks on the electrical interface from SFP vendors.
-
-You can always get a shitty transceiver if the vendor has a bad day, but
-that's not gonna be bound to the OEM sticker.
-
-(btw, bad SFPs manifest as CRC/FCS errors, not as bad throughput. If you
-have bad throughput but no errors, the NIC's firmware is fucking with
-you.)
-
-
--David
-
-
-------------------------------------------------------------------------------
-Keep Your Developer Skills Current with LearnDevNow!
-The most comprehensive online learning library for Microsoft developers
-is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
-Metro Style Apps, more. Free future releases when you subscribe now!
-http://p.sf.net/sfu/learndevnow-d2d
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Gr. AvS
