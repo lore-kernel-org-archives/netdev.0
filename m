@@ -1,32 +1,31 @@
-From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH v2 2/5] SUNRPC: create unix gid cache per network
- namespace
-Date: Thu, 19 Jan 2012 17:31:18 -0500
-Message-ID: <20120119223118.GA5177@fieldses.org>
-References: <20120119173823.23767.91876.stgit@localhost6.localdomain6>
- <20120119174229.23767.23.stgit@localhost6.localdomain6>
+From: Bradley Peterson <despite@gmail.com>
+Subject: Single core gets pegged on multi-core PPTP server
+Date: Thu, 19 Jan 2012 16:35:59 -0600
+Message-ID: <CAJuWrdtDgeCOSEvD-ytfwGj4UQeOtjeqUZd3Y1SLpbbsSvrycg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20120119174229.23767.23.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: paulus@samba.org, linux-ppp@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 19, 2012 at 09:42:29PM +0400, Stanislav Kinsbursky wrote:
-> v2:
-> 1) fixed silly usage of template cache as a real one (this code left from
-> static global cache for all)
+Hello,
 
-Looks good, thanks.
+I am trying to test the capacity of a linux PPTP server, both in
+number of connections, and in packets per second.  I am using kernel
+2.6.38.8, with the ppp, pptp, and gre modules, and accel-pptp 0.8.3.
+I have RPS, RFS, and XPS enabled on the network devices for SMP
+support.
 
---b.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+But I'm seeing one CPU get pegged out with soft interrupt, while the
+others are almost completely idle.
+
+In my current test, I'm starting 250 pptp connections from another
+server, then running iperf across each connection.  The client machine
+pegs out, sure, but I'm surprised the server pegs out a single CPU.
+With RPS, I would expect softirq's to be more balanced.
+
+Where could the bottleneck be?  Do all ppp packets need to be
+processed serially?
+
+Brad
