@@ -1,97 +1,122 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH 2/2] tcp: fix undo after RTO for CUBIC
-Date: Wed, 18 Jan 2012 22:47:59 -0500
-Message-ID: <1326944879-22780-2-git-send-email-ncardwell@google.com>
-References: <1326944879-22780-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
-	Nandita Dukkipati <nanditad@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Jerry Chu <hkchu@google.com>,
-	Tom Herbert <therbert@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: David Miller <davem@davemloft.net>
+From: "Prashant Batra (prbatra)" <prbatra@cisco.com>
+Subject: RE: route problem
+Date: Thu, 19 Jan 2012 11:23:39 +0530
+Message-ID: <B97B134FACB2024DB45F524AB0A7B7F2058B03E5@XMB-BGL-419.cisco.com>
+References: <B97B134FACB2024DB45F524AB0A7B7F2058B01D4@XMB-BGL-419.cisco.com><1326878864.2316.0.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC><B97B134FACB2024DB45F524AB0A7B7F2058B020A@XMB-BGL-419.cisco.com><1326881723.2316.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20120118202909.8a3d6963.billfink@mindspring.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: "Bill Fink" <billfink@mindspring.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f202.google.com ([209.85.161.202]:34176 "EHLO
-	mail-gx0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755582Ab2ASDsL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 22:48:11 -0500
-Received: by ggnv2 with SMTP id v2so399040ggn.1
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 19:48:11 -0800 (PST)
-In-Reply-To: <1326944879-22780-1-git-send-email-ncardwell@google.com>
+Received: from bgl-iport-2.cisco.com ([72.163.197.26]:13507 "EHLO
+	bgl-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750751Ab2ASFxs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 00:53:48 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20120118202909.8a3d6963.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes CUBIC so that cwnd reductions made during RTOs can be
-undone (just as they already can be undone when using the default/Reno
-behavior).
 
-When undoing cwnd reductions, BIC-derived congestion control modules
-were restoring the cwnd from last_max_cwnd. There were two problems
-with using last_max_cwnd to restore a cwnd during undo:
 
-(a) last_max_cwnd was set to 0 on state transitions into TCP_CA_Loss
-(by calling the module's reset() functions), so cwnd reductions from
-RTOs could not be undone.
+-----Original Message-----
+=46rom: Bill Fink [mailto:billfink@mindspring.com]=20
+Sent: Thursday, January 19, 2012 6:59 AM
+To: Eric Dumazet
+Cc: Prashant Batra (prbatra); netdev@vger.kernel.org
+Subject: Re: route problem
 
-(b) when fast_covergence is enabled (which it is by default)
-last_max_cwnd does not actually hold the value of snd_cwnd before the
-loss; instead, it holds a scaled-down version of snd_cwnd.
+On Wed, 18 Jan 2012, Eric Dumazet wrote:
 
-This patch makes the following changes:
+> Le mercredi 18 janvier 2012 =E0 15:38 +0530, Prashant Batra (prbatra)=
+ a
+> =E9crit :
+> > 2.6.18 kernel.
+> >=20
+>=20
+> Please dont top post on netdev mailing list
+>=20
+> > -----Original Message-----
+> > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]=20
+> > Sent: Wednesday, January 18, 2012 2:58 PM
+> > To: Prashant Batra (prbatra)
+> > Cc: netdev@vger.kernel.org
+> > Subject: Re: route problem
+> >=20
+> > Le mercredi 18 janvier 2012 =E0 14:47 +0530, Prashant Batra (prbatr=
+a) a
+> > =E9crit :
+> > > Hi,
+> > >=20
+> > > I have added a route for an external ip via a gateway which is av=
+ailable
+> > > on the same machine.
+> > > I want to capture the packets going to this external IP using PF_=
+PACKET
+> > > socket.
+> > >=20
+> > > #route=20
+> > > Destination     Gateway         Genmask         Flags Metric Ref =
+   Use
+> > > Iface
+> > > 192.168.101.0   *               255.255.255.0   U     0      0   =
+     0
+> > > eth1
+> > > 172.16.60.0     192.168.101.10  255.255.255.0   UG    0      0   =
+     0
+> > > eth1
+> > >=20
+> > > So, when a packet is sent to 172.16.60.*, kernel should send arp =
+request
+> > > for this gw IP 192.168.101.10. As gw IP is locally reachable,=20
+> > > It should send its mac address in arp-response and kernel should =
+send
+> > > the packet via that interface.
+> > >=20
+> > > But what I am seeing is that instead of asking the gateway IP, ke=
+rnel
+> > > sends a arp request for destingation ip(172.16.60.*)
+> > >=20
+> > > #tcpdump -I eth1
+> > > 04:12:45.334966 arp who-has 172.16.60.2 tell 192.168.101.20
+> > > 04:12:46.334839 arp who-has 172.16.60.2 tell 192.168.101.20
+> > > 04:12:48.334584 arp who-has 172.16.60.2 tell 192.168.101.20
+> > > 04:12:49.334457 arp who-has 172.16.60.2 tell 192.168.101.20
+> > > 04:12:50.335329 arp who-has 172.16.60.2 tell 192.168.101.20
+> > > 04:12:52.335075 arp who-has 172.16.60.2 tell 192.168.101.20
+> > > 04:12:53.334947 arp who-has 172.16.60.2 tell 192.168.101.20
+> > > 04:12:54.334821 arp who-has 172.16.60.2 tell 192.168.101.20
+> > >=20
+>=20
+> This comes from another machine, since your eth1 addr is 192.168.101.=
+10
 
-(1) upon undo, revert snd_cwnd to ca->loss_cwnd, which is already, as
-the existing comment notes, the "congestion window at last loss"
+Actually, if I'm interpreting the "ip route list cache" output
+correctly, it appears it has local IP addresses of both 192.168.101.10
+and 192.168.101.20.
+[Prashant] Yes both IPs are present on the same machine but on differen=
+t interfaces.
+> local 192.168.101.10 from 192.168.101.101 dev lo  src 192.168.101.10=20
+>     cache <local,src-direct>  iif eth1
 
-(2) stop forgetting ca->loss_cwnd on TCP_CA_Loss events
+> local 192.168.101.20 from 192.168.101.101 dev lo  src 192.168.101.20=20
+>     cache <local,src-direct>  iif eth1
 
-(3) use ca->last_max_cwnd to check if we're in slow start
+And since his gateway is 192.168.101.10, an apparently local
+IP address, that would probably explain the direct ARPS for
+172.16.60.*.
 
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
----
- net/ipv4/tcp_cubic.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
+[Prashant] So is this the correct behavior? What my original intention =
+was to capture the packets from the=20
+interface acting as gateway. So with this behavior I will not be able t=
+o capture the packets as 172.16.60.* are not=20
+present on the local machine, and it will not get any ARP response.
+Consider the gateway on a different machine, in which case ARP request =
+will go for gateway IP, and local machine will=20
+get the ARP response and send the packets to gateway.
 
-diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
-index f376b05..a9077f4 100644
---- a/net/ipv4/tcp_cubic.c
-+++ b/net/ipv4/tcp_cubic.c
-@@ -107,7 +107,6 @@ static inline void bictcp_reset(struct bictcp *ca)
- {
- 	ca->cnt = 0;
- 	ca->last_max_cwnd = 0;
--	ca->loss_cwnd = 0;
- 	ca->last_cwnd = 0;
- 	ca->last_time = 0;
- 	ca->bic_origin_point = 0;
-@@ -142,7 +141,10 @@ static inline void bictcp_hystart_reset(struct sock *sk)
- 
- static void bictcp_init(struct sock *sk)
- {
--	bictcp_reset(inet_csk_ca(sk));
-+	struct bictcp *ca = inet_csk_ca(sk);
-+
-+	bictcp_reset(ca);
-+	ca->loss_cwnd = 0;
- 
- 	if (hystart)
- 		bictcp_hystart_reset(sk);
-@@ -275,7 +277,7 @@ static inline void bictcp_update(struct bictcp *ca, u32 cwnd)
- 	 * The initial growth of cubic function may be too conservative
- 	 * when the available bandwidth is still unknown.
- 	 */
--	if (ca->loss_cwnd == 0 && ca->cnt > 20)
-+	if (ca->last_max_cwnd == 0 && ca->cnt > 20)
- 		ca->cnt = 20;	/* increase cwnd 5% per RTT */
- 
- 	/* TCP Friendly */
-@@ -342,7 +344,7 @@ static u32 bictcp_undo_cwnd(struct sock *sk)
- {
- 	struct bictcp *ca = inet_csk_ca(sk);
- 
--	return max(tcp_sk(sk)->snd_cwnd, ca->last_max_cwnd);
-+	return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
- }
- 
- static void bictcp_state(struct sock *sk, u8 new_state)
--- 
-1.7.7.3
+Regards,
+Prashant
+						-Bill
