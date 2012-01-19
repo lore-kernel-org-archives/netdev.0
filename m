@@ -1,42 +1,63 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: [PATCH ] netem: Fix off-by-one bug in reordering
-Date: Thu, 19 Jan 2012 12:20:59 -0800
-Message-ID: <1327004459-19275-1-git-send-email-subramanian.vijay@gmail.com>
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Vijay Subramanian <subramanian.vijay@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: RFC Hanging clean-up of a namespace
+Date: Thu, 19 Jan 2012 15:27:52 -0500 (EST)
+Message-ID: <20120119.152752.318442465605898328.davem@davemloft.net>
+References: <20120119192541.GM2262734@jupiter.n2.diac24.net>
+	<20120119.143105.735366189369504929.davem@davemloft.net>
+	<20120119195349.GN2262734@jupiter.n2.diac24.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hans.schillstrom@ericsson.com, netdev@vger.kernel.org,
+	ebiederm@xmission.com
+To: equinox@diac24.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:34689 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932690Ab2ASUQg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 15:16:36 -0500
-Received: by iagf6 with SMTP id f6so353640iag.19
-        for <netdev@vger.kernel.org>; Thu, 19 Jan 2012 12:16:36 -0800 (PST)
+Received: from shards.monkeyblade.net ([198.137.202.13]:50663 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932751Ab2ASU3i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 15:29:38 -0500
+In-Reply-To: <20120119195349.GN2262734@jupiter.n2.diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With netem reordering, a gap of N is supposed to reorder every Nth packet with
-given reorder probability.  However, the code currently skips N packets and
-reorders every (N+1)th packet.
+From: David Lamparter <equinox@diac24.net>
+Date: Thu, 19 Jan 2012 20:53:49 +0100
 
-Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
----
- net/sched/sch_netem.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> On Thu, Jan 19, 2012 at 02:31:05PM -0500, David Miller wrote:
+>> >> >> Keeping the timewait sockets around is necessary to absorb any lingering
+>> >> >> packets in the network meant for those sockets.
+> [...]
+>> >> The assumption is that the address is moving, which might not be true.
+>> > 
+>> > I don't understand what you mean, what address may not be moving?
+>> > 
+>> > We're talking about dropping a netns. All of its addresses disappear,
+>> > all of its soft devices disappear. Its hard devices fall back into the
+>> > init namespace, is that what you're referring to?
+>> 
+>> And then you immediately start up a new netns with the same address
+>> and then resets go back to lingering TCP packets the time-waits would
+>> have consumed.
+>> 
+>> The reason this is different from a host reboot is that a host reboot
+>> takes some amount of time, which even if around 30 seconds is superior
+>> in behavior to what can happen with netns which can be created almost
+>> instantly.
+> 
+> Arjan van de Ven booted Linux in 5 seconds in 2008,
+> cf. http://lwn.net/Articles/299483/
+> 
+> On the TCP timewait scale of time, this is pretty much "immediate".
+> 
+> [..]
+>> Then if a new netns is created that tries to reuse the address used by
+>> the mini-netns which hasn't cleared yet, you give -EAGAIN until all
+>> the timewaits expire.
+> 
+> The effect of this is that you end up being unable to reboot lxc based
+> virtualised hosts without waiting 2 minutes for the TCP timers to
+> expire. That sounds completely unacceptable to me.
 
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index e7e1d0b..2776012 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -419,7 +419,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 
- 	cb = netem_skb_cb(skb);
- 	if (q->gap == 0 ||		/* not doing reordering */
--	    q->counter < q->gap ||	/* inside last reordering gap */
-+	    q->counter < q->gap - 1 ||	/* inside last reordering gap */
- 	    q->reorder < get_crandom(&q->reorder_cor)) {
- 		psched_time_t now;
- 		psched_tdiff_t delay;
--- 
-1.7.0.4
+All you are saying to me is that we are on a trajectory to major problems
+if it becomes pervasive that time-wait gets cancelled out and addresses
+then get reused so quickly.
