@@ -1,45 +1,52 @@
-From: =?iso-8859-1?Q?Hans_Schillstr=F6m?= <hans.schillstrom@ericsson.com>
-Subject: RE: RFC Hanging clean-up of a namespace
-Date: Thu, 19 Jan 2012 20:40:32 +0100
-Message-ID: <C8A6796DE7C66C4ABCBC18106CB6C1CC1644FD0833@ESESSCMS0356.eemea.ericsson.se>
-References: <201201191207.10207.hans.schillstrom@ericsson.com>,<20120119.124002.1964667767933832927.davem@davemloft.net>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH net V1 0/6] mlx4: Fixes and enhancements to SRIOV code.
+Date: Thu, 19 Jan 2012 21:42:22 +0200
+Message-ID: <4F18721E.5040901@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"ebiederm@xmission.com" <ebiederm@xmission.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
+	<eugenia@mellanox.co.il>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw10.se.ericsson.net ([193.180.251.61]:60551 "EHLO
-	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932675Ab2ASTkf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 14:40:35 -0500
-In-Reply-To: <20120119.124002.1964667767933832927.davem@davemloft.net>
-Content-Language: en-US
+Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:43134 "HELO
+	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932675Ab2ASTm3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 14:42:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->Date: Thu, 19 Jan 2012 12:07:09 +0100
->
->> Closing of a namespace (container) can be delayed by ~ 2 minutes
->> due to tcp timers ex tcp time wait (and of cource other things too).
->>
->> I think there should be some kind of "forced close" of the Network stack
->> in ex free_nsproxy()
->
->I think this is unwise.
->
->Keeping the timewait sockets around is necessary to absorb any lingering
->packets in the network meant for those sockets.
->
->If you truncate this activity, and then try to create another socket with
->the same ID you'll run into the very problems time-wait is meant to
->solve.
->
->It's an unfortunate delay, but one you will have to live with.
+Hello Dave,
 
-I think the whole clean up is to weak of the name space, there is too many things that
-can go wrong and they do.
+This is V1 of a series of enhancements and some fixes for mlx4 SRIOV code.
+Main changes are: 
+- Correct ethtool statistics report for each VF/PF.
+- The ability of each function to decide on which event queue to receive asynchronous events.
+- Bug fixes.
 
-I was more thinking of a way to make a forced close, 
-ex by cleaning the stack where time wait was one point.
+Thanks,
+Yevgeny
+---
+
+Change from V0:
+	using hweight64()
+
+ drivers/net/ethernet/mellanox/mlx4/cmd.c              |    9 ++
+ drivers/net/ethernet/mellanox/mlx4/cq.c               |    4 -
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c       |   66 +++++++++++++-----
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c        |   38 +++++++---
+ drivers/net/ethernet/mellanox/mlx4/eq.c               |   21 ++---
+ drivers/net/ethernet/mellanox/mlx4/fw.c               |    7 -
+ drivers/net/ethernet/mellanox/mlx4/fw.h               |    1
+ drivers/net/ethernet/mellanox/mlx4/main.c             |    3
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h             |    8 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h          |    1
+ drivers/net/ethernet/mellanox/mlx4/mr.c               |    2
+ drivers/net/ethernet/mellanox/mlx4/pd.c               |    3
+ drivers/net/ethernet/mellanox/mlx4/port.c             |   23 ++++++
+ drivers/net/ethernet/mellanox/mlx4/profile.c          |    2
+ drivers/net/ethernet/mellanox/mlx4/qp.c               |    2
+ drivers/net/ethernet/mellanox/mlx4/resource_tracker.c |   39 ----------
+ drivers/net/ethernet/mellanox/mlx4/srq.c              |    2
+ include/linux/mlx4/device.h                           |    1
+ 18 files changed, 133 insertions(+), 99 deletions(-)
