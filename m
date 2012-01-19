@@ -1,55 +1,69 @@
-From: Hemant-vilas RAMDASI <hemant.ramdasi@stericsson.com>
-Subject: RE: problem with noop and pfifo_fast Qdisc switching
-Date: Thu, 19 Jan 2012 14:44:52 +0100
-Message-ID: <81C3A93C17462B4BBD7E272753C105791FB3639811@EXDCVYMBSTM005.EQ1STM.local>
-References: <81C3A93C17462B4BBD7E272753C105791FB3639775@EXDCVYMBSTM005.EQ1STM.local>
- <1326978933.2249.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netdev-owner@vger.kernel.org" <netdev-owner@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Radu Iliescu <radui@bricsys.com>
+Subject: [PATCH] llc: Fix race condition in llc_ui_recvmsg
+Date: Thu, 19 Jan 2012 15:57:57 +0200
+Message-ID: <1326981477-1698-1-git-send-email-riliescu@ixiacom.com>
+Cc: netdev@vger.kernel.org, dbaluta@ixiacom.com,
+	Radu Iliescu <riliescu@ixiacom.com>
+To: acme@ghostprotocols.net, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:60819 "EHLO
-	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751160Ab2ASNo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 08:44:59 -0500
-In-Reply-To: <1326978933.2249.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Content-Language: en-US
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:52821 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753300Ab2ASN7N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 08:59:13 -0500
+Received: by eekc14 with SMTP id c14so1332443eek.19
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2012 05:59:12 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGksDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0
-IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIEphbnVh
-cnkgMTksIDIwMTIgNjo0NiBQTQ0KPiBUbzogSGVtYW50LXZpbGFzIFJBTURBU0kNCj4gQ2M6IG5l
-dGRldkB2Z2VyLmtlcm5lbC5vcmc7IG5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmcNCj4gU3Vi
-amVjdDogUmU6IHByb2JsZW0gd2l0aCBub29wIGFuZCBwZmlmb19mYXN0IFFkaXNjIHN3aXRjaGlu
-Zw0KPiANCj4gTGUgamV1ZGkgMTkgamFudmllciAyMDEyIMOgIDEzOjQ3ICswMTAwLCBIZW1hbnQt
-dmlsYXMgUkFNREFTSSBhIMOpY3JpdCA6DQo+ID4gSGksDQo+ID4NCj4gPiBJIGhhdmUgYSBzaXR1
-YXRpb24gd2hlcmUgb25lIG9mIGltcG9ydGFudCBtZXNzYWdlIChwaG9uZXQgcGlwZQ0KPiBtZXNz
-YWdlKSBnZXRzIGRyb3BwZWQgYmVjYXVzZSBvZiAnbm9vcCcgUWRpc2MuDQo+ID4gVGhpcyBzaXR1
-YXRpb24gbW9zdGx5IGhhcHBlbnMgd2hlbiBjb21pbmcgb3V0IG9mIHNsZWVwIGFuZCB0aGVyZSBp
-cyBhDQo+IG1lc3NhZ2UgdG8gc2VuZC4NCj4gPiBXaGF0IEkgaGF2ZSBvYnNlcnZlZCBpcyB0aGlz
-Lg0KPiA+IEluIG5vcm1hbCBjYXNlIHRoZSBxZGlzYyB1c2VkIGlkIHBmaWZvX2Zhc3QuIFdoZW4g
-Q1BVIGdvZXMgdG8gc2xlZXAsDQo+IGl0IGNoYW5nZXMgdGhlIHFkaXNjIHRvIG5vb3AuDQo+ID4g
-V2hlbiBDUFUgd2FrZXMgdXAgKGJlY2F1c2Ugb2YgYSBtZXNzYWdlIGZyb20gbG93ZXIgbGF5ZXJz
-KSwgcGhvbmV0DQo+IHRyaWVzIHRvIHNlbmQgYSBjb250cm9sIHBhY2tldCB0byBkcml2ZXIgYW5k
-IGZpbmRzIHFkaXNjIGlzIHN0aWxsDQo+ICdub29wJy4NCj4gPiBCZWNhdXNlIHRoZSBjb25jZXJu
-ZWQgbWVzc2FnZSBpcyBhIGNvbnRyb2wgbWVzc2FnZSwgdGhpcyBwYWNrZXQgZHJvcA0KPiBpcyBj
-cmVhdGluZyBkZWFkbG9jayBzaXR1YXRpb24uDQo+ID4NCj4gPiBIb3cgdGhlIHN3aXRjaCBiZXR3
-ZWVuIHBmaWZvX2Zhc3QgYW5kIG5vb3AgaXMgaGFuZGxlZD8gSXMgdGhpcw0KPiBzb21ldGhpbmcg
-c29sdmVkIGluIDMuMD8NCj4gPiBXZSBhcmUgcnVubmluZyBhIG9sZGVyIHZlcnNpb24gb2Yga2Vy
-bmVsICgyLjYuMzUgYmFzZWQpLg0KPiANCj4gSWYgbWVzc2FnZSBpcyBpbXBvcnRhbnQsIHlvdSBz
-aG91bGQgY2hlY2sgcmV0dXJuIGNvZGUgZnJvbSB4bWl0DQo+IChORVRfWE1JVF9DTiBpcyByZXR1
-cm5lZCBieSBub29wX2VucXVldWUpLCBhbmQgbWF5YmUgcmVzZW5kIGl0IGxhdGVyLg0KPiANCj4g
-Tm90IHN1cmUgYnkgd2hhdCB5b3UgbWVhbiBieSAnY3B1IGdvZXMgdG8gc2xlZXAnIG9yICdjcHUg
-d2FrZXMgdXAnID8NCj4gDQo+IElzIGl0IHRoZSBtYWNoaW5lIGdvaW5nIHRvIHN1c3BlbmQgbW9k
-ZSA/DQo+IA0KWWVzLCBJIG1lYW4gbWFjaGluZSBnb2luZyB0byBzdXNwZW5kLi4NClRoZSBwcm9i
-bGVtIHdpdGggdGhpcyBtZXNzYWdlIGlzIHRoYXQgaXQgY2FuIGJlIHJldHJpZWQgb25seSBhIGNv
-dXBsZSBvZiB0aW1lLg0KV2Ugc2F3IGEgY29kZSB3aGVyZSBkZXZfZGVhY3RpdmF0ZSBpcyBjYWxs
-ZWQgd2hpY2ggY2hhbmdlcyB0aGUgUWRpc2MgdG8gJ25vb3AnLiANCkkgaG9wZSBpdCB3aWxsIHJl
-c3RvcmUgaXQgaW4gZGV2X2FjdGl2YXRlKCkgYWdhaW4gd2hlbiBtYWNoaW5lIHJlc3VtZXMuIFdl
-IGFyZSBjaGVja2luZyB0aGlzLg0KSXMgdGhlcmUgYW55IHJhY2UgYmV0d2VlbiB3aGVuIGRldl9x
-dWV1ZV94bWl0IGlzIGNhbGxlZCBhbmQgZGV2X2FjdGl2YXRlIGlzIHN0aWxsIG5vdCBjb21wbGV0
-ZT8NCg0KVGhhbmtzLA0KSGVtYW50DQoNCg==
+There is a race on sk_receive_queue between llc_ui_recvmsg and
+sock_queue_rcv_skb.
+
+Our current solution is to protect skb_eat in llc_ui_recvmsg
+with the queue spinlock.
+
+Perhaps there is a better solution.
+Maybe there is a lock missing in llc_sap_state_process or above.
+I've tried to follow the locking in tcp on sk_receive_queue,
+but is not clear how is done.
+
+Please take a look and comment.
+
+Signed-off-by: Radu Iliescu <riliescu@ixiacom.com>
+---
+ net/llc/af_llc.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
+index a18e6c3..46a60a4 100644
+--- a/net/llc/af_llc.c
++++ b/net/llc/af_llc.c
+@@ -719,6 +719,7 @@ static int llc_ui_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	unsigned long used;
+ 	int target;	/* Read at least this many bytes */
+ 	long timeo;
++	long cpu_flags;
+ 
+ 	lock_sock(sk);
+ 	copied = -ENOTCONN;
+@@ -838,7 +839,9 @@ static int llc_ui_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 			goto copy_uaddr;
+ 
+ 		if (!(flags & MSG_PEEK)) {
++			spin_lock_irqsave(&sk->sk_receive_queue.lock, cpu_flags);
+ 			sk_eat_skb(sk, skb, 0);
++			spin_unlock_irqrestore(&sk->sk_receive_queue.lock, cpu_flags);
+ 			*seq = 0;
+ 		}
+ 
+@@ -859,7 +862,9 @@ copy_uaddr:
+ 		llc_cmsg_rcv(msg, skb);
+ 
+ 	if (!(flags & MSG_PEEK)) {
++			spin_lock_irqsave(&sk->sk_receive_queue.lock, cpu_flags);
+ 			sk_eat_skb(sk, skb, 0);
++			spin_unlock_irqrestore(&sk->sk_receive_queue.lock, cpu_flags);
+ 			*seq = 0;
+ 	}
+ 
+-- 
+1.7.0.4
