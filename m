@@ -1,41 +1,36 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: RFC Hanging clean-up of a namespace
-Date: Thu, 19 Jan 2012 23:16:12 +0100
-Message-ID: <20120119221611.GC12249@hell>
-References: <20120119192541.GM2262734@jupiter.n2.diac24.net>
- <20120119.143105.735366189369504929.davem@davemloft.net>
- <20120119195349.GN2262734@jupiter.n2.diac24.net>
- <20120119.152752.318442465605898328.davem@davemloft.net>
- <m1lip32xoi.fsf@fess.ebiederm.org>
- <20120119214052.GA12249@hell>
- <20120119214718.GC3347849@jupiter.n2.diac24.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] using NLM_F_DUMP flag constant in libnetlink.c
+Date: Thu, 19 Jan 2012 14:17:20 -0800
+Message-ID: <20120119141720.09bad41d@nehalam.linuxnetplumber.net>
+References: <20120119.203108.460927494189100272.yamato@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>,
-	hans.schillstrom@ericsson.com, netdev@vger.kernel.org
-To: David Lamparter <equinox@diac24.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Masatake YAMATO <yamato@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:59428 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751681Ab2ASWQP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 17:16:15 -0500
-Content-Disposition: inline
-In-Reply-To: <20120119214718.GC3347849@jupiter.n2.diac24.net>
+Received: from mail.vyatta.com ([76.74.103.46]:54086 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753927Ab2ASWRX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jan 2012 17:17:23 -0500
+In-Reply-To: <20120119.203108.460927494189100272.yamato@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* David Lamparter | 2012-01-19 22:47:18 [+0100]:
+On Thu, 19 Jan 2012 20:31:08 +0900 (JST)
+Masatake YAMATO <yamato@redhat.com> wrote:
 
->I may have made that argument hidden behind a joke, but please refer to
->the development of RFC 793's bootup "quiet time". The reason no one
->sticks to this quiet time is that TCP timestamps have obsoleted it by
->providing a better frame of reference. Refer to RFC 1323 Appendix B
->"DUPLICATES FROM EARLIER CONNECTION INCARNATIONS".
+> This is trivial patch for libnetlink.c in iproute2.
+> 
+> In iproute2/include/linux/netlink.h NLM_F_DUMP is defines as:
+> 
+>    #define NLM_F_DUMP	(NLM_F_ROOT|NLM_F_MATCH)
+> 
+> It is not used in libnetlink.c. If used, the code becomes a bit easier
+> to read.
+> 
+> 
+> 
+> Signed-off-by: Masatake YAMATO <yamato@redhat.com>
 
-Appendix B of RFC 1323 handles "Connection Incarnations", TIME_WAIT handles a
-wrong stack behavior and avoid a RST packet instead of a final ACK/FIN for a
-retransmission - two independent mechanisms.
-
-
-Hagen
+Applied, thanks.
