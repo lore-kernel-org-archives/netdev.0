@@ -1,7 +1,8 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH 1/2] tcp: fix undo after RTO for BIC
-Date: Wed, 18 Jan 2012 22:47:58 -0500
-Message-ID: <1326944879-22780-1-git-send-email-ncardwell@google.com>
+Subject: [PATCH 2/2] tcp: fix undo after RTO for CUBIC
+Date: Wed, 18 Jan 2012 22:47:59 -0500
+Message-ID: <1326944879-22780-2-git-send-email-ncardwell@google.com>
+References: <1326944879-22780-1-git-send-email-ncardwell@google.com>
 Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
 	Nandita Dukkipati <nanditad@google.com>,
 	Yuchung Cheng <ycheng@google.com>,
@@ -10,16 +11,17 @@ Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
 	Neal Cardwell <ncardwell@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f74.google.com ([74.125.83.74]:65443 "EHLO
-	mail-ee0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757252Ab2ASDsM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 22:48:12 -0500
-Received: by eekb15 with SMTP id b15so143868eek.1
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 19:48:10 -0800 (PST)
+Received: from mail-gx0-f202.google.com ([209.85.161.202]:34176 "EHLO
+	mail-gx0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755582Ab2ASDsL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 22:48:11 -0500
+Received: by ggnv2 with SMTP id v2so399040ggn.1
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 19:48:11 -0800 (PST)
+In-Reply-To: <1326944879-22780-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes BIC so that cwnd reductions made during RTOs can be
+This patch fixes CUBIC so that cwnd reductions made during RTOs can be
 undone (just as they already can be undone when using the default/Reno
 behavior).
 
@@ -46,22 +48,22 @@ the existing comment notes, the "congestion window at last loss"
 
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
 ---
- net/ipv4/tcp_bic.c |   11 +++++++----
- 1 files changed, 7 insertions(+), 4 deletions(-)
+ net/ipv4/tcp_cubic.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv4/tcp_bic.c b/net/ipv4/tcp_bic.c
-index 6187eb4..f45e1c2 100644
---- a/net/ipv4/tcp_bic.c
-+++ b/net/ipv4/tcp_bic.c
-@@ -63,7 +63,6 @@ static inline void bictcp_reset(struct bictcp *ca)
+diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
+index f376b05..a9077f4 100644
+--- a/net/ipv4/tcp_cubic.c
++++ b/net/ipv4/tcp_cubic.c
+@@ -107,7 +107,6 @@ static inline void bictcp_reset(struct bictcp *ca)
  {
  	ca->cnt = 0;
  	ca->last_max_cwnd = 0;
 -	ca->loss_cwnd = 0;
  	ca->last_cwnd = 0;
  	ca->last_time = 0;
- 	ca->epoch_start = 0;
-@@ -72,7 +71,11 @@ static inline void bictcp_reset(struct bictcp *ca)
+ 	ca->bic_origin_point = 0;
+@@ -142,7 +141,10 @@ static inline void bictcp_hystart_reset(struct sock *sk)
  
  static void bictcp_init(struct sock *sk)
  {
@@ -70,25 +72,24 @@ index 6187eb4..f45e1c2 100644
 +
 +	bictcp_reset(ca);
 +	ca->loss_cwnd = 0;
-+
- 	if (initial_ssthresh)
- 		tcp_sk(sk)->snd_ssthresh = initial_ssthresh;
- }
-@@ -127,7 +130,7 @@ static inline void bictcp_update(struct bictcp *ca, u32 cwnd)
- 	}
  
- 	/* if in slow start or link utilization is very low */
--	if (ca->loss_cwnd == 0) {
-+	if (ca->last_max_cwnd == 0) {
- 		if (ca->cnt > 20) /* increase cwnd 5% per RTT */
- 			ca->cnt = 20;
- 	}
-@@ -185,7 +188,7 @@ static u32 bictcp_undo_cwnd(struct sock *sk)
+ 	if (hystart)
+ 		bictcp_hystart_reset(sk);
+@@ -275,7 +277,7 @@ static inline void bictcp_update(struct bictcp *ca, u32 cwnd)
+ 	 * The initial growth of cubic function may be too conservative
+ 	 * when the available bandwidth is still unknown.
+ 	 */
+-	if (ca->loss_cwnd == 0 && ca->cnt > 20)
++	if (ca->last_max_cwnd == 0 && ca->cnt > 20)
+ 		ca->cnt = 20;	/* increase cwnd 5% per RTT */
+ 
+ 	/* TCP Friendly */
+@@ -342,7 +344,7 @@ static u32 bictcp_undo_cwnd(struct sock *sk)
  {
- 	const struct tcp_sock *tp = tcp_sk(sk);
- 	const struct bictcp *ca = inet_csk_ca(sk);
--	return max(tp->snd_cwnd, ca->last_max_cwnd);
-+	return max(tp->snd_cwnd, ca->loss_cwnd);
+ 	struct bictcp *ca = inet_csk_ca(sk);
+ 
+-	return max(tcp_sk(sk)->snd_cwnd, ca->last_max_cwnd);
++	return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
  }
  
  static void bictcp_state(struct sock *sk, u8 new_state)
