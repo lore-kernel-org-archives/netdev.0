@@ -1,75 +1,40 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH 0/5] SUNRPC: make caches network namespace aware
-Date: Thu, 19 Jan 2012 20:01:33 +0400
-Message-ID: <4F183E5D.2020609@parallels.com>
-References: <20120119144517.9957.59143.stgit@localhost6.localdomain6> <1326986392.6114.1.camel@lade.trondhjem.org> <4F18376C.9090504@parallels.com> <20120119154731.GB527@fieldses.org>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [0/5] bcma/brcmsmac suspend/resume cleanups and fixes
+Date: Thu, 19 Jan 2012 08:15:40 -0800
+Message-ID: <CA+55aFxGHueSjP4xv=1+o_pv1eDsNgTUcx+k43sGkvbO9SHTGw@mail.gmail.com>
+References: <CA+55aFzm21ZKs7e_ocVA1bQQ=Js2dJpbiycwHR3v8yNvb0MgTw@mail.gmail.com>
+ <1326440480-26271-1-git-send-email-zajec5@gmail.com> <alpine.LNX.2.00.1201122354430.5860@air.linux-foundation.org>
+ <4F101047.4090902@broadcom.com> <CA+55aFxtaw+FF8wRf9td1rU0A_vhM8XwgSznzE-ph_4j=t5gWg@mail.gmail.com>
+ <4F142D84.4060405@broadcom.com> <4F145F52.9010200@broadcom.com>
+ <CA+55aFyMY5o7irG+=c4ZrfftMu6OJvoyFFY4KNO8rCe90P0mhw@mail.gmail.com> <4F1808A5.4070502@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Dr James Bruce Fields <bfields@redhat.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	James Bottomley <jbottomley@parallels.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: "bfields@fieldses.org" <bfields@fieldses.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120119154731.GB527@fieldses.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: =?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Alwin Beukers <alwin@broadcom.com>,
+	Roland Vossen <rvossen@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Network Development <netdev@vger.kernel.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+To: Arend van Spriel <arend@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:56901 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932482Ab2ASQQC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 11:16:02 -0500
+Received: by wgbdq11 with SMTP id dq11so102730wgb.1
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2012 08:16:01 -0800 (PST)
+In-Reply-To: <4F1808A5.4070502@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-19.01.2012 19:47, bfields@fieldses.org =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Thu, Jan 19, 2012 at 07:31:56PM +0400, Stanislav Kinsbursky wrote:
->> 19.01.2012 19:19, Trond Myklebust =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>> On Thu, 2012-01-19 at 18:48 +0400, Stanislav Kinsbursky wrote:
->>>> One more step towards to "NFS in container".
->>>> With this patch set caches are allocated per network namespace.
->>>>
->>>> The following series consists of:
->>>>
->>>> ---
->>>>
->>>> Stanislav Kinsbursky (5):
->>>>        SUNRPC: cache creation and destruction routines introduced
->>>>        SUNRPC: create unix gid cache per network namespace
->>>>        SUNRPC: create GSS auth cache per network namespace
->>>>        SUNRPC: ip map cache per network namespace cleanup
->>>>        SUNRPC: generic cache register routines removed
->>>
->>> The patches look good, and I've applied them for now in my 'devel'
->>> branch so we can test them, but I'd like to get an Ack/Nack from Br=
-uce
->>> before committing to merging them.
->>>
->>
->> Cool, thanks.
->> BTW, these patches depends on patch "NFSd: use
->> network-namespace-aware cache registering routines", which Bruce
->> took already (and it's even in linux-next already), but not in your
->> devel tree for some reason.
+2012/1/19 Arend van Spriel <arend@broadcom.com>:
 >
-> And Linus has pulled those, so if Trond bases his tree on -rc1, he'll
-> have "NFSd: use network-namespace-aware cache registering routines".
->
-> You know best what you're planning to submit over the next cycle, and
-> what the dependencies are, and which side (client or server) it's lik=
-ely
-> to touch more.  So, your choice, I think.  If necessary Trond and I c=
-an
-> probably do a merge between us at some point.
->
+> As the patches are in wireless-testing I tested suspend/resume on my
+> system. Worked fine and NetworkManager reestablished the wireless
+> connection.
 
-Actually, I'm not going to patch NFSd in this cycle. Some more NFS and =
-Lockd=20
-patches will follow soon.
-So, probably, Trond's tree suits better.
+Ok, thanks. Let's hope the nvidia problem can be fixed quickly, but at
+least we can put the brcmsmac issue to rest.
 
-
---=20
-Best regards,
-Stanislav Kinsbursky
+                            Linus
