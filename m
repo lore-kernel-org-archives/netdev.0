@@ -1,7 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH] NFS: parse DNS cache in proper network namespace context
-Date: Thu, 19 Jan 2012 18:51:04 +0400
-Message-ID: <20120119145052.10480.1059.stgit@localhost6.localdomain6>
+Subject: [PATCH] NFS: decode destination address in proper network namespace
+ context
+Date: Thu, 19 Jan 2012 19:05:57 +0400
+Message-ID: <20120119150553.16860.77882.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -14,24 +15,44 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch replaces "init_net" with cache's owner net in rpc_pton() call.
+This patch replaces "init_net" with NFS client's owner net in rpc_pton() call
+in decode_ds_addr().
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- fs/nfs/dns_resolve.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ fs/nfs/nfs4filelayoutdev.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/fs/nfs/dns_resolve.c b/fs/nfs/dns_resolve.c
-index 7edc62a..be9a530 100644
---- a/fs/nfs/dns_resolve.c
-+++ b/fs/nfs/dns_resolve.c
-@@ -224,7 +224,7 @@ static int nfs_dns_parse(struct cache_detail *cd, char *buf, int buflen)
- 	len = qword_get(&buf, buf1, sizeof(buf1));
- 	if (len <= 0)
- 		goto out;
--	key.addrlen = rpc_pton(&init_net, buf1, len,
-+	key.addrlen = rpc_pton(cd->net, buf1, len,
- 			(struct sockaddr *)&key.addr,
- 			sizeof(key.addr));
+diff --git a/fs/nfs/nfs4filelayoutdev.c b/fs/nfs/nfs4filelayoutdev.c
+index 0d8b952..6eb59b0 100644
+--- a/fs/nfs/nfs4filelayoutdev.c
++++ b/fs/nfs/nfs4filelayoutdev.c
+@@ -378,7 +378,7 @@ out:
+  * Currently only supports ipv4, ipv6 and one multi-path address.
+  */
+ static struct nfs4_pnfs_ds_addr *
+-decode_ds_addr(struct xdr_stream *streamp, gfp_t gfp_flags)
++decode_ds_addr(struct net *net, struct xdr_stream *streamp, gfp_t gfp_flags)
+ {
+ 	struct nfs4_pnfs_ds_addr *da = NULL;
+ 	char *buf, *portstr;
+@@ -457,7 +457,7 @@ decode_ds_addr(struct xdr_stream *streamp, gfp_t gfp_flags)
  
+ 	INIT_LIST_HEAD(&da->da_node);
+ 
+-	if (!rpc_pton(&init_net, buf, portstr-buf, (struct sockaddr *)&da->da_addr,
++	if (!rpc_pton(net, buf, portstr-buf, (struct sockaddr *)&da->da_addr,
+ 		      sizeof(da->da_addr))) {
+ 		dprintk("%s: error parsing address %s\n", __func__, buf);
+ 		goto out_free_da;
+@@ -625,7 +625,8 @@ decode_device(struct inode *ino, struct pnfs_device *pdev, gfp_t gfp_flags)
+ 
+ 		mp_count = be32_to_cpup(p); /* multipath count */
+ 		for (j = 0; j < mp_count; j++) {
+-			da = decode_ds_addr(&stream, gfp_flags);
++			da = decode_ds_addr(NFS_SERVER(ino)->nfs_client->net,
++					    &stream, gfp_flags);
+ 			if (da)
+ 				list_add_tail(&da->da_node, &dsaddrs);
+ 		}
