@@ -1,58 +1,57 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH] NFS: decode destination address in proper network namespace
- context
-Date: Thu, 19 Jan 2012 19:05:57 +0400
-Message-ID: <20120119150553.16860.77882.stgit@localhost6.localdomain6>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [PATCH 2/3 V3.1] can/usb: PEAK-System Technik PCAN-USB specific
+ part
+Date: Thu, 19 Jan 2012 10:07:45 -0500 (EST)
+Message-ID: <Pine.LNX.4.44L0.1201191004540.1447-100000@iolanthe.rowland.org>
+References: <1326968863-20229-3-git-send-email-s.grosjean@peak-system.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbottomley@parallels.com, bfields@fieldses.org,
-	davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
+	linux-usb Mailing List <linux-usb@vger.kernel.org>,
+	netdev Mailing List <netdev@vger.kernel.org>,
+	linux-can Mailing List <linux-can@vger.kernel.org>
+To: Stephane Grosjean <s.grosjean@peak-system.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1326968863-20229-3-git-send-email-s.grosjean@peak-system.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch replaces "init_net" with NFS client's owner net in rpc_pton() call
-in decode_ds_addr().
+On Thu, 19 Jan 2012, Stephane Grosjean wrote:
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+> This patch adds the specific part which handles the PCAN-USB adapter from
+> PEAK-System Technik (http://www.peak-system.com). The PCAN-USB adapter is
+> a sja1000 based, mono-channel USB 1.1 adapter compliant with CAN
+> specifications 2.0A (11-bit ID) and 2.0B (29-bit ID).
+> 
+> V3.1: same as V3 + add linux-can in cc:
+> +/*
+> + * send a command
+> + */
+> +static int pcan_usb_send_cmd(struct peak_usb_device *dev, u8 f, u8 n, u8 *p)
+> +{
+> +	int err;
+> +	int actual_length;
+> +	struct pcan_usb_parameter cmd = {
+> +		.function = f,
+> +		.number = n,
+> +	};
+> +
+> +	/* usb device unregistered? */
+> +	if (!(dev->state & PCAN_USB_STATE_CONNECTED))
+> +		return 0;
+> +
+> +	if (p)
+> +		memcpy(cmd.parameters, p, ARRAY_SIZE(cmd.parameters));
+> +
+> +	err = usb_bulk_msg(dev->udev,
+> +		usb_sndbulkpipe(dev->udev, PCAN_USB_EP_CMDOUT), &cmd,
+> +		sizeof(struct pcan_usb_parameter), &actual_length,
+> +		PCAN_USB_COMMAND_TIMEOUT);
 
----
- fs/nfs/nfs4filelayoutdev.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+Here, and in several other places in this patch series, you submit
+requests using a transfer buffer that is allocated on the stack.  This
+is forbidden because not all platforms can do DMA to stack or static
+addresses.  The transfer buffers should be allocated dynamically.
 
-diff --git a/fs/nfs/nfs4filelayoutdev.c b/fs/nfs/nfs4filelayoutdev.c
-index 0d8b952..6eb59b0 100644
---- a/fs/nfs/nfs4filelayoutdev.c
-+++ b/fs/nfs/nfs4filelayoutdev.c
-@@ -378,7 +378,7 @@ out:
-  * Currently only supports ipv4, ipv6 and one multi-path address.
-  */
- static struct nfs4_pnfs_ds_addr *
--decode_ds_addr(struct xdr_stream *streamp, gfp_t gfp_flags)
-+decode_ds_addr(struct net *net, struct xdr_stream *streamp, gfp_t gfp_flags)
- {
- 	struct nfs4_pnfs_ds_addr *da = NULL;
- 	char *buf, *portstr;
-@@ -457,7 +457,7 @@ decode_ds_addr(struct xdr_stream *streamp, gfp_t gfp_flags)
- 
- 	INIT_LIST_HEAD(&da->da_node);
- 
--	if (!rpc_pton(&init_net, buf, portstr-buf, (struct sockaddr *)&da->da_addr,
-+	if (!rpc_pton(net, buf, portstr-buf, (struct sockaddr *)&da->da_addr,
- 		      sizeof(da->da_addr))) {
- 		dprintk("%s: error parsing address %s\n", __func__, buf);
- 		goto out_free_da;
-@@ -625,7 +625,8 @@ decode_device(struct inode *ino, struct pnfs_device *pdev, gfp_t gfp_flags)
- 
- 		mp_count = be32_to_cpup(p); /* multipath count */
- 		for (j = 0; j < mp_count; j++) {
--			da = decode_ds_addr(&stream, gfp_flags);
-+			da = decode_ds_addr(NFS_SERVER(ino)->nfs_client->net,
-+					    &stream, gfp_flags);
- 			if (da)
- 				list_add_tail(&da->da_node, &dsaddrs);
- 		}
+Alan Stern
+
