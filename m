@@ -1,31 +1,47 @@
-From: Bradley Peterson <despite@gmail.com>
-Subject: Single core gets pegged on multi-core PPTP server
-Date: Thu, 19 Jan 2012 16:35:59 -0600
-Message-ID: <CAJuWrdtDgeCOSEvD-ytfwGj4UQeOtjeqUZd3Y1SLpbbsSvrycg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: RFC Hanging clean-up of a namespace
+Date: Thu, 19 Jan 2012 17:37:13 -0500 (EST)
+Message-ID: <20120119.173713.2180573303386307668.davem@davemloft.net>
+References: <m1lip32xoi.fsf@fess.ebiederm.org>
+	<20120119214052.GA12249@hell>
+	<20120119214718.GC3347849@jupiter.n2.diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: paulus@samba.org, linux-ppp@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-ppp-owner@vger.kernel.org>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hagen@jauu.net, ebiederm@xmission.com,
+	hans.schillstrom@ericsson.com, netdev@vger.kernel.org
+To: equinox@diac24.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:51577 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751635Ab2ASWjE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 17:39:04 -0500
+In-Reply-To: <20120119214718.GC3347849@jupiter.n2.diac24.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: David Lamparter <equinox@diac24.net>
+Date: Thu, 19 Jan 2012 22:47:18 +0100
 
-I am trying to test the capacity of a linux PPTP server, both in
-number of connections, and in packets per second.  I am using kernel
-2.6.38.8, with the ppp, pptp, and gre modules, and accel-pptp 0.8.3.
-I have RPS, RFS, and XPS enabled on the network devices for SMP
-support.
+> On Thu, Jan 19, 2012 at 10:40:53PM +0100, Hagen Paul Pfeifer wrote:
+>> * Eric W. Biederman | 2012-01-19 13:24:13 [-0800]:
+>> 
+>> >This thread is a fascinating disconnect from reality all of the way
+>> >around.
+>> >
+>> >- inet_twsk_purge already implements throwing out of timewait sockets
+>> >  when a network namespaces is being cleaned up.  So the RFC is nonsense.
+>> 
+>> This is how it is implemented, not how it should be. TIME_WAIT is not the
+>> problem, it is there to keep the stack from sending wrong RST messages. Maybe
+>> the 2*MSL could be fixed by a more accurate 2*RTT.
+> 
+> I may have made that argument hidden behind a joke, but please refer to
+> the development of RFC 793's bootup "quiet time". The reason no one
+> sticks to this quiet time is that TCP timestamps have obsoleted it by
+> providing a better frame of reference. Refer to RFC 1323 Appendix B
+> "DUPLICATES FROM EARLIER CONNECTION INCARNATIONS".
 
-But I'm seeing one CPU get pegged out with soft interrupt, while the
-others are almost completely idle.
-
-In my current test, I'm starting 250 pptp connections from another
-server, then running iperf across each connection.  The client machine
-pegs out, sure, but I'm surprised the server pegs out a single CPU.
-With RPS, I would expect softirq's to be more balanced.
-
-Where could the bottleneck be?  Do all ppp packets need to be
-processed serially?
-
-Brad
+I recommend you go and see what percentage of TCP connections actually
+have timestamps enabled, you might be surprised.  I believe there are
+some good up to date figures in the google TCP papers.
