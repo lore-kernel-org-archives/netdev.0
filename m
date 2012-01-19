@@ -1,138 +1,66 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH 4/5] SUNRPC: ip map cache per network namespace cleanup
-Date: Thu, 19 Jan 2012 11:37:22 -0500
-Message-ID: <20120119163722.GE527@fieldses.org>
-References: <20120119144517.9957.59143.stgit@localhost6.localdomain6>
- <20120119144931.9957.78601.stgit@localhost6.localdomain6>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH 2/5] SUNRPC: create unix gid cache per network namespace
+Date: Thu, 19 Jan 2012 21:00:23 +0400
+Message-ID: <4F184C27.8080101@parallels.com>
+References: <20120119144517.9957.59143.stgit@localhost6.localdomain6> <20120119144914.9957.73951.stgit@localhost6.localdomain6> <20120119162431.GC527@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond.Myklebust@netapp.com, linux-nfs@vger.kernel.org,
-	xemul@parallels.com, neilb@suse.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jbottomley@parallels.com,
-	davem@davemloft.net, devel@openvz.org
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: "J. Bruce Fields" <bfields@fieldses.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120119144931.9957.78601.stgit@localhost6.localdomain6>
+In-Reply-To: <20120119162431.GC527@fieldses.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 19, 2012 at 06:49:31PM +0400, Stanislav Kinsbursky wrote:
-> This patch converts ip_map_cache per network namespace implemenetation to the
-> same view, as other caches done in the series.
-> Besides generalization, code becomes shorter with this patch.
+19.01.2012 20:24, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Thu, Jan 19, 2012 at 06:49:14PM +0400, Stanislav Kinsbursky wrote:
+>> This patch makes unix_gid_cache cache detail allocated and registere=
+d per
+>> network namespace context.
+>> Thus with this patch unix_gid_cache contents for network namespace "=
+X" are
+>> controlled from proc file system mount for the same network namespac=
+e "X".
+>
+> I'm confused--this seems half-done.  I see that you're creating the g=
+id
+> caches dynamically, but there's still this static definition:
+>
 
-Again, isnt' it ip_map_cache, and not one of the dynamically created
-cache details, that's being passed to the lookup routines?
+This static definition is used as a template now.
+Have a look at the first path of the series: cache creation routine dup=
+licates=20
+incomming cache_detail and initializes net and hash_table fields in fre=
+shly=20
+created copy.
+This copy is the new per-net cache_detail instance.
 
-I may just be confused....
+>>   struct cache_detail unix_gid_cache =3D {
+>>   	.owner		=3D THIS_MODULE,
+>>   	.hash_size	=3D GID_HASHMAX,
+>> -	.hash_table	=3D gid_table,
+>>   	.name		=3D "auth.unix.gid",
+>>   	.cache_put	=3D unix_gid_put,
+>>   	.cache_upcall	=3D unix_gid_upcall,
+>
+> And it looks like unix_gid_lookup is still using this static
+> unix_gid_cache.  Maybe I'm missing something....
+>
 
---b.
+Yep, thanks for the catch.
+My fault, I've missed this usage.
 
-> 
-> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
-> 
-> ---
->  net/sunrpc/svcauth_unix.c |   71 +++++++++++++++++++--------------------------
->  1 files changed, 30 insertions(+), 41 deletions(-)
-> 
-> diff --git a/net/sunrpc/svcauth_unix.c b/net/sunrpc/svcauth_unix.c
-> index c753ae4..0a50788 100644
-> --- a/net/sunrpc/svcauth_unix.c
-> +++ b/net/sunrpc/svcauth_unix.c
-> @@ -211,7 +211,7 @@ static int ip_map_parse(struct cache_detail *cd,
->  	len = qword_get(&mesg, buf, mlen);
->  	if (len <= 0) return -EINVAL;
->  
-> -	if (rpc_pton(&init_net, buf, len, &address.sa, sizeof(address)) == 0)
-> +	if (rpc_pton(cd->net, buf, len, &address.sa, sizeof(address)) == 0)
->  		return -EINVAL;
->  	switch (address.sa.sa_family) {
->  	case AF_INET:
-> @@ -875,56 +875,45 @@ struct auth_ops svcauth_unix = {
->  	.set_client	= svcauth_unix_set_client,
->  };
->  
-> +struct cache_detail ip_map_cache = {
-> +	.owner		= THIS_MODULE,
-> +	.hash_size	= IP_HASHMAX,
-> +	.name		= "auth.unix.ip",
-> +	.cache_put	= ip_map_put,
-> +	.cache_upcall	= ip_map_upcall,
-> +	.cache_parse	= ip_map_parse,
-> +	.cache_show	= ip_map_show,
-> +	.match		= ip_map_match,
-> +	.init		= ip_map_init,
-> +	.update		= update,
-> +	.alloc		= ip_map_alloc,
-> +};
-> +
->  int ip_map_cache_create(struct net *net)
->  {
-> -	int err = -ENOMEM;
-> -	struct cache_detail *cd;
-> -	struct cache_head **tbl;
->  	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
-> +	struct cache_detail *cd;
-> +	int err;
->  
-> -	cd = kzalloc(sizeof(struct cache_detail), GFP_KERNEL);
-> -	if (cd == NULL)
-> -		goto err_cd;
-> -
-> -	tbl = kzalloc(IP_HASHMAX * sizeof(struct cache_head *), GFP_KERNEL);
-> -	if (tbl == NULL)
-> -		goto err_tbl;
-> -
-> -	cd->owner = THIS_MODULE,
-> -	cd->hash_size = IP_HASHMAX,
-> -	cd->hash_table = tbl,
-> -	cd->name = "auth.unix.ip",
-> -	cd->cache_put = ip_map_put,
-> -	cd->cache_upcall = ip_map_upcall,
-> -	cd->cache_parse = ip_map_parse,
-> -	cd->cache_show = ip_map_show,
-> -	cd->match = ip_map_match,
-> -	cd->init = ip_map_init,
-> -	cd->update = update,
-> -	cd->alloc = ip_map_alloc,
-> -
-> +	cd = cache_create_net(&ip_map_cache, net);
-> +	if (IS_ERR(cd))
-> +		return PTR_ERR(cd);
->  	err = cache_register_net(cd, net);
-> -	if (err)
-> -		goto err_reg;
-> -
-> +	if (err) {
-> +		cache_destroy_net(cd, net);
-> +		return err;
-> +	}
->  	sn->ip_map_cache = cd;
->  	return 0;
-> -
-> -err_reg:
-> -	kfree(tbl);
-> -err_tbl:
-> -	kfree(cd);
-> -err_cd:
-> -	return err;
->  }
->  
->  void ip_map_cache_destroy(struct net *net)
->  {
-> -	struct sunrpc_net *sn;
-> +	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
-> +	struct cache_detail *cd = sn->ip_map_cache;
->  
-> -	sn = net_generic(net, sunrpc_net_id);
-> -	cache_purge(sn->ip_map_cache);
-> -	cache_unregister_net(sn->ip_map_cache, net);
-> -	kfree(sn->ip_map_cache->hash_table);
-> -	kfree(sn->ip_map_cache);
-> +	sn->ip_map_cache = NULL;
-> +	cache_purge(cd);
-> +	cache_unregister_net(cd, net);
-> +	cache_destroy_net(cd, net);
->  }
-> 
+
+--=20
+Best regards,
+Stanislav Kinsbursky
