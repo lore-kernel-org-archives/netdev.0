@@ -1,86 +1,42 @@
-From: Jean-Michel Hautbois <jhautbois@gmail.com>
-Subject: Re: Interpreting perf stat on netperf and netserver
-Date: Thu, 19 Jan 2012 11:26:34 +0100
-Message-ID: <CAL8zT=hr6vf3tUFaxH_Qk8E3HPd6=WNjrHeMLph2e54sagu37w@mail.gmail.com>
-References: <CAL8zT=gNwDDXcbH+hoZApc63ArW2quzHJ1gRrPSxKP7jE04KLw@mail.gmail.com>
- <1326965048.2249.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Richard Weinberger <rw@linutronix.de>
+Subject: Re: Netfilter: New target: RLOG
+Date: Thu, 19 Jan 2012 11:31:14 +0100
+Message-ID: <4F17F0F2.6060807@linutronix.de>
+References: <1326926610-17830-1-git-send-email-rw@linutronix.de>  <20120119091248.GA32391@1984> <4F17E0A4.9040004@linutronix.de> <1326965176.2249.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <alpine.LNX.2.01.1201191045530.27900@frira.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, rostedt@goodmis.org
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:52441 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755441Ab2ASK04 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 05:26:56 -0500
-Received: by wics10 with SMTP id s10so234582wic.19
-        for <netdev@vger.kernel.org>; Thu, 19 Jan 2012 02:26:55 -0800 (PST)
-In-Reply-To: <1326965048.2249.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from www.linutronix.de ([62.245.132.108]:56765 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751072Ab2ASKbR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 05:31:17 -0500
+In-Reply-To: <alpine.LNX.2.01.1201191045530.27900@frira.zrqbmnf.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2012/1/19 Eric Dumazet <eric.dumazet@gmail.com>:
-> Le mercredi 18 janvier 2012 =C3=A0 12:33 +0100, Jean-Michel Hautbois =
-a
-> =C3=A9crit :
+On 19.01.2012 10:46, Jan Engelhardt wrote:
+> On Thursday 2012-01-19 10:26, Eric Dumazet wrote:
 >
->> The be2net driver seems to have difficulties woth IRQ affinity also,
->> because it always uses CPU0 even if the affinity is 0-23 !
->> netperf result is quite good, and perf top shows :
->> =C2=A0 =C2=A0PerfTop: =C2=A0 =C2=A0 689 irqs/sec =C2=A0kernel:99.6% =
-us: 0.3% guest kernel: 0.0%
->> guest us: 0.0% exact: =C2=A00.0% [1000Hz cycles], =C2=A0(all, 24 CPU=
-s)
->> --------------------------------------------------------------------=
------------------------------------------------------------------------=
----------------------------------------
+>> Le jeudi 19 janvier 2012 =C3=A0 10:21 +0100, Richard Weinberger a =C3=
+=A9crit :
 >>
->> =C2=A0 =C2=A0 29.28% =C2=A0[kernel] =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
-[k] csum_partial
->> =C2=A0 =C2=A0 =C2=A08.46% =C2=A0[kernel] =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0[k] copy_user_generic_string
->> =C2=A0 =C2=A0 =C2=A03.70% =C2=A0[be2net] =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0[k] be_poll_rx
->> =C2=A0 =C2=A0 =C2=A03.08% =C2=A0[be2net] =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0[k] event_handle
->> =C2=A0 =C2=A0 =C2=A02.37% =C2=A0[kernel] =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0[k] irq_entries_start
->> =C2=A0 =C2=A0 =C2=A02.21% =C2=A0[be2net] =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0[k] be_rx_compl_get
->> =C2=A0 =C2=A0 =C2=A01.65% =C2=A0[be2net] =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0[k] be_post_rx_frags
->> =C2=A0 =C2=A0 =C2=A01.64% =C2=A0[kernel] =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0[k] __napi_complete
->> =C2=A0 =C2=A0 =C2=A01.50% =C2=A0[kernel] =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0[k] ip_defrag
->> =C2=A0 =C2=A0 =C2=A01.35% =C2=A0[kernel] =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0[k] put_page
->> =C2=A0 =C2=A0 =C2=A01.34% =C2=A0[kernel] =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0[k] get_page_from_freelist
->> =C2=A0 =C2=A0 =C2=A01.29% =C2=A0[kernel] =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0[k] __netif_receive_skb
->> =C2=A0 =C2=A0 =C2=A01.16% =C2=A0[kernel] =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0[k] __alloc_pages_nodemask
->> =C2=A0 =C2=A0 =C2=A01.14% =C2=A0[kernel] =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0[k] debug_smp_processor_id
->> =C2=A0 =C2=A0 =C2=A01.08% =C2=A0[kernel] =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0[k] add_preempt_count
->> =C2=A0 =C2=A0 =C2=A01.06% =C2=A0[kernel] =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0[k] sub_preempt_count
->> =C2=A0 =C2=A0 =C2=A01.03% =C2=A0[be2net] =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0[k] get_rx_page_info
->> =C2=A0 =C2=A0 =C2=A01.01% =C2=A0[kernel] =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0[k] alloc_pages_current
+>>> Yeah, I could add --ring, --ring-size and --add-timestamp to LOG.
+>>> What about a rlog_common.o which can be used by ipt_LOG and ip6t_LO=
+G?
+>>>
 >>
->> Checksum calculation seems quite complex :).
+>> or merge ipt_LOG and ip6t_LOG into xt_LOG ?
 >
-> UDP with fragments... I guess... but cant see this in the perf top
-> output ;)
->
-> What bandwidth do you get for this cpu load ?
+> yes please :)
 
-Yes, this was UDP fragmentation :). I had 6800Mbps for a theoretical
-limit of 7000Mbps (Flex 10Gbps system).
+Will do.
 
-JM
+Thanks,
+//richard
