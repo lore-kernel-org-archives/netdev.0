@@ -1,119 +1,75 @@
-From: Jean-Michel Hautbois <jhautbois@gmail.com>
-Subject: Re: MSI-X and interrupt affinity with Emulex be2net
-Date: Thu, 19 Jan 2012 16:52:09 +0100
-Message-ID: <CAL8zT=gm_1R2NuC0Tfii+Vpy1eu2tUXgVBa8g+i=9Ojs8T_p+A@mail.gmail.com>
-References: <CAL8zT=g_Vc-r-wZphGhyuDcBmSLsuSRWgoSnSQBS0zS=_3xRVA@mail.gmail.com>
- <1326987222.2249.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH 0/5] SUNRPC: make caches network namespace aware
+Date: Thu, 19 Jan 2012 20:01:33 +0400
+Message-ID: <4F183E5D.2020609@parallels.com>
+References: <20120119144517.9957.59143.stgit@localhost6.localdomain6> <1326986392.6114.1.camel@lade.trondhjem.org> <4F18376C.9090504@parallels.com> <20120119154731.GB527@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	Jean-Michel Hautbois <jhautbois@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:55724 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932222Ab2ASPwb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 10:52:31 -0500
-Received: by werb13 with SMTP id b13so53823wer.19
-        for <netdev@vger.kernel.org>; Thu, 19 Jan 2012 07:52:30 -0800 (PST)
-In-Reply-To: <1326987222.2249.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
+	Dr James Bruce Fields <bfields@redhat.com>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: "bfields@fieldses.org" <bfields@fieldses.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120119154731.GB527@fieldses.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-MjAxMi8xLzE5IEVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT46Cj4gTGUgamV1
-ZGkgMTkgamFudmllciAyMDEyIMOgIDE1OjMzICswMTAwLCBKZWFuLU1pY2hlbCBIYXV0Ym9pcyBh
-IMOpY3JpdCA6Cj4+IEhpIGFsbCwKPj4KPj4gSSBhbSB1c2luZyBhIGJlMm5ldCBldGhlcm5ldCBp
-bnRlcmZhY2UsIGFuZCBhbSBvbiB0aGUgbWFzdGVyIGdpdAo+PiByZXBvc2l0b3J5LCBzbyB0aGUg
-bGF0ZXN0IGtlcm5lbCBhdmFpbGFibGUuCj4+IEkgaGF2ZSBNU0ktWCBlbmFibGVkIG9mIGNvdXJz
-ZSwgYW5kIGFzIGZhciBhcyBJIGNhbiB0ZWxsLCBhbGwKPj4gaW50ZXJydXB0cyBhcmUgYm91bmQg
-dG8gQ1BVMC4KPj4gSSBoYXZlIHNldmVyYWwgcHJvY2VzcyBhbmQgdGhyZWFkcyB3aGljaCB1c2Ug
-cXVpdGUgYWxsIHRoZSBldGhlcm5ldAo+PiBpbnRlcmZhY2VzIEkgaGF2ZSwgYW5kIEkgcmVhY2gg
-NzE4MCBJUlFzL3NlYyBvbiBDUFUwLgo+Pgo+PiBJIGhhdmUgc2V2ZXJhbCBxdWVzdGlvbnMgcmVn
-YXJkaW5nIHRoaXMgOgo+PiAtIEkgdGhvdWdodCBNU0ktWCB3b3VsZCBoZWxwIGluIGJhbGFuY2lu
-ZyBJUlFzIG9uIGRpZmZlcmVudCBDUFVzCj4KPiDCoCDCoHdpdGggc29tZSBoZWxwIGZyb20gYWRt
-aW4gKG9yIGlycWJhbGFuY2UgPyksIHllcy4uLgoKSXJxYmFsYW5jZSBpcyBhIG5pY2UgdG9vbCwg
-YW5kIEkgdGhvdWdodCBNU0ktWCB3b3VsZCBiZSBhdXRvbWF0aWMgb24KdGhpcyBwYXJ0aWN1bGFy
-IHN0dWZmLi4uCgo+PiAtIElzIHRoaXMgYSBnb29kIGlkZWEgYW55d2F5IHRvIHNwZWNpZnkgd2hp
-Y2ggSVJRIGlzIGJvdW5kIHRvIHdoaWNoCj4+IENQVSBtYW51YWxseSwgaWYgSSBzZXQgdGhlIHBy
-b2Nlc3MgdXNpbmcgdGhlIElSUSB0byB0aGUgc2FtZSBDUFUgPwo+Cj4gVGhlcmUgaXMgbm8gZ2Vu
-ZXJhbCBhbnN3ZXIgdG8gdGhpcyBxdWVzdGlvbiB1bmZvcnR1bmF0ZWx5Lgo+Cj4gSXQgYWxsIGRl
-cGVuZHMgb24gdGhlIHdvcmtsb2FkLCB0aGUgbnVtYmVyIG9mIGZsb3dzLCBiYWxhbmNlIGJldHdl
-ZW4KPiB0cmFuc21pdHMgYW5kIHJlY2VpdmVzIC4uLgo+Cj4gQWxzbyBiZTJuZXQgaGFzIG9uZSBz
-aW5nbGUgaW50ZXJydXB0IGZvciB0aGUgdHgtY29tcGxldGlvbiBzaWRlLgo+Cj4gRm9yIGV4YW1w
-bGUsIElQIGRlZnJhZ21lbnRhdGlvbiB1c2VzIGEgcndsb2NrLCBzbyBzcGxpdHRpbmcgeW91ciB0
-cmFmaWMKPiB0byBzZXZlcmFsIGNwdXMgbWlnaHQgaW5jcmVhc2UgZmFsc2Ugc2hhcmluZyBhbmQg
-Y29udGVudGlvbi4KPgo+IEFib3V0IHRoZSAiYWxsIGludGVycnVwdHMgb24gQ1BVMCIsIHRoaXMg
-aXMgd2hhdCBoYXBwZW5zIHdpdGggZGVmYXVsdAo+IHNtcF9hZmZpbml0eSBzZXR0aW5ncy4KPgo+
-IEhlcmUgSSBoYXZlIGEgYmUybmV0IGFuZCBjYW4gY2hhbmdlIElSUSBhZmZpbml0aWVzIHdpdGgg
-bm8gcHJvYmxlbQo+Cj4gIyBncmVwIGV0aDMgL3Byb2MvaW50ZXJydXB0cwo+IMKgNzY6IMKgIMKg
-MTQxODE4OSDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDC
-oCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwCj4gMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAg
-wqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAw
-IMKgIMKgIMKgIMKgIMKgMAo+IDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCBQ
-Q0ktTVNJLWVkZ2UgwqAgwqAgwqBldGgzLXR4Cj4gwqA3NzogwqAgwqAgwqAyNDgzMSDCoCDCoCDC
-oCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAg
-wqAgwqAgwqAgwqAgwqAwCj4gMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKg
-IMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKg
-MAo+IDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCBQQ0ktTVNJLWVkZ2UgwqAg
-wqAgwqBldGgzLXJ4cTAKPiDCoDc4OiDCoCDCoCDCoCA1MTQ3IMKgIMKgIMKgIMKgIMKgMCDCoCDC
-oCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDC
-oDAKPiAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKg
-IMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwCj4gMCDCoCDCoCDC
-oCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIFBDSS1NU0ktZWRnZSDCoCDCoCDCoGV0aDMtcnhx
-MQo+IMKgNzk6IMKgIMKgIMKgIMKgIMKgNyDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAw
-IMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwCj4gMCDCoCDC
-oCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDC
-oDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMAo+IDAgwqAgwqAgwqAgwqAgwqAwIMKg
-IMKgIMKgIMKgIMKgMCDCoCBQQ0ktTVNJLWVkZ2UgwqAgwqAgwqBldGgzLXJ4cTIKPiDCoDgwOiDC
-oCDCoCDCoCDCoCDCoDIgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDC
-oCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMAo+IDAgwqAgwqAgwqAgwqAgwqAw
-IMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKg
-IMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAKPiAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDC
-oDAgwqAgUENJLU1TSS1lZGdlIMKgIMKgIMKgZXRoMy1yeHEzCj4gwqA4MTogwqAgwqAgwqAgwqAx
-MTggwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAg
-wqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMAo+IDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKg
-IMKgMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDC
-oCDCoCDCoCDCoDAKPiAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAgwqAgUENJLU1T
-SS1lZGdlIMKgIMKgIMKgZXRoMy1yeHE0Cj4gIyBjYXQgL3Byb2MvaXJxLzc3L3NtcF9hZmZpbml0
-eQo+IGZmZmYKPiAjIGVjaG8gMiA+L3Byb2MvaXJxLzc3L3NtcF9hZmZpbml0eQo+ICMgZWNobyA0
-ID4vcHJvYy9pcnEvNzgvc21wX2FmZmluaXR5Cj4gIyBlY2hvIDggPi9wcm9jL2lycS83OS9zbXBf
-YWZmaW5pdHkKPiAjIGVjaG8gMTAgPi9wcm9jL2lycS84MC9zbXBfYWZmaW5pdHkKPiAjIGVjaG8g
-MjAgPi9wcm9jL2lycS84MS9zbXBfYWZmaW5pdHkKPiAjIGdyZXAgZXRoMyAvcHJvYy9pbnRlcnJ1
-cHRzCj4gwqA3NjogwqAgwqAxNDI2Njk4IMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAg
-wqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAKPiAwIMKgIMKg
-IMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKg
-MCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwCj4gMCDCoCDCoCDCoCDCoCDCoDAgwqAg
-wqAgwqAgwqAgwqAwIMKgIFBDSS1NU0ktZWRnZSDCoCDCoCDCoGV0aDMtdHgKPiDCoDc3OiDCoCDC
-oCDCoDI0ODMyIMKgIMKgIMKgIMKgIMKgNyDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAw
-IMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAKPiAwIMKgIMKgIMKgIMKgIMKgMCDCoCDC
-oCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDC
-oDAgwqAgwqAgwqAgwqAgwqAwCj4gMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKg
-IFBDSS1NU0ktZWRnZSDCoCDCoCDCoGV0aDMtcnhxMAo+IMKgNzg6IMKgIMKgIMKgIDUzMTggwqAg
-wqAgwqAgwqAgwqAwIMKgIMKgIMKgIDM0ODkgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKg
-MCDCoCDCoCDCoCDCoCDCoDAKPiAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAgwqAg
-wqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAg
-wqAwCj4gMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIFBDSS1NU0ktZWRnZSDC
-oCDCoCDCoGV0aDMtcnhxMQo+IMKgNzk6IMKgIMKgIMKgIMKgIMKgNyDCoCDCoCDCoCDCoCDCoDAg
-wqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAg
-wqAgwqAwCj4gMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKg
-MCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMAo+IDAgwqAg
-wqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCBQQ0ktTVNJLWVkZ2UgwqAgwqAgwqBldGgz
-LXJ4cTIKPiDCoDgwOiDCoCDCoCDCoCDCoCDCoDMgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKg
-IMKgMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMAo+IDAg
-wqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAg
-wqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAKPiAwIMKgIMKgIMKgIMKgIMKg
-MCDCoCDCoCDCoCDCoCDCoDAgwqAgUENJLU1TSS1lZGdlIMKgIMKgIMKgZXRoMy1yeHEzCj4gwqA4
-MTogwqAgwqAgwqAgwqAxNjcgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDC
-oCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgMjI5Cj4gMCDCoCDCoCDCoCDCoCDC
-oDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAg
-wqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMAo+IDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKg
-IMKgMCDCoCBQQ0ktTVNJLWVkZ2UgwqAgwqAgwqBldGgzLXJ4cTQKPgoKT0ssIEkgdW5kZXJzdGFu
-ZCBrbm93LCBJIGhhdmUgdGhlIHNhbWUgYmVoYXZpb3VyLgoKPj4gLSBIb3cgY2FuIEkgbWVhc3Vy
-ZSBwZXJmb3JtYW5jZSBpbXBhY3QgKHVzaW5nIHBlcmYsIHByb2JhYmx5KSBvZiBubwo+PiBiYWxh
-bmNpbmcgKGllLCBhbGwgb24gQ1BVMCkgdmVyc3VzIGJhbGFuY2luZyBsaWtlIGV4cGxhaW5lZCBh
-Ym92ZSA/Cj4KPiBZZXMsIHBlcmYgaXMgYSBnb29kIHRvb2wuCgpIb3cgd291bGQgeW91IGxhdW5j
-aCBpdCA/IFVzaW5nIHBlcmYgcmVjb3JkIGFuZCBhbmFseXNpbmcgdGhlIHJlc3VsdHMKd2hpY2gg
-Y2FuIGJlIHZlcnkgbG9uZywgb3IgdXNpbmcgYSB0cmljayB3aXRoIGEgZ29vZCBjb21tYW5kIGxp
-bmUKd2hpY2ggd291bGQgaGVscCBrbm93IHF1aXRlIGluc3RhbnRseSBpZiBJUlFzIGFyZSB3ZWxs
-IGJhbGFuY2VkIDopID8KCkpNCg==
+19.01.2012 19:47, bfields@fieldses.org =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Thu, Jan 19, 2012 at 07:31:56PM +0400, Stanislav Kinsbursky wrote:
+>> 19.01.2012 19:19, Trond Myklebust =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>>> On Thu, 2012-01-19 at 18:48 +0400, Stanislav Kinsbursky wrote:
+>>>> One more step towards to "NFS in container".
+>>>> With this patch set caches are allocated per network namespace.
+>>>>
+>>>> The following series consists of:
+>>>>
+>>>> ---
+>>>>
+>>>> Stanislav Kinsbursky (5):
+>>>>        SUNRPC: cache creation and destruction routines introduced
+>>>>        SUNRPC: create unix gid cache per network namespace
+>>>>        SUNRPC: create GSS auth cache per network namespace
+>>>>        SUNRPC: ip map cache per network namespace cleanup
+>>>>        SUNRPC: generic cache register routines removed
+>>>
+>>> The patches look good, and I've applied them for now in my 'devel'
+>>> branch so we can test them, but I'd like to get an Ack/Nack from Br=
+uce
+>>> before committing to merging them.
+>>>
+>>
+>> Cool, thanks.
+>> BTW, these patches depends on patch "NFSd: use
+>> network-namespace-aware cache registering routines", which Bruce
+>> took already (and it's even in linux-next already), but not in your
+>> devel tree for some reason.
+>
+> And Linus has pulled those, so if Trond bases his tree on -rc1, he'll
+> have "NFSd: use network-namespace-aware cache registering routines".
+>
+> You know best what you're planning to submit over the next cycle, and
+> what the dependencies are, and which side (client or server) it's lik=
+ely
+> to touch more.  So, your choice, I think.  If necessary Trond and I c=
+an
+> probably do a merge between us at some point.
+>
+
+Actually, I'm not going to patch NFSd in this cycle. Some more NFS and =
+Lockd=20
+patches will follow soon.
+So, probably, Trond's tree suits better.
+
+
+--=20
+Best regards,
+Stanislav Kinsbursky
