@@ -1,90 +1,82 @@
-From: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: iwlwifi worse than ever in current git.
-Date: Thu, 19 Jan 2012 08:47:28 +0200
-Message-ID: <CANUX_P3UHz-Pr_M1H5pAbmKDY70es7nxkWSDGXG6-hvrPAMCJw@mail.gmail.com>
-References: <20120110184917.GA26973@redhat.com>
-	<1326221614.5067.6.camel@dcbw.foobar.com>
-	<0BA3FCBA62E2DC44AF3030971E174FB3063085@HASMSX103.ger.corp.intel.com>
-	<20120111014243.GA22066@redhat.com>
-	<0BA3FCBA62E2DC44AF3030971E174FB306429E@HASMSX103.ger.corp.intel.com>
-	<20120111195055.GA5140@redhat.com>
-	<0BA3FCBA62E2DC44AF3030971E174FB3064AF5@HASMSX103.ger.corp.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: route problem
+Date: Thu, 19 Jan 2012 07:50:57 +0100
+Message-ID: <1326955857.1113.17.camel@edumazet-laptop>
+References: <B97B134FACB2024DB45F524AB0A7B7F2058B01D4@XMB-BGL-419.cisco.com>
+	 <1326878864.2316.0.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <B97B134FACB2024DB45F524AB0A7B7F2058B020A@XMB-BGL-419.cisco.com>
+	 <1326881723.2316.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20120118202909.8a3d6963.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Guy, Wey-Yi W" <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Linux Wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <0BA3FCBA62E2DC44AF3030971E174FB3064AF5-yLYCJVCiOGwLt2AQoY/u9bfspsVTdybXVpNB7YpNyf8@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "Prashant Batra (prbatra)" <prbatra@cisco.com>,
+	netdev@vger.kernel.org
+To: Bill Fink <billfink@mindspring.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:49159 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751240Ab2ASGvB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 01:51:01 -0500
+Received: by wics10 with SMTP id s10so115680wic.19
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 22:51:00 -0800 (PST)
+In-Reply-To: <20120118202909.8a3d6963.billfink@mindspring.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->>
->> [16520.224964] iwlwifi 0000:04:00.0: U iwlagn_tx_agg_start Can proce=
-ed: ssn =3D
->> next_recl =3D 124
->> [16520.228038] iwlwifi 0000:04:00.0: U iwl_trans_set_wr_ptrs Q 11 =A0=
-WrPtr: 124
->> [16520.228358] iwlwifi 0000:04:00.0: U iwl_trans_tx_queue_set_status=
- Activate
->> BA Queue 11 on FIFO 1
->> [16520.229059] iwlwifi 0000:04:00.0: Tx aggregation enabled on ra =3D
->> b8:c7:5d:0c:39:87 tid =3D 0
->> [16531.888296] iwlwifi 0000:04:00.0: U iwlagn_tx_agg_stop Can procee=
-d: ssn =3D
->> next_recl =3D 631
->> [16531.888793] iwlwifi 0000:04:00.0: U iwl_trans_set_wr_ptrs Q 11 =A0=
-WrPtr: 0
->> [16531.889247] iwlwifi 0000:04:00.0: U iwl_trans_tx_queue_set_status
->> Deactivate AC/CMD Queue 11 on FIFO 0
->> [16552.504609] iwlwifi 0000:04:00.0: U iwlagn_tx_agg_start Can proce=
-ed: ssn =3D
->> next_recl =3D 697
->> [16552.508182] iwlwifi 0000:04:00.0: U iwl_trans_set_wr_ptrs Q 11 =A0=
-WrPtr: 185
->> [16552.508609] iwlwifi 0000:04:00.0: U iwl_trans_tx_queue_set_status=
- Activate
->> BA Queue 11 on FIFO 1
->> [16552.509077] iwlwifi 0000:04:00.0: Tx aggregation enabled on ra =3D
->> b8:c7:5d:0c:39:87 tid =3D 0
->> [16564.084058] iwlwifi 0000:04:00.0: U iwlagn_tx_agg_stop Can procee=
-d: ssn =3D
->> next_recl =3D 1241
->> [16564.084506] iwlwifi 0000:04:00.0: U iwl_trans_set_wr_ptrs Q 11 =A0=
-WrPtr: 0
->> [16564.084903] iwlwifi 0000:04:00.0: U iwl_trans_tx_queue_set_status
->> Deactivate AC/CMD Queue 11 on FIFO 0
->> [16568.975872] iwlwifi 0000:04:00.0: U iwlagn_tx_agg_start Can proce=
-ed: ssn =3D
->> next_recl =3D 1298
->> [16568.978796] iwlwifi 0000:04:00.0: U iwl_trans_set_wr_ptrs Q 11 =A0=
-WrPtr: 18
->> [16568.979007] iwlwifi 0000:04:00.0: U iwl_trans_tx_queue_set_status=
- Activate
->> BA Queue 11 on FIFO 1
->> [16568.979734] iwlwifi 0000:04:00.0: Tx aggregation enabled on ra =3D
->> b8:c7:5d:0c:39:87 tid =3D 0
->> [16580.004052] iwlwifi 0000:04:00.0: U iwlagn_tx_agg_stop Can't proc=
-eed: ssn
->> 1491, next_recl =3D 150
->>
->
-> I understand there is nothing afterwards... This is really weird. The=
- sequence numbers here are really crazy...
-> I need to think that over.
->
->>
+Le mercredi 18 janvier 2012 =C3=A0 20:29 -0500, Bill Fink a =C3=A9crit =
+:
+> On Wed, 18 Jan 2012, Eric Dumazet wrote:
 
-Ok, I finally had a change to take a closer look at this. Please run
-with debug=3D0xC0000000.
+> Actually, if I'm interpreting the "ip route list cache" output
+> correctly, it appears it has local IP addresses of both 192.168.101.1=
+0
+> and 192.168.101.20.
+>=20
+> > local 192.168.101.10 from 192.168.101.101 dev lo  src 192.168.101.1=
+0=20
+> >     cache <local,src-direct>  iif eth1
+>=20
+> > local 192.168.101.20 from 192.168.101.101 dev lo  src 192.168.101.2=
+0=20
+> >     cache <local,src-direct>  iif eth1
+>=20
+> And since his gateway is 192.168.101.10, an apparently local
+> IP address, that would probably explain the direct ARPS for
+> 172.16.60.*.
+>=20
 
-This will be noisy, but I guess we have no choice...
-I will be travelling next week, so...
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ah ok, thanks.
+
+Pity that such a convoluted setup must be guessed instead of clearly
+explained in the initial mail.
+
+Prashant, this is netdev mailing list, with more than a thousand
+subscribers, you should send mails with your detailed setup, this will
+save time for everyone.
+
+If not, people will flag you as "yet another lazy student trying to
+understand how things work"
+
+
+> [Prashant] So is this the correct behavior? What my original intentio=
+n
+> was to capture the packets from the=20
+> interface acting as gateway. So with this behavior I will not be able
+> to capture the packets as 172.16.60.* are not=20
+> present on the local machine, and it will not get any ARP response.
+> Consider the gateway on a different machine, in which case ARP reques=
+t
+> will go for gateway IP, and local machine will=20
+> get the ARP response and send the packets to gateway.
+>=20
+With the setup you gave, you said : 172.16.60.0/24 addresses are
+directly reachable on eth1 device, with source address 192.168.101.20
+
+Why should the kernel send an ARP request for 192.168.101.20, since its
+one of its own IP address ?
+
+=46or localy generated packets, why this machine would act as a 'gatewa=
+y'
+at all ? A gateway should forward packets, and first step would be to
+_receive_ a packet, not sending one !
