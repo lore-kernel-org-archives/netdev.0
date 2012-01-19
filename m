@@ -1,77 +1,41 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Hung task when calling clone() due to netfilter/slab
-Date: Thu, 19 Jan 2012 14:15:01 -0800
-Message-ID: <m14nvr2vbu.fsf@fess.ebiederm.org>
-References: <1326558605.19951.7.camel@lappy>
-	<1326561043.5287.24.camel@edumazet-laptop>
-	<1326632384.11711.3.camel@lappy>
-	<1326648305.5287.78.camel@edumazet-laptop>
-	<alpine.DEB.2.00.1201170910130.4800@router.home>
-	<1326813630.2259.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<alpine.DEB.2.00.1201170927020.4800@router.home>
-	<1326814208.2259.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<alpine.DEB.2.00.1201170942240.4800@router.home>
-	<alpine.DEB.2.00.1201171620590.14697@router.home>
-	<m1bopz2ws3.fsf@fess.ebiederm.org>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: RFC Hanging clean-up of a namespace
+Date: Thu, 19 Jan 2012 23:16:12 +0100
+Message-ID: <20120119221611.GC12249@hell>
+References: <20120119192541.GM2262734@jupiter.n2.diac24.net>
+ <20120119.143105.735366189369504929.davem@davemloft.net>
+ <20120119195349.GN2262734@jupiter.n2.diac24.net>
+ <20120119.152752.318442465605898328.davem@davemloft.net>
+ <m1lip32xoi.fsf@fess.ebiederm.org>
+ <20120119214052.GA12249@hell>
+ <20120119214718.GC3347849@jupiter.n2.diac24.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,  Sasha Levin <levinsasha928@gmail.com>,  Dave Jones <davej@redhat.com>,  davem <davem@davemloft.net>,  Pekka Enberg <penberg@kernel.org>,  Matt Mackall <mpm@selenic.com>,  kaber@trash.net,  pablo@netfilter.org,  linux-kernel <linux-kernel@vger.kernel.org>,  linux-mm <linux-mm@kvack.org>,  netfilter-devel@vger.kernel.org,  netdev <netdev@vger.kernel.org>
-To: Christoph Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <m1bopz2ws3.fsf@fess.ebiederm.org> (Eric W. Biederman's message
-	of "Thu, 19 Jan 2012 13:43:40 -0800")
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>,
+	hans.schillstrom@ericsson.com, netdev@vger.kernel.org
+To: David Lamparter <equinox@diac24.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:59428 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751681Ab2ASWQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 17:16:15 -0500
+Content-Disposition: inline
+In-Reply-To: <20120119214718.GC3347849@jupiter.n2.diac24.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ebiederm@xmission.com (Eric W. Biederman) writes:
+* David Lamparter | 2012-01-19 22:47:18 [+0100]:
 
-> Christoph Lameter <cl@linux.com> writes:
->
->> Another version that drops the slub lock for both invocations of sysfs
->> functions from kmem_cache_create. The invocation from slab_sysfs_init
->> is not a problem since user space is not active at that point.
->>
->>
->> Subject: slub: Do not take the slub lock while calling into sysfs
->>
->> This patch avoids holding the slub_lock during kmem_cache_create()
->> when calling sysfs. It is possible because kmem_cache_create()
->> allocates the kmem_cache object and therefore is the only one context
->> that can access the newly created object. It is therefore possible
->> to drop the slub_lock early. We defer the adding of the new kmem_cache
->> to the end of processing because the new kmem_cache structure would
->> be reachable otherwise via scans over slabs. This allows sysfs_slab_add()
->> to run without holding any locks.
->>
->> The case is different if we are creating an alias instead of a new
->> kmem_cache structure. In that case we can also drop the slub lock
->> early because we have taken a refcount on the kmem_cache structure.
->> It therefore cannot vanish from under us.
->> But if the sysfs_slab_alias() call fails we can no longer simply
->> decrement the refcount since the other references may have gone
->> away in the meantime. Call kmem_cache_destroy() to cause the
->> refcount to be decremented and the kmem_cache structure to be
->> freed if all references are gone.
->>
->> Signed-off-by: Christoph Lameter <cl@linux.com>
->
-> I am dense.  Is the deadlock here that you are fixing slub calling sysfs
-> with the slub_lock held but sysfs then calling kmem_cache_zalloc?
->
-> I don't see what sysfs is doing in the creation path that would cause
-> a deadlock except for using slab.
+>I may have made that argument hidden behind a joke, but please refer to
+>the development of RFC 793's bootup "quiet time". The reason no one
+>sticks to this quiet time is that TCP timestamps have obsoleted it by
+>providing a better frame of reference. Refer to RFC 1323 Appendix B
+>"DUPLICATES FROM EARLIER CONNECTION INCARNATIONS".
 
-Oh.  I see.  The problem is calling kobject_uevent (which happens to
-live in slabs sysfs_slab_add) with a lock held.  And kobject_uevent
-makes a blocking call to userspace.
+Appendix B of RFC 1323 handles "Connection Incarnations", TIME_WAIT handles a
+wrong stack behavior and avoid a RST packet instead of a final ACK/FIN for a
+retransmission - two independent mechanisms.
 
-No locks held seems to be a good policy on that one.
 
-Eric
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Hagen
