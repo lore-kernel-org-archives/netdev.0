@@ -1,47 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: problem with noop and pfifo_fast Qdisc switching
-Date: Thu, 19 Jan 2012 14:15:33 +0100
-Message-ID: <1326978933.2249.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <81C3A93C17462B4BBD7E272753C105791FB3639775@EXDCVYMBSTM005.EQ1STM.local>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: RFC Hanging clean-up of a namespace
+Date: Thu, 19 Jan 2012 14:31:34 +0100
+Message-ID: <20120119133134.GK2262734@jupiter.n2.diac24.net>
+References: <201201191207.10207.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netdev-owner@vger.kernel.org" <netdev-owner@vger.kernel.org>
-To: Hemant-vilas RAMDASI <hemant.ramdasi@stericsson.com>
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:43832 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752519Ab2ASNPh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 08:15:37 -0500
-In-Reply-To: <81C3A93C17462B4BBD7E272753C105791FB3639775@EXDCVYMBSTM005.EQ1STM.local>
+Received: from spaceboyz.net ([87.106.131.203]:34997 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753220Ab2ASNbn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jan 2012 08:31:43 -0500
+Content-Disposition: inline
+In-Reply-To: <201201191207.10207.hans.schillstrom@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 19 janvier 2012 =C3=A0 13:47 +0100, Hemant-vilas RAMDASI a =C3=
-=A9crit :
-> Hi,
->=20
-> I have a situation where one of important message (phonet pipe messag=
-e) gets dropped because of 'noop' Qdisc.
-> This situation mostly happens when coming out of sleep and there is a=
- message to send.
-> What I have observed is this.
-> In normal case the qdisc used id pfifo_fast. When CPU goes to sleep, =
-it changes the qdisc to noop.
-> When CPU wakes up (because of a message from lower layers), phonet tr=
-ies to send a control packet to driver and finds qdisc is still 'noop'.=
-=20
-> Because the concerned message is a control message, this packet drop =
-is creating deadlock situation.
->=20
-> How the switch between pfifo_fast and noop is handled? Is this someth=
-ing solved in 3.0?
-> We are running a older version of kernel (2.6.35 based).
+On Thu, Jan 19, 2012 at 12:07:09PM +0100, Hans Schillstrom wrote:
+> Closing of a namespace (container) can be delayed by ~ 2 minutes 
+> due to tcp timers ex tcp time wait (and of cource other things too).
+> 
+> I think there should be some kind of "forced close" of the Network stack
+> in ex free_nsproxy() 
+> 
+> A netns pre-close  callback might do the job....
+> 
+> Any ideas how to solve this ?
 
-If message is important, you should check return code from xmit
-(NET_XMIT_CN is returned by noop_enqueue), and maybe resend it later.
+I'm interested in this too; right off I don't see a workable alternative
+to your suggestion. Each subsystem will have to implement that callback
+and release its references on the netns.
 
-Not sure by what you mean by 'cpu goes to sleep' or 'cpu wakes up' ?
 
-Is it the machine going to suspend mode ?
+-David
