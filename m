@@ -1,81 +1,52 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH 3/5] SUNRPC: create GSS auth cache per network namespace
-Date: Thu, 19 Jan 2012 21:51:59 +0400
-Message-ID: <4F18583F.1000209@parallels.com>
-References: <20120119144517.9957.59143.stgit@localhost6.localdomain6> <20120119144922.9957.39352.stgit@localhost6.localdomain6> <20120119163149.GD527@fieldses.org> <4F184D28.3030207@parallels.com> <20120119174002.GA2907@fieldses.org>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Interpreting perf stat on netperf and netserver
+Date: Thu, 19 Jan 2012 09:58:34 -0800
+Message-ID: <4F1859CA.6000407@hp.com>
+References: <CAL8zT=gNwDDXcbH+hoZApc63ArW2quzHJ1gRrPSxKP7jE04KLw@mail.gmail.com> <4F170629.8090307@hp.com> <CAL8zT=jP4Bm=WM0=OLcRgeetzXb0f_ZL0TiDvPAhkbA9UuxpBA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	James Bottomley <jbottomley@parallels.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: "J. Bruce Fields" <bfields@fieldses.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120119174002.GA2907@fieldses.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jean-Michel Hautbois <jhautbois@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:48253 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932525Ab2ASR6p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 12:58:45 -0500
+In-Reply-To: <CAL8zT=jP4Bm=WM0=OLcRgeetzXb0f_ZL0TiDvPAhkbA9UuxpBA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-19.01.2012 21:40, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Thu, Jan 19, 2012 at 09:04:40PM +0400, Stanislav Kinsbursky wrote:
->> 19.01.2012 20:31, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>> On Thu, Jan 19, 2012 at 06:49:23PM +0400, Stanislav Kinsbursky wrot=
-e:
->>>> @@ -1000,6 +996,7 @@ static int svcauth_gss_handle_init(struct svc=
-_rqst *rqstp,
->>>>   	struct xdr_netobj tmpobj;
->>>>   	struct rsi *rsip, rsikey;
->>>>   	int ret;
->>>> +	struct sunrpc_net *sn =3D net_generic(rqstp->rq_xprt->xpt_net, s=
-unrpc_net_id);
+On 01/19/2012 12:29 AM, Jean-Michel Hautbois wrote:
+> 2012/1/18 Rick Jones<rick.jones2@hp.com>:
+>> On 01/18/2012 03:33 AM, Jean-Michel Hautbois wrote:
 >>>
->>> OK, so you're getting the network namespace out of the rqstp, and, =
-then
->>> passing it down, makes sense.  And:
+>>> Hi all,
 >>>
->>>> @@ -1079,6 +1076,7 @@ svcauth_gss_accept(struct svc_rqst *rqstp, _=
-_be32 *authp)
->>>>   	__be32		*rpcstart;
->>>>   	__be32		*reject_stat =3D resv->iov_base + resv->iov_len;
->>>>   	int		ret;
->>>> +	struct sunrpc_net *sn =3D net_generic(rqstp->rq_xprt->xpt_net, s=
-unrpc_net_id);
+>>> I am currently using netperf/netserver in order to characterize a
+>>> benet emulex network device on a machine with 2 Xeon5670.
+>>> I am using the latest linux kernel from git (3.2.0+).
+>>> I am facing several issues, and I am trying to understand the
+>>> following perf stat launched on netserver :
 >>>
->>> ... same for the gss cache.  Looks good.
->>>
->>> How do you plan to test this?
->>>
+>>>   Performance counter stats for process id '5043':
 >>
->> Do you mean something special or in general?
->> Currently I validate all my chages in container by using simple test=
- environment.
->> I would be appreciate for any hints to tests, than can help.
+>>
+>> If you aren't already you may want to gather system-wide data as well - not
+>> everything networking is guaranteed to run in the netserver's (or netperf's)
+>> context.
+>>
+>> Might also be good to include the netperf command line driving that
+>> netserver.  That will help folks know if the netserver is receiving data
+>> (_STREAM), sending data (_MAERTS) or both (_RR) (though perhaps that can be
+>> gleaned from the routine names in the profile.
 >
-> The server needs to be tested after these changes, and we need to mak=
-e
-> sure the caches affected still work.
->
-> (I suspect the gid cache code will oops if it's used after these
-> patches, since the table is left NULl?)
->
-> And then we should also test in a container environment, with differe=
-nt
-> instances of mountd and rpc.svcidmapd running in each container, to
-> verify that the right thing happens.
->
+> Well, I am only launching netserver without any parameter.
 
-Ok. I'll test server with 2-nd version of these patches tomorrow and re=
-ply with=20
-the results.
-Thanks, Bruce.
+The netperf command line, not netserver :)  The netperf command line 
+will tell us what the netserver was asked to and was presumably doing at 
+the time the profile was taken.
 
+happy benchmarking,
 
---=20
-Best regards,
-Stanislav Kinsbursky
+rick
