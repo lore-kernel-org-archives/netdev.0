@@ -1,117 +1,100 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 5/9] ixgbe: Fix register defines to correctly handle complex expressions
-Date: Thu, 19 Jan 2012 00:13:30 -0800
-Message-ID: <1326960814-16976-6-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1326960814-16976-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Jean-Michel Hautbois <jhautbois@gmail.com>
+Subject: Re: Interpreting perf stat on netperf and netserver
+Date: Thu, 19 Jan 2012 09:29:04 +0100
+Message-ID: <CAL8zT=jP4Bm=WM0=OLcRgeetzXb0f_ZL0TiDvPAhkbA9UuxpBA@mail.gmail.com>
+References: <CAL8zT=gNwDDXcbH+hoZApc63ArW2quzHJ1gRrPSxKP7jE04KLw@mail.gmail.com>
+ <4F170629.8090307@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:56557 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754545Ab2ASINy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jan 2012 03:13:54 -0500
-In-Reply-To: <1326960814-16976-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:56142 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753611Ab2ASI30 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 03:29:26 -0500
+Received: by wgbgn7 with SMTP id gn7so4470079wgb.1
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2012 00:29:25 -0800 (PST)
+In-Reply-To: <4F170629.8090307@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+2012/1/18 Rick Jones <rick.jones2@hp.com>:
+> On 01/18/2012 03:33 AM, Jean-Michel Hautbois wrote:
+>>
+>> Hi all,
+>>
+>> I am currently using netperf/netserver in order to characterize a
+>> benet emulex network device on a machine with 2 Xeon5670.
+>> I am using the latest linux kernel from git (3.2.0+).
+>> I am facing several issues, and I am trying to understand the
+>> following perf stat launched on netserver :
+>>
+>> =C2=A0Performance counter stats for process id '5043':
+>
+>
+> If you aren't already you may want to gather system-wide data as well=
+ - not
+> everything networking is guaranteed to run in the netserver's (or net=
+perf's)
+> context.
+>
+> Might also be good to include the netperf command line driving that
+> netserver. =C2=A0That will help folks know if the netserver is receiv=
+ing data
+> (_STREAM), sending data (_MAERTS) or both (_RR) (though perhaps that =
+can be
+> gleaned from the routine names in the profile.
 
-This patch is meant to address possible issues with the IXGBE register
-defines generating incorrect values when given a complex expression for the
-register offset.
+Well, I am only launching netserver without any parameter.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |   32 ++++++++++++------------
- 1 files changed, 16 insertions(+), 16 deletions(-)
+>
+>>
+>> =C2=A0 =C2=A0 =C2=A0 15452.992135 task-clock =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0# =C2=A0 =C2=A00.450 CPUs utilized
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 189678 context-switches =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0# =C2=A0 =C2=A00.012 M/sec
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A05 CPU-=
+migrations =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0# =C2=A0 =C2=A00.00=
+0 M/sec
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0275 page-faul=
+ts =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 # =C2=A0 =C2=A00.00=
+0 M/sec
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A048490467936 cycles =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0# =C2=A0 =C2=A03.138 GHz
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A033005879963 stalled-cycles-frontend =C2=A0=
+ # =C2=A0 68.07% frontend cycles
+>> idle
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A016325855769 stalled-cycles-backend =C2=A0=
+ =C2=A0# =C2=A0 33.67% backend =C2=A0cycles
+>> idle
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A027340520316 instructions =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0# =C2=A0 =C2=A00.56 =C2=A0insns per cycl=
+e
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0# =C2=A0 =C2=A01.21 =C2=A0stalled cycles per
+>> insn
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 4745604818 branches =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0# =C2=A0307.099 M/sec
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 67513124 branch-misses =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 # =C2=A0 =C2=A01.42% of all branches
+>>
+>> =C2=A0 =C2=A0 =C2=A0 34.303567279 seconds time elapsed
+>>
+>> I am trying to understand the "stalled-cycles-frontend" and
+>> "stalled-cycles-backend" lines.
+>> It seems that frontend is high, and in red :) but I can't say why...
+>
+>
+> Perhaps the stalls are for cache misses - at least cache misses are a=
+ common
+> reason for stalls. =C2=A0I believe that perf has a way to be more spe=
+cific about
+> the PMU events of interest.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 802bfa0..775602e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -161,19 +161,19 @@
- 
- /* Receive DMA Registers */
- #define IXGBE_RDBAL(_i) (((_i) < 64) ? (0x01000 + ((_i) * 0x40)) : \
--                         (0x0D000 + ((_i - 64) * 0x40)))
-+			 (0x0D000 + (((_i) - 64) * 0x40)))
- #define IXGBE_RDBAH(_i) (((_i) < 64) ? (0x01004 + ((_i) * 0x40)) : \
--                         (0x0D004 + ((_i - 64) * 0x40)))
-+			 (0x0D004 + (((_i) - 64) * 0x40)))
- #define IXGBE_RDLEN(_i) (((_i) < 64) ? (0x01008 + ((_i) * 0x40)) : \
--                         (0x0D008 + ((_i - 64) * 0x40)))
-+			 (0x0D008 + (((_i) - 64) * 0x40)))
- #define IXGBE_RDH(_i)   (((_i) < 64) ? (0x01010 + ((_i) * 0x40)) : \
--                         (0x0D010 + ((_i - 64) * 0x40)))
-+			 (0x0D010 + (((_i) - 64) * 0x40)))
- #define IXGBE_RDT(_i)   (((_i) < 64) ? (0x01018 + ((_i) * 0x40)) : \
--                         (0x0D018 + ((_i - 64) * 0x40)))
-+			 (0x0D018 + (((_i) - 64) * 0x40)))
- #define IXGBE_RXDCTL(_i) (((_i) < 64) ? (0x01028 + ((_i) * 0x40)) : \
--                          (0x0D028 + ((_i - 64) * 0x40)))
-+			 (0x0D028 + (((_i) - 64) * 0x40)))
- #define IXGBE_RSCCTL(_i) (((_i) < 64) ? (0x0102C + ((_i) * 0x40)) : \
--                          (0x0D02C + ((_i - 64) * 0x40)))
-+			 (0x0D02C + (((_i) - 64) * 0x40)))
- #define IXGBE_RSCDBU     0x03028
- #define IXGBE_RDDCC      0x02F20
- #define IXGBE_RXMEMWRAP  0x03190
-@@ -186,7 +186,7 @@
-  */
- #define IXGBE_SRRCTL(_i) (((_i) <= 15) ? (0x02100 + ((_i) * 4)) : \
-                           (((_i) < 64) ? (0x01014 + ((_i) * 0x40)) : \
--                          (0x0D014 + ((_i - 64) * 0x40))))
-+			  (0x0D014 + (((_i) - 64) * 0x40))))
- /*
-  * Rx DCA Control Register:
-  * 00-15 : 0x02200 + n*4
-@@ -195,7 +195,7 @@
-  */
- #define IXGBE_DCA_RXCTRL(_i)    (((_i) <= 15) ? (0x02200 + ((_i) * 4)) : \
-                                  (((_i) < 64) ? (0x0100C + ((_i) * 0x40)) : \
--                                 (0x0D00C + ((_i - 64) * 0x40))))
-+				 (0x0D00C + (((_i) - 64) * 0x40))))
- #define IXGBE_RDRXCTL           0x02F00
- #define IXGBE_RXPBSIZE(_i)      (0x03C00 + ((_i) * 4))
-                                              /* 8 of these 0x03C00 - 0x03C1C */
-@@ -344,9 +344,9 @@
- 
- #define IXGBE_WUPL      0x05900
- #define IXGBE_WUPM      0x05A00 /* wake up pkt memory 0x5A00-0x5A7C */
--#define IXGBE_FHFT(_n)     (0x09000 + (_n * 0x100)) /* Flex host filter table */
--#define IXGBE_FHFT_EXT(_n) (0x09800 + (_n * 0x100)) /* Ext Flexible Host
--                                                     * Filter Table */
-+#define IXGBE_FHFT(_n)	(0x09000 + ((_n) * 0x100)) /* Flex host filter table */
-+#define IXGBE_FHFT_EXT(_n)	(0x09800 + ((_n) * 0x100)) /* Ext Flexible Host
-+							    * Filter Table */
- 
- #define IXGBE_FLEXIBLE_FILTER_COUNT_MAX         4
- #define IXGBE_EXT_FLEXIBLE_FILTER_COUNT_MAX     2
-@@ -1485,7 +1485,7 @@ enum {
- #define IXGBE_LED_BLINK_BASE     0x00000080
- #define IXGBE_LED_MODE_MASK_BASE 0x0000000F
- #define IXGBE_LED_OFFSET(_base, _i) (_base << (8 * (_i)))
--#define IXGBE_LED_MODE_SHIFT(_i) (8*(_i))
-+#define IXGBE_LED_MODE_SHIFT(_i) (8 * (_i))
- #define IXGBE_LED_IVRT(_i)       IXGBE_LED_OFFSET(IXGBE_LED_IVRT_BASE, _i)
- #define IXGBE_LED_BLINK(_i)      IXGBE_LED_OFFSET(IXGBE_LED_BLINK_BASE, _i)
- #define IXGBE_LED_MODE_MASK(_i)  IXGBE_LED_OFFSET(IXGBE_LED_MODE_MASK_BASE, _i)
-@@ -2068,9 +2068,9 @@ enum {
- 
- /* SR-IOV specific macros */
- #define IXGBE_MBVFICR_INDEX(vf_number)   (vf_number >> 4)
--#define IXGBE_MBVFICR(_i)                (0x00710 + (_i * 4))
--#define IXGBE_VFLRE(_i)                  (((_i & 1) ? 0x001C0 : 0x00600))
--#define IXGBE_VFLREC(_i)                 (0x00700 + (_i * 4))
-+#define IXGBE_MBVFICR(_i)		(0x00710 + ((_i) * 4))
-+#define IXGBE_VFLRE(_i)		((((_i) & 1) ? 0x001C0 : 0x00600))
-+#define IXGBE_VFLREC(_i)		(0x00700 + ((_i) * 4))
- 
- enum ixgbe_fdir_pballoc_type {
- 	IXGBE_FDIR_PBALLOC_NONE = 0,
--- 
-1.7.7.5
+Yes, there is some events for that :). But I didn't know if stall was
+cache misses related or not :).
+
+JM
