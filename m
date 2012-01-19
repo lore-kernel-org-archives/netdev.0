@@ -1,76 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: bpf_jit: fix divide by 0 generation
-Date: Thu, 19 Jan 2012 09:07:44 +0100
-Message-ID: <1326960464.1113.28.camel@edumazet-laptop>
-References: <20120118022709.GA4167@linuxace.com>
-	 <1326867428.2606.39.camel@edumazet-laptop>
-	 <1326871835.2606.40.camel@edumazet-laptop>
-	 <1326873533.2606.46.camel@edumazet-laptop>
-	 <20120118155747.GA4991@linuxace.com>
-	 <1326902511.2316.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Phil Oester <kernel@linuxace.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 0/9][pull request] Intel Wired LAN Driver Updates
+Date: Thu, 19 Jan 2012 00:13:25 -0800
+Message-ID: <1326960814-16976-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:49660 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753681Ab2ASIHt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 03:07:49 -0500
-Received: by wics10 with SMTP id s10so149845wic.19
-        for <netdev@vger.kernel.org>; Thu, 19 Jan 2012 00:07:47 -0800 (PST)
-In-Reply-To: <1326902511.2316.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mga11.intel.com ([192.55.52.93]:7452 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752739Ab2ASINv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jan 2012 03:13:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 18 janvier 2012 =C3=A0 17:01 +0100, Eric Dumazet a =C3=A9cr=
-it :
-> Le mercredi 18 janvier 2012 =C3=A0 07:57 -0800, Phil Oester a =C3=A9c=
-rit :
->=20
-> > Got the following output after applying this fix (no panic this tim=
-e):
-> >=20
-> > proglen=3D231 !=3D oldproglen=3D235
-> > bpb_jit_compile fatal error
-> >=20
-> > Filter being used is 'not net a.b.x.112/28 and not net a.b.y.112/28=
-'
->=20
+The following series contains updates to igb, igbvf, ixgbe and ixgbevf.
+These fixes do the following:
+ - update copyright
+ - fix sparse and/or namespace warnings
+ - make ops tables and strings const
+ - fix defines to handle complex expressions
+ - remove unnecessary irq enable/disable
 
-By the way, libcap gives following code, not optimal
+The following are changes since commit 17f1bbca1baf2f652fa9c102ec239d6abded94c1:
+  net: ftgmac100/ftmac100: add missing interrupt.h include
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
 
-(000) ldh      [12]
-(001) jeq      #0x800           jt 2	jf 14
-(002) ld       [26]
-(003) and      #0xfffffff0
-(004) jeq      #0x1020340       jt 28	jf 5
-(005) ld       [26]
-(006) and      #0xfffffff0
-(007) jeq      #0x1021480       jt 28	jf 8
-(008) ld       [30]
-(009) and      #0xfffffff0
-(010) jeq      #0x1020340       jt 28	jf 11
-(011) ld       [30]
-(012) and      #0xfffffff0
-(013) jeq      #0x1021480       jt 28	jf 29
+Alexander Duyck (1):
+  ixgbe: Fix register defines to correctly handle complex expressions
 
-=2E..
+Carolyn Wyborny (1):
+  igb: Update Copyright on all Intel copyrighted files.
 
-could be :
+Greg Rose (1):
+  ixgbevf: Prevent possible race condition by checking for message
 
-(000) ldh      [12]
-(001) jeq      #0x800           jt 2	jf 10
+Mitch A Williams (1):
+  igbvf: Remove unnecessary irq disable/enable
 
-(002) ld       [26]
-(003) and      #0xfffffff0
-(004) jeq      #0x1020340       jt ok	jf 5
-(005) jeq      #0x1021480       jt ok	jf 6
+Stephen Hemminger (5):
+  igb: make local functions static
+  igbvf: remove unneeded cast
+  ixgbevf: make ethtool ops and strings const
+  ixgbevf: fix sparse warnings
+  ixgbevf: make operations tables const
 
-(006) ld       [30]
-(007) and      #0xfffffff0
-(008) jeq      #0x1020340       jt ok	jf 9
-(009) jeq      #0x1021480       jt ok	jf ret0
+ drivers/net/ethernet/intel/igb/Makefile           |    2 +-
+ drivers/net/ethernet/intel/igb/e1000_82575.c      |    2 +-
+ drivers/net/ethernet/intel/igb/e1000_82575.h      |    2 +-
+ drivers/net/ethernet/intel/igb/e1000_defines.h    |    2 +-
+ drivers/net/ethernet/intel/igb/e1000_hw.h         |    2 +-
+ drivers/net/ethernet/intel/igb/e1000_mac.c        |    4 +-
+ drivers/net/ethernet/intel/igb/e1000_mac.h        |    2 +-
+ drivers/net/ethernet/intel/igb/e1000_mbx.c        |    2 +-
+ drivers/net/ethernet/intel/igb/e1000_mbx.h        |    2 +-
+ drivers/net/ethernet/intel/igb/e1000_nvm.c        |    2 +-
+ drivers/net/ethernet/intel/igb/e1000_nvm.h        |    2 +-
+ drivers/net/ethernet/intel/igb/e1000_phy.c        |    2 +-
+ drivers/net/ethernet/intel/igb/e1000_phy.h        |    2 +-
+ drivers/net/ethernet/intel/igb/e1000_regs.h       |    2 +-
+ drivers/net/ethernet/intel/igb/igb.h              |    2 +-
+ drivers/net/ethernet/intel/igb/igb_ethtool.c      |    2 +-
+ drivers/net/ethernet/intel/igb/igb_main.c         |   10 +++---
+ drivers/net/ethernet/intel/igbvf/ethtool.c        |    3 +-
+ drivers/net/ethernet/intel/igbvf/netdev.c         |    5 ---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |   32 ++++++++--------
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c      |    5 ++-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |    8 ++--
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   41 +++++++++++----------
+ drivers/net/ethernet/intel/ixgbevf/mbx.c          |    3 +-
+ drivers/net/ethernet/intel/ixgbevf/vf.c           |    7 ++--
+ drivers/net/ethernet/intel/ixgbevf/vf.h           |    2 +-
+ 26 files changed, 75 insertions(+), 75 deletions(-)
 
-=2E..
+-- 
+1.7.7.5
