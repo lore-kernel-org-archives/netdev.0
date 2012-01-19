@@ -1,47 +1,62 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: RFC Hanging clean-up of a namespace
-Date: Thu, 19 Jan 2012 22:47:18 +0100
-Message-ID: <20120119214718.GC3347849@jupiter.n2.diac24.net>
-References: <20120119192541.GM2262734@jupiter.n2.diac24.net>
- <20120119.143105.735366189369504929.davem@davemloft.net>
- <20120119195349.GN2262734@jupiter.n2.diac24.net>
- <20120119.152752.318442465605898328.davem@davemloft.net>
- <m1lip32xoi.fsf@fess.ebiederm.org>
- <20120119214052.GA12249@hell>
+From: Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: iwlwifi worse than ever in current git.
+Date: Thu, 19 Jan 2012 17:04:11 -0500
+Message-ID: <20120119220410.GA11980@redhat.com>
+References: <20120110184917.GA26973@redhat.com>
+ <1326221614.5067.6.camel@dcbw.foobar.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB3063085@HASMSX103.ger.corp.intel.com>
+ <20120111014243.GA22066@redhat.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB306429E@HASMSX103.ger.corp.intel.com>
+ <20120111195055.GA5140@redhat.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB3064AF5@HASMSX103.ger.corp.intel.com>
+ <CANUX_P3UHz-Pr_M1H5pAbmKDY70es7nxkWSDGXG6-hvrPAMCJw@mail.gmail.com>
+ <20120119182955.GA1630@redhat.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB3079A3F@HASMSX103.ger.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>, equinox@diac24.net,
-	hans.schillstrom@ericsson.com, netdev@vger.kernel.org
-To: Hagen Paul Pfeifer <hagen@jauu.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:60373 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754373Ab2ASVr2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jan 2012 16:47:28 -0500
+Cc: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Guy, Wey-Yi W" <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Linux Wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20120119214052.GA12249@hell>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <0BA3FCBA62E2DC44AF3030971E174FB3079A3F-yLYCJVCiOGwLt2AQoY/u9bfspsVTdybXVpNB7YpNyf8@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 19, 2012 at 10:40:53PM +0100, Hagen Paul Pfeifer wrote:
-> * Eric W. Biederman | 2012-01-19 13:24:13 [-0800]:
-> 
-> >This thread is a fascinating disconnect from reality all of the way
-> >around.
-> >
-> >- inet_twsk_purge already implements throwing out of timewait sockets
-> >  when a network namespaces is being cleaned up.  So the RFC is nonsense.
-> 
-> This is how it is implemented, not how it should be. TIME_WAIT is not the
-> problem, it is there to keep the stack from sending wrong RST messages. Maybe
-> the 2*MSL could be fixed by a more accurate 2*RTT.
+On Thu, Jan 19, 2012 at 08:38:35PM +0000, Grumbach, Emmanuel wrote:
+ > > 
+ > > >
+ > > > On Thu, Jan 19, 2012 at 08:47:28AM +0200, Emmanuel Grumbach wrote:
+ > > >  > Ok, I finally had a change to take a closer look at this. Please run
+ > > >  > with debug=0xC0000000.
+ > > >  >
+ > > >  > This will be noisy, but I guess we have no choice...
+ > > >  > I will be travelling next week, so...
+ > > >
+ > > > Ah. Got it. I had to do a large download (a kernel tarball was enough) to
+ > > > trigger it.
+ > > > Log is at http://davej.fedorapeople.org/iwl-debug.txt
+ > > >
+ > > > The download began at around 13:17 in the log.
+ > > > It hung shortly afterwards.
+ > > >
+ > > > 	Dave
+ > > 
+ > > Thanks for that one. Really helpful. I need to send you a patch to get a
+ > > little more data. I don't know when I will be able to do it though.
+ > 
+ > Can you please retry with the patch attached ?
 
-I may have made that argument hidden behind a joke, but please refer to
-the development of RFC 793's bootup "quiet time". The reason no one
-sticks to this quiet time is that TCP timestamps have obsoleted it by
-providing a better frame of reference. Refer to RFC 1323 Appendix B
-"DUPLICATES FROM EARLIER CONNECTION INCARNATIONS".
+Hung again.
 
+http://davej.fedorapeople.org/iwl-debug2.txt
 
--David
+	Dave
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
