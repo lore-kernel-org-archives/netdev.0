@@ -1,37 +1,55 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: RFC Hanging clean-up of a namespace
-Date: Thu, 19 Jan 2012 14:31:34 +0100
-Message-ID: <20120119133134.GK2262734@jupiter.n2.diac24.net>
-References: <201201191207.10207.hans.schillstrom@ericsson.com>
+From: Hemant-vilas RAMDASI <hemant.ramdasi@stericsson.com>
+Subject: RE: problem with noop and pfifo_fast Qdisc switching
+Date: Thu, 19 Jan 2012 14:44:52 +0100
+Message-ID: <81C3A93C17462B4BBD7E272753C105791FB3639811@EXDCVYMBSTM005.EQ1STM.local>
+References: <81C3A93C17462B4BBD7E272753C105791FB3639775@EXDCVYMBSTM005.EQ1STM.local>
+ <1326978933.2249.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+	"netdev-owner@vger.kernel.org" <netdev-owner@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:34997 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753220Ab2ASNbn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jan 2012 08:31:43 -0500
-Content-Disposition: inline
-In-Reply-To: <201201191207.10207.hans.schillstrom@ericsson.com>
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:60819 "EHLO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751160Ab2ASNo7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 08:44:59 -0500
+In-Reply-To: <1326978933.2249.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 19, 2012 at 12:07:09PM +0100, Hans Schillstrom wrote:
-> Closing of a namespace (container) can be delayed by ~ 2 minutes 
-> due to tcp timers ex tcp time wait (and of cource other things too).
-> 
-> I think there should be some kind of "forced close" of the Network stack
-> in ex free_nsproxy() 
-> 
-> A netns pre-close  callback might do the job....
-> 
-> Any ideas how to solve this ?
-
-I'm interested in this too; right off I don't see a workable alternative
-to your suggestion. Each subsystem will have to implement that callback
-and release its references on the netns.
-
-
--David
+SGksDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0
+IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIEphbnVh
+cnkgMTksIDIwMTIgNjo0NiBQTQ0KPiBUbzogSGVtYW50LXZpbGFzIFJBTURBU0kNCj4gQ2M6IG5l
+dGRldkB2Z2VyLmtlcm5lbC5vcmc7IG5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmcNCj4gU3Vi
+amVjdDogUmU6IHByb2JsZW0gd2l0aCBub29wIGFuZCBwZmlmb19mYXN0IFFkaXNjIHN3aXRjaGlu
+Zw0KPiANCj4gTGUgamV1ZGkgMTkgamFudmllciAyMDEyIMOgIDEzOjQ3ICswMTAwLCBIZW1hbnQt
+dmlsYXMgUkFNREFTSSBhIMOpY3JpdCA6DQo+ID4gSGksDQo+ID4NCj4gPiBJIGhhdmUgYSBzaXR1
+YXRpb24gd2hlcmUgb25lIG9mIGltcG9ydGFudCBtZXNzYWdlIChwaG9uZXQgcGlwZQ0KPiBtZXNz
+YWdlKSBnZXRzIGRyb3BwZWQgYmVjYXVzZSBvZiAnbm9vcCcgUWRpc2MuDQo+ID4gVGhpcyBzaXR1
+YXRpb24gbW9zdGx5IGhhcHBlbnMgd2hlbiBjb21pbmcgb3V0IG9mIHNsZWVwIGFuZCB0aGVyZSBp
+cyBhDQo+IG1lc3NhZ2UgdG8gc2VuZC4NCj4gPiBXaGF0IEkgaGF2ZSBvYnNlcnZlZCBpcyB0aGlz
+Lg0KPiA+IEluIG5vcm1hbCBjYXNlIHRoZSBxZGlzYyB1c2VkIGlkIHBmaWZvX2Zhc3QuIFdoZW4g
+Q1BVIGdvZXMgdG8gc2xlZXAsDQo+IGl0IGNoYW5nZXMgdGhlIHFkaXNjIHRvIG5vb3AuDQo+ID4g
+V2hlbiBDUFUgd2FrZXMgdXAgKGJlY2F1c2Ugb2YgYSBtZXNzYWdlIGZyb20gbG93ZXIgbGF5ZXJz
+KSwgcGhvbmV0DQo+IHRyaWVzIHRvIHNlbmQgYSBjb250cm9sIHBhY2tldCB0byBkcml2ZXIgYW5k
+IGZpbmRzIHFkaXNjIGlzIHN0aWxsDQo+ICdub29wJy4NCj4gPiBCZWNhdXNlIHRoZSBjb25jZXJu
+ZWQgbWVzc2FnZSBpcyBhIGNvbnRyb2wgbWVzc2FnZSwgdGhpcyBwYWNrZXQgZHJvcA0KPiBpcyBj
+cmVhdGluZyBkZWFkbG9jayBzaXR1YXRpb24uDQo+ID4NCj4gPiBIb3cgdGhlIHN3aXRjaCBiZXR3
+ZWVuIHBmaWZvX2Zhc3QgYW5kIG5vb3AgaXMgaGFuZGxlZD8gSXMgdGhpcw0KPiBzb21ldGhpbmcg
+c29sdmVkIGluIDMuMD8NCj4gPiBXZSBhcmUgcnVubmluZyBhIG9sZGVyIHZlcnNpb24gb2Yga2Vy
+bmVsICgyLjYuMzUgYmFzZWQpLg0KPiANCj4gSWYgbWVzc2FnZSBpcyBpbXBvcnRhbnQsIHlvdSBz
+aG91bGQgY2hlY2sgcmV0dXJuIGNvZGUgZnJvbSB4bWl0DQo+IChORVRfWE1JVF9DTiBpcyByZXR1
+cm5lZCBieSBub29wX2VucXVldWUpLCBhbmQgbWF5YmUgcmVzZW5kIGl0IGxhdGVyLg0KPiANCj4g
+Tm90IHN1cmUgYnkgd2hhdCB5b3UgbWVhbiBieSAnY3B1IGdvZXMgdG8gc2xlZXAnIG9yICdjcHUg
+d2FrZXMgdXAnID8NCj4gDQo+IElzIGl0IHRoZSBtYWNoaW5lIGdvaW5nIHRvIHN1c3BlbmQgbW9k
+ZSA/DQo+IA0KWWVzLCBJIG1lYW4gbWFjaGluZSBnb2luZyB0byBzdXNwZW5kLi4NClRoZSBwcm9i
+bGVtIHdpdGggdGhpcyBtZXNzYWdlIGlzIHRoYXQgaXQgY2FuIGJlIHJldHJpZWQgb25seSBhIGNv
+dXBsZSBvZiB0aW1lLg0KV2Ugc2F3IGEgY29kZSB3aGVyZSBkZXZfZGVhY3RpdmF0ZSBpcyBjYWxs
+ZWQgd2hpY2ggY2hhbmdlcyB0aGUgUWRpc2MgdG8gJ25vb3AnLiANCkkgaG9wZSBpdCB3aWxsIHJl
+c3RvcmUgaXQgaW4gZGV2X2FjdGl2YXRlKCkgYWdhaW4gd2hlbiBtYWNoaW5lIHJlc3VtZXMuIFdl
+IGFyZSBjaGVja2luZyB0aGlzLg0KSXMgdGhlcmUgYW55IHJhY2UgYmV0d2VlbiB3aGVuIGRldl9x
+dWV1ZV94bWl0IGlzIGNhbGxlZCBhbmQgZGV2X2FjdGl2YXRlIGlzIHN0aWxsIG5vdCBjb21wbGV0
+ZT8NCg0KVGhhbmtzLA0KSGVtYW50DQoNCg==
