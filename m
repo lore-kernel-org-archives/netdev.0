@@ -1,86 +1,46 @@
-From: Stephane Grosjean <s.grosjean-g4cQ8AsIbFbL9ATBNaCtXw@public.gmane.org>
-Subject: [PATCH 1/3 V3.1] can/usb: PEAK-System Technik USB adapters driver core
-Date: Thu, 19 Jan 2012 11:27:41 +0100
-Message-ID: <1326968863-20229-2-git-send-email-s.grosjean@peak-system.com>
+From: Stephane Grosjean <s.grosjean@peak-system.com>
+Subject: [PATCH 2/3 V3.1] can/usb: PEAK-System Technik PCAN-USB specific part
+Date: Thu, 19 Jan 2012 11:27:42 +0100
+Message-ID: <1326968863-20229-3-git-send-email-s.grosjean@peak-system.com>
 References: <1326968863-20229-1-git-send-email-s.grosjean@peak-system.com>
-Cc: linux-usb Mailing List <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev Mailing List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-can Mailing List <linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Stephane Grosjean <s.grosjean-g4cQ8AsIbFbL9ATBNaCtXw@public.gmane.org>
-To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1326968863-20229-1-git-send-email-s.grosjean-g4cQ8AsIbFbL9ATBNaCtXw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-usb Mailing List <linux-usb@vger.kernel.org>,
+	netdev Mailing List <netdev@vger.kernel.org>,
+	linux-can Mailing List <linux-can@vger.kernel.org>,
+	Stephane Grosjean <s.grosjean@peak-system.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1326968863-20229-1-git-send-email-s.grosjean@peak-system.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the core of the peak_usb driver which handles PEAK-System
-Technik PCAN USB adapters. It defines the parts which are common to the
-PCAN-USB adapters: can network interfaces management, network-to/from-usb
-data path interface, timestamps management...
+This patch adds the specific part which handles the PCAN-USB adapter from
+PEAK-System Technik (http://www.peak-system.com). The PCAN-USB adapter is
+a sja1000 based, mono-channel USB 1.1 adapter compliant with CAN
+specifications 2.0A (11-bit ID) and 2.0B (29-bit ID).
 
 V3.1: same as V3 + add linux-can in cc:
 
-Signed-off-by: Stephane Grosjean <s.grosjean-g4cQ8AsIbFbL9ATBNaCtXw@public.gmane.org>
-Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Signed-off-by: Stephane Grosjean <s.grosjean@peak-system.com>
+Acked-by: Wolfgang Grandegger <wg@grandegger.com>
 ---
- drivers/net/can/usb/Kconfig                  |    6 +
- drivers/net/can/usb/Makefile                 |    1 +
- drivers/net/can/usb/peak_usb/Makefile        |    2 +
- drivers/net/can/usb/peak_usb/pcan_usb_core.c |  875 ++++++++++++++++++++++++++
- drivers/net/can/usb/peak_usb/pcan_usb_core.h |  138 ++++
- 5 files changed, 1022 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/can/usb/peak_usb/Makefile
- create mode 100644 drivers/net/can/usb/peak_usb/pcan_usb_core.c
- create mode 100644 drivers/net/can/usb/peak_usb/pcan_usb_core.h
+ drivers/net/can/usb/peak_usb/pcan_usb.c |  746 +++++++++++++++++++++++++++++++
+ 1 files changed, 746 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/can/usb/peak_usb/pcan_usb.c
 
-diff --git a/drivers/net/can/usb/Kconfig b/drivers/net/can/usb/Kconfig
-index 0452549..0a68768 100644
---- a/drivers/net/can/usb/Kconfig
-+++ b/drivers/net/can/usb/Kconfig
-@@ -13,4 +13,10 @@ config CAN_ESD_USB2
-           This driver supports the CAN-USB/2 interface
-           from esd electronic system design gmbh (http://www.esd.eu).
- 
-+config CAN_PEAK_USB
-+	tristate "PEAK PCAN-USB/USB Pro interfaces"
-+	---help---
-+	  This driver supports the PCAN-USB and PCAN-USB Pro adapters
-+	  from PEAK-System Technik (http://www.peak-system.com).
-+
- endmenu
-diff --git a/drivers/net/can/usb/Makefile b/drivers/net/can/usb/Makefile
-index fce3cf1..da6d1d3 100644
---- a/drivers/net/can/usb/Makefile
-+++ b/drivers/net/can/usb/Makefile
-@@ -4,5 +4,6 @@
- 
- obj-$(CONFIG_CAN_EMS_USB) += ems_usb.o
- obj-$(CONFIG_CAN_ESD_USB2) += esd_usb2.o
-+obj-$(CONFIG_CAN_PEAK_USB) += peak_usb/
- 
- ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
-diff --git a/drivers/net/can/usb/peak_usb/Makefile b/drivers/net/can/usb/peak_usb/Makefile
+diff --git a/drivers/net/can/usb/peak_usb/pcan_usb.c b/drivers/net/can/usb/peak_usb/pcan_usb.c
 new file mode 100644
-index 0000000..1aefbc8
+index 0000000..12737aa
 --- /dev/null
-+++ b/drivers/net/can/usb/peak_usb/Makefile
-@@ -0,0 +1,2 @@
-+obj-$(CONFIG_CAN_PEAK_USB) += peak_usb.o
-+peak_usb-y = pcan_usb_core.o pcan_usb.o pcan_usb_pro.o
-diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_core.c b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
-new file mode 100644
-index 0000000..22e3b5d
---- /dev/null
-+++ b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
-@@ -0,0 +1,875 @@
++++ b/drivers/net/can/usb/peak_usb/pcan_usb.c
+@@ -0,0 +1,746 @@
 +/*
-+ * CAN driver for PEAK System USB adapters
-+ * Derived from the PCAN project file driver/src/pcan_usb_core.c
++ * CAN driver for PEAK System PCAN-USB adapter
++ * Derived from the PCAN project file driver/src/pcan_usb.c
 + *
 + * Copyright (C) 2003-2010 PEAK System-Technik GmbH
-+ * Copyright (C) 2010-2012 Stephane Grosjean <s.grosjean-g4cQ8AsIbFbL9ATBNaCtXw@public.gmane.org>
++ * Copyright (C) 2011-2012 Stephane Grosjean <s.grosjean@peak-system.com>
 + *
-+ * Many thanks to Klaus Hitschler <klaus.hitschler-Mmb7MZpHnFY@public.gmane.org>
++ * Many thanks to Klaus Hitschler <klaus.hitschler@gmx.de>
 + *
 + * This program is free software; you can redistribute it and/or modify it
 + * under the terms of the GNU General Public License as published
@@ -91,12 +51,9 @@ index 0000000..22e3b5d
 + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 + * General Public License for more details.
 + */
-+#include <linux/init.h>
-+#include <linux/signal.h>
-+#include <linux/slab.h>
-+#include <linux/module.h>
 +#include <linux/netdevice.h>
 +#include <linux/usb.h>
++#include <linux/module.h>
 +
 +#include <linux/can.h>
 +#include <linux/can/dev.h>
@@ -104,998 +61,724 @@ index 0000000..22e3b5d
 +
 +#include "pcan_usb_core.h"
 +
-+MODULE_AUTHOR("Stephane Grosjean <s.grosjean-g4cQ8AsIbFbL9ATBNaCtXw@public.gmane.org>");
-+MODULE_DESCRIPTION("CAN driver for PEAK-System USB adapters");
-+MODULE_LICENSE("GPL v2");
++MODULE_SUPPORTED_DEVICE("PEAK-System PCAN-USB adapter");
 +
-+/* Table of devices that work with this driver */
-+static struct usb_device_id peak_usb_table[] = {
-+	{USB_DEVICE(PCAN_USB_VENDOR_ID, PCAN_USB_PRODUCT_ID)},
-+	{USB_DEVICE(PCAN_USB_VENDOR_ID, PCAN_USBPRO_PRODUCT_ID)},
-+	{} /* Terminating entry */
++/* PCAN-USB Endpoints */
++#define PCAN_USB_EP_CMDOUT		1
++#define PCAN_USB_EP_CMDIN		(PCAN_USB_EP_CMDOUT | USB_DIR_IN)
++#define PCAN_USB_EP_MSGOUT		2
++#define PCAN_USB_EP_MSGIN		(PCAN_USB_EP_MSGOUT | USB_DIR_IN)
++
++/* PCAN-USB parameter command */
++#define PCAN_USB_PARAMETER_LEN		14
++struct __packed pcan_usb_parameter {
++	u8 function;
++	u8 number;
++	u8 parameters[PCAN_USB_PARAMETER_LEN];
 +};
 +
-+MODULE_DEVICE_TABLE(usb, peak_usb_table);
++/* PCAN-USB command timeout (ms.) */
++#define PCAN_USB_COMMAND_TIMEOUT	1000
 +
-+/* List of supported PCAN-USB adapters (NULL terminated list) */
-+static struct peak_usb_adapter *peak_usb_adapters_list[] = {
-+	&pcan_usb,
-+	&pcan_usb_pro,
-+	NULL,
++/* PCAN-USB rx/tx buffers size */
++#define PCAN_USB_RX_BUFFER_SIZE		64
++#define PCAN_USB_TX_BUFFER_SIZE		64
++
++#define PCAN_USB_MSG_HEADER_LEN		2
++
++/* PCAN-USB adapter internal clock (MHz) */
++#define PCAN_USB_CRYSTAL_HZ		16000000
++
++/* PCAN-USB USB message record status/len field */
++#define PCAN_USB_STATUSLEN_TIMESTAMP	(1 << 7)
++#define PCAN_USB_STATUSLEN_INTERNAL	(1 << 6)
++#define PCAN_USB_STATUSLEN_EXT_ID	(1 << 5)
++#define PCAN_USB_STATUSLEN_RTR		(1 << 4)
++#define PCAN_USB_STATUSLEN_DLC		(0xf)
++
++/* PCAN-USB error flags */
++#define PCAN_USB_ERROR_TXFULL		0x01
++#define PCAN_USB_ERROR_RXQOVR		0x02
++#define PCAN_USB_ERROR_BUS_LIGHT	0x04
++#define PCAN_USB_ERROR_BUS_HEAVY	0x08
++#define PCAN_USB_ERROR_BUS_OFF		0x10
++#define PCAN_USB_ERROR_RXQEMPTY		0x20
++#define PCAN_USB_ERROR_QOVR		0x40
++#define PCAN_USB_ERROR_TXQFULL		0x80
++
++/* SJA1000 modes */
++#define SJA1000_MODE_NORMAL		0x00
++#define SJA1000_MODE_INIT		0x01
++
++/*
++ * tick duration = 42.666 us =>
++ * (tick_number * 44739243) >> 20 ~ (tick_number * 42666) / 1000
++ * accuracy = 10^-7
++ */
++#define PCAN_USB_TS_DIV_SHIFTER		20
++#define PCAN_USB_TS_US_PER_TICK		44739243
++
++/* PCAN-USB messages record types */
++#define PCAN_USB_REC_ERROR		1
++#define PCAN_USB_REC_ANALOG		2
++#define PCAN_USB_REC_BUSLOAD		3
++#define PCAN_USB_REC_TS			4
++#define PCAN_USB_REC_BUSEVT		5
++
++/* private to PCAN-USB adapter */
++struct pcan_usb {
++	struct peak_usb_device dev;
++	struct peak_time_ref time_ref;
 +};
 +
-+/*
-+ * dump memory
-+ */
-+#define DUMP_WIDTH	16
-+void dump_mem(char *prompt, void *p, int l)
-+{
-+	char tmp[(3 * DUMP_WIDTH) + 1];
-+	u8 *pc = p;
-+	int i, ltmp;
-+
-+	pr_info("%s dumping %s (%d bytes):\n",
-+		PCAN_USB_DRIVER_NAME, prompt ? prompt : "memory", l);
-+	for (i = ltmp = 0; i < l; ) {
-+		ltmp += sprintf(tmp + ltmp, "%02X ", *pc++);
-+		if ((++i % DUMP_WIDTH) == 0) {
-+			pr_info("%s %s\n", PCAN_USB_DRIVER_NAME, tmp);
-+			ltmp = 0;
-+		}
-+	}
-+	if (i % DUMP_WIDTH)
-+		pr_info("%s %s\n", PCAN_USB_DRIVER_NAME, tmp);
-+}
-+
-+/*
-+ * initialize a time_ref object with usb adapter own settings
-+ */
-+void peak_usb_init_time_ref(struct peak_time_ref *time_ref,
-+			    struct peak_usb_adapter *adapter)
-+{
-+	if (time_ref) {
-+		memset(time_ref, 0, sizeof(struct peak_time_ref));
-+		time_ref->adapter = adapter;
-+	}
-+}
-+
-+static void peak_usb_add_us(struct timeval *tv, u32 delta_us)
-+{
-+	/* number of s. to add to final time */
-+	u32 delta_s = delta_us / 1000000;
-+
-+	delta_us -= delta_s * 1000000;
-+
-+	tv->tv_usec += delta_us;
-+	if (tv->tv_usec >= 1000000) {
-+		tv->tv_usec -= 1000000;
-+		delta_s++;
-+	}
-+	tv->tv_sec += delta_s;
-+}
-+
-+/*
-+ * sometimes, another now may be  more recent than current one...
-+ */
-+void peak_usb_update_ts_now(struct peak_time_ref *time_ref, u32 ts_now)
-+{
-+	time_ref->ts_dev_2 = ts_now;
-+
-+	/* should wait at least two passes before computing */
-+	if (time_ref->tv_host.tv_sec > 0) {
-+		u32 delta_ts = time_ref->ts_dev_2 - time_ref->ts_dev_1;
-+
-+		if (time_ref->ts_dev_2 < time_ref->ts_dev_1)
-+			delta_ts &= (1 << time_ref->adapter->ts_used_bits) - 1;
-+
-+		time_ref->ts_total += delta_ts;
-+	}
-+}
-+
-+/*
-+ * register device timestamp as now
-+ */
-+void peak_usb_set_ts_now(struct peak_time_ref *time_ref, u32 ts_now)
-+{
-+	if (time_ref->tv_host_0.tv_sec == 0) {
-+		do_gettimeofday(&time_ref->tv_host_0);
-+		time_ref->tv_host.tv_sec = 0;
-+	} else {
-+		/*
-+		 * delta_us should not be >= 2^32 => delta_s should be < 4294
-+		 * handle 32-bits wrapping here: if count of s. reaches 4200,
-+		 * reset counters and change time base
-+		 */
-+		if (time_ref->tv_host.tv_sec != 0) {
-+			u32 delta_s = time_ref->tv_host.tv_sec
-+						- time_ref->tv_host_0.tv_sec;
-+			if (delta_s > 4200) {
-+				time_ref->tv_host_0 = time_ref->tv_host;
-+				time_ref->ts_total = 0;
-+			}
-+		}
-+
-+		do_gettimeofday(&time_ref->tv_host);
-+		time_ref->tick_count++;
-+	}
-+
-+	time_ref->ts_dev_1 = time_ref->ts_dev_2;
-+	peak_usb_update_ts_now(time_ref, ts_now);
-+}
-+
-+/*
-+ * compute timeval according to current ts and time_ref data
-+ */
-+void peak_usb_get_ts_tv(struct peak_time_ref *time_ref, u32 ts,
-+			struct timeval *tv)
-+{
-+	/* protect from getting timeval before setting now */
-+	if (time_ref->tv_host.tv_sec > 0) {
-+		u64 delta_us;
-+
-+		delta_us = ts - time_ref->ts_dev_2;
-+		if (ts < time_ref->ts_dev_2)
-+			delta_us &= (1 << time_ref->adapter->ts_used_bits) - 1;
-+
-+		delta_us += time_ref->ts_total;
-+
-+		delta_us *= time_ref->adapter->us_per_ts_scale;
-+		delta_us >>= time_ref->adapter->us_per_ts_shift;
-+
-+		*tv = time_ref->tv_host_0;
-+		peak_usb_add_us(tv, (u32)delta_us);
-+	} else {
-+		do_gettimeofday(tv);
-+	}
-+}
-+
-+/*
-+ * callback for bulk IN urb
-+ */
-+static void peak_usb_read_bulk_callback(struct urb *urb)
-+{
-+	struct peak_usb_device *dev = urb->context;
++/* incoming message context for decoding */
++struct pcan_usb_msg_context {
++	u16 ts16;
++	u8 prev_ts8;
++	u8 *ptr;
++	u8 *end;
++	u8 rec_cnt;
++	u8 rec_idx;
++	u8 rec_data_idx;
 +	struct net_device *netdev;
++	struct pcan_usb *pdev;
++};
++
++/*
++ * send a command
++ */
++static int pcan_usb_send_cmd(struct peak_usb_device *dev, u8 f, u8 n, u8 *p)
++{
 +	int err;
++	int actual_length;
++	struct pcan_usb_parameter cmd = {
++		.function = f,
++		.number = n,
++	};
 +
-+	netdev = dev->netdev;
++	/* usb device unregistered? */
++	if (!(dev->state & PCAN_USB_STATE_CONNECTED))
++		return 0;
 +
-+	if (!netif_device_present(netdev))
-+		return;
++	if (p)
++		memcpy(cmd.parameters, p, ARRAY_SIZE(cmd.parameters));
 +
-+	switch (urb->status) {
-+	case 0: /* success */
-+		break;
-+	case -ENOENT:
-+	case -ESHUTDOWN:
-+		return;
-+	default:
-+		netdev_info(netdev, "Rx URB aborted (%d)\n", urb->status);
-+		goto resubmit_urb;
-+	}
-+
-+	/* protect from any incoming empty msgs */
-+	if ((urb->actual_length > 0) && (dev->adapter->dev_decode_buf))
-+		/* handle these kinds of msgs only is _start callback called */
-+		if (dev->state & PCAN_USB_STATE_STARTED) {
-+			err = dev->adapter->dev_decode_buf(dev, urb);
-+			if (err)
-+				dump_mem("received usb message",
-+					urb->transfer_buffer,
-+					urb->transfer_buffer_length);
-+		}
-+
-+resubmit_urb:
-+	usb_fill_bulk_urb(urb, dev->udev,
-+		usb_rcvbulkpipe(dev->udev, dev->ep_msg_in),
-+		urb->transfer_buffer, dev->adapter->rx_buffer_size,
-+		peak_usb_read_bulk_callback, dev);
-+
-+	err = usb_submit_urb(urb, GFP_ATOMIC);
-+
-+	if (err == -ENODEV)
-+		netif_device_detach(netdev);
-+	else if (err)
-+		netdev_err(netdev, "failed resubmitting read bulk urb: %d\n",
-+			err);
-+}
-+
-+/*
-+ * callback for bulk OUT urb
-+ */
-+static void peak_usb_write_bulk_callback(struct urb *urb)
-+{
-+	struct peak_tx_urb_context *context = urb->context;
-+	struct peak_usb_device *dev;
-+	struct net_device *netdev;
-+
-+	BUG_ON(!context);
-+
-+	dev = context->dev;
-+	netdev = dev->netdev;
-+
-+	atomic_dec(&dev->active_tx_urbs);
-+
-+	if (!netif_device_present(netdev))
-+		return;
-+
-+	if (urb->status)
-+		netdev_dbg(netdev, "Tx URB aborted (%d)\n", urb->status);
-+
-+	netdev->trans_start = jiffies;
-+
-+	/* transmission complete interrupt */
-+	netdev->stats.tx_packets++;
-+	netdev->stats.tx_bytes += context->dlc;
-+
-+	can_get_echo_skb(netdev, context->echo_index);
-+
-+	/* Release context */
-+	context->echo_index = PCAN_USB_MAX_TX_URBS;
-+
-+	netif_wake_queue(netdev);
-+}
-+
-+static void peak_usb_unlink_all_urbs(struct peak_usb_device *dev)
-+{
-+	int i;
-+
-+	usb_kill_anchored_urbs(&dev->rx_submitted);
-+
-+	usb_kill_anchored_urbs(&dev->tx_submitted);
-+	atomic_set(&dev->active_tx_urbs, 0);
-+
-+	for (i = 0; i < PCAN_USB_MAX_TX_URBS; i++) {
-+		struct urb *urb = dev->tx_contexts[i].urb;
-+
-+		if (urb) {
-+			if (urb->transfer_buffer) {
-+				usb_free_coherent(urb->dev,
-+					urb->transfer_buffer_length,
-+					urb->transfer_buffer,
-+					urb->transfer_dma);
-+			}
-+			usb_free_urb(urb);
-+			dev->tx_contexts[i].urb = NULL;
-+		}
-+		dev->tx_contexts[i].echo_index = PCAN_USB_MAX_TX_URBS;
-+	}
-+}
-+
-+/*
-+ * Start interface
-+ */
-+static int peak_usb_start(struct peak_usb_device *dev)
-+{
-+	struct net_device *netdev = dev->netdev;
-+	int err, i;
-+
-+	for (i = 0; i < PCAN_USB_MAX_RX_URBS; i++) {
-+		struct urb *urb;
-+		u8 *buf;
-+
-+		/* create a URB, and a buffer for it, to receive usb messages */
-+		urb = usb_alloc_urb(0, GFP_KERNEL);
-+		if (!urb) {
-+			netdev_err(netdev, "No memory left for URBs\n");
-+			err = -ENOMEM;
-+			break;
-+		}
-+
-+		buf = usb_alloc_coherent(dev->udev,
-+			dev->adapter->rx_buffer_size, GFP_KERNEL,
-+			&urb->transfer_dma);
-+		if (!buf) {
-+			netdev_err(netdev, "No memory left for USB buffer\n");
-+			usb_free_urb(urb);
-+			err = -ENOMEM;
-+			break;
-+		}
-+
-+		usb_fill_bulk_urb(urb, dev->udev,
-+			usb_rcvbulkpipe(dev->udev, dev->ep_msg_in),
-+			buf, dev->adapter->rx_buffer_size,
-+			peak_usb_read_bulk_callback, dev);
-+		urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
-+		usb_anchor_urb(urb, &dev->rx_submitted);
-+
-+		err = usb_submit_urb(urb, GFP_KERNEL);
-+		if (err) {
-+			if (err == -ENODEV)
-+				netif_device_detach(dev->netdev);
-+
-+			usb_unanchor_urb(urb);
-+			usb_free_coherent(dev->udev,
-+				dev->adapter->rx_buffer_size, buf,
-+				urb->transfer_dma);
-+			usb_free_urb(urb);
-+			break;
-+		}
-+
-+		/* drop reference, USB core will take care of freeing it */
-+		usb_free_urb(urb);
-+	}
-+
-+	/* did we submit any URBs? Warn if we was not able to submit all urbs */
-+	if (i < PCAN_USB_MAX_RX_URBS) {
-+		if (i == 0) {
-+			netdev_err(netdev, "couldn't setup any rx URB\n");
-+			return err;
-+		}
-+
-+		netdev_warn(netdev, "rx performance may be slow\n");
-+	}
-+
-+	/* pre-alloc tx buffers and corresponding urbs */
-+	for (i = 0; i < PCAN_USB_MAX_TX_URBS; i++) {
-+		struct peak_tx_urb_context *context;
-+		struct urb *urb;
-+		u8 *buf;
-+
-+		/* create a URB and a buffer for it, to transmit usb messages */
-+		urb = usb_alloc_urb(0, GFP_KERNEL);
-+		if (!urb) {
-+			netdev_err(netdev, "No memory left for URBs\n");
-+			err = -ENOMEM;
-+			break;
-+		}
-+
-+		buf = usb_alloc_coherent(dev->udev,
-+			dev->adapter->tx_buffer_size, GFP_KERNEL,
-+			&urb->transfer_dma);
-+		if (!buf) {
-+			netdev_err(netdev, "No memory left for USB buffer\n");
-+			usb_free_urb(urb);
-+			err = -ENOMEM;
-+			break;
-+		}
-+
-+		context = dev->tx_contexts + i;
-+		context->dev = dev;
-+		context->urb = urb;
-+
-+		usb_fill_bulk_urb(urb, dev->udev,
-+			usb_sndbulkpipe(dev->udev, dev->ep_msg_out),
-+			buf, dev->adapter->tx_buffer_size,
-+			peak_usb_write_bulk_callback, context);
-+		urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
-+	}
-+
-+	/* warn if we were able to allocate enough tx contexts */
-+	if (i < PCAN_USB_MAX_TX_URBS) {
-+		if (i == 0) {
-+			netdev_err(netdev, "couldn't setup any tx URB\n");
-+			return err;
-+		}
-+
-+		netdev_warn(netdev, "tx performance may be slow\n");
-+	}
-+
-+	if (dev->adapter->dev_start) {
-+		err = dev->adapter->dev_start(dev);
-+		if (err)
-+			goto failed;
-+	}
-+
-+	dev->state |= PCAN_USB_STATE_STARTED;
-+
-+	/* can set bus on now */
-+	if (dev->adapter->dev_set_bus) {
-+		err = dev->adapter->dev_set_bus(dev, 1);
-+		if (err)
-+			goto failed;
-+	}
-+
-+	dev->can.state = CAN_STATE_ERROR_ACTIVE;
-+
-+	return 0;
-+
-+failed:
-+	if (err == -ENODEV)
-+		netif_device_detach(dev->netdev);
-+
-+	netdev_warn(netdev, "couldn't submit control: %d\n", err);
++	err = usb_bulk_msg(dev->udev,
++		usb_sndbulkpipe(dev->udev, PCAN_USB_EP_CMDOUT), &cmd,
++		sizeof(struct pcan_usb_parameter), &actual_length,
++		PCAN_USB_COMMAND_TIMEOUT);
++	if (err)
++		netdev_err(dev->netdev,
++			"sending cmd f=0x%x n=0x%x failure: %d\n",
++			f, n, err);
 +
 +	return err;
 +}
 +
-+static netdev_tx_t peak_usb_ndo_start_xmit(struct sk_buff *skb,
-+					   struct net_device *netdev)
++/*
++ * send a command then wait for its response
++ */
++static int pcan_usb_wait_rsp(struct peak_usb_device *dev, u8 f, u8 n, u8 *p)
 +{
-+	struct peak_usb_device *dev = netdev_priv(netdev);
-+	struct peak_tx_urb_context *context = NULL;
-+	struct net_device_stats *stats = &netdev->stats;
-+	struct can_frame *cf = (struct can_frame *)skb->data;
-+	struct urb *urb;
-+	u8 *obuf;
-+	int i, err;
-+	size_t size = dev->adapter->tx_buffer_size;
-+
-+	if (can_dropped_invalid_skb(netdev, skb))
-+		return NETDEV_TX_OK;
-+
-+	if (!dev->adapter->dev_encode_msg) {
-+		dev_kfree_skb(skb);
-+		stats->tx_dropped++;
-+		return NETDEV_TX_OK;
-+	}
-+
-+	for (i = 0; i < PCAN_USB_MAX_TX_URBS; i++)
-+		if (dev->tx_contexts[i].echo_index == PCAN_USB_MAX_TX_URBS) {
-+			context = dev->tx_contexts + i;
-+			break;
-+		}
-+
-+	if (!context) {
-+		netdev_warn(netdev, "couldn't find any free context\n");
-+		return NETDEV_TX_BUSY;
-+	}
-+
-+	urb = context->urb;
-+	obuf = urb->transfer_buffer;
-+	context->echo_index = i;
-+	context->dlc = cf->can_dlc;
-+
-+	err = dev->adapter->dev_encode_msg(dev, skb, obuf, &size);
-+	if (err) {
-+		if (net_ratelimit())
-+			netdev_err(netdev, "packet dropped\n");
-+		dev_kfree_skb(skb);
-+		stats->tx_dropped++;
-+		return NETDEV_TX_OK;
-+	}
-+
-+	usb_anchor_urb(urb, &dev->tx_submitted);
-+
-+	can_put_echo_skb(skb, netdev, context->echo_index);
-+
-+	atomic_inc(&dev->active_tx_urbs);
-+
-+	err = usb_submit_urb(urb, GFP_ATOMIC);
-+	if (err) {
-+		can_free_echo_skb(netdev, context->echo_index);
-+
-+		usb_unanchor_urb(urb);
-+		dev_kfree_skb(skb);
-+
-+		atomic_dec(&dev->active_tx_urbs);
-+
-+		if (err == -ENODEV) {
-+			netif_device_detach(netdev);
-+		} else {
-+			netdev_warn(netdev, "tx urb submitting failed err=%d\n",
-+					err);
-+			stats->tx_dropped++;
-+		}
-+	} else {
-+		netdev->trans_start = jiffies;
-+
-+		/* Slow down tx path */
-+		if (atomic_read(&dev->active_tx_urbs) >= PCAN_USB_MAX_TX_URBS)
-+			netif_stop_queue(netdev);
-+	}
-+
-+	return NETDEV_TX_OK;
-+}
-+
-+static int peak_usb_ndo_open(struct net_device *netdev)
-+{
-+	struct peak_usb_device *dev = netdev_priv(netdev);
 +	int err;
++	int actual_length;
++	struct pcan_usb_parameter cmd = {
++		.function = f,
++		.number = n,
++	};
 +
-+	/* common open */
-+	err = open_candev(netdev);
++	/* usb device unregistered? */
++	if (!(dev->state & PCAN_USB_STATE_CONNECTED))
++		return 0;
++
++	/* first, send command */
++	err = pcan_usb_send_cmd(dev, f, n, NULL);
 +	if (err)
 +		return err;
 +
-+	/* finally start device */
-+	err = peak_usb_start(dev);
-+	if (err) {
-+		netdev_err(netdev, "couldn't start device: %d\n", err);
-+		close_candev(netdev);
-+		return err;
-+	}
++	err = usb_bulk_msg(dev->udev,
++		usb_rcvbulkpipe(dev->udev, PCAN_USB_EP_CMDIN), &cmd,
++		sizeof(struct pcan_usb_parameter), &actual_length,
++		PCAN_USB_COMMAND_TIMEOUT);
++	if (err)
++		netdev_err(dev->netdev,
++			"waiting rsp f=0x%x n=0x%x failure: %d\n", f, n, err);
++	else if (p)
++		memcpy(p, cmd.parameters, ARRAY_SIZE(cmd.parameters));
 +
-+	dev->open_time = jiffies;
-+	netif_start_queue(netdev);
-+
-+	return 0;
++	return err;
 +}
 +
-+static int peak_usb_ndo_stop(struct net_device *netdev)
++static int pcan_usb_set_sja1000(struct peak_usb_device *dev, u8 mode)
 +{
-+	struct peak_usb_device *dev = netdev_priv(netdev);
++	u8 args[PCAN_USB_PARAMETER_LEN] = {
++		[1] = mode,
++	};
 +
-+	/* Stop polling */
-+	peak_usb_unlink_all_urbs(dev);
-+
-+	netif_stop_queue(netdev);
-+
-+	dev->state &= ~PCAN_USB_STATE_STARTED;
-+
-+	if (dev->adapter->dev_stop)
-+		dev->adapter->dev_stop(dev);
-+
-+	close_candev(netdev);
-+
-+	dev->open_time = 0;
-+
-+	dev->can.state = CAN_STATE_STOPPED;
-+
-+	/* can set bus off now */
-+	if (dev->adapter->dev_set_bus) {
-+		int err = dev->adapter->dev_set_bus(dev, 0);
-+
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
++	return pcan_usb_send_cmd(dev, 9, 2, args);
 +}
 +
-+static const struct net_device_ops peak_usb_netdev_ops = {
-+	.ndo_open = peak_usb_ndo_open,
-+	.ndo_stop = peak_usb_ndo_stop,
-+	.ndo_start_xmit = peak_usb_ndo_start_xmit,
-+};
-+
-+static int peak_usb_set_mode(struct net_device *netdev, enum can_mode mode)
++static int pcan_usb_set_bus(struct peak_usb_device *dev, u8 onoff)
 +{
-+	struct peak_usb_device *dev = netdev_priv(netdev);
++	u8 args[PCAN_USB_PARAMETER_LEN] = {
++		[0] = onoff ? 1 : 0,
++	};
 +
-+	if (!dev->open_time)
-+		return -EINVAL;
-+
-+	switch (mode) {
-+	case CAN_MODE_START:
-+		if (dev->adapter->dev_set_bus) {
-+			int err = dev->adapter->dev_set_bus(dev, 1);
-+
-+			if (err)
-+				netdev_err(netdev,
-+					"couldn't start device (err %d)\n",
-+					err);
-+			return err;
-+		}
-+		netif_wake_queue(netdev);
-+		break;
-+
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
-+	return 0;
++	return pcan_usb_send_cmd(dev, 3, 2, args);
 +}
 +
-+static int peak_usb_set_bittiming(struct net_device *netdev)
++static int pcan_usb_set_silent(struct peak_usb_device *dev, u8 onoff)
 +{
-+	struct peak_usb_device *dev = netdev_priv(netdev);
-+	struct can_bittiming *bt = &dev->can.bittiming;
++	u8 args[PCAN_USB_PARAMETER_LEN] = {
++		[0] = onoff ? 1 : 0,
++	};
 +
-+	if (dev->adapter->dev_set_bittiming) {
-+		int err = dev->adapter->dev_set_bittiming(dev, bt);
++	return pcan_usb_send_cmd(dev, 3, 3, args);
++}
 +
-+		if (err)
-+			netdev_info(netdev, "couldn't set bitrate (err %d)\n",
-+				err);
-+		return err;
-+	}
++static int pcan_usb_set_ext_vcc(struct peak_usb_device *dev, u8 onoff)
++{
++	u8 args[PCAN_USB_PARAMETER_LEN] = {
++		[0] = onoff ? 1 : 0,
++	};
 +
-+	return 0;
++	return pcan_usb_send_cmd(dev, 10, 2, args);
 +}
 +
 +/*
-+ * called to create one device, atached to USB adapter's CAN controller
-+ * number 'ctrl_idx'
++ * set bittiming value to can
 + */
-+static int peak_usb_create_dev(struct peak_usb_adapter *peak_usb_adapter,
-+			       struct usb_interface *intf, int ctrl_idx)
++static int pcan_usb_set_bittiming(struct peak_usb_device *dev,
++				  struct can_bittiming *bt)
 +{
-+	struct usb_device *usb_dev = interface_to_usbdev(intf);
-+	int sizeof_candev = peak_usb_adapter->sizeof_dev_private;
-+	struct peak_usb_device *dev;
-+	struct net_device *netdev;
-+	int i, err;
++	u8 args[PCAN_USB_PARAMETER_LEN];
++	u8 btr0, btr1;
++
++	btr0 = ((bt->brp - 1) & 0x3f) | (((bt->sjw - 1) & 0x3) << 6);
++	btr1 = ((bt->prop_seg + bt->phase_seg1 - 1) & 0xf) |
++		(((bt->phase_seg2 - 1) & 0x7) << 4);
++	if (dev->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES)
++		btr1 |= 0x80;
++
++	netdev_info(dev->netdev, "setting BTR0=0x%02x BTR1=0x%02x\n",
++		btr0, btr1);
++
++	args[0] = btr1;
++	args[1] = btr0;
++
++	return pcan_usb_send_cmd(dev, 1, 2, args);
++}
++
++/*
++ * init/reset can
++ */
++static int pcan_usb_write_mode(struct peak_usb_device *dev, u8 onoff)
++{
++	int err;
++
++	err = pcan_usb_set_bus(dev, onoff);
++	if (err)
++		return err;
++
++	if (!onoff)
++		err = pcan_usb_set_sja1000(dev, SJA1000_MODE_INIT);
++
++	return err;
++}
++
++/*
++ * read serial number from device
++ */
++static int pcan_usb_get_serial(struct peak_usb_device *dev, u32 *serial_number)
++{
++	u8 args[PCAN_USB_PARAMETER_LEN];
++	int err;
++
++	err = pcan_usb_wait_rsp(dev, 6, 1, args);
++	if (err) {
++		netdev_err(dev->netdev, "getting serial failure: %d\n", err);
++	} else if (serial_number) {
++		u32 tmp32;
++
++		memcpy(&tmp32, args, 4);
++		*serial_number = le32_to_cpu(tmp32);
++	}
++
++	return err;
++}
++
++/*
++ * read device id from device
++ */
++static int pcan_usb_get_device_id(struct peak_usb_device *dev, u32 *device_id)
++{
++	u8 args[PCAN_USB_PARAMETER_LEN];
++	int err;
++
++	err = pcan_usb_wait_rsp(dev, 4, 1, args);
++	if (err)
++		netdev_err(dev->netdev, "getting device id failure: %d\n", err);
++	else if (device_id)
++		*device_id = args[0];
++
++	return err;
++}
++
++/*
++ * update current time ref with received timestamp
++ */
++static int pcan_usb_update_ts(struct pcan_usb_msg_context *mc)
++{
 +	u16 tmp16;
 +
-+	if (sizeof_candev < sizeof(struct peak_usb_device))
-+		sizeof_candev = sizeof(struct peak_usb_device);
++	if ((mc->ptr+2) > mc->end)
++		return -EINVAL;
 +
-+	netdev = alloc_candev(sizeof_candev, PCAN_USB_MAX_TX_URBS);
-+	if (!netdev) {
-+		dev_err(&intf->dev, "%s: Couldn't alloc candev\n",
-+			PCAN_USB_DRIVER_NAME);
-+		return -ENOMEM;
-+	}
++	memcpy(&tmp16, mc->ptr, 2);
 +
-+	dev = netdev_priv(netdev);
++	mc->ts16 = le16_to_cpu(tmp16);
 +
-+	dev->udev = usb_dev;
-+	dev->netdev = netdev;
-+	dev->adapter = peak_usb_adapter;
-+	dev->ctrl_idx = ctrl_idx;
-+	dev->state = PCAN_USB_STATE_CONNECTED;
-+
-+	dev->ep_msg_in = peak_usb_adapter->ep_msg_in;
-+	dev->ep_msg_out = peak_usb_adapter->ep_msg_out[ctrl_idx];
-+
-+	dev->can.clock = peak_usb_adapter->clock;
-+	dev->can.bittiming_const = &peak_usb_adapter->bittiming_const;
-+	dev->can.do_set_bittiming = peak_usb_set_bittiming;
-+	dev->can.do_set_mode = peak_usb_set_mode;
-+	dev->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES |
-+				      CAN_CTRLMODE_LISTENONLY;
-+
-+	netdev->netdev_ops = &peak_usb_netdev_ops;
-+
-+	netdev->flags |= IFF_ECHO; /* we support local echo */
-+
-+	init_usb_anchor(&dev->rx_submitted);
-+
-+	init_usb_anchor(&dev->tx_submitted);
-+	atomic_set(&dev->active_tx_urbs, 0);
-+
-+	for (i = 0; i < PCAN_USB_MAX_TX_URBS; i++)
-+		dev->tx_contexts[i].echo_index = PCAN_USB_MAX_TX_URBS;
-+
-+	dev->prev_siblings = usb_get_intfdata(intf);
-+	usb_set_intfdata(intf, dev);
-+
-+	SET_NETDEV_DEV(netdev, &intf->dev);
-+
-+	err = register_candev(netdev);
-+	if (err) {
-+		dev_err(&intf->dev,
-+			"couldn't register CAN device: %d\n", err);
-+		goto lbl_set_intf_data;
-+	}
-+
-+	if (dev->prev_siblings)
-+		(dev->prev_siblings)->next_siblings = dev;
-+
-+	/* keep hw revision into the netdevice */
-+	tmp16 = le16_to_cpu(usb_dev->descriptor.bcdDevice);
-+	dev->device_rev = tmp16 >> 8;
-+
-+	if (dev->adapter->dev_init) {
-+		err = dev->adapter->dev_init(dev);
-+		if (err)
-+			goto lbl_set_intf_data;
-+	}
-+
-+	/* set bus off */
-+	if (dev->adapter->dev_set_bus) {
-+		err = dev->adapter->dev_set_bus(dev, 0);
-+		if (err)
-+			goto lbl_set_intf_data;
-+	}
-+
-+	/* get device number early */
-+	if (dev->adapter->dev_get_device_id)
-+		dev->adapter->dev_get_device_id(dev, &dev->device_number);
-+
-+	dev_info(&intf->dev, "%s attached to %s can %u (device %u)\n",
-+		netdev->name, peak_usb_adapter->name, ctrl_idx,
-+		dev->device_number);
++	if (mc->rec_idx > 0)
++		peak_usb_update_ts_now(&mc->pdev->time_ref, mc->ts16);
++	else
++		peak_usb_set_ts_now(&mc->pdev->time_ref, mc->ts16);
 +
 +	return 0;
-+
-+lbl_set_intf_data:
-+	usb_set_intfdata(intf, dev->prev_siblings);
-+	free_candev(netdev);
-+
-+	return err;
 +}
 +
 +/*
-+ * called by the usb core when the device is removed from the system
++ * decode received timestamp
 + */
-+static void peak_usb_disconnect(struct usb_interface *intf)
++static int pcan_usb_decode_ts(struct pcan_usb_msg_context *mc, u8 first_packet)
 +{
-+	struct peak_usb_device *dev;
++	/* only 1st packet supplies a word timestamp */
++	if (first_packet) {
++		u16 tmp16;
 +
-+	/* unregister as netdev devices as siblings */
-+	for (dev = usb_get_intfdata(intf); dev; dev = dev->prev_siblings) {
-+		struct net_device *netdev = dev->netdev;
-+		char name[IFNAMSIZ];
++		if ((mc->ptr + 2) > mc->end)
++			return -EINVAL;
 +
-+		dev->state &= ~PCAN_USB_STATE_CONNECTED;
-+		strncpy(name, netdev->name, IFNAMSIZ);
++		memcpy(&tmp16, mc->ptr, 2);
++		mc->ptr += 2;
 +
-+		unregister_netdev(netdev);
-+		free_candev(netdev);
++		mc->ts16 = le16_to_cpu(tmp16);
++		mc->prev_ts8 = mc->ts16 & 0x00ff;
++	} else {
++		u8 ts8;
 +
-+		peak_usb_unlink_all_urbs(dev);
++		if ((mc->ptr + 1) > mc->end)
++			return -EINVAL;
 +
-+		dev->next_siblings = NULL;
-+		if (dev->adapter->dev_free)
-+			dev->adapter->dev_free(dev);
++		ts8 = *mc->ptr++;
 +
-+		dev_info(&intf->dev, "%s removed\n", name);
++		if (ts8 < mc->prev_ts8)
++			mc->ts16 += 0x100;
++
++		mc->ts16 &= 0xff00;
++		mc->ts16 |= ts8;
++		mc->prev_ts8 = ts8;
 +	}
 +
-+	usb_set_intfdata(intf, NULL);
++	return 0;
 +}
 +
 +/*
-+ * probe function for new PEAK-System devices
++ * decode non-data usb message
 + */
-+static int peak_usb_probe(struct usb_interface *intf,
-+			  const struct usb_device_id *id)
++static int pcan_usb_decode_status(struct pcan_usb_msg_context *mc,
++				  u8 status_len)
 +{
-+	struct usb_device *usb_dev = interface_to_usbdev(intf);
-+	struct peak_usb_adapter *peak_usb_adapter, **pp;
-+	int i, err = -ENOMEM;
++	u8 rec_len = status_len & PCAN_USB_STATUSLEN_DLC;
++	struct sk_buff *skb;
++	struct can_frame *cf;
++	struct timeval tv;
++	u8 f, n;
 +
-+	usb_dev = interface_to_usbdev(intf);
++	/* check whether function and number can be read */
++	if ((mc->ptr + 2) > mc->end)
++		return -EINVAL;
 +
-+	/* get corresponding PCAN-USB adapter */
-+	for (pp = peak_usb_adapters_list; *pp; pp++)
-+		if ((*pp)->device_id == usb_dev->descriptor.idProduct)
-+			break;
++	f = mc->ptr[0];
++	n = mc->ptr[1];
++	mc->ptr += 2;
 +
-+	peak_usb_adapter = *pp;
-+	if (!peak_usb_adapter) {
-+		/* should never come except device_id bad usage in this file */
-+		pr_err("%s: didn't find device id. 0x%x in devices list\n",
-+			PCAN_USB_DRIVER_NAME, usb_dev->descriptor.idProduct);
-+		return -ENODEV;
-+	}
++	if (status_len & PCAN_USB_STATUSLEN_TIMESTAMP) {
++		int err = pcan_usb_decode_ts(mc, !mc->rec_idx);
 +
-+	/* got corresponding adapter: check if it handles current interface */
-+	if (peak_usb_adapter->intf_probe) {
-+		err = peak_usb_adapter->intf_probe(intf);
 +		if (err)
 +			return err;
 +	}
 +
-+	dev_info(&intf->dev,
-+		"new PEAK-System usb adapter with %u can detected:\n",
-+		peak_usb_adapter->ctrl_count);
++	switch (f) {
++	case PCAN_USB_REC_ERROR:
++		/* no status flag => ignore record */
++		if (!n)
++			break;
 +
-+	dev_info(&intf->dev, "%s %s\n",
-+		(usb_dev->manufacturer) ? usb_dev->manufacturer : "PEAK-System",
-+		peak_usb_adapter->name);
++		/* ignore this error until 1st ts received */
++		if (n == PCAN_USB_ERROR_QOVR)
++			if (!mc->pdev->time_ref.tick_count)
++				break;
 +
-+	if (usb_dev->product) {
-+		char *pc;
++		/* allocate an skb to store the error frame */
++		skb = alloc_can_err_skb(mc->netdev, &cf);
++		if (!skb)
++			return -ENOMEM;
 +
-+		/* remove some non-printable chars from the product string */
-+		for (pc = usb_dev->product; *pc != 0; pc++)
-+			if (*pc < 32 || *pc > 127)
-+				*pc = '.';
-+		dev_info(&intf->dev, "%s\n", usb_dev->product);
++		if (n & (PCAN_USB_ERROR_RXQOVR | PCAN_USB_ERROR_QOVR)) {
++			cf->can_id |= CAN_ERR_CRTL;
++			cf->data[1] |= CAN_ERR_CRTL_RX_OVERFLOW;
++			mc->netdev->stats.rx_over_errors++;
++			mc->netdev->stats.rx_errors++;
++		}
++		if (n & PCAN_USB_ERROR_BUS_OFF) {
++			cf->can_id |= CAN_ERR_BUSOFF;
++			can_bus_off(mc->netdev);
++		}
++		if (n & PCAN_USB_ERROR_BUS_HEAVY) {
++			cf->can_id |= CAN_ERR_CRTL;
++			cf->data[1] |= CAN_ERR_CRTL_TX_PASSIVE |
++					CAN_ERR_CRTL_RX_PASSIVE;
++			mc->pdev->dev.can.can_stats.error_passive++;
++		}
++		if (n & PCAN_USB_ERROR_BUS_LIGHT) {
++			cf->can_id |= CAN_ERR_CRTL;
++			cf->data[1] |= CAN_ERR_CRTL_TX_WARNING |
++					CAN_ERR_CRTL_RX_WARNING;
++			mc->pdev->dev.can.can_stats.error_warning++;
++		}
++
++		if (status_len & PCAN_USB_STATUSLEN_TIMESTAMP) {
++			peak_usb_get_ts_tv(&mc->pdev->time_ref, mc->ts16, &tv);
++			skb->tstamp = timeval_to_ktime(tv);
++		}
++		netif_rx(skb);
++		mc->netdev->stats.rx_packets++;
++		mc->netdev->stats.rx_bytes += cf->can_dlc;
++		break;
++
++	case PCAN_USB_REC_ANALOG:
++		/* analog values (ignored) */
++		rec_len = 2;
++		break;
++
++	case PCAN_USB_REC_BUSLOAD:
++		/* bus load (ignored) */
++		rec_len = 1;
++		break;
++
++	case PCAN_USB_REC_TS:
++		/* only timestamp */
++		if (pcan_usb_update_ts(mc))
++			return -EINVAL;
++		break;
++
++	case PCAN_USB_REC_BUSEVT:
++		/* error frame/bus event */
++		if (n & PCAN_USB_ERROR_TXQFULL)
++			netdev_dbg(mc->netdev, "device Tx queue full)\n");
++		break;
++	default:
++		netdev_err(mc->netdev, "unexpected function %u\n", f);
++		break;
 +	}
 +
-+	if (usb_dev->serial)
-+		dev_info(&intf->dev, "Serial: %s\n", usb_dev->serial);
++	if ((mc->ptr + rec_len) > mc->end)
++		return -EINVAL;
 +
-+	for (i = 0; i < peak_usb_adapter->ctrl_count; i++) {
-+		err = peak_usb_create_dev(peak_usb_adapter, intf, i);
-+		if (err) {
-+			/* deregister already created devices */
-+			peak_usb_disconnect(intf);
-+			break;
++	mc->ptr += rec_len;
++
++	return 0;
++}
++
++/*
++ * decode data usb message
++ */
++static int pcan_usb_decode_data(struct pcan_usb_msg_context *mc, u8 status_len)
++{
++	u8 rec_len = status_len & PCAN_USB_STATUSLEN_DLC;
++	struct sk_buff *skb;
++	struct can_frame *cf;
++	struct timeval tv;
++
++	skb = alloc_can_skb(mc->netdev, &cf);
++	if (!skb)
++		return -ENOMEM;
++
++	if (status_len & PCAN_USB_STATUSLEN_EXT_ID) {
++		u32 tmp32;
++
++		if ((mc->ptr + 4) > mc->end)
++			goto decode_failed;
++
++		memcpy(&tmp32, mc->ptr, 4);
++		mc->ptr += 4;
++
++		cf->can_id = le32_to_cpu(tmp32 >> 3) | CAN_EFF_FLAG;
++	} else {
++		u16 tmp16;
++
++		if ((mc->ptr + 2) > mc->end)
++			goto decode_failed;
++
++		memcpy(&tmp16, mc->ptr, 2);
++		mc->ptr += 2;
++
++		cf->can_id = le16_to_cpu(tmp16 >> 5);
++	}
++
++	cf->can_dlc = get_can_dlc(rec_len);
++
++	/* first data packet timestamp is a word */
++	if (pcan_usb_decode_ts(mc, !mc->rec_data_idx))
++		goto decode_failed;
++
++	/* read data */
++	memset(cf->data, 0x0, sizeof(cf->data));
++	if (status_len & PCAN_USB_STATUSLEN_RTR) {
++		cf->can_id |= CAN_RTR_FLAG;
++	} else {
++		if ((mc->ptr + rec_len) > mc->end)
++			goto decode_failed;
++
++		memcpy(cf->data, mc->ptr, rec_len);
++		mc->ptr += rec_len;
++	}
++
++	/* convert timestamp into kernel time */
++	peak_usb_get_ts_tv(&mc->pdev->time_ref, mc->ts16, &tv);
++	skb->tstamp = timeval_to_ktime(tv);
++
++	/* push the skb */
++	netif_rx(skb);
++
++	/* update statistics */
++	mc->netdev->stats.rx_packets++;
++	mc->netdev->stats.rx_bytes += cf->can_dlc;
++
++	return 0;
++
++decode_failed:
++	dev_kfree_skb(skb);
++	return -EINVAL;
++}
++
++/*
++ * process incoming message
++ */
++static int pcan_usb_decode_msg(struct peak_usb_device *dev, u8 *ibuf, u32 lbuf)
++{
++	struct pcan_usb_msg_context mc = {
++		.rec_cnt = ibuf[1],
++		.ptr = ibuf + PCAN_USB_MSG_HEADER_LEN,
++		.end = ibuf + lbuf,
++		.netdev = dev->netdev,
++		.pdev = container_of(dev, struct pcan_usb, dev),
++	};
++	int err;
++
++	for (err = 0; mc.rec_idx < mc.rec_cnt && !err; mc.rec_idx++) {
++		u8 sl = *mc.ptr++;
++
++		/* handle status and error frames here */
++		if (sl & PCAN_USB_STATUSLEN_INTERNAL) {
++			err = pcan_usb_decode_status(&mc, sl);
++		/* handle normal can frames here */
++		} else {
++			err = pcan_usb_decode_data(&mc, sl);
++			mc.rec_data_idx++;
 +		}
 +	}
 +
 +	return err;
 +}
 +
-+/* usb specific object needed to register this driver with the usb subsystem */
-+static struct usb_driver peak_usb_driver = {
-+	.name = PCAN_USB_DRIVER_NAME,
-+	.disconnect = peak_usb_disconnect,
-+	.probe = peak_usb_probe,
-+	.id_table = peak_usb_table,
-+};
-+
-+static int __init peak_usb_init(void)
++/*
++ * process any incoming buffer
++ */
++static int pcan_usb_decode_buf(struct peak_usb_device *dev, struct urb *urb)
 +{
-+	int err;
++	int err = 0;
 +
-+	pr_info("%s: PCAN-USB interfaces driver loaded\n",
-+		PCAN_USB_DRIVER_NAME);
++	if (urb->actual_length > PCAN_USB_MSG_HEADER_LEN) {
++		err = pcan_usb_decode_msg(dev, urb->transfer_buffer,
++			urb->actual_length);
 +
-+	/* check whether at least ONE device is supported! */
-+	if (peak_usb_table[0].idVendor != PCAN_USB_VENDOR_ID)
-+		pr_warn("%s: adapters list empty (check config options)!\n",
-+			PCAN_USB_DRIVER_NAME);
-+
-+	/* register this driver with the USB subsystem */
-+	err = usb_register(&peak_usb_driver);
-+	if (err)
-+		pr_err("%s: usb_register failed (err %d)\n",
-+			PCAN_USB_DRIVER_NAME, err);
++	} else if (urb->actual_length > 0) {
++		netdev_err(dev->netdev, "usb message length error (%u)\n",
++			urb->actual_length);
++		err = -EINVAL;
++	}
 +
 +	return err;
 +}
 +
-+static int peak_usb_do_device_exit(struct device *d, void *arg)
++/*
++ * process outgoing packet
++ */
++static int pcan_usb_encode_msg(struct peak_usb_device *dev, struct sk_buff *skb,
++			       u8 *obuf, size_t *size)
 +{
-+	struct usb_interface *intf = to_usb_interface(d);
-+	struct peak_usb_device *dev;
++	struct net_device *netdev = dev->netdev;
++	struct net_device_stats *stats = &netdev->stats;
++	struct can_frame *cf = (struct can_frame *)skb->data;
++	u8 *pc;
 +
-+	/* stop as netdev devices as siblings */
-+	for (dev = usb_get_intfdata(intf); dev; dev = dev->prev_siblings) {
-+		struct net_device *netdev = dev->netdev;
++	obuf[0] = 2;
++	obuf[1] = 1;
 +
-+		if (netif_device_present(netdev))
-+			if (dev->adapter->dev_exit)
-+				dev->adapter->dev_exit(dev);
++	pc = obuf + PCAN_USB_MSG_HEADER_LEN;
++
++	/* status/len byte */
++	*pc = cf->can_dlc;
++	if (cf->can_id & CAN_RTR_FLAG)
++		*pc |= PCAN_USB_STATUSLEN_RTR;
++
++	/* can id */
++	if (cf->can_id & CAN_EFF_FLAG) {
++		__le32 tmp32 = cpu_to_le32(cf->can_id & CAN_ERR_MASK);
++
++		tmp32 <<= 3;
++		*pc |= PCAN_USB_STATUSLEN_EXT_ID;
++		memcpy(++pc, &tmp32, 4);
++		pc += 4;
++	} else {
++		__le16 tmp16 = cpu_to_le32(cf->can_id & CAN_ERR_MASK);
++
++		tmp16 <<= 5;
++		memcpy(++pc, &tmp16, 2);
++		pc += 2;
++	}
++
++	/* can data */
++	if (!(cf->can_id & CAN_RTR_FLAG)) {
++		memcpy(pc, cf->data, cf->can_dlc);
++		pc += cf->can_dlc;
++	}
++
++	obuf[(*size)-1] = (u8)(stats->tx_packets & 0xff);
++
++	return 0;
++}
++
++/*
++ * start interface
++ */
++static int pcan_usb_start(struct peak_usb_device *dev)
++{
++	struct pcan_usb *pdev = container_of(dev, struct pcan_usb, dev);
++
++	/* number of bits used in timestamps read from adapter struct */
++	peak_usb_init_time_ref(&pdev->time_ref, &pcan_usb);
++
++	/* if revision greater than 3, can put silent mode on/off */
++	if (dev->device_rev > 3) {
++		int err;
++
++		err = pcan_usb_set_silent(dev,
++				dev->can.ctrlmode & CAN_CTRLMODE_LISTENONLY);
++		if (err)
++			return err;
++	}
++
++	return pcan_usb_set_ext_vcc(dev, 0);
++}
++
++static int pcan_usb_init(struct peak_usb_device *dev)
++{
++	u32 serial_number;
++	int err;
++
++	/*
++	 * explicit use of dev_info() instead of netdev_info() here:
++	 * information displayed are related to the device itself, not
++	 * to the canx netdevice.
++	 */
++	err = pcan_usb_get_serial(dev, &serial_number);
++	if (!err)
++		dev_info(dev->netdev->dev.parent, "serial %08X hwrev %u\n",
++			serial_number, dev->device_rev);
++
++	return err;
++}
++
++/*
++ * probe function for new PCAN-USB usb interface
++ */
++static int pcan_usb_probe(struct usb_interface *intf)
++{
++	struct usb_host_interface *if_desc;
++	int i;
++
++	if_desc = intf->altsetting;
++
++	/* check interface endpoint addresses */
++	for (i = 0; i < if_desc->desc.bNumEndpoints; i++) {
++		struct usb_endpoint_descriptor *ep = &if_desc->endpoint[i].desc;
++
++		switch (ep->bEndpointAddress) {
++		case PCAN_USB_EP_CMDOUT:
++		case PCAN_USB_EP_CMDIN:
++		case PCAN_USB_EP_MSGOUT:
++		case PCAN_USB_EP_MSGIN:
++			break;
++		default:
++			return -ENODEV;
++		}
 +	}
 +
 +	return 0;
 +}
 +
-+static void __exit peak_usb_exit(void)
-+{
-+	int err;
-+
-+	/* last chance do send some synchronous commands here */
-+	err = driver_for_each_device(&peak_usb_driver.drvwrap.driver, NULL,
-+				     NULL, peak_usb_do_device_exit);
-+	if (err)
-+		pr_err("%s: failed to stop all can devices (err %d)\n",
-+			PCAN_USB_DRIVER_NAME, err);
-+
-+	/* deregister this driver with the USB subsystem */
-+	usb_deregister(&peak_usb_driver);
-+
-+	pr_info("%s: PCAN-USB interfaces driver unloaded\n",
-+		PCAN_USB_DRIVER_NAME);
-+}
-+
-+module_init(peak_usb_init);
-+module_exit(peak_usb_exit);
-diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_core.h b/drivers/net/can/usb/peak_usb/pcan_usb_core.h
-new file mode 100644
-index 0000000..8adda74
---- /dev/null
-+++ b/drivers/net/can/usb/peak_usb/pcan_usb_core.h
-@@ -0,0 +1,138 @@
 +/*
-+ * CAN driver for PEAK System USB adapters
-+ * Derived from the PCAN project file driver/src/pcan_usb_core.c
-+ *
-+ * Copyright (C) 2003-2010 PEAK System-Technik GmbH
-+ * Copyright (C) 2010-2012 Stephane Grosjean <s.grosjean-g4cQ8AsIbFbL9ATBNaCtXw@public.gmane.org>
-+ *
-+ * Many thanks to Klaus Hitschler <klaus.hitschler-Mmb7MZpHnFY@public.gmane.org>
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License as published
-+ * by the Free Software Foundation; version 2 of the License.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
++ * describe the PCAN-USB adapter
 + */
-+#ifndef PCAN_USB_CORE_H
-+#define PCAN_USB_CORE_H
++struct peak_usb_adapter pcan_usb = {
++	.name = "PCAN-USB",
++	.device_id = PCAN_USB_PRODUCT_ID,
++	.ctrl_count = 1,
++	.clock = {
++		.freq = PCAN_USB_CRYSTAL_HZ / 2 ,
++	},
++	.bittiming_const = {
++		.name = "pcan_usb",
++		.tseg1_min = 1,
++		.tseg1_max = 16,
++		.tseg2_min = 1,
++		.tseg2_max = 8,
++		.sjw_max = 4,
++		.brp_min = 1,
++		.brp_max = 64,
++		.brp_inc = 1,
++	},
 +
-+/* PEAK-System vendor id. */
-+#define PCAN_USB_VENDOR_ID	0x0c72
++	/* size of device private data */
++	.sizeof_dev_private = sizeof(struct pcan_usb),
 +
-+/* supported device ids. */
-+#define PCAN_USB_PRODUCT_ID	0x000c
-+#define PCAN_USBPRO_PRODUCT_ID	0x000d
++	/* timestamps usage */
++	.ts_used_bits = 16,
++	.ts_period = 24575, /* calibration period in ts. */
++	.us_per_ts_scale = PCAN_USB_TS_US_PER_TICK, /* us=(ts*scale) */
++	.us_per_ts_shift = PCAN_USB_TS_DIV_SHIFTER, /*  >> shift     */
 +
-+#define PCAN_USB_DRIVER_NAME	"peak_usb"
++	/* give here commands/messages in/out endpoints */
++	.ep_msg_in = PCAN_USB_EP_MSGIN,
++	.ep_msg_out = {PCAN_USB_EP_MSGOUT},
 +
-+/* number of urbs that are submitted for rx/tx per channel */
-+#define PCAN_USB_MAX_RX_URBS	4
-+#define PCAN_USB_MAX_TX_URBS	10
++	/* size of rx/tx usb buffers */
++	.rx_buffer_size = PCAN_USB_RX_BUFFER_SIZE,
++	.tx_buffer_size = PCAN_USB_TX_BUFFER_SIZE,
 +
-+/* usb adapters maximum channels per usb interface */
-+#define PCAN_USB_MAX_CHANNEL	2
-+
-+struct peak_usb_device;
-+
-+/* PEAK-System USB adapter descriptor */
-+struct peak_usb_adapter {
-+	char *name;
-+	u32 device_id;
-+	struct can_clock clock;
-+	struct can_bittiming_const bittiming_const;
-+	unsigned int ctrl_count;
-+
-+	int (*intf_probe)(struct usb_interface *intf);
-+
-+	int (*dev_init)(struct peak_usb_device *dev);
-+	void (*dev_exit)(struct peak_usb_device *dev);
-+	void (*dev_free)(struct peak_usb_device *dev);
-+	int (*dev_open)(struct peak_usb_device *dev);
-+	int (*dev_close)(struct peak_usb_device *dev);
-+	int (*dev_set_bittiming)(struct peak_usb_device *dev,
-+					struct can_bittiming *bt);
-+	int (*dev_set_bus)(struct peak_usb_device *dev, u8 onoff);
-+	int (*dev_get_device_id)(struct peak_usb_device *dev, u32 *device_id);
-+	int (*dev_decode_buf)(struct peak_usb_device *dev, struct urb *urb);
-+	int (*dev_encode_msg)(struct peak_usb_device *dev, struct sk_buff *skb,
-+					u8 *obuf, size_t *size);
-+	int (*dev_start)(struct peak_usb_device *dev);
-+	int (*dev_stop)(struct peak_usb_device *dev);
-+
-+	u8 ep_msg_in;
-+	u8 ep_msg_out[PCAN_USB_MAX_CHANNEL];
-+	u8 ts_used_bits;
-+	u32 ts_period;
-+	u8 us_per_ts_shift;
-+	u32 us_per_ts_scale;
-+
-+	int rx_buffer_size;
-+	int tx_buffer_size;
-+	int sizeof_dev_private;
++	/* device callbacks */
++	.intf_probe = pcan_usb_probe,
++	.dev_init = pcan_usb_init,
++	.dev_set_bus = pcan_usb_write_mode,
++	.dev_set_bittiming = pcan_usb_set_bittiming,
++	.dev_get_device_id = pcan_usb_get_device_id,
++	.dev_decode_buf = pcan_usb_decode_buf,
++	.dev_encode_msg = pcan_usb_encode_msg,
++	.dev_start = pcan_usb_start,
 +};
-+
-+extern struct peak_usb_adapter pcan_usb;
-+extern struct peak_usb_adapter pcan_usb_pro;
-+
-+struct peak_time_ref {
-+	struct timeval tv_host_0, tv_host;
-+	u32 ts_dev_1, ts_dev_2;
-+	u64 ts_total;
-+	u32 tick_count;
-+	struct peak_usb_adapter *adapter;
-+};
-+
-+struct peak_tx_urb_context {
-+	struct peak_usb_device *dev;
-+	u32 echo_index;
-+	u8 dlc;
-+	struct urb *urb;
-+};
-+
-+#define PCAN_USB_STATE_CONNECTED	0x00000001
-+#define PCAN_USB_STATE_STARTED		0x00000002
-+
-+/* PEAK-System USB device */
-+struct peak_usb_device {
-+	struct can_priv can;
-+	struct peak_usb_adapter *adapter;
-+	unsigned int ctrl_idx;
-+	int open_time;
-+	u32 state;
-+
-+	struct sk_buff *echo_skb[PCAN_USB_MAX_TX_URBS];
-+
-+	struct usb_device *udev;
-+	struct net_device *netdev;
-+
-+	atomic_t active_tx_urbs;
-+	struct usb_anchor tx_submitted;
-+	struct peak_tx_urb_context tx_contexts[PCAN_USB_MAX_TX_URBS];
-+
-+	struct usb_anchor rx_submitted;
-+
-+	u32 device_number;
-+	u8 device_rev;
-+
-+	u8 ep_msg_in;
-+	u8 ep_msg_out;
-+
-+	u16 bus_load;
-+
-+	struct peak_usb_device *prev_siblings;
-+	struct peak_usb_device *next_siblings;
-+};
-+
-+void dump_mem(char *prompt, void *p, int l);
-+
-+/* common timestamp management */
-+void peak_usb_init_time_ref(struct peak_time_ref *time_ref,
-+			    struct peak_usb_adapter *adapter);
-+void peak_usb_update_ts_now(struct peak_time_ref *time_ref, u32 ts_now);
-+void peak_usb_set_ts_now(struct peak_time_ref *time_ref, u32 ts_now);
-+void peak_usb_get_ts_tv(struct peak_time_ref *time_ref, u32 ts,
-+			struct timeval *tv);
-+#endif
 -- 
 1.7.1
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
