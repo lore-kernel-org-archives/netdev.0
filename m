@@ -1,7 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 0/5] SUNRPC: make caches network namespace aware
-Date: Thu, 19 Jan 2012 18:48:56 +0400
-Message-ID: <20120119144517.9957.59143.stgit@localhost6.localdomain6>
+Subject: [PATCH 1/5] SUNRPC: cache creation and destruction routines introduced
+Date: Thu, 19 Jan 2012 18:49:06 +0400
+Message-ID: <20120119144906.9957.59183.stgit@localhost6.localdomain6>
+References: <20120119144517.9957.59143.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,30 +12,79 @@ Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
 	davem@davemloft.net, devel@openvz.org
 To: Trond.Myklebust@netapp.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120119144517.9957.59143.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-One more step towards to "NFS in container".
-With this patch set caches are allocated per network namespace.
+This patch prepares infrastructure for network namespace aware cache detail
+allocation.
+One note about adding network namespace link to cache structure. It's going to
+be used later in NFS DNS cache parsing routine (nfs_dns_parse for rpc_pton()
+call).
 
-The following series consists of:
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
+ include/linux/sunrpc/cache.h |    4 ++++
+ net/sunrpc/cache.c           |   26 ++++++++++++++++++++++++++
+ 2 files changed, 30 insertions(+), 0 deletions(-)
 
-Stanislav Kinsbursky (5):
-      SUNRPC: cache creation and destruction routines introduced
-      SUNRPC: create unix gid cache per network namespace
-      SUNRPC: create GSS auth cache per network namespace
-      SUNRPC: ip map cache per network namespace cleanup
-      SUNRPC: generic cache register routines removed
-
-
- include/linux/sunrpc/cache.h       |    6 +
- include/linux/sunrpc/svcauth_gss.h |    2 
- net/sunrpc/auth_gss/auth_gss.c     |   21 +++++
- net/sunrpc/auth_gss/svcauth_gss.c  |  161 +++++++++++++++++++++++++-----------
- net/sunrpc/cache.c                 |   34 ++++++--
- net/sunrpc/netns.h                 |    3 +
- net/sunrpc/sunrpc_syms.c           |   15 ++-
- net/sunrpc/svcauth_unix.c          |  107 ++++++++++++++----------
- 8 files changed, 240 insertions(+), 109 deletions(-)
+diff --git a/include/linux/sunrpc/cache.h b/include/linux/sunrpc/cache.h
+index 590a8ab..259381c 100644
+--- a/include/linux/sunrpc/cache.h
++++ b/include/linux/sunrpc/cache.h
+@@ -117,6 +117,7 @@ struct cache_detail {
+ 		struct cache_detail_procfs procfs;
+ 		struct cache_detail_pipefs pipefs;
+ 	} u;
++	struct net		*net;
+ };
+ 
+ 
+@@ -202,6 +203,9 @@ extern int cache_register_net(struct cache_detail *cd, struct net *net);
+ extern void cache_unregister(struct cache_detail *cd);
+ extern void cache_unregister_net(struct cache_detail *cd, struct net *net);
+ 
++extern struct cache_detail *cache_create_net(struct cache_detail *tmpl, struct net *net);
++extern void cache_destroy_net(struct cache_detail *cd, struct net *net);
++
+ extern void sunrpc_init_cache_detail(struct cache_detail *cd);
+ extern void sunrpc_destroy_cache_detail(struct cache_detail *cd);
+ extern int sunrpc_cache_register_pipefs(struct dentry *parent, const char *,
+diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
+index f128154..9ef5926 100644
+--- a/net/sunrpc/cache.c
++++ b/net/sunrpc/cache.c
+@@ -1662,6 +1662,32 @@ void cache_unregister(struct cache_detail *cd)
+ }
+ EXPORT_SYMBOL_GPL(cache_unregister);
+ 
++struct cache_detail *cache_create_net(struct cache_detail *tmpl, struct net *net)
++{
++	struct cache_detail *cd;
++
++	cd = kmemdup(tmpl, sizeof(struct cache_detail), GFP_KERNEL);
++	if (cd == NULL)
++		return ERR_PTR(-ENOMEM);
++
++	cd->hash_table = kzalloc(cd->hash_size * sizeof(struct cache_head *),
++				 GFP_KERNEL);
++	if (cd->hash_table == NULL) {
++		kfree(cd);
++		return ERR_PTR(-ENOMEM);
++	}
++	cd->net = net;
++	return cd;
++}
++EXPORT_SYMBOL_GPL(cache_create_net);
++
++void cache_destroy_net(struct cache_detail *cd, struct net *net)
++{
++	kfree(cd->hash_table);
++	kfree(cd);
++}
++EXPORT_SYMBOL_GPL(cache_destroy_net);
++
+ static ssize_t cache_read_pipefs(struct file *filp, char __user *buf,
+ 				 size_t count, loff_t *ppos)
+ {
