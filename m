@@ -1,65 +1,36 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next] e1000: add dropped DMA receive enable back in
- for WoL
-Date: Thu, 19 Jan 2012 01:42:42 -0800
-Message-ID: <1326966162.2410.55.camel@jtkirshe-mobl>
-References: <20120118154633.10215.19965.email-sent-by-dnelson@aqua>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: Netfilter: New target: RLOG
+Date: Thu, 19 Jan 2012 10:46:02 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1201191045530.27900@frira.zrqbmnf.qr>
+References: <1326926610-17830-1-git-send-email-rw@linutronix.de>  <20120119091248.GA32391@1984> <4F17E0A4.9040004@linutronix.de> <1326965176.2249.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-q3u8oP9fBD7XZoct3jn/"
-Cc: netdev@vger.kernel.org, Tobias Klausmann <klausman@schwarzvogel.de>
-To: Dean Nelson <dnelson@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:37591 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755929Ab2ASJmp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jan 2012 04:42:45 -0500
-In-Reply-To: <20120118154633.10215.19965.email-sent-by-dnelson@aqua>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Richard Weinberger <rw@linutronix.de>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, rostedt@goodmis.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1326965176.2249.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thursday 2012-01-19 10:26, Eric Dumazet wrote:
 
---=-q3u8oP9fBD7XZoct3jn/
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+>Le jeudi 19 janvier 2012 =C3=A0 10:21 +0100, Richard Weinberger a =C3=A9=
+crit :
+>
+>> Yeah, I could add --ring, --ring-size and --add-timestamp to LOG.
+>> What about a rlog_common.o which can be used by ipt_LOG and ip6t_LOG=
+?
+>>=20
+>
+>or merge ipt_LOG and ip6t_LOG into xt_LOG ?
 
-On Wed, 2012-01-18 at 10:46 -0500, Dean Nelson wrote:
-> Commit d5bc77a223b0e9b9dfb002048d2b34a79e7d0b48 broke Wake-on-LAN by
-> inadvertently dropping the enabling of DMA receives.
->=20
-> Restore the enabling of DMA receives for WoL.
->=20
-> Reported-by: Tobias Klausmann <klausman@schwarzvogel.de>
-> Signed-off-by: Dean Nelson <dnelson@redhat.com>
-> Tested-by: Tobias Klausmann <klausman@schwarzvogel.de>
-> ---
->  drivers/net/ethernet/intel/e1000/e1000_main.c |   10 ++++++----
->  1 files changed, 6 insertions(+), 4 deletions(-)=20
-
-Thanks, I have added the patch to my queue.
-
---=-q3u8oP9fBD7XZoct3jn/
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAABCgAGBQJPF+WSAAoJEOVv75VaS+3OSGIP/i0K/9RTohry5BAAM2rlhSlR
-YOHZYXBgydfrjRNa9S1X7l1fGRxgtEXagix7nSFHB8WjFqDj4YkSUm1dC6bA6RMB
-BIclGegnhUrOWa1/v8TN4H7k3ftNKWe4s4hW54Bb7BxTN9dDDXsfEuvj8yOSiIaN
-9TXUZ/xiBmfqoc5cCglslnv80l22TrCn5BdrRJzT1R9kFKUnUIMkFwetwynKBw30
-ll0saLBSfU2K/Z2DMA3abZaXfQbMb+41D1CMPkr7R3p6+i90/HSvKAxAqSf/JR6j
-8iJHwDKAWUXRZsx+W+ftzcSZfl8a+sl9m1hPqd+CockHh7omWZsS9sKW6lW+XR1J
-E/4oqcax4i3WaUGFG0+cAUukuWmFT0TwwutmkZIW/x5IVkHs9a5p8D+lVOopVy85
-cCQltOdvSTu9jumHemD5ACPT/sUn/F5lUt+EaDVuY/jjeSQqR8Nok7NTiOxJ2SdF
-3hzj/yRQNsfBs/LZtxLs8VMAJJGGzpmeR1ijUf3Dh+XhplmII21cxjGsp6PsU1Gv
-dDPaK/zQUcSPzNB0/pKMmjdX50jPS8x49cONazoxXN0ffIyuGvCKCJHSqaCZ8b4N
-f4M/ciohquawBicYRKmzefwqZQrijYZ1ygAeGcGSri8HhaH9zim5agJNJC1FUAI8
-xaBvamNIQ9qBoou2hUOa
-=+T6s
------END PGP SIGNATURE-----
-
---=-q3u8oP9fBD7XZoct3jn/--
+yes please :)
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
