@@ -1,82 +1,76 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: route problem
-Date: Thu, 19 Jan 2012 07:50:57 +0100
-Message-ID: <1326955857.1113.17.camel@edumazet-laptop>
-References: <B97B134FACB2024DB45F524AB0A7B7F2058B01D4@XMB-BGL-419.cisco.com>
-	 <1326878864.2316.0.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <B97B134FACB2024DB45F524AB0A7B7F2058B020A@XMB-BGL-419.cisco.com>
-	 <1326881723.2316.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20120118202909.8a3d6963.billfink@mindspring.com>
+Subject: Re: [PATCH] net: bpf_jit: fix divide by 0 generation
+Date: Thu, 19 Jan 2012 09:07:44 +0100
+Message-ID: <1326960464.1113.28.camel@edumazet-laptop>
+References: <20120118022709.GA4167@linuxace.com>
+	 <1326867428.2606.39.camel@edumazet-laptop>
+	 <1326871835.2606.40.camel@edumazet-laptop>
+	 <1326873533.2606.46.camel@edumazet-laptop>
+	 <20120118155747.GA4991@linuxace.com>
+	 <1326902511.2316.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Prashant Batra (prbatra)" <prbatra@cisco.com>,
-	netdev@vger.kernel.org
-To: Bill Fink <billfink@mindspring.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Phil Oester <kernel@linuxace.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:49159 "EHLO
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:49660 "EHLO
 	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751240Ab2ASGvB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 01:51:01 -0500
-Received: by wics10 with SMTP id s10so115680wic.19
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 22:51:00 -0800 (PST)
-In-Reply-To: <20120118202909.8a3d6963.billfink@mindspring.com>
+	with ESMTP id S1753681Ab2ASIHt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 03:07:49 -0500
+Received: by wics10 with SMTP id s10so149845wic.19
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2012 00:07:47 -0800 (PST)
+In-Reply-To: <1326902511.2316.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 18 janvier 2012 =C3=A0 20:29 -0500, Bill Fink a =C3=A9crit =
-:
-> On Wed, 18 Jan 2012, Eric Dumazet wrote:
-
-> Actually, if I'm interpreting the "ip route list cache" output
-> correctly, it appears it has local IP addresses of both 192.168.101.1=
-0
-> and 192.168.101.20.
+Le mercredi 18 janvier 2012 =C3=A0 17:01 +0100, Eric Dumazet a =C3=A9cr=
+it :
+> Le mercredi 18 janvier 2012 =C3=A0 07:57 -0800, Phil Oester a =C3=A9c=
+rit :
 >=20
-> > local 192.168.101.10 from 192.168.101.101 dev lo  src 192.168.101.1=
-0=20
-> >     cache <local,src-direct>  iif eth1
->=20
-> > local 192.168.101.20 from 192.168.101.101 dev lo  src 192.168.101.2=
-0=20
-> >     cache <local,src-direct>  iif eth1
->=20
-> And since his gateway is 192.168.101.10, an apparently local
-> IP address, that would probably explain the direct ARPS for
-> 172.16.60.*.
+> > Got the following output after applying this fix (no panic this tim=
+e):
+> >=20
+> > proglen=3D231 !=3D oldproglen=3D235
+> > bpb_jit_compile fatal error
+> >=20
+> > Filter being used is 'not net a.b.x.112/28 and not net a.b.y.112/28=
+'
 >=20
 
-Ah ok, thanks.
+By the way, libcap gives following code, not optimal
 
-Pity that such a convoluted setup must be guessed instead of clearly
-explained in the initial mail.
+(000) ldh      [12]
+(001) jeq      #0x800           jt 2	jf 14
+(002) ld       [26]
+(003) and      #0xfffffff0
+(004) jeq      #0x1020340       jt 28	jf 5
+(005) ld       [26]
+(006) and      #0xfffffff0
+(007) jeq      #0x1021480       jt 28	jf 8
+(008) ld       [30]
+(009) and      #0xfffffff0
+(010) jeq      #0x1020340       jt 28	jf 11
+(011) ld       [30]
+(012) and      #0xfffffff0
+(013) jeq      #0x1021480       jt 28	jf 29
 
-Prashant, this is netdev mailing list, with more than a thousand
-subscribers, you should send mails with your detailed setup, this will
-save time for everyone.
+=2E..
 
-If not, people will flag you as "yet another lazy student trying to
-understand how things work"
+could be :
 
+(000) ldh      [12]
+(001) jeq      #0x800           jt 2	jf 10
 
-> [Prashant] So is this the correct behavior? What my original intentio=
-n
-> was to capture the packets from the=20
-> interface acting as gateway. So with this behavior I will not be able
-> to capture the packets as 172.16.60.* are not=20
-> present on the local machine, and it will not get any ARP response.
-> Consider the gateway on a different machine, in which case ARP reques=
-t
-> will go for gateway IP, and local machine will=20
-> get the ARP response and send the packets to gateway.
->=20
-With the setup you gave, you said : 172.16.60.0/24 addresses are
-directly reachable on eth1 device, with source address 192.168.101.20
+(002) ld       [26]
+(003) and      #0xfffffff0
+(004) jeq      #0x1020340       jt ok	jf 5
+(005) jeq      #0x1021480       jt ok	jf 6
 
-Why should the kernel send an ARP request for 192.168.101.20, since its
-one of its own IP address ?
+(006) ld       [30]
+(007) and      #0xfffffff0
+(008) jeq      #0x1020340       jt ok	jf 9
+(009) jeq      #0x1021480       jt ok	jf ret0
 
-=46or localy generated packets, why this machine would act as a 'gatewa=
-y'
-at all ? A gateway should forward packets, and first step would be to
-_receive_ a packet, not sending one !
+=2E..
