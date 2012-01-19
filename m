@@ -1,69 +1,96 @@
-From: Simon Chen <simonchennj@gmail.com>
-Subject: Re: [E1000-devel] ixgbe: Unsupported SFP+ modules on 10Gbit/s
- X520-DA2 NIC?
-Date: Wed, 18 Jan 2012 21:55:47 -0500
-Message-ID: <CANj2Ebf_W9qkO38v9D4wLXMk0ekbbNBDZ8yoRR9E0mWq2i-6fw@mail.gmail.com>
-References: <1326886258.19261.25.camel@probook>
-	<20120118091351.000052fc@unknown>
-	<m3d3ag7ki8.fsf@ursa.amorsen.dk>
-	<9B4A1B1917080E46B64F07F2989DADD621FC38@ORSMSX102.amr.corp.intel.com>
-	<20120119011221.GR5069@angus.ind.WPI.EDU>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH 1/2] tcp: fix undo after RTO for BIC
+Date: Wed, 18 Jan 2012 22:47:58 -0500
+Message-ID: <1326944879-22780-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
+	Nandita Dukkipati <nanditad@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Jerry Chu <hkchu@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:56871 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752902Ab2ASCzt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 21:55:49 -0500
-Received: by werb13 with SMTP id b13so877099wer.19
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 18:55:48 -0800 (PST)
-In-Reply-To: <20120119011221.GR5069@angus.ind.WPI.EDU>
+Received: from mail-ee0-f74.google.com ([74.125.83.74]:65443 "EHLO
+	mail-ee0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757252Ab2ASDsM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2012 22:48:12 -0500
+Received: by eekb15 with SMTP id b15so143868eek.1
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2012 19:48:10 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If short-range is fine for you, twinax is awesome...
+This patch fixes BIC so that cwnd reductions made during RTOs can be
+undone (just as they already can be undone when using the default/Reno
+behavior).
 
-On Wed, Jan 18, 2012 at 8:12 PM, Chuck Anderson <cra@wpi.edu> wrote:
-> On Wed, Jan 18, 2012 at 10:21:58PM +0000, Fujinaka, Todd wrote:
->> That's up to you. There's "locked" and there's "locked". I'm surpris=
-ed
->> that Benny and Jesper haven't looked at the driver to see where the
->> messages come from.
->>
->> We have a short list of optical modules that have been tested with o=
-ur
->> cards. The problem with standards is that there's always some wiggle
->> room and you won't know if something really works until you try it. =
-No
->> matter how large the company, we are still constrained as far as wha=
-t we
->> can do in a day and testing every module we can find just wasn't one=
- of
->> the things that was approved for us to try.
->
-> I don't buy that argument.
->
-> We have Ethernet standards and we have IP standards and we have
-> SFP/SFP+ standards. =A0Did you test your 1000Base-T copper Ethernet
-> cards with every vendor of Ethernet hardware? =A0If not, did you lock
-> them out to talk to only "pre-approved" Ethernet switches? =A0Would y=
-ou
-> have done so if there was a way to technically do so (perhaps via
-> LLDP)?
->
-> What about USB keyboards/mice? =A0Maybe Intel's chipsets can be locke=
-d
-> so only Intel USB keyboards work...and then we can all stop buying
-> Intel hardware.
->
-> The hardware and drivers should not be enforcing specific optics. =A0=
-If
-> a user buys a crap optic, then that is their problem. =A0Just like if
-> they plug a crappy Cat3 RJ45 cable between the 1000Base-T NIC and the
-> switch.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+When undoing cwnd reductions, BIC-derived congestion control modules
+were restoring the cwnd from last_max_cwnd. There were two problems
+with using last_max_cwnd to restore a cwnd during undo:
+
+(a) last_max_cwnd was set to 0 on state transitions into TCP_CA_Loss
+(by calling the module's reset() functions), so cwnd reductions from
+RTOs could not be undone.
+
+(b) when fast_covergence is enabled (which it is by default)
+last_max_cwnd does not actually hold the value of snd_cwnd before the
+loss; instead, it holds a scaled-down version of snd_cwnd.
+
+This patch makes the following changes:
+
+(1) upon undo, revert snd_cwnd to ca->loss_cwnd, which is already, as
+the existing comment notes, the "congestion window at last loss"
+
+(2) stop forgetting ca->loss_cwnd on TCP_CA_Loss events
+
+(3) use ca->last_max_cwnd to check if we're in slow start
+
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/tcp_bic.c |   11 +++++++----
+ 1 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/tcp_bic.c b/net/ipv4/tcp_bic.c
+index 6187eb4..f45e1c2 100644
+--- a/net/ipv4/tcp_bic.c
++++ b/net/ipv4/tcp_bic.c
+@@ -63,7 +63,6 @@ static inline void bictcp_reset(struct bictcp *ca)
+ {
+ 	ca->cnt = 0;
+ 	ca->last_max_cwnd = 0;
+-	ca->loss_cwnd = 0;
+ 	ca->last_cwnd = 0;
+ 	ca->last_time = 0;
+ 	ca->epoch_start = 0;
+@@ -72,7 +71,11 @@ static inline void bictcp_reset(struct bictcp *ca)
+ 
+ static void bictcp_init(struct sock *sk)
+ {
+-	bictcp_reset(inet_csk_ca(sk));
++	struct bictcp *ca = inet_csk_ca(sk);
++
++	bictcp_reset(ca);
++	ca->loss_cwnd = 0;
++
+ 	if (initial_ssthresh)
+ 		tcp_sk(sk)->snd_ssthresh = initial_ssthresh;
+ }
+@@ -127,7 +130,7 @@ static inline void bictcp_update(struct bictcp *ca, u32 cwnd)
+ 	}
+ 
+ 	/* if in slow start or link utilization is very low */
+-	if (ca->loss_cwnd == 0) {
++	if (ca->last_max_cwnd == 0) {
+ 		if (ca->cnt > 20) /* increase cwnd 5% per RTT */
+ 			ca->cnt = 20;
+ 	}
+@@ -185,7 +188,7 @@ static u32 bictcp_undo_cwnd(struct sock *sk)
+ {
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+ 	const struct bictcp *ca = inet_csk_ca(sk);
+-	return max(tp->snd_cwnd, ca->last_max_cwnd);
++	return max(tp->snd_cwnd, ca->loss_cwnd);
+ }
+ 
+ static void bictcp_state(struct sock *sk, u8 new_state)
+-- 
+1.7.7.3
