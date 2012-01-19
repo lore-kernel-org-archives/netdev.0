@@ -1,36 +1,85 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: Netfilter: New target: RLOG
-Date: Thu, 19 Jan 2012 10:46:02 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1201191045530.27900@frira.zrqbmnf.qr>
-References: <1326926610-17830-1-git-send-email-rw@linutronix.de>  <20120119091248.GA32391@1984> <4F17E0A4.9040004@linutronix.de> <1326965176.2249.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next V3 0/2] igb: ptp hardware clock
+Date: Thu, 19 Jan 2012 01:56:45 -0800
+Message-ID: <1326967005.2707.0.camel@jtkirshe-mobl>
+References: <cover.1325964581.git.richardcochran@gmail.com>
+	 <1325984559.2641.0.camel@jtkirshe-mobl>
+	 <20120119093906.GC4420@cherladcori01>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Richard Weinberger <rw@linutronix.de>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, rostedt@goodmis.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1326965176.2249.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-+aWa8XMfbojVJt/4n1bM"
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:40201 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752267Ab2ASJ46 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jan 2012 04:56:58 -0500
+In-Reply-To: <20120119093906.GC4420@cherladcori01>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 2012-01-19 10:26, Eric Dumazet wrote:
 
->Le jeudi 19 janvier 2012 =C3=A0 10:21 +0100, Richard Weinberger a =C3=A9=
-crit :
->
->> Yeah, I could add --ring, --ring-size and --add-timestamp to LOG.
->> What about a rlog_common.o which can be used by ipt_LOG and ip6t_LOG=
-?
->>=20
->
->or merge ipt_LOG and ip6t_LOG into xt_LOG ?
+--=-+aWa8XMfbojVJt/4n1bM
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-yes please :)
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Thu, 2012-01-19 at 10:39 +0100, Richard Cochran wrote:
+> On Sat, Jan 07, 2012 at 05:02:39PM -0800, Jeff Kirsher wrote:
+> > On Sat, 2012-01-07 at 20:38 +0100, Richard Cochran wrote:
+> > > * ChangeLog
+> > > ** V3
+> > >    - Driver compiles even without CONFIG_PTP_1588_CLOCK.
+> > >    - Timestamping always works, even when PTP code missing or fails.
+> > > ** V2
+> > >    - Fixed wrong bit shifting in the 82576 code.
+> > >    - Explained the timestamp locking with a comment in the code.
+> > >    - Preserved the comments from the original timecompare
+> > > implementation.
+> > >    - Added an additional test within the overflow counter code to fix
+> > >      a race condition. Details of the problem are given in the commit
+> > >      message.
+> ...
+> > Thanks Richard, I will add this series to my queue.
+>=20
+> Jeff,
+>=20
+> Please hold off with these. I adapted the driver to use
+> timecounter/cyclecounter as Jacob suggested, and the result is surely
+> nicer. I will post a V4 after I finish testing it.
+>=20
+> Thanks,
+> Richard
+>=20
+
+Ok, I will await v4 of the patches.  Thanks Richard!
+
+--=-+aWa8XMfbojVJt/4n1bM
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAABCgAGBQJPF+jdAAoJEOVv75VaS+3ODZ8P/0m4bc8x4RiW9iJiltHTWr1v
+RE0mu7eZBsK91BoXcNDNylD4Y2maooyAEpLImAWM0CmG8p8QMGW4It+ySNhJtXSX
+edMxDxq4Pv+nVc0HsZk7rL5U2SI+Iqdj/cnKklBe3WHkkw4vQyRpzxF0nQPybv5+
+TuEiBLbEjMibKwr01QngWSOE/f2aK8iAKjnkJvRmUT6x2b/n8gePP/k6/wVtpFjn
+vEgHW+20bFS1v7izqt0C/8WEo9Z67QzxLPiss0KSwB3dw4OPKwkqzpjWhn3YO6MF
+n8rq8LjZUBkYIx5nyOF+3M2+Tr9CUa99gJ6pcZkSLZz/4XgkTxNXOEtDF6BIQFfe
+2dBDeWlVZiKA1HLtOH9tpgZNCQRPqN6lISrPC5BWsZlz+JFNNNDRnHS1lk+bVSR2
+GVuKSdfeUZTaN03EQlQ3CEdlb5E4xSdFDdgYwkxINHRWDsWYM5UlES6rccwtFkEC
+5upYx1Mn9YHTiWt3fRIqAS8zCU6ZyXbnwYh8/hK4NuxMpvMdJJTyj+26yvKC4NDz
+8V92oW29s0KqLF0eZU9xMKmeUZJgjcDx4y6oV8OpeSKotpMi3QamE4QcAJmE19pu
+iATkXx6IfFG1KBiAYRUSRnGWMc6brHnCl3ioNfFp9p1aed/zAiHghQP8ZByD15Aw
+hlClKni9VlvxwZgYbNts
+=na50
+-----END PGP SIGNATURE-----
+
+--=-+aWa8XMfbojVJt/4n1bM--
