@@ -1,47 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: RFC Hanging clean-up of a namespace
-Date: Thu, 19 Jan 2012 17:37:13 -0500 (EST)
-Message-ID: <20120119.173713.2180573303386307668.davem@davemloft.net>
-References: <m1lip32xoi.fsf@fess.ebiederm.org>
-	<20120119214052.GA12249@hell>
-	<20120119214718.GC3347849@jupiter.n2.diac24.net>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH 0/5] SUNRPC: make caches network namespace aware
+Date: Thu, 19 Jan 2012 17:40:02 -0500
+Message-ID: <20120119224002.GB5177@fieldses.org>
+References: <20120119144517.9957.59143.stgit@localhost6.localdomain6>
+ <1326986392.6114.1.camel@lade.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hagen@jauu.net, ebiederm@xmission.com,
-	hans.schillstrom@ericsson.com, netdev@vger.kernel.org
-To: equinox@diac24.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51577 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751635Ab2ASWjE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 17:39:04 -0500
-In-Reply-To: <20120119214718.GC3347849@jupiter.n2.diac24.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Dr James Bruce Fields <bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1326986392.6114.1.camel-SyLVLa/KEI9HwK5hSS5vWB2eb7JE58TQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Lamparter <equinox@diac24.net>
-Date: Thu, 19 Jan 2012 22:47:18 +0100
-
-> On Thu, Jan 19, 2012 at 10:40:53PM +0100, Hagen Paul Pfeifer wrote:
->> * Eric W. Biederman | 2012-01-19 13:24:13 [-0800]:
->> 
->> >This thread is a fascinating disconnect from reality all of the way
->> >around.
->> >
->> >- inet_twsk_purge already implements throwing out of timewait sockets
->> >  when a network namespaces is being cleaned up.  So the RFC is nonsense.
->> 
->> This is how it is implemented, not how it should be. TIME_WAIT is not the
->> problem, it is there to keep the stack from sending wrong RST messages. Maybe
->> the 2*MSL could be fixed by a more accurate 2*RTT.
+On Thu, Jan 19, 2012 at 10:19:52AM -0500, Trond Myklebust wrote:
+> On Thu, 2012-01-19 at 18:48 +0400, Stanislav Kinsbursky wrote: 
+> > One more step towards to "NFS in container".
+> > With this patch set caches are allocated per network namespace.
+> > 
+> > The following series consists of:
+> > 
+> > ---
+> > 
+> > Stanislav Kinsbursky (5):
+> >       SUNRPC: cache creation and destruction routines introduced
+> >       SUNRPC: create unix gid cache per network namespace
+> >       SUNRPC: create GSS auth cache per network namespace
+> >       SUNRPC: ip map cache per network namespace cleanup
+> >       SUNRPC: generic cache register routines removed
 > 
-> I may have made that argument hidden behind a joke, but please refer to
-> the development of RFC 793's bootup "quiet time". The reason no one
-> sticks to this quiet time is that TCP timestamps have obsoleted it by
-> providing a better frame of reference. Refer to RFC 1323 Appendix B
-> "DUPLICATES FROM EARLIER CONNECTION INCARNATIONS".
+> The patches look good, and I've applied them for now in my 'devel'
+> branch so we can test them, but I'd like to get an Ack/Nack from Bruce
+> before committing to merging them.
 
-I recommend you go and see what percentage of TCP connections actually
-have timestamps enabled, you might be surprised.  I believe there are
-some good up to date figures in the google TCP papers.
+They look good to me.  I'd like to hear how they've been tested--that
+done, they'll have my ack.
+
+--b.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
