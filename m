@@ -1,34 +1,56 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH] SUNRPC: search for service transports in network
- namespace context
-Date: Fri, 20 Jan 2012 16:23:28 -0500
-Message-ID: <20120120212328.GA17859@fieldses.org>
-References: <20120120125036.7468.2169.stgit@localhost6.localdomain6>
+From: Trond Myklebust <Trond.Myklebust@netapp.com>
+Subject: Re: [PATCH RFC] SUNPRC: remove marking service temporary sockets
+ with XPT_CHNGBUF
+Date: Fri, 20 Jan 2012 16:40:10 -0500
+Message-ID: <1327095610.9266.1.camel@lade.trondhjem.org>
+References: <20120120125243.7733.81374.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond.Myklebust@netapp.com, linux-nfs@vger.kernel.org,
-	xemul@parallels.com, neilb@suse.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jbottomley@parallels.com,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
 	davem@davemloft.net, devel@openvz.org
 To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fieldses.org ([174.143.236.118]:33729 "EHLO fieldses.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754242Ab2ATVXb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jan 2012 16:23:31 -0500
-Content-Disposition: inline
-In-Reply-To: <20120120125036.7468.2169.stgit@localhost6.localdomain6>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120120125243.7733.81374.stgit@localhost6.localdomain6>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 20, 2012 at 04:50:53PM +0400, Stanislav Kinsbursky wrote:
-> Service transports are parametrized by network namespace. And thus lookup of
-> transport instance have to take network namespace into account.
+On Fri, 2012-01-20 at 16:55 +0400, Stanislav Kinsbursky wrote: 
+> This is a cleanup patch.
+> Service temporary sockets can be TCP or RDMA only. But XPT_CHNGBUF service
+> socket flag is checked only for UDP sockets on receive.
+> Thus (if I don't miss something non-obvious) this bit raising for temporary
+> sockets can be removed.
 > 
 > Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+> 
+> ---
+>  net/sunrpc/svcsock.c |    2 --
+>  1 files changed, 0 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+> index e8af0c9..2867249 100644
+> --- a/net/sunrpc/svcsock.c
+> +++ b/net/sunrpc/svcsock.c
+> @@ -1381,8 +1381,6 @@ void svc_sock_update_bufs(struct svc_serv *serv)
+>  	spin_lock_bh(&serv->sv_lock);
+>  	list_for_each_entry(svsk, &serv->sv_permsocks, sk_xprt.xpt_list)
+>  		set_bit(XPT_CHNGBUF, &svsk->sk_xprt.xpt_flags);
+> -	list_for_each_entry(svsk, &serv->sv_tempsocks, sk_xprt.xpt_list)
+> -		set_bit(XPT_CHNGBUF, &svsk->sk_xprt.xpt_flags);
+>  	spin_unlock_bh(&serv->sv_lock);
+>  }
+>  EXPORT_SYMBOL_GPL(svc_sock_update_bufs);
 
-Looks OK to me.
+I'm assuming that Bruce will prefer to carry this, since it is
+completely orthogonal to the net namespace patchsets.
 
-Acked-by: J. Bruce Fields <bfields@redhat.com>
+-- 
+Trond Myklebust
+Linux NFS client maintainer
 
---b.
+NetApp
+Trond.Myklebust@netapp.com
+www.netapp.com
