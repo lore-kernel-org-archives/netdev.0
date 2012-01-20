@@ -1,54 +1,60 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Bug#656585: iproute: "ip l" fails with RTNETLINK message
-Date: Fri, 20 Jan 2012 12:34:16 -0800
-Message-ID: <20120120123416.238a1f55@nehalam.linuxnetplumber.net>
-References: <20120120101233.17696.79723.reportbug@localhost>
-	<20120120131047.GA7179@amd64.fatal.se>
-	<20120120143922.GA20128@qemfd.net>
-	<20120120145054.GA8443@amd64.fatal.se>
-	<20120120165219.GA21936@qemfd.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Hung task when calling clone() due to netfilter/slab
+Date: Fri, 20 Jan 2012 12:40:32 -0800
+Message-ID: <m1k44mt8e7.fsf@fess.ebiederm.org>
+References: <1326558605.19951.7.camel@lappy>
+	<1326561043.5287.24.camel@edumazet-laptop>
+	<1326632384.11711.3.camel@lappy>
+	<1326648305.5287.78.camel@edumazet-laptop>
+	<alpine.DEB.2.00.1201170910130.4800@router.home>
+	<1326813630.2259.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<alpine.DEB.2.00.1201170927020.4800@router.home>
+	<1326814208.2259.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<alpine.DEB.2.00.1201170942240.4800@router.home>
+	<alpine.DEB.2.00.1201171620590.14697@router.home>
+	<m1bopz2ws3.fsf@fess.ebiederm.org> <m14nvr2vbu.fsf@fess.ebiederm.org>
+	<alpine.DEB.2.00.1201191959540.14480@router.home>
+	<m1y5t3yuil.fsf@fess.ebiederm.org>
+	<alpine.DEB.2.00.1201200848040.25882@router.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andreas Henriksson <andreas@fatal.se>, netdev@vger.kernel.org
-To: nick black <dankamongmen@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33449 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755376Ab2ATUeT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jan 2012 15:34:19 -0500
-In-Reply-To: <20120120165219.GA21936@qemfd.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,  Sasha Levin <levinsasha928@gmail.com>,  Dave Jones <davej@redhat.com>,  davem <davem@davemloft.net>,  Pekka Enberg <penberg@kernel.org>,  Matt Mackall <mpm@selenic.com>,  kaber@trash.net,  pablo@netfilter.org,  linux-kernel <linux-kernel@vger.kernel.org>,  linux-mm <linux-mm@kvack.org>,  netfilter-devel@vger.kernel.org,  netdev <netdev@vger.kernel.org>
+To: Christoph Lameter <cl@linux.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <alpine.DEB.2.00.1201200848040.25882@router.home> (Christoph
+	Lameter's message of "Fri, 20 Jan 2012 08:49:57 -0600 (CST)")
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 20 Jan 2012 11:52:19 -0500
-nick black <dankamongmen@gmail.com> wrote:
+Christoph Lameter <cl@linux.com> writes:
 
-> Andreas Henriksson left as an exercise for the reader:
-> > Hello again!
-> > 
-> > On Fri, Jan 20, 2012 at 09:39:22AM -0500, nick black wrote:
-> > > I can put together a manpage patch if you'd like, but I suspect you'd rather
-> > > I leave it in your capable hands.
-> > 
-> > I'd very much appreciate if you'd create a patch and submit it upstream
-> > (Stephen Hemminger <shemminger@vyatta.com> and the netdev mailing list)
-> > There are many other issues with the man pages and help output that
-> > you are more then willing to help dig into if you have time.
-> > Please see http://bugs.debian.org/src:iproute for hints on where
-> > documentation updates are needed.
-> 
-> Alrightie, I did just that.
-> 
-> I'm in no position to write a full ip-l2tp(8) man page. I have, however:
-> 
->  * synced SYNOPSIS up with current "ip help" entries
->  * made SYNOPSIS conform to "ip help"'s ordering
->  * synced SYNTAX up with SYNOPSIS, pulling definitions for netns and
->     ntable out from beyond the realms of my ass. please verify.
->  * alphabetized the SYNTAX entries
->  * synced SEE ALSO up with current "dpkg -L iproute | grep 8/ip-"
-> 
-> Attached and inline.
+> On Thu, 19 Jan 2012, Eric W. Biederman wrote:
+>
+>> On the flip side removing from sysfs with locks held must be done
+>> carefully, and as a default I would recommend not to hold locks over
+>> removing things from sysfs.  As removal blocks waiting for all of the
+>> callers into sysfs those sysfs attributes to complete.
+>>
+>> It looks like you are ok on the removal because none of the sysfs
+>> attributes appear to take the slub_lock, just /proc/slabinfo.  But
+>> it does look like playing with fire.
+>
+> Ok then I guess my last patch is needed to make sysfs operations safe.
+>
+> It may be good to audit the kernel for locks being held while calling
+> sysfs functions. Isnt there a lockdep check that ensures that no locks are
+> held?
 
-Ok, applied.
+I don't see a no locks are held check but call_usermodehelper in the
+blocking case could certainly use one.
+
+For the sysfs remove case lockdep should work.
+
+Eric
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
