@@ -1,56 +1,95 @@
-From: Roopa Prabhu <roprabhu@cisco.com>
-Subject: [net-next-2.6 PATCH] enic: fix compile when CONFIG_PCI_IOV is not
-	enabled
-Date: Fri, 20 Jan 2012 00:25:36 -0800
-Message-ID: <20120120082536.18521.86316.stgit@savbu-pc100.cisco.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH 0/3 V3.1] can/usb: Add PEAK-System PCAN USB adapters driver
+Date: Fri, 20 Jan 2012 10:28:41 +0100
+Message-ID: <4F1933C9.8030609@grandegger.com>
+References: <1326968863-20229-1-git-send-email-s.grosjean@peak-system.com> <4F186A18.6020903@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdunlap@xenotime.net
-To: roprabhu@cisco.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtv-iport-1.cisco.com ([173.36.130.12]:38204 "EHLO
-	mtv-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751187Ab2ATIZh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2012 03:25:37 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephane Grosjean <s.grosjean@peak-system.com>,
+	linux-usb Mailing List <linux-usb@vger.kernel.org>,
+	netdev Mailing List <netdev@vger.kernel.org>,
+	linux-can Mailing List <linux-can@vger.kernel.org>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4F186A18.6020903@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roprabhu@cisco.com>
+On 01/19/2012 08:08 PM, Oliver Hartkopp wrote:
+> On 19.01.2012 11:27, Stephane Grosjean wrote:
+> 
+>> That serie of patches adds the peak_usb driver which handles the PCAN-USB
+>> and PCAN-USB Pro adapters from PEAK-System (http://www.peak-system.com).
+>> These patches are planned for kernel v3.02.00 and above.
+> 
+> 
+> Hello Stephane,
+> 
+> i tried your patch with Linus' current tree (3.3 merge).
+> 
+> Plugging-in the PEAK USB adapter it turns out to be *very* informative in
+> the kernel log and also presents information twice:
+> 
+> [  153.566193] usb 2-1.2: new full-speed USB device number 6 using ehci_hcd
+> [  153.663659] usb 2-1.2: New USB device found, idVendor=0c72, idProduct=000c
+> [  153.663665] usb 2-1.2: New USB device strings: Mfr=0, Product=3, SerialNumber=0
+> [  153.663669] usb 2-1.2: Product: VER1:PEAK    
+> [  153.663671] VER2:02.8.01        
+> [  153.663672] DAT :06.05.2004
+> [  153.663672] TIME:09:35:37
+> [  153.663673]                              ...
+> [  153.682683] peak_usb: PCAN-USB interfaces driver loaded
+> [  153.682736] peak_usb 2-1.2:1.0: new PEAK-System usb adapter with 1 can detected:
+> [  153.682741] peak_usb 2-1.2:1.0: PEAK-System PCAN-USB
+> [  153.682746] peak_usb 2-1.2:1.0: VER1:PEAK    .VER2:02.8.01        .DAT :06.05.2004.TIME:09:35:37.                             ...
+> [  153.685422] peak_usb 2-1.2:1.0: serial FFFFFFFF hwrev 28
+> [  153.686413] peak_usb 2-1.2:1.0: can2 attached to PCAN-USB can 0 (device 46)
+> [  153.686521] usbcore: registered new interface driver peak_usb
 
-reverting back change that access enic->num_vfs outside
-CONFIG_PCI_IOV
-
-Reported-by: Randy Dunlap <rdunlap@xenotime.net>
-Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
----
- drivers/net/ethernet/cisco/enic/enic_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+I already realized that the driver produces a lot of output... that's
+definitely too much.
 
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index 045c468..ab3f67f 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -2273,7 +2273,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
- #ifdef CONFIG_PCI_IOV
- 	int pos = 0;
- #endif
--	int num_pps;
-+	int num_pps = 1;
- 
- 	/* Allocate net device structure and initialize.  Private
- 	 * instance data is initialized to zero.
-@@ -2380,11 +2380,11 @@ static int __devinit enic_probe(struct pci_dev *pdev,
- 				goto err_out_vnic_unregister;
- 			}
- 			enic->priv_flags |= ENIC_SRIOV_ENABLED;
-+			num_pps = enic->num_vfs;
- 		}
- 	}
- #endif
- 
--	num_pps = enic->num_vfs ? enic->num_vfs : 1;
- 	/* Allocate structure for port profiles */
- 	enic->pp = kcalloc(num_pps, sizeof(*enic->pp), GFP_KERNEL);
- 	if (!enic->pp) {
+> As i assume that this VER2/DAT/TIME stuff and also the "..." line comes
+> somewhere from the device itself and is printed by the USB stack, i wonder if
+> we could reduce the information provided by the peak_usb driver then.
+> 
+> E.g.
+> 
+> [  153.682683] peak_usb: PCAN-USB interfaces driver loaded
+> # is obsolete as peak_usb speaks to us in the following lines
+> 
+> [  153.682736] peak_usb 2-1.2:1.0: new PEAK-System usb adapter with 1 can detected:
+> [  153.682741] peak_usb 2-1.2:1.0: PEAK-System PCAN-USB
+> # Can be merged, e.g. to
+> [  153.682741] peak_usb 2-1.2:1.0: PEAK-System PCAN-USB adapter hwrev 28 (one channel)
+> 
+> 
+> [  153.682746] peak_usb 2-1.2:1.0: VER1:PEAK    .VER2:02.8.01        .DAT :06.05.2004.TIME:09:35:37.                             ...
+> # If you think, this is still needed(???) -> at least kill the spaces like this:
+> [  153.682746] peak_usb 2-1.2:1.0: VER1:PEAK.VER2:02.8.01.DAT:06.05.2004.TIME:09:35:37....
+
+If it's valuable information, we could also use dev_dbg().
+
+> [  153.685422] peak_usb 2-1.2:1.0: serial FFFFFFFF hwrev 28
+> [  153.686413] peak_usb 2-1.2:1.0: can2 attached to PCAN-USB can 0 (device 46)
+> # Can be merged, e.g. to
+> [  153.686413] peak_usb 2-1.2:1.0: PCAN-USB channel 0 (serial FFFFFFFF, device 46) attached to can2
+> 
+> So it would finally look like this (6 -> 2 lines):
+> 
+> [  153.682741] peak_usb 2-1.2:1.0: PEAK-System PCAN-USB adapter hwrev 28 (one channel)
+> [  153.686413] peak_usb 2-1.2:1.0: PCAN-USB channel 0 (serial FFFFFFFF, device 46) attached to can2
+> 
+> I'm not sure, if the serial number was identical when having two channels like in the USB-Pro.
+> If so the serial number in general could be moved up like this:
+> 
+> [  153.682741] peak_usb 2-1.2:1.0: PEAK-System PCAN-USB adapter hwrev 28 serial FFFFFFFF (one channel)
+> [  153.686413] peak_usb 2-1.2:1.0: PCAN-USB channel 0 (device 46) attached to can2
+
+Just 2 lines, that would be prefect. Please also check the output of the
+PCAN-USB-Pro device and try to reduce it to 2+- lines as well.
+
+Wolfgang.
+
