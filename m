@@ -1,76 +1,43 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [ethtool] ethtool: Add ntuple to the -K option in the man page.
-Date: Thu, 19 Jan 2012 22:35:42 -0800
-Message-ID: <1327041342.2707.42.camel@jtkirshe-mobl>
-References: <1327040031-19152-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH] be2net: create RSS rings even in multi-channel configs
+Date: Fri, 20 Jan 2012 12:04:04 +0530
+Message-ID: <1327041244-427-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-3hap4Lh4LVg/+0U+2D6N"
-Cc: Amir Hanania <amir.hanania@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: davem@davemloft.net, Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:37817 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750825Ab2ATGfn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jan 2012 01:35:43 -0500
-In-Reply-To: <1327040031-19152-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from exht1.emulex.com ([138.239.113.183]:50004 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750825Ab2ATGk2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2012 01:40:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Currently RSS rings are not created in a multi-channel config.
+RSS rings can be created on one (out of four) interfaces per port in a
+multi-channel config. Doing this insulates the driver from a FW bug wherin
+multi-channel config is wrongly reported even when not enabled. This also
+helps performance in a multi-channel config, as one interface per port gets
+RSS rings.
 
---=-3hap4Lh4LVg/+0U+2D6N
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-On Thu, 2012-01-19 at 22:13 -0800, Jeff Kirsher wrote:
-> From: Amir Hanania <amir.hanania@intel.com>
->=20
-> Signed-off-by: Amir Hanania <amir.hanania@intel.com>
-> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  ethtool.8.in |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
->=20
-> diff --git a/ethtool.8.in b/ethtool.8.in
-> index e6e46cc..9b8c5bc 100644
-> --- a/ethtool.8.in
-> +++ b/ethtool.8.in
-> @@ -212,6 +212,7 @@ ethtool \- query or control network driver and hardwa=
-re settings
->  .B2 gso on off
->  .B2 gro on off
->  .B2 lro on off
-> +.B2 ntuple on off
->  .B2 rxvlan on off
->  .B2 txvlan on off
->  .B2 rxhash on off
-
-Sorry, I meant to send this to Ben as well.
-
---=-3hap4Lh4LVg/+0U+2D6N
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAABCgAGBQJPGQs+AAoJEOVv75VaS+3ONRYQAIrkEqLrCgpSP+Bsh88mhRlh
-TDmH/Tfwu2ujXOogRaPK90/6NTlPSw9fCSQ+qMu9nPLz4ugLiFr5coVhUveu2U7G
-gybdEcGYOialXA5fPUIop9IXopONjkC9l/CBLMwIF9Y9T7Zu4EBRvpVtfO922jUS
-U6C4DayoX8ib0acORhhQ/Mjw4auwBhaUlnllSsWAgPNy1FYCx5XvaU+eKguJUO/4
-k01Z9A61O+O3L4CUS8MOxuqO70KGEUVfEzhJ9CK2T2DjtVofgJSWhWwHGnnYnKrw
-V/9CFgHRyYUTl0PkrbAoAXbLSGYfU+m6tq+fmPM/hnpGjIwVk2KRzBuIChYb4qi9
-XynTE9BprsMs2b9EUTOQt4VA0PkkuPvF9vF77IsZr/ixgtvkSPfI/bf2Z9PlZomv
-/oLvxxho23Fc3xSEAuCeFYI/d762Hg1sg1GtG/rMmKcXaFEXjR8Ao5vrwrYAZw9l
-dOqkIdraG6VV30An69RG+2g7Ew+Y8Om/myIo8xH49241lRoDYBWE7wF2ObRNrIIZ
-A3NG55DTm4xRrsXhnrGot/t3n8j5DeImoanAdPOAQqPyn6nMsRN5FhfVSyDcnZyS
-ZiafM4Hdo0A4W0zr9p0dHhB1yse8AQCs+wOF9wi2yP+Lk1nNPQvuOrQA8eXEtViV
-nHtST9/gH9o8axx+ByN0
-=xNgI
------END PGP SIGNATURE-----
-
---=-3hap4Lh4LVg/+0U+2D6N--
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 6c46753..dfe748e 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1786,8 +1786,7 @@ static void be_rx_queues_destroy(struct be_adapter *adapter)
+ static u32 be_num_rxqs_want(struct be_adapter *adapter)
+ {
+ 	if ((adapter->function_caps & BE_FUNCTION_CAPS_RSS) &&
+-	     !sriov_enabled(adapter) && be_physfn(adapter) &&
+-	     !be_is_mc(adapter)) {
++	     !sriov_enabled(adapter) && be_physfn(adapter)) {
+ 		return 1 + MAX_RSS_QS; /* one default non-RSS queue */
+ 	} else {
+ 		dev_warn(&adapter->pdev->dev,
+-- 
+1.7.4
