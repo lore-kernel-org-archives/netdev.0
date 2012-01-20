@@ -1,95 +1,93 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH 0/3 V3.1] can/usb: Add PEAK-System PCAN USB adapters driver
-Date: Fri, 20 Jan 2012 10:28:41 +0100
-Message-ID: <4F1933C9.8030609@grandegger.com>
-References: <1326968863-20229-1-git-send-email-s.grosjean@peak-system.com> <4F186A18.6020903@hartkopp.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: RFC Hanging clean-up of a namespace
+Date: Fri, 20 Jan 2012 02:08:37 -0800
+Message-ID: <m1y5t2u1ne.fsf@fess.ebiederm.org>
+References: <20120119192541.GM2262734@jupiter.n2.diac24.net>
+	<m1lip32xoi.fsf@fess.ebiederm.org> <20120119214052.GA12249@hell>
+	<201201200708.51684.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Stephane Grosjean <s.grosjean@peak-system.com>,
-	linux-usb Mailing List <linux-usb@vger.kernel.org>,
-	netdev Mailing List <netdev@vger.kernel.org>,
-	linux-can Mailing List <linux-can@vger.kernel.org>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4F186A18.6020903@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
+	David Miller <davem@davemloft.net>,
+	"equinox\@diac24.net" <equinox@diac24.net>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out03.mta.xmission.com ([166.70.13.233]:42594 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752447Ab2ATKGN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2012 05:06:13 -0500
+In-Reply-To: <201201200708.51684.hans.schillstrom@ericsson.com> (Hans
+	Schillstrom's message of "Fri, 20 Jan 2012 07:08:50 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/19/2012 08:08 PM, Oliver Hartkopp wrote:
-> On 19.01.2012 11:27, Stephane Grosjean wrote:
-> 
->> That serie of patches adds the peak_usb driver which handles the PCAN-USB
->> and PCAN-USB Pro adapters from PEAK-System (http://www.peak-system.com).
->> These patches are planned for kernel v3.02.00 and above.
-> 
-> 
-> Hello Stephane,
-> 
-> i tried your patch with Linus' current tree (3.3 merge).
-> 
-> Plugging-in the PEAK USB adapter it turns out to be *very* informative in
-> the kernel log and also presents information twice:
-> 
-> [  153.566193] usb 2-1.2: new full-speed USB device number 6 using ehci_hcd
-> [  153.663659] usb 2-1.2: New USB device found, idVendor=0c72, idProduct=000c
-> [  153.663665] usb 2-1.2: New USB device strings: Mfr=0, Product=3, SerialNumber=0
-> [  153.663669] usb 2-1.2: Product: VER1:PEAK    
-> [  153.663671] VER2:02.8.01        
-> [  153.663672] DAT :06.05.2004
-> [  153.663672] TIME:09:35:37
-> [  153.663673]                              ...
-> [  153.682683] peak_usb: PCAN-USB interfaces driver loaded
-> [  153.682736] peak_usb 2-1.2:1.0: new PEAK-System usb adapter with 1 can detected:
-> [  153.682741] peak_usb 2-1.2:1.0: PEAK-System PCAN-USB
-> [  153.682746] peak_usb 2-1.2:1.0: VER1:PEAK    .VER2:02.8.01        .DAT :06.05.2004.TIME:09:35:37.                             ...
-> [  153.685422] peak_usb 2-1.2:1.0: serial FFFFFFFF hwrev 28
-> [  153.686413] peak_usb 2-1.2:1.0: can2 attached to PCAN-USB can 0 (device 46)
-> [  153.686521] usbcore: registered new interface driver peak_usb
+Hans Schillstrom <hans.schillstrom@ericsson.com> writes:
 
-I already realized that the driver produces a lot of output... that's
-definitely too much.
+> On Thursday 19 January 2012 22:40:53 Hagen Paul Pfeifer wrote:
+>> * Eric W. Biederman | 2012-01-19 13:24:13 [-0800]:
+>> 
+>> >This thread is a fascinating disconnect from reality all of the way
+>> >around.
+>> >
+>> >- inet_twsk_purge already implements throwing out of timewait sockets
+>> >  when a network namespaces is being cleaned up.  So the RFC is nonsense.
+>> 
+>> This is how it is implemented, not how it should be. TIME_WAIT is not the
+>> problem, it is there to keep the stack from sending wrong RST messages. Maybe
+>> the 2*MSL could be fixed by a more accurate 2*RTT.
+>> 
+>
+> I was only refering to my printk's i.e. the last sockets leaving the namespace was
+> from tcp_timer() with state 7, 2 minutes after free_nsproxy() was called.
+> (and assumed that was the time_wait)
 
+Which kernel are you running?  I can't find a mention of a function
+named tcp_timer() anywhere in the kernel since 2.6.16 when the kernel
+was put into git.
 
-> As i assume that this VER2/DAT/TIME stuff and also the "..." line comes
-> somewhere from the device itself and is printed by the USB stack, i wonder if
-> we could reduce the information provided by the peak_usb driver then.
-> 
-> E.g.
-> 
-> [  153.682683] peak_usb: PCAN-USB interfaces driver loaded
-> # is obsolete as peak_usb speaks to us in the following lines
-> 
-> [  153.682736] peak_usb 2-1.2:1.0: new PEAK-System usb adapter with 1 can detected:
-> [  153.682741] peak_usb 2-1.2:1.0: PEAK-System PCAN-USB
-> # Can be merged, e.g. to
-> [  153.682741] peak_usb 2-1.2:1.0: PEAK-System PCAN-USB adapter hwrev 28 (one channel)
-> 
-> 
-> [  153.682746] peak_usb 2-1.2:1.0: VER1:PEAK    .VER2:02.8.01        .DAT :06.05.2004.TIME:09:35:37.                             ...
-> # If you think, this is still needed(???) -> at least kill the spaces like this:
-> [  153.682746] peak_usb 2-1.2:1.0: VER1:PEAK.VER2:02.8.01.DAT:06.05.2004.TIME:09:35:37....
+There is a file named net/ipv4/tcp_timer.c
 
-If it's valuable information, we could also use dev_dbg().
+But if you are actually describing normal sockets and not timewait
+sockets then it is remotely possible that something like what you are
+talking about is happening.  Normal sockets keep the network namespace
+alive.  So if something was keeping the sockets open.  Like perhaps a
+process that has one of your sockets from your network namespace open
+then it could happen.
 
-> [  153.685422] peak_usb 2-1.2:1.0: serial FFFFFFFF hwrev 28
-> [  153.686413] peak_usb 2-1.2:1.0: can2 attached to PCAN-USB can 0 (device 46)
-> # Can be merged, e.g. to
-> [  153.686413] peak_usb 2-1.2:1.0: PCAN-USB channel 0 (serial FFFFFFFF, device 46) attached to can2
-> 
-> So it would finally look like this (6 -> 2 lines):
-> 
-> [  153.682741] peak_usb 2-1.2:1.0: PEAK-System PCAN-USB adapter hwrev 28 (one channel)
-> [  153.686413] peak_usb 2-1.2:1.0: PCAN-USB channel 0 (serial FFFFFFFF, device 46) attached to can2
-> 
-> I'm not sure, if the serial number was identical when having two channels like in the USB-Pro.
-> If so the serial number in general could be moved up like this:
-> 
-> [  153.682741] peak_usb 2-1.2:1.0: PEAK-System PCAN-USB adapter hwrev 28 serial FFFFFFFF (one channel)
-> [  153.686413] peak_usb 2-1.2:1.0: PCAN-USB channel 0 (device 46) attached to can2
+nsproxy is not the only place that references to the network namespace
+are allowed to live that keep the network namespace alive.
 
-Just 2 lines, that would be prefect. Please also check the output of the
-PCAN-USB-Pro device and try to reduce it to 2+- lines as well.
+>> >- Keeping the timewait sockets at that point we purge them in the code
+>> >  can achieve nothing.  We don't have any userspace processes or network
+>> >  devices associated with the timewait sockets at the point we get rid
+>> >  of them.  The network namespace exists so long as a userspace process
+>> >  can find it.  The network namespace exit is asynchronous in it's own
+>> >  workqueue so userspace definitely is not blocked.
+>> 
+>
+> One example of a real life problem is when a container crash where a VLAN from
+> a physical interface is used in the container, and you automatically reboot
+> that container.  A new namespace is created with that VLAN again and what happens ?
+> That VLAN id is busy (waiting for tcp_timer) and the continer start fails ...
+> So you have to wait a couple of minutes :-(
 
-Wolfgang.
+Yes the vlan is busy until that the network namespace is cleaned up, and
+we get as far as calling dellink on the network namespace.
 
+There are a lot of reasons why a network namespace would not be cleaned
+up immediately.  Especially in older kernels.
+
+One problem people running older kernels had troubles with was vsftp
+created an empty network namespace for every connection.  On kernels pre
+2.6.34 I think before we had batching support for cleaning up network
+devices and network namespaces the kernel could simply not keep up with
+the rate that vsftp was creating and destroying network namespaces, and
+would slowly fall farther and farther behind in it's cleanup.
+
+If you are running an older kernel it is quite possible that you are
+missing some cleanups.  It is also possible that you are hitting one of
+the cases where we can only destroy 4 network devices a second and you
+have lots of network devices dying with your network namespace.
+
+Eric
