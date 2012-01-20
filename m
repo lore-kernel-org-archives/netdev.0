@@ -1,63 +1,48 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Single core gets pegged on multi-core PPTP server
-Date: Fri, 20 Jan 2012 07:16:30 +0100
-Message-ID: <1327040190.4826.7.camel@edumazet-laptop>
-References: <CAJuWrdtDgeCOSEvD-ytfwGj4UQeOtjeqUZd3Y1SLpbbsSvrycg@mail.gmail.com>
+Subject: Re: [PATCH 3/3] skge: add byte queue limit support
+Date: Fri, 20 Jan 2012 07:23:44 +0100
+Message-ID: <1327040624.4826.10.camel@edumazet-laptop>
+References: <20120119164354.78ea63d6@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: paulus@samba.org, linux-ppp@vger.kernel.org, netdev@vger.kernel.org
-To: Bradley Peterson <despite@gmail.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <CAJuWrdtDgeCOSEvD-ytfwGj4UQeOtjeqUZd3Y1SLpbbsSvrycg@mail.gmail.com>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:42355 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751687Ab2ATGXt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2012 01:23:49 -0500
+Received: by wics10 with SMTP id s10so141000wic.19
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2012 22:23:48 -0800 (PST)
+In-Reply-To: <20120119164354.78ea63d6@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 19 janvier 2012 =C3=A0 16:35 -0600, Bradley Peterson a =C3=A9c=
-rit :
-> Hello,
+Le jeudi 19 janvier 2012 =C3=A0 16:43 -0800, Stephen Hemminger a =C3=A9=
+crit :
+> This also changes the cleanup logic slightly to aggregate
+> completed notifications for multiple packets.
 >=20
-> I am trying to test the capacity of a linux PPTP server, both in
-> number of connections, and in packets per second.  I am using kernel
-> 2.6.38.8, with the ppp, pptp, and gre modules, and accel-pptp 0.8.3.
-> I have RPS, RFS, and XPS enabled on the network devices for SMP
-> support.
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 >=20
-> But I'm seeing one CPU get pegged out with soft interrupt, while the
-> others are almost completely idle.
+> --- a/drivers/net/ethernet/marvell/skge.c	2012-01-19 16:12:19.0000000=
+00 -0800
+> +++ b/drivers/net/ethernet/marvell/skge.c	2012-01-19 16:42:17.6759087=
+98 -0800
+> @@ -2831,6 +2831,7 @@ static netdev_tx_t skge_xmit_frame(struc
+>  		netif_stop_queue(dev);
+>  	}
+> =20
+> +	netdev_sent_queue(dev, skb->len);
+
+
+I doubt this is safe, as skb might already be freed by tx completion
+handler from another cpu.
+
+>  	return NETDEV_TX_OK;
+> =20
+>  mapping_unwind:
+> @@ -2858,11 +2859,9 @@ mapping_error:
+> =20
 >=20
-> In my current test, I'm starting 250 pptp connections from another
-> server, then running iperf across each connection.  The client machin=
-e
-> pegs out, sure, but I'm surprised the server pegs out a single CPU.
-> With RPS, I would expect softirq's to be more balanced.
->=20
-> Where could the bottleneck be?  Do all ppp packets need to be
-> processed serially?
->=20
-
-Hmmm, you need a more recent kernel or backport commit=20
-c6865cb3cc6f3c2857fa4c6f5fda2945d70b1e84
-    rps: Inspect GRE encapsulated packets to get flow hash
-   =20
-    Crack open GRE packets in __skb_get_rxhash to compute 4-tuple hash =
-on
-    in encapsulated packet.  Note that this is used only when the
-    __skb_get_rxhash is taken, in particular only when the device does
-    not compute provide the rxhash (ie. feature is disabled).
-   =20
-    This was tested by creating a single GRE tunnel between two 16 core
-    AMD machines.  200 netperf TCP_RR streams were ran with 1 byte
-    request and response size.
-   =20
-    Without patch: 157497 tps, 50/90/99% latencies 1250/1292/1364 usecs
-    With patch: 325896 tps, 50/90/99% latencies 603/848/1169
-   =20
-    Signed-off-by: Tom Herbert <therbert@google.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-
-
-And make sure you disabled hardware rxhash (if your NIC provides it)
-
-
