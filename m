@@ -1,37 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] enic: fix compile when CONFIG_PCI_IOV is
- not enabled
-Date: Fri, 20 Jan 2012 13:40:05 -0500 (EST)
-Message-ID: <20120120.134005.1489924902535382966.davem@davemloft.net>
-References: <20120120082536.18521.86316.stgit@savbu-pc100.cisco.com>
+Subject: Re: Recent RCU changes in the networking code
+Date: Fri, 20 Jan 2012 13:48:57 -0500 (EST)
+Message-ID: <20120120.134857.1063822988966503185.davem@davemloft.net>
+References: <CAO+b5-oqBNyXy+-a712VrnhSteVSPk8J5Om95E-ZQHtJBVgJAw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdunlap@xenotime.net
-To: roprabhu@cisco.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: bvanassche@acm.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60920 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:32777 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754899Ab2ATSkM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2012 13:40:12 -0500
-In-Reply-To: <20120120082536.18521.86316.stgit@savbu-pc100.cisco.com>
+	with ESMTP id S1753577Ab2ATStC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2012 13:49:02 -0500
+In-Reply-To: <CAO+b5-oqBNyXy+-a712VrnhSteVSPk8J5Om95E-ZQHtJBVgJAw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roprabhu@cisco.com>
-Date: Fri, 20 Jan 2012 00:25:36 -0800
+From: Bart Van Assche <bvanassche@acm.org>
+Date: Fri, 20 Jan 2012 17:35:54 +0000
 
-> From: Roopa Prabhu <roprabhu@cisco.com>
-> 
-> reverting back change that access enic->num_vfs outside
-> CONFIG_PCI_IOV
-> 
-> Reported-by: Randy Dunlap <rdunlap@xenotime.net>
-> Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+> As far as I can see commit cf778b00e96df6d64f8e21b8395d1f8a859ecdc7 is
+> a fix for commit a9b3cd7f323b2e57593e7215362a7b02fc933e3a, the latter
+> has been included in 3.2 but the former has not yet been sent to
+> stable@vger.kernel.org. Shouldn't commit cf778b0 be sent to stable
+> such that it gets included in the v3.2.x series ?
 
-Applied, thanks.
-
-I don't see how you can be asking this to be applied to the net-next
-tree.  I applied your patches to the plain 'net' tree and therefore
-this patch won't apply to net-next at all, go and see for yourself
-if you don't believe me. :-)
+Sure.
