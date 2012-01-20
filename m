@@ -1,77 +1,74 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: iwlwifi worse than ever in current git.
-Date: Fri, 20 Jan 2012 06:50:36 +0000
-Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB3079B13@HASMSX103.ger.corp.intel.com>
-References: <20120110184917.GA26973@redhat.com>
- <1326221614.5067.6.camel@dcbw.foobar.com>
- <0BA3FCBA62E2DC44AF3030971E174FB3063085@HASMSX103.ger.corp.intel.com>
- <20120111014243.GA22066@redhat.com>
- <0BA3FCBA62E2DC44AF3030971E174FB306429E@HASMSX103.ger.corp.intel.com>
- <20120111195055.GA5140@redhat.com>
- <0BA3FCBA62E2DC44AF3030971E174FB3064AF5@HASMSX103.ger.corp.intel.com>
- <CANUX_P3UHz-Pr_M1H5pAbmKDY70es7nxkWSDGXG6-hvrPAMCJw@mail.gmail.com>
- <20120119182955.GA1630@redhat.com>
- <0BA3FCBA62E2DC44AF3030971E174FB3079A3F@HASMSX103.ger.corp.intel.com>
- <20120119220410.GA11980@redhat.com>
+From: Jean-Michel Hautbois <jhautbois@gmail.com>
+Subject: Re: Interpreting perf stat on netperf and netserver
+Date: Fri, 20 Jan 2012 08:20:08 +0100
+Message-ID: <CAL8zT=iZLorBB0Xn3sQZJe7Ky1ptmA_31FVyDHOCuh-rSicZ8A@mail.gmail.com>
+References: <CAL8zT=gNwDDXcbH+hoZApc63ArW2quzHJ1gRrPSxKP7jE04KLw@mail.gmail.com>
+ <4F170629.8090307@hp.com> <CAL8zT=jP4Bm=WM0=OLcRgeetzXb0f_ZL0TiDvPAhkbA9UuxpBA@mail.gmail.com>
+ <4F1859CA.6000407@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Guy, Wey-Yi W" <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Linux Wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120119220410.GA11980-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:56665 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750983Ab2ATHUa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2012 02:20:30 -0500
+Received: by wics10 with SMTP id s10so160764wic.19
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2012 23:20:29 -0800 (PST)
+In-Reply-To: <4F1859CA.6000407@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> 
-> On Thu, Jan 19, 2012 at 08:38:35PM +0000, Grumbach, Emmanuel wrote:
->  > >
->  > > >
->  > > > On Thu, Jan 19, 2012 at 08:47:28AM +0200, Emmanuel Grumbach wrote:
->  > > >  > Ok, I finally had a change to take a closer look at this. Please run
->  > > >  > with debug=0xC0000000.
->  > > >  >
->  > > >  > This will be noisy, but I guess we have no choice...
->  > > >  > I will be travelling next week, so...
->  > > >
->  > > > Ah. Got it. I had to do a large download (a kernel tarball was enough)
-> to
->  > > > trigger it.
->  > > > Log is at http://davej.fedorapeople.org/iwl-debug.txt
->  > > >
->  > > > The download began at around 13:17 in the log.
->  > > > It hung shortly afterwards.
->  > > >
->  > > > 	Dave
->  > >
->  > > Thanks for that one. Really helpful. I need to send you a patch to get a
->  > > little more data. I don't know when I will be able to do it though.
->  >
->  > Can you please retry with the patch attached ?
-> 
-> Hung again.
-> 
-> http://davej.fedorapeople.org/iwl-debug2.txt
-> 
-> 	Dave
+2012/1/19 Rick Jones <rick.jones2@hp.com>:
+> On 01/19/2012 12:29 AM, Jean-Michel Hautbois wrote:
+>>
+>> 2012/1/18 Rick Jones<rick.jones2@hp.com>:
+>>>
+>>> On 01/18/2012 03:33 AM, Jean-Michel Hautbois wrote:
+>>>>
+>>>>
+>>>> Hi all,
+>>>>
+>>>> I am currently using netperf/netserver in order to characterize a
+>>>> benet emulex network device on a machine with 2 Xeon5670.
+>>>> I am using the latest linux kernel from git (3.2.0+).
+>>>> I am facing several issues, and I am trying to understand the
+>>>> following perf stat launched on netserver :
+>>>>
+>>>> =C2=A0Performance counter stats for process id '5043':
+>>>
+>>>
+>>>
+>>> If you aren't already you may want to gather system-wide data as we=
+ll -
+>>> not
+>>> everything networking is guaranteed to run in the netserver's (or
+>>> netperf's)
+>>> context.
+>>>
+>>> Might also be good to include the netperf command line driving that
+>>> netserver. =C2=A0That will help folks know if the netserver is rece=
+iving data
+>>> (_STREAM), sending data (_MAERTS) or both (_RR) (though perhaps tha=
+t can
+>>> be
+>>> gleaned from the routine names in the profile.
+>>
+>>
+>> Well, I am only launching netserver without any parameter.
+>
+>
+> The netperf command line, not netserver :) =C2=A0The netperf command =
+line will
+> tell us what the netserver was asked to and was presumably doing at t=
+he time
+> the profile was taken.
 
-Thanks. From what I see, a management frame is sent from an AC queue and when we get the Tx response for this frame, we get sta_id = AP, tid = 0 (and the bug is probably here). So we modify the counters for sta_id = AP, and tid = 0, and this messes up everything.
-I guess I need to see why I don't see this issue, and see how to give a hint to the Tx response path that counters shouldn't be modified.
+I launched it using netperf -H 192.168.2.1 -t UDP_STREAM -f m -- -m 400=
+0
 
----------------------------------------------------------------------
-Intel Israel (74) Limited
+The mtu is set to 4096.
 
-This e-mail and any attachments may contain confidential material for
-the sole use of the intended recipient(s). Any review or distribution
-by others is strictly prohibited. If you are not the intended
-recipient, please contact the sender and delete all copies.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+JM
