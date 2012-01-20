@@ -1,75 +1,106 @@
-From: Bradley Peterson <despite@gmail.com>
-Subject: Re: Single core gets pegged on multi-core PPTP server
-Date: Fri, 20 Jan 2012 09:20:02 -0600
-Message-ID: <CAJuWrdu13Usax+bD3gtOkK=dhFyHQfMk5E7CLM=q8j_u92Hfkg@mail.gmail.com>
-References: <CAJuWrdtDgeCOSEvD-ytfwGj4UQeOtjeqUZd3Y1SLpbbsSvrycg@mail.gmail.com>
-	<1327040190.4826.7.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH iproute2] gred: support TCA_GRED_MAX_P attribute
+Date: Fri, 20 Jan 2012 16:27:50 +0100
+Message-ID: <1327073270.12389.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: paulus@samba.org, linux-ppp@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <1327040190.4826.7.camel@edumazet-laptop>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:63484 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753441Ab2ATP1y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2012 10:27:54 -0500
+Received: by werb13 with SMTP id b13so512670wer.19
+        for <netdev@vger.kernel.org>; Fri, 20 Jan 2012 07:27:53 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 20, 2012 at 12:16 AM, Eric Dumazet <eric.dumazet@gmail.com>=
- wrote:
-> Le jeudi 19 janvier 2012 =E0 16:35 -0600, Bradley Peterson a =E9crit =
-:
->> Hello,
->>
->> I am trying to test the capacity of a linux PPTP server, both in
->> number of connections, and in packets per second. =A0I am using kern=
-el
->> 2.6.38.8, with the ppp, pptp, and gre modules, and accel-pptp 0.8.3.
->> I have RPS, RFS, and XPS enabled on the network devices for SMP
->> support.
->>
->> But I'm seeing one CPU get pegged out with soft interrupt, while the
->> others are almost completely idle.
->>
->> In my current test, I'm starting 250 pptp connections from another
->> server, then running iperf across each connection. =A0The client mac=
-hine
->> pegs out, sure, but I'm surprised the server pegs out a single CPU.
->> With RPS, I would expect softirq's to be more balanced.
->>
->> Where could the bottleneck be? =A0Do all ppp packets need to be
->> processed serially?
->>
->
-> Hmmm, you need a more recent kernel or backport commit
-> c6865cb3cc6f3c2857fa4c6f5fda2945d70b1e84
-> =A0 =A0rps: Inspect GRE encapsulated packets to get flow hash
->
-> =A0 =A0Crack open GRE packets in __skb_get_rxhash to compute 4-tuple =
-hash on
-> =A0 =A0in encapsulated packet. =A0Note that this is used only when th=
-e
-> =A0 =A0__skb_get_rxhash is taken, in particular only when the device =
-does
-> =A0 =A0not compute provide the rxhash (ie. feature is disabled).
->
-> =A0 =A0This was tested by creating a single GRE tunnel between two 16=
- core
-> =A0 =A0AMD machines. =A0200 netperf TCP_RR streams were ran with 1 by=
-te
-> =A0 =A0request and response size.
->
-> =A0 =A0Without patch: 157497 tps, 50/90/99% latencies 1250/1292/1364 =
-usecs
-> =A0 =A0With patch: 325896 tps, 50/90/99% latencies 603/848/1169
->
-> =A0 =A0Signed-off-by: Tom Herbert <therbert@google.com>
-> =A0 =A0Signed-off-by: David S. Miller <davem@davemloft.net>
->
->
->
-> And make sure you disabled hardware rxhash (if your NIC provides it)
->
->
+TCA_GRED_MAX_P permits to express high resolution probabilities.
 
-Thank you, I had missed the work on RPS with encapsulated packets.  I
-will try a newer kernel.
+New output (on 3.3+ kernel) :
+
+disc gred 9442: root refcnt 17 
+ DP:0 (prio 1) Average Queue 0b Measured Queue 0b  
+	 Packet drops: 0 (forced 0 early 0)  
+	 Packet totals: 20 (bytes 2584)  
+ limit 31460b min 3000b max 9000b ewma 5 probability 0.05 Scell_log 15
+
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ tc/q_gred.c |   21 +++++++++++++++++----
+ 1 file changed, 17 insertions(+), 4 deletions(-)
+
+diff --git a/tc/q_gred.c b/tc/q_gred.c
+index 5fa0cc7..a4df3a6 100644
+--- a/tc/q_gred.c
++++ b/tc/q_gred.c
+@@ -21,6 +21,7 @@
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
+ #include <string.h>
++#include <math.h>
+ 
+ #include "utils.h"
+ #include "tc_util.h"
+@@ -125,6 +126,7 @@ static int gred_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct n
+ 	int wlog;
+ 	__u8 sbuf[256];
+ 	struct rtattr *tail;
++	__u32 max_P;
+ 
+ 	memset(&opt, 0, sizeof(opt));
+ 
+@@ -251,14 +253,17 @@ static int gred_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct n
+ 	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
+ 	addattr_l(n, 1024, TCA_GRED_PARMS, &opt, sizeof(opt));
+ 	addattr_l(n, 1024, TCA_GRED_STAB, sbuf, 256);
++	max_P = probability * pow(2, 32);
++	addattr32(n, 1024, TCA_GRED_MAX_P, max_P);
+ 	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
+ 	return 0;
+ }
+ 
+ static int gred_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+ {
+-	struct rtattr *tb[TCA_GRED_STAB+1];
++	struct rtattr *tb[TCA_GRED_MAX + 1];
+ 	struct tc_gred_qopt *qopt;
++	__u32 *max_p = NULL;
+ 	int i;
+ 	SPRINT_BUF(b1);
+ 	SPRINT_BUF(b2);
+@@ -269,11 +274,15 @@ static int gred_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+ 	if (opt == NULL)
+ 		return 0;
+ 
+-	parse_rtattr_nested(tb, TCA_GRED_STAB, opt);
++	parse_rtattr_nested(tb, TCA_GRED_MAX, opt);
+ 
+ 	if (tb[TCA_GRED_PARMS] == NULL)
+ 		return -1;
+ 
++	if (tb[TCA_GRED_MAX_P] &&
++	    RTA_PAYLOAD(tb[TCA_GRED_MAX_P]) >= sizeof(__u32) * MAX_DPs)
++		max_p = RTA_DATA(tb[TCA_GRED_MAX_P]);
++
+ 	qopt = RTA_DATA(tb[TCA_GRED_PARMS]);
+ 	if (RTA_PAYLOAD(tb[TCA_GRED_PARMS])  < sizeof(*qopt)*MAX_DPs) {
+ 		fprintf(f,"\n GRED received message smaller than expected\n");
+@@ -302,8 +311,12 @@ static int gred_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+ 				sprint_size(qopt->limit, b1),
+ 				sprint_size(qopt->qth_min, b2),
+ 				sprint_size(qopt->qth_max, b3));
+-				fprintf(f, "ewma %u Plog %u Scell_log %u",
+-				    qopt->Wlog, qopt->Plog, qopt->Scell_log);
++		fprintf(f, "ewma %u ", qopt->Wlog);
++		if (max_p)
++			fprintf(f, "probability %lg ", max_p[i] / pow(2, 32));
++		else
++			fprintf(f, "Plog %u ", qopt->Plog);
++		fprintf(f, "Scell_log %u", qopt->Scell_log);
+ 	}
+ 	return 0;
+ }
