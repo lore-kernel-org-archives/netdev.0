@@ -1,43 +1,77 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH] be2net: create RSS rings even in multi-channel configs
-Date: Fri, 20 Jan 2012 12:04:04 +0530
-Message-ID: <1327041244-427-1-git-send-email-sathya.perla@emulex.com>
+From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: iwlwifi worse than ever in current git.
+Date: Fri, 20 Jan 2012 06:50:36 +0000
+Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB3079B13@HASMSX103.ger.corp.intel.com>
+References: <20120110184917.GA26973@redhat.com>
+ <1326221614.5067.6.camel@dcbw.foobar.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB3063085@HASMSX103.ger.corp.intel.com>
+ <20120111014243.GA22066@redhat.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB306429E@HASMSX103.ger.corp.intel.com>
+ <20120111195055.GA5140@redhat.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB3064AF5@HASMSX103.ger.corp.intel.com>
+ <CANUX_P3UHz-Pr_M1H5pAbmKDY70es7nxkWSDGXG6-hvrPAMCJw@mail.gmail.com>
+ <20120119182955.GA1630@redhat.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB3079A3F@HASMSX103.ger.corp.intel.com>
+ <20120119220410.GA11980@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:50004 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750825Ab2ATGk2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2012 01:40:28 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Guy, Wey-Yi W" <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Linux Wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120119220410.GA11980-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Currently RSS rings are not created in a multi-channel config.
-RSS rings can be created on one (out of four) interfaces per port in a
-multi-channel config. Doing this insulates the driver from a FW bug wherin
-multi-channel config is wrongly reported even when not enabled. This also
-helps performance in a multi-channel config, as one interface per port gets
-RSS rings.
+> 
+> On Thu, Jan 19, 2012 at 08:38:35PM +0000, Grumbach, Emmanuel wrote:
+>  > >
+>  > > >
+>  > > > On Thu, Jan 19, 2012 at 08:47:28AM +0200, Emmanuel Grumbach wrote:
+>  > > >  > Ok, I finally had a change to take a closer look at this. Please run
+>  > > >  > with debug=0xC0000000.
+>  > > >  >
+>  > > >  > This will be noisy, but I guess we have no choice...
+>  > > >  > I will be travelling next week, so...
+>  > > >
+>  > > > Ah. Got it. I had to do a large download (a kernel tarball was enough)
+> to
+>  > > > trigger it.
+>  > > > Log is at http://davej.fedorapeople.org/iwl-debug.txt
+>  > > >
+>  > > > The download began at around 13:17 in the log.
+>  > > > It hung shortly afterwards.
+>  > > >
+>  > > > 	Dave
+>  > >
+>  > > Thanks for that one. Really helpful. I need to send you a patch to get a
+>  > > little more data. I don't know when I will be able to do it though.
+>  >
+>  > Can you please retry with the patch attached ?
+> 
+> Hung again.
+> 
+> http://davej.fedorapeople.org/iwl-debug2.txt
+> 
+> 	Dave
 
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+Thanks. From what I see, a management frame is sent from an AC queue and when we get the Tx response for this frame, we get sta_id = AP, tid = 0 (and the bug is probably here). So we modify the counters for sta_id = AP, and tid = 0, and this messes up everything.
+I guess I need to see why I don't see this issue, and see how to give a hint to the Tx response path that counters shouldn't be modified.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 6c46753..dfe748e 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1786,8 +1786,7 @@ static void be_rx_queues_destroy(struct be_adapter *adapter)
- static u32 be_num_rxqs_want(struct be_adapter *adapter)
- {
- 	if ((adapter->function_caps & BE_FUNCTION_CAPS_RSS) &&
--	     !sriov_enabled(adapter) && be_physfn(adapter) &&
--	     !be_is_mc(adapter)) {
-+	     !sriov_enabled(adapter) && be_physfn(adapter)) {
- 		return 1 + MAX_RSS_QS; /* one default non-RSS queue */
- 	} else {
- 		dev_warn(&adapter->pdev->dev,
--- 
-1.7.4
+---------------------------------------------------------------------
+Intel Israel (74) Limited
+
+This e-mail and any attachments may contain confidential material for
+the sole use of the intended recipient(s). Any review or distribution
+by others is strictly prohibited. If you are not the intended
+recipient, please contact the sender and delete all copies.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
