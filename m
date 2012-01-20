@@ -1,7 +1,9 @@
 From: Satoru Moriya <satoru.moriya@hds.com>
-Subject: [PATCH v2 0/2] Tracepoint for tcp retransmission
-Date: Fri, 20 Jan 2012 13:07:02 -0500
-Message-ID: <65795E11DBF1E645A09CEC7EAEE94B9CB728DD67@USINDEVS02.corp.hds.com>
+Subject: [PATCH v2 1/2] tcp: refactor tcp_retransmit_skb() for a single
+ return point
+Date: Fri, 20 Jan 2012 13:08:02 -0500
+Message-ID: <65795E11DBF1E645A09CEC7EAEE94B9CB728DD6A@USINDEVS02.corp.hds.com>
+References: <65795E11DBF1E645A09CEC7EAEE94B9CB728DD67@USINDEVS02.corp.hds.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -14,57 +16,86 @@ Cc: "davem@davemloft.net" <davem@davemloft.net>,
 	Seiji Aguchi <seiji.aguchi@hds.com>
 To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usindpps03.hds.com ([207.126.252.16]:50515 "EHLO
+Received: from usindpps03.hds.com ([207.126.252.16]:50812 "EHLO
 	usindpps03.hds.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754914Ab2ATSHr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2012 13:07:47 -0500
+	with ESMTP id S1754914Ab2ATSIS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2012 13:08:18 -0500
+In-Reply-To: <65795E11DBF1E645A09CEC7EAEE94B9CB728DD67@USINDEVS02.corp.hds.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change log v1 -> v2
-- rewrite a patch description based on replies to v1 patchset
-- add local port number to tracedata
+This is just a cleanup patch for making easy to hook return value
+with a tracepoint.
 
-Sometimes network packets are dropped for some reason. In enterprise
-systems which require strict RAS functionality, we must know the
-reason why it happened and explain it to our customers even if using
-TCP. When we investigate the incidents, at first we try to find out
-whether the packet drop is in the server(kernel, application) or else
-(router, hub etc). Once we find it happened in the kernel, we try to
-get more details.
+Signed-off-by: Satoru Moriya <satoru.moriya@hds.com>
+---
+ net/ipv4/tcp_output.c |   31 +++++++++++++++++++++----------
+ 1 files changed, 21 insertions(+), 10 deletions(-)
 
-Currently, there are some tools/interfaces, e.g. tcpdump,
-dropwatch/skb:kfree_skb(tracepoint), netstat, /proc, systemtap etc, 
-which help us analyze situations.
-But unfortunately, they are too much for one, not enough for
-the other. tcpdump captures all the packet but it's overkill because
-we don't need all the packets' data but just dropped one. We can
-get statistics via netstat and/or /proc but we need more information
-to analyze the situation. skb:kfree_skb tracepoint is very useful
-for detecting packet drop and analyzing it. In addition to it, if
-we have tracepoints in TCP layer in particular retransmit path,
-it is very helpful for us to dig into situations because with TCP
-the kernel tries to resend packets before dropping them.
-
-With this tracepoint, we can know whether the packet drop occurred
-in the server (moreover in the kernel) or not. For example, if we
-finds that retransmission failed (tcp_retransmit_skb() returned
-negative value), it means the kernel may have some troubles at
-that time and we can drill down on issues in the kernel based on
-trace data. OTOH, if retransmission succeeded, packet is dropped
-outside the kernel/server.
-
-
-Satoru Moriya (2):
-  tcp: refactor tcp_retransmit_skb() for a single return point
-  tcp: add tracepoint for tcp retransmission
-
- include/trace/events/tcp.h |   38 ++++++++++++++++++++++++++++++++++++++
- net/core/net-traces.c      |    1 +
- net/ipv4/tcp_output.c      |   34 ++++++++++++++++++++++++----------
- 3 files changed, 63 insertions(+), 10 deletions(-)
- create mode 100644 include/trace/events/tcp.h
-
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 8c8de27..7bd23a8 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2092,18 +2092,24 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+ 	 * copying overhead: fragmentation, tunneling, mangling etc.
+ 	 */
+ 	if (atomic_read(&sk->sk_wmem_alloc) >
+-	    min(sk->sk_wmem_queued + (sk->sk_wmem_queued >> 2), sk->sk_sndbuf))
+-		return -EAGAIN;
++	    min(sk->sk_wmem_queued + (sk->sk_wmem_queued >> 2), sk->sk_sndbuf)) {
++		err = -EAGAIN;
++		goto out;
++	}
+ 
+ 	if (before(TCP_SKB_CB(skb)->seq, tp->snd_una)) {
+ 		if (before(TCP_SKB_CB(skb)->end_seq, tp->snd_una))
+ 			BUG();
+-		if (tcp_trim_head(sk, skb, tp->snd_una - TCP_SKB_CB(skb)->seq))
+-			return -ENOMEM;
++		if (tcp_trim_head(sk, skb, tp->snd_una - TCP_SKB_CB(skb)->seq)) {
++			err = -ENOMEM;
++			goto out;
++		}
+ 	}
+ 
+-	if (inet_csk(sk)->icsk_af_ops->rebuild_header(sk))
+-		return -EHOSTUNREACH; /* Routing failure or similar. */
++	if (inet_csk(sk)->icsk_af_ops->rebuild_header(sk)) {
++		err = -EHOSTUNREACH; /* Routing failure or similar. */
++		goto out;
++	}
+ 
+ 	cur_mss = tcp_current_mss(sk);
+ 
+@@ -2113,12 +2119,16 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+ 	 * our retransmit serves as a zero window probe.
+ 	 */
+ 	if (!before(TCP_SKB_CB(skb)->seq, tcp_wnd_end(tp)) &&
+-	    TCP_SKB_CB(skb)->seq != tp->snd_una)
+-		return -EAGAIN;
++	    TCP_SKB_CB(skb)->seq != tp->snd_una) {
++		err = -EAGAIN;
++		goto out;
++	}
+ 
+ 	if (skb->len > cur_mss) {
+-		if (tcp_fragment(sk, skb, cur_mss, cur_mss))
+-			return -ENOMEM; /* We'll try again later. */
++		if (tcp_fragment(sk, skb, cur_mss, cur_mss)) {
++			err = -ENOMEM; /* We'll try again later. */
++			goto out;
++		}
+ 	} else {
+ 		int oldpcount = tcp_skb_pcount(skb);
+ 
+@@ -2188,6 +2198,7 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+ 		 */
+ 		TCP_SKB_CB(skb)->ack_seq = tp->snd_nxt;
+ 	}
++out:
+ 	return err;
+ }
+ 
 -- 
 1.7.6.4
