@@ -1,39 +1,63 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [ethtool] ethtool: Add ntuple to the -K option in the man page.
-Date: Thu, 19 Jan 2012 22:13:51 -0800
-Message-ID: <1327040031-19152-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Amir Hanania <amir.hanania@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:48657 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751353Ab2ATGNz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jan 2012 01:13:55 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Single core gets pegged on multi-core PPTP server
+Date: Fri, 20 Jan 2012 07:16:30 +0100
+Message-ID: <1327040190.4826.7.camel@edumazet-laptop>
+References: <CAJuWrdtDgeCOSEvD-ytfwGj4UQeOtjeqUZd3Y1SLpbbsSvrycg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: paulus@samba.org, linux-ppp@vger.kernel.org, netdev@vger.kernel.org
+To: Bradley Peterson <despite@gmail.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <CAJuWrdtDgeCOSEvD-ytfwGj4UQeOtjeqUZd3Y1SLpbbsSvrycg@mail.gmail.com>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Amir Hanania <amir.hanania@intel.com>
+Le jeudi 19 janvier 2012 =C3=A0 16:35 -0600, Bradley Peterson a =C3=A9c=
+rit :
+> Hello,
+>=20
+> I am trying to test the capacity of a linux PPTP server, both in
+> number of connections, and in packets per second.  I am using kernel
+> 2.6.38.8, with the ppp, pptp, and gre modules, and accel-pptp 0.8.3.
+> I have RPS, RFS, and XPS enabled on the network devices for SMP
+> support.
+>=20
+> But I'm seeing one CPU get pegged out with soft interrupt, while the
+> others are almost completely idle.
+>=20
+> In my current test, I'm starting 250 pptp connections from another
+> server, then running iperf across each connection.  The client machin=
+e
+> pegs out, sure, but I'm surprised the server pegs out a single CPU.
+> With RPS, I would expect softirq's to be more balanced.
+>=20
+> Where could the bottleneck be?  Do all ppp packets need to be
+> processed serially?
+>=20
 
-Signed-off-by: Amir Hanania <amir.hanania@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- ethtool.8.in |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Hmmm, you need a more recent kernel or backport commit=20
+c6865cb3cc6f3c2857fa4c6f5fda2945d70b1e84
+    rps: Inspect GRE encapsulated packets to get flow hash
+   =20
+    Crack open GRE packets in __skb_get_rxhash to compute 4-tuple hash =
+on
+    in encapsulated packet.  Note that this is used only when the
+    __skb_get_rxhash is taken, in particular only when the device does
+    not compute provide the rxhash (ie. feature is disabled).
+   =20
+    This was tested by creating a single GRE tunnel between two 16 core
+    AMD machines.  200 netperf TCP_RR streams were ran with 1 byte
+    request and response size.
+   =20
+    Without patch: 157497 tps, 50/90/99% latencies 1250/1292/1364 usecs
+    With patch: 325896 tps, 50/90/99% latencies 603/848/1169
+   =20
+    Signed-off-by: Tom Herbert <therbert@google.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-diff --git a/ethtool.8.in b/ethtool.8.in
-index e6e46cc..9b8c5bc 100644
---- a/ethtool.8.in
-+++ b/ethtool.8.in
-@@ -212,6 +212,7 @@ ethtool \- query or control network driver and hardware settings
- .B2 gso on off
- .B2 gro on off
- .B2 lro on off
-+.B2 ntuple on off
- .B2 rxvlan on off
- .B2 txvlan on off
- .B2 rxhash on off
--- 
-1.7.7.5
+
+
+And make sure you disabled hardware rxhash (if your NIC provides it)
+
+
