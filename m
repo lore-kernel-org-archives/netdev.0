@@ -1,40 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH iproute2] red: Add adaptative algo
-Date: Fri, 20 Jan 2012 07:29:14 +0100
-Message-ID: <1327040954.4826.13.camel@edumazet-laptop>
-References: <1323385900.2529.12.camel@edumazet-laptop>
-	 <20111208164426.03248ca8@nehalam.linuxnetplumber.net>
-	 <1323403837.2529.14.camel@edumazet-laptop>
-	 <20111209093309.04b32e27@nehalam.linuxnetplumber.net>
-	 <1323455459.4016.7.camel@edumazet-laptop>
-	 <20120119144711.359077d6@nehalam.linuxnetplumber.net>
-	 <20120119173318.00000c73@unknown>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [ethtool] ethtool: Add ntuple to the -K option in the man page.
+Date: Thu, 19 Jan 2012 22:35:42 -0800
+Message-ID: <1327041342.2707.42.camel@jtkirshe-mobl>
+References: <1327040031-19152-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	netdev <netdev@vger.kernel.org>
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-3hap4Lh4LVg/+0U+2D6N"
+Cc: Amir Hanania <amir.hanania@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net, Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:39388 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751721Ab2ATG31 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2012 01:29:27 -0500
-Received: by wgbdr1 with SMTP id dr1so310640wgb.1
-        for <netdev@vger.kernel.org>; Thu, 19 Jan 2012 22:29:26 -0800 (PST)
-In-Reply-To: <20120119173318.00000c73@unknown>
+Received: from mga11.intel.com ([192.55.52.93]:37817 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750825Ab2ATGfn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jan 2012 01:35:43 -0500
+In-Reply-To: <1327040031-19152-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 19 janvier 2012 =C3=A0 17:33 -0800, Jesse Brandeburg a =C3=A9c=
-rit :
 
-> nit, but, if at all possible can you please spell "adaptive" correctl=
-y
-> especially since this is in a user interface.  I can send a patch but
-> was not going to get to it immediately and wanted to mention it.
+--=-3hap4Lh4LVg/+0U+2D6N
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Sure we can do that before first release.
+On Thu, 2012-01-19 at 22:13 -0800, Jeff Kirsher wrote:
+> From: Amir Hanania <amir.hanania@intel.com>
+>=20
+> Signed-off-by: Amir Hanania <amir.hanania@intel.com>
+> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  ethtool.8.in |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/ethtool.8.in b/ethtool.8.in
+> index e6e46cc..9b8c5bc 100644
+> --- a/ethtool.8.in
+> +++ b/ethtool.8.in
+> @@ -212,6 +212,7 @@ ethtool \- query or control network driver and hardwa=
+re settings
+>  .B2 gso on off
+>  .B2 gro on off
+>  .B2 lro on off
+> +.B2 ntuple on off
+>  .B2 rxvlan on off
+>  .B2 txvlan on off
+>  .B2 rxhash on off
 
-Sorry, in French we say "adaptatif" (or adaptative depending on gender)
-and I didnt really check english spelling.
+Sorry, I meant to send this to Ben as well.
+
+--=-3hap4Lh4LVg/+0U+2D6N
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAABCgAGBQJPGQs+AAoJEOVv75VaS+3ONRYQAIrkEqLrCgpSP+Bsh88mhRlh
+TDmH/Tfwu2ujXOogRaPK90/6NTlPSw9fCSQ+qMu9nPLz4ugLiFr5coVhUveu2U7G
+gybdEcGYOialXA5fPUIop9IXopONjkC9l/CBLMwIF9Y9T7Zu4EBRvpVtfO922jUS
+U6C4DayoX8ib0acORhhQ/Mjw4auwBhaUlnllSsWAgPNy1FYCx5XvaU+eKguJUO/4
+k01Z9A61O+O3L4CUS8MOxuqO70KGEUVfEzhJ9CK2T2DjtVofgJSWhWwHGnnYnKrw
+V/9CFgHRyYUTl0PkrbAoAXbLSGYfU+m6tq+fmPM/hnpGjIwVk2KRzBuIChYb4qi9
+XynTE9BprsMs2b9EUTOQt4VA0PkkuPvF9vF77IsZr/ixgtvkSPfI/bf2Z9PlZomv
+/oLvxxho23Fc3xSEAuCeFYI/d762Hg1sg1GtG/rMmKcXaFEXjR8Ao5vrwrYAZw9l
+dOqkIdraG6VV30An69RG+2g7Ew+Y8Om/myIo8xH49241lRoDYBWE7wF2ObRNrIIZ
+A3NG55DTm4xRrsXhnrGot/t3n8j5DeImoanAdPOAQqPyn6nMsRN5FhfVSyDcnZyS
+ZiafM4Hdo0A4W0zr9p0dHhB1yse8AQCs+wOF9wi2yP+Lk1nNPQvuOrQA8eXEtViV
+nHtST9/gH9o8axx+ByN0
+=xNgI
+-----END PGP SIGNATURE-----
+
+--=-3hap4Lh4LVg/+0U+2D6N--
