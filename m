@@ -1,60 +1,58 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Hung task when calling clone() due to netfilter/slab
-Date: Thu, 19 Jan 2012 18:31:30 -0800
-Message-ID: <m1y5t3yuil.fsf@fess.ebiederm.org>
-References: <1326558605.19951.7.camel@lappy>
-	<1326561043.5287.24.camel@edumazet-laptop>
-	<1326632384.11711.3.camel@lappy>
-	<1326648305.5287.78.camel@edumazet-laptop>
-	<alpine.DEB.2.00.1201170910130.4800@router.home>
-	<1326813630.2259.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<alpine.DEB.2.00.1201170927020.4800@router.home>
-	<1326814208.2259.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<alpine.DEB.2.00.1201170942240.4800@router.home>
-	<alpine.DEB.2.00.1201171620590.14697@router.home>
-	<m1bopz2ws3.fsf@fess.ebiederm.org> <m14nvr2vbu.fsf@fess.ebiederm.org>
-	<alpine.DEB.2.00.1201191959540.14480@router.home>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 2/2] tcp: fix undo after RTO for CUBIC
+Date: Thu, 19 Jan 2012 18:49:21 -0800
+Message-ID: <20120119184921.314d3d88@nehalam.linuxnetplumber.net>
+References: <1326944879-22780-1-git-send-email-ncardwell@google.com>
+	<1326944879-22780-2-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,  Sasha Levin <levinsasha928@gmail.com>,  Dave Jones <davej@redhat.com>,  davem <davem@davemloft.net>,  Pekka Enberg <penberg@kernel.org>,  Matt Mackall <mpm@selenic.com>,  kaber@trash.net,  pablo@netfilter.org,  linux-kernel <linux-kernel@vger.kernel.org>,  linux-mm <linux-mm@kvack.org>,  netfilter-devel@vger.kernel.org,  netdev <netdev@vger.kernel.org>
-To: Christoph Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.00.1201191959540.14480@router.home> (Christoph
-	Lameter's message of "Thu, 19 Jan 2012 20:03:51 -0600 (CST)")
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	ilpo.jarvinen@helsinki.fi, Nandita Dukkipati <nanditad@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Jerry Chu <hkchu@google.com>, Tom Herbert <therbert@google.com>
+To: Neal Cardwell <ncardwell@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:60727 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753037Ab2ATCtY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jan 2012 21:49:24 -0500
+In-Reply-To: <1326944879-22780-2-git-send-email-ncardwell@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Christoph Lameter <cl@linux.com> writes:
+On Wed, 18 Jan 2012 22:47:59 -0500
+Neal Cardwell <ncardwell@google.com> wrote:
 
-> On Thu, 19 Jan 2012, Eric W. Biederman wrote:
->
->> Oh.  I see.  The problem is calling kobject_uevent (which happens to
->> live in slabs sysfs_slab_add) with a lock held.  And kobject_uevent
->> makes a blocking call to userspace.
->>
->> No locks held seems to be a good policy on that one.
->
-> Well we can just remove that call to kobject_uevent instead then. Does it
-> do anything useful? Cannot remember why we put that in there.
+> This patch fixes CUBIC so that cwnd reductions made during RTOs can be
+> undone (just as they already can be undone when using the default/Reno
+> behavior).
+> 
+> When undoing cwnd reductions, BIC-derived congestion control modules
+> were restoring the cwnd from last_max_cwnd. There were two problems
+> with using last_max_cwnd to restore a cwnd during undo:
+> 
+> (a) last_max_cwnd was set to 0 on state transitions into TCP_CA_Loss
+> (by calling the module's reset() functions), so cwnd reductions from
+> RTOs could not be undone.
+> 
+> (b) when fast_covergence is enabled (which it is by default)
+> last_max_cwnd does not actually hold the value of snd_cwnd before the
+> loss; instead, it holds a scaled-down version of snd_cwnd.
+> 
+> This patch makes the following changes:
+> 
+> (1) upon undo, revert snd_cwnd to ca->loss_cwnd, which is already, as
+> the existing comment notes, the "congestion window at last loss"
+> 
+> (2) stop forgetting ca->loss_cwnd on TCP_CA_Loss events
+> 
+> (3) use ca->last_max_cwnd to check if we're in slow start
+> 
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
 
-Empirically it sounds like something is listening for it and doing cat
-/proc/slabinfo.  Something like that would have to occur for their to be
-a deadlock that was observed.
+I was unsure of this, so forwarded it to the author 
+and received his confirmation.
 
-On the flip side removing from sysfs with locks held must be done
-carefully, and as a default I would recommend not to hold locks over
-removing things from sysfs.  As removal blocks waiting for all of the
-callers into sysfs those sysfs attributes to complete.
-
-It looks like you are ok on the removal because none of the sysfs
-attributes appear to take the slub_lock, just /proc/slabinfo.  But
-it does look like playing with fire.
-
-Eric
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+Acked-by: Sangtae Ha <sangtae.ha@gmail.com>
