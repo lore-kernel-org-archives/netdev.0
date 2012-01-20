@@ -1,109 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH iproute2] choke: support TCA_CHOKE_MAX_P
-Date: Fri, 20 Jan 2012 16:19:44 +0100
-Message-ID: <1327072784.12389.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Bradley Peterson <despite@gmail.com>
+Subject: Re: Single core gets pegged on multi-core PPTP server
+Date: Fri, 20 Jan 2012 09:20:02 -0600
+Message-ID: <CAJuWrdu13Usax+bD3gtOkK=dhFyHQfMk5E7CLM=q8j_u92Hfkg@mail.gmail.com>
+References: <CAJuWrdtDgeCOSEvD-ytfwGj4UQeOtjeqUZd3Y1SLpbbsSvrycg@mail.gmail.com>
+	<1327040190.4826.7.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:59420 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753626Ab2ATPTr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2012 10:19:47 -0500
-Received: by wics10 with SMTP id s10so504816wic.19
-        for <netdev@vger.kernel.org>; Fri, 20 Jan 2012 07:19:46 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: paulus@samba.org, linux-ppp@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <1327040190.4826.7.camel@edumazet-laptop>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-TCA_CHOKE_MAX_P permits to express high resolution RED probability.
+On Fri, Jan 20, 2012 at 12:16 AM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> Le jeudi 19 janvier 2012 =E0 16:35 -0600, Bradley Peterson a =E9crit =
+:
+>> Hello,
+>>
+>> I am trying to test the capacity of a linux PPTP server, both in
+>> number of connections, and in packets per second. =A0I am using kern=
+el
+>> 2.6.38.8, with the ppp, pptp, and gre modules, and accel-pptp 0.8.3.
+>> I have RPS, RFS, and XPS enabled on the network devices for SMP
+>> support.
+>>
+>> But I'm seeing one CPU get pegged out with soft interrupt, while the
+>> others are almost completely idle.
+>>
+>> In my current test, I'm starting 250 pptp connections from another
+>> server, then running iperf across each connection. =A0The client mac=
+hine
+>> pegs out, sure, but I'm surprised the server pegs out a single CPU.
+>> With RPS, I would expect softirq's to be more balanced.
+>>
+>> Where could the bottleneck be? =A0Do all ppp packets need to be
+>> processed serially?
+>>
+>
+> Hmmm, you need a more recent kernel or backport commit
+> c6865cb3cc6f3c2857fa4c6f5fda2945d70b1e84
+> =A0 =A0rps: Inspect GRE encapsulated packets to get flow hash
+>
+> =A0 =A0Crack open GRE packets in __skb_get_rxhash to compute 4-tuple =
+hash on
+> =A0 =A0in encapsulated packet. =A0Note that this is used only when th=
+e
+> =A0 =A0__skb_get_rxhash is taken, in particular only when the device =
+does
+> =A0 =A0not compute provide the rxhash (ie. feature is disabled).
+>
+> =A0 =A0This was tested by creating a single GRE tunnel between two 16=
+ core
+> =A0 =A0AMD machines. =A0200 netperf TCP_RR streams were ran with 1 by=
+te
+> =A0 =A0request and response size.
+>
+> =A0 =A0Without patch: 157497 tps, 50/90/99% latencies 1250/1292/1364 =
+usecs
+> =A0 =A0With patch: 325896 tps, 50/90/99% latencies 603/848/1169
+>
+> =A0 =A0Signed-off-by: Tom Herbert <therbert@google.com>
+> =A0 =A0Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+>
+>
+> And make sure you disabled hardware rxhash (if your NIC provides it)
+>
+>
 
-tc qdisc add dev $DEV parent 1:1 handle 10: est 1sec 8sec choke \
-	limit 90 ecn min 10 max 30 probability 0.05 bandwidth 10Mbit
-
-Before patch :
-
-tc -s -d qdisc show dev eth3
-qdisc ... limit 90p min 10p max 30p ecn ewma 3 Plog 19 Scell_log 13
-
-After :
-
-qdisc ... limit 90p min 10p max 30p ecn ewma 3 probability 0.05
-Scell_log 13
-
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- tc/q_choke.c |   20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
-
-diff --git a/tc/q_choke.c b/tc/q_choke.c
-index 7816f62..c616926 100644
---- a/tc/q_choke.c
-+++ b/tc/q_choke.c
-@@ -18,6 +18,7 @@
- #include <netinet/in.h>
- #include <arpa/inet.h>
- #include <string.h>
-+#include <math.h>
- 
- #include "utils.h"
- #include "tc_util.h"
-@@ -41,6 +42,7 @@ static int choke_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 	int ecn_ok = 0;
- 	int wlog;
- 	__u8 sbuf[256];
-+	__u32 max_P;
- 	struct rtattr *tail;
- 
- 	memset(&opt, 0, sizeof(opt));
-@@ -156,25 +158,31 @@ static int choke_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
- 	addattr_l(n, 1024, TCA_CHOKE_PARMS, &opt, sizeof(opt));
- 	addattr_l(n, 1024, TCA_CHOKE_STAB, sbuf, 256);
-+	max_P = probability * pow(2, 32);
-+	addattr_l(n, 1024, TCA_CHOKE_MAX_P, &max_P, sizeof(max_P));
- 	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
- 	return 0;
- }
- 
- static int choke_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- {
--	struct rtattr *tb[TCA_CHOKE_STAB+1];
-+	struct rtattr *tb[TCA_CHOKE_MAX+1];
- 	const struct tc_red_qopt *qopt;
-+	__u32 max_P = 0;
- 
- 	if (opt == NULL)
- 		return 0;
- 
--	parse_rtattr_nested(tb, TCA_CHOKE_STAB, opt);
-+	parse_rtattr_nested(tb, TCA_CHOKE_MAX, opt);
- 
- 	if (tb[TCA_CHOKE_PARMS] == NULL)
- 		return -1;
- 	qopt = RTA_DATA(tb[TCA_CHOKE_PARMS]);
- 	if (RTA_PAYLOAD(tb[TCA_CHOKE_PARMS])  < sizeof(*qopt))
- 		return -1;
-+	if (tb[TCA_CHOKE_MAX_P] &&
-+	    RTA_PAYLOAD(tb[TCA_CHOKE_MAX_P]) >= sizeof(__u32))
-+		max_P = *(__u32 *)RTA_DATA(tb[TCA_CHOKE_MAX_P]);
- 
- 	fprintf(f, "limit %up min %up max %up ",
- 		qopt->limit, qopt->qth_min, qopt->qth_max);
-@@ -183,8 +191,12 @@ static int choke_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 		fprintf(f, "ecn ");
- 
- 	if (show_details) {
--		fprintf(f, "ewma %u Plog %u Scell_log %u",
--			qopt->Wlog, qopt->Plog, qopt->Scell_log);
-+		fprintf(f, "ewma %u ", qopt->Wlog);
-+		if (max_P)
-+			fprintf(f, "probability %g ", max_P / pow(2, 32));
-+		else
-+			fprintf(f, "Plog %u ", qopt->Plog);
-+		fprintf(f, "Scell_log %u", qopt->Scell_log);
- 	}
- 	return 0;
- }
+Thank you, I had missed the work on RPS with encapsulated packets.  I
+will try a newer kernel.
