@@ -1,83 +1,185 @@
-From: Alexey Osipov <simba@lerlan.ru>
-Subject: Re: Single core gets pegged on multi-core PPTP server
-Date: Fri, 20 Jan 2012 06:28:16 +0700
-Message-ID: <1327015696.4513.6.camel@dahari>
-References: <CAJuWrdtDgeCOSEvD-ytfwGj4UQeOtjeqUZd3Y1SLpbbsSvrycg@mail.gmail.com>
-	 <CAFnNQmy8yDVuAToaxfi4BA3wSU4mvhJ22O3KdBjn=vtSL-zvLg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: paulus@samba.org, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, Bradley Peterson <despite@gmail.com>
-To: Emanuil Hristov <int986@gmail.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <CAFnNQmy8yDVuAToaxfi4BA3wSU4mvhJ22O3KdBjn=vtSL-zvLg@mail.gmail.com>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH v2] tcp: detect loss above high_seq in recovery
+Date: Thu, 19 Jan 2012 16:42:21 -0800
+Message-ID: <1327020141-26883-1-git-send-email-ycheng@google.com>
+Cc: ncardwell@google.com, nanditad@google.com, netdev@vger.kernel.org,
+	Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net, ilpo.jarvinen@helsinki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f74.google.com ([209.85.213.74]:57427 "EHLO
+	mail-yw0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751201Ab2ATApN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2012 19:45:13 -0500
+Received: by yhjj52 with SMTP id j52so4947yhj.1
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2012 16:45:12 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Correctly implement a loss detection heuristic: New sequences (above
+high_seq) sent during the fast recovery are deemed lost when higher
+sequences are SACKed.
 
-AFAIK, accel-ppp !=3D accel-pptp.
+Current code does not catch these losses, because tcp_mark_head_lost()
+does not check packets beyond high_seq. The fix is straight-forward by
+checking packets until the highest sacked packet. In addition, all the
+FLAG_DATA_LOST logic are in-effective and redundant and can be removed.
 
-accel-pptp - kernel module for speed-up pptp processing done by pppd.
+Update the loss heuristic comments. The algorithm above is documented
+as heuristic B, but it is redundant too because heuristic A already
+covers B.
 
-accel-ppp - entirely new implementation of ppp written from scratch. No
-pppd is used in this case.
+Note that this change only marks some forward-retransmitted packets LOST.
+It does NOT forbid TCP performing further CWR on new losses. A potential
+follow-up patch under preparation is to perform another CWR on "new"
+losses such as
+1) sequence above high_seq is lost (by resetting high_seq to snd_nxt)
+2) retransmission is lost.
 
-So, if in your configuration, you need to use some other plugins for
-pppd, you can't just switch from accel-pptp to accel-ppp, because
-accel-ppp have it's own plugin API.
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+---
+Changelog since v1:
+ - A slightly better comment
 
-Regards,
-Alexey.
+ include/linux/snmp.h |    1 -
+ net/ipv4/proc.c      |    1 -
+ net/ipv4/tcp_input.c |   41 +++++++++++++++--------------------------
+ 3 files changed, 15 insertions(+), 28 deletions(-)
 
-=D0=92 =D0=9F=D1=82=D0=BD, 20/01/2012 =D0=B2 00:55 +0200, Emanuil Hrist=
-ov =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> Hi,
-> try with more recent version of accel-ppp (1.5 is lastest) and newer
-> kernel - there
-> are several critical bugs in older kernels
->=20
->=20
-> P.S the project accel-pptp has changed its name to accel-ppp
->=20
-> cheers
->=20
-> On Fri, Jan 20, 2012 at 12:35 AM, Bradley Peterson <despite@gmail.com=
-> wrote:
-> > Hello,
-> >
-> > I am trying to test the capacity of a linux PPTP server, both in
-> > number of connections, and in packets per second.  I am using kerne=
-l
-> > 2.6.38.8, with the ppp, pptp, and gre modules, and accel-pptp 0.8.3=
-=2E
-> > I have RPS, RFS, and XPS enabled on the network devices for SMP
-> > support.
-> >
-> > But I'm seeing one CPU get pegged out with soft interrupt, while th=
-e
-> > others are almost completely idle.
-> >
-> > In my current test, I'm starting 250 pptp connections from another
-> > server, then running iperf across each connection.  The client mach=
-ine
-> > pegs out, sure, but I'm surprised the server pegs out a single CPU.
-> > With RPS, I would expect softirq's to be more balanced.
-> >
-> > Where could the bottleneck be?  Do all ppp packets need to be
-> > processed serially?
-> >
-> > Brad
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" i=
-n
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-ppp" =
-in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
+diff --git a/include/linux/snmp.h b/include/linux/snmp.h
+index e16557a..c1241c42 100644
+--- a/include/linux/snmp.h
++++ b/include/linux/snmp.h
+@@ -192,7 +192,6 @@ enum
+ 	LINUX_MIB_TCPPARTIALUNDO,		/* TCPPartialUndo */
+ 	LINUX_MIB_TCPDSACKUNDO,			/* TCPDSACKUndo */
+ 	LINUX_MIB_TCPLOSSUNDO,			/* TCPLossUndo */
+-	LINUX_MIB_TCPLOSS,			/* TCPLoss */
+ 	LINUX_MIB_TCPLOSTRETRANSMIT,		/* TCPLostRetransmit */
+ 	LINUX_MIB_TCPRENOFAILURES,		/* TCPRenoFailures */
+ 	LINUX_MIB_TCPSACKFAILURES,		/* TCPSackFailures */
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 3569d8e..6afc807 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -216,7 +216,6 @@ static const struct snmp_mib snmp4_net_list[] = {
+ 	SNMP_MIB_ITEM("TCPPartialUndo", LINUX_MIB_TCPPARTIALUNDO),
+ 	SNMP_MIB_ITEM("TCPDSACKUndo", LINUX_MIB_TCPDSACKUNDO),
+ 	SNMP_MIB_ITEM("TCPLossUndo", LINUX_MIB_TCPLOSSUNDO),
+-	SNMP_MIB_ITEM("TCPLoss", LINUX_MIB_TCPLOSS),
+ 	SNMP_MIB_ITEM("TCPLostRetransmit", LINUX_MIB_TCPLOSTRETRANSMIT),
+ 	SNMP_MIB_ITEM("TCPRenoFailures", LINUX_MIB_TCPRENOFAILURES),
+ 	SNMP_MIB_ITEM("TCPSackFailures", LINUX_MIB_TCPSACKFAILURES),
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 2877c3e..976034f 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -105,7 +105,6 @@ int sysctl_tcp_abc __read_mostly;
+ #define FLAG_SYN_ACKED		0x10 /* This ACK acknowledged SYN.		*/
+ #define FLAG_DATA_SACKED	0x20 /* New SACK.				*/
+ #define FLAG_ECE		0x40 /* ECE in this ACK				*/
+-#define FLAG_DATA_LOST		0x80 /* SACK detected data lossage.		*/
+ #define FLAG_SLOWPATH		0x100 /* Do not skip RFC checks for window update.*/
+ #define FLAG_ONLY_ORIG_SACKED	0x200 /* SACKs only non-rexmit sent before RTO */
+ #define FLAG_SND_UNA_ADVANCED	0x400 /* Snd_una was changed (!= FLAG_DATA_ACKED) */
+@@ -1040,13 +1039,11 @@ static void tcp_skb_mark_lost_uncond_verify(struct tcp_sock *tp,
+  * These 6 states form finite state machine, controlled by the following events:
+  * 1. New ACK (+SACK) arrives. (tcp_sacktag_write_queue())
+  * 2. Retransmission. (tcp_retransmit_skb(), tcp_xmit_retransmit_queue())
+- * 3. Loss detection event of one of three flavors:
++ * 3. Loss detection event of two flavors:
+  *	A. Scoreboard estimator decided the packet is lost.
+  *	   A'. Reno "three dupacks" marks head of queue lost.
+- *	   A''. Its FACK modfication, head until snd.fack is lost.
+- *	B. SACK arrives sacking data transmitted after never retransmitted
+- *	   hole was sent out.
+- *	C. SACK arrives sacking SND.NXT at the moment, when the
++ *	   A''. Its FACK modification, head until snd.fack is lost.
++ *	B. SACK arrives sacking SND.NXT at the moment, when the
+  *	   segment was retransmitted.
+  * 4. D-SACK added new rule: D-SACK changes any tag to S.
+  *
+@@ -1153,7 +1150,7 @@ static int tcp_is_sackblock_valid(struct tcp_sock *tp, int is_dsack,
+ }
+ 
+ /* Check for lost retransmit. This superb idea is borrowed from "ratehalving".
+- * Event "C". Later note: FACK people cheated me again 8), we have to account
++ * Event "B". Later note: FACK people cheated me again 8), we have to account
+  * for reordering! Ugly, but should help.
+  *
+  * Search retransmitted skbs from write_queue that were sent when snd_nxt was
+@@ -1844,10 +1841,6 @@ tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
+ 		if (found_dup_sack && ((i + 1) == first_sack_index))
+ 			next_dup = &sp[i + 1];
+ 
+-		/* Event "B" in the comment above. */
+-		if (after(end_seq, tp->high_seq))
+-			state.flag |= FLAG_DATA_LOST;
+-
+ 		/* Skip too early cached blocks */
+ 		while (tcp_sack_cache_ok(tp, cache) &&
+ 		       !before(start_seq, cache->end_seq))
+@@ -2515,8 +2508,11 @@ static void tcp_timeout_skbs(struct sock *sk)
+ 	tcp_verify_left_out(tp);
+ }
+ 
+-/* Mark head of queue up as lost. With RFC3517 SACK, the packets is
+- * is against sacked "cnt", otherwise it's against facked "cnt"
++/* Detect loss in event "A" above by marking head of queue up as lost.
++ * For FACK or non-SACK(Reno) senders, the first "packets" number of segments
++ * are considered lost. For RFC3517 SACK, a segment is considered lost if it
++ * has at least tp->reordering SACKed seqments above it; "packets" refers to
++ * the maximum SACKed segments to pass before reaching this limit.
+  */
+ static void tcp_mark_head_lost(struct sock *sk, int packets, int mark_head)
+ {
+@@ -2525,6 +2521,8 @@ static void tcp_mark_head_lost(struct sock *sk, int packets, int mark_head)
+ 	int cnt, oldcnt;
+ 	int err;
+ 	unsigned int mss;
++	/* Use SACK to deduce losses of new sequences sent during recovery */
++	const u32 loss_high = tcp_is_sack(tp) ?  tp->snd_nxt : tp->high_seq;
+ 
+ 	WARN_ON(packets > tp->packets_out);
+ 	if (tp->lost_skb_hint) {
+@@ -2546,7 +2544,7 @@ static void tcp_mark_head_lost(struct sock *sk, int packets, int mark_head)
+ 		tp->lost_skb_hint = skb;
+ 		tp->lost_cnt_hint = cnt;
+ 
+-		if (after(TCP_SKB_CB(skb)->end_seq, tp->high_seq))
++		if (after(TCP_SKB_CB(skb)->end_seq, loss_high))
+ 			break;
+ 
+ 		oldcnt = cnt;
+@@ -3033,19 +3031,10 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
+ 	if (tcp_check_sack_reneging(sk, flag))
+ 		return;
+ 
+-	/* C. Process data loss notification, provided it is valid. */
+-	if (tcp_is_fack(tp) && (flag & FLAG_DATA_LOST) &&
+-	    before(tp->snd_una, tp->high_seq) &&
+-	    icsk->icsk_ca_state != TCP_CA_Open &&
+-	    tp->fackets_out > tp->reordering) {
+-		tcp_mark_head_lost(sk, tp->fackets_out - tp->reordering, 0);
+-		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPLOSS);
+-	}
+-
+-	/* D. Check consistency of the current state. */
++	/* C. Check consistency of the current state. */
+ 	tcp_verify_left_out(tp);
+ 
+-	/* E. Check state exit conditions. State can be terminated
++	/* D. Check state exit conditions. State can be terminated
+ 	 *    when high_seq is ACKed. */
+ 	if (icsk->icsk_ca_state == TCP_CA_Open) {
+ 		WARN_ON(tp->retrans_out != 0);
+@@ -3077,7 +3066,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
+ 		}
+ 	}
+ 
+-	/* F. Process state. */
++	/* E. Process state. */
+ 	switch (icsk->icsk_ca_state) {
+ 	case TCP_CA_Recovery:
+ 		if (!(flag & FLAG_SND_UNA_ADVANCED)) {
+-- 
+1.7.7.3
