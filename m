@@ -1,53 +1,35 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [ethtool] ethtool: Add ntuple to the -K option in the man page.
-Date: Fri, 20 Jan 2012 20:49:49 +0000
-Message-ID: <1327092589.2452.2.camel@bwh-desktop>
-References: <1327040031-19152-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] iproute: Dump unix sockets via netlink
+Date: Fri, 20 Jan 2012 12:51:48 -0800
+Message-ID: <20120120125148.536d12fe@nehalam.linuxnetplumber.net>
+References: <4EE9EB2A.4040909@parallels.com>
+	<4EE9F5EF.8000101@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, Amir Hanania <amir.hanania@intel.com>,
-	<netdev@vger.kernel.org>, <gospo@redhat.com>, <sassmann@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:8425 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753157Ab2ATUt4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2012 15:49:56 -0500
-In-Reply-To: <1327040031-19152-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail.vyatta.com ([76.74.103.46]:34154 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753673Ab2ATUvv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jan 2012 15:51:51 -0500
+In-Reply-To: <4EE9F5EF.8000101@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-01-19 at 22:13 -0800, Jeff Kirsher wrote:
-> From: Amir Hanania <amir.hanania@intel.com>
+On Thu, 15 Dec 2011 17:28:15 +0400
+Pavel Emelyanov <xemul@parallels.com> wrote:
+
+> Get the same info as from /proc file plus the peer inode.
 > 
-> Signed-off-by: Amir Hanania <amir.hanania@intel.com>
-> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Applies on top of new sock diag patch and udp diag patch.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+> 
 > ---
->  ethtool.8.in |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
-> 
-> diff --git a/ethtool.8.in b/ethtool.8.in
-> index e6e46cc..9b8c5bc 100644
-> --- a/ethtool.8.in
-> +++ b/ethtool.8.in
-> @@ -212,6 +212,7 @@ ethtool \- query or control network driver and hardware settings
->  .B2 gso on off
->  .B2 gro on off
->  .B2 lro on off
-> +.B2 ntuple on off
->  .B2 rxvlan on off
->  .B2 txvlan on off
->  .B2 rxhash on off
 
-This fixes the synopsis, but there should also be a full description
-further down the page.  And a nitpick: this ought to be consistent with
-the ordering in 'ethtool -h' output.
+Applied, but was missing sock_diag.h in include's.
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Also, please update manual pages.
