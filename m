@@ -1,262 +1,61 @@
-From: nick black <dankamongmen@gmail.com>
-Subject: Re: Bug#656585: iproute: "ip l" fails with RTNETLINK message
-Date: Fri, 20 Jan 2012 11:52:19 -0500
-Message-ID: <20120120165219.GA21936@qemfd.net>
-References: <20120120101233.17696.79723.reportbug@localhost>
- <20120120131047.GA7179@amd64.fatal.se>
- <20120120143922.GA20128@qemfd.net>
- <20120120145054.GA8443@amd64.fatal.se>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 3/3] net: introduce res_counter_charge_nofail() for
+ socket allocations
+Date: Fri, 20 Jan 2012 09:07:49 -0800
+Message-ID: <20120120170749.GA3086@dhcp-172-17-108-109.mtv.corp.google.com>
+References: <1327071436-20763-1-git-send-email-glommer@parallels.com>
+ <1327071436-20763-4-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="vtzGhvizbBRQ85DL"
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: Andreas Henriksson <andreas@fatal.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:57298 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752509Ab2ATQwW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2012 11:52:22 -0500
-Received: by ghbg18 with SMTP id g18so344730ghb.19
-        for <netdev@vger.kernel.org>; Fri, 20 Jan 2012 08:52:22 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20120120145054.GA8443@amd64.fatal.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---vtzGhvizbBRQ85DL
 Content-Type: text/plain; charset=us-ascii
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
+	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>, Li Zefan <lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	Laurent Chavey <chavey-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
+In-Reply-To: <1327071436-20763-4-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Andreas Henriksson left as an exercise for the reader:
-> Hello again!
+On Fri, Jan 20, 2012 at 06:57:16PM +0400, Glauber Costa wrote:
+> There is a case in __sk_mem_schedule(), where an allocation
+> is beyond the maximum, but yet we are allowed to proceed.
+> It happens under the following condition:
 > 
-> On Fri, Jan 20, 2012 at 09:39:22AM -0500, nick black wrote:
-> > I can put together a manpage patch if you'd like, but I suspect you'd rather
-> > I leave it in your capable hands.
+> 	sk->sk_wmem_queued + size >= sk->sk_sndbuf
 > 
-> I'd very much appreciate if you'd create a patch and submit it upstream
-> (Stephen Hemminger <shemminger@vyatta.com> and the netdev mailing list)
-> There are many other issues with the man pages and help output that
-> you are more then willing to help dig into if you have time.
-> Please see http://bugs.debian.org/src:iproute for hints on where
-> documentation updates are needed.
+> The network code won't revert the allocation in this case,
+> meaning that at some point later it'll try to do it. Since
+> this is never communicated to the underlying res_counter
+> code, there is an inbalance in res_counter uncharge operation.
+> 
+> I see two ways of fixing this:
+> 
+> 1) storing the information about those allocations somewhere
+>    in memcg, and then deducting from that first, before
+>    we start draining the res_counter,
+> 2) providing a slightly different allocation function for
+>    the res_counter, that matches the original behavior of
+>    the network code more closely.
+> 
+> I decided to go for #2 here, believing it to be more elegant,
+> since #1 would require us to do basically that, but in a more
+> obscure way.
+> 
+> Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> Cc: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+> Cc: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+> Cc: Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
+> CC: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> CC: Li Zefan <lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+> CC: Laurent Chavey <chavey-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 
-Alrightie, I did just that.
+Acked-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 
-I'm in no position to write a full ip-l2tp(8) man page. I have, however:
-
- * synced SYNOPSIS up with current "ip help" entries
- * made SYNOPSIS conform to "ip help"'s ordering
- * synced SYNTAX up with SYNOPSIS, pulling definitions for netns and
-    ntable out from beyond the realms of my ass. please verify.
- * alphabetized the SYNTAX entries
- * synced SEE ALSO up with current "dpkg -L iproute | grep 8/ip-"
-
-Attached and inline.
-
-diff -ur /home/dank/iproute-20120105/man/man8/ip.8 /home/dank/src/iproute-20120105/man/man8/ip.8
---- /home/dank/iproute-20120105/man/man8/ip.8	2012-01-05 11:34:31.000000000 -0500
-+++ /home/dank/src/iproute-20120105/man/man8/ip.8	2012-01-20 11:47:12.751632078 -0500
-@@ -14,7 +14,8 @@
- .ti -8
- .IR OBJECT " := { "
- .BR link " | " addr " | " addrlabel " | " route " | " rule " | " neigh " | "\
-- tunnel " | " maddr " | "  mroute " }"
-+ ntable " | " tunnel " | " tuntap " | " maddr " | "  mroute " | " mrule " | "\
-+ monitor " | " xfrm " | " netns " | "  l2tp " }"
- .sp
- 
- .ti -8
-@@ -103,10 +104,6 @@
- .I OBJECT
- 
- .TP
--.B link
--- network device.
--
--.TP
- .B address
- - protocol (IP or IPv6) address on a device.
- 
-@@ -115,8 +112,40 @@
- - label configuration for protocol address selection.
- 
- .TP
-+.B l2tp
-+- tunnel PPP over IP (L2TP).
-+
-+.TP
-+.B link
-+- network device.
-+
-+.TP
-+.B maddress
-+- multicast address.
-+
-+.TP
-+.B monitor
-+- watch for netlink messages.
-+
-+.TP
-+.B mroute
-+- multicast routing cache entry.
-+
-+.TP
-+.B mrule
-+- rule in multicast routing policy database.
-+
-+.TP
- .B neighbour
--- ARP or NDISC cache entry.
-+- manage ARP or NDISC cache entries.
-+
-+.TP
-+.B netns
-+- manage network namespaces.
-+
-+.TP
-+.B ntable
-+- manage the neighbor cache's operation.
- 
- .TP
- .B route
-@@ -127,16 +156,16 @@
- - rule in routing policy database.
- 
- .TP
--.B maddress
--- multicast address.
-+.B tunnel
-+- tunnel over IP.
- 
- .TP
--.B mroute
--- multicast routing cache entry.
-+.B tuntap
-+- manage TUN/TAP devices.
- 
- .TP
--.B tunnel
--- tunnel over IP.
-+.B xfrm
-+- manage IPSec policies.
- 
- .PP
- The names of all objects may be written in full or
-@@ -181,6 +210,7 @@
- .BR ip-monitor (8),
- .BR ip-mroute (8),
- .BR ip-neighbour (8),
-+.BR ip-netns (8),
- .BR ip-ntable (8),
- .BR ip-route (8),
- .BR ip-rule (8),
+Thanks.
 
 -- 
-                                 nick black <nickblack@linux.com>
-                   "if you want to make an apple pie from scratch,
-                             you need to first invent a universe."
-
---vtzGhvizbBRQ85DL
-Content-Type: text/x-diff; charset=us-ascii
-Content-Disposition: attachment; filename="iproute-20120105.manpage-less-shitty.diff"
-
-diff -ur /home/dank/iproute-20120105/man/man8/ip.8 /home/dank/src/iproute-20120105/man/man8/ip.8
---- /home/dank/iproute-20120105/man/man8/ip.8	2012-01-05 11:34:31.000000000 -0500
-+++ /home/dank/src/iproute-20120105/man/man8/ip.8	2012-01-20 11:47:12.751632078 -0500
-@@ -14,7 +14,8 @@
- .ti -8
- .IR OBJECT " := { "
- .BR link " | " addr " | " addrlabel " | " route " | " rule " | " neigh " | "\
-- tunnel " | " maddr " | "  mroute " }"
-+ ntable " | " tunnel " | " tuntap " | " maddr " | "  mroute " | " mrule " | "\
-+ monitor " | " xfrm " | " netns " | "  l2tp " }"
- .sp
- 
- .ti -8
-@@ -103,10 +104,6 @@
- .I OBJECT
- 
- .TP
--.B link
--- network device.
--
--.TP
- .B address
- - protocol (IP or IPv6) address on a device.
- 
-@@ -115,8 +112,40 @@
- - label configuration for protocol address selection.
- 
- .TP
-+.B l2tp
-+- tunnel PPP over IP (L2TP).
-+
-+.TP
-+.B link
-+- network device.
-+
-+.TP
-+.B maddress
-+- multicast address.
-+
-+.TP
-+.B monitor
-+- watch for netlink messages.
-+
-+.TP
-+.B mroute
-+- multicast routing cache entry.
-+
-+.TP
-+.B mrule
-+- rule in multicast routing policy database.
-+
-+.TP
- .B neighbour
--- ARP or NDISC cache entry.
-+- manage ARP or NDISC cache entries.
-+
-+.TP
-+.B netns
-+- manage network namespaces.
-+
-+.TP
-+.B ntable
-+- manage the neighbor cache's operation.
- 
- .TP
- .B route
-@@ -127,16 +156,16 @@
- - rule in routing policy database.
- 
- .TP
--.B maddress
--- multicast address.
-+.B tunnel
-+- tunnel over IP.
- 
- .TP
--.B mroute
--- multicast routing cache entry.
-+.B tuntap
-+- manage TUN/TAP devices.
- 
- .TP
--.B tunnel
--- tunnel over IP.
-+.B xfrm
-+- manage IPSec policies.
- 
- .PP
- The names of all objects may be written in full or
-@@ -181,6 +210,7 @@
- .BR ip-monitor (8),
- .BR ip-mroute (8),
- .BR ip-neighbour (8),
-+.BR ip-netns (8),
- .BR ip-ntable (8),
- .BR ip-route (8),
- .BR ip-rule (8),
-
---vtzGhvizbBRQ85DL--
+tejun
