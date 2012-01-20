@@ -1,32 +1,52 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/3] net: fix socket memcg build with !CONFIG_NET
-Date: Fri, 20 Jan 2012 14:14:46 -0500 (EST)
-Message-ID: <20120120.141446.136970067758991080.davem@davemloft.net>
-References: <1327071436-20763-1-git-send-email-glommer@parallels.com>
-	<1327071436-20763-2-git-send-email-glommer@parallels.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] tcp: fix undo after RTO for BIC
+Date: Fri, 20 Jan 2012 14:18:26 -0500 (EST)
+Message-ID: <20120120.141826.1023767655731209208.davem@davemloft.net>
+References: <1326944879-22780-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1327071436-20763-2-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
+	nanditad@google.com, ycheng@google.com, hkchu@google.com,
+	therbert@google.com
+To: ncardwell@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:32984 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754299Ab2ATTSk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2012 14:18:40 -0500
+In-Reply-To: <1326944879-22780-1-git-send-email-ncardwell@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Date: Fri, 20 Jan 2012 18:57:14 +0400
+From: Neal Cardwell <ncardwell@google.com>
+Date: Wed, 18 Jan 2012 22:47:58 -0500
 
-> There is still a build bug with the sock memcg code, that triggers
-> with !CONFIG_NET, that survived my series of randconfig builds.
+> This patch fixes BIC so that cwnd reductions made during RTOs can be
+> undone (just as they already can be undone when using the default/Reno
+> behavior).
 > 
-> Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-> Reported-by: Randy Dunlap <rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>
-> CC: Hiroyouki Kamezawa <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+> When undoing cwnd reductions, BIC-derived congestion control modules
+> were restoring the cwnd from last_max_cwnd. There were two problems
+> with using last_max_cwnd to restore a cwnd during undo:
+> 
+> (a) last_max_cwnd was set to 0 on state transitions into TCP_CA_Loss
+> (by calling the module's reset() functions), so cwnd reductions from
+> RTOs could not be undone.
+> 
+> (b) when fast_covergence is enabled (which it is by default)
+> last_max_cwnd does not actually hold the value of snd_cwnd before the
+> loss; instead, it holds a scaled-down version of snd_cwnd.
+> 
+> This patch makes the following changes:
+> 
+> (1) upon undo, revert snd_cwnd to ca->loss_cwnd, which is already, as
+> the existing comment notes, the "congestion window at last loss"
+> 
+> (2) stop forgetting ca->loss_cwnd on TCP_CA_Loss events
+> 
+> (3) use ca->last_max_cwnd to check if we're in slow start
+> 
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
 
-Why are you undoing the static branch optimization?  That was a one of
-the things that made me agree to even putting this code in.
-
-Find a way to fix this without removing the static branch.
+Applied.
