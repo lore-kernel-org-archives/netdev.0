@@ -1,41 +1,25 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH/RESEND] [trivial] sctp : Fix typo in net/sctp/socket.c
-Date: Fri, 20 Jan 2012 17:23:55 -0800
-Message-ID: <1327109035.1921.1.camel@joe2Laptop>
-References: <1327108681-1682-1-git-send-email-standby24x7@gmail.com>
+From: "Luis R. Rodriguez" <mcgrof-kCJ/WVjk54vrZ44/DZwexQ@public.gmane.org>
+Subject: compat-wireless based on v3.3-rc1
+Date: Fri, 20 Jan 2012 23:20:01 -0800
+Message-ID: <CAB=NE6XgZXao7avh85RW9gn3NzA1ZP5wVrgzTEzfJBiJkSnonQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	trivial@kernel.org
-To: Masanari Iida <standby24x7@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1327108681-1682-1-git-send-email-standby24x7@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-bluetooth <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2012-01-21 at 10:18 +0900, Masanari Iida wrote:
-> Signed-off-by: Masanari Iida<standby24x7@gmail.com>
-> 
-> Correct a typo "sctp_setsocktopt_bindx" to "sctp_setsockopt_bindx"
-> in net/sctp/socket.c
-> ---
->  net/sctp/socket.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 408ebd0..658483e 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -970,7 +970,7 @@ SCTP_STATIC int sctp_setsockopt_bindx(struct sock* sk,
->  	void *addr_buf;
->  	struct sctp_af *af;
->  
-> -	SCTP_DEBUG_PRINTK("sctp_setsocktopt_bindx: sk %p addrs %p"
-> +	SCTP_DEBUG_PRINTK("sctp_setsockopt_bindx: sk %p addrs %p"
->  			  " addrs_size %d opt %d\n", sk, addrs, addrs_size, op);
+Linus released v3.3-rc1 yesterday, the respective backport of the
+wireless, bluetooth and ethernet drivers for that release for older
+kernels is now available for testing [0]. For details refer to the
+Changelog [1] and site [2]. I've only compile tested this against
+2.6.38.
 
-Let the compiler do it.
+[0] http://www.orbit-lab.org/kernel/compat-wireless-3-stable/v3.3/compat-wireless-3.3-rc1-2.tar.bz2
+[1] http://www.orbit-lab.org/kernel/compat-wireless-3-stable/v3.3/ChangeLog-3.3-wireless
+[2] http://wireless.kernel.org/en/users/Download/stable/
 
-	SCTP_DEBUG_PRINTK("%s: sk %p addrs %p addrs_size %d opt %d\n",
-			  __func__, sk, addrs, addrs_size, op);
+  Luis
