@@ -1,46 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Why is gre0 auto-created, and can we fix it?
-Date: Sat, 21 Jan 2012 13:40:36 -0500 (EST)
-Message-ID: <20120121.134036.1565691107664746948.davem@davemloft.net>
-References: <4F035F2C.1000003@candelatech.com>
-	<m3fwf9gdjm.fsf@intrepid.localdomain>
-	<4F1AFA84.5050201@candelatech.com>
+From: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
+Subject: Re: [PATCH 1/1] netdev/ethernet: dev_alloc_skb to netdev_alloc_skb
+Date: Sun, 22 Jan 2012 00:47:47 +0530
+Message-ID: <CA+Dx6Hbbe0OadeyNQtO1__dU3K5VSecHajFQPSJiD=GSci+Nqw@mail.gmail.com>
+References: <1327156996-12505-1-git-send-email-netdev@pradeepdalvi.com>
+	<1327161238.2574.3.camel@edumazet-laptop>
+	<CA+Dx6HbdHV9qHksqb0oH-zhYdJCm6Tu8btwG1Zs5ty1CPXXckA@mail.gmail.com>
+	<20120121.133933.227768598621914035.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: khc@pm.waw.pl, netdev@vger.kernel.org
-To: greearb@candelatech.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, hch@lst.de,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42088 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750980Ab2AUSkv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2012 13:40:51 -0500
-In-Reply-To: <4F1AFA84.5050201@candelatech.com>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:34995 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750940Ab2AUTRt convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Jan 2012 14:17:49 -0500
+In-Reply-To: <20120121.133933.227768598621914035.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Sat, 21 Jan 2012 09:48:52 -0800
+On Sun, Jan 22, 2012 at 12:09 AM, David Miller <davem@davemloft.net> wr=
+ote:
+> From: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
+> Date: Sat, 21 Jan 2012 22:16:06 +0530
+>
+>> I appreciate your concerns. Although I feel, it is essential to add
+>> relevant comments by respective (corporate/paid :-) developers, if
+>> their hardware needs hardcoded 2. And especially, if their expectati=
+on
+>> is to buy their hardware, even for the smaller purpose of having
+>> uniform mechanism. Long live Open Source! :-)
+>
+> I see the smiley but it is your responsibility to learn how a driver
+> works before making changes to it that break them. =A0Stop talking su=
+ch
+> foolishness, it is very unbecoming of a serious developer.
 
-> On 01/21/2012 09:39 AM, Krzysztof Halasa wrote:
->> Ben Greear<greearb@candelatech.com>  writes:
->>
->>>>> As far as I can tell, no other interfaces are auto-created
->>>>> in this manner.
->>>>
->>>> ip6tnl0 and sit0 do it too, just grep for alloc_netdev() under
->>>> net/{ipv4,ipv6}/
->>>
->>> So, no changing the behaviour?
->>
->> Perhaps making it CONFIGurable would be safe enough, not that I like
->> CONFIG options for all tiny details (one may argue it's not a tiny
->> detail).
->>
->> Haven't looked at the actual code.
-> 
-> Seems like it could be a run-time configurable, maybe module or boot
-> option
-> or sysctl or something.
-
-I would seriously prefer that you not do this.
+Certainly! I completely agree to the point of being responsible
+contributor and in another words, not to break existing things due to
+lack of information.
+Although I mentioned so, due to realized importance of
+comments/documentation over the expectations of owning hardware for
+testing. Especially, if those points are so much critical to the
+hardware. And also more importantly, while accessing Kernel resources.
+Anyways, I would avoid touching +2 further, like I've avoided for +3,
++4, +5 and so on, in this patch & resubmit the patch. Thanks!
