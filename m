@@ -1,25 +1,53 @@
-From: "Luis R. Rodriguez" <mcgrof-kCJ/WVjk54vrZ44/DZwexQ@public.gmane.org>
-Subject: compat-wireless based on v3.3-rc1
-Date: Fri, 20 Jan 2012 23:20:01 -0800
-Message-ID: <CAB=NE6XgZXao7avh85RW9gn3NzA1ZP5wVrgzTEzfJBiJkSnonQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Query regarding a code snippet in __inet_lookup_established.
+Date: Sat, 21 Jan 2012 08:30:25 +0100
+Message-ID: <1327131025.6338.1.camel@edumazet-laptop>
+References: <CAP3iWTRS5d5dHLFpkOmiTuh46pPnFLLiJ1FG=WTumt-1B8DgZQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-bluetooth <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: MuraliRaja Muniraju <muralira@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:35991 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751566Ab2AUHaa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2012 02:30:30 -0500
+Received: by wics10 with SMTP id s10so997892wic.19
+        for <netdev@vger.kernel.org>; Fri, 20 Jan 2012 23:30:28 -0800 (PST)
+In-Reply-To: <CAP3iWTRS5d5dHLFpkOmiTuh46pPnFLLiJ1FG=WTumt-1B8DgZQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Linus released v3.3-rc1 yesterday, the respective backport of the
-wireless, bluetooth and ethernet drivers for that release for older
-kernels is now available for testing [0]. For details refer to the
-Changelog [1] and site [2]. I've only compile tested this against
-2.6.38.
+Le vendredi 20 janvier 2012 =C3=A0 17:02 -0800, MuraliRaja Muniraju a =C3=
+=A9crit :
+> Hi All,
+>     In function __inet_lookup_established, I do see a potential issue
+> in a corner case while reading through the code where socket can be
+> freed while being in the list and also while in rcu_read critical
+> section.
+>         rcu_read_lock();
+> begin:
+>         sk_nulls_for_each_rcu(sk, node, &head->chain) {
+>                 if (INET_MATCH(sk, net, hash, acookie,
+>                                         saddr, daddr, ports, dif)) {
+>                         if (unlikely(!atomic_inc_not_zero(&sk->sk_ref=
+cnt)))
+>                                 goto begintw;
+>                         if (unlikely(!INET_MATCH(sk, net, hash, acook=
+ie,
+>                                 saddr, daddr, ports, dif))) {
+> Murali>                                sock_put(sk);
+> Murali>                                goto begin;
+>                         }
+>                         goto out;
+>                 }
+>         }
+>=20
+> I am not certain under what scenario this might occur. Can someone le=
+t
+> me know if this is a possibility.
 
-[0] http://www.orbit-lab.org/kernel/compat-wireless-3-stable/v3.3/compat-wireless-3.3-rc1-2.tar.bz2
-[1] http://www.orbit-lab.org/kernel/compat-wireless-3-stable/v3.3/ChangeLog-3.3-wireless
-[2] http://wireless.kernel.org/en/users/Download/stable/
-
-  Luis
+Since we succeeded in atomic_inc_not_zero(&sk->sk_refcnt), socket canno=
+t
+be freed until our sock_put()
