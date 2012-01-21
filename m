@@ -1,28 +1,31 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: Merge ipt_LOG and ip6t_LOG
-Date: Sat, 21 Jan 2012 09:33:11 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1201210932390.17879@frira.zrqbmnf.qr>
-References: <1327103248-18918-1-git-send-email-richard@nod.at>
+From: Reuben Hawkins <reubenhwk@gmail.com>
+Subject: radvd-1.8.4 release
+Date: Sat, 21 Jan 2012 00:37:25 -0800
+Message-ID: <CAD_8n+SgFEK++3xH0Av2_FOC4FczKKSrhK0nYOzwTYcFB=h5xA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com
-To: Richard Weinberger <richard@nod.at>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1327103248-18918-1-git-send-email-richard@nod.at>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: radvd Development Discussion <radvd-devel-l@litech.org>,
+	radvd-announce-l@litech.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:47879 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751829Ab2AUIh2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2012 03:37:28 -0500
+Received: by werb13 with SMTP id b13so1015883wer.19
+        for <netdev@vger.kernel.org>; Sat, 21 Jan 2012 00:37:26 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday 2012-01-21 00:47, Richard Weinberger wrote:
+Hi,
 
->Hi!
->
->These two patches merge ipt_LOG and ip6t_LOG.
->
->I'm not really happy with the iptables patch.
->As it depends on xt_log.h iptables will not compile with old 
->kernel headers.
->Any idea how to deal with this?
+Radvd 1.8.4 has been release.  This release is a minor update which
+includes changes for these items:
 
-iptables always has its own copy of the header set, so there is not 
-going to be a problem.
+* Fixes in privsep on linux
+* privsep is now the default and only code path
+* added --nodaemon option
+
+Please get the latest here: http://www.litech.org/radvd
+
+Thanks,
+Reuben
