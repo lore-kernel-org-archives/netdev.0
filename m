@@ -1,30 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] netdev/ethernet: dev_alloc_skb to netdev_alloc_skb
-Date: Sat, 21 Jan 2012 13:39:33 -0500 (EST)
-Message-ID: <20120121.133933.227768598621914035.davem@davemloft.net>
-References: <1327156996-12505-1-git-send-email-netdev@pradeepdalvi.com>
-	<1327161238.2574.3.camel@edumazet-laptop>
-	<CA+Dx6HbdHV9qHksqb0oH-zhYdJCm6Tu8btwG1Zs5ty1CPXXckA@mail.gmail.com>
+Subject: Re: Why is gre0 auto-created, and can we fix it?
+Date: Sat, 21 Jan 2012 13:40:36 -0500 (EST)
+Message-ID: <20120121.134036.1565691107664746948.davem@davemloft.net>
+References: <4F035F2C.1000003@candelatech.com>
+	<m3fwf9gdjm.fsf@intrepid.localdomain>
+	<4F1AFA84.5050201@candelatech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, hch@lst.de,
-	linux-kernel@vger.kernel.org
-To: netdev@pradeepdalvi.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+Dx6HbdHV9qHksqb0oH-zhYdJCm6Tu8btwG1Zs5ty1CPXXckA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: khc@pm.waw.pl, netdev@vger.kernel.org
+To: greearb@candelatech.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:42088 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750980Ab2AUSkv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2012 13:40:51 -0500
+In-Reply-To: <4F1AFA84.5050201@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
-Date: Sat, 21 Jan 2012 22:16:06 +0530
+From: Ben Greear <greearb@candelatech.com>
+Date: Sat, 21 Jan 2012 09:48:52 -0800
 
-> I appreciate your concerns. Although I feel, it is essential to add
-> relevant comments by respective (corporate/paid :-) developers, if
-> their hardware needs hardcoded 2. And especially, if their expectation
-> is to buy their hardware, even for the smaller purpose of having
-> uniform mechanism. Long live Open Source! :-)
+> On 01/21/2012 09:39 AM, Krzysztof Halasa wrote:
+>> Ben Greear<greearb@candelatech.com>  writes:
+>>
+>>>>> As far as I can tell, no other interfaces are auto-created
+>>>>> in this manner.
+>>>>
+>>>> ip6tnl0 and sit0 do it too, just grep for alloc_netdev() under
+>>>> net/{ipv4,ipv6}/
+>>>
+>>> So, no changing the behaviour?
+>>
+>> Perhaps making it CONFIGurable would be safe enough, not that I like
+>> CONFIG options for all tiny details (one may argue it's not a tiny
+>> detail).
+>>
+>> Haven't looked at the actual code.
+> 
+> Seems like it could be a run-time configurable, maybe module or boot
+> option
+> or sysctl or something.
 
-I see the smiley but it is your responsibility to learn how a driver
-works before making changes to it that break them.  Stop talking such
-foolishness, it is very unbecoming of a serious developer.
+I would seriously prefer that you not do this.
