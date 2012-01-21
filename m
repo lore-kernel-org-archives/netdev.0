@@ -1,38 +1,41 @@
-From: Masanari Iida <standby24x7@gmail.com>
-Subject: [PATCH] [trivial] ixgbe : Fix typo in ixgbe_common.h
-Date: Sat, 21 Jan 2012 22:49:34 +0900
-Message-ID: <1327153774-2092-1-git-send-email-standby24x7@gmail.com>
-Cc: standby24x7@gmail.com, trivial@kernel.org,
-	linux-kernel@vger.kernel.org
-To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from i118-21-156-233.s30.a048.ap.plala.or.jp ([118.21.156.233]:60993
-	"EHLO rinabert.homeip.net" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751547Ab2AUNuO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2012 08:50:14 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: Re: [PATCH 1/3] net: fix socket memcg build with !CONFIG_NET
+Date: Sat, 21 Jan 2012 18:17:26 +0400
+Message-ID: <4F1AC8F6.1060703@parallels.com>
+References: <1327071436-20763-1-git-send-email-glommer@parallels.com> <1327071436-20763-2-git-send-email-glommer@parallels.com> <20120120.141446.136970067758991080.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	<cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120120.141446.136970067758991080.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Correct spelling "packtetbuf_num" to "packetbuf_num" in
-drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+On 01/20/2012 11:14 PM, David Miller wrote:
+> From: Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> Date: Fri, 20 Jan 2012 18:57:14 +0400
+>
+>> There is still a build bug with the sock memcg code, that triggers
+>> with !CONFIG_NET, that survived my series of randconfig builds.
+>>
+>> Signed-off-by: Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+>> Reported-by: Randy Dunlap<rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>
+>> CC: Hiroyouki Kamezawa<kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+>
+> Why are you undoing the static branch optimization?  That was a one of
+> the things that made me agree to even putting this code in.
+>
+> Find a way to fix this without removing the static branch.
+>
+Dave,
 
-Signed-off-by: Masanari Iida<standby24x7@gmail.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+I am not removing the static branch. This is just a macro, that expands 
+to the static branch when the options are in place, and to 0 if they are 
+not.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index 863f9c1..4c9a4c8 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -75,7 +75,7 @@ s32 ixgbe_update_mc_addr_list_generic(struct ixgbe_hw *hw,
- s32 ixgbe_enable_mc_generic(struct ixgbe_hw *hw);
- s32 ixgbe_disable_mc_generic(struct ixgbe_hw *hw);
- s32 ixgbe_enable_rx_dma_generic(struct ixgbe_hw *hw, u32 regval);
--s32 ixgbe_fc_enable_generic(struct ixgbe_hw *hw, s32 packtetbuf_num);
-+s32 ixgbe_fc_enable_generic(struct ixgbe_hw *hw, s32 packetbuf_num);
- s32 ixgbe_fc_autoneg(struct ixgbe_hw *hw);
- 
- s32 ixgbe_validate_mac_addr(u8 *mac_addr);
--- 
-1.7.6.5
+if (0) { } is certainly be removed to the compiler, so the code is out
+anyway.
