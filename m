@@ -1,66 +1,62 @@
-From: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
-Subject: Re: [PATCH 1/1] netdev/ethernet: dev_alloc_skb to netdev_alloc_skb
-Date: Sat, 21 Jan 2012 22:16:06 +0530
-Message-ID: <CA+Dx6HbdHV9qHksqb0oH-zhYdJCm6Tu8btwG1Zs5ty1CPXXckA@mail.gmail.com>
-References: <1327156996-12505-1-git-send-email-netdev@pradeepdalvi.com>
-	<1327161238.2574.3.camel@edumazet-laptop>
+From: Tom Gundersen <teg@jklm.no>
+Subject: Possible 3.3-rc1 regression: "ICMPv6 RA: ndisc_router_discovery()
+ failed to add default route."
+Date: Sat, 21 Jan 2012 18:37:13 +0100
+Message-ID: <CAG-2HqUBLN42REv1oojO0dD7nuVuM65_c3YQEF_gfByF0YbRMg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Christoph Hellwig <hch@lst.de>, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1327161238.2574.3.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:39351 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750846Ab2AURhf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2012 12:37:35 -0500
+Received: by wgbgn7 with SMTP id gn7so387405wgb.1
+        for <netdev@vger.kernel.org>; Sat, 21 Jan 2012 09:37:34 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 21, 2012 at 9:23 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le samedi 21 janvier 2012 =E0 20:13 +0530, Pradeep A. Dalvi a =E9crit=
- :
->> Replaced deprecating dev_alloc_skb with netdev_alloc_skb in drivers/=
-net/ethernet
->>
->> Signed-off-by: Pradeep A. Dalvi <netdev@pradeepdalvi.com>
->> ---
->
-> ...
->
->> =A0114 files changed, 257 insertions(+), 203 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/3com/3c501.c b/drivers/net/etherne=
-t/3com/3c501.c
->> index 68da81d..9ebc739 100644
->> --- a/drivers/net/ethernet/3com/3c501.c
->> +++ b/drivers/net/ethernet/3com/3c501.c
->> @@ -702,7 +702,7 @@ static void el_receive(struct net_device *dev)
->> =A0 =A0 =A0 =A0*/
->>
->> =A0 =A0 =A0 outb(AX_SYS, AX_CMD);
->> - =A0 =A0 skb =3D dev_alloc_skb(pkt_len+2);
->> + =A0 =A0 skb =3D netdev_alloc_skb(dev, pkt_len + NET_IP_ALIGN);
->>
->> =A0 =A0 =A0 /*
->> =A0 =A0 =A0 =A0* =A0 =A0 =A0Start of frame
->> diff --git a/drivers/net/ethernet/3com/3c509.c b/drivers/net/etherne=
-t/3com/3c509.c
->
->
-> So the very first chunk of this huge patch is wrong, since it adds a
-> true bug. =A0(You dont change the skb_reserve(skb, 2); later)
->
-> I stopped my review at this first chunk.
+Hi guys,
 
-Thanks! I shall update skb_reserve too.
+I'm getting a new error message in dmesg as of 3.3-rc1. Let me know if
+you need any additional info:
 
-> Please dont add NET_IP_ALIGN on drivers if you cant test the change
-> yourself.
->
-> Some hardware really need the hardcoded 2 value.
+# dmesg -level=err -kernel | grep ICMP
+[  400.472561] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[  700.174416] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[  902.743138] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[ 1590.414022] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[ 2183.924517] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[ 2470.567114] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[ 2988.283030] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[ 3365.451899] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[ 4254.981325] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[ 4593.022162] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[ 5145.391054] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[ 5821.066689] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[ 6030.083974] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[ 6415.757530] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[ 6920.336755] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[ 7616.524676] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[ 8574.824201] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[ 9041.117907] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[ 9528.942178] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+[10068.660634] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
 
-I appreciate your concerns. Although I feel, it is essential to add
-relevant comments by respective (corporate/paid :-) developers, if
-their hardware needs hardcoded 2. And especially, if their expectation
-is to buy their hardware, even for the smaller purpose of having
-uniform mechanism. Long live Open Source! :-)
+# ip addr show dev eth0
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+state UP qlen 1000
+    link/ether 00:1d:60:67:1d:8e brd ff:ff:ff:ff:ff:ff
+    inet 192.168.1.43/24 brd 192.168.1.255 scope global eth0
+    inet6 2a01:e35:2f24:93f0:21d:60ff:fe67:1d8e/64 scope global dynamic
+       valid_lft 85815sec preferred_lft 85815sec
+    inet6 fe80::21d:60ff:fe67:1d8e/64 scope link
+       valid_lft forever preferred_lft forever
+
+# ip route show
+default via 192.168.1.254 dev eth0  proto static
+192.168.1.0/24 dev eth0  proto kernel  scope link  src 192.168.1.43  metric 1
+
+Cheers,
+
+Tom
