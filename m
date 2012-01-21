@@ -1,43 +1,30 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: Add unix_diag.h to kernel userspace headers
-Date: Sat, 21 Jan 2012 22:13:23 +0400
-Message-ID: <4F1B0043.1000304@parallels.com>
-References: <20120120124109.478f65e3@nehalam.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] netdev/ethernet: dev_alloc_skb to netdev_alloc_skb
+Date: Sat, 21 Jan 2012 13:39:33 -0500 (EST)
+Message-ID: <20120121.133933.227768598621914035.davem@davemloft.net>
+References: <1327156996-12505-1-git-send-email-netdev@pradeepdalvi.com>
+	<1327161238.2574.3.camel@edumazet-laptop>
+	<CA+Dx6HbdHV9qHksqb0oH-zhYdJCm6Tu8btwG1Zs5ty1CPXXckA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:1670 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750890Ab2AUSNc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Jan 2012 13:13:32 -0500
-In-Reply-To: <20120120124109.478f65e3@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, hch@lst.de,
+	linux-kernel@vger.kernel.org
+To: netdev@pradeepdalvi.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+Dx6HbdHV9qHksqb0oH-zhYdJCm6Tu8btwG1Zs5ty1CPXXckA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/21/2012 12:41 AM, Stephen Hemminger wrote:
-> The change to use provide unix domain diag information in iproute2 means that
-> an additional header file has to be added to the kbuild header export list.
-> This ensures that any changes to the header file get picked up in future merges.
+From: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
+Date: Sat, 21 Jan 2012 22:16:06 +0530
 
-It should be already there since 6a1c9522 (unix_diag: Include unix_diag.h into header-y target)
+> I appreciate your concerns. Although I feel, it is essential to add
+> relevant comments by respective (corporate/paid :-) developers, if
+> their hardware needs hardcoded 2. And especially, if their expectation
+> is to buy their hardware, even for the smaller purpose of having
+> uniform mechanism. Long live Open Source! :-)
 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> ---
-> Patch for -net (ie 3.3) 
-> 
-> --- a/include/linux/Kbuild	2012-01-10 10:56:59.659188065 -0800
-> +++ b/include/linux/Kbuild	2012-01-20 12:36:53.518655336 -0800
-> @@ -375,6 +375,7 @@ header-y += uio.h
->  header-y += ultrasound.h
->  header-y += un.h
->  header-y += unistd.h
-> +header-y += unix_diag.h
->  header-y += usbdevice_fs.h
->  header-y += utime.h
->  header-y += utsname.h
-> 
+I see the smiley but it is your responsibility to learn how a driver
+works before making changes to it that break them.  Stop talking such
+foolishness, it is very unbecoming of a serious developer.
