@@ -1,31 +1,36 @@
-From: Reuben Hawkins <reubenhwk@gmail.com>
-Subject: radvd-1.8.4 release
-Date: Sat, 21 Jan 2012 00:37:25 -0800
-Message-ID: <CAD_8n+SgFEK++3xH0Av2_FOC4FczKKSrhK0nYOzwTYcFB=h5xA@mail.gmail.com>
+From: "WEB-ADMIN" <info@chatter.net>
+Subject: MAILBOX overschreden
+Date: Sat, 21 Jan 2012 18:45:33 +0530
+Message-ID: <20120121131534.CVZJ3805.fed1rmfepo102.cox.net@fed1rmimpo110.cox.net>
+Reply-To: <deptdesk3@qatar.io>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: radvd Development Discussion <radvd-devel-l@litech.org>,
-	radvd-announce-l@litech.org, netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:47879 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751829Ab2AUIh2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2012 03:37:28 -0500
-Received: by werb13 with SMTP id b13so1015883wer.19
-        for <netdev@vger.kernel.org>; Sat, 21 Jan 2012 00:37:26 -0800 (PST)
+Received: from fed1rmfepi102.cox.net ([68.230.241.133]:38656 "EHLO
+	fed1rmfepi102.cox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751898Ab2AUNcq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2012 08:32:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-Radvd 1.8.4 has been release.  This release is a minor update which
-includes changes for these items:
 
-* Fixes in privsep on linux
-* privsep is now the default and only code path
-* added --nodaemon option
+Uw e-mailaccount heeft execeeded zijn limiet en zal worden afgesloten
+als je niet je e-mail te bevestigen box.Kindly vul het onderstaande columb voor ons om uw e-mailaccount te valideren.
 
-Please get the latest here: http://www.litech.org/radvd
+   Gebruikersnaam ...............................
 
-Thanks,
-Reuben
+Wachtwoord .................................
+
+Geboortedatum ...............
+
+Naar deptdesk3@qatar.io
+
+
+Waarschuwing Code: TRHJFD54EXGFJ43D6T/09
+
+thanks,
+System Administrator UPCMAIL 2011
