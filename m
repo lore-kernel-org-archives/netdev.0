@@ -1,62 +1,48 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: Possible 3.3-rc1 regression: "ICMPv6 RA: ndisc_router_discovery()
- failed to add default route."
-Date: Sat, 21 Jan 2012 18:37:13 +0100
-Message-ID: <CAG-2HqUBLN42REv1oojO0dD7nuVuM65_c3YQEF_gfByF0YbRMg@mail.gmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Why is gre0 auto-created, and can we fix it?
+Date: Sat, 21 Jan 2012 09:48:52 -0800
+Message-ID: <4F1AFA84.5050201@candelatech.com>
+References: <4F035BDE.5060409@candelatech.com> <20120103.145931.2188599484081157576.davem@davemloft.net> <4F035F2C.1000003@candelatech.com> <m3fwf9gdjm.fsf@intrepid.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:39351 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750846Ab2AURhf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2012 12:37:35 -0500
-Received: by wgbgn7 with SMTP id gn7so387405wgb.1
-        for <netdev@vger.kernel.org>; Sat, 21 Jan 2012 09:37:34 -0800 (PST)
+Received: from mail.candelatech.com ([208.74.158.172]:53665 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750780Ab2AURtJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2012 12:49:09 -0500
+In-Reply-To: <m3fwf9gdjm.fsf@intrepid.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi guys,
+On 01/21/2012 09:39 AM, Krzysztof Halasa wrote:
+> Ben Greear<greearb@candelatech.com>  writes:
+>
+>>>> As far as I can tell, no other interfaces are auto-created
+>>>> in this manner.
+>>>
+>>> ip6tnl0 and sit0 do it too, just grep for alloc_netdev() under
+>>> net/{ipv4,ipv6}/
+>>
+>> So, no changing the behaviour?
+>
+> Perhaps making it CONFIGurable would be safe enough, not that I like
+> CONFIG options for all tiny details (one may argue it's not a tiny
+> detail).
+>
+> Haven't looked at the actual code.
 
-I'm getting a new error message in dmesg as of 3.3-rc1. Let me know if
-you need any additional info:
+Seems like it could be a run-time configurable, maybe module or boot option
+or sysctl or something.
 
-# dmesg -level=err -kernel | grep ICMP
-[  400.472561] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[  700.174416] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[  902.743138] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[ 1590.414022] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[ 2183.924517] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[ 2470.567114] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[ 2988.283030] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[ 3365.451899] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[ 4254.981325] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[ 4593.022162] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[ 5145.391054] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[ 5821.066689] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[ 6030.083974] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[ 6415.757530] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[ 6920.336755] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[ 7616.524676] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[ 8574.824201] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[ 9041.117907] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[ 9528.942178] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
-[10068.660634] ICMPv6 RA: ndisc_router_discovery() failed to add default route.
+I haven't looked any more at the code either...maybe next week (tm).
 
-# ip addr show dev eth0
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-state UP qlen 1000
-    link/ether 00:1d:60:67:1d:8e brd ff:ff:ff:ff:ff:ff
-    inet 192.168.1.43/24 brd 192.168.1.255 scope global eth0
-    inet6 2a01:e35:2f24:93f0:21d:60ff:fe67:1d8e/64 scope global dynamic
-       valid_lft 85815sec preferred_lft 85815sec
-    inet6 fe80::21d:60ff:fe67:1d8e/64 scope link
-       valid_lft forever preferred_lft forever
+Thanks,
+Ben
 
-# ip route show
-default via 192.168.1.254 dev eth0  proto static
-192.168.1.0/24 dev eth0  proto kernel  scope link  src 192.168.1.43  metric 1
 
-Cheers,
-
-Tom
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
