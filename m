@@ -1,45 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] skge: add byte queue limit support
-Date: Sun, 22 Jan 2012 14:25:01 -0500 (EST)
-Message-ID: <20120122.142501.1342631979051946828.davem@davemloft.net>
-References: <20120119164354.78ea63d6@nehalam.linuxnetplumber.net>
-	<1327040624.4826.10.camel@edumazet-laptop>
+Subject: Re: [PATCH] be2net: create RSS rings even in multi-channel configs
+Date: Sun, 22 Jan 2012 14:25:07 -0500 (EST)
+Message-ID: <20120122.142507.94851514947863308.davem@davemloft.net>
+References: <1327041244-427-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48977 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:48980 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752393Ab2AVTZE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2012 14:25:04 -0500
-In-Reply-To: <1327040624.4826.10.camel@edumazet-laptop>
+	with ESMTP id S1752401Ab2AVTZL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2012 14:25:11 -0500
+In-Reply-To: <1327041244-427-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 20 Jan 2012 07:23:44 +0100
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Fri, 20 Jan 2012 12:04:04 +0530
 
-> Le jeudi 19 janvier 2012 =E0 16:43 -0800, Stephen Hemminger a =E9crit=
- :
->> This also changes the cleanup logic slightly to aggregate
->> completed notifications for multiple packets.
->>=20
->> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->>=20
->> --- a/drivers/net/ethernet/marvell/skge.c	2012-01-19 16:12:19.000000=
-000 -0800
->> +++ b/drivers/net/ethernet/marvell/skge.c	2012-01-19 16:42:17.675908=
-798 -0800
->> @@ -2831,6 +2831,7 @@ static netdev_tx_t skge_xmit_frame(struc
->>  		netif_stop_queue(dev);
->>  	}
->> =20
->> +	netdev_sent_queue(dev, skb->len);
->=20
->=20
-> I doubt this is safe, as skb might already be freed by tx completion
-> handler from another cpu.
+> Currently RSS rings are not created in a multi-channel config.
+> RSS rings can be created on one (out of four) interfaces per port in a
+> multi-channel config. Doing this insulates the driver from a FW bug wherin
+> multi-channel config is wrongly reported even when not enabled. This also
+> helps performance in a multi-channel config, as one interface per port gets
+> RSS rings.
+> 
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 
-Oops, I'll not apply this for now then.
+Applied.
