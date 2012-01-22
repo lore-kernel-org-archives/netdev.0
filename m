@@ -1,45 +1,38 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Why is gre0 auto-created, and can we fix it?
-Date: Sun, 22 Jan 2012 11:43:25 -0800
-Message-ID: <20120122114325.4a676e20@nehalam.linuxnetplumber.net>
-References: <4F1AFA84.5050201@candelatech.com>
-	<20120121.134036.1565691107664746948.davem@davemloft.net>
-	<4F1C3DF5.8070802@candelatech.com>
-	<20120122.141447.1622071157220040891.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: [PATCH COMMITTED] bluetooth: hci: Fix type of "enable_hs" to bool.
+Date: Sun, 22 Jan 2012 14:46:54 -0500 (EST)
+Message-ID: <20120122.144654.2252112633629547845.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, khc@pm.waw.pl, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49788 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752355Ab2AVTn2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Jan 2012 14:43:28 -0500
-In-Reply-To: <20120122.141447.1622071157220040891.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 22 Jan 2012 14:14:47 -0500 (EST)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Ben Greear <greearb@candelatech.com>
-> Date: Sun, 22 Jan 2012 08:48:53 -0800
-> 
-> > Just to make sure I understand you: You dislike any possible method
-> > of changing the behaviour, not just the ones I listed?
-> 
-> That's correct.
-> 
-> And please don't create dependencies on such a change in behavior in
-> distributions, otherwise you obliterate the entire reason why I don't
-> want the behavior changed.
-> 
-> There is no reason to change this, it's been like this for more than
-> 10 years and no alien planet has exploded as a result even after all
-> of this time.
-> 
-> Just leave it be, I beg you.
-
-Also, the iproute tunnel tools rely on the module autoload
-of gre0.
+DQpGaXhlczoNCg0KbmV0L2JsdWV0b290aC9oY2lfY29yZS5jOiBJbiBmdW5jdGlvbiChX19jaGVj
+a19lbmFibGVfaHOiOg0KbmV0L2JsdWV0b290aC9oY2lfY29yZS5jOjI1ODc6MTogd2FybmluZzog
+cmV0dXJuIGZyb20gaW5jb21wYXRpYmxlIHBvaW50ZXIgdHlwZSBbZW5hYmxlZCBieSBkZWZhdWx0
+XQ0KDQpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+
+DQotLS0NCg0KSSBub3RpY2VkIHRoaXMgd2hpbGUgdmFsaWRhdGluZyB0aGUgYnVpbGQgdG9kYXks
+IGNvbW1pdHRlZCB0byAnbmV0Jy4NCg0KIGluY2x1ZGUvbmV0L2JsdWV0b290aC9oY2kuaCB8ICAg
+IDIgKy0NCiBuZXQvYmx1ZXRvb3RoL2hjaV9jb3JlLmMgICAgfCAgICAyICstDQogMiBmaWxlcyBj
+aGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pDQoNCmRpZmYgLS1naXQgYS9p
+bmNsdWRlL25ldC9ibHVldG9vdGgvaGNpLmggYi9pbmNsdWRlL25ldC9ibHVldG9vdGgvaGNpLmgN
+CmluZGV4IDViMmZlZDUuLjAwNTk2ZTggMTAwNjQ0DQotLS0gYS9pbmNsdWRlL25ldC9ibHVldG9v
+dGgvaGNpLmgNCisrKyBiL2luY2x1ZGUvbmV0L2JsdWV0b290aC9oY2kuaA0KQEAgLTEzODgsNiAr
+MTM4OCw2IEBAIHN0cnVjdCBoY2lfaW5xdWlyeV9yZXEgew0KIH07DQogI2RlZmluZSBJUkVRX0NB
+Q0hFX0ZMVVNIIDB4MDAwMQ0KIA0KLWV4dGVybiBpbnQgZW5hYmxlX2hzOw0KK2V4dGVybiBib29s
+IGVuYWJsZV9oczsNCiANCiAjZW5kaWYgLyogX19IQ0lfSCAqLw0KZGlmZiAtLWdpdCBhL25ldC9i
+bHVldG9vdGgvaGNpX2NvcmUuYyBiL25ldC9ibHVldG9vdGgvaGNpX2NvcmUuYw0KaW5kZXggODQ1
+ZGEzZS4uOWRlOTM3MSAxMDA2NDQNCi0tLSBhL25ldC9ibHVldG9vdGgvaGNpX2NvcmUuYw0KKysr
+IGIvbmV0L2JsdWV0b290aC9oY2lfY29yZS5jDQpAQCAtNTUsNyArNTUsNyBAQA0KIA0KICNkZWZp
+bmUgQVVUT19PRkZfVElNRU9VVCAyMDAwDQogDQotaW50IGVuYWJsZV9oczsNCitib29sIGVuYWJs
+ZV9oczsNCiANCiBzdGF0aWMgdm9pZCBoY2lfcnhfd29yayhzdHJ1Y3Qgd29ya19zdHJ1Y3QgKndv
+cmspOw0KIHN0YXRpYyB2b2lkIGhjaV9jbWRfd29yayhzdHJ1Y3Qgd29ya19zdHJ1Y3QgKndvcmsp
+Ow0KLS0gDQoxLjcuNy41DQoNCg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
