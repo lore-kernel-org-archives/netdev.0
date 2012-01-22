@@ -1,39 +1,32 @@
-From: Maciej Rutecki <maciej.rutecki@gmail.com>
-Subject: Re: recvmsg sleeping from invalid context
-Date: Sun, 22 Jan 2012 20:31:51 +0100
-Message-ID: <201201222031.51116.maciej.rutecki@gmail.com>
-References: <20120113182401.GA25885@redhat.com> <201201220854.59968.maciej.rutecki@gmail.com> <20120122.141006.530154674609252253.davem@davemloft.net>
-Reply-To: maciej.rutecki@gmail.com
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/3] net: fix socket memcg build with !CONFIG_NET
+Date: Sun, 22 Jan 2012 14:35:56 -0500 (EST)
+Message-ID: <20120122.143556.1031473969223729555.davem@davemloft.net>
+References: <1327071436-20763-2-git-send-email-glommer@parallels.com>
+	<20120120.141446.136970067758991080.davem@davemloft.net>
+	<4F1AC8F6.1060703@parallels.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davej@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120122.141006.530154674609252253.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4F1AC8F6.1060703-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On niedziela, 22 stycznia 2012 o 20:10:06 David Miller wrote:
-> From: Maciej Rutecki <maciej.rutecki@gmail.com>
-> Date: Sun, 22 Jan 2012 08:54:59 +0100
-> 
-> > I created a Bugzilla entry at
-> > https://bugzilla.kernel.org/show_bug.cgi?id=42629
-> > for your bug report, please add your address to the CC list in there,
-> > thanks!
-> 
-> Please don't do this, none of the networking developers use bugzilla,
-> we keep the discussion and analysis going here on netdev.
+From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Date: Sat, 21 Jan 2012 18:17:26 +0400
 
-These entries are using for tracking regressions, for *all* kernel parts, 
-without any exception. I see no reason to treat someone differently. If netdev 
-provides any interface to tracking regressions, then show me it. But then why 
-you do not use one common tool for all kernel?
+> I am not removing the static branch. This is just a macro, that
+> expands to the static branch when the options are in place, and to 0
+> if they are not.
+> 
+> if (0) { } is certainly be removed to the compiler, so the code is out
+> anyway.
 
-Regards
--- 
-Maciej Rutecki
-http://www.mrutecki.pl
+That's rather non-intuitive, oh well.
+
+I'll apply this, but all of this stuff is an ifdef mess.
