@@ -1,41 +1,55 @@
-From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: ethtool: allow ETHTOOL_GSSET_INFO for users
-Date: Sun, 22 Jan 2012 11:20:40 +0100 (CET)
-Message-ID: <197ddc79ac33a67c56b42a226af3f30056bceb5c.1327227549.git.mirq-linux@rere.qmqm.pl>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 1/2] virtio: fix typos of memory barriers
+Date: Sun, 22 Jan 2012 13:47:46 +0200
+Message-ID: <20120122114746.GC27222@redhat.com>
+References: <20120120081658.50747.10625.stgit@amd-6168-8-1.englab.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:42219 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750877Ab2AVKUn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Jan 2012 05:20:43 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20120120081658.50747.10625.stgit@amd-6168-8-1.englab.nay.redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Allow ETHTOOL_GSSET_INFO ethtool ioctl() for unprivileged users.
-ETHTOOL_GSTRINGS is already allowed, but is unusable without this one.
+On Fri, Jan 20, 2012 at 04:16:59PM +0800, Jason Wang wrote:
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
----
- net/core/ethtool.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Good catch.
+Note: this fixes a bug introduced by
+7b21e34fd1c272e3a8c3846168f2f6287a4cd72b.
+It's probably a good idea to mention
+this is the commit log.
 
-[against net, but probably suitable for stable, too]
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 921aa2b..369b418 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1311,6 +1311,7 @@ int dev_ethtool(struct net *net, struct ifreq *if=
-r)
- 	case ETHTOOL_GRXCSUM:
- 	case ETHTOOL_GTXCSUM:
- 	case ETHTOOL_GSG:
-+	case ETHTOOL_GSSET_INFO:
- 	case ETHTOOL_GSTRINGS:
- 	case ETHTOOL_GTSO:
- 	case ETHTOOL_GPERMADDR:
---=20
-1.7.8.3
+
+
+> ---
+>  drivers/virtio/virtio_ring.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
+> index 79e1b29..78428a8 100644
+> --- a/drivers/virtio/virtio_ring.c
+> +++ b/drivers/virtio/virtio_ring.c
+> @@ -35,7 +35,7 @@
+>  #define virtio_rmb(vq) \
+>  	do { if ((vq)->weak_barriers) smp_rmb(); else rmb(); } while(0)
+>  #define virtio_wmb(vq) \
+> -	do { if ((vq)->weak_barriers) smp_rmb(); else rmb(); } while(0)
+> +	do { if ((vq)->weak_barriers) smp_wmb(); else wmb(); } while(0)
+>  #else
+>  /* We must force memory ordering even if guest is UP since host could be
+>   * running on another CPU, but SMP barriers are defined to barrier() in that
