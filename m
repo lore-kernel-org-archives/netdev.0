@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net V1 0/6] mlx4: Fixes and enhancements to SRIOV code.
-Date: Sun, 22 Jan 2012 14:23:31 -0500 (EST)
-Message-ID: <20120122.142331.1772998493613978921.davem@davemloft.net>
-References: <4F18721E.5040901@mellanox.co.il>
+Subject: Re: [PATCH 1/3] skge: don't assert carrier until link is up
+Date: Sun, 22 Jan 2012 14:24:23 -0500 (EST)
+Message-ID: <20120122.142423.250841291801904665.davem@davemloft.net>
+References: <20120119163525.764252ea@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eugenia@mellanox.co.il
-To: yevgenyp@mellanox.co.il
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48936 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:48950 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751982Ab2AVTXk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2012 14:23:40 -0500
-In-Reply-To: <4F18721E.5040901@mellanox.co.il>
+	with ESMTP id S1752143Ab2AVTY0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2012 14:24:26 -0500
+In-Reply-To: <20120119163525.764252ea@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Thu, 19 Jan 2012 21:42:22 +0200
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Thu, 19 Jan 2012 16:35:25 -0800
 
-> Hello Dave,
+> Skge device would assert carrier (link up) as soon as network device open
+> was called, rather than waiting until PHY has detected link.
 > 
-> This is V1 of a series of enhancements and some fixes for mlx4 SRIOV code.
-> Main changes are: 
-> - Correct ethtool statistics report for each VF/PF.
-> - The ability of each function to decide on which event queue to receive asynchronous events.
-> - Bug fixes.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-All applied, thanks.
+Applied.
