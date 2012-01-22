@@ -1,51 +1,59 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: ipt_LOG: No space after prefix
-Date: Sun, 22 Jan 2012 15:26:05 +0100
-Message-ID: <4F1C1C7D.7040200@nod.at>
-References: <4F1C0719.1010609@nod.at> <alpine.LNX.2.01.1201221519200.10337@frira.zrqbmnf.qr>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Why is gre0 auto-created, and can we fix it?
+Date: Sun, 22 Jan 2012 08:48:53 -0800
+Message-ID: <4F1C3DF5.8070802@candelatech.com>
+References: <4F035F2C.1000003@candelatech.com> <m3fwf9gdjm.fsf@intrepid.localdomain> <4F1AFA84.5050201@candelatech.com> <20120121.134036.1565691107664746948.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig45E59AFE910B10518DD83F8F"
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1201221519200.10337@frira.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: khc@pm.waw.pl, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:36744 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751961Ab2AVQtJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2012 11:49:09 -0500
+In-Reply-To: <20120121.134036.1565691107664746948.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig45E59AFE910B10518DD83F8F
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On 01/21/2012 10:40 AM, David Miller wrote:
+> From: Ben Greear<greearb@candelatech.com>
+> Date: Sat, 21 Jan 2012 09:48:52 -0800
+>
+>> On 01/21/2012 09:39 AM, Krzysztof Halasa wrote:
+>>> Ben Greear<greearb@candelatech.com>   writes:
+>>>
+>>>>>> As far as I can tell, no other interfaces are auto-created
+>>>>>> in this manner.
+>>>>>
+>>>>> ip6tnl0 and sit0 do it too, just grep for alloc_netdev() under
+>>>>> net/{ipv4,ipv6}/
+>>>>
+>>>> So, no changing the behaviour?
+>>>
+>>> Perhaps making it CONFIGurable would be safe enough, not that I like
+>>> CONFIG options for all tiny details (one may argue it's not a tiny
+>>> detail).
+>>>
+>>> Haven't looked at the actual code.
+>>
+>> Seems like it could be a run-time configurable, maybe module or boot
+>> option
+>> or sysctl or something.
+>
+> I would seriously prefer that you not do this.
 
-Am 22.01.2012 15:20, schrieb Jan Engelhardt:
-> Changing it now will break log analyzers as well. So you are better off=
-=20
-> leaving it as-is, because everybody who has observed that before you=20
-> already knows about it.
+Just to make sure I understand you:  You dislike any possible method of changing
+the behaviour, not just the ones I listed?
 
-Very true.
+If I do post a patch, it will be just for comment should someone
+else want to carry the patch privately, and I'll just carry the patch
+in my tree.
 
 Thanks,
-//richard
+Ben
 
-
---------------enig45E59AFE910B10518DD83F8F
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.18 (GNU/Linux)
-
-iQEcBAEBAgAGBQJPHBx+AAoJEN9758yqZn9enZEIAJuxw0fe6zIMRl2e8Lqezgso
-IL4VPauFFQywAnCfLyG+Hxpz75ylg8W0ejAD9w/dwREHb+ibyfVOdoeaCnTZ4hHF
-Z5e8B0SYUCcLGV3aEeh5awuPsxf4yrI5fiWh9FIhS9I+bPkNgb0UrIvgzFDqYRjL
-cGLzK25kvofTnvXRjnb02KT4ucBMPH0WujbgpNnN57UyMft0ByAKVLIGyzvmT39E
-i0gxydktwlm3siEr/w3ocxDXcRYfZtt24s0Plo1eaIV4MjjldxcyG8DNqf4eClYO
-mH9DCXQ0C2eNqCmkL6Cp38UCkvO3U9hWKpcu45faYL/YdVJKkJi0uLIUmVmIXlQ=
-=X1sX
------END PGP SIGNATURE-----
-
---------------enig45E59AFE910B10518DD83F8F--
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
