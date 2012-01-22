@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH ] netem: Fix off-by-one bug in reordering
-Date: Sun, 22 Jan 2012 14:23:39 -0500 (EST)
-Message-ID: <20120122.142339.65185634889852412.davem@davemloft.net>
-References: <1327004459-19275-1-git-send-email-subramanian.vijay@gmail.com>
+Subject: Re: [PATCH net V1 0/6] mlx4: Fixes and enhancements to SRIOV code.
+Date: Sun, 22 Jan 2012 14:23:31 -0500 (EST)
+Message-ID: <20120122.142331.1772998493613978921.davem@davemloft.net>
+References: <4F18721E.5040901@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: subramanian.vijay@gmail.com
+Cc: netdev@vger.kernel.org, eugenia@mellanox.co.il
+To: yevgenyp@mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48938 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:48936 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752227Ab2AVTXm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2012 14:23:42 -0500
-In-Reply-To: <1327004459-19275-1-git-send-email-subramanian.vijay@gmail.com>
+	with ESMTP id S1751982Ab2AVTXk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2012 14:23:40 -0500
+In-Reply-To: <4F18721E.5040901@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Date: Thu, 19 Jan 2012 12:20:59 -0800
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Thu, 19 Jan 2012 21:42:22 +0200
 
-> With netem reordering, a gap of N is supposed to reorder every Nth packet with
-> given reorder probability.  However, the code currently skips N packets and
-> reorders every (N+1)th packet.
+> Hello Dave,
 > 
-> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+> This is V1 of a series of enhancements and some fixes for mlx4 SRIOV code.
+> Main changes are: 
+> - Correct ethtool statistics report for each VF/PF.
+> - The ability of each function to decide on which event queue to receive asynchronous events.
+> - Bug fixes.
 
-Applied.
+All applied, thanks.
