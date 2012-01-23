@@ -1,57 +1,38 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH/RESEND net 5/5][NON-TRIVIAL] drivers/net/ethernet:
- dev_alloc_skb to netdev_alloc_skb
-Date: Mon, 23 Jan 2012 22:04:27 +0100
-Message-ID: <1327352667.2587.4.camel@edumazet-laptop>
-References: <1327352046-6896-1-git-send-email-netdev@pradeepdalvi.com>
+Subject: Re: [PATCH/RESEND] drivers/net/ethernet: dev_alloc_skb to
+ netdev_alloc_skb
+Date: Mon, 23 Jan 2012 22:15:39 +0100
+Message-ID: <1327353339.2587.7.camel@edumazet-laptop>
+References: <1327343283-4830-1-git-send-email-netdev@pradeepdalvi.com>
+	 <1327344034.6317.3.camel@joe2Laptop>
+	 <CA+Dx6HY92Z8KtDXf73O3QMWLj__+Q2g7PxjiZ7omn+tuh8YK5A@mail.gmail.com>
+	 <1327348561.7527.0.camel@joe2Laptop>
+	 <CA+Dx6HbxEFLTMMGJ-ASY=4zNthRtWps6KnFiPNLAz6o+HVmS9g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, Christoph Hellwig <hch@lst.de>
+Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Christoph Hellwig <hch@lst.de>, linux-kernel@vger.kernel.org
 To: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1327352046-6896-1-git-send-email-netdev@pradeepdalvi.com>
+In-Reply-To: <CA+Dx6HbxEFLTMMGJ-ASY=4zNthRtWps6KnFiPNLAz6o+HVmS9g@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le mardi 24 janvier 2012 =C3=A0 02:24 +0530, Pradeep A. Dalvi a =C3=A9c=
+Le mardi 24 janvier 2012 =C3=A0 02:11 +0530, Pradeep A. Dalvi a =C3=A9c=
 rit :
-> Replaced deprecating dev_alloc_skb with netdev_alloc_skb in drivers/n=
-et/ethernet
->   - Removed extra skb->dev =3D dev after netdev_alloc_skb
->=20
 
+> Aah! Is that really needed? Cause from my understanding, priority GFP
+> flag __GFP_DMA is anyway negated in __alloc_skb, in a way from all
+> sources i.e. netdev_alloc_skb or dev_alloc_skb or even alloc_skb. Am =
+I
+> missing something here?
 
-> =20
->  /* Initialize the LANCE Rx and Tx rings. */
->  static void
-> -lance_init_ring(struct net_device *dev, gfp_t gfp)
-> +lance_init_ring(struct net_device *dev)
->  {
->  	struct lance_private *lp =3D dev->ml_priv;
->  	int i;
-> @@ -871,13 +871,12 @@ lance_init_ring(struct net_device *dev, gfp_t g=
-fp)
->  		struct sk_buff *skb;
->  		void *rx_buff;
-> =20
-> -		skb =3D alloc_skb(PKT_BUF_SZ, GFP_DMA | gfp);
-> +		skb =3D netdev_alloc_skb(dev, PKT_BUF_SZ);
->  		lp->rx_skbuff[i] =3D skb;
-> -		if (skb) {
-> -			skb->dev =3D dev;
-> +		if (skb)
->  			rx_buff =3D skb->data;
-> -		} else
-> -			rx_buff =3D kmalloc(PKT_BUF_SZ, GFP_DMA | gfp);
-> +		else
-> +			rx_buff =3D kmalloc(PKT_BUF_SZ, GFP_DMA | GFP_AUTOMIC);
->  		if (rx_buff =3D=3D NULL)
->  			lp->rx_ring[i].base =3D 0;
->  		else
+You should read the whole __alloc_skb() function and not only half of
+it.
 
-Thats really crap, please dont send us such patches, not even compiled.
+skb itself is allocated in the normal memory pool, (not GFP_DMA), since
+it has no hardware requirement for a kernel structure.
 
-alloc_skb() has nothing to do with dev_alloc_skb(), and there is a
-reason GFP_DMA is used in this driver.
+But skb->head _is_ allocated with GFP_DMA if driver requested it.
