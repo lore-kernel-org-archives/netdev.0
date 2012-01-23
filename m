@@ -1,64 +1,46 @@
-From: Mihai =?UTF-8?B?RG9uyJt1?= <mihai.dontu@gmail.com>
-Subject: Re: [Bug 40422] New: 3.0: kernel panic - not syncing: fatal
- exception in interrupt
-Date: Mon, 23 Jan 2012 16:53:58 +0200
-Message-ID: <20120123165358.60b1ba11@mdontu-l.dsd.ro>
-References: <bug-40422-27@https.bugzilla.kernel.org/>
-	<20110801140418.510c5dc4.akpm@linux-foundation.org>
-	<20110802004558.393e2a77@mdontu-dell>
-	<20110803045916.363b35fb@mdontu-dell>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch v1, kernel version 3.2.1] Source mode for macvlan
+ interaface
+Date: Mon, 23 Jan 2012 16:25:14 +0100
+Message-ID: <1327332314.2525.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <22013455.801327321838477.JavaMail.root@5-MeO-DMT.ynet.sk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bugzilla-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20110803045916.363b35fb@mdontu-dell>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stefan Gula <steweg@ynet.sk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:41514 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751202Ab2AWPZS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2012 10:25:18 -0500
+In-Reply-To: <22013455.801327321838477.JavaMail.root@5-MeO-DMT.ynet.sk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 3 Aug 2011 04:59:16 +0300 Mihai Don=C8=9Bu wrote:
-> On Tuesday 02 August 2011 00:45:58 Mihai Don=C8=9Bu wrote:
-> > > drat, the first part of that crash scrolled off the screen or
-> > > wasn't in the photo.  I don't suppose it's possible to get that
-> > > information?
-> >=20
-> > No, I'm afraid not. I'll disable the framebuffer decorations for th=
-e
-> > future. Should get me 4 or 5 more lines of backtrace when the crash
-> > reappears.
-> >=20
-> > > Still, the oops is in netfilter code - a bad pointer dereference
-> > > under devinet_ioctl->masq_device_event.
->=20
-> I got another kernel panic, but it's in a different place and I've
-> somehow managed to take a crappy snapshot (missing some of the right
-> side info). Anyway, at the rate these tend to happen, I'm likely to b=
-e
-> able to submit a correct one pretty soon.
->=20
-> Is there any option you'll like me to turn on?
->=20
+Le lundi 23 janvier 2012 =C3=A0 13:30 +0100, Stefan Gula a =C3=A9crit :
 
-This issue has not reproduced for me in quite some time, also I have
-updated my hardware a month ago, so I'm likely unable to test any fixes
-in this area.
+> +static void macvlan_forward_sources_one(struct sk_buff *skb,
+> +					struct macvlan_dev *vlan)
+> +{
+> +	struct sk_buff *nskb;
+> +	struct net_device *dev;
+> +	int len;
+> +	int ret;
+> +
+> +	dev =3D vlan->dev;
+> +	if (unlikely(!(dev->flags & IFF_UP)))
+> +		return;
+> +
+> +	nskb =3D skb_clone(skb, GFP_ATOMIC);
+> +	if (!nskb)
+> +		return;
+> +
+> +	len =3D nskb->len + ETH_HLEN;
+> +	nskb =3D skb_share_check(nskb, GFP_ATOMIC);
+> +	if (!nskb)
+> +		return;
 
-The strange thing however is that for a while I suffered from a
-"desynchronization" between "hard locked" and "soft locked" (as
-displayed by rfkill) and I had to manually run rfkill to enable WiFi.
-After that last kernel panic, things got back to normal. :-) But I
-assume that was a hardware issue ...
-
-You can probably close this bug.
-
-Thanks,
-
---=20
-Mihai Don=C8=9Bu
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I am trying to understand how/why skb_share_check() is needed/useful
+after skb_clone() ...
