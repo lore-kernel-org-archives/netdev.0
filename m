@@ -1,17 +1,17 @@
 From: "WEB ADMINISTRATOR" <assessoria_institucional@fecomercio-ce.org.br>
 Subject: Warning! Your mailbox is almost full.
-Date: Mon, 23 Jan 2012 18:57:55 -0300
-Message-ID: <20120123215820.M21550@fecomercio-ce.org.br>
+Date: Mon, 23 Jan 2012 18:59:15 -0300
+Message-ID: <20120123215915.M42561@fecomercio-ce.org.br>
 Reply-To: online.PCH@ozledim.net
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset=iso-8859-1
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from beta-218.sesc-ce.com.br ([200.141.192.218]:41820 "EHLO
+Received: from beta-218.sesc-ce.com.br ([200.141.192.218]:32472 "EHLO
 	digama.sesc-ce.com.br" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753727Ab2AWW1a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2012 17:27:30 -0500
+	with ESMTP id S1754087Ab2AWWaQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2012 17:30:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
