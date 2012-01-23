@@ -1,67 +1,50 @@
-From: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
-Subject: Re: [PATCH/RESEND net 5/5][NON-TRIVIAL] drivers/net/ethernet:
- dev_alloc_skb to netdev_alloc_skb
-Date: Tue, 24 Jan 2012 03:00:12 +0530
-Message-ID: <CA+Dx6HZK2ns94pG79FfPZpVO9+QY8LQ00zFyeK5zZjc6HLq-cQ@mail.gmail.com>
-References: <1327352046-6896-1-git-send-email-netdev@pradeepdalvi.com>
-	<1327352667.2587.4.camel@edumazet-laptop>
+From: "Torne (Richard Coles)" <torne@google.com>
+Subject: Re: [PATCH] r8169: Randomise invalid MAC addresses
+Date: Mon, 23 Jan 2012 21:35:12 +0000
+Message-ID: <CAEV-rjeC1NwbUwdmEEquGf7S8uttsW5hwTjF5nTC_JXY7=OC9A@mail.gmail.com>
+References: <1327343540-30348-1-git-send-email-torne@google.com>
+	<CAP=VYLqpUun0FtCs4VWDeLm-mAri=+UV3psRA12eVbV1So_c-Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, Christoph Hellwig <hch@lst.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: nic_swsd@realtek.com, romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Paul Gortmaker <paul.gortmaker@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1327352667.2587.4.camel@edumazet-laptop>
+In-Reply-To: <CAP=VYLqpUun0FtCs4VWDeLm-mAri=+UV3psRA12eVbV1So_c-Q@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 24, 2012 at 2:34 AM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le mardi 24 janvier 2012 =E0 02:24 +0530, Pradeep A. Dalvi a =E9crit =
-:
->> Replaced deprecating dev_alloc_skb with netdev_alloc_skb in drivers/=
-net/ethernet
->> =A0 - Removed extra skb->dev =3D dev after netdev_alloc_skb
+On 23 January 2012 20:53, Paul Gortmaker <paul.gortmaker@gmail.com> wrote:
+> On Mon, Jan 23, 2012 at 1:32 PM, Torne (Richard Coles) <torne@google.com> wrote:
+>> From: "Torne (Richard Coles)" <torne@google.com>
 >>
+>> If the default MAC address stored in the card is invalid, replace it
+>> with a random address and complain about it.
 >
+> You might want to have a look at this thread and its outcome.
 >
->>
->> =A0/* Initialize the LANCE Rx and Tx rings. */
->> =A0static void
->> -lance_init_ring(struct net_device *dev, gfp_t gfp)
->> +lance_init_ring(struct net_device *dev)
->> =A0{
->> =A0 =A0 =A0 struct lance_private *lp =3D dev->ml_priv;
->> =A0 =A0 =A0 int i;
->> @@ -871,13 +871,12 @@ lance_init_ring(struct net_device *dev, gfp_t =
-gfp)
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct sk_buff *skb;
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 void *rx_buff;
->>
->> - =A0 =A0 =A0 =A0 =A0 =A0 skb =3D alloc_skb(PKT_BUF_SZ, GFP_DMA | gf=
-p);
->> + =A0 =A0 =A0 =A0 =A0 =A0 skb =3D netdev_alloc_skb(dev, PKT_BUF_SZ);
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->rx_skbuff[i] =3D skb;
->> - =A0 =A0 =A0 =A0 =A0 =A0 if (skb) {
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->dev =3D dev;
->> + =A0 =A0 =A0 =A0 =A0 =A0 if (skb)
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 rx_buff =3D skb->data;
->> - =A0 =A0 =A0 =A0 =A0 =A0 } else
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 rx_buff =3D kmalloc(PKT_BU=
-=46_SZ, GFP_DMA | gfp);
->> + =A0 =A0 =A0 =A0 =A0 =A0 else
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 rx_buff =3D kmalloc(PKT_BU=
-=46_SZ, GFP_DMA | GFP_AUTOMIC);
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (rx_buff =3D=3D NULL)
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->rx_ring[i].base =3D =
-0;
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 else
->
-> Thats really crap, please dont send us such patches, not even compile=
-d.
->
-> alloc_skb() has nothing to do with dev_alloc_skb(), and there is a
-> reason GFP_DMA is used in this driver.
+> https://lkml.org/lkml/2012/1/14/75
 
-Would drop these changes and resubmit the patch. Thanks!
+While I can appreciate the argument that people shouldn't build
+hardware that relies on this kind of behaviour, I am in the same
+situation as Darren there: I have a retail device I have bought that
+has a garbage MAC address (an OpenPeak Joggler), and so do all the
+others. Requiring that this be worked around in userspace makes it
+tricky to just install a standard Linux distribution onto this piece
+of hardware that's otherwise pretty much x86-pc-compatible (albeit
+with a weird bootloader)
+
+The vendor's distribution clones the USB wifi adapter's MAC onto the
+ethernet device in userspace at boot, which is rather unpleasant (it
+never uses both interfaces at once, admittedly).
+
+So, is this just not going to be acceptable in any form? What about
+refactoring the existing drivers that do this so that this code
+doesn't need to be repeated in every driver, if that would help? I'd
+really quite like to get standard linux distros to be compatible with
+the Joggler, and this is one of the few changes that's actually needed
+(one way or another).
+
+-- 
+Torne (Richard Coles)
+torne@google.com
