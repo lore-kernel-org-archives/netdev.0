@@ -1,125 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch v2, kernel version 3.2.1] Source mode for macvlan
- interface
-Date: Tue, 24 Jan 2012 00:52:19 +0100
-Message-ID: <1327362739.2587.15.camel@edumazet-laptop>
-References: <29378065.3471327360294412.JavaMail.root@5-MeO-DMT.ynet.sk>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: [net PATCH 1/1] qlge:Changing netdev msg level to default debug
+Date: Mon, 23 Jan 2012 15:38:52 -0800
+Message-ID: <1327361932-28774-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stefan Gula <steweg@ynet.sk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <29378065.3471327360294412.JavaMail.root@5-MeO-DMT.ynet.sk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <ron.mercer@qlogic.com>,
+	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from am1ehsobe002.messaging.microsoft.com ([213.199.154.205]:31303
+	"EHLO AM1EHSOBE002.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756443Ab2AWXyX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2012 18:54:23 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 24 janvier 2012 =C3=A0 00:11 +0100, Stefan Gula a =C3=A9crit :
-> From: Stefan Gula <steweg@gmail.com>
->=20
-> New mode of macvlan interface called "source" allows one to specify,
-> which  frames are allowed to be received by given macvlan interface.
-> This logic is used only on received frames on underlying interface.
-> The ability to send frames from macvlan interface through underlying
-> interface is not modified. This feature allows one to simulate 802.1x
-> mac based VLAN behavior by using proper netlink message to configure
-> this behavior with utility such as "ip link" from iproute2 suite.
-> This feature allows to create MAC based VLAN associations instead of
-> standard port or tag based, to be able to associate several different
-> clients/users behind one common port based on their MAC addresses.
->=20
+Driver was passing -1 so that custom default get used but which
+makes it even more sane than 15 which was excessively verbose
+printing an unusual amount of messages.
 
-Still obscure changelog...
+Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c |   17 +++--------------
+ 1 files changed, 3 insertions(+), 14 deletions(-)
 
-> Signed-off-by: Stefan Gula <steweg@gmail.com>
->=20
-
-Please include next time
-
-V3: list of changes=20
-
-> +
-> +static void macvlan_hash_add_sources(struct macvlan_dev *vlan,
-> +				const unsigned char *addr)
-> +{
-> +	struct macvlan_port *port =3D vlan->port;
-> +	struct macvlan_source_list *list;
-> +
-> +	list =3D macvlan_hash_lookup_sources_list(vlan, addr);
-> +	if (!list) {
-> +		list =3D kmalloc(sizeof(*list), GFP_ATOMIC);
-
-
-Why GFP_ATOMIC here ?
-
-> +		if (list) {
-> +			memcpy(list->addr, addr, ETH_ALEN);
-> +			list->vlan =3D vlan;
-> +			hlist_add_head_rcu(&list->hlist,
-> +				&port->vlan_source_hash[addr[5]]);
-> +		}
-> +	}
-> +}
-> +
-
-=2E..
-
-> =20
-> +
-> +static int macvlan_fill_nested(struct sk_buff *skb, const char *addr=
-)
-> +{
-> +	struct nlattr *nested;
-> +
-> +	nested =3D nla_nest_start(skb, IFLA_MACVLAN_MACADDR_DATA);
-> +	if (!nested)
-> +		return -EMSGSIZE;
-> +	NLA_PUT(skb, IFLA_MACVLAN_MACADDR, ETH_ALEN, addr);
-> +	nla_nest_end(skb, nested);
-> +
-> +	return 0;
-> +
-> +nla_put_failure:
-> +	nla_nest_cancel(skb, nested);
-> +
-> +	return 0;
-> +}
-> +
->  static int macvlan_fill_info(struct sk_buff *skb,
->  				const struct net_device *dev)
->  {
->  	struct macvlan_dev *vlan =3D netdev_priv(dev);
-> +	struct nlattr *adt;
-> =20
->  	NLA_PUT_U32(skb, IFLA_MACVLAN_MODE, vlan->mode);
-> +
-> +	if (vlan->mode =3D=3D MACVLAN_MODE_SOURCE) {
-> +		int i;
-> +
-> +		adt =3D nla_nest_start(skb, IFLA_MACVLAN_MACADDR_ADT);
-> +		if (!adt)
-> +			goto nla_put_failure;
-> +
-> +		for (i =3D 0; i < MACVLAN_HASH_SIZE; i++) {
-> +			struct hlist_node *n;
-> +			struct macvlan_source_list *list;
-> +
-> +			hlist_for_each_entry_rcu(list, n,
-> +				&vlan->port->vlan_source_hash[i], hlist) {
-> +				if (list->vlan =3D=3D vlan)
-> +					if (macvlan_fill_nested(skb,
-> +						list->addr))
-> +						goto nla_nested_failure;
-> +			}
-> +		}
-> +		nla_nest_end(skb, adt);
-> +	}
-> +
-
-How many 'sources' are expected per port ?
-
-Above a certain (small) threshold, macvlan_fill_info() will 'overflow'
-skb capacity and return an error.
-
-Take a look at macvlan_get_size() ?
+diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+index b548987..6ad006a 100644
+--- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
++++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+@@ -52,19 +52,8 @@ MODULE_DESCRIPTION(DRV_STRING " ");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(DRV_VERSION);
+ 
+-static const u32 default_msg =
+-    NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK |
+-/* NETIF_MSG_TIMER |	*/
+-    NETIF_MSG_IFDOWN |
+-    NETIF_MSG_IFUP |
+-    NETIF_MSG_RX_ERR |
+-    NETIF_MSG_TX_ERR |
+-/*  NETIF_MSG_TX_QUEUED | */
+-/*  NETIF_MSG_INTR | NETIF_MSG_TX_DONE | NETIF_MSG_RX_STATUS | */
+-/* NETIF_MSG_PKTDATA | */
+-    NETIF_MSG_HW | NETIF_MSG_WOL | 0;
+-
+-static int debug = -1;	/* defaults above */
++#define DEFAULT_DEBUG_MSG_LEVEL 3
++static int debug = DEFAULT_DEBUG_MSG_LEVEL;
+ module_param(debug, int, 0664);
+ MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
+ 
+@@ -4614,7 +4603,7 @@ static int __devinit ql_init_device(struct pci_dev *pdev,
+ 		err = -EIO;
+ 		goto err_out2;
+ 	}
+-	qdev->msg_enable = netif_msg_init(debug, default_msg);
++	qdev->msg_enable = netif_msg_init(debug, DEFAULT_DEBUG_MSG_LEVEL);
+ 	spin_lock_init(&qdev->hw_lock);
+ 	spin_lock_init(&qdev->stats_lock);
+ 
+-- 
+1.7.6.rc1.1.g2c162b
