@@ -1,21 +1,38 @@
-From: "Mr.Cheung Eric" <rwilson@sd22.bc.ca>
-Subject: I have business proposal do not ignor
-Date: Mon, 23 Jan 2012 09:39:45 -0800 (PST)
-Message-ID: <473096dc-7385-4420-a1f2-cf64ca80e3e0@mail.sd22.bc.ca>
-Reply-To: cheungericxmmw@hotmail.com
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH 0/4] NFS: make internal list network namespace aware
+Date: Mon, 23 Jan 2012 21:25:56 +0400
+Message-ID: <20120123171404.29637.19810.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.sd22.bc.ca ([142.23.74.5]:47271 "EHLO mail.sd22.bc.ca"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750963Ab2AWRYo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jan 2012 12:24:44 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
+	davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I am Mr. Cheung Eric and I work with the Hang Seng Bank Hong Kong, I have a business transaction to share with you of my late client worth $20.5m Dollars, if interested get back to me  via my personal e-mail (cheungericxmmw@hotmail.com ) for more details.
+This patch set moves static internal lists of NFS clients and NFS servers, as
+well as static IDR's structure and lock, protecting all that stuff, to network
+namespace context.
 
-Sincerely,
-Mr.Cheung Eric
+The following series consists of:
+
+---
+
+Stanislav Kinsbursky (4):
+      NFS: make nfs_client_list per net ns
+      NFS: make nfs_volume_list per net ns
+      NFS: make cb_ident_idr per net ns
+      NFS: make nfs_client_lock per net ns
+
+
+ fs/nfs/callback_xdr.c |    2 -
+ fs/nfs/client.c       |  137 +++++++++++++++++++++++++++++++------------------
+ fs/nfs/idmap.c        |    9 +--
+ fs/nfs/inode.c        |    3 +
+ fs/nfs/internal.h     |    9 +--
+ fs/nfs/netns.h        |    6 ++
+ 6 files changed, 104 insertions(+), 62 deletions(-)
