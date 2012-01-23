@@ -1,92 +1,56 @@
-From: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
-Subject: Re: [PATCH/RESEND net 5/5][NON-TRIVIAL] drivers/net/ethernet:
- dev_alloc_skb to netdev_alloc_skb
-Date: Tue, 24 Jan 2012 03:52:17 +0530
-Message-ID: <CA+Dx6HbgoSgeLFCarF5MAh_z5psWyLEb9UVbhKXCjmxm4OsA8w@mail.gmail.com>
-References: <1327352046-6896-1-git-send-email-netdev@pradeepdalvi.com>
-	<1327352667.2587.4.camel@edumazet-laptop>
-	<20120123.165530.944969261195932179.davem@davemloft.net>
+From: =?ISO-8859-2?Q?=A9tefan_Gula?= <steweg@ynet.sk>
+Subject: Re: [patch v4, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
+ multipoint GRE over IP
+Date: Mon, 23 Jan 2012 23:23:43 +0100
+Message-ID: <CAGsizzJnQ6b6eSC0ZnAtFguU7_xDfWFPSY6L4DWXc24F+Ts2XQ@mail.gmail.com>
+References: <3900291.2831326843194846.JavaMail.root@5-MeO-DMT.ynet.sk>
+ <CAGsizzLUwA_=fZFX-4ZnYU4K-nj1A2DV_BZKOMKxgQDh2Rs54g@mail.gmail.com>
+ <1327327999.2525.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20120123.134352.1621146585245670953.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, hch@lst.de
+Cc: eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120123.165530.944969261195932179.davem@davemloft.net>
+In-Reply-To: <20120123.134352.1621146585245670953.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 24, 2012 at 3:25 AM, David Miller <davem@davemloft.net> wro=
-te:
+2012/1/23 David Miller <davem@davemloft.net>:
 > From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 23 Jan 2012 22:04:27 +0100
+> Date: Mon, 23 Jan 2012 15:13:19 +0100
 >
->> Le mardi 24 janvier 2012 =E0 02:24 +0530, Pradeep A. Dalvi a =E9crit=
- :
->>> Replaced deprecating dev_alloc_skb with netdev_alloc_skb in drivers=
-/net/ethernet
->>> =A0 - Removed extra skb->dev =3D dev after netdev_alloc_skb
->>>
+>> Le lundi 23 janvier 2012 =C3=A0 14:12 +0100, =C5=A0tefan Gula a =C3=A9=
+crit :
 >>
->>
->>>
->>> =A0/* Initialize the LANCE Rx and Tx rings. */
->>> =A0static void
->>> -lance_init_ring(struct net_device *dev, gfp_t gfp)
->>> +lance_init_ring(struct net_device *dev)
->>> =A0{
->>> =A0 =A0 =A0struct lance_private *lp =3D dev->ml_priv;
->>> =A0 =A0 =A0int i;
->>> @@ -871,13 +871,12 @@ lance_init_ring(struct net_device *dev, gfp_t=
- gfp)
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0struct sk_buff *skb;
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0void *rx_buff;
->>>
->>> - =A0 =A0 =A0 =A0 =A0 =A0skb =3D alloc_skb(PKT_BUF_SZ, GFP_DMA | gf=
-p);
->>> + =A0 =A0 =A0 =A0 =A0 =A0skb =3D netdev_alloc_skb(dev, PKT_BUF_SZ);
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0lp->rx_skbuff[i] =3D skb;
->>> - =A0 =A0 =A0 =A0 =A0 =A0if (skb) {
->>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0skb->dev =3D dev;
->>> + =A0 =A0 =A0 =A0 =A0 =A0if (skb)
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rx_buff =3D skb->data;
->>> - =A0 =A0 =A0 =A0 =A0 =A0} else
->>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rx_buff =3D kmalloc(PKT_BU=
-=46_SZ, GFP_DMA | gfp);
->>> + =A0 =A0 =A0 =A0 =A0 =A0else
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rx_buff =3D kmalloc(PKT_BU=
-=46_SZ, GFP_DMA | GFP_AUTOMIC);
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0if (rx_buff =3D=3D NULL)
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0lp->rx_ring[i].base =3D =
-0;
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0else
->>
->> Thats really crap, please dont send us such patches, not even compil=
-ed.
->>
->> alloc_skb() has nothing to do with dev_alloc_skb(), and there is a
->> reason GFP_DMA is used in this driver.
->
-> This is really terrible.
->
-> Pradeep please stop sending these changes until you have your house
-> in order. =A0Your patches are buggy and ill conceived.
->
-> Please do not submit more patches in this area until you spend the
-> necessary time to truly understand these interfaces and how these cod=
+>>> is there anything else needed from my side to get this code into th=
 e
-> snippets actually work.
-
-Thanks for inputs!
-
-Have submitted changes in total 118 files, and out of which changes in
-this 1 single file is outcome of final minute changes. Apologies for
-that!
-
-Although, there are 4 other patches with trivial changes in total 114
-files. You may want to consider them and probably want to discard
-final i.e. 5th of 5 completely.
-
-Anyways, have already resubmitted all patches again, reverting changes
-pointed in here & correcting 5th patch.
+>>> kernel or should I only wait for the maintainers to check it?
+>>
+>> net-next is/was not yet opened, you shall wait for the good time fra=
+me.
+>>
+>> Dont copy/paste a big message only to add one sentence at its end, i=
+ts
+>> really a waste of time for many of us.
+>
+> Also you were told of other ways to achieve the things you want to do=
+,
+> and I haven't seen any reasonable response that supports still adding
+> this new code.
+I am sorry about the mistakes I did (still new to kernel submitting
+processes). I believe that I also explain to everybody who says
+something similar that it is not entirely true and probably never will
+be as none of the current SW allows you to create L2 Ethernet
+Multipoint VPN solution in such simple way as almost all requires to
+run special kind of software in user-space to provide control-plane
+for such feature to work. This software must be able to run on various
+platforms/architectures which makes it sometimes problematic. My
+solution doesn't need this at all and extends the capability of gretap
+interfaces in proper manner to be aligned with other forwarding
+engines of gretap interfaces. I already have at least one successful
+test done in other environment other than my own. So I assume some
+people like this approach better than other solutions. For them and
+also for myself, I believe it should be added.
