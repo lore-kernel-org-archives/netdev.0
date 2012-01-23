@@ -1,75 +1,380 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: Bug#656802: linux-image-2.6.32-5-amd64: dmesg BUG: scheduling
- while atomic: ksoftirqd/0/4/0x10000100
-Date: Mon, 23 Jan 2012 12:12:49 +0000
-Message-ID: <4F1D4EC1.2030205@katalix.com>
-References: <20120121201935.25512.69763.reportbug@m3x.org> <1327195921.8004.70.camel@deadeye>
+From: Stefan Gula <steweg@ynet.sk>
+Subject: [patch v1, kernel version 3.2.1] Source mode for macvlan interaface
+Date: Mon, 23 Jan 2012 13:30:38 +0100 (CET)
+Message-ID: <22013455.801327321838477.JavaMail.root@5-MeO-DMT.ynet.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, 656802@bugs.debian.org,
-	alex <alex@m3x.org>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:60543 "EHLO mail.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751154Ab2AWMTp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jan 2012 07:19:45 -0500
-In-Reply-To: <1327195921.8004.70.camel@deadeye>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 22/01/12 01:32, Ben Hutchings wrote:
-> On Sat, 2012-01-21 at 22:19 +0200, alex wrote:
-> [...]
->>   [148654.740747] xt_TCPMSS: bad length (41 bytes)
->> [148656.341170] BUG: scheduling while atomic: ksoftirqd/0/4/0x10000100
->> [148656.341402] Modules linked in: act_police sch_ingress cls_u32 sch_sfq sch_cbq dummy 8021q garp stp xt_TCPMSS ipt_REJECT xt_tcpudp xt_state xt_multiport iptable_filt
->> er iptable_nat nf_nat nf_conntrack_ipv4 nf_conntrack nf_defrag_ipv4 ip_tables x_tables xfs exportfs pppoe pppol2tp pptp pppox ppp_generic slhc loop firewire_sbp2 snd_hd
->> a_codec_realtek snd_hda_intel snd_hda_codec snd_hwdep snd_pcm snd_timer nouveau ttm drm_kms_helper snd drm i2c_piix4 i2c_algo_bit i2c_core k10temp soundcore edac_core s
->> nd_page_alloc edac_mce_amd pcspkr button wmi evdev processor ext3 jbd mbcache ata_generic sd_mod crc_t10dif ohci_hcd pata_via pata_atiixp tg3 libphy ahci ehci_hcd libat
->> a ixgbe xhci firewire_ohci dca floppy usbcore thermal scsi_mod firewire_core nls_base crc_itu_t thermal_sys [last unloaded: scsi_wait_scan]
->> [148656.341440] Pid: 4, comm: ksoftirqd/0 Not tainted 2.6.32-5-amd64 #1
->> [148656.341442] Call Trace:
->> [148656.341443]<IRQ>   [<ffffffff812facb8>] ? schedule+0xc5/0x7b4
->> [148656.341453]  [<ffffffff810963c9>] ? handle_edge_irq+0xdd/0x101
->> [148656.341457]  [<ffffffff8104aa4c>] ? __cond_resched+0x1d/0x26
->> [148656.341459]  [<ffffffff812fb5ab>] ? _cond_resched+0x24/0x2f
->> [148656.341463]  [<ffffffff81243945>] ? lock_sock_nested+0x16/0xab
->> [148656.341465]  [<ffffffff810114d3>] ? ret_from_intr+0x0/0x11
->> [148656.341469]  [<ffffffffa01a6b2a>] ? pppol2tp_tunnel_destruct+0xe7/0x1f7 [pppol2tp]
->> [148656.341472]  [<ffffffff8124433f>] ? __sk_free+0x15/0xe8
->> [148656.341474]  [<ffffffff81247c06>] ? skb_release_head_state+0x6d/0xc8
->> [148656.341476]  [<ffffffff8124797a>] ? __kfree_skb+0x9/0x7d
->> [148656.341485]  [<ffffffffa00cf989>] ? ixgbe_poll+0x119/0x1840 [ixgbe]
->> [148656.341489]  [<ffffffff81272e08>] ? ip_rcv_finish+0x0/0x38d
->> [148656.341493]  [<ffffffff8124fd8e>] ? net_rx_action+0xae/0x1c9
->> [148656.341496]  [<ffffffff81053d2b>] ? __do_softirq+0xdd/0x1a6
->> [148656.341498]  [<ffffffff81011cac>] ? call_softirq+0x1c/0x30
-> [...]
->
-> It appears that a transmit completion results in dropping the last
-> reference to a PPPoL2TP tunnel, causing it to be destroyed.
-> pppo2ltp_tunnel_destruct() calls pppo2ltp_tunnel_closeall() (inlined
-> here) which calls lock_sock(), and that may sleep.
->
-> Although this was observed in 2.6.32, the bug appears to be present
-> today: l2tp_tunnel_destruct() calls l2tp_tunnel_closeall() calls
-> pppol2tp_session_close() calls lock_sock().
->
-> But maybe this is actually a ref-counting bug and the tunnel should
-> never actually be destroyed in atomic context.
+From: Stefan Gula <steweg@gmail.com>
 
-I'll look over the code. Meanwhile, do you have info about the config / 
-use case so that I can try to reproduce it?
+New mode of macvlan interface called "source" allows one to specify, which  frames are allowed to be received by given macvlan interface. This logic is used only on received frames on underlaying interface. The ability to send frames from macvlan interface through underlaying interface is not modified. This feature allows one to simulate 802.1x mac based VLAN bahaviour by using proper netlink message to configure this behavior with utililty such as "ip link" from iproute2 suite.
 
->
-> Ben.
->
+Signed-off-by: Stefan Gula <steweg@gmail.com>
 
+---
 
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+I have also iproute2 patch ready, just need to find out correct process for submitting it.
+
+diff -uprN -X linux/Documentation/dontdiff linux-3.2.1-orig/drivers/net/macvlan.c linux/drivers/net/macvlan.c
+--- linux-3.2.1-orig/drivers/net/macvlan.c	2012-01-12 20:42:45.000000000 +0100
++++ linux/drivers/net/macvlan.c	2012-01-23 11:38:12.207845065 +0100
+@@ -40,6 +40,7 @@ struct macvlan_port {
+ 	struct rcu_head		rcu;
+ 	bool 			passthru;
+ 	int			count;
++	struct hlist_head	vlan_source_hash[MACVLAN_HASH_SIZE];
+ };
+ 
+ static void macvlan_port_destroy(struct net_device *dev);
+@@ -155,6 +156,119 @@ static void macvlan_broadcast(struct sk_
+ 	}
+ }
+ 
++struct macvlan_source_list {
++	struct hlist_node	hlist;
++	struct macvlan_dev	*vlan;
++	unsigned char		addr[ETH_ALEN];
++	struct rcu_head		rcu;
++};
++
++static struct macvlan_source_list *macvlan_hash_lookup_sources_list(
++	const struct macvlan_dev *vlan,
++	const unsigned char *addr)
++{
++	struct macvlan_source_list *list;
++	struct hlist_node *n;
++
++	hlist_for_each_entry_rcu(list, n,
++		&vlan->port->vlan_source_hash[addr[5]], hlist) {
++		if (!compare_ether_addr_64bits(list->addr, addr) &&
++			list->vlan == vlan)
++			return list;
++	}
++	return NULL;
++}
++
++static void macvlan_hash_add_sources(struct macvlan_dev *vlan,
++				const unsigned char *addr)
++{
++	struct macvlan_port *port = vlan->port;
++	struct macvlan_source_list *list;
++
++	list = macvlan_hash_lookup_sources_list(vlan, addr);
++	if (!list) {
++		list = kmalloc(sizeof(*list), GFP_ATOMIC);
++		if (list) {
++			memcpy(list->addr, addr, ETH_ALEN);
++			list->vlan = vlan;
++			hlist_add_head_rcu(&list->hlist,
++				&port->vlan_source_hash[addr[5]]);
++		}
++	}
++}
++
++static void macvlan_hash_del_sources(struct macvlan_source_list *list,
++					bool sync)
++{
++	hlist_del_rcu(&list->hlist);
++	kfree_rcu(list, rcu);
++	if (sync)
++		synchronize_rcu();
++}
++
++static void macvlan_flush_sources(struct macvlan_port *port,
++				struct macvlan_dev *vlan)
++{
++	int i;
++
++	for (i = 0; i < MACVLAN_HASH_SIZE; i++) {
++		struct hlist_node *h, *n;
++
++		hlist_for_each_safe(h, n, &port->vlan_source_hash[i]) {
++			struct macvlan_source_list *list
++				= hlist_entry(h, struct macvlan_source_list,
++						hlist);
++			if (list->vlan == vlan)
++				macvlan_hash_del_sources(list, true);
++		}
++	}
++}
++
++static void macvlan_forward_sources_one(struct sk_buff *skb,
++					struct macvlan_dev *vlan)
++{
++	struct sk_buff *nskb;
++	struct net_device *dev;
++	int len;
++	int ret;
++
++	dev = vlan->dev;
++	if (unlikely(!(dev->flags & IFF_UP)))
++		return;
++
++	nskb = skb_clone(skb, GFP_ATOMIC);
++	if (!nskb)
++		return;
++
++	len = nskb->len + ETH_HLEN;
++	nskb = skb_share_check(nskb, GFP_ATOMIC);
++	if (!nskb)
++		return;
++
++	nskb->dev = dev;
++	nskb->pkt_type = PACKET_HOST;
++	ret = vlan->receive(nskb);
++	macvlan_count_rx(vlan, len, ret == NET_RX_SUCCESS, 0);
++}
++
++static void macvlan_forward_sources(struct sk_buff *skb,
++	const struct macvlan_port *port,
++	const unsigned char *addr)
++{
++	struct macvlan_source_list *list;
++	struct hlist_node *n;
++
++	hlist_for_each_entry_rcu(list, n, &port->vlan_source_hash[addr[5]],
++				hlist) {
++		if (!compare_ether_addr_64bits(list->addr, addr))
++			if (list->vlan->dev->flags & IFF_UP)
++				macvlan_forward_sources_one(skb, list->vlan);
++	}
++	return;
++}
++
++
++
+ /* called under rcu_read_lock() from netif_receive_skb */
+ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
+ {
+@@ -172,6 +286,8 @@ static rx_handler_result_t macvlan_handl
+ 		skb = ip_check_defrag(skb, IP_DEFRAG_MACVLAN);
+ 		if (!skb)
+ 			return RX_HANDLER_CONSUMED;
++
++		macvlan_forward_sources(skb, port, eth->h_source);
+ 		src = macvlan_hash_lookup(port, eth->h_source);
+ 		if (!src)
+ 			/* frame comes from an external address */
+@@ -202,6 +318,7 @@ static rx_handler_result_t macvlan_handl
+ 		return RX_HANDLER_PASS;
+ 	}
+ 
++	macvlan_forward_sources(skb, port, eth->h_source);
+ 	if (port->passthru)
+ 		vlan = list_first_entry(&port->vlans, struct macvlan_dev, list);
+ 	else
+@@ -474,6 +591,7 @@ static void macvlan_uninit(struct net_de
+ 
+ 	free_percpu(vlan->pcpu_stats);
+ 
++	macvlan_flush_sources(port, vlan);
+ 	port->count -= 1;
+ 	if (!port->count)
+ 		macvlan_port_destroy(port->dev);
+@@ -615,7 +733,8 @@ static int macvlan_port_create(struct ne
+ 	INIT_LIST_HEAD(&port->vlans);
+ 	for (i = 0; i < MACVLAN_HASH_SIZE; i++)
+ 		INIT_HLIST_HEAD(&port->vlan_hash[i]);
+-
++	for (i = 0; i < MACVLAN_HASH_SIZE; i++)
++		INIT_HLIST_HEAD(&port->vlan_source_hash[i]);
+ 	err = netdev_rx_handler_register(dev, macvlan_handle_frame, port);
+ 	if (err)
+ 		kfree(port);
+@@ -648,11 +767,31 @@ static int macvlan_validate(struct nlatt
+ 		case MACVLAN_MODE_VEPA:
+ 		case MACVLAN_MODE_BRIDGE:
+ 		case MACVLAN_MODE_PASSTHRU:
++		case MACVLAN_MODE_SOURCE:
++			break;
++		default:
++			return -EINVAL;
++		}
++	}
++
++	if (data && data[IFLA_MACVLAN_MACADDR_MODE]) {
++		switch (nla_get_u32(data[IFLA_MACVLAN_MACADDR_MODE])) {
++		case MACVLAN_MACADDR_ADD:
++		case MACVLAN_MACADDR_DEL:
+ 			break;
+ 		default:
+ 			return -EINVAL;
+ 		}
+ 	}
++
++	if (data && data[IFLA_MACVLAN_MACADDR]) {
++		if (nla_len(data[IFLA_MACVLAN_MACADDR]) != ETH_ALEN)
++			return -EINVAL;
++
++		if (!is_valid_ether_addr(nla_data(data[IFLA_MACVLAN_MACADDR])))
++			return -EADDRNOTAVAIL;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -749,6 +888,8 @@ void macvlan_dellink(struct net_device *
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+ 
++	if (vlan->mode == MACVLAN_MODE_SOURCE)
++		macvlan_flush_sources(vlan->port, vlan);
+ 	list_del(&vlan->list);
+ 	unregister_netdevice_queue(dev, head);
+ }
+@@ -758,8 +899,33 @@ static int macvlan_changelink(struct net
+ 		struct nlattr *tb[], struct nlattr *data[])
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+-	if (data && data[IFLA_MACVLAN_MODE])
++
++	if (data && data[IFLA_MACVLAN_MODE]) {
++		if (vlan->mode == MACVLAN_MODE_SOURCE &&
++			vlan->mode != nla_get_u32(data[IFLA_MACVLAN_MODE]))
++			macvlan_flush_sources(vlan->port, vlan);
+ 		vlan->mode = nla_get_u32(data[IFLA_MACVLAN_MODE]);
++	}
++
++	if (data && data[IFLA_MACVLAN_MACADDR_MODE] &&
++		data[IFLA_MACVLAN_MACADDR]) {
++		if (vlan->mode == MACVLAN_MODE_SOURCE) {
++			if ((nla_get_u32(data[IFLA_MACVLAN_MACADDR_MODE]) ==
++				MACVLAN_MACADDR_ADD))
++				macvlan_hash_add_sources(vlan,
++					nla_data(data[IFLA_MACVLAN_MACADDR]));
++			else if (nla_get_u32(data[IFLA_MACVLAN_MACADDR_MODE]) ==
++				MACVLAN_MACADDR_DEL) {
++				struct macvlan_source_list *list;
++
++				list = macvlan_hash_lookup_sources_list(vlan,
++					nla_data(data[IFLA_MACVLAN_MACADDR]));
++				if (list)
++					macvlan_hash_del_sources(list, true);
++			}
++		}
++	}
++
+ 	return 0;
+ }
+ 
+@@ -768,20 +934,71 @@ static size_t macvlan_get_size(const str
+ 	return nla_total_size(4);
+ }
+ 
++
++static int macvlan_fill_nested(struct sk_buff *skb, const char *addr)
++{
++	struct nlattr *nested;
++
++	nested = nla_nest_start(skb, IFLA_MACVLAN_MACADDR_DATA);
++	if (!nested)
++		return -EMSGSIZE;
++	NLA_PUT(skb, IFLA_MACVLAN_MACADDR, ETH_ALEN, addr);
++	nla_nest_end(skb, nested);
++
++	return 0;
++
++nla_put_failure:
++	nla_nest_cancel(skb, nested);
++
++	return 0;
++}
++
+ static int macvlan_fill_info(struct sk_buff *skb,
+ 				const struct net_device *dev)
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
++	struct nlattr *adt;
+ 
+ 	NLA_PUT_U32(skb, IFLA_MACVLAN_MODE, vlan->mode);
++
++	if (vlan->mode == MACVLAN_MODE_SOURCE) {
++		int i;
++
++		adt = nla_nest_start(skb, IFLA_MACVLAN_MACADDR_ADT);
++		if (!adt)
++			goto nla_put_failure;
++
++		for (i = 0; i < MACVLAN_HASH_SIZE; i++) {
++			struct hlist_node *n;
++			struct macvlan_source_list *list;
++
++			hlist_for_each_entry_rcu(list, n,
++				&vlan->port->vlan_source_hash[i], hlist) {
++				if (list->vlan == vlan)
++					if (macvlan_fill_nested(skb,
++						list->addr))
++						goto nla_nested_failure;
++			}
++		}
++		nla_nest_end(skb, adt);
++	}
++
+ 	return 0;
+ 
++nla_nested_failure:
++	nla_nest_end(skb, adt);
++	return -EMSGSIZE;
++
+ nla_put_failure:
+ 	return -EMSGSIZE;
+ }
+ 
+ static const struct nla_policy macvlan_policy[IFLA_MACVLAN_MAX + 1] = {
+ 	[IFLA_MACVLAN_MODE] = { .type = NLA_U32 },
++	[IFLA_MACVLAN_MACADDR_MODE] = { .type = NLA_U32 },
++	[IFLA_MACVLAN_MACADDR] = { .type = NLA_BINARY, .len = MAX_ADDR_LEN },
++	[IFLA_MACVLAN_MACADDR_DATA] = { .type = NLA_NESTED },
++	[IFLA_MACVLAN_MACADDR_ADT] = { .type = NLA_NESTED },
+ };
+ 
+ int macvlan_link_register(struct rtnl_link_ops *ops)
+diff -uprN -X linux/Documentation/dontdiff linux-3.2.1-orig/include/linux/if_link.h linux/include/linux/if_link.h
+--- linux-3.2.1-orig/include/linux/if_link.h	2012-01-12 20:42:45.000000000 +0100
++++ linux/include/linux/if_link.h	2012-01-22 22:07:58.501011424 +0100
+@@ -252,6 +252,10 @@ struct ifla_vlan_qos_mapping {
+ enum {
+ 	IFLA_MACVLAN_UNSPEC,
+ 	IFLA_MACVLAN_MODE,
++	IFLA_MACVLAN_MACADDR_MODE,
++	IFLA_MACVLAN_MACADDR,
++	IFLA_MACVLAN_MACADDR_DATA,
++	IFLA_MACVLAN_MACADDR_ADT,
+ 	__IFLA_MACVLAN_MAX,
+ };
+ 
+@@ -262,6 +266,12 @@ enum macvlan_mode {
+ 	MACVLAN_MODE_VEPA    = 2, /* talk to other ports through ext bridge */
+ 	MACVLAN_MODE_BRIDGE  = 4, /* talk to bridge ports directly */
+ 	MACVLAN_MODE_PASSTHRU = 8,/* take over the underlying device */
++	MACVLAN_MODE_SOURCE  = 16,/* use source MAC address list to assign */
++};
++
++enum macvlan_macaddr_mode {
++	MACVLAN_MACADDR_ADD,
++	MACVLAN_MACADDR_DEL,
+ };
+ 
+ /* SR-IOV virtual function management section */
+diff -uprN -X linux/Documentation/dontdiff linux-3.2.1-orig/include/linux/if_macvlan.h linux/include/linux/if_macvlan.h
+--- linux-3.2.1-orig/include/linux/if_macvlan.h	2012-01-12 20:42:45.000000000 +0100
++++ linux/include/linux/if_macvlan.h	2012-01-20 16:09:04.899241461 +0100
+@@ -104,5 +104,11 @@ extern int macvlan_link_register(struct
+ 
+ extern netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
+ 				      struct net_device *dev);
+-
++/*
++static struct macvlan_dev *macvlan_hash_lookup_sources(
++	const struct macvlan_port *port,
++	const unsigned char *addr);
++static int macvlan_add_sources(struct macvlan_port *port,
++				struct macvlan_dev *vlan);
++*/
+ #endif /* _LINUX_IF_MACVLAN_H */
