@@ -1,115 +1,246 @@
-From: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
-Subject: [RFC PATCH 0/7] ARM: davinci: add support for the am1808 based enbw_cmc board
-Date: Mon, 23 Jan 2012 09:56:00 +0100
-Message-ID: <1327308967-8092-1-git-send-email-hs@denx.de>
-Cc: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Ben Dooks <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>,
-	Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, Kevin Hilman <khilman-l0cyMroinI0@public.gmane.org>,
-	Wolfgang Denk <wd-ynQEQJNshbs@public.gmane.org>
-To: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Heiko Schocher <hs@denx.de>
+Subject: [RFC PATCH 4/7] ARM: davinci: net: davinci_emac: add OF support
+Date: Mon, 23 Jan 2012 09:56:04 +0100
+Message-ID: <1327308967-8092-5-git-send-email-hs@denx.de>
+References: <1327308967-8092-1-git-send-email-hs@denx.de>
+Cc: Heiko Schocher <hs@denx.de>, linux-arm-kernel@lists.infradead.org,
+	devicetree-discuss@lists.ozlabs.org, netdev@vger.kernel.org,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Sekhar Nori <nsekhar@ti.com>, Wolfgang Denk <wd@denx.de>
+To: davinci-linux-open-source@linux.davincidsp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.10]:34682 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750852Ab2AWI4R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2012 03:56:17 -0500
+In-Reply-To: <1327308967-8092-1-git-send-email-hs@denx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-add support for the davinci am1808 based enbw_cmc board.
+add of support for the davinci_emac driver.
 
-This is thought as a RFC patchserie, as this patches
-surely have to be discussed:
-
-- ARM: davinci: configure davinci aemif chipselects through OF
-  not moved to mfd, as mentioned in this discussion:
-  http://davinci-linux-open-source.1494791.n2.nabble.com/PATCH-arm-davinci-configure-davinci-aemif-chipselects-through-OF-td7059739.html
-  instead use a phandle in the DTS, so drivers which
-  uses the davinci aemif, can call davinci_aemif_setup_timing_of()
-
-  This is just thought as an RFC ... The enbw_cmc board
-  support not really need to setup this bus timings, as
-  they are setup in U-Boot ... but I want to post this,
-  as I think, it is a nice to have, and I am not really
-  sure, if this has to be a MFD device (If so, all bus
-  interfaces for other SoCs should be converted also to
-  MFD devices) ... as an example how this can be used
-  I add this to the davinci nand controller OF support
-  patch, in this patchserie.
-
-- ARM: davinci: mux: add OF support
-  I want to get rid of the pin setup code in board code ...
-  This patch introduces a davinci_cfg_reg_of() function,
-  which davinci drivers can call, if they found a
-  "pinmux-handle", so used in the following drivers in
-  this patchserie:
-
-  drivers/net/ethernet/ti/davinci_emac
-  drivers/i2c/busses/i2c-davinci.c
-  drivers/mtd/nand/davinci_nand.c
-
-- post this board support with USB support, even though
-  USB is only working with the 10 ms "workaround", posted here:
-  http://comments.gmane.org/gmane.linux.usb.general/54505
-  I see this issue also on the AM1808 TMDXEXP1808L evalboard.
-
-- MMC and USB are not using OF support yet, ideas how to port
-  this are welcome. I need for USB and MMC board specific
-  callbacks, how to solve this with OF support?
-
-Signed-off-by: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
-Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-Cc: linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-Cc: linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Cc: Ben Dooks <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>
-Cc: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Cc: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-Cc: Kevin Hilman <khilman-l0cyMroinI0@public.gmane.org>
-Cc: Wolfgang Denk <wd-ynQEQJNshbs@public.gmane.org>
-
-Heiko Schocher (7):
-  ARM: davinci, intc: Add OF support for TI interrupt controller
-  ARM: davinci: configure davinci aemif chipselects through OF
-  ARM: davinci: mux: add OF support
-  ARM: davinci: net: davinci_emac: add OF support
-  ARM: davinci: i2c: add OF support
-  ARM: mtd: nand: davinci: add OF support for davinci nand controller
-  ARM: davinci: add support for the am1808 based enbw_cmc board
-
- .../devicetree/bindings/arm/davinci/aemif.txt      |  119 ++++++
- .../bindings/arm/davinci/davinci_emac.txt          |   46 +++
- .../devicetree/bindings/arm/davinci/i2c.txt        |   39 ++
- .../devicetree/bindings/arm/davinci/intc.txt       |   26 ++
- .../devicetree/bindings/arm/davinci/mux.txt        |   40 ++
- .../devicetree/bindings/arm/davinci/nand.txt       |   72 ++++
- arch/arm/boot/dts/enbw_cmc.dts                     |  286 +++++++++++++++
- arch/arm/configs/enbw_cmc_defconfig                |  125 +++++++
- arch/arm/mach-davinci/Kconfig                      |    8 +
- arch/arm/mach-davinci/Makefile                     |    1 +
- arch/arm/mach-davinci/aemif.c                      |   86 +++++-
- arch/arm/mach-davinci/board-enbw-cmc.c             |  384 ++++++++++++++++++++
- arch/arm/mach-davinci/cp_intc.c                    |   51 +++
- arch/arm/mach-davinci/include/mach/aemif.h         |    1 +
- arch/arm/mach-davinci/include/mach/cp_intc.h       |    1 +
- arch/arm/mach-davinci/include/mach/mux.h           |    2 +
- arch/arm/mach-davinci/include/mach/uncompress.h    |    1 +
- arch/arm/mach-davinci/mux.c                        |   73 ++++-
- drivers/i2c/busses/i2c-davinci.c                   |   43 +++
- drivers/mtd/nand/davinci_nand.c                    |   78 ++++-
- drivers/net/ethernet/ti/davinci_emac.c             |  111 ++++++-
- 21 files changed, 1588 insertions(+), 5 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/arm/davinci/aemif.txt
+Signed-off-by: Heiko Schocher <hs@denx.de>
+Cc: davinci-linux-open-source@linux.davincidsp.com
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: devicetree-discuss@lists.ozlabs.org
+Cc: netdev@vger.kernel.org
+Cc: Grant Likely <grant.likely@secretlab.ca>
+Cc: Sekhar Nori <nsekhar@ti.com>
+Cc: Wolfgang Denk <wd@denx.de>
+---
+ .../bindings/arm/davinci/davinci_emac.txt          |   46 ++++++++
+ drivers/net/ethernet/ti/davinci_emac.c             |  111 +++++++++++++++++++-
+ 2 files changed, 156 insertions(+), 1 deletions(-)
  create mode 100644 Documentation/devicetree/bindings/arm/davinci/davinci_emac.txt
- create mode 100644 Documentation/devicetree/bindings/arm/davinci/i2c.txt
- create mode 100644 Documentation/devicetree/bindings/arm/davinci/intc.txt
- create mode 100644 Documentation/devicetree/bindings/arm/davinci/mux.txt
- create mode 100644 Documentation/devicetree/bindings/arm/davinci/nand.txt
- create mode 100644 arch/arm/boot/dts/enbw_cmc.dts
- create mode 100644 arch/arm/configs/enbw_cmc_defconfig
- create mode 100644 arch/arm/mach-davinci/board-enbw-cmc.c
 
+diff --git a/Documentation/devicetree/bindings/arm/davinci/davinci_emac.txt b/Documentation/devicetree/bindings/arm/davinci/davinci_emac.txt
+new file mode 100644
+index 0000000..4e5dc8d
+--- /dev/null
++++ b/Documentation/devicetree/bindings/arm/davinci/davinci_emac.txt
+@@ -0,0 +1,46 @@
++* Texas Instruments Davinci EMAC
++
++This file provides information, what the davice node
++for the davinci_emac interface contain.
++
++Required properties:
++- compatible: "ti,davinci-emac";
++- reg: Offset and length of the register set for the device
++- ctrl_reg_offset: offset to control register
++- ctrl_mod_reg_offset: offset to control module register
++- ctrl_ram_offset: offset to control module ram
++- hw_ram_addr: hardware ram addr
++- ctrl_ram_size: size of control module ram
++- version: 1 (EMAC_VERSION_1 for DM644x)
++           2 (EMAC_VERSION_2 for DM646x)
++- phy-handle: Contains a phandle to an Ethernet PHY.
++              if not, davinci_emac driver defaults to 100/FULL
++- interrupts: interrupt mapping for the davinci emac interrupts sources:
++              4 sources: <Receive Threshold Interrupt
++			  Receive Interrupt
++			  Transmit Interrupt
++			  Miscellaneous Interrupt>
++- pinmux-handle: Contains a handle to configure the pinmux settings.
++
++Optional properties:
++- local-mac-address : 6 bytes, mac address
++
++Example (enbw_cmc board):
++	eth0: emac@1e20000 {
++		compatible = "ti,davinci-emac";
++		reg = <0x220000 0x4000>;
++		ctrl_reg_offset = <0x3000>;
++		ctrl_mod_reg_offset = <0x2000>;
++		ctrl_ram_offset = <0>;
++		hw_ram_addr = <0>;
++		ctrl_ram_size = <0x2000>;
++		version = <1>;
++		local-mac-address = [ 00 00 00 00 00 00 ];
++		interrupts = <33
++				34
++				35
++				36
++				>;
++		interrupt-parent = <&intc>;
++		pinmux-handle = <&emac_pins>;
++	};
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index 794ac30..cad7a96 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -58,6 +58,12 @@
+ #include <linux/io.h>
+ #include <linux/uaccess.h>
+ #include <linux/davinci_emac.h>
++#include <linux/of.h>
++#include <linux/of_address.h>
++#include <linux/of_irq.h>
++#include <linux/of_net.h>
++
++#include <mach/mux.h>
+ 
+ #include <asm/irq.h>
+ #include <asm/page.h>
+@@ -339,6 +345,9 @@ struct emac_priv {
+ 	u32 rx_addr_type;
+ 	atomic_t cur_tx;
+ 	const char *phy_id;
++#ifdef CONFIG_OF
++	struct device_node *phy_node;
++#endif
+ 	struct phy_device *phydev;
+ 	spinlock_t lock;
+ 	/*platform specific members*/
+@@ -1582,6 +1591,7 @@ static int emac_dev_open(struct net_device *ndev)
+ 	cpdma_ctlr_start(priv->dma);
+ 
+ 	priv->phydev = NULL;
++
+ 	/* use the first phy on the bus if pdata did not give us a phy id */
+ 	if (!priv->phy_id) {
+ 		struct device *phy;
+@@ -1759,6 +1769,104 @@ static const struct net_device_ops emac_netdev_ops = {
+ #endif
+ };
+ 
++#ifdef CONFIG_OF
++static struct emac_platform_data
++	*davinci_emac_of_get_pdata(struct platform_device *pdev,
++	struct emac_priv *priv)
++{
++	struct device_node *np;
++	struct device_node *pinmux_np;
++	struct emac_platform_data *pdata = NULL;
++	const u8 *mac_addr;
++	u32 data;
++	int ret;
++	struct resource temp_res;
++	int irq;
++	int index = 0;
++
++	np = of_find_compatible_node(NULL, NULL, "ti,davinci-emac");
++	if (!np)
++		goto nodata;
++
++	pdata = pdev->dev.platform_data;
++	if (!pdata) {
++		pdata = kzalloc(sizeof(struct emac_platform_data), GFP_KERNEL);
++		if (!pdata)
++			goto nodata;
++	}
++
++	mac_addr = of_get_mac_address(np);
++	if (mac_addr)
++		memcpy(pdata->mac_addr, mac_addr, ETH_ALEN);
++
++	ret = of_property_read_u32(np, "ctrl_reg_offset", &data);
++	if (!ret)
++		pdata->ctrl_reg_offset = data;
++
++	ret = of_property_read_u32(np, "ctrl_mod_reg_offset", &data);
++	if (!ret)
++		pdata->ctrl_mod_reg_offset = data;
++
++	ret = of_property_read_u32(np, "ctrl_ram_offset", &data);
++	if (!ret)
++		pdata->ctrl_ram_offset = data;
++
++	ret = of_property_read_u32(np, "hw_ram_addr", &data);
++	if (!ret)
++		pdata->hw_ram_addr = data;
++
++	ret = of_property_read_u32(np, "ctrl_ram_size", &data);
++	if (!ret)
++		pdata->ctrl_ram_size = data;
++
++	ret = of_property_read_u32(np, "rmii_en", &data);
++	if (!ret)
++		pdata->rmii_en = data;
++
++	ret = of_property_read_u32(np, "version", &data);
++	if (!ret)
++		pdata->version = data;
++
++	ret = of_property_read_u32(np, "no_bd_ram", &data);
++	if (!ret)
++		pdata->ctrl_mod_reg_offset = data;
++
++	priv->phy_node = of_parse_phandle(np, "phy-handle", 0);
++	if (!priv->phy_node)
++		pdata->phy_id = "";
++
++	if (!of_address_to_resource(np, 0, &temp_res))
++		memcpy(&pdev->resource[0], &temp_res, sizeof(struct resource));
++
++	index = 0;
++	while (index < 4) {
++		irq = irq_of_parse_and_map(np, index);
++		if (irq > 0) {
++			temp_res.start = irq;
++			temp_res.end = irq;
++			temp_res.flags = IORESOURCE_IRQ;
++			memcpy(&pdev->resource[index + 1], &temp_res,
++				sizeof(struct resource));
++		}
++		index++;
++	}
++
++	pinmux_np = of_parse_phandle(np, "pinmux-handle", 0);
++	if (pinmux_np)
++		davinci_cfg_reg_of(pinmux_np);
++
++	pdev->dev.platform_data = pdata;
++nodata:
++	return  pdata;
++}
++#else
++static struct emac_platform_data
++	*davinci_emac_of_get_pdata(struct platform_device *pdev,
++	struct emac_priv *priv)
++{
++	return  pdev->dev.platform_data;
++}
++#endif
+ /**
+  * davinci_emac_probe: EMAC device probe
+  * @pdev: The DaVinci EMAC device that we are removing
+@@ -1802,7 +1910,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 
+ 	spin_lock_init(&priv->lock);
+ 
+-	pdata = pdev->dev.platform_data;
++	pdata = davinci_emac_of_get_pdata(pdev, priv);
+ 	if (!pdata) {
+ 		dev_err(&pdev->dev, "no platform data\n");
+ 		rc = -ENODEV;
+@@ -1811,6 +1919,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 
+ 	/* MAC addr and PHY mask , RMII enable info from platform_data */
+ 	memcpy(priv->mac_addr, pdata->mac_addr, 6);
++
+ 	priv->phy_id = pdata->phy_id;
+ 	priv->rmii_en = pdata->rmii_en;
+ 	priv->version = pdata->version;
 -- 
 1.7.7.5
