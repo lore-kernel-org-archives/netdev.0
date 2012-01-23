@@ -1,67 +1,182 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [net 5/6] bnx2x: handle CHIP_REVISION during init_one
-Date: Mon, 23 Jan 2012 12:31:55 -0500
-Message-ID: <1327339916-19138-6-git-send-email-yuvalmin@broadcom.com>
+Subject: [net 2/6] bnx2x: fixed ethtool statistics for MF modes
+Date: Mon, 23 Jan 2012 12:31:52 -0500
+Message-ID: <1327339916-19138-3-git-send-email-yuvalmin@broadcom.com>
 References: <1327339916-19138-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Ariel Elior" <ariele@broadcom.com>
+Cc: "Yuval Mintz" <yuvalmin@broadcom.com>
 To: eilong@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1725 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1724 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753221Ab2AWKhs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753225Ab2AWKhs (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 23 Jan 2012 05:37:48 -0500
 In-Reply-To: <1327339916-19138-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ariel Elior <ariele@broadcom.com>
+Previosuly, in MF modes `ethtool -S' lacked some of the statistics
+which appeared in non-MF modes. This has been fixed.
 
-The macro `CHIP_IS_E1x' requires `bp' to be initialized.
-As `bp' is not yet initialized during this phase of `bnx2x_init_dev',
-it accessed uninitialized fields in the struct.
-
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |  106 ++++++++------------
+ 1 files changed, 41 insertions(+), 65 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index ffeaaa9..f4c2fe5 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -10536,6 +10536,9 @@ static int __devinit bnx2x_init_dev(struct pci_dev *pdev,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index f99c6e3..7d32e00 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -2121,18 +2121,16 @@ static int bnx2x_get_sset_count(struct net_device *dev, int stringset)
+ 	case ETH_SS_STATS:
+ 		if (is_multi(bp)) {
+ 			num_stats = bnx2x_num_stat_queues(bp) *
+-				BNX2X_NUM_Q_STATS;
+-			if (!IS_MF_MODE_STAT(bp))
+-				num_stats += BNX2X_NUM_STATS;
+-		} else {
+-			if (IS_MF_MODE_STAT(bp)) {
+-				num_stats = 0;
+-				for (i = 0; i < BNX2X_NUM_STATS; i++)
+-					if (IS_FUNC_STAT(i))
+-						num_stats++;
+-			} else
+-				num_stats = BNX2X_NUM_STATS;
+-		}
++						BNX2X_NUM_Q_STATS;
++		} else
++			num_stats = 0;
++		if (IS_MF_MODE_STAT(bp)) {
++			for (i = 0; i < BNX2X_NUM_STATS; i++)
++				if (IS_FUNC_STAT(i))
++					num_stats++;
++		} else
++			num_stats += BNX2X_NUM_STATS;
++
+ 		return num_stats;
+ 
+ 	case ETH_SS_TEST:
+@@ -2151,8 +2149,8 @@ static void bnx2x_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
+ 
+ 	switch (stringset) {
+ 	case ETH_SS_STATS:
++		k = 0;
+ 		if (is_multi(bp)) {
+-			k = 0;
+ 			for_each_eth_queue(bp, i) {
+ 				memset(queue_name, 0, sizeof(queue_name));
+ 				sprintf(queue_name, "%d", i);
+@@ -2163,20 +2161,17 @@ static void bnx2x_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
+ 						queue_name);
+ 				k += BNX2X_NUM_Q_STATS;
+ 			}
+-			if (IS_MF_MODE_STAT(bp))
+-				break;
+-			for (j = 0; j < BNX2X_NUM_STATS; j++)
+-				strcpy(buf + (k + j)*ETH_GSTRING_LEN,
+-				       bnx2x_stats_arr[j].string);
+-		} else {
+-			for (i = 0, j = 0; i < BNX2X_NUM_STATS; i++) {
+-				if (IS_MF_MODE_STAT(bp) && IS_PORT_STAT(i))
+-					continue;
+-				strcpy(buf + j*ETH_GSTRING_LEN,
+-				       bnx2x_stats_arr[i].string);
+-				j++;
+-			}
+ 		}
++
++
++		for (i = 0, j = 0; i < BNX2X_NUM_STATS; i++) {
++			if (IS_MF_MODE_STAT(bp) && IS_PORT_STAT(i))
++				continue;
++			strcpy(buf + (k + j)*ETH_GSTRING_LEN,
++				   bnx2x_stats_arr[i].string);
++			j++;
++		}
++
+ 		break;
+ 
+ 	case ETH_SS_TEST:
+@@ -2190,10 +2185,9 @@ static void bnx2x_get_ethtool_stats(struct net_device *dev,
  {
- 	struct bnx2x *bp;
- 	int rc;
-+	bool chip_is_e1x = (board_type == BCM57710 ||
-+			    board_type == BCM57711 ||
-+			    board_type == BCM57711E);
+ 	struct bnx2x *bp = netdev_priv(dev);
+ 	u32 *hw_stats, *offset;
+-	int i, j, k;
++	int i, j, k = 0;
  
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 	bp = netdev_priv(dev);
-@@ -10624,7 +10627,7 @@ static int __devinit bnx2x_init_dev(struct pci_dev *pdev,
- 	REG_WR(bp, PXP2_REG_PGL_ADDR_90_F0, 0);
- 	REG_WR(bp, PXP2_REG_PGL_ADDR_94_F0, 0);
+ 	if (is_multi(bp)) {
+-		k = 0;
+ 		for_each_eth_queue(bp, i) {
+ 			hw_stats = (u32 *)&bp->fp[i].eth_q_stats;
+ 			for (j = 0; j < BNX2X_NUM_Q_STATS; j++) {
+@@ -2214,46 +2208,28 @@ static void bnx2x_get_ethtool_stats(struct net_device *dev,
+ 			}
+ 			k += BNX2X_NUM_Q_STATS;
+ 		}
+-		if (IS_MF_MODE_STAT(bp))
+-			return;
+-		hw_stats = (u32 *)&bp->eth_stats;
+-		for (j = 0; j < BNX2X_NUM_STATS; j++) {
+-			if (bnx2x_stats_arr[j].size == 0) {
+-				/* skip this counter */
+-				buf[k + j] = 0;
+-				continue;
+-			}
+-			offset = (hw_stats + bnx2x_stats_arr[j].offset);
+-			if (bnx2x_stats_arr[j].size == 4) {
+-				/* 4-byte counter */
+-				buf[k + j] = (u64) *offset;
+-				continue;
+-			}
+-			/* 8-byte counter */
+-			buf[k + j] = HILO_U64(*offset, *(offset + 1));
++	}
++
++	hw_stats = (u32 *)&bp->eth_stats;
++	for (i = 0, j = 0; i < BNX2X_NUM_STATS; i++) {
++		if (IS_MF_MODE_STAT(bp) && IS_PORT_STAT(i))
++			continue;
++		if (bnx2x_stats_arr[i].size == 0) {
++			/* skip this counter */
++			buf[k + j] = 0;
++			j++;
++			continue;
+ 		}
+-	} else {
+-		hw_stats = (u32 *)&bp->eth_stats;
+-		for (i = 0, j = 0; i < BNX2X_NUM_STATS; i++) {
+-			if (IS_MF_MODE_STAT(bp) && IS_PORT_STAT(i))
+-				continue;
+-			if (bnx2x_stats_arr[i].size == 0) {
+-				/* skip this counter */
+-				buf[j] = 0;
+-				j++;
+-				continue;
+-			}
+-			offset = (hw_stats + bnx2x_stats_arr[i].offset);
+-			if (bnx2x_stats_arr[i].size == 4) {
+-				/* 4-byte counter */
+-				buf[j] = (u64) *offset;
+-				j++;
+-				continue;
+-			}
+-			/* 8-byte counter */
+-			buf[j] = HILO_U64(*offset, *(offset + 1));
++		offset = (hw_stats + bnx2x_stats_arr[i].offset);
++		if (bnx2x_stats_arr[i].size == 4) {
++			/* 4-byte counter */
++			buf[k + j] = (u64) *offset;
+ 			j++;
++			continue;
+ 		}
++		/* 8-byte counter */
++		buf[k + j] = HILO_U64(*offset, *(offset + 1));
++		j++;
+ 	}
+ }
  
--	if (CHIP_IS_E1x(bp)) {
-+	if (chip_is_e1x) {
- 		REG_WR(bp, PXP2_REG_PGL_ADDR_88_F1, 0);
- 		REG_WR(bp, PXP2_REG_PGL_ADDR_8C_F1, 0);
- 		REG_WR(bp, PXP2_REG_PGL_ADDR_90_F1, 0);
-@@ -10635,9 +10638,7 @@ static int __devinit bnx2x_init_dev(struct pci_dev *pdev,
- 	 * Enable internal target-read (in case we are probed after PF FLR).
- 	 * Must be done prior to any BAR read access. Only for 57712 and up
- 	 */
--	if (board_type != BCM57710 &&
--	    board_type != BCM57711 &&
--	    board_type != BCM57711E)
-+	if (!chip_is_e1x)
- 		REG_WR(bp, PGLUE_B_REG_INTERNAL_PFID_ENABLE_TARGET_READ, 1);
- 
- 	/* Reset the load counter */
 -- 
 1.7.1
