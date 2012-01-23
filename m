@@ -1,43 +1,47 @@
-From: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
-Subject: Re: [PATCH/RESEND] drivers/net/ethernet: dev_alloc_skb to netdev_alloc_skb
-Date: Tue, 24 Jan 2012 01:07:53 +0530
-Message-ID: <CA+Dx6Ha2BoO39oQjemLa-OJ44J5rAuSYBk7dg0iXRjW8t4FSGQ@mail.gmail.com>
-References: <1327344034.6317.3.camel@joe2Laptop>
-	<20120123.135350.756110788533975068.davem@davemloft.net>
-	<CA+Dx6HYga9HkwzZNCXc7-q7JvV5PJ2w-QqT4p1zb+upWfn3+Ag@mail.gmail.com>
-	<20120123.142355.405932925189446350.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] dsa: Add reporting of silicon revision for Marvell
+ 88E6123/88E6161/88E6165 switches.
+Date: Mon, 23 Jan 2012 14:46:30 -0500 (EST)
+Message-ID: <20120123.144630.654662337465759134.davem@davemloft.net>
+References: <4F1D2CDA.9050107@openwrt.org>
+	<20120123.135940.341602114077968006.davem@davemloft.net>
+	<1327347332.2438.1.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: joe@perches.com, netdev@vger.kernel.org, hch@lst.de,
-	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120123.142355.405932925189446350.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: florian@openwrt.org, cphealy@gmail.com, ben@decadent.org.uk,
+	buytenh@wantstofly.org, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57871 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752075Ab2AWTqt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2012 14:46:49 -0500
+In-Reply-To: <1327347332.2438.1.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 24, 2012 at 12:53 AM, David Miller <davem@davemloft.net> wrote:
-> From: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
-> Date: Tue, 24 Jan 2012 00:43:10 +0530
->
->> On Tue, Jan 24, 2012 at 12:23 AM, David Miller <davem@davemloft.net> wrote:
->>> From: Joe Perches <joe@perches.com>
->>> Date: Mon, 23 Jan 2012 10:40:34 -0800
->>>
->>>> Perhaps you should break this large patch
->>>> into multiple separate patches.
->>>
->>> Agreed, this patch is way too large especially for what is obviously
->>> turning out to be a very non-trivial transformation in some cases
->>> and also new patch submitters should generally avoid large patches
->>> like this.
->>
->> Acked! Will try to separate out trivial & non-trivial changes.
->> Although, still trivial changes would be big enough. And at the same
->> time, splitting changes into 118 patches might turn out to be
->> cumbersome for review.
->
-> We didn't say to create 118 patches, we're talking about on the
-> order of 4 or 5 patches.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Mon, 23 Jan 2012 19:35:32 +0000
 
-Certainly! Would resubmit the patch splitting across couple of them. Thanks!
+> On Mon, 2012-01-23 at 13:59 -0500, David Miller wrote:
+>> From: Florian Fainelli <florian@openwrt.org>
+>> Date: Mon, 23 Jan 2012 10:48:10 +0100
+>> 
+>> > On 01/23/12 08:20, Chris Healy wrote:
+>> >> +		if ((ret&  0xfff0) == 0x1650)
+>> >>   			return "Marvell 88E6165";
+>> >>   	}
+>> > 
+>> > What about a switch/case here?
+>> 
+>> I don't think you can express "(ret&  0xfff0) == 0x1650)" using
+>> a switch statement.
+>> 
+>> But BTW, the formatting of that expression needs to be cleaned up.
+>> It should be "(ret & 0xfff0) == 0x1650)"
+> 
+> Florian's mailer has mangled the quoted text; the original patch had
+> correct spacing.
+
+Thanks for pointing that out, then the patch is fine, applied.
