@@ -1,265 +1,192 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 4/4] NFS: make nfs_client_lock per net ns
-Date: Mon, 23 Jan 2012 21:26:31 +0400
-Message-ID: <20120123172631.29637.17188.stgit@localhost6.localdomain6>
-References: <20120123171404.29637.19810.stgit@localhost6.localdomain6>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [PATCH] add netconsole support for xen-netfront
+Date: Mon, 23 Jan 2012 13:24:43 -0500
+Message-ID: <20120123182443.GA22963@phenom.dumpdata.com>
+References: <1326271956-25565-1-git-send-email-zhenzhong.duan@oracle.com>
+ <20120112141745.GA7685@phenom.dumpdata.com>
+ <1326452769.17210.331.camel@zakaz.uk.xensource.com>
+ <4F15EB3E.3060700@oracle.com>
+ <20120117215100.GA25367@phenom.dumpdata.com>
+ <4F160113.1030503@oracle.com>
+ <1326877176.29475.37.camel@dagon.hellion.org.uk>
+ <4F173467.90106@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbottomley@parallels.com, bfields@fieldses.org,
-	davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	Zhenzhong Duan <zhenzhong.duan@oracle.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"gurudas.pai@oracle.com" <gurudas.pai@oracle.com>,
+	Jeremy Fitzhardinge <jeremy@goop.org>
+To: Tina Yang <tina.yang@oracle.com>, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120123171404.29637.19810.stgit@localhost6.localdomain6>
+Content-Disposition: inline
+In-Reply-To: <4F173467.90106@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes nfs_clients_lock allocated per network namespace. All items it
-protects are already network namespace aware.
+On Wed, Jan 18, 2012 at 01:06:47PM -0800, Tina Yang wrote:
+> On 1/18/2012 12:59 AM, Ian Campbell wrote:
+> >On Tue, 2012-01-17 at 23:15 +0000, Tina Yang wrote:
+> >>On 1/17/2012 1:51 PM, Konrad Rzeszutek Wilk wrote:
+> >>>On Tue, Jan 17, 2012 at 01:42:22PM -0800, Tina Yang wrote:
+> >>>>On 1/13/2012 3:06 AM, Ian Campbell wrote:
+> >>>>Although netdump is now obsolete, I think it's always a good practice
+> >>>>to preserve caller's irq status as we had a very bad experience
+> >>>>chasing a similar problem caused by such a irq change in RDS
+> >>>Did you find the culprit of it? Was there a patch for that in the
+> >>>upstream kernel?
+> >>Yes.  It has nothing to do with net drivers but same cause
+> >>elsewhere in the kernel.
+> >I didn't think start_xmit could be called with interrupts disabled or
+> >from interrupt context but perhaps I am wrong about that or perhaps
+> >netconsole changes things?
+> Netdump does call it with interrupt disabled and hang because of
+> it in 2.6.9 as I remember it.  And you are right, netconsole has
+> undergone changes from time to time, which also can change
+> this specification.
+> >
+> >Right, Documentation/networking/netdevices.txt states that start_xmit
+> >can be called with interrupts disabled by netconsole and therefore using
+> >the irqsave/restore locking in this function is, AFAICT, correct.
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Ok, so let me update the git commit description to include this.
 
+I am listed as the maintainer but I would have thought that it should
+go through David?
+
+David, should it go through you or should I stick it in my tree? Here
+is the patch with a better git description.
+
+>From 1c265b7946f222ab6a5aac5245a0ab84618772c8 Mon Sep 17 00:00:00 2001
+From: Zhenzhong Duan <zhenzhong.duan@oracle.com>
+Date: Thu, 12 Jan 2012 10:18:29 +0800
+Subject: [PATCH] xen/netfront: add netconsole support.
+
+add polling interface to xen-netfront device to support netconsole
+
+This patch also alters the spin_lock usage to use irqsave variant.
+Documentation/networking/netdevices.txt states that start_xmit
+can be called with interrupts disabled by netconsole and therefore using
+the irqsave/restore locking in this function is looks correct.
+
+Signed-off-by: Tina.Yang <tina.yang@oracle.com>
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+Signed-off-by: Zhenzhong.Duan <zhenzhong.duan@oracle.com>
+Tested-by: gurudas.pai <gurudas.pai@oracle.com>
+[v1: Copy-n-pasted Ian Campbell comments]
+Signed-off-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 ---
- fs/nfs/client.c   |   51 +++++++++++++++++++++++++++++----------------------
- fs/nfs/idmap.c    |    4 ++--
- fs/nfs/internal.h |    3 ---
- fs/nfs/netns.h    |    1 +
- 4 files changed, 32 insertions(+), 27 deletions(-)
+ drivers/net/xen-netfront.c |   57 ++++++++++++++++++++++++++-----------------
+ 1 files changed, 34 insertions(+), 23 deletions(-)
 
-diff --git a/fs/nfs/client.c b/fs/nfs/client.c
-index f51b279..9e11d29 100644
---- a/fs/nfs/client.c
-+++ b/fs/nfs/client.c
-@@ -55,7 +55,6 @@
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index d29365a..5a4b5df 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -478,6 +478,7 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	int frags = skb_shinfo(skb)->nr_frags;
+ 	unsigned int offset = offset_in_page(data);
+ 	unsigned int len = skb_headlen(skb);
++	unsigned long flags;
  
- #define NFSDBG_FACILITY		NFSDBG_CLIENT
- 
--DEFINE_SPINLOCK(nfs_client_lock);
- static DECLARE_WAIT_QUEUE_HEAD(nfs_client_active_wq);
- #ifdef CONFIG_NFS_V4
- 
-@@ -73,9 +72,9 @@ static int nfs_get_cb_ident_idr(struct nfs_client *clp, int minorversion)
- retry:
- 	if (!idr_pre_get(&nn->cb_ident_idr, GFP_KERNEL))
- 		return -ENOMEM;
--	spin_lock(&nfs_client_lock);
-+	spin_lock(&nn->nfs_client_lock);
- 	ret = idr_get_new(&nn->cb_ident_idr, clp, &clp->cl_cb_ident);
--	spin_unlock(&nfs_client_lock);
-+	spin_unlock(&nn->nfs_client_lock);
- 	if (ret == -EAGAIN)
- 		goto retry;
- 	return ret;
-@@ -313,15 +312,18 @@ static void nfs_free_client(struct nfs_client *clp)
-  */
- void nfs_put_client(struct nfs_client *clp)
- {
-+	struct nfs_net *nn;
-+
- 	if (!clp)
- 		return;
- 
- 	dprintk("--> nfs_put_client({%d})\n", atomic_read(&clp->cl_count));
-+	nn = net_generic(clp->net, nfs_net_id);
- 
--	if (atomic_dec_and_lock(&clp->cl_count, &nfs_client_lock)) {
-+	if (atomic_dec_and_lock(&clp->cl_count, &nn->nfs_client_lock)) {
- 		list_del(&clp->cl_share_link);
- 		nfs_cb_idr_remove_locked(clp);
--		spin_unlock(&nfs_client_lock);
-+		spin_unlock(&nn->nfs_client_lock);
- 
- 		BUG_ON(!list_empty(&clp->cl_superblocks));
- 
-@@ -516,7 +518,7 @@ nfs_get_client(const struct nfs_client_initdata *cl_init,
- 
- 	/* see if the client already exists */
- 	do {
--		spin_lock(&nfs_client_lock);
-+		spin_lock(&nn->nfs_client_lock);
- 
- 		clp = nfs_match_client(cl_init);
- 		if (clp)
-@@ -524,7 +526,7 @@ nfs_get_client(const struct nfs_client_initdata *cl_init,
- 		if (new)
- 			goto install_client;
- 
--		spin_unlock(&nfs_client_lock);
-+		spin_unlock(&nn->nfs_client_lock);
- 
- 		new = nfs_alloc_client(cl_init);
- 	} while (!IS_ERR(new));
-@@ -536,7 +538,7 @@ nfs_get_client(const struct nfs_client_initdata *cl_init,
- install_client:
- 	clp = new;
- 	list_add(&clp->cl_share_link, &nn->nfs_client_list);
--	spin_unlock(&nfs_client_lock);
-+	spin_unlock(&nn->nfs_client_lock);
- 
- 	error = cl_init->rpc_ops->init_client(clp, timeparms, ip_addr,
- 					      authflavour, noresvport);
-@@ -551,7 +553,7 @@ install_client:
- 	 * - make sure it's ready before returning
- 	 */
- found_client:
--	spin_unlock(&nfs_client_lock);
-+	spin_unlock(&nn->nfs_client_lock);
- 
- 	if (new)
- 		nfs_free_client(new);
-@@ -1041,24 +1043,25 @@ static void nfs_server_insert_lists(struct nfs_server *server)
- 	struct nfs_client *clp = server->nfs_client;
- 	struct nfs_net *nn = net_generic(clp->net, nfs_net_id);
- 
--	spin_lock(&nfs_client_lock);
-+	spin_lock(&nn->nfs_client_lock);
- 	list_add_tail_rcu(&server->client_link, &clp->cl_superblocks);
- 	list_add_tail(&server->master_link, &nn->nfs_volume_list);
- 	clear_bit(NFS_CS_STOP_RENEW, &clp->cl_res_state);
--	spin_unlock(&nfs_client_lock);
-+	spin_unlock(&nn->nfs_client_lock);
- 
- }
- 
- static void nfs_server_remove_lists(struct nfs_server *server)
- {
- 	struct nfs_client *clp = server->nfs_client;
-+	struct nfs_net *nn = net_generic(clp->net, nfs_net_id);
- 
--	spin_lock(&nfs_client_lock);
-+	spin_lock(&nn->nfs_client_lock);
- 	list_del_rcu(&server->client_link);
- 	if (clp && list_empty(&clp->cl_superblocks))
- 		set_bit(NFS_CS_STOP_RENEW, &clp->cl_res_state);
- 	list_del(&server->master_link);
--	spin_unlock(&nfs_client_lock);
-+	spin_unlock(&nn->nfs_client_lock);
- 
- 	synchronize_rcu();
- }
-@@ -1212,11 +1215,11 @@ nfs4_find_client_ident(struct net *net, int cb_ident)
- 	struct nfs_client *clp;
- 	struct nfs_net *nn = net_generic(net, nfs_net_id);
- 
--	spin_lock(&nfs_client_lock);
-+	spin_lock(&nn->nfs_client_lock);
- 	clp = idr_find(&nn->cb_ident_idr, cb_ident);
- 	if (clp)
- 		atomic_inc(&clp->cl_count);
--	spin_unlock(&nfs_client_lock);
-+	spin_unlock(&nn->nfs_client_lock);
- 	return clp;
- }
- 
-@@ -1235,7 +1238,7 @@ nfs4_find_client_sessionid(const struct sockaddr *addr,
- 	struct nfs_client *clp;
- 	struct nfs_net *nn = net_generic(&init_net, nfs_net_id);
- 
--	spin_lock(&nfs_client_lock);
-+	spin_lock(&nn->nfs_client_lock);
- 	list_for_each_entry(clp, &nn->nfs_client_list, cl_share_link) {
- 		if (nfs4_cb_match_client(addr, clp, 1) == false)
- 			continue;
-@@ -1249,10 +1252,10 @@ nfs4_find_client_sessionid(const struct sockaddr *addr,
- 			continue;
- 
- 		atomic_inc(&clp->cl_count);
--		spin_unlock(&nfs_client_lock);
-+		spin_unlock(&nn->nfs_client_lock);
- 		return clp;
+ 	frags += DIV_ROUND_UP(offset + len, PAGE_SIZE);
+ 	if (unlikely(frags > MAX_SKB_FRAGS + 1)) {
+@@ -487,12 +488,12 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		goto drop;
  	}
--	spin_unlock(&nfs_client_lock);
-+	spin_unlock(&nn->nfs_client_lock);
- 	return NULL;
- }
  
-@@ -1849,7 +1852,7 @@ static void *nfs_server_list_start(struct seq_file *m, loff_t *_pos)
- 	struct nfs_net *nn = net_generic(m->private, nfs_net_id);
+-	spin_lock_irq(&np->tx_lock);
++	spin_lock_irqsave(&np->tx_lock, flags);
  
- 	/* lock the list against modification */
--	spin_lock(&nfs_client_lock);
-+	spin_lock(&nn->nfs_client_lock);
- 	return seq_list_start_head(&nn->nfs_client_list, *_pos);
- }
- 
-@@ -1868,7 +1871,9 @@ static void *nfs_server_list_next(struct seq_file *p, void *v, loff_t *pos)
-  */
- static void nfs_server_list_stop(struct seq_file *p, void *v)
- {
--	spin_unlock(&nfs_client_lock);
-+	struct nfs_net *nn = net_generic(p->private, nfs_net_id);
-+
-+	spin_unlock(&nn->nfs_client_lock);
- }
- 
- /*
-@@ -1930,7 +1935,7 @@ static void *nfs_volume_list_start(struct seq_file *m, loff_t *_pos)
- 	struct nfs_net *nn = net_generic(m->private, nfs_net_id);
- 
- 	/* lock the list against modification */
--	spin_lock(&nfs_client_lock);
-+	spin_lock(&nn->nfs_client_lock);
- 	return seq_list_start_head(&nn->nfs_volume_list, *_pos);
- }
- 
-@@ -1949,7 +1954,9 @@ static void *nfs_volume_list_next(struct seq_file *p, void *v, loff_t *pos)
-  */
- static void nfs_volume_list_stop(struct seq_file *p, void *v)
- {
--	spin_unlock(&nfs_client_lock);
-+	struct nfs_net *nn = net_generic(p->private, nfs_net_id);
-+
-+	spin_unlock(&nn->nfs_client_lock);
- }
- 
- /*
-diff --git a/fs/nfs/idmap.c b/fs/nfs/idmap.c
-index 92deaf8..aed3d2e 100644
---- a/fs/nfs/idmap.c
-+++ b/fs/nfs/idmap.c
-@@ -575,7 +575,7 @@ static int rpc_pipefs_event(struct notifier_block *nb, unsigned long event,
- 	struct nfs_client *clp;
- 	int error = 0;
- 
--	spin_lock(&nfs_client_lock);
-+	spin_lock(&nn->nfs_client_lock);
- 	list_for_each_entry(clp, &nn->nfs_client_list, cl_share_link) {
- 		if (clp->rpc_ops != &nfs_v4_clientops)
- 			continue;
-@@ -583,7 +583,7 @@ static int rpc_pipefs_event(struct notifier_block *nb, unsigned long event,
- 		if (error)
- 			break;
+ 	if (unlikely(!netif_carrier_ok(dev) ||
+ 		     (frags > 1 && !xennet_can_sg(dev)) ||
+ 		     netif_needs_gso(skb, netif_skb_features(skb)))) {
+-		spin_unlock_irq(&np->tx_lock);
++		spin_unlock_irqrestore(&np->tx_lock, flags);
+ 		goto drop;
  	}
--	spin_unlock(&nfs_client_lock);
-+	spin_unlock(&nn->nfs_client_lock);
- 	return error;
+ 
+@@ -561,7 +562,7 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (!netfront_tx_slot_available(np))
+ 		netif_stop_queue(dev);
+ 
+-	spin_unlock_irq(&np->tx_lock);
++	spin_unlock_irqrestore(&np->tx_lock, flags);
+ 
+ 	return NETDEV_TX_OK;
+ 
+@@ -1176,6 +1177,33 @@ static int xennet_set_features(struct net_device *dev, u32 features)
+ 	return 0;
  }
  
-diff --git a/fs/nfs/internal.h b/fs/nfs/internal.h
-index 958fff2..b38b733 100644
---- a/fs/nfs/internal.h
-+++ b/fs/nfs/internal.h
-@@ -182,9 +182,6 @@ static inline void nfs_fs_proc_exit(void)
- {
- }
- #endif
--#ifdef CONFIG_NFS_V4
--extern spinlock_t nfs_client_lock;
--#endif
- 
- /* nfs4namespace.c */
- #ifdef CONFIG_NFS_V4
-diff --git a/fs/nfs/netns.h b/fs/nfs/netns.h
-index 547cc95..7baad89 100644
---- a/fs/nfs/netns.h
-+++ b/fs/nfs/netns.h
-@@ -12,6 +12,7 @@ struct nfs_net {
- #ifdef CONFIG_NFS_V4
- 	struct idr cb_ident_idr; /* Protected by nfs_client_lock */
- #endif
-+	spinlock_t nfs_client_lock;
++static irqreturn_t xennet_interrupt(int irq, void *dev_id)
++{
++	struct net_device *dev = dev_id;
++	struct netfront_info *np = netdev_priv(dev);
++	unsigned long flags;
++
++	spin_lock_irqsave(&np->tx_lock, flags);
++
++	if (likely(netif_carrier_ok(dev))) {
++		xennet_tx_buf_gc(dev);
++		/* Under tx_lock: protects access to rx shared-ring indexes. */
++		if (RING_HAS_UNCONSUMED_RESPONSES(&np->rx))
++			napi_schedule(&np->napi);
++	}
++
++	spin_unlock_irqrestore(&np->tx_lock, flags);
++
++	return IRQ_HANDLED;
++}
++
++#ifdef CONFIG_NET_POLL_CONTROLLER
++static void xennet_poll_controller(struct net_device *dev)
++{
++	xennet_interrupt(0, dev);
++}
++#endif
++
+ static const struct net_device_ops xennet_netdev_ops = {
+ 	.ndo_open            = xennet_open,
+ 	.ndo_uninit          = xennet_uninit,
+@@ -1186,6 +1214,9 @@ static const struct net_device_ops xennet_netdev_ops = {
+ 	.ndo_validate_addr   = eth_validate_addr,
+ 	.ndo_fix_features    = xennet_fix_features,
+ 	.ndo_set_features    = xennet_set_features,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller = xennet_poll_controller,
++#endif
  };
  
- extern int nfs_net_id;
+ static struct net_device * __devinit xennet_create_dev(struct xenbus_device *dev)
+@@ -1388,26 +1419,6 @@ static int xen_net_read_mac(struct xenbus_device *dev, u8 mac[])
+ 	return 0;
+ }
+ 
+-static irqreturn_t xennet_interrupt(int irq, void *dev_id)
+-{
+-	struct net_device *dev = dev_id;
+-	struct netfront_info *np = netdev_priv(dev);
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&np->tx_lock, flags);
+-
+-	if (likely(netif_carrier_ok(dev))) {
+-		xennet_tx_buf_gc(dev);
+-		/* Under tx_lock: protects access to rx shared-ring indexes. */
+-		if (RING_HAS_UNCONSUMED_RESPONSES(&np->rx))
+-			napi_schedule(&np->napi);
+-	}
+-
+-	spin_unlock_irqrestore(&np->tx_lock, flags);
+-
+-	return IRQ_HANDLED;
+-}
+-
+ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
+ {
+ 	struct xen_netif_tx_sring *txs;
+-- 
+1.7.7.5
