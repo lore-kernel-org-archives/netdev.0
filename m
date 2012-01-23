@@ -1,39 +1,24 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH/RESEND] drivers/net/ethernet: dev_alloc_skb to
- netdev_alloc_skb
-Date: Mon, 23 Jan 2012 10:40:34 -0800
-Message-ID: <1327344034.6317.3.camel@joe2Laptop>
-References: <1327343283-4830-1-git-send-email-netdev@pradeepdalvi.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch v1, kernel version 3.2.1] Source mode for macvlan
+ interaface
+Date: Mon, 23 Jan 2012 13:44:54 -0500 (EST)
+Message-ID: <20120123.134454.589237945281379533.davem@davemloft.net>
+References: <22013455.801327321838477.JavaMail.root@5-MeO-DMT.ynet.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Christoph Hellwig <hch@lst.de>, linux-kernel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: steweg@ynet.sk
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1327343283-4830-1-git-send-email-netdev@pradeepdalvi.com>
+In-Reply-To: <22013455.801327321838477.JavaMail.root@5-MeO-DMT.ynet.sk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-01-23 at 23:58 +0530, Pradeep A. Dalvi wrote:
-> Replaced deprecating dev_alloc_skb with netdev_alloc_skb in drivers/net/ethernet
->   - Removed extra skb->dev = dev after netdev_alloc_skb
-[]
-> diff --git a/drivers/net/ethernet/amd/lance.c b/drivers/net/ethernet/amd/lance.c
-[]
-> @@ -871,13 +871,12 @@ lance_init_ring(struct net_device *dev, gfp_t gfp)
->  		struct sk_buff *skb;
->  		void *rx_buff;
->  
-> -		skb = alloc_skb(PKT_BUF_SZ, GFP_DMA | gfp);
-> +		skb = netdev_alloc_skb(dev, PKT_BUF_SZ);
+From: Stefan Gula <steweg@ynet.sk>
+Date: Mon, 23 Jan 2012 13:30:38 +0100 (CET)
 
-This change seems suspect.
-I stopped reading here.
+> New mode of macvlan interface called "source" allows one to specify, which  frames are allowed to be received by given macvlan interface. This logic is used only on received frames on underlaying interface. The ability to send frames from macvlan interface through underlaying interface is not modified. This feature allows one to simulate 802.1x mac based VLAN bahaviour by using proper netlink message to configure this behavior with utililty such as "ip link" from iproute2 suite.
 
-Perhaps you should break this large patch
-into multiple separate patches.
-
-The trivial, obviously correct
-and the possibly broken.
+Please properly format your commit messages, this is just one ugly 485
+character long line.  Add newlines every 70 characters or so.
