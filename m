@@ -1,66 +1,62 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: RFC Hanging clean-up of a namespace
-Date: Sun, 22 Jan 2012 23:17:00 -0800
-Message-ID: <m1ipk2riqb.fsf@fess.ebiederm.org>
-References: <20120119192541.GM2262734@jupiter.n2.diac24.net>
-	<201201230707.33761.hans.schillstrom@ericsson.com>
-	<m1aa5frl3j.fsf@fess.ebiederm.org>
-	<201201230758.55200.hans.schillstrom@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	David Miller <davem@davemloft.net>,
-	"equinox\@diac24.net" <equinox@diac24.net>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+From: Chris Healy <cphealy@gmail.com>
+Subject: [PATCH 1/1] dsa: Add reporting of silicon revision for Marvell 88E6123/88E6161/88E6165 switches.
+Date: Sun, 22 Jan 2012 23:20:54 -0800
+Message-ID: <1327303254-28573-1-git-send-email-cphealy@gmail.com>
+Cc: Chris Healy <cphealy@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:59189 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751137Ab2AWHO2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2012 02:14:28 -0500
-In-Reply-To: <201201230758.55200.hans.schillstrom@ericsson.com> (Hans
-	Schillstrom's message of "Mon, 23 Jan 2012 07:58:54 +0100")
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:45580 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751469Ab2AWHWA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2012 02:22:00 -0500
+Received: by iacb35 with SMTP id b35so3326204iac.19
+        for <netdev@vger.kernel.org>; Sun, 22 Jan 2012 23:22:00 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hans Schillstrom <hans.schillstrom@ericsson.com> writes:
+Add reporting of silicon revision during the probe function for Marvell 88E6123/88E6161/88E6165 switches.
 
-> On Monday 23 January 2012 07:25:52 Eric W. Biederman wrote:
->> Hans Schillstrom <hans.schillstrom@ericsson.com> writes:
->> 
->> > On Friday 20 January 2012 21:55:27 Eric W. Biederman wrote:
->> >> My current hypothesis is that the namespace actually didn't get freed
->> >> until the tcp socket finished closing.  You can check by looking at when
->> >> __put_net and then cleanup_net are called.
->> >
->> > __put_net() is called just after tcp_write_timer() fires and then
->> > cleanup_net()
->> 
->> Hypothesis confirmed.  Your speed problem is that it is taking 2 minutes
->> in the pathological case for your tcp socket to close.
->> 
->> Do you have any clue why it is taking your sockets so long to close?
->> Is the other side simply not responding?
->> 
->
-> The root cause of death is that the other side (init_net namespace) dies first 
-> and when it dies all containers will be killed ...
+Signed-off-by: Chris Healy <cphealy@gmail.com>
+---
+ drivers/net/dsa/mv88e6123_61_65.c |   21 +++++++++++++++++----
+ 1 files changed, 17 insertions(+), 4 deletions(-)
 
-?????
-
-init_net can not die.  init_net must not die.  It makes no sense for the
-ref count on init_net to drop to 0.  Among other places every kernel
-thread uses init_net.  Furthermore the network namespaces are
-independent so even the impossible death of the initial network
-namespace should not kill a child network namespace.
-
-Did I misunderstand what you said?
-
-If you have a setup where you stop being able to talk to the outside
-world because you were relaying through the initial network namespace
-and the relay through the initial network namespace stopped functioning
-that makes sense.  So effectively all of your packets are being dropped
-on the floor the tcp retransmit behavior on closing a socket makes
-sense.  I just don't get how you have triggered that state.
-
-Eric
+diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
+index c0a458f..6f23c95 100644
+--- a/drivers/net/dsa/mv88e6123_61_65.c
++++ b/drivers/net/dsa/mv88e6123_61_65.c
+@@ -20,12 +20,25 @@ static char *mv88e6123_61_65_probe(struct mii_bus *bus, int sw_addr)
+ 
+ 	ret = __mv88e6xxx_reg_read(bus, sw_addr, REG_PORT(0), 0x03);
+ 	if (ret >= 0) {
+-		ret &= 0xfff0;
+-		if (ret == 0x1210)
++		if (ret == 0x1212)
++			return "Marvell 88E6123 (A1)";
++		if (ret == 0x1213)
++			return "Marvell 88E6123 (A2)";
++		if ((ret & 0xfff0) == 0x1210)
+ 			return "Marvell 88E6123";
+-		if (ret == 0x1610)
++
++		if (ret == 0x1612)
++			return "Marvell 88E6161 (A1)";
++		if (ret == 0x1613)
++			return "Marvell 88E6161 (A2)";
++		if ((ret & 0xfff0) == 0x1610)
+ 			return "Marvell 88E6161";
+-		if (ret == 0x1650)
++
++		if (ret == 0x1652)
++			return "Marvell 88E6165 (A1)";
++		if (ret == 0x1653)
++			return "Marvell 88e6165 (A2)";
++		if ((ret & 0xfff0) == 0x1650)
+ 			return "Marvell 88E6165";
+ 	}
+ 
+-- 
+1.7.5.4
