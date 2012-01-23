@@ -1,53 +1,59 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: Regression tracking
-Date: Mon, 23 Jan 2012 01:52:25 +0100
-Message-ID: <201201230152.25575.rjw@sisk.pl>
-References: <201201222031.51116.maciej.rutecki@gmail.com> <201201222052.02135.maciej.rutecki@gmail.com> <20120122.150707.1411449164435920150.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: ethtool: allow ETHTOOL_GSSET_INFO for users
+Date: Mon, 23 Jan 2012 01:19:17 +0000
+Message-ID: <1327281557.8004.137.camel@deadeye>
+References: <197ddc79ac33a67c56b42a226af3f30056bceb5c.1327227549.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: maciej.rutecki@gmail.com, davej@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:45361 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752540Ab2AWBHt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Jan 2012 20:07:49 -0500
-In-Reply-To: <20120122.150707.1411449164435920150.davem@davemloft.net>
+Received: from mail.solarflare.com ([216.237.3.220]:60266 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752528Ab2AWBT1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2012 20:19:27 -0500
+In-Reply-To: <197ddc79ac33a67c56b42a226af3f30056bceb5c.1327227549.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday, January 22, 2012, David Miller wrote:
-> From: Maciej Rutecki <maciej.rutecki@gmail.com>
-> Date: Sun, 22 Jan 2012 20:52:02 +0100
-> 
-> > OK. But tracking regressions in two (or more) places is nonsense. And this 
-> > puts into question all of my current work, such as how to analyze 
-> > (automatically) the progress of the whole kernel and its quality per each -rc. 
-> > Problem to discussion, but if everyone will do as you wish, it will all work 
-> > went to waste.
-> 
-> If someone else wants to maintain the state of bugs on some web
-> site and click buttons all day long, that is their perogative.
-> 
-> But it's not something I'm going to do.
-> 
-> You can't force people to use tools, and frankly that's the end of
-> this conversation as far as I'm concerned.
+On Sun, 2012-01-22 at 11:20 +0100, Micha=C5=82 Miros=C5=82aw wrote:
+> Allow ETHTOOL_GSSET_INFO ethtool ioctl() for unprivileged users.
+> ETHTOOL_GSTRINGS is already allowed, but is unusable without this one=
+=2E
+>=20
+> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+Acked-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Well, people who are tracking regressions need to keep the record of
-what's been reported etc. somewhere and we use the Bugzilla for this
-purpose (basically, as a database).  I, personally, have never been
-expecting developers to follow the entries put in there by us, unless
-they want to, but then we'd like the _reporters_ to update the status
-(resolved/closed) which saves us quite some time (e.g. if someone
-closes a bug entry created for a regression reported by him, we don't
-need to dig through the git history and mailing lists archives or ask
-developers whether or not the given bug has been fixed).
+We should probably also add:
 
-I hope that clarifies things.
+ETHTOOL_GLINK
+ETHTOOL_GRXFHINDIR
+ETHTOOL_GCHANNELS
 
-Thanks,
-Rafael
+Ben.
+
+> ---
+>  net/core/ethtool.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+>=20
+> [against net, but probably suitable for stable, too]
+>=20
+> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+> index 921aa2b..369b418 100644
+> --- a/net/core/ethtool.c
+> +++ b/net/core/ethtool.c
+> @@ -1311,6 +1311,7 @@ int dev_ethtool(struct net *net, struct ifreq *=
+ifr)
+>  	case ETHTOOL_GRXCSUM:
+>  	case ETHTOOL_GTXCSUM:
+>  	case ETHTOOL_GSG:
+> +	case ETHTOOL_GSSET_INFO:
+>  	case ETHTOOL_GSTRINGS:
+>  	case ETHTOOL_GTSO:
+>  	case ETHTOOL_GPERMADDR:
+
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
