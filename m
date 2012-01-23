@@ -1,38 +1,29 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH/RESEND] drivers/net/ethernet: dev_alloc_skb to
- netdev_alloc_skb
-Date: Mon, 23 Jan 2012 22:15:39 +0100
-Message-ID: <1327353339.2587.7.camel@edumazet-laptop>
-References: <1327343283-4830-1-git-send-email-netdev@pradeepdalvi.com>
-	 <1327344034.6317.3.camel@joe2Laptop>
-	 <CA+Dx6HY92Z8KtDXf73O3QMWLj__+Q2g7PxjiZ7omn+tuh8YK5A@mail.gmail.com>
-	 <1327348561.7527.0.camel@joe2Laptop>
-	 <CA+Dx6HbxEFLTMMGJ-ASY=4zNthRtWps6KnFiPNLAz6o+HVmS9g@mail.gmail.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] r8169: Randomise invalid MAC addresses
+Date: Mon, 23 Jan 2012 21:29:14 +0000
+Message-ID: <20120123212914.747c852f@pyramind.ukuu.org.uk>
+References: <1327343540-30348-1-git-send-email-torne@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Christoph Hellwig <hch@lst.de>, linux-kernel@vger.kernel.org
-To: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: nic_swsd@realtek.com, romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Torne (Richard Coles)" <torne@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+Dx6HbxEFLTMMGJ-ASY=4zNthRtWps6KnFiPNLAz6o+HVmS9g@mail.gmail.com>
+In-Reply-To: <1327343540-30348-1-git-send-email-torne@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le mardi 24 janvier 2012 =C3=A0 02:11 +0530, Pradeep A. Dalvi a =C3=A9c=
-rit :
+On Mon, 23 Jan 2012 18:32:20 +0000
+"Torne (Richard Coles)" <torne@google.com> wrote:
 
-> Aah! Is that really needed? Cause from my understanding, priority GFP
-> flag __GFP_DMA is anyway negated in __alloc_skb, in a way from all
-> sources i.e. netdev_alloc_skb or dev_alloc_skb or even alloc_skb. Am =
-I
-> missing something here?
+> From: "Torne (Richard Coles)" <torne@google.com>
+> 
+> If the default MAC address stored in the card is invalid, replace it
+> with a random address and complain about it.
 
-You should read the whole __alloc_skb() function and not only half of
-it.
+See the discussion about the pch ethernet card. Detect the error and warn
+about it, block opening it and let the user set it with ifconfig xx hw
+aa:bb:cc:dd:ee:ff
 
-skb itself is allocated in the normal memory pool, (not GFP_DMA), since
-it has no hardware requirement for a kernel structure.
-
-But skb->head _is_ allocated with GFP_DMA if driver requested it.
+Alan
