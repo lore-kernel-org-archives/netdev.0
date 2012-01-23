@@ -1,41 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH/RESEND] drivers/net/ethernet: dev_alloc_skb to
- netdev_alloc_skb
-Date: Mon, 23 Jan 2012 14:23:55 -0500 (EST)
-Message-ID: <20120123.142355.405932925189446350.davem@davemloft.net>
-References: <1327344034.6317.3.camel@joe2Laptop>
-	<20120123.135350.756110788533975068.davem@davemloft.net>
-	<CA+Dx6HYga9HkwzZNCXc7-q7JvV5PJ2w-QqT4p1zb+upWfn3+Ag@mail.gmail.com>
+Subject: Re: [PATCH 3/3] skge: add byte queue limit support
+Date: Mon, 23 Jan 2012 14:25:32 -0500 (EST)
+Message-ID: <20120123.142532.1845110856514231731.davem@davemloft.net>
+References: <20120122.142501.1342631979051946828.davem@davemloft.net>
+	<20120122114040.1b175e4c@nehalam.linuxnetplumber.net>
+	<1327333702.2525.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org, hch@lst.de,
-	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com
-To: netdev@pradeepdalvi.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+Dx6HYga9HkwzZNCXc7-q7JvV5PJ2w-QqT4p1zb+upWfn3+Ag@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57638 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750923Ab2AWTZg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2012 14:25:36 -0500
+In-Reply-To: <1327333702.2525.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
-Date: Tue, 24 Jan 2012 00:43:10 +0530
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 23 Jan 2012 16:48:22 +0100
 
-> On Tue, Jan 24, 2012 at 12:23 AM, David Miller <davem@davemloft.net> wrote:
->> From: Joe Perches <joe@perches.com>
->> Date: Mon, 23 Jan 2012 10:40:34 -0800
->>
->>> Perhaps you should break this large patch
->>> into multiple separate patches.
->>
->> Agreed, this patch is way too large especially for what is obviously
->> turning out to be a very non-trivial transformation in some cases
->> and also new patch submitters should generally avoid large patches
->> like this.
-> 
-> Acked! Will try to separate out trivial & non-trivial changes.
-> Although, still trivial changes would be big enough. And at the same
-> time, splitting changes into 118 patches might turn out to be
-> cumbersome for review.
+> Le dimanche 22 janvier 2012 =E0 11:40 -0800, Stephen Hemminger a =E9c=
+rit :
+>> This also changes the cleanup logic slightly to aggregate
+>> completed notifications for multiple packets.
+>>=20
+>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>> ---
+>> v2 - change location of netdev_sent_queue to avoid race
+>=20
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-We didn't say to create 118 patches, we're talking about on the
-order of 4 or 5 patches.
+Applied.
