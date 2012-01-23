@@ -1,59 +1,42 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: ethtool: allow ETHTOOL_GSSET_INFO for users
-Date: Mon, 23 Jan 2012 01:19:17 +0000
-Message-ID: <1327281557.8004.137.camel@deadeye>
-References: <197ddc79ac33a67c56b42a226af3f30056bceb5c.1327227549.git.mirq-linux@rere.qmqm.pl>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH COMMITTED] bluetooth: hci: Fix type of "enable_hs" to
+ bool.
+Date: Mon, 23 Jan 2012 02:56:23 +0100
+Message-ID: <1327283783.1955.84.camel@aeonflux>
+References: <20120122.144654.2252112633629547845.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-bluetooth@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:60266 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752528Ab2AWBT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2012 20:19:27 -0500
-In-Reply-To: <197ddc79ac33a67c56b42a226af3f30056bceb5c.1327227549.git.mirq-linux@rere.qmqm.pl>
+Received: from senator.holtmann.net ([87.106.208.187]:40837 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752463Ab2AWB6B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2012 20:58:01 -0500
+In-Reply-To: <20120122.144654.2252112633629547845.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-01-22 at 11:20 +0100, Micha=C5=82 Miros=C5=82aw wrote:
-> Allow ETHTOOL_GSSET_INFO ethtool ioctl() for unprivileged users.
-> ETHTOOL_GSTRINGS is already allowed, but is unusable without this one=
-=2E
+Hi Dave,
+
+> net/bluetooth/hci_core.c: In function =E2=80=98__check_enable_hs=E2=80=
+=99:
+> net/bluetooth/hci_core.c:2587:1: warning: return from incompatible po=
+inter type [enabled by default]
 >=20
-> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-Acked-by: Ben Hutchings <bhutchings@solarflare.com>
-
-We should probably also add:
-
-ETHTOOL_GLINK
-ETHTOOL_GRXFHINDIR
-ETHTOOL_GCHANNELS
-
-Ben.
-
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 > ---
->  net/core/ethtool.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
 >=20
-> [against net, but probably suitable for stable, too]
->=20
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index 921aa2b..369b418 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -1311,6 +1311,7 @@ int dev_ethtool(struct net *net, struct ifreq *=
-ifr)
->  	case ETHTOOL_GRXCSUM:
->  	case ETHTOOL_GTXCSUM:
->  	case ETHTOOL_GSG:
-> +	case ETHTOOL_GSSET_INFO:
->  	case ETHTOOL_GSTRINGS:
->  	case ETHTOOL_GTSO:
->  	case ETHTOOL_GPERMADDR:
+> I noticed this while validating the build today, committed to 'net'.
 
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+and from your subject, I assume you rightfully just applied that patch
+to your tree.
+
+I remember that I acked such a patch, but it seems it never made it
+anywhere in the end :(
+
+Regards
+
+Marcel
