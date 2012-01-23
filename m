@@ -1,77 +1,44 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 2/3] NETFILTER module xt_hmark, new target for HASH
- based fwmark
-Date: Mon, 23 Jan 2012 18:01:50 +0100
-Message-ID: <20120123170150.GA26351@1984>
-References: <1326448338-13416-1-git-send-email-hans.schillstrom@ericsson.com>
- <201201230020.20857.hans@schillstrom.com>
- <20120123091241.GA23374@1984>
- <201201231049.17165.hans.schillstrom@ericsson.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch v1, kernel version 3.2.1] Source mode for macvlan
+ interaface
+Date: Mon, 23 Jan 2012 18:08:45 +0100
+Message-ID: <1327338525.2525.37.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <22013455.801327321838477.JavaMail.root@5-MeO-DMT.ynet.sk>
+	 <1327327879.2525.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CAGsizzLK4HNT+Y3FP_f96LxgROx5BoL-J5iaBj7+Ok5-973+gw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hans Schillstrom <hans@schillstrom.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"jengelh@medozas.de" <jengelh@medozas.de>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201201231049.17165.hans.schillstrom@ericsson.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: =?UTF-8?Q?=C5=A0tefan?= Gula <steweg@ynet.sk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGsizzLK4HNT+Y3FP_f96LxgROx5BoL-J5iaBj7+Ok5-973+gw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Hans,
+Le lundi 23 janvier 2012 =C3=A0 15:44 +0100, =C5=A0tefan Gula a =C3=A9c=
+rit :
+> 2012/1/23 Eric Dumazet <eric.dumazet@gmail.com>:
 
-On Mon, Jan 23, 2012 at 10:49:16AM +0100, Hans Schillstrom wrote:
-> On Monday 23 January 2012 10:12:41 Pablo Neira Ayuso wrote:
-> > On Mon, Jan 23, 2012 at 12:20:15AM +0100, Hans Schillstrom wrote:
-> > > The text should clarify that this is valid for the fragments not the "flow"
-> > > 
-> > > > I've got one scenario that may break with this assumption:
-> > > > 
-> > > > 1) your traffic follows one path over router A and B to reach your
-> > > >    firewall F which requires no fragmentation at all.
-> 
-> I missed the last part here  "requires no fragmentation at all"
-> 
-> > > > 2) path to router B becomes broken while there are established flows
-> > > >    with firewall F.
-> > > > 3) router A decides to forward packets to router C, which fragment
-> > > >    packets because it is using smaller MTU than router A.
-> > > > 4) packets arrive to firewall F, then hashing is calculated based on
-> > > >    addresses, not ports, and you load-sharing becomes inconsistent.
-> > > > 
-> > > > This can rarely happen, but it does, it would break.
-> > > > 
-> > > > To fix this, I think that HMARK requires that you have to specify the
-> > > > hashing strategy. If you want to support fragments, use only
-> > > > addresses. If you're sure you will not get fragments, use layer 3 and
-> > > > layer 4 information.
-> 
-> This can be acomplished by setting --hmark-sp-mask and --hmark-dp-mask to Zero
-> Then you don't use port in the hash calc.
+> >> +static void macvlan_hash_del_sources(struct macvlan_source_list *=
+list,
+> >> +                                     bool sync)
+> >> +{
+> >> +     hlist_del_rcu(&list->hlist);
+> >> +     kfree_rcu(list, rcu);
+> >> +     if (sync)
+> >> +             synchronize_rcu();
+> >> +}
+> >> +
+> >
+> > Please explain why are you using synchronize_rcu() here, as there m=
+ust
+> > be a good reason, but I missed it.
+> I though so, but I was not sure whether that should be removed or not
+> so I rather leave it there as I followed the original code structure
+> of macvlan driver. So should I remove it?
 
-OK, it would be great if we can provide a cleaner interface. The
-current behaviour uses layer3-layer4 tuple hashing plus defaulting to
-layer3 in case of fragments.
-
-I'd prefer explicit configuration options:
-
---hashmark-method layer3
-        use only address for hashing, this is fragment safe.
-
---hashmark-method layer3-layer4
-        use addresses and ports for hashing, fragments not supported
-        unless defrag is enabled.
-
-Still, if you want to support the current behaviour, it should be
-something like:
-
---hashmark-method layer3-layer4-fragments
-        use addresses and ports for hashing, for fragments default to
-        layer3 hashing. Document scenario in which hash consistency
-        may break.
-
-The behaviour of the target has to be specified by the configurations.
-Defaulting to internal assumptions seems obscure to me.
+If you use kfree_rcu(), its a call_rcu() : A grace period will be
+respected before the object freeing, so you dont need the
+synchronize_rcu() at all.
