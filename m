@@ -1,21 +1,77 @@
-From: "Mr.Cheung Eric" <rwilson@sd22.bc.ca>
-Subject: I have business proposal do not ignor
-Date: Mon, 23 Jan 2012 08:52:50 -0800 (PST)
-Message-ID: <643a1b21-0ed5-466c-9ad1-8cea4fd6238a@mail.sd22.bc.ca>
-Reply-To: cheungericxmmw@hotmail.com
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 2/3] NETFILTER module xt_hmark, new target for HASH
+ based fwmark
+Date: Mon, 23 Jan 2012 18:01:50 +0100
+Message-ID: <20120123170150.GA26351@1984>
+References: <1326448338-13416-1-git-send-email-hans.schillstrom@ericsson.com>
+ <201201230020.20857.hans@schillstrom.com>
+ <20120123091241.GA23374@1984>
+ <201201231049.17165.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.sd22.bc.ca ([142.23.74.5]:52641 "EHLO mail.sd22.bc.ca"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751122Ab2AWQht (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jan 2012 11:37:49 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Hans Schillstrom <hans@schillstrom.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"jengelh@medozas.de" <jengelh@medozas.de>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201201231049.17165.hans.schillstrom@ericsson.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I am Mr. Cheung Eric and I work with the Hang Seng Bank Hong Kong, I have a business transaction to share with you of my late client worth $20.5m Dollars, if interested get back to me  via my personal e-mail (cheungericxmmw@hotmail.com ) for more details.
+Hi Hans,
 
-Sincerely,
-Mr.Cheung Eric
+On Mon, Jan 23, 2012 at 10:49:16AM +0100, Hans Schillstrom wrote:
+> On Monday 23 January 2012 10:12:41 Pablo Neira Ayuso wrote:
+> > On Mon, Jan 23, 2012 at 12:20:15AM +0100, Hans Schillstrom wrote:
+> > > The text should clarify that this is valid for the fragments not the "flow"
+> > > 
+> > > > I've got one scenario that may break with this assumption:
+> > > > 
+> > > > 1) your traffic follows one path over router A and B to reach your
+> > > >    firewall F which requires no fragmentation at all.
+> 
+> I missed the last part here  "requires no fragmentation at all"
+> 
+> > > > 2) path to router B becomes broken while there are established flows
+> > > >    with firewall F.
+> > > > 3) router A decides to forward packets to router C, which fragment
+> > > >    packets because it is using smaller MTU than router A.
+> > > > 4) packets arrive to firewall F, then hashing is calculated based on
+> > > >    addresses, not ports, and you load-sharing becomes inconsistent.
+> > > > 
+> > > > This can rarely happen, but it does, it would break.
+> > > > 
+> > > > To fix this, I think that HMARK requires that you have to specify the
+> > > > hashing strategy. If you want to support fragments, use only
+> > > > addresses. If you're sure you will not get fragments, use layer 3 and
+> > > > layer 4 information.
+> 
+> This can be acomplished by setting --hmark-sp-mask and --hmark-dp-mask to Zero
+> Then you don't use port in the hash calc.
+
+OK, it would be great if we can provide a cleaner interface. The
+current behaviour uses layer3-layer4 tuple hashing plus defaulting to
+layer3 in case of fragments.
+
+I'd prefer explicit configuration options:
+
+--hashmark-method layer3
+        use only address for hashing, this is fragment safe.
+
+--hashmark-method layer3-layer4
+        use addresses and ports for hashing, fragments not supported
+        unless defrag is enabled.
+
+Still, if you want to support the current behaviour, it should be
+something like:
+
+--hashmark-method layer3-layer4-fragments
+        use addresses and ports for hashing, for fragments default to
+        layer3 hashing. Document scenario in which hash consistency
+        may break.
+
+The behaviour of the target has to be specified by the configurations.
+Defaulting to internal assumptions seems obscure to me.
