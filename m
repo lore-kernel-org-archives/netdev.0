@@ -1,72 +1,130 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH 1/1] dsa: Add reporting of silicon revision for Marvell
- 88E6123/88E6161/88E6165 switches.
-Date: Mon, 23 Jan 2012 10:48:10 +0100
-Message-ID: <4F1D2CDA.9050107@openwrt.org>
-References: <1327303254-28573-1-git-send-email-cphealy@gmail.com>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: Re: [PATCH 2/3] NETFILTER module xt_hmark, new target for HASH based fwmark
+Date: Mon, 23 Jan 2012 10:49:16 +0100
+Message-ID: <201201231049.17165.hans.schillstrom@ericsson.com>
+References: <1326448338-13416-1-git-send-email-hans.schillstrom@ericsson.com> <201201230020.20857.hans@schillstrom.com> <20120123091241.GA23374@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	netdev@vger.kernel.org
-To: Chris Healy <cphealy@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:34636 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752931Ab2AWJs3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2012 04:48:29 -0500
-Received: by wics10 with SMTP id s10so1938759wic.19
-        for <netdev@vger.kernel.org>; Mon, 23 Jan 2012 01:48:28 -0800 (PST)
-In-Reply-To: <1327303254-28573-1-git-send-email-cphealy@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Hans Schillstrom <hans@schillstrom.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"jengelh@medozas.de" <jengelh@medozas.de>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120123091241.GA23374@1984>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On Monday 23 January 2012 10:12:41 Pablo Neira Ayuso wrote:
+> On Mon, Jan 23, 2012 at 12:20:15AM +0100, Hans Schillstrom wrote:
+> > The text should clarify that this is valid for the fragments not the "flow"
+> > 
+> > > I've got one scenario that may break with this assumption:
+> > > 
+> > > 1) your traffic follows one path over router A and B to reach your
+> > >    firewall F which requires no fragmentation at all.
 
-On 01/23/12 08:20, Chris Healy wrote:
-> Add reporting of silicon revision during the probe function for Marvell 88E6123/88E6161/88E6165 switches.
->
-> Signed-off-by: Chris Healy<cphealy@gmail.com>
-> ---
->   drivers/net/dsa/mv88e6123_61_65.c |   21 +++++++++++++++++----
->   1 files changed, 17 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
-> index c0a458f..6f23c95 100644
-> --- a/drivers/net/dsa/mv88e6123_61_65.c
-> +++ b/drivers/net/dsa/mv88e6123_61_65.c
-> @@ -20,12 +20,25 @@ static char *mv88e6123_61_65_probe(struct mii_bus *bus, int sw_addr)
->
->   	ret = __mv88e6xxx_reg_read(bus, sw_addr, REG_PORT(0), 0x03);
->   	if (ret>= 0) {
-> -		ret&= 0xfff0;
-> -		if (ret == 0x1210)
-> +		if (ret == 0x1212)
-> +			return "Marvell 88E6123 (A1)";
-> +		if (ret == 0x1213)
-> +			return "Marvell 88E6123 (A2)";
-> +		if ((ret&  0xfff0) == 0x1210)
->   			return "Marvell 88E6123";
-> -		if (ret == 0x1610)
-> +
-> +		if (ret == 0x1612)
-> +			return "Marvell 88E6161 (A1)";
-> +		if (ret == 0x1613)
-> +			return "Marvell 88E6161 (A2)";
-> +		if ((ret&  0xfff0) == 0x1610)
->   			return "Marvell 88E6161";
-> -		if (ret == 0x1650)
-> +
-> +		if (ret == 0x1652)
-> +			return "Marvell 88E6165 (A1)";
-> +		if (ret == 0x1653)
-> +			return "Marvell 88e6165 (A2)";
-> +		if ((ret&  0xfff0) == 0x1650)
->   			return "Marvell 88E6165";
->   	}
+I missed the last part here  "requires no fragmentation at all"
 
-What about a switch/case here?
---
-Florian
+> > > 2) path to router B becomes broken while there are established flows
+> > >    with firewall F.
+> > > 3) router A decides to forward packets to router C, which fragment
+> > >    packets because it is using smaller MTU than router A.
+> > > 4) packets arrive to firewall F, then hashing is calculated based on
+> > >    addresses, not ports, and you load-sharing becomes inconsistent.
+> > > 
+> > > This can rarely happen, but it does, it would break.
+> > > 
+> > > To fix this, I think that HMARK requires that you have to specify the
+> > > hashing strategy. If you want to support fragments, use only
+> > > addresses. If you're sure you will not get fragments, use layer 3 and
+> > > layer 4 information.
+
+This can be acomplished by setting --hmark-sp-mask and --hmark-dp-mask to Zero
+Then you don't use port in the hash calc.
+
+> > 
+> > I know but if you use conntrack, fragments will not be seen by HMARK
+> > (except for IPv6 until Patric has fix the IPv6 defrag)
+> 
+> Please, read the scenario, I'm not talking about conntrack this time.
+> 
+> > We handle this by not having stateful FW:s when connected to external routers.
+> > Fragments will take an extra turn to a container with conntrack and there
+> > HMARK works as on the unfragmented packets in the flow.
+> 
+> Yes, I got the idea. Indeed HMARK can be very useful in other situations,
+> like cluster-based OSPF setups with stateful firewalls following a
+> similar approach.
+> 
+> However, you don't reply to my scenario. What I'm telling is that,
+> even with conntrack disabled, HMARK is not consistent if you start
+> receiving fragments at some point.
+ 
+Yes, after reading once again I see what you mean.
+I think that masking src & dst ports will be sufficient, 
+i.e. no new param will be needed for hashing strategy.
+
+> [...]
+> > > > +/*
+> > > > + * ICMP, get inner header so calc can be made on the source message
+> > > > + *
+> > > > + * iphsz: ip header size in bytes
+> > > > + * nhoff: network header offset
+> > > > + * return; updated nhoff if an icmp error
+> > > > + */
+> > > 
+> > > Please, remove these comments:
+> > 
+> > No problems
+> 
+> Thanks.
+> 
+> > > > +struct _icmpv6_errh {
+> > > > +	__u8		icmp6_type;
+> > > > +	__u8		icmp6_code;
+> > > > +	__u16		icmp6_cksum;
+> > > > +	__u32		icmp6_nu;
+> > > > +};
+> > > 
+> > > Interesting, by quick search, I don't find this structure defined
+> > > elsewhere, why?
+> > > 
+> > I have no idea ...
+> > the closest is "struct icmp6hdr" but it contains everythingi
+> 
+> have a look at offsetof, you can use the existing structure but tell
+> skb_copy_header to copy only the part you're interested. Add a comment
+> telling what you're only copying part of the header to warn others (in
+> this case, the comment becomes useful since it clarifies something
+> that you may not notice at a first glance by looking at the code).
+> 
+
+OK I'll do that.
+
+> [...]
+> > > > +	if (!info->hmod)
+> > > > +		return XT_CONTINUE;
+> > > 
+> > > why this? check in user-space that libxt_HMARK does not send this to
+> > > kernel-space and check it again in checkentry().
+> > 
+> > Well, better safe than ... divide by zero
+> > 
+> > OK, it very very unlikely that it becomes zero
+> > so if you want I can remove that check.
+> 
+> *Extremely unlikely*, I'd say :-). If you double check that hmod is
+> non-zero in user-space and checkentry(), we will not hit that branch
+> ever. Moreover, that branch is in the hot path while the others are
+> only configure-time paths.
+
+Got the message :-)
+I'll remove it.
+
+-- 
+Regards
+Hans Schillstrom <hans.schillstrom@ericsson.com>
