@@ -1,38 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch v4, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
- multipoint GRE over IP
-Date: Mon, 23 Jan 2012 13:43:52 -0500 (EST)
-Message-ID: <20120123.134352.1621146585245670953.davem@davemloft.net>
-References: <3900291.2831326843194846.JavaMail.root@5-MeO-DMT.ynet.sk>
-	<CAGsizzLUwA_=fZFX-4ZnYU4K-nj1A2DV_BZKOMKxgQDh2Rs54g@mail.gmail.com>
-	<1327327999.2525.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] r8169: Randomise invalid MAC addresses
+Date: Mon, 23 Jan 2012 10:49:33 -0800
+Message-ID: <1327344573.6447.5.camel@joe2Laptop>
+References: <1327343540-30348-1-git-send-email-torne@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: steweg@ynet.sk, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: nic_swsd@realtek.com, romieu@fr.zoreil.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: "Torne (Richard Coles)" <torne@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1327327999.2525.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+In-Reply-To: <1327343540-30348-1-git-send-email-torne@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 23 Jan 2012 15:13:19 +0100
+On Mon, 2012-01-23 at 18:32 +0000, Torne (Richard Coles) wrote:
+> From: "Torne (Richard Coles)" <torne@google.com>
+> 
+> If the default MAC address stored in the card is invalid, replace it
+> with a random address and complain about it.
+[]
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+[]
+> @@ -4103,6 +4103,14 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  	/* Get MAC address */
+>  	for (i = 0; i < ETH_ALEN; i++)
+>  		dev->dev_addr[i] = RTL_R8(MAC0 + i);
+> +
+> +	if (!is_valid_ether_addr(dev->dev_addr)) {
+> +		/* Report it and use a random ethernet address instead */
+> +		netdev_err(dev, "Invalid MAC address: %pM\n", dev->dev_addr);
+> +		random_ether_addr(dev->dev_addr);
+> +		netdev_info(dev, "Using random MAC address: %pM\n",
+> +			    dev->dev_addr);
 
-> Le lundi 23 janvier 2012 =E0 14:12 +0100, =A6tefan Gula a =E9crit :
->=20
->> is there anything else needed from my side to get this code into the
->> kernel or should I only wait for the maintainers to check it?
->=20
-> net-next is/was not yet opened, you shall wait for the good time fram=
-e.
->=20
-> Dont copy/paste a big message only to add one sentence at its end, it=
-s
-> really a waste of time for many of us.
+Perhaps this should be on 1 line.
+If KERN_level filtering is higher then KERN_INFO,
+the new MAC will not be shown.
 
-Also you were told of other ways to achieve the things you want to do,
-and I haven't seen any reasonable response that supports still adding
-this new code.
+	if (!is_valid_ether_addr(dev->dev_addr)) {
+		u8 mac[ETH_ALEN];
+		random_ether_addr(mac);
+		netdev_err(dev, "Hardware has invalid mac address %pM, using %pM\n",
+			   dev->dev_addr, mac);
+		memcpy(dev->dev_addr, mac, ETH_ALEN);
+	}
