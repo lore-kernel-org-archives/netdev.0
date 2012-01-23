@@ -1,48 +1,63 @@
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH COMMITTED] bluetooth: hci: Fix type of "enable_hs" to
- bool.
-Date: Mon, 23 Jan 2012 13:20:26 +0200
-Message-ID: <20120123112026.GA18050@x220>
-References: <20120122.144654.2252112633629547845.davem@davemloft.net>
- <1327283783.1955.84.camel@aeonflux>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] tg3: fix ipv6 header length computation
+Date: Mon, 23 Jan 2012 12:22:09 +0100
+Message-ID: <1327317729.2525.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1327283783.1955.84.camel@aeonflux>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Chan <mchan@broadcom.com>, netdev <netdev@vger.kernel.org>
+To: Matt Carlson <mcarlson@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:62608 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752831Ab2AWLWO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2012 06:22:14 -0500
+Received: by lahc1 with SMTP id c1so1532496lah.19
+        for <netdev@vger.kernel.org>; Mon, 23 Jan 2012 03:22:12 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Marcel,
+tg3_start_xmit() makes the wrong assumption for TSOV6 that skb->head
+doesnt include any payload data.
 
-On Mon, Jan 23, 2012, Marcel Holtmann wrote:
-> Hi Dave,
->=20
-> > net/bluetooth/hci_core.c: In function =E2=80=98__check_enable_hs=E2=
-=80=99:
-> > net/bluetooth/hci_core.c:2587:1: warning: return from incompatible =
-pointer type [enabled by default]
-> >=20
-> > Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> > ---
-> >=20
-> > I noticed this while validating the build today, committed to 'net'=
-=2E
->=20
-> and from your subject, I assume you rightfully just applied that patc=
-h
-> to your tree.
->=20
-> I remember that I acked such a patch, but it seems it never made it
-> anywhere in the end :(
+if (skb_is_gso_v6(skb))
+	hdr_len = skb_headlen(skb) - ETH_HLEN;
 
-It's over here:
+This is not true anymore after commit f07d960df3 (tcp: avoid frag
+allocation for small frames)
 
-http://git.kernel.org/?p=3Dlinux/kernel/git/jh/bluetooth-next.git;a=3Dc=
-ommitdiff;h=3D174b9000541fdffbdc53cf9464efb1c8a1d777db
+We should instead use : skb_transport_offset(skb) + tcp_hdrlen(skb)
 
-Johan
+Its also true for IPv4
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Matt Carlson <mcarlson@broadcom.com>
+CC: Michael Chan <mchan@broadcom.com>
+---
+I dont have a compatable hardware (5755_PLUS ?) so please guys test
+this...
+
+ drivers/net/ethernet/broadcom/tg3.c |    9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index d529af9..a1f2e0f 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -6667,14 +6667,9 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		iph = ip_hdr(skb);
+ 		tcp_opt_len = tcp_optlen(skb);
+ 
+-		if (skb_is_gso_v6(skb)) {
+-			hdr_len = skb_headlen(skb) - ETH_HLEN;
+-		} else {
+-			u32 ip_tcp_len;
+-
+-			ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
+-			hdr_len = ip_tcp_len + tcp_opt_len;
++		hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb) - ETH_HLEN;
+ 
++		if (!skb_is_gso_v6(skb)) {
+ 			iph->check = 0;
+ 			iph->tot_len = htons(mss + hdr_len);
+ 		}
