@@ -1,182 +1,83 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [net 2/6] bnx2x: fixed ethtool statistics for MF modes
-Date: Mon, 23 Jan 2012 12:31:52 -0500
-Message-ID: <1327339916-19138-3-git-send-email-yuvalmin@broadcom.com>
-References: <1327339916-19138-1-git-send-email-yuvalmin@broadcom.com>
+From: Paulius Zaleckas <paulius.zaleckas@gmail.com>
+Subject: [PATCH] mv643xx_eth: Add Rx Discard and Rx Overrun statistics
+Date: Mon, 23 Jan 2012 13:16:35 +0200
+Message-ID: <20120123111635.15315.64174.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Yuval Mintz" <yuvalmin@broadcom.com>
-To: eilong@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
+To: buytenh@wantstofly.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1724 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753225Ab2AWKhs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jan 2012 05:37:48 -0500
-In-Reply-To: <1327339916-19138-1-git-send-email-yuvalmin@broadcom.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:43836 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752998Ab2AWLQj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2012 06:16:39 -0500
+Received: by eekc14 with SMTP id c14so1512468eek.19
+        for <netdev@vger.kernel.org>; Mon, 23 Jan 2012 03:16:38 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Previosuly, in MF modes `ethtool -S' lacked some of the statistics
-which appeared in non-MF modes. This has been fixed.
+These statistics helped me a lot while searching who is losing
+packets in my setup.
+I added these stats to MIB group since they are very similar,
+but just in other registers.
+I have tested this patch on 88F6281 SoC.
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+Signed-off-by: Paulius Zaleckas <paulius.zaleckas@gmail.com>
 ---
- .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |  106 ++++++++------------
- 1 files changed, 41 insertions(+), 65 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index f99c6e3..7d32e00 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -2121,18 +2121,16 @@ static int bnx2x_get_sset_count(struct net_device *dev, int stringset)
- 	case ETH_SS_STATS:
- 		if (is_multi(bp)) {
- 			num_stats = bnx2x_num_stat_queues(bp) *
--				BNX2X_NUM_Q_STATS;
--			if (!IS_MF_MODE_STAT(bp))
--				num_stats += BNX2X_NUM_STATS;
--		} else {
--			if (IS_MF_MODE_STAT(bp)) {
--				num_stats = 0;
--				for (i = 0; i < BNX2X_NUM_STATS; i++)
--					if (IS_FUNC_STAT(i))
--						num_stats++;
--			} else
--				num_stats = BNX2X_NUM_STATS;
--		}
-+						BNX2X_NUM_Q_STATS;
-+		} else
-+			num_stats = 0;
-+		if (IS_MF_MODE_STAT(bp)) {
-+			for (i = 0; i < BNX2X_NUM_STATS; i++)
-+				if (IS_FUNC_STAT(i))
-+					num_stats++;
-+		} else
-+			num_stats += BNX2X_NUM_STATS;
-+
- 		return num_stats;
+ drivers/net/ethernet/marvell/mv643xx_eth.c |   14 ++++++++++++++
+ 1 files changed, 14 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 9c049d2..9edecfa 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -136,6 +136,8 @@ static char mv643xx_eth_driver_version[] = "1.4";
+ #define INT_MASK			0x0068
+ #define INT_MASK_EXT			0x006c
+ #define TX_FIFO_URGENT_THRESHOLD	0x0074
++#define RX_DISCARD_FRAME_CNT		0x0084
++#define RX_OVERRUN_FRAME_CNT		0x0088
+ #define TXQ_FIX_PRIO_CONF_MOVED		0x00dc
+ #define TX_BW_RATE_MOVED		0x00e0
+ #define TX_BW_MTU_MOVED			0x00e8
+@@ -334,6 +336,9 @@ struct mib_counters {
+ 	u32 bad_crc_event;
+ 	u32 collision;
+ 	u32 late_collision;
++	/* Non MIB hardware counters */
++	u32 rx_discard;
++	u32 rx_overrun;
+ };
  
- 	case ETH_SS_TEST:
-@@ -2151,8 +2149,8 @@ static void bnx2x_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
+ struct lro_counters {
+@@ -1225,6 +1230,10 @@ static void mib_counters_clear(struct mv643xx_eth_private *mp)
  
- 	switch (stringset) {
- 	case ETH_SS_STATS:
-+		k = 0;
- 		if (is_multi(bp)) {
--			k = 0;
- 			for_each_eth_queue(bp, i) {
- 				memset(queue_name, 0, sizeof(queue_name));
- 				sprintf(queue_name, "%d", i);
-@@ -2163,20 +2161,17 @@ static void bnx2x_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
- 						queue_name);
- 				k += BNX2X_NUM_Q_STATS;
- 			}
--			if (IS_MF_MODE_STAT(bp))
--				break;
--			for (j = 0; j < BNX2X_NUM_STATS; j++)
--				strcpy(buf + (k + j)*ETH_GSTRING_LEN,
--				       bnx2x_stats_arr[j].string);
--		} else {
--			for (i = 0, j = 0; i < BNX2X_NUM_STATS; i++) {
--				if (IS_MF_MODE_STAT(bp) && IS_PORT_STAT(i))
--					continue;
--				strcpy(buf + j*ETH_GSTRING_LEN,
--				       bnx2x_stats_arr[i].string);
--				j++;
--			}
- 		}
+ 	for (i = 0; i < 0x80; i += 4)
+ 		mib_read(mp, i);
 +
-+
-+		for (i = 0, j = 0; i < BNX2X_NUM_STATS; i++) {
-+			if (IS_MF_MODE_STAT(bp) && IS_PORT_STAT(i))
-+				continue;
-+			strcpy(buf + (k + j)*ETH_GSTRING_LEN,
-+				   bnx2x_stats_arr[i].string);
-+			j++;
-+		}
-+
- 		break;
- 
- 	case ETH_SS_TEST:
-@@ -2190,10 +2185,9 @@ static void bnx2x_get_ethtool_stats(struct net_device *dev,
- {
- 	struct bnx2x *bp = netdev_priv(dev);
- 	u32 *hw_stats, *offset;
--	int i, j, k;
-+	int i, j, k = 0;
- 
- 	if (is_multi(bp)) {
--		k = 0;
- 		for_each_eth_queue(bp, i) {
- 			hw_stats = (u32 *)&bp->fp[i].eth_q_stats;
- 			for (j = 0; j < BNX2X_NUM_Q_STATS; j++) {
-@@ -2214,46 +2208,28 @@ static void bnx2x_get_ethtool_stats(struct net_device *dev,
- 			}
- 			k += BNX2X_NUM_Q_STATS;
- 		}
--		if (IS_MF_MODE_STAT(bp))
--			return;
--		hw_stats = (u32 *)&bp->eth_stats;
--		for (j = 0; j < BNX2X_NUM_STATS; j++) {
--			if (bnx2x_stats_arr[j].size == 0) {
--				/* skip this counter */
--				buf[k + j] = 0;
--				continue;
--			}
--			offset = (hw_stats + bnx2x_stats_arr[j].offset);
--			if (bnx2x_stats_arr[j].size == 4) {
--				/* 4-byte counter */
--				buf[k + j] = (u64) *offset;
--				continue;
--			}
--			/* 8-byte counter */
--			buf[k + j] = HILO_U64(*offset, *(offset + 1));
-+	}
-+
-+	hw_stats = (u32 *)&bp->eth_stats;
-+	for (i = 0, j = 0; i < BNX2X_NUM_STATS; i++) {
-+		if (IS_MF_MODE_STAT(bp) && IS_PORT_STAT(i))
-+			continue;
-+		if (bnx2x_stats_arr[i].size == 0) {
-+			/* skip this counter */
-+			buf[k + j] = 0;
-+			j++;
-+			continue;
- 		}
--	} else {
--		hw_stats = (u32 *)&bp->eth_stats;
--		for (i = 0, j = 0; i < BNX2X_NUM_STATS; i++) {
--			if (IS_MF_MODE_STAT(bp) && IS_PORT_STAT(i))
--				continue;
--			if (bnx2x_stats_arr[i].size == 0) {
--				/* skip this counter */
--				buf[j] = 0;
--				j++;
--				continue;
--			}
--			offset = (hw_stats + bnx2x_stats_arr[i].offset);
--			if (bnx2x_stats_arr[i].size == 4) {
--				/* 4-byte counter */
--				buf[j] = (u64) *offset;
--				j++;
--				continue;
--			}
--			/* 8-byte counter */
--			buf[j] = HILO_U64(*offset, *(offset + 1));
-+		offset = (hw_stats + bnx2x_stats_arr[i].offset);
-+		if (bnx2x_stats_arr[i].size == 4) {
-+			/* 4-byte counter */
-+			buf[k + j] = (u64) *offset;
- 			j++;
-+			continue;
- 		}
-+		/* 8-byte counter */
-+		buf[k + j] = HILO_U64(*offset, *(offset + 1));
-+		j++;
- 	}
++	/* Clear non MIB hw counters also */
++	rdlp(mp, RX_DISCARD_FRAME_CNT);
++	rdlp(mp, RX_OVERRUN_FRAME_CNT);
  }
  
--- 
-1.7.1
+ static void mib_counters_update(struct mv643xx_eth_private *mp)
+@@ -1262,6 +1271,9 @@ static void mib_counters_update(struct mv643xx_eth_private *mp)
+ 	p->bad_crc_event += mib_read(mp, 0x74);
+ 	p->collision += mib_read(mp, 0x78);
+ 	p->late_collision += mib_read(mp, 0x7c);
++	/* Non MIB hardware counters */
++	p->rx_discard += rdlp(mp, RX_DISCARD_FRAME_CNT);
++	p->rx_overrun += rdlp(mp, RX_OVERRUN_FRAME_CNT);
+ 	spin_unlock_bh(&mp->mib_counters_lock);
+ 
+ 	mod_timer(&mp->mib_counters_timer, jiffies + 30 * HZ);
+@@ -1413,6 +1425,8 @@ static const struct mv643xx_eth_stats mv643xx_eth_stats[] = {
+ 	MIBSTAT(bad_crc_event),
+ 	MIBSTAT(collision),
+ 	MIBSTAT(late_collision),
++	MIBSTAT(rx_discard),
++	MIBSTAT(rx_overrun),
+ 	LROSTAT(lro_aggregated),
+ 	LROSTAT(lro_flushed),
+ 	LROSTAT(lro_no_desc),
