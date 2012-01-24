@@ -1,8 +1,8 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: [PATCH 2/3] infiniband: cxgb4: Convert import_ep() over to
- dst_neigh_lookup().
-Date: Tue, 24 Jan 2012 18:15:57 -0500 (EST)
-Message-ID: <20120124.181557.1162311424589935621.davem@davemloft.net>
+Subject: [PATCH 3/3] infiniband: nes: Convert nes_addr_resolve_neigh() over
+ to dst_neigh_lookup().
+Date: Tue, 24 Jan 2012 18:16:03 -0500 (EST)
+Message-ID: <20120124.181603.2050827731650521325.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -19,38 +19,47 @@ to be dropped when we're done with the entry.
 
 Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 ---
- drivers/infiniband/hw/cxgb4/cm.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
+ drivers/infiniband/hw/nes/nes_cm.c |   11 ++++++++---
+ 1 files changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index 0668bb3..0cf6155 100644
---- a/drivers/infiniband/hw/cxgb4/cm.c
-+++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -1562,11 +1562,11 @@ static int import_ep(struct c4iw_ep *ep, __be32 peer_ip, struct dst_entry *dst,
- 	struct neighbour *n;
- 	int err, step;
+diff --git a/drivers/infiniband/hw/nes/nes_cm.c b/drivers/infiniband/hw/nes/nes_cm.c
+index 425065b..fc5192e 100644
+--- a/drivers/infiniband/hw/nes/nes_cm.c
++++ b/drivers/infiniband/hw/nes/nes_cm.c
+@@ -1348,8 +1348,9 @@ static int nes_addr_resolve_neigh(struct nes_vnic *nesvnic, u32 dst_ip, int arpi
+ 	else
+ 		netdev = nesvnic->netdev;
  
--	rcu_read_lock();
--	n = dst_get_neighbour_noref(dst);
--	err = -ENODEV;
-+	n = dst_neigh_lookup(dst, &peer_ip);
- 	if (!n)
--		goto out;
-+		return -ENODEV;
++	neigh = dst_neigh_lookup(&rt->dst, &dst_ip);
 +
-+	rcu_read_lock();
- 	err = -ENOMEM;
- 	if (n->dev->flags & IFF_LOOPBACK) {
- 		struct net_device *pdev;
-@@ -1614,6 +1614,8 @@ static int import_ep(struct c4iw_ep *ep, __be32 peer_ip, struct dst_entry *dst,
- out:
+ 	rcu_read_lock();
+-	neigh = dst_get_neighbour_noref(&rt->dst);
+ 	if (neigh) {
+ 		if (neigh->nud_state & NUD_VALID) {
+ 			nes_debug(NES_DBG_CM, "Neighbor MAC address for 0x%08X"
+@@ -1360,8 +1361,7 @@ static int nes_addr_resolve_neigh(struct nes_vnic *nesvnic, u32 dst_ip, int arpi
+ 				if (!memcmp(nesadapter->arp_table[arpindex].mac_addr,
+ 					    neigh->ha, ETH_ALEN)) {
+ 					/* Mac address same as in nes_arp_table */
+-					ip_rt_put(rt);
+-					return rc;
++					goto out;
+ 				}
+ 
+ 				nes_manage_arp_cache(nesvnic->netdev,
+@@ -1377,7 +1377,12 @@ static int nes_addr_resolve_neigh(struct nes_vnic *nesvnic, u32 dst_ip, int arpi
+ 			neigh_event_send(neigh, NULL);
+ 		}
+ 	}
++out:
  	rcu_read_unlock();
- 
-+	neigh_release(n);
 +
- 	return err;
++	if (neigh)
++		neigh_release(neigh);
++
+ 	ip_rt_put(rt);
+ 	return rc;
  }
- 
 -- 
 1.7.7.6
 
