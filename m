@@ -1,7 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH] Lockd: don't mark freshly created sockets with XPT_CHNGBUF
-Date: Tue, 24 Jan 2012 20:59:01 +0400
-Message-ID: <20120124165826.22037.58630.stgit@localhost6.localdomain6>
+Subject: [PATCH] NFS: don't mark freshly created callback sockets with
+ XPT_CHNGBUF
+Date: Tue, 24 Jan 2012 21:04:11 +0400
+Message-ID: <20120124170411.22663.6138.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -15,45 +16,25 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a cleanup patch.
-XPT_CHNGBUF bit is set on UDP socket creation. Calling svc_sock_update_bufs
-from lockd after sockets creation looks redundant.
-Below is Lockd UDP sockets creating call trace:
-
-lockd_up {
-
-make_socks
-create_lockd_family
-create_lockd_listener
-svc_create_xprt
-__svc_xpo_create
-svc_udp_create
-svc_create_socket
-svc_setup_socket
-svc_udp_init (raise XPT_CHNGBUF)
-
-....
-
-svc_sock_update_bufs (raise XPT_CHNGBUF again)
-
-....
-
-}
+Check for XPT_CHNGBUF is done only for UPD sockets. NFS callbacks doesn't use
+them.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- fs/lockd/svc.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ fs/nfs/callback.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-diff --git a/fs/lockd/svc.c b/fs/lockd/svc.c
-index ff379ff..55fea92 100644
---- a/fs/lockd/svc.c
-+++ b/fs/lockd/svc.c
-@@ -292,7 +292,6 @@ int lockd_up(void)
- 		goto destroy_and_out;
+diff --git a/fs/nfs/callback.c b/fs/nfs/callback.c
+index d81040a..1bf3e9f 100644
+--- a/fs/nfs/callback.c
++++ b/fs/nfs/callback.c
+@@ -278,8 +278,6 @@ int nfs_callback_up(u32 minorversion, struct rpc_xprt *xprt)
+ 		goto out_err;
  	}
  
 -	svc_sock_update_bufs(serv);
- 	serv->sv_maxconn = nlm_max_connections;
- 
- 	nlmsvc_task = kthread_run(lockd, nlmsvc_rqst, serv->sv_name);
+-
+ 	sprintf(svc_name, "nfsv4.%u-svc", minorversion);
+ 	cb_info->serv = serv;
+ 	cb_info->rqst = rqstp;
