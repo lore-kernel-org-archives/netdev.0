@@ -1,58 +1,36 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: RE: [net PATCH 1/1] qlge:Changing netdev msg level to default debug
-Date: Tue, 24 Jan 2012 13:42:55 -0800
-Message-ID: <5E4F49720D0BAD499EE1F01232234BA874379FBFD7@AVEXMB1.qlogic.org>
-References: <1327361932-28774-1-git-send-email-jitendra.kalsaria@qlogic.com>
- <20120124.153837.905415925299369179.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] netprio_cgroup.h: dont include module.h from other
+ includes
+Date: Tue, 24 Jan 2012 16:42:40 -0500 (EST)
+Message-ID: <20120124.164240.1834989778592427907.davem@davemloft.net>
+References: <1327440799-1057-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Ron Mercer <ron.mercer@qlogic.com>,
-	Dept-NX Linux NIC Driver
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org, jdb@comx.dk,
+	eric.dumazet@gmail.com
+To: paul.gortmaker@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:11559 "EHLO
-	TX2EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750957Ab2AXVnD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2012 16:43:03 -0500
-In-Reply-To: <20120124.153837.905415925299369179.davem@davemloft.net>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([198.137.202.13]:42300 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751060Ab2AXVnw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2012 16:43:52 -0500
+In-Reply-To: <1327440799-1057-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David,
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Tue, 24 Jan 2012 16:33:19 -0500
 
-Ok, will do as suggested. 
-
-Jiten
-
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net] 
-Sent: Tuesday, January 24, 2012 12:39 PM
-To: Jitendra Kalsaria
-Cc: netdev; Ron Mercer; Dept-NX Linux NIC Driver
-Subject: Re: [net PATCH 1/1] qlge:Changing netdev msg level to default debug
-
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Date: Mon, 23 Jan 2012 15:38:52 -0800
-
-> Driver was passing -1 so that custom default get used but which
-> makes it even more sane than 15 which was excessively verbose
-> printing an unusual amount of messages.
+> A considerable effort was invested in wiping out module.h
+> from being present in all the other standard includes.  This
+> one leaked back in, but once again isn't strictly necessary,
+> so remove it.
 > 
-> Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> 
+> ---
+> 
+> [x86-64 modconfig, yesconfig and ppc64 defconfig all build OK]
 
-Please don't move this code away from the canonical way in which
-default message levels are handled.
-
-The canonical way is to specify a module param that starts with the
-value "-1" which when passed as the first argument to netif_msg_init()
-means "use the default mask" which is the second argument.
-
-Moving to a default of "3" makes no sense at all, express the default
-in the second argument of netif_msg_init(), not the first.
-
-I'm not applying this patch, use other drivers such as tg3.c as a
-guide.
+Applied, thanks Paul.
