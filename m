@@ -1,82 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 1/3] infiniband: Convert dst_fetch_ha() over to
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: [PATCH 2/3] infiniband: cxgb4: Convert import_ep() over to
  dst_neigh_lookup().
-Date: Tue, 24 Jan 2012 18:15:52 -0500 (EST)
-Message-ID: <20120124.181552.1465561700058010931.davem@davemloft.net>
+Date: Tue, 24 Jan 2012 18:15:57 -0500 (EST)
+Message-ID: <20120124.181557.1162311424589935621.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sean.hefty@intel.com, hal.rosenstock@gmail.com,
-	linux-rdma@vger.kernel.org, netdev@vger.kernel.org
-To: roland@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43023 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753067Ab2AXXP6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2012 18:15:58 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
 Now we must provide the IP destination address, and a reference has
 to be dropped when we're done with the entry.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 ---
- drivers/infiniband/core/addr.c |   14 +++++++++-----
- 1 files changed, 9 insertions(+), 5 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/infiniband/core/addr.c b/drivers/infiniband/core/addr.c
-index 1612cfd..6ef660c 100644
---- a/drivers/infiniband/core/addr.c
-+++ b/drivers/infiniband/core/addr.c
-@@ -178,22 +178,26 @@ static void queue_req(struct addr_req *req)
- 	mutex_unlock(&lock);
- }
- 
--static int dst_fetch_ha(struct dst_entry *dst, struct rdma_dev_addr *addr)
-+static int dst_fetch_ha(struct dst_entry *dst, struct rdma_dev_addr *dev_addr, void *daddr)
- {
+diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
+index 0668bb3..0cf6155 100644
+--- a/drivers/infiniband/hw/cxgb4/cm.c
++++ b/drivers/infiniband/hw/cxgb4/cm.c
+@@ -1562,11 +1562,11 @@ static int import_ep(struct c4iw_ep *ep, __be32 peer_ip, struct dst_entry *dst,
  	struct neighbour *n;
- 	int ret;
+ 	int err, step;
  
-+	n = dst_neigh_lookup(dst, daddr);
-+
- 	rcu_read_lock();
+-	rcu_read_lock();
 -	n = dst_get_neighbour_noref(dst);
- 	if (!n || !(n->nud_state & NUD_VALID)) {
- 		if (n)
- 			neigh_event_send(n, NULL);
- 		ret = -ENODATA;
- 	} else {
--		ret = rdma_copy_addr(addr, dst->dev, n->ha);
-+		ret = rdma_copy_addr(dev_addr, dst->dev, n->ha);
- 	}
+-	err = -ENODEV;
++	n = dst_neigh_lookup(dst, &peer_ip);
+ 	if (!n)
+-		goto out;
++		return -ENODEV;
++
++	rcu_read_lock();
+ 	err = -ENOMEM;
+ 	if (n->dev->flags & IFF_LOOPBACK) {
+ 		struct net_device *pdev;
+@@ -1614,6 +1614,8 @@ static int import_ep(struct c4iw_ep *ep, __be32 peer_ip, struct dst_entry *dst,
+ out:
  	rcu_read_unlock();
  
-+	if (n)
-+		neigh_release(n);
++	neigh_release(n);
 +
- 	return ret;
+ 	return err;
  }
  
-@@ -232,7 +236,7 @@ static int addr4_resolve(struct sockaddr_in *src_in,
- 		goto put;
- 	}
- 
--	ret = dst_fetch_ha(&rt->dst, addr);
-+	ret = dst_fetch_ha(&rt->dst, addr, &fl4.daddr);
- put:
- 	ip_rt_put(rt);
- out:
-@@ -280,7 +284,7 @@ static int addr6_resolve(struct sockaddr_in6 *src_in,
- 		goto put;
- 	}
- 
--	ret = dst_fetch_ha(dst, addr);
-+	ret = dst_fetch_ha(dst, addr, &fl6.daddr);
- put:
- 	dst_release(dst);
- 	return ret;
 -- 
 1.7.7.6
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
