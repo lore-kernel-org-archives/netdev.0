@@ -1,73 +1,70 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH v4 1/5] net: Introduce new feature setting ops
-Date: Tue, 24 Jan 2012 20:05:13 +0100
-Message-ID: <20120124190513.GC19993@rere.qmqm.pl>
-References: <cover.1296741561.git.mirq-linux@rere.qmqm.pl>
- <9327efbf43fadeadd7017926962c65c95288d50e.1296741561.git.mirq-linux@rere.qmqm.pl>
- <1297107597.4077.8.camel@bwh-desktop>
- <1327413243.7231.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <1327419002.5400.27.camel@deadeye>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH net-next] net: flow_dissector.c missing include linux/export.h
+Date: Tue, 24 Jan 2012 14:44:21 -0500
+Message-ID: <CAP=VYLr-28ZSG7tURdGbp5nG4JdOMh_GZfv0HnCxpjv+GggMLA@mail.gmail.com>
+References: <1327420643.4549.113.camel@probook>
+	<1327421731.7231.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: jdb@comx.dk, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Stephen Rothwell <sfr@canb.auug.org.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:53554 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750883Ab2AXTFP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jan 2012 14:05:15 -0500
-Content-Disposition: inline
-In-Reply-To: <1327419002.5400.27.camel@deadeye>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:48842 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751123Ab2AXToW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2012 14:44:22 -0500
+Received: by yhoo21 with SMTP id o21so2039841yho.19
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2012 11:44:21 -0800 (PST)
+In-Reply-To: <1327421731.7231.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 24, 2012 at 03:30:02PM +0000, Ben Hutchings wrote:
-> On Tue, 2012-01-24 at 14:54 +0100, Eric Dumazet wrote:
-> > Le lundi 07 f=C3=A9vrier 2011 =C3=A0 19:39 +0000, Ben Hutchings a =C3=
-=A9crit :
-> > > On Thu, 2011-02-03 at 15:21 +0100, Micha=C5=82 Miros=C5=82aw wrot=
-e:
-> > > > This introduces a new framework to handle device features setti=
-ng.
-> > > > It consists of:
-> > > >   - new fields in struct net_device:
-> > > > 	+ hw_features - features that hw/driver supports toggling
-> > > > 	+ wanted_features - features that user wants enabled, when pos=
-sible
-> > > >   - new netdev_ops:
-> > > > 	+ feat =3D ndo_fix_features(dev, feat) - API checking constrai=
-nts for
-> > > > 		enabling features or their combinations
-> > > > 	+ ndo_set_features(dev) - API updating hardware state to match
-> > > > 		changed dev->features
-> > > >   - new ethtool commands:
-> > > > 	+ ETHTOOL_GFEATURES/ETHTOOL_SFEATURES: get/set dev->wanted_fea=
-tures
-> > > > 		and trigger device reconfiguration if resulting dev->features
-> > > > 		changed
-> > > > 	+ ETHTOOL_GSTRINGS(ETH_SS_FEATURES): get feature bits names (m=
-eaning)
-> > > >=20
-> > > > Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.=
-pl>
-> > > Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
-> > Do we have any ethtool patch to use these 'new' features ?
-> I have some unfinished changes to support this.  What I don't want to=
- do
-> is to add an entirely separate set of options; I want -k/-K to work w=
-ith
-> old and new kernel versions, supporting named features as an extensio=
-n
-> where available.
+On Tue, Jan 24, 2012 at 11:15 AM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> Le mardi 24 janvier 2012 =E0 16:57 +0100, Jesper Dangaard Brouer a =E9=
+crit :
+>> The file net/core/flow_dissector.c seems to be missing
+>> including linux/export.h.
+>>
+>> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+>> ---
+>> =A0net/core/flow_dissector.c | =A0 =A01 +
+>> =A01 files changed, 1 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+>> index 0985b9b..a225089 100644
+>> --- a/net/core/flow_dissector.c
+>> +++ b/net/core/flow_dissector.c
+>> @@ -1,4 +1,5 @@
+>> =A0#include <linux/skbuff.h>
+>> +#include <linux/export.h>
+>> =A0#include <linux/ip.h>
+>> =A0#include <linux/ipv6.h>
+>> =A0#include <linux/if_vlan.h>
+>
+>
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+>
+> Hmm, not sure how you found this, since export.h is included from
+> linux/netdevice.h (via net/netprio_cgroup.h & linux/module.h)
+>
+> Or maybe you want to remove linux/module.h inclusion from
+> net/netprio_cgroup.h ???
 
-Ben, what are your patches like?  I mean their state?  I'm asking, beca=
-use I
-found a bit of time and rebased my earlier patch to current ethtool 3.2
-this weekend.  Haven't sent them yet, because I'm seeing -EOPNOTSUPP fr=
-om
-kernel on x86_64 for GFEATURES and I'm trying to figure out where's the=
- bug.
+That would be the better solution.  I had them all killed off and it
+would be nice to try and keep it that way as long as possible.
 
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+I'll look into this if that wasn't part of Jesper's original intention.
+
+Paul.
+
+>
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
