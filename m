@@ -1,380 +1,76 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net] team: send only changed options/ports via netlink
-Date: Tue, 24 Jan 2012 16:16:00 +0100
-Message-ID: <1327418160-8098-1-git-send-email-jpirko@redhat.com>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58012 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752096Ab2AXPQF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jan 2012 10:16:05 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: [PATCH] net: caif: Don't act on notification for non-caif devices
+Date: Tue, 24 Jan 2012 10:23:26 -0500
+Message-ID: <CA+1xoqdZapYjS4gPf_uGwEdFQQdZ525mASr7iFKPXJdCBdRLKA@mail.gmail.com>
+References: <1327390229-30170-1-git-send-email-levinsasha928@gmail.com>
+ <CAJK669acbPLTxTDrk_uqdB2FmewcSA+HF0qEFADgT8YdfNMcpQ@mail.gmail.com>
+ <1327416561.32498.10.camel@lappy> <CAJK669ZWJsxnSiyKWFFFUWOA3TaGMY-AmgWuVsYfR=tKQaODgg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, davej@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: =?ISO-8859-1?Q?Sjur_Br=E6ndeland?= <sjurbren@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJK669ZWJsxnSiyKWFFFUWOA3TaGMY-AmgWuVsYfR=tKQaODgg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch changes event message behavious to send only updated records
-instead of whole list. This fixes bug on which userspace receives non-actual
-data in case multiple events occur in row.
+On Tue, Jan 24, 2012 at 10:06 AM, Sjur Br=E6ndeland <sjurbren@gmail.com=
+> wrote:
+> Hi Sasha,
+>
+>>> Nack, we have to handle other device types than just ARPHDR_CAIF af=
+ter
+>>> introducing CAIF over USB/NCM.
+>> What my patch did was simply move the type check to above the net_ge=
+neric call,
+>> it didn't add any new checks - which according to what you said, you=
+'ll need to do anyway.
+>
+> As I said I, don't think your patch would work. Try to see what happe=
+ns if
+> dev->type !=3D ARPHDR_CAIF and caifd !=3D NULL. Then the statement:
+>
+>        if (caifd =3D=3D NULL && dev->type !=3D ARPHRD_CAIF)
+>                return 0;
+> is very different from:
+>
+>       if (dev->type !=3D ARPHRD_CAIF)
+>               return 0;
+> ...
+>       if (caifd =3D=3D NULL)
+>               return 0;
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- drivers/net/team/team.c |  136 +++++++++++++++++++++++++++++++----------------
- include/linux/if_team.h |   10 ++++
- 2 files changed, 100 insertions(+), 46 deletions(-)
+Right.
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index ed2a862..6b678f3 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -92,9 +92,9 @@ struct team_option *__team_find_option(struct team *team, const char *opt_name)
- 	return NULL;
- }
- 
--int team_options_register(struct team *team,
--			  const struct team_option *option,
--			  size_t option_count)
-+int __team_options_register(struct team *team,
-+			    const struct team_option *option,
-+			    size_t option_count)
- {
- 	int i;
- 	struct team_option **dst_opts;
-@@ -116,8 +116,11 @@ int team_options_register(struct team *team,
- 		}
- 	}
- 
--	for (i = 0; i < option_count; i++)
-+	for (i = 0; i < option_count; i++) {
-+		dst_opts[i]->changed = true;
-+		dst_opts[i]->removed = false;
- 		list_add_tail(&dst_opts[i]->list, &team->option_list);
-+	}
- 
- 	kfree(dst_opts);
- 	return 0;
-@@ -130,10 +133,22 @@ rollback:
- 	return err;
- }
- 
--EXPORT_SYMBOL(team_options_register);
-+static void __team_options_mark_removed(struct team *team,
-+					const struct team_option *option,
-+					size_t option_count)
-+{
-+	int i;
-+
-+	for (i = 0; i < option_count; i++, option++) {
-+		struct team_option *del_opt;
- 
--static void __team_options_change_check(struct team *team,
--					struct team_option *changed_option);
-+		del_opt = __team_find_option(team, option->name);
-+		if (del_opt) {
-+			del_opt->changed = true;
-+			del_opt->removed = true;
-+		}
-+	}
-+}
- 
- static void __team_options_unregister(struct team *team,
- 				      const struct team_option *option,
-@@ -152,12 +167,29 @@ static void __team_options_unregister(struct team *team,
- 	}
- }
- 
-+static void __team_options_change_check(struct team *team);
-+
-+int team_options_register(struct team *team,
-+			  const struct team_option *option,
-+			  size_t option_count)
-+{
-+	int err;
-+
-+	err = __team_options_register(team, option, option_count);
-+	if (err)
-+		return err;
-+	__team_options_change_check(team);
-+	return 0;
-+}
-+EXPORT_SYMBOL(team_options_register);
-+
- void team_options_unregister(struct team *team,
- 			     const struct team_option *option,
- 			     size_t option_count)
- {
-+	__team_options_mark_removed(team, option, option_count);
-+	__team_options_change_check(team);
- 	__team_options_unregister(team, option, option_count);
--	__team_options_change_check(team, NULL);
- }
- EXPORT_SYMBOL(team_options_unregister);
- 
-@@ -176,7 +208,8 @@ static int team_option_set(struct team *team, struct team_option *option,
- 	if (err)
- 		return err;
- 
--	__team_options_change_check(team, option);
-+	option->changed = true;
-+	__team_options_change_check(team);
- 	return err;
- }
- 
-@@ -653,6 +686,7 @@ static int team_port_del(struct team *team, struct net_device *port_dev)
- 		return -ENOENT;
- 	}
- 
-+	port->removed = true;
- 	__team_port_change_check(port, false);
- 	team_port_list_del_port(team, port);
- 	team_adjust_ops(team);
-@@ -1200,10 +1234,9 @@ err_fill:
- 	return err;
- }
- 
--static int team_nl_fill_options_get_changed(struct sk_buff *skb,
--					    u32 pid, u32 seq, int flags,
--					    struct team *team,
--					    struct team_option *changed_option)
-+static int team_nl_fill_options_get(struct sk_buff *skb,
-+				    u32 pid, u32 seq, int flags,
-+				    struct team *team, bool fillall)
- {
- 	struct nlattr *option_list;
- 	void *hdr;
-@@ -1223,12 +1256,19 @@ static int team_nl_fill_options_get_changed(struct sk_buff *skb,
- 		struct nlattr *option_item;
- 		long arg;
- 
-+		/* Include only changed options if fill all mode is not on */
-+		if (!fillall && !option->changed)
-+			continue;
- 		option_item = nla_nest_start(skb, TEAM_ATTR_ITEM_OPTION);
- 		if (!option_item)
- 			goto nla_put_failure;
- 		NLA_PUT_STRING(skb, TEAM_ATTR_OPTION_NAME, option->name);
--		if (option == changed_option)
-+		if (option->changed) {
- 			NLA_PUT_FLAG(skb, TEAM_ATTR_OPTION_CHANGED);
-+			option->changed = false;
-+		}
-+		if (option->removed)
-+			NLA_PUT_FLAG(skb, TEAM_ATTR_OPTION_REMOVED);
- 		switch (option->type) {
- 		case TEAM_OPTION_TYPE_U32:
- 			NLA_PUT_U8(skb, TEAM_ATTR_OPTION_TYPE, NLA_U32);
-@@ -1255,13 +1295,13 @@ nla_put_failure:
- 	return -EMSGSIZE;
- }
- 
--static int team_nl_fill_options_get(struct sk_buff *skb,
--				    struct genl_info *info, int flags,
--				    struct team *team)
-+static int team_nl_fill_options_get_all(struct sk_buff *skb,
-+					struct genl_info *info, int flags,
-+					struct team *team)
- {
--	return team_nl_fill_options_get_changed(skb, info->snd_pid,
--						info->snd_seq, NLM_F_ACK,
--						team, NULL);
-+	return team_nl_fill_options_get(skb, info->snd_pid,
-+					info->snd_seq, NLM_F_ACK,
-+					team, true);
- }
- 
- static int team_nl_cmd_options_get(struct sk_buff *skb, struct genl_info *info)
-@@ -1273,7 +1313,7 @@ static int team_nl_cmd_options_get(struct sk_buff *skb, struct genl_info *info)
- 	if (!team)
- 		return -EINVAL;
- 
--	err = team_nl_send_generic(info, team, team_nl_fill_options_get);
-+	err = team_nl_send_generic(info, team, team_nl_fill_options_get_all);
- 
- 	team_nl_team_put(team);
- 
-@@ -1365,10 +1405,10 @@ team_put:
- 	return err;
- }
- 
--static int team_nl_fill_port_list_get_changed(struct sk_buff *skb,
--					      u32 pid, u32 seq, int flags,
--					      struct team *team,
--					      struct team_port *changed_port)
-+static int team_nl_fill_port_list_get(struct sk_buff *skb,
-+				      u32 pid, u32 seq, int flags,
-+				      struct team *team,
-+				      bool fillall)
- {
- 	struct nlattr *port_list;
- 	void *hdr;
-@@ -1387,12 +1427,19 @@ static int team_nl_fill_port_list_get_changed(struct sk_buff *skb,
- 	list_for_each_entry(port, &team->port_list, list) {
- 		struct nlattr *port_item;
- 
-+		/* Include only changed ports if fill all mode is not on */
-+		if (!fillall && !port->changed)
-+			continue;
- 		port_item = nla_nest_start(skb, TEAM_ATTR_ITEM_PORT);
- 		if (!port_item)
- 			goto nla_put_failure;
- 		NLA_PUT_U32(skb, TEAM_ATTR_PORT_IFINDEX, port->dev->ifindex);
--		if (port == changed_port)
-+		if (port->changed) {
- 			NLA_PUT_FLAG(skb, TEAM_ATTR_PORT_CHANGED);
-+			port->changed = false;
-+		}
-+		if (port->removed)
-+			NLA_PUT_FLAG(skb, TEAM_ATTR_PORT_REMOVED);
- 		if (port->linkup)
- 			NLA_PUT_FLAG(skb, TEAM_ATTR_PORT_LINKUP);
- 		NLA_PUT_U32(skb, TEAM_ATTR_PORT_SPEED, port->speed);
-@@ -1408,13 +1455,13 @@ nla_put_failure:
- 	return -EMSGSIZE;
- }
- 
--static int team_nl_fill_port_list_get(struct sk_buff *skb,
--				      struct genl_info *info, int flags,
--				      struct team *team)
-+static int team_nl_fill_port_list_get_all(struct sk_buff *skb,
-+					  struct genl_info *info, int flags,
-+					  struct team *team)
- {
--	return team_nl_fill_port_list_get_changed(skb, info->snd_pid,
--						  info->snd_seq, NLM_F_ACK,
--						  team, NULL);
-+	return team_nl_fill_port_list_get(skb, info->snd_pid,
-+					  info->snd_seq, NLM_F_ACK,
-+					  team, true);
- }
- 
- static int team_nl_cmd_port_list_get(struct sk_buff *skb,
-@@ -1427,7 +1474,7 @@ static int team_nl_cmd_port_list_get(struct sk_buff *skb,
- 	if (!team)
- 		return -EINVAL;
- 
--	err = team_nl_send_generic(info, team, team_nl_fill_port_list_get);
-+	err = team_nl_send_generic(info, team, team_nl_fill_port_list_get_all);
- 
- 	team_nl_team_put(team);
- 
-@@ -1464,8 +1511,7 @@ static struct genl_multicast_group team_change_event_mcgrp = {
- 	.name = TEAM_GENL_CHANGE_EVENT_MC_GRP_NAME,
- };
- 
--static int team_nl_send_event_options_get(struct team *team,
--					  struct team_option *changed_option)
-+static int team_nl_send_event_options_get(struct team *team)
- {
- 	struct sk_buff *skb;
- 	int err;
-@@ -1475,8 +1521,7 @@ static int team_nl_send_event_options_get(struct team *team,
- 	if (!skb)
- 		return -ENOMEM;
- 
--	err = team_nl_fill_options_get_changed(skb, 0, 0, 0, team,
--					       changed_option);
-+	err = team_nl_fill_options_get(skb, 0, 0, 0, team, false);
- 	if (err < 0)
- 		goto err_fill;
- 
-@@ -1489,18 +1534,17 @@ err_fill:
- 	return err;
- }
- 
--static int team_nl_send_event_port_list_get(struct team_port *port)
-+static int team_nl_send_event_port_list_get(struct team *team)
- {
- 	struct sk_buff *skb;
- 	int err;
--	struct net *net = dev_net(port->team->dev);
-+	struct net *net = dev_net(team->dev);
- 
- 	skb = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
- 	if (!skb)
- 		return -ENOMEM;
- 
--	err = team_nl_fill_port_list_get_changed(skb, 0, 0, 0,
--						 port->team, port);
-+	err = team_nl_fill_port_list_get(skb, 0, 0, 0, team, false);
- 	if (err < 0)
- 		goto err_fill;
- 
-@@ -1544,12 +1588,11 @@ static void team_nl_fini(void)
-  * Change checkers
-  ******************/
- 
--static void __team_options_change_check(struct team *team,
--					struct team_option *changed_option)
-+static void __team_options_change_check(struct team *team)
- {
- 	int err;
- 
--	err = team_nl_send_event_options_get(team, changed_option);
-+	err = team_nl_send_event_options_get(team);
- 	if (err)
- 		netdev_warn(team->dev, "Failed to send options change via netlink\n");
- }
-@@ -1559,9 +1602,10 @@ static void __team_port_change_check(struct team_port *port, bool linkup)
- {
- 	int err;
- 
--	if (port->linkup == linkup)
-+	if (!port->removed && port->linkup == linkup)
- 		return;
- 
-+	port->changed = true;
- 	port->linkup = linkup;
- 	if (linkup) {
- 		struct ethtool_cmd ecmd;
-@@ -1577,7 +1621,7 @@ static void __team_port_change_check(struct team_port *port, bool linkup)
- 	port->duplex = 0;
- 
- send_event:
--	err = team_nl_send_event_port_list_get(port);
-+	err = team_nl_send_event_port_list_get(port->team);
- 	if (err)
- 		netdev_warn(port->team->dev, "Failed to send port change of device %s via netlink\n",
- 			    port->dev->name);
-diff --git a/include/linux/if_team.h b/include/linux/if_team.h
-index 828181f..58404b0 100644
---- a/include/linux/if_team.h
-+++ b/include/linux/if_team.h
-@@ -46,6 +46,10 @@ struct team_port {
- 	u32 speed;
- 	u8 duplex;
- 
-+	/* Custom gennetlink interface related flags */
-+	bool changed;
-+	bool removed;
-+
- 	struct rcu_head rcu;
- };
- 
-@@ -72,6 +76,10 @@ struct team_option {
- 	enum team_option_type type;
- 	int (*getter)(struct team *team, void *arg);
- 	int (*setter)(struct team *team, void *arg);
-+
-+	/* Custom gennetlink interface related flags */
-+	bool changed;
-+	bool removed;
- };
- 
- struct team_mode {
-@@ -207,6 +215,7 @@ enum {
- 	TEAM_ATTR_OPTION_CHANGED,	/* flag */
- 	TEAM_ATTR_OPTION_TYPE,		/* u8 */
- 	TEAM_ATTR_OPTION_DATA,		/* dynamic */
-+	TEAM_ATTR_OPTION_REMOVED,	/* flag */
- 
- 	__TEAM_ATTR_OPTION_MAX,
- 	TEAM_ATTR_OPTION_MAX = __TEAM_ATTR_OPTION_MAX - 1,
-@@ -227,6 +236,7 @@ enum {
- 	TEAM_ATTR_PORT_LINKUP,		/* flag */
- 	TEAM_ATTR_PORT_SPEED,		/* u32 */
- 	TEAM_ATTR_PORT_DUPLEX,		/* u8 */
-+	TEAM_ATTR_PORT_REMOVED,		/* flag */
- 
- 	__TEAM_ATTR_PORT_MAX,
- 	TEAM_ATTR_PORT_MAX = __TEAM_ATTR_PORT_MAX - 1,
--- 
-1.7.7.6
+> Anyway, another option could be to explicitly check if name space is
+> initialized,
+> similar to what net_generic() does,e.g. something like:
+>
+> diff --git a/net/caif/caif_dev.c b/net/caif/caif_dev.c
+> index 673728a..3197bc2 100644
+> --- a/net/caif/caif_dev.c
+> +++ b/net/caif/caif_dev.c
+> @@ -371,6 +371,13 @@ static int caif_device_notify(struct notifier_bl=
+ock *me, un
+>        struct cflayer *layer, *link_support;
+>        int head_room =3D 0;
+>        struct caif_device_entry_list *caifdevs;
+> +       int len;
+> +
+> +       rcu_read_lock();
+> +       len =3D rcu_dereference(dev_net(dev)->gen)->len;
+> +       rcu_read_unlock();
+> +       if (caif_net_id > len)
+> +               return 0;
+>
+>        cfg =3D get_cfcnfg(dev_net(dev));
+>        caifdevs =3D caif_device_list(dev_net(dev));
+
+We could, in that case we'd just need to handle the case where it was
+initialized by a device with higher id than CAIF (which we already do
+I think), and do it without touching net_generic structure directly.
+
+btw, Why do we store the devices per-namespace instead of globally? Is
+it such a big benefit in performance?
