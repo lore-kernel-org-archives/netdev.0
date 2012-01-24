@@ -1,32 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: Randomise invalid MAC addresses
-Date: Tue, 24 Jan 2012 15:19:06 -0500 (EST)
-Message-ID: <20120124.151906.1600710663231922646.davem@davemloft.net>
-References: <20120124171546.GA32184@atrey.karlin.mff.cuni.cz>
-	<20120124182826.GA24128@electric-eye.fr.zoreil.com>
-	<1327430853.2568.4.camel@bwh-desktop>
+Subject: Re: stmmac: fix phy naming inconsistency
+Date: Tue, 24 Jan 2012 15:29:52 -0500 (EST)
+Message-ID: <20120124.152952.59640686729726715.davem@davemloft.net>
+References: <20120124092648.GA26380@mail.gnudd.com>
+	<4F1E90B6.6090106@openwrt.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, pavel@ucw.cz, alan@lxorguk.ukuu.org.uk,
-	torne@google.com, nic_swsd@realtek.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: rubini@gnudd.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, giancarlo.asnaghi@st.com,
+	peppe.cavallaro@st.com
+To: florian@openwrt.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1327430853.2568.4.camel@bwh-desktop>
+In-Reply-To: <4F1E90B6.6090106@openwrt.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 24 Jan 2012 18:47:33 +0000
+From: Florian Fainelli <florian@openwrt.org>
+Date: Tue, 24 Jan 2012 12:06:30 +0100
 
-> None of the push-back from netdev is going to have any effect on the
-> embedded system developers who are failing to program MAC addresses
-> properly; it's only going to hurt those adventurous users.
+> Hello Alessandro,
+> 
+> On 01/24/12 10:26, Alessandro Rubini wrote:
+>> After commit "db8857b stmmac: use an unique MDIO bus name" my
+>> device stopped being probed because two different names were being
+>> used in different places. This fixes the inconsistency.
+>>
+>> Signed-off-by: Alessandro Rubini<rubini@gnudd.com>
+>> Acked-by: Giancarlo Asnaghi<giancarlo.asnaghi@st.com>
+>> Cc: Giuseppe Cavallaro<peppe.cavallaro@st.com>
+>> Cc: Florian Fainelli<florian@openwrt.org>
+> 
+> Acked-by: Florian Fainelli <florian@openwrt.org>
 
-The implementation of denying interface bringup until a valid MAC is
-configured is actually helping these adventurous users if the embedded
-guys (which in the Intel situation, was the case) put the hack into
-userspace to set the MAC address before bringing the interface up.
-
-And this is really the only solution I think is warranted.
+Applied, thanks.
