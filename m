@@ -1,72 +1,44 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net] drivers/net: dsa/mv88e6xxx.c files need linux/module.h
-Date: Tue, 24 Jan 2012 15:41:40 -0500
-Message-ID: <1327437700-8204-1-git-send-email-paul.gortmaker@windriver.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: buytenh@wantstofly.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:39625 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756446Ab2AXUlx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2012 15:41:53 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] stmmac patches
+Date: Tue, 24 Jan 2012 15:43:11 -0500 (EST)
+Message-ID: <20120124.154311.1857537203481263793.davem@davemloft.net>
+References: <cover.1327394750.git.rubini@gnudd.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, peppe.cavallaro@st.com,
+	netdev@vger.kernel.org, giancarlo.asnaghi@st.com
+To: rubini@gnudd.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1327394750.git.rubini@gnudd.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-An implicit instance of module.h leaked back into existence
-and was masking the fact that these drivers weren't calling
-out the include for itself.  Fix the drivers before we remove
-the implicit include path via net/netprio_cgroup.h file.
+From: Alessandro Rubini <rubini@gnudd.com>
+Date: Tue, 24 Jan 2012 10:08:45 +0100
 
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> The following three patches add support for the STA2X11 device in the
+> stmmac driver. The device is a PCI-e bridge, so I need just to
+> add my identifiers.  The identifiers being added are already in pci_ids
+> of linux-next.
 
-diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
-index 7fc4e81..325391d 100644
---- a/drivers/net/dsa/mv88e6060.c
-+++ b/drivers/net/dsa/mv88e6060.c
-@@ -9,6 +9,7 @@
-  */
- 
- #include <linux/list.h>
-+#include <linux/module.h>
- #include <linux/netdevice.h>
- #include <linux/phy.h>
- #include <net/dsa.h>
-diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
-index c0a458f..05b5f92 100644
---- a/drivers/net/dsa/mv88e6123_61_65.c
-+++ b/drivers/net/dsa/mv88e6123_61_65.c
-@@ -9,6 +9,7 @@
-  */
- 
- #include <linux/list.h>
-+#include <linux/module.h>
- #include <linux/netdevice.h>
- #include <linux/phy.h>
- #include <net/dsa.h>
-diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index e0eb6824..55888b0 100644
---- a/drivers/net/dsa/mv88e6131.c
-+++ b/drivers/net/dsa/mv88e6131.c
-@@ -9,6 +9,7 @@
-  */
- 
- #include <linux/list.h>
-+#include <linux/module.h>
- #include <linux/netdevice.h>
- #include <linux/phy.h>
- #include <net/dsa.h>
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 5467c04..a2c62c2 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -9,6 +9,7 @@
-  */
- 
- #include <linux/list.h>
-+#include <linux/module.h>
- #include <linux/netdevice.h>
- #include <linux/phy.h>
- #include <net/dsa.h>
--- 
-1.7.7.2
+This patch is fine.
+
+> The second patch is a cleanup, already acked by both authors.
+
+I'm not applying this, instead if you want to make changes in this
+area then fix this driver so that it can properly support multiple
+device instances.
+
+I can't even imagine ever writing a driver where from the start
+it can handle only one device instance, this is pure insanity
+especially for a PCI device driver.
+
+> As for the third, I noted that there is "#ifndef MODULE" adding
+> __setup directives, but the module parameters already work, and I
+> successfully use stmmac.phy_id=1 to boot my system, so the __setup
+> adre just duplicates. This has not been acked by Giuseppe Cavallaro
+> but I offer it here nonetheless.
+
+You're breaking things for anyone using 'stmmaceth='.  So I'm not
+applying this patch either.
