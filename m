@@ -1,37 +1,85 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: How to accelerate tcp retransmition
-Date: Tue, 24 Jan 2012 09:57:24 -0800
-Message-ID: <4F1EF104.1040107@hp.com>
-References: <CAC=NXX3jdCAjmwTjQ-d43DWb-617a33nMcWb_UvBUyB_q7VZTQ@mail.gmail.com> <CAC=NXX2NLsChhuY5_Bv3HJ4fvnq7XpM7UksPS80uaZgGsJnfVw@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 2/3] NETFILTER module xt_hmark, new target for HASH
+ based fwmark
+Date: Tue, 24 Jan 2012 19:15:40 +0100
+Message-ID: <20120124181540.GA2063@1984>
+References: <1326448338-13416-1-git-send-email-hans.schillstrom@ericsson.com>
+ <201201231049.17165.hans.schillstrom@ericsson.com>
+ <20120123170150.GA26351@1984>
+ <201201241856.11732.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	eric.dumazet@gmail.com, davem@davemloft.net
-To: leno soff <lnxuff@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAC=NXX2NLsChhuY5_Bv3HJ4fvnq7XpM7UksPS80uaZgGsJnfVw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Hans Schillstrom <hans@schillstrom.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"jengelh@medozas.de" <jengelh@medozas.de>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201201241856.11732.hans.schillstrom@ericsson.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/24/2012 06:09 AM, leno soff wrote:
-> On Tue, Jan 24, 2012 at 4:58 PM, leno soff<lnxuff@gmail.com>  wrote:
->> Hello everyone,
->>    I have a lot of client, say C1, C2, .. Cn, which route packets to
->> my servers through router R. But R will drop 70% - 90% _ non-SYN _
->> packets from clients to Server.
+On Tue, Jan 24, 2012 at 06:56:10PM +0100, Hans Schillstrom wrote:
+> On Monday 23 January 2012 18:01:50 Pablo Neira Ayuso wrote:
+> > Hi Hans,
+> > 
+> > On Mon, Jan 23, 2012 at 10:49:16AM +0100, Hans Schillstrom wrote:
+> > > On Monday 23 January 2012 10:12:41 Pablo Neira Ayuso wrote:
+> > > > On Mon, Jan 23, 2012 at 12:20:15AM +0100, Hans Schillstrom wrote:
+> > > > > The text should clarify that this is valid for the fragments not the "flow"
+> > > > > 
+> > > > > > I've got one scenario that may break with this assumption:
+> > > > > > 
+> > > > > > 1) your traffic follows one path over router A and B to reach your
+> > > > > >    firewall F which requires no fragmentation at all.
+> > > 
+> > > I missed the last part here  "requires no fragmentation at all"
+> > > 
+> > > > > > 2) path to router B becomes broken while there are established flows
+> > > > > >    with firewall F.
+> > > > > > 3) router A decides to forward packets to router C, which fragment
+> > > > > >    packets because it is using smaller MTU than router A.
+> > > > > > 4) packets arrive to firewall F, then hashing is calculated based on
+> > > > > >    addresses, not ports, and you load-sharing becomes inconsistent.
+> > > > > > 
+> > > > > > This can rarely happen, but it does, it would break.
+> > > > > > 
+> > > > > > To fix this, I think that HMARK requires that you have to specify the
+> > > > > > hashing strategy. If you want to support fragments, use only
+> > > > > > addresses. If you're sure you will not get fragments, use layer 3 and
+> > > > > > layer 4 information.
+> > > 
+> > > This can be acomplished by setting --hmark-sp-mask and --hmark-dp-mask to Zero
+> > > Then you don't use port in the hash calc.
+> > 
+> > OK, it would be great if we can provide a cleaner interface. The
+> > current behaviour uses layer3-layer4 tuple hashing plus defaulting to
+> > layer3 in case of fragments.
+> > 
+> > I'd prefer explicit configuration options:
+> > 
+> > --hashmark-method layer3
+> >         use only address for hashing, this is fragment safe.
+> > 
+> > --hashmark-method layer3-layer4
+> >         use addresses and ports for hashing, fragments not supported
+> >         unless defrag is enabled.
+> > 
+> > Still, if you want to support the current behaviour, it should be
+> > something like:
+> > 
+> > --hashmark-method layer3-layer4-fragments
+> >         use addresses and ports for hashing, for fragments default to
+> >         layer3 hashing. Document scenario in which hash consistency
+> >         may break.
+> > 
+> > The behaviour of the target has to be specified by the configurations.
+> > Defaulting to internal assumptions seems obscure to me.
+> > 
+> OK this is resonable, and it makes the fragment problem visible.
+> 
+> I'll make the changes to day and have a test run for a couple of days.
 
-I think you should address that first - why does the router drop 70 to 
-905 of the non-SYN segments it receives.  At first blush that sounds 
-like a classic case of massive over-subscription, and any attempt to 
-accelerate the retransmissions seems destined to trigger congestive 
-collapse.
-
-As a side issue, if the router is dropping 70 to 90% of the non-SYN 
-segments, why is it not also dropping 70 to 90% of the SYN segments?
-
-Also, I'm reasonably confident that an actual keepalive probe would not 
-(or at least should not?) be considered in the three duplicate ACK 
-heuristic.
-
-rick jones
+Fine, thanks Hans.
