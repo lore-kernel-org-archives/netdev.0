@@ -1,64 +1,46 @@
-From: Alessandro Rubini <rubini@gnudd.com>
-Subject: stmmac: fix phy naming inconsistency
-Date: Tue, 24 Jan 2012 10:26:48 +0100
-Message-ID: <20120124092648.GA26380@mail.gnudd.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch v2, kernel version 3.2.1] Source mode for macvlan
+ interface
+Date: Tue, 24 Jan 2012 10:48:18 +0100
+Message-ID: <1327398498.7231.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <29378065.3471327360294412.JavaMail.root@5-MeO-DMT.ynet.sk>
+	 <1327362739.2587.15.camel@edumazet-laptop>
+	 <CAGsizzLD=0t_J5m=CdZn8+1j6ZD_Nmz352kydDKDqQKDK5nxSw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: giancarlo.asnaghi@st.com, peppe.cavallaro@st.com,
-	florian@openwrt.org
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: =?UTF-8?Q?=C5=A0tefan?= Gula <steweg@ynet.sk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <CAGsizzLD=0t_J5m=CdZn8+1j6ZD_Nmz352kydDKDqQKDK5nxSw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-After commit "db8857b stmmac: use an unique MDIO bus name" my
-device stopped being probed because two different names were being
-used in different places. This fixes the inconsistency.
+Le mardi 24 janvier 2012 =C3=A0 10:07 +0100, =C5=A0tefan Gula a =C3=A9c=
+rit :
+> 2012/1/24 Eric Dumazet <eric.dumazet@gmail.com>:
 
-Signed-off-by: Alessandro Rubini <rubini@gnudd.com>
-Acked-by: Giancarlo Asnaghi <giancarlo.asnaghi@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Cc: Florian Fainelli <florian@openwrt.org>
----
+> > How many 'sources' are expected per port ?
+> >
+> > Above a certain (small) threshold, macvlan_fill_info() will 'overfl=
+ow'
+> > skb capacity and return an error.
+> >
+> > Take a look at macvlan_get_size() ?
+> There should be no defined limits on how many MAC addresses you can
+> put under one macvlan interface - it should be fully dynamic. You are
+> right about the function, but I have a difficulty with fixing that. I=
+t
+> is no problem to calculate the space needed to dump all mac-address,
+> but I tried to check how many times is macvlan_get_size called and it
+> is called only once per macvlan interface initialization, which is
+> obviously wrong in my case as I need that number to be changed each
+> time before fill_info is called. I tried to find and example how to
+> managed that from other drivers, but I was unsuccessful. Do you have
+> any idea?
 
-Before the commit, the phy was identified like this and stuff worked:
+Take a look at commit c7ac8679bec9
+(rtnetlink: Compute and store minimum ifinfo dump size)
 
-     PHY ID 20005c90 at 1 IRQ 0 (506:01) active
-
-After that commit, I get 
-
-     PHY ID 20005c90 at 1 IRQ 0 (STMMAC MII Bus-1:01) active
-     PHY stmmac-1:01 not found
-
-In one place, "stmmac" is a static string, on the other the commit
-used the name field of the bus that was "STMMAC MII Bus", so I changed
-this older string to be nicer -- without spaces.
-
-Maybe the name is available where "stmmac" is spelled out, but I
-didn't check.
-
-Now it works for me:
-
-    eth1: PHY ID 20005c90 at 1 IRQ 0 (stmmac-1:01) active
-    PHY: stmmac-1:01 - Link is Up - 100/Full
-
-
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index 6e712c5..819606e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -154,7 +154,7 @@ int stmmac_mdio_register(struct net_device *ndev)
- 	else
- 		irqlist = priv->mii_irq;
- 
--	new_bus->name = "STMMAC MII Bus";
-+	new_bus->name = "stmmac";
- 	new_bus->read = &stmmac_mdio_read;
- 	new_bus->write = &stmmac_mdio_write;
- 	new_bus->reset = &stmmac_mdio_reset;
--- 
-1.7.7.2
+and maybe extend it if necessary ?
