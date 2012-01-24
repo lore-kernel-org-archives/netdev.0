@@ -1,36 +1,110 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: flow_dissector.c missing include
- linux/export.h
-Date: Tue, 24 Jan 2012 16:03:07 -0500 (EST)
-Message-ID: <20120124.160307.599402013484638485.davem@davemloft.net>
-References: <CAP=VYLr-28ZSG7tURdGbp5nG4JdOMh_GZfv0HnCxpjv+GggMLA@mail.gmail.com>
-	<20120124.155135.1784877918701583546.davem@davemloft.net>
-	<CAP=VYLpGk5+626QT31-nUkSJjay6ZnY8APxLfD-MUkqCJMxYng@mail.gmail.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [PATCH net V4 1/2] igb: add PTP Hardware Clock code
+Date: Tue, 24 Jan 2012 21:23:45 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB580415B8@ORSMSX105.amr.corp.intel.com>
+References: <cover.1327161325.git.richardcochran@gmail.com>
+ <40a74998520e385c2c690b85fd309ca59590ae75.1327161325.git.richardcochran@gmail.com>
+ <02874ECE860811409154E81DA85FBB58040BDD@ORSMSX105.amr.corp.intel.com>
+ <20120124174405.GA2149@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, jdb@comx.dk, netdev@vger.kernel.org,
-	sfr@canb.auug.org.au
-To: paul.gortmaker@windriver.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41959 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755919Ab2AXVFP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2012 16:05:15 -0500
-In-Reply-To: <CAP=VYLpGk5+626QT31-nUkSJjay6ZnY8APxLfD-MUkqCJMxYng@mail.gmail.com>
+Received: from mga02.intel.com ([134.134.136.20]:50864 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756653Ab2AXVXr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2012 16:23:47 -0500
+In-Reply-To: <20120124174405.GA2149@netboy.at.omicron.at>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Tue, 24 Jan 2012 15:59:00 -0500
 
-> I've reproduced it locally, and verified it as a fix, but only *after*
-> I've deleted the module.h from netprio_cgroup.h
+
+> -----Original Message-----
+> From: Richard Cochran [mailto:richardcochran@gmail.com]
+> Sent: Tuesday, January 24, 2012 9:44 AM
+> To: Keller, Jacob E
+> Cc: netdev@vger.kernel.org; e1000-devel@lists.sourceforge.net; Kirsher,
+> Jeffrey T; Ronciak, John; John Stultz; Thomas Gleixner
+> Subject: Re: [PATCH net V4 1/2] igb: add PTP Hardware Clock code
 > 
-> Doing builds to see what else (aside from the dsa/mv88e6xxx)
-> shakes loose.  Hopefully that is it.  If so, I'll send a patch
-> shortly to delete the module.h
+> On Mon, Jan 23, 2012 at 06:39:44PM +0000, Keller, Jacob E wrote:
+> 
+> > > +static int ptp_82576_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
+> > > +{
+> > > +	u64 rate;
+> > > +	u32 incvalue;
+> > > +	int neg_adj = 0;
+> > > +	struct igb_adapter *igb = container_of(ptp, struct igb_adapter,
+> caps);
+> > > +	struct e1000_hw *hw = &igb->hw;
+> > > +
+> > > +	if (ppb < 0) {
+> > > +		neg_adj = 1;
+> > > +		ppb = -ppb;
+> > > +	}
+> > > +	rate = ppb;
+> > > +	rate <<= 14;
+> > > +	rate = div_u64(rate, 1953125);
+> > > +
+> >
+> > So is the rate ppb accumulating? I was under the impression that it
+> > calculated from the current clock frequency so it would need to be
+> > applied to the current incvalue, not the base... Is this not the
+> > case? What was the intention of the ppb?
+> 
+> The ppb is simply the desired rate offset in parts per billion. It is
+> not a delta from the current offset, but rather fixed from the clock's
+> nominal frequency. This comes from the NTP timex.freq field (but the
+> unit here is ppb, timex.freq is ppm with a 16 bit fraction.)
+> 
+> If the clock servo is a typical PI controller for example, then the
+> servo output already represents the accumulated offset.
+> 
+> > > +	incvalue = 16 << IGB_82576_TSYNC_SHIFT;
+> > > +
+> > > +	if (neg_adj)
+> > > +		incvalue -= rate;
+> > > +	else
+> > > +		incvalue += rate;
+> > > +
+> > > +	wr32(E1000_TIMINCA, INCPERIOD_82576 | (incvalue &
+> INCVALUE_82576_MASK));
+> > > +
+> > > +	return 0;
+> > > +}
+> 
+> > > +		/* Dial the nominal frequency. */
+> > > +		wr32(E1000_TIMINCA, INCPERIOD_82576 | INCVALUE_82576);
+> > > +		break;
+> > > +
+> >
+> > It would be good to check whether the link speed has an impact on
+> > the SYSTIME register rate. I know on the 10 Gb parts the systime
+> > registers are driven by the DMA clock which is partitioned
+> > differently at slower speeds so the values have to be updated
+> > whenever the link speed changes..
+> 
+> If this is true for 82576, then it certainly is not documented. I
+> don't have that card, so maybe someone from Intel can answer this?
+> 
 
-Ok, I'll apply Jesper's patch to 'net' then.
+I'll look into this.
 
-Thanks.
+> I think the documentation for the 82580 is clear about the basic rate
+> always being the same.
+
+Yeah, I believe the 82580 stays the same regardless of the device link speed.
+
+> 
+> Thanks,
+> Richard
