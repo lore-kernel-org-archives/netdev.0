@@ -1,135 +1,79 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Backtrace in rds code
-Date: Tue, 24 Jan 2012 17:04:10 -0500 (EST)
-Message-ID: <20120124.170410.829129930720684609.davem@davemloft.net>
-References: <CA+5PVA7jGq6Hu3ebCzG1FJJStEcsN251Q_0pS9PphkeuAPKxww@mail.gmail.com>
+Subject: [PATCH] ipv4: Remove bogus checks of rt_gateway being zero.
+Date: Tue, 24 Jan 2012 18:09:37 -0500 (EST)
+Message-ID: <20120124.180937.1535236308212704084.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: venkat.x.venkatsubra@oracle.com, netdev@vger.kernel.org
-To: jwboyer@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42466 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:42962 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751700Ab2AXWER (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2012 17:04:17 -0500
-In-Reply-To: <CA+5PVA7jGq6Hu3ebCzG1FJJStEcsN251Q_0pS9PphkeuAPKxww@mail.gmail.com>
+	with ESMTP id S1752274Ab2AXXJk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2012 18:09:40 -0500
+Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
+	(authenticated bits=0)
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id q0ON9b0E025053
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 24 Jan 2012 15:09:40 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Please try this patch:
+It can never actually happen.  rt_gateway is either the fully resolved
+flow lookup key's destination address, or the non-zero FIB entry gateway
+address.
 
---------------------
-rds: Make rds_sock_lock BH rather than IRQ safe.
-
-rds_sock_info() triggers locking warnings because we try to perform a
-local_bh_enable() (via sock_i_ino()) while hardware interrupts are
-disabled (via taking rds_sock_lock).
-
-There is no reason for rds_sock_lock to be a hardware IRQ disabling
-lock, none of these access paths run in hardware interrupt context.
-
-Therefore making it a BH disabling lock is safe and sufficient to
-fix this bug.
-
-Reported-by: Kumar Sanghvi <kumaras@chelsio.com>
-Reported-by: Josh Boyer <jwboyer@gmail.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/rds/af_rds.c |   20 ++++++++------------
- 1 files changed, 8 insertions(+), 12 deletions(-)
 
-diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
-index bb6ad81..424ff62 100644
---- a/net/rds/af_rds.c
-+++ b/net/rds/af_rds.c
-@@ -68,7 +68,6 @@ static int rds_release(struct socket *sock)
- {
- 	struct sock *sk = sock->sk;
- 	struct rds_sock *rs;
--	unsigned long flags;
+Applied to net-next
+
+ net/ipv4/ip_gre.c |    8 +++-----
+ net/ipv4/ipip.c   |    2 --
+ 2 files changed, 3 insertions(+), 7 deletions(-)
+
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 2b53a1f..fc21335 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -724,11 +724,8 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+ 			goto tx_error;
+ 		}
  
- 	if (!sk)
- 		goto out;
-@@ -94,10 +93,10 @@ static int rds_release(struct socket *sock)
- 	rds_rdma_drop_keys(rs);
- 	rds_notify_queue_get(rs, NULL);
+-		if (skb->protocol == htons(ETH_P_IP)) {
++		if (skb->protocol == htons(ETH_P_IP))
+ 			rt = skb_rtable(skb);
+-			if ((dst = rt->rt_gateway) == 0)
+-				goto tx_error_icmp;
+-		}
+ #if IS_ENABLED(CONFIG_IPV6)
+ 		else if (skb->protocol == htons(ETH_P_IPV6)) {
+ 			struct neighbour *neigh = dst_get_neighbour_noref(skb_dst(skb));
+@@ -910,9 +907,10 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+ 	__IPTUNNEL_XMIT(tstats, &dev->stats);
+ 	return NETDEV_TX_OK;
  
--	spin_lock_irqsave(&rds_sock_lock, flags);
-+	spin_lock_bh(&rds_sock_lock);
- 	list_del_init(&rs->rs_item);
- 	rds_sock_count--;
--	spin_unlock_irqrestore(&rds_sock_lock, flags);
-+	spin_unlock_bh(&rds_sock_lock);
- 
- 	rds_trans_put(rs->rs_transport);
- 
-@@ -409,7 +408,6 @@ static const struct proto_ops rds_proto_ops = {
- 
- static int __rds_create(struct socket *sock, struct sock *sk, int protocol)
- {
--	unsigned long flags;
- 	struct rds_sock *rs;
- 
- 	sock_init_data(sock, sk);
-@@ -426,10 +424,10 @@ static int __rds_create(struct socket *sock, struct sock *sk, int protocol)
- 	spin_lock_init(&rs->rs_rdma_lock);
- 	rs->rs_rdma_keys = RB_ROOT;
- 
--	spin_lock_irqsave(&rds_sock_lock, flags);
-+	spin_lock_bh(&rds_sock_lock);
- 	list_add_tail(&rs->rs_item, &rds_sock_list);
- 	rds_sock_count++;
--	spin_unlock_irqrestore(&rds_sock_lock, flags);
-+	spin_unlock_bh(&rds_sock_lock);
- 
- 	return 0;
- }
-@@ -471,12 +469,11 @@ static void rds_sock_inc_info(struct socket *sock, unsigned int len,
- {
- 	struct rds_sock *rs;
- 	struct rds_incoming *inc;
--	unsigned long flags;
- 	unsigned int total = 0;
- 
- 	len /= sizeof(struct rds_info_message);
- 
--	spin_lock_irqsave(&rds_sock_lock, flags);
-+	spin_lock_bh(&rds_sock_lock);
- 
- 	list_for_each_entry(rs, &rds_sock_list, rs_item) {
- 		read_lock(&rs->rs_recv_lock);
-@@ -492,7 +489,7 @@ static void rds_sock_inc_info(struct socket *sock, unsigned int len,
- 		read_unlock(&rs->rs_recv_lock);
++#if IS_ENABLED(CONFIG_IPV6)
+ tx_error_icmp:
+ 	dst_link_failure(skb);
+-
++#endif
+ tx_error:
+ 	dev->stats.tx_errors++;
+ 	dev_kfree_skb(skb);
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 413ed1b..be2cbd1 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -454,8 +454,6 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			dev->stats.tx_fifo_errors++;
+ 			goto tx_error;
+ 		}
+-		if ((dst = rt->rt_gateway) == 0)
+-			goto tx_error_icmp;
  	}
  
--	spin_unlock_irqrestore(&rds_sock_lock, flags);
-+	spin_unlock_bh(&rds_sock_lock);
- 
- 	lens->nr = total;
- 	lens->each = sizeof(struct rds_info_message);
-@@ -504,11 +501,10 @@ static void rds_sock_info(struct socket *sock, unsigned int len,
- {
- 	struct rds_info_socket sinfo;
- 	struct rds_sock *rs;
--	unsigned long flags;
- 
- 	len /= sizeof(struct rds_info_socket);
- 
--	spin_lock_irqsave(&rds_sock_lock, flags);
-+	spin_lock_bh(&rds_sock_lock);
- 
- 	if (len < rds_sock_count)
- 		goto out;
-@@ -529,7 +525,7 @@ out:
- 	lens->nr = rds_sock_count;
- 	lens->each = sizeof(struct rds_info_socket);
- 
--	spin_unlock_irqrestore(&rds_sock_lock, flags);
-+	spin_unlock_bh(&rds_sock_lock);
- }
- 
- static void rds_exit(void)
+ 	rt = ip_route_output_ports(dev_net(dev), &fl4, NULL,
 -- 
-1.7.7.6
+1.7.6.5
