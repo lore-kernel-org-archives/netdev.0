@@ -1,40 +1,36 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH] NFS: don't mark freshly created callback sockets with
- XPT_CHNGBUF
-Date: Tue, 24 Jan 2012 21:04:11 +0400
-Message-ID: <20120124170411.22663.6138.stgit@localhost6.localdomain6>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH] r8169: Randomise invalid MAC addresses
+Date: Tue, 24 Jan 2012 18:15:46 +0100
+Message-ID: <20120124171546.GA32184@atrey.karlin.mff.cuni.cz>
+References: <1327343540-30348-1-git-send-email-torne@google.com>
+ <20120123212914.747c852f@pyramind.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbottomley@parallels.com, bfields@fieldses.org,
-	davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "Torne (Richard Coles)" <torne@google.com>, nic_swsd@realtek.com,
+	romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120123212914.747c852f@pyramind.ukuu.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a cleanup patch.
-Check for XPT_CHNGBUF is done only for UPD sockets. NFS callbacks doesn't use
-them.
+Hi!
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+> > If the default MAC address stored in the card is invalid, replace it
+> > with a random address and complain about it.
+> 
+> See the discussion about the pch ethernet card. Detect the error and warn
+> about it, block opening it and let the user set it with ifconfig xx hw
+> aa:bb:cc:dd:ee:ff
 
----
- fs/nfs/callback.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+Kernel should provide hw abstraction, and that should mean doing
+something about commonly-bad ethernet cards.
 
-diff --git a/fs/nfs/callback.c b/fs/nfs/callback.c
-index d81040a..1bf3e9f 100644
---- a/fs/nfs/callback.c
-+++ b/fs/nfs/callback.c
-@@ -278,8 +278,6 @@ int nfs_callback_up(u32 minorversion, struct rpc_xprt *xprt)
- 		goto out_err;
- 	}
- 
--	svc_sock_update_bufs(serv);
--
- 	sprintf(svc_name, "nfsv4.%u-svc", minorversion);
- 	cb_info->serv = serv;
- 	cb_info->rqst = rqstp;
+Userspace does not quite cut it, think about nfsroot for example.
+
+									Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
