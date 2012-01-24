@@ -1,32 +1,27 @@
-From: "WEB ADMINISTRATOR" <assessoria_institucional@fecomercio-ce.org.br>
-Subject: Warning! Your mailbox is almost full.
-Date: Mon, 23 Jan 2012 18:55:52 -0300
-Message-ID: <20120123215617.M85873@fecomercio-ce.org.br>
-Reply-To: online.PCH@ozledim.net
+From: "Bishop, Mark" <Mark.Bishop@cooperindustries.com>
+Subject: PHY config change
+Date: Mon, 23 Jan 2012 20:54:06 -0500
+Message-ID: <5D308BD40154E4439D82454FE483A50205C330BD@EVS4.nam.ci.root>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset=iso-8859-1
-To: unlisted-recipients:; (no To-header on input)
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from beta-218.sesc-ce.com.br ([200.141.192.218]:50561 "EHLO
-	digama.sesc-ce.com.br" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754300Ab2AWXpQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2012 18:45:16 -0500
+Received: from cooperlighting-sw.cooperlighting.com ([216.130.131.68]:23763
+	"EHLO cooperlighting-sw.cooperlighting.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755389Ab2AXCE0 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jan 2012 21:04:26 -0500
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your mailbox has exceeded the storage limit is 1 GB, which is
-defined by the administrator, are running at 99.8 gigabytes, you can not
-send or receive new messages until you re-validate your mailbox.
+Where is a good place to change my PHY config from 100BT half duplex,
+auto negotiate, to full duplex 100BT, no negotiate?
 
-To renew the mailbox,
+Right before the probe in the controller driver, or after a reset of the
+PHY?
 
-click link below:
-https://docs.google.com/a/blumail.org/spreadsheet/viewform?formkey=dGljbGpSbVE3TU9VRml2SWRLR0Y4WHc6MQ
-
-Thank you!
-Webmail system administrator!
-
-WARNING! Protect your privacy. Logout when you are done and completely
-exit your browser.
-                 Other Campus WebMail Services
+I am using the 'General PHY' attached to the SMSC9215 controller.  Is
+there a  
