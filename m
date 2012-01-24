@@ -1,41 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH 1/1] qlge:Changing netdev msg level to default debug
-Date: Tue, 24 Jan 2012 15:38:37 -0500 (EST)
-Message-ID: <20120124.153837.905415925299369179.davem@davemloft.net>
-References: <1327361932-28774-1-git-send-email-jitendra.kalsaria@qlogic.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com,
-	Dept_NX_Linux_NIC_Driver@qlogic.com
-To: jitendra.kalsaria@qlogic.com
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net] drivers/net: dsa/mv88e6xxx.c files need linux/module.h
+Date: Tue, 24 Jan 2012 15:41:40 -0500
+Message-ID: <1327437700-8204-1-git-send-email-paul.gortmaker@windriver.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: buytenh@wantstofly.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41709 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756467Ab2AXUil (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2012 15:38:41 -0500
-In-Reply-To: <1327361932-28774-1-git-send-email-jitendra.kalsaria@qlogic.com>
+Received: from mail.windriver.com ([147.11.1.11]:39625 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756446Ab2AXUlx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2012 15:41:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Date: Mon, 23 Jan 2012 15:38:52 -0800
+An implicit instance of module.h leaked back into existence
+and was masking the fact that these drivers weren't calling
+out the include for itself.  Fix the drivers before we remove
+the implicit include path via net/netprio_cgroup.h file.
 
-> Driver was passing -1 so that custom default get used but which
-> makes it even more sane than 15 which was excessively verbose
-> printing an unusual amount of messages.
-> 
-> Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-Please don't move this code away from the canonical way in which
-default message levels are handled.
-
-The canonical way is to specify a module param that starts with the
-value "-1" which when passed as the first argument to netif_msg_init()
-means "use the default mask" which is the second argument.
-
-Moving to a default of "3" makes no sense at all, express the default
-in the second argument of netif_msg_init(), not the first.
-
-I'm not applying this patch, use other drivers such as tg3.c as a
-guide.
+diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
+index 7fc4e81..325391d 100644
+--- a/drivers/net/dsa/mv88e6060.c
++++ b/drivers/net/dsa/mv88e6060.c
+@@ -9,6 +9,7 @@
+  */
+ 
+ #include <linux/list.h>
++#include <linux/module.h>
+ #include <linux/netdevice.h>
+ #include <linux/phy.h>
+ #include <net/dsa.h>
+diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
+index c0a458f..05b5f92 100644
+--- a/drivers/net/dsa/mv88e6123_61_65.c
++++ b/drivers/net/dsa/mv88e6123_61_65.c
+@@ -9,6 +9,7 @@
+  */
+ 
+ #include <linux/list.h>
++#include <linux/module.h>
+ #include <linux/netdevice.h>
+ #include <linux/phy.h>
+ #include <net/dsa.h>
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index e0eb6824..55888b0 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -9,6 +9,7 @@
+  */
+ 
+ #include <linux/list.h>
++#include <linux/module.h>
+ #include <linux/netdevice.h>
+ #include <linux/phy.h>
+ #include <net/dsa.h>
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 5467c04..a2c62c2 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -9,6 +9,7 @@
+  */
+ 
+ #include <linux/list.h>
++#include <linux/module.h>
+ #include <linux/netdevice.h>
+ #include <linux/phy.h>
+ #include <net/dsa.h>
+-- 
+1.7.7.2
