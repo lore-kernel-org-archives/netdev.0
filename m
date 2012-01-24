@@ -1,85 +1,73 @@
-From: "Bishop, Mark" <Mark.Bishop@cooperindustries.com>
-Subject: [BUG] smsc911x.c - writes are too fast into TX FIFO
-Date: Tue, 24 Jan 2012 14:03:30 -0500
-Message-ID: <5D308BD40154E4439D82454FE483A50205C33795@EVS4.nam.ci.root>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH v4 1/5] net: Introduce new feature setting ops
+Date: Tue, 24 Jan 2012 20:05:13 +0100
+Message-ID: <20120124190513.GC19993@rere.qmqm.pl>
+References: <cover.1296741561.git.mirq-linux@rere.qmqm.pl>
+ <9327efbf43fadeadd7017926962c65c95288d50e.1296741561.git.mirq-linux@rere.qmqm.pl>
+ <1297107597.4077.8.camel@bwh-desktop>
+ <1327413243.7231.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <1327419002.5400.27.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Onstine, Elliott" <Elliott.Onstine@cooperindustries.com>,
-	"Bishop, Mark" <Mark.Bishop@cooperindustries.com>
-To: <netdev@vger.kernel.org>, <janet.mccreary@g2sales.com>,
-	<Thomas.Walter@smsc.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cooperlighting-sw.cooperlighting.com ([216.130.131.68]:19427
-	"EHLO cooperlighting-sw.cooperlighting.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751106Ab2AXTD7 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jan 2012 14:03:59 -0500
-Content-class: urn:content-classes:message
+Received: from rere.qmqm.pl ([89.167.52.164]:53554 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750883Ab2AXTFP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jan 2012 14:05:15 -0500
+Content-Disposition: inline
+In-Reply-To: <1327419002.5400.27.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've been running into all kinds of issues with this part (LAN9215) and=
- the final issue I've had was with the linux driver (smsc911x.c).
+On Tue, Jan 24, 2012 at 03:30:02PM +0000, Ben Hutchings wrote:
+> On Tue, 2012-01-24 at 14:54 +0100, Eric Dumazet wrote:
+> > Le lundi 07 f=C3=A9vrier 2011 =C3=A0 19:39 +0000, Ben Hutchings a =C3=
+=A9crit :
+> > > On Thu, 2011-02-03 at 15:21 +0100, Micha=C5=82 Miros=C5=82aw wrot=
+e:
+> > > > This introduces a new framework to handle device features setti=
+ng.
+> > > > It consists of:
+> > > >   - new fields in struct net_device:
+> > > > 	+ hw_features - features that hw/driver supports toggling
+> > > > 	+ wanted_features - features that user wants enabled, when pos=
+sible
+> > > >   - new netdev_ops:
+> > > > 	+ feat =3D ndo_fix_features(dev, feat) - API checking constrai=
+nts for
+> > > > 		enabling features or their combinations
+> > > > 	+ ndo_set_features(dev) - API updating hardware state to match
+> > > > 		changed dev->features
+> > > >   - new ethtool commands:
+> > > > 	+ ETHTOOL_GFEATURES/ETHTOOL_SFEATURES: get/set dev->wanted_fea=
+tures
+> > > > 		and trigger device reconfiguration if resulting dev->features
+> > > > 		changed
+> > > > 	+ ETHTOOL_GSTRINGS(ETH_SS_FEATURES): get feature bits names (m=
+eaning)
+> > > >=20
+> > > > Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.=
+pl>
+> > > Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+> > Do we have any ethtool patch to use these 'new' features ?
+> I have some unfinished changes to support this.  What I don't want to=
+ do
+> is to add an entirely separate set of options; I want -k/-K to work w=
+ith
+> old and new kernel versions, supporting named features as an extensio=
+n
+> where available.
 
-I was getting the "eth1: smsc911x_phy_check_loopbackpkt: Failed to tran=
-smit during loopback test" and traced the issue to the PHY TX FIFO.
+Ben, what are your patches like?  I mean their state?  I'm asking, beca=
+use I
+found a bit of time and rebased my earlier patch to current ethtool 3.2
+this weekend.  Haven't sent them yet, because I'm seeing -EOPNOTSUPP fr=
+om
+kernel on x86_64 for GFEATURES and I'm trying to figure out where's the=
+ bug.
 
-In an effort to try and figure out what was going on with the TX FIFO, =
-I added the line of code between line 262 and 263 (Linux 3.3rc1).  Afte=
-r I added it, things started working. =20
-
-I do not see any min/max timing requirements for FIFO writes in the dat=
-asheet.  I've included a SMSC technical contact in the hopes that he ca=
-n get the factory to comment on those ranges.
-
-Note: I am working on an embedded controller project based off 2.6, but=
- the driver looks essentially the same concerning this issue between ve=
-rsions.
-
-Adding a wait state, while quick and dirty doesn't seem like a long ter=
-m solution.  I would appreciate any comments on a better way to resolve=
- it.
-
-Thomas, the original diver was written back in Nov 2008 by Steve Glendi=
-nning @ SMSC.  Not sure he is even still there, but if he is, he might =
-be able to provide some insight.
-
-Original code (line numbers from 3.3rc1):
-
-smsc911x_tx_writefifo(...
-=2E..
-260 =A0=A0=A0=A0=A0=A0=A0=A0if=A0(pdata->config.flags=A0&=A0SMSC911X_US=
-E_16BIT)=A0{
-261 =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0while=A0(wordcount-=
--)
-262 =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0__smsc911x_reg_write(pdata,=A0TX_DATA_FIFO,=A0*buf++);
-263 =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0goto=A0out;
-264 =A0=A0=A0=A0=A0=A0=A0=A0}
-265=20
-266 =A0=A0=A0=A0=A0=A0=A0=A0BUG();
-
-
-Modified Code:
-260         if (pdata->config.flags & SMSC911X_USE_16BIT) {
-261                 while (wordcount--){
-262                         __smsc911x_reg_write(pdata, TX_DATA_FIFO, *=
-buf++);
-				    SMSC_TRACE(HW, "TX_STATUS_PEEK WRITE FIFO: 0x%x",smsc911x_reg_r=
-ead(pdata, TX_STATUS_FIFO_PEEK));
-			 }=09
-263                 goto out;
-264         }
-265
-266         BUG();
-
-This was brought up a few years ago but no solution was provided to the=
- "eth1: smsc911x_phy_check_loopbackpkt: Failed to transmit during loopb=
-ack test":
-
-http://markmail.org/thread/lvt4l3hyufxbqzfb#query:+page:1+mid:lvt4l3hyu=
-fxbqzfb+state:results
-
-and adding the wait state could be one way to resolve this for some peo=
-ple who are experiencing it.
+Best Regards,
+Micha=C5=82 Miros=C5=82aw
