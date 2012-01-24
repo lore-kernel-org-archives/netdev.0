@@ -1,57 +1,118 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4 1/5] net: Introduce new feature setting ops
-Date: Tue, 24 Jan 2012 14:54:03 +0100
-Message-ID: <1327413243.7231.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <cover.1296741561.git.mirq-linux@rere.qmqm.pl>
-	 <9327efbf43fadeadd7017926962c65c95288d50e.1296741561.git.mirq-linux@rere.qmqm.pl>
-	 <1297107597.4077.8.camel@bwh-desktop>
+From: leno soff <lnxuff@gmail.com>
+Subject: Re: How to accelerate tcp retransmition
+Date: Tue, 24 Jan 2012 22:09:43 +0800
+Message-ID: <CAC=NXX2NLsChhuY5_Bv3HJ4fvnq7XpM7UksPS80uaZgGsJnfVw@mail.gmail.com>
+References: <CAC=NXX3jdCAjmwTjQ-d43DWb-617a33nMcWb_UvBUyB_q7VZTQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
-	netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:55284 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754924Ab2AXNyI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2012 08:54:08 -0500
-Received: by werb13 with SMTP id b13so2965587wer.19
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2012 05:54:06 -0800 (PST)
-In-Reply-To: <1297107597.4077.8.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
+	davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAC=NXX3jdCAjmwTjQ-d43DWb-617a33nMcWb_UvBUyB_q7VZTQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 07 f=C3=A9vrier 2011 =C3=A0 19:39 +0000, Ben Hutchings a =C3=A9=
-crit :
-> On Thu, 2011-02-03 at 15:21 +0100, Micha=C5=82 Miros=C5=82aw wrote:
-> > This introduces a new framework to handle device features setting.
-> > It consists of:
-> >   - new fields in struct net_device:
-> > 	+ hw_features - features that hw/driver supports toggling
-> > 	+ wanted_features - features that user wants enabled, when possibl=
-e
-> >   - new netdev_ops:
-> > 	+ feat =3D ndo_fix_features(dev, feat) - API checking constraints =
-for
-> > 		enabling features or their combinations
-> > 	+ ndo_set_features(dev) - API updating hardware state to match
-> > 		changed dev->features
-> >   - new ethtool commands:
-> > 	+ ETHTOOL_GFEATURES/ETHTOOL_SFEATURES: get/set dev->wanted_feature=
-s
-> > 		and trigger device reconfiguration if resulting dev->features
-> > 		changed
-> > 	+ ETHTOOL_GSTRINGS(ETH_SS_FEATURES): get feature bits names (meani=
-ng)
-> >=20
-> > Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-> Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
->=20
+On Tue, Jan 24, 2012 at 4:58 PM, leno soff <lnxuff@gmail.com> wrote:
+> Hello everyone,
+> =A0 I have a lot of client, say C1, C2, .. Cn, which route packets to
+> my servers through router R. But R will drop 70% - 90% _ non-SYN _
+> packets from clients to Server.
+>
+> =A0The clients and server work like http client and server, sending a
+> request, wating for the response.
+>
+> =A0When router R drop the request-like packets(without SYN flag, of
+> cause), the clients retransmit with icsk_backoff++; =A0They usually
+> should wait 15 seconds+ (1+2+4+8), and sometimes more or just timeout=
+=2E
+>
+> =A0 So, my question is:
+>
+> =A0 =A0 =A0 =A0Is there any way in _server_ side, to accelerate the
+> retransmition like accelerating slow-start. I tried SO_KEEPALIVE in
+> server, interval =3D=3D 1 second or less, =A0I assume the keepalive a=
+ck will
+> =A0accelerate the retransmition, , =A0but it does not work:
+>
+> =A0 =A0 =A0 Flags [P.], seq 1:314, ack 1. =A0----------------client r=
+equest,
+> which is lost
+> =A0 =A0 =A0 Flags [.], ack 1, win 905, length 0 =A0--- server keepali=
+ve ack
+> =A0 =A0 =A0 Flags [.], ack 1, win 115, length 0 =A0--- client respond=
+s ack
+> =A0 =A0 =A0 .... A lot keepalive and response.
+>
+> =A0 =A0The client timeout because of RTO, why doesn't retransmit the
+> request packet but just an ack without data when it sees keepalive ac=
+k
+> ?
+>
+>
+> Thanks.
 
 
-Hi guys
+After 3-way shakehands,  Client sends 9 bytes(I make sure it is
+DROPPED by router),
+I modify the server-side kernel, set keepalive timer interval =3D 100ms
+to accelerate retransmiting 3+ DUP ACKS which makes sure the client
+will not timeout.
+I run 'ss -en|grep 8888' in client side, it shows the retransmition
+timer exp-increasing which is not expected for me. I assume it will
+retransimit after receiving 3+ DUP ACKS.
+And below is the packets flow.
+I think it is not the right way to solve this Bad-Router problem, but
+it is the only method I know which failed.
 
-Do we have any ethtool patch to use these 'new' features ?
+In one word, I don't want the client timeout.
 
+Any  suggestion is helpful
 Thanks
+
+
+21:41:17.586310 IP 192.168.10.22.49538 > 199.192.156.23.8888: Flags
+[.], ack 1, win 115, options [nop,nop,TS val 38962812 ecr 12647162],
+length 0
+21:41:17.680113 IP 192.168.10.22.49538 > 199.192.156.23.8888: Flags
+[P.], seq 1:9, ack 1, win 115, options [nop,nop,TS val 38962906 ecr
+12647162], length 8
+21:41:17.687612 IP 199.192.156.23.8888 > 192.168.10.22.49538: Flags
+[.], ack 1, win 905, options [nop,nop,TS val 12673575 ecr 38962367],
+length 0
+21:41:17.687635 IP 192.168.10.22.49538 > 199.192.156.23.8888: Flags
+[.], ack 1, win 115, options [nop,nop,TS val 38962913 ecr 12647162],
+length 0
+ --------- a lot keepalive here interval=3D100ms ------
+21:41:18.418845 IP 199.192.156.23.8888 > 192.168.10.22.49538: Flags
+[.], ack 1, win 905, options [nop,nop,TS val 12674313 ecr 38962367],
+length 0
+21:41:18.418862 IP 192.168.10.22.49538 > 199.192.156.23.8888: Flags
+[.], ack 1, win 115, options [nop,nop,TS val 38963644 ecr 12647162],
+length 0
+21:41:18.427900 IP 192.168.10.22.49538 > 199.192.156.23.8888: Flags
+[P.], seq 1:9, ack 1, win 115, options [nop,nop,TS val 38963654 ecr
+12647162], length 8
+21:41:18.520310 IP 199.192.156.23.8888 > 192.168.10.22.49538: Flags
+[.], ack 1, win 905, options [nop,nop,TS val 12674413 ecr 38962367],
+length 0
+21:41:18.520332 IP 192.168.10.22.49538 > 199.192.156.23.8888: Flags
+[.], ack 1, win 115, options [nop,nop,TS val 38963746 ecr 12647162],
+length 0
+-----------  a lot keepalive here too ----------
+21:41:19.877055 IP 199.192.156.23.8888 > 192.168.10.22.49538: Flags
+[.], ack 1, win 905, options [nop,nop,TS val 12675771 ecr 38962367],
+length 0
+21:41:19.877082 IP 192.168.10.22.49538 > 199.192.156.23.8888: Flags
+[.], ack 1, win 115, options [nop,nop,TS val 38965103 ecr 12647162],
+length 0
+21:41:19.925886 IP 192.168.10.22.49538 > 199.192.156.23.8888: Flags
+[P.], seq 1:9, ack 1, win 115, options [nop,nop,TS val 38965152 ecr
+12647162], length 8
+21:41:19.975419 IP 199.192.156.23.8888 > 192.168.10.22.49538: Flags
+[.], ack 1, win 905, options [nop,nop,TS val 12675871 ecr 38962367],
+length 0
+21:41:19.975446 IP 192.168.10.22.49538 > 199.192.156.23.8888: Flags
+[.], ack 1, win 115, options [nop,nop,TS val 38965201 ecr 12647162],
+length 0
