@@ -1,36 +1,92 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH] r8169: Randomise invalid MAC addresses
-Date: Tue, 24 Jan 2012 18:15:46 +0100
-Message-ID: <20120124171546.GA32184@atrey.karlin.mff.cuni.cz>
-References: <1327343540-30348-1-git-send-email-torne@google.com>
- <20120123212914.747c852f@pyramind.ukuu.org.uk>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net V4 1/2] igb: add PTP Hardware Clock code
+Date: Tue, 24 Jan 2012 18:44:07 +0100
+Message-ID: <20120124174405.GA2149@netboy.at.omicron.at>
+References: <cover.1327161325.git.richardcochran@gmail.com>
+ <40a74998520e385c2c690b85fd309ca59590ae75.1327161325.git.richardcochran@gmail.com>
+ <02874ECE860811409154E81DA85FBB58040BDD@ORSMSX105.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Torne (Richard Coles)" <torne@google.com>, nic_swsd@realtek.com,
-	romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:58272 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757167Ab2AXRoY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2012 12:44:24 -0500
+Received: by eaac13 with SMTP id c13so1196907eaa.19
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2012 09:44:23 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20120123212914.747c852f@pyramind.ukuu.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <02874ECE860811409154E81DA85FBB58040BDD@ORSMSX105.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On Mon, Jan 23, 2012 at 06:39:44PM +0000, Keller, Jacob E wrote:
 
-> > If the default MAC address stored in the card is invalid, replace it
-> > with a random address and complain about it.
+> > +static int ptp_82576_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
+> > +{
+> > +	u64 rate;
+> > +	u32 incvalue;
+> > +	int neg_adj = 0;
+> > +	struct igb_adapter *igb = container_of(ptp, struct igb_adapter, caps);
+> > +	struct e1000_hw *hw = &igb->hw;
+> > +
+> > +	if (ppb < 0) {
+> > +		neg_adj = 1;
+> > +		ppb = -ppb;
+> > +	}
+> > +	rate = ppb;
+> > +	rate <<= 14;
+> > +	rate = div_u64(rate, 1953125);
+> > +
 > 
-> See the discussion about the pch ethernet card. Detect the error and warn
-> about it, block opening it and let the user set it with ifconfig xx hw
-> aa:bb:cc:dd:ee:ff
+> So is the rate ppb accumulating? I was under the impression that it
+> calculated from the current clock frequency so it would need to be
+> applied to the current incvalue, not the base... Is this not the
+> case? What was the intention of the ppb?
 
-Kernel should provide hw abstraction, and that should mean doing
-something about commonly-bad ethernet cards.
+The ppb is simply the desired rate offset in parts per billion. It is
+not a delta from the current offset, but rather fixed from the clock's
+nominal frequency. This comes from the NTP timex.freq field (but the
+unit here is ppb, timex.freq is ppm with a 16 bit fraction.)
 
-Userspace does not quite cut it, think about nfsroot for example.
+If the clock servo is a typical PI controller for example, then the
+servo output already represents the accumulated offset.
 
-									Pavel
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+> > +	incvalue = 16 << IGB_82576_TSYNC_SHIFT;
+> > +
+> > +	if (neg_adj)
+> > +		incvalue -= rate;
+> > +	else
+> > +		incvalue += rate;
+> > +
+> > +	wr32(E1000_TIMINCA, INCPERIOD_82576 | (incvalue & INCVALUE_82576_MASK));
+> > +
+> > +	return 0;
+> > +}
+
+> > +		/* Dial the nominal frequency. */
+> > +		wr32(E1000_TIMINCA, INCPERIOD_82576 | INCVALUE_82576);
+> > +		break;
+> > +
+> 
+> It would be good to check whether the link speed has an impact on
+> the SYSTIME register rate. I know on the 10 Gb parts the systime
+> registers are driven by the DMA clock which is partitioned
+> differently at slower speeds so the values have to be updated
+> whenever the link speed changes..
+
+If this is true for 82576, then it certainly is not documented. I
+don't have that card, so maybe someone from Intel can answer this?
+
+I think the documentation for the 82580 is clear about the basic rate
+always being the same.
+
+Thanks,
+Richard
