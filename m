@@ -1,76 +1,215 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH v3 1/6] net: pad skb data and shinfo as a whole rather than individually
-Date: Wed, 25 Jan 2012 12:27:09 +0000
-Message-ID: <1327494434-21566-1-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH v3 3/6] net: add support for per-paged-fragment destructors
+Date: Wed, 25 Jan 2012 12:27:11 +0000
+Message-ID: <1327494434-21566-3-git-send-email-ian.campbell@citrix.com>
 References: <1327494389.24561.316.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Ian Campbell <ian.campbell@citrix.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp02.citrix.com ([66.165.176.63]:61821 "EHLO
 	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752682Ab2AYM1T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 07:27:19 -0500
+	with ESMTP id S1753055Ab2AYM1V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 07:27:21 -0500
 In-Reply-To: <1327494389.24561.316.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reduces the minimum overhead required for this allocation such that the
-shinfo can be grown in the following patch without overflowing 2048 bytes for a
-1500 byte frame.
+Entities which care about the complete lifecycle of pages which they in=
+ject
+into the network stack via an skb paged fragment can choose to set this
+destructor in order to receive a callback when the stack is really fini=
+shed
+with a page (including all clones, retransmits, pull-ups etc etc).
 
-Reducing this overhead while also growing the shinfo means that sometimes the
-tail end of the data can end up in the same cache line as the beginning of the
-shinfo. Specifically in the case of the 64 byte cache lines on a 64 bit system
-the first 8 bytes of shinfo can overlap the tail cacheline of the data. In many
-cases the allocation slop means that there is no overlap.
+This destructor will always be propagated alongside the struct page whe=
+n
+copying skb_frag_t->page. This is the reason I chose to embed the destr=
+uctor in
+a "struct { } page" within the skb_frag_t, rather than as a separate fi=
+eld,
+since it allows existing code which propagates ->frags[N].page to Just
+Work(tm).
+
+When the destructor is present the page reference counting is done slig=
+htly
+differently. No references are held by the network stack on the struct =
+page (it
+is up to the caller to manage this as necessary) instead the network st=
+ack will
+track references via the count embedded in the destructor structure. Wh=
+en this
+reference count reaches zero then the destructor will be called and the=
+ caller
+can take the necesary steps to release the page (i.e. release the struc=
+t page
+reference itself).
+
+The intention is that callers can use this callback to delay completion=
+ to
+_their_ callers until the network stack has completely released the pag=
+e, in
+order to prevent use-after-free or modification of data pages which are=
+ still
+in use by the stack.
+
+It is allowable (indeed expected) for a caller to share a single destru=
+ctor
+instance between multiple pages injected into the stack e.g. a group of=
+ pages
+included in a single higher level operation might share a destructor wh=
+ich is
+used to complete that higher level operation.
+
+With this change and the previous two changes to shinfo alignment and f=
+ield
+orderring it is now the case tyhat on a 64 bit system with 64 byte cach=
+e lines,
+everything from nr_frags until the end of frags[0] is on the same cache=
+line.
 
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
 Cc: "David S. Miller" <davem@davemloft.net>
 Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "Micha=C5=82 Miros=C5=82aw" <mirq-linux@rere.qmqm.pl>
+Cc: netdev@vger.kernel.org
 ---
- include/linux/skbuff.h |    4 ++--
- net/core/skbuff.c      |    3 +--
- 2 files changed, 3 insertions(+), 4 deletions(-)
+ include/linux/skbuff.h |   43 ++++++++++++++++++++++++++++++++++++++++=
++++
+ net/core/skbuff.c      |   17 +++++++++++++++++
+ 2 files changed, 60 insertions(+), 0 deletions(-)
 
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 50db9b0..f04333b 100644
+index 7b82ed1..df2b93f 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -41,7 +41,7 @@
- #define SKB_DATA_ALIGN(X)	(((X) + (SMP_CACHE_BYTES - 1)) & \
- 				 ~(SMP_CACHE_BYTES - 1))
- #define SKB_WITH_OVERHEAD(X)	\
--	((X) - SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
-+	((X) - sizeof(struct skb_shared_info))
- #define SKB_MAX_ORDER(X, ORDER) \
- 	SKB_WITH_OVERHEAD((PAGE_SIZE << (ORDER)) - (X))
- #define SKB_MAX_HEAD(X)		(SKB_MAX_ORDER((X), 0))
-@@ -50,7 +50,7 @@
- /* return minimum truesize of one skb containing X bytes of data */
- #define SKB_TRUESIZE(X) ((X) +						\
- 			 SKB_DATA_ALIGN(sizeof(struct sk_buff)) +	\
--			 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
-+			 sizeof(struct skb_shared_info))
- 
- /* A. Checksumming of received packets by device.
-  *
+@@ -143,9 +143,15 @@ struct sk_buff;
+=20
+ typedef struct skb_frag_struct skb_frag_t;
+=20
++struct skb_frag_destructor {
++	atomic_t ref;
++	int (*destroy)(struct skb_frag_destructor *destructor);
++};
++
+ struct skb_frag_struct {
+ 	struct {
+ 		struct page *p;
++		struct skb_frag_destructor *destructor;
+ 	} page;
+ #if (BITS_PER_LONG > 32) || (PAGE_SIZE >=3D 65536)
+ 	__u32 page_offset;
+@@ -1177,6 +1183,31 @@ static inline int skb_pagelen(const struct sk_bu=
+ff *skb)
+ }
+=20
+ /**
++ * skb_frag_set_destructor - set destructor for a paged fragment
++ * @skb: buffer containing fragment to be initialised
++ * @i: paged fragment index to initialise
++ * @destroy: the destructor to use for this fragment
++ *
++ * Sets @destroy as the destructor to be called when all references to
++ * the frag @i in @skb (tracked over skb_clone, retransmit, pull-ups,
++ * etc) are released.
++ *
++ * When a destructor is set then reference counting is performed on
++ * @destroy->ref. When the ref reaches zero then @destroy->destroy
++ * will be called. The caller is responsible for holding and managing
++ * any other references (such a the struct page reference count).
++ *
++ * This function must be called before any use of skb_frag_ref() or
++ * skb_frag_unref().
++ */
++static inline void skb_frag_set_destructor(struct sk_buff *skb, int i,
++					   struct skb_frag_destructor *destroy)
++{
++	skb_frag_t *frag =3D &skb_shinfo(skb)->frags[i];
++	frag->page.destructor =3D destroy;
++}
++
++/**
+  * __skb_fill_page_desc - initialise a paged fragment in an skb
+  * @skb: buffer containing fragment to be initialised
+  * @i: paged fragment index to initialise
+@@ -1195,6 +1226,7 @@ static inline void __skb_fill_page_desc(struct sk=
+_buff *skb, int i,
+ 	skb_frag_t *frag =3D &skb_shinfo(skb)->frags[i];
+=20
+ 	frag->page.p		  =3D page;
++	frag->page.destructor     =3D NULL;
+ 	frag->page_offset	  =3D off;
+ 	skb_frag_size_set(frag, size);
+ }
+@@ -1689,6 +1721,9 @@ static inline struct page *skb_frag_page(const sk=
+b_frag_t *frag)
+ 	return frag->page.p;
+ }
+=20
++extern void skb_frag_destructor_ref(struct skb_frag_destructor *destro=
+y);
++extern void skb_frag_destructor_unref(struct skb_frag_destructor *dest=
+roy);
++
+ /**
+  * __skb_frag_ref - take an addition reference on a paged fragment.
+  * @frag: the paged fragment
+@@ -1697,6 +1732,10 @@ static inline struct page *skb_frag_page(const s=
+kb_frag_t *frag)
+  */
+ static inline void __skb_frag_ref(skb_frag_t *frag)
+ {
++	if (unlikely(frag->page.destructor)) {
++		skb_frag_destructor_ref(frag->page.destructor);
++		return;
++	}
+ 	get_page(skb_frag_page(frag));
+ }
+=20
+@@ -1720,6 +1759,10 @@ static inline void skb_frag_ref(struct sk_buff *=
+skb, int f)
+  */
+ static inline void __skb_frag_unref(skb_frag_t *frag)
+ {
++	if (unlikely(frag->page.destructor)) {
++		skb_frag_destructor_unref(frag->page.destructor);
++		return;
++	}
+ 	put_page(skb_frag_page(frag));
+ }
+=20
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index da0c97f..b6de604 100644
+index 934a9b4..766b760 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -189,8 +189,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 	 * aligned memory blocks, unless SLUB/SLAB debug is enabled.
- 	 * Both skb->head and skb_shared_info are cache line aligned.
- 	 */
--	size = SKB_DATA_ALIGN(size);
--	size += SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-+	size = SKB_DATA_ALIGN(size + sizeof(struct skb_shared_info));
- 	data = kmalloc_node_track_caller(size, gfp_mask, node);
- 	if (!data)
- 		goto nodata;
--- 
+@@ -354,6 +354,23 @@ struct sk_buff *dev_alloc_skb(unsigned int length)
+ }
+ EXPORT_SYMBOL(dev_alloc_skb);
+=20
++void skb_frag_destructor_ref(struct skb_frag_destructor *destroy)
++{
++	BUG_ON(destroy =3D=3D NULL);
++	atomic_inc(&destroy->ref);
++}
++EXPORT_SYMBOL(skb_frag_destructor_ref);
++
++void skb_frag_destructor_unref(struct skb_frag_destructor *destroy)
++{
++	if (destroy =3D=3D NULL)
++		return;
++
++	if (atomic_dec_and_test(&destroy->ref))
++		destroy->destroy(destroy);
++}
++EXPORT_SYMBOL(skb_frag_destructor_unref);
++
+ static void skb_drop_list(struct sk_buff **listp)
+ {
+ 	struct sk_buff *list =3D *listp;
+--=20
 1.7.2.5
