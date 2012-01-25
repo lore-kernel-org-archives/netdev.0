@@ -1,34 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 1/6] net: pad skb data and shinfo as a whole rather
- than individually
-Date: Wed, 25 Jan 2012 14:12:37 +0100
-Message-ID: <1327497157.2425.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1327494389.24561.316.camel@zakaz.uk.xensource.com>
-	 <1327494434-21566-1-git-send-email-ian.campbell@citrix.com>
-	 <1327495879.2425.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1327496953.24561.323.camel@zakaz.uk.xensource.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH v2 0/2] Tracepoint for tcp retransmission
+Date: Wed, 25 Jan 2012 14:27:59 +0100
+Message-ID: <02e98f84ee62073e1bf92338f6744fde@localhost>
+References: <65795E11DBF1E645A09CEC7EAEE94B9CB728DD67@USINDEVS02.corp.hds.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<nhorman@tuxdriver.com>, <tgraf@infradead.org>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	<eric.dumazet@gmail.com>, Seiji Aguchi <seiji.aguchi@hds.com>
+To: Satoru Moriya <satoru.moriya@hds.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:56136 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751244Ab2AYNMl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 08:12:41 -0500
-Received: by wgbed3 with SMTP id ed3so5247025wgb.1
-        for <netdev@vger.kernel.org>; Wed, 25 Jan 2012 05:12:40 -0800 (PST)
-In-Reply-To: <1327496953.24561.323.camel@zakaz.uk.xensource.com>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:44135 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752694Ab2AYN2C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 08:28:02 -0500
+In-Reply-To: <65795E11DBF1E645A09CEC7EAEE94B9CB728DD67@USINDEVS02.corp.hds.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 25 janvier 2012 =C3=A0 13:09 +0000, Ian Campbell a =C3=A9cr=
-it :
 
-> Can you elaborate on the specific benchmark you used there?
+On Fri, 20 Jan 2012 13:07:02 -0500, Satoru Moriya wrote:
 
-One machine was sending udp frames on my target (using pktgen)
 
-Target was running a mono threaded udp receiver (one socket)
+
+> With this tracepoint, we can know whether the packet drop occurred
+
+> in the server (moreover in the kernel) or not. For example, if we
+
+> finds that retransmission failed (tcp_retransmit_skb() returned
+
+> negative value), it means the kernel may have some troubles at
+
+> that time and we can drill down on issues in the kernel based on
+
+> trace data. OTOH, if retransmission succeeded, packet is dropped
+
+> outside the kernel/server.
+
+
+
+
+
+This is an equivalent replacement and by means not so intrusive:
+
+
+
+probe kernel.function("tcp_retransmit_skb").return {
+
+    printf("%s -> %d", probefunc(), retval())
+
+}
+
+
+
+and print inet_sk($sk)->inet_num for
+
+kernel.function("tcp_retransmit_skb").
+
+
+
+It is crazy to add everywhere new tracepoints. Systemtap is far from being
+
+perfect and as smooth as dtrace. But this is an example where systemtap is
+
+suitable and should be used.
+
+
+
+Satoru, you wrote systemtap is not suitable - why?
+
+
+
+Hagen
