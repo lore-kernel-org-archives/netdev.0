@@ -1,30 +1,51 @@
-From: Marcelo Leitner <mleitner@redhat.com>
-Subject: Re: [PATCH 2/2] tcp: bind() optimize port allocation
-Date: Wed, 25 Jan 2012 16:36:49 -0200
-Message-ID: <4F204BC1.9070407@redhat.com>
-References: <1327516492-9045-1-git-send-email-fbl@redhat.com> <1327516492-9045-2-git-send-email-fbl@redhat.com>
-Reply-To: mleitner@redhat.com
+From: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
+Subject: [PATCH net] amd/lance.c: dev_alloc_skb to netdev_alloc_skb
+Date: Thu, 26 Jan 2012 00:16:28 +0530
+Message-ID: <1327517188-14088-1-git-send-email-netdev@pradeepdalvi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Flavio Leitner <fbl@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11823 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751581Ab2AYSgx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Jan 2012 13:36:53 -0500
-In-Reply-To: <1327516492-9045-2-git-send-email-fbl@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/25/2012 04:34 PM, Flavio Leitner wrote:
-> Port autoselection finds a port and then drop the lock,
-> then right after that, gets the hash bucket again and lock it.
->
-> Fix it to go direct.
->
-> Signed-off-by: Flavio Leitner<fbl@redhat.com>
+Replaced deprecating dev_alloc_skb with netdev_alloc_skb for amd/lance.c
+  - Removed extra skb->dev = dev
 
-Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Signed-off-by: Pradeep A. Dalvi <netdev@pradeepdalvi.com>
+---
+ drivers/net/ethernet/amd/lance.c |    9 ++++-----
+ 1 files changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/amd/lance.c b/drivers/net/ethernet/amd/lance.c
+index a6e2e84..a8a6b45 100644
+--- a/drivers/net/ethernet/amd/lance.c
++++ b/drivers/net/ethernet/amd/lance.c
+@@ -871,12 +871,11 @@ lance_init_ring(struct net_device *dev, gfp_t gfp)
+ 		struct sk_buff *skb;
+ 		void *rx_buff;
+ 
+-		skb = alloc_skb(PKT_BUF_SZ, GFP_DMA | gfp);
++		skb = __netdev_alloc_skb(dev, PKT_BUF_SZ, GFP_DMA | gfp);
+ 		lp->rx_skbuff[i] = skb;
+-		if (skb) {
+-			skb->dev = dev;
++		if (skb)
+ 			rx_buff = skb->data;
+-		} else
++		else
+ 			rx_buff = kmalloc(PKT_BUF_SZ, GFP_DMA | gfp);
+ 		if (rx_buff == NULL)
+ 			lp->rx_ring[i].base = 0;
+@@ -1183,7 +1182,7 @@ lance_rx(struct net_device *dev)
+ 			}
+ 			else
+ 			{
+-				skb = dev_alloc_skb(pkt_len+2);
++				skb = netdev_alloc_skb(dev, pkt_len + 2);
+ 				if (skb == NULL)
+ 				{
+ 					printk("%s: Memory squeeze, deferring packet.\n", dev->name);
