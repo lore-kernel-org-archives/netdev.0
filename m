@@ -1,55 +1,89 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: [PATCH v3 0/6] skb paged fragment destructors
-Date: Wed, 25 Jan 2012 12:26:29 +0000
-Message-ID: <1327494389.24561.316.camel@zakaz.uk.xensource.com>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: [PATCH v3 2/6] net: move destructor_arg to the front of sk_buff.
+Date: Wed, 25 Jan 2012 12:27:10 +0000
+Message-ID: <1327494434-21566-2-git-send-email-ian.campbell@citrix.com>
+References: <1327494389.24561.316.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	<Ian.Campbell@citrix.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: Ian Campbell <ian.campbell@citrix.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:42172 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753034Ab2AYM0a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 07:26:30 -0500
+Received: from smtp.citrix.com ([66.165.176.89]:44228 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752843Ab2AYM1U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jan 2012 07:27:20 -0500
+In-Reply-To: <1327494389.24561.316.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series makes use of the skb fragment API (which is in 3.2)
-to add a per-paged-fragment destructor callback. This can be used by
-creators of skbs who are interested in the lifecycle of the pages
-included in that skb after they have handed it off to the network stack.
-I think these have all been posted before, but have been backed up
-behind the skb fragment API.
+As of the previous patch we align the end (rather than the start) of the struct
+to a cache line and so, with 32 and 64 byte cache lines and the shinfo size
+increase from the next patch, the first 8 bytes of the struct end up on a
+different cache line to the rest of it so make sure it is something relatively
+unimportant to avoid hitting an extra cache line on hot operations such as
+kfree_skb.
 
-The mail at [0] contains some more background and rationale but
-basically the completed series will allow entities which inject pages
-into the networking stack to receive a notification when the stack has
-really finished with those pages (i.e. including retransmissions,
-clones, pull-ups etc) and not just when the original skb is finished
-with, which is beneficial to many subsystems which wish to inject pages
-into the network stack without giving up full ownership of those page's
-lifecycle. It implements something broadly along the lines of what was
-described in [1].
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/linux/skbuff.h |   15 ++++++++++-----
+ net/core/skbuff.c      |    5 ++++-
+ 2 files changed, 14 insertions(+), 6 deletions(-)
 
-I have also included a patch to the RPC subsystem which uses this API to
-fix the bug which I describe at [2].
-
-Since last time I have removed the unnecessary void *data from the
-destructor struct and made do_tcp_sendpages take only a single
-destructor instead of an array.
-
-More importantly I have also played with the shinfo alignment and member
-ordering to ensure that the frequently used fields (including at least
-one frag) are all within the same 64 byte cache line. In order to do
-this I had to evict destructor_arg from the hot cache line -- however I
-believe this is not actually a hot field and so this is acceptable.
-
-Cheers,
-Ian.
-
-[0] http://marc.info/?l=linux-netdev&m=131072801125521&w=2
-[1] http://marc.info/?l=linux-netdev&m=130925719513084&w=2
-[2] http://marc.info/?l=linux-nfs&m=122424132729720&w=2
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index f04333b..7b82ed1 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -242,6 +242,15 @@ struct ubuf_info {
+  * the end of the header data, ie. at skb->end.
+  */
+ struct skb_shared_info {
++	/* Intermediate layers must ensure that destructor_arg
++	 * remains valid until skb destructor */
++	void		*destructor_arg;
++
++	/*
++	 * Warning: all fields from here until dataref are cleared in
++	 * __alloc_skb()
++	 *
++	 */
+ 	unsigned char	nr_frags;
+ 	__u8		tx_flags;
+ 	unsigned short	gso_size;
+@@ -253,14 +262,10 @@ struct skb_shared_info {
+ 	__be32          ip6_frag_id;
+ 
+ 	/*
+-	 * Warning : all fields before dataref are cleared in __alloc_skb()
++	 * Warning: all fields before dataref are cleared in __alloc_skb()
+ 	 */
+ 	atomic_t	dataref;
+ 
+-	/* Intermediate layers must ensure that destructor_arg
+-	 * remains valid until skb destructor */
+-	void *		destructor_arg;
+-
+ 	/* must be last field, see pskb_expand_head() */
+ 	skb_frag_t	frags[MAX_SKB_FRAGS];
+ };
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index b6de604..934a9b4 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -219,7 +219,10 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ 
+ 	/* make sure we initialize shinfo sequentially */
+ 	shinfo = skb_shinfo(skb);
+-	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
++
++	memset(&shinfo->nr_frags, 0,
++	       offsetof(struct skb_shared_info, dataref)
++	       - offsetof(struct skb_shared_info, nr_frags));
+ 	atomic_set(&shinfo->dataref, 1);
+ 	kmemcheck_annotate_variable(shinfo->destructor_arg);
+ 
+-- 
+1.7.2.5
