@@ -1,34 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net/ethernet/xilinx: added Xilinx AXI Ethernet
- driver
-Date: Wed, 25 Jan 2012 17:00:24 -0500 (EST)
-Message-ID: <20120125.170024.1583712333359217112.davem@davemloft.net>
-References: <4F17F2E3.10204@iogearbox.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] net: usb: qmi_wwan: New driver for Huawei QMI based
+ WWAN devices
+Date: Wed, 25 Jan 2012 17:00:36 -0500 (EST)
+Message-ID: <20120125.170036.1730469043830544127.davem@davemloft.net>
+References: <1327023442-4304-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ariane.keller@tik.ee.ethz.ch
-To: danborkmann@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53130 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751028Ab2AYWAs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 17:00:48 -0500
-In-Reply-To: <4F17F2E3.10204@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: bjorn-yOkvZcmFvRU@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1327023442-4304-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <danborkmann@iogearbox.net>
-Date: Thu, 19 Jan 2012 11:39:31 +0100
+=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Date: Fri, 20 Jan 2012 02:37:22 +0100
 
-> This driver adds support for Xilinx 10/100/1000 AXI Ethernet.
-> 
-> It can be used, for instance, on Xilinx boards with a Microblaze
-> architecture like the ML605.
-> 
-> The patch is against the latest net-next tree and checkpatch clean.
-> 
-> Signed-off-by: Ariane Keller <ariane.keller@tik.ee.ethz.ch>
-> Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
+> Some WWAN LTE/3G devices based on chipsets from Qualcomm provide
+> near standard CDC ECM interfaces in addition to the usual serial
+> interfaces.   The Huawei E392/E398 are examples of such devices.
+>=20
+> These typically cannot be fully configured using AT commands
+> over a serial interface.  It is necessary to speak the proprietary
+> Qualcomm MSM Interface (QMI) protocol to the device to enable the
+> ethernet proxy functionality.
+>=20
+> The devices embed the QMI protocol in CDC on the control interface,
+> using standard CDC commands and notifications. The do not otherwise
+> use CDC commands for the ethernet function.  This driver does
+> therefore not need access to any other aspects of the control
+> interface than the descriptors attached to it.
+>=20
+> Another driver, cdc-wdm, will provide userspace access to the
+> QMI protocol independently of this driver.  To facilitate this,
+> this driver avoids binding to the control interface, and uses
+> only the associated data interface after parsing the common CDC
+> functional descriptors on the control interface.
+>=20
+> You will want both the cdc-wdm and option drivers as companions to
+> this driver, to have full access to all interfaces and protocols
+> exported by the device.
+>=20
+> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
