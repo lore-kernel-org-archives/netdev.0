@@ -1,44 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] l2tp: l2tp_ip - fix possible oops on packet receive
-Date: Wed, 25 Jan 2012 14:06:57 +0100
-Message-ID: <1327496817.2425.32.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1327495145-6748-1-git-send-email-jchapman@katalix.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH v3 1/6] net: pad skb data and shinfo as a whole rather
+ than individually
+Date: Wed, 25 Jan 2012 13:09:13 +0000
+Message-ID: <1327496953.24561.323.camel@zakaz.uk.xensource.com>
+References: <1327494389.24561.316.camel@zakaz.uk.xensource.com>
+	 <1327494434-21566-1-git-send-email-ian.campbell@citrix.com>
+	 <1327495879.2425.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, alex <alex@m3x.org>,
-	Ben Hutchings <ben@decadent.org.uk>
-To: James Chapman <jchapman@katalix.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:64690 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751055Ab2AYNHD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 08:07:03 -0500
-Received: by bkas6 with SMTP id s6so4362735bka.19
-        for <netdev@vger.kernel.org>; Wed, 25 Jan 2012 05:07:02 -0800 (PST)
-In-Reply-To: <1327495145-6748-1-git-send-email-jchapman@katalix.com>
+Received: from smtp.eu.citrix.com ([62.200.22.115]:63591 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751323Ab2AYNJP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 08:09:15 -0500
+In-Reply-To: <1327495879.2425.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 25 janvier 2012 =C3=A0 12:39 +0000, James Chapman a =C3=A9c=
-rit :
-> When a packet is received on an L2TP IP socket (L2TPv3 IP link
-> encapsulation), the l2tpip socket's backlog_rcv function calls
-> xfrm4_policy_check(). This is not necessary, since it was called
-> before the skb was added to the backlog. With CONFIG_NET_NS enabled,
-> xfrm4_policy_check() will oops if skb->dev is null, so this trivial
-> patch removes the call.
+On Wed, 2012-01-25 at 12:51 +0000, Eric Dumazet wrote:
+> Le mercredi 25 janvier 2012 =C3=A0 12:27 +0000, Ian Campbell a =C3=A9=
+crit :
+> > This reduces the minimum overhead required for this allocation such=
+ that the
+> > shinfo can be grown in the following patch without overflowing 2048=
+ bytes for a
+> > 1500 byte frame.
+> >=20
+> > Reducing this overhead while also growing the shinfo means that som=
+etimes the
+> > tail end of the data can end up in the same cache line as the begin=
+ning of the
+> > shinfo. Specifically in the case of the 64 byte cache lines on a 64=
+ bit system
+> > the first 8 bytes of shinfo can overlap the tail cacheline of the d=
+ata. In many
+> > cases the allocation slop means that there is no overlap.
+> >=20
+> > Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> > Cc: "David S. Miller" <davem@davemloft.net>
+> > Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> > ---
 >=20
-> This bug has always been present, but only when CONFIG_NET_NS is
-> enabled does it cause problems. Most users are probably using UDP
-> encapsulation for L2TP, hence the problem has only recently
-> surfaced.
->=20
-=2E..
-> Signed-off-by: James Chapman <jchapman@katalix.com>
->=20
-> ---
+> Hmm... you missed build_skb()
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: alex <alex@m3x.org>
-Cc: Ben Hutchings <ben@decadent.org.uk>
+Presumably build_skb should be using SKB_WITH_OVERHEAD instead of open
+coding it? (which I think is how I managed to miss it)
+
+>  and all places we use
+> SKB_DATA_ALIGN(sizeof(struct skb_shared_info))
+
+> (for example in some drivers)
+
+I'm not sure how I missed these with my grep. Obviously it is necessary
+to catch them all in order to avoid the performance drop you mention
+below. Fortunately there is fewer than a dozen instances in half a doze=
+n
+drivers to check.
+
+> If you want to see possible performance impact of your changes, see
+> commit e52fcb2462ac (bnx2x: uses build_skb() in receive path), and
+> expect a drop from 820.000 pps to 720.000 pps
+
+Can you elaborate on the specific benchmark you used there?
+
+Thanks,
+Ian
