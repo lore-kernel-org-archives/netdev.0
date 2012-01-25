@@ -1,66 +1,49 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 0/5] Get rid of get_driver() and put_driver()
-Date: Tue, 24 Jan 2012 16:06:34 -0800
-Message-ID: <20120125000634.GA1178@kroah.com>
-References: <Pine.LNX.4.44L0.1201241158540.1200-100000@iolanthe.rowland.org>
+From: Josh Boyer <jwboyer@gmail.com>
+Subject: Re: Backtrace in rds code
+Date: Tue, 24 Jan 2012 19:26:25 -0500
+Message-ID: <CA+5PVA5QFUctweSVYp2OxGAvXOdoxaX6gcsKdKMW6WktyYX6QA@mail.gmail.com>
+References: <CA+5PVA7jGq6Hu3ebCzG1FJJStEcsN251Q_0pS9PphkeuAPKxww@mail.gmail.com>
+	<20120124.170410.829129930720684609.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	Kyungmin Park <kyungmin.park@samsung.com>,
-	Andy Walls <awalls@md.metrocast.net>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	Dominik Brodowski <linux@dominikbrodowski.net>,
-	Sebastian Ott <sebott@linux.vnet.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Michael Buesch <m@bues.ch>,
-	Joerg Roedel <joerg.roedel@amd.com>,
-	linux-input@vger.kernel.org, linux-media@vger.kernel.org,
-	netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
-	linux-s390@vger.kernel.org, USB list <linux-usb@vger.kernel.org>,
-	xen-devel@lists.xensource.com,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Alan Stern <stern@rowland.harvard.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44L0.1201241158540.1200-100000@iolanthe.rowland.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: venkat.x.venkatsubra@oracle.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:59885 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754777Ab2AYA00 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2012 19:26:26 -0500
+Received: by wgbgn7 with SMTP id gn7so912878wgb.1
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2012 16:26:25 -0800 (PST)
+In-Reply-To: <20120124.170410.829129930720684609.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 24, 2012 at 01:33:37PM -0500, Alan Stern wrote:
-> Greg:
-> 
-> This patch series removes the get_driver() and put_driver() routines
-> from the kernel.
-> 
-> Those routines don't do anything useful.  Their comments say that they
-> increment and decrement the driver's reference count, just like
-> get_device()/put_device() and a lot of other utility routines.  But a
-> struct driver is _not_ like a struct device!  It resembles a piece of
-> code more than a piece of data -- it acts as an encapsulation of a
-> driver.  Incrementing its refcount doesn't have much meaning because a
-> driver's lifetime isn't determined by the structure's refcount; it's
-> determined by when the driver's module gets unloaded.
-> 
-> What really matters for a driver is whether or not it is registered.  
-> Drivers expect, for example, that none of their methods will be called
-> after driver_unregister() returns.  It doesn't matter if some other
-> thread still holds a reference to the driver structure; that reference
-> mustn't be used for accessing the driver code after unregistration.  
-> get_driver() does not do any checking for this.
-> 
-> People may have been misled by the kerneldoc into thinking that the
-> references obtained by get_driver() do somehow pin the driver structure
-> in memory.  This simply isn't true; all it pins is the associated
-> private structure.  Code that needs to pin a driver must do it some
-> other way (probably by calling try_module_get()).
-> 
-> In short, these routines don't do anything useful and they can actively 
-> mislead people.  Removing them won't introduce any bugs that aren't 
-> already present.  There is no reason to keep them.
+On Tue, Jan 24, 2012 at 5:04 PM, David Miller <davem@davemloft.net> wrote:
+>
+> Please try this patch:
+>
+> --------------------
+> rds: Make rds_sock_lock BH rather than IRQ safe.
+>
+> rds_sock_info() triggers locking warnings because we try to perform a
+> local_bh_enable() (via sock_i_ino()) while hardware interrupts are
+> disabled (via taking rds_sock_lock).
+>
+> There is no reason for rds_sock_lock to be a hardware IRQ disabling
+> lock, none of these access paths run in hardware interrupt context.
+>
+> Therefore making it a BH disabling lock is safe and sufficient to
+> fix this bug.
+>
+> Reported-by: Kumar Sanghvi <kumaras@chelsio.com>
+> Reported-by: Josh Boyer <jwboyer@gmail.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Very nice work, all now applied, thanks for doing this.
+Using the same base kernel as I did to report the issue, plus this patch the
+issue seems to be gone.  I can't really claim rds works overall, but the oops
+output is definitely cleared up.
 
-greg k-h
+Thanks for such a quick turn around.
+
+josh
