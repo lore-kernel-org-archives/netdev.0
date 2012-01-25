@@ -1,82 +1,61 @@
 From: =?ISO-8859-2?Q?=A9tefan_Gula?= <steweg@ynet.sk>
 Subject: Re: [patch v4, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
  multipoint GRE over IP
-Date: Wed, 25 Jan 2012 23:30:46 +0100
-Message-ID: <CAGsizz+XZ79SstTTDfAwuHHqA40dxvr5cZLPph4U1euxexpVUQ@mail.gmail.com>
-References: <3900291.2831326843194846.JavaMail.root@5-MeO-DMT.ynet.sk>
- <20120125085712.524b65a8@nehalam.linuxnetplumber.net> <CAGsizzKAvAV771vSo0TGx_sU5qXgjOOqVRooK9vOf=XEi1NtXA@mail.gmail.com>
- <20120125.164939.1360578908839469758.davem@davemloft.net>
+Date: Wed, 25 Jan 2012 23:57:18 +0100
+Message-ID: <CAGsizzJnRy74ni-HH=5q1VR4g6sfDPg9SFw4UKgSjJjkSR8OJA@mail.gmail.com>
+References: <CAOzFzEjE7b-Y+_vOWeBKbHDkURRcYXomSTcwB91vKHVWQxBVsg@mail.gmail.com>
+ <20120124.230203.1478271172075708903.davem@davemloft.net> <CAEP_g=9H9dV9=qtFPh4YeTNQ-t+UZGw-YqZ6hFWVNXjFy+GCZg@mail.gmail.com>
+ <20120125.165548.596418893115900979.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: jesse@nicira.com, joseph.glanville@orionvm.com.au,
+	eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
 	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:46144 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072Ab2AYWbG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 17:31:06 -0500
-In-Reply-To: <20120125.164939.1360578908839469758.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120125.165548.596418893115900979.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 2012/1/25 David Miller <davem@davemloft.net>:
-> From: =C5=A0tefan Gula <steweg@ynet.sk>
-> Date: Wed, 25 Jan 2012 22:01:08 +0100
+> From: Jesse Gross <jesse@nicira.com>
+> Date: Tue, 24 Jan 2012 23:11:06 -0800
 >
->> 2012/1/25 Stephen Hemminger <shemminger@vyatta.com>:
->>> On Wed, 18 Jan 2012 00:33:14 +0100 (CET)
->>> Stefan Gula <steweg@ynet.sk> wrote:
+>> On Tue, Jan 24, 2012 at 8:02 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Joseph Glanville <joseph.glanville@orionvm.com.au>
+>>> Date: Wed, 25 Jan 2012 14:48:37 +1100
 >>>
->>>> From: Stefan Gula <steweg@gmail.com>
->>>>
->>>> This patch is an extension for current Ethernet over GRE
->>>> implementation, which allows user to create virtual bridge (multip=
-oint
->>>> VPN) and forward traffic based on Ethernet MAC address information=
- in
->>>> it. It simulates the Bridge behavior learning mechanism, but inste=
-ad
->>>> of learning port ID from which given MAC address comes, it learns =
-IP
->>>> address of peer which encapsulated given packet. Multicast, Broadc=
-ast
->>>> and unknown-multicast traffic is send over network as multicast
->>>> encapsulated GRE packet, so one Ethernet multipoint GRE tunnel can=
- be
->>>> represented as one single virtual switch on logical level and be a=
-lso
->>>> represented as one multicast IPv4 address on network level.
->>>>
->>>> Signed-off-by: Stefan Gula <steweg@gmail.com>
+>>>> The reason why this patch is useful is that it stands to be the only
+>>>> true mulitpoint L2 VPN with a kernel space forwarding plane.
 >>>
->>> Will this break normal usages of GRE?
->>> Compile time options are not acceptable for a standard distribution=
- if
->>> it will break it for the other case. It is fine to add the addition=
-al data
->>> structure elements, but the code in the receive path might get brok=
-en?
->>>
->>>
->> No, if you don't decide to compile with given kernel option.. nothin=
-g
->> happens and original GRE code is leaved intact.
+>>> So what you're telling me is that I added this huge openvswitch
+>>> thing essentially for nothing?
+>>
+>> I think it's actually the opposite - Open vSwitch can be used to
+>> implement this type of thing as well as for many other use cases.
 >
-> Every distribution is going to want to turn the option on to provide
-> the feature to their users, so this line of reasoning is not
-> acceptable.
-On the other hand, if you enable the compile this option, it modifies
-the behavior only when you are using this command to create the
-interface:
-ip link add vpn0 type gretap local 1.2.3.4 remote 239.192.0.1 key 12345=
- ttl 10
-please notice two major keywords:
- - gretap
- - 239.192.0.1
-My patch modifies the code behavior only if you used "gretap" and
-remote IP must be valid multicast IP address. In every other
-combinations it is still using plain original GRE codes. So enabling
-it doesn't breaks anything else.
+> Then openvswitch is exactly where you should be prototyping and
+> implementing support for this sort of stuff.
+>
+> And only if you cannot obtain reasonable performance using openvswitch
+> should you be even entertaining the notion of a static implementation.
+>
+> That's the whole premise behind putting openvswitch into the tree, so
+> that guys like you can play around in userspace without having to make
+> any kernel changes at all.
+>
+> I am not applying these patches, the more things you say the more I am
+> convinced they are not appropriate.
+>
+The performance is one of the most critical thing why I have chosen to
+build kernel patch in the first place instead of some user-space app.
+If I used this approach, I would probably end up with patch for
+OpenVPN project instead in that time. I am not telling that
+openvswitch is not a good place for prototyping, but I believe that
+this patch is beyond that border as it successfully run in environment
+with more 98 linux-based APs, used for 4K+ users, with no issue for
+more than 2 years. The performance results from Joseph Glanville even
+adds value to it. So I still don't get the point, why my patch and
+openvswitch cannot coexists in the kernel together and let user/admin
+to choose to correct solution for him/her.
