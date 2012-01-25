@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch -next] bnx2x: unlock before returning an error
-Date: Wed, 25 Jan 2012 16:59:03 -0500 (EST)
-Message-ID: <20120125.165903.1769846144915753254.davem@davemloft.net>
-References: <20120125075931.GA20199@elgon.mountain>
-	<1327479294.11041.3.camel@lb-tlvb-dmitry>
+Subject: Re: [PATCH] drivers/net/ethernet/xilinx: added Xilinx AXI Ethernet
+ driver
+Date: Wed, 25 Jan 2012 17:00:24 -0500 (EST)
+Message-ID: <20120125.170024.1583712333359217112.davem@davemloft.net>
+References: <4F17F2E3.10204@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dan.carpenter@oracle.com, eilong@broadcom.com,
-	yuvalmin@broadcom.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dmitry@broadcom.com
+Cc: netdev@vger.kernel.org, ariane.keller@tik.ee.ethz.ch
+To: danborkmann@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53100 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:53130 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750842Ab2AYV7J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 16:59:09 -0500
-In-Reply-To: <1327479294.11041.3.camel@lb-tlvb-dmitry>
+	with ESMTP id S1751028Ab2AYWAs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 17:00:48 -0500
+In-Reply-To: <4F17F2E3.10204@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Date: Wed, 25 Jan 2012 10:14:54 +0200
+From: Daniel Borkmann <danborkmann@iogearbox.net>
+Date: Thu, 19 Jan 2012 11:39:31 +0100
 
-> On Wed, 2012-01-25 at 10:59 +0300, Dan Carpenter wrote:
->> We introduced a new return here but forgot to drop the lock.
->> 
->> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
- ...
-> Acked-by: Dmitry Kravkov <dmitry@broadcom.com>
+> This driver adds support for Xilinx 10/100/1000 AXI Ethernet.
+> 
+> It can be used, for instance, on Xilinx boards with a Microblaze
+> architecture like the ML605.
+> 
+> The patch is against the latest net-next tree and checkpatch clean.
+> 
+> Signed-off-by: Ariane Keller <ariane.keller@tik.ee.ethz.ch>
+> Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
 
-Applied, thanks.
+Applied.
