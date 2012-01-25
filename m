@@ -1,87 +1,70 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 4/4] SUNRPC: service shutdown function in network namespace
- context introduced
-Date: Wed, 25 Jan 2012 17:47:34 +0400
-Message-ID: <20120125134734.13662.40246.stgit@localhost6.localdomain6>
-References: <20120125134132.13662.83447.stgit@localhost6.localdomain6>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] be2net: allocate more headroom in incoming skbs
+Date: Wed, 25 Jan 2012 14:56:30 +0100
+Message-ID: <1327499790.2425.45.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbottomley@parallels.com, bfields@fieldses.org,
-	davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120125134132.13662.83447.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Vasundhara Volam <vasundhara.volam@emulex.com>,
+	Sathya Perla <sathya.perla@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:45560 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755065Ab2AYN4e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 08:56:34 -0500
+Received: by bkas6 with SMTP id s6so4405246bka.19
+        for <netdev@vger.kernel.org>; Wed, 25 Jan 2012 05:56:33 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This function is enough for releasing resources, allocated for network
-namespace context, in case of sharing service between them.
-IOW, each service "user" (LockD, NFSd, etc), which wants to share service
-between network namespaces, have to release related resources by the function,
-introduced in this patch, instead of performing service shutdown (of course in
-case the service is shared already to the moment of release).
+Allocation of 64 bytes in skb headroom is not enough if we have to pull
+ethernet + ipv6 + tcp headers, and/or extra tunneling header.
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Its currently not noticed because netdev_alloc_skb_ip_align(64) give us
+more room, thanks to power-of-two kmalloc() roundups.
 
+Make sure we ask for 128 bytes so that side effects of upcoming patches
+from Ian Campbell dont decrease benet rx performance, because of extra
+skb head reallocations.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Ian Campbell <Ian.Campbell@citrix.com>
+Cc: Vasundhara Volam <vasundhara.volam@emulex.com>
+Cc: Sathya Perla <sathya.perla@emulex.com>
+Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
 ---
- net/sunrpc/svc.c |   33 ++++++++++++++++++++-------------
- 1 files changed, 20 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h      |    3 +++
+ drivers/net/ethernet/emulex/benet/be_main.c |    2 +-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
-index 279bbd8..3adfd26 100644
---- a/net/sunrpc/svc.c
-+++ b/net/sunrpc/svc.c
-@@ -510,6 +510,24 @@ svc_create_pooled(struct svc_program *prog, unsigned int bufsize,
- }
- EXPORT_SYMBOL_GPL(svc_create_pooled);
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index cbdec25..5ee7cc0 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -74,6 +74,9 @@ static inline char *nic_name(struct pci_dev *pdev)
  
-+void svc_shutdown_net(struct svc_serv *serv, struct net *net)
-+{
-+	/*
-+	 * The set of xprts (contained in the sv_tempsocks and
-+	 * sv_permsocks lists) is now constant, since it is modified
-+	 * only by accepting new sockets (done by service threads in
-+	 * svc_recv) or aging old ones (done by sv_temptimer), or
-+	 * configuration changes (excluded by whatever locking the
-+	 * caller is using--nfsd_mutex in the case of nfsd).  So it's
-+	 * safe to traverse those lists and shut everything down:
-+	 */
-+	svc_close_net(serv, net);
+ /* Number of bytes of an RX frame that are copied to skb->data */
+ #define BE_HDR_LEN		((u16) 64)
++/* allocate extra space to allow tunneling decapsulation without head reallocation */
++#define BE_RX_SKB_ALLOC_SIZE (BE_HDR_LEN + 64)
 +
-+	if (serv->sv_shutdown)
-+		serv->sv_shutdown(serv, net);
-+}
-+EXPORT_SYMBOL_GPL(svc_shutdown_net);
-+
- /*
-  * Destroy an RPC service. Should be called with appropriate locking to
-  * protect the sv_nrthreads, sv_permsocks and sv_tempsocks.
-@@ -532,23 +550,12 @@ svc_destroy(struct svc_serv *serv)
- 		printk("svc_destroy: no threads for serv=%p!\n", serv);
+ #define BE_MAX_JUMBO_FRAME_SIZE	9018
+ #define BE_MIN_MTU		256
  
- 	del_timer_sync(&serv->sv_temptimer);
--	/*
--	 * The set of xprts (contained in the sv_tempsocks and
--	 * sv_permsocks lists) is now constant, since it is modified
--	 * only by accepting new sockets (done by service threads in
--	 * svc_recv) or aging old ones (done by sv_temptimer), or
--	 * configuration changes (excluded by whatever locking the
--	 * caller is using--nfsd_mutex in the case of nfsd).  So it's
--	 * safe to traverse those lists and shut everything down:
--	 */
--	svc_close_net(serv, net);
-+
-+	svc_shutdown_net(serv, net);
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index e703d64..0fbf365 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1189,7 +1189,7 @@ static void be_rx_compl_process(struct be_adapter *adapter,
+ 	struct net_device *netdev = adapter->netdev;
+ 	struct sk_buff *skb;
  
- 	BUG_ON(!list_empty(&serv->sv_permsocks));
- 	BUG_ON(!list_empty(&serv->sv_tempsocks));
- 
--	if (serv->sv_shutdown)
--		serv->sv_shutdown(serv, net);
--
- 	cache_clean_deferred(serv);
- 
- 	if (svc_serv_is_pooled(serv))
+-	skb = netdev_alloc_skb_ip_align(netdev, BE_HDR_LEN);
++	skb = netdev_alloc_skb_ip_align(netdev, BE_RX_SKB_ALLOC_SIZE);
+ 	if (unlikely(!skb)) {
+ 		rx_stats(rxo)->rx_drops_no_skbs++;
+ 		be_rx_compl_discard(adapter, rxo, rxcp);
