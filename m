@@ -1,38 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch v3, kernel version 3.2.1] Source mode for macvlan
- interface
-Date: Tue, 24 Jan 2012 23:03:54 -0500 (EST)
-Message-ID: <20120124.230354.1696063062900108959.davem@davemloft.net>
-References: <12446987.2261327416407141.JavaMail.root@5-MeO-DMT.ynet.sk>
-	<25119746.2341327416953583.JavaMail.root@5-MeO-DMT.ynet.sk>
+From: Viral Mehta <viral.vkm@gmail.com>
+Subject: Re: [net PATCH 1/1] qlge:Changing netdev msg level to default debug
+Date: Wed, 25 Jan 2012 10:44:14 +0530
+Message-ID: <CANX6DakVF8PC8xrmRU1KvBqqJ8g79_Ev1ZFU-APNyPy-7T8Q_Q@mail.gmail.com>
+References: <1327361932-28774-1-git-send-email-jitendra.kalsaria@qlogic.com>
+	<20120124.153837.905415925299369179.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: steweg@ynet.sk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <25119746.2341327416953583.JavaMail.root@5-MeO-DMT.ynet.sk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: ron.mercer@qlogic.com, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: netdev@vger.kernel.org, jitendra.kalsaria@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:32815 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750771Ab2AYFOQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 00:14:16 -0500
+Received: by wics10 with SMTP id s10so3499971wic.19
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2012 21:14:14 -0800 (PST)
+In-Reply-To: <20120124.153837.905415925299369179.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Gula <steweg@ynet.sk>
-Date: Tue, 24 Jan 2012 15:55:53 +0100 (CET)
+>
+> Moving to a default of "3" makes no sense at all, express the default
+> in the second argument of netif_msg_init(), not the first.
 
-> diff -uprN -X linux/Documentation/dontdiff linux-3.2.1-orig/net/core/rtnetlink.c linux/net/core/rtnetlink.c
-> --- linux-3.2.1-orig/net/core/rtnetlink.c	2012-01-12 20:42:45.000000000 +0100
-> +++ linux/net/core/rtnetlink.c	2012-01-24 14:26:58.083219352 +0100
-> @@ -1506,6 +1506,9 @@ errout:
->  
->  	if (send_addr_notify)
->  		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
-> +	min_ifinfo_dump_size = max_t(u16, if_nlmsg_size(dev),
-> +					min_ifinfo_dump_size);
-> +
+Yes, and i think that was the source of confusion for me.
 
-What is this?  And whatever it is why isn't it 1) described in the
-commit message and why isn't it 2) in a seperate patch if it's
-unrelated to this macvlan change?
-
-I'm not apply this patch as it is right now, it needs some sort of
-change.
+>
+> I'm not applying this patch, use other drivers such as tg3.c as a
+> guide.
+-- 
+Thanks,
+Viral Mehta
