@@ -1,100 +1,68 @@
-From: Andy Isaacson <adi@hexapodia.org>
-Subject: e1000e: repeated eth0: Error reading PHY register
-Date: Wed, 25 Jan 2012 01:21:01 -0800
-Message-ID: <20120125092101.GA10626@hexapodia.org>
+From: Rune Magnussen <rum@bankdata.dk>
+Subject: [BISECTED] Linux 3.2: Networking out of LAN does not work
+Date: Wed, 25 Jan 2012 10:35:37 +0100
+Message-ID: <OF0BD4E9BA.3C3D7E41-ONC1257990.0034993D-C1257990.0034B2CE@bdpnet.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx4.bankdata.dk ([194.239.188.13]:34894 "HELO mx4.bankdata.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751036Ab2AYJft (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jan 2012 04:35:49 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On my Thinkpad X201s running 3.3-rc1 I'm seeing bursts of these:
+Hi
 
-[ 1270.207370] e1000e 0000:00:19.0: eth0: Error reading PHY register
-[ 1271.003042] e1000e 0000:00:19.0: eth0: Error reading PHY register
-[ 1271.798896] e1000e 0000:00:19.0: eth0: Error reading PHY register
-[ 1272.595324] e1000e 0000:00:19.0: eth0: Error reading PHY register
+Networking to and from the outside of my LAN does not work with Linux 
+3.2.x.
+Linux 3.1.x works. Using ssh from a PC on the LAN also works.
+The machine has a VIA C7 CPU and the NIC uses the 8139too-driver.
 
-I've been seeing these messages for a few kernel versions, but
-unfortunately due to a hardware failure I don't have kernels further
-back than 3.0.  I'm pretty sure this didn't happen on 2.6.38.
+Another machine with a r8169-NIC and an Atom-CPU (32bit) did not 
+show any problems.
+It was used very ligtly though.
 
-There are nearly always exactly 12 messages (I have one log sequence
-where there are only 5, out of 110 occurrences), and they come every 300
-seconds during some period, then they go away for a long time, then come
-back with no clear cause.
+Bisection led to this:
+---
+f04565ddf52e401880f8ba51de0dff8ba51c99fd is the first bad commit
+commit f04565ddf52e401880f8ba51de0dff8ba51c99fd
+Author: Mihai Maruseac <mihai.maruseac@gmail.com>
+Date:   Thu Oct 20 20:45:10 2011 +0000
 
-% dmesg | grep PHY | uniq -w4 -c
- 25 [    1.253783] e1000e 0000:00:19.0: eth0: MAC: 9, PHY: 10, PBA No: A002FF-0FF
- 12 [  370.314165] e1000e 0000:00:19.0: eth0: Error reading PHY register
- 12 [  670.201544] e1000e 0000:00:19.0: eth0: Error reading PHY register
- 12 [  970.045374] e1000e 0000:00:19.0: eth0: Error reading PHY register
- 12 [ 1270.207370] e1000e 0000:00:19.0: eth0: Error reading PHY register
- 12 [ 1570.031407] e1000e 0000:00:19.0: eth0: Error reading PHY register
+    dev: use name hash for dev_seq_ops
+ 
+    Instead of using the dev->next chain and trying to resync at each call 
+to
+    dev_seq_start, use the name hash, keeping the bucket and the offset in
+    seq->private field.
+ 
+    Tests revealed the following results for ifconfig > /dev/null
+       * 1000 interfaces:
+          * 0.114s without patch
+          * 0.089s with patch
+       * 3000 interfaces:
+          * 0.489s without patch
+          * 0.110s with patch
+       * 5000 interfaces:
+          * 1.363s without patch
+          * 0.250s with patch
+       * 128000 interfaces (other setup):
+          * ~100s without patch
+          * ~30s with patch
+ 
+    Signed-off-by: Mihai Maruseac <mmaruseac@ixiacom.com>
+    Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-(the clock is currently at 3636.)
+:040000 040000 2e86e1c9ecaf719d312a8b5863ec9e89d92bc4b3 
+8b0d09ca105502dd5389bb6281ef059c8bb38667 M   net
+---
 
-The machine is on and off of AC power, and suspended with "sudo
-pm-suspend" then resumed, on a regular basis; there doesn't seem to be
-any clear correlation.
+Simply reverting the commit on top of Linux 3.2.1 resultet in a build 
+error.
 
-There's nothing plugged into the ethernet jack when this happens.  (I
-don't use wired ethernet often enough to be sure if it happens when the
-wire is connected; there doesn't seem to be any impact on
-functionality on the rare occasion I do use it.)
+Used kernel configuration: http://knus.info/kernel/config-3.1.txt
 
-% sudo ethtool eth0
-Settings for eth0:
-        Supported ports: [ TP ]
-        Supported link modes:   10baseT/Half 10baseT/Full 
-                                100baseT/Half 100baseT/Full 
-                                1000baseT/Full 
-        Supported pause frame use: No
-        Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full 
-                                100baseT/Half 100baseT/Full 
-                                1000baseT/Full 
-        Advertised pause frame use: No
-        Advertised auto-negotiation: Yes
-        Speed: Unknown!
-        Duplex: Unknown! (255)
-        Port: Twisted Pair
-        PHYAD: 2
-        Transceiver: internal
-        Auto-negotiation: on
-        MDI-X: Unknown
-        Supports Wake-on: pumbg
-        Wake-on: d
-        Current message level: 0x00000001 (1)
-                               drv
-        Link detected: no
-
-% sudo lspci -vvvs 0:19
-00:19.0 Ethernet controller: Intel Corporation 82577LM Gigabit Network Connection (rev 06)
-        Subsystem: Lenovo Device 2153
-        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B- DisINTx+
-        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
-        Latency: 0
-        Interrupt: pin A routed to IRQ 40
-        Region 0: Memory at f2500000 (32-bit, non-prefetchable) [size=128K]
-        Region 1: Memory at f2525000 (32-bit, non-prefetchable) [size=4K]
-        Region 2: I/O ports at 1820 [size=32]
-        Capabilities: [c8] Power Management version 2
-                Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
-                Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=1 PME-
-        Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
-                Address: 00000000fee0f00c  Data: 4149
-        Capabilities: [e0] PCI Advanced Features
-                AFCap: TP+ FLR+
-                AFCtrl: FLR-
-                AFStatus: TP-
-        Kernel driver in use: e1000e
-
-
-Full dmesg at http://web.hexapodia.org/~adi/snow/dmesg-3.3.0-rc1
-
-Thanks,
--andy
+Greetings Rune
