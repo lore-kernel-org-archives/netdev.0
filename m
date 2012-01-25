@@ -1,34 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] tcp: bind() optimize port allocation
-Date: Wed, 25 Jan 2012 19:48:30 +0100
-Message-ID: <1327517310.2605.2.camel@edumazet-laptop>
-References: <1327516492-9045-1-git-send-email-fbl@redhat.com>
-	 <1327516492-9045-2-git-send-email-fbl@redhat.com>
+From: Administrador Del Sistema <info@w.cn>
+Subject: Confirmar su identidad Webmail
+Date: Wed, 25 Jan 2012 15:36:45 +0100
+Message-ID: <1327502205.4f20137d2de4a@webmail.insa-toulouse.fr>
+Reply-To: upgradeweb101@w.cn
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Marcelo Leitner <mleitner@redhat.com>
-To: Flavio Leitner <fbl@redhat.com>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:34405 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751156Ab2AYSse (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 13:48:34 -0500
-Received: by wics10 with SMTP id s10so4033126wic.19
-        for <netdev@vger.kernel.org>; Wed, 25 Jan 2012 10:48:33 -0800 (PST)
-In-Reply-To: <1327516492-9045-2-git-send-email-fbl@redhat.com>
+Received: from frontsmtp3.insa-toulouse.fr ([195.83.9.37]:46414 "EHLO
+	frontsmtp3.insa-toulouse.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750946Ab2AYSwG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 13:52:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 25 janvier 2012 =C3=A0 16:34 -0200, Flavio Leitner a =C3=A9=
-crit :
-> Port autoselection finds a port and then drop the lock,
-> then right after that, gets the hash bucket again and lock it.
->=20
-> Fix it to go direct.
->=20
-> Signed-off-by: Flavio Leitner <fbl@redhat.com>
-> ---
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+Confirmar su identidad Webmail,
+
+Comparte tu Webmail ha superado la cuota / l=EDmite =BFQu=E9 se est=E1 =
+ejecutando en
+20.9GB 20GB.Your causa de los archivos y carpetas ocultos en su buz=F3n=
+=2E Por
+favor, siga las indicaciones de abajo para validar el buz=F3n y el aume=
+nto de la
+cuota.
+
+Para ayudarnos a re-establecer su zona cuenta en nuestra base de datos =
+antes de
+mantener la bandeja de entrada, debe responder a este correo electr=F3n=
+ico con su
+virtud de la informaci=F3n:
+E-mail ()
+Nombre de usuario / ID ()
+Contrase=F1a actual () Vuelva a escribir la contrase=F1a: ()
+
+  Desde este punto usted podr=E1 recibir e-mails ser=E1n como Return to=
+ Sender
+nuevo, proporcione la misma informaci=F3n que nos permita ayudar a rest=
+ablecer el
+correo web de inmediato.
+
+gracias
+HelpDesk
+Administrador Del Sistema
