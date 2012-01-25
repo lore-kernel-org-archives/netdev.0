@@ -1,47 +1,53 @@
-From: Administrador Del Sistema <info@w.cn>
-Subject: Confirmar su identidad Webmail
-Date: Wed, 25 Jan 2012 15:36:45 +0100
-Message-ID: <1327502205.4f20137d2de4a@webmail.insa-toulouse.fr>
-Reply-To: upgradeweb101@w.cn
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] amd/lance.c: dev_alloc_skb to netdev_alloc_skb
+Date: Wed, 25 Jan 2012 19:55:06 +0100
+Message-ID: <1327517706.2605.7.camel@edumazet-laptop>
+References: <1327517188-14088-1-git-send-email-netdev@pradeepdalvi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frontsmtp3.insa-toulouse.fr ([195.83.9.37]:46414 "EHLO
-	frontsmtp3.insa-toulouse.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750946Ab2AYSwG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 13:52:06 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1327517188-14088-1-git-send-email-netdev@pradeepdalvi.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Le jeudi 26 janvier 2012 =C3=A0 00:16 +0530, Pradeep A. Dalvi a =C3=A9c=
+rit :
+> Replaced deprecating dev_alloc_skb with netdev_alloc_skb for amd/lanc=
+e.c
+>   - Removed extra skb->dev =3D dev
+>=20
+> Signed-off-by: Pradeep A. Dalvi <netdev@pradeepdalvi.com>
+> ---
+>  drivers/net/ethernet/amd/lance.c |    9 ++++-----
+>  1 files changed, 4 insertions(+), 5 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/amd/lance.c b/drivers/net/ethernet/=
+amd/lance.c
+> index a6e2e84..a8a6b45 100644
+> --- a/drivers/net/ethernet/amd/lance.c
+> +++ b/drivers/net/ethernet/amd/lance.c
+> @@ -871,12 +871,11 @@ lance_init_ring(struct net_device *dev, gfp_t g=
+fp)
+>  		struct sk_buff *skb;
+>  		void *rx_buff;
+> =20
+> -		skb =3D alloc_skb(PKT_BUF_SZ, GFP_DMA | gfp);
+> +		skb =3D __netdev_alloc_skb(dev, PKT_BUF_SZ, GFP_DMA | gfp);
 
+Nack
 
-Confirmar su identidad Webmail,
+As I already explained, alloc_skb() and netdev_alloc_skb() are
+different.
 
-Comparte tu Webmail ha superado la cuota / l=EDmite =BFQu=E9 se est=E1 =
-ejecutando en
-20.9GB 20GB.Your causa de los archivos y carpetas ocultos en su buz=F3n=
-=2E Por
-favor, siga las indicaciones de abajo para validar el buz=F3n y el aume=
-nto de la
-cuota.
+Why do you repost this ?
 
-Para ayudarnos a re-establecer su zona cuenta en nuestra base de datos =
-antes de
-mantener la bandeja de entrada, debe responder a este correo electr=F3n=
-ico con su
-virtud de la informaci=F3n:
-E-mail ()
-Nombre de usuario / ID ()
-Contrase=F1a actual () Vuelva a escribir la contrase=F1a: ()
+nedev_alloc_skb() adds NET_SKB_PAD bytes.
 
-  Desde este punto usted podr=E1 recibir e-mails ser=E1n como Return to=
- Sender
-nuevo, proporcione la misma informaci=F3n que nos permita ayudar a rest=
-ablecer el
-correo web de inmediato.
+This driver doesnt need this extra space.
 
-gracias
-HelpDesk
-Administrador Del Sistema
+(In fact it could use kmalloc(), since the skb themselves are not used
+at all : At RX time, we perform a copybreak)
