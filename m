@@ -1,77 +1,36 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH v2 0/2] Tracepoint for tcp retransmission
-Date: Wed, 25 Jan 2012 14:27:59 +0100
-Message-ID: <02e98f84ee62073e1bf92338f6744fde@localhost>
-References: <65795E11DBF1E645A09CEC7EAEE94B9CB728DD67@USINDEVS02.corp.hds.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH 0/4] SUNRPC: service release in network namespace context
+Date: Wed, 25 Jan 2012 17:47:00 +0400
+Message-ID: <20120125134132.13662.83447.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<nhorman@tuxdriver.com>, <tgraf@infradead.org>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	<eric.dumazet@gmail.com>, Seiji Aguchi <seiji.aguchi@hds.com>
-To: Satoru Moriya <satoru.moriya@hds.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:44135 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752694Ab2AYN2C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 08:28:02 -0500
-In-Reply-To: <65795E11DBF1E645A09CEC7EAEE94B9CB728DD67@USINDEVS02.corp.hds.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
+	davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This patch set is the final step towards to making LockD network namespace
+aware.
+I can't prove, that this patch set is enough for NFSd (just haven't try), by
+Lockd works fine and patches for it will be send soon.
+
+The following series consists of:
+
+---
+
+Stanislav Kinsbursky (4):
+      SUNRPC: clear svc pools lists helper introduced
+      SUNRPC: clear svc transports lists helper introduced
+      SUNRPC: service destruction in network namespace context
+      SUNRPC: service shutdown function in network namespace context introduced
 
 
-On Fri, 20 Jan 2012 13:07:02 -0500, Satoru Moriya wrote:
-
-
-
-> With this tracepoint, we can know whether the packet drop occurred
-
-> in the server (moreover in the kernel) or not. For example, if we
-
-> finds that retransmission failed (tcp_retransmit_skb() returned
-
-> negative value), it means the kernel may have some troubles at
-
-> that time and we can drill down on issues in the kernel based on
-
-> trace data. OTOH, if retransmission succeeded, packet is dropped
-
-> outside the kernel/server.
-
-
-
-
-
-This is an equivalent replacement and by means not so intrusive:
-
-
-
-probe kernel.function("tcp_retransmit_skb").return {
-
-    printf("%s -> %d", probefunc(), retval())
-
-}
-
-
-
-and print inet_sk($sk)->inet_num for
-
-kernel.function("tcp_retransmit_skb").
-
-
-
-It is crazy to add everywhere new tracepoints. Systemtap is far from being
-
-perfect and as smooth as dtrace. But this is an example where systemtap is
-
-suitable and should be used.
-
-
-
-Satoru, you wrote systemtap is not suitable - why?
-
-
-
-Hagen
+ include/linux/sunrpc/svcsock.h |    2 +-
+ net/sunrpc/svc.c               |   36 +++++++++++++++++++++-----------
+ net/sunrpc/svc_xprt.c          |   45 ++++++++++++++++++++++++++++------------
+ 3 files changed, 56 insertions(+), 27 deletions(-)
