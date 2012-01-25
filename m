@@ -1,109 +1,54 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 2/3] NETFILTER module xt_hmark, new target for HASH
- based fwmark
-Date: Wed, 25 Jan 2012 12:49:32 +0100
-Message-ID: <20120125114932.GB6842@1984>
-References: <1326448338-13416-1-git-send-email-hans.schillstrom@ericsson.com>
- <201201241856.11732.hans.schillstrom@ericsson.com>
- <20120124181540.GA2063@1984>
- <201201251114.34774.hans.schillstrom@ericsson.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net] netprio_cgroup.h: dont include module.h from other
+ includes
+Date: Wed, 25 Jan 2012 06:59:21 -0500
+Message-ID: <20120125115921.GA26366@hmsreliant.think-freely.org>
+References: <1327440799-1057-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Hans Schillstrom <hans@schillstrom.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"jengelh@medozas.de" <jengelh@medozas.de>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jdb@comx.dk,
+	eric.dumazet@gmail.com
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:50003 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751710Ab2AYL7h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 06:59:37 -0500
 Content-Disposition: inline
-In-Reply-To: <201201251114.34774.hans.schillstrom@ericsson.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1327440799-1057-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 25, 2012 at 11:14:33AM +0100, Hans Schillstrom wrote:
-> Here is help text and man page just to clarify the changes:
-> Is this clear enough ?
+On Tue, Jan 24, 2012 at 04:33:19PM -0500, Paul Gortmaker wrote:
+> A considerable effort was invested in wiping out module.h
+> from being present in all the other standard includes.  This
+> one leaked back in, but once again isn't strictly necessary,
+> so remove it.
 > 
-> HMARK target options, i.e. modify hash calculation by:
->   --hmark-method <method>            Overall L3/L4 and fragment behavior
->                  L3                  Fragment safe, do not use ports or protocol
->                                      i.e  Fragments don't need special care.
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 > 
->                  L3-4 (Default)      Fragment unsafe, use ports and protocol
->                                      if defrag is off in conntrack
->                                         no hmark produced on any part of fragments.
-
-This is fine.
-
->   Limit/modify the calculated hash mark by:
->   --hmark-mod value                  nfmark modulus value
->   --hmark-offs value                 Last action add value to nfmark
-            ^^^^
-no need to be cryptic here, just say offset.
-
->  Fine tuning of what will be included in hash calculation
->   --hmark-smask length               Source address mask length
-            ^^^^^
-
-I'd say hmark-src-mask to keep it consistent with the options in
-iptables.
-
->   --hmark-dmask length               Dest address mask length
-
-hmark-dst-mask
-
->   --hmark-sp-mask value              Mask src port with value
-
-hmark-sport-mask
-
->   --hmark-dp-mask value              Mask dst port with value
-
-hmark-dport-mask
-
->   --hmark-spi-mask value             For esp and ah AND spi with value
-
-hmark-ah-spi-mask
-
->   --hmark-sp-set value               OR src port with value
-
-hmark-sport-or
-
->   --hmark-dp-set value               OR dst port with value
-
-hmark-dport-or
-
->   --hmark-spi-set value              For esp and ah OR spi with value
-
-These three can be useful? Providing lots of options is fine, but they
-may confuse users. What do we gain from this?
-
-In other words, is it possible to deploy consistent hashing with some
-sane configuration using these options?
-
->   --hmark-proto-mask value           Mask Protocol with value
-                                       ^^^^^^^^^^^ ^^^ ^^^ ^^^^
-useful?
-
->   --hmark-rnd                        Initial Random value to hash cacl.
->  For NAT in IPv4 the original address can be used in the return path.
-
-We'll have IPv6 NAT soon. Please, make sure we can extend HMARK to
-support IPv6 support.
-
->  Make sure to qualify the statement in a proper way when using nat flags
-
-this description is fine. I'd propose to change the option names
-below:
-
->   --hmark-dnat                       Replace src addr with original dst addr
->   --hmark-snat                       Replace dst addr with original src addr
-
-better:
-
---hmark-ct-orig-src
---hmark-ct-orig-dst
-
->  In many cases hmark can be omitted i.e. --smask can be used
-
-Thanks again.
+> ---
+> 
+> [x86-64 modconfig, yesconfig and ppc64 defconfig all build OK]
+> 
+> diff --git a/include/net/netprio_cgroup.h b/include/net/netprio_cgroup.h
+> index e503b87..7b2d431 100644
+> --- a/include/net/netprio_cgroup.h
+> +++ b/include/net/netprio_cgroup.h
+> @@ -13,7 +13,6 @@
+>  
+>  #ifndef _NETPRIO_CGROUP_H
+>  #define _NETPRIO_CGROUP_H
+> -#include <linux/module.h>
+>  #include <linux/cgroup.h>
+>  #include <linux/hardirq.h>
+>  #include <linux/rcupdate.h>
+> -- 
+> 1.7.7.2
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
