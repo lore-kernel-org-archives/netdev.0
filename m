@@ -1,125 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] amd/lance.c: dev_alloc_skb to netdev_alloc_skb
-Date: Wed, 25 Jan 2012 21:16:39 +0100
-Message-ID: <1327522599.2605.14.camel@edumazet-laptop>
-References: <1327517188-14088-1-git-send-email-netdev@pradeepdalvi.com>
-	 <1327517706.2605.7.camel@edumazet-laptop>
-	 <CA+Dx6Ha4dnqnkR_Pc+dFZ+Ef_mxRNN_Jk44vJ_R0viuHd0JGHw@mail.gmail.com>
+From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+Subject: [PATCH net] caif: Fix crash due to uninitialized net name-space.
+Date: Wed, 25 Jan 2012 21:33:51 +0100
+Message-ID: <1327523631-3480-1-git-send-email-sjur.brandeland@stericsson.com>
+References: <CA+1xoqe+Qa1OByj7z7XzAPG_g9+BmNj9NPZR=_5b_MTEmc9Chw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-To: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
+Cc: linux-kernel@vger.kernel.org, davej@redhat.com, sjurbren@gmail.com,
+	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+To: levinsasha928@gmail.com, netdev@vger.kernel.org,
+	davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+Dx6Ha4dnqnkR_Pc+dFZ+Ef_mxRNN_Jk44vJ_R0viuHd0JGHw@mail.gmail.com>
+In-Reply-To: <CA+1xoqe+Qa1OByj7z7XzAPG_g9+BmNj9NPZR=_5b_MTEmc9Chw@mail.gmail.com>
+References: <CA+1xoqdZapYjS4gPf_uGwEdFQQdZ525mASr7iFKPXJdCBdRLKA@mail.gmail.com> <1327444045-1033-1-git-send-email-sjur.brandeland@stericsson.com> <CA+1xoqe+Qa1OByj7z7XzAPG_g9+BmNj9NPZR=_5b_MTEmc9Chw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le jeudi 26 janvier 2012 =C3=A0 01:31 +0530, Pradeep A. Dalvi a =C3=A9c=
-rit :
+net_generic() calls BUG_ON() if called with uninitialized
+network name-space. Add check if net is initialized before
+calling net_generic(). This fixes the following oops:
 
-> Thanks Eric! Even if we try to skip NET_SKB_PAD i.e. max of 32 or
-> L1_CACHE_BYTES, SKB_DATA_ALIGN is anyway going to add some additional
-> bytes for the same reason.
->=20
-> And towards the end, as from my current understanding regarding skb
-> allocations, for MTU including alignments < 2048, there is not much t=
-o
-> worry about. As long as, it doesn't cross the boundary.
->=20
-> (And in fact, this driver doesn't even get compiled with current
-> configs, even after forcefully adding CONFIG_ISA & CONFIG_LANCE, of
-> course along with CONFIG_ISA_DMA_API. Had to change the Makefile)
+[  200.752016] kernel BUG at include/net/netns/generic.h:40!
+=2E..
+[  200.752016]  [<ffffffff825c3cea>] ? get_cfcnfg+0x3a/0x180
+[  200.752016]  [<ffffffff821cf0b0>] ? lockdep_rtnl_is_held+0x10/0x20
+[  200.752016]  [<ffffffff825c41be>] caif_device_notify+0x2e/0x530
+[  200.752016]  [<ffffffff810d61b7>] notifier_call_chain+0x67/0x110
+[  200.752016]  [<ffffffff810d67c1>] raw_notifier_call_chain+0x11/0x20
+[  200.752016]  [<ffffffff821bae82>] call_netdevice_notifiers+0x32/0x60
+[  200.752016]  [<ffffffff821c2b26>] register_netdevice+0x196/0x300
+[  200.752016]  [<ffffffff821c2ca9>] register_netdev+0x19/0x30
+[  200.752016]  [<ffffffff81c1c67a>] loopback_net_init+0x4a/0xa0
+[  200.752016]  [<ffffffff821b5e62>] ops_init+0x42/0x180
+[  200.752016]  [<ffffffff821b600b>] setup_net+0x6b/0x100
+[  200.752016]  [<ffffffff821b6466>] copy_net_ns+0x86/0x110
+[  200.752016]  [<ffffffff810d5789>] create_new_namespaces+0xd9/0x190
 
-Point is we dont need skbs at all, and we dont need NET_SKB_PAD padding
-either.
+Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+Tested-by: Sasha Levin <levinsasha928@gmail.com>
 
-Also a big blob of DMA memory (rx_buffs) is allocated but never used.
+---
 
-Best is to not touch this, since this driver is probably not anymore
-used.=20
+Hi Sasha and Dave,
 
-Dont bother.
+[Sasha]
+>Works for me.
+Thank you Sasha for reporting this bug and testing my patch,
+I appreciate it.
 
-diff --git a/drivers/net/ethernet/amd/lance.c b/drivers/net/ethernet/am=
-d/lance.c
-index a6e2e84..aa2c6cd 100644
---- a/drivers/net/ethernet/amd/lance.c
-+++ b/drivers/net/ethernet/amd/lance.c
-@@ -240,9 +240,8 @@ struct lance_private {
- 	const char *name;
- 	/* The saved address of a sent-in-place packet/buffer, for skfree(). =
-*/
- 	struct sk_buff* tx_skbuff[TX_RING_SIZE];
--	/* The addresses of receive-in-place skbuffs. */
--	struct sk_buff* rx_skbuff[RX_RING_SIZE];
--	unsigned long rx_buffs;		/* Address of Rx and Tx buffers. */
-+	/* The addresses of receive-in-place buffers. */
-+	void		*rx_buff[RX_RING_SIZE];
- 	/* Tx low-memory "bounce buffer" address. */
- 	char (*tx_bounce_buffs)[PKT_BUF_SZ];
- 	int cur_rx, cur_tx;			/* The next free ring entry */
-@@ -364,7 +363,6 @@ static void cleanup_card(struct net_device *dev)
- 		free_dma(dev->dma);
- 	release_region(dev->base_addr, LANCE_TOTAL_SIZE);
- 	kfree(lp->tx_bounce_buffs);
--	kfree((void*)lp->rx_buffs);
- 	kfree(lp);
- }
-=20
-@@ -552,10 +550,6 @@ static int __init lance_probe1(struct net_device *=
-dev, int ioaddr, int irq, int
- 	if (lance_debug > 6) printk(" (#0x%05lx)", (unsigned long)lp);
- 	dev->ml_priv =3D lp;
- 	lp->name =3D chipname;
--	lp->rx_buffs =3D (unsigned long)kmalloc(PKT_BUF_SZ*RX_RING_SIZE,
--						  GFP_DMA | GFP_KERNEL);
--	if (!lp->rx_buffs)
--		goto out_lp;
- 	if (lance_need_isa_bounce_buffers) {
- 		lp->tx_bounce_buffs =3D kmalloc(PKT_BUF_SZ*TX_RING_SIZE,
- 						  GFP_DMA | GFP_KERNEL);
-@@ -739,8 +733,6 @@ out_dma:
- out_tx:
- 	kfree(lp->tx_bounce_buffs);
- out_rx:
--	kfree((void*)lp->rx_buffs);
--out_lp:
- 	kfree(lp);
- 	return err;
- }
-@@ -842,11 +834,9 @@ lance_purge_ring(struct net_device *dev)
-=20
- 	/* Free all the skbuffs in the Rx and Tx queues. */
- 	for (i =3D 0; i < RX_RING_SIZE; i++) {
--		struct sk_buff *skb =3D lp->rx_skbuff[i];
--		lp->rx_skbuff[i] =3D NULL;
-+		kfree(lp->rx_buff[i]);
-+		lp->rx_buff[i] =3D NULL;
- 		lp->rx_ring[i].base =3D 0;		/* Not owned by LANCE chip. */
--		if (skb)
--			dev_kfree_skb_any(skb);
- 	}
- 	for (i =3D 0; i < TX_RING_SIZE; i++) {
- 		if (lp->tx_skbuff[i]) {
-@@ -868,16 +858,9 @@ lance_init_ring(struct net_device *dev, gfp_t gfp)
- 	lp->dirty_rx =3D lp->dirty_tx =3D 0;
-=20
- 	for (i =3D 0; i < RX_RING_SIZE; i++) {
--		struct sk_buff *skb;
--		void *rx_buff;
--
--		skb =3D alloc_skb(PKT_BUF_SZ, GFP_DMA | gfp);
--		lp->rx_skbuff[i] =3D skb;
--		if (skb) {
--			skb->dev =3D dev;
--			rx_buff =3D skb->data;
--		} else
--			rx_buff =3D kmalloc(PKT_BUF_SZ, GFP_DMA | gfp);
-+		void *rx_buff =3D kmalloc(PKT_BUF_SZ, GFP_DMA | gfp);
+[Dave]
+>Please post all networking patches CC:'d
+Sorry, I missed the obvious.
+I'm resending the same patch as yesterday, this time to:netdev
+and with "Tested-by: Sasha". Please apply to net.
+
+Thanks,
+Sjur
+
+ net/caif/caif_dev.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
+
+diff --git a/net/caif/caif_dev.c b/net/caif/caif_dev.c
+index 673728a..6110ade 100644
+--- a/net/caif/caif_dev.c
++++ b/net/caif/caif_dev.c
+@@ -371,6 +371,14 @@ static int caif_device_notify(struct notifier_bloc=
+k *me, unsigned long what,
+ 	struct cflayer *layer, *link_support;
+ 	int head_room =3D 0;
+ 	struct caif_device_entry_list *caifdevs;
++	int len;
 +
-+		lp->rx_buff[i] =3D rx_buff;
- 		if (rx_buff =3D=3D NULL)
- 			lp->rx_ring[i].base =3D 0;
- 		else
++	rcu_read_lock();
++	len =3D rcu_dereference(dev_net(dev)->gen)->len;
++	rcu_read_unlock();
++
++	if (caif_net_id =3D=3D 0 || caif_net_id > len)
++		return 0;
+=20
+ 	cfg =3D get_cfcnfg(dev_net(dev));
+ 	caifdevs =3D caif_device_list(dev_net(dev));
+--=20
+1.7.0.4
