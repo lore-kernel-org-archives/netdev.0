@@ -1,54 +1,55 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] netprio_cgroup.h: dont include module.h from other
- includes
-Date: Wed, 25 Jan 2012 06:59:21 -0500
-Message-ID: <20120125115921.GA26366@hmsreliant.think-freely.org>
-References: <1327440799-1057-1-git-send-email-paul.gortmaker@windriver.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: [PATCH v3 0/6] skb paged fragment destructors
+Date: Wed, 25 Jan 2012 12:26:29 +0000
+Message-ID: <1327494389.24561.316.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jdb@comx.dk,
-	eric.dumazet@gmail.com
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	<Ian.Campbell@citrix.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50003 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751710Ab2AYL7h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 06:59:37 -0500
-Content-Disposition: inline
-In-Reply-To: <1327440799-1057-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from smtp.eu.citrix.com ([62.200.22.115]:42172 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753034Ab2AYM0a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 07:26:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 24, 2012 at 04:33:19PM -0500, Paul Gortmaker wrote:
-> A considerable effort was invested in wiping out module.h
-> from being present in all the other standard includes.  This
-> one leaked back in, but once again isn't strictly necessary,
-> so remove it.
-> 
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-> 
-> ---
-> 
-> [x86-64 modconfig, yesconfig and ppc64 defconfig all build OK]
-> 
-> diff --git a/include/net/netprio_cgroup.h b/include/net/netprio_cgroup.h
-> index e503b87..7b2d431 100644
-> --- a/include/net/netprio_cgroup.h
-> +++ b/include/net/netprio_cgroup.h
-> @@ -13,7 +13,6 @@
->  
->  #ifndef _NETPRIO_CGROUP_H
->  #define _NETPRIO_CGROUP_H
-> -#include <linux/module.h>
->  #include <linux/cgroup.h>
->  #include <linux/hardirq.h>
->  #include <linux/rcupdate.h>
-> -- 
-> 1.7.7.2
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+The following series makes use of the skb fragment API (which is in 3.2)
+to add a per-paged-fragment destructor callback. This can be used by
+creators of skbs who are interested in the lifecycle of the pages
+included in that skb after they have handed it off to the network stack.
+I think these have all been posted before, but have been backed up
+behind the skb fragment API.
+
+The mail at [0] contains some more background and rationale but
+basically the completed series will allow entities which inject pages
+into the networking stack to receive a notification when the stack has
+really finished with those pages (i.e. including retransmissions,
+clones, pull-ups etc) and not just when the original skb is finished
+with, which is beneficial to many subsystems which wish to inject pages
+into the network stack without giving up full ownership of those page's
+lifecycle. It implements something broadly along the lines of what was
+described in [1].
+
+I have also included a patch to the RPC subsystem which uses this API to
+fix the bug which I describe at [2].
+
+Since last time I have removed the unnecessary void *data from the
+destructor struct and made do_tcp_sendpages take only a single
+destructor instead of an array.
+
+More importantly I have also played with the shinfo alignment and member
+ordering to ensure that the frequently used fields (including at least
+one frag) are all within the same 64 byte cache line. In order to do
+this I had to evict destructor_arg from the hot cache line -- however I
+believe this is not actually a hot field and so this is acceptable.
+
+Cheers,
+Ian.
+
+[0] http://marc.info/?l=linux-netdev&m=131072801125521&w=2
+[1] http://marc.info/?l=linux-netdev&m=130925719513084&w=2
+[2] http://marc.info/?l=linux-nfs&m=122424132729720&w=2
