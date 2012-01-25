@@ -1,139 +1,80 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: Re: [PATCH 2/3] NETFILTER module xt_hmark, new target for HASH based fwmark
-Date: Wed, 25 Jan 2012 13:28:23 +0100
-Message-ID: <201201251328.24996.hans.schillstrom@ericsson.com>
-References: <1326448338-13416-1-git-send-email-hans.schillstrom@ericsson.com> <201201251114.34774.hans.schillstrom@ericsson.com> <20120125114932.GB6842@1984>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Hans Schillstrom <hans@schillstrom.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"jengelh@medozas.de" <jengelh@medozas.de>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120125114932.GB6842@1984>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: James Chapman <jchapman@katalix.com>
+Subject: [PATCH 1/1] l2tp: l2tp_ip - fix possible oops on packet receive
+Date: Wed, 25 Jan 2012 12:39:05 +0000
+Message-ID: <1327495145-6748-1-git-send-email-jchapman@katalix.com>
+Cc: James Chapman <jchapman@katalix.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from katalix.com ([82.103.140.233]:45257 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753222Ab2AYMkJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jan 2012 07:40:09 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 25 January 2012 12:49:32 Pablo Neira Ayuso wrote:
-> On Wed, Jan 25, 2012 at 11:14:33AM +0100, Hans Schillstrom wrote:
-> > Here is help text and man page just to clarify the changes:
-> > Is this clear enough ?
-> > 
-> > HMARK target options, i.e. modify hash calculation by:
-> >   --hmark-method <method>            Overall L3/L4 and fragment behavior
-> >                  L3                  Fragment safe, do not use ports or protocol
-> >                                      i.e  Fragments don't need special care.
-> > 
-> >                  L3-4 (Default)      Fragment unsafe, use ports and protocol
-> >                                      if defrag is off in conntrack
-> >                                         no hmark produced on any part of fragments.
-> 
-> This is fine.
-> 
-> >   Limit/modify the calculated hash mark by:
-> >   --hmark-mod value                  nfmark modulus value
-> >   --hmark-offs value                 Last action add value to nfmark
->             ^^^^
-> no need to be cryptic here, just say offset.
+When a packet is received on an L2TP IP socket (L2TPv3 IP link
+encapsulation), the l2tpip socket's backlog_rcv function calls
+xfrm4_policy_check(). This is not necessary, since it was called
+before the skb was added to the backlog. With CONFIG_NET_NS enabled,
+xfrm4_policy_check() will oops if skb->dev is null, so this trivial
+patch removes the call.
 
-OK
-> 
-> >  Fine tuning of what will be included in hash calculation
-> >   --hmark-smask length               Source address mask length
->             ^^^^^
+This bug has always been present, but only when CONFIG_NET_NS is
+enabled does it cause problems. Most users are probably using UDP
+encapsulation for L2TP, hence the problem has only recently
+surfaced.
 
-OK
+EIP: 0060:[<c12bb62b>] EFLAGS: 00210246 CPU: 0
+EIP is at l2tp_ip_recvmsg+0xd4/0x2a7
+EAX: 00000001 EBX: d77b5180 ECX: 00000000 EDX: 00200246
+ESI: 00000000 EDI: d63cbd30 EBP: d63cbd18 ESP: d63cbcf4
+ DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
+Call Trace:
+ [<c1218568>] sock_common_recvmsg+0x31/0x46
+ [<c1215c92>] __sock_recvmsg_nosec+0x45/0x4d
+ [<c12163a1>] __sock_recvmsg+0x31/0x3b
+ [<c1216828>] sock_recvmsg+0x96/0xab
+ [<c10b2693>] ? might_fault+0x47/0x81
+ [<c10b2693>] ? might_fault+0x47/0x81
+ [<c1167fd0>] ? _copy_from_user+0x31/0x115
+ [<c121e8c8>] ? copy_from_user+0x8/0xa
+ [<c121ebd6>] ? verify_iovec+0x3e/0x78
+ [<c1216604>] __sys_recvmsg+0x10a/0x1aa
+ [<c1216792>] ? sock_recvmsg+0x0/0xab
+ [<c105a99b>] ? __lock_acquire+0xbdf/0xbee
+ [<c12d5a99>] ? do_page_fault+0x193/0x375
+ [<c10d1200>] ? fcheck_files+0x9b/0xca
+ [<c10d1259>] ? fget_light+0x2a/0x9c
+ [<c1216bbb>] sys_recvmsg+0x2b/0x43
+ [<c1218145>] sys_socketcall+0x16d/0x1a5
+ [<c11679f0>] ? trace_hardirqs_on_thunk+0xc/0x10
+ [<c100305f>] sysenter_do_call+0x12/0x38
+Code: c6 05 8c ea a8 c1 01 e8 0c d4 d9 ff 85 f6 74 07 3e ff 86 80 00 00 00 b9 17 b6 2b c1 ba 01 00 00 00 b8 78 ed 48 c1 e8 23 f6 d9 ff <ff> 76 0c 68 28 e3 30 c1 68 2d 44 41 c1 e8 89 57 01 00 83 c4 0c
 
-> 
-> I'd say hmark-src-mask to keep it consistent with the options in
-> iptables.
-> 
-> >   --hmark-dmask length               Dest address mask length
-> 
-> hmark-dst-mask
-OK
-> 
-> >   --hmark-sp-mask value              Mask src port with value
-> 
-> hmark-sport-mask
-OK
-> 
-> >   --hmark-dp-mask value              Mask dst port with value
-> 
-> hmark-dport-mask
-OK
-> 
-> >   --hmark-spi-mask value             For esp and ah AND spi with value
-> 
-> hmark-ah-spi-mask
-No, it is for esp as well so I think spi is enough
+Signed-off-by: James Chapman <jchapman@katalix.com>
 
-> 
-> >   --hmark-sp-set value               OR src port with value
-> 
-> hmark-sport-or
-> 
-> >   --hmark-dp-set value               OR dst port with value
-> 
-> hmark-dport-or
-> 
-> >   --hmark-spi-set value              For esp and ah OR spi with value
-> 
-> These three can be useful? Providing lots of options is fine, but they
-> may confuse users. What do we gain from this?
-> 
-> In other words, is it possible to deploy consistent hashing with some
-> sane configuration using these options?
+---
 
-Ex if you want stickiness between ports ex 80 and 443
-iptables  -p tcp --dport 443 -j HMARK --sport-mask 0 --dport-set 80 ....
-iptables  ...  -j HMARK --sport-mask 0 ....
+Push to stable trees too?
+---
+ net/l2tp/l2tp_ip.c |    5 -----
+ 1 files changed, 0 insertions(+), 5 deletions(-)
 
-Usefull or not that can be discussed.
->From my point of view it's not a "MUST"
-
-> 
-> >   --hmark-proto-mask value           Mask Protocol with value
->                                        ^^^^^^^^^^^ ^^^ ^^^ ^^^^
-> useful?
-Yes, stickiness between protocols (in most cases --sport-mask needs to be zero)
-ex sip uses both TCP and UDP port 5060
-
-> 
-> >   --hmark-rnd                        Initial Random value to hash cacl.
-> >  For NAT in IPv4 the original address can be used in the return path.
-> 
-> We'll have IPv6 NAT soon. Please, make sure we can extend HMARK to
-> support IPv6 support.
-
-Sure, allready tesed.
-
-> 
-> >  Make sure to qualify the statement in a proper way when using nat flags
-> 
-> this description is fine. I'd propose to change the option names
-> below:
-> 
-> >   --hmark-dnat                       Replace src addr with original dst addr
-> >   --hmark-snat                       Replace dst addr with original src addr
-> 
-> better:
-> 
-> --hmark-ct-orig-src
-> --hmark-ct-orig-dst
-
-I agree, thanks
-
-> 
-> >  In many cases hmark can be omitted i.e. --smask can be used
-> 
-> Thanks again.
-> 
-
+diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
+index d21e7eb..55670ec 100644
+--- a/net/l2tp/l2tp_ip.c
++++ b/net/l2tp/l2tp_ip.c
+@@ -393,11 +393,6 @@ static int l2tp_ip_backlog_recv(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int rc;
+ 
+-	if (!xfrm4_policy_check(sk, XFRM_POLICY_IN, skb))
+-		goto drop;
+-
+-	nf_reset(skb);
+-
+ 	/* Charge it to the socket, dropping if the queue is full. */
+ 	rc = sock_queue_rcv_skb(sk, skb);
+ 	if (rc < 0)
 -- 
-Regards
-Hans Schillstrom <hans.schillstrom@ericsson.com>
+1.7.0.4
