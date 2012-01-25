@@ -1,28 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch v4, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
- multipoint GRE over IP
-Date: Tue, 24 Jan 2012 23:02:03 -0500 (EST)
-Message-ID: <20120124.230203.1478271172075708903.davem@davemloft.net>
-References: <20120123.134352.1621146585245670953.davem@davemloft.net>
-	<CAGsizzJnQ6b6eSC0ZnAtFguU7_xDfWFPSY6L4DWXc24F+Ts2XQ@mail.gmail.com>
-	<CAOzFzEjE7b-Y+_vOWeBKbHDkURRcYXomSTcwB91vKHVWQxBVsg@mail.gmail.com>
+Subject: Re: [patch v3, kernel version 3.2.1] Source mode for macvlan
+ interface
+Date: Tue, 24 Jan 2012 23:03:54 -0500 (EST)
+Message-ID: <20120124.230354.1696063062900108959.davem@davemloft.net>
+References: <12446987.2261327416407141.JavaMail.root@5-MeO-DMT.ynet.sk>
+	<25119746.2341327416953583.JavaMail.root@5-MeO-DMT.ynet.sk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steweg@ynet.sk, eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joseph.glanville@orionvm.com.au
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: steweg@ynet.sk
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOzFzEjE7b-Y+_vOWeBKbHDkURRcYXomSTcwB91vKHVWQxBVsg@mail.gmail.com>
+In-Reply-To: <25119746.2341327416953583.JavaMail.root@5-MeO-DMT.ynet.sk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joseph Glanville <joseph.glanville@orionvm.com.au>
-Date: Wed, 25 Jan 2012 14:48:37 +1100
+From: Stefan Gula <steweg@ynet.sk>
+Date: Tue, 24 Jan 2012 15:55:53 +0100 (CET)
 
-> The reason why this patch is useful is that it stands to be the only
-> true mulitpoint L2 VPN with a kernel space forwarding plane.
+> diff -uprN -X linux/Documentation/dontdiff linux-3.2.1-orig/net/core/rtnetlink.c linux/net/core/rtnetlink.c
+> --- linux-3.2.1-orig/net/core/rtnetlink.c	2012-01-12 20:42:45.000000000 +0100
+> +++ linux/net/core/rtnetlink.c	2012-01-24 14:26:58.083219352 +0100
+> @@ -1506,6 +1506,9 @@ errout:
+>  
+>  	if (send_addr_notify)
+>  		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+> +	min_ifinfo_dump_size = max_t(u16, if_nlmsg_size(dev),
+> +					min_ifinfo_dump_size);
+> +
 
-So what you're telling me is that I added this huge openvswitch
-thing essentially for nothing?
+What is this?  And whatever it is why isn't it 1) described in the
+commit message and why isn't it 2) in a seperate patch if it's
+unrelated to this macvlan change?
+
+I'm not apply this patch as it is right now, it needs some sort of
+change.
