@@ -1,46 +1,54 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 5/5] NFS: pass transport net to rpc_pton() while parse server
- name
-Date: Thu, 26 Jan 2012 15:12:05 +0400
-Message-ID: <20120126111205.8386.64056.stgit@localhost6.localdomain6>
+From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: [PATCH 4/5] NFS: pass current net to rpc_pton() while parsing mount
+ options
+Date: Thu, 26 Jan 2012 15:11:57 +0400
+Message-ID: <20120126111157.8386.76201.stgit@localhost6.localdomain6>
 References: <20120126110955.8386.34551.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbottomley@parallels.com, bfields@fieldses.org,
-	davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120126110955.8386.34551.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120126110955.8386.34551.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
 
 ---
- fs/nfs/nfs4namespace.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ fs/nfs/super.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/fs/nfs/nfs4namespace.c b/fs/nfs/nfs4namespace.c
-index 48a9acd..667ea74 100644
---- a/fs/nfs/nfs4namespace.c
-+++ b/fs/nfs/nfs4namespace.c
-@@ -97,11 +97,11 @@ static size_t nfs_parse_server_name(char *string, size_t len,
- 		struct sockaddr *sa, size_t salen, struct nfs_server *server)
- {
- 	ssize_t ret;
-+	struct net *net = server->client->cl_xprt->xprt_net;
- 
--	ret = rpc_pton(&init_net, string, len, sa, salen);
-+	ret = rpc_pton(net, string, len, sa, salen);
- 	if (ret == 0) {
--		ret = nfs_dns_resolve_name(server->client->cl_xprt->xprt_net,
--					   string, len, sa, salen);
-+		ret = nfs_dns_resolve_name(net, string, len, sa, salen);
- 		if (ret < 0)
- 			ret = 0;
- 	}
+diff --git a/fs/nfs/super.c b/fs/nfs/super.c
+index b79f2a1..5ed6071 100644
+--- a/fs/nfs/super.c
++++ b/fs/nfs/super.c
+@@ -1408,7 +1408,7 @@ static int nfs_parse_mount_options(char *raw,
+ 			if (string == NULL)
+ 				goto out_nomem;
+ 			mnt->nfs_server.addrlen =
+-				rpc_pton(&init_net, string, strlen(string),
++				rpc_pton(mnt->net, string, strlen(string),
+ 					(struct sockaddr *)
+ 					&mnt->nfs_server.address,
+ 					sizeof(mnt->nfs_server.address));
+@@ -1430,7 +1430,7 @@ static int nfs_parse_mount_options(char *raw,
+ 			if (string == NULL)
+ 				goto out_nomem;
+ 			mnt->mount_server.addrlen =
+-				rpc_pton(&init_net, string, strlen(string),
++				rpc_pton(mnt->net, string, strlen(string),
+ 					(struct sockaddr *)
+ 					&mnt->mount_server.address,
+ 					sizeof(mnt->mount_server.address));
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
