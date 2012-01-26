@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/12] e1000e: use hardware default values for Transmit Control register
-Date: Wed, 25 Jan 2012 23:21:54 -0800
-Message-ID: <1327562515-29664-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/12] e1000e: use default settings for Tx Inter Packet Gap timer
+Date: Wed, 25 Jan 2012 23:21:53 -0800
+Message-ID: <1327562515-29664-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:17059 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:63115 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751705Ab2AZHWC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751700Ab2AZHWC (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 26 Jan 2012 02:22:02 -0500
 In-Reply-To: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,52 +18,84 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-This code snippet is simply writing default values to the register which is
-unnecessary since the values are programmed into the register by default.
-There is a special case for 80003es2lan needing the Retransmit on Late
-Collision bit set but that is also done in e1000_init_hw_80003es2lan().
+Use the default hardware values for TIPG except for 80003es2lan(*).  The
+code that is removed in this patch is either unnecessarily writing the TIPG
+register with the hardware default values for some devices (82571/2/3/4) or
+writing the wrong value for others (ICH/PCH LOMs).  The only change in
+functionality is setting the correct default TIPG for the latter devices.
+
+(*) The correct value for 80003es2lan is already set properly in
+e1000_init_hw_80003es2lan() and e1000_cfg_kmrn_{10_100|1000}_80003es2lan(),
+and the unused flag FLAG_TIPG_MEDIUM_FOR_80003ESLAN is removed.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c |   10 +---------
- 1 files changed, 1 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c |    3 +--
+ drivers/net/ethernet/intel/e1000e/e1000.h       |    2 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c      |   15 +--------------
+ 3 files changed, 3 insertions(+), 17 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.c b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
+index e1159e5..b3a235c 100644
+--- a/drivers/net/ethernet/intel/e1000e/80003es2lan.c
++++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
+@@ -1502,8 +1502,7 @@ const struct e1000_info e1000_es2_info = {
+ 				  | FLAG_RX_NEEDS_RESTART /* errata */
+ 				  | FLAG_TARC_SET_BIT_ZERO /* errata */
+ 				  | FLAG_APME_CHECK_PORT_B
+-				  | FLAG_DISABLE_FC_PAUSE_TIME /* errata */
+-				  | FLAG_TIPG_MEDIUM_FOR_80003ESLAN,
++				  | FLAG_DISABLE_FC_PAUSE_TIME, /* errata */
+ 	.flags2			= FLAG2_DMA_BURST,
+ 	.pba			= 38,
+ 	.max_hw_frame_size	= DEFAULT_JUMBO,
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index db604cd..4b3a276 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -430,7 +430,7 @@ struct e1000_info {
+ #define FLAG_HAS_SMART_POWER_DOWN         (1 << 11)
+ #define FLAG_IS_QUAD_PORT_A               (1 << 12)
+ #define FLAG_IS_QUAD_PORT                 (1 << 13)
+-#define FLAG_TIPG_MEDIUM_FOR_80003ESLAN   (1 << 14)
++/* reserved bit14 */
+ #define FLAG_APME_IN_WUC                  (1 << 15)
+ #define FLAG_APME_IN_CTRL3                (1 << 16)
+ #define FLAG_APME_CHECK_PORT_B            (1 << 17)
 diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index fb29990..89af6c0 100644
+index 6081dee..fb29990 100644
 --- a/drivers/net/ethernet/intel/e1000e/netdev.c
 +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -2770,7 +2770,7 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
+@@ -2770,8 +2770,7 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
  	struct e1000_hw *hw = &adapter->hw;
  	struct e1000_ring *tx_ring = adapter->tx_ring;
  	u64 tdba;
--	u32 tdlen, tctl, tarc;
-+	u32 tdlen, tarc;
+-	u32 tdlen, tctl, tipg, tarc;
+-	u32 ipgr1, ipgr2;
++	u32 tdlen, tctl, tarc;
  
  	/* Setup the HW Tx Head and Tail descriptor pointers */
  	tdba = tx_ring->dma;
-@@ -2808,12 +2808,6 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	/* erratum work around: set txdctl the same for both queues */
- 	ew32(TXDCTL(1), er32(TXDCTL(0)));
+@@ -2784,18 +2783,6 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
+ 	tx_ring->head = adapter->hw.hw_addr + E1000_TDH;
+ 	tx_ring->tail = adapter->hw.hw_addr + E1000_TDT;
  
--	/* Program the Transmit Control Register */
--	tctl = er32(TCTL);
--	tctl &= ~E1000_TCTL_CT;
--	tctl |= E1000_TCTL_PSP | E1000_TCTL_RTLC |
--		(E1000_COLLISION_THRESHOLD << E1000_CT_SHIFT);
+-	/* Set the default values for the Tx Inter Packet Gap timer */
+-	tipg = DEFAULT_82543_TIPG_IPGT_COPPER;          /*  8  */
+-	ipgr1 = DEFAULT_82543_TIPG_IPGR1;               /*  8  */
+-	ipgr2 = DEFAULT_82543_TIPG_IPGR2;               /*  6  */
 -
- 	if (adapter->flags & FLAG_TARC_SPEED_MODE_BIT) {
- 		tarc = er32(TARC(0));
- 		/*
-@@ -2845,8 +2839,6 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	/* enable Report Status bit */
- 	adapter->txd_cmd |= E1000_TXD_CMD_RS;
- 
--	ew32(TCTL, tctl);
+-	if (adapter->flags & FLAG_TIPG_MEDIUM_FOR_80003ESLAN)
+-		ipgr2 = DEFAULT_80003ES2LAN_TIPG_IPGR2; /*  7  */
 -
- 	e1000e_config_collision_dist(hw);
- }
- 
+-	tipg |= ipgr1 << E1000_TIPG_IPGR1_SHIFT;
+-	tipg |= ipgr2 << E1000_TIPG_IPGR2_SHIFT;
+-	ew32(TIPG, tipg);
+-
+ 	/* Set the Tx Interrupt Delay register */
+ 	ew32(TIDV, adapter->tx_int_delay);
+ 	/* Tx irq moderation */
 -- 
 1.7.7.6
