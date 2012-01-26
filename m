@@ -1,28 +1,45 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH] fix ip_gre lockless xmits
-Date: Thu, 26 Jan 2012 16:50:40 -0500
-Message-ID: <CA+FuTSdXCi-iHGw-3cHX0aD+VYw0C7GmxKHJucimF9C7h-CzeA@mail.gmail.com>
-References: <1327610075-5833-1-git-send-email-willemb@google.com> <1327611491.4140.12.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Glauber Costa <glommer@parallels.com>
+Subject: [PATCH] net: explicitly add jump_label.h header to sock.h
+Date: Fri, 27 Jan 2012 02:09:28 +0400
+Message-ID: <1327615768-13709-1-git-send-email-glommer@parallels.com>
+Cc: geert@linux-m68k.org, netdev@vger.kernel.org, sfr@canb.auug.org.au,
+	Glauber Costa <glommer@parallels.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:62079 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754025Ab2AZVvM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2012 16:51:12 -0500
-Received: by lagu2 with SMTP id u2so601678lag.19
-        for <netdev@vger.kernel.org>; Thu, 26 Jan 2012 13:51:10 -0800 (PST)
-In-Reply-To: <1327611491.4140.12.camel@edumazet-laptop>
+Received: from mailhub.sw.ru ([195.214.232.25]:25982 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752333Ab2AZWJr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jan 2012 17:09:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> ip link add gre34 type gre remote 1.2.3.4
->
-> I was not aware of the "ip tunnel add ..."
+Commit 36a1211970193ce215de50ed1e4e1272bc814df1 removed linux/module.h
+include statement from one of the headers that end up in net/sock.h.
+It was providing us with static_branch() definition implicitly, so
+after its removal the build got broken.
 
-And I was unaware of that method. Interesting. That explains the
-alternative codepath in rtnetlink.c. `ip link help` does not mention
-gre or gretap on its list of supported types, even though they work.
-Thanks for having a look!
+To fix this, and avoid having this happening in the future,
+let me do the right thing and include linux/jump_label.h
+explicitly in sock.h.
+
+Signed-off-by: Glauber Costa <glommer@parallels.com>
+Reported-by: Randy Dunlap <rdunlap@xenotime.net>
+CC: David S. Miller <davem@davemloft.net>
+---
+ include/net/sock.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 4c69ac1..91c1c8b 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -55,6 +55,7 @@
+ #include <linux/uaccess.h>
+ #include <linux/memcontrol.h>
+ #include <linux/res_counter.h>
++#include <linux/jump_label.h>
+ 
+ #include <linux/filter.h>
+ #include <linux/rculist_nulls.h>
+-- 
+1.7.7.4
