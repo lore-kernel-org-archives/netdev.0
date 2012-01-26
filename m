@@ -1,118 +1,114 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/12] e1000e: default IntMode based on kernel config & available hardware support
-Date: Wed, 25 Jan 2012 23:21:50 -0800
-Message-ID: <1327562515-29664-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/12] e1000e: cleanup Rx checksum offload code
+Date: Wed, 25 Jan 2012 23:21:44 -0800
+Message-ID: <1327562515-29664-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Jin Qing <b24347@freescale.com>,
-	Prabhakar Kushwaha <prabhakar@freescale.com>,
-	Kumar Gala <galak@kernel.crashing.org>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:63115 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:54466 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751601Ab2AZHWB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jan 2012 02:22:01 -0500
+	id S1751138Ab2AZHV6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jan 2012 02:21:58 -0500
 In-Reply-To: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Based on a patch from Prabhakar Kushwaha <prabhakar@freescale.com>, set
-appropriate default interrupt mode dependent on whether CONFIG_PCI_MSI
-is enabled in the kernel configuration and if the hardware supports
-MSI-X.  Set the module parameter log message accordingly.
+1) cleanup whitespace in e1000_rx_checksum() function header comment
+2) do not check hardware checksum when Rx checksum is disabled
+3) reduce duplicated calls to le16_to_cpu() by just using it within
+   e1000_rx_checksum() instead of in each call to the function
+
+v2: use swab16 instead of le16_to_cpu & htons and corrected type for the
+passed-in csum
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Cc: Jin Qing <b24347@freescale.com>
-Cc: Prabhakar Kushwaha <prabhakar@freescale.com>
-Cc: Jin Qing <b24347@freescale.com>
-Cc: Kumar Gala <galak@kernel.crashing.org>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/param.c |   48 ++++++++++++++++++++++++----
- 1 files changed, 41 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c |   27 +++++++++++++++------------
+ 1 files changed, 15 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/param.c b/drivers/net/ethernet/intel/e1000e/param.c
-index 20e93b0..40664f5 100644
---- a/drivers/net/ethernet/intel/e1000e/param.c
-+++ b/drivers/net/ethernet/intel/e1000e/param.c
-@@ -113,11 +113,20 @@ E1000_PARAM(InterruptThrottleRate, "Interrupt Throttling Rate");
- #define MAX_ITR 100000
- #define MIN_ITR 100
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 3911401..263bf5f 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -487,22 +487,27 @@ static void e1000_receive_skb(struct e1000_adapter *adapter,
  
--/* IntMode (Interrupt Mode)
-+/*
-+ * IntMode (Interrupt Mode)
-+ *
-+ * Valid Range: varies depending on kernel configuration & hardware support
-+ *
-+ * legacy=0, MSI=1, MSI-X=2
-  *
-- * Valid Range: 0 - 2
-+ * When MSI/MSI-X support is enabled in kernel-
-+ *   Default Value: 2 (MSI-X) when supported by hardware, 1 (MSI) otherwise
-+ * When MSI/MSI-X support is not enabled in kernel-
-+ *   Default Value: 0 (legacy)
-  *
-- * Default Value: 2 (MSI-X)
-+ * When a mode is specified that is not allowed/supported, it will be
-+ * demoted to the most advanced interrupt mode available.
-  */
- E1000_PARAM(IntMode, "Interrupt Mode");
- #define MAX_INTMODE	2
-@@ -388,12 +397,33 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 		static struct e1000_option opt = {
- 			.type = range_option,
- 			.name = "Interrupt Mode",
--			.err  = "defaulting to 2 (MSI-X)",
--			.def  = E1000E_INT_MODE_MSIX,
--			.arg  = { .r = { .min = MIN_INTMODE,
--					 .max = MAX_INTMODE } }
-+#ifndef CONFIG_PCI_MSI
-+			.err  = "defaulting to 0 (legacy)",
-+			.def  = E1000E_INT_MODE_LEGACY,
-+			.arg  = { .r = { .min = 0,
-+					 .max = 0 } }
-+#endif
- 		};
+ /**
+  * e1000_rx_checksum - Receive Checksum Offload
+- * @adapter:     board private structure
+- * @status_err:  receive descriptor status and error fields
+- * @csum:	receive descriptor csum field
+- * @sk_buff:     socket buffer with received data
++ * @adapter: board private structure
++ * @status_err: receive descriptor status and error fields
++ * @csum: receive descriptor csum field
++ * @sk_buff: socket buffer with received data
+  **/
+ static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
+-			      u32 csum, struct sk_buff *skb)
++			      __le16 csum, struct sk_buff *skb)
+ {
+ 	u16 status = (u16)status_err;
+ 	u8 errors = (u8)(status_err >> 24);
  
-+#ifdef CONFIG_PCI_MSI
-+		if (adapter->flags & FLAG_HAS_MSIX) {
-+			opt.err = kstrdup("defaulting to 2 (MSI-X)",
-+					  GFP_KERNEL);
-+			opt.def = E1000E_INT_MODE_MSIX;
-+			opt.arg.r.max = E1000E_INT_MODE_MSIX;
-+		} else {
-+			opt.err = kstrdup("defaulting to 1 (MSI)", GFP_KERNEL);
-+			opt.def = E1000E_INT_MODE_MSI;
-+			opt.arg.r.max = E1000E_INT_MODE_MSI;
-+		}
+ 	skb_checksum_none_assert(skb);
+ 
++	/* Rx checksum disabled */
++	if (!(adapter->netdev->features & NETIF_F_RXCSUM))
++		return;
 +
-+		if (!opt.err) {
-+			dev_err(&adapter->pdev->dev,
-+				"Failed to allocate memory\n");
-+			return;
-+		}
-+#endif
+ 	/* Ignore Checksum bit is set */
+ 	if (status & E1000_RXD_STAT_IXSM)
+ 		return;
 +
- 		if (num_IntMode > bd) {
- 			unsigned int int_mode = IntMode[bd];
- 			e1000_validate_option(&int_mode, &opt, adapter);
-@@ -401,6 +431,10 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 		} else {
- 			adapter->int_mode = opt.def;
- 		}
-+
-+#ifdef CONFIG_PCI_MSI
-+		kfree(opt.err);
-+#endif
+ 	/* TCP/UDP checksum error bit is set */
+ 	if (errors & E1000_RXD_ERR_TCPE) {
+ 		/* let the stack verify checksum errors */
+@@ -524,7 +529,7 @@ static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
+ 		 * Hardware complements the payload checksum, so we undo it
+ 		 * and then put the value in host order for further stack use.
+ 		 */
+-		__sum16 sum = (__force __sum16)htons(csum);
++		__sum16 sum = (__force __sum16)swab16((__force u16)csum);
+ 		skb->csum = csum_unfold(~sum);
+ 		skb->ip_summed = CHECKSUM_COMPLETE;
  	}
- 	{ /* Smart Power Down */
- 		static const struct e1000_option opt = {
+@@ -957,8 +962,7 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
+ 
+ 		/* Receive Checksum Offload */
+ 		e1000_rx_checksum(adapter, staterr,
+-				  le16_to_cpu(rx_desc->wb.lower.hi_dword.
+-					      csum_ip.csum), skb);
++				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
+ 
+ 		e1000_receive_skb(adapter, netdev, skb, staterr,
+ 				  rx_desc->wb.upper.vlan);
+@@ -1318,8 +1322,8 @@ copydone:
+ 		total_rx_bytes += skb->len;
+ 		total_rx_packets++;
+ 
+-		e1000_rx_checksum(adapter, staterr, le16_to_cpu(
+-			rx_desc->wb.lower.hi_dword.csum_ip.csum), skb);
++		e1000_rx_checksum(adapter, staterr,
++				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
+ 
+ 		if (rx_desc->wb.upper.header_status &
+ 			   cpu_to_le16(E1000_RXDPS_HDRSTAT_HDRSP))
+@@ -1491,8 +1495,7 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
+ 
+ 		/* Receive Checksum Offload XXX recompute due to CRC strip? */
+ 		e1000_rx_checksum(adapter, staterr,
+-				  le16_to_cpu(rx_desc->wb.lower.hi_dword.
+-					      csum_ip.csum), skb);
++				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
+ 
+ 		/* probably a little skewed due to removing CRC */
+ 		total_rx_bytes += skb->len;
 -- 
 1.7.7.6
