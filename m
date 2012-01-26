@@ -1,50 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 4/3] sha512: reduce stack usage even on i386
-Date: Thu, 26 Jan 2012 13:35:02 +1100
-Message-ID: <20120126023502.GA10696@gondor.apana.org.au>
-References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF43@saturn3.aculab.com> <1326709382.2255.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <CACVxJT_cZAdxNOFTpK5seUXFZU+YB3zbe6LF1nnyzo32ae14xw@mail.gmail.com> <20120118180210.GA22733@p183.telecom.by>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch v1, kernel 3.2.1] RTNETLINK adjusting values of
+ min_ifinfo_dump_size
+Date: Wed, 25 Jan 2012 21:36:09 -0500 (EST)
+Message-ID: <20120125.213609.1699401522361877843.davem@davemloft.net>
+References: <30372884.681327480899559.JavaMail.root@5-MeO-DMT.ynet.sk>
+	<26709175.701327480995351.JavaMail.root@5-MeO-DMT.ynet.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@aculab.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	ken@codelabs.ch, Steffen Klassert <steffen.klassert@secunet.com>,
-	security@kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:36577 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751356Ab2AZCfR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 21:35:17 -0500
-Content-Disposition: inline
-In-Reply-To: <20120118180210.GA22733@p183.telecom.by>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: steweg@ynet.sk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <26709175.701327480995351.JavaMail.root@5-MeO-DMT.ynet.sk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 18, 2012 at 09:02:10PM +0300, Alexey Dobriyan wrote:
-> Fix still excessive stack usage on i386.
-> 
-> There is too much loop unrolling going on, despite W[16] being used,
-> gcc screws up this for some reason. So, don't be smart, use simple code
-> from SHA-512 definition, this keeps code size _and_ stack usage back
-> under control even on i386:
-> 
-> 	-14b:   81 ec 9c 03 00 00       sub    $0x39c,%esp
-> 	+149:   81 ec 64 01 00 00       sub    $0x164,%esp
-> 
-> 	$ size ../sha512_generic-i386-00*
-> 	   text    data     bss     dec     hex filename
-> 	  15521     712       0   16233    3f69 ../sha512_generic-i386-000.o
-> 	   4225     712       0    4937    1349 ../sha512_generic-i386-001.o
-> 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-> Cc: stable@vger.kernel.org
+From: Stefan Gula <steweg@ynet.sk>
+Date: Wed, 25 Jan 2012 09:43:15 +0100 (CET)
 
-Hmm, your patch doesn't apply against my crypto tree.  Please
-regenerate.
+> From: Stefan Gula <steweg@gmail.com>
+> 
+> This patch extends the rtnetlink.c. The problem is that calcit, which
+> returns the value min_ifinfo_dump_size, is called without ability to
+> get device info as well (struct net_device *dev is not accessible from
+> it). This create a problem if required size of struct sk_buff *skb is
+> not enough big to comply with all data returned by fill_info function
+> for the interface that required size can vary over time, e.g. some
+> dynamic structures will be putted to skb like hlists or lists. To do
+> this patch extends the do_setlink function with recalculating of
+> min_ifinfo_dump_size accordingly to device type and get_size
+> functions.
+> 
+> Signed-off-by: Stefan Gula <steweg@gmail.com>
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+This commit message is terrible, and the reason I know it's terrible
+is because even after reading it I still had to go read the code
+in order to understand what your change even does or why it's even
+necessary.
+
+How about this:
+
+	Setting link parameters on a netdevice changes the value
+	of if_nlmsg_size(), therefore it is necessary to recalculate
+	min_ifinfo_dump_size.
