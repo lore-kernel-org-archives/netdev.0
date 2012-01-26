@@ -1,64 +1,62 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 1/2] ipv4/ipv6: Prepare for new route gateway semantics.
-Date: Fri, 27 Jan 2012 06:24:18 +0900
-Message-ID: <4F21C482.4070707@linux-ipv6.org>
-References: <20120126.155544.2054995753871805122.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/12][pull request] Intel Wired LAN Driver Updates
+Date: Thu, 26 Jan 2012 16:27:38 -0500 (EST)
+Message-ID: <20120126.162738.2094745130469060767.davem@davemloft.net>
+References: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20120126.134913.1527199339049684070.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:42958 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751301Ab2AZVYV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2012 16:24:21 -0500
-In-Reply-To: <20120126.155544.2054995753871805122.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34713 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751301Ab2AZV1p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2012 16:27:45 -0500
+In-Reply-To: <20120126.134913.1527199339049684070.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: David Miller <davem@davemloft.net>
+Date: Thu, 26 Jan 2012 13:49:13 -0500 (EST)
 
-David Miller wrote:
->
-> In the future the ipv4/ipv6 route gateway will take on two types
-> of values:
->
-> 1) INADDR_ANY/IN6ADDR_ANY, for local network routes, and in this case
->     the neighbour must be obtained using the destination address in
->     ipv4/ipv6 header as the lookup key.
->
-> 2) Everything else, the actual nexthop route address.
->
-> So if the gateway is not inaddr-any we use it, otherwise we must use
-> the packet's destination address.
->
-> Signed-off-by: David S. Miller<davem@davemloft.net>
-> ---
->   net/ipv4/route.c |    5 +++++
->   net/ipv6/route.c |   16 +++++++++++++++-
->   2 files changed, 20 insertions(+), 1 deletions(-)
->
-:
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 8c2e3ab..7d7f306 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -121,9 +121,23 @@ static u32 *ipv6_cow_metrics(struct dst_entry *dst, unsigned long old)
->   	return p;
->   }
->
-> +static inline const void *choose_neigh_daddr(struct rt6_info *rt, const void *daddr)
-> +{
-> +	struct in6_addr *p =&rt->rt6i_gateway;
-> +
-> +	if (p->s6_addr32[0] | p->s6_addr32[1] |
-> +	    p->s6_addr32[2] | p->s6_addr32[3])
-> +		return (const void *) p;
-> +	return daddr;
-> +}
-> +
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Wed, 25 Jan 2012 23:21:43 -0800
+> 
+>> The following are changes since commit e55684fadbc5c9c69cad1b3bae228c8374b99b85:
+>>   infiniband: nes: Convert nes_addr_resolve_neigh() over to dst_neigh_lookup().
+>> and are available in the git repository at:
+>>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+ ...
+> Pulled, thanks Jeff.
 
-Why not use ipv6_addr_any()?
+I had to apply the following patch to fix the build on non-x86
+architectures.
 
---yoshfuji
+--------------------
+e1000e: Need to include vmalloc.h
+
+Otherwise (on sparc64):
+
+drivers/net/ethernet/intel/e1000e/ethtool.c:657:3: error: implicit declaration of function 'vmalloc' [-Werror=implicit-function-declaration]
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/intel/e1000e/ethtool.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
+index ffb6c14..1ea317f 100644
+--- a/drivers/net/ethernet/intel/e1000e/ethtool.c
++++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
+@@ -34,6 +34,7 @@
+ #include <linux/pci.h>
+ #include <linux/slab.h>
+ #include <linux/delay.h>
++#include <linux/vmalloc.h>
+ 
+ #include "e1000.h"
+ 
+-- 
+1.7.7.6
