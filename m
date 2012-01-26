@@ -1,157 +1,237 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 2/2] net caif:  Register properly as a pernet subsystem.
-Date: Thu, 26 Jan 2012 16:04:53 -0800
-Message-ID: <m1aa5ac8nu.fsf_-_@fess.ebiederm.org>
-References: <4F212E7E.2040801@parallels.com>
-	<1327575108.2500.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<m1zkdacbsx.fsf@fess.ebiederm.org>
-	<20120126.180754.679593869814492219.davem@davemloft.net>
-	<m1ehumc8r4.fsf_-_@fess.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, xemul@parallels.com,
-	sjur.brandeland@stericsson.com, levinsasha928@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davej@redhat.com, sjurbren@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <m1ehumc8r4.fsf_-_@fess.ebiederm.org> (Eric W. Biederman's
-	message of "Thu, 26 Jan 2012 16:02:55 -0800")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Erich E. Hoover" <ehoover@mines.edu>
+Subject: [PATCH] Implement IP_UNICAST_IF socket option.
+Date: Thu, 26 Jan 2012 16:57:48 -0700
+Message-ID: <1327622268-15602-1-git-send-email-ehoover@mines.edu>
+Cc: "Erich E. Hoover" <ehoover@mines.edu>
+To: Linux Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from izzard.Mines.EDU ([138.67.132.197]:57175 "EHLO izzard.mines.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752011Ab2A0Axd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jan 2012 19:53:33 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-caif is a subsystem and as such it needs to register with
-register_pernet_subsys instead of register_pernet_device.
+The IP_UNICAST_IF feature is needed by the Wine project.  This patch implements the feature by setting the outgoing interface in the same fashion as that of IP_PKTINFO.
 
-Among other problems using register_pernet_device was resulting in
-net_generic being called before the caif_net structure was allocated.
-Which has been causing net_generic to fail with either BUG_ON's or by
-return NULL pointers.
-
-A more ugly problem that could be caused is packets in flight why the
-subsystem is shutting down.
-
-To remove confusion also remove the cruft cause by inappropriately
-trying to fix this bug.
-
-With the aid of the previous patch I have tested this patch and
-confirmed that using register_pernet_subsys makes the failure go away as
-it should.
-
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+Signed-off-by: Erich E. Hoover <ehoover@mines.edu>
 ---
- net/caif/caif_dev.c |   22 ++--------------------
- net/caif/cfcnfg.c   |    1 -
- 2 files changed, 2 insertions(+), 21 deletions(-)
+ include/linux/in.h      |    1 +
+ include/net/inet_sock.h |    3 ++
+ include/net/ip.h        |    2 +-
+ net/ipv4/af_inet.c      |    3 ++
+ net/ipv4/ip_sockglue.c  |   78 ++++++++++++++++++++++++++++++++++++++++++++++-
+ net/ipv4/ping.c         |    2 +-
+ net/ipv4/raw.c          |    2 +-
+ net/ipv4/udp.c          |    2 +-
+ 8 files changed, 88 insertions(+), 5 deletions(-)
 
-diff --git a/net/caif/caif_dev.c b/net/caif/caif_dev.c
-index 673728a..82c5706 100644
---- a/net/caif/caif_dev.c
-+++ b/net/caif/caif_dev.c
-@@ -59,8 +59,6 @@ struct cfcnfg *get_cfcnfg(struct net *net)
- {
- 	struct caif_net *caifn;
- 	caifn = net_generic(net, caif_net_id);
--	if (!caifn)
--		return NULL;
- 	return caifn->cfg;
+diff --git a/include/linux/in.h b/include/linux/in.h
+index 01129c0..89f6682 100644
+--- a/include/linux/in.h
++++ b/include/linux/in.h
+@@ -86,6 +86,7 @@ struct in_addr {
+ 
+ #define IP_MINTTL       21
+ #define IP_NODEFRAG     22
++#define IP_UNICAST_IF   23
+ 
+ /* IP_MTU_DISCOVER values */
+ #define IP_PMTUDISC_DONT		0	/* Never send DF frames */
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index e3e4051..1a8fe64 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -132,6 +132,7 @@ struct rtable;
+  * @tos - TOS
+  * @mc_ttl - Multicasting TTL
+  * @is_icsk - is this an inet_connection_sock?
++ * @outif_index - Outgoing device index
+  * @mc_index - Multicast device index
+  * @mc_list - Group array
+  * @cork - info to build ip hdr on each ip frag while socket is corked
+@@ -167,6 +168,8 @@ struct inet_sock {
+ 				transparent:1,
+ 				mc_all:1,
+ 				nodefrag:1;
++	int			outif_index;
++	__be32			outif_addr;
+ 	int			mc_index;
+ 	__be32			mc_addr;
+ 	struct ip_mc_socklist __rcu	*mc_list;
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 775009f..16f7151 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -452,7 +452,7 @@ extern int ip_options_rcv_srr(struct sk_buff *skb);
+ 
+ extern void	ipv4_pktinfo_prepare(struct sk_buff *skb);
+ extern void	ip_cmsg_recv(struct msghdr *msg, struct sk_buff *skb);
+-extern int	ip_cmsg_send(struct net *net,
++extern int	ip_cmsg_send(struct sock *sk,
+ 			     struct msghdr *msg, struct ipcm_cookie *ipc);
+ extern int	ip_setsockopt(struct sock *sk, int level, int optname, char __user *optval, unsigned int optlen);
+ extern int	ip_getsockopt(struct sock *sk, int level, int optname, char __user *optval, int __user *optlen);
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index f7b5670..44b1622 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -375,6 +375,9 @@ lookup_protocol:
+ 	sk->sk_protocol	   = protocol;
+ 	sk->sk_backlog_rcv = sk->sk_prot->backlog_rcv;
+ 
++	inet->outif_index  = 0;
++	inet->outif_addr   = 0;
++
+ 	inet->uc_ttl	= -1;
+ 	inet->mc_loop	= 1;
+ 	inet->mc_ttl	= 1;
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index 8aa87c1..b99da51 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -186,11 +186,20 @@ void ip_cmsg_recv(struct msghdr *msg, struct sk_buff *skb)
  }
- EXPORT_SYMBOL(get_cfcnfg);
-@@ -69,8 +67,6 @@ static struct caif_device_entry_list *caif_device_list(struct net *net)
+ EXPORT_SYMBOL(ip_cmsg_recv);
+ 
+-int ip_cmsg_send(struct net *net, struct msghdr *msg, struct ipcm_cookie *ipc)
++int ip_cmsg_send(struct sock *sk, struct msghdr *msg, struct ipcm_cookie *ipc)
  {
- 	struct caif_net *caifn;
- 	caifn = net_generic(net, caif_net_id);
--	if (!caifn)
--		return NULL;
- 	return &caifn->caifdevs;
- }
- 
-@@ -99,8 +95,6 @@ static struct caif_device_entry *caif_device_alloc(struct net_device *dev)
- 	struct caif_device_entry *caifd;
- 
- 	caifdevs = caif_device_list(dev_net(dev));
--	if (!caifdevs)
--		return NULL;
- 
- 	caifd = kzalloc(sizeof(*caifd), GFP_KERNEL);
- 	if (!caifd)
-@@ -120,8 +114,6 @@ static struct caif_device_entry *caif_get(struct net_device *dev)
- 	struct caif_device_entry_list *caifdevs =
- 	    caif_device_list(dev_net(dev));
- 	struct caif_device_entry *caifd;
--	if (!caifdevs)
--		return NULL;
- 
- 	list_for_each_entry_rcu(caifd, &caifdevs->list, list) {
- 		if (caifd->netdev == dev)
-@@ -321,8 +313,6 @@ void caif_enroll_dev(struct net_device *dev, struct caif_dev_common *caifdev,
- 	struct caif_device_entry_list *caifdevs;
- 
- 	caifdevs = caif_device_list(dev_net(dev));
--	if (!cfg || !caifdevs)
--		return;
- 	caifd = caif_device_alloc(dev);
- 	if (!caifd)
- 		return;
-@@ -374,8 +364,6 @@ static int caif_device_notify(struct notifier_block *me, unsigned long what,
- 
- 	cfg = get_cfcnfg(dev_net(dev));
- 	caifdevs = caif_device_list(dev_net(dev));
--	if (!cfg || !caifdevs)
--		return 0;
- 
- 	caifd = caif_get(dev);
- 	if (caifd == NULL && dev->type != ARPHRD_CAIF)
-@@ -507,9 +495,6 @@ static struct notifier_block caif_device_notifier = {
- static int caif_init_net(struct net *net)
- {
- 	struct caif_net *caifn = net_generic(net, caif_net_id);
--	if (WARN_ON(!caifn))
--		return -EINVAL;
--
- 	INIT_LIST_HEAD(&caifn->caifdevs.list);
- 	mutex_init(&caifn->caifdevs.lock);
- 
-@@ -527,9 +512,6 @@ static void caif_exit_net(struct net *net)
- 	    caif_device_list(net);
- 	struct cfcnfg *cfg =  get_cfcnfg(net);
- 
--	if (!cfg || !caifdevs)
--		return;
--
- 	rtnl_lock();
- 	mutex_lock(&caifdevs->lock);
- 
-@@ -569,7 +551,7 @@ static int __init caif_device_init(void)
- {
- 	int result;
- 
--	result = register_pernet_device(&caif_net_ops);
-+	result = register_pernet_subsys(&caif_net_ops);
- 
- 	if (result)
- 		return result;
-@@ -582,7 +564,7 @@ static int __init caif_device_init(void)
- 
- static void __exit caif_device_exit(void)
- {
--	unregister_pernet_device(&caif_net_ops);
-+	unregister_pernet_subsys(&caif_net_ops);
- 	unregister_netdevice_notifier(&caif_device_notifier);
- 	dev_remove_pack(&caif_packet_type);
- }
-diff --git a/net/caif/cfcnfg.c b/net/caif/cfcnfg.c
-index 598aafb..ba9cfd4 100644
---- a/net/caif/cfcnfg.c
-+++ b/net/caif/cfcnfg.c
-@@ -309,7 +309,6 @@ int caif_connect_client(struct net *net, struct caif_connect_request *conn_req,
++	struct net *net = sock_net(sk);
++	struct inet_sock *inet = inet_sk(sk);
  	int err;
- 	struct cfctrl_link_param param;
- 	struct cfcnfg *cfg = get_cfcnfg(net);
--	caif_assert(cfg != NULL);
+ 	struct cmsghdr *cmsg;
  
- 	rcu_read_lock();
- 	err = caif_connect_req_to_link_param(cfg, conn_req, &param);
++	/* set the outgoing interface from IP_UNICAST_IF */
++	if (inet->outif_index || inet->outif_addr)
++	{
++		ipc->oif = inet->outif_index;
++		ipc->addr = inet->outif_addr;
++	}
++
+ 	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
+ 		if (!CMSG_OK(msg, cmsg))
+ 			return -EINVAL;
+@@ -628,6 +637,60 @@ static int do_ip_setsockopt(struct sock *sk, int level,
+ 			goto e_inval;
+ 		inet->mc_loop = !!val;
+ 		break;
++
++	case IP_UNICAST_IF:
++	{
++		struct ip_mreqn mreq;
++		struct net_device *dev = NULL;
++
++		/*
++		 *	Check the arguments are allowable
++		 */
++
++		if (optlen < sizeof(struct in_addr))
++			goto e_inval;
++
++		err = -EFAULT;
++		if (optlen >= sizeof(struct ip_mreqn)) {
++			if (copy_from_user(&mreq, optval, sizeof(mreq)))
++				break;
++		} else {
++			memset(&mreq, 0, sizeof(mreq));
++			if (optlen >= sizeof(struct in_addr) &&
++			    copy_from_user(&mreq.imr_address, optval,
++					   sizeof(struct in_addr)))
++				break;
++		}
++
++		if (!mreq.imr_ifindex) {
++			if (mreq.imr_address.s_addr == htonl(INADDR_ANY)) {
++				inet->outif_index = 0;
++				inet->outif_addr  = 0;
++				err = 0;
++				break;
++			}
++			dev = ip_dev_find(sock_net(sk), mreq.imr_address.s_addr);
++			if (dev)
++				mreq.imr_ifindex = dev->ifindex;
++		} else
++			dev = dev_get_by_index(sock_net(sk), mreq.imr_ifindex);
++
++
++		err = -EADDRNOTAVAIL;
++		if (!dev)
++			break;
++		dev_put(dev);
++
++		err = -EINVAL;
++		if (sk->sk_bound_dev_if &&
++		    mreq.imr_ifindex != sk->sk_bound_dev_if)
++			break;
++
++		inet->outif_index = mreq.imr_ifindex;
++		inet->outif_addr  = mreq.imr_address.s_addr;
++		err = 0;
++		break;
++	}
+ 	case IP_MULTICAST_IF:
+ 	{
+ 		struct ip_mreqn mreq;
+@@ -1178,6 +1241,19 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+ 	case IP_MULTICAST_LOOP:
+ 		val = inet->mc_loop;
+ 		break;
++	case IP_UNICAST_IF:
++	{
++		struct in_addr addr;
++		len = min_t(unsigned int, len, sizeof(struct in_addr));
++		addr.s_addr = inet->outif_addr;
++		release_sock(sk);
++
++		if (put_user(len, optlen))
++			return -EFAULT;
++		if (copy_to_user(optval, &addr, len))
++			return -EFAULT;
++		return 0;
++	}
+ 	case IP_MULTICAST_IF:
+ 	{
+ 		struct in_addr addr;
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index aea5a19..fffdc44 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -517,7 +517,7 @@ static int ping_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		return err;
+ 
+ 	if (msg->msg_controllen) {
+-		err = ip_cmsg_send(sock_net(sk), msg, &ipc);
++		err = ip_cmsg_send(sk, msg, &ipc);
+ 		if (err)
+ 			return err;
+ 		if (ipc.opt)
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 3ccda5a..0aea6c7 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -518,7 +518,7 @@ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	ipc.oif = sk->sk_bound_dev_if;
+ 
+ 	if (msg->msg_controllen) {
+-		err = ip_cmsg_send(sock_net(sk), msg, &ipc);
++		err = ip_cmsg_send(sk, msg, &ipc);
+ 		if (err)
+ 			goto out;
+ 		if (ipc.opt)
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 5d075b5..e95c9d4 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -874,7 +874,7 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	if (err)
+ 		return err;
+ 	if (msg->msg_controllen) {
+-		err = ip_cmsg_send(sock_net(sk), msg, &ipc);
++		err = ip_cmsg_send(sk, msg, &ipc);
+ 		if (err)
+ 			return err;
+ 		if (ipc.opt)
 -- 
-1.7.2.5
+1.7.5.4
