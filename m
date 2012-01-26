@@ -1,94 +1,46 @@
-From: Andy Isaacson <adi@hexapodia.org>
-Subject: Re: e1000e: repeated eth0: Error reading PHY register
-Date: Thu, 26 Jan 2012 15:19:13 -0800
-Message-ID: <20120126231913.GB24483@hexapodia.org>
-References: <20120125092101.GA10626@hexapodia.org>
-	<804857E1F29AAC47BF68C404FC60A1842437C3@ORSMSX102.amr.corp.intel.com>
-	<20120125191616.GJ21370@hexapodia.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] netns: fix net_alloc_generic()
+Date: Thu, 26 Jan 2012 15:57:18 -0800
+Message-ID: <m1liouc90h.fsf@fess.ebiederm.org>
+References: <4F212E7E.2040801@parallels.com>
+	<1327575108.2500.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<m1zkdacbsx.fsf@fess.ebiederm.org>
+	<20120126.180754.679593869814492219.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <20120125191616.GJ21370@hexapodia.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, xemul@parallels.com,
+	sjur.brandeland@stericsson.com, levinsasha928@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davej@redhat.com, sjurbren@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120126.180754.679593869814492219.davem@davemloft.net> (David
+	Miller's message of "Thu, 26 Jan 2012 18:07:54 -0500 (EST)")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 25, 2012 at 11:16:16AM -0800, Andy Isaacson wrote:
-> On Wed, Jan 25, 2012 at 05:00:29PM +0000, Allan, Bruce W wrote:
-> > >On my Thinkpad X201s running 3.3-rc1 I'm seeing bursts of these:
-> > >
-> > >[ 1270.207370] e1000e 0000:00:19.0: eth0: Error reading PHY register
-> > 
-> > Please file a bug with this information at
-> > http://sourceforge.net/tracker/?group_id=42302&atid=447449
-> 
-> Man sourceforge sure has jumped the shark; their signup form requires
-> "job title" and "company size".  I wonder how many other CEOs of 20,000+
-> employee companies bother to report ethernet driver bugs.
-> 
-> And we don't have "bugs", we have "artifacts".  Sigh.
-> 
-> Anyways, here you go:
-> https://sourceforge.net/tracker/?func=detail&aid=3479714&group_id=42302&atid=447449
+David Miller <davem@davemloft.net> writes:
 
-Hi Bruce,
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Thu, 26 Jan 2012 14:57:02 -0800
+>
+>> It is not a chicken and egg problem.  It is a bug in caif.
+>> caif is claiming to be a network device when it is acting as a subsytem.
+>> That means it is being initialized too late.
+>> 
+>> Untested but this should trivially fix the problem, and a bunch
+>> of others of the same ilk.
+>> 
+>> It is not safe to shutdown subsystems until all of the devices
+>> are gone, otherwise there will be problems with packets in flight.
+>
+> If you guys can agree that this is the better fix, and we can
+> get testing showing that it works, I'll revert Eric D.'s patch
+> and apply the final version of this one.
 
-Please stop requiring us to use the sourceforge issue tracker.
+Eric D.'s change is correct, but it is just an optimization of
+net_assign_generic.  Eric D.'s change is not a bug fix.
 
-1. It requires answers to irrelevant and annoying questions to create an
-account (which is required to report or comment on bugs).
+Tested fix in a moment.
 
-2. It doesn't properly handle whitespace-aligned text, making the bug
-history very annoying to read.  And the font it chooses doesn't
-distinguish between l, I, and 1.
-
-3. the email it sends me shows my text with ^M (yes, two bytes, caret M,
-in a text/plain, charset=UTF-8, quoted-printable message body) at the
-lineendings.  I don't even want to speculate how they managed to fuck
-that up.
-
-4. the email it sends contains the entire bug:
-
-[1000 lines of Description text]
-[newest comment]
-[previous comment]
-...
-[oldest comment]
-
-So you have to navigate to the middle of the email to find the new text.
-
-5. It does not support comment-via-email.
-
-Not related to the issue tracker per se, but also annoying:
-
-6. Your engineers want me to triage using some out-of-tree driver with
-some vendor-specific custom install process.  I am happy to test git
-trees or apply patches, but I don't have time or inclination to deal
-with vendor build+install scripts.
-
-Thanks,
--andy
-
-------------------------------------------------------------------------------
-Keep Your Developer Skills Current with LearnDevNow!
-The most comprehensive online learning library for Microsoft developers
-is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
-Metro Style Apps, more. Free future releases when you subscribe now!
-http://p.sf.net/sfu/learndevnow-d2d
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Eric
