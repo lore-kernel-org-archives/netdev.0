@@ -1,35 +1,46 @@
-From: "clark.khadige1" <clark.khadige1@usj.edu.lb>
-Subject: Loan Offer
-Date: Thu, 26 Jan 2012 04:54:31 +0200
-Message-ID: <20120126025317.M90861@usj.edu.lb>
-Reply-To: loan_solution200@live.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [BISECTED] Linux 3.2: Networking out of LAN does not work
+Date: Thu, 26 Jan 2012 07:01:13 +0100
+Message-ID: <1327557673.2605.22.camel@edumazet-laptop>
+References: <OF0BD4E9BA.3C3D7E41-ONC1257990.0034993D-C1257990.0034B2CE@bdpnet.dk>
+	 <1327484459.2425.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1327489531.2425.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20120125.214146.1725158231070595211.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=iso-8859-1
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: rum@bankdata.dk, netdev@vger.kernel.org, mihai.maruseac@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rectorat2.usj.edu.lb ([193.227.187.140]:46597 "EHLO
-	Citrus.usj.edu.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751104Ab2AZExK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 23:53:10 -0500
+Received: from mail-we0-f174.google.com ([74.125.82.174]:48431 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750837Ab2AZGBS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2012 01:01:18 -0500
+Received: by werb13 with SMTP id b13so124753wer.19
+        for <netdev@vger.kernel.org>; Wed, 25 Jan 2012 22:01:16 -0800 (PST)
+In-Reply-To: <20120125.214146.1725158231070595211.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Customer, 
+Le mercredi 25 janvier 2012 =C3=A0 21:41 -0500, David Miller a =C3=A9cr=
+it :
 
-Loan Solution Team, help you to change the way you live.Arranging a loan with us is 
-simple and straight forward,loans from any amount to $5,000 to $2,000,000.00 over 5 to 
-30 years.we make the process convenient and fast.Our interest rate is 3% APR Typical 
-variable and this means that all of our clients pay this rate.
-FULL NAMES:
-COUNTRY:
-AGE: 
-MONTHLY INCOME:
-OCCUPATION:
-PHONE NUMBER:
-MOBILE PHONE NUMBER:
-AMOUNT NEEDED
-LOAN DURATION/PERIOD:
-PURPOSE OF LOAN:
-Email:loan_solution200@live.com
-Mrs.Terry Clerk
+> Sorry, we never promised to list devices in any particular order,
+> any such dependency is a bug and must be fixed instead of papered
+> around by the kernel.
+>=20
+> This same issue came up for routes too once we deleted fib_hash
+> and fib_trie listed them in a different order.
+>=20
+> I'm not applying this.
+
+
+I once hit this exact issue with a legacy commercial product using a
+licence based on MAC address, and could fix it using a custom
+"ifconfig", since last ifconfig versions sort the device list before
+output.
+
+I personally dont care, but apparently Rune spent time to bisect the
+problem. I presumed it was an issue for him.
+
+Since Rune didnt answer to my mail, I wont argue with you :)
