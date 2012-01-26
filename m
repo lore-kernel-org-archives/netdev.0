@@ -1,39 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netns: fix net_alloc_generic()
-Date: Thu, 26 Jan 2012 13:37:22 -0500 (EST)
-Message-ID: <20120126.133722.1476758144256840158.davem@davemloft.net>
-References: <CA+1xoqe+Qa1OByj7z7XzAPG_g9+BmNj9NPZR=_5b_MTEmc9Chw@mail.gmail.com>
-	<1327523631-3480-1-git-send-email-sjur.brandeland@stericsson.com>
-	<1327574498.2500.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: [PATCH 0/10] bnx2x: Physical Device Assignment patch series
+Date: Thu, 26 Jan 2012 13:40:08 -0500 (EST)
+Message-ID: <20120126.134008.2243344280479968595.davem@davemloft.net>
+References: <1327593714-18358-1-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sjur.brandeland@stericsson.com, levinsasha928@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davej@redhat.com, sjurbren@gmail.com, ebiederm@xmission.com,
-	xemul@openvz.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1327574498.2500.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: ariele@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:33423 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753500Ab2AZSkM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2012 13:40:12 -0500
+In-Reply-To: <1327593714-18358-1-git-send-email-ariele@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 26 Jan 2012 11:41:38 +0100
+From: "Ariel Elior" <ariele@broadcom.com>
+Date: Thu, 26 Jan 2012 18:01:44 +0200
 
-> [PATCH] netns: fix net_alloc_generic()
-> 
-> When a new net namespace is created, we should attach to it a "struct
-> net_generic" with enough slots (even empty), or we can hit the following
-> BUG_ON() :
-> 
-...
-> net_alloc_generic() should take into account the maximum index into the
-> ptr array, as a subsystem might use net_generic() anytime.
-> 
-> This also reduces number of reallocations in net_assign_generic()
-> 
-> Reported-by: Sasha Levin <levinsasha928@gmail.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Patch number 1 Introduces support for multiple traffic classes for the 5771xx hardware.
+> Patches 2 through 9 Allow using the bnx2x driver in environments supporting Physical Device Assignment.
+> Patch 10 Updates the version to 1.72.0 and advances the copyright to include 2012.
 
-Applied and queued up for -stable, thanks.
+ALl applied, thanks.
