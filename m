@@ -1,8 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 2/5] NFS: build fixed in case of NFS_USE_NEW_IDMAPPER is
- undefined
-Date: Thu, 26 Jan 2012 15:11:41 +0400
-Message-ID: <20120126111141.8386.95788.stgit@localhost6.localdomain6>
+Subject: [PATCH 5/5] NFS: pass transport net to rpc_pton() while parse server
+ name
+Date: Thu, 26 Jan 2012 15:12:05 +0400
+Message-ID: <20120126111205.8386.64056.stgit@localhost6.localdomain6>
 References: <20120126110955.8386.34551.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -22,18 +22,25 @@ List-Id: netdev.vger.kernel.org
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- fs/nfs/idmap.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ fs/nfs/nfs4namespace.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/fs/nfs/idmap.c b/fs/nfs/idmap.c
-index aed3d2e..04f58d4 100644
---- a/fs/nfs/idmap.c
-+++ b/fs/nfs/idmap.c
-@@ -378,6 +378,7 @@ int nfs_map_gid_to_group(const struct nfs_server *server, __u32 gid, char *buf,
+diff --git a/fs/nfs/nfs4namespace.c b/fs/nfs/nfs4namespace.c
+index 48a9acd..667ea74 100644
+--- a/fs/nfs/nfs4namespace.c
++++ b/fs/nfs/nfs4namespace.c
+@@ -97,11 +97,11 @@ static size_t nfs_parse_server_name(char *string, size_t len,
+ 		struct sockaddr *sa, size_t salen, struct nfs_server *server)
+ {
+ 	ssize_t ret;
++	struct net *net = server->client->cl_xprt->xprt_net;
  
- #include "nfs4_fs.h"
- #include "internal.h"
-+#include "netns.h"
- 
- #define IDMAP_HASH_SZ          128
- 
+-	ret = rpc_pton(&init_net, string, len, sa, salen);
++	ret = rpc_pton(net, string, len, sa, salen);
+ 	if (ret == 0) {
+-		ret = nfs_dns_resolve_name(server->client->cl_xprt->xprt_net,
+-					   string, len, sa, salen);
++		ret = nfs_dns_resolve_name(net, string, len, sa, salen);
+ 		if (ret < 0)
+ 			ret = 0;
+ 	}
