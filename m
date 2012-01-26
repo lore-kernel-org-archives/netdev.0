@@ -1,95 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] caif: Fix crash due to uninitialized net name-space.
-Date: Thu, 26 Jan 2012 07:14:18 +0100
-Message-ID: <1327558458.2605.23.camel@edumazet-laptop>
-References: <CA+1xoqe+Qa1OByj7z7XzAPG_g9+BmNj9NPZR=_5b_MTEmc9Chw@mail.gmail.com>
-	 <1327523631-3480-1-git-send-email-sjur.brandeland@stericsson.com>
+From: Rune Magnussen <rum@bankdata.dk>
+Subject: Re: [BISECTED] Linux 3.2: Networking out of LAN does not work
+Date: Thu, 26 Jan 2012 08:14:46 +0100
+Message-ID: <OF554BAA9F.77CBC8B6-ONC1257991.00272C08-C1257991.0027CE20@bdpnet.dk>
+References: <1327489531.2425.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: levinsasha928@gmail.com, netdev@vger.kernel.org,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	davej@redhat.com, sjurbren@gmail.com
-To: Sjur =?ISO-8859-1?Q?Br=E6ndeland?=
-	<sjur.brandeland@stericsson.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:42852 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751318Ab2AZGOY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2012 01:14:24 -0500
-In-Reply-To: <1327523631-3480-1-git-send-email-sjur.brandeland@stericsson.com>
+Received: from mx4.bankdata.dk ([194.239.188.13]:37287 "HELO mx4.bankdata.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751010Ab2AZHO7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jan 2012 02:14:59 -0500
+In-Reply-To: <1327489531.2425.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 25 janvier 2012 =C3=A0 21:33 +0100, Sjur Br=C3=A6ndeland a =
-=C3=A9crit :
-> net_generic() calls BUG_ON() if called with uninitialized
-> network name-space. Add check if net is initialized before
-> calling net_generic(). This fixes the following oops:
->=20
-> [  200.752016] kernel BUG at include/net/netns/generic.h:40!
-> ...
-> [  200.752016]  [<ffffffff825c3cea>] ? get_cfcnfg+0x3a/0x180
-> [  200.752016]  [<ffffffff821cf0b0>] ? lockdep_rtnl_is_held+0x10/0x20
-> [  200.752016]  [<ffffffff825c41be>] caif_device_notify+0x2e/0x530
-> [  200.752016]  [<ffffffff810d61b7>] notifier_call_chain+0x67/0x110
-> [  200.752016]  [<ffffffff810d67c1>] raw_notifier_call_chain+0x11/0x2=
-0
-> [  200.752016]  [<ffffffff821bae82>] call_netdevice_notifiers+0x32/0x=
-60
-> [  200.752016]  [<ffffffff821c2b26>] register_netdevice+0x196/0x300
-> [  200.752016]  [<ffffffff821c2ca9>] register_netdev+0x19/0x30
-> [  200.752016]  [<ffffffff81c1c67a>] loopback_net_init+0x4a/0xa0
-> [  200.752016]  [<ffffffff821b5e62>] ops_init+0x42/0x180
-> [  200.752016]  [<ffffffff821b600b>] setup_net+0x6b/0x100
-> [  200.752016]  [<ffffffff821b6466>] copy_net_ns+0x86/0x110
-> [  200.752016]  [<ffffffff810d5789>] create_new_namespaces+0xd9/0x190
->=20
-> Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
-> Tested-by: Sasha Levin <levinsasha928@gmail.com>
->=20
+Eric Dumazet <eric.dumazet@gmail.com> 
+Sendt af: netdev-owner@vger.kernel.org
+25-01-2012 12:06
+58efa841-5316-9749-1633-85629e363385
+
+Til
+Rune Magnussen <rum@bankdata.dk>, David Miller <davem@davemloft.net>
+cc
+netdev@vger.kernel.org, Mihai Maruseac <mihai.maruseac@gmail.com>
+Emne
+Re: [BISECTED] Linux 3.2: Networking out of LAN does not work
+
+
+
+
+
+
+
+> OK please test the following patch.
+
+> [PATCH] net: use index hash for /proc/net/dev
+
+> Commit f04565ddf52e (dev: use name hash for dev_seq_ops) added a
+> regression for legacy apps expecting to find devices in a particular
+> order.
+
+> Instead of using name hash, we can use dev_index_head hash, based on
+> device index, to not change device ordering.
+
+> Name hash order is not particularly useful, while index ordering is
+> meaningful on machines where no more than 256 devices are ever created.
+
+> "cat /proc/net/dev" and "ip link" will output devices in same order.
+
+> Reported-by: Rune Magnussen <rum@bankdata.dk>
+> Bisected-by: Rune Magnussen <rum@bankdata.dk>
+> Cc: Mihai Maruseac <mihai.maruseac@gmail.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 > ---
->=20
-> Hi Sasha and Dave,
->=20
-> [Sasha]
-> >Works for me.
-> Thank you Sasha for reporting this bug and testing my patch,
-> I appreciate it.
->=20
-> [Dave]
-> >Please post all networking patches CC:'d
-> Sorry, I missed the obvious.
-> I'm resending the same patch as yesterday, this time to:netdev
-> and with "Tested-by: Sasha". Please apply to net.
->=20
-> Thanks,
-> Sjur
->=20
->  net/caif/caif_dev.c |    8 ++++++++
->  1 files changed, 8 insertions(+), 0 deletions(-)
->=20
-> diff --git a/net/caif/caif_dev.c b/net/caif/caif_dev.c
-> index 673728a..6110ade 100644
-> --- a/net/caif/caif_dev.c
-> +++ b/net/caif/caif_dev.c
-> @@ -371,6 +371,14 @@ static int caif_device_notify(struct notifier_bl=
-ock *me, unsigned long what,
->  	struct cflayer *layer, *link_support;
->  	int head_room =3D 0;
->  	struct caif_device_entry_list *caifdevs;
-> +	int len;
-> +
-> +	rcu_read_lock();
-> +	len =3D rcu_dereference(dev_net(dev)->gen)->len;
-> +	rcu_read_unlock();
-> +
-> +	if (caif_net_id =3D=3D 0 || caif_net_id > len)
-> +		return 0;
-> =20
->  	cfg =3D get_cfcnfg(dev_net(dev));
->  	caifdevs =3D caif_device_list(dev_net(dev));
+> net/core/dev.c |    4 ++--
+> 1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 115dee1..c58dba3 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -4052,9 +4052,9 @@ static inline struct net_device 
+*dev_from_same_bucket(struct seq_file *seq)
+> 
+>                bucket = get_bucket(state->pos);
+>                offset = get_offset(state->pos);
+> -              h = &net->dev_name_head[bucket];
+> +              h = dev_index_hash(net, bucket);
+>                count = 0;
+> -              hlist_for_each_entry_rcu(dev, p, h, name_hlist) {
+> +              hlist_for_each_entry_rcu(dev, p, h, index_hlist) {
+>                                if (count++ == offset) {
+>                                                state->pos = 
+set_bucket_offset(bucket, count);
+>                                                return dev;
+>
 
-This looks wrong.
+The patch works for me. I applied it on top of v3.2.1 and it fixed my 
+problem.
+I have not tested it on other computers yet.
 
-This should not be needed, something is broken elsewhere.
+Greetings Rune
