@@ -1,259 +1,34 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/12] e1000e: convert head, tail and itr_register offsets to __iomem pointers
-Date: Wed, 25 Jan 2012 23:21:47 -0800
-Message-ID: <1327562515-29664-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Rune Magnussen <rum@bankdata.dk>
+Subject: Re: [BISECTED] Linux 3.2: Networking out of LAN does not work
+Date: Thu, 26 Jan 2012 08:55:15 +0100
+Message-ID: <OF622688C3.48635D7E-ONC1257991.002B0EF8-C1257991.002B82CA@bdpnet.dk>
+References: <20120125.214146.1725158231070595211.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:54466 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751088Ab2AZHV7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jan 2012 02:21:59 -0500
-In-Reply-To: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mx4.bankdata.dk ([194.239.188.13]:40099 "HELO mx4.bankdata.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751242Ab2AZHzX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jan 2012 02:55:23 -0500
+In-Reply-To: <20120125.214146.1725158231070595211.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 25 Jan 2012 12:05:31 +0100
 
-The Tx/Rx head and tail registers and itr_register are always at known
-addresses based on the __iomem address at which the PCI region (from BAR 0)
-is mapped and known offsets within the region for each of these registers.
-Store and use the full address rather than just the region offset to reduce
-unnecessary address calculations.  Also, change current u8 __iomem pointers
-to void __iomem pointers.
+>> OK please test the following patch.
+>> 
+>> [PATCH] net: use index hash for /proc/net/dev
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/e1000.h  |    6 ++--
- drivers/net/ethernet/intel/e1000e/hw.h     |    4 +-
- drivers/net/ethernet/intel/e1000e/netdev.c |   53 +++++++++++++--------------
- 3 files changed, 31 insertions(+), 32 deletions(-)
+> Sorry, we never promised to list devices in any particular order,
+> any such dependency is a bug and must be fixed instead of papered
+> around by the kernel.
 
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index f478a22..f6ac197 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -242,8 +242,8 @@ struct e1000_ring {
- 	u16 next_to_use;
- 	u16 next_to_clean;
- 
--	u16 head;
--	u16 tail;
-+	void __iomem *head;
-+	void __iomem *tail;
- 
- 	/* array of buffer information structs */
- 	struct e1000_buffer *buffer_info;
-@@ -251,7 +251,7 @@ struct e1000_ring {
- 	char name[IFNAMSIZ + 5];
- 	u32 ims_val;
- 	u32 itr_val;
--	u16 itr_register;
-+	void __iomem *itr_register;
- 	int set_itr;
- 
- 	struct sk_buff *rx_skb_top;
-diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index 93c349e..a15da47 100644
---- a/drivers/net/ethernet/intel/e1000e/hw.h
-+++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -969,8 +969,8 @@ struct e1000_dev_spec_ich8lan {
- struct e1000_hw {
- 	struct e1000_adapter *adapter;
- 
--	u8 __iomem *hw_addr;
--	u8 __iomem *flash_address;
-+	void __iomem *hw_addr;
-+	void __iomem *flash_address;
- 
- 	struct e1000_mac_info  mac;
- 	struct e1000_fc_info   fc;
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index b196d79..462bdee 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -550,7 +550,7 @@ static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
-  * which has bit 24 set while ME is accessing Host CSR registers, wait
-  * if it is set and try again a number of times.
-  **/
--static inline s32 e1000e_update_tail_wa(struct e1000_hw *hw, u8 __iomem * tail,
-+static inline s32 e1000e_update_tail_wa(struct e1000_hw *hw, void __iomem *tail,
- 					unsigned int i)
- {
- 	unsigned int j = 0;
-@@ -569,10 +569,9 @@ static inline s32 e1000e_update_tail_wa(struct e1000_hw *hw, u8 __iomem * tail,
- 
- static void e1000e_update_rdt_wa(struct e1000_adapter *adapter, unsigned int i)
- {
--	u8 __iomem *tail = (adapter->hw.hw_addr + adapter->rx_ring->tail);
- 	struct e1000_hw *hw = &adapter->hw;
- 
--	if (e1000e_update_tail_wa(hw, tail, i)) {
-+	if (e1000e_update_tail_wa(hw, adapter->rx_ring->tail, i)) {
- 		u32 rctl = er32(RCTL);
- 		ew32(RCTL, rctl & ~E1000_RCTL_EN);
- 		e_err("ME firmware caused invalid RDT - resetting\n");
-@@ -582,10 +581,9 @@ static void e1000e_update_rdt_wa(struct e1000_adapter *adapter, unsigned int i)
- 
- static void e1000e_update_tdt_wa(struct e1000_adapter *adapter, unsigned int i)
- {
--	u8 __iomem *tail = (adapter->hw.hw_addr + adapter->tx_ring->tail);
- 	struct e1000_hw *hw = &adapter->hw;
- 
--	if (e1000e_update_tail_wa(hw, tail, i)) {
-+	if (e1000e_update_tail_wa(hw, adapter->tx_ring->tail, i)) {
- 		u32 tctl = er32(TCTL);
- 		ew32(TCTL, tctl & ~E1000_TCTL_EN);
- 		e_err("ME firmware caused invalid TDT - resetting\n");
-@@ -651,7 +649,7 @@ map_skb:
- 			if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
- 				e1000e_update_rdt_wa(adapter, i);
- 			else
--				writel(i, adapter->hw.hw_addr + rx_ring->tail);
-+				writel(i, rx_ring->tail);
- 		}
- 		i++;
- 		if (i == rx_ring->count)
-@@ -754,8 +752,7 @@ static void e1000_alloc_rx_buffers_ps(struct e1000_adapter *adapter,
- 			if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
- 				e1000e_update_rdt_wa(adapter, i << 1);
- 			else
--				writel(i << 1,
--				       adapter->hw.hw_addr + rx_ring->tail);
-+				writel(i << 1, rx_ring->tail);
- 		}
- 
- 		i++;
-@@ -841,7 +838,7 @@ check_page:
- 		if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
- 			e1000e_update_rdt_wa(adapter, i);
- 		else
--			writel(i, adapter->hw.hw_addr + rx_ring->tail);
-+			writel(i, rx_ring->tail);
- 	}
- }
- 
-@@ -1076,8 +1073,8 @@ static void e1000_print_hw_hang(struct work_struct *work)
- 	      "PHY 1000BASE-T Status  <%x>\n"
- 	      "PHY Extended Status    <%x>\n"
- 	      "PCI Status             <%x>\n",
--	      readl(adapter->hw.hw_addr + tx_ring->head),
--	      readl(adapter->hw.hw_addr + tx_ring->tail),
-+	      readl(tx_ring->head),
-+	      readl(tx_ring->tail),
- 	      tx_ring->next_to_use,
- 	      tx_ring->next_to_clean,
- 	      tx_ring->buffer_info[eop].time_stamp,
-@@ -1617,8 +1614,8 @@ static void e1000_clean_rx_ring(struct e1000_adapter *adapter)
- 	rx_ring->next_to_use = 0;
- 	adapter->flags2 &= ~FLAG2_IS_DISCARDING;
- 
--	writel(0, adapter->hw.hw_addr + rx_ring->head);
--	writel(0, adapter->hw.hw_addr + rx_ring->tail);
-+	writel(0, rx_ring->head);
-+	writel(0, rx_ring->tail);
- }
- 
- static void e1000e_downshift_workaround(struct work_struct *work)
-@@ -1814,7 +1811,7 @@ static irqreturn_t e1000_intr_msix_rx(int irq, void *data)
- 	 */
- 	if (adapter->rx_ring->set_itr) {
- 		writel(1000000000 / (adapter->rx_ring->itr_val * 256),
--		       adapter->hw.hw_addr + adapter->rx_ring->itr_register);
-+		       adapter->rx_ring->itr_register);
- 		adapter->rx_ring->set_itr = 0;
- 	}
- 
-@@ -1855,9 +1852,9 @@ static void e1000_configure_msix(struct e1000_adapter *adapter)
- 	adapter->eiac_mask |= rx_ring->ims_val;
- 	if (rx_ring->itr_val)
- 		writel(1000000000 / (rx_ring->itr_val * 256),
--		       hw->hw_addr + rx_ring->itr_register);
-+		       rx_ring->itr_register);
- 	else
--		writel(1, hw->hw_addr + rx_ring->itr_register);
-+		writel(1, rx_ring->itr_register);
- 	ivar = E1000_IVAR_INT_ALLOC_VALID | vector;
- 
- 	/* Configure Tx vector */
-@@ -1865,9 +1862,9 @@ static void e1000_configure_msix(struct e1000_adapter *adapter)
- 	vector++;
- 	if (tx_ring->itr_val)
- 		writel(1000000000 / (tx_ring->itr_val * 256),
--		       hw->hw_addr + tx_ring->itr_register);
-+		       tx_ring->itr_register);
- 	else
--		writel(1, hw->hw_addr + tx_ring->itr_register);
-+		writel(1, tx_ring->itr_register);
- 	adapter->eiac_mask |= tx_ring->ims_val;
- 	ivar |= ((E1000_IVAR_INT_ALLOC_VALID | vector) << 8);
- 
-@@ -1982,7 +1979,8 @@ static int e1000_request_msix(struct e1000_adapter *adapter)
- 			  netdev);
- 	if (err)
- 		goto out;
--	adapter->rx_ring->itr_register = E1000_EITR_82574(vector);
-+	adapter->rx_ring->itr_register = adapter->hw.hw_addr +
-+	    E1000_EITR_82574(vector);
- 	adapter->rx_ring->itr_val = adapter->itr;
- 	vector++;
- 
-@@ -1997,7 +1995,8 @@ static int e1000_request_msix(struct e1000_adapter *adapter)
- 			  netdev);
- 	if (err)
- 		goto out;
--	adapter->tx_ring->itr_register = E1000_EITR_82574(vector);
-+	adapter->tx_ring->itr_register = adapter->hw.hw_addr +
-+	    E1000_EITR_82574(vector);
- 	adapter->tx_ring->itr_val = adapter->itr;
- 	vector++;
- 
-@@ -2288,8 +2287,8 @@ static void e1000_clean_tx_ring(struct e1000_adapter *adapter)
- 	tx_ring->next_to_use = 0;
- 	tx_ring->next_to_clean = 0;
- 
--	writel(0, adapter->hw.hw_addr + tx_ring->head);
--	writel(0, adapter->hw.hw_addr + tx_ring->tail);
-+	writel(0, tx_ring->head);
-+	writel(0, tx_ring->tail);
- }
- 
- /**
-@@ -2773,8 +2772,8 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	ew32(TDLEN, tdlen);
- 	ew32(TDH, 0);
- 	ew32(TDT, 0);
--	tx_ring->head = E1000_TDH;
--	tx_ring->tail = E1000_TDT;
-+	tx_ring->head = adapter->hw.hw_addr + E1000_TDH;
-+	tx_ring->tail = adapter->hw.hw_addr + E1000_TDT;
- 
- 	/* Set the default values for the Tx Inter Packet Gap timer */
- 	tipg = DEFAULT_82543_TIPG_IPGT_COPPER;          /*  8  */
-@@ -3088,8 +3087,8 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
- 	ew32(RDLEN, rdlen);
- 	ew32(RDH, 0);
- 	ew32(RDT, 0);
--	rx_ring->head = E1000_RDH;
--	rx_ring->tail = E1000_RDT;
-+	rx_ring->head = adapter->hw.hw_addr + E1000_RDH;
-+	rx_ring->tail = adapter->hw.hw_addr + E1000_RDT;
- 
- 	/* Enable Receive Checksum Offload for TCP and UDP */
- 	rxcsum = er32(RXCSUM);
-@@ -4914,7 +4913,7 @@ static void e1000_tx_queue(struct e1000_adapter *adapter,
- 	if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
- 		e1000e_update_tdt_wa(adapter, i);
- 	else
--		writel(i, adapter->hw.hw_addr + tx_ring->tail);
-+		writel(i, tx_ring->tail);
- 
- 	/*
- 	 * we need this if more than one processor can write to our tail
--- 
-1.7.7.6
+OK. I simply asumed it was a kernel issue since it started after an 
+upgrade.
+Now at lest I have an idea about where to look.
+
+Greetings Rune
