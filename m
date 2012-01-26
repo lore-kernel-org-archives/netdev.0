@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/12] e1000e: cleanup Rx checksum offload code
-Date: Wed, 25 Jan 2012 23:21:44 -0800
-Message-ID: <1327562515-29664-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/12] e1000e: re-enable alternate MAC address for all devices which support it
+Date: Wed, 25 Jan 2012 23:21:46 -0800
+Message-ID: <1327562515-29664-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -10,105 +10,38 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:54466 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751138Ab2AZHV6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jan 2012 02:21:58 -0500
+	id S1751022Ab2AZHV7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jan 2012 02:21:59 -0500
 In-Reply-To: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-1) cleanup whitespace in e1000_rx_checksum() function header comment
-2) do not check hardware checksum when Rx checksum is disabled
-3) reduce duplicated calls to le16_to_cpu() by just using it within
-   e1000_rx_checksum() instead of in each call to the function
-
-v2: use swab16 instead of le16_to_cpu & htons and corrected type for the
-passed-in csum
-
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c |   27 +++++++++++++++------------
- 1 files changed, 15 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/e1000e/lib.c |    7 ++-----
+ 1 files changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 3911401..263bf5f 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -487,22 +487,27 @@ static void e1000_receive_skb(struct e1000_adapter *adapter,
+diff --git a/drivers/net/ethernet/intel/e1000e/lib.c b/drivers/net/ethernet/intel/e1000e/lib.c
+index 0893ab1..78e3f4c 100644
+--- a/drivers/net/ethernet/intel/e1000e/lib.c
++++ b/drivers/net/ethernet/intel/e1000e/lib.c
+@@ -187,11 +187,8 @@ s32 e1000_check_alt_mac_addr_generic(struct e1000_hw *hw)
+ 	if (ret_val)
+ 		goto out;
  
- /**
-  * e1000_rx_checksum - Receive Checksum Offload
-- * @adapter:     board private structure
-- * @status_err:  receive descriptor status and error fields
-- * @csum:	receive descriptor csum field
-- * @sk_buff:     socket buffer with received data
-+ * @adapter: board private structure
-+ * @status_err: receive descriptor status and error fields
-+ * @csum: receive descriptor csum field
-+ * @sk_buff: socket buffer with received data
-  **/
- static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
--			      u32 csum, struct sk_buff *skb)
-+			      __le16 csum, struct sk_buff *skb)
- {
- 	u16 status = (u16)status_err;
- 	u8 errors = (u8)(status_err >> 24);
+-	/* Check for LOM (vs. NIC) or one of two valid mezzanine cards */
+-	if (!((nvm_data & NVM_COMPAT_LOM) ||
+-	      (hw->adapter->pdev->device == E1000_DEV_ID_82571EB_SERDES_DUAL) ||
+-	      (hw->adapter->pdev->device == E1000_DEV_ID_82571EB_SERDES_QUAD) ||
+-	      (hw->adapter->pdev->device == E1000_DEV_ID_82571EB_SERDES)))
++	/* not supported on older hardware or 82573 */
++	if ((hw->mac.type < e1000_82571) || (hw->mac.type == e1000_82573))
+ 		goto out;
  
- 	skb_checksum_none_assert(skb);
- 
-+	/* Rx checksum disabled */
-+	if (!(adapter->netdev->features & NETIF_F_RXCSUM))
-+		return;
-+
- 	/* Ignore Checksum bit is set */
- 	if (status & E1000_RXD_STAT_IXSM)
- 		return;
-+
- 	/* TCP/UDP checksum error bit is set */
- 	if (errors & E1000_RXD_ERR_TCPE) {
- 		/* let the stack verify checksum errors */
-@@ -524,7 +529,7 @@ static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
- 		 * Hardware complements the payload checksum, so we undo it
- 		 * and then put the value in host order for further stack use.
- 		 */
--		__sum16 sum = (__force __sum16)htons(csum);
-+		__sum16 sum = (__force __sum16)swab16((__force u16)csum);
- 		skb->csum = csum_unfold(~sum);
- 		skb->ip_summed = CHECKSUM_COMPLETE;
- 	}
-@@ -957,8 +962,7 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
- 
- 		/* Receive Checksum Offload */
- 		e1000_rx_checksum(adapter, staterr,
--				  le16_to_cpu(rx_desc->wb.lower.hi_dword.
--					      csum_ip.csum), skb);
-+				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
- 
- 		e1000_receive_skb(adapter, netdev, skb, staterr,
- 				  rx_desc->wb.upper.vlan);
-@@ -1318,8 +1322,8 @@ copydone:
- 		total_rx_bytes += skb->len;
- 		total_rx_packets++;
- 
--		e1000_rx_checksum(adapter, staterr, le16_to_cpu(
--			rx_desc->wb.lower.hi_dword.csum_ip.csum), skb);
-+		e1000_rx_checksum(adapter, staterr,
-+				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
- 
- 		if (rx_desc->wb.upper.header_status &
- 			   cpu_to_le16(E1000_RXDPS_HDRSTAT_HDRSP))
-@@ -1491,8 +1495,7 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
- 
- 		/* Receive Checksum Offload XXX recompute due to CRC strip? */
- 		e1000_rx_checksum(adapter, staterr,
--				  le16_to_cpu(rx_desc->wb.lower.hi_dword.
--					      csum_ip.csum), skb);
-+				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
- 
- 		/* probably a little skewed due to removing CRC */
- 		total_rx_bytes += skb->len;
+ 	ret_val = e1000_read_nvm(hw, NVM_ALT_MAC_ADDR_PTR, 1,
 -- 
 1.7.7.6
