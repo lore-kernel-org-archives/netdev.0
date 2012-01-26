@@ -1,85 +1,53 @@
-From: Rune Magnussen <rum@bankdata.dk>
-Subject: Re: [BISECTED] Linux 3.2: Networking out of LAN does not work
-Date: Thu, 26 Jan 2012 08:14:46 +0100
-Message-ID: <OF554BAA9F.77CBC8B6-ONC1257991.00272C08-C1257991.0027CE20@bdpnet.dk>
-References: <1327489531.2425.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/12][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 25 Jan 2012 23:21:43 -0800
+Message-ID: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.bankdata.dk ([194.239.188.13]:37287 "HELO mx4.bankdata.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751010Ab2AZHO7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jan 2012 02:14:59 -0500
-In-Reply-To: <1327489531.2425.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mga01.intel.com ([192.55.52.88]:54466 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751022Ab2AZHV5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jan 2012 02:21:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> 
-Sendt af: netdev-owner@vger.kernel.org
-25-01-2012 12:06
-58efa841-5316-9749-1633-85629e363385
+The following series contains updates to e1000e only.  Most of these
+changes contain fixup/cleanups/conversions.
 
-Til
-Rune Magnussen <rum@bankdata.dk>, David Miller <davem@davemloft.net>
-cc
-netdev@vger.kernel.org, Mihai Maruseac <mihai.maruseac@gmail.com>
-Emne
-Re: [BISECTED] Linux 3.2: Networking out of LAN does not work
+The following are changes since commit e55684fadbc5c9c69cad1b3bae228c8374b99b85:
+  infiniband: nes: Convert nes_addr_resolve_neigh() over to dst_neigh_lookup().
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
+  e1000e: cleanup Rx checksum offload code
+  e1000e: add Receive Packet Steering (RPS) support
+  e1000e: re-enable alternate MAC address for all devices which support
+    it
+  e1000e: convert head, tail and itr_register offsets to __iomem
+    pointers
+  e1000e: pass pointer to ring struct instead of adapter struct
+  e1000e: re-factor ethtool get/set ring parameter
+  e1000e: default IntMode based on kernel config & available hardware
+    support
+  e1000e: always set transmit descriptor control registers the same
+  e1000e: 82579: workaround for link drop issue
+  e1000e: use default settings for Tx Inter Packet Gap timer
+  e1000e: use hardware default values for Transmit Control register
+  e1000e: 82574/82583 Tx hang workaround
 
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c |    3 +-
+ drivers/net/ethernet/intel/e1000e/82571.c       |    4 +
+ drivers/net/ethernet/intel/e1000e/defines.h     |    8 +
+ drivers/net/ethernet/intel/e1000e/e1000.h       |   29 +-
+ drivers/net/ethernet/intel/e1000e/ethtool.c     |  186 +++++++----
+ drivers/net/ethernet/intel/e1000e/hw.h          |    9 +-
+ drivers/net/ethernet/intel/e1000e/ich8lan.c     |   22 ++
+ drivers/net/ethernet/intel/e1000e/lib.c         |    7 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c      |  423 +++++++++++++----------
+ drivers/net/ethernet/intel/e1000e/param.c       |   48 +++-
+ 10 files changed, 471 insertions(+), 268 deletions(-)
 
-
-
-
-
-> OK please test the following patch.
-
-> [PATCH] net: use index hash for /proc/net/dev
-
-> Commit f04565ddf52e (dev: use name hash for dev_seq_ops) added a
-> regression for legacy apps expecting to find devices in a particular
-> order.
-
-> Instead of using name hash, we can use dev_index_head hash, based on
-> device index, to not change device ordering.
-
-> Name hash order is not particularly useful, while index ordering is
-> meaningful on machines where no more than 256 devices are ever created.
-
-> "cat /proc/net/dev" and "ip link" will output devices in same order.
-
-> Reported-by: Rune Magnussen <rum@bankdata.dk>
-> Bisected-by: Rune Magnussen <rum@bankdata.dk>
-> Cc: Mihai Maruseac <mihai.maruseac@gmail.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
-> net/core/dev.c |    4 ++--
-> 1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 115dee1..c58dba3 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -4052,9 +4052,9 @@ static inline struct net_device 
-*dev_from_same_bucket(struct seq_file *seq)
-> 
->                bucket = get_bucket(state->pos);
->                offset = get_offset(state->pos);
-> -              h = &net->dev_name_head[bucket];
-> +              h = dev_index_hash(net, bucket);
->                count = 0;
-> -              hlist_for_each_entry_rcu(dev, p, h, name_hlist) {
-> +              hlist_for_each_entry_rcu(dev, p, h, index_hlist) {
->                                if (count++ == offset) {
->                                                state->pos = 
-set_bucket_offset(bucket, count);
->                                                return dev;
->
-
-The patch works for me. I applied it on top of v3.2.1 and it fixed my 
-problem.
-I have not tested it on other computers yet.
-
-Greetings Rune
+-- 
+1.7.7.6
