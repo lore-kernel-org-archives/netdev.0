@@ -1,35 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: explicitly add jump_label.h header to sock.h
-Date: Thu, 26 Jan 2012 17:28:37 -0500 (EST)
-Message-ID: <20120126.172837.2167915547235168983.davem@davemloft.net>
-References: <1327615768-13709-1-git-send-email-glommer@parallels.com>
+Subject: Re: [PATCH V5 2/4] CS89x0 : add CS89x0 platform device to the
+ iMX21ADS board
+Date: Thu, 26 Jan 2012 17:50:05 -0500 (EST)
+Message-ID: <20120126.175005.1460255432929856604.davem@davemloft.net>
+References: <1327610817-26927-1-git-send-email-jaccon.bastiaansen@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: geert@linux-m68k.org, netdev@vger.kernel.org, sfr@canb.auug.org.au
-To: glommer@parallels.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35377 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752361Ab2AZWbt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2012 17:31:49 -0500
-In-Reply-To: <1327615768-13709-1-git-send-email-glommer@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: fabio.estevam@freescale.com, linux@arm.linux.org.uk, netdev@vger.kernel.org,
+ s.hauer@pengutronix.de, cavokz@gmail.com, kernel@pengutronix.de,
+ u.kleine-koenig@pengutronix.de, festevam@gmail.com,
+ linux-arm-kernel@lists.infradead.org
+To: jaccon.bastiaansen@gmail.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1327610817-26927-1-git-send-email-jaccon.bastiaansen@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Glauber Costa <glommer@parallels.com>
-Date: Fri, 27 Jan 2012 02:09:28 +0400
+From: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
+Date: Thu, 26 Jan 2012 21:46:57 +0100
 
-> Commit 36a1211970193ce215de50ed1e4e1272bc814df1 removed linux/module.h
-> include statement from one of the headers that end up in net/sock.h.
-> It was providing us with static_branch() definition implicitly, so
-> after its removal the build got broken.
+> Add CS89x0 networking support to the iMX21ADS board by using the
+> platform driver support in the CS89x0 driver.
 > 
-> To fix this, and avoid having this happening in the future,
-> let me do the right thing and include linux/jump_label.h
-> explicitly in sock.h.
-> 
-> Signed-off-by: Glauber Costa <glommer@parallels.com>
-> Reported-by: Randy Dunlap <rdunlap@xenotime.net>
+> Signed-off-by: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
 
-Applied, thanks.
+I'm fine with this going via one of the ARM trees:
+
+Acked-by: David S. Miller <davem@davemloft.net>
