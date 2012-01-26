@@ -1,53 +1,40 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: [PATCH rhel6] Allow ipv6 proxies and arp proxies be shown with
- iproute2
-Date: Thu, 26 Jan 2012 14:16:55 -0500
-Message-ID: <20120126191655.GA8376@canuck.infradead.org>
-References: <1327589392-10852-1-git-send-email-antonz@parallels.com>
+From: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: [patch] nfc: NULL vs zero in nci_activate_target()
+Date: Thu, 26 Jan 2012 21:23:47 +0100
+Message-ID: <20120126202347.GA2305@sortiz-mobl>
+References: <20120126061330.GA15856@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: xemul@parallels.com, devel@openvz.org, davem@davemloft.net,
-	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
-To: Tony Zelenoff <antonz@parallels.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:54252 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751894Ab2AZTRD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2012 14:17:03 -0500
+Cc: Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Ilan Elias <ilane-l0cyMroinI0@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1327589392-10852-1-git-send-email-antonz@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20120126061330.GA15856-mgFCXtclrQlZLf2FXnZxJA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 26, 2012 at 06:49:52PM +0400, Tony Zelenoff wrote:
-> +	/* check for full ndmsg structure presence, family member is
-> +	 * the same for both structures */
-> +	if (nlmsg_len(cb->nlh) == sizeof(struct ndmsg) &&
-> +	    ((struct ndmsg *) nlmsg_data(cb->nlh))->ndm_flags == NTF_PROXY)
-> +		proxy = 1;
-> +
+Hi Dan,
 
-Please change this check to nlmsg_len(cb->nlh) >= sizeof(struct ndmsg) so
-we have the possibility to extend the request message in the future
-without breaking backwards compatibility.
+On Thu, Jan 26, 2012 at 09:13:31AM +0300, Dan Carpenter wrote:
+> This is a pointer so it should be NULL instead of zero.  Sparse
+> complains about this stuff:
+> net/nfc/nci/core.c:447:37: warning: Using plain integer as NULL pointer
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Acked-by: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
 
->  	s_t = cb->args[0];
->  
-> -	for (tbl = neigh_tables, t = 0; tbl; tbl = tbl->next, t++) {
-> +	for (tbl = neigh_tables, t = 0; tbl && (err >= 0);
-> +	     tbl = tbl->next, t++) {
->  		if (t < s_t || (family && tbl->family != family))
->  			continue;
->  		if (t > s_t)
->  			memset(&cb->args[1], 0, sizeof(cb->args) -
->  						sizeof(cb->args[0]));
-> -		if (neigh_dump_table(tbl, skb, cb) < 0)
-> -			break;
-> +		if (proxy) {
-> +			err = pneigh_dump_table(tbl, skb, cb);
-> +			continue;
-> +		}
-> +		err = neigh_dump_table(tbl, skb, cb);
+Cheers,
+Samuel.
 
-Personally I would call neigh_dump_table() in the else branch and avoid
-the continue statement.
+-- 
+Intel Open Source Technology Centre
+http://oss.intel.com/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
