@@ -1,101 +1,207 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/12] e1000e: use default settings for Tx Inter Packet Gap timer
-Date: Wed, 25 Jan 2012 23:21:53 -0800
-Message-ID: <1327562515-29664-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/12] e1000e: re-factor ethtool get/set ring parameter
+Date: Wed, 25 Jan 2012 23:21:49 -0800
+Message-ID: <1327562515-29664-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:63115 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:54466 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751700Ab2AZHWC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jan 2012 02:22:02 -0500
+	id S1751598Ab2AZHWA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jan 2012 02:22:00 -0500
 In-Reply-To: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Use the default hardware values for TIPG except for 80003es2lan(*).  The
-code that is removed in this patch is either unnecessarily writing the TIPG
-register with the hardware default values for some devices (82571/2/3/4) or
-writing the wrong value for others (ICH/PCH LOMs).  The only change in
-functionality is setting the correct default TIPG for the latter devices.
-
-(*) The correct value for 80003es2lan is already set properly in
-e1000_init_hw_80003es2lan() and e1000_cfg_kmrn_{10_100|1000}_80003es2lan(),
-and the unused flag FLAG_TIPG_MEDIUM_FOR_80003ESLAN is removed.
+Make it more like how igb does it, with some additional error checking.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/80003es2lan.c |    3 +--
- drivers/net/ethernet/intel/e1000e/e1000.h       |    2 +-
- drivers/net/ethernet/intel/e1000e/netdev.c      |   15 +--------------
- 3 files changed, 3 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/intel/e1000e/ethtool.c |  136 +++++++++++++++------------
+ 1 files changed, 77 insertions(+), 59 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.c b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-index e1159e5..b3a235c 100644
---- a/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-@@ -1502,8 +1502,7 @@ const struct e1000_info e1000_es2_info = {
- 				  | FLAG_RX_NEEDS_RESTART /* errata */
- 				  | FLAG_TARC_SET_BIT_ZERO /* errata */
- 				  | FLAG_APME_CHECK_PORT_B
--				  | FLAG_DISABLE_FC_PAUSE_TIME /* errata */
--				  | FLAG_TIPG_MEDIUM_FOR_80003ESLAN,
-+				  | FLAG_DISABLE_FC_PAUSE_TIME, /* errata */
- 	.flags2			= FLAG2_DMA_BURST,
- 	.pba			= 38,
- 	.max_hw_frame_size	= DEFAULT_JUMBO,
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index db604cd..4b3a276 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -430,7 +430,7 @@ struct e1000_info {
- #define FLAG_HAS_SMART_POWER_DOWN         (1 << 11)
- #define FLAG_IS_QUAD_PORT_A               (1 << 12)
- #define FLAG_IS_QUAD_PORT                 (1 << 13)
--#define FLAG_TIPG_MEDIUM_FOR_80003ESLAN   (1 << 14)
-+/* reserved bit14 */
- #define FLAG_APME_IN_WUC                  (1 << 15)
- #define FLAG_APME_IN_CTRL3                (1 << 16)
- #define FLAG_APME_CHECK_PORT_B            (1 << 17)
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 6081dee..fb29990 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -2770,8 +2770,7 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct e1000_ring *tx_ring = adapter->tx_ring;
- 	u64 tdba;
--	u32 tdlen, tctl, tipg, tarc;
--	u32 ipgr1, ipgr2;
-+	u32 tdlen, tctl, tarc;
+diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
+index 01c73ae..ffb6c14 100644
+--- a/drivers/net/ethernet/intel/e1000e/ethtool.c
++++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
+@@ -605,94 +605,112 @@ static void e1000_get_ringparam(struct net_device *netdev,
+ 				struct ethtool_ringparam *ring)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+-	struct e1000_ring *tx_ring = adapter->tx_ring;
+-	struct e1000_ring *rx_ring = adapter->rx_ring;
  
- 	/* Setup the HW Tx Head and Tail descriptor pointers */
- 	tdba = tx_ring->dma;
-@@ -2784,18 +2783,6 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	tx_ring->head = adapter->hw.hw_addr + E1000_TDH;
- 	tx_ring->tail = adapter->hw.hw_addr + E1000_TDT;
+ 	ring->rx_max_pending = E1000_MAX_RXD;
+ 	ring->tx_max_pending = E1000_MAX_TXD;
+-	ring->rx_pending = rx_ring->count;
+-	ring->tx_pending = tx_ring->count;
++	ring->rx_pending = adapter->rx_ring_count;
++	ring->tx_pending = adapter->tx_ring_count;
+ }
  
--	/* Set the default values for the Tx Inter Packet Gap timer */
--	tipg = DEFAULT_82543_TIPG_IPGT_COPPER;          /*  8  */
--	ipgr1 = DEFAULT_82543_TIPG_IPGR1;               /*  8  */
--	ipgr2 = DEFAULT_82543_TIPG_IPGR2;               /*  6  */
--
--	if (adapter->flags & FLAG_TIPG_MEDIUM_FOR_80003ESLAN)
--		ipgr2 = DEFAULT_80003ES2LAN_TIPG_IPGR2; /*  7  */
--
--	tipg |= ipgr1 << E1000_TIPG_IPGR1_SHIFT;
--	tipg |= ipgr2 << E1000_TIPG_IPGR2_SHIFT;
--	ew32(TIPG, tipg);
--
- 	/* Set the Tx Interrupt Delay register */
- 	ew32(TIDV, adapter->tx_int_delay);
- 	/* Tx irq moderation */
+ static int e1000_set_ringparam(struct net_device *netdev,
+ 			       struct ethtool_ringparam *ring)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+-	struct e1000_ring *tx_ring, *tx_old;
+-	struct e1000_ring *rx_ring, *rx_old;
+-	int err;
++	struct e1000_ring *temp_tx = NULL, *temp_rx = NULL;
++	int err = 0, size = sizeof(struct e1000_ring);
++	bool set_tx = false, set_rx = false;
++	u16 new_rx_count, new_tx_count;
+ 
+ 	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
+ 		return -EINVAL;
+ 
+-	while (test_and_set_bit(__E1000_RESETTING, &adapter->state))
+-		usleep_range(1000, 2000);
++	new_rx_count = clamp_t(u32, ring->rx_pending, E1000_MIN_RXD,
++			       E1000_MAX_RXD);
++	new_rx_count = ALIGN(new_rx_count, REQ_RX_DESCRIPTOR_MULTIPLE);
+ 
+-	if (netif_running(adapter->netdev))
+-		e1000e_down(adapter);
++	new_tx_count = clamp_t(u32, ring->tx_pending, E1000_MIN_TXD,
++			       E1000_MAX_TXD);
++	new_tx_count = ALIGN(new_tx_count, REQ_TX_DESCRIPTOR_MULTIPLE);
+ 
+-	tx_old = adapter->tx_ring;
+-	rx_old = adapter->rx_ring;
++	if ((new_tx_count == adapter->tx_ring_count) &&
++	    (new_rx_count == adapter->rx_ring_count))
++		/* nothing to do */
++		return 0;
+ 
+-	err = -ENOMEM;
+-	tx_ring = kmemdup(tx_old, sizeof(struct e1000_ring), GFP_KERNEL);
+-	if (!tx_ring)
+-		goto err_alloc_tx;
++	while (test_and_set_bit(__E1000_RESETTING, &adapter->state))
++		usleep_range(1000, 2000);
+ 
+-	rx_ring = kmemdup(rx_old, sizeof(struct e1000_ring), GFP_KERNEL);
+-	if (!rx_ring)
+-		goto err_alloc_rx;
++	if (!netif_running(adapter->netdev)) {
++		/* Set counts now and allocate resources during open() */
++		adapter->tx_ring->count = new_tx_count;
++		adapter->rx_ring->count = new_rx_count;
++		adapter->tx_ring_count = new_tx_count;
++		adapter->rx_ring_count = new_rx_count;
++		goto clear_reset;
++	}
+ 
+-	adapter->tx_ring = tx_ring;
+-	adapter->rx_ring = rx_ring;
++	set_tx = (new_tx_count != adapter->tx_ring_count);
++	set_rx = (new_rx_count != adapter->rx_ring_count);
+ 
+-	rx_ring->count = max(ring->rx_pending, (u32)E1000_MIN_RXD);
+-	rx_ring->count = min(rx_ring->count, (u32)(E1000_MAX_RXD));
+-	rx_ring->count = ALIGN(rx_ring->count, REQ_RX_DESCRIPTOR_MULTIPLE);
++	/* Allocate temporary storage for ring updates */
++	if (set_tx) {
++		temp_tx = vmalloc(size);
++		if (!temp_tx) {
++			err = -ENOMEM;
++			goto free_temp;
++		}
++	}
++	if (set_rx) {
++		temp_rx = vmalloc(size);
++		if (!temp_rx) {
++			err = -ENOMEM;
++			goto free_temp;
++		}
++	}
+ 
+-	tx_ring->count = max(ring->tx_pending, (u32)E1000_MIN_TXD);
+-	tx_ring->count = min(tx_ring->count, (u32)(E1000_MAX_TXD));
+-	tx_ring->count = ALIGN(tx_ring->count, REQ_TX_DESCRIPTOR_MULTIPLE);
++	e1000e_down(adapter);
+ 
+-	if (netif_running(adapter->netdev)) {
+-		/* Try to get new resources before deleting old */
+-		err = e1000e_setup_rx_resources(rx_ring);
++	/*
++	 * We can't just free everything and then setup again, because the
++	 * ISRs in MSI-X mode get passed pointers to the Tx and Rx ring
++	 * structs.  First, attempt to allocate new resources...
++	 */
++	if (set_tx) {
++		memcpy(temp_tx, adapter->tx_ring, size);
++		temp_tx->count = new_tx_count;
++		err = e1000e_setup_tx_resources(temp_tx);
+ 		if (err)
+-			goto err_setup_rx;
+-		err = e1000e_setup_tx_resources(tx_ring);
++			goto err_setup;
++	}
++	if (set_rx) {
++		memcpy(temp_rx, adapter->rx_ring, size);
++		temp_rx->count = new_rx_count;
++		err = e1000e_setup_rx_resources(temp_rx);
+ 		if (err)
+-			goto err_setup_tx;
++			goto err_setup_rx;
++	}
+ 
+-		/*
+-		 * restore the old in order to free it,
+-		 * then add in the new
+-		 */
+-		adapter->rx_ring = rx_old;
+-		adapter->tx_ring = tx_old;
+-		e1000e_free_rx_resources(adapter->rx_ring);
++	/* ...then free the old resources and copy back any new ring data */
++	if (set_tx) {
+ 		e1000e_free_tx_resources(adapter->tx_ring);
+-		kfree(tx_old);
+-		kfree(rx_old);
+-		adapter->rx_ring = rx_ring;
+-		adapter->tx_ring = tx_ring;
+-		err = e1000e_up(adapter);
+-		if (err)
+-			goto err_setup;
++		memcpy(adapter->tx_ring, temp_tx, size);
++		adapter->tx_ring_count = new_tx_count;
++	}
++	if (set_rx) {
++		e1000e_free_rx_resources(adapter->rx_ring);
++		memcpy(adapter->rx_ring, temp_rx, size);
++		adapter->rx_ring_count = new_rx_count;
+ 	}
+ 
+-	clear_bit(__E1000_RESETTING, &adapter->state);
+-	return 0;
+-err_setup_tx:
+-	e1000e_free_rx_resources(rx_ring);
+ err_setup_rx:
+-	adapter->rx_ring = rx_old;
+-	adapter->tx_ring = tx_old;
+-	kfree(rx_ring);
+-err_alloc_rx:
+-	kfree(tx_ring);
+-err_alloc_tx:
+-	e1000e_up(adapter);
++	if (err && set_tx)
++		e1000e_free_tx_resources(temp_tx);
+ err_setup:
++	e1000e_up(adapter);
++free_temp:
++	vfree(temp_tx);
++	vfree(temp_rx);
++clear_reset:
+ 	clear_bit(__E1000_RESETTING, &adapter->state);
+ 	return err;
+ }
 -- 
 1.7.7.6
