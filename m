@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 02/12] e1000e: add Receive Packet Steering (RPS) support
-Date: Wed, 25 Jan 2012 23:21:45 -0800
-Message-ID: <1327562515-29664-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/12] e1000e: convert head, tail and itr_register offsets to __iomem pointers
+Date: Wed, 25 Jan 2012 23:21:47 -0800
+Message-ID: <1327562515-29664-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -10,318 +10,250 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:54466 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751264Ab2AZHV6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jan 2012 02:21:58 -0500
+	id S1751088Ab2AZHV7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jan 2012 02:21:59 -0500
 In-Reply-To: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Enable RPS by default.  Disallow jumbo frames when both receive checksum
-and receive hashing are enabled because the hardware cannot do both IP
-payload checksum (enabled when receive checksum is enabled when using
-packet split which is used for jumbo frames) and provide RSS hash at the
-same time.
-
-v2: added ethtool command to query flow hashing behavior per Ben Hutchings
-    and changed the type of rsskey to cleanup the setting of the register
-    array and avoid unnecessary casts (as pointed out by Joe Perches).
-    The long error messages are not changed since there is nothing in
-    the kernel ./Documentation that suggests the preferred method for
-    dealing with long messages other than to never break strings; leaving
-    them as-is for now.
+The Tx/Rx head and tail registers and itr_register are always at known
+addresses based on the __iomem address at which the PCI region (from BAR 0)
+is mapped and known offsets within the region for each of these registers.
+Store and use the full address rather than just the region offset to reduce
+unnecessary address calculations.  Also, change current u8 __iomem pointers
+to void __iomem pointers.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/defines.h |    8 +++
- drivers/net/ethernet/intel/e1000e/ethtool.c |   48 ++++++++++++++
- drivers/net/ethernet/intel/e1000e/hw.h      |    5 ++
- drivers/net/ethernet/intel/e1000e/netdev.c  |   90 +++++++++++++++++++++++++--
- 4 files changed, 145 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/e1000e/e1000.h  |    6 ++--
+ drivers/net/ethernet/intel/e1000e/hw.h     |    4 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c |   53 +++++++++++++--------------
+ 3 files changed, 31 insertions(+), 32 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
-index c516a74..c73795f 100644
---- a/drivers/net/ethernet/intel/e1000e/defines.h
-+++ b/drivers/net/ethernet/intel/e1000e/defines.h
-@@ -126,6 +126,13 @@
-     E1000_RXDEXT_STATERR_CXE |            \
-     E1000_RXDEXT_STATERR_RXE)
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index f478a22..f6ac197 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -242,8 +242,8 @@ struct e1000_ring {
+ 	u16 next_to_use;
+ 	u16 next_to_clean;
  
-+#define E1000_MRQC_RSS_FIELD_MASK              0xFFFF0000
-+#define E1000_MRQC_RSS_FIELD_IPV4_TCP          0x00010000
-+#define E1000_MRQC_RSS_FIELD_IPV4              0x00020000
-+#define E1000_MRQC_RSS_FIELD_IPV6_TCP_EX       0x00040000
-+#define E1000_MRQC_RSS_FIELD_IPV6              0x00100000
-+#define E1000_MRQC_RSS_FIELD_IPV6_TCP          0x00200000
-+
- #define E1000_RXDPS_HDRSTAT_HDRSP              0x00008000
+-	u16 head;
+-	u16 tail;
++	void __iomem *head;
++	void __iomem *tail;
  
- /* Management Control */
-@@ -326,6 +333,7 @@
- /* Receive Checksum Control */
- #define E1000_RXCSUM_TUOFL     0x00000200   /* TCP / UDP checksum offload */
- #define E1000_RXCSUM_IPPCSE    0x00001000   /* IP payload checksum enable */
-+#define E1000_RXCSUM_PCSD      0x00002000   /* packet checksum disabled */
+ 	/* array of buffer information structs */
+ 	struct e1000_buffer *buffer_info;
+@@ -251,7 +251,7 @@ struct e1000_ring {
+ 	char name[IFNAMSIZ + 5];
+ 	u32 ims_val;
+ 	u32 itr_val;
+-	u16 itr_register;
++	void __iomem *itr_register;
+ 	int set_itr;
  
- /* Header split receive */
- #define E1000_RFCTL_NFSW_DIS            0x00000040
-diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index fb2c28e..0a3137a 100644
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -1955,6 +1955,53 @@ static void e1000_get_strings(struct net_device *netdev, u32 stringset,
- 	}
- }
- 
-+static int e1000_get_rxnfc(struct net_device *netdev,
-+			   struct ethtool_rxnfc *info, u32 *rule_locs)
-+{
-+	info->data = 0;
-+
-+	switch (info->cmd) {
-+	case ETHTOOL_GRXFH: {
-+		struct e1000_adapter *adapter = netdev_priv(netdev);
-+		struct e1000_hw *hw = &adapter->hw;
-+		u32 mrqc = er32(MRQC);
-+
-+		if (!(mrqc & E1000_MRQC_RSS_FIELD_MASK))
-+			return 0;
-+
-+		switch (info->flow_type) {
-+		case TCP_V4_FLOW:
-+			if (mrqc & E1000_MRQC_RSS_FIELD_IPV4_TCP)
-+				info->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
-+			/* fall through */
-+		case UDP_V4_FLOW:
-+		case SCTP_V4_FLOW:
-+		case AH_ESP_V4_FLOW:
-+		case IPV4_FLOW:
-+			if (mrqc & E1000_MRQC_RSS_FIELD_IPV4)
-+				info->data |= RXH_IP_SRC | RXH_IP_DST;
-+			break;
-+		case TCP_V6_FLOW:
-+			if (mrqc & E1000_MRQC_RSS_FIELD_IPV6_TCP)
-+				info->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
-+			/* fall through */
-+		case UDP_V6_FLOW:
-+		case SCTP_V6_FLOW:
-+		case AH_ESP_V6_FLOW:
-+		case IPV6_FLOW:
-+			if (mrqc & E1000_MRQC_RSS_FIELD_IPV6)
-+				info->data |= RXH_IP_SRC | RXH_IP_DST;
-+			break;
-+		default:
-+			break;
-+		}
-+		return 0;
-+	}
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
- static const struct ethtool_ops e1000_ethtool_ops = {
- 	.get_settings		= e1000_get_settings,
- 	.set_settings		= e1000_set_settings,
-@@ -1981,6 +2028,7 @@ static const struct ethtool_ops e1000_ethtool_ops = {
- 	.get_sset_count		= e1000e_get_sset_count,
- 	.get_coalesce		= e1000_get_coalesce,
- 	.set_coalesce		= e1000_set_coalesce,
-+	.get_rxnfc		= e1000_get_rxnfc,
- };
- 
- void e1000e_set_ethtool_ops(struct net_device *netdev)
+ 	struct sk_buff *rx_skb_top;
 diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index 2967039..93c349e 100644
+index 93c349e..a15da47 100644
 --- a/drivers/net/ethernet/intel/e1000e/hw.h
 +++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -204,6 +204,7 @@ enum e1e_registers {
- 	E1000_WUC      = 0x05800, /* Wakeup Control - RW */
- 	E1000_WUFC     = 0x05808, /* Wakeup Filter Control - RW */
- 	E1000_WUS      = 0x05810, /* Wakeup Status - RO */
-+	E1000_MRQC     = 0x05818, /* Multiple Receive Control - RW */
- 	E1000_MANC     = 0x05820, /* Management Control - RW */
- 	E1000_FFLT     = 0x05F00, /* Flexible Filter Length Table - RW Array */
- 	E1000_HOST_IF  = 0x08800, /* Host Interface */
-@@ -219,6 +220,10 @@ enum e1e_registers {
- 	E1000_SWSM      = 0x05B50, /* SW Semaphore */
- 	E1000_FWSM      = 0x05B54, /* FW Semaphore */
- 	E1000_SWSM2     = 0x05B58, /* Driver-only SW semaphore */
-+	E1000_RETA_BASE = 0x05C00, /* Redirection Table - RW */
-+#define E1000_RETA(_n)	(E1000_RETA_BASE + ((_n) * 4))
-+	E1000_RSSRK_BASE = 0x05C80, /* RSS Random Key - RW */
-+#define E1000_RSSRK(_n)	(E1000_RSSRK_BASE + ((_n) * 4))
- 	E1000_FFLT_DBG  = 0x05F04, /* Debug Register */
- 	E1000_PCH_RAICC_BASE = 0x05F50, /* Receive Address Initial CRC */
- #define E1000_PCH_RAICC(_n)	(E1000_PCH_RAICC_BASE + ((_n) * 4))
+@@ -969,8 +969,8 @@ struct e1000_dev_spec_ich8lan {
+ struct e1000_hw {
+ 	struct e1000_adapter *adapter;
+ 
+-	u8 __iomem *hw_addr;
+-	u8 __iomem *flash_address;
++	void __iomem *hw_addr;
++	void __iomem *flash_address;
+ 
+ 	struct e1000_mac_info  mac;
+ 	struct e1000_fc_info   fc;
 diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 263bf5f..b196d79 100644
+index b196d79..462bdee 100644
 --- a/drivers/net/ethernet/intel/e1000e/netdev.c
 +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -845,6 +845,13 @@ check_page:
- 	}
- }
- 
-+static inline void e1000_rx_hash(struct net_device *netdev, __le32 rss,
-+				 struct sk_buff *skb)
-+{
-+	if (netdev->features & NETIF_F_RXHASH)
-+		skb->rxhash = le32_to_cpu(rss);
-+}
-+
- /**
-  * e1000_clean_rx_irq - Send received data up the network stack; legacy
-  * @adapter: board private structure
-@@ -964,6 +971,8 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
- 		e1000_rx_checksum(adapter, staterr,
- 				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
- 
-+		e1000_rx_hash(netdev, rx_desc->wb.lower.hi_dword.rss, skb);
-+
- 		e1000_receive_skb(adapter, netdev, skb, staterr,
- 				  rx_desc->wb.upper.vlan);
- 
-@@ -1325,6 +1334,8 @@ copydone:
- 		e1000_rx_checksum(adapter, staterr,
- 				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
- 
-+		e1000_rx_hash(netdev, rx_desc->wb.lower.hi_dword.rss, skb);
-+
- 		if (rx_desc->wb.upper.header_status &
- 			   cpu_to_le16(E1000_RXDPS_HDRSTAT_HDRSP))
- 			adapter->rx_hdr_split++;
-@@ -1497,6 +1508,8 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
- 		e1000_rx_checksum(adapter, staterr,
- 				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
- 
-+		e1000_rx_hash(netdev, rx_desc->wb.lower.hi_dword.rss, skb);
-+
- 		/* probably a little skewed due to removing CRC */
- 		total_rx_bytes += skb->len;
- 		total_rx_packets++;
-@@ -3271,6 +3284,42 @@ static void e1000e_set_rx_mode(struct net_device *netdev)
- 		e1000e_vlan_strip_disable(adapter);
- }
- 
-+static void e1000e_setup_rss_hash(struct e1000_adapter *adapter)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	u32 mrqc, rxcsum;
-+	int i;
-+	static const u32 rsskey[10] = {
-+		0xda565a6d, 0xc20e5b25, 0x3d256741, 0xb08fa343, 0xcb2bcad0,
-+		0xb4307bae, 0xa32dcb77, 0x0cf23080, 0x3bb7426a, 0xfa01acbe
-+	};
-+
-+	/* Fill out hash function seed */
-+	for (i = 0; i < 10; i++)
-+		ew32(RSSRK(i), rsskey[i]);
-+
-+	/* Direct all traffic to queue 0 */
-+	for (i = 0; i < 32; i++)
-+		ew32(RETA(i), 0);
-+
-+	/*
-+	 * Disable raw packet checksumming so that RSS hash is placed in
-+	 * descriptor on writeback.
-+	 */
-+	rxcsum = er32(RXCSUM);
-+	rxcsum |= E1000_RXCSUM_PCSD;
-+
-+	ew32(RXCSUM, rxcsum);
-+
-+	mrqc = (E1000_MRQC_RSS_FIELD_IPV4 |
-+		E1000_MRQC_RSS_FIELD_IPV4_TCP |
-+		E1000_MRQC_RSS_FIELD_IPV6 |
-+		E1000_MRQC_RSS_FIELD_IPV6_TCP |
-+		E1000_MRQC_RSS_FIELD_IPV6_TCP_EX);
-+
-+	ew32(MRQC, mrqc);
-+}
-+
- /**
-  * e1000_configure - configure the hardware for Rx and Tx
-  * @adapter: private board structure
-@@ -3283,6 +3332,9 @@ static void e1000_configure(struct e1000_adapter *adapter)
- 	e1000_init_manageability_pt(adapter);
- 
- 	e1000_configure_tx(adapter);
-+
-+	if (adapter->netdev->features & NETIF_F_RXHASH)
-+		e1000e_setup_rss_hash(adapter);
- 	e1000_setup_rctl(adapter);
- 	e1000_configure_rx(adapter);
- 	adapter->alloc_rx_buf(adapter, e1000_desc_unused(adapter->rx_ring),
-@@ -5168,10 +5220,22 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
- 	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
- 
- 	/* Jumbo frame support */
--	if ((max_frame > ETH_FRAME_LEN + ETH_FCS_LEN) &&
--	    !(adapter->flags & FLAG_HAS_JUMBO_FRAMES)) {
--		e_err("Jumbo Frames not supported.\n");
--		return -EINVAL;
-+	if (max_frame > ETH_FRAME_LEN + ETH_FCS_LEN) {
-+		if (!(adapter->flags & FLAG_HAS_JUMBO_FRAMES)) {
-+			e_err("Jumbo Frames not supported.\n");
-+			return -EINVAL;
-+		}
-+
-+		/*
-+		 * IP payload checksum (enabled with jumbos/packet-split when
-+		 * Rx checksum is enabled) and generation of RSS hash is
-+		 * mutually exclusive in the hardware.
-+		 */
-+		if ((netdev->features & NETIF_F_RXCSUM) &&
-+		    (netdev->features & NETIF_F_RXHASH)) {
-+			e_err("Jumbo frames cannot be enabled when both receive checksum offload and receive hashing are enabled.  Disable one of the receive offload features before enabling jumbos.\n");
-+			return -EINVAL;
-+		}
- 	}
- 
- 	/* Supported frame sizes */
-@@ -5934,7 +5998,7 @@ static void e1000_eeprom_checks(struct e1000_adapter *adapter)
- }
- 
- static int e1000_set_features(struct net_device *netdev,
--	netdev_features_t features)
-+			      netdev_features_t features)
+@@ -550,7 +550,7 @@ static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
+  * which has bit 24 set while ME is accessing Host CSR registers, wait
+  * if it is set and try again a number of times.
+  **/
+-static inline s32 e1000e_update_tail_wa(struct e1000_hw *hw, u8 __iomem * tail,
++static inline s32 e1000e_update_tail_wa(struct e1000_hw *hw, void __iomem *tail,
+ 					unsigned int i)
  {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	netdev_features_t changed = features ^ netdev->features;
-@@ -5943,9 +6007,22 @@ static int e1000_set_features(struct net_device *netdev,
- 		adapter->flags |= FLAG_TSO_FORCE;
+ 	unsigned int j = 0;
+@@ -569,10 +569,9 @@ static inline s32 e1000e_update_tail_wa(struct e1000_hw *hw, u8 __iomem * tail,
  
- 	if (!(changed & (NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX |
--			 NETIF_F_RXCSUM)))
-+			 NETIF_F_RXCSUM | NETIF_F_RXHASH)))
- 		return 0;
+ static void e1000e_update_rdt_wa(struct e1000_adapter *adapter, unsigned int i)
+ {
+-	u8 __iomem *tail = (adapter->hw.hw_addr + adapter->rx_ring->tail);
+ 	struct e1000_hw *hw = &adapter->hw;
  
-+	/*
-+	 * IP payload checksum (enabled with jumbos/packet-split when Rx
-+	 * checksum is enabled) and generation of RSS hash is mutually
-+	 * exclusive in the hardware.
-+	 */
-+	if (adapter->rx_ps_pages &&
-+	    (features & NETIF_F_RXCSUM) && (features & NETIF_F_RXHASH)) {
-+		e_err("Enabling both receive checksum offload and receive hashing is not possible with jumbo frames.  Disable jumbos or enable only one of the receive offload features.\n");
-+		return -EINVAL;
-+	}
-+
-+	netdev->features = features;
-+
- 	if (netif_running(netdev))
- 		e1000e_reinit_locked(adapter);
+-	if (e1000e_update_tail_wa(hw, tail, i)) {
++	if (e1000e_update_tail_wa(hw, adapter->rx_ring->tail, i)) {
+ 		u32 rctl = er32(RCTL);
+ 		ew32(RCTL, rctl & ~E1000_RCTL_EN);
+ 		e_err("ME firmware caused invalid RDT - resetting\n");
+@@ -582,10 +581,9 @@ static void e1000e_update_rdt_wa(struct e1000_adapter *adapter, unsigned int i)
+ 
+ static void e1000e_update_tdt_wa(struct e1000_adapter *adapter, unsigned int i)
+ {
+-	u8 __iomem *tail = (adapter->hw.hw_addr + adapter->tx_ring->tail);
+ 	struct e1000_hw *hw = &adapter->hw;
+ 
+-	if (e1000e_update_tail_wa(hw, tail, i)) {
++	if (e1000e_update_tail_wa(hw, adapter->tx_ring->tail, i)) {
+ 		u32 tctl = er32(TCTL);
+ 		ew32(TCTL, tctl & ~E1000_TCTL_EN);
+ 		e_err("ME firmware caused invalid TDT - resetting\n");
+@@ -651,7 +649,7 @@ map_skb:
+ 			if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
+ 				e1000e_update_rdt_wa(adapter, i);
+ 			else
+-				writel(i, adapter->hw.hw_addr + rx_ring->tail);
++				writel(i, rx_ring->tail);
+ 		}
+ 		i++;
+ 		if (i == rx_ring->count)
+@@ -754,8 +752,7 @@ static void e1000_alloc_rx_buffers_ps(struct e1000_adapter *adapter,
+ 			if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
+ 				e1000e_update_rdt_wa(adapter, i << 1);
+ 			else
+-				writel(i << 1,
+-				       adapter->hw.hw_addr + rx_ring->tail);
++				writel(i << 1, rx_ring->tail);
+ 		}
+ 
+ 		i++;
+@@ -841,7 +838,7 @@ check_page:
+ 		if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
+ 			e1000e_update_rdt_wa(adapter, i);
+ 		else
+-			writel(i, adapter->hw.hw_addr + rx_ring->tail);
++			writel(i, rx_ring->tail);
+ 	}
+ }
+ 
+@@ -1076,8 +1073,8 @@ static void e1000_print_hw_hang(struct work_struct *work)
+ 	      "PHY 1000BASE-T Status  <%x>\n"
+ 	      "PHY Extended Status    <%x>\n"
+ 	      "PCI Status             <%x>\n",
+-	      readl(adapter->hw.hw_addr + tx_ring->head),
+-	      readl(adapter->hw.hw_addr + tx_ring->tail),
++	      readl(tx_ring->head),
++	      readl(tx_ring->tail),
+ 	      tx_ring->next_to_use,
+ 	      tx_ring->next_to_clean,
+ 	      tx_ring->buffer_info[eop].time_stamp,
+@@ -1617,8 +1614,8 @@ static void e1000_clean_rx_ring(struct e1000_adapter *adapter)
+ 	rx_ring->next_to_use = 0;
+ 	adapter->flags2 &= ~FLAG2_IS_DISCARDING;
+ 
+-	writel(0, adapter->hw.hw_addr + rx_ring->head);
+-	writel(0, adapter->hw.hw_addr + rx_ring->tail);
++	writel(0, rx_ring->head);
++	writel(0, rx_ring->tail);
+ }
+ 
+ static void e1000e_downshift_workaround(struct work_struct *work)
+@@ -1814,7 +1811,7 @@ static irqreturn_t e1000_intr_msix_rx(int irq, void *data)
+ 	 */
+ 	if (adapter->rx_ring->set_itr) {
+ 		writel(1000000000 / (adapter->rx_ring->itr_val * 256),
+-		       adapter->hw.hw_addr + adapter->rx_ring->itr_register);
++		       adapter->rx_ring->itr_register);
+ 		adapter->rx_ring->set_itr = 0;
+ 	}
+ 
+@@ -1855,9 +1852,9 @@ static void e1000_configure_msix(struct e1000_adapter *adapter)
+ 	adapter->eiac_mask |= rx_ring->ims_val;
+ 	if (rx_ring->itr_val)
+ 		writel(1000000000 / (rx_ring->itr_val * 256),
+-		       hw->hw_addr + rx_ring->itr_register);
++		       rx_ring->itr_register);
  	else
-@@ -6136,6 +6213,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 			    NETIF_F_HW_VLAN_TX |
- 			    NETIF_F_TSO |
- 			    NETIF_F_TSO6 |
-+			    NETIF_F_RXHASH |
- 			    NETIF_F_RXCSUM |
- 			    NETIF_F_HW_CSUM);
+-		writel(1, hw->hw_addr + rx_ring->itr_register);
++		writel(1, rx_ring->itr_register);
+ 	ivar = E1000_IVAR_INT_ALLOC_VALID | vector;
  
+ 	/* Configure Tx vector */
+@@ -1865,9 +1862,9 @@ static void e1000_configure_msix(struct e1000_adapter *adapter)
+ 	vector++;
+ 	if (tx_ring->itr_val)
+ 		writel(1000000000 / (tx_ring->itr_val * 256),
+-		       hw->hw_addr + tx_ring->itr_register);
++		       tx_ring->itr_register);
+ 	else
+-		writel(1, hw->hw_addr + tx_ring->itr_register);
++		writel(1, tx_ring->itr_register);
+ 	adapter->eiac_mask |= tx_ring->ims_val;
+ 	ivar |= ((E1000_IVAR_INT_ALLOC_VALID | vector) << 8);
+ 
+@@ -1982,7 +1979,8 @@ static int e1000_request_msix(struct e1000_adapter *adapter)
+ 			  netdev);
+ 	if (err)
+ 		goto out;
+-	adapter->rx_ring->itr_register = E1000_EITR_82574(vector);
++	adapter->rx_ring->itr_register = adapter->hw.hw_addr +
++	    E1000_EITR_82574(vector);
+ 	adapter->rx_ring->itr_val = adapter->itr;
+ 	vector++;
+ 
+@@ -1997,7 +1995,8 @@ static int e1000_request_msix(struct e1000_adapter *adapter)
+ 			  netdev);
+ 	if (err)
+ 		goto out;
+-	adapter->tx_ring->itr_register = E1000_EITR_82574(vector);
++	adapter->tx_ring->itr_register = adapter->hw.hw_addr +
++	    E1000_EITR_82574(vector);
+ 	adapter->tx_ring->itr_val = adapter->itr;
+ 	vector++;
+ 
+@@ -2288,8 +2287,8 @@ static void e1000_clean_tx_ring(struct e1000_adapter *adapter)
+ 	tx_ring->next_to_use = 0;
+ 	tx_ring->next_to_clean = 0;
+ 
+-	writel(0, adapter->hw.hw_addr + tx_ring->head);
+-	writel(0, adapter->hw.hw_addr + tx_ring->tail);
++	writel(0, tx_ring->head);
++	writel(0, tx_ring->tail);
+ }
+ 
+ /**
+@@ -2773,8 +2772,8 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
+ 	ew32(TDLEN, tdlen);
+ 	ew32(TDH, 0);
+ 	ew32(TDT, 0);
+-	tx_ring->head = E1000_TDH;
+-	tx_ring->tail = E1000_TDT;
++	tx_ring->head = adapter->hw.hw_addr + E1000_TDH;
++	tx_ring->tail = adapter->hw.hw_addr + E1000_TDT;
+ 
+ 	/* Set the default values for the Tx Inter Packet Gap timer */
+ 	tipg = DEFAULT_82543_TIPG_IPGT_COPPER;          /*  8  */
+@@ -3088,8 +3087,8 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
+ 	ew32(RDLEN, rdlen);
+ 	ew32(RDH, 0);
+ 	ew32(RDT, 0);
+-	rx_ring->head = E1000_RDH;
+-	rx_ring->tail = E1000_RDT;
++	rx_ring->head = adapter->hw.hw_addr + E1000_RDH;
++	rx_ring->tail = adapter->hw.hw_addr + E1000_RDT;
+ 
+ 	/* Enable Receive Checksum Offload for TCP and UDP */
+ 	rxcsum = er32(RXCSUM);
+@@ -4914,7 +4913,7 @@ static void e1000_tx_queue(struct e1000_adapter *adapter,
+ 	if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
+ 		e1000e_update_tdt_wa(adapter, i);
+ 	else
+-		writel(i, adapter->hw.hw_addr + tx_ring->tail);
++		writel(i, tx_ring->tail);
+ 
+ 	/*
+ 	 * we need this if more than one processor can write to our tail
 -- 
 1.7.7.6
