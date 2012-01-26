@@ -1,91 +1,89 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 1/2] ipv4/ipv6: Prepare for new route gateway semantics.
-Date: Thu, 26 Jan 2012 15:55:44 -0500 (EST)
-Message-ID: <20120126.155544.2054995753871805122.davem@davemloft.net>
+Subject: [PATCH 2/2] ipv6: sit: Convert to dst_neigh_lookup()
+Date: Thu, 26 Jan 2012 15:55:57 -0500 (EST)
+Message-ID: <20120126.155557.374992396150331978.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34470 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:34476 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752087Ab2AZUzv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2012 15:55:51 -0500
+	with ESMTP id S1752633Ab2AZU4A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2012 15:56:00 -0500
 Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
 	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id q0QKtihw010224
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id q0QKtwux010260
 	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 26 Jan 2012 12:55:50 -0800
+	for <netdev@vger.kernel.org>; Thu, 26 Jan 2012 12:55:59 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-In the future the ipv4/ipv6 route gateway will take on two types
-of values:
-
-1) INADDR_ANY/IN6ADDR_ANY, for local network routes, and in this case
-   the neighbour must be obtained using the destination address in
-   ipv4/ipv6 header as the lookup key.
-
-2) Everything else, the actual nexthop route address.
-
-So if the gateway is not inaddr-any we use it, otherwise we must use
-the packet's destination address.
+The only semantic difference is that we now hold a reference to the
+neighbour and thus have to release it.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/ipv4/route.c |    5 +++++
- net/ipv6/route.c |   16 +++++++++++++++-
- 2 files changed, 20 insertions(+), 1 deletions(-)
+ net/ipv6/sit.c |   20 +++++++++++++++-----
+ 1 files changed, 15 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index bcacf54..4eeb8ce 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1117,10 +1117,15 @@ static struct neighbour *ipv4_neigh_lookup(const struct dst_entry *dst, const vo
- 	static const __be32 inaddr_any = 0;
- 	struct net_device *dev = dst->dev;
- 	const __be32 *pkey = daddr;
-+	const struct rtable *rt;
- 	struct neighbour *n;
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 133768e..c4ffd17 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -680,9 +680,10 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
+ 	/* ISATAP (RFC4214) - must come before 6to4 */
+ 	if (dev->priv_flags & IFF_ISATAP) {
+ 		struct neighbour *neigh = NULL;
++		bool do_tx_error = false;
  
-+	rt = (const struct rtable *) dst;
-+
- 	if (dev->flags & (IFF_LOOPBACK | IFF_POINTOPOINT))
- 		pkey = &inaddr_any;
-+	else if (rt->rt_gateway)
-+		pkey = (const __be32 *) &rt->rt_gateway;
+ 		if (skb_dst(skb))
+-			neigh = dst_get_neighbour_noref(skb_dst(skb));
++			neigh = dst_neigh_lookup(skb_dst(skb), &iph6->daddr);
  
- 	n = __ipv4_neigh_lookup(&arp_tbl, dev, *(__force u32 *)pkey);
- 	if (n)
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 8c2e3ab..7d7f306 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -121,9 +121,23 @@ static u32 *ipv6_cow_metrics(struct dst_entry *dst, unsigned long old)
- 	return p;
- }
+ 		if (neigh == NULL) {
+ 			if (net_ratelimit())
+@@ -697,6 +698,10 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
+ 		     ipv6_addr_is_isatap(addr6))
+ 			dst = addr6->s6_addr32[3];
+ 		else
++			do_tx_error = true;
++
++		neigh_release(neigh);
++		if (do_tx_error)
+ 			goto tx_error;
+ 	}
  
-+static inline const void *choose_neigh_daddr(struct rt6_info *rt, const void *daddr)
-+{
-+	struct in6_addr *p = &rt->rt6i_gateway;
-+
-+	if (p->s6_addr32[0] | p->s6_addr32[1] |
-+	    p->s6_addr32[2] | p->s6_addr32[3])
-+		return (const void *) p;
-+	return daddr;
-+}
-+
- static struct neighbour *ip6_neigh_lookup(const struct dst_entry *dst, const void *daddr)
- {
--	struct neighbour *n = __ipv6_neigh_lookup(&nd_tbl, dst->dev, daddr);
-+	struct rt6_info *rt = (struct rt6_info *) dst;
-+	struct neighbour *n;
-+
-+	daddr = choose_neigh_daddr(rt, daddr);
-+	n = __ipv6_neigh_lookup(&nd_tbl, dst->dev, daddr);
- 	if (n)
- 		return n;
- 	return neigh_create(&nd_tbl, daddr, dst->dev);
+@@ -705,9 +710,10 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
+ 
+ 	if (!dst) {
+ 		struct neighbour *neigh = NULL;
++		bool do_tx_error = false;
+ 
+ 		if (skb_dst(skb))
+-			neigh = dst_get_neighbour_noref(skb_dst(skb));
++			neigh = dst_neigh_lookup(skb_dst(skb), &iph6->daddr);
+ 
+ 		if (neigh == NULL) {
+ 			if (net_ratelimit())
+@@ -723,10 +729,14 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
+ 			addr_type = ipv6_addr_type(addr6);
+ 		}
+ 
+-		if ((addr_type & IPV6_ADDR_COMPATv4) == 0)
+-			goto tx_error_icmp;
++		if ((addr_type & IPV6_ADDR_COMPATv4) != 0)
++			dst = addr6->s6_addr32[3];
++		else
++			do_tx_error = true;
+ 
+-		dst = addr6->s6_addr32[3];
++		neigh_release(neigh);
++		if (do_tx_error)
++			goto tx_error;
+ 	}
+ 
+ 	rt = ip_route_output_ports(dev_net(dev), &fl4, NULL,
 -- 
 1.7.7.6
