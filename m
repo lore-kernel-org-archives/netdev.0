@@ -1,51 +1,40 @@
-From: =?ISO-8859-2?Q?=A9tefan_Gula?= <steweg@ynet.sk>
-Subject: Re: [patch v4, kernel version 3.2.1] Source mode for macvlan interface
-Date: Thu, 26 Jan 2012 12:04:50 +0100
-Message-ID: <CAGsizzLp11qzJGTYr+m49yi=2RyWTjkOzaT7d3ni0EfvPsKmHg@mail.gmail.com>
-References: <25353423.731327481250682.JavaMail.root@5-MeO-DMT.ynet.sk>
- <32686570.751327481334943.JavaMail.root@5-MeO-DMT.ynet.sk> <20120125.213802.119259327303074622.davem@davemloft.net>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH 0/5] NFS: various small fixes and updates for conteinerization
+Date: Thu, 26 Jan 2012 15:11:24 +0400
+Message-ID: <20120126110955.8386.34551.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
+	davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120125.213802.119259327303074622.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2012/1/26 David Miller <davem@davemloft.net>:
-> From: Stefan Gula <steweg@ynet.sk>
-> Date: Wed, 25 Jan 2012 09:48:54 +0100 (CET)
->
->> + =A0 =A0 =A0 =A0 =A0 =A0 if (vlan->mode =3D=3D MACVLAN_MODE_SOURCE =
-&&
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 vlan->mode !=3D nla_get_u3=
-2(data[IFLA_MACVLAN_MODE]))
-> =A0...
->> + =A0 =A0 if (data && data[IFLA_MACVLAN_MACADDR_MODE] &&
->> + =A0 =A0 =A0 =A0 =A0 =A0 data[IFLA_MACVLAN_MACADDR]) {
-> =A0...
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return mac=
-vlan_hash_add_sources(vlan,
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 nla_data(data[IFLA_MACVLAN_MACADDR]));
-> =A0...
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 hlist_for_each_entry_rcu(l=
-ist, n,
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 &vlan->por=
-t->vlan_source_hash[i], hlist) {
-> =A0...
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 hlist_for_each_entry_rcu(l=
-ist, n,
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 &vlan->por=
-t->vlan_source_hash[i], hlist) {
->
-> Line things up on subsequent lines to the column right after the
-> openning parenthesis on the previous line.
->
-> If things are indented too deeply, you need to write helper functions=
-=2E
-Just to be sure, how many "\t" symbols are ok in patches? I want to
-avoid similar thing in future.
+Build fix and "init_net" replacements.
+
+The following series consists of:
+
+---
+
+Stanislav Kinsbursky (5):
+      NFS: pass proper net rpc_pton() in nfs_dns_resolve_name()
+      NFS: build fixed in case of NFS_USE_NEW_IDMAPPER is undefined
+      NFS: search for client session id in proper network namespace
+      NFS: pass current net to rpc_pton() while parsing mount options
+      NFS: pass transport net to rpc_pton() while parse server name
+
+
+ fs/nfs/callback.h      |    1 +
+ fs/nfs/callback_proc.c |    2 +-
+ fs/nfs/callback_xdr.c  |    1 +
+ fs/nfs/client.c        |    4 ++--
+ fs/nfs/dns_resolve.c   |    2 +-
+ fs/nfs/idmap.c         |    1 +
+ fs/nfs/internal.h      |    3 ++-
+ fs/nfs/nfs4namespace.c |    6 +++---
+ fs/nfs/super.c         |    4 ++--
+ 9 files changed, 14 insertions(+), 10 deletions(-)
