@@ -1,27 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/10] bnx2x: Physical Device Assignment patch series
-Date: Thu, 26 Jan 2012 13:40:08 -0500 (EST)
-Message-ID: <20120126.134008.2243344280479968595.davem@davemloft.net>
-References: <1327593714-18358-1-git-send-email-ariele@broadcom.com>
+Subject: Re: linux-next: Tree for Jan 25 (net/sock.h, jump_label, memcg)
+Date: Thu, 26 Jan 2012 13:43:33 -0500 (EST)
+Message-ID: <20120126.134333.31948964659222759.davem@davemloft.net>
+References: <20120125141938.c1a9460d56948e1c7b26d3f8@canb.auug.org.au>
+	<4F2052DB.4060602@xenotime.net>
+	<CAMuHMdWp1wEHqPXNs+kaMYpomJnfbZPJjRk5GVFCuCL4Q5zK7g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: ariele@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33423 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753500Ab2AZSkM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2012 13:40:12 -0500
-In-Reply-To: <1327593714-18358-1-git-send-email-ariele@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rdunlap@xenotime.net, sfr@canb.auug.org.au,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	gleb@redhat.com, netdev@vger.kernel.org, glommer@parallels.com
+To: geert@linux-m68k.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdWp1wEHqPXNs+kaMYpomJnfbZPJjRk5GVFCuCL4Q5zK7g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Ariel Elior" <ariele@broadcom.com>
-Date: Thu, 26 Jan 2012 18:01:44 +0200
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Thu, 26 Jan 2012 18:18:28 +0100
 
-> Patch number 1 Introduces support for multiple traffic classes for the 5771xx hardware.
-> Patches 2 through 9 Allow using the bnx2x driver in environments supporting Physical Device Assignment.
-> Patch 10 Updates the version to 1.72.0 and advances the copyright to include 2012.
+> On Wed, Jan 25, 2012 at 20:07, Randy Dunlap <rdunlap@xenotime.net> wrote:
+>> back to net/sock.h and jump_label:
+>>
+>> (on i386:)
+>>
+>> /next/linux-next-20120125/include/net/sock.h:953:2: error: implicit declaration of function 'static_branch'
+>> /next/linux-next-20120125/include/linux/jump_label.h:43:29: error: conflicting types for 'static_branch'
+>>
+>> Full randconfig file is attached.
+> 
+> Without having to add randomness, also in m68k/allmodconfig, now in Linus'
+> tree :-(
+> http://kisskb.ellerman.id.au/kisskb/buildresult/5491860/
 
-ALl applied, thanks.
+Glauber are you actually going to fix this or are you going to ignore
+this bug report for another couple days?!?!
+
+Frankly, I'm so sick and tired of all of these socket mem cgroup
+regressions, this is way out of control and every "fix" seems to add
+more build or runtime regressions.
+
+Glauber, this has to stabilize soon or I will revert every single one
+of your changes, and it will take a nuclear war and a multi-month
+audit of your code to get those changes into the tree again.
