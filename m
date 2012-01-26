@@ -1,53 +1,48 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/12][pull request] Intel Wired LAN Driver Updates
-Date: Wed, 25 Jan 2012 23:21:43 -0800
-Message-ID: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 12/12] e1000e: 82574/82583 Tx hang workaround
+Date: Wed, 25 Jan 2012 23:21:55 -0800
+Message-ID: <1327562515-29664-13-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:54466 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751022Ab2AZHV5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jan 2012 02:21:57 -0500
+	id S1751710Ab2AZHWD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jan 2012 02:22:03 -0500
+In-Reply-To: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains updates to e1000e only.  Most of these
-changes contain fixup/cleanups/conversions.
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-The following are changes since commit e55684fadbc5c9c69cad1b3bae228c8374b99b85:
-  infiniband: nes: Convert nes_addr_resolve_neigh() over to dst_neigh_lookup().
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+On 82574/82583, there is a hardware bug which might cause a Tx hang when
+the internal buffer is full.  Setting this bit enables a hardware fix to
+work around the issue.
 
-  e1000e: cleanup Rx checksum offload code
-  e1000e: add Receive Packet Steering (RPS) support
-  e1000e: re-enable alternate MAC address for all devices which support
-    it
-  e1000e: convert head, tail and itr_register offsets to __iomem
-    pointers
-  e1000e: pass pointer to ring struct instead of adapter struct
-  e1000e: re-factor ethtool get/set ring parameter
-  e1000e: default IntMode based on kernel config & available hardware
-    support
-  e1000e: always set transmit descriptor control registers the same
-  e1000e: 82579: workaround for link drop issue
-  e1000e: use default settings for Tx Inter Packet Gap timer
-  e1000e: use hardware default values for Transmit Control register
-  e1000e: 82574/82583 Tx hang workaround
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/82571.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
- drivers/net/ethernet/intel/e1000e/80003es2lan.c |    3 +-
- drivers/net/ethernet/intel/e1000e/82571.c       |    4 +
- drivers/net/ethernet/intel/e1000e/defines.h     |    8 +
- drivers/net/ethernet/intel/e1000e/e1000.h       |   29 +-
- drivers/net/ethernet/intel/e1000e/ethtool.c     |  186 +++++++----
- drivers/net/ethernet/intel/e1000e/hw.h          |    9 +-
- drivers/net/ethernet/intel/e1000e/ich8lan.c     |   22 ++
- drivers/net/ethernet/intel/e1000e/lib.c         |    7 +-
- drivers/net/ethernet/intel/e1000e/netdev.c      |  423 +++++++++++++----------
- drivers/net/ethernet/intel/e1000e/param.c       |   48 +++-
- 10 files changed, 471 insertions(+), 268 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
+index a3e65fd..0609ac6 100644
+--- a/drivers/net/ethernet/intel/e1000e/82571.c
++++ b/drivers/net/ethernet/intel/e1000e/82571.c
+@@ -1227,6 +1227,10 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
+ 	case e1000_82572:
+ 		reg |= (1 << 23) | (1 << 24) | (1 << 25) | (1 << 26);
+ 		break;
++	case e1000_82574:
++	case e1000_82583:
++		reg |= (1 << 26);
++		break;
+ 	default:
+ 		break;
+ 	}
 -- 
 1.7.7.6
