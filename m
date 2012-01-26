@@ -1,101 +1,269 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 3/5] NFS: search for client session id in proper network
- namespace
-Date: Thu, 26 Jan 2012 15:11:49 +0400
-Message-ID: <20120126111149.8386.51043.stgit@localhost6.localdomain6>
-References: <20120126110955.8386.34551.stgit@localhost6.localdomain6>
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v3 6/6] sunrpc: use SKB fragment destructors to delay
+ completion until page is released by network stack.
+Date: Thu, 26 Jan 2012 15:11:36 +0200
+Message-ID: <20120126131136.GA16400@redhat.com>
+References: <1327494389.24561.316.camel@zakaz.uk.xensource.com>
+ <1327494434-21566-6-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbottomley@parallels.com, bfields@fieldses.org,
-	davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120126110955.8386.34551.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1327494434-21566-6-git-send-email-ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Network namespace is taken from request transport and passed as a part of
-cb_process_state structure.
+On Wed, Jan 25, 2012 at 12:27:14PM +0000, Ian Campbell wrote:
+> This prevents an issue where an ACK is delayed, a retransmit is queued (either
+> at the RPC or TCP level) and the ACK arrives before the retransmission hits the
+> wire. If this happens to an NFS WRITE RPC then the write() system call
+> completes and the userspace process can continue, potentially modifying data
+> referenced by the retransmission before the retransmission occurs.
+> 
+> Signed-off-by: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+> Acked-by: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Cc: Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>
+> Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+> Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+This doesn't include either of the two options you proposed to address
+the sender blocked forever by receiver issue with bridged septups and
+endpoints such a tap device or a socket on the same box,
+does it?
 
----
- fs/nfs/callback.h      |    1 +
- fs/nfs/callback_proc.c |    2 +-
- fs/nfs/callback_xdr.c  |    1 +
- fs/nfs/client.c        |    4 ++--
- fs/nfs/internal.h      |    3 ++-
- 5 files changed, 7 insertions(+), 4 deletions(-)
+I mean this discussion:
+http://article.gmane.org/gmane.linux.nfs/44846/match=use+skb+fragment+destructors
 
-diff --git a/fs/nfs/callback.h b/fs/nfs/callback.h
-index c89d3b9..197e0d3 100644
---- a/fs/nfs/callback.h
-+++ b/fs/nfs/callback.h
-@@ -39,6 +39,7 @@ struct cb_process_state {
- 	__be32			drc_status;
- 	struct nfs_client	*clp;
- 	int			slotid;
-+	struct net		*net;
- };
- 
- struct cb_compound_hdr_arg {
-diff --git a/fs/nfs/callback_proc.c b/fs/nfs/callback_proc.c
-index 0e6e63f..f71978d 100644
---- a/fs/nfs/callback_proc.c
-+++ b/fs/nfs/callback_proc.c
-@@ -461,7 +461,7 @@ __be32 nfs4_callback_sequence(struct cb_sequenceargs *args,
- 	int i;
- 	__be32 status = htonl(NFS4ERR_BADSESSION);
- 
--	clp = nfs4_find_client_sessionid(args->csa_addr, &args->csa_sessionid);
-+	clp = nfs4_find_client_sessionid(cps->net, args->csa_addr, &args->csa_sessionid);
- 	if (clp == NULL)
- 		goto out;
- 
-diff --git a/fs/nfs/callback_xdr.c b/fs/nfs/callback_xdr.c
-index f2be3e1e..8c2a969 100644
---- a/fs/nfs/callback_xdr.c
-+++ b/fs/nfs/callback_xdr.c
-@@ -861,6 +861,7 @@ static __be32 nfs4_callback_compound(struct svc_rqst *rqstp, void *argp, void *r
- 		.drc_status = 0,
- 		.clp = NULL,
- 		.slotid = -1,
-+		.net = rqstp->rq_xprt->xpt_net,
- 	};
- 	unsigned int nops = 0;
- 
-diff --git a/fs/nfs/client.c b/fs/nfs/client.c
-index 9e11d29..2328dcb 100644
---- a/fs/nfs/client.c
-+++ b/fs/nfs/client.c
-@@ -1232,11 +1232,11 @@ nfs4_find_client_ident(struct net *net, int cb_ident)
-  * Returns NULL if no such client
-  */
- struct nfs_client *
--nfs4_find_client_sessionid(const struct sockaddr *addr,
-+nfs4_find_client_sessionid(struct net *net, const struct sockaddr *addr,
- 			   struct nfs4_sessionid *sid)
- {
- 	struct nfs_client *clp;
--	struct nfs_net *nn = net_generic(&init_net, nfs_net_id);
-+	struct nfs_net *nn = net_generic(net, nfs_net_id);
- 
- 	spin_lock(&nn->nfs_client_lock);
- 	list_for_each_entry(clp, &nn->nfs_client_list, cl_share_link) {
-diff --git a/fs/nfs/internal.h b/fs/nfs/internal.h
-index b38b733..0c3648a 100644
---- a/fs/nfs/internal.h
-+++ b/fs/nfs/internal.h
-@@ -152,7 +152,8 @@ extern void nfs_cleanup_cb_ident_idr(struct net *);
- extern void nfs_put_client(struct nfs_client *);
- extern struct nfs_client *nfs4_find_client_ident(struct net *, int);
- extern struct nfs_client *
--nfs4_find_client_sessionid(const struct sockaddr *, struct nfs4_sessionid *);
-+nfs4_find_client_sessionid(struct net *, const struct sockaddr *,
-+				struct nfs4_sessionid *);
- extern struct nfs_server *nfs_create_server(
- 					const struct nfs_parsed_mount_data *,
- 					struct nfs_fh *);
+It would be nice to have this addressed in some way.
+
+How about patching __skb_queue_tail to do a deep copy?
+That would seem to handle both tap and socket cases -
+any other ones left?
+
+If we do this, I think it would be beneficial to pass a flag
+to the destructor indicating that a deep copy was done:
+this would allow senders to detect that and adapt.
+
+
+> ---
+>  include/linux/sunrpc/xdr.h  |    2 ++
+>  include/linux/sunrpc/xprt.h |    5 ++++-
+>  net/sunrpc/clnt.c           |   27 ++++++++++++++++++++++-----
+>  net/sunrpc/svcsock.c        |    3 ++-
+>  net/sunrpc/xprt.c           |   12 ++++++++++++
+>  net/sunrpc/xprtsock.c       |    3 ++-
+>  6 files changed, 44 insertions(+), 8 deletions(-)
+> 
+> diff --git a/include/linux/sunrpc/xdr.h b/include/linux/sunrpc/xdr.h
+> index a20970e..172f81e 100644
+> --- a/include/linux/sunrpc/xdr.h
+> +++ b/include/linux/sunrpc/xdr.h
+> @@ -16,6 +16,7 @@
+>  #include <asm/byteorder.h>
+>  #include <asm/unaligned.h>
+>  #include <linux/scatterlist.h>
+> +#include <linux/skbuff.h>
+>  
+>  /*
+>   * Buffer adjustment
+> @@ -57,6 +58,7 @@ struct xdr_buf {
+>  			tail[1];	/* Appended after page data */
+>  
+>  	struct page **	pages;		/* Array of contiguous pages */
+> +	struct skb_frag_destructor *destructor;
+>  	unsigned int	page_base,	/* Start of page data */
+>  			page_len,	/* Length of page data */
+>  			flags;		/* Flags for data disposition */
+> diff --git a/include/linux/sunrpc/xprt.h b/include/linux/sunrpc/xprt.h
+> index 15518a1..75131eb 100644
+> --- a/include/linux/sunrpc/xprt.h
+> +++ b/include/linux/sunrpc/xprt.h
+> @@ -92,7 +92,10 @@ struct rpc_rqst {
+>  						/* A cookie used to track the
+>  						   state of the transport
+>  						   connection */
+> -	
+> +	struct skb_frag_destructor destructor;	/* SKB paged fragment
+> +						 * destructor for
+> +						 * transmitted pages*/
+> +
+>  	/*
+>  	 * Partial send handling
+>  	 */
+> diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
+> index f0268ea..06f363f 100644
+> --- a/net/sunrpc/clnt.c
+> +++ b/net/sunrpc/clnt.c
+> @@ -61,6 +61,7 @@ static void	call_reserve(struct rpc_task *task);
+>  static void	call_reserveresult(struct rpc_task *task);
+>  static void	call_allocate(struct rpc_task *task);
+>  static void	call_decode(struct rpc_task *task);
+> +static void	call_complete(struct rpc_task *task);
+>  static void	call_bind(struct rpc_task *task);
+>  static void	call_bind_status(struct rpc_task *task);
+>  static void	call_transmit(struct rpc_task *task);
+> @@ -1115,6 +1116,8 @@ rpc_xdr_encode(struct rpc_task *task)
+>  			 (char *)req->rq_buffer + req->rq_callsize,
+>  			 req->rq_rcvsize);
+>  
+> +	req->rq_snd_buf.destructor = &req->destructor;
+> +
+>  	p = rpc_encode_header(task);
+>  	if (p == NULL) {
+>  		printk(KERN_INFO "RPC: couldn't encode RPC header, exit EIO\n");
+> @@ -1278,6 +1281,7 @@ call_connect_status(struct rpc_task *task)
+>  static void
+>  call_transmit(struct rpc_task *task)
+>  {
+> +	struct rpc_rqst *req = task->tk_rqstp;
+>  	dprint_status(task);
+>  
+>  	task->tk_action = call_status;
+> @@ -1311,8 +1315,8 @@ call_transmit(struct rpc_task *task)
+>  	call_transmit_status(task);
+>  	if (rpc_reply_expected(task))
+>  		return;
+> -	task->tk_action = rpc_exit_task;
+> -	rpc_wake_up_queued_task(&task->tk_xprt->pending, task);
+> +	task->tk_action = call_complete;
+> +	skb_frag_destructor_unref(&req->destructor);
+>  }
+>  
+>  /*
+> @@ -1385,7 +1389,8 @@ call_bc_transmit(struct rpc_task *task)
+>  		return;
+>  	}
+>  
+> -	task->tk_action = rpc_exit_task;
+> +	task->tk_action = call_complete;
+> +	skb_frag_destructor_unref(&req->destructor);
+>  	if (task->tk_status < 0) {
+>  		printk(KERN_NOTICE "RPC: Could not send backchannel reply "
+>  			"error: %d\n", task->tk_status);
+> @@ -1425,7 +1430,6 @@ call_bc_transmit(struct rpc_task *task)
+>  			"error: %d\n", task->tk_status);
+>  		break;
+>  	}
+> -	rpc_wake_up_queued_task(&req->rq_xprt->pending, task);
+>  }
+>  #endif /* CONFIG_SUNRPC_BACKCHANNEL */
+>  
+> @@ -1591,12 +1595,14 @@ call_decode(struct rpc_task *task)
+>  		return;
+>  	}
+>  
+> -	task->tk_action = rpc_exit_task;
+> +	task->tk_action = call_complete;
+>  
+>  	if (decode) {
+>  		task->tk_status = rpcauth_unwrap_resp(task, decode, req, p,
+>  						      task->tk_msg.rpc_resp);
+>  	}
+> +	rpc_sleep_on(&req->rq_xprt->pending, task, NULL);
+> +	skb_frag_destructor_unref(&req->destructor);
+>  	dprintk("RPC: %5u call_decode result %d\n", task->tk_pid,
+>  			task->tk_status);
+>  	return;
+> @@ -1611,6 +1617,17 @@ out_retry:
+>  	}
+>  }
+>  
+> +/*
+> + * 8.	Wait for pages to be released by the network stack.
+> + */
+> +static void
+> +call_complete(struct rpc_task *task)
+> +{
+> +	dprintk("RPC: %5u call_complete result %d\n",
+> +		task->tk_pid, task->tk_status);
+> +	task->tk_action = rpc_exit_task;
+> +}
+> +
+>  static __be32 *
+>  rpc_encode_header(struct rpc_task *task)
+>  {
+> diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+> index 0e6b919..aa7f108 100644
+> --- a/net/sunrpc/svcsock.c
+> +++ b/net/sunrpc/svcsock.c
+> @@ -198,7 +198,8 @@ int svc_send_common(struct socket *sock, struct xdr_buf *xdr,
+>  	while (pglen > 0) {
+>  		if (slen == size)
+>  			flags = 0;
+> -		result = kernel_sendpage(sock, *ppage, NULL, base, size, flags);
+> +		result = kernel_sendpage(sock, *ppage, xdr->destructor,
+> +					 base, size, flags);
+>  		if (result > 0)
+>  			len += result;
+>  		if (result != size)
+> diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
+> index c64c0ef..2137eb6 100644
+> --- a/net/sunrpc/xprt.c
+> +++ b/net/sunrpc/xprt.c
+> @@ -1101,6 +1101,16 @@ static inline void xprt_init_xid(struct rpc_xprt *xprt)
+>  	xprt->xid = net_random();
+>  }
+>  
+> +static int xprt_complete_skb_pages(struct skb_frag_destructor *destroy)
+> +{
+> +	struct rpc_rqst	*req =
+> +		container_of(destroy, struct rpc_rqst, destructor);
+> +
+> +	dprintk("RPC: %5u completing skb pages\n", req->rq_task->tk_pid);
+> +	rpc_wake_up_queued_task(&req->rq_xprt->pending, req->rq_task);
+
+It seems that at the sunrpc module can get unloaded
+at this point. The code for 'return 0' can then get
+overwritten. Right?
+
+Not sure how important making module unloading robust
+is - if we wanted to fix this we'd need to move
+the callback code into core (hopefully generalizing
+it somewhat).
+
+> +	return 0;
+> +}
+> +
+>  static void xprt_request_init(struct rpc_task *task, struct rpc_xprt *xprt)
+>  {
+>  	struct rpc_rqst	*req = task->tk_rqstp;
+> @@ -1113,6 +1123,8 @@ static void xprt_request_init(struct rpc_task *task, struct rpc_xprt *xprt)
+>  	req->rq_xid     = xprt_alloc_xid(xprt);
+>  	req->rq_release_snd_buf = NULL;
+>  	xprt_reset_majortimeo(req);
+> +	atomic_set(&req->destructor.ref, 1);
+> +	req->destructor.destroy = &xprt_complete_skb_pages;
+>  	dprintk("RPC: %5u reserved req %p xid %08x\n", task->tk_pid,
+>  			req, ntohl(req->rq_xid));
+>  }
+> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+> index 38b2fec..5406977 100644
+> --- a/net/sunrpc/xprtsock.c
+> +++ b/net/sunrpc/xprtsock.c
+> @@ -408,7 +408,8 @@ static int xs_send_pagedata(struct socket *sock, struct xdr_buf *xdr, unsigned i
+>  		remainder -= len;
+>  		if (remainder != 0 || more)
+>  			flags |= MSG_MORE;
+> -		err = sock->ops->sendpage(sock, *ppage, NULL, base, len, flags);
+> +		err = sock->ops->sendpage(sock, *ppage, xdr->destructor,
+> +					  base, len, flags);
+>  		if (remainder == 0 || err != len)
+>  			break;
+>  		sent += err;
+> -- 
+> 1.7.2.5
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
