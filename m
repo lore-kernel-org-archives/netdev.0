@@ -1,47 +1,53 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH] netback: fix multi page ring size calculation.
-Date: Thu, 26 Jan 2012 17:21:28 +0000
-Message-ID: <1327598488.2585.7.camel@leeni.uk.xensource.com>
-References: <1327598408-16214-1-git-send-email-wei.liu2@citrix.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH] stmmac: Use correct MDIO bus name so that phy_connect()
+ works again
+Date: Thu, 26 Jan 2012 18:22:45 +0100
+Message-ID: <4F218BE5.8030407@openwrt.org>
+References: <1327589210-4424-1-git-send-email-sr@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>, "jeremy@goop.org" <jeremy@goop.org>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: Stefan Roese <sr@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:57156 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751415Ab2AZRV3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2012 12:21:29 -0500
-In-Reply-To: <1327598408-16214-1-git-send-email-wei.liu2@citrix.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:55414 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752422Ab2AZRXI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2012 12:23:08 -0500
+Received: by werb13 with SMTP id b13so579527wer.19
+        for <netdev@vger.kernel.org>; Thu, 26 Jan 2012 09:23:06 -0800 (PST)
+In-Reply-To: <1327589210-4424-1-git-send-email-sr@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry for the noise, I accidently sent the wrong patch.
+On 01/26/12 15:46, Stefan Roese wrote:
+> Patch db8857bf [stmmac: use an unique MDIO bus name.] changed the
+> MDIO bus name. After this phy_connect() fails. This patch changes
+> the bus name in stmmac_mdio.c so that the name matching works
+> again.
 
-Wei.
+Alessandro already proposed such a patch: 
+http://patchwork.ozlabs.org/patch/137531/
+which has been applied by David already.
 
-On Thu, 2012-01-26 at 17:20 +0000, Wei Liu wrote:
+>
+> Signed-off-by: Stefan Roese<sr@denx.de>
+> Cc: Florian Fainelli<florian@openwrt.org>
+> Cc: Giuseppe Cavallaro<peppe.cavallaro@st.com>
 > ---
->  drivers/net/xen-netback/common.h |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-> index 477e5ab..f3d95b3 100644
-> --- a/drivers/net/xen-netback/common.h
-> +++ b/drivers/net/xen-netback/common.h
-> @@ -60,9 +60,9 @@ struct xenvif_rx_meta {
->  #define MAX_BUFFER_OFFSET PAGE_SIZE
->  
->  #define NETBK_TX_RING_SIZE(_nr_pages)					\
-> -	(__CONST_RING_SIZE(xen_netif_tx, PAGE_SIZE) * (_nr_pages))
-> +	(__CONST_RING_SIZE(xen_netif_tx, PAGE_SIZE * (_nr_pages)))
->  #define NETBK_RX_RING_SIZE(_nr_pages)					\
-> -	(__CONST_RING_SIZE(xen_netif_rx, PAGE_SIZE) * (_nr_pages))
-> +	(__CONST_RING_SIZE(xen_netif_rx, PAGE_SIZE * (_nr_pages)))
->  
->  #define NETBK_MAX_RING_PAGE_ORDER 2
->  #define NETBK_MAX_RING_PAGES      (1U << NETBK_MAX_RING_PAGE_ORDER)
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |    2 +-
+>   1 files changed, 1 insertions(+), 1 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> index da4a104..7319532 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> @@ -154,7 +154,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+>   	else
+>   		irqlist = priv->mii_irq;
+>
+> -	new_bus->name = "STMMAC MII Bus";
+> +	new_bus->name = "stmmac";
+>   	new_bus->read =&stmmac_mdio_read;
+>   	new_bus->write =&stmmac_mdio_write;
+>   	new_bus->reset =&stmmac_mdio_reset;
