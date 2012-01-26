@@ -1,73 +1,118 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/12] e1000e: 82579: workaround for link drop issue
-Date: Wed, 25 Jan 2012 23:21:52 -0800
-Message-ID: <1327562515-29664-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/12] e1000e: default IntMode based on kernel config & available hardware support
+Date: Wed, 25 Jan 2012 23:21:50 -0800
+Message-ID: <1327562515-29664-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
+	Jin Qing <b24347@freescale.com>,
+	Prabhakar Kushwaha <prabhakar@freescale.com>,
+	Kumar Gala <galak@kernel.crashing.org>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:54466 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:63115 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751660Ab2AZHWC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jan 2012 02:22:02 -0500
+	id S1751601Ab2AZHWB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jan 2012 02:22:01 -0500
 In-Reply-To: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-When connected to certain switches, the 82579 PHY might drop link
-unexpectedly.  Work around the issue by setting the Mean Square Error
-higher than the hardware default.
+Based on a patch from Prabhakar Kushwaha <prabhakar@freescale.com>, set
+appropriate default interrupt mode dependent on whether CONFIG_PCI_MSI
+is enabled in the kernel configuration and if the hardware supports
+MSI-X.  Set the module parameter log message accordingly.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Cc: Jin Qing <b24347@freescale.com>
+Cc: Prabhakar Kushwaha <prabhakar@freescale.com>
+Cc: Jin Qing <b24347@freescale.com>
+Cc: Kumar Gala <galak@kernel.crashing.org>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/ich8lan.c |   22 ++++++++++++++++++++++
- 1 files changed, 22 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/e1000e/param.c |   48 ++++++++++++++++++++++++----
+ 1 files changed, 41 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index e2a80a2..1b69c2d 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -145,6 +145,8 @@
- #define I82579_EMI_ADDR         0x10
- #define I82579_EMI_DATA         0x11
- #define I82579_LPI_UPDATE_TIMER 0x4805	/* in 40ns units + 40 ns base value */
-+#define I82579_MSE_THRESHOLD    0x084F	/* Mean Square Error Threshold */
-+#define I82579_MSE_LINK_DOWN    0x2411	/* MSE count before dropping link */
+diff --git a/drivers/net/ethernet/intel/e1000e/param.c b/drivers/net/ethernet/intel/e1000e/param.c
+index 20e93b0..40664f5 100644
+--- a/drivers/net/ethernet/intel/e1000e/param.c
++++ b/drivers/net/ethernet/intel/e1000e/param.c
+@@ -113,11 +113,20 @@ E1000_PARAM(InterruptThrottleRate, "Interrupt Throttling Rate");
+ #define MAX_ITR 100000
+ #define MIN_ITR 100
  
- /* Strapping Option Register - RO */
- #define E1000_STRAP                     0x0000C
-@@ -1669,6 +1671,26 @@ static s32 e1000_lv_phy_workarounds_ich8lan(struct e1000_hw *hw)
- 	/* Set MDIO slow mode before any other MDIO access */
- 	ret_val = e1000_set_mdio_slow_mode_hv(hw);
+-/* IntMode (Interrupt Mode)
++/*
++ * IntMode (Interrupt Mode)
++ *
++ * Valid Range: varies depending on kernel configuration & hardware support
++ *
++ * legacy=0, MSI=1, MSI-X=2
+  *
+- * Valid Range: 0 - 2
++ * When MSI/MSI-X support is enabled in kernel-
++ *   Default Value: 2 (MSI-X) when supported by hardware, 1 (MSI) otherwise
++ * When MSI/MSI-X support is not enabled in kernel-
++ *   Default Value: 0 (legacy)
+  *
+- * Default Value: 2 (MSI-X)
++ * When a mode is specified that is not allowed/supported, it will be
++ * demoted to the most advanced interrupt mode available.
+  */
+ E1000_PARAM(IntMode, "Interrupt Mode");
+ #define MAX_INTMODE	2
+@@ -388,12 +397,33 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
+ 		static struct e1000_option opt = {
+ 			.type = range_option,
+ 			.name = "Interrupt Mode",
+-			.err  = "defaulting to 2 (MSI-X)",
+-			.def  = E1000E_INT_MODE_MSIX,
+-			.arg  = { .r = { .min = MIN_INTMODE,
+-					 .max = MAX_INTMODE } }
++#ifndef CONFIG_PCI_MSI
++			.err  = "defaulting to 0 (legacy)",
++			.def  = E1000E_INT_MODE_LEGACY,
++			.arg  = { .r = { .min = 0,
++					 .max = 0 } }
++#endif
+ 		};
  
-+	ret_val = hw->phy.ops.acquire(hw);
-+	if (ret_val)
-+		goto out;
-+	ret_val = hw->phy.ops.write_reg_locked(hw, I82579_EMI_ADDR,
-+					       I82579_MSE_THRESHOLD);
-+	if (ret_val)
-+		goto release;
-+	/* set MSE higher to enable link to stay up when noise is high */
-+	ret_val = hw->phy.ops.write_reg_locked(hw, I82579_EMI_DATA, 0x0034);
-+	if (ret_val)
-+		goto release;
-+	ret_val = hw->phy.ops.write_reg_locked(hw, I82579_EMI_ADDR,
-+					       I82579_MSE_LINK_DOWN);
-+	if (ret_val)
-+		goto release;
-+	/* drop link after 5 times MSE threshold was reached */
-+	ret_val = hw->phy.ops.write_reg_locked(hw, I82579_EMI_DATA, 0x0005);
-+release:
-+	hw->phy.ops.release(hw);
++#ifdef CONFIG_PCI_MSI
++		if (adapter->flags & FLAG_HAS_MSIX) {
++			opt.err = kstrdup("defaulting to 2 (MSI-X)",
++					  GFP_KERNEL);
++			opt.def = E1000E_INT_MODE_MSIX;
++			opt.arg.r.max = E1000E_INT_MODE_MSIX;
++		} else {
++			opt.err = kstrdup("defaulting to 1 (MSI)", GFP_KERNEL);
++			opt.def = E1000E_INT_MODE_MSI;
++			opt.arg.r.max = E1000E_INT_MODE_MSI;
++		}
 +
- out:
- 	return ret_val;
- }
++		if (!opt.err) {
++			dev_err(&adapter->pdev->dev,
++				"Failed to allocate memory\n");
++			return;
++		}
++#endif
++
+ 		if (num_IntMode > bd) {
+ 			unsigned int int_mode = IntMode[bd];
+ 			e1000_validate_option(&int_mode, &opt, adapter);
+@@ -401,6 +431,10 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
+ 		} else {
+ 			adapter->int_mode = opt.def;
+ 		}
++
++#ifdef CONFIG_PCI_MSI
++		kfree(opt.err);
++#endif
+ 	}
+ 	{ /* Smart Power Down */
+ 		static const struct e1000_option opt = {
 -- 
 1.7.7.6
