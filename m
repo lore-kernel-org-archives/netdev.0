@@ -1,8 +1,8 @@
 From: "Ariel Elior" <ariele@broadcom.com>
-Subject: [PATCH net-next 01/10] bnx2x: Support Queue Per Cos in 5771xx
- devices
-Date: Thu, 26 Jan 2012 18:01:45 +0200
-Message-ID: <1327593714-18358-2-git-send-email-ariele@broadcom.com>
+Subject: [PATCH net-next 03/10] bnx2x: Obtain Bus Device Function from
+ register
+Date: Thu, 26 Jan 2012 18:01:47 +0200
+Message-ID: <1327593714-18358-4-git-send-email-ariele@broadcom.com>
 References: <1327593714-18358-1-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,61 +10,80 @@ Content-Transfer-Encoding: 7bit
 Cc: eilong@broadcom.com, "Ariel Elior" <ariele@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4709 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4223 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751720Ab2AZQBu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752694Ab2AZQBu (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 26 Jan 2012 11:01:50 -0500
 In-Reply-To: <1327593714-18358-1-git-send-email-ariele@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enable the use of up to three hardware queues for transmission. The queues
-are always dequed round robin (i.e. strict priority, PFC and ETS are not
-supported). This does allow the allocation of a seperate HW queue for low
-volume, high priority traffic which will be serviced more promptly.
+BDF was obtained from kernel but since in virtualized environment
+(e.g. physical device assigment in KVM) the function number may
+not be the real one, the info must be obtained from the device.
 
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h |    7 ++++---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h  |    4 ++--
- 2 files changed, 6 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   17 ++++++++++++++++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h  |    3 ++-
+ 2 files changed, 18 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index bf27c54..0dd22bb 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -984,10 +984,11 @@ static inline int bnx2x_func_start(struct bnx2x *bp)
- 	/* Function parameters */
- 	start_params->mf_mode = bp->mf_mode;
- 	start_params->sd_vlan_tag = bp->mf_ov;
--	if (CHIP_IS_E1x(bp))
--		start_params->network_cos_mode = OVERRIDE_COS;
--	else
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index e56b832..115d77a 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -10546,6 +10546,7 @@ static int __devinit bnx2x_init_dev(struct pci_dev *pdev,
+ {
+ 	struct bnx2x *bp;
+ 	int rc;
++	u32 pci_cfg_dword;
+ 	bool chip_is_e1x = (board_type == BCM57710 ||
+ 			    board_type == BCM57711 ||
+ 			    board_type == BCM57711E);
+@@ -10556,7 +10557,6 @@ static int __devinit bnx2x_init_dev(struct pci_dev *pdev,
+ 	bp->dev = dev;
+ 	bp->pdev = pdev;
+ 	bp->flags = 0;
+-	bp->pf_num = PCI_FUNC(pdev->devfn);
+ 
+ 	rc = pci_enable_device(pdev);
+ 	if (rc) {
+@@ -10623,6 +10623,21 @@ static int __devinit bnx2x_init_dev(struct pci_dev *pdev,
+ 		goto err_out_release;
+ 	}
+ 
++	/* In E1/E1H use pci device function given by kernel.
++	 * In E2/E3 read physical function from ME register since these chips
++	 * support Physical Device Assignment where kernel BDF maybe arbitrary
++	 * (depending on hypervisor).
++	 */
++	if (chip_is_e1x)
++		bp->pf_num = PCI_FUNC(pdev->devfn);
++	else {/* chip is E2/3*/
++		pci_read_config_dword(bp->pdev,
++				      PCICFG_ME_REGISTER, &pci_cfg_dword);
++		bp->pf_num = (u8)((pci_cfg_dword & ME_REG_ABS_PF_NUM) >>
++		    ME_REG_ABS_PF_NUM_SHIFT);
++	}
++	DP(BNX2X_MSG_SP, "me reg PF num: %d\n", bp->pf_num);
 +
-+	if (CHIP_IS_E2(bp) || CHIP_IS_E3(bp))
- 		start_params->network_cos_mode = STATIC_COS;
-+	else /* CHIP_IS_E1X */
-+		start_params->network_cos_mode = FW_WRR;
+ 	bnx2x_set_power_state(bp, PCI_D0);
  
- 	return bnx2x_func_state_change(bp, &func_params);
- }
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
-index 66da39f..f33bc57 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
-@@ -803,10 +803,10 @@ enum bnx2x_q_type {
- };
- 
- #define BNX2X_PRIMARY_CID_INDEX			0
--#define BNX2X_MULTI_TX_COS_E1X			1
-+#define BNX2X_MULTI_TX_COS_E1X			3 /* QM only */
- #define BNX2X_MULTI_TX_COS_E2_E3A0		2
- #define BNX2X_MULTI_TX_COS_E3B0			3
--#define BNX2X_MULTI_TX_COS			BNX2X_MULTI_TX_COS_E3B0
-+#define BNX2X_MULTI_TX_COS			3 /* Maximum possible */
- 
- 
- struct bnx2x_queue_init_params {
+ 	/* clean indirect addresses */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+index dddbcf6..8c79e00 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+@@ -6023,7 +6023,8 @@
+ #define PCICFG_MSI_CONTROL_64_BIT_ADDR_CAP	(0x1<<23)
+ #define PCICFG_MSI_CONTROL_MSI_PVMASK_CAPABLE	(0x1<<24)
+ #define PCICFG_GRC_ADDRESS				0x78
+-#define PCICFG_GRC_DATA 				0x80
++#define PCICFG_GRC_DATA				0x80
++#define PCICFG_ME_REGISTER				0x98
+ #define PCICFG_MSIX_CAP_ID_OFFSET			0xa0
+ #define PCICFG_MSIX_CONTROL_TABLE_SIZE		(0x7ff<<16)
+ #define PCICFG_MSIX_CONTROL_RESERVED		(0x7<<27)
 -- 
 1.7.1
