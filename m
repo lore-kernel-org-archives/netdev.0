@@ -1,50 +1,54 @@
 From: =?ISO-8859-2?Q?=A9tefan_Gula?= <steweg@ynet.sk>
-Subject: Re: [patch v4, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
- multipoint GRE over IP
-Date: Thu, 26 Jan 2012 11:57:30 +0100
-Message-ID: <CAGsizzLYxsc2MGxF7yK_QzS+3bexHa1F_6+NE87u3F18m7=R1g@mail.gmail.com>
-References: <CAEP_g=9H9dV9=qtFPh4YeTNQ-t+UZGw-YqZ6hFWVNXjFy+GCZg@mail.gmail.com>
- <20120125.165548.596418893115900979.davem@davemloft.net> <CAGsizzJnRy74ni-HH=5q1VR4g6sfDPg9SFw4UKgSjJjkSR8OJA@mail.gmail.com>
- <20120125.203746.1977019610549185259.davem@davemloft.net>
+Subject: Re: [patch v1, kernel 3.2.1] RTNETLINK adjusting values of min_ifinfo_dump_size
+Date: Thu, 26 Jan 2012 12:01:44 +0100
+Message-ID: <CAGsizzLxWbCqKxMTc-_-7MDmWg_VgP63ZBmi7P2z_Y7YMtrehg@mail.gmail.com>
+References: <30372884.681327480899559.JavaMail.root@5-MeO-DMT.ynet.sk>
+ <26709175.701327480995351.JavaMail.root@5-MeO-DMT.ynet.sk> <20120125.213609.1699401522361877843.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jesse@nicira.com, joseph.glanville@orionvm.com.au,
-	eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120125.203746.1977019610549185259.davem@davemloft.net>
+In-Reply-To: <20120125.213609.1699401522361877843.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 2012/1/26 David Miller <davem@davemloft.net>:
-> From: =C5=A0tefan Gula <steweg@ynet.sk>
-> Date: Wed, 25 Jan 2012 23:57:18 +0100
+> From: Stefan Gula <steweg@ynet.sk>
+> Date: Wed, 25 Jan 2012 09:43:15 +0100 (CET)
 >
->> The performance is one of the most critical thing why I have chosen =
-to
->> build kernel patch in the first place instead of some user-space app=
-=2E
->> If I used this approach, I would probably end up with patch for
->> OpenVPN project instead in that time. I am not telling that
->> openvswitch is not a good place for prototyping, but I believe that
->> this patch is beyond that border as it successfully run in environme=
-nt
->> with more 98 linux-based APs, used for 4K+ users, with no issue for
->> more than 2 years. The performance results from Joseph Glanville eve=
+>> From: Stefan Gula <steweg@gmail.com>
+>>
+>> This patch extends the rtnetlink.c. The problem is that calcit, whic=
+h
+>> returns the value min_ifinfo_dump_size, is called without ability to
+>> get device info as well (struct net_device *dev is not accessible fr=
+om
+>> it). This create a problem if required size of struct sk_buff *skb i=
+s
+>> not enough big to comply with all data returned by fill_info functio=
 n
->> adds value to it. So I still don't get the point, why my patch and
->> openvswitch cannot coexists in the kernel together and let user/admi=
-n
->> to choose to correct solution for him/her.
+0>> for the interface that required size can vary over time, e.g. some
+>> dynamic structures will be putted to skb like hlists or lists. To do
+>> this patch extends the do_setlink function with recalculating of
+>> min_ifinfo_dump_size accordingly to device type and get_size
+>> functions.
+>>
+>> Signed-off-by: Stefan Gula <steweg@gmail.com>
 >
-> You don't even know if openvswitch could provide acceptable levels
-> of performance, because you haven't even tried.
+> This commit message is terrible, and the reason I know it's terrible
+> is because even after reading it I still had to go read the code
+> in order to understand what your change even does or why it's even
+> necessary.
 >
-> I'm not applying your patch.
-Performance of any user-space application is lower than performance of
-something running purely inside the kernel-space only. So still don't
-see any valid reason, why it simply cannot coexists as it doesn't
-breaks any existing functionality at all?
+> How about this:
+>
+> =A0 =A0 =A0 =A0Setting link parameters on a netdevice changes the val=
+ue
+> =A0 =A0 =A0 =A0of if_nlmsg_size(), therefore it is necessary to recal=
+culate
+> =A0 =A0 =A0 =A0min_ifinfo_dump_size.
+>
+Sound good... do I have to resubmit the patch with the correct descript=
+ion?
