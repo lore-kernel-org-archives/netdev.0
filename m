@@ -1,31 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] tcp: bind() optimize port allocation
-Date: Wed, 25 Jan 2012 21:51:07 -0500 (EST)
-Message-ID: <20120125.215107.1691418905626057552.davem@davemloft.net>
-References: <1327516492-9045-1-git-send-email-fbl@redhat.com>
-	<1327516492-9045-2-git-send-email-fbl@redhat.com>
+From: "clark.khadige1" <clark.khadige1@usj.edu.lb>
+Subject: Loan Offer
+Date: Thu, 26 Jan 2012 04:54:31 +0200
+Message-ID: <20120126025317.M90861@usj.edu.lb>
+Reply-To: loan_solution200@live.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mleitner@redhat.com, eric.dumazet@gmail.com
-To: fbl@redhat.com
+Content-Type: text/plain;
+	charset=iso-8859-1
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:54991 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751607Ab2AZCvL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 21:51:11 -0500
-In-Reply-To: <1327516492-9045-2-git-send-email-fbl@redhat.com>
+Received: from rectorat2.usj.edu.lb ([193.227.187.140]:46597 "EHLO
+	Citrus.usj.edu.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751104Ab2AZExK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2012 23:53:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Flavio Leitner <fbl@redhat.com>
-Date: Wed, 25 Jan 2012 16:34:52 -0200
+Dear Customer, 
 
-> Port autoselection finds a port and then drop the lock,
-> then right after that, gets the hash bucket again and lock it.
-> 
-> Fix it to go direct.
-> 
-> Signed-off-by: Flavio Leitner <fbl@redhat.com>
-
-Applied, great work Flavio.
+Loan Solution Team, help you to change the way you live.Arranging a loan with us is 
+simple and straight forward,loans from any amount to $5,000 to $2,000,000.00 over 5 to 
+30 years.we make the process convenient and fast.Our interest rate is 3% APR Typical 
+variable and this means that all of our clients pay this rate.
+FULL NAMES:
+COUNTRY:
+AGE: 
+MONTHLY INCOME:
+OCCUPATION:
+PHONE NUMBER:
+MOBILE PHONE NUMBER:
+AMOUNT NEEDED
+LOAN DURATION/PERIOD:
+PURPOSE OF LOAN:
+Email:loan_solution200@live.com
+Mrs.Terry Clerk
