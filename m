@@ -1,818 +1,327 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/12] e1000e: pass pointer to ring struct instead of adapter struct
-Date: Wed, 25 Jan 2012 23:21:48 -0800
-Message-ID: <1327562515-29664-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 02/12] e1000e: add Receive Packet Steering (RPS) support
+Date: Wed, 25 Jan 2012 23:21:45 -0800
+Message-ID: <1327562515-29664-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:63115 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:54466 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751482Ab2AZHWA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jan 2012 02:22:00 -0500
+	id S1751264Ab2AZHV6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jan 2012 02:21:58 -0500
 In-Reply-To: <1327562515-29664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-For ring-specific functions, pass a pointer to the ring struct instead of a
-pointer to the adapter struct.
+Enable RPS by default.  Disallow jumbo frames when both receive checksum
+and receive hashing are enabled because the hardware cannot do both IP
+payload checksum (enabled when receive checksum is enabled when using
+packet split which is used for jumbo frames) and provide RSS hash at the
+same time.
+
+v2: added ethtool command to query flow hashing behavior per Ben Hutchings
+    and changed the type of rsskey to cleanup the setting of the register
+    array and avoid unnecessary casts (as pointed out by Joe Perches).
+    The long error messages are not changed since there is nothing in
+    the kernel ./Documentation that suggests the preferred method for
+    dealing with long messages other than to never break strings; leaving
+    them as-is for now.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/e1000.h   |   21 ++-
- drivers/net/ethernet/intel/e1000e/ethtool.c |   10 +-
- drivers/net/ethernet/intel/e1000e/netdev.c  |  232 ++++++++++++++-------------
- 3 files changed, 136 insertions(+), 127 deletions(-)
+ drivers/net/ethernet/intel/e1000e/defines.h |    8 +++
+ drivers/net/ethernet/intel/e1000e/ethtool.c |   48 ++++++++++++++
+ drivers/net/ethernet/intel/e1000e/hw.h      |    5 ++
+ drivers/net/ethernet/intel/e1000e/netdev.c  |   90 +++++++++++++++++++++++++--
+ 4 files changed, 145 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index f6ac197..db604cd 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -234,6 +234,7 @@ struct e1000_buffer {
- };
+diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
+index c516a74..c73795f 100644
+--- a/drivers/net/ethernet/intel/e1000e/defines.h
++++ b/drivers/net/ethernet/intel/e1000e/defines.h
+@@ -126,6 +126,13 @@
+     E1000_RXDEXT_STATERR_CXE |            \
+     E1000_RXDEXT_STATERR_RXE)
  
- struct e1000_ring {
-+	struct e1000_adapter *adapter;	/* back pointer to adapter */
- 	void *desc;			/* pointer to ring memory  */
- 	dma_addr_t dma;			/* phys address of ring    */
- 	unsigned int size;		/* length of ring in bytes */
-@@ -334,11 +335,10 @@ struct e1000_adapter {
- 	/*
- 	 * Rx
- 	 */
--	bool (*clean_rx) (struct e1000_adapter *adapter,
--			  int *work_done, int work_to_do)
--						____cacheline_aligned_in_smp;
--	void (*alloc_rx_buf) (struct e1000_adapter *adapter,
--			      int cleaned_count, gfp_t gfp);
-+	bool (*clean_rx) (struct e1000_ring *ring, int *work_done,
-+			  int work_to_do) ____cacheline_aligned_in_smp;
-+	void (*alloc_rx_buf) (struct e1000_ring *ring, int cleaned_count,
-+			      gfp_t gfp);
- 	struct e1000_ring *rx_ring;
- 
- 	u32 rx_int_delay;
-@@ -398,6 +398,9 @@ struct e1000_adapter {
- 
- 	bool idle_check;
- 	int phy_hang_count;
++#define E1000_MRQC_RSS_FIELD_MASK              0xFFFF0000
++#define E1000_MRQC_RSS_FIELD_IPV4_TCP          0x00010000
++#define E1000_MRQC_RSS_FIELD_IPV4              0x00020000
++#define E1000_MRQC_RSS_FIELD_IPV6_TCP_EX       0x00040000
++#define E1000_MRQC_RSS_FIELD_IPV6              0x00100000
++#define E1000_MRQC_RSS_FIELD_IPV6_TCP          0x00200000
 +
-+	u16 tx_ring_count;
-+	u16 rx_ring_count;
- };
+ #define E1000_RXDPS_HDRSTAT_HDRSP              0x00008000
  
- struct e1000_info {
-@@ -492,10 +495,10 @@ extern void e1000e_down(struct e1000_adapter *adapter);
- extern void e1000e_reinit_locked(struct e1000_adapter *adapter);
- extern void e1000e_reset(struct e1000_adapter *adapter);
- extern void e1000e_power_up_phy(struct e1000_adapter *adapter);
--extern int e1000e_setup_rx_resources(struct e1000_adapter *adapter);
--extern int e1000e_setup_tx_resources(struct e1000_adapter *adapter);
--extern void e1000e_free_rx_resources(struct e1000_adapter *adapter);
--extern void e1000e_free_tx_resources(struct e1000_adapter *adapter);
-+extern int e1000e_setup_rx_resources(struct e1000_ring *ring);
-+extern int e1000e_setup_tx_resources(struct e1000_ring *ring);
-+extern void e1000e_free_rx_resources(struct e1000_ring *ring);
-+extern void e1000e_free_tx_resources(struct e1000_ring *ring);
- extern struct rtnl_link_stats64 *e1000e_get_stats64(struct net_device *netdev,
-                                                     struct rtnl_link_stats64
-                                                     *stats);
+ /* Management Control */
+@@ -326,6 +333,7 @@
+ /* Receive Checksum Control */
+ #define E1000_RXCSUM_TUOFL     0x00000200   /* TCP / UDP checksum offload */
+ #define E1000_RXCSUM_IPPCSE    0x00001000   /* IP payload checksum enable */
++#define E1000_RXCSUM_PCSD      0x00002000   /* packet checksum disabled */
+ 
+ /* Header split receive */
+ #define E1000_RFCTL_NFSW_DIS            0x00000040
 diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index 0a3137a..01c73ae 100644
+index fb2c28e..0a3137a 100644
 --- a/drivers/net/ethernet/intel/e1000e/ethtool.c
 +++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -656,10 +656,10 @@ static int e1000_set_ringparam(struct net_device *netdev,
+@@ -1955,6 +1955,53 @@ static void e1000_get_strings(struct net_device *netdev, u32 stringset,
+ 	}
+ }
  
- 	if (netif_running(adapter->netdev)) {
- 		/* Try to get new resources before deleting old */
--		err = e1000e_setup_rx_resources(adapter);
-+		err = e1000e_setup_rx_resources(rx_ring);
- 		if (err)
- 			goto err_setup_rx;
--		err = e1000e_setup_tx_resources(adapter);
-+		err = e1000e_setup_tx_resources(tx_ring);
- 		if (err)
- 			goto err_setup_tx;
++static int e1000_get_rxnfc(struct net_device *netdev,
++			   struct ethtool_rxnfc *info, u32 *rule_locs)
++{
++	info->data = 0;
++
++	switch (info->cmd) {
++	case ETHTOOL_GRXFH: {
++		struct e1000_adapter *adapter = netdev_priv(netdev);
++		struct e1000_hw *hw = &adapter->hw;
++		u32 mrqc = er32(MRQC);
++
++		if (!(mrqc & E1000_MRQC_RSS_FIELD_MASK))
++			return 0;
++
++		switch (info->flow_type) {
++		case TCP_V4_FLOW:
++			if (mrqc & E1000_MRQC_RSS_FIELD_IPV4_TCP)
++				info->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++			/* fall through */
++		case UDP_V4_FLOW:
++		case SCTP_V4_FLOW:
++		case AH_ESP_V4_FLOW:
++		case IPV4_FLOW:
++			if (mrqc & E1000_MRQC_RSS_FIELD_IPV4)
++				info->data |= RXH_IP_SRC | RXH_IP_DST;
++			break;
++		case TCP_V6_FLOW:
++			if (mrqc & E1000_MRQC_RSS_FIELD_IPV6_TCP)
++				info->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++			/* fall through */
++		case UDP_V6_FLOW:
++		case SCTP_V6_FLOW:
++		case AH_ESP_V6_FLOW:
++		case IPV6_FLOW:
++			if (mrqc & E1000_MRQC_RSS_FIELD_IPV6)
++				info->data |= RXH_IP_SRC | RXH_IP_DST;
++			break;
++		default:
++			break;
++		}
++		return 0;
++	}
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
+ static const struct ethtool_ops e1000_ethtool_ops = {
+ 	.get_settings		= e1000_get_settings,
+ 	.set_settings		= e1000_set_settings,
+@@ -1981,6 +2028,7 @@ static const struct ethtool_ops e1000_ethtool_ops = {
+ 	.get_sset_count		= e1000e_get_sset_count,
+ 	.get_coalesce		= e1000_get_coalesce,
+ 	.set_coalesce		= e1000_set_coalesce,
++	.get_rxnfc		= e1000_get_rxnfc,
+ };
  
-@@ -669,8 +669,8 @@ static int e1000_set_ringparam(struct net_device *netdev,
- 		 */
- 		adapter->rx_ring = rx_old;
- 		adapter->tx_ring = tx_old;
--		e1000e_free_rx_resources(adapter);
--		e1000e_free_tx_resources(adapter);
-+		e1000e_free_rx_resources(adapter->rx_ring);
-+		e1000e_free_tx_resources(adapter->tx_ring);
- 		kfree(tx_old);
- 		kfree(rx_old);
- 		adapter->rx_ring = rx_ring;
-@@ -683,7 +683,7 @@ static int e1000_set_ringparam(struct net_device *netdev,
- 	clear_bit(__E1000_RESETTING, &adapter->state);
- 	return 0;
- err_setup_tx:
--	e1000e_free_rx_resources(adapter);
-+	e1000e_free_rx_resources(rx_ring);
- err_setup_rx:
- 	adapter->rx_ring = rx_old;
- 	adapter->tx_ring = tx_old;
+ void e1000e_set_ethtool_ops(struct net_device *netdev)
+diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
+index 2967039..93c349e 100644
+--- a/drivers/net/ethernet/intel/e1000e/hw.h
++++ b/drivers/net/ethernet/intel/e1000e/hw.h
+@@ -204,6 +204,7 @@ enum e1e_registers {
+ 	E1000_WUC      = 0x05800, /* Wakeup Control - RW */
+ 	E1000_WUFC     = 0x05808, /* Wakeup Filter Control - RW */
+ 	E1000_WUS      = 0x05810, /* Wakeup Status - RO */
++	E1000_MRQC     = 0x05818, /* Multiple Receive Control - RW */
+ 	E1000_MANC     = 0x05820, /* Management Control - RW */
+ 	E1000_FFLT     = 0x05F00, /* Flexible Filter Length Table - RW Array */
+ 	E1000_HOST_IF  = 0x08800, /* Host Interface */
+@@ -219,6 +220,10 @@ enum e1e_registers {
+ 	E1000_SWSM      = 0x05B50, /* SW Semaphore */
+ 	E1000_FWSM      = 0x05B54, /* FW Semaphore */
+ 	E1000_SWSM2     = 0x05B58, /* Driver-only SW semaphore */
++	E1000_RETA_BASE = 0x05C00, /* Redirection Table - RW */
++#define E1000_RETA(_n)	(E1000_RETA_BASE + ((_n) * 4))
++	E1000_RSSRK_BASE = 0x05C80, /* RSS Random Key - RW */
++#define E1000_RSSRK(_n)	(E1000_RSSRK_BASE + ((_n) * 4))
+ 	E1000_FFLT_DBG  = 0x05F04, /* Debug Register */
+ 	E1000_PCH_RAICC_BASE = 0x05F50, /* Receive Address Initial CRC */
+ #define E1000_PCH_RAICC(_n)	(E1000_PCH_RAICC_BASE + ((_n) * 4))
 diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 462bdee..ffe4583 100644
+index 263bf5f..b196d79 100644
 --- a/drivers/net/ethernet/intel/e1000e/netdev.c
 +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -567,11 +567,12 @@ static inline s32 e1000e_update_tail_wa(struct e1000_hw *hw, void __iomem *tail,
- 	return 0;
- }
- 
--static void e1000e_update_rdt_wa(struct e1000_adapter *adapter, unsigned int i)
-+static void e1000e_update_rdt_wa(struct e1000_ring *rx_ring, unsigned int i)
- {
-+	struct e1000_adapter *adapter = rx_ring->adapter;
- 	struct e1000_hw *hw = &adapter->hw;
- 
--	if (e1000e_update_tail_wa(hw, adapter->rx_ring->tail, i)) {
-+	if (e1000e_update_tail_wa(hw, rx_ring->tail, i)) {
- 		u32 rctl = er32(RCTL);
- 		ew32(RCTL, rctl & ~E1000_RCTL_EN);
- 		e_err("ME firmware caused invalid RDT - resetting\n");
-@@ -579,11 +580,12 @@ static void e1000e_update_rdt_wa(struct e1000_adapter *adapter, unsigned int i)
+@@ -845,6 +845,13 @@ check_page:
  	}
  }
  
--static void e1000e_update_tdt_wa(struct e1000_adapter *adapter, unsigned int i)
-+static void e1000e_update_tdt_wa(struct e1000_ring *tx_ring, unsigned int i)
- {
-+	struct e1000_adapter *adapter = tx_ring->adapter;
- 	struct e1000_hw *hw = &adapter->hw;
- 
--	if (e1000e_update_tail_wa(hw, adapter->tx_ring->tail, i)) {
-+	if (e1000e_update_tail_wa(hw, tx_ring->tail, i)) {
- 		u32 tctl = er32(TCTL);
- 		ew32(TCTL, tctl & ~E1000_TCTL_EN);
- 		e_err("ME firmware caused invalid TDT - resetting\n");
-@@ -593,14 +595,14 @@ static void e1000e_update_tdt_wa(struct e1000_adapter *adapter, unsigned int i)
- 
- /**
-  * e1000_alloc_rx_buffers - Replace used receive buffers
-- * @adapter: address of board private structure
-+ * @rx_ring: Rx descriptor ring
-  **/
--static void e1000_alloc_rx_buffers(struct e1000_adapter *adapter,
-+static void e1000_alloc_rx_buffers(struct e1000_ring *rx_ring,
- 				   int cleaned_count, gfp_t gfp)
- {
-+	struct e1000_adapter *adapter = rx_ring->adapter;
- 	struct net_device *netdev = adapter->netdev;
- 	struct pci_dev *pdev = adapter->pdev;
--	struct e1000_ring *rx_ring = adapter->rx_ring;
- 	union e1000_rx_desc_extended *rx_desc;
- 	struct e1000_buffer *buffer_info;
- 	struct sk_buff *skb;
-@@ -647,7 +649,7 @@ map_skb:
- 			 */
- 			wmb();
- 			if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
--				e1000e_update_rdt_wa(adapter, i);
-+				e1000e_update_rdt_wa(rx_ring, i);
- 			else
- 				writel(i, rx_ring->tail);
- 		}
-@@ -662,15 +664,15 @@ map_skb:
- 
- /**
-  * e1000_alloc_rx_buffers_ps - Replace used receive buffers; packet split
-- * @adapter: address of board private structure
-+ * @rx_ring: Rx descriptor ring
-  **/
--static void e1000_alloc_rx_buffers_ps(struct e1000_adapter *adapter,
-+static void e1000_alloc_rx_buffers_ps(struct e1000_ring *rx_ring,
- 				      int cleaned_count, gfp_t gfp)
- {
-+	struct e1000_adapter *adapter = rx_ring->adapter;
- 	struct net_device *netdev = adapter->netdev;
- 	struct pci_dev *pdev = adapter->pdev;
- 	union e1000_rx_desc_packet_split *rx_desc;
--	struct e1000_ring *rx_ring = adapter->rx_ring;
- 	struct e1000_buffer *buffer_info;
- 	struct e1000_ps_page *ps_page;
- 	struct sk_buff *skb;
-@@ -750,7 +752,7 @@ static void e1000_alloc_rx_buffers_ps(struct e1000_adapter *adapter,
- 			 */
- 			wmb();
- 			if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
--				e1000e_update_rdt_wa(adapter, i << 1);
-+				e1000e_update_rdt_wa(rx_ring, i << 1);
- 			else
- 				writel(i << 1, rx_ring->tail);
- 		}
-@@ -767,17 +769,17 @@ no_buffers:
- 
- /**
-  * e1000_alloc_jumbo_rx_buffers - Replace used jumbo receive buffers
-- * @adapter: address of board private structure
-+ * @rx_ring: Rx descriptor ring
-  * @cleaned_count: number of buffers to allocate this pass
-  **/
- 
--static void e1000_alloc_jumbo_rx_buffers(struct e1000_adapter *adapter,
-+static void e1000_alloc_jumbo_rx_buffers(struct e1000_ring *rx_ring,
- 					 int cleaned_count, gfp_t gfp)
- {
-+	struct e1000_adapter *adapter = rx_ring->adapter;
- 	struct net_device *netdev = adapter->netdev;
- 	struct pci_dev *pdev = adapter->pdev;
- 	union e1000_rx_desc_extended *rx_desc;
--	struct e1000_ring *rx_ring = adapter->rx_ring;
- 	struct e1000_buffer *buffer_info;
- 	struct sk_buff *skb;
- 	unsigned int i;
-@@ -836,7 +838,7 @@ check_page:
- 		 * such as IA-64). */
- 		wmb();
- 		if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
--			e1000e_update_rdt_wa(adapter, i);
-+			e1000e_update_rdt_wa(rx_ring, i);
- 		else
- 			writel(i, rx_ring->tail);
- 	}
-@@ -850,19 +852,19 @@ static inline void e1000_rx_hash(struct net_device *netdev, __le32 rss,
- }
- 
- /**
-- * e1000_clean_rx_irq - Send received data up the network stack; legacy
-- * @adapter: board private structure
-+ * e1000_clean_rx_irq - Send received data up the network stack
-+ * @rx_ring: Rx descriptor ring
-  *
-  * the return value indicates whether actual cleaning was done, there
-  * is no guarantee that everything was cleaned
-  **/
--static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
--			       int *work_done, int work_to_do)
-+static bool e1000_clean_rx_irq(struct e1000_ring *rx_ring, int *work_done,
-+			       int work_to_do)
- {
-+	struct e1000_adapter *adapter = rx_ring->adapter;
- 	struct net_device *netdev = adapter->netdev;
- 	struct pci_dev *pdev = adapter->pdev;
- 	struct e1000_hw *hw = &adapter->hw;
--	struct e1000_ring *rx_ring = adapter->rx_ring;
- 	union e1000_rx_desc_extended *rx_desc, *next_rxd;
- 	struct e1000_buffer *buffer_info, *next_buffer;
- 	u32 length, staterr;
-@@ -978,7 +980,7 @@ next_desc:
- 
- 		/* return some buffers to hardware, one at a time is too slow */
- 		if (cleaned_count >= E1000_RX_BUFFER_WRITE) {
--			adapter->alloc_rx_buf(adapter, cleaned_count,
-+			adapter->alloc_rx_buf(rx_ring, cleaned_count,
- 					      GFP_ATOMIC);
- 			cleaned_count = 0;
- 		}
-@@ -993,16 +995,18 @@ next_desc:
- 
- 	cleaned_count = e1000_desc_unused(rx_ring);
- 	if (cleaned_count)
--		adapter->alloc_rx_buf(adapter, cleaned_count, GFP_ATOMIC);
-+		adapter->alloc_rx_buf(rx_ring, cleaned_count, GFP_ATOMIC);
- 
- 	adapter->total_rx_bytes += total_rx_bytes;
- 	adapter->total_rx_packets += total_rx_packets;
- 	return cleaned;
- }
- 
--static void e1000_put_txbuf(struct e1000_adapter *adapter,
--			     struct e1000_buffer *buffer_info)
-+static void e1000_put_txbuf(struct e1000_ring *tx_ring,
-+			    struct e1000_buffer *buffer_info)
- {
-+	struct e1000_adapter *adapter = tx_ring->adapter;
++static inline void e1000_rx_hash(struct net_device *netdev, __le32 rss,
++				 struct sk_buff *skb)
++{
++	if (netdev->features & NETIF_F_RXHASH)
++		skb->rxhash = le32_to_cpu(rss);
++}
 +
- 	if (buffer_info->dma) {
- 		if (buffer_info->mapped_as_page)
- 			dma_unmap_page(&adapter->pdev->dev, buffer_info->dma,
-@@ -1090,16 +1094,16 @@ static void e1000_print_hw_hang(struct work_struct *work)
- 
  /**
-  * e1000_clean_tx_irq - Reclaim resources after transmit completes
-- * @adapter: board private structure
-+ * @tx_ring: Tx descriptor ring
-  *
-  * the return value indicates whether actual cleaning was done, there
-  * is no guarantee that everything was cleaned
-  **/
--static bool e1000_clean_tx_irq(struct e1000_adapter *adapter)
-+static bool e1000_clean_tx_irq(struct e1000_ring *tx_ring)
- {
-+	struct e1000_adapter *adapter = tx_ring->adapter;
- 	struct net_device *netdev = adapter->netdev;
- 	struct e1000_hw *hw = &adapter->hw;
--	struct e1000_ring *tx_ring = adapter->tx_ring;
- 	struct e1000_tx_desc *tx_desc, *eop_desc;
- 	struct e1000_buffer *buffer_info;
- 	unsigned int i, eop;
-@@ -1129,7 +1133,7 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter)
- 				}
- 			}
+  * e1000_clean_rx_irq - Send received data up the network stack; legacy
+  * @adapter: board private structure
+@@ -964,6 +971,8 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
+ 		e1000_rx_checksum(adapter, staterr,
+ 				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
  
--			e1000_put_txbuf(adapter, buffer_info);
-+			e1000_put_txbuf(tx_ring, buffer_info);
- 			tx_desc->upper.data = 0;
- 
- 			i++;
-@@ -1183,19 +1187,19 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter)
- 
- /**
-  * e1000_clean_rx_irq_ps - Send received data up the network stack; packet split
-- * @adapter: board private structure
-+ * @rx_ring: Rx descriptor ring
-  *
-  * the return value indicates whether actual cleaning was done, there
-  * is no guarantee that everything was cleaned
-  **/
--static bool e1000_clean_rx_irq_ps(struct e1000_adapter *adapter,
--				  int *work_done, int work_to_do)
-+static bool e1000_clean_rx_irq_ps(struct e1000_ring *rx_ring, int *work_done,
-+				  int work_to_do)
- {
-+	struct e1000_adapter *adapter = rx_ring->adapter;
- 	struct e1000_hw *hw = &adapter->hw;
- 	union e1000_rx_desc_packet_split *rx_desc, *next_rxd;
- 	struct net_device *netdev = adapter->netdev;
- 	struct pci_dev *pdev = adapter->pdev;
--	struct e1000_ring *rx_ring = adapter->rx_ring;
- 	struct e1000_buffer *buffer_info, *next_buffer;
- 	struct e1000_ps_page *ps_page;
- 	struct sk_buff *skb;
-@@ -1346,7 +1350,7 @@ next_desc:
- 
- 		/* return some buffers to hardware, one at a time is too slow */
- 		if (cleaned_count >= E1000_RX_BUFFER_WRITE) {
--			adapter->alloc_rx_buf(adapter, cleaned_count,
-+			adapter->alloc_rx_buf(rx_ring, cleaned_count,
- 					      GFP_ATOMIC);
- 			cleaned_count = 0;
- 		}
-@@ -1361,7 +1365,7 @@ next_desc:
- 
- 	cleaned_count = e1000_desc_unused(rx_ring);
- 	if (cleaned_count)
--		adapter->alloc_rx_buf(adapter, cleaned_count, GFP_ATOMIC);
-+		adapter->alloc_rx_buf(rx_ring, cleaned_count, GFP_ATOMIC);
- 
- 	adapter->total_rx_bytes += total_rx_bytes;
- 	adapter->total_rx_packets += total_rx_packets;
-@@ -1387,13 +1391,12 @@ static void e1000_consume_page(struct e1000_buffer *bi, struct sk_buff *skb,
-  * the return value indicates whether actual cleaning was done, there
-  * is no guarantee that everything was cleaned
-  **/
--
--static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
--                                     int *work_done, int work_to_do)
-+static bool e1000_clean_jumbo_rx_irq(struct e1000_ring *rx_ring, int *work_done,
-+				     int work_to_do)
- {
-+	struct e1000_adapter *adapter = rx_ring->adapter;
- 	struct net_device *netdev = adapter->netdev;
- 	struct pci_dev *pdev = adapter->pdev;
--	struct e1000_ring *rx_ring = adapter->rx_ring;
- 	union e1000_rx_desc_extended *rx_desc, *next_rxd;
- 	struct e1000_buffer *buffer_info, *next_buffer;
- 	u32 length, staterr;
-@@ -1526,7 +1529,7 @@ next_desc:
- 
- 		/* return some buffers to hardware, one at a time is too slow */
- 		if (unlikely(cleaned_count >= E1000_RX_BUFFER_WRITE)) {
--			adapter->alloc_rx_buf(adapter, cleaned_count,
-+			adapter->alloc_rx_buf(rx_ring, cleaned_count,
- 					      GFP_ATOMIC);
- 			cleaned_count = 0;
- 		}
-@@ -1541,7 +1544,7 @@ next_desc:
- 
- 	cleaned_count = e1000_desc_unused(rx_ring);
- 	if (cleaned_count)
--		adapter->alloc_rx_buf(adapter, cleaned_count, GFP_ATOMIC);
-+		adapter->alloc_rx_buf(rx_ring, cleaned_count, GFP_ATOMIC);
- 
- 	adapter->total_rx_bytes += total_rx_bytes;
- 	adapter->total_rx_packets += total_rx_packets;
-@@ -1550,11 +1553,11 @@ next_desc:
- 
- /**
-  * e1000_clean_rx_ring - Free Rx Buffers per Queue
-- * @adapter: board private structure
-+ * @rx_ring: Rx descriptor ring
-  **/
--static void e1000_clean_rx_ring(struct e1000_adapter *adapter)
-+static void e1000_clean_rx_ring(struct e1000_ring *rx_ring)
- {
--	struct e1000_ring *rx_ring = adapter->rx_ring;
-+	struct e1000_adapter *adapter = rx_ring->adapter;
- 	struct e1000_buffer *buffer_info;
- 	struct e1000_ps_page *ps_page;
- 	struct pci_dev *pdev = adapter->pdev;
-@@ -1794,7 +1797,7 @@ static irqreturn_t e1000_intr_msix_tx(int irq, void *data)
- 	adapter->total_tx_bytes = 0;
- 	adapter->total_tx_packets = 0;
- 
--	if (!e1000_clean_tx_irq(adapter))
-+	if (!e1000_clean_tx_irq(tx_ring))
- 		/* Ring was not completely cleaned, so fire another interrupt */
- 		ew32(ICS, tx_ring->ims_val);
- 
-@@ -1805,14 +1808,15 @@ static irqreturn_t e1000_intr_msix_rx(int irq, void *data)
- {
- 	struct net_device *netdev = data;
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	struct e1000_ring *rx_ring = adapter->rx_ring;
- 
- 	/* Write the ITR value calculated at the end of the
- 	 * previous interrupt.
- 	 */
--	if (adapter->rx_ring->set_itr) {
--		writel(1000000000 / (adapter->rx_ring->itr_val * 256),
--		       adapter->rx_ring->itr_register);
--		adapter->rx_ring->set_itr = 0;
-+	if (rx_ring->set_itr) {
-+		writel(1000000000 / (rx_ring->itr_val * 256),
-+		       rx_ring->itr_register);
-+		rx_ring->set_itr = 0;
- 	}
- 
- 	if (napi_schedule_prep(&adapter->napi)) {
-@@ -2177,13 +2181,13 @@ static int e1000_alloc_ring_dma(struct e1000_adapter *adapter,
- 
- /**
-  * e1000e_setup_tx_resources - allocate Tx resources (Descriptors)
-- * @adapter: board private structure
-+ * @tx_ring: Tx descriptor ring
-  *
-  * Return 0 on success, negative on failure
-  **/
--int e1000e_setup_tx_resources(struct e1000_adapter *adapter)
-+int e1000e_setup_tx_resources(struct e1000_ring *tx_ring)
- {
--	struct e1000_ring *tx_ring = adapter->tx_ring;
-+	struct e1000_adapter *adapter = tx_ring->adapter;
- 	int err = -ENOMEM, size;
- 
- 	size = sizeof(struct e1000_buffer) * tx_ring->count;
-@@ -2211,13 +2215,13 @@ err:
- 
- /**
-  * e1000e_setup_rx_resources - allocate Rx resources (Descriptors)
-- * @adapter: board private structure
-+ * @rx_ring: Rx descriptor ring
-  *
-  * Returns 0 on success, negative on failure
-  **/
--int e1000e_setup_rx_resources(struct e1000_adapter *adapter)
-+int e1000e_setup_rx_resources(struct e1000_ring *rx_ring)
- {
--	struct e1000_ring *rx_ring = adapter->rx_ring;
-+	struct e1000_adapter *adapter = rx_ring->adapter;
- 	struct e1000_buffer *buffer_info;
- 	int i, size, desc_len, err = -ENOMEM;
- 
-@@ -2264,18 +2268,18 @@ err:
- 
- /**
-  * e1000_clean_tx_ring - Free Tx Buffers
-- * @adapter: board private structure
-+ * @tx_ring: Tx descriptor ring
-  **/
--static void e1000_clean_tx_ring(struct e1000_adapter *adapter)
-+static void e1000_clean_tx_ring(struct e1000_ring *tx_ring)
- {
--	struct e1000_ring *tx_ring = adapter->tx_ring;
-+	struct e1000_adapter *adapter = tx_ring->adapter;
- 	struct e1000_buffer *buffer_info;
- 	unsigned long size;
- 	unsigned int i;
- 
- 	for (i = 0; i < tx_ring->count; i++) {
- 		buffer_info = &tx_ring->buffer_info[i];
--		e1000_put_txbuf(adapter, buffer_info);
-+		e1000_put_txbuf(tx_ring, buffer_info);
- 	}
- 
- 	netdev_reset_queue(adapter->netdev);
-@@ -2293,16 +2297,16 @@ static void e1000_clean_tx_ring(struct e1000_adapter *adapter)
- 
- /**
-  * e1000e_free_tx_resources - Free Tx Resources per Queue
-- * @adapter: board private structure
-+ * @tx_ring: Tx descriptor ring
-  *
-  * Free all transmit software resources
-  **/
--void e1000e_free_tx_resources(struct e1000_adapter *adapter)
-+void e1000e_free_tx_resources(struct e1000_ring *tx_ring)
- {
-+	struct e1000_adapter *adapter = tx_ring->adapter;
- 	struct pci_dev *pdev = adapter->pdev;
--	struct e1000_ring *tx_ring = adapter->tx_ring;
- 
--	e1000_clean_tx_ring(adapter);
-+	e1000_clean_tx_ring(tx_ring);
- 
- 	vfree(tx_ring->buffer_info);
- 	tx_ring->buffer_info = NULL;
-@@ -2314,18 +2318,17 @@ void e1000e_free_tx_resources(struct e1000_adapter *adapter)
- 
- /**
-  * e1000e_free_rx_resources - Free Rx Resources
-- * @adapter: board private structure
-+ * @rx_ring: Rx descriptor ring
-  *
-  * Free all receive software resources
-  **/
--
--void e1000e_free_rx_resources(struct e1000_adapter *adapter)
-+void e1000e_free_rx_resources(struct e1000_ring *rx_ring)
- {
-+	struct e1000_adapter *adapter = rx_ring->adapter;
- 	struct pci_dev *pdev = adapter->pdev;
--	struct e1000_ring *rx_ring = adapter->rx_ring;
- 	int i;
- 
--	e1000_clean_rx_ring(adapter);
-+	e1000_clean_rx_ring(rx_ring);
- 
- 	for (i = 0; i < rx_ring->count; i++)
- 		kfree(rx_ring->buffer_info[i].ps_pages);
-@@ -2479,13 +2482,19 @@ set_itr_now:
-  **/
- static int __devinit e1000_alloc_queues(struct e1000_adapter *adapter)
- {
--	adapter->tx_ring = kzalloc(sizeof(struct e1000_ring), GFP_KERNEL);
-+	int size = sizeof(struct e1000_ring);
++		e1000_rx_hash(netdev, rx_desc->wb.lower.hi_dword.rss, skb);
 +
-+	adapter->tx_ring = kzalloc(size, GFP_KERNEL);
- 	if (!adapter->tx_ring)
- 		goto err;
-+	adapter->tx_ring->count = adapter->tx_ring_count;
-+	adapter->tx_ring->adapter = adapter;
+ 		e1000_receive_skb(adapter, netdev, skb, staterr,
+ 				  rx_desc->wb.upper.vlan);
  
--	adapter->rx_ring = kzalloc(sizeof(struct e1000_ring), GFP_KERNEL);
-+	adapter->rx_ring = kzalloc(size, GFP_KERNEL);
- 	if (!adapter->rx_ring)
- 		goto err;
-+	adapter->rx_ring->count = adapter->rx_ring_count;
-+	adapter->rx_ring->adapter = adapter;
+@@ -1325,6 +1334,8 @@ copydone:
+ 		e1000_rx_checksum(adapter, staterr,
+ 				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
  
- 	return 0;
- err:
-@@ -2513,10 +2522,10 @@ static int e1000_clean(struct napi_struct *napi, int budget)
- 	    !(adapter->rx_ring->ims_val & adapter->tx_ring->ims_val))
- 		goto clean_rx;
- 
--	tx_cleaned = e1000_clean_tx_irq(adapter);
-+	tx_cleaned = e1000_clean_tx_irq(adapter->tx_ring);
- 
- clean_rx:
--	adapter->clean_rx(adapter, &work_done, budget);
-+	adapter->clean_rx(adapter->rx_ring, &work_done, budget);
- 
- 	if (!tx_cleaned)
- 		work_done = budget;
-@@ -3325,6 +3334,8 @@ static void e1000e_setup_rss_hash(struct e1000_adapter *adapter)
-  **/
- static void e1000_configure(struct e1000_adapter *adapter)
- {
-+	struct e1000_ring *rx_ring = adapter->rx_ring;
++		e1000_rx_hash(netdev, rx_desc->wb.lower.hi_dword.rss, skb);
 +
- 	e1000e_set_rx_mode(adapter->netdev);
+ 		if (rx_desc->wb.upper.header_status &
+ 			   cpu_to_le16(E1000_RXDPS_HDRSTAT_HDRSP))
+ 			adapter->rx_hdr_split++;
+@@ -1497,6 +1508,8 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
+ 		e1000_rx_checksum(adapter, staterr,
+ 				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
  
- 	e1000_restore_vlan(adapter);
-@@ -3336,8 +3347,7 @@ static void e1000_configure(struct e1000_adapter *adapter)
- 		e1000e_setup_rss_hash(adapter);
++		e1000_rx_hash(netdev, rx_desc->wb.lower.hi_dword.rss, skb);
++
+ 		/* probably a little skewed due to removing CRC */
+ 		total_rx_bytes += skb->len;
+ 		total_rx_packets++;
+@@ -3271,6 +3284,42 @@ static void e1000e_set_rx_mode(struct net_device *netdev)
+ 		e1000e_vlan_strip_disable(adapter);
+ }
+ 
++static void e1000e_setup_rss_hash(struct e1000_adapter *adapter)
++{
++	struct e1000_hw *hw = &adapter->hw;
++	u32 mrqc, rxcsum;
++	int i;
++	static const u32 rsskey[10] = {
++		0xda565a6d, 0xc20e5b25, 0x3d256741, 0xb08fa343, 0xcb2bcad0,
++		0xb4307bae, 0xa32dcb77, 0x0cf23080, 0x3bb7426a, 0xfa01acbe
++	};
++
++	/* Fill out hash function seed */
++	for (i = 0; i < 10; i++)
++		ew32(RSSRK(i), rsskey[i]);
++
++	/* Direct all traffic to queue 0 */
++	for (i = 0; i < 32; i++)
++		ew32(RETA(i), 0);
++
++	/*
++	 * Disable raw packet checksumming so that RSS hash is placed in
++	 * descriptor on writeback.
++	 */
++	rxcsum = er32(RXCSUM);
++	rxcsum |= E1000_RXCSUM_PCSD;
++
++	ew32(RXCSUM, rxcsum);
++
++	mrqc = (E1000_MRQC_RSS_FIELD_IPV4 |
++		E1000_MRQC_RSS_FIELD_IPV4_TCP |
++		E1000_MRQC_RSS_FIELD_IPV6 |
++		E1000_MRQC_RSS_FIELD_IPV6_TCP |
++		E1000_MRQC_RSS_FIELD_IPV6_TCP_EX);
++
++	ew32(MRQC, mrqc);
++}
++
+ /**
+  * e1000_configure - configure the hardware for Rx and Tx
+  * @adapter: private board structure
+@@ -3283,6 +3332,9 @@ static void e1000_configure(struct e1000_adapter *adapter)
+ 	e1000_init_manageability_pt(adapter);
+ 
+ 	e1000_configure_tx(adapter);
++
++	if (adapter->netdev->features & NETIF_F_RXHASH)
++		e1000e_setup_rss_hash(adapter);
  	e1000_setup_rctl(adapter);
  	e1000_configure_rx(adapter);
--	adapter->alloc_rx_buf(adapter, e1000_desc_unused(adapter->rx_ring),
--			      GFP_KERNEL);
-+	adapter->alloc_rx_buf(rx_ring, e1000_desc_unused(rx_ring), GFP_KERNEL);
- }
+ 	adapter->alloc_rx_buf(adapter, e1000_desc_unused(adapter->rx_ring),
+@@ -5168,10 +5220,22 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
+ 	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
  
- /**
-@@ -3647,8 +3657,8 @@ void e1000e_down(struct e1000_adapter *adapter)
- 	spin_unlock(&adapter->stats64_lock);
- 
- 	e1000e_flush_descriptors(adapter);
--	e1000_clean_tx_ring(adapter);
--	e1000_clean_rx_ring(adapter);
-+	e1000_clean_tx_ring(adapter->tx_ring);
-+	e1000_clean_rx_ring(adapter->rx_ring);
- 
- 	adapter->link_speed = 0;
- 	adapter->link_duplex = 0;
-@@ -3688,6 +3698,8 @@ static int __devinit e1000_sw_init(struct e1000_adapter *adapter)
- 	adapter->rx_ps_bsize0 = 128;
- 	adapter->max_frame_size = netdev->mtu + ETH_HLEN + ETH_FCS_LEN;
- 	adapter->min_frame_size = ETH_ZLEN + ETH_FCS_LEN;
-+	adapter->tx_ring_count = E1000_DEFAULT_TXD;
-+	adapter->rx_ring_count = E1000_DEFAULT_RXD;
- 
- 	spin_lock_init(&adapter->stats64_lock);
- 
-@@ -3846,12 +3858,12 @@ static int e1000_open(struct net_device *netdev)
- 	netif_carrier_off(netdev);
- 
- 	/* allocate transmit descriptors */
--	err = e1000e_setup_tx_resources(adapter);
-+	err = e1000e_setup_tx_resources(adapter->tx_ring);
- 	if (err)
- 		goto err_setup_tx;
- 
- 	/* allocate receive descriptors */
--	err = e1000e_setup_rx_resources(adapter);
-+	err = e1000e_setup_rx_resources(adapter->rx_ring);
- 	if (err)
- 		goto err_setup_rx;
- 
-@@ -3927,9 +3939,9 @@ static int e1000_open(struct net_device *netdev)
- err_req_irq:
- 	e1000e_release_hw_control(adapter);
- 	e1000_power_down_phy(adapter);
--	e1000e_free_rx_resources(adapter);
-+	e1000e_free_rx_resources(adapter->rx_ring);
- err_setup_rx:
--	e1000e_free_tx_resources(adapter);
-+	e1000e_free_tx_resources(adapter->tx_ring);
- err_setup_tx:
- 	e1000e_reset(adapter);
- 	pm_runtime_put_sync(&pdev->dev);
-@@ -3965,8 +3977,8 @@ static int e1000_close(struct net_device *netdev)
- 	}
- 	e1000_power_down_phy(adapter);
- 
--	e1000e_free_tx_resources(adapter);
--	e1000e_free_rx_resources(adapter);
-+	e1000e_free_tx_resources(adapter->tx_ring);
-+	e1000e_free_rx_resources(adapter->rx_ring);
- 
- 	/*
- 	 * kill manageability vlan ID if supported, but not if a vlan with
-@@ -4623,10 +4635,8 @@ link_up:
- #define E1000_TX_FLAGS_VLAN_MASK	0xffff0000
- #define E1000_TX_FLAGS_VLAN_SHIFT	16
- 
--static int e1000_tso(struct e1000_adapter *adapter,
--		     struct sk_buff *skb)
-+static int e1000_tso(struct e1000_ring *tx_ring, struct sk_buff *skb)
- {
--	struct e1000_ring *tx_ring = adapter->tx_ring;
- 	struct e1000_context_desc *context_desc;
- 	struct e1000_buffer *buffer_info;
- 	unsigned int i;
-@@ -4695,9 +4705,9 @@ static int e1000_tso(struct e1000_adapter *adapter,
- 	return 1;
- }
- 
--static bool e1000_tx_csum(struct e1000_adapter *adapter, struct sk_buff *skb)
-+static bool e1000_tx_csum(struct e1000_ring *tx_ring, struct sk_buff *skb)
- {
--	struct e1000_ring *tx_ring = adapter->tx_ring;
-+	struct e1000_adapter *adapter = tx_ring->adapter;
- 	struct e1000_context_desc *context_desc;
- 	struct e1000_buffer *buffer_info;
- 	unsigned int i;
-@@ -4758,12 +4768,11 @@ static bool e1000_tx_csum(struct e1000_adapter *adapter, struct sk_buff *skb)
- #define E1000_MAX_PER_TXD	8192
- #define E1000_MAX_TXD_PWR	12
- 
--static int e1000_tx_map(struct e1000_adapter *adapter,
--			struct sk_buff *skb, unsigned int first,
--			unsigned int max_per_txd, unsigned int nr_frags,
--			unsigned int mss)
-+static int e1000_tx_map(struct e1000_ring *tx_ring, struct sk_buff *skb,
-+			unsigned int first, unsigned int max_per_txd,
-+			unsigned int nr_frags, unsigned int mss)
- {
--	struct e1000_ring *tx_ring = adapter->tx_ring;
-+	struct e1000_adapter *adapter = tx_ring->adapter;
- 	struct pci_dev *pdev = adapter->pdev;
- 	struct e1000_buffer *buffer_info;
- 	unsigned int len = skb_headlen(skb);
-@@ -4849,16 +4858,15 @@ dma_error:
- 			i += tx_ring->count;
- 		i--;
- 		buffer_info = &tx_ring->buffer_info[i];
--		e1000_put_txbuf(adapter, buffer_info);
-+		e1000_put_txbuf(tx_ring, buffer_info);
+ 	/* Jumbo frame support */
+-	if ((max_frame > ETH_FRAME_LEN + ETH_FCS_LEN) &&
+-	    !(adapter->flags & FLAG_HAS_JUMBO_FRAMES)) {
+-		e_err("Jumbo Frames not supported.\n");
+-		return -EINVAL;
++	if (max_frame > ETH_FRAME_LEN + ETH_FCS_LEN) {
++		if (!(adapter->flags & FLAG_HAS_JUMBO_FRAMES)) {
++			e_err("Jumbo Frames not supported.\n");
++			return -EINVAL;
++		}
++
++		/*
++		 * IP payload checksum (enabled with jumbos/packet-split when
++		 * Rx checksum is enabled) and generation of RSS hash is
++		 * mutually exclusive in the hardware.
++		 */
++		if ((netdev->features & NETIF_F_RXCSUM) &&
++		    (netdev->features & NETIF_F_RXHASH)) {
++			e_err("Jumbo frames cannot be enabled when both receive checksum offload and receive hashing are enabled.  Disable one of the receive offload features before enabling jumbos.\n");
++			return -EINVAL;
++		}
  	}
  
- 	return 0;
+ 	/* Supported frame sizes */
+@@ -5934,7 +5998,7 @@ static void e1000_eeprom_checks(struct e1000_adapter *adapter)
  }
  
--static void e1000_tx_queue(struct e1000_adapter *adapter,
--			   int tx_flags, int count)
-+static void e1000_tx_queue(struct e1000_ring *tx_ring, int tx_flags, int count)
+ static int e1000_set_features(struct net_device *netdev,
+-	netdev_features_t features)
++			      netdev_features_t features)
  {
--	struct e1000_ring *tx_ring = adapter->tx_ring;
-+	struct e1000_adapter *adapter = tx_ring->adapter;
- 	struct e1000_tx_desc *tx_desc = NULL;
- 	struct e1000_buffer *buffer_info;
- 	u32 txd_upper = 0, txd_lower = E1000_TXD_CMD_IFCS;
-@@ -4911,7 +4919,7 @@ static void e1000_tx_queue(struct e1000_adapter *adapter,
- 	tx_ring->next_to_use = i;
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	netdev_features_t changed = features ^ netdev->features;
+@@ -5943,9 +6007,22 @@ static int e1000_set_features(struct net_device *netdev,
+ 		adapter->flags |= FLAG_TSO_FORCE;
  
- 	if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
--		e1000e_update_tdt_wa(adapter, i);
-+		e1000e_update_tdt_wa(tx_ring, i);
- 	else
- 		writel(i, tx_ring->tail);
- 
-@@ -4961,11 +4969,11 @@ static int e1000_transfer_dhcp_info(struct e1000_adapter *adapter,
- 	return 0;
- }
- 
--static int __e1000_maybe_stop_tx(struct net_device *netdev, int size)
-+static int __e1000_maybe_stop_tx(struct e1000_ring *tx_ring, int size)
- {
--	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	struct e1000_adapter *adapter = tx_ring->adapter;
- 
--	netif_stop_queue(netdev);
-+	netif_stop_queue(adapter->netdev);
- 	/*
- 	 * Herbert's original patch had:
- 	 *  smp_mb__after_netif_stop_queue();
-@@ -4977,22 +4985,20 @@ static int __e1000_maybe_stop_tx(struct net_device *netdev, int size)
- 	 * We need to check again in a case another CPU has just
- 	 * made room available.
- 	 */
--	if (e1000_desc_unused(adapter->tx_ring) < size)
-+	if (e1000_desc_unused(tx_ring) < size)
- 		return -EBUSY;
- 
- 	/* A reprieve! */
--	netif_start_queue(netdev);
-+	netif_start_queue(adapter->netdev);
- 	++adapter->restart_queue;
- 	return 0;
- }
- 
--static int e1000_maybe_stop_tx(struct net_device *netdev, int size)
-+static int e1000_maybe_stop_tx(struct e1000_ring *tx_ring, int size)
- {
--	struct e1000_adapter *adapter = netdev_priv(netdev);
--
--	if (e1000_desc_unused(adapter->tx_ring) >= size)
-+	if (e1000_desc_unused(tx_ring) >= size)
+ 	if (!(changed & (NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX |
+-			 NETIF_F_RXCSUM)))
++			 NETIF_F_RXCSUM | NETIF_F_RXHASH)))
  		return 0;
--	return __e1000_maybe_stop_tx(netdev, size);
-+	return __e1000_maybe_stop_tx(tx_ring, size);
- }
  
- #define TXD_USE_COUNT(S, X) (((S) >> (X)) + 1 )
-@@ -5078,7 +5084,7 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
- 	 * need: count + 2 desc gap to keep tail from touching
- 	 * head, otherwise try next time
- 	 */
--	if (e1000_maybe_stop_tx(netdev, count + 2))
-+	if (e1000_maybe_stop_tx(tx_ring, count + 2))
- 		return NETDEV_TX_BUSY;
++	/*
++	 * IP payload checksum (enabled with jumbos/packet-split when Rx
++	 * checksum is enabled) and generation of RSS hash is mutually
++	 * exclusive in the hardware.
++	 */
++	if (adapter->rx_ps_pages &&
++	    (features & NETIF_F_RXCSUM) && (features & NETIF_F_RXHASH)) {
++		e_err("Enabling both receive checksum offload and receive hashing is not possible with jumbo frames.  Disable jumbos or enable only one of the receive offload features.\n");
++		return -EINVAL;
++	}
++
++	netdev->features = features;
++
+ 	if (netif_running(netdev))
+ 		e1000e_reinit_locked(adapter);
+ 	else
+@@ -6136,6 +6213,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 			    NETIF_F_HW_VLAN_TX |
+ 			    NETIF_F_TSO |
+ 			    NETIF_F_TSO6 |
++			    NETIF_F_RXHASH |
+ 			    NETIF_F_RXCSUM |
+ 			    NETIF_F_HW_CSUM);
  
- 	if (vlan_tx_tag_present(skb)) {
-@@ -5088,7 +5094,7 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
- 
- 	first = tx_ring->next_to_use;
- 
--	tso = e1000_tso(adapter, skb);
-+	tso = e1000_tso(tx_ring, skb);
- 	if (tso < 0) {
- 		dev_kfree_skb_any(skb);
- 		return NETDEV_TX_OK;
-@@ -5096,7 +5102,7 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
- 
- 	if (tso)
- 		tx_flags |= E1000_TX_FLAGS_TSO;
--	else if (e1000_tx_csum(adapter, skb))
-+	else if (e1000_tx_csum(tx_ring, skb))
- 		tx_flags |= E1000_TX_FLAGS_CSUM;
- 
- 	/*
-@@ -5108,12 +5114,12 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
- 		tx_flags |= E1000_TX_FLAGS_IPV4;
- 
- 	/* if count is 0 then mapping error has occurred */
--	count = e1000_tx_map(adapter, skb, first, max_per_txd, nr_frags, mss);
-+	count = e1000_tx_map(tx_ring, skb, first, max_per_txd, nr_frags, mss);
- 	if (count) {
- 		netdev_sent_queue(netdev, skb->len);
--		e1000_tx_queue(adapter, tx_flags, count);
-+		e1000_tx_queue(tx_ring, tx_flags, count);
- 		/* Make sure there is space in the ring for the next send. */
--		e1000_maybe_stop_tx(netdev, MAX_SKB_FRAGS + 2);
-+		e1000_maybe_stop_tx(tx_ring, MAX_SKB_FRAGS + 2);
- 
- 	} else {
- 		dev_kfree_skb_any(skb);
 -- 
 1.7.7.6
