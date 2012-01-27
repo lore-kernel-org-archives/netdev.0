@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 19/29] sysctl: Rewrite proc_sys_lookup introducing find_entry and lookup_entry.
-Date: Thu, 26 Jan 2012 20:50:00 -0800
-Message-ID: <1327639810-12760-19-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 26/29] sysctl: Move sysctl_check_dups into insert_header
+Date: Thu, 26 Jan 2012 20:50:07 -0800
+Message-ID: <1327639810-12760-26-git-send-email-ebiederm@xmission.com>
 References: <m1pqe5ah3z.fsf@fess.ebiederm.org>
 Cc: <linux-fsdevel@vger.kernel.org>, <netdev@vger.kernel.org>,
 	Damien Millescamps <damien.millescamps@6wind.com>,
@@ -12,157 +12,94 @@ In-Reply-To: <m1pqe5ah3z.fsf@fess.ebiederm.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Replace the helpers that proc_sys_lookup uses with helpers that work
-in terms of an entire sysctl directory.  This is worse for sysctl_lock
-hold times but it is much better for code clarity and the code cleanups
-to come.
+Simplify the callers of insert_header by removing explicit calls to check
+for duplicates and instead have insert_header do the work.
 
-find_in_table is no longer needed so it is removed.
+This makes the code slightly more maintainable by enabling changes to
+data structures where the insertion of new entries without duplicate
+suppression is not possible.
 
-find_entry a general helper to find entries in a directory is added.
-
-lookup_entry is a simple wrapper around find_entry that takes the
-sysctl_lock increases the use count if an entry is found and drops
-the sysctl_lock.
+There is not always a convenient path string where insert_header
+is called so modify sysctl_check_dups to use sysctl_print_dir
+when printing the full path when a duplicate is discovered.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- fs/proc/proc_sysctl.c |  102 ++++++++++++++++++++++++++++++++++++------------
- 1 files changed, 76 insertions(+), 26 deletions(-)
+ fs/proc/proc_sysctl.c |   20 +++++++++++---------
+ 1 files changed, 11 insertions(+), 9 deletions(-)
 
 diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
-index 88d1b06..3b63f29 100644
+index e0d3e7e..160d578 100644
 --- a/fs/proc/proc_sysctl.c
 +++ b/fs/proc/proc_sysctl.c
-@@ -49,6 +49,55 @@ static struct ctl_table_root sysctl_table_root = {
+@@ -52,6 +52,7 @@ static int sysctl_follow_link(struct ctl_table_header **phead,
+ 	struct ctl_table **pentry, struct nsproxy *namespaces);
+ static int insert_links(struct ctl_table_header *head);
+ static void put_links(struct ctl_table_header *header);
++static int sysctl_check_dups(struct ctl_dir *dir, struct ctl_table *table);
  
- static DEFINE_SPINLOCK(sysctl_lock);
+ static void sysctl_print_dir(struct ctl_dir *dir)
+ {
+@@ -123,6 +124,10 @@ static int insert_header(struct ctl_dir *dir, struct ctl_table_header *header)
+ {
+ 	int err;
  
-+static int namecmp(const char *name1, int len1, const char *name2, int len2)
-+{
-+	int minlen;
-+	int cmp;
++	err = sysctl_check_dups(dir, header->ctl_table);
++	if (err)
++		return err;
 +
-+	minlen = len1;
-+	if (minlen > len2)
-+		minlen = len2;
-+
-+	cmp = memcmp(name1, name2, minlen);
-+	if (cmp == 0)
-+		cmp = len1 - len2;
-+	return cmp;
-+}
-+
-+static struct ctl_table *find_entry(struct ctl_table_header **phead,
-+	struct ctl_table_set *set,
-+	struct ctl_table_header *dir_head, struct ctl_table *dir,
-+	const char *name, int namelen)
-+{
-+	struct ctl_table_header *head;
-+	struct ctl_table *entry;
-+
-+	if (dir_head->set == set) {
-+		for (entry = dir; entry->procname; entry++) {
-+			const char *procname = entry->procname;
-+			if (namecmp(procname, strlen(procname), name, namelen) == 0) {
-+				*phead = dir_head;
-+				return entry;
-+			}
-+		}
-+	}
-+
-+	list_for_each_entry(head, &set->list, ctl_entry) {
-+		if (head->unregistering)
-+			continue;
-+		if (head->attached_to != dir)
-+			continue;
-+		for (entry = head->attached_by; entry->procname; entry++) {
-+			const char *procname = entry->procname;
-+			if (namecmp(procname, strlen(procname), name, namelen) == 0) {
-+				*phead = head;
-+				return entry;
-+			}
-+		}
-+	}
-+	return NULL;
-+}
-+
- static void init_header(struct ctl_table_header *head,
- 	struct ctl_table_root *root, struct ctl_table_set *set,
+ 	dir->header.nreg++;
+ 	header->parent = dir;
+ 	err = insert_links(header);
+@@ -891,7 +896,7 @@ static int sysctl_follow_link(struct ctl_table_header **phead,
+ 	return ret;
+ }
+ 
+-static int sysctl_check_table_dups(const char *path, struct ctl_table *old,
++static int sysctl_check_table_dups(struct ctl_dir *dir, struct ctl_table *old,
  	struct ctl_table *table)
-@@ -168,6 +217,32 @@ lookup_header_list(struct ctl_table_root *root, struct nsproxy *namespaces)
- 	return &set->list;
+ {
+ 	struct ctl_table *entry, *test;
+@@ -900,8 +905,9 @@ static int sysctl_check_table_dups(const char *path, struct ctl_table *old,
+ 	for (entry = old; entry->procname; entry++) {
+ 		for (test = table; test->procname; test++) {
+ 			if (strcmp(entry->procname, test->procname) == 0) {
+-				printk(KERN_ERR "sysctl duplicate entry: %s/%s\n",
+-					path, test->procname);
++				printk(KERN_ERR "sysctl duplicate entry: ");
++				sysctl_print_dir(dir);
++				printk(KERN_CONT "/%s\n", test->procname);
+ 				error = -EEXIST;
+ 			}
+ 		}
+@@ -909,8 +915,7 @@ static int sysctl_check_table_dups(const char *path, struct ctl_table *old,
+ 	return error;
  }
  
-+static struct ctl_table *lookup_entry(struct ctl_table_header **phead,
-+				      struct ctl_table_header *dir_head,
-+				      struct ctl_table *dir,
-+				      const char *name, int namelen)
-+{
-+	struct ctl_table_header *head;
-+	struct ctl_table *entry;
-+	struct ctl_table_root *root;
-+	struct ctl_table_set *set;
-+
-+	spin_lock(&sysctl_lock);
-+	root = &sysctl_table_root;
-+	do {
-+		set = lookup_header_set(root, current->nsproxy);
-+		entry = find_entry(&head, set, dir_head, dir, name, namelen);
-+		if (entry && use_table(head))
-+			*phead = head;
-+		else
-+			entry = NULL;
-+		root = list_entry(root->root_list.next,
-+				  struct ctl_table_root, root_list);
-+	} while (!entry && root != &sysctl_table_root);
-+	spin_unlock(&sysctl_lock);
-+	return entry;
-+}
-+
- static struct ctl_table_header *__sysctl_head_next(struct nsproxy *namespaces,
- 						struct ctl_table_header *prev)
+-static int sysctl_check_dups(struct ctl_dir *dir,
+-	const char *path, struct ctl_table *table)
++static int sysctl_check_dups(struct ctl_dir *dir, struct ctl_table *table)
  {
-@@ -284,21 +359,6 @@ out:
- 	return inode;
+ 	struct ctl_table_set *set;
+ 	struct ctl_table_header *head;
+@@ -922,7 +927,7 @@ static int sysctl_check_dups(struct ctl_dir *dir,
+ 			continue;
+ 		if (head->parent != dir)
+ 			continue;
+-		error = sysctl_check_table_dups(path, head->ctl_table, table);
++		error = sysctl_check_table_dups(dir, head->ctl_table, table);
+ 	}
+ 	return error;
  }
+@@ -1166,9 +1171,6 @@ struct ctl_table_header *__register_sysctl_table(
+ 	}
  
--static struct ctl_table *find_in_table(struct ctl_table *p, struct qstr *name)
--{
--	for ( ; p->procname; p++) {
--		if (strlen(p->procname) != name->len)
--			continue;
+ 	spin_lock(&sysctl_lock);
+-	if (sysctl_check_dups(dir, path, table))
+-		goto fail_put_dir_locked;
 -
--		if (memcmp(p->procname, name->name, name->len) != 0)
--			continue;
--
--		/* I have a match */
--		return p;
--	}
--	return NULL;
--}
--
- static struct ctl_table_header *grab_header(struct inode *inode)
- {
- 	struct ctl_table_header *head = PROC_I(inode)->sysctl;
-@@ -328,17 +388,7 @@ static struct dentry *proc_sys_lookup(struct inode *dir, struct dentry *dentry,
- 
- 	table = table ? table->child : &head->ctl_table[1];
- 
--	p = find_in_table(table, name);
--	if (!p) {
--		for (h = sysctl_head_next(NULL); h; h = sysctl_head_next(h)) {
--			if (h->attached_to != table)
--				continue;
--			p = find_in_table(h->attached_by, name);
--			if (p)
--				break;
--		}
--	}
--
-+	p = lookup_entry(&h, head, table, name->name, name->len);
- 	if (!p)
- 		goto out;
+ 	if (insert_header(dir, header))
+ 		goto fail_put_dir_locked;
  
 -- 
 1.7.2.5
