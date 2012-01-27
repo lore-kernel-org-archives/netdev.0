@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 04/32] sfc: Const-qualify static data as
- appropriate, partly prompted by checkpatch
-Date: Fri, 27 Jan 2012 20:43:10 +0000
-Message-ID: <1327696990.2503.11.camel@bwh-desktop>
+Subject: [PATCH net-next 05/32] sfc: Remove unnecessary inclusion of
+ <asm/io.h>, prompted by checkpatch
+Date: Fri, 27 Jan 2012 20:43:25 +0000
+Message-ID: <1327697005.2503.12.camel@bwh-desktop>
 References: <1327696858.2503.7.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,266 +10,37 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:63489 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:63497 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751936Ab2A0UnO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 15:43:14 -0500
+	by vger.kernel.org with ESMTP id S1752649Ab2A0Un3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 15:43:29 -0500
 In-Reply-To: <1327696858.2503.7.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the following warnings:
+Fix the warning:
 
-WARNING: struct dev_pm_ops should normally be const
-WARNING: static const char * array should probably be static const char * const
+WARNING: Use #include <linux/io.h> instead of <asm/io.h>
 
-Similarly const-qualify struct i2c_board_info, struct i2c_algo_bit_data,
-struct efx_ethtool_stat, struct efx_mtd_ops and struct siena_nvram_type_info.
+There is no need for selftest.c to include the file at all.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/efx.c           |    6 +++---
- drivers/net/ethernet/sfc/ethtool.c       |    4 ++--
- drivers/net/ethernet/sfc/falcon.c        |    2 +-
- drivers/net/ethernet/sfc/falcon_boards.c |   12 ++++++------
- drivers/net/ethernet/sfc/mcdi.c          |    4 ++--
- drivers/net/ethernet/sfc/mtd.c           |    8 ++++----
- drivers/net/ethernet/sfc/net_driver.h    |    4 ++--
- drivers/net/ethernet/sfc/selftest.c      |    2 +-
- drivers/net/ethernet/sfc/txc43128_phy.c  |    2 +-
- 9 files changed, 22 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/sfc/selftest.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 0539a8d..9ca5dcd 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -38,7 +38,7 @@
- 
- /* Loopback mode names (see LOOPBACK_MODE()) */
- const unsigned int efx_loopback_mode_max = LOOPBACK_MAX;
--const char *efx_loopback_mode_names[] = {
-+const char *const efx_loopback_mode_names[] = {
- 	[LOOPBACK_NONE]		= "NONE",
- 	[LOOPBACK_DATA]		= "DATAPATH",
- 	[LOOPBACK_GMAC]		= "GMAC",
-@@ -69,7 +69,7 @@ const char *efx_loopback_mode_names[] = {
- };
- 
- const unsigned int efx_reset_type_max = RESET_TYPE_MAX;
--const char *efx_reset_type_names[] = {
-+const char *const efx_reset_type_names[] = {
- 	[RESET_TYPE_INVISIBLE]     = "INVISIBLE",
- 	[RESET_TYPE_ALL]           = "ALL",
- 	[RESET_TYPE_WORLD]         = "WORLD",
-@@ -2660,7 +2660,7 @@ static int efx_pm_suspend(struct device *dev)
- 	return rc;
- }
- 
--static struct dev_pm_ops efx_pm_ops = {
-+static const struct dev_pm_ops efx_pm_ops = {
- 	.suspend	= efx_pm_suspend,
- 	.resume		= efx_pm_resume,
- 	.freeze		= efx_pm_freeze,
-diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
-index c090de4..52c9ee4 100644
---- a/drivers/net/ethernet/sfc/ethtool.c
-+++ b/drivers/net/ethernet/sfc/ethtool.c
-@@ -91,7 +91,7 @@ static u64 efx_get_atomic_stat(void *field)
- 	EFX_ETHTOOL_STAT(tx_##field, tx_queue, field,		\
- 			 unsigned int, efx_get_uint_stat)
- 
--static struct efx_ethtool_stat efx_ethtool_stats[] = {
-+static const struct efx_ethtool_stat efx_ethtool_stats[] = {
- 	EFX_ETHTOOL_U64_MAC_STAT(tx_bytes),
- 	EFX_ETHTOOL_U64_MAC_STAT(tx_good_bytes),
- 	EFX_ETHTOOL_U64_MAC_STAT(tx_bad_bytes),
-@@ -486,7 +486,7 @@ static void efx_ethtool_get_stats(struct net_device *net_dev,
- {
- 	struct efx_nic *efx = netdev_priv(net_dev);
- 	struct efx_mac_stats *mac_stats = &efx->mac_stats;
--	struct efx_ethtool_stat *stat;
-+	const struct efx_ethtool_stat *stat;
- 	struct efx_channel *channel;
- 	struct efx_tx_queue *tx_queue;
- 	struct rtnl_link_stats64 temp;
-diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
-index 8ae1ebd..5c75489 100644
---- a/drivers/net/ethernet/sfc/falcon.c
-+++ b/drivers/net/ethernet/sfc/falcon.c
-@@ -89,7 +89,7 @@ static int falcon_getscl(void *data)
- 	return EFX_OWORD_FIELD(reg, FRF_AB_GPIO0_IN);
- }
- 
--static struct i2c_algo_bit_data falcon_i2c_bit_operations = {
-+static const struct i2c_algo_bit_data falcon_i2c_bit_operations = {
- 	.setsda		= falcon_setsda,
- 	.setscl		= falcon_setscl,
- 	.getsda		= falcon_getsda,
-diff --git a/drivers/net/ethernet/sfc/falcon_boards.c b/drivers/net/ethernet/sfc/falcon_boards.c
-index 6cc16b8..2084cc6 100644
---- a/drivers/net/ethernet/sfc/falcon_boards.c
-+++ b/drivers/net/ethernet/sfc/falcon_boards.c
-@@ -87,7 +87,7 @@ static const u8 falcon_lm87_common_regs[] = {
- 	0
- };
- 
--static int efx_init_lm87(struct efx_nic *efx, struct i2c_board_info *info,
-+static int efx_init_lm87(struct efx_nic *efx, const struct i2c_board_info *info,
- 			 const u8 *reg_values)
- {
- 	struct falcon_board *board = falcon_board(efx);
-@@ -179,7 +179,7 @@ static int efx_check_lm87(struct efx_nic *efx, unsigned mask)
- #else /* !CONFIG_SENSORS_LM87 */
- 
- static inline int
--efx_init_lm87(struct efx_nic *efx, struct i2c_board_info *info,
-+efx_init_lm87(struct efx_nic *efx, const struct i2c_board_info *info,
- 	      const u8 *reg_values)
- {
- 	return 0;
-@@ -442,7 +442,7 @@ static int sfe4001_check_hw(struct efx_nic *efx)
- 	return (status < 0) ? -EIO : -ERANGE;
- }
- 
--static struct i2c_board_info sfe4001_hwmon_info = {
-+static const struct i2c_board_info sfe4001_hwmon_info = {
- 	I2C_BOARD_INFO("max6647", 0x4e),
- };
- 
-@@ -522,7 +522,7 @@ static const u8 sfe4002_lm87_regs[] = {
- 	0
- };
- 
--static struct i2c_board_info sfe4002_hwmon_info = {
-+static const struct i2c_board_info sfe4002_hwmon_info = {
- 	I2C_BOARD_INFO("lm87", 0x2e),
- 	.platform_data	= &sfe4002_lm87_channel,
- };
-@@ -591,7 +591,7 @@ static const u8 sfn4112f_lm87_regs[] = {
- 	0
- };
- 
--static struct i2c_board_info sfn4112f_hwmon_info = {
-+static const struct i2c_board_info sfn4112f_hwmon_info = {
- 	I2C_BOARD_INFO("lm87", 0x2e),
- 	.platform_data	= &sfn4112f_lm87_channel,
- };
-@@ -653,7 +653,7 @@ static const u8 sfe4003_lm87_regs[] = {
- 	0
- };
- 
--static struct i2c_board_info sfe4003_hwmon_info = {
-+static const struct i2c_board_info sfe4003_hwmon_info = {
- 	I2C_BOARD_INFO("lm87", 0x2e),
- 	.platform_data	= &sfe4003_lm87_channel,
- };
-diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index 81a4253..b1de400 100644
---- a/drivers/net/ethernet/sfc/mcdi.c
-+++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -502,7 +502,7 @@ static void efx_mcdi_process_link_change(struct efx_nic *efx, efx_qword_t *ev)
- 	efx_link_status_changed(efx);
- }
- 
--static const char *sensor_names[] = {
-+static const char *const sensor_names[] = {
- 	[MC_CMD_SENSOR_CONTROLLER_TEMP] = "Controller temp. sensor",
- 	[MC_CMD_SENSOR_PHY_COMMON_TEMP] = "PHY shared temp. sensor",
- 	[MC_CMD_SENSOR_CONTROLLER_COOLING] = "Controller cooling",
-@@ -518,7 +518,7 @@ static const char *sensor_names[] = {
- 	[MC_CMD_SENSOR_IN_12V0] = "12V supply sensor"
- };
- 
--static const char *sensor_status_names[] = {
-+static const char *const sensor_status_names[] = {
- 	[MC_CMD_SENSOR_STATE_OK] = "OK",
- 	[MC_CMD_SENSOR_STATE_WARNING] = "Warning",
- 	[MC_CMD_SENSOR_STATE_FATAL] = "Fatal",
-diff --git a/drivers/net/ethernet/sfc/mtd.c b/drivers/net/ethernet/sfc/mtd.c
-index bc9dcd6..13f61fb 100644
---- a/drivers/net/ethernet/sfc/mtd.c
-+++ b/drivers/net/ethernet/sfc/mtd.c
-@@ -382,7 +382,7 @@ static int falcon_mtd_sync(struct mtd_info *mtd)
- 	return rc;
- }
- 
--static struct efx_mtd_ops falcon_mtd_ops = {
-+static const struct efx_mtd_ops falcon_mtd_ops = {
- 	.read	= falcon_mtd_read,
- 	.erase	= falcon_mtd_erase,
- 	.write	= falcon_mtd_write,
-@@ -560,7 +560,7 @@ static int siena_mtd_sync(struct mtd_info *mtd)
- 	return rc;
- }
- 
--static struct efx_mtd_ops siena_mtd_ops = {
-+static const struct efx_mtd_ops siena_mtd_ops = {
- 	.read	= siena_mtd_read,
- 	.erase	= siena_mtd_erase,
- 	.write	= siena_mtd_write,
-@@ -572,7 +572,7 @@ struct siena_nvram_type_info {
- 	const char *name;
- };
- 
--static struct siena_nvram_type_info siena_nvram_types[] = {
-+static const struct siena_nvram_type_info siena_nvram_types[] = {
- 	[MC_CMD_NVRAM_TYPE_DISABLED_CALLISTO]	= { 0, "sfc_dummy_phy" },
- 	[MC_CMD_NVRAM_TYPE_MC_FW]		= { 0, "sfc_mcfw" },
- 	[MC_CMD_NVRAM_TYPE_MC_FW_BACKUP]	= { 0, "sfc_mcfw_backup" },
-@@ -593,7 +593,7 @@ static int siena_mtd_probe_partition(struct efx_nic *efx,
- 				     unsigned int type)
- {
- 	struct efx_mtd_partition *part = &efx_mtd->part[part_id];
--	struct siena_nvram_type_info *info;
-+	const struct siena_nvram_type_info *info;
- 	size_t size, erase_size;
- 	bool protected;
- 	int rc;
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index c49502b..9353ce8 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -395,12 +395,12 @@ enum efx_led_mode {
- #define STRING_TABLE_LOOKUP(val, member) \
- 	((val) < member ## _max) ? member ## _names[val] : "(invalid)"
- 
--extern const char *efx_loopback_mode_names[];
-+extern const char *const efx_loopback_mode_names[];
- extern const unsigned int efx_loopback_mode_max;
- #define LOOPBACK_MODE(efx) \
- 	STRING_TABLE_LOOKUP((efx)->loopback_mode, efx_loopback_mode)
- 
--extern const char *efx_reset_type_names[];
-+extern const char *const efx_reset_type_names[];
- extern const unsigned int efx_reset_type_max;
- #define RESET_TYPE(type) \
- 	STRING_TABLE_LOOKUP(type, efx_reset_type)
 diff --git a/drivers/net/ethernet/sfc/selftest.c b/drivers/net/ethernet/sfc/selftest.c
-index fc62fe2..17ff9b3 100644
+index 17ff9b3..5226d98 100644
 --- a/drivers/net/ethernet/sfc/selftest.c
 +++ b/drivers/net/ethernet/sfc/selftest.c
-@@ -50,7 +50,7 @@ static const char payload_msg[] =
- 
- /* Interrupt mode names */
- static const unsigned int efx_interrupt_mode_max = EFX_INT_MODE_MAX;
--static const char *efx_interrupt_mode_names[] = {
-+static const char *const efx_interrupt_mode_names[] = {
- 	[EFX_INT_MODE_MSIX]   = "MSI-X",
- 	[EFX_INT_MODE_MSI]    = "MSI",
- 	[EFX_INT_MODE_LEGACY] = "legacy",
-diff --git a/drivers/net/ethernet/sfc/txc43128_phy.c b/drivers/net/ethernet/sfc/txc43128_phy.c
-index 7c21b33..29bb3f9 100644
---- a/drivers/net/ethernet/sfc/txc43128_phy.c
-+++ b/drivers/net/ethernet/sfc/txc43128_phy.c
-@@ -512,7 +512,7 @@ static bool txc43128_phy_poll(struct efx_nic *efx)
- 	return efx->link_state.up != was_up;
- }
- 
--static const char *txc43128_test_names[] = {
-+static const char *const txc43128_test_names[] = {
- 	"bist"
- };
- 
+@@ -19,7 +19,6 @@
+ #include <linux/udp.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/slab.h>
+-#include <asm/io.h>
+ #include "net_driver.h"
+ #include "efx.h"
+ #include "nic.h"
 -- 
 1.7.7.5
 
