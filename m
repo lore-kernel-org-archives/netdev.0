@@ -1,7 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 23/32] sfc: Update the description of SFC_MTD
-Date: Fri, 27 Jan 2012 20:50:15 +0000
-Message-ID: <1327697415.2503.30.camel@bwh-desktop>
+Subject: [PATCH net-next 24/32] sfc: Remove obsolete function efx_dev_name()
+Date: Fri, 27 Jan 2012 20:50:30 +0000
+Message-ID: <1327697430.2503.31.camel@bwh-desktop>
 References: <1327696858.2503.7.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -9,39 +9,39 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:63749 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751824Ab2A0UuS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 15:50:18 -0500
+Received: from mail.solarflare.com ([216.237.3.220]:63760 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753982Ab2A0Uud (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 15:50:33 -0500
 In-Reply-To: <1327696858.2503.7.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SFC4000 boards also have an EEPROM exposed as MTD.
-The boot configuration is accessed through MTD.
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/Kconfig |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/sfc/net_driver.h |    9 ---------
+ 1 files changed, 0 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/Kconfig b/drivers/net/ethernet/sfc/Kconfig
-index ae40b66..8d42354 100644
---- a/drivers/net/ethernet/sfc/Kconfig
-+++ b/drivers/net/ethernet/sfc/Kconfig
-@@ -16,9 +16,9 @@ config SFC_MTD
- 	depends on SFC && MTD && !(SFC=y && MTD=m)
- 	default y
- 	---help---
--	  This exposes the on-board flash memory as MTD devices (e.g.
--	  /dev/mtd1).  This makes it possible to upload new firmware
--	  to the NIC.
-+	  This exposes the on-board flash and/or EEPROM as MTD devices
-+	  (e.g. /dev/mtd1).  This is required to update the firmware or
-+	  the boot configuration under Linux.
- config SFC_MCDI_MON
- 	bool "Solarflare SFC9000-family hwmon support"
- 	depends on SFC && HWMON && !(SFC=y && HWMON=m)
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index a4cf8cb..310c50f 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -791,15 +791,6 @@ static inline int efx_dev_registered(struct efx_nic *efx)
+ 	return efx->net_dev->reg_state == NETREG_REGISTERED;
+ }
+ 
+-/* Net device name, for inclusion in log messages if it has been registered.
+- * Use efx->name not efx->net_dev->name so that races with (un)registration
+- * are harmless.
+- */
+-static inline const char *efx_dev_name(struct efx_nic *efx)
+-{
+-	return efx_dev_registered(efx) ? efx->name : "";
+-}
+-
+ static inline unsigned int efx_port_num(struct efx_nic *efx)
+ {
+ 	return efx->net_dev->dev_id;
 -- 
 1.7.7.5
 
