@@ -1,164 +1,139 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [v3.3-rc1 regression] TCP: too many of orphaned sockets
-Date: Fri, 27 Jan 2012 20:27:06 +0400
-Message-ID: <4F22D05A.8030604@parallels.com>
-References: <20120127124641.GA30819@elte.hu> <4F229D5C.4040300@parallels.com> <20120127125645.GA28131@elte.hu> <20120127141754.GA30202@elte.hu> <20120127142246.GA22318@elte.hu> <4F22B634.2020007@parallels.com>
+From: Nick Mathewson <nickm@freehaven.net>
+Subject: [BUG] Regression on behavior of EPOLLET | EPOLLIN for AF_UNIX sockets
+ in 3.2
+Date: Fri, 27 Jan 2012 12:05:38 -0500
+Message-ID: <CAKDKvuzH14AZjDG3WSdrf5VtmiUgG0Y+EaC83qqSd0VFKzyitg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="------------090700050908010709090008"
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F22B634.2020007@parallels.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---------------090700050908010709090008
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
+[1.] One line summary of the problem:
 
-On 01/27/2012 06:35 PM, Glauber Costa wrote:
-> On 01/27/2012 06:22 PM, Ingo Molnar wrote:
->>
->> * Ingo Molnar<mingo@elte.hu> wrote:
->>
->>> ok, i've bisected it, and the bad commit is:
->>>
->>> 3dc43e3e4d0b52197d3205214fe8f162f9e0c334 is the first bad commit
->>> commit 3dc43e3e4d0b52197d3205214fe8f162f9e0c334
->>> Author: Glauber Costa<glommer@parallels.com>
->>> Date: Sun Dec 11 21:47:05 2011 +0000
->>>
->>> per-netns ipv4 sysctl_tcp_mem
->>
->> Might be related to this detail in the .config:
->>
->> # CONFIG_PROC_SYSCTL is not set
->>
->> So former tcp_init() code does not get run?
->>
->> Thanks,
->>
->> Ingo
->
-> Can you tell me if the following patch fixes your problem?
->
-Update on this:
+EPOLLET doesn't give edge-triggered behavior for AF_UNIX sockets in 3.2
 
-What really makes it break is CONFIG_SYSCTL.
-CONFIG_PROC_SYSCTL selects that, so if you get the one, you
-end up getting the other. (The config mingo provided lacks both)
+[2.] Full description of the problem/report:
 
-Also, I believe there is no harm in initializing this unconditionally,
-so instead of cluttering tcp_init() with #ifdef, I am proposing we just 
-init it here, and then init it again in sysctl initialization. I don't
-expect it to harm workload, since it is a one-shot.
+When epoll is told to listen to a readable socket with the flags
+EPOLLIN|EPOLLET, it is supposed to report the event once, and then
+not report the event again until the socket has first become
+non-readable and then become readable again.  (This behavior is part
+of the definition of edge-triggered events, IIUC.)
 
-Now, I am attaching my proposed final patch for this, but I can't really
-generate a config without sysctl that boots okay for me.
+But with AF_UNIX sockets on Linux 3.2, a call to read() on a socket
+that does not drain the socket's buffer completely can apparently
+cause epoll to think that the socket has generated another event,
+even if no further data has actually arrived at the socket.
 
-Ingo, would you please confirm that this fixes the problem for you? If 
-I'm mistaken, let me know and I'll get back to it ASAP.
+This behavior did not occur in 3.1, and does not occur in 3.2 with
+AF_INET sockets or with pipes.
 
-Dave, once Ingo acks that it fixes the problem he says, I'll submit the 
-patch formally.
+[3.] Keywords:
 
-Thanks.
+networking, AF_UNIX, epoll, socket
 
---------------090700050908010709090008
-Content-Type: text/x-patch;
-	name="0001-fix-tcp-sysctl-initialization-with-CONFIG_SYSCTL-dis.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename*0="0001-fix-tcp-sysctl-initialization-with-CONFIG_SYSCTL-dis.pa";
-	filename*1="tch"
+[4.] Kernel version (from /proc/version):
 
->From 49318a2c917f970373e66e21d747a38a595eb462 Mon Sep 17 00:00:00 2001
-From: Glauber Costa <glommer@parallels.com>
-Date: Fri, 27 Jan 2012 19:34:17 +0400
-Subject: [PATCH] fix tcp sysctl initialization with CONFIG_SYSCTL disabled.
+First found in:
 
-sysctl_tcp_mem initialization was moved to sysctl_tcp_ipv4.c
-in commit 3dc43e3e4d0b52197d3205214fe8f162f9e0c334, since it
-became a per-ns value.
+Linux version 3.2.1-3.fc16.x86_64
+(mockbuild@x86-13.phx2.fedoraproject.org) (gcc version 4.6.2 20111027
+(Red Hat 4.6.2-1) (GCC) ) #1 SMP Mon Jan 23 15:36:17 UTC 2012
 
-That code, however, will never run when CONFIG_SYSCTL is disabled,
-leading to bogus values on those fields.
+Another user has reproduced this with:
 
-This patch fixes it by keeping an initialization code in tcp_init().
-It will be overwritten by the first net namespace init if CONFIG_SYSCTL
-is compiled in, and do the right thing if it is compiled out.
+Linux version 3.2.0-1-686-pae (Debian 3.2.1-1) (ben@decadent.org.uk)
+(gcc version 4.6.2 (Debian 4.6.2-11) ) #1 SMP Thu Jan 19 10:56:51 UTC
+2012
 
-Signed-off-by: Glauber Costa <glommer@parallels.com>
-Reported-by: Ingo Molnar <mingo@elte.hu>
----
- include/net/tcp.h          |    2 ++
- net/ipv4/sysctl_net_ipv4.c |    1 +
- net/ipv4/tcp.c             |   16 +++++++++++++---
- 3 files changed, 16 insertions(+), 3 deletions(-)
+[6.] A small shell script or example program which triggers the
+     problem (if possible)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 0118ea9..b04a3e9 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -311,6 +311,8 @@ extern struct proto tcp_prot;
- #define TCP_ADD_STATS_USER(net, field, val) SNMP_ADD_STATS_USER((net)->mib.tcp_statistics, field, val)
- #define TCP_ADD_STATS(net, field, val)	SNMP_ADD_STATS((net)->mib.tcp_statistics, field, val)
- 
-+extern void init_tcp_mem(struct net *net);
-+
- extern void tcp_v4_err(struct sk_buff *skb, u32);
- 
- extern void tcp_shutdown (struct sock *sk, int how);
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 4aa7e9d..1d67cde 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -814,6 +814,7 @@ static __net_init int ipv4_sysctl_init_net(struct net *net)
- 
- 	net->ipv4.sysctl_rt_cache_rebuild_count = 4;
- 
-+	init_tcp_mem(net);
- 	limit = nr_free_buffer_pages() / 8;
- 	limit = max(limit, 128UL);
- 	net->ipv4.sysctl_tcp_mem[0] = limit / 4 * 3;
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 9bcdec3..34e4051 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -3216,6 +3216,16 @@ static int __init set_thash_entries(char *str)
- }
- __setup("thash_entries=", set_thash_entries);
- 
-+void init_tcp_mem(struct net *net)
-+{
-+	/* Set per-socket limits to no more than 1/128 the pressure threshold */
-+	unsigned long limit = nr_free_buffer_pages() / 8;
-+	limit = max(limit, 128UL);
-+	net->ipv4.sysctl_tcp_mem[0] = limit / 4 * 3;
-+	net->ipv4.sysctl_tcp_mem[1] = limit;
-+	net->ipv4.sysctl_tcp_mem[2] = net->ipv4.sysctl_tcp_mem[0] * 2;
-+}
-+
- void __init tcp_init(void)
- {
- 	struct sk_buff *skb = NULL;
-@@ -3276,9 +3286,9 @@ void __init tcp_init(void)
- 	sysctl_tcp_max_orphans = cnt / 2;
- 	sysctl_max_syn_backlog = max(128, cnt / 256);
- 
--	/* Set per-socket limits to no more than 1/128 the pressure threshold */
--	limit = ((unsigned long)init_net.ipv4.sysctl_tcp_mem[1])
--		<< (PAGE_SHIFT - 7);
-+	init_tcp_mem(&init_net);
-+	limit = nr_free_buffer_pages() / 8;
-+	limit = max(limit, 128UL);
- 	max_share = min(4UL*1024*1024, limit);
- 
- 	sysctl_tcp_wmem[0] = SK_MEM_QUANTUM;
--- 
-1.7.7.4
+#include <sys/epoll.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <fcntl.h>
 
+#include <stdio.h>
+#include <errno.h>
+#include <string.h>
 
---------------090700050908010709090008--
+int
+main(int argc, const char **argv)
+{
+        int epfd;
+        int pair[2];
+        struct epoll_event epev;
+        int n, r, n_reads;
+
+        if ((epfd = epoll_create(32)) < 0) {
+                perror("epoll_create()");
+                return 2;
+        }
+        if (socketpair(AF_UNIX, SOCK_STREAM, 0, pair) < 0) {
+                perror("socketpair()");
+                return 2;
+        }
+
+        if (fcntl(pair[0], F_SETFL, O_NONBLOCK) < 0) {
+                perror("fcntl()");
+                return 2;
+        }
+
+        memset(&epev, 0, sizeof(epev));
+        epev.events = EPOLLIN | EPOLLET;
+        epev.data.fd = pair[0];
+        if (epoll_ctl(epfd, EPOLL_CTL_ADD, pair[0], &epev) < 0) {
+                perror("epoll_ctl()");
+                return 2;
+        }
+
+        if ((n = write(pair[1], "A 21-character string", 21)) < 0) {
+                perror("write()");
+                return 2;
+        }
+
+        /* pair[0] should now be readable. EPOLLET above has said that we
+         * want edge-triggered behavior, so we should only get a single
+         * EPOLLIN event on the socket.  But on Linux 3.2, for some reason,
+         * reading a single byte from the socket causes us to get another
+         * EPOLLIN event.
+         */
+        n_reads = 0;
+        while ((r = epoll_wait(epfd, &epev, 1, 500)) == 1) {
+                char byte[1];
+                printf("epoll_wait() said: events=%d, fd=%d\n",
+                       epev.events, epev.data.fd);
+                n = read(pair[0], byte, 1);
+                if (n < 0 && errno == EAGAIN) {
+                        puts("read() reported EAGAIN.");
+                } else if (n < 0) {
+                        perror("read()");
+                } else if (n == 0) {
+                        puts("read() reported EOF.");
+                } else {
+                        printf("Read %d byte(s)\n", n);
+                        ++n_reads;
+                }
+        }
+        if (r == 0) {
+                puts("Timeout without event.");
+        } else {
+                perror("epoll_wait()");
+        }
+
+        close(pair[0]);
+        close(pair[1]);
+        close(epfd);
+
+        if (n_reads == 1) {
+                puts("Exactly one read event. Good.");
+        } else {
+                printf("Got %d read events. That's not right!\n", n_reads);
+        }
+        return (n_reads == 1) ? 0 : 1;
+}
